@@ -52,3 +52,7 @@ deleted: the extension already answered it with the recorded old-paladin control
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard
   on draw grounds (2026-09-14).
 - `guardDoubleFirst` follow-ups: Q1 answered it. Nothing queued.
+- `gs-wall-front`, `gs-wall-split` (`sim/specs/guard/*`): never run, both written for the
+  two-guard pool. **Superseded by at-most-one guard** — do not promote them to active tickets
+  (takeover ledger, 2026-09-14). `gs-shield-far` completed its outputs later; the earlier
+  "missing summary" was a timing artefact.
