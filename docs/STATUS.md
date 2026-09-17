@@ -52,7 +52,8 @@ quoted.
 bundle (incl. a full AI game, cancellation, promotion, undo, save/restore, mobile, the 2017/2021
 presets and the `?style=` URL); tiles fps measured on a free machine (21.4 vs 21.6 — no difference).
 Every campaign report's verdict went through `tools/verify-claims.mjs` with controls (invalid
-instruments exit 2).
+instruments exit 2). Jev claim review of the rules, rejections and campaign results:
+`docs/research/jev-review-2026-09-17.md` (advisory: archer is the hidden risk, p 0.97).
 
 ## Where the detail lives
 
