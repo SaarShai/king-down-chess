@@ -3,7 +3,7 @@ import { Engine, Game, Side } from './game';
 import { BoardRenderer } from './render/renderer';
 import { STYLES } from './render/styles';
 import { loadModels, setUseSculpts } from './render/voxels';
-import { Color, LETTERS, Move, NAMES, PieceType, RULES as GAME_RULES, RULES_2017, RULES_2021, SPENT, colorOf, findKing, kingLabel, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
+import { Color, LETTERS, Move, NAMES, PieceType, RULES as GAME_RULES, RULES_2017, RULES_2021, SPENT, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, randomBackRank, toFen } from './rules/setup';
 
 const params = new URLSearchParams(location.search);
@@ -17,10 +17,27 @@ const preset = { 2017: RULES_2017, 2021: RULES_2021 }[params.get('rules') ?? '']
 const kings = params.get('kings');
 // Before the first Game: its constructor builds a position and asks for its status.
 if (preset || kings) setRules({ ...preset, ...(kings ? { kings: parseKings(kings) } : {}) });
+/** One line per power, for the info card. The six built powers only; tier 2–3 cannot be selected. */
+const POWER_TEXT: Partial<Record<PowerName, string>> = {
+  HolyLight: 'enemy pawns cannot take this king, and it cannot take pawns',
+  Mercy: 'the king steps 1–2, jumps friends and takes only a guard',
+  DeathTouch: 'the king takes an adjacent enemy without moving',
+  Darkness: 'pawns step diagonally and take straight ahead, with no double step',
+  March: 'pawns step two squares from any rank',
+  Leap: 'rooks, bishops and the queen pass over their own pawns',
+};
+const powerLabel = (k: KingChoice | null): string => (k
+  ? `${k.king}:${k.power} — ${POWER_TEXT[k.power] ?? 'a lab power'}`
+  : 'plain king');
+
 /** One line for the info card, so a `?kings=` game says on screen which powers are live. */
 const kingsInfo = (): string => {
   const [w, b] = GAME_RULES.kings;
-  return w || b ? `<div>Kings — White <b>${kingLabel(w)}</b> · Black <b>${kingLabel(b)}</b></div>` : '';
+  if (!w && !b) return '';
+  const same = w && b && w.king === b.king && w.power === b.power;
+  return same
+    ? `<div>Kings — both ${powerLabel(w)}</div>`
+    : `<div>Kings — White ${powerLabel(w)} · Black ${powerLabel(b)}</div>`;
 };
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;

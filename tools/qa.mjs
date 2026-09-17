@@ -205,8 +205,41 @@ await caseFn('kings choice survives save/restore', '?kings=mud:march', async (pa
   await page.waitForFunction(() => window.view && document.getElementById('setup').title.length > 5, null, { timeout: 40000 });
   await page.waitForFunction(() => /Kings —/.test(document.getElementById('info').textContent), null, { timeout: 20000 });
   const s = await snap(page);
-  const ok = /Kings — White Mud:March · Black Mud:March/.test(s.info) && errors.length === 0;
+  const ok = /Kings — both Mud:March/.test(s.info.replace(/\s+/g, ' ')) && errors.length === 0;
   return ok ? true : `info="${s.info.replace(/\n/g, ' ')}" errors=${errors.join(' | ')}`;
+});
+
+// Death Touch through the real worker: the AI's only good move is the shot a plain king cannot play.
+await caseFn('AI uses Death Touch in the worker', `?kings=shadow:deathtouch&fen=${encodeURIComponent('7k/8/4p3/3r4/3K4/8/8/8 w - - 0 1')}`, async (page, errors) => {
+  await page.evaluate(() => {
+    const think = document.getElementById('think'); think.value = '200'; think.dispatchEvent(new Event('change'));
+    document.getElementById('white').value = 'ai';
+    document.getElementById('white').dispatchEvent(new Event('change'));
+  });
+  await waitPly(page, 1);
+  await page.waitForTimeout(600);
+  const s = await snap(page);
+  const ok = s.moves.includes('Kd4*d5') && errors.length === 0;
+  return ok ? true : `moves="${s.moves}" errors=${errors.join(' | ')}`;
+});
+
+// Darkness: a pawn captures straight ahead — illegal under the default rules, so the restored game
+// only replays if the active rules came back with the save.
+await caseFn('Darkness pawn capture survives save/restore', `?kings=shadow:darkness&fen=${encodeURIComponent('7k/8/8/3p4/3P4/8/8/K7 w - - 0 1')}`, async (page, errors) => {
+  await clickSq(page, 'd4');
+  await clickSq(page, 'd5');
+  await waitPly(page, 1);
+  await page.waitForTimeout(400);
+  await page.goto(BASE); // no query
+  await page.waitForFunction(() => window.view && document.getElementById('setup').title.length > 5, null, { timeout: 40000 });
+  await waitPly(page, 1);
+  await page.waitForTimeout(400);
+  const s = await snap(page);
+  const bad = [];
+  if (!s.moves.includes('d4xd5')) bad.push(`moves="${s.moves}"`);
+  if (s.scene[sqOf('d5')] !== CODE.P) bad.push(`d5=${s.scene[sqOf('d5')] ?? 'empty'}`);
+  if (errors.length) bad.push(errors.join(' | '));
+  return bad.length ? bad.join('; ') : true;
 });
 
 await browser.close();

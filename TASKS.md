@@ -174,10 +174,10 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [x] Bounded next decision: `tools/newpieces-followup.sh` (queued, waits for the Q6 chain) runs the re-seed pass (`O=195`, `C=175`) and the depth-4 `push` confirmation. Keep both pieces lab-only either way.
 
 ### Phase 5 — king powers
-- [ ] Reconcile semantics against the owner's rules; list material unresolved choices.
-- [ ] Generation/attack-agreement/no-capture tests incl. asymmetric choices and powers-off equivalence; undo/search/save paths.
-- [ ] Variant-aware guide text; powers stay off by default.
-- [ ] Correctness/activity pilots, then paired pricing at a second depth with a current baseline control.
+- [x] Reconcile semantics against the owner's rules and the proposal; the material unresolved choices are listed in `docs/research/sim-kings-2026-09-16.md` (Mercy vs guard immunity, Death Touch verb, always-on vs charged March/Leap, adjacent Mercy kings, the Darkness eval confound). The proposal's defaults are treated as proposals.
+- [x] Generation, king-safety and attack-agreement coverage for all six: 21 new tests in `src/rules/rules.test.ts` (per-power generation from hand-built FENs, `crossCheckAttacks` under each power, asymmetric choices, powers-off equivalence, undo, and a Death Touch search test that is the worker's own search). Browser QA 10/10 (`tools/qa.mjs`) incl. a real-worker Death Touch move, a Darkness capture through the UI, and rule-restoring save/restore.
+- [x] Variant-aware guide text: `main.ts` renders each active power's effect in the info line; `index.html` gains the six-power section; powers stay off by default; no picker added.
+- [ ] Paired tests: `tools/kings-pilot.sh` queued behind the Q6 chain and the Ogre/Catapult follow-up — 200-game pilots, 1,600-game paired A/Bs against a fresh default control, depth 4 only where the depth-3 interval clears. Report written by `tools/kings-summary.ts`.
 
 ### Phase 6 — supporting analysis, art, docs
 - [ ] Liveliness: one frozen dataset, split by arrangement, held-out evaluation, missing report; adopt no filter if weak.

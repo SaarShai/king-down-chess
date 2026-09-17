@@ -66,6 +66,13 @@
         <tr><td>S Beast</td><td>1 square in any direction, empty only</td><td>Any adjacent square but straight ahead</td><td>May <b>keep capturing</b> from each new square (never a king as a continuation). Click victims in order; "Stop chain here" ends early</td></tr>
       </table>
       <p>Letters in the setup string: P N B R Q K + A L G M S.</p>
+      <p><b>Kings' powers (lab — off by default).</b> <code>?kings=mud:march</code> gives both sides a
+        power; <code>?kings=mud:march,shadow:darkness</code> names White and Black apart. Six are built:
+        <b>Holy Light</b> (enemy pawns cannot take this king, and it cannot take pawns), <b>Mercy</b>
+        (the king steps 1–2 and jumps friends, but takes only a guard), <b>Death Touch</b> (the king
+        takes an adjacent enemy without moving), <b>Darkness</b> (pawns step diagonally and take
+        straight ahead, no double step), <b>March</b> (pawns step two squares from any rank) and
+        <b>Leap</b> (rooks, bishops and the queen pass over their own pawns).</p>
       <form method="dialog"><button>Close</button></form>
     </dialog>
     <dialog id="over">

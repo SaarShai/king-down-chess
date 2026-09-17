@@ -4,12 +4,19 @@ import {
   parseSq, perft, piece, status, typeOf, Move, PieceType, Position, file, sqName,
 } from './engine';
 import { CLASSIC_CHESS, POOL, fromFen, randomBackRank, startPosition, toFen, toLan } from './setup';
-import { DEFAULT_RULES, RULES, RULES_2017, RULES_2021, Rules, parseRule, ruleDiff, setRules } from './rules';
+import { DEFAULT_RULES, RULES, RULES_2017, RULES_2021, Rules, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 import { Game } from '../game';
+import { resetSearchState, search } from '../ai/search';
 
 const at = (pos: Position, name: string) => pos.board[parseSq(name)];
 const movesFrom = (pos: Position, name: string) => legalMoves(pos).filter(m => m.from === parseSq(name));
 const lan = (pos: Position, ms: Move[]) => ms.map(m => toLan(pos, m)).sort();
+/** Pseudo-legal moves of one piece, whatever the side to move is (move-generation checks, not legality). */
+const genAt = (pos: Position, name: string) => {
+  const out: Move[] = [];
+  genPiece(pos.board, parseSq(name), 'all', out);
+  return lan(pos, out);
+};
 
 describe('standard chess sanity', () => {
   it('perft from the classic start position (no castling / en passant reachable at these depths)', () => {
@@ -885,3 +892,222 @@ describe('ogre and catapult: notation, FEN and the pool', () => {
     expect(insufficientMaterial(fromFen('7k/8/8/8/8/8/8/KC6 w - - 0 1').board)).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Tier-1 kings' powers (docs/KINGS-POWERS-PLAN.md §1.7–§1.12, docs/TAKEOVER-PLAN.md §5).
+// The choice is a rule, not a square, so every case starts with `setRules({ kings: … })`.
+
+describe('kings powers: parsing and defaults', () => {
+  afterEach(() => setRules());
+
+  it('parses symmetric and asymmetric choices, and refuses tier 2', () => {
+    expect(parseKings('spirit:mercy')).toEqual([{ king: 'Spirit', power: 'Mercy' }, { king: 'Spirit', power: 'Mercy' }]);
+    expect(parseKings('spirit:mercy,mud:march')).toEqual([
+      { king: 'Spirit', power: 'Mercy' }, { king: 'Mud', power: 'March' },
+    ]);
+    expect(parseKings('none')).toEqual([null, null]);
+    expect(parseKing('-')).toBeNull();
+    expect(() => parseKing('frost:freeze')).toThrow(/not built yet/);
+    expect(() => parseKing('frost:nope')).toThrow(/no power/);
+    expect(RULES.kings).toEqual([null, null]); // powers stay off by default
+  });
+
+  it('an explicit null pair plays exactly the default game', () => {
+    setRules();
+    const fens = ['7k/8/8/8/8/4P3/8/K7 w - - 0 1', 'r3k2r/8/8/8/8/8/8/R3K2R w - - 0 1', '4k3/8/3P4/3K4/8/8/8/8 w - - 0 1'];
+    const before = fens.map(f => lan(fromFen(f), legalMoves(fromFen(f))));
+    setRules({ kings: [null, null] });
+    const after = fens.map(f => lan(fromFen(f), legalMoves(fromFen(f))));
+    expect(after).toEqual(before);
+  });
+});
+
+describe('Holy Light (Spirit A)', () => {
+  afterEach(() => setRules());
+  const spirit: Rules['kings'] = [{ king: 'Spirit', power: 'HolyLight' }, null];
+
+  it('a pawn gives this king no check, and this king takes no pawn', () => {
+    const fen = '7k/8/8/4p3/3K4/8/8/8 w - - 0 1'; // black pawn e5 attacks d4
+    expect(inCheck(fromFen(fen))).toBe(true);
+    expect(isAttacked(fromFen(fen).board, parseSq('d4'), BLACK)).toBe(true);
+    setRules({ kings: spirit });
+    const pos = fromFen(fen);
+    expect(inCheck(pos)).toBe(false);
+    expect(isAttacked(pos.board, parseSq('d4'), BLACK)).toBe(false);
+    expect(lan(pos, movesFrom(pos, 'd4'))).not.toContain('Kd4xe5');
+  });
+
+  it('the king still takes a guard', () => {
+    setRules({ kings: spirit });
+    const pos = fromFen('7k/8/8/8/3Kg3/8/8/8 w - - 0 1');
+    expect(lan(pos, movesFrom(pos, 'd4'))).toContain('Kd4xe4');
+  });
+
+  it('is asymmetric: only the protected side\u2019s king is shielded', () => {
+    const fen = '8/8/8/3k4/2P5/8/8/K7 b - - 0 1'; // white pawn c4 attacks the black king d5
+    setRules({ kings: [{ king: 'Spirit', power: 'HolyLight' }, null] });
+    expect(genAt(fromFen(fen), 'c4')).toContain('c4xd5');
+    setRules({ kings: [null, { king: 'Spirit', power: 'HolyLight' }] });
+    expect(genAt(fromFen(fen), 'c4')).not.toContain('c4xd5');
+  });
+
+  it('agrees with the generated attacks', () => { crossCheckAttacks(201); });
+});
+
+describe('Mercy (Spirit B)', () => {
+  afterEach(() => setRules());
+  const mercy: Rules['kings'] = [{ king: 'Spirit', power: 'Mercy' }, null];
+
+  it('steps 1 or 2, jumps friends, is stopped by enemies and captures nothing but a guard', () => {
+    setRules({ kings: mercy });
+    const open = fromFen('k7/8/8/3P4/3K4/8/8/8 w - - 0 1'); // black king a8, out of reach
+    expect(lan(open, movesFrom(open, 'd4'))).toContain('Kd4-d6'); // over its own pawn
+    expect(lan(open, movesFrom(open, 'd4'))).not.toContain('Kd4xd5'); // a friend is jumped, never taken
+    const blocked = fromFen('k7/8/8/3p4/3K4/8/8/8 w - - 0 1'); // ENEMY pawn d5 stops the north ray
+    expect(lan(blocked, movesFrom(blocked, 'd4'))).not.toContain('Kd4-d6');
+    expect(lan(blocked, movesFrom(blocked, 'd4'))).not.toContain('Kd4xd5');
+    expect(lan(blocked, movesFrom(blocked, 'd4'))).toContain('Kd4-f6'); // the diagonal e5 is empty
+    const guard = fromFen('k7/8/8/8/3Kg3/8/8/8 w - - 0 1');
+    expect(lan(guard, movesFrom(guard, 'd4'))).toContain('Kd4xe4'); // decision 15: a guard is not impossible
+  });
+
+  it('attacks only an adjacent guard; the two-square reach adds no attacked square', () => {
+    setRules({ kings: mercy });
+    const guard = fromFen('k7/8/8/8/3Kg3/8/8/8 w - - 0 1').board;
+    expect(isAttacked(guard, parseSq('e4'), WHITE)).toBe(true);
+    const pawn = fromFen('k7/8/8/8/3Kp3/8/8/8 w - - 0 1').board;
+    expect(isAttacked(pawn, parseSq('e4'), WHITE)).toBe(false);
+    // The two-square squares are move-only. (An EMPTY adjacent square still counts as attacked, so
+    // the two kings may never stand next to each other — plan §1.10 open question (c), answered
+    // "no" by the engine; the report lists it as a designer choice.)
+    const reach = fromFen('k7/8/8/8/3K4/8/8/8 w - - 0 1').board;
+    expect(isAttacked(reach, parseSq('b6'), WHITE)).toBe(false);
+  });
+
+  it('agrees with the generated attacks', () => { crossCheckAttacks(202); });
+});
+
+describe('Death Touch (Shadow A)', () => {
+  afterEach(() => setRules());
+  const touch: Rules['kings'] = [{ king: 'Shadow', power: 'DeathTouch' }, null];
+
+  it('shoots without moving and gives up the displacement capture', () => {
+    setRules({ kings: touch });
+    const pos = fromFen('7k/8/8/3r4/3K4/8/8/8 w - - 0 1');
+    const moves = lan(pos, movesFrom(pos, 'd4'));
+    expect(moves).toContain('Kd4*d5'); // to === from
+    expect(moves).not.toContain('Kd4xd5');
+  });
+
+  it('eats a defended piece, which the ordinary king may not', () => {
+    const fen = '7k/8/4p3/3r4/3K4/8/8/8 w - - 0 1'; // pawn e6 defends the rook d5
+    const plain = fromFen(fen);
+    expect(lan(plain, movesFrom(plain, 'd4'))).not.toContain('Kd4xd5');
+    setRules({ kings: touch });
+    const dt = fromFen(fen);
+    expect(lan(dt, movesFrom(dt, 'd4'))).toContain('Kd4*d5');
+  });
+
+  it('agrees with the generated attacks', () => { crossCheckAttacks(203); });
+});
+
+describe('Darkness (Shadow B)', () => {
+  afterEach(() => setRules());
+  const dark: Rules['kings'] = [{ king: 'Shadow', power: 'Darkness' }, null];
+
+  it('swaps the pawn\u2019s verbs and drops the double step', () => {
+    setRules({ kings: dark });
+    const out = fromFen('7k/8/8/8/3P4/8/8/K7 w - - 0 1');
+    const moves = lan(out, movesFrom(out, 'd4'));
+    expect(moves).toEqual(['d4-c5', 'd4-e5'].sort());
+    const home = fromFen('7k/8/8/8/8/8/3P4/K7 w - - 0 1');
+    expect(lan(home, movesFrom(home, 'd2'))).not.toContain('d2-d4');
+    expect(lan(home, movesFrom(home, 'd2'))).toContain('d2-e3');
+  });
+
+  it('captures straight ahead, promotion included', () => {
+    setRules({ kings: dark });
+    const cap = fromFen('7k/8/8/3p4/3P4/8/8/K7 w - - 0 1');
+    expect(lan(cap, movesFrom(cap, 'd4'))).toContain('d4xd5');
+    const promo = fromFen('1r5k/1P6/8/8/8/8/8/K7 w - - 0 1');
+    expect(movesFrom(promo, 'b7').some(m => m.captures.length === 1 && m.promo)).toBe(true);
+  });
+
+  it('agrees with the generated attacks', () => { crossCheckAttacks(204); });
+});
+
+describe('March (Mud A)', () => {
+  afterEach(() => setRules());
+  const march: Rules['kings'] = [{ king: 'Mud', power: 'March' }, null];
+
+  it('steps two from any rank, both squares empty, promotion included', () => {
+    setRules({ kings: march });
+    const mid = fromFen('7k/8/8/8/8/4P3/8/K7 w - - 0 1');
+    expect(lan(mid, movesFrom(mid, 'e3'))).toContain('e3-e5');
+    const blocked = fromFen('7k/8/8/8/4p3/4P3/8/K7 w - - 0 1');
+    expect(lan(blocked, movesFrom(blocked, 'e3'))).not.toContain('e3-e5');
+    expect(lan(blocked, movesFrom(blocked, 'e3'))).not.toContain('e3xe4');
+    const rankSix = fromFen('7k/8/P7/8/8/8/8/K7 w - - 0 1');
+    expect(movesFrom(rankSix, 'a6').some(m => m.to === parseSq('a8') && m.promo)).toBe(true);
+  });
+});
+
+describe('Leap (Mud B)', () => {
+  afterEach(() => setRules());
+  const leap: Rules['kings'] = [{ king: 'Mud', power: 'Leap' }, null];
+
+  it('slides over its own pawns, and only those', () => {
+    const fen = '7k/8/8/p7/8/8/P7/R6K w - - 0 1'; // own pawn a2, enemy pawn a5
+    const plain = fromFen(fen);
+    expect(lan(plain, movesFrom(plain, 'a1'))).not.toContain('Ra1-a3'); // the own pawn a2 blocks
+    setRules({ kings: leap });
+    const leaping = fromFen(fen);
+    const moves = lan(leaping, movesFrom(leaping, 'a1'));
+    expect(moves).toContain('Ra1-a3');
+    expect(moves).toContain('Ra1-a4');
+    expect(moves).toContain('Ra1xa5'); // the enemy beyond the jumped pawn is the first blocker again
+  });
+
+  it('is asymmetric and changes the attack set, unlike the other powers', () => {
+    const fen = 'r7/p7/k7/8/8/8/7P/1K5R w - - 0 1';
+    setRules({ kings: [leap[0], null] });
+    const pos = fromFen(fen);
+    expect(lan(pos, movesFrom(pos, 'h1'))).toContain('Rh1-h3');
+    expect(lan(pos, movesFrom(pos, 'a8'))).toEqual([]); // Black has no power: its own pawn still blocks
+    expect(isAttacked(pos.board, parseSq('h3'), WHITE)).toBe(true);
+    expect(isAttacked(pos.board, parseSq('a3'), BLACK)).toBe(false);
+  });
+
+  it('agrees with the generated attacks', () => { crossCheckAttacks(205); });
+});
+
+describe('kings powers: lifecycle', () => {
+  afterEach(() => setRules());
+
+  it('undo restores a Death Touch shot exactly', () => {
+    setRules({ kings: [{ king: 'Shadow', power: 'DeathTouch' }, null] });
+    const g = new Game();
+    g.load(fromFen('7k/8/8/3r4/3K4/8/8/8 w - - 0 1'));
+    const before = toFen(g.pos);
+    const shot = g.legal.find(m => toLan(g.pos, m) === 'Kd4*d5')!;
+    expect(shot).toBeTruthy();
+    g.play(shot);
+    expect(at(g.pos, 'd5')).toBe(0);
+    expect(at(g.pos, 'd4')).not.toBe(0);
+    expect(g.undo()).toBe(true);
+    expect(toFen(g.pos)).toBe(before);
+  });
+
+  it('search plays the shot a plain king cannot play (the worker runs the same search)', () => {
+    const fen = '7k/8/4p3/3r4/3K4/8/8/8 w - - 0 1'; // rook d5 defended by pawn e6
+    setRules({ kings: [{ king: 'Shadow', power: 'DeathTouch' }, null] });
+    resetSearchState();
+    const dt = search(fromFen(fen), { maxDepth: 4 });
+    expect(dt.move && toLan(fromFen(fen), dt.move)).toBe('Kd4*d5');
+    setRules();
+    resetSearchState();
+    const plain = fromFen(fen);
+    expect(legalMoves(plain).some(m => m.captures.includes(parseSq('d5')))).toBe(false);
+  }, 30_000);
+});
+
