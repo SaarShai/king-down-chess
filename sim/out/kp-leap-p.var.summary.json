@@ -1,0 +1,45 @@
+{
+  "spec": {
+    "id": "kp-leap-p.var",
+    "games": 200,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 61,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "kings": [
+        {
+          "king": "Mud",
+          "power": "Leap"
+        },
+        {
+          "king": "Mud",
+          "power": "Leap"
+        }
+      ]
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 200,
+  "seconds": 30.1,
+  "whiteScore": 0.55,
+  "whiteWins": 92,
+  "draws": 36,
+  "blackWins": 72,
+  "meanPlies": 103.7,
+  "reasons": {
+    "adjudicatedResign": 163,
+    "adjudicatedDraw": 27,
+    "drawRepetition": 5,
+    "plyCap": 2,
+    "checkmate": 1,
+    "drawMaterial": 1,
+    "draw50": 1
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "spec": {
+    "id": "kp-darkness.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 62,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "kings": [
+        {
+          "king": "Shadow",
+          "power": "Darkness"
+        },
+        {
+          "king": "Shadow",
+          "power": "Darkness"
+        }
+      ]
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 179.5,
+  "whiteScore": 0.5422,
+  "whiteWins": 768,
+  "draws": 199,
+  "blackWins": 633,
+  "meanPlies": 94.1,
+  "reasons": {
+    "adjudicatedResign": 1401,
+    "adjudicatedDraw": 161,
+    "draw50": 9,
+    "plyCap": 3,
+    "drawRepetition": 19,
+    "drawMaterial": 7
+  }
+}

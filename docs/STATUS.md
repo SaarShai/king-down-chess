@@ -28,15 +28,17 @@ One page to point at. Everything else is history or detail.
 |---|---|
 | Q6 replacement (`nnue-g2`) | **Done 2026-09-17: ACCEPTED as a candidate** (+139 ± 14 Elo depth 3, +149 ± 37 depth 4, speed bar passed) — `docs/research/ai-q6-acceptance-2026-09-16.md`; default stays linear until an adoption decision |
 | Ogre/Catapult follow-up | **Done 2026-09-17:** depth-4 confirms `push` grows (+10.2 ± 4.7 decisive) but shifts White +4.9 ± 3.1; Ogre value 2.43 ± 0.58 pawns (not converged); Catapult weak — report §7 |
-| Kings campaign | running: pilots done, 1,600-game paired A/Bs next; `docs/research/sim-kings-2026-09-16.md` via `tools/kings-summary.ts` |
+| Kings campaign | **Done 2026-09-17:** Darkness/March/Leap sharpen decisively, Mercy smaller, Holy Light flat, **Death Touch makes games less decisive** (contrary to the plan); report + owner questions in `docs/research/sim-kings-2026-09-16.md` |
 
 Each report's verdict gets a control-gated Jev claim check (`tools/verify-claims.mjs`) before it is
 quoted.
 
 ## Open owner decisions
 
-1. King powers: five semantics questions in `docs/research/sim-kings-2026-09-16.md` (Mercy vs guard
-   immunity, Death Touch verb, March/Leap charges, adjacent Mercy kings, Darkness evaluation).
+1. King powers: measured (report above); the five semantics questions with options and
+   recommendations are in `docs/research/kings-decisions-2026-09-16.md`. The strongest finding is
+   Death Touch lowering decisiveness, which suggests testing the "shot plus displacement capture"
+   reading next.
 2. Tiles: adopt B4 procedural stone and remove the three textures.com JPEGs from the published files
    (licensing blocker), or keep the photo tiles and their terms.
 3. Maester `maesterSwapAny` (measured free, not adopted).

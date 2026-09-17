@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "id": "kp-march-d4.base",
+    "games": 400,
+    "ai": {
+      "depth": 4
+    },
+    "seed": 63,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {},
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 400,
+  "seconds": 234,
+  "whiteScore": 0.585,
+  "whiteWins": 168,
+  "draws": 132,
+  "blackWins": 100,
+  "meanPlies": 126.3,
+  "reasons": {
+    "drawRepetition": 10,
+    "draw50": 12,
+    "adjudicatedDraw": 94,
+    "adjudicatedResign": 268,
+    "plyCap": 8,
+    "drawMaterial": 8
+  }
+}

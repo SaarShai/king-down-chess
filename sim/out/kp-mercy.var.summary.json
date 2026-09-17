@@ -1,0 +1,45 @@
+{
+  "spec": {
+    "id": "kp-mercy.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 62,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "kings": [
+        {
+          "king": "Spirit",
+          "power": "Mercy"
+        },
+        {
+          "king": "Spirit",
+          "power": "Mercy"
+        }
+      ]
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 196.7,
+  "whiteScore": 0.5325,
+  "whiteWins": 672,
+  "draws": 360,
+  "blackWins": 568,
+  "meanPlies": 108.9,
+  "reasons": {
+    "adjudicatedResign": 1233,
+    "adjudicatedDraw": 290,
+    "drawRepetition": 32,
+    "draw50": 15,
+    "plyCap": 22,
+    "checkmate": 7,
+    "drawMaterial": 1
+  }
+}

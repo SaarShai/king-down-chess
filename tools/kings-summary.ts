@@ -132,8 +132,12 @@ for (const p of POWERS) {
       }
       return p.counters.includes(k) ? `| ${k} | ${f3(baseAct[k])} | ${f3(act[k])} |` : null;
     }).filter(Boolean).join('\n');
+  const sameSign = d4 ? Math.sign(d4.decisive[0]) === Math.sign(d3.decisive[0]) : false;
   const verdict = consequential
-    ? (d4 ? `Consequential; the depth-4 arm ${d4.decisive[0] > 0 ? 'keeps' : 'reverses'} the depth-3 direction.` : 'Consequential at depth 3; a depth-4 arm is queued.')
+    ? (d4
+      ? `Consequential; the depth-4 arm ${sameSign ? 'keeps' : 'reverses'} the depth-3 direction`
+        + `${d4.decisive[0] < 0 ? ' — the power makes games **less** decisive, and at depth 4 yet more so' : Math.abs(d4.decisive[0]) <= d4.decisive[1] ? ' — the depth-4 interval includes zero, so only the sign survives' : ''}.`
+      : 'Consequential at depth 3; a depth-4 arm is queued.')
     : 'Flat inside its intervals at depth 3; no second depth needed.';
   sections.push(`### ${p.name} (\`${p.rule}\`)
 
@@ -151,7 +155,21 @@ ${counterRows}
 `);
 }
 
-const openQuestions = `## Still open for the owner (not approvals)
+const openQuestions = `## Reading
+
+- **Darkness is the sharpest of the six**: the largest decisive gain, the largest draw cut and the
+  shortest games, and it keeps its sign at depth 4.
+- **March and Leap clearly sharpen**, both keeping their sign at depth 4.
+- **Mercy sharpens at depth 3** and keeps its sign at depth 4, where the interval includes zero — a
+  smaller effect than the depth-3 table alone suggests.
+- **Holy Light is flat** on every game-level metric; its value would be positional, not structural.
+- **Death Touch runs the other way**: it *lowers* the decisive share (draws up, games longer) at both
+  depths, contrary to the plan's expectation that it would be "the best anti-draw power of the
+  twelve". If the owner wants the plan's intent, the alternative reading in
+  [kings-decisions-2026-09-16.md](kings-decisions-2026-09-16.md) §2 — keep the displacement capture
+  as well — is the next candidate to test; that is this campaign's strongest single finding.
+
+## Still open for the owner (not approvals)
 
 The proposal lists these as questions; the engine currently implements one reading of each, and the
 numbers above describe that reading.
@@ -172,8 +190,8 @@ writeFileSync(REPORT, `# Kings' powers, measured — 2026-09-16
 
 Phase 5 of [docs/TAKEOVER-PLAN.md](../TAKEOVER-PLAN.md). The six tier-1 powers
 ([docs/KINGS-POWERS-PLAN.md](../KINGS-POWERS-PLAN.md) §1.7–§1.12) were implemented but never tested
-or measured. This pass adds 21 rule tests (\`src/rules/rules.test.ts\`), the browser and worker checks
-(\`tools/qa.mjs\`, 10/10), and the campaign below: a 200-game/arm pilot per power, then a 1,600-game
+or measured. This pass adds 21 rule tests (\`src/rules/rules.test.ts\`) and browser/worker checks
+(\`tools/qa.mjs\`), plus the campaign below: a 200-game/arm pilot per power, then a 1,600-game
 paired A/B on the same 40 arrangements and opening seeds against a **fresh control** (today's
 defaults — never the old-paladin \`pb-ab-base24\`). Both kings of a game carry the same power, so the
 table is the rule's effect on the game, not a piece value. Depth 4 runs only where the depth-3

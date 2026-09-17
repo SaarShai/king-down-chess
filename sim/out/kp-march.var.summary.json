@@ -1,0 +1,45 @@
+{
+  "spec": {
+    "id": "kp-march.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 62,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "kings": [
+        {
+          "king": "Mud",
+          "power": "March"
+        },
+        {
+          "king": "Mud",
+          "power": "March"
+        }
+      ]
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 195.6,
+  "whiteScore": 0.5381,
+  "whiteWins": 744,
+  "draws": 234,
+  "blackWins": 622,
+  "meanPlies": 101.6,
+  "reasons": {
+    "adjudicatedResign": 1366,
+    "adjudicatedDraw": 176,
+    "drawRepetition": 24,
+    "stalemate": 1,
+    "drawMaterial": 4,
+    "draw50": 23,
+    "plyCap": 6
+  }
+}
