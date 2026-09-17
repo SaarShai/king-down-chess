@@ -1,0 +1,42 @@
+{
+  "spec": {
+    "id": "kp-holylight-p.var",
+    "games": 200,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 61,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "kings": [
+        {
+          "king": "Spirit",
+          "power": "HolyLight"
+        },
+        {
+          "king": "Spirit",
+          "power": "HolyLight"
+        }
+      ]
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 200,
+  "seconds": 31.6,
+  "whiteScore": 0.5075,
+  "whiteWins": 74,
+  "draws": 55,
+  "blackWins": 71,
+  "meanPlies": 118.1,
+  "reasons": {
+    "adjudicatedDraw": 52,
+    "adjudicatedResign": 145,
+    "plyCap": 2,
+    "drawRepetition": 1
+  }
+}

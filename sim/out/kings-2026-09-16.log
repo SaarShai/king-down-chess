@@ -1,0 +1,425 @@
+== 2026-09-17 03:38:31 npm run sim -- --id kp-holylight-p --experiment ab --games 200 --sample 40 --depth 3 --seed 61 --workers 16 --rule kings=Spirit:HolyLight
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id kp-holylight-p --experiment ab --games 200 --sample 40 --depth 3 --seed 61 --workers 16 --rule kings=Spirit:HolyLight
+
+[kp-holylight-p.base] 200 games (0 already done), 200 to play on 16 workers -> sim/out/kp-holylight-p.base.jsonl
+[kp-holylight-p.base] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-holylight-p.base] rules {}, values {}
+[kp-holylight-p.base] 0/200  0.0 games/s  ETA ?
+[kp-holylight-p.base] 13/200  3.2 games/s  ETA 0h00m57s
+[kp-holylight-p.base] 24/200  4.0 games/s  ETA 0h00m44s
+[kp-holylight-p.base] 39/200  4.9 games/s  ETA 0h00m33s
+[kp-holylight-p.base] 53/200  5.3 games/s  ETA 0h00m27s
+[kp-holylight-p.base] 64/200  5.3 games/s  ETA 0h00m25s
+[kp-holylight-p.base] 80/200  5.7 games/s  ETA 0h00m21s
+[kp-holylight-p.base] 94/200  5.9 games/s  ETA 0h00m18s
+[kp-holylight-p.base] 112/200  6.2 games/s  ETA 0h00m14s
+[kp-holylight-p.base] 125/200  6.2 games/s  ETA 0h00m12s
+[kp-holylight-p.base] 139/200  6.3 games/s  ETA 0h00m09s
+[kp-holylight-p.base] 152/200  6.3 games/s  ETA 0h00m07s
+[kp-holylight-p.base] 172/200  6.6 games/s  ETA 0h00m04s
+[kp-holylight-p.base] 182/200  6.5 games/s  ETA 0h00m02s
+[kp-holylight-p.base] 200 games in 0h00m30s (6.7 games/s)
+[kp-holylight-p.base] summary -> sim/out/kp-holylight-p.base.summary.json
+[kp-holylight-p.var] 200 games (0 already done), 200 to play on 16 workers -> sim/out/kp-holylight-p.var.jsonl
+[kp-holylight-p.var] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-holylight-p.var] rules {"kings":[{"king":"Spirit","power":"HolyLight"},{"king":"Spirit","power":"HolyLight"}]}, values {}
+[kp-holylight-p.var] 0/200  0.0 games/s  ETA ?
+[kp-holylight-p.var] 18/200  4.5 games/s  ETA 0h00m40s
+[kp-holylight-p.var] 30/200  5.0 games/s  ETA 0h00m34s
+[kp-holylight-p.var] 43/200  5.4 games/s  ETA 0h00m29s
+[kp-holylight-p.var] 58/200  5.8 games/s  ETA 0h00m24s
+[kp-holylight-p.var] 70/200  5.8 games/s  ETA 0h00m22s
+[kp-holylight-p.var] 86/200  6.1 games/s  ETA 0h00m18s
+[kp-holylight-p.var] 97/200  6.1 games/s  ETA 0h00m17s
+[kp-holylight-p.var] 112/200  6.2 games/s  ETA 0h00m14s
+[kp-holylight-p.var] 124/200  6.2 games/s  ETA 0h00m12s
+[kp-holylight-p.var] 136/200  6.2 games/s  ETA 0h00m10s
+[kp-holylight-p.var] 144/200  6.0 games/s  ETA 0h00m09s
+[kp-holylight-p.var] 159/200  6.1 games/s  ETA 0h00m06s
+[kp-holylight-p.var] 175/200  6.2 games/s  ETA 0h00m04s
+[kp-holylight-p.var] 186/200  6.2 games/s  ETA 0h00m02s
+[kp-holylight-p.var] 200 games in 0h00m31s (6.3 games/s)
+[kp-holylight-p.var] summary -> sim/out/kp-holylight-p.var.summary.json
+# Rule A/B — kp-holylight-p
+
+`kings=[object Object],[object Object]` against today's defaults.
+200 games per population, depth 3, the same 40 arrangements and the same
+opening seeds in both (common random numbers). Control arm: `kp-holylight-p.base`.
+
+A symmetric rule changes both sides at once, so there is no match to run and no SPRT: this is a
+paired two-population comparison. The interval is a 95% normal approximation on the
+mean paired difference over arrangements; with few arrangements,
+and with one interval per metric, read "significant" as "worth a second run", not as a test.
+
+| metric | base (pooled) | with the rule (pooled) | mean paired difference ±95% | significant |
+|---|---|---|---|---|
+| white score | 0.537 | 0.507 | -0.030 ± 0.046 | no |
+| decisive | 0.745 | 0.725 | -0.020 ± 0.058 | no |
+| draw rate | 0.245 | 0.265 | +0.020 ± 0.058 | no |
+| capped | 0.010 | 0.010 | +0.000 ± 0.014 | no |
+| mean plies | 117.5 | 118.1 | +0.6 ± 5.5 | no |
+| branching factor | 31.7 | 31.7 | -0.0 ± 0.5 | no |
+| killer move | 0.302 | 0.319 | +0.016 ± 0.029 | no |
+| lead change | 0.067 | 0.068 | +0.001 ± 0.003 | no |
+| uncertainty late | 0.648 | 0.649 | +0.001 ± 0.004 | no |
+| drama | 0.121 | 0.124 | +0.003 ± 0.025 | no |
+| permanence | 0.961 | 0.961 | +0.000 ± 0.001 | no |
+| min utilisation | 0.45 | 0.44 | -0.00 ± 0.02 | no |
+| interest | 0.477 | 0.479 | +0.004 ± 0.010 | no |
+| interest (min-use) | 0.477 | 0.475 | +0.006 ± 0.017 | no |
+| killerMove (resid.) | -0.010 | 0.010 | +0.021 ± 0.023 | no |
+| leadChange (resid.) | -0.000 | 0.000 | +0.000 ± 0.003 | no |
+| uncertaintyLate (resid.) | 0.000 | -0.000 | -0.000 ± 0.005 | no |
+| drama (resid.) | -0.003 | 0.003 | +0.006 ± 0.021 | no |
+| permanence (resid.) | -0.000 | 0.000 | +0.000 ± 0.001 | no |
+| fairyUse (resid.) | 0.000 | 0.000 | +0.000 ± 0.000 | no |
+| excessDecisiveness (resid.) | 0.020 | 0.012 | +0.018 ± 0.016 | yes |
+| interest (resid.) | -0.001 | 0.003 | +0.006 ± 0.006 | no |
+| interestMinFairy (resid.) | 0.023 | 0.024 | +0.008 ± 0.014 | no |
+
+## Degeneracy counters
+| counter | base | with the rule |
+|---|---|---|
+| guard captures per game | 0.000 | 0.000 |
+| games with a guard rampage (≥ 3 captures) | 0 (0.0%) | 0 (0.0%) |
+| dead-material endings (draw50 + drawMaterial) | 4 (2.0%) | 0 (0.0%) |
+| games where a king never moved | 30 (15.0%) | 29 (14.5%) |
+
+## Per piece (both sides, whole population; moves and captures per game)
+| piece | moves A | moves B | captures A | captures B | survival A | survival B |
+|---|---|---|---|---|---|---|
+| P | 26.25 | 25.93 | 4.61 | 4.59 | 39.8% | 41.5% |
+| M | 14.43 | 14.45 | 1.71 | 1.68 | 28.3% | 30.0% |
+| A | 13.39 | 13.47 | 2.21 | 2.31 | 42.7% | 43.2% |
+| K | 13.23 | 14.16 | 1.04 | 0.77 | 100.0% | 100.0% |
+| R | 12.71 | 13.44 | 1.87 | 2.00 | 42.1% | 42.3% |
+| S | 9.79 | 9.89 | 1.42 | 1.46 | 28.2% | 26.6% |
+| N | 9.02 | 8.86 | 1.74 | 1.68 | 9.8% | 7.8% |
+| B | 6.96 | 6.24 | 1.73 | 1.68 | 18.3% | 18.9% |
+| Q | 4.30 | 4.42 | 0.88 | 0.81 | 83.1% | 83.8% |
+| L | 4.27 | 4.17 | 1.16 | 1.15 | 6.3% | 4.2% |
+| G | 3.13 | 3.08 | 0.00 | 0.00 | 97.6% | 95.3% |
+
+## Fairy events per game
+| event | base | with the rule |
+|---|---|---|
+| archerShots | 2.21 | 2.31 |
+| beastChainMoves | 1.11 | 1.13 |
+| beastChainCaptures | 1.42 | 1.46 |
+| maesterSwaps | 6.74 | 6.58 |
+| maesterLongSwaps | 0.73 | 0.72 |
+| paladinSacrifices | 0.59 | 0.61 |
+| promotions | 0.32 | 0.28 |
+| checks | 4.34 | 4.15 |
+| ogreShoves | 0.00 | 0.00 |
+| ogreShovesFriend | 0.00 | 0.00 |
+| ogreShovesGuard | 0.00 | 0.00 |
+| catapultChecks | 0.00 | 0.00 |
+
+The pooled columns describe each whole population; the difference column is the mean over the
+40 shared arrangements of (rule − base) on the same openings. The two can disagree in sign when the
+pooled value is not a mean of the per-arrangement values (minimum utilisation is one). Trust the
+paired column.
+
+Elo of the variant population is not reported: both populations play themselves, so their scores
+are not comparable as a match. Read the white score as a fairness check, not as a strength delta.
+
+== 2026-09-17 03:39:33 npm run sim -- --id kp-mercy-p --experiment ab --games 200 --sample 40 --depth 3 --seed 61 --workers 16 --rule kings=Spirit:Mercy
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id kp-mercy-p --experiment ab --games 200 --sample 40 --depth 3 --seed 61 --workers 16 --rule kings=Spirit:Mercy
+
+[kp-mercy-p.base] 200 games (0 already done), 200 to play on 16 workers -> sim/out/kp-mercy-p.base.jsonl
+[kp-mercy-p.base] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-mercy-p.base] rules {}, values {}
+[kp-mercy-p.base] 0/200  0.0 games/s  ETA ?
+[kp-mercy-p.base] 9/200  2.2 games/s  ETA 0h01m24s
+[kp-mercy-p.base] 20/200  3.3 games/s  ETA 0h00m54s
+[kp-mercy-p.base] 32/200  4.0 games/s  ETA 0h00m42s
+[kp-mercy-p.base] 45/200  4.5 games/s  ETA 0h00m34s
+[kp-mercy-p.base] 58/200  4.8 games/s  ETA 0h00m29s
+[kp-mercy-p.base] 67/200  4.8 games/s  ETA 0h00m27s
+[kp-mercy-p.base] 77/200  4.8 games/s  ETA 0h00m25s
+[kp-mercy-p.base] 89/200  4.9 games/s  ETA 0h00m22s
+[kp-mercy-p.base] 102/200  5.1 games/s  ETA 0h00m19s
+[kp-mercy-p.base] 114/200  5.2 games/s  ETA 0h00m16s
+[kp-mercy-p.base] 126/200  5.2 games/s  ETA 0h00m14s
+[kp-mercy-p.base] 137/200  5.3 games/s  ETA 0h00m11s
+[kp-mercy-p.base] 146/200  5.2 games/s  ETA 0h00m10s
+[kp-mercy-p.base] 157/200  5.2 games/s  ETA 0h00m08s
+[kp-mercy-p.base] 172/200  5.4 games/s  ETA 0h00m05s
+[kp-mercy-p.base] 177/200  5.2 games/s  ETA 0h00m04s
+[kp-mercy-p.base] 196/200  5.4 games/s  ETA 0h00m00s
+[kp-mercy-p.base] 200 games in 0h00m37s (5.4 games/s)
+[kp-mercy-p.base] summary -> sim/out/kp-mercy-p.base.summary.json
+[kp-mercy-p.var] 200 games (0 already done), 200 to play on 16 workers -> sim/out/kp-mercy-p.var.jsonl
+[kp-mercy-p.var] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-mercy-p.var] rules {"kings":[{"king":"Spirit","power":"Mercy"},{"king":"Spirit","power":"Mercy"}]}, values {}
+[kp-mercy-p.var] 0/200  0.0 games/s  ETA ?
+[kp-mercy-p.var] 6/200  1.5 games/s  ETA 0h02m09s
+[kp-mercy-p.var] 15/200  2.5 games/s  ETA 0h01m14s
+[kp-mercy-p.var] 27/200  3.4 games/s  ETA 0h00m51s
+[kp-mercy-p.var] 38/200  3.8 games/s  ETA 0h00m42s
+[kp-mercy-p.var] 47/200  3.9 games/s  ETA 0h00m39s
+[kp-mercy-p.var] 60/200  4.3 games/s  ETA 0h00m32s
+[kp-mercy-p.var] 73/200  4.6 games/s  ETA 0h00m27s
+[kp-mercy-p.var] 91/200  5.1 games/s  ETA 0h00m21s
+[kp-mercy-p.var] 105/200  5.2 games/s  ETA 0h00m18s
+[kp-mercy-p.var] 118/200  5.4 games/s  ETA 0h00m15s
+[kp-mercy-p.var] 132/200  5.5 games/s  ETA 0h00m12s
+[kp-mercy-p.var] 148/200  5.7 games/s  ETA 0h00m09s
+[kp-mercy-p.var] 162/200  5.8 games/s  ETA 0h00m06s
+[kp-mercy-p.var] 173/200  5.8 games/s  ETA 0h00m04s
+[kp-mercy-p.var] 189/200  5.9 games/s  ETA 0h00m01s
+[kp-mercy-p.var] 200 games in 0h00m33s (5.9 games/s)
+[kp-mercy-p.var] summary -> sim/out/kp-mercy-p.var.summary.json
+# Rule A/B — kp-mercy-p
+
+`kings=[object Object],[object Object]` against today's defaults.
+200 games per population, depth 3, the same 40 arrangements and the same
+opening seeds in both (common random numbers). Control arm: `kp-mercy-p.base`.
+
+A symmetric rule changes both sides at once, so there is no match to run and no SPRT: this is a
+paired two-population comparison. The interval is a 95% normal approximation on the
+mean paired difference over arrangements; with few arrangements,
+and with one interval per metric, read "significant" as "worth a second run", not as a test.
+
+| metric | base (pooled) | with the rule (pooled) | mean paired difference ±95% | significant |
+|---|---|---|---|---|
+| white score | 0.537 | 0.535 | -0.003 ± 0.089 | no |
+| decisive | 0.745 | 0.780 | +0.035 ± 0.070 | no |
+| draw rate | 0.245 | 0.195 | -0.050 ± 0.079 | no |
+| capped | 0.010 | 0.025 | +0.015 ± 0.029 | no |
+| mean plies | 117.5 | 117.3 | -0.2 ± 9.8 | no |
+| branching factor | 31.7 | 33.4 | +1.7 ± 1.0 | yes |
+| killer move | 0.302 | 0.368 | +0.066 ± 0.041 | yes |
+| lead change | 0.067 | 0.066 | -0.002 ± 0.014 | no |
+| uncertainty late | 0.648 | 0.641 | -0.006 ± 0.013 | no |
+| drama | 0.121 | 0.146 | +0.026 ± 0.030 | no |
+| permanence | 0.961 | 0.957 | -0.004 ± 0.002 | yes |
+| min utilisation | 0.45 | 0.42 | -0.02 ± 0.03 | no |
+| interest | 0.477 | 0.495 | +0.015 ± 0.013 | yes |
+| interest (min-use) | 0.477 | 0.490 | +0.010 ± 0.019 | no |
+| killerMove (resid.) | -0.028 | 0.028 | +0.056 ± 0.035 | yes |
+| leadChange (resid.) | -0.000 | 0.000 | +0.001 ± 0.013 | no |
+| uncertaintyLate (resid.) | 0.001 | -0.001 | -0.002 ± 0.011 | no |
+| drama (resid.) | -0.010 | 0.010 | +0.019 ± 0.029 | no |
+| permanence (resid.) | 0.002 | -0.002 | -0.003 ± 0.002 | yes |
+| fairyUse (resid.) | 0.000 | 0.000 | +0.000 ± 0.000 | no |
+| excessDecisiveness (resid.) | 0.050 | 0.043 | -0.043 ± 0.032 | yes |
+| interest (resid.) | -0.003 | 0.009 | +0.010 ± 0.009 | yes |
+| interestMinFairy (resid.) | 0.026 | 0.032 | +0.003 ± 0.016 | no |
+
+## Degeneracy counters
+| counter | base | with the rule |
+|---|---|---|
+| guard captures per game | 0.000 | 0.000 |
+| games with a guard rampage (≥ 3 captures) | 0 (0.0%) | 0 (0.0%) |
+| dead-material endings (draw50 + drawMaterial) | 4 (2.0%) | 2 (1.0%) |
+| games where a king never moved | 30 (15.0%) | 32 (16.0%) |
+
+## Per piece (both sides, whole population; moves and captures per game)
+| piece | moves A | moves B | captures A | captures B | survival A | survival B |
+|---|---|---|---|---|---|---|
+| P | 26.25 | 24.76 | 4.61 | 4.34 | 39.8% | 41.2% |
+| M | 14.43 | 14.60 | 1.71 | 1.67 | 28.3% | 37.1% |
+| A | 13.39 | 13.70 | 2.21 | 2.37 | 42.7% | 51.9% |
+| K | 13.23 | 16.05 | 1.04 | 0.18 | 100.0% | 100.0% |
+| R | 12.71 | 12.17 | 1.87 | 2.08 | 42.1% | 45.9% |
+| S | 9.79 | 9.45 | 1.42 | 1.27 | 28.2% | 35.8% |
+| N | 9.02 | 8.73 | 1.74 | 1.75 | 9.8% | 14.2% |
+| B | 6.96 | 6.85 | 1.73 | 1.75 | 18.3% | 23.6% |
+| Q | 4.30 | 3.92 | 0.88 | 0.81 | 83.1% | 96.2% |
+| L | 4.27 | 4.01 | 1.16 | 1.25 | 6.3% | 5.8% |
+| G | 3.13 | 3.04 | 0.00 | 0.00 | 97.6% | 78.8% |
+
+## Fairy events per game
+| event | base | with the rule |
+|---|---|---|
+| archerShots | 2.21 | 2.37 |
+| beastChainMoves | 1.11 | 1.03 |
+| beastChainCaptures | 1.42 | 1.27 |
+| maesterSwaps | 6.74 | 6.46 |
+| maesterLongSwaps | 0.73 | 0.97 |
+| paladinSacrifices | 0.59 | 0.57 |
+| promotions | 0.32 | 0.30 |
+| checks | 4.34 | 6.28 |
+| ogreShoves | 0.00 | 0.00 |
+| ogreShovesFriend | 0.00 | 0.00 |
+| ogreShovesGuard | 0.00 | 0.00 |
+| catapultChecks | 0.00 | 0.00 |
+
+The pooled columns describe each whole population; the difference column is the mean over the
+40 shared arrangements of (rule − base) on the same openings. The two can disagree in sign when the
+pooled value is not a mean of the per-arrangement values (minimum utilisation is one). Trust the
+paired column.
+
+Elo of the variant population is not reported: both populations play themselves, so their scores
+are not comparable as a match. Read the white score as a fairness check, not as a strength delta.
+
+== 2026-09-17 03:40:44 npm run sim -- --id kp-deathtouch-p --experiment ab --games 200 --sample 40 --depth 3 --seed 61 --workers 16 --rule kings=Shadow:DeathTouch
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id kp-deathtouch-p --experiment ab --games 200 --sample 40 --depth 3 --seed 61 --workers 16 --rule kings=Shadow:DeathTouch
+
+[kp-deathtouch-p.base] 200 games (0 already done), 200 to play on 16 workers -> sim/out/kp-deathtouch-p.base.jsonl
+[kp-deathtouch-p.base] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-deathtouch-p.base] rules {}, values {}
+[kp-deathtouch-p.base] 1/200  0.5 games/s  ETA 0h06m38s
+[kp-deathtouch-p.base] 18/200  4.5 games/s  ETA 0h00m40s
+[kp-deathtouch-p.base] 32/200  5.3 games/s  ETA 0h00m31s
+[kp-deathtouch-p.base] 47/200  5.9 games/s  ETA 0h00m26s
+[kp-deathtouch-p.base] 63/200  6.3 games/s  ETA 0h00m21s
+[kp-deathtouch-p.base] 79/200  6.6 games/s  ETA 0h00m18s
+[kp-deathtouch-p.base] 95/200  6.8 games/s  ETA 0h00m15s
+[kp-deathtouch-p.base] 113/200  7.1 games/s  ETA 0h00m12s
+[kp-deathtouch-p.base] 125/200  6.9 games/s  ETA 0h00m10s
+[kp-deathtouch-p.base] 139/200  6.9 games/s  ETA 0h00m08s
+[kp-deathtouch-p.base] 149/200  6.8 games/s  ETA 0h00m07s
+[kp-deathtouch-p.base] 164/200  6.8 games/s  ETA 0h00m05s
+[kp-deathtouch-p.base] 176/200  6.8 games/s  ETA 0h00m03s
+[kp-deathtouch-p.base] 194/200  6.9 games/s  ETA 0h00m00s
+[kp-deathtouch-p.base] 200 games in 0h00m29s (6.9 games/s)
+[kp-deathtouch-p.base] summary -> sim/out/kp-deathtouch-p.base.summary.json
+[kp-deathtouch-p.var] 200 games (0 already done), 200 to play on 16 workers -> sim/out/kp-deathtouch-p.var.jsonl
+[kp-deathtouch-p.var] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-deathtouch-p.var] rules {"kings":[{"king":"Shadow","power":"DeathTouch"},{"king":"Shadow","power":"DeathTouch"}]}, values {}
+[kp-deathtouch-p.var] 0/200  0.0 games/s  ETA ?
+[kp-deathtouch-p.var] 9/200  2.2 games/s  ETA 0h01m24s
+[kp-deathtouch-p.var] 20/200  3.3 games/s  ETA 0h00m54s
+[kp-deathtouch-p.var] 31/200  3.9 games/s  ETA 0h00m43s
+[kp-deathtouch-p.var] 43/200  4.3 games/s  ETA 0h00m36s
+[kp-deathtouch-p.var] 57/200  4.7 games/s  ETA 0h00m30s
+[kp-deathtouch-p.var] 73/200  5.2 games/s  ETA 0h00m24s
+[kp-deathtouch-p.var] 87/200  5.4 games/s  ETA 0h00m20s
+[kp-deathtouch-p.var] 102/200  5.7 games/s  ETA 0h00m17s
+[kp-deathtouch-p.var] 122/200  6.1 games/s  ETA 0h00m12s
+[kp-deathtouch-p.var] 138/200  6.3 games/s  ETA 0h00m09s
+[kp-deathtouch-p.var] 152/200  6.3 games/s  ETA 0h00m07s
+[kp-deathtouch-p.var] 170/200  6.5 games/s  ETA 0h00m04s
+[kp-deathtouch-p.var] 183/200  6.5 games/s  ETA 0h00m02s
+[kp-deathtouch-p.var] 198/200  6.6 games/s  ETA 0h00m00s
+[kp-deathtouch-p.var] 200 games in 0h00m30s (6.6 games/s)
+[kp-deathtouch-p.var] summary -> sim/out/kp-deathtouch-p.var.summary.json
+# Rule A/B — kp-deathtouch-p
+
+`kings=[object Object],[object Object]` against today's defaults.
+200 games per population, depth 3, the same 40 arrangements and the same
+opening seeds in both (common random numbers). Control arm: `kp-deathtouch-p.base`.
+
+A symmetric rule changes both sides at once, so there is no match to run and no SPRT: this is a
+paired two-population comparison. The interval is a 95% normal approximation on the
+mean paired difference over arrangements; with few arrangements,
+and with one interval per metric, read "significant" as "worth a second run", not as a test.
+
+| metric | base (pooled) | with the rule (pooled) | mean paired difference ±95% | significant |
+|---|---|---|---|---|
+| white score | 0.537 | 0.535 | -0.003 ± 0.057 | no |
+| decisive | 0.745 | 0.660 | -0.085 ± 0.090 | no |
+| draw rate | 0.245 | 0.315 | +0.070 ± 0.085 | no |
+| capped | 0.010 | 0.025 | +0.015 ± 0.022 | no |
+| mean plies | 117.5 | 128.6 | +11.1 ± 7.7 | yes |
+| branching factor | 31.7 | 31.5 | -0.2 ± 0.7 | no |
+| killer move | 0.302 | 0.322 | +0.019 ± 0.041 | no |
+| lead change | 0.067 | 0.065 | -0.002 ± 0.007 | no |
+| uncertainty late | 0.648 | 0.651 | +0.004 ± 0.006 | no |
+| drama | 0.121 | 0.136 | +0.015 ± 0.026 | no |
+| permanence | 0.961 | 0.962 | +0.001 ± 0.001 | no |
+| min utilisation | 0.45 | 0.42 | -0.01 ± 0.02 | no |
+| interest | 0.477 | 0.485 | +0.006 ± 0.015 | no |
+| interest (min-use) | 0.477 | 0.485 | +0.011 ± 0.018 | no |
+| killerMove (resid.) | -0.017 | 0.017 | +0.034 ± 0.032 | yes |
+| leadChange (resid.) | 0.002 | -0.002 | -0.005 ± 0.007 | no |
+| uncertaintyLate (resid.) | 0.001 | -0.001 | -0.001 ± 0.006 | no |
+| drama (resid.) | -0.013 | 0.013 | +0.025 ± 0.022 | yes |
+| permanence (resid.) | -0.000 | 0.000 | +0.000 ± 0.001 | no |
+| fairyUse (resid.) | 0.001 | 0.001 | -0.002 ± 0.003 | no |
+| excessDecisiveness (resid.) | -0.003 | 0.072 | +0.063 ± 0.026 | yes |
+| interest (resid.) | -0.005 | 0.010 | +0.014 ± 0.009 | yes |
+| interestMinFairy (resid.) | 0.017 | 0.034 | +0.022 ± 0.012 | yes |
+
+## Degeneracy counters
+| counter | base | with the rule |
+|---|---|---|
+| guard captures per game | 0.000 | 0.000 |
+| games with a guard rampage (≥ 3 captures) | 0 (0.0%) | 0 (0.0%) |
+| dead-material endings (draw50 + drawMaterial) | 4 (2.0%) | 10 (5.0%) |
+| games where a king never moved | 30 (15.0%) | 25 (12.5%) |
+
+## Per piece (both sides, whole population; moves and captures per game)
+| piece | moves A | moves B | captures A | captures B | survival A | survival B |
+|---|---|---|---|---|---|---|
+| P | 26.25 | 27.01 | 4.61 | 4.75 | 39.8% | 34.8% |
+| M | 14.43 | 15.32 | 1.71 | 1.64 | 28.3% | 31.7% |
+| A | 13.39 | 13.79 | 2.21 | 2.29 | 42.7% | 44.9% |
+| K | 13.23 | 17.75 | 1.04 | 1.80 | 100.0% | 100.0% |
+| R | 12.71 | 14.38 | 1.87 | 1.97 | 42.1% | 39.7% |
+| S | 9.79 | 10.50 | 1.42 | 1.33 | 28.2% | 26.3% |
+| N | 9.02 | 8.89 | 1.74 | 1.65 | 9.8% | 11.0% |
+| B | 6.96 | 7.04 | 1.73 | 1.76 | 18.3% | 17.8% |
+| Q | 4.30 | 4.86 | 0.88 | 0.82 | 83.1% | 78.5% |
+| L | 4.27 | 4.68 | 1.16 | 1.17 | 6.3% | 7.4% |
+| G | 3.13 | 4.36 | 0.00 | 0.00 | 97.6% | 93.5% |
+
+## Fairy events per game
+| event | base | with the rule |
+|---|---|---|
+| archerShots | 2.21 | 2.29 |
+| beastChainMoves | 1.11 | 1.03 |
+| beastChainCaptures | 1.42 | 1.33 |
+| maesterSwaps | 6.74 | 7.09 |
+| maesterLongSwaps | 0.73 | 0.96 |
+| paladinSacrifices | 0.59 | 0.56 |
+| promotions | 0.32 | 0.39 |
+| checks | 4.34 | 4.09 |
+| ogreShoves | 0.00 | 0.00 |
+| ogreShovesFriend | 0.00 | 0.00 |
+| ogreShovesGuard | 0.00 | 0.00 |
+| catapultChecks | 0.00 | 0.00 |
+
+The pooled columns describe each whole population; the difference column is the mean over the
+40 shared arrangements of (rule − base) on the same openings. The two can disagree in sign when the
+pooled value is not a mean of the per-arrangement values (minimum utilisation is one). Trust the
+paired column.
+
+Elo of the variant population is not reported: both populations play themselves, so their scores
+are not comparable as a match. Read the white score as a fairness check, not as a strength delta.
+
+== 2026-09-17 03:41:44 npm run sim -- --id kp-darkness-p --experiment ab --games 200 --sample 40 --depth 3 --seed 61 --workers 16 --rule kings=Shadow:Darkness
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id kp-darkness-p --experiment ab --games 200 --sample 40 --depth 3 --seed 61 --workers 16 --rule kings=Shadow:Darkness
+
+[kp-darkness-p.base] 200 games (0 already done), 200 to play on 16 workers -> sim/out/kp-darkness-p.base.jsonl
+[kp-darkness-p.base] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-darkness-p.base] rules {}, values {}
+[kp-darkness-p.base] 0/200  0.0 games/s  ETA ?
+[kp-darkness-p.base] 17/200  4.2 games/s  ETA 0h00m43s
+[kp-darkness-p.base] 32/200  5.3 games/s  ETA 0h00m31s
+[kp-darkness-p.base] 45/200  5.6 games/s  ETA 0h00m27s
+[kp-darkness-p.base] 62/200  6.2 games/s  ETA 0h00m22s
+[kp-darkness-p.base] 75/200  6.2 games/s  ETA 0h00m20s
+[kp-darkness-p.base] 95/200  6.8 games/s  ETA 0h00m15s
+[kp-darkness-p.base] 113/200  7.1 games/s  ETA 0h00m12s
+[kp-darkness-p.base] 128/200  7.1 games/s  ETA 0h00m10s
+[kp-darkness-p.base] 144/200  7.2 games/s  ETA 0h00m07s
+[kp-darkness-p.base] 161/200  7.3 games/s  ETA 0h00m05s
+[kp-darkness-p.base] 178/200  7.4 games/s  ETA 0h00m02s
+[kp-darkness-p.base] 198/200  7.6 games/s  ETA 0h00m00s
+[kp-darkness-p.base] 200 games in 0h00m26s (7.6 games/s)
+[kp-darkness-p.base] summary -> sim/out/kp-darkness-p.base.summary.json
+[kp-darkness-p.var] 200 games (0 already done), 200 to play on 16 workers -> sim/out/kp-darkness-p.var.jsonl
+[kp-darkness-p.var] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-darkness-p.var] rules {"kings":[{"king":"Shadow","power":"Darkness"},{"king":"Shadow","power":"Darkness"}]}, values {}
+[kp-darkness-p.var] 0/200  0.0 games/s  ETA ?
+[kp-darkness-p.var] 14/200  3.5 games/s  ETA 0h00m53s
+[kp-darkness-p.var] 31/200  5.2 games/s  ETA 0h00m32s
+[kp-darkness-p.var] 51/200  6.4 games/s  ETA 0h00m23s
+[kp-darkness-p.var] 68/200  6.8 games/s  ETA 0h00m19s
+[kp-darkness-p.var] 88/200  7.3 games/s  ETA 0h00m15s
+[kp-darkness-p.var] 105/200  7.5 games/s  ETA 0h00m12s
+[kp-darkness-p.var] 120/200  7.5 games/s  ETA 0h00m10s
+[kp-darkness-p.var] 141/200  7.8 games/s  ETA 0h00m07s
+[kp-darkness-p.var] 157/200  7.8 games/s  ETA 0h00m05s
