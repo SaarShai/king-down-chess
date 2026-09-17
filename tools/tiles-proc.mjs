@@ -38,9 +38,17 @@ await page.goto(`${BASE}/?style=dungeonVoxel&fen=${encodeURIComponent(FEN)}`, { 
 await page.waitForSelector('#board canvas');
 await page.waitForTimeout(4000); // JPEG tiles, sprite outlines and voxel models finish loading
 await shoot('before');
+const fps = async () => page.evaluate(() => new Promise(res => {
+  let n = 0; const t0 = performance.now();
+  const tick = () => { n++; performance.now() - t0 < 2000 ? requestAnimationFrame(tick) : res(n / ((performance.now() - t0) / 1000)); };
+  requestAnimationFrame(tick);
+}));
+const fpsBefore = await fps();
 await page.selectOption('#style', 'dungeonProc');
 await page.waitForTimeout(1500);
 await shoot('after');
+const fpsAfter = await fps();
+console.log(`fps: dungeonVoxel (photo tiles) ${fpsBefore.toFixed(1)} · dungeonProc (procedural) ${fpsAfter.toFixed(1)}`);
 
 // Mean sRGB byte and mean linear luminance of each albedo, read straight off the texture images.
 const means = await page.evaluate(() => {
@@ -65,3 +73,4 @@ console.log(JSON.stringify(means, null, 2));
 await writeFile(`${OUT}means.json`, JSON.stringify(means, null, 2) + '\n');
 console.log(errors.length ? `CONSOLE ERRORS:\n${errors.join('\n')}` : 'no console errors');
 await browser.close();
+process.exit(errors.length ? 1 : 0);

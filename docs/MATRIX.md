@@ -5,6 +5,13 @@ Five proposed pieces that fill the empty cells: `PIECES-PROPOSED.md`.
 
 Legend: **●** shipped (default rules) · **◐** lab toggle, off by default (`name` in `src/rules/rules.ts`) ·
 **○** designed but not built (kings' powers §4 / cards §5 of `RULES.md`) · **—** nothing · **?** to decide.
+
+**Status 2026-09-16:** the six **tier-1** kings' powers — Holy Light, Mercy, Death Touch, Darkness,
+March, Leap — are now **built as lab rules** (`kings` in `src/rules/rules.ts`, off by default; tests
+in `src/rules/rules.test.ts`, measurements in `docs/research/sim-kings-2026-09-16.md`). The other six
+powers and every card remain **○ designed, not built**. Q1–Q7 are all answered (`docs/QUEUE.md`);
+`pb-ab-base24` is a recorded old-paladin control, not a current baseline.
+
 Q1…Q6 point at `docs/QUEUE.md`. Piece letters: P N B R Q K standard · A archer · L paladin · G guard · M maester · S beast ·
 **O ogre · C catapult** — built 2026-09-14 as **lab pieces**: they are not in `POOL` and reach a game only through
 `--pool` or an explicit back rank, so every ● in their columns would be misleading and their own rules read ◐.

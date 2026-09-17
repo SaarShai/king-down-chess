@@ -131,6 +131,20 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
   run was discarded. Rule: always include one known-good and one known-bad item in the same call; if
   the answers do not separate them, the run carries no information — fix the state/questions or fall
   back to the deterministic check. Never edit user-facing text on an unvalidated model answer.
+- **Second failure, same day, different schema.** Asked Jev to sort 18 document lines into
+  keep/edit/delete given a block of current facts. Every line came back `stale ≈ 0.79,
+  action = delete`, including the *control_line* that is known to be accurate ("Card / spell effects
+  (documented, not yet enabled)"). Two control-validated designs in a row failed on the same kind of
+  task, so document-staleness triage stays deterministic bookkeeping here. TypeSafe's value so far is
+  in judging items whose *answer is not already encoded in the state*; supply raw evidence, not a
+  comparison, and prefer one item per call over a long list with a shared fact block.
+
+## 2026-09-16 — never print a process environment
+- **Mistake:** `pgrep -fl vite` during Phase 6 printed the whole environment of the matching process,
+  which contained a `GITHUB_TOKEN`. The token is now in this session's tool output.
+- **Rule:** to find a process, print only the command line (`ps -o pid=,command= -p <pid>` or
+  `pgrep -f pattern`), never `ps aux`/`pgrep -fl` output that may carry the environment; rotate any
+  secret that was printed. A shell that launches a dev server inherits the whole session environment.
 - Keep the *decision* out of the state: the first Phase 6 docs-classification call put my own
   conclusion into the entry text ("was never completed", "is absent") and Jev echoed it back
   (all `doc-only`, stale ≈ 0.65). State should carry raw evidence; the judgment belongs in the

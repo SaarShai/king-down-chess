@@ -1,8 +1,11 @@
 # Five proposed fairy pieces (2026-09-14)
 
 Drawn from the balance lab (about 330,000 games), the guard study, the paladin and maester work, and
-the ability matrix in `MATRIX.md`. Nothing here is built; each piece names the matrix cells it fills,
-what it is for, what to expect, what to watch, and how to measure it.
+the ability matrix in `MATRIX.md`. **Two of the five — the Ogre and the Catapult — are built as lab
+pieces** (measured in `docs/research/sim-new-pieces-2026-09-14.md`: Ogre `push` promising, Catapult
+`land`/`stay` unresolved; both outside the pool and promotion list). The other three are not built.
+Each piece below names the matrix cells it fills, what it is for, what to expect, what to watch, and
+how to measure it.
 
 ## What the lab taught, as design rules
 

@@ -47,10 +47,18 @@ Interactions decided in code (`canCapture`): a guard is taken only by a king; a 
 The attacker set used for check = every piece's capture pattern, so an archer checks through blockers and a paladin never checks.
 Design space by ability (arriving, shield, handicap, hopping, control, on-capture triggers) and by board zone (capital): `docs/MATRIX.md`.
 
-## 4. Kings' powers (documented, not yet enabled)
+## 4. Kings' powers (six tier-1 powers built as lab rules, off by default)
 
 Each army has a king with two candidate powers; the player picks one after setup. Token-spending mechanics are ignored per project scope;
-when we enable powers we will decide per power whether it is "always on" or "N uses". Powers cannot capture a king nor give check/mate.
+when we enable powers we will decide per power whether it is "always on" or "N uses" — the six built
+powers are currently **always on** with no charge counter. Powers cannot capture a king nor give check/mate.
+
+**Implemented (lab, off by default; `?kings=<king>:<power>`):** the stateless tier-1 powers **Holy
+Light, Mercy, Death Touch, Darkness, March and Leap**. `parseKing` refuses the other six (they need
+per-side state or a reserve). The exact implemented semantics, the guide text, 21 targeted tests and
+the measured (or queued) campaign are in `docs/research/sim-kings-2026-09-16.md`; the material
+unresolved owner choices (Mercy vs guard immunity, the Death Touch verb, always-on vs charged
+March/Leap, adjacent Mercy kings, the Darkness evaluation confound) are listed there too.
 
 | King | Power A | Power B |
 |---|---|---|
@@ -131,10 +139,14 @@ Reduced runs at depth 3: `docs/research/sim-results-2026-09-13.md`. The error ba
 - **The maester long swap is used.** About one long swap per game, so the castling substitute is
   real play, not a dead rule.
 
-10. **Paladin and maester buff candidates: measured, pending decision (2026-09-13).**
+10. **Paladin and maester buff candidates: measured (2026-09-13); paladin decided, maester not adopted.**
     Nine candidates priced by odds against a knight (300 games, depth 3, `--eloPerPawn 64`, knight = 2.96 pawns),
     then an eight-cell paladin grid on the designer's three axes. Full report:
-    `docs/research/sim-lm-buffs-2026-09-13.md`. **Nothing here is adopted; every toggle defaults to today's rule.**
+    `docs/research/sim-lm-buffs-2026-09-13.md`. **Paladin `paladinKamakaze=nonPawn` shipped in v0.7.0**
+    (the A/B measured nothing, the value rose 2.21 → 2.87 pawns; Q7 confirmed at depth 4 in
+    `docs/research/sim-queue-2026-09-14.md`). `maesterSwapAny` was **measured free but not adopted**
+    (Q3); the other maester candidates remain a later design choice. Every unselected toggle still
+    defaults to the shipped rule.
 
     | candidate | toggle | implied pawns | Δ vs today (Elo) | identity | verdict |
     |---|---|---|---|---|---|
