@@ -148,6 +148,35 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
   0.36 and was my error, not the model's. Run this pass on the Q6, kings and Ogre follow-up reports
   before their verdicts are quoted.
 
+## 2026-09-17 — Jev cannot label game narratives from features (instrument failed 6/6)
+- **What was tried:** classify recorded games (reduced to deterministic features: reason, plies,
+  captures, event totals) into a pattern taxonomy — promotion race, archer crossfire, paladin trade,
+  guard blockade, dead material, timeout grind, tactical finish, … — with synthetic controls.
+- **What happened:** no control design survived. A kings-only `drawMaterial` ending was labelled
+  `timeout_grind` at p 0.03→0.07→0.33 across three attempts; a battle with four promotions as the
+  sole mechanism was labelled `tactical_finish` at p(promotion_race) 0.06–0.07. Six designs, six
+  control failures. The model does not separate overlapping game-narrative labels from abstract
+  feature vectors, even when the label is stated in the machine's own reason code.
+- **Rule:** keep narrative classification deterministic — the engine's `reason` **is** the label, and
+  mechanism counts (promotions, archer shots, shoves) are arithmetic. Use Jev only for judgments whose
+  evidence is **textual or numeric and narrow** (claim checks, rubric scores), never for assigning
+  narrative categories it cannot ground. The failed tool was deleted; the attempt is recorded here.
+- **The rule red-team screen failed the same way.** `tools/jev-redteam.ts` asked Jev to score lab
+  rules for fairness from their rule text + measured numbers; the *benign* control ("archer steps in
+  any direction", measured balance-neutral and adopted) scored **1.73/2 unfair** while the busted
+  control barely cleared. The model reads the strength of the rule *text*, not the measurement, so
+  the tool was deleted. Do not use Jev to second-guess measured balance.
+- **What did work, and is committed:** `tools/jev-review.ts` — four themed review passes that check
+  factual statements against the measured numbers, three runs per theme, majority+median gating, and
+  controls per run. It endorsed the mining report's headline facts (guard draw engine, beast
+  ornamental, draws are quiet) and the rejection rationales, and it *caught a real arithmetic slip of
+  mine* (March's depth-4 interval excludes zero; only Mercy's includes it).
+- **Calibration of that instrument (stable controls):** it confirms direction claims and simple
+  numeric facts, but consistently refuses **interval arithmetic** ("does point ± err exclude zero")
+  and **long acceptance conjunctions** even when hand-checked true (both passed `verify-claims` at
+  0.90). Treat "not endorsed" as "the model did not confirm", never as "false". Evaluative
+  conclusions ("this is not adoptable") are refused on principle — the value judgment is the owner's.
+
 ## 2026-09-16 — never print a process environment
 - **Mistake:** `pgrep -fl vite` during Phase 6 printed the whole environment of the matching process,
   which contained a `GITHUB_TOKEN`. The token is now in this session's tool output.
