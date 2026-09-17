@@ -1,0 +1,25 @@
+{
+  "spec": {
+    "id": "smoke2",
+    "games": 4,
+    "ai": {
+      "depth": 1
+    },
+    "seed": 5,
+    "maxPlies": 40,
+    "openingRandomPlies": 2,
+    "backRanks": {
+      "sample": 2
+    }
+  },
+  "games": 4,
+  "seconds": 0,
+  "whiteScore": 0.5,
+  "whiteWins": 0,
+  "draws": 4,
+  "blackWins": 0,
+  "meanPlies": 40,
+  "reasons": {
+    "plyCap": 4
+  }
+}

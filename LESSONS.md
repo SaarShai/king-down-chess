@@ -105,3 +105,21 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
   today's engine (`verify.mjs` pattern — `legalMoves(pos).find(x => toLan(pos, x) === lan)` over ~60
   games a file). A broken engine shows up immediately as a move that is not legal now, and it is the
   only check that sees *which* engine actually played.
+
+## 2026-09-16 — TypeSafe judgments (standing rule)
+- **Rule:** when a task needs a judgment a person makes at a glance — routing, ranking, extraction,
+  verification, scoring — load the `typesafe-ai` skill **before writing code**, then read the live
+  docs it points to. Keep exact rules, calculations, lookups and execution in code; the model only
+  supplies semantic judgment. Auth: `TYPESAFE_API_KEY` from the environment, else read
+  `~/.config/typesafe/key`. Never echo, log or commit the key.
+- **Judgment types.** *Choice*: pick one of a set — classification, routing, selection. *Noul*:
+  probability of yes — detection, flagging, guardrails. *Score*: degree along a rubric — severity,
+  relevance, quality. Ask every independent question the code might need in one call, then act in
+  code. Gate risky actions on confidence and escalate uncertain cases.
+- **Good uses:** classification, routing, scoring, ranking, search, retrieval, structured
+  extraction, verification, detection (spam, fraud, urgency, PII, jailbreaks, tool-call errors),
+  moderation, ML feature extraction, semantic linting in CI, corpus-scale annotation, and real-time
+  UI or game decisions.
+- Likely candidates in the takeover: classifying stored games whose replay is ambiguous (Phase 3),
+  checking king-power wording against the owner's rules (Phase 5), sorting stale queue/docs entries
+  into shipped/lab/rejected/deferred (Phase 6). Purely deterministic checks stay deterministic.

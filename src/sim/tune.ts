@@ -14,7 +14,7 @@
  * so `tune.test.ts` holds them together: with the live parameters loaded they agree bit for bit on
  * 1,000 random positions, and the apply step re-reads the file it wrote and checks it round-trips.
  */
-import { copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { availableParallelism } from 'node:os';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
@@ -24,12 +24,15 @@ import {
   A, B, Color, G, K, L, LETTERS, M, Move, N, P, PieceType, Position, Q, R, S, WHITE,
   canCapture, colorOf, inCheck, makeMove, typeOf,
 } from '../rules/engine';
-import { DEFAULT_RULES, RULES, Rules, setRules } from '../rules/rules';
+import { RULES, Rules, setRules } from '../rules/rules';
 import { fromFen, toLan } from '../rules/setup';
 import { EvalParams, PST_LETTERS, evalParams, evaluate } from '../ai/eval';
 import { quiesceScore, resetSearchState } from '../ai/search';
 import type { GameRecord } from './game';
 import { DEFAULTS, OUT_DIR, RunSpec, parseFlags, paths } from './spec';
+import { readRun } from './run';
+import { countMove, emptyEvents, eventsMatch } from './replay';
+import { sourceId } from './identity';
 
 export const TUNE_DIR = 'sim/tune';
 const POSITIONS = `${TUNE_DIR}/positions.bin`;
@@ -252,28 +255,6 @@ const VAL_EVERY = 10;
 const QUIET_CP = 50;
 const PER_GAME = 30, MIN_GAP = 4;
 
-/** The five toggles that separate today's rules from the 2017 game (docs/RULES.md §6.8). */
-const V06_KEYS = ['archerMove', 'beastMove', 'guardCaptures', 'guardStep', 'guardCaptureLimit'] as const;
-
-/**
- * Runs played under today's rules. A run's spec records only the toggles it *set*, and the
- * defaults changed mid-campaign (the buffs landed in `DEFAULT_RULES` on 2026-09-13), so an empty
- * rule set means "whatever the defaults were that hour" and is not evidence of anything. A run
- * counts only when it names all five buff toggles and differs from today's rules in nothing.
- */
-export function v06Runs(dir = OUT_DIR): string[] {
-  const out: string[] = [];
-  for (const f of readdirSync(dir).filter(x => x.endsWith('.summary.json'))) {
-    const id = f.slice(0, -'.summary.json'.length);
-    let rules: Partial<Rules>;
-    try { rules = (JSON.parse(readFileSync(`${dir}/${f}`, 'utf8')) as { spec?: RunSpec }).spec?.rules ?? {}; } catch { continue; }
-    if (!V06_KEYS.every(k => k in rules)) continue;
-    if (Object.entries(rules).some(([k, v]) => v !== DEFAULT_RULES[k as keyof Rules])) continue;
-    if (existsSync(paths(id).jsonl)) out.push(id);
-  }
-  return out.sort();
-}
-
 /** `Sd4xe5xf6`, `Ae4*d5`, `Ma1<>e1`, `Oe4>f5-f6` (shove), `d7xe8=Q` -> the move the recorder made. */
 export function parseLan(board: Uint8Array, lan: string): Move {
   const sq = (n: string): number => ((n.charCodeAt(1) - 49) << 3) | (n.charCodeAt(0) - 97);
@@ -303,9 +284,10 @@ export function parseLan(board: Uint8Array, lan: string): Move {
 
 export interface SampleStats { runs: number; games: number; kept: number; inCheck: number; noisy: number; val: number }
 
-/** Replay one game and append its quiet positions. Throws if a move does not round-trip. */
+/** Replay one game and append its quiet positions. Throws if a move does not round-trip or the events disagree. */
 function sampleGame(rec: GameRecord, isVal: boolean, out: number[][], st: SampleStats): void {
   let pos: Position = fromFen(rec.startFen);
+  const events = emptyEvents();
   const open = rec.openingPlies ?? 0, total = rec.moves.length;
   const stride = Math.max(MIN_GAP, Math.ceil(Math.max(1, total - open) / PER_GAME));
   const result = Math.round(rec.result * 2); // 0 | 1 | 2
@@ -326,35 +308,62 @@ function sampleGame(rec: GameRecord, isVal: boolean, out: number[][], st: Sample
         if (isVal) st.val++;
       }
     }
-    pos = makeMove(pos, m);
+    const next = makeMove(pos, m);
+    countMove(events, pos, m, next);
+    pos = next;
   }
+  const mismatch = eventsMatch(events, rec.events ?? {});
+  if (mismatch) throw new Error(`game ${rec.gameId}: replay disagrees with the stored record (${mismatch})`);
 }
 
 async function sample(ids: string[], limitPerRun: number): Promise<SampleStats> {
   mkdirSync(TUNE_DIR, { recursive: true });
-  setRules();
   resetSearchState();
-  const out = createWriteStream(POSITIONS);
-  const st: SampleStats = { runs: ids.length, games: 0, kept: 0, inCheck: 0, noisy: 0, val: 0 };
-  for (const id of ids) {
+  // Validate first, write second, then rename: a refused sample must not truncate the corpus.
+  const scans = ids.map(id => {
     const file = paths(id).jsonl;
-    let inRun = 0;
-    const rl = createInterface({ input: createReadStream(file), crlfDelay: Infinity });
-    const rows: number[][] = [];
-    for await (const line of rl) {
-      if (!line) continue;
-      if (inRun >= limitPerRun) { rl.close(); break; }
-      const rec = JSON.parse(line) as GameRecord;
-      sampleGame(rec, st.games % VAL_EVERY === 0, rows, st);
-      inRun++;
-      st.games++;
-      if (rows.length > 20000) { out.write(Buffer.from(rows.flat())); rows.length = 0; }
+    const scan = readRun(file);
+    if (scan.bad) throw new Error(`[tune] ${id}: ${scan.bad} torn or unreadable line(s); repair the file before sampling`);
+    if (scan.mixed) throw new Error(`[tune] ${id}: the file mixes stamps; it cannot fit anything`);
+    if (!scan.stamp) throw new Error(`[tune] ${id}: no rule/source stamp (written before stamping existed). Sample a stamped run; see docs/takeover/BASELINE.md`);
+    return { id, file, stamp: scan.stamp };
+  });
+  const tmp = `${POSITIONS}.tmp`;
+  const out = createWriteStream(tmp);
+  const st: SampleStats = { runs: ids.length, games: 0, kept: 0, inCheck: 0, noisy: 0, val: 0 };
+  const fingerprints: { id: string; games: number; rulesKey: string; specKey: string; src: string }[] = [];
+  try {
+    for (const { id, file, stamp } of scans) {
+      // The rules the run actually played, not today's defaults (LESSONS.md 2026-09-13).
+      setRules(stamp.rules);
+      let inRun = 0;
+      const rl = createInterface({ input: createReadStream(file), crlfDelay: Infinity });
+      const rows: number[][] = [];
+      for await (const line of rl) {
+        if (!line) continue;
+        if (inRun >= limitPerRun) { rl.close(); break; }
+        const rec = JSON.parse(line) as GameRecord;
+        sampleGame(rec, st.games % VAL_EVERY === 0, rows, st);
+        inRun++;
+        st.games++;
+        if (rows.length > 20000) { out.write(Buffer.from(rows.flat())); rows.length = 0; }
+      }
+      if (rows.length) out.write(Buffer.from(rows.flat()));
+      fingerprints.push({ id, games: inRun, rulesKey: stamp.rulesKey, specKey: stamp.specKey, src: stamp.src });
+      console.log(`[tune] ${id.padEnd(20)} ${String(inRun).padStart(6)} games, ${String(st.kept).padStart(7)} positions so far`);
     }
-    if (rows.length) out.write(Buffer.from(rows.flat()));
-    console.log(`[tune] ${id.padEnd(20)} ${String(inRun).padStart(6)} games, ${String(st.kept).padStart(7)} positions so far`);
+    await new Promise<void>(res => out.end(res));
+  } catch (e) {
+    out.destroy();
+    rmSync(tmp, { force: true });
+    throw e;
   }
-  await new Promise<void>(res => out.end(res));
-  writeFileSync(`${TUNE_DIR}/positions.json`, JSON.stringify({ ...st, runs: ids, file: POSITIONS, bytesPerPosition: REC, quietCp: QUIET_CP, perGame: PER_GAME, valEvery: VAL_EVERY }, null, 2) + '\n');
+  renameSync(tmp, POSITIONS);
+  setRules();
+  writeFileSync(`${TUNE_DIR}/positions.json`, JSON.stringify({
+    ...st, runs: fingerprints, sampledBy: sourceId(), file: POSITIONS, bytesPerPosition: REC,
+    quietCp: QUIET_CP, perGame: PER_GAME, valEvery: VAL_EVERY,
+  }, null, 2) + '\n');
   return st;
 }
 
@@ -581,8 +590,12 @@ async function main(argv: string[]): Promise<void> {
   const workers = num('workers', availableParallelism());
 
   if (cmd === 'sample') {
-    const ids = typeof f.runs === 'string' ? f.runs.split(',') : v06Runs();
-    console.log(`[tune] v0.6 runs: ${ids.join(', ')}`);
+    // `--runs` is required for the same reason as in `gen.ts`: a stored spec's `rules: {}` is the
+    // defaults of the day, not today's, so no filter over specs can name a run of this game. The
+    // old `v06Runs()` heuristic was exactly that filter and was removed (LESSONS.md 2026-09-13).
+    if (typeof f.runs !== 'string') throw new Error('tune sample: --runs a,b is required (a stored spec cannot say which rules a run played)');
+    const ids = f.runs.split(',');
+    console.log(`[tune] runs: ${ids.join(', ')}`);
     const st = await sample(ids, num('perRun', Infinity));
     console.log(`[tune] ${st.games} games -> ${st.kept} positions (${st.val} held out), skipped ${st.inCheck} in check and ${st.noisy} noisy`);
     return;

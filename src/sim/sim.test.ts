@@ -3,10 +3,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { GameRecord, startGame } from './game';
+import { GameRecord, startGame, playGame } from './game';
 import { analyze, elo, excessDecisiveness, fitValues, group, leadMetrics, matchStats, materialDelta, pentanomial, phi, readRecords, sprt, trajectory, utilisation, wilson } from './analyze';
 import { RunSpec, adjudication, buildJobs, loadSpec, parseFlags, parseRuleFlags, parseValues, paths, sampleBackRank, sideOptions, usePairs } from './spec';
 import { checkResume, stampOf } from './run';
+import { eventsMatch, replayRecord } from './replay';
 import { ARCHER_V, GUARD_V, VALUES, evaluate, setPieceValues } from '../ai/eval';
 import { armStats, swapRank, valueSpecs } from './experiments';
 import { applyDrawRules } from './game';
@@ -257,6 +258,48 @@ describe('runner (end to end)', () => {
 
     rmSync(dir, { recursive: true, force: true });
   });
+
+  it('rejects unstamped history, torn lines, mixed stamps and a different source', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'kdsim-'));
+    const file = join(dir, 'scan.jsonl');
+    const spec: RunSpec = { id: 'vitest-scan', games: 2, backRanks: ['KQRBNMAG', 'KSRBNMAG'], ai: { depth: 1 }, seed: 1 };
+    const jobs = buildJobs(spec);
+    const line = (j: (typeof jobs)[number], over: object = {}): string =>
+      JSON.stringify({ gameId: j.gameId, pairId: j.pairId, configId: j.configId, plies: 10, ...stampOf(spec), ...over });
+
+    // A stamp-less line is history, not a resume point: its rules are unknown.
+    writeFileSync(file, line(jobs[0], { rules: undefined, rulesKey: undefined, pool: undefined, specKey: undefined, src: undefined }) + '\n');
+    expect(() => checkResume(spec, jobs, file)).toThrow(/no rule\/source stamp/);
+
+    // A final line without its newline is a partial write; appending would corrupt the file.
+    writeFileSync(file, [line(jobs[0]), line(jobs[1])].join('\n'));
+    expect(() => checkResume(spec, jobs, file)).toThrow(/torn or unreadable/);
+
+    // Two stamps in one file: a resumed run under rules nobody can reconstruct.
+    const other = stampOf({ ...spec, rules: { guardCaptures: 'any' } });
+    writeFileSync(file, [line(jobs[0]), line(jobs[1], other)].join('\n') + '\n');
+    expect(() => checkResume(spec, jobs, file)).toThrow(/more than one stamp|mixes/);
+
+    // Identical spec resumes; a changed search setting or source does not, even with the same ranks.
+    writeFileSync(file, jobs.map(j => line(j)).join('\n') + '\n');
+    expect([...checkResume(spec, jobs, file).keys()]).toEqual([0, 1]);
+    const deeper: RunSpec = { ...spec, ai: { depth: 2 } };
+    expect(() => checkResume(deeper, buildJobs(deeper), file)).toThrow(/seed, arrangements, search settings/);
+    writeFileSync(file, jobs.map(j => line(j, { src: 'deadbeef' })).join('\n') + '\n');
+    expect(() => checkResume(spec, jobs, file)).toThrow(/played by source/);
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('replayRecord reproduces the events of a game the runner just played', () => {
+    const spec: RunSpec = { id: 'vitest-replay', games: 1, backRanks: ['KQRBNMAG'], ai: { depth: 1 }, seed: 7, openingRandomPlies: 2, maxPlies: 40 };
+    const rec = playGame(spec, buildJobs(spec)[0]);
+    expect(rec.plies).toBeGreaterThan(0);
+    const replay = replayRecord(rec);
+    expect(replay.plies).toBe(rec.plies);
+    expect(eventsMatch(replay.events, rec.events)).toBeNull();
+    setRules();
+  }, 60_000);
 });
 
 

@@ -15,7 +15,8 @@
  * the quantisation, which `net.test.ts` measures on 1,000 positions. The net is small enough that
  * a plain Float32 minibatch Adam over 16k positions a second is not the bottleneck; the data is.
  */
-import { createReadStream, createWriteStream, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { resolve as resolvePath } from 'node:path';
@@ -27,12 +28,20 @@ import { quiesceScore, resetSearchState } from '../ai/search';
 import { HIDDEN, INPUTS, N_WEIGHTS, NetKind, QA, QB, RESIDUAL_MAX, SCALE, W_MAX, featureIndex, packNet } from '../ai/nnue/net';
 import { parseFlags, paths } from './spec';
 import { parseLan } from './tune';
+import { readRun } from './run';
+import { countMove, emptyEvents, eventsMatch } from './replay';
+import { sourceId } from './identity';
 import { mulberry32 } from './rng';
 import type { GameRecord } from './game';
 
 export const NNUE_DIR = 'sim/nnue';
 const POSITIONS = `${NNUE_DIR}/positions.bin`;
-const WEIGHTS_TS = 'src/ai/nnue/weights.ts';
+/**
+ * The candidate is written **beside the source it may one day replace**, never into it: an active
+ * worker's bundle must not change because a training run finished (`docs/TAKEOVER-PLAN.md` §2).
+ * Adoption copies the blob into `src/ai/nnue/weights.ts` as a deliberate, reviewable step.
+ */
+const CANDIDATE_TS = `${NNUE_DIR}/weights-candidate.ts`;
 
 /** 64 board bytes, side to move, flags (result*2 | validation bit), Int16 score. */
 export const REC = 68;
@@ -53,6 +62,7 @@ export interface SampleStats { games: number; kept: number; noScore: number; inC
 
 function sampleGame(rec: GameRecord, isVal: boolean, out: number[], st: SampleStats): void {
   let pos: Position = fromFen(rec.startFen);
+  const events = emptyEvents();
   for (let i = 0; i < rec.moves.length; i++) {
     const ply = rec.moves[i];
     const m = parseLan(pos.board, ply.lan);
@@ -71,35 +81,69 @@ function sampleGame(rec: GameRecord, isVal: boolean, out: number[], st: SampleSt
       st.kept++;
       if (isVal) st.val++;
     }
-    pos = makeMove(pos, m);
+    const next = makeMove(pos, m);
+    countMove(events, pos, m, next);
+    pos = next;
   }
+  // The moves must replay to the same events the run recorded, or this is a game of another rule set.
+  const mismatch = eventsMatch(events, rec.events ?? {});
+  if (mismatch) throw new Error(`game ${rec.gameId}: replay disagrees with the stored record (${mismatch})`);
+}
+
+export interface RunManifest {
+  id: string; games: number; bytes: number; rulesKey: string; specKey: string; src: string;
 }
 
 async function sample(ids: string[], limitPerRun: number, cap: number): Promise<SampleStats> {
   mkdirSync(NNUE_DIR, { recursive: true });
-  setRules();
   setEvaluator('linear'); // the quiet test compares the *linear* eval with its own quiescence search
   resetSearchState();
-  const out = createWriteStream(POSITIONS);
+  // Validate every named run *before* touching the corpus: a refused sample must leave the old
+  // positions.bin in place, not truncate it on the way to an exception.
+  const scans = ids.map(id => {
+    const file = paths(id).jsonl;
+    const scan = readRun(file);
+    if (scan.bad) throw new Error(`[nnue] ${id}: ${scan.bad} torn or unreadable line(s); repair the file before sampling`);
+    if (scan.mixed) throw new Error(`[nnue] ${id}: the file mixes stamps; it cannot train anything`);
+    if (!scan.stamp) throw new Error(`[nnue] ${id}: no rule/source stamp (written before stamping existed), so the rules it played are unknown. Sample a stamped run; see docs/takeover/BASELINE.md`);
+    return { id, file, stamp: scan.stamp };
+  });
+  const tmp = `${POSITIONS}.tmp`;
+  const out = createWriteStream(tmp);
   const st: SampleStats = { games: 0, kept: 0, noScore: 0, inCheck: 0, noisy: 0, decided: 0, val: 0 };
-  for (const id of ids) {
-    if (st.kept >= cap) break;
-    let inRun = 0;
-    const rl = createInterface({ input: createReadStream(paths(id).jsonl), crlfDelay: Infinity });
-    const rows: number[] = [];
-    for await (const line of rl) {
-      if (!line) continue;
-      if (inRun >= limitPerRun || st.kept >= cap) { rl.close(); break; }
-      sampleGame(JSON.parse(line) as GameRecord, st.games % VAL_EVERY === 0, rows, st);
-      inRun++;
-      st.games++;
-      if (rows.length > 1e6) { out.write(Buffer.from(rows)); rows.length = 0; }
+  const runs: RunManifest[] = [];
+  try {
+    for (const { id, file, stamp } of scans) {
+      if (st.kept >= cap) break;
+      // The rules the run actually played, from the record itself. `setRules()` would let today's
+      // defaults reinterpret a past paladin capture (LESSONS.md 2026-09-13).
+      setRules(stamp.rules);
+      let inRun = 0;
+      const rl = createInterface({ input: createReadStream(file), crlfDelay: Infinity });
+      const rows: number[] = [];
+      for await (const line of rl) {
+        if (!line) continue;
+        if (inRun >= limitPerRun || st.kept >= cap) { rl.close(); break; }
+        sampleGame(JSON.parse(line) as GameRecord, st.games % VAL_EVERY === 0, rows, st);
+        inRun++;
+        st.games++;
+        if (rows.length > 1e6) { out.write(Buffer.from(rows)); rows.length = 0; }
+      }
+      if (rows.length) out.write(Buffer.from(rows));
+      runs.push({ id, games: inRun, bytes: statSync(file).size, rulesKey: stamp.rulesKey, specKey: stamp.specKey, src: stamp.src });
+      console.log(`[nnue] ${id.padEnd(20)} ${String(inRun).padStart(7)} games, ${String(st.kept).padStart(8)} positions so far`);
     }
-    if (rows.length) out.write(Buffer.from(rows));
-    console.log(`[nnue] ${id.padEnd(20)} ${String(inRun).padStart(7)} games, ${String(st.kept).padStart(8)} positions so far`);
+    await new Promise<void>(res => out.end(res));
+  } catch (e) {
+    out.destroy();
+    rmSync(tmp, { force: true });
+    throw e;
   }
-  await new Promise<void>(res => out.end(res));
-  writeFileSync(`${NNUE_DIR}/positions.json`, JSON.stringify({ ...st, runs: ids, bytesPerPosition: REC, quietCp: QUIET_CP, cpCap: CP_CAP, valEvery: VAL_EVERY }, null, 2) + '\n');
+  renameSync(tmp, POSITIONS);
+  setRules(); // leave the module as found: the CLI may continue in one process
+  writeFileSync(`${NNUE_DIR}/positions.json`, JSON.stringify({
+    ...st, runs, sampledBy: sourceId(), bytesPerPosition: REC, quietCp: QUIET_CP, cpCap: CP_CAP, valEvery: VAL_EVERY,
+  }, null, 2) + '\n');
   return st;
 }
 
@@ -322,12 +366,13 @@ export function quantise(net: Net): Int16Array {
   return w;
 }
 
-function writeWeights(w: Int16Array, kind: NetKind): void {
+function writeWeights(w: Int16Array, kind: NetKind): string {
   const b64 = packNet(w);
-  writeFileSync(WEIGHTS_TS, `/**
+  writeFileSync(CANDIDATE_TS, `/**
  * The trained net, base64 little-endian Int16 (see \`net.ts\` for the layout).
  * ${INPUTS} x ${HIDDEN} x 2 -> 1, QA=${QA} QB=${QB} SCALE=${SCALE}. ${(b64.length / 1024).toFixed(0)} kB.
- * Written by \`npm run nnue -- train\`; do not edit by hand.
+ * Written by \`npm run nnue -- train\`; do not edit by hand. This is a **candidate**: adoption copies
+ * the blob into src/ai/nnue/weights.ts as a reviewed step (docs/TAKEOVER-PLAN.md §3).
  */
 
 /** What the blob predicts: the whole evaluation, or a bounded residual on the linear one. */
@@ -335,7 +380,15 @@ export const NET_KIND = '${kind}';
 
 export const NET_B64: string = '${b64}';
 `);
-  console.log(`[nnue] ${WEIGHTS_TS}: ${kind} net, ${w.length} weights, ${(b64.length / 1024).toFixed(1)} kB of base64`);
+  console.log(`[nnue] ${CANDIDATE_TS}: ${kind} net, ${w.length} weights, ${(b64.length / 1024).toFixed(1)} kB of base64 (candidate, not adopted)`);
+  return b64;
+}
+
+/** The trained candidate blob, from the float net on disk. Null when nothing has been trained. */
+function candidateNet(): string | null {
+  if (!existsSync(`${NNUE_DIR}/net.json`)) return null;
+  const j = JSON.parse(readFileSync(`${NNUE_DIR}/net.json`, 'utf8')) as { w1: number[]; b1: number[]; w2: number[]; b2: number };
+  return packNet(quantise({ w1: Float32Array.from(j.w1), b1: Float32Array.from(j.b1), w2: Float32Array.from(j.w2), b2: j.b2 }));
 }
 
 // -----------------------------------------------------------------------------------------------
@@ -372,8 +425,21 @@ async function main(argv: string[]): Promise<void> {
     const { net, curve, bestEpoch, bestVal } = trainNet(buf, n, opts);
     mkdirSync(NNUE_DIR, { recursive: true });
     writeFileSync(`${NNUE_DIR}/net.json`, JSON.stringify({ opts, positions: n, bestEpoch, bestVal, curve, w1: [...net.w1], b1: [...net.b1], w2: [...net.w2], b2: net.b2 }));
-    writeWeights(quantise(net), opts.loss === 'res' ? 'residual' : 'full');
-    writeFileSync(`${NNUE_DIR}/train.json`, JSON.stringify({ opts, positions: n, bestEpoch, bestVal, curve }, null, 2) + '\n');
+    const b64 = writeWeights(quantise(net), opts.loss === 'res' ? 'residual' : 'full');
+    // Source, dataset and model hashes travel together with the training parameters, so a candidate
+    // can be checked against the corpus it learned from (docs/TAKEOVER-PLAN.md §3).
+    const meta = existsSync(`${NNUE_DIR}/positions.json`)
+      ? JSON.parse(readFileSync(`${NNUE_DIR}/positions.json`, 'utf8')) as { runs?: unknown; sampledBy?: string }
+      : {};
+    writeFileSync(`${NNUE_DIR}/train.json`, JSON.stringify({
+      opts, positions: n, bestEpoch, bestVal, curve,
+      dataset: {
+        file: POSITIONS, sha256: createHash('sha256').update(raw).digest('hex'),
+        runs: meta.runs ?? [], sampledBy: meta.sampledBy ?? null,
+      },
+      trainedBy: sourceId(),
+      model: { file: CANDIDATE_TS, kind: opts.loss === 'res' ? 'residual' : 'full', sha256: createHash('sha256').update(b64).digest('hex') },
+    }, null, 2) + '\n');
     return;
   }
 
@@ -388,12 +454,23 @@ async function main(argv: string[]): Promise<void> {
     // The two sides of an nnue-vs-linear match, as the files `RunSpec.evalParams` already takes.
     // `src/sim/game.ts` loads one per side and calls `setEvalParams` between plies, dropping the
     // transposition table with it — which is exactly the protocol the Texel match used, for free.
+    //
+    // Each file pins everything the arm needs **including the net blob**: a match that merely names
+    // `eval-residual.json` would otherwise play whichever `weights.ts` happens to be in the tree,
+    // and the recorded result could not be reproduced (docs/TAKEOVER-PLAN.md §2/§3).
     const { evalParams } = await import('../ai/eval');
+    const { netBlob } = await import('../ai/nnue/net');
     mkdirSync(NNUE_DIR, { recursive: true });
-    for (const e of ['nnue', 'linear', 'residual'] as const) {
-      writeFileSync(`${NNUE_DIR}/eval-${e}.json`, JSON.stringify({ ...evalParams(), evaluator: e }, null, 1) + '\n');
-    }
-    console.log(`[nnue] wrote eval-{nnue,linear,residual}.json in ${NNUE_DIR} from the live evaluation`);
+    const live = evalParams();
+    const candidate = candidateNet();
+    if (!candidate) throw new Error(`arms: ${NNUE_DIR}/net.json is missing — train the residual candidate first`);
+    const nnue = netBlob();
+    writeFileSync(`${NNUE_DIR}/eval-linear.json`, JSON.stringify({ ...live, evaluator: 'linear' }, null, 1) + '\n');
+    writeFileSync(`${NNUE_DIR}/eval-residual.json`, JSON.stringify({ ...live, evaluator: 'residual', net: { b64: candidate, kind: 'residual' } }, null, 1) + '\n');
+    writeFileSync(`${NNUE_DIR}/eval-nnue.json`, JSON.stringify({
+      ...live, evaluator: nnue?.kind === 'residual' ? 'residual' : 'nnue', net: nnue ?? undefined,
+    }, null, 1) + '\n');
+    console.log(`[nnue] wrote eval-{nnue,linear,residual}.json in ${NNUE_DIR}; the residual arm pins the trained candidate`);
     return;
   }
 

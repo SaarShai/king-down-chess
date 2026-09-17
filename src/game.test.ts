@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Engine, Game } from './game';
-import { legalMoves, parseSq } from './rules/engine';
+import { legalMoves, parseSq, setRules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, toFen, toLan } from './rules/setup';
 
 /** Play the first legal move whose LAN matches, so the tests read like a score sheet. */
@@ -165,6 +165,23 @@ describe('Engine.cancel', () => {
       expect(FakeWorker.made).toHaveLength(2);
       expect(FakeWorker.made[0].terminated).toBe(true);
       expect(FakeWorker.made[1].posted).toHaveLength(1); // still on the worker, not inline
+    });
+  });
+
+  // The browser allows `?rules=2017|2021` and `?kings=…`; the board plays the variant, so the worker
+  // must too. Sending it once at spawn is not enough: cancel() replaces the worker.
+  it('sends the live rules with every search, including to a replacement worker', () => {
+    withWorkers(() => {
+      setRules({ paladinKamikaze: 'always' });
+      try {
+        const engine = new Engine();
+        const g = new Game(CLASSIC_CHESS);
+        void engine.think(g.pos, { timeMs: 200 });
+        expect((FakeWorker.made[0].posted[0] as { rules: { paladinKamikaze?: string } }).rules.paladinKamikaze).toBe('always');
+        engine.cancel();
+        void engine.think(g.pos, { timeMs: 200 });
+        expect((FakeWorker.made[1].posted[0] as { rules: { paladinKamikaze?: string } }).rules.paladinKamikaze).toBe('always');
+      } finally { setRules(); }
     });
   });
 });

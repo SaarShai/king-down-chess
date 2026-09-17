@@ -1,5 +1,5 @@
 /** Monte Carlo runner: a worker per core, one JSON line per game, resumable. */
-import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,69 +9,144 @@ import { GameRecord } from './game';
 import { DEFAULT_RULES, Rules, ruleDiff, setRules } from '../rules/rules';
 import { POOL } from '../rules/setup';
 import { Job, OUT_DIR, RunSpec, buildJobs, loadSpec, parseFlags, paths, usePairs } from './spec';
-
-/** Stamped on every game line: what a resume has to match. Readers ignore unknown fields. */
-export interface Stamp { rules: Partial<Rules>; rulesKey: string; pool: string }
+import { sourceId, specKey } from './identity';
 
 /**
- * The rules and pool a run plays under. `rulesKey` hashes the *whole* rule set, not the diff: a
- * diff is read against the defaults of the day, and those move, so a stored `rules: {}` does not
- * mean today's game (LESSONS.md 2026-09-13/14). The diff is kept beside it to read in the file.
+ * Stamped on every game line: what a resume has to match. Readers ignore unknown fields.
+ *
+ * `rules` is the **full resolved rule set**, not a diff. A diff is read against the defaults of the
+ * day, and those move, so a stored `rules: {}` does not mean today's game (LESSONS.md 2026-09-13):
+ * sampling and replay have to set the exact rules a run played, and only the full set can do that.
+ * `rulesKey` stays as the cheap comparison. `specKey` covers seed, pool, search/evaluation settings
+ * and the eval-parameter files by content; `src` covers the engine code itself.
+ */
+export interface Stamp { rules: Rules; rulesKey: string; pool: string; specKey: string; src: string }
+
+/**
+ * The rules and pool a run plays under. `rulesKey` hashes the *whole* rule set, not the diff.
+ * A new rule field re-keys *every* stored run and blocks its resume, so `kings` is left out of the
+ * key for a run that plays none — the same "append, never move a historic key" discipline
+ * `src/ai/zobrist.ts` follows. A run that does play a king hashes it, which is the whole point of
+ * putting the choice in `Rules` (LESSONS.md 2026-09-14: a resumed control silently mixes pools).
  */
 export function stampOf(spec: RunSpec): Stamp {
   const rules = { ...DEFAULT_RULES, ...spec.rules }; // exactly what run() puts in RULES
-  // A new rule field re-keys *every* stored run and blocks its resume, so `kings` is left out of
-  // the key for a run that plays none — the same "append, never move a historic key" discipline
-  // src/ai/zobrist.ts follows. A run that does play a king hashes it, which is the whole point of
-  // putting the choice in `Rules` (LESSONS.md 2026-09-14: a resumed control silently mixes pools).
   const { kings, ...noKings } = rules;
   const keyed = kings[0] || kings[1] ? rules : noKings;
   return {
-    rules: ruleDiff(rules),
+    rules,
     rulesKey: createHash('sha1').update(JSON.stringify(keyed)).digest('hex').slice(0, 8),
     pool: (Array.isArray(spec.backRanks) ? undefined : spec.backRanks?.pool) ?? POOL,
+    specKey: specKey(spec),
+    src: sourceId(),
   };
 }
 
-/** Games already in the file: game id -> the arrangement it played, plus the run's stamp. */
-export function doneGames(file: string): { configs: Map<number, string>; stamp: Stamp | null } {
-  const configs = new Map<number, string>();
-  let stamp: Stamp | null = null;
-  if (!existsSync(file)) return { configs, stamp };
-  for (const line of readFileSync(file, 'utf8').split('\n')) {
-    // Every line is written by this module, so the prefix is exact and `configId` comes before the moves.
-    const m = /^\{"gameId":(\d+).*?"configId":"([^"]*)"/.exec(line);
-    if (!m) continue;
-    if (!configs.size) { // the stamp is the same on every line; files written before it existed have none
-      const r = JSON.parse(line) as Partial<Stamp>;
-      if (r.rulesKey) stamp = { rules: r.rules ?? {}, rulesKey: r.rulesKey, pool: r.pool ?? '' };
+/** Line-per-line read of a possibly huge JSONL file. The last call has `complete = false` on a torn line. */
+function eachLine(file: string, fn: (line: string, complete: boolean) => void): void {
+  const fd = openSync(file, 'r');
+  try {
+    const buf = Buffer.alloc(1 << 22);
+    let carry = '';
+    for (;;) {
+      const n = readSync(fd, buf, 0, buf.length, null);
+      if (!n) break;
+      // The files are our own JSON (ASCII, one line per game), so a chunk boundary cannot split a
+      // character; it can only split a line, and `carry` holds that.
+      const text = carry + buf.toString('utf8', 0, n);
+      let start = 0;
+      for (;;) {
+        const nl = text.indexOf('\n', start);
+        if (nl < 0) { carry = text.slice(start); break; }
+        fn(text.slice(start, nl), true);
+        start = nl + 1;
+      }
     }
-    configs.set(+m[1], m[2]);
-  }
+    if (carry) fn(carry, false);
+  } finally { closeSync(fd); }
+}
+
+export interface RunScan {
+  /** game id -> the arrangement it played. */
+  configs: Map<number, string>;
+  stamp: Stamp | null;
+  games: number;
+  /** Lines that are truncated (no newline) or not a game record. */
+  bad: number;
+  /** Stamped and unstamped records in one file, or two different stamps. */
+  mixed: boolean;
+}
+
+/** What a file already holds. The stamp is the same on every line; a file written before it existed has none. */
+export function readRun(file: string): RunScan {
+  const configs = new Map<number, string>();
+  const keys = new Set<string>();
+  let stamp: Stamp | null = null, games = 0, bad = 0, stamped = 0;
+  if (!existsSync(file)) return { configs, stamp, games, bad, mixed: false };
+  eachLine(file, (line, complete) => {
+    if (!complete) { bad++; return; }
+    if (!line) return;
+    let rec: GameRecord & Partial<Stamp>;
+    try { rec = JSON.parse(line) as GameRecord & Partial<Stamp>; } catch { bad++; return; }
+    if (typeof rec.gameId !== 'number' || typeof rec.configId !== 'string') { bad++; return; }
+    games++;
+    configs.set(rec.gameId, rec.configId);
+    if (rec.rulesKey) {
+      stamped++;
+      const s: Stamp = {
+        rules: (rec.rules ?? {}) as Rules, rulesKey: rec.rulesKey, pool: rec.pool ?? '',
+        specKey: rec.specKey ?? '', src: rec.src ?? '',
+      };
+      if (!stamp) stamp = s;
+      keys.add(s.specKey || s.rulesKey);
+    }
+  });
+  return { configs, stamp, games, bad, mixed: (stamped > 0 && stamped < games) || keys.size > 1 };
+}
+
+/** Kept for callers that only want the map: the configs and the stamp of a stored run. */
+export function doneGames(file: string): { configs: Map<number, string>; stamp: Stamp | null } {
+  const { configs, stamp } = readRun(file);
   return { configs, stamp };
 }
 
 /**
  * A run resumes from its JSONL by game id, so the stored games have to be the ones this spec plays
- * now. After a change to `POOL`, `DEFAULT_RULES`, the seed or the sample they are not, and the file
- * then holds two experiments that every reader adds up as one: `pb-ab-base` was 1 544 games under
- * the two-guard pool plus 56 under the one-guard pool, and the A/B it controlled was void
- * (LESSONS.md 2026-09-14). Throws rather than appending; returns the games to skip.
+ * now. After a change to `POOL`, `DEFAULT_RULES`, the seed, the evaluation files or the source they
+ * are not, and the file then holds two experiments that every reader adds up as one: `pb-ab-base`
+ * was 1 544 games under the two-guard pool plus 56 under the one-guard pool, and the A/B it
+ * controlled was void (LESSONS.md 2026-09-14). Throws rather than appending; returns the games to
+ * skip. A file with no stamp at all is read-only history: give the run a new id instead of
+ * resuming a game whose rules are unknown.
  */
 export function checkResume(spec: RunSpec, jobs: Job[], file: string): Map<number, string> {
-  const { configs, stamp } = doneGames(file);
-  if (!configs.size) return configs;
+  const { configs, stamp, games, bad, mixed } = readRun(file);
+  if (!games && !bad) return configs;
   const newId = 'Give the run a new id';
-  const distinct = (xs: Iterable<string>): number => new Set(xs).size;
-  const bad = [...configs].find(([id, cfg]) => jobs[id]?.configId !== cfg);
   if (bad) {
-    throw new Error(`[${spec.id}] refusing to resume ${file}: its ${configs.size} stored games played ${distinct(configs.values())} arrangements, this spec plays ${distinct(jobs.map(j => j.configId))} over ${jobs.length} games (game ${bad[0]} is "${bad[1]}" in the file, "${jobs[bad[0]]?.configId ?? 'not played'}" now). ${newId}, or list \`backRanks\` in the spec to replay the stored ones.`);
+    throw new Error(`[${spec.id}] refusing to resume ${file}: ${bad} line(s) are torn or unreadable (a partial write). ${newId}, or repair the file from a backup.`);
+  }
+  if (mixed) {
+    throw new Error(`[${spec.id}] refusing to resume ${file}: its ${games} games carry more than one stamp or a mix of stamped and unstamped records. ${newId}.`);
+  }
+  const distinct = (xs: Iterable<string>): number => new Set(xs).size;
+  const badCfg = [...configs].find(([id, cfg]) => jobs[id]?.configId !== cfg);
+  if (badCfg) {
+    throw new Error(`[${spec.id}] refusing to resume ${file}: its ${configs.size} stored games played ${distinct(configs.values())} arrangements, this spec plays ${distinct(jobs.map(j => j.configId))} over ${jobs.length} games (game ${badCfg[0]} is "${badCfg[1]}" in the file, "${jobs[badCfg[0]]?.configId ?? 'not played'}" now). ${newId}, or list \`backRanks\` in the spec to replay the stored ones.`);
+  }
+  if (!stamp) {
+    throw new Error(`[${spec.id}] refusing to resume ${file}: its ${games} stored games carry no rule/source stamp (written before stamping existed), so the rules they played are unknown. ${newId}.`);
   }
   const now = stampOf(spec);
-  if (stamp && (stamp.rulesKey !== now.rulesKey || stamp.pool !== now.pool)) {
-    throw new Error(`[${spec.id}] refusing to resume ${file}: its ${configs.size} stored games played rules ${JSON.stringify(stamp.rules)} (key ${stamp.rulesKey}) on pool ${stamp.pool}, this spec plays ${JSON.stringify(now.rules)} (key ${now.rulesKey}) on pool ${now.pool}. ${newId}.`);
+  if (stamp.rulesKey !== now.rulesKey || stamp.pool !== now.pool) {
+    throw new Error(`[${spec.id}] refusing to resume ${file}: its ${games} stored games played rules ${JSON.stringify(ruleDiff(stamp.rules))} (key ${stamp.rulesKey}) on pool ${stamp.pool}, this spec plays ${JSON.stringify(ruleDiff(now.rules))} (key ${now.rulesKey}) on pool ${now.pool}. ${newId}.`);
   }
-  if (!stamp) console.warn(`[${spec.id}] ${configs.size} stored games carry no rule stamp (written before it existed): arrangements match, rules unchecked.`);
+  if (stamp.specKey !== now.specKey) {
+    throw new Error(`[${spec.id}] refusing to resume ${file}: the seed, arrangements, search settings or evaluation inputs changed (stamp ${stamp.specKey}, this spec ${now.specKey}). ${newId}.`);
+  }
+  if (stamp.src !== now.src) {
+    throw new Error(`[${spec.id}] refusing to resume ${file}: its ${games} games were played by source ${stamp.src}, this source is ${now.src}. ${newId}.`);
+  }
   return configs;
 }
 
@@ -129,21 +204,29 @@ export async function run(spec: RunSpec, nWorkers: number): Promise<void> {
   writeSummary(spec, jsonl, summary, secs);
 }
 
+/**
+ * Streamed, not `readFileSync`: the file is now on the order of a gigabyte and reading it as one
+ * string throws `ERR_STRING_TOO_LONG` (>512 MB) — which is exactly how the inherited Q6 chain
+ * ended with `exit 1` and a summary that still reported its 686-game prefix (BASELINE.md).
+ */
 function writeSummary(spec: RunSpec, jsonl: string, summary: string, secs: number): void {
-  const recs = readFileSync(jsonl, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as GameRecord);
   const reasons: Record<string, number> = {};
-  let score = 0, wins = 0, draws = 0, plies = 0;
-  for (const r of recs) {
+  let n = 0, score = 0, wins = 0, draws = 0, plies = 0;
+  eachLine(jsonl, (line, complete) => {
+    if (!complete || !line) return;
+    let r: GameRecord;
+    try { r = JSON.parse(line) as GameRecord; } catch { return; }
+    n++;
     reasons[r.reason] = (reasons[r.reason] ?? 0) + 1;
     score += r.result; plies += r.plies;
     if (r.result === 1) wins++; else if (r.result === 0.5) draws++;
-  }
-  const n = recs.length || 1;
+  });
+  const d = n || 1;
   writeFileSync(summary, JSON.stringify({
-    spec, games: recs.length, seconds: +secs.toFixed(1),
-    whiteScore: +(score / n).toFixed(4),
-    whiteWins: wins, draws, blackWins: recs.length - wins - draws,
-    meanPlies: +(plies / n).toFixed(1), reasons,
+    spec, games: n, seconds: +secs.toFixed(1),
+    whiteScore: +(score / d).toFixed(4),
+    whiteWins: wins, draws, blackWins: n - wins - draws,
+    meanPlies: +(plies / d).toFixed(1), reasons,
   }, null, 2) + '\n');
   console.log(`[${spec.id}] summary -> ${summary}`);
 }

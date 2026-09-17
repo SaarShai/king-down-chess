@@ -102,6 +102,16 @@ Two rows of both `dt-*` experiment files are invalid: `killerMove` (−0.21) and
 `leadMetrics()` identifies the mover by ply parity, and Black's double turn inverts the parity for the
 rest of the game. See `sim-queue-2026-09-14.md` §5.2. Every parity-free metric is sound.
 
+**Qualification (2026-09-16, takeover review §Spec 2).** The defect is not only in the two analysis
+rows: the *search itself* assumes alternating movers — it derives the side to move from `rootTurn ^
+(ply & 1)`, negates every child score, toggles the turn bit in the Zobrist key and walks repetition
+paths by alternating indices. Under this toggle those assumptions are false, so the depth-3 balance
+numbers above are directional only and are not trustworthy evidence for the toggle. That does not
+reopen the owner's decision: **the rule stays rejected and nothing here is rerun.** A later feature
+that needs extra turns (Haste, for example) must first make the search track the actual mover,
+correct the score sign, the hash, repetition and exact state serialization. No command from this
+section is in the active queue.
+
 ## R10 — answered: the Wall stays
 
 Saar rejected the two-square Warden on draw grounds (2026-09-14) and asked for a pawn-style double

@@ -239,8 +239,13 @@ stay two axes; the table prints both, and the gate column prints the rejects.
 ${perRound.map(p => `## Round ${p.round} — ${p.rows.length} arrangements x ${p.gamesEach} games
 ${table(head, p.rows.slice(0, 40))}${p.rows.length > 40 ? `\n\n(${p.rows.length - 40} more rows in \`${OUT_DIR}/${base.id}.r${p.round}.report.md\`)` : ''}`).join('\n\n')}
 
-## Survivors
-\`${(perRound.at(-1)?.rows ?? []).slice(0, 10).map(row => row[0]).join(' ')}\`
+## Exploratory shortlist — rejection gates NOT enforced
+
+The gate column prints rejects; this tool still keeps the better half regardless of them. That is
+deliberate while no sweep is needed, and it is why these are not "survivors": an approved setup
+filter must enforce the gates before it selects anything (docs/TAKEOVER-PLAN.md §2). Treat the
+shortlist as a hypothesis for a future, gate-enforcing sweep, not as accepted arrangements.
+\`${(perRound.at(-1)?.rows ?? []).slice(0, 10).map(row => row[0]).join(' ')}
 
 Round 1 numbers are noisy on purpose: at ${base.games} games one arrangement's score carries about
 ±${(1.96 * 0.5 / Math.sqrt(base.games)).toFixed(2)}. Halving spends the budget on the survivors, so trust the last round only,

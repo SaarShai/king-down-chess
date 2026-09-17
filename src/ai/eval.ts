@@ -7,7 +7,7 @@
  * left-right symmetric and encode only centrality and advancement.
  */
 import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, S, WHITE, canCapture, colorOf, typeOf } from '../rules/engine';
-import { NetKind, RESIDUAL_MAX, netKind, netLoaded, nnueEval } from './nnue/net';
+import { NetKind, RESIDUAL_MAX, loadNet, loadedNetB64, netKind, netLoaded, nnueEval } from './nnue/net';
 
 /*
  * Material values (centipawns). **Every number in this file is fitted, not reasoned** — and every
@@ -446,6 +446,14 @@ export interface EvalParams {
    * match is played in one process with the transposition table dropped on every swap.
    */
   evaluator?: Evaluator;
+  /**
+   * The net the evaluator needs, by value. A match arm that names a file **and** the blob it was
+   * scored with can be reproduced anywhere; without this, `--tuned eval-residual.json` silently
+   * played whatever `src/ai/nnue/weights.ts` happened to hold (docs/TAKEOVER-PLAN.md §2/§3).
+   * Absent means "keep the net already loaded", which is how every file written before this field
+   * existed keeps working.
+   */
+  net?: { b64: string; kind: NetKind };
 }
 
 /** The letters with a table of their own; the king has two, blended by phase. */
@@ -492,5 +500,8 @@ export function setEvalParams(p: EvalParams = SHIPPED): void {
   for (let i = 0; i < 3; i++) MAESTER_NEAR_KING[i] = p.maesterNearKing[i];
   TEMPO = p.tempo;
   PHASE_MAX = p.phaseMax;
+  // The blob is a string compare away from already loaded: swapping arms between plies must not
+  // re-parse it each time.
+  if (p.net && p.net.b64 !== loadedNetB64()) loadNet(p.net.b64, p.net.kind);
   setEvaluator(p.evaluator ?? 'linear');
 }

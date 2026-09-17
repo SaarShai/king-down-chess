@@ -3,7 +3,7 @@ import { Engine, Game, Side } from './game';
 import { BoardRenderer } from './render/renderer';
 import { STYLES } from './render/styles';
 import { loadModels, setUseSculpts } from './render/voxels';
-import { Color, LETTERS, Move, NAMES, PieceType, RULES_2017, RULES_2021, SPENT, colorOf, findKing, kingLabel, parseKings, setRules, sqName, typeOf } from './rules/engine';
+import { Color, LETTERS, Move, NAMES, PieceType, RULES as GAME_RULES, RULES_2017, RULES_2021, SPENT, colorOf, findKing, kingLabel, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, randomBackRank, toFen } from './rules/setup';
 
 const params = new URLSearchParams(location.search);
@@ -18,9 +18,10 @@ const kings = params.get('kings');
 // Before the first Game: its constructor builds a position and asks for its status.
 if (preset || kings) setRules({ ...preset, ...(kings ? { kings: parseKings(kings) } : {}) });
 /** One line for the info card, so a `?kings=` game says on screen which powers are live. */
-const kingsLine = kings
-  ? `<div>Kings — White <b>${kingLabel(parseKings(kings)[0])}</b> · Black <b>${kingLabel(parseKings(kings)[1])}</b></div>`
-  : '';
+const kingsInfo = (): string => {
+  const [w, b] = GAME_RULES.kings;
+  return w || b ? `<div>Kings — White <b>${kingLabel(w)}</b> · Black <b>${kingLabel(b)}</b></div>` : '';
+};
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -68,7 +69,7 @@ function showInfo(sq: number | null): void {
     ? `<b>${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${RULES[t][0]} ${RULES[t][1]}`
       // Lab only (docs/RULES.md §6.9): the shipped guard never captures, so it can never be spent.
       + (code & SPENT ? ' <b>This guard has used its capture.</b>' : '')
-    : '') + kingsLine;
+    : '') + kingsInfo();
 }
 
 /** Squares the user clicks to identify a move: chain victims, shot target, or the destination. */
@@ -296,7 +297,7 @@ function copyFallback(text: string): void {
 }
 
 /* ---- autosave ---- */
-interface Save { back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; style: string; coords: boolean; resigned: Color | null }
+interface Save { back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; style: string; coords: boolean; resigned: Color | null; rules?: Rules }
 const SAVE_KEY = 'kingdown.save';
 
 function save(): void {
@@ -310,6 +311,9 @@ function save(): void {
       style: styleSel.value,
       coords: coords.checked,
       resigned,
+      // The rules the game is playing, so opening the save without its URL replays the same game
+      // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
+      rules: { ...GAME_RULES },
     } satisfies Save));
   } catch { /* private mode or a full quota: play on without a save */ }
 }
@@ -389,7 +393,15 @@ applyStyle();
 const fen = params.get('fen');
 if (fen) { try { game.load(fromFen(fen)); } catch (e) { alert(`Bad fen: ${(e as Error).message}`); } }
 else if (saved) {
-  try {
+  const savedRules = saved.rules;
+  const urlRules = preset || kings;
+  const rulesDiffer = !!urlRules && !!savedRules && JSON.stringify(savedRules) !== JSON.stringify({ ...GAME_RULES });
+  if (rulesDiffer) {
+    // The URL names a rule set and the autosave played a different one. Replaying the moves would
+    // reinterpret them, so keep the URL's fresh game and let the next save overwrite the old one.
+    console.warn('kingdown: the autosave played different rules than the URL asks for; starting fresh');
+  } else try {
+    if (savedRules) setRules(savedRules); // before playLan: the moves must replay under their own rules
     if (saved.back) game.newGame(saved.back); else game.load(fromFen(saved.fen));
     game.playLan(saved.moves);
     resigned = saved.resigned ?? null;

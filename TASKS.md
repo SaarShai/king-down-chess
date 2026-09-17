@@ -153,12 +153,13 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [x] `.gitignore` anchor bug fixed; sim source/specs versioned; bulk data and art-src deliberately unversioned. Baseline recorded in `docs/takeover/BASELINE.md`; `tsc` clean; 149 tests pass. Git tag `baseline-2026-09-16`.
 
 ### Phase 2 — rule identity across execution and replay
-- [ ] Pass the active rule snapshot into browser AI workers (including respawns) and persist/restore rules in saves.
-- [ ] Immutable run identity (rules, pool, seed, search/eval settings, source version); reject unstamped/mixed/partial resumes.
-- [ ] Sampling uses recorded rules and validates replay; input fingerprints in the manifest.
-- [ ] Sequential chain that stops on failure and validates before writing a success marker; candidate model separate from source.
-- [ ] Qualify Q4 evidence; retire Q4 commands.
-- [ ] Enforce arrangement-sweep rejection gates or label the tool exploratory.
+- [x] Pass the active rule snapshot into browser AI workers (including respawns) and persist/restore rules in saves. `worker.ts` applies `setRules` per message; `Engine.think` sends the live rules; `Save.rules` restores before `playLan` (URL rule params win when they differ). New unit tests: rules posted to the worker and to a replacement after `cancel()`.
+- [x] Immutable run identity (rules, pool, seed, search/eval settings, source version); reject unstamped/mixed/partial resumes. `Stamp` now carries the full resolved rules, `specKey` (`src/sim/identity.ts`: seed, arrangements, AI, adjudication, eval-file **contents**) and `src` (hash of `src/rules|ai|sim`). `checkResume` refuses unstamped, torn, mixed, changed-spec and changed-source files; `readRun`/`writeSummary` stream (the old `readFileSync` is what made the inherited chain exit 1).
+- [x] Sampling uses recorded rules and validates replay; input fingerprints in the manifest. `gen.ts`/`tune.ts` sample under the stamp's full rules, replay every game through `src/sim/replay.ts` and compare stored events; `positions.json` carries per-run `rulesKey/specKey/src` and `sampledBy`; the write is pre-validated and atomic (`positions.bin.tmp` → rename), so a refused sample cannot truncate the corpus.
+- [x] Sequential chain that stops on failure and validates before writing a success marker; candidate model separate from source. `tools/q6-chain.sh` (`set -euo pipefail`, dirty-tree check, staged `tools/q6-validate.mjs` calls) writes `q6-nnue-g2.done` only after the final validator passes; `nnue train` writes `sim/nnue/weights-candidate.ts`, never `src/`. Demonstrated: 400-game gate fixture at 0.45 exits 1.
+- [x] Qualify Q4 evidence; retire Q4 commands. `RUNS.md` R9 and `QUEUE.md` Q4 now state that the *search itself* assumed alternation (mover by ply parity, score negation, turn-bit hashing, repetition paths), so the numbers are directional; the rejection stands, commands retired, prerequisites listed for a future Haste.
+- [x] Enforce arrangement-sweep rejection gates or label the tool exploratory. `experiments.ts` sweep output is now an explicit "Exploratory shortlist — rejection gates NOT enforced".
+- Evidence: `npx tsc --noEmit` clean; 152 tests in 6 files pass; smoke run `smoke2` stamped (`rulesKey 0e2fb239`, `specKey 826b122e7454`, `src f3e2439a8859`), refused a changed rule, sampled with fingerprints, and refused the unstamped `nnue-g1`.
 
 ### Phase 3 — Q6 dataset
 - [ ] Audit the 686 prefix vs the later cohort by launch records and move replay; exclude what cannot be established.

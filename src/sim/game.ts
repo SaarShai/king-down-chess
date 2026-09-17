@@ -1,5 +1,5 @@
 /** Play one game headless (AI vs AI) and record everything the analyser needs. */
-import { A, C, G, K, LETTERS, Move, Position, S, WHITE, colorOf, status, typeOf } from '../rules/engine';
+import { LETTERS, Move, Position, WHITE, colorOf, status, typeOf } from '../rules/engine';
 import { RULES, Rules, setRules } from '../rules/rules';
 import { fromFen, toFen, toLan } from '../rules/setup';
 import { readFileSync } from 'node:fs';
@@ -7,6 +7,7 @@ import { Game } from '../game';
 import { EvalParams, setEvalParams, setPieceValues } from '../ai/eval';
 import * as AI from '../ai/search';
 import { Adjudicate, Job, RunSpec, adjudication, sideOptions } from './spec';
+import { countMove, emptyEvents } from './replay';
 import { mulberry32 } from './rng';
 
 export type EndReason =
@@ -172,11 +173,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
 
   const stats: [SideStats, SideStats] = [emptyStats(), emptyStats()];
   census(game.pos.board, [stats[0].start, stats[1].start]);
-  const events: Events = {
-    archerShots: [0, 0], beastChains: [[], []], maesterSwaps: [0, 0], maesterLongSwaps: [0, 0],
-    paladinSacrifices: [0, 0], promotions: [0, 0], checks: [0, 0],
-    ogreShoves: [0, 0], ogreShovesFriend: [0, 0], ogreShovesGuard: [0, 0], catapultChecks: [0, 0],
-  };
+  const events = emptyEvents();
   const moves: PlyRecord[] = [];
   const history: number[] = [];
   const touched = new Uint8Array(64);
@@ -219,21 +216,6 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
       bump(stats[c].captures, letter, move.captures.length);
       for (const v of move.captures) { touched[v] = 1; bump(stats[c ^ 1].taken, LETTERS[typeOf(pos.board[v])]); }
     }
-    if (mt === A && move.to === move.from) events.archerShots[c]++;
-    if (mt === S && move.captures.length) events.beastChains[c].push(move.captures.length);
-    if (move.swap) {
-      events.maesterSwaps[c]++;
-      if (typeOf(pos.board[move.to]) === K) events.maesterLongSwaps[c]++;
-    }
-    if (move.selfRemove) events.paladinSacrifices[c]++;
-    if (move.promo) events.promotions[c]++;
-    if (move.shove) {
-      const shoved = pos.board[move.shove.from];
-      events.ogreShoves[c]++;
-      if (colorOf(shoved) === c) events.ogreShovesFriend[c]++;
-      if (typeOf(shoved) === G) events.ogreShovesGuard[c]++;
-    }
-
     moves.push({
       lan: toLan(pos, move),
       ...(cp === undefined ? {} : { cp }), ...(depth === undefined ? {} : { depth }),
@@ -243,7 +225,8 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
     });
     game.play(move);
     applyDrawRules(game);
-    if (game.inCheck) { events.checks[c]++; if (mt === C) events.catapultChecks[c]++; }
+    // The one event counter, shared with `replayRecord`, so a stored game can be re-read and checked.
+    countMove(events, pos, move, game.pos);
 
     // Fishtest-style live adjudication: resign on a lasting big eval, draw on a lasting dead one.
     if (cp !== undefined && adj) {

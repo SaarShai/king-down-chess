@@ -1,5 +1,6 @@
 /** Game state (no rendering) and the AI worker wrapper. */
 import { Move, Position, Status, inCheck, legalMoves, makeMove, status } from './rules/engine';
+import { RULES } from './rules/rules';
 import { randomBackRank, startPosition, toFen, toLan } from './rules/setup';
 import { SearchOptions, SearchResult, search } from './ai/search';
 
@@ -120,7 +121,10 @@ export class Engine {
         resolve(search(pos, opts));
       }, (opts.timeMs ?? 1000) + 2500);
       worker.addEventListener('message', onMessage);
-      worker.postMessage({ id, pos, opts });
+      // The rules the page is playing, by value. Snapshot at call time: `?rules=`/`?kings=` set them
+      // before the first game, and a restored save may set them again before the AI's first move.
+      // `worker.postMessage` structured-clones it, so later mutations cannot race the search.
+      worker.postMessage({ id, pos, opts, rules: { ...RULES } });
     });
   }
 

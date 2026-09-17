@@ -120,11 +120,21 @@ export function loadNet(b64: string, kind: NetKind = 'full'): void {
   OUT_W.set(w.subarray(o, o += 2 * HIDDEN));
   OUT_B = w[o];
   KIND = kind;
+  CURRENT_B64 = b64;
 }
 
 let KIND: NetKind = 'full';
 /** What the net now in memory predicts. */
 export const netKind = (): NetKind => KIND;
+
+/**
+ * The blob now loaded, or null when none is. `setEvalParams` compares against it, so a per-ply
+ * evaluation swap does not re-parse a 118 kB base64 string at every move; `arms` embeds it in each
+ * arm file so a recorded match can be reproduced from the files alone.
+ */
+let CURRENT_B64: string | null = null;
+export const loadedNetB64 = (): string | null => CURRENT_B64;
+export const netBlob = (): { b64: string; kind: NetKind } | null => (CURRENT_B64 ? { b64: CURRENT_B64, kind: KIND } : null);
 
 /** True once a real net is loaded; an all-zero blob is the "not trained yet" placeholder. */
 export let netLoaded = false;
