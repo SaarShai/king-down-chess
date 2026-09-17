@@ -329,6 +329,16 @@ await caseFn('mobile layout has no horizontal overflow', '', async (page, errors
   return ok ? true : `scrollW=${m.scrollW} innerW=${m.innerW} canvas=${m.canvas} errors=${errors.join(' | ')}`;
 });
 
+// A shared `?style=` link must win over the autosave (the save used to override it silently).
+await caseFn('?style wins over the autosaved style', '', async (page, errors) => {
+  await page.goto(`${BASE}?style=sprites`);
+  await page.waitForFunction(() => window.view && document.getElementById('setup').title.length > 5, null, { timeout: 40000 });
+  await page.waitForTimeout(700);
+  const s = await page.evaluate(() => ({ style: document.getElementById('style').value, pieces: window.view.pieces.size }));
+  const ok = s.style === 'sprites' && s.pieces > 0 && errors.length === 0;
+  return ok ? true : `style=${s.style} pieces=${s.pieces} errors=${errors.join(' | ')}`;
+});
+
 await browser.close();
 console.log('\n' + results.map(r => `${r.ok ? 'PASS' : 'FAIL'} ${r.id}`).join('\n'));
 process.exit(results.every(r => r.ok) ? 0 : 1);

@@ -409,7 +409,9 @@ addEventListener('keydown', e => {
 /** `?fen=` wins over the autosave; settings go in before applyStyle(), the game after the models load. */
 const saved = params.has('fen') ? null : readSave();
 if (saved) {
-  if (saved.style && STYLES[saved.style]) styleSel.value = saved.style;
+  // An explicit `?style=` wins over the autosave, exactly as `?fen=` does: a shared style link must
+  // work for a returning visitor. Without the guard the saved style silently overrode the URL.
+  if (!params.has('style') && saved.style && STYLES[saved.style]) styleSel.value = saved.style;
   if (saved.white) $<HTMLSelectElement>('white').value = saved.white;
   if (saved.black) $<HTMLSelectElement>('black').value = saved.black;
   if (saved.think) $<HTMLInputElement>('think').value = String(saved.think);
