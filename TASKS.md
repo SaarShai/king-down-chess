@@ -181,12 +181,12 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 
 ### Phase 6 — supporting analysis, art, docs
 - [x] Liveliness: one frozen depth-3 dataset, split by arrangement, held-out integer score, bootstrap CIs; the gain is real but the filter thins the guard and maester of games, so **no filter adopted**. Report: `docs/research/setup-liveliness-2026-09-14.md` (completed 2026-09-16); tool `tools/liveliness.ts`.
-- [x] Tiles: before/after report and browser QA written (`docs/research/tiles-proc/README.md`, `tools/tiles-proc.mjs` now measures fps and fails on console errors; artifacts regenerated). B4 option presented; default unchanged; the JPEGs must leave the published file list if B4 is adopted. fps re-check pending a free machine.
+- [x] Tiles: before/after report and browser QA written (`docs/research/tiles-proc/README.md`, `tools/tiles-proc.mjs` now measures fps and fails on console errors; artifacts regenerated). B4 option presented; default unchanged; the JPEGs must leave the published file list if B4 is adopted. fps re-checked on a free machine (21.4 vs 21.6, no difference).
 - [x] Docs/queues reconciled: TASKS stale "waiting/not published/running" lines annotated with their resolution; QUEUE's Q4/Q6/Q7 rewritten (Phase 2); RUNS batch-2 dangling reference repaired and batch 3 marked ran; MATRIX status note (six tier-1 powers built lab-only); RULES §4/§6.10 updated; PIECES-PROPOSED notes O/C built lab-only; STATUS-2026-09-13 and docs/status carry historical banners; dashboard regenerated (221 runs, 122 reports, 461,833 games).
 
 ### Phase 7 — release preparation (no publication)
 - [x] Smallest validated change set chosen; unvalidated candidates stay disabled (powers off, lab pieces out of the pool, linear evaluator, B4 not default).
-- [x] `tsc` clean; 173 tests pass; review build in `dist-review/` (144 files, digest `faaf00ee8615fa17`, worker bundle `worker-C8IVcIyN.js` verified); browser QA **14/14** incl. full game (mate in 203 plies), cancellation, promotion, undo, save/restore, mobile.
+- [x] `tsc` clean; 173 tests pass; review build in `dist-review/` (built from `ce90454`, 144 files, digest `fb150cec4218bd6a`, worker bundle `worker-C8IVcIyN.js` verified); browser QA **16/16** incl. full game (draw by repetition, 71 plies, 39 s on a free machine), cancellation, promotion, undo, save/restore, mobile, 2017/2021 presets and `?style=` over the autosave.
 - [x] Release summary: `docs/RELEASE-REVIEW-2026-09-16.md` — tested behaviour, disabled candidates, limitations (licensing blocks publication), and the publication note. **Not published.**
 
 ## Phase 2 — Later (not scheduled)

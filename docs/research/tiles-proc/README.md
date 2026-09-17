@@ -36,11 +36,11 @@ Visual read of the crops: the procedural stone keeps the light/dark contrast and
 frame, with coarser grain and more pronounced tile borders than the photo. No console errors in
 either style.
 
-**Performance caveat:** the fps check ran at 5.1 (photo) vs 3.8 (procedural) — while the Q6
-generation campaign held all 16 cores, so both numbers are load-limited and the gap is noise. The
-change substitutes one texture (same geometry, same draw calls, no new state), so no real difference
-is expected; re-measure on a free machine before quoting a number. Re-run:
-`node tools/tiles-proc.mjs http://localhost:5173`.
+**Performance:** re-measured 2026-09-17 with the machine free — **21.4 fps** (photo tiles) vs **21.6**
+(procedural) in headless Chromium: identical within noise, as expected for a texture substitution
+(same geometry, same draw calls, no new state). The absolute number is headless-renderer bound; the
+comparison is the measurement. The earlier 5.1/3.8 reading was taken while all 16 cores were busy with
+the Q6 campaign and is superseded. Re-run: `node tools/tiles-proc.mjs http://localhost:5173`.
 
 ## The default-style decision (for the owner)
 
@@ -57,5 +57,5 @@ the designer's; the before/after crops are side by side in this directory.
 
 - [x] Generator, `means.json`, before/after screenshots (`before.png`, `after.png`, `*-crop.png`).
 - [x] Browser QA: both styles load, no console errors, screenshots regenerated from the current build.
+- [x] fps re-checked on a free machine (2026-09-17): 21.4 vs 21.6 fps, no difference.
 - [ ] Default decision (owner) and, if adopted, removing the three JPEGs from the published package.
-- [ ] Re-run the fps check with the machine free.

@@ -6,7 +6,7 @@ One page to point at. Everything else is history or detail.
 
 - **Published game: v0.7.0** — one-guard immortal Wall, no guard promotion, paladin survives pawn
   captures (`paladinKamikaze=nonPawn`), archer/beast move any direction, linear evaluator.
-- **Review build of the takeover work** (`dist-review/`, commit `b2a9ebc`, not published): the same
+- **Review build of the takeover work** (`dist-review/`, built from `ce90454`, not published): the same
   gameplay plus the fixes below. `docs/RELEASE-REVIEW-2026-09-16.md` has the evidence list.
 - Run it locally: `npm run dev` → http://localhost:5173. URL variants: `?rules=2017|2021`,
   `?kings=<king>:<power>[,<king>:<power>]`, `?style=…`, `?fen=…`.
@@ -48,8 +48,11 @@ quoted.
 
 ## Verification snapshot
 
-`npx tsc --noEmit` clean; `npx vitest run` 173 tests pass; browser QA 14/14 on the review build, two
-added preset cases passing on the dev source (`tools/qa.mjs`, `QA_ONLY=` runs a subset).
+`npx tsc --noEmit` clean; `npx vitest run` 173 tests pass; browser QA **16/16** on the rebuilt review
+bundle (incl. a full AI game, cancellation, promotion, undo, save/restore, mobile, the 2017/2021
+presets and the `?style=` URL); tiles fps measured on a free machine (21.4 vs 21.6 — no difference).
+Every campaign report's verdict went through `tools/verify-claims.mjs` with controls (invalid
+instruments exit 2).
 
 ## Where the detail lives
 

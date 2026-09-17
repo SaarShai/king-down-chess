@@ -16,7 +16,7 @@ Phase 2–5 validated:
 | Simulation runs carry an immutable identity (`rulesKey`/`specKey`/`src`); `checkResume` refuses unstamped, torn, mixed, changed-spec and changed-source files; summaries stream (the old read crashed on >512 MB) | `src/sim/sim.test.ts`; smoke run `smoke2` |
 | Sampling replays under the recorded rules, validates events, writes fingerprints, and is atomic (a refused sample cannot truncate the corpus) | `src/sim/gen.ts`, `src/sim/tune.ts`; the refused `nnue-g1` sample left `positions.bin` untouched |
 | Stop-on-failure Q6 chain; candidate net written to `sim/nnue/`, never `src/`; match arms pin the net blob | `tools/q6-chain.sh`, `tools/q6-validate.mjs`; gate fixture rejected at 0.45 |
-| Lab UI: Ogre shove selection (shift-click disambiguates capture vs shove), shove animation, shoves highlight; six-power guide text | `tools/qa.mjs` 14/14 |
+| Lab UI: Ogre shove selection (shift-click disambiguates capture vs shove), shove animation, shoves highlight; six-power guide text; `?style=` links win over the autosave | `tools/qa.mjs` 16/16 |
 | Kings: 21 rule tests, browser/worker coverage, campaign queued | `src/rules/rules.test.ts`; `docs/research/sim-kings-2026-09-16.md` (skeleton + open owner questions) |
 | Docs/dashboard/liveliness/tiles reports reconciled | Phase 6 commits `a3eeaaa`, `591ff67` |
 
@@ -26,14 +26,10 @@ Phase 2–5 validated:
 |---|---|
 | `npx tsc --noEmit` | clean |
 | `npx vitest run` | **173 tests in 6 files pass** |
-| Review build | `npx vite build --outDir dist-review` — 144 files, manifest digest `faaf00ee8615fa17` |
-| Bundles | `assets/index-BTyxE5sm.js` (`a369ffa96468a771`), **`assets/worker-C8IVcIyN.js`** (`2dba63547f796c62`, the AI worker), `assets/index-DQoaMBkc.css` (`db1913d7a83eb7fc`, identical to v0.7) |
-| Browser QA against `vite preview` over `dist-review` | **14/14**, zero console errors: paladin default/2017, rule-restoring autosave, Ogre friend shove + undo, capture-vs-shove, Catapult lob, AI reply in a lab position, kings restore, Death Touch in the real worker, Darkness restore, **full AI game (checkmate, 203 plies, 426 s under load)**, cancellation mid-search, promotion picker, mobile 390×844 with no horizontal overflow |
+| Review build | `npx vite build --outDir dist-review` from commit `ce90454` — 144 files, manifest digest `fb150cec4218bd6a` |
+| Bundles | `assets/index-CRWS2UPA.js` (`c6a99433f25b2510`), **`assets/worker-C8IVcIyN.js`** (`2dba63547f796c62`, the AI worker, unchanged by the late fixes), `assets/index-DQoaMBkc.css` (`db1913d7a83eb7fc`, identical to v0.7) |
+| Browser QA against `vite preview` over `dist-review` | **16/16**, zero console errors: paladin default/2017, default-vs-2021 archer step, rule-restoring autosave, `?style=` vs autosave, Ogre friend shove + undo, capture-vs-shove, Catapult lob, AI reply in a lab position, kings restore, Death Touch in the real worker, Darkness restore, **full AI game (draw by repetition, 71 plies, 39 s on a free machine; an earlier run under load ended in mate at 203 plies)**, cancellation mid-search, promotion picker, mobile 390×844 with no horizontal overflow |
 | Harness | `tools/qa.mjs` (`QA_BASE=http://localhost:4173/ node tools/qa.mjs`; `QA_ONLY=<substring>` runs a subset) |
-
-Two preset cases were added to the harness after this build (`default archer steps diagonally`,
-`?rules=2021 archer has no diagonal step`); both pass against the dev source. Re-run the full harness
-on the next build.
 
 ## Deliberately not included (unvalidated or owner-owned)
 
