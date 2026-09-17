@@ -165,7 +165,7 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [ ] Audit the 686 prefix vs the later cohort by launch records and move replay; exclude what cannot be established.
 - [ ] Freeze the accepted dataset + linear teacher; explicit old-paladin-vs-current decision; replacement data only for a demonstrated gap.
 - [ ] Train one residual candidate; record source/dataset/model hashes and validation.
-- [ ] Staged acceptance: 400-game gate, 1,600-game depth-3, depth-4 confirmation, speed check; accept/reject report.
+- [ ] Staged acceptance: 400-game gate, 1,600-game depth-3, depth-4 confirmation, speed check; accept/reject report. **Running:** `nnue-g2` generation in the pinned worktree; then `tools/q6-collect.sh` copies the evidence to `sim/q6-g2/` and writes `docs/research/ai-q6-acceptance-2026-09-16.md` automatically. When it lands, run `tools/verify-claims.mjs` on the verdict before quoting it (controls gate the instrument; exit 2 = invalid).
 
 ### Phase 4 — Ogre/Catapult
 - [x] Audit the 13,600-game outputs and `np-N` control against frozen identities. `tools/q6-audit.ts`: all 13,600 games present (3×2000 + 4×1600 + 4×300); every arm's stamp matches its reading (`{}` / `ogreMode=push` / `catapultCapture=land`) on the one-guard pool; 64-game replay per arm is clean under `paladinKamikaze=nonPawn` (15–21 of 64 distinguish it from the excluded `always`). The faulty first `np-N` is not in these files.
