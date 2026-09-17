@@ -27,7 +27,7 @@ One page to point at. Everything else is history or detail.
 | job | what lands |
 |---|---|
 | Q6 replacement (`nnue-g2`) | **Done 2026-09-17: ACCEPTED as a candidate** (+139 ± 14 Elo depth 3, +149 ± 37 depth 4, speed bar passed) — `docs/research/ai-q6-acceptance-2026-09-16.md`; default stays linear until an adoption decision |
-| Ogre/Catapult follow-up | **Done 2026-09-17:** depth-4 confirms `push` grows (+10.2 ± 4.7 decisive) but shifts White +4.9 ± 3.1; Ogre value 2.43 ± 0.58 pawns (not converged); Catapult weak — report §7 |
+| Ogre/Catapult follow-up | **Done 2026-09-17:** depth-4 confirms `push` (+10.2 ± 4.7 decisive); re-run at the measured price (O=195) keeps the sharpening (+9.0 ± 4.9) and removes the White shift (blocker was the over-priced seed); Ogre value 2.43 ± 0.58 pawns (not converged); Catapult weak — report §7 |
 | Kings campaign | **Done 2026-09-17:** Darkness/March/Leap sharpen decisively, Mercy smaller, Holy Light flat, **Death Touch makes games less decisive** (contrary to the plan); report + owner questions in `docs/research/sim-kings-2026-09-16.md` |
 
 Each report's verdict gets a control-gated Jev claim check (`tools/verify-claims.mjs`) before it is
@@ -53,7 +53,9 @@ bundle (incl. a full AI game, cancellation, promotion, undo, save/restore, mobil
 presets and the `?style=` URL); tiles fps measured on a free machine (21.4 vs 21.6 — no difference).
 Every campaign report's verdict went through `tools/verify-claims.mjs` with controls (invalid
 instruments exit 2). Jev claim review of the rules, rejections and campaign results:
-`docs/research/jev-review-2026-09-17.md` (advisory: archer is the hidden risk, p 0.97).
+`docs/research/jev-review-2026-09-17.md` (advisory: archer is the hidden risk, p 0.97). Jev session
+player (`tools/jev-play.ts`, report `docs/research/jev-sessions-2026-09-17.md`): plan steering costs
+nothing with a feature-only ballot (0.562 vs 0.500 control) and 8% overrides.
 
 ## Where the detail lives
 

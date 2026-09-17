@@ -237,9 +237,12 @@ the findings:
   freed the cores). Three results:
   - **`push` vs `repel` at depth 4, 800 games an arm**: decisive **+0.102 ± 0.047** (it was
     +0.053 ± 0.030 at depth 3 — the effect grows with depth, it does not wash out), draws
-    **−0.104 ± 0.048**, plies +4.6 ± 4.2. But the paired **White score moved +0.049 ± 0.031** (base
-    0.516 → push 0.564), where depth 3 was flat (−0.011 ± 0.027): at greater depth the pushing Ogre
-    hands White about five points. That is a new balance caution, not a refutation.
+    **−0.104 ± 0.048**, plies +4.6 ± 4.2. At the over-priced seed (O=300) the paired **White score
+    moved +0.049 ± 0.031** (base 0.516 → push 0.564).
+  - **The same A/B re-run at the measured price (O=195 both arms, seed 72, 2026-09-17)**: decisive
+    **+0.090 ± 0.049**, draws **−0.069 ± 0.048**, capped −0.021 ± 0.011 — and the **White shift is
+    gone (+0.005 ± 0.028)**. The earlier balance caution was an artefact of the over-priced Ogre, not
+    of the push reading.
   - **Ogre `repel` re-seeded to 195 cp**: the odds arm now reads **−47 ± 37 Elo** vs a knight →
     implied **2.43 ± 0.58 pawns**, up from 1.95 at the over-priced 300 cp seed; next seed 243. Not
     converged — the value is between 2.0 and 3.0.

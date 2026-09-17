@@ -82,3 +82,17 @@ justifies testing X") is refused for a different reason: the numbers do not enta
 
 **Deleted after failed controls** (do not trust): game-pattern classification, rule red-teaming,
 guide-text checking and document triage (LESSONS.md 2026-09-16/17).
+
+## 5. Actions taken on the advisory picks (2026-09-17)
+
+- **Archer pricing (hidden risk, p 0.97).** Ran `ab-archer-val` (800 games an arm, depth 3, common
+  ranks and seeds) with A=270 against the shipped A=337. **Null result on every game-level metric**
+  (white score −0.003 ± 0.040, decisive +0.019 ± 0.034; only branching moved, +0.4 ± 0.3). The
+  eval-versus-odds disagreement is real, but re-pricing the archer alone is not a measurable lever at
+  this granularity. Hypothesis for a future measurement: the archer's value may be context-dependent
+  (odds arms play it inside a classic army; the Texel fit sees fairy-heavy positions).
+- **Ogre push repricing (next A/B, p 0.51).** Ran `ab-O-push-d4-reprice` at depth 4 with the measured
+  price on both arms (O=195). Push keeps its sharpening (**+9.0 ± 4.9** decisive points, draws
+  −6.9 ± 4.8) and the depth-3 White shift **disappears** (+0.5 ± 2.8). The adoption blocker was an
+  artefact of the over-priced Ogre. Push remains the reading to pick if the piece is ever promoted;
+  the Ogre's own value still needs one more convergence pass (last read 2.43 ± 0.58 pawns).

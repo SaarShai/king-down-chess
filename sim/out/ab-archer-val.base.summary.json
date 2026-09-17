@@ -1,0 +1,39 @@
+{
+  "spec": {
+    "id": "ab-archer-val.base",
+    "games": 800,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "values": {
+      "A": 337
+    },
+    "baseValues": {
+      "A": 337
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "rules": {}
+  },
+  "games": 800,
+  "seconds": 96.6,
+  "whiteScore": 0.5325,
+  "whiteWins": 310,
+  "draws": 232,
+  "blackWins": 258,
+  "meanPlies": 117.8,
+  "reasons": {
+    "adjudicatedResign": 568,
+    "adjudicatedDraw": 193,
+    "plyCap": 11,
+    "drawRepetition": 12,
+    "drawMaterial": 11,
+    "draw50": 4,
+    "stalemate": 1
+  }
+}
