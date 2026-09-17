@@ -23,7 +23,7 @@ const CATAPULT_FEN = '7k/8/2n5/8/2p5/8/8/2C4K w - - 0 1';  // C c1, screen p c4,
 const sqOf = n => (('abcdefgh'.indexOf(n[0])) | ((+n[1] - 1) << 3));
 const results = [];
 const pass = (id, ok, detail) => { results.push({ id, ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'} ${id} — ${detail}`); };
-const CODE = { L: 8, l: 24, p: 17, n: 18, O: 12, C: 13, k: 22, P: 1 }; // type | colour<<4
+const CODE = { L: 8, l: 24, p: 17, n: 18, O: 12, C: 13, k: 22, P: 1, Q: 5 }; // type | colour<<4
 
 const browser = await chromium.launch();
 
@@ -77,7 +77,8 @@ async function caseFn(id, query, fn, opts = {}) {
   try {
     await boot(page, query, opts);
     const out = await fn(page, errors);
-    pass(id, !out || out === true, typeof out === 'string' ? out : 'ok');
+    if (out && typeof out === 'object' && 'ok' in out) pass(id, out.ok, out.detail ?? '');
+    else pass(id, !out || out === true, typeof out === 'string' ? out : 'ok');
   } catch (e) {
     pass(id, false, (e && e.message) || String(e));
   } finally { await ctx.close(); }
@@ -240,6 +241,68 @@ await caseFn('Darkness pawn capture survives save/restore', `?kings=shadow:darkn
   if (s.scene[sqOf('d5')] !== CODE.P) bad.push(`d5=${s.scene[sqOf('d5')] ?? 'empty'}`);
   if (errors.length) bad.push(errors.join(' | '));
   return bad.length ? bad.join('; ') : true;
+});
+
+// ---------------------------------------------------------------------------------------------
+// Release cases: a full AI game, cancellation mid-search, promotion, and the mobile layout.
+
+await caseFn('full AI vs AI game reaches a result', '', async (page, errors) => {
+  await page.evaluate(() => {
+    localStorage.removeItem('kingdown.save');
+    const think = document.getElementById('think'); think.value = '200'; think.dispatchEvent(new Event('change'));
+    document.getElementById('white').value = 'ai';
+    document.getElementById('black').value = 'ai';
+    document.getElementById('black').dispatchEvent(new Event('change'));
+  });
+  await page.click('#new-random');
+  const t0 = Date.now();
+  let last = -1, stalls = 0;
+  for (;;) {
+    await page.waitForTimeout(3000);
+    const st = await page.evaluate(() => ({
+      open: document.getElementById('over').open,
+      title: document.getElementById('over-title').textContent,
+      plies: (JSON.parse(localStorage.getItem('kingdown.save') || '{}').moves || []).length,
+    }));
+    if (st.open) return { ok: errors.length === 0, detail: `result: ${st.title} · ${st.plies} plies · ${((Date.now() - t0) / 1000).toFixed(0)}s${errors.length ? ' · errors: ' + errors.join(' | ') : ''}` };
+    stalls = st.plies === last ? stalls + 1 : 0;
+    last = st.plies;
+    if (stalls >= 40 || Date.now() - t0 > 1500000) return { ok: false, detail: `stalled at ${st.plies} plies after ${((Date.now() - t0) / 1000).toFixed(0)}s` };
+  }
+}, { humans: false });
+
+await caseFn('cancelling mid-search starts a clean game', '', async (page, errors) => {
+  await clickSq(page, 'e2');
+  await clickSq(page, 'e4');
+  await page.waitForTimeout(150); // the AI is thinking now
+  await page.click('#new-random');
+  await page.waitForTimeout(2500); // any stale answer would land here
+  const s = await snap(page);
+  const ok = s.moves === '' && /PPPPPPPP/.test(s.fen) && errors.length === 0;
+  return ok ? true : `moves="${s.moves}" fen="${s.fen}" errors=${errors.join(' | ')}`;
+});
+
+await caseFn('promotion picker promotes to a queen', `?fen=${encodeURIComponent('7k/P7/8/8/8/8/8/K7 w - - 0 1')}`, async (page, errors) => {
+  await clickSq(page, 'a7');
+  await clickSq(page, 'a8');
+  await page.waitForSelector('#promo button', { state: 'visible', timeout: 10000 });
+  await page.locator('#promo button').first().click(); // Q is first in the promotion set
+  await waitPly(page, 1);
+  await page.waitForTimeout(400);
+  const s = await snap(page);
+  const ok = s.moves.includes('a7-a8=Q') && s.scene[sqOf('a8')] === CODE.Q && errors.length === 0;
+  return ok ? true : `moves="${s.moves}" a8=${s.scene[sqOf('a8')] ?? 'empty'} errors=${errors.join(' | ')}`;
+});
+
+await caseFn('mobile layout has no horizontal overflow', '', async (page, errors) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(800);
+  const m = await page.evaluate(() => ({
+    scrollW: document.documentElement.scrollWidth, innerW: window.innerWidth,
+    canvas: (() => { const c = document.querySelector('#board canvas'); return c ? c.getBoundingClientRect().width : 0; })(),
+  }));
+  const ok = m.scrollW <= m.innerW + 1 && m.canvas > 100 && errors.length === 0;
+  return ok ? true : `scrollW=${m.scrollW} innerW=${m.innerW} canvas=${m.canvas} errors=${errors.join(' | ')}`;
 });
 
 await browser.close();

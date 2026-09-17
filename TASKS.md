@@ -185,7 +185,9 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [x] Docs/queues reconciled: TASKS stale "waiting/not published/running" lines annotated with their resolution; QUEUE's Q4/Q6/Q7 rewritten (Phase 2); RUNS batch-2 dangling reference repaired and batch 3 marked ran; MATRIX status note (six tier-1 powers built lab-only); RULES §4/§6.10 updated; PIECES-PROPOSED notes O/C built lab-only; STATUS-2026-09-13 and docs/status carry historical banners; dashboard regenerated (221 runs, 122 reports, 461,833 games).
 
 ### Phase 7 — release preparation (no publication)
-- [ ] Smallest validated change set; type-check, tests, separate review build, full browser QA; release summary.
+- [x] Smallest validated change set chosen; unvalidated candidates stay disabled (powers off, lab pieces out of the pool, linear evaluator, B4 not default).
+- [x] `tsc` clean; 173 tests pass; review build in `dist-review/` (144 files, digest `faaf00ee8615fa17`, worker bundle `worker-C8IVcIyN.js` verified); browser QA **14/14** incl. full game (mate in 203 plies), cancellation, promotion, undo, save/restore, mobile.
+- [x] Release summary: `docs/RELEASE-REVIEW-2026-09-16.md` — tested behaviour, disabled candidates, limitations (licensing blocks publication), and the publication note. **Not published.**
 
 ## Phase 2 — Later (not scheduled)
 - [ ] Kings' powers (docs/RULES.md §4) behind a variant config
