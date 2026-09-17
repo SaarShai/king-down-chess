@@ -1,0 +1,24 @@
+{
+  "games": 80000,
+  "kept": 7820736,
+  "noScore": 320000,
+  "inCheck": 325661,
+  "noisy": 889025,
+  "decided": 18317,
+  "val": 777201,
+  "runs": [
+    {
+      "id": "nnue-g2",
+      "games": 80000,
+      "bytes": 799653386,
+      "rulesKey": "0e2fb239",
+      "specKey": "5499b16edd36",
+      "src": "4ab790baf8b7"
+    }
+  ],
+  "sampledBy": "4ab790baf8b7",
+  "bytesPerPosition": 68,
+  "quietCp": 50,
+  "cpCap": 2000,
+  "valEvery": 10
+}

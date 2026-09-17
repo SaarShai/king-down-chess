@@ -1,2 +1,184 @@
 == waiting for tools/q6-chain.sh to finish
 == waiting for tools/q6-chain.sh to finish
+== chain done at 2026-09-17 03:14:30
+== 2026-09-17 03:14:30 npm run sim -- --id ov-O2-repel --experiment values --pieces O --games 300 --depth 3 --seed 1 --workers 16 --eloPerPawn 64 --values O=195
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id ov-O2-repel --experiment values --pieces O --games 300 --depth 3 --seed 1 --workers 16 --eloPerPawn 64 --values O=195
+
+[ov-O2-repel.O] 300 games (0 already done), 300 to play on 16 workers -> sim/out/ov-O2-repel.O.jsonl
+[ov-O2-repel.O] depth 3, 4 random opening plies, ply cap 300, pairs on
+[ov-O2-repel.O] rules {}, values {"O":195}
+[ov-O2-repel.O] 2/300  1.0 games/s  ETA 0h04m58s
+[ov-O2-repel.O] 17/300  4.2 games/s  ETA 0h01m06s
+[ov-O2-repel.O] 36/300  6.0 games/s  ETA 0h00m44s
+[ov-O2-repel.O] 52/300  6.5 games/s  ETA 0h00m38s
+[ov-O2-repel.O] 70/300  7.0 games/s  ETA 0h00m32s
+[ov-O2-repel.O] 90/300  7.5 games/s  ETA 0h00m28s
+[ov-O2-repel.O] 105/300  7.5 games/s  ETA 0h00m26s
+[ov-O2-repel.O] 121/300  7.6 games/s  ETA 0h00m23s
+[ov-O2-repel.O] 133/300  7.4 games/s  ETA 0h00m22s
+[ov-O2-repel.O] 146/300  7.3 games/s  ETA 0h00m21s
+[ov-O2-repel.O] 158/300  7.2 games/s  ETA 0h00m19s
+[ov-O2-repel.O] 172/300  7.2 games/s  ETA 0h00m17s
+[ov-O2-repel.O] 187/300  7.2 games/s  ETA 0h00m15s
+[ov-O2-repel.O] 202/300  7.2 games/s  ETA 0h00m13s
+[ov-O2-repel.O] 218/300  7.3 games/s  ETA 0h00m11s
+[ov-O2-repel.O] 234/300  7.3 games/s  ETA 0h00m09s
+[ov-O2-repel.O] 247/300  7.3 games/s  ETA 0h00m07s
+[ov-O2-repel.O] 259/300  7.2 games/s  ETA 0h00m05s
+[ov-O2-repel.O] 275/300  7.2 games/s  ETA 0h00m03s
+[ov-O2-repel.O] 291/300  7.3 games/s  ETA 0h00m01s
+[ov-O2-repel.O] 300 games in 0h00m41s (7.3 games/s)
+[ov-O2-repel.O] summary -> sim/out/ov-O2-repel.O.summary.json
+# Piece values — ov-O2-repel
+
+Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **knight** of the
+classic arrangement `RNBQKBNR` with one fairy piece, on one side only, and plays
+colour-reversed pairs. The last arm gives White pawn odds; it converts Elo into pawns.
+
+Depth 3, 300 games per arm, 4 random opening plies.
+Rules: defaults.
+Engine values: `O=195` (the rest keep `src/ai/eval.ts`).
+
+## Arms (scores are the fairy army's, folded over the colour swap)
+| arm | games | pairs | pentanomial | score | Elo ±95% | nElo | LOS | LLR | SPRT | draws | capped | plies |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| O | 300 | 150 | [42, 12, 59, 18, 19] | 0.433 | -47 ± 37 | -49 | 0.7% | -0.50 | continue | 10.7% | 0.0% | 100 |
+
+**One pawn = 64 Elo** at this depth
+(carried over with `--eloPerPawn`; no calibration arm was played here). Every
+implied value below carries that calibration error on top of its own.
+
+
+## Implied values
+| piece | Elo vs knight | Δ pawns | implied value (pawns) | engine seed | research prior | next seed (cp) |
+|---|---|---|---|---|---|---|
+| O (ogre) | -47 ± 37 | -0.73 ± 0.58 | 2.43 ± 0.58 | 1.95 | 3.00 | 243 |
+
+Implied value = knight (3.16) + Elo / 64.
+
+
+## Muller fixed-point update
+Write the "next seed" column into `src/ai/eval.ts`, then run this experiment again. The values are
+converged when a pass moves no piece by more than its error bar. A seed that inverts a plausible
+exchange makes self-play blind, so never stop after one pass.
+
+```ts
+export const OGRE_V = 243;
+```
+
+== 2026-09-17 03:15:12 npm run sim -- --id ov-C2-stay --experiment values --pieces C --games 300 --depth 3 --seed 1 --workers 16 --eloPerPawn 64 --values C=175
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id ov-C2-stay --experiment values --pieces C --games 300 --depth 3 --seed 1 --workers 16 --eloPerPawn 64 --values C=175
+
+[ov-C2-stay.C] 300 games (0 already done), 300 to play on 16 workers -> sim/out/ov-C2-stay.C.jsonl
+[ov-C2-stay.C] depth 3, 4 random opening plies, ply cap 300, pairs on
+[ov-C2-stay.C] rules {}, values {"C":175}
+[ov-C2-stay.C] 3/300  1.5 games/s  ETA 0h03m18s
+[ov-C2-stay.C] 15/300  3.7 games/s  ETA 0h01m16s
+[ov-C2-stay.C] 34/300  5.7 games/s  ETA 0h00m46s
+[ov-C2-stay.C] 46/300  5.7 games/s  ETA 0h00m44s
+[ov-C2-stay.C] 61/300  6.1 games/s  ETA 0h00m39s
+[ov-C2-stay.C] 71/300  5.9 games/s  ETA 0h00m38s
+[ov-C2-stay.C] 93/300  6.6 games/s  ETA 0h00m31s
+[ov-C2-stay.C] 110/300  6.9 games/s  ETA 0h00m27s
+[ov-C2-stay.C] 128/300  7.1 games/s  ETA 0h00m24s
+[ov-C2-stay.C] 145/300  7.2 games/s  ETA 0h00m21s
+[ov-C2-stay.C] 163/300  7.4 games/s  ETA 0h00m18s
+[ov-C2-stay.C] 179/300  7.5 games/s  ETA 0h00m16s
+[ov-C2-stay.C] 196/300  7.5 games/s  ETA 0h00m13s
+[ov-C2-stay.C] 209/300  7.5 games/s  ETA 0h00m12s
+[ov-C2-stay.C] 224/300  7.5 games/s  ETA 0h00m10s
+[ov-C2-stay.C] 243/300  7.6 games/s  ETA 0h00m07s
+[ov-C2-stay.C] 259/300  7.6 games/s  ETA 0h00m05s
+[ov-C2-stay.C] 272/300  7.6 games/s  ETA 0h00m03s
+[ov-C2-stay.C] 291/300  7.7 games/s  ETA 0h00m01s
+[ov-C2-stay.C] 300 games in 0h00m38s (7.7 games/s)
+[ov-C2-stay.C] summary -> sim/out/ov-C2-stay.C.summary.json
+# Piece values — ov-C2-stay
+
+Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **knight** of the
+classic arrangement `RNBQKBNR` with one fairy piece, on one side only, and plays
+colour-reversed pairs. The last arm gives White pawn odds; it converts Elo into pawns.
+
+Depth 3, 300 games per arm, 4 random opening plies.
+Rules: defaults.
+Engine values: `C=175` (the rest keep `src/ai/eval.ts`).
+
+## Arms (scores are the fairy army's, folded over the colour swap)
+| arm | games | pairs | pentanomial | score | Elo ±95% | nElo | LOS | LLR | SPRT | draws | capped | plies |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| C | 300 | 150 | [54, 19, 50, 11, 16] | 0.360 | -100 ± 37 | -104 | 0.0% | -0.96 | continue | 10.0% | 1.3% | 96 |
+
+**One pawn = 64 Elo** at this depth
+(carried over with `--eloPerPawn`; no calibration arm was played here). Every
+implied value below carries that calibration error on top of its own.
+
+
+## Implied values
+| piece | Elo vs knight | Δ pawns | implied value (pawns) | engine seed | research prior | next seed (cp) |
+|---|---|---|---|---|---|---|
+| C (catapult) | -100 ± 37 | -1.56 ± 0.58 ** | < 1.66 ** | 1.75 | 4.00 | 160 |
+
+Implied value = knight (3.16) + Elo / 64.
+
+** 1 swap(s) fall outside the linear band of ±1.5 pawns that Muller's method needs. The score
+saturates there, so the conversion under-reads the gap: take the marked rows as "far from a knight,
+on the side the bound points", not as a number. The fix is Muller's second step — hand the strong side a pawn and play
+again until the result brackets 50%. The next-seed column floors at 50 cp for the same reason.
+
+
+## Muller fixed-point update
+Write the "next seed" column into `src/ai/eval.ts`, then run this experiment again. The values are
+converged when a pass moves no piece by more than its error bar. A seed that inverts a plausible
+exchange makes self-play blind, so never stop after one pass.
+
+```ts
+export const CATAPULT_V = 160;
+```
+
+== 2026-09-17 03:15:52 npm run sim -- --spec sim/specs/newpieces/ab-O-push.json --experiment ab --id ab-O-push-d4 --games 800 --depth 4 --seed 51 --workers 16 --rule ogreMode=push
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --spec sim/specs/newpieces/ab-O-push.json --experiment ab --id ab-O-push-d4 --games 800 --depth 4 --seed 51 --workers 16 --rule ogreMode=push
+
+[ab-O-push-d4.base] 800 games (0 already done), 800 to play on 16 workers -> sim/out/ab-O-push-d4.base.jsonl
+[ab-O-push-d4.base] depth 4, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[ab-O-push-d4.base] rules {}, values {}
+[ab-O-push-d4.base] 0/800  0.0 games/s  ETA ?
+[ab-O-push-d4.base] 0/800  0.0 games/s  ETA ?
+[ab-O-push-d4.base] 0/800  0.0 games/s  ETA ?
+[ab-O-push-d4.base] 2/800  0.2 games/s  ETA 0h53m13s
+[ab-O-push-d4.base] 6/800  0.6 games/s  ETA 0h22m03s
+[ab-O-push-d4.base] 8/800  0.7 games/s  ETA 0h19m48s
+[ab-O-push-d4.base] 11/800  0.8 games/s  ETA 0h16m44s
+[ab-O-push-d4.base] 12/800  0.7 games/s  ETA 0h17m30s
+[ab-O-push-d4.base] 16/800  0.9 games/s  ETA 0h14m42s
+[ab-O-push-d4.base] 21/800  1.0 games/s  ETA 0h12m22s
+[ab-O-push-d4.base] 22/800  1.0 games/s  ETA 0h12m58s
+[ab-O-push-d4.base] 26/800  1.1 games/s  ETA 0h11m54s
+[ab-O-push-d4.base] 29/800  1.1 games/s  ETA 0h11m31s
+[ab-O-push-d4.base] 33/800  1.2 games/s  ETA 0h10m51s
+[ab-O-push-d4.base] 34/800  1.1 games/s  ETA 0h11m16s
+[ab-O-push-d4.base] 35/800  1.1 games/s  ETA 0h11m40s
+[ab-O-push-d4.base] 39/800  1.1 games/s  ETA 0h11m04s
+[ab-O-push-d4.base] 42/800  1.2 games/s  ETA 0h10m50s
+[ab-O-push-d4.base] 43/800  1.1 games/s  ETA 0h11m09s
+[ab-O-push-d4.base] 47/800  1.2 games/s  ETA 0h10m41s
+[ab-O-push-d4.base] 51/800  1.2 games/s  ETA 0h10m17s
+[ab-O-push-d4.base] 53/800  1.2 games/s  ETA 0h10m20s
+[ab-O-push-d4.base] 57/800  1.2 games/s  ETA 0h10m00s
+[ab-O-push-d4.base] 59/800  1.2 games/s  ETA 0h10m03s
+[ab-O-push-d4.base] 62/800  1.2 games/s  ETA 0h09m55s
+[ab-O-push-d4.base] 67/800  1.3 games/s  ETA 0h09m29s
+[ab-O-push-d4.base] 71/800  1.3 games/s  ETA 0h09m14s
+[ab-O-push-d4.base] 77/800  1.4 games/s  ETA 0h08m46s
+[ab-O-push-d4.base] 77/800  1.3 games/s  ETA 0h09m05s
+[ab-O-push-d4.base] 79/800  1.3 games/s  ETA 0h09m08s
+[ab-O-push-d4.base] 83/800  1.3 games/s  ETA 0h08m56s
+[ab-O-push-d4.base] 85/800  1.3 games/s  ETA 0h08m58s
+[ab-O-push-d4.base] 88/800  1.3 games/s  ETA 0h08m54s
+[ab-O-push-d4.base] 89/800  1.3 games/s  ETA 0h09m03s
+[ab-O-push-d4.base] 95/800  1.4 games/s  ETA 0h08m39s

@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "ov-C2-stay.C",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "values": {
+      "C": 175
+    },
+    "asymmetric": [
+      {
+        "white": "RCBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 39,
+  "whiteScore": 0.5367,
+  "whiteWins": 144,
+  "draws": 34,
+  "blackWins": 122,
+  "meanPlies": 96.3,
+  "reasons": {
+    "adjudicatedResign": 266,
+    "adjudicatedDraw": 19,
+    "drawRepetition": 4,
+    "draw50": 4,
+    "plyCap": 4,
+    "drawMaterial": 3
+  }
+}

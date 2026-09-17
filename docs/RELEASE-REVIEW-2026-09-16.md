@@ -65,3 +65,11 @@ on the next build.
 Not requested and not done. If it is requested: adopt the licence fix (or keep the current default and
 accept the JPEG terms), then publish from `dist-review`/a fresh `npm run build` and re-run
 `node tools/qa.mjs` against the published bundle.
+
+## Update — 2026-09-17
+
+The Q6 replacement chain finished and **the candidate passed every gate** (+167 ± 26 Elo at the
+400-game gate, +139 ± 14 at the 1 600-game depth-3 decision, +149 ± 37 at depth 4, speed 1 s depth
+5.92). This does **not** change this build: adoption means switching the default evaluator in
+`src/ai/eval.ts` to `residual`, rebuilding and republishing — a separate, owner-decided release step.
+Report: `docs/research/ai-q6-acceptance-2026-09-16.md`.

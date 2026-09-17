@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "ov-O2-repel.O",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "values": {
+      "O": 195
+    },
+    "asymmetric": [
+      {
+        "white": "ROBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 41.3,
+  "whiteScore": 0.5367,
+  "whiteWins": 145,
+  "draws": 32,
+  "blackWins": 123,
+  "meanPlies": 99.9,
+  "reasons": {
+    "adjudicatedResign": 268,
+    "adjudicatedDraw": 23,
+    "drawRepetition": 7,
+    "draw50": 2
+  }
+}

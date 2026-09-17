@@ -21,19 +21,23 @@ one-guard pools — `RUNS.md`, "Void run"). `pb-ab-base24` is clean for the old-
 recorded, **not a timeless current baseline**: after the 2026-09-14 paladin change it names the wrong
 rule set, so a new comparison needs a fresh control (a new id, one-guard pool, current rules).
 
-## Q6 — AI: 10× training data from the shipped engine, then a material + residual net — **UNVALIDATED, replacement planned**
+## Q6 — AI: 10× training data from the shipped engine, then a material + residual net — **RESOLVED 2026-09-17: candidate ACCEPTED, adoption pending**
 
-Started 2026-09-14. The inherited chain **completed** (marker `q6-2026-09-14.done`, 09:03) after the
-takeover review was written, but it is **not accepted**: generation exited 1 on a summary-write bug,
-the 80 000 records carry no rule/source stamp, sampling reset to the defaults of the day, and the
-400-game rejection gate was skipped. The outputs are preserved as historical evidence and labelled in
-`sim/out/UNVALIDATED-Q6.md`; do not train on them, resume them or publish a model from them.
+Started 2026-09-14. The inherited chain **completed** after the takeover review was written, but its
+80 000 records are **unvalidated and excluded**: no rule/source stamp, old-paladin semantics, gates
+skipped (`docs/research/ai-q6-audit-2026-09-16.md`; labels in `sim/out/UNVALIDATED-Q6.md`).
 
-The replacement chain is `tools/q6-chain.sh` (run it in a pinned worktree). It generates `nnue-g2`
-with a full stamp on every record, samples under the recorded rules, trains the residual candidate to
-`sim/nnue/weights-candidate.ts`, then applies the documented bar stage by stage — gate, decision,
-confirmation, speed — through `tools/q6-validate.mjs`, which alone writes the success marker.
-Plan and bar: `docs/research/ai-residual-plan-2026-09-14.md`. It gets its own report.
+The replacement chain `tools/q6-chain.sh` ran in a pinned worktree and **passed every stage**:
+generation 80 000 games under the shipped rules with full stamps, sampled 7 820 736 positions,
+trained a residual candidate (best validation 0.000674), then gate **+167 ± 26 Elo** (0.724, 400
+games), decision **+139 ± 14 Elo** (1 600 games), depth-4 **+149 ± 37** (200 games, no sign reversal)
+and speed **1 s depth 5.92** against the linear 6.08. Dataset and model hashes verified by
+`tools/q6-validate.mjs final`; claims checked with `tools/verify-claims.mjs`. Report:
+`docs/research/ai-q6-acceptance-2026-09-16.md`; evidence copied to `sim/q6-g2/`.
+
+**Adoption is a separate release decision** (switch `src/ai/eval.ts` to `residual`, rebuild, republish);
+the default stays `linear` until the owner asks for that. The candidate blob is in
+`sim/q6-g2/nnue/weights-candidate.ts`, never in `src/`.
 
 ## Q7 — Paladin `nonPawn` at depth 4 (confirmation before it ships; SIM-PLAN §9)
 

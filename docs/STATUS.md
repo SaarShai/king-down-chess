@@ -26,7 +26,7 @@ One page to point at. Everything else is history or detail.
 
 | job | what lands |
 |---|---|
-| Q6 replacement (`nnue-g2`, in the pinned worktree) | `docs/research/ai-q6-acceptance-2026-09-16.md` via `tools/q6-collect.sh` |
+| Q6 replacement (`nnue-g2`) | **Done 2026-09-17: ACCEPTED as a candidate** (+139 ± 14 Elo depth 3, +149 ± 37 depth 4, speed bar passed) — `docs/research/ai-q6-acceptance-2026-09-16.md`; default stays linear until an adoption decision |
 | Ogre/Catapult follow-up | re-seed odds arms + depth-4 `push` confirmation in their reports |
 | Kings campaign | `docs/research/sim-kings-2026-09-16.md` via `tools/kings-summary.ts` |
 
@@ -40,7 +40,9 @@ quoted.
 2. Tiles: adopt B4 procedural stone and remove the three textures.com JPEGs from the published files
    (licensing blocker), or keep the photo tiles and their terms.
 3. Maester `maesterSwapAny` (measured free, not adopted).
-4. Q6 model: adopt only if it passes the staged bar; changing the default is a separate release step.
+4. Q6 model: the replacement candidate **passed** the staged bar (2026-09-17). Adopting it means
+   switching the default evaluator, a one-word change plus a rebuild — a release step, not an
+   automatic consequence of the run.
 
 ## Verification snapshot
 

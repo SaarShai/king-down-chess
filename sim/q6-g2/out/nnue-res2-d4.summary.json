@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "nnue-res2-d4",
+    "games": 200,
+    "seed": 7105,
+    "ai": {
+      "depth": 4
+    },
+    "pairs": true,
+    "backRanks": {
+      "sample": 100
+    },
+    "openingRandomPlies": 4,
+    "maxPlies": 300,
+    "evalParams": {
+      "white": "sim/nnue/eval-residual.json",
+      "black": "sim/nnue/eval-linear.json"
+    }
+  },
+  "games": 200,
+  "seconds": 206.9,
+  "whiteScore": 0.4775,
+  "whiteWins": 71,
+  "draws": 49,
+  "blackWins": 80,
+  "meanPlies": 132.2,
+  "reasons": {
+    "adjudicatedResign": 151,
+    "adjudicatedDraw": 36,
+    "draw50": 7,
+    "plyCap": 4,
+    "drawMaterial": 2
+  }
+}
