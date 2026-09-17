@@ -1,0 +1,43 @@
+{
+  "white": "jev",
+  "black": "engine",
+  "games": 2,
+  "depth": 2,
+  "seed": 5,
+  "whiteWins": 0,
+  "draws": 2,
+  "decisive": 0,
+  "meanPlies": 40,
+  "jevCalls": 32,
+  "jevDiffered": 3,
+  "movesTotal": 80,
+  "summary": [
+    {
+      "game": 0,
+      "setup": "MBAKSLAM",
+      "result": "draw",
+      "reason": "plyCap",
+      "plies": 40,
+      "themes": {
+        "improve_position": 34,
+        "win_material": 2,
+        "save_piece": 2,
+        "archer_crossfire": 1,
+        "maester_reposition": 1
+      }
+    },
+    {
+      "game": 1,
+      "setup": "SMSNKBNA",
+      "result": "draw",
+      "reason": "plyCap",
+      "plies": 40,
+      "themes": {
+        "improve_position": 27,
+        "maester_reposition": 3,
+        "win_material": 6,
+        "save_piece": 4
+      }
+    }
+  ]
+}

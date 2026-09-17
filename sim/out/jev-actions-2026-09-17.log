@@ -1,0 +1,39 @@
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id ab-archer-val --experiment ab --games 800 --sample 40 --depth 3 --seed 71 --workers 16 --baseValues A=337 --values A=270
+
+[ab-archer-val.base] 800 games (0 already done), 800 to play on 16 workers -> sim/out/ab-archer-val.base.jsonl
+[ab-archer-val.base] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[ab-archer-val.base] rules {}, values {"A":337}
+[ab-archer-val.base] 3/800  1.5 games/s  ETA 0h08m51s
+[ab-archer-val.base] 15/800  3.7 games/s  ETA 0h03m29s
+[ab-archer-val.base] 29/800  4.8 games/s  ETA 0h02m39s
+[ab-archer-val.base] 50/800  6.2 games/s  ETA 0h02m00s
+[ab-archer-val.base] 66/800  6.6 games/s  ETA 0h01m51s
+[ab-archer-val.base] 83/800  6.9 games/s  ETA 0h01m43s
+[ab-archer-val.base] 104/800  7.4 games/s  ETA 0h01m33s
+[ab-archer-val.base] 119/800  7.4 games/s  ETA 0h01m31s
+[ab-archer-val.base] 134/800  7.4 games/s  ETA 0h01m29s
+[ab-archer-val.base] 152/800  7.6 games/s  ETA 0h01m25s
+[ab-archer-val.base] 168/800  7.6 games/s  ETA 0h01m22s
+[ab-archer-val.base] 183/800  7.6 games/s  ETA 0h01m21s
+[ab-archer-val.base] 203/800  7.8 games/s  ETA 0h01m16s
+[ab-archer-val.base] 222/800  7.9 games/s  ETA 0h01m12s
+[ab-archer-val.base] 241/800  8.0 games/s  ETA 0h01m09s
+[ab-archer-val.base] 257/800  8.0 games/s  ETA 0h01m07s
+[ab-archer-val.base] 273/800  8.0 games/s  ETA 0h01m05s
+[ab-archer-val.base] 291/800  8.1 games/s  ETA 0h01m03s
+[ab-archer-val.base] 310/800  8.1 games/s  ETA 0h01m00s
+[ab-archer-val.base] 328/800  8.2 games/s  ETA 0h00m57s
+[ab-archer-val.base] 343/800  8.2 games/s  ETA 0h00m56s
+[ab-archer-val.base] 354/800  8.0 games/s  ETA 0h00m55s
+[ab-archer-val.base] 368/800  8.0 games/s  ETA 0h00m54s
+[ab-archer-val.base] 384/800  8.0 games/s  ETA 0h00m52s
+[ab-archer-val.base] 400/800  8.0 games/s  ETA 0h00m50s
+[ab-archer-val.base] 418/800  8.0 games/s  ETA 0h00m47s
+[ab-archer-val.base] 433/800  8.0 games/s  ETA 0h00m45s
+[ab-archer-val.base] 450/800  8.0 games/s  ETA 0h00m43s
+[ab-archer-val.base] 467/800  8.0 games/s  ETA 0h00m41s
+[ab-archer-val.base] 485/800  8.1 games/s  ETA 0h00m39s
+[ab-archer-val.base] 502/800  8.1 games/s  ETA 0h00m36s
+[ab-archer-val.base] 518/800  8.1 games/s  ETA 0h00m34s

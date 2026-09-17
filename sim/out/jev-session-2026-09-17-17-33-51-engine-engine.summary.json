@@ -1,0 +1,138 @@
+{
+  "white": "engine",
+  "black": "engine",
+  "games": 8,
+  "depth": 3,
+  "seed": 94,
+  "whiteWins": 5,
+  "draws": 1,
+  "decisive": 7,
+  "meanPlies": 140.375,
+  "jevCalls": 0,
+  "jevDiffered": 0,
+  "movesTotal": 1123,
+  "summary": [
+    {
+      "game": 0,
+      "setup": "SRKNBAQA",
+      "result": "white",
+      "reason": "checkmate",
+      "plies": 165,
+      "themes": {
+        "improve_position": 115,
+        "save_piece": 26,
+        "win_material": 13,
+        "archer_crossfire": 2,
+        "give_check": 8,
+        "promote": 1
+      }
+    },
+    {
+      "game": 1,
+      "setup": "SMGBQKNN",
+      "result": "black",
+      "reason": "checkmate",
+      "plies": 124,
+      "themes": {
+        "improve_position": 75,
+        "save_piece": 23,
+        "win_material": 12,
+        "maester_reposition": 7,
+        "give_check": 6,
+        "promote": 1
+      }
+    },
+    {
+      "game": 2,
+      "setup": "MALAKSSQ",
+      "result": "black",
+      "reason": "checkmate",
+      "plies": 122,
+      "themes": {
+        "improve_position": 83,
+        "save_piece": 12,
+        "maester_reposition": 10,
+        "archer_crossfire": 2,
+        "win_material": 6,
+        "give_check": 8,
+        "promote": 1
+      }
+    },
+    {
+      "game": 3,
+      "setup": "QRSKLMAS",
+      "result": "white",
+      "reason": "checkmate",
+      "plies": 131,
+      "themes": {
+        "improve_position": 88,
+        "save_piece": 15,
+        "archer_crossfire": 4,
+        "maester_reposition": 14,
+        "win_material": 8,
+        "give_check": 1,
+        "promote": 1
+      }
+    },
+    {
+      "game": 4,
+      "setup": "ALKBSRNG",
+      "result": "white",
+      "reason": "checkmate",
+      "plies": 141,
+      "themes": {
+        "improve_position": 100,
+        "save_piece": 18,
+        "win_material": 9,
+        "archer_crossfire": 2,
+        "give_check": 11,
+        "promote": 1
+      }
+    },
+    {
+      "game": 5,
+      "setup": "RNGKRBSM",
+      "result": "white",
+      "reason": "checkmate",
+      "plies": 143,
+      "themes": {
+        "improve_position": 95,
+        "maester_reposition": 9,
+        "win_material": 12,
+        "save_piece": 16,
+        "give_check": 10,
+        "promote": 1
+      }
+    },
+    {
+      "game": 6,
+      "setup": "BANSMRMK",
+      "result": "draw",
+      "reason": "drawRepetition",
+      "plies": 100,
+      "themes": {
+        "improve_position": 67,
+        "win_material": 12,
+        "save_piece": 10,
+        "archer_crossfire": 2,
+        "maester_reposition": 5,
+        "give_check": 4
+      }
+    },
+    {
+      "game": 7,
+      "setup": "NGMRSKNL",
+      "result": "white",
+      "reason": "checkmate",
+      "plies": 197,
+      "themes": {
+        "improve_position": 142,
+        "save_piece": 25,
+        "maester_reposition": 11,
+        "win_material": 9,
+        "give_check": 8,
+        "promote": 2
+      }
+    }
+  ]
+}
