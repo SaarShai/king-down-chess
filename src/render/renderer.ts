@@ -19,6 +19,8 @@ export interface Highlights {
   moves?: number[];
   captures?: number[];
   swaps?: number[];
+  /** Squares holding a piece an Ogre may shove (occupied, never a capture). */
+  shoves?: number[];
   last?: number[];
   check?: number | null;
 }
@@ -142,7 +144,8 @@ export class BoardRenderer {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
   readonly world = new THREE.Group();
-  onSquareClick: (sq: number) => void = () => {};
+  /** `shift` lets the caller prefer a shove over the capture on the same occupied square. */
+  onSquareClick: (sq: number, shift: boolean) => void = () => {};
   onSquareHover: (sq: number | null) => void = () => {};
 
   private renderer: THREE.WebGLRenderer;
@@ -524,6 +527,7 @@ export class BoardRenderer {
     set(h.last, 0x2a3f6a);
     set(h.captures, 0x8a1f1f);
     set(h.swaps, 0x3f3f9a);
+    set(h.shoves, 0x8a5a10); // amber: a shove target is occupied like a capture, but nothing is taken
     if (h.check != null) set([h.check], 0xaa1010);
     if (h.selected != null) set([h.selected], 0x7a6a10);
     if (this.hovered != null && !this.tiles[this.hovered].material.emissive.getHex()) set([this.hovered], 0x2a2a2a);
@@ -549,7 +553,22 @@ export class BoardRenderer {
       this.debris.burst(tileCenter(sq).setY(0.2), [pal.m, pal.s, pal.a]);
       this.shake = Math.max(this.shake, 0.12);
     };
-    if (m.to === m.from) {
+    if (m.shove) {
+      // The shoved piece moves; under `push` the Ogre follows onto the square it left. No capture,
+      // no debris. The engine's `m.to` is the Ogre's own square under `repel` and the shove source
+      // under `push`, so the renderer reads `m.shove` and never the mode.
+      const shoved = this.pieces.get(m.shove.from);
+      if (shoved) {
+        await this.hop(shoved, m.shove.from, m.shove.to, 0.28, 0.25);
+        this.pieces.delete(m.shove.from);
+        this.pieces.set(m.shove.to, shoved);
+      }
+      if (m.to !== m.from) {
+        await this.hop(mover, m.from, m.to, 0.28, 0.2);
+        this.pieces.delete(m.from);
+        this.pieces.set(m.to, mover);
+      }
+    } else if (m.to === m.from) {
       await this.arrow(m.from, m.captures[0]);
       burst(m.captures[0]);
     } else if (m.swap) {
@@ -644,7 +663,7 @@ export class BoardRenderer {
     if (e.button !== 0 || d?.pointerId !== e.pointerId) return;
     if (Math.hypot(e.clientX - d.clientX, e.clientY - d.clientY) > 6) return;
     const sq = this.pick(e);
-    if (sq != null) this.onSquareClick(sq);
+    if (sq != null) this.onSquareClick(sq, e.shiftKey);
   }
 
   private hover(sq: number | null): void {

@@ -168,10 +168,10 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [ ] Staged acceptance: 400-game gate, 1,600-game depth-3, depth-4 confirmation, speed check; accept/reject report.
 
 ### Phase 4 — Ogre/Catapult
-- [ ] Audit the 13,600-game outputs and `np-N` control against frozen identities.
-- [ ] Finish report sections: matched comparisons, activity/shove frequency, uncertainty, limitations, recommendation.
-- [ ] Browser lab QA (selection, shove/lob, animation, undo, AI, save/restore).
-- [ ] Bounded next decision; keep both pieces outside the pool.
+- [x] Audit the 13,600-game outputs and `np-N` control against frozen identities. `tools/q6-audit.ts`: all 13,600 games present (3×2000 + 4×1600 + 4×300); every arm's stamp matches its reading (`{}` / `ogreMode=push` / `catapultCapture=land`) on the one-guard pool; 64-game replay per arm is clean under `paladinKamikaze=nonPawn` (15–21 of 64 distinguish it from the excluded `always`). The faulty first `np-N` is not in these files.
+- [x] Finish the report sections: `docs/research/sim-new-pieces-2026-09-14.md` §0, §3–§7. `tools/newpieces-stats.ts`. Matched `np-O` vs `np-N`: decisive **−6.5 ± 2.7 pts**, draws 25.2% → 31.7%; `np-C` neutral. A/B `push − repel`: decisive **+5.3 ± 3.0 pts**, draws −5.9; `land − stay` unresolved. Guard shoves 1.95% of games (`push` 2.94%), so no blockade claim.
+- [x] Browser lab QA: shove selection and animation were missing; fixed (`clickPath`, shift-click disambiguation, `shoves` highlight, renderer shove animation). `tools/qa.mjs` 8/8: paladin default/2017, rule-restoring autosave, friend shove + undo, capture-vs-shove, catapult lob, AI reply, kings save/restore.
+- [x] Bounded next decision: `tools/newpieces-followup.sh` (queued, waits for the Q6 chain) runs the re-seed pass (`O=195`, `C=175`) and the depth-4 `push` confirmation. Keep both pieces lab-only either way.
 
 ### Phase 5 — king powers
 - [ ] Reconcile semantics against the owner's rules; list material unresolved choices.

@@ -17,7 +17,15 @@ of each piece's two readings.
 
 ## 0. The short version, in plain words
 
-PLACEHOLDER-SHORT
+Both pieces work. **The Ogre's useful reading is the pushing one**: as a self-play composition it
+drags draws (−6.5 ± 2.7 decisive points against a knight control), but pushing gives back
++5.3 ± 3.0 decisive points and −5.9 ± 3.0 draw points against the shield-shape `repel` the engine
+ships as the toggle default. The Catapult is **unresolved between its two readings**: `land` halves
+how often it fires and the A/B's intervals (`+1.6 ± 2.8` score, `−0.9 ± 2.8` decisive) cover zero.
+The shove that motivates the Ogre — moving a **guard** out of the way — happened in **1.95% of games**
+in the composition run and **2.9%** with `push`: real, but rare, and it is not where the piece's value
+comes from. Both pieces stay lab-only; the next decision is a re-seeded value pass and one depth-4
+confirmation of `push` (about 25 minutes), scheduled after the Q6 chain. Details below.
 
 ---
 
@@ -144,3 +152,89 @@ shoves, eight plies earlier, and the Ogre dies far more often (survival 61% → 
 itself forward into the enemy. **The Catapult is a late piece exactly as designed**: its first lob
 lands around ply 49, two thirds of games never see one, and `land` roughly halves the rate again and
 delays it to ply 66 — landing in front of the enemy army is a way to die.
+
+---
+
+## 3. The composition runs (`np-*`): the piece against a knight
+
+Three 2 000-game runs on the **same 40 mirrored ranks and the same opening seeds**; the only
+difference is the piece that replaces a knight in both armies. Each game in `np-O` is therefore
+matched with the same game in `np-N`. Differences are paired game-by-game, ±95%.
+
+| comparison | white score | decisive | draws | mean plies |
+|---|---|---|---|---|
+| `np-N` control (two knights) | 0.522 | 74.3% | 25.2% | 113.8 |
+| `np-O` (two Ogres) | 0.535 (+0.013 ± 0.026) | **66.9% (−6.5 ± 2.7 pts)** | **31.7%** | 120.5 (+6.7 ± 3.0) |
+| `np-C` (two Catapults) | 0.536 (+0.015 ± 0.026) | 74.7% (+1.4 ± 2.6 pts) | 23.8% | 112.7 (−1.1 ± 3.1) |
+
+**The Ogre, as `repel`, is a draw machine**: it costs 6.5 decisive points and six plies. The Catapult
+is balance-neutral on this design and slightly sharper.
+
+## 4. The shove that motivates the Ogre is rare
+
+| arm | shoves/game | friendly | games with a guard shove | guard shoves/game |
+|---|---|---|---|---|
+| `np-O` (`repel`) | 3.33 | 3.12 | **39 / 2000 (1.95%)** | 0.023 |
+| `ab-O-push.base` (`repel`) | 3.31 | 3.08 | 31 / 1600 (1.94%) | 0.024 |
+| `ab-O-push.var` (`push`) | 3.97 | 3.94 | 47 / 1600 (2.94%) | 0.035 |
+
+The piece is designed to move a guard out of the way, and it does — in **about one game in fifty**.
+The frequency roughly doubles under `push`. That is not "solves guard blockades", and the report does
+not say it: the measured effect of the Ogre is a more open, longer, drawish game, with the guard shove
+as a highlight rather than the engine of the result.
+
+## 5. The two readings, head to head
+
+Both A/Bs are matched over the same 40 arrangements and opening seeds, 1 600 games an arm, depth 3.
+
+| metric | `push − repel` | `land − stay` |
+|---|---|---|
+| white score | −0.011 ± 0.027 | +0.016 ± 0.028 |
+| decisive | **+0.053 ± 0.030 (yes)** | −0.009 ± 0.028 |
+| draw rate | **−0.059 ± 0.030 (yes)** | +0.007 ± 0.026 |
+| mean plies | −1.0 ± 3.5 | +3.1 ± 3.7 |
+| killer move | +0.017 ± 0.016 | −0.006 ± 0.014 |
+| drama | +0.011 ± 0.011 | −0.010 ± 0.010 |
+| interest (min-use) | +0.016 ± 0.014 | +0.006 ± 0.008 |
+| lobs/game | — | **1.15 → 0.57** |
+| games with a lob | — | **62.3% → 45.3%** |
+
+**`push` wins its comparison**: it returns the decisiveness the composition run lost and cuts draws by
+almost six points, without moving balance, length or branching. **`land` is unresolved**: every
+interval covers zero, and its only clear effect is to halve how often the Catapult fires at all.
+"Unresolved" is the finding; a larger run is not obviously worth its machine time for a piece that is
+not being adopted.
+
+## 6. Validation of this campaign (2026-09-16 audit)
+
+The takeover review mistrusted this chain because the authoring agent failed and its scripts were
+stopped once for a half-edited engine. The audit is in `tools/q6-audit.ts` / `tools/newpieces-stats.ts`;
+the findings:
+
+- **Every expected game is present**: `np-*` 3 × 2 000, A/Bs 4 × 1 600, odds 4 × 300 = **13 600**.
+- **All compared arms used compatible conditions**: the same ranks, seeds, depth and pool; each
+  record carries the run's own rule stamp (`{}` for controls, `{ogreMode:'push'}`,
+  `{catapultCapture:'land'}`) on the one-guard pool `QLRRBBNNAAGMMSS`.
+- **Replay confirms the rules**: 64 sampled games per arm replay clean under their stamp, and 15–21 of
+  them distinguish `paladinKamakaze=nonPawn` from the old `always` — the campaign played the shipped
+  paladin rule. The faulty first `np-N` (played during a live engine edit) is not part of these files;
+  `chain2.sh` replayed it.
+- **Browser path** (`tools/qa.mjs`, 8/8 against the dev server): Ogre selection, friend shove,
+  capture-vs-shove by plain vs shift-click, animation end state, undo, Catapult lob, an AI reply in an
+  Ogre position, and rule restore from the autosave. The shove needed real UI work: without it a
+  `repel` shove (`to === from`, no captures) could never be selected, and the renderer had no shove
+  animation. `push` and `land` are deliberately URL-unreachable — the lab toggle is the only way in.
+
+## 7. Limitations and the bounded next decision
+
+- **Depth 3 only, and guessed seeds.** O = 300 and C = 400 centipawns over-price both default
+  readings (measured 1.95 and 1.75 pawns), so the search refuses trades it should take. The A/B
+  *differences* are robust to that (both arms carry the same seed); the absolute values are not.
+- **The re-seed pass and one depth-4 confirmation are the only follow-up worth running** (Muller's
+  standard step): re-seed `O=195`, `C=175`, re-measure the two default readings, and repeat
+  `push vs repel` at depth 4 with fresh seeds. `tools/newpieces-followup.sh` waits for the Q6 chain to
+  free the cores, refuses a dirty tree, and runs exactly those three experiments (~25 minutes).
+- **Recommendation.** Keep both pieces lab-only, outside `POOL` and `PROMOTIONS` (they are). If either
+  is ever promoted: choose **`push`**, and only after the re-seed pass. Do not adopt the Catapult on
+  this evidence.
+

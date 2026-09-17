@@ -15,7 +15,7 @@ import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { buildJobs } from '../src/sim/spec';
 import { replayRecord, eventsMatch } from '../src/sim/replay';
-import { setRules } from '../src/rules/rules';
+import { parseRule, setRules } from '../src/rules/rules';
 import type { GameRecord } from '../src/sim/game';
 
 const flags = process.argv.slice(2);
@@ -25,34 +25,43 @@ const flag = (name: string, dflt: string): string => {
 };
 const file = flag('file', 'sim/out/nnue-g1.jsonl');
 const wantGames = Number(flag('games', '200'));
+/** Lines to keep as the "prefix" (the Q6 corpus has 686 unknown-provenance records first). */
+const prefixLines = Number(flag('prefix', '686'));
+const stride = Number(flag('stride', '0')); // 0 = derive from the Q6 layout
+/** Extra pinned rules the run set (e.g. `--rules ogreMode=push`), applied to every replay. */
+const extra = flag('rules', '').split(',').filter(Boolean)
+  .reduce<Record<string, unknown>>((a, r) => ({ ...a, ...parseRule(r) }), {});
 
 interface Rec extends GameRecord { rulesKey?: string }
 const prefix: { gameId: number; configId: string }[] = [];
 const sampled: Rec[] = [];
 let lines = 0, stamped = 0;
+const every = stride > 0 ? stride : Math.max(1, Math.floor((79_314) / wantGames));
 for await (const line of createInterface({ input: createReadStream(file), crlfDelay: Infinity })) {
   if (!line) continue;
   lines++;
   const rec = JSON.parse(line) as Rec;
   if (rec.rulesKey) stamped++;
-  if (lines <= 686) prefix.push({ gameId: rec.gameId, configId: rec.configId });
-  else if ((lines - 687) % Math.max(1, Math.floor((79_314) / wantGames)) === 0 && sampled.length < wantGames) sampled.push(rec);
+  if (lines <= prefixLines) prefix.push({ gameId: rec.gameId, configId: rec.configId });
+  else if ((lines - prefixLines - 1) % every === 0 && sampled.length < wantGames) sampled.push(rec);
 }
 console.log(`file: ${file}`);
 console.log(`lines: ${lines}, records with a stamp field: ${stamped}, prefix lines inspected: ${prefix.length}, cohort games sampled: ${sampled.length}\n`);
 
 // ---------------------------------------------------------------------------------------------
-// 1. Which spec does the 686-record prefix belong to?
-console.log('Prefix vs candidate specs (gameId/configId must match):');
-const specs = [
-  { name: 'queue3.sh 2026-09-14 (seed 914, sample 4000, 80000 games)', seed: 914, sample: 4000, games: 80_000 },
-  { name: 'the stored summary (seed 202, sample 700, 686 games)', seed: 202, sample: 700, games: 686 },
-];
-for (const s of specs) {
-  const jobs = buildJobs({ id: 'audit', games: s.games, ai: { depth: 3 }, seed: s.seed, backRanks: { sample: s.sample }, openingRandomPlies: 4 });
-  const byId = new Map(jobs.map(j => [j.gameId, j.configId]));
-  const hit = prefix.filter(p => byId.get(p.gameId) === p.configId).length;
-  console.log(`  ${String(hit).padStart(3)}/${prefix.length}  ${s.name}`);
+// 1. Which spec does the prefix belong to? (Meaningful for the Q6 file; skipped otherwise.)
+if (prefix.length >= 100) {
+  console.log('Prefix vs candidate specs (gameId/configId must match):');
+  const specs = [
+    { name: 'queue3.sh 2026-09-14 (seed 914, sample 4000, 80000 games)', seed: 914, sample: 4000, games: 80_000 },
+    { name: 'the stored summary (seed 202, sample 700, 686 games)', seed: 202, sample: 700, games: 686 },
+  ];
+  for (const s of specs) {
+    const jobs = buildJobs({ id: 'audit', games: s.games, ai: { depth: 3 }, seed: s.seed, backRanks: { sample: s.sample }, openingRandomPlies: 4 });
+    const byId = new Map(jobs.map(j => [j.gameId, j.configId]));
+    const hit = prefix.filter(p => byId.get(p.gameId) === p.configId).length;
+    console.log(`  ${String(hit).padStart(3)}/${prefix.length}  ${s.name}`);
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -72,7 +81,7 @@ let decisiveAlways = 0, decisiveNonPawn = 0, ambiguous = 0, neither = 0;
 for (const rec of sampled) {
   const verdicts = {} as Record<(typeof variants)[number], Verdict>;
   for (const v of variants) {
-    setRules({ paladinKamikaze: v });
+    setRules({ ...extra, paladinKamikaze: v });
     verdicts[v] = classify(rec);
     table[v][verdicts[v]]++;
   }

@@ -58,7 +58,7 @@ const RULES: readonly (readonly [string, string])[] = [
   ['Moves 1 square in any direction; onto an own piece it swaps places.', 'Takes an adjacent enemy. With its own king on rank 1 it swaps with the king at any distance.'],
   ['Moves 1 square in any direction, empty squares only.', 'Takes on any adjacent square but straight ahead, and may keep taking from each new square.'],
   // Lab pieces: they reach the browser only through a `?fen=` that names one (docs/research/sim-new-pieces-2026-09-14.md).
-  ['Moves 1 square in any direction. Instead it may shove an adjacent piece 1 square away.', 'Takes by moving onto the enemy, a guard excepted. A shove is not a capture and never moves a king.'],
+  ['Moves 1 square in any direction. Instead it may shove an adjacent piece 1 square away — shift-click a neighbour.', 'Takes by moving onto the enemy, a guard excepted. A shove is not a capture and never moves a king.'],
   ['Moves like a rook and never takes by moving.', 'Lobs along a rank or file over one enemy screen and takes the first piece beyond it.'],
 ];
 
@@ -72,8 +72,10 @@ function showInfo(sq: number | null): void {
     : '') + kingsInfo();
 }
 
-/** Squares the user clicks to identify a move: chain victims, shot target, or the destination. */
-const clickPath = (m: Move): number[] => (m.to === m.from ? [m.captures[0]] : m.captures.length > 1 ? m.captures : [m.to]);
+/** Squares the user clicks to identify a move: a shove target, chain victims, shot target, or the destination. */
+const clickPath = (m: Move): number[] => (m.shove
+  ? [m.shove.from] // click the neighbour to shove, under both `repel` (to === from) and `push`
+  : m.to === m.from ? [m.captures[0]] : m.captures.length > 1 ? m.captures : [m.to]);
 const candidates = (): Move[] =>
   selected == null ? [] : game.legal.filter(m => m.from === selected && pending.every((sq, i) => clickPath(m)[i] === sq));
 
@@ -81,13 +83,15 @@ function refresh(): void {
   const cands = candidates();
   const next = cands.map(m => clickPath(m)[pending.length]).filter((s): s is number => s != null);
   const swaps = cands.filter(m => m.swap).map(m => m.to);
+  const shoves = cands.filter(m => m.shove).map(m => m.shove!.from);
   const last = game.history.at(-1)?.move;
   view.highlight({
     selected,
     moves: next.filter(sq => !game.pos.board[sq]),
-    captures: next.filter(sq => game.pos.board[sq] !== 0 && !swaps.includes(sq)),
+    captures: next.filter(sq => game.pos.board[sq] !== 0 && !swaps.includes(sq) && !shoves.includes(sq)),
     swaps,
-    last: last ? [last.from, ...(last.to === last.from ? last.captures : [last.to])] : [],
+    shoves,
+    last: last ? [last.from, ...(last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? last.captures : [last.to])] : [],
     check: game.inCheck ? findKing(game.pos.board, game.pos.turn) : null,
   });
   $('stop-chain').hidden = !(pending.length && candidates().some(m => clickPath(m).length === pending.length));
@@ -179,7 +183,7 @@ async function choose(moves: Move[]): Promise<void> {
   return commit(m);
 }
 
-view.onSquareClick = sq => {
+view.onSquareClick = (sq, shift = false) => {
   if (busy || finished() || sides[game.pos.turn] !== 'human') return;
   const own = game.pos.board[sq] !== 0 && colorOf(game.pos.board[sq]) === game.pos.turn;
   const next = candidates().filter(m => clickPath(m)[pending.length] === sq);
@@ -189,7 +193,16 @@ view.onSquareClick = sq => {
     return refresh();
   }
   const complete = next.filter(m => clickPath(m).length === pending.length + 1);
-  if (complete.length && complete.length === next.length) { void choose(complete); return; }
+  if (complete.length && complete.length === next.length) {
+    // An occupied neighbour can be both a capture and a shove target. Plain click takes it;
+    // shift-click shoves it. (A friend can only be shoved, so shift is optional there.)
+    if (complete.length > 1) {
+      const wanted = complete.filter(m => !!m.shove === shift);
+      if (wanted.length) { void choose(wanted); return; }
+    }
+    void choose(complete);
+    return;
+  }
   pending.push(sq); // beast chain continues; "Stop here" commits the shorter capture
   refresh();
 };
