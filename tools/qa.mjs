@@ -15,6 +15,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const BASE = process.env.QA_BASE ?? 'http://localhost:5173/';
+/** `QA_ONLY=substring node tools/qa.mjs` runs the matching cases only (quick regression checks). */
+const ONLY = process.env.QA_ONLY;
 const PAWN_FEN = '7k/7p/8/3p4/3L4/8/8/K6R w - - 0 1';
 const OGRE_FRIEND_FEN = '7k/8/8/8/3PO3/8/8/7K w - - 0 1';   // Ogre e4, own pawn d4
 const OGRE_ENEMY_FEN = '7k/8/8/8/3pO3/8/8/7K w - - 0 1';    // Ogre e4, black pawn d4
@@ -23,7 +25,7 @@ const CATAPULT_FEN = '7k/8/2n5/8/2p5/8/8/2C4K w - - 0 1';  // C c1, screen p c4,
 const sqOf = n => (('abcdefgh'.indexOf(n[0])) | ((+n[1] - 1) << 3));
 const results = [];
 const pass = (id, ok, detail) => { results.push({ id, ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'} ${id} — ${detail}`); };
-const CODE = { L: 8, l: 24, p: 17, n: 18, O: 12, C: 13, k: 22, P: 1, Q: 5 }; // type | colour<<4
+const CODE = { L: 8, l: 24, p: 17, n: 18, O: 12, C: 13, k: 22, P: 1, Q: 5, A: 7 }; // type | colour<<4
 
 const browser = await chromium.launch();
 
@@ -73,6 +75,7 @@ const waitPly = (page, n) => page.waitForFunction(n => {
 }, n, { timeout: 40000 });
 
 async function caseFn(id, query, fn, opts = {}) {
+  if (ONLY && !id.includes(ONLY)) return;
   const { ctx, page, errors } = await newPage();
   try {
     await boot(page, query, opts);
@@ -104,6 +107,27 @@ const paladinCase = (id, query, survives) => caseFn(id, query, async (page, erro
 
 await paladinCase('paladin default: survives the pawn capture', `?fen=${encodeURIComponent(PAWN_FEN)}`, true);
 await paladinCase('paladin ?rules=2017: dies on the pawn capture', `?rules=2017&fen=${encodeURIComponent(PAWN_FEN)}`, false);
+
+// The 2021 preset through the real UI: its archer may not step diagonally (`archerMove='fwdBack'`),
+// where the shipped archer may. One position, two clicks, opposite results.
+const ARCHER_FEN = '7k/8/8/8/3A4/8/8/K7 w - - 0 1';
+await caseFn('default archer steps diagonally', `?fen=${encodeURIComponent(ARCHER_FEN)}`, async (page, errors) => {
+  await clickSq(page, 'd4');
+  await clickSq(page, 'e5');
+  await waitPly(page, 1);
+  await page.waitForTimeout(400);
+  const s = await snap(page);
+  const ok = s.moves.includes('Ad4-e5') && s.scene[sqOf('e5')] === CODE.A && errors.length === 0;
+  return ok ? true : `moves="${s.moves}" e5=${s.scene[sqOf('e5')] ?? 'empty'} errors=${errors.join(' | ')}`;
+});
+await caseFn('?rules=2021 archer has no diagonal step', `?rules=2021&fen=${encodeURIComponent(ARCHER_FEN)}`, async (page, errors) => {
+  await clickSq(page, 'd4');
+  await clickSq(page, 'e5');
+  await page.waitForTimeout(600);
+  const s = await snap(page);
+  const ok = s.moves === '' && s.scene[sqOf('d4')] === CODE.A && s.scene[sqOf('e5')] === undefined && errors.length === 0;
+  return ok ? true : `moves="${s.moves}" d4=${s.scene[sqOf('d4')] ?? 'empty'} e5=${s.scene[sqOf('e5')] ?? 'empty'} errors=${errors.join(' | ')}`;
+});
 
 // Save/restore: play under 2017, reload with no query at all, and the paladin must still be gone.
 await caseFn('save/restore keeps the active rules', `?rules=2017&fen=${encodeURIComponent(PAWN_FEN)}`, async (page, errors) => {

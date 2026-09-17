@@ -29,7 +29,11 @@ Phase 2–5 validated:
 | Review build | `npx vite build --outDir dist-review` — 144 files, manifest digest `faaf00ee8615fa17` |
 | Bundles | `assets/index-BTyxE5sm.js` (`a369ffa96468a771`), **`assets/worker-C8IVcIyN.js`** (`2dba63547f796c62`, the AI worker), `assets/index-DQoaMBkc.css` (`db1913d7a83eb7fc`, identical to v0.7) |
 | Browser QA against `vite preview` over `dist-review` | **14/14**, zero console errors: paladin default/2017, rule-restoring autosave, Ogre friend shove + undo, capture-vs-shove, Catapult lob, AI reply in a lab position, kings restore, Death Touch in the real worker, Darkness restore, **full AI game (checkmate, 203 plies, 426 s under load)**, cancellation mid-search, promotion picker, mobile 390×844 with no horizontal overflow |
-| Harness | `tools/qa.mjs` (`QA_BASE=http://localhost:4173/ node tools/qa.mjs`) |
+| Harness | `tools/qa.mjs` (`QA_BASE=http://localhost:4173/ node tools/qa.mjs`; `QA_ONLY=<substring>` runs a subset) |
+
+Two preset cases were added to the harness after this build (`default archer steps diagonally`,
+`?rules=2021 archer has no diagonal step`); both pass against the dev source. Re-run the full harness
+on the next build.
 
 ## Deliberately not included (unvalidated or owner-owned)
 
