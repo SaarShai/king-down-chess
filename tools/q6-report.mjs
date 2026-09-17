@@ -10,18 +10,22 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const OUT = 'docs/research/ai-q6-acceptance-2026-09-16.md';
+const baseArg = process.argv.indexOf('--base');
+/** Where the chain wrote. Default this repo; pass the worktree, e.g. `--base ../king-down-sim/sim`. */
+const BASE = baseArg >= 0 && process.argv[baseArg + 1] ? process.argv[baseArg + 1] : 'sim';
 const read = (f) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null);
+const at = (rel) => read(`${BASE}/${rel}`);
 const arms = {
-  gate: read('sim/out/nnue-res2-gate.tuned.json'),
-  d3: read('sim/out/nnue-res2-d3.tuned.json'),
-  d4: read('sim/out/nnue-res2-d4.tuned.json'),
+  gate: at('out/nnue-res2-gate.tuned.json'),
+  d3: at('out/nnue-res2-d3.tuned.json'),
+  d4: at('out/nnue-res2-d4.tuned.json'),
 };
-const dataset = read('sim/nnue/positions.json');
-const train = read('sim/nnue/train.json');
-const bench = read('sim/nnue/bench.json');
-const gen = read('sim/out/nnue-g2.summary.json');
-const residual = read('sim/nnue/eval-residual.json');
-const done = existsSync('sim/out/q6-nnue-g2.done');
+const dataset = at('nnue/positions.json');
+const train = at('nnue/train.json');
+const bench = at('nnue/bench.json');
+const gen = at('out/nnue-g2.summary.json');
+const residual = at('nnue/eval-residual.json');
+const done = existsSync(`${BASE}/out/q6-nnue-g2.done`);
 
 const elo = (a) => (a ? `${a.elo >= 0 ? '+' : ''}${a.elo.toFixed(0)} ± ${a.err95.toFixed(0)} Elo (score ${a.mu.toFixed(3)}, ${a.games} games, ${a.pairs} pairs)` : '**not finished**');
 const verdict = (() => {
@@ -38,7 +42,8 @@ const md = `# Q6 replacement — accept or reject (2026-09-16)
 
 The inherited Q6 corpus was audited and excluded (\`docs/research/ai-q6-audit-2026-09-16.md\`); this
 report covers the \`nnue-g2\` replacement chain (\`tools/q6-chain.sh\`), whose success marker is written
-only after \`tools/q6-validate.mjs\` passes. Marker present: **${done ? 'yes' : 'no'}**.
+only after \`tools/q6-validate.mjs\` passes. Marker present: **${done ? 'yes' : 'no'}**. Evidence read
+from \`${BASE}/\`.
 
 ## Verdict
 
@@ -60,6 +65,5 @@ ${verdict}
 The raw records \`sim/out/nnue-res2-*.{jsonl,summary.json,tuned.json}\` and \`sim/nnue/{positions,net,train,bench}.json\`
 stay on disk; \`docs/takeover/baseline.json\` does not cover them (it froze the *inherited* state), so
 verify them with \`node tools/q6-validate.mjs final\` before quoting any number.
-`;
-writeFileSync(OUT, md);
+`;writeFileSync(OUT, md);
 console.log(`q6-report: ${verdict}\nq6-report: wrote ${OUT}`);
