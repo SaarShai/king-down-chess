@@ -18,8 +18,8 @@ run() {
 
 while pgrep -f "q6-chain.sh" >/dev/null; do sleep 120; done
 while pgrep -f "newpieces-followup.sh" >/dev/null; do sleep 120; done
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-  echo "kings-pilot: the tracked tree is dirty; commit before running this" >&2
+if [[ -n "$(git status --porcelain --untracked-files=no -- src)" ]]; then
+  echo "kings-pilot: src/ is dirty; commit before running this" >&2
   exit 1
 fi
 

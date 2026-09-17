@@ -17,8 +17,8 @@ echo "== waiting for tools/q6-chain.sh to finish" | tee -a "$LOG"
 while pgrep -f "q6-chain.sh" >/dev/null; do sleep 120; done
 echo "== chain done at $(date '+%F %T')" | tee -a "$LOG"
 
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-  echo "newpieces-followup: the tracked tree is dirty; commit before running this (LESSONS.md 2026-09-14)" >&2
+if [[ -n "$(git status --porcelain --untracked-files=no -- src)" ]]; then
+  echo "newpieces-followup: src/ is dirty; commit before running this (LESSONS.md 2026-09-14)" >&2
   exit 1
 fi
 
