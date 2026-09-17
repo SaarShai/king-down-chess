@@ -56,7 +56,7 @@ vs the half the fitted score keeps:
 
 ## Reading
 
-Filtering the bottom half by the fitted score gains **3.8 decisive points** on held-out deals (95% bootstrap 3.1…4.5). The effect is real, small, and about the size the 2026-09-14 pass claimed — but that pass could not show it. The inherited `setupScore`, chosen with every arrangement in view, reaches only 4.1 points above baseline on the same rows: the leak bought it nothing. The **decisive objection is diversity**, not the size of the gain: the filter thins the guard (45.7% → 27.4% of games) and the maester (74.9% → 55.9%) — two of the game's defining pieces — while paladins rise. The proposal's own condition applies: *"Adopt no filter if the gain is weak or it mostly removes the game's defining pieces."* **No filter is adopted**; `New game` keeps drawing from the full pool.
+Filtering the bottom half by the fitted score gains **3.8 decisive points** on held-out deals (95% bootstrap 3.1…4.5). The effect is real, small, and about the size the 2026-09-14 pass claimed — but that pass could not show it. The inherited `setupScore`, chosen with every arrangement in view, scores 4.1 points on the same held-out rows (95% 3.2…4.7): 0.3 points more than the honestly-fitted score, inside either interval. The **decisive objection is diversity**, not the size of the gain: the filter thins the guard (45.7% → 27.4% of games) and the maester (74.9% → 55.9%) — two of the game's defining pieces — while paladins rise. The proposal's own condition applies: *"Adopt no filter if the gain is weak or it mostly removes the game's defining pieces."* **No filter is adopted**; `New game` keeps drawing from the full pool.
 
 ## Limits
 

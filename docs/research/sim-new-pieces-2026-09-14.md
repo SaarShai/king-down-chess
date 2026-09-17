@@ -200,10 +200,12 @@ Both A/Bs are matched over the same 40 arrangements and opening seeds, 1 600 gam
 | games with a lob | — | **62.3% → 45.3%** |
 
 **`push` wins its comparison**: it returns the decisiveness the composition run lost and cuts draws by
-almost six points, without moving balance, length or branching. **`land` is unresolved**: every
-interval covers zero, and its only clear effect is to halve how often the Catapult fires at all.
-"Unresolved" is the finding; a larger run is not obviously worth its machine time for a piece that is
-not being adopted.
+almost six points, without moving balance, length or branching. **`land` is unresolved on balance**:
+every paired balance interval covers zero (score +0.016 ± 0.028, decisive −0.009 ± 0.028, draws
++0.007 ± 0.026); the only measured difference is the firing rate, which roughly halves per game
+(1.15 → 0.57 lobs) and drops the share of games with a lob from 62.3% to 45.3%. "Unresolved on
+balance" is the finding; a larger run is not obviously worth its machine time for a piece that is not
+being adopted.
 
 ## 6. Validation of this campaign (2026-09-16 audit)
 

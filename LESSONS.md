@@ -138,6 +138,15 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
   task, so document-staleness triage stays deterministic bookkeeping here. TypeSafe's value so far is
   in judging items whose *answer is not already encoded in the state*; supply raw evidence, not a
   comparison, and prefer one item per call over a long list with a shared fact block.
+- **The recipe that works (2026-09-16, third design).** Verify a report's claims by putting **raw
+  numbers only** in `state` and each claim **in its own question** ("Is this statement consistent
+  with the numbers? Judge only from the numbers"), with one known-true and one known-false control in
+  the same call. Controls separated cleanly (true 0.98, false 0.02), and the pass flagged a real
+  overclaim in the liveliness report (0.27) and an ambiguous "unresolved" sentence in the Ogre report
+  (0.53); both were rewritten to state the actual figures. **Controls must be unambiguous from the
+  quoted numbers**: a third probe that mixed two metrics (lobs per game vs games with a lob) scored
+  0.36 and was my error, not the model's. Run this pass on the Q6, kings and Ogre follow-up reports
+  before their verdicts are quoted.
 
 ## 2026-09-16 — never print a process environment
 - **Mistake:** `pgrep -fl vite` during Phase 6 printed the whole environment of the matching process,
