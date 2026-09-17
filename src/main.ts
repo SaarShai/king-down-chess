@@ -21,7 +21,7 @@ if (preset || kings) setRules({ ...preset, ...(kings ? { kings: parseKings(kings
 const POWER_TEXT: Partial<Record<PowerName, string>> = {
   HolyLight: 'enemy pawns cannot take this king, and it cannot take pawns',
   Mercy: 'the king steps 1–2, jumps friends and takes only a guard',
-  DeathTouch: 'the king takes an adjacent enemy without moving',
+  DeathTouch: 'the king takes an adjacent enemy without moving — it can only take this way',
   Darkness: 'pawns step diagonally and take straight ahead, with no double step',
   March: 'pawns step two squares from any rank',
   Leap: 'rooks, bishops and the queen pass over their own pawns',

@@ -123,3 +123,15 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 - Likely candidates in the takeover: classifying stored games whose replay is ambiguous (Phase 3),
   checking king-power wording against the owner's rules (Phase 5), sorting stale queue/docs entries
   into shipped/lab/rejected/deferred (Phase 6). Purely deterministic checks stay deterministic.
+- **Validate the instrument with controls before trusting it.** First real use, 2026-09-16: asked
+  Jev whether six king-power guide lines were factually wrong or would surprise a player. All six
+  came back within noise of each other (wrong ≈ 0.37, surprise ≈ 0.76) — a flat response across six
+  materially different lines. A follow-up control run gave a **deliberately wrong** line 0.76 and two
+  correct lines 0.76/0.78: the question could not separate known-good from known-bad, so the whole
+  run was discarded. Rule: always include one known-good and one known-bad item in the same call; if
+  the answers do not separate them, the run carries no information — fix the state/questions or fall
+  back to the deterministic check. Never edit user-facing text on an unvalidated model answer.
+- Keep the *decision* out of the state: the first Phase 6 docs-classification call put my own
+  conclusion into the entry text ("was never completed", "is absent") and Jev echoed it back
+  (all `doc-only`, stale ≈ 0.65). State should carry raw evidence; the judgment belongs in the
+  question.
