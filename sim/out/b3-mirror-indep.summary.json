@@ -1,0 +1,112 @@
+{
+  "spec": {
+    "id": "b3-mirror-indep",
+    "games": 2000,
+    "seed": 372,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "pairs": true,
+    "asymmetric": [
+      {
+        "white": "AGBKMRRQ",
+        "black": "ABGMKQRR"
+      },
+      {
+        "white": "AMQKBGRR",
+        "black": "AGRKRBQM"
+      },
+      {
+        "white": "BAMRKRGQ",
+        "black": "AQRKBRMG"
+      },
+      {
+        "white": "BKQMARRG",
+        "black": "ARKGMRQB"
+      },
+      {
+        "white": "BRGMRAQK",
+        "black": "BAMGQRRK"
+      },
+      {
+        "white": "BRMGRAQK",
+        "black": "BGQKMARR"
+      },
+      {
+        "white": "GQRRMBAK",
+        "black": "BQKRMGRA"
+      },
+      {
+        "white": "GRMKBAQR",
+        "black": "GAQMRKBR"
+      },
+      {
+        "white": "KAGRRQMB",
+        "black": "GQRMAKRB"
+      },
+      {
+        "white": "KMGBQRRA",
+        "black": "KQABMRRG"
+      },
+      {
+        "white": "KQGRARBM",
+        "black": "KRAQMRBG"
+      },
+      {
+        "white": "MRGAQRKB",
+        "black": "MABRQGKR"
+      },
+      {
+        "white": "MRKQBRAG",
+        "black": "MGQARKRB"
+      },
+      {
+        "white": "QBARMGKR",
+        "black": "QMKGBRAR"
+      },
+      {
+        "white": "QMRBGARK",
+        "black": "RABRMKQG"
+      },
+      {
+        "white": "RAGBMRQK",
+        "black": "RBGARQKM"
+      },
+      {
+        "white": "RBGAQMKR",
+        "black": "RGQBMKAR"
+      },
+      {
+        "white": "RKGMAQRB",
+        "black": "RMGQKABR"
+      },
+      {
+        "white": "RMKQBAGR",
+        "black": "RMKRBAGQ"
+      },
+      {
+        "white": "RQRGKABM",
+        "black": "RQMABKGR"
+      }
+    ],
+    "note": "same army, drawn independently per side — does mirroring hide imbalance?",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 191.9,
+  "whiteScore": 0.5062,
+  "whiteWins": 600,
+  "draws": 825,
+  "blackWins": 575,
+  "meanPlies": 137.6,
+  "reasons": {
+    "adjudicatedResign": 1175,
+    "adjudicatedDraw": 575,
+    "draw50": 45,
+    "plyCap": 114,
+    "drawRepetition": 63,
+    "drawMaterial": 28
+  }
+}

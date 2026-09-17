@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "ladder-d5v6",
+    "games": 60,
+    "backRanks": {
+      "sample": 50
+    },
+    "ai": {
+      "white": {
+        "depth": 6
+      },
+      "black": {
+        "depth": 5
+      }
+    },
+    "openingRandomPlies": 4,
+    "maxPlies": 300,
+    "seed": 21
+  },
+  "games": 60,
+  "seconds": 1435.4,
+  "whiteScore": 0.5167,
+  "whiteWins": 18,
+  "draws": 26,
+  "blackWins": 16,
+  "meanPlies": 139.9,
+  "reasons": {
+    "adjudicatedResign": 34,
+    "draw50": 6,
+    "adjudicatedDraw": 14,
+    "drawRepetition": 2,
+    "plyCap": 3,
+    "drawMaterial": 1
+  }
+}

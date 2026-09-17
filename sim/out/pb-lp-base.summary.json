@@ -1,0 +1,41 @@
+{
+  "spec": {
+    "id": "pb-lp-base",
+    "games": 800,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 41,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "promotionSet": "anyNonKing"
+    },
+    "baseRules": {
+      "promotionSet": "anyNonKing"
+    },
+    "baseId": "pb-lp-base",
+    "backRanks": {
+      "sample": 40,
+      "pool": "QRRBBNNL"
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 800,
+  "seconds": 0,
+  "whiteScore": 0.5544,
+  "whiteWins": 382,
+  "draws": 123,
+  "blackWins": 295,
+  "meanPlies": 90.8,
+  "reasons": {
+    "adjudicatedResign": 677,
+    "plyCap": 4,
+    "adjudicatedDraw": 90,
+    "drawRepetition": 18,
+    "draw50": 3,
+    "drawMaterial": 7,
+    "stalemate": 1
+  }
+}

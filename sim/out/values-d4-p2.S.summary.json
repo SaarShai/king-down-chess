@@ -1,0 +1,32 @@
+{
+  "spec": {
+    "id": "values-d4-p2.S",
+    "games": 120,
+    "ai": {
+      "depth": 4
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "asymmetric": [
+      {
+        "white": "RSBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 120,
+  "seconds": 64.9,
+  "whiteScore": 0.4833,
+  "whiteWins": 50,
+  "draws": 16,
+  "blackWins": 54,
+  "meanPlies": 109.6,
+  "reasons": {
+    "adjudicatedResign": 104,
+    "draw50": 4,
+    "adjudicatedDraw": 11,
+    "plyCap": 1
+  }
+}

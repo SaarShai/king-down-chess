@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "b3-deep5",
+    "games": 2500,
+    "seed": 331,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "SKANSGGR",
+      "BKMLQRGA",
+      "ARNAKSNG",
+      "NAGQKGBM",
+      "GRMGKNBB"
+    ],
+    "note": "two most lopsided and two most interesting ranks at n=240, plus the biggest raw outlier at n=80",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2500,
+  "seconds": 237.3,
+  "whiteScore": 0.5296,
+  "whiteWins": 650,
+  "draws": 1348,
+  "blackWins": 502,
+  "meanPlies": 159.2,
+  "reasons": {
+    "drawRepetition": 79,
+    "adjudicatedDraw": 780,
+    "adjudicatedResign": 1152,
+    "plyCap": 346,
+    "draw50": 95,
+    "drawMaterial": 48
+  }
+}

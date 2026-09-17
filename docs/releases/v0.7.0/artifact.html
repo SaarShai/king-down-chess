@@ -1,0 +1,77 @@
+<title>King Down Chess</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&display=swap" rel="stylesheet" />
+<style>
+:root{--paper:#f7f5f0;--ink:#151515;--mid:#8a8680;--hairline:#d9d5cd;--white:#fff;--rail:260px;--dash:repeating-linear-gradient(90deg, var(--ink) 0 4px, transparent 4px 8px);--caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4'%3E%3Cpath fill='%23151515' d='M0 0h8v1H0zM1 1h6v1H1zM2 2h4v1H2zM3 3h2v1H3z'/%3E%3C/svg%3E");color:var(--ink);background:var(--paper);font-family:DotGothic16,Courier New,monospace;font-size:14px;line-height:1.6}*{box-sizing:border-box}[hidden]{display:none!important}html,body{background:var(--paper);height:100%;margin:0;overflow:hidden}#board{inset:0 var(--rail) 0 0;position:fixed}#board canvas{width:100%;height:100%;image-rendering:pixelated;display:block}#top{background:var(--paper);border:2px solid var(--ink);clip-path:polygon(2px 0,calc(100% - 2px) 0,100% 2px,100% calc(100% - 2px),calc(100% - 2px) 100%,2px 100%,0 calc(100% - 2px),0 2px);filter:drop-shadow(3px 3px 0 var(--ink));pointer-events:none;padding:10px 14px;position:fixed;top:12px;left:12px}#top h1{letter-spacing:1px;margin:0;font-family:"Press Start 2P",DotGothic16,monospace;font-size:13px;font-weight:400;line-height:1.4}#turn{color:var(--mid);margin-top:8px}#status{margin-top:2px}#info{max-width:34ch;margin-top:6px;font-size:13px;line-height:1.45}#info b{letter-spacing:1px;text-transform:uppercase}#turn:empty,#status:empty,#info:empty{display:none}#panel{width:var(--rail);background:var(--paper);border-left:2px solid var(--ink);flex-direction:column;gap:12px;padding:12px;display:flex;position:fixed;top:0;bottom:0;right:0;overflow:auto}section{background-image:var(--dash);background-position:0 100%;background-repeat:no-repeat;background-size:100% 2px;flex-direction:column;gap:8px;padding-bottom:12px;display:flex}button,select,input{font:inherit;color:var(--ink);background:var(--white);border:2px solid var(--ink);padding:7px 10px}button,select{cursor:pointer}button{text-align:left;width:100%;box-shadow:3px 3px 0 var(--ink);transition:transform 60ms step-end,box-shadow 60ms step-end}button:hover,select:hover{background:var(--ink);color:var(--paper)}button:active{box-shadow:none;transform:translate(3px,3px)}select{appearance:none;background-image:var(--caret);background-position:right 7px center;background-repeat:no-repeat;flex:none;width:118px;padding:5px 22px 5px 8px}select:hover{background-color:var(--ink)}label{justify-content:space-between;align-items:center;gap:8px;display:flex}.row{justify-content:space-between;align-items:baseline;gap:8px;display:flex}code{letter-spacing:1px;overflow-wrap:anywhere;background:var(--white);border:1px solid var(--hairline);padding:1px 5px;font-family:inherit}input[type=range]{appearance:none;cursor:pointer;background:0 0;border:0;width:118px;height:12px;padding:0}input[type=range]::-webkit-slider-runnable-track{background:var(--ink);height:3px}input[type=range]::-moz-range-track{background:var(--ink);height:3px}input[type=range]::-webkit-slider-thumb{appearance:none;background:var(--ink);width:12px;height:12px;box-shadow:inset 0 0 0 2px var(--ink), inset 0 0 0 4px var(--paper);border:0;border-radius:0;margin-top:-5px}input[type=range]::-moz-range-thumb{background:var(--ink);width:12px;height:12px;box-shadow:inset 0 0 0 2px var(--ink), inset 0 0 0 4px var(--paper);border:0;border-radius:0}input[type=checkbox]{appearance:none;cursor:pointer;flex:none;width:14px;height:14px;padding:0}input[type=checkbox]:checked{box-shadow:inset 0 0 0 2px var(--white), inset 0 0 0 5px var(--ink)}#stop-chain{background:var(--ink);color:var(--paper)}#stop-chain:hover{background:var(--paper);color:var(--ink)}.promo,.btns{grid-template-columns:1fr 1fr;gap:8px;display:grid}.promo button,.btns button{text-align:center;padding:7px 4px}.btns.three{grid-template-columns:repeat(3,1fr)}button:disabled{cursor:default;color:var(--mid);border-color:var(--mid);box-shadow:3px 3px 0 var(--hairline)}button:disabled:hover{background:var(--white);color:var(--mid)}.sheet{flex:1 0 auto}#moves{background:var(--white);border:2px solid var(--ink);font-variant-numeric:tabular-nums;flex:1;min-height:66px;margin:0;padding:4px;font-size:13px;list-style:none;overflow:auto}#moves li{padding:1px 4px}#moves li:nth-child(odd){background:var(--paper)}.hover{min-height:1.6em;color:var(--mid);font-variant-numeric:tabular-nums}.taken{align-items:baseline;gap:8px;min-height:1.6em;font-size:13px;display:flex}.taken b{width:74px;color:var(--mid);flex:none;font-weight:400}.taken span{letter-spacing:2px;overflow-wrap:anywhere}.taken span:empty:before{content:"—";color:var(--hairline)}dialog{max-width:min(720px,100vw - 32px);max-height:82vh;color:var(--ink);background:var(--paper);border:3px solid var(--ink);box-shadow:6px 6px 0 var(--ink);border-radius:0;padding:20px;overflow:auto}dialog::backdrop{background:#15151559}dialog h2{letter-spacing:1px;background-image:var(--dash);background-position:0 100%;background-repeat:no-repeat;background-size:100% 2px;margin:0 0 12px;padding-bottom:10px;font-size:18px;font-weight:400}dialog p{max-width:72ch;margin:0 0 12px}dialog table{border-collapse:collapse;width:100%}dialog th,dialog td{border:1px solid var(--hairline);text-align:left;vertical-align:top;padding:6px 8px}dialog th{background:var(--ink);color:var(--paper);font-weight:400}dialog form{flex-wrap:wrap;justify-content:flex-end;gap:10px;margin-top:16px;display:flex}dialog form button{width:auto;padding:7px 16px}#over{max-width:min(420px,100vw - 32px)}#over p{color:var(--mid)}:focus{outline:none}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-offset:2px}@media (width<=720px){:root{--band:min(100vw, 58vh);--board-lift:.075}#board{inset:calc(var(--band) * var(--board-lift) * -1) 0 auto 0;height:calc(var(--band) * (1 + var(--board-lift)))}#panel{top:var(--band);border-left:0;border-top:2px solid var(--ink);width:auto;height:auto;bottom:0;left:0}}@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+</style>
+<div id="board"></div>
+    <header id="top">
+      <h1>KING DOWN CHESS</h1>
+      <div id="turn"></div>
+      <div id="status"></div>
+      <div id="info"></div>
+    </header>
+    <aside id="panel">
+      <section>
+        <button id="new-random">New game</button>
+        <button id="new-classic">Classic chess</button>
+        <button id="new-setup">Custom setup…</button>
+        <button id="rules-btn">Piece guide</button>
+        <div class="btns three">
+          <button id="undo" title="Take back the last move (Z)">Undo (Z)</button>
+          <button id="resign" title="Resign the game">Resign</button>
+          <button id="copy" title="Copy the move list as LAN">Copy</button>
+        </div>
+        <div class="row">Setup <code id="setup"></code></div>
+      </section>
+      <section>
+        <label>White <select id="white"><option value="human">Human</option><option value="ai">Computer</option></select></label>
+        <label>Black <select id="black"><option value="human">Human</option><option value="ai" selected>Computer</option></select></label>
+        <label>Think <input id="think" type="range" min="200" max="4000" step="100" value="800" /></label>
+      </section>
+      <button id="stop-chain" hidden>Stop chain here</button>
+      <div id="promo" class="promo" hidden></div>
+      <section class="sheet">
+        <ol id="moves"></ol>
+        <div class="taken"><b>White took</b><span id="took-w"></span></div>
+        <div class="taken"><b>Black took</b><span id="took-b"></span></div>
+        <div id="hover" class="hover"></div>
+      </section>
+      <section>
+        <label>Style <select id="style"></select></label>
+        <button id="reset-view">Reset view (R)</button>
+        <label>Pixels <input id="pixel" type="range" min="1" max="6" step="1" value="2" /></label>
+        <label>Edges <input id="edges" type="range" min="0" max="1" step="0.05" value="0.35" /></label>
+        <label>Sculpts <input id="sculpts" type="checkbox" checked /></label>
+        <label>Labels <input id="labels" type="checkbox" /></label>
+        <label>Coords <input id="coords" type="checkbox" checked /></label>
+        <label>Palette <input id="palette" type="checkbox" checked /></label>
+        <label>Dither <input id="dither" type="range" min="0" max="0.2" step="0.01" value="0.03" /></label>
+      </section>
+    </aside>
+    <dialog id="rules">
+      <h2 tabindex="-1" autofocus>King Down pieces</h2>
+      <p>Chess rules apply (check, mate, stalemate, promotion to any piece but a king). No castling or en passant. The back rank is a random draw of 7 pieces + king, mirrored for both sides.</p>
+      <table>
+        <tr><th>Piece</th><th>Moves</th><th>Captures</th><th>Special</th></tr>
+        <tr><td>A Archer</td><td>1 square in any direction</td><td><b>Shoots without moving</b>: any enemy diagonally adjacent, or exactly 2 squares away orthogonally, through blockers</td><td>Gives check the same way</td></tr>
+        <tr><td>L Paladin</td><td>Like a queen, <b>jumping own pieces</b></td><td>By moving onto the enemy</td><td>Cannot capture a king (never gives check). <b>Removed after capturing</b> anything but a pawn</td></tr>
+        <tr><td>G Guard</td><td>1 square any direction, empty squares only</td><td><b>Cannot capture.</b></td><td><b>Cannot be captured, except by a king.</b></td></tr>
+        <tr><td>M Maester</td><td>1 square any direction</td><td>Adjacent enemy</td><td>Onto an own piece = <b>swap places</b>. Maester + king both on rank 1: swap at any distance</td></tr>
+        <tr><td>S Beast</td><td>1 square in any direction, empty only</td><td>Any adjacent square but straight ahead</td><td>May <b>keep capturing</b> from each new square (never a king as a continuation). Click victims in order; "Stop chain here" ends early</td></tr>
+      </table>
+      <p>Letters in the setup string: P N B R Q K + A L G M S.</p>
+      <form method="dialog"><button>Close</button></form>
+    </dialog>
+    <dialog id="over">
+      <h2 id="over-title" tabindex="-1" autofocus></h2>
+      <p id="over-detail"></p>
+      <form method="dialog">
+        <button value="rematch">Rematch</button>
+        <button value="new">New game</button>
+        <button value="close">Close</button>
+      </form>
+    </dialog>
+<script type="module" src="assets/index-eaHeYinC.js"></script>

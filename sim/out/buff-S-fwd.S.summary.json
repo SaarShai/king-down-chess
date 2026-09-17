@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "buff-S-fwd.S",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "beastCaptureForward": true
+    },
+    "asymmetric": [
+      {
+        "white": "RSBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 48.7,
+  "whiteScore": 0.555,
+  "whiteWins": 155,
+  "draws": 23,
+  "blackWins": 122,
+  "meanPlies": 91.1,
+  "reasons": {
+    "adjudicatedResign": 277,
+    "adjudicatedDraw": 12,
+    "drawRepetition": 6,
+    "drawMaterial": 5
+  }
+}

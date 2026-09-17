@@ -1,0 +1,50 @@
+{
+  "spec": {
+    "id": "cfg-beastsFlanks",
+    "games": 3200,
+    "backRanks": [
+      "SBAAQKMS",
+      "SBAGKGBS",
+      "SGMRNKNS",
+      "SNNBGKRS",
+      "SGKANBGS",
+      "SRRKMAGS",
+      "SRNLRAKS",
+      "SNBMRKGS",
+      "SAMKBNQS",
+      "SGALNKQS",
+      "SQGKBLMS",
+      "SNMKGRQS",
+      "SBLKMNGS",
+      "SMRKNARS",
+      "SBMNMNKS",
+      "SGRGALKS",
+      "SBLKNQAS",
+      "SQBRNKLS",
+      "SBGKAGNS",
+      "SMQMBKAS"
+    ],
+    "ai": {
+      "depth": 3
+    },
+    "seed": 7,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 392.3,
+  "whiteScore": 0.5192,
+  "whiteWins": 933,
+  "draws": 1457,
+  "blackWins": 810,
+  "meanPlies": 141.5,
+  "reasons": {
+    "adjudicatedResign": 1743,
+    "adjudicatedDraw": 735,
+    "draw50": 360,
+    "drawRepetition": 148,
+    "plyCap": 205,
+    "drawMaterial": 8,
+    "stalemate": 1
+  }
+}

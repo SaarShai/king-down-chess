@@ -1,0 +1,45 @@
+{
+  "spec": {
+    "id": "restricted-d2v4",
+    "games": 200,
+    "backRanks": [
+      "QKNALSRM",
+      "NSBBQNKG",
+      "LGKBSMGR",
+      "BNMKGMLA",
+      "LABKRSQN",
+      "MSNGGAKN",
+      "MNABAKSM",
+      "ARKAGNML",
+      "BSALNRKG",
+      "AGSMRSMK"
+    ],
+    "commonSeeds": true,
+    "ai": {
+      "white": {
+        "depth": 4
+      },
+      "black": {
+        "depth": 2
+      }
+    },
+    "openingRandomPlies": 4,
+    "maxPlies": 300,
+    "seed": 31
+  },
+  "games": 200,
+  "seconds": 171.7,
+  "whiteScore": 0.4975,
+  "whiteWins": 76,
+  "draws": 47,
+  "blackWins": 77,
+  "meanPlies": 128.1,
+  "reasons": {
+    "adjudicatedResign": 153,
+    "drawMaterial": 3,
+    "draw50": 9,
+    "drawRepetition": 3,
+    "adjudicatedDraw": 20,
+    "plyCap": 12
+  }
+}

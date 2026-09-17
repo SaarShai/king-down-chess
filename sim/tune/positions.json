@@ -1,0 +1,15 @@
+{
+  "runs": [
+    "tune-g0"
+  ],
+  "games": 6222,
+  "kept": 128516,
+  "inCheck": 6969,
+  "noisy": 14122,
+  "val": 12865,
+  "file": "sim/tune/positions.bin",
+  "bytesPerPosition": 66,
+  "quietCp": 50,
+  "perGame": 30,
+  "valEvery": 10
+}

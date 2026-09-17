@@ -1,0 +1,45 @@
+{
+  "spec": {
+    "id": "g1-base.G",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any"
+    },
+    "values": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    },
+    "asymmetric": [
+      {
+        "white": "RGBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 19.8,
+  "whiteScore": 0.4967,
+  "whiteWins": 138,
+  "draws": 22,
+  "blackWins": 140,
+  "meanPlies": 89.3,
+  "reasons": {
+    "adjudicatedResign": 278,
+    "drawMaterial": 5,
+    "drawRepetition": 4,
+    "adjudicatedDraw": 8,
+    "plyCap": 3,
+    "draw50": 2
+  }
+}

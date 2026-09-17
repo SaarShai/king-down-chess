@@ -1,0 +1,30 @@
+{
+  "id": "cfg-maesterAdjKing",
+  "games": 3200,
+  "backRanks": [
+    "BGKMGSNN",
+    "GKMMNNAR",
+    "SBAAQKMS",
+    "KMRGLABB",
+    "QGNNMKRA",
+    "RNQKMMGN",
+    "ASGRKMGS",
+    "NBBGMMKG",
+    "SNGQKMSB",
+    "GKMMGNBR",
+    "MKMBNASL",
+    "MKLSANSG",
+    "MKAALRBQ",
+    "QAMGMKNS",
+    "LMGRAMKQ",
+    "MSKMNRLN",
+    "RGNLABMK",
+    "RKMNAQNR",
+    "RRBNMAMK",
+    "MKNABSRN"
+  ],
+  "ai": {
+    "depth": 3
+  },
+  "seed": 7
+}

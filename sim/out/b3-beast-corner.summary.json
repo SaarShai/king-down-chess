@@ -1,0 +1,53 @@
+{
+  "spec": {
+    "id": "b3-beast-corner",
+    "games": 3200,
+    "seed": 343,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "SBBRKQRS",
+      "SBBRQKRS",
+      "SBKRBRQS",
+      "SBRKQRBS",
+      "SBRQBKRS",
+      "SKBBQRRS",
+      "SKBRQBRS",
+      "SKQBRRBS",
+      "SKRBQRBS",
+      "SKRRBBQS",
+      "SQBRKBRS",
+      "SQBRRBKS",
+      "SQRBBRKS",
+      "SQRKBBRS",
+      "SRBQKBRS",
+      "SRQBKRBS",
+      "SRQRKBBS",
+      "SRRBKQBS",
+      "SRRBQKBS",
+      "SRRQBBKS"
+    ],
+    "note": "both beasts on a/h",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 269,
+  "whiteScore": 0.5283,
+  "whiteWins": 1342,
+  "draws": 697,
+  "blackWins": 1161,
+  "meanPlies": 108.3,
+  "reasons": {
+    "adjudicatedResign": 2502,
+    "adjudicatedDraw": 519,
+    "drawRepetition": 95,
+    "plyCap": 41,
+    "drawMaterial": 19,
+    "draw50": 22,
+    "stalemate": 1,
+    "checkmate": 1
+  }
+}

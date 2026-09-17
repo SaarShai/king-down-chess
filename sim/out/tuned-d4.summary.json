@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "tuned-d4",
+    "games": 200,
+    "seed": 3002,
+    "ai": {
+      "depth": 4
+    },
+    "pairs": true,
+    "backRanks": {
+      "sample": 100
+    },
+    "openingRandomPlies": 4,
+    "maxPlies": 300,
+    "evalParams": {
+      "white": "sim/tune/params.json",
+      "black": "sim/tune/base.json"
+    }
+  },
+  "games": 200,
+  "seconds": 189.3,
+  "whiteScore": 0.5325,
+  "whiteWins": 69,
+  "draws": 75,
+  "blackWins": 56,
+  "meanPlies": 195.6,
+  "reasons": {
+    "adjudicatedResign": 125,
+    "adjudicatedDraw": 9,
+    "plyCap": 50,
+    "draw50": 11,
+    "drawRepetition": 2,
+    "drawMaterial": 3
+  }
+}

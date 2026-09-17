@@ -1,0 +1,30 @@
+{
+  "id": "cfg-beastsFlanks",
+  "games": 3200,
+  "backRanks": [
+    "SBAAQKMS",
+    "SBAGKGBS",
+    "SGMRNKNS",
+    "SNNBGKRS",
+    "SGKANBGS",
+    "SRRKMAGS",
+    "SRNLRAKS",
+    "SNBMRKGS",
+    "SAMKBNQS",
+    "SGALNKQS",
+    "SQGKBLMS",
+    "SNMKGRQS",
+    "SBLKMNGS",
+    "SMRKNARS",
+    "SBMNMNKS",
+    "SGRGALKS",
+    "SBLKNQAS",
+    "SQBRNKLS",
+    "SBGKAGNS",
+    "SMQMBKAS"
+  ],
+  "ai": {
+    "depth": 3
+  },
+  "seed": 7
+}

@@ -1,0 +1,51 @@
+{
+  "spec": {
+    "id": "b3-guard2",
+    "games": 2000,
+    "seed": 323,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "BKRRGGQM",
+      "GGRMRBKQ",
+      "GKGQRRBM",
+      "GRRMBQKG",
+      "KBRMGQGR",
+      "KMGRBQRG",
+      "KRQMGGBR",
+      "KRRBGGMQ",
+      "MQGRKGRB",
+      "MRQGGBRK",
+      "QMRRKGBG",
+      "QRGRGMBK",
+      "QRMGGRBK",
+      "RBKGGQMR",
+      "RBQMRKGG",
+      "RGBGRMKQ",
+      "RKQBGMGR",
+      "RKQGRMGB",
+      "RMGQBGKR",
+      "RQGRGMKB"
+    ],
+    "note": "guards 2, fairy 3 — H10 predicts +10 draw points 0->2 — army QRRBGGM, 26.8 pawns (tuned values)",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 246.5,
+  "whiteScore": 0.515,
+  "whiteWins": 400,
+  "draws": 1260,
+  "blackWins": 340,
+  "meanPlies": 162.5,
+  "reasons": {
+    "drawRepetition": 72,
+    "adjudicatedResign": 740,
+    "adjudicatedDraw": 769,
+    "drawMaterial": 39,
+    "draw50": 58,
+    "plyCap": 322
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "spec": {
+    "id": "cfg-maesterAdjKing",
+    "games": 3200,
+    "backRanks": [
+      "BGKMGSNN",
+      "GKMMNNAR",
+      "SBAAQKMS",
+      "KMRGLABB",
+      "QGNNMKRA",
+      "RNQKMMGN",
+      "ASGRKMGS",
+      "NBBGMMKG",
+      "SNGQKMSB",
+      "GKMMGNBR",
+      "MKMBNASL",
+      "MKLSANSG",
+      "MKAALRBQ",
+      "QAMGMKNS",
+      "LMGRAMKQ",
+      "MSKMNRLN",
+      "RGNLABMK",
+      "RKMNAQNR",
+      "RRBNMAMK",
+      "MKNABSRN"
+    ],
+    "ai": {
+      "depth": 3
+    },
+    "seed": 7,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 498.1,
+  "whiteScore": 0.5105,
+  "whiteWins": 987,
+  "draws": 1293,
+  "blackWins": 920,
+  "meanPlies": 141.2,
+  "reasons": {
+    "adjudicatedDraw": 669,
+    "adjudicatedResign": 1907,
+    "draw50": 259,
+    "plyCap": 205,
+    "drawRepetition": 133,
+    "drawMaterial": 26,
+    "stalemate": 1
+  }
+}

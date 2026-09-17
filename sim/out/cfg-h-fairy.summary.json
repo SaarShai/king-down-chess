@@ -1,0 +1,31 @@
+{
+  "spec": {
+    "id": "cfg-h-fairy",
+    "games": 3200,
+    "backRanks": {
+      "sample": 20,
+      "pool": "LAAGGMMSSQ"
+    },
+    "ai": {
+      "depth": 3
+    },
+    "seed": 7,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 638.3,
+  "whiteScore": 0.5212,
+  "whiteWins": 704,
+  "draws": 1928,
+  "blackWins": 568,
+  "meanPlies": 171.8,
+  "reasons": {
+    "drawRepetition": 110,
+    "adjudicatedResign": 1272,
+    "draw50": 683,
+    "adjudicatedDraw": 664,
+    "plyCap": 465,
+    "drawMaterial": 6
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "ladder-d2v3",
+    "games": 200,
+    "backRanks": {
+      "sample": 100
+    },
+    "ai": {
+      "white": {
+        "depth": 3
+      },
+      "black": {
+        "depth": 2
+      }
+    },
+    "openingRandomPlies": 4,
+    "maxPlies": 300,
+    "seed": 21
+  },
+  "games": 200,
+  "seconds": 13.8,
+  "whiteScore": 0.5475,
+  "whiteWins": 80,
+  "draws": 59,
+  "blackWins": 61,
+  "meanPlies": 131.6,
+  "reasons": {
+    "adjudicatedResign": 141,
+    "adjudicatedDraw": 26,
+    "plyCap": 9,
+    "draw50": 18,
+    "drawRepetition": 6
+  }
+}

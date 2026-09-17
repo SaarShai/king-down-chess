@@ -1,0 +1,12 @@
+{
+  "id": "cfg-e-MM",
+  "games": 3200,
+  "backRanks": {
+    "sample": 20,
+    "pool": "QRRBBNNMM"
+  },
+  "ai": {
+    "depth": 3
+  },
+  "seed": 7
+}

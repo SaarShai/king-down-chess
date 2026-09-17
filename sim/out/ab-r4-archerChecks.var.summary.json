@@ -1,0 +1,56 @@
+{
+  "spec": {
+    "id": "ab-r4-archerChecks.var",
+    "games": 4000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 21,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "archerChecks": false
+    },
+    "baseRules": {
+      "archerMove": "any",
+      "beastMove": "any"
+    },
+    "baseValues": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    },
+    "baseId": "abb-base",
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    }
+  },
+  "games": 4000,
+  "seconds": 321.8,
+  "whiteScore": 0.5274,
+  "whiteWins": 1483,
+  "draws": 1253,
+  "blackWins": 1264,
+  "meanPlies": 133.4,
+  "reasons": {
+    "adjudicatedResign": 2747,
+    "adjudicatedDraw": 695,
+    "draw50": 204,
+    "plyCap": 164,
+    "drawRepetition": 133,
+    "drawMaterial": 56,
+    "stalemate": 1
+  }
+}

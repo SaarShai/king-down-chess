@@ -1,0 +1,30 @@
+{
+  "spec": {
+    "id": "regress-values",
+    "games": 20,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "backRanks": {
+      "sample": 5
+    }
+  },
+  "games": 20,
+  "seconds": 10.6,
+  "whiteScore": 0.525,
+  "whiteWins": 6,
+  "draws": 9,
+  "blackWins": 5,
+  "meanPlies": 123.5,
+  "reasons": {
+    "adjudicatedDraw": 3,
+    "draw50": 2,
+    "adjudicatedResign": 11,
+    "drawMaterial": 1,
+    "plyCap": 2,
+    "drawRepetition": 1
+  }
+}

@@ -1,0 +1,323 @@
+<title>King Down Style Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Press+Start+2P&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #f7f5f0;
+    --ink: #151515;
+    --mid: #8a8680;
+    --hairline: #d9d5cd;
+    --white: #ffffff;
+    --dash: repeating-linear-gradient(90deg, var(--ink) 0 4px, transparent 4px 8px);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 20px 64px;
+    font-family: 'DotGothic16', 'Courier New', monospace;
+    font-size: 15px; line-height: 1.7;
+    color: var(--ink); background: var(--paper);
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  h1 {
+    margin: 0 0 18px;
+    font-family: 'Press Start 2P', 'DotGothic16', monospace;
+    font-size: 20px; font-weight: 400; line-height: 1.5; letter-spacing: 1px;
+  }
+  h2 {
+    margin: 56px 0 6px; padding-bottom: 10px;
+    font-size: 19px; font-weight: 400; letter-spacing: 1px;
+    background-image: var(--dash); background-size: 100% 2px;
+    background-position: left bottom; background-repeat: no-repeat;
+  }
+  h3 { margin: 0 0 10px; font-size: 16px; font-weight: 400; letter-spacing: 1px; }
+  p { margin: 0 0 14px; max-width: 78ch; }
+  .lede { padding: 14px 16px; background: var(--white); border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+  .lede p:last-child { margin: 0; }
+  .sub { color: var(--mid); }
+  code {
+    font-family: inherit; letter-spacing: 1px; overflow-wrap: anywhere;
+    padding: 1px 5px; background: var(--white); border: 1px solid var(--hairline);
+  }
+  .tag {
+    display: inline-block; margin-right: 10px; padding: 2px 8px;
+    background: var(--ink); color: var(--paper); letter-spacing: 2px;
+  }
+  .card {
+    margin: 22px 0 0; padding: 14px;
+    background: var(--white); border: 2px solid var(--ink); box-shadow: 5px 5px 0 var(--ink);
+  }
+  .card img {
+    display: block; width: 100%; height: auto; margin: 0 0 12px;
+    border: 2px solid var(--ink); background: var(--paper);
+    image-rendering: pixelated;
+  }
+  .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 0 28px; }
+  .meta p:last-child { margin-bottom: 0; }
+  .verdict { padding-left: 12px; border-left: 3px solid var(--ink); }
+  .verdict b { letter-spacing: 1px; }
+  .cost { margin-top: 10px; color: var(--mid); }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 22px; }
+  .grid2 .card { margin: 0; }
+  .phones { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 320px)); gap: 22px; }
+  .phones .card { margin: 0; }
+  .next {
+    margin-top: 48px; padding: 14px 16px;
+    background: var(--ink); color: var(--paper); box-shadow: 5px 5px 0 var(--hairline);
+  }
+  .next p { margin: 0; max-width: none; }
+
+  h2.r1 { margin-top: 64px; font-size: 15px; color: var(--mid); }
+  .note { margin: 16px 0 0; padding: 12px 14px; max-width: none; background: var(--white); border: 2px solid var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+  .r2group { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 20px; align-items: start; margin-top: 24px; }
+  .r2group .card { margin: 0; }
+  .r2opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .refcard img { max-width: 800px; margin-bottom: 10px; }
+  .refcard ul { margin: 0; padding-left: 18px; }
+  .refcard li { margin-bottom: 4px; }
+  .card img.crop { border-top-width: 0; margin-top: -12px; }
+  .card a { color: inherit; }
+  .live { margin-bottom: 0; }
+  .live a { letter-spacing: 1px; }
+  .live code { white-space: nowrap; overflow-wrap: normal; }
+  @media (max-width: 1080px) {
+    .r2group { grid-template-columns: 1fr; }
+    .r2opts { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="wrap">
+  <h1>KING DOWN — STYLE BOARD</h1>
+
+
+  <h2>Round 2 — your three references</h2>
+  <p class="sub">Your three screenshots, each with three builds of the engine aimed at it. Same position everywhere; the live links open the real game with that preset.</p>
+  <p class="note">Voxel options from above (A1, A3, B2) suffer from the sculpts' round base discs; the iso camera (C1, C3) shows the sculpts in profile.</p>
+
+  <div class="r2group">
+    <div class="card refcard">
+      <h3>A — Chunky outlined tactics</h3>
+      <a href="img/ref-a.png" target="_blank"><img src="img/ref-a.png" alt="Reference A: a chunky outlined tactics game with big pixels, flat saturated colours and outlined terrain blocks." /></a>
+      <ul><li>Big pixels, saturated flat colour, almost no gradients.</li><li>A 1-pixel near-black outline on everything — units, props, and the tile edges.</li><li>Terrain as stacked blocks: lighter top, darker side, no texture.</li><li>Even light, no cast shadows; state shown as overlays.</li></ul>
+    </div>
+    <div class="r2opts">
+      <div class="card">
+        <h3><span class="tag">A1</span>Chunky voxel</h3>
+        <a href="img/r2-chunkyVoxel.png" target="_blank"><img src="img/r2-chunkyVoxel.png" alt="Chunky voxel: the full board rendered in this style." /></a>
+        <img class="crop" src="img/r2-chunkyVoxel-crop.png" alt="Chunky voxel: close-up of the white back rank." />
+        <p>Pixel 3 with two toon bands, a 1-art-pixel hull rim and a dark ring around every tile top; the flattest, most graphic option, but two bands throw away most of the sculpts’ modelling.</p>
+        <p class="live"><a href="https://claude.ai/code/artifact/7acdadad-e068-4a2e-a6a3-1635a2c3b1da?style=chunkyVoxel" target="_blank">Try it live &rarr;</a> <code>?style=chunkyVoxel</code></p>
+      </div>
+      <div class="card">
+        <h3><span class="tag">A2</span>Chunky sprite</h3>
+        <a href="img/r2-chunkySprite.png" target="_blank"><img src="img/r2-chunkySprite.png" alt="Chunky sprite: the full board rendered in this style." /></a>
+        <img class="crop" src="img/r2-chunkySprite-crop.png" alt="Chunky sprite: close-up of the white back rank." />
+        <p>Painted sprites with a dilated near-black outline over the same ringed tiles; the crispest silhouettes of the nine, at the cost of the pieces never turning with the camera.</p>
+        <p class="live"><a href="https://claude.ai/code/artifact/7acdadad-e068-4a2e-a6a3-1635a2c3b1da?style=chunkySprite" target="_blank">Try it live &rarr;</a> <code>?style=chunkySprite</code></p>
+      </div>
+      <div class="card">
+        <h3><span class="tag">A3</span>Chunky + Endesga 32</h3>
+        <a href="img/r2-chunkyPalette.png" target="_blank"><img src="img/r2-chunkyPalette.png" alt="Chunky + Endesga 32: the full board rendered in this style." /></a>
+        <img class="crop" src="img/r2-chunkyPalette-crop.png" alt="Chunky + Endesga 32: close-up of the white back rank." />
+        <p>Chunky voxel quantised to the Endesga-32 ramp for saturated poster colour; the strongest graphic unity, but the ramp swallows the tile edge ring on dark squares and pulls both armies toward the same navy.</p>
+        <p class="live"><a href="https://claude.ai/code/artifact/7acdadad-e068-4a2e-a6a3-1635a2c3b1da?style=chunkyPalette" target="_blank">Try it live &rarr;</a> <code>?style=chunkyPalette</code></p>
+      </div>
+    </div>
+  </div>
+  <div class="r2group">
+    <div class="card refcard">
+      <h3>B — Painterly dungeon</h3>
+      <a href="img/ref-b.png" target="_blank"><img src="img/ref-b.png" alt="Reference B: a painterly dungeon interior lit by torches, with textured stone floor tiles and no outlines." /></a>
+      <ul><li>Small pixels, painterly shading, five or more tones per material.</li><li>No outlines — figures separate by value contrast and a soft shadow.</li><li>Dark ambient with warm torch lights and a vignette.</li><li>Textured stone tiles on a visible grid; camera high (~60°) and straight on.</li></ul>
+    </div>
+    <div class="r2opts">
+      <div class="card">
+        <h3><span class="tag">B1</span>Dungeon sprite</h3>
+        <a href="img/r2-dungeonSprite.png" target="_blank"><img src="img/r2-dungeonSprite.png" alt="Dungeon sprite: the full board rendered in this style." /></a>
+        <img class="crop" src="img/r2-dungeonSprite-crop.png" alt="Dungeon sprite: close-up of the white back rank." />
+        <p>Painted sprites on Drive stone tiles under four warm corner torches at 60°, with contact shadows; the most atmospheric, but the far corners go dark enough to hurt piece identification.</p>
+        <p class="live"><a href="https://claude.ai/code/artifact/7acdadad-e068-4a2e-a6a3-1635a2c3b1da?style=dungeonSprite" target="_blank">Try it live &rarr;</a> <code>?style=dungeonSprite</code></p>
+      </div>
+      <div class="card">
+        <h3><span class="tag">B2</span>Dungeon voxel</h3>
+        <a href="img/r2-dungeonVoxel.png" target="_blank"><img src="img/r2-dungeonVoxel.png" alt="Dungeon voxel: the full board rendered in this style." /></a>
+        <img class="crop" src="img/r2-dungeonVoxel-crop.png" alt="Dungeon voxel: close-up of the white back rank." />
+        <p>Same stone board and torches with voxel sculpts, so the pieces catch the warm light in 3D; the light falloff costs contrast on the dark army more than the sprites do.</p>
+        <p class="live"><a href="https://claude.ai/code/artifact/7acdadad-e068-4a2e-a6a3-1635a2c3b1da?style=dungeonVoxel" target="_blank">Try it live &rarr;</a> <code>?style=dungeonVoxel</code></p>
+      </div>
+      <div class="card">
+        <h3><span class="tag">B3</span>Dungeon bright</h3>
+        <a href="img/r2-dungeonBright.png" target="_blank"><img src="img/r2-dungeonBright.png" alt="Dungeon bright: the full board rendered in this style." /></a>
+        <img class="crop" src="img/r2-dungeonBright-crop.png" alt="Dungeon bright: close-up of the white back rank." />
+        <p>Stone tiles and contact shadows under the existing bright paper lighting; keeps reference B’s textured floor and full readability, but loses the torch mood entirely.</p>
+        <p class="live"><a href="https://claude.ai/code/artifact/7acdadad-e068-4a2e-a6a3-1635a2c3b1da?style=dungeonBright" target="_blank">Try it live &rarr;</a> <code>?style=dungeonBright</code></p>
+      </div>
+    </div>
+  </div>
+  <div class="r2group">
+    <div class="card refcard">
+      <h3>C — Iso pixel</h3>
+      <a href="img/ref-c.png" target="_blank"><img src="img/ref-c.png" alt="Reference C: an isometric pixel-art map with a warm limited palette and chunky terrain blocks." /></a>
+      <ul><li>True isometric: 45° azimuth, about 30° elevation, orthographic.</li><li>Warm 32-colour palette, dithered ground, outline only on silhouettes.</li><li>Terrain as chunky blocks with visible side faces.</li><li>Small figures, roughly 32–40 art pixels tall.</li></ul>
+    </div>
+    <div class="r2opts">
+      <div class="card">
+        <h3><span class="tag">C1</span>Iso voxel</h3>
+        <a href="img/r2-isoVoxel.png" target="_blank"><img src="img/r2-isoVoxel.png" alt="Iso voxel: the full board rendered in this style." /></a>
+        <img class="crop" src="img/r2-isoVoxel-crop.png" alt="Iso voxel: close-up of the white back rank." />
+        <p>True 45°/30° isometric on a tall board block with visible side faces, warm 32-colour ramp and a hull rim; the strongest sense of place, but a 30° camera makes front pieces occlude the rank behind.</p>
+        <p class="live"><a href="https://claude.ai/code/artifact/7acdadad-e068-4a2e-a6a3-1635a2c3b1da?style=isoVoxel" target="_blank">Try it live &rarr;</a> <code>?style=isoVoxel</code></p>
+      </div>
+      <div class="card">
+        <h3><span class="tag">C2</span>Iso sprite</h3>
+        <a href="img/r2-isoSprite.png" target="_blank"><img src="img/r2-isoSprite.png" alt="Iso sprite: the full board rendered in this style." /></a>
+        <img class="crop" src="img/r2-isoSprite-crop.png" alt="Iso sprite: close-up of the white back rank." />
+        <p>The iso board with outlined painted sprites on the warm ramp; the closest match to the reference art, though billboards at 30° stand oddly tall against the flat board.</p>
+        <p class="live"><a href="https://claude.ai/code/artifact/7acdadad-e068-4a2e-a6a3-1635a2c3b1da?style=isoSprite" target="_blank">Try it live &rarr;</a> <code>?style=isoSprite</code></p>
+      </div>
+      <div class="card">
+        <h3><span class="tag">C3</span>Iso clean</h3>
+        <a href="img/r2-isoClean.png" target="_blank"><img src="img/r2-isoClean.png" alt="Iso clean: the full board rendered in this style." /></a>
+        <img class="crop" src="img/r2-isoClean-crop.png" alt="Iso clean: close-up of the white back rank." />
+        <p>Iso camera and tall board with no palette quantisation, so the painted voxel colours survive; clearer piece colour than C1, but it loses the limited-palette cohesion the reference lives on.</p>
+        <p class="live"><a href="https://claude.ai/code/artifact/7acdadad-e068-4a2e-a6a3-1635a2c3b1da?style=isoClean" target="_blank">Try it live &rarr;</a> <code>?style=isoClean</code></p>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="r1">Round 1 (earlier)</h2>
+  <div class="lede">
+    <p>Every shot is the same position — <code>rnbqklag/pppmsppp/8/8/8/8/PPPMSPPP/RNBQKLAG</code> — so all eleven piece types appear on both sides and nothing but the art changes. Sections A and B are 1440&times;900; section C is a 390&times;844 phone.</p>
+    <p class="sub">Reply with the IDs you prefer — for example &ldquo;A1 + B2&rdquo; — and that combination becomes the default style.</p>
+  </div>
+
+  <h2>A — Rendering approaches</h2>
+  <p class="sub">Five presets already in the build. Switch live with <code>?style=</code>.</p>
+
+  <div class="card">
+    <h3><span class="tag">A1</span>HD-2D sprites &nbsp;<code>?style=sprites</code></h3>
+    <img src="img/A1.png" alt="Chess board rendered with pre-rendered miniature sprites, blue army in front, red army at the back." />
+    <div class="meta">
+      <p>Each piece is one pre-rendered billboard cut straight from the miniature PSD render: trimmed, box-downscaled to 128&nbsp;px, given a 1&nbsp;px ink outline, and leaned back to match the camera. This is the <i>Donkey Kong Country</i> trick — sculpt once, render once, ship flat art — and the same idea <i>Octopath Traveler</i> revived as HD-2D.</p>
+      <p class="verdict"><b>Clarity: best of the five.</b> All eleven types separate at a glance — the archer's bow, the paladin's shield, the beast's jaw, the maester's hat. The warm/cool split names the side before you read any shape. The only cost is the tall back-rank pieces leaning over the pawns in front.</p>
+      <p class="cost">Cost: near zero. The art exists; one ImageMagick pass per army, about a second for 22 sprites. Locked to one camera angle.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">A2</span>HD pixel &nbsp;<code>?style=hd</code></h3>
+    <img src="img/A2.png" alt="Chess board rendered with voxel pieces, navy and bone white, snapped to a 2-pixel grid with outlines." />
+    <div class="meta">
+      <p>Real 3-D voxel pieces, flat-lit, with the whole frame snapped to a 2&nbsp;px grid and an outline pass driven by normals and depth. It is the low-resolution 3-D of <i>Fez</i> with the ink line of <i>Crossy Road</i> on top.</p>
+      <p class="verdict"><b>Clarity: poor at piece level.</b> Side is obvious (navy against bone) but identity is not — archer, maester and paladin land as the same lump, and only the king and queen separate by height. The white army also washes out against the pale squares.</p>
+      <p class="cost">Cost: high. Auto-voxelising the sculpts is what produced these lumps; a readable set means hand-building each piece in Goxel, roughly 1–3&nbsp;h per piece, 1–2 weeks for twelve.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">A3</span>Cel pixel &nbsp;<code>?style=cel</code></h3>
+    <img src="img/A3.png" alt="The same voxel board with toon-banded shading and a stronger depth outline." />
+    <div class="meta">
+      <p>The same voxels with toon shading: light quantised into four flat bands, plus a stronger depth edge. The look sits next to <i>The Legend of Zelda: The Wind Waker</i> or <i>Jet Set Radio</i>, scaled down to pixels.</p>
+      <p class="verdict"><b>Clarity: slightly worse than A2.</b> The edges are cleaner, but banding throws away the shading that was doing the little work of telling the shapes apart — the white army is now nearly flat white.</p>
+      <p class="cost">Cost: same asset bill as A2. The toon material itself is free.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">A4</span>Clean voxel &nbsp;<code>?style=voxel</code></h3>
+    <img src="img/A4.png" alt="The same voxel board rendered at full resolution with no pixel snapping." />
+    <div class="meta">
+      <p>The voxels again, but no pixel snap (1&nbsp;px) and depth outlines only — the crisp, un-pixelated flat-shaded look of <i>Crossy Road</i>.</p>
+      <p class="verdict"><b>Clarity: sharpest of the voxel three, and still not enough.</b> The geometry is clean, so the silhouette problem is now impossible to blame on the pixel filter. It also stops reading as pixel art and starts reading as low-poly 3-D, which is a different game.</p>
+      <p class="cost">Cost: same asset bill as A2, and it drops the pixel-art identity the UI is built around.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span class="tag">A5</span>16-bit palette &nbsp;<code>?style=db32</code></h3>
+    <img src="img/A5.png" alt="The voxel board quantised to a 32-colour palette with ordered dithering, pieces speckled blue and orange." />
+    <div class="meta">
+      <p>The finished frame quantised to DB32, a 32-colour palette, with ordered dithering — the constraint that gave the SNES and Mega Drive era its look.</p>
+      <p class="verdict"><b>Clarity: worst here.</b> Dither noise eats the white army, the board flips to slate and white, and the pieces speckle into blue-orange confetti. The palette is fighting the assets rather than styling them.</p>
+      <p class="cost">Cost: the shader is free; making it look deliberate means a palette authored for these pieces, and it can only ever sit on top of a voxel set that already reads.</p>
+    </div>
+  </div>
+
+  <h2>B — Sprite treatments</h2>
+  <p class="sub">A1 held fixed; one knob moved at a time. <code>?army=</code>, <code>?px=</code>, <code>?spriteScale=</code>.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h3><span class="tag">B1</span>Army: green / purple</h3>
+      <img src="img/B1.png" alt="The sprite board with a green army in front and a purple army at the back." />
+      <p>Reads as well as blue/red, but green sits close to the board's tan and gives up a little separation on the light squares.</p>
+    </div>
+    <div class="card">
+      <h3><span class="tag">B2</span>Army: ivory / charcoal</h3>
+      <img src="img/B2.png" alt="The sprite board with an ivory army in front and a charcoal army at the back." />
+      <p>Graded from the uncoloured base renders. The closest match to the paper-and-ink UI; charcoal keeps a crisp silhouette but loses most interior detail.</p>
+    </div>
+    <div class="card">
+      <h3><span class="tag">B3</span>Pixel size 1</h3>
+      <img src="img/B3.png" alt="The sprite board with no pixel snapping, showing maximum sprite detail." />
+      <p>No pixel snap. Maximum detail — faces, spear tips, the shield rim — but it reads as a printed board game, not as pixel art.</p>
+    </div>
+    <div class="card">
+      <h3><span class="tag">B4</span>Pixel size 3</h3>
+      <img src="img/B4.png" alt="The sprite board snapped to a 3-pixel grid, noticeably chunkier." />
+      <p>Chunky and the most honest as pixel art; spears, faces and the archer's bow start to break up into single stray pixels.</p>
+    </div>
+    <div class="card">
+      <h3><span class="tag">B5</span>Sprite scale 0.85</h3>
+      <img src="img/B5.png" alt="The sprite board with pieces rendered smaller, sitting inside their squares." />
+      <p>Pieces sit inside their own squares and the back rank stops leaning over the pawns. The safest setting for the phone layout.</p>
+    </div>
+    <div class="card">
+      <h3><span class="tag">B6</span>Sprite scale 1.15</h3>
+      <img src="img/B6.png" alt="The sprite board with pieces rendered larger, overlapping the rank in front." />
+      <p>More presence and more drama, at the price of a back rank that crowds the pawns and tall pieces that clear the board frame.</p>
+    </div>
+  </div>
+
+  <h2>C — Mobile</h2>
+  <p class="sub">390&times;844, the same position. The rail becomes a bottom sheet and the board keeps the top 58&nbsp;% of the screen.</p>
+
+  <div class="phones">
+    <div class="card">
+      <h3><span class="tag">M1</span>Sprites</h3>
+      <img src="img/M1.png" alt="The sprite board on a 390 by 844 phone viewport, with the control panel below the board." />
+      <p>Pieces survive the shrink: the beast, the paladin and the queen are still distinct at thumb size.</p>
+    </div>
+    <div class="card">
+      <h3><span class="tag">M2</span>HD pixel</h3>
+      <img src="img/M2.png" alt="The voxel board on a 390 by 844 phone viewport, with the control panel below the board." />
+      <p>The voxel pieces collapse into one repeated blob. This is the clearest argument in the whole board.</p>
+    </div>
+  </div>
+
+  <h2>D — Sprite sheets</h2>
+  <p class="sub">The baked art itself, straight from <code>tools/sprites.sh</code>.</p>
+
+  <div class="card">
+    <h3>128&nbsp;px with outline — what ships today</h3>
+    <img src="img/sheet-h128-outline-blue.png" alt="Contact sheet of every piece as a 128-pixel-tall sprite with a one-pixel dark outline." />
+    <p>Full bake height. One 1&nbsp;px <code>#14121f</code> outline pulled from the dilated alpha, which is what keeps a piece off the board texture.</p>
+  </div>
+
+  <div class="card">
+    <h3>96&nbsp;px with outline — phone-sized</h3>
+    <img src="img/sheet-h96-outline-blue.png" alt="Contact sheet of every piece as a 96-pixel-tall sprite with a one-pixel dark outline." />
+    <p>Roughly the pixels a phone actually shows. Detail holds; the outline starts doing most of the work.</p>
+  </div>
+
+  <div class="card">
+    <h3>All four army colours</h3>
+    <img src="img/sheet-armies-h96-outline.png" alt="Contact sheet comparing the blue, red, green and purple army colours for every piece." />
+    <p>Blue, red, green and purple from the original PSDs. Ivory and charcoal are graded from the uncoloured renders instead, so any two of the six can be paired.</p>
+  </div>
+
+  <div class="next">
+    <p><b>Next step:</b> pick one ID from A and any from B — for example &ldquo;A1 + B2 + B5&rdquo; — and that becomes the default style; everything else stays reachable on a URL parameter.</p>
+  </div>
+</div>

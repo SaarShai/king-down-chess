@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "buff-S-move.S",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "beastMove": "any"
+    },
+    "asymmetric": [
+      {
+        "white": "RSBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 54.5,
+  "whiteScore": 0.575,
+  "whiteWins": 160,
+  "draws": 25,
+  "blackWins": 115,
+  "meanPlies": 94.9,
+  "reasons": {
+    "adjudicatedResign": 275,
+    "adjudicatedDraw": 18,
+    "drawMaterial": 3,
+    "drawRepetition": 2,
+    "draw50": 2
+  }
+}

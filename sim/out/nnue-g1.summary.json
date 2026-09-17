@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "nnue-g1",
+    "games": 686,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 202,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "guardCaptures": "none",
+      "guardStep": 1,
+      "guardCaptureLimit": 0
+    },
+    "backRanks": {
+      "sample": 700
+    }
+  },
+  "games": 686,
+  "seconds": 0,
+  "whiteScore": 0.5284,
+  "whiteWins": 259,
+  "draws": 207,
+  "blackWins": 220,
+  "meanPlies": 117,
+  "reasons": {
+    "adjudicatedResign": 479,
+    "adjudicatedDraw": 172,
+    "drawRepetition": 14,
+    "draw50": 8,
+    "plyCap": 9,
+    "drawMaterial": 4
+  }
+}

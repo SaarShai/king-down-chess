@@ -1,0 +1,49 @@
+{
+  "spec": {
+    "id": "cfg-guardAdjKing",
+    "games": 3200,
+    "backRanks": [
+      "BGKMGSNN",
+      "RSNMGKAB",
+      "GKMMNNAR",
+      "RMSNRKGQ",
+      "GKANBSNS",
+      "NGMSAGKS",
+      "SMARNMGK",
+      "NRAGKGNB",
+      "NGKLAQRB",
+      "RBSANKGN",
+      "BARMGKGS",
+      "MSQNGKBG",
+      "NBBGMMKG",
+      "SGKNQRMM",
+      "GAAQKGBN",
+      "GKMMGNBR",
+      "RNGKBBMG",
+      "AGSBNRKG",
+      "MGKBNGAR",
+      "GSMBLKGA"
+    ],
+    "ai": {
+      "depth": 3
+    },
+    "seed": 7,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 580.8,
+  "whiteScore": 0.5325,
+  "whiteWins": 973,
+  "draws": 1462,
+  "blackWins": 765,
+  "meanPlies": 146.1,
+  "reasons": {
+    "adjudicatedResign": 1738,
+    "adjudicatedDraw": 685,
+    "draw50": 377,
+    "drawMaterial": 33,
+    "plyCap": 232,
+    "drawRepetition": 135
+  }
+}

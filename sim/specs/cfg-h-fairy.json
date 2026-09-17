@@ -1,0 +1,12 @@
+{
+  "id": "cfg-h-fairy",
+  "games": 3200,
+  "backRanks": {
+    "sample": 20,
+    "pool": "LAAGGMMSSQ"
+  },
+  "ai": {
+    "depth": 3
+  },
+  "seed": 7
+}

@@ -1,0 +1,32 @@
+{
+  "spec": {
+    "id": "values-d3.S",
+    "games": 200,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "asymmetric": [
+      {
+        "white": "RSBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 200,
+  "seconds": 0,
+  "whiteScore": 0.5275,
+  "whiteWins": 96,
+  "draws": 19,
+  "blackWins": 85,
+  "meanPlies": 85,
+  "reasons": {
+    "adjudicatedResign": 181,
+    "adjudicatedDraw": 11,
+    "drawRepetition": 7,
+    "draw50": 1
+  }
+}

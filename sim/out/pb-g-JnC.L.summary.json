@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-g-JnC.L",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "paladinKamikaze": "never",
+      "paladinChecks": true
+    },
+    "asymmetric": [
+      {
+        "white": "RLBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 0,
+  "whiteScore": 0.54,
+  "whiteWins": 150,
+  "draws": 24,
+  "blackWins": 126,
+  "meanPlies": 76.6,
+  "reasons": {
+    "adjudicatedResign": 273,
+    "drawRepetition": 8,
+    "adjudicatedDraw": 16,
+    "checkmate": 3
+  }
+}

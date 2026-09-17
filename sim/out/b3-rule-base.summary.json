@@ -1,0 +1,58 @@
+{
+  "spec": {
+    "id": "b3-rule-base",
+    "games": 2000,
+    "seed": 351,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "AMQLGKRB",
+      "AMQRBKGL",
+      "AMRGQBKL",
+      "AQRLMKBG",
+      "BGAMLRQK",
+      "BLGRMAKQ",
+      "GBRLQKMA",
+      "GLRAMBQK",
+      "GMQRLKBA",
+      "KALBMQGR",
+      "KGRMLBQA",
+      "KQRBGAML",
+      "LGMQBAKR",
+      "LQBGAMKR",
+      "MABLGKQR",
+      "MGABKQRL",
+      "QARLMGBK",
+      "QBALRGMK",
+      "RBAGQKML",
+      "RKQBMLGA"
+    ],
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "guardCaptures": "pawns",
+      "guardStep": 2,
+      "guardCaptureLimit": 1
+    },
+    "note": "the §18.4 buff set alone — the base every removal is paired against",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 204.1,
+  "whiteScore": 0.533,
+  "whiteWins": 671,
+  "draws": 790,
+  "blackWins": 539,
+  "meanPlies": 141.5,
+  "reasons": {
+    "drawRepetition": 70,
+    "adjudicatedDraw": 506,
+    "adjudicatedResign": 1210,
+    "plyCap": 156,
+    "draw50": 35,
+    "drawMaterial": 23
+  }
+}

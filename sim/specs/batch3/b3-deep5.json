@@ -1,0 +1,17 @@
+{
+  "id": "b3-deep5",
+  "games": 2500,
+  "seed": 331,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "SKANSGGR",
+    "BKMLQRGA",
+    "ARNAKSNG",
+    "NAGQKGBM",
+    "GRMGKNBB"
+  ],
+  "note": "two most lopsided and two most interesting ranks at n=240, plus the biggest raw outlier at n=80"
+}

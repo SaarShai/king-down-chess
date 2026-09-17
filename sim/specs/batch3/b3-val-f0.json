@@ -1,0 +1,32 @@
+{
+  "id": "b3-val-f0",
+  "games": 2000,
+  "seed": 301,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "BBNRNQRK",
+    "BKNNRBRQ",
+    "BNQNKBRR",
+    "BNRNKBRQ",
+    "BNRQRNKB",
+    "BQKRRNNB",
+    "BQRKNBRN",
+    "BRNKRBQN",
+    "KBQNNRBR",
+    "KRBBNQNR",
+    "KRNQBBRN",
+    "KRNRQNBB",
+    "NBBNQRRK",
+    "NBQNRRBK",
+    "NBRNKRBQ",
+    "NBRQBNKR",
+    "NNBRKBQR",
+    "NRKNRBBQ",
+    "RNBBNQRK",
+    "RNBBQRNK"
+  ],
+  "note": "fairy 0, the only all-standard army — army QRRBBNN, 30.7 pawns (tuned values)"
+}

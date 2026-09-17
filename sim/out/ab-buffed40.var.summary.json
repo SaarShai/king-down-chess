@@ -1,0 +1,44 @@
+{
+  "spec": {
+    "id": "ab-buffed40.var",
+    "games": 4000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any"
+    },
+    "values": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    },
+    "baseId": "ab17-base",
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true
+  },
+  "games": 4000,
+  "seconds": 308.7,
+  "whiteScore": 0.5211,
+  "whiteWins": 1476,
+  "draws": 1217,
+  "blackWins": 1307,
+  "meanPlies": 128.1,
+  "reasons": {
+    "adjudicatedDraw": 781,
+    "adjudicatedResign": 2783,
+    "drawMaterial": 43,
+    "draw50": 154,
+    "drawRepetition": 130,
+    "plyCap": 108,
+    "stalemate": 1
+  }
+}

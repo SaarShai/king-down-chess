@@ -1,0 +1,53 @@
+{
+  "spec": {
+    "id": "b3-beast-centre",
+    "games": 3200,
+    "seed": 344,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "BBQSSRKR",
+      "BKQSSBRR",
+      "BKRSSBQR",
+      "BQKSSBRR",
+      "BRKSSRQB",
+      "KQRSSRBB",
+      "KRBSSBRQ",
+      "KRRSSBBQ",
+      "QBBSSRRK",
+      "QKBSSRRB",
+      "QKRSSBBR",
+      "QKRSSRBB",
+      "QRKSSBBR",
+      "RBBSSKQR",
+      "RBQSSKBR",
+      "RKBSSRQB",
+      "RKRSSBBQ",
+      "RQBSSKRB",
+      "RRBSSKQB",
+      "RRKSSQBB"
+    ],
+    "note": "both beasts on d/e",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 258.2,
+  "whiteScore": 0.5189,
+  "whiteWins": 1343,
+  "draws": 635,
+  "blackWins": 1222,
+  "meanPlies": 101.6,
+  "reasons": {
+    "adjudicatedResign": 2560,
+    "adjudicatedDraw": 459,
+    "drawRepetition": 92,
+    "checkmate": 5,
+    "plyCap": 40,
+    "draw50": 21,
+    "drawMaterial": 20,
+    "stalemate": 3
+  }
+}

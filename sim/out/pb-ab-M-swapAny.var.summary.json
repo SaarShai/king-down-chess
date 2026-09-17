@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "pb-ab-M-swapAny.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 21,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "maesterSwapAny": true
+    },
+    "baseId": "pb-ab-base24",
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 0,
+  "whiteScore": 0.5356,
+  "whiteWins": 638,
+  "draws": 438,
+  "blackWins": 524,
+  "meanPlies": 113.1,
+  "reasons": {
+    "drawRepetition": 38,
+    "adjudicatedResign": 1161,
+    "adjudicatedDraw": 370,
+    "draw50": 11,
+    "drawMaterial": 5,
+    "plyCap": 14,
+    "checkmate": 1
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "id": "b3-rule-noLongSwap",
+  "games": 2000,
+  "seed": 351,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "AMQLGKRB",
+    "AMQRBKGL",
+    "AMRGQBKL",
+    "AQRLMKBG",
+    "BGAMLRQK",
+    "BLGRMAKQ",
+    "GBRLQKMA",
+    "GLRAMBQK",
+    "GMQRLKBA",
+    "KALBMQGR",
+    "KGRMLBQA",
+    "KQRBGAML",
+    "LGMQBAKR",
+    "LQBGAMKR",
+    "MABLGKQR",
+    "MGABKQRL",
+    "QARLMGBK",
+    "QBALRGMK",
+    "RBAGQKML",
+    "RKQBMLGA"
+  ],
+  "rules": {
+    "archerMove": "any",
+    "beastMove": "any",
+    "guardCaptures": "pawns",
+    "guardStep": 2,
+    "guardCaptureLimit": 1,
+    "maesterLongSwap": false
+  },
+  "note": "maesterLongSwap=false: the swap is castling (43% of games, median ply 11)"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "values-warden-wall",
+  "games": 300,
+  "commonSeeds": true,
+  "ai": {
+    "depth": 3
+  },
+  "seed": 921
+}

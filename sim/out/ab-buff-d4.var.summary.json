@@ -1,0 +1,46 @@
+{
+  "spec": {
+    "id": "ab-buff-d4.var",
+    "games": 1200,
+    "ai": {
+      "depth": 4
+    },
+    "seed": 11,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "guardCaptures": "pawns",
+      "guardStep": 2,
+      "beastMove": "any"
+    },
+    "values": {
+      "A": 280,
+      "G": 170,
+      "S": 215,
+      "L": 310,
+      "M": 330
+    },
+    "backRanks": {
+      "sample": 60
+    },
+    "commonSeeds": true
+  },
+  "games": 1200,
+  "seconds": 884.4,
+  "whiteScore": 0.5083,
+  "whiteWins": 284,
+  "draws": 652,
+  "blackWins": 264,
+  "meanPlies": 154.6,
+  "reasons": {
+    "adjudicatedResign": 546,
+    "adjudicatedDraw": 327,
+    "draw50": 143,
+    "drawRepetition": 20,
+    "drawMaterial": 76,
+    "plyCap": 85,
+    "checkmate": 2,
+    "stalemate": 1
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "cfg-kingCorner",
+  "games": 3200,
+  "backRanks": [
+    "KRNQMABG",
+    "KMRGLABB",
+    "KLSMRRGN",
+    "KRNSQRGM",
+    "NMSSMLRK",
+    "KBASQMRA",
+    "KRNBSNAQ",
+    "SMARNMGK",
+    "MNSABRQK",
+    "KBQNMSLG",
+    "BBRNLMAK",
+    "BASRQBSK",
+    "KBARLMAM",
+    "SGLRNMRK",
+    "KLRRMSBA",
+    "GGBAABRK",
+    "NGMBASSK",
+    "RGNLABMK",
+    "KBMSNSAG",
+    "KGMASRLQ"
+  ],
+  "ai": {
+    "depth": 3
+  },
+  "seed": 7
+}

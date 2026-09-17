@@ -1,0 +1,18 @@
+{
+  "id": "ladder-d3v4",
+  "games": 200,
+  "backRanks": {
+    "sample": 100
+  },
+  "ai": {
+    "white": {
+      "depth": 4
+    },
+    "black": {
+      "depth": 3
+    }
+  },
+  "openingRandomPlies": 4,
+  "maxPlies": 300,
+  "seed": 21
+}

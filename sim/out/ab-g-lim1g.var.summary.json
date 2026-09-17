@@ -1,0 +1,61 @@
+{
+  "spec": {
+    "id": "ab-g-lim1g.var",
+    "games": 4000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 21,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "guardCaptures": "pawns",
+      "guardStep": 2,
+      "guardCaptureLimit": 1
+    },
+    "baseRules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "guardCaptures": "none",
+      "guardStep": 1,
+      "guardCaptureLimit": 0
+    },
+    "baseValues": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    },
+    "baseId": "abb-base",
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    }
+  },
+  "games": 4000,
+  "seconds": 339.5,
+  "whiteScore": 0.5189,
+  "whiteWins": 1394,
+  "draws": 1363,
+  "blackWins": 1243,
+  "meanPlies": 133.6,
+  "reasons": {
+    "adjudicatedResign": 2637,
+    "adjudicatedDraw": 844,
+    "draw50": 202,
+    "plyCap": 130,
+    "drawRepetition": 130,
+    "drawMaterial": 56,
+    "stalemate": 1
+  }
+}

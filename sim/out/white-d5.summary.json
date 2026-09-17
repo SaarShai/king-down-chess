@@ -1,0 +1,30 @@
+{
+  "spec": {
+    "id": "white-d5",
+    "games": 200,
+    "ai": {
+      "depth": 5
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "backRanks": {
+      "sample": 50
+    }
+  },
+  "games": 200,
+  "seconds": 906.1,
+  "whiteScore": 0.535,
+  "whiteWins": 57,
+  "draws": 100,
+  "blackWins": 43,
+  "meanPlies": 144.1,
+  "reasons": {
+    "adjudicatedResign": 100,
+    "adjudicatedDraw": 54,
+    "draw50": 20,
+    "drawRepetition": 9,
+    "plyCap": 13,
+    "drawMaterial": 4
+  }
+}

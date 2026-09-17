@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "pb-L-checks.L",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "paladinChecks": true
+    },
+    "asymmetric": [
+      {
+        "white": "RLBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 166.2,
+  "whiteScore": 0.6033,
+  "whiteWins": 162,
+  "draws": 38,
+  "blackWins": 100,
+  "meanPlies": 87.5,
+  "reasons": {
+    "adjudicatedResign": 260,
+    "drawMaterial": 5,
+    "adjudicatedDraw": 31,
+    "drawRepetition": 1,
+    "checkmate": 2,
+    "plyCap": 1
+  }
+}

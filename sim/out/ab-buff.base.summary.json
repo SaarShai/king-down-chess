@@ -1,0 +1,32 @@
+{
+  "spec": {
+    "id": "ab-buff.base",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 5,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {},
+    "backRanks": {
+      "sample": 30
+    },
+    "commonSeeds": true
+  },
+  "games": 300,
+  "seconds": 24.1,
+  "whiteScore": 0.56,
+  "whiteWins": 100,
+  "draws": 136,
+  "blackWins": 64,
+  "meanPlies": 151.8,
+  "reasons": {
+    "adjudicatedResign": 164,
+    "adjudicatedDraw": 59,
+    "drawRepetition": 13,
+    "draw50": 31,
+    "plyCap": 29,
+    "drawMaterial": 4
+  }
+}

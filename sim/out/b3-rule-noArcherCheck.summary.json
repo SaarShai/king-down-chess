@@ -1,0 +1,59 @@
+{
+  "spec": {
+    "id": "b3-rule-noArcherCheck",
+    "games": 2000,
+    "seed": 351,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "AMQLGKRB",
+      "AMQRBKGL",
+      "AMRGQBKL",
+      "AQRLMKBG",
+      "BGAMLRQK",
+      "BLGRMAKQ",
+      "GBRLQKMA",
+      "GLRAMBQK",
+      "GMQRLKBA",
+      "KALBMQGR",
+      "KGRMLBQA",
+      "KQRBGAML",
+      "LGMQBAKR",
+      "LQBGAMKR",
+      "MABLGKQR",
+      "MGABKQRL",
+      "QARLMGBK",
+      "QBALRGMK",
+      "RBAGQKML",
+      "RKQBMLGA"
+    ],
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "guardCaptures": "pawns",
+      "guardStep": 2,
+      "guardCaptureLimit": 1,
+      "archerChecks": false
+    },
+    "note": "archerChecks=false: can a buffed archer lose the check and keep its value?",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 206.1,
+  "whiteScore": 0.5315,
+  "whiteWins": 644,
+  "draws": 838,
+  "blackWins": 518,
+  "meanPlies": 144.9,
+  "reasons": {
+    "drawRepetition": 75,
+    "adjudicatedDraw": 541,
+    "adjudicatedResign": 1162,
+    "plyCap": 152,
+    "draw50": 41,
+    "drawMaterial": 29
+  }
+}

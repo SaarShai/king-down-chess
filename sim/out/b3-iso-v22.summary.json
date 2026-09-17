@@ -1,0 +1,52 @@
+{
+  "spec": {
+    "id": "b3-iso-v22",
+    "games": 2000,
+    "seed": 313,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "ABBMNNKA",
+      "AMBKNBAN",
+      "BANMABNK",
+      "BKAANBMN",
+      "BKAMNBNA",
+      "BMAANKNB",
+      "BMNBKANA",
+      "BNAKNAMB",
+      "KBANNABM",
+      "KNAANBBM",
+      "KNBBAAMN",
+      "KNNMABBA",
+      "MAABNNBK",
+      "MAKNBBAN",
+      "MANBBAKN",
+      "MNABBANK",
+      "MNBBNAAK",
+      "NABNMAKB",
+      "NAMBBKNA",
+      "NAMKBBAN"
+    ],
+    "note": "fairy 3, bottom (no queen: unavoidable at this value) — army BBNNAAM, 21.2 pawns (tuned values)",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 96.1,
+  "whiteScore": 0.5118,
+  "whiteWins": 716,
+  "draws": 615,
+  "blackWins": 669,
+  "meanPlies": 119.8,
+  "reasons": {
+    "adjudicatedResign": 1385,
+    "adjudicatedDraw": 545,
+    "drawRepetition": 38,
+    "drawMaterial": 8,
+    "draw50": 13,
+    "plyCap": 9,
+    "stalemate": 2
+  }
+}

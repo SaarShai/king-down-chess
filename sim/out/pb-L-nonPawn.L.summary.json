@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-L-nonPawn.L",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "paladinKamikaze": "nonPawn"
+    },
+    "asymmetric": [
+      {
+        "white": "RLBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 124.5,
+  "whiteScore": 0.5517,
+  "whiteWins": 139,
+  "draws": 53,
+  "blackWins": 108,
+  "meanPlies": 93.1,
+  "reasons": {
+    "drawRepetition": 9,
+    "adjudicatedResign": 247,
+    "adjudicatedDraw": 40,
+    "drawMaterial": 2,
+    "draw50": 2
+  }
+}

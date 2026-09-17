@@ -1,0 +1,31 @@
+{
+  "spec": {
+    "id": "cfg-i-nomin",
+    "games": 3200,
+    "backRanks": {
+      "sample": 20,
+      "pool": "QRRLAAGGMMSS"
+    },
+    "ai": {
+      "depth": 3
+    },
+    "seed": 7,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 847.6,
+  "whiteScore": 0.5155,
+  "whiteWins": 807,
+  "draws": 1685,
+  "blackWins": 708,
+  "meanPlies": 154.7,
+  "reasons": {
+    "adjudicatedDraw": 721,
+    "draw50": 482,
+    "adjudicatedResign": 1515,
+    "plyCap": 321,
+    "drawRepetition": 148,
+    "drawMaterial": 13
+  }
+}

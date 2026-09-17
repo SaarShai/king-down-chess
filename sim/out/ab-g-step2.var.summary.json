@@ -1,0 +1,56 @@
+{
+  "spec": {
+    "id": "ab-g-step2.var",
+    "games": 4000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 21,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "guardStep": 2
+    },
+    "baseRules": {
+      "archerMove": "any",
+      "beastMove": "any"
+    },
+    "baseValues": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    },
+    "baseId": "abb-base",
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    }
+  },
+  "games": 4000,
+  "seconds": 462.4,
+  "whiteScore": 0.5208,
+  "whiteWins": 1462,
+  "draws": 1242,
+  "blackWins": 1296,
+  "meanPlies": 130.8,
+  "reasons": {
+    "adjudicatedDraw": 732,
+    "adjudicatedResign": 2758,
+    "draw50": 189,
+    "drawRepetition": 150,
+    "plyCap": 118,
+    "drawMaterial": 51,
+    "stalemate": 2
+  }
+}

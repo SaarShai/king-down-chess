@@ -1,0 +1,32 @@
+{
+  "id": "b3-archer-corner",
+  "games": 3200,
+  "seed": 341,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "ABBKQRRA",
+    "ABBKRRQA",
+    "ABBQRRKA",
+    "ABBRKQRA",
+    "ABKQBRRA",
+    "ABKRBQRA",
+    "ABRKRQBA",
+    "ABRQBRKA",
+    "ABRRBQKA",
+    "AKBBRQRA",
+    "AKQRBBRA",
+    "AQBBRRKA",
+    "AQKBRRBA",
+    "AQRBBKRA",
+    "ARBBQRKA",
+    "ARBRQBKA",
+    "ARKRQBBA",
+    "ARQBBRKA",
+    "ARRKQBBA",
+    "ARRQBBKA"
+  ],
+  "note": "both archers on a/h"
+}

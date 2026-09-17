@@ -1,0 +1,51 @@
+{
+  "spec": {
+    "id": "b3-guard1",
+    "games": 2000,
+    "seed": 322,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "ABRMNGQK",
+      "GMKQNBAR",
+      "GNQRMABK",
+      "KAMRQBGN",
+      "KBNMGRQA",
+      "KGAQNBMR",
+      "MBQGNKAR",
+      "MNBRQKGA",
+      "MNRAQGBK",
+      "MRBAQGKN",
+      "NGMQRBKA",
+      "NMBRKGQA",
+      "NQKMGABR",
+      "QBANGKMR",
+      "QMBKNRGA",
+      "QNBAKGRM",
+      "QRABKMGN",
+      "RABNKGQM",
+      "RGANBMKQ",
+      "RNKQMGAB"
+    ],
+    "note": "guards 1, fairy 3 (A->G paid with N->R) — army QRBNAGM, 27.0 pawns (tuned values)",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 184.6,
+  "whiteScore": 0.496,
+  "whiteWins": 586,
+  "draws": 812,
+  "blackWins": 602,
+  "meanPlies": 143.2,
+  "reasons": {
+    "drawRepetition": 59,
+    "adjudicatedResign": 1188,
+    "adjudicatedDraw": 540,
+    "plyCap": 143,
+    "draw50": 42,
+    "drawMaterial": 28
+  }
+}

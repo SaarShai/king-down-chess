@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "values-warden-wall.G",
+    "games": 300,
+    "commonSeeds": true,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 921,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "asymmetric": [
+      {
+        "white": "RGBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 208.9,
+  "whiteScore": 0.5,
+  "whiteWins": 139,
+  "draws": 22,
+  "blackWins": 139,
+  "meanPlies": 96.4,
+  "reasons": {
+    "adjudicatedResign": 277,
+    "adjudicatedDraw": 14,
+    "drawMaterial": 2,
+    "plyCap": 4,
+    "drawRepetition": 2,
+    "checkmate": 1
+  }
+}

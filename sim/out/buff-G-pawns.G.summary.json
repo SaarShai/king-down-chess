@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "buff-G-pawns.G",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "guardCaptures": "pawns"
+    },
+    "asymmetric": [
+      {
+        "white": "RGBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 53.5,
+  "whiteScore": 0.5083,
+  "whiteWins": 139,
+  "draws": 27,
+  "blackWins": 134,
+  "meanPlies": 92.4,
+  "reasons": {
+    "adjudicatedResign": 273,
+    "adjudicatedDraw": 9,
+    "plyCap": 2,
+    "drawMaterial": 6,
+    "draw50": 6,
+    "drawRepetition": 4
+  }
+}

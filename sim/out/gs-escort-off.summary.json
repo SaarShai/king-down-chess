@@ -1,0 +1,273 @@
+{
+  "spec": {
+    "id": "gs-escort-off",
+    "games": 2400,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "seed": 911,
+    "pairs": true,
+    "asymmetric": [
+      {
+        "white": "KGMAQNRB",
+        "black": "KGMAQNRB",
+        "fen": "k2r2g1/3p1p1p/1P6/8/8/8/3P1P1P/K2R2G1 w - - 0 1",
+        "fenSwapped": "k2r2g1/3p1p1p/8/8/8/1p6/3P1P1P/K2R2G1 w - - 0 1"
+      },
+      {
+        "white": "KBMQNGRA",
+        "black": "KBMQNGRA",
+        "fen": "1g1k2r1/p3p1p1/2P5/8/8/8/P3P1P1/1G1K2R1 w - - 0 1",
+        "fenSwapped": "1g1k2r1/p3p1p1/8/8/8/2p5/P3P1P1/1G1K2R1 w - - 0 1"
+      },
+      {
+        "white": "NQKGMARB",
+        "black": "NQKGMARB",
+        "fen": "1r2g1k1/1p3p1p/3P4/8/8/8/1P3P1P/1R2G1K1 w - - 0 1",
+        "fenSwapped": "1r2g1k1/1p3p1p/8/8/8/3p4/1P3P1P/1R2G1K1 w - - 0 1"
+      },
+      {
+        "white": "MABNKGQR",
+        "black": "MABNKGQR",
+        "fen": "1k2r2g/p1p3p1/4P3/8/8/8/P1P3P1/1K2R2G w - - 0 1",
+        "fenSwapped": "1k2r2g/p1p3p1/8/8/8/4p3/P1P3P1/1K2R2G w - - 0 1"
+      },
+      {
+        "white": "MNRGKQBA",
+        "black": "MNRGKQBA",
+        "fen": "2g1k2r/1p1p3p/5P2/8/8/8/1P1P3P/2G1K2R w - - 0 1",
+        "fenSwapped": "2g1k2r/1p1p3p/8/8/8/5p2/1P1P3P/2G1K2R w - - 0 1"
+      },
+      {
+        "white": "ARGMBKNQ",
+        "black": "ARGMBKNQ",
+        "fen": "2r2g1k/p1p1p3/6P1/8/8/8/P1P1P3/2R2G1K w - - 0 1",
+        "fenSwapped": "2r2g1k/p1p1p3/8/8/8/6p1/P1P1P3/2R2G1K w - - 0 1"
+      },
+      {
+        "white": "GAKMNRBQ",
+        "black": "GAKMNRBQ",
+        "fen": "g1k2r2/3pp1p1/1P6/8/8/8/3PP1P1/G1K2R2 w - - 0 1",
+        "fenSwapped": "g1k2r2/3pp1p1/8/8/8/1p6/3PP1P1/G1K2R2 w - - 0 1"
+      },
+      {
+        "white": "NRBMGKQA",
+        "black": "NRBMGKQA",
+        "fen": "r2g1k2/4pp1p/2P5/8/8/8/4PP1P/R2G1K2 w - - 0 1",
+        "fenSwapped": "r2g1k2/4pp1p/8/8/8/2p5/4PP1P/R2G1K2 w - - 0 1"
+      },
+      {
+        "white": "QRNMAGKB",
+        "black": "QRNMAGKB",
+        "fen": "k2r2g1/p4pp1/3P4/8/8/8/P4PP1/K2R2G1 w - - 0 1",
+        "fenSwapped": "k2r2g1/p4pp1/8/8/8/3p4/P4PP1/K2R2G1 w - - 0 1"
+      },
+      {
+        "white": "RMGQAKNB",
+        "black": "RMGQAKNB",
+        "fen": "1g1k2r1/1p4pp/4P3/8/8/8/1P4PP/1G1K2R1 w - - 0 1",
+        "fenSwapped": "1g1k2r1/1p4pp/8/8/8/4p3/1P4PP/1G1K2R1 w - - 0 1"
+      },
+      {
+        "white": "KRNGMABQ",
+        "black": "KRNGMABQ",
+        "fen": "1r2g1k1/p1p4p/5P2/8/8/8/P1P4P/1R2G1K1 w - - 0 1",
+        "fenSwapped": "1r2g1k1/p1p4p/8/8/8/5p2/P1P4P/1R2G1K1 w - - 0 1"
+      },
+      {
+        "white": "BMANGQKR",
+        "black": "BMANGQKR",
+        "fen": "1k2r2g/pp1p4/6P1/8/8/8/PP1P4/1K2R2G w - - 0 1",
+        "fenSwapped": "1k2r2g/pp1p4/8/8/8/6p1/PP1P4/1K2R2G w - - 0 1"
+      },
+      {
+        "white": "ABGMKQRN",
+        "black": "ABGMKQRN",
+        "fen": "2g1k2r/4pp1p/1P6/8/8/8/4PP1P/2G1K2R w - - 0 1",
+        "fenSwapped": "2g1k2r/4pp1p/8/8/8/1p6/4PP1P/2G1K2R w - - 0 1"
+      },
+      {
+        "white": "KARGNBMQ",
+        "black": "KARGNBMQ",
+        "fen": "2r2g1k/p4pp1/2P5/8/8/8/P4PP1/2R2G1K w - - 0 1",
+        "fenSwapped": "2r2g1k/p4pp1/8/8/8/2p5/P4PP1/2R2G1K w - - 0 1"
+      },
+      {
+        "white": "MNKBAQRG",
+        "black": "MNKBAQRG",
+        "fen": "g1k2r2/1p4pp/3P4/8/8/8/1P4PP/G1K2R2 w - - 0 1",
+        "fenSwapped": "g1k2r2/1p4pp/8/8/8/3p4/1P4PP/G1K2R2 w - - 0 1"
+      },
+      {
+        "white": "ANBKGRQM",
+        "black": "ANBKGRQM",
+        "fen": "r2g1k2/p1p4p/4P3/8/8/8/P1P4P/R2G1K2 w - - 0 1",
+        "fenSwapped": "r2g1k2/p1p4p/8/8/8/4p3/P1P4P/R2G1K2 w - - 0 1"
+      },
+      {
+        "white": "RKMQNBGA",
+        "black": "RKMQNBGA",
+        "fen": "k2r2g1/pp1p4/5P2/8/8/8/PP1P4/K2R2G1 w - - 0 1",
+        "fenSwapped": "k2r2g1/pp1p4/8/8/8/5p2/PP1P4/K2R2G1 w - - 0 1"
+      },
+      {
+        "white": "BQKMARGN",
+        "black": "BQKMARGN",
+        "fen": "1g1k2r1/1pp1p3/6P1/8/8/8/1PP1P3/1G1K2R1 w - - 0 1",
+        "fenSwapped": "1g1k2r1/1pp1p3/8/8/8/6p1/1PP1P3/1G1K2R1 w - - 0 1"
+      },
+      {
+        "white": "NQGBKRMA",
+        "black": "NQGBKRMA",
+        "fen": "1r2g1k1/3p1pp1/1P6/8/8/8/3P1PP1/1R2G1K1 w - - 0 1",
+        "fenSwapped": "1r2g1k1/3p1pp1/8/8/8/1p6/3P1PP1/1R2G1K1 w - - 0 1"
+      },
+      {
+        "white": "KAQNGMRB",
+        "black": "KAQNGMRB",
+        "fen": "1k2r2g/4p1pp/2P5/8/8/8/4P1PP/1K2R2G w - - 0 1",
+        "fenSwapped": "1k2r2g/4p1pp/8/8/8/2p5/4P1PP/1K2R2G w - - 0 1"
+      },
+      {
+        "white": "RQBMGNKA",
+        "black": "RQBMGNKA",
+        "fen": "2g1k2r/p4p1p/3P4/8/8/8/P4P1P/2G1K2R w - - 0 1",
+        "fenSwapped": "2g1k2r/p4p1p/8/8/8/3p4/P4P1P/2G1K2R w - - 0 1"
+      },
+      {
+        "white": "KNQGABRM",
+        "black": "KNQGABRM",
+        "fen": "2r2g1k/pp4p1/4P3/8/8/8/PP4P1/2R2G1K w - - 0 1",
+        "fenSwapped": "2r2g1k/pp4p1/8/8/8/4p3/PP4P1/2R2G1K w - - 0 1"
+      },
+      {
+        "white": "RGKBANQM",
+        "black": "RGKBANQM",
+        "fen": "g1k2r2/1pp4p/5P2/8/8/8/1PP4P/G1K2R2 w - - 0 1",
+        "fenSwapped": "g1k2r2/1pp4p/8/8/8/5p2/1PP4P/G1K2R2 w - - 0 1"
+      },
+      {
+        "white": "RGBKMAQN",
+        "black": "RGBKMAQN",
+        "fen": "r2g1k2/p1pp4/6P1/8/8/8/P1PP4/R2G1K2 w - - 0 1",
+        "fenSwapped": "r2g1k2/p1pp4/8/8/8/6p1/P1PP4/R2G1K2 w - - 0 1"
+      },
+      {
+        "white": "KNQRAGBM",
+        "black": "KNQRAGBM",
+        "fen": "k2r2g1/4p1pp/1P6/8/8/8/4P1PP/K2R2G1 w - - 0 1",
+        "fenSwapped": "k2r2g1/4p1pp/8/8/8/1p6/4P1PP/K2R2G1 w - - 0 1"
+      },
+      {
+        "white": "KMBGQANR",
+        "black": "KMBGQANR",
+        "fen": "1g1k2r1/p4p1p/2P5/8/8/8/P4P1P/1G1K2R1 w - - 0 1",
+        "fenSwapped": "1g1k2r1/p4p1p/8/8/8/2p5/P4P1P/1G1K2R1 w - - 0 1"
+      },
+      {
+        "white": "QNRMGAKB",
+        "black": "QNRMGAKB",
+        "fen": "1r2g1k1/pp4p1/3P4/8/8/8/PP4P1/1R2G1K1 w - - 0 1",
+        "fenSwapped": "1r2g1k1/pp4p1/8/8/8/3p4/PP4P1/1R2G1K1 w - - 0 1"
+      },
+      {
+        "white": "NABMQKRG",
+        "black": "NABMQKRG",
+        "fen": "1k2r2g/1pp4p/4P3/8/8/8/1PP4P/1K2R2G w - - 0 1",
+        "fenSwapped": "1k2r2g/1pp4p/8/8/8/4p3/1PP4P/1K2R2G w - - 0 1"
+      },
+      {
+        "white": "GQNRAKMB",
+        "black": "GQNRAKMB",
+        "fen": "2g1k2r/p1pp4/5P2/8/8/8/P1PP4/2G1K2R w - - 0 1",
+        "fenSwapped": "2g1k2r/p1pp4/8/8/8/5p2/P1PP4/2G1K2R w - - 0 1"
+      },
+      {
+        "white": "BMQNARGK",
+        "black": "BMQNARGK",
+        "fen": "2r2g1k/1p1pp3/6P1/8/8/8/1P1PP3/2R2G1K w - - 0 1",
+        "fenSwapped": "2r2g1k/1p1pp3/8/8/8/6p1/1P1PP3/2R2G1K w - - 0 1"
+      },
+      {
+        "white": "BGMQNARK",
+        "black": "BGMQNARK",
+        "fen": "g1k2r2/3p1p1p/1P6/8/8/8/3P1P1P/G1K2R2 w - - 0 1",
+        "fenSwapped": "g1k2r2/3p1p1p/8/8/8/1p6/3P1P1P/G1K2R2 w - - 0 1"
+      },
+      {
+        "white": "RBMAGNQK",
+        "black": "RBMAGNQK",
+        "fen": "r2g1k2/p3p1p1/2P5/8/8/8/P3P1P1/R2G1K2 w - - 0 1",
+        "fenSwapped": "r2g1k2/p3p1p1/8/8/8/2p5/P3P1P1/R2G1K2 w - - 0 1"
+      },
+      {
+        "white": "KABMNQGR",
+        "black": "KABMNQGR",
+        "fen": "k2r2g1/1p3p1p/3P4/8/8/8/1P3P1P/K2R2G1 w - - 0 1",
+        "fenSwapped": "k2r2g1/1p3p1p/8/8/8/3p4/1P3P1P/K2R2G1 w - - 0 1"
+      },
+      {
+        "white": "GKRQNBMA",
+        "black": "GKRQNBMA",
+        "fen": "1g1k2r1/p1p3p1/4P3/8/8/8/P1P3P1/1G1K2R1 w - - 0 1",
+        "fenSwapped": "1g1k2r1/p1p3p1/8/8/8/4p3/P1P3P1/1G1K2R1 w - - 0 1"
+      },
+      {
+        "white": "NGMQABKR",
+        "black": "NGMQABKR",
+        "fen": "1r2g1k1/1p1p3p/5P2/8/8/8/1P1P3P/1R2G1K1 w - - 0 1",
+        "fenSwapped": "1r2g1k1/1p1p3p/8/8/8/5p2/1P1P3P/1R2G1K1 w - - 0 1"
+      },
+      {
+        "white": "RQMBAKGN",
+        "black": "RQMBAKGN",
+        "fen": "1k2r2g/p1p1p3/6P1/8/8/8/P1P1P3/1K2R2G w - - 0 1",
+        "fenSwapped": "1k2r2g/p1p1p3/8/8/8/6p1/P1P1P3/1K2R2G w - - 0 1"
+      },
+      {
+        "white": "MANQGRKB",
+        "black": "MANQGRKB",
+        "fen": "2g1k2r/3pp1p1/1P6/8/8/8/3PP1P1/2G1K2R w - - 0 1",
+        "fenSwapped": "2g1k2r/3pp1p1/8/8/8/1p6/3PP1P1/2G1K2R w - - 0 1"
+      },
+      {
+        "white": "NKMQRABG",
+        "black": "NKMQRABG",
+        "fen": "2r2g1k/4pp1p/2P5/8/8/8/4PP1P/2R2G1K w - - 0 1",
+        "fenSwapped": "2r2g1k/4pp1p/8/8/8/2p5/4PP1P/2R2G1K w - - 0 1"
+      },
+      {
+        "white": "BKQRGMNA",
+        "black": "BKQRGMNA",
+        "fen": "g1k2r2/p4pp1/3P4/8/8/8/P4PP1/G1K2R2 w - - 0 1",
+        "fenSwapped": "g1k2r2/p4pp1/8/8/8/3p4/P4PP1/G1K2R2 w - - 0 1"
+      },
+      {
+        "white": "ARMGQBNK",
+        "black": "ARMGQBNK",
+        "fen": "r2g1k2/1p4pp/4P3/8/8/8/1P4PP/R2G1K2 w - - 0 1",
+        "fenSwapped": "r2g1k2/1p4pp/8/8/8/4p3/1P4PP/R2G1K2 w - - 0 1"
+      }
+    ],
+    "maxPlies": 200,
+    "openingRandomPlies": 2,
+    "note": "K+R+G+4P each, White a passer on rank 6; guard on the far wing"
+  },
+  "games": 2400,
+  "seconds": 232.2,
+  "whiteScore": 0.6231,
+  "whiteWins": 1026,
+  "draws": 939,
+  "blackWins": 435,
+  "meanPlies": 65.7,
+  "reasons": {
+    "adjudicatedResign": 1452,
+    "drawRepetition": 351,
+    "adjudicatedDraw": 388,
+    "plyCap": 84,
+    "checkmate": 9,
+    "drawMaterial": 67,
+    "draw50": 49
+  }
+}

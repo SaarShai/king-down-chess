@@ -1,0 +1,74 @@
+[
+  {
+    "key": "chunkyVoxel",
+    "ref": "A",
+    "label": "Chunky voxel",
+    "blurb": "Pixel 3 with two toon bands, a 1-art-pixel hull rim and a dark ring around every tile top; the flattest, most graphic option, but two bands throw away most of the sculpts’ modelling.",
+    "img": "img/r2-chunkyVoxel.png",
+    "crop": "img/r2-chunkyVoxel-crop.png"
+  },
+  {
+    "key": "chunkySprite",
+    "ref": "A",
+    "label": "Chunky sprite",
+    "blurb": "Painted sprites with a dilated near-black outline over the same ringed tiles; the crispest silhouettes of the nine, at the cost of the pieces never turning with the camera.",
+    "img": "img/r2-chunkySprite.png",
+    "crop": "img/r2-chunkySprite-crop.png"
+  },
+  {
+    "key": "chunkyPalette",
+    "ref": "A",
+    "label": "Chunky + Endesga 32",
+    "blurb": "Chunky voxel quantised to the Endesga-32 ramp for saturated poster colour; the strongest graphic unity, but the ramp swallows the tile edge ring on dark squares and pulls both armies toward the same navy.",
+    "img": "img/r2-chunkyPalette.png",
+    "crop": "img/r2-chunkyPalette-crop.png"
+  },
+  {
+    "key": "dungeonSprite",
+    "ref": "B",
+    "label": "Dungeon sprite",
+    "blurb": "Painted sprites on Drive stone tiles under four warm corner torches at 60°, with contact shadows; the most atmospheric, but the far corners go dark enough to hurt piece identification.",
+    "img": "img/r2-dungeonSprite.png",
+    "crop": "img/r2-dungeonSprite-crop.png"
+  },
+  {
+    "key": "dungeonVoxel",
+    "ref": "B",
+    "label": "Dungeon voxel",
+    "blurb": "Same stone board and torches with voxel sculpts, so the pieces catch the warm light in 3D; the light falloff costs contrast on the dark army more than the sprites do.",
+    "img": "img/r2-dungeonVoxel.png",
+    "crop": "img/r2-dungeonVoxel-crop.png"
+  },
+  {
+    "key": "dungeonBright",
+    "ref": "B",
+    "label": "Dungeon bright",
+    "blurb": "Stone tiles and contact shadows under the existing bright paper lighting; keeps reference B’s textured floor and full readability, but loses the torch mood entirely.",
+    "img": "img/r2-dungeonBright.png",
+    "crop": "img/r2-dungeonBright-crop.png"
+  },
+  {
+    "key": "isoVoxel",
+    "ref": "C",
+    "label": "Iso voxel",
+    "blurb": "True 45°/30° isometric on a tall board block with visible side faces, warm 32-colour ramp and a hull rim; the strongest sense of place, but a 30° camera makes front pieces occlude the rank behind.",
+    "img": "img/r2-isoVoxel.png",
+    "crop": "img/r2-isoVoxel-crop.png"
+  },
+  {
+    "key": "isoSprite",
+    "ref": "C",
+    "label": "Iso sprite",
+    "blurb": "The iso board with outlined painted sprites on the warm ramp; the closest match to the reference art, though billboards at 30° stand oddly tall against the flat board.",
+    "img": "img/r2-isoSprite.png",
+    "crop": "img/r2-isoSprite-crop.png"
+  },
+  {
+    "key": "isoClean",
+    "ref": "C",
+    "label": "Iso clean",
+    "blurb": "Iso camera and tall board with no palette quantisation, so the painted voxel colours survive; clearer piece colour than C1, but it loses the limited-palette cohesion the reference lives on.",
+    "img": "img/r2-isoClean.png",
+    "crop": "img/r2-isoClean-crop.png"
+  }
+]

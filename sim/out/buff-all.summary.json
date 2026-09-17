@@ -1,0 +1,38 @@
+{
+  "spec": {
+    "id": "buff-all",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 5,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "archerShots": "plusDiag2",
+      "guardCaptures": "pawns",
+      "guardStep": 2,
+      "beastMove": "any",
+      "beastCaptureForward": true
+    },
+    "backRanks": {
+      "sample": 30
+    }
+  },
+  "games": 300,
+  "seconds": 33.9,
+  "whiteScore": 0.5,
+  "whiteWins": 103,
+  "draws": 94,
+  "blackWins": 103,
+  "meanPlies": 132.3,
+  "reasons": {
+    "adjudicatedResign": 206,
+    "adjudicatedDraw": 55,
+    "drawMaterial": 8,
+    "draw50": 15,
+    "drawRepetition": 7,
+    "plyCap": 9
+  }
+}

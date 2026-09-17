@@ -1,0 +1,181 @@
+/* King Down Chess — pixel-art HUD, bright monochrome (paper + ink). */
+:root {
+  --paper: #f7f5f0;
+  --ink: #151515;
+  --mid: #8a8680;
+  --hairline: #d9d5cd;
+  --white: #ffffff;
+  --rail: 260px;
+  --dash: repeating-linear-gradient(90deg, var(--ink) 0 4px, transparent 4px 8px);
+  --caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4'%3E%3Cpath fill='%23151515' d='M0 0h8v1H0zM1 1h6v1H1zM2 2h4v1H2zM3 3h2v1H3z'/%3E%3C/svg%3E");
+
+  font-family: 'DotGothic16', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--paper);
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: var(--paper); overflow: hidden; }
+
+/* ---- board ---- */
+#board { position: fixed; inset: 0 var(--rail) 0 0; }
+#board canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+
+/* ---- header tag over the canvas ---- */
+#top {
+  position: fixed; top: 12px; left: 12px; padding: 10px 14px;
+  background: var(--paper); border: 2px solid var(--ink);
+  clip-path: polygon(2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px);
+  filter: drop-shadow(3px 3px 0 var(--ink));
+  pointer-events: none;
+}
+#top h1 {
+  margin: 0;
+  font-family: 'Press Start 2P', 'DotGothic16', monospace;
+  font-size: 13px; font-weight: 400; letter-spacing: 1px; line-height: 1.4;
+}
+#turn { margin-top: 8px; color: var(--mid); }
+#status { margin-top: 2px; }
+#info { margin-top: 6px; max-width: 34ch; font-size: 13px; line-height: 1.45; }
+#info b { letter-spacing: 1px; text-transform: uppercase; }
+#turn:empty, #status:empty, #info:empty { display: none; }
+
+/* ---- right rail ---- */
+#panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: var(--rail);
+  padding: 12px; overflow: auto;
+  background: var(--paper); border-left: 2px solid var(--ink);
+  display: flex; flex-direction: column; gap: 12px;
+}
+section {
+  display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px;
+  background-image: var(--dash); background-size: 100% 2px;
+  background-position: left bottom; background-repeat: no-repeat;
+}
+
+/* ---- controls ---- */
+button, select, input {
+  font: inherit; color: var(--ink); background: var(--white);
+  border: 2px solid var(--ink); padding: 7px 10px;
+}
+button, select { cursor: pointer; }
+button {
+  width: 100%; text-align: left;
+  box-shadow: 3px 3px 0 var(--ink);
+  transition: transform 60ms steps(1), box-shadow 60ms steps(1);
+}
+button:hover, select:hover { background: var(--ink); color: var(--paper); }
+button:active { transform: translate(3px, 3px); box-shadow: none; }
+select {
+  width: 118px; flex: none; padding: 5px 22px 5px 8px;
+  appearance: none; -webkit-appearance: none;
+  background-image: var(--caret); background-repeat: no-repeat; background-position: right 7px center;
+}
+select:hover { background-color: var(--ink); }
+label { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+code {
+  font-family: inherit; letter-spacing: 1px; overflow-wrap: anywhere;
+  padding: 1px 5px; background: var(--white); border: 1px solid var(--hairline);
+}
+
+/* sliders: 3px ink track, 12px ink thumb with a paper inner border */
+input[type='range'] {
+  width: 118px; height: 12px; padding: 0; border: 0; background: transparent;
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+input[type='range']::-webkit-slider-runnable-track { height: 3px; background: var(--ink); }
+input[type='range']::-moz-range-track { height: 3px; background: var(--ink); }
+input[type='range']::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px;
+  background: var(--ink); border: 0; border-radius: 0;
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 4px var(--paper);
+}
+input[type='range']::-moz-range-thumb {
+  width: 12px; height: 12px; background: var(--ink); border: 0; border-radius: 0;
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 4px var(--paper);
+}
+
+/* checkbox: 14px square, checked = 6px ink core */
+input[type='checkbox'] {
+  width: 14px; height: 14px; padding: 0; flex: none;
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+input[type='checkbox']:checked { box-shadow: inset 0 0 0 2px var(--white), inset 0 0 0 5px var(--ink); }
+
+#stop-chain { background: var(--ink); color: var(--paper); }
+#stop-chain:hover { background: var(--paper); color: var(--ink); }
+.promo, .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.promo button, .btns button { text-align: center; padding: 7px 4px; }
+.btns.three { grid-template-columns: repeat(3, 1fr); }
+button:disabled { cursor: default; color: var(--mid); border-color: var(--mid); box-shadow: 3px 3px 0 var(--hairline); }
+button:disabled:hover { background: var(--white); color: var(--mid); }
+
+/* ---- move sheet ---- */
+/* The move sheet takes whatever the rail has left but never shrinks below its rows:
+   on a short window the art controls under it scroll instead of the game state. */
+.sheet { flex: 1 0 auto; }
+#moves {
+  flex: 1; min-height: 66px; overflow: auto; margin: 0; padding: 4px;
+  list-style: none; background: var(--white); border: 2px solid var(--ink);
+  font-variant-numeric: tabular-nums; font-size: 13px;
+}
+#moves li { padding: 1px 4px; }
+#moves li:nth-child(odd) { background: var(--paper); }
+.hover { min-height: 1.6em; color: var(--mid); font-variant-numeric: tabular-nums; }
+
+/* ---- captured pieces ---- */
+.taken { display: flex; align-items: baseline; gap: 8px; min-height: 1.6em; font-size: 13px; }
+.taken b { flex: none; width: 74px; color: var(--mid); font-weight: 400; }
+.taken span { letter-spacing: 2px; overflow-wrap: anywhere; }
+.taken span:empty::before { content: '—'; color: var(--hairline); }
+
+/* ---- rules dialog ---- */
+dialog {
+  max-width: min(720px, calc(100vw - 32px)); max-height: 82vh; padding: 20px; overflow: auto;
+  color: var(--ink); background: var(--paper);
+  border: 3px solid var(--ink); border-radius: 0; box-shadow: 6px 6px 0 var(--ink);
+}
+dialog::backdrop { background: rgba(21, 21, 21, 0.35); }
+dialog h2 {
+  margin: 0 0 12px; padding-bottom: 10px; font-size: 18px; font-weight: 400; letter-spacing: 1px;
+  background-image: var(--dash); background-size: 100% 2px;
+  background-position: left bottom; background-repeat: no-repeat;
+}
+dialog p { margin: 0 0 12px; max-width: 72ch; }
+dialog table { width: 100%; border-collapse: collapse; }
+dialog th, dialog td { padding: 6px 8px; border: 1px solid var(--hairline); text-align: left; vertical-align: top; }
+dialog th { background: var(--ink); color: var(--paper); font-weight: 400; }
+dialog form { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+dialog form button { width: auto; padding: 7px 16px; }
+#over { max-width: min(420px, calc(100vw - 32px)); }
+#over p { color: var(--mid); }
+
+/* ---- focus & motion ---- */
+:focus { outline: none; }
+button:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 2px solid var(--ink); outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  /* The renderer pads its 9.4-unit frustum out to the region's aspect, so a region taller than it
+     is wide only buys empty background: cap the band at a square and give the rest to the panel.
+     --board-lift then pulls the canvas up, because the camera looks down from 53° and that parks
+     the drawn board below the frustum centre; the overhang hides behind the viewport edge and the
+     panel. The lift is measured (2 x the offset, as half of it is spent moving the canvas), so
+     re-measure it at 390x844 if the default style's camera elevation changes. */
+  :root { --band: min(100vw, 58vh); --board-lift: 0.075; }
+  #board {
+    inset: calc(var(--band) * var(--board-lift) * -1) 0 auto 0;
+    height: calc(var(--band) * (1 + var(--board-lift)));
+  }
+  #panel {
+    top: var(--band); bottom: 0; left: 0; width: auto; height: auto;
+    border-left: 0; border-top: 2px solid var(--ink);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "b3-nobeast",
+  "games": 3200,
+  "seed": 401,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "ABLKRGQM",
+    "BAGQRKML",
+    "BAKQMRGL",
+    "BKQLAGMR",
+    "BMKQLGAR",
+    "BRGMALQK",
+    "KBGMQLRA",
+    "KLMBRQAG",
+    "LBGKRMQA",
+    "LBMQAKGR",
+    "LMKAQBRG",
+    "MABGLKRQ",
+    "MGQBLAKR",
+    "QGMKARBL",
+    "QGRBMKAL",
+    "QKGBLMAR",
+    "QLRBMKGA",
+    "QRKGBMLA",
+    "RGAKMQBL",
+    "RQLKBAMG"
+  ],
+  "note": "a pool with no beast; every other term should be unchanged"
+}

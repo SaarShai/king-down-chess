@@ -1,0 +1,56 @@
+{
+  "spec": {
+    "id": "ab-r4-bishops.var",
+    "games": 4000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 21,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "bishopsOppositeColours": false
+    },
+    "baseRules": {
+      "archerMove": "any",
+      "beastMove": "any"
+    },
+    "baseValues": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    },
+    "baseId": "abb-base",
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    }
+  },
+  "games": 4000,
+  "seconds": 304.7,
+  "whiteScore": 0.522,
+  "whiteWins": 1528,
+  "draws": 1120,
+  "blackWins": 1352,
+  "meanPlies": 127.6,
+  "reasons": {
+    "adjudicatedResign": 2880,
+    "adjudicatedDraw": 678,
+    "draw50": 140,
+    "drawMaterial": 44,
+    "drawRepetition": 148,
+    "plyCap": 109,
+    "stalemate": 1
+  }
+}

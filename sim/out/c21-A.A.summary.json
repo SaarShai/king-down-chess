@@ -1,0 +1,38 @@
+{
+  "spec": {
+    "id": "c21-A.A",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "fwdBack",
+      "archerShots": "forward3"
+    },
+    "asymmetric": [
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 18.4,
+  "whiteScore": 0.55,
+  "whiteWins": 157,
+  "draws": 16,
+  "blackWins": 127,
+  "meanPlies": 83.6,
+  "reasons": {
+    "adjudicatedResign": 284,
+    "adjudicatedDraw": 10,
+    "drawMaterial": 1,
+    "plyCap": 1,
+    "drawRepetition": 2,
+    "draw50": 2
+  }
+}

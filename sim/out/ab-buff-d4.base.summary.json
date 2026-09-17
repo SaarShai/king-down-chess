@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "ab-buff-d4.base",
+    "games": 1200,
+    "ai": {
+      "depth": 4
+    },
+    "seed": 11,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {},
+    "values": {},
+    "backRanks": {
+      "sample": 60
+    },
+    "commonSeeds": true
+  },
+  "games": 1200,
+  "seconds": 992.3,
+  "whiteScore": 0.5288,
+  "whiteWins": 359,
+  "draws": 551,
+  "blackWins": 290,
+  "meanPlies": 156.8,
+  "reasons": {
+    "adjudicatedResign": 647,
+    "adjudicatedDraw": 268,
+    "plyCap": 123,
+    "draw50": 121,
+    "drawMaterial": 20,
+    "drawRepetition": 19,
+    "checkmate": 2
+  }
+}

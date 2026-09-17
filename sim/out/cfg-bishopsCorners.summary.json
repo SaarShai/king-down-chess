@@ -1,0 +1,50 @@
+{
+  "spec": {
+    "id": "cfg-bishopsCorners",
+    "games": 3200,
+    "backRanks": [
+      "BSGQNAKB",
+      "BLNKNMRB",
+      "BAGANKRB",
+      "BMNGSKQB",
+      "BNKRSGMB",
+      "BALNKQMB",
+      "BRGQKMRB",
+      "BKMNRGQB",
+      "BGGNKANB",
+      "BQGMLSKB",
+      "BAANSKNB",
+      "BMLGKSNB",
+      "BAGKQRAB",
+      "BGKGRMMB",
+      "BLNSRKGB",
+      "BNAQKMNB",
+      "BKARSSMB",
+      "BAGMSNKB",
+      "BAGKQSAB",
+      "BKGLMQMB"
+    ],
+    "ai": {
+      "depth": 3
+    },
+    "seed": 7,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 431.4,
+  "whiteScore": 0.5245,
+  "whiteWins": 1121,
+  "draws": 1115,
+  "blackWins": 964,
+  "meanPlies": 131.3,
+  "reasons": {
+    "draw50": 269,
+    "adjudicatedResign": 2083,
+    "adjudicatedDraw": 552,
+    "drawRepetition": 100,
+    "plyCap": 159,
+    "drawMaterial": 35,
+    "checkmate": 2
+  }
+}

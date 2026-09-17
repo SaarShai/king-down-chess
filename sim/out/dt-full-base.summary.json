@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "dt-full-base",
+    "games": 4000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {},
+    "baseId": "dt-full-base",
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 4000,
+  "seconds": 674.3,
+  "whiteScore": 0.5335,
+  "whiteWins": 1611,
+  "draws": 1046,
+  "blackWins": 1343,
+  "meanPlies": 114.4,
+  "reasons": {
+    "adjudicatedResign": 2954,
+    "adjudicatedDraw": 869,
+    "drawMaterial": 24,
+    "plyCap": 32,
+    "drawRepetition": 85,
+    "draw50": 36
+  }
+}

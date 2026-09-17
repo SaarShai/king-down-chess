@@ -1,0 +1,13 @@
+{
+  "id": "gs-step2-base",
+  "games": 2000,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "seed": 912,
+  "backRanks": {
+    "sample": 40
+  },
+  "note": "control for gs-step2 \u2014 same seed and sample, so the same 40 ranks and the same openings"
+}

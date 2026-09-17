@@ -1,0 +1,32 @@
+{
+  "id": "b3-guard1",
+  "games": 2000,
+  "seed": 322,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "ABRMNGQK",
+    "GMKQNBAR",
+    "GNQRMABK",
+    "KAMRQBGN",
+    "KBNMGRQA",
+    "KGAQNBMR",
+    "MBQGNKAR",
+    "MNBRQKGA",
+    "MNRAQGBK",
+    "MRBAQGKN",
+    "NGMQRBKA",
+    "NMBRKGQA",
+    "NQKMGABR",
+    "QBANGKMR",
+    "QMBKNRGA",
+    "QNBAKGRM",
+    "QRABKMGN",
+    "RABNKGQM",
+    "RGANBMKQ",
+    "RNKQMGAB"
+  ],
+  "note": "guards 1, fairy 3 (A->G paid with N->R) — army QRBNAGM, 27.0 pawns (tuned values)"
+}

@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "nnue-cp-d3",
+    "games": 400,
+    "seed": 6102,
+    "ai": {
+      "depth": 3
+    },
+    "pairs": true,
+    "backRanks": {
+      "sample": 200
+    },
+    "openingRandomPlies": 4,
+    "maxPlies": 300,
+    "evalParams": {
+      "white": "sim/nnue/eval-nnue.json",
+      "black": "sim/nnue/eval-linear.json"
+    }
+  },
+  "games": 400,
+  "seconds": 608.7,
+  "whiteScore": 0.5437,
+  "whiteWins": 198,
+  "draws": 39,
+  "blackWins": 163,
+  "meanPlies": 132.2,
+  "reasons": {
+    "adjudicatedResign": 361,
+    "adjudicatedDraw": 8,
+    "plyCap": 10,
+    "drawRepetition": 9,
+    "drawMaterial": 5,
+    "draw50": 7
+  }
+}

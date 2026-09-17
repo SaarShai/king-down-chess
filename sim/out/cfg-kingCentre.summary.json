@@ -1,0 +1,49 @@
+{
+  "spec": {
+    "id": "cfg-kingCentre",
+    "games": 3200,
+    "backRanks": [
+      "MLGAKBNS",
+      "RSGAKQSA",
+      "QMNKRABL",
+      "LNAKNMAM",
+      "ASABKNGM",
+      "BNQKRGAS",
+      "NRAGKGNB",
+      "RNQKMMGN",
+      "NRSKBQAA",
+      "GLMRKNSB",
+      "ASGRKMGS",
+      "MLQAKNSS",
+      "ARNKSQMB",
+      "SNGQKMSB",
+      "GAAQKGBN",
+      "RNGKBBMG",
+      "GNSKARNG",
+      "RSAQKSGM",
+      "ASNNKAQM",
+      "RBSSKLQN"
+    ],
+    "ai": {
+      "depth": 3
+    },
+    "seed": 7,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 485.3,
+  "whiteScore": 0.5134,
+  "whiteWins": 943,
+  "draws": 1400,
+  "blackWins": 857,
+  "meanPlies": 144.9,
+  "reasons": {
+    "adjudicatedResign": 1800,
+    "adjudicatedDraw": 649,
+    "draw50": 343,
+    "drawRepetition": 131,
+    "plyCap": 251,
+    "drawMaterial": 26
+  }
+}

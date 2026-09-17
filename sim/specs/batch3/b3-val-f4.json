@@ -1,0 +1,32 @@
+{
+  "id": "b3-val-f4",
+  "games": 2000,
+  "seed": 305,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "AARRQSSK",
+    "AKQRARSS",
+    "ARASRKSQ",
+    "ASASRQKR",
+    "KARASRQS",
+    "KSRRSAQA",
+    "QASRSARK",
+    "QSRSKRAA",
+    "RAKQRSAS",
+    "RAKSSQAR",
+    "RQRSSAAK",
+    "RRSQAAKS",
+    "RRSQSAKA",
+    "SAQRASRK",
+    "SASRAKQR",
+    "SKQSRRAA",
+    "SRASAKRQ",
+    "SRASRQAK",
+    "SRSARAQK",
+    "SRSKAAQR"
+  ],
+  "note": "fairy 4, B->A — the ceiling the old values said was 3 — army QRRAASS, 30.7 pawns (tuned values)"
+}

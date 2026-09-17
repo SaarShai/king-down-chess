@@ -1,0 +1,51 @@
+{
+  "spec": {
+    "id": "b3-nobeast",
+    "games": 3200,
+    "seed": 401,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "ABLKRGQM",
+      "BAGQRKML",
+      "BAKQMRGL",
+      "BKQLAGMR",
+      "BMKQLGAR",
+      "BRGMALQK",
+      "KBGMQLRA",
+      "KLMBRQAG",
+      "LBGKRMQA",
+      "LBMQAKGR",
+      "LMKAQBRG",
+      "MABGLKRQ",
+      "MGQBLAKR",
+      "QGMKARBL",
+      "QGRBMKAL",
+      "QKGBLMAR",
+      "QLRBMKGA",
+      "QRKGBMLA",
+      "RGAKMQBL",
+      "RQLKBAMG"
+    ],
+    "note": "a pool with no beast; every other term should be unchanged",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 337.3,
+  "whiteScore": 0.5375,
+  "whiteWins": 1085,
+  "draws": 1270,
+  "blackWins": 845,
+  "meanPlies": 144.4,
+  "reasons": {
+    "drawRepetition": 88,
+    "adjudicatedDraw": 812,
+    "adjudicatedResign": 1930,
+    "plyCap": 262,
+    "drawMaterial": 42,
+    "draw50": 66
+  }
+}

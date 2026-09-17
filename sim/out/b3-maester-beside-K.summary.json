@@ -1,0 +1,52 @@
+{
+  "spec": {
+    "id": "b3-maester-beside-K",
+    "games": 3200,
+    "seed": 381,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "BBMRQMKR",
+      "BBRMKMQR",
+      "BBRRMMKQ",
+      "BKMQRRMB",
+      "BQRKMRMB",
+      "BQRRMBMK",
+      "BRMKQRMB",
+      "BRMKRBQM",
+      "KMBBQMRR",
+      "MKMBQRBR",
+      "MKQBMRBR",
+      "MKRQBBRM",
+      "MKRRQBBM",
+      "QBKMBRMR",
+      "QKMBRRBM",
+      "QMKRBBMR",
+      "QRKMBBMR",
+      "RBMKBMQR",
+      "RMKRMQBB",
+      "RMQRBBKM"
+    ],
+    "note": "a maester next to the king",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 307.8,
+  "whiteScore": 0.513,
+  "whiteWins": 1026,
+  "draws": 1231,
+  "blackWins": 943,
+  "meanPlies": 120.3,
+  "reasons": {
+    "adjudicatedDraw": 992,
+    "adjudicatedResign": 1969,
+    "drawRepetition": 162,
+    "plyCap": 41,
+    "stalemate": 2,
+    "draw50": 15,
+    "drawMaterial": 19
+  }
+}

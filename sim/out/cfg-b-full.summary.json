@@ -1,0 +1,50 @@
+{
+  "spec": {
+    "id": "cfg-b-full",
+    "games": 3200,
+    "backRanks": [
+      "LRQNMSKB",
+      "BGKMGSNN",
+      "MLGAKBNS",
+      "RSNMGKAB",
+      "NKQRSBAG",
+      "GKMMNNAR",
+      "KRNQMABG",
+      "RSGAKQSA",
+      "NBKLRMQN",
+      "SBAAQKMS",
+      "RMSNRKGQ",
+      "QGBRALKN",
+      "QMNKRABL",
+      "LNAKNMAM",
+      "ASABKNGM",
+      "RKNNSQMA",
+      "KMRGLABB",
+      "RKNBBQSM",
+      "KLSMRRGN",
+      "NKLSBGGR"
+    ],
+    "ai": {
+      "depth": 3
+    },
+    "seed": 7,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 547.5,
+  "whiteScore": 0.5175,
+  "whiteWins": 1051,
+  "draws": 1210,
+  "blackWins": 939,
+  "meanPlies": 138.3,
+  "reasons": {
+    "adjudicatedDraw": 604,
+    "adjudicatedResign": 1990,
+    "draw50": 279,
+    "plyCap": 189,
+    "drawRepetition": 109,
+    "drawMaterial": 27,
+    "stalemate": 2
+  }
+}

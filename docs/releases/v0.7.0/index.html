@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>King Down Chess</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="./assets/index-eaHeYinC.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DQoaMBkc.css">
+  </head>
+  <body>
+    <div id="board"></div>
+    <header id="top">
+      <h1>KING DOWN CHESS</h1>
+      <div id="turn"></div>
+      <div id="status"></div>
+      <div id="info"></div>
+    </header>
+    <aside id="panel">
+      <section>
+        <button id="new-random">New game</button>
+        <button id="new-classic">Classic chess</button>
+        <button id="new-setup">Custom setup…</button>
+        <button id="rules-btn">Piece guide</button>
+        <div class="btns three">
+          <button id="undo" title="Take back the last move (Z)">Undo (Z)</button>
+          <button id="resign" title="Resign the game">Resign</button>
+          <button id="copy" title="Copy the move list as LAN">Copy</button>
+        </div>
+        <div class="row">Setup <code id="setup"></code></div>
+      </section>
+      <section>
+        <label>White <select id="white"><option value="human">Human</option><option value="ai">Computer</option></select></label>
+        <label>Black <select id="black"><option value="human">Human</option><option value="ai" selected>Computer</option></select></label>
+        <label>Think <input id="think" type="range" min="200" max="4000" step="100" value="800" /></label>
+      </section>
+      <button id="stop-chain" hidden>Stop chain here</button>
+      <div id="promo" class="promo" hidden></div>
+      <section class="sheet">
+        <ol id="moves"></ol>
+        <div class="taken"><b>White took</b><span id="took-w"></span></div>
+        <div class="taken"><b>Black took</b><span id="took-b"></span></div>
+        <div id="hover" class="hover"></div>
+      </section>
+      <section>
+        <label>Style <select id="style"></select></label>
+        <button id="reset-view">Reset view (R)</button>
+        <label>Pixels <input id="pixel" type="range" min="1" max="6" step="1" value="2" /></label>
+        <label>Edges <input id="edges" type="range" min="0" max="1" step="0.05" value="0.35" /></label>
+        <label>Sculpts <input id="sculpts" type="checkbox" checked /></label>
+        <label>Labels <input id="labels" type="checkbox" /></label>
+        <label>Coords <input id="coords" type="checkbox" checked /></label>
+        <label>Palette <input id="palette" type="checkbox" checked /></label>
+        <label>Dither <input id="dither" type="range" min="0" max="0.2" step="0.01" value="0.03" /></label>
+      </section>
+    </aside>
+    <dialog id="rules">
+      <h2 tabindex="-1" autofocus>King Down pieces</h2>
+      <p>Chess rules apply (check, mate, stalemate, promotion to any piece but a king). No castling or en passant. The back rank is a random draw of 7 pieces + king, mirrored for both sides.</p>
+      <table>
+        <tr><th>Piece</th><th>Moves</th><th>Captures</th><th>Special</th></tr>
+        <tr><td>A Archer</td><td>1 square in any direction</td><td><b>Shoots without moving</b>: any enemy diagonally adjacent, or exactly 2 squares away orthogonally, through blockers</td><td>Gives check the same way</td></tr>
+        <tr><td>L Paladin</td><td>Like a queen, <b>jumping own pieces</b></td><td>By moving onto the enemy</td><td>Cannot capture a king (never gives check). <b>Removed after capturing</b> anything but a pawn</td></tr>
+        <tr><td>G Guard</td><td>1 square any direction, empty squares only</td><td><b>Cannot capture.</b></td><td><b>Cannot be captured, except by a king.</b></td></tr>
+        <tr><td>M Maester</td><td>1 square any direction</td><td>Adjacent enemy</td><td>Onto an own piece = <b>swap places</b>. Maester + king both on rank 1: swap at any distance</td></tr>
+        <tr><td>S Beast</td><td>1 square in any direction, empty only</td><td>Any adjacent square but straight ahead</td><td>May <b>keep capturing</b> from each new square (never a king as a continuation). Click victims in order; "Stop chain here" ends early</td></tr>
+      </table>
+      <p>Letters in the setup string: P N B R Q K + A L G M S.</p>
+      <form method="dialog"><button>Close</button></form>
+    </dialog>
+    <dialog id="over">
+      <h2 id="over-title" tabindex="-1" autofocus></h2>
+      <p id="over-detail"></p>
+      <form method="dialog">
+        <button value="rematch">Rematch</button>
+        <button value="new">New game</button>
+        <button value="close">Close</button>
+      </form>
+    </dialog>
+  </body>
+</html>

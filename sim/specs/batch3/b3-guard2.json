@@ -1,0 +1,32 @@
+{
+  "id": "b3-guard2",
+  "games": 2000,
+  "seed": 323,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "BKRRGGQM",
+    "GGRMRBKQ",
+    "GKGQRRBM",
+    "GRRMBQKG",
+    "KBRMGQGR",
+    "KMGRBQRG",
+    "KRQMGGBR",
+    "KRRBGGMQ",
+    "MQGRKGRB",
+    "MRQGGBRK",
+    "QMRRKGBG",
+    "QRGRGMBK",
+    "QRMGGRBK",
+    "RBKGGQMR",
+    "RBQMRKGG",
+    "RGBGRMKQ",
+    "RKQBGMGR",
+    "RKQGRMGB",
+    "RMGQBGKR",
+    "RQGRGMKB"
+  ],
+  "note": "guards 2, fairy 3 — H10 predicts +10 draw points 0->2 — army QRRBGGM, 26.8 pawns (tuned values)"
+}

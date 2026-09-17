@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "pilot-l0",
+    "games": 200,
+    "seed": 991,
+    "ai": {
+      "depth": 3
+    },
+    "pairs": true,
+    "backRanks": {
+      "sample": 100
+    },
+    "openingRandomPlies": 4,
+    "maxPlies": 300,
+    "evalParams": {
+      "white": "sim/tune/params-l0.json",
+      "black": "sim/tune/base.json"
+    }
+  },
+  "games": 200,
+  "seconds": 25.8,
+  "whiteScore": 0.4975,
+  "whiteWins": 89,
+  "draws": 21,
+  "blackWins": 90,
+  "meanPlies": 137.1,
+  "reasons": {
+    "adjudicatedResign": 179,
+    "drawMaterial": 2,
+    "draw50": 3,
+    "plyCap": 15,
+    "adjudicatedDraw": 1
+  }
+}

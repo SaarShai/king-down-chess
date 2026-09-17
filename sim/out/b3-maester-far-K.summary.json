@@ -1,0 +1,52 @@
+{
+  "spec": {
+    "id": "b3-maester-far-K",
+    "games": 3200,
+    "seed": 382,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "BBKRQRMM",
+      "BBMQMRRK",
+      "BBRMMQRK",
+      "BRMRMBQK",
+      "KBRMRMBQ",
+      "KBRRBMMQ",
+      "KRBBMMRQ",
+      "KRQRBBMM",
+      "MMRBBQKR",
+      "MRBQKBRM",
+      "MRMBQKBR",
+      "MRQBKRBM",
+      "QBRMMRBK",
+      "QKBRMRMB",
+      "QMBRMBRK",
+      "QMMBRRBK",
+      "QMRMBBRK",
+      "RMMBRQBK",
+      "RMQRMBBK",
+      "RRMMBBKQ"
+    ],
+    "note": "every maester >= 3 files from the king",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 330.8,
+  "whiteScore": 0.4922,
+  "whiteWins": 986,
+  "draws": 1178,
+  "blackWins": 1036,
+  "meanPlies": 120,
+  "reasons": {
+    "drawRepetition": 113,
+    "adjudicatedResign": 2022,
+    "adjudicatedDraw": 979,
+    "plyCap": 52,
+    "drawMaterial": 19,
+    "draw50": 14,
+    "stalemate": 1
+  }
+}

@@ -1,0 +1,4903 @@
+{
+  "id": "ab-chains.base",
+  "games": 200,
+  "overall": {
+    "key": "ALL",
+    "games": 200,
+    "wins": 70,
+    "draws": 64,
+    "losses": 66,
+    "score": 0.51,
+    "ci": [
+      0.4528745300267827,
+      0.5671254699732173
+    ],
+    "elo": 6.949638427769096,
+    "eloLo": -32.843614529249685,
+    "eloHi": 46.926847651338875,
+    "match": {
+      "n": 200,
+      "mu": 0.51,
+      "variance": 0.1699,
+      "sigmaPg": 0.41218927691049895,
+      "elo": 6.949638427769096,
+      "err95": 39.6964890843887,
+      "nElo": 8.429030180667278,
+      "los": 0.6342376019347531
+    },
+    "pentanomial": null,
+    "pairs": 0,
+    "sprt": {
+      "llr": 0.04259158435496232,
+      "bound": 2.9444389791664403,
+      "nElo": 8.429030180667278,
+      "verdict": "continue",
+      "expectedGames": 65408
+    },
+    "drawRate": 0.26,
+    "timeouts": 0.06,
+    "decisiveness": 0.68,
+    "meanPlies": 133.775,
+    "medianPlies": 109,
+    "sdPlies": 72.25368070209294,
+    "durationDeviation": 0.10816666666666663,
+    "leadChanges": 0.675,
+    "volatility": 16.165756238961496,
+    "uncertainty": 0.687827735776634,
+    "drama": 61.55,
+    "stability": 0.9727468796586255,
+    "boardCoverage": 0.892109375,
+    "branchingFactor": 28.579345137616546,
+    "lead": {
+      "killerMove": 0.3371045741741538,
+      "leadChange": 0.033731932133440064,
+      "uncertaintyLate": 0.6294662745390358,
+      "permanence": 0.965058706333903,
+      "drama": 0.12362587965437224,
+      "decisionCost": [
+        0,
+        0
+      ],
+      "decisionAsymmetry": 0
+    },
+    "utilisation": {
+      "K": 1.9878153616146514,
+      "S": 0.4895782719740858,
+      "G": 2.0458896571772667,
+      "N": 1.2053984220747038,
+      "A": 1.5907307045412074,
+      "L": 1.4485350609439565,
+      "Q": 1.3854108266367657,
+      "P": 0.43214352457484584,
+      "R": 1.3603359922887017,
+      "B": 1.376531149657668,
+      "M": 2.3713029537027017
+    },
+    "minUse": 0.43214352457484584,
+    "minFairyUse": 0.4895782719740858,
+    "excessDecisiveness": -0.023257802479692113,
+    "interest": 0.38276382263148856,
+    "gatesFailed": [
+      "timeouts"
+    ],
+    "funScore": 0.5030194339441585
+  },
+  "reasons": {
+    "adjudicatedResign": 135,
+    "drawRepetition": 7,
+    "adjudicatedDraw": 29,
+    "draw50": 15,
+    "drawMaterial": 1,
+    "plyCap": 12,
+    "checkmate": 1
+  },
+  "pieces": [
+    {
+      "piece": "P",
+      "moves": 5781,
+      "captures": 1152,
+      "taken": 2144,
+      "started": 3200,
+      "survived": 981,
+      "survival": 0.3065625
+    },
+    {
+      "piece": "M",
+      "moves": 3767,
+      "captures": 292,
+      "taken": 190,
+      "started": 380,
+      "survived": 190,
+      "survival": 0.5
+    },
+    {
+      "piece": "K",
+      "moves": 3324,
+      "captures": 207,
+      "taken": 0,
+      "started": 400,
+      "survived": 400,
+      "survival": 1
+    },
+    {
+      "piece": "G",
+      "moves": 3079,
+      "captures": 0,
+      "taken": 13,
+      "started": 360,
+      "survived": 353,
+      "survival": 0.9805555555555555
+    },
+    {
+      "piece": "A",
+      "moves": 2660,
+      "captures": 462,
+      "taken": 144,
+      "started": 400,
+      "survived": 256,
+      "survival": 0.64
+    },
+    {
+      "piece": "N",
+      "moves": 2318,
+      "captures": 496,
+      "taken": 399,
+      "started": 460,
+      "survived": 61,
+      "survival": 0.13260869565217392
+    },
+    {
+      "piece": "R",
+      "moves": 2161,
+      "captures": 404,
+      "taken": 272,
+      "started": 380,
+      "survived": 108,
+      "survival": 0.28421052631578947
+    },
+    {
+      "piece": "B",
+      "moves": 1266,
+      "captures": 249,
+      "taken": 172,
+      "started": 220,
+      "survived": 48,
+      "survival": 0.21818181818181817
+    },
+    {
+      "piece": "L",
+      "moves": 1090,
+      "captures": 107,
+      "taken": 47,
+      "started": 180,
+      "survived": 26,
+      "survival": 0.14444444444444443
+    },
+    {
+      "piece": "Q",
+      "moves": 695,
+      "captures": 126,
+      "taken": 106,
+      "started": 120,
+      "survived": 83,
+      "survival": 0.6916666666666667
+    },
+    {
+      "piece": "S",
+      "moves": 614,
+      "captures": 92,
+      "taken": 100,
+      "started": 300,
+      "survived": 200,
+      "survival": 0.6666666666666666
+    }
+  ],
+  "events": {
+    "archerShots": 462,
+    "beastChainMoves": 87,
+    "beastChainCaptures": 92,
+    "maesterSwaps": 1436,
+    "maesterLongSwaps": 301,
+    "paladinSacrifices": 107,
+    "promotions": 75,
+    "checks": 909
+  },
+  "byConfig": [
+    {
+      "key": "KSGNANLQ",
+      "games": 10,
+      "wins": 5,
+      "draws": 2,
+      "losses": 3,
+      "score": 0.6,
+      "ci": [
+        0.32983760671658235,
+        0.8701623932834176
+      ],
+      "elo": 70.43650362227247,
+      "eloLo": -123.1519531204864,
+      "eloHi": 330.47992336735035,
+      "match": {
+        "n": 10,
+        "mu": 0.6,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": 70.43650362227247,
+        "err95": 187.73584709264685,
+        "nElo": 79.70718982541592,
+        "los": 0.7659201144075065
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.02452227493125386,
+        "bound": 2.9444389791664403,
+        "nElo": 79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 113.2,
+      "medianPlies": 101,
+      "sdPlies": 66.15255097122106,
+      "durationDeviation": 0.24533333333333332,
+      "leadChanges": 0.6,
+      "volatility": 16.98743327845667,
+      "uncertainty": 0.6119376527881044,
+      "drama": 62.8,
+      "stability": 0.9730368125515222,
+      "boardCoverage": 0.8609375,
+      "branchingFactor": 27.914847238831506,
+      "lead": {
+        "killerMove": 0.3740011034815856,
+        "leadChange": 0.01625107790309097,
+        "uncertaintyLate": 0.581777239286883,
+        "permanence": 0.9642555610956911,
+        "drama": 0.1279906195806953,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "K": 2.049469964664311,
+        "S": 0.22614840989399293,
+        "G": 1.2862190812720848,
+        "N": 1.7243816254416962,
+        "A": 2.23321554770318,
+        "L": 1.2862190812720848,
+        "Q": 1.9222614840989398,
+        "P": 0.44346289752650175
+      },
+      "minUse": 0.22614840989399293,
+      "minFairyUse": 0.22614840989399293,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.3432734990315146,
+      "gatesFailed": [
+        "balance",
+        "utilisation"
+      ],
+      "funScore": 0.5254844131970262
+    },
+    {
+      "key": "RSNSKNAB",
+      "games": 10,
+      "wins": 5,
+      "draws": 0,
+      "losses": 5,
+      "score": 0.5,
+      "ci": [
+        0.19010248140328712,
+        0.8098975185967129
+      ],
+      "elo": 0,
+      "eloLo": -251.7769130469192,
+      "eloHi": 251.7769130469192,
+      "match": {
+        "n": 10.001000000000001,
+        "mu": 0.49999999999999994,
+        "variance": 0.24997500249974997,
+        "sigmaPg": 0.4999750018748437,
+        "elo": -7.714619732426294e-14,
+        "err95": 215.337019091059,
+        "nElo": -3.857502726885063e-14,
+        "los": 0.4999999995
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.0006626933456230063,
+        "bound": 2.9444389791664403,
+        "nElo": -3.857502726885063e-14,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0,
+      "timeouts": 0,
+      "decisiveness": 1,
+      "meanPlies": 110,
+      "medianPlies": 115,
+      "sdPlies": 21.72095762161512,
+      "durationDeviation": 0.26666666666666666,
+      "leadChanges": 0.7,
+      "volatility": 18.833132464580494,
+      "uncertainty": 0.6500740796843344,
+      "drama": 177.4,
+      "stability": 0.970889984617896,
+      "boardCoverage": 0.925,
+      "branchingFactor": 20.75402605662341,
+      "lead": {
+        "killerMove": 0.2641727327005926,
+        "leadChange": 0.030009811879963155,
+        "uncertaintyLate": 0.5949435157760202,
+        "permanence": 0.9622485304348048,
+        "drama": 0.28654799493393446,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 1.789090909090909,
+        "S": 0.5454545454545454,
+        "N": 1.2145454545454546,
+        "K": 2.3854545454545453,
+        "A": 1.9345454545454546,
+        "B": 2.036363636363636,
+        "P": 0.5418181818181819
+      },
+      "minUse": 0.5418181818181819,
+      "minFairyUse": 0.5454545454545454,
+      "excessDecisiveness": 0.2938691748610518,
+      "interest": 0.4138418497952877,
+      "gatesFailed": [],
+      "funScore": 0.6237685199210836
+    },
+    {
+      "key": "RNKSLGAS",
+      "games": 10,
+      "wins": 4,
+      "draws": 2,
+      "losses": 4,
+      "score": 0.5,
+      "ci": [
+        0.22281923294369793,
+        0.777180767056302
+      ],
+      "elo": 0,
+      "eloLo": -217.02774788433436,
+      "eloHi": 217.02774788433427,
+      "match": {
+        "n": 10,
+        "mu": 0.5,
+        "variance": 0.2,
+        "sigmaPg": 0.4472135954999579,
+        "elo": 0,
+        "err95": 192.6129150274243,
+        "nElo": 0,
+        "los": 0.5
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.0006626933456230063,
+        "bound": 2.9444389791664403,
+        "nElo": 0,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 114.7,
+      "medianPlies": 100,
+      "sdPlies": 65.33000841879634,
+      "durationDeviation": 0.2353333333333333,
+      "leadChanges": 0.7,
+      "volatility": 16.83652117611684,
+      "uncertainty": 0.5364501675645051,
+      "drama": 69.5,
+      "stability": 0.9714200591102351,
+      "boardCoverage": 0.8875,
+      "branchingFactor": 23.53529431783634,
+      "lead": {
+        "killerMove": 0.24023843106754966,
+        "leadChange": 0.019608600600154312,
+        "uncertaintyLate": 0.6048538273537677,
+        "permanence": 0.9622813853283564,
+        "drama": 0.13555779453322847,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 1.018308631211857,
+        "N": 1.6460331299040976,
+        "K": 2.6224934612031388,
+        "S": 0.4812554489973845,
+        "L": 1.004359197907585,
+        "G": 2.6503923278116828,
+        "A": 2.2458587619877943,
+        "P": 0.4777680906713165
+      },
+      "minUse": 0.4777680906713165,
+      "minFairyUse": 0.4812554489973845,
+      "excessDecisiveness": 0.09386917486105184,
+      "interest": 0.3690511802815874,
+      "gatesFailed": [],
+      "funScore": 0.5153625418911263
+    },
+    {
+      "key": "RNMSAKGR",
+      "games": 10,
+      "wins": 2,
+      "draws": 3,
+      "losses": 5,
+      "score": 0.35,
+      "ci": [
+        0.10796230058157469,
+        0.5920376994184253
+      ],
+      "elo": -107.53812491703198,
+      "eloLo": -366.84443142409197,
+      "eloHi": 64.69173206061768,
+      "match": {
+        "n": 10,
+        "mu": 0.35,
+        "variance": 0.15250000000000002,
+        "sigmaPg": 0.39051248379533277,
+        "elo": -107.53812491703198,
+        "err95": 168.19199732586375,
+        "nElo": -133.4537050439182,
+        "los": 0.11224710603097227
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.03896196778365624,
+        "bound": 2.9444389791664403,
+        "nElo": -133.4537050439182,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0,
+      "decisiveness": 0.7,
+      "meanPlies": 134.7,
+      "medianPlies": 139,
+      "sdPlies": 45.75161199345876,
+      "durationDeviation": 0.10200000000000008,
+      "leadChanges": 0.8,
+      "volatility": 15.768073979818245,
+      "uncertainty": 0.7306577931099674,
+      "drama": 86.1,
+      "stability": 0.9725462168199946,
+      "boardCoverage": 0.921875,
+      "branchingFactor": 26.698466023860874,
+      "lead": {
+        "killerMove": 0.3407649090044959,
+        "leadChange": 0.03796310574907993,
+        "uncertaintyLate": 0.6430789156528403,
+        "permanence": 0.9650509228065738,
+        "drama": 0.13539408438553588,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 2.060876020786934,
+        "N": 1.25909428359317,
+        "M": 2.1143281365998514,
+        "S": 0.5226429101707498,
+        "A": 1.6748329621380846,
+        "K": 1.4729027468448403,
+        "G": 1.152190051967335,
+        "P": 0.44691907943578324
+      },
+      "minUse": 0.44691907943578324,
+      "minFairyUse": 0.5226429101707498,
+      "excessDecisiveness": 0.03696451474989315,
+      "interest": 0.39622645155778363,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.5326644482774918
+    },
+    {
+      "key": "QARSBLGK",
+      "games": 10,
+      "wins": 3,
+      "draws": 2,
+      "losses": 5,
+      "score": 0.4,
+      "ci": [
+        0.1298376067165824,
+        0.6701623932834176
+      ],
+      "elo": -70.4365036222725,
+      "eloLo": -330.4799233673502,
+      "eloHi": 123.15195312048634,
+      "match": {
+        "n": 10,
+        "mu": 0.4,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": -70.4365036222725,
+        "err95": 187.73584709264685,
+        "nElo": -79.70718982541592,
+        "los": 0.23407988559249343
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.02565550650062025,
+        "bound": 2.9444389791664403,
+        "nElo": -79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 124.9,
+      "medianPlies": 128,
+      "sdPlies": 58.59086959586792,
+      "durationDeviation": 0.1673333333333333,
+      "leadChanges": 0.5,
+      "volatility": 16.49141543398701,
+      "uncertainty": 0.6779541403609921,
+      "drama": 86.8,
+      "stability": 0.9716036761901105,
+      "boardCoverage": 0.896875,
+      "branchingFactor": 27.820464909863013,
+      "lead": {
+        "killerMove": 0.32731652614889617,
+        "leadChange": 0.022553261368586253,
+        "uncertaintyLate": 0.6290732138280726,
+        "permanence": 0.9654399837865189,
+        "drama": 0.17908613025661496,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "Q": 0.922337870296237,
+        "A": 1.5244195356285029,
+        "R": 1.012009607686149,
+        "S": 0.4355484387510008,
+        "B": 2.2161729383506805,
+        "L": 1.012009607686149,
+        "G": 2.6389111289031226,
+        "K": 2.254603682946357,
+        "P": 0.49799839871897517
+      },
+      "minUse": 0.4355484387510008,
+      "minFairyUse": 0.4355484387510008,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.38717108754172197,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.5332385350902481
+    },
+    {
+      "key": "KNGNBRAB",
+      "games": 10,
+      "wins": 5,
+      "draws": 3,
+      "losses": 2,
+      "score": 0.65,
+      "ci": [
+        0.40796230058157473,
+        0.8920376994184254
+      ],
+      "elo": 107.53812491703204,
+      "eloLo": -64.6917320606176,
+      "eloHi": 366.844431424092,
+      "match": {
+        "n": 10,
+        "mu": 0.65,
+        "variance": 0.15250000000000002,
+        "sigmaPg": 0.39051248379533277,
+        "elo": 107.53812491703204,
+        "err95": 168.19199732586375,
+        "nElo": 133.4537050439182,
+        "los": 0.8877528939690278
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.03810393282462492,
+        "bound": 2.9444389791664403,
+        "nElo": 133.4537050439182,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0.1,
+      "decisiveness": 0.7,
+      "meanPlies": 129,
+      "medianPlies": 91,
+      "sdPlies": 87.68580272769361,
+      "durationDeviation": 0.14,
+      "leadChanges": 1.3,
+      "volatility": 19.727611333022235,
+      "uncertainty": 0.8263743570107607,
+      "drama": 73.6,
+      "stability": 0.9633856961273299,
+      "boardCoverage": 0.89375,
+      "branchingFactor": 24.93872487113844,
+      "lead": {
+        "killerMove": 0.34823727649501707,
+        "leadChange": 0.032121068481354466,
+        "uncertaintyLate": 0.6533102561226451,
+        "permanence": 0.9559504390955137,
+        "drama": 0.18674726236196731,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "K": 2.31937984496124,
+        "N": 1.0046511627906978,
+        "G": 3.2248062015503876,
+        "B": 0.9984496124031008,
+        "R": 1.302325581395349,
+        "A": 1.6372093023255814,
+        "P": 0.4372093023255814
+      },
+      "minUse": 0.4372093023255814,
+      "minFairyUse": 1.6372093023255814,
+      "excessDecisiveness": 0.03696451474989315,
+      "interest": 0.5009824907430462,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.60034358925269
+    },
+    {
+      "key": "BRNMSKMA",
+      "games": 10,
+      "wins": 5,
+      "draws": 1,
+      "losses": 4,
+      "score": 0.55,
+      "ci": [
+        0.25764326566874507,
+        0.842356734331255
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -183.83754293696532,
+      "eloHi": 291.1282517187304,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.2225,
+        "sigmaPg": 0.4716990566028302,
+        "elo": 34.86007028756008,
+        "err95": 203.15869468678906,
+        "nElo": 36.82809840927263,
+        "los": 0.6312631085917567
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.011425751503976593,
+        "bound": 2.9444389791664403,
+        "nElo": 36.82809840927263,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.1,
+      "timeouts": 0,
+      "decisiveness": 0.9,
+      "meanPlies": 106.9,
+      "medianPlies": 101,
+      "sdPlies": 44.03282866226062,
+      "durationDeviation": 0.2873333333333333,
+      "leadChanges": 0.7,
+      "volatility": 18.088875332175856,
+      "uncertainty": 0.6427350774090066,
+      "drama": 51.8,
+      "stability": 0.9699674860711243,
+      "boardCoverage": 0.8828125,
+      "branchingFactor": 27.53049629347994,
+      "lead": {
+        "killerMove": 0.3956445752398403,
+        "leadChange": 0.02713078444478838,
+        "uncertaintyLate": 0.6573914006028435,
+        "permanence": 0.9619066303423262,
+        "drama": 0.1326093355760658,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "B": 1.0327408793264734,
+        "R": 2.08044901777362,
+        "N": 1.391955098222638,
+        "M": 1.9981290926099158,
+        "S": 0.5537885874649204,
+        "K": 1.1075771749298409,
+        "A": 1.362020579981291,
+        "P": 0.5594013096351731
+      },
+      "minUse": 0.5537885874649204,
+      "minFairyUse": 0.5537885874649204,
+      "excessDecisiveness": 0.20823428815733225,
+      "interest": 0.4267472307906863,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.5819337693522517
+    },
+    {
+      "key": "SSARANKM",
+      "games": 10,
+      "wins": 2,
+      "draws": 7,
+      "losses": 1,
+      "score": 0.55,
+      "ci": [
+        0.3831150789034672,
+        0.7168849210965329
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -82.7499636263102,
+      "eloHi": 161.39457790451996,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.07250000000000001,
+        "sigmaPg": 0.26925824035672524,
+        "elo": 34.86007028756008,
+        "err95": 115.9683316699807,
+        "nElo": 64.51716854836155,
+        "los": 0.7214721360020275
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.020065897876189044,
+        "bound": 2.9444389791664403,
+        "nElo": 64.51716854836155,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.5,
+      "timeouts": 0.2,
+      "decisiveness": 0.3,
+      "meanPlies": 179.6,
+      "medianPlies": 167,
+      "sdPlies": 82.29969623273223,
+      "durationDeviation": 0.1973333333333333,
+      "leadChanges": 0.8,
+      "volatility": 14.416761323203016,
+      "uncertainty": 0.8569159663865547,
+      "drama": 17.4,
+      "stability": 0.9723154795096726,
+      "boardCoverage": 0.9484375,
+      "branchingFactor": 21.68514855321623,
+      "lead": {
+        "killerMove": 0.32258113149599665,
+        "leadChange": 0.03363998512415793,
+        "uncertaintyLate": 0.6508934883661787,
+        "permanence": 0.9649143615938207,
+        "drama": 0.05670342989877055,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "S": 0.4365256124721604,
+        "A": 1.55902004454343,
+        "R": 0.7394209354120267,
+        "N": 0.89086859688196,
+        "K": 4.721603563474387,
+        "M": 2.752783964365256,
+        "P": 0.36302895322939865
+      },
+      "minUse": 0.36302895322939865,
+      "minFairyUse": 0.4365256124721604,
+      "excessDecisiveness": -0.3917657118426678,
+      "interest": 0.34189757885022926,
+      "gatesFailed": [
+        "balance",
+        "timeouts",
+        "drawRate"
+      ],
+      "funScore": 0.40422899159663866
+    },
+    {
+      "key": "GRBNANKA",
+      "games": 10,
+      "wins": 7,
+      "draws": 2,
+      "losses": 1,
+      "score": 0.8,
+      "ci": [
+        0.5944372414705037,
+        1
+      ],
+      "elo": 240.82399653118495,
+      "eloLo": 66.41917671595473,
+      "eloHi": 2399.999826281142,
+      "match": {
+        "n": 10,
+        "mu": 0.7999999999999999,
+        "variance": 0.10999999999999999,
+        "sigmaPg": 0.33166247903553997,
+        "elo": 240.82399653118495,
+        "err95": 142.84556090214696,
+        "nElo": 314.2673116352464,
+        "los": 0.9978843186787697
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.05723794719797077,
+        "bound": 2.9444389791664403,
+        "nElo": 314.2673116352464,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 77.9,
+      "medianPlies": 69,
+      "sdPlies": 50.070849803054074,
+      "durationDeviation": 0.48066666666666663,
+      "leadChanges": 0.4,
+      "volatility": 18.90477582534467,
+      "uncertainty": 0.47122122762148344,
+      "drama": 0,
+      "stability": 0.975977213504945,
+      "boardCoverage": 0.725,
+      "branchingFactor": 24.189251161430366,
+      "lead": {
+        "killerMove": 0.35879261016361846,
+        "leadChange": 0.004825080277167484,
+        "uncertaintyLate": 0.5908984168088458,
+        "permanence": 0.9647159290553093,
+        "drama": 0,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 1.3145057766367136,
+        "R": 1.5198973042362003,
+        "B": 1.8279845956354301,
+        "N": 1.4274711168164314,
+        "A": 1.1399229781771503,
+        "K": 1.5404364569961488,
+        "P": 0.582798459563543
+      },
+      "minUse": 0.582798459563543,
+      "minFairyUse": 1.1399229781771503,
+      "excessDecisiveness": 0.18005985463873464,
+      "interest": 0.4861370096857226,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.4728053069053709
+    },
+    {
+      "key": "KBGNGMMA",
+      "games": 10,
+      "wins": 2,
+      "draws": 4,
+      "losses": 4,
+      "score": 0.4,
+      "ci": [
+        0.16809393207993892,
+        0.6319060679200611
+      ],
+      "elo": -70.4365036222725,
+      "eloLo": -277.8089022640246,
+      "eloHi": 93.87754697464898,
+      "match": {
+        "n": 10,
+        "mu": 0.4,
+        "variance": 0.14,
+        "sigmaPg": 0.37416573867739417,
+        "elo": -70.4365036222725,
+        "err95": 161.15152659765047,
+        "nElo": -92.85606607134078,
+        "los": 0.199012311711242
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.029251106696902097,
+        "bound": 2.9444389791664403,
+        "nElo": -92.85606607134078,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0.1,
+      "decisiveness": 0.6,
+      "meanPlies": 125.5,
+      "medianPlies": 108,
+      "sdPlies": 66.55711832704299,
+      "durationDeviation": 0.16333333333333333,
+      "leadChanges": 0.4,
+      "volatility": 16.442255370547322,
+      "uncertainty": 0.805713768100933,
+      "drama": 53.6,
+      "stability": 0.9707513580996517,
+      "boardCoverage": 0.8890625,
+      "branchingFactor": 32.15003097808791,
+      "lead": {
+        "killerMove": 0.4130752639298464,
+        "leadChange": 0.04911912532869127,
+        "uncertaintyLate": 0.6626391137946115,
+        "permanence": 0.9631114608451726,
+        "drama": 0.11793699832906727,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "K": 1.198406374501992,
+        "B": 1.6318725099601594,
+        "G": 1.051792828685259,
+        "N": 1.1346613545816733,
+        "M": 2.039840637450199,
+        "A": 1.5171314741035857,
+        "P": 0.5147410358565737
+      },
+      "minUse": 0.5147410358565737,
+      "minFairyUse": 1.051792828685259,
+      "excessDecisiveness": -0.07740059854638737,
+      "interest": 0.49782528367254514,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.4764284420252332
+    },
+    {
+      "key": "NRRKBAGM",
+      "games": 10,
+      "wins": 5,
+      "draws": 2,
+      "losses": 3,
+      "score": 0.6,
+      "ci": [
+        0.32983760671658235,
+        0.8701623932834176
+      ],
+      "elo": 70.43650362227247,
+      "eloLo": -123.1519531204864,
+      "eloHi": 330.47992336735035,
+      "match": {
+        "n": 10,
+        "mu": 0.6,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": 70.43650362227247,
+        "err95": 187.73584709264685,
+        "nElo": 79.70718982541592,
+        "los": 0.7659201144075065
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.02452227493125386,
+        "bound": 2.9444389791664403,
+        "nElo": 79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 131.6,
+      "medianPlies": 110,
+      "sdPlies": 50.35712462005749,
+      "durationDeviation": 0.1226666666666667,
+      "leadChanges": 1,
+      "volatility": 14.713251834951242,
+      "uncertainty": 0.7881183151895134,
+      "drama": 96.8,
+      "stability": 0.9735275347479817,
+      "boardCoverage": 0.9140625,
+      "branchingFactor": 28.341741262097987,
+      "lead": {
+        "killerMove": 0.48401071145088626,
+        "leadChange": 0.04005099131908703,
+        "uncertaintyLate": 0.6759121235896032,
+        "permanence": 0.9675345195934246,
+        "drama": 0.16208944261441074,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "N": 1.1306990881458967,
+        "R": 1.6109422492401215,
+        "K": 1.3981762917933132,
+        "B": 1.3130699088145896,
+        "A": 1.2279635258358663,
+        "G": 0.6200607902735562,
+        "M": 3.3677811550151975,
+        "P": 0.45592705167173253
+      },
+      "minUse": 0.45592705167173253,
+      "minFairyUse": 0.6200607902735562,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.4568088313729688,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.6045295787973785
+    },
+    {
+      "key": "GALMRRKN",
+      "games": 10,
+      "wins": 5,
+      "draws": 4,
+      "losses": 1,
+      "score": 0.7,
+      "ci": [
+        0.4944372414705036,
+        0.9055627585294963
+      ],
+      "elo": 147.19071411783776,
+      "eloLo": -3.8655600282060156,
+      "eloHi": 392.7101043940392,
+      "match": {
+        "n": 10,
+        "mu": 0.7,
+        "variance": 0.11,
+        "sigmaPg": 0.33166247903553997,
+        "elo": 147.19071411783776,
+        "err95": 142.84556090214696,
+        "nElo": 209.5115410901643,
+        "los": 0.9717349278728539
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.050682066155972025,
+        "bound": 2.9444389791664403,
+        "nElo": 209.5115410901643,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0.1,
+      "decisiveness": 0.6,
+      "meanPlies": 124.3,
+      "medianPlies": 126,
+      "sdPlies": 74.60033511989072,
+      "durationDeviation": 0.17133333333333337,
+      "leadChanges": 0.3,
+      "volatility": 12.954810408693017,
+      "uncertainty": 0.5514945054945055,
+      "drama": 16.8,
+      "stability": 0.9800756829956947,
+      "boardCoverage": 0.8625,
+      "branchingFactor": 31.44223747103203,
+      "lead": {
+        "killerMove": 0.16583567600835264,
+        "leadChange": 0.025531055765211252,
+        "uncertaintyLate": 0.6065833539475453,
+        "permanence": 0.9738933832848877,
+        "drama": 0.04197194076302789,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 2.8962188254223653,
+        "A": 1.4545454545454546,
+        "L": 0.8753016894609815,
+        "M": 2.2011263073209975,
+        "R": 1.1456154465004023,
+        "K": 1.3773129525341914,
+        "N": 1.6347546259050685,
+        "P": 0.4086886564762671
+      },
+      "minUse": 0.4086886564762671,
+      "minFairyUse": 0.8753016894609815,
+      "excessDecisiveness": -0.0486703719538264,
+      "interest": 0.41328728758888983,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.40412362637362637
+    },
+    {
+      "key": "RRSAQNMK",
+      "games": 10,
+      "wins": 3,
+      "draws": 2,
+      "losses": 5,
+      "score": 0.4,
+      "ci": [
+        0.12983760671658245,
+        0.6701623932834175
+      ],
+      "elo": -70.4365036222725,
+      "eloLo": -330.4799233673501,
+      "eloHi": 123.15195312048625,
+      "match": {
+        "n": 10,
+        "mu": 0.4,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": -70.4365036222725,
+        "err95": 187.73584709264685,
+        "nElo": -79.70718982541592,
+        "los": 0.23407988559249343
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.02565550650062025,
+        "bound": 2.9444389791664403,
+        "nElo": -79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.1,
+      "timeouts": 0.1,
+      "decisiveness": 0.8,
+      "meanPlies": 130.2,
+      "medianPlies": 120,
+      "sdPlies": 66.20543784312585,
+      "durationDeviation": 0.1320000000000001,
+      "leadChanges": 1,
+      "volatility": 16.772835584954457,
+      "uncertainty": 0.6754133619142367,
+      "drama": 79.3,
+      "stability": 0.9712164908006544,
+      "boardCoverage": 0.8984375,
+      "branchingFactor": 27.17047642490589,
+      "lead": {
+        "killerMove": 0.4071223365274844,
+        "leadChange": 0.03211858815540079,
+        "uncertaintyLate": 0.6525645686325665,
+        "permanence": 0.9627368657321631,
+        "drama": 0.16827786438028758,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 1.4316436251920124,
+        "S": 0.565284178187404,
+        "A": 1.597542242703533,
+        "Q": 1.4254992319508448,
+        "N": 1.5115207373271888,
+        "M": 2.8509984639016897,
+        "K": 1.6466973886328724,
+        "P": 0.4423963133640553
+      },
+      "minUse": 0.4423963133640553,
+      "minFairyUse": 0.565284178187404,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.42911661117444994,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.5763533404785592
+    },
+    {
+      "key": "NSGGMAKL",
+      "games": 10,
+      "wins": 3,
+      "draws": 5,
+      "losses": 2,
+      "score": 0.55,
+      "ci": [
+        0.3330717369823011,
+        0.766928263017699
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -120.61653615212155,
+      "eloHi": 206.90605199898363,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.1225,
+        "sigmaPg": 0.35,
+        "elo": 34.86007028756008,
+        "err95": 150.74344997099902,
+        "nElo": 49.6336550746574,
+        "los": 0.6742768522048743
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.01549259039709025,
+        "bound": 2.9444389791664403,
+        "nElo": 49.6336550746574,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.1,
+      "decisiveness": 0.5,
+      "meanPlies": 183.9,
+      "medianPlies": 194,
+      "sdPlies": 67.83870576595635,
+      "durationDeviation": 0.22600000000000003,
+      "leadChanges": 0.4,
+      "volatility": 14.126514015589004,
+      "uncertainty": 0.7015790880455748,
+      "drama": 18,
+      "stability": 0.9763011567380607,
+      "boardCoverage": 0.940625,
+      "branchingFactor": 29.586751883441657,
+      "lead": {
+        "killerMove": 0.3202299421068356,
+        "leadChange": 0.026583696385280402,
+        "uncertaintyLate": 0.5905032019205806,
+        "permanence": 0.9685888759141015,
+        "drama": 0.05292229248456123,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "N": 1.696574225122349,
+        "S": 0.4524197933659598,
+        "G": 2.1750951604132682,
+        "M": 1.0614464382816748,
+        "A": 1.7313757476889613,
+        "K": 2.723219140837412,
+        "L": 1.2441544317563893,
+        "P": 0.3425774877650897
+      },
+      "minUse": 0.3425774877650897,
+      "minFairyUse": 0.4524197933659598,
+      "excessDecisiveness": -0.19176571184266777,
+      "interest": 0.3496879256241641,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.41039477201139374
+    },
+    {
+      "key": "GKLAMNMS",
+      "games": 10,
+      "wins": 0,
+      "draws": 7,
+      "losses": 3,
+      "score": 0.35,
+      "ci": [
+        0.2079871163351578,
+        0.4920128836648422
+      ],
+      "elo": -107.53812491703198,
+      "eloLo": -232.27832507340995,
+      "eloHi": -5.550489030614511,
+      "match": {
+        "n": 10.001,
+        "mu": 0.35006499350064996,
+        "variance": 0.05253699207621484,
+        "sigmaPg": 0.2292094938614342,
+        "elo": -107.48849835112915,
+        "err95": 98.71951391651176,
+        "nElo": -227.2713747403883,
+        "los": 0.01928825686274782
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.05292529815650114,
+        "bound": 2.9444389791664403,
+        "nElo": -227.2713747403883,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.3,
+      "decisiveness": 0.3,
+      "meanPlies": 196.2,
+      "medianPlies": 207,
+      "sdPlies": 88.79617108862296,
+      "durationDeviation": 0.30799999999999994,
+      "leadChanges": 0.5,
+      "volatility": 16.321180577188663,
+      "uncertainty": 0.8456671167116709,
+      "drama": 29.2,
+      "stability": 0.969669572740383,
+      "boardCoverage": 0.91875,
+      "branchingFactor": 33.606941280991606,
+      "lead": {
+        "killerMove": 0.35446869652418866,
+        "leadChange": 0.03749638186488617,
+        "uncertaintyLate": 0.6241670620291964,
+        "permanence": 0.9618077750436068,
+        "drama": 0.07403853814596258,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 1.4678899082568808,
+        "K": 1.5168195718654434,
+        "L": 1.908256880733945,
+        "A": 1.3537206931702344,
+        "M": 2.9357798165137616,
+        "N": 0.8399592252803262,
+        "S": 0.44036697247706424,
+        "P": 0.3251783893985729
+      },
+      "minUse": 0.3251783893985729,
+      "minFairyUse": 0.44036697247706424,
+      "excessDecisiveness": -0.3630354852501068,
+      "interest": 0.3485384704812259,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.37516677917791774
+    },
+    {
+      "key": "ASGLABKM",
+      "games": 10,
+      "wins": 1,
+      "draws": 5,
+      "losses": 4,
+      "score": 0.35,
+      "ci": [
+        0.15156876875530906,
+        0.5484312312446908
+      ],
+      "elo": -107.53812491703198,
+      "eloLo": -299.2027696263848,
+      "eloHi": 33.75931224465035,
+      "match": {
+        "n": 10,
+        "mu": 0.35,
+        "variance": 0.10250000000000001,
+        "sigmaPg": 0.32015621187164245,
+        "elo": -107.53812491703198,
+        "err95": 137.88986259193572,
+        "nElo": -162.7809672151056,
+        "los": 0.0692241605330764
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.04457537165096947,
+        "bound": 2.9444389791664403,
+        "nElo": -162.7809672151056,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.1,
+      "decisiveness": 0.5,
+      "meanPlies": 186,
+      "medianPlies": 217,
+      "sdPlies": 66.38825197277,
+      "durationDeviation": 0.24,
+      "leadChanges": 1.2,
+      "volatility": 15.195619676174474,
+      "uncertainty": 0.7769435045147305,
+      "drama": 56.7,
+      "stability": 0.9716149963489391,
+      "boardCoverage": 0.9375,
+      "branchingFactor": 30.77215144573995,
+      "lead": {
+        "killerMove": 0.2927907862579176,
+        "leadChange": 0.04642096722984228,
+        "uncertaintyLate": 0.628644682228569,
+        "permanence": 0.9636645031991996,
+        "drama": 0.1247326568148485,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "A": 1.4795698924731182,
+        "S": 0.4731182795698925,
+        "G": 3.139784946236559,
+        "L": 1.1268817204301076,
+        "B": 1.686021505376344,
+        "K": 2.10752688172043,
+        "M": 1.8408602150537634,
+        "P": 0.3333333333333333
+      },
+      "minUse": 0.3333333333333333,
+      "minFairyUse": 0.4731182795698925,
+      "excessDecisiveness": -0.1630354852501068,
+      "interest": 0.3601205720252206,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.4992358761286826
+    },
+    {
+      "key": "AMNKRRQL",
+      "games": 10,
+      "wins": 3,
+      "draws": 3,
+      "losses": 4,
+      "score": 0.45,
+      "ci": [
+        0.1925797876965447,
+        0.7074202123034553
+      ],
+      "elo": -34.86007028756008,
+      "eloLo": -248.9955653562702,
+      "eloHi": 153.37325752528778,
+      "match": {
+        "n": 10,
+        "mu": 0.44999999999999996,
+        "variance": 0.1725,
+        "sigmaPg": 0.4153311931459037,
+        "elo": -34.86007028756008,
+        "err95": 178.88130552967107,
+        "nElo": -41.826329355492135,
+        "los": 0.35171540521333716
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.014294750597585797,
+        "bound": 2.9444389791664403,
+        "nElo": -41.826329355492135,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0,
+      "decisiveness": 0.7,
+      "meanPlies": 127.2,
+      "medianPlies": 121,
+      "sdPlies": 72.73486096776429,
+      "durationDeviation": 0.15199999999999997,
+      "leadChanges": 0.3,
+      "volatility": 17.390555387077917,
+      "uncertainty": 0.5635927767573319,
+      "drama": 53.7,
+      "stability": 0.9755262182671212,
+      "boardCoverage": 0.878125,
+      "branchingFactor": 33.99563043988848,
+      "lead": {
+        "killerMove": 0.3837260266555472,
+        "leadChange": 0.0497945589265121,
+        "uncertaintyLate": 0.6063504990249846,
+        "permanence": 0.9654461372262029,
+        "drama": 0.101972324609832,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "A": 1.1572327044025157,
+        "M": 2.641509433962264,
+        "N": 1.0188679245283019,
+        "K": 1.4465408805031446,
+        "R": 1.220125786163522,
+        "Q": 1.559748427672956,
+        "L": 2.339622641509434,
+        "P": 0.41823899371069184
+      },
+      "minUse": 0.41823899371069184,
+      "minFairyUse": 1.1572327044025157,
+      "excessDecisiveness": 0.008234288157332181,
+      "interest": 0.4879156066245695,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.44714819418933294
+    },
+    {
+      "key": "MGQMBSNK",
+      "games": 10,
+      "wins": 3,
+      "draws": 4,
+      "losses": 3,
+      "score": 0.5,
+      "ci": [
+        0.2599544142887855,
+        0.7400455857112145
+      ],
+      "elo": 0,
+      "eloLo": -181.74451034388926,
+      "eloHi": 181.7445103438893,
+      "match": {
+        "n": 10,
+        "mu": 0.5,
+        "variance": 0.15,
+        "sigmaPg": 0.3872983346207417,
+        "elo": 0,
+        "err95": 166.80767751072293,
+        "nElo": 0,
+        "los": 0.5
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.0006626933456230063,
+        "bound": 2.9444389791664403,
+        "nElo": 0,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0,
+      "decisiveness": 0.6,
+      "meanPlies": 136.4,
+      "medianPlies": 107,
+      "sdPlies": 64.69652231766403,
+      "durationDeviation": 0.09066666666666663,
+      "leadChanges": 0.7,
+      "volatility": 15.237861769710458,
+      "uncertainty": 0.7926031319655958,
+      "drama": 75.2,
+      "stability": 0.9730449720244174,
+      "boardCoverage": 0.9078125,
+      "branchingFactor": 30.693804043031417,
+      "lead": {
+        "killerMove": 0.41504563889519935,
+        "leadChange": 0.042622304575425804,
+        "uncertaintyLate": 0.6614039426077717,
+        "permanence": 0.9661756000479862,
+        "drama": 0.14960171608067202,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "M": 2.099706744868035,
+        "G": 2.3225806451612905,
+        "Q": 0.9384164222873901,
+        "B": 1.6070381231671553,
+        "S": 0.39882697947214074,
+        "N": 0.8680351906158358,
+        "K": 1.9472140762463344,
+        "P": 0.46480938416422285
+      },
+      "minUse": 0.39882697947214074,
+      "minFairyUse": 0.39882697947214074,
+      "excessDecisiveness": -0.10613082513894823,
+      "interest": 0.381154115905113,
+      "gatesFailed": [],
+      "funScore": 0.4994007829913989
+    },
+    {
+      "key": "BGKNMQLN",
+      "games": 10,
+      "wins": 5,
+      "draws": 1,
+      "losses": 4,
+      "score": 0.55,
+      "ci": [
+        0.25764326566874507,
+        0.842356734331255
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -183.83754293696532,
+      "eloHi": 291.1282517187304,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.2225,
+        "sigmaPg": 0.4716990566028302,
+        "elo": 34.86007028756008,
+        "err95": 203.15869468678906,
+        "nElo": 36.82809840927263,
+        "los": 0.6312631085917567
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.011425751503976593,
+        "bound": 2.9444389791664403,
+        "nElo": 36.82809840927263,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.1,
+      "timeouts": 0,
+      "decisiveness": 0.9,
+      "meanPlies": 91.7,
+      "medianPlies": 94,
+      "sdPlies": 36.77240813436074,
+      "durationDeviation": 0.38866666666666666,
+      "leadChanges": 0.3,
+      "volatility": 15.813688459808805,
+      "uncertainty": 0.42331169033988625,
+      "drama": 34.1,
+      "stability": 0.9766961214166463,
+      "boardCoverage": 0.8609375,
+      "branchingFactor": 36.414901889857106,
+      "lead": {
+        "killerMove": 0.2488660611767422,
+        "leadChange": 0.02927903975582864,
+        "uncertaintyLate": 0.5972168661115721,
+        "permanence": 0.9705613404049158,
+        "drama": 0.0909591425236436,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "B": 1.1341330425299891,
+        "G": 1.1341330425299891,
+        "K": 1.3435114503816794,
+        "N": 1.5179934569247546,
+        "M": 1.4133042529989095,
+        "Q": 2.3031624863685933,
+        "L": 1.500545256270447,
+        "P": 0.5169029443838604
+      },
+      "minUse": 0.5169029443838604,
+      "minFairyUse": 1.1341330425299891,
+      "excessDecisiveness": 0.20823428815733225,
+      "interest": 0.4740752066895415,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.4920779225849716
+    },
+    {
+      "key": "GKRNMMRG",
+      "games": 10,
+      "wins": 2,
+      "draws": 5,
+      "losses": 3,
+      "score": 0.45,
+      "ci": [
+        0.23307173698230102,
+        0.666928263017699
+      ],
+      "elo": -34.86007028756008,
+      "eloLo": -206.90605199898363,
+      "eloHi": 120.61653615212167,
+      "match": {
+        "n": 10,
+        "mu": 0.45,
+        "variance": 0.12250000000000001,
+        "sigmaPg": 0.35000000000000003,
+        "elo": -34.86007028756008,
+        "err95": 150.74344997099905,
+        "nElo": -49.63365507465734,
+        "los": 0.32572314779512607
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.016739525700491864,
+        "bound": 2.9444389791664403,
+        "nElo": -49.63365507465734,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.1,
+      "decisiveness": 0.5,
+      "meanPlies": 151.6,
+      "medianPlies": 139,
+      "sdPlies": 85.88038192742275,
+      "durationDeviation": 0.010666666666666628,
+      "leadChanges": 0.9,
+      "volatility": 12.291951547829575,
+      "uncertainty": 0.827796994562988,
+      "drama": 92.2,
+      "stability": 0.9753708644901232,
+      "boardCoverage": 0.8921875,
+      "branchingFactor": 32.345516206977024,
+      "lead": {
+        "killerMove": 0.2851710481524852,
+        "leadChange": 0.07151915753429271,
+        "uncertaintyLate": 0.67711980309562,
+        "permanence": 0.9708899218474857,
+        "drama": 0.14737802481431833,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 2.2058047493403694,
+        "K": 1.150395778364116,
+        "R": 1.4142480211081794,
+        "N": 1.3720316622691293,
+        "M": 1.6253298153034301,
+        "P": 0.3733509234828496
+      },
+      "minUse": 0.3733509234828496,
+      "minFairyUse": 1.6253298153034301,
+      "excessDecisiveness": -0.19176571184266777,
+      "interest": 0.46775843362392294,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.485699248640747
+    }
+  ],
+  "mostBalanced": [
+    {
+      "key": "RSNSKNAB",
+      "games": 10,
+      "wins": 5,
+      "draws": 0,
+      "losses": 5,
+      "score": 0.5,
+      "ci": [
+        0.19010248140328712,
+        0.8098975185967129
+      ],
+      "elo": 0,
+      "eloLo": -251.7769130469192,
+      "eloHi": 251.7769130469192,
+      "match": {
+        "n": 10.001000000000001,
+        "mu": 0.49999999999999994,
+        "variance": 0.24997500249974997,
+        "sigmaPg": 0.4999750018748437,
+        "elo": -7.714619732426294e-14,
+        "err95": 215.337019091059,
+        "nElo": -3.857502726885063e-14,
+        "los": 0.4999999995
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.0006626933456230063,
+        "bound": 2.9444389791664403,
+        "nElo": -3.857502726885063e-14,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0,
+      "timeouts": 0,
+      "decisiveness": 1,
+      "meanPlies": 110,
+      "medianPlies": 115,
+      "sdPlies": 21.72095762161512,
+      "durationDeviation": 0.26666666666666666,
+      "leadChanges": 0.7,
+      "volatility": 18.833132464580494,
+      "uncertainty": 0.6500740796843344,
+      "drama": 177.4,
+      "stability": 0.970889984617896,
+      "boardCoverage": 0.925,
+      "branchingFactor": 20.75402605662341,
+      "lead": {
+        "killerMove": 0.2641727327005926,
+        "leadChange": 0.030009811879963155,
+        "uncertaintyLate": 0.5949435157760202,
+        "permanence": 0.9622485304348048,
+        "drama": 0.28654799493393446,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 1.789090909090909,
+        "S": 0.5454545454545454,
+        "N": 1.2145454545454546,
+        "K": 2.3854545454545453,
+        "A": 1.9345454545454546,
+        "B": 2.036363636363636,
+        "P": 0.5418181818181819
+      },
+      "minUse": 0.5418181818181819,
+      "minFairyUse": 0.5454545454545454,
+      "excessDecisiveness": 0.2938691748610518,
+      "interest": 0.4138418497952877,
+      "gatesFailed": [],
+      "funScore": 0.6237685199210836
+    },
+    {
+      "key": "RNKSLGAS",
+      "games": 10,
+      "wins": 4,
+      "draws": 2,
+      "losses": 4,
+      "score": 0.5,
+      "ci": [
+        0.22281923294369793,
+        0.777180767056302
+      ],
+      "elo": 0,
+      "eloLo": -217.02774788433436,
+      "eloHi": 217.02774788433427,
+      "match": {
+        "n": 10,
+        "mu": 0.5,
+        "variance": 0.2,
+        "sigmaPg": 0.4472135954999579,
+        "elo": 0,
+        "err95": 192.6129150274243,
+        "nElo": 0,
+        "los": 0.5
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.0006626933456230063,
+        "bound": 2.9444389791664403,
+        "nElo": 0,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 114.7,
+      "medianPlies": 100,
+      "sdPlies": 65.33000841879634,
+      "durationDeviation": 0.2353333333333333,
+      "leadChanges": 0.7,
+      "volatility": 16.83652117611684,
+      "uncertainty": 0.5364501675645051,
+      "drama": 69.5,
+      "stability": 0.9714200591102351,
+      "boardCoverage": 0.8875,
+      "branchingFactor": 23.53529431783634,
+      "lead": {
+        "killerMove": 0.24023843106754966,
+        "leadChange": 0.019608600600154312,
+        "uncertaintyLate": 0.6048538273537677,
+        "permanence": 0.9622813853283564,
+        "drama": 0.13555779453322847,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 1.018308631211857,
+        "N": 1.6460331299040976,
+        "K": 2.6224934612031388,
+        "S": 0.4812554489973845,
+        "L": 1.004359197907585,
+        "G": 2.6503923278116828,
+        "A": 2.2458587619877943,
+        "P": 0.4777680906713165
+      },
+      "minUse": 0.4777680906713165,
+      "minFairyUse": 0.4812554489973845,
+      "excessDecisiveness": 0.09386917486105184,
+      "interest": 0.3690511802815874,
+      "gatesFailed": [],
+      "funScore": 0.5153625418911263
+    },
+    {
+      "key": "MGQMBSNK",
+      "games": 10,
+      "wins": 3,
+      "draws": 4,
+      "losses": 3,
+      "score": 0.5,
+      "ci": [
+        0.2599544142887855,
+        0.7400455857112145
+      ],
+      "elo": 0,
+      "eloLo": -181.74451034388926,
+      "eloHi": 181.7445103438893,
+      "match": {
+        "n": 10,
+        "mu": 0.5,
+        "variance": 0.15,
+        "sigmaPg": 0.3872983346207417,
+        "elo": 0,
+        "err95": 166.80767751072293,
+        "nElo": 0,
+        "los": 0.5
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.0006626933456230063,
+        "bound": 2.9444389791664403,
+        "nElo": 0,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0,
+      "decisiveness": 0.6,
+      "meanPlies": 136.4,
+      "medianPlies": 107,
+      "sdPlies": 64.69652231766403,
+      "durationDeviation": 0.09066666666666663,
+      "leadChanges": 0.7,
+      "volatility": 15.237861769710458,
+      "uncertainty": 0.7926031319655958,
+      "drama": 75.2,
+      "stability": 0.9730449720244174,
+      "boardCoverage": 0.9078125,
+      "branchingFactor": 30.693804043031417,
+      "lead": {
+        "killerMove": 0.41504563889519935,
+        "leadChange": 0.042622304575425804,
+        "uncertaintyLate": 0.6614039426077717,
+        "permanence": 0.9661756000479862,
+        "drama": 0.14960171608067202,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "M": 2.099706744868035,
+        "G": 2.3225806451612905,
+        "Q": 0.9384164222873901,
+        "B": 1.6070381231671553,
+        "S": 0.39882697947214074,
+        "N": 0.8680351906158358,
+        "K": 1.9472140762463344,
+        "P": 0.46480938416422285
+      },
+      "minUse": 0.39882697947214074,
+      "minFairyUse": 0.39882697947214074,
+      "excessDecisiveness": -0.10613082513894823,
+      "interest": 0.381154115905113,
+      "gatesFailed": [],
+      "funScore": 0.4994007829913989
+    },
+    {
+      "key": "AMNKRRQL",
+      "games": 10,
+      "wins": 3,
+      "draws": 3,
+      "losses": 4,
+      "score": 0.45,
+      "ci": [
+        0.1925797876965447,
+        0.7074202123034553
+      ],
+      "elo": -34.86007028756008,
+      "eloLo": -248.9955653562702,
+      "eloHi": 153.37325752528778,
+      "match": {
+        "n": 10,
+        "mu": 0.44999999999999996,
+        "variance": 0.1725,
+        "sigmaPg": 0.4153311931459037,
+        "elo": -34.86007028756008,
+        "err95": 178.88130552967107,
+        "nElo": -41.826329355492135,
+        "los": 0.35171540521333716
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.014294750597585797,
+        "bound": 2.9444389791664403,
+        "nElo": -41.826329355492135,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0,
+      "decisiveness": 0.7,
+      "meanPlies": 127.2,
+      "medianPlies": 121,
+      "sdPlies": 72.73486096776429,
+      "durationDeviation": 0.15199999999999997,
+      "leadChanges": 0.3,
+      "volatility": 17.390555387077917,
+      "uncertainty": 0.5635927767573319,
+      "drama": 53.7,
+      "stability": 0.9755262182671212,
+      "boardCoverage": 0.878125,
+      "branchingFactor": 33.99563043988848,
+      "lead": {
+        "killerMove": 0.3837260266555472,
+        "leadChange": 0.0497945589265121,
+        "uncertaintyLate": 0.6063504990249846,
+        "permanence": 0.9654461372262029,
+        "drama": 0.101972324609832,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "A": 1.1572327044025157,
+        "M": 2.641509433962264,
+        "N": 1.0188679245283019,
+        "K": 1.4465408805031446,
+        "R": 1.220125786163522,
+        "Q": 1.559748427672956,
+        "L": 2.339622641509434,
+        "P": 0.41823899371069184
+      },
+      "minUse": 0.41823899371069184,
+      "minFairyUse": 1.1572327044025157,
+      "excessDecisiveness": 0.008234288157332181,
+      "interest": 0.4879156066245695,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.44714819418933294
+    },
+    {
+      "key": "GKRNMMRG",
+      "games": 10,
+      "wins": 2,
+      "draws": 5,
+      "losses": 3,
+      "score": 0.45,
+      "ci": [
+        0.23307173698230102,
+        0.666928263017699
+      ],
+      "elo": -34.86007028756008,
+      "eloLo": -206.90605199898363,
+      "eloHi": 120.61653615212167,
+      "match": {
+        "n": 10,
+        "mu": 0.45,
+        "variance": 0.12250000000000001,
+        "sigmaPg": 0.35000000000000003,
+        "elo": -34.86007028756008,
+        "err95": 150.74344997099905,
+        "nElo": -49.63365507465734,
+        "los": 0.32572314779512607
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.016739525700491864,
+        "bound": 2.9444389791664403,
+        "nElo": -49.63365507465734,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.1,
+      "decisiveness": 0.5,
+      "meanPlies": 151.6,
+      "medianPlies": 139,
+      "sdPlies": 85.88038192742275,
+      "durationDeviation": 0.010666666666666628,
+      "leadChanges": 0.9,
+      "volatility": 12.291951547829575,
+      "uncertainty": 0.827796994562988,
+      "drama": 92.2,
+      "stability": 0.9753708644901232,
+      "boardCoverage": 0.8921875,
+      "branchingFactor": 32.345516206977024,
+      "lead": {
+        "killerMove": 0.2851710481524852,
+        "leadChange": 0.07151915753429271,
+        "uncertaintyLate": 0.67711980309562,
+        "permanence": 0.9708899218474857,
+        "drama": 0.14737802481431833,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 2.2058047493403694,
+        "K": 1.150395778364116,
+        "R": 1.4142480211081794,
+        "N": 1.3720316622691293,
+        "M": 1.6253298153034301,
+        "P": 0.3733509234828496
+      },
+      "minUse": 0.3733509234828496,
+      "minFairyUse": 1.6253298153034301,
+      "excessDecisiveness": -0.19176571184266777,
+      "interest": 0.46775843362392294,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.485699248640747
+    },
+    {
+      "key": "BRNMSKMA",
+      "games": 10,
+      "wins": 5,
+      "draws": 1,
+      "losses": 4,
+      "score": 0.55,
+      "ci": [
+        0.25764326566874507,
+        0.842356734331255
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -183.83754293696532,
+      "eloHi": 291.1282517187304,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.2225,
+        "sigmaPg": 0.4716990566028302,
+        "elo": 34.86007028756008,
+        "err95": 203.15869468678906,
+        "nElo": 36.82809840927263,
+        "los": 0.6312631085917567
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.011425751503976593,
+        "bound": 2.9444389791664403,
+        "nElo": 36.82809840927263,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.1,
+      "timeouts": 0,
+      "decisiveness": 0.9,
+      "meanPlies": 106.9,
+      "medianPlies": 101,
+      "sdPlies": 44.03282866226062,
+      "durationDeviation": 0.2873333333333333,
+      "leadChanges": 0.7,
+      "volatility": 18.088875332175856,
+      "uncertainty": 0.6427350774090066,
+      "drama": 51.8,
+      "stability": 0.9699674860711243,
+      "boardCoverage": 0.8828125,
+      "branchingFactor": 27.53049629347994,
+      "lead": {
+        "killerMove": 0.3956445752398403,
+        "leadChange": 0.02713078444478838,
+        "uncertaintyLate": 0.6573914006028435,
+        "permanence": 0.9619066303423262,
+        "drama": 0.1326093355760658,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "B": 1.0327408793264734,
+        "R": 2.08044901777362,
+        "N": 1.391955098222638,
+        "M": 1.9981290926099158,
+        "S": 0.5537885874649204,
+        "K": 1.1075771749298409,
+        "A": 1.362020579981291,
+        "P": 0.5594013096351731
+      },
+      "minUse": 0.5537885874649204,
+      "minFairyUse": 0.5537885874649204,
+      "excessDecisiveness": 0.20823428815733225,
+      "interest": 0.4267472307906863,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.5819337693522517
+    },
+    {
+      "key": "SSARANKM",
+      "games": 10,
+      "wins": 2,
+      "draws": 7,
+      "losses": 1,
+      "score": 0.55,
+      "ci": [
+        0.3831150789034672,
+        0.7168849210965329
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -82.7499636263102,
+      "eloHi": 161.39457790451996,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.07250000000000001,
+        "sigmaPg": 0.26925824035672524,
+        "elo": 34.86007028756008,
+        "err95": 115.9683316699807,
+        "nElo": 64.51716854836155,
+        "los": 0.7214721360020275
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.020065897876189044,
+        "bound": 2.9444389791664403,
+        "nElo": 64.51716854836155,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.5,
+      "timeouts": 0.2,
+      "decisiveness": 0.3,
+      "meanPlies": 179.6,
+      "medianPlies": 167,
+      "sdPlies": 82.29969623273223,
+      "durationDeviation": 0.1973333333333333,
+      "leadChanges": 0.8,
+      "volatility": 14.416761323203016,
+      "uncertainty": 0.8569159663865547,
+      "drama": 17.4,
+      "stability": 0.9723154795096726,
+      "boardCoverage": 0.9484375,
+      "branchingFactor": 21.68514855321623,
+      "lead": {
+        "killerMove": 0.32258113149599665,
+        "leadChange": 0.03363998512415793,
+        "uncertaintyLate": 0.6508934883661787,
+        "permanence": 0.9649143615938207,
+        "drama": 0.05670342989877055,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "S": 0.4365256124721604,
+        "A": 1.55902004454343,
+        "R": 0.7394209354120267,
+        "N": 0.89086859688196,
+        "K": 4.721603563474387,
+        "M": 2.752783964365256,
+        "P": 0.36302895322939865
+      },
+      "minUse": 0.36302895322939865,
+      "minFairyUse": 0.4365256124721604,
+      "excessDecisiveness": -0.3917657118426678,
+      "interest": 0.34189757885022926,
+      "gatesFailed": [
+        "balance",
+        "timeouts",
+        "drawRate"
+      ],
+      "funScore": 0.40422899159663866
+    },
+    {
+      "key": "NSGGMAKL",
+      "games": 10,
+      "wins": 3,
+      "draws": 5,
+      "losses": 2,
+      "score": 0.55,
+      "ci": [
+        0.3330717369823011,
+        0.766928263017699
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -120.61653615212155,
+      "eloHi": 206.90605199898363,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.1225,
+        "sigmaPg": 0.35,
+        "elo": 34.86007028756008,
+        "err95": 150.74344997099902,
+        "nElo": 49.6336550746574,
+        "los": 0.6742768522048743
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.01549259039709025,
+        "bound": 2.9444389791664403,
+        "nElo": 49.6336550746574,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.1,
+      "decisiveness": 0.5,
+      "meanPlies": 183.9,
+      "medianPlies": 194,
+      "sdPlies": 67.83870576595635,
+      "durationDeviation": 0.22600000000000003,
+      "leadChanges": 0.4,
+      "volatility": 14.126514015589004,
+      "uncertainty": 0.7015790880455748,
+      "drama": 18,
+      "stability": 0.9763011567380607,
+      "boardCoverage": 0.940625,
+      "branchingFactor": 29.586751883441657,
+      "lead": {
+        "killerMove": 0.3202299421068356,
+        "leadChange": 0.026583696385280402,
+        "uncertaintyLate": 0.5905032019205806,
+        "permanence": 0.9685888759141015,
+        "drama": 0.05292229248456123,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "N": 1.696574225122349,
+        "S": 0.4524197933659598,
+        "G": 2.1750951604132682,
+        "M": 1.0614464382816748,
+        "A": 1.7313757476889613,
+        "K": 2.723219140837412,
+        "L": 1.2441544317563893,
+        "P": 0.3425774877650897
+      },
+      "minUse": 0.3425774877650897,
+      "minFairyUse": 0.4524197933659598,
+      "excessDecisiveness": -0.19176571184266777,
+      "interest": 0.3496879256241641,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.41039477201139374
+    },
+    {
+      "key": "BGKNMQLN",
+      "games": 10,
+      "wins": 5,
+      "draws": 1,
+      "losses": 4,
+      "score": 0.55,
+      "ci": [
+        0.25764326566874507,
+        0.842356734331255
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -183.83754293696532,
+      "eloHi": 291.1282517187304,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.2225,
+        "sigmaPg": 0.4716990566028302,
+        "elo": 34.86007028756008,
+        "err95": 203.15869468678906,
+        "nElo": 36.82809840927263,
+        "los": 0.6312631085917567
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.011425751503976593,
+        "bound": 2.9444389791664403,
+        "nElo": 36.82809840927263,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.1,
+      "timeouts": 0,
+      "decisiveness": 0.9,
+      "meanPlies": 91.7,
+      "medianPlies": 94,
+      "sdPlies": 36.77240813436074,
+      "durationDeviation": 0.38866666666666666,
+      "leadChanges": 0.3,
+      "volatility": 15.813688459808805,
+      "uncertainty": 0.42331169033988625,
+      "drama": 34.1,
+      "stability": 0.9766961214166463,
+      "boardCoverage": 0.8609375,
+      "branchingFactor": 36.414901889857106,
+      "lead": {
+        "killerMove": 0.2488660611767422,
+        "leadChange": 0.02927903975582864,
+        "uncertaintyLate": 0.5972168661115721,
+        "permanence": 0.9705613404049158,
+        "drama": 0.0909591425236436,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "B": 1.1341330425299891,
+        "G": 1.1341330425299891,
+        "K": 1.3435114503816794,
+        "N": 1.5179934569247546,
+        "M": 1.4133042529989095,
+        "Q": 2.3031624863685933,
+        "L": 1.500545256270447,
+        "P": 0.5169029443838604
+      },
+      "minUse": 0.5169029443838604,
+      "minFairyUse": 1.1341330425299891,
+      "excessDecisiveness": 0.20823428815733225,
+      "interest": 0.4740752066895415,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.4920779225849716
+    },
+    {
+      "key": "KSGNANLQ",
+      "games": 10,
+      "wins": 5,
+      "draws": 2,
+      "losses": 3,
+      "score": 0.6,
+      "ci": [
+        0.32983760671658235,
+        0.8701623932834176
+      ],
+      "elo": 70.43650362227247,
+      "eloLo": -123.1519531204864,
+      "eloHi": 330.47992336735035,
+      "match": {
+        "n": 10,
+        "mu": 0.6,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": 70.43650362227247,
+        "err95": 187.73584709264685,
+        "nElo": 79.70718982541592,
+        "los": 0.7659201144075065
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.02452227493125386,
+        "bound": 2.9444389791664403,
+        "nElo": 79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 113.2,
+      "medianPlies": 101,
+      "sdPlies": 66.15255097122106,
+      "durationDeviation": 0.24533333333333332,
+      "leadChanges": 0.6,
+      "volatility": 16.98743327845667,
+      "uncertainty": 0.6119376527881044,
+      "drama": 62.8,
+      "stability": 0.9730368125515222,
+      "boardCoverage": 0.8609375,
+      "branchingFactor": 27.914847238831506,
+      "lead": {
+        "killerMove": 0.3740011034815856,
+        "leadChange": 0.01625107790309097,
+        "uncertaintyLate": 0.581777239286883,
+        "permanence": 0.9642555610956911,
+        "drama": 0.1279906195806953,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "K": 2.049469964664311,
+        "S": 0.22614840989399293,
+        "G": 1.2862190812720848,
+        "N": 1.7243816254416962,
+        "A": 2.23321554770318,
+        "L": 1.2862190812720848,
+        "Q": 1.9222614840989398,
+        "P": 0.44346289752650175
+      },
+      "minUse": 0.22614840989399293,
+      "minFairyUse": 0.22614840989399293,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.3432734990315146,
+      "gatesFailed": [
+        "balance",
+        "utilisation"
+      ],
+      "funScore": 0.5254844131970262
+    },
+    {
+      "key": "QARSBLGK",
+      "games": 10,
+      "wins": 3,
+      "draws": 2,
+      "losses": 5,
+      "score": 0.4,
+      "ci": [
+        0.1298376067165824,
+        0.6701623932834176
+      ],
+      "elo": -70.4365036222725,
+      "eloLo": -330.4799233673502,
+      "eloHi": 123.15195312048634,
+      "match": {
+        "n": 10,
+        "mu": 0.4,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": -70.4365036222725,
+        "err95": 187.73584709264685,
+        "nElo": -79.70718982541592,
+        "los": 0.23407988559249343
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.02565550650062025,
+        "bound": 2.9444389791664403,
+        "nElo": -79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 124.9,
+      "medianPlies": 128,
+      "sdPlies": 58.59086959586792,
+      "durationDeviation": 0.1673333333333333,
+      "leadChanges": 0.5,
+      "volatility": 16.49141543398701,
+      "uncertainty": 0.6779541403609921,
+      "drama": 86.8,
+      "stability": 0.9716036761901105,
+      "boardCoverage": 0.896875,
+      "branchingFactor": 27.820464909863013,
+      "lead": {
+        "killerMove": 0.32731652614889617,
+        "leadChange": 0.022553261368586253,
+        "uncertaintyLate": 0.6290732138280726,
+        "permanence": 0.9654399837865189,
+        "drama": 0.17908613025661496,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "Q": 0.922337870296237,
+        "A": 1.5244195356285029,
+        "R": 1.012009607686149,
+        "S": 0.4355484387510008,
+        "B": 2.2161729383506805,
+        "L": 1.012009607686149,
+        "G": 2.6389111289031226,
+        "K": 2.254603682946357,
+        "P": 0.49799839871897517
+      },
+      "minUse": 0.4355484387510008,
+      "minFairyUse": 0.4355484387510008,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.38717108754172197,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.5332385350902481
+    },
+    {
+      "key": "KBGNGMMA",
+      "games": 10,
+      "wins": 2,
+      "draws": 4,
+      "losses": 4,
+      "score": 0.4,
+      "ci": [
+        0.16809393207993892,
+        0.6319060679200611
+      ],
+      "elo": -70.4365036222725,
+      "eloLo": -277.8089022640246,
+      "eloHi": 93.87754697464898,
+      "match": {
+        "n": 10,
+        "mu": 0.4,
+        "variance": 0.14,
+        "sigmaPg": 0.37416573867739417,
+        "elo": -70.4365036222725,
+        "err95": 161.15152659765047,
+        "nElo": -92.85606607134078,
+        "los": 0.199012311711242
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.029251106696902097,
+        "bound": 2.9444389791664403,
+        "nElo": -92.85606607134078,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0.1,
+      "decisiveness": 0.6,
+      "meanPlies": 125.5,
+      "medianPlies": 108,
+      "sdPlies": 66.55711832704299,
+      "durationDeviation": 0.16333333333333333,
+      "leadChanges": 0.4,
+      "volatility": 16.442255370547322,
+      "uncertainty": 0.805713768100933,
+      "drama": 53.6,
+      "stability": 0.9707513580996517,
+      "boardCoverage": 0.8890625,
+      "branchingFactor": 32.15003097808791,
+      "lead": {
+        "killerMove": 0.4130752639298464,
+        "leadChange": 0.04911912532869127,
+        "uncertaintyLate": 0.6626391137946115,
+        "permanence": 0.9631114608451726,
+        "drama": 0.11793699832906727,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "K": 1.198406374501992,
+        "B": 1.6318725099601594,
+        "G": 1.051792828685259,
+        "N": 1.1346613545816733,
+        "M": 2.039840637450199,
+        "A": 1.5171314741035857,
+        "P": 0.5147410358565737
+      },
+      "minUse": 0.5147410358565737,
+      "minFairyUse": 1.051792828685259,
+      "excessDecisiveness": -0.07740059854638737,
+      "interest": 0.49782528367254514,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.4764284420252332
+    },
+    {
+      "key": "NRRKBAGM",
+      "games": 10,
+      "wins": 5,
+      "draws": 2,
+      "losses": 3,
+      "score": 0.6,
+      "ci": [
+        0.32983760671658235,
+        0.8701623932834176
+      ],
+      "elo": 70.43650362227247,
+      "eloLo": -123.1519531204864,
+      "eloHi": 330.47992336735035,
+      "match": {
+        "n": 10,
+        "mu": 0.6,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": 70.43650362227247,
+        "err95": 187.73584709264685,
+        "nElo": 79.70718982541592,
+        "los": 0.7659201144075065
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.02452227493125386,
+        "bound": 2.9444389791664403,
+        "nElo": 79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 131.6,
+      "medianPlies": 110,
+      "sdPlies": 50.35712462005749,
+      "durationDeviation": 0.1226666666666667,
+      "leadChanges": 1,
+      "volatility": 14.713251834951242,
+      "uncertainty": 0.7881183151895134,
+      "drama": 96.8,
+      "stability": 0.9735275347479817,
+      "boardCoverage": 0.9140625,
+      "branchingFactor": 28.341741262097987,
+      "lead": {
+        "killerMove": 0.48401071145088626,
+        "leadChange": 0.04005099131908703,
+        "uncertaintyLate": 0.6759121235896032,
+        "permanence": 0.9675345195934246,
+        "drama": 0.16208944261441074,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "N": 1.1306990881458967,
+        "R": 1.6109422492401215,
+        "K": 1.3981762917933132,
+        "B": 1.3130699088145896,
+        "A": 1.2279635258358663,
+        "G": 0.6200607902735562,
+        "M": 3.3677811550151975,
+        "P": 0.45592705167173253
+      },
+      "minUse": 0.45592705167173253,
+      "minFairyUse": 0.6200607902735562,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.4568088313729688,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.6045295787973785
+    },
+    {
+      "key": "RRSAQNMK",
+      "games": 10,
+      "wins": 3,
+      "draws": 2,
+      "losses": 5,
+      "score": 0.4,
+      "ci": [
+        0.12983760671658245,
+        0.6701623932834175
+      ],
+      "elo": -70.4365036222725,
+      "eloLo": -330.4799233673501,
+      "eloHi": 123.15195312048625,
+      "match": {
+        "n": 10,
+        "mu": 0.4,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": -70.4365036222725,
+        "err95": 187.73584709264685,
+        "nElo": -79.70718982541592,
+        "los": 0.23407988559249343
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.02565550650062025,
+        "bound": 2.9444389791664403,
+        "nElo": -79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.1,
+      "timeouts": 0.1,
+      "decisiveness": 0.8,
+      "meanPlies": 130.2,
+      "medianPlies": 120,
+      "sdPlies": 66.20543784312585,
+      "durationDeviation": 0.1320000000000001,
+      "leadChanges": 1,
+      "volatility": 16.772835584954457,
+      "uncertainty": 0.6754133619142367,
+      "drama": 79.3,
+      "stability": 0.9712164908006544,
+      "boardCoverage": 0.8984375,
+      "branchingFactor": 27.17047642490589,
+      "lead": {
+        "killerMove": 0.4071223365274844,
+        "leadChange": 0.03211858815540079,
+        "uncertaintyLate": 0.6525645686325665,
+        "permanence": 0.9627368657321631,
+        "drama": 0.16827786438028758,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 1.4316436251920124,
+        "S": 0.565284178187404,
+        "A": 1.597542242703533,
+        "Q": 1.4254992319508448,
+        "N": 1.5115207373271888,
+        "M": 2.8509984639016897,
+        "K": 1.6466973886328724,
+        "P": 0.4423963133640553
+      },
+      "minUse": 0.4423963133640553,
+      "minFairyUse": 0.565284178187404,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.42911661117444994,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.5763533404785592
+    },
+    {
+      "key": "RNMSAKGR",
+      "games": 10,
+      "wins": 2,
+      "draws": 3,
+      "losses": 5,
+      "score": 0.35,
+      "ci": [
+        0.10796230058157469,
+        0.5920376994184253
+      ],
+      "elo": -107.53812491703198,
+      "eloLo": -366.84443142409197,
+      "eloHi": 64.69173206061768,
+      "match": {
+        "n": 10,
+        "mu": 0.35,
+        "variance": 0.15250000000000002,
+        "sigmaPg": 0.39051248379533277,
+        "elo": -107.53812491703198,
+        "err95": 168.19199732586375,
+        "nElo": -133.4537050439182,
+        "los": 0.11224710603097227
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.03896196778365624,
+        "bound": 2.9444389791664403,
+        "nElo": -133.4537050439182,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0,
+      "decisiveness": 0.7,
+      "meanPlies": 134.7,
+      "medianPlies": 139,
+      "sdPlies": 45.75161199345876,
+      "durationDeviation": 0.10200000000000008,
+      "leadChanges": 0.8,
+      "volatility": 15.768073979818245,
+      "uncertainty": 0.7306577931099674,
+      "drama": 86.1,
+      "stability": 0.9725462168199946,
+      "boardCoverage": 0.921875,
+      "branchingFactor": 26.698466023860874,
+      "lead": {
+        "killerMove": 0.3407649090044959,
+        "leadChange": 0.03796310574907993,
+        "uncertaintyLate": 0.6430789156528403,
+        "permanence": 0.9650509228065738,
+        "drama": 0.13539408438553588,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 2.060876020786934,
+        "N": 1.25909428359317,
+        "M": 2.1143281365998514,
+        "S": 0.5226429101707498,
+        "A": 1.6748329621380846,
+        "K": 1.4729027468448403,
+        "G": 1.152190051967335,
+        "P": 0.44691907943578324
+      },
+      "minUse": 0.44691907943578324,
+      "minFairyUse": 0.5226429101707498,
+      "excessDecisiveness": 0.03696451474989315,
+      "interest": 0.39622645155778363,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.5326644482774918
+    },
+    {
+      "key": "KNGNBRAB",
+      "games": 10,
+      "wins": 5,
+      "draws": 3,
+      "losses": 2,
+      "score": 0.65,
+      "ci": [
+        0.40796230058157473,
+        0.8920376994184254
+      ],
+      "elo": 107.53812491703204,
+      "eloLo": -64.6917320606176,
+      "eloHi": 366.844431424092,
+      "match": {
+        "n": 10,
+        "mu": 0.65,
+        "variance": 0.15250000000000002,
+        "sigmaPg": 0.39051248379533277,
+        "elo": 107.53812491703204,
+        "err95": 168.19199732586375,
+        "nElo": 133.4537050439182,
+        "los": 0.8877528939690278
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.03810393282462492,
+        "bound": 2.9444389791664403,
+        "nElo": 133.4537050439182,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0.1,
+      "decisiveness": 0.7,
+      "meanPlies": 129,
+      "medianPlies": 91,
+      "sdPlies": 87.68580272769361,
+      "durationDeviation": 0.14,
+      "leadChanges": 1.3,
+      "volatility": 19.727611333022235,
+      "uncertainty": 0.8263743570107607,
+      "drama": 73.6,
+      "stability": 0.9633856961273299,
+      "boardCoverage": 0.89375,
+      "branchingFactor": 24.93872487113844,
+      "lead": {
+        "killerMove": 0.34823727649501707,
+        "leadChange": 0.032121068481354466,
+        "uncertaintyLate": 0.6533102561226451,
+        "permanence": 0.9559504390955137,
+        "drama": 0.18674726236196731,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "K": 2.31937984496124,
+        "N": 1.0046511627906978,
+        "G": 3.2248062015503876,
+        "B": 0.9984496124031008,
+        "R": 1.302325581395349,
+        "A": 1.6372093023255814,
+        "P": 0.4372093023255814
+      },
+      "minUse": 0.4372093023255814,
+      "minFairyUse": 1.6372093023255814,
+      "excessDecisiveness": 0.03696451474989315,
+      "interest": 0.5009824907430462,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.60034358925269
+    },
+    {
+      "key": "GKLAMNMS",
+      "games": 10,
+      "wins": 0,
+      "draws": 7,
+      "losses": 3,
+      "score": 0.35,
+      "ci": [
+        0.2079871163351578,
+        0.4920128836648422
+      ],
+      "elo": -107.53812491703198,
+      "eloLo": -232.27832507340995,
+      "eloHi": -5.550489030614511,
+      "match": {
+        "n": 10.001,
+        "mu": 0.35006499350064996,
+        "variance": 0.05253699207621484,
+        "sigmaPg": 0.2292094938614342,
+        "elo": -107.48849835112915,
+        "err95": 98.71951391651176,
+        "nElo": -227.2713747403883,
+        "los": 0.01928825686274782
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.05292529815650114,
+        "bound": 2.9444389791664403,
+        "nElo": -227.2713747403883,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.3,
+      "decisiveness": 0.3,
+      "meanPlies": 196.2,
+      "medianPlies": 207,
+      "sdPlies": 88.79617108862296,
+      "durationDeviation": 0.30799999999999994,
+      "leadChanges": 0.5,
+      "volatility": 16.321180577188663,
+      "uncertainty": 0.8456671167116709,
+      "drama": 29.2,
+      "stability": 0.969669572740383,
+      "boardCoverage": 0.91875,
+      "branchingFactor": 33.606941280991606,
+      "lead": {
+        "killerMove": 0.35446869652418866,
+        "leadChange": 0.03749638186488617,
+        "uncertaintyLate": 0.6241670620291964,
+        "permanence": 0.9618077750436068,
+        "drama": 0.07403853814596258,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 1.4678899082568808,
+        "K": 1.5168195718654434,
+        "L": 1.908256880733945,
+        "A": 1.3537206931702344,
+        "M": 2.9357798165137616,
+        "N": 0.8399592252803262,
+        "S": 0.44036697247706424,
+        "P": 0.3251783893985729
+      },
+      "minUse": 0.3251783893985729,
+      "minFairyUse": 0.44036697247706424,
+      "excessDecisiveness": -0.3630354852501068,
+      "interest": 0.3485384704812259,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.37516677917791774
+    },
+    {
+      "key": "ASGLABKM",
+      "games": 10,
+      "wins": 1,
+      "draws": 5,
+      "losses": 4,
+      "score": 0.35,
+      "ci": [
+        0.15156876875530906,
+        0.5484312312446908
+      ],
+      "elo": -107.53812491703198,
+      "eloLo": -299.2027696263848,
+      "eloHi": 33.75931224465035,
+      "match": {
+        "n": 10,
+        "mu": 0.35,
+        "variance": 0.10250000000000001,
+        "sigmaPg": 0.32015621187164245,
+        "elo": -107.53812491703198,
+        "err95": 137.88986259193572,
+        "nElo": -162.7809672151056,
+        "los": 0.0692241605330764
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.04457537165096947,
+        "bound": 2.9444389791664403,
+        "nElo": -162.7809672151056,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.1,
+      "decisiveness": 0.5,
+      "meanPlies": 186,
+      "medianPlies": 217,
+      "sdPlies": 66.38825197277,
+      "durationDeviation": 0.24,
+      "leadChanges": 1.2,
+      "volatility": 15.195619676174474,
+      "uncertainty": 0.7769435045147305,
+      "drama": 56.7,
+      "stability": 0.9716149963489391,
+      "boardCoverage": 0.9375,
+      "branchingFactor": 30.77215144573995,
+      "lead": {
+        "killerMove": 0.2927907862579176,
+        "leadChange": 0.04642096722984228,
+        "uncertaintyLate": 0.628644682228569,
+        "permanence": 0.9636645031991996,
+        "drama": 0.1247326568148485,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "A": 1.4795698924731182,
+        "S": 0.4731182795698925,
+        "G": 3.139784946236559,
+        "L": 1.1268817204301076,
+        "B": 1.686021505376344,
+        "K": 2.10752688172043,
+        "M": 1.8408602150537634,
+        "P": 0.3333333333333333
+      },
+      "minUse": 0.3333333333333333,
+      "minFairyUse": 0.4731182795698925,
+      "excessDecisiveness": -0.1630354852501068,
+      "interest": 0.3601205720252206,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.4992358761286826
+    },
+    {
+      "key": "GALMRRKN",
+      "games": 10,
+      "wins": 5,
+      "draws": 4,
+      "losses": 1,
+      "score": 0.7,
+      "ci": [
+        0.4944372414705036,
+        0.9055627585294963
+      ],
+      "elo": 147.19071411783776,
+      "eloLo": -3.8655600282060156,
+      "eloHi": 392.7101043940392,
+      "match": {
+        "n": 10,
+        "mu": 0.7,
+        "variance": 0.11,
+        "sigmaPg": 0.33166247903553997,
+        "elo": 147.19071411783776,
+        "err95": 142.84556090214696,
+        "nElo": 209.5115410901643,
+        "los": 0.9717349278728539
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.050682066155972025,
+        "bound": 2.9444389791664403,
+        "nElo": 209.5115410901643,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0.1,
+      "decisiveness": 0.6,
+      "meanPlies": 124.3,
+      "medianPlies": 126,
+      "sdPlies": 74.60033511989072,
+      "durationDeviation": 0.17133333333333337,
+      "leadChanges": 0.3,
+      "volatility": 12.954810408693017,
+      "uncertainty": 0.5514945054945055,
+      "drama": 16.8,
+      "stability": 0.9800756829956947,
+      "boardCoverage": 0.8625,
+      "branchingFactor": 31.44223747103203,
+      "lead": {
+        "killerMove": 0.16583567600835264,
+        "leadChange": 0.025531055765211252,
+        "uncertaintyLate": 0.6065833539475453,
+        "permanence": 0.9738933832848877,
+        "drama": 0.04197194076302789,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 2.8962188254223653,
+        "A": 1.4545454545454546,
+        "L": 0.8753016894609815,
+        "M": 2.2011263073209975,
+        "R": 1.1456154465004023,
+        "K": 1.3773129525341914,
+        "N": 1.6347546259050685,
+        "P": 0.4086886564762671
+      },
+      "minUse": 0.4086886564762671,
+      "minFairyUse": 0.8753016894609815,
+      "excessDecisiveness": -0.0486703719538264,
+      "interest": 0.41328728758888983,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.40412362637362637
+    },
+    {
+      "key": "GRBNANKA",
+      "games": 10,
+      "wins": 7,
+      "draws": 2,
+      "losses": 1,
+      "score": 0.8,
+      "ci": [
+        0.5944372414705037,
+        1
+      ],
+      "elo": 240.82399653118495,
+      "eloLo": 66.41917671595473,
+      "eloHi": 2399.999826281142,
+      "match": {
+        "n": 10,
+        "mu": 0.7999999999999999,
+        "variance": 0.10999999999999999,
+        "sigmaPg": 0.33166247903553997,
+        "elo": 240.82399653118495,
+        "err95": 142.84556090214696,
+        "nElo": 314.2673116352464,
+        "los": 0.9978843186787697
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.05723794719797077,
+        "bound": 2.9444389791664403,
+        "nElo": 314.2673116352464,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 77.9,
+      "medianPlies": 69,
+      "sdPlies": 50.070849803054074,
+      "durationDeviation": 0.48066666666666663,
+      "leadChanges": 0.4,
+      "volatility": 18.90477582534467,
+      "uncertainty": 0.47122122762148344,
+      "drama": 0,
+      "stability": 0.975977213504945,
+      "boardCoverage": 0.725,
+      "branchingFactor": 24.189251161430366,
+      "lead": {
+        "killerMove": 0.35879261016361846,
+        "leadChange": 0.004825080277167484,
+        "uncertaintyLate": 0.5908984168088458,
+        "permanence": 0.9647159290553093,
+        "drama": 0,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 1.3145057766367136,
+        "R": 1.5198973042362003,
+        "B": 1.8279845956354301,
+        "N": 1.4274711168164314,
+        "A": 1.1399229781771503,
+        "K": 1.5404364569961488,
+        "P": 0.582798459563543
+      },
+      "minUse": 0.582798459563543,
+      "minFairyUse": 1.1399229781771503,
+      "excessDecisiveness": 0.18005985463873464,
+      "interest": 0.4861370096857226,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.4728053069053709
+    }
+  ],
+  "mostFun": [
+    {
+      "key": "KNGNBRAB",
+      "games": 10,
+      "wins": 5,
+      "draws": 3,
+      "losses": 2,
+      "score": 0.65,
+      "ci": [
+        0.40796230058157473,
+        0.8920376994184254
+      ],
+      "elo": 107.53812491703204,
+      "eloLo": -64.6917320606176,
+      "eloHi": 366.844431424092,
+      "match": {
+        "n": 10,
+        "mu": 0.65,
+        "variance": 0.15250000000000002,
+        "sigmaPg": 0.39051248379533277,
+        "elo": 107.53812491703204,
+        "err95": 168.19199732586375,
+        "nElo": 133.4537050439182,
+        "los": 0.8877528939690278
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.03810393282462492,
+        "bound": 2.9444389791664403,
+        "nElo": 133.4537050439182,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0.1,
+      "decisiveness": 0.7,
+      "meanPlies": 129,
+      "medianPlies": 91,
+      "sdPlies": 87.68580272769361,
+      "durationDeviation": 0.14,
+      "leadChanges": 1.3,
+      "volatility": 19.727611333022235,
+      "uncertainty": 0.8263743570107607,
+      "drama": 73.6,
+      "stability": 0.9633856961273299,
+      "boardCoverage": 0.89375,
+      "branchingFactor": 24.93872487113844,
+      "lead": {
+        "killerMove": 0.34823727649501707,
+        "leadChange": 0.032121068481354466,
+        "uncertaintyLate": 0.6533102561226451,
+        "permanence": 0.9559504390955137,
+        "drama": 0.18674726236196731,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "K": 2.31937984496124,
+        "N": 1.0046511627906978,
+        "G": 3.2248062015503876,
+        "B": 0.9984496124031008,
+        "R": 1.302325581395349,
+        "A": 1.6372093023255814,
+        "P": 0.4372093023255814
+      },
+      "minUse": 0.4372093023255814,
+      "minFairyUse": 1.6372093023255814,
+      "excessDecisiveness": 0.03696451474989315,
+      "interest": 0.5009824907430462,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.60034358925269
+    },
+    {
+      "key": "KBGNGMMA",
+      "games": 10,
+      "wins": 2,
+      "draws": 4,
+      "losses": 4,
+      "score": 0.4,
+      "ci": [
+        0.16809393207993892,
+        0.6319060679200611
+      ],
+      "elo": -70.4365036222725,
+      "eloLo": -277.8089022640246,
+      "eloHi": 93.87754697464898,
+      "match": {
+        "n": 10,
+        "mu": 0.4,
+        "variance": 0.14,
+        "sigmaPg": 0.37416573867739417,
+        "elo": -70.4365036222725,
+        "err95": 161.15152659765047,
+        "nElo": -92.85606607134078,
+        "los": 0.199012311711242
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.029251106696902097,
+        "bound": 2.9444389791664403,
+        "nElo": -92.85606607134078,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0.1,
+      "decisiveness": 0.6,
+      "meanPlies": 125.5,
+      "medianPlies": 108,
+      "sdPlies": 66.55711832704299,
+      "durationDeviation": 0.16333333333333333,
+      "leadChanges": 0.4,
+      "volatility": 16.442255370547322,
+      "uncertainty": 0.805713768100933,
+      "drama": 53.6,
+      "stability": 0.9707513580996517,
+      "boardCoverage": 0.8890625,
+      "branchingFactor": 32.15003097808791,
+      "lead": {
+        "killerMove": 0.4130752639298464,
+        "leadChange": 0.04911912532869127,
+        "uncertaintyLate": 0.6626391137946115,
+        "permanence": 0.9631114608451726,
+        "drama": 0.11793699832906727,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "K": 1.198406374501992,
+        "B": 1.6318725099601594,
+        "G": 1.051792828685259,
+        "N": 1.1346613545816733,
+        "M": 2.039840637450199,
+        "A": 1.5171314741035857,
+        "P": 0.5147410358565737
+      },
+      "minUse": 0.5147410358565737,
+      "minFairyUse": 1.051792828685259,
+      "excessDecisiveness": -0.07740059854638737,
+      "interest": 0.49782528367254514,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.4764284420252332
+    },
+    {
+      "key": "AMNKRRQL",
+      "games": 10,
+      "wins": 3,
+      "draws": 3,
+      "losses": 4,
+      "score": 0.45,
+      "ci": [
+        0.1925797876965447,
+        0.7074202123034553
+      ],
+      "elo": -34.86007028756008,
+      "eloLo": -248.9955653562702,
+      "eloHi": 153.37325752528778,
+      "match": {
+        "n": 10,
+        "mu": 0.44999999999999996,
+        "variance": 0.1725,
+        "sigmaPg": 0.4153311931459037,
+        "elo": -34.86007028756008,
+        "err95": 178.88130552967107,
+        "nElo": -41.826329355492135,
+        "los": 0.35171540521333716
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.014294750597585797,
+        "bound": 2.9444389791664403,
+        "nElo": -41.826329355492135,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0,
+      "decisiveness": 0.7,
+      "meanPlies": 127.2,
+      "medianPlies": 121,
+      "sdPlies": 72.73486096776429,
+      "durationDeviation": 0.15199999999999997,
+      "leadChanges": 0.3,
+      "volatility": 17.390555387077917,
+      "uncertainty": 0.5635927767573319,
+      "drama": 53.7,
+      "stability": 0.9755262182671212,
+      "boardCoverage": 0.878125,
+      "branchingFactor": 33.99563043988848,
+      "lead": {
+        "killerMove": 0.3837260266555472,
+        "leadChange": 0.0497945589265121,
+        "uncertaintyLate": 0.6063504990249846,
+        "permanence": 0.9654461372262029,
+        "drama": 0.101972324609832,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "A": 1.1572327044025157,
+        "M": 2.641509433962264,
+        "N": 1.0188679245283019,
+        "K": 1.4465408805031446,
+        "R": 1.220125786163522,
+        "Q": 1.559748427672956,
+        "L": 2.339622641509434,
+        "P": 0.41823899371069184
+      },
+      "minUse": 0.41823899371069184,
+      "minFairyUse": 1.1572327044025157,
+      "excessDecisiveness": 0.008234288157332181,
+      "interest": 0.4879156066245695,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.44714819418933294
+    },
+    {
+      "key": "GRBNANKA",
+      "games": 10,
+      "wins": 7,
+      "draws": 2,
+      "losses": 1,
+      "score": 0.8,
+      "ci": [
+        0.5944372414705037,
+        1
+      ],
+      "elo": 240.82399653118495,
+      "eloLo": 66.41917671595473,
+      "eloHi": 2399.999826281142,
+      "match": {
+        "n": 10,
+        "mu": 0.7999999999999999,
+        "variance": 0.10999999999999999,
+        "sigmaPg": 0.33166247903553997,
+        "elo": 240.82399653118495,
+        "err95": 142.84556090214696,
+        "nElo": 314.2673116352464,
+        "los": 0.9978843186787697
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.05723794719797077,
+        "bound": 2.9444389791664403,
+        "nElo": 314.2673116352464,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 77.9,
+      "medianPlies": 69,
+      "sdPlies": 50.070849803054074,
+      "durationDeviation": 0.48066666666666663,
+      "leadChanges": 0.4,
+      "volatility": 18.90477582534467,
+      "uncertainty": 0.47122122762148344,
+      "drama": 0,
+      "stability": 0.975977213504945,
+      "boardCoverage": 0.725,
+      "branchingFactor": 24.189251161430366,
+      "lead": {
+        "killerMove": 0.35879261016361846,
+        "leadChange": 0.004825080277167484,
+        "uncertaintyLate": 0.5908984168088458,
+        "permanence": 0.9647159290553093,
+        "drama": 0,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 1.3145057766367136,
+        "R": 1.5198973042362003,
+        "B": 1.8279845956354301,
+        "N": 1.4274711168164314,
+        "A": 1.1399229781771503,
+        "K": 1.5404364569961488,
+        "P": 0.582798459563543
+      },
+      "minUse": 0.582798459563543,
+      "minFairyUse": 1.1399229781771503,
+      "excessDecisiveness": 0.18005985463873464,
+      "interest": 0.4861370096857226,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.4728053069053709
+    },
+    {
+      "key": "BGKNMQLN",
+      "games": 10,
+      "wins": 5,
+      "draws": 1,
+      "losses": 4,
+      "score": 0.55,
+      "ci": [
+        0.25764326566874507,
+        0.842356734331255
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -183.83754293696532,
+      "eloHi": 291.1282517187304,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.2225,
+        "sigmaPg": 0.4716990566028302,
+        "elo": 34.86007028756008,
+        "err95": 203.15869468678906,
+        "nElo": 36.82809840927263,
+        "los": 0.6312631085917567
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.011425751503976593,
+        "bound": 2.9444389791664403,
+        "nElo": 36.82809840927263,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.1,
+      "timeouts": 0,
+      "decisiveness": 0.9,
+      "meanPlies": 91.7,
+      "medianPlies": 94,
+      "sdPlies": 36.77240813436074,
+      "durationDeviation": 0.38866666666666666,
+      "leadChanges": 0.3,
+      "volatility": 15.813688459808805,
+      "uncertainty": 0.42331169033988625,
+      "drama": 34.1,
+      "stability": 0.9766961214166463,
+      "boardCoverage": 0.8609375,
+      "branchingFactor": 36.414901889857106,
+      "lead": {
+        "killerMove": 0.2488660611767422,
+        "leadChange": 0.02927903975582864,
+        "uncertaintyLate": 0.5972168661115721,
+        "permanence": 0.9705613404049158,
+        "drama": 0.0909591425236436,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "B": 1.1341330425299891,
+        "G": 1.1341330425299891,
+        "K": 1.3435114503816794,
+        "N": 1.5179934569247546,
+        "M": 1.4133042529989095,
+        "Q": 2.3031624863685933,
+        "L": 1.500545256270447,
+        "P": 0.5169029443838604
+      },
+      "minUse": 0.5169029443838604,
+      "minFairyUse": 1.1341330425299891,
+      "excessDecisiveness": 0.20823428815733225,
+      "interest": 0.4740752066895415,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.4920779225849716
+    },
+    {
+      "key": "GKRNMMRG",
+      "games": 10,
+      "wins": 2,
+      "draws": 5,
+      "losses": 3,
+      "score": 0.45,
+      "ci": [
+        0.23307173698230102,
+        0.666928263017699
+      ],
+      "elo": -34.86007028756008,
+      "eloLo": -206.90605199898363,
+      "eloHi": 120.61653615212167,
+      "match": {
+        "n": 10,
+        "mu": 0.45,
+        "variance": 0.12250000000000001,
+        "sigmaPg": 0.35000000000000003,
+        "elo": -34.86007028756008,
+        "err95": 150.74344997099905,
+        "nElo": -49.63365507465734,
+        "los": 0.32572314779512607
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.016739525700491864,
+        "bound": 2.9444389791664403,
+        "nElo": -49.63365507465734,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.1,
+      "decisiveness": 0.5,
+      "meanPlies": 151.6,
+      "medianPlies": 139,
+      "sdPlies": 85.88038192742275,
+      "durationDeviation": 0.010666666666666628,
+      "leadChanges": 0.9,
+      "volatility": 12.291951547829575,
+      "uncertainty": 0.827796994562988,
+      "drama": 92.2,
+      "stability": 0.9753708644901232,
+      "boardCoverage": 0.8921875,
+      "branchingFactor": 32.345516206977024,
+      "lead": {
+        "killerMove": 0.2851710481524852,
+        "leadChange": 0.07151915753429271,
+        "uncertaintyLate": 0.67711980309562,
+        "permanence": 0.9708899218474857,
+        "drama": 0.14737802481431833,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 2.2058047493403694,
+        "K": 1.150395778364116,
+        "R": 1.4142480211081794,
+        "N": 1.3720316622691293,
+        "M": 1.6253298153034301,
+        "P": 0.3733509234828496
+      },
+      "minUse": 0.3733509234828496,
+      "minFairyUse": 1.6253298153034301,
+      "excessDecisiveness": -0.19176571184266777,
+      "interest": 0.46775843362392294,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.485699248640747
+    },
+    {
+      "key": "NRRKBAGM",
+      "games": 10,
+      "wins": 5,
+      "draws": 2,
+      "losses": 3,
+      "score": 0.6,
+      "ci": [
+        0.32983760671658235,
+        0.8701623932834176
+      ],
+      "elo": 70.43650362227247,
+      "eloLo": -123.1519531204864,
+      "eloHi": 330.47992336735035,
+      "match": {
+        "n": 10,
+        "mu": 0.6,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": 70.43650362227247,
+        "err95": 187.73584709264685,
+        "nElo": 79.70718982541592,
+        "los": 0.7659201144075065
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.02452227493125386,
+        "bound": 2.9444389791664403,
+        "nElo": 79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 131.6,
+      "medianPlies": 110,
+      "sdPlies": 50.35712462005749,
+      "durationDeviation": 0.1226666666666667,
+      "leadChanges": 1,
+      "volatility": 14.713251834951242,
+      "uncertainty": 0.7881183151895134,
+      "drama": 96.8,
+      "stability": 0.9735275347479817,
+      "boardCoverage": 0.9140625,
+      "branchingFactor": 28.341741262097987,
+      "lead": {
+        "killerMove": 0.48401071145088626,
+        "leadChange": 0.04005099131908703,
+        "uncertaintyLate": 0.6759121235896032,
+        "permanence": 0.9675345195934246,
+        "drama": 0.16208944261441074,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "N": 1.1306990881458967,
+        "R": 1.6109422492401215,
+        "K": 1.3981762917933132,
+        "B": 1.3130699088145896,
+        "A": 1.2279635258358663,
+        "G": 0.6200607902735562,
+        "M": 3.3677811550151975,
+        "P": 0.45592705167173253
+      },
+      "minUse": 0.45592705167173253,
+      "minFairyUse": 0.6200607902735562,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.4568088313729688,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.6045295787973785
+    },
+    {
+      "key": "RRSAQNMK",
+      "games": 10,
+      "wins": 3,
+      "draws": 2,
+      "losses": 5,
+      "score": 0.4,
+      "ci": [
+        0.12983760671658245,
+        0.6701623932834175
+      ],
+      "elo": -70.4365036222725,
+      "eloLo": -330.4799233673501,
+      "eloHi": 123.15195312048625,
+      "match": {
+        "n": 10,
+        "mu": 0.4,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": -70.4365036222725,
+        "err95": 187.73584709264685,
+        "nElo": -79.70718982541592,
+        "los": 0.23407988559249343
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.02565550650062025,
+        "bound": 2.9444389791664403,
+        "nElo": -79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.1,
+      "timeouts": 0.1,
+      "decisiveness": 0.8,
+      "meanPlies": 130.2,
+      "medianPlies": 120,
+      "sdPlies": 66.20543784312585,
+      "durationDeviation": 0.1320000000000001,
+      "leadChanges": 1,
+      "volatility": 16.772835584954457,
+      "uncertainty": 0.6754133619142367,
+      "drama": 79.3,
+      "stability": 0.9712164908006544,
+      "boardCoverage": 0.8984375,
+      "branchingFactor": 27.17047642490589,
+      "lead": {
+        "killerMove": 0.4071223365274844,
+        "leadChange": 0.03211858815540079,
+        "uncertaintyLate": 0.6525645686325665,
+        "permanence": 0.9627368657321631,
+        "drama": 0.16827786438028758,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 1.4316436251920124,
+        "S": 0.565284178187404,
+        "A": 1.597542242703533,
+        "Q": 1.4254992319508448,
+        "N": 1.5115207373271888,
+        "M": 2.8509984639016897,
+        "K": 1.6466973886328724,
+        "P": 0.4423963133640553
+      },
+      "minUse": 0.4423963133640553,
+      "minFairyUse": 0.565284178187404,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.42911661117444994,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.5763533404785592
+    },
+    {
+      "key": "BRNMSKMA",
+      "games": 10,
+      "wins": 5,
+      "draws": 1,
+      "losses": 4,
+      "score": 0.55,
+      "ci": [
+        0.25764326566874507,
+        0.842356734331255
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -183.83754293696532,
+      "eloHi": 291.1282517187304,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.2225,
+        "sigmaPg": 0.4716990566028302,
+        "elo": 34.86007028756008,
+        "err95": 203.15869468678906,
+        "nElo": 36.82809840927263,
+        "los": 0.6312631085917567
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.011425751503976593,
+        "bound": 2.9444389791664403,
+        "nElo": 36.82809840927263,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.1,
+      "timeouts": 0,
+      "decisiveness": 0.9,
+      "meanPlies": 106.9,
+      "medianPlies": 101,
+      "sdPlies": 44.03282866226062,
+      "durationDeviation": 0.2873333333333333,
+      "leadChanges": 0.7,
+      "volatility": 18.088875332175856,
+      "uncertainty": 0.6427350774090066,
+      "drama": 51.8,
+      "stability": 0.9699674860711243,
+      "boardCoverage": 0.8828125,
+      "branchingFactor": 27.53049629347994,
+      "lead": {
+        "killerMove": 0.3956445752398403,
+        "leadChange": 0.02713078444478838,
+        "uncertaintyLate": 0.6573914006028435,
+        "permanence": 0.9619066303423262,
+        "drama": 0.1326093355760658,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "B": 1.0327408793264734,
+        "R": 2.08044901777362,
+        "N": 1.391955098222638,
+        "M": 1.9981290926099158,
+        "S": 0.5537885874649204,
+        "K": 1.1075771749298409,
+        "A": 1.362020579981291,
+        "P": 0.5594013096351731
+      },
+      "minUse": 0.5537885874649204,
+      "minFairyUse": 0.5537885874649204,
+      "excessDecisiveness": 0.20823428815733225,
+      "interest": 0.4267472307906863,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.5819337693522517
+    },
+    {
+      "key": "RSNSKNAB",
+      "games": 10,
+      "wins": 5,
+      "draws": 0,
+      "losses": 5,
+      "score": 0.5,
+      "ci": [
+        0.19010248140328712,
+        0.8098975185967129
+      ],
+      "elo": 0,
+      "eloLo": -251.7769130469192,
+      "eloHi": 251.7769130469192,
+      "match": {
+        "n": 10.001000000000001,
+        "mu": 0.49999999999999994,
+        "variance": 0.24997500249974997,
+        "sigmaPg": 0.4999750018748437,
+        "elo": -7.714619732426294e-14,
+        "err95": 215.337019091059,
+        "nElo": -3.857502726885063e-14,
+        "los": 0.4999999995
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.0006626933456230063,
+        "bound": 2.9444389791664403,
+        "nElo": -3.857502726885063e-14,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0,
+      "timeouts": 0,
+      "decisiveness": 1,
+      "meanPlies": 110,
+      "medianPlies": 115,
+      "sdPlies": 21.72095762161512,
+      "durationDeviation": 0.26666666666666666,
+      "leadChanges": 0.7,
+      "volatility": 18.833132464580494,
+      "uncertainty": 0.6500740796843344,
+      "drama": 177.4,
+      "stability": 0.970889984617896,
+      "boardCoverage": 0.925,
+      "branchingFactor": 20.75402605662341,
+      "lead": {
+        "killerMove": 0.2641727327005926,
+        "leadChange": 0.030009811879963155,
+        "uncertaintyLate": 0.5949435157760202,
+        "permanence": 0.9622485304348048,
+        "drama": 0.28654799493393446,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 1.789090909090909,
+        "S": 0.5454545454545454,
+        "N": 1.2145454545454546,
+        "K": 2.3854545454545453,
+        "A": 1.9345454545454546,
+        "B": 2.036363636363636,
+        "P": 0.5418181818181819
+      },
+      "minUse": 0.5418181818181819,
+      "minFairyUse": 0.5454545454545454,
+      "excessDecisiveness": 0.2938691748610518,
+      "interest": 0.4138418497952877,
+      "gatesFailed": [],
+      "funScore": 0.6237685199210836
+    },
+    {
+      "key": "GALMRRKN",
+      "games": 10,
+      "wins": 5,
+      "draws": 4,
+      "losses": 1,
+      "score": 0.7,
+      "ci": [
+        0.4944372414705036,
+        0.9055627585294963
+      ],
+      "elo": 147.19071411783776,
+      "eloLo": -3.8655600282060156,
+      "eloHi": 392.7101043940392,
+      "match": {
+        "n": 10,
+        "mu": 0.7,
+        "variance": 0.11,
+        "sigmaPg": 0.33166247903553997,
+        "elo": 147.19071411783776,
+        "err95": 142.84556090214696,
+        "nElo": 209.5115410901643,
+        "los": 0.9717349278728539
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.050682066155972025,
+        "bound": 2.9444389791664403,
+        "nElo": 209.5115410901643,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0.1,
+      "decisiveness": 0.6,
+      "meanPlies": 124.3,
+      "medianPlies": 126,
+      "sdPlies": 74.60033511989072,
+      "durationDeviation": 0.17133333333333337,
+      "leadChanges": 0.3,
+      "volatility": 12.954810408693017,
+      "uncertainty": 0.5514945054945055,
+      "drama": 16.8,
+      "stability": 0.9800756829956947,
+      "boardCoverage": 0.8625,
+      "branchingFactor": 31.44223747103203,
+      "lead": {
+        "killerMove": 0.16583567600835264,
+        "leadChange": 0.025531055765211252,
+        "uncertaintyLate": 0.6065833539475453,
+        "permanence": 0.9738933832848877,
+        "drama": 0.04197194076302789,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 2.8962188254223653,
+        "A": 1.4545454545454546,
+        "L": 0.8753016894609815,
+        "M": 2.2011263073209975,
+        "R": 1.1456154465004023,
+        "K": 1.3773129525341914,
+        "N": 1.6347546259050685,
+        "P": 0.4086886564762671
+      },
+      "minUse": 0.4086886564762671,
+      "minFairyUse": 0.8753016894609815,
+      "excessDecisiveness": -0.0486703719538264,
+      "interest": 0.41328728758888983,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.40412362637362637
+    },
+    {
+      "key": "RNMSAKGR",
+      "games": 10,
+      "wins": 2,
+      "draws": 3,
+      "losses": 5,
+      "score": 0.35,
+      "ci": [
+        0.10796230058157469,
+        0.5920376994184253
+      ],
+      "elo": -107.53812491703198,
+      "eloLo": -366.84443142409197,
+      "eloHi": 64.69173206061768,
+      "match": {
+        "n": 10,
+        "mu": 0.35,
+        "variance": 0.15250000000000002,
+        "sigmaPg": 0.39051248379533277,
+        "elo": -107.53812491703198,
+        "err95": 168.19199732586375,
+        "nElo": -133.4537050439182,
+        "los": 0.11224710603097227
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.03896196778365624,
+        "bound": 2.9444389791664403,
+        "nElo": -133.4537050439182,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.3,
+      "timeouts": 0,
+      "decisiveness": 0.7,
+      "meanPlies": 134.7,
+      "medianPlies": 139,
+      "sdPlies": 45.75161199345876,
+      "durationDeviation": 0.10200000000000008,
+      "leadChanges": 0.8,
+      "volatility": 15.768073979818245,
+      "uncertainty": 0.7306577931099674,
+      "drama": 86.1,
+      "stability": 0.9725462168199946,
+      "boardCoverage": 0.921875,
+      "branchingFactor": 26.698466023860874,
+      "lead": {
+        "killerMove": 0.3407649090044959,
+        "leadChange": 0.03796310574907993,
+        "uncertaintyLate": 0.6430789156528403,
+        "permanence": 0.9650509228065738,
+        "drama": 0.13539408438553588,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 2.060876020786934,
+        "N": 1.25909428359317,
+        "M": 2.1143281365998514,
+        "S": 0.5226429101707498,
+        "A": 1.6748329621380846,
+        "K": 1.4729027468448403,
+        "G": 1.152190051967335,
+        "P": 0.44691907943578324
+      },
+      "minUse": 0.44691907943578324,
+      "minFairyUse": 0.5226429101707498,
+      "excessDecisiveness": 0.03696451474989315,
+      "interest": 0.39622645155778363,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.5326644482774918
+    },
+    {
+      "key": "QARSBLGK",
+      "games": 10,
+      "wins": 3,
+      "draws": 2,
+      "losses": 5,
+      "score": 0.4,
+      "ci": [
+        0.1298376067165824,
+        0.6701623932834176
+      ],
+      "elo": -70.4365036222725,
+      "eloLo": -330.4799233673502,
+      "eloHi": 123.15195312048634,
+      "match": {
+        "n": 10,
+        "mu": 0.4,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": -70.4365036222725,
+        "err95": 187.73584709264685,
+        "nElo": -79.70718982541592,
+        "los": 0.23407988559249343
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.02565550650062025,
+        "bound": 2.9444389791664403,
+        "nElo": -79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 124.9,
+      "medianPlies": 128,
+      "sdPlies": 58.59086959586792,
+      "durationDeviation": 0.1673333333333333,
+      "leadChanges": 0.5,
+      "volatility": 16.49141543398701,
+      "uncertainty": 0.6779541403609921,
+      "drama": 86.8,
+      "stability": 0.9716036761901105,
+      "boardCoverage": 0.896875,
+      "branchingFactor": 27.820464909863013,
+      "lead": {
+        "killerMove": 0.32731652614889617,
+        "leadChange": 0.022553261368586253,
+        "uncertaintyLate": 0.6290732138280726,
+        "permanence": 0.9654399837865189,
+        "drama": 0.17908613025661496,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "Q": 0.922337870296237,
+        "A": 1.5244195356285029,
+        "R": 1.012009607686149,
+        "S": 0.4355484387510008,
+        "B": 2.2161729383506805,
+        "L": 1.012009607686149,
+        "G": 2.6389111289031226,
+        "K": 2.254603682946357,
+        "P": 0.49799839871897517
+      },
+      "minUse": 0.4355484387510008,
+      "minFairyUse": 0.4355484387510008,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.38717108754172197,
+      "gatesFailed": [
+        "balance"
+      ],
+      "funScore": 0.5332385350902481
+    },
+    {
+      "key": "MGQMBSNK",
+      "games": 10,
+      "wins": 3,
+      "draws": 4,
+      "losses": 3,
+      "score": 0.5,
+      "ci": [
+        0.2599544142887855,
+        0.7400455857112145
+      ],
+      "elo": 0,
+      "eloLo": -181.74451034388926,
+      "eloHi": 181.7445103438893,
+      "match": {
+        "n": 10,
+        "mu": 0.5,
+        "variance": 0.15,
+        "sigmaPg": 0.3872983346207417,
+        "elo": 0,
+        "err95": 166.80767751072293,
+        "nElo": 0,
+        "los": 0.5
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.0006626933456230063,
+        "bound": 2.9444389791664403,
+        "nElo": 0,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0,
+      "decisiveness": 0.6,
+      "meanPlies": 136.4,
+      "medianPlies": 107,
+      "sdPlies": 64.69652231766403,
+      "durationDeviation": 0.09066666666666663,
+      "leadChanges": 0.7,
+      "volatility": 15.237861769710458,
+      "uncertainty": 0.7926031319655958,
+      "drama": 75.2,
+      "stability": 0.9730449720244174,
+      "boardCoverage": 0.9078125,
+      "branchingFactor": 30.693804043031417,
+      "lead": {
+        "killerMove": 0.41504563889519935,
+        "leadChange": 0.042622304575425804,
+        "uncertaintyLate": 0.6614039426077717,
+        "permanence": 0.9661756000479862,
+        "drama": 0.14960171608067202,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "M": 2.099706744868035,
+        "G": 2.3225806451612905,
+        "Q": 0.9384164222873901,
+        "B": 1.6070381231671553,
+        "S": 0.39882697947214074,
+        "N": 0.8680351906158358,
+        "K": 1.9472140762463344,
+        "P": 0.46480938416422285
+      },
+      "minUse": 0.39882697947214074,
+      "minFairyUse": 0.39882697947214074,
+      "excessDecisiveness": -0.10613082513894823,
+      "interest": 0.381154115905113,
+      "gatesFailed": [],
+      "funScore": 0.4994007829913989
+    },
+    {
+      "key": "RNKSLGAS",
+      "games": 10,
+      "wins": 4,
+      "draws": 2,
+      "losses": 4,
+      "score": 0.5,
+      "ci": [
+        0.22281923294369793,
+        0.777180767056302
+      ],
+      "elo": 0,
+      "eloLo": -217.02774788433436,
+      "eloHi": 217.02774788433427,
+      "match": {
+        "n": 10,
+        "mu": 0.5,
+        "variance": 0.2,
+        "sigmaPg": 0.4472135954999579,
+        "elo": 0,
+        "err95": 192.6129150274243,
+        "nElo": 0,
+        "los": 0.5
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.0006626933456230063,
+        "bound": 2.9444389791664403,
+        "nElo": 0,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 114.7,
+      "medianPlies": 100,
+      "sdPlies": 65.33000841879634,
+      "durationDeviation": 0.2353333333333333,
+      "leadChanges": 0.7,
+      "volatility": 16.83652117611684,
+      "uncertainty": 0.5364501675645051,
+      "drama": 69.5,
+      "stability": 0.9714200591102351,
+      "boardCoverage": 0.8875,
+      "branchingFactor": 23.53529431783634,
+      "lead": {
+        "killerMove": 0.24023843106754966,
+        "leadChange": 0.019608600600154312,
+        "uncertaintyLate": 0.6048538273537677,
+        "permanence": 0.9622813853283564,
+        "drama": 0.13555779453322847,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "R": 1.018308631211857,
+        "N": 1.6460331299040976,
+        "K": 2.6224934612031388,
+        "S": 0.4812554489973845,
+        "L": 1.004359197907585,
+        "G": 2.6503923278116828,
+        "A": 2.2458587619877943,
+        "P": 0.4777680906713165
+      },
+      "minUse": 0.4777680906713165,
+      "minFairyUse": 0.4812554489973845,
+      "excessDecisiveness": 0.09386917486105184,
+      "interest": 0.3690511802815874,
+      "gatesFailed": [],
+      "funScore": 0.5153625418911263
+    },
+    {
+      "key": "ASGLABKM",
+      "games": 10,
+      "wins": 1,
+      "draws": 5,
+      "losses": 4,
+      "score": 0.35,
+      "ci": [
+        0.15156876875530906,
+        0.5484312312446908
+      ],
+      "elo": -107.53812491703198,
+      "eloLo": -299.2027696263848,
+      "eloHi": 33.75931224465035,
+      "match": {
+        "n": 10,
+        "mu": 0.35,
+        "variance": 0.10250000000000001,
+        "sigmaPg": 0.32015621187164245,
+        "elo": -107.53812491703198,
+        "err95": 137.88986259193572,
+        "nElo": -162.7809672151056,
+        "los": 0.0692241605330764
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.04457537165096947,
+        "bound": 2.9444389791664403,
+        "nElo": -162.7809672151056,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.1,
+      "decisiveness": 0.5,
+      "meanPlies": 186,
+      "medianPlies": 217,
+      "sdPlies": 66.38825197277,
+      "durationDeviation": 0.24,
+      "leadChanges": 1.2,
+      "volatility": 15.195619676174474,
+      "uncertainty": 0.7769435045147305,
+      "drama": 56.7,
+      "stability": 0.9716149963489391,
+      "boardCoverage": 0.9375,
+      "branchingFactor": 30.77215144573995,
+      "lead": {
+        "killerMove": 0.2927907862579176,
+        "leadChange": 0.04642096722984228,
+        "uncertaintyLate": 0.628644682228569,
+        "permanence": 0.9636645031991996,
+        "drama": 0.1247326568148485,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "A": 1.4795698924731182,
+        "S": 0.4731182795698925,
+        "G": 3.139784946236559,
+        "L": 1.1268817204301076,
+        "B": 1.686021505376344,
+        "K": 2.10752688172043,
+        "M": 1.8408602150537634,
+        "P": 0.3333333333333333
+      },
+      "minUse": 0.3333333333333333,
+      "minFairyUse": 0.4731182795698925,
+      "excessDecisiveness": -0.1630354852501068,
+      "interest": 0.3601205720252206,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.4992358761286826
+    },
+    {
+      "key": "NSGGMAKL",
+      "games": 10,
+      "wins": 3,
+      "draws": 5,
+      "losses": 2,
+      "score": 0.55,
+      "ci": [
+        0.3330717369823011,
+        0.766928263017699
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -120.61653615212155,
+      "eloHi": 206.90605199898363,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.1225,
+        "sigmaPg": 0.35,
+        "elo": 34.86007028756008,
+        "err95": 150.74344997099902,
+        "nElo": 49.6336550746574,
+        "los": 0.6742768522048743
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.01549259039709025,
+        "bound": 2.9444389791664403,
+        "nElo": 49.6336550746574,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.1,
+      "decisiveness": 0.5,
+      "meanPlies": 183.9,
+      "medianPlies": 194,
+      "sdPlies": 67.83870576595635,
+      "durationDeviation": 0.22600000000000003,
+      "leadChanges": 0.4,
+      "volatility": 14.126514015589004,
+      "uncertainty": 0.7015790880455748,
+      "drama": 18,
+      "stability": 0.9763011567380607,
+      "boardCoverage": 0.940625,
+      "branchingFactor": 29.586751883441657,
+      "lead": {
+        "killerMove": 0.3202299421068356,
+        "leadChange": 0.026583696385280402,
+        "uncertaintyLate": 0.5905032019205806,
+        "permanence": 0.9685888759141015,
+        "drama": 0.05292229248456123,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "N": 1.696574225122349,
+        "S": 0.4524197933659598,
+        "G": 2.1750951604132682,
+        "M": 1.0614464382816748,
+        "A": 1.7313757476889613,
+        "K": 2.723219140837412,
+        "L": 1.2441544317563893,
+        "P": 0.3425774877650897
+      },
+      "minUse": 0.3425774877650897,
+      "minFairyUse": 0.4524197933659598,
+      "excessDecisiveness": -0.19176571184266777,
+      "interest": 0.3496879256241641,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.41039477201139374
+    },
+    {
+      "key": "GKLAMNMS",
+      "games": 10,
+      "wins": 0,
+      "draws": 7,
+      "losses": 3,
+      "score": 0.35,
+      "ci": [
+        0.2079871163351578,
+        0.4920128836648422
+      ],
+      "elo": -107.53812491703198,
+      "eloLo": -232.27832507340995,
+      "eloHi": -5.550489030614511,
+      "match": {
+        "n": 10.001,
+        "mu": 0.35006499350064996,
+        "variance": 0.05253699207621484,
+        "sigmaPg": 0.2292094938614342,
+        "elo": -107.48849835112915,
+        "err95": 98.71951391651176,
+        "nElo": -227.2713747403883,
+        "los": 0.01928825686274782
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": -0.05292529815650114,
+        "bound": 2.9444389791664403,
+        "nElo": -227.2713747403883,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.4,
+      "timeouts": 0.3,
+      "decisiveness": 0.3,
+      "meanPlies": 196.2,
+      "medianPlies": 207,
+      "sdPlies": 88.79617108862296,
+      "durationDeviation": 0.30799999999999994,
+      "leadChanges": 0.5,
+      "volatility": 16.321180577188663,
+      "uncertainty": 0.8456671167116709,
+      "drama": 29.2,
+      "stability": 0.969669572740383,
+      "boardCoverage": 0.91875,
+      "branchingFactor": 33.606941280991606,
+      "lead": {
+        "killerMove": 0.35446869652418866,
+        "leadChange": 0.03749638186488617,
+        "uncertaintyLate": 0.6241670620291964,
+        "permanence": 0.9618077750436068,
+        "drama": 0.07403853814596258,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "G": 1.4678899082568808,
+        "K": 1.5168195718654434,
+        "L": 1.908256880733945,
+        "A": 1.3537206931702344,
+        "M": 2.9357798165137616,
+        "N": 0.8399592252803262,
+        "S": 0.44036697247706424,
+        "P": 0.3251783893985729
+      },
+      "minUse": 0.3251783893985729,
+      "minFairyUse": 0.44036697247706424,
+      "excessDecisiveness": -0.3630354852501068,
+      "interest": 0.3485384704812259,
+      "gatesFailed": [
+        "balance",
+        "timeouts"
+      ],
+      "funScore": 0.37516677917791774
+    },
+    {
+      "key": "KSGNANLQ",
+      "games": 10,
+      "wins": 5,
+      "draws": 2,
+      "losses": 3,
+      "score": 0.6,
+      "ci": [
+        0.32983760671658235,
+        0.8701623932834176
+      ],
+      "elo": 70.43650362227247,
+      "eloLo": -123.1519531204864,
+      "eloHi": 330.47992336735035,
+      "match": {
+        "n": 10,
+        "mu": 0.6,
+        "variance": 0.19,
+        "sigmaPg": 0.43588989435406733,
+        "elo": 70.43650362227247,
+        "err95": 187.73584709264685,
+        "nElo": 79.70718982541592,
+        "los": 0.7659201144075065
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.02452227493125386,
+        "bound": 2.9444389791664403,
+        "nElo": 79.70718982541592,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.2,
+      "timeouts": 0,
+      "decisiveness": 0.8,
+      "meanPlies": 113.2,
+      "medianPlies": 101,
+      "sdPlies": 66.15255097122106,
+      "durationDeviation": 0.24533333333333332,
+      "leadChanges": 0.6,
+      "volatility": 16.98743327845667,
+      "uncertainty": 0.6119376527881044,
+      "drama": 62.8,
+      "stability": 0.9730368125515222,
+      "boardCoverage": 0.8609375,
+      "branchingFactor": 27.914847238831506,
+      "lead": {
+        "killerMove": 0.3740011034815856,
+        "leadChange": 0.01625107790309097,
+        "uncertaintyLate": 0.581777239286883,
+        "permanence": 0.9642555610956911,
+        "drama": 0.1279906195806953,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "K": 2.049469964664311,
+        "S": 0.22614840989399293,
+        "G": 1.2862190812720848,
+        "N": 1.7243816254416962,
+        "A": 2.23321554770318,
+        "L": 1.2862190812720848,
+        "Q": 1.9222614840989398,
+        "P": 0.44346289752650175
+      },
+      "minUse": 0.22614840989399293,
+      "minFairyUse": 0.22614840989399293,
+      "excessDecisiveness": 0.1225994014536127,
+      "interest": 0.3432734990315146,
+      "gatesFailed": [
+        "balance",
+        "utilisation"
+      ],
+      "funScore": 0.5254844131970262
+    },
+    {
+      "key": "SSARANKM",
+      "games": 10,
+      "wins": 2,
+      "draws": 7,
+      "losses": 1,
+      "score": 0.55,
+      "ci": [
+        0.3831150789034672,
+        0.7168849210965329
+      ],
+      "elo": 34.86007028756008,
+      "eloLo": -82.7499636263102,
+      "eloHi": 161.39457790451996,
+      "match": {
+        "n": 10,
+        "mu": 0.55,
+        "variance": 0.07250000000000001,
+        "sigmaPg": 0.26925824035672524,
+        "elo": 34.86007028756008,
+        "err95": 115.9683316699807,
+        "nElo": 64.51716854836155,
+        "los": 0.7214721360020275
+      },
+      "pentanomial": null,
+      "pairs": 0,
+      "sprt": {
+        "llr": 0.020065897876189044,
+        "bound": 2.9444389791664403,
+        "nElo": 64.51716854836155,
+        "verdict": "continue",
+        "expectedGames": 65408
+      },
+      "drawRate": 0.5,
+      "timeouts": 0.2,
+      "decisiveness": 0.3,
+      "meanPlies": 179.6,
+      "medianPlies": 167,
+      "sdPlies": 82.29969623273223,
+      "durationDeviation": 0.1973333333333333,
+      "leadChanges": 0.8,
+      "volatility": 14.416761323203016,
+      "uncertainty": 0.8569159663865547,
+      "drama": 17.4,
+      "stability": 0.9723154795096726,
+      "boardCoverage": 0.9484375,
+      "branchingFactor": 21.68514855321623,
+      "lead": {
+        "killerMove": 0.32258113149599665,
+        "leadChange": 0.03363998512415793,
+        "uncertaintyLate": 0.6508934883661787,
+        "permanence": 0.9649143615938207,
+        "drama": 0.05670342989877055,
+        "decisionCost": [
+          0,
+          0
+        ],
+        "decisionAsymmetry": 0
+      },
+      "utilisation": {
+        "S": 0.4365256124721604,
+        "A": 1.55902004454343,
+        "R": 0.7394209354120267,
+        "N": 0.89086859688196,
+        "K": 4.721603563474387,
+        "M": 2.752783964365256,
+        "P": 0.36302895322939865
+      },
+      "minUse": 0.36302895322939865,
+      "minFairyUse": 0.4365256124721604,
+      "excessDecisiveness": -0.3917657118426678,
+      "interest": 0.34189757885022926,
+      "gatesFailed": [
+        "balance",
+        "timeouts",
+        "drawRate"
+      ],
+      "funScore": 0.40422899159663866
+    }
+  ],
+  "rules": {},
+  "weights": {
+    "decisiveness": 0.4,
+    "leadChanges": 0.35,
+    "uncertainty": 0.25
+  },
+  "interest": {
+    "killerMove": 0.2,
+    "leadChange": -0.16,
+    "uncertaintyLate": 0.13,
+    "drama": 0.12,
+    "permanence": 0.07,
+    "fairyUse": 0.2,
+    "excessDecisiveness": 0.12
+  }
+}

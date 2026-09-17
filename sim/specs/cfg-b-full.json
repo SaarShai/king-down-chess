@@ -1,0 +1,30 @@
+{
+  "id": "cfg-b-full",
+  "games": 3200,
+  "backRanks": [
+    "LRQNMSKB",
+    "BGKMGSNN",
+    "MLGAKBNS",
+    "RSNMGKAB",
+    "NKQRSBAG",
+    "GKMMNNAR",
+    "KRNQMABG",
+    "RSGAKQSA",
+    "NBKLRMQN",
+    "SBAAQKMS",
+    "RMSNRKGQ",
+    "QGBRALKN",
+    "QMNKRABL",
+    "LNAKNMAM",
+    "ASABKNGM",
+    "RKNNSQMA",
+    "KMRGLABB",
+    "RKNBBQSM",
+    "KLSMRRGN",
+    "NKLSBGGR"
+  ],
+  "ai": {
+    "depth": 3
+  },
+  "seed": 7
+}

@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-L-return.L",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "paladinReturn": true
+    },
+    "asymmetric": [
+      {
+        "white": "RLBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 106.9,
+  "whiteScore": 0.5917,
+  "whiteWins": 171,
+  "draws": 13,
+  "blackWins": 116,
+  "meanPlies": 50.7,
+  "reasons": {
+    "adjudicatedResign": 287,
+    "drawRepetition": 4,
+    "drawMaterial": 1,
+    "adjudicatedDraw": 8
+  }
+}

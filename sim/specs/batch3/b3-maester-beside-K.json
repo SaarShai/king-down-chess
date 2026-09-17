@@ -1,0 +1,32 @@
+{
+  "id": "b3-maester-beside-K",
+  "games": 3200,
+  "seed": 381,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "BBMRQMKR",
+    "BBRMKMQR",
+    "BBRRMMKQ",
+    "BKMQRRMB",
+    "BQRKMRMB",
+    "BQRRMBMK",
+    "BRMKQRMB",
+    "BRMKRBQM",
+    "KMBBQMRR",
+    "MKMBQRBR",
+    "MKQBMRBR",
+    "MKRQBBRM",
+    "MKRRQBBM",
+    "QBKMBRMR",
+    "QKMBRRBM",
+    "QMKRBBMR",
+    "QRKMBBMR",
+    "RBMKBMQR",
+    "RMKRMQBB",
+    "RMQRBBKM"
+  ],
+  "note": "a maester next to the king"
+}

@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "g0-d3",
+    "games": 400,
+    "seed": 5101,
+    "ai": {
+      "depth": 3
+    },
+    "pairs": true,
+    "backRanks": {
+      "sample": 200
+    },
+    "openingRandomPlies": 4,
+    "maxPlies": 300,
+    "evalParams": {
+      "white": "sim/tune/params.json",
+      "black": "sim/tune/base.json"
+    }
+  },
+  "games": 400,
+  "seconds": 408.9,
+  "whiteScore": 0.55,
+  "whiteWins": 191,
+  "draws": 58,
+  "blackWins": 151,
+  "meanPlies": 145.1,
+  "reasons": {
+    "adjudicatedResign": 342,
+    "adjudicatedDraw": 21,
+    "drawRepetition": 7,
+    "drawMaterial": 3,
+    "plyCap": 19,
+    "draw50": 7,
+    "stalemate": 1
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "spec": {
+    "id": "pb-M-kingAny.M",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "maesterKingSwapAnywhere": true
+    },
+    "asymmetric": [
+      {
+        "white": "RMBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 248.9,
+  "whiteScore": 0.5033,
+  "whiteWins": 117,
+  "draws": 68,
+  "blackWins": 115,
+  "meanPlies": 107.6,
+  "reasons": {
+    "adjudicatedResign": 232,
+    "adjudicatedDraw": 52,
+    "drawMaterial": 2,
+    "drawRepetition": 7,
+    "draw50": 3,
+    "plyCap": 3,
+    "stalemate": 1
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "buff-G-step2.G",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "guardStep": 2
+    },
+    "asymmetric": [
+      {
+        "white": "RGBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 54.6,
+  "whiteScore": 0.4917,
+  "whiteWins": 129,
+  "draws": 37,
+  "blackWins": 134,
+  "meanPlies": 93.5,
+  "reasons": {
+    "adjudicatedResign": 263,
+    "adjudicatedDraw": 19,
+    "draw50": 8,
+    "drawMaterial": 5,
+    "drawRepetition": 4,
+    "plyCap": 1
+  }
+}

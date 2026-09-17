@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-L-never.L",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "paladinKamikaze": "never"
+    },
+    "asymmetric": [
+      {
+        "white": "RLBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 137.3,
+  "whiteScore": 0.5633,
+  "whiteWins": 151,
+  "draws": 36,
+  "blackWins": 113,
+  "meanPlies": 86.4,
+  "reasons": {
+    "adjudicatedResign": 264,
+    "adjudicatedDraw": 28,
+    "drawMaterial": 2,
+    "drawRepetition": 5,
+    "draw50": 1
+  }
+}

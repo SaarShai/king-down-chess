@@ -1,0 +1,32 @@
+{
+  "id": "b3-iso-v22",
+  "games": 2000,
+  "seed": 313,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "ABBMNNKA",
+    "AMBKNBAN",
+    "BANMABNK",
+    "BKAANBMN",
+    "BKAMNBNA",
+    "BMAANKNB",
+    "BMNBKANA",
+    "BNAKNAMB",
+    "KBANNABM",
+    "KNAANBBM",
+    "KNBBAAMN",
+    "KNNMABBA",
+    "MAABNNBK",
+    "MAKNBBAN",
+    "MANBBAKN",
+    "MNABBANK",
+    "MNBBNAAK",
+    "NABNMAKB",
+    "NAMBBKNA",
+    "NAMKBBAN"
+  ],
+  "note": "fairy 3, bottom (no queen: unavoidable at this value) — army BBNNAAM, 21.2 pawns (tuned values)"
+}

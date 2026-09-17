@@ -1,0 +1,32 @@
+{
+  "id": "b3-paladin0",
+  "games": 2000,
+  "seed": 412,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "BBKMRMQR",
+    "BBMMKQRR",
+    "BBQRMRMK",
+    "BKRQRBMM",
+    "BMRMRBKQ",
+    "BQRKRMMB",
+    "BRKBMQMR",
+    "BRKMRBMQ",
+    "BRMRMQKB",
+    "KBRMMRBQ",
+    "MBBQRMRK",
+    "MQRBRMBK",
+    "MRBRMBKQ",
+    "MRKMBBQR",
+    "QBRMMKBR",
+    "QBRMMRBK",
+    "QKRMRBBM",
+    "QMBBRKRM",
+    "RKMMBBRQ",
+    "RMRMBBKQ"
+  ],
+  "note": "two maesters, the exact value-neutral control — army QRRBBMM, 29.1 pawns (tuned values)"
+}

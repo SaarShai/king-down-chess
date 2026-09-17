@@ -1,0 +1,38 @@
+{
+  "id": "gs-g0",
+  "games": 800,
+  "seed": 321,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "AAMNQKBN",
+    "ABMNAQKN",
+    "ANBQNKAM",
+    "ANKBAMQN",
+    "ANNKQBAM",
+    "BMAKNNQA",
+    "KAQNNBMA",
+    "KBANMQAN",
+    "KBNQAAMN",
+    "KBNQMANA",
+    "MNAKBQNA",
+    "MNQANKAB",
+    "NBKNAQAM",
+    "NKQNABMA",
+    "NMBKAQNA",
+    "NMQNBAKA",
+    "NNKBAMAQ",
+    "NQAKMBAN",
+    "QABNKAMN",
+    "QNAKMBAN"
+  ],
+  "note": "b3-guard0 replayed with the SHIPPED immortal guard spelled out. b3-guard0 itself ran while DEFAULT_RULES still carried the buff set (guardCaptures=pawns, guardStep=2, guardCaptureLimit=1), so it measured a capturing guard. Same ranks, same seed, same openings: the pair is an A/B of the two guards.",
+  "rules": {
+    "guardCaptures": "none",
+    "guardStep": 1,
+    "guardCaptureLimit": 0,
+    "guardImmune": true
+  }
+}

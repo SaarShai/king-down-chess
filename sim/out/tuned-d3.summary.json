@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "tuned-d3",
+    "games": 400,
+    "seed": 3001,
+    "ai": {
+      "depth": 3
+    },
+    "pairs": true,
+    "backRanks": {
+      "sample": 200
+    },
+    "openingRandomPlies": 4,
+    "maxPlies": 300,
+    "evalParams": {
+      "white": "sim/tune/params.json",
+      "black": "sim/tune/base.json"
+    }
+  },
+  "games": 400,
+  "seconds": 47.1,
+  "whiteScore": 0.49,
+  "whiteWins": 155,
+  "draws": 82,
+  "blackWins": 163,
+  "meanPlies": 159.7,
+  "reasons": {
+    "adjudicatedResign": 318,
+    "draw50": 14,
+    "drawMaterial": 5,
+    "plyCap": 46,
+    "adjudicatedDraw": 11,
+    "drawRepetition": 6
+  }
+}

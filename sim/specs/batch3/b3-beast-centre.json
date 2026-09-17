@@ -1,0 +1,32 @@
+{
+  "id": "b3-beast-centre",
+  "games": 3200,
+  "seed": 344,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "BBQSSRKR",
+    "BKQSSBRR",
+    "BKRSSBQR",
+    "BQKSSBRR",
+    "BRKSSRQB",
+    "KQRSSRBB",
+    "KRBSSBRQ",
+    "KRRSSBBQ",
+    "QBBSSRRK",
+    "QKBSSRRB",
+    "QKRSSBBR",
+    "QKRSSRBB",
+    "QRKSSBBR",
+    "RBBSSKQR",
+    "RBQSSKBR",
+    "RKBSSRQB",
+    "RKRSSBBQ",
+    "RQBSSKRB",
+    "RRBSSKQB",
+    "RRKSSQBB"
+  ],
+  "note": "both beasts on d/e"
+}

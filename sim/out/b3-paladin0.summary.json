@@ -1,0 +1,52 @@
+{
+  "spec": {
+    "id": "b3-paladin0",
+    "games": 2000,
+    "seed": 412,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "BBKMRMQR",
+      "BBMMKQRR",
+      "BBQRMRMK",
+      "BKRQRBMM",
+      "BMRMRBKQ",
+      "BQRKRMMB",
+      "BRKBMQMR",
+      "BRKMRBMQ",
+      "BRMRMQKB",
+      "KBRMMRBQ",
+      "MBBQRMRK",
+      "MQRBRMBK",
+      "MRBRMBKQ",
+      "MRKMBBQR",
+      "QBRMMKBR",
+      "QBRMMRBK",
+      "QKRMRBBM",
+      "QMBBRKRM",
+      "RKMMBBRQ",
+      "RMRMBBKQ"
+    ],
+    "note": "two maesters, the exact value-neutral control — army QRRBBMM, 29.1 pawns (tuned values)",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 223.7,
+  "whiteScore": 0.4943,
+  "whiteWins": 593,
+  "draws": 791,
+  "blackWins": 616,
+  "meanPlies": 121.6,
+  "reasons": {
+    "drawRepetition": 77,
+    "adjudicatedDraw": 669,
+    "adjudicatedResign": 1209,
+    "plyCap": 29,
+    "draw50": 5,
+    "drawMaterial": 10,
+    "stalemate": 1
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "b3-paladin2",
+  "games": 2000,
+  "seed": 411,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "BBKQLRRL",
+    "BLKLRBRQ",
+    "BLRRLBQK",
+    "BQRLKBLR",
+    "BRLLKQRB",
+    "KBBRLQRL",
+    "KBBRRLLQ",
+    "KBRRLLBQ",
+    "KLLBRQBR",
+    "KQLLBBRR",
+    "LQBBRLKR",
+    "LRQBBLRK",
+    "QBLRLRBK",
+    "QLLBKRBR",
+    "QLLRBKRB",
+    "RBKLLRBQ",
+    "RKBLRBQL",
+    "RKRBLQBL",
+    "RQBBKLRL",
+    "RRBBLKLQ"
+  ],
+  "note": "two paladins — army QRRBBLL, 29.1 pawns (tuned values)"
+}

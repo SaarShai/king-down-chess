@@ -1,0 +1,30 @@
+{
+  "name": "king-down-chess",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "sim": "tsx src/sim/run.ts",
+    "sim:analyze": "tsx src/sim/analyze.ts",
+    "tune": "tsx src/sim/tune.ts",
+    "tune:apply": "tsx src/sim/tune.ts apply",
+    "dashboard": "node tools/dashboard.mjs",
+    "nnue": "tsx src/sim/gen.ts"
+  },
+  "dependencies": {
+    "three": "^0.186.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "@types/three": "^0.186.0",
+    "playwright": "^1.63.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0"
+  }
+}

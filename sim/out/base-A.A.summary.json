@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "base-A.A",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "asymmetric": [
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 0,
+  "whiteScore": 0.545,
+  "whiteWins": 143,
+  "draws": 41,
+  "blackWins": 116,
+  "meanPlies": 89.8,
+  "reasons": {
+    "adjudicatedResign": 259,
+    "adjudicatedDraw": 27,
+    "drawMaterial": 7,
+    "plyCap": 1,
+    "drawRepetition": 3,
+    "draw50": 3
+  }
+}

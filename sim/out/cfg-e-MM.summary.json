@@ -1,0 +1,31 @@
+{
+  "spec": {
+    "id": "cfg-e-MM",
+    "games": 3200,
+    "backRanks": {
+      "sample": 20,
+      "pool": "QRRBBNNMM"
+    },
+    "ai": {
+      "depth": 3
+    },
+    "seed": 7,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 531.5,
+  "whiteScore": 0.5088,
+  "whiteWins": 1262,
+  "draws": 732,
+  "blackWins": 1206,
+  "meanPlies": 109,
+  "reasons": {
+    "adjudicatedResign": 2468,
+    "drawRepetition": 91,
+    "adjudicatedDraw": 545,
+    "draw50": 43,
+    "drawMaterial": 33,
+    "plyCap": 20
+  }
+}

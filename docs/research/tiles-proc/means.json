@@ -1,0 +1,32 @@
+{
+  "photo.light": {
+    "size": "256×256",
+    "srgb": 209.58,
+    "linear": 0.65318
+  },
+  "photo.dark": {
+    "size": "256×256",
+    "srgb": 49.24,
+    "linear": 0.03263
+  },
+  "photo.frame": {
+    "size": "256×256",
+    "srgb": 122.16,
+    "linear": 0.21191
+  },
+  "proc.light": {
+    "size": "64×64",
+    "srgb": 208.23,
+    "linear": 0.64901
+  },
+  "proc.dark": {
+    "size": "64×64",
+    "srgb": 49.55,
+    "linear": 0.03264
+  },
+  "proc.frame": {
+    "size": "64×64",
+    "srgb": 123.95,
+    "linear": 0.21162
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "values-d5.S",
+    "games": 120,
+    "ai": {
+      "depth": 5
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "asymmetric": [
+      {
+        "white": "RSBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 120,
+  "seconds": 565,
+  "whiteScore": 0.55,
+  "whiteWins": 60,
+  "draws": 12,
+  "blackWins": 48,
+  "meanPlies": 94.9,
+  "reasons": {
+    "adjudicatedResign": 108,
+    "adjudicatedDraw": 4,
+    "drawRepetition": 3,
+    "drawMaterial": 2,
+    "plyCap": 2,
+    "draw50": 1
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "spec": {
+    "id": "buffv-a.S",
+    "games": 500,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "guardCaptures": "pawns",
+      "guardStep": 2,
+      "beastMove": "any"
+    },
+    "values": {
+      "A": 270,
+      "G": 180,
+      "S": 210,
+      "L": 320,
+      "M": 350
+    },
+    "asymmetric": [
+      {
+        "white": "RSBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 500,
+  "seconds": 103.7,
+  "whiteScore": 0.546,
+  "whiteWins": 239,
+  "draws": 68,
+  "blackWins": 193,
+  "meanPlies": 98.3,
+  "reasons": {
+    "adjudicatedResign": 432,
+    "draw50": 9,
+    "drawRepetition": 6,
+    "adjudicatedDraw": 41,
+    "drawMaterial": 9,
+    "plyCap": 2,
+    "stalemate": 1
+  }
+}

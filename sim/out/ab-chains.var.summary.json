@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "ab-chains.var",
+    "games": 200,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 11,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "beastChains": false
+    },
+    "backRanks": {
+      "sample": 20
+    },
+    "commonSeeds": true
+  },
+  "games": 200,
+  "seconds": 24.1,
+  "whiteScore": 0.5475,
+  "whiteWins": 79,
+  "draws": 61,
+  "blackWins": 60,
+  "meanPlies": 140.1,
+  "reasons": {
+    "adjudicatedResign": 138,
+    "adjudicatedDraw": 27,
+    "drawRepetition": 6,
+    "plyCap": 15,
+    "drawMaterial": 3,
+    "draw50": 10,
+    "checkmate": 1
+  }
+}

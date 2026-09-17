@@ -1,0 +1,10 @@
+{
+  "id": "restricted-d2v4",
+  "games": 200,
+  "backRanks": ["QKNALSRM", "NSBBQNKG", "LGKBSMGR", "BNMKGMLA", "LABKRSQN", "MSNGGAKN", "MNABAKSM", "ARKAGNML", "BSALNRKG", "AGSMRSMK"],
+  "commonSeeds": true,
+  "ai": { "white": { "depth": 4 }, "black": { "depth": 2 } },
+  "openingRandomPlies": 4,
+  "maxPlies": 300,
+  "seed": 31
+}

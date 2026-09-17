@@ -1,0 +1,56 @@
+{
+  "spec": {
+    "id": "ab-r4-longSwap.var",
+    "games": 4000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 21,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "maesterLongSwap": false
+    },
+    "baseRules": {
+      "archerMove": "any",
+      "beastMove": "any"
+    },
+    "baseValues": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    },
+    "baseId": "abb-base",
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    }
+  },
+  "games": 4000,
+  "seconds": 307.8,
+  "whiteScore": 0.5292,
+  "whiteWins": 1546,
+  "draws": 1142,
+  "blackWins": 1312,
+  "meanPlies": 127,
+  "reasons": {
+    "adjudicatedResign": 2858,
+    "adjudicatedDraw": 709,
+    "drawRepetition": 145,
+    "draw50": 139,
+    "drawMaterial": 35,
+    "plyCap": 111,
+    "stalemate": 3
+  }
+}

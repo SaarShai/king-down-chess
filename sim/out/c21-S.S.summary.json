@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "c21-S.S",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "beastMove": "diagFwdBack",
+      "beastCapture": "diagForward"
+    },
+    "asymmetric": [
+      {
+        "white": "RSBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 21.1,
+  "whiteScore": 0.5017,
+  "whiteWins": 140,
+  "draws": 21,
+  "blackWins": 139,
+  "meanPlies": 83.7,
+  "reasons": {
+    "adjudicatedResign": 279,
+    "drawRepetition": 5,
+    "adjudicatedDraw": 15,
+    "draw50": 1
+  }
+}

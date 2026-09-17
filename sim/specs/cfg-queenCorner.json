@@ -1,0 +1,30 @@
+{
+  "id": "cfg-queenCorner",
+  "games": 3200,
+  "backRanks": [
+    "RMSNRKGQ",
+    "QGBRALKN",
+    "QMNKRABL",
+    "QGNNMKRA",
+    "KRNBSNAQ",
+    "MNKBSMSQ",
+    "MKAALRBQ",
+    "QAMGMKNS",
+    "QSGRKGMB",
+    "RSGNKSNQ",
+    "LMGRAMKQ",
+    "BLGSKSRQ",
+    "KGMASRLQ",
+    "QNGBLRKA",
+    "QSNKSAGB",
+    "MANLNGKQ",
+    "AKGNSLBQ",
+    "QSSRAGKB",
+    "AKGMGMLQ",
+    "QSGRAKBB"
+  ],
+  "ai": {
+    "depth": 3
+  },
+  "seed": 7
+}

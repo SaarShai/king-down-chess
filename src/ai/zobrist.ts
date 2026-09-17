@@ -1,0 +1,69 @@
+/**
+ * Zobrist keys for the AI's transposition table and repetition detection.
+ *
+ * JS has no 64-bit integer XOR without BigInt, so a key is two halves: a full 32-bit `lo` and a
+ * 20-bit `hi`. `combine()` packs them into `hi * 2**32 + lo`, which stays below 2**53 and is
+ * therefore an exact double — usable as a plain number key for equality tests and Float64Array
+ * storage. 52 bits of entropy is far more than a few hundred thousand nodes need.
+ *
+ * The generator is a fixed-seed xorshift, so keys are identical in every worker and every test run.
+ */
+import { Color, SPENT, colorOf, typeOf } from '../rules/engine';
+
+let seed = 0x9e3779b9;
+const next = (): number => {
+  seed ^= seed << 13;
+  seed ^= seed >>> 17;
+  seed ^= seed << 5;
+  return seed >>> 0;
+};
+
+/**
+ * Index = ((spent * 2 + colour) * SLOTS + type) * 64 + square; `SLOTS` is the type count (slot 0
+ * per colour is unused), so adding a piece type is one constant here. `spent` is the guard's
+ * used-up-capture flag (`SPENT`), which is part of the position.
+ */
+const SLOTS = 14; // types 1…13 (P N B R Q K A L G M S O C), plus the unused slot 0
+export const Z_LO = new Int32Array(2 * 2 * SLOTS * 64);
+export const Z_HI = new Int32Array(2 * 2 * SLOTS * 64);
+/** Draw the 64 keys of one (spent, colour, type) block. */
+const fill = (spent: number, c: number, t: number): void => {
+  const base = ((spent * 2 + c) * SLOTS + t) << 6;
+  for (let i = base; i < base + 64; i++) {
+    Z_LO[i] = next() | 0;
+    Z_HI[i] = next() & 0xfffff; // 20 bits keeps combine() exact
+  }
+};
+/*
+ * The draw order is history, not layout. It reproduces the stream of the 12-slot table exactly —
+ * the unspent half of types 0…11, the turn key, then their spent half — and only then the two lab
+ * types. So every key a board without an ogre, a catapult or a spent guard uses keeps the value it
+ * had before those existed, and a stored simulation run still replays move for move.
+ */
+for (let c = 0; c < 2; c++) for (let t = 0; t < 12; t++) fill(0, c, t);
+export const Z_TURN_LO = next() | 0;
+export const Z_TURN_HI = next() & 0xfffff;
+for (let c = 0; c < 2; c++) for (let t = 0; t < 12; t++) fill(1, c, t);
+for (let spent = 0; spent < 2; spent++) for (let c = 0; c < 2; c++) for (let t = 12; t < SLOTS; t++) fill(spent, c, t);
+
+/** Table slot for piece byte `p` (type | colour<<4 | SPENT) on square `s`. */
+export const zIndex = (p: number, s: number): number =>
+  (((((p & SPENT ? 2 : 0) + colorOf(p)) * SLOTS + typeOf(p)) << 6) | s);
+
+/** Exact 52-bit key from the two halves. */
+export const combine = (lo: number, hi: number): number => hi * 4294967296 + (lo >>> 0);
+
+/** Full hash of a board from scratch; writes [lo, hi] into `out` to avoid allocating. */
+export function hashBoard(board: Uint8Array, turn: Color, out: Int32Array): void {
+  let lo = 0, hi = 0;
+  for (let s = 0; s < 64; s++) {
+    const p = board[s];
+    if (!p) continue;
+    const i = zIndex(p, s);
+    lo ^= Z_LO[i];
+    hi ^= Z_HI[i];
+  }
+  if (turn) { lo ^= Z_TURN_LO; hi ^= Z_TURN_HI; }
+  out[0] = lo;
+  out[1] = hi;
+}

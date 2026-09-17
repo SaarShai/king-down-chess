@@ -1,0 +1,38 @@
+{
+  "spec": {
+    "id": "pb-M-swapAny.M",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "maesterSwapAny": true
+    },
+    "asymmetric": [
+      {
+        "white": "RMBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 254.7,
+  "whiteScore": 0.495,
+  "whiteWins": 121,
+  "draws": 55,
+  "blackWins": 124,
+  "meanPlies": 94.6,
+  "reasons": {
+    "adjudicatedDraw": 43,
+    "adjudicatedResign": 245,
+    "drawRepetition": 6,
+    "drawMaterial": 2,
+    "draw50": 2,
+    "stalemate": 1,
+    "plyCap": 1
+  }
+}

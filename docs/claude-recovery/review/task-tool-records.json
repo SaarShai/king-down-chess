@@ -1,0 +1,29 @@
+[
+  {
+    "source": "/Users/za/.claude/projects/-Users-za-Documents-king-down-chess/1b13f053-b37e-481e-a963-54b0069234f9.jsonl",
+    "line": 577,
+    "time": "2026-09-14T12:37:57.034Z",
+    "name": "CronCreate",
+    "input": {
+      "cron": "*/4 * * * *",
+      "prompt": "Poll the running work and report only what changed: the Q6 pipeline log sim/out/q6-2026-09-14.log (last lines, exit codes, .done marker), the Q7 log sim/out/q7-2026-09-14.log, and any background agents or bash tasks that have completed. Do not start any new simulation. If everything is still running with no new stage reached, say so in one line.",
+      "recurring": true
+    }
+  },
+  {
+    "source": "/Users/za/.claude/projects/-Users-za-Documents-king-down-chess/1b13f053-b37e-481e-a963-54b0069234f9.jsonl",
+    "line": 771,
+    "time": "2026-09-14T13:12:35.584Z",
+    "name": "CronList",
+    "input": {}
+  },
+  {
+    "source": "/Users/za/.claude/projects/-Users-za-Documents-king-down-chess/1b13f053-b37e-481e-a963-54b0069234f9.jsonl",
+    "line": 788,
+    "time": "2026-09-14T13:13:13.095Z",
+    "name": "CronDelete",
+    "input": {
+      "id": "c452571f"
+    }
+  }
+]

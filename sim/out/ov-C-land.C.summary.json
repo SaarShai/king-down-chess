@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "ov-C-land.C",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "catapultCapture": "land"
+    },
+    "asymmetric": [
+      {
+        "white": "RCBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 174,
+  "whiteScore": 0.51,
+  "whiteWins": 138,
+  "draws": 30,
+  "blackWins": 132,
+  "meanPlies": 89.4,
+  "reasons": {
+    "adjudicatedResign": 270,
+    "adjudicatedDraw": 19,
+    "drawMaterial": 2,
+    "plyCap": 1,
+    "drawRepetition": 6,
+    "draw50": 2
+  }
+}

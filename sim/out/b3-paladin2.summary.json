@@ -1,0 +1,52 @@
+{
+  "spec": {
+    "id": "b3-paladin2",
+    "games": 2000,
+    "seed": 411,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "BBKQLRRL",
+      "BLKLRBRQ",
+      "BLRRLBQK",
+      "BQRLKBLR",
+      "BRLLKQRB",
+      "KBBRLQRL",
+      "KBBRRLLQ",
+      "KBRRLLBQ",
+      "KLLBRQBR",
+      "KQLLBBRR",
+      "LQBBRLKR",
+      "LRQBBLRK",
+      "QBLRLRBK",
+      "QLLBKRBR",
+      "QLLRBKRB",
+      "RBKLLRBQ",
+      "RKBLRBQL",
+      "RKRBLQBL",
+      "RQBBKLRL",
+      "RRBBLKLQ"
+    ],
+    "note": "two paladins — army QRRBBLL, 29.1 pawns (tuned values)",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 158.7,
+  "whiteScore": 0.581,
+  "whiteWins": 966,
+  "draws": 392,
+  "blackWins": 642,
+  "meanPlies": 95.3,
+  "reasons": {
+    "adjudicatedResign": 1608,
+    "adjudicatedDraw": 270,
+    "drawRepetition": 76,
+    "plyCap": 23,
+    "drawMaterial": 14,
+    "draw50": 8,
+    "stalemate": 1
+  }
+}

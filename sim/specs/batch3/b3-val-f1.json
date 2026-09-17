@@ -1,0 +1,32 @@
+{
+  "id": "b3-val-f1",
+  "games": 2000,
+  "seed": 302,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "ABRNKQNR",
+    "ARQRNBKN",
+    "KRNNBRQA",
+    "NBRNQRKA",
+    "NNARRKQB",
+    "NNRBAKRQ",
+    "NNRKRABQ",
+    "NRRBQANK",
+    "QAKRBNNR",
+    "QKBNRRNA",
+    "QNANKRRB",
+    "QNBNRAKR",
+    "QNKRNRBA",
+    "RKQARNNB",
+    "RNBKNRQA",
+    "RNQNKRBA",
+    "RQBKNRAN",
+    "RQBNRNAK",
+    "RQBRNKNA",
+    "RRBNNKQA"
+  ],
+  "note": "fairy 1, B->A — army QRRBNNA, 31.0 pawns (tuned values)"
+}

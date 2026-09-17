@@ -1,0 +1,39 @@
+,,Cards in-hand,Cards in-play,Cards in-deck,Cards Pawned,Cards in DITCH
+,,,,,,
+,Advanced,,,,,
+,Turn Start #1,null,purge (all - 1:back to hand),null,null,null
+,"Turn End #1
+",discard (any),null,draw (discarded + 1/friendly piece in capitol +1),null,null
+,Enter Capitol #1,null,null,null,toll (+1),null
+,Taking Enemy #1,null,null,draw (1),null,null
+,Taken Friendly #1,null,null,null,null,null
+,Deck Depleted #1,null,null,null,null,"reshuffle cards to deck
+"
+,MOVE #1,null,null,null,toll (1),null
+,TAKE #1,null,null,null,toll (2),null
+,,,,,,
+,,,,,,
+,Beginners,,,,,
+,Turn Start #2,null,ditched (all - 1:back to hand ? cost to get back to hand?) ,null,null,null
+,"Turn End #2
+",none,null,draw (discarded + 1 + 1/friendly piece in capitol ),"ditch
+",null
+,Enter Capitol #2,null,null,null,toll (+1),null
+,Taking Enemy #2,null,null,draw (1),null,null
+,Taken Friendly #2,null,null,draw (1),null,null
+,Deck Depleted #2,null,null,null,null,"reshuffle cards to deck
+"
+,MOVE #1,null,null,null,MOVE TOLL,null
+,TAKE #1,null,null,null,TAKE TOLL,null
+,,,,,,
+,,,,,,
+,Beginners,,,,,
+,Turn Start #3,null,purge (all - 1:back to hand),null,null,null
+,Turn End #3,null,null,draw (1),discard,null
+,Enter Capitol #3,null,null,draw (1),toll (+1),null
+,Taking Enemy #3,null,null,draw (1),null,null
+,Taken Friendly #3,null,null,draw (1),null,null
+,Deck Depleted #3,null,null,null,null,"reshuffle cards to deck
+"
+,MOVE #3,null,null,null,toll (1),null
+,TAKE #3,null,null,null,toll (2),null

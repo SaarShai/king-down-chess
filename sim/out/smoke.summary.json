@@ -1,0 +1,30 @@
+{
+  "spec": {
+    "id": "smoke",
+    "games": 200,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "backRanks": {
+      "sample": 50
+    }
+  },
+  "games": 200,
+  "seconds": 23,
+  "whiteScore": 0.5425,
+  "whiteWins": 77,
+  "draws": 63,
+  "blackWins": 60,
+  "meanPlies": 131,
+  "reasons": {
+    "drawRepetition": 9,
+    "adjudicatedResign": 137,
+    "draw50": 13,
+    "adjudicatedDraw": 32,
+    "plyCap": 8,
+    "drawMaterial": 1
+  }
+}

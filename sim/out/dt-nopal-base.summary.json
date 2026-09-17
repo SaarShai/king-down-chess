@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "dt-nopal-base",
+    "games": 4000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 32,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {},
+    "baseId": "dt-nopal-base",
+    "backRanks": {
+      "sample": 40,
+      "pool": "QRRBBNNAAGMMSS"
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 4000,
+  "seconds": 676.9,
+  "whiteScore": 0.5259,
+  "whiteWins": 1513,
+  "draws": 1181,
+  "blackWins": 1306,
+  "meanPlies": 119.6,
+  "reasons": {
+    "adjudicatedResign": 2819,
+    "adjudicatedDraw": 968,
+    "drawRepetition": 90,
+    "plyCap": 54,
+    "draw50": 37,
+    "drawMaterial": 32
+  }
+}

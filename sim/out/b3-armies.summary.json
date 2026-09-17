@@ -1,0 +1,112 @@
+{
+  "spec": {
+    "id": "b3-armies",
+    "games": 2000,
+    "seed": 361,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "pairs": true,
+    "asymmetric": [
+      {
+        "white": "AGQKAMNM",
+        "black": "BBQGSLKS"
+      },
+      {
+        "white": "AQGMKMNA",
+        "black": "BBSQGSKL"
+      },
+      {
+        "white": "AQMKNAMG",
+        "black": "BLGQSKSB"
+      },
+      {
+        "white": "GQMAKMAN",
+        "black": "BQSKGBLS"
+      },
+      {
+        "white": "KMGAQAMN",
+        "black": "GKSSQLBB"
+      },
+      {
+        "white": "KMQNMAAG",
+        "black": "GQBBSSLK"
+      },
+      {
+        "white": "KQAAMNMG",
+        "black": "KBSQBSLG"
+      },
+      {
+        "white": "MAGAMQKN",
+        "black": "KGLBSSBQ"
+      },
+      {
+        "white": "MAKGAMQN",
+        "black": "KGSSBBQL"
+      },
+      {
+        "white": "MANAKGQM",
+        "black": "LQSSGKBB"
+      },
+      {
+        "white": "MGNAAMKQ",
+        "black": "LSKGBBQS"
+      },
+      {
+        "white": "MKAAMNQG",
+        "black": "QKBGSSLB"
+      },
+      {
+        "white": "MNAMAKQG",
+        "black": "QSBKLSGB"
+      },
+      {
+        "white": "MNMQGKAA",
+        "black": "QSBLGKSB"
+      },
+      {
+        "white": "MQMAKANG",
+        "black": "SBKSBQGL"
+      },
+      {
+        "white": "MQMANGKA",
+        "black": "SGBQKBSL"
+      },
+      {
+        "white": "NAGQKMAM",
+        "black": "SLKBSQBG"
+      },
+      {
+        "white": "NMQKAMAG",
+        "black": "SQBKGBSL"
+      },
+      {
+        "white": "QAAMNGKM",
+        "black": "SQKSBLGB"
+      },
+      {
+        "white": "QNKAMGMA",
+        "black": "SSKQLGBB"
+      }
+    ],
+    "note": "court AAGMMQN 23.86 pawns vs horde SSLQBBG 23.76 — matched on the measured values, so 0.500 or the values do not add",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 205.6,
+  "whiteScore": 0.5367,
+  "whiteWins": 783,
+  "draws": 581,
+  "blackWins": 636,
+  "meanPlies": 142.8,
+  "reasons": {
+    "drawRepetition": 41,
+    "adjudicatedResign": 1419,
+    "adjudicatedDraw": 366,
+    "draw50": 24,
+    "plyCap": 140,
+    "drawMaterial": 10
+  }
+}

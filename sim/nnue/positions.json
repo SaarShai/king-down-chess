@@ -1,0 +1,16 @@
+{
+  "games": 80000,
+  "kept": 7487107,
+  "noScore": 320000,
+  "inCheck": 323919,
+  "noisy": 1238822,
+  "decided": 17983,
+  "val": 752039,
+  "runs": [
+    "nnue-g1"
+  ],
+  "bytesPerPosition": 68,
+  "quietCp": 50,
+  "cpCap": 2000,
+  "valEvery": 10
+}

@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pilot-h2h",
+    "games": 200,
+    "seed": 1234,
+    "ai": {
+      "depth": 3
+    },
+    "pairs": true,
+    "backRanks": {
+      "sample": 100
+    },
+    "openingRandomPlies": 4,
+    "maxPlies": 300,
+    "evalParams": {
+      "white": "sim/tune/params-l0.0001.json",
+      "black": "sim/tune/params-l0.001.json"
+    }
+  },
+  "games": 200,
+  "seconds": 23.7,
+  "whiteScore": 0.555,
+  "whiteWins": 87,
+  "draws": 48,
+  "blackWins": 65,
+  "meanPlies": 156.4,
+  "reasons": {
+    "adjudicatedResign": 152,
+    "adjudicatedDraw": 14,
+    "plyCap": 15,
+    "draw50": 12,
+    "drawRepetition": 5,
+    "drawMaterial": 2
+  }
+}

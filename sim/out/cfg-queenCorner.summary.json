@@ -1,0 +1,49 @@
+{
+  "spec": {
+    "id": "cfg-queenCorner",
+    "games": 3200,
+    "backRanks": [
+      "RMSNRKGQ",
+      "QGBRALKN",
+      "QMNKRABL",
+      "QGNNMKRA",
+      "KRNBSNAQ",
+      "MNKBSMSQ",
+      "MKAALRBQ",
+      "QAMGMKNS",
+      "QSGRKGMB",
+      "RSGNKSNQ",
+      "LMGRAMKQ",
+      "BLGSKSRQ",
+      "KGMASRLQ",
+      "QNGBLRKA",
+      "QSNKSAGB",
+      "MANLNGKQ",
+      "AKGNSLBQ",
+      "QSSRAGKB",
+      "AKGMGMLQ",
+      "QSGRAKBB"
+    ],
+    "ai": {
+      "depth": 3
+    },
+    "seed": 7,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 422.1,
+  "whiteScore": 0.5322,
+  "whiteWins": 1134,
+  "draws": 1138,
+  "blackWins": 928,
+  "meanPlies": 130.1,
+  "reasons": {
+    "adjudicatedResign": 2062,
+    "adjudicatedDraw": 563,
+    "draw50": 227,
+    "drawRepetition": 141,
+    "plyCap": 184,
+    "drawMaterial": 23
+  }
+}

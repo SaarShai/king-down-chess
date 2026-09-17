@@ -1,0 +1,12 @@
+{
+  "id": "values-warden-a",
+  "games": 300,
+  "commonSeeds": true,
+  "ai": {
+    "depth": 3
+  },
+  "seed": 921,
+  "rules": {
+    "guardStep": 2
+  }
+}

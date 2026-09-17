@@ -1,0 +1,30 @@
+{
+  "id": "cfg-bishopsCorners",
+  "games": 3200,
+  "backRanks": [
+    "BSGQNAKB",
+    "BLNKNMRB",
+    "BAGANKRB",
+    "BMNGSKQB",
+    "BNKRSGMB",
+    "BALNKQMB",
+    "BRGQKMRB",
+    "BKMNRGQB",
+    "BGGNKANB",
+    "BQGMLSKB",
+    "BAANSKNB",
+    "BMLGKSNB",
+    "BAGKQRAB",
+    "BGKGRMMB",
+    "BLNSRKGB",
+    "BNAQKMNB",
+    "BKARSSMB",
+    "BAGMSNKB",
+    "BAGKQSAB",
+    "BKGLMQMB"
+  ],
+  "ai": {
+    "depth": 3
+  },
+  "seed": 7
+}

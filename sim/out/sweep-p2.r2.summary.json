@@ -1,0 +1,60 @@
+{
+  "spec": {
+    "id": "sweep-p2.r2",
+    "games": 4800,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 9,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "backRanks": [
+      "GRMGKNBB",
+      "LABKRSQN",
+      "SQBRRNKM",
+      "NSBBQNKG",
+      "QKNALSRM",
+      "MSNGGAKN",
+      "LGKBSMGR",
+      "AGSMRSMK",
+      "AKNNARLQ",
+      "SKANSGGR",
+      "BNMKGMLA",
+      "MQKASSRL",
+      "AANSMRNK",
+      "SAMNGBKR",
+      "MNABAKSM",
+      "KQMNGLAB",
+      "NKSRGRBQ",
+      "BKMLQRGA",
+      "NQMSNBKM",
+      "MRSMABKL",
+      "BSABKGLM",
+      "BSALNRKG",
+      "NAGQKGBM",
+      "MGKRGRNB",
+      "BMMRNKGG",
+      "ARLKBANN",
+      "BNMLGKAG",
+      "GRKBALBA",
+      "ARKAGNML",
+      "RNRKSBAG"
+    ],
+    "commonSeeds": true
+  },
+  "games": 4800,
+  "seconds": 477.6,
+  "whiteScore": 0.5223,
+  "whiteWins": 1599,
+  "draws": 1816,
+  "blackWins": 1385,
+  "meanPlies": 139.2,
+  "reasons": {
+    "drawRepetition": 173,
+    "adjudicatedResign": 2984,
+    "adjudicatedDraw": 910,
+    "draw50": 411,
+    "plyCap": 293,
+    "drawMaterial": 29
+  }
+}

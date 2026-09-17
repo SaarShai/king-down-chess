@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "tuned-values.M",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "asymmetric": [
+      {
+        "white": "RMBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 23.9,
+  "whiteScore": 0.5117,
+  "whiteWins": 122,
+  "draws": 63,
+  "blackWins": 115,
+  "meanPlies": 108.1,
+  "reasons": {
+    "adjudicatedResign": 237,
+    "adjudicatedDraw": 44,
+    "drawRepetition": 6,
+    "draw50": 3,
+    "drawMaterial": 3,
+    "plyCap": 6,
+    "stalemate": 1
+  }
+}

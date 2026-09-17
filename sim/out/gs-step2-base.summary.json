@@ -1,0 +1,32 @@
+{
+  "spec": {
+    "id": "gs-step2-base",
+    "games": 2000,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "seed": 912,
+    "backRanks": {
+      "sample": 40
+    },
+    "note": "control for gs-step2 — same seed and sample, so the same 40 ranks and the same openings",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 468.7,
+  "whiteScore": 0.5168,
+  "whiteWins": 743,
+  "draws": 581,
+  "blackWins": 676,
+  "meanPlies": 118.1,
+  "reasons": {
+    "adjudicatedResign": 1419,
+    "adjudicatedDraw": 483,
+    "plyCap": 27,
+    "drawRepetition": 39,
+    "drawMaterial": 13,
+    "draw50": 19
+  }
+}

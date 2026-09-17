@@ -1,0 +1,52 @@
+{
+  "spec": {
+    "id": "b3-val-f4",
+    "games": 2000,
+    "seed": 305,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "AARRQSSK",
+      "AKQRARSS",
+      "ARASRKSQ",
+      "ASASRQKR",
+      "KARASRQS",
+      "KSRRSAQA",
+      "QASRSARK",
+      "QSRSKRAA",
+      "RAKQRSAS",
+      "RAKSSQAR",
+      "RQRSSAAK",
+      "RRSQAAKS",
+      "RRSQSAKA",
+      "SAQRASRK",
+      "SASRAKQR",
+      "SKQSRRAA",
+      "SRASAKRQ",
+      "SRASRQAK",
+      "SRSARAQK",
+      "SRSKAAQR"
+    ],
+    "note": "fairy 4, B->A — the ceiling the old values said was 3 — army QRRAASS, 30.7 pawns (tuned values)",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 167.4,
+  "whiteScore": 0.5122,
+  "whiteWins": 772,
+  "draws": 505,
+  "blackWins": 723,
+  "meanPlies": 121.8,
+  "reasons": {
+    "adjudicatedResign": 1495,
+    "adjudicatedDraw": 349,
+    "plyCap": 60,
+    "drawRepetition": 69,
+    "draw50": 21,
+    "drawMaterial": 4,
+    "stalemate": 2
+  }
+}

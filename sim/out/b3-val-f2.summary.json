@@ -1,0 +1,52 @@
+{
+  "spec": {
+    "id": "b3-val-f2",
+    "games": 2000,
+    "seed": 303,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "BAKNRQSR",
+      "BKRNRSAQ",
+      "BRRQSANK",
+      "KNRASRBQ",
+      "NQBRSRAK",
+      "NQBSAKRR",
+      "NQSKABRR",
+      "NRBQRAKS",
+      "QABNRSKR",
+      "QARBSKRN",
+      "QKABRNSR",
+      "QNRRBKSA",
+      "RAKRQBSN",
+      "RANRKBSQ",
+      "RAQNKSRB",
+      "RARQBKNS",
+      "RSRKNQBA",
+      "SAQKNRRB",
+      "SQRNRKBA",
+      "SRNRABKQ"
+    ],
+    "note": "fairy 2, N->S — army QRRBNAS, 30.7 pawns (tuned values)",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 144.7,
+  "whiteScore": 0.5308,
+  "whiteWins": 866,
+  "draws": 391,
+  "blackWins": 743,
+  "meanPlies": 105.5,
+  "reasons": {
+    "adjudicatedResign": 1609,
+    "adjudicatedDraw": 294,
+    "drawRepetition": 48,
+    "plyCap": 20,
+    "drawMaterial": 15,
+    "draw50": 13,
+    "stalemate": 1
+  }
+}

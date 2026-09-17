@@ -1,0 +1,53 @@
+{
+  "spec": {
+    "id": "b3-val-f0",
+    "games": 2000,
+    "seed": 301,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "BBNRNQRK",
+      "BKNNRBRQ",
+      "BNQNKBRR",
+      "BNRNKBRQ",
+      "BNRQRNKB",
+      "BQKRRNNB",
+      "BQRKNBRN",
+      "BRNKRBQN",
+      "KBQNNRBR",
+      "KRBBNQNR",
+      "KRNQBBRN",
+      "KRNRQNBB",
+      "NBBNQRRK",
+      "NBQNRRBK",
+      "NBRNKRBQ",
+      "NBRQBNKR",
+      "NNBRKBQR",
+      "NRKNRBBQ",
+      "RNBBNQRK",
+      "RNBBQRNK"
+    ],
+    "note": "fairy 0, the only all-standard army — army QRRBBNN, 30.7 pawns (tuned values)",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 120.6,
+  "whiteScore": 0.545,
+  "whiteWins": 928,
+  "draws": 324,
+  "blackWins": 748,
+  "meanPlies": 90.4,
+  "reasons": {
+    "drawRepetition": 69,
+    "adjudicatedResign": 1674,
+    "adjudicatedDraw": 206,
+    "checkmate": 2,
+    "draw50": 13,
+    "drawMaterial": 23,
+    "stalemate": 3,
+    "plyCap": 10
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-g-Baf.L",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "paladinJumpsFriends": false
+    },
+    "asymmetric": [
+      {
+        "white": "RLBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 289.1,
+  "whiteScore": 0.5433,
+  "whiteWins": 138,
+  "draws": 50,
+  "blackWins": 112,
+  "meanPlies": 99.4,
+  "reasons": {
+    "adjudicatedResign": 250,
+    "adjudicatedDraw": 40,
+    "drawRepetition": 6,
+    "drawMaterial": 3,
+    "stalemate": 1
+  }
+}

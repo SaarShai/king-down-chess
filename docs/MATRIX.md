@@ -1,0 +1,80 @@
+# King Down — ability matrix (started 2026-09-14)
+
+Two grids: **pieces × abilities** and **board zones × rules**. Saar extends them; this is the first pass.
+Five proposed pieces that fill the empty cells: `PIECES-PROPOSED.md`.
+
+Legend: **●** shipped (default rules) · **◐** lab toggle, off by default (`name` in `src/rules/rules.ts`) ·
+**○** designed but not built (kings' powers §4 / cards §5 of `RULES.md`) · **—** nothing · **?** to decide.
+Q1…Q6 point at `docs/QUEUE.md`. Piece letters: P N B R Q K standard · A archer · L paladin · G guard · M maester · S beast ·
+**O ogre · C catapult** — built 2026-09-14 as **lab pieces**: they are not in `POOL` and reach a game only through
+`--pool` or an explicit back rank, so every ● in their columns would be misleading and their own rules read ◐.
+Measured in `docs/research/sim-new-pieces-2026-09-14.md`.
+
+## A. Pieces
+
+### A.0 Basic patterns (context for the grid below)
+
+|  | P | N | B | R | Q | K | A | L | G | M | S | O | C |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Move | forward 1 | leap 2+1 | diagonal slide | straight slide | slide | step 1 | step 1 ◐ straight only / forward-back | slide, jumps friends | step 1 ◐ step 2 | step 1 ◐ step 2 | step 1 ◐ forward only / diagonals | step 1 | straight slide, empty squares only |
+| Capture | diagonal forward 1 | = move | = move | = move | = move | = move | **shot without moving**: diagonal-adjacent or 2 straight, blockers ignored ◐ +diagonal 2 / ring 2 / forward 3 | = move, then dies | none | = move (adjacent) | 7 neighbours, not straight ahead ◐ forward diagonals only; chains | = move, a guard excepted | **lob** over one enemy screen along a rank or file, first piece beyond it ◐ `catapultCapture` stay / land |
+
+### A.1 Abilities × pieces
+
+| Ability | P | N | B | R | Q | K | A | L | G | M | S | O | C | Designed (not built) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **1a Arriving — home rank only** | — | — | — | — | — | — | — | — | — | — | — | — | — | ○ Salvation, ○ Sacrifice (Stratus) return a captured piece [1] |
+| **1b Arriving — friendly half only** | — | — | — | — | — | — | — | — | — | — | — | — | — | ○ Flight (Stratus) relocates within own half [1] |
+| **2 Shield — cannot be taken by X** | — | — | — | — | — | ● never taken (mated) | — | — | ● by all but a king ◐ off | — | — | — | — | ○ Ice Wall (1 turn, any own piece), ○ Shield card, ○ Holy Light (king vs pawns) |
+| **3 Handicap — cannot take X** | — | — | — | — | — | — | ◐ a king | ● a king ◐ off | ● anything ◐ pawns / any | — | ● a king as a chain step | — | — | ○ Holy Light (king vs pawns), ○ Mercy (king takes nothing) |
+| **4a Movement — special first move** | ● 2 forward from home rank | — | — | — | — | — | — | — | ◐ 2 from home rank, slide or leap (Q1) | — | — | — | — | ○ March (pawns 2 forward always), ○ Darkness (no double step) |
+| **4b Taking = moving?** | differs | same | same | same | same | same | differs (shoots) | same | n/a | same | differs [2] | same | differs: it never takes by moving ◐ `land` makes the lob a displacement capture | ○ Death Touch (king shoots adjacent), ○ Darkness (pawns swap move/take) |
+| **4c Hop — over any piece** | — | ● | — | — | — | — | — | — | ◐ leap, home rank only (Q1) | — | — | — | — | ○ Leap card (range not obstructed) |
+| **4d Hop — over friends only** | — | — | — | — | — | — | — | ● ◐ off = blocked | — | — | — | — | — | ○ Mercy (king), ○ Mud Leap (over own pawns) |
+| **4e Hop — over enemies only** | — | — | — | — | — | — | — | ◐ over enemies too (degenerate, `sim-lm-buffs`) | — | — | — | — | ◐ the lob hops exactly one enemy — the screen, which may not be a friend | — |
+| **5a Control — move any adjacent piece** | — | — | — | — | — | — | — | — | — | — | — | ◐ shoves one neighbour 1 square straight away onto an empty square; `ogreMode` repel / push | — | ○ Earth Quake (shove), ○ Sky Lift (swap two units) |
+| **5b Control — friends only** | — | — | — | — | — | — | — | — | — | ● swap with an adjacent friend; long swap with the king, both on home rank ◐ any friend anywhere (Q3) / king anywhere | — | ◐ a friend is shovable | — | ○ Control card, ○ Strike + Haste (Flame) |
+| **5c Control — enemies only** | — | — | — | — | — | — | — | — | — | ◐ swap with an adjacent enemy (not the king) | — | ◐ so is an enemy, a guard included — the point of the piece | — | ○ Curse (take over), ○ Freeze (deny a move) |
+| **6a Trigger on capture** | — | — | — | — | — | — | — | ● dies ◐ survives pawn captures (Q2) / never dies | ◐ spent after one capture (rejected) | — | ● may capture again ◐ off | — | — | ○ Rage (extra capture) |
+| **6b Rule vs one specific piece** | — | — | — | — | — | — | ◐ cannot take a king | ● cannot take a king | ● only a king takes it | ● long swap only with the king | ● no king as a chain step | ◐ never shoves a king of either colour | ◐ a lob may take a king, so it checks through the screen | ○ Holy Light (king ↔ pawns) |
+
+[1] No piece enters the board mid-game today. The seam is a captured-pieces reserve on `Position` plus a drop move (`from = −1`, Shogi style); the zone rule (home rank / own half) is then a filter on `to`, like promotion.
+[2] The beast moves 1 in any direction but takes only on the 7 squares that are not straight ahead, and may chain.
+
+### A.2 Where each ability lives in the engine (`src/rules/engine.ts`)
+
+| Ability group | Seam today |
+|---|---|
+| Move / capture patterns, hops | `genPiece`: one `case` per piece; `mode` `'all'` (moves) vs `'attacks'` (what gives check). A capture with `to === from` is "shoot in place" (archer; paladin's return) and every make/unmake path already handles it. The catapult's `stay` lob is the third user of that shape. |
+| Shield, handicap, piece-vs-piece | `canCapture(attacker, victim)` — one function, both directions. A new pair is one line there. |
+| Special first move | A test on `rank(from)` against the home rank (pawn, guard double step): positional, like the pawn, so no per-piece history and no FEN change. |
+| Trigger on capture | `landed()` (what the mover becomes), `Move.selfRemove` (paladin), chain generation (beast). |
+| Control | `Move.swap` (maester) and, since 2026-09-14, `Move.shove: { from, to }` (ogre) — the shoved piece is written before the mover, so `ogreMode: 'push'` needs no second path. |
+| Arriving | Not present — see [1]. |
+| Zones | No zone helper yet; ranks are compared inline. See B. |
+
+## B. Board
+
+### B.1 Zones × rules
+
+| Zone | Squares | Shipped | Lab | Designed (not built) | Ideas |
+|---|---|---|---|---|---|
+| Home rank | 1 / 8 | maester–king long swap (both on it) | guard double step from it (Q1) | — | arriving 1a |
+| Pawn rank | 2 / 7 | pawn double step | guard may not end a move on it (rejected: made the guard inert) | — | — |
+| Own half | ranks 1–4 / 5–8 | — | — | ○ Flight (Stratus): move any own piece to any empty square in own half | arriving 1b |
+| Last rank | 8 / 1 | promotion to any piece but king or guard | promotion sets | — | — |
+| **Capital** | d4 d5 e4 e5 | — | — | ○ Burn card: capture inside the capital zone | see B.2 |
+
+### B.2 Capital — the four centre tiles
+
+Each row is one kind of rule; each cell says whether it applies to that piece. All `?` until Saar fills them.
+
+| Capital rule | P | N | B | R | Q | K | A | L | G | M | S | O | C | Expected effect on play |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| C1 cannot enter | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | Keeps the named piece out of the centre. For the guard: fewer central blockades → more decisive games (the anvil pattern moves to the flanks). |
+| C2 cannot be taken while there | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | A sanctuary. Draw risk: an uncapturable centre piece is a second guard; expect longer games. |
+| C3 moves differently while there | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | A reward for holding the centre (e.g. 1-steppers step 2, pawns move sideways). Fight for the centre → sharper. |
+| C4 captures differently while there / into there | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ○ Burn (capture inside the capital). Sharpens if it adds captures; blunts if it forbids them. |
+| C5 cannot be captured *by* a piece standing there | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | The mirror of C2 — a piece in the capital is a threat but not a hunter. |
+
+Engine seam: `const CAPITAL = new Set([27, 28, 35, 36])` (d4 e4 d5 e5) and (C1) a filter on `to` in `legalMoves`, (C2/C5) a square-aware `canCaptureAt(att, vic, from, to)`, (C3/C4) a branch on `CAPITAL.has(from)` in the piece's `case`. Every rule here is measurable in the lab as a toggle, like the piece rules.

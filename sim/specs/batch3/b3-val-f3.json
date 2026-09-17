@@ -1,0 +1,32 @@
+{
+  "id": "b3-val-f3",
+  "games": 2000,
+  "seed": 304,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "ABQKSRRS",
+    "AKRSSRBQ",
+    "AKSQRSRB",
+    "ASQKRBRS",
+    "ASRQKBSR",
+    "BSARQKSR",
+    "KQRSSARB",
+    "KQSBRRSA",
+    "KRBASSRQ",
+    "KRQBRASS",
+    "KSBRQSAR",
+    "QBSSKRAR",
+    "QSRABRSK",
+    "RABSKQSR",
+    "RBKARSSQ",
+    "RQSASKRB",
+    "SBRAKQRS",
+    "SKRASBRQ",
+    "SRBASKRQ",
+    "SSQBARKR"
+  ],
+  "note": "fairy 3, N->S — army QRRBASS, 30.4 pawns (tuned values)"
+}

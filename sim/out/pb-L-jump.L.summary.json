@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-L-jump.L",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "paladinBlockedByEnemies": false
+    },
+    "asymmetric": [
+      {
+        "white": "RLBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 156.6,
+  "whiteScore": 0.5767,
+  "whiteWins": 157,
+  "draws": 32,
+  "blackWins": 111,
+  "meanPlies": 73.3,
+  "reasons": {
+    "adjudicatedResign": 268,
+    "adjudicatedDraw": 22,
+    "draw50": 3,
+    "drawRepetition": 4,
+    "drawMaterial": 3
+  }
+}

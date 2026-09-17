@@ -1,0 +1,214 @@
+﻿RULEBOOK 1st SPECIAL KICKSTARTER EDITION
+
+
+STORY
+
+
+COMPONENTS
+
+
+Board
+
+
+Cost
+
+
+Range
+
+
+SETUP
+
+
+Beginners
+1. Place 1 Pike unit on each of the 4 tiles of the 2nd row of your zone.
+2. On the 1st row of your zone, place the following units, in order, from the leftmost tile towards the right:
+   1. Cross
+   2. Steed
+   3. Thorn
+   4. King
+   5. Rock
+   6. Steed
+3. Collect 2 Pike “unit cards” and
+
+
+Advanced
+1. Collect 2 Pike “unit cards”, 1 King “unit card” and 7 more “unit cards” of your choice.
+2. Collect the corresponding units.
+3. Place 1 Pike unit on each of the 2 middle tiles of the 2nd row of your zone.
+4. Place the King unit and 5 more units, in any order, on the tiles of the 1st row of your zone. *you may place Pike units on any unoccupied tile on the 2nd row of your zone.
+5. Place the other 2 pieces in your “keep”.
+6. Collect 10 “spell cards” of your choice.
+7. Shuffle all of the cards that you’ve collected.
+8. Draw 3 cards
+
+
+HOW TO PLAY
+
+
+Win
+- first player to reach 8VP
+- 1 VP for each piece in the capital
+- 2 VP for king in the capital
+- 1 VP for each taken piece
+- 2 VP for each taken king
+
+
+RANGE
+CONTROL
+TOLL - MOVE TOLL, TAKE TOLL, CAPI TOLL
+MOVE
+TAKE
+
+
+Play
+- you can play cards and pay toll for them and perform their benefits if you haven’t already this turn.
+
+
+Tolls
+- PLAY TOLL: you can play a card from your hand (IN-HAND) to the play area (IN-PLAY) by paying a PLAY TOLL of 1.
+- MOVE TOLL: you can move any UNIT, whose UNIT card is IN-PLAY, to any tile along its RANGE that isn’t occupied by another UNIT (friendly or enemy), by paying a MOVE TOLL of 1.
+- TAKE TOLL: you can move any UNIT, whose UNIT card is IN-PLAY, to any tile along its RANGE that is occupied by an enemy UNIT, by paying a TAKE TOLL of 1 (in addition to the MOVE TOLL of 1).
+- CAPI TOLL: when any (friendly) UNIT lands on a tile in the capital on your turn, you must pay a CAPI TOLL of 1 (in addition to any other applicable tolls).
+
+
+Whenever you MOVE, you must pay MOVE TOLL
+Whenever you TAKE, you must pay TAKE TOLL
+Whenever you land in the capital, you must pay CAPI TOLL
+Whenever you play a card, you must pay PLAY TOLL
++1 MOVE = MOVE without paying ANY tolls
++1 TAKE = TAKE without paying ANY tolls
+No TOLL can be less than 0.
+
+
+Limits
+- can’t have more than 2 of the same unit (and its “unit card”), except for Pikes
+- can’t have more than 8 cards in-hand
+- spells can only influence 1 unit, even if there are several units of the same type on-board
+- always pay toll unless stated otherwise
+- any TOLL cannot be less than 0
+
+
+
+
+CARDS
+
+
+* Pike = -1 PLAY TOLL / +1 DRAW / 
+* Steed = +1 MOVE if the only Steed on the board, has LEAP
+* Cross =
+* Rock = +1 PLAY TOLL
+* Thorn = +1 MOVE TOLL, +1 TAKE TOLL / +1 PLAY TOLL, +1 MOVE TOLL
++
+* Flight = can MOVE to any tile (only once)
+* Salvation = +1 MOVE from captivity (to keep)
+* Strike = +1 PLAY TOLL, must TAKE without MOVE (*needs leap in order to take over other units?)
+* Haste = can COPY RANGE of friendly UNIT card IN-PLAY (only for MOVE)
+* Mirror = COPY a SPELL card
+* Rage = -2 TAKE TOLL
+* Curse = can CONTROL enemy unit of same type
+* Shield = +2 TAKE TOLL to TAKE this UNIT
+* Growth = +1 DRAW, at the end of turn, for each +1 TOLL paid for this UNIT
+* Burn = +1 TAKE any enemy UNIT in capital
+* Control = can CONTROL friendly UNIT within RANGE
+* Sacrifice = +1 TAKE friendly UNIT, Bonus?!
+* Rescue = this UNIT, and all its other SPELLs, remain IN-PLAY next turn
+* Leap = -1 PLAY TOLL, can LEAP over any piece along RANGE (*if adjacent, can hop over it to “next tile over”)
+?give another player…?
+
+
+play cards in opportune times
+create interesting combos
+outwit other players
+remember that playing a card costs at least 2 cards (1 to play, 1 to pawn)
+check if it matters what you do first and the order...
++
+* Fire Starter = can TAKE enemy UNITs in first row
+* Frost Bite = -1 PLAY TOLL for ALL SPELLs for this UNIT (*including this)
+* Sky Lift = +1 PLAY TOLL, SWAP this UNIT with any other UNIT on-board
+* Earth Quake = +1 MOVE ANY adjacent UNITs
+no limit spell?
++
+* King Fire = 
+* King Frost = can COPY any UNIT card IN-PLAY
+* King Sky = 
+* King Earth = -1 PLAY TOLL for playing next UNIT cards
+encourage movement with the kings
++
+* Archer = has STRIKE (can ONLY strike?)
+* Guard = has SHIELD (can’t take)
+* Paladin = has LEAP 
+* Maester = has CONTROL
+* Beast = has RAGE
+
+
+S&S CARDS
+(design B&W)
+
+
+?next spells can influence another unit in-play
+? stuff to do with interaction between players
+? if this piece is taken, …
+? +1 DRAW when exiting the capitol
+?when you PAWN this UNIT and , DRAW ANY card from the DITCH / when you PAWN this UNIT card and its SPELLs, +1 DRAW for each card from the DITCH
+?pieces that move into the board can be placed adjacently to the king
+? if this unit is in your keep…
+? if there are 3 or more enemy UNITs in the capital
+? can move to any neutral tile...
+
+
+* Black Pike = 
+* Black Steed = 
+* Black Cross = can MOVE to any adjacent tile, +1 TAKE TOLL /  +1 DRAW, +1 TAKE TOLL / 
+* Black Rock = 
+* Black Thorn = +2 MOVE TOLL
++
+* White Pike = 
+* White Steed = 
+* White Cross = can MOVE to any adjacent tile, +1 TAKE TOLL
+* White Rock = 
+* White Thorn = +2 TAKE TOLL
++
+* King Shadow =  any SPELL can be triggered twice for the same UNIT.
+* King Spirit = +1 PLAY TOLL, any SPELL can influence 2 in-play UNITs.
++
+* White Flight = +1 MOVE to any WHITE tile
+* White Strike = +1 PLAY TOLL, can TAKE without MOVE, has LEAP
+* White Salvation = +3 PLAY TOLL, MOVE from captivity (to capital)
+* White Haste = RANGE is extended to any adjacent tile along RANGE
+* White Mirror = can COPY the RANGE of any UNIT IN-PLAY
+* White Rage = -1 PLAY TOLL, +1 MOVE, +1 TAKE
+* White Curse = if in captivity, 
+* White Shield = if this UNIT is taken by enemy UNIT, TAKE enemy UNIT
+* White Growth = +2 DRAW, at the end of turn, for each other SPELL played for this UNIT
+* White Burn = +1 TAKE any enemy UNIT in your ZONE
+* White Control = next SPELLS affect ALL UNITs of the same type???
+* White Sacrifice = SWAP this UNIT with any other UNIT in captivity
+* White Rescue = DITCH this UNIT and all its SPELLS, at the end of turn, instead of ditching pawned cards
+* White Leap = +1 LEAP
++
+* White Archer = +1
+* White Guard = +2 TAKE TOLL, has WHITE SHIELD
+* White Paladin = 
+* White Maester = 
+* White Beast = has WHITE RAGE
++
+* Black Flight = +1 MOVE to any BLACK tile?
+* Black Strike = +1 TAKE without MOVE
+* Black Salvation = +1 PLAY TOLL, MOVE from captivity (to 1st row)
+* Black Haste = +2 MOVE
+* Black Mirror = can COPY any SPELL IN-HAND
+* Black Rage = +2 TAKE
+* Black Curse = +1 TAKE any UNIT of the same type
+* Black Shield = +1 TAKE TOLL for this and ALL adjacent UNITs.
+* Black Growth =  +1 DRAW when you MOVE forward???
+* Black Burn = +1 TAKE any enemy UNIT in enemy ZONE
+* Black Control = 
+* Black Sacrifice = +3 DRAW if this UNIT is in captivity
+* Black Rescue = when you PAWN this UNIT card and its SPELLs, +1 DRAW for each card from the DITCH
+* Black Leap = can LEAP, can only TAKE any UNIT you LEAP over
++
+* Black Archer = 
+* Black Guard = 
+* Black Paladin = 
+* Black Maester = 
+* Black Beast = +1 PLAY TOLL, has BLACK RAGE

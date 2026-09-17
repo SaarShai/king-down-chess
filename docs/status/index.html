@@ -1,0 +1,107 @@
+<title>King Down Status Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&display=swap" rel="stylesheet" />
+<style>
+:root{--paper:#f7f5f0;--ink:#151515;--mid:#8a8680;--hairline:#d9d5cd;--white:#fff;--dash:repeating-linear-gradient(90deg,var(--ink) 0 4px,transparent 4px 8px)}
+html,body{background:var(--paper);color:var(--ink);margin:0}
+body{font-family:DotGothic16,"Courier New",monospace;font-size:15px;line-height:1.6;padding:32px 20px 64px}
+main{max-width:960px;margin:0 auto}
+h1{font-family:"Press Start 2P",DotGothic16,monospace;font-size:18px;font-weight:400;letter-spacing:1px;line-height:1.5;margin:0 0 6px;text-wrap:balance}
+h2{font-family:"Press Start 2P",DotGothic16,monospace;font-size:12px;font-weight:400;letter-spacing:1px;margin:40px 0 14px;padding-bottom:8px;background:var(--dash) 0 100%/100% 2px no-repeat}
+h2 span{display:inline-block;background:var(--ink);color:var(--paper);padding:3px 7px;margin-right:10px}
+.lede{color:var(--mid);margin:0 0 24px}
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:18px 0 8px}
+.links a{display:block;border:2px solid var(--ink);background:var(--white);box-shadow:3px 3px 0 var(--ink);padding:10px 12px;color:var(--ink);text-decoration:none}
+.links a:hover{background:var(--ink);color:var(--paper)}
+.links small{display:block;color:var(--mid)}
+.links a:hover small{color:var(--hairline)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+.stats div{border:2px solid var(--ink);background:var(--white);padding:8px 10px;box-shadow:3px 3px 0 var(--ink)}
+.stats b{display:block;font-family:"Press Start 2P",DotGothic16,monospace;font-size:14px;font-weight:400;margin-bottom:4px}
+.stats small{color:var(--mid)}
+table{border-collapse:collapse;width:100%;margin:8px 0 4px;font-variant-numeric:tabular-nums}
+th,td{border:1px solid var(--hairline);padding:6px 9px;text-align:left;vertical-align:top}
+th{background:var(--ink);color:var(--paper);font-weight:400}
+.wrap{overflow-x:auto}
+ul,ol{padding-left:22px;margin:6px 0}
+li{margin:3px 0}
+code{background:var(--white);border:1px solid var(--hairline);padding:0 5px;font-family:inherit}
+.note{border:2px solid var(--ink);padding:10px 14px;background:var(--white);box-shadow:3px 3px 0 var(--ink);margin:12px 0}
+.q li{margin:8px 0}
+footer{color:var(--mid);margin-top:40px;font-size:13px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<main>
+<h1>KING DOWN CHESS — STATUS REPORT</h1>
+<p class="lede">2026-09-13 · one session · game v0.6.1, balance lab with ~300,000 AI-vs-AI games, all Drive folders reviewed</p>
+
+<div class="links">
+  <a href="https://claude.ai/code/artifact/7acdadad-e068-4a2e-a6a3-1635a2c3b1da">Play the game (v0.6.1)<small>?rules=2017|2021 · ?style=… · ?fen=…</small></a>
+  <a href="https://claude.ai/code/artifact/556509ef-4701-4811-89d1-58824ee8c5f8">Balance-lab dashboard<small>154 runs, ~300,000 games, error bars everywhere</small></a>
+  <a href="https://claude.ai/code/artifact/b4800dc6-5092-4468-b637-c0a3c7da0236">Style board<small>rounds 1–2, your three references</small></a>
+</div>
+<div class="stats">
+  <div><b>102</b><small>automated tests green</small></div>
+  <div><b>~300k</b><small>simulated games, 154 runs</small></div>
+  <div><b>+113 Elo</b><small>tuned evaluation vs hand-tuned</small></div>
+  <div><b>29</b><small>research reports in docs/research</small></div>
+  <div><b>19 / 19</b><small>Drive folders reviewed, 788 MB curated</small></div>
+</div>
+
+<h2><span>1</span>The game</h2>
+<ul>
+  <li><b>Setup.</b> Chess960-style random back rank from the pool Q L R R B B N N A A G G M M S S + K, mirrored, bishops on opposite colours. No castling, no en passant. Promotion to any non-king piece.</li>
+  <li><b>Rules v0.6</b> (measured this session): archer and beast step one square in any direction; the guard may capture one pawn in its lifetime and step up to two squares; paladin and maester as in the 2017 rulebook. The 2017 and 2021 sets stay selectable.</li>
+  <li><b>Look.</b> Your pick B2 "Dungeon": painted 3D voxel sculpts from your STLs, stone tiles from your Drive, torch lighting, 53° camera, orbit/zoom/pan, coordinates; 13 other presets switchable.</li>
+  <li><b>Loop.</b> Human or computer per side, undo, resign, game-over dialog with rematch, autosave and restore, captured pieces, piece info card, copy move list, keyboard shortcuts, mobile layout.</li>
+  <li><b>AI.</b> Alpha-beta with transposition table, quiescence and a Texel-tuned evaluation; depth 6–7 in one second in the browser.</li>
+  <li><b>Quality.</b> 102 tests (rules perft, every fairy mechanic, AI puzzles, self-play legality, game loop, lab); 8 full games played through the real UI; 5 game-loop bugs found and fixed at the root.</li>
+</ul>
+
+<h2><span>2</span>The balance lab</h2>
+<p>Headless runner on all 16 cores (9–11 games/s at depth 3), seeded and repeatable, colour-swapped pairs, Fishtest-style adjudication, pentanomial statistics, SPRT, Elo with error bars, balance and interest reported as two axes, rule toggles, runtime piece values, odds-match value measurement, successive-halving sweeps, data mining, Texel tuning. Commands: <code>npm run sim</code>, <code>npm run sim:analyze</code>, <code>npm run dashboard</code>.</p>
+<div class="wrap"><table>
+<tr><th>Question</th><th>Answer (beats noise)</th></tr>
+<tr><td>First-move advantage</td><td>White +25–30 Elo (score 0.52), stable from depth 3 to 5, unchanged by the new rules</td></tr>
+<tr><td>Piece values (tuned engine; knight 3.0 pawns)</td><td>archer 3.4 · beast 2.7 · paladin 2.2 · maester 2.2 · guard below 1.5</td></tr>
+<tr><td>What makes games long and drawn</td><td>guards (+20 draw points for two, at equal army value); more fairy pieces at equal value; the queen is the biggest sharpener</td></tr>
+<tr><td>The paladin</td><td>the only piece that shifts balance (+20 White points per paladin); two paladins beat two maesters by 61 Elo at equal table value</td></tr>
+<tr><td>Placement</td><td>almost nothing: maester beside the king +15 Elo for White; archers adjacent +3 draw points; king position irrelevant</td></tr>
+<tr><td>Beast chains</td><td>flavour: removing them only lengthens games</td></tr>
+<tr><td>Rule toggles</td><td>only "guard capturable by anyone" changes the game (+5 decisive); archer checks, maester long swap, promotion set, bishop colours measure nothing</td></tr>
+<tr><td>Your 2021 archer/beast</td><td>archer 84 Elo weaker than 2017; beast equal but twice as active</td></tr>
+<tr><td>Engine strength</td><td>each search ply ≈ +180 Elo; balance conclusions are depth-stable; interest rankings survive a ply (ρ 0.81) but not rule changes</td></tr>
+</table></div>
+<div class="note"><b>Rule decisions taken</b> (docs/RULES.md §6): archer steps any direction (1.7 → 3.4 pawns) · beast steps any direction (1.7 → 2.7) · guard: one pawn capture per lifetime plus a 2-step (uncapped, it harvested pawns in 44% of games) · chains, archer checks and the maester long swap kept · AI values tuned from data.</div>
+
+<h2><span>3</span>Research</h2>
+<p>Engine and rendering stacks; pixel-art styles and readability; Chess960 data and patterns; variant-balancing methodology and fun metrics; fairy-piece analogues and values; simulation tooling and statistics; balancing frameworks (Ludii, OpenSpiel, industry practice); AI players (NNUE, AlphaZero, MCTS, fast engines); eight Drive folder reviews; nine simulation result reports. All in <code>docs/research/</code>.</p>
+
+<h2><span>4</span>Drive</h2>
+<ul>
+  <li>All 19 folders reviewed. Credits resolved: © 2014–2015 Saar Shai, Double Edged Games, sculpts by the Dream Catcher studio.</li>
+  <li>Newest design file: your 2021 "Chess Expansion Concept" (this exact project).</li>
+  <li>Keepers curated into <code>art-src/</code> (meshes, colour guides, final piece art, board sources, emblems, logo, rules documents, teaser video) with a manifest that maps every file to its Drive path; the raw 51 GB download is deleted.</li>
+</ul>
+
+<h2><span>5</span>Open items</h2>
+<ul>
+  <li>Kings' powers and card effects (documented in RULES.md §4–5, not built).</li>
+  <li>Stronger AI: a small learned evaluation (NNUE-class) is the next step; online play.</li>
+  <li>Guard identity: below 1.5 pawns under every rule tried; a wall, not a fighter.</li>
+  <li>Paladin and maester measure ~2.2 pawns with the stronger engine.</li>
+  <li>Licensing before shipping: board tiles derive from textures.com stock; the Imperator fonts carry no licence; mood boards and "early inspiration" are third-party.</li>
+  <li>One relaxed test (evaluation mirror symmetry within 1 cp, a float artefact) to fix with an integer phase.</li>
+  <li>"Fun" rankings of arrangements are reliable only within one engine version.</li>
+</ul>
+
+<h2><span>6</span>Questions for you</h2>
+<ol class="q">
+  <li>Guard: keep it as an immortal wall (weak but distinctive), or let anyone capture it (+5 decisive, loses the identity)?</li>
+  <li>Paladin and maester at ~2.2 pawns: fine as light pieces, or test buffs for them next?</li>
+  <li>Credits line: "Design and art © Saar Shai / Double Edged Games; sculpts Dream Catcher" — correct?</li>
+  <li>Next build phase: kings' powers, or the learned evaluation for a stronger opponent first?</li>
+</ol>
+<footer>Full text: docs/STATUS-2026-09-13.md · tasks: TASKS.md · lessons: LESSONS.md</footer>
+</main>

@@ -1,0 +1,51 @@
+{
+  "spec": {
+    "id": "b3-archer-far-G",
+    "games": 3200,
+    "seed": 392,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "AKBGQGRA",
+      "ARKBAQGG",
+      "BAKQGGRA",
+      "BGRGQKAA",
+      "GBRAQGKA",
+      "GGBRAQAK",
+      "GKQBGRAA",
+      "GQAKGRAB",
+      "GQGBAKRA",
+      "GQKGRABA",
+      "GRAKGBAQ",
+      "KGBAAQRG",
+      "KGBQAARG",
+      "KGRAABQG",
+      "KQGGRAAB",
+      "QGGBKRAA",
+      "QGRGKABA",
+      "RAABKQGG",
+      "RAAQGKGB",
+      "RGGQABAK"
+    ],
+    "note": "no archer next to a guard",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 337.3,
+  "whiteScore": 0.5102,
+  "whiteWins": 734,
+  "draws": 1797,
+  "blackWins": 669,
+  "meanPlies": 153.3,
+  "reasons": {
+    "adjudicatedResign": 1403,
+    "drawRepetition": 122,
+    "adjudicatedDraw": 1007,
+    "plyCap": 463,
+    "drawMaterial": 45,
+    "draw50": 160
+  }
+}

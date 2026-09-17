@@ -1,0 +1,52 @@
+{
+  "spec": {
+    "id": "b3-archer-corner",
+    "games": 3200,
+    "seed": 341,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "ABBKQRRA",
+      "ABBKRRQA",
+      "ABBQRRKA",
+      "ABBRKQRA",
+      "ABKQBRRA",
+      "ABKRBQRA",
+      "ABRKRQBA",
+      "ABRQBRKA",
+      "ABRRBQKA",
+      "AKBBRQRA",
+      "AKQRBBRA",
+      "AQBBRRKA",
+      "AQKBRRBA",
+      "AQRBBKRA",
+      "ARBBQRKA",
+      "ARBRQBKA",
+      "ARKRQBBA",
+      "ARQBBRKA",
+      "ARRKQBBA",
+      "ARRQBBKA"
+    ],
+    "note": "both archers on a/h",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 213.6,
+  "whiteScore": 0.517,
+  "whiteWins": 1295,
+  "draws": 719,
+  "blackWins": 1186,
+  "meanPlies": 107.1,
+  "reasons": {
+    "adjudicatedResign": 2480,
+    "adjudicatedDraw": 531,
+    "drawMaterial": 12,
+    "drawRepetition": 104,
+    "draw50": 46,
+    "plyCap": 26,
+    "checkmate": 1
+  }
+}

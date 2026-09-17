@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-M-step2.M",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "maesterStep": 2
+    },
+    "asymmetric": [
+      {
+        "white": "RMBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 182,
+  "whiteScore": 0.4933,
+  "whiteWins": 115,
+  "draws": 66,
+  "blackWins": 119,
+  "meanPlies": 103.5,
+  "reasons": {
+    "adjudicatedResign": 234,
+    "adjudicatedDraw": 51,
+    "drawMaterial": 6,
+    "drawRepetition": 7,
+    "plyCap": 2
+  }
+}

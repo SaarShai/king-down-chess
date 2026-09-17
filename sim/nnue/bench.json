@@ -1,0 +1,22 @@
+[
+  {
+    "evaluator": "linear",
+    "depth": 5,
+    "positions": 12,
+    "nodes": 953690,
+    "seconds": 2.46,
+    "nodesPerSec": 387661,
+    "meanDepthIn1s": 6.08,
+    "nodesIn1s": 266716
+  },
+  {
+    "evaluator": "residual",
+    "depth": 5,
+    "positions": 12,
+    "nodes": 956596,
+    "seconds": 3.39,
+    "nodesPerSec": 282147,
+    "meanDepthIn1s": 5.92,
+    "nodesIn1s": 194141
+  }
+]

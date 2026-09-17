@@ -1,0 +1,51 @@
+{
+  "spec": {
+    "id": "cfg-archersAdjacent",
+    "games": 3200,
+    "backRanks": [
+      "SBAAQKMS",
+      "NRSKBQAA",
+      "GAAQKGBN",
+      "MKAALRBQ",
+      "GGBAABRK",
+      "NSAAGKRB",
+      "BRAALSNK",
+      "SAAKRNMQ",
+      "MGKMRAAN",
+      "MKRNMSAA",
+      "AASBKLGQ",
+      "RRSKAAQG",
+      "AAKRMGML",
+      "KBBNRGAA",
+      "QKBGMAAN",
+      "SQSAAMKL",
+      "AAGKRNLS",
+      "AANRGKBS",
+      "NKRAAQSG",
+      "NAAKRSBN"
+    ],
+    "ai": {
+      "depth": 3
+    },
+    "seed": 7,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 435.2,
+  "whiteScore": 0.522,
+  "whiteWins": 883,
+  "draws": 1575,
+  "blackWins": 742,
+  "meanPlies": 156.6,
+  "reasons": {
+    "adjudicatedResign": 1622,
+    "drawRepetition": 106,
+    "adjudicatedDraw": 698,
+    "draw50": 420,
+    "plyCap": 343,
+    "checkmate": 3,
+    "drawMaterial": 7,
+    "stalemate": 1
+  }
+}

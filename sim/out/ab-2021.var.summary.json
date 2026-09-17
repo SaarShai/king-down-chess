@@ -1,0 +1,40 @@
+{
+  "spec": {
+    "id": "ab-2021.var",
+    "games": 4000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "fwdBack",
+      "archerShots": "forward3",
+      "beastMove": "diagFwdBack",
+      "beastCapture": "diagForward"
+    },
+    "baseId": "ab17-base",
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 4000,
+  "seconds": 250.6,
+  "whiteScore": 0.5205,
+  "whiteWins": 1344,
+  "draws": 1476,
+  "blackWins": 1180,
+  "meanPlies": 135.3,
+  "reasons": {
+    "adjudicatedResign": 2522,
+    "adjudicatedDraw": 792,
+    "drawMaterial": 31,
+    "draw50": 254,
+    "plyCap": 229,
+    "drawRepetition": 170,
+    "checkmate": 2
+  }
+}

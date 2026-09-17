@@ -1,0 +1,45 @@
+{
+  "spec": {
+    "id": "g1-pawns1.G",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "guardCaptures": "pawns"
+    },
+    "values": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    },
+    "asymmetric": [
+      {
+        "white": "RGBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 21.1,
+  "whiteScore": 0.47,
+  "whiteWins": 124,
+  "draws": 34,
+  "blackWins": 142,
+  "meanPlies": 90.7,
+  "reasons": {
+    "adjudicatedResign": 266,
+    "adjudicatedDraw": 21,
+    "drawMaterial": 6,
+    "draw50": 5,
+    "drawRepetition": 2
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "b3-archer-beside-G",
+  "games": 3200,
+  "seed": 391,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "AAGRBGQK",
+    "AGAKBRGQ",
+    "AGBRAKQG",
+    "AGQBRAGK",
+    "AGRQABKG",
+    "ARKBGAQG",
+    "BAQAGGRK",
+    "BKQGAGAR",
+    "BQARAGGK",
+    "BRGGAAKQ",
+    "GAQKBGRA",
+    "GARQGKBA",
+    "GRAQKBGA",
+    "KBARQGAG",
+    "KBRGAAGQ",
+    "KGRBGAQA",
+    "KQABAGRG",
+    "QGKRGAAB",
+    "RGAAKBQG",
+    "RQAKGBAG"
+  ],
+  "note": "an archer next to a guard (H4: guards wall, archers shoot through)"
+}

@@ -1,0 +1,9 @@
+,,,,
+,,,discard ALL in-play cards,discard spell in-play cards
+,,,,
+,TURN begin,,,
+,TURN play,,,
+,TURN end,,,
+,,,,
+,MAX in-hand,,,
+,MAX in-play,,,

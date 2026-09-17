@@ -1,0 +1,38 @@
+{
+  "spec": {
+    "id": "pb-M-swapEnemy.M",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "maesterSwapEnemy": true
+    },
+    "asymmetric": [
+      {
+        "white": "RMBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 204.1,
+  "whiteScore": 0.5083,
+  "whiteWins": 121,
+  "draws": 63,
+  "blackWins": 116,
+  "meanPlies": 108.8,
+  "reasons": {
+    "adjudicatedResign": 237,
+    "draw50": 2,
+    "adjudicatedDraw": 45,
+    "drawMaterial": 3,
+    "drawRepetition": 6,
+    "plyCap": 6,
+    "stalemate": 1
+  }
+}

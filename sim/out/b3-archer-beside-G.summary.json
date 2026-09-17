@@ -1,0 +1,52 @@
+{
+  "spec": {
+    "id": "b3-archer-beside-G",
+    "games": 3200,
+    "seed": 391,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "AAGRBGQK",
+      "AGAKBRGQ",
+      "AGBRAKQG",
+      "AGQBRAGK",
+      "AGRQABKG",
+      "ARKBGAQG",
+      "BAQAGGRK",
+      "BKQGAGAR",
+      "BQARAGGK",
+      "BRGGAAKQ",
+      "GAQKBGRA",
+      "GARQGKBA",
+      "GRAQKBGA",
+      "KBARQGAG",
+      "KBRGAAGQ",
+      "KGRBGAQA",
+      "KQABAGRG",
+      "QGKRGAAB",
+      "RGAAKBQG",
+      "RQAKGBAG"
+    ],
+    "note": "an archer next to a guard (H4: guards wall, archers shoot through)",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 333.3,
+  "whiteScore": 0.5162,
+  "whiteWins": 773,
+  "draws": 1758,
+  "blackWins": 669,
+  "meanPlies": 152.2,
+  "reasons": {
+    "adjudicatedResign": 1441,
+    "adjudicatedDraw": 976,
+    "draw50": 162,
+    "plyCap": 454,
+    "drawRepetition": 110,
+    "drawMaterial": 56,
+    "checkmate": 1
+  }
+}

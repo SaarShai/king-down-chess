@@ -1,0 +1,32 @@
+{
+  "spec": {
+    "id": "pb-smoke.L",
+    "games": 10,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "paladinReturn": true
+    },
+    "asymmetric": [
+      {
+        "white": "RLBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 10,
+  "seconds": 1.9,
+  "whiteScore": 0.6,
+  "whiteWins": 6,
+  "draws": 0,
+  "blackWins": 4,
+  "meanPlies": 34.9,
+  "reasons": {
+    "adjudicatedResign": 10
+  }
+}

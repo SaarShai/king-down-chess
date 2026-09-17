@@ -1,0 +1,32 @@
+{
+  "id": "b3-iso-v32",
+  "games": 2000,
+  "seed": 311,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "ABMRKAQR",
+    "ABRMRKAQ",
+    "AKRBRMAQ",
+    "AQMARKBR",
+    "ARAMBKQR",
+    "BAQRAMRK",
+    "BQAKMRRA",
+    "BQRAMKRA",
+    "BQRRMAAK",
+    "KAMBQRRA",
+    "KARABQMR",
+    "MAQABKRR",
+    "MARQRKAB",
+    "QAARBMRK",
+    "RAMABRQK",
+    "RAMQBRKA",
+    "RBQAMKRA",
+    "RKARQBAM",
+    "RMAAKRQB",
+    "RRKBQMAA"
+  ],
+  "note": "fairy 3, top of the value ladder — army QRRBAAM, 30.6 pawns (tuned values)"
+}

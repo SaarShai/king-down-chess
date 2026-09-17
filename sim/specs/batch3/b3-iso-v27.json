@@ -1,0 +1,32 @@
+{
+  "id": "b3-iso-v27",
+  "games": 2000,
+  "seed": 312,
+  "ai": {
+    "depth": 3
+  },
+  "commonSeeds": true,
+  "backRanks": [
+    "AKMBBAQN",
+    "AMBQNKAB",
+    "ANQMBBAK",
+    "AQAKMBBN",
+    "BAMQANKB",
+    "BAQNMBKA",
+    "BKNMABQA",
+    "BMQAAKNB",
+    "BQAMKANB",
+    "BQMNKAAB",
+    "BQNKABAM",
+    "KBAMBNQA",
+    "KMNQBAAB",
+    "MABQKANB",
+    "MBAAQNBK",
+    "NAQABKMB",
+    "NBAMKABQ",
+    "NBMAAKBQ",
+    "NBQAMKBA",
+    "NKBAABMQ"
+  ],
+  "note": "fairy 3, middle — army QBBNAAM, 27.3 pawns (tuned values)"
+}

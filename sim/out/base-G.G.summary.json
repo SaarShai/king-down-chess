@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "base-G.G",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "asymmetric": [
+      {
+        "white": "RGBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 0,
+  "whiteScore": 0.5067,
+  "whiteWins": 142,
+  "draws": 20,
+  "blackWins": 138,
+  "meanPlies": 89.6,
+  "reasons": {
+    "adjudicatedResign": 280,
+    "plyCap": 3,
+    "drawRepetition": 5,
+    "adjudicatedDraw": 9,
+    "draw50": 1,
+    "drawMaterial": 2
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "spec": {
+    "id": "pb-lp-nojump.var",
+    "games": 800,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 41,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "promotionSet": "anyNonKing",
+      "paladinJumpsFriends": false
+    },
+    "baseRules": {
+      "promotionSet": "anyNonKing"
+    },
+    "baseId": "pb-lp-base",
+    "backRanks": {
+      "sample": 40,
+      "pool": "QRRBBNNL"
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 800,
+  "seconds": 642.4,
+  "whiteScore": 0.5506,
+  "whiteWins": 367,
+  "draws": 147,
+  "blackWins": 286,
+  "meanPlies": 99.2,
+  "reasons": {
+    "adjudicatedResign": 652,
+    "adjudicatedDraw": 108,
+    "drawRepetition": 16,
+    "draw50": 5,
+    "drawMaterial": 14,
+    "plyCap": 4,
+    "checkmate": 1
+  }
+}

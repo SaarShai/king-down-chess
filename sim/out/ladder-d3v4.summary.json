@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "ladder-d3v4",
+    "games": 200,
+    "backRanks": {
+      "sample": 100
+    },
+    "ai": {
+      "white": {
+        "depth": 4
+      },
+      "black": {
+        "depth": 3
+      }
+    },
+    "openingRandomPlies": 4,
+    "maxPlies": 300,
+    "seed": 21
+  },
+  "games": 200,
+  "seconds": 69.5,
+  "whiteScore": 0.475,
+  "whiteWins": 61,
+  "draws": 68,
+  "blackWins": 71,
+  "meanPlies": 147.4,
+  "reasons": {
+    "adjudicatedResign": 132,
+    "plyCap": 16,
+    "adjudicatedDraw": 35,
+    "draw50": 12,
+    "drawMaterial": 3,
+    "drawRepetition": 2
+  }
+}

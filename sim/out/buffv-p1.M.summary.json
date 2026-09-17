@@ -1,0 +1,42 @@
+{
+  "spec": {
+    "id": "buffv-p1.M",
+    "games": 500,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "values": {
+      "A": 270,
+      "G": 180,
+      "S": 210,
+      "L": 320,
+      "M": 350
+    },
+    "asymmetric": [
+      {
+        "white": "RMBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 500,
+  "seconds": 155.8,
+  "whiteScore": 0.522,
+  "whiteWins": 213,
+  "draws": 96,
+  "blackWins": 191,
+  "meanPlies": 96,
+  "reasons": {
+    "adjudicatedResign": 403,
+    "adjudicatedDraw": 62,
+    "drawMaterial": 12,
+    "draw50": 5,
+    "drawRepetition": 15,
+    "plyCap": 2,
+    "checkmate": 1
+  }
+}

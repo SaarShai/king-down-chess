@@ -1,0 +1,39 @@
+{
+  "spec": {
+    "id": "tune-g0",
+    "games": 8600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 101,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "guardCaptures": "none",
+      "guardStep": 1,
+      "guardCaptureLimit": 0
+    },
+    "backRanks": {
+      "sample": 1000
+    }
+  },
+  "games": 8693,
+  "seconds": 0,
+  "whiteScore": 0.5168,
+  "whiteWins": 2903,
+  "draws": 3179,
+  "blackWins": 2611,
+  "meanPlies": 135.2,
+  "reasons": {
+    "adjudicatedResign": 5512,
+    "adjudicatedDraw": 2168,
+    "plyCap": 510,
+    "drawRepetition": 288,
+    "draw50": 143,
+    "drawMaterial": 69,
+    "stalemate": 1,
+    "checkmate": 2
+  }
+}

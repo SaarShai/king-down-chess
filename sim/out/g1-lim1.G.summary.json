@@ -1,0 +1,48 @@
+{
+  "spec": {
+    "id": "g1-lim1.G",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "beastMove": "any",
+      "guardCaptures": "pawns",
+      "guardStep": 2,
+      "guardCaptureLimit": 1
+    },
+    "values": {
+      "A": 280,
+      "L": 310,
+      "G": 170,
+      "M": 330,
+      "S": 215
+    },
+    "asymmetric": [
+      {
+        "white": "RGBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 23.6,
+  "whiteScore": 0.5033,
+  "whiteWins": 128,
+  "draws": 46,
+  "blackWins": 126,
+  "meanPlies": 96.5,
+  "reasons": {
+    "adjudicatedResign": 254,
+    "adjudicatedDraw": 21,
+    "drawMaterial": 13,
+    "plyCap": 2,
+    "draw50": 7,
+    "drawRepetition": 3
+  }
+}

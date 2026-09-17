@@ -1,0 +1,46 @@
+{
+  "spec": {
+    "id": "ab-buff-big.var",
+    "games": 15000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 11,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerMove": "any",
+      "guardCaptures": "pawns",
+      "guardStep": 2,
+      "beastMove": "any"
+    },
+    "values": {
+      "A": 280,
+      "G": 170,
+      "S": 215,
+      "L": 310,
+      "M": 330
+    },
+    "backRanks": {
+      "sample": 150
+    },
+    "commonSeeds": true
+  },
+  "games": 15000,
+  "seconds": 3107.3,
+  "whiteScore": 0.5212,
+  "whiteWins": 4787,
+  "draws": 6062,
+  "blackWins": 4151,
+  "meanPlies": 134.7,
+  "reasons": {
+    "adjudicatedResign": 8927,
+    "adjudicatedDraw": 3434,
+    "draw50": 936,
+    "drawMaterial": 656,
+    "drawRepetition": 480,
+    "plyCap": 552,
+    "checkmate": 11,
+    "stalemate": 4
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "spec": {
+    "id": "b3-archer-centre",
+    "games": 3200,
+    "seed": 342,
+    "ai": {
+      "depth": 3
+    },
+    "commonSeeds": true,
+    "backRanks": [
+      "BBRAAKRQ",
+      "BBRAAQRK",
+      "BKRAABRQ",
+      "BQRAARKB",
+      "BRQAAKRB",
+      "KQRAABBR",
+      "KRBAABRQ",
+      "KRBAAQRB",
+      "QBBAAKRR",
+      "QBBAARRK",
+      "QKBAABRR",
+      "QKRAARBB",
+      "QRBAAKRB",
+      "QRBAARKB",
+      "QRRAAKBB",
+      "RBBAARQK",
+      "RKQAARBB",
+      "RKRAAQBB",
+      "RQBAABRK",
+      "RRQAAKBB"
+    ],
+    "note": "both archers on d/e",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 3200,
+  "seconds": 199.2,
+  "whiteScore": 0.5277,
+  "whiteWins": 1319,
+  "draws": 739,
+  "blackWins": 1142,
+  "meanPlies": 101.1,
+  "reasons": {
+    "adjudicatedResign": 2455,
+    "adjudicatedDraw": 553,
+    "plyCap": 30,
+    "drawRepetition": 114,
+    "draw50": 32,
+    "checkmate": 6,
+    "drawMaterial": 10
+  }
+}
