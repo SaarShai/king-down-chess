@@ -231,6 +231,31 @@ rule change; expect about a 5× saving [14].
 buys 2000 Elo in days [13], and alpha-beta plus NNUE gets there for far less); a Rust port before the
 games/s measurement; HalfKA features (king refresh, file size).
 
+## Status update — 2026-09-17
+
+Two of the stages below are now done or measured, in-house rather than with the external tools the
+research assumed:
+
+- **The small NNUE exists and passed its gate.** The in-repo TypeScript trainer (`src/sim/gen.ts`,
+  not `bullet`) produced a **residual** net (linear evaluation + a clipped net of at most ±150 cp) from
+  80,000 fresh self-play games: gate +167 ± 26 Elo, decision **+139 ± 14 Elo** over 1,600 games at
+  depth 3, depth-4 confirmation **+149 ± 37**, and a one-second browser search reaching depth 5.92
+  against linear's 6.08. It is **accepted as a candidate** and not the default
+  (`docs/research/ai-q6-acceptance-2026-09-16.md`). Adopting it is a one-word switch plus a rebuild.
+- **The speed question is answered without a Rust port**: the lab runs 6–9 games/s at depth 3 on 16
+  cores, so a million-game corpus is a two-day job; the browser search already reaches depth 6 in one
+  second with the linear evaluation, 5.9 with the residual.
+- **The balance player's bias is handled differently** from the temperature suggestion below: every
+  A/B is paired over shared arrangements and opening seeds, and the residual was trained on a corpus
+  whose records carry full rule/source stamps.
+
+What remains from the staged plan, in the order the evidence supports: adopt the residual (owner
+decision); add an **incremental accumulator** for node speed if the net ships; distill the search
+into a **policy** head for instant browser play; build an **opening book** from self-play so games do
+not repeat the first plies; solve small endgames with retrograde **tablebases**; and only then consider
+AlphaZero-style self-play RL (LightZero/OpenSpiel/minizero over a Rust core), which costs months and a
+GPU for gains that alpha-beta + NNUE reaches more cheaply at this scale.
+
 ## Not verified
 
 - No head-to-head table of MCTS against alpha-beta at fixed compute for chess-like games.
