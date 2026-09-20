@@ -177,7 +177,11 @@ async function maybeAi(): Promise<void> {
   busy = true;
   refresh();
   const g = gen;
-  const res = await engine.think(game.pos, { timeMs: +$<HTMLInputElement>('think').value });
+  // The first few plies sample root moves within 15 cp of the best (docs/research/ai-players.md,
+  // stage 1): the AI stops repeating one opening per back rank, at a cost the band bounds. Later
+  // plies stay fully deterministic.
+  const opening = game.history.length < 6;
+  const res = await engine.think(game.pos, { timeMs: +$<HTMLInputElement>('think').value, ...(opening ? { temperature: 15 } : {}) });
   if (g !== gen) return;
   busy = false;
   if (res.move) await commit(res.move);

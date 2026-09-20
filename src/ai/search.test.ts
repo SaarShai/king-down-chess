@@ -191,3 +191,24 @@ describe('ogre and catapult', () => {
     expect(res.score).toBeGreaterThan(300);
   });
 });
+
+describe('root temperature (opening variety)', () => {
+  it('changes nothing when off, and samples inside the band when on', () => {
+    const pos = fromFen(MID);
+    resetSearchState();
+    const a = search(pos, { maxDepth: 3 });
+    resetSearchState();
+    const b = search(pos, { maxDepth: 3 });
+    expect(toLan(pos, a.move!)).toBe(toLan(pos, b.move!)); // deterministic without temperature
+
+    resetSearchState();
+    const pickBest = search(pos, { maxDepth: 3, temperature: 40, rng: () => 0 });
+    expect(toLan(pos, pickBest.move!)).toBe(toLan(pos, a.move!)); // rng 0 takes the best
+
+    resetSearchState();
+    const other = search(pos, { maxDepth: 3, temperature: 40, rng: () => 0.999 });
+    expect(other.move).not.toBeNull();
+    expect(other.score).toBeGreaterThanOrEqual(a.score - 40); // never leaves the band
+    expect(other.score).toBeLessThanOrEqual(a.score);
+  }, 20_000);
+});

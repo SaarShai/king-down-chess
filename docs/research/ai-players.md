@@ -249,8 +249,10 @@ research assumed:
   A/B is paired over shared arrangements and opening seeds, and the residual was trained on a corpus
   whose records carry full rule/source stamps.
 
-What remains from the staged plan, in the order the evidence supports: adopt the residual (owner
-decision); add an **incremental accumulator** for node speed if the net ships; distill the search
+What remains from the staged plan, in the order the evidence supports: **adopt was done 2026-09-17**;
+**stage 1 (opening variety) is done** — the browser samples root moves within 15 cp of the best for
+the first six plies (`search({ temperature })`), so the AI stops repeating one opening per back rank;
+add an **incremental accumulator** for node speed if the net ships; distill the search
 into a **policy** head for instant browser play; build an **opening book** from self-play so games do
 not repeat the first plies; solve small endgames with retrograde **tablebases**; and only then consider
 AlphaZero-style self-play RL (LightZero/OpenSpiel/minizero over a Rust core), which costs months and a

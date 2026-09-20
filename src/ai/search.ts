@@ -338,6 +338,16 @@ export interface SearchOptions {
    * its alpha-beta cutoffs and the search costs roughly twice as much. Default 1: off.
    */
   multiPv?: 1 | 2;
+  /**
+   * Root sampling band in centipawns (docs/research/ai-players.md, stage 1): after the search, pick
+   * uniformly among root moves whose score is within `temperature` of the best. Opens vary between
+   * games without weakening play by more than the band. 0/undefined is the untouched deterministic
+   * choice. Implies the full-window root scan (`multiPv` cost), so use it where that is cheap — the
+   * browser uses it for the first few plies only.
+   */
+  temperature?: number;
+  /** Random source for `temperature`; defaults to `Math.random`. Pass a seeded one for tests. */
+  rng?: () => number;
 }
 export interface SearchResult {
   move: Move | null; score: number; depth: number; nodes: number;
@@ -406,15 +416,18 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
   for (let i = 0; i < history.length; i++) history[i] >>= 3; // fade, do not forget
   path[0] = combine(hLo, hHi);
 
-  const multi = opts.multiPv === 2;
+  const temperature = opts.temperature ?? 0;
+  const multi = opts.multiPv === 2 || temperature > 0;
   const rootMoves = genLegal(bufs[0], pos.turn, 'all');
   const result: SearchResult = { move: rootMoves[0] ?? null, score: 0, depth: 0, nodes: 0 };
   if (rootMoves.length === 0) return result;
 
   let prevElapsed = 0;
+  let lastScores: { move: Move; score: number }[] = [];
   for (let depth = 1; depth <= maxDepth; depth++) {
     rootDepth = depth;
     let bestScore = -INF, secondScore = -INF, bestIdx = -1, alpha = -INF;
+    const scores: { move: Move; score: number }[] = [];
     for (let i = 0; i < rootMoves.length; i++) {
       const m = rootMoves[i];
       const nhm = m.captures.length || typeOf(board[m.from]) === P ? 0 : pos.halfmove + 1;
@@ -424,6 +437,7 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
       if (!multi && i > 0 && v > alpha) v = -negamax(depth - 1, -INF, -alpha, 1, nhm);
       undo(base);
       if (stop) break;
+      scores.push({ move: m, score: v });
       if (v > bestScore) { secondScore = bestScore; bestScore = v; bestIdx = i; }
       else if (v > secondScore) secondScore = v;
       if (v > alpha) alpha = v;
@@ -432,7 +446,8 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
       result.move = rootMoves[bestIdx];
       result.score = bestScore;
       result.depth = depth;
-      if (multi && secondScore > -INF) result.second = secondScore;
+      if (opts.multiPv === 2 && secondScore > -INF) result.second = secondScore;
+      lastScores = scores;
       rootMoves.unshift(...rootMoves.splice(bestIdx, 1)); // search the best move first next time
     }
     if (stop || Math.abs(bestScore) >= MATE_BOUND) break;
@@ -441,6 +456,15 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
     // costs roughly 1.4x the one before it; the flat cap catches a bad estimate from a fast start.
     if (elapsed + (elapsed - prevElapsed) * 1.4 > timeMs || elapsed > timeMs * 0.75) break;
     prevElapsed = elapsed;
+  }
+  // Root sampling: within the band, pick uniformly. Only after a completed iteration with scores.
+  if (temperature > 0 && lastScores.length) {
+    const cut = result.score - temperature;
+    const candidates = lastScores.filter(s => s.score >= cut);
+    const rng = opts.rng ?? Math.random;
+    const pick = candidates[Math.min(candidates.length - 1, Math.floor(rng() * candidates.length))];
+    result.move = pick.move;
+    result.score = pick.score;
   }
   result.nodes = nodes;
   return result;
