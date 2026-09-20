@@ -21,6 +21,7 @@ if (preset || kings) setRules({ ...preset, ...(kings ? { kings: parseKings(kings
 /** One line per power, for the info card. The six built powers only; tier 2–3 cannot be selected. */
 const POWER_TEXT: Partial<Record<PowerName, string>> = {
   HolyLight: 'enemy pawns cannot take this king, and it cannot take pawns',
+  Strike: 'once per game, move any piece except the king as if it were a queen',
   Mercy: 'the king steps 1–2, jumps friends and takes only a guard',
   DeathTouch: 'the king takes an adjacent enemy without moving — it can only take this way',
   Darkness: 'pawns step diagonally and take straight ahead, with no double step',

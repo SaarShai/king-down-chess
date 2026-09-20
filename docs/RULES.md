@@ -47,15 +47,20 @@ Interactions decided in code (`canCapture`): a guard is taken only by a king; a 
 The attacker set used for check = every piece's capture pattern, so an archer checks through blockers and a paladin never checks.
 Design space by ability (arriving, shield, handicap, hopping, control, on-capture triggers) and by board zone (capital): `docs/MATRIX.md`.
 
-## 4. Kings' powers (six tier-1 powers built as lab rules, off by default)
+## 4. Kings' powers (six stateless powers plus Strike, off by default)
 
 Each army has a king with two candidate powers; the player picks one after setup. Token-spending mechanics are ignored per project scope;
 when we enable powers we will decide per power whether it is "always on" or "N uses" — the six built
 powers are currently **always on** with no charge counter. Powers cannot capture a king nor give check/mate.
 
 **Implemented (lab, off by default; `?kings=<king>:<power>`):** the stateless tier-1 powers **Holy
-Light, Mercy, Death Touch, Darkness, March and Leap**. `parseKing` refuses the other six (they need
-per-side state or a reserve). The exact implemented semantics, the guide text, 21 targeted tests and
+Light, Mercy, Death Touch, Darkness, March and Leap**, plus **Strike** (Flame A, tier 2): once per
+side per game, any own non-king piece moves as if it were a queen, as the whole turn. The piece
+keeps its own type (a striking pawn never promotes) and a strike never captures a king and is not
+an attack — `isAttacked` still sees only the piece's normal pattern. The one-use flag is game
+state: it lives on `Position.strike`, round-trips in FEN field 7 (`w`/`b`/`wb`, written only when
+spent), prints as a trailing `!` in LAN, and `parseKing` refuses the remaining five (they still need
+marks, charges or a reserve). The exact implemented semantics, the guide text, 21 targeted tests and
 the measured (or queued) campaign are in `docs/research/sim-kings-2026-09-16.md`; the material
 unresolved owner choices (Mercy vs guard immunity, the Death Touch verb, always-on vs charged
 March/Leap, adjacent Mercy kings, the Darkness evaluation confound) are listed there too.
@@ -63,7 +68,7 @@ March/Leap, adjacent Mercy kings, the Darkness evaluation confound) are listed t
 | King | Power A | Power B |
 |---|---|---|
 | Frost | **Freeze**: pick an enemy piece (not king); it cannot move during the opponent's next turn | **Ice Wall**: pick a friendly piece (not king); it cannot be captured during the opponent's next turn |
-| Flame | **Strike**: move any own piece (not king) as if it were a queen; counts as a turn | **Haste**: move one piece twice in a single turn |
+| Flame | **Strike**: move any own piece (not king) as if it were a queen; counts as a turn — **built** | **Haste**: move one piece twice in a single turn |
 | Stratus | **Flight**: move any own piece (not king) to any empty square in own half (ranks 1–4); counts as a turn | **Sacrifice**: swap any own pawn with any own piece captured earlier; counts as a turn |
 | Mud | **March**: any pawn may move two forward (if unblocked) | **Leap**: own pieces may jump over own pawns when moving several squares |
 | Spirit | **Holy Light** (always on): king cannot be captured by enemy pawns and cannot capture pawns | **Mercy** (always on): king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces |

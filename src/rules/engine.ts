@@ -10,7 +10,7 @@
 
 import { ArcherShots, PowerName, RULES, Rules } from './rules';
 export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CatapultCapture, GuardCaptures, KingChoice, KingName, OgreMode, PaladinKamikaze, PowerName, PromotionSet, Rules } from './rules';
-export { DEFAULT_RULES, KINGS, RULES, RULES_2017, RULES_2021, TIER1, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
+export { BUILT, DEFAULT_RULES, KINGS, RULES, RULES_2017, RULES_2021, TIER1, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 
 export type Color = 0 | 1;
 export const WHITE: Color = 0;
@@ -73,6 +73,11 @@ export interface Move {
   shove?: { from: number; to: number };
   /** Paladin: the mover leaves the board after capturing. */
   selfRemove?: boolean;
+  /**
+   * Strike (Flame A, tier 2): the side's one queen-like action by a non-king piece. The piece keeps
+   * its own type (a pawn striking never promotes) and the side's flag in `Position.strike` is spent.
+   */
+  strike?: boolean;
   promo?: PieceType;
 }
 
@@ -82,6 +87,12 @@ export interface Position {
   /** Plies since the last capture or pawn move (50-move rule). */
   halfmove: number;
   ply: number;
+  /**
+   * Strike (Flame A): per side, whether the one queen-like action has been used. Absent = neither.
+   * Game state, not a rule: it travels with the position (FEN field 7) and `positionKey` folds it
+   * in, so two boards that differ only by a spent Strike are not the same position to repetition.
+   */
+  strike?: readonly [boolean, boolean];
 }
 
 type Delta = readonly [number, number];
@@ -507,7 +518,16 @@ export function makeMove(pos: Position, m: Move): Position {
   // `secondPlayerDoubleFirstTurn`: Black's first turn is two moves, so the side to move does not
   // flip after ply 1. See the rule's comment in ./rules.ts for why this is a ply check.
   const again = RULES.secondPlayerDoubleFirstTurn && pos.ply === 1;
-  return { board, turn: (again ? pos.turn : pos.turn ^ 1) as Color, halfmove: reset ? 0 : pos.halfmove + 1, ply: pos.ply + 1 };
+  let strike = pos.strike;
+  if (m.strike) {
+    const flags: [boolean, boolean] = [pos.strike?.[0] ?? false, pos.strike?.[1] ?? false];
+    flags[pos.turn] = true;
+    strike = flags;
+  }
+  return {
+    board, turn: (again ? pos.turn : pos.turn ^ 1) as Color, halfmove: reset ? 0 : pos.halfmove + 1, ply: pos.ply + 1,
+    ...(strike ? { strike } : {}),
+  };
 }
 
 /**
@@ -613,6 +633,24 @@ export function inCheck(pos: Position, c: Color = pos.turn): boolean {
 export function pseudoMoves(pos: Position, mode: GenMode = 'all'): Move[] {
   const out: Move[] = [];
   for (let s = 0; s < 64; s++) if (pos.board[s] && colorOf(pos.board[s]) === pos.turn) genPiece(pos.board, s, mode, out);
+  const c = pos.turn;
+  // Strike (Flame A): while the side's one use is unspent, any own non-king piece may also move as a
+  // queen, as the whole turn. It never takes a king and never promotes — the piece keeps its type
+  // (`landed`), and it is not an attack: `isAttacked` still sees only the piece's normal pattern.
+  if (mode === 'all' && powerOf(c) === 'Strike' && !pos.strike?.[c]) {
+    for (let s = 0; s < 64; s++) {
+      const p = pos.board[s];
+      if (!p || colorOf(p) !== c || typeOf(p) === K) continue;
+      for (const [df, dr] of DIRS8) {
+        for (let f = file(s) + df, r = rank(s) + dr; f >= 0 && f < 8 && r >= 0 && r < 8; f += df, r += dr) {
+          const to = sq(f, r), v = pos.board[to];
+          if (!v) { out.push({ from: s, to, captures: [], strike: true }); continue; }
+          if (colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) out.push({ from: s, to, captures: [to], strike: true });
+          break;
+        }
+      }
+    }
+  }
   return out;
 }
 
@@ -655,7 +693,12 @@ export type Status = 'playing' | 'checkmate' | 'stalemate' | 'draw50' | 'drawRep
 export function status(pos: Position): Status {
   if (legalMoves(pos).length === 0) return inCheck(pos) ? 'checkmate' : 'stalemate';
   if (RULES.fiftyMove && pos.halfmove >= 100) return 'draw50';
-  return RULES.insufficientMaterial && insufficientMaterial(pos.board) ? 'drawMaterial' : 'playing';
+  // A live Strike is mating potential the material scan cannot see (a piece reaches a square it
+  // never could, once). Do not declare a material draw in a Strike game — the expensive direction
+  // is calling a live game drawn, and this only touches games that picked Flame.
+  const strikeLive = (c: Color): boolean => powerOf(c) === 'Strike' && !pos.strike?.[c];
+  if (RULES.insufficientMaterial && insufficientMaterial(pos.board) && !strikeLive(WHITE) && !strikeLive(BLACK)) return 'drawMaterial';
+  return 'playing';
 }
 
 export function perft(pos: Position, depth: number): number {

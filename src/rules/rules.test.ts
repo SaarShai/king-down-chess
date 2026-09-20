@@ -1252,3 +1252,52 @@ describe('Death Touch second reading (lab toggle)', () => {
     expect(both).toContain('Kd4xd5');
   });
 });
+
+describe('king power: Strike (Flame A, tier 2)', () => {
+  const flame = { kings: [{ king: 'Flame', power: 'Strike' }, { king: 'Flame', power: 'Strike' }] as const };
+  afterEach(() => setRules({ kings: [null, null] }));
+  const strikes = (pos: Position) => legalMoves(pos).filter(m => m.strike);
+
+  it('is accepted by parseKing only now that it is built', () => {
+    expect(parseKing('flame:strike')).toEqual({ king: 'Flame', power: 'Strike' });
+    expect(() => parseKing('frost:freeze')).toThrow(/not built/);
+  });
+
+  it('gives each own non-king piece a queen-like action, once', () => {
+    setRules(flame);
+    const pos = fromFen('4k3/8/8/8/7p/8/3P4/4K3 w - - 0 1');
+    const d2 = strikes(pos).filter(m => m.from === parseSq('d2'));
+    expect(lan(pos, d2)).toContain('d2-d8!');
+    expect(d2.every(m => m.from !== parseSq('e1'))).toBe(true);
+    expect(strikes(pos).some(m => m.from === parseSq('e1'))).toBe(false); // the king never strikes
+
+    const after = makeMove(pos, d2.find(m => toLan(pos, m) === 'd2-d8!')!);
+    expect(after.strike).toEqual([true, false]);
+    expect(strikes(after).length).toBeGreaterThan(0);  // Black's is still live
+    expect(strikes(makeMove(after, legalMoves(after)[0]))).toHaveLength(0); // White's is spent
+  });
+
+  it('never takes a king and never promotes', () => {
+    setRules(flame);
+    const rook = fromFen('4k3/8/8/8/8/8/8/4R1K1 w - - 0 1');
+    expect(strikes(rook).some(m => m.to === parseSq('e8'))).toBe(false);
+    const pawn = fromFen('6k1/P7/8/8/8/8/8/4K3 w - - 0 1');
+    const s = strikes(pawn).find(m => m.from === parseSq('a7') && m.to === parseSq('a8'));
+    expect(s).toBeDefined();
+    expect(typeOf(at(makeMove(pawn, s!), 'a8'))).toBe(P);
+  });
+
+  it('can block a check, and its use survives FEN and the LAN parser', () => {
+    setRules(flame);
+    const pos = fromFen('4r3/8/8/8/8/8/P7/4K3 w - - 0 1');
+    const block = legalMoves(pos).find(m => m.strike && toLan(pos, m) === 'a2-e2!');
+    expect(block).toBeDefined();
+    const after = makeMove(pos, block!);
+    expect(after.strike).toEqual([true, false]);
+    expect(inCheck(after, WHITE)).toBe(false);
+    const round = fromFen(toFen(after));
+    expect(round.strike).toEqual([true, false]);
+    expect(toFen(after).split(' ')).toHaveLength(7);
+    expect(parseLan(after.board, 'a2-e2!').strike).toBe(true);
+  });
+});

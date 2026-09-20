@@ -42,8 +42,9 @@ export function startPosition(backRank: string = randomBackRank()): Position {
 }
 
 /**
- * FEN-shaped: `<board> <turn> - - <halfmove> <fullmove>` (castling/en-passant fields always "-").
+ * FEN-shaped: `<board> <turn> - - <halfmove> <fullmove> [strike]` (castling/en-passant always "-").
  * Uppercase = white. `H`/`h` is a guard that has spent its one capture (`Rules.guardCaptureLimit`).
+ * Field 7 is written only when a Strike (Flame A) has been used: `w`, `b` or `wb`.
  */
 export function toFen(pos: Position): string {
   const rows: string[] = [];
@@ -59,11 +60,13 @@ export function toFen(pos: Position): string {
     if (empty) row += empty;
     rows.push(row);
   }
-  return `${rows.join('/')} ${pos.turn === WHITE ? 'w' : 'b'} - - ${pos.halfmove} ${Math.floor(pos.ply / 2) + 1}`;
+  const flags = pos.strike;
+  const extra = flags && (flags[0] || flags[1]) ? ` ${(flags[0] ? 'w' : '')}${flags[1] ? 'b' : ''}` : '';
+  return `${rows.join('/')} ${pos.turn === WHITE ? 'w' : 'b'} - - ${pos.halfmove} ${Math.floor(pos.ply / 2) + 1}${extra}`;
 }
 
 export function fromFen(fen: string): Position {
-  const [boardPart, turn = 'w', , , halfmove = '0', fullmove = '1'] = fen.trim().split(/\s+/);
+  const [boardPart, turn = 'w', , , halfmove = '0', fullmove = '1', strikeField = ''] = fen.trim().split(/\s+/);
   const board = new Uint8Array(64);
   const rows = boardPart.split('/');
   if (rows.length !== 8) throw new Error(`bad FEN ${fen}`);
@@ -79,7 +82,11 @@ export function fromFen(fen: string): Position {
     }
   });
   const color = turn === 'w' ? WHITE : BLACK;
-  return { board, turn: color, halfmove: +halfmove, ply: (+fullmove - 1) * 2 + color };
+  const strike: [boolean, boolean] = [strikeField.includes('w'), strikeField.includes('b')];
+  return {
+    board, turn: color, halfmove: +halfmove, ply: (+fullmove - 1) * 2 + color,
+    ...(strike[0] || strike[1] ? { strike } : {}),
+  };
 }
 
 /**
@@ -104,6 +111,7 @@ export function toLan(pos: Position, m: Move): string {
   else if (m.captures.length > 1) s = `${letter}${sqName(m.from)}${m.captures.map(c => 'x' + sqName(c)).join('')}`;
   else s = `${letter}${sqName(m.from)}${m.captures.length ? 'x' : '-'}${sqName(m.to)}`;
   if (m.promo) s += '=' + LETTERS[m.promo];
+  if (m.strike) s += '!'; // Strike (Flame A): a queen-like action by an ordinary piece
   return s;
 }
 

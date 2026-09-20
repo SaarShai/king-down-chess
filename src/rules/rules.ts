@@ -69,6 +69,13 @@ export const KINGS: Readonly<Record<KingName, readonly [PowerName, PowerName]>> 
  */
 export const TIER1: readonly PowerName[] = ['HolyLight', 'Mercy', 'DeathTouch', 'Darkness', 'March', 'Leap'];
 
+/**
+ * Everything `parseKing` accepts: tier 1 plus the tier-2 powers that carry their own game state —
+ * today only **Strike** (Flame A), whose per-side one-use flag lives on `Position.strike`. The
+ * remaining five still need marks, charges or a reserve, and stay refused for the same reason.
+ */
+export const BUILT: readonly PowerName[] = [...TIER1, 'Strike'];
+
 /** `"Spirit:Mercy"` (case-insensitive), or `"none"` / `"-"` / `""` for a king with no power. */
 export function parseKing(text: string): KingChoice | null {
   const t = text.trim();
@@ -78,8 +85,8 @@ export function parseKing(text: string): KingChoice | null {
   if (!king) throw new Error(`unknown king "${k}" (${Object.keys(KINGS).join(' | ')} | none)`);
   const power = KINGS[king].find(n => n.toLowerCase() === p.toLowerCase());
   if (!power) throw new Error(`king ${king} has no power "${p}" (${KINGS[king].join(' | ')})`);
-  if (!TIER1.includes(power)) {
-    throw new Error(`${king}:${power} is not built yet — tier 1 is ${TIER1.join(' | ')} (docs/KINGS-POWERS-PLAN.md §2)`);
+  if (!BUILT.includes(power)) {
+    throw new Error(`${king}:${power} is not built yet — built powers are ${BUILT.join(' | ')} (docs/KINGS-POWERS-PLAN.md §2)`);
   }
   return { king, power };
 }

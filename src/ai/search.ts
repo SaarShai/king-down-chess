@@ -14,7 +14,7 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  Color, GenMode, K, Move, P, Position, WHITE, colorOf, genPiece, isAttacked, landed, piece, typeOf,
+  Color, GenMode, K, Move, P, Position, RULES, WHITE, canCapture, colorOf, file, genPiece, isAttacked, landed, piece, rank, sq, typeOf,
 } from '../rules/engine';
 import { VALUES, evalBoard } from './eval';
 import { Z_HI, Z_LO, Z_TURN_HI, Z_TURN_LO, combine, hashBoard, zIndex } from './zobrist';
@@ -62,6 +62,13 @@ const ttMeta = new Int32Array(TT_SIZE);
 
 let nodes = 0, stop = false, hardDeadline = 0, rootDepth = 1;
 let gameHistory: number[] = [];
+/** Strike (Flame A) use per side during the current search, mirroring `Position.strike`. */
+let strikeUsed: [boolean, boolean] = [false, false];
+let strikeUndo: { sp: number; c: Color }[] = [];
+/** Incremental-hash constants for a spent Strike, so `path` sees the state the way `positionKey` does. */
+const Z_STRIKE_LO = [0x1f123bb5, 0x7b1d477a], Z_STRIKE_HI = [0x5c8a1b3d, 0x2ea9c6f1];
+/** Queen directions, local because `engine.DIRS8` is private and `genPiece` is not being changed. */
+const SLIDE8: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 
 // ---------------------------------------------------------------------------------------------
 // Make / unmake on the scratch board, with an incremental hash.
@@ -86,10 +93,23 @@ function apply(m: Move): number {
   write(m.to, m.selfRemove ? 0 : landed(mover, m));
   hLo ^= Z_TURN_LO;
   hHi ^= Z_TURN_HI;
+  if (m.strike) {
+    const c = colorOf(mover);
+    strikeUsed[c] = true;
+    strikeUndo.push({ sp, c });
+    hLo ^= Z_STRIKE_LO[c];
+    hHi ^= Z_STRIKE_HI[c];
+  }
   return base;
 }
 
 function undo(base: number): void {
+  while (strikeUndo.length && strikeUndo[strikeUndo.length - 1].sp > base) {
+    const e = strikeUndo.pop()!;
+    strikeUsed[e.c] = false;
+    hLo ^= Z_STRIKE_LO[e.c];
+    hHi ^= Z_STRIKE_HI[e.c];
+  }
   while (sp > base) {
     sp--;
     const s = undoSq[sp], old = undoPc[sp], cur = board[s];
@@ -147,6 +167,22 @@ function genLegal(out: Move[], c: Color, mode: GenMode): Move[] {
   for (let s = 0; s < 64; s++) {
     const p = board[s];
     if (p && colorOf(p) === c) genPiece(board, s, mode, out);
+  }
+  // Strike (Flame A), mirroring `pseudoMoves`: once per side, an own non-king piece moves as a
+  // queen. Kept out of `genPiece`, which is also the attack generator.
+  if (mode === 'all' && RULES.kings[c]?.power === 'Strike' && !strikeUsed[c]) {
+    for (let s = 0; s < 64; s++) {
+      const p = board[s];
+      if (!p || colorOf(p) !== c || typeOf(p) === K) continue;
+      for (const [df, dr] of SLIDE8) {
+        for (let f = file(s) + df, r = rank(s) + dr; f >= 0 && f < 8 && r >= 0 && r < 8; f += df, r += dr) {
+          const to = sq(f, r), v = board[to];
+          if (!v) { out.push({ from: s, to, captures: [], strike: true }); continue; }
+          if (colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) out.push({ from: s, to, captures: [to], strike: true });
+          break;
+        }
+      }
+    }
   }
   let n = 0;
   for (let i = 0; i < out.length; i++) {
@@ -374,6 +410,8 @@ export function quiesceScore(pos: Position): number {
 /** Key of a position, for `SearchOptions.history`. */
 export function positionKey(pos: Position): number {
   hashBoard(pos.board, pos.turn, hashOut);
+  if (pos.strike?.[0]) { hashOut[0] ^= Z_STRIKE_LO[0]; hashOut[1] ^= Z_STRIKE_HI[0]; }
+  if (pos.strike?.[1]) { hashOut[0] ^= Z_STRIKE_LO[1]; hashOut[1] ^= Z_STRIKE_HI[1]; }
   return combine(hashOut[0], hashOut[1]);
 }
 
@@ -412,6 +450,8 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
   stop = false;
   rootDepth = 1;
   gameHistory = opts.history ? (opts.history as readonly (number | bigint)[]).map(Number) : [];
+  strikeUsed = [pos.strike?.[0] ?? false, pos.strike?.[1] ?? false];
+  strikeUndo = [];
   killers.fill(0);
   for (let i = 0; i < history.length; i++) history[i] >>= 3; // fade, do not forget
   path[0] = combine(hLo, hHi);

@@ -263,22 +263,26 @@ export function parseLan(board: Uint8Array, lan: string): Move {
   const eq = text.indexOf('=');
   if (eq >= 0) { promo = LETTERS.indexOf(text.slice(eq + 1)) as PieceType; text = text.slice(0, eq); }
   if (/^[PNBRQKALGMSOCV]/.test(text)) text = text.slice(1);
+  // Strike (Flame A): a trailing `!` marks the one queen-like action, so replay spends the flag.
+  let strike = false;
+  if (text.endsWith('!')) { strike = true; text = text.slice(0, -1); }
+  const mark = (m: Move): Move => (strike ? { ...m, strike: true } : m);
   const from = sq(text.slice(0, 2)), rest = text.slice(2);
   if (rest.startsWith('>')) {
     // Mirror engine.ts: under `ogreMode: 'push'` the ogre follows onto the square it emptied.
     const shove = { from: sq(rest.slice(1, 3)), to: sq(rest.slice(4)) };
-    return { from, to: RULES.ogreMode === 'push' ? shove.from : from, captures: [], shove };
+    return mark({ from, to: RULES.ogreMode === 'push' ? shove.from : from, captures: [], shove });
   }
-  if (rest.startsWith('<>')) return { from, to: sq(rest.slice(2)), captures: [], swap: true };
-  if (rest.startsWith('*')) return { from, to: from, captures: [sq(rest.slice(1))] };
+  if (rest.startsWith('<>')) return mark({ from, to: sq(rest.slice(2)), captures: [], swap: true });
+  if (rest.startsWith('*')) return mark({ from, to: from, captures: [sq(rest.slice(1))] });
   // Reaver: `xc3-d3` is one capture then a step onto the landing square; `-d3` alone is a quiet move.
   if (/^x/.test(rest) && rest.includes('-')) {
     const [caps, land] = rest.split('-');
-    return { from, to: sq(land), captures: caps.split('x').filter(Boolean).map(sq) };
+    return mark({ from, to: sq(land), captures: caps.split('x').filter(Boolean).map(sq) });
   }
-  if (rest.startsWith('-')) return { from, to: sq(rest.slice(1)), captures: [], ...(promo ? { promo } : {}) };
+  if (rest.startsWith('-')) return mark({ from, to: sq(rest.slice(1)), captures: [], ...(promo ? { promo } : {}) });
   const captures = rest.split('x').filter(Boolean).map(sq);
-  const m: Move = { from, to: captures[captures.length - 1], captures, ...(promo ? { promo } : {}) };
+  const m: Move = mark({ from, to: captures[captures.length - 1], captures, ...(promo ? { promo } : {}) });
   if (typeOf(board[from]) === L) {
     // Mirror engine.ts: 'always' dies on any capture, 'nonPawn' survives pawn captures, 'never' never dies.
     const k = RULES.paladinKamikaze as string, victim = typeOf(board[m.to]);
