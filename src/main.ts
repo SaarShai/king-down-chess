@@ -1,5 +1,6 @@
 import './style.css';
 import { Engine, Game, Side } from './game';
+import { setEvaluator } from './ai/eval';
 import { BoardRenderer } from './render/renderer';
 import { STYLES } from './render/styles';
 import { loadModels, setUseSculpts } from './render/voxels';
@@ -42,6 +43,8 @@ const kingsInfo = (): string => {
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
+// The adopted Q6 residual net: stronger play at the same time budget, validated before adoption.
+setEvaluator('residual');
 const game = new Game();
 const engine = new Engine();
 const view = new BoardRenderer($('board'));

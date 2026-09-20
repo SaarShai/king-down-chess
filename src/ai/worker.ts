@@ -1,6 +1,11 @@
 import { Position } from '../rules/engine';
 import { Rules, setRules } from '../rules/rules';
+import { setEvaluator } from './eval';
 import { SearchOptions, search } from './search';
+
+// The adopted Q6 residual net (src/ai/nnue/weights.ts). The worker builds its own module graph,
+// so it must set this itself; the page (main.ts) does the same for the inline fallback.
+setEvaluator('residual');
 
 /**
  * The rule snapshot rides on every message, not once at spawn: `Engine.cancel()` terminates the

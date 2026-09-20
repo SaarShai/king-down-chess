@@ -161,7 +161,7 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [x] Enforce arrangement-sweep rejection gates or label the tool exploratory. `experiments.ts` sweep output is now an explicit "Exploratory shortlist — rejection gates NOT enforced".
 - Evidence: `npx tsc --noEmit` clean; 152 tests in 6 files pass; smoke run `smoke2` stamped (`rulesKey 0e2fb239`, `specKey 826b122e7454`, `src f3e2439a8859`), refused a changed rule, sampled with fingerprints, and refused the unstamped `nnue-g1`.
 
-### Phase 3 — Q6 dataset
+### Phase 3 — Q6 dataset (candidate adopted in the browser 2026-09-17)
 - [ ] Audit the 686 prefix vs the later cohort by launch records and move replay; exclude what cannot be established.
 - [ ] Freeze the accepted dataset + linear teacher; explicit old-paladin-vs-current decision; replacement data only for a demonstrated gap.
 - [ ] Train one residual candidate; record source/dataset/model hashes and validation.
@@ -228,3 +228,7 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - Tooling: `tools/conditions.ts` (activity/paralysis + paired runs), `tools/placement.ts` (starting-file and king-adjacency screens), `tools/interactions.ts` (event profile), `tools/jev-interest.ts` (3-run rubric with controls). Combination tests use the 4-arm factorial `sim/specs/newpieces/cx-*`.
 - **Results 2026-09-17:** Ogre vs guard-heavy **refuted** (shoves guards 0.22/game, 10×, decisive −5.8 ± 4.3); Ogre+Beast combination **no interaction** (+3.7 ± 4.9, beast captures unchanged); two Reavers compound sharpening (+4.5 ± 2.9 decisive, −12 plies, balance neutral); location screens flag maester-beside-king (+8) and bishop-beside-king (−12) for paired placement tests; game-breaking is now a code screen (value non-convergence / matched-price dominance / interaction / condition collapse). Report: `docs/research/conditions-2026-09-17.md`.
 - Evidence so far: Templar 7.7% paralysis (busy, ineffective, capital visited 4-8% of moves); Reaver 3.9% (active, 0.85 captures/game); guard ~6%; rook 3-4%; Catapult fires in only 63.5% of games (no screen, no attack); Ogre guard-heavy condition run in flight (`gh2-N`/`gh2-O`).
+
+### Stronger players — adopted and next (2026-09-17)
+- [x] **Adopted the Q6 residual net for the browser AI** (owner-approved after the staged acceptance): candidate copied to `src/ai/nnue/weights.ts`, `main.ts` + worker set `residual`, lab stays `linear`, lab-piece boards fall back to linear (unit + QA covered). Rebuilt review bundle, **17/17** browser QA. Evidence: `docs/research/ai-q6-acceptance-2026-09-16.md`, `docs/RELEASE-REVIEW-2026-09-16.md`.
+- [ ] Next AI work in evidence order: incremental NNUE accumulator (speed), policy-head distillation (instant moves), opening book from self-play, small endgame tablebases, human-facing skill levels. Plan: `docs/research/ai-players.md` status section.

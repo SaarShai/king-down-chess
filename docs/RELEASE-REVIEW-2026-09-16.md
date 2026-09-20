@@ -62,10 +62,22 @@ Not requested and not done. If it is requested: adopt the licence fix (or keep t
 accept the JPEG terms), then publish from `dist-review`/a fresh `npm run build` and re-run
 `node tools/qa.mjs` against the published bundle.
 
-## Update — 2026-09-17
+## Update — 2026-09-17: the residual net is adopted in the browser
 
-The Q6 replacement chain finished and **the candidate passed every gate** (+167 ± 26 Elo at the
-400-game gate, +139 ± 14 at the 1 600-game depth-3 decision, +149 ± 37 at depth 4, speed 1 s depth
-5.92). This does **not** change this build: adoption means switching the default evaluator in
-`src/ai/eval.ts` to `residual`, rebuilding and republishing — a separate, owner-decided release step.
-Report: `docs/research/ai-q6-acceptance-2026-09-16.md`.
+The Q6 replacement candidate passed every gate (+167 ± 26 Elo at the 400-game gate, +139 ± 14 at the
+1 600-game depth-3 decision, +149 ± 37 at depth 4, speed 1 s depth 5.92 against linear 6.08,
+dataset/model hashes verified). On the owner's instruction to act on the recommendation it is now
+**adopted for the browser AI**:
+
+- the candidate blob replaces `src/ai/nnue/weights.ts`; `main.ts` and the AI worker set the
+  `residual` evaluator at startup;
+- the **balance lab keeps `linear` as its default**, so every historical comparison keeps its
+  meaning; lab runs that want the net must ask for it;
+- boards containing lab pieces the net cannot see (ogre, catapult, reaver, templar) fall back to the
+  linear evaluation instead of throwing — covered by a unit test and by the *AI answers in an ogre
+  position* QA case.
+
+Rebuilt review bundle (`index-CYMNO4Kv.js` `bbec76ab032d73da`, worker `worker-BC_6I6dJ.js`
+`c25cf77b572dd6d7`, css unchanged, 144 files, digest `f8ca0cff3e873dde`) passes **17/17** browser QA.
+The earlier 14/14/16/16 counts in this document describe the pre-adoption builds; this is the
+current artifact.

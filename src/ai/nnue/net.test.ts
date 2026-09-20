@@ -182,6 +182,14 @@ describe('the residual evaluator', () => {
     expect(res.score).toBeGreaterThanOrEqual(MATE - 1);
     expect(status(makeMove(pos, res.move!))).toBe('checkmate');
   });
+  it('falls back to the linear evaluation on a board with a lab piece the net cannot see', () => {
+    hostile(); // a deliberately extreme residual net: any leakage would move the score wildly
+    const pos = fromFen('7k/8/8/8/3O4/8/8/K7 w - - 0 1'); // white ogre (type 12)
+    const got = evalBoard(pos.board, WHITE);
+    expect(got).toBe(evaluateBoard(pos.board, WHITE)); // exactly linear, no throw, no net
+    const black = fromFen('7k/8/8/8/3o4/8/8/K7 w - - 0 1'); // black ogre (type 12 | colour)
+    expect(evalBoard(black.board, WHITE)).toBe(evaluateBoard(black.board, WHITE));
+  });
 });
 
 /**
@@ -220,4 +228,5 @@ describe('training a residual net', () => {
     // Measured 0.0049 against 0.0134. Drop the base from both sides and the two are identical.
     expect(res.bestVal).toBeLessThan(wdl.bestVal / 2);
   });
+
 });

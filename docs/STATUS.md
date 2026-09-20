@@ -6,6 +6,9 @@ One page to point at. Everything else is history or detail.
 
 - **Published game: v0.7.0** — one-guard immortal Wall, no guard promotion, paladin survives pawn
   captures (`paladinKamikaze=nonPawn`), archer/beast move any direction, linear evaluator.
+- **Browser AI now plays the adopted Q6 residual net** (2026-09-17): +139 ± 14 Elo at depth 3,
+  depth-4 confirmed, 1 s = depth 5.92. The balance lab stays on `linear` so past numbers still mean
+  what they meant.
 - **Review build of the takeover work** (`dist-review/`, built from `ce90454`, not published): the same
   gameplay plus the fixes below. `docs/RELEASE-REVIEW-2026-09-16.md` has the evidence list.
 - Run it locally: `npm run dev` → http://localhost:5173. URL variants: `?rules=2017|2021`,
@@ -42,9 +45,9 @@ quoted.
 2. Tiles: adopt B4 procedural stone and remove the three textures.com JPEGs from the published files
    (licensing blocker), or keep the photo tiles and their terms.
 3. Maester `maesterSwapAny` (measured free, not adopted).
-4. Q6 model: the replacement candidate **passed** the staged bar (2026-09-17). Adopting it means
-   switching the default evaluator, a one-word change plus a rebuild — a release step, not an
-   automatic consequence of the run.
+4. Q6 model: **adopted in the browser on 2026-09-17** (lab unchanged). Remaining AI work: an
+   incremental accumulator for speed, a distilled policy head for instant moves, an opening book
+   and small endgame tablebases (see `docs/research/ai-players.md`, status update).
 
 ## Verification snapshot
 

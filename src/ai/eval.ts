@@ -436,11 +436,23 @@ export function setEvaluator(e: Evaluator = 'nnue'): void {
   EVALUATOR = e;
 }
 
+/**
+ * The net has 11 piece types; the lab pieces (ogre, catapult, reaver, templar) are type 12+. A board
+ * that contains one plays the linear evaluation instead of throwing: those pieces reach a game only
+ * through a `?fen=` or a lab spec, and the browser adopted the residual net, so a lab position must
+ * not break the AI.
+ */
+const hasNetTypes = (board: Uint8Array): boolean => {
+  for (let s = 0; s < 64; s++) if ((board[s] & 15) > 11) return true; // low nibble = type (bit 4 is colour)
+  return false;
+};
+
 /** What `src/ai/search.ts` calls at every leaf. Centipawns, side-to-move's point of view. */
 export const evalBoard = (board: Uint8Array, turn: Color): number => {
+  const net = EVALUATOR !== 'linear' && !hasNetTypes(board);
+  if (!net) return evaluateBoard(board, turn);
   if (EVALUATOR === 'nnue') return nnueEval(board, turn);
   const linear = evaluateBoard(board, turn);
-  if (EVALUATOR === 'linear') return linear;
   const r = nnueEval(board, turn);
   return linear + (r > RESIDUAL_MAX ? RESIDUAL_MAX : r < -RESIDUAL_MAX ? -RESIDUAL_MAX : r);
 };
