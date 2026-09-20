@@ -14,7 +14,10 @@ import { mulberry32 } from './rng';
 import { CLASSIC_CHESS } from '../rules/setup';
 import { LETTERS, NAMES, PieceType } from '../rules/engine';
 import { Rules, ruleDiff } from '../rules/rules';
-import { BEAST_V, CATAPULT_V, GUARD_V, KNIGHT_V, MAESTER_V, OGRE_V, PALADIN_V, ARCHER_V, REAVER_V, TEMPLAR_V } from '../ai/eval';
+import { ARCHER_V, BEAST_V, BISHOP_V, CATAPULT_V, GUARD_V, KNIGHT_V, MAESTER_V, OGRE_V, PALADIN_V, QUEEN_V, REAVER_V, ROOK_V, TEMPLAR_V } from '../ai/eval';
+
+/** The standard piece a `--vs` swap replaces, by letter, in centipawns (the fitted constants). */
+const VS_V: Record<string, number> = { N: KNIGHT_V, B: BISHOP_V, R: ROOK_V, Q: QUEEN_V };
 
 /** The shipped fairy set. `--pieces O` / `--pieces C` reaches the two lab pieces below. */
 const FAIRY = 'ALGMS';
@@ -124,7 +127,9 @@ export async function runValues(base: RunSpec, workers: number, vs = 'N', pieces
   // `--values` re-prices the search without touching the shipped constants, so the seed column has
   // to report what this pass actually played with, not what `src/ai/eval.ts` says.
   const seeded: Record<string, number> = { ...SEEDED, ...base.values };
-  const knight = (base.values?.N ?? KNIGHT_V) / 100;
+  // The baseline is the piece the swap replaces: a `--vs R` pass measures the fairy against a rook,
+  // and reporting it against the knight's value understates the result by (rook - knight).
+  const baseline = (base.values?.[vs] ?? VS_V[vs] ?? KNIGHT_V) / 100;
 
   // Muller keeps the imbalance inside about 1.5 pawns, because the score stops being linear in
   // material outside it. A swap beyond that band is a direction, not a value.
@@ -133,14 +138,14 @@ export async function runValues(base: RunSpec, workers: number, vs = 'N', pieces
   const rows = fairy.map(a => {
     const delta = a.elo / eloPerPawn;
     const err = a.err95 / eloPerPawn;
-    const implied = knight + delta;
+    const implied = baseline + delta;
     const linear = Math.abs(delta) <= BAND;
     if (!linear) outside++;
     return [
       `${a.key} (${NAME[a.key]})`, `${signed(a.elo)} ± ${a.err95.toFixed(0)}`,
       usable ? `${signed(delta, 2)} ± ${err.toFixed(2)}${linear ? '' : ' **'}` : 'n/a',
       // The bound points the way the arm went: a buffed piece can leave the band on the high side.
-      usable ? (linear ? `${f2(implied)} ± ${err.toFixed(2)}` : `${delta > 0 ? '>' : '<'} ${f2(knight + (delta > 0 ? BAND : -BAND))} **`) : 'n/a',
+      usable ? (linear ? `${f2(implied)} ± ${err.toFixed(2)}` : `${delta > 0 ? '>' : '<'} ${f2(baseline + (delta > 0 ? BAND : -BAND))} **`) : 'n/a',
       f2(seeded[a.key] / 100), f2(PRIOR[a.key]),
       usable ? Math.max(50, Math.round(implied * 100)) : 'n/a',
     ];
@@ -168,9 +173,9 @@ ${usable ? '' : `
 `}
 
 ## Implied values
-${table(['piece', 'Elo vs knight', 'Δ pawns', 'implied value (pawns)', 'engine seed', 'research prior', 'next seed (cp)'], rows)}
+${table(['piece', `Elo vs ${vs.toLowerCase()}`, 'Δ pawns', 'implied value (pawns)', 'engine seed', 'research prior', 'next seed (cp)'], rows)}
 
-Implied value = knight (${f2(knight)}) + Elo / ${eloPerPawn.toFixed(0)}.
+Implied value = ${vs.toLowerCase()} (${f2(baseline)}) + Elo / ${eloPerPawn.toFixed(0)}.
 ${outside ? `
 \*\* ${outside} swap(s) fall outside the linear band of ±${BAND} pawns that Muller's method needs. The score
 saturates there, so the conversion under-reads the gap: take the marked rows as "far from a knight,

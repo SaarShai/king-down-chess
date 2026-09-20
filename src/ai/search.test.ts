@@ -201,14 +201,15 @@ describe('root temperature (opening variety)', () => {
     const b = search(pos, { maxDepth: 3 });
     expect(toLan(pos, a.move!)).toBe(toLan(pos, b.move!)); // deterministic without temperature
 
-    resetSearchState();
-    const pickBest = search(pos, { maxDepth: 3, temperature: 40, rng: () => 0 });
-    expect(toLan(pos, pickBest.move!)).toBe(toLan(pos, a.move!)); // rng 0 takes the best
-
-    resetSearchState();
-    const other = search(pos, { maxDepth: 3, temperature: 40, rng: () => 0.999 });
-    expect(other.move).not.toBeNull();
-    expect(other.score).toBeGreaterThanOrEqual(a.score - 40); // never leaves the band
-    expect(other.score).toBeLessThanOrEqual(a.score);
+    // Sampling picks uniformly among the moves within the band, so rng 0 is the first candidate in
+    // generation order, not necessarily the best move: the guarantee is the score, not the index.
+    for (const r of [0, 0.5, 0.999]) {
+      resetSearchState();
+      const sampled = search(pos, { maxDepth: 3, temperature: 40, rng: () => r });
+      expect(sampled.move).not.toBeNull();
+      expect(legalMoves(pos).some(m => toLan(pos, m) === toLan(pos, sampled.move!))).toBe(true);
+      expect(sampled.score).toBeGreaterThanOrEqual(a.score - 40); // never leaves the band
+      expect(sampled.score).toBeLessThanOrEqual(a.score);
+    }
   }, 20_000);
 });

@@ -273,7 +273,11 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   guardNoSecondRank: false,
   guardCaptureLimit: 0 as 0 | 1,
   archerMove: 'any' as ArcherMove,
-  archerShots: 'classic' as ArcherShots,
+  // Adopted 2026-09-17 (owner call): the forward diagonal-2 squares on top of classic. Confirmed
+  // at depth 4 (decisive +8.8, draws -8.2, fairness clean) at the cost of the archer's value,
+  // 3.73 ± 0.42 -> > 4.66 pawns; ARCHER_V in src/ai/eval.ts is re-priced with it.
+  // docs/research/sim-piece-balance-2026-09-17.md
+  archerShots: 'plusDiagFwd2' as ArcherShots,
   beastMove: 'any' as BeastMove,
   beastCapture: 'adjacent' as BeastCapture,
   beastCaptureForward: false,
@@ -311,6 +315,9 @@ export const RULES: Rules = { ...DEFAULT_RULES };
 export const RULES_2017: Readonly<Rules> = Object.freeze({
   ...DEFAULT_RULES,
   archerMove: 'ortho' as ArcherMove,
+  // The 2017 game is the classic shot set; the 2026-09-17 widening is a shipped-game adoption, not
+  // part of the older preset (the 2021 preset below overrides it with `forward3` anyway).
+  archerShots: 'classic' as ArcherShots,
   beastMove: 'forward' as BeastMove,
   // 2017: the paladin removes itself after every capture, a pawn's included (§6.15 lifts the pawn).
   paladinKamikaze: 'always' as PaladinKamikaze,

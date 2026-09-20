@@ -280,7 +280,7 @@ describe('rule toggles', () => {
     // The shipped game is the 2017 rulebook plus the two adopted buffs (docs/RULES.md §6.8); the
     // guard keeps its rulebook identity (§6.9), so the preset is exactly those two fields turned
     // back and the three guard toggles are lab-only.
-    expect(ruleDiff(RULES_2017)).toEqual({ archerMove: 'ortho', beastMove: 'forward', paladinKamikaze: 'always', promotionSet: 'anyNonKing' });
+    expect(ruleDiff(RULES_2017)).toEqual({ archerMove: 'ortho', archerShots: 'classic', beastMove: 'forward', paladinKamikaze: 'always', promotionSet: 'anyNonKing' });
     expect(DEFAULT_RULES.promotionSet).toBe('anyNonKingNoGuard'); // a pawn never becomes a wall
     expect(DEFAULT_RULES.guardCaptures).toBe('none');
     expect(DEFAULT_RULES.guardStep).toBe(1);
@@ -599,6 +599,7 @@ describe('rule toggles', () => {
   it('archerShots: plusDiag2 adds the diagonal-2 squares, ring2 the whole Chebyshev-2 ring', () => {
     const pos = fromFen('7k/8/8/4p3/4p3/2A5/8/K7 w - - 0 1'); // e5 is (+2,+2), e4 is (+2,+1)
     const shots = () => lan(pos, movesFrom(pos, 'c3')).filter(s => s.includes('*'));
+    setRules({ archerShots: 'classic' }); // the shipped default widened on 2026-09-17; this test is about the others
     expect(shots()).toEqual([]);
     setRules({ archerShots: 'plusDiag2' });
     expect(shots()).toEqual(['Ac3*e5']);

@@ -1,0 +1,75 @@
+[pb-A-fwd2-vsR2.A] 500 games (0 already done), 500 to play on 14 workers -> sim/out/pb-A-fwd2-vsR2.A.jsonl
+[pb-A-fwd2-vsR2.A] depth 3, 4 random opening plies, ply cap 300, pairs on
+[pb-A-fwd2-vsR2.A] rules {}, values {}
+[pb-A-fwd2-vsR2.A] 2/500  1.0 games/s  ETA 0h08m18s
+[pb-A-fwd2-vsR2.A] 13/500  3.2 games/s  ETA 0h02m29s
+[pb-A-fwd2-vsR2.A] 29/500  4.8 games/s  ETA 0h01m37s
+[pb-A-fwd2-vsR2.A] 41/500  5.1 games/s  ETA 0h01m29s
+[pb-A-fwd2-vsR2.A] 52/500  5.2 games/s  ETA 0h01m26s
+[pb-A-fwd2-vsR2.A] 66/500  5.5 games/s  ETA 0h01m18s
+[pb-A-fwd2-vsR2.A] 80/500  5.7 games/s  ETA 0h01m13s
+[pb-A-fwd2-vsR2.A] 93/500  5.8 games/s  ETA 0h01m10s
+[pb-A-fwd2-vsR2.A] 105/500  5.8 games/s  ETA 0h01m07s
+[pb-A-fwd2-vsR2.A] 122/500  6.1 games/s  ETA 0h01m02s
+[pb-A-fwd2-vsR2.A] 141/500  6.4 games/s  ETA 0h00m56s
+[pb-A-fwd2-vsR2.A] 157/500  6.5 games/s  ETA 0h00m52s
+[pb-A-fwd2-vsR2.A] 177/500  6.8 games/s  ETA 0h00m47s
+[pb-A-fwd2-vsR2.A] 191/500  6.8 games/s  ETA 0h00m45s
+[pb-A-fwd2-vsR2.A] 208/500  6.9 games/s  ETA 0h00m42s
+[pb-A-fwd2-vsR2.A] 222/500  6.9 games/s  ETA 0h00m40s
+[pb-A-fwd2-vsR2.A] 238/500  7.0 games/s  ETA 0h00m37s
+[pb-A-fwd2-vsR2.A] 253/500  7.0 games/s  ETA 0h00m35s
+[pb-A-fwd2-vsR2.A] 275/500  7.2 games/s  ETA 0h00m31s
+[pb-A-fwd2-vsR2.A] 289/500  7.2 games/s  ETA 0h00m29s
+[pb-A-fwd2-vsR2.A] 306/500  7.3 games/s  ETA 0h00m26s
+[pb-A-fwd2-vsR2.A] 326/500  7.4 games/s  ETA 0h00m23s
+[pb-A-fwd2-vsR2.A] 343/500  7.4 games/s  ETA 0h00m21s
+[pb-A-fwd2-vsR2.A] 359/500  7.5 games/s  ETA 0h00m18s
+[pb-A-fwd2-vsR2.A] 374/500  7.5 games/s  ETA 0h00m16s
+[pb-A-fwd2-vsR2.A] 393/500  7.6 games/s  ETA 0h00m14s
+[pb-A-fwd2-vsR2.A] 407/500  7.5 games/s  ETA 0h00m12s
+[pb-A-fwd2-vsR2.A] 421/500  7.5 games/s  ETA 0h00m10s
+[pb-A-fwd2-vsR2.A] 437/500  7.5 games/s  ETA 0h00m08s
+[pb-A-fwd2-vsR2.A] 448/500  7.5 games/s  ETA 0h00m06s
+[pb-A-fwd2-vsR2.A] 466/500  7.5 games/s  ETA 0h00m04s
+[pb-A-fwd2-vsR2.A] 481/500  7.5 games/s  ETA 0h00m02s
+[pb-A-fwd2-vsR2.A] 499/500  7.6 games/s  ETA 0h00m00s
+[pb-A-fwd2-vsR2.A] 500 games in 0h01m06s (7.5 games/s)
+[pb-A-fwd2-vsR2.A] summary -> sim/out/pb-A-fwd2-vsR2.A.summary.json
+# Piece values — pb-A-fwd2-vsR2
+
+Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **rook** of the
+classic arrangement `RNBQKBNR` with one fairy piece, on one side only, and plays
+colour-reversed pairs. The last arm gives White pawn odds; it converts Elo into pawns.
+
+Depth 3, 500 games per arm, 4 random opening plies.
+Rules: defaults.
+Engine values: the shipped constants.
+
+## Arms (scores are the fairy army's, folded over the colour swap)
+| arm | games | pairs | pentanomial | score | Elo ±95% | nElo | LOS | LLR | SPRT | draws | capped | plies |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A | 500 | 250 | [39, 19, 102, 32, 58] | 0.551 | +36 ± 28 | +38 | 99.3% | 0.59 | continue | 11.8% | 0.0% | 88 |
+
+**One pawn = 64 Elo** at this depth
+(carried over with `--eloPerPawn`; no calibration arm was played here). Every
+implied value below carries that calibration error on top of its own.
+
+
+## Implied values
+| piece | Elo vs r | Δ pawns | implied value (pawns) | engine seed | research prior | next seed (cp) |
+|---|---|---|---|---|---|---|
+| A (archer) | +36 ± 28 | +0.56 ± 0.44 | 5.05 ± 0.44 | 3.37 | 3.50 | 505 |
+
+Implied value = r (4.49) + Elo / 64.
+
+
+## Muller fixed-point update
+Write the "next seed" column into `src/ai/eval.ts`, then run this experiment again. The values are
+converged when a pass moves no piece by more than its error bar. A seed that inverts a plausible
+exchange makes self-play blind, so never stop after one pass.
+
+```ts
+export const ARCHER_V = 505;
+```
+

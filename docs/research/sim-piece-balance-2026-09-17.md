@@ -62,10 +62,14 @@ pool has two archers a side, so fairness holds (white score unchanged); what cha
 hierarchy and the AI's pricing (`ARCHER_V` must move 337 → ~490, and the value is out of the ±1.5
 pawn band, so the next pass needs a larger swap to bracket it).
 
-**Decision for the owner:** (a) adopt `plusDiagFwd2` + re-price — sharper games, archers become
-premium pieces; (b) keep `classic` — the archer stays a ~3.7-pawn piece and games stay drawish;
-(c) test a decoupled variant (e.g. shots blocked by the first piece on the ray, with a wider set),
-which would need a new rule and its own sweep.
+**Adopted 2026-09-17 (owner call): `plusDiagFwd2`, re-priced.** `archerShots` default flips to
+`plusDiagFwd2`; the value bracket vs a rook is **5.05 ± 0.44 pawns** (the vs-knight pass put it out of
+band at > 4.66, so the rook swap is the trustworthy one), and `ARCHER_V` moves 337 → 505. `?rules=2017`
+pins `archerShots: 'classic'` so the older preset is unchanged. The value report's baseline bug (it
+used the knight's value for a `--vs R` swap) is fixed in `src/sim/experiments.ts`.
+
+Still open if the sharpening was the only goal: a decoupled variant (e.g. shots blocked by the first
+piece on the ray) would keep the value lower, but it is a new rule and needs its own sweep.
 
 ## Follow-ups queued
 

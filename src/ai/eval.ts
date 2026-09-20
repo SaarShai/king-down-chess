@@ -58,7 +58,9 @@ import { NetKind, RESIDUAL_MAX, loadNet, loadedNetB64, netKind, netLoaded, nnueE
  *           not the value.
  */
 export const PAWN_V = 100, KNIGHT_V = 316, BISHOP_V = 322, ROOK_V = 449, QUEEN_V = 933;
-export const ARCHER_V = 337, PALADIN_V = 326, GUARD_V = 96, MAESTER_V = 320, BEAST_V = 308;
+// ARCHER_V re-priced 337 -> 505 with `archerShots: 'plusDiagFwd2'` (adopted 2026-09-17): the odds
+// match vs a rook puts it at 5.05 ± 0.44 pawns (docs/research/sim-piece-balance-2026-09-17.md).
+export const ARCHER_V = 505, PALADIN_V = 326, GUARD_V = 96, MAESTER_V = 320, BEAST_V = 308;
 /**
  * **Untuned seeds, not fitted numbers** — the only two in this file. The ogre and the catapult are
  * lab pieces (2026-09-14): they are not in `POOL`, no game in the Texel corpus contains one, and

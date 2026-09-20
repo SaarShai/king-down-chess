@@ -78,7 +78,9 @@ lever). Report: **`docs/research/sim-piece-balance-2026-09-17.md`**.
 - Follow-ups ran: `ring2` sharpens the same (+7.7 decisive at depth 3, plies −17.1);
   `plusDiag2` value **> 4.66 pawns** (classic is 3.73 ± 0.42 by the same method);
   `plusDiagFwd2` (new forward-only set) A/B +8.2 ± 2.7 decisive and value **> 4.66**.
-  **The sharpening and the power are one lever** — owner decision in the report.
+  **The sharpening and the power are one lever** — owner adopted `plusDiagFwd2` on 2026-09-17;
+  `ARCHER_V` 337 → 505 (value 5.05 ± 0.44 vs a rook), RULES.md decision 16, `?rules=2017` pins the
+  classic shots so the older preset is unchanged.
 
 ## Dropped
 

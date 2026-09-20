@@ -104,7 +104,8 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
      half as many games reach the ply cap.
 
    The 2017 rulebook game is still playable: add `?rules=2017` to the URL — with the guard unchanged, that preset is
-   now exactly two fields (`archerMove`, `beastMove`). `?rules=2021` plays the designer's 2021 "Chess Expansion
+   now exactly three fields (`archerMove`, `archerShots`, `beastMove`; it pins the classic shot set so the older game
+   stays the older game). `?rules=2021` plays the designer's 2021 "Chess Expansion
    Concept" archer and beast instead.
 9. **Guard stays the immortal wall (designer decision 2026-09-13).** The per-lifetime capture was measured
    (+54 Elo, no harvester) but rejected on identity grounds: the guard is a wall that never captures. `guardStep=2`
@@ -123,6 +124,13 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
     capture that matters. The 2017 preset keeps `'always'`. Depth-4 confirmation (800 games an arm, `pb-ab-L-nonPawn-d4`): decisive, draws, stuck endings and length again
     inside their intervals; white score +0.027 ± 0.025 there against −0.003 ± 0.018 at depth 3 — pooled +0.007 ± 0.015,
     so a White gain of up to two points is possible but not shown. Shipped in v0.7.0.
+16. **The archer's shots widen to the forward diagonal-2 squares (designer, 2026-09-17).** `archerShots`
+    defaults to `'plusDiagFwd2'`: classic (diagonal-adjacent, two straight, blockers ignored) plus the two
+    two-square diagonals facing the enemy, mirrored for Black. Measured at depth 4 (1,600 games an arm,
+    fresh control): decisive **+8.8 ± 3.8**, draws **−8.2 ± 3.7**, plies −14.2 ± 4.8, white score +2.6 ± 2.6
+    (fair). The cost is the piece's value: **3.73 ± 0.42 → 5.05 ± 0.44 pawns** (odds match vs a rook),
+    so `ARCHER_V` moves 337 → 505 with it. The other sweep levers were rejected or null
+    (`docs/research/sim-piece-balance-2026-09-17.md`).
 
 ### First measured evidence (2026-09-13, provisional) — superseded by §6.8
 
