@@ -208,3 +208,19 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 - This is the third evaluative instrument to fail controls (narrative labels, fairness red-team,
   game-breaking). The one Jev use that keeps passing is claim verification against numbers; keep it
   there and keep power judgments in code.
+
+## 2026-09-17 — one-off action powers drain decisiveness (measured twice)
+- **What happened:** both readings of Strike (Flame A) were built and measured at depth 3 and depth 4:
+  the reading as written (queen-move, decisive −15.5 ± 3.2 then −20.2 ± 5.8) and the card game's
+  verb (capture without moving, −10.1 ± 3.4 then −29.5 ± 7.3, draws +31.5 ± 7.4). Death Touch's
+  second reading failed the same way (−6.0 ± 2.7, −6.3 ± 6.0). Every one was used near its maximum
+  (Death Touch aside), and every one lowered the decisive share.
+- **Pattern:** a power that gives each side one *forced action* (a free capture, a free displacement)
+  is spent on the most valuable piece on the board, the material balance collapses, and the ending
+  is thin and drawn. Games get **shorter and less decisive at the same time** — plies −27 to −38.
+  "A surprise per game" is not what a decisive game is made of.
+- **Rule:** before building a power with charges, predict its decisive-share direction from its shape:
+  powers that *add* material or *anchor* it (drops, walls, shields) may be fine; powers that let a
+  side remove material for free are draw engines until measured otherwise. Build the A/B at depth 3
+  and a depth-4 arm in the same campaign, and shelve on a negative depth-4 interval (Strike's shape
+  was cheap to build, so this cost one evening, not a day).
