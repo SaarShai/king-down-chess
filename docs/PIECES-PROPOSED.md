@@ -1,11 +1,12 @@
 # Five proposed fairy pieces (2026-09-14)
 
 Drawn from the balance lab (about 330,000 games), the guard study, the paladin and maester work, and
-the ability matrix in `MATRIX.md`. **Three of the five are built as lab pieces**: the Ogre and the Catapult (`docs/research/sim-new-pieces-2026-09-14.md`:
-Ogre `push` promising, Catapult unresolved) and the **Reaver** (`docs/research/sim-reaver-2026-09-17.md`:
-the full step is overpowered and rejected; the orthogonal-only reading is the measured default, worth
-~4.0 pawns, +7.1 decisive points, neutral balance). All three stay outside the pool and promotion
-list. The Squire and the Templar are not built.
+the ability matrix in `MATRIX.md`. **Four of the five are now built as lab pieces**, all outside the pool and promotion list:
+the Ogre and Catapult (`docs/research/sim-new-pieces-2026-09-14.md`), the **Reaver**
+(`docs/research/sim-reaver-2026-09-17.md`: full step overpowered and rejected; orthogonal reading is
+the measured default at ~4.0 pawns, +7.1 decisive, neutral balance) and the **Templar**
+(`docs/research/sim-templar-2026-09-17.md`: rejected — only 4–8% of its moves come from a capital, it
+plays as a weak king-stepper and drags draws). Only the **Squire** is unbuilt.
 Each piece below names the matrix cells it fills, what it is for, what to expect, what to watch, and
 how to measure it.
 
@@ -96,11 +97,11 @@ squares (d4, d5, e4, e5) it moves and captures like a queen.
 dislodging — the Ogre shoves it out, the Catapult lobs at what stands behind it. It proves the zone
 machinery every other capital rule will need.
 
-**Expect.** 2.5 pawns off the capital, queen-class on it, perhaps 3.5–4 on average; sharp; a small
-first-mover risk because reaching the capital takes moves. **Watch.** A Templar in the capital with a
-guard beside it could be a fortress; the stuck-ending counter will show it.
-**Engine.** `CAPITAL = {27, 28, 35, 36}` and a branch on `from` in the piece's case; a location bonus
-in the evaluation.
+**Built 2026-09-17; rejected on measurement.** The search almost never parks the piece on a capital
+(4% of its moves; 8% with a 120 cp location bonus), so it plays as a weak king-stepper: implied value
+2.15–2.39 pawns, decisive share −5.4 ± 2.7 points, draws +5. Full record:
+`docs/research/sim-templar-2026-09-17.md`. A zone mechanic needs the zone to be worth holding for
+someone besides the zone's own piece.
 
 ### 5. Reaver (V)
 

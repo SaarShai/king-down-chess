@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  A, B, BLACK, C, G, K, L, M, N, O, P, Q, R, S, SPENT, V, WHITE, colorOf, genPiece, inCheck, insufficientMaterial, isAttacked, legalMoves, makeMove,
+  A, B, BLACK, C, G, K, L, M, N, O, P, Q, R, S, SPENT, T, V, WHITE, colorOf, genPiece, inCheck, insufficientMaterial, isAttacked, legalMoves, makeMove,
   parseSq, perft, piece, status, typeOf, Move, PieceType, Position, file, sqName,
 } from './engine';
 import { parseLan } from '../sim/tune';
@@ -188,7 +188,7 @@ describe('setup', () => {
  */
 function crossCheckAttacks(seed: number, trials = 200): void {
   const rng = () => ((seed = (seed * 48271) % 2147483647) / 2147483647);
-  const types: PieceType[] = [P, N, B, R, Q, K, A, L, G, M, S, O, C, V];
+  const types: PieceType[] = [P, N, B, R, Q, K, A, L, G, M, S, O, C, V, T];
   for (let trial = 0; trial < trials; trial++) {
     const board = new Uint8Array(64);
     for (let s = 0; s < 64; s++) {
@@ -1183,5 +1183,42 @@ describe('reaver (V, lab)', () => {
     const promo = fromFen('7k/P7/8/8/8/8/8/K7 w - - 0 1');
     expect(movesFrom(promo, 'a7').map(m => m.promo)).not.toContain(V);
     expect(insufficientMaterial(fromFen('7k/8/8/8/8/8/8/KV6 w - - 0 1').board)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// The Templar (T, lab piece; docs/PIECES-PROPOSED.md #4): a king-step anywhere, a queen on a
+// capital square (d4 e4 d5 e5).
+
+describe('templar (T, lab)', () => {
+  afterEach(() => setRules());
+
+  it('steps like a king off the capital and slides like a queen on it', () => {
+    const off = fromFen('k7/8/8/8/2T5/8/8/K7 w - - 0 1'); // c4: not a capital
+    expect(lan(off, movesFrom(off, 'c4'))).toEqual(
+      ['Tc4-b3', 'Tc4-b4', 'Tc4-b5', 'Tc4-c3', 'Tc4-c5', 'Tc4-d3', 'Tc4-d4', 'Tc4-d5'].sort());
+    const on = fromFen('k7/8/8/8/3T4/8/8/K7 w - - 0 1'); // d4: capital
+    const moves = lan(on, movesFrom(on, 'd4'));
+    for (const l of ['Td4-d8', 'Td4-h4', 'Td4-a4', 'Td4-d1', 'Td4-h8', 'Td4-a7']) expect(moves, l).toContain(l);
+    expect(moves.length).toBeGreaterThan(20);
+  });
+
+  it('attacks like a queen only from a capital', () => {
+    const off = fromFen('k7/8/1p6/8/2T5/8/8/K7 w - - 0 1'); // T c4, pawn b6 two diagonal steps away
+    expect(isAttacked(off.board, parseSq('b6'), WHITE)).toBe(false);
+    expect(isAttacked(off.board, parseSq('b5'), WHITE)).toBe(true); // adjacent is still an attack
+    const on = fromFen('k7/8/1p6/8/3T4/8/8/K7 w - - 0 1'); // same pawn, T on the d4 capital
+    expect(isAttacked(on.board, parseSq('b6'), WHITE)).toBe(true);
+    crossCheckAttacks(207);
+  });
+
+  it('round-trips in FEN, is outside the pool and promotion list, and counts as mating material', () => {
+    const fen = 'k7/8/8/8/3t4/8/8/K7 w - - 0 1';
+    expect(toFen(fromFen(fen))).toBe(fen);
+    expect(typeOf(fromFen(fen).board[parseSq('d4')])).toBe(T);
+    expect(POOL).not.toMatch(/T/);
+    const promo = fromFen('7k/P7/8/8/8/8/8/K7 w - - 0 1');
+    expect(movesFrom(promo, 'a7').map(m => m.promo)).not.toContain(T);
+    expect(insufficientMaterial(fromFen('k7/8/8/8/8/8/8/KT6 w - - 0 1').board)).toBe(false);
   });
 });

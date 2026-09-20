@@ -73,9 +73,10 @@ const CANDIDATES: Candidate[] = [
     pieces: 'one', counterplay: 'go around it; shove it with the lab Ogre; only your king can remove it',
   },
   {
-    id: 'templar_capital', name: 'Templar: queen moves while standing on a centre square (proposed)', status: 'proposed',
+    id: 'templar_capital', name: 'Templar: queen moves while standing on a centre square (lab, measured)', status: 'lab',
     behaviour: 'A one-step piece becomes queen-class while standing on one of the four capital squares (d4 e4 d5 e5), and reverts when it leaves.',
-    frequency: 'would stand on a capital square for stretches of most games', decisive: 'unknown; the centre becomes the fight',
+    frequency: 'measured: only 4% of its moves are from a capital (8% with a 120cp location bonus) — the search will not camp on the square',
+    decisive: 'measured against a knight control (2,000 paired games): decisive -5.4 +/- 2.7 points, draws +5, plies +8.6; with the bonus still -2.5 +/- 2.6. Odds value 2.15-2.39 pawns, below a knight',
     pieces: 'one plus whoever contests the centre', counterplay: 'attack or shove it off the square; the Ogre counters it directly',
   },
   {
@@ -157,34 +158,42 @@ const state = {
   note: 'Judgments are about player experience, not balance. A frequent interaction can still be interesting; a rare one can still be routine.',
 };
 
-const answers = await ask(state, questions);
-const S = (id: string): number => score(answers[`interest_${id}`]);
-const N = (id: string): number => noul(answers[`counterplay_${id}`]);
-
-const ctl = [] as string[];
-if (!(S('control_routine') <= 1)) ctl.push(`routine control scored ${S('control_routine').toFixed(2)} (want <= 1)`);
-if (!(S('control_highlight') >= 2)) ctl.push(`highlight control scored ${S('control_highlight').toFixed(2)} (want >= 2)`);
-if (ctl.length) {
-  console.error(`jev-interest: CONTROL FAILED — ${ctl.join('; ')}. Instrument invalid; discarding the run.`);
+// Three runs, majority + median (the self-consistency pattern that made the rule review stable);
+// a candidate's rank is only trusted when the runs agree on its band.
+const RUNS = 3;
+const S: Record<string, number[]> = Object.fromEntries(CANDIDATES.map(c => [c.id, []]));
+const N: Record<string, number[]> = Object.fromEntries(CANDIDATES.map(c => [c.id, []]));
+let ctlBad = '';
+for (let r = 0; r < RUNS; r++) {
+  const answers = await ask(state, questions);
+  const cr = score(answers.interest_control_routine), ch = score(answers.interest_control_highlight);
+  if (!(cr <= 1) || !(ch >= 2)) { ctlBad = `run ${r + 1}: routine ${cr.toFixed(2)} (want <= 1), highlight ${ch.toFixed(2)} (want >= 2)`; break; }
+  for (const c of CANDIDATES) { S[c.id].push(score(answers[`interest_${c.id}`])); N[c.id].push(noul(answers[`counterplay_${c.id}`])); }
+}
+if (ctlBad) {
+  console.error(`jev-interest: CONTROL FAILED — ${ctlBad}. Instrument invalid; discarding the run.`);
   process.exit(2);
 }
-console.log(`jev-interest: controls ok (routine ${S('control_routine').toFixed(2)}, highlight ${S('control_highlight').toFixed(2)})`);
+const med = (xs: number[]): number => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+const spread = (xs: number[]): number => Math.max(...xs) - Math.min(...xs);
+console.log(`jev-interest: controls ok in all ${RUNS} runs (routine ${S.control_routine.map(v => v.toFixed(2)).join('/')}, highlight ${S.control_highlight.map(v => v.toFixed(2)).join('/')})`);
 
 const rows = CANDIDATES.filter(c => c.status !== 'control')
-  .map(c => ({ c, s: S(c.id), n: N(c.id) }))
+  .map(c => ({ c, s: med(S[c.id]), n: med(N[c.id]), sd: spread(S[c.id]) }))
   .sort((a, b) => b.s - a.s || b.n - a.n);
 
 const md = `# Jev interestingness evaluation of interactions — 2026-09-17
 
 Each interaction was described with the same parameters (behaviour, frequency, decisiveness effect,
-pieces involved, counterplay) and scored on a 0–3 rubric. Controls anchoring the scale: a routine
-one-square step scored ${S('control_routine').toFixed(2)}, a four-capture beast chain ${S('control_highlight').toFixed(2)} — the
-instrument separated them, so the scores below are reported. They are a model's reading of the
-parameters, not measurements; the measured profile is \`docs/research/interactions-2026-09-17.md\`.
+pieces involved, counterplay) and scored on a 0–3 rubric, **three times**; the table shows the median
+and the run-to-run spread. Controls anchoring the scale: a routine one-square step vs a four-capture
+beast chain, checked in every run (routine ${S.control_routine.map(v => v.toFixed(2)).join('/')}, highlight ${S.control_highlight.map(v => v.toFixed(2)).join('/')}). The scores are a model's reading of the parameters, not measurements; the measured
+profile is \`docs/research/interactions-2026-09-17.md\`. A spread above 0.5 means the item sits on a
+rubric boundary — treat its rank as tentative.
 
-| interaction | status | interest 0–3 | counterplay exists |
-|---|---|---|---|
-${rows.map(r => `| ${r.c.name} | ${r.c.status} | ${r.s.toFixed(2)} | ${r.n.toFixed(2)} |`).join('\n')}
+| interaction | status | interest 0–3 (median) | spread | counterplay exists |
+|---|---|---|---|---|
+${rows.map(r => `| ${r.c.name} | ${r.c.status} | ${r.s.toFixed(2)} | ${r.sd.toFixed(2)} | ${r.n.toFixed(2)} |`).join('\n')}
 
 ## Build-order read
 

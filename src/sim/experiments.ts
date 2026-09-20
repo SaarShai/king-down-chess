@@ -14,15 +14,15 @@ import { mulberry32 } from './rng';
 import { CLASSIC_CHESS } from '../rules/setup';
 import { LETTERS, NAMES, PieceType } from '../rules/engine';
 import { Rules, ruleDiff } from '../rules/rules';
-import { BEAST_V, CATAPULT_V, GUARD_V, KNIGHT_V, MAESTER_V, OGRE_V, PALADIN_V, ARCHER_V, REAVER_V } from '../ai/eval';
+import { BEAST_V, CATAPULT_V, GUARD_V, KNIGHT_V, MAESTER_V, OGRE_V, PALADIN_V, ARCHER_V, REAVER_V, TEMPLAR_V } from '../ai/eval';
 
 /** The shipped fairy set. `--pieces O` / `--pieces C` reaches the two lab pieces below. */
 const FAIRY = 'ALGMS';
 /** Engine seed values today (`src/ai/eval.ts`) and the research priors, both in pawns. */
-const SEEDED: Record<string, number> = { A: ARCHER_V, L: PALADIN_V, G: GUARD_V, M: MAESTER_V, S: BEAST_V, O: OGRE_V, C: CATAPULT_V, V: REAVER_V };
+const SEEDED: Record<string, number> = { A: ARCHER_V, L: PALADIN_V, G: GUARD_V, M: MAESTER_V, S: BEAST_V, O: OGRE_V, C: CATAPULT_V, V: REAVER_V, T: TEMPLAR_V };
 // O and C: `docs/PIECES-PROPOSED.md` guesses "about 3 pawns" and "3.5-4.5 while the board is full".
-const PRIOR: Record<string, number> = { A: 3.5, L: 4.0, G: 2.0, M: 3.5, S: 2.2, O: 3.0, C: 4.0, V: 3.75 };
-const NAME: Record<string, string> = { A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre', C: 'catapult', V: 'reaver' };
+const PRIOR: Record<string, number> = { A: 3.5, L: 4.0, G: 2.0, M: 3.5, S: 2.2, O: 3.0, C: 4.0, V: 3.75, T: 3.75 };
+const NAME: Record<string, string> = { A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre', C: 'catapult', V: 'reaver', T: 'templar' };
 
 const f2 = (x: number): string => x.toFixed(2);
 const signed = (x: number, d = 0): string => `${x >= 0 ? '+' : ''}${x.toFixed(d)}`;

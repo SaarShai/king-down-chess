@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "id": "ov-T-templar.T",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "asymmetric": [
+      {
+        "white": "RTBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 36.7,
+  "whiteScore": 0.5117,
+  "whiteWins": 129,
+  "draws": 49,
+  "blackWins": 122,
+  "meanPlies": 92.7,
+  "reasons": {
+    "adjudicatedResign": 251,
+    "adjudicatedDraw": 40,
+    "drawRepetition": 5,
+    "draw50": 2,
+    "drawMaterial": 2
+  }
+}

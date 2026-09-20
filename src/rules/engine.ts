@@ -16,11 +16,11 @@ export type Color = 0 | 1;
 export const WHITE: Color = 0;
 export const BLACK: Color = 1;
 
-export const P = 1, N = 2, B = 3, R = 4, Q = 5, K = 6, A = 7, L = 8, G = 9, M = 10, S = 11, O = 12, C = 13, V = 14;
-export type PieceType = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
+export const P = 1, N = 2, B = 3, R = 4, Q = 5, K = 6, A = 7, L = 8, G = 9, M = 10, S = 11, O = 12, C = 13, V = 14, T = 15;
+export type PieceType = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
 /** Letter per piece type (index = type). A=archer L=paladin G=guard M=maester S=beast O=ogre C=catapult V=reaver. */
-export const LETTERS = ' PNBRQKALGMSOCV';
-export const NAMES = ['', 'pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'archer', 'paladin', 'guard', 'maester', 'beast', 'ogre', 'catapult', 'reaver'] as const;
+export const LETTERS = ' PNBRQKALGMSOCVT';
+export const NAMES = ['', 'pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'archer', 'paladin', 'guard', 'maester', 'beast', 'ogre', 'catapult', 'reaver', 'templar'] as const;
 /**
  * Promotion targets. The ogre and the catapult are **not** here: they are lab pieces that enter a
  * game only through `--pool` or an explicit back rank, and adding them would hand every shipped
@@ -86,6 +86,8 @@ export interface Position {
 
 type Delta = readonly [number, number];
 const DIRS8: readonly Delta[] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+/** The four capital squares: d4 e4 d5 e5 (the Templar's queen squares, lab). */
+const CAPITAL: readonly number[] = [27, 28, 35, 36];
 const ORTHO = DIRS8.slice(0, 4);
 const DIAG = DIRS8.slice(4);
 const KNIGHT: readonly Delta[] = [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]];
@@ -428,6 +430,14 @@ export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Mo
       }
       return;
     }
+    case T: {
+      // **Templar** (lab piece, PIECES-PROPOSED.md #4): a king-step while it stands anywhere, and a
+      // full queen while it stands on one of the four capital squares (d4 e4 d5 e5). The switch is
+      // a pure function of `from`, so no state exists; `isAttacked` mirrors it exactly (a Templar
+      // blocks like any slider and is a queen only from a capital).
+      if (CAPITAL.includes(from)) return slider(board, from, c, p, DIRS8, mode, out);
+      return leaper(board, from, c, p, DIRS8, mode, out);
+    }
     case O: {
       // An ordinary king-step attacker: it may take a king like any king-mover, never a guard
       // (`canCapture` settles both), so `isAttacked` needs nothing but the 8 neighbours.
@@ -540,7 +550,7 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
   for (const [df, dr] of DIRS8) {
     const s = step(target, df, dr);
     if (s < 0) continue;
-    if (hit(s, K) || hit(s, M) || hit(s, O) || (RULES.guardCaptures !== 'none' && hit(s, G) && guardMayLand(board[s], target))) return true;
+    if (hit(s, K) || hit(s, M) || hit(s, O) || hit(s, T) || (RULES.guardCaptures !== 'none' && hit(s, G) && guardMayLand(board[s], target))) return true;
     if (hit(s, S) && beastTakesFrom(df, dr, by)) return true;
   }
   // A pawn of `by` that takes the target stands on one of the two squares diagonally behind it —
@@ -580,7 +590,7 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
         continue;
       }
       const t = typeOf(p);
-      if (!blockedForSliders && (t === sliderType || t === Q) && (victim === 0 || canCapture(p, victim as PieceType))) return true;
+      if (!blockedForSliders && (t === sliderType || t === Q || (t === T && CAPITAL.includes(s))) && (victim === 0 || canCapture(p, victim as PieceType))) return true;
       if (!blockedForPaladin && t === L && (victim === 0 || canCapture(p, victim as PieceType))) return true;
       // **Leap** (Mud B): an own pawn does not stop a `by` slider, which is the mirror of the
       // `continue` in `slider()`. The paladin is untouched — it jumps friends already.
@@ -627,7 +637,7 @@ export function insufficientMaterial(board: Uint8Array): boolean {
     // The ogre is a commoner, so it mates with a king. The catapult needs a screen it cannot make
     // for itself, but a single enemy piece is screen enough, so it counts too — this test is meant
     // to be conservative, and declaring a live game drawn is the expensive direction to be wrong in.
-    if (t === P || t === R || t === Q || t === A || t === M || t === S || t === O || t === C) return false;
+    if (t === P || t === R || t === Q || t === A || t === M || t === S || t === O || t === C || t === T) return false;
     if (t === G && RULES.guardCaptures === 'any') return false; // a commoner guard mates with a king; a pawn-only guard cannot
     if (t === L && RULES.paladinChecks) return false; // a paladin that may take a king can mate with one
     if (t === N || t === B || t === V) minors[colorOf(p)]++; // a lone leaper cannot mate: K+V vs K is drawn

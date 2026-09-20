@@ -78,6 +78,7 @@ const RULES: readonly (readonly [string, string])[] = [
   ['Moves 1 square in any direction. Instead it may shove an adjacent piece 1 square away — shift-click a neighbour.', 'Takes by moving onto the enemy, a guard excepted. A shove is not a capture and never moves a king.'],
   ['Moves like a rook and never takes by moving.', 'Lobs along a rank or file over one enemy screen and takes the first piece beyond it.'],
   ['Moves like a knight. After a capture it may step one square in any direction onto an empty square as part of the same move.', 'Takes like a knight; the step after it never captures. Click the victim, then the landing square.'],
+  ['Moves 1 square in any direction; on a capital square (d4 e4 d5 e5) it moves and captures like a queen.', 'Takes by moving onto the enemy.'],
 ];
 
 function showInfo(sq: number | null): void {

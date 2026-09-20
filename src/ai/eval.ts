@@ -6,7 +6,7 @@
  * No file-indexed opening knowledge anywhere: the back rank is randomised, so tables are
  * left-right symmetric and encode only centrality and advancement.
  */
-import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, S, V, WHITE, canCapture, colorOf, typeOf } from '../rules/engine';
+import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, canCapture, colorOf, typeOf } from '../rules/engine';
 import { NetKind, RESIDUAL_MAX, loadNet, loadedNetB64, netKind, netLoaded, nnueEval } from './nnue/net';
 
 /*
@@ -75,25 +75,42 @@ export const OGRE_V = 300, CATAPULT_V = 400;
  * shipped lab reading is the orthogonal one. `docs/research/sim-reaver-2026-09-17.md`.
  */
 export const REAVER_V = 400;
+/**
+ * **Untuned seed** — the templar (T, lab, 2026-09-17). A king-step off the capital, a queen on it;
+ * the proposal expects "2.5 off, queen-class on, perhaps 3.5–4 on average". Seeded at 350; a zero
+ * PST means the search discovers the capital from the move list, not from a location bonus
+ * (docs/PIECES-PROPOSED.md #4).
+ */
+export const TEMPLAR_V = 350;
+/**
+ * The Templar's location bonus, in centipawns, while it stands on a capital square (d4 e4 d5 e5).
+ * Hand-set, lab-only, and the experiment that decides the piece: at zero the search never parks the
+ * Templar on a capital (4% of its moves), so the queen mode never happens and the piece plays as a
+ * weak king-stepper (docs/research/sim-templar-2026-09-17.md). Only boards that contain a Templar
+ * can ever read it, so nothing shipped changes.
+ */
+export const TEMPLAR_ON_CAPITAL = 120;
+/** The four capital squares, shared with the engine's Templar branch (`CAPITAL` in engine.ts). */
+const CAPITAL_SQ = new Set([27, 28, 35, 36]);
 
-const VAL = new Int32Array(15);
+const VAL = new Int32Array(16);
 VAL[P] = PAWN_V; VAL[N] = KNIGHT_V; VAL[B] = BISHOP_V; VAL[R] = ROOK_V; VAL[Q] = QUEEN_V; VAL[K] = 0;
 VAL[A] = ARCHER_V; VAL[L] = PALADIN_V; VAL[G] = GUARD_V; VAL[M] = MAESTER_V; VAL[S] = BEAST_V;
-VAL[O] = OGRE_V; VAL[C] = CATAPULT_V; VAL[V] = REAVER_V;
+VAL[O] = OGRE_V; VAL[C] = CATAPULT_V; VAL[V] = REAVER_V; VAL[T] = TEMPLAR_V;
 
 /** Piece value by type; kept as a record for compatibility with the tier-1 API. */
 export const VALUES: Record<number, number> = {
   [P]: PAWN_V, [N]: KNIGHT_V, [B]: BISHOP_V, [R]: ROOK_V, [Q]: QUEEN_V, [K]: 0,
   [A]: ARCHER_V, [L]: PALADIN_V, [G]: GUARD_V, [M]: MAESTER_V, [S]: BEAST_V,
-  [O]: OGRE_V, [C]: CATAPULT_V, [V]: REAVER_V,
+  [O]: OGRE_V, [C]: CATAPULT_V, [V]: REAVER_V, [T]: TEMPLAR_V,
 };
 
 /** The shipped values by letter, so `setPieceValues()` with no argument restores them exactly. */
 const DEFAULT_V: Readonly<Record<string, number>> = Object.freeze({
   P: PAWN_V, N: KNIGHT_V, B: BISHOP_V, R: ROOK_V, Q: QUEEN_V, K: 0,
-  A: ARCHER_V, L: PALADIN_V, G: GUARD_V, M: MAESTER_V, S: BEAST_V, O: OGRE_V, C: CATAPULT_V, V: REAVER_V,
+  A: ARCHER_V, L: PALADIN_V, G: GUARD_V, M: MAESTER_V, S: BEAST_V, O: OGRE_V, C: CATAPULT_V, V: REAVER_V, T: TEMPLAR_V,
 });
-const TYPE_BY_LETTER: Readonly<Record<string, PieceType>> = Object.freeze({ P, N, B, R, Q, K, A, L, G, M, S, O, C, V });
+const TYPE_BY_LETTER: Readonly<Record<string, PieceType>> = Object.freeze({ P, N, B, R, Q, K, A, L, G, M, S, O, C, V, T });
 
 /**
  * Runtime material values, for the balance lab only (`--values A=270,G=180`). Two tables are
@@ -264,6 +281,7 @@ PST[S] = table([
 PST[O] = new Int16Array(64);
 PST[C] = new Int16Array(64);
 PST[V] = new Int16Array(64);
+PST[T] = new Int16Array(64);
 
 /** King: hide behind the army while the board is full, walk to the centre once it empties. */
 const KING_MG = table([
@@ -359,6 +377,7 @@ export function evaluateBoard(board: Uint8Array, turn: Color): number {
     let v = VAL[t] + PST[t][c === WHITE ? s : s ^ 56];
     if (t !== P) npm += VAL[t];
     if (t === B || t === R || t === Q || t === L) v += mobility(board, s, t, c);
+    else if (t === T && CAPITAL_SQ.has(s)) v += TEMPLAR_ON_CAPITAL;
     else if (t === S) v += beastTargets(board, s, c);
     else if (t === M) maesters.push(s);
     score += c === WHITE ? v : -v;

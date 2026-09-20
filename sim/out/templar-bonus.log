@@ -1,0 +1,179 @@
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id ov-T-bonus --experiment values --pieces T --games 300 --depth 3 --seed 1 --workers 16 --eloPerPawn 64
+
+[ov-T-bonus.T] 300 games (0 already done), 300 to play on 16 workers -> sim/out/ov-T-bonus.T.jsonl
+[ov-T-bonus.T] depth 3, 4 random opening plies, ply cap 300, pairs on
+[ov-T-bonus.T] rules {}, values {}
+[ov-T-bonus.T] 5/300  2.5 games/s  ETA 0h01m58s
+[ov-T-bonus.T] 29/300  7.2 games/s  ETA 0h00m37s
+[ov-T-bonus.T] 47/300  7.8 games/s  ETA 0h00m32s
+[ov-T-bonus.T] 63/300  7.9 games/s  ETA 0h00m30s
+[ov-T-bonus.T] 87/300  8.7 games/s  ETA 0h00m24s
+[ov-T-bonus.T] 109/300  9.1 games/s  ETA 0h00m21s
+[ov-T-bonus.T] 126/300  9.0 games/s  ETA 0h00m19s
+[ov-T-bonus.T] 147/300  9.2 games/s  ETA 0h00m16s
+[ov-T-bonus.T] 167/300  9.3 games/s  ETA 0h00m14s
+[ov-T-bonus.T] 191/300  9.5 games/s  ETA 0h00m11s
+[ov-T-bonus.T] 211/300  9.6 games/s  ETA 0h00m09s
+[ov-T-bonus.T] 228/300  9.5 games/s  ETA 0h00m07s
+[ov-T-bonus.T] 250/300  9.6 games/s  ETA 0h00m05s
+[ov-T-bonus.T] 274/300  9.8 games/s  ETA 0h00m02s
+[ov-T-bonus.T] 291/300  9.7 games/s  ETA 0h00m00s
+[ov-T-bonus.T] 300 games in 0h00m31s (9.5 games/s)
+[ov-T-bonus.T] summary -> sim/out/ov-T-bonus.T.summary.json
+# Piece values — ov-T-bonus
+
+Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **knight** of the
+classic arrangement `RNBQKBNR` with one fairy piece, on one side only, and plays
+colour-reversed pairs. The last arm gives White pawn odds; it converts Elo into pawns.
+
+Depth 3, 300 games per arm, 4 random opening plies.
+Rules: defaults.
+Engine values: the shipped constants.
+
+## Arms (scores are the fairy army's, folded over the colour swap)
+| arm | games | pairs | pentanomial | score | Elo ±95% | nElo | LOS | LLR | SPRT | draws | capped | plies |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| T | 300 | 150 | [34, 28, 56, 10, 22] | 0.430 | -49 ± 36 | -53 | 0.4% | -0.54 | continue | 15.3% | 0.0% | 92 |
+
+**One pawn = 64 Elo** at this depth
+(carried over with `--eloPerPawn`; no calibration arm was played here). Every
+implied value below carries that calibration error on top of its own.
+
+
+## Implied values
+| piece | Elo vs knight | Δ pawns | implied value (pawns) | engine seed | research prior | next seed (cp) |
+|---|---|---|---|---|---|---|
+| T (templar) | -49 ± 36 | -0.77 ± 0.56 | 2.39 ± 0.56 | 3.50 | 3.75 | 239 |
+
+Implied value = knight (3.16) + Elo / 64.
+
+
+## Muller fixed-point update
+Write the "next seed" column into `src/ai/eval.ts`, then run this experiment again. The values are
+converged when a pass moves no piece by more than its error bar. A seed that inverts a plausible
+exchange makes self-play blind, so never stop after one pass.
+
+```ts
+export const TEMPLAR_V = 239;
+```
+
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --spec sim/specs/newpieces/np-T.json --id np-T-bonus --workers 16
+
+[np-T-bonus] 2000 games (0 already done), 2000 to play on 16 workers -> sim/out/np-T-bonus.jsonl
+[np-T-bonus] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[np-T-bonus] rules {}, values {}
+[np-T-bonus] 5/2000  2.5 games/s  ETA 0h13m18s
+[np-T-bonus] 25/2000  6.2 games/s  ETA 0h05m16s
+[np-T-bonus] 42/2000  7.0 games/s  ETA 0h04m39s
+[np-T-bonus] 64/2000  8.0 games/s  ETA 0h04m02s
+[np-T-bonus] 82/2000  8.2 games/s  ETA 0h03m54s
+[np-T-bonus] 102/2000  8.5 games/s  ETA 0h03m43s
+[np-T-bonus] 126/2000  9.0 games/s  ETA 0h03m28s
+[np-T-bonus] 144/2000  9.0 games/s  ETA 0h03m26s
+[np-T-bonus] 162/2000  9.0 games/s  ETA 0h03m24s
+[np-T-bonus] 183/2000  9.1 games/s  ETA 0h03m18s
+[np-T-bonus] 203/2000  9.2 games/s  ETA 0h03m14s
+[np-T-bonus] 223/2000  9.3 games/s  ETA 0h03m11s
+[np-T-bonus] 241/2000  9.3 games/s  ETA 0h03m09s
+[np-T-bonus] 260/2000  9.3 games/s  ETA 0h03m07s
+[np-T-bonus] 276/2000  9.2 games/s  ETA 0h03m07s
+[np-T-bonus] 290/2000  9.1 games/s  ETA 0h03m08s
+[np-T-bonus] 308/2000  9.0 games/s  ETA 0h03m07s
+[np-T-bonus] 329/2000  9.1 games/s  ETA 0h03m03s
+[np-T-bonus] 350/2000  9.2 games/s  ETA 0h02m59s
+[np-T-bonus] 373/2000  9.3 games/s  ETA 0h02m54s
+[np-T-bonus] 388/2000  9.2 games/s  ETA 0h02m54s
+[np-T-bonus] 403/2000  9.1 games/s  ETA 0h02m54s
+[np-T-bonus] 427/2000  9.3 games/s  ETA 0h02m49s
+[np-T-bonus] 445/2000  9.3 games/s  ETA 0h02m47s
+[np-T-bonus] 465/2000  9.3 games/s  ETA 0h02m45s
+[np-T-bonus] 482/2000  9.3 games/s  ETA 0h02m43s
+[np-T-bonus] 500/2000  9.2 games/s  ETA 0h02m42s
+[np-T-bonus] 520/2000  9.3 games/s  ETA 0h02m39s
+[np-T-bonus] 540/2000  9.3 games/s  ETA 0h02m37s
+[np-T-bonus] 563/2000  9.4 games/s  ETA 0h02m33s
+[np-T-bonus] 582/2000  9.4 games/s  ETA 0h02m31s
+[np-T-bonus] 600/2000  9.4 games/s  ETA 0h02m29s
+[np-T-bonus] 617/2000  9.3 games/s  ETA 0h02m28s
+[np-T-bonus] 634/2000  9.3 games/s  ETA 0h02m26s
+[np-T-bonus] 648/2000  9.2 games/s  ETA 0h02m26s
+[np-T-bonus] 668/2000  9.3 games/s  ETA 0h02m23s
+[np-T-bonus] 687/2000  9.3 games/s  ETA 0h02m21s
+[np-T-bonus] 711/2000  9.3 games/s  ETA 0h02m17s
+[np-T-bonus] 730/2000  9.3 games/s  ETA 0h02m15s
+[np-T-bonus] 752/2000  9.4 games/s  ETA 0h02m12s
+[np-T-bonus] 771/2000  9.4 games/s  ETA 0h02m10s
+[np-T-bonus] 786/2000  9.3 games/s  ETA 0h02m09s
+[np-T-bonus] 801/2000  9.3 games/s  ETA 0h02m08s
+[np-T-bonus] 819/2000  9.3 games/s  ETA 0h02m07s
+[np-T-bonus] 833/2000  9.2 games/s  ETA 0h02m06s
+[np-T-bonus] 847/2000  9.2 games/s  ETA 0h02m05s
+[np-T-bonus] 865/2000  9.2 games/s  ETA 0h02m03s
+[np-T-bonus] 883/2000  9.2 games/s  ETA 0h02m01s
+[np-T-bonus] 902/2000  9.2 games/s  ETA 0h01m59s
+[np-T-bonus] 921/2000  9.2 games/s  ETA 0h01m57s
+[np-T-bonus] 940/2000  9.2 games/s  ETA 0h01m55s
+[np-T-bonus] 961/2000  9.2 games/s  ETA 0h01m52s
+[np-T-bonus] 978/2000  9.2 games/s  ETA 0h01m50s
+[np-T-bonus] 995/2000  9.2 games/s  ETA 0h01m49s
+[np-T-bonus] 1016/2000  9.2 games/s  ETA 0h01m46s
+[np-T-bonus] 1036/2000  9.2 games/s  ETA 0h01m44s
+[np-T-bonus] 1053/2000  9.2 games/s  ETA 0h01m42s
+[np-T-bonus] 1071/2000  9.2 games/s  ETA 0h01m40s
+[np-T-bonus] 1092/2000  9.2 games/s  ETA 0h01m38s
+[np-T-bonus] 1113/2000  9.3 games/s  ETA 0h01m35s
+[np-T-bonus] 1131/2000  9.3 games/s  ETA 0h01m33s
+[np-T-bonus] 1153/2000  9.3 games/s  ETA 0h01m31s
+[np-T-bonus] 1172/2000  9.3 games/s  ETA 0h01m29s
+[np-T-bonus] 1189/2000  9.3 games/s  ETA 0h01m27s
+[np-T-bonus] 1208/2000  9.3 games/s  ETA 0h01m25s
+[np-T-bonus] 1227/2000  9.3 games/s  ETA 0h01m23s
+[np-T-bonus] 1239/2000  9.2 games/s  ETA 0h01m22s
+[np-T-bonus] 1261/2000  9.3 games/s  ETA 0h01m19s
+[np-T-bonus] 1278/2000  9.3 games/s  ETA 0h01m18s
+[np-T-bonus] 1295/2000  9.2 games/s  ETA 0h01m16s
+[np-T-bonus] 1310/2000  9.2 games/s  ETA 0h01m14s
+[np-T-bonus] 1327/2000  9.2 games/s  ETA 0h01m13s
+[np-T-bonus] 1349/2000  9.2 games/s  ETA 0h01m10s
+[np-T-bonus] 1364/2000  9.2 games/s  ETA 0h01m09s
+[np-T-bonus] 1381/2000  9.2 games/s  ETA 0h01m07s
+[np-T-bonus] 1397/2000  9.2 games/s  ETA 0h01m05s
+[np-T-bonus] 1411/2000  9.2 games/s  ETA 0h01m04s
+[np-T-bonus] 1427/2000  9.1 games/s  ETA 0h01m02s
+[np-T-bonus] 1442/2000  9.1 games/s  ETA 0h01m01s
+[np-T-bonus] 1455/2000  9.1 games/s  ETA 0h00m59s
+[np-T-bonus] 1478/2000  9.1 games/s  ETA 0h00m57s
+[np-T-bonus] 1494/2000  9.1 games/s  ETA 0h00m55s
+[np-T-bonus] 1513/2000  9.1 games/s  ETA 0h00m53s
+[np-T-bonus] 1530/2000  9.1 games/s  ETA 0h00m51s
+[np-T-bonus] 1548/2000  9.1 games/s  ETA 0h00m49s
+[np-T-bonus] 1567/2000  9.1 games/s  ETA 0h00m47s
+[np-T-bonus] 1583/2000  9.1 games/s  ETA 0h00m45s
+[np-T-bonus] 1600/2000  9.1 games/s  ETA 0h00m44s
+[np-T-bonus] 1618/2000  9.1 games/s  ETA 0h00m42s
+[np-T-bonus] 1638/2000  9.1 games/s  ETA 0h00m39s
+[np-T-bonus] 1656/2000  9.1 games/s  ETA 0h00m37s
+[np-T-bonus] 1674/2000  9.1 games/s  ETA 0h00m35s
+[np-T-bonus] 1690/2000  9.1 games/s  ETA 0h00m34s
+[np-T-bonus] 1699/2000  9.0 games/s  ETA 0h00m33s
+[np-T-bonus] 1717/2000  9.0 games/s  ETA 0h00m31s
+[np-T-bonus] 1733/2000  9.0 games/s  ETA 0h00m29s
+[np-T-bonus] 1755/2000  9.0 games/s  ETA 0h00m27s
+[np-T-bonus] 1773/2000  9.0 games/s  ETA 0h00m25s
+[np-T-bonus] 1789/2000  9.0 games/s  ETA 0h00m23s
+[np-T-bonus] 1815/2000  9.1 games/s  ETA 0h00m20s
+[np-T-bonus] 1833/2000  9.1 games/s  ETA 0h00m18s
+[np-T-bonus] 1856/2000  9.1 games/s  ETA 0h00m15s
+[np-T-bonus] 1875/2000  9.1 games/s  ETA 0h00m13s
+[np-T-bonus] 1891/2000  9.1 games/s  ETA 0h00m11s
+[np-T-bonus] 1915/2000  9.1 games/s  ETA 0h00m09s
+[np-T-bonus] 1934/2000  9.1 games/s  ETA 0h00m07s
+[np-T-bonus] 1952/2000  9.1 games/s  ETA 0h00m05s
+[np-T-bonus] 1970/2000  9.1 games/s  ETA 0h00m03s
+[np-T-bonus] 1994/2000  9.1 games/s  ETA 0h00m00s
+[np-T-bonus] 2000 games in 0h03m40s (9.1 games/s)
+[np-T-bonus] summary -> sim/out/np-T-bonus.summary.json
