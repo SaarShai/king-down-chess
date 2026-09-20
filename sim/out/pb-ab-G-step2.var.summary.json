@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-ab-G-step2.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "guardStep": 2
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 310.5,
+  "whiteScore": 0.54,
+  "whiteWins": 693,
+  "draws": 342,
+  "blackWins": 565,
+  "meanPlies": 113.7,
+  "reasons": {
+    "adjudicatedResign": 1258,
+    "draw50": 19,
+    "adjudicatedDraw": 265,
+    "drawMaterial": 10,
+    "drawRepetition": 40,
+    "plyCap": 8
+  }
+}

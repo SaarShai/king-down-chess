@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-ab-G-nocap.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "guardNoCapital": true
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 814.8,
+  "whiteScore": 0.5409,
+  "whiteWins": 701,
+  "draws": 329,
+  "blackWins": 570,
+  "meanPlies": 110.6,
+  "reasons": {
+    "adjudicatedDraw": 262,
+    "adjudicatedResign": 1271,
+    "drawMaterial": 12,
+    "drawRepetition": 42,
+    "plyCap": 6,
+    "draw50": 7
+  }
+}

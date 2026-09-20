@@ -200,3 +200,21 @@ family.
 - **S beast:** `beastChains=false` (one capture per turn) never A/B-tested
   (`src/rules/rules.ts:119-120`); `beastCaptureForward` depth-4 in flight
   (`sim/out/pb-ab-S-fwd-d4.base.jsonl`); a chain-length cap is not a built lever.
+
+## Later the same evening (2026-09-17, after this map was written)
+
+- **Values refreshed under the adopted archer** (`plusDiagFwd2`, `ARCHER_V` 505): two odds-match
+  passes, converged within their error bars — **L 2.87 → 4.08**, **M 3.20 → 3.18** (via 2.82),
+  **S 3.08 → 3.77**. The guard stays out of band below 1.66 and keeps 96. (`sim/out/pb-values-refresh{,2}.experiment.md`)
+- **Guard levers, fresh control** (`docs/research/sim-guard-2026-09-17.md`): `guardCaptures=pawns`
+  + `guardCaptureLimit=1` and `guardStep=2` are **null** on balance (they raise guard moves and
+  dead-material endings); `guardImmune=false` is **rejected** (interest min-use −0.015 ± 0.009,
+  guard survival 97% → 73%).
+- **Capital C1 built and null**: `guardNoCapital` (off by default) changes decisive by +0.3 ± 0.3 —
+  guards rarely enter the centre, so the ban has nothing to bite (`docs/research/sim-guard-2026-09-17.md`).
+- **Archer+beast factorial is additive**: interaction on decisive +1.75 ± 4.08 points
+  (`docs/research/sim-combo-ab-2026-09-17.md`); the archer supplies the whole decisive effect.
+- **Placement**: guard adjacent vs 4+ files from its king is **flat** (decisive +1.3 ± 3.0 — the
+  old mined +9.7 does not replicate); two archers **apart** is borderline better (+3.7 ± 2.8).
+- **Rejected on depth 4**: `beastCaptureForward=true` (the depth-3 pace effect −10.7 ± 3.5 plies
+  fails confirmation, −1.7 ± 7.2; `docs/research/sim-beast-forward-2026-09-17.md`).

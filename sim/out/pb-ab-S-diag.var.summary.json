@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-ab-S-diag.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "beastMove": "diagFwdBack"
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 227.9,
+  "whiteScore": 0.565,
+  "whiteWins": 744,
+  "draws": 320,
+  "blackWins": 536,
+  "meanPlies": 109.2,
+  "reasons": {
+    "adjudicatedResign": 1280,
+    "adjudicatedDraw": 241,
+    "plyCap": 16,
+    "drawRepetition": 48,
+    "draw50": 7,
+    "drawMaterial": 8
+  }
+}

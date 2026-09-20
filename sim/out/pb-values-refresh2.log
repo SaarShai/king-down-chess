@@ -1,0 +1,286 @@
+[pb-values-refresh2.A] 500 games (0 already done), 500 to play on 14 workers -> sim/out/pb-values-refresh2.A.jsonl
+[pb-values-refresh2.A] depth 3, 4 random opening plies, ply cap 300, pairs on
+[pb-values-refresh2.A] rules {}, values {}
+[pb-values-refresh2.A] 3/500  1.5 games/s  ETA 0h05m31s
+[pb-values-refresh2.A] 25/500  6.2 games/s  ETA 0h01m16s
+[pb-values-refresh2.A] 47/500  7.8 games/s  ETA 0h00m57s
+[pb-values-refresh2.A] 65/500  8.1 games/s  ETA 0h00m53s
+[pb-values-refresh2.A] 86/500  8.6 games/s  ETA 0h00m48s
+[pb-values-refresh2.A] 110/500  9.2 games/s  ETA 0h00m42s
+[pb-values-refresh2.A] 131/500  9.3 games/s  ETA 0h00m39s
+[pb-values-refresh2.A] 153/500  9.6 games/s  ETA 0h00m36s
+[pb-values-refresh2.A] 169/500  9.4 games/s  ETA 0h00m35s
+[pb-values-refresh2.A] 189/500  9.4 games/s  ETA 0h00m32s
+[pb-values-refresh2.A] 209/500  9.5 games/s  ETA 0h00m30s
+[pb-values-refresh2.A] 224/500  9.3 games/s  ETA 0h00m29s
+[pb-values-refresh2.A] 244/500  9.4 games/s  ETA 0h00m27s
+[pb-values-refresh2.A] 267/500  9.5 games/s  ETA 0h00m24s
+[pb-values-refresh2.A] 279/500  9.3 games/s  ETA 0h00m23s
+[pb-values-refresh2.A] 296/500  9.2 games/s  ETA 0h00m22s
+[pb-values-refresh2.A] 315/500  9.3 games/s  ETA 0h00m19s
+[pb-values-refresh2.A] 337/500  9.4 games/s  ETA 0h00m17s
+[pb-values-refresh2.A] 354/500  9.3 games/s  ETA 0h00m15s
+[pb-values-refresh2.A] 374/500  9.3 games/s  ETA 0h00m13s
+[pb-values-refresh2.A] 391/500  9.3 games/s  ETA 0h00m11s
+[pb-values-refresh2.A] 405/500  9.2 games/s  ETA 0h00m10s
+[pb-values-refresh2.A] 423/500  9.2 games/s  ETA 0h00m08s
+[pb-values-refresh2.A] 439/500  9.1 games/s  ETA 0h00m06s
+[pb-values-refresh2.A] 460/500  9.2 games/s  ETA 0h00m04s
+[pb-values-refresh2.A] 470/500  9.0 games/s  ETA 0h00m03s
+[pb-values-refresh2.A] 485/500  9.0 games/s  ETA 0h00m01s
+[pb-values-refresh2.A] 495/500  8.8 games/s  ETA 0h00m00s
+[pb-values-refresh2.A] 500 games in 0h00m57s (8.8 games/s)
+[pb-values-refresh2.A] summary -> sim/out/pb-values-refresh2.A.summary.json
+[pb-values-refresh2.L] 500 games (0 already done), 500 to play on 14 workers -> sim/out/pb-values-refresh2.L.jsonl
+[pb-values-refresh2.L] depth 3, 4 random opening plies, ply cap 300, pairs on
+[pb-values-refresh2.L] rules {}, values {}
+[pb-values-refresh2.L] 2/500  1.0 games/s  ETA 0h08m18s
+[pb-values-refresh2.L] 16/500  4.0 games/s  ETA 0h02m01s
+[pb-values-refresh2.L] 25/500  4.2 games/s  ETA 0h01m54s
+[pb-values-refresh2.L] 42/500  5.2 games/s  ETA 0h01m27s
+[pb-values-refresh2.L] 57/500  5.7 games/s  ETA 0h01m17s
+[pb-values-refresh2.L] 75/500  6.2 games/s  ETA 0h01m08s
+[pb-values-refresh2.L] 88/500  6.3 games/s  ETA 0h01m05s
+[pb-values-refresh2.L] 100/500  6.2 games/s  ETA 0h01m04s
+[pb-values-refresh2.L] 109/500  6.0 games/s  ETA 0h01m04s
+[pb-values-refresh2.L] 122/500  6.1 games/s  ETA 0h01m02s
+[pb-values-refresh2.L] 136/500  6.2 games/s  ETA 0h00m58s
+[pb-values-refresh2.L] 151/500  6.3 games/s  ETA 0h00m55s
+[pb-values-refresh2.L] 165/500  6.3 games/s  ETA 0h00m52s
+[pb-values-refresh2.L] 181/500  6.5 games/s  ETA 0h00m49s
+[pb-values-refresh2.L] 195/500  6.5 games/s  ETA 0h00m46s
+[pb-values-refresh2.L] 208/500  6.5 games/s  ETA 0h00m44s
+[pb-values-refresh2.L] 224/500  6.6 games/s  ETA 0h00m41s
+[pb-values-refresh2.L] 237/500  6.6 games/s  ETA 0h00m40s
+[pb-values-refresh2.L] 250/500  6.6 games/s  ETA 0h00m38s
+[pb-values-refresh2.L] 265/500  6.6 games/s  ETA 0h00m35s
+[pb-values-refresh2.L] 281/500  6.7 games/s  ETA 0h00m32s
+[pb-values-refresh2.L] 295/500  6.7 games/s  ETA 0h00m30s
+[pb-values-refresh2.L] 310/500  6.7 games/s  ETA 0h00m28s
+[pb-values-refresh2.L] 325/500  6.8 games/s  ETA 0h00m25s
+[pb-values-refresh2.L] 339/500  6.8 games/s  ETA 0h00m23s
+[pb-values-refresh2.L] 350/500  6.7 games/s  ETA 0h00m22s
+[pb-values-refresh2.L] 363/500  6.7 games/s  ETA 0h00m20s
+[pb-values-refresh2.L] 373/500  6.7 games/s  ETA 0h00m19s
+[pb-values-refresh2.L] 393/500  6.8 games/s  ETA 0h00m15s
+[pb-values-refresh2.L] 404/500  6.7 games/s  ETA 0h00m14s
+[pb-values-refresh2.L] 422/500  6.8 games/s  ETA 0h00m11s
+[pb-values-refresh2.L] 439/500  6.9 games/s  ETA 0h00m08s
+[pb-values-refresh2.L] 456/500  6.9 games/s  ETA 0h00m06s
+[pb-values-refresh2.L] 472/500  6.9 games/s  ETA 0h00m04s
+[pb-values-refresh2.L] 483/500  6.9 games/s  ETA 0h00m02s
+[pb-values-refresh2.L] 498/500  6.9 games/s  ETA 0h00m00s
+[pb-values-refresh2.L] 500 games in 0h01m12s (6.9 games/s)
+[pb-values-refresh2.L] summary -> sim/out/pb-values-refresh2.L.summary.json
+[pb-values-refresh2.G] 500 games (0 already done), 500 to play on 14 workers -> sim/out/pb-values-refresh2.G.jsonl
+[pb-values-refresh2.G] depth 3, 4 random opening plies, ply cap 300, pairs on
+[pb-values-refresh2.G] rules {}, values {}
+[pb-values-refresh2.G] 6/500  3.0 games/s  ETA 0h02m44s
+[pb-values-refresh2.G] 24/500  6.0 games/s  ETA 0h01m19s
+[pb-values-refresh2.G] 35/500  5.8 games/s  ETA 0h01m19s
+[pb-values-refresh2.G] 53/500  6.6 games/s  ETA 0h01m07s
+[pb-values-refresh2.G] 65/500  6.5 games/s  ETA 0h01m07s
+[pb-values-refresh2.G] 77/500  6.4 games/s  ETA 0h01m06s
+[pb-values-refresh2.G] 86/500  6.1 games/s  ETA 0h01m07s
+[pb-values-refresh2.G] 96/500  6.0 games/s  ETA 0h01m07s
+[pb-values-refresh2.G] 104/500  5.8 games/s  ETA 0h01m08s
+[pb-values-refresh2.G] 117/500  5.8 games/s  ETA 0h01m05s
+[pb-values-refresh2.G] 125/500  5.7 games/s  ETA 0h01m06s
+[pb-values-refresh2.G] 135/500  5.6 games/s  ETA 0h01m04s
+[pb-values-refresh2.G] 146/500  5.6 games/s  ETA 0h01m03s
+[pb-values-refresh2.G] 159/500  5.7 games/s  ETA 0h01m00s
+[pb-values-refresh2.G] 172/500  5.7 games/s  ETA 0h00m57s
+[pb-values-refresh2.G] 187/500  5.8 games/s  ETA 0h00m53s
+[pb-values-refresh2.G] 200/500  5.9 games/s  ETA 0h00m51s
+[pb-values-refresh2.G] 210/500  5.8 games/s  ETA 0h00m49s
+[pb-values-refresh2.G] 223/500  5.9 games/s  ETA 0h00m47s
+[pb-values-refresh2.G] 234/500  5.8 games/s  ETA 0h00m45s
+[pb-values-refresh2.G] 245/500  5.8 games/s  ETA 0h00m43s
+[pb-values-refresh2.G] 264/500  6.0 games/s  ETA 0h00m39s
+[pb-values-refresh2.G] 283/500  6.1 games/s  ETA 0h00m35s
+[pb-values-refresh2.G] 304/500  6.3 games/s  ETA 0h00m30s
+[pb-values-refresh2.G] 319/500  6.4 games/s  ETA 0h00m28s
+[pb-values-refresh2.G] 336/500  6.5 games/s  ETA 0h00m25s
+[pb-values-refresh2.G] 354/500  6.5 games/s  ETA 0h00m22s
+[pb-values-refresh2.G] 370/500  6.6 games/s  ETA 0h00m19s
+[pb-values-refresh2.G] 383/500  6.6 games/s  ETA 0h00m17s
+[pb-values-refresh2.G] 405/500  6.7 games/s  ETA 0h00m14s
+[pb-values-refresh2.G] 417/500  6.7 games/s  ETA 0h00m12s
+[pb-values-refresh2.G] 434/500  6.8 games/s  ETA 0h00m09s
+[pb-values-refresh2.G] 450/500  6.8 games/s  ETA 0h00m07s
+[pb-values-refresh2.G] 470/500  6.9 games/s  ETA 0h00m04s
+[pb-values-refresh2.G] 479/500  6.8 games/s  ETA 0h00m03s
+[pb-values-refresh2.G] 488/500  6.8 games/s  ETA 0h00m01s
+[pb-values-refresh2.G] 497/500  6.7 games/s  ETA 0h00m00s
+[pb-values-refresh2.G] 500 games in 0h01m14s (6.7 games/s)
+[pb-values-refresh2.G] summary -> sim/out/pb-values-refresh2.G.summary.json
+[pb-values-refresh2.M] 500 games (0 already done), 500 to play on 14 workers -> sim/out/pb-values-refresh2.M.jsonl
+[pb-values-refresh2.M] depth 3, 4 random opening plies, ply cap 300, pairs on
+[pb-values-refresh2.M] rules {}, values {}
+[pb-values-refresh2.M] 0/500  0.0 games/s  ETA ?
+[pb-values-refresh2.M] 2/500  0.5 games/s  ETA 0h16m37s
+[pb-values-refresh2.M] 9/500  1.5 games/s  ETA 0h05m27s
+[pb-values-refresh2.M] 15/500  1.9 games/s  ETA 0h04m19s
+[pb-values-refresh2.M] 23/500  2.3 games/s  ETA 0h03m27s
+[pb-values-refresh2.M] 34/500  2.8 games/s  ETA 0h02m44s
+[pb-values-refresh2.M] 42/500  3.0 games/s  ETA 0h02m32s
+[pb-values-refresh2.M] 51/500  3.2 games/s  ETA 0h02m21s
+[pb-values-refresh2.M] 64/500  3.6 games/s  ETA 0h02m02s
+[pb-values-refresh2.M] 68/500  3.4 games/s  ETA 0h02m07s
+[pb-values-refresh2.M] 79/500  3.6 games/s  ETA 0h01m57s
+[pb-values-refresh2.M] 93/500  3.9 games/s  ETA 0h01m45s
+[pb-values-refresh2.M] 105/500  4.0 games/s  ETA 0h01m37s
+[pb-values-refresh2.M] 115/500  4.1 games/s  ETA 0h01m33s
+[pb-values-refresh2.M] 125/500  4.2 games/s  ETA 0h01m30s
+[pb-values-refresh2.M] 136/500  4.2 games/s  ETA 0h01m25s
+[pb-values-refresh2.M] 142/500  4.2 games/s  ETA 0h01m25s
+[pb-values-refresh2.M] 151/500  4.2 games/s  ETA 0h01m23s
+[pb-values-refresh2.M] 158/500  4.2 games/s  ETA 0h01m22s
+[pb-values-refresh2.M] 170/500  4.2 games/s  ETA 0h01m17s
+[pb-values-refresh2.M] 179/500  4.3 games/s  ETA 0h01m15s
+[pb-values-refresh2.M] 189/500  4.3 games/s  ETA 0h01m12s
+[pb-values-refresh2.M] 196/500  4.3 games/s  ETA 0h01m11s
+[pb-values-refresh2.M] 203/500  4.2 games/s  ETA 0h01m10s
+[pb-values-refresh2.M] 214/500  4.3 games/s  ETA 0h01m06s
+[pb-values-refresh2.M] 222/500  4.3 games/s  ETA 0h01m05s
+[pb-values-refresh2.M] 230/500  4.3 games/s  ETA 0h01m03s
+[pb-values-refresh2.M] 240/500  4.3 games/s  ETA 0h01m00s
+[pb-values-refresh2.M] 247/500  4.3 games/s  ETA 0h00m59s
+[pb-values-refresh2.M] 258/500  4.3 games/s  ETA 0h00m56s
+[pb-values-refresh2.M] 265/500  4.3 games/s  ETA 0h00m55s
+[pb-values-refresh2.M] 274/500  4.3 games/s  ETA 0h00m52s
+[pb-values-refresh2.M] 286/500  4.3 games/s  ETA 0h00m49s
+[pb-values-refresh2.M] 295/500  4.3 games/s  ETA 0h00m47s
+[pb-values-refresh2.M] 306/500  4.4 games/s  ETA 0h00m44s
+[pb-values-refresh2.M] 318/500  4.4 games/s  ETA 0h00m41s
+[pb-values-refresh2.M] 325/500  4.4 games/s  ETA 0h00m39s
+[pb-values-refresh2.M] 337/500  4.4 games/s  ETA 0h00m36s
+[pb-values-refresh2.M] 348/500  4.5 games/s  ETA 0h00m34s
+[pb-values-refresh2.M] 356/500  4.4 games/s  ETA 0h00m32s
+[pb-values-refresh2.M] 365/500  4.4 games/s  ETA 0h00m30s
+[pb-values-refresh2.M] 376/500  4.5 games/s  ETA 0h00m27s
+[pb-values-refresh2.M] 383/500  4.4 games/s  ETA 0h00m26s
+[pb-values-refresh2.M] 394/500  4.5 games/s  ETA 0h00m23s
+[pb-values-refresh2.M] 402/500  4.5 games/s  ETA 0h00m21s
+[pb-values-refresh2.M] 414/500  4.5 games/s  ETA 0h00m19s
+[pb-values-refresh2.M] 419/500  4.5 games/s  ETA 0h00m18s
+[pb-values-refresh2.M] 430/500  4.5 games/s  ETA 0h00m15s
+[pb-values-refresh2.M] 440/500  4.5 games/s  ETA 0h00m13s
+[pb-values-refresh2.M] 452/500  4.5 games/s  ETA 0h00m10s
+[pb-values-refresh2.M] 461/500  4.5 games/s  ETA 0h00m08s
+[pb-values-refresh2.M] 474/500  4.6 games/s  ETA 0h00m05s
+[pb-values-refresh2.M] 483/500  4.6 games/s  ETA 0h00m03s
+[pb-values-refresh2.M] 493/500  4.6 games/s  ETA 0h00m01s
+[pb-values-refresh2.M] 500 games in 0h01m48s (4.6 games/s)
+[pb-values-refresh2.M] summary -> sim/out/pb-values-refresh2.M.summary.json
+[pb-values-refresh2.S] 500 games (0 already done), 500 to play on 14 workers -> sim/out/pb-values-refresh2.S.jsonl
+[pb-values-refresh2.S] depth 3, 4 random opening plies, ply cap 300, pairs on
+[pb-values-refresh2.S] rules {}, values {}
+[pb-values-refresh2.S] 0/500  0.0 games/s  ETA ?
+[pb-values-refresh2.S] 9/500  2.2 games/s  ETA 0h03m38s
+[pb-values-refresh2.S] 17/500  2.8 games/s  ETA 0h02m50s
+[pb-values-refresh2.S] 21/500  2.6 games/s  ETA 0h03m02s
+[pb-values-refresh2.S] 36/500  3.6 games/s  ETA 0h02m08s
+[pb-values-refresh2.S] 44/500  3.7 games/s  ETA 0h02m04s
+[pb-values-refresh2.S] 53/500  3.8 games/s  ETA 0h01m58s
+[pb-values-refresh2.S] 63/500  3.9 games/s  ETA 0h01m51s
+[pb-values-refresh2.S] 74/500  4.1 games/s  ETA 0h01m43s
+[pb-values-refresh2.S] 84/500  4.2 games/s  ETA 0h01m39s
+[pb-values-refresh2.S] 94/500  4.3 games/s  ETA 0h01m35s
+[pb-values-refresh2.S] 103/500  4.3 games/s  ETA 0h01m32s
+[pb-values-refresh2.S] 115/500  4.4 games/s  ETA 0h01m27s
+[pb-values-refresh2.S] 122/500  4.4 games/s  ETA 0h01m26s
+[pb-values-refresh2.S] 130/500  4.3 games/s  ETA 0h01m25s
+[pb-values-refresh2.S] 139/500  4.3 games/s  ETA 0h01m23s
+[pb-values-refresh2.S] 149/500  4.4 games/s  ETA 0h01m20s
+[pb-values-refresh2.S] 160/500  4.4 games/s  ETA 0h01m16s
+[pb-values-refresh2.S] 170/500  4.5 games/s  ETA 0h01m13s
+[pb-values-refresh2.S] 179/500  4.5 games/s  ETA 0h01m11s
+[pb-values-refresh2.S] 190/500  4.5 games/s  ETA 0h01m08s
+[pb-values-refresh2.S] 203/500  4.6 games/s  ETA 0h01m04s
+[pb-values-refresh2.S] 210/500  4.6 games/s  ETA 0h01m03s
+[pb-values-refresh2.S] 220/500  4.6 games/s  ETA 0h01m01s
+[pb-values-refresh2.S] 230/500  4.6 games/s  ETA 0h00m58s
+[pb-values-refresh2.S] 243/500  4.7 games/s  ETA 0h00m55s
+[pb-values-refresh2.S] 255/500  4.7 games/s  ETA 0h00m51s
+[pb-values-refresh2.S] 263/500  4.7 games/s  ETA 0h00m50s
+[pb-values-refresh2.S] 273/500  4.7 games/s  ETA 0h00m48s
+[pb-values-refresh2.S] 281/500  4.7 games/s  ETA 0h00m46s
+[pb-values-refresh2.S] 295/500  4.8 games/s  ETA 0h00m43s
+[pb-values-refresh2.S] 302/500  4.7 games/s  ETA 0h00m42s
+[pb-values-refresh2.S] 312/500  4.7 games/s  ETA 0h00m39s
+[pb-values-refresh2.S] 318/500  4.7 games/s  ETA 0h00m38s
+[pb-values-refresh2.S] 334/500  4.8 games/s  ETA 0h00m34s
+[pb-values-refresh2.S] 340/500  4.7 games/s  ETA 0h00m33s
+[pb-values-refresh2.S] 352/500  4.8 games/s  ETA 0h00m31s
+[pb-values-refresh2.S] 360/500  4.7 games/s  ETA 0h00m29s
+[pb-values-refresh2.S] 370/500  4.7 games/s  ETA 0h00m27s
+[pb-values-refresh2.S] 378/500  4.7 games/s  ETA 0h00m25s
+[pb-values-refresh2.S] 390/500  4.8 games/s  ETA 0h00m23s
+[pb-values-refresh2.S] 399/500  4.7 games/s  ETA 0h00m21s
+[pb-values-refresh2.S] 409/500  4.8 games/s  ETA 0h00m19s
+[pb-values-refresh2.S] 419/500  4.8 games/s  ETA 0h00m17s
+[pb-values-refresh2.S] 429/500  4.8 games/s  ETA 0h00m14s
+[pb-values-refresh2.S] 440/500  4.8 games/s  ETA 0h00m12s
+[pb-values-refresh2.S] 448/500  4.8 games/s  ETA 0h00m10s
+[pb-values-refresh2.S] 454/500  4.7 games/s  ETA 0h00m09s
+[pb-values-refresh2.S] 464/500  4.7 games/s  ETA 0h00m07s
+[pb-values-refresh2.S] 472/500  4.7 games/s  ETA 0h00m05s
+[pb-values-refresh2.S] 480/500  4.7 games/s  ETA 0h00m04s
+[pb-values-refresh2.S] 491/500  4.7 games/s  ETA 0h00m01s
+[pb-values-refresh2.S] 500 games in 0h01m45s (4.7 games/s)
+[pb-values-refresh2.S] summary -> sim/out/pb-values-refresh2.S.summary.json
+# Piece values — pb-values-refresh2
+
+Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **knight** of the
+classic arrangement `RNBQKBNR` with one fairy piece, on one side only, and plays
+colour-reversed pairs. The last arm gives White pawn odds; it converts Elo into pawns.
+
+Depth 3, 500 games per arm, 4 random opening plies.
+Rules: defaults.
+Engine values: the shipped constants.
+
+## Arms (scores are the fairy army's, folded over the colour swap)
+| arm | games | pairs | pentanomial | score | Elo ±95% | nElo | LOS | LLR | SPRT | draws | capped | plies |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A | 500 | 250 | [16, 11, 82, 31, 110] | 0.708 | +154 ± 26 | +167 | 100.0% | 2.23 | continue | 10.4% | 0.0% | 85 |
+| L | 500 | 250 | [35, 19, 92, 35, 69] | 0.584 | +59 ± 29 | +62 | 100.0% | 0.97 | continue | 11.4% | 0.2% | 93 |
+| G | 500 | 250 | [126, 28, 75, 12, 9] | 0.250 | -191 ± 25 | -214 | 0.0% | -2.58 | continue | 8.6% | 1.0% | 93 |
+| M | 500 | 250 | [43, 30, 96, 44, 37] | 0.502 | +1 ± 27 | +2 | 54.0% | -0.01 | continue | 17.2% | 0.0% | 98 |
+| S | 500 | 250 | [31, 32, 93, 38, 56] | 0.556 | +39 ± 27 | +43 | 99.7% | 0.67 | continue | 15.8% | 0.2% | 98 |
+
+**One pawn = 64 Elo** at this depth
+(carried over with `--eloPerPawn`; no calibration arm was played here). Every
+implied value below carries that calibration error on top of its own.
+
+
+## Implied values
+| piece | Elo vs n | Δ pawns | implied value (pawns) | engine seed | research prior | next seed (cp) |
+|---|---|---|---|---|---|---|
+| A (archer) | +154 ± 26 | +2.40 ± 0.41 ** | > 4.66 ** | 5.05 | 3.50 | 556 |
+| L (paladin) | +59 ± 29 | +0.92 ± 0.45 | 4.08 ± 0.45 | 3.74 | 4.00 | 408 |
+| G (guard) | -191 ± 25 | -2.98 ± 0.39 ** | < 1.66 ** | 0.96 | 2.00 | 50 |
+| M (maester) | +1 ± 27 | +0.02 ± 0.42 | 3.18 ± 0.42 | 2.82 | 3.50 | 318 |
+| S (beast) | +39 ± 27 | +0.61 ± 0.43 | 3.77 ± 0.43 | 3.68 | 2.20 | 377 |
+
+Implied value = n (3.16) + Elo / 64.
+
+** 2 swap(s) fall outside the linear band of ±1.5 pawns that Muller's method needs. The score
+saturates there, so the conversion under-reads the gap: take the marked rows as "far from a knight,
+on the side the bound points", not as a number. The fix is Muller's second step — hand the strong side a pawn and play
+again until the result brackets 50%. The next-seed column floors at 50 cp for the same reason.
+
+
+## Muller fixed-point update
+Write the "next seed" column into `src/ai/eval.ts`, then run this experiment again. The values are
+converged when a pass moves no piece by more than its error bar. A seed that inverts a plausible
+exchange makes self-play blind, so never stop after one pass.
+
+```ts
+export const ARCHER_V = 556;
+export const PALADIN_V = 408;
+export const GUARD_V = 50;
+export const MAESTER_V = 318;
+export const BEAST_V = 377;
+```
+

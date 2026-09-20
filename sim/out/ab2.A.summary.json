@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "id": "ab2.A",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "openingRandomPlies": 4,
+    "commonSeeds": true,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRRBBNNAAGMM"
+    },
+    "note": "archer+beast factorial, A arm: base pool plus both archers (A); interaction = AB - A - B + base.",
+    "maxPlies": 300
+  },
+  "games": 1600,
+  "seconds": 644.6,
+  "whiteScore": 0.5691,
+  "whiteWins": 759,
+  "draws": 303,
+  "blackWins": 538,
+  "meanPlies": 104,
+  "reasons": {
+    "adjudicatedResign": 1297,
+    "adjudicatedDraw": 224,
+    "drawRepetition": 47,
+    "draw50": 15,
+    "drawMaterial": 7,
+    "plyCap": 10
+  }
+}

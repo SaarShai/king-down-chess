@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-ab-G-immune.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "guardImmune": false
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 443.1,
+  "whiteScore": 0.5431,
+  "whiteWins": 709,
+  "draws": 320,
+  "blackWins": 571,
+  "meanPlies": 108.9,
+  "reasons": {
+    "adjudicatedDraw": 259,
+    "adjudicatedResign": 1280,
+    "drawMaterial": 7,
+    "drawRepetition": 40,
+    "draw50": 9,
+    "plyCap": 5
+  }
+}

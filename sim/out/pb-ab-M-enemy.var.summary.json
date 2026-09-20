@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-ab-M-enemy.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "maesterSwapEnemy": true
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 255.5,
+  "whiteScore": 0.5359,
+  "whiteWins": 693,
+  "draws": 329,
+  "blackWins": 578,
+  "meanPlies": 110.6,
+  "reasons": {
+    "adjudicatedResign": 1271,
+    "adjudicatedDraw": 267,
+    "drawMaterial": 8,
+    "plyCap": 9,
+    "drawRepetition": 37,
+    "draw50": 8
+  }
+}

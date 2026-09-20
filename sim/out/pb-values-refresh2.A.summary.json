@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "pb-values-refresh2.A",
+    "games": 500,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 76,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "asymmetric": [
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 500,
+  "seconds": 57.1,
+  "whiteScore": 0.524,
+  "whiteWins": 236,
+  "draws": 52,
+  "blackWins": 212,
+  "meanPlies": 84.7,
+  "reasons": {
+    "adjudicatedResign": 446,
+    "adjudicatedDraw": 33,
+    "drawRepetition": 11,
+    "drawMaterial": 4,
+    "draw50": 4,
+    "checkmate": 2
+  }
+}

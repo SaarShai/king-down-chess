@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-ab-L-return.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "paladinReturn": true
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 182.7,
+  "whiteScore": 0.5641,
+  "whiteWins": 736,
+  "draws": 333,
+  "blackWins": 531,
+  "meanPlies": 86.5,
+  "reasons": {
+    "adjudicatedResign": 1267,
+    "adjudicatedDraw": 189,
+    "drawRepetition": 50,
+    "drawMaterial": 70,
+    "plyCap": 5,
+    "draw50": 19
+  }
+}
