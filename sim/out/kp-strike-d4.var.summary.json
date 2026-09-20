@@ -1,0 +1,42 @@
+{
+  "spec": {
+    "id": "kp-strike-d4.var",
+    "games": 400,
+    "ai": {
+      "depth": 4
+    },
+    "seed": 63,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "kings": [
+        {
+          "king": "Flame",
+          "power": "Strike"
+        },
+        {
+          "king": "Flame",
+          "power": "Strike"
+        }
+      ]
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 400,
+  "seconds": 211,
+  "whiteScore": 0.5713,
+  "whiteWins": 122,
+  "draws": 213,
+  "blackWins": 65,
+  "meanPlies": 86.3,
+  "reasons": {
+    "drawRepetition": 163,
+    "adjudicatedResign": 187,
+    "adjudicatedDraw": 46,
+    "drawMaterial": 4
+  }
+}

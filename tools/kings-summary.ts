@@ -71,7 +71,7 @@ function paired(base: Report, variant: Report): Record<string, [number, number]>
 function counters(id: string, arm: string, rule: string): Record<string, number> {
   const recs = readRecords(`${OUT}/${id}.${arm}.jsonl`);
   setRules(rule ? { kings: parseKings(rule) } : {});
-  let doubleSteps = 0, straightCaptures = 0, kingShots = 0, mercy2 = 0, sliderJumps = 0;
+  let doubleSteps = 0, straightCaptures = 0, kingShots = 0, mercy2 = 0, sliderJumps = 0, strikes = 0;
   for (const rec of recs) {
     let pos = fromFen(rec.startFen);
     for (const ply of rec.moves) {
@@ -85,6 +85,7 @@ function counters(id: string, arm: string, rule: string): Record<string, number>
       if (t === P && m.captures.length && file(m.to) === file(m.from)) straightCaptures++;
       if (t === K && /^K[a-h][1-8]\*/.test(lan)) kingShots++;
       if (t === K && Math.max(dx, Math.abs(dy)) === 2) mercy2++;
+      if (m.strike) strikes++;
       // Leap: a slider whose path crosses one of its own pawns.
       if ((t === R || t === B || t === Q) && m.to !== m.from) {
         const sx = Math.sign(file(m.to) - file(m.from)), sy = Math.sign(rank(m.to) - rank(m.from));
@@ -98,7 +99,7 @@ function counters(id: string, arm: string, rule: string): Record<string, number>
   }
   setRules();
   const per = (n: number): number => n / (recs.length || 1);
-  return { doubleSteps: per(doubleSteps), straightCaptures: per(straightCaptures), kingShots: per(kingShots), mercy2: per(mercy2), sliderJumps: per(sliderJumps) };
+  return { doubleSteps: per(doubleSteps), straightCaptures: per(straightCaptures), kingShots: per(kingShots), mercy2: per(mercy2), sliderJumps: per(sliderJumps), strikes: per(strikes) };
 }
 
 const sections: string[] = [];
@@ -126,7 +127,7 @@ for (const p of POWERS) {
     ['capped', d3.capped, base.overall.timeouts, variant.overall.timeouts],
     ['mean plies', d3.plies, base.overall.meanPlies, variant.overall.meanPlies],
   ].map(([name, d, lo, hi]) => `| ${name} | ${f3(lo as number)} → ${f3(hi as number)} | ${signed((d as [number, number])[0])} ± ${f3((d as [number, number])[1])} |`);
-  const counterRows = ['doubleSteps', 'straightCaptures', 'kingShots', 'mercy2', 'sliderJumps', 'checks', 'promotions']
+  const counterRows = ['doubleSteps', 'straightCaptures', 'kingShots', 'mercy2', 'sliderJumps', 'strikes', 'checks', 'promotions']
     .map(k => {
       if (k === 'checks' || k === 'promotions') {
         return `| ${k} | ${f3((base.events[k] ?? 0) / base.games)} | ${f3((variant.events[k] ?? 0) / variant.games)} |`;

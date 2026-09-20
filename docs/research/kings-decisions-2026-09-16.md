@@ -66,3 +66,20 @@ a recommendation. **No default changes without a decision here.**
   candidate. A refit needs a fresh corpus and turns a 1-hour measurement into a day.
 - **Recommendation: (a)** unless Darkness wins its A/B by more than the confound could explain — then
   (b) before any adoption.
+
+## 6. Strike (Flame A), now built — keep the queen-move reading?
+
+- **Built 2026-09-17:** once per side, any own non-king piece moves as if it were a queen; the piece
+  keeps its type, never takes a king, never promotes (`Position.strike`, FEN field 7, LAN `!`).
+- **Measured (1,600 games an arm, paired arrangements and seeds):** decisive **−15.5 ± 3.2** points
+  at depth 3 and **−20.2 ± 5.8** at depth 4; draws **+22.2 ± 5.8** at depth 4; mean plies −27.6 ± 3.6;
+  white score +2.3 ± 2.6. Both sides use it (~1 use each per game). It is a **draw engine**, not the
+  one-turn surprise the proposal imagined — the same direction as Death Touch.
+- **Options:** (a) keep the reading (the lab can hold it, but it does not improve games);
+  (b) shelve it — `parseKing` keeps refusing it until a reading measures better; (c) try the card
+  game's other verb, **Strike = capture without moving** (RULES.md §5), as a second reading A/B.
+- **Evidence:** (c) is a material-winning action, so it should move decisiveness the other way — but
+  it is also a large buff (any piece gets a queen's capture reach once) and needs its own pricing.
+  The cost is one more campaign of the same size; the engine already supports it as a variant of the
+  same flag.
+- **Recommendation: (c) first if Flame matters, else (b).** Do not ship a measured draw engine.

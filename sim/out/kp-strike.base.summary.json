@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "id": "kp-strike.base",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 62,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {},
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 227.3,
+  "whiteScore": 0.5337,
+  "whiteWins": 631,
+  "draws": 446,
+  "blackWins": 523,
+  "meanPlies": 121.3,
+  "reasons": {
+    "adjudicatedResign": 1154,
+    "drawRepetition": 30,
+    "adjudicatedDraw": 363,
+    "plyCap": 23,
+    "draw50": 24,
+    "drawMaterial": 6
+  }
+}
