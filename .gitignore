@@ -8,6 +8,8 @@ dist/
 # excluded src/sim/** as well as every output.
 /sim/out/**/*.jsonl
 /sim/nnue/positions.bin
+# Policy-distillation data: bulk binary, hash recorded in sim/nnue/policy.json (tracked).
+/sim/nnue/policy.bin
 /sim/tune/positions.bin
 
 # Curated raw art sources (788 MB): preserved on disk with art-src/MANIFEST.md and the baseline
