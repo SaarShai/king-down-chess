@@ -29,6 +29,7 @@ const POWERS: Power[] = [
   { id: 'kp-darkness', name: 'Darkness', rule: 'Shadow:Darkness', counters: ['straightCaptures', 'promotions'] },
   { id: 'kp-march', name: 'March', rule: 'Mud:March', counters: ['doubleSteps', 'promotions'] },
   { id: 'kp-leap', name: 'Leap', rule: 'Mud:Leap', counters: ['sliderJumps', 'checks'] },
+  { id: 'kp-strike', name: 'Strike', rule: 'Flame:Strike', counters: ['strikes', 'checks'] },
 ];
 
 interface GroupRow {

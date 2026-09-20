@@ -14,6 +14,7 @@ export function emptyEvents(): Events {
     archerShots: [0, 0], beastChains: [[], []], maesterSwaps: [0, 0], maesterLongSwaps: [0, 0],
     paladinSacrifices: [0, 0], promotions: [0, 0], checks: [0, 0],
     ogreShoves: [0, 0], ogreShovesFriend: [0, 0], ogreShovesGuard: [0, 0], catapultChecks: [0, 0],
+    strikes: [0, 0],
   };
 }
 
@@ -35,6 +36,7 @@ export function countMove(events: Events, pos: Position, move: Move, post: Posit
     if (colorOf(shoved) === c) events.ogreShovesFriend[c]++;
     if (typeOf(shoved) === G) events.ogreShovesGuard[c]++;
   }
+  if (move.strike) events.strikes[c]++;
   if (inCheck(post)) { events.checks[c]++; if (mt === C) events.catapultChecks[c]++; }
 }
 

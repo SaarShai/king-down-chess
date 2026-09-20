@@ -56,6 +56,8 @@ export interface Events {
   ogreShovesGuard: [number, number];
   /** Checks a catapult gave — always through a screen, since that is its only way of attacking. */
   catapultChecks: [number, number];
+  /** Strike (Flame A): the one-use queen-like action, per side. */
+  strikes: [number, number];
 }
 
 export interface GameRecord {
