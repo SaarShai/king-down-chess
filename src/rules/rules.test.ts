@@ -543,6 +543,21 @@ describe('rule toggles', () => {
     crossCheckAttacks(133);
   });
 
+  it('guardCapitalStep=true (lab): a guard standing in the capital gains the second square of each ray', () => {
+    const inside = fromFen('7k/8/8/8/3G4/8/8/K7 w - - 0 1'); // a white guard on d4, a capital square
+    expect(lan(inside, movesFrom(inside, 'd4'))).not.toContain('Gd4-b2');
+    setRules({ guardCapitalStep: true });
+    const ms = movesFrom(inside, 'd4');
+    expect(ms).toHaveLength(16); // the 8 neighbours plus the far end of all 8 clear rays
+    expect(lan(inside, ms)).toContain('Gd4-b2');
+    expect(lan(inside, ms)).toContain('Gd4-f6');
+    expect(ms.every(m => m.captures.length === 0)).toBe(true); // move-only
+    expect(isAttacked(inside.board, parseSq('d6'), WHITE)).toBe(false); // move-only: no new attack
+    // A guard outside the capital gets nothing, rule on: d3 is one step shy of the zone.
+    const outside = fromFen('7k/8/8/8/8/3G4/8/K7 w - - 0 1');
+    expect(lan(outside, movesFrom(outside, 'd3'))).not.toContain('Gd3-b1');
+  });
+
   it('the pool holds one guard per army', () => {
     expect(POOL).toBe('QLRRBBNNAAGMMSS');
     expect(POOL.split('G')).toHaveLength(2);

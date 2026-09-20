@@ -321,10 +321,12 @@ export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Mo
       const n0 = out.length;
       leaper(board, from, c, p, DIRS8, mode, out); // with guardCaptures='none' (or a spent guard) canCapture is false → empty squares only
       // guardStep=2 adds the second square of each ray, and guardDoubleFirst does the same for a guard
-      // on its home rank only (`leap` also over an occupied middle square). Both are move-only: a
-      // capture stays adjacent, so `isAttacked` does not change with either rule.
+      // on its home rank only (`leap` also over an occupied middle square). guardCapitalStep gives the
+      // same second square to a guard standing in the capital (C3, docs/MATRIX.md §B.2). All are
+      // move-only: a capture stays adjacent, so `isAttacked` does not change with any of them.
       const fromHome = RULES.guardDoubleFirst !== 'off' && rank(from) === (c === WHITE ? 0 : 7);
-      if ((RULES.guardStep === 2 || fromHome) && mode === 'all') for (const [df, dr] of DIRS8) {
+      const fromCapital = RULES.guardCapitalStep && CAPITAL.includes(from);
+      if ((RULES.guardStep === 2 || fromHome || fromCapital) && mode === 'all') for (const [df, dr] of DIRS8) {
         const mid = step(from, df, dr);
         if (mid < 0 || (board[mid] && !(fromHome && RULES.guardDoubleFirst === 'leap'))) continue;
         const to = step(mid, df, dr);

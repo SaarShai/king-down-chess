@@ -146,6 +146,13 @@ export interface Rules {
   /** Lab-only, off by default: a guard may never finish a move on a capital square (d4 e4 d5 e5). */
   guardNoCapital: boolean;
   /**
+   * Lab-only, off by default (C3, `docs/MATRIX.md` §B.2): a guard whose **own square** is in the
+   * capital (d4 e4 d5 e5) may step 2 squares in any of the 8 directions — the same second square of
+   * each ray as `guardStep: 2`, through an empty middle square, move-only, so `isAttacked` never
+   * changes. The mirror of `guardNoCapital`: holding the centre buys reach.
+   */
+  guardCapitalStep: boolean;
+  /**
    * 1 = each guard captures **once in its lifetime** and never again; 0 = no limit (shipped).
    *
    * Lab-only, and inert under the defaults: with `guardCaptures: 'none'` a guard never captures,
@@ -274,6 +281,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   guardDoubleFirst: 'off' as GuardDoubleFirst,
   guardNoSecondRank: false,
   guardNoCapital: false,
+  guardCapitalStep: false,
   guardCaptureLimit: 0 as 0 | 1,
   archerMove: 'any' as ArcherMove,
   // Adopted 2026-09-17 (owner call): the forward diagonal-2 squares on top of classic. Confirmed
