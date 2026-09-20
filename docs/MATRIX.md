@@ -24,7 +24,7 @@ Measured in `docs/research/sim-new-pieces-2026-09-14.md`.
 |  | P | N | B | R | Q | K | A | L | G | M | S | O | C |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Move | forward 1 | leap 2+1 | diagonal slide | straight slide | slide | step 1 | step 1 ◐ straight only / forward-back | slide, jumps friends | step 1 ◐ step 2 | step 1 ◐ step 2 | step 1 ◐ forward only / diagonals | step 1 | straight slide, empty squares only |
-| Capture | diagonal forward 1 | = move | = move | = move | = move | = move | **shot without moving**: diagonal-adjacent or 2 straight, blockers ignored ◐ +diagonal 2 / ring 2 / forward 3 | = move, then dies | none | = move (adjacent) | 7 neighbours, not straight ahead ◐ forward diagonals only; chains | = move, a guard excepted | **lob** over one enemy screen along a rank or file, first piece beyond it ◐ `catapultCapture` stay / land |
+| Capture | diagonal forward 1 | = move | = move | = move | = move | = move | **shot without moving**: diagonal-adjacent or 2 straight, blockers ignored ◐ +diagonal 2 / ring 2 / forward 3 — **`plusDiag2` confirmed 2026-09-17**: decisive +8.8 ± 3.8 at depth 4, draws −8.2, fairness clean (`docs/research/sim-piece-balance-2026-09-17.md`) | = move, then dies | none | = move (adjacent) | 7 neighbours, not straight ahead ◐ forward diagonals only; chains | = move, a guard excepted | **lob** over one enemy screen along a rank or file, first piece beyond it ◐ `catapultCapture` stay / land |
 
 ### A.1 Abilities × pieces
 

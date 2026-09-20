@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-ab-L-block.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "paladinJumpsFriends": false
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 233.6,
+  "whiteScore": 0.5259,
+  "whiteWins": 581,
+  "draws": 521,
+  "blackWins": 498,
+  "meanPlies": 119.4,
+  "reasons": {
+    "adjudicatedDraw": 433,
+    "adjudicatedResign": 1079,
+    "plyCap": 21,
+    "drawRepetition": 35,
+    "draw50": 19,
+    "drawMaterial": 11,
+    "stalemate": 2
+  }
+}

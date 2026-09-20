@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-ab-A-shots-d4b.base",
+    "games": 1600,
+    "ai": {
+      "depth": 4
+    },
+    "seed": 72,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {},
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 1075.2,
+  "whiteScore": 0.5434,
+  "whiteWins": 616,
+  "draws": 507,
+  "blackWins": 477,
+  "meanPlies": 128.1,
+  "reasons": {
+    "adjudicatedResign": 1092,
+    "adjudicatedDraw": 359,
+    "drawRepetition": 50,
+    "plyCap": 29,
+    "drawMaterial": 28,
+    "draw50": 40,
+    "stalemate": 1,
+    "checkmate": 1
+  }
+}

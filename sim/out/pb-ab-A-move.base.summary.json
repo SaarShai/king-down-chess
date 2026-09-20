@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "pb-ab-A-move.base",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {},
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 213.8,
+  "whiteScore": 0.5437,
+  "whiteWins": 641,
+  "draws": 458,
+  "blackWins": 501,
+  "meanPlies": 118,
+  "reasons": {
+    "adjudicatedResign": 1142,
+    "adjudicatedDraw": 382,
+    "plyCap": 19,
+    "drawRepetition": 32,
+    "drawMaterial": 15,
+    "draw50": 9,
+    "stalemate": 1
+  }
+}

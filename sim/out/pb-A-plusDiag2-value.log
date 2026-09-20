@@ -1,0 +1,16 @@
+[pb-A-plusDiag2-value.A] 500 games (0 already done), 500 to play on 14 workers -> sim/out/pb-A-plusDiag2-value.A.jsonl
+[pb-A-plusDiag2-value.A] depth 3, 4 random opening plies, ply cap 300, pairs on
+[pb-A-plusDiag2-value.A] rules {"archerShots":"plusDiag2"}, values {}
+[pb-A-plusDiag2-value.A] 8/500  4.0 games/s  ETA 0h02m03s
+[pb-A-plusDiag2-value.A] 34/500  8.5 games/s  ETA 0h00m54s
+[pb-A-plusDiag2-value.A] 51/500  8.5 games/s  ETA 0h00m52s
+[pb-A-plusDiag2-value.A] 75/500  9.4 games/s  ETA 0h00m45s
+[pb-A-plusDiag2-value.A] 94/500  9.4 games/s  ETA 0h00m43s
+[pb-A-plusDiag2-value.A] 116/500  9.7 games/s  ETA 0h00m39s
+[pb-A-plusDiag2-value.A] 134/500  9.6 games/s  ETA 0h00m38s
+[pb-A-plusDiag2-value.A] 158/500  9.9 games/s  ETA 0h00m34s
+[pb-A-plusDiag2-value.A] 175/500  9.7 games/s  ETA 0h00m33s
+[pb-A-plusDiag2-value.A] 193/500  9.6 games/s  ETA 0h00m31s
+[pb-A-plusDiag2-value.A] 212/500  9.6 games/s  ETA 0h00m29s
+[pb-A-plusDiag2-value.A] 229/500  9.5 games/s  ETA 0h00m28s
+[pb-A-plusDiag2-value.A] 247/500  9.5 games/s  ETA 0h00m26s

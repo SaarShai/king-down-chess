@@ -51,6 +51,32 @@ decisiveness, draws, stuck endings or length at either depth; a White gain of at
 be excluded. **Shipped in v0.7.0.** The earlier "run another 400-game confirmation after Q6" note is
 deleted: the extension already answered it with the recorded old-paladin control.
 
+## Piece-balance queue (2026-09-17, new focus: fairy pieces only)
+
+Rules: fresh control per experiment (the `ab` experiment's base arm is today's rules — `pb-ab-base24`
+is void as a baseline). Same seed for every variant so arrangements and opening seeds are shared.
+Adopt only on a depth-4 confirmation with no draw drag; depth-3-only differences are not results.
+
+| id | lever (matrix cell) | question | command | decision rule |
+|---|---|---|---|---|
+| pb-ab-A-shots | archerShots A.0 capture | Does the wider shot set (plusDiag2) sharpen the archer without dragging draws? | `--experiment ab --games 1600 --sample 40 --depth 3 --seed 71 --rule "archerShots=plusDiag2"` | adopt only if depth-4 decisive ≥ +3 with draws flat |
+| pb-ab-S-cap | beastCapture A.1 4b/6a | Is the 2021 capture (forward diagonals only) better than 7-neighbour? | `--rule "beastCapture=diagForward"` | as above |
+| pb-ab-M-step | maesterStep A.0 move | Is step 2 a free buff (value 2.18 → 3.8) or a drag? | `--rule "maesterStep=2"` | as above |
+| pb-ab-L-block | paladinJumpsFriends A.1 4d | Does blocking on friends cap the paladin's White edge (Q5: reach on an open board)? | `--rule "paladinJumpsFriends=false"` | fairness: White score toward 0.50 without a decisive loss |
+| pb-ab-A-move | archerMove A.0 move | 2021 `fwdBack` vs `any` under current rules | `--rule "archerMove=fwdBack"` | as above |
+| pb-ab-S-move | beastMove A.0 move | `forward` vs `any` (the beast's mobility) | `--rule "beastMove=forward"` | as above |
+
+**Ran 2026-09-17** (all six, depth 3, 1,600 games/arm, seed 71; depth 4 for the one consequential
+lever). Report: **`docs/research/sim-piece-balance-2026-09-17.md`**.
+
+- **`archerShots=plusDiag2` — CONFIRMED at depth 4** (1,600/arm): decisive +8.8 ± 3.8, draws
+  −8.2 ± 3.7, plies −14.2 ± 4.8, white +2.6 ± 2.6. Recommend adoption + re-pricing (both running).
+- `beastCapture=diagForward` — null; `maesterStep=2` — null (free buff on taste);
+  `paladinJumpsFriends=false` — rejected (decisive −3.9 ± 2.6, draws +3.8 ± 2.5);
+  `archerMove=fwdBack` — rejected (decisive −4.0 ± 2.8, interest min-use −2.6 ± 1.0);
+  `beastMove=forward` — rejected (interest min-use −6.0 ± 1.2).
+- Follow-ups launched: `pb-A-plusDiag2-value` (odds match), `pb-ab-A-ring2` (depth 3).
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard
