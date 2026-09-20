@@ -27,3 +27,836 @@
 [kp-strike2-p.base] 163/200  3.4 games/s  ETA 0h00m10s
 [kp-strike2-p.base] 173/200  3.5 games/s  ETA 0h00m07s
 [kp-strike2-p.base] 178/200  3.4 games/s  ETA 0h00m06s
+[kp-strike2-p.base] 186/200  3.4 games/s  ETA 0h00m04s
+[kp-strike2-p.base] 198/200  3.5 games/s  ETA 0h00m00s
+[kp-strike2-p.base] 200 games in 0h00m57s (3.5 games/s)
+[kp-strike2-p.base] summary -> sim/out/kp-strike2-p.base.summary.json
+[kp-strike2-p.var] 200 games (0 already done), 200 to play on 14 workers -> sim/out/kp-strike2-p.var.jsonl
+[kp-strike2-p.var] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-strike2-p.var] rules {"kings":[{"king":"Flame","power":"Strike"},{"king":"Flame","power":"Strike"}],"strikeMode":"capture"}, values {}
+[kp-strike2-p.var] 0/200  0.0 games/s  ETA ?
+[kp-strike2-p.var] 2/200  0.5 games/s  ETA 0h06m36s
+[kp-strike2-p.var] 9/200  1.5 games/s  ETA 0h02m07s
+[kp-strike2-p.var] 18/200  2.2 games/s  ETA 0h01m20s
+[kp-strike2-p.var] 28/200  2.8 games/s  ETA 0h01m01s
+[kp-strike2-p.var] 41/200  3.4 games/s  ETA 0h00m46s
+[kp-strike2-p.var] 50/200  3.6 games/s  ETA 0h00m42s
+[kp-strike2-p.var] 61/200  3.8 games/s  ETA 0h00m36s
+[kp-strike2-p.var] 70/200  3.9 games/s  ETA 0h00m33s
+[kp-strike2-p.var] 77/200  3.8 games/s  ETA 0h00m31s
+[kp-strike2-p.var] 85/200  3.9 games/s  ETA 0h00m29s
+[kp-strike2-p.var] 95/200  4.0 games/s  ETA 0h00m26s
+[kp-strike2-p.var] 105/200  4.0 games/s  ETA 0h00m23s
+[kp-strike2-p.var] 118/200  4.2 games/s  ETA 0h00m19s
+[kp-strike2-p.var] 126/200  4.2 games/s  ETA 0h00m17s
+[kp-strike2-p.var] 139/200  4.3 games/s  ETA 0h00m14s
+[kp-strike2-p.var] 147/200  4.3 games/s  ETA 0h00m12s
+[kp-strike2-p.var] 163/200  4.5 games/s  ETA 0h00m08s
+[kp-strike2-p.var] 170/200  4.5 games/s  ETA 0h00m06s
+[kp-strike2-p.var] 182/200  4.5 games/s  ETA 0h00m03s
+[kp-strike2-p.var] 197/200  4.7 games/s  ETA 0h00m00s
+[kp-strike2-p.var] 200 games in 0h00m43s (4.6 games/s)
+[kp-strike2-p.var] summary -> sim/out/kp-strike2-p.var.summary.json
+# Rule A/B — kp-strike2-p
+
+`kings=[object Object],[object Object] strikeMode=capture` against today's defaults.
+200 games per population, depth 3, the same 40 arrangements and the same
+opening seeds in both (common random numbers). Control arm: `kp-strike2-p.base`.
+
+A symmetric rule changes both sides at once, so there is no match to run and no SPRT: this is a
+paired two-population comparison. The interval is a 95% normal approximation on the
+mean paired difference over arrangements; with few arrangements,
+and with one interval per metric, read "significant" as "worth a second run", not as a test.
+
+| metric | base (pooled) | with the rule (pooled) | mean paired difference ±95% | significant |
+|---|---|---|---|---|
+| white score | 0.537 | 0.410 | -0.128 ± 0.070 | yes |
+| decisive | 0.745 | 0.610 | -0.135 ± 0.103 | yes |
+| draw rate | 0.245 | 0.390 | +0.145 ± 0.103 | yes |
+| capped | 0.010 | 0.000 | -0.010 ± 0.020 | no |
+| mean plies | 117.5 | 89.6 | -27.9 ± 9.0 | yes |
+| branching factor | 31.7 | 34.2 | +2.5 ± 1.1 | yes |
+| killer move | 0.302 | 0.325 | +0.022 ± 0.044 | no |
+| lead change | 0.067 | 0.057 | -0.010 ± 0.015 | no |
+| uncertainty late | 0.648 | 0.602 | -0.046 ± 0.014 | yes |
+| drama | 0.121 | 0.107 | -0.013 ± 0.028 | no |
+| permanence | 0.961 | 0.938 | -0.023 ± 0.013 | yes |
+| min utilisation | 0.45 | 0.51 | +0.04 ± 0.03 | yes |
+| interest | 0.477 | 0.473 | -0.003 ± 0.014 | no |
+| interest (min-use) | 0.477 | 0.427 | -0.016 ± 0.022 | no |
+| killerMove (resid.) | -0.021 | 0.021 | +0.041 ± 0.040 | yes |
+| leadChange (resid.) | 0.005 | -0.005 | -0.010 ± 0.015 | no |
+| uncertaintyLate (resid.) | 0.023 | -0.023 | -0.046 ± 0.014 | yes |
+| drama (resid.) | -0.003 | 0.003 | +0.007 ± 0.024 | no |
+| permanence (resid.) | 0.012 | -0.012 | -0.024 ± 0.012 | yes |
+| fairyUse (resid.) | 0.000 | 0.000 | +0.000 ± 0.000 | no |
+| excessDecisiveness (resid.) | -0.032 | 0.074 | +0.122 ± 0.027 | yes |
+| interest (resid.) | -0.003 | 0.006 | +0.010 ± 0.010 | yes |
+| interestMinFairy (resid.) | 0.026 | -0.005 | +0.003 ± 0.020 | no |
+
+## Degeneracy counters
+| counter | base | with the rule |
+|---|---|---|
+| guard captures per game | 0.000 | 0.000 |
+| games with a guard rampage (≥ 3 captures) | 0 (0.0%) | 0 (0.0%) |
+| dead-material endings (draw50 + drawMaterial) | 4 (2.0%) | 2 (1.0%) |
+| games where a king never moved | 30 (15.0%) | 63 (31.5%) |
+
+## Per piece (both sides, whole population; moves and captures per game)
+| piece | moves A | moves B | captures A | captures B | survival A | survival B |
+|---|---|---|---|---|---|---|
+| P | 26.25 | 22.63 | 4.61 | 5.12 | 39.8% | 47.3% |
+| M | 14.43 | 11.47 | 1.71 | 1.29 | 28.3% | 46.1% |
+| A | 13.39 | 10.44 | 2.21 | 1.80 | 42.7% | 55.4% |
+| K | 13.23 | 8.78 | 1.04 | 0.71 | 100.0% | 100.0% |
+| R | 12.71 | 7.88 | 1.87 | 1.32 | 42.1% | 56.7% |
+| S | 9.79 | 7.83 | 1.42 | 0.91 | 28.2% | 48.2% |
+| N | 9.02 | 7.31 | 1.74 | 1.54 | 9.8% | 22.0% |
+| B | 6.96 | 5.12 | 1.73 | 1.24 | 18.3% | 39.2% |
+| Q | 4.30 | 3.44 | 0.88 | 0.57 | 83.1% | 80.0% |
+| L | 4.27 | 2.85 | 1.16 | 0.98 | 6.3% | 12.1% |
+| G | 3.13 | 1.83 | 0.00 | 0.00 | 97.6% | 97.6% |
+
+## Fairy events per game
+| event | base | with the rule |
+|---|---|---|
+| archerShots | 2.21 | 1.80 |
+| beastChainMoves | 1.11 | 0.76 |
+| beastChainCaptures | 1.42 | 0.91 |
+| maesterSwaps | 6.74 | 5.04 |
+| maesterLongSwaps | 0.73 | 0.63 |
+| paladinSacrifices | 0.59 | 0.34 |
+| promotions | 0.32 | 0.20 |
+| checks | 4.34 | 2.91 |
+| ogreShoves | 0.00 | 0.00 |
+| ogreShovesFriend | 0.00 | 0.00 |
+| ogreShovesGuard | 0.00 | 0.00 |
+| catapultChecks | 0.00 | 0.00 |
+
+The pooled columns describe each whole population; the difference column is the mean over the
+40 shared arrangements of (rule − base) on the same openings. The two can disagree in sign when the
+pooled value is not a mean of the per-arrangement values (minimum utilisation is one). Trust the
+paired column.
+
+Elo of the variant population is not reported: both populations play themselves, so their scores
+are not comparable as a match. Read the white score as a fairness check, not as a strength delta.
+
+[kp-strike2.base] 1600 games (0 already done), 1600 to play on 14 workers -> sim/out/kp-strike2.base.jsonl
+[kp-strike2.base] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-strike2.base] rules {}, values {}
+[kp-strike2.base] 0/1600  0.0 games/s  ETA ?
+[kp-strike2.base] 6/1600  1.5 games/s  ETA 0h17m43s
+[kp-strike2.base] 16/1600  2.7 games/s  ETA 0h09m54s
+[kp-strike2.base] 22/1600  2.7 games/s  ETA 0h09m34s
+[kp-strike2.base] 33/1600  3.3 games/s  ETA 0h07m55s
+[kp-strike2.base] 39/1600  3.2 games/s  ETA 0h08m00s
+[kp-strike2.base] 48/1600  3.4 games/s  ETA 0h07m32s
+[kp-strike2.base] 53/1600  3.3 games/s  ETA 0h07m47s
+[kp-strike2.base] 58/1600  3.2 games/s  ETA 0h07m58s
+[kp-strike2.base] 65/1600  3.2 games/s  ETA 0h07m52s
+[kp-strike2.base] 71/1600  3.2 games/s  ETA 0h07m54s
+[kp-strike2.base] 81/1600  3.4 games/s  ETA 0h07m30s
+[kp-strike2.base] 86/1600  3.3 games/s  ETA 0h07m37s
+[kp-strike2.base] 93/1600  3.3 games/s  ETA 0h07m33s
+[kp-strike2.base] 102/1600  3.4 games/s  ETA 0h07m20s
+[kp-strike2.base] 111/1600  3.5 games/s  ETA 0h07m09s
+[kp-strike2.base] 116/1600  3.4 games/s  ETA 0h07m15s
+[kp-strike2.base] 127/1600  3.5 games/s  ETA 0h06m57s
+[kp-strike2.base] 131/1600  3.4 games/s  ETA 0h07m06s
+[kp-strike2.base] 138/1600  3.4 games/s  ETA 0h07m03s
+[kp-strike2.base] 146/1600  3.5 games/s  ETA 0h06m58s
+[kp-strike2.base] 151/1600  3.4 games/s  ETA 0h07m02s
+[kp-strike2.base] 160/1600  3.5 games/s  ETA 0h06m54s
+[kp-strike2.base] 167/1600  3.5 games/s  ETA 0h06m52s
+[kp-strike2.base] 175/1600  3.5 games/s  ETA 0h06m47s
+[kp-strike2.base] 182/1600  3.5 games/s  ETA 0h06m45s
+[kp-strike2.base] 187/1600  3.5 games/s  ETA 0h06m48s
+[kp-strike2.base] 195/1600  3.5 games/s  ETA 0h06m43s
+[kp-strike2.base] 204/1600  3.5 games/s  ETA 0h06m37s
+[kp-strike2.base] 212/1600  3.5 games/s  ETA 0h06m33s
+[kp-strike2.base] 216/1600  3.5 games/s  ETA 0h06m37s
+[kp-strike2.base] 226/1600  3.5 games/s  ETA 0h06m29s
+[kp-strike2.base] 237/1600  3.6 games/s  ETA 0h06m19s
+[kp-strike2.base] 246/1600  3.6 games/s  ETA 0h06m14s
+[kp-strike2.base] 252/1600  3.6 games/s  ETA 0h06m14s
+[kp-strike2.base] 259/1600  3.6 games/s  ETA 0h06m12s
+[kp-strike2.base] 268/1600  3.6 games/s  ETA 0h06m07s
+[kp-strike2.base] 275/1600  3.6 games/s  ETA 0h06m06s
+[kp-strike2.base] 282/1600  3.6 games/s  ETA 0h06m04s
+[kp-strike2.base] 289/1600  3.6 games/s  ETA 0h06m03s
+[kp-strike2.base] 298/1600  3.6 games/s  ETA 0h05m58s
+[kp-strike2.base] 305/1600  3.6 games/s  ETA 0h05m56s
+[kp-strike2.base] 312/1600  3.6 games/s  ETA 0h05m55s
+[kp-strike2.base] 319/1600  3.6 games/s  ETA 0h05m53s
+[kp-strike2.base] 326/1600  3.6 games/s  ETA 0h05m51s
+[kp-strike2.base] 333/1600  3.6 games/s  ETA 0h05m50s
+[kp-strike2.base] 341/1600  3.6 games/s  ETA 0h05m47s
+[kp-strike2.base] 346/1600  3.6 games/s  ETA 0h05m48s
+[kp-strike2.base] 356/1600  3.6 games/s  ETA 0h05m42s
+[kp-strike2.base] 364/1600  3.6 games/s  ETA 0h05m39s
+[kp-strike2.base] 371/1600  3.6 games/s  ETA 0h05m38s
+[kp-strike2.base] 376/1600  3.6 games/s  ETA 0h05m38s
+[kp-strike2.base] 384/1600  3.6 games/s  ETA 0h05m35s
+[kp-strike2.base] 395/1600  3.7 games/s  ETA 0h05m29s
+[kp-strike2.base] 403/1600  3.7 games/s  ETA 0h05m26s
+[kp-strike2.base] 410/1600  3.7 games/s  ETA 0h05m25s
+[kp-strike2.base] 416/1600  3.6 games/s  ETA 0h05m24s
+[kp-strike2.base] 422/1600  3.6 games/s  ETA 0h05m23s
+[kp-strike2.base] 434/1600  3.7 games/s  ETA 0h05m17s
+[kp-strike2.base] 441/1600  3.7 games/s  ETA 0h05m15s
+[kp-strike2.base] 450/1600  3.7 games/s  ETA 0h05m11s
+[kp-strike2.base] 458/1600  3.7 games/s  ETA 0h05m09s
+[kp-strike2.base] 464/1600  3.7 games/s  ETA 0h05m08s
+[kp-strike2.base] 473/1600  3.7 games/s  ETA 0h05m05s
+[kp-strike2.base] 481/1600  3.7 games/s  ETA 0h05m02s
+[kp-strike2.base] 491/1600  3.7 games/s  ETA 0h04m58s
+[kp-strike2.base] 496/1600  3.7 games/s  ETA 0h04m58s
+[kp-strike2.base] 504/1600  3.7 games/s  ETA 0h04m55s
+[kp-strike2.base] 511/1600  3.7 games/s  ETA 0h04m54s
+[kp-strike2.base] 518/1600  3.7 games/s  ETA 0h04m52s
+[kp-strike2.base] 527/1600  3.7 games/s  ETA 0h04m49s
+[kp-strike2.base] 535/1600  3.7 games/s  ETA 0h04m46s
+[kp-strike2.base] 544/1600  3.7 games/s  ETA 0h04m43s
+[kp-strike2.base] 552/1600  3.7 games/s  ETA 0h04m41s
+[kp-strike2.base] 558/1600  3.7 games/s  ETA 0h04m40s
+[kp-strike2.base] 566/1600  3.7 games/s  ETA 0h04m37s
+[kp-strike2.base] 569/1600  3.7 games/s  ETA 0h04m39s
+[kp-strike2.base] 574/1600  3.7 games/s  ETA 0h04m38s
+[kp-strike2.base] 580/1600  3.7 games/s  ETA 0h04m38s
+[kp-strike2.base] 586/1600  3.7 games/s  ETA 0h04m36s
+[kp-strike2.base] 597/1600  3.7 games/s  ETA 0h04m32s
+[kp-strike2.base] 604/1600  3.7 games/s  ETA 0h04m30s
+[kp-strike2.base] 611/1600  3.7 games/s  ETA 0h04m28s
+[kp-strike2.base] 619/1600  3.7 games/s  ETA 0h04m26s
+[kp-strike2.base] 627/1600  3.7 games/s  ETA 0h04m23s
+[kp-strike2.base] 636/1600  3.7 games/s  ETA 0h04m20s
+[kp-strike2.base] 641/1600  3.7 games/s  ETA 0h04m20s
+[kp-strike2.base] 651/1600  3.7 games/s  ETA 0h04m16s
+[kp-strike2.base] 658/1600  3.7 games/s  ETA 0h04m14s
+[kp-strike2.base] 668/1600  3.7 games/s  ETA 0h04m11s
+[kp-strike2.base] 673/1600  3.7 games/s  ETA 0h04m10s
+[kp-strike2.base] 684/1600  3.7 games/s  ETA 0h04m06s
+[kp-strike2.base] 691/1600  3.7 games/s  ETA 0h04m04s
+[kp-strike2.base] 698/1600  3.7 games/s  ETA 0h04m03s
+[kp-strike2.base] 708/1600  3.7 games/s  ETA 0h03m59s
+[kp-strike2.base] 715/1600  3.7 games/s  ETA 0h03m57s
+[kp-strike2.base] 722/1600  3.7 games/s  ETA 0h03m56s
+[kp-strike2.base] 733/1600  3.7 games/s  ETA 0h03m51s
+[kp-strike2.base] 743/1600  3.8 games/s  ETA 0h03m48s
+[kp-strike2.base] 755/1600  3.8 games/s  ETA 0h03m43s
+[kp-strike2.base] 760/1600  3.8 games/s  ETA 0h03m43s
+[kp-strike2.base] 772/1600  3.8 games/s  ETA 0h03m38s
+[kp-strike2.base] 780/1600  3.8 games/s  ETA 0h03m36s
+[kp-strike2.base] 790/1600  3.8 games/s  ETA 0h03m33s
+[kp-strike2.base] 799/1600  3.8 games/s  ETA 0h03m30s
+[kp-strike2.base] 810/1600  3.8 games/s  ETA 0h03m26s
+[kp-strike2.base] 821/1600  3.8 games/s  ETA 0h03m23s
+[kp-strike2.base] 830/1600  3.8 games/s  ETA 0h03m20s
+[kp-strike2.base] 840/1600  3.9 games/s  ETA 0h03m17s
+[kp-strike2.base] 851/1600  3.9 games/s  ETA 0h03m13s
+[kp-strike2.base] 861/1600  3.9 games/s  ETA 0h03m10s
+[kp-strike2.base] 872/1600  3.9 games/s  ETA 0h03m07s
+[kp-strike2.base] 883/1600  3.9 games/s  ETA 0h03m03s
+[kp-strike2.base] 892/1600  3.9 games/s  ETA 0h03m01s
+[kp-strike2.base] 906/1600  3.9 games/s  ETA 0h02m56s
+[kp-strike2.base] 919/1600  4.0 games/s  ETA 0h02m52s
+[kp-strike2.base] 929/1600  4.0 games/s  ETA 0h02m49s
+[kp-strike2.base] 939/1600  4.0 games/s  ETA 0h02m46s
+[kp-strike2.base] 950/1600  4.0 games/s  ETA 0h02m42s
+[kp-strike2.base] 960/1600  4.0 games/s  ETA 0h02m40s
+[kp-strike2.base] 971/1600  4.0 games/s  ETA 0h02m36s
+[kp-strike2.base] 981/1600  4.0 games/s  ETA 0h02m34s
+[kp-strike2.base] 992/1600  4.0 games/s  ETA 0h02m30s
+[kp-strike2.base] 999/1600  4.0 games/s  ETA 0h02m29s
+[kp-strike2.base] 1011/1600  4.0 games/s  ETA 0h02m25s
+[kp-strike2.base] 1024/1600  4.1 games/s  ETA 0h02m21s
+[kp-strike2.base] 1036/1600  4.1 games/s  ETA 0h02m18s
+[kp-strike2.base] 1043/1600  4.1 games/s  ETA 0h02m16s
+[kp-strike2.base] 1053/1600  4.1 games/s  ETA 0h02m14s
+[kp-strike2.base] 1064/1600  4.1 games/s  ETA 0h02m11s
+[kp-strike2.base] 1072/1600  4.1 games/s  ETA 0h02m09s
+[kp-strike2.base] 1079/1600  4.1 games/s  ETA 0h02m07s
+[kp-strike2.base] 1089/1600  4.1 games/s  ETA 0h02m04s
+[kp-strike2.base] 1099/1600  4.1 games/s  ETA 0h02m02s
+[kp-strike2.base] 1108/1600  4.1 games/s  ETA 0h01m59s
+[kp-strike2.base] 1114/1600  4.1 games/s  ETA 0h01m58s
+[kp-strike2.base] 1122/1600  4.1 games/s  ETA 0h01m56s
+[kp-strike2.base] 1130/1600  4.1 games/s  ETA 0h01m54s
+[kp-strike2.base] 1144/1600  4.1 games/s  ETA 0h01m50s
+[kp-strike2.base] 1153/1600  4.1 games/s  ETA 0h01m48s
+[kp-strike2.base] 1166/1600  4.1 games/s  ETA 0h01m45s
+[kp-strike2.base] 1181/1600  4.2 games/s  ETA 0h01m40s
+[kp-strike2.base] 1194/1600  4.2 games/s  ETA 0h01m37s
+[kp-strike2.base] 1207/1600  4.2 games/s  ETA 0h01m33s
+[kp-strike2.base] 1216/1600  4.2 games/s  ETA 0h01m31s
+[kp-strike2.base] 1227/1600  4.2 games/s  ETA 0h01m28s
+[kp-strike2.base] 1235/1600  4.2 games/s  ETA 0h01m26s
+[kp-strike2.base] 1247/1600  4.2 games/s  ETA 0h01m23s
+[kp-strike2.base] 1256/1600  4.2 games/s  ETA 0h01m21s
+[kp-strike2.base] 1265/1600  4.2 games/s  ETA 0h01m19s
+[kp-strike2.base] 1277/1600  4.2 games/s  ETA 0h01m16s
+[kp-strike2.base] 1286/1600  4.2 games/s  ETA 0h01m14s
+[kp-strike2.base] 1296/1600  4.2 games/s  ETA 0h01m11s
+[kp-strike2.base] 1307/1600  4.2 games/s  ETA 0h01m09s
+[kp-strike2.base] 1323/1600  4.3 games/s  ETA 0h01m04s
+[kp-strike2.base] 1334/1600  4.3 games/s  ETA 0h01m02s
+[kp-strike2.base] 1347/1600  4.3 games/s  ETA 0h00m59s
+[kp-strike2.base] 1360/1600  4.3 games/s  ETA 0h00m55s
+[kp-strike2.base] 1372/1600  4.3 games/s  ETA 0h00m52s
+[kp-strike2.base] 1379/1600  4.3 games/s  ETA 0h00m51s
+[kp-strike2.base] 1391/1600  4.3 games/s  ETA 0h00m48s
+[kp-strike2.base] 1402/1600  4.3 games/s  ETA 0h00m45s
+[kp-strike2.base] 1413/1600  4.3 games/s  ETA 0h00m43s
+[kp-strike2.base] 1423/1600  4.3 games/s  ETA 0h00m40s
+[kp-strike2.base] 1438/1600  4.4 games/s  ETA 0h00m37s
+[kp-strike2.base] 1448/1600  4.4 games/s  ETA 0h00m34s
+[kp-strike2.base] 1460/1600  4.4 games/s  ETA 0h00m32s
+[kp-strike2.base] 1475/1600  4.4 games/s  ETA 0h00m28s
+[kp-strike2.base] 1486/1600  4.4 games/s  ETA 0h00m25s
+[kp-strike2.base] 1497/1600  4.4 games/s  ETA 0h00m23s
+[kp-strike2.base] 1513/1600  4.4 games/s  ETA 0h00m19s
+[kp-strike2.base] 1528/1600  4.4 games/s  ETA 0h00m16s
+[kp-strike2.base] 1544/1600  4.5 games/s  ETA 0h00m12s
+[kp-strike2.base] 1555/1600  4.5 games/s  ETA 0h00m10s
+[kp-strike2.base] 1569/1600  4.5 games/s  ETA 0h00m06s
+[kp-strike2.base] 1581/1600  4.5 games/s  ETA 0h00m04s
+[kp-strike2.base] 1599/1600  4.5 games/s  ETA 0h00m00s
+[kp-strike2.base] 1600 games in 0h05m54s (4.5 games/s)
+[kp-strike2.base] summary -> sim/out/kp-strike2.base.summary.json
+[kp-strike2.var] 1600 games (0 already done), 1600 to play on 14 workers -> sim/out/kp-strike2.var.jsonl
+[kp-strike2.var] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-strike2.var] rules {"kings":[{"king":"Flame","power":"Strike"},{"king":"Flame","power":"Strike"}],"strikeMode":"capture"}, values {}
+[kp-strike2.var] 3/1600  1.5 games/s  ETA 0h17m44s
+[kp-strike2.var] 20/1600  5.0 games/s  ETA 0h05m16s
+[kp-strike2.var] 36/1600  6.0 games/s  ETA 0h04m20s
+[kp-strike2.var] 59/1600  7.4 games/s  ETA 0h03m29s
+[kp-strike2.var] 72/1600  7.2 games/s  ETA 0h03m32s
+[kp-strike2.var] 90/1600  7.5 games/s  ETA 0h03m21s
+[kp-strike2.var] 108/1600  7.7 games/s  ETA 0h03m13s
+[kp-strike2.var] 125/1600  7.8 games/s  ETA 0h03m08s
+[kp-strike2.var] 140/1600  7.8 games/s  ETA 0h03m07s
+[kp-strike2.var] 157/1600  7.8 games/s  ETA 0h03m03s
+[kp-strike2.var] 174/1600  7.9 games/s  ETA 0h03m00s
+[kp-strike2.var] 191/1600  8.0 games/s  ETA 0h02m57s
+[kp-strike2.var] 212/1600  8.2 games/s  ETA 0h02m50s
+[kp-strike2.var] 227/1600  8.1 games/s  ETA 0h02m49s
+[kp-strike2.var] 253/1600  8.4 games/s  ETA 0h02m39s
+[kp-strike2.var] 276/1600  8.6 games/s  ETA 0h02m33s
+[kp-strike2.var] 299/1600  8.8 games/s  ETA 0h02m27s
+[kp-strike2.var] 326/1600  9.1 games/s  ETA 0h02m20s
+[kp-strike2.var] 343/1600  9.0 games/s  ETA 0h02m19s
+[kp-strike2.var] 369/1600  9.2 games/s  ETA 0h02m13s
+[kp-strike2.var] 386/1600  9.2 games/s  ETA 0h02m12s
+[kp-strike2.var] 400/1600  9.1 games/s  ETA 0h02m12s
+[kp-strike2.var] 427/1600  9.3 games/s  ETA 0h02m06s
+[kp-strike2.var] 442/1600  9.2 games/s  ETA 0h02m05s
+[kp-strike2.var] 462/1600  9.2 games/s  ETA 0h02m03s
+[kp-strike2.var] 483/1600  9.3 games/s  ETA 0h02m00s
+[kp-strike2.var] 499/1600  9.2 games/s  ETA 0h01m59s
+[kp-strike2.var] 518/1600  9.2 games/s  ETA 0h01m57s
+[kp-strike2.var] 535/1600  9.2 games/s  ETA 0h01m55s
+[kp-strike2.var] 553/1600  9.2 games/s  ETA 0h01m53s
+[kp-strike2.var] 574/1600  9.3 games/s  ETA 0h01m50s
+[kp-strike2.var] 598/1600  9.3 games/s  ETA 0h01m47s
+[kp-strike2.var] 621/1600  9.4 games/s  ETA 0h01m44s
+[kp-strike2.var] 640/1600  9.4 games/s  ETA 0h01m42s
+[kp-strike2.var] 659/1600  9.4 games/s  ETA 0h01m40s
+[kp-strike2.var] 677/1600  9.4 games/s  ETA 0h01m38s
+[kp-strike2.var] 704/1600  9.5 games/s  ETA 0h01m34s
+[kp-strike2.var] 732/1600  9.6 games/s  ETA 0h01m30s
+[kp-strike2.var] 749/1600  9.6 games/s  ETA 0h01m28s
+[kp-strike2.var] 770/1600  9.6 games/s  ETA 0h01m26s
+[kp-strike2.var] 787/1600  9.6 games/s  ETA 0h01m24s
+[kp-strike2.var] 803/1600  9.5 games/s  ETA 0h01m23s
+[kp-strike2.var] 817/1600  9.5 games/s  ETA 0h01m22s
+[kp-strike2.var] 829/1600  9.4 games/s  ETA 0h01m21s
+[kp-strike2.var] 851/1600  9.4 games/s  ETA 0h01m19s
+[kp-strike2.var] 871/1600  9.5 games/s  ETA 0h01m17s
+[kp-strike2.var] 889/1600  9.4 games/s  ETA 0h01m15s
+[kp-strike2.var] 906/1600  9.4 games/s  ETA 0h01m13s
+[kp-strike2.var] 924/1600  9.4 games/s  ETA 0h01m11s
+[kp-strike2.var] 940/1600  9.4 games/s  ETA 0h01m10s
+[kp-strike2.var] 959/1600  9.4 games/s  ETA 0h01m08s
+[kp-strike2.var] 977/1600  9.4 games/s  ETA 0h01m06s
+[kp-strike2.var] 994/1600  9.4 games/s  ETA 0h01m04s
+[kp-strike2.var] 1012/1600  9.4 games/s  ETA 0h01m02s
+[kp-strike2.var] 1031/1600  9.4 games/s  ETA 0h01m00s
+[kp-strike2.var] 1046/1600  9.3 games/s  ETA 0h00m59s
+[kp-strike2.var] 1064/1600  9.3 games/s  ETA 0h00m57s
+[kp-strike2.var] 1082/1600  9.3 games/s  ETA 0h00m55s
+[kp-strike2.var] 1100/1600  9.3 games/s  ETA 0h00m53s
+[kp-strike2.var] 1116/1600  9.3 games/s  ETA 0h00m52s
+[kp-strike2.var] 1132/1600  9.3 games/s  ETA 0h00m50s
+[kp-strike2.var] 1147/1600  9.2 games/s  ETA 0h00m49s
+[kp-strike2.var] 1162/1600  9.2 games/s  ETA 0h00m47s
+[kp-strike2.var] 1176/1600  9.2 games/s  ETA 0h00m46s
+[kp-strike2.var] 1192/1600  9.2 games/s  ETA 0h00m44s
+[kp-strike2.var] 1210/1600  9.2 games/s  ETA 0h00m42s
+[kp-strike2.var] 1224/1600  9.1 games/s  ETA 0h00m41s
+[kp-strike2.var] 1248/1600  9.2 games/s  ETA 0h00m38s
+[kp-strike2.var] 1266/1600  9.2 games/s  ETA 0h00m36s
+[kp-strike2.var] 1283/1600  9.2 games/s  ETA 0h00m34s
+[kp-strike2.var] 1306/1600  9.2 games/s  ETA 0h00m32s
+[kp-strike2.var] 1323/1600  9.2 games/s  ETA 0h00m30s
+[kp-strike2.var] 1343/1600  9.2 games/s  ETA 0h00m27s
+[kp-strike2.var] 1362/1600  9.2 games/s  ETA 0h00m25s
+[kp-strike2.var] 1378/1600  9.2 games/s  ETA 0h00m24s
+[kp-strike2.var] 1391/1600  9.1 games/s  ETA 0h00m22s
+[kp-strike2.var] 1408/1600  9.1 games/s  ETA 0h00m21s
+[kp-strike2.var] 1426/1600  9.1 games/s  ETA 0h00m19s
+[kp-strike2.var] 1446/1600  9.1 games/s  ETA 0h00m16s
+[kp-strike2.var] 1468/1600  9.2 games/s  ETA 0h00m14s
+[kp-strike2.var] 1487/1600  9.2 games/s  ETA 0h00m12s
+[kp-strike2.var] 1502/1600  9.1 games/s  ETA 0h00m10s
+[kp-strike2.var] 1526/1600  9.2 games/s  ETA 0h00m08s
+[kp-strike2.var] 1542/1600  9.2 games/s  ETA 0h00m06s
+[kp-strike2.var] 1565/1600  9.2 games/s  ETA 0h00m03s
+[kp-strike2.var] 1580/1600  9.2 games/s  ETA 0h00m02s
+[kp-strike2.var] 1600 games in 0h02m54s (9.2 games/s)
+[kp-strike2.var] summary -> sim/out/kp-strike2.var.summary.json
+# Rule A/B — kp-strike2
+
+`kings=[object Object],[object Object] strikeMode=capture` against today's defaults.
+1600 games per population, depth 3, the same 40 arrangements and the same
+opening seeds in both (common random numbers). Control arm: `kp-strike2.base`.
+
+A symmetric rule changes both sides at once, so there is no match to run and no SPRT: this is a
+paired two-population comparison. The interval is a 95% normal approximation on the
+mean paired difference over arrangements; with few arrangements,
+and with one interval per metric, read "significant" as "worth a second run", not as a test.
+
+| metric | base (pooled) | with the rule (pooled) | mean paired difference ±95% | significant |
+|---|---|---|---|---|
+| white score | 0.534 | 0.494 | -0.040 ± 0.033 | yes |
+| decisive | 0.721 | 0.621 | -0.101 ± 0.034 | yes |
+| draw rate | 0.264 | 0.379 | +0.115 ± 0.035 | yes |
+| capped | 0.014 | 0.000 | -0.014 ± 0.007 | yes |
+| mean plies | 121.3 | 85.5 | -35.8 ± 3.5 | yes |
+| branching factor | 32.1 | 34.1 | +2.0 ± 0.4 | yes |
+| killer move | 0.332 | 0.305 | -0.027 ± 0.017 | yes |
+| lead change | 0.068 | 0.048 | -0.020 ± 0.006 | yes |
+| uncertainty late | 0.648 | 0.596 | -0.051 ± 0.008 | yes |
+| drama | 0.138 | 0.105 | -0.033 ± 0.014 | yes |
+| permanence | 0.961 | 0.943 | -0.018 ± 0.003 | yes |
+| min utilisation | 0.44 | 0.51 | +0.07 ± 0.01 | yes |
+| interest | 0.484 | 0.471 | -0.014 ± 0.005 | yes |
+| interest (min-use) | 0.484 | 0.421 | -0.033 ± 0.013 | yes |
+| killerMove (resid.) | -0.002 | 0.002 | +0.005 ± 0.016 | no |
+| leadChange (resid.) | 0.009 | -0.009 | -0.018 ± 0.006 | yes |
+| uncertaintyLate (resid.) | 0.025 | -0.025 | -0.050 ± 0.008 | yes |
+| drama (resid.) | 0.005 | -0.005 | -0.011 ± 0.013 | no |
+| permanence (resid.) | 0.009 | -0.009 | -0.018 ± 0.003 | yes |
+| fairyUse (resid.) | 0.000 | 0.000 | +0.000 ± 0.000 | no |
+| excessDecisiveness (resid.) | -0.027 | 0.067 | +0.084 ± 0.012 | yes |
+| interest (resid.) | 0.001 | 0.001 | -0.000 ± 0.005 | no |
+| interestMinFairy (resid.) | 0.018 | -0.024 | -0.012 ± 0.013 | no |
+
+## Degeneracy counters
+| counter | base | with the rule |
+|---|---|---|
+| guard captures per game | 0.000 | 0.000 |
+| games with a guard rampage (≥ 3 captures) | 0 (0.0%) | 0 (0.0%) |
+| dead-material endings (draw50 + drawMaterial) | 30 (1.9%) | 3 (0.2%) |
+| games where a king never moved | 259 (16.2%) | 532 (33.3%) |
+
+## Per piece (both sides, whole population; moves and captures per game)
+| piece | moves A | moves B | captures A | captures B | survival A | survival B |
+|---|---|---|---|---|---|---|
+| P | 26.54 | 21.84 | 4.41 | 4.83 | 40.7% | 49.6% |
+| M | 14.65 | 10.69 | 1.61 | 1.15 | 34.1% | 48.6% |
+| A | 14.46 | 10.22 | 2.49 | 1.79 | 46.9% | 62.3% |
+| K | 14.32 | 7.51 | 1.04 | 0.56 | 100.0% | 100.0% |
+| R | 12.87 | 8.24 | 1.81 | 1.39 | 42.3% | 56.0% |
+| S | 10.48 | 7.87 | 1.40 | 0.97 | 32.9% | 51.0% |
+| B | 7.34 | 5.44 | 1.65 | 1.33 | 23.5% | 37.6% |
+| N | 6.66 | 5.45 | 1.35 | 1.11 | 10.4% | 27.3% |
+| Q | 5.93 | 3.87 | 0.99 | 0.71 | 76.3% | 73.5% |
+| G | 4.98 | 2.30 | 0.00 | 0.00 | 96.7% | 98.8% |
+| L | 3.05 | 2.09 | 0.85 | 0.70 | 6.2% | 13.7% |
+
+## Fairy events per game
+| event | base | with the rule |
+|---|---|---|
+| archerShots | 2.49 | 1.79 |
+| beastChainMoves | 1.08 | 0.78 |
+| beastChainCaptures | 1.40 | 0.97 |
+| maesterSwaps | 6.56 | 4.85 |
+| maesterLongSwaps | 0.75 | 0.58 |
+| paladinSacrifices | 0.39 | 0.23 |
+| promotions | 0.32 | 0.16 |
+| checks | 4.42 | 2.62 |
+| ogreShoves | 0.00 | 0.00 |
+| ogreShovesFriend | 0.00 | 0.00 |
+| ogreShovesGuard | 0.00 | 0.00 |
+| catapultChecks | 0.00 | 0.00 |
+
+The pooled columns describe each whole population; the difference column is the mean over the
+40 shared arrangements of (rule − base) on the same openings. The two can disagree in sign when the
+pooled value is not a mean of the per-arrangement values (minimum utilisation is one). Trust the
+paired column.
+
+Elo of the variant population is not reported: both populations play themselves, so their scores
+are not comparable as a match. Read the white score as a fairness check, not as a strength delta.
+
+[kp-strike2-d4.base] 400 games (0 already done), 400 to play on 14 workers -> sim/out/kp-strike2-d4.base.jsonl
+[kp-strike2-d4.base] depth 4, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-strike2-d4.base] rules {}, values {}
+[kp-strike2-d4.base] 0/400  0.0 games/s  ETA ?
+[kp-strike2-d4.base] 1/400  0.2 games/s  ETA 0h26m37s
+[kp-strike2-d4.base] 1/400  0.2 games/s  ETA 0h39m55s
+[kp-strike2-d4.base] 1/400  0.1 games/s  ETA 0h53m15s
+[kp-strike2-d4.base] 5/400  0.5 games/s  ETA 0h13m10s
+[kp-strike2-d4.base] 8/400  0.7 games/s  ETA 0h09m48s
+[kp-strike2-d4.base] 12/400  0.9 games/s  ETA 0h07m33s
+[kp-strike2-d4.base] 13/400  0.8 games/s  ETA 0h07m56s
+[kp-strike2-d4.base] 18/400  1.0 games/s  ETA 0h06m22s
+[kp-strike2-d4.base] 21/400  1.0 games/s  ETA 0h06m01s
+[kp-strike2-d4.base] 21/400  1.0 games/s  ETA 0h06m37s
+[kp-strike2-d4.base] 22/400  0.9 games/s  ETA 0h06m52s
+[kp-strike2-d4.base] 25/400  1.0 games/s  ETA 0h06m30s
+[kp-strike2-d4.base] 29/400  1.0 games/s  ETA 0h05m58s
+[kp-strike2-d4.base] 29/400  1.0 games/s  ETA 0h06m24s
+[kp-strike2-d4.base] 32/400  1.0 games/s  ETA 0h06m08s
+[kp-strike2-d4.base] 33/400  1.0 games/s  ETA 0h06m18s
+[kp-strike2-d4.base] 36/400  1.0 games/s  ETA 0h06m04s
+[kp-strike2-d4.base] 38/400  1.0 games/s  ETA 0h06m02s
+[kp-strike2-d4.base] 40/400  1.0 games/s  ETA 0h06m00s
+[kp-strike2-d4.base] 43/400  1.0 games/s  ETA 0h05m49s
+[kp-strike2-d4.base] 44/400  1.0 games/s  ETA 0h05m56s
+[kp-strike2-d4.base] 47/400  1.0 games/s  ETA 0h05m45s
+[kp-strike2-d4.base] 48/400  1.0 games/s  ETA 0h05m52s
+[kp-strike2-d4.base] 53/400  1.1 games/s  ETA 0h05m27s
+[kp-strike2-d4.base] 55/400  1.1 games/s  ETA 0h05m26s
+[kp-strike2-d4.base] 57/400  1.1 games/s  ETA 0h05m25s
+[kp-strike2-d4.base] 59/400  1.1 games/s  ETA 0h05m24s
+[kp-strike2-d4.base] 62/400  1.1 games/s  ETA 0h05m16s
+[kp-strike2-d4.base] 66/400  1.1 games/s  ETA 0h05m04s
+[kp-strike2-d4.base] 70/400  1.1 games/s  ETA 0h04m52s
+[kp-strike2-d4.base] 71/400  1.1 games/s  ETA 0h04m56s
+[kp-strike2-d4.base] 73/400  1.1 games/s  ETA 0h04m56s
+[kp-strike2-d4.base] 75/400  1.1 games/s  ETA 0h04m55s
+[kp-strike2-d4.base] 79/400  1.1 games/s  ETA 0h04m44s
+[kp-strike2-d4.base] 82/400  1.1 games/s  ETA 0h04m39s
+[kp-strike2-d4.base] 86/400  1.2 games/s  ETA 0h04m30s
+[kp-strike2-d4.base] 91/400  1.2 games/s  ETA 0h04m18s
+[kp-strike2-d4.base] 93/400  1.2 games/s  ETA 0h04m17s
+[kp-strike2-d4.base] 93/400  1.2 games/s  ETA 0h04m24s
+[kp-strike2-d4.base] 94/400  1.1 games/s  ETA 0h04m27s
+[kp-strike2-d4.base] 98/400  1.2 games/s  ETA 0h04m19s
+[kp-strike2-d4.base] 100/400  1.2 games/s  ETA 0h04m18s
+[kp-strike2-d4.base] 104/400  1.2 games/s  ETA 0h04m10s
+[kp-strike2-d4.base] 109/400  1.2 games/s  ETA 0h04m00s
+[kp-strike2-d4.base] 114/400  1.2 games/s  ETA 0h03m51s
+[kp-strike2-d4.base] 118/400  1.3 games/s  ETA 0h03m44s
+[kp-strike2-d4.base] 120/400  1.2 games/s  ETA 0h03m44s
+[kp-strike2-d4.base] 123/400  1.3 games/s  ETA 0h03m40s
+[kp-strike2-d4.base] 126/400  1.3 games/s  ETA 0h03m37s
+[kp-strike2-d4.base] 129/400  1.3 games/s  ETA 0h03m34s
+[kp-strike2-d4.base] 131/400  1.3 games/s  ETA 0h03m33s
+[kp-strike2-d4.base] 136/400  1.3 games/s  ETA 0h03m26s
+[kp-strike2-d4.base] 139/400  1.3 games/s  ETA 0h03m23s
+[kp-strike2-d4.base] 140/400  1.3 games/s  ETA 0h03m24s
+[kp-strike2-d4.base] 141/400  1.3 games/s  ETA 0h03m26s
+[kp-strike2-d4.base] 144/400  1.3 games/s  ETA 0h03m22s
+[kp-strike2-d4.base] 146/400  1.3 games/s  ETA 0h03m22s
+[kp-strike2-d4.base] 150/400  1.3 games/s  ETA 0h03m16s
+[kp-strike2-d4.base] 154/400  1.3 games/s  ETA 0h03m11s
+[kp-strike2-d4.base] 156/400  1.3 games/s  ETA 0h03m11s
+[kp-strike2-d4.base] 158/400  1.3 games/s  ETA 0h03m10s
+[kp-strike2-d4.base] 159/400  1.3 games/s  ETA 0h03m11s
+[kp-strike2-d4.base] 162/400  1.3 games/s  ETA 0h03m08s
+[kp-strike2-d4.base] 164/400  1.3 games/s  ETA 0h03m07s
+[kp-strike2-d4.base] 165/400  1.2 games/s  ETA 0h03m08s
+[kp-strike2-d4.base] 166/400  1.2 games/s  ETA 0h03m09s
+[kp-strike2-d4.base] 169/400  1.2 games/s  ETA 0h03m06s
+[kp-strike2-d4.base] 173/400  1.3 games/s  ETA 0h03m01s
+[kp-strike2-d4.base] 178/400  1.3 games/s  ETA 0h02m54s
+[kp-strike2-d4.base] 179/400  1.3 games/s  ETA 0h02m55s
+[kp-strike2-d4.base] 180/400  1.2 games/s  ETA 0h02m56s
+[kp-strike2-d4.base] 183/400  1.3 games/s  ETA 0h02m53s
+[kp-strike2-d4.base] 185/400  1.2 games/s  ETA 0h02m52s
+[kp-strike2-d4.base] 192/400  1.3 games/s  ETA 0h02m42s
+[kp-strike2-d4.base] 193/400  1.3 games/s  ETA 0h02m43s
+[kp-strike2-d4.base] 197/400  1.3 games/s  ETA 0h02m38s
+[kp-strike2-d4.base] 201/400  1.3 games/s  ETA 0h02m34s
+[kp-strike2-d4.base] 202/400  1.3 games/s  ETA 0h02m35s
+[kp-strike2-d4.base] 203/400  1.3 games/s  ETA 0h02m35s
+[kp-strike2-d4.base] 204/400  1.3 games/s  ETA 0h02m35s
+[kp-strike2-d4.base] 205/400  1.2 games/s  ETA 0h02m36s
+[kp-strike2-d4.base] 211/400  1.3 games/s  ETA 0h02m28s
+[kp-strike2-d4.base] 212/400  1.3 games/s  ETA 0h02m29s
+[kp-strike2-d4.base] 214/400  1.3 games/s  ETA 0h02m27s
+[kp-strike2-d4.base] 215/400  1.2 games/s  ETA 0h02m28s
+[kp-strike2-d4.base] 219/400  1.3 games/s  ETA 0h02m23s
+[kp-strike2-d4.base] 222/400  1.3 games/s  ETA 0h02m21s
+[kp-strike2-d4.base] 226/400  1.3 games/s  ETA 0h02m17s
+[kp-strike2-d4.base] 230/400  1.3 games/s  ETA 0h02m13s
+[kp-strike2-d4.base] 231/400  1.3 games/s  ETA 0h02m13s
+[kp-strike2-d4.base] 233/400  1.3 games/s  ETA 0h02m12s
+[kp-strike2-d4.base] 238/400  1.3 games/s  ETA 0h02m06s
+[kp-strike2-d4.base] 242/400  1.3 games/s  ETA 0h02m02s
+[kp-strike2-d4.base] 244/400  1.3 games/s  ETA 0h02m01s
+[kp-strike2-d4.base] 246/400  1.3 games/s  ETA 0h02m00s
+[kp-strike2-d4.base] 250/400  1.3 games/s  ETA 0h01m56s
+[kp-strike2-d4.base] 252/400  1.3 games/s  ETA 0h01m55s
+[kp-strike2-d4.base] 254/400  1.3 games/s  ETA 0h01m53s
+[kp-strike2-d4.base] 257/400  1.3 games/s  ETA 0h01m51s
+[kp-strike2-d4.base] 261/400  1.3 games/s  ETA 0h01m47s
+[kp-strike2-d4.base] 267/400  1.3 games/s  ETA 0h01m41s
+[kp-strike2-d4.base] 267/400  1.3 games/s  ETA 0h01m42s
+[kp-strike2-d4.base] 273/400  1.3 games/s  ETA 0h01m36s
+[kp-strike2-d4.base] 276/400  1.3 games/s  ETA 0h01m34s
+[kp-strike2-d4.base] 279/400  1.3 games/s  ETA 0h01m32s
+[kp-strike2-d4.base] 282/400  1.3 games/s  ETA 0h01m29s
+[kp-strike2-d4.base] 283/400  1.3 games/s  ETA 0h01m29s
+[kp-strike2-d4.base] 285/400  1.3 games/s  ETA 0h01m28s
+[kp-strike2-d4.base] 287/400  1.3 games/s  ETA 0h01m26s
+[kp-strike2-d4.base] 291/400  1.3 games/s  ETA 0h01m23s
+[kp-strike2-d4.base] 293/400  1.3 games/s  ETA 0h01m21s
+[kp-strike2-d4.base] 300/400  1.3 games/s  ETA 0h01m15s
+[kp-strike2-d4.base] 302/400  1.3 games/s  ETA 0h01m14s
+[kp-strike2-d4.base] 304/400  1.3 games/s  ETA 0h01m12s
+[kp-strike2-d4.base] 308/400  1.3 games/s  ETA 0h01m09s
+[kp-strike2-d4.base] 312/400  1.3 games/s  ETA 0h01m06s
+[kp-strike2-d4.base] 313/400  1.3 games/s  ETA 0h01m05s
+[kp-strike2-d4.base] 316/400  1.3 games/s  ETA 0h01m03s
+[kp-strike2-d4.base] 321/400  1.3 games/s  ETA 0h00m59s
+[kp-strike2-d4.base] 322/400  1.3 games/s  ETA 0h00m58s
+[kp-strike2-d4.base] 324/400  1.3 games/s  ETA 0h00m57s
+[kp-strike2-d4.base] 330/400  1.3 games/s  ETA 0h00m52s
+[kp-strike2-d4.base] 332/400  1.3 games/s  ETA 0h00m50s
+[kp-strike2-d4.base] 334/400  1.3 games/s  ETA 0h00m49s
+[kp-strike2-d4.base] 338/400  1.3 games/s  ETA 0h00m46s
+[kp-strike2-d4.base] 338/400  1.3 games/s  ETA 0h00m46s
+[kp-strike2-d4.base] 343/400  1.3 games/s  ETA 0h00m42s
+[kp-strike2-d4.base] 345/400  1.3 games/s  ETA 0h00m41s
+[kp-strike2-d4.base] 349/400  1.3 games/s  ETA 0h00m38s
+[kp-strike2-d4.base] 349/400  1.3 games/s  ETA 0h00m38s
+[kp-strike2-d4.base] 352/400  1.3 games/s  ETA 0h00m36s
+[kp-strike2-d4.base] 352/400  1.3 games/s  ETA 0h00m36s
+[kp-strike2-d4.base] 354/400  1.3 games/s  ETA 0h00m34s
+[kp-strike2-d4.base] 356/400  1.3 games/s  ETA 0h00m33s
+[kp-strike2-d4.base] 363/400  1.3 games/s  ETA 0h00m27s
+[kp-strike2-d4.base] 365/400  1.3 games/s  ETA 0h00m26s
+[kp-strike2-d4.base] 368/400  1.3 games/s  ETA 0h00m24s
+[kp-strike2-d4.base] 372/400  1.3 games/s  ETA 0h00m20s
+[kp-strike2-d4.base] 374/400  1.3 games/s  ETA 0h00m19s
+[kp-strike2-d4.base] 376/400  1.3 games/s  ETA 0h00m18s
+[kp-strike2-d4.base] 380/400  1.3 games/s  ETA 0h00m14s
+[kp-strike2-d4.base] 385/400  1.3 games/s  ETA 0h00m11s
+[kp-strike2-d4.base] 386/400  1.3 games/s  ETA 0h00m10s
+[kp-strike2-d4.base] 388/400  1.3 games/s  ETA 0h00m08s
+[kp-strike2-d4.base] 390/400  1.3 games/s  ETA 0h00m07s
+[kp-strike2-d4.base] 396/400  1.3 games/s  ETA 0h00m02s
+[kp-strike2-d4.base] 398/400  1.3 games/s  ETA 0h00m01s
+[kp-strike2-d4.base] 399/400  1.3 games/s  ETA 0h00m00s
+[kp-strike2-d4.base] 399/400  1.3 games/s  ETA 0h00m00s
+[kp-strike2-d4.base] 400 games in 0h05m01s (1.3 games/s)
+[kp-strike2-d4.base] summary -> sim/out/kp-strike2-d4.base.summary.json
+[kp-strike2-d4.var] 400 games (0 already done), 400 to play on 14 workers -> sim/out/kp-strike2-d4.var.jsonl
+[kp-strike2-d4.var] depth 4, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-strike2-d4.var] rules {"kings":[{"king":"Flame","power":"Strike"},{"king":"Flame","power":"Strike"}],"strikeMode":"capture"}, values {}
+[kp-strike2-d4.var] 1/400  0.5 games/s  ETA 0h13m18s
+[kp-strike2-d4.var] 2/400  0.5 games/s  ETA 0h13m16s
+[kp-strike2-d4.var] 6/400  1.0 games/s  ETA 0h06m34s
+[kp-strike2-d4.var] 9/400  1.1 games/s  ETA 0h05m47s
+[kp-strike2-d4.var] 11/400  1.1 games/s  ETA 0h05m53s
+[kp-strike2-d4.var] 15/400  1.2 games/s  ETA 0h05m08s
+[kp-strike2-d4.var] 21/400  1.5 games/s  ETA 0h04m12s
+[kp-strike2-d4.var] 21/400  1.3 games/s  ETA 0h04m48s
+[kp-strike2-d4.var] 25/400  1.4 games/s  ETA 0h04m30s
+[kp-strike2-d4.var] 31/400  1.5 games/s  ETA 0h03m58s
+[kp-strike2-d4.var] 35/400  1.6 games/s  ETA 0h03m49s
+[kp-strike2-d4.var] 37/400  1.5 games/s  ETA 0h03m55s
+[kp-strike2-d4.var] 39/400  1.5 games/s  ETA 0h04m00s
+[kp-strike2-d4.var] 47/400  1.7 games/s  ETA 0h03m30s
+[kp-strike2-d4.var] 51/400  1.7 games/s  ETA 0h03m25s
+[kp-strike2-d4.var] 54/400  1.7 games/s  ETA 0h03m25s
+[kp-strike2-d4.var] 59/400  1.7 games/s  ETA 0h03m16s
+[kp-strike2-d4.var] 62/400  1.7 games/s  ETA 0h03m16s
+[kp-strike2-d4.var] 65/400  1.7 games/s  ETA 0h03m16s
+[kp-strike2-d4.var] 69/400  1.7 games/s  ETA 0h03m12s
+[kp-strike2-d4.var] 73/400  1.7 games/s  ETA 0h03m08s
+[kp-strike2-d4.var] 75/400  1.7 games/s  ETA 0h03m10s
+[kp-strike2-d4.var] 79/400  1.7 games/s  ETA 0h03m07s
+[kp-strike2-d4.var] 83/400  1.7 games/s  ETA 0h03m03s
+[kp-strike2-d4.var] 85/400  1.7 games/s  ETA 0h03m05s
+[kp-strike2-d4.var] 88/400  1.7 games/s  ETA 0h03m04s
+[kp-strike2-d4.var] 91/400  1.7 games/s  ETA 0h03m03s
+[kp-strike2-d4.var] 96/400  1.7 games/s  ETA 0h02m57s
+[kp-strike2-d4.var] 98/400  1.7 games/s  ETA 0h02m58s
+[kp-strike2-d4.var] 102/400  1.7 games/s  ETA 0h02m55s
+[kp-strike2-d4.var] 106/400  1.7 games/s  ETA 0h02m52s
+[kp-strike2-d4.var] 107/400  1.7 games/s  ETA 0h02m55s
+[kp-strike2-d4.var] 112/400  1.7 games/s  ETA 0h02m49s
+[kp-strike2-d4.var] 117/400  1.7 games/s  ETA 0h02m44s
+[kp-strike2-d4.var] 121/400  1.7 games/s  ETA 0h02m41s
+[kp-strike2-d4.var] 123/400  1.7 games/s  ETA 0h02m42s
+[kp-strike2-d4.var] 127/400  1.7 games/s  ETA 0h02m39s
+[kp-strike2-d4.var] 133/400  1.7 games/s  ETA 0h02m32s
+[kp-strike2-d4.var] 134/400  1.7 games/s  ETA 0h02m34s
+[kp-strike2-d4.var] 137/400  1.7 games/s  ETA 0h02m33s
+[kp-strike2-d4.var] 139/400  1.7 games/s  ETA 0h02m34s
+[kp-strike2-d4.var] 143/400  1.7 games/s  ETA 0h02m31s
+[kp-strike2-d4.var] 147/400  1.7 games/s  ETA 0h02m28s
+[kp-strike2-d4.var] 153/400  1.7 games/s  ETA 0h02m22s
+[kp-strike2-d4.var] 155/400  1.7 games/s  ETA 0h02m22s
+[kp-strike2-d4.var] 157/400  1.7 games/s  ETA 0h02m22s
+[kp-strike2-d4.var] 162/400  1.7 games/s  ETA 0h02m18s
+[kp-strike2-d4.var] 165/400  1.7 games/s  ETA 0h02m16s
+[kp-strike2-d4.var] 168/400  1.7 games/s  ETA 0h02m15s
+[kp-strike2-d4.var] 171/400  1.7 games/s  ETA 0h02m14s
+[kp-strike2-d4.var] 173/400  1.7 games/s  ETA 0h02m13s
+[kp-strike2-d4.var] 176/400  1.7 games/s  ETA 0h02m12s
+[kp-strike2-d4.var] 179/400  1.7 games/s  ETA 0h02m11s
+[kp-strike2-d4.var] 183/400  1.7 games/s  ETA 0h02m08s
+[kp-strike2-d4.var] 188/400  1.7 games/s  ETA 0h02m04s
+[kp-strike2-d4.var] 189/400  1.7 games/s  ETA 0h02m05s
+[kp-strike2-d4.var] 195/400  1.7 games/s  ETA 0h01m59s
+[kp-strike2-d4.var] 197/400  1.7 games/s  ETA 0h01m59s
+[kp-strike2-d4.var] 201/400  1.7 games/s  ETA 0h01m56s
+[kp-strike2-d4.var] 206/400  1.7 games/s  ETA 0h01m53s
+[kp-strike2-d4.var] 206/400  1.7 games/s  ETA 0h01m55s
+[kp-strike2-d4.var] 209/400  1.7 games/s  ETA 0h01m53s
+[kp-strike2-d4.var] 216/400  1.7 games/s  ETA 0h01m47s
+[kp-strike2-d4.var] 220/400  1.7 games/s  ETA 0h01m44s
+[kp-strike2-d4.var] 224/400  1.7 games/s  ETA 0h01m42s
+[kp-strike2-d4.var] 230/400  1.7 games/s  ETA 0h01m37s
+[kp-strike2-d4.var] 233/400  1.7 games/s  ETA 0h01m36s
+[kp-strike2-d4.var] 235/400  1.7 games/s  ETA 0h01m35s
+[kp-strike2-d4.var] 239/400  1.7 games/s  ETA 0h01m33s
+[kp-strike2-d4.var] 242/400  1.7 games/s  ETA 0h01m31s
+[kp-strike2-d4.var] 245/400  1.7 games/s  ETA 0h01m29s
+[kp-strike2-d4.var] 248/400  1.7 games/s  ETA 0h01m28s
+[kp-strike2-d4.var] 252/400  1.7 games/s  ETA 0h01m25s
+[kp-strike2-d4.var] 256/400  1.7 games/s  ETA 0h01m23s
+[kp-strike2-d4.var] 261/400  1.7 games/s  ETA 0h01m19s
+[kp-strike2-d4.var] 261/400  1.7 games/s  ETA 0h01m21s
+[kp-strike2-d4.var] 265/400  1.7 games/s  ETA 0h01m18s
+[kp-strike2-d4.var] 268/400  1.7 games/s  ETA 0h01m16s
+[kp-strike2-d4.var] 272/400  1.7 games/s  ETA 0h01m14s
+[kp-strike2-d4.var] 276/400  1.7 games/s  ETA 0h01m11s
+[kp-strike2-d4.var] 280/400  1.7 games/s  ETA 0h01m09s
+[kp-strike2-d4.var] 282/400  1.7 games/s  ETA 0h01m08s
+[kp-strike2-d4.var] 284/400  1.7 games/s  ETA 0h01m07s
+[kp-strike2-d4.var] 288/400  1.7 games/s  ETA 0h01m05s
+[kp-strike2-d4.var] 293/400  1.7 games/s  ETA 0h01m02s
+[kp-strike2-d4.var] 297/400  1.7 games/s  ETA 0h00m59s
+[kp-strike2-d4.var] 302/400  1.7 games/s  ETA 0h00m56s
+[kp-strike2-d4.var] 304/400  1.7 games/s  ETA 0h00m55s
+[kp-strike2-d4.var] 305/400  1.7 games/s  ETA 0h00m55s
+[kp-strike2-d4.var] 312/400  1.7 games/s  ETA 0h00m50s
+[kp-strike2-d4.var] 313/400  1.7 games/s  ETA 0h00m50s
+[kp-strike2-d4.var] 317/400  1.7 games/s  ETA 0h00m48s
+[kp-strike2-d4.var] 322/400  1.7 games/s  ETA 0h00m45s
+[kp-strike2-d4.var] 325/400  1.7 games/s  ETA 0h00m43s
+[kp-strike2-d4.var] 329/400  1.7 games/s  ETA 0h00m41s
+[kp-strike2-d4.var] 330/400  1.7 games/s  ETA 0h00m40s
+[kp-strike2-d4.var] 334/400  1.7 games/s  ETA 0h00m38s
+[kp-strike2-d4.var] 337/400  1.7 games/s  ETA 0h00m36s
+[kp-strike2-d4.var] 342/400  1.7 games/s  ETA 0h00m33s
+[kp-strike2-d4.var] 344/400  1.7 games/s  ETA 0h00m32s
+[kp-strike2-d4.var] 348/400  1.7 games/s  ETA 0h00m30s
+[kp-strike2-d4.var] 353/400  1.7 games/s  ETA 0h00m27s
+[kp-strike2-d4.var] 357/400  1.7 games/s  ETA 0h00m24s
+[kp-strike2-d4.var] 361/400  1.7 games/s  ETA 0h00m22s
+[kp-strike2-d4.var] 364/400  1.7 games/s  ETA 0h00m20s
+[kp-strike2-d4.var] 367/400  1.7 games/s  ETA 0h00m19s
+[kp-strike2-d4.var] 369/400  1.7 games/s  ETA 0h00m17s
+[kp-strike2-d4.var] 375/400  1.7 games/s  ETA 0h00m14s
+[kp-strike2-d4.var] 377/400  1.7 games/s  ETA 0h00m13s
+[kp-strike2-d4.var] 381/400  1.7 games/s  ETA 0h00m10s
+[kp-strike2-d4.var] 382/400  1.7 games/s  ETA 0h00m10s
+[kp-strike2-d4.var] 387/400  1.7 games/s  ETA 0h00m07s
+[kp-strike2-d4.var] 390/400  1.7 games/s  ETA 0h00m05s
+[kp-strike2-d4.var] 393/400  1.7 games/s  ETA 0h00m04s
+[kp-strike2-d4.var] 397/400  1.7 games/s  ETA 0h00m01s
+[kp-strike2-d4.var] 398/400  1.7 games/s  ETA 0h00m01s
+[kp-strike2-d4.var] 399/400  1.7 games/s  ETA 0h00m00s
+[kp-strike2-d4.var] 399/400  1.7 games/s  ETA 0h00m00s
+[kp-strike2-d4.var] 400 games in 0h03m56s (1.7 games/s)
+[kp-strike2-d4.var] summary -> sim/out/kp-strike2-d4.var.summary.json
+# Rule A/B — kp-strike2-d4
+
+`kings=[object Object],[object Object] strikeMode=capture` against today's defaults.
+400 games per population, depth 4, the same 40 arrangements and the same
+opening seeds in both (common random numbers). Control arm: `kp-strike2-d4.base`.
+
+A symmetric rule changes both sides at once, so there is no match to run and no SPRT: this is a
+paired two-population comparison. The interval is a 95% normal approximation on the
+mean paired difference over arrangements; with few arrangements,
+and with one interval per metric, read "significant" as "worth a second run", not as a test.
+
+| metric | base (pooled) | with the rule (pooled) | mean paired difference ±95% | significant |
+|---|---|---|---|---|
+| white score | 0.585 | 0.605 | +0.020 ± 0.053 | no |
+| decisive | 0.670 | 0.375 | -0.295 ± 0.073 | yes |
+| draw rate | 0.310 | 0.625 | +0.315 ± 0.074 | yes |
+| capped | 0.020 | 0.000 | -0.020 ± 0.013 | yes |
+| mean plies | 126.3 | 88.8 | -37.5 ± 7.0 | yes |
+| branching factor | 30.4 | 32.9 | +2.5 ± 0.7 | yes |
+| killer move | 0.189 | 0.145 | -0.044 ± 0.019 | yes |
+| lead change | 0.040 | 0.037 | -0.003 ± 0.009 | no |
+| uncertainty late | 0.626 | 0.621 | -0.005 ± 0.011 | no |
+| drama | 0.099 | 0.037 | -0.062 ± 0.016 | yes |
+| permanence | 0.971 | 0.972 | +0.001 ± 0.002 | no |
+| min utilisation | 0.41 | 0.48 | +0.04 ± 0.02 | yes |
+| interest | 0.454 | 0.438 | -0.016 ± 0.007 | yes |
+| interest (min-use) | 0.454 | 0.363 | -0.032 ± 0.015 | yes |
+| killerMove (resid.) | 0.005 | -0.005 | -0.010 ± 0.018 | no |
+| leadChange (resid.) | 0.003 | -0.003 | -0.007 ± 0.009 | no |
+| uncertaintyLate (resid.) | 0.009 | -0.009 | -0.017 ± 0.010 | yes |
+| drama (resid.) | 0.007 | -0.007 | -0.014 ± 0.016 | no |
+| permanence (resid.) | 0.000 | -0.000 | -0.001 ± 0.002 | no |
+| fairyUse (resid.) | 0.000 | 0.000 | +0.000 ± 0.000 | no |
+| excessDecisiveness (resid.) | -0.034 | 0.084 | +0.119 ± 0.040 | yes |
+| interest (resid.) | 0.000 | 0.003 | +0.002 ± 0.006 | no |
+| interestMinFairy (resid.) | 0.023 | -0.033 | +0.004 ± 0.015 | no |
+
+## Degeneracy counters
+| counter | base | with the rule |
+|---|---|---|
+| guard captures per game | 0.000 | 0.000 |
+| games with a guard rampage (≥ 3 captures) | 0 (0.0%) | 0 (0.0%) |
+| dead-material endings (draw50 + drawMaterial) | 20 (5.0%) | 2 (0.5%) |
+| games where a king never moved | 62 (15.5%) | 108 (27.0%) |
+
+## Per piece (both sides, whole population; moves and captures per game)
+| piece | moves A | moves B | captures A | captures B | survival A | survival B |
+|---|---|---|---|---|---|---|
+| P | 25.70 | 21.15 | 4.58 | 5.21 | 33.3% | 43.8% |
+| K | 20.07 | 9.17 | 1.64 | 0.83 | 100.0% | 100.0% |
+| A | 15.07 | 11.23 | 2.54 | 1.90 | 42.0% | 53.0% |
+| S | 12.91 | 8.99 | 1.57 | 1.06 | 37.7% | 51.5% |
+| M | 12.79 | 9.46 | 1.54 | 1.12 | 32.0% | 49.2% |
+| R | 9.48 | 5.30 | 1.58 | 1.04 | 38.3% | 44.5% |
+| B | 8.32 | 6.65 | 2.04 | 1.78 | 20.4% | 30.4% |
+| N | 7.09 | 6.64 | 1.54 | 1.26 | 6.2% | 17.9% |
+| Q | 6.14 | 4.82 | 1.03 | 0.83 | 45.0% | 54.7% |
+| L | 5.00 | 3.90 | 1.50 | 1.32 | 8.5% | 13.9% |
+| G | 3.73 | 1.48 | 0.00 | 0.00 | 87.9% | 95.6% |
+
+## Fairy events per game
+| event | base | with the rule |
+|---|---|---|
+| archerShots | 2.54 | 1.90 |
+| beastChainMoves | 1.33 | 0.91 |
+| beastChainCaptures | 1.57 | 1.06 |
+| maesterSwaps | 5.00 | 3.88 |
+| maesterLongSwaps | 0.71 | 0.50 |
+| paladinSacrifices | 0.56 | 0.54 |
+| promotions | 0.15 | 0.07 |
+| checks | 7.37 | 4.13 |
+| ogreShoves | 0.00 | 0.00 |
+| ogreShovesFriend | 0.00 | 0.00 |
+| ogreShovesGuard | 0.00 | 0.00 |
+| catapultChecks | 0.00 | 0.00 |
+
+The pooled columns describe each whole population; the difference column is the mean over the
+40 shared arrangements of (rule − base) on the same openings. The two can disagree in sign when the
+pooled value is not a mean of the per-arrangement values (minimum utilisation is one). Trust the
+paired column.
+
+Elo of the variant population is not reported: both populations play themselves, so their scores
+are not comparable as a match. Read the white score as a fairness check, not as a strength delta.
+

@@ -78,8 +78,11 @@ a recommendation. **No default changes without a decision here.**
 - **Options:** (a) keep the reading (the lab can hold it, but it does not improve games);
   (b) shelve it — `parseKing` keeps refusing it until a reading measures better; (c) try the card
   game's other verb, **Strike = capture without moving** (RULES.md §5), as a second reading A/B.
-- **Evidence:** (c) is a material-winning action, so it should move decisiveness the other way — but
-  it is also a large buff (any piece gets a queen's capture reach once) and needs its own pricing.
-  The cost is one more campaign of the same size; the engine already supports it as a variant of the
-  same flag.
-- **Recommendation: (c) first if Flame matters, else (b).** Do not ship a measured draw engine.
+- **Second reading measured 2026-09-17** (`strikeMode=capture`, 1,600 games an arm at depth 3 plus
+  400 at depth 4, same seeds): decisive **−0.101 ± 0.034** then **−0.295 ± 0.073**, draws
+  **+31.5 ± 7.4** points at depth 4, plies −37.5. Used ~1.94 times per game. It is **worse** than
+  the reading as written: each side spends its one free capture on the piece that matters, the board
+  simplifies and the ending is drawn.
+- **Recommendation: (b) shelve.** Neither reading improves games. The power stays built, tested and
+  off by default (like the lab pieces); `parseKing` still accepts `flame:strike` for lab work, but
+  nothing selects it and no verdict depends on it. Revisit only with a different verb.

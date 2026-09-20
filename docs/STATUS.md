@@ -31,7 +31,7 @@ One page to point at. Everything else is history or detail.
 |---|---|
 | Q6 replacement (`nnue-g2`) | **Done 2026-09-17: ACCEPTED as a candidate** (+139 ± 14 Elo depth 3, +149 ± 37 depth 4, speed bar passed) — `docs/research/ai-q6-acceptance-2026-09-16.md`; default stays linear until an adoption decision |
 | Ogre/Catapult follow-up | **Done 2026-09-17:** depth-4 confirms `push` (+10.2 ± 4.7 decisive); re-run at the measured price (O=195) keeps the sharpening (+9.0 ± 4.9) and removes the White shift (blocker was the over-priced seed); Ogre value 2.43 ± 0.58 pawns (not converged); Catapult weak — report §7 |
-| Kings campaign | **Done 2026-09-17:** Darkness/March/Leap sharpen decisively, Mercy smaller, Holy Light flat, **Death Touch makes games less decisive** (contrary to the plan); report + owner questions in `docs/research/sim-kings-2026-09-16.md`. **Strike (Flame A, tier 2) built 2026-09-17** and measured the same way: decisive **−20.2 ± 5.8** at depth 4, draws +22.2 — a draw engine; second reading (capture without moving) queued, see `docs/research/kings-decisions-2026-09-16.md` §6 |
+| Kings campaign | **Done 2026-09-17:** Darkness/March/Leap sharpen decisively, Mercy smaller, Holy Light flat, **Death Touch makes games less decisive** (contrary to the plan); report + owner questions in `docs/research/sim-kings-2026-09-16.md`. **Strike (Flame A, tier 2) built 2026-09-17** and measured the same way: decisive **−20.2 ± 5.8** at depth 4, draws +22.2 — a draw engine; second reading (capture without moving) measured **worse** (−29.5 ± 7.3 decisive at depth 4) → **shelved**, see `docs/research/kings-decisions-2026-09-16.md` §6 |
 
 Each report's verdict gets a control-gated Jev claim check (`tools/verify-claims.mjs`) before it is
 quoted.
