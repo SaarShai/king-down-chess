@@ -23,7 +23,7 @@ const next = (): number => {
  * per colour is unused), so adding a piece type is one constant here. `spent` is the guard's
  * used-up-capture flag (`SPENT`), which is part of the position.
  */
-const SLOTS = 14; // types 1…13 (P N B R Q K A L G M S O C), plus the unused slot 0
+const SLOTS = 15; // types 1…14 (P N B R Q K A L G M S O C V), plus the unused slot 0
 export const Z_LO = new Int32Array(2 * 2 * SLOTS * 64);
 export const Z_HI = new Int32Array(2 * 2 * SLOTS * 64);
 /** Draw the 64 keys of one (spent, colour, type) block. */
@@ -36,9 +36,10 @@ const fill = (spent: number, c: number, t: number): void => {
 };
 /*
  * The draw order is history, not layout. It reproduces the stream of the 12-slot table exactly —
- * the unspent half of types 0…11, the turn key, then their spent half — and only then the two lab
- * types. So every key a board without an ogre, a catapult or a spent guard uses keeps the value it
- * had before those existed, and a stored simulation run still replays move for move.
+ * the unspent half of types 0…11, the turn key, then their spent half — and only then the lab
+ * types, in the order they were added (O, C, then V). So every key a board without those pieces
+ * uses keeps the value it had before they existed, and a stored simulation run still replays move
+ * for move.
  */
 for (let c = 0; c < 2; c++) for (let t = 0; t < 12; t++) fill(0, c, t);
 export const Z_TURN_LO = next() | 0;

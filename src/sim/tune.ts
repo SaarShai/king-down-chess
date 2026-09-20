@@ -262,7 +262,7 @@ export function parseLan(board: Uint8Array, lan: string): Move {
   let promo: PieceType | undefined;
   const eq = text.indexOf('=');
   if (eq >= 0) { promo = LETTERS.indexOf(text.slice(eq + 1)) as PieceType; text = text.slice(0, eq); }
-  if (/^[PNBRQKALGMSOC]/.test(text)) text = text.slice(1);
+  if (/^[PNBRQKALGMSOCV]/.test(text)) text = text.slice(1);
   const from = sq(text.slice(0, 2)), rest = text.slice(2);
   if (rest.startsWith('>')) {
     // Mirror engine.ts: under `ogreMode: 'push'` the ogre follows onto the square it emptied.
@@ -271,6 +271,11 @@ export function parseLan(board: Uint8Array, lan: string): Move {
   }
   if (rest.startsWith('<>')) return { from, to: sq(rest.slice(2)), captures: [], swap: true };
   if (rest.startsWith('*')) return { from, to: from, captures: [sq(rest.slice(1))] };
+  // Reaver: `xc3-d3` is one capture then a step onto the landing square; `-d3` alone is a quiet move.
+  if (/^x/.test(rest) && rest.includes('-')) {
+    const [caps, land] = rest.split('-');
+    return { from, to: sq(land), captures: caps.split('x').filter(Boolean).map(sq) };
+  }
   if (rest.startsWith('-')) return { from, to: sq(rest.slice(1)), captures: [], ...(promo ? { promo } : {}) };
   const captures = rest.split('x').filter(Boolean).map(sq);
   const m: Move = { from, to: captures[captures.length - 1], captures, ...(promo ? { promo } : {}) };

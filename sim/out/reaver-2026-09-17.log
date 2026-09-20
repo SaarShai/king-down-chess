@@ -1,0 +1,157 @@
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id ov-V-reaver --experiment values --pieces V --games 300 --depth 3 --seed 1 --workers 16 --eloPerPawn 64
+
+[ov-V-reaver.V] 300 games (0 already done), 300 to play on 16 workers -> sim/out/ov-V-reaver.V.jsonl
+[ov-V-reaver.V] depth 3, 4 random opening plies, ply cap 300, pairs on
+[ov-V-reaver.V] rules {}, values {}
+[ov-V-reaver.V] 7/300  3.5 games/s  ETA 0h01m23s
+[ov-V-reaver.V] 31/300  7.7 games/s  ETA 0h00m34s
+[ov-V-reaver.V] 57/300  9.5 games/s  ETA 0h00m25s
+[ov-V-reaver.V] 78/300  9.7 games/s  ETA 0h00m22s
+[ov-V-reaver.V] 109/300  10.9 games/s  ETA 0h00m17s
+[ov-V-reaver.V] 127/300  10.6 games/s  ETA 0h00m16s
+[ov-V-reaver.V] 148/300  10.6 games/s  ETA 0h00m14s
+[ov-V-reaver.V] 172/300  10.7 games/s  ETA 0h00m11s
+[ov-V-reaver.V] 198/300  11.0 games/s  ETA 0h00m09s
+[ov-V-reaver.V] 222/300  11.1 games/s  ETA 0h00m07s
+[ov-V-reaver.V] 243/300  11.0 games/s  ETA 0h00m05s
+[ov-V-reaver.V] 267/300  11.1 games/s  ETA 0h00m02s
+[ov-V-reaver.V] 293/300  11.3 games/s  ETA 0h00m00s
+[ov-V-reaver.V] 300 games in 0h00m26s (11.1 games/s)
+[ov-V-reaver.V] summary -> sim/out/ov-V-reaver.V.summary.json
+# Piece values — ov-V-reaver
+
+Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **knight** of the
+classic arrangement `RNBQKBNR` with one fairy piece, on one side only, and plays
+colour-reversed pairs. The last arm gives White pawn odds; it converts Elo into pawns.
+
+Depth 3, 300 games per arm, 4 random opening plies.
+Rules: defaults.
+Engine values: the shipped constants.
+
+## Arms (scores are the fairy army's, folded over the colour swap)
+| arm | games | pairs | pentanomial | score | Elo ±95% | nElo | LOS | LLR | SPRT | draws | capped | plies |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| V | 300 | 150 | [12, 11, 51, 17, 59] | 0.667 | +120 ± 36 | +128 | 100.0% | 1.11 | continue | 10.7% | 0.0% | 80 |
+
+**One pawn = 64 Elo** at this depth
+(carried over with `--eloPerPawn`; no calibration arm was played here). Every
+implied value below carries that calibration error on top of its own.
+
+
+## Implied values
+| piece | Elo vs knight | Δ pawns | implied value (pawns) | engine seed | research prior | next seed (cp) |
+|---|---|---|---|---|---|---|
+| V (reaver) | +120 ± 36 | +1.88 ± 0.56 ** | > 4.66 ** | 3.50 | 3.75 | 504 |
+
+Implied value = knight (3.16) + Elo / 64.
+
+** 1 swap(s) fall outside the linear band of ±1.5 pawns that Muller's method needs. The score
+saturates there, so the conversion under-reads the gap: take the marked rows as "far from a knight,
+on the side the bound points", not as a number. The fix is Muller's second step — hand the strong side a pawn and play
+again until the result brackets 50%. The next-seed column floors at 50 cp for the same reason.
+
+
+## Muller fixed-point update
+Write the "next seed" column into `src/ai/eval.ts`, then run this experiment again. The values are
+converged when a pass moves no piece by more than its error bar. A seed that inverts a plausible
+exchange makes self-play blind, so never stop after one pass.
+
+```ts
+export const REAVER_V = 504;
+```
+
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --spec sim/specs/newpieces/np-V.json --workers 16
+
+[np-V] 2000 games (0 already done), 2000 to play on 16 workers -> sim/out/np-V.jsonl
+[np-V] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[np-V] rules {}, values {}
+[np-V] 3/2000  1.5 games/s  ETA 0h22m11s
+[np-V] 29/2000  7.2 games/s  ETA 0h04m31s
+[np-V] 46/2000  7.7 games/s  ETA 0h04m15s
+[np-V] 65/2000  8.1 games/s  ETA 0h03m58s
+[np-V] 90/2000  9.0 games/s  ETA 0h03m32s
+[np-V] 118/2000  9.8 games/s  ETA 0h03m11s
+[np-V] 146/2000  10.4 games/s  ETA 0h02m58s
+[np-V] 171/2000  10.7 games/s  ETA 0h02m51s
+[np-V] 194/2000  10.8 games/s  ETA 0h02m47s
+[np-V] 221/2000  11.0 games/s  ETA 0h02m41s
+[np-V] 242/2000  11.0 games/s  ETA 0h02m40s
+[np-V] 268/2000  11.2 games/s  ETA 0h02m35s
+[np-V] 293/2000  11.3 games/s  ETA 0h02m31s
+[np-V] 322/2000  11.5 games/s  ETA 0h02m26s
+[np-V] 339/2000  11.3 games/s  ETA 0h02m27s
+[np-V] 366/2000  11.4 games/s  ETA 0h02m23s
+[np-V] 390/2000  11.5 games/s  ETA 0h02m20s
+[np-V] 415/2000  11.5 games/s  ETA 0h02m17s
+[np-V] 442/2000  11.6 games/s  ETA 0h02m14s
+[np-V] 468/2000  11.7 games/s  ETA 0h02m11s
+[np-V] 494/2000  11.7 games/s  ETA 0h02m08s
+[np-V] 524/2000  11.9 games/s  ETA 0h02m04s
+[np-V] 546/2000  11.9 games/s  ETA 0h02m02s
+[np-V] 573/2000  11.9 games/s  ETA 0h01m59s
+[np-V] 596/2000  11.9 games/s  ETA 0h01m57s
+[np-V] 612/2000  11.8 games/s  ETA 0h01m58s
+[np-V] 637/2000  11.8 games/s  ETA 0h01m55s
+[np-V] 659/2000  11.8 games/s  ETA 0h01m54s
+[np-V] 681/2000  11.7 games/s  ETA 0h01m52s
+[np-V] 704/2000  11.7 games/s  ETA 0h01m50s
+[np-V] 727/2000  11.7 games/s  ETA 0h01m48s
+[np-V] 753/2000  11.8 games/s  ETA 0h01m46s
+[np-V] 771/2000  11.7 games/s  ETA 0h01m45s
+[np-V] 801/2000  11.8 games/s  ETA 0h01m41s
+[np-V] 824/2000  11.8 games/s  ETA 0h01m40s
+[np-V] 848/2000  11.8 games/s  ETA 0h01m37s
+[np-V] 871/2000  11.8 games/s  ETA 0h01m36s
+[np-V] 894/2000  11.7 games/s  ETA 0h01m34s
+[np-V] 912/2000  11.7 games/s  ETA 0h01m33s
+[np-V] 936/2000  11.7 games/s  ETA 0h01m31s
+[np-V] 962/2000  11.7 games/s  ETA 0h01m28s
+[np-V] 979/2000  11.6 games/s  ETA 0h01m27s
+[np-V] 1003/2000  11.6 games/s  ETA 0h01m25s
+[np-V] 1033/2000  11.7 games/s  ETA 0h01m22s
+[np-V] 1056/2000  11.7 games/s  ETA 0h01m20s
+[np-V] 1083/2000  11.8 games/s  ETA 0h01m17s
+[np-V] 1110/2000  11.8 games/s  ETA 0h01m15s
+[np-V] 1135/2000  11.8 games/s  ETA 0h01m13s
+[np-V] 1168/2000  11.9 games/s  ETA 0h01m09s
+[np-V] 1192/2000  11.9 games/s  ETA 0h01m07s
+[np-V] 1214/2000  11.9 games/s  ETA 0h01m06s
+[np-V] 1241/2000  11.9 games/s  ETA 0h01m03s
+[np-V] 1264/2000  11.9 games/s  ETA 0h01m01s
+[np-V] 1290/2000  11.9 games/s  ETA 0h00m59s
+[np-V] 1312/2000  11.9 games/s  ETA 0h00m57s
+[np-V] 1337/2000  11.9 games/s  ETA 0h00m55s
+[np-V] 1366/2000  12.0 games/s  ETA 0h00m52s
+[np-V] 1391/2000  12.0 games/s  ETA 0h00m50s
+[np-V] 1416/2000  12.0 games/s  ETA 0h00m48s
+[np-V] 1443/2000  12.0 games/s  ETA 0h00m46s
+[np-V] 1465/2000  12.0 games/s  ETA 0h00m44s
+[np-V] 1492/2000  12.0 games/s  ETA 0h00m42s
+[np-V] 1516/2000  12.0 games/s  ETA 0h00m40s
+[np-V] 1543/2000  12.0 games/s  ETA 0h00m37s
+[np-V] 1573/2000  12.1 games/s  ETA 0h00m35s
+[np-V] 1597/2000  12.1 games/s  ETA 0h00m33s
+[np-V] 1622/2000  12.1 games/s  ETA 0h00m31s
+[np-V] 1647/2000  12.1 games/s  ETA 0h00m29s
+[np-V] 1673/2000  12.1 games/s  ETA 0h00m27s
+[np-V] 1698/2000  12.1 games/s  ETA 0h00m24s
+[np-V] 1723/2000  12.1 games/s  ETA 0h00m22s
+[np-V] 1746/2000  12.1 games/s  ETA 0h00m20s
+[np-V] 1768/2000  12.1 games/s  ETA 0h00m19s
+[np-V] 1790/2000  12.1 games/s  ETA 0h00m17s
+[np-V] 1819/2000  12.1 games/s  ETA 0h00m14s
+[np-V] 1849/2000  12.2 games/s  ETA 0h00m12s
+[np-V] 1874/2000  12.2 games/s  ETA 0h00m10s
+[np-V] 1893/2000  12.1 games/s  ETA 0h00m08s
+[np-V] 1901/2000  12.0 games/s  ETA 0h00m08s
+[np-V] 1914/2000  11.9 games/s  ETA 0h00m07s
+[np-V] 1932/2000  11.9 games/s  ETA 0h00m05s
+[np-V] 1956/2000  11.9 games/s  ETA 0h00m03s
+[np-V] 1976/2000  11.9 games/s  ETA 0h00m02s
+[np-V] 1999/2000  11.9 games/s  ETA 0h00m00s
+[np-V] 2000 games in 0h02m48s (11.9 games/s)
+[np-V] summary -> sim/out/np-V.summary.json

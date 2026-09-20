@@ -16,11 +16,11 @@ export type Color = 0 | 1;
 export const WHITE: Color = 0;
 export const BLACK: Color = 1;
 
-export const P = 1, N = 2, B = 3, R = 4, Q = 5, K = 6, A = 7, L = 8, G = 9, M = 10, S = 11, O = 12, C = 13;
-export type PieceType = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
-/** Letter per piece type (index = type). A=archer L=paladin G=guard M=maester S=beast O=ogre C=catapult. */
-export const LETTERS = ' PNBRQKALGMSOC';
-export const NAMES = ['', 'pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'archer', 'paladin', 'guard', 'maester', 'beast', 'ogre', 'catapult'] as const;
+export const P = 1, N = 2, B = 3, R = 4, Q = 5, K = 6, A = 7, L = 8, G = 9, M = 10, S = 11, O = 12, C = 13, V = 14;
+export type PieceType = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
+/** Letter per piece type (index = type). A=archer L=paladin G=guard M=maester S=beast O=ogre C=catapult V=reaver. */
+export const LETTERS = ' PNBRQKALGMSOCV';
+export const NAMES = ['', 'pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'archer', 'paladin', 'guard', 'maester', 'beast', 'ogre', 'catapult', 'reaver'] as const;
 /**
  * Promotion targets. The ogre and the catapult are **not** here: they are lab pieces that enter a
  * game only through `--pool` or an explicit back rank, and adding them would hand every shipped
@@ -405,6 +405,29 @@ export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Mo
       chain(from, []);
       return;
     }
+    case V: {
+      // **Reaver** (lab piece, PIECES-PROPOSED.md #5): a knight that may step one square in any
+      // direction onto an empty square as part of the same move after a capture — it keeps the
+      // winnings and slips out of the recapture. The step never captures and creates no attack
+      // (isAttacked sees only the knight's eight), so the attack mirror needs no new branch here.
+      // The step variants are mode-'all' only: for attack generation the plain knight captures are
+      // the whole story.
+      leaper(board, from, c, p, KNIGHT, mode, out);
+      if (mode === 'all') {
+        const stepDirs = RULES.reaverStep === 'ortho' ? ORTHO : DIRS8;
+        for (const [df, dr] of KNIGHT) {
+          const victim = step(from, df, dr);
+          if (victim < 0) continue;
+          const v = board[victim];
+          if (!v || colorOf(v) === c || !canCapture(p, typeOf(v))) continue;
+          for (const [sf, sr] of stepDirs) {
+            const land = step(victim, sf, sr);
+            if (land >= 0 && !board[land]) out.push({ from, to: land, captures: [victim] });
+          }
+        }
+      }
+      return;
+    }
     case O: {
       // An ordinary king-step attacker: it may take a king like any king-mover, never a guard
       // (`canCapture` settles both), so `isAttacked` needs nothing but the 8 neighbours.
@@ -513,7 +536,7 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
     const p = board[s];
     return p !== 0 && colorOf(p) === by && typeOf(p) === t && (victim === 0 || canCapture(p, victim as PieceType));
   };
-  for (const [df, dr] of KNIGHT) { const s = step(target, df, dr); if (s >= 0 && hit(s, N)) return true; }
+  for (const [df, dr] of KNIGHT) { const s = step(target, df, dr); if (s >= 0 && (hit(s, N) || hit(s, V))) return true; }
   for (const [df, dr] of DIRS8) {
     const s = step(target, df, dr);
     if (s < 0) continue;
@@ -607,7 +630,7 @@ export function insufficientMaterial(board: Uint8Array): boolean {
     if (t === P || t === R || t === Q || t === A || t === M || t === S || t === O || t === C) return false;
     if (t === G && RULES.guardCaptures === 'any') return false; // a commoner guard mates with a king; a pawn-only guard cannot
     if (t === L && RULES.paladinChecks) return false; // a paladin that may take a king can mate with one
-    if (t === N || t === B) minors[colorOf(p)]++;
+    if (t === N || t === B || t === V) minors[colorOf(p)]++; // a lone leaper cannot mate: K+V vs K is drawn
   }
   return minors[WHITE] <= 1 && minors[BLACK] <= 1;
 }

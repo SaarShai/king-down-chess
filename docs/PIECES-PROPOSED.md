@@ -1,9 +1,11 @@
 # Five proposed fairy pieces (2026-09-14)
 
 Drawn from the balance lab (about 330,000 games), the guard study, the paladin and maester work, and
-the ability matrix in `MATRIX.md`. **Two of the five — the Ogre and the Catapult — are built as lab
-pieces** (measured in `docs/research/sim-new-pieces-2026-09-14.md`: Ogre `push` promising, Catapult
-`land`/`stay` unresolved; both outside the pool and promotion list). The other three are not built.
+the ability matrix in `MATRIX.md`. **Three of the five are built as lab pieces**: the Ogre and the Catapult (`docs/research/sim-new-pieces-2026-09-14.md`:
+Ogre `push` promising, Catapult unresolved) and the **Reaver** (`docs/research/sim-reaver-2026-09-17.md`:
+the full step is overpowered and rejected; the orthogonal-only reading is the measured default, worth
+~4.0 pawns, +7.1 decisive points, neutral balance). All three stay outside the pool and promotion
+list. The Squire and the Templar are not built.
 Each piece below names the matrix cells it fills, what it is for, what to expect, what to watch, and
 how to measure it.
 
@@ -109,9 +111,11 @@ direction onto an empty square as part of the same move. The step never captures
 winnings. It strikes and slips out of the recapture, so it trades up rather than off. It is also the
 only leaper among the fairy pieces, and a knight is the shape every player already knows.
 
-**Expect.** 3.5–4 pawns; draws down (a piece that is hard to simplify away); balance neutral.
-**Watch.** If it dodges every recapture it is too strong; the nerf is one word — the step is
-orthogonal only. **Engine.** The beast's chain generator with a move-only continuation.
+**Built 2026-09-17; the watch note fired.** The full eight-direction step **does not converge** —
+even priced at 5.04 pawns the Reaver army beat a knight army by +188 ± 32 Elo — so it is rejected as
+overpowered. The orthogonal-only step is the lab default: **4.04 ± 0.56 pawns**, +7.1 ± 2.5 decisive
+points against a knight control, draws −7 points, balance neutral. Full record:
+`docs/research/sim-reaver-2026-09-17.md`.
 
 ## Set aside
 

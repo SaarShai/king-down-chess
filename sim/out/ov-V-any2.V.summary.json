@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "ov-V-any2.V",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "values": {
+      "V": 504
+    },
+    "asymmetric": [
+      {
+        "white": "RVBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 23.8,
+  "whiteScore": 0.5567,
+  "whiteWins": 158,
+  "draws": 18,
+  "blackWins": 124,
+  "meanPlies": 77,
+  "reasons": {
+    "adjudicatedResign": 282,
+    "adjudicatedDraw": 9,
+    "draw50": 2,
+    "drawMaterial": 4,
+    "drawRepetition": 3
+  }
+}

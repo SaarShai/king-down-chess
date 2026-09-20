@@ -1,5 +1,5 @@
 /** Start positions, FEN-style serialisation and move notation. */
-import { BLACK, G, LETTERS, Move, P, PieceType, Position, SPENT, WHITE, colorOf, piece, rank, sq, sqName, typeOf } from './engine';
+import { BLACK, G, LETTERS, Move, P, PieceType, Position, SPENT, V, WHITE, colorOf, piece, rank, sq, sqName, typeOf } from './engine';
 import { RULES } from './rules';
 
 /** King Down Classic pool: 7 of these join the king on the back rank. */
@@ -96,6 +96,10 @@ export function toLan(pos: Position, m: Move): string {
   let s: string;
   if (m.shove) s = `${letter}${sqName(m.from)}>${sqName(m.shove.from)}-${sqName(m.shove.to)}`;
   else if (m.swap) s = `${letter}${sqName(m.from)}<>${sqName(m.to)}`;
+  // Reaver: one capture, then a step to the landing square (`Vb1xc3-d3`, also when it steps back
+  // onto its own square). Checked before the `to === from` shot shape, which a Reaver would
+  // otherwise print as an archer rifle shot.
+  else if (t === V && m.captures.length === 1 && m.to !== m.captures[0]) s = `${letter}${sqName(m.from)}x${sqName(m.captures[0])}-${sqName(m.to)}`;
   else if (m.to === m.from) s = `${letter}${sqName(m.from)}*${sqName(m.captures[0])}`;
   else if (m.captures.length > 1) s = `${letter}${sqName(m.from)}${m.captures.map(c => 'x' + sqName(c)).join('')}`;
   else s = `${letter}${sqName(m.from)}${m.captures.length ? 'x' : '-'}${sqName(m.to)}`;

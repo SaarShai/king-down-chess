@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "id": "ov-V-reaver.V",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "asymmetric": [
+      {
+        "white": "RVBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 26.9,
+  "whiteScore": 0.5333,
+  "whiteWins": 144,
+  "draws": 32,
+  "blackWins": 124,
+  "meanPlies": 80.3,
+  "reasons": {
+    "adjudicatedResign": 268,
+    "drawRepetition": 5,
+    "adjudicatedDraw": 21,
+    "drawMaterial": 3,
+    "draw50": 3
+  }
+}

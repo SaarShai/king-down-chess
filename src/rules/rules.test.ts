@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  A, B, BLACK, C, G, K, L, M, N, O, P, Q, R, S, SPENT, WHITE, colorOf, genPiece, inCheck, insufficientMaterial, isAttacked, legalMoves, makeMove,
+  A, B, BLACK, C, G, K, L, M, N, O, P, Q, R, S, SPENT, V, WHITE, colorOf, genPiece, inCheck, insufficientMaterial, isAttacked, legalMoves, makeMove,
   parseSq, perft, piece, status, typeOf, Move, PieceType, Position, file, sqName,
 } from './engine';
+import { parseLan } from '../sim/tune';
 import { CLASSIC_CHESS, POOL, fromFen, randomBackRank, startPosition, toFen, toLan } from './setup';
 import { DEFAULT_RULES, RULES, RULES_2017, RULES_2021, Rules, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 import { Game } from '../game';
@@ -187,7 +188,7 @@ describe('setup', () => {
  */
 function crossCheckAttacks(seed: number, trials = 200): void {
   const rng = () => ((seed = (seed * 48271) % 2147483647) / 2147483647);
-  const types: PieceType[] = [P, N, B, R, Q, K, A, L, G, M, S, O, C];
+  const types: PieceType[] = [P, N, B, R, Q, K, A, L, G, M, S, O, C, V];
   for (let trial = 0; trial < trials; trial++) {
     const board = new Uint8Array(64);
     for (let s = 0; s < 64; s++) {
@@ -1111,3 +1112,76 @@ describe('kings powers: lifecycle', () => {
   }, 30_000);
 });
 
+
+// ---------------------------------------------------------------------------------------------
+// The Reaver (V, lab piece; docs/PIECES-PROPOSED.md #5): a knight that may step one square in any
+// direction onto an empty square as part of the same move after a capture.
+
+describe('reaver (V, lab)', () => {
+  afterEach(() => setRules());
+
+  it('moves and captures like a knight', () => {
+    const pos = fromFen('7k/8/8/8/3V4/8/8/K7 w - - 0 1');
+    expect(lan(pos, movesFrom(pos, 'd4'))).toEqual(
+      ['Vd4-b3', 'Vd4-b5', 'Vd4-c2', 'Vd4-c6', 'Vd4-e2', 'Vd4-e6', 'Vd4-f3', 'Vd4-f5'].sort());
+  });
+
+  it('after a capture it may step one square onto an empty square, or stay', () => {
+    setRules({ reaverStep: 'any' }); // the full reading: all 8 directions
+    const pos = fromFen('7k/8/4p3/8/3V4/8/8/K7 w - - 0 1'); // black pawn e6
+    const moves = movesFrom(pos, 'd4');
+    const lans = lan(pos, moves);
+    expect(lans).toContain('Vd4xe6');            // the plain capture
+    expect(lans).toContain('Vd4xe6-d5');         // capture, then step away diagonally
+    expect(lans).toContain('Vd4xe6-f6');
+    const steps = moves.filter(m => m.captures.includes(parseSq('e6')) && m.to !== parseSq('e6'));
+    expect(steps.length).toBeGreaterThan(0);
+    for (const m of steps) expect(m.captures).toEqual([parseSq('e6')]); // the step never captures
+  });
+
+  it('the shipped lab default is orthogonal-only (the measured reading)', () => {
+    expect(RULES.reaverStep).toBe('ortho');
+    const pos = fromFen('7k/8/4p3/8/3V4/8/8/K7 w - - 0 1'); // black pawn e6
+    const lans = lan(pos, movesFrom(pos, 'd4'));
+    expect(lans).toContain('Vd4xe6-d6');  // orthogonal steps stay
+    expect(lans).toContain('Vd4xe6-f6');
+    expect(lans).not.toContain('Vd4xe6-d5'); // diagonals are gone
+    expect(lans).not.toContain('Vd4xe6-f7');
+  });
+
+  it('the step never lands on an occupied square', () => {
+    const pos = fromFen('7k/8/4p3/3p4/3V4/8/8/K7 w - - 0 1'); // e6 victim, d5 occupied
+    const lans = lan(pos, movesFrom(pos, 'd4'));
+    expect(lans).toContain('Vd4xe6');
+    expect(lans).not.toContain('Vd4xe6-d5');
+    for (const l of lans) expect(l).not.toMatch(/x.*x/); // one capture at most, ever
+  });
+
+  it('LAN round-trips the capture-and-step notation', () => {
+    const pos = fromFen('7k/8/4p3/8/3V4/8/8/K7 w - - 0 1');
+    for (const m of movesFrom(pos, 'd4')) {
+      const notation = toLan(pos, m);
+      const back = parseLan(pos.board, notation);
+      expect(toLan(pos, back), notation).toBe(notation);
+      expect(back.to).toBe(m.to);
+      expect(back.captures).toEqual(m.captures);
+    }
+  });
+
+  it('attacks like a knight, and agrees with its own generated captures', () => {
+    const pos = fromFen('7k/8/4p3/8/3V4/8/8/K7 w - - 0 1');
+    expect(isAttacked(pos.board, parseSq('e6'), WHITE)).toBe(true);
+    expect(isAttacked(pos.board, parseSq('d5'), WHITE)).toBe(false); // the step is move-only
+    crossCheckAttacks(206);
+  });
+
+  it('round-trips in FEN, is outside the pool and promotion list, and a lone reaver is a material draw', () => {
+    const fen = '7k/8/8/8/3v4/8/8/K7 w - - 0 1';
+    expect(toFen(fromFen(fen))).toBe(fen);
+    expect(typeOf(fromFen(fen).board[parseSq('d4')])).toBe(V);
+    expect(POOL).not.toMatch(/V/);
+    const promo = fromFen('7k/P7/8/8/8/8/8/K7 w - - 0 1');
+    expect(movesFrom(promo, 'a7').map(m => m.promo)).not.toContain(V);
+    expect(insufficientMaterial(fromFen('7k/8/8/8/8/8/8/KV6 w - - 0 1').board)).toBe(true);
+  });
+});

@@ -1,0 +1,100 @@
+[
+ {
+  "file": "../king-down-sim/sim/out/nnue-g2.jsonl",
+  "acc": {
+   "games": 80000,
+   "decisive": 58385,
+   "draws": 21615,
+   "capped": 913,
+   "plies": 9373739,
+   "ev": {
+    "archerShots": 181187,
+    "beastChainMoves": 80850,
+    "maesterSwaps": 478677,
+    "maesterLongSwaps": 52061,
+    "paladinSacrifices": 45753,
+    "promotions": 24489,
+    "checks": 349145,
+    "ogreShoves": 0,
+    "ogreShovesFriend": 0,
+    "ogreShovesGuard": 0,
+    "catapultChecks": 0
+   },
+   "with": {
+    "archerShots": 50478,
+    "beastChainMoves": 40705,
+    "maesterSwaps": 58277,
+    "maesterLongSwaps": 30254,
+    "paladinSacrifices": 33537,
+    "promotions": 21679,
+    "checks": 64775,
+    "ogreShoves": 0,
+    "ogreShovesFriend": 0,
+    "ogreShovesGuard": 0,
+    "catapultChecks": 0
+   },
+   "decisiveWith": {
+    "archerShots": 37611,
+    "beastChainMoves": 31076,
+    "maesterSwaps": 41648,
+    "maesterLongSwaps": 21927,
+    "paladinSacrifices": 25054,
+    "promotions": 20624,
+    "checks": 51567,
+    "ogreShoves": 0,
+    "ogreShovesFriend": 0,
+    "ogreShovesGuard": 0,
+    "catapultChecks": 0
+   }
+  }
+ },
+ {
+  "file": "sim/out/np-O.jsonl",
+  "acc": {
+   "games": 2000,
+   "decisive": 1366,
+   "draws": 634,
+   "capped": 27,
+   "plies": 240979,
+   "ev": {
+    "archerShots": 4288,
+    "beastChainMoves": 1603,
+    "maesterSwaps": 10163,
+    "maesterLongSwaps": 960,
+    "paladinSacrifices": 897,
+    "promotions": 646,
+    "checks": 8043,
+    "ogreShoves": 6662,
+    "ogreShovesFriend": 6244,
+    "ogreShovesGuard": 46,
+    "catapultChecks": 0
+   },
+   "with": {
+    "archerShots": 1218,
+    "beastChainMoves": 820,
+    "maesterSwaps": 1288,
+    "maesterLongSwaps": 576,
+    "paladinSacrifices": 625,
+    "promotions": 556,
+    "checks": 1577,
+    "ogreShoves": 1884,
+    "ogreShovesFriend": 1873,
+    "ogreShovesGuard": 39,
+    "catapultChecks": 0
+   },
+   "decisiveWith": {
+    "archerShots": 862,
+    "beastChainMoves": 614,
+    "maesterSwaps": 846,
+    "maesterLongSwaps": 386,
+    "paladinSacrifices": 442,
+    "promotions": 534,
+    "checks": 1214,
+    "ogreShoves": 1279,
+    "ogreShovesFriend": 1271,
+    "ogreShovesGuard": 25,
+    "catapultChecks": 0
+   }
+  }
+ }
+]

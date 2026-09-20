@@ -1,0 +1,73 @@
+{
+  "spec": {
+    "id": "np-V-ortho",
+    "games": 2000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "openingRandomPlies": 4,
+    "backRanks": [
+      "QNAKNGLV",
+      "ANVGKSBM",
+      "GBMRMVBK",
+      "BGNNRVKB",
+      "GSRBNQKV",
+      "ABMNVKLM",
+      "RSGVMAAK",
+      "SBNVGKSA",
+      "BNSRKQVR",
+      "ANRNVKQA",
+      "KALGNSVR",
+      "RSBAMLVK",
+      "MAMLSKAV",
+      "RRKGNQVB",
+      "KNLRSQVM",
+      "KNAMRBNV",
+      "SKRRBVAS",
+      "KVBASQLR",
+      "RLGKVAMS",
+      "KNBMQVSS",
+      "NQSABVMK",
+      "NNRMBVKS",
+      "NKRMRBVA",
+      "VSSKQRAB",
+      "RVAKBMGS",
+      "GLMAKNNV",
+      "ANGLBNVK",
+      "AMNNRKVA",
+      "LBNKSMRV",
+      "QVRRKGAM",
+      "QKNGRMAV",
+      "NRKNBVSB",
+      "NVBAMKAQ",
+      "GSABMVLK",
+      "NNMSMAVK",
+      "KQNGVABS",
+      "MKNBMRVG",
+      "VKMASLQB",
+      "MAANKLVQ",
+      "NKSBGRMV"
+    ],
+    "note": "reaver (V) replacing one knight in the np-N ranks, same order and seed; compare against np-N by gameId (same opening seeds).",
+    "maxPlies": 300,
+    "rules": {
+      "reaverStep": "ortho"
+    }
+  },
+  "games": 2000,
+  "seconds": 189.4,
+  "whiteScore": 0.5325,
+  "whiteWins": 884,
+  "draws": 362,
+  "blackWins": 754,
+  "meanPlies": 109.1,
+  "reasons": {
+    "adjudicatedResign": 1638,
+    "drawMaterial": 36,
+    "adjudicatedDraw": 274,
+    "drawRepetition": 33,
+    "plyCap": 10,
+    "draw50": 9
+  }
+}

@@ -1,0 +1,225 @@
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id ov-V-any2 --experiment values --pieces V --games 300 --depth 3 --seed 1 --workers 16 --eloPerPawn 64 --values V=504
+
+[ov-V-any2.V] 300 games (0 already done), 300 to play on 16 workers -> sim/out/ov-V-any2.V.jsonl
+[ov-V-any2.V] depth 3, 4 random opening plies, ply cap 300, pairs on
+[ov-V-any2.V] rules {}, values {"V":504}
+[ov-V-any2.V] 11/300  5.5 games/s  ETA 0h00m52s
+[ov-V-any2.V] 38/300  9.5 games/s  ETA 0h00m27s
+[ov-V-any2.V] 62/300  10.3 games/s  ETA 0h00m23s
+[ov-V-any2.V] 91/300  11.4 games/s  ETA 0h00m18s
+[ov-V-any2.V] 123/300  12.3 games/s  ETA 0h00m14s
+[ov-V-any2.V] 146/300  12.2 games/s  ETA 0h00m12s
+[ov-V-any2.V] 173/300  12.3 games/s  ETA 0h00m10s
+[ov-V-any2.V] 199/300  12.4 games/s  ETA 0h00m08s
+[ov-V-any2.V] 224/300  12.4 games/s  ETA 0h00m06s
+[ov-V-any2.V] 255/300  12.7 games/s  ETA 0h00m03s
+[ov-V-any2.V] 279/300  12.7 games/s  ETA 0h00m01s
+[ov-V-any2.V] 300 games in 0h00m23s (12.6 games/s)
+[ov-V-any2.V] summary -> sim/out/ov-V-any2.V.summary.json
+# Piece values — ov-V-any2
+
+Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **knight** of the
+classic arrangement `RNBQKBNR` with one fairy piece, on one side only, and plays
+colour-reversed pairs. The last arm gives White pawn odds; it converts Elo into pawns.
+
+Depth 3, 300 games per arm, 4 random opening plies.
+Rules: defaults.
+Engine values: `V=504` (the rest keep `src/ai/eval.ts`).
+
+## Arms (scores are the fairy army's, folded over the colour swap)
+| arm | games | pairs | pentanomial | score | Elo ±95% | nElo | LOS | LLR | SPRT | draws | capped | plies |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| V | 300 | 150 | [5, 5, 53, 11, 76] | 0.747 | +188 ± 32 | +213 | 100.0% | 1.53 | continue | 6.0% | 0.0% | 77 |
+
+**One pawn = 64 Elo** at this depth
+(carried over with `--eloPerPawn`; no calibration arm was played here). Every
+implied value below carries that calibration error on top of its own.
+
+
+## Implied values
+| piece | Elo vs knight | Δ pawns | implied value (pawns) | engine seed | research prior | next seed (cp) |
+|---|---|---|---|---|---|---|
+| V (reaver) | +188 ± 32 | +2.93 ± 0.49 ** | > 4.66 ** | 5.04 | 3.75 | 609 |
+
+Implied value = knight (3.16) + Elo / 64.
+
+** 1 swap(s) fall outside the linear band of ±1.5 pawns that Muller's method needs. The score
+saturates there, so the conversion under-reads the gap: take the marked rows as "far from a knight,
+on the side the bound points", not as a number. The fix is Muller's second step — hand the strong side a pawn and play
+again until the result brackets 50%. The next-seed column floors at 50 cp for the same reason.
+
+
+## Muller fixed-point update
+Write the "next seed" column into `src/ai/eval.ts`, then run this experiment again. The values are
+converged when a pass moves no piece by more than its error bar. A seed that inverts a plausible
+exchange makes self-play blind, so never stop after one pass.
+
+```ts
+export const REAVER_V = 609;
+```
+
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id ov-V-ortho2 --experiment values --pieces V --games 300 --depth 3 --seed 1 --workers 16 --eloPerPawn 64 --values V=474 --rule reaverStep=ortho
+
+[ov-V-ortho2.V] 300 games (0 already done), 300 to play on 16 workers -> sim/out/ov-V-ortho2.V.jsonl
+[ov-V-ortho2.V] depth 3, 4 random opening plies, ply cap 300, pairs on
+[ov-V-ortho2.V] rules {"reaverStep":"ortho"}, values {"V":474}
+[ov-V-ortho2.V] 7/300  3.5 games/s  ETA 0h01m23s
+[ov-V-ortho2.V] 27/300  6.7 games/s  ETA 0h00m40s
+[ov-V-ortho2.V] 54/300  9.0 games/s  ETA 0h00m27s
+[ov-V-ortho2.V] 72/300  9.0 games/s  ETA 0h00m25s
+[ov-V-ortho2.V] 103/300  10.3 games/s  ETA 0h00m19s
+[ov-V-ortho2.V] 125/300  10.4 games/s  ETA 0h00m16s
+[ov-V-ortho2.V] 142/300  10.1 games/s  ETA 0h00m15s
+[ov-V-ortho2.V] 170/300  10.6 games/s  ETA 0h00m12s
+[ov-V-ortho2.V] 189/300  10.5 games/s  ETA 0h00m10s
+[ov-V-ortho2.V] 213/300  10.6 games/s  ETA 0h00m08s
+[ov-V-ortho2.V] 232/300  10.5 games/s  ETA 0h00m06s
+[ov-V-ortho2.V] 252/300  10.5 games/s  ETA 0h00m04s
+[ov-V-ortho2.V] 276/300  10.6 games/s  ETA 0h00m02s
+[ov-V-ortho2.V] 297/300  10.6 games/s  ETA 0h00m00s
+[ov-V-ortho2.V] 300 games in 0h00m28s (10.6 games/s)
+[ov-V-ortho2.V] summary -> sim/out/ov-V-ortho2.V.summary.json
+# Piece values — ov-V-ortho2
+
+Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **knight** of the
+classic arrangement `RNBQKBNR` with one fairy piece, on one side only, and plays
+colour-reversed pairs. The last arm gives White pawn odds; it converts Elo into pawns.
+
+Depth 3, 300 games per arm, 4 random opening plies.
+Rules: `{"reaverStep":"ortho"}`.
+Engine values: `V=474` (the rest keep `src/ai/eval.ts`).
+
+## Arms (scores are the fairy army's, folded over the colour swap)
+| arm | games | pairs | pentanomial | score | Elo ±95% | nElo | LOS | LLR | SPRT | draws | capped | plies |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| V | 300 | 150 | [21, 7, 64, 19, 39] | 0.580 | +56 ± 36 | +61 | 99.9% | 0.57 | continue | 9.0% | 0.3% | 88 |
+
+**One pawn = 64 Elo** at this depth
+(carried over with `--eloPerPawn`; no calibration arm was played here). Every
+implied value below carries that calibration error on top of its own.
+
+
+## Implied values
+| piece | Elo vs knight | Δ pawns | implied value (pawns) | engine seed | research prior | next seed (cp) |
+|---|---|---|---|---|---|---|
+| V (reaver) | +56 ± 36 | +0.88 ± 0.56 | 4.04 ± 0.56 | 4.74 | 3.75 | 404 |
+
+Implied value = knight (3.16) + Elo / 64.
+
+
+## Muller fixed-point update
+Write the "next seed" column into `src/ai/eval.ts`, then run this experiment again. The values are
+converged when a pass moves no piece by more than its error bar. A seed that inverts a plausible
+exchange makes self-play blind, so never stop after one pass.
+
+```ts
+export const REAVER_V = 404;
+```
+
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --spec sim/specs/newpieces/np-V.json --id np-V-ortho --workers 16 --rule reaverStep=ortho
+
+[np-V-ortho] 2000 games (0 already done), 2000 to play on 16 workers -> sim/out/np-V-ortho.jsonl
+[np-V-ortho] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[np-V-ortho] rules {"reaverStep":"ortho"}, values {}
+[np-V-ortho] 1/2000  0.5 games/s  ETA 1h06m41s
+[np-V-ortho] 25/2000  6.2 games/s  ETA 0h05m16s
+[np-V-ortho] 42/2000  7.0 games/s  ETA 0h04m39s
+[np-V-ortho] 65/2000  8.1 games/s  ETA 0h03m58s
+[np-V-ortho] 87/2000  8.7 games/s  ETA 0h03m40s
+[np-V-ortho] 111/2000  9.2 games/s  ETA 0h03m24s
+[np-V-ortho] 135/2000  9.6 games/s  ETA 0h03m13s
+[np-V-ortho] 157/2000  9.8 games/s  ETA 0h03m07s
+[np-V-ortho] 177/2000  9.8 games/s  ETA 0h03m05s
+[np-V-ortho] 195/2000  9.7 games/s  ETA 0h03m05s
+[np-V-ortho] 220/2000  10.0 games/s  ETA 0h02m58s
+[np-V-ortho] 239/2000  10.0 games/s  ETA 0h02m56s
+[np-V-ortho] 261/2000  10.0 games/s  ETA 0h02m53s
+[np-V-ortho] 282/2000  10.1 games/s  ETA 0h02m50s
+[np-V-ortho] 306/2000  10.2 games/s  ETA 0h02m46s
+[np-V-ortho] 329/2000  10.3 games/s  ETA 0h02m42s
+[np-V-ortho] 347/2000  10.2 games/s  ETA 0h02m42s
+[np-V-ortho] 368/2000  10.2 games/s  ETA 0h02m39s
+[np-V-ortho] 387/2000  10.2 games/s  ETA 0h02m38s
+[np-V-ortho] 407/2000  10.2 games/s  ETA 0h02m36s
+[np-V-ortho] 432/2000  10.3 games/s  ETA 0h02m32s
+[np-V-ortho] 453/2000  10.3 games/s  ETA 0h02m30s
+[np-V-ortho] 477/2000  10.4 games/s  ETA 0h02m26s
+[np-V-ortho] 496/2000  10.3 games/s  ETA 0h02m25s
+[np-V-ortho] 517/2000  10.3 games/s  ETA 0h02m23s
+[np-V-ortho] 535/2000  10.3 games/s  ETA 0h02m22s
+[np-V-ortho] 556/2000  10.3 games/s  ETA 0h02m20s
+[np-V-ortho] 575/2000  10.3 games/s  ETA 0h02m18s
+[np-V-ortho] 598/2000  10.3 games/s  ETA 0h02m16s
+[np-V-ortho] 619/2000  10.3 games/s  ETA 0h02m13s
+[np-V-ortho] 644/2000  10.4 games/s  ETA 0h02m10s
+[np-V-ortho] 666/2000  10.4 games/s  ETA 0h02m08s
+[np-V-ortho] 686/2000  10.4 games/s  ETA 0h02m06s
+[np-V-ortho] 708/2000  10.4 games/s  ETA 0h02m04s
+[np-V-ortho] 729/2000  10.4 games/s  ETA 0h02m02s
+[np-V-ortho] 750/2000  10.4 games/s  ETA 0h02m00s
+[np-V-ortho] 769/2000  10.4 games/s  ETA 0h01m58s
+[np-V-ortho] 791/2000  10.4 games/s  ETA 0h01m56s
+[np-V-ortho] 813/2000  10.4 games/s  ETA 0h01m53s
+[np-V-ortho] 834/2000  10.4 games/s  ETA 0h01m51s
+[np-V-ortho] 854/2000  10.4 games/s  ETA 0h01m50s
+[np-V-ortho] 874/2000  10.4 games/s  ETA 0h01m48s
+[np-V-ortho] 895/2000  10.4 games/s  ETA 0h01m46s
+[np-V-ortho] 916/2000  10.4 games/s  ETA 0h01m44s
+[np-V-ortho] 938/2000  10.4 games/s  ETA 0h01m41s
+[np-V-ortho] 957/2000  10.4 games/s  ETA 0h01m40s
+[np-V-ortho] 982/2000  10.4 games/s  ETA 0h01m37s
+[np-V-ortho] 1009/2000  10.5 games/s  ETA 0h01m34s
+[np-V-ortho] 1034/2000  10.5 games/s  ETA 0h01m31s
+[np-V-ortho] 1051/2000  10.5 games/s  ETA 0h01m30s
+[np-V-ortho] 1074/2000  10.5 games/s  ETA 0h01m27s
+[np-V-ortho] 1093/2000  10.5 games/s  ETA 0h01m26s
+[np-V-ortho] 1115/2000  10.5 games/s  ETA 0h01m24s
+[np-V-ortho] 1138/2000  10.5 games/s  ETA 0h01m21s
+[np-V-ortho] 1155/2000  10.5 games/s  ETA 0h01m20s
+[np-V-ortho] 1178/2000  10.5 games/s  ETA 0h01m18s
+[np-V-ortho] 1203/2000  10.5 games/s  ETA 0h01m15s
+[np-V-ortho] 1220/2000  10.5 games/s  ETA 0h01m14s
+[np-V-ortho] 1243/2000  10.5 games/s  ETA 0h01m11s
+[np-V-ortho] 1260/2000  10.5 games/s  ETA 0h01m10s
+[np-V-ortho] 1282/2000  10.5 games/s  ETA 0h01m08s
+[np-V-ortho] 1301/2000  10.5 games/s  ETA 0h01m06s
+[np-V-ortho] 1323/2000  10.5 games/s  ETA 0h01m04s
+[np-V-ortho] 1345/2000  10.5 games/s  ETA 0h01m02s
+[np-V-ortho] 1369/2000  10.5 games/s  ETA 0h00m59s
+[np-V-ortho] 1394/2000  10.6 games/s  ETA 0h00m57s
+[np-V-ortho] 1414/2000  10.5 games/s  ETA 0h00m55s
+[np-V-ortho] 1436/2000  10.6 games/s  ETA 0h00m53s
+[np-V-ortho] 1455/2000  10.5 games/s  ETA 0h00m51s
+[np-V-ortho] 1475/2000  10.5 games/s  ETA 0h00m49s
+[np-V-ortho] 1495/2000  10.5 games/s  ETA 0h00m47s
+[np-V-ortho] 1515/2000  10.5 games/s  ETA 0h00m46s
+[np-V-ortho] 1537/2000  10.5 games/s  ETA 0h00m44s
+[np-V-ortho] 1554/2000  10.5 games/s  ETA 0h00m42s
+[np-V-ortho] 1579/2000  10.5 games/s  ETA 0h00m40s
+[np-V-ortho] 1598/2000  10.5 games/s  ETA 0h00m38s
+[np-V-ortho] 1620/2000  10.5 games/s  ETA 0h00m36s
+[np-V-ortho] 1639/2000  10.5 games/s  ETA 0h00m34s
+[np-V-ortho] 1660/2000  10.5 games/s  ETA 0h00m32s
+[np-V-ortho] 1679/2000  10.5 games/s  ETA 0h00m30s
+[np-V-ortho] 1702/2000  10.5 games/s  ETA 0h00m28s
+[np-V-ortho] 1718/2000  10.5 games/s  ETA 0h00m26s
+[np-V-ortho] 1741/2000  10.5 games/s  ETA 0h00m24s
+[np-V-ortho] 1760/2000  10.5 games/s  ETA 0h00m22s
+[np-V-ortho] 1784/2000  10.5 games/s  ETA 0h00m20s
+[np-V-ortho] 1809/2000  10.5 games/s  ETA 0h00m18s
+[np-V-ortho] 1826/2000  10.5 games/s  ETA 0h00m16s
+[np-V-ortho] 1851/2000  10.5 games/s  ETA 0h00m14s
+[np-V-ortho] 1878/2000  10.5 games/s  ETA 0h00m11s
+[np-V-ortho] 1899/2000  10.5 games/s  ETA 0h00m09s
+[np-V-ortho] 1921/2000  10.5 games/s  ETA 0h00m07s
+[np-V-ortho] 1940/2000  10.5 games/s  ETA 0h00m05s
+[np-V-ortho] 1963/2000  10.5 games/s  ETA 0h00m03s
+[np-V-ortho] 1987/2000  10.6 games/s  ETA 0h00m01s
+[np-V-ortho] 2000 games in 0h03m09s (10.6 games/s)
+[np-V-ortho] summary -> sim/out/np-V-ortho.summary.json

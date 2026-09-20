@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Q, R, S } from '../rules/engine';
+import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Q, R, S, V } from '../rules/engine';
 
 export const VOXEL = 0.16;
 type Box = [x: number, y: number, z: number, w: number, h: number, d: number, c: string];
@@ -59,7 +59,7 @@ export const MODEL_URLS: Partial<Record<PieceType, string>> = {
   [A]: 'models/archer.json', [L]: 'models/paladin.json', [G]: 'models/guard.json', [M]: 'models/maester.json', [S]: 'models/beast.json',
 };
 /** Height of each piece type in tiles (voxel model, and the sprite billboard). A type with no art gets 1.1. */
-export const TARGET_HEIGHT: Record<PieceType, number> = { [P]: 0.85, [N]: 1.1, [B]: 1.2, [R]: 1.05, [Q]: 1.4, [K]: 1.55, [A]: 1.15, [L]: 1.3, [G]: 1.1, [M]: 1.1, [S]: 1.05, [O]: 1.1, [C]: 1.1 };
+export const TARGET_HEIGHT: Record<PieceType, number> = { [P]: 0.85, [N]: 1.1, [B]: 1.2, [R]: 1.05, [Q]: 1.4, [K]: 1.55, [A]: 1.15, [L]: 1.3, [G]: 1.1, [M]: 1.1, [S]: 1.05, [O]: 1.1, [C]: 1.1, [V]: 1.1 };
 const loaded = new Map<PieceType, VoxelModel>();
 /** Use the voxelized sculpts (when loaded) instead of the procedural placeholders. */
 export let useSculpts = true;

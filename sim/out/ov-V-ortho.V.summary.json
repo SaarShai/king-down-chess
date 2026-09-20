@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "ov-V-ortho.V",
+    "games": 300,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "reaverStep": "ortho"
+    },
+    "asymmetric": [
+      {
+        "white": "RVBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 300,
+  "seconds": 25.7,
+  "whiteScore": 0.5183,
+  "whiteWins": 138,
+  "draws": 35,
+  "blackWins": 127,
+  "meanPlies": 87.9,
+  "reasons": {
+    "adjudicatedResign": 265,
+    "drawRepetition": 6,
+    "adjudicatedDraw": 25,
+    "draw50": 3,
+    "drawMaterial": 1
+  }
+}

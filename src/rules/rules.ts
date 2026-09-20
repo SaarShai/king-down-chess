@@ -34,6 +34,8 @@ export type BeastCapture = 'adjacent' | 'diagForward';
 export type PaladinKamikaze = 'always' | 'nonPawn' | 'never';
 /** Where the Ogre stands after a shove: `repel` = it holds its square, `push` = it follows, Sokoban-style. */
 export type OgreMode = 'repel' | 'push';
+/** Which squares the Reaver's post-capture step may use: all 8 (`any`) or the 4 orthogonal ones (`ortho`). */
+export type ReaverStep = 'any' | 'ortho';
 /** Where the Catapult stands after a lob: `stay` = it fires from its square, `land` = it moves onto the target. */
 export type CatapultCapture = 'stay' | 'land';
 
@@ -187,6 +189,14 @@ export interface Rules {
    */
   ogreMode: OgreMode;
   /**
+   * The Reaver's escape step (piece type `V`, lab-only, same pool note as the Ogre). `any` (proposal
+   * reading): after a capture the Reaver may step one square in any of the 8 directions onto an
+   * empty square. `ortho`: only the 4 orthogonal directions — the designed nerf for "it dodges
+   * every recapture" (docs/PIECES-PROPOSED.md #5). The first odds match priced `any` above 4.66
+   * pawns against a knight of 2.96, so the reading is a live question, not a detail.
+   */
+  reaverStep: ReaverStep;
+  /**
    * The Catapult's lob (piece type `C`, lab-only, same pool note as the Ogre). `stay`: it fires
    * from where it stands — the archer's rifle shape, `to === from`, which every make/unmake path
    * already handles. `land`: it moves onto the square it just cleared, an ordinary displacement
@@ -249,6 +259,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   paladinBlockedByEnemies: true,
   secondPlayerDoubleFirstTurn: false,
   ogreMode: 'repel' as OgreMode,
+  reaverStep: 'ortho' as ReaverStep,
   catapultCapture: 'stay' as CatapultCapture,
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
   bishopsOppositeColours: true,
@@ -305,6 +316,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   maesterStep: [1, 2],
   paladinKamikaze: ['always', 'nonPawn', 'never'],
   ogreMode: ['repel', 'push'],
+  reaverStep: ['any', 'ortho'],
   catapultCapture: ['stay', 'land'],
 };
 
