@@ -1,0 +1,624 @@
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id kp-deathtouch2 --experiment ab --games 1600 --sample 40 --depth 3 --seed 62 --workers 16 --rule kings=Shadow:DeathTouch --rule deathTouchMoves=true
+
+[kp-deathtouch2.base] 1600 games (0 already done), 1600 to play on 16 workers -> sim/out/kp-deathtouch2.base.jsonl
+[kp-deathtouch2.base] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-deathtouch2.base] rules {}, values {}
+[kp-deathtouch2.base] 7/1600  3.5 games/s  ETA 0h07m35s
+[kp-deathtouch2.base] 27/1600  6.7 games/s  ETA 0h03m53s
+[kp-deathtouch2.base] 48/1600  8.0 games/s  ETA 0h03m14s
+[kp-deathtouch2.base] 64/1600  8.0 games/s  ETA 0h03m12s
+[kp-deathtouch2.base] 82/1600  8.2 games/s  ETA 0h03m05s
+[kp-deathtouch2.base] 101/1600  8.4 games/s  ETA 0h02m58s
+[kp-deathtouch2.base] 123/1600  8.8 games/s  ETA 0h02m48s
+[kp-deathtouch2.base] 142/1600  8.9 games/s  ETA 0h02m44s
+[kp-deathtouch2.base] 164/1600  9.1 games/s  ETA 0h02m37s
+[kp-deathtouch2.base] 183/1600  9.1 games/s  ETA 0h02m35s
+[kp-deathtouch2.base] 201/1600  9.1 games/s  ETA 0h02m33s
+[kp-deathtouch2.base] 220/1600  9.2 games/s  ETA 0h02m30s
+[kp-deathtouch2.base] 243/1600  9.3 games/s  ETA 0h02m25s
+[kp-deathtouch2.base] 264/1600  9.4 games/s  ETA 0h02m21s
+[kp-deathtouch2.base] 282/1600  9.4 games/s  ETA 0h02m20s
+[kp-deathtouch2.base] 303/1600  9.5 games/s  ETA 0h02m17s
+[kp-deathtouch2.base] 321/1600  9.4 games/s  ETA 0h02m15s
+[kp-deathtouch2.base] 343/1600  9.5 games/s  ETA 0h02m12s
+[kp-deathtouch2.base] 360/1600  9.5 games/s  ETA 0h02m11s
+[kp-deathtouch2.base] 375/1600  9.4 games/s  ETA 0h02m10s
+[kp-deathtouch2.base] 397/1600  9.4 games/s  ETA 0h02m07s
+[kp-deathtouch2.base] 417/1600  9.5 games/s  ETA 0h02m04s
+[kp-deathtouch2.base] 436/1600  9.5 games/s  ETA 0h02m02s
+[kp-deathtouch2.base] 458/1600  9.5 games/s  ETA 0h01m59s
+[kp-deathtouch2.base] 478/1600  9.5 games/s  ETA 0h01m57s
+[kp-deathtouch2.base] 497/1600  9.5 games/s  ETA 0h01m55s
+[kp-deathtouch2.base] 518/1600  9.6 games/s  ETA 0h01m52s
+[kp-deathtouch2.base] 537/1600  9.6 games/s  ETA 0h01m50s
+[kp-deathtouch2.base] 559/1600  9.6 games/s  ETA 0h01m48s
+[kp-deathtouch2.base] 575/1600  9.6 games/s  ETA 0h01m47s
+[kp-deathtouch2.base] 589/1600  9.5 games/s  ETA 0h01m46s
+[kp-deathtouch2.base] 607/1600  9.5 games/s  ETA 0h01m44s
+[kp-deathtouch2.base] 628/1600  9.5 games/s  ETA 0h01m42s
+[kp-deathtouch2.base] 643/1600  9.4 games/s  ETA 0h01m41s
+[kp-deathtouch2.base] 658/1600  9.4 games/s  ETA 0h01m40s
+[kp-deathtouch2.base] 675/1600  9.4 games/s  ETA 0h01m38s
+[kp-deathtouch2.base] 694/1600  9.4 games/s  ETA 0h01m36s
+[kp-deathtouch2.base] 714/1600  9.4 games/s  ETA 0h01m34s
+[kp-deathtouch2.base] 730/1600  9.3 games/s  ETA 0h01m33s
+[kp-deathtouch2.base] 747/1600  9.3 games/s  ETA 0h01m31s
+[kp-deathtouch2.base] 763/1600  9.3 games/s  ETA 0h01m30s
+[kp-deathtouch2.base] 783/1600  9.3 games/s  ETA 0h01m27s
+[kp-deathtouch2.base] 801/1600  9.3 games/s  ETA 0h01m25s
+[kp-deathtouch2.base] 818/1600  9.3 games/s  ETA 0h01m24s
+[kp-deathtouch2.base] 840/1600  9.3 games/s  ETA 0h01m21s
+[kp-deathtouch2.base] 856/1600  9.3 games/s  ETA 0h01m20s
+[kp-deathtouch2.base] 877/1600  9.3 games/s  ETA 0h01m17s
+[kp-deathtouch2.base] 893/1600  9.3 games/s  ETA 0h01m16s
+[kp-deathtouch2.base] 914/1600  9.3 games/s  ETA 0h01m13s
+[kp-deathtouch2.base] 933/1600  9.3 games/s  ETA 0h01m11s
+[kp-deathtouch2.base] 949/1600  9.3 games/s  ETA 0h01m10s
+[kp-deathtouch2.base] 968/1600  9.3 games/s  ETA 0h01m07s
+[kp-deathtouch2.base] 983/1600  9.3 games/s  ETA 0h01m06s
+[kp-deathtouch2.base] 1001/1600  9.3 games/s  ETA 0h01m04s
+[kp-deathtouch2.base] 1020/1600  9.3 games/s  ETA 0h01m02s
+[kp-deathtouch2.base] 1041/1600  9.3 games/s  ETA 0h01m00s
+[kp-deathtouch2.base] 1055/1600  9.2 games/s  ETA 0h00m58s
+[kp-deathtouch2.base] 1071/1600  9.2 games/s  ETA 0h00m57s
+[kp-deathtouch2.base] 1090/1600  9.2 games/s  ETA 0h00m55s
+[kp-deathtouch2.base] 1105/1600  9.2 games/s  ETA 0h00m53s
+[kp-deathtouch2.base] 1120/1600  9.2 games/s  ETA 0h00m52s
+[kp-deathtouch2.base] 1140/1600  9.2 games/s  ETA 0h00m50s
+[kp-deathtouch2.base] 1157/1600  9.2 games/s  ETA 0h00m48s
+[kp-deathtouch2.base] 1176/1600  9.2 games/s  ETA 0h00m46s
+[kp-deathtouch2.base] 1195/1600  9.2 games/s  ETA 0h00m44s
+[kp-deathtouch2.base] 1216/1600  9.2 games/s  ETA 0h00m41s
+[kp-deathtouch2.base] 1232/1600  9.2 games/s  ETA 0h00m40s
+[kp-deathtouch2.base] 1249/1600  9.2 games/s  ETA 0h00m38s
+[kp-deathtouch2.base] 1265/1600  9.2 games/s  ETA 0h00m36s
+[kp-deathtouch2.base] 1278/1600  9.1 games/s  ETA 0h00m35s
+[kp-deathtouch2.base] 1295/1600  9.1 games/s  ETA 0h00m33s
+[kp-deathtouch2.base] 1318/1600  9.1 games/s  ETA 0h00m30s
+[kp-deathtouch2.base] 1335/1600  9.1 games/s  ETA 0h00m29s
+[kp-deathtouch2.base] 1358/1600  9.2 games/s  ETA 0h00m26s
+[kp-deathtouch2.base] 1375/1600  9.2 games/s  ETA 0h00m24s
+[kp-deathtouch2.base] 1391/1600  9.1 games/s  ETA 0h00m22s
+[kp-deathtouch2.base] 1412/1600  9.2 games/s  ETA 0h00m20s
+[kp-deathtouch2.base] 1431/1600  9.2 games/s  ETA 0h00m18s
+[kp-deathtouch2.base] 1447/1600  9.1 games/s  ETA 0h00m16s
+[kp-deathtouch2.base] 1465/1600  9.1 games/s  ETA 0h00m14s
+[kp-deathtouch2.base] 1483/1600  9.1 games/s  ETA 0h00m12s
+[kp-deathtouch2.base] 1502/1600  9.1 games/s  ETA 0h00m10s
+[kp-deathtouch2.base] 1524/1600  9.2 games/s  ETA 0h00m08s
+[kp-deathtouch2.base] 1548/1600  9.2 games/s  ETA 0h00m05s
+[kp-deathtouch2.base] 1564/1600  9.2 games/s  ETA 0h00m03s
+[kp-deathtouch2.base] 1582/1600  9.2 games/s  ETA 0h00m01s
+[kp-deathtouch2.base] 1600 games in 0h02m53s (9.2 games/s)
+[kp-deathtouch2.base] summary -> sim/out/kp-deathtouch2.base.summary.json
+[kp-deathtouch2.var] 1600 games (0 already done), 1600 to play on 16 workers -> sim/out/kp-deathtouch2.var.jsonl
+[kp-deathtouch2.var] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-deathtouch2.var] rules {"kings":[{"king":"Shadow","power":"DeathTouch"},{"king":"Shadow","power":"DeathTouch"}],"deathTouchMoves":true}, values {}
+[kp-deathtouch2.var] 5/1600  2.5 games/s  ETA 0h10m38s
+[kp-deathtouch2.var] 22/1600  5.5 games/s  ETA 0h04m47s
+[kp-deathtouch2.var] 42/1600  7.0 games/s  ETA 0h03m42s
+[kp-deathtouch2.var] 54/1600  6.7 games/s  ETA 0h03m49s
+[kp-deathtouch2.var] 68/1600  6.8 games/s  ETA 0h03m45s
+[kp-deathtouch2.var] 85/1600  7.1 games/s  ETA 0h03m34s
+[kp-deathtouch2.var] 104/1600  7.4 games/s  ETA 0h03m21s
+[kp-deathtouch2.var] 121/1600  7.6 games/s  ETA 0h03m15s
+[kp-deathtouch2.var] 136/1600  7.5 games/s  ETA 0h03m14s
+[kp-deathtouch2.var] 155/1600  7.7 games/s  ETA 0h03m06s
+[kp-deathtouch2.var] 169/1600  7.7 games/s  ETA 0h03m06s
+[kp-deathtouch2.var] 186/1600  7.7 games/s  ETA 0h03m02s
+[kp-deathtouch2.var] 198/1600  7.6 games/s  ETA 0h03m04s
+[kp-deathtouch2.var] 217/1600  7.7 games/s  ETA 0h02m58s
+[kp-deathtouch2.var] 233/1600  7.8 games/s  ETA 0h02m56s
+[kp-deathtouch2.var] 250/1600  7.8 games/s  ETA 0h02m53s
+[kp-deathtouch2.var] 265/1600  7.8 games/s  ETA 0h02m51s
+[kp-deathtouch2.var] 281/1600  7.8 games/s  ETA 0h02m49s
+[kp-deathtouch2.var] 299/1600  7.9 games/s  ETA 0h02m45s
+[kp-deathtouch2.var] 315/1600  7.9 games/s  ETA 0h02m43s
+[kp-deathtouch2.var] 331/1600  7.9 games/s  ETA 0h02m41s
+[kp-deathtouch2.var] 349/1600  7.9 games/s  ETA 0h02m37s
+[kp-deathtouch2.var] 371/1600  8.1 games/s  ETA 0h02m32s
+[kp-deathtouch2.var] 386/1600  8.0 games/s  ETA 0h02m31s
+[kp-deathtouch2.var] 403/1600  8.1 games/s  ETA 0h02m28s
+[kp-deathtouch2.var] 419/1600  8.0 games/s  ETA 0h02m26s
+[kp-deathtouch2.var] 440/1600  8.1 games/s  ETA 0h02m22s
+[kp-deathtouch2.var] 455/1600  8.1 games/s  ETA 0h02m21s
+[kp-deathtouch2.var] 478/1600  8.2 games/s  ETA 0h02m16s
+[kp-deathtouch2.var] 497/1600  8.3 games/s  ETA 0h02m13s
+[kp-deathtouch2.var] 518/1600  8.3 games/s  ETA 0h02m09s
+[kp-deathtouch2.var] 538/1600  8.4 games/s  ETA 0h02m06s
+[kp-deathtouch2.var] 558/1600  8.4 games/s  ETA 0h02m03s
+[kp-deathtouch2.var] 572/1600  8.4 games/s  ETA 0h02m02s
+[kp-deathtouch2.var] 587/1600  8.4 games/s  ETA 0h02m00s
+[kp-deathtouch2.var] 606/1600  8.4 games/s  ETA 0h01m58s
+[kp-deathtouch2.var] 623/1600  8.4 games/s  ETA 0h01m56s
+[kp-deathtouch2.var] 641/1600  8.4 games/s  ETA 0h01m53s
+[kp-deathtouch2.var] 658/1600  8.4 games/s  ETA 0h01m51s
+[kp-deathtouch2.var] 672/1600  8.4 games/s  ETA 0h01m50s
+[kp-deathtouch2.var] 689/1600  8.4 games/s  ETA 0h01m48s
+[kp-deathtouch2.var] 705/1600  8.4 games/s  ETA 0h01m46s
+[kp-deathtouch2.var] 720/1600  8.4 games/s  ETA 0h01m45s
+[kp-deathtouch2.var] 738/1600  8.4 games/s  ETA 0h01m42s
+[kp-deathtouch2.var] 755/1600  8.4 games/s  ETA 0h01m40s
+[kp-deathtouch2.var] 774/1600  8.4 games/s  ETA 0h01m38s
+[kp-deathtouch2.var] 790/1600  8.4 games/s  ETA 0h01m36s
+[kp-deathtouch2.var] 808/1600  8.4 games/s  ETA 0h01m34s
+[kp-deathtouch2.var] 826/1600  8.4 games/s  ETA 0h01m31s
+[kp-deathtouch2.var] 842/1600  8.4 games/s  ETA 0h01m30s
+[kp-deathtouch2.var] 858/1600  8.4 games/s  ETA 0h01m28s
+[kp-deathtouch2.var] 878/1600  8.4 games/s  ETA 0h01m25s
+[kp-deathtouch2.var] 894/1600  8.4 games/s  ETA 0h01m23s
+[kp-deathtouch2.var] 916/1600  8.5 games/s  ETA 0h01m20s
+[kp-deathtouch2.var] 933/1600  8.5 games/s  ETA 0h01m18s
+[kp-deathtouch2.var] 945/1600  8.4 games/s  ETA 0h01m17s
+[kp-deathtouch2.var] 966/1600  8.5 games/s  ETA 0h01m14s
+[kp-deathtouch2.var] 981/1600  8.4 games/s  ETA 0h01m13s
+[kp-deathtouch2.var] 1000/1600  8.5 games/s  ETA 0h01m10s
+[kp-deathtouch2.var] 1013/1600  8.4 games/s  ETA 0h01m09s
+[kp-deathtouch2.var] 1033/1600  8.5 games/s  ETA 0h01m07s
+[kp-deathtouch2.var] 1048/1600  8.4 games/s  ETA 0h01m05s
+[kp-deathtouch2.var] 1066/1600  8.5 games/s  ETA 0h01m03s
+[kp-deathtouch2.var] 1080/1600  8.4 games/s  ETA 0h01m01s
+[kp-deathtouch2.var] 1097/1600  8.4 games/s  ETA 0h00m59s
+[kp-deathtouch2.var] 1116/1600  8.4 games/s  ETA 0h00m57s
+[kp-deathtouch2.var] 1132/1600  8.4 games/s  ETA 0h00m55s
+[kp-deathtouch2.var] 1150/1600  8.4 games/s  ETA 0h00m53s
+[kp-deathtouch2.var] 1170/1600  8.5 games/s  ETA 0h00m50s
+[kp-deathtouch2.var] 1190/1600  8.5 games/s  ETA 0h00m48s
+[kp-deathtouch2.var] 1205/1600  8.5 games/s  ETA 0h00m46s
+[kp-deathtouch2.var] 1220/1600  8.5 games/s  ETA 0h00m44s
+[kp-deathtouch2.var] 1241/1600  8.5 games/s  ETA 0h00m42s
+[kp-deathtouch2.var] 1257/1600  8.5 games/s  ETA 0h00m40s
+[kp-deathtouch2.var] 1273/1600  8.5 games/s  ETA 0h00m38s
+[kp-deathtouch2.var] 1291/1600  8.5 games/s  ETA 0h00m36s
+[kp-deathtouch2.var] 1308/1600  8.5 games/s  ETA 0h00m34s
+[kp-deathtouch2.var] 1328/1600  8.5 games/s  ETA 0h00m31s
+[kp-deathtouch2.var] 1349/1600  8.5 games/s  ETA 0h00m29s
+[kp-deathtouch2.var] 1368/1600  8.5 games/s  ETA 0h00m27s
+[kp-deathtouch2.var] 1384/1600  8.5 games/s  ETA 0h00m25s
+[kp-deathtouch2.var] 1402/1600  8.5 games/s  ETA 0h00m23s
+[kp-deathtouch2.var] 1417/1600  8.5 games/s  ETA 0h00m21s
+[kp-deathtouch2.var] 1433/1600  8.5 games/s  ETA 0h00m19s
+[kp-deathtouch2.var] 1451/1600  8.5 games/s  ETA 0h00m17s
+[kp-deathtouch2.var] 1469/1600  8.5 games/s  ETA 0h00m15s
+[kp-deathtouch2.var] 1489/1600  8.5 games/s  ETA 0h00m12s
+[kp-deathtouch2.var] 1504/1600  8.5 games/s  ETA 0h00m11s
+[kp-deathtouch2.var] 1522/1600  8.5 games/s  ETA 0h00m09s
+[kp-deathtouch2.var] 1539/1600  8.5 games/s  ETA 0h00m07s
+[kp-deathtouch2.var] 1557/1600  8.5 games/s  ETA 0h00m05s
+[kp-deathtouch2.var] 1573/1600  8.5 games/s  ETA 0h00m03s
+[kp-deathtouch2.var] 1594/1600  8.6 games/s  ETA 0h00m00s
+[kp-deathtouch2.var] 1600 games in 0h03m06s (8.6 games/s)
+[kp-deathtouch2.var] summary -> sim/out/kp-deathtouch2.var.summary.json
+# Rule A/B — kp-deathtouch2
+
+`kings=[object Object],[object Object] deathTouchMoves=true` against today's defaults.
+1600 games per population, depth 3, the same 40 arrangements and the same
+opening seeds in both (common random numbers). Control arm: `kp-deathtouch2.base`.
+
+A symmetric rule changes both sides at once, so there is no match to run and no SPRT: this is a
+paired two-population comparison. The interval is a 95% normal approximation on the
+mean paired difference over arrangements; with few arrangements,
+and with one interval per metric, read "significant" as "worth a second run", not as a test.
+
+| metric | base (pooled) | with the rule (pooled) | mean paired difference ±95% | significant |
+|---|---|---|---|---|
+| white score | 0.534 | 0.517 | -0.016 ± 0.020 | no |
+| decisive | 0.721 | 0.661 | -0.060 ± 0.027 | yes |
+| draw rate | 0.264 | 0.307 | +0.042 ± 0.027 | yes |
+| capped | 0.014 | 0.032 | +0.018 ± 0.009 | yes |
+| mean plies | 121.3 | 129.3 | +8.0 ± 2.5 | yes |
+| branching factor | 32.1 | 32.0 | -0.2 ± 0.2 | no |
+| killer move | 0.332 | 0.316 | -0.016 ± 0.012 | yes |
+| lead change | 0.068 | 0.066 | -0.002 ± 0.002 | no |
+| uncertainty late | 0.648 | 0.646 | -0.001 ± 0.002 | no |
+| drama | 0.138 | 0.132 | -0.005 ± 0.008 | no |
+| permanence | 0.961 | 0.962 | +0.001 ± 0.001 | yes |
+| min utilisation | 0.44 | 0.42 | -0.02 ± 0.01 | yes |
+| interest | 0.484 | 0.480 | -0.004 ± 0.004 | no |
+| interest (min-use) | 0.484 | 0.480 | +0.003 ± 0.010 | no |
+| killerMove (resid.) | 0.003 | -0.003 | -0.005 ± 0.008 | no |
+| leadChange (resid.) | 0.002 | -0.002 | -0.004 ± 0.002 | yes |
+| uncertaintyLate (resid.) | 0.004 | -0.004 | -0.008 ± 0.004 | yes |
+| drama (resid.) | 0.000 | -0.000 | -0.000 ± 0.008 | no |
+| permanence (resid.) | -0.000 | 0.000 | +0.000 ± 0.001 | no |
+| fairyUse (resid.) | 0.000 | 0.000 | +0.000 ± 0.000 | no |
+| excessDecisiveness (resid.) | -0.004 | 0.027 | +0.039 ± 0.009 | yes |
+| interest (resid.) | 0.000 | 0.001 | +0.001 ± 0.002 | no |
+| interestMinFairy (resid.) | 0.008 | 0.009 | +0.007 ± 0.010 | no |
+
+## Degeneracy counters
+| counter | base | with the rule |
+|---|---|---|
+| guard captures per game | 0.000 | 0.000 |
+| games with a guard rampage (≥ 3 captures) | 0 (0.0%) | 0 (0.0%) |
+| dead-material endings (draw50 + drawMaterial) | 30 (1.9%) | 53 (3.3%) |
+| games where a king never moved | 259 (16.2%) | 220 (13.8%) |
+
+## Per piece (both sides, whole population; moves and captures per game)
+| piece | moves A | moves B | captures A | captures B | survival A | survival B |
+|---|---|---|---|---|---|---|
+| P | 26.54 | 26.91 | 4.41 | 4.52 | 40.7% | 37.5% |
+| M | 14.65 | 15.54 | 1.61 | 1.57 | 34.1% | 32.0% |
+| A | 14.46 | 15.02 | 2.49 | 2.41 | 46.9% | 44.0% |
+| K | 14.32 | 16.85 | 1.04 | 1.81 | 100.0% | 100.0% |
+| R | 12.87 | 13.95 | 1.81 | 1.86 | 42.3% | 40.0% |
+| S | 10.48 | 11.06 | 1.40 | 1.34 | 32.9% | 32.2% |
+| B | 7.34 | 7.75 | 1.65 | 1.64 | 23.5% | 22.1% |
+| N | 6.66 | 6.79 | 1.35 | 1.37 | 10.4% | 10.3% |
+| Q | 5.93 | 6.57 | 0.99 | 1.04 | 76.3% | 72.2% |
+| G | 4.98 | 5.69 | 0.00 | 0.00 | 96.7% | 92.7% |
+| L | 3.05 | 3.19 | 0.85 | 0.84 | 6.2% | 6.7% |
+
+## Fairy events per game
+| event | base | with the rule |
+|---|---|---|
+| archerShots | 2.49 | 2.41 |
+| beastChainMoves | 1.08 | 1.06 |
+| beastChainCaptures | 1.40 | 1.34 |
+| maesterSwaps | 6.56 | 6.99 |
+| maesterLongSwaps | 0.75 | 0.93 |
+| paladinSacrifices | 0.39 | 0.39 |
+| promotions | 0.32 | 0.32 |
+| checks | 4.42 | 3.87 |
+| ogreShoves | 0.00 | 0.00 |
+| ogreShovesFriend | 0.00 | 0.00 |
+| ogreShovesGuard | 0.00 | 0.00 |
+| catapultChecks | 0.00 | 0.00 |
+
+The pooled columns describe each whole population; the difference column is the mean over the
+40 shared arrangements of (rule − base) on the same openings. The two can disagree in sign when the
+pooled value is not a mean of the per-arrangement values (minimum utilisation is one). Trust the
+paired column.
+
+Elo of the variant population is not reported: both populations play themselves, so their scores
+are not comparable as a match. Read the white score as a fairness check, not as a strength delta.
+
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --id kp-deathtouch2-d4 --experiment ab --games 400 --sample 40 --depth 4 --seed 63 --workers 16 --rule kings=Shadow:DeathTouch --rule deathTouchMoves=true
+
+[kp-deathtouch2-d4.base] 400 games (0 already done), 400 to play on 16 workers -> sim/out/kp-deathtouch2-d4.base.jsonl
+[kp-deathtouch2-d4.base] depth 4, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-deathtouch2-d4.base] rules {}, values {}
+[kp-deathtouch2-d4.base] 0/400  0.0 games/s  ETA ?
+[kp-deathtouch2-d4.base] 1/400  0.2 games/s  ETA 0h26m37s
+[kp-deathtouch2-d4.base] 1/400  0.2 games/s  ETA 0h39m58s
+[kp-deathtouch2-d4.base] 2/400  0.2 games/s  ETA 0h26m34s
+[kp-deathtouch2-d4.base] 8/400  0.8 games/s  ETA 0h08m10s
+[kp-deathtouch2-d4.base] 13/400  1.1 games/s  ETA 0h05m57s
+[kp-deathtouch2-d4.base] 17/400  1.2 games/s  ETA 0h05m15s
+[kp-deathtouch2-d4.base] 22/400  1.4 games/s  ETA 0h04m35s
+[kp-deathtouch2-d4.base] 24/400  1.3 games/s  ETA 0h04m42s
+[kp-deathtouch2-d4.base] 27/400  1.3 games/s  ETA 0h04m36s
+[kp-deathtouch2-d4.base] 29/400  1.3 games/s  ETA 0h04m41s
+[kp-deathtouch2-d4.base] 32/400  1.3 games/s  ETA 0h04m36s
+[kp-deathtouch2-d4.base] 35/400  1.3 games/s  ETA 0h04m31s
+[kp-deathtouch2-d4.base] 38/400  1.4 games/s  ETA 0h04m27s
+[kp-deathtouch2-d4.base] 42/400  1.4 games/s  ETA 0h04m15s
+[kp-deathtouch2-d4.base] 43/400  1.3 games/s  ETA 0h04m25s
+[kp-deathtouch2-d4.base] 46/400  1.4 games/s  ETA 0h04m21s
+[kp-deathtouch2-d4.base] 52/400  1.4 games/s  ETA 0h04m01s
+[kp-deathtouch2-d4.base] 54/400  1.4 games/s  ETA 0h04m03s
+[kp-deathtouch2-d4.base] 58/400  1.4 games/s  ETA 0h03m56s
+[kp-deathtouch2-d4.base] 60/400  1.4 games/s  ETA 0h03m58s
+[kp-deathtouch2-d4.base] 68/400  1.5 games/s  ETA 0h03m35s
+[kp-deathtouch2-d4.base] 69/400  1.5 games/s  ETA 0h03m40s
+[kp-deathtouch2-d4.base] 72/400  1.5 games/s  ETA 0h03m38s
+[kp-deathtouch2-d4.base] 74/400  1.5 games/s  ETA 0h03m40s
+[kp-deathtouch2-d4.base] 80/400  1.5 games/s  ETA 0h03m28s
+[kp-deathtouch2-d4.base] 84/400  1.6 games/s  ETA 0h03m23s
+[kp-deathtouch2-d4.base] 89/400  1.6 games/s  ETA 0h03m15s
+[kp-deathtouch2-d4.base] 93/400  1.6 games/s  ETA 0h03m11s
+[kp-deathtouch2-d4.base] 93/400  1.5 games/s  ETA 0h03m18s
+[kp-deathtouch2-d4.base] 95/400  1.5 games/s  ETA 0h03m19s
+[kp-deathtouch2-d4.base] 102/400  1.6 games/s  ETA 0h03m07s
+[kp-deathtouch2-d4.base] 103/400  1.6 games/s  ETA 0h03m10s
+[kp-deathtouch2-d4.base] 108/400  1.6 games/s  ETA 0h03m04s
+[kp-deathtouch2-d4.base] 115/400  1.6 games/s  ETA 0h02m53s
+[kp-deathtouch2-d4.base] 119/400  1.7 games/s  ETA 0h02m50s
+[kp-deathtouch2-d4.base] 122/400  1.6 games/s  ETA 0h02m48s
+[kp-deathtouch2-d4.base] 125/400  1.6 games/s  ETA 0h02m47s
+[kp-deathtouch2-d4.base] 128/400  1.6 games/s  ETA 0h02m45s
+[kp-deathtouch2-d4.base] 132/400  1.6 games/s  ETA 0h02m42s
+[kp-deathtouch2-d4.base] 137/400  1.7 games/s  ETA 0h02m37s
+[kp-deathtouch2-d4.base] 140/400  1.7 games/s  ETA 0h02m36s
+[kp-deathtouch2-d4.base] 140/400  1.6 games/s  ETA 0h02m39s
+[kp-deathtouch2-d4.base] 143/400  1.6 games/s  ETA 0h02m38s
+[kp-deathtouch2-d4.base] 145/400  1.6 games/s  ETA 0h02m38s
+[kp-deathtouch2-d4.base] 148/400  1.6 games/s  ETA 0h02m36s
+[kp-deathtouch2-d4.base] 154/400  1.6 games/s  ETA 0h02m30s
+[kp-deathtouch2-d4.base] 158/400  1.6 games/s  ETA 0h02m27s
+[kp-deathtouch2-d4.base] 160/400  1.6 games/s  ETA 0h02m27s
+[kp-deathtouch2-d4.base] 160/400  1.6 games/s  ETA 0h02m30s
+[kp-deathtouch2-d4.base] 164/400  1.6 games/s  ETA 0h02m26s
+[kp-deathtouch2-d4.base] 165/400  1.6 games/s  ETA 0h02m28s
+[kp-deathtouch2-d4.base] 168/400  1.6 games/s  ETA 0h02m26s
+[kp-deathtouch2-d4.base] 172/400  1.6 games/s  ETA 0h02m23s
+[kp-deathtouch2-d4.base] 175/400  1.6 games/s  ETA 0h02m21s
+[kp-deathtouch2-d4.base] 180/400  1.6 games/s  ETA 0h02m17s
+[kp-deathtouch2-d4.base] 181/400  1.6 games/s  ETA 0h02m18s
+[kp-deathtouch2-d4.base] 185/400  1.6 games/s  ETA 0h02m14s
+[kp-deathtouch2-d4.base] 188/400  1.6 games/s  ETA 0h02m13s
+[kp-deathtouch2-d4.base] 193/400  1.6 games/s  ETA 0h02m08s
+[kp-deathtouch2-d4.base] 198/400  1.6 games/s  ETA 0h02m04s
+[kp-deathtouch2-d4.base] 201/400  1.6 games/s  ETA 0h02m02s
+[kp-deathtouch2-d4.base] 203/400  1.6 games/s  ETA 0h02m02s
+[kp-deathtouch2-d4.base] 204/400  1.6 games/s  ETA 0h02m03s
+[kp-deathtouch2-d4.base] 206/400  1.6 games/s  ETA 0h02m02s
+[kp-deathtouch2-d4.base] 208/400  1.6 games/s  ETA 0h02m01s
+[kp-deathtouch2-d4.base] 213/400  1.6 games/s  ETA 0h01m57s
+[kp-deathtouch2-d4.base] 215/400  1.6 games/s  ETA 0h01m57s
+[kp-deathtouch2-d4.base] 218/400  1.6 games/s  ETA 0h01m55s
+[kp-deathtouch2-d4.base] 223/400  1.6 games/s  ETA 0h01m51s
+[kp-deathtouch2-d4.base] 228/400  1.6 games/s  ETA 0h01m47s
+[kp-deathtouch2-d4.base] 230/400  1.6 games/s  ETA 0h01m46s
+[kp-deathtouch2-d4.base] 232/400  1.6 games/s  ETA 0h01m45s
+[kp-deathtouch2-d4.base] 235/400  1.6 games/s  ETA 0h01m44s
+[kp-deathtouch2-d4.base] 240/400  1.6 games/s  ETA 0h01m40s
+[kp-deathtouch2-d4.base] 245/400  1.6 games/s  ETA 0h01m36s
+[kp-deathtouch2-d4.base] 246/400  1.6 games/s  ETA 0h01m36s
+[kp-deathtouch2-d4.base] 250/400  1.6 games/s  ETA 0h01m33s
+[kp-deathtouch2-d4.base] 252/400  1.6 games/s  ETA 0h01m32s
+[kp-deathtouch2-d4.base] 254/400  1.6 games/s  ETA 0h01m32s
+[kp-deathtouch2-d4.base] 259/400  1.6 games/s  ETA 0h01m28s
+[kp-deathtouch2-d4.base] 264/400  1.6 games/s  ETA 0h01m24s
+[kp-deathtouch2-d4.base] 267/400  1.6 games/s  ETA 0h01m22s
+[kp-deathtouch2-d4.base] 271/400  1.6 games/s  ETA 0h01m20s
+[kp-deathtouch2-d4.base] 276/400  1.6 games/s  ETA 0h01m16s
+[kp-deathtouch2-d4.base] 280/400  1.6 games/s  ETA 0h01m13s
+[kp-deathtouch2-d4.base] 281/400  1.6 games/s  ETA 0h01m13s
+[kp-deathtouch2-d4.base] 283/400  1.6 games/s  ETA 0h01m12s
+[kp-deathtouch2-d4.base] 286/400  1.6 games/s  ETA 0h01m11s
+[kp-deathtouch2-d4.base] 289/400  1.6 games/s  ETA 0h01m09s
+[kp-deathtouch2-d4.base] 293/400  1.6 games/s  ETA 0h01m06s
+[kp-deathtouch2-d4.base] 296/400  1.6 games/s  ETA 0h01m04s
+[kp-deathtouch2-d4.base] 301/400  1.6 games/s  ETA 0h01m01s
+[kp-deathtouch2-d4.base] 305/400  1.6 games/s  ETA 0h00m58s
+[kp-deathtouch2-d4.base] 308/400  1.6 games/s  ETA 0h00m56s
+[kp-deathtouch2-d4.base] 313/400  1.6 games/s  ETA 0h00m53s
+[kp-deathtouch2-d4.base] 314/400  1.6 games/s  ETA 0h00m53s
+[kp-deathtouch2-d4.base] 319/400  1.6 games/s  ETA 0h00m49s
+[kp-deathtouch2-d4.base] 324/400  1.6 games/s  ETA 0h00m46s
+[kp-deathtouch2-d4.base] 328/400  1.6 games/s  ETA 0h00m43s
+[kp-deathtouch2-d4.base] 330/400  1.6 games/s  ETA 0h00m42s
+[kp-deathtouch2-d4.base] 334/400  1.6 games/s  ETA 0h00m40s
+[kp-deathtouch2-d4.base] 338/400  1.6 games/s  ETA 0h00m37s
+[kp-deathtouch2-d4.base] 342/400  1.6 games/s  ETA 0h00m35s
+[kp-deathtouch2-d4.base] 344/400  1.6 games/s  ETA 0h00m34s
+[kp-deathtouch2-d4.base] 349/400  1.6 games/s  ETA 0h00m31s
+[kp-deathtouch2-d4.base] 351/400  1.6 games/s  ETA 0h00m29s
+[kp-deathtouch2-d4.base] 352/400  1.6 games/s  ETA 0h00m29s
+[kp-deathtouch2-d4.base] 354/400  1.6 games/s  ETA 0h00m28s
+[kp-deathtouch2-d4.base] 358/400  1.6 games/s  ETA 0h00m25s
+[kp-deathtouch2-d4.base] 366/400  1.6 games/s  ETA 0h00m20s
+[kp-deathtouch2-d4.base] 369/400  1.6 games/s  ETA 0h00m18s
+[kp-deathtouch2-d4.base] 372/400  1.6 games/s  ETA 0h00m17s
+[kp-deathtouch2-d4.base] 373/400  1.6 games/s  ETA 0h00m16s
+[kp-deathtouch2-d4.base] 380/400  1.7 games/s  ETA 0h00m12s
+[kp-deathtouch2-d4.base] 384/400  1.7 games/s  ETA 0h00m09s
+[kp-deathtouch2-d4.base] 388/400  1.7 games/s  ETA 0h00m07s
+[kp-deathtouch2-d4.base] 389/400  1.6 games/s  ETA 0h00m06s
+[kp-deathtouch2-d4.base] 397/400  1.7 games/s  ETA 0h00m01s
+[kp-deathtouch2-d4.base] 398/400  1.7 games/s  ETA 0h00m01s
+[kp-deathtouch2-d4.base] 399/400  1.6 games/s  ETA 0h00m00s
+[kp-deathtouch2-d4.base] 399/400  1.6 games/s  ETA 0h00m00s
+[kp-deathtouch2-d4.base] 400 games in 0h04m04s (1.6 games/s)
+[kp-deathtouch2-d4.base] summary -> sim/out/kp-deathtouch2-d4.base.summary.json
+[kp-deathtouch2-d4.var] 400 games (0 already done), 400 to play on 16 workers -> sim/out/kp-deathtouch2-d4.var.jsonl
+[kp-deathtouch2-d4.var] depth 4, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-deathtouch2-d4.var] rules {"kings":[{"king":"Shadow","power":"DeathTouch"},{"king":"Shadow","power":"DeathTouch"}],"deathTouchMoves":true}, values {}
+[kp-deathtouch2-d4.var] 0/400  0.0 games/s  ETA ?
+[kp-deathtouch2-d4.var] 1/400  0.2 games/s  ETA 0h26m36s
+[kp-deathtouch2-d4.var] 3/400  0.5 games/s  ETA 0h13m14s
+[kp-deathtouch2-d4.var] 4/400  0.5 games/s  ETA 0h13m12s
+[kp-deathtouch2-d4.var] 7/400  0.7 games/s  ETA 0h09m21s
+[kp-deathtouch2-d4.var] 10/400  0.8 games/s  ETA 0h07m48s
+[kp-deathtouch2-d4.var] 13/400  0.9 games/s  ETA 0h06m57s
+[kp-deathtouch2-d4.var] 17/400  1.1 games/s  ETA 0h06m00s
+[kp-deathtouch2-d4.var] 19/400  1.1 games/s  ETA 0h06m01s
+[kp-deathtouch2-d4.var] 24/400  1.2 games/s  ETA 0h05m13s
+[kp-deathtouch2-d4.var] 29/400  1.3 games/s  ETA 0h04m41s
+[kp-deathtouch2-d4.var] 33/400  1.4 games/s  ETA 0h04m27s
+[kp-deathtouch2-d4.var] 36/400  1.4 games/s  ETA 0h04m23s
+[kp-deathtouch2-d4.var] 38/400  1.4 games/s  ETA 0h04m27s
+[kp-deathtouch2-d4.var] 42/400  1.4 games/s  ETA 0h04m15s
+[kp-deathtouch2-d4.var] 45/400  1.4 games/s  ETA 0h04m12s
+[kp-deathtouch2-d4.var] 47/400  1.4 games/s  ETA 0h04m15s
+[kp-deathtouch2-d4.var] 51/400  1.4 games/s  ETA 0h04m06s
+[kp-deathtouch2-d4.var] 54/400  1.4 games/s  ETA 0h04m03s
+[kp-deathtouch2-d4.var] 59/400  1.5 games/s  ETA 0h03m51s
+[kp-deathtouch2-d4.var] 62/400  1.5 games/s  ETA 0h03m49s
+[kp-deathtouch2-d4.var] 66/400  1.5 games/s  ETA 0h03m42s
+[kp-deathtouch2-d4.var] 71/400  1.5 games/s  ETA 0h03m33s
+[kp-deathtouch2-d4.var] 71/400  1.5 games/s  ETA 0h03m42s
+[kp-deathtouch2-d4.var] 73/400  1.5 games/s  ETA 0h03m44s
+[kp-deathtouch2-d4.var] 75/400  1.4 games/s  ETA 0h03m45s
+[kp-deathtouch2-d4.var] 80/400  1.5 games/s  ETA 0h03m36s
+[kp-deathtouch2-d4.var] 86/400  1.5 games/s  ETA 0h03m24s
+[kp-deathtouch2-d4.var] 92/400  1.6 games/s  ETA 0h03m14s
+[kp-deathtouch2-d4.var] 93/400  1.5 games/s  ETA 0h03m18s
+[kp-deathtouch2-d4.var] 93/400  1.5 games/s  ETA 0h03m24s
+[kp-deathtouch2-d4.var] 99/400  1.5 games/s  ETA 0h03m14s
+[kp-deathtouch2-d4.var] 103/400  1.6 games/s  ETA 0h03m10s
+[kp-deathtouch2-d4.var] 105/400  1.5 games/s  ETA 0h03m11s
+[kp-deathtouch2-d4.var] 111/400  1.6 games/s  ETA 0h03m02s
+[kp-deathtouch2-d4.var] 117/400  1.6 games/s  ETA 0h02m54s
+[kp-deathtouch2-d4.var] 120/400  1.6 games/s  ETA 0h02m52s
+[kp-deathtouch2-d4.var] 124/400  1.6 games/s  ETA 0h02m49s
+[kp-deathtouch2-d4.var] 126/400  1.6 games/s  ETA 0h02m49s
+[kp-deathtouch2-d4.var] 129/400  1.6 games/s  ETA 0h02m48s
+[kp-deathtouch2-d4.var] 134/400  1.6 games/s  ETA 0h02m42s
+[kp-deathtouch2-d4.var] 140/400  1.7 games/s  ETA 0h02m36s
+[kp-deathtouch2-d4.var] 141/400  1.6 games/s  ETA 0h02m38s
+[kp-deathtouch2-d4.var] 143/400  1.6 games/s  ETA 0h02m38s
+[kp-deathtouch2-d4.var] 147/400  1.6 games/s  ETA 0h02m35s
+[kp-deathtouch2-d4.var] 151/400  1.6 games/s  ETA 0h02m31s
+[kp-deathtouch2-d4.var] 154/400  1.6 games/s  ETA 0h02m30s
+[kp-deathtouch2-d4.var] 155/400  1.6 games/s  ETA 0h02m31s
+[kp-deathtouch2-d4.var] 160/400  1.6 games/s  ETA 0h02m27s
+[kp-deathtouch2-d4.var] 162/400  1.6 games/s  ETA 0h02m27s
+[kp-deathtouch2-d4.var] 166/400  1.6 games/s  ETA 0h02m23s
+[kp-deathtouch2-d4.var] 171/400  1.6 games/s  ETA 0h02m19s
+[kp-deathtouch2-d4.var] 174/400  1.6 games/s  ETA 0h02m17s
+[kp-deathtouch2-d4.var] 177/400  1.6 games/s  ETA 0h02m16s
+[kp-deathtouch2-d4.var] 179/400  1.6 games/s  ETA 0h02m15s
+[kp-deathtouch2-d4.var] 181/400  1.6 games/s  ETA 0h02m15s
+[kp-deathtouch2-d4.var] 188/400  1.6 games/s  ETA 0h02m08s
+[kp-deathtouch2-d4.var] 189/400  1.6 games/s  ETA 0h02m09s
+[kp-deathtouch2-d4.var] 189/400  1.6 games/s  ETA 0h02m11s
+[kp-deathtouch2-d4.var] 190/400  1.6 games/s  ETA 0h02m12s
+[kp-deathtouch2-d4.var] 192/400  1.6 games/s  ETA 0h02m12s
+[kp-deathtouch2-d4.var] 199/400  1.6 games/s  ETA 0h02m05s
+[kp-deathtouch2-d4.var] 201/400  1.6 games/s  ETA 0h02m04s
+[kp-deathtouch2-d4.var] 203/400  1.6 games/s  ETA 0h02m04s
+[kp-deathtouch2-d4.var] 205/400  1.6 games/s  ETA 0h02m03s
+[kp-deathtouch2-d4.var] 208/400  1.6 games/s  ETA 0h02m01s
+[kp-deathtouch2-d4.var] 210/400  1.6 games/s  ETA 0h02m01s
+[kp-deathtouch2-d4.var] 213/400  1.6 games/s  ETA 0h01m59s
+[kp-deathtouch2-d4.var] 218/400  1.6 games/s  ETA 0h01m55s
+[kp-deathtouch2-d4.var] 222/400  1.6 games/s  ETA 0h01m52s
+[kp-deathtouch2-d4.var] 228/400  1.6 games/s  ETA 0h01m47s
+[kp-deathtouch2-d4.var] 229/400  1.6 games/s  ETA 0h01m47s
+[kp-deathtouch2-d4.var] 231/400  1.6 games/s  ETA 0h01m46s
+[kp-deathtouch2-d4.var] 234/400  1.6 games/s  ETA 0h01m45s
+[kp-deathtouch2-d4.var] 240/400  1.6 games/s  ETA 0h01m40s
+[kp-deathtouch2-d4.var] 241/400  1.6 games/s  ETA 0h01m40s
+[kp-deathtouch2-d4.var] 244/400  1.6 games/s  ETA 0h01m38s
+[kp-deathtouch2-d4.var] 251/400  1.6 games/s  ETA 0h01m32s
+[kp-deathtouch2-d4.var] 253/400  1.6 games/s  ETA 0h01m31s
+[kp-deathtouch2-d4.var] 254/400  1.6 games/s  ETA 0h01m32s
+[kp-deathtouch2-d4.var] 257/400  1.6 games/s  ETA 0h01m30s
+[kp-deathtouch2-d4.var] 262/400  1.6 games/s  ETA 0h01m26s
+[kp-deathtouch2-d4.var] 265/400  1.6 games/s  ETA 0h01m24s
+[kp-deathtouch2-d4.var] 270/400  1.6 games/s  ETA 0h01m20s
+[kp-deathtouch2-d4.var] 271/400  1.6 games/s  ETA 0h01m20s
+[kp-deathtouch2-d4.var] 274/400  1.6 games/s  ETA 0h01m19s
+[kp-deathtouch2-d4.var] 280/400  1.6 games/s  ETA 0h01m14s
+[kp-deathtouch2-d4.var] 282/400  1.6 games/s  ETA 0h01m13s
+[kp-deathtouch2-d4.var] 283/400  1.6 games/s  ETA 0h01m13s
+[kp-deathtouch2-d4.var] 283/400  1.6 games/s  ETA 0h01m14s
+[kp-deathtouch2-d4.var] 284/400  1.6 games/s  ETA 0h01m14s
+[kp-deathtouch2-d4.var] 291/400  1.6 games/s  ETA 0h01m08s
+[kp-deathtouch2-d4.var] 292/400  1.6 games/s  ETA 0h01m08s
+[kp-deathtouch2-d4.var] 294/400  1.6 games/s  ETA 0h01m07s
+[kp-deathtouch2-d4.var] 297/400  1.6 games/s  ETA 0h01m05s
+[kp-deathtouch2-d4.var] 301/400  1.6 games/s  ETA 0h01m03s
+[kp-deathtouch2-d4.var] 303/400  1.6 games/s  ETA 0h01m02s
+[kp-deathtouch2-d4.var] 307/400  1.6 games/s  ETA 0h00m59s
+[kp-deathtouch2-d4.var] 310/400  1.6 games/s  ETA 0h00m57s
+[kp-deathtouch2-d4.var] 313/400  1.6 games/s  ETA 0h00m55s
+[kp-deathtouch2-d4.var] 316/400  1.6 games/s  ETA 0h00m53s
+[kp-deathtouch2-d4.var] 321/400  1.6 games/s  ETA 0h00m50s
+[kp-deathtouch2-d4.var] 325/400  1.6 games/s  ETA 0h00m47s
+[kp-deathtouch2-d4.var] 330/400  1.6 games/s  ETA 0h00m44s
+[kp-deathtouch2-d4.var] 333/400  1.6 games/s  ETA 0h00m42s
+[kp-deathtouch2-d4.var] 335/400  1.6 games/s  ETA 0h00m41s
+[kp-deathtouch2-d4.var] 337/400  1.6 games/s  ETA 0h00m40s
+[kp-deathtouch2-d4.var] 340/400  1.6 games/s  ETA 0h00m38s
+[kp-deathtouch2-d4.var] 343/400  1.6 games/s  ETA 0h00m36s
+[kp-deathtouch2-d4.var] 346/400  1.6 games/s  ETA 0h00m34s
+[kp-deathtouch2-d4.var] 348/400  1.6 games/s  ETA 0h00m33s
+[kp-deathtouch2-d4.var] 348/400  1.6 games/s  ETA 0h00m33s
+[kp-deathtouch2-d4.var] 354/400  1.6 games/s  ETA 0h00m29s
+[kp-deathtouch2-d4.var] 355/400  1.6 games/s  ETA 0h00m28s
+[kp-deathtouch2-d4.var] 359/400  1.6 games/s  ETA 0h00m26s
+[kp-deathtouch2-d4.var] 362/400  1.6 games/s  ETA 0h00m24s
+[kp-deathtouch2-d4.var] 363/400  1.6 games/s  ETA 0h00m23s
+[kp-deathtouch2-d4.var] 370/400  1.6 games/s  ETA 0h00m19s
+[kp-deathtouch2-d4.var] 373/400  1.6 games/s  ETA 0h00m17s
+[kp-deathtouch2-d4.var] 375/400  1.6 games/s  ETA 0h00m16s
+[kp-deathtouch2-d4.var] 378/400  1.6 games/s  ETA 0h00m14s
+[kp-deathtouch2-d4.var] 383/400  1.6 games/s  ETA 0h00m10s
+[kp-deathtouch2-d4.var] 386/400  1.6 games/s  ETA 0h00m08s
+[kp-deathtouch2-d4.var] 391/400  1.6 games/s  ETA 0h00m05s
+[kp-deathtouch2-d4.var] 395/400  1.6 games/s  ETA 0h00m03s
+[kp-deathtouch2-d4.var] 397/400  1.6 games/s  ETA 0h00m01s
+[kp-deathtouch2-d4.var] 398/400  1.6 games/s  ETA 0h00m01s
+[kp-deathtouch2-d4.var] 400 games in 0h04m15s (1.6 games/s)
+[kp-deathtouch2-d4.var] summary -> sim/out/kp-deathtouch2-d4.var.summary.json
+# Rule A/B — kp-deathtouch2-d4
+
+`kings=[object Object],[object Object] deathTouchMoves=true` against today's defaults.
+400 games per population, depth 4, the same 40 arrangements and the same
+opening seeds in both (common random numbers). Control arm: `kp-deathtouch2-d4.base`.
+
+A symmetric rule changes both sides at once, so there is no match to run and no SPRT: this is a
+paired two-population comparison. The interval is a 95% normal approximation on the
+mean paired difference over arrangements; with few arrangements,
+and with one interval per metric, read "significant" as "worth a second run", not as a test.
+
+| metric | base (pooled) | with the rule (pooled) | mean paired difference ±95% | significant |
+|---|---|---|---|---|
+| white score | 0.585 | 0.591 | +0.006 ± 0.041 | no |
+| decisive | 0.670 | 0.608 | -0.062 ± 0.060 | yes |
+| draw rate | 0.310 | 0.367 | +0.057 ± 0.058 | no |
+| capped | 0.020 | 0.025 | +0.005 ± 0.016 | no |
+| mean plies | 126.3 | 129.9 | +3.6 ± 7.0 | no |
+| branching factor | 30.4 | 30.2 | -0.1 ± 0.4 | no |
+| killer move | 0.189 | 0.200 | +0.011 ± 0.017 | no |
+| lead change | 0.040 | 0.042 | +0.002 ± 0.004 | no |
+| uncertainty late | 0.626 | 0.626 | +0.000 ± 0.004 | no |
+| drama | 0.099 | 0.096 | -0.003 ± 0.018 | no |
+| permanence | 0.971 | 0.971 | -0.000 ± 0.001 | no |
+| min utilisation | 0.41 | 0.39 | -0.02 ± 0.02 | yes |
+| interest | 0.454 | 0.455 | +0.001 ± 0.006 | no |
+| interest (min-use) | 0.454 | 0.455 | -0.006 ± 0.013 | no |
+| killerMove (resid.) | -0.006 | 0.006 | +0.012 ± 0.017 | no |
+| leadChange (resid.) | 0.001 | -0.001 | -0.001 ± 0.005 | no |
+| uncertaintyLate (resid.) | 0.003 | -0.003 | -0.007 ± 0.007 | no |
+| drama (resid.) | -0.001 | 0.001 | +0.002 ± 0.015 | no |
+| permanence (resid.) | 0.000 | -0.000 | -0.000 ± 0.001 | no |
+| fairyUse (resid.) | 0.000 | 0.000 | +0.000 ± 0.000 | no |
+| excessDecisiveness (resid.) | -0.001 | 0.039 | +0.053 ± 0.021 | yes |
+| interest (resid.) | -0.001 | 0.003 | +0.005 ± 0.004 | yes |
+| interestMinFairy (resid.) | 0.026 | 0.029 | -0.003 ± 0.012 | no |
+
+## Degeneracy counters
+| counter | base | with the rule |
+|---|---|---|
+| guard captures per game | 0.000 | 0.000 |
+| games with a guard rampage (≥ 3 captures) | 0 (0.0%) | 0 (0.0%) |
+| dead-material endings (draw50 + drawMaterial) | 20 (5.0%) | 38 (9.5%) |
+| games where a king never moved | 62 (15.5%) | 55 (13.8%) |
+
+## Per piece (both sides, whole population; moves and captures per game)
+| piece | moves A | moves B | captures A | captures B | survival A | survival B |
+|---|---|---|---|---|---|---|
+| P | 25.70 | 25.54 | 4.58 | 4.42 | 33.3% | 30.5% |
+| K | 20.07 | 21.62 | 1.64 | 2.82 | 100.0% | 100.0% |
+| A | 15.07 | 15.01 | 2.54 | 2.49 | 42.0% | 39.9% |
+| S | 12.91 | 12.97 | 1.57 | 1.43 | 37.7% | 34.0% |
+| M | 12.79 | 14.15 | 1.54 | 1.57 | 32.0% | 33.4% |
+| R | 9.48 | 9.56 | 1.58 | 1.47 | 38.3% | 38.0% |
+| B | 8.32 | 7.92 | 2.04 | 1.97 | 20.4% | 18.8% |
+| N | 7.09 | 7.37 | 1.54 | 1.54 | 6.2% | 6.9% |
+| Q | 6.14 | 6.53 | 1.03 | 1.07 | 45.0% | 38.1% |
+| L | 5.00 | 5.27 | 1.50 | 1.48 | 8.5% | 8.3% |
+| G | 3.73 | 4.01 | 0.00 | 0.00 | 87.9% | 79.7% |
+
+## Fairy events per game
+| event | base | with the rule |
+|---|---|---|
+| archerShots | 2.54 | 2.49 |
+| beastChainMoves | 1.33 | 1.24 |
+| beastChainCaptures | 1.57 | 1.43 |
+| maesterSwaps | 5.00 | 5.42 |
+| maesterLongSwaps | 0.71 | 0.89 |
+| paladinSacrifices | 0.56 | 0.54 |
+| promotions | 0.15 | 0.14 |
+| checks | 7.37 | 6.01 |
+| ogreShoves | 0.00 | 0.00 |
+| ogreShovesFriend | 0.00 | 0.00 |
+| ogreShovesGuard | 0.00 | 0.00 |
+| catapultChecks | 0.00 | 0.00 |
+
+The pooled columns describe each whole population; the difference column is the mean over the
+40 shared arrangements of (rule − base) on the same openings. The two can disagree in sign when the
+pooled value is not a mean of the per-arrangement values (minimum utilisation is one). Trust the
+paired column.
+
+Elo of the variant population is not reported: both populations play themselves, so their scores
+are not comparable as a match. Read the white score as a fairness check, not as a strength delta.
+

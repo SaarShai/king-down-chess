@@ -1,0 +1,45 @@
+{
+  "spec": {
+    "id": "kp-deathtouch2.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 62,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "kings": [
+        {
+          "king": "Shadow",
+          "power": "DeathTouch"
+        },
+        {
+          "king": "Shadow",
+          "power": "DeathTouch"
+        }
+      ],
+      "deathTouchMoves": true
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 187,
+  "whiteScore": 0.5175,
+  "whiteWins": 557,
+  "draws": 542,
+  "blackWins": 501,
+  "meanPlies": 129.3,
+  "reasons": {
+    "adjudicatedDraw": 402,
+    "adjudicatedResign": 1058,
+    "drawRepetition": 36,
+    "drawMaterial": 31,
+    "draw50": 22,
+    "plyCap": 51
+  }
+}

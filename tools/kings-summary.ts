@@ -155,6 +155,29 @@ ${counterRows}
 `);
 }
 
+// Second readings measured after the campaign (2026-09-17).
+const altBase = readReport('kp-deathtouch2.base');
+const altVar = readReport('kp-deathtouch2.var');
+let altSection = '';
+if (altBase && altVar) {
+  const d3 = paired(altBase, altVar);
+  const b4 = readReport('kp-deathtouch2-d4.base');
+  const v4 = readReport('kp-deathtouch2-d4.var');
+  const d4 = b4 && v4 ? paired(b4, v4) : null;
+  altSection = `### Second reading: Death Touch keeping the displacement capture (\`deathTouchMoves=true\`)
+
+| metric | control → second reading (pooled) | paired difference ±95% |
+|---|---|---|
+| white score | ${f3(altBase.overall.score)} → ${f3(altVar.overall.score)} | ${signed(d3.score[0])} ± ${f3(d3.score[1])} |
+| decisive | ${f3(altBase.overall.decisiveness)} → ${f3(altVar.overall.decisiveness)} | ${signed(d3.decisive[0])} ± ${f3(d3.decisive[1])} |
+| draws | ${f3(altBase.overall.drawRate)} → ${f3(altVar.overall.drawRate)} | ${signed(d3.draws[0])} ± ${f3(d3.draws[1])} |
+| capped | ${f3(altBase.overall.timeouts)} → ${f3(altVar.overall.timeouts)} | ${signed(d3.capped[0])} ± ${f3(d3.capped[1])} |
+| mean plies | ${altBase.overall.meanPlies.toFixed(0)} → ${altVar.overall.meanPlies.toFixed(0)} | ${signed(d3.plies[0], 1)} ± ${f3(d3.plies[1])} |
+${d4 ? `\nDepth 4 (${b4!.games} games an arm): decisive ${signed(d4.decisive[0])} ± ${f3(d4.decisive[1])}, draws ${signed(d4.draws[0])} ± ${f3(d4.draws[1])}, score ${signed(d4.score[0])} ± ${f3(d4.score[1])}.\n` : ''}
+**Verdict:** the second reading is **worse**, not better: it lowers decisive share further (${signed(d3.decisive[0])} ± ${f3(d3.decisive[1])} at depth 3, ${d4 ? `${signed(d4.decisive[0])} ± ${f3(d4.decisive[1])} at depth 4` : 'depth 4 pending'}), adds capped games and length. Both readings of Death Touch drag draws; the power is not the anti-draw tool the proposal imagined.
+
+`;
+}
 const openQuestions = `## Reading
 
 - **Darkness is the sharpest of the six**: the largest decisive gain, the largest draw cut and the
@@ -165,9 +188,9 @@ const openQuestions = `## Reading
 - **Holy Light is flat** on every game-level metric; its value would be positional, not structural.
 - **Death Touch runs the other way**: it *lowers* the decisive share (draws up, games longer) at both
   depths, contrary to the plan's expectation that it would be "the best anti-draw power of the
-  twelve". If the owner wants the plan's intent, the alternative reading in
-  [kings-decisions-2026-09-16.md](kings-decisions-2026-09-16.md) §2 — keep the displacement capture
-  as well — is the next candidate to test; that is this campaign's strongest single finding.
+  twelve". The alternative reading (keep the displacement capture) was tested on 2026-09-17 and is
+  **worse still** — see the second-reading section above. Both readings drag draws; the power is not
+  the anti-draw tool the proposal imagined.
 
 ## Still open for the owner (not approvals)
 
@@ -200,6 +223,7 @@ difference cleared its own interval.
 Seeds: pilot 61, main 62, depth 4 63. Files: \`sim/out/kp-*\`.
 
 ${sections.join('\n')}
+${altSection}
 ${openQuestions}`);
 
 if (needs.length) {

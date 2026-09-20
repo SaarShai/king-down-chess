@@ -166,6 +166,15 @@ export interface Rules {
   paladinKamikaze: PaladinKamikaze;
   /** A paladin may capture a king, so it gives check. Off (shipped): it can never check or mate. */
   paladinChecks: boolean;
+  /**
+   * Death Touch's second reading (lab, 2026-09-17): with the toggle on, a Death Touch king **also**
+   * keeps the ordinary displacement capture, so an adjacent enemy may be taken by moving onto it or
+   * by shooting it in place. The delivered reading (off) replaces the displacement capture — one
+   * verb per piece — and measured *lower* decisive share at both depths
+   * (`docs/research/sim-kings-2026-09-16.md`); the proposal's own intent ("the best anti-draw
+   * power") is what this reading tests.
+   */
+  deathTouchMoves: boolean;
   /** "The charge": after capturing, the paladin goes back to the square it left instead of dying. */
   paladinReturn: boolean;
   /** A paladin jumps over friendly pieces (shipped). Off: a friend stops the ray, like a normal slider. */
@@ -254,6 +263,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   maesterStep: 1 as 1 | 2,
   paladinKamikaze: 'nonPawn' as PaladinKamikaze,
   paladinChecks: false,
+  deathTouchMoves: false,
   paladinReturn: false,
   paladinJumpsFriends: true,
   paladinBlockedByEnemies: true,

@@ -276,7 +276,11 @@ export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Mo
           if (to < 0) continue;
           const v = board[to];
           if (!v) { if (mode === 'all') out.push({ from, to, captures: [] }); }
-          else if (colorOf(v) !== c && canCapture(p, typeOf(v))) out.push({ from, to: from, captures: [to] });
+          else if (colorOf(v) !== c && canCapture(p, typeOf(v))) {
+            out.push({ from, to: from, captures: [to] }); // the shot
+            // The second reading (`deathTouchMoves`): keep the displacement capture as well.
+            if (RULES.deathTouchMoves) out.push({ from, to, captures: [to] });
+          }
         }
         return;
       }

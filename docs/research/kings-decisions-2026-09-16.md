@@ -22,12 +22,14 @@ a recommendation. **No default changes without a decision here.**
 - **Proposal (§1.11):** asks whether the king *also* keeps the ordinary displacement capture.
 - **Engine today:** the shot **replaces** it — the king can only take by shooting, never by moving
   onto the victim.
-- **Options:** (a) shot only (current); (b) shot plus displacement capture (strictly stronger).
-- **Evidence:** the unit and worker tests show the search already plays the shot a plain king cannot
-  (`Kd4*d5` into a defended rook). Option (b) makes the power stronger and king activity higher; on a
-  power already aiming at decisiveness, that risks overshooting into a White edge.
-- **Recommendation: (a)** for the first measured version; revisit only if the campaign says it is
-  underpowered. The seam is the `case K` branch and one test.
+- **Options:** (a) shot only (current); (b) shot plus displacement capture.
+- **Evidence:** option (b) was built as the `deathTouchMoves` toggle and measured on 2026-09-17
+  (1,600 games an arm at depth 3, 400 at depth 4): decisive **−6.0 ± 2.7** versus the delivered
+  reading's −5.0 ± 2.7, draws +4.2 ± 2.7, capped +1.8 ± 0.9, plies +8.0 ± 2.5; depth 4 repeats the
+  direction (−6.3 ± 6.0). **Both readings drag draws** — the power is not the anti-draw tool the
+  proposal imagined.
+- **Recommendation: neither reading ships**; keep the power off by default and out of the picker
+  until a stronger design exists. The toggle stays as lab evidence (`deathTouchMoves`).
 
 ## 3. March and Leap: always on, or three uses?
 

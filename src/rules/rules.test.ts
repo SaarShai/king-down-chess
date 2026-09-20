@@ -1222,3 +1222,33 @@ describe('templar (T, lab)', () => {
     expect(insufficientMaterial(fromFen('k7/8/8/8/8/8/8/KT6 w - - 0 1').board)).toBe(false);
   });
 });
+
+describe('Death Touch second reading (lab toggle)', () => {
+  afterEach(() => setRules());
+  const touch: Rules['kings'] = [{ king: 'Shadow', power: 'DeathTouch' }, null];
+  const pos = () => fromFen('7k/8/4p3/3r4/3K4/8/8/8 w - - 0 1'); // rook d5 defended by pawn e6
+
+  it('off (delivered): the shot replaces the displacement capture', () => {
+    setRules({ kings: touch });
+    const moves = lan(pos(), movesFrom(pos(), 'd4'));
+    expect(moves).toContain('Kd4*d5');
+    expect(moves).not.toContain('Kd4xd5');
+  });
+
+  it('on: the displacement capture is generated as well (the defended case stays a shot)', () => {
+    setRules({ kings: touch, deathTouchMoves: true });
+    // Generation: both move shapes exist for the defended rook...
+    expect(genAt(pos(), 'd4')).toContain('Kd4*d5');
+    expect(genAt(pos(), 'd4')).toContain('Kd4xd5');
+    // ...but legality keeps only the shot: moving onto d5 walks into the pawn's attack.
+    const legal = lan(pos(), movesFrom(pos(), 'd4'));
+    expect(legal).toContain('Kd4*d5');
+    expect(legal).not.toContain('Kd4xd5');
+    // An undefended enemy is taken either way, and both shapes are legal there.
+    const loose = fromFen('7k/8/8/3r4/3K4/8/8/8 w - - 0 1');
+    setRules({ kings: touch, deathTouchMoves: true });
+    const both = lan(loose, movesFrom(loose, 'd4'));
+    expect(both).toContain('Kd4*d5');
+    expect(both).toContain('Kd4xd5');
+  });
+});
