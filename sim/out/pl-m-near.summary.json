@@ -1,0 +1,51 @@
+{
+  "spec": {
+    "id": "pl-m-near",
+    "games": 525,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "openingRandomPlies": 4,
+    "backRanks": [
+      "ANNMKSBG",
+      "RSGNAAMK",
+      "RSBANLMK",
+      "KMLRSQNN",
+      "KMANRBNN",
+      "RLMKNAGS",
+      "KMBNQNSS",
+      "NQSABNMK",
+      "NNRNBMKS",
+      "MKRNRBNA",
+      "RNMKBAGS",
+      "GLAMKNNN",
+      "ARNNMKNA",
+      "LBMKSNRN",
+      "QNRMKGAR",
+      "MKNGRQAN",
+      "NNBAMKAQ",
+      "GSABLNMK",
+      "MKNASLQB",
+      "NAAMKLNQ",
+      "MKSBGRNN"
+    ],
+    "note": "paired placement: M next to its king (True) vs >=3 files away; identical composition, paired by gameId.",
+    "maxPlies": 300
+  },
+  "games": 525,
+  "seconds": 50.5,
+  "whiteScore": 0.5171,
+  "whiteWins": 195,
+  "draws": 153,
+  "blackWins": 177,
+  "meanPlies": 112,
+  "reasons": {
+    "adjudicatedResign": 372,
+    "adjudicatedDraw": 136,
+    "draw50": 3,
+    "drawMaterial": 3,
+    "drawRepetition": 9,
+    "plyCap": 2
+  }
+}

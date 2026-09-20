@@ -1,0 +1,54 @@
+{
+  "spec": {
+    "id": "pl-b-far",
+    "games": 600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "openingRandomPlies": 4,
+    "backRanks": [
+      "BNNGKSAM",
+      "BSRGNQKN",
+      "BAMNNKLM",
+      "BSNNGKSA",
+      "NBSRKQNR",
+      "BSRAMLNK",
+      "RRKGNBNQ",
+      "KNABRMNN",
+      "SKRRNBAS",
+      "KNABSQLR",
+      "KNMBQNSS",
+      "BQSANNMK",
+      "BNRMNNKS",
+      "NKRMBRNA",
+      "BSSKQRAN",
+      "BNAKRMGS",
+      "BNGLANNK",
+      "BLNKSMRN",
+      "BNNAMKAQ",
+      "BSAGMNLK",
+      "KQNBNAGS",
+      "MKNMBRNG",
+      "NKMABLQS",
+      "NKSGBRMN"
+    ],
+    "note": "paired placement: B next to its king (False) vs >=3 files away; identical composition, paired by gameId.",
+    "maxPlies": 300
+  },
+  "games": 600,
+  "seconds": 67.4,
+  "whiteScore": 0.5658,
+  "whiteWins": 265,
+  "draws": 149,
+  "blackWins": 186,
+  "meanPlies": 116.3,
+  "reasons": {
+    "adjudicatedDraw": 114,
+    "adjudicatedResign": 451,
+    "plyCap": 9,
+    "drawMaterial": 6,
+    "drawRepetition": 14,
+    "draw50": 6
+  }
+}

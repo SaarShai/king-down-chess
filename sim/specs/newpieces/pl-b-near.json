@@ -1,0 +1,36 @@
+{
+  "id": "pl-b-near",
+  "games": 600,
+  "ai": {
+    "depth": 3
+  },
+  "seed": 31,
+  "openingRandomPlies": 4,
+  "backRanks": [
+    "ANNBKSGM",
+    "GSRQNBKN",
+    "ANMNBKLM",
+    "SGNNBKSA",
+    "RNSBKQNR",
+    "RSNAMLBK",
+    "RBKGNQNR",
+    "KBAMRNNN",
+    "BKRRSNAS",
+    "KBNASQLR",
+    "KBNMQNSS",
+    "NQSAMNBK",
+    "NNRMNBKS",
+    "BKRMRNNA",
+    "NSBKQRAS",
+    "RNBKAMGS",
+    "ANGLNNBK",
+    "LNBKSMRN",
+    "NNMABKAQ",
+    "GSALMNBK",
+    "KBNGNAQS",
+    "BKNMMRNG",
+    "BKMASLQN",
+    "BKSNGRMN"
+  ],
+  "note": "paired placement: B next to its king (True) vs >=3 files away; identical composition, paired by gameId."
+}

@@ -1,0 +1,62 @@
+{
+  "spec": {
+    "id": "pl-o-orig",
+    "games": 800,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "openingRandomPlies": 4,
+    "backRanks": [
+      "QNAKOGLN",
+      "AONGKSBM",
+      "GBMRMOBK",
+      "GSRBNQKO",
+      "ABMONKLM",
+      "RSGOMAAK",
+      "SBNOGKSA",
+      "ANRNOKQA",
+      "RSBAMLOK",
+      "MAMLSKAO",
+      "RRKGNQOB",
+      "SKRRBOAS",
+      "RLGKOAMS",
+      "OQSABNMK",
+      "NORMBNKS",
+      "NKRMRBOA",
+      "OSSKQRAB",
+      "ROAKBMGS",
+      "GLMAKONN",
+      "ANGLBONK",
+      "AMNORKNA",
+      "LBNKSMRO",
+      "QORRKGAM",
+      "QKOGRMAN",
+      "ORKNBNSB",
+      "ONBAMKAQ",
+      "GSABMOLK",
+      "NNMSMAOK",
+      "MKNBMROG",
+      "OKMASLQB",
+      "MAANKLOQ",
+      "NKSBGRMO"
+    ],
+    "note": "paired placement: Ogre on the a-file vs its sampled file; identical composition, paired by gameId.",
+    "maxPlies": 300
+  },
+  "games": 800,
+  "seconds": 101.5,
+  "whiteScore": 0.5356,
+  "whiteWins": 294,
+  "draws": 269,
+  "blackWins": 237,
+  "meanPlies": 120.7,
+  "reasons": {
+    "drawRepetition": 51,
+    "adjudicatedResign": 531,
+    "adjudicatedDraw": 198,
+    "draw50": 6,
+    "plyCap": 10,
+    "drawMaterial": 4
+  }
+}

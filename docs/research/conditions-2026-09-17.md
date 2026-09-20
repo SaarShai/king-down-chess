@@ -43,23 +43,24 @@ The Ogre shoves guards ten times as often and the game gets **worse**, not bette
 −5.8 ± 4.3 points. "A weak piece that breaks the balance in its designed condition" is refuted for
 the Ogre — moving a wall is not the same as removing it, and the extra guards drag draws regardless.
 
-## 3. Starting locations (screens, not measurements)
+## 3. Starting locations: screens vs paired tests
 
-From `tools/placement.ts` (2,000 games a run; files are sampled ranks, so each cell is confounded with
-that army's neighbours — use these to pick paired experiments, never to quote a square's worth):
+`tools/placement.ts` screens sampled ranks; each cell is confounded with the army's neighbours, so
+the screens were followed by **paired placement swaps**: identical composition, one piece moved,
+shared opening seeds (525–800 paired games per test, 40-rank corpus).
 
-- **Maester beside its king**: decisive 77.5% vs 69.5% farther (and the batch-3 study measured +15 Elo
-  for the same placement). The strongest location signal in the corpus.
-- **Bishop beside its king**: 64.0% vs 75.8% — a parked bishop is the clearest anti-pattern found.
-- **Beast on the a-file**: 12.0 moves and 1.67 captures a game, against ~4.5 moves and 0.5 captures
-  from the e-file. Edge beasts are far busier; the outcome effect is unclear.
-- **Ogre on the a-file**: 76.8% decisive vs 61.2% from the b-file (250 games each) — the largest
-  spread seen, and the least explained.
-- **Archer**: corners are fine (a 72.4%, h 77.0%) against 74–75% centrally; the mining line "corner
-  archers are furniture" is about *utilisation*, not results.
+| question | screen (confounded) | paired test | verdict |
+|---|---|---|---|
+| Maester next to its king vs ≥3 files away | decisive 77.5% vs 69.5% | decisive **−1.3 ± 5.4**, plies −0.7 ± 5.0, balance −1.6 ± 5.0; maester moves 13.3 → 13.0 | **no starting-square effect** |
+| Bishop next to its king vs ≥3 files away | decisive 64.0% vs 75.8% | decisive **+0.5 ± 4.8**, plies −3.1 ± 5.4, balance −4.3 ± 4.9 | **no effect** (the screen was army confounding) |
+| Ogre on the a-file vs its sampled file | decisive 76.8% vs 61.2% | decisive **+1.4 ± 4.3**, plies −0.8 ± 4.7, balance +1.1 ± 3.5; ogre moves 16.7 → 14.9 | **no effect** |
 
-Next: paired placement swaps — same army, one piece moved between files, shared opening seeds — for
-the maester/bishop king-adjacency pair and the Ogre's a-file signal.
+The screens were noise from rank sampling. One caution: the batch-3 "maester beside the king +15
+Elo" result measured a different thing (a composition-level comparison across pools), so this null
+does not overturn it; it says **the starting square itself** does not move these results.
+
+Other screen reads worth keeping as hypotheses only: beast on the a-file was far busier (12.0 moves,
+1.67 captures) but that is likely the same confounding; no outcome effect was established.
 
 ## 4. Combinations: nothing game-breaking found
 
