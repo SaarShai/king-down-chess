@@ -1,0 +1,13 @@
+{
+  "id": "beastpool-one",
+  "games": 2000,
+  "backRanks": {
+    "sample": 40,
+    "pool": "QLRRBBNNAAGMMS"
+  },
+  "ai": {
+    "depth": 3
+  },
+  "seed": 86,
+  "commonSeeds": true
+}
