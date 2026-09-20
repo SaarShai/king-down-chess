@@ -1,0 +1,15 @@
+{
+  "id": "mg.M",
+  "games": 1600,
+  "ai": {
+    "depth": 3
+  },
+  "seed": 31,
+  "openingRandomPlies": 4,
+  "commonSeeds": true,
+  "backRanks": {
+    "sample": 40,
+    "pool": "QLRRBBNNAASSMM"
+  },
+  "note": "maester+guard factorial, M arm: base pool plus both maesters (M); interaction = MG - M - G + base."
+}
