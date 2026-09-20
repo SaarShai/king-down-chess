@@ -1,0 +1,11 @@
+{
+  "source": "../king-down-sim/sim/out/nnue-g2.jsonl",
+  "positions": 300,
+  "candidatesSeen": 300,
+  "skippedInCheck": 0,
+  "depth": 3,
+  "bytesPerRecord": 70,
+  "bytes": 21000,
+  "sha256": "aa4e35bf36c2e7b5cb7d1aa3aaf375668c30c239f83a2e7ab1ed4719af2342b1",
+  "note": "Policy distillation data: board, side to move, search best move (from/to/promo), best-minus-second margin. Teacher = linear search at the recorded depth."
+}

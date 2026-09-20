@@ -231,4 +231,5 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 
 ### Stronger players — adopted and next (2026-09-17)
 - [x] **Adopted the Q6 residual net for the browser AI** (owner-approved after the staged acceptance): candidate copied to `src/ai/nnue/weights.ts`, `main.ts` + worker set `residual`, lab stays `linear`, lab-piece boards fall back to linear (unit + QA covered). Rebuilt review bundle, **17/17** browser QA. Evidence: `docs/research/ai-q6-acceptance-2026-09-16.md`, `docs/RELEASE-REVIEW-2026-09-16.md`.
-- [ ] Next AI work in evidence order: incremental NNUE accumulator (speed), policy-head distillation (instant moves), opening book from self-play, small endgame tablebases, human-facing skill levels. Plan: `docs/research/ai-players.md` status section.
+- [x] Policy-distillation groundwork: `tools/policy-data.ts` (labels positions with the search's best move + margin; manifest with sha) and the plan `docs/research/policy-distillation-plan-2026-09-17.md`. Pilot: 5,000 positions at depth 4 running into `sim/nnue/policy.bin`.
+- [ ] Next AI work in evidence order: train the move-ranking (policy) net and gate it (ordering, instant, browser); incremental NNUE accumulator (speed); opening book from self-play; small endgame tablebases; human-facing skill levels.
