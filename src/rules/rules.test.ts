@@ -558,6 +558,26 @@ describe('rule toggles', () => {
     expect(lan(outside, movesFrom(outside, 'd3'))).not.toContain('Gd3-b1');
   });
 
+  it('capitalSanctuary=true (lab): a capture whose victim stands in the capital is not generated', () => {
+    // White rook a4 takes the d4 pawn (a capital square) and Rf3 takes the f2 pawn (not one); the
+    // archer on c3 shoots d4 (`to === from`), a capture the victim test must catch like any other.
+    const pos = fromFen('7k/8/8/8/R2p4/2A2R2/5p2/K7 w - - 0 1');
+    const before = lan(pos, legalMoves(pos));
+    expect(before).toContain('Ra4xd4');
+    expect(before).toContain('Rf3xf2');
+    expect(before).toContain('Ac3*d4');
+    setRules({ capitalSanctuary: true });
+    const after = lan(pos, legalMoves(pos));
+    expect(after).not.toContain('Ra4xd4'); // the d4 pawn is inside the capital
+    expect(after).not.toContain('Ac3*d4'); // …and a shot at it is a capture too
+    expect(after).toContain('Rf3xf2');     // a victim outside the capital is untouched
+    // Only captures are banned: moving onto an empty capital square stays legal.
+    const open = fromFen('7k/8/8/8/8/8/8/K2R4 w - - 0 1');
+    expect(lan(open, legalMoves(open))).toContain('Rd1-d4');
+    // 'attacks' mode is not filtered, so the isAttacked mirror keeps working for check and mate.
+    crossCheckAttacks(134);
+  });
+
   it('the pool holds one guard per army', () => {
     expect(POOL).toBe('QLRRBBNNAAGMMSS');
     expect(POOL.split('G')).toHaveLength(2);

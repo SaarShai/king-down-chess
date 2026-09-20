@@ -230,8 +230,8 @@ function slider(board: Uint8Array, from: number, c: Color, att: number, dirs: re
   }
 }
 
-/** Pseudo-legal moves for the piece on `from` (king safety is not checked here). */
-export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Move[]): void {
+/** The unfiltered switch behind `genPiece`; see the exported wrapper for the C2 filter. */
+function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]): void {
   const p = board[from];
   const c = colorOf(p), t = typeOf(p);
   switch (t) {
@@ -512,6 +512,36 @@ export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Mo
         out.push({ from, to: RULES.catapultCapture === 'land' ? target : from, captures: [target] });
       }
       return;
+    }
+  }
+}
+
+/**
+ * Pseudo-legal moves for the piece on `from` (king safety is not checked here).
+ *
+ * **C2** (`capitalSanctuary`, `docs/MATRIX.md` §B.2): when on, a capture whose **victim** stands on
+ * a capital square (d4 e4 d5 e5) is dropped. The filter lives here, the one function every
+ * generator — `pseudoMoves`, `legalMoves` and the search's own `genLegal` — reaches the board
+ * through, so the search plays exactly the rule the engine states and no capture push site has to
+ * know about it. The test reads `m.captures`, not `m.to`: an archer shot, a catapult `stay` lob and
+ * a Death Touch capture all keep `to === from`, and a beast chain lists every victim, so a chain
+ * that would swallow a capital piece loses that extension while the shorter chain that stops before
+ * it stays.
+ *
+ * `mode: 'attacks'` is deliberately left unfiltered: that is the generator `isAttacked` is
+ * cross-checked against, and check/mate detection stays standard chess. A king standing in the
+ * capital is therefore still in check and can still be mated, it can just never be *captured* (no
+ * generator offers the move). The lab measures whether that inconsistency matters.
+ */
+export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Move[]): void {
+  const n0 = out.length;
+  genPieceRaw(board, from, mode, out);
+  if (RULES.capitalSanctuary && mode !== 'attacks') {
+    for (let i = out.length - 1; i >= n0; i--) {
+      const captures = out[i].captures;
+      for (let j = 0; j < captures.length; j++) {
+        if (CAPITAL.includes(captures[j])) { out.splice(i, 1); break; }
+      }
     }
   }
 }

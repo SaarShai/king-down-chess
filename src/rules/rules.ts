@@ -146,6 +146,15 @@ export interface Rules {
   /** Lab-only, off by default: a guard may never finish a move on a capital square (d4 e4 d5 e5). */
   guardNoCapital: boolean;
   /**
+   * Lab-only, off by default (C2, `docs/MATRIX.md` §B.2): a piece standing on a capital square
+   * (d4 e4 d5 e5) cannot be captured. Every generated capture whose victim stands there is dropped,
+   * for both colours and every piece, so the four centre tiles are a sanctuary. A move onto an
+   * *empty* capital square is untouched, and so is a piece that stands there and captures out of it
+   * (the mirror reading, C5, is not this rule). Check and mate detection stay standard: `isAttacked`
+   * is deliberately unchanged, so a king in the capital can be checked and mated but never taken.
+   */
+  capitalSanctuary: boolean;
+  /**
    * Lab-only, off by default (C3, `docs/MATRIX.md` §B.2): a guard whose **own square** is in the
    * capital (d4 e4 d5 e5) may step 2 squares in any of the 8 directions — the same second square of
    * each ray as `guardStep: 2`, through an empty middle square, move-only, so `isAttacked` never
@@ -281,6 +290,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   guardDoubleFirst: 'off' as GuardDoubleFirst,
   guardNoSecondRank: false,
   guardNoCapital: false,
+  capitalSanctuary: false,
   guardCapitalStep: false,
   guardCaptureLimit: 0 as 0 | 1,
   archerMove: 'any' as ArcherMove,
