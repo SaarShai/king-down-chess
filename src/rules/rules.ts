@@ -162,6 +162,17 @@ export interface Rules {
    */
   guardCapitalStep: boolean;
   /**
+   * Lab-only, off by default (C4, `docs/MATRIX.md` §B.2): a pawn whose **own square** is in the
+   * capital (d4 e4 d5 e5) may also capture **straight ahead** — the square one rank forward, onto
+   * an enemy piece `canCapture` allows. The centre bonus is a capture the ordinary pawn does not
+   * have; every other square of the board is untouched. The move goes through the same `push()`
+   * path as the ordinary advance, so on the last rank it promotes exactly like a push does. A
+   * straight capture is a *move*, not a new attack: `isAttacked` keeps the ordinary two diagonals
+   * (a pawn's straight capture is generated for `all` and `captures`, never for `attacks`), the
+   * same deliberate check-detection split as `capitalSanctuary`.
+   */
+  pawnCapitalCapture: boolean;
+  /**
    * 1 = each guard captures **once in its lifetime** and never again; 0 = no limit (shipped).
    *
    * Lab-only, and inert under the defaults: with `guardCaptures: 'none'` a guard never captures,
@@ -292,6 +303,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   guardNoCapital: false,
   capitalSanctuary: false,
   guardCapitalStep: false,
+  pawnCapitalCapture: false,
   guardCaptureLimit: 0 as 0 | 1,
   archerMove: 'any' as ArcherMove,
   // Adopted 2026-09-17 (owner call): the forward diagonal-2 squares on top of classic. Confirmed

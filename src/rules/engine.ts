@@ -266,6 +266,16 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
           if ((powerOf(c) === 'March' || rank(from) === startRank) && s2 >= 0 && !board[s2]) push(s2, []);
         }
       }
+      // **C4** (`pawnCapitalCapture`, `docs/MATRIX.md` §B.2): a pawn standing in the capital
+      // (d4 e4 d5 e5) may also take **straight ahead**. `push()` is the ordinary advance's own
+      // path, so a capture that reached the last rank would promote exactly like a push. The move
+      // is generated for `all` and `captures` but never for `attacks`: a straight capture is a
+      // move, not a new attack, so `isAttacked` keeps the pawn's ordinary two diagonals (the same
+      // deliberate check-detection split as `capitalSanctuary`).
+      if (RULES.pawnCapitalCapture && mode !== 'attacks' && CAPITAL.includes(from)) {
+        const ahead = step(from, 0, dr);
+        if (ahead >= 0 && board[ahead] && colorOf(board[ahead]) !== c && canCapture(p, typeOf(board[ahead]))) push(ahead, [ahead]);
+      }
       for (const df of [-1, 1]) {
         const to = step(from, df, dr);
         // The real piece byte, not the bare type: `canCapture` reads the attacker's colour off it,

@@ -558,6 +558,27 @@ describe('rule toggles', () => {
     expect(lan(outside, movesFrom(outside, 'd3'))).not.toContain('Gd3-b1');
   });
 
+  it('pawnCapitalCapture=true (lab): a pawn in the capital takes straight ahead, move-only for check', () => {
+    // White pawn d4, a capital square, with a black knight directly ahead on d5 and both diagonals
+    // empty. Off, the pawn has no move at all; on, the straight capture is the whole difference.
+    const pos = fromFen('7k/8/8/3n4/3P4/8/8/K7 w - - 0 1');
+    expect(lan(pos, movesFrom(pos, 'd4'))).toEqual([]);
+    // A pawn outside the capital is the control: black pawns on b5 and c5, white pawn c4. The
+    // ordinary diagonal capture stays whatever the rule says; the straight square is never taken.
+    const out = fromFen('7k/8/8/1pp5/2P5/8/8/K7 w - - 0 1');
+    expect(lan(out, movesFrom(out, 'c4'))).toEqual(['c4xb5']);
+    setRules({ pawnCapitalCapture: true });
+    expect(lan(pos, movesFrom(pos, 'd4'))).toEqual(['d4xd5']);
+    expect(lan(out, movesFrom(out, 'c4'))).toEqual(['c4xb5']);
+    expect(isAttacked(pos.board, parseSq('d5'), WHITE)).toBe(false); // a move, not a new attack
+    const after = makeMove(pos, movesFrom(pos, 'd4')[0]);
+    expect([at(after, 'd4'), typeOf(at(after, 'd5'))]).toEqual([0, P]);
+    // Promotion on the last rank is the ordinary push's, rule on: all eight targets, unchanged.
+    const promo = fromFen('7k/P7/8/8/8/8/8/K7 w - - 0 1');
+    expect(movesFrom(promo, 'a7').map(m => m.promo).sort()).toEqual([Q, R, B, N, A, L, M, S].sort());
+    crossCheckAttacks(135);
+  });
+
   it('capitalSanctuary=true (lab): a capture whose victim stands in the capital is not generated', () => {
     // White rook a4 takes the d4 pawn (a capital square) and Rf3 takes the f2 pawn (not one); the
     // archer on c3 shoots d4 (`to === from`), a capture the victim test must catch like any other.
