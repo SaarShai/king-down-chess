@@ -78,7 +78,7 @@ Each row is one kind of rule; each cell says whether it applies to that piece. A
 
 | Capital rule | P | N | B | R | Q | K | A | L | G | M | S | O | C | Expected effect on play |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| C1 cannot enter | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | Keeps the named piece out of the centre. For the guard: fewer central blockades → more decisive games (the anvil pattern moves to the flanks). |
+| C1 cannot enter | ? | ? | ? | ? | ? | ? | ? | ? | **◐ G** | ? | ? | ? | ? | Keeps the named piece out of the centre. For the guard: fewer central blockades → more decisive games (the anvil pattern moves to the flanks). **Built + measured 2026-09-17 (`guardNoCapital`, off): null** — decisive +0.3 ± 0.3; guards rarely enter the capital, so the ban changes nothing (`docs/research/sim-guard-2026-09-17.md`) |
 | C2 cannot be taken while there | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | A sanctuary. Draw risk: an uncapturable centre piece is a second guard; expect longer games. |
 | C3 moves differently while there | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | A reward for holding the centre (e.g. 1-steppers step 2, pawns move sideways). Fight for the centre → sharper. |
 | C4 captures differently while there / into there | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ○ Burn (capture inside the capital). Sharpens if it adds captures; blunts if it forbids them. |

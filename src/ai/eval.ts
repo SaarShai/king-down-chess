@@ -60,7 +60,11 @@ import { NetKind, RESIDUAL_MAX, loadNet, loadedNetB64, netKind, netLoaded, nnueE
 export const PAWN_V = 100, KNIGHT_V = 316, BISHOP_V = 322, ROOK_V = 449, QUEEN_V = 933;
 // ARCHER_V re-priced 337 -> 505 with `archerShots: 'plusDiagFwd2'` (adopted 2026-09-17): the odds
 // match vs a rook puts it at 5.05 ± 0.44 pawns (docs/research/sim-piece-balance-2026-09-17.md).
-export const ARCHER_V = 505, PALADIN_V = 326, GUARD_V = 96, MAESTER_V = 320, BEAST_V = 308;
+// Refreshed 2026-09-17 under the adopted `plusDiagFwd2` archer (odds match vs a knight, 500
+// games an arm, depth 3, `sim/out/pb-values-refresh.experiment.md`): L 2.87 -> 3.74, M 3.20 -> 2.82,
+// S 3.08 -> 3.68. The guard measured out of band below 1.66; its 96 stays (a wall's worth is
+// positional, and the material scan is not the right instrument for it).
+export const ARCHER_V = 505, PALADIN_V = 374, GUARD_V = 96, MAESTER_V = 282, BEAST_V = 368;
 /**
  * **Untuned seeds, not fitted numbers** — the only two in this file. The ogre and the catapult are
  * lab pieces (2026-09-14): they are not in `POOL`, no game in the Texel corpus contains one, and

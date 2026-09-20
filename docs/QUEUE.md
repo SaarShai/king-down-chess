@@ -82,6 +82,27 @@ lever). Report: **`docs/research/sim-piece-balance-2026-09-17.md`**.
   `ARCHER_V` 337 → 505 (value 5.05 ± 0.44 vs a rook), RULES.md decision 16, `?rules=2017` pins the
   classic shots so the older preset is unchanged.
 
+## Piece-balance sweep 2 (2026-09-17, after the archer adoption)
+
+Same method: fresh controls (today's rules = `plusDiagFwd2` archer, `ARCHER_V` 505), seed 71,
+1,600 games/arm depth 3; depth 4 for anything consequential. Log `sim/out/pb2-2026-09-17.log`.
+
+| id | lever | question |
+|---|---|---|
+| pb-ab-S-fwd | `beastCaptureForward=true` | **Ran: depth-4 rejects** the depth-3 pace effect (−10.7 ± 3.5 → −1.7 ± 7.2); capture fires 0.48/game. `docs/research/sim-beast-forward-2026-09-17.md` |
+| pb-ab-S-diag | `beastMove=diagFwdBack` | **Ran: reject** — white score +2.4 ± 2.3, capped +0.6 ± 0.4. |
+| pb-ab-M-any | `maesterSwapAny=true` | **Ran: null** on balance/draws; plies −5.7 ± 3.6 (free buff on taste). |
+| pb-ab-M-enemy | `maesterSwapEnemy=true` | **Ran: null** — the toggle is inert in play. |
+| pb-ab-L-return | `paladinReturn=true` | **Ran: reject** — white +2.3 ± 2.0, interest min-use −4.6 ± 1.8. |
+
+Parallel routes the same evening: guard levers re-measured (`docs/research/sim-guard-2026-09-17.md`:
+cap-pawns and step-2 null, `guardImmune=false` rejected — interest −0.015 ± 0.009, guard survival
+97% → 73%); capital rule **C1 built** (`guardNoCapital`, off) and measured **null** (decisive
++0.3 ± 0.3 — guards rarely enter the centre); **archer+beast factorial additive**
+(`docs/research/sim-combo-ab-2026-09-17.md`); placement: guard near/far flat, archers apart
+borderline better (decisive +3.7 ± 2.8, `sim/out/pl-arch-*.summary.json`); **values refreshed**
+under the adopted archer: L 3.74, M 2.82, S 3.68 (`ARCHER_V` 505 from the rook bracket).
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard
