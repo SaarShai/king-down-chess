@@ -1,0 +1,15 @@
+{
+  "id": "la.LA",
+  "games": 1600,
+  "ai": {
+    "depth": 3
+  },
+  "seed": 31,
+  "openingRandomPlies": 4,
+  "commonSeeds": true,
+  "backRanks": {
+    "sample": 40,
+    "pool": "QLRRBBNNAAGMMSS"
+  },
+  "note": "paladin+archer factorial, LA arm: base pool plus the paladin (L) and both archers (A) = the shipped pool; interaction = LA - L - A + base."
+}
