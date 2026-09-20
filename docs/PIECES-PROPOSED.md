@@ -115,8 +115,9 @@ only leaper among the fairy pieces, and a knight is the shape every player alrea
 **Built 2026-09-17; the watch note fired.** The full eight-direction step **does not converge** —
 even priced at 5.04 pawns the Reaver army beat a knight army by +188 ± 32 Elo — so it is rejected as
 overpowered. The orthogonal-only step is the lab default: **4.04 ± 0.56 pawns**, +7.1 ± 2.5 decisive
-points against a knight control, draws −7 points, balance neutral. Full record:
-`docs/research/sim-reaver-2026-09-17.md`.
+points at depth 3, balance neutral — but the sharpening **does not survive depth 4** (+0.5 ± 6.5) and
+a pair of Reavers does not interact (−2.3 ± 3.9), so the piece is **not confirmed** and not a pool
+candidate. Full record: `docs/research/sim-reaver-2026-09-17.md`.
 
 ## Set aside
 

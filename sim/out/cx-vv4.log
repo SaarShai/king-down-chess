@@ -1,0 +1,157 @@
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --spec sim/specs/newpieces/cx-vv4.VN.json --workers 16
+
+[cx-vv4.VN] 1000 games (0 already done), 1000 to play on 16 workers -> sim/out/cx-vv4.VN.jsonl
+[cx-vv4.VN] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[cx-vv4.VN] rules {}, values {}
+[cx-vv4.VN] 9/1000  4.5 games/s  ETA 0h03m40s
+[cx-vv4.VN] 33/1000  8.2 games/s  ETA 0h01m57s
+[cx-vv4.VN] 61/1000  10.2 games/s  ETA 0h01m32s
+[cx-vv4.VN] 93/1000  11.6 games/s  ETA 0h01m18s
+[cx-vv4.VN] 120/1000  12.0 games/s  ETA 0h01m13s
+[cx-vv4.VN] 143/1000  11.9 games/s  ETA 0h01m11s
+[cx-vv4.VN] 170/1000  12.1 games/s  ETA 0h01m08s
+[cx-vv4.VN] 190/1000  11.9 games/s  ETA 0h01m08s
+[cx-vv4.VN] 211/1000  11.7 games/s  ETA 0h01m07s
+[cx-vv4.VN] 232/1000  11.6 games/s  ETA 0h01m06s
+[cx-vv4.VN] 257/1000  11.7 games/s  ETA 0h01m03s
+[cx-vv4.VN] 281/1000  11.7 games/s  ETA 0h01m01s
+[cx-vv4.VN] 305/1000  11.7 games/s  ETA 0h00m59s
+[cx-vv4.VN] 328/1000  11.7 games/s  ETA 0h00m57s
+[cx-vv4.VN] 352/1000  11.7 games/s  ETA 0h00m55s
+[cx-vv4.VN] 376/1000  11.7 games/s  ETA 0h00m53s
+[cx-vv4.VN] 404/1000  11.9 games/s  ETA 0h00m50s
+[cx-vv4.VN] 425/1000  11.8 games/s  ETA 0h00m48s
+[cx-vv4.VN] 452/1000  11.9 games/s  ETA 0h00m46s
+[cx-vv4.VN] 480/1000  12.0 games/s  ETA 0h00m43s
+[cx-vv4.VN] 512/1000  12.2 games/s  ETA 0h00m40s
+[cx-vv4.VN] 534/1000  12.1 games/s  ETA 0h00m38s
+[cx-vv4.VN] 559/1000  12.1 games/s  ETA 0h00m36s
+[cx-vv4.VN] 577/1000  12.0 games/s  ETA 0h00m35s
+[cx-vv4.VN] 597/1000  11.9 games/s  ETA 0h00m33s
+[cx-vv4.VN] 617/1000  11.9 games/s  ETA 0h00m32s
+[cx-vv4.VN] 638/1000  11.8 games/s  ETA 0h00m30s
+[cx-vv4.VN] 665/1000  11.9 games/s  ETA 0h00m28s
+[cx-vv4.VN] 692/1000  11.9 games/s  ETA 0h00m25s
+[cx-vv4.VN] 713/1000  11.9 games/s  ETA 0h00m24s
+[cx-vv4.VN] 735/1000  11.8 games/s  ETA 0h00m22s
+[cx-vv4.VN] 762/1000  11.9 games/s  ETA 0h00m20s
+[cx-vv4.VN] 787/1000  11.9 games/s  ETA 0h00m17s
+[cx-vv4.VN] 808/1000  11.9 games/s  ETA 0h00m16s
+[cx-vv4.VN] 837/1000  11.9 games/s  ETA 0h00m13s
+[cx-vv4.VN] 858/1000  11.9 games/s  ETA 0h00m11s
+[cx-vv4.VN] 881/1000  11.9 games/s  ETA 0h00m10s
+[cx-vv4.VN] 908/1000  11.9 games/s  ETA 0h00m07s
+[cx-vv4.VN] 936/1000  12.0 games/s  ETA 0h00m05s
+[cx-vv4.VN] 958/1000  12.0 games/s  ETA 0h00m03s
+[cx-vv4.VN] 978/1000  11.9 games/s  ETA 0h00m01s
+[cx-vv4.VN] 998/1000  11.9 games/s  ETA 0h00m00s
+[cx-vv4.VN] 1000 games in 0h01m24s (11.8 games/s)
+[cx-vv4.VN] summary -> sim/out/cx-vv4.VN.summary.json
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --spec sim/specs/newpieces/cx-vv4.NV.json --workers 16
+
+[cx-vv4.NV] 1000 games (0 already done), 1000 to play on 16 workers -> sim/out/cx-vv4.NV.jsonl
+[cx-vv4.NV] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[cx-vv4.NV] rules {}, values {}
+[cx-vv4.NV] 11/1000  5.5 games/s  ETA 0h02m59s
+[cx-vv4.NV] 38/1000  9.5 games/s  ETA 0h01m41s
+[cx-vv4.NV] 65/1000  10.8 games/s  ETA 0h01m26s
+[cx-vv4.NV] 89/1000  11.1 games/s  ETA 0h01m21s
+[cx-vv4.NV] 110/1000  11.0 games/s  ETA 0h01m20s
+[cx-vv4.NV] 133/1000  11.1 games/s  ETA 0h01m18s
+[cx-vv4.NV] 157/1000  11.2 games/s  ETA 0h01m15s
+[cx-vv4.NV] 178/1000  11.1 games/s  ETA 0h01m13s
+[cx-vv4.NV] 200/1000  11.1 games/s  ETA 0h01m12s
+[cx-vv4.NV] 225/1000  11.2 games/s  ETA 0h01m08s
+[cx-vv4.NV] 252/1000  11.4 games/s  ETA 0h01m05s
+[cx-vv4.NV] 275/1000  11.4 games/s  ETA 0h01m03s
+[cx-vv4.NV] 298/1000  11.5 games/s  ETA 0h01m01s
+[cx-vv4.NV] 321/1000  11.5 games/s  ETA 0h00m59s
+[cx-vv4.NV] 349/1000  11.6 games/s  ETA 0h00m56s
+[cx-vv4.NV] 371/1000  11.6 games/s  ETA 0h00m54s
+[cx-vv4.NV] 391/1000  11.5 games/s  ETA 0h00m53s
+[cx-vv4.NV] 417/1000  11.6 games/s  ETA 0h00m50s
+[cx-vv4.NV] 441/1000  11.6 games/s  ETA 0h00m48s
+[cx-vv4.NV] 469/1000  11.7 games/s  ETA 0h00m45s
+[cx-vv4.NV] 493/1000  11.7 games/s  ETA 0h00m43s
+[cx-vv4.NV] 519/1000  11.8 games/s  ETA 0h00m40s
+[cx-vv4.NV] 542/1000  11.8 games/s  ETA 0h00m38s
+[cx-vv4.NV] 567/1000  11.8 games/s  ETA 0h00m36s
+[cx-vv4.NV] 590/1000  11.8 games/s  ETA 0h00m34s
+[cx-vv4.NV] 612/1000  11.8 games/s  ETA 0h00m33s
+[cx-vv4.NV] 635/1000  11.7 games/s  ETA 0h00m31s
+[cx-vv4.NV] 660/1000  11.8 games/s  ETA 0h00m28s
+[cx-vv4.NV] 683/1000  11.8 games/s  ETA 0h00m26s
+[cx-vv4.NV] 707/1000  11.8 games/s  ETA 0h00m24s
+[cx-vv4.NV] 725/1000  11.7 games/s  ETA 0h00m23s
+[cx-vv4.NV] 744/1000  11.6 games/s  ETA 0h00m22s
+[cx-vv4.NV] 767/1000  11.6 games/s  ETA 0h00m20s
+[cx-vv4.NV] 785/1000  11.5 games/s  ETA 0h00m18s
+[cx-vv4.NV] 804/1000  11.5 games/s  ETA 0h00m17s
+[cx-vv4.NV] 822/1000  11.4 games/s  ETA 0h00m15s
+[cx-vv4.NV] 838/1000  11.3 games/s  ETA 0h00m14s
+[cx-vv4.NV] 861/1000  11.3 games/s  ETA 0h00m12s
+[cx-vv4.NV] 885/1000  11.3 games/s  ETA 0h00m10s
+[cx-vv4.NV] 905/1000  11.3 games/s  ETA 0h00m08s
+[cx-vv4.NV] 928/1000  11.3 games/s  ETA 0h00m06s
+[cx-vv4.NV] 946/1000  11.3 games/s  ETA 0h00m04s
+[cx-vv4.NV] 972/1000  11.3 games/s  ETA 0h00m02s
+[cx-vv4.NV] 993/1000  11.3 games/s  ETA 0h00m00s
+[cx-vv4.NV] 1000 games in 0h01m28s (11.2 games/s)
+[cx-vv4.NV] summary -> sim/out/cx-vv4.NV.summary.json
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --spec sim/specs/newpieces/cx-vv4.VV.json --workers 16
+
+[cx-vv4.VV] 1000 games (0 already done), 1000 to play on 16 workers -> sim/out/cx-vv4.VV.jsonl
+[cx-vv4.VV] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[cx-vv4.VV] rules {}, values {}
+[cx-vv4.VV] 5/1000  2.5 games/s  ETA 0h06m38s
+[cx-vv4.VV] 25/1000  6.2 games/s  ETA 0h02m36s
+[cx-vv4.VV] 41/1000  6.8 games/s  ETA 0h02m20s
+[cx-vv4.VV] 66/1000  8.2 games/s  ETA 0h01m53s
+[cx-vv4.VV] 85/1000  8.5 games/s  ETA 0h01m47s
+[cx-vv4.VV] 108/1000  9.0 games/s  ETA 0h01m39s
+[cx-vv4.VV] 127/1000  9.1 games/s  ETA 0h01m36s
+[cx-vv4.VV] 146/1000  9.1 games/s  ETA 0h01m33s
+[cx-vv4.VV] 166/1000  9.2 games/s  ETA 0h01m30s
+[cx-vv4.VV] 188/1000  9.4 games/s  ETA 0h01m26s
+[cx-vv4.VV] 205/1000  9.3 games/s  ETA 0h01m25s
+[cx-vv4.VV] 222/1000  9.2 games/s  ETA 0h01m24s
+[cx-vv4.VV] 251/1000  9.6 games/s  ETA 0h01m17s
+[cx-vv4.VV] 277/1000  9.9 games/s  ETA 0h01m13s
+[cx-vv4.VV] 300/1000  10.0 games/s  ETA 0h01m10s
+[cx-vv4.VV] 325/1000  10.1 games/s  ETA 0h01m06s
+[cx-vv4.VV] 348/1000  10.2 games/s  ETA 0h01m03s
+[cx-vv4.VV] 364/1000  10.1 games/s  ETA 0h01m02s
+[cx-vv4.VV] 386/1000  10.2 games/s  ETA 0h01m00s
+[cx-vv4.VV] 407/1000  10.2 games/s  ETA 0h00m58s
+[cx-vv4.VV] 432/1000  10.3 games/s  ETA 0h00m55s
+[cx-vv4.VV] 452/1000  10.3 games/s  ETA 0h00m53s
+[cx-vv4.VV] 476/1000  10.3 games/s  ETA 0h00m50s
+[cx-vv4.VV] 499/1000  10.4 games/s  ETA 0h00m48s
+[cx-vv4.VV] 522/1000  10.4 games/s  ETA 0h00m45s
+[cx-vv4.VV] 542/1000  10.4 games/s  ETA 0h00m43s
+[cx-vv4.VV] 566/1000  10.5 games/s  ETA 0h00m41s
+[cx-vv4.VV] 591/1000  10.5 games/s  ETA 0h00m38s
+[cx-vv4.VV] 614/1000  10.6 games/s  ETA 0h00m36s
+[cx-vv4.VV] 637/1000  10.6 games/s  ETA 0h00m34s
+[cx-vv4.VV] 665/1000  10.7 games/s  ETA 0h00m31s
+[cx-vv4.VV] 690/1000  10.8 games/s  ETA 0h00m28s
+[cx-vv4.VV] 715/1000  10.8 games/s  ETA 0h00m26s
+[cx-vv4.VV] 743/1000  10.9 games/s  ETA 0h00m23s
+[cx-vv4.VV] 762/1000  10.9 games/s  ETA 0h00m21s
+[cx-vv4.VV] 787/1000  10.9 games/s  ETA 0h00m19s
+[cx-vv4.VV] 807/1000  10.9 games/s  ETA 0h00m17s
+[cx-vv4.VV] 828/1000  10.9 games/s  ETA 0h00m15s
+[cx-vv4.VV] 850/1000  10.9 games/s  ETA 0h00m13s
+[cx-vv4.VV] 876/1000  10.9 games/s  ETA 0h00m11s
+[cx-vv4.VV] 899/1000  11.0 games/s  ETA 0h00m09s
+[cx-vv4.VV] 926/1000  11.0 games/s  ETA 0h00m06s
+[cx-vv4.VV] 947/1000  11.0 games/s  ETA 0h00m04s
+[cx-vv4.VV] 975/1000  11.1 games/s  ETA 0h00m02s
+[cx-vv4.VV] 1000 games in 0h01m30s (11.1 games/s)
+[cx-vv4.VV] summary -> sim/out/cx-vv4.VV.summary.json

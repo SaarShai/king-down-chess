@@ -90,7 +90,7 @@ const CANDIDATES: Candidate[] = [
     id: 'reaver_ortho', name: 'Reaver, orthogonal escape only (lab variant, measured value)', status: 'lab',
     behaviour: 'As the Reaver, but the post-capture step may only use the four orthogonal directions.',
     frequency: 'measured: 75% of its captures use the step; roughly as active as the full reading',
-    decisive: 'measured against a knight control (2,000 paired games): decisive share +7.1 +/- 2.5 points, draws 25.2% -> 18.1%, balance +1.1 +/- 2.7 (neutral); odds match prices it at 4.04 +/- 0.56 pawns (knight 2.96), converging',
+    decisive: 'measured against a knight control (2,000 paired games): decisive share +7.1 +/- 2.5 points, draws 25.2% -> 18.1%, balance +1.1 +/- 2.7 (neutral); odds match prices it at 4.04 +/- 0.56 pawns (knight 2.96), converging; a depth-4 confirmation gives +0.5 +/- 6.5 decisive points (not confirmed) and two Reavers show no combination interaction (-2.3 +/- 3.9)',
     pieces: 'two plus the victim', counterplay: 'fewer escape squares to cover, so counterplay is easier than against the full reading',
   },
   {

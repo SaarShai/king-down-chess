@@ -77,9 +77,10 @@ Interaction on decisive share: **+3.7 ± 4.9 points** — the interval covers ze
 does not appear: the Beast captures 1.51 a game alone and **1.48** with an Ogre beside it, and the
 Ogre's shove count is unchanged. The hypothesised "shove them into the bite" does not happen.
 
-**Two Reavers** (2V vs 2N, 1,000 paired games): decisive **+4.5 ± 2.9 points**, draws 14.2% → 9.7%,
-plies −12.2 ± 3.4, balance neutral. Two escape knights compound the sharpening, but this two-arm
-design cannot separate compounding from an interaction; a four-arm (NN / VN / NV / VV) run would.
+**Two Reavers**, completed with the four-arm factorial (NN / VN / NV / VV, 1,000 paired games an
+arm): decisive NN 85.8%, VN 88.4%, NV 90.0%, VV 90.3%; single-slot effects +2.6 and +4.2 points;
+**interaction −2.3 ± 3.9 points** — no super-additivity. Two escape knights add up, no more, and the
+piece's depth-4 sharpening does not survive (`docs/research/sim-reaver-2026-09-17.md`).
 
 ## 5. Game-breaking, as a measurement
 

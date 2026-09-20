@@ -41,13 +41,32 @@ the recapture" sounds like a story, "a knight that steps 75% of the time and is 
 sounds like a stat line. **Calibration for future builds: score the measured description, not the
 pitch** — and expect a well-behaved piece to land near 2, not 3.
 
+## Depth-4 confirmation and combination check (same day, follow-up)
+
+The plan's bar for a new piece is a second depth and a look at combinations. Both were run.
+
+**Depth 4, 400 paired games** (`np-V-ortho-d4` vs `np-N-d4`): decisive **+0.5 ± 6.5 points**, plies
++3.4 ± 7.8, balance −3.7 ± 5.5. The depth-3 sharpening (+7.1 ± 2.5) **does not survive** — the
+interval now covers zero and the point estimate is near it. Per the project rule "a result that only
+holds at depth 3 is not a result", the orthogonal reading is **not confirmed**.
+
+**Four-arm combination check** (fixed template, slots at files b and g, 1,000 paired games an arm):
+
+| arm | decisive | draws | plies |
+|---|---|---|---|
+| NN (two knights) | 85.8% | 14.2% | 90 |
+| VN (one Reaver) | 88.4% | 11.6% | 82 |
+| NV (one Reaver, other slot) | 90.0% | 10.0% | 83 |
+| VV (two Reavers) | 90.3% | 9.7% | 78 |
+
+Single-slot effects: +2.6 and +4.2 decisive points. Interaction (VV − VN − NV + NN): **−2.3 ± 3.9
+points** — no super-additivity; two Reavers add up, no more. Not a game-breaking combination.
+
 ## Verdict
 
-**Lab-only, orthogonal reading.** The full step is rejected on measurement (no fixed point). The
-orthogonal reading is a sound, sharp piece: neutral balance, seven decisive points of sharpening,
-and a price the lab can converge on. It stays out of `POOL` and the promotion list, and reaches a
-board only through `--pool`/`--rule` or an explicit back rank.
-
-Bounded next step if the piece is ever considered for the pool: a depth-4 confirmation of the
-`ortho` composition (the depth-3 effect is half the full reading's and could shrink further), and a
-Muller step-2 pass (pawn-compensated arms) to pin the 4.04-pawn reading exactly.
+**Lab-only, and not a candidate for the pool.** The full step is rejected on measurement (no fixed
+point). The orthogonal reading prices well (4.04 ± 0.56 pawns) and sharpens at depth 3, but the
+sharpening does not survive depth 4 and a pair of them does not interact. The piece stays out of
+`POOL` and the promotion list and reaches a board only through `--pool`/`--rule` or an explicit back
+rank. If it is ever revisited: Muller step 2 for the price, and a deeper search before believing the
+depth-3 sharpening.
