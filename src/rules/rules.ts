@@ -143,6 +143,8 @@ export interface Rules {
    * a guard may not reach is a square it does not attack, which `isAttacked` mirrors.
    */
   guardNoSecondRank: boolean;
+  /** Lab-only, off by default: a guard may never finish a move on a capital square (d4 e4 d5 e5). */
+  guardNoCapital: boolean;
   /**
    * 1 = each guard captures **once in its lifetime** and never again; 0 = no limit (shipped).
    *
@@ -271,6 +273,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   guardStep: 1 as 1 | 2,
   guardDoubleFirst: 'off' as GuardDoubleFirst,
   guardNoSecondRank: false,
+  guardNoCapital: false,
   guardCaptureLimit: 0 as 0 | 1,
   archerMove: 'any' as ArcherMove,
   // Adopted 2026-09-17 (owner call): the forward diagonal-2 squares on top of classic. Confirmed

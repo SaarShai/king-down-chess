@@ -527,6 +527,22 @@ describe('rule toggles', () => {
     crossCheckAttacks(132);
   });
 
+  it('guardNoCapital=true: a guard may not enter the capital, d4 e4 d5 e5', () => {
+    const pos = fromFen('7k/8/8/8/8/3G4/8/K7 w - - 0 1'); // a white guard on d3, beside the capital
+    expect(lan(pos, movesFrom(pos, 'd3')))
+      .toEqual(['Gd3-c2', 'Gd3-c3', 'Gd3-c4', 'Gd3-d2', 'Gd3-d4', 'Gd3-e2', 'Gd3-e3', 'Gd3-e4']);
+    setRules({ guardNoCapital: true });
+    expect(lan(pos, movesFrom(pos, 'd3')))
+      .toEqual(['Gd3-c2', 'Gd3-c3', 'Gd3-c4', 'Gd3-d2', 'Gd3-e2', 'Gd3-e3']); // d4 and e4 gone, the rest untouched
+    // The ban is on landing, not on standing: a guard already inside the capital still moves out.
+    const inside = fromFen('7k/8/8/8/3G4/8/8/K7 w - - 0 1');
+    expect(lan(inside, movesFrom(inside, 'd4'))).toContain('Gd4-d3');
+    expect(lan(inside, movesFrom(inside, 'd4'))).not.toContain('Gd4-d5');
+    // With the lab's capturing guard on, a square it may not enter is a square it does not attack.
+    setRules({ guardCaptures: 'any', guardNoCapital: true });
+    crossCheckAttacks(133);
+  });
+
   it('the pool holds one guard per army', () => {
     expect(POOL).toBe('QLRRBBNNAAGMMSS');
     expect(POOL.split('G')).toHaveLength(2);

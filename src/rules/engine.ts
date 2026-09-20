@@ -147,9 +147,16 @@ function step(s: number, df: number, dr: number): number {
   return f < 0 || f > 7 || r < 0 || r > 7 ? -1 : sq(f, r);
 }
 const fwd = (c: Color): number => (c === WHITE ? 1 : -1);
-/** `guardNoSecondRank`: may the guard `p` finish a move on `to`? Its own second rank is rank 2 / rank 7. */
-const guardMayLand = (p: number, to: number): boolean =>
-  !RULES.guardNoSecondRank || typeOf(p) !== G || rank(to) !== (colorOf(p) === WHITE ? 1 : 6);
+/**
+ * `guardNoSecondRank` / `guardNoCapital`: may the guard `p` finish a move on `to`? The first bans
+ * its own second rank (rank 2 / rank 7), the second the capital (d4 e4 d5 e5). Landing bans only,
+ * never starting ones — and the one predicate `isAttacked` and the maester swaps share.
+ */
+const guardMayLand = (p: number, to: number): boolean => {
+  if (typeOf(p) !== G) return true;
+  if (RULES.guardNoSecondRank && rank(to) === (colorOf(p) === WHITE ? 1 : 6)) return false;
+  return !RULES.guardNoCapital || !CAPITAL.includes(to);
+};
 /** King-move distance: 1 = adjacent. Tells a long swap from the one the 8 neighbours already made. */
 const chebyshev = (a: number, b: number): number => Math.max(Math.abs(file(a) - file(b)), Math.abs(rank(a) - rank(b)));
 /**
@@ -324,7 +331,7 @@ export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Mo
         if (to >= 0 && !board[to]) out.push({ from, to, captures: [] });
       }
       // One filter over everything this guard just generated, so no branch above has to know.
-      if (RULES.guardNoSecondRank) for (let i = out.length - 1; i >= n0; i--) if (!guardMayLand(p, out[i].to)) out.splice(i, 1);
+      if (RULES.guardNoSecondRank || RULES.guardNoCapital) for (let i = out.length - 1; i >= n0; i--) if (!guardMayLand(p, out[i].to)) out.splice(i, 1);
       return;
     }
     case B: return slider(board, from, c, p, DIAG, mode, out);
