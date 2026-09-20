@@ -21,7 +21,12 @@ export type PromotionSet = 'anyNonKing' | 'standard' | 'anyNonKingNoFairy' | 'an
 /** Squares an archer may step to (move-only either way). `fwdBack` is the 2021 concept: 1 ahead or 1 back. */
 export type ArcherMove = 'ortho' | 'any' | 'fwdBack';
 /** Which squares an archer shoots, blockers ignored. `forward3` is the only asymmetric set, so it is read per side. */
-export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3';
+/**
+ * Archer shot set. `plusDiagFwd2` (2026-09-17) is the measured middle ground: classic plus the two
+ * **forward** two-square diagonals, so each side's widening faces the enemy. It is colour-dependent,
+ * like `forward3` — see `archerShotsFor` in engine.ts.
+ */
+export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plusDiagFwd2';
 /** What a guard may take by moving onto it. `any` turns it into a commoner that gives check. */
 export type GuardCaptures = 'none' | 'pawns' | 'any';
 /** Lab: the guard's double step from its home rank — none, through an empty square, or over anything. */
@@ -337,7 +342,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   guardDoubleFirst: ['off', 'slide', 'leap'],
   guardCaptureLimit: [0, 1],
   archerMove: ['ortho', 'any', 'fwdBack'],
-  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3'],
+  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2'],
   beastMove: ['forward', 'any', 'diagFwdBack'],
   beastCapture: ['adjacent', 'diagForward'],
   maesterStep: [1, 2],

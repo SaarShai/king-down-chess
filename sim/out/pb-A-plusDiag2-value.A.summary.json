@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "pb-A-plusDiag2-value.A",
+    "games": 500,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 73,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerShots": "plusDiag2"
+    },
+    "asymmetric": [
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 500,
+  "seconds": 54,
+  "whiteScore": 0.515,
+  "whiteWins": 230,
+  "draws": 55,
+  "blackWins": 215,
+  "meanPlies": 87.2,
+  "reasons": {
+    "adjudicatedResign": 445,
+    "drawRepetition": 10,
+    "drawMaterial": 7,
+    "draw50": 2,
+    "adjudicatedDraw": 35,
+    "plyCap": 1
+  }
+}

@@ -75,7 +75,10 @@ lever). Report: **`docs/research/sim-piece-balance-2026-09-17.md`**.
   `paladinJumpsFriends=false` — rejected (decisive −3.9 ± 2.6, draws +3.8 ± 2.5);
   `archerMove=fwdBack` — rejected (decisive −4.0 ± 2.8, interest min-use −2.6 ± 1.0);
   `beastMove=forward` — rejected (interest min-use −6.0 ± 1.2).
-- Follow-ups launched: `pb-A-plusDiag2-value` (odds match), `pb-ab-A-ring2` (depth 3).
+- Follow-ups ran: `ring2` sharpens the same (+7.7 decisive at depth 3, plies −17.1);
+  `plusDiag2` value **> 4.66 pawns** (classic is 3.73 ± 0.42 by the same method);
+  `plusDiagFwd2` (new forward-only set) A/B +8.2 ± 2.7 decisive and value **> 4.66**.
+  **The sharpening and the power are one lever** — owner decision in the report.
 
 ## Dropped
 

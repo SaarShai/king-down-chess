@@ -14,3 +14,370 @@
 [pb-A-plusDiag2-value.A] 212/500  9.6 games/s  ETA 0h00m29s
 [pb-A-plusDiag2-value.A] 229/500  9.5 games/s  ETA 0h00m28s
 [pb-A-plusDiag2-value.A] 247/500  9.5 games/s  ETA 0h00m26s
+[pb-A-plusDiag2-value.A] 263/500  9.4 games/s  ETA 0h00m25s
+[pb-A-plusDiag2-value.A] 282/500  9.4 games/s  ETA 0h00m23s
+[pb-A-plusDiag2-value.A] 298/500  9.3 games/s  ETA 0h00m21s
+[pb-A-plusDiag2-value.A] 317/500  9.3 games/s  ETA 0h00m19s
+[pb-A-plusDiag2-value.A] 336/500  9.3 games/s  ETA 0h00m17s
+[pb-A-plusDiag2-value.A] 355/500  9.3 games/s  ETA 0h00m15s
+[pb-A-plusDiag2-value.A] 372/500  9.3 games/s  ETA 0h00m13s
+[pb-A-plusDiag2-value.A] 386/500  9.2 games/s  ETA 0h00m12s
+[pb-A-plusDiag2-value.A] 406/500  9.2 games/s  ETA 0h00m10s
+[pb-A-plusDiag2-value.A] 423/500  9.2 games/s  ETA 0h00m08s
+[pb-A-plusDiag2-value.A] 446/500  9.3 games/s  ETA 0h00m05s
+[pb-A-plusDiag2-value.A] 465/500  9.3 games/s  ETA 0h00m03s
+[pb-A-plusDiag2-value.A] 487/500  9.4 games/s  ETA 0h00m01s
+[pb-A-plusDiag2-value.A] 500 games in 0h00m54s (9.3 games/s)
+[pb-A-plusDiag2-value.A] summary -> sim/out/pb-A-plusDiag2-value.A.summary.json
+# Piece values — pb-A-plusDiag2-value
+
+Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **knight** of the
+classic arrangement `RNBQKBNR` with one fairy piece, on one side only, and plays
+colour-reversed pairs. The last arm gives White pawn odds; it converts Elo into pawns.
+
+Depth 3, 500 games per arm, 4 random opening plies.
+Rules: `{"archerShots":"plusDiag2"}`.
+Engine values: the shipped constants.
+
+## Arms (scores are the fairy army's, folded over the colour swap)
+| arm | games | pairs | pentanomial | score | Elo ±95% | nElo | LOS | LLR | SPRT | draws | capped | plies |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A | 500 | 250 | [28, 9, 86, 40, 87] | 0.649 | +107 ± 28 | +113 | 100.0% | 1.67 | continue | 10.8% | 0.2% | 87 |
+
+**One pawn = 64 Elo** at this depth
+(carried over with `--eloPerPawn`; no calibration arm was played here). Every
+implied value below carries that calibration error on top of its own.
+
+
+## Implied values
+| piece | Elo vs knight | Δ pawns | implied value (pawns) | engine seed | research prior | next seed (cp) |
+|---|---|---|---|---|---|---|
+| A (archer) | +107 ± 28 | +1.67 ± 0.44 ** | > 4.66 ** | 3.37 | 3.50 | 483 |
+
+Implied value = knight (3.16) + Elo / 64.
+
+** 1 swap(s) fall outside the linear band of ±1.5 pawns that Muller's method needs. The score
+saturates there, so the conversion under-reads the gap: take the marked rows as "far from a knight,
+on the side the bound points", not as a number. The fix is Muller's second step — hand the strong side a pawn and play
+again until the result brackets 50%. The next-seed column floors at 50 cp for the same reason.
+
+
+## Muller fixed-point update
+Write the "next seed" column into `src/ai/eval.ts`, then run this experiment again. The values are
+converged when a pass moves no piece by more than its error bar. A seed that inverts a plausible
+exchange makes self-play blind, so never stop after one pass.
+
+```ts
+export const ARCHER_V = 483;
+```
+
+[pb-ab-A-ring2.base] 1600 games (0 already done), 1600 to play on 14 workers -> sim/out/pb-ab-A-ring2.base.jsonl
+[pb-ab-A-ring2.base] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[pb-ab-A-ring2.base] rules {}, values {}
+[pb-ab-A-ring2.base] 4/1600  2.0 games/s  ETA 0h13m18s
+[pb-ab-A-ring2.base] 17/1600  4.2 games/s  ETA 0h06m12s
+[pb-ab-A-ring2.base] 28/1600  4.7 games/s  ETA 0h05m37s
+[pb-ab-A-ring2.base] 48/1600  6.0 games/s  ETA 0h04m18s
+[pb-ab-A-ring2.base] 61/1600  6.1 games/s  ETA 0h04m12s
+[pb-ab-A-ring2.base] 74/1600  6.2 games/s  ETA 0h04m07s
+[pb-ab-A-ring2.base] 91/1600  6.5 games/s  ETA 0h03m52s
+[pb-ab-A-ring2.base] 104/1600  6.5 games/s  ETA 0h03m50s
+[pb-ab-A-ring2.base] 119/1600  6.6 games/s  ETA 0h03m44s
+[pb-ab-A-ring2.base] 133/1600  6.6 games/s  ETA 0h03m40s
+[pb-ab-A-ring2.base] 148/1600  6.7 games/s  ETA 0h03m35s
+[pb-ab-A-ring2.base] 163/1600  6.8 games/s  ETA 0h03m31s
+[pb-ab-A-ring2.base] 179/1600  6.9 games/s  ETA 0h03m26s
+[pb-ab-A-ring2.base] 191/1600  6.8 games/s  ETA 0h03m26s
+[pb-ab-A-ring2.base] 208/1600  6.9 games/s  ETA 0h03m20s
+[pb-ab-A-ring2.base] 227/1600  7.1 games/s  ETA 0h03m13s
+[pb-ab-A-ring2.base] 242/1600  7.1 games/s  ETA 0h03m10s
+[pb-ab-A-ring2.base] 257/1600  7.1 games/s  ETA 0h03m08s
+[pb-ab-A-ring2.base] 271/1600  7.1 games/s  ETA 0h03m06s
+[pb-ab-A-ring2.base] 284/1600  7.1 games/s  ETA 0h03m05s
+[pb-ab-A-ring2.base] 299/1600  7.1 games/s  ETA 0h03m02s
+[pb-ab-A-ring2.base] 314/1600  7.1 games/s  ETA 0h03m00s
+[pb-ab-A-ring2.base] 332/1600  7.2 games/s  ETA 0h02m55s
+[pb-ab-A-ring2.base] 344/1600  7.2 games/s  ETA 0h02m55s
+[pb-ab-A-ring2.base] 356/1600  7.1 games/s  ETA 0h02m54s
+[pb-ab-A-ring2.base] 369/1600  7.1 games/s  ETA 0h02m53s
+[pb-ab-A-ring2.base] 383/1600  7.1 games/s  ETA 0h02m51s
+[pb-ab-A-ring2.base] 399/1600  7.1 games/s  ETA 0h02m48s
+[pb-ab-A-ring2.base] 414/1600  7.1 games/s  ETA 0h02m46s
+[pb-ab-A-ring2.base] 429/1600  7.1 games/s  ETA 0h02m43s
+[pb-ab-A-ring2.base] 440/1600  7.1 games/s  ETA 0h02m43s
+[pb-ab-A-ring2.base] 458/1600  7.1 games/s  ETA 0h02m39s
+[pb-ab-A-ring2.base] 475/1600  7.2 games/s  ETA 0h02m36s
+[pb-ab-A-ring2.base] 492/1600  7.2 games/s  ETA 0h02m33s
+[pb-ab-A-ring2.base] 507/1600  7.2 games/s  ETA 0h02m31s
+[pb-ab-A-ring2.base] 524/1600  7.3 games/s  ETA 0h02m28s
+[pb-ab-A-ring2.base] 540/1600  7.3 games/s  ETA 0h02m25s
+[pb-ab-A-ring2.base] 557/1600  7.3 games/s  ETA 0h02m22s
+[pb-ab-A-ring2.base] 572/1600  7.3 games/s  ETA 0h02m20s
+[pb-ab-A-ring2.base] 589/1600  7.4 games/s  ETA 0h02m17s
+[pb-ab-A-ring2.base] 606/1600  7.4 games/s  ETA 0h02m14s
+[pb-ab-A-ring2.base] 621/1600  7.4 games/s  ETA 0h02m12s
+[pb-ab-A-ring2.base] 637/1600  7.4 games/s  ETA 0h02m10s
+[pb-ab-A-ring2.base] 652/1600  7.4 games/s  ETA 0h02m08s
+[pb-ab-A-ring2.base] 667/1600  7.4 games/s  ETA 0h02m06s
+[pb-ab-A-ring2.base] 683/1600  7.4 games/s  ETA 0h02m03s
+[pb-ab-A-ring2.base] 699/1600  7.4 games/s  ETA 0h02m01s
+[pb-ab-A-ring2.base] 715/1600  7.4 games/s  ETA 0h01m58s
+[pb-ab-A-ring2.base] 731/1600  7.5 games/s  ETA 0h01m56s
+[pb-ab-A-ring2.base] 745/1600  7.4 games/s  ETA 0h01m54s
+[pb-ab-A-ring2.base] 761/1600  7.5 games/s  ETA 0h01m52s
+[pb-ab-A-ring2.base] 780/1600  7.5 games/s  ETA 0h01m49s
+[pb-ab-A-ring2.base] 795/1600  7.5 games/s  ETA 0h01m47s
+[pb-ab-A-ring2.base] 813/1600  7.5 games/s  ETA 0h01m44s
+[pb-ab-A-ring2.base] 826/1600  7.5 games/s  ETA 0h01m43s
+[pb-ab-A-ring2.base] 843/1600  7.5 games/s  ETA 0h01m40s
+[pb-ab-A-ring2.base] 857/1600  7.5 games/s  ETA 0h01m38s
+[pb-ab-A-ring2.base] 867/1600  7.5 games/s  ETA 0h01m38s
+[pb-ab-A-ring2.base] 884/1600  7.5 games/s  ETA 0h01m35s
+[pb-ab-A-ring2.base] 902/1600  7.5 games/s  ETA 0h01m32s
+[pb-ab-A-ring2.base] 916/1600  7.5 games/s  ETA 0h01m31s
+[pb-ab-A-ring2.base] 934/1600  7.5 games/s  ETA 0h01m28s
+[pb-ab-A-ring2.base] 947/1600  7.5 games/s  ETA 0h01m26s
+[pb-ab-A-ring2.base] 961/1600  7.5 games/s  ETA 0h01m25s
+[pb-ab-A-ring2.base] 976/1600  7.5 games/s  ETA 0h01m23s
+[pb-ab-A-ring2.base] 992/1600  7.5 games/s  ETA 0h01m20s
+[pb-ab-A-ring2.base] 1007/1600  7.5 games/s  ETA 0h01m18s
+[pb-ab-A-ring2.base] 1023/1600  7.5 games/s  ETA 0h01m16s
+[pb-ab-A-ring2.base] 1039/1600  7.5 games/s  ETA 0h01m14s
+[pb-ab-A-ring2.base] 1057/1600  7.5 games/s  ETA 0h01m11s
+[pb-ab-A-ring2.base] 1070/1600  7.5 games/s  ETA 0h01m10s
+[pb-ab-A-ring2.base] 1087/1600  7.5 games/s  ETA 0h01m08s
+[pb-ab-A-ring2.base] 1104/1600  7.6 games/s  ETA 0h01m05s
+[pb-ab-A-ring2.base] 1120/1600  7.6 games/s  ETA 0h01m03s
+[pb-ab-A-ring2.base] 1131/1600  7.5 games/s  ETA 0h01m02s
+[pb-ab-A-ring2.base] 1148/1600  7.5 games/s  ETA 0h00m59s
+[pb-ab-A-ring2.base] 1168/1600  7.6 games/s  ETA 0h00m57s
+[pb-ab-A-ring2.base] 1182/1600  7.6 games/s  ETA 0h00m55s
+[pb-ab-A-ring2.base] 1198/1600  7.6 games/s  ETA 0h00m53s
+[pb-ab-A-ring2.base] 1218/1600  7.6 games/s  ETA 0h00m50s
+[pb-ab-A-ring2.base] 1235/1600  7.6 games/s  ETA 0h00m47s
+[pb-ab-A-ring2.base] 1253/1600  7.6 games/s  ETA 0h00m45s
+[pb-ab-A-ring2.base] 1266/1600  7.6 games/s  ETA 0h00m43s
+[pb-ab-A-ring2.base] 1279/1600  7.6 games/s  ETA 0h00m42s
+[pb-ab-A-ring2.base] 1293/1600  7.6 games/s  ETA 0h00m40s
+[pb-ab-A-ring2.base] 1307/1600  7.6 games/s  ETA 0h00m38s
+[pb-ab-A-ring2.base] 1319/1600  7.6 games/s  ETA 0h00m37s
+[pb-ab-A-ring2.base] 1334/1600  7.6 games/s  ETA 0h00m35s
+[pb-ab-A-ring2.base] 1346/1600  7.6 games/s  ETA 0h00m33s
+[pb-ab-A-ring2.base] 1362/1600  7.6 games/s  ETA 0h00m31s
+[pb-ab-A-ring2.base] 1375/1600  7.5 games/s  ETA 0h00m29s
+[pb-ab-A-ring2.base] 1390/1600  7.5 games/s  ETA 0h00m27s
+[pb-ab-A-ring2.base] 1406/1600  7.6 games/s  ETA 0h00m25s
+[pb-ab-A-ring2.base] 1419/1600  7.5 games/s  ETA 0h00m24s
+[pb-ab-A-ring2.base] 1431/1600  7.5 games/s  ETA 0h00m22s
+[pb-ab-A-ring2.base] 1445/1600  7.5 games/s  ETA 0h00m20s
+[pb-ab-A-ring2.base] 1459/1600  7.5 games/s  ETA 0h00m18s
+[pb-ab-A-ring2.base] 1471/1600  7.5 games/s  ETA 0h00m17s
+[pb-ab-A-ring2.base] 1489/1600  7.5 games/s  ETA 0h00m14s
+[pb-ab-A-ring2.base] 1506/1600  7.5 games/s  ETA 0h00m12s
+[pb-ab-A-ring2.base] 1520/1600  7.5 games/s  ETA 0h00m10s
+[pb-ab-A-ring2.base] 1530/1600  7.5 games/s  ETA 0h00m09s
+[pb-ab-A-ring2.base] 1543/1600  7.5 games/s  ETA 0h00m07s
+[pb-ab-A-ring2.base] 1558/1600  7.5 games/s  ETA 0h00m05s
+[pb-ab-A-ring2.base] 1575/1600  7.5 games/s  ETA 0h00m03s
+[pb-ab-A-ring2.base] 1585/1600  7.5 games/s  ETA 0h00m02s
+[pb-ab-A-ring2.base] 1598/1600  7.5 games/s  ETA 0h00m00s
+[pb-ab-A-ring2.base] 1600 games in 0h03m34s (7.5 games/s)
+[pb-ab-A-ring2.base] summary -> sim/out/pb-ab-A-ring2.base.summary.json
+[pb-ab-A-ring2.var] 1600 games (0 already done), 1600 to play on 14 workers -> sim/out/pb-ab-A-ring2.var.jsonl
+[pb-ab-A-ring2.var] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[pb-ab-A-ring2.var] rules {"archerShots":"ring2"}, values {}
+[pb-ab-A-ring2.var] 0/1600  0.0 games/s  ETA ?
+[pb-ab-A-ring2.var] 13/1600  3.2 games/s  ETA 0h08m08s
+[pb-ab-A-ring2.var] 23/1600  3.8 games/s  ETA 0h06m51s
+[pb-ab-A-ring2.var] 35/1600  4.4 games/s  ETA 0h05m57s
+[pb-ab-A-ring2.var] 48/1600  4.8 games/s  ETA 0h05m23s
+[pb-ab-A-ring2.var] 65/1600  5.4 games/s  ETA 0h04m43s
+[pb-ab-A-ring2.var] 79/1600  5.6 games/s  ETA 0h04m29s
+[pb-ab-A-ring2.var] 93/1600  5.8 games/s  ETA 0h04m19s
+[pb-ab-A-ring2.var] 108/1600  6.0 games/s  ETA 0h04m08s
+[pb-ab-A-ring2.var] 123/1600  6.1 games/s  ETA 0h04m00s
+[pb-ab-A-ring2.var] 137/1600  6.2 games/s  ETA 0h03m55s
+[pb-ab-A-ring2.var] 150/1600  6.2 games/s  ETA 0h03m52s
+[pb-ab-A-ring2.var] 168/1600  6.5 games/s  ETA 0h03m41s
+[pb-ab-A-ring2.var] 183/1600  6.5 games/s  ETA 0h03m36s
+[pb-ab-A-ring2.var] 196/1600  6.5 games/s  ETA 0h03m35s
+[pb-ab-A-ring2.var] 213/1600  6.6 games/s  ETA 0h03m28s
+[pb-ab-A-ring2.var] 229/1600  6.7 games/s  ETA 0h03m23s
+[pb-ab-A-ring2.var] 245/1600  6.8 games/s  ETA 0h03m19s
+[pb-ab-A-ring2.var] 258/1600  6.8 games/s  ETA 0h03m17s
+[pb-ab-A-ring2.var] 276/1600  6.9 games/s  ETA 0h03m12s
+[pb-ab-A-ring2.var] 291/1600  6.9 games/s  ETA 0h03m09s
+[pb-ab-A-ring2.var] 304/1600  6.9 games/s  ETA 0h03m07s
+[pb-ab-A-ring2.var] 324/1600  7.0 games/s  ETA 0h03m01s
+[pb-ab-A-ring2.var] 342/1600  7.1 games/s  ETA 0h02m56s
+[pb-ab-A-ring2.var] 355/1600  7.1 games/s  ETA 0h02m55s
+[pb-ab-A-ring2.var] 373/1600  7.2 games/s  ETA 0h02m51s
+[pb-ab-A-ring2.var] 390/1600  7.2 games/s  ETA 0h02m47s
+[pb-ab-A-ring2.var] 405/1600  7.2 games/s  ETA 0h02m45s
+[pb-ab-A-ring2.var] 418/1600  7.2 games/s  ETA 0h02m44s
+[pb-ab-A-ring2.var] 434/1600  7.2 games/s  ETA 0h02m41s
+[pb-ab-A-ring2.var] 445/1600  7.2 games/s  ETA 0h02m41s
+[pb-ab-A-ring2.var] 461/1600  7.2 games/s  ETA 0h02m38s
+[pb-ab-A-ring2.var] 479/1600  7.2 games/s  ETA 0h02m34s
+[pb-ab-A-ring2.var] 499/1600  7.3 games/s  ETA 0h02m30s
+[pb-ab-A-ring2.var] 512/1600  7.3 games/s  ETA 0h02m28s
+[pb-ab-A-ring2.var] 527/1600  7.3 games/s  ETA 0h02m26s
+[pb-ab-A-ring2.var] 542/1600  7.3 games/s  ETA 0h02m24s
+[pb-ab-A-ring2.var] 555/1600  7.3 games/s  ETA 0h02m23s
+[pb-ab-A-ring2.var] 572/1600  7.3 games/s  ETA 0h02m20s
+[pb-ab-A-ring2.var] 585/1600  7.3 games/s  ETA 0h02m18s
+[pb-ab-A-ring2.var] 603/1600  7.3 games/s  ETA 0h02m15s
+[pb-ab-A-ring2.var] 617/1600  7.3 games/s  ETA 0h02m13s
+[pb-ab-A-ring2.var] 634/1600  7.4 games/s  ETA 0h02m11s
+[pb-ab-A-ring2.var] 650/1600  7.4 games/s  ETA 0h02m08s
+[pb-ab-A-ring2.var] 667/1600  7.4 games/s  ETA 0h02m06s
+[pb-ab-A-ring2.var] 684/1600  7.4 games/s  ETA 0h02m03s
+[pb-ab-A-ring2.var] 699/1600  7.4 games/s  ETA 0h02m01s
+[pb-ab-A-ring2.var] 718/1600  7.5 games/s  ETA 0h01m58s
+[pb-ab-A-ring2.var] 734/1600  7.5 games/s  ETA 0h01m55s
+[pb-ab-A-ring2.var] 747/1600  7.5 games/s  ETA 0h01m54s
+[pb-ab-A-ring2.var] 764/1600  7.5 games/s  ETA 0h01m51s
+[pb-ab-A-ring2.var] 783/1600  7.5 games/s  ETA 0h01m48s
+[pb-ab-A-ring2.var] 800/1600  7.5 games/s  ETA 0h01m46s
+[pb-ab-A-ring2.var] 819/1600  7.6 games/s  ETA 0h01m43s
+[pb-ab-A-ring2.var] 835/1600  7.6 games/s  ETA 0h01m40s
+[pb-ab-A-ring2.var] 849/1600  7.6 games/s  ETA 0h01m39s
+[pb-ab-A-ring2.var] 863/1600  7.6 games/s  ETA 0h01m37s
+[pb-ab-A-ring2.var] 879/1600  7.6 games/s  ETA 0h01m35s
+[pb-ab-A-ring2.var] 891/1600  7.5 games/s  ETA 0h01m34s
+[pb-ab-A-ring2.var] 903/1600  7.5 games/s  ETA 0h01m32s
+[pb-ab-A-ring2.var] 914/1600  7.5 games/s  ETA 0h01m31s
+[pb-ab-A-ring2.var] 924/1600  7.4 games/s  ETA 0h01m30s
+[pb-ab-A-ring2.var] 936/1600  7.4 games/s  ETA 0h01m29s
+[pb-ab-A-ring2.var] 947/1600  7.4 games/s  ETA 0h01m28s
+[pb-ab-A-ring2.var] 952/1600  7.3 games/s  ETA 0h01m28s
+[pb-ab-A-ring2.var] 964/1600  7.3 games/s  ETA 0h01m27s
+[pb-ab-A-ring2.var] 975/1600  7.3 games/s  ETA 0h01m26s
+[pb-ab-A-ring2.var] 990/1600  7.3 games/s  ETA 0h01m23s
+[pb-ab-A-ring2.var] 1005/1600  7.3 games/s  ETA 0h01m21s
+[pb-ab-A-ring2.var] 1019/1600  7.3 games/s  ETA 0h01m19s
+[pb-ab-A-ring2.var] 1028/1600  7.2 games/s  ETA 0h01m19s
+[pb-ab-A-ring2.var] 1037/1600  7.2 games/s  ETA 0h01m18s
+[pb-ab-A-ring2.var] 1044/1600  7.1 games/s  ETA 0h01m17s
+[pb-ab-A-ring2.var] 1050/1600  7.1 games/s  ETA 0h01m17s
+[pb-ab-A-ring2.var] 1061/1600  7.1 games/s  ETA 0h01m16s
+[pb-ab-A-ring2.var] 1072/1600  7.0 games/s  ETA 0h01m14s
+[pb-ab-A-ring2.var] 1086/1600  7.0 games/s  ETA 0h01m12s
+[pb-ab-A-ring2.var] 1096/1600  7.0 games/s  ETA 0h01m11s
+[pb-ab-A-ring2.var] 1112/1600  7.0 games/s  ETA 0h01m09s
+[pb-ab-A-ring2.var] 1131/1600  7.1 games/s  ETA 0h01m06s
+[pb-ab-A-ring2.var] 1147/1600  7.1 games/s  ETA 0h01m04s
+[pb-ab-A-ring2.var] 1163/1600  7.1 games/s  ETA 0h01m01s
+[pb-ab-A-ring2.var] 1179/1600  7.1 games/s  ETA 0h00m59s
+[pb-ab-A-ring2.var] 1197/1600  7.1 games/s  ETA 0h00m56s
+[pb-ab-A-ring2.var] 1215/1600  7.1 games/s  ETA 0h00m53s
+[pb-ab-A-ring2.var] 1226/1600  7.1 games/s  ETA 0h00m52s
+[pb-ab-A-ring2.var] 1242/1600  7.1 games/s  ETA 0h00m50s
+[pb-ab-A-ring2.var] 1255/1600  7.1 games/s  ETA 0h00m48s
+[pb-ab-A-ring2.var] 1271/1600  7.1 games/s  ETA 0h00m46s
+[pb-ab-A-ring2.var] 1287/1600  7.1 games/s  ETA 0h00m43s
+[pb-ab-A-ring2.var] 1301/1600  7.1 games/s  ETA 0h00m41s
+[pb-ab-A-ring2.var] 1319/1600  7.2 games/s  ETA 0h00m39s
+[pb-ab-A-ring2.var] 1337/1600  7.2 games/s  ETA 0h00m36s
+[pb-ab-A-ring2.var] 1349/1600  7.2 games/s  ETA 0h00m35s
+[pb-ab-A-ring2.var] 1366/1600  7.2 games/s  ETA 0h00m32s
+[pb-ab-A-ring2.var] 1381/1600  7.2 games/s  ETA 0h00m30s
+[pb-ab-A-ring2.var] 1396/1600  7.2 games/s  ETA 0h00m28s
+[pb-ab-A-ring2.var] 1413/1600  7.2 games/s  ETA 0h00m25s
+[pb-ab-A-ring2.var] 1428/1600  7.2 games/s  ETA 0h00m23s
+[pb-ab-A-ring2.var] 1446/1600  7.2 games/s  ETA 0h00m21s
+[pb-ab-A-ring2.var] 1462/1600  7.2 games/s  ETA 0h00m19s
+[pb-ab-A-ring2.var] 1474/1600  7.2 games/s  ETA 0h00m17s
+[pb-ab-A-ring2.var] 1493/1600  7.2 games/s  ETA 0h00m14s
+[pb-ab-A-ring2.var] 1512/1600  7.3 games/s  ETA 0h00m12s
+[pb-ab-A-ring2.var] 1529/1600  7.3 games/s  ETA 0h00m09s
+[pb-ab-A-ring2.var] 1540/1600  7.3 games/s  ETA 0h00m08s
+[pb-ab-A-ring2.var] 1558/1600  7.3 games/s  ETA 0h00m05s
+[pb-ab-A-ring2.var] 1576/1600  7.3 games/s  ETA 0h00m03s
+[pb-ab-A-ring2.var] 1590/1600  7.3 games/s  ETA 0h00m01s
+[pb-ab-A-ring2.var] 1600 games in 0h03m39s (7.3 games/s)
+[pb-ab-A-ring2.var] summary -> sim/out/pb-ab-A-ring2.var.summary.json
+# Rule A/B — pb-ab-A-ring2
+
+`archerShots=ring2` against today's defaults.
+1600 games per population, depth 3, the same 40 arrangements and the same
+opening seeds in both (common random numbers). Control arm: `pb-ab-A-ring2.base`.
+
+A symmetric rule changes both sides at once, so there is no match to run and no SPRT: this is a
+paired two-population comparison. The interval is a 95% normal approximation on the
+mean paired difference over arrangements; with few arrangements,
+and with one interval per metric, read "significant" as "worth a second run", not as a test.
+
+| metric | base (pooled) | with the rule (pooled) | mean paired difference ±95% | significant |
+|---|---|---|---|---|
+| white score | 0.544 | 0.531 | -0.013 ± 0.022 | no |
+| decisive | 0.714 | 0.791 | +0.077 ± 0.026 | yes |
+| draw rate | 0.274 | 0.198 | -0.076 ± 0.026 | yes |
+| capped | 0.012 | 0.011 | -0.001 ± 0.006 | no |
+| mean plies | 118.0 | 100.9 | -17.1 ± 4.6 | yes |
+| branching factor | 32.6 | 33.2 | +0.6 ± 0.3 | yes |
+| killer move | 0.325 | 0.298 | -0.028 ± 0.012 | yes |
+| lead change | 0.064 | 0.061 | -0.003 ± 0.003 | no |
+| uncertainty late | 0.648 | 0.629 | -0.019 ± 0.006 | yes |
+| drama | 0.127 | 0.147 | +0.020 ± 0.008 | yes |
+| permanence | 0.962 | 0.957 | -0.004 ± 0.001 | yes |
+| min utilisation | 0.45 | 0.43 | -0.02 ± 0.01 | yes |
+| interest | 0.482 | 0.477 | -0.005 ± 0.004 | yes |
+| interest (min-use) | 0.482 | 0.477 | -0.007 ± 0.008 | no |
+| killerMove (resid.) | 0.016 | -0.016 | -0.031 ± 0.012 | yes |
+| leadChange (resid.) | -0.002 | 0.002 | +0.004 ± 0.003 | yes |
+| uncertaintyLate (resid.) | 0.003 | -0.003 | -0.005 ± 0.004 | yes |
+| drama (resid.) | -0.004 | 0.004 | +0.009 ± 0.006 | yes |
+| permanence (resid.) | 0.001 | -0.001 | -0.002 ± 0.001 | yes |
+| fairyUse (resid.) | 0.000 | 0.000 | +0.000 ± 0.000 | no |
+| excessDecisiveness (resid.) | 0.039 | -0.021 | -0.060 ± 0.010 | yes |
+| interest (resid.) | 0.006 | -0.005 | -0.010 ± 0.003 | yes |
+| interestMinFairy (resid.) | 0.016 | 0.004 | -0.013 ± 0.008 | yes |
+
+## Degeneracy counters
+| counter | base | with the rule |
+|---|---|---|
+| guard captures per game | 0.000 | 0.000 |
+| games with a guard rampage (≥ 3 captures) | 0 (0.0%) | 0 (0.0%) |
+| dead-material endings (draw50 + drawMaterial) | 24 (1.5%) | 17 (1.1%) |
+| games where a king never moved | 289 (18.1%) | 514 (32.1%) |
+
+## Per piece (both sides, whole population; moves and captures per game)
+| piece | moves A | moves B | captures A | captures B | survival A | survival B |
+|---|---|---|---|---|---|---|
+| P | 26.41 | 21.67 | 4.54 | 3.33 | 41.3% | 46.7% |
+| M | 16.21 | 15.06 | 1.72 | 1.22 | 36.7% | 48.7% |
+| K | 13.26 | 10.57 | 0.93 | 0.65 | 100.0% | 100.0% |
+| A | 12.40 | 11.35 | 2.09 | 3.74 | 44.3% | 56.7% |
+| R | 11.04 | 9.34 | 1.74 | 1.46 | 40.6% | 44.0% |
+| S | 9.85 | 8.83 | 1.25 | 0.97 | 32.9% | 40.4% |
+| N | 8.29 | 7.32 | 1.69 | 1.35 | 9.7% | 17.7% |
+| Q | 6.30 | 5.39 | 1.02 | 0.79 | 76.5% | 75.0% |
+| B | 6.21 | 4.73 | 1.42 | 1.21 | 23.8% | 30.2% |
+| L | 4.42 | 3.83 | 1.27 | 1.14 | 6.1% | 8.7% |
+| G | 3.63 | 2.79 | 0.00 | 0.00 | 96.7% | 97.4% |
+
+## Fairy events per game
+| event | base | with the rule |
+|---|---|---|
+| archerShots | 2.09 | 3.74 |
+| beastChainMoves | 0.99 | 0.79 |
+| beastChainCaptures | 1.25 | 0.97 |
+| maesterSwaps | 7.26 | 7.45 |
+| maesterLongSwaps | 0.81 | 0.85 |
+| paladinSacrifices | 0.62 | 0.60 |
+| promotions | 0.31 | 0.20 |
+| checks | 4.27 | 3.31 |
+| ogreShoves | 0.00 | 0.00 |
+| ogreShovesFriend | 0.00 | 0.00 |
+| ogreShovesGuard | 0.00 | 0.00 |
+| catapultChecks | 0.00 | 0.00 |
+
+The pooled columns describe each whole population; the difference column is the mean over the
+40 shared arrangements of (rule − base) on the same openings. The two can disagree in sign when the
+pooled value is not a mean of the per-arrangement values (minimum utilisation is one). Trust the
+paired column.
+
+Elo of the variant population is not reported: both populations play themselves, so their scores
+are not comparable as a match. Read the white score as a fairness check, not as a strength delta.
+

@@ -44,6 +44,29 @@ rule change is one default in `src/rules/rules.ts`; the value pass under the new
 (`pb-A-plusDiag2-value`, odds match vs a knight with `--eloPerPawn 64`). Until it lands, the AI
 prices the archer at the old value and would trade it too cheaply.
 
+## The archer widening costs power: value passes (odds match vs a knight, same method)
+
+| rule | Elo vs knight | Δ pawns | implied value | engine seed | next seed |
+|---|---|---|---|---|---|
+| `classic` (today) | +36 ± 27 | +0.57 ± 0.42 | **3.73 ± 0.42** | 3.37 | 373 |
+| `plusDiag2` | +107 ± 28 | +1.67 ± 0.44 | **> 4.66** (out of band) | 3.37 | 483 |
+| `plusDiagFwd2` (forward-only) | +113 ± 29 | +1.76 ± 0.46 | **> 4.66** (out of band) | 3.37 | 492 |
+
+`plusDiagFwd2` A/B (depth 3, seed 71): decisive **+8.2 ± 2.7**, draws −7.3 ± 2.6, capped −0.9 ± 0.6,
+plies −7.8 ± 3.5, white −0.2 ± 1.9, interest flat — the same sharpening as `plusDiag2` and `ring2`
+(+7.7 each) with a cleaner reading (forward-facing, mirrored for Black).
+
+**The sharpening and the power are the same lever.** Every widening tried cuts draws by 7–8 points
+and raises the archer from ~3.7 to **> 4.7 pawns** — above a rook, second only to the queen. The
+pool has two archers a side, so fairness holds (white score unchanged); what changes is the piece
+hierarchy and the AI's pricing (`ARCHER_V` must move 337 → ~490, and the value is out of the ±1.5
+pawn band, so the next pass needs a larger swap to bracket it).
+
+**Decision for the owner:** (a) adopt `plusDiagFwd2` + re-price — sharper games, archers become
+premium pieces; (b) keep `classic` — the archer stays a ~3.7-pawn piece and games stay drawish;
+(c) test a decoupled variant (e.g. shots blocked by the first piece on the ray, with a wider set),
+which would need a new rule and its own sweep.
+
 ## Follow-ups queued
 
 - `archerShots=ring2` A/B (running) — is an even wider shot set better, or does plusDiag2 sit at a peak?

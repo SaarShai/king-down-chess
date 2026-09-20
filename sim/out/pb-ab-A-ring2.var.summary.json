@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-ab-A-ring2.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerShots": "ring2"
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 219.8,
+  "whiteScore": 0.5309,
+  "whiteWins": 682,
+  "draws": 335,
+  "blackWins": 583,
+  "meanPlies": 100.9,
+  "reasons": {
+    "adjudicatedDraw": 258,
+    "adjudicatedResign": 1265,
+    "drawRepetition": 42,
+    "plyCap": 18,
+    "draw50": 12,
+    "drawMaterial": 5
+  }
+}

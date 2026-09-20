@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "pb-A-fwd2-value.A",
+    "games": 500,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 73,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerShots": "plusDiagFwd2"
+    },
+    "asymmetric": [
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 500,
+  "seconds": 71.2,
+  "whiteScore": 0.519,
+  "whiteWins": 232,
+  "draws": 55,
+  "blackWins": 213,
+  "meanPlies": 87,
+  "reasons": {
+    "adjudicatedResign": 445,
+    "drawMaterial": 6,
+    "draw50": 2,
+    "adjudicatedDraw": 38,
+    "drawRepetition": 8,
+    "plyCap": 1
+  }
+}

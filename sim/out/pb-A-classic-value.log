@@ -1,0 +1,72 @@
+[pb-A-classic-value.A] 500 games (0 already done), 500 to play on 14 workers -> sim/out/pb-A-classic-value.A.jsonl
+[pb-A-classic-value.A] depth 3, 4 random opening plies, ply cap 300, pairs on
+[pb-A-classic-value.A] rules {}, values {}
+[pb-A-classic-value.A] 4/500  2.0 games/s  ETA 0h04m08s
+[pb-A-classic-value.A] 15/500  3.7 games/s  ETA 0h02m09s
+[pb-A-classic-value.A] 29/500  4.8 games/s  ETA 0h01m37s
+[pb-A-classic-value.A] 47/500  5.9 games/s  ETA 0h01m17s
+[pb-A-classic-value.A] 60/500  6.0 games/s  ETA 0h01m13s
+[pb-A-classic-value.A] 78/500  6.5 games/s  ETA 0h01m04s
+[pb-A-classic-value.A] 92/500  6.6 games/s  ETA 0h01m02s
+[pb-A-classic-value.A] 107/500  6.7 games/s  ETA 0h00m58s
+[pb-A-classic-value.A] 120/500  6.7 games/s  ETA 0h00m57s
+[pb-A-classic-value.A] 139/500  6.9 games/s  ETA 0h00m52s
+[pb-A-classic-value.A] 158/500  7.2 games/s  ETA 0h00m47s
+[pb-A-classic-value.A] 177/500  7.4 games/s  ETA 0h00m43s
+[pb-A-classic-value.A] 195/500  7.5 games/s  ETA 0h00m40s
+[pb-A-classic-value.A] 214/500  7.6 games/s  ETA 0h00m37s
+[pb-A-classic-value.A] 231/500  7.7 games/s  ETA 0h00m34s
+[pb-A-classic-value.A] 253/500  7.9 games/s  ETA 0h00m31s
+[pb-A-classic-value.A] 270/500  7.9 games/s  ETA 0h00m28s
+[pb-A-classic-value.A] 289/500  8.0 games/s  ETA 0h00m26s
+[pb-A-classic-value.A] 305/500  8.0 games/s  ETA 0h00m24s
+[pb-A-classic-value.A] 320/500  8.0 games/s  ETA 0h00m22s
+[pb-A-classic-value.A] 338/500  8.0 games/s  ETA 0h00m20s
+[pb-A-classic-value.A] 355/500  8.1 games/s  ETA 0h00m17s
+[pb-A-classic-value.A] 374/500  8.1 games/s  ETA 0h00m15s
+[pb-A-classic-value.A] 387/500  8.1 games/s  ETA 0h00m14s
+[pb-A-classic-value.A] 408/500  8.1 games/s  ETA 0h00m11s
+[pb-A-classic-value.A] 424/500  8.1 games/s  ETA 0h00m09s
+[pb-A-classic-value.A] 446/500  8.2 games/s  ETA 0h00m06s
+[pb-A-classic-value.A] 463/500  8.3 games/s  ETA 0h00m04s
+[pb-A-classic-value.A] 483/500  8.3 games/s  ETA 0h00m02s
+[pb-A-classic-value.A] 499/500  8.3 games/s  ETA 0h00m00s
+[pb-A-classic-value.A] 500 games in 0h01m00s (8.3 games/s)
+[pb-A-classic-value.A] summary -> sim/out/pb-A-classic-value.A.summary.json
+# Piece values — pb-A-classic-value
+
+Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **knight** of the
+classic arrangement `RNBQKBNR` with one fairy piece, on one side only, and plays
+colour-reversed pairs. The last arm gives White pawn odds; it converts Elo into pawns.
+
+Depth 3, 500 games per arm, 4 random opening plies.
+Rules: defaults.
+Engine values: the shipped constants.
+
+## Arms (scores are the fairy army's, folded over the colour swap)
+| arm | games | pairs | pentanomial | score | Elo ±95% | nElo | LOS | LLR | SPRT | draws | capped | plies |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A | 500 | 250 | [31, 31, 95, 41, 52] | 0.552 | +36 ± 27 | +41 | 99.6% | 0.63 | continue | 15.4% | 0.6% | 94 |
+
+**One pawn = 64 Elo** at this depth
+(carried over with `--eloPerPawn`; no calibration arm was played here). Every
+implied value below carries that calibration error on top of its own.
+
+
+## Implied values
+| piece | Elo vs knight | Δ pawns | implied value (pawns) | engine seed | research prior | next seed (cp) |
+|---|---|---|---|---|---|---|
+| A (archer) | +36 ± 27 | +0.57 ± 0.42 | 3.73 ± 0.42 | 3.37 | 3.50 | 373 |
+
+Implied value = knight (3.16) + Elo / 64.
+
+
+## Muller fixed-point update
+Write the "next seed" column into `src/ai/eval.ts`, then run this experiment again. The values are
+converged when a pass moves no piece by more than its error bar. A seed that inverts a plausible
+exchange makes self-play blind, so never stop after one pass.
+
+```ts
+export const ARCHER_V = 373;
+```
+

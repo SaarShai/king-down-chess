@@ -609,6 +609,15 @@ describe('rule toggles', () => {
     crossCheckAttacks(103);
   });
 
+  it('archerShots: plusDiagFwd2 widens only the forward two-square diagonals, mirrored for Black', () => {
+    setRules({ archerShots: 'plusDiagFwd2' });
+    const w = fromFen('7k/8/8/p3p3/8/2A5/8/K3p3 w - - 0 1'); // a5 and e5 are forward for White; e1 is not
+    expect(lan(w, movesFrom(w, 'c3')).filter(s => s.includes('*'))).toEqual(['Ac3*a5', 'Ac3*e5']);
+    const b = fromFen('P6k/8/2a5/8/P3P3/8/8/K7 b - - 0 1'); // a4 and e4 are forward for Black; a8 is not
+    expect(lan(b, movesFrom(b, 'c6')).filter(s => s.includes('*'))).toEqual(['Ac6*a4', 'Ac6*e4']);
+    crossCheckAttacks(104);
+  });
+
   it('guardCaptures=pawns (lab): it clears pawns only, gives no check either way and still cannot mate', () => {
     const pos = fromFen('7k/8/8/8/3pn3/3G4/8/K7 w - - 0 1');
     expect(movesFrom(pos, 'd3').some(m => m.captures.length)).toBe(false); // the shipped wall

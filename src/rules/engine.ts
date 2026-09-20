@@ -120,11 +120,22 @@ const ARCHER_SHOT_SETS: Record<ArcherShots, readonly Delta[]> = {
   // The 2021 concept: the two forward diagonals and the square two ahead. Written from White's
   // view, because it is the one set that is *not* closed under negation.
   forward3: [[1, 1], [-1, 1], [0, 2]],
+  // The two forward diagonals at distance 2, on top of classic: the measured middle ground between
+  // classic and plusDiag2 (docs/research/sim-piece-balance-2026-09-17.md).
+  plusDiagFwd2: [...ARCHER_SHOTS, [2, 2], [-2, 2]],
 };
-const FORWARD3_BLACK: readonly Delta[] = ARCHER_SHOT_SETS.forward3.map(([df, dr]) => [df, -dr] as Delta);
-/** An archer's shot deltas seen from the archer. Only `forward3` depends on the shooter's colour. */
-const archerShotsFor = (c: Color): readonly Delta[] =>
-  RULES.archerShots === 'forward3' && c === BLACK ? FORWARD3_BLACK : ARCHER_SHOT_SETS[RULES.archerShots];
+/** Sets written from White's view; the Black reading mirrors the rank delta. */
+const FORWARD_SETS: Partial<Record<ArcherShots, readonly Delta[]>> = {
+  forward3: ARCHER_SHOT_SETS.forward3,
+  plusDiagFwd2: ARCHER_SHOT_SETS.plusDiagFwd2,
+};
+const mirrored = (set: readonly Delta[]): readonly Delta[] => set.map(([df, dr]) => [df, -dr] as Delta);
+/** An archer's shot deltas seen from the archer. `forward3` and `plusDiagFwd2` depend on colour. */
+const archerShotsFor = (c: Color): readonly Delta[] => {
+  const forward = FORWARD_SETS[RULES.archerShots];
+  if (forward) return c === BLACK ? mirrored(forward) : forward;
+  return ARCHER_SHOT_SETS[RULES.archerShots];
+};
 
 /** `archerMove: 'fwdBack'` — 1 ahead or 1 back. The pair is the same two squares for either colour. */
 const VERTICAL: readonly Delta[] = [[0, 1], [0, -1]];
