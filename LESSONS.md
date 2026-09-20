@@ -187,3 +187,24 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
   conclusion into the entry text ("was never completed", "is absent") and Jev echoed it back
   (all `doc-only`, stale ≈ 0.65). State should carry raw evidence; the judgment belongs in the
   question.
+
+## 2026-09-17 — "game-breaking" is measurable, not judicable
+- **What was tried:** `tools/jev-conditions.ts` asked Jev to mark conditions, piece combinations,
+  starting locations and suspected overpowered cases as game-breaking, anchored by two measured
+  controls: the Reaver's full 8-direction step (measured overpowered: no fixed point, +188 ± 32 Elo
+  even at a 5.04-pawn price) and its orthogonal reading (measured fine: 4.04 ± 0.56 pawns, neutral).
+  Two designs, two control failures: the overpowered case scored 0.39, then 0.35, against a 0.6 bar,
+  even with the no-answer mechanism spelled out in the evidence.
+- **Rule:** do not ask a model to judge game-breaking quality from evidence text; make it a
+  **measurement**. A piece or combination is game-breaking when one of these holds, computed in code:
+  1. **value non-convergence** — the odds match moves away from the seed (|next − seed| > error) and
+     still favours the owner at the raised price (Reaver full step);
+  2. **matched-price dominance** — with both sides priced at the measured value, the owner scores
+     more than +100 Elo over the control;
+  3. **combination interaction** — in the four-arm factorial (neither / A / B / both) the interaction
+     term (A+B − A − B + base) exceeds its interval on decisive share or owner score;
+  4. **condition collapse** — a condition that should help (the Ogre against three guards) instead
+     makes the game worse, which refutes the design rather than proving power.
+- This is the third evaluative instrument to fail controls (narrative labels, fairness red-team,
+  game-breaking). The one Jev use that keeps passing is claim verification against numbers; keep it
+  there and keep power judgments in code.

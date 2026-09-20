@@ -1,0 +1,178 @@
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --spec sim/specs/newpieces/gh2-N.json --workers 16
+
+[gh2-N] 1000 games (0 already done), 1000 to play on 16 workers -> sim/out/gh2-N.jsonl
+[gh2-N] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[gh2-N] rules {}, values {}
+[gh2-N] 0/1000  0.0 games/s  ETA ?
+[gh2-N] 4/1000  1.0 games/s  ETA 0h16m36s
+[gh2-N] 10/1000  1.7 games/s  ETA 0h09m54s
+[gh2-N] 19/1000  2.4 games/s  ETA 0h06m53s
+[gh2-N] 25/1000  2.5 games/s  ETA 0h06m30s
+[gh2-N] 36/1000  3.0 games/s  ETA 0h05m21s
+[gh2-N] 42/1000  3.0 games/s  ETA 0h05m19s
+[gh2-N] 49/1000  3.1 games/s  ETA 0h05m10s
+[gh2-N] 57/1000  3.2 games/s  ETA 0h04m57s
+[gh2-N] 71/1000  3.5 games/s  ETA 0h04m21s
+[gh2-N] 82/1000  3.7 games/s  ETA 0h04m06s
+[gh2-N] 93/1000  3.9 games/s  ETA 0h03m54s
+[gh2-N] 97/1000  3.7 games/s  ETA 0h04m02s
+[gh2-N] 110/1000  3.9 games/s  ETA 0h03m46s
+[gh2-N] 120/1000  4.0 games/s  ETA 0h03m40s
+[gh2-N] 126/1000  3.9 games/s  ETA 0h03m42s
+[gh2-N] 136/1000  4.0 games/s  ETA 0h03m36s
+[gh2-N] 143/1000  4.0 games/s  ETA 0h03m35s
+[gh2-N] 154/1000  4.1 games/s  ETA 0h03m28s
+[gh2-N] 162/1000  4.0 games/s  ETA 0h03m27s
+[gh2-N] 174/1000  4.1 games/s  ETA 0h03m19s
+[gh2-N] 183/1000  4.2 games/s  ETA 0h03m16s
+[gh2-N] 192/1000  4.2 games/s  ETA 0h03m13s
+[gh2-N] 204/1000  4.2 games/s  ETA 0h03m07s
+[gh2-N] 212/1000  4.2 games/s  ETA 0h03m05s
+[gh2-N] 221/1000  4.2 games/s  ETA 0h03m03s
+[gh2-N] 228/1000  4.2 games/s  ETA 0h03m02s
+[gh2-N] 241/1000  4.3 games/s  ETA 0h02m56s
+[gh2-N] 248/1000  4.3 games/s  ETA 0h02m55s
+[gh2-N] 257/1000  4.3 games/s  ETA 0h02m53s
+[gh2-N] 268/1000  4.3 games/s  ETA 0h02m49s
+[gh2-N] 280/1000  4.4 games/s  ETA 0h02m44s
+[gh2-N] 289/1000  4.4 games/s  ETA 0h02m42s
+[gh2-N] 300/1000  4.4 games/s  ETA 0h02m38s
+[gh2-N] 307/1000  4.4 games/s  ETA 0h02m38s
+[gh2-N] 321/1000  4.5 games/s  ETA 0h02m32s
+[gh2-N] 331/1000  4.5 games/s  ETA 0h02m29s
+[gh2-N] 337/1000  4.4 games/s  ETA 0h02m29s
+[gh2-N] 347/1000  4.4 games/s  ETA 0h02m26s
+[gh2-N] 354/1000  4.4 games/s  ETA 0h02m26s
+[gh2-N] 364/1000  4.4 games/s  ETA 0h02m23s
+[gh2-N] 374/1000  4.5 games/s  ETA 0h02m20s
+[gh2-N] 381/1000  4.4 games/s  ETA 0h02m19s
+[gh2-N] 395/1000  4.5 games/s  ETA 0h02m14s
+[gh2-N] 406/1000  4.5 games/s  ETA 0h02m11s
+[gh2-N] 419/1000  4.6 games/s  ETA 0h02m07s
+[gh2-N] 430/1000  4.6 games/s  ETA 0h02m04s
+[gh2-N] 447/1000  4.7 games/s  ETA 0h01m58s
+[gh2-N] 452/1000  4.6 games/s  ETA 0h01m58s
+[gh2-N] 462/1000  4.6 games/s  ETA 0h01m56s
+[gh2-N] 470/1000  4.6 games/s  ETA 0h01m55s
+[gh2-N] 479/1000  4.6 games/s  ETA 0h01m53s
+[gh2-N] 490/1000  4.6 games/s  ETA 0h01m50s
+[gh2-N] 500/1000  4.6 games/s  ETA 0h01m48s
+[gh2-N] 513/1000  4.7 games/s  ETA 0h01m44s
+[gh2-N] 524/1000  4.7 games/s  ETA 0h01m41s
+[gh2-N] 536/1000  4.7 games/s  ETA 0h01m38s
+[gh2-N] 548/1000  4.7 games/s  ETA 0h01m35s
+[gh2-N] 561/1000  4.8 games/s  ETA 0h01m32s
+[gh2-N] 574/1000  4.8 games/s  ETA 0h01m29s
+[gh2-N] 582/1000  4.8 games/s  ETA 0h01m27s
+[gh2-N] 596/1000  4.8 games/s  ETA 0h01m24s
+[gh2-N] 605/1000  4.8 games/s  ETA 0h01m22s
+[gh2-N] 616/1000  4.8 games/s  ETA 0h01m19s
+[gh2-N] 626/1000  4.8 games/s  ETA 0h01m17s
+[gh2-N] 641/1000  4.9 games/s  ETA 0h01m13s
+[gh2-N] 653/1000  4.9 games/s  ETA 0h01m11s
+[gh2-N] 664/1000  4.9 games/s  ETA 0h01m08s
+[gh2-N] 677/1000  4.9 games/s  ETA 0h01m05s
+[gh2-N] 689/1000  4.9 games/s  ETA 0h01m03s
+[gh2-N] 701/1000  4.9 games/s  ETA 0h01m00s
+[gh2-N] 713/1000  4.9 games/s  ETA 0h00m57s
+[gh2-N] 723/1000  4.9 games/s  ETA 0h00m55s
+[gh2-N] 738/1000  5.0 games/s  ETA 0h00m52s
+[gh2-N] 755/1000  5.0 games/s  ETA 0h00m48s
+[gh2-N] 768/1000  5.1 games/s  ETA 0h00m45s
+[gh2-N] 781/1000  5.1 games/s  ETA 0h00m43s
+[gh2-N] 793/1000  5.1 games/s  ETA 0h00m40s
+[gh2-N] 807/1000  5.1 games/s  ETA 0h00m37s
+[gh2-N] 819/1000  5.1 games/s  ETA 0h00m35s
+[gh2-N] 833/1000  5.1 games/s  ETA 0h00m32s
+[gh2-N] 847/1000  5.2 games/s  ETA 0h00m29s
+[gh2-N] 861/1000  5.2 games/s  ETA 0h00m26s
+[gh2-N] 879/1000  5.2 games/s  ETA 0h00m23s
+[gh2-N] 888/1000  5.2 games/s  ETA 0h00m21s
+[gh2-N] 902/1000  5.2 games/s  ETA 0h00m18s
+[gh2-N] 918/1000  5.3 games/s  ETA 0h00m15s
+[gh2-N] 933/1000  5.3 games/s  ETA 0h00m12s
+[gh2-N] 946/1000  5.3 games/s  ETA 0h00m10s
+[gh2-N] 967/1000  5.4 games/s  ETA 0h00m06s
+[gh2-N] 984/1000  5.4 games/s  ETA 0h00m02s
+[gh2-N] 1000 games in 0h03m03s (5.5 games/s)
+[gh2-N] summary -> sim/out/gh2-N.summary.json
+
+> king-down-chess@0.0.1 sim
+> tsx src/sim/run.ts --spec sim/specs/newpieces/gh2-O.json --workers 16
+
+[gh2-O] 1000 games (0 already done), 1000 to play on 16 workers -> sim/out/gh2-O.jsonl
+[gh2-O] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[gh2-O] rules {}, values {}
+[gh2-O] 1/1000  0.5 games/s  ETA 0h33m18s
+[gh2-O] 22/1000  5.5 games/s  ETA 0h02m57s
+[gh2-O] 33/1000  5.5 games/s  ETA 0h02m55s
+[gh2-O] 48/1000  6.0 games/s  ETA 0h02m38s
+[gh2-O] 59/1000  5.9 games/s  ETA 0h02m39s
+[gh2-O] 72/1000  6.0 games/s  ETA 0h02m34s
+[gh2-O] 87/1000  6.2 games/s  ETA 0h02m26s
+[gh2-O] 100/1000  6.2 games/s  ETA 0h02m24s
+[gh2-O] 115/1000  6.4 games/s  ETA 0h02m18s
+[gh2-O] 129/1000  6.4 games/s  ETA 0h02m15s
+[gh2-O] 143/1000  6.5 games/s  ETA 0h02m11s
+[gh2-O] 156/1000  6.5 games/s  ETA 0h02m09s
+[gh2-O] 171/1000  6.6 games/s  ETA 0h02m06s
+[gh2-O] 183/1000  6.5 games/s  ETA 0h02m05s
+[gh2-O] 196/1000  6.5 games/s  ETA 0h02m03s
+[gh2-O] 210/1000  6.6 games/s  ETA 0h02m00s
+[gh2-O] 221/1000  6.5 games/s  ETA 0h01m59s
+[gh2-O] 239/1000  6.6 games/s  ETA 0h01m54s
+[gh2-O] 252/1000  6.6 games/s  ETA 0h01m52s
+[gh2-O] 270/1000  6.7 games/s  ETA 0h01m48s
+[gh2-O] 282/1000  6.7 games/s  ETA 0h01m46s
+[gh2-O] 299/1000  6.8 games/s  ETA 0h01m43s
+[gh2-O] 311/1000  6.8 games/s  ETA 0h01m41s
+[gh2-O] 326/1000  6.8 games/s  ETA 0h01m39s
+[gh2-O] 342/1000  6.8 games/s  ETA 0h01m36s
+[gh2-O] 358/1000  6.9 games/s  ETA 0h01m33s
+[gh2-O] 377/1000  7.0 games/s  ETA 0h01m29s
+[gh2-O] 389/1000  6.9 games/s  ETA 0h01m27s
+[gh2-O] 403/1000  6.9 games/s  ETA 0h01m25s
+[gh2-O] 418/1000  7.0 games/s  ETA 0h01m23s
+[gh2-O] 431/1000  6.9 games/s  ETA 0h01m21s
+[gh2-O] 441/1000  6.9 games/s  ETA 0h01m21s
+[gh2-O] 454/1000  6.9 games/s  ETA 0h01m19s
+[gh2-O] 476/1000  7.0 games/s  ETA 0h01m14s
+[gh2-O] 490/1000  7.0 games/s  ETA 0h01m12s
+[gh2-O] 501/1000  7.0 games/s  ETA 0h01m11s
+[gh2-O] 516/1000  7.0 games/s  ETA 0h01m09s
+[gh2-O] 529/1000  7.0 games/s  ETA 0h01m07s
+[gh2-O] 542/1000  6.9 games/s  ETA 0h01m05s
+[gh2-O] 557/1000  7.0 games/s  ETA 0h01m03s
+[gh2-O] 574/1000  7.0 games/s  ETA 0h01m00s
+[gh2-O] 588/1000  7.0 games/s  ETA 0h00m58s
+[gh2-O] 606/1000  7.0 games/s  ETA 0h00m55s
+[gh2-O] 614/1000  7.0 games/s  ETA 0h00m55s
+[gh2-O] 620/1000  6.9 games/s  ETA 0h00m55s
+[gh2-O] 642/1000  7.0 games/s  ETA 0h00m51s
+[gh2-O] 657/1000  7.0 games/s  ETA 0h00m49s
+[gh2-O] 675/1000  7.0 games/s  ETA 0h00m46s
+[gh2-O] 691/1000  7.0 games/s  ETA 0h00m43s
+[gh2-O] 708/1000  7.1 games/s  ETA 0h00m41s
+[gh2-O] 723/1000  7.1 games/s  ETA 0h00m39s
+[gh2-O] 736/1000  7.1 games/s  ETA 0h00m37s
+[gh2-O] 753/1000  7.1 games/s  ETA 0h00m34s
+[gh2-O] 766/1000  7.1 games/s  ETA 0h00m33s
+[gh2-O] 774/1000  7.0 games/s  ETA 0h00m32s
+[gh2-O] 788/1000  7.0 games/s  ETA 0h00m30s
+[gh2-O] 804/1000  7.0 games/s  ETA 0h00m27s
+[gh2-O] 814/1000  7.0 games/s  ETA 0h00m26s
+[gh2-O] 828/1000  7.0 games/s  ETA 0h00m24s
+[gh2-O] 840/1000  7.0 games/s  ETA 0h00m22s
+[gh2-O] 856/1000  7.0 games/s  ETA 0h00m20s
+[gh2-O] 874/1000  7.0 games/s  ETA 0h00m17s
+[gh2-O] 892/1000  7.1 games/s  ETA 0h00m15s
+[gh2-O] 909/1000  7.1 games/s  ETA 0h00m12s
+[gh2-O] 926/1000  7.1 games/s  ETA 0h00m10s
+[gh2-O] 944/1000  7.1 games/s  ETA 0h00m07s
+[gh2-O] 961/1000  7.2 games/s  ETA 0h00m05s
+[gh2-O] 972/1000  7.1 games/s  ETA 0h00m03s
+[gh2-O] 990/1000  7.2 games/s  ETA 0h00m01s
+[gh2-O] 1000 games in 0h02m19s (7.2 games/s)
+[gh2-O] summary -> sim/out/gh2-O.summary.json
