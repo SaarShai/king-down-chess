@@ -1301,3 +1301,25 @@ describe('king power: Strike (Flame A, tier 2)', () => {
     expect(parseLan(after.board, 'a2-e2!').strike).toBe(true);
   });
 });
+
+describe('Strike, capture reading (strikeMode=capture)', () => {
+  const flame = { kings: [{ king: 'Flame', power: 'Strike' }, { king: 'Flame', power: 'Strike' }] as const };
+  afterEach(() => setRules({ kings: [null, null], strikeMode: 'move' }));
+
+  it('takes a queen-reach victim without moving, once', () => {
+    setRules({ ...flame, strikeMode: 'capture' });
+    const pos = fromFen('4k3/8/8/8/8/2r5/8/R3K3 w - - 0 1'); // black rook c3, white rook a1: a1-c3 is empty
+    const shot = legalMoves(pos).find(m => m.strike && m.from === parseSq('a1') && m.to === parseSq('a1'));
+    expect(shot).toBeDefined();
+    expect(shot!.captures).toEqual([parseSq('c3')]);
+    expect(toLan(pos, shot!)).toBe('Ra1*c3!');
+    const after = makeMove(pos, shot!);
+    expect(at(after, 'a1')).toBe(piece(R, WHITE));   // never moved
+    expect(at(after, 'c3')).toBe(0);                 // victim gone
+    expect(after.strike).toEqual([true, false]);
+    expect(fromFen(toFen(after)).strike).toEqual([true, false]);
+    // A blocked line is not a target: a white pawn on b2 hides everything behind it.
+    const blocked = fromFen('4k3/8/8/8/8/2r5/1P6/R3K3 w - - 0 1');
+    expect(legalMoves(blocked).some(m => m.strike && m.from === parseSq('a1') && m.captures.includes(parseSq('c3')))).toBe(false);
+  });
+});

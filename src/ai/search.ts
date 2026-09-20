@@ -171,14 +171,20 @@ function genLegal(out: Move[], c: Color, mode: GenMode): Move[] {
   // Strike (Flame A), mirroring `pseudoMoves`: once per side, an own non-king piece moves as a
   // queen. Kept out of `genPiece`, which is also the attack generator.
   if (mode === 'all' && RULES.kings[c]?.power === 'Strike' && !strikeUsed[c]) {
+    const capture = RULES.strikeMode === 'capture';
     for (let s = 0; s < 64; s++) {
       const p = board[s];
       if (!p || colorOf(p) !== c || typeOf(p) === K) continue;
       for (const [df, dr] of SLIDE8) {
         for (let f = file(s) + df, r = rank(s) + dr; f >= 0 && f < 8 && r >= 0 && r < 8; f += df, r += dr) {
           const to = sq(f, r), v = board[to];
-          if (!v) { out.push({ from: s, to, captures: [], strike: true }); continue; }
-          if (colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) out.push({ from: s, to, captures: [to], strike: true });
+          if (!v) {
+            if (!capture) out.push({ from: s, to, captures: [], strike: true });
+            continue;
+          }
+          if (colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) {
+            out.push(capture ? { from: s, to: s, captures: [to], strike: true } : { from: s, to, captures: [to], strike: true });
+          }
           break;
         }
       }

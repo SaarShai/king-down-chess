@@ -39,6 +39,13 @@ export type ReaverStep = 'any' | 'ortho';
 /** Where the Catapult stands after a lob: `stay` = it fires from its square, `land` = it moves onto the target. */
 export type CatapultCapture = 'stay' | 'land';
 
+/**
+ * Strike (Flame A) has two readings under measure. `move` is the proposal as written: the piece
+ * moves as a queen. `capture` is the card game's verb (RULES.md §5): the piece *takes* a queen-reach
+ * victim without moving. Both spend the side's one use.
+ */
+export type StrikeMode = 'move' | 'capture';
+
 // -----------------------------------------------------------------------------------------------
 // Kings' powers (docs/RULES.md §4, docs/KINGS-POWERS-PLAN.md). Each army has a king; the player
 // picks one of that king's two powers. The choice is a **rule**, not a square, so it lives here and
@@ -204,6 +211,8 @@ export interface Rules {
    * attack, so `isAttacked` sees only the Ogre's ordinary king-step capture.
    */
   ogreMode: OgreMode;
+  /** Strike (Flame A) reading: `move` (as written) or `capture` (capture without moving). */
+  strikeMode: StrikeMode;
   /**
    * The Reaver's escape step (piece type `V`, lab-only, same pool note as the Ogre). `any` (proposal
    * reading): after a capture the Reaver may step one square in any of the 8 directions onto an
@@ -276,6 +285,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   paladinBlockedByEnemies: true,
   secondPlayerDoubleFirstTurn: false,
   ogreMode: 'repel' as OgreMode,
+  strikeMode: 'move' as StrikeMode,
   reaverStep: 'ortho' as ReaverStep,
   catapultCapture: 'stay' as CatapultCapture,
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
@@ -333,6 +343,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   maesterStep: [1, 2],
   paladinKamikaze: ['always', 'nonPawn', 'never'],
   ogreMode: ['repel', 'push'],
+  strikeMode: ['move', 'capture'],
   reaverStep: ['any', 'ortho'],
   catapultCapture: ['stay', 'land'],
 };

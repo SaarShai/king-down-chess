@@ -9,7 +9,7 @@
  */
 
 import { ArcherShots, PowerName, RULES, Rules } from './rules';
-export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CatapultCapture, GuardCaptures, KingChoice, KingName, OgreMode, PaladinKamikaze, PowerName, PromotionSet, Rules } from './rules';
+export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CatapultCapture, GuardCaptures, KingChoice, KingName, OgreMode, PaladinKamikaze, PowerName, PromotionSet, Rules, StrikeMode } from './rules';
 export { BUILT, DEFAULT_RULES, KINGS, RULES, RULES_2017, RULES_2021, TIER1, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 
 export type Color = 0 | 1;
@@ -74,8 +74,10 @@ export interface Move {
   /** Paladin: the mover leaves the board after capturing. */
   selfRemove?: boolean;
   /**
-   * Strike (Flame A, tier 2): the side's one queen-like action by a non-king piece. The piece keeps
-   * its own type (a pawn striking never promotes) and the side's flag in `Position.strike` is spent.
+   * Strike (Flame A, tier 2): the side's one queen-like action by a non-king piece. Under
+   * `strikeMode: 'move'` the piece moves as a queen; under `'capture'` it takes a queen-reach victim
+   * without moving (`to === from`). Either way it keeps its own type (a pawn never promotes) and the
+   * side's flag in `Position.strike` is spent.
    */
   strike?: boolean;
   promo?: PieceType;
@@ -638,14 +640,22 @@ export function pseudoMoves(pos: Position, mode: GenMode = 'all'): Move[] {
   // queen, as the whole turn. It never takes a king and never promotes — the piece keeps its type
   // (`landed`), and it is not an attack: `isAttacked` still sees only the piece's normal pattern.
   if (mode === 'all' && powerOf(c) === 'Strike' && !pos.strike?.[c]) {
+    const capture = RULES.strikeMode === 'capture';
     for (let s = 0; s < 64; s++) {
       const p = pos.board[s];
       if (!p || colorOf(p) !== c || typeOf(p) === K) continue;
       for (const [df, dr] of DIRS8) {
         for (let f = file(s) + df, r = rank(s) + dr; f >= 0 && f < 8 && r >= 0 && r < 8; f += df, r += dr) {
           const to = sq(f, r), v = pos.board[to];
-          if (!v) { out.push({ from: s, to, captures: [], strike: true }); continue; }
-          if (colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) out.push({ from: s, to, captures: [to], strike: true });
+          if (!v) {
+            if (!capture) out.push({ from: s, to, captures: [], strike: true });
+            continue;
+          }
+          // The first occupied square stops the walk in both readings; only `move` passes through
+          // empty squares. `capture` takes a queen-reach victim and stays where it stood.
+          if (colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) {
+            out.push(capture ? { from: s, to: s, captures: [to], strike: true } : { from: s, to, captures: [to], strike: true });
+          }
           break;
         }
       }
