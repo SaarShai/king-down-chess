@@ -1,0 +1,14 @@
+{
+  "id": "pool-noguard",
+  "games": 2000,
+  "backRanks": {
+    "sample": 40,
+    "pool": "QLRRBBNNAAMMSS"
+  },
+  "ai": {
+    "depth": 3
+  },
+  "seed": 85,
+  "commonSeeds": true,
+  "note": "Shipped pool with both guards removed (14 letters): 40 sampled back ranks, 2000 games, depth 3, seed 85."
+}
