@@ -1,0 +1,13 @@
+{
+  "id": "one",
+  "games": 2000,
+  "backRanks": {
+    "sample": 40,
+    "pool": "QLRRBBNNAGMSS"
+  },
+  "ai": {
+    "depth": 3
+  },
+  "seed": 84,
+  "commonSeeds": true
+}
