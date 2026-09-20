@@ -35,7 +35,20 @@ linear teacher (the lab default), manifest in `sim/nnue/policy.json`. For a real
 **300k–1M positions at depth 5**, which is a few days at one thread; workers or a slower teacher
 depth trade quality for rate.
 
-## Model and training (next build)
+## First training results (2026-09-17, 5,000-position pilot)
+
+- The pipeline works end to end: `tools/policy-train.ts` builds positions from the binary, finds the
+  teacher's legal move in all 5,000 records, and trains a listwise softmax over the legal moves.
+- **The full 1408-feature model overfits immediately at 5k samples** (train 3.2 → 1.6 while val
+  3.1 → 4.5 in ten epochs). The trainer now keeps the **best-validation checkpoint** and defaults to
+  hidden 16; the best epoch reached **16.0% top-1 / 32.8% top-3** on the held-out fifth (chance for
+  ~30 legal moves is 3.3%).
+- Data is the constraint, not the code: a **100,000-position depth-3 distillation** is running
+  (chained to a retrain, `sim/out/policy2.done`), and the plan's 300k–1M at depth 5 remains the
+  target for a real net. Depth-3 labels match the lab's own baseline; depth 5 is for the net that
+  actually ships.
+
+## Model and training
 
 - **Shape, first pass:** a per-move scorer, `position features (1408 bits, the existing NNUE layout)
   + move code (from 64 × to 64, plus 9 promotion targets)` → hidden 64 → 1. Training is a **listwise

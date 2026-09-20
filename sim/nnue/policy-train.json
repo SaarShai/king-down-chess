@@ -1,0 +1,106 @@
+{
+  "data": {
+    "source": "../king-down-sim/sim/out/nnue-g2.jsonl",
+    "positions": 5000,
+    "candidatesSeen": 5000,
+    "skippedInCheck": 0,
+    "depth": 4,
+    "bytesPerRecord": 70,
+    "bytes": 350000,
+    "sha256": "305b984f153fb490a39f3aecfe0c96f52d04b9aeb36e7ec83a7d53d2332fd412",
+    "note": "Policy distillation data: board, side to move, search best move (from/to/promo), best-minus-second margin. Teacher = linear search at the recorded depth."
+  },
+  "opts": {
+    "EPOCHS": 12,
+    "HIDDEN": 16,
+    "LR": 0.01,
+    "BATCH": 64
+  },
+  "bestEpoch": 2,
+  "curve": [
+    {
+      "epoch": 1,
+      "train": 3.266008777441594,
+      "val": 3.1722808194641843,
+      "top1": 0.146,
+      "top3": 0.295
+    },
+    {
+      "epoch": 2,
+      "train": 3.1203363155165413,
+      "val": 3.112267092818995,
+      "top1": 0.16,
+      "top3": 0.328
+    },
+    {
+      "epoch": 3,
+      "train": 3.0543540080957152,
+      "val": 3.1209591001308645,
+      "top1": 0.157,
+      "top3": 0.331
+    },
+    {
+      "epoch": 4,
+      "train": 2.9924979330206587,
+      "val": 3.133876838687748,
+      "top1": 0.148,
+      "top3": 0.319
+    },
+    {
+      "epoch": 5,
+      "train": 2.930909656527282,
+      "val": 3.172527919355551,
+      "top1": 0.147,
+      "top3": 0.304
+    },
+    {
+      "epoch": 6,
+      "train": 2.869346758132992,
+      "val": 3.2085766840823258,
+      "top1": 0.152,
+      "top3": 0.282
+    },
+    {
+      "epoch": 7,
+      "train": 2.78540426429251,
+      "val": 3.2254153814183257,
+      "top1": 0.154,
+      "top3": 0.297
+    },
+    {
+      "epoch": 8,
+      "train": 2.717182927148346,
+      "val": 3.270550840148126,
+      "top1": 0.155,
+      "top3": 0.302
+    },
+    {
+      "epoch": 9,
+      "train": 2.659218263474296,
+      "val": 3.306002513876156,
+      "top1": 0.152,
+      "top3": 0.3
+    },
+    {
+      "epoch": 10,
+      "train": 2.5915103937242003,
+      "val": 3.385429529843404,
+      "top1": 0.143,
+      "top3": 0.284
+    },
+    {
+      "epoch": 11,
+      "train": 2.522221531178197,
+      "val": 3.4424538809878715,
+      "top1": 0.138,
+      "top3": 0.286
+    },
+    {
+      "epoch": 12,
+      "train": 2.4738542986305725,
+      "val": 3.4796320256596474,
+      "top1": 0.131,
+      "top3": 0.277
+    }
+  ]
+}
