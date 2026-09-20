@@ -1,0 +1,15 @@
+{
+  "id": "ab2.AB",
+  "games": 1600,
+  "ai": {
+    "depth": 3
+  },
+  "seed": 31,
+  "openingRandomPlies": 4,
+  "commonSeeds": true,
+  "backRanks": {
+    "sample": 40,
+    "pool": "QLRRBBNNAAGMMSS"
+  },
+  "note": "archer+beast factorial, AB arm: base pool plus both archers (A) and both beasts (S) = the shipped pool; interaction = AB - A - B + base."
+}

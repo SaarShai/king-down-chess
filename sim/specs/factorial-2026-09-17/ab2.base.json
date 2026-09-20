@@ -1,0 +1,15 @@
+{
+  "id": "ab2.base",
+  "games": 1600,
+  "ai": {
+    "depth": 3
+  },
+  "seed": 31,
+  "openingRandomPlies": 4,
+  "commonSeeds": true,
+  "backRanks": {
+    "sample": 40,
+    "pool": "QLRRBBNNGMM"
+  },
+  "note": "archer+beast factorial, base arm: 40 ranks sampled from the shipped pool minus both archers (A) and both beasts (S); interaction = AB - A - B + base."
+}
