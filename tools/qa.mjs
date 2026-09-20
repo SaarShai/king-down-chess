@@ -339,6 +339,18 @@ await caseFn('?style wins over the autosaved style', '', async (page, errors) =>
   return ok ? true : `style=${s.style} pieces=${s.pieces} errors=${errors.join(' | ')}`;
 });
 
+// Strike (Flame A, tier 2): the pawn is the only piece that can reach d8 in one move, and only
+// through the power — the click path, the LAN suffix and the live rule all have to line up.
+await caseFn('strike: a pawn moves as a queen once (flame:strike)', `?kings=flame:strike&fen=${encodeURIComponent('4k3/8/8/8/7p/8/3P4/4K3 w - - 0 1')}`, async (page, errors) => {
+  const info = await page.evaluate(() => document.getElementById('info').textContent);
+  await clickSq(page, 'd2');
+  await clickSq(page, 'd8');
+  await page.waitForTimeout(400);
+  const s = await snap(page);
+  const ok = info.includes('Strike') && s.moves.includes('d2-d8!') && errors.length === 0;
+  return ok ? true : `info=${info.includes('Strike')} moves="${s.moves}" errors=${errors.join(' | ')}`;
+});
+
 await browser.close();
 console.log('\n' + results.map(r => `${r.ok ? 'PASS' : 'FAIL'} ${r.id}`).join('\n'));
 process.exit(results.every(r => r.ok) ? 0 : 1);

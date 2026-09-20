@@ -144,6 +144,12 @@ engine; two turns of it per game is a small dose, but read `deadMaterial` and `c
 
 ### 1.3 Flame A — Strike (1 use)
 
+> **Status 2026-09-17: built** (`?kings=flame:strike`), with two readings under `strikeMode`:
+> `move` (as written) and `capture` (the card game's verb, RULES.md §5). The `move` reading measured
+> **decisive −20.2 ± 5.8 at depth 4** (a draw engine; `docs/research/sim-kings-2026-09-16.md`); the
+> `capture` reading is under measurement. State lives on `Position.strike` + FEN field 7, not a
+> charge word — the "plumbing" section below is what shipped, in that simpler shape.
+
 **Rule.** As its whole turn, a side with an unspent Strike charge moves one of its own pieces that
 is not a king along queen lines, capturing as that piece normally may capture.
 

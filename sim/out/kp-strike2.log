@@ -1,0 +1,29 @@
+[kp-strike2-p.base] 200 games (0 already done), 200 to play on 14 workers -> sim/out/kp-strike2-p.base.jsonl
+[kp-strike2-p.base] depth 3, 4 random opening plies, ply cap 300, pairs off (both sides identical; --pairs forces them on)
+[kp-strike2-p.base] rules {}, values {}
+[kp-strike2-p.base] 0/200  0.0 games/s  ETA ?
+[kp-strike2-p.base] 4/200  1.0 games/s  ETA 0h03m16s
+[kp-strike2-p.base] 12/200  2.0 games/s  ETA 0h01m34s
+[kp-strike2-p.base] 20/200  2.5 games/s  ETA 0h01m12s
+[kp-strike2-p.base] 24/200  2.4 games/s  ETA 0h01m13s
+[kp-strike2-p.base] 32/200  2.7 games/s  ETA 0h01m03s
+[kp-strike2-p.base] 41/200  2.9 games/s  ETA 0h00m54s
+[kp-strike2-p.base] 46/200  2.9 games/s  ETA 0h00m53s
+[kp-strike2-p.base] 56/200  3.1 games/s  ETA 0h00m46s
+[kp-strike2-p.base] 62/200  3.1 games/s  ETA 0h00m44s
+[kp-strike2-p.base] 68/200  3.1 games/s  ETA 0h00m42s
+[kp-strike2-p.base] 74/200  3.1 games/s  ETA 0h00m40s
+[kp-strike2-p.base] 81/200  3.1 games/s  ETA 0h00m38s
+[kp-strike2-p.base] 90/200  3.2 games/s  ETA 0h00m34s
+[kp-strike2-p.base] 98/200  3.3 games/s  ETA 0h00m31s
+[kp-strike2-p.base] 106/200  3.3 games/s  ETA 0h00m28s
+[kp-strike2-p.base] 115/200  3.4 games/s  ETA 0h00m25s
+[kp-strike2-p.base] 125/200  3.5 games/s  ETA 0h00m21s
+[kp-strike2-p.base] 127/200  3.3 games/s  ETA 0h00m21s
+[kp-strike2-p.base] 136/200  3.4 games/s  ETA 0h00m18s
+[kp-strike2-p.base] 141/200  3.4 games/s  ETA 0h00m17s
+[kp-strike2-p.base] 148/200  3.4 games/s  ETA 0h00m15s
+[kp-strike2-p.base] 156/200  3.4 games/s  ETA 0h00m12s
+[kp-strike2-p.base] 163/200  3.4 games/s  ETA 0h00m10s
+[kp-strike2-p.base] 173/200  3.5 games/s  ETA 0h00m07s
+[kp-strike2-p.base] 178/200  3.4 games/s  ETA 0h00m06s
