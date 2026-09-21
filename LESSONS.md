@@ -224,3 +224,25 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
   side remove material for free are draw engines until measured otherwise. Build the A/B at depth 3
   and a depth-4 arm in the same campaign, and shelve on a negative depth-4 interval (Strike's shape
   was cheap to build, so this cost one evening, not a day).
+
+## 2026-09-21 — claim checks: the state must say what a sign means; one run is not enough
+- **What happened:** the 2026-09-20 `verify-claims` run on the Death Touch second reading failed its
+  controls (true 0.26) and the verdict was committed anyway. Re-run at the pinned model with one line
+  added to `state` ("a negative decisive point means fewer decisive games than the control") the same
+  spec passes (0.81 / 0.06); without the note it fails again (0.26 / 0.09); at `jev-latest` with the
+  note it passes (0.79 / 0.07). The failure was the spec, not the model.
+- **Rules:** (1) every numeric pair in a spec `state` carries a `note` naming its unit and sign;
+  (2) a verdict is not quoted or committed after INSTRUMENT INVALID until a repaired spec passes;
+  (3) `tools/verify-claims.mjs` now takes the median of three runs — single-run supports drifted
+  0.05-0.15 around the 0.7 gate on the same spec; (4) the model is pinned (`tools/jev.ts` `MODEL`,
+  `jev-1.13.0`) and printed with every result; (5) specs are checked in under
+  `docs/research/claims/`, one per report, and run together.
+- **Calibration seen today:** "worse than" over overlapping intervals (−6.0 ± 2.7 vs −5.0 ± 2.7)
+  reads 0.66 — an overclaim, correctly flagged; "the main cost is diversity" 0.52 — a judgment, not a
+  number; two-part claims across depths or arms 0.43-0.58 — split them.
+- **New screens (advisory, controls in every run):** `tools/design-screen.ts` passed controls and
+  its readings match measured history (Templar fails sharp-job and new-move; Strike fails
+  reach-earned and one-sentence); `tools/rule-simplicity.ts` separates its controls but not
+  owner-rejected from shipped rules — labels needed before it gates anything. `tools/next-ab.ts`
+  is a deterministic rank with an optional labelled model opinion. `tools/jev-conditions.ts`
+  deleted (failed controls twice, 2026-09-17).

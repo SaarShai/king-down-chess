@@ -1,0 +1,8 @@
+[
+ {"id": "ogre_push_vs_repel_depth4", "lever": "ogreMode push vs repel under today's rules, fresh depth-4 arm", "point": 9.0, "half": 4.9, "metric": "decisive pts (old rules, depth 4)", "depth4_confirmed": false, "note": "depth-3 under today's rules not confirmed; value gap 3.18 vs 2.25 pawns"},
+ {"id": "archers_apart", "lever": "placement: archers apart vs adjacent", "point": 3.7, "half": 2.8, "metric": "decisive pts (depth 3)", "depth4_confirmed": false, "note": "borderline at depth 3"},
+ {"id": "one_beast_pool", "lever": "pool with one beast instead of two", "point": 4.2, "half": 3.0, "metric": "plies (pace only; outcomes null)", "depth4_confirmed": false, "note": "outcome-null; pace effect only"},
+ {"id": "maester_step2", "lever": "maesterStep=2", "point": 0.0, "half": 2.2, "metric": "decisive pts", "depth4_confirmed": false, "note": "null; free buff on taste"},
+ {"id": "guard_in_pawn_row", "lever": "guard placed in the pawn row vs back rank", "point": null, "half": null, "metric": "unmeasured", "depth4_confirmed": false, "note": "owner asked 2026-09-21 whether this was tested enough"},
+ {"id": "capital_c2_no_adjudication", "lever": "capital sanctuary C2 played out without adjudication", "point": -1.3, "half": 2.0, "metric": "draw pts", "depth4_confirmed": true, "note": "confirmed with adjudication; unresolved without; capped cost doubles"}
+]

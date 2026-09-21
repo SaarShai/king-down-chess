@@ -1,0 +1,16 @@
+{
+ "report": "docs/research/sim-kings-2026-09-16.md — Death Touch second reading",
+ "state": {
+  "depth3_paired_percentage_points": {"decisive": [-6.0, 2.7], "draws": [4.2, 2.7], "capped": [1.8, 0.9], "plies": [8.0, 2.5], "white_score": [-1.6, 2.0]},
+  "depth4_paired_percentage_points": {"decisive": [-6.3, 6.0], "draws": [5.8, 5.8], "white_score": [0.6, 4.1]},
+  "delivered_reading_depth3_decisive": [-5.0, 2.7],
+  "note": "Each pair is [point estimate, 95% half-width] as a paired difference (variant minus control) in percentage points. A negative decisive point means fewer decisive games than the control."
+ },
+ "control_true": "The second reading lowers the decisive share at depth 3 (-6.0 ± 2.7 points).",
+ "control_false": "The second reading raises the decisive share by 10 points at depth 3.",
+ "claims": {
+  "worse": "The second reading is worse than the delivered one for decisiveness: -6.0 ± 2.7 points versus -5.0 ± 2.7 points at depth 3.",
+  "capped": "The second reading adds capped games: +1.8 ± 0.9 points.",
+  "both_drag": "Both Death Touch readings lower the decisive share, so the power is not the anti-draw tool the proposal expected."
+ }
+}

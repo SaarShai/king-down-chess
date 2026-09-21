@@ -1,0 +1,37 @@
+{
+ "report": "docs/research/ai-q6-acceptance-2026-09-16.md — Q6 residual net acceptance",
+ "state": {
+  "gate_400_games": {
+   "score": 0.724,
+   "elo": [
+    167,
+    26
+   ]
+  },
+  "decision_1600_games": {
+   "elo": [
+    139.2,
+    13.7
+   ]
+  },
+  "depth4_200_games": {
+   "elo": [
+    149.3,
+    37.2
+   ]
+  },
+  "speed_depth_in_1s": {
+   "residual": 5.92,
+   "linear": 6.08,
+   "required_minimum": 5
+  },
+  "note": "Elo pairs are [point estimate, 95% half-width] for the candidate against the linear evaluation; positive means the candidate is stronger. Sign comparisons across depths are checked in code (tools/kings-summary.ts), not here."
+ },
+ "control_true": "The candidate scored above 0.5 in the 400-game gate.",
+ "control_false": "The candidate was weaker than the linear evaluation in the 1,600-game decision run.",
+ "claims": {
+  "gate": "The candidate passed the 400-game gate with a score of 0.724.",
+  "decision": "In the 1,600-game decision run the candidate was about 139 Elo stronger than the linear evaluation.",
+  "speed": "The residual net searches slightly shallower in one second than the linear evaluation but stays above the required depth of 5."
+ }
+}

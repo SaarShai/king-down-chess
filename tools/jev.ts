@@ -9,6 +9,9 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+/** Pinned model: calibration (LESSONS.md) is only comparable at one version. Override with TYPESAFE_MODEL. */
+export const MODEL = process.env.TYPESAFE_MODEL || 'jev-1.13.0';
+
 export interface Answer {
   type: 'noul' | 'choice' | 'score';
   noul?: number;
@@ -32,7 +35,7 @@ export async function ask(state: unknown, questions: Record<string, unknown>, tr
     const res = await fetch('https://api.typesafe.ai/v1/systemone', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ state, model: 'jev-latest', questions }),
+      body: JSON.stringify({ state, model: MODEL, questions }),
     });
     if (res.ok) return ((await res.json()) as { answers: Record<string, Answer> }).answers;
     if ((res.status === 429 || res.status === 529) && i < tries - 1) {

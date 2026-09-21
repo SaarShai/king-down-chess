@@ -1,0 +1,28 @@
+{
+ "report": "docs/research/setup-liveliness-2026-09-14.md — liveliness filter",
+ "state": {
+  "held_out_decisive_gain_points": {
+   "point": 3.8,
+   "ci95": [
+    3.1,
+    4.5
+   ]
+  },
+  "guard_share_of_games_percent": {
+   "all": 45.7,
+   "kept_half": 27.4
+  },
+  "maester_share_of_games_percent": {
+   "all": 74.9,
+   "kept_half": 55.9
+  },
+  "note": "The filter keeps the better-scoring half of starting arrangements. Shares are the percentage of games in which the piece appears."
+ },
+ "control_true": "The held-out decisive gain of the filter is positive.",
+ "control_false": "The filter raises the guard's share of games from 45.7% to 74.9%.",
+ "claims": {
+  "gain": "The liveliness filter gains 3.8 decisive points on held-out deals.",
+  "thins": "The filter thins the guard from 45.7% to 27.4% of games and the maester from 74.9% to 55.9%.",
+  "objection": "The main cost of the filter is diversity: two of the game's defining pieces appear far less often."
+ }
+}

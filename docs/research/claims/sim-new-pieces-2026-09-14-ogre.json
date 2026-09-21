@@ -1,0 +1,60 @@
+{
+ "report": "docs/research/sim-new-pieces-2026-09-14.md §7 — Ogre push vs repel and repricing",
+ "state": {
+  "depth3_push_minus_repel_points": {
+   "decisive": [
+    5.3,
+    3.0
+   ],
+   "draws": [
+    -5.9,
+    3.0
+   ],
+   "white_score": [
+    -1.1,
+    2.7
+   ]
+  },
+  "depth4_push_minus_repel_points": {
+   "decisive": [
+    10.2,
+    4.7
+   ],
+   "draws": [
+    -10.4,
+    4.8
+   ],
+   "white_score": [
+    4.9,
+    3.1
+   ]
+  },
+  "depth4_repriced_O195_push_minus_repel_points": {
+   "decisive": [
+    9.0,
+    4.9
+   ],
+   "draws": [
+    -6.9,
+    4.8
+   ],
+   "white_score": [
+    0.5,
+    2.8
+   ]
+  },
+  "ogre_repel_value_pawns": [
+   2.43,
+   0.58
+  ],
+  "note": "Pairs are [point estimate, 95% half-width] as paired differences in percentage points; positive decisive means more decisive games for push."
+ },
+ "control_true": "At depth 4, push produced more decisive games than repel.",
+ "control_false": "At depth 4, push produced fewer decisive games than repel.",
+ "claims": {
+  "grows": "The push effect on decisiveness grows from depth 3 to depth 4.",
+  "white_shift": "At depth 4 with the seed price, push raised White's score by about 5 points, while at depth 3 it did not.",
+  "reprice_clears": "With both arms priced at O=195, push keeps its sharpening and the White shift disappears.",
+  "not_converged": "The Ogre's own value is still not converged."
+ }
+}
