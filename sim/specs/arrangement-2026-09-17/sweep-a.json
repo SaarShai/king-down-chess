@@ -1,0 +1,19 @@
+{
+  "id": "arr-a",
+  "experiment": "sweep",
+  "arrangements": 400,
+  "rounds": 5,
+  "games": 20,
+  "depth": 3,
+  "seed": 91,
+  "workers": 6,
+  "pool": "QLRRBBNNAAGMMSS",
+  "command": "node_modules/.bin/tsx src/sim/run.ts --id arr-a --experiment sweep --games 20 --arrangements 400 --rounds 5 --depth 3 --seed 91 --workers 6",
+  "notes": [
+    "Sweep A of docs/research/arrangement-benchmark-2026-09-17.md (pre-registered criteria, 2026-09-17).",
+    "Successive halving (eta = 2): every round plays 8 000 games and keeps the better half by |white score - 0.5|, ties by interest.",
+    "Round sizes: 400 x 20, 200 x 40, 100 x 80, 50 x 160, 25 x 320 games.",
+    "Ranking of the final round is not the sweep tool's imbalance key; it applies the pre-registered rule: drop |score - 0.5| > 0.03 or timeouts > 0.05, rank by interestResiduals.interest.",
+    "Outputs land in sim/out/arr-a.r1..r5.{jsonl,summary.json,report.json,report.md} and sim/out/arr-a.experiment.md."
+  ]
+}
