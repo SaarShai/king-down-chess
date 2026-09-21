@@ -36,6 +36,8 @@ const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById
 // Access to existing renderer internals is intentional and isolated to this throwaway study.
 const view:any=new BoardRenderer(el('stage-board'));
 (window as any).view=view;
+// Keep the final colour-conversion pass from blending neighbouring pixel cells.
+for(const target of [view.composer.renderTarget1,view.composer.renderTarget2])target.texture.minFilter=target.texture.magFilter=THREE.NearestFilter;
 view.renderer.setAnimationLoop(null);
 view.controls.enableDamping=false;
 view.controls.minZoom=.6;view.controls.maxZoom=5;

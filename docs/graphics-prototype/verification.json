@@ -122,10 +122,10 @@
       "name": "Each multi-part figure has one distinct mask ID",
       "ok": true,
       "detail": {
-        "1": 12151,
-        "2": 13309,
-        "3": 25372,
-        "4": 29157
+        "1": 11596,
+        "2": 12749,
+        "3": 24883,
+        "4": 28635
       }
     },
     {
@@ -133,22 +133,23 @@
       "ok": true,
       "detail": {
         "counts": {
-          "1": 12151,
-          "2": 13309,
-          "3": 25372,
-          "4": 29157
+          "1": 11596,
+          "2": 12749,
+          "3": 24883,
+          "4": 28635
         },
         "visibleHeights": {
-          "1": 230,
-          "2": 240,
-          "3": 232,
-          "4": 232
+          "1": 229,
+          "2": 239,
+          "3": 228,
+          "4": 230
         },
-        "boundaries": 871,
-        "meanBoundaryContrastOff": 61.51054006888628,
-        "meanBoundaryContrastOn": 64.38143421354764,
-        "changed": 3631,
+        "boundaries": 834,
+        "meanBoundaryContrastOff": 51.93374004796168,
+        "meanBoundaryContrastOn": 55.59793141486804,
+        "changed": 3540,
         "changedBackground": 0,
+        "backgroundChanges": [],
         "callsOff": 43,
         "callsOn": 84
       }
@@ -157,8 +158,9 @@
       "name": "Contours leave the board/background untouched",
       "ok": true,
       "detail": {
-        "changed": 3631,
-        "background": 0
+        "changed": 3540,
+        "background": 0,
+        "changes": []
       }
     },
     {
@@ -177,10 +179,10 @@
       "name": "Sprite masks follow cutouts rather than atlas rectangles",
       "ok": true,
       "detail": [
-        0.4440500338066261,
-        0.4321775312066574,
-        0.639157532774554,
-        0.6549961419753086
+        0.4338235294117647,
+        0.4186013789221894,
+        0.644299023957409,
+        0.6486965076242007
       ]
     },
     {
@@ -189,22 +191,22 @@
       "detail": [
         {
           "type": "guard",
-          "triangles": 12000,
+          "triangles": 13987,
           "colors": true
         },
         {
           "type": "archer",
-          "triangles": 13999,
+          "triangles": 15886,
           "colors": true
         },
         {
           "type": "guard",
-          "triangles": 12000,
+          "triangles": 13987,
           "colors": true
         },
         {
           "type": "archer",
-          "triangles": 13999,
+          "triangles": 15886,
           "colors": true
         }
       ]
@@ -239,7 +241,7 @@
     },
     {
       "variant": "rebuilt",
-      "stats": "4 pieces · 51,998 figure triangles\n2 scene draws · beauty + piece IDs · no hardware FPS claim"
+      "stats": "4 pieces · 59,746 figure triangles\n2 scene draws · beauty + piece IDs · no hardware FPS claim"
     },
     {
       "variant": "sprites",
@@ -252,52 +254,53 @@
     {
       "detailStudy": {
         "counts": {
-          "1": 12151,
-          "2": 13309,
-          "3": 25372,
-          "4": 29157
+          "1": 11596,
+          "2": 12749,
+          "3": 24883,
+          "4": 28635
         },
         "visibleHeights": {
-          "1": 230,
-          "2": 240,
-          "3": 232,
-          "4": 232
+          "1": 229,
+          "2": 239,
+          "3": 228,
+          "4": 230
         },
-        "boundaries": 871,
-        "meanBoundaryContrastOff": 61.51054006888628,
-        "meanBoundaryContrastOn": 64.38143421354764,
-        "changed": 3631,
+        "boundaries": 834,
+        "meanBoundaryContrastOff": 51.93374004796168,
+        "meanBoundaryContrastOn": 55.59793141486804,
+        "changed": 3540,
         "changedBackground": 0,
+        "backgroundChanges": [],
         "callsOff": 43,
         "callsOn": 84
       },
       "spriteMaskFill": [
-        0.4440500338066261,
-        0.4321775312066574,
-        0.639157532774554,
-        0.6549961419753086
+        0.4338235294117647,
+        0.4186013789221894,
+        0.644299023957409,
+        0.6486965076242007
       ]
     },
     {
       "refinedModels": [
         {
           "type": "guard",
-          "triangles": 12000,
+          "triangles": 13987,
           "colors": true
         },
         {
           "type": "archer",
-          "triangles": 13999,
+          "triangles": 15886,
           "colors": true
         },
         {
           "type": "guard",
-          "triangles": 12000,
+          "triangles": 13987,
           "colors": true
         },
         {
           "type": "archer",
-          "triangles": 13999,
+          "triangles": 15886,
           "colors": true
         }
       ]

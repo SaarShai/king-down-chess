@@ -1,5 +1,5 @@
 {
-  "method": "Source-derived refined Guard/Archer with semantic materials and baked crease shading; earlier blockouts retained for comparison",
+  "method": "Source-derived Guard/Archer with selective feature smoothing, continuous cut-in paint boundaries and baked crease shading; earlier blockouts retained for comparison",
   "models": [
     {
       "name": "blockout-guard",
@@ -43,41 +43,63 @@
     },
     {
       "name": "rebuilt-guard",
-      "triangles": 12000,
-      "bytes": 279504,
+      "triangles": 13987,
+      "bytes": 347620,
       "source": "Guard_22mm.obj",
       "sourceTriangles": 60180,
       "materialAreaShare": {
-        "army": 0.8829,
-        "shade": 0.0738,
-        "light": 0.0087,
+        "army": 0.7721,
+        "shade": 0.0219,
+        "light": 0.0055,
         "ink": 0.0,
-        "accent1": 0.0337,
-        "accent2": 0.001
+        "accent1": 0.1996,
+        "accent2": 0.0009
       },
       "creaseShadingRange": [
         0.5,
         1.0
-      ]
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 1.3311944879745852e-09,
+        "sourceReducedTriangles": 11999,
+        "paintedTriangles": 13987
+      },
+      "featureCleanup": {
+        "iterations": 24,
+        "maxDisplacement": 0.028000059347692112,
+        "rmsDisplacement": 0.011121015997128685,
+        "height": 1.4
+      }
     },
     {
       "name": "rebuilt-archer",
-      "triangles": 13999,
-      "bytes": 338512,
+      "triangles": 15886,
+      "bytes": 391632,
       "source": "Archer_2.obj",
       "sourceTriangles": 36502,
       "materialAreaShare": {
-        "army": 0.7031,
-        "shade": 0.094,
-        "light": 0.0695,
+        "army": 0.7958,
+        "shade": 0.1,
+        "light": 0.0197,
         "ink": 0.0,
-        "accent1": 0.0897,
-        "accent2": 0.0436
+        "accent1": 0.0681,
+        "accent2": 0.0165
       },
       "creaseShadingRange": [
         0.5,
         1.0
-      ]
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 2.916428876176269e-09,
+        "sourceReducedTriangles": 14000,
+        "paintedTriangles": 15886
+      },
+      "featureCleanup": {
+        "iterations": 16,
+        "maxDisplacement": 0.013050029802297166,
+        "rmsDisplacement": 0.0061436731405476435,
+        "height": 1.45
+      }
     }
   ]
 }

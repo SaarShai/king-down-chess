@@ -4,13 +4,15 @@ Keep the original surface proportions, remove only the separate Texture pedestal
 reduce mesh density, assign a small army/type material vocabulary, and bake local
 crease occlusion into vertex colours. The source OBJs and colour guides are the references.
 """
-import bpy, math, json
+import bpy, math, json, sys
 from pathlib import Path
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'public/prototype/models'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from paint_regions import paint_surface
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 for material in list(bpy.data.materials): bpy.data.materials.remove(material, do_unlink=True)
@@ -50,34 +52,46 @@ def read_figure(path, height):
     return points, [[remap[i] for i in face] for face in faces]
 
 
-def material_role(name, p, normal, height):
-    x, y, z = p.x, p.z/height, -p.y
-    front = -normal.y
-    if name == 'guard':
-        # Recessed helmet, sculpted armour rims, collar ribs and separate fingers
-        # already exist in the source; colour supports those surfaces.
-        if .67 < y < .82 and abs(x) < .125 and z > .22:
-            if .741 < y < .766 and .025 < abs(x) < .09 and front > .1: return 'accent2'
-            if .715 < y < .792 and abs(x) < .102: return 'shade'
-            return 'light'
-        if y > .81 and abs(x) > .25 and z > .08: return 'accent1'
-        if y > .80 and abs(x) > .27 and z < -.15: return 'accent1'
-        if .18 < y < .48 and abs(x) < .025 and z > .21: return 'shade'
-        if y < .12 or (.17 < y < .42 and abs(x) > .47): return 'shade'
-    else:
-        # Original anatomy/face/braid are kept as a sculptural army-family treatment.
-        # The hood opening and selected skirt folds carry green; weapons carry ochre.
-        if y > .80:
-            if abs(x) < .095 and z > .03:
-                return 'light'
-            if (abs(x) > .095 and y > .84) or (z < -.055 and y > .82): return 'accent1'
-        if .38 < y < .77 and (x < -.21 or x > .235): return 'accent2'
-        if y < .11: return 'shade'
-        if .20 < y < .48 and abs(x+.11) < .055 and z > .13: return 'accent1'
-        if .18 < y < .49 and abs(x-.04) < .038 and z < -.12: return 'accent1'
-        if .58 < y < .77 and abs(x) < .15 and z > .07: return 'shade'
-        if .48 < y < .59 and abs(x) < .13 and z > .07: return 'light'
-    return 'army'
+def smooth_features(obj, name, height):
+    """Quiet shallow surface noise before reduction; protect defining small features."""
+    before = [v.co.copy() for v in obj.data.vertices]
+    group = obj.vertex_groups.new(name='Surface cleanup · protected face and silhouette details')
+    limits = []
+    for v in obj.data.vertices:
+        x, y, z = v.co.x, v.co.z / height, -v.co.y
+        limit = height * (.009 if name == 'guard' else .006)
+        if name == 'guard':
+            weight = .55
+            if y > .67 and abs(x) + 1.1*y > 1.16:
+                weight = 1.; limit = height * .02
+            if .43 < y < .68 and .12 < abs(x) < .44 and z > .14: weight = .9
+            if .66 < y < .83 and abs(x) < .15 and z > .17: weight = .05
+            if y > .80 and abs(x) < .29 and z < -.10: weight = .1
+            if y < .16 or (y < .43 and abs(x) > .40): weight = .2
+        else:
+            weight = .6 if y < .52 else .45
+            if .14 < y < .49: limit = height * .009
+            if y > .80: weight = .7
+            if y > .80 and abs(x) < .115 and z > .015: weight = .08
+            if .5 < y < .83 and abs(x) < .105 and z > .08: weight = .08
+            if .38 < y < .85 and abs(x) > .23: weight = .5
+            if y < .12: weight = .15
+        group.add([v.index], weight, 'REPLACE')
+        limits.append(limit)
+    smooth = obj.modifiers.new('Simplify small bumps and engraved clutter', 'SMOOTH')
+    iterations = 24 if name == 'guard' else 16
+    smooth.factor = .7; smooth.iterations = iterations; smooth.vertex_group = group.name
+    bpy.ops.object.modifier_apply(modifier=smooth.name)
+    # Cap local movement so cloth edges, weapon limbs and armour proportions stay intact.
+    distances = []
+    for v, start, limit in zip(obj.data.vertices, before, limits):
+        delta = v.co - start
+        if delta.length > limit: v.co = start + delta.normalized() * limit
+        distances.append((v.co-start).length)
+    obj.data.update()
+    return {'iterations':iterations, 'maxDisplacement':max(distances),
+            'rmsDisplacement':math.sqrt(sum(d*d for d in distances)/len(distances)),
+            'height':height}
 
 
 def bake_creases(mesh, reach):
@@ -118,30 +132,29 @@ for name, source, height, target in [('guard','Guard_22mm.obj',1.40,12000), ('ar
     bpy.context.collection.objects.link(obj);obj.parent=root
     bpy.ops.object.select_all(action='DESELECT');obj.select_set(True);bpy.context.view_layer.objects.active=obj
     mesh.calc_loop_triangles(); source_tris = len(mesh.loop_triangles)
+    smoothing_report = smooth_features(obj, name, height)
     reduction = obj.modifiers.new('Silhouette-preserving reduction','DECIMATE')
     reduction.ratio = min(1.,target/source_tris)
     bpy.ops.object.modifier_apply(modifier=reduction.name)
     mesh = obj.data
-    for role in roles: mesh.materials.append(materials[role])
-    areas = {role:0. for role in roles}
-    for polygon in mesh.polygons:
-        p = sum((mesh.vertices[i].co for i in polygon.vertices),Vector())/len(polygon.vertices)
-        role = material_role(name,p,polygon.normal,height)
-        polygon.material_index = roles.index(role); polygon.use_smooth = True
-        areas[role] += polygon.area
+    for polygon in mesh.polygons: polygon.use_smooth = True
     ao_range = bake_creases(mesh,.075 if name=='guard' else .065)
+    mesh, paint_report = paint_surface(mesh, name, height, roles, materials)
+    obj.data = mesh
+    areas = {role:0. for role in roles}
+    for polygon in mesh.polygons: areas[roles[polygon.material_index]] += polygon.area
     bpy.ops.object.select_all(action='DESELECT');obj.select_set(True);root.select_set(True)
     destination = OUT/('rebuilt-'+name+'.glb')
     bpy.ops.export_scene.gltf(filepath=str(destination),use_selection=True,export_format='GLB',export_materials='EXPORT',export_animations=False,export_cameras=False,export_lights=False,export_vertex_color='ACTIVE',export_all_vertex_colors=False)
     mesh.calc_loop_triangles()
     report.append({'name':'rebuilt-'+name,'triangles':len(mesh.loop_triangles),'bytes':destination.stat().st_size,
-                   'source':source,'sourceTriangles':source_tris,'materialAreaShare':{k:round(v/sum(areas.values()),4) for k,v in areas.items()},'creaseShadingRange':ao_range})
+                   'source':source,'sourceTriangles':source_tris,'materialAreaShare':{k:round(v/sum(areas.values()),4) for k,v in areas.items()},'creaseShadingRange':ao_range,'paintBoundaryCheck':paint_report,'featureCleanup':smoothing_report})
     root.location.x = -1. if name=='guard' else 1.
 
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'docs/graphics-prototype/rebuilt-pieces.blend'))
 manifest_path = OUT/'manifest.json'
 manifest = json.loads(manifest_path.read_text())
-manifest['method'] = 'Source-derived refined Guard/Archer with semantic materials and baked crease shading; earlier blockouts retained for comparison'
+manifest['method'] = 'Source-derived Guard/Archer with selective feature smoothing, continuous cut-in paint boundaries and baked crease shading; earlier blockouts retained for comparison'
 manifest['models'] = [m for m in manifest['models'] if m['name'] not in ['rebuilt-guard','rebuilt-archer']] + report
 manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
 print('REFINEMENT_REPORT',json.dumps(report))

@@ -54,20 +54,20 @@ const contourEvidence=await page.evaluate(()=>{
  const capture=()=>{view.composer.render();const c=document.createElement('canvas');c.width=t.width;c.height=t.height;const ctx=c.getContext('2d');ctx.drawImage(renderer.domElement,0,0);return ctx.getImageData(0,0,t.width,t.height).data;};
  pass.mode='off';const off=capture();pass.mode='adaptive';const on=capture();
  const ids=new Uint8Array(t.width*t.height*4);renderer.readRenderTargetPixels(t,0,0,t.width,t.height,ids);
- const counts={},bounds={};let boundaries=0,contrastOff=0,contrastOn=0,changed=0,changedBackground=0;
+ const counts={},bounds={},backgroundChanges=[];let boundaries=0,contrastOff=0,contrastOn=0,changed=0,changedBackground=0;
  const luminance=(image,index)=>image[index]*.2126+image[index+1]*.7152+image[index+2]*.0722;
  for(let y=0;y<t.height;y++)for(let x=0;x<t.width;x++){
   const i=(y*t.width+x)*4,id=ids[i],screen=((t.height-1-y)*t.width+x)*4;
   if(id){counts[id]=(counts[id]??0)+1;const b=bounds[id]??={min:y,max:y};b.min=Math.min(b.min,y);b.max=Math.max(b.max,y);}
-  if(off[screen]!==on[screen]||off[screen+1]!==on[screen+1]||off[screen+2]!==on[screen+2]){changed++;if(!id)changedBackground++;}
+  if(off[screen]!==on[screen]||off[screen+1]!==on[screen+1]||off[screen+2]!==on[screen+2]){changed++;if(!id){changedBackground++;if(backgroundChanges.length<8)backgroundChanges.push({x,y,off:Array.from(off.slice(screen,screen+3)),on:Array.from(on.slice(screen,screen+3)),neighbors:[ids[i-4],ids[i+4],ids[i-t.width*4],ids[i+t.width*4]]});}}
   if(x+1<t.width&&id&&ids[i+4]&&id!==ids[i+4]){boundaries++;contrastOff+=Math.abs(luminance(off,screen)-luminance(off,screen+4));contrastOn+=Math.abs(luminance(on,screen)-luminance(on,screen+4));}
  }
  renderer.info.autoReset=false;renderer.info.reset();pass.mode='off';view.composer.render();const callsOff=renderer.info.render.calls;renderer.info.reset();pass.mode='adaptive';view.composer.render();const callsOn=renderer.info.render.calls;renderer.info.autoReset=true;
- return {counts,visibleHeights:Object.fromEntries(Object.entries(bounds).map(([id,b])=>[id,b.max-b.min+1])),boundaries,meanBoundaryContrastOff:contrastOff/boundaries,meanBoundaryContrastOn:contrastOn/boundaries,changed,changedBackground,callsOff,callsOn};
+ return {counts,visibleHeights:Object.fromEntries(Object.entries(bounds).map(([id,b])=>[id,b.max-b.min+1])),boundaries,meanBoundaryContrastOff:contrastOff/boundaries,meanBoundaryContrastOn:contrastOn/boundaries,changed,changedBackground,backgroundChanges,callsOff,callsOn};
 });
 check('Each multi-part figure has one distinct mask ID',Object.keys(contourEvidence.counts).length===4,contourEvidence.counts);
 check('Contours strengthen measured overlap boundaries',contourEvidence.boundaries>20&&contourEvidence.meanBoundaryContrastOn>contourEvidence.meanBoundaryContrastOff,contourEvidence);
-check('Contours leave the board/background untouched',contourEvidence.changed>0&&contourEvidence.changedBackground===0,{changed:contourEvidence.changed,background:contourEvidence.changedBackground});
+check('Contours leave the board/background untouched',contourEvidence.changed>0&&contourEvidence.changedBackground===0,{changed:contourEvidence.changed,background:contourEvidence.changedBackground,changes:contourEvidence.backgroundChanges});
 check('Off skips the extra identity render',contourEvidence.callsOff<contourEvidence.callsOn,{off:contourEvidence.callsOff,on:contourEvidence.callsOn});
 await page.selectOption('#contours','silhouette');await page.screenshot({path:out+'/captures/overlap-1px-silhouette.png'});
 await page.selectOption('#contours','adaptive');await page.selectOption('#pixels','1.5');

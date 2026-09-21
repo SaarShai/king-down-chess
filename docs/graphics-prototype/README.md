@@ -1,6 +1,6 @@
 # King Down graphics study — 21 September 2026
 
-**Current question:** how much of the original characters' detail can we retain while keeping a coherent army palette and readable silhouettes? The owner's correction was explicit: richer figures closer to the artwork, not only more screen pixels.
+**Current question:** which sculpt features should be simplified so the original characters read cleanly at the approved 0.5 px setting? The owner likes the resolution and likeness, but asked for tidier details, including smoothing the forms themselves.
 
 The current pair uses the **original Guard and Archer sculpt surfaces**, reduced and recoloured for the study. The first primitive blockouts remain switchable. This is an isolated art/rendering study on `codex/graphics-study`; it does not select or replace the main game's production style.
 
@@ -24,17 +24,21 @@ Scenes include a separated pair, a lower-angle overlap close-up, six types and a
 
 | Asset | Earlier blockout | Current refined model | Preserved source features |
 |---|---:|---:|---|
-| Guard | 888 triangles | **12,000 triangles** | Curved shoulder wings, recessed helmet/face, layered chest and belly armour, collar/back ribs, gauntlets, individual fingers and boots |
-| Archer | 970 triangles | **13,999 triangles** | Original slender proportions and pose, face and nose, braid, bodice, draped/split skirt, boots, two wrist crossbows and their small construction details |
+| Guard | 888 triangles | **13,987 triangles** | Curved shoulder wings, recessed helmet/face, layered chest and belly armour, collar/back ribs, gauntlets, individual fingers and boots |
+| Archer | 970 triangles | **15,886 triangles** | Original slender proportions and pose, face and nose, braid, bodice, draped/split skirt, boots and two wrist crossbows |
 
 These are source-derived refinements, not new designs and not a claim of hand-retopologized animation meshes. The sources contain 60,180 Guard and 36,502 Archer figure triangles. The separate `Texture` pedestal is excluded by material identity. This preserves the actual feet instead of clipping a fixed band off the bottom.
 
-Local crease occlusion is baked into **COLOR_0** as a neutral multiplier. Smooth normals and a rough diffuse material let the sculpture's shallow detail read without drawing black lines around every face. Army/type colours remain assigned through material roles. The palette zones are still provisional spatial assignments; they need a cleaner art pass around small helmet/hood/weapon regions before production. No recovered original texture paint is claimed.
+The latest cleanup selectively smooths the source geometry **before** mesh reduction. Broad shoulder plates receive stronger smoothing; helmet/face, fingers, collar ribs and braid receive much less. Small cloth and weapon ornament is softened. Movement is bounded to 2% of figure height on Guard shoulder surfaces (0.9% elsewhere) and at most 0.9% on Archer cloth (0.6% elsewhere). This is deliberate feature simplification, not a pixel-size or lighting change. The resulting models still need the owner's art judgment; no hand retopology is claimed.
+
+Colour boundaries are now cut into the mesh instead of selecting whole triangles by their centres. Continuous shoulder caps, a regular visor, a coherent hood/face opening and restrained weapon accents replace jagged patches; scattered cloth/finger colour fragments are removed. The cuts only subdivide existing surfaces and interpolate their smooth normals and crease shading. A build assertion checks surface-area preservation; the current relative error is below 3×10⁻⁹. This adds about 2,000 paint-boundary triangles per model without adding a runtime shader or texture dependency.
+
+Local crease occlusion is baked into **COLOR_0** as a neutral multiplier. Smooth normals and a rough diffuse material let the sculpture read without drawing black lines around every face. Army/type colours remain regular material roles, including in sprite bakes and editable Blender files. These are authored spatial paint regions, not recovered original texture paint.
 
 - [Current editable Blender source](rebuilt-pieces.blend): source-derived pair with material regions and crease-shading attributes.
 - [Earlier editable blockouts](blockout-pieces.blend): original named primitive components.
 - [Guard GLB](../../public/prototype/models/rebuilt-guard.glb) · [Archer GLB](../../public/prototype/models/rebuilt-archer.glb) · [Manifest](../../public/prototype/models/manifest.json).
-- [Complete build recipe](../../tools/graphics-prototype/build_models.py) · [Refinement recipe](../../tools/graphics-prototype/refine_models.py).
+- [Complete build recipe](../../tools/graphics-prototype/build_models.py) · [Refinement recipe](../../tools/graphics-prototype/refine_models.py) · [Paint outlines and surface cuts](../../tools/graphics-prototype/paint_regions.py).
 - [Guard colour guide](../../public/prototype/source-guides/guard_color_ref.jpg) · [Archer colour guide](../../public/prototype/source-guides/Archer_color_ref.jpg).
 
 The recipes require the curated `art-src/pieces/obj` source files; running the preview does not. Rebuild with:
@@ -47,7 +51,7 @@ The recipes require the curated `art-src/pieces/obj` source files; running the p
 
 Alabaster (`#DCC9A2`) and ink blue (`#485875`) remain the dominant army families. Guard has steel-blue/mint accents; Archer has green/ochre. Faces and clothing use shades of the army colour, so adding anatomy does not introduce unrelated skin/leather colours. Pawn controls use their army material only.
 
-Measured total mesh surface area in army-family roles is about 96.5% for Guard and 86.7% for Archer. These include hidden/inside surfaces; they are not visible-area or recognition measurements. The material vocabulary is army, shade, light, ink, accent 1 and accent 2.
+Measured total mesh surface area in army-family roles is about 80.0% for Guard and 91.6% for Archer. These include hidden/inside surfaces; they are not visible-area or recognition measurements. The material vocabulary is army, shade, light, ink, accent 1 and accent 2.
 
 Pixel size 1 gives four times the screen sample area of 2 at the same camera. The 1.5 option is a compromise with uneven physical pixel blocks. The 0.5 option doubles both internal and output dimensions relative to 1, preserving the extra samples on high-density displays. It does not itself add geometry; the **Figure detail** control does that. The current build verifies that the 0.5 canvas has twice the CSS dimensions.
 
@@ -65,12 +69,12 @@ QuietHours remains a useful fixed-isometric reference. Its adapter uses the earl
 
 ## Evidence and next art decision
 
-[Refined pair at 0.5 px](captures/refined-pair-halfpx.png) · [Earlier blockouts at the same setting](captures/blockout-pair-halfpx.png) · [Overlap](captures/overlap-1px-adaptive.png) · [Phone full board](captures/board-mobile-fine-adaptive.png) · [Directional sprites](captures/sprites-desktop.png)
+[Before cleanup at 0.5 px](captures/detail-before-halfpx.png) · [Cleaned pair at the same setting](captures/refined-pair-halfpx.png) · [Earlier blockouts](captures/blockout-pair-halfpx.png) · [Overlap](captures/overlap-1px-adaptive.png) · [Phone full board](captures/board-mobile-fine-adaptive.png) · [Directional sprites](captures/sprites-desktop.png)
 
 `npm run build` passes TypeScript and Vite compilation, with the existing large-chunk advisory. `npm run graphics:check` passes **33 checks with zero console/page errors**. It covers five representations, camera/view switching, Canvas pan, motion completion, both armies, 32 pieces, desktop/390×844 framing, pixel/grayscale controls, references, normal game boot, per-figure masks, real contour pixel changes, sprite cutouts, richer geometry/vertex colour, blockout comparison and double-density output. [Machine-readable record](verification.json).
 
-The latest fixed overlap test changed 3,631 piece pixels and no board/background pixels; average display-value contrast across 871 horizontal figure boundaries rose from 61.5 to 64.4. Sprite masks filled 43–65% of their bounding rectangles, preserving transparent shapes. These are rendering checks, not human recognition scores. Blender source was reopened, and exported COLOR_0 data was checked to contain the crease shading rather than an unintended white channel.
+The latest fixed overlap test changed 3,540 piece pixels and no board/background pixels; average display-value contrast across 834 horizontal figure boundaries rose from 51.9 to 55.6. Sprite masks filled 42–65% of their bounding rectangles, preserving transparent shapes. The final compositor buffers now use nearest filtering: the default linear filtering introduced a one-channel, one-level change in one adjacent background pixel. The existing strict zero-background-change check caught it and now passes unchanged. These are rendering checks, not human recognition scores. Blender source was reopened, and exported normals and neutral COLOR_0 data were verified.
 
 All browser QA used software-rendered Chromium. Real-device FPS, battery use, colour-vision recognition, skeletal animation and full game regression are not established. The main game and its previously audited renderer issues remain unchanged.
 
-The current visual direction is **source-faithful painted miniatures with controlled pixels and restrained contours**. The first blockouts removed too much identity. The refined source surfaces recover that identity, while the remaining paint placement and actual play-size readability need the owner's visual judgment. Compare these models before extending the treatment to the entire set. The [open-source comparison](open-source-alternatives.md) remains relevant; no engine migration is required for this refinement.
+The current visual direction is **source-faithful painted miniatures with controlled pixels and restrained contours**. The first blockouts removed too much identity. The refined source surfaces recover that identity; this cleanup selectively simplifies distracting features and colour fragments. The amount of simplification and actual play-size readability still need the owner's visual judgment. Compare these models before extending the treatment to the entire set. The [open-source comparison](open-source-alternatives.md) remains relevant; no engine migration is required for this refinement.
