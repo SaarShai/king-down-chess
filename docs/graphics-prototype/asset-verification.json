@@ -2,29 +2,43 @@
   {
     "model": "guard",
     "triangles": 22416,
+    "bytes": 1349592,
     "materialRoles": [
       "accent1",
       "army"
     ],
-    "maxNormalLengthSquaredError": 2.7395218760162265e-07,
+    "maxNormalLengthSquaredError": 2.27347865866534e-07,
     "neutralCOLOR_0_range": [
       32768,
       65535
     ],
-    "finitePositions": true
+    "finitePositions": true,
+    "restPositionsUnchangedFrom": "bebe712",
+    "bones": 9,
+    "maxWeightSumError": 2.9802322387695312e-08,
+    "clipCount": 1,
+    "walkDuration": 1.600000023841858,
+    "maxLoopChannelSeam": 2.9391522145938313e-18
   },
   {
     "model": "archer",
     "triangles": 20968,
+    "bytes": 937464,
     "materialRoles": [
       "accent1",
       "army"
     ],
-    "maxNormalLengthSquaredError": 2.601846134098196e-07,
+    "maxNormalLengthSquaredError": 2.1557758311807618e-07,
     "neutralCOLOR_0_range": [
       32768,
       65535
     ],
-    "finitePositions": true
+    "finitePositions": true,
+    "restPositionsUnchangedFrom": "bebe712",
+    "bones": 11,
+    "maxWeightSumError": 1.043081283569336e-07,
+    "clipCount": 1,
+    "walkDuration": 1.2000000476837158,
+    "maxLoopChannelSeam": 0.0
   }
 ]

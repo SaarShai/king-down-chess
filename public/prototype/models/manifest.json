@@ -1,5 +1,5 @@
 {
-  "method": "Source-derived Guard/Archer with crease-protected surface relaxation, weighted normals and feature-specific paint boundaries and baked crease shading; earlier blockouts retained for comparison",
+  "method": "Source-derived Guard/Archer with crease-protected surface relaxation, weighted normals and feature-specific paint boundaries and baked crease shading, with authored skeletal in-place walk clips; earlier blockouts retained for comparison",
   "models": [
     {
       "name": "blockout-guard",
@@ -44,7 +44,7 @@
     {
       "name": "rebuilt-guard",
       "triangles": 22416,
-      "bytes": 871068,
+      "bytes": 1349592,
       "source": "Guard_22mm.obj",
       "sourceTriangles": 60180,
       "materialAreaShare": {
@@ -88,12 +88,23 @@
           "feature": "chest",
           "role": "army"
         }
-      ]
+      ],
+      "walk": {
+        "bones": 9,
+        "clip": "Walk",
+        "duration": 1.6,
+        "frames": 49,
+        "strideSpan": 0.13,
+        "footLift": 0.044,
+        "stanceFraction": 0.6,
+        "groundContactEveryFrame": true,
+        "scope": "In-place walk; authored weights on the existing print sculpt, not a production retopology"
+      }
     },
     {
       "name": "rebuilt-archer",
       "triangles": 20968,
-      "bytes": 612832,
+      "bytes": 937464,
       "source": "Archer_2.obj",
       "sourceTriangles": 36502,
       "materialAreaShare": {
@@ -141,7 +152,18 @@
           "feature": "braid",
           "role": "army"
         }
-      ]
+      ],
+      "walk": {
+        "bones": 11,
+        "clip": "Walk",
+        "duration": 1.2,
+        "frames": 37,
+        "strideSpan": 0.21,
+        "footLift": 0.065,
+        "stanceFraction": 0.6,
+        "groundContactEveryFrame": true,
+        "scope": "In-place walk; authored weights on the existing print sculpt, not a production retopology"
+      }
     }
   ]
 }

@@ -95,6 +95,65 @@ check('Earlier blockouts remain comparable at identical resolution',await page.e
 await page.selectOption('#figure-detail','refined');await page.waitForFunction(()=>study.entries.length===4&&study.entries.every(e=>e.visual.userData.modelKey.startsWith('rebuilt')));
 check('Double-density output retains twice the display dimensions',await page.locator('#stage-board canvas').evaluate(e=>e.width===e.clientWidth*2&&e.height===e.clientHeight*2));
 observations.push({refinedModels:refined});
+// Walk rigs: inspect deformed vertices, including contact, loop seam and mask parity.
+const walkEvidence=await page.evaluate(()=>{
+ const rigs=study.entries.filter(e=>e.walk);
+ const bones=rigs.map(e=>{const result=[];e.visual.traverse(o=>{if(o.isBone)result.push(o);});return result;});
+ const skins=rigs.map(e=>{const result=[];e.visual.traverse(o=>{if(o.isSkinnedMesh)result.push(o);});return result;});
+ const samples=skins.map(meshes=>meshes.flatMap(m=>{
+  const p=m.geometry.attributes.position,weights=m.geometry.attributes.skinWeight,indices=m.geometry.attributes.skinIndex,result=[];
+  for(let i=0;i<p.count;i++)for(let j=0;j<4;j++)if(weights.getComponent(i,j)>.999){
+   const name=m.skeleton.bones[indices.getComponent(i,j)].name;
+   if(name.startsWith('foot'))result.push({m,i,name});
+  }return result;
+ }));
+ const vertex=({m,i})=>{m.skeleton.update();return m.getVertexPosition(i,m.position.clone()).applyMatrix4(m.matrixWorld);};
+ view.scene.updateMatrixWorld(true);
+ const rest=samples.map(a=>a.map(vertex));
+ const minimum=(a,pts,side)=>Math.min(...pts.filter((_,i)=>a[i].name.endsWith(side)).map(p=>p.y));
+ const restSoles=samples.map((a,i)=>['L','R'].map(s=>minimum(a,rest[i],s)));
+ study.setWalking(true);
+ const pose=phase=>{for(const e of rigs){e.walk.action.stopFading().setEffectiveWeight(1);e.walk.action.paused=true;e.walk.action.time=phase*e.walk.action.getClip().duration;e.walk.mixer.update(0);}view.scene.updateMatrixWorld(true);};
+ let floorError=0,contactError=0,maxLift=0,maxDisplacement=0;
+ for(let frame=0;frame<=24;frame++){
+  pose(frame/24);
+  samples.forEach((a,i)=>{
+   const pts=a.map(vertex),heights=['L','R'].map((s,j)=>minimum(a,pts,s)-restSoles[i][j]);
+   floorError=Math.max(floorError,-Math.min(...heights));contactError=Math.max(contactError,Math.abs(Math.min(...heights)));maxLift=Math.max(maxLift,...heights);
+   pts.forEach((p,j)=>maxDisplacement=Math.max(maxDisplacement,p.distanceTo(rest[i][j])));
+  });
+ }
+ pose(0);const first=samples.map(a=>a.map(vertex));pose(1);
+ const seam=Math.max(...samples.flatMap((a,i)=>a.map((s,j)=>vertex(s).distanceTo(first[i][j]))));
+ pose(.8);view.composer.render();
+ const t=study.contourPass.ids,ids=new Uint8Array(t.width*t.height*4);view.renderer.readRenderTargetPixels(t,0,0,t.width,t.height,ids);
+ // A standard Three material supplies an independent reference for skeletal silhouettes.
+ let Basic;view.scene.traverse(o=>{if(o.material?.type==='MeshBasicMaterial')Basic=o.material.constructor;});
+ const white=new Basic({color:0xffffff,side:2}),black=new Basic({color:0,side:2});
+ const figures=new Set(skins.flat()),original=new Map();
+ view.scene.traverse(o=>{if(o.isMesh){original.set(o,o.material);o.material=figures.has(o)?white:black;}});
+ const background=view.scene.background,previous=view.renderer.getRenderTarget(),reference=t.clone();
+ view.scene.background=background.clone().set(0);view.renderer.setRenderTarget(reference);view.renderer.render(view.scene,view.camera);
+ const pixels=new Uint8Array(t.width*t.height*4);view.renderer.readRenderTargetPixels(reference,0,0,t.width,t.height,pixels);
+ let maskMismatch=0,maskPixels=0;for(let i=0;i<ids.length;i+=4){const a=ids[i]>0,b=pixels[i]>128;if(a!==b)maskMismatch++;if(a)maskPixels++;}
+ for(const [o,m] of original)o.material=m;view.scene.background=background;view.renderer.setRenderTarget(previous);reference.dispose();white.dispose();black.dispose();
+ study.setWalking(false);for(const e of rigs)e.walk.reset();view.scene.updateMatrixWorld(true);
+ const resetError=Math.max(...samples.flatMap((a,i)=>a.map((s,j)=>vertex(s).distanceTo(rest[i][j]))));
+ return {rigs:rigs.map((e,i)=>({type:e.type,side:e.side,bones:bones[i].length,footVertices:samples[i].length,duration:e.walk.action.getClip().duration})),independent:new Set(bones.flat()).size===bones.flat().length,floorError,contactError,maxLift,maxDisplacement,seam,resetError,maskMismatch,maskPixels};
+});
+check('Both armies own independent Guard and Archer skeletons',walkEvidence.rigs.length===4&&walkEvidence.independent&&walkEvidence.rigs.every(r=>r.bones>=9&&r.footVertices>20),walkEvidence.rigs);
+check('Walk bends limbs and keeps a sole on the board',walkEvidence.maxDisplacement>.07&&walkEvidence.maxLift>.04&&walkEvidence.floorError<.0001&&walkEvidence.contactError<.0001,walkEvidence);
+check('Walk loop and stop restore without a pose discontinuity',walkEvidence.seam<.0001&&walkEvidence.resetError<.0001,{seam:walkEvidence.seam,reset:walkEvidence.resetError});
+check('Animated contours match standard skinned silhouettes',walkEvidence.maskPixels>1000&&walkEvidence.maskMismatch===0,{mismatch:walkEvidence.maskMismatch,pixels:walkEvidence.maskPixels});
+await page.locator('#walk').click();await page.waitForTimeout(700);await page.screenshot({path:out+'/captures/walk-pair-halfpx.png'});
+check('Walk control starts visible playback',await page.evaluate(()=>study.walking&&study.entries.every(e=>e.walk.action.time>0)));
+await page.locator('#walk').click();await page.waitForFunction(()=>!study.walking&&study.entries.every(e=>!e.walk.action.isRunning()),{},{timeout:12000});
+check('Walk control settles and stops',await page.evaluate(()=>!study.walking&&study.entries.every(e=>!e.walk.action.isRunning())));
+await page.locator('#walk').click();await page.selectOption('#figure-detail','blockout');
+check('Changing figures cancels walking and disables unsupported poses',await page.evaluate(()=>!study.walking&&study.entries.every(e=>!e.walk))&&await page.locator('#walk').isDisabled());
+await page.selectOption('#figure-detail','refined');await page.locator('#walk').click();await page.locator('#ability').click();await page.waitForFunction(()=>!study.running,{},{timeout:12000});
+check('Ability cleanly interrupts walking',await page.evaluate(()=>!study.walking&&study.entries.every(e=>!e.walk.action.isRunning())));
+observations.push({walking:walkEvidence});
 await page.goto('http://localhost:5190/');await page.waitForFunction(()=>window.view&&document.querySelector('#setup')?.title.length>5);check('Normal game still loads',await page.locator('#board canvas').count()===1);
 check('No console/page errors',errors.length===0,errors);
 const result={browser:browser.version(),checks,errors,observations,limits:'Visual/structural QA in Chromium software rendering. No physical-device performance benchmark.'};

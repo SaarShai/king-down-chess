@@ -34,10 +34,10 @@
       "ok": true,
       "detail": {
         "first": [
-          -1,
-          -1,
-          -1,
-          -1
+          2,
+          2,
+          10,
+          10
         ],
         "second": [
           5,
@@ -254,6 +254,117 @@
       "ok": true
     },
     {
+      "name": "Both armies own independent Guard and Archer skeletons",
+      "ok": true,
+      "detail": [
+        {
+          "type": "guard",
+          "side": 0,
+          "bones": 9,
+          "footVertices": 203,
+          "duration": 1.600000023841858
+        },
+        {
+          "type": "archer",
+          "side": 0,
+          "bones": 11,
+          "footVertices": 373,
+          "duration": 1.2000000476837158
+        },
+        {
+          "type": "guard",
+          "side": 1,
+          "bones": 9,
+          "footVertices": 203,
+          "duration": 1.600000023841858
+        },
+        {
+          "type": "archer",
+          "side": 1,
+          "bones": 11,
+          "footVertices": 373,
+          "duration": 1.2000000476837158
+        }
+      ]
+    },
+    {
+      "name": "Walk bends limbs and keeps a sole on the board",
+      "ok": true,
+      "detail": {
+        "rigs": [
+          {
+            "type": "guard",
+            "side": 0,
+            "bones": 9,
+            "footVertices": 203,
+            "duration": 1.600000023841858
+          },
+          {
+            "type": "archer",
+            "side": 0,
+            "bones": 11,
+            "footVertices": 373,
+            "duration": 1.2000000476837158
+          },
+          {
+            "type": "guard",
+            "side": 1,
+            "bones": 9,
+            "footVertices": 203,
+            "duration": 1.600000023841858
+          },
+          {
+            "type": "archer",
+            "side": 1,
+            "bones": 11,
+            "footVertices": 373,
+            "duration": 1.2000000476837158
+          }
+        ],
+        "independent": true,
+        "floorError": 0,
+        "contactError": 1.3511726091339302e-8,
+        "maxLift": 0.06395818181514128,
+        "maxDisplacement": 0.10500000716169494,
+        "seam": 2.4913989196422234e-12,
+        "resetError": 0,
+        "maskMismatch": 0,
+        "maskPixels": 189174
+      }
+    },
+    {
+      "name": "Walk loop and stop restore without a pose discontinuity",
+      "ok": true,
+      "detail": {
+        "seam": 2.4913989196422234e-12,
+        "reset": 0
+      }
+    },
+    {
+      "name": "Animated contours match standard skinned silhouettes",
+      "ok": true,
+      "detail": {
+        "mismatch": 0,
+        "pixels": 189174
+      }
+    },
+    {
+      "name": "Walk control starts visible playback",
+      "ok": true
+    },
+    {
+      "name": "Walk control settles and stops",
+      "ok": true
+    },
+    {
+      "name": "Changing figures cancels walking and disables unsupported poses",
+      "ok": true
+    },
+    {
+      "name": "Ability cleanly interrupts walking",
+      "ok": true
+    },
+    {
       "name": "Normal game still loads",
       "ok": true
     },
@@ -338,6 +449,49 @@
           "colors": true
         }
       ]
+    },
+    {
+      "walking": {
+        "rigs": [
+          {
+            "type": "guard",
+            "side": 0,
+            "bones": 9,
+            "footVertices": 203,
+            "duration": 1.600000023841858
+          },
+          {
+            "type": "archer",
+            "side": 0,
+            "bones": 11,
+            "footVertices": 373,
+            "duration": 1.2000000476837158
+          },
+          {
+            "type": "guard",
+            "side": 1,
+            "bones": 9,
+            "footVertices": 203,
+            "duration": 1.600000023841858
+          },
+          {
+            "type": "archer",
+            "side": 1,
+            "bones": 11,
+            "footVertices": 373,
+            "duration": 1.2000000476837158
+          }
+        ],
+        "independent": true,
+        "floorError": 0,
+        "contactError": 1.3511726091339302e-8,
+        "maxLift": 0.06395818181514128,
+        "maxDisplacement": 0.10500000716169494,
+        "seam": 2.4913989196422234e-12,
+        "resetError": 0,
+        "maskMismatch": 0,
+        "maskPixels": 189174
+      }
     }
   ],
   "limits": "Visual/structural QA in Chromium software rendering. No physical-device performance benchmark."

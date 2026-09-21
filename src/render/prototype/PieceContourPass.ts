@@ -13,7 +13,14 @@ export class PieceContourPass extends Pass {
   private idMaterial = new THREE.ShaderMaterial({
     uniforms: { pieceId: { value: 0 }, alphaMap: { value: null }, hasAlpha: { value: false }, uvTransform: { value: new THREE.Matrix3() } },
     vertexShader: `varying vec2 vUv; uniform mat3 uvTransform;
-      void main(){vUv=(uvTransform*vec3(uv,1.)).xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+      #include <skinning_pars_vertex>
+      void main(){
+        vUv=(uvTransform*vec3(uv,1.)).xy;
+        #include <skinbase_vertex>
+        #include <begin_vertex>
+        #include <skinning_vertex>
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(transformed,1.);
+      }`,
     fragmentShader: `varying vec2 vUv; uniform float pieceId; uniform sampler2D alphaMap; uniform bool hasAlpha;
       void main(){if(hasAlpha && texture2D(alphaMap,vUv).a<.3)discard; gl_FragColor=vec4(pieceId,0.,0.,1.);}`,
     side: THREE.DoubleSide,
