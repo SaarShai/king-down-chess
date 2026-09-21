@@ -5,6 +5,10 @@ export type ClayCadence = 'smooth' | 'stopmotion';
 export type WalkPreviewOptions = {
   pliable?: boolean;
   cadence?: ClayCadence;
+  /** Bone names or patterns that must stay on their authored transform (ground ornaments, etc.). */
+  groundedBones?: readonly (string | RegExp)[];
+  /** Disable root squash for a profile whose base ornaments already touch the board. */
+  squash?: boolean;
 };
 
 type SpringBone = {
@@ -32,6 +36,8 @@ export class WalkPreview {
   private settling = 0;
   private readonly pliable: boolean;
   private readonly cadence: ClayCadence;
+  private readonly groundedBones: readonly (string | RegExp)[];
+  private readonly squashEnabled: boolean;
   private readonly baseScale: THREE.Vector3;
   private readonly springs: SpringBone[] = [];
   private squash = 0;
@@ -45,6 +51,8 @@ export class WalkPreview {
     this.action = this.mixer.clipAction(clip);
     this.pliable = options.pliable ?? false;
     this.cadence = options.cadence ?? 'smooth';
+    this.groundedBones = options.groundedBones ?? [];
+    this.squashEnabled = options.squash ?? true;
     this.baseScale = figure.scale.clone();
     if (this.pliable) this.collectSprings();
   }
@@ -52,7 +60,9 @@ export class WalkPreview {
   private collectSprings(): void {
     this.figure.traverse(object => {
       if (!(object as THREE.Bone).isBone) return;
-      const name = object.name.toLowerCase();
+      const rawName = object.name;
+      const name = rawName.toLowerCase();
+      if (this.isGrounded(rawName)) return;
       let kind: SpringBone['kind'] | null = null;
       if (name === 'body' || name.endsWith('.body')) kind = 'body';
       else if (/^arm[._]?[lr]$/.test(name)) kind = 'arm';
@@ -67,6 +77,20 @@ export class WalkPreview {
         offset: new THREE.Euler(),
         velocity: new THREE.Euler(),
       });
+    });
+  }
+
+  private isGrounded(name: string): boolean {
+    const compact = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return this.groundedBones.some(rule => {
+      if (typeof rule === 'string') return compact === rule.toLowerCase().replace(/[^a-z0-9]/g, '');
+      rule.lastIndex = 0;
+      const matchesName = rule.test(name);
+      rule.lastIndex = 0;
+      if (matchesName) return true;
+      const matchesCompact = rule.test(compact);
+      rule.lastIndex = 0;
+      return matchesCompact;
     });
   }
 
@@ -98,43 +122,48 @@ export class WalkPreview {
 
   private updateSecondary(dt: number): void {
     if (!this.pliable || dt <= 0) return;
-    const stiffness = 18;
-    const damping = 8.5;
+    // Keep the spring critically damped enough for 12 fps while allowing a visible
+    // overshoot at 60 fps. The input is clamped so a hidden-tab resume cannot explode it.
+    const step = Math.min(.08, dt);
+    const stiffness = 28;
+    const damping = 7.2;
     for (const spring of this.springs) {
       const current = spring.bone.rotation;
-      const drive = new THREE.Vector3(
-        angleDelta(current.x, spring.previous.x) / dt,
-        angleDelta(current.y, spring.previous.y) / dt,
-        angleDelta(current.z, spring.previous.z) / dt,
-      );
+      const driveX = angleDelta(current.x, spring.previous.x) / step;
+      const driveY = angleDelta(current.y, spring.previous.y) / step;
+      const driveZ = angleDelta(current.z, spring.previous.z) / step;
       spring.previous.copy(current);
-      const lag = spring.kind === 'cloth' ? .11 : spring.kind === 'arm' ? .075 : .028;
-      const target = spring.kind === 'cloth'
-        ? new THREE.Vector3(-drive.x * lag, -drive.y * lag * .55, -drive.z * lag)
-        : spring.kind === 'arm'
-          ? new THREE.Vector3(-drive.x * lag * .7, -drive.y * lag, -drive.z * lag)
-          : new THREE.Vector3(-drive.x * lag, 0, -drive.z * lag * .5);
-      spring.velocity.x += (target.x - spring.offset.x) * stiffness * dt;
-      spring.velocity.y += (target.y - spring.offset.y) * stiffness * dt;
-      spring.velocity.z += (target.z - spring.offset.z) * stiffness * dt;
-      const drag = Math.exp(-damping * dt);
+      const lag = spring.kind === 'cloth' ? .19 : spring.kind === 'arm' ? .14 : .045;
+      const targetX = THREE.MathUtils.clamp(-driveX * lag, -.34, .34);
+      const targetY = THREE.MathUtils.clamp(-driveY * lag * (spring.kind === 'cloth' ? .55 : 1), -.26, .26);
+      const targetZ = THREE.MathUtils.clamp(-driveZ * lag, -.34, .34);
+      spring.velocity.x += (targetX - spring.offset.x) * stiffness * step;
+      spring.velocity.y += (targetY - spring.offset.y) * stiffness * step;
+      spring.velocity.z += (targetZ - spring.offset.z) * stiffness * step;
+      const drag = Math.exp(-damping * step);
       spring.velocity.x *= drag;
       spring.velocity.y *= drag;
       spring.velocity.z *= drag;
-      spring.offset.x = THREE.MathUtils.clamp(spring.offset.x + spring.velocity.x * dt, -.16, .16);
-      spring.offset.y = THREE.MathUtils.clamp(spring.offset.y + spring.velocity.y * dt, -.12, .12);
-      spring.offset.z = THREE.MathUtils.clamp(spring.offset.z + spring.velocity.z * dt, -.16, .16);
+      spring.offset.x = THREE.MathUtils.clamp(spring.offset.x + spring.velocity.x * step, -.22, .22);
+      spring.offset.y = THREE.MathUtils.clamp(spring.offset.y + spring.velocity.y * step, -.16, .16);
+      spring.offset.z = THREE.MathUtils.clamp(spring.offset.z + spring.velocity.z * step, -.22, .22);
       this.applySpringOffset(spring);
     }
 
     // The target pulses at footfall, then recovers. Inverse square-root widening keeps
     // approximate volume while the model's origin stays on the board plane.
     const phase = (this.action.time / this.action.getClip().duration) % 1;
-    const targetSquash = -0.038 * Math.max(0, Math.sin(phase * Math.PI * 2));
-    this.squashVelocity += (targetSquash - this.squash) * 15 * dt;
-    this.squashVelocity *= Math.exp(-10 * dt);
-    this.squash += this.squashVelocity * dt;
-    const y = Math.max(.9, 1 + this.squash);
+    if (this.squashEnabled) {
+      const targetSquash = -0.075 * Math.max(0, Math.sin(phase * Math.PI * 2));
+      this.squashVelocity += (targetSquash - this.squash) * 22 * step;
+      this.squashVelocity *= Math.exp(-10.5 * step);
+      this.squash += this.squashVelocity * step;
+      this.applySquash();
+    }
+  }
+
+  private applySquash(): void {
+    const y = Math.max(.86, 1 + this.squash);
     const xz = 1 / Math.sqrt(y);
     this.figure.scale.set(this.baseScale.x * xz, this.baseScale.y * y, this.baseScale.z * xz);
     this.appliedSquash = this.squash;
@@ -148,42 +177,43 @@ export class WalkPreview {
   }
 
   /** Give an idle clay figure one small, damped nudge. This is an authored spring impulse,
-   * not a collision solver; it always returns to the exact imported pose. */
+   * not a collision solver; it always returns to the exact imported pose. The same impulse
+   * can be applied during a walk so a live preview does not make the control a no-op. */
   poke(): void {
-    if (!this.pliable || this.active) return;
-    this.impulseLife = .62;
+    if (!this.pliable) return;
+    if (!this.active) this.impulseLife = .62;
     for (const spring of this.springs) {
-      const amount = spring.kind === 'cloth' ? .42 : spring.kind === 'arm' ? .25 : .12;
+      const amount = spring.kind === 'cloth' ? 1.15 : spring.kind === 'arm' ? .78 : .36;
       spring.velocity.x += amount;
       spring.velocity.z -= amount * .45;
     }
-    this.squashVelocity -= .34;
+    if (this.squashEnabled) this.squashVelocity -= .75;
   }
 
   private updateImpulse(dt: number): void {
     if (this.impulseLife <= 0) return;
-    const drag = Math.exp(-9 * dt);
+    const step = Math.min(.08, dt);
+    const drag = Math.exp(-9 * step);
     for (const spring of this.springs) {
       spring.velocity.x *= drag;
       spring.velocity.y *= drag;
       spring.velocity.z *= drag;
-      spring.offset.x += spring.velocity.x * dt;
-      spring.offset.y += spring.velocity.y * dt;
-      spring.offset.z += spring.velocity.z * dt;
-      const settle = Math.exp(-3.5 * dt);
+      spring.offset.x += spring.velocity.x * step;
+      spring.offset.y += spring.velocity.y * step;
+      spring.offset.z += spring.velocity.z * step;
+      const settle = Math.exp(-3.5 * step);
       spring.offset.x *= settle;
       spring.offset.y *= settle;
       spring.offset.z *= settle;
       this.applySpringOffset(spring);
     }
-    this.squashVelocity *= Math.exp(-10 * dt);
-    this.squash += this.squashVelocity * dt;
-    this.squash *= Math.exp(-4 * dt);
-    const y = Math.max(.9, 1 + this.squash);
-    const xz = 1 / Math.sqrt(y);
-    this.figure.scale.set(this.baseScale.x * xz, this.baseScale.y * y, this.baseScale.z * xz);
-    this.appliedSquash = this.squash;
-    this.impulseLife -= dt;
+    if (this.squashEnabled) {
+      this.squashVelocity *= Math.exp(-10 * step);
+      this.squash += this.squashVelocity * step;
+      this.squash *= Math.exp(-4 * step);
+      this.applySquash();
+    }
+    this.impulseLife -= step;
     if (this.impulseLife <= 0) this.reset();
   }
 
