@@ -8,6 +8,7 @@ import { BoardRenderer } from '../renderer';
 import { STYLES } from '../styles';
 import { loadModels } from '../voxels';
 import { fromFen } from '../../rules/setup';
+import { PieceContourPass, type ContourMode } from './PieceContourPass';
 import './study.css';
 
 const variants=['baseline','sculpt','rebuilt','sprites','quiet'] as const;
@@ -22,12 +23,14 @@ const copy=[
 ];
 const params=new URLSearchParams(location.search);
 let variant:Variant=variants.includes(params.get('variant') as Variant)?params.get('variant') as Variant:'rebuilt';
-let crowded=false, pixel=2, running=false, orbit=false, motion=0, lastFrame=0;
+let pixel=[1,1.5,2,3,4].includes(Number(params.get('pixels')))?Number(params.get('pixels')):1.5;
+let contourMode:ContourMode=['off','silhouette','adaptive'].includes(params.get('contours')??'')?params.get('contours') as ContourMode:'adaptive';
+let running=false, orbit=false, motion=0, lastFrame=0;
 let epoch=0;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const source=import.meta.env.BASE_URL+'prototype/';
 document.title='King Down · Graphics study';
-document.body.innerHTML=`<main class="study"><header><div class="wordmark">KING DOWN<span>GRAPHICS STUDY · 01</span></div><div class="header-note">Two familiar characters. Five ways to see them.</div><a href="?">Open game ↗</a></header><section class="stage"><div id="stage-board"></div><canvas id="quiet-canvas" hidden></canvas><div class="scene-label"><span id="mode-label"></span><span id="view-hint">Drag to orbit · scroll to zoom</span></div><div class="armies"><span><i class="ivory"></i>Alabaster</span><span><i class="ink"></i>Ink blue</span></div></section><aside><div class="eyebrow">THE QUESTION</div><h1 id="variant-title"></h1><p id="description"></p><div class="controls"><label>Pixel size <select id="pixels"><option value="1">1 px · fine</option><option value="2" selected>2 px · medium</option><option value="3">3 px · coarse</option><option value="4">4 px · stress test</option></select></label><label>Scene <select id="scene"><option value="pair">Guard + Archer</option><option value="six">Six-piece lineup</option><option value="board">Full board · 32 pieces</option></select></label><label>Palette <select id="palette"><option value="colour">Army + type accents</option><option value="gray">Grayscale check</option></select></label><div class="button-row"><button id="move">Move</button><button id="ability">Ability</button></div><div class="button-row"><button id="spin">Rotate</button><button id="reset">Reset view</button></div></div><div class="detail"><b>Guard</b><p>Keep the raised shoulder wings, recessed helmet and heavy fists. Steel blue + mint accents.</p><b>Archer</b><p>Keep the pointed hood, split skirt and <em>two wrist crossbows</em>. Green + ochre accents.</p></div><details><summary>Compare the source artwork</summary><a href="${source}source-guides/guard_color_ref.jpg" target="_blank">Guard colour guide ↗</a><a href="${source}source-guides/Archer_color_ref.jpg" target="_blank">Archer colour guide ↗</a></details><p class="limits" id="limits"></p><output id="stats">Loading study assets…</output></aside><nav class="switcher" aria-label="Rendering candidates"><button id="prev" aria-label="Previous option">←</button><div class="tabs">${variants.map((v,i)=>`<button data-variant="${v}"><span>0${i+1}</span>${names[i]}</button>`).join('')}</div><button id="next" aria-label="Next option">→</button></nav></main>`;
+document.body.innerHTML=`<main class="study"><header><div class="wordmark">KING DOWN<span>GRAPHICS STUDY · 02</span></div><div class="header-note">Two familiar characters. Five ways to see them.</div><a href="?">Open game ↗</a></header><section class="stage"><div id="stage-board"></div><canvas id="quiet-canvas" hidden></canvas><div class="scene-label"><span id="mode-label"></span><span id="view-hint">Drag to orbit · scroll to zoom</span></div><div class="armies"><span><i class="ivory"></i>Alabaster</span><span><i class="ink"></i>Ink blue</span></div></section><aside><div class="eyebrow">THE QUESTION</div><h1 id="variant-title"></h1><p id="description"></p><div class="controls"><label>Pixel size <select id="pixels"><option value="1">1 px · fine</option><option value="1.5">1.5 px · balanced</option><option value="2">2 px · chunky</option><option value="3">3 px · coarse</option><option value="4">4 px · stress test</option></select></label><label>Scene <select id="scene"><option value="pair">Guard + Archer</option><option value="overlap">Overlap close-up</option><option value="six">Six-piece lineup</option><option value="board">Full board · 32 pieces</option></select></label><label>Contours <select id="contours"><option value="off">Off</option><option value="silhouette">Even silhouette</option><option value="adaptive">Overlap aware</option></select></label><p class="control-note" id="contour-note"></p><label>Palette <select id="palette"><option value="colour">Army + type accents</option><option value="gray">Grayscale check</option></select></label><div class="button-row"><button id="move">Move</button><button id="ability">Ability</button></div><div class="button-row"><button id="spin">Rotate</button><button id="reset">Reset view</button></div></div><div class="detail"><b>Guard</b><p>Keep the raised shoulder wings, recessed helmet and heavy fists. Steel blue + mint accents.</p><b>Archer</b><p>Keep the pointed hood, split skirt and <em>two wrist crossbows</em>. Green + ochre accents.</p></div><details><summary>Compare the source artwork</summary><a href="${source}source-guides/guard_color_ref.jpg" target="_blank">Guard colour guide ↗</a><a href="${source}source-guides/Archer_color_ref.jpg" target="_blank">Archer colour guide ↗</a></details><p class="limits" id="limits"></p><output id="stats">Loading study assets…</output></aside><nav class="switcher" aria-label="Rendering candidates"><button id="prev" aria-label="Previous option">←</button><div class="tabs">${variants.map((v,i)=>`<button data-variant="${v}"><span>0${i+1}</span>${names[i]}</button>`).join('')}</div><button id="next" aria-label="Next option">→</button></nav></main>`;
 const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 // Access to existing renderer internals is intentional and isolated to this throwaway study.
 const view:any=new BoardRenderer(el('stage-board'));
@@ -35,6 +38,9 @@ const view:any=new BoardRenderer(el('stage-board'));
 view.renderer.setAnimationLoop(null);
 view.controls.enableDamping=false;
 view.controls.minZoom=.6;view.controls.maxZoom=5;
+const contourPass=new PieceContourPass(view.scene,view.camera);
+view.composer.insertPass(contourPass,1);
+el<HTMLSelectElement>('pixels').value=String(pixel);el<HTMLSelectElement>('contours').value=contourMode;
 const quiet=el<HTMLCanvasElement>('quiet-canvas');
 const loader=new GLTFLoader();
 const models=new Map<string,THREE.Group>();
@@ -67,8 +73,10 @@ await new Promise<void>((resolve,reject)=>{const s=document.createElement('scrip
 
 type Entry={sq:number,type:string,side:number,root:THREE.Group,visual:THREE.Group|THREE.Mesh,base:THREE.Vector3};
 let entries:Entry[]=[];
-let sceneMode='pair';
+let sceneMode=['pair','overlap','six','board'].includes(params.get('scene')??'')?params.get('scene')!:'pair';
+el<HTMLSelectElement>('scene').value=sceneMode;
 const pairFen='8/8/3ga3/8/8/3GA3/8/8 w - - 0 1';
+const overlapFen='8/8/8/3gG3/3aA3/8/8/8 w - - 0 1';
 const sixFen='8/8/pngabk2/8/8/PNGABK2/8/8 w - - 0 1';
 const boardFen='nagkkgan/pppppppp/8/8/8/8/PPPPPPPP/NAGKKGAN w - - 0 1'; // visual stress arrangement; not a playable game
 let pos=fromFen(pairFen);
@@ -105,7 +113,7 @@ function clearStudyPieces(){
 function resetCamera(){
  const focus=sceneMode==='board'?new THREE.Vector3(0,.3,0):new THREE.Vector3(sceneMode==='six'?-1:.0,.35,0);
  view.controls.target.copy(focus);
- view.camera.position.copy(focus).add(new THREE.Vector3(6.2,9.0,8.6));
+ view.camera.position.copy(focus).add(sceneMode==='overlap'?new THREE.Vector3(2.7,4.6,9.5):new THREE.Vector3(6.2,9.0,8.6));
  view.camera.zoom=1;view.camera.updateProjectionMatrix();view.controls.update();view.camera.updateMatrixWorld(true);view.scene.updateMatrixWorld(true);
  const boxes=[new THREE.Box3().setFromObject(view.frame3d),...entries.map(e=>new THREE.Box3().setFromObject(e.visual))];
  let extent=0;for(const b of boxes)for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z]){const p=new THREE.Vector3(x,y,z).project(view.camera);extent=Math.max(extent,Math.abs(p.x),Math.abs(p.y));}
@@ -116,19 +124,22 @@ async function apply(){
  const id=++epoch;running=false;motion=0;clearStudyPieces();view.tweens.flush();
  const i=variants.indexOf(variant);el('variant-title').textContent=names[i];el('description').textContent=copy[i];el('mode-label').textContent=`0${i+1} / ${names[i]}`;
  document.querySelectorAll('[data-variant]').forEach(x=>x.classList.toggle('active',(x as HTMLElement).dataset.variant===variant));
- const url=new URL(location.href);url.searchParams.set('variant',variant);history.replaceState({},'',url);
+ syncUrl();
  const isQuiet=variant==='quiet';quiet.hidden=!isQuiet;el('stage-board').style.visibility=isQuiet?'hidden':'visible';
  el('view-hint').textContent=isQuiet?'Fixed 2:1 isometric · drag to pan · scroll to zoom':variant==='sprites'?'Drag to orbit · 16 views · elevation locked':'Drag to orbit · scroll to zoom';
- el<HTMLButtonElement>('spin').disabled=isQuiet;el<HTMLSelectElement>('scene').querySelector<HTMLOptionElement>('[value=six]')!.disabled=isQuiet;
+ el<HTMLButtonElement>('spin').disabled=isQuiet;el<HTMLSelectElement>('scene').querySelector<HTMLOptionElement>('[value=overlap]')!.disabled=isQuiet;el<HTMLSelectElement>('scene').querySelector<HTMLOptionElement>('[value=six]')!.disabled=isQuiet;
  el<HTMLSelectElement>('scene').querySelector<HTMLOptionElement>('[value=board]')!.disabled=isQuiet;
- if(isQuiet&&sceneMode!=='pair'){sceneMode='pair';el<HTMLSelectElement>('scene').value='pair';}
+ if(isQuiet&&sceneMode!=='pair'){sceneMode='pair';el<HTMLSelectElement>('scene').value='pair';syncUrl();}
+ const canContour=variant!=='baseline'&&!isQuiet;contourPass.enabled=canContour;view.pixelPass.enabled=!canContour;contourPass.mode=contourMode;
+ el<HTMLSelectElement>('contours').disabled=!canContour;
+ el('contour-note').textContent=canContour?'One thin contour per figure. Overlap aware strengthens shared edges and adjusts ink to the surface brightness.':'Contour comparison is available on Original sculpts, Rebuilt and Sprites.';
  el('limits').textContent=isQuiet?'Canvas study: rebuilt pair only. Palette extended for the two armies. Painter sorting can misorder intersecting faces; this is not a production fallback.':variant==='sprites'?'One idle pose per angle; movement and effects animate in world space. Elevation is locked to the bake. No interpolated pose animation.':variant==='sculpt'?'Simplified original geometry with provisional colour zones. This is not a finished repaint of the source sculpts.':variant==='baseline'?'Existing voxel models and Dungeon style, placed on the same comparison board. This scene tests appearance, not chess rules.':'Only Guard and Archer are rebuilt. Other pieces, when shown, are original sculpt controls. This scene tests appearance, not chess rules.';
- pos=fromFen(sceneMode==='board'?boardFen:sceneMode==='six'?sixFen:pairFen);
+ pos=fromFen(sceneMode==='board'?boardFen:sceneMode==='six'?sixFen:sceneMode==='overlap'?overlapFen:pairFen);
  const style=variant==='baseline'?STYLES.dungeonVoxel:{...STYLES.cel,outline:false,pixelSize:pixel,pieceScale:1,tiles:'flat' as const,shadow:true,lights:'bright' as const};
  view.applyStyle(style);view.rebuild(pos);
  for(const tile of view.tiles){const f=tile.userData.sq%8,r=Math.floor(tile.userData.sq/8);tile.visible=sceneMode==='board'||(r>=2&&r<=5&&(sceneMode==='six'?f<6:f>=2&&f<=5));}
  view.frame3d.scale.set(sceneMode==='board'?1:sceneMode==='six'?6.35/8.9:4.35/8.9,1,sceneMode==='board'?1:4.35/8.9);view.frame3d.position.x=sceneMode==='six'?-1:0;
- view.setLabels(false);view.setCoords(false);view.setPalette(false);view.setPixelSize(pixel);
+ view.setLabels(false);view.setCoords(false);view.setPalette(false);view.setPixelSize(pixel);contourPass.setPixelSize(pixel);
  view.setEdges(variant==='baseline'?.05:0,variant==='baseline'?.15:0);
  view.controls.minPolarAngle=variant==='sprites'?Math.atan2(5,6.5):.25;view.controls.maxPolarAngle=variant==='sprites'?Math.atan2(5,6.5):1.25;
  if(variant!=='baseline'){
@@ -148,22 +159,24 @@ async function apply(){
   }
   entries.push({sq,type,side,root:g,visual:model,base:g.position.clone()});
  }
- resetCamera();
- // The inherited pixel pass remains for an apples-to-apples comparison of screen resolution.
+ contourPass.setPieces(entries.map(e=>e.visual));resetCamera();
+ // Candidate styles use one beauty draw plus an optional piece-ID draw; baseline retains its original pass.
  view.debris.mesh.visible=false;
  rebuildCanvas();updateStats();
 }
 function updateStats(){
  let tris=0;for(const e of entries)e.visual.traverse((o:any)=>{if(o.isMesh)tris+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3;});
- el('stats').textContent=`${entries.length} pieces · ${Math.round(tris).toLocaleString()} figure triangles${variant==='sprites'?` · ${(atlasBytes/1048576).toFixed(1)} MiB atlas texels`:''}\nCandidate study · no hardware FPS claim`;
+ el('stats').textContent=`${entries.length} pieces · ${Math.round(tris).toLocaleString()} figure triangles${variant==='sprites'?` · ${(atlasBytes/1048576).toFixed(1)} MiB atlas texels`:''}\n${variant==='quiet'?'Canvas':variant==='baseline'?'Original pixel pass':contourMode==='off'?'1 scene draw':'2 scene draws · beauty + piece IDs'} · no hardware FPS claim`;
 }
+function syncUrl(){const url=new URL(location.href);url.searchParams.set('variant',variant);url.searchParams.set('scene',sceneMode);url.searchParams.set('pixels',String(pixel));url.searchParams.set('contours',contourMode);history.replaceState({},'',url);}
 function choose(v:Variant){variant=v;return apply();}
 document.querySelectorAll<HTMLButtonElement>('[data-variant]').forEach(b=>b.onclick=()=>choose(b.dataset.variant as Variant));
 const cycle=(d:number)=>choose(variants[(variants.indexOf(variant)+d+variants.length)%variants.length]);
 el('prev').onclick=()=>cycle(-1);el('next').onclick=()=>cycle(1);
 addEventListener('keydown',e=>{if((e.target as HTMLElement).closest('input,select,textarea,[contenteditable]'))return;if(e.key==='ArrowLeft')cycle(-1);if(e.key==='ArrowRight')cycle(1);});
-el<HTMLSelectElement>('pixels').onchange=e=>{pixel=Number((e.target as HTMLSelectElement).value);view.setPixelSize(pixel);resizeQuiet();};
-el<HTMLSelectElement>('scene').onchange=e=>{sceneMode=(e.target as HTMLSelectElement).value;crowded=sceneMode==='board';void apply();};
+el<HTMLSelectElement>('pixels').onchange=e=>{pixel=Number((e.target as HTMLSelectElement).value);view.setPixelSize(pixel);contourPass.setPixelSize(pixel);resizeQuiet();syncUrl();};
+el<HTMLSelectElement>('scene').onchange=e=>{sceneMode=(e.target as HTMLSelectElement).value;void apply();};
+el<HTMLSelectElement>('contours').onchange=e=>{contourMode=(e.target as HTMLSelectElement).value as ContourMode;contourPass.mode=contourMode;syncUrl();updateStats();};
 el<HTMLSelectElement>('palette').onchange=e=>{const gray=(e.target as HTMLSelectElement).value==='gray';el('stage-board').style.filter=gray?'grayscale(1)':'';quiet.style.filter=gray?'grayscale(1)':'';};
 el('reset').onclick=()=>{orbit=false;el('spin').textContent='Rotate';resetCamera();};
 el('spin').onclick=()=>{orbit=!orbit;el('spin').textContent=orbit?'Stop rotation':'Rotate';};
@@ -248,4 +261,4 @@ function frame(now:number){const dt=Math.min(.04,(now-lastFrame)/1000||0);lastFr
  requestAnimationFrame(frame);
 }
 await apply();requestAnimationFrame(frame);
-(window as any).study={choose,apply,get variant(){return variant},get entries(){return entries},get running(){return running},models,atlasCache,animate,view,get scene(){return sceneMode},setScene:(mode:string)=>{sceneMode=mode;el<HTMLSelectElement>('scene').value=mode;return apply();},get pixel(){return pixel}};
+(window as any).study={choose,apply,get variant(){return variant},get entries(){return entries},get running(){return running},models,atlasCache,animate,view,contourPass,get scene(){return sceneMode},setScene:(mode:string)=>{sceneMode=mode;el<HTMLSelectElement>('scene').value=mode;return apply();},get pixel(){return pixel}};

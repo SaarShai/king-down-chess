@@ -20,6 +20,23 @@ The bottom buttons or left/right arrow keys switch five candidates. Pixel size, 
 
 The pair scene has both armies. The six-type lineup adds Pawn, Knight, Bishop and King. The 32-piece board is a visual stress arrangement, **not a legal starting army**. QuietHours is limited to the pair.
 
+## Detail and overlap follow-up
+
+The owner's next question was whether more pixels and dynamic outlines would improve detail and distinguish overlapping figures. Open [the overlap comparison](http://localhost:5190/?study&variant=rebuilt&scene=overlap&pixels=1&contours=adaptive). The settings are saved in the URL; no local storage is involved.
+
+- **Pixel size:** 1 px gives twice the samples along each dimension, four times the sample area, compared with 2 px at the same camera/viewport. A new 1.5 px option is the default compromise, with approximately 1.78 times the sample area of 2 px. Fractional scaling is a compromise with uneven physical pixel blocks; 1 or 2 px gives a more regular grid. Geometry and sprite source detail are unchanged.
+- **Contours:** Off / Even silhouette / Overlap aware. A visible-piece identity mask gives every component of one figure the same ID, so internal mesh joints and material seams do not receive outlines. The contour is one render texel wide, drawn inside the visible foreground figure. The adaptive option is subtle against the board and stronger where different figures meet, especially at low contrast; it uses lighter blue-grey ink on dark surfaces and dark ink on bright ones. It responds to the current camera and pose each frame. It does not reveal fully hidden figures.
+- **Coverage:** Original sculpts, Rebuilt and directional Sprites. Sprite masks respect atlas alpha and the current view. Current Dungeon and QuietHours keep their original treatments; the contour control is disabled there. The new overlap scene lowers the camera for live 3D; sprites retain the elevation fixed by their bake.
+- **Cost:** The candidate renderer now uses one scene render with contours off and two with contours on (beauty plus unlit IDs), replacing the candidate's former beauty/normal pass. The measured four-figure overlap view submitted 141 versus 280 draw calls across the composer; these are workload counts, not GPU timings. Finer resolution increases render-target and fragment work. The production game's renderer is unchanged.
+
+My visual preference is **1 px with Overlap aware**, keeping broader shapes and restrained colour rather than adding tiny painted noise. This reveals more existing detail; it does not recover facial/costume detail that has not yet been modelled. Full-board phone figures remain small, so zoom/inspection and carefully chosen proportions still matter.
+
+[2 px, contours off](captures/overlap-2px-off.png) · [1 px, contours off](captures/overlap-1px-off.png) · [1 px, adaptive contours](captures/overlap-1px-adaptive.png) · [Even contours](captures/overlap-1px-silhouette.png) · [Phone](captures/overlap-mobile-adaptive.png) · [Phone full board](captures/board-mobile-fine-adaptive.png)
+
+The GPU mask contained exactly four figure IDs despite their many mesh components. In the fixed test view, mean absolute luminance difference across 875 horizontal piece boundaries rose from 47.3 to 59.7 on an 8-bit display-value scale. This is a local edge-contrast check, **not a human recognition score**. Of 3,406 changed image pixels, none lay on the board/background. Sprite masks occupied 49–63% of their bounding rectangles, confirming transparent cutouts were retained. [Evidence](verification.json).
+
+Implementation: [PieceContourPass](../../src/render/prototype/PieceContourPass.ts). Existing Three.js pass behavior was checked against the installed r186 code and [official pixel-pass documentation](https://threejs.org/docs/pages/RenderPixelatedPass.html). No dependency was added. Pixel snapping and real-device performance remain untested.
+
 ## Actual new assets
 
 - [Editable Blender source](rebuilt-pieces.blend): two roots, with named parts and assigned material roles. Reopened successfully in Blender 5.2.0 LTS: Guard 26 descendants, Archer 33.
@@ -57,10 +74,10 @@ The remaining framework shortlist and primary sources are in [open-source altern
 
 ## Verification and limits
 
-`npm run build` passes TypeScript and Vite production compilation; the existing large-chunk advisory remains. `npm run graphics:check` passes **22 checks with zero page/console errors**, exercising five modes, view switching, Canvas pan, animation completion, both-army lineups, 32 pieces, desktop and 390×844 framing, pixel/grayscale controls, source links and the ordinary game route. [Machine-readable results](verification.json) include browser version and observed geometry counts.
+`npm run build` passes TypeScript and Vite production compilation; the existing large-chunk advisory remains. `npm run graphics:check` passes **30 checks with zero page/console errors**, exercising five modes, view switching, Canvas pan, animation completion, both-army lineups, 32 pieces, desktop and 390×844 framing, pixel/grayscale controls, source links and the ordinary game route. The follow-up also checks resolution ratios, URL settings, piece masks, actual contour pixel differences, sprite cutouts and skipping the ID draw when off. [Machine-readable results](verification.json) include browser version and observed geometry counts.
 
 [Rebuilt desktop](captures/rebuilt-desktop.png) · [Phone](captures/rebuilt-mobile-pair.png) · [Phone, full board](captures/rebuilt-mobile.png) · [16-angle sprites](captures/sprites-desktop.png) · [QuietHours](captures/quiet-desktop.png) · [Original controls](captures/sculpt-desktop.png) · [Current voxels](captures/baseline-desktop.png)
 
-These checks use Chromium software rendering, not physical mobile hardware. They establish functionality and framing, not FPS, battery life, colour-blind recognition or that an observer can identify every piece at a glance. The inherited two-scene pixel pass and broader renderer resource findings from the audit remain to be addressed. No full game regression, all-piece animation library or production asset pipeline is claimed.
+These checks use Chromium software rendering, not physical mobile hardware. They establish functionality and framing, not FPS, battery life, colour-blind recognition or that an observer can identify every piece at a glance. The production two-scene pixel pass and broader renderer resource findings from the audit remain to be addressed; the candidate pass above is confined to this study. No full game regression, all-piece animation library or production asset pipeline is claimed.
 
 Before adoption, choose the visual direction from this comparison, finish two representative assets, and profile the resulting board on an agreed older phone. Extend the chosen treatment to the full set only after that evidence. Keep effects in the same visual language: army-coloured fragments, restrained type-colour trails, brief contact flashes and clear tactical markers.

@@ -101,6 +101,89 @@
       "detail": 200
     },
     {
+      "name": "Readability settings survive URL load",
+      "ok": true
+    },
+    {
+      "name": "Fine detail doubles each sample dimension",
+      "ok": true,
+      "detail": {
+        "coarse": [
+          565,
+          415
+        ],
+        "fine": [
+          1130,
+          830
+        ]
+      }
+    },
+    {
+      "name": "Each multi-part figure has one distinct mask ID",
+      "ok": true,
+      "detail": {
+        "1": 22778,
+        "2": 22156,
+        "3": 18633,
+        "4": 24770
+      }
+    },
+    {
+      "name": "Contours strengthen measured overlap boundaries",
+      "ok": true,
+      "detail": {
+        "counts": {
+          "1": 22778,
+          "2": 22156,
+          "3": 18633,
+          "4": 24770
+        },
+        "visibleHeights": {
+          "1": 243,
+          "2": 246,
+          "3": 242,
+          "4": 249
+        },
+        "boundaries": 875,
+        "meanBoundaryContrastOff": 47.32543108571431,
+        "meanBoundaryContrastOn": 59.67389394285707,
+        "changed": 3406,
+        "changedBackground": 0,
+        "callsOff": 141,
+        "callsOn": 280
+      }
+    },
+    {
+      "name": "Contours leave the board/background untouched",
+      "ok": true,
+      "detail": {
+        "changed": 3406,
+        "background": 0
+      }
+    },
+    {
+      "name": "Off skips the extra identity render",
+      "ok": true,
+      "detail": {
+        "off": 141,
+        "on": 280
+      }
+    },
+    {
+      "name": "Overlap mode motion returns figures home",
+      "ok": true
+    },
+    {
+      "name": "Sprite masks follow cutouts rather than atlas rectangles",
+      "ok": true,
+      "detail": [
+        0.4935104752171691,
+        0.4888133362579513,
+        0.5700280112044818,
+        0.6261022927689595
+      ]
+    },
+    {
       "name": "Normal game still loads",
       "ok": true
     },
@@ -114,23 +197,52 @@
   "observations": [
     {
       "variant": "baseline",
-      "stats": "4 pieces · 26,784 figure triangles\nCandidate study · no hardware FPS claim"
+      "stats": "4 pieces · 26,784 figure triangles\nOriginal pixel pass · no hardware FPS claim"
     },
     {
       "variant": "sculpt",
-      "stats": "4 pieces · 25,998 figure triangles\nCandidate study · no hardware FPS claim"
+      "stats": "4 pieces · 25,998 figure triangles\n2 scene draws · beauty + piece IDs · no hardware FPS claim"
     },
     {
       "variant": "rebuilt",
-      "stats": "4 pieces · 3,716 figure triangles\nCandidate study · no hardware FPS claim"
+      "stats": "4 pieces · 3,716 figure triangles\n2 scene draws · beauty + piece IDs · no hardware FPS claim"
     },
     {
       "variant": "sprites",
-      "stats": "4 pieces · 8 figure triangles · 6.3 MiB atlas texels\nCandidate study · no hardware FPS claim"
+      "stats": "4 pieces · 8 figure triangles · 6.3 MiB atlas texels\n2 scene draws · beauty + piece IDs · no hardware FPS claim"
     },
     {
       "variant": "quiet",
-      "stats": "4 pieces · 3,716 figure triangles\nCandidate study · no hardware FPS claim"
+      "stats": "4 pieces · 3,716 figure triangles\nCanvas · no hardware FPS claim"
+    },
+    {
+      "detailStudy": {
+        "counts": {
+          "1": 22778,
+          "2": 22156,
+          "3": 18633,
+          "4": 24770
+        },
+        "visibleHeights": {
+          "1": 243,
+          "2": 246,
+          "3": 242,
+          "4": 249
+        },
+        "boundaries": 875,
+        "meanBoundaryContrastOff": 47.32543108571431,
+        "meanBoundaryContrastOn": 59.67389394285707,
+        "changed": 3406,
+        "changedBackground": 0,
+        "callsOff": 141,
+        "callsOn": 280
+      },
+      "spriteMaskFill": [
+        0.4935104752171691,
+        0.4888133362579513,
+        0.5700280112044818,
+        0.6261022927689595
+      ]
     }
   ],
   "limits": "Visual/structural QA in Chromium software rendering. No physical-device performance benchmark."
