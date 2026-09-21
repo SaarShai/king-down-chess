@@ -1,0 +1,39 @@
+{
+  "spec": {
+    "id": "pb-S-diagonal-value.S",
+    "games": 500,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 77,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "beastCapture": "diagonal"
+    },
+    "asymmetric": [
+      {
+        "white": "RSBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 500,
+  "seconds": 159.5,
+  "whiteScore": 0.52,
+  "whiteWins": 215,
+  "draws": 90,
+  "blackWins": 195,
+  "meanPlies": 97,
+  "reasons": {
+    "adjudicatedResign": 409,
+    "adjudicatedDraw": 61,
+    "drawRepetition": 16,
+    "drawMaterial": 3,
+    "draw50": 5,
+    "plyCap": 4,
+    "checkmate": 1,
+    "stalemate": 1
+  }
+}

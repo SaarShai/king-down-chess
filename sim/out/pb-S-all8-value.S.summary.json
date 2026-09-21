@@ -1,0 +1,38 @@
+{
+  "spec": {
+    "id": "pb-S-all8-value.S",
+    "games": 500,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 77,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "beastCaptureForward": true
+    },
+    "asymmetric": [
+      {
+        "white": "RSBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 500,
+  "seconds": 198.7,
+  "whiteScore": 0.531,
+  "whiteWins": 239,
+  "draws": 53,
+  "blackWins": 208,
+  "meanPlies": 89.6,
+  "reasons": {
+    "adjudicatedResign": 446,
+    "adjudicatedDraw": 35,
+    "drawRepetition": 10,
+    "drawMaterial": 4,
+    "checkmate": 1,
+    "draw50": 3,
+    "stalemate": 1
+  }
+}

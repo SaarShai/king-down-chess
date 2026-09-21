@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-ab-D-3fold.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "threefold": false
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 864.4,
+  "whiteScore": 0.5613,
+  "whiteWins": 732,
+  "draws": 332,
+  "blackWins": 536,
+  "meanPlies": 110.7,
+  "reasons": {
+    "adjudicatedResign": 1268,
+    "adjudicatedDraw": 299,
+    "plyCap": 17,
+    "drawMaterial": 10,
+    "stalemate": 2,
+    "draw50": 4
+  }
+}

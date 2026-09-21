@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "pb-O-push-value.O",
+    "games": 500,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 78,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "ogreMode": "push"
+    },
+    "asymmetric": [
+      {
+        "white": "ROBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 500,
+  "seconds": 239.1,
+  "whiteScore": 0.496,
+  "whiteWins": 210,
+  "draws": 76,
+  "blackWins": 214,
+  "meanPlies": 94.1,
+  "reasons": {
+    "adjudicatedResign": 424,
+    "adjudicatedDraw": 57,
+    "plyCap": 2,
+    "drawRepetition": 13,
+    "draw50": 2,
+    "drawMaterial": 2
+  }
+}

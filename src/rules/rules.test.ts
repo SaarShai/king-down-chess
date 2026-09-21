@@ -36,11 +36,13 @@ describe('standard chess sanity', () => {
     expect(status(fromFen('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1'))).toBe('stalemate');
     expect(status(fromFen('7k/8/5K2/8/8/8/8/8 w - - 100 1'))).toBe('draw50');
   });
-  it('promotes to any non-king piece but the guard (docs/RULES.md §6.13)', () => {
+  it('promotes to any non-king piece but the guard (docs/RULES.md §6.13, lab reading)', () => {
+    setRules({ promotionSet: 'anyNonKingNoGuard' }); // the shipped set is the chess one since 2026-09-17
     const pos = fromFen('7k/P7/8/8/8/8/8/K7 w - - 0 1');
     const promos = movesFrom(pos, 'a7');
     expect(promos.map(m => m.promo).sort()).toEqual([Q, R, B, N, A, L, M, S].sort());
     expect(typeOf(at(makeMove(pos, promos.find(m => m.promo === S)!), 'a8'))).toBe(S);
+    setRules(); // this describe has no afterEach; the rule is a lab reading now
   });
 });
 
@@ -144,11 +146,13 @@ describe('maester', () => {
 });
 
 describe('beast', () => {
-  it('moves 1 in any direction, captures on the 7 squares that are not straight ahead, and may chain', () => {
+  afterEach(() => setRules()); // several tests here set the blind-spot or 2017 readings
+  it('moves 1 in any direction, captures every neighbour, and may chain', () => {
     const pos = fromFen('7k/8/5p2/3pp3/2nS4/8/8/K7 w - - 0 1');
     expect(lan(pos, movesFrom(pos, 'd4'))).toEqual([
       'Sd4-c3', 'Sd4-c5', 'Sd4-d3', 'Sd4-e3', 'Sd4-e4',
       'Sd4xc4', 'Sd4xc4xd5', 'Sd4xc4xd5xe5', 'Sd4xc4xd5xe5xf6',
+      'Sd4xd5', 'Sd4xd5xc4', 'Sd4xd5xe5', 'Sd4xd5xe5xf6',
       'Sd4xe5', 'Sd4xe5xd5', 'Sd4xe5xd5xc4', 'Sd4xe5xf6',
     ]);
     const chain = movesFrom(pos, 'd4').find(m => m.captures.length === 4)!;
@@ -156,8 +160,10 @@ describe('beast', () => {
     expect(typeOf(at(after, 'f6'))).toBe(S);
     expect(['d4', 'c4', 'd5', 'e5'].map(s => at(after, s))).toEqual([0, 0, 0, 0]);
   });
-  it('attacks adjacent kings except straight ahead', () => {
+  it('attacks every adjacent king; the blind-spot reading spares the one straight ahead', () => {
     expect(inCheck(fromFen('8/8/8/4k3/3S4/8/8/K7 b - - 0 1'))).toBe(true);
+    expect(inCheck(fromFen('8/8/8/3k4/3S4/8/8/K7 b - - 0 1'))).toBe(true);
+    setRules({ beastCaptureForward: false });
     expect(inCheck(fromFen('8/8/8/3k4/3S4/8/8/K7 b - - 0 1'))).toBe(false);
   });
 });
@@ -277,11 +283,12 @@ describe('rule toggles', () => {
 
   it('the presets name the older games, and parseRule rejects nonsense', () => {
     expect(RULES).toEqual(DEFAULT_RULES);
-    // The shipped game is the 2017 rulebook plus the two adopted buffs (docs/RULES.md §6.8); the
-    // guard keeps its rulebook identity (§6.9), so the preset is exactly those two fields turned
-    // back and the three guard toggles are lab-only.
-    expect(ruleDiff(RULES_2017)).toEqual({ archerMove: 'ortho', archerShots: 'classic', beastMove: 'forward', paladinKamikaze: 'always', promotionSet: 'anyNonKing' });
-    expect(DEFAULT_RULES.promotionSet).toBe('anyNonKingNoGuard'); // a pawn never becomes a wall
+    // The preset is the 2017 rulebook read against today's adopted set (docs/RULES.md §6): the
+    // archer/beast movement buffs, the classic shot set and blind spot, the old paladin and the
+    // fairy promotion set all come back; the guard keeps its rulebook identity (§6.9).
+    expect(ruleDiff(RULES_2017)).toEqual({ archerMove: 'ortho', archerShots: 'classic', beastMove: 'forward', beastCaptureForward: false, paladinKamikaze: 'always', promotionSet: 'anyNonKing' });
+    expect(DEFAULT_RULES.promotionSet).toBe('standard'); // reverted to the chess set 2026-09-17
+    expect(DEFAULT_RULES.beastCaptureForward).toBe(true); // the blind spot went 2026-09-17
     expect(DEFAULT_RULES.guardCaptures).toBe('none');
     expect(DEFAULT_RULES.guardStep).toBe(1);
     expect(DEFAULT_RULES.guardCaptureLimit).toBe(0);
@@ -327,7 +334,7 @@ describe('rule toggles', () => {
     const pos = fromFen('7k/8/5p2/3pp3/2nS4/8/8/K7 w - - 0 1');
     expect(movesFrom(pos, 'd4').some(m => m.captures.length > 1)).toBe(true);
     setRules({ beastChains: false });
-    expect(lan(pos, movesFrom(pos, 'd4').filter(m => m.captures.length))).toEqual(['Sd4xc4', 'Sd4xe5']);
+    expect(lan(pos, movesFrom(pos, 'd4').filter(m => m.captures.length))).toEqual(['Sd4xc4', 'Sd4xd5', 'Sd4xe5']);
   });
 
   it('guardImmune=false: any piece may capture a guard', () => {
@@ -573,7 +580,8 @@ describe('rule toggles', () => {
     expect(isAttacked(pos.board, parseSq('d5'), WHITE)).toBe(false); // a move, not a new attack
     const after = makeMove(pos, movesFrom(pos, 'd4')[0]);
     expect([at(after, 'd4'), typeOf(at(after, 'd5'))]).toEqual([0, P]);
-    // Promotion on the last rank is the ordinary push's, rule on: all eight targets, unchanged.
+    // Promotion on the last rank is the ordinary push's, rule on: the lab set's eight targets, unchanged.
+    setRules({ pawnCapitalCapture: true, promotionSet: 'anyNonKingNoGuard' });
     const promo = fromFen('7k/P7/8/8/8/8/8/K7 w - - 0 1');
     expect(movesFrom(promo, 'a7').map(m => m.promo).sort()).toEqual([Q, R, B, N, A, L, M, S].sort());
     crossCheckAttacks(135);
@@ -675,7 +683,8 @@ describe('rule toggles', () => {
 
   it('promotionSet=standard: no fairy promotions', () => {
     const pos = fromFen('8/P6k/8/8/8/8/8/K7 w - - 0 1');
-    expect(movesFrom(pos, 'a7')).toHaveLength(8); // the default bars the guard
+    setRules({ promotionSet: 'anyNonKingNoGuard' });
+    expect(movesFrom(pos, 'a7')).toHaveLength(8); // the old shipped set bars only the guard
     setRules({ promotionSet: 'standard' });
     expect(lan(pos, movesFrom(pos, 'a7'))).toEqual(['a7-a8=B', 'a7-a8=N', 'a7-a8=Q', 'a7-a8=R']);
     setRules({ promotionSet: 'anyNonKingNoFairy' });
@@ -750,23 +759,25 @@ describe('rule toggles', () => {
   });
 
   it('beastMove=forward (2017): the beast may only step straight ahead', () => {
+    setRules({ beastCaptureForward: false }); // the 2017 reading keeps the blind spot
     const pos = fromFen('7k/8/8/3p4/3S4/8/8/K7 w - - 0 1'); // the pawn ahead is the blind spot
     const ms = movesFrom(pos, 'd4');
     expect(ms).toHaveLength(7);
     expect(ms.every(m => m.captures.length === 0)).toBe(true);
     crossCheckAttacks(106);
     setRules({ beastMove: 'forward' });
-    expect(movesFrom(pos, 'd4')).toHaveLength(0);
+    // Movement is forward-only now, but the capture rule is separate: the pawn ahead is still a target.
+    expect(lan(pos, movesFrom(pos, 'd4'))).toEqual(['Sd4xd5']);
   });
 
-  it('beastCaptureForward=true: the blind spot goes, so the beast takes and checks straight ahead', () => {
+  it('beastCaptureForward=false (lab): the blind spot reading spares the square straight ahead', () => {
     const pos = fromFen('7k/8/8/3p4/3S4/8/8/K7 w - - 0 1');
     const kingAhead = '8/8/8/3k4/3S4/8/8/K7 b - - 0 1';
+    expect(lan(pos, movesFrom(pos, 'd4').filter(m => m.captures.length))).toEqual(['Sd4xd5']); // shipped reading
+    expect(inCheck(fromFen(kingAhead))).toBe(true);
+    setRules({ beastCaptureForward: false });
     expect(movesFrom(pos, 'd4').some(m => m.captures.length)).toBe(false);
     expect(inCheck(fromFen(kingAhead))).toBe(false);
-    setRules({ beastCaptureForward: true });
-    expect(lan(pos, movesFrom(pos, 'd4').filter(m => m.captures.length))).toEqual(['Sd4xd5']);
-    expect(inCheck(fromFen(kingAhead))).toBe(true);
     crossCheckAttacks(107);
   });
 
@@ -854,8 +865,8 @@ describe('rule toggles', () => {
     // A beast on d4 with a black pawn on all 8 neighbours, plus b2 behind c3 for a chain step.
     const pos = fromFen('7k/8/8/2ppp3/2pSp3/2ppp3/1p6/7K w - - 0 1');
     const firsts = (ms: Move[]) => lan(pos, ms.filter(m => m.captures.length === 1));
-    // Control: the shipped reading takes every neighbour but straight ahead (d5), so 7 first steps.
-    expect(firsts(movesFrom(pos, 'd4'))).toEqual(['Sd4xc3', 'Sd4xc4', 'Sd4xc5', 'Sd4xd3', 'Sd4xe3', 'Sd4xe4', 'Sd4xe5']);
+    // Control: the shipped reading takes every neighbour, so 8 first steps.
+    expect(firsts(movesFrom(pos, 'd4'))).toEqual(['Sd4xc3', 'Sd4xc4', 'Sd4xc5', 'Sd4xd3', 'Sd4xd5', 'Sd4xe3', 'Sd4xe4', 'Sd4xe5']);
     expect(parseRule('beastCapture=diagonal')).toEqual({ beastCapture: 'diagonal' });
     setRules({ beastCapture: 'diagonal' });
     // Only the four diagonal neighbours, and the chain continues from c3 onto b2. The b2 pawn is

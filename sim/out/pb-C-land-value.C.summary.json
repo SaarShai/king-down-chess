@@ -1,0 +1,38 @@
+{
+  "spec": {
+    "id": "pb-C-land-value.C",
+    "games": 500,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 79,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "catapultCapture": "land"
+    },
+    "asymmetric": [
+      {
+        "white": "RCBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 500,
+  "seconds": 353.9,
+  "whiteScore": 0.553,
+  "whiteWins": 251,
+  "draws": 51,
+  "blackWins": 198,
+  "meanPlies": 89.3,
+  "reasons": {
+    "adjudicatedResign": 447,
+    "adjudicatedDraw": 27,
+    "drawRepetition": 14,
+    "draw50": 3,
+    "drawMaterial": 6,
+    "plyCap": 1,
+    "checkmate": 2
+  }
+}

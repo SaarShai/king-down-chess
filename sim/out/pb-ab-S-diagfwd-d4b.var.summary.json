@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-ab-S-diagfwd-d4b.var",
+    "games": 1600,
+    "ai": {
+      "depth": 4
+    },
+    "seed": 72,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "beastCapture": "diagForward"
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 2985.7,
+  "whiteScore": 0.5459,
+  "whiteWins": 689,
+  "draws": 369,
+  "blackWins": 542,
+  "meanPlies": 111.5,
+  "reasons": {
+    "adjudicatedResign": 1230,
+    "adjudicatedDraw": 228,
+    "drawRepetition": 58,
+    "plyCap": 20,
+    "drawMaterial": 36,
+    "draw50": 27,
+    "checkmate": 1
+  }
+}

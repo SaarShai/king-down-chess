@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "pb-ab-S-diagonal-d4b.base",
+    "games": 1600,
+    "ai": {
+      "depth": 4
+    },
+    "seed": 72,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {},
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 3768.2,
+  "whiteScore": 0.5413,
+  "whiteWins": 671,
+  "draws": 390,
+  "blackWins": 539,
+  "meanPlies": 116.3,
+  "reasons": {
+    "adjudicatedResign": 1209,
+    "adjudicatedDraw": 223,
+    "drawMaterial": 44,
+    "plyCap": 27,
+    "drawRepetition": 69,
+    "draw50": 27,
+    "checkmate": 1
+  }
+}

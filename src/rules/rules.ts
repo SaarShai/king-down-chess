@@ -333,7 +333,11 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   archerShots: 'plusDiagFwd2' as ArcherShots,
   beastMove: 'any' as BeastMove,
   beastCapture: 'adjacent' as BeastCapture,
-  beastCaptureForward: false,
+  // The blind spot goes (2026-09-17): "the 7 adjacent squares except straight ahead" cost more to
+  // remember than it earned. All three simplifications were measured at 1,600/arm depth 4; removing
+  // the blind spot is the only price-neutral one (beast 4.34 ± 0.42 pawns, captures +29%); the
+  // diagonal readings halve the piece's value. The blind spot stays a lab reading.
+  beastCaptureForward: true,
   maesterLongSwap: true,
   maesterKingSwapAnywhere: false,
   maesterSwapAny: false,
@@ -352,7 +356,10 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   catapultCapture: 'stay' as CatapultCapture,
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
   bishopsOppositeColours: true,
-  promotionSet: 'anyNonKingNoGuard' as PromotionSet,
+  // Reverted to the chess set on 2026-09-17 (designer guideline: do not keep a rule that adds
+  // nothing measurable). Fairy promotions were 1.3% of all promotions and moved no outcome metric;
+  // `anyNonKingNoGuard` and `anyNonKing` stay as lab readings.
+  promotionSet: 'standard' as PromotionSet,
   fiftyMove: true,
   threefold: true,
   insufficientMaterial: true,
@@ -371,6 +378,8 @@ export const RULES_2017: Readonly<Rules> = Object.freeze({
   // The 2017 game is the classic shot set; the 2026-09-17 widening is a shipped-game adoption, not
   // part of the older preset (the 2021 preset below overrides it with `forward3` anyway).
   archerShots: 'classic' as ArcherShots,
+  // 2017 had the beast's blind spot; the 2026-09-17 simplification is a shipped-game adoption.
+  beastCaptureForward: false,
   beastMove: 'forward' as BeastMove,
   // 2017: the paladin removes itself after every capture, a pawn's included (§6.15 lifts the pawn).
   paladinKamikaze: 'always' as PaladinKamikaze,

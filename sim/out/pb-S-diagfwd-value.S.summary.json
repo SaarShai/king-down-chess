@@ -1,0 +1,38 @@
+{
+  "spec": {
+    "id": "pb-S-diagfwd-value.S",
+    "games": 500,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 77,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "beastCapture": "diagForward"
+    },
+    "asymmetric": [
+      {
+        "white": "RSBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 500,
+  "seconds": 259.5,
+  "whiteScore": 0.516,
+  "whiteWins": 221,
+  "draws": 74,
+  "blackWins": 205,
+  "meanPlies": 96.9,
+  "reasons": {
+    "adjudicatedResign": 425,
+    "adjudicatedDraw": 63,
+    "drawRepetition": 7,
+    "drawMaterial": 2,
+    "plyCap": 1,
+    "checkmate": 1,
+    "stalemate": 1
+  }
+}

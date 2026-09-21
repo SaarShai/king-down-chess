@@ -111,6 +111,18 @@ adjudication**: draws −1.3 ± 2.0 (not resolved) while the capped cost doubles
 stays off; **C5 built and null** (`capitalNoCapture`). All five capital rules are now built and
 measured.
 
+Beast simplification (designer call, 2026-09-17): three readings measured at 1,600 games/arm depth 4 —
+**A all-8 neighbours adopted** (price-neutral, 4.34 ± 0.42 pawns, captures +29%, `BEAST_V` 434); B four
+diagonals and C forward diagonals rejected (they halve the piece's value to ~1.8-2.0 pawns). Promotion
+reverted to the chess set (fairy promotions 1.3% of all promotions, all metrics null). Threefold off
+measured null (46 repetition draws re-absorbed by the lab's adjudication). Lab-piece exploration:
+**Ogre** push vs repel under today's rules is not confirmed at depth 3 (value favours push 3.18 ± 0.44
+vs repel 2.25 ± 0.43; the old depth-4 +9.0 was under older rules — a fresh depth-4 arm is the open
+question); **Catapult** `stay` beats `land` (land halves firing and delays it 10 plies) but both
+readings measure below 1.66 pawns and it never fires in 38% of games — not worth a roster slot at its
+400 price; **Reaver** ortho neutral at depth 4; **Templar** rejected. Reports `sim-beast-*`, `sim-ogre-explore`,
+`sim-catapult-explore`, `sim-threefold-and-beast-c`.
+
 Parallel routes the same evening: guard levers re-measured (`docs/research/sim-guard-2026-09-17.md`:
 cap-pawns and step-2 null, `guardImmune=false` rejected — interest −0.015 ± 0.009, guard survival
 97% → 73%); capital rule **C1 built** (`guardNoCapital`, off) and measured **null** (decisive

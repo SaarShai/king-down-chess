@@ -11,7 +11,7 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 |---|---|---|
 | Castling | not official (optional) | off |
 | En passant | not official (optional) | off |
-| Promotion | any piece except a king, fairy pieces included | **any piece except a king or a guard** (§6.13), UI picker |
+| Promotion | any piece except a king, fairy pieces included | **Q, R, B or N — the chess set** (§6.13, revised 2026-09-17) |
 | 50-move draw | not stated | on (100 plies) |
 | Threefold repetition | not stated | on (3rd time the same board + side to move appears) |
 | Insufficient material | not stated | on (conservative: neither side has P/R/Q/A/M/S and each has at most one minor) |
@@ -131,6 +131,12 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
     (fair). The cost is the piece's value: **3.73 ± 0.42 → 5.05 ± 0.44 pawns** (odds match vs a rook),
     so `ARCHER_V` moves 337 → 505 with it. The other sweep levers were rejected or null
     (`docs/research/sim-piece-balance-2026-09-17.md`).
+17. **The beast's blind spot goes (designer, 2026-09-17).** `beastCaptureForward` defaults to `true`: the beast
+    captures on **every** adjacent square (the "seven except straight ahead" rule cost more to remember than it
+    earned). All three simplifications were measured at 1,600 games an arm, depth 4: removing the blind spot is the
+    only **price-neutral** one (beast 4.34 ± 0.42 pawns, captures +29%, decisive +1.4 ± 2.1, plies −6.6 ± 4.0);
+    the diagonal readings halve the piece's value (1.81 / 1.99 pawns) and are lab readings only
+    (`docs/research/sim-beast-all8-2026-09-17.md`, `sim-beast-diagonal-d4-2026-09-17.md`, `sim-beast-diagfwd-2026-09-17.md`).
 
 ### First measured evidence (2026-09-13, provisional) — superseded by §6.8
 
@@ -200,6 +206,9 @@ Reduced runs at depth 3: `docs/research/sim-results-2026-09-13.md`. The error ba
     on `Position`, so a FEN round-trip and the repetition key need nothing new. **Not yet measured** — see the
     report's "not run" list.
 
-13. **A pawn is never promoted to a guard (designer, 2026-09-13).** `promotionSet` defaults to
-    `anyNonKingNoGuard`: Q R B N A L M S, never G. The HUD picker builds its buttons from the legal moves, so it
-    follows on its own. `anyNonKing` stays selectable and is what the `?rules=2017` preset plays.
+13. **Promotion is the chess set (designer, 2026-09-17).** `promotionSet` defaults to `standard` (Q R B N). The
+    earlier `anyNonKingNoGuard` reading (Q R B N A L M S, never G) measured **null on every outcome metric** and the
+    fairy targets were only **1.3% of all promotions** (5 of 378 in 1,600 games), so by the "do not keep a rule that
+    adds nothing measurable" guideline it was reverted. The HUD picker builds its buttons from the legal moves, so it
+    follows on its own. `anyNonKingNoGuard` and `anyNonKing` stay selectable lab readings; `?rules=2017` plays
+    `anyNonKing`.

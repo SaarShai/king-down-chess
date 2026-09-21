@@ -24,7 +24,7 @@ Measured in `docs/research/sim-new-pieces-2026-09-14.md`.
 |  | P | N | B | R | Q | K | A | L | G | M | S | O | C |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Move | forward 1 | leap 2+1 | diagonal slide | straight slide | slide | step 1 | step 1 ◐ straight only / forward-back | slide, jumps friends | step 1 ◐ step 2 | step 1 ◐ step 2 | step 1 ◐ forward only / diagonals | step 1 | straight slide, empty squares only |
-| Capture | diagonal forward 1 | = move | = move | = move | = move | = move | **shot without moving**: diagonal-adjacent or 2 straight, blockers ignored ● **forward diagonal 2 adopted 2026-09-17** (`plusDiagFwd2`, mirrored for Black): decisive +8.8 ± 3.8 at depth 4, draws −8.2 ± 3.7; the archer re-prices 3.73 ± 0.42 → **5.05 ± 0.44 pawns** (`ARCHER_V` 505). ◐ +diagonal 2 / ring 2 / forward 3 remain lab readings (`docs/research/sim-piece-balance-2026-09-17.md`) | = move, then dies | none | = move (adjacent) | 7 neighbours, not straight ahead ◐ forward diagonals only; chains | = move, a guard excepted | **lob** over one enemy screen along a rank or file, first piece beyond it ◐ `catapultCapture` stay / land |
+| Capture | diagonal forward 1 | = move | = move | = move | = move | = move | **shot without moving**: diagonal-adjacent or 2 straight, blockers ignored ● **forward diagonal 2 adopted 2026-09-17** (`plusDiagFwd2`, mirrored for Black): decisive +8.8 ± 3.8 at depth 4, draws −8.2 ± 3.7; the archer re-prices 3.73 ± 0.42 → **5.05 ± 0.44 pawns** (`ARCHER_V` 505). ◐ +diagonal 2 / ring 2 / forward 3 remain lab readings (`docs/research/sim-piece-balance-2026-09-17.md`) | = move, then dies | none | = move (adjacent) | **every neighbour** (blind spot removed 2026-09-17; captures +29%, beast 4.34 ± 0.42 pawns, `BEAST_V` 434) ◐ the 7-neighbour blind spot, forward diagonals only, four diagonals; chains | = move, a guard excepted | **lob** over one enemy screen along a rank or file, first piece beyond it ◐ `catapultCapture` stay / land |
 
 ### A.1 Abilities × pieces
 
@@ -69,7 +69,7 @@ Measured in `docs/research/sim-new-pieces-2026-09-14.md`.
 | Home rank | 1 / 8 | maester–king long swap (both on it) | guard double step from it (Q1) | — | arriving 1a |
 | Pawn rank | 2 / 7 | pawn double step | guard may not end a move on it (rejected: made the guard inert) | — | — |
 | Own half | ranks 1–4 / 5–8 | — | — | ○ Flight (Stratus): move any own piece to any empty square in own half | arriving 1b |
-| Last rank | 8 / 1 | promotion to any piece but king or guard | promotion sets | — | — |
+| Last rank | 8 / 1 | promotion to Q R B N (the chess set, 2026-09-17) | promotion sets (`anyNonKingNoGuard`, `anyNonKing`, `anyNonKingNoFairy`) | — | — |
 | **Capital** | d4 d5 e4 e5 | — | — | ○ Burn card: capture inside the capital zone | see B.2 |
 
 ### B.2 Capital — the four centre tiles
