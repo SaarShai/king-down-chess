@@ -9,7 +9,7 @@
  */
 
 import { ArcherShots, PowerName, RULES, Rules } from './rules';
-export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CatapultCapture, GuardCaptures, KingChoice, KingName, OgreMode, PaladinKamikaze, PowerName, PromotionSet, Rules, StrikeMode } from './rules';
+export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CatapultCapture, GuardCaptures, KingChoice, KingName, OgreMode, OgreShoveFriends, PaladinKamikaze, PowerName, PromotionSet, Rules, StrikeMode } from './rules';
 export { BUILT, DEFAULT_RULES, KINGS, RULES, RULES_2017, RULES_2021, TIER1, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 
 export type Color = 0 | 1;
@@ -173,6 +173,11 @@ const powerOf = (c: Color): PowerName | '' => RULES.kings[c]?.power ?? '';
  */
 export function canCapture(att: number, vic: PieceType): boolean {
   const at = typeOf(att);
+  // `ogreNoCapture`: a no-capture Ogre is a pure relocator. The clause lives here, where every
+  // generator and `isAttacked` already ask, so the move list and the attack mirror stay in step
+  // (`crossCheckAttacks`) and "it can never check or mate" follows with no branch of its own. The
+  // shove is a separate path: it removes nothing and survives this rule.
+  if (at === O && RULES.ogreNoCapture) return false;
   // A pawn-clearing guard still cannot take a king, so it still never checks and still cannot mate.
   if (at === G && (RULES.guardCaptures === 'none' || (RULES.guardCaptures === 'pawns' && vic !== P))) return false;
   if (at === G && RULES.guardCaptureLimit && (att & SPENT)) return false;
@@ -490,7 +495,25 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
       // An ordinary king-step attacker: it may take a king like any king-mover, never a guard
       // (`canCapture` settles both), so `isAttacked` needs nothing but the 8 neighbours.
       leaper(board, from, c, p, DIRS8, mode, out);
+      // `ogreStep2` (lab reading, off by default): the second square of each ray through an empty
+      // middle square — the same move-only shape as `guardStep: 2` and `maesterStep: 2`, so the
+      // `isAttacked` branch above needs no change.
+      if (RULES.ogreStep2 && mode === 'all') for (const [df, dr] of DIRS8) {
+        const mid = step(from, df, dr);
+        if (mid < 0 || board[mid]) continue;
+        const to = step(mid, df, dr);
+        if (to >= 0 && !board[to]) out.push({ from, to, captures: [] });
+      }
       if (mode !== 'all') return; // a shove takes nothing, so it is not an attack
+      // `ogreHop` (lab reading, off by default): over exactly one adjacent piece — friend, enemy or
+      // king, because a hop jumps and displaces nothing — onto the empty square directly beyond.
+      // Also move-only, and the landing square has to be empty, so one piece never lands on another.
+      if (RULES.ogreHop) for (const [df, dr] of DIRS8) {
+        const over = step(from, df, dr);
+        if (over < 0 || !board[over]) continue;
+        const to = step(over, df, dr);
+        if (to >= 0 && !board[to]) out.push({ from, to, captures: [] });
+      }
       for (const [df, dr] of DIRS8) {
         const s = step(from, df, dr);
         if (s < 0) continue;
@@ -554,6 +577,12 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
  * take on, and a king can therefore be checked and even mated by a piece that can never take it.
  * Detection over-reports the threat instead of missing it: deliberately conservative, and the lab
  * measures whether the inconsistency matters.
+ *
+ * **`ogreShoveFriends`** (2026-09-17, lab): a third single-seam filter, over shoves. Only an Ogre
+ * generates a move with `shove`, so the move itself names the victim (`shove.from`) and the filter
+ * needs no piece knowledge. `enemies` keeps enemy victims only, `friends` keeps friendly ones; a
+ * king is excluded upstream under every value. Shoves are not attacks, so `isAttacked` never reads
+ * this field.
  */
 export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Move[]): void {
   const n0 = out.length;
@@ -570,6 +599,18 @@ export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Mo
   // C5: a piece standing in the capital generates no captures; its quiet moves stay.
   if (RULES.capitalNoCapture && CAPITAL.includes(from)) {
     for (let i = out.length - 1; i >= n0; i--) if (out[i].captures.length > 0) out.splice(i, 1);
+  }
+  // `ogreShoveFriends`: who may be shoved. Only an Ogre generates a move with `shove`, so the move
+  // itself names the victim (`shove.from`) and the filter needs no piece knowledge — the same
+  // one-seam shape as C2/C5, so `case O` keeps a single shove loop and the attack mirror is not
+  // involved at all (a shove was never an attack). A friend shove survives `both` and `friends`, an
+  // enemy shove survives `both` and `enemies`.
+  if (RULES.ogreShoveFriends !== 'both') {
+    const mover = colorOf(board[from]);
+    for (let i = out.length - 1; i >= n0; i--) {
+      const sh = out[i].shove;
+      if (sh && (colorOf(board[sh.from]) === mover) !== (RULES.ogreShoveFriends === 'friends')) out.splice(i, 1);
+    }
   }
 }
 
@@ -654,7 +695,10 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
   for (const [df, dr] of DIRS8) {
     const s = step(target, df, dr);
     if (s < 0) continue;
-    if (hit(s, K) || hit(s, M) || hit(s, O) || hit(s, T) || (RULES.guardCaptures !== 'none' && hit(s, G) && guardMayLand(board[s], target))) return true;
+    // `hit` answers "can this piece take a king here" through `canCapture`, but an empty target
+    // short-circuits it, so the no-capture Ogre is gated explicitly — the same shape the guard's
+    // `guardCaptures` gate uses. `crossCheckAttacks` fails without it.
+    if (hit(s, K) || hit(s, M) || (!RULES.ogreNoCapture && hit(s, O)) || hit(s, T) || (RULES.guardCaptures !== 'none' && hit(s, G) && guardMayLand(board[s], target))) return true;
     if (hit(s, S) && beastTakesFrom(df, dr, by)) return true;
   }
   // A pawn of `by` that takes the target stands on one of the two squares diagonally behind it —
@@ -764,10 +808,13 @@ export function insufficientMaterial(board: Uint8Array): boolean {
     const p = board[s];
     if (!p) continue;
     const t = typeOf(p);
-    // The ogre is a commoner, so it mates with a king. The catapult needs a screen it cannot make
-    // for itself, but a single enemy piece is screen enough, so it counts too — this test is meant
-    // to be conservative, and declaring a live game drawn is the expensive direction to be wrong in.
-    if (t === P || t === R || t === Q || t === A || t === M || t === S || t === O || t === C || t === T) return false;
+    // The ogre is a commoner, so it mates with a king — except under `ogreNoCapture`, where it can
+    // never give check and K+O vs K is exact, not conservative. The catapult needs a screen it
+    // cannot make for itself, but a single enemy piece is screen enough, so it counts too — this
+    // test is meant to be conservative, and declaring a live game drawn is the expensive direction
+    // to be wrong in.
+    if (t === P || t === R || t === Q || t === A || t === M || t === S || t === C || t === T) return false;
+    if (t === O && !RULES.ogreNoCapture) return false;
     if (t === G && RULES.guardCaptures === 'any') return false; // a commoner guard mates with a king; a pawn-only guard cannot
     if (t === L && RULES.paladinChecks) return false; // a paladin that may take a king can mate with one
     if (t === N || t === B || t === V) minors[colorOf(p)]++; // a lone leaper cannot mate: K+V vs K is drawn

@@ -43,6 +43,12 @@ export type BeastCapture = 'adjacent' | 'diagForward' | 'diagonal';
 export type PaladinKamikaze = 'always' | 'nonPawn' | 'never';
 /** Where the Ogre stands after a shove: `repel` = it holds its square, `push` = it follows, Sokoban-style. */
 export type OgreMode = 'repel' | 'push';
+/**
+ * Who an Ogre may shove, never a king under any value: `both` (shipped lab reading) = friends and
+ * enemies alike, `enemies` = crowd control only, `friends` = support only. Guards are pieces like
+ * any other for a shove, whatever this says.
+ */
+export type OgreShoveFriends = 'both' | 'enemies' | 'friends';
 /** Which squares the Reaver's post-capture step may use: all 8 (`any`) or the 4 orthogonal ones (`ortho`). */
 export type ReaverStep = 'any' | 'ortho';
 /** Where the Catapult stands after a lob: `stay` = it fires from its square, `land` = it moves onto the target. */
@@ -257,6 +263,24 @@ export interface Rules {
    */
   secondPlayerDoubleFirstTurn: boolean;
   /**
+   * Lab-only, off by default (movement reading, 2026-09-17): the Ogre may **hop over one adjacent
+   * piece** — friend or enemy, a king included, because a hop jumps a piece and displaces nothing —
+   * and land on the empty square directly beyond it, in any of the 8 directions. A hop is a move:
+   * it is neither a capture nor a shove, the jumped piece stays where it stands, and the square
+   * beyond must be empty, so a hop never lands on a second piece. Move-only, so `isAttacked` keeps
+   * the Ogre's ordinary king-step attack — the same split as `guardStep` and `maesterStep`.
+   * Report: `docs/research/sim-ogre-movement-2026-09-17.md`.
+   */
+  ogreHop: boolean;
+  /**
+   * Lab-only, off by default (movement reading, 2026-09-17): the Ogre may step **2 squares** in any
+   * of the 8 directions, through an empty intermediate square and onto an empty landing square —
+   * the plain mobility reading, the same second-square shape as `guardStep: 2` and `maesterStep: 2`.
+   * Move-only, so `isAttacked` does not change: the two-square reach adds no attacked square.
+   * Report: `docs/research/sim-ogre-movement-2026-09-17.md`.
+   */
+  ogreStep2: boolean;
+  /**
    * The Ogre's shove (piece type `O`, lab-only — it is not in `POOL` and enters only through
    * `--pool` or an explicit `backRanks`). `repel` (shipped shape): the shoved piece moves one
    * square straight away and the Ogre holds its ground. `push`: the Ogre steps into the square the
@@ -264,6 +288,23 @@ export interface Rules {
    * attack, so `isAttacked` sees only the Ogre's ordinary king-step capture.
    */
   ogreMode: OgreMode;
+  /**
+   * Lab (2026-09-17), off by default: the Ogre **cannot capture**. `canCapture` refuses it, so no
+   * generator produces a capture by an Ogre and the shove is its only way to affect an enemy.
+   * Check and mate follow the same rule of capture: a no-capture Ogre attacks nothing, so it can
+   * never give check or mate, a king may stand beside it safely, and `isAttacked` mirrors that
+   * (`crossCheckAttacks` holds the two together). `insufficientMaterial` drops it from the mating
+   * material for the same reason: K+O vs K is a draw under this reading. It stays a commoner for
+   * everything else — it is still a piece on the board, so it blocks and can be taken.
+   */
+  ogreNoCapture: boolean;
+  /**
+   * Lab (2026-09-17): which pieces an Ogre may shove. `both` (shipped lab default) shoves friends
+   * and enemies alike; `enemies` is a pure crowd-control reading; `friends` a pure support reading
+   * (reposition your own pieces). Guards are shovable under every value — that is the point of the
+   * piece — and kings never are. Inert with no Ogre on the board.
+   */
+  ogreShoveFriends: OgreShoveFriends;
   /** Strike (Flame A) reading: `move` (as written) or `capture` (capture without moving). */
   strikeMode: StrikeMode;
   /**
@@ -350,7 +391,11 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   paladinJumpsFriends: true,
   paladinBlockedByEnemies: true,
   secondPlayerDoubleFirstTurn: false,
+  ogreHop: false,
+  ogreStep2: false,
   ogreMode: 'repel' as OgreMode,
+  ogreNoCapture: false,
+  ogreShoveFriends: 'both' as OgreShoveFriends,
   strikeMode: 'move' as StrikeMode,
   reaverStep: 'ortho' as ReaverStep,
   catapultCapture: 'stay' as CatapultCapture,
@@ -417,6 +462,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   maesterStep: [1, 2],
   paladinKamikaze: ['always', 'nonPawn', 'never'],
   ogreMode: ['repel', 'push'],
+  ogreShoveFriends: ['both', 'enemies', 'friends'],
   strikeMode: ['move', 'capture'],
   reaverStep: ['any', 'ortho'],
   catapultCapture: ['stay', 'land'],

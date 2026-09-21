@@ -962,6 +962,113 @@ describe('ogre (lab)', () => {
     setRules({ ogreMode: 'push' });
     crossCheckAttacks(141);
   });
+
+  it('ogreHop: off, a piece blocks; on, the ogre jumps exactly one and lands beyond it', () => {
+    expect(lan(pos, movesFrom(pos, 'c4'))).not.toContain('Oc4-c6');
+    setRules({ ogreHop: true });
+    const hops = lan(pos, movesFrom(pos, 'c4'));
+    expect(hops).toContain('Oc4-a4'); // over the black pawn on b4
+    expect(hops).toContain('Oc4-c6'); // over the black pawn on c5
+    expect(hops).not.toContain('Oc4-e4'); // over the friend on d4, but e4 is occupied
+    // A king may be jumped — a hop displaces nothing — unlike a shove, which never moves one.
+    const overKing = fromFen('k7/8/8/8/3K4/3O4/8/8 w - - 0 1'); // white king d4, white ogre d3
+    expect(lan(overKing, movesFrom(overKing, 'd3'))).toContain('Od3-d5');
+  });
+
+  it('a hop may not land on an occupied square or carry the ogre over two pieces', () => {
+    // Ogre a1; friends a2 and b2, enemy c3. Only a2 has an empty square beyond it (a3).
+    const wall = fromFen('k7/8/8/8/8/2p5/PP6/O6K w - - 0 1');
+    setRules({ ogreHop: true });
+    const hops = lan(wall, movesFrom(wall, 'a1'));
+    expect(hops).toContain('Oa1-a3'); // over the friend a2 onto the empty a3
+    expect(hops).not.toContain('Oa1-c3'); // over the friend b2: the landing square is occupied
+    expect(hops).not.toContain('Oa1-d4'); // a hop never carries it over two pieces
+  });
+
+  it('ogreStep2: off one step, on the second square through an empty middle', () => {
+    expect(lan(pos, movesFrom(pos, 'c4'))).not.toContain('Oc4-a2');
+    setRules({ ogreStep2: true });
+    const steps = lan(pos, movesFrom(pos, 'c4'));
+    expect(steps).toContain('Oc4-a2'); // b3 is empty
+    expect(steps).toContain('Oc4-e6'); // d5 is empty
+    expect(steps).not.toContain('Oc4-c6'); // the pawn on c5 blocks the ray
+    expect(steps).not.toContain('Oc4-e4'); // the friend on d4 blocks the ray
+  });
+
+  it('neither reading changes a shove, a capture or the attack set', () => {
+    const tips = (ms: string[]) => ms.filter(s => s.includes('>') || s.includes('x'));
+    const off = lan(pos, movesFrom(pos, 'c4'));
+    setRules({ ogreHop: true, ogreStep2: true });
+    const on = lan(pos, movesFrom(pos, 'c4'));
+    expect(tips(on)).toEqual(tips(off));
+    crossCheckAttacks(149); // move-only either way: isAttacked still sees the 8 neighbours only
+  });
+});
+
+/**
+ * The Ogre taking readings (2026-09-17, `docs/research/sim-ogre-taking-2026-09-17.md`): `ogreNoCapture`
+ * (a pure relocator) and `ogreShoveFriends` (who it may shove). Both default off / `both`, so nothing
+ * here changes the shipped game or the other ogre readings; both are rules of capture, so
+ * `crossCheckAttacks` is the consistency proof.
+ */
+describe('ogre taking readings (lab)', () => {
+  afterEach(() => setRules());
+  // Same board as the ogre tests: white ogre c4, black pawns b4 and c5 (a capture and a shove each),
+  // a white pawn d4 (the friend shove is blocked by the knight e4, so it is not in the lists).
+  const pos = fromFen('k7/8/8/2p5/1pOPn3/8/8/7K w - - 0 1');
+
+  it('ogreNoCapture: every capture goes, every shove stays, and it attacks nothing', () => {
+    const captures = () => {
+      const out: Move[] = [];
+      genPiece(pos.board, parseSq('c4'), 'captures', out);
+      return out;
+    };
+    expect(lan(pos, captures())).toEqual(['Oc4xb4', 'Oc4xc5']); // the control: two captures generated
+    expect(lan(pos, movesFrom(pos, 'c4'))).toEqual([
+      'Oc4-b3', 'Oc4-b5', 'Oc4-c3', 'Oc4-d3', 'Oc4-d5',
+      'Oc4>b4-a4', 'Oc4>c5-c6', 'Oc4xb4', 'Oc4xc5',
+    ]);
+    setRules({ ogreNoCapture: true });
+    expect(captures()).toEqual([]); // not generated at all, not merely filtered from the list
+    expect(lan(pos, movesFrom(pos, 'c4'))).toEqual([
+      'Oc4-b3', 'Oc4-b5', 'Oc4-c3', 'Oc4-d3', 'Oc4-d5', 'Oc4>b4-a4', 'Oc4>c5-c6',
+    ]);
+    expect(isAttacked(pos.board, parseSq('b4'), WHITE)).toBe(false); // the capture is gone…
+    expect(isAttacked(pos.board, parseSq('a4'), WHITE)).toBe(false); // …and a shove was never an attack
+    // Check and mate follow capture: a king beside a no-capture ogre is not in check, and a lone
+    // ogre is not mating material, so K+O vs K is a material draw.
+    const beside = '8/8/8/8/3Ok3/8/8/7K b - - 0 1';
+    const lone = '7k/8/8/8/8/8/8/KO6 w - - 0 1';
+    setRules();
+    expect(inCheck(fromFen(beside))).toBe(true);                  // controls: the ordinary ogre…
+    expect(insufficientMaterial(fromFen(lone).board)).toBe(false); // …checks and is mating material
+    setRules({ ogreNoCapture: true });
+    expect(inCheck(fromFen(beside))).toBe(false);
+    expect(insufficientMaterial(fromFen(lone).board)).toBe(true);
+    expect(status(fromFen(lone))).toBe('drawMaterial');
+    expect(parseRule('ogreNoCapture=true')).toEqual({ ogreNoCapture: true });
+    crossCheckAttacks(150);
+  });
+
+  it('ogreShoveFriends: both (default) shoves either side; enemies only enemies; friends only friends', () => {
+    // White ogre c4; black pawn c5 (shove to c6) is an enemy, white pawn b4 (shove to a4) a friend.
+    const mixed = fromFen('k7/8/8/2p5/1PO5/8/8/7K w - - 0 1');
+    const lans = () => lan(mixed, movesFrom(mixed, 'c4'));
+    const shoves = () => lans().filter(s => s.includes('>'));
+    expect(DEFAULT_RULES.ogreShoveFriends).toBe('both');
+    expect(shoves()).toEqual(['Oc4>b4-a4', 'Oc4>c5-c6']); // the shipped reading: either side
+    setRules({ ogreShoveFriends: 'enemies' });
+    expect(lans()).toEqual([
+      'Oc4-b3', 'Oc4-b5', 'Oc4-c3', 'Oc4-d3', 'Oc4-d4', 'Oc4-d5', 'Oc4>c5-c6', 'Oc4xc5',
+    ]);
+    setRules({ ogreShoveFriends: 'friends' });
+    expect(lans()).toEqual([
+      'Oc4-b3', 'Oc4-b5', 'Oc4-c3', 'Oc4-d3', 'Oc4-d4', 'Oc4-d5', 'Oc4>b4-a4', 'Oc4xc5',
+    ]);
+    expect(parseRule('ogreShoveFriends=enemies')).toEqual({ ogreShoveFriends: 'enemies' });
+    expect(() => parseRule('ogreShoveFriends=guards')).toThrow(/bad ogreShoveFriends/);
+    crossCheckAttacks(151); // the shove is not an attack: isAttacked is the same under every value
+  });
 });
 
 describe('catapult (lab)', () => {
