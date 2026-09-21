@@ -3,7 +3,7 @@ Run: /Applications/Blender.app/Contents/MacOS/Blender -b --python tools/graphics
 Coordinates in this recipe are x lateral, y height, z forward; Blender receives x,-z,y.
 References: art-src/pieces/colour-guides/{guard_color_ref,Archer_color_ref}.jpg and corresponding OBJ.
 """
-import bpy, bmesh, math, json
+import bpy, bmesh, math, json, runpy
 from pathlib import Path
 from mathutils import Vector
 ROOT=Path(__file__).resolve().parents[2]
@@ -111,7 +111,7 @@ for side,p in [('L',(-.39,1.08,.18)),('R',(.38,.77,.25))]:
 
 # One editable source containing the rebuilt pair only.
 G.location.x=-1;A.location.x=1
-bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'docs/graphics-prototype/rebuilt-pieces.blend'))
+bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'docs/graphics-prototype/blockout-pieces.blend'))
 G.location.x=0;A.location.x=0
 
 def export(o,name):
@@ -123,7 +123,7 @@ def export(o,name):
  for ob in o.children_recursive:
   if ob.type=='MESH':ob.data.calc_loop_triangles();tris+=len(ob.data.loop_triangles)
  return {'name':name,'triangles':tris,'bytes':(OUT/(name+'.glb')).stat().st_size}
-report=[export(G,'rebuilt-guard'),export(A,'rebuilt-archer')]
+report=[export(G,'blockout-guard'),export(A,'blockout-archer')]
 # Original-geometry controls. Palette zoning is provisional, not recovered source paint.
 for name,file,h in [('guard','Guard_22mm.obj',1.24),('archer','Archer_2.obj',1.34),('pawn','pawn_22mm.obj',.9),('knight','knight_22mm.obj',1.22),('bishop','Bishop.obj',1.3),('king','King_Frost_22mm.obj',1.53)]:
  vs=[];fs=[]
@@ -152,3 +152,6 @@ for name,file,h in [('guard','Guard_22mm.obj',1.24),('archer','Archer_2.obj',1.3
  report.append(export(r,'original-'+name))
 (OUT/'manifest.json').write_text(json.dumps({'method':'Authored mesh/primitive rebuilds; six decimated OBJ controls with provisional region paint','models':report},indent=2)+'\n')
 print('MODEL_REPORT',json.dumps(report))
+
+# The current pair is refined from the original sculpt surfaces; keep the first blockouts as controls.
+runpy.run_path(str(ROOT/'tools/graphics-prototype/refine_models.py'),run_name='__main__')

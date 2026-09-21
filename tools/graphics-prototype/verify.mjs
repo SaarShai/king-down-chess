@@ -81,6 +81,18 @@ await page.screenshot({path:out+'/captures/overlap-sprites-adaptive.png'});
 await page.evaluate(()=>study.choose('rebuilt'));await page.setViewportSize({width:390,height:844});await page.waitForTimeout(150);await page.screenshot({path:out+'/captures/overlap-mobile-adaptive.png'});
 await page.selectOption('#pixels','1');await page.evaluate(()=>study.setScene('board'));await page.waitForTimeout(150);await page.screenshot({path:out+'/captures/board-mobile-fine-adaptive.png'});
 observations.push({detailStudy:contourEvidence,spriteMaskFill:spriteMask});
+// Asset-detail correction: compare the real geometry, not only the screen sample count.
+await page.setViewportSize({width:1440,height:1000});
+await page.goto('http://localhost:5190/?study&variant=rebuilt&scene=pair&pixels=0.5&contours=adaptive&detail=refined');await page.waitForFunction(()=>window.study);
+const refined=await page.evaluate(()=>study.entries.map(e=>{let triangles=0,colors=false; e.visual.traverse(o=>{if(o.isMesh){triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3; colors ||= o.geometry.hasAttribute('color');}});return {type:e.type,triangles,colors};}));
+check('Refined surfaces contain actual source detail and crease colours',refined.every(e=>e.triangles>10000&&e.colors),refined);
+await page.screenshot({path:out+'/captures/refined-pair-halfpx.png'});
+await page.selectOption('#figure-detail','blockout');await page.waitForFunction(()=>study.entries.length===4&&study.entries.every(e=>e.visual.userData.modelKey.startsWith('blockout')));
+await page.screenshot({path:out+'/captures/blockout-pair-halfpx.png'});
+check('Earlier blockouts remain comparable at identical resolution',await page.evaluate(()=>study.pixel===.5&&study.entries.every(e=>e.visual.userData.modelKey.startsWith('blockout'))));
+await page.selectOption('#figure-detail','refined');await page.waitForFunction(()=>study.entries.length===4&&study.entries.every(e=>e.visual.userData.modelKey.startsWith('rebuilt')));
+check('Double-density output retains twice the display dimensions',await page.locator('#stage-board canvas').evaluate(e=>e.width===e.clientWidth*2&&e.height===e.clientHeight*2));
+observations.push({refinedModels:refined});
 await page.goto('http://localhost:5190/');await page.waitForFunction(()=>window.view&&document.querySelector('#setup')?.title.length>5);check('Normal game still loads',await page.locator('#board canvas').count()===1);
 check('No console/page errors',errors.length===0,errors);
 const result={browser:browser.version(),checks,errors,observations,limits:'Visual/structural QA in Chromium software rendering. No physical-device performance benchmark.'};

@@ -1,13 +1,13 @@
 {
-  "method": "Authored mesh/primitive rebuilds; six decimated OBJ controls with provisional region paint",
+  "method": "Source-derived refined Guard/Archer with semantic materials and baked crease shading; earlier blockouts retained for comparison",
   "models": [
     {
-      "name": "rebuilt-guard",
+      "name": "blockout-guard",
       "triangles": 888,
-      "bytes": 75808
+      "bytes": 76224
     },
     {
-      "name": "rebuilt-archer",
+      "name": "blockout-archer",
       "triangles": 970,
       "bytes": 84832
     },
@@ -40,6 +40,44 @@
       "name": "original-king",
       "triangles": 6500,
       "bytes": 119944
+    },
+    {
+      "name": "rebuilt-guard",
+      "triangles": 12000,
+      "bytes": 279504,
+      "source": "Guard_22mm.obj",
+      "sourceTriangles": 60180,
+      "materialAreaShare": {
+        "army": 0.8829,
+        "shade": 0.0738,
+        "light": 0.0087,
+        "ink": 0.0,
+        "accent1": 0.0337,
+        "accent2": 0.001
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "name": "rebuilt-archer",
+      "triangles": 13999,
+      "bytes": 338512,
+      "source": "Archer_2.obj",
+      "sourceTriangles": 36502,
+      "materialAreaShare": {
+        "army": 0.7031,
+        "shade": 0.094,
+        "light": 0.0695,
+        "ink": 0.0,
+        "accent1": 0.0897,
+        "accent2": 0.0436
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ]
     }
   ]
 }
