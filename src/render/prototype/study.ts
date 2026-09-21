@@ -9,7 +9,8 @@ import { STYLES } from '../styles';
 import { loadModels } from '../voxels';
 import { fromFen } from '../../rules/setup';
 import { PieceContourPass, type ContourMode } from './PieceContourPass';
-import { WalkPreview } from './WalkPreview';
+import { WalkPreview, type ClayCadence } from './WalkPreview';
+import { CLAY_LOOK_COPY, CLAY_LOOK_LABELS, CLAY_LOOKS, type ClayLook, applyLookLighting, ensureSurfaceUv, materialForLook } from './ClayLook';
 import './study.css';
 
 const variants=['baseline','sculpt','rebuilt','sprites','quiet'] as const;
@@ -27,12 +28,14 @@ let variant:Variant=variants.includes(params.get('variant') as Variant)?params.g
 let pixel=[.5,1,1.5,2,3,4].includes(Number(params.get('pixels')))?Number(params.get('pixels')):1.5;
 let figureDetail=params.get('detail')==='blockout'?'blockout':'refined';
 let contourMode:ContourMode=['off','silhouette','adaptive'].includes(params.get('contours')??'')?params.get('contours') as ContourMode:'adaptive';
+let look:ClayLook=CLAY_LOOKS.includes(params.get('look') as ClayLook)?params.get('look') as ClayLook:'current';
+let cadence:ClayCadence=params.get('cadence')==='stopmotion'?'stopmotion':'smooth';
 let running=false, walking=false, orbit=false, motion=0, lastFrame=0;
 let epoch=0;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const source=import.meta.env.BASE_URL+'prototype/';
 document.title='King Down · Graphics study';
-document.body.innerHTML=`<main class="study"><header><div class="wordmark">KING DOWN<span>GRAPHICS STUDY · 03</span></div><div class="header-note">Two familiar characters. Five ways to see them.</div><a href="?">Open game ↗</a></header><section class="stage"><div id="stage-board"></div><canvas id="quiet-canvas" hidden></canvas><div class="scene-label"><span id="mode-label"></span><span id="view-hint">Drag to orbit · scroll to zoom</span></div><div class="armies"><span><i class="ivory"></i>Alabaster</span><span><i class="ink"></i>Ink blue</span></div></section><aside><div class="eyebrow">THE QUESTION</div><h1 id="variant-title"></h1><p id="description"></p><div class="controls"><label>Figure detail <select id="figure-detail"><option value="refined">Refined from source</option><option value="blockout">Earlier blockout</option></select></label><label>Pixel size <select id="pixels"><option value="0.5">0.5 px · double detail</option><option value="1">1 px · fine</option><option value="1.5">1.5 px · balanced</option><option value="2">2 px · chunky</option><option value="3">3 px · coarse</option><option value="4">4 px · stress test</option></select></label><label>Scene <select id="scene"><option value="pair">Guard + Archer</option><option value="overlap">Overlap close-up</option><option value="six">Six-piece lineup</option><option value="board">Full board · 32 pieces</option></select></label><label>Contours <select id="contours"><option value="off">Off</option><option value="silhouette">Even silhouette</option><option value="adaptive">Overlap aware</option></select></label><p class="control-note" id="contour-note"></p><label>Palette <select id="palette"><option value="colour">Army + type accents</option><option value="gray">Grayscale check</option></select></label><button id="walk" aria-pressed="false">Walk in place</button><p class="control-note" id="walk-note"></p><div class="button-row"><button id="move">Move</button><button id="ability">Ability</button></div><div class="button-row"><button id="spin">Rotate</button><button id="reset">Reset view</button></div></div><div class="detail"><b>Guard</b><p>Keep the raised shoulder wings, recessed helmet and heavy fists. Steel blue on the shoulder plates; the rest stays in the army family.</p><b>Archer</b><p>Keep the pointed hood, split skirt and <em>two wrist crossbows</em>. Green on the hood; face, braid and crossbows stay in the army family.</p></div><details><summary>Compare the source artwork</summary><a href="${source}source-guides/guard_color_ref.jpg" target="_blank">Guard colour guide ↗</a><a href="${source}source-guides/Archer_color_ref.jpg" target="_blank">Archer colour guide ↗</a></details><p class="limits" id="limits"></p><output id="stats">Loading study assets…</output></aside><nav class="switcher" aria-label="Rendering candidates"><button id="prev" aria-label="Previous option">←</button><div class="tabs">${variants.map((v,i)=>`<button data-variant="${v}"><span>0${i+1}</span>${names[i]}</button>`).join('')}</div><button id="next" aria-label="Next option">→</button></nav></main>`;
+document.body.innerHTML=`<main class="study"><header><div class="wordmark">KING DOWN<span>GRAPHICS STUDY · 03</span></div><div class="header-note">Two familiar characters. Five ways to see them.</div><a href="?">Open game ↗</a></header><section class="stage"><div id="stage-board"></div><canvas id="quiet-canvas" hidden></canvas><div class="scene-label"><span id="mode-label"></span><span id="view-hint">Drag to orbit · scroll to zoom</span></div><div class="armies"><span><i class="ivory"></i>Alabaster</span><span><i class="ink"></i>Ink blue</span></div></section><aside><div class="eyebrow">THE QUESTION</div><h1 id="variant-title"></h1><p id="description"></p><div class="controls"><label>Look <select id="look"><option value="current">Current refined</option><option value="plasticine">Polished plasticine</option><option value="handmade">Handmade clay</option></select></label><p class="control-note look-copy" id="look-copy"></p><label>Figure detail <select id="figure-detail"><option value="refined">Refined from source</option><option value="blockout">Earlier blockout</option></select></label><label>Clay motion <select id="cadence"><option value="smooth">Smooth · spring clay</option><option value="stopmotion">Stop-motion · 12 fps</option></select></label><p class="control-note" id="motion-note"></p><label>Pixel size <select id="pixels"><option value="0.5">0.5 px · double detail</option><option value="1">1 px · fine</option><option value="1.5">1.5 px · balanced</option><option value="2">2 px · chunky</option><option value="3">3 px · coarse</option><option value="4">4 px · stress test</option></select></label><label>Scene <select id="scene"><option value="pair">Guard + Archer</option><option value="overlap">Overlap close-up</option><option value="six">Six-piece lineup</option><option value="board">Full board · 32 pieces</option></select></label><label>Contours <select id="contours"><option value="off">Off</option><option value="silhouette">Even silhouette</option><option value="adaptive">Overlap aware</option></select></label><p class="control-note" id="contour-note"></p><label>Palette <select id="palette"><option value="colour">Army + type accents</option><option value="gray">Grayscale check</option></select></label><button id="walk" aria-pressed="false">Walk in place</button><button id="poke">Poke / squish clay</button><p class="control-note" id="walk-note"></p><div class="button-row"><button id="move">Move</button><button id="ability">Ability</button></div><div class="button-row"><button id="spin">Rotate</button><button id="reset">Reset view</button></div></div><div class="detail"><b>Guard</b><p>Keep the raised shoulder wings, recessed helmet and heavy fists. Steel blue on the shoulder plates; the rest stays in the army family.</p><b>Archer</b><p>Keep the pointed hood, split skirt and <em>two wrist crossbows</em>. Green on the hood; face, braid and crossbows stay in the army family.</p></div><details><summary>Compare the source artwork</summary><a href="${source}source-guides/guard_color_ref.jpg" target="_blank">Guard colour guide ↗</a><a href="${source}source-guides/Archer_color_ref.jpg" target="_blank">Archer colour guide ↗</a></details><p class="limits" id="limits"></p><output id="stats">Loading study assets…</output></aside><nav class="switcher" aria-label="Rendering candidates"><button id="prev" aria-label="Previous option">←</button><div class="tabs">${variants.map((v,i)=>`<button data-variant="${v}"><span>0${i+1}</span>${names[i]}</button>`).join('')}</div><button id="next" aria-label="Next option">→</button></nav></main>`;
 const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 // Access to existing renderer internals is intentional and isolated to this throwaway study.
 const view:any=new BoardRenderer(el('stage-board'));
@@ -44,7 +47,7 @@ view.controls.enableDamping=false;
 view.controls.minZoom=.6;view.controls.maxZoom=5;
 const contourPass=new PieceContourPass(view.scene,view.camera);
 view.composer.insertPass(contourPass,1);
-el<HTMLSelectElement>('figure-detail').value=figureDetail;el<HTMLSelectElement>('pixels').value=String(pixel);el<HTMLSelectElement>('contours').value=contourMode;
+el<HTMLSelectElement>('look').value=look;el<HTMLSelectElement>('figure-detail').value=figureDetail;el<HTMLSelectElement>('cadence').value=cadence;el<HTMLSelectElement>('pixels').value=String(pixel);el<HTMLSelectElement>('contours').value=contourMode;
 const quiet=el<HTMLCanvasElement>('quiet-canvas');
 const loader=new GLTFLoader();
 const models=new Map<string,THREE.Group>();
@@ -54,15 +57,15 @@ const palettes=[{army:0xdcc9a2,shade:0x958365,light:0xf2e2c0,ink:0x514638},{army
 const matCache=new Map<string,THREE.Material>();
 const toonSteps=new THREE.DataTexture(new Uint8Array([100,160,214,255]),4,1,THREE.RedFormat);toonSteps.needsUpdate=true;toonSteps.minFilter=toonSteps.magFilter=THREE.NearestFilter;
 function material(role:string,type:string,side:number,vertexColors=false):THREE.Material {
- const key=`${role}:${type}:${side}:${vertexColors}`;if(matCache.has(key))return matCache.get(key)!;
+ const key=`${role}:${type}:${side}:${vertexColors}:${look}`;if(matCache.has(key))return matCache.get(key)!;
  const pair=accents[type]??accents.guard;
  const color=role==='accent1'?pair[0]:role==='accent2'?pair[1]:(palettes[side] as any)[role]??palettes[side].army;
- const m=vertexColors?new THREE.MeshStandardMaterial({color,vertexColors:true,roughness:.78,metalness:0}):new THREE.MeshToonMaterial({color,gradientMap:toonSteps});m.name=role;matCache.set(key,m);return m;
+ const m=materialForLook({color,role,vertexColors,look,currentGradientMap:toonSteps});matCache.set(key,m);return m;
 }
 function visual(name:string,side:number,rebuilt:boolean):THREE.Group {
  const key=(rebuilt&&(name==='guard'||name==='archer')?(variant==='quiet'||figureDetail==='blockout'?'blockout-':'rebuilt-'):'original-')+name;
  const g=clone(models.get(key)!) as THREE.Group;
- g.traverse(o=>{if((o as THREE.Mesh).isMesh){const m=o as THREE.Mesh;const mats=Array.isArray(m.material)?m.material:[m.material];const replaced=mats.map(x=>material(x.name,name,side,m.geometry.hasAttribute('color')));m.material=Array.isArray(m.material)?replaced:replaced[0];m.castShadow=false;m.receiveShadow=false;if((m as THREE.SkinnedMesh).isSkinnedMesh)m.frustumCulled=false;}});
+ g.traverse(o=>{if((o as THREE.Mesh).isMesh){const m=o as THREE.Mesh;ensureSurfaceUv(m.geometry);const mats=Array.isArray(m.material)?m.material:[m.material];const replaced=mats.map(x=>material(x.name,name,side,m.geometry.hasAttribute('color')));m.material=Array.isArray(m.material)?replaced:replaced[0];m.castShadow=false;m.receiveShadow=false;if((m as THREE.SkinnedMesh).isSkinnedMesh)m.frustumCulled=false;}});
  g.userData.modelKey=key;return g;
 }
 await loadModels('/');
@@ -127,7 +130,7 @@ function resetCamera(){
 let qPan={x:0,y:0},qZoom=1;
 async function apply(){
  const id=++epoch;running=false;walking=false;motion=0;bolt.visible=ring.visible=false;clearStudyPieces();view.tweens.flush();
- const i=variants.indexOf(variant);el('variant-title').textContent=variant==='rebuilt'&&figureDetail==='blockout'?'Earlier blockouts':names[i];el('description').textContent=copy[i];el('mode-label').textContent=`0${i+1} / ${names[i]}`;
+ const i=variants.indexOf(variant);el('variant-title').textContent=variant==='rebuilt'&&figureDetail==='blockout'?'Earlier blockouts':names[i];el('description').textContent=copy[i];el('mode-label').textContent=`0${i+1} / ${names[i]} · ${CLAY_LOOK_LABELS[look]}`;el('look-copy').textContent=CLAY_LOOK_COPY[look];
  document.querySelectorAll('[data-variant]').forEach(x=>x.classList.toggle('active',(x as HTMLElement).dataset.variant===variant));
  syncUrl();
  const isQuiet=variant==='quiet';el<HTMLSelectElement>('figure-detail').disabled=variant!=='rebuilt'&&variant!=='sprites';el<HTMLSelectElement>('figure-detail').value=isQuiet?'blockout':figureDetail;
@@ -154,6 +157,7 @@ async function apply(){
   for(const tile of view.tiles){const sq=tile.userData.sq;tile.material.map=null;tile.material.color.setHex(((sq%8+Math.floor(sq/8))%2)?0xb9b2a0:0x596470);tile.material.needsUpdate=true;}
   view.frame3d.material.map=null;view.frame3d.material.color.setHex(0x2d3948);view.frame3d.material.needsUpdate=true;
  }
+ applyLookLighting({scene:view.scene,hemi:view.hemi,sun:view.sun,shadowMat:view.shadowMat},look);
  for(const [sq,g] of view.pieces as Map<number,THREE.Group>){
   const type=types[g.userData.code&15];const side=g.userData.code>>4;let model:any=g.children[0];
   if(variant!=='baseline'&&type){
@@ -164,7 +168,7 @@ async function apply(){
    g.add(model);g.userData.sprite=false;
   }
   const clip=model.animations?.find((a:THREE.AnimationClip)=>a.name==='Walk');
-  entries.push({sq,type,side,root:g,visual:model,base:g.position.clone(),walk:clip?new WalkPreview(model,clip):undefined});
+  entries.push({sq,type,side,root:g,visual:model,base:g.position.clone(),walk:clip?new WalkPreview(model,clip,{pliable:look!=='current',cadence}):undefined});
  }
  syncWalkButton();contourPass.setPieces(entries.map(e=>e.visual));resetCamera();
  // Candidate styles use one beauty draw plus an optional piece-ID draw; baseline retains its original pass.
@@ -181,13 +185,15 @@ function applyPixelSize(){
  view.renderer.setPixelRatio(ratio);view.composer.setPixelRatio(ratio);
  view.setPixelSize(pixel*ratio);contourPass.setPixelSize(pixel*ratio);
 }
-function syncUrl(){const url=new URL(location.href);url.searchParams.set('variant',variant);url.searchParams.set('scene',sceneMode);url.searchParams.set('pixels',String(pixel));url.searchParams.set('contours',contourMode);url.searchParams.set('detail',figureDetail);history.replaceState({},'',url);}
+function syncUrl(){const url=new URL(location.href);url.searchParams.set('variant',variant);url.searchParams.set('scene',sceneMode);url.searchParams.set('pixels',String(pixel));url.searchParams.set('contours',contourMode);url.searchParams.set('detail',figureDetail);url.searchParams.set('look',look);url.searchParams.set('cadence',cadence);history.replaceState({},'',url);}
 function choose(v:Variant){variant=v;return apply();}
 document.querySelectorAll<HTMLButtonElement>('[data-variant]').forEach(b=>b.onclick=()=>choose(b.dataset.variant as Variant));
 const cycle=(d:number)=>choose(variants[(variants.indexOf(variant)+d+variants.length)%variants.length]);
 el('prev').onclick=()=>cycle(-1);el('next').onclick=()=>cycle(1);
 addEventListener('keydown',e=>{if((e.target as HTMLElement).closest('input,select,textarea,[contenteditable]'))return;if(e.key==='ArrowLeft')cycle(-1);if(e.key==='ArrowRight')cycle(1);});
 el<HTMLSelectElement>('figure-detail').onchange=e=>{figureDetail=(e.target as HTMLSelectElement).value;void apply();};
+el<HTMLSelectElement>('look').onchange=e=>{look=(e.target as HTMLSelectElement).value as ClayLook;void apply();};
+el<HTMLSelectElement>('cadence').onchange=e=>{cadence=(e.target as HTMLSelectElement).value as ClayCadence;void apply();};
 el<HTMLSelectElement>('pixels').onchange=e=>{pixel=Number((e.target as HTMLSelectElement).value);applyPixelSize();resizeQuiet();syncUrl();};
 el<HTMLSelectElement>('scene').onchange=e=>{sceneMode=(e.target as HTMLSelectElement).value;void apply();};
 el<HTMLSelectElement>('contours').onchange=e=>{contourMode=(e.target as HTMLSelectElement).value as ContourMode;contourPass.mode=contourMode;syncUrl();updateStats();};
@@ -196,7 +202,9 @@ el('reset').onclick=()=>{orbit=false;el('spin').textContent='Rotate';resetCamera
 el('spin').onclick=()=>{orbit=!orbit;el('spin').textContent=orbit?'Stop rotation':'Rotate';};
 let action:'move'|'ability'='move';
 function syncWalkButton(){
- const available=entries.some(e=>e.walk);const b=el<HTMLButtonElement>('walk');b.disabled=!available;b.textContent=walking?'Stop walking':'Walk in place';b.setAttribute('aria-pressed',String(walking));
+ const available=entries.some(e=>e.walk),clay=look!=='current';const b=el<HTMLButtonElement>('walk');b.disabled=!available;b.textContent=walking?'Stop walking':'Walk in place';b.setAttribute('aria-pressed',String(walking));
+ const cadenceControl=el<HTMLSelectElement>('cadence');cadenceControl.disabled=!clay;el('motion-note').textContent=clay?(cadence==='smooth'?'Smooth spring motion adds a small, deterministic lag to arms and cloth.':'12 fps stepping keeps the same spring motion between authored poses.'):'Clay motion is available for the two clay looks.';
+ el<HTMLButtonElement>('poke').disabled=!clay||!available;
  el('walk-note').textContent=available?'Guard: short, heavy steps. Archer: a lighter stride with cloth follow-through. Drag to inspect from any angle.':'Walking is available on the refined 3D Guard and Archer.';
 }
 function setWalking(value:boolean){
@@ -206,6 +214,7 @@ function setWalking(value:boolean){
  syncWalkButton();
 }
 el('walk').onclick=()=>setWalking(!walking);
+el('poke').onclick=()=>{if(walking)return;for(const e of entries)e.walk?.poke();};
 function animate(which:'move'|'ability'){if(running)return;setWalking(false);for(const e of entries)e.walk?.reset();action=which;running=true;motion=0;}
 el('move').onclick=()=>animate('move');el('ability').onclick=()=>animate('ability');
 // Projectiles and impact rings stay in world space for the mesh and sprite approaches.
@@ -288,4 +297,4 @@ function frame(now:number){const elapsed=(now-lastFrame)/1000||0,dt=Math.min(.04
  requestAnimationFrame(frame);
 }
 await apply();requestAnimationFrame(frame);
-(window as any).study={choose,apply,get variant(){return variant},get entries(){return entries},get running(){return running},models,atlasCache,animate,setWalking,get walking(){return walking},view,contourPass,get scene(){return sceneMode},setScene:(mode:string)=>{sceneMode=mode;el<HTMLSelectElement>('scene').value=mode;return apply();},get pixel(){return pixel},get figureDetail(){return figureDetail}};
+(window as any).study={choose,apply,get variant(){return variant},get look(){return look},get cadence(){return cadence},setLook:(value:ClayLook)=>{look=value;el<HTMLSelectElement>('look').value=value;return apply();},poke:()=>{if(!walking)for(const e of entries)e.walk?.poke();},get entries(){return entries},get running(){return running},models,atlasCache,animate,setWalking,get walking(){return walking},view,contourPass,get scene(){return sceneMode},setScene:(mode:string)=>{sceneMode=mode;el<HTMLSelectElement>('scene').value=mode;return apply();},get pixel(){return pixel},get figureDetail(){return figureDetail}};
