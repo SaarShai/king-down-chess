@@ -1,6 +1,108 @@
-Dropped by the gates before ranking: NKBBMGQS (|score−0.5| 0.033, capped 1.6%, balance); KNQARMMS (|score−0.5| 0.070, capped 0.3%, balance); BRGNSRKA (|score−0.5| 0.034, capped 1.9%, balance); LKQABSNR (|score−0.5| 0.036, capped 0.0%, balance); KSGLRMSB (|score−0.5| 0.063, capped 1.9%, balance); KGBMSSMB (|score−0.5| 0.037, capped 1.9%, balance); KMNRBQAS (|score−0.5| 0.039, capped 0.3%, balance); AKLRRSGN (|score−0.5| 0.061, capped 0.6%, balance); BBSKNMQR (|score−0.5| 0.037, capped 0.9%, balance); BNKRMSAS (|score−0.5| 0.033, capped 0.3%, balance); ASMQBGRK (|score−0.5| 0.034, capped 0.9%, balance).
+# Arrangement sweep A — 400 first rows ranked by the pre-registered criteria (2026-09-17)
 
-## Round 5 criteria — all 25 arrangements in ranking order (top 20 = ranks 1–20, bottom 20 = ranks 6–25)
+Sweep A of the arrangement benchmark: 400 sampled first rows, 5 successive-halving rounds at depth 3,
+seed 91, 8,000 games per round (40,000 in all), ranked after the fact by the rule pre-registered in
+`docs/research/arrangement-benchmark-2026-09-17.md`. The headline: **14 of the 25 finalists pass the
+fairness and capped-share gates**, and among those the top row is `RMSQNAAK`. No back-rank placement
+feature separates the top from the bottom at this sample size; the event-diversity differences track
+which fairy pieces the draw put in the row.
+
+## Method
+
+400 arrangements sampled from the pool `QLRRBBNNAAGMMSS` (7 pieces plus the king; both sides mirror
+the row), seed 91, successive halving over 5 rounds at depth 3 with common random numbers inside each
+round:
+
+| round | arrangements | games each | games |
+|---|---|---|---|
+| 1 | 400 | 20 | 8,000 |
+| 2 | 200 | 40 | 8,000 |
+| 3 | 100 | 80 | 8,000 |
+| 4 | 50 | 160 | 8,000 |
+| 5 | 25 | 320 | 8,000 |
+
+40,000 games in all, 6 workers, 4 random opening plies, ply cap 300, adjudication on; about 4.6 hours
+of wall clock. Command:
+
+```
+node_modules/.bin/tsx src/sim/run.ts --id arr-a --experiment sweep --games 20 \
+  --arrangements 400 --rounds 5 --depth 3 --seed 91 --workers 6
+```
+
+The halving key inside the sweep is `|white score − 0.5|` with raw interest as the tie-break (the
+tool's own key). The ranking below is the **pre-registered rule applied to the round-5 report**
+(`sim/out/arr-a.r5.report.json`): drop arrangements with `|score − 0.5| > 0.03` or capped share
+> 0.05; rank the rest by the draw-rate residual of interest (`interestResiduals.interest`); break
+ties by min utilisation, then by event diversity. Raw `interest` is printed beside the ranking key in
+every table. Only **14 of the 25 finalists survive the gates**, so:
+
+- the **ranked list** is those 14;
+- the **top 20** of the ordering is ranks 1–20 and the **bottom 20** is ranks 6–25 (the two sets
+  overlap in 6–20, because round 5 holds 25 rows); the disjoint extremes are ranks 1–5 and 21–25;
+- the criteria table prints all 25 in ranking order with a `passes` column, so the discards and their
+  failed gates stay visible.
+
+The round-5 overall: white score 0.517, decisive 82.0%, draws 17.3%, capped 0.8%.
+
+## Definitions
+
+**Events per game** (from each stored record's `events` object, both sides summed; means are over the
+320 games of the arrangement): archer shots = `archerShots`; beast chain moves = the total length of
+the two `beastChains` lists; maester swaps = `maesterSwaps` (the long swaps to a king are a subset and
+are not added); paladin sacrifices = `paladinSacrifices` (self-removing captures); promotions =
+`promotions`; checks = `checks`. "Mechanics" = how many of those six counters are non-zero in a game,
+averaged per arrangement.
+
+**Features from the back rank string** (files a–h = 0–7):
+
+- **queen present** — the row contains `Q`. The pool holds one queen, so this is a composition
+  feature, not a placement one.
+- **guard present** — the row contains `G` (one guard in the pool).
+- **guard file distance to the king** — `abs(file(G) − file(K))`; "no guard" when absent.
+- **archers adjacent** — the pool holds two archers; *adjacent* = both present with file distance 1,
+  *apart* = both present with distance > 1, *incomplete* = fewer than two archers in the row.
+- **maester adjacent to the king** — at least one `M` with `abs(file(M) − file(K)) = 1` (the pool
+  holds two maesters).
+- **number of distinct piece types** — distinct letters in the 8-letter row (8 = no duplicate,
+  7 = one duplicated pool piece, and so on).
+- **pawn-row contact** — the pre-registration's wording is "any piece on file of the king". Pawns
+  start on every file (`src/rules/setup.ts`), so both readings are constants: the king's file always
+  carries a pawn in front of the king, and no non-king piece can share the king's file in a valid
+  row. The feature cannot separate anything in this pool; it is reported for completeness.
+
+## Ranking outcome
+
+`RMSQNAAK` (interest residual +0.006, 84.4% decisive, 15.6% draws, minUse 0.39) leads the 14 that
+pass. Ranks 1 and 2 of the ordering, `KGBMSSMB` and `KSGLRMSB`, have the highest residuals (+0.015
+and +0.007) but are **discarded by the fairness gate** (white scores 0.537 and 0.563). Every one of
+the 11 discards fails on balance alone; the most white-favouring finalist is `KNQARMMS` at 0.570.
+Two of the 14 ranked rows carry a non-fatal `drawRate` mark (`GMNKQBSR`, `BAKRGMAN`).
+
+### Pre-registered ranked list — the 14 that pass the gates
+| rank | set | back rank | games | white score | interest (resid.) | interest | interest(min) | decisive | draws | capped | xDec | fairyUse | minUse | passes | gates |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 3 | ranked | RMSQNAAK | 320 | 0.519 | 0.006 | 0.505 | 0.505 | 84.4% | 15.6% | 0.0% | 0.025 | 1.85 | 0.39 | yes | - |
+| 4 | ranked | QNKMNRSG | 320 | 0.517 | 0.005 | 0.498 | 0.429 | 79.1% | 20.9% | 0.0% | -0.027 | 1.44 | 0.47 | yes | - |
+| 5 | ranked | BKNSQAMB | 320 | 0.503 | 0.005 | 0.511 | 0.511 | 90.0% | 10.0% | 0.0% | 0.084 | 2.11 | 0.44 | yes | - |
+| 6 | ranked | MRGNBSNK | 320 | 0.481 | 0.004 | 0.496 | 0.496 | 76.9% | 21.6% | 1.6% | -0.050 | 1.62 | 0.49 | yes | - |
+| 9 | ranked | SRKRANMS | 320 | 0.489 | 0.003 | 0.503 | 0.503 | 84.1% | 15.3% | 0.6% | 0.024 | 2.10 | 0.41 | yes | - |
+| 10 | ranked | SNRBGSNK | 320 | 0.494 | 0.002 | 0.502 | 0.502 | 83.8% | 15.3% | 0.9% | 0.021 | 1.59 | 0.45 | yes | - |
+| 11 | ranked | GMNKQBSR | 320 | 0.486 | 0.001 | 0.486 | 0.472 | 70.3% | 27.8% | 1.9% | -0.114 | 1.60 | 0.47 | yes | drawRate |
+| 12 | ranked | KNRMMRSA | 320 | 0.492 | 0.001 | 0.504 | 0.504 | 86.6% | 12.8% | 0.6% | 0.049 | 2.06 | 0.38 | yes | - |
+| 13 | ranked | ASMMKNNB | 320 | 0.495 | 0.001 | 0.498 | 0.498 | 82.2% | 17.5% | 0.3% | 0.006 | 2.13 | 0.42 | yes | - |
+| 15 | ranked | RNQSGKRB | 320 | 0.472 | -0.002 | 0.494 | 0.494 | 80.6% | 18.4% | 0.9% | -0.014 | 1.39 | 0.50 | yes | - |
+| 22 | ranked | MQMKNABR | 320 | 0.492 | -0.007 | 0.490 | 0.490 | 82.2% | 17.8% | 0.0% | 0.005 | 2.25 | 0.39 | yes | - |
+| 23 | ranked | MARNBBRK | 320 | 0.494 | -0.007 | 0.486 | 0.486 | 78.1% | 21.6% | 0.3% | -0.035 | 2.17 | 0.47 | yes | - |
+| 24 | ranked | BAKRGMAN | 320 | 0.527 | -0.008 | 0.481 | 0.477 | 74.7% | 24.1% | 1.3% | -0.073 | 1.81 | 0.37 | yes | drawRate |
+| 25 | ranked | GAMBRMAK | 320 | 0.491 | -0.010 | 0.487 | 0.370 | 82.5% | 17.5% | 0.0% | 0.008 | 1.65 | 0.35 | yes | - |
+
+## Criteria — all 25 finalists in ranking order
+
+`top 20` = ranks 1–20, `bottom 20` = ranks 6–25; `top+bottom` marks the overlap. The `passes` column
+is the pre-registered gate; `gates` prints every failed viability gate (only `balance` and capped
+share discard; `drawRate`, `duration` and `utilisation` are reported, not disqualifying).
+
+### Round 5 criteria — all 25 arrangements in ranking order (top 20 = ranks 1–20, bottom 20 = ranks 6–25)
 | rank | set | back rank | games | white score | interest (resid.) | interest | interest(min) | decisive | draws | capped | xDec | fairyUse | minUse | passes | gates |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | top 20 | KGBMSSMB | 320 | 0.537 | 0.015 | 0.510 | 0.510 | 79.4% | 18.8% | 1.9% | -0.028 | 1.61 | 0.42 | no | balance |
@@ -29,25 +131,18 @@ Dropped by the gates before ranking: NKBBMGQS (|score−0.5| 0.033, capped 1.6%,
 | 24 | bottom 20 | BAKRGMAN | 320 | 0.527 | -0.008 | 0.481 | 0.477 | 74.7% | 24.1% | 1.3% | -0.073 | 1.81 | 0.37 | yes | drawRate |
 | 25 | bottom 20 | GAMBRMAK | 320 | 0.491 | -0.010 | 0.487 | 0.370 | 82.5% | 17.5% | 0.0% | 0.008 | 1.65 | 0.35 | yes | - |
 
-## Pre-registered ranked list — the 14 that pass the gates
-| rank | set | back rank | games | white score | interest (resid.) | interest | interest(min) | decisive | draws | capped | xDec | fairyUse | minUse | passes | gates |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 3 | ranked | RMSQNAAK | 320 | 0.519 | 0.006 | 0.505 | 0.505 | 84.4% | 15.6% | 0.0% | 0.025 | 1.85 | 0.39 | yes | - |
-| 4 | ranked | QNKMNRSG | 320 | 0.517 | 0.005 | 0.498 | 0.429 | 79.1% | 20.9% | 0.0% | -0.027 | 1.44 | 0.47 | yes | - |
-| 5 | ranked | BKNSQAMB | 320 | 0.503 | 0.005 | 0.511 | 0.511 | 90.0% | 10.0% | 0.0% | 0.084 | 2.11 | 0.44 | yes | - |
-| 6 | ranked | MRGNBSNK | 320 | 0.481 | 0.004 | 0.496 | 0.496 | 76.9% | 21.6% | 1.6% | -0.050 | 1.62 | 0.49 | yes | - |
-| 9 | ranked | SRKRANMS | 320 | 0.489 | 0.003 | 0.503 | 0.503 | 84.1% | 15.3% | 0.6% | 0.024 | 2.10 | 0.41 | yes | - |
-| 10 | ranked | SNRBGSNK | 320 | 0.494 | 0.002 | 0.502 | 0.502 | 83.8% | 15.3% | 0.9% | 0.021 | 1.59 | 0.45 | yes | - |
-| 11 | ranked | GMNKQBSR | 320 | 0.486 | 0.001 | 0.486 | 0.472 | 70.3% | 27.8% | 1.9% | -0.114 | 1.60 | 0.47 | yes | drawRate |
-| 12 | ranked | KNRMMRSA | 320 | 0.492 | 0.001 | 0.504 | 0.504 | 86.6% | 12.8% | 0.6% | 0.049 | 2.06 | 0.38 | yes | - |
-| 13 | ranked | ASMMKNNB | 320 | 0.495 | 0.001 | 0.498 | 0.498 | 82.2% | 17.5% | 0.3% | 0.006 | 2.13 | 0.42 | yes | - |
-| 15 | ranked | RNQSGKRB | 320 | 0.472 | -0.002 | 0.494 | 0.494 | 80.6% | 18.4% | 0.9% | -0.014 | 1.39 | 0.50 | yes | - |
-| 22 | ranked | MQMKNABR | 320 | 0.492 | -0.007 | 0.490 | 0.490 | 82.2% | 17.8% | 0.0% | 0.005 | 2.25 | 0.39 | yes | - |
-| 23 | ranked | MARNBBRK | 320 | 0.494 | -0.007 | 0.486 | 0.486 | 78.1% | 21.6% | 0.3% | -0.035 | 2.17 | 0.47 | yes | - |
-| 24 | ranked | BAKRGMAN | 320 | 0.527 | -0.008 | 0.481 | 0.477 | 74.7% | 24.1% | 1.3% | -0.073 | 1.81 | 0.37 | yes | drawRate |
-| 25 | ranked | GAMBRMAK | 320 | 0.491 | -0.010 | 0.487 | 0.370 | 82.5% | 17.5% | 0.0% | 0.008 | 1.65 | 0.35 | yes | - |
+## Event diversity (criterion 9)
 
-## Events per game — all 25 arrangements in ranking order
+Per-arrangement means over the 320 games of each finalist, from `sim/out/arr-a.r5.jsonl`. The
+top-20/bottom-20 contrasts follow **which pieces the row contains**, not how many mechanics the games
+use: beast chain moves are 1.72 per game in the top 20 against 1.29 in the bottom 20, and beasts
+(`S`) are in 100% of the top-20 rows against 80% of the bottom-20 rows; archer shots are 2.27 against
+3.18, with archers (`A`) in 55% of the top-20 rows against 70% of the bottom-20 rows. The sharp
+disjoint extremes (top 5 vs bottom 5) repeat the pattern: archer shots 2.05 vs 5.70, beast chains
+1.96 vs 0.28, checks 3.19 vs 4.63. "Mechanics engaged" is flat: 3.09 of 6 in the top 20, 3.05 in the
+bottom 20 (top quartile 3.20, bottom quartile 3.06).
+
+### Events per game — all 25 arrangements in ranking order
 | rank | set | back rank | archer shots | beast chain moves | maester swaps | paladin sacrifices | promotions | checks | mechanics |
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | top 20 | KGBMSSMB | 0.00 | 3.23 | 15.06 | 0.00 | 0.18 | 1.37 | 2.62 |
@@ -76,7 +171,7 @@ Dropped by the gates before ranking: NKBBMGQS (|score−0.5| 0.033, capped 1.6%,
 | 24 | bottom 20 | BAKRGMAN | 8.10 | 0.00 | 6.34 | 0.00 | 0.20 | 4.78 | 3.00 |
 | 25 | bottom 20 | GAMBRMAK | 8.75 | 0.00 | 10.76 | 0.00 | 0.16 | 3.50 | 2.94 |
 
-## Events — means and the piece that produces them
+### Events — means and the piece that produces them
 | event | piece | top 20 | bottom 20 | top 5 | bottom 5 | top quartile | bottom quartile | piece in top 20 | piece in bottom 20 |
 |---|---|---|---|---|---|---|---|---|---|
 | archer shots | A | 2.27 | 3.18 | 2.05 | 5.70 | 1.71 | 4.75 | 55.0% | 70.0% |
@@ -88,36 +183,24 @@ Dropped by the gates before ranking: NKBBMGQS (|score−0.5| 0.033, capped 1.6%,
 
 Mechanics engaged per game (of the six, top/bottom): top 20 3.09, bottom 20 3.05, top 5 3.26, bottom 5 3.11, top quartile 3.20, bottom quartile 3.06.
 
-## Rank agreement, residualised vs raw interest
-| back rank | rank (resid.) | rank (raw) | shift |
-|---|---|---|---|
-| NKBBMGQS | 8 | 20 | +12 |
-| GMNKQBSR | 11 | 23 | +12 |
-| MRGNBSNK | 6 | 17 | +11 |
-| QNKMNRSG | 4 | 14 | +10 |
-| KNRMMRSA | 12 | 4 | -8 |
-| LKQABSNR | 18 | 10 | -8 |
-| BNKRMSAS | 17 | 11 | -6 |
-| KNQARMMS | 14 | 9 | -5 |
-| BBSKNMQR | 20 | 15 | -5 |
-| AKLRRSGN | 21 | 16 | -5 |
-| KSGLRMSB | 2 | 6 | +4 |
-| BKNSQAMB | 5 | 1 | -4 |
-| KMNRBQAS | 16 | 12 | -4 |
-| RNQSGKRB | 15 | 18 | +3 |
-| GAMBRMAK | 25 | 22 | -3 |
-| ASMQBGRK | 7 | 5 | -2 |
-| SRKRANMS | 9 | 7 | -2 |
-| SNRBGSNK | 10 | 8 | -2 |
-| KGBMSSMB | 1 | 2 | +1 |
-| MQMKNABR | 22 | 21 | -1 |
-| MARNBBRK | 23 | 24 | +1 |
-| BAKRGMAN | 24 | 25 | +1 |
-| RMSQNAAK | 3 | 3 | 0 |
-| ASMMKNNB | 13 | 13 | 0 |
-| BRGNSRKA | 19 | 19 | 0 |
+## Feature splits (criterion 4 of the ranking rule)
 
-## Feature splits
+Simple splits over all 25 finalists; no regression. The table gives the mean draw-rate-residualised
+interest, the mean raw interest and the decisive share of each feature level, plus how many
+arrangements of that level fall in the top 20, bottom 20, top/bottom quartile (6 each) and top/bottom
+5.
+
+**No feature separates the top from the bottom in this sample.** No feature is over-represented in
+the top quartile; the largest lean is `distinctTypes = 6` (0 of 6 top-quartile rows, 2 of 6
+bottom-quartile rows). The largest cell-level differences sit on 1–2 arrangements: archers adjacent
+(n = 1, mean residual +0.006) against archers apart (n = 2, −0.009); `distinctTypes = 5` (n = 1,
++0.015) against the rest (≈ 0.000). The widest difference on a usable cell is **guard absent vs
+present**: decisive 84.7% (n = 12) against 79.4% (n = 13), with mean interest −0.001 against +0.001.
+Queen presence moves decisiveness by +0.9 points and nothing else. Maester-adjacent and
+guard-distance cells show no monotone pattern. The two pawn-row features are constant by
+construction, as defined above.
+
+### Feature splits
 | feature | level | n | mean interest (resid.) | mean interest | decisive | top 20 | bottom 20 | top quartile | bottom quartile | top 5 | bottom 5 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | queen | 0 | 13 | -0.000 | 0.497 | 81.5% | 9 | 11 | 3 | 4 | 2 | 4 |
@@ -146,7 +229,38 @@ Mechanics engaged per game (of the six, top/bottom): top 20 3.09, bottom 20 3.05
 | nonKingOnKingFile | 0 | 25 | -0.000 | 0.498 | 82.0% | 20 | 20 | 6 | 6 | 5 | 5 |
 | nonKingOnKingFile | 1 | 0 | - | - | - | 0 | 0 | 0 | 0 | 0 | 0 |
 
+The ranking key matters in the middle: ordering by the residual instead of raw interest moves
+`NKBBMGQS` and `GMNKQBSR` up 12 places and `MRGNBSNK` and `QNKMNRSG` up 11, while the top three of
+the residual list (`RMSQNAAK`, `KGBMSSMB`, `BKNSQAMB`) move at most 4 places. The full shift table
+is in `sim/specs/arrangement-2026-09-17/sweep-a-tables.md`.
+
+## What this suggests
+
+- **The fairness gate bites harder than the halving.** The sweep kept the 25 most balanced rows at
+  160 games, yet 11 of 25 still sit beyond ±0.03 white score at 320 games (0.472–0.570). A first-row
+  screen that only enforces the gate at the final sample size would need more arrangements per
+  round, or a wider gate.
+- **Placement is not the lever in this pool.** With 25 rows, no back-rank feature (queen, guard,
+  guard distance, archers, maester, distinct-type count) separates the top from the bottom beyond
+  noise. The two strongest directional hints — archers adjacent over apart, and the single
+  five-type row — rest on 1–2 arrangements and need a larger sweep to test.
+- **Event diversity is composition, not liveliness.** The top set's games show more beast chains and
+  fewer archer shots because more of those rows contain a beast and fewer contain archers; the mean
+  number of mechanics engaged is the same (3.09 vs 3.05). Read criterion 9 next to the row's
+  composition, or it measures the pool draw.
+- **Interest residuals are small.** The whole ranked list spans −0.010…+0.006 in the residual (raw
+  0.481–0.511), so the order is fragile in the middle; the top three by the residual all sit in the
+  top five of both keys, but the middle moves by up to 12 places when raw interest is used.
+- **Next step (pre-registered rule 5):** re-run the top 10 of the ranked list at depth 4 and keep
+  only those whose interest stays in the top half. That is a separate arm.
+
 ## Appendix — ranked top 50
+
+The 50 rows are: the 14 ranked round-5 rows, then the 11 round-5 rows the gates discard, then the 25
+round-4 non-finalists (all of which fail the gates on their round-4 data; no gated round-4 row missed
+the final). Rows after the first 14 are marked with their failed gates.
+
+### Ranked top 50
 | rank | round | back rank | interest (resid.) | interest | decisive | draws | minUse | gates |
 |---|---|---|---|---|---|---|---|---|
 | 1 | 5 (finalist) | RMSQNAAK | 0.006 | 0.505 | 84.4% | 15.6% | 0.39 | - |
@@ -199,3 +313,9 @@ Mechanics engaged per game (of the six, top/bottom): top 20 3.09, bottom 20 3.05
 | 48 | 4 (non-finalist) | KRMMLQAN | -0.011 | 0.479 | 78.1% | 20.6% | 0.42 | balance |
 | 49 | 4 (non-finalist) | MNKAARBN | -0.012 | 0.488 | 86.9% | 13.1% | 0.41 | balance |
 | 50 | 4 (non-finalist) | SNLAKMBA | -0.015 | 0.488 | 88.8% | 11.3% | 0.39 | balance |
+
+---
+
+Files: `sim/out/arr-a.r1..r5.{jsonl,summary.json,report.json,report.md}`, `sim/out/arr-a.experiment.md`
+(not committed); spec and analysis tool in `sim/specs/arrangement-2026-09-17/` (`sweep-a.json`,
+`analyze-sweep-a.ts`, `sweep-a-results.json`, `sweep-a-tables.md`).

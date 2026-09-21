@@ -40,6 +40,10 @@ interface GameRec { gameId: number; configId: string; events: Events }
 
 const avg = (xs: number[]): number => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
 
+const EVENT_PIECE: Record<string, string> = {
+  'archer shots': 'A', 'beast chain moves': 'S', 'maester swaps': 'M', 'paladin sacrifices': 'L',
+};
+
 const EVENTS: [string, (e: Events) => number][] = [
   ['archer shots', e => e.archerShots[0] + e.archerShots[1]],
   ['beast chain moves', e => e.beastChains[0].length + e.beastChains[1].length],
@@ -54,6 +58,7 @@ export interface Derived {
   interestMinFairy: number; decisive: number; drawRate: number;
   timeouts: number; minUse: number; meanFairyUse: number; excessDecisiveness: number;
   gatesFailed: string[]; eventsPerGame: Record<string, number>; mechanics: number; rank: number;
+  passes: boolean;
 }
 export interface AppendixRow {
   round: number; key: string; games: number; score: number; residInterest: number; interest: number;
@@ -63,14 +68,15 @@ export interface AppendixRow {
 }
 export interface FeatureSplit {
   feature: string; level: string | number | null; arrangements: number; meanInterest: number | null;
-  meanRawInterest: number | null; decisiveShare: number | null; inTopQ: number; inBottomQ: number;
+  meanRawInterest: number | null; decisiveShare: number | null;
+  inTop20: number; inBottom20: number; inTopQ: number; inBottomQ: number; inTop5: number; inBottom5: number;
 }
 export interface SweepOut {
   id: string; round: number; arrangementsPlayed: number; passedGates: number;
   dropped: { key: string; score: number; timeouts: number; gates: string[] }[];
   quartileSize: number; ranked: (Derived & { features: Features | undefined })[];
   top20: Derived[]; bottom20: Derived[]; top5: Derived[]; bottom5: Derived[];
-  eventMeans: { event: string; top20: number; bottom20: number; topQ: number; bottomQ: number }[];
+  eventMeans: { event: string; piece: string; top20: number; bottom20: number; topQ: number; bottomQ: number; top20Piece: number; bottom20Piece: number }[];
   eventMeansTop5: { event: string; top5: number; bottom5: number }[];
   mechanicsTop20: number; mechanicsBottom20: number; mechanicsTopQ: number; mechanicsBottomQ: number;
   mechanicsTop5: number; mechanicsBottom5: number;
@@ -105,8 +111,8 @@ async function main(): Promise<void> {
   }
 
   const passes = (g: Group): boolean => Math.abs(g.score - 0.5) <= FAIR && g.timeouts <= CAPPED;
-  const ranked: Derived[] = report.byConfig
-    .filter(passes)
+  const ordered: Derived[] = report.byConfig
+    .slice()
     .sort((a, b) =>
       (b.interestResiduals?.interest ?? 0) - (a.interestResiduals?.interest ?? 0)
       || b.minUse - a.minUse
@@ -117,8 +123,9 @@ async function main(): Promise<void> {
       decisive: g.decisiveness, drawRate: g.drawRate, timeouts: g.timeouts, minUse: g.minUse,
       meanFairyUse: g.meanFairyUse, excessDecisiveness: g.excessDecisiveness,
       gatesFailed: g.gatesFailed, eventsPerGame: perCfg.get(g.key)!.ev, mechanics: perCfg.get(g.key)!.mech,
-      rank: i + 1,
+      rank: i + 1, passes: passes(g),
     }));
+  const ranked = ordered.filter(r => r.passes);
   const dropped = report.byConfig.filter(g => !passes(g)).map(g => ({
     key: g.key, score: g.score, timeouts: g.timeouts, gates: g.gatesFailed,
   }));
@@ -141,21 +148,21 @@ async function main(): Promise<void> {
     });
   }
 
-  const byRaw = [...ranked].sort((a, b) => b.interest - a.interest).map(r => r.key);
+  const byRaw = [...ordered].sort((a, b) => b.interest - a.interest).map(r => r.key);
   const rawRank = new Map(byRaw.map((k, i) => [k, i + 1]));
-  const rankShifts = ranked.map(r => ({ key: r.key, residRank: r.rank, rawRank: rawRank.get(r.key) ?? 0 }))
+  const rankShifts = ordered.map(r => ({ key: r.key, residRank: r.rank, rawRank: rawRank.get(r.key) ?? 0 }))
     .map(x => ({ ...x, shift: x.rawRank - x.residRank }))
     .sort((a, b) => Math.abs(b.shift) - Math.abs(a.shift));
 
-  const q = Math.max(1, Math.floor(ranked.length / 4));
-  const topQ = ranked.slice(0, q), bottomQ = ranked.slice(-q);
+  const q = Math.max(1, Math.floor(ordered.length / 4));
+  const topQ = ordered.slice(0, q), bottomQ = ordered.slice(-q);
   const featureSplits: FeatureSplit[] = [];
   const levels = (name: string): (string | number | null)[] => {
     switch (name) {
       case 'queen': case 'guard': case 'maesterNearKing': case 'pawnRowContact': case 'nonKingOnKingFile':
         return [0, 1];
       case 'archers': return ['adjacent', 'apart', 'incomplete'];
-      case 'distinctTypes': return [...new Set(ranked.map(r => features.get(r.key)!.distinctTypes))].sort((a, b) => a - b);
+      case 'distinctTypes': return [...new Set(ordered.map(r => features.get(r.key)!.distinctTypes))].sort((a, b) => a - b);
       case 'guardKingDist': return [null, 1, 2, 3, 4, 5, 6, 7];
       default: throw new Error(name);
     }
@@ -163,13 +170,17 @@ async function main(): Promise<void> {
   for (const name of ['queen', 'guard', 'guardKingDist', 'archers', 'maesterNearKing', 'distinctTypes', 'pawnRowContact', 'nonKingOnKingFile']) {
     for (const lvl of levels(name)) {
       const inLvl = (r: Derived): boolean => features.get(r.key)![name as keyof Features] === lvl;
-      const rows = ranked.filter(inLvl);
+      const rows = ordered.filter(inLvl);
       featureSplits.push({
         feature: name, level: lvl, arrangements: rows.length,
         meanInterest: rows.length ? rows.reduce((a, r) => a + r.residInterest, 0) / rows.length : null,
         meanRawInterest: rows.length ? rows.reduce((a, r) => a + r.interest, 0) / rows.length : null,
         decisiveShare: rows.length ? rows.reduce((a, r) => a + r.decisive, 0) / rows.length : null,
+        inTop20: ordered.slice(0, 20).filter(inLvl).length,
+        inBottom20: ordered.slice(-20).filter(inLvl).length,
         inTopQ: topQ.filter(inLvl).length, inBottomQ: bottomQ.filter(inLvl).length,
+        inTop5: ordered.slice(0, 5).filter(inLvl).length,
+        inBottom5: ordered.slice(-5).filter(inLvl).length,
       });
     }
   }
@@ -179,40 +190,52 @@ async function main(): Promise<void> {
   const r4Pass: Group[] = r4 ? r4.byConfig.filter(passes)
     .sort((a, b) => (b.interestResiduals?.interest ?? 0) - (a.interestResiduals?.interest ?? 0) || b.minUse - a.minUse) : [];
   const inR5 = new Set(report.byConfig.map(g => g.key));
+  const toRow = (g: Group, round: number): AppendixRow => ({
+    round, key: g.key, games: g.games, score: g.score,
+    residInterest: g.interestResiduals?.interest ?? 0, interest: g.interest,
+    interestMinFairy: g.interestMinFairy, decisive: g.decisiveness, drawRate: g.drawRate,
+    timeouts: g.timeouts, minUse: g.minUse, meanFairyUse: g.meanFairyUse, excessDecisiveness: g.excessDecisiveness,
+    gatesFailed: g.gatesFailed, eventsPerGame: {}, mechanics: NaN, rank: 0,
+  });
+  const r4Others = r4Pass.filter(g => !inR5.has(g.key));
+  const failed: AppendixRow[] = [
+    ...report.byConfig.filter(g => !passes(g)).sort((a, b) => (b.interestResiduals?.interest ?? 0) - (a.interestResiduals?.interest ?? 0)).map(g => toRow(g, ROUND)),
+    ...(r4 ? r4.byConfig.filter(g => !passes(g) && !inR5.has(g.key)).sort((a, b) => (b.interestResiduals?.interest ?? 0) - (a.interestResiduals?.interest ?? 0)).map(g => toRow(g, ROUND - 1)) : []),
+  ];
   const appendix: AppendixRow[] = [
     ...ranked.map(r => ({ round: ROUND, ...r })),
-    ...r4Pass.filter(g => !inR5.has(g.key)).map(g => ({
-      round: ROUND - 1, key: g.key, games: g.games, score: g.score,
-      residInterest: g.interestResiduals?.interest ?? 0, interest: g.interest,
-      interestMinFairy: g.interestMinFairy, decisive: g.decisiveness, drawRate: g.drawRate,
-      timeouts: g.timeouts, minUse: g.minUse, meanFairyUse: g.meanFairyUse, excessDecisiveness: g.excessDecisiveness,
-      gatesFailed: g.gatesFailed, eventsPerGame: {}, mechanics: NaN, rank: 0,
-    })),
+    ...r4Others.map(g => toRow(g, ROUND - 1)),
+    ...failed,
   ].slice(0, 50);
 
   const out: SweepOut = {
     id: report.id, round: ROUND, arrangementsPlayed: report.byConfig.length,
     passedGates: ranked.length, dropped,
     quartileSize: q,
-    ranked: ranked.map(r => ({ ...r, features: features.get(r.key) })),
-    top20: ranked.slice(0, 20), bottom20: ranked.slice(-20),
-    eventMeans: EVENTS.map(([name]) => ({
-      event: name,
-      top20: avg(ranked.slice(0, 20).map(r => r.eventsPerGame[name])),
-      bottom20: avg(ranked.slice(-20).map(r => r.eventsPerGame[name])),
-      topQ: avg(topQ.map(r => r.eventsPerGame[name])), bottomQ: avg(bottomQ.map(r => r.eventsPerGame[name])),
-    })),
-    top5: ranked.slice(0, 5), bottom5: ranked.slice(-5),
+    ranked: ordered.map(r => ({ ...r, features: features.get(r.key) })),
+    top20: ordered.slice(0, 20), bottom20: ordered.slice(-20),
+    eventMeans: EVENTS.map(([name]) => {
+      const letter = EVENT_PIECE[name];
+      const share = (rs: Derived[]): number => (letter ? rs.filter(r => r.key.includes(letter)).length / (rs.length || 1) : NaN);
+      return {
+        event: name, piece: letter ?? '',
+        top20: avg(ordered.slice(0, 20).map(r => r.eventsPerGame[name])),
+        bottom20: avg(ordered.slice(-20).map(r => r.eventsPerGame[name])),
+        topQ: avg(topQ.map(r => r.eventsPerGame[name])), bottomQ: avg(bottomQ.map(r => r.eventsPerGame[name])),
+        top20Piece: share(ordered.slice(0, 20)), bottom20Piece: share(ordered.slice(-20)),
+      };
+    }),
+    top5: ordered.slice(0, 5), bottom5: ordered.slice(-5),
     eventMeansTop5: EVENTS.map(([name]) => ({
       event: name,
-      top5: avg(ranked.slice(0, 5).map(r => r.eventsPerGame[name])),
-      bottom5: avg(ranked.slice(-5).map(r => r.eventsPerGame[name])),
+      top5: avg(ordered.slice(0, 5).map(r => r.eventsPerGame[name])),
+      bottom5: avg(ordered.slice(-5).map(r => r.eventsPerGame[name])),
     })),
-    mechanicsTop20: avg(ranked.slice(0, 20).map(r => r.mechanics)),
-    mechanicsBottom20: avg(ranked.slice(-20).map(r => r.mechanics)),
+    mechanicsTop20: avg(ordered.slice(0, 20).map(r => r.mechanics)),
+    mechanicsBottom20: avg(ordered.slice(-20).map(r => r.mechanics)),
     mechanicsTopQ: avg(topQ.map(r => r.mechanics)), mechanicsBottomQ: avg(bottomQ.map(r => r.mechanics)),
-    mechanicsTop5: avg(ranked.slice(0, 5).map(r => r.mechanics)),
-    mechanicsBottom5: avg(ranked.slice(-5).map(r => r.mechanics)),
+    mechanicsTop5: avg(ordered.slice(0, 5).map(r => r.mechanics)),
+    mechanicsBottom5: avg(ordered.slice(-5).map(r => r.mechanics)),
     rankShifts,
     featureSplits,
     appendix,
@@ -231,35 +254,37 @@ const table = (head: string[], rows: (string | number)[][]): string =>
 function criteriaRow(r: Derived, set: string): (string | number)[] {
   return [r.rank, set, r.key, r.games, f3(r.score), f3(r.residInterest), f3(r.interest),
     f3(r.interestMinFairy), pct1(r.decisive), pct1(r.drawRate), pct1(r.timeouts),
-    f3(r.excessDecisiveness), f2(r.meanFairyUse), f2(r.minUse), r.gatesFailed.join(',') || '-'];
+    f3(r.excessDecisiveness), f2(r.meanFairyUse), f2(r.minUse), r.passes ? 'yes' : 'no',
+    r.gatesFailed.join(',') || '-'];
 }
 
 function tables(out: SweepOut): string {
   const parts: string[] = [];
   parts.push(`Dropped by the gates before ranking: ${out.dropped.length ? out.dropped.map(d => `${d.key} (|score−0.5| ${f3(Math.abs(d.score - 0.5))}, capped ${pct1(d.timeouts)}, ${d.gates.join(',')})`).join('; ') : 'none'}.\n`);
-  const head = ['rank', 'set', 'back rank', 'games', 'white score', 'interest (resid.)', 'interest', 'interest(min)', 'decisive', 'draws', 'capped', 'xDec', 'fairyUse', 'minUse', 'gates'];
-  parts.push(`## Criteria — top 20\n${table(head, out.top20.map(r => criteriaRow(r, 'top')))}\n`);
-  parts.push(`## Criteria — bottom 20\n${table(head, out.bottom20.map(r => criteriaRow(r, 'bottom')))}\n`);
-  const evHead = ['back rank', 'set', 'archer shots', 'beast chain moves', 'maester swaps', 'paladin sacrifices', 'promotions', 'checks', 'mechanics'];
-  const evRows = (rs: Derived[], set: string) => rs.map(r =>
-    [r.key, set, f2(r.eventsPerGame['archer shots']), f2(r.eventsPerGame['beast chain moves']),
+  const head = ['rank', 'set', 'back rank', 'games', 'white score', 'interest (resid.)', 'interest', 'interest(min)', 'decisive', 'draws', 'capped', 'xDec', 'fairyUse', 'minUse', 'passes', 'gates'];
+  const n = out.arrangementsPlayed, lo = Math.max(1, n - 19);
+  const setOf = (rank: number): string => (rank <= 20 && rank >= lo ? 'top+bottom' : rank <= 20 ? 'top 20' : rank >= lo ? 'bottom 20' : '-');
+  parts.push(`## Round ${out.round} criteria — all ${n} arrangements in ranking order (top 20 = ranks 1–20, bottom 20 = ranks ${lo}–${n})\n${table(head, out.ranked.map(r => criteriaRow(r, setOf(r.rank))))}\n`);
+  parts.push(`## Pre-registered ranked list — the ${out.passedGates} that pass the gates\n${table(head, out.ranked.filter(r => r.passes).map(r => criteriaRow(r, 'ranked')))}\n`);
+  const evHead = ['rank', 'set', 'back rank', 'archer shots', 'beast chain moves', 'maester swaps', 'paladin sacrifices', 'promotions', 'checks', 'mechanics'];
+  parts.push(`## Events per game — all ${n} arrangements in ranking order\n${table(evHead, out.ranked.map(r =>
+    [r.rank, setOf(r.rank), r.key, f2(r.eventsPerGame['archer shots']), f2(r.eventsPerGame['beast chain moves']),
       f2(r.eventsPerGame['maester swaps']), f2(r.eventsPerGame['paladin sacrifices']),
-      f2(r.eventsPerGame['promotions']), f2(r.eventsPerGame['checks']), f2(r.mechanics)]);
-  parts.push(`## Events — top 20\n${table(evHead, evRows(out.top20, 'top'))}\n`);
-  parts.push(`## Events — bottom 20\n${table(evHead, evRows(out.bottom20, 'bottom'))}\n`);
-  parts.push(`## Events — means\n${table(['event', 'top 20', 'bottom 20', 'top 5', 'bottom 5', 'top quartile', 'bottom quartile'],
-    out.eventMeans.map((e, i) => [e.event, f2(e.top20), f2(e.bottom20), f2(out.eventMeansTop5[i].top5),
-      f2(out.eventMeansTop5[i].bottom5), f2(e.topQ), f2(e.bottomQ)]))}\n`);
+      f2(r.eventsPerGame['promotions']), f2(r.eventsPerGame['checks']), f2(r.mechanics)]))}\n`);
+  parts.push(`## Events — means and the piece that produces them\n${table(['event', 'piece', 'top 20', 'bottom 20', 'top 5', 'bottom 5', 'top quartile', 'bottom quartile', 'piece in top 20', 'piece in bottom 20'],
+    out.eventMeans.map((e, i) => [e.event, e.piece || '-', f2(e.top20), f2(e.bottom20), f2(out.eventMeansTop5[i].top5),
+      f2(out.eventMeansTop5[i].bottom5), f2(e.topQ), f2(e.bottomQ),
+      Number.isFinite(e.top20Piece) ? pct1(e.top20Piece) : '-', Number.isFinite(e.bottom20Piece) ? pct1(e.bottom20Piece) : '-']))}\n`);
   parts.push(`Mechanics engaged per game (of the six, top/bottom): top 20 ${f2(out.mechanicsTop20)}, bottom 20 ${f2(out.mechanicsBottom20)}, top 5 ${f2(out.mechanicsTop5)}, bottom 5 ${f2(out.mechanicsBottom5)}, top quartile ${f2(out.mechanicsTopQ)}, bottom quartile ${f2(out.mechanicsBottomQ)}.\n`);
   parts.push(`## Rank agreement, residualised vs raw interest\n${table(['back rank', 'rank (resid.)', 'rank (raw)', 'shift'],
     out.rankShifts.map(s => [s.key, s.residRank, s.rawRank, s.shift > 0 ? `+${s.shift}` : s.shift]))}\n`);
-  parts.push(`## Feature splits\n${table(['feature', 'level', 'n', 'mean interest (resid.)', 'mean interest', 'decisive', 'in top quartile', 'in bottom quartile'],
+  parts.push(`## Feature splits\n${table(['feature', 'level', 'n', 'mean interest (resid.)', 'mean interest', 'decisive', 'top 20', 'bottom 20', 'top quartile', 'bottom quartile', 'top 5', 'bottom 5'],
     out.featureSplits.map(s => [s.feature, s.level === null ? 'no guard' : String(s.level), s.arrangements,
       s.meanInterest === null ? '-' : f3(s.meanInterest), s.meanRawInterest === null ? '-' : f3(s.meanRawInterest),
-      s.decisiveShare === null ? '-' : pct1(s.decisiveShare), s.inTopQ, s.inBottomQ]))}\n`);
-  parts.push(`## Appendix — ranked top ${out.appendix.length}\n${table(['rank', 'round', 'back rank', 'interest (resid.)', 'interest', 'decisive', 'draws', 'minUse'],
+      s.decisiveShare === null ? '-' : pct1(s.decisiveShare), s.inTop20, s.inBottom20, s.inTopQ, s.inBottomQ, s.inTop5, s.inBottom5]))}\n`);
+  parts.push(`## Appendix — ranked top ${out.appendix.length}\n${table(['rank', 'round', 'back rank', 'interest (resid.)', 'interest', 'decisive', 'draws', 'minUse', 'gates'],
     out.appendix.map((r, i) => [i + 1, r.round === ROUND ? `${ROUND} (finalist)` : `${r.round} (non-finalist)`, r.key,
-      f3(r.residInterest), f3(r.interest), pct1(r.decisive), pct1(r.drawRate), f2(r.minUse)]))}\n`);
+      f3(r.residInterest), f3(r.interest), pct1(r.decisive), pct1(r.drawRate), f2(r.minUse), r.gatesFailed.join(',') || '-']))}\n`);
   return parts.join('\n');
 }
 
