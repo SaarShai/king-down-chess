@@ -155,6 +155,17 @@ export interface Rules {
    */
   capitalSanctuary: boolean;
   /**
+   * Lab-only, off by default (C5, `docs/MATRIX.md` §B.2): a piece standing on a capital square
+   * (d4 e4 d5 e5) cannot capture. Every generated move whose **`from` square** is in the capital
+   * and whose `captures` array is non-empty is dropped, for both colours and every piece; the same
+   * piece's quiet moves are untouched, and a capture **into** the capital is the separate mirror
+   * reading (`capitalSanctuary`, C2). The two compose: with both on, a capital square both protects
+   * its occupant and disarms it. Check and mate detection stay standard: `isAttacked` is
+   * deliberately unchanged, so a capital piece still counts as attacking (and therefore still gives
+   * check) even though no capture of its victim can be generated.
+   */
+  capitalNoCapture: boolean;
+  /**
    * Lab-only, off by default (C3, `docs/MATRIX.md` §B.2): a guard whose **own square** is in the
    * capital (d4 e4 d5 e5) may step 2 squares in any of the 8 directions — the same second square of
    * each ray as `guardStep: 2`, through an empty middle square, move-only, so `isAttacked` never
@@ -302,6 +313,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   guardNoSecondRank: false,
   guardNoCapital: false,
   capitalSanctuary: false,
+  capitalNoCapture: false,
   guardCapitalStep: false,
   pawnCapitalCapture: false,
   guardCaptureLimit: 0 as 0 | 1,

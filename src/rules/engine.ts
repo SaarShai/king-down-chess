@@ -538,21 +538,37 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
  * that would swallow a capital piece loses that extension while the shorter chain that stops before
  * it stays.
  *
- * `mode: 'attacks'` is deliberately left unfiltered: that is the generator `isAttacked` is
- * cross-checked against, and check/mate detection stays standard chess. A king standing in the
- * capital is therefore still in check and can still be mated, it can just never be *captured* (no
- * generator offers the move). The lab measures whether that inconsistency matters.
+ * **C5** (`capitalNoCapture`, §B.2): the mirror — when on, a move whose **mover** stands on a
+ * capital square (`CAPITAL.includes(from)`) and that removes anything (`captures.length > 0`) is
+ * dropped. The quiet moves of the same piece are untouched, and the two rules compose: the C2 loop
+ * looks at victims, the C5 loop at the mover, and each drops only the moves it names. The C5 filter
+ * needs no per-piece knowledge, so it catches displacement captures, archer shots, catapult lobs,
+ * Death Touch shots, paladin charges and beast chains alike.
+ *
+ * `mode: 'attacks'` is deliberately left unfiltered under both rules: that is the generator
+ * `isAttacked` is cross-checked against, and check/mate detection stays standard chess. Under C2 a
+ * king standing in the capital can be checked and mated but never captured (no generator offers
+ * the move). Under C5 a capital piece cannot capture, so it cannot *deliver* a capture — but
+ * `isAttacked` is unchanged, so the same piece still counts as attacking every square it would
+ * take on, and a king can therefore be checked and even mated by a piece that can never take it.
+ * Detection over-reports the threat instead of missing it: deliberately conservative, and the lab
+ * measures whether the inconsistency matters.
  */
 export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Move[]): void {
   const n0 = out.length;
   genPieceRaw(board, from, mode, out);
-  if (RULES.capitalSanctuary && mode !== 'attacks') {
+  if (mode === 'attacks') return; // check/mate detection stays standard: see the C2/C5 notes above
+  if (RULES.capitalSanctuary) {
     for (let i = out.length - 1; i >= n0; i--) {
       const captures = out[i].captures;
       for (let j = 0; j < captures.length; j++) {
         if (CAPITAL.includes(captures[j])) { out.splice(i, 1); break; }
       }
     }
+  }
+  // C5: a piece standing in the capital generates no captures; its quiet moves stay.
+  if (RULES.capitalNoCapture && CAPITAL.includes(from)) {
+    for (let i = out.length - 1; i >= n0; i--) if (out[i].captures.length > 0) out.splice(i, 1);
   }
 }
 

@@ -599,6 +599,41 @@ describe('rule toggles', () => {
     crossCheckAttacks(134);
   });
 
+  it('capitalNoCapture=true (lab): a piece in the capital generates no captures but keeps its quiet moves', () => {
+    // White rook d4 (a capital square) with a black pawn directly ahead on d5: off, that is one
+    // capture among the ordinary rook moves; on, only the quiet moves survive.
+    const pos = fromFen('7k/8/8/3p4/3R4/8/8/K7 w - - 0 1');
+    expect(lan(pos, movesFrom(pos, 'd4'))).toContain('Rd4xd5');
+    setRules({ capitalNoCapture: true });
+    const quiet = lan(pos, movesFrom(pos, 'd4'));
+    expect(quiet).not.toContain('Rd4xd5');
+    expect(quiet).toContain('Rd4-d3'); // quiet moves are untouched, down the file…
+    expect(quiet).toContain('Rd4-h4'); // …and along the rank
+    expect(quiet).toHaveLength(10);    // d1-d3 and a4-h4 less d5 (the pawn blocks the d-file up)
+    // A piece outside the capital is unaffected: the same rook shape on a4 still takes a5.
+    const out = fromFen('7k/8/8/p7/R7/8/8/K7 w - - 0 1');
+    expect(lan(out, movesFrom(out, 'a4'))).toContain('Ra4xa5');
+    // 'attacks' mode is not filtered, so the isAttacked mirror keeps working for check and mate.
+    crossCheckAttacks(136);
+    // Composite with C2: Rd4xd6 is C5 (mover in the capital, victim outside it), Rh4xe4 is C2
+    // (victim in it, mover outside). Each rule drops its own move and leaves the other, so both on
+    // removes exactly the pair.
+    setRules();
+    const both = fromFen('7k/8/3p4/8/3Rp2R/8/8/K7 w - - 0 1');
+    expect(lan(both, movesFrom(both, 'd4'))).toContain('Rd4xd6');
+    expect(lan(both, movesFrom(both, 'h4'))).toContain('Rh4xe4');
+    setRules({ capitalSanctuary: true });
+    expect(lan(both, movesFrom(both, 'd4'))).toContain('Rd4xd6'); // victim d6 is outside the capital
+    expect(lan(both, movesFrom(both, 'h4'))).not.toContain('Rh4xe4');
+    setRules({ capitalNoCapture: true });
+    expect(lan(both, movesFrom(both, 'd4'))).not.toContain('Rd4xd6');
+    expect(lan(both, movesFrom(both, 'h4'))).toContain('Rh4xe4'); // the mover h4 is outside it
+    setRules({ capitalSanctuary: true, capitalNoCapture: true });
+    expect(lan(both, movesFrom(both, 'd4'))).not.toContain('Rd4xd6');
+    expect(lan(both, movesFrom(both, 'h4'))).not.toContain('Rh4xe4');
+    crossCheckAttacks(137);
+  });
+
   it('the pool holds one guard per army', () => {
     expect(POOL).toBe('QLRRBBNNAAGMMSS');
     expect(POOL.split('G')).toHaveLength(2);
