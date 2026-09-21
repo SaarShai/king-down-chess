@@ -850,6 +850,22 @@ describe('rule toggles', () => {
     crossCheckAttacks(112);
   });
 
+  it('beastCapture=diagonal (lab): the four diagonals only, colour-independent, chains from the new square', () => {
+    // A beast on d4 with a black pawn on all 8 neighbours, plus b2 behind c3 for a chain step.
+    const pos = fromFen('7k/8/8/2ppp3/2pSp3/2ppp3/1p6/7K w - - 0 1');
+    const firsts = (ms: Move[]) => lan(pos, ms.filter(m => m.captures.length === 1));
+    // Control: the shipped reading takes every neighbour but straight ahead (d5), so 7 first steps.
+    expect(firsts(movesFrom(pos, 'd4'))).toEqual(['Sd4xc3', 'Sd4xc4', 'Sd4xc5', 'Sd4xd3', 'Sd4xe3', 'Sd4xe4', 'Sd4xe5']);
+    expect(parseRule('beastCapture=diagonal')).toEqual({ beastCapture: 'diagonal' });
+    setRules({ beastCapture: 'diagonal' });
+    // Only the four diagonal neighbours, and the chain continues from c3 onto b2. The b2 pawn is
+    // not adjacent to d4, so that move exists only as a chain step.
+    expect(lan(pos, movesFrom(pos, 'd4'))).toEqual(['Sd4xc3', 'Sd4xc3xb2', 'Sd4xc5', 'Sd4xe3', 'Sd4xe5']);
+    expect(inCheck(fromFen('8/8/8/3k4/2S5/8/8/7K b - - 0 1'))).toBe(true);  // diagonal = check
+    expect(inCheck(fromFen('8/8/8/8/3Sk3/8/8/7K b - - 0 1'))).toBe(false); // orthogonal is not
+    crossCheckAttacks(113);
+  });
+
   it('isAttacked still agrees with genPiece("attacks") under the whole 2021 concept set', () => {
     setRules(CONCEPT_2021);
     crossCheckAttacks(31);

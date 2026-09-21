@@ -33,8 +33,12 @@ export type GuardCaptures = 'none' | 'pawns' | 'any';
 export type GuardDoubleFirst = 'off' | 'slide' | 'leap';
 /** Squares a beast may step to (empty only; its captures are a separate rule). */
 export type BeastMove = 'forward' | 'any' | 'diagFwdBack';
-/** Which squares a beast captures on. `diagForward` is the 2021 concept: the two forward diagonals only. */
-export type BeastCapture = 'adjacent' | 'diagForward';
+/**
+ * Which squares a beast captures on. `diagForward` is the 2021 concept: the two forward diagonals
+ * only. `diagonal` (lab, 2026-09-17) is the colour-independent one-sentence reading: the beast takes
+ * on the four diagonal neighbours, all four, and keeps taking from each new square.
+ */
+export type BeastCapture = 'adjacent' | 'diagForward' | 'diagonal';
 /** When a paladin dies of its own capture: after any (shipped), after anything but a pawn, or never. */
 export type PaladinKamikaze = 'always' | 'nonPawn' | 'never';
 /** Where the Ogre stands after a shove: `repel` = it holds its square, `push` = it follows, Sokoban-style. */
@@ -203,9 +207,13 @@ export interface Rules {
   archerShots: ArcherShots;
   /** A beast steps straight ahead, in any of the 8 directions, or on the 4 diagonals (empty squares). */
   beastMove: BeastMove;
-  /** Which squares a beast captures on: the 8 neighbours, or only the two forward diagonals. */
+  /** Which squares a beast captures on: the 8 neighbours, the two forward diagonals, or the four diagonals. */
   beastCapture: BeastCapture;
-  /** A beast also captures straight ahead, removing its blind spot. Read only with `beastCapture: 'adjacent'`. */
+  /**
+   * A beast also captures straight ahead, removing its blind spot. It means something only for
+   * `beastCapture: 'adjacent'`, the one reading with a blind spot; it is inert for `'diagForward'`
+   * and `'diagonal'`.
+   */
   beastCaptureForward: boolean;
   /** Maester and own king, both on their first rank, swap at any distance. */
   maesterLongSwap: boolean;
@@ -396,7 +404,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   archerMove: ['ortho', 'any', 'fwdBack'],
   archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2'],
   beastMove: ['forward', 'any', 'diagFwdBack'],
-  beastCapture: ['adjacent', 'diagForward'],
+  beastCapture: ['adjacent', 'diagForward', 'diagonal'],
   maesterStep: [1, 2],
   paladinKamikaze: ['always', 'nonPawn', 'never'],
   ogreMode: ['repel', 'push'],

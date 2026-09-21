@@ -429,9 +429,10 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
         const f = step(from, df, ddr);
         if (f >= 0 && !board[f]) out.push({ from, to: f, captures: [] });
       }
-      // `diagForward` (the 2021 concept) replaces the 8-neighbour maul with the two forward
-      // diagonals. Chaining is untouched: a chain just continues on the same two squares.
-      const capDirs = RULES.beastCapture === 'diagForward' ? DIAG_FWD[c] : DIRS8;
+      // `diagForward` (the 2021 concept) and `diagonal` (lab, 2026-09-17) replace the 8-neighbour
+      // maul with the two forward diagonals, or all four. Chaining is untouched: a chain just
+      // continues on the same directions from each new square.
+      const capDirs = RULES.beastCapture === 'diagForward' ? DIAG_FWD[c] : RULES.beastCapture === 'diagonal' ? DIAG : DIRS8;
       let scratch: Uint8Array | null = null;
       const chain = (at: number, caps: number[]): void => {
         for (const [df, ddr] of capDirs) {
@@ -633,10 +634,11 @@ export function moverAt(ply: number, rules: Partial<Rules> = RULES): Color {
 /** A beast of colour `by` standing `(df, dr)` from the target: does it capture the target? */
 function beastTakesFrom(df: number, dr: number, by: Color): boolean {
   // The beast captures at (-df, -dr) from itself. `diagForward` = the two forward diagonals only;
-  // otherwise every neighbour but straight ahead (the blind spot `beastCaptureForward` removes).
-  return RULES.beastCapture === 'diagForward'
-    ? df !== 0 && dr === -fwd(by)
-    : RULES.beastCaptureForward || !(df === 0 && dr === -fwd(by));
+  // `diagonal` = all four diagonals, colour-independent; otherwise every neighbour but straight
+  // ahead (the blind spot `beastCaptureForward` removes).
+  if (RULES.beastCapture === 'diagForward') return df !== 0 && dr === -fwd(by);
+  if (RULES.beastCapture === 'diagonal') return df !== 0 && dr !== 0;
+  return RULES.beastCaptureForward || !(df === 0 && dr === -fwd(by));
 }
 
 export function isAttacked(board: Uint8Array, target: number, by: Color): boolean {
