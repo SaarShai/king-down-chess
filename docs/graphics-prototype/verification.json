@@ -1,0 +1,137 @@
+{
+  "browser": "153.0.8010.12",
+  "checks": [
+    {
+      "name": "baseline visible",
+      "ok": true
+    },
+    {
+      "name": "sculpt visible",
+      "ok": true
+    },
+    {
+      "name": "rebuilt visible",
+      "ok": true
+    },
+    {
+      "name": "sprites visible",
+      "ok": true
+    },
+    {
+      "name": "quiet visible",
+      "ok": true
+    },
+    {
+      "name": "QuietHours pan",
+      "ok": true
+    },
+    {
+      "name": "QuietHours rotation disabled",
+      "ok": true
+    },
+    {
+      "name": "Directional sprite changes view",
+      "ok": true,
+      "detail": {
+        "first": [
+          -1,
+          -1,
+          -1,
+          -1
+        ],
+        "second": [
+          5,
+          5,
+          13,
+          13
+        ]
+      }
+    },
+    {
+      "name": "Four 16-view atlases",
+      "ok": true,
+      "detail": {
+        "count": 4
+      }
+    },
+    {
+      "name": "Desktop pair uses available space",
+      "ok": true
+    },
+    {
+      "name": "Move changes world placement",
+      "ok": true
+    },
+    {
+      "name": "Move returns to exact study placement",
+      "ok": true
+    },
+    {
+      "name": "Ability completes",
+      "ok": true
+    },
+    {
+      "name": "Six types both armies",
+      "ok": true
+    },
+    {
+      "name": "32 piece stress board",
+      "ok": true
+    },
+    {
+      "name": "Mobile board fits canvas",
+      "ok": true
+    },
+    {
+      "name": "Pixel control updates renderer",
+      "ok": true
+    },
+    {
+      "name": "Grayscale inspection",
+      "ok": true
+    },
+    {
+      "name": "Reference guard_color_ref.jpg",
+      "ok": true,
+      "detail": 200
+    },
+    {
+      "name": "Reference Archer_color_ref.jpg",
+      "ok": true,
+      "detail": 200
+    },
+    {
+      "name": "Normal game still loads",
+      "ok": true
+    },
+    {
+      "name": "No console/page errors",
+      "ok": true,
+      "detail": []
+    }
+  ],
+  "errors": [],
+  "observations": [
+    {
+      "variant": "baseline",
+      "stats": "4 pieces · 26,784 figure triangles\nCandidate study · no hardware FPS claim"
+    },
+    {
+      "variant": "sculpt",
+      "stats": "4 pieces · 25,998 figure triangles\nCandidate study · no hardware FPS claim"
+    },
+    {
+      "variant": "rebuilt",
+      "stats": "4 pieces · 3,716 figure triangles\nCandidate study · no hardware FPS claim"
+    },
+    {
+      "variant": "sprites",
+      "stats": "4 pieces · 8 figure triangles · 6.3 MiB atlas texels\nCandidate study · no hardware FPS claim"
+    },
+    {
+      "variant": "quiet",
+      "stats": "4 pieces · 3,716 figure triangles\nCandidate study · no hardware FPS claim"
+    }
+  ],
+  "limits": "Visual/structural QA in Chromium software rendering. No physical-device performance benchmark."
+}

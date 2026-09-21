@@ -1,0 +1,45 @@
+{
+  "method": "Authored mesh/primitive rebuilds; six decimated OBJ controls with provisional region paint",
+  "models": [
+    {
+      "name": "rebuilt-guard",
+      "triangles": 888,
+      "bytes": 75808
+    },
+    {
+      "name": "rebuilt-archer",
+      "triangles": 970,
+      "bytes": 84832
+    },
+    {
+      "name": "original-guard",
+      "triangles": 6500,
+      "bytes": 116888
+    },
+    {
+      "name": "original-archer",
+      "triangles": 6499,
+      "bytes": 121376
+    },
+    {
+      "name": "original-pawn",
+      "triangles": 6500,
+      "bytes": 114256
+    },
+    {
+      "name": "original-knight",
+      "triangles": 6500,
+      "bytes": 119280
+    },
+    {
+      "name": "original-bishop",
+      "triangles": 6500,
+      "bytes": 119708
+    },
+    {
+      "name": "original-king",
+      "triangles": 6500,
+      "bytes": 119944
+    }
+  ]
+}
