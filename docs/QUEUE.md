@@ -106,7 +106,10 @@ directions reverse). **Capital C2 (sanctuary) is CONFIRMED** at 1,600/arm depth 
 0.026**, branching +1.6 ± 0.4, capped 1.7% → 3.1% (`sim-capital-c2-d4`); the four-rule package is
 outcome-null at depth 4 (`sim-capital-package`). **No-adjudication baseline**: played out, today's
 rules give **87.2% decisive vs 79.1%** adjudicated, 12.8% draws, mean 148.9 plies — the lab's
-decisive share is its own adjudication (`sim-no-adjudication-2026-09-17.md`).
+decisive share is its own adjudication (`sim-no-adjudication-2026-09-17.md`). **C2 without
+adjudication**: draws −1.3 ± 2.0 (not resolved) while the capped cost doubles (2.75% → 4.75%) →
+stays off; **C5 built and null** (`capitalNoCapture`). All five capital rules are now built and
+measured.
 
 Parallel routes the same evening: guard levers re-measured (`docs/research/sim-guard-2026-09-17.md`:
 cap-pawns and step-2 null, `guardImmune=false` rejected — interest −0.015 ± 0.009, guard survival
