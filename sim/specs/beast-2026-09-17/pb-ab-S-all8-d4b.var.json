@@ -1,0 +1,18 @@
+{
+  "id": "pb-ab-S-all8-d4b.var",
+  "games": 1600,
+  "ai": {
+    "depth": 4
+  },
+  "seed": 72,
+  "maxPlies": 300,
+  "openingRandomPlies": 4,
+  "rules": {
+    "beastCaptureForward": true
+  },
+  "backRanks": {
+    "sample": 40
+  },
+  "commonSeeds": true,
+  "values": {}
+}

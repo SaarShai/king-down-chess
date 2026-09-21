@@ -1,0 +1,20 @@
+{
+  "id": "pb-S-all8-value.S",
+  "games": 500,
+  "ai": {
+    "depth": 3
+  },
+  "seed": 77,
+  "maxPlies": 300,
+  "openingRandomPlies": 4,
+  "rules": {
+    "beastCaptureForward": true
+  },
+  "asymmetric": [
+    {
+      "white": "RSBQKBNR",
+      "black": "RNBQKBNR"
+    }
+  ],
+  "pairs": true
+}
