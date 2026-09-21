@@ -1,0 +1,14 @@
+{
+  "id": "queen-without",
+  "games": 2000,
+  "backRanks": {
+    "sample": 40,
+    "pool": "LRRBBNNAAGMMSS"
+  },
+  "ai": {
+    "depth": 3
+  },
+  "seed": 88,
+  "commonSeeds": true,
+  "note": "No-queen arm: shipped pool minus Q (14 letters), 40 sampled back ranks, 2000 games, depth 3, seed 88. Paired by gameId with queen-with."
+}
