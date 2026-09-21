@@ -11,6 +11,7 @@ import { fromFen } from '../../rules/setup';
 import { PieceContourPass, type ContourMode } from './PieceContourPass';
 import { WalkPreview, type ClayCadence } from './WalkPreview';
 import { CLAY_LOOK_COPY, CLAY_LOOK_LABELS, CLAY_LOOKS, type ClayLook, applyLookLighting, ensureSurfaceUv, materialForLook } from './ClayLook';
+import { CAST, character, defaultCharacter } from './CastCatalog';
 import './study.css';
 
 const variants=['baseline','sculpt','rebuilt','sprites','quiet'] as const;
@@ -19,7 +20,7 @@ const names=['Existing Dungeon','Original sculpts','Refined figures','16-angle s
 const copy=[
  'The shipped voxel conversion and Dungeon lighting. Use this as the reference for lost detail.',
  'Six original sculptures, simplified to about 6,500 triangles each. Colour regions are provisional.',
- 'Guard and Archer refined from their original sculpt surfaces. Defined armour edges, a clear hood opening, braid, cloth folds and wrist crossbows. Each accent belongs to one identifying feature.',
+ 'Sixteen source-derived characters, including the Queen and all six Kings. Original silhouettes, one army colour and one identifying accent feature. Compare their articulated movement and two tactile clay looks.',
  'The rebuilt pair baked into sixteen viewing angles. World movement stays smooth; the picture changes in steps.',
  'Actual QuietHours Canvas projection, drawing, shading and ink quantizer. Fixed isometric angle; drag pans.'
 ];
@@ -35,7 +36,7 @@ let epoch=0;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const source=import.meta.env.BASE_URL+'prototype/';
 document.title='King Down · Graphics study';
-document.body.innerHTML=`<main class="study"><header><div class="wordmark">KING DOWN<span>GRAPHICS STUDY · 03</span></div><div class="header-note">Two familiar characters. Five ways to see them.</div><a href="?">Open game ↗</a></header><section class="stage"><div id="stage-board"></div><canvas id="quiet-canvas" hidden></canvas><div class="scene-label"><span id="mode-label"></span><span id="view-hint">Drag to orbit · scroll to zoom</span></div><div class="armies"><span><i class="ivory"></i>Alabaster</span><span><i class="ink"></i>Ink blue</span></div></section><aside><div class="eyebrow">THE QUESTION</div><h1 id="variant-title"></h1><p id="description"></p><div class="controls"><label>Look <select id="look"><option value="current">Current refined</option><option value="plasticine">Polished plasticine</option><option value="handmade">Handmade clay</option></select></label><p class="control-note look-copy" id="look-copy"></p><label>Figure detail <select id="figure-detail"><option value="refined">Refined from source</option><option value="blockout">Earlier blockout</option></select></label><label>Clay motion <select id="cadence"><option value="smooth">Smooth · spring clay</option><option value="stopmotion">Stop-motion · 12 fps</option></select></label><p class="control-note" id="motion-note"></p><label>Pixel size <select id="pixels"><option value="0.5">0.5 px · double detail</option><option value="1">1 px · fine</option><option value="1.5">1.5 px · balanced</option><option value="2">2 px · chunky</option><option value="3">3 px · coarse</option><option value="4">4 px · stress test</option></select></label><label>Scene <select id="scene"><option value="pair">Guard + Archer</option><option value="overlap">Overlap close-up</option><option value="six">Six-piece lineup</option><option value="board">Full board · 32 pieces</option></select></label><label>Contours <select id="contours"><option value="off">Off</option><option value="silhouette">Even silhouette</option><option value="adaptive">Overlap aware</option></select></label><p class="control-note" id="contour-note"></p><label>Palette <select id="palette"><option value="colour">Army + type accents</option><option value="gray">Grayscale check</option></select></label><button id="walk" aria-pressed="false">Walk in place</button><button id="poke">Poke / squish clay</button><p class="control-note" id="walk-note"></p><div class="button-row"><button id="move">Move</button><button id="ability">Ability</button></div><div class="button-row"><button id="spin">Rotate</button><button id="reset">Reset view</button></div></div><div class="detail"><b>Guard</b><p>Keep the raised shoulder wings, recessed helmet and heavy fists. Steel blue on the shoulder plates; the rest stays in the army family.</p><b>Archer</b><p>Keep the pointed hood, split skirt and <em>two wrist crossbows</em>. Green on the hood; face, braid and crossbows stay in the army family.</p></div><details><summary>Compare the source artwork</summary><a href="${source}source-guides/guard_color_ref.jpg" target="_blank">Guard colour guide ↗</a><a href="${source}source-guides/Archer_color_ref.jpg" target="_blank">Archer colour guide ↗</a></details><p class="limits" id="limits"></p><output id="stats">Loading study assets…</output></aside><nav class="switcher" aria-label="Rendering candidates"><button id="prev" aria-label="Previous option">←</button><div class="tabs">${variants.map((v,i)=>`<button data-variant="${v}"><span>0${i+1}</span>${names[i]}</button>`).join('')}</div><button id="next" aria-label="Next option">→</button></nav></main>`;
+document.body.innerHTML=`<main class="study"><header><div class="wordmark">KING DOWN<span>GRAPHICS STUDY · 04</span></div><div class="header-note">Sixteen characters. Sculpted, painted, brought to life.</div><a href="?">Open game ↗</a></header><section class="stage"><div id="stage-board"></div><canvas id="quiet-canvas" hidden></canvas><div class="scene-label"><span id="mode-label"></span><span id="view-hint">Drag to orbit · scroll to zoom</span></div><div class="armies"><span><i class="ivory"></i>Alabaster</span><span><i class="ink"></i>Ink blue</span></div></section><aside><div class="eyebrow">THE QUESTION</div><h1 id="variant-title"></h1><p id="description"></p><div class="controls"><label>Look <select id="look"><option value="current">Current refined</option><option value="plasticine">Polished plasticine</option><option value="handmade">Handmade clay</option></select></label><p class="control-note look-copy" id="look-copy"></p><label>Figure detail <select id="figure-detail"><option value="refined">Refined from source</option><option value="blockout">Earlier blockout</option></select></label><label>Clay motion <select id="cadence"><option value="smooth">Smooth · spring clay</option><option value="stopmotion">Stop-motion · 12 fps</option></select></label><p class="control-note" id="motion-note"></p><label>Pixel size <select id="pixels"><option value="0.5">0.5 px · double detail</option><option value="1">1 px · fine</option><option value="1.5">1.5 px · balanced</option><option value="2">2 px · chunky</option><option value="3">3 px · coarse</option><option value="4">4 px · stress test</option></select></label><label>Scene <select id="scene"><option value="pair">Guard + Archer</option><option value="overlap">Overlap close-up</option><option value="six">Six-piece lineup</option><option value="board">Full board · 32 pieces</option><option value="cast">All 16 designs · both armies</option><option value="character">Character close-up</option></select></label><label id="character-control">Character <select id="character">${CAST.map(c=>`<option value="${c.key}">${c.label}</option>`).join('')}</select></label><label>Contours <select id="contours"><option value="off">Off</option><option value="silhouette">Even silhouette</option><option value="adaptive">Overlap aware</option></select></label><p class="control-note" id="contour-note"></p><label>Palette <select id="palette"><option value="colour">Army + type accents</option><option value="gray">Grayscale check</option></select></label><button id="walk" aria-pressed="false">Walk in place</button><button id="poke">Poke / squish clay</button><p class="control-note" id="walk-note"></p><div class="button-row"><button id="move">Move</button><button id="ability">Ability</button></div><div class="button-row"><button id="spin">Rotate</button><button id="reset">Reset view</button></div></div><div class="detail" id="character-detail"><b>Guard</b><p>Keep the raised shoulder wings, recessed helmet and heavy fists. Steel blue on the shoulder plates; the rest stays in the army family.</p><b>Archer</b><p>Keep the pointed hood, split skirt and <em>two wrist crossbows</em>. Green on the hood; face, braid and crossbows stay in the army family.</p></div><details><summary>Compare the source artwork</summary><a href="${source}source-guides/guard_color_ref.jpg" target="_blank">Guard colour guide ↗</a><a href="${source}source-guides/Archer_color_ref.jpg" target="_blank">Archer colour guide ↗</a></details><p class="limits" id="limits"></p><output id="stats">Loading study assets…</output></aside><nav class="switcher" aria-label="Rendering candidates"><button id="prev" aria-label="Previous option">←</button><div class="tabs">${variants.map((v,i)=>`<button data-variant="${v}"><span>0${i+1}</span>${names[i]}</button>`).join('')}</div><button id="next" aria-label="Next option">→</button></nav></main>`;
 const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 // Access to existing renderer internals is intentional and isolated to this throwaway study.
 const view:any=new BoardRenderer(el('stage-board'));
@@ -51,25 +52,35 @@ el<HTMLSelectElement>('look').value=look;el<HTMLSelectElement>('figure-detail').
 const quiet=el<HTMLCanvasElement>('quiet-canvas');
 const loader=new GLTFLoader();
 const models=new Map<string,THREE.Group>();
-const types:Record<number,string>={1:'pawn',2:'knight',3:'bishop',6:'king',7:'archer',9:'guard'};
+const types:Record<number,string>=Object.fromEntries(CAST.map(c=>[c.code,c.type]));
 const accents:Record<string,[number,number]>={guard:[0x5082ab,0xb8efd6],archer:[0x718b3c,0xdaab60],pawn:[0xe8d7af,0xe8d7af],knight:[0xb84939,0xe5af5d],bishop:[0x92567e,0xefd388],king:[0xc9a452,0x8ec8cb]};
+for(const c of CAST)accents[c.key]=[c.accent,c.accent];
 const palettes=[{army:0xdcc9a2,shade:0x958365,light:0xf2e2c0,ink:0x514638},{army:0x485875,shade:0x28374c,light:0x839abc,ink:0x192335}];
 const matCache=new Map<string,THREE.Material>();
 const toonSteps=new THREE.DataTexture(new Uint8Array([100,160,214,255]),4,1,THREE.RedFormat);toonSteps.needsUpdate=true;toonSteps.minFilter=toonSteps.magFilter=THREE.NearestFilter;
 function material(role:string,type:string,side:number,vertexColors=false):THREE.Material {
- const key=`${role}:${type}:${side}:${vertexColors}:${look}`;if(matCache.has(key))return matCache.get(key)!;
+ const materialLook=variant==='rebuilt'?look:'current';
+ const key=`${role}:${type}:${side}:${vertexColors}:${materialLook}`;if(matCache.has(key))return matCache.get(key)!;
  const pair=accents[type]??accents.guard;
  const color=role==='accent1'?pair[0]:role==='accent2'?pair[1]:(palettes[side] as any)[role]??palettes[side].army;
- const m=materialForLook({color,role,vertexColors,look,currentGradientMap:toonSteps});matCache.set(key,m);return m;
+ const m=materialForLook({color,role,vertexColors,look:materialLook,currentGradientMap:toonSteps});matCache.set(key,m);return m;
 }
 function visual(name:string,side:number,rebuilt:boolean):THREE.Group {
- const key=(rebuilt&&(name==='guard'||name==='archer')?(variant==='quiet'||figureDetail==='blockout'?'blockout-':'rebuilt-'):'original-')+name;
+ const pair=name==='guard'||name==='archer';
+ const refined=rebuilt&&variant==='rebuilt'&&figureDetail==='refined';
+ const key=refined?'rebuilt-'+defaultCharacter(name):pair&&rebuilt?(variant==='quiet'||figureDetail==='blockout'?'blockout-':'rebuilt-')+name:'original-'+name;
  const g=clone(models.get(key)!) as THREE.Group;
  g.traverse(o=>{if((o as THREE.Mesh).isMesh){const m=o as THREE.Mesh;ensureSurfaceUv(m.geometry);const mats=Array.isArray(m.material)?m.material:[m.material];const replaced=mats.map(x=>material(x.name,name,side,m.geometry.hasAttribute('color')));m.material=Array.isArray(m.material)?replaced:replaced[0];m.castShadow=false;m.receiveShadow=false;if((m as THREE.SkinnedMesh).isSkinnedMesh)m.frustumCulled=false;}});
  g.userData.modelKey=key;return g;
 }
 await loadModels('/');
-await Promise.all(['rebuilt-guard','rebuilt-archer','blockout-guard','blockout-archer',...Object.values(types).map(x=>'original-'+x)].map(async key=>{const gltf=await loader.loadAsync(source+'models/'+key+'.glb');gltf.scene.animations=gltf.animations;models.set(key,gltf.scene);}));
+const pendingModels=new Map<string,Promise<void>>();
+function ensureModel(key:string):Promise<void>{
+ if(models.has(key))return Promise.resolve();
+ if(!pendingModels.has(key))pendingModels.set(key,loader.loadAsync(source+'models/'+key+'.glb').then(gltf=>{gltf.scene.animations=gltf.animations;models.set(key,gltf.scene);}).finally(()=>pendingModels.delete(key)));
+ return pendingModels.get(key)!;
+}
+await Promise.all(['rebuilt-guard','rebuilt-archer','blockout-guard','blockout-archer',...['pawn','knight','bishop','king','archer','guard'].map(x=>'original-'+x)].map(ensureModel));
 // QuietHours engine subset is MIT; original license and exact provenance are bundled.
 for(const file of ['core','palette','camera','draw','light'])await new Promise<void>((resolve,reject)=>{const s=document.createElement('script');s.src=source+'quiet-hours/'+file+'.js';s.onload=()=>resolve();s.onerror=reject;document.head.append(s);});
 const QH:any=(window as any).QH;
@@ -78,15 +89,32 @@ for(const [side,pal] of palettes.entries())for(const [role,color] of Object.entr
 for(const [name,pair] of Object.entries(accents))for(let i=0;i<2;i++){const c=pair[i];QH.M[`type_${name}_${i}`]=[(c>>16)&255,(c>>8)&255,c&255];}
 await new Promise<void>((resolve,reject)=>{const s=document.createElement('script');s.src=source+'quiet-hours/inks.js';s.onload=()=>resolve();s.onerror=reject;document.head.append(s);});
 
-type Entry={sq:number,type:string,side:number,root:THREE.Group,visual:THREE.Group|THREE.Mesh,base:THREE.Vector3,walk?:WalkPreview};
+type Entry={sq:number,type:string,character:string,side:number,root:THREE.Group,visual:THREE.Group|THREE.Mesh,base:THREE.Vector3,walk?:WalkPreview};
 let entries:Entry[]=[];
-let sceneMode=['pair','overlap','six','board'].includes(params.get('scene')??'')?params.get('scene')!:'pair';
+let selectedCharacter=CAST.some(c=>c.key===params.get('character'))?params.get('character')!:'queen';
+el<HTMLSelectElement>('character').value=selectedCharacter;
+let sceneMode=['pair','overlap','six','board','cast','character'].includes(params.get('scene')??'')?params.get('scene')!:'pair';
 el<HTMLSelectElement>('scene').value=sceneMode;
 const pairFen='8/8/3ga3/8/8/3GA3/8/8 w - - 0 1';
 const overlapFen='8/8/8/3gG3/3aA3/8/8/8 w - - 0 1';
 const sixFen='8/8/pngabk2/8/8/PNGABK2/8/8 w - - 0 1';
 const boardFen='nagkkgan/pppppppp/8/8/8/8/PPPPPPPP/NAGKKGAN w - - 0 1'; // visual stress arrangement; not a playable game
 let pos=fromFen(pairFen);
+const designAt=new Map<number,string>();
+function preparePosition(){
+ designAt.clear();
+ pos=fromFen(sceneMode==='board'?boardFen:sceneMode==='six'?sixFen:sceneMode==='overlap'?overlapFen:pairFen);
+ if(sceneMode==='cast'||sceneMode==='character'){
+  pos.board.fill(0);
+  for(let side=0;side<2;side++){
+   const roster=sceneMode==='cast'?CAST:[character(selectedCharacter)];
+   roster.forEach((c,i)=>{
+    const square=sceneMode==='cast'?(side===0?Math.floor(i/8)*2:5+Math.floor(i/8)*2)*8+i%8:27+side*2;
+    pos.board[square]=c.code|(side<<4);designAt.set(square,c.key);
+   });
+  }
+ }
+}
 const atlasCache=new Map<string,{texture:THREE.CanvasTexture,w:number,h:number}>();
 let atlasBytes=0;
 async function atlas(name:string,side:number):Promise<{texture:THREE.CanvasTexture,w:number,h:number}> {
@@ -119,18 +147,31 @@ function clearStudyPieces(){
  entries=[];
 }
 function resetCamera(){
- const focus=sceneMode==='board'?new THREE.Vector3(0,.3,0):new THREE.Vector3(sceneMode==='six'?-1:.0,.35,0);
+ const focus=sceneMode==='character'?new THREE.Vector3(.5,.55,.5):sceneMode==='board'||sceneMode==='cast'?new THREE.Vector3(0,.3,0):new THREE.Vector3(sceneMode==='six'?-1:.0,.35,0);
  view.controls.target.copy(focus);
- view.camera.position.copy(focus).add(sceneMode==='overlap'?new THREE.Vector3(2.7,4.6,9.5):new THREE.Vector3(6.2,9.0,8.6));
+ view.camera.position.copy(focus).add(sceneMode==='character'?new THREE.Vector3(2.0,3.7,10):sceneMode==='overlap'?new THREE.Vector3(2.7,4.6,9.5):new THREE.Vector3(6.2,9.0,8.6));
  view.camera.zoom=1;view.camera.updateProjectionMatrix();view.controls.update();view.camera.updateMatrixWorld(true);view.scene.updateMatrixWorld(true);
  const boxes=[new THREE.Box3().setFromObject(view.frame3d),...entries.map(e=>new THREE.Box3().setFromObject(e.visual))];
  let extent=0;for(const b of boxes)for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z]){const p=new THREE.Vector3(x,y,z).project(view.camera);extent=Math.max(extent,Math.abs(p.x),Math.abs(p.y));}
- view.camera.zoom=Math.min(2.3,.85/Math.max(.1,extent));view.camera.updateProjectionMatrix();qPan={x:0,y:0};qZoom=1;
+ view.camera.zoom=Math.min(sceneMode==='character'?4:2.3,.85/Math.max(.1,extent));view.camera.updateProjectionMatrix();qPan={x:0,y:0};qZoom=1;
 }
 let qPan={x:0,y:0},qZoom=1;
 async function apply(){
- const id=++epoch;running=false;walking=false;motion=0;bolt.visible=ring.visible=false;clearStudyPieces();view.tweens.flush();
- const i=variants.indexOf(variant);el('variant-title').textContent=variant==='rebuilt'&&figureDetail==='blockout'?'Earlier blockouts':names[i];el('description').textContent=copy[i];el('mode-label').textContent=`0${i+1} / ${names[i]} · ${CLAY_LOOK_LABELS[look]}`;el('look-copy').textContent=CLAY_LOOK_COPY[look];
+ const id=++epoch;
+ const refined=variant==='rebuilt'&&figureDetail==='refined';
+ if(!refined&&(sceneMode==='cast'||sceneMode==='character'))sceneMode='pair';
+ el<HTMLSelectElement>('scene').value=sceneMode;
+ for(const value of ['cast','character'])el<HTMLSelectElement>('scene').querySelector<HTMLOptionElement>(`[value=${value}]`)!.disabled=!refined;
+ el('character-control').hidden=sceneMode!=='character';
+ preparePosition();
+ if(refined){
+  el('stats').textContent='Loading character sculpts…';
+  const keys=[...new Set([...pos.board].flatMap((code,sq)=>code?[designAt.get(sq)??defaultCharacter(types[code&15])]:[]))];
+  await Promise.all(keys.map(key=>ensureModel('rebuilt-'+key)));
+  if(id!==epoch)return;
+ }
+ running=false;walking=false;motion=0;bolt.visible=ring.visible=false;clearStudyPieces();view.tweens.flush();
+ const i=variants.indexOf(variant);el('variant-title').textContent=variant==='rebuilt'&&figureDetail==='blockout'?'Earlier blockouts':names[i];el('description').textContent=copy[i];el('mode-label').textContent=`0${i+1} / ${names[i]}${variant==='rebuilt'?' · '+CLAY_LOOK_LABELS[look]:''}`;el('look-copy').textContent=variant==='rebuilt'?CLAY_LOOK_COPY[look]:'Clay looks are available on Refined figures.';el<HTMLSelectElement>('look').disabled=variant!=='rebuilt';
  document.querySelectorAll('[data-variant]').forEach(x=>x.classList.toggle('active',(x as HTMLElement).dataset.variant===variant));
  syncUrl();
  const isQuiet=variant==='quiet';el<HTMLSelectElement>('figure-detail').disabled=variant!=='rebuilt'&&variant!=='sprites';el<HTMLSelectElement>('figure-detail').value=isQuiet?'blockout':figureDetail;
@@ -142,12 +183,11 @@ async function apply(){
  const canContour=variant!=='baseline'&&!isQuiet;contourPass.enabled=canContour;view.pixelPass.enabled=!canContour;contourPass.mode=contourMode;
  el<HTMLSelectElement>('contours').disabled=!canContour;
  el('contour-note').textContent=canContour?'One thin contour per figure. Overlap aware strengthens shared edges and adjusts ink to the surface brightness.':'Contour comparison is available on Original sculpts, Rebuilt and Sprites.';
- el('limits').textContent=isQuiet?'Canvas study: earlier blockout pair only. Palette extended for the two armies. Painter sorting can misorder intersecting faces; this is not a production fallback.':variant==='sprites'?'One idle pose per angle; movement and effects animate in world space. Elevation is locked to the bake. No interpolated pose animation.':variant==='sculpt'?'Simplified original geometry with provisional colour zones. This is not a finished repaint of the source sculpts.':variant==='baseline'?'Existing voxel models and Dungeon style, placed on the same comparison board. This scene tests appearance, not chess rules.':'Refined geometry comes from the original sculpts; army/type colours remain intentional study assignments. Guard and Archer have small skeletal walk rigs with planted-foot timing. This is an in-place motion study; other types and sprite poses remain static.';
- pos=fromFen(sceneMode==='board'?boardFen:sceneMode==='six'?sixFen:sceneMode==='overlap'?overlapFen:pairFen);
+ el('limits').textContent=isQuiet?'Canvas study: earlier blockout pair only. Palette extended for the two armies. Painter sorting can misorder intersecting faces; this is not a production fallback.':variant==='sprites'?'One idle pose per angle; movement and effects animate in world space. Elevation is locked to the bake. No interpolated pose animation.':variant==='sculpt'?'Simplified original geometry with provisional colour zones. This is not a finished repaint of the source sculpts.':variant==='baseline'?'Existing voxel models and Dungeon style, placed on the same comparison board. This scene tests appearance, not chess rules.':'Refined geometry comes from the original sculpts; army/type colours remain intentional study assignments. All sixteen designs have articulated movement; closed robes suggest concealed steps. This is an in-place motion study. Sprite poses remain static; clay springs are authored secondary motion, not a collision simulation.';
  const style=variant==='baseline'?STYLES.dungeonVoxel:{...STYLES.cel,outline:false,pixelSize:pixel,pieceScale:1,tiles:'flat' as const,shadow:true,lights:'bright' as const};
  view.applyStyle(style);view.rebuild(pos);
- for(const tile of view.tiles){const f=tile.userData.sq%8,r=Math.floor(tile.userData.sq/8);tile.visible=sceneMode==='board'||(r>=2&&r<=5&&(sceneMode==='six'?f<6:f>=2&&f<=5));}
- view.frame3d.scale.set(sceneMode==='board'?1:sceneMode==='six'?6.35/8.9:4.35/8.9,1,sceneMode==='board'?1:4.35/8.9);view.frame3d.position.x=sceneMode==='six'?-1:0;
+ for(const tile of view.tiles){const f=tile.userData.sq%8,r=Math.floor(tile.userData.sq/8);tile.visible=sceneMode==='board'||sceneMode==='cast'||(sceneMode==='character'?(r>=3&&r<=4&&f>=2&&f<=5):(r>=2&&r<=5&&(sceneMode==='six'?f<6:f>=2&&f<=5)));}
+ view.frame3d.scale.set(sceneMode==='board'||sceneMode==='cast'?1:sceneMode==='six'?6.35/8.9:4.35/8.9,1,sceneMode==='board'||sceneMode==='cast'?1:sceneMode==='character'?2.35/8.9:4.35/8.9);view.frame3d.position.x=sceneMode==='six'?-1:0;
  view.setLabels(false);view.setCoords(false);view.setPalette(false);applyPixelSize();
  view.setEdges(variant==='baseline'?.05:0,variant==='baseline'?.15:0);
  view.controls.minPolarAngle=variant==='sprites'?Math.atan2(5,6.5):.25;view.controls.maxPolarAngle=variant==='sprites'?Math.atan2(5,6.5):1.25;
@@ -157,19 +197,26 @@ async function apply(){
   for(const tile of view.tiles){const sq=tile.userData.sq;tile.material.map=null;tile.material.color.setHex(((sq%8+Math.floor(sq/8))%2)?0xb9b2a0:0x596470);tile.material.needsUpdate=true;}
   view.frame3d.material.map=null;view.frame3d.material.color.setHex(0x2d3948);view.frame3d.material.needsUpdate=true;
  }
- applyLookLighting({scene:view.scene,hemi:view.hemi,sun:view.sun,shadowMat:view.shadowMat},look);
+ if(variant==='rebuilt')applyLookLighting({scene:view.scene,hemi:view.hemi,sun:view.sun,shadowMat:view.shadowMat},look);
+ else view.shadowMat.opacity=1;
  for(const [sq,g] of view.pieces as Map<number,THREE.Group>){
-  const type=types[g.userData.code&15];const side=g.userData.code>>4;let model:any=g.children[0];
+  const type=types[g.userData.code&15];const design=designAt.get(sq)??defaultCharacter(type);const side=g.userData.code>>4;let model:any=g.children[0];
   if(variant!=='baseline'&&type){
    // Only replace the figure; keep the renderer's ground shadow and label.
    g.remove(model);
-   model=variant==='sprites'?await sprite(type,side):visual(type,side,variant!=='sculpt');
+   model=variant==='sprites'?await sprite(type,side):visual(refined?design:type,side,variant!=='sculpt');
    if(id!==epoch)return;
    g.add(model);g.userData.sprite=false;
   }
   const clip=model.animations?.find((a:THREE.AnimationClip)=>a.name==='Walk');
-  entries.push({sq,type,side,root:g,visual:model,base:g.position.clone(),walk:clip?new WalkPreview(model,clip,{pliable:look!=='current',cadence}):undefined});
+  if(sceneMode==='character')g.rotation.y=0;
+  // Floor-length cloth keeps its authored sweep; carried props and the Rook's
+  // supporting fist keep their authored contact instead of receiving angular lag.
+  const groundedBones:(string|RegExp)[]=[/^cloth/, 'tail',...(design==='rook'||design==='knight'?['arm.L']:design==='pawn'?['arm.R']:[])];
+  entries.push({sq,type,character:design,side,root:g,visual:model,base:g.position.clone(),walk:clip?new WalkPreview(model,clip,{pliable:variant==='rebuilt'&&look!=='current',cadence:variant==='rebuilt'&&look!=='current'?cadence:'smooth',groundedBones}):undefined});
  }
+ const selected=character(selectedCharacter);
+ el('character-detail').innerHTML=sceneMode==='character'?`<b>${selected.label}</b><p>${selected.feature}${selected.key==='pawn'?'.':': the identifying colour stays on this feature; the rest belongs to the army.'}</p><p>${['queen','king-shadow','king-spirit'].includes(selected.key)?'The original closed robe keeps its silhouette; motion suggests steps underneath.':'An articulated gait tailored to the original pose and equipment.'}</p>`:sceneMode==='cast'?'<b>The complete sculpt library</b><p>Pawn, Knight, Bishop, Rook, Queen, Guard, Archer, Paladin, Maester, Beast and six Kings. Choose Character close-up to inspect a design in both armies.</p>':'<b>Guard · shoulder plates</b><p>Steel blue on the raised shoulder plates.</p><b>Archer · hood</b><p>Green on the hood; face, braid and wrist crossbows stay in the army colour.</p>';
  syncWalkButton();contourPass.setPieces(entries.map(e=>e.visual));resetCamera();
  // Candidate styles use one beauty draw plus an optional piece-ID draw; baseline retains its original pass.
  view.debris.mesh.visible=false;
@@ -185,7 +232,7 @@ function applyPixelSize(){
  view.renderer.setPixelRatio(ratio);view.composer.setPixelRatio(ratio);
  view.setPixelSize(pixel*ratio);contourPass.setPixelSize(pixel*ratio);
 }
-function syncUrl(){const url=new URL(location.href);url.searchParams.set('variant',variant);url.searchParams.set('scene',sceneMode);url.searchParams.set('pixels',String(pixel));url.searchParams.set('contours',contourMode);url.searchParams.set('detail',figureDetail);url.searchParams.set('look',look);url.searchParams.set('cadence',cadence);history.replaceState({},'',url);}
+function syncUrl(){const url=new URL(location.href);url.searchParams.set('variant',variant);url.searchParams.set('scene',sceneMode);url.searchParams.set('pixels',String(pixel));url.searchParams.set('contours',contourMode);url.searchParams.set('detail',figureDetail);url.searchParams.set('character',selectedCharacter);url.searchParams.set('look',look);url.searchParams.set('cadence',cadence);history.replaceState({},'',url);}
 function choose(v:Variant){variant=v;return apply();}
 document.querySelectorAll<HTMLButtonElement>('[data-variant]').forEach(b=>b.onclick=()=>choose(b.dataset.variant as Variant));
 const cycle=(d:number)=>choose(variants[(variants.indexOf(variant)+d+variants.length)%variants.length]);
@@ -195,6 +242,7 @@ el<HTMLSelectElement>('figure-detail').onchange=e=>{figureDetail=(e.target as HT
 el<HTMLSelectElement>('look').onchange=e=>{look=(e.target as HTMLSelectElement).value as ClayLook;void apply();};
 el<HTMLSelectElement>('cadence').onchange=e=>{cadence=(e.target as HTMLSelectElement).value as ClayCadence;void apply();};
 el<HTMLSelectElement>('pixels').onchange=e=>{pixel=Number((e.target as HTMLSelectElement).value);applyPixelSize();resizeQuiet();syncUrl();};
+el<HTMLSelectElement>('character').onchange=e=>{selectedCharacter=(e.target as HTMLSelectElement).value;void apply();};
 el<HTMLSelectElement>('scene').onchange=e=>{sceneMode=(e.target as HTMLSelectElement).value;void apply();};
 el<HTMLSelectElement>('contours').onchange=e=>{contourMode=(e.target as HTMLSelectElement).value as ContourMode;contourPass.mode=contourMode;syncUrl();updateStats();};
 el<HTMLSelectElement>('palette').onchange=e=>{const gray=(e.target as HTMLSelectElement).value==='gray';el('stage-board').style.filter=gray?'grayscale(1)':'';quiet.style.filter=gray?'grayscale(1)':'';};
@@ -202,10 +250,10 @@ el('reset').onclick=()=>{orbit=false;el('spin').textContent='Rotate';resetCamera
 el('spin').onclick=()=>{orbit=!orbit;el('spin').textContent=orbit?'Stop rotation':'Rotate';};
 let action:'move'|'ability'='move';
 function syncWalkButton(){
- const available=entries.some(e=>e.walk),clay=look!=='current';const b=el<HTMLButtonElement>('walk');b.disabled=!available;b.textContent=walking?'Stop walking':'Walk in place';b.setAttribute('aria-pressed',String(walking));
+ const available=entries.some(e=>e.walk),clay=variant==='rebuilt'&&look!=='current';const b=el<HTMLButtonElement>('walk');b.disabled=!available;b.textContent=walking?'Stop walking':'Walk in place';b.setAttribute('aria-pressed',String(walking));
  const cadenceControl=el<HTMLSelectElement>('cadence');cadenceControl.disabled=!clay;el('motion-note').textContent=clay?(cadence==='smooth'?'Smooth spring motion adds a small, deterministic lag to arms and cloth.':'12 fps stepping keeps the same spring motion between authored poses.'):'Clay motion is available for the two clay looks.';
  el<HTMLButtonElement>('poke').disabled=!clay||!available;
- el('walk-note').textContent=available?'Guard: short, heavy steps. Archer: a lighter stride with cloth follow-through. Drag to inspect from any angle.':'Walking is available on the refined 3D Guard and Archer.';
+ el('walk-note').textContent=available?'Each figure has its own stride and timing. Armour stays composed; cloth and the Beast’s tail follow through. Drag to inspect.':'Walking is available on all sixteen refined 3D designs.';
 }
 function setWalking(value:boolean){
  walking=value&&entries.some(e=>e.walk);
@@ -214,7 +262,7 @@ function setWalking(value:boolean){
  syncWalkButton();
 }
 el('walk').onclick=()=>setWalking(!walking);
-el('poke').onclick=()=>{if(walking)return;for(const e of entries)e.walk?.poke();};
+el('poke').onclick=()=>{for(const e of entries)e.walk?.poke();};
 function animate(which:'move'|'ability'){if(running)return;setWalking(false);for(const e of entries)e.walk?.reset();action=which;running=true;motion=0;}
 el('move').onclick=()=>animate('move');el('ability').onclick=()=>animate('ability');
 // Projectiles and impact rings stay in world space for the mesh and sprite approaches.
@@ -297,4 +345,4 @@ function frame(now:number){const elapsed=(now-lastFrame)/1000||0,dt=Math.min(.04
  requestAnimationFrame(frame);
 }
 await apply();requestAnimationFrame(frame);
-(window as any).study={choose,apply,get variant(){return variant},get look(){return look},get cadence(){return cadence},setLook:(value:ClayLook)=>{look=value;el<HTMLSelectElement>('look').value=value;return apply();},poke:()=>{if(!walking)for(const e of entries)e.walk?.poke();},get entries(){return entries},get running(){return running},models,atlasCache,animate,setWalking,get walking(){return walking},view,contourPass,get scene(){return sceneMode},setScene:(mode:string)=>{sceneMode=mode;el<HTMLSelectElement>('scene').value=mode;return apply();},get pixel(){return pixel},get figureDetail(){return figureDetail}};
+(window as any).study={choose,apply,get variant(){return variant},get look(){return look},get cadence(){return cadence},setLook:(value:ClayLook)=>{look=value;el<HTMLSelectElement>('look').value=value;return apply();},poke:()=>{for(const e of entries)e.walk?.poke();},get entries(){return entries},get running(){return running},models,atlasCache,animate,setWalking,get walking(){return walking},view,contourPass,get scene(){return sceneMode},setScene:(mode:string)=>{sceneMode=mode;el<HTMLSelectElement>('scene').value=mode;return apply();},get pixel(){return pixel},get figureDetail(){return figureDetail},cast:CAST,get character(){return selectedCharacter},setCharacter:(key:string)=>{if(!CAST.some(c=>c.key===key))throw new Error('Unknown character');selectedCharacter=key;sceneMode='character';variant='rebuilt';figureDetail='refined';el<HTMLSelectElement>('character').value=key;return apply();}};

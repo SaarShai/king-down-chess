@@ -1,5 +1,5 @@
 {
-  "method": "Source-derived Guard/Archer with crease-protected surface relaxation, weighted normals and feature-specific paint boundaries and baked crease shading, with authored skeletal in-place walk clips; earlier blockouts retained for comparison",
+  "method": "Source-derived full cast with feature-specific paint, crease shading and authored skeletal walking; approved Guard/Archer preserved; earlier controls retained",
   "models": [
     {
       "name": "blockout-guard",
@@ -163,6 +163,664 @@
         "stanceFraction": 0.6,
         "groundContactEveryFrame": true,
         "scope": "In-place walk; authored weights on the existing print sculpt, not a production retopology"
+      }
+    },
+    {
+      "name": "rebuilt-pawn",
+      "label": "Pawn",
+      "source": "pawn_22mm.obj",
+      "height": 1.3,
+      "triangles": 14999,
+      "sourceTriangles": 58500,
+      "bytes": 859240,
+      "accent": null,
+      "feature": "Army colour throughout",
+      "materialAreaShare": {
+        "army": 1.0,
+        "accent1": 0.0
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 6.038319955159466e-09,
+        "sourceReducedTriangles": 14999,
+        "paintedTriangles": 14999
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 18884,
+        "maxDisplacement": 0.0039000560323740434,
+        "rmsDisplacement": 0.0011193594765244155,
+        "height": 1.3
+      },
+      "walk": {
+        "bones": 9,
+        "clip": "Walk",
+        "duration": 1.1333333333333333,
+        "frames": 35,
+        "strideSpan": 0.17,
+        "footLift": 0.045,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": false,
+        "scope": "In-place articulated walk; authored source-sculpt weights"
+      }
+    },
+    {
+      "name": "rebuilt-knight",
+      "label": "Knight",
+      "source": "knight_22mm.obj",
+      "height": 1.48,
+      "triangles": 20352,
+      "sourceTriangles": 50684,
+      "bytes": 998536,
+      "accent": 12077369,
+      "feature": "Helmet crest",
+      "materialAreaShare": {
+        "army": 0.9434474607061134,
+        "accent1": 0.0565525392938866
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 1.0872516442717028e-08,
+        "sourceReducedTriangles": 20000,
+        "paintedTriangles": 20352
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 13855,
+        "maxDisplacement": 0.00444005879186783,
+        "rmsDisplacement": 0.0016126289814657965,
+        "height": 1.48
+      },
+      "walk": {
+        "bones": 11,
+        "clip": "Walk",
+        "duration": 1.4,
+        "frames": 43,
+        "strideSpan": 0.23,
+        "footLift": 0.066,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": false,
+        "scope": "In-place articulated walk; authored source-sculpt weights"
+      }
+    },
+    {
+      "name": "rebuilt-bishop",
+      "label": "Bishop",
+      "source": "Bishop.obj",
+      "height": 1.55,
+      "triangles": 18181,
+      "sourceTriangles": 36377,
+      "bytes": 791620,
+      "accent": 9590398,
+      "feature": "Mitre",
+      "materialAreaShare": {
+        "army": 0.887142636342873,
+        "accent1": 0.112857363657127
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 5.0031309095643905e-09,
+        "sourceReducedTriangles": 17999,
+        "paintedTriangles": 18181
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 6524,
+        "maxDisplacement": 0.004650056126453409,
+        "rmsDisplacement": 0.002005536819858062,
+        "height": 1.55
+      },
+      "walk": {
+        "bones": 11,
+        "clip": "Walk",
+        "duration": 1.7333333333333334,
+        "frames": 53,
+        "strideSpan": 0.15,
+        "footLift": 0.04,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": false,
+        "scope": "In-place articulated walk; authored source-sculpt weights"
+      }
+    },
+    {
+      "name": "rebuilt-rook",
+      "label": "Rook",
+      "source": "Rook_22mm.obj",
+      "height": 1.4,
+      "triangles": 23564,
+      "sourceTriangles": 59921,
+      "bytes": 1225436,
+      "accent": 11696209,
+      "feature": "Tower crown",
+      "materialAreaShare": {
+        "army": 0.8302799393759306,
+        "accent1": 0.16972006062406944
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 1.2700818174948836e-09,
+        "sourceReducedTriangles": 22997,
+        "paintedTriangles": 23564
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 18161,
+        "maxDisplacement": 0.0042000562115157136,
+        "rmsDisplacement": 0.0016812489564045111,
+        "height": 1.4
+      },
+      "walk": {
+        "bones": 9,
+        "clip": "Walk",
+        "duration": 1.9,
+        "frames": 58,
+        "strideSpan": 0.19,
+        "footLift": 0.06,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": false,
+        "scope": "In-place articulated walk; authored source-sculpt weights"
+      }
+    },
+    {
+      "name": "rebuilt-queen",
+      "label": "Queen",
+      "source": "Queen_22m.obj",
+      "height": 1.52,
+      "triangles": 20329,
+      "sourceTriangles": 54566,
+      "bytes": 890524,
+      "accent": 12018823,
+      "feature": "Crown",
+      "materialAreaShare": {
+        "army": 0.9691398538227467,
+        "accent1": 0.030860146177253273
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 9.090669328415402e-10,
+        "sourceReducedTriangles": 20000,
+        "paintedTriangles": 20329
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 11019,
+        "maxDisplacement": 0.00456005492192286,
+        "rmsDisplacement": 0.0018452844241421049,
+        "height": 1.52
+      },
+      "walk": {
+        "bones": 11,
+        "clip": "Walk",
+        "duration": 1.8666666666666667,
+        "frames": 57,
+        "strideSpan": 0.14,
+        "footLift": 0.025,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": true,
+        "scope": "Concealed steps under the original closed skirt"
+      }
+    },
+    {
+      "name": "rebuilt-paladin",
+      "label": "Paladin",
+      "source": "Paladin-0.obj",
+      "height": 1.4,
+      "triangles": 64384,
+      "sourceTriangles": 67390,
+      "bytes": 4730532,
+      "accent": 13014852,
+      "feature": "Raised chest cross",
+      "materialAreaShare": {
+        "army": 0.9934330268031474,
+        "accent1": 0.006566973196852642
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 2.0000847200662975e-08,
+        "sourceReducedTriangles": 67390,
+        "paintedTriangles": 64387
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 23400,
+        "maxDisplacement": 0.004200057915103366,
+        "rmsDisplacement": 0.0013805569556886077,
+        "height": 1.4
+      },
+      "walk": {
+        "bones": 11,
+        "clip": "Walk",
+        "duration": 1.6,
+        "frames": 49,
+        "strideSpan": 0.17,
+        "footLift": 0.052,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": false,
+        "scope": "In-place articulated walk; authored source-sculpt weights"
+      }
+    },
+    {
+      "name": "rebuilt-maester",
+      "label": "Maester",
+      "source": "Maetser_22mm.obj",
+      "height": 1.12,
+      "triangles": 18573,
+      "sourceTriangles": 40456,
+      "bytes": 773156,
+      "accent": 5678502,
+      "feature": "Goggle frame",
+      "materialAreaShare": {
+        "army": 0.9844648249829396,
+        "accent1": 0.015535175017060341
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 8.464451140000051e-09,
+        "sourceReducedTriangles": 18000,
+        "paintedTriangles": 18573
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 7545,
+        "maxDisplacement": 0.003360038694183277,
+        "rmsDisplacement": 0.0017344966661468147,
+        "height": 1.12
+      },
+      "walk": {
+        "bones": 9,
+        "clip": "Walk",
+        "duration": 1.0666666666666667,
+        "frames": 33,
+        "strideSpan": 0.124,
+        "footLift": 0.047,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": false,
+        "scope": "In-place articulated walk; authored source-sculpt weights"
+      }
+    },
+    {
+      "name": "rebuilt-beast",
+      "label": "Beast",
+      "source": "Beast.obj",
+      "height": 1.34,
+      "triangles": 21847,
+      "sourceTriangles": 40722,
+      "bytes": 1433200,
+      "accent": 11100480,
+      "feature": "Muzzle harness",
+      "materialAreaShare": {
+        "army": 0.963174110601923,
+        "accent1": 0.03682588939807698
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 2.2834566459906114e-09,
+        "sourceReducedTriangles": 21000,
+        "paintedTriangles": 21847
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 12435,
+        "maxDisplacement": 0.004020051601670696,
+        "rmsDisplacement": 0.001745532927588845,
+        "height": 1.34
+      },
+      "walk": {
+        "bones": 10,
+        "clip": "Walk",
+        "duration": 1.4666666666666666,
+        "frames": 45,
+        "strideSpan": 0.17,
+        "footLift": 0.05,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": false,
+        "scope": "In-place articulated walk; authored source-sculpt weights"
+      }
+    },
+    {
+      "name": "rebuilt-king-ember",
+      "label": "Ember King",
+      "source": "King_Ember_22mm.obj",
+      "height": 1.55,
+      "triangles": 24068,
+      "sourceTriangles": 59720,
+      "bytes": 1300288,
+      "accent": 12675908,
+      "feature": "Cracked chest armour",
+      "materialAreaShare": {
+        "army": 0.931119472548311,
+        "accent1": 0.06888052745168907
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 5.257290602855846e-09,
+        "sourceReducedTriangles": 23000,
+        "paintedTriangles": 24068
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 17997,
+        "maxDisplacement": 0.004650057825622959,
+        "rmsDisplacement": 0.0015448067890519764,
+        "height": 1.55
+      },
+      "walk": {
+        "bones": 11,
+        "clip": "Walk",
+        "duration": 1.8666666666666667,
+        "frames": 57,
+        "strideSpan": 0.14,
+        "footLift": 0.045,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0.000305539695546031,
+          0.0001776203280314803
+        ],
+        "concealedFeet": false,
+        "scope": "In-place articulated walk; authored source-sculpt weights"
+      }
+    },
+    {
+      "name": "rebuilt-king-frost",
+      "label": "Frost King",
+      "source": "King_Frost_22mm.obj",
+      "height": 1.6,
+      "triangles": 22654,
+      "sourceTriangles": 60012,
+      "bytes": 911832,
+      "accent": 6792895,
+      "feature": "Raised ice gauntlet",
+      "materialAreaShare": {
+        "army": 0.9597385897348265,
+        "accent1": 0.040261410265173506
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 2.893818740190568e-09,
+        "sourceReducedTriangles": 22000,
+        "paintedTriangles": 22654
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 9419,
+        "maxDisplacement": 0.00480005343125309,
+        "rmsDisplacement": 0.0011656080106448126,
+        "height": 1.6
+      },
+      "walk": {
+        "bones": 11,
+        "clip": "Walk",
+        "duration": 1.9,
+        "frames": 58,
+        "strideSpan": 0.12,
+        "footLift": 0.045,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": false,
+        "scope": "In-place articulated walk; authored source-sculpt weights"
+      }
+    },
+    {
+      "name": "rebuilt-king-gaya",
+      "label": "Gaya King",
+      "source": "King_Gaya_22mm.obj",
+      "height": 1.65,
+      "triangles": 24381,
+      "sourceTriangles": 57335,
+      "bytes": 1029920,
+      "accent": 8100691,
+      "feature": "Rhino pauldron",
+      "materialAreaShare": {
+        "army": 0.9148191808077488,
+        "accent1": 0.08518081919225112
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 2.9202273932327216e-09,
+        "sourceReducedTriangles": 23000,
+        "paintedTriangles": 24381
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 11923,
+        "maxDisplacement": 0.0049500588696038406,
+        "rmsDisplacement": 0.0023204740349132753,
+        "height": 1.65
+      },
+      "walk": {
+        "bones": 11,
+        "clip": "Walk",
+        "duration": 2.0,
+        "frames": 61,
+        "strideSpan": 0.124,
+        "footLift": 0.045,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": false,
+        "scope": "In-place articulated walk; authored source-sculpt weights"
+      }
+    },
+    {
+      "name": "rebuilt-king-celestial",
+      "label": "Celestial King",
+      "source": "King_Celestial_22mm-1.obj",
+      "height": 1.6,
+      "triangles": 22533,
+      "sourceTriangles": 59989,
+      "bytes": 1218312,
+      "accent": 13675861,
+      "feature": "Crown",
+      "materialAreaShare": {
+        "army": 0.9653819218106032,
+        "accent1": 0.03461807818939682
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 4.1037162556989415e-09,
+        "sourceReducedTriangles": 21999,
+        "paintedTriangles": 22533
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 20002,
+        "maxDisplacement": 0.004800059300563224,
+        "rmsDisplacement": 0.0014869587680411366,
+        "height": 1.6
+      },
+      "walk": {
+        "bones": 11,
+        "clip": "Walk",
+        "duration": 1.8,
+        "frames": 55,
+        "strideSpan": 0.13,
+        "footLift": 0.048,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": false,
+        "scope": "In-place articulated walk; authored source-sculpt weights"
+      }
+    },
+    {
+      "name": "rebuilt-king-shadow",
+      "label": "Shadow King",
+      "source": "King_Shadow_22mm.obj",
+      "height": 1.6,
+      "triangles": 22507,
+      "sourceTriangles": 57633,
+      "bytes": 1378180,
+      "accent": 8415140,
+      "feature": "Sword",
+      "materialAreaShare": {
+        "army": 0.9485393202138785,
+        "accent1": 0.05146067978612141
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 6.483828363101907e-09,
+        "sourceReducedTriangles": 21999,
+        "paintedTriangles": 22510
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 21381,
+        "maxDisplacement": 0.004800053980437268,
+        "rmsDisplacement": 0.0012430464976884333,
+        "height": 1.6
+      },
+      "walk": {
+        "bones": 11,
+        "clip": "Walk",
+        "duration": 2.2,
+        "frames": 67,
+        "strideSpan": 0.11,
+        "footLift": 0.02,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": true,
+        "scope": "Concealed steps under the original closed skirt"
+      }
+    },
+    {
+      "name": "rebuilt-king-spirit",
+      "label": "Spirit King",
+      "source": "King_Spirit_22mm.obj",
+      "height": 1.55,
+      "triangles": 18967,
+      "sourceTriangles": 36909,
+      "bytes": 947204,
+      "accent": 6859427,
+      "feature": "Clasped hands",
+      "materialAreaShare": {
+        "army": 0.9305883458025406,
+        "accent1": 0.06941165419745937
+      },
+      "creaseShadingRange": [
+        0.5,
+        1.0
+      ],
+      "paintBoundaryCheck": {
+        "surfaceAreaRelativeError": 2.7043844941232464e-09,
+        "sourceReducedTriangles": 17999,
+        "paintedTriangles": 18967
+      },
+      "featureCleanup": {
+        "iterations": 3,
+        "pinnedCreaseVertices": 10106,
+        "maxDisplacement": 0.004650055912529141,
+        "rmsDisplacement": 0.001972272907259476,
+        "height": 1.55
+      },
+      "walk": {
+        "bones": 11,
+        "clip": "Walk",
+        "duration": 2.033333333333333,
+        "frames": 62,
+        "strideSpan": 0.116,
+        "footLift": 0.03,
+        "stanceFraction": 0.62,
+        "footTargetsGroundedEveryFrame": true,
+        "bootLowering": [
+          0,
+          0
+        ],
+        "concealedFeet": true,
+        "scope": "Concealed steps under the original closed skirt"
       }
     }
   ]

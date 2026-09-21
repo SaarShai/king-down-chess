@@ -156,7 +156,7 @@ export class WalkPreview {
     if (this.squashEnabled) {
       const targetSquash = -0.075 * Math.max(0, Math.sin(phase * Math.PI * 2));
       this.squashVelocity += (targetSquash - this.squash) * 22 * step;
-      this.squashVelocity *= Math.exp(-10.5 * step);
+      this.squashVelocity *= Math.exp(-5.6 * step);
       this.squash += this.squashVelocity * step;
       this.applySquash();
     }
@@ -181,39 +181,38 @@ export class WalkPreview {
    * can be applied during a walk so a live preview does not make the control a no-op. */
   poke(): void {
     if (!this.pliable) return;
-    if (!this.active) this.impulseLife = .62;
+    if (!this.active) this.impulseLife = 1.6;
     for (const spring of this.springs) {
       const amount = spring.kind === 'cloth' ? 1.15 : spring.kind === 'arm' ? .78 : .36;
       spring.velocity.x += amount;
       spring.velocity.z -= amount * .45;
     }
-    if (this.squashEnabled) this.squashVelocity -= .75;
+    if (this.squashEnabled) this.squashVelocity -= .95;
   }
 
   private updateImpulse(dt: number): void {
     if (this.impulseLife <= 0) return;
-    const step = Math.min(.08, dt);
-    const drag = Math.exp(-9 * step);
-    for (const spring of this.springs) {
-      spring.velocity.x *= drag;
-      spring.velocity.y *= drag;
-      spring.velocity.z *= drag;
-      spring.offset.x += spring.velocity.x * step;
-      spring.offset.y += spring.velocity.y * step;
-      spring.offset.z += spring.velocity.z * step;
-      const settle = Math.exp(-3.5 * step);
-      spring.offset.x *= settle;
-      spring.offset.y *= settle;
-      spring.offset.z *= settle;
-      this.applySpringOffset(spring);
+    // Small integration steps make the idle poke a damped spring with an actual
+    // rebound across rest, including when a frame takes longer than 1/60 second.
+    let remaining = Math.min(.25, dt);
+    while (remaining > 1e-6) {
+      const step = Math.min(1 / 120, remaining);
+      remaining -= step;
+      const drag = Math.exp(-8 * step);
+      for (const spring of this.springs) {
+        for (const axis of ['x', 'y', 'z'] as const) {
+          spring.velocity[axis] = (spring.velocity[axis] - spring.offset[axis] * 90 * step) * drag;
+          spring.offset[axis] += spring.velocity[axis] * step;
+        }
+      }
+      if (this.squashEnabled) {
+        this.squashVelocity = (this.squashVelocity - this.squash * 90 * step) * drag;
+        this.squash += this.squashVelocity * step;
+      }
+      this.impulseLife -= step;
     }
-    if (this.squashEnabled) {
-      this.squashVelocity *= Math.exp(-10 * step);
-      this.squash += this.squashVelocity * step;
-      this.squash *= Math.exp(-4 * step);
-      this.applySquash();
-    }
-    this.impulseLife -= step;
+    for (const spring of this.springs) this.applySpringOffset(spring);
+    if (this.squashEnabled) this.applySquash();
     if (this.impulseLife <= 0) this.reset();
   }
 

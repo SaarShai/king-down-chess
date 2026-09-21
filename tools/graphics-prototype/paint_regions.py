@@ -40,7 +40,7 @@ def regions(name):
     ]
 
 
-def paint_surface(mesh, name, height, roles, materials):
+def paint_surface(mesh, name, height, roles, materials, region_list=None):
     ao_attribute = mesh.color_attributes.active_color
     # Payload: paint-space position, original smooth normal, neutral crease shade.
     vertices = []
@@ -64,7 +64,7 @@ def paint_surface(mesh, name, height, roles, materials):
                 inside.append(cut); outside.append(cut)
         return inside, outside
 
-    for role, planes in regions(name):
+    for role, planes in (regions(name) if region_list is None else region_list):
         painted = []
         for polygon, previous_role in faces:
             # Reject disjoint polygons before introducing any cuts.

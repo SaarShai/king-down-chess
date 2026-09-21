@@ -15,7 +15,8 @@
     "dashboard": "node tools/dashboard.mjs",
     "nnue": "tsx src/sim/gen.ts",
     "graphics:study": "vite --port 5190 --strictPort",
-    "graphics:check": "node tools/graphics-prototype/verify.mjs"
+    "graphics:check": "node tools/graphics-prototype/verify.mjs",
+    "graphics:check:cast": "node tools/graphics-prototype/verify_cast.mjs"
   },
   "dependencies": {
     "three": "^0.186.0"

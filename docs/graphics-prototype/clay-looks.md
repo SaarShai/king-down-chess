@@ -6,7 +6,7 @@ The study now has a `Look` control with three URL-backed values:
 - `plasticine` uses a warm broad studio rig, a satin wax response, very fine procedural bump, and high contact-shadow opacity.
 - `handmade` uses a warmer brown studio rig, a chalkier rough response, stronger low-frequency bump, a stable low-amplitude finger/tool sweep, and softer contact shadows.
 
-The two clay looks are live Three.js materials. They keep the existing colour roles, so the Guard's steel-blue shoulder plates, the Archer's green hood, and the ivory/ink-blue army bodies remain intact. `src/render/prototype/ClayLook.ts` owns the look IDs, labels, procedural surface maps, physical material settings, and lighting presets. `study.ts` uses that module for every loaded study model, so the same look API can cover a larger roster without changing model files.
+The two clay looks are live Three.js materials. They keep the existing colour roles, so the Guard's steel-blue shoulder plates, the Archer's green hood, and the ivory/ink-blue army bodies remain intact. `src/render/prototype/ClayLook.ts` owns the look IDs, labels, procedural surface maps, physical material settings, and lighting presets. `study.ts` applies the looks to all sixteen refined designs. The other rendering comparisons retain their original materials and lighting.
 
 The URL state is explicit, for example:
 
@@ -30,6 +30,8 @@ Clay motion has two explicit cadence choices. `Smooth · spring clay` keeps the 
 
 Roster profiles can pass `groundedBones` to exclude a named arm, cloth, tail, or ornament that reaches the board, and `squash: false` when the model's base ornament is already ground-constrained. The spring layer never allocates transient vectors during playback, clamps its integration step for low-FPS resumes, and keeps held weapons joined as children of their authored arm bone.
 
-The motion probe on the current Guard/Archer pair reached about 0.024 radians of arm spring offset and 2.6% squash during a smooth walk; an idle poke reached about 0.042 radians on cloth. After settling, spring offsets were zero and model scale returned to `[1, 1, 1]`.
+The final deterministic poke probe on the actual Guard model compressed height to 94.23%, rebounded to 101.30%, then returned to exactly 100%. The same check passed at 120 and 15 updates per second. A separate probe verified that a poke also changes an actively walking figure. The idle impulse uses small integration steps and a restoring spring, so it crosses rest instead of only easing back. [Final integration evidence](cast-verification.json).
 
 The profile hook was also checked with dotted bone names: `groundedBones: ['arm.L', /cloth\.L/i]` excluded both bones while leaving the other arm spring active.
+
+The complete-cast integration protects floor-length `cloth` and `tail` bones, the Rook’s supporting fist, and the Pawn/Knight’s carried polearms from additional angular spring offsets. Their authored animation still plays. Root squash preserves volume around the board origin. [Handmade walking pair](captures/clay-handmade-walk.png) · [Plasticine walking pair](captures/clay-plasticine-walk.png).

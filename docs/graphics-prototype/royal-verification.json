@@ -1,0 +1,611 @@
+[
+  {
+    "key": "paladin",
+    "rawNodes": 14,
+    "rawSkins": 1,
+    "rawAnimations": [
+      [
+        "Walk",
+        33
+      ]
+    ],
+    "actions": [
+      [
+        "Walk",
+        [
+          0.0,
+          38.4
+        ],
+        110
+      ]
+    ],
+    "meshObjects": 1,
+    "primitives": 2,
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "army",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.8627451062202454,
+            0.7882353067398071,
+            0.6352941393852234,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      },
+      {
+        "doubleSided": true,
+        "name": "accent1",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.7764706015586853,
+            0.5921568870544434,
+            0.2666666805744171,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      }
+    ],
+    "floorRestZ": 0.0,
+    "restBounds": [
+      -0.7208812236785889,
+      0.7196379899978638,
+      -0.43567678332328796,
+      0.43337327241897583,
+      -4.636083023304615e-20,
+      1.384011149406433
+    ],
+    "minZ": -4.636083023304615e-20,
+    "maxPenetration": 4.636083023304615e-20,
+    "minAtFrames": [
+      [
+        0.0,
+        -4.636083023304615e-20,
+        1.384011149406433,
+        2
+      ],
+      [
+        19.200000762939453,
+        4.798139660648544e-20,
+        1.384011149406433,
+        2
+      ],
+      [
+        38.400001525878906,
+        -4.636083023304615e-20,
+        1.384011149406433,
+        2
+      ]
+    ],
+    "minContactVerts": 0,
+    "maxContactVerts": 2,
+    "loopMinDelta": 0.0
+  },
+  {
+    "key": "king-ember",
+    "rawNodes": 14,
+    "rawSkins": 1,
+    "rawAnimations": [
+      [
+        "Walk",
+        33
+      ]
+    ],
+    "actions": [
+      [
+        "Walk.001",
+        [
+          0.0,
+          44.8
+        ],
+        110
+      ]
+    ],
+    "meshObjects": 1,
+    "primitives": 2,
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "army",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.8627451062202454,
+            0.7882353067398071,
+            0.6352941393852234,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      },
+      {
+        "doubleSided": true,
+        "name": "accent1",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.7568627595901489,
+            0.41960784792900085,
+            0.2666666805744171,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      }
+    ],
+    "floorRestZ": 0.0,
+    "restBounds": [
+      -0.5918086767196655,
+      0.5943259000778198,
+      -0.3737422823905945,
+      0.3110664486885071,
+      3.440072759985924e-08,
+      1.5341233015060425
+    ],
+    "minZ": 3.440072759985924e-08,
+    "maxPenetration": 0.0,
+    "minAtFrames": [
+      [
+        0.0,
+        3.440072759985924e-08,
+        1.5341233015060425,
+        2
+      ],
+      [
+        22.399999618530273,
+        3.440072759985924e-08,
+        1.5341233015060425,
+        2
+      ],
+      [
+        44.79999923706055,
+        3.440072759985924e-08,
+        1.5341233015060425,
+        2
+      ]
+    ],
+    "minContactVerts": 1,
+    "maxContactVerts": 2,
+    "loopMinDelta": 0.0
+  },
+  {
+    "key": "king-frost",
+    "rawNodes": 14,
+    "rawSkins": 1,
+    "rawAnimations": [
+      [
+        "Walk",
+        33
+      ]
+    ],
+    "actions": [
+      [
+        "Walk.002",
+        [
+          0.0,
+          45.6
+        ],
+        110
+      ]
+    ],
+    "meshObjects": 1,
+    "primitives": 2,
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "army",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.8627451062202454,
+            0.7882353067398071,
+            0.6352941393852234,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      },
+      {
+        "doubleSided": true,
+        "name": "accent1",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.40392157435417175,
+            0.6509804129600525,
+            0.7490196228027344,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      }
+    ],
+    "floorRestZ": 0.0,
+    "restBounds": [
+      -0.37316757440567017,
+      0.3769959807395935,
+      -0.3794248104095459,
+      0.3874078392982483,
+      2.3280274035641924e-05,
+      1.5849461555480957
+    ],
+    "minZ": 2.3280274035641924e-05,
+    "maxPenetration": 0.0,
+    "minAtFrames": [
+      [
+        0.0,
+        2.3280274035641924e-05,
+        1.5849461555480957,
+        1
+      ],
+      [
+        22.799999237060547,
+        5.361903822631575e-05,
+        1.5849764347076416,
+        1
+      ],
+      [
+        45.599998474121094,
+        2.3280274035641924e-05,
+        1.5849461555480957,
+        1
+      ]
+    ],
+    "minContactVerts": 0,
+    "maxContactVerts": 1,
+    "loopMinDelta": 0.0
+  },
+  {
+    "key": "king-gaya",
+    "rawNodes": 14,
+    "rawSkins": 1,
+    "rawAnimations": [
+      [
+        "Walk",
+        33
+      ]
+    ],
+    "actions": [
+      [
+        "Walk.003",
+        [
+          0.0,
+          48.0
+        ],
+        110
+      ]
+    ],
+    "meshObjects": 1,
+    "primitives": 2,
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "army",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.8627451062202454,
+            0.7882353067398071,
+            0.6352941393852234,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      },
+      {
+        "doubleSided": true,
+        "name": "accent1",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.48235294222831726,
+            0.6078431606292725,
+            0.32549020648002625,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      }
+    ],
+    "floorRestZ": 0.0,
+    "restBounds": [
+      -0.547338604927063,
+      0.5430259704589844,
+      -0.4883372485637665,
+      0.4943722188472748,
+      0.0012967322254553437,
+      1.6355410814285278
+    ],
+    "minZ": 0.0012967322254553437,
+    "maxPenetration": 0.0,
+    "minAtFrames": [
+      [
+        0.0,
+        0.0012967322254553437,
+        1.6355410814285278,
+        0
+      ],
+      [
+        24.0,
+        0.0012967322254553437,
+        1.6355410814285278,
+        0
+      ],
+      [
+        48.0,
+        0.0012967322254553437,
+        1.6355410814285278,
+        0
+      ]
+    ],
+    "minContactVerts": 0,
+    "maxContactVerts": 0,
+    "loopMinDelta": 0.0
+  },
+  {
+    "key": "king-celestial",
+    "rawNodes": 14,
+    "rawSkins": 1,
+    "rawAnimations": [
+      [
+        "Walk",
+        33
+      ]
+    ],
+    "actions": [
+      [
+        "Walk.004",
+        [
+          0.0,
+          43.2
+        ],
+        110
+      ]
+    ],
+    "meshObjects": 1,
+    "primitives": 2,
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "army",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.8627451062202454,
+            0.7882353067398071,
+            0.6352941393852234,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      },
+      {
+        "doubleSided": true,
+        "name": "accent1",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.8156862854957581,
+            0.6784313917160034,
+            0.3333333432674408,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      }
+    ],
+    "floorRestZ": 0.0,
+    "restBounds": [
+      -0.3830714225769043,
+      0.3834278881549835,
+      -0.26617297530174255,
+      0.2668822109699249,
+      -3.441450098762289e-05,
+      1.5848991870880127
+    ],
+    "minZ": -3.441450098762289e-05,
+    "maxPenetration": 3.441450098762289e-05,
+    "minAtFrames": [
+      [
+        0.0,
+        -3.441450098762289e-05,
+        1.5848991870880127,
+        2
+      ],
+      [
+        21.599998474121094,
+        -3.441402077442035e-05,
+        1.5848991870880127,
+        2
+      ],
+      [
+        43.19999694824219,
+        -3.441450098762289e-05,
+        1.5848991870880127,
+        2
+      ]
+    ],
+    "minContactVerts": 0,
+    "maxContactVerts": 2,
+    "loopMinDelta": 2.2044032045456975e-18
+  },
+  {
+    "key": "king-shadow",
+    "rawNodes": 14,
+    "rawSkins": 1,
+    "rawAnimations": [
+      [
+        "Walk",
+        33
+      ]
+    ],
+    "actions": [
+      [
+        "Walk.005",
+        [
+          0.0,
+          52.8
+        ],
+        110
+      ]
+    ],
+    "meshObjects": 1,
+    "primitives": 2,
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "army",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.8627451062202454,
+            0.7882353067398071,
+            0.6352941393852234,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      },
+      {
+        "doubleSided": true,
+        "name": "accent1",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.501960813999176,
+            0.40392157435417175,
+            0.6431372761726379,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      }
+    ],
+    "floorRestZ": 0.0,
+    "restBounds": [
+      -0.36157020926475525,
+      0.36196058988571167,
+      -0.33827632665634155,
+      0.33915042877197266,
+      3.77141337046916e-18,
+      1.5850906372070312
+    ],
+    "minZ": -3.7781573740033045e-18,
+    "maxPenetration": 3.7781573740033045e-18,
+    "minAtFrames": [
+      [
+        0.0,
+        3.77141337046916e-18,
+        1.5850906372070312,
+        1
+      ],
+      [
+        26.400001525878906,
+        -3.7781573740033045e-18,
+        1.5850906372070312,
+        1
+      ],
+      [
+        52.80000305175781,
+        3.77141337046916e-18,
+        1.5850906372070312,
+        1
+      ]
+    ],
+    "minContactVerts": 0,
+    "maxContactVerts": 1,
+    "loopMinDelta": 0.0
+  },
+  {
+    "key": "king-spirit",
+    "rawNodes": 14,
+    "rawSkins": 1,
+    "rawAnimations": [
+      [
+        "Walk",
+        33
+      ]
+    ],
+    "actions": [
+      [
+        "Walk.006",
+        [
+          0.0,
+          48.8
+        ],
+        110
+      ]
+    ],
+    "meshObjects": 1,
+    "primitives": 2,
+    "materials": [
+      {
+        "doubleSided": true,
+        "name": "army",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.8627451062202454,
+            0.7882353067398071,
+            0.6352941393852234,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      },
+      {
+        "doubleSided": true,
+        "name": "accent1",
+        "pbrMetallicRoughness": {
+          "baseColorFactor": [
+            0.40784314274787903,
+            0.6666666865348816,
+            0.6392157077789307,
+            1
+          ],
+          "metallicFactor": 0,
+          "roughnessFactor": 0.8500000238418579
+        }
+      }
+    ],
+    "floorRestZ": 0.0,
+    "restBounds": [
+      -0.33623063564300537,
+      0.33585813641548157,
+      -0.288369357585907,
+      0.2841338813304901,
+      -0.0002570553042460233,
+      1.534999966621399
+    ],
+    "minZ": -0.0002570553042460233,
+    "maxPenetration": 0.0002570553042460233,
+    "minAtFrames": [
+      [
+        0.0,
+        -0.0002570553042460233,
+        1.534999966621399,
+        31
+      ],
+      [
+        24.399999618530273,
+        -0.00023053123732097447,
+        1.5350264310836792,
+        31
+      ],
+      [
+        48.79999923706055,
+        -0.0002570553042460233,
+        1.534999966621399,
+        31
+      ]
+    ],
+    "minContactVerts": 0,
+    "maxContactVerts": 34,
+    "loopMinDelta": 0.0
+  }
+]

@@ -1,8 +1,8 @@
 # King Down graphics study — 21 September 2026
 
-**Current question:** make the actual features crisp and keep identifying colour on one feature: Guard shoulder plates and Archer hood. The approved 0.5 px resolution stays fixed.
+**Current question:** extend the approved source-derived treatment to the complete cast, then explore tactile clay and fluid or stepped animation without losing the existing designs. The 0.5 px option is retained.
 
-The current pair uses the **original Guard and Archer sculpt surfaces**, reduced and recoloured for the study. The first primitive blockouts remain switchable. This is an isolated art/rendering study on `codex/graphics-study`; it does not select or replace the main game's production style.
+All sixteen designs now use their **original sculpt surfaces**, with feature-specific colour and articulated movement. Guard and Archer retain their approved files. The first primitive blockouts remain switchable. This is an isolated art/rendering study on `codex/graphics-study`; it does not select or replace the main game's production style.
 
 ## Run and compare
 
@@ -14,11 +14,30 @@ Use **Figure detail → Earlier blockout / Refined from source** to compare geom
 |---|---|
 | `baseline` | Existing voxel models and Dungeon treatment |
 | `sculpt` | Six original sculpts reduced to about 6,500 triangles with provisional colour zones |
-| `rebuilt` | Refined Guard/Archer, switchable to the earlier primitive blockouts; other types remain original controls |
+| `rebuilt` | All sixteen refined designs, with current / polished plasticine / handmade clay looks; earlier Guard/Archer blockouts remain switchable |
 | `sprites` | Sixteen-angle bakes of the selected figure detail; fixed elevation, world-space motion |
 | `quiet` | Actual QuietHours Canvas projection/drawing/shading/quantizer, using the earlier blockout pair only |
 
-Scenes include a separated pair, a lower-angle overlap close-up, six types and a 32-piece visual stress board. The full board is not a legal starting army. QuietHours stays fixed-angle and pair-only.
+Scenes include a separated pair, a lower-angle overlap close-up, six types, a 32-piece visual stress board, **All 16 designs** in both armies and **Character close-up** with a model selector. The full board is not a legal starting army. QuietHours stays fixed-angle and pair-only.
+
+## Complete cast and clay experiments
+
+The cast comprises Pawn, Knight, Bishop, Rook, Queen, Guard, Archer, Paladin, Maester, Beast, and the Ember, Frost, Gaya, Celestial, Shadow and Spirit Kings. Alternate pawn/knight poses are not distinct character designs. Both armies use the same geometry; the Pawn has no type accent. `CastCatalog.ts` lists each accent feature.
+
+- [Complete cast](http://localhost:5190/?study&variant=rebuilt&scene=cast&pixels=1&contours=adaptive&detail=refined)
+- [Queen close-up](http://localhost:5190/?study&variant=rebuilt&scene=character&character=queen&pixels=0.5&contours=adaptive&detail=refined&look=handmade)
+- [Handmade clay pair](http://localhost:5190/?study&variant=rebuilt&scene=pair&pixels=0.5&contours=adaptive&detail=refined&look=handmade&cadence=smooth)
+- [Polished plasticine pair](http://localhost:5190/?study&variant=rebuilt&scene=pair&pixels=0.5&contours=adaptive&detail=refined&look=plasticine&cadence=stopmotion)
+
+New pieces use 9–11 deform bones with baked `Walk` clips. Gaits respect the posed sculpts: braced two-hand weapons, smaller armoured steps, concealed steps under closed robes, separate cloth/cape motion and a Beast tail. These are source-sculpt deformation rigs, not hand-retopologized production characters. The Queen and the closed robes of Shadow/Spirit keep their original lower silhouettes.
+
+Fourteen additional exports and their editable rigs are in `complete-cast.blend`; the approved Guard/Archer remain in `rebuilt-pieces.blend`. Rebuild the new cast with Blender `--background --python tools/graphics-prototype/build_roster.py`. `sculpt_surface.py` shares the original surface-cleanup code; authored landmarks/paint volumes live in `roster_profiles.py`. Source quads are triangulated before paint cuts so boundaries preserve the surface. The Paladin retains its full usable source detail: reduction destroyed its extremities, and a height-preservation assertion now catches that failure.
+
+The sixteen models total about **19.8 MiB** of uncompressed GLB files. The 32-figure cast scene draws **761,446 figure triangles**, plus board/effects; the pair route loads the extra cast only when needed. Two shared 96×96 procedural maps per clay look provide stable surface variation. Existing comparison modes retain their original materials and lighting. This does not establish performance on older phones; device profiling and appropriate LODs are still needed before production adoption.
+
+[Clay appearances and movement](clay-looks.md) document the Neverhood reference, material options and lightweight spring motion. `Poke / squish clay` provides an interactive deformation experiment. The clay effect is spring-driven secondary animation, not soft-body collision simulation.
+
+`npm run graphics:check:cast` passes **37 checks with zero browser errors**, covering complete-cast loading, independent army rigs, sixteen character selectors, movement, clay materials/UVs, compression/reset, cadence, URL state, phone layout and returning to older comparisons. [Integration evidence](cast-verification.json) supplements the existing 42 graphics checks. All sixteen assets have finite positions, unit normals, valid normalized skin weights and matching animation endpoints. [Evaluated royal/Paladin geometry](royal-verification.json) was also sampled at 97 phases per clip: no visible floor breach, maximum numerical penetration 0.000257 world units, and matching evaluated mesh endpoints. The Gaya robe has 0.001297 world units of minimum clearance. These small sculpt/weight tolerances are recorded rather than claimed as a collision solver. [Complete-cast capture](captures/complete-cast-current.png).
 
 ## Richer models and source fidelity
 
@@ -87,4 +106,4 @@ The latest fixed overlap test changed 3,641 piece pixels and no board/background
 
 All browser QA used software-rendered Chromium. Real-device FPS, battery use, colour-vision recognition and full game regression are not established. The main game and its previously audited renderer issues remain unchanged.
 
-The current visual direction is **source-faithful painted miniatures with controlled pixels and restrained contours**. The first blockouts removed too much identity. The refined source surfaces recover that identity; this correction keeps structural edges crisp and places each accent on one identifying feature. The amount of simplification and actual play-size readability still need the owner's visual judgment. Compare these models before extending the treatment to the entire set. The [open-source comparison](open-source-alternatives.md) remains relevant; no engine migration is required for this refinement.
+The current visual direction is **source-faithful painted miniatures with controlled pixels and restrained contours**. The first blockouts removed too much identity. The refined source surfaces recover that identity; this correction keeps structural edges crisp and places each accent on one identifying feature. The amount of simplification and actual play-size readability still need the owner's visual judgment. The entire available sculpt set is now included; remaining art decisions concern the clay treatment, accent refinement and motion character. The [open-source comparison](open-source-alternatives.md) remains relevant; no engine migration is required for this refinement.
