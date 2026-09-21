@@ -3,15 +3,8 @@
 Regions are convex volumes in (x, fraction of figure height, forward z). They
 change material boundaries only: no displacement, remeshing or runtime shader.
 """
-import bpy
+import bpy, math
 from mathutils import Vector
-
-
-def box(x=(-2, 2), y=(-1, 2), z=(-2, 2)):
-    return [(Vector(n), d) for n, d in [
-        ((1, 0, 0), x[0]), ((-1, 0, 0), -x[1]),
-        ((0, 1, 0), y[0]), ((0, -1, 0), -y[1]),
-        ((0, 0, 1), z[0]), ((0, 0, -1), -z[1])]]
 
 
 def front_polygon(points, z):
@@ -25,27 +18,25 @@ def front_polygon(points, z):
 
 def regions(name):
     if name == 'guard':
-        return [
-            # Continuous shoulder caps, wrapping around both sides of the armour.
-            ('accent1', box(y=(.67, 1.1)) + [(Vector((s, 1.1, 0)), 1.18)])
-            for s in [-1, 1]
-        ] + [
-            ('shade', box(y=(0, .085))),
-            # One helmet rim and a recessed visor; two small, regular eye slits.
-            ('light', front_polygon([(-.115,.695),(.115,.695),(.12,.773),(.075,.813),(-.075,.813),(-.12,.773)], .225)),
-            ('shade', front_polygon([(-.084,.714),(.084,.714),(.087,.773),(.05,.789),(-.05,.789),(-.087,.773)], .235)),
-            ('accent2', front_polygon([(-.079,.755),(-.024,.750),(-.024,.767),(-.079,.773)], .235)),
-            ('accent2', front_polygon([(.024,.750),(.079,.755),(.079,.773),(.024,.767)], .235)),
-        ]
+        # Trace the inner shoulder arch instead of slicing the plates with one diagonal.
+        profile = [(.58,.47),(.66,.47),(.74,.43),(.82,.37),(.90,.28),(.97,.14),(1.02,.065)]
+        result = []
+        for sign in [-1,1]:
+            for (low,x0),(high,x1) in zip(profile,profile[1:]):
+                points = [(sign*x0,low),(sign*1.,low),(sign*1.,high),(sign*x1,high)]
+                if sign < 0: points.reverse()
+                result.append(('accent1',front_polygon(points,-2)))
+        return result
+    # The sculpt's head faces diagonally. Author its opening in that local frame,
+    # so the green follows cloth rather than cutting through cheek, hair and neck.
+    def head_frame(planes):
+        c = math.sqrt(.5)
+        return [(Vector(((n.x-n.z)*c,n.y,(n.x+n.z)*c)),d) for n,d in planes]
+    # Opening traced from an orthographic source view, including its asymmetric brow.
+    opening = [(-.138,.760),(.087,.760),(.059,.833),(.046,.898),(.029,.932),(-.011,.953),(-.054,.932),(-.099,.901)]
     return [
-        # A whole hood, an inset face opening, and coherent leather/weapon areas.
-        ('accent1', box(x=(-.19,.19), y=(.796,1.1))),
-        ('light', front_polygon([(-.060,.811),(.060,.811),(.102,.861),(.077,.918),(-.04,.934),(-.093,.887)], .028)),
-        ('shade', box(x=(-.17,.17), y=(.567,.746), z=(.065,.4))),
-        ('shade', box(y=(0,.105))),
-        # The long leaf panels remain army coloured; colour no longer cuts across folds.
-        ('accent2', box(x=(-.5,-.24), y=(.57,.84))),
-        ('accent2', box(x=(.235,.5), y=(.385,.59))),
+        ('accent1', head_frame(front_polygon([(-.15,.834),(0,.802),(.13,.83),(.13,1.1),(-.15,1.1)],-2))),
+        ('army', head_frame(front_polygon(opening,.015))),
     ]
 
 
@@ -58,7 +49,8 @@ def paint_surface(mesh, name, height, roles, materials):
     for loop in mesh.loops:
         p, n, _ = vertices[loop.vertex_index]
         vertices[loop.vertex_index] = (p, n, ao_attribute.data[loop.index].color[0])
-    faces = [([vertices[i] for i in p.vertices], 'army') for p in mesh.polygons]
+    faces = [([(vertices[mesh.loops[i].vertex_index][0], mesh.corner_normals[i].vector.copy(),
+                vertices[mesh.loops[i].vertex_index][2]) for i in p.loop_indices], 'army') for p in mesh.polygons]
     original_area = sum(p.area for p in mesh.polygons)
 
     def split(polygon, normal, distance):

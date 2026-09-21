@@ -53,45 +53,36 @@ def read_figure(path, height):
 
 
 def smooth_features(obj, name, height):
-    """Quiet shallow surface noise before reduction; protect defining small features."""
-    before = [v.co.copy() for v in obj.data.vertices]
-    group = obj.vertex_groups.new(name='Surface cleanup · protected face and silhouette details')
-    limits = []
-    for v in obj.data.vertices:
+    """Relax broad surfaces slightly, pinning crease edges and defining features."""
+    mesh = obj.data
+    before = [v.co.copy() for v in mesh.vertices]
+    edge_faces = {}
+    for face in mesh.polygons:
+        for edge in face.edge_keys: edge_faces.setdefault(edge, []).append(face)
+    pinned = set()
+    for edge, faces in edge_faces.items():
+        if len(faces) != 2 or faces[0].normal.angle(faces[1].normal, 0) > math.radians(28):
+            pinned.update(edge)
+    group = obj.vertex_groups.new(name='Broad surface relaxation')
+    for v in mesh.vertices:
         x, y, z = v.co.x, v.co.z / height, -v.co.y
-        limit = height * (.009 if name == 'guard' else .006)
-        if name == 'guard':
-            weight = .55
-            if y > .67 and abs(x) + 1.1*y > 1.16:
-                weight = 1.; limit = height * .02
-            if .43 < y < .68 and .12 < abs(x) < .44 and z > .14: weight = .9
-            if .66 < y < .83 and abs(x) < .15 and z > .17: weight = .05
-            if y > .80 and abs(x) < .29 and z < -.10: weight = .1
-            if y < .16 or (y < .43 and abs(x) > .40): weight = .2
-        else:
-            weight = .6 if y < .52 else .45
-            if .14 < y < .49: limit = height * .009
-            if y > .80: weight = .7
-            if y > .80 and abs(x) < .115 and z > .015: weight = .08
-            if .5 < y < .83 and abs(x) < .105 and z > .08: weight = .08
-            if .38 < y < .85 and abs(x) > .23: weight = .5
-            if y < .12: weight = .15
+        head_x, head_z = (x+z)*math.sqrt(.5), (-x+z)*math.sqrt(.5)
+        protected = (name == 'guard' and (.63 < y < .84 and abs(x)<.17 and z>.15)) or (name == 'archer' and y>.48 and head_z>.04)
+        weight = 0. if v.index in pinned or protected else 1.
         group.add([v.index], weight, 'REPLACE')
-        limits.append(limit)
-    smooth = obj.modifiers.new('Simplify small bumps and engraved clutter', 'SMOOTH')
-    iterations = 24 if name == 'guard' else 16
-    smooth.factor = .7; smooth.iterations = iterations; smooth.vertex_group = group.name
+    smooth = obj.modifiers.new('Relax interiors, retain feature edges', 'SMOOTH')
+    smooth.factor = .35; smooth.iterations = 3; smooth.vertex_group = group.name
     bpy.ops.object.modifier_apply(modifier=smooth.name)
-    # Cap local movement so cloth edges, weapon limbs and armour proportions stay intact.
+    obj.vertex_groups.clear()
     distances = []
-    for v, start, limit in zip(obj.data.vertices, before, limits):
-        delta = v.co - start
-        if delta.length > limit: v.co = start + delta.normalized() * limit
+    for v, start in zip(obj.data.vertices, before):
+        delta = v.co-start; limit = height*.003
+        if delta.length > limit: v.co = start+delta.normalized()*limit
         distances.append((v.co-start).length)
     obj.data.update()
-    return {'iterations':iterations, 'maxDisplacement':max(distances),
-            'rmsDisplacement':math.sqrt(sum(d*d for d in distances)/len(distances)),
-            'height':height}
+    return {'iterations':3, 'pinnedCreaseVertices':len(pinned),
+            'maxDisplacement':max(distances),
+            'rmsDisplacement':math.sqrt(sum(d*d for d in distances)/len(distances)), 'height':height}
 
 
 def bake_creases(mesh, reach):
@@ -121,8 +112,29 @@ def bake_creases(mesh, reach):
     return [min(ao), max(ao)]
 
 
+def check_feature_paint(mesh, name, height):
+    """Ray-check named landmarks from the source reference views."""
+    tree = BVHTree.FromPolygons([v.co for v in mesh.vertices], [p.vertices[:] for p in mesh.polygons])
+    samples = [('left shoulder',-.50,.80,'accent1'),('right shoulder',.50,.80,'accent1'),
+               ('helmet',0,.75,'army'),('chest',.25,.58,'army')] if name == 'guard' else [
+               ('hood crown',0,.985,'accent1'),('hood side',.072,.90,'accent1'),
+               ('face',-.0102,.9114,'army'),('chin',-.0102,.8498,'army'),('braid',-.09,.79,'army')]
+    result = []
+    for label,x,y,expected in samples:
+        if name == 'guard': origin, direction = Vector((x,-2,y*height)), Vector((0,1,0))
+        else:
+            c = math.sqrt(.5)
+            origin, direction = Vector(((x-2)*c,-(x+2)*c,y*height)), Vector((c,c,0))
+        hit, _, face, _ = tree.ray_cast(origin, direction)
+        assert hit is not None, f'{name} landmark missed: {label}'
+        actual = roles[mesh.polygons[face].material_index]
+        assert actual == expected, f'{name} {label}: expected {expected}, got {actual}'
+        result.append({'feature':label,'role':actual})
+    return result
+
+
 report = []
-for name, source, height, target in [('guard','Guard_22mm.obj',1.40,12000), ('archer','Archer_2.obj',1.45,14000)]:
+for name, source, height, target in [('guard','Guard_22mm.obj',1.40,18000), ('archer','Archer_2.obj',1.45,20000)]:
     vertices, faces = read_figure(ROOT/'art-src/pieces/obj'/source, height)
     mesh = bpy.data.meshes.new('Refined_'+name)
     mesh.from_pydata(vertices,[],faces); mesh.update()
@@ -138,9 +150,15 @@ for name, source, height, target in [('guard','Guard_22mm.obj',1.40,12000), ('ar
     bpy.ops.object.modifier_apply(modifier=reduction.name)
     mesh = obj.data
     for polygon in mesh.polygons: polygon.use_smooth = True
+    mesh.set_sharp_from_angle(angle=math.radians(48))
+    normals = obj.modifiers.new('Clear plate and cloth shading', 'WEIGHTED_NORMAL')
+    normals.keep_sharp = True; normals.mode = 'FACE_AREA_WITH_ANGLE'; normals.weight = 50
+    bpy.ops.object.modifier_apply(modifier=normals.name)
+    mesh = obj.data
     ao_range = bake_creases(mesh,.075 if name=='guard' else .065)
     mesh, paint_report = paint_surface(mesh, name, height, roles, materials)
     obj.data = mesh
+    feature_samples = check_feature_paint(mesh, name, height)
     areas = {role:0. for role in roles}
     for polygon in mesh.polygons: areas[roles[polygon.material_index]] += polygon.area
     bpy.ops.object.select_all(action='DESELECT');obj.select_set(True);root.select_set(True)
@@ -148,13 +166,13 @@ for name, source, height, target in [('guard','Guard_22mm.obj',1.40,12000), ('ar
     bpy.ops.export_scene.gltf(filepath=str(destination),use_selection=True,export_format='GLB',export_materials='EXPORT',export_animations=False,export_cameras=False,export_lights=False,export_vertex_color='ACTIVE',export_all_vertex_colors=False)
     mesh.calc_loop_triangles()
     report.append({'name':'rebuilt-'+name,'triangles':len(mesh.loop_triangles),'bytes':destination.stat().st_size,
-                   'source':source,'sourceTriangles':source_tris,'materialAreaShare':{k:round(v/sum(areas.values()),4) for k,v in areas.items()},'creaseShadingRange':ao_range,'paintBoundaryCheck':paint_report,'featureCleanup':smoothing_report})
+                   'source':source,'sourceTriangles':source_tris,'materialAreaShare':{k:round(v/sum(areas.values()),4) for k,v in areas.items()},'creaseShadingRange':ao_range,'paintBoundaryCheck':paint_report,'featureCleanup':smoothing_report,'featureSamples':feature_samples})
     root.location.x = -1. if name=='guard' else 1.
 
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'docs/graphics-prototype/rebuilt-pieces.blend'))
 manifest_path = OUT/'manifest.json'
 manifest = json.loads(manifest_path.read_text())
-manifest['method'] = 'Source-derived Guard/Archer with selective feature smoothing, continuous cut-in paint boundaries and baked crease shading; earlier blockouts retained for comparison'
+manifest['method'] = 'Source-derived Guard/Archer with crease-protected surface relaxation, weighted normals and feature-specific paint boundaries and baked crease shading; earlier blockouts retained for comparison'
 manifest['models'] = [m for m in manifest['models'] if m['name'] not in ['rebuilt-guard','rebuilt-archer']] + report
 manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
 print('REFINEMENT_REPORT',json.dumps(report))

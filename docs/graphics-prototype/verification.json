@@ -122,10 +122,10 @@
       "name": "Each multi-part figure has one distinct mask ID",
       "ok": true,
       "detail": {
-        "1": 11596,
-        "2": 12749,
-        "3": 24883,
-        "4": 28635
+        "1": 12112,
+        "2": 13282,
+        "3": 25353,
+        "4": 29166
       }
     },
     {
@@ -133,32 +133,32 @@
       "ok": true,
       "detail": {
         "counts": {
-          "1": 11596,
-          "2": 12749,
-          "3": 24883,
-          "4": 28635
+          "1": 12112,
+          "2": 13282,
+          "3": 25353,
+          "4": 29166
         },
         "visibleHeights": {
           "1": 229,
-          "2": 239,
-          "3": 228,
-          "4": 230
+          "2": 240,
+          "3": 232,
+          "4": 233
         },
-        "boundaries": 834,
-        "meanBoundaryContrastOff": 51.93374004796168,
-        "meanBoundaryContrastOn": 55.59793141486804,
-        "changed": 3540,
+        "boundaries": 871,
+        "meanBoundaryContrastOff": 43.90651894374276,
+        "meanBoundaryContrastOn": 53.543011021813975,
+        "changed": 3641,
         "changedBackground": 0,
         "backgroundChanges": [],
-        "callsOff": 43,
-        "callsOn": 84
+        "callsOff": 31,
+        "callsOn": 60
       }
     },
     {
       "name": "Contours leave the board/background untouched",
       "ok": true,
       "detail": {
-        "changed": 3540,
+        "changed": 3641,
         "background": 0,
         "changes": []
       }
@@ -167,8 +167,8 @@
       "name": "Off skips the extra identity render",
       "ok": true,
       "detail": {
-        "off": 43,
-        "on": 84
+        "off": 31,
+        "on": 60
       }
     },
     {
@@ -179,10 +179,10 @@
       "name": "Sprite masks follow cutouts rather than atlas rectangles",
       "ok": true,
       "detail": [
-        0.4338235294117647,
-        0.4186013789221894,
-        0.644299023957409,
-        0.6486965076242007
+        0.44269776876267747,
+        0.4302357836338419,
+        0.6398022781001504,
+        0.6545138888888888
       ]
     },
     {
@@ -191,23 +191,57 @@
       "detail": [
         {
           "type": "guard",
-          "triangles": 13987,
+          "triangles": 22416,
           "colors": true
         },
         {
           "type": "archer",
-          "triangles": 15886,
+          "triangles": 20968,
           "colors": true
         },
         {
           "type": "guard",
-          "triangles": 13987,
+          "triangles": 22416,
           "colors": true
         },
         {
           "type": "archer",
-          "triangles": 15886,
+          "triangles": 20968,
           "colors": true
+        }
+      ]
+    },
+    {
+      "name": "Refined figures use only army colour and one feature accent",
+      "ok": true,
+      "detail": [
+        {
+          "type": "guard",
+          "roles": [
+            "accent1",
+            "army"
+          ]
+        },
+        {
+          "type": "archer",
+          "roles": [
+            "accent1",
+            "army"
+          ]
+        },
+        {
+          "type": "guard",
+          "roles": [
+            "accent1",
+            "army"
+          ]
+        },
+        {
+          "type": "archer",
+          "roles": [
+            "accent1",
+            "army"
+          ]
         }
       ]
     },
@@ -241,7 +275,7 @@
     },
     {
       "variant": "rebuilt",
-      "stats": "4 pieces · 59,746 figure triangles\n2 scene draws · beauty + piece IDs · no hardware FPS claim"
+      "stats": "4 pieces · 86,768 figure triangles\n2 scene draws · beauty + piece IDs · no hardware FPS claim"
     },
     {
       "variant": "sprites",
@@ -254,53 +288,53 @@
     {
       "detailStudy": {
         "counts": {
-          "1": 11596,
-          "2": 12749,
-          "3": 24883,
-          "4": 28635
+          "1": 12112,
+          "2": 13282,
+          "3": 25353,
+          "4": 29166
         },
         "visibleHeights": {
           "1": 229,
-          "2": 239,
-          "3": 228,
-          "4": 230
+          "2": 240,
+          "3": 232,
+          "4": 233
         },
-        "boundaries": 834,
-        "meanBoundaryContrastOff": 51.93374004796168,
-        "meanBoundaryContrastOn": 55.59793141486804,
-        "changed": 3540,
+        "boundaries": 871,
+        "meanBoundaryContrastOff": 43.90651894374276,
+        "meanBoundaryContrastOn": 53.543011021813975,
+        "changed": 3641,
         "changedBackground": 0,
         "backgroundChanges": [],
-        "callsOff": 43,
-        "callsOn": 84
+        "callsOff": 31,
+        "callsOn": 60
       },
       "spriteMaskFill": [
-        0.4338235294117647,
-        0.4186013789221894,
-        0.644299023957409,
-        0.6486965076242007
+        0.44269776876267747,
+        0.4302357836338419,
+        0.6398022781001504,
+        0.6545138888888888
       ]
     },
     {
       "refinedModels": [
         {
           "type": "guard",
-          "triangles": 13987,
+          "triangles": 22416,
           "colors": true
         },
         {
           "type": "archer",
-          "triangles": 15886,
+          "triangles": 20968,
           "colors": true
         },
         {
           "type": "guard",
-          "triangles": 13987,
+          "triangles": 22416,
           "colors": true
         },
         {
           "type": "archer",
-          "triangles": 15886,
+          "triangles": 20968,
           "colors": true
         }
       ]

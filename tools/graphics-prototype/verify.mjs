@@ -86,6 +86,8 @@ await page.setViewportSize({width:1440,height:1000});
 await page.goto('http://localhost:5190/?study&variant=rebuilt&scene=pair&pixels=0.5&contours=adaptive&detail=refined');await page.waitForFunction(()=>window.study);
 const refined=await page.evaluate(()=>study.entries.map(e=>{let triangles=0,colors=false; e.visual.traverse(o=>{if(o.isMesh){triangles+=(o.geometry.index?.count??o.geometry.attributes.position.count)/3; colors ||= o.geometry.hasAttribute('color');}});return {type:e.type,triangles,colors};}));
 check('Refined surfaces contain actual source detail and crease colours',refined.every(e=>e.triangles>10000&&e.colors),refined);
+const featureRoles=await page.evaluate(()=>study.entries.map(e=>{const roles=new Set();e.visual.traverse(o=>{if(o.isMesh)for(const m of Array.isArray(o.material)?o.material:[o.material])roles.add(m.name);});return {type:e.type,roles:[...roles].sort()};}));
+check('Refined figures use only army colour and one feature accent',featureRoles.every(e=>e.roles.join(',')==='accent1,army'),featureRoles);
 await page.screenshot({path:out+'/captures/refined-pair-halfpx.png'});
 await page.selectOption('#figure-detail','blockout');await page.waitForFunction(()=>study.entries.length===4&&study.entries.every(e=>e.visual.userData.modelKey.startsWith('blockout')));
 await page.screenshot({path:out+'/captures/blockout-pair-halfpx.png'});

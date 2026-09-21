@@ -1,5 +1,5 @@
 {
-  "method": "Source-derived Guard/Archer with selective feature smoothing, continuous cut-in paint boundaries and baked crease shading; earlier blockouts retained for comparison",
+  "method": "Source-derived Guard/Archer with crease-protected surface relaxation, weighted normals and feature-specific paint boundaries and baked crease shading; earlier blockouts retained for comparison",
   "models": [
     {
       "name": "blockout-guard",
@@ -43,63 +43,105 @@
     },
     {
       "name": "rebuilt-guard",
-      "triangles": 13987,
-      "bytes": 347620,
+      "triangles": 22416,
+      "bytes": 871068,
       "source": "Guard_22mm.obj",
       "sourceTriangles": 60180,
       "materialAreaShare": {
-        "army": 0.7721,
-        "shade": 0.0219,
-        "light": 0.0055,
+        "army": 0.8177,
+        "shade": 0.0,
+        "light": 0.0,
         "ink": 0.0,
-        "accent1": 0.1996,
-        "accent2": 0.0009
+        "accent1": 0.1823,
+        "accent2": 0.0
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 1.3311944879745852e-09,
-        "sourceReducedTriangles": 11999,
-        "paintedTriangles": 13987
+        "surfaceAreaRelativeError": 1.2521321979264144e-08,
+        "sourceReducedTriangles": 17999,
+        "paintedTriangles": 22416
       },
       "featureCleanup": {
-        "iterations": 24,
-        "maxDisplacement": 0.028000059347692112,
-        "rmsDisplacement": 0.011121015997128685,
+        "iterations": 3,
+        "pinnedCreaseVertices": 20547,
+        "maxDisplacement": 0.004200058945375999,
+        "rmsDisplacement": 0.001693496172029748,
         "height": 1.4
-      }
+      },
+      "featureSamples": [
+        {
+          "feature": "left shoulder",
+          "role": "accent1"
+        },
+        {
+          "feature": "right shoulder",
+          "role": "accent1"
+        },
+        {
+          "feature": "helmet",
+          "role": "army"
+        },
+        {
+          "feature": "chest",
+          "role": "army"
+        }
+      ]
     },
     {
       "name": "rebuilt-archer",
-      "triangles": 15886,
-      "bytes": 391632,
+      "triangles": 20968,
+      "bytes": 612832,
       "source": "Archer_2.obj",
       "sourceTriangles": 36502,
       "materialAreaShare": {
-        "army": 0.7958,
-        "shade": 0.1,
-        "light": 0.0197,
+        "army": 0.9427,
+        "shade": 0.0,
+        "light": 0.0,
         "ink": 0.0,
-        "accent1": 0.0681,
-        "accent2": 0.0165
+        "accent1": 0.0573,
+        "accent2": 0.0
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 2.916428876176269e-09,
-        "sourceReducedTriangles": 14000,
-        "paintedTriangles": 15886
+        "surfaceAreaRelativeError": 3.8630306731235464e-09,
+        "sourceReducedTriangles": 20000,
+        "paintedTriangles": 20968
       },
       "featureCleanup": {
-        "iterations": 16,
-        "maxDisplacement": 0.013050029802297166,
-        "rmsDisplacement": 0.0061436731405476435,
+        "iterations": 3,
+        "pinnedCreaseVertices": 8271,
+        "maxDisplacement": 0.0043500496722451145,
+        "rmsDisplacement": 0.0016323629309707057,
         "height": 1.45
-      }
+      },
+      "featureSamples": [
+        {
+          "feature": "hood crown",
+          "role": "accent1"
+        },
+        {
+          "feature": "hood side",
+          "role": "accent1"
+        },
+        {
+          "feature": "face",
+          "role": "army"
+        },
+        {
+          "feature": "chin",
+          "role": "army"
+        },
+        {
+          "feature": "braid",
+          "role": "army"
+        }
+      ]
     }
   ]
 }

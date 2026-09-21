@@ -1,0 +1,30 @@
+[
+  {
+    "model": "guard",
+    "triangles": 22416,
+    "materialRoles": [
+      "accent1",
+      "army"
+    ],
+    "maxNormalLengthSquaredError": 2.7395218760162265e-07,
+    "neutralCOLOR_0_range": [
+      32768,
+      65535
+    ],
+    "finitePositions": true
+  },
+  {
+    "model": "archer",
+    "triangles": 20968,
+    "materialRoles": [
+      "accent1",
+      "army"
+    ],
+    "maxNormalLengthSquaredError": 2.601846134098196e-07,
+    "neutralCOLOR_0_range": [
+      32768,
+      65535
+    ],
+    "finitePositions": true
+  }
+]
