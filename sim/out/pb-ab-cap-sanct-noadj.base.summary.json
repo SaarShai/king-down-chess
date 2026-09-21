@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "pb-ab-cap-sanct-noadj.base",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {},
+    "adjudicate": false,
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 644.9,
+  "whiteScore": 0.5656,
+  "whiteWins": 808,
+  "draws": 194,
+  "blackWins": 598,
+  "meanPlies": 149.7,
+  "reasons": {
+    "checkmate": 1406,
+    "drawMaterial": 28,
+    "plyCap": 44,
+    "drawRepetition": 105,
+    "stalemate": 3,
+    "draw50": 14
+  }
+}
