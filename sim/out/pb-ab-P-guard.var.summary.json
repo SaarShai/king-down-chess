@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-ab-P-guard.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "promotionSet": "anyNonKing"
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 516.7,
+  "whiteScore": 0.5609,
+  "whiteWins": 732,
+  "draws": 331,
+  "blackWins": 537,
+  "meanPlies": 110.5,
+  "reasons": {
+    "adjudicatedResign": 1269,
+    "adjudicatedDraw": 251,
+    "drawRepetition": 47,
+    "plyCap": 16,
+    "drawMaterial": 10,
+    "stalemate": 2,
+    "draw50": 5
+  }
+}

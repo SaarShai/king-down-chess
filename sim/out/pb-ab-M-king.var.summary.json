@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-ab-M-king.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "maesterKingSwapAnywhere": true
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 256.1,
+  "whiteScore": 0.5725,
+  "whiteWins": 750,
+  "draws": 332,
+  "blackWins": 518,
+  "meanPlies": 110.9,
+  "reasons": {
+    "adjudicatedResign": 1268,
+    "adjudicatedDraw": 259,
+    "drawRepetition": 42,
+    "plyCap": 13,
+    "draw50": 10,
+    "drawMaterial": 7,
+    "stalemate": 1
+  }
+}

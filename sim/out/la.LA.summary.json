@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "la.LA",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "openingRandomPlies": 4,
+    "commonSeeds": true,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRRBBNNAAGMMSS"
+    },
+    "note": "paladin+archer factorial, LA arm: base pool plus the paladin (L) and both archers (A) = the shipped pool; interaction = LA - L - A + base.",
+    "maxPlies": 300
+  },
+  "games": 1600,
+  "seconds": 888.3,
+  "whiteScore": 0.5463,
+  "whiteWins": 718,
+  "draws": 312,
+  "blackWins": 570,
+  "meanPlies": 105.4,
+  "reasons": {
+    "adjudicatedResign": 1288,
+    "adjudicatedDraw": 252,
+    "draw50": 6,
+    "drawMaterial": 10,
+    "drawRepetition": 38,
+    "plyCap": 4,
+    "stalemate": 2
+  }
+}

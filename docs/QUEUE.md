@@ -95,6 +95,19 @@ Same method: fresh controls (today's rules = `plusDiagFwd2` archer, `ARCHER_V` 5
 | pb-ab-M-enemy | `maesterSwapEnemy=true` | **Ran: null** — the toggle is inert in play. |
 | pb-ab-L-return | `paladinReturn=true` | **Ran: reject** — white +2.3 ± 2.0, interest min-use −4.6 ± 1.8. |
 
+Second parallel batch (pool composition, game rules, capital): **pool composition is neutral** — two
+archers vs one, guard vs none, two beasts vs one are all null on outcomes (weak pace effects only:
+guard +3.1 plies, two beasts +4.2 plies; a one-beast pool is a defensible candidate,
+`docs/research/sim-pool-*.md`). **Promotion sets** (`standard`, `anyNonKing`) null; **draw rules off**
+(`fiftyMove`, `insufficientMaterial`) null — the lab's adjudication reabsorbs them
+(`sim-promotion`, `sim-drawrules`). **Same-colour bishops** cosmetic (`sim-bishops`). **Capital C4**
+(pawn straight capture in the capital) fails its 1,600-game depth-4 confirmation (all depth-3
+directions reverse). **Capital C2 (sanctuary) is CONFIRMED** at 1,600/arm depth 4: draws **−0.027 ±
+0.026**, branching +1.6 ± 0.4, capped 1.7% → 3.1% (`sim-capital-c2-d4`); the four-rule package is
+outcome-null at depth 4 (`sim-capital-package`). **No-adjudication baseline**: played out, today's
+rules give **87.2% decisive vs 79.1%** adjudicated, 12.8% draws, mean 148.9 plies — the lab's
+decisive share is its own adjudication (`sim-no-adjudication-2026-09-17.md`).
+
 Parallel routes the same evening: guard levers re-measured (`docs/research/sim-guard-2026-09-17.md`:
 cap-pawns and step-2 null, `guardImmune=false` rejected — interest −0.015 ± 0.009, guard survival
 97% → 73%); capital rule **C1 built** (`guardNoCapital`, off) and measured **null** (decisive

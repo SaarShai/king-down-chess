@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-ab-D-50.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "fiftyMove": false
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 715.9,
+  "whiteScore": 0.5606,
+  "whiteWins": 731,
+  "draws": 332,
+  "blackWins": 537,
+  "meanPlies": 110.3,
+  "reasons": {
+    "adjudicatedResign": 1268,
+    "adjudicatedDraw": 257,
+    "drawRepetition": 47,
+    "plyCap": 16,
+    "drawMaterial": 10,
+    "stalemate": 2
+  }
+}

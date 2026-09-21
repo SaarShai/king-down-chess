@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "id": "mg.G",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "openingRandomPlies": 4,
+    "commonSeeds": true,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRRBBNNAASSG"
+    },
+    "note": "maester+guard factorial, G arm: base pool plus the guard (G); interaction = MG - M - G + base.",
+    "maxPlies": 300
+  },
+  "games": 1600,
+  "seconds": 690.5,
+  "whiteScore": 0.5569,
+  "whiteWins": 759,
+  "draws": 264,
+  "blackWins": 577,
+  "meanPlies": 103.3,
+  "reasons": {
+    "drawRepetition": 55,
+    "adjudicatedResign": 1336,
+    "adjudicatedDraw": 177,
+    "drawMaterial": 12,
+    "plyCap": 10,
+    "draw50": 10
+  }
+}

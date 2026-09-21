@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "pb-ab-cap-pawn-d4b.var",
+    "games": 1600,
+    "ai": {
+      "depth": 4
+    },
+    "seed": 72,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "pawnCapitalCapture": true
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 384,
+  "whiteScore": 0.5394,
+  "whiteWins": 654,
+  "draws": 418,
+  "blackWins": 528,
+  "meanPlies": 113.8,
+  "reasons": {
+    "adjudicatedResign": 1181,
+    "adjudicatedDraw": 275,
+    "drawRepetition": 50,
+    "draw50": 26,
+    "drawMaterial": 37,
+    "plyCap": 24,
+    "stalemate": 6,
+    "checkmate": 1
+  }
+}

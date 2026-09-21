@@ -1,0 +1,40 @@
+{
+  "spec": {
+    "id": "pb-ab-cap-pack.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "guardNoCapital": true,
+      "capitalSanctuary": true,
+      "guardCapitalStep": true,
+      "pawnCapitalCapture": true
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 781.7,
+  "whiteScore": 0.5356,
+  "whiteWins": 709,
+  "draws": 296,
+  "blackWins": 595,
+  "meanPlies": 105.7,
+  "reasons": {
+    "adjudicatedResign": 1303,
+    "adjudicatedDraw": 207,
+    "plyCap": 26,
+    "drawRepetition": 43,
+    "draw50": 14,
+    "drawMaterial": 4,
+    "stalemate": 2,
+    "checkmate": 1
+  }
+}

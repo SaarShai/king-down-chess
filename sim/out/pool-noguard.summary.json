@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "id": "pool-noguard",
+    "games": 2000,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRRBBNNAAMMSS"
+    },
+    "ai": {
+      "depth": 3
+    },
+    "seed": 85,
+    "commonSeeds": true,
+    "note": "Shipped pool with both guards removed (14 letters): 40 sampled back ranks, 2000 games, depth 3, seed 85.",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 926.8,
+  "whiteScore": 0.5337,
+  "whiteWins": 891,
+  "draws": 353,
+  "blackWins": 756,
+  "meanPlies": 105,
+  "reasons": {
+    "adjudicatedResign": 1647,
+    "adjudicatedDraw": 282,
+    "plyCap": 8,
+    "drawMaterial": 9,
+    "drawRepetition": 51,
+    "draw50": 3
+  }
+}

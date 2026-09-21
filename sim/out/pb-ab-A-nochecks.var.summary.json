@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-ab-A-nochecks.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerChecks": false
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 730.6,
+  "whiteScore": 0.5597,
+  "whiteWins": 715,
+  "draws": 361,
+  "blackWins": 524,
+  "meanPlies": 115.8,
+  "reasons": {
+    "adjudicatedResign": 1239,
+    "adjudicatedDraw": 269,
+    "draw50": 10,
+    "drawRepetition": 46,
+    "plyCap": 16,
+    "drawMaterial": 19,
+    "stalemate": 1
+  }
+}

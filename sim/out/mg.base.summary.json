@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "mg.base",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "openingRandomPlies": 4,
+    "commonSeeds": true,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRRBBNNAASS"
+    },
+    "note": "maester+guard factorial, base arm: 40 ranks sampled from the shipped pool minus both maesters (M) and the guard (G); interaction = MG - M - G + base.",
+    "maxPlies": 300
+  },
+  "games": 1600,
+  "seconds": 848.7,
+  "whiteScore": 0.5325,
+  "whiteWins": 728,
+  "draws": 248,
+  "blackWins": 624,
+  "meanPlies": 99.3,
+  "reasons": {
+    "adjudicatedResign": 1349,
+    "adjudicatedDraw": 165,
+    "drawRepetition": 49,
+    "draw50": 12,
+    "plyCap": 11,
+    "drawMaterial": 10,
+    "checkmate": 3,
+    "stalemate": 1
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "id": "pool-guard",
+    "games": 2000,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRRBBNNAAGMMSS"
+    },
+    "ai": {
+      "depth": 3
+    },
+    "seed": 85,
+    "commonSeeds": true,
+    "note": "Shipped pool: 40 sampled back ranks, 2000 games, depth 3, seed 85. Control arm for the no-guard pool.",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 883.8,
+  "whiteScore": 0.532,
+  "whiteWins": 876,
+  "draws": 376,
+  "blackWins": 748,
+  "meanPlies": 108.1,
+  "reasons": {
+    "adjudicatedResign": 1624,
+    "adjudicatedDraw": 284,
+    "drawRepetition": 54,
+    "draw50": 9,
+    "drawMaterial": 18,
+    "plyCap": 11
+  }
+}

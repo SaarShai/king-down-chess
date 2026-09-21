@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pb-ab-bishops.var",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 71,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "bishopsOppositeColours": false
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 1600,
+  "seconds": 719.9,
+  "whiteScore": 0.5637,
+  "whiteWins": 729,
+  "draws": 346,
+  "blackWins": 525,
+  "meanPlies": 110.8,
+  "reasons": {
+    "adjudicatedResign": 1254,
+    "adjudicatedDraw": 265,
+    "draw50": 6,
+    "drawRepetition": 44,
+    "plyCap": 17,
+    "drawMaterial": 12,
+    "stalemate": 2
+  }
+}

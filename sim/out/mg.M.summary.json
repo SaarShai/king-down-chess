@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "mg.M",
+    "games": 1600,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 31,
+    "openingRandomPlies": 4,
+    "commonSeeds": true,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRRBBNNAASSMM"
+    },
+    "note": "maester+guard factorial, M arm: base pool plus both maesters (M); interaction = MG - M - G + base.",
+    "maxPlies": 300
+  },
+  "games": 1600,
+  "seconds": 1134.1,
+  "whiteScore": 0.5413,
+  "whiteWins": 701,
+  "draws": 330,
+  "blackWins": 569,
+  "meanPlies": 106.4,
+  "reasons": {
+    "adjudicatedResign": 1269,
+    "draw50": 14,
+    "adjudicatedDraw": 257,
+    "drawRepetition": 45,
+    "drawMaterial": 7,
+    "plyCap": 7,
+    "checkmate": 1
+  }
+}

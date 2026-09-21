@@ -1,0 +1,32 @@
+{
+  "spec": {
+    "id": "one",
+    "games": 2000,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRRBBNNAGMSS"
+    },
+    "ai": {
+      "depth": 3
+    },
+    "seed": 84,
+    "commonSeeds": true,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 960.1,
+  "whiteScore": 0.5503,
+  "whiteWins": 898,
+  "draws": 405,
+  "blackWins": 697,
+  "meanPlies": 108.2,
+  "reasons": {
+    "adjudicatedResign": 1595,
+    "adjudicatedDraw": 307,
+    "drawMaterial": 23,
+    "drawRepetition": 50,
+    "draw50": 14,
+    "plyCap": 11
+  }
+}

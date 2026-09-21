@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "id": "pb-ab-cap-sanct-d4.var",
+    "games": 400,
+    "ai": {
+      "depth": 4
+    },
+    "seed": 72,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "capitalSanctuary": true
+    },
+    "backRanks": {
+      "sample": 40
+    },
+    "commonSeeds": true,
+    "values": {}
+  },
+  "games": 400,
+  "seconds": 725.9,
+  "whiteScore": 0.545,
+  "whiteWins": 179,
+  "draws": 78,
+  "blackWins": 143,
+  "meanPlies": 107.4,
+  "reasons": {
+    "adjudicatedResign": 322,
+    "adjudicatedDraw": 43,
+    "drawRepetition": 13,
+    "plyCap": 16,
+    "draw50": 5,
+    "drawMaterial": 1
+  }
+}
