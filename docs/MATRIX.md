@@ -13,9 +13,11 @@ powers and every card remain **○ designed, not built**. Q1–Q7 are all answer
 `pb-ab-base24` is a recorded old-paladin control, not a current baseline.
 
 Q1…Q6 point at `docs/QUEUE.md`. Piece letters: P N B R Q K standard · A archer · L paladin · G guard · M maester · S beast ·
-**O ogre · C catapult** — built 2026-09-14 as **lab pieces**: they are not in `POOL` and reach a game only through
+**O ogre · C catapult · V reaver · T templar** — built as **lab pieces**: they are not in `POOL` and reach a game only through
 `--pool` or an explicit back rank, so every ● in their columns would be misleading and their own rules read ◐.
-Measured in `docs/research/sim-new-pieces-2026-09-14.md`.
+**Status 2026-09-17:** the **Ogre** is the only one still under exploration (work plan gated in `TASKS.md`); the
+**Catapult** (both readings below 1.66 pawns, never fires in 38% of games), **Reaver** (safe reading neutral at
+depth 4) and **Templar** (rejected) are **paused in the lab** (`docs/research/sim-catapult-explore-2026-09-17.md`).
 
 ## A. Pieces
 
@@ -42,6 +44,8 @@ Measured in `docs/research/sim-new-pieces-2026-09-14.md`.
 | **5a Control — move any adjacent piece** | — | — | — | — | — | — | — | — | — | — | — | ◐ shoves one neighbour 1 square straight away onto an empty square; `ogreMode` repel / push | — | ○ Earth Quake (shove), ○ Sky Lift (swap two units) |
 | **5b Control — friends only** | — | — | — | — | — | — | — | — | — | ● swap with an adjacent friend; long swap with the king, both on home rank ◐ any friend anywhere (Q3) / king anywhere | — | ◐ a friend is shovable | — | ○ Control card, ○ Strike + Haste (Flame) |
 | **5c Control — enemies only** | — | — | — | — | — | — | — | — | — | ◐ swap with an adjacent enemy (not the king) | — | ◐ so is an enemy, a guard included — the point of the piece | — | ○ Curse (take over), ○ Freeze (deny a move) |
+| **5d Push — relocate a neighbour, then follow** | — | — | — | — | — | — | — | — | — | — | — | ◐ **built** (`ogreMode: 'push'`): the shoved piece moves one square straight away and the ogre steps onto the emptied square. Measured value **3.18 ± 0.44 pawns**; captures +39%, survival 65% → 49% vs repel; the depth-3 push-vs-repel A/B is not significant under today's rules (+2.1 ± 2.9 decisive) — depth-4 arm running | — | ○ Earth Quake, ○ Sky Lift |
+| **5e Repel — relocate a neighbour, stay put** | — | — | — | — | — | — | — | — | — | — | — | ◐ **built, lab default** (`ogreMode: 'repel'`): the shoved piece moves, the ogre holds its square. Measured value **2.25 ± 0.43 pawns** — the price 300 in `src/ai/eval.ts` overprices it by 0.75 ± 0.43 | — | ○ Freeze (deny a move), ○ Curse |
 | **6a Trigger on capture** | — | — | — | — | — | — | — | ● dies ◐ survives pawn captures (Q2) / never dies | ◐ spent after one capture (rejected) | — | ● may capture again ◐ off | — | — | ○ Rage (extra capture) |
 | **6b Rule vs one specific piece** | — | — | — | — | — | — | ◐ cannot take a king | ● cannot take a king | ● only a king takes it | ● long swap only with the king | ● no king as a chain step | ◐ never shoves a king of either colour | ◐ a lob may take a king, so it checks through the screen | ○ Holy Light (king ↔ pawns) |
 

@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "queen-with",
+    "games": 2000,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRRBBNNAAGMMSS"
+    },
+    "ai": {
+      "depth": 3
+    },
+    "seed": 88,
+    "commonSeeds": true,
+    "note": "Queen arm: shipped 15-letter pool, 40 sampled back ranks, 2000 games, depth 3, seed 88. Paired by gameId with queen-without.",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 777.8,
+  "whiteScore": 0.554,
+  "whiteWins": 928,
+  "draws": 360,
+  "blackWins": 712,
+  "meanPlies": 101.6,
+  "reasons": {
+    "adjudicatedResign": 1640,
+    "adjudicatedDraw": 278,
+    "drawRepetition": 46,
+    "draw50": 11,
+    "drawMaterial": 9,
+    "stalemate": 1,
+    "plyCap": 15
+  }
+}
