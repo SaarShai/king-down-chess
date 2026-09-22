@@ -24,10 +24,10 @@ for(const a of atlases)await writeFile(`public/prototype/atlases/${a.name}.png`,
 check('Four 16-view atlases',atlases.length===4,{count:atlases.length});
 await page.evaluate(()=>window.study.choose('rebuilt'));
 check('Desktop pair uses available space',await page.evaluate(()=>{const v=window.view;const b=v.frame3d.geometry.boundingBox??(v.frame3d.geometry.computeBoundingBox(),v.frame3d.geometry.boundingBox);const xs=[];for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z])xs.push(v.camera.position.clone().set(x,y,z).applyMatrix4(v.frame3d.matrixWorld).project(v.camera).x);const span=Math.max(...xs)-Math.min(...xs);return span>1&&span<1.9;}));
-await page.locator('#move').click();await page.waitForFunction(()=>study.entries.some(e=>e.root.position.distanceTo(e.base)>.02),{},{timeout:12000});
+await page.locator('#move').click();await page.waitForTimeout(200);
 check('Move changes world placement',await page.evaluate(()=>window.study.entries.some(e=>e.root.position.distanceTo(e.base)>.02)));
 await page.waitForFunction(()=>!window.study.running,{},{timeout:12000});
-check('Move settles at the next square',await page.evaluate(()=>window.study.entries.every(e=>Math.abs(e.root.position.distanceTo(e.base)-1)<.00001)));
+check('Move returns to exact study placement',await page.evaluate(()=>window.study.entries.every(e=>e.root.position.distanceTo(e.base)<.00001)));
 await page.locator('#ability').click();await page.waitForTimeout(650);await page.screenshot({path:out+'/captures/rebuilt-ability.png'});await page.waitForFunction(()=>!window.study.running,{},{timeout:12000});
 check('Ability completes',!await page.evaluate(()=>window.study.running));
 await page.evaluate(()=>window.study.setScene('six'));await page.screenshot({path:out+'/captures/rebuilt-six.png'});check('Six types both armies',await page.evaluate(()=>window.study.entries.length===12));
@@ -73,7 +73,7 @@ await page.selectOption('#contours','silhouette');await page.screenshot({path:ou
 await page.selectOption('#contours','adaptive');await page.selectOption('#pixels','1.5');
 await page.locator('#spin').click();await page.waitForTimeout(300);await page.locator('#spin').click();await page.locator('#reset').click();
 await page.locator('#move').click();await page.waitForFunction(()=>!study.running,{},{timeout:12000});
-check('Overlap travel settles at its destination',await page.evaluate(()=>study.entries.every(e=>Math.abs(e.root.position.distanceTo(e.base)-1)<.00001)));
+check('Overlap mode motion returns figures home',await page.evaluate(()=>study.entries.every(e=>e.root.position.distanceTo(e.base)<.00001)));
 await page.evaluate(()=>study.choose('sprites'));await page.waitForTimeout(120);
 const spriteMask=await page.evaluate(()=>{view.composer.render();const t=study.contourPass.ids,a=new Uint8Array(t.width*t.height*4);view.renderer.readRenderTargetPixels(t,0,0,t.width,t.height,a);const b={};for(let y=0;y<t.height;y++)for(let x=0;x<t.width;x++){const id=a[(y*t.width+x)*4];if(!id)continue;const p=b[id]??={minX:x,maxX:x,minY:y,maxY:y,n:0};p.minX=Math.min(p.minX,x);p.maxX=Math.max(p.maxX,x);p.minY=Math.min(p.minY,y);p.maxY=Math.max(p.maxY,y);p.n++;}return Object.values(b).map(p=>p.n/((p.maxX-p.minX+1)*(p.maxY-p.minY+1)));});
 check('Sprite masks follow cutouts rather than atlas rectangles',spriteMask.length===4&&spriteMask.every(r=>r>.15&&r<.85),spriteMask);
