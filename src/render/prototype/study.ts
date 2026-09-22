@@ -10,7 +10,7 @@ import { loadModels } from '../voxels';
 import { fromFen } from '../../rules/setup';
 import { PieceContourPass, type ContourMode } from './PieceContourPass';
 import { WalkPreview, type ClayCadence } from './WalkPreview';
-import { CLAY_LOOK_COPY, CLAY_LOOK_LABELS, CLAY_LOOKS, type ClayLook, applyLookLighting, ensureSurfaceUv, materialForLook } from './ClayLook';
+import { CLAY_LOOK_COPY, CLAY_LOOK_LABELS, CLAY_LOOKS, type ClayLook, applyLookLighting, ensureSurfaceUv, materialForLook, softenClayNormals } from './ClayLook';
 import { CAST, character, defaultCharacter } from './CastCatalog';
 import './study.css';
 
@@ -70,6 +70,7 @@ function visual(name:string,side:number,rebuilt:boolean):THREE.Group {
  const refined=rebuilt&&variant==='rebuilt'&&figureDetail==='refined';
  const key=refined?'rebuilt-'+defaultCharacter(name):pair&&rebuilt?(variant==='quiet'||figureDetail==='blockout'?'blockout-':'rebuilt-')+name:'original-'+name;
  const g=clone(models.get(key)!) as THREE.Group;
+ if(variant==='rebuilt'&&look==='handmade')softenClayNormals(g);
  g.traverse(o=>{if((o as THREE.Mesh).isMesh){const m=o as THREE.Mesh;ensureSurfaceUv(m.geometry);const mats=Array.isArray(m.material)?m.material:[m.material];const replaced=mats.map(x=>material(x.name,name,side,m.geometry.hasAttribute('color')));m.material=Array.isArray(m.material)?replaced:replaced[0];m.castShadow=false;m.receiveShadow=false;if((m as THREE.SkinnedMesh).isSkinnedMesh)m.frustumCulled=false;}});
  g.userData.modelKey=key;return g;
 }

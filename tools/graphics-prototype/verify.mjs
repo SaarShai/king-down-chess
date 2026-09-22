@@ -129,14 +129,15 @@ const walkEvidence=await page.evaluate(()=>{
  const t=study.contourPass.ids,ids=new Uint8Array(t.width*t.height*4);view.renderer.readRenderTargetPixels(t,0,0,t.width,t.height,ids);
  // A standard Three material supplies an independent reference for skeletal silhouettes.
  let Basic;view.scene.traverse(o=>{if(o.material?.type==='MeshBasicMaterial')Basic=o.material.constructor;});
- const white=new Basic({color:0xffffff,side:2}),black=new Basic({color:0,side:2});
+ const white=new Basic({color:0xffffff,side:2}),black=new Basic({color:0,side:2}),decal=new Basic({visible:false});
  const figures=new Set(skins.flat()),original=new Map();
- view.scene.traverse(o=>{if(o.isMesh){original.set(o,o.material);o.material=figures.has(o)?white:black;}});
+ // Ground-shadow decals are colour overlays, not opaque silhouette occluders.
+ view.scene.traverse(o=>{if(o.isMesh){const m=o.material;original.set(o,m);o.material=figures.has(o)?white:m.transparent&&!m.depthWrite?decal:black;}});
  const background=view.scene.background,previous=view.renderer.getRenderTarget(),reference=t.clone();
  view.scene.background=background.clone().set(0);view.renderer.setRenderTarget(reference);view.renderer.render(view.scene,view.camera);
  const pixels=new Uint8Array(t.width*t.height*4);view.renderer.readRenderTargetPixels(reference,0,0,t.width,t.height,pixels);
  let maskMismatch=0,maskPixels=0;for(let i=0;i<ids.length;i+=4){const a=ids[i]>0,b=pixels[i]>128;if(a!==b)maskMismatch++;if(a)maskPixels++;}
- for(const [o,m] of original)o.material=m;view.scene.background=background;view.renderer.setRenderTarget(previous);reference.dispose();white.dispose();black.dispose();
+ for(const [o,m] of original)o.material=m;view.scene.background=background;view.renderer.setRenderTarget(previous);reference.dispose();white.dispose();black.dispose();decal.dispose();
  study.setWalking(false);for(const e of rigs)e.walk.reset();view.scene.updateMatrixWorld(true);
  const resetError=Math.max(...samples.flatMap((a,i)=>a.map((s,j)=>vertex(s).distanceTo(rest[i][j]))));
  return {rigs:rigs.map((e,i)=>({type:e.type,side:e.side,bones:bones[i].length,footVertices:samples[i].length,duration:e.walk.action.getClip().duration})),independent:new Set(bones.flat()).size===bones.flat().length,floorError,contactError,maxLift,maxDisplacement,seam,resetError,maskMismatch,maskPixels};

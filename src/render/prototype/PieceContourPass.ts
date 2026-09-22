@@ -11,7 +11,7 @@ export class PieceContourPass extends Pass {
   readonly ids = new THREE.WebGLRenderTarget(1, 1, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
   private pieces = new Map<THREE.Object3D, number>();
   private idMaterial = new THREE.ShaderMaterial({
-    uniforms: { pieceId: { value: 0 }, alphaMap: { value: null }, hasAlpha: { value: false }, uvTransform: { value: new THREE.Matrix3() } },
+    uniforms: { pieceId: { value: 0 }, alphaMap: { value: null }, hasAlpha: { value: false }, ignoreSurface: { value: false }, uvTransform: { value: new THREE.Matrix3() } },
     vertexShader: `varying vec2 vUv; uniform mat3 uvTransform;
       #include <skinning_pars_vertex>
       void main(){
@@ -21,8 +21,8 @@ export class PieceContourPass extends Pass {
         #include <skinning_vertex>
         gl_Position=projectionMatrix*modelViewMatrix*vec4(transformed,1.);
       }`,
-    fragmentShader: `varying vec2 vUv; uniform float pieceId; uniform sampler2D alphaMap; uniform bool hasAlpha;
-      void main(){if(hasAlpha && texture2D(alphaMap,vUv).a<.3)discard; gl_FragColor=vec4(pieceId,0.,0.,1.);}`,
+    fragmentShader: `varying vec2 vUv; uniform float pieceId; uniform sampler2D alphaMap; uniform bool hasAlpha,ignoreSurface;
+      void main(){if(ignoreSurface)discard; if(hasAlpha && texture2D(alphaMap,vUv).a<.3)discard; gl_FragColor=vec4(pieceId,0.,0.,1.);}`,
     side: THREE.DoubleSide,
   });
   private composite = new THREE.ShaderMaterial({
@@ -70,6 +70,8 @@ export class PieceContourPass extends Pass {
       const uniforms = this.idMaterial.uniforms;
       uniforms.pieceId.value = (this.pieces.get(object) ?? 0) / 255;
       const material = (object as THREE.Mesh).material as THREE.MeshBasicMaterial;
+      // Ground-shadow decals must not erase the boots from the ID mask.
+      uniforms.ignoreSurface.value = !this.pieces.has(object) && material?.transparent === true && material.depthWrite === false;
       const map = material?.map;
       uniforms.hasAlpha.value = Boolean(map && material.alphaTest > 0);
       if (map) { map.updateMatrix(); uniforms.alphaMap.value = map; uniforms.uvTransform.value.copy(map.matrix); }

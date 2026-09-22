@@ -122,10 +122,10 @@
       "name": "Each multi-part figure has one distinct mask ID",
       "ok": true,
       "detail": {
-        "1": 12112,
-        "2": 13282,
-        "3": 25353,
-        "4": 29166
+        "1": 12236,
+        "2": 13394,
+        "3": 25483,
+        "4": 29224
       }
     },
     {
@@ -133,21 +133,21 @@
       "ok": true,
       "detail": {
         "counts": {
-          "1": 12112,
-          "2": 13282,
-          "3": 25353,
-          "4": 29166
+          "1": 12236,
+          "2": 13394,
+          "3": 25483,
+          "4": 29224
         },
         "visibleHeights": {
-          "1": 229,
-          "2": 240,
-          "3": 232,
-          "4": 233
+          "1": 231,
+          "2": 242,
+          "3": 235,
+          "4": 236
         },
-        "boundaries": 871,
-        "meanBoundaryContrastOff": 43.90651894374276,
-        "meanBoundaryContrastOn": 53.543011021813975,
-        "changed": 3641,
+        "boundaries": 883,
+        "meanBoundaryContrastOff": 43.59282627406561,
+        "meanBoundaryContrastOn": 53.584494450736095,
+        "changed": 3674,
         "changedBackground": 0,
         "backgroundChanges": [],
         "callsOff": 31,
@@ -158,7 +158,7 @@
       "name": "Contours leave the board/background untouched",
       "ok": true,
       "detail": {
-        "changed": 3641,
+        "changed": 3674,
         "background": 0,
         "changes": []
       }
@@ -329,7 +329,7 @@
         "seam": 2.4913989196422234e-12,
         "resetError": 0,
         "maskMismatch": 0,
-        "maskPixels": 189174
+        "maskPixels": 189640
       }
     },
     {
@@ -345,7 +345,7 @@
       "ok": true,
       "detail": {
         "mismatch": 0,
-        "pixels": 189174
+        "pixels": 189640
       }
     },
     {
@@ -399,21 +399,21 @@
     {
       "detailStudy": {
         "counts": {
-          "1": 12112,
-          "2": 13282,
-          "3": 25353,
-          "4": 29166
+          "1": 12236,
+          "2": 13394,
+          "3": 25483,
+          "4": 29224
         },
         "visibleHeights": {
-          "1": 229,
-          "2": 240,
-          "3": 232,
-          "4": 233
+          "1": 231,
+          "2": 242,
+          "3": 235,
+          "4": 236
         },
-        "boundaries": 871,
-        "meanBoundaryContrastOff": 43.90651894374276,
-        "meanBoundaryContrastOn": 53.543011021813975,
-        "changed": 3641,
+        "boundaries": 883,
+        "meanBoundaryContrastOff": 43.59282627406561,
+        "meanBoundaryContrastOn": 53.584494450736095,
+        "changed": 3674,
         "changedBackground": 0,
         "backgroundChanges": [],
         "callsOff": 31,
@@ -490,7 +490,7 @@
         "seam": 2.4913989196422234e-12,
         "resetError": 0,
         "maskMismatch": 0,
-        "maskPixels": 189174
+        "maskPixels": 189640
       }
     }
   ],
