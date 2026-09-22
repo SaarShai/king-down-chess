@@ -1,0 +1,240 @@
+{
+  "passed": false,
+  "results": [
+    {
+      "key": "bishop",
+      "look": "current",
+      "cadence": "smooth",
+      "feet": [
+        {
+          "vertices": 68,
+          "calfVertices": 28,
+          "travel": 0.018667886458600097,
+          "lift": 0.009999990463256836,
+          "calfTravel": 0.02318288900219337
+        },
+        {
+          "vertices": 69,
+          "calfVertices": 26,
+          "travel": 0.018105270514778726,
+          "lift": 0.009999990463256836,
+          "calfTravel": 0.015100239256549838
+        }
+      ],
+      "minRatio": 0.08688572872288974,
+      "maxRatio": 4.8207776787466825,
+      "p99": 1.151845910691014,
+      "maxBootStrain": 0.002318280057637123,
+      "minFloor": 0.0015800457913428545,
+      "maxContactError": 0.009999990463256836,
+      "loopError": 0,
+      "resetError": 0,
+      "armies": 2,
+      "checks": {
+        "visibleBootsTakeFullSteps": false,
+        "lowerLegsFollow": false,
+        "shoesKeepTheirShape": false,
+        "oneFootRemainsPlanted": false,
+        "noTornOrCollapsedSurface": false,
+        "loopAndReset": true,
+        "bothArmies": true
+      }
+    },
+    {
+      "key": "bishop",
+      "look": "handmade",
+      "cadence": "smooth",
+      "feet": [
+        {
+          "vertices": 68,
+          "calfVertices": 28,
+          "travel": 0.018667886458600038,
+          "lift": 0.009999990463256931,
+          "calfTravel": 0.023182889042443647
+        },
+        {
+          "vertices": 69,
+          "calfVertices": 26,
+          "travel": 0.018105270504966936,
+          "lift": 0.009999990463256931,
+          "calfTravel": 0.015100239339846173
+        }
+      ],
+      "minRatio": 0.08688572874064411,
+      "maxRatio": 4.820777753503884,
+      "p99": 1.1516115548135009,
+      "maxBootStrain": 0.0023182818054838794,
+      "minFloor": 0.0015800457913428545,
+      "maxContactError": 0.009999990463256931,
+      "loopError": 0,
+      "resetError": 0,
+      "armies": 2,
+      "checks": {
+        "visibleBootsTakeFullSteps": false,
+        "lowerLegsFollow": false,
+        "shoesKeepTheirShape": false,
+        "oneFootRemainsPlanted": false,
+        "noTornOrCollapsedSurface": false,
+        "loopAndReset": true,
+        "bothArmies": true
+      }
+    },
+    {
+      "key": "bishop",
+      "look": "handmade",
+      "cadence": "stopmotion",
+      "feet": [
+        {
+          "vertices": 68,
+          "calfVertices": 28,
+          "travel": 0.018589617830799456,
+          "lift": 0.009927332387777286,
+          "calfTravel": 0.02300628771306523
+        },
+        {
+          "vertices": 69,
+          "calfVertices": 26,
+          "travel": 0.018052787034696233,
+          "lift": 0.009927332387777286,
+          "calfTravel": 0.015099928695120689
+        }
+      ],
+      "minRatio": 0.0762041930395358,
+      "maxRatio": 4.841008078645872,
+      "p99": 1.1505870224711054,
+      "maxBootStrain": 0.0023153870382022212,
+      "minFloor": 0.0016527037802425008,
+      "maxContactError": 0.009999990376676933,
+      "loopError": 0,
+      "resetError": 0,
+      "armies": 2,
+      "checks": {
+        "visibleBootsTakeFullSteps": false,
+        "lowerLegsFollow": false,
+        "shoesKeepTheirShape": false,
+        "oneFootRemainsPlanted": false,
+        "noTornOrCollapsedSurface": false,
+        "loopAndReset": true,
+        "bothArmies": true
+      }
+    },
+    {
+      "key": "paladin",
+      "look": "current",
+      "cadence": "smooth",
+      "feet": [
+        {
+          "vertices": 362,
+          "calfVertices": 131,
+          "travel": 0.0402716923611869,
+          "lift": 0.009999990310952556,
+          "calfTravel": 0.03300238412324458
+        },
+        {
+          "vertices": 389,
+          "calfVertices": 138,
+          "travel": 0.04851919541170266,
+          "lift": 0.009999990463256836,
+          "calfTravel": 0.030688698937482675
+        }
+      ],
+      "minRatio": 0.04487035872307681,
+      "maxRatio": 4.505885951154789,
+      "p99": 1.1236485194871257,
+      "maxBootStrain": 3.505885951154789,
+      "minFloor": 0,
+      "maxContactError": 0.003940696761963192,
+      "loopError": 0,
+      "resetError": 0,
+      "armies": 2,
+      "checks": {
+        "visibleBootsTakeFullSteps": false,
+        "lowerLegsFollow": false,
+        "shoesKeepTheirShape": false,
+        "oneFootRemainsPlanted": false,
+        "noTornOrCollapsedSurface": false,
+        "loopAndReset": true,
+        "bothArmies": true
+      }
+    },
+    {
+      "key": "paladin",
+      "look": "handmade",
+      "cadence": "smooth",
+      "feet": [
+        {
+          "vertices": 362,
+          "calfVertices": 131,
+          "travel": 0.040271692363366134,
+          "lift": 0.009999990310952563,
+          "calfTravel": 0.0330023841010984
+        },
+        {
+          "vertices": 389,
+          "calfVertices": 138,
+          "travel": 0.04851919541722374,
+          "lift": 0.009999990463256836,
+          "calfTravel": 0.03068869893983539
+        }
+      ],
+      "minRatio": 0.04487035893995045,
+      "maxRatio": 4.505885968932406,
+      "p99": 1.123585909851128,
+      "maxBootStrain": 3.5058859689324056,
+      "minFloor": 0,
+      "maxContactError": 0.003940696761963193,
+      "loopError": 0,
+      "resetError": 0,
+      "armies": 2,
+      "checks": {
+        "visibleBootsTakeFullSteps": false,
+        "lowerLegsFollow": false,
+        "shoesKeepTheirShape": false,
+        "oneFootRemainsPlanted": false,
+        "noTornOrCollapsedSurface": false,
+        "loopAndReset": true,
+        "bothArmies": true
+      }
+    },
+    {
+      "key": "paladin",
+      "look": "handmade",
+      "cadence": "stopmotion",
+      "feet": [
+        {
+          "vertices": 362,
+          "calfVertices": 131,
+          "travel": 0.03979407041679664,
+          "lift": 0.009744465655714536,
+          "calfTravel": 0.032506745167922124
+        },
+        {
+          "vertices": 389,
+          "calfVertices": 138,
+          "travel": 0.04713188055401217,
+          "lift": 0.00991481537510455,
+          "calfTravel": 0.02992052383238812
+        }
+      ],
+      "minRatio": 0.05322045101210238,
+      "maxRatio": 4.393717776810657,
+      "p99": 1.123666306149794,
+      "maxBootStrain": 3.3937177768106572,
+      "minFloor": 0.00008517493584760623,
+      "maxContactError": 0.003922245775324125,
+      "loopError": 0,
+      "resetError": 0,
+      "armies": 2,
+      "checks": {
+        "visibleBootsTakeFullSteps": false,
+        "lowerLegsFollow": false,
+        "shoesKeepTheirShape": false,
+        "oneFootRemainsPlanted": false,
+        "noTornOrCollapsedSurface": false,
+        "loopAndReset": true,
+        "bothArmies": true
+      }
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,101 @@
+{
+  "baseline": "01a4595",
+  "checks": [
+    {
+      "asset": "rebuilt-archer.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-beast.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-bishop.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": false,
+      "walkRepair": true
+    },
+    {
+      "asset": "rebuilt-guard.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-king-celestial.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-king-ember.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-king-frost.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-king-gaya.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-king-shadow.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-king-spirit.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-knight.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-maester.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-paladin.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": false,
+      "walkRepair": true
+    },
+    {
+      "asset": "rebuilt-pawn.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-queen.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    },
+    {
+      "asset": "rebuilt-rook.glb",
+      "surfaceBuffersUnchanged": true,
+      "wholeAssetUnchanged": true,
+      "walkRepair": false
+    }
+  ]
+}

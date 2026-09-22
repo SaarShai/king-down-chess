@@ -291,7 +291,7 @@
       "height": 1.55,
       "triangles": 17999,
       "sourceTriangles": 36377,
-      "bytes": 844204,
+      "bytes": 843732,
       "accent": 9590398,
       "feature": "Mitre",
       "materialAreaShare": {
@@ -456,7 +456,7 @@
       "height": 1.4,
       "triangles": 63913,
       "sourceTriangles": 67390,
-      "bytes": 4948992,
+      "bytes": 4949056,
       "accent": 13014852,
       "feature": "Raised chest cross",
       "materialAreaShare": {
@@ -493,7 +493,7 @@
         "duration": 1.6,
         "frames": 49,
         "strideSpan": 0.17,
-        "footLift": 0.052,
+        "footLift": 0.036,
         "stanceFraction": 0.62,
         "footTargetsGroundedEveryFrame": true,
         "bootLowering": [

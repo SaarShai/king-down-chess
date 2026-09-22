@@ -28,6 +28,26 @@ def add_roster_walk(obj, root, profile):
         bone=data.edit_bones.new(name);bone.head=basis@a;bone.tail=basis@b
     bpy.ops.object.mode_set(mode='OBJECT')
     groups={name:obj.vertex_groups.new(name=name) for name in points}
+    cleric_legs={}
+    if p['key'] in ['bishop','paladin']:
+        # Follow connected boot/shin surfaces rather than a cylinder that misses
+        # toes and catches nearby cloth. Bishop has separate source islands;
+        # Paladin's two legs join the body above the knee, inside its kilt.
+        neighbors=[set() for v in obj.data.vertices]
+        for edge in obj.data.edges:
+            a,b=edge.vertices;neighbors[a].add(b);neighbors[b].add(a)
+        remaining={v.index for v in obj.data.vertices if p['key']=='bishop' or v.co.z<.28};islands=0
+        while remaining:
+            first=remaining.pop();island={first};queue=[first]
+            while queue:
+                for j in neighbors[queue.pop()] & remaining:
+                    remaining.remove(j);island.add(j);queue.append(j)
+            vertices=[obj.data.vertices[i].co for i in island]
+            is_leg=(max(v.z for v in vertices)<.41 and max(v.x for v in vertices)-min(v.x for v in vertices)<.21) if p['key']=='bishop' else min(v.z for v in vertices)<.01
+            if is_leg:
+                side=0 if sum(v.x for v in vertices)/len(vertices)<pelvis.x else 1
+                cleric_legs.update({i:side for i in island});islands+=1
+        assert islands==(4 if p['key']=='bishop' else 2), 'Review boot/shin islands after changing the source mesh'
     def distance(v,a,b):
         t=max(0,min(1,(v-a).dot(b-a)/(b-a).length_squared));return (v-a.lerp(b,t)).length
     def leg(v,i):
@@ -38,6 +58,10 @@ def add_roster_walk(obj, root, profile):
             # Broad clay ankles need a broad bend, not a narrow boot cuff.
             f=1-smooth(a-.025,k+.025,v.z)
             thigh=smooth(k-.08,k+.08,v.z)
+        elif p['key'] in ['bishop','paladin']:
+            # Keep the whole shoe rigid, blending only above the ankle cuff.
+            f=1-smooth(.095,.23 if p['key']=='paladin' else .16,v.z)
+            if p['key']=='paladin':thigh=smooth(.20,.39,v.z)
         return {'foot.'+side:f,'shin.'+side:(1-f)*(1-thigh),'thigh.'+side:(1-f)*thigh}
     boot_floor=[math.inf,math.inf]
     for vertex in obj.data.vertices:
@@ -49,6 +73,11 @@ def add_roster_walk(obj, root, profile):
         for label,a,b,radius in p.get('prop_segments',[]):
             if distance(v,point(a),point(b))<radius:fixed=label
         if fixed:w={fixed:1.}
+        elif vertex.index in cleric_legs:
+            amount=1 if p['key']=='bishop' else 1-smooth(.15,.28,z)
+            w={k:a*amount for k,a in leg(v,cleric_legs[vertex.index]).items()}
+            side=smooth(pelvis.x-.10,pelvis.x+.10,x)
+            w.update({'cloth.L':(1-amount)*(1-side),'cloth.R':(1-amount)*side})
         elif p['key']=='beast':
             # Its hands and belly hang below the hips. Height alone assigned
             # them to opposing legs, tearing adjacent triangles as it stepped.
@@ -77,6 +106,7 @@ def add_roster_walk(obj, root, profile):
                 leg_amount=0 if p.get('concealed') else 1-smooth(p['leg_radius']*.72,p['leg_radius']*1.1,distance(v,ankles[i],knees[i]))
                 # Only the feet/low shins may drag the robe; higher folds belong to cloth.
                 leg_amount*=1-smooth(p.get('foot_top',.13),p.get('foot_top',.13)+.11,z)
+                if p['key'] in ['bishop','paladin']:leg_amount=0  # Actual legs were assigned above.
                 side=smooth(pelvis.x-.10,pelvis.x+.10,x)
                 w={k:a*(1-body)*leg_amount for k,a in leg(v,i).items()}
                 w.update({'cloth.L':(1-body)*(1-leg_amount)*(1-side),'cloth.R':(1-body)*(1-leg_amount)*side,'body':body})
