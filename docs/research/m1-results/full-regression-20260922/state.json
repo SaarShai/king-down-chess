@@ -1,0 +1,19 @@
+{
+  "pid": 54585,
+  "state": "passed",
+  "started": 1790069092.9979131,
+  "sourceHead": "c3393615a6eb11db21c6b7fd50e4eda471f300a2",
+  "checks": [
+    {
+      "name": "typescript",
+      "exitCode": 0,
+      "elapsed": 0.27231884002685547
+    },
+    {
+      "name": "full-tests",
+      "exitCode": 0,
+      "elapsed": 81.5367820262909
+    }
+  ],
+  "finished": 1790069174.819629
+}

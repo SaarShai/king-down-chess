@@ -1,0 +1,44 @@
+{
+  "phase": 1,
+  "state": "working",
+  "action": "Paired-start/spec validation",
+  "updated": "2026-09-22T08:09:35.401811+00:00",
+  "completedGames": 0,
+  "processes": [],
+  "phases": [
+    {
+      "phase": 1,
+      "state": "incomplete"
+    },
+    {
+      "phase": 2,
+      "state": "assigned_not_started"
+    },
+    {
+      "phase": 3,
+      "state": "assigned_not_started"
+    },
+    {
+      "phase": 4,
+      "state": "assigned_not_started"
+    },
+    {
+      "phase": 5,
+      "state": "assigned_not_started"
+    }
+  ],
+  "humanSessions": "pending_real_participants",
+  "contract": "docs/research/m1-supervised-campaign-2026-09-21.md",
+  "acceptedSubtasks": [
+    "replay legality",
+    "source identity",
+    "condition statistics"
+  ],
+  "identitySubtask": "accepted",
+  "conditionsSubtask": "accepted",
+  "conditionsReport": "campaign/conditions-fix-report.md",
+  "conditionsChecks": "campaign/conditions-checks.json",
+  "conditionsCommit": "f4482cba3eb7fa4d7b5e52b6966e49ebee1890fa",
+  "conditionsSupervisorReview": "campaign/conditions-supervisor-review.md",
+  "pairSubtask": "working"
+}

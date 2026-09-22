@@ -1,0 +1,18 @@
+{
+  "completed": "2026-09-22T08:50:38.585796+00:00",
+  "recordFiles": {
+    "/Users/new/projects/king-down-supervised-20260921/sim/out/m1-worker-validation-20260922-a.jsonl": {
+      "bytes": 37642,
+      "sha256": "3d66b5fa434df339d9e5f460e1eb42e656c28e6327fbd2b8ba287ffc60c506cb"
+    },
+    "/Users/new/projects/king-down-supervised-20260921/sim/out/m1-worker-validation-20260922-b.jsonl": {
+      "bytes": 37658,
+      "sha256": "336521d50ff40557afc50181ad5ffea8763cf6747d06acc7a9e2c95ed73915cb"
+    },
+    "/Users/new/projects/king-down-supervised-20260921/sim/out/m1-worker-validation-20260922-c.jsonl": {
+      "bytes": 37678,
+      "sha256": "a318e9fe6f84dda62d9f92c7c394bb5ee2679ce01ccacfebbdb079241f4adc1d"
+    }
+  },
+  "purpose": "24 short execution-validation records; not rule-study games"
+}

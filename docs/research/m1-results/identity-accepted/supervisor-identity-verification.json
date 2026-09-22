@@ -1,0 +1,20 @@
+{
+  "checked": "2026-09-22T06:26:44.699918+00:00",
+  "tsc": {
+    "returncode": 0,
+    "log": "/Users/new/projects/king-down-supervised-20260921-control/supervisor-identity-tsc.log"
+  },
+  "tests": {
+    "returncode": 0,
+    "log": "/Users/new/projects/king-down-supervised-20260921-control/supervisor-identity-tests.log"
+  },
+  "scenarios": {
+    "returncode": 0,
+    "log": "/Users/new/projects/king-down-supervised-20260921-control/supervisor-identity-scenarios.log"
+  },
+  "whitespace": {
+    "returncode": 0,
+    "log": "/Users/new/projects/king-down-supervised-20260921-control/supervisor-identity-whitespace.log"
+  },
+  "protectedDiffBytes": 0
+}

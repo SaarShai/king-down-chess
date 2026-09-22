@@ -1,0 +1,42 @@
+{
+  "checked": "2026-09-22T08:37:55.453907+00:00",
+  "runner": {
+    "phase": 1,
+    "round": "20260922T083604Z",
+    "runnerPid": 53170,
+    "prompt": "/Users/new/projects/king-down-supervised-20260921-control/pair-starts-only.txt",
+    "log": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T083604Z.jsonl",
+    "errors": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T083604Z.stderr.log",
+    "started": 1790066164.35555,
+    "state": "running",
+    "agentPid": 53171
+  },
+  "session": {
+    "id": "ses_f37bdfa60ffePKoqA34hDXcM90",
+    "directory": "/Users/new/projects/king-down-supervised-20260921"
+  },
+  "logBytes": 0,
+  "stderrBytes": 0,
+  "recentEvents": [],
+  "head": {
+    "rc": 0,
+    "out": "f4482cba3eb7fa4d7b5e52b6966e49ebee1890fa\n",
+    "err": ""
+  },
+  "protectedDiff": {
+    "rc": 0,
+    "out": "",
+    "err": ""
+  },
+  "workDiff": {
+    "rc": 0,
+    "out": "",
+    "err": ""
+  },
+  "processes": {
+    "rc": 0,
+    "out": "  PID  PPID ELAPSED  %CPU COMM\n53170     1   01:51   0.0 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python\n53171 53170   01:51   4.5 /Users/new/projects/king-down-supervised-20260921-control/runtime/node_modules/.bin/opencode\n",
+    "err": ""
+  },
+  "records": []
+}

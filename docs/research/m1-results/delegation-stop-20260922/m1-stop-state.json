@@ -1,0 +1,11 @@
+{
+  "phase": 1,
+  "state": "delegation_stopped_by_owner",
+  "updated": 1790071278.106876,
+  "remoteHead": "2109d67f6daebc2e7ebc543bd7778964b51f337f",
+  "activeModel": null,
+  "activeWriter": null,
+  "completedBalanceGames": 0,
+  "retainedValidationGames": 24,
+  "nextAction": "No delegation or outsourced job is scheduled. New explicit owner authorization required before remote work resumes; current documentation records capabilities for future use."
+}

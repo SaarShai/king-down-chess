@@ -1,0 +1,23 @@
+{
+  "changedAt": "2026-09-22T06:48:01.902435+00:00",
+  "reason": "Repeated 64KB TASKS reads filled 32k model context and forced compaction with zero code changes",
+  "preserved": {
+    "TASKS.md": {
+      "bytes": 63839,
+      "sha256": "baa49c94fcd2c7b5949da7f2fd2306bfeb24b1c88d68113e1f11a4f9866d0b73"
+    },
+    "LESSONS.md": {
+      "bytes": 29607,
+      "sha256": "93975397f6b41653ca50e2fd1beef82d0c87032beaf0c0ad84e0b3fb5c3d2180"
+    },
+    "AGENTS.md": {
+      "bytes": 1913,
+      "sha256": "1aacaf2020efae6c304160039610c0fc1c9af57bc6a8ea548aea2401fbfa4c4a"
+    }
+  },
+  "newBytes": {
+    "TASKS.md": 2220,
+    "LESSONS.md": 2070
+  },
+  "modelPromptCodeUnchanged": true
+}

@@ -1,0 +1,11 @@
+{
+  "phase": 1,
+  "round": "20260922T080935Z",
+  "runnerPid": 52765,
+  "prompt": "/Users/new/projects/king-down-supervised-20260921-control/pair-validation.txt",
+  "log": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T080935Z.jsonl",
+  "errors": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T080935Z.stderr.log",
+  "started": 1790064575.435613,
+  "state": "running",
+  "agentPid": 52766
+}

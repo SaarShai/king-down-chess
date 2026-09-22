@@ -1,0 +1,625 @@
+{
+  "checked": 1790069844.730774,
+  "agents": {
+    "provenance": {
+      "sessionID": "ses_f378ca9c5ffe6Ht5FsuhiKgsm1",
+      "directory": "/Users/za/.local/share/king-down-supervised-20260922/provenance",
+      "head": "a365c9805ea5aba6f4549dac4c28e32db9488f5b",
+      "status": " M AGENTS.md\n M LESSONS.md\n M TASKS.md\n?? node_modules\n?? opencode.json\n",
+      "artifacts": [
+        {
+          "path": "campaign/replay-accepted.json",
+          "bytes": 636,
+          "mtime": 1790069373.7119296
+        },
+        {
+          "path": "campaign/identity-fix-report.md",
+          "bytes": 1374,
+          "mtime": 1790069373.7117283
+        },
+        {
+          "path": "campaign/replay-fix-report.md",
+          "bytes": 819,
+          "mtime": 1790069373.7121596
+        },
+        {
+          "path": "campaign/identity-accepted.json",
+          "bytes": 1206,
+          "mtime": 1790069373.7115216
+        },
+        {
+          "path": "campaign/provenance-report.md",
+          "bytes": 6856,
+          "mtime": 1790069799.6934566
+        }
+      ],
+      "recent": [
+        {
+          "id": "msg_0c87962a00014sBhhtPv1Oywt4",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069793440,
+            "completed": 1790069796070
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "read",
+              "status": "completed",
+              "title": "campaign/provenance-report.md",
+              "input": {
+                "filePath": "/Users/za/.local/share/king-down-supervised-20260922/provenance/campaign/provenance-report.md",
+                "limit": 30,
+                "offset": 116
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c8796ce9001uLqB0WzWbEMrno",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069796073,
+            "completed": 1790069799719
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "edit",
+              "status": "completed",
+              "title": "campaign/provenance-report.md",
+              "input": {
+                "filePath": "/Users/za/.local/share/king-down-supervised-20260922/provenance/campaign/provenance-report.md",
+                "newString": "- Identity is limited to the three top-level fields named in the assignment; no other metadata is\n  cross-checked.\n- Values are compared as raw nonempty strings. The tool does not validate a hash format or length,\n  so an arbitrary nonempty identity string is accepted as-is.\n\n## Supervision corrections (2026-09-22)\n\n- Present but malformed identity values (non-string, empty, whitespace-only) are now rejected for\n  every field; only genuinely absent `undefined`/`null` is legacy. Compact unit and CLI regressions\n  added.\n- The synthetic `pairRec` fixture is now internally coherent: eight FEN ranks and White\n  `stats.start` `A:2` for the two Archers in `A5AK`.\n- Test-count claim corrected from the wrong old/new figures to baseline 14, new 17, total 31.",
+                "oldString": "- Identity is limited to the three top-level fields named in the assignment; no other metadata is\n  cross-checked."
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c8797b2b001BHTxkgQncVvmLd",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069799723,
+            "completed": 1790069808363
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "bash",
+              "status": "completed",
+              "title": "rm -rf .tmp-prov && npx tsc --noEmit; echo \"tsc exit=$?\"; npx vitest run tools/conditions.test.ts 2>&1 | tail -5; git diff --check; echo \"check exit=$?\"",
+              "input": {
+                "command": "rm -rf .tmp-prov && npx tsc --noEmit; echo \"tsc exit=$?\"; npx vitest run tools/conditions.test.ts 2>&1 | tail -5; git diff --check; echo \"check exit=$?\"",
+                "timeout": 120000,
+                "workdir": "/Users/za/.local/share/king-down-supervised-20260922/provenance"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c8799ced001P9vxV8hqHVtwoy",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069808365,
+            "completed": 1790069811729
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "bash",
+              "status": "completed",
+              "title": "git add tools/conditions.ts tools/conditions.test.ts campaign/provenance-report.md && git status --short && git commit -m \"Qualify paired comparisons by source and spec provenance\" && git log --oneline -1",
+              "input": {
+                "command": "git add tools/conditions.ts tools/conditions.test.ts campaign/provenance-report.md && git status --short && git commit -m \"Qualify paired comparisons by source and spec provenance\" && git log --oneline -1",
+                "workdir": "/Users/za/.local/share/king-down-supervised-20260922/provenance"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c879aa18001i5lnYYq7w6rmNW",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069811736,
+            "completed": 1790069814379
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "bash",
+              "status": "completed",
+              "title": "git show --stat --oneline HEAD | head -8; echo \"---\"; git show --name-only --format='' HEAD",
+              "input": {
+                "command": "git show --stat --oneline HEAD | head -8; echo \"---\"; git show --name-only --format='' HEAD",
+                "workdir": "/Users/za/.local/share/king-down-supervised-20260922/provenance"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c879b46e001wMR2jpOEU0V6qn",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069814382,
+            "completed": 1790069818185
+          },
+          "error": null,
+          "finish": "stop",
+          "tools": [],
+          "text": [
+            "Corrections applied and committed.\n\nCommit: `a365c98 Qualify paired comparisons by source and spec provenance` \u2014 exactly 3 files (`tools/conditions.ts`, `tools/conditions.test.ts`, `campaign/provenance-report.md`); no startup/config/log files.\n\nCorrections\n- Malformed present identity now rejected for every field: non-string (`typeof`), empty, and whitespace-only (`v.trim() === ''`). Only `undefined`/`null` counts as legacy/absent. Arbitrary nonempty strings pass; no hash-format check. See `identifyArm` tools/conditions.ts:132.\n- Fixture made coherent: `pairRec` FEN now 8 ranks `a6k/8/8/8/8/8/8/A5AK` with White `stats.start` `A:2` (tool: conditions.test.ts:265).\n- Report counts corrected to baseline 14, new 17, total 31; added a supervision-corrections section.\n\nEvidence\n- `npx tsx tools/conditions.ts --pair .tmp-prov/badA.jsonl,.tmp-prov/goodB.jsonl` \u2192 `Error: ... has a blank src value; an identity field must be a non-empty string or genuinely absent`, exit 2.\n- `npx tsc --noEmit` \u2192 exit 0.\n- `npx vitest run tools/conditions.test.ts` \u2192 `Tests 31 passed (31)`, exit 0.\n- `git diff --check` \u2192 exit 0.\n- New regressions cover non-string/empty/whitespace-only per field (unit + CLI), `null` as legacy, mixed/partial, different source, differing spec/rules with review, legacy and one-side-missing UNVERIFIED.\n\nTemp fixtures removed. AGENTS.md/LESSONS.md/TASKS.md (supervisor context) left uncommitted, untouched."
+          ]
+        }
+      ]
+    },
+    "search": {
+      "sessionID": "ses_f378ca8b5ffecujVHstHAVYG9H",
+      "directory": "/Users/za/.local/share/king-down-supervised-20260922/search",
+      "head": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+      "status": " M AGENTS.md\n M LESSONS.md\n M TASKS.md\n M src/ai/search.ts\n?? campaign/search-stall/\n?? node_modules\n?? opencode.json\n?? src/ai/search-stall.test.ts\n",
+      "artifacts": [
+        {
+          "path": "campaign/replay-accepted.json",
+          "bytes": 636,
+          "mtime": 1790069374.9346137
+        },
+        {
+          "path": "campaign/identity-fix-report.md",
+          "bytes": 1374,
+          "mtime": 1790069374.934493
+        },
+        {
+          "path": "campaign/replay-fix-report.md",
+          "bytes": 819,
+          "mtime": 1790069374.9347591
+        },
+        {
+          "path": "campaign/identity-accepted.json",
+          "bytes": 1206,
+          "mtime": 1790069374.934199
+        },
+        {
+          "path": "campaign/search-stall/probe.ts",
+          "bytes": 1071,
+          "mtime": 1790069542.4399397
+        },
+        {
+          "path": "campaign/search-stall/depth.ts",
+          "bytes": 736,
+          "mtime": 1790069581.887962
+        },
+        {
+          "path": "campaign/search-stall/warm.ts",
+          "bytes": 1061,
+          "mtime": 1790069616.4691381
+        },
+        {
+          "path": "campaign/search-stall/children.ts",
+          "bytes": 1049,
+          "mtime": 1790069628.1482806
+        },
+        {
+          "path": "campaign/search-stall/measure.ts",
+          "bytes": 1210,
+          "mtime": 1790069761.8753145
+        }
+      ],
+      "recent": [
+        {
+          "id": "msg_0c8796a92001NuYF9soPSMG1gE",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069795474,
+            "completed": 1790069807013
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "write",
+              "status": "completed",
+              "title": "src/ai/search-stall.test.ts",
+              "input": {
+                "filePath": "/Users/za/.local/share/king-down-supervised-20260922/search/src/ai/search-stall.test.ts",
+                "content": "import { describe, expect, it } from 'vitest';\nimport { Move, Position, legalMoves, makeMove, status } from '../rules/engine';\nimport { fromFen, toLan } from '../rules/setup';\nimport { MATE, resetSearchState, search } from './search';\n\n/**\n * Focused guard for the quiescence check-extension stall prerequisite.\n *\n * The FEN is the fresh baseline of missing game 884 (pb-ab-O-push-d4-v318.base.jsonl, seed\n * 41174341, O318 depth 4, after 103 plies). A fresh search of it is *not* the historical\n * 25-minute stall; it only exercises the prerequisite. At fixed depth 4, quiescence reaches a\n * check at qdepth 0, drives qdepth to -55 through consecutive in-check evasions, and walks a\n * repeat loop out to its `MAX_PLY + QMAX` cap (ply 71). Before the quiet cutoff used\n * `qdepth === 0`; the repair uses `qdepth <= 0`, so an exhausted/negative qdepth can no longer\n * disable the intended quiet cutoff in a quiet subtree. The in-check branch is untouched.\n *\n * Public search only: no clock, no test-only hooks. Node counts are deterministic because the\n * search runs with `maxDepth` and `hardDeadline = Infinity`.\n */\nconst STALL_FEN = 'g7/6k1/2q3pp/3o4/1p1p1P2/pQ1O2PP/6K1/2G5 w - - 0 1';\nconst lan = (pos: Position, m: Move | null): string => (m ? toLan(pos, m) : 'none');\n\ndescribe('quiescence stall guard (game 884 baseline FEN)', () => {\n  it('finishes fixed depth 4 with a legal move inside a defensible node bound', () => {\n    const pos = fromFen(STALL_FEN);\n    resetSearchState();\n    const res = search(pos, { maxDepth: 4 });\n    expect(res.move).not.toBeNull();\n    expect(legalMoves(pos).some(m => toLan(pos, m) === lan(pos, res.move))).toBe(true);\n    expect(res.depth).toBe(4);\n    // Fresh baseline is 25447 nodes; 40000 leaves room for harmless ordering changes while a\n    // reintroduced runaway check-extension would blow far past it.\n    expect(res.nodes).toBeLessThan(40000);\n  });\n\n  it('repeats itself exactly after resetSearchState', () => {\n    const pos = fromFen(STALL_FEN);\n    resetSearchState();\n    const a = search(pos, { maxDepth: 4 });\n    resetSearchState();\n    const b = search(pos, { maxDepth: 4 });\n    expect([b.score, b.nodes, lan(pos, b.move)]).toEqual([a.score, a.nodes, lan(pos, a.move)]);\n  });\n});\n\ndescribe('in-check behaviour survives the quiet cutoff repair', () => {\n  it('answers a root check with a legal evasion', () => {\n    const pos = fromFen('4k3/8/8/8/8/8/4r3/4K3 w - - 0 1');\n    expect(status(pos)).toBe('playing');\n    resetSearchState();\n    const res = search(pos, { maxDepth: 4 });\n    expect(res.move).not.toBeNull();\n    const legal = legalMoves(pos);\n    expect(legal.some(m => toLan(pos, m) === lan(pos, res.move))).toBe(true);\n    expect(status(makeMove(pos, res.move!))).toBe('playing');\n  });\n\n  it('still finds mate in one', () => {\n    const pos = fromFen('7k/8/6K1/8/8/8/8/1Q6 w - - 0 1');\n    resetSearchState();\n    const res = search(pos, { maxDepth: 3 });\n    expect(res.score).toBeGreaterThanOrEqual(MATE - 1);\n    expect(status(makeMove(pos, res.move!))).toBe('checkmate');\n  });\n});\n"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c87997a8001KNgVwSEU2X3gpG",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069807016,
+            "completed": 1790069811818
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "edit",
+              "status": "completed",
+              "title": "src/ai/search-stall.test.ts",
+              "input": {
+                "filePath": "/Users/za/.local/share/king-down-supervised-20260922/search/src/ai/search-stall.test.ts",
+                "oldString": "    const pos = fromFen('4k3/8/8/8/8/8/4r3/4K3 w - - 0 1');\n    expect(status(pos)).toBe('playing');\n    resetSearchState();\n    const res = search(pos, { maxDepth: 4 });\n    expect(res.move).not.toBeNull();\n    const legal = legalMoves(pos);\n    expect(legal.some(m => toLan(pos, m) === lan(pos, res.move))).toBe(true);\n    expect(status(makeMove(pos, res.move!))).toBe('playing');",
+                "newString": "    const pos = fromFen('4k3/8/8/8/8/8/4r3/4K3 w - - 0 1');\n    expect(status(pos)).toBe('playing'); // white king e1 is in check from the rook on e2\n    resetSearchState();\n    const res = search(pos, { maxDepth: 4 });\n    expect(res.move).not.toBeNull();\n    // legalMoves already means \"make the move, then look at your own king\": every returned\n    // evasion leaves the king safe, so a legal match is the check-evasion assertion.\n    expect(legalMoves(pos).some(m => toLan(pos, m) === lan(pos, res.move))).toBe(true);"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c879aa6d001mw1053jq1qIKoO",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069811821,
+            "completed": 1790069815460
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "bash",
+              "status": "completed",
+              "title": "timeout 110 npx vitest run src/ai/search-stall.test.ts 2>&1 | tail -40",
+              "input": {
+                "command": "timeout 110 npx vitest run src/ai/search-stall.test.ts 2>&1 | tail -40",
+                "workdir": "/Users/za/.local/share/king-down-supervised-20260922/search"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c879b8a6001jtfOt7MwLE033F",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069815462,
+            "completed": 1790069819988
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "bash",
+              "status": "completed",
+              "title": "git stash push -- src/ai/search.ts 2>/dev/null || true; git diff --stat -- src/ai/search.ts; echo \"--- running regression against ORIGINAL (baseline) search.ts ---\"; timeout 110 npx vitest run src/ai/search-stall.test.ts 2>&1 | tail -15; echo \"--- restoring fix ---\"; git stash pop 2>/dev/null || true; git diff --stat -- src/ai/search.ts",
+              "input": {
+                "command": "git stash push -- src/ai/search.ts 2>/dev/null || true; git diff --stat -- src/ai/search.ts; echo \"--- running regression against ORIGINAL (baseline) search.ts ---\"; timeout 110 npx vitest run src/ai/search-stall.test.ts 2>&1 | tail -15; echo \"--- restoring fix ---\"; git stash pop 2>/dev/null || true; git diff --stat -- src/ai/search.ts",
+                "workdir": "/Users/za/.local/share/king-down-supervised-20260922/search"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c879ca570017zDRbKjYyCB2BD",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069819991,
+            "completed": 1790069823843
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "bash",
+              "status": "completed",
+              "title": "timeout 110 npx tsc --noEmit 2>&1 | tail -20; echo \"TSC_EXIT=$?\"",
+              "input": {
+                "command": "timeout 110 npx tsc --noEmit 2>&1 | tail -20; echo \"TSC_EXIT=$?\"",
+                "workdir": "/Users/za/.local/share/king-down-supervised-20260922/search"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c879d9650014AcbLGgE6YIiY3",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069823845
+          },
+          "error": null,
+          "finish": null,
+          "tools": [
+            {
+              "tool": "bash",
+              "status": "running",
+              "title": null,
+              "input": {
+                "command": "timeout 290 npx vitest run src/ai/search.test.ts 2>&1 | tail -30",
+                "workdir": "/Users/za/.local/share/king-down-supervised-20260922/search",
+                "timeout": 300000
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        }
+      ]
+    },
+    "protocol": {
+      "sessionID": "ses_f378ca694ffeeSXYB0FMJNrrlN",
+      "directory": "/Users/za/.local/share/king-down-supervised-20260922/protocol",
+      "head": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+      "status": " M AGENTS.md\n M LESSONS.md\n M TASKS.md\n?? campaign/campaign-contract.md\n?? campaign/setups/\n?? campaign/specs/\n?? campaign/verify-phase-1.ts\n?? node_modules\n?? opencode.json\n",
+      "artifacts": [
+        {
+          "path": "campaign/replay-accepted.json",
+          "bytes": 636,
+          "mtime": 1790069375.7073636
+        },
+        {
+          "path": "campaign/verify-phase-1.ts",
+          "bytes": 17405,
+          "mtime": 1790069839.6255622
+        },
+        {
+          "path": "campaign/identity-fix-report.md",
+          "bytes": 1374,
+          "mtime": 1790069375.707272
+        },
+        {
+          "path": "campaign/replay-fix-report.md",
+          "bytes": 819,
+          "mtime": 1790069375.7074687
+        },
+        {
+          "path": "campaign/identity-accepted.json",
+          "bytes": 1206,
+          "mtime": 1790069375.7071733
+        },
+        {
+          "path": "campaign/specs/phase-1-beast-guard-focus.proposed.json",
+          "bytes": 16552,
+          "mtime": 1790069825.7729905
+        },
+        {
+          "path": "campaign/specs/phase-1-archer-classic.proposed.json",
+          "bytes": 14024,
+          "mtime": 1790069825.771986
+        },
+        {
+          "path": "campaign/specs/phase-1-archer-adopted.proposed.json",
+          "bytes": 14027,
+          "mtime": 1790069825.771835
+        },
+        {
+          "path": "campaign/specs/phase-1-eval-deep-linear.proposed.json",
+          "bytes": 21653,
+          "mtime": 1790069825.7728305
+        },
+        {
+          "path": "campaign/specs/phase-1-throughput-d4.proposed.json",
+          "bytes": 2853,
+          "mtime": 1790069825.771681
+        },
+        {
+          "path": "campaign/specs/phase-1-residual-eval.json",
+          "bytes": 126333,
+          "mtime": 1790069825.7712467
+        },
+        {
+          "path": "campaign/specs/phase-1-eval-linear-vs-residual.proposed.json",
+          "bytes": 21761,
+          "mtime": 1790069825.77265
+        },
+        {
+          "path": "campaign/specs/phase-1-throughput-d3.proposed.json",
+          "bytes": 2931,
+          "mtime": 1790069825.771571
+        },
+        {
+          "path": "campaign/setups/phase-1.json",
+          "bytes": 56197,
+          "mtime": 1790069825.7701156
+        },
+        {
+          "path": "campaign/setups/phase-1-generate.ts",
+          "bytes": 11055,
+          "mtime": 1790069821.962098
+        }
+      ],
+      "recent": [
+        {
+          "id": "msg_0c879507b001L4DCbKc4BRjex5",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069788795,
+            "completed": 1790069821985
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "write",
+              "status": "completed",
+              "title": "campaign/setups/phase-1-generate.ts",
+              "input": {
+                "filePath": "/Users/za/.local/share/king-down-supervised-20260922/protocol/campaign/setups/phase-1-generate.ts",
+                "content": "/**\n * Deterministic generator for the PHASE 1 setup/spec package. Re-running it reproduces\n * campaign/setups/phase-1.json, campaign/specs/phase-1-*.proposed.json and the pinned residual\n * arm byte for byte. It never searches, never plays a game and never reads a credential.\n *\n *   node_modules/.bin/tsx campaign/setups/phase-1-generate.ts\n *\n * The generated files are frozen artifacts: reviewers can re-derive them here, but the validator\n * (`campaign/verify-phase-1.ts`) checks the committed files, not this script's output.\n */\nimport { mkdirSync, writeFileSync } from 'node:fs';\nimport { mulberry32 } from '../../src/sim/rng';\nimport { sampleBackRank } from '../../src/sim/spec';\nimport { POOL } from '../../src/rules/setup';\nimport { evalParams } from '../../src/ai/eval';\nimport { NET_B64 } from '../../src/ai/nnue/weights';\n\nconst SEED = 20260922;\nconst MIRROR = 64;\nconst ASYM = 32;\nconst D = 4; // provisional confirmation depth; the reviewed M1 throughput pilot selects the real one\nconst PINNED_RESIDUAL = 'campaign/specs/phase-1-residual-eval.json';\n\nconst rng = mulberry32(SEED);\nconst seen = new Set<string>();\nconst ranks: string[] = [];\nwhile (ranks.length < MIRROR + ASYM * 2) {\n  const r = sampleBackRank(rng);\n  if (seen.has(r)) continue;\n  seen.add(r);\n  ranks.push(r);\n}\n\nconst startFen = (whiteRank: string, blackRank: string): string =>\n  `${blackRank.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${whiteRank} w - - 0 1`;\n\ninterface Setup {\n  id: string;\n  kind: 'mirror-start' | 'asymmetric-start';\n  white: { backRank: string; composition: string };\n  black: { backRank: string; composition: string };\n  fen: string;\n  fenSwapped: string;\n  hasArcherEitherSide: boolean;\n  hasBeastEitherSide: boolean;\n  hasGuardEitherSide: boolean;\n  bothHaveArcher: boolean;\n  bothHaveBeast: boolean;\n}\n\nconst kinds = (rank: string): string => [...new Set(rank.split('').filter(c => c !== 'K'))].sort().join('');\nconst setups: Setup[] = [];\nlet n = 0;\nconst push = (kind: Setup['kind'], wr: string, br: string): void => {\n  n++;\n  setups.push({\n    id: `P1-${String(n).padStart(3, '0')}`,\n    kind,\n    white: { backRank: wr, composition: kinds(wr) },\n    black: { backRank: br, composition: kinds(br) },\n    fen: startFen(wr, br),\n    fenSwapped: startFen(br, wr),\n    hasArcherEitherSide: wr.includes('A') || br.includes('A'),\n    hasBeastEitherSide: wr.includes('S') || br.includes('S'),\n    hasGuardEitherSide: wr.includes('G') || br.includes('G'),\n    bothHaveArcher: wr.includes('A') && br.includes('A'),\n    bothHaveBeast: wr.includes('S') && br.includes('S'),\n  });\n};\nfor (let i = 0; i < MIRROR; i++) push('mirror-start', ranks[i], ranks[i]);\nfor (let i = 0; i < ASYM; i++) push('asymmetric-start', ranks[MIRROR + 2 * i], ranks[MIRROR + 2 * i + 1]);\n\nconst LETTERS9 = 'QRLBNAGMS'.split('');\nconst letterCounts = (side: 'white' | 'black'): Record<string, number> => {\n  const c: Record<string, number> = Object.fromEntries(LETTERS9.map(l => [l, 0]));\n  for (const s of setups) for (const ch of s[side].backRank) if (c[ch] !== undefined) c[ch]++;\n  return c;\n};\nfor (const l of LETTERS9) if ((letterCounts('white')[l] ?? 0) < 10) throw new Error(`coverage: white ${l} too rare`);\nconst compositionCounts: Record<string, number> = {};\nfor (const s of setups) compositionCounts[s.white.composition] = (compositionCounts[s.white.composition] ?? 0) + 1;\n\nconst coverage = {\n  total: setups.length,\n  byKind: { 'mirror-start': MIRROR, 'asymmetric-start': ASYM },\n  distinctWhiteCompositions: Object.keys(compositionCounts).length,\n  topWhiteCompositions: Object.entries(compositionCounts).sort((a, b) => b[1] - a[1]).slice(0, 10),\n  whiteLetterCounts: letterCounts('white'),\n  blackLetterCounts: letterCounts('black'),\n  bothHaveArcher: setups.filter(s => s.bothHaveArcher).length,\n  bothHaveBeast: setups.filter(s => s.bothHaveBeast).length,\n  guardEitherSide: setups.filter(s => s.hasGuardEitherSide).length,\n  asymmetricFenSwappedDiffers: setups.filter(s => s.fen !== s.fenSwapped).length,\n};\n\nconst setupsFile = {\n  schema: 'phase-1-setups/v1',\n  generatedAt: '2026-09-22',\n  generator: 'campaign/setups/phase-1-generate.ts',\n  pool: POOL,\n  selection: {\n    prng: 'mulberry32',\n    seed: SEED,\n    procedure: `sample ${MIRROR + ASYM * 2} distinct back ranks with src/sim/spec.ts sampleBackRank (7 of POOL + K, bishops on opposite colours); ranks 0..${MIRROR - 1} become mirror starts (white rank == black rank); ranks ${MIRROR}..${MIRROR + ASYM * 2 - 1} are paired (2k, 2k+1) into ${ASYM} asymmetric starts (white rank, black rank).`,\n    pawns: 'every setup uses pawns on ranks 2 and 7 and no other pieces; the top half of the back rank is the lowercase mirror of the bottom half (src/rules/setup.ts startPosition)',\n  },\n  mirrorRule: {\n    fenSwapped: 'flip the board rank order (r -> 7-r) and swap piece case, keeping White to move; this is the colour-and-rank mirror that hands the same structure to the other army',\n    selfMirroring: 'a mirror start is invariant under the mirror, so fenSwapped == fen; an asymmetric start maps to the other army, so fenSwapped != fen',\n  },\n  pairColorMapping: {\n    engine: 'src/sim/spec.ts buildJobs with RunSpec.pairs=true and RunSpec.asymmetric[]',\n    rule: \"let the spec list setups in id order. Pair k is setup k (pairId = k). Game 2k uses setup.fen and the spec's white AI config on White; game 2k+1 uses setup.fenSwapped and the same white AI config on Black. With commonSeeds=true every setup sharing stream floor(pairId / configs.length) replays the same opening seed, so a pair is compared on one opening and all setups see the same opening multiset.\",\n    note: 'For the rule A/B the two arms are two populations; each population uses the identical setup list and the identical seed, so paired differences are setup-matched.',\n  },\n  coverage,\n  setups,\n};\nmkdirSync('campaign/setups', { recursive: true });\nwriteFileSync('campaign/setups/phase-1.json', JSON.stringify(setupsFile, null, 2) + '\\n');\n\n// ---- pinned residual arm ---------------------------------------------------------------------\n// The accepted Q6 blob lives in src/ai/nnue/weights.ts. The committed sim/nnue/eval-residual.json\n// does not pin it, so this campaign-owned copy embeds the exact committed bytes in the existing\n// EvalParams format. It copies the blob; it does not train or replace weights.\nmkdirSync('campaign/specs', { recursive: true });\nconst live = evalParams();\nconst pinnedArm = { ...live, evaluator: 'residual', net: { b64: NET_B64, kind: 'residual' } };\nwriteFileSync(PINNED_RESIDUAL, JSON.stringify(pinnedArm, null, 1) + '\\n');\n\n// ---- proposed specs --------------------------------------------------------------------------\nconst all = setups;\nconst archerSet = setups.filter(s => s.bothHaveArcher);\nconst beastSet = setups.filter(s => s.bothHaveBeast);\nconst asym = (ss: Setup[]) => ss.map(s => ({ white: s.white.backRank, black: s.black.backRank, fen: s.fen, fenSwapped: s.fenSwapped }));\n\nconst frozenRules = {\n  archerMove: 'any',\n  archerShots: 'plusDiagFwd2',\n  archerChecks: true,\n  beastMove: 'any',\n  beastCapture: 'adjacent',\n  beastCaptureForward: true,\n  beastChains: true,\n  guardImmune: true,\n  guardCaptures: 'none',\n  guardStep: 1,\n  promotionSet: 'standard',\n  paladinKamikaze: 'nonPawn',\n  bishopsOppositeColours: true,\n  fiftyMove: true,\n  threefold: true,\n  insufficientMaterial: true,\n};\n\nconst common = (id: string, ss: Setup[], games: number, seed: number) => ({\n  id,\n  games,\n  asymmetric: asym(ss),\n  commonSeeds: true,\n  pairs: true,\n  ai: { depth: D },\n  openingRandomPlies: 4,\n  maxPlies: 300,\n  adjudicate: false,\n  seed,\n  _status: 'PROPOSED \u2014 confirmation depth/time is selected by the supervisor-reviewed M1 throughput pilot; depth 4 here is a placeholder',\n});\n\nconst specs: Record<string, unknown> = {\n  'phase-1-throughput-d3.proposed.json': {\n    id: 'phase-1-throughput-d3',\n    games: 24,\n    asymmetric: asym(setups.slice(0, 12)),\n    commonSeeds: true,\n    pairs: true,\n    ai: { depth: 3 },\n    openingRandomPlies: 4,\n    maxPlies: 300,\n    adjudicate: false,\n    seed: 8105,\n    _status: 'PROPOSED throughput probe \u2014 run on M1, record games/s and nodes/s; the supervisor selects the confirmation depth from its result',\n  },\n  'phase-1-throughput-d4.proposed.json': {\n    id: 'phase-1-throughput-d4',\n    games: 24,\n    asymmetric: asym(setups.slice(0, 12)),\n    commonSeeds: true,\n    pairs: true,\n    ai: { depth: 4 },\n    openingRandomPlies: 4,\n    maxPlies: 300,\n    adjudicate: false,\n    seed: 8106,\n    _status: 'PROPOSED throughput probe \u2014 same as -d3 at depth 4',\n  },\n  'phase-1-archer-adopted.proposed.json': {\n    ...common('phase-1-archer-adopted', archerSet, 400, 8101),\n    rules: { ...frozenRules, archerShots: 'plusDiagFwd2' },\n    _arm: 'current adopted archer (forward diagonal-2 on top of classic); all other rules frozen',\n    _expandTo: '1600 games after the pilot if the prespecified expansion rule triggers',\n  },\n  'phase-1-archer-classic.proposed.json': {\n    ...common('phase-1-archer-classic', archerSet, 400, 8101),\n    rules: { ...frozenRules, archerShots: 'classic' },\n    _arm: 'exact-classic archer shots; Beast, promotions, values and every other setting identical to the adopted arm',\n    _expandTo: '1600 games, same setups and seed as the adopted arm',\n  },\n  'phase-1-eval-linear-vs-residual.proposed.json': {\n    ...common('phase-1-eval-linear-vs-residual', all, 400, 8102),\n    evalParams: { white: 'sim/nnue/eval-linear.json', black: PINNED_RESIDUAL },\n    rules: { ...frozenRules },\n    _arm: 'head-to-head, per-side evaluations: White=linear, Black=residual in game 2k and swapped in game 2k+1 (pairs=true)',\n    _expandTo: '1600 games per evaluation side after the pilot',\n    _cost: 'both sides use evalParams so the per-ply evaluation-swap overhead is identical; actual nodes/ms per side are in the JSONL records',\n  },\n  'phase-1-eval-deep-linear.proposed.json': {\n    ...common('phase-1-eval-deep-linear', all, 400, 8103),\n    evalParams: { white: 'sim/nnue/eval-linear.json', black: PINNED_RESIDUAL },\n    ai: { white: { depth: D + 1 }, black: { depth: D } },\n    rules: { ...frozenRules },\n    _arm: 'depth-proxy check: linear with one extra ply (white) against residual at the confirmation depth (black), pairs=true',\n    _expandTo: '800 games after the pilot',\n  },\n  'phase-1-beast-guard-focus.proposed.json': {\n    ...common('phase-1-beast-guard-focus', beastSet, 200, 8104),\n    rules: { ...frozenRules },\n    _arm: 'both armies carry a Beast: telemetry for Beast chains and Guard blocks at the confirmation depth',\n    _expandTo: '400 games after the pilot',\n  },\n};\nfor (const [file, spec] of Object.entries(specs)) writeFileSync(`campaign/specs/${file}`, JSON.stringify(spec, null, 2) + '\\n');\n\nconsole.log(`setups: ${setups.length} (${MIRROR} mirror, ${ASYM} asymmetric); archer-both ${archerSet.length}; beast-both ${beastSet.length}`);\nconsole.log(`pinned residual arm: ${PINNED_RESIDUAL} (b64 ${NET_B64.length} chars)`);\nconsole.log('specs:', Object.keys(specs).join(', '));\n"
+              },
+              "error": null
+            }
+          ],
+          "text": [
+            "All 94 checks pass. Now I'll create the clean retained generator plus a pinned residual arm config, and wire the specs to it."
+          ]
+        },
+        {
+          "id": "msg_0c879d225001ksPR7z00Fq6edy",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069821989,
+            "completed": 1790069825794
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "bash",
+              "status": "completed",
+              "title": "cd /Users/za/.local/share/king-down-supervised-20260922/protocol && node_modules/.bin/tsx campaign/setups/phase-1-generate.ts && rm -f campaign/.tmp-gen-phase1.ts && ls -la campaign/specs campaign/setups",
+              "input": {
+                "command": "cd /Users/za/.local/share/king-down-supervised-20260922/protocol && node_modules/.bin/tsx campaign/setups/phase-1-generate.ts && rm -f campaign/.tmp-gen-phase1.ts && ls -la campaign/specs campaign/setups"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c879e105001uXlovNFTzuC5aU",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069825797,
+            "completed": 1790069830010
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "edit",
+              "status": "completed",
+              "title": "campaign/verify-phase-1.ts",
+              "input": {
+                "filePath": "/Users/za/.local/share/king-down-supervised-20260922/protocol/campaign/verify-phase-1.ts",
+                "oldString": "const specFiles = readdirSync(SPEC_DIR).filter(f => /^phase-1-.*\\.json$/.test(f)).sort();",
+                "newString": "const specFiles = readdirSync(SPEC_DIR).filter(f => /^phase-1-.*\\.json$/.test(f)).filter(f => {\n  // The pinned residual arm is an EvalParams file, not a RunSpec; skip anything without id/games.\n  const j = JSON.parse(readFileSync(`${SPEC_DIR}/${f}`, 'utf8')) as { id?: unknown; games?: unknown };\n  return typeof j.id === 'string' && typeof j.games === 'number' && j.games > 0;\n}).sort();"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c879f17d001ZDLvsWrjbLzPpH",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069830013,
+            "completed": 1790069834182
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "edit",
+              "status": "completed",
+              "title": "campaign/verify-phase-1.ts",
+              "input": {
+                "filePath": "/Users/za/.local/share/king-down-supervised-20260922/protocol/campaign/verify-phase-1.ts",
+                "oldString": "for (const id of ['phase-1-eval-linear-vs-residual', 'phase-1-eval-deep-linear']) {\n  const s = byId.get(id);\n  if (!s) { fail(`eval spec ${id}: present`, 'missing'); continue; }\n  check(`${id}: evalParams white=linear`, s.evalParams?.white === EVAL_LINEAR, `${s.evalParams?.white}`);\n  check(`${id}: evalParams black=residual`, s.evalParams?.black === EVAL_RESIDUAL, `${s.evalParams?.black}`);\n}",
+                "newString": "for (const id of ['phase-1-eval-linear-vs-residual', 'phase-1-eval-deep-linear']) {\n  const s = byId.get(id);\n  if (!s) { fail(`eval spec ${id}: present`, 'missing'); continue; }\n  check(`${id}: evalParams white=linear`, s.evalParams?.white === EVAL_LINEAR, `${s.evalParams?.white}`);\n  check(`${id}: evalParams black=pinned residual arm`, s.evalParams?.black === PINNED_RESIDUAL, `${s.evalParams?.black}`);\n}"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c87a01c9001TpqaLh08v76IHn",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069834185,
+            "completed": 1790069839630
+          },
+          "error": null,
+          "finish": "tool-calls",
+          "tools": [
+            {
+              "tool": "edit",
+              "status": "completed",
+              "title": "campaign/verify-phase-1.ts",
+              "input": {
+                "filePath": "/Users/za/.local/share/king-down-supervised-20260922/protocol/campaign/verify-phase-1.ts",
+                "oldString": "const EVAL_LINEAR = 'sim/nnue/eval-linear.json';\nconst EVAL_RESIDUAL = 'sim/nnue/eval-residual.json';",
+                "newString": "const EVAL_LINEAR = 'sim/nnue/eval-linear.json';\nconst EVAL_RESIDUAL = 'sim/nnue/eval-residual.json';\nconst PINNED_RESIDUAL = 'campaign/specs/phase-1-residual-eval.json';"
+              },
+              "error": null
+            }
+          ],
+          "text": []
+        },
+        {
+          "id": "msg_0c87a1711001YFKivCvB86IoJJ",
+          "role": "assistant",
+          "model": "deepseek-v4.1-flash",
+          "provider": "opencode-go",
+          "time": {
+            "created": 1790069839634
+          },
+          "error": null,
+          "finish": null,
+          "tools": [
+            {
+              "tool": "edit",
+              "status": "pending",
+              "title": null,
+              "input": {},
+              "error": null
+            }
+          ],
+          "text": []
+        }
+      ]
+    }
+  }
+}

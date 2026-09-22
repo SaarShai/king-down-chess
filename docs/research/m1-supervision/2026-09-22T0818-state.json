@@ -1,0 +1,126 @@
+{
+  "checked": "2026-09-22T08:19:03.564331+00:00",
+  "runner": {
+    "phase": 1,
+    "round": "20260922T080935Z",
+    "runnerPid": 52765,
+    "prompt": "/Users/new/projects/king-down-supervised-20260921-control/pair-validation.txt",
+    "log": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T080935Z.jsonl",
+    "errors": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T080935Z.stderr.log",
+    "started": 1790064575.435613,
+    "state": "running",
+    "agentPid": 52766
+  },
+  "logBytes": 140539,
+  "logMtime": "2026-09-22T08:18:39.835639+00:00",
+  "stderr": "",
+  "recentEvents": [
+    {
+      "type": "text",
+      "text": "Let me read run.ts to understand the Stamp structure and how records are stamped."
+    },
+    {
+      "type": "tool",
+      "tool": "read",
+      "status": "completed",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/src/sim/identity.ts'}",
+      "output": "`evalParams` by content, not by path: a file rewritten in place must block a resume. */\n53: function pinnedEval(spec: RunSpec): { white: unknown; black: unknown } | null {\n54:   if (!spec.evalParams) return null;\n55:   const one = (p?: string): { path: string; sha256: string } | null => (p\n56:     ? { path: p, sha256: createHash('sha256').update(readFileSync(p)).digest('hex').slice(0, 16) }\n57:     : null);\n58:   return { white: one(spec.evalParams.white), black: one(spec.evalParams.black) };\n59: }\n60: \n61: /** Everything but the id and the game count, with defaults resolved. */\n62: export function specKey(spec: RunSpec): string {\n63:   const parts = {\n64:     seed: spec.seed,\n65:     ai: spec.ai,\n66:     backRanks: spec.backRanks ?? null,\n67:     asymmetric: spec.asymmetric ?? null,\n68:     commonSeeds: !!spec.commonSeeds,\n69:     rules: { ...DEFAULT_RULES, ...spec.rules },\n70:     baseRules: spec.baseRules ?? null,\n71:     values: spec.values ?? null,\n72:     baseValues: spec.baseValues ?? null,\n73:     evalParams: pinnedEval(spec),\n74:     multiPv: !!spec.multiPv,\n75:     openingRandomPlies: spec.openingRandomPlies ?? 0,\n76:     maxPlies: spec.maxPlies ?? 300,\n77:     pairs: usePairs(spec),\n78:     adjudicate: adjudication(spec),\n79:   };\n80:   return createHash('sha1').update(JSON.stringify(parts)).digest('hex').slice(0, 12);\n81: }\n\n(End of file - total 81 lines)\n</content>"
+    },
+    {
+      "type": "tool",
+      "tool": "read",
+      "status": "completed",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/package.json'}",
+      "output": "<path>/Users/new/projects/king-down-supervised-20260921/package.json</path>\n<type>file</type>\n<content>\n1: {\n2:   \"name\": \"king-down-chess\",\n3:   \"private\": true,\n4:   \"version\": \"0.0.1\",\n5:   \"type\": \"module\",\n6:   \"scripts\": {\n7:     \"dev\": \"vite\",\n8:     \"build\": \"tsc --noEmit && vite build\",\n9:     \"preview\": \"vite preview\",\n10:     \"test\": \"vitest run\",\n11:     \"sim\": \"tsx src/sim/run.ts\",\n12:     \"sim:analyze\": \"tsx src/sim/analyze.ts\",\n13:     \"tune\": \"tsx src/sim/tune.ts\",\n14:     \"tune:apply\": \"tsx src/sim/tune.ts apply\",\n15:     \"dashboard\": \"node tools/dashboard.mjs\",\n16:     \"nnue\": \"tsx src/sim/gen.ts\"\n17:   },\n18:   \"dependencies\": {\n19:     \"three\": \"^0.186.0\"\n20:   },\n21:   \"devDependencies\": {\n22:     \"@types/node\": \"^26.5.1\",\n23:     \"@types/three\": \"^0.186.0\",\n24:     \"playwright\": \"^1.63.0\",\n25:     \"tsx\": \"^4.23.13\",\n26:     \"typescript\": \"^7.0.2\",\n27:     \"vite\": \"^8.3.0\",\n28:     \"vitest\": \"^5.0.0\"\n29:   }\n30: }\n\n(End of file - total 30 lines)\n</content>"
+    },
+    {
+      "type": "tool",
+      "tool": "read",
+      "status": "completed",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/campaign'}",
+      "output": "<path>/Users/new/projects/king-down-supervised-20260921/campaign</path>\n<type>directory</type>\n<entries>\nconditions-before.log\nconditions-checks.json\nconditions-fix-report.md\nconditions-supervisor-review.md\nidentity-accepted.json\nidentity-before.log\nidentity-checks.json\nidentity-diff---check.log\nidentity-fix-report.md\nidentity-tsc---noEmit.log\nidentity-vitest-run.log\nplan.md\nreplay-accepted.json\nreplay-after.log\nreplay-before.log\nreplay-checks.json\nreplay-fix-report.md\nreplay-tsc.log\nstatus.json\nSTATUS.md\ntool-smoke.txt\ntsc.log\nvitest.log\n\n(23 entries)\n</entries>"
+    },
+    {
+      "type": "tool",
+      "tool": "bash",
+      "status": "completed",
+      "input": "{'command': 'git status --short && echo \"---LOG---\" && git log --oneline -5'}",
+      "output": " M LESSONS.md\n M TASKS.md\n?? campaign/STATUS.md\n?? campaign/conditions-before.log\n?? campaign/conditions-checks.json\n?? campaign/conditions-fix-report.md\n?? campaign/conditions-supervisor-review.md\n?? campaign/identity-before.log\n?? campaign/identity-checks.json\n?? campaign/identity-diff---check.log\n?? campaign/identity-tsc---noEmit.log\n?? campaign/identity-vitest-run.log\n?? campaign/plan.md\n?? campaign/replay-after.log\n?? campaign/replay-before.log\n?? campaign/replay-checks.json\n?? campaign/replay-tsc.log\n?? campaign/status.json\n?? campaign/tool-smoke.txt\n?? campaign/tsc.log\n?? campaign/vitest.log\n?? docs/research/m1-model-selection-2026-09-21.json\n?? docs/research/m1-supervised-campaign-2026-09-21.md\n?? opencode.json\n---LOG---\nf4482cb Fix condition statistics to count owner armies and game presence\n683779d Fix simulation source identity coverage and path stability\n19a25d3 Reject illegal moves when replaying stored games\n584af10 Snapshot source for supervised rules campaign\n"
+    },
+    {
+      "type": "text",
+      "text": "Let me check the project structure, package.json, and existing campaign artifacts."
+    }
+  ],
+  "lastTokens": [
+    {
+      "total": 29701,
+      "input": 5986,
+      "output": 144,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 23571
+      }
+    }
+  ],
+  "processes": [
+    "43137 43135     11:00:07   0.1  41072 /Applications/Ollama.app/Contents/Resources/ollama",
+    "52765     1        09:28   0.0   5792 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python",
+    "52766 52765        09:28  18.4 575936 /Users/new/projects/king-down-supervised-20260921-control/runtime/node_modules/.bin/opencode",
+    "52767 52765        09:28   0.0   2064 /usr/bin/caffeinate",
+    "52795 43137        09:26  29.1 7083728 /Applications/Ollama.app/Contents/Resources/ollama"
+  ],
+  "artifacts": {
+    "status.json": {
+      "bytes": 1099,
+      "mtime": 1790064575.4022994,
+      "tail": "{\n  \"phase\": 1,\n  \"state\": \"working\",\n  \"action\": \"Paired-start/spec validation\",\n  \"updated\": \"2026-09-22T08:09:35.401811+00:00\",\n  \"completedGames\": 0,\n  \"processes\": [],\n  \"phases\": [\n    {\n      \"phase\": 1,\n      \"state\": \"incomplete\"\n    },\n    {\n      \"phase\": 2,\n      \"state\": \"assigned_not_started\"\n    },\n    {\n      \"phase\": 3,\n      \"state\": \"assigned_not_started\"\n    },\n    {\n      \"phase\": 4,\n      \"state\": \"assigned_not_started\"\n    },\n    {\n      \"phase\": 5,\n      \"state\": \"assigned_not_started\"\n    }\n  ],\n  \"humanSessions\": \"pending_real_participants\",\n  \"contract\": \"docs/research/m1-supervised-campaign-2026-09-21.md\",\n  \"acceptedSubtasks\": [\n    \"replay legality\",\n    \"source identity\",\n    \"condition statistics\"\n  ],\n  \"identitySubtask\": \"accepted\",\n  \"conditionsSubtask\": \"accepted\",\n  \"conditionsReport\": \"campaign/conditions-fix-report.md\",\n  \"conditionsChecks\": \"campaign/conditions-checks.json\",\n  \"conditionsCommit\": \"f4482cba3eb7fa4d7b5e52b6966e49ebee1890fa\",\n  \"conditionsSupervisorReview\": \"campaign/conditions-supervisor-review.md\",\n  \"pairSubtask\": \"working\"\n}\n"
+    },
+    "STATUS.md": {
+      "bytes": 474,
+      "mtime": 1790064522.9670076,
+      "tail": "# Campaign status\n\nUpdated 2026-09-22T08:08:42.965423+00:00. Phase 1 incomplete; phases 2\u20135 assigned, not started. Zero campaign games.\n\nAccepted: replay legality (19a25d3), source identity (683779d), condition statistics (f4482cb; TypeScript, 48 targeted tests and 12 independent checks).\n\nNext: paired-start/spec validation, search-stall diagnosis, current-game protocol and throughput pilot. Human sessions pending real participants. Fifteen-minute supervision active.\n"
+    }
+  },
+  "gitStatus": {
+    "rc": 0,
+    "out": " M LESSONS.md\n M TASKS.md\n?? campaign/STATUS.md\n?? campaign/conditions-before.log\n?? campaign/conditions-checks.json\n?? campaign/conditions-fix-report.md\n?? campaign/conditions-supervisor-review.md\n?? campaign/identity-before.log\n?? campaign/identity-checks.json\n?? campaign/identity-diff---check.log\n?? campaign/identity-tsc---noEmit.log\n?? campaign/identity-vitest-run.log\n?? campaign/plan.md\n?? campaign/replay-after.log\n?? campaign/replay-before.log\n?? campaign/replay-checks.json\n?? campaign/replay-tsc.log\n?? campaign/status.json\n?? campaign/tool-smoke.txt\n?? campaign/tsc.log\n?? campaign/vitest.log\n?? docs/research/m1-model-selection-2026-09-21.json\n?? docs/research/m1-supervised-campaign-2026-09-21.md\n?? opencode.json\n",
+    "err": ""
+  },
+  "diffStat": {
+    "rc": 0,
+    "out": " LESSONS.md | 283 +++--------------------------------------------------\n TASKS.md   | 322 +++----------------------------------------------------------\n 2 files changed, 29 insertions(+), 576 deletions(-)\n",
+    "err": ""
+  },
+  "protectedDiff": {
+    "rc": 0,
+    "out": "",
+    "err": ""
+  },
+  "head": {
+    "rc": 0,
+    "out": "f4482cba3eb7fa4d7b5e52b6966e49ebee1890fa\n",
+    "err": ""
+  },
+  "model": {
+    "rc": 0,
+    "out": "NAME                        ID              SIZE     PROCESSOR    CONTEXT    UNTIL              \nkdc-m1-qwen-agent:latest    3a62a2147de1    22 GB    100% GPU     32768      3 minutes from now    \n",
+    "err": ""
+  },
+  "memory": {
+    "rc": 0,
+    "out": "The system has 34359738368 (2097152 pages with a page size of 16384).\nSystem-wide memory free percentage: 23%\n",
+    "err": ""
+  },
+  "swap": {
+    "rc": 0,
+    "out": "vm.swapusage: total = 3072.00M  used = 2329.00M  free = 743.00M  (encrypted)\n",
+    "err": ""
+  },
+  "recordAudit": [],
+  "sourceFile": {
+    "sha256": "e61532b96a1ece4d289638ae592bcf70a81a981bd607328abdb3a67ba0a25e27",
+    "mtime": 1790064341.3239365
+  }
+}

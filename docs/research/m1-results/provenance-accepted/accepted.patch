@@ -1,0 +1,529 @@
+From ffd78f097f4cd02bdce6c42259c60b33159b9b5e Mon Sep 17 00:00:00 2001
+From: Saar Shai <saar.shai@gmail.com>
+Date: Tue, 22 Sep 2026 02:36:51 -0700
+Subject: [PATCH] Qualify paired comparisons by source and spec provenance
+
+---
+ campaign/provenance-report.md | 146 +++++++++++++++++++++++++++
+ tools/conditions.test.ts      | 185 +++++++++++++++++++++++++++++++++-
+ tools/conditions.ts           | 132 ++++++++++++++++++++++--
+ 3 files changed, 455 insertions(+), 8 deletions(-)
+ create mode 100644 campaign/provenance-report.md
+
+diff --git a/campaign/provenance-report.md b/campaign/provenance-report.md
+new file mode 100644
+index 0000000..92cc99e
+--- /dev/null
++++ b/campaign/provenance-report.md
+@@ -0,0 +1,146 @@
++# Source/spec provenance qualification for paired comparisons
++
++Owned files only: `tools/conditions.ts`, `tools/conditions.test.ts`, `campaign/provenance-report.md`.
++
++## Scope and plan
++
++Qualify the `--pair A,B` branch of `tools/conditions.ts` by the top-level `src`, `specKey` and
++`rulesKey` stamped on every record.
++
++Plan (all items applied):
++1. Add a small pure validation seam: `identifyArm` (per-arm identity, rejects internal mixing) and
++   `qualifyPair` (cross-arm: rejects a differing known source id, reports settings differences).
++2. Reject an internally mixed arm: two different values, or a mixture of missing and present
++   values, for any of `src`/`specKey`/`rulesKey`.
++3. Reject a *present* malformed value (non-string, empty or whitespace-only) for any identity
++   field; only a genuinely absent `undefined`/`null` field is legacy. Arbitrary nonempty strings
++   stay valid; no hash-format check is imposed.
++4. Reject two different known source ids across arms.
++5. Do not reject differing `specKey`/`rulesKey`; print the observed identities and require review of
++   the frozen specs for intended differences and equal practical budgets.
++6. Print prominent `UNVERIFIED` status when an arm is fully unstamped or one arm lacks identity.
++7. Preserve existing arithmetic, duplicate-gameId/start-field validation, sparse-sample handling and
++   the `(per-game interval, not setup-clustered)` wording.
++
++No new framework or dependency. Records have no new required fields.
++
++## Acceptance checklist
++
++- [x] Mixed identity values (different values, or missing+present) within one arm are rejected,
++      for each of `src`, `specKey`, `rulesKey`.
++- [x] A present malformed identity value (non-string, empty or whitespace-only) is rejected for
++      every field; only genuinely absent `undefined`/`null` is legacy and unverified.
++- [x] Different known source ids across arms are rejected.
++- [x] Differing `specKey`/`rulesKey` across arms is allowed, printed and flagged for review; not
++      rejected wholesale.
++- [x] All-legacy missing identity and one-side missing identity print `UNVERIFIED`; neither becomes
++      verified.
++- [x] Same hashes are stated not to prove matching practical cost.
++- [x] Per-game vs setup-clustered uncertainty wording preserved.
++- [x] Existing regressions green; `npx tsc --noEmit` clean.
++
++## Evidence
++
++Pre-fix failure (before editing `tools/conditions.ts`), two arms with different known source ids:
++
++```
++$ npx tsx tools/conditions.ts --pair .tmp-prov/pa.jsonl,.tmp-prov/pb.jsonl
++paired 1 games (.tmp-prov/pa.jsonl minus .tmp-prov/pb.jsonl) · unmatched A 0 · unmatched B 0
++  result +1.000 · ...
++exit=0
++```
++
++The old code accepted `srcAAA` vs `srcBBB` (and never printed either identity). Fixtures were
++synthetic JSONL in a worktree-local `.tmp-prov/`, now removed.
++
++Post-fix, same command:
++
++```
++$ npx tsx tools/conditions.ts --pair .tmp-prov/pa.jsonl,.tmp-prov/pb.jsonl
++Error: conditions: .tmp-prov/pa.jsonl source id srcAAA differs from .tmp-prov/pb.jsonl source id srcBBB; arms played by different known sources cannot be paired
++exit=2
++```
++
++Coherent same-source pair:
++
++```
++provenance (.tmp-prov/pa2.jsonl vs .tmp-prov/pb2.jsonl)
++  source .tmp-prov/pa2.jsonl=srcAAA .tmp-prov/pb2.jsonl=srcAAA (match)
++  specKey .tmp-prov/pa2.jsonl=spcAAA .tmp-prov/pb2.jsonl=spcAAA
++  rulesKey .tmp-prov/pa2.jsonl=rulAAA .tmp-prov/pb2.jsonl=rulAAA
++  observed settings hashes match, but equal hashes alone do not prove matching practical cost (budget); review the frozen specs before treating the arms as equal-budget.
++exit=0
++```
++
++Differing `specKey`/`rulesKey`, allowed with qualification:
++
++```
++provenance (.tmp-prov/pa2.jsonl vs .tmp-prov/pb3.jsonl)
++  source .tmp-prov/pa2.jsonl=srcAAA .tmp-prov/pb3.jsonl=srcAAA (match)
++  specKey .tmp-prov/pa2.jsonl=spcAAA .tmp-prov/pb3.jsonl=spcBBB
++  rulesKey .tmp-prov/pa2.jsonl=rulAAA .tmp-prov/pb3.jsonl=rulBBB
++  observed specKey and rulesKey differ across the arms: legitimate only as an intended rule/evaluator treatment. Review the frozen specs to establish the intended differences and equal practical budgets; the hashes alone establish neither, and matching hashes alone do not prove matching practical cost.
++exit=0
++```
++
++One-side missing identity, unverified:
++
++```
++provenance (.tmp-prov/legacy.jsonl vs .tmp-prov/pb.jsonl): UNVERIFIED
++  ...
++  UNVERIFIED PROVENANCE/SETTINGS: source (.tmp-prov/legacy.jsonl), specKey, rulesKey missing on at least one arm; this paired comparison cannot claim same source or same settings. One arm is a fully unstamped legacy run.
++exit=0
++```
++
++Malformed present identity value (whitespace-only `src`), rejected:
++
++```
++$ npx tsx tools/conditions.ts --pair .tmp-prov/badA.jsonl,.tmp-prov/goodB.jsonl
++Error: conditions: .tmp-prov/badA.jsonl has a blank src value; an identity field must be a non-empty string or genuinely absent
++exit=2
++```
++
++Required checks:
++
++```
++$ npx tsc --noEmit
++exit=0
++
++$ npx vitest run tools/conditions.test.ts
++Test Files  1 passed (1)
++     Tests  31 passed (31)
++exit=0
++
++$ git diff --check
++exit=0
++```
++
++New tests: unit tests of the seam (mixed/different value and missing+present mixture for each
++identity field; malformed non-string/empty/whitespace-only rejection; `null` treated as legacy;
++uniform/partial/legacy arms; different known source rejected; differing spec/rules allowed with
++review; legacy and one-side missing unverified; coherent pair verified) plus CLI tests through
++`--pair` for the same cases, including malformed boundary regressions. The baseline before this
++work was 14 tests in this file; 17 new tests bring the total to 31, and all pass.
++
++## Limitations
++
++- No campaign games were run and no real stored run was sampled; evidence is synthetic fixtures.
++- A one-side-missing identity is described as `UNVERIFIED`, not rejected, matching the assignment.
++- The settings check compares hashes only. Differing or equal `specKey`/`rulesKey` cannot by itself
++  establish an intended treatment or equal practical budget; the report states this and requires
++  human review of the frozen specs.
++- Identity is limited to the three top-level fields named in the assignment; no other metadata is
++  cross-checked.
++- Values are compared as raw nonempty strings. The tool does not validate a hash format or length,
++  so an arbitrary nonempty identity string is accepted as-is.
++
++## Supervision corrections (2026-09-22)
++
++- Present but malformed identity values (non-string, empty, whitespace-only) are now rejected for
++  every field; only genuinely absent `undefined`/`null` is legacy. Compact unit and CLI regressions
++  added.
++- The synthetic `pairRec` fixture is now internally coherent: eight FEN ranks and White
++  `stats.start` `A:2` for the two Archers in `A5AK`.
++- Test-count claim corrected from the wrong old/new figures to baseline 14, new 17, total 31.
++
++Status: prerequisite ready for review. Supervisor acceptance is the next step.
+diff --git a/tools/conditions.test.ts b/tools/conditions.test.ts
+index 3f5654f..162ecff 100644
+--- a/tools/conditions.test.ts
++++ b/tools/conditions.test.ts
+@@ -3,7 +3,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
+ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+ import { tmpdir } from 'node:os';
+ import { join } from 'node:path';
+-import { scan } from './conditions';
++import { scan, identifyArm, qualifyPair } from './conditions';
++import type { IdentityField, IdentityRecord } from './conditions';
+ import type { GameRecord } from '../src/sim/game';
+ 
+ const mkRec = (
+@@ -254,3 +255,185 @@ describe('conditions paired validation', () => {
+     expect(out).not.toContain('Infinity');
+     });
+ });
++
++// Source/spec provenance for a paired comparison. Identity records are synthetic, not played
++// games. `identifyArm` rejects internal mixing; `qualifyPair` rejects a differing known source id
++// but reports a differing specKey/rulesKey with an explicit review requirement.
++const ident = (field: IdentityField, value?: string): IdentityRecord =>
++  (value === undefined ? {} : { [field]: value }) as IdentityRecord;
++
++const pairRec = (gameId: number, result: 1 | 0.5 | 0, id: Partial<Record<IdentityField, string>> = {}): GameRecord =>
++  Object.assign(
++    {},
++    mkRec(gameId, 'a6k/8/8/8/8/8/8/A5AK w - - 0 1',
++      [{ A: 2, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }],
++      [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }],
++      result, 'checkmate', 10),
++    id,
++  ) as GameRecord;
++
++describe('conditions provenance validation seam', () => {
++  it('rejects a different value or a missing/present mixture for every identity field', () => {
++    for (const field of ['src', 'specKey', 'rulesKey'] as IdentityField[]) {
++      expect(() => identifyArm('arm', [ident(field, 'a'), ident(field, 'b')]))
++        .toThrow(new RegExp(`different ${field} values`));
++      expect(() => identifyArm('arm', [ident(field, 'a'), ident(field)]))
++        .toThrow(new RegExp(`mixes missing and present ${field}`));
++    }
++  });
++
++  it('rejects present non-string, empty and whitespace-only values, but lets null stay legacy', () => {
++    for (const field of ['src', 'specKey', 'rulesKey'] as IdentityField[]) {
++      expect(() => identifyArm('arm', [{ [field]: 7 } as IdentityRecord]))
++        .toThrow(new RegExp(`non-string ${field}`));
++      expect(() => identifyArm('arm', [{ [field]: '' } as IdentityRecord]))
++        .toThrow(new RegExp(`blank ${field}`));
++      expect(() => identifyArm('arm', [{ [field]: '   ' } as IdentityRecord]))
++        .toThrow(new RegExp(`blank ${field}`));
++    }
++    const legacy = identifyArm('legacy', [{ src: null, specKey: null, rulesKey: null }, {}]);
++    expect(legacy.legacy).toBe(true);
++    expect(legacy.values).toEqual({ src: null, specKey: null, rulesKey: null });
++  });
++
++  it('reads a uniform arm, a uniformly partial arm and a fully missing legacy arm', () => {
++    const full = identifyArm('full', [ident('src', 's'), ident('src', 's')]);
++    expect(full.values).toEqual({ src: 's', specKey: null, rulesKey: null });
++    expect(full.legacy).toBe(false);
++
++    const partial = identifyArm('partial', [ident('specKey', 'p'), ident('specKey', 'p')]);
++    expect(partial.values.specKey).toBe('p');
++    expect(partial.values.src).toBeNull();
++    expect(partial.legacy).toBe(false);
++
++    const legacy = identifyArm('legacy', [{}, {}]);
++    expect(legacy.values).toEqual({ src: null, specKey: null, rulesKey: null });
++    expect(legacy.legacy).toBe(true);
++  });
++
++  it('rejects different known source ids between arms', () => {
++    const a = identifyArm('a', [{ src: 'known-1', specKey: 'p', rulesKey: 'r' }]);
++    const b = identifyArm('b', [{ src: 'known-2', specKey: 'p', rulesKey: 'r' }]);
++    expect(() => qualifyPair(a, b)).toThrow(/different known sources/);
++  });
++
++  it('allows differing specKey/rulesKey with a review requirement, not a rejection', () => {
++    const a = identifyArm('a', [{ src: 's', specKey: 'sp-1', rulesKey: 'ru-1' }]);
++    const b = identifyArm('b', [{ src: 's', specKey: 'sp-2', rulesKey: 'ru-2' }]);
++    const q = qualifyPair(a, b);
++    expect(q.verified).toBe(true);
++    const text = q.notes.join('\n');
++    expect(text).toMatch(/review the frozen specs/i);
++    expect(text).toMatch(/practical budgets/i);
++    expect(text).toMatch(/do not prove matching practical cost/i);
++  });
++
++  it('marks all-legacy and one-side-missing identities UNVERIFIED, never verified', () => {
++    const legacyA = identifyArm('a', [{}, {}]);
++    const legacyB = identifyArm('b', [{}]);
++    const legacy = qualifyPair(legacyA, legacyB);
++    expect(legacy.verified).toBe(false);
++    expect(legacy.notes.join('\n')).toContain('UNVERIFIED');
++    expect(legacy.notes.join('\n')).toContain('fully unstamped legacy');
++
++    const stamped = identifyArm('b', [{ src: 's', specKey: 'p', rulesKey: 'r' }]);
++    const oneSide = qualifyPair(legacyA, stamped);
++    expect(oneSide.verified).toBe(false);
++    expect(oneSide.notes.join('\n')).toContain('UNVERIFIED');
++  });
++
++  it('verifies a coherent same-source, same-settings pair', () => {
++    const id = { src: 's', specKey: 'p', rulesKey: 'r' };
++    const q = qualifyPair(identifyArm('a', [{ ...id }]), identifyArm('b', [{ ...id }]));
++    expect(q.verified).toBe(true);
++    expect(q.notes.join('\n')).not.toContain('UNVERIFIED');
++  });
++});
++
++describe('conditions paired provenance', () => {
++  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'cond-prov-')); });
++  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
++
++  const same = { src: 'src-111', specKey: 'spc-111', rulesKey: 'rul-111' };
++
++  it('accepts a coherent same-source pair and prints matched identity', () => {
++    const a = writeRun('pa', [pairRec(1, 1, same)]);
++    const b = writeRun('pb', [pairRec(1, 0, same)]);
++    const { status, out } = runPair(a, b);
++    expect(status).toBe(0);
++    expect(out).toContain('src-111');
++    expect(out).toContain('(match)');
++    expect(out).not.toContain('UNVERIFIED');
++  });
++
++  it('rejects a differing identity value within one arm', () => {
++    const a = writeRun('pa', [pairRec(1, 1, same), pairRec(2, 1, { ...same, src: 'src-999' })]);
++    const b = writeRun('pb', [pairRec(1, 0, same), pairRec(2, 0, same)]);
++    const { status, err } = runPair(a, b);
++    expect(status).not.toBe(0);
++    expect(err).toMatch(/different src values/);
++  });
++
++  it('rejects a partially missing identity within one arm', () => {
++    const a = writeRun('pa', [pairRec(1, 1, same), pairRec(2, 1, { specKey: same.specKey, rulesKey: same.rulesKey })]);
++    const b = writeRun('pb', [pairRec(1, 0, same), pairRec(2, 0, same)]);
++    const { status, err } = runPair(a, b);
++    expect(status).not.toBe(0);
++    expect(err).toMatch(/mixes missing and present src/);
++  });
++
++  it('rejects different known source ids across arms', () => {
++    const a = writeRun('pa', [pairRec(1, 1, same)]);
++    const b = writeRun('pb', [pairRec(1, 0, { ...same, src: 'src-222' })]);
++    const { status, err } = runPair(a, b);
++    expect(status).not.toBe(0);
++    expect(err).toMatch(/different known sources/);
++  });
++
++  it('allows differing specKey/rulesKey and prints observed identities plus a review requirement', () => {
++    const a = writeRun('pa', [pairRec(1, 1, { src: 'src-111', specKey: 'spc-A', rulesKey: 'rul-A' })]);
++    const b = writeRun('pb', [pairRec(1, 0, { src: 'src-111', specKey: 'spc-B', rulesKey: 'rul-B' })]);
++    const { status, out } = runPair(a, b);
++    expect(status).toBe(0);
++    expect(out).toContain('spc-A');
++    expect(out).toContain('spc-B');
++    expect(out).toMatch(/review the frozen specs/i);
++    expect(out).not.toContain('UNVERIFIED');
++  });
++
++  it('marks a fully unstamped legacy pair UNVERIFIED but still estimates', () => {
++    const a = writeRun('pa', [pairRec(1, 1)]);
++    const b = writeRun('pb', [pairRec(1, 0)]);
++    const { status, out } = runPair(a, b);
++    expect(status).toBe(0);
++    expect(out).toContain('UNVERIFIED');
++    expect(out).toContain('+1.000');
++  });
++
++  it('marks a one-side missing identity UNVERIFIED and never verified', () => {
++    const a = writeRun('pa', [pairRec(1, 1)]);
++    const b = writeRun('pb', [pairRec(1, 0, same)]);
++    const { status, out } = runPair(a, b);
++    expect(status).toBe(0);
++    expect(out).toContain('UNVERIFIED');
++    expect(out).not.toContain('(match)');
++  });
++
++  it.each(['', '   '])('rejects a blank identity value through the CLI (%j), for every field', (blank) => {
++    for (const field of ['src', 'specKey', 'rulesKey'] as IdentityField[]) {
++      const a = writeRun('pa', [pairRec(1, 1, { [field]: blank } as Partial<Record<IdentityField, string>>)]);
++      const b = writeRun('pb', [pairRec(1, 0, same)]);
++      const { status, err } = runPair(a, b);
++      expect(status).not.toBe(0);
++      expect(err).toMatch(new RegExp(`blank ${field}`));
++    }
++  });
++
++  it('rejects a non-string identity value through the CLI', () => {
++    const a = writeRun('pa', [pairRec(1, 1, { src: 7 } as unknown as Partial<Record<IdentityField, string>>)]);
++    const b = writeRun('pb', [pairRec(1, 0, same)]);
++    const { status, err } = runPair(a, b);
++    expect(status).not.toBe(0);
++    expect(err).toMatch(/non-string src/);
++  });
++});
+diff --git a/tools/conditions.ts b/tools/conditions.ts
+index 4950e66..39d7d0b 100644
+--- a/tools/conditions.ts
++++ b/tools/conditions.ts
+@@ -105,6 +105,116 @@ export async function scan(id: string): Promise<RunStat> {
+   return st;
+ }
+ 
++/**
++ * Provenance of one arm: the top-level `src`, `specKey` and `rulesKey` a runner stamps on every
++ * line (see `run.ts` `Stamp`). A genuinely absent field (`undefined` or `null`) means the record
++ * predates stamping, so an all-absent arm is legacy. A *present* field must be a non-empty,
++ * non-blank string: a non-string, empty or whitespace-only value is malformed and rejected, never
++ * treated as known and never accepted as legacy. A field present on only some records, or carrying
++ * more than one value, is an internally mixed arm: two experiments added up as one.
++ */
++export const IDENTITY_FIELDS = ['src', 'specKey', 'rulesKey'] as const;
++export type IdentityField = (typeof IDENTITY_FIELDS)[number];
++
++export interface IdentityRecord {
++  src?: unknown;
++  specKey?: unknown;
++  rulesKey?: unknown;
++}
++
++export interface ArmIdentity {
++  id: string;
++  /** Uniform present value per field, or null when the whole arm omits it. */
++  values: Record<IdentityField, string | null>;
++  /** Every record omits every identity field (a fully unstamped legacy run). */
++  legacy: boolean;
++  games: number;
++}
++
++export function identifyArm(id: string, records: readonly IdentityRecord[]): ArmIdentity {
++  const values = {} as Record<IdentityField, string | null>;
++  let any = false;
++  for (const field of IDENTITY_FIELDS) {
++    const present: string[] = [];
++    let absent = 0;
++    for (const r of records) {
++      const v = r[field];
++      if (v === undefined || v === null) { absent++; continue; }
++      if (typeof v !== 'string') {
++        throw new Error(`conditions: ${id} has a non-string ${field} value (${typeof v}); an identity field must be a non-empty string or genuinely absent`);
++      }
++      if (v.trim() === '') {
++        throw new Error(`conditions: ${id} has a blank ${field} value; an identity field must be a non-empty string or genuinely absent`);
++      }
++      present.push(v);
++    }
++    if (present.length > 0 && absent > 0) {
++      throw new Error(`conditions: ${id} mixes missing and present ${field} values (${present.length}/${records.length} records carry it); a paired comparison needs one provenance per arm`);
++    }
++    const distinct = [...new Set(present)].sort();
++    if (distinct.length > 1) {
++      throw new Error(`conditions: ${id} carries ${distinct.length} different ${field} values (${distinct.join(', ')}); a paired comparison needs one provenance per arm`);
++    }
++    const value = distinct[0] ?? null;
++    values[field] = value;
++    if (value) any = true;
++  }
++  return { id, values, legacy: !any, games: records.length };
++}
++
++export interface PairProvenance {
++  a: ArmIdentity;
++  b: ArmIdentity;
++  /** Both arms carry a source id and both settings keys, so the comparison is identity-verified. */
++  verified: boolean;
++  notes: string[];
++}
++
++const fieldLine = (label: string, a: ArmIdentity, b: ArmIdentity, field: IdentityField): string =>
++  `${label} ${a.id}=${a.values[field] ?? 'MISSING'} ${b.id}=${b.values[field] ?? 'MISSING'}`;
++
++/**
++ * Identity qualification for a paired comparison. `identifyArm` already rejected an internally
++ * mixed arm. Here a different *known* source id across arms is a hard reject, because the two arms
++ * were then played by different engine code. A differing `specKey`/`rulesKey` is NOT rejected: an
++ * intended rule or evaluator treatment is exactly a differing rulesKey, and a differing specKey can
++ * be the intended evaluation input, so the caller gets the observed identities and an explicit
++ * review requirement instead. Missing identities never verify; they only yield UNVERIFIED status.
++ */
++export function qualifyPair(a: ArmIdentity, b: ArmIdentity): PairProvenance {
++  const notes: string[] = [];
++  const srcA = a.values.src, srcB = b.values.src;
++  if (srcA && srcB && srcA !== srcB) {
++    throw new Error(`conditions: ${a.id} source id ${srcA} differs from ${b.id} source id ${srcB}; arms played by different known sources cannot be paired`);
++  }
++  notes.push(`${fieldLine('source', a, b, 'src')}${srcA && srcB ? ' (match)' : ''}`);
++  notes.push(fieldLine('specKey', a, b, 'specKey'));
++  notes.push(fieldLine('rulesKey', a, b, 'rulesKey'));
++
++  const srcKnown = !!srcA && !!srcB;
++  const settingsKnown = !!a.values.specKey && !!b.values.specKey && !!a.values.rulesKey && !!b.values.rulesKey;
++  if (!srcKnown || !settingsKnown) {
++    const missing: string[] = [];
++    if (!srcKnown) missing.push(`source (${!srcA && !srcB ? `${a.id} and ${b.id}` : srcA ? b.id : a.id})`);
++    if (!a.values.specKey || !b.values.specKey) missing.push('specKey');
++    if (!a.values.rulesKey || !b.values.rulesKey) missing.push('rulesKey');
++    const legacy = a.legacy && b.legacy
++      ? ' Both arms are fully unstamped legacy runs.'
++      : a.legacy || b.legacy ? ' One arm is a fully unstamped legacy run.' : '';
++    notes.push(`UNVERIFIED PROVENANCE/SETTINGS: ${missing.join(', ')} missing on at least one arm; this paired comparison cannot claim same source or same settings.${legacy}`);
++  }
++
++  const differ: string[] = [];
++  if (a.values.specKey && b.values.specKey && a.values.specKey !== b.values.specKey) differ.push('specKey');
++  if (a.values.rulesKey && b.values.rulesKey && a.values.rulesKey !== b.values.rulesKey) differ.push('rulesKey');
++  if (differ.length) {
++    notes.push(`observed ${differ.join(' and ')} differ across the arms: legitimate only as an intended rule/evaluator treatment. Review the frozen specs to establish the intended differences and equal practical budgets; the hashes alone establish neither, and matching hashes alone do not prove matching practical cost.`);
++  } else if (settingsKnown) {
++    notes.push('observed settings hashes match, but equal hashes alone do not prove matching practical cost (budget); review the frozen specs before treating the arms as equal-budget.');
++  }
++  return { a, b, verified: srcKnown && settingsKnown, notes };
++}
++
+ const pct = (x: number): string => `${(100 * x).toFixed(1)}%`;
+ const show = (st: RunStat): void => {
+   const g = st.games || 1;
+@@ -126,18 +236,24 @@ const main = async (): Promise<void> => {
+     const [a, b] = await Promise.all([scan(PAIR[0]), scan(PAIR[1])]);
+     show(a); show(b);
+      // Paired difference needs the records themselves, not the aggregates.
+-    const read = async (id: string): Promise<Map<number, GameRecord>> => {
+-      const m = new Map<number, GameRecord>();
++    const read = async (id: string): Promise<{ recs: Map<number, GameRecord>; ids: IdentityRecord[] }> => {
++      const recs = new Map<number, GameRecord>();
++      const ids: IdentityRecord[] = [];
+       const rl = createInterface({ input: createReadStream(pathOf(id)), crlfDelay: Infinity });
+       for await (const line of rl) {
+         if (!line) continue;
+-        const r = JSON.parse(line) as GameRecord;
+-        if (m.has(r.gameId)) throw new Error(`conditions: ${id} has duplicate gameId ${r.gameId}`);
+-        m.set(r.gameId, r);
++        const r = JSON.parse(line) as GameRecord & IdentityRecord;
++        if (recs.has(r.gameId)) throw new Error(`conditions: ${id} has duplicate gameId ${r.gameId}`);
++        recs.set(r.gameId, r);
++        ids.push(r);
+        }
+-      return m;
++      return { recs, ids };
+      };
+-    const [A, B] = await Promise.all([read(PAIR[0]), read(PAIR[1])]);
++    const [left, right] = await Promise.all([read(PAIR[0]), read(PAIR[1])]);
++    const A = left.recs, B = right.recs;
++    // Identity qualification runs before any paired estimate; it throws on an internally mixed arm
++    // or on two different known source ids, and returns the observed identities otherwise.
++    const provenance = qualifyPair(identifyArm(PAIR[0], left.ids), identifyArm(PAIR[1], right.ids));
+     const shared = [...A.keys()].filter(i => B.has(i));
+     const unmatchedA = [...A.keys()].filter(i => !B.has(i)).length;
+     const unmatchedB = [...B.keys()].filter(i => !A.has(i)).length;
+@@ -165,6 +281,8 @@ const main = async (): Promise<void> => {
+       const xs = shared.map(i => f(A.get(i)!) - f(B.get(i)!));
+       return [mean(xs), ci(xs)];
+      };
++    console.log(`\nprovenance (${PAIR[0]} vs ${PAIR[1]})${provenance.verified ? '' : ': UNVERIFIED'}`);
++    for (const note of provenance.notes) console.log(`  ${note}`);
+     console.log(`\npaired ${shared.length} games (${PAIR[0]} minus ${PAIR[1]}) · unmatched A ${unmatchedA} · unmatched B ${unmatchedB}`);
+     if (shared.length === 0) {
+       console.log('  no estimate available (no shared gameIds)');
+-- 
+2.50.1 (Apple Git-155)
+

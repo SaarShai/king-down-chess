@@ -1,0 +1,24 @@
+{
+  "checks": [
+    {
+      "check": "tsc",
+      "command": [
+        "node_modules/.bin/tsc",
+        "--noEmit"
+      ],
+      "exitCode": 0,
+      "seconds": 0.34,
+      "log": "/Users/new/projects/king-down-supervised-20260921-control/supervisor-replay-tsc.log"
+    },
+    {
+      "check": "full-tests",
+      "command": [
+        "node_modules/.bin/vitest",
+        "run"
+      ],
+      "exitCode": 0,
+      "seconds": 79.32,
+      "log": "/Users/new/projects/king-down-supervised-20260921-control/supervisor-replay-full-tests.log"
+    }
+  ]
+}

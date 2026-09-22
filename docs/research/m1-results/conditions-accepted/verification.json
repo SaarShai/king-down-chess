@@ -1,0 +1,46 @@
+{
+  "utc": "2026-09-22T08:06:08.599131+00:00",
+  "checks": [
+    {
+      "name": "tsc",
+      "command": [
+        "./node_modules/.bin/tsc",
+        "--noEmit"
+      ],
+      "returnCode": 0,
+      "log": "tsc.log"
+    },
+    {
+      "name": "targeted-tests",
+      "command": [
+        "./node_modules/.bin/vitest",
+        "run",
+        "tools/conditions.test.ts",
+        "src/sim/identity.test.ts",
+        "src/sim/replay.test.ts",
+        "src/sim/sim.test.ts"
+      ],
+      "returnCode": 0,
+      "log": "targeted-tests.log"
+    },
+    {
+      "name": "independent",
+      "command": [
+        "./node_modules/.bin/tsx",
+        "/Users/new/projects/king-down-supervised-20260921-control/supervisor-conditions-check.ts"
+      ],
+      "returnCode": 0,
+      "log": "independent.log"
+    },
+    {
+      "name": "diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returnCode": 0,
+      "log": "diff-check.log"
+    }
+  ]
+}

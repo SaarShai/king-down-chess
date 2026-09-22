@@ -1,0 +1,72 @@
+[
+  {
+    "info": {
+      "parentID": "msg_0c886eaf2001mo7EoI6oFO4GH4",
+      "role": "assistant",
+      "mode": "build",
+      "agent": "build",
+      "path": {
+        "cwd": "/Users/za/.local/share/king-down-supervised-20260922/analysis",
+        "root": "/Users/za/.local/share/king-down-supervised-20260922/analysis"
+      },
+      "cost": 0.000357636,
+      "tokens": {
+        "total": 77871,
+        "input": 466,
+        "output": 93,
+        "reasoning": 0,
+        "cache": {
+          "write": 0,
+          "read": 77312
+        }
+      },
+      "modelID": "deepseek-v4.1-flash",
+      "providerID": "opencode-go",
+      "time": {
+        "created": 1790070935202,
+        "completed": 1790070940950
+      },
+      "finish": "tool-calls",
+      "id": "msg_0c88acea2001zoyiurxzV0RFhX",
+      "sessionID": "ses_f3779152fffem4yzejsDKpFYrt"
+    },
+    "text": []
+  },
+  {
+    "info": {
+      "parentID": "msg_0c886eaf2001mo7EoI6oFO4GH4",
+      "role": "assistant",
+      "mode": "build",
+      "agent": "build",
+      "path": {
+        "cwd": "/Users/za/.local/share/king-down-supervised-20260922/analysis",
+        "root": "/Users/za/.local/share/king-down-supervised-20260922/analysis"
+      },
+      "cost": 0,
+      "tokens": {
+        "input": 0,
+        "output": 0,
+        "reasoning": 0,
+        "cache": {
+          "read": 0,
+          "write": 0
+        }
+      },
+      "modelID": "deepseek-v4.1-flash",
+      "providerID": "opencode-go",
+      "time": {
+        "created": 1790070940952,
+        "completed": 1790070945237
+      },
+      "error": {
+        "name": "MessageAbortedError",
+        "data": {
+          "message": "Aborted"
+        }
+      },
+      "id": "msg_0c88ae518001yZ8ASgi1W2ApMi",
+      "sessionID": "ses_f3779152fffem4yzejsDKpFYrt"
+    },
+    "text": []
+  }
+]

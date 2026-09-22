@@ -1,0 +1,19 @@
+# Supervisor notes for the next bounded prerequisites
+
+These are preparation notes, not dispatched work or accepted results. Do not run a new writer while the active conditions repair is live.
+
+## Pair validation after condition statistics acceptance
+
+`tools/conditions.ts` currently loads each file into a `Map<gameId, GameRecord>`, silently overwrites duplicate IDs, and calls shared IDs paired without comparing starts. Require unique IDs; compare actual full `startFen`, seed, openingPlies and colourSwapped. Treat mismatched starts/seeds as an error rather than dropping them invisibly. Print unmatched record counts; zero or one valid pair cannot support the existing interval calculation. A same-seed rule variant can produce different random opening moves, so describe common start/seed rather than identical played openings.
+
+`src/sim/run.ts` exports `Stamp { rules, rulesKey, pool, specKey, src }`. Records are `GameRecord & Partial<Stamp>`. `specKey` deliberately changes for rule/evaluator treatments, so rejecting all different specKeys would block intended A/B comparisons. The contract allows explicit qualification: identify missing/different specifications and state that settings equality is not established by the hash alone. Reject mixed identities within a file and incompatible source versions, or clearly exclude them from validated comparisons. Use the smallest validation seam and fixture CLI tests; no settings-comparison framework or new dependency.
+
+Separate paired arithmetic from clustered inference: the existing simple per-game interval is not the final setup-clustered study estimator. Preserve that limitation explicitly rather than claiming this prerequisite supplies all campaign analysis.
+
+## Search stall after pairing acceptance
+
+Candidate mechanism, **not yet reproduced or confirmed**: in `src/ai/search.ts:279`, quiesce decrements qdepth at every recursive step, including check evasions, but quiet-position cutoff uses `qdepth === 0`. A check at zero can lead to a negative depth, so the quiet cutoff is missed thereafter; the global ply limit remains 72. `timeUp` checks every 1024 nodes; fixed-depth `sideOptions` defaults timeMs to Infinity. This combination could explain the historical long fixed-depth game. Build a deterministic legal-position regression and inspect bounded-node evidence before changing it. Preserve historical seed/state if available; do not simply rerun or drop the missing game. Current code permits unlimited check evasions until the global cap; avoid using stand-pat while still in check.
+
+Historical case located and independently recounted on 2026-09-22: `pb-ab-O-push-d4-v318.base.jsonl` has 1,599 unique IDs; **884 alone is missing**. Record provenance is src `4be3ddab3232`, specKey `dd2974a15b8f`, rulesKey `ee0a45ad`. `docs/research/sim-ogre-combos-2026-09-17.md:70` identifies back rank `GSRBNQKO`, seed `41174341`, O=318, depth 4, after 103 plies; partial FEN `g7/6k1/2q3pp/3o4/1p1p1P2/pQ1O2PP/6K1/2G5 w`. It reports 25+ minutes at about 0.1M nodes/s, but a fresh search of that position took only 0.3 s / 25,447 nodes. Thus a fresh-FEN-only test does not reproduce the state-dependent historical failure. Preserve accumulated search state or build a targeted regression for the independently verified negative-depth mechanism. The historical `/tmp/ogre-combos/pos104.mts` path is only a lead, not yet checked for existence. No new games were launched for this preparation.
+
+`playGame` stores startFen before random opening moves and uses the full-board uppercase census for stats.start. Exact FENs can already be supplied via RunSpec.asymmetric entries (`fen`, `fenSwapped`); no new setup interface is needed for the Guard swap or constructed positions. `buildJobs` explicitly maps seeds, pairId, colourSwapped and start FEN. These are the existing seams for later protocols.

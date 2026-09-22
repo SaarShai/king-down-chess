@@ -1,0 +1,18 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.0 [39m[90m/Users/new/projects/king-down-supervised-20260921[39m
+
+ [32m✓[39m src/sim/replay.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/sim/identity.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/sim/sim.test.ts [2m([22m[2m32 tests[22m[2m)[22m[33m 1022[2mms[22m[39m
+   [32m✓[39m runner (end to end) [2m(4)[22m
+     [33m[2m✓[22m[39m plays 2 games at depth 1 on 1 worker and records legal moves[33m 716[2mms[22m[39m
+ [32m✓[39m tools/conditions.test.ts [2m([22m[2m31 tests[22m[2m)[22m[33m 3545[2mms[22m[39m
+   [32m✓[39m conditions paired provenance [2m(10)[22m
+     [33m[2m✓[22m[39m rejects a blank identity value through the CLI (""), for every field[33m 381[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects a blank identity value through the CLI ("   "), for every field[33m 380[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m74 passed[39m[22m[90m (74)[39m
+[2m   Start at [22m 10:38:38
+[2m   Duration [22m 3.78s[2m (tests 87%, transform 11%, import 2%)[22m
+

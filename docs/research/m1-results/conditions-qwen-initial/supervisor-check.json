@@ -1,0 +1,60 @@
+{
+  "fixtureKind": "synthetic test records, not played games",
+  "results": [
+    {
+      "name": "three owner armies, not four Archer pieces",
+      "passed": false,
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n4 !== 3\n"
+    },
+    {
+      "name": "presence counted once per game",
+      "passed": false,
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n3 !== 2\n"
+    },
+    {
+      "name": "both colours contribute six moves",
+      "passed": true
+    },
+    {
+      "name": "one owner army made no Archer move",
+      "passed": true
+    },
+    {
+      "name": "two armies retain the type, not three pieces",
+      "passed": false,
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n3 !== 2\n"
+    },
+    {
+      "name": "two captures across owner armies",
+      "passed": true
+    },
+    {
+      "name": "off-back-rank Guard ownership",
+      "passed": true
+    },
+    {
+      "name": "no lowercase or empty-square piece keys",
+      "passed": true
+    },
+    {
+      "name": "CLI succeeds",
+      "passed": true
+    },
+    {
+      "name": "CLI shows correct end-presence rate",
+      "passed": false,
+      "error": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /66\\.7%/. Input:\n\n'\\n' +\n  '/Users/new/projects/king-down-supervised-20260921-control/statistics-fixture.jsonl.txt: 2 games · decisive 0.0% · draws 100.0% · capped 0.0% · plies 10 · White 0.500\\n' +\n  '  piece | per game | still (no move) | survive | captures\\n' +\n  '   A     |     1.50 |           25.0% |   75.0% | 0.50\\n' +\n  '   G     |     0.00 |          100.0% |  100.0% | 0.00\\n'\n"
+    },
+    {
+      "name": "CLI names the end-presence measure",
+      "passed": false,
+      "error": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /type present at end/i. Input:\n\n'\\n' +\n  '/Users/new/projects/king-down-supervised-20260921-control/statistics-fixture.jsonl.txt: 2 games · decisive 0.0% · draws 100.0% · capped 0.0% · plies 10 · White 0.500\\n' +\n  '  piece | per game | still (no move) | survive | captures\\n' +\n  '   A     |     1.50 |           25.0% |   75.0% | 0.50\\n' +\n  '   G     |     0.00 |          100.0% |  100.0% | 0.00\\n'\n"
+    },
+    {
+      "name": "CLI identifies owner-army denominators",
+      "passed": false,
+      "error": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /owner/i. Input:\n\n'\\n' +\n  '/Users/new/projects/king-down-supervised-20260921-control/statistics-fixture.jsonl.txt: 2 games · decisive 0.0% · draws 100.0% · capped 0.0% · plies 10 · White 0.500\\n' +\n  '  piece | per game | still (no move) | survive | captures\\n' +\n  '   A     |     1.50 |           25.0% |   75.0% | 0.50\\n' +\n  '   G     |     0.00 |          100.0% |  100.0% | 0.00\\n'\n"
+    }
+  ],
+  "cliOutput": "\n/Users/new/projects/king-down-supervised-20260921-control/statistics-fixture.jsonl.txt: 2 games · decisive 0.0% · draws 100.0% · capped 0.0% · plies 10 · White 0.500\n  piece | per game | still (no move) | survive | captures\n   A     |     1.50 |           25.0% |   75.0% | 0.50\n   G     |     0.00 |          100.0% |  100.0% | 0.00\n"
+}

@@ -1,0 +1,70 @@
+[
+  {
+    "info": {
+      "parentID": "msg_0c877f655001QZVdthLT1kgkdC",
+      "role": "assistant",
+      "mode": "build",
+      "agent": "build",
+      "path": {
+        "cwd": "/Users/za/.local/share/king-down-supervised-20260922/provenance",
+        "root": "/Users/za/.local/share/king-down-supervised-20260922/provenance"
+      },
+      "cost": 0.000386958,
+      "tokens": {
+        "total": 94696,
+        "input": 249,
+        "output": 98,
+        "reasoning": 13,
+        "cache": {
+          "write": 0,
+          "read": 94336
+        }
+      },
+      "modelID": "deepseek-v4.1-flash",
+      "providerID": "opencode-go",
+      "time": {
+        "created": 1790069811736,
+        "completed": 1790069814379
+      },
+      "finish": "tool-calls",
+      "id": "msg_0c879aa18001i5lnYYq7w6rmNW",
+      "sessionID": "ses_f378ca9c5ffe6Ht5FsuhiKgsm1"
+    },
+    "text": []
+  },
+  {
+    "info": {
+      "parentID": "msg_0c877f655001QZVdthLT1kgkdC",
+      "role": "assistant",
+      "mode": "build",
+      "agent": "build",
+      "path": {
+        "cwd": "/Users/za/.local/share/king-down-supervised-20260922/provenance",
+        "root": "/Users/za/.local/share/king-down-supervised-20260922/provenance"
+      },
+      "cost": 0.000559776,
+      "tokens": {
+        "total": 95211,
+        "input": 212,
+        "output": 407,
+        "reasoning": 0,
+        "cache": {
+          "write": 0,
+          "read": 94592
+        }
+      },
+      "modelID": "deepseek-v4.1-flash",
+      "providerID": "opencode-go",
+      "time": {
+        "created": 1790069814382,
+        "completed": 1790069818185
+      },
+      "finish": "stop",
+      "id": "msg_0c879b46e001wMR2jpOEU0V6qn",
+      "sessionID": "ses_f378ca9c5ffe6Ht5FsuhiKgsm1"
+    },
+    "text": [
+      "Corrections applied and committed.\n\nCommit: `a365c98 Qualify paired comparisons by source and spec provenance` \u2014 exactly 3 files (`tools/conditions.ts`, `tools/conditions.test.ts`, `campaign/provenance-report.md`); no startup/config/log files.\n\nCorrections\n- Malformed present identity now rejected for every field: non-string (`typeof`), empty, and whitespace-only (`v.trim() === ''`). Only `undefined`/`null` counts as legacy/absent. Arbitrary nonempty strings pass; no hash-format check. See `identifyArm` tools/conditions.ts:132.\n- Fixture made coherent: `pairRec` FEN now 8 ranks `a6k/8/8/8/8/8/8/A5AK` with White `stats.start` `A:2` (tool: conditions.test.ts:265).\n- Report counts corrected to baseline 14, new 17, total 31; added a supervision-corrections section.\n\nEvidence\n- `npx tsx tools/conditions.ts --pair .tmp-prov/badA.jsonl,.tmp-prov/goodB.jsonl` \u2192 `Error: ... has a blank src value; an identity field must be a non-empty string or genuinely absent`, exit 2.\n- `npx tsc --noEmit` \u2192 exit 0.\n- `npx vitest run tools/conditions.test.ts` \u2192 `Tests 31 passed (31)`, exit 0.\n- `git diff --check` \u2192 exit 0.\n- New regressions cover non-string/empty/whitespace-only per field (unit + CLI), `null` as legacy, mixed/partial, different source, differing spec/rules with review, legacy and one-side-missing UNVERIFIED.\n\nTemp fixtures removed. AGENTS.md/LESSONS.md/TASKS.md (supervisor context) left uncommitted, untouched."
+    ]
+  }
+]

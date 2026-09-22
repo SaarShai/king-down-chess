@@ -1,0 +1,60 @@
+{
+  "checked": "2026-09-22T08:11:19.151668+00:00",
+  "runner": {
+    "phase": 1,
+    "round": "20260922T080935Z",
+    "runnerPid": 52765,
+    "prompt": "/Users/new/projects/king-down-supervised-20260921-control/pair-validation.txt",
+    "log": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T080935Z.jsonl",
+    "errors": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T080935Z.stderr.log",
+    "started": 1790064575.435613,
+    "state": "running",
+    "agentPid": 52766
+  },
+  "session": {
+    "id": "ses_f37d638a7ffeDK2ipM6vYOP7Hr",
+    "directory": "/Users/new/projects/king-down-supervised-20260921"
+  },
+  "logBytes": 0,
+  "logMtime": "2026-09-22T08:09:35.436332+00:00",
+  "stderrBytes": 0,
+  "recentTools": [],
+  "processes": [
+    "43137 43135     10:52:23   0.0  39088 /Applications/Ollama.app/Contents/Resources/ollama",
+    "52765     1        01:44   0.0   7168 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python",
+    "52766 52765        01:44   0.7 606880 /Users/new/projects/king-down-supervised-20260921-control/runtime/node_modules/.bin/opencode",
+    "52767 52765        01:44   0.0   2576 /usr/bin/caffeinate",
+    "52795 43137        01:42   1.3 7092720 /Applications/Ollama.app/Contents/Resources/ollama"
+  ],
+  "model": {
+    "rc": 0,
+    "out": "NAME                        ID              SIZE     PROCESSOR    CONTEXT    UNTIL              \nkdc-m1-qwen-agent:latest    3a62a2147de1    18 GB    100% GPU     32768      4 minutes from now    \n",
+    "err": ""
+  },
+  "memory": {
+    "rc": 0,
+    "out": "The system has 34359738368 (2097152 pages with a page size of 16384).\nSystem-wide memory free percentage: 31%\n",
+    "err": ""
+  },
+  "swap": {
+    "rc": 0,
+    "out": "vm.swapusage: total = 4096.00M  used = 2394.75M  free = 1701.25M  (encrypted)\n",
+    "err": ""
+  },
+  "head": {
+    "rc": 0,
+    "out": "f4482cba3eb7fa4d7b5e52b6966e49ebee1890fa\n",
+    "err": ""
+  },
+  "protectedDiff": {
+    "rc": 0,
+    "out": "",
+    "err": ""
+  },
+  "sourceId": {
+    "rc": 0,
+    "out": "3545663dcf97\n",
+    "err": ""
+  },
+  "records": []
+}

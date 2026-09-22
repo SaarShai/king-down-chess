@@ -1,0 +1,586 @@
+{
+  "automationId": "supervise-m1-chess-studies",
+  "state": "owner_wrapup_complete",
+  "phase": "closed_after_phase_3_pilots",
+  "remoteWorkspace": "/Users/new/projects/king-down-supervised-20260921",
+  "remoteControl": "/Users/new/projects/king-down-supervised-20260921-control",
+  "model": null,
+  "note": "Owner requested finish current work, start nothing new, complete and commit. Phases 1\u20132 and both Ogre pilots verified; Guard and arrangement/pool studies prepared but unrun. No new remote inspection at closeout.",
+  "upstreamHead": "a9b6b630026d15c04839e8c7bfa8760d9fedb286",
+  "remoteBaseline": "584af10569a48511bf1a4881a7cc1e4c358b8a25",
+  "lastChecked": "2026-09-22T10:00:04.309922+00:00",
+  "executionAlias": "kdc-m1-qwen-agent",
+  "snapshotVerifiedFiles": 863,
+  "snapshotMismatches": 0,
+  "runnerPid": null,
+  "agentPid": null,
+  "remoteLog": null,
+  "remoteSession": null,
+  "jevAccess": {
+    "clientPresent": true,
+    "envKeyPresent": false,
+    "keyFilePresent": false,
+    "callsAuthorizedInCampaign": false,
+    "recommendation": "Optional bounded numeric-claim checks after reports; controlled and advisory. No balance/fun verdicts. Owner asked about suitability; no key copied or calls made."
+  },
+  "contextTokens": 32768,
+  "outputTokens": 4096,
+  "completedGames": 13400,
+  "completedSubtasks": [
+    "replay legality",
+    "source identity",
+    "condition statistics",
+    "paired starts/duplicates/sparse reporting",
+    "paired source/spec provenance qualification"
+  ],
+  "previousRound": {
+    "state": "stopped_context_churn",
+    "pid": 48896,
+    "elapsedMinutes": 33,
+    "events": 34,
+    "sourceChanges": 0,
+    "games": 0,
+    "modelMemoryGB": 28,
+    "systemSwapUsedGB": 6.1,
+    "log": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T042851Z.jsonl"
+  },
+  "activePrompt": null,
+  "modelMemoryGB": 0,
+  "modelAliasId": "3a62a2147de1",
+  "intervalMinutes": 4,
+  "scheduleNote": "Saved four-minute schedule is PAUSED following the owner no-delegation instruction; no monitoring or worker relaunch.",
+  "systemSwapUsedGB": null,
+  "sourceCandidateSha256": "1279465a4f8aaa841bb3a94ef156636a48481d33acae75b889fbc6291b5dfdb6",
+  "supervisorChecks": {
+    "subtask": "paired starts/duplicates/sparse reporting",
+    "accepted": true,
+    "targetedTests": 57,
+    "independentPairChecks": 12,
+    "independentStatisticsChecks": 12,
+    "tscExit": 0,
+    "baselineFailures": 8
+  },
+  "nextPrompt": null,
+  "nextPromptGate": "No further execution without new owner instruction.",
+  "newFinding": {
+    "sourceIdPathDependence": true,
+    "localEvidence": {
+      "relative": "45d0c9520955",
+      "absolute": "b49ca9dcdaa2",
+      "absoluteTrailing": "e74e884fb1b4"
+    }
+  },
+  "remoteHead": "2109d67f6daebc2e7ebc543bd7778964b51f337f",
+  "replayAcceptance": {
+    "commit": "19a25d341ad0a572e0971fc75abaf2bb3ae681da",
+    "tscExit": 0,
+    "fullSuiteTests": 210,
+    "fullSuiteFiles": 7,
+    "fullSuiteSeconds": 79.32,
+    "evidenceDirectory": "docs/research/m1-results/replay-accepted"
+  },
+  "launchVerified": false,
+  "previousIdentityRound": {
+    "round": "20260922T055339Z",
+    "agentPid": 50020,
+    "exitCode": 0,
+    "endedAtStepLimit": true,
+    "agentChecks": {
+      "tscExit": 0,
+      "targetedTestsPassed": 41
+    },
+    "supervisorChecks": {
+      "passed": 5,
+      "total": 7,
+      "failureNames": [
+        "missing required source throws",
+        "missing required directory throws"
+      ]
+    },
+    "statusWasStale": true,
+    "evidenceDirectory": "docs/research/m1-results/identity-initial"
+  },
+  "identityCandidateSha256": "96fbf49707859ed6a68df5793f453e3310687399eaf841583306556a851afc96",
+  "memoryFreePercentage": 91,
+  "launchEvidence": {
+    "scope": "No current agent or simulation writer; completed trial runner history is preserved in comparison artifacts."
+  },
+  "identityAcceptance": {
+    "commit": "683779d24bdd4607c4da2a40d5bc154a1e44ebb2",
+    "targetedTests": 43,
+    "independentScenarios": 7,
+    "evidenceDirectory": "docs/research/m1-results/identity-accepted",
+    "statusRepairedBySupervisor": true
+  },
+  "previousConditionsRound": {
+    "round": "20260922T062840Z",
+    "agentPid": 50907,
+    "state": "stopped_context_churn",
+    "exitCode": -15,
+    "elapsedMinutes": 19.35,
+    "sourceEdits": 0,
+    "testExists": false,
+    "peakObservedContextTokens": 31064,
+    "evidenceDirectory": "docs/research/m1-results/conditions-context-recovery"
+  },
+  "contextRecovery": {
+    "originalStartupBytes": 93446,
+    "replacementStartupBytes": 4290,
+    "fullOriginalsArchived": true,
+    "promptModelCodeUnchanged": true,
+    "criterion": "Real condition-statistics source/test artifact, then relevant passing tests",
+    "usefulArtifactObserved": false,
+    "lastProgress": {
+      "checked": "2026-09-22T06:53:50.482182+00:00",
+      "round": "20260922T064801Z",
+      "state": "running",
+      "statisticsSourceChanges": [],
+      "testExists": false,
+      "usefulArtifact": false,
+      "protectedDiffBytes": 0,
+      "stderrBytes": 0,
+      "campaignJsonlFiles": 0,
+      "agentProcess": "51125 05:49 /Users/new/projects/king-down-supervised-20260921-control/runtime/node_modules/.bin/opencode"
+    },
+    "outcome": "Reduced input size but did not recover useful work; Muse finished without source/test artifacts."
+  },
+  "modelTrial": {
+    "oldModel": "muse-glimmer:30b-mlx",
+    "newModel": "qwen3.8:27b-mlx",
+    "started": "2026-09-22T07:11:38.977837+00:00",
+    "samePrompt": true,
+    "sameStartupSummaries": true,
+    "actualArtifactObserved": true,
+    "criterion": "Useful source/test artifact followed by independent arithmetic/CLI/test verification",
+    "evidenceDirectory": "docs/research/m1-results/conditions-qwen-trial",
+    "lastProgress": {
+      "checked": "2026-09-22T07:35:48.761519+00:00",
+      "sourceChanges": [
+        "tools/conditions.ts"
+      ],
+      "testExists": true,
+      "usefulArtifact": true,
+      "accepted": false,
+      "campaignGames": 0
+    },
+    "outcome": "Qwen made source/test edits, but initial candidate failed independent semantic/CLI review. Continuing narrowly scoped corrections."
+  },
+  "previousStatisticsCandidate": {
+    "round": "20260922T071139Z",
+    "agentPid": 51537,
+    "state": "stopped_for_corrections_and_memory_pressure",
+    "exitCode": -15,
+    "modelMemoryGB": 32,
+    "systemSwapUsedGB": 8.606,
+    "evidenceDirectory": "docs/research/m1-results/conditions-qwen-initial"
+  },
+  "recordAudit": {
+    "paths": [
+      "campaign",
+      "sim/out"
+    ],
+    "files": [
+      {
+        "path": "sim/out/m1-worker-validation-20260922-b.jsonl",
+        "records": 8,
+        "purpose": "execution validation",
+        "plyCaps": 8,
+        "mtime": 1790067037.4434733
+      },
+      {
+        "path": "sim/out/m1-worker-validation-20260922-c.jsonl",
+        "records": 8,
+        "purpose": "execution validation",
+        "plyCaps": 8,
+        "mtime": 1790067038.2107134
+      },
+      {
+        "path": "sim/out/m1-worker-validation-20260922-a.jsonl",
+        "records": 8,
+        "purpose": "execution validation",
+        "plyCaps": 8,
+        "mtime": 1790067036.7140338
+      }
+    ],
+    "balanceStudyGames": 0,
+    "executionValidationGames": 24,
+    "allValidationGamesPlyCapped": true
+  },
+  "statisticsAcceptance": {
+    "acceptedAt": "2026-09-22T08:08:42.965423+00:00",
+    "commit": "f4482cba3eb7fa4d7b5e52b6966e49ebee1890fa",
+    "remoteWorkspace": "/Users/new/projects/king-down-supervised-20260921",
+    "model": "qwen3.8:27b-mlx",
+    "modelRound": "20260922T073910Z",
+    "modelIndependentChecks": {
+      "passed": 12,
+      "total": 12
+    },
+    "supervisorFinalChecks": {
+      "targetedTests": 48,
+      "independentChecks": 12,
+      "tscExit": 0,
+      "diffCheckExit": 0
+    },
+    "supervisorFinishingEdits": [
+      "reject empty/space/multi-letter and nonpositive starting census keys",
+      "print present-game counts and promotion/end-presence clarification",
+      "coherent synthetic FENs and exact CLI column assertions; remove misleading arithmetic assertions/comments"
+    ],
+    "games": 0,
+    "gameplaySourceUnchanged": true,
+    "remainingGates": [
+      "paired-start/spec validation",
+      "search-stall diagnosis",
+      "protocol and throughput pilot"
+    ],
+    "evidenceDirectory": "docs/research/m1-results/conditions-accepted",
+    "copiedArtifactHashesVerified": 11
+  },
+  "previousConditionsCorrectionRound": {
+    "round": "20260922T073910Z",
+    "runnerPid": 52085,
+    "agentPid": 52086,
+    "exitCode": 0,
+    "completed": "2026-09-22T08:04:18.035467+00:00",
+    "candidateIndependentChecks": "12/12",
+    "supervisorFinishingEdits": true
+  },
+  "remoteSourceId": "3545663dcf97",
+  "pairProgress": {
+    "state": "accepted_starts_only",
+    "provenance": "accepted",
+    "commit": "c3393615a6eb11db21c6b7fd50e4eda471f300a2"
+  },
+  "previousPairRound": {
+    "round": "20260922T080935Z",
+    "stoppedAt": "2026-09-22T08:33:07.408800+00:00",
+    "agentPid": 52766,
+    "exitCode": -15,
+    "elapsedMinutes": 23.53288644949595,
+    "completedTools": 29,
+    "implementationEdits": 0,
+    "contextCompactions": 2,
+    "peakObservedContextTokens": 29701,
+    "acceptedHead": "f4482cba3eb7fa4d7b5e52b6966e49ebee1890fa",
+    "campaignGames": 0,
+    "modelFootprintGBAtStop": 31,
+    "swapUsedMBAtStop": 8817.19,
+    "recovery": "Split starts/duplicate/sparse-pair handling from provenance qualification; restrict reads to owned files and startup summaries, disable discovery search, reduce per-round steps from 40 to 16. No source or model change.",
+    "newPrompt": "pair-starts-only.txt",
+    "acceptanceCriterion": "Actual source/test artifact, independent checks and passing targeted tests, not process liveness",
+    "evidenceDirectory": "docs/research/m1-results/pair-context-recovery",
+    "verifiedFiles": 13
+  },
+  "validationGames": 24,
+  "workAllocationTrial": {
+    "ownerRequested": true,
+    "gemmaStarted": "2026-09-22T08:51:40.528273+00:00",
+    "gemmaDeadline": "2026-09-22T09:06:40.528273+00:00",
+    "qwen": {
+      "elapsedSeconds": 770.2687320709229,
+      "independentPassed": 12,
+      "independentTotal": 12,
+      "tscExit": 0,
+      "ownTestsPassed": 5,
+      "ownTestsFailed": 9,
+      "evidenceDirectory": "docs/research/m1-results/model-comparison-qwen",
+      "selectedAfterSupervisorTestHelperFix": true
+    },
+    "worker": {
+      "records": 24,
+      "plyCapped": 24,
+      "auditPassed": 30,
+      "auditTotal": 30,
+      "sourceId": "3545663dcf97",
+      "specKey": "7f0087356cbf",
+      "sameDeterministicHash": "12d32d45bc962947b512abd373d0f89f1562298f6b89322092f309581680b0c2",
+      "evidenceDirectory": "docs/research/m1-results/worker-validation-20260922",
+      "recordHashesVerified": 3
+    },
+    "state": "complete",
+    "gemma": {
+      "elapsedSeconds": 880.6939158439636,
+      "ownTestsPassed": 15,
+      "ownTestsFailed": 0,
+      "independentPassed": 9,
+      "independentTotal": 12,
+      "tscExit": 0,
+      "defects": [
+        "zero shared games produce a zero effect estimate",
+        "one-pair interval unavailability not labelled",
+        "multi-pair interval not qualified as per-game rather than setup-clustered"
+      ],
+      "evidenceDirectory": "docs/research/m1-results/model-comparison-gemma"
+    },
+    "decision": "M1 prescribed tests/simulations/replay/numerical jobs. Qwen is the better observed bounded coding candidate; neither model is entrusted with autonomous research. All models unloaded.",
+    "report": "docs/research/m1-work-allocation-2026-09-22.md"
+  },
+  "workMode": "closed_direct_campaign",
+  "modelActive": false,
+  "pairStartsAcceptance": {
+    "acceptedAt": "2026-09-22T09:10:48.266421+00:00",
+    "commit": "c3393615a6eb11db21c6b7fd50e4eda471f300a2",
+    "baseModelCandidate": "qwen3.8:27b-mlx",
+    "supervisorFinishingEdits": [
+      "fix test CLI comma-separated path argument",
+      "correct two explanatory comments"
+    ],
+    "baselineFailingRegressions": 8,
+    "targetedTests": 57,
+    "pairIndependent": 12,
+    "statisticsIndependent": 12,
+    "checks": [
+      {
+        "name": "tsc",
+        "returnCode": 0
+      },
+      {
+        "name": "targeted-tests",
+        "returnCode": 0
+      },
+      {
+        "name": "pair-independent",
+        "returnCode": 0
+      },
+      {
+        "name": "statistics",
+        "returnCode": 0
+      },
+      {
+        "name": "diff-check",
+        "returnCode": 0
+      }
+    ],
+    "campaignGames": 0,
+    "validationGames": 24,
+    "remainingGates": [
+      "source/spec provenance qualification",
+      "search-stall diagnosis",
+      "study protocols and practical throughput pilot"
+    ],
+    "evidenceDirectory": "docs/research/m1-results/pair-starts-accepted",
+    "copiedHashesVerified": 11
+  },
+  "openCodeDelegation": {
+    "controlDirectory": "/Users/za/.local/share/king-down-supervised-20260922",
+    "server": "http://127.0.0.1:4099",
+    "version": "1.18.32",
+    "parentSession": "ses_f378caa21ffe76zTrrxgwd9XYx",
+    "model": "opencode-go/deepseek-v4.1-flash",
+    "actualModelVerified": true,
+    "localBaseline": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+    "baselineSourceToolsPackageTreeMatchesRemote": true,
+    "sourceIdentityBeforeNewEdits": "3545663dcf97",
+    "agents": {
+      "provenance": {
+        "directory": "/Users/za/.local/share/king-down-supervised-20260922/provenance",
+        "prompt": "/Users/za/.local/share/king-down-supervised-20260922/provenance-prompt.txt",
+        "state": "accepted_inactive",
+        "baseHead": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+        "sessionID": "ses_f378ca9c5ffe6Ht5FsuhiKgsm1",
+        "parentID": "ses_f378caa21ffe76zTrrxgwd9XYx",
+        "model": "opencode-go/deepseek-v4.1-flash",
+        "started": 1790069397.0650759,
+        "initialIndependent": {
+          "passed": 11,
+          "total": 14,
+          "remaining": "whitespace-only identity rejection and fixture/report coherence"
+        },
+        "commit": "a365c980",
+        "localIntegrationCommit": "ffd78f0",
+        "remoteCommit": "2109d67f6daebc2e7ebc543bd7778964b51f337f",
+        "independentChecks": {
+          "passed": 14,
+          "total": 14
+        },
+        "remoteTargetedTests": 74,
+        "acceptedAt": "2026-09-22T09:40:43.246564+00:00",
+        "stoppedAt": 1790070945.0653179,
+        "headAtStop": "a365c9805ea5aba6f4549dac4c28e32db9488f5b"
+      },
+      "search": {
+        "directory": "/Users/za/.local/share/king-down-supervised-20260922/search",
+        "prompt": "/Users/za/.local/share/king-down-supervised-20260922/search-prompt.txt",
+        "state": "stopped_by_owner_unreviewed",
+        "baseHead": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+        "sessionID": "ses_f378ca8b5ffecujVHstHAVYG9H",
+        "parentID": "ses_f378caa21ffe76zTrrxgwd9XYx",
+        "model": "opencode-go/deepseek-v4.1-flash",
+        "started": 1790069397.3239958,
+        "priorRound": "step limit after useful negative-depth diagnostics, no accepted fix",
+        "reviewedAt": 1790070531.8599648,
+        "reviewEvidence": "/Users/za/Documents/king down chess/docs/research/m1-results/deepseek-review-20260922T0945",
+        "reviewedCommit": "9123ba9",
+        "stoppedAt": 1790070945.148834,
+        "headAtStop": "9123ba97682ecb4a62ba680684983d915abc67b6"
+      },
+      "protocol": {
+        "directory": "/Users/za/.local/share/king-down-supervised-20260922/protocol",
+        "prompt": "/Users/za/.local/share/king-down-supervised-20260922/protocol-prompt.txt",
+        "state": "stopped_by_owner_unreviewed",
+        "baseHead": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+        "sessionID": "ses_f378ca694ffeeSXYB0FMJNrrlN",
+        "parentID": "ses_f378caa21ffe76zTrrxgwd9XYx",
+        "model": "opencode-go/deepseek-v4.1-flash",
+        "started": 1790069397.869246,
+        "priorRound": "step limit after setup/spec/evaluator evidence; final protocol report pending",
+        "reviewedAt": 1790070531.883243,
+        "reviewEvidence": "/Users/za/Documents/king down chess/docs/research/m1-results/deepseek-review-20260922T0945",
+        "reviewedCommit": "54e6de0",
+        "stoppedAt": 1790070945.233794,
+        "headAtStop": "4f724917b25a2d031157bcf031a6b25e6b784d6a"
+      },
+      "analysis": {
+        "directory": "/Users/za/.local/share/king-down-supervised-20260922/analysis",
+        "prompt": "/Users/za/.local/share/king-down-supervised-20260922/analysis-prompt.txt",
+        "state": "stopped_by_owner_unreviewed",
+        "baseHead": "ffd78f097f4cd02bdce6c42259c60b33159b9b5e",
+        "sessionID": "ses_f3779152fffem4yzejsDKpFYrt",
+        "parentID": "ses_f378caa21ffe76zTrrxgwd9XYx",
+        "model": "opencode-go/deepseek-v4.1-flash",
+        "started": 1790070680.2905972,
+        "actualModelVerified": true,
+        "stoppedAt": 1790070945.3160791,
+        "headAtStop": "ffd78f097f4cd02bdce6c42259c60b33159b9b5e"
+      }
+    },
+    "checkCommand": "python3 /Users/za/.local/share/king-down-supervised-20260922/status.py",
+    "reviewProcedure": "docs/research/m1-supervision/deepseek-api-handoff.md",
+    "latestEvidence": {
+      "provenance": "Accepted after precise corrections: 14/14 independent checks; 74 M1 targeted tests; TypeScript clean. Five M1 artifacts copied and hash-verified.",
+      "search": {
+        "accepted": false,
+        "candidate": "9123ba9",
+        "baseline": {
+          "source": "integration/ffd78f0",
+          "nodes": 25447,
+          "score": -287,
+          "move": "Kg2-f2"
+        },
+        "candidateMeasurement": {
+          "nodes": 25447,
+          "score": -287,
+          "move": "Kg2-f2",
+          "elapsedMs": 166.4
+        },
+        "reason": "No effect on the legal test position; all proposed regressions also pass baseline; historical stall remains unproven. Returned targeted repetition/true-regression follow-up."
+      },
+      "protocol": {
+        "accepted": false,
+        "candidate": "54e6de0",
+        "staticChecks": {
+          "passed": 98,
+          "total": 98
+        },
+        "setups": 96,
+        "reason": "Depth-only specifications leave infinite time budgets; head-to-head physical counts and commands disagree with ledger; censoring/estimator/adoption claims need correction."
+      },
+      "analysis": "Historical partial implementation; aborted at owner delegation stop. Replaced during direct continuation by the smaller tested campaign-analysis/replay tools."
+    },
+    "lastStatusPath": null,
+    "state": "stopped_by_owner",
+    "serverState": "stopped",
+    "stopEvidence": "docs/research/m1-results/delegation-stop-20260922/manifest.json"
+  },
+  "prescribedRegression": {
+    "state": "passed",
+    "remoteHead": "c3393615a6eb11db21c6b7fd50e4eda471f300a2",
+    "tests": 230,
+    "files": 9,
+    "tscExit": 0,
+    "elapsedSeconds": 81.54,
+    "evidenceDirectory": "docs/research/m1-results/full-regression-20260922"
+  },
+  "provenanceAcceptance": {
+    "remoteCommit": "2109d67f6daebc2e7ebc543bd7778964b51f337f",
+    "localIntegrationCommit": "ffd78f0",
+    "agentCommit": "a365c980",
+    "independentPassed": 14,
+    "independentTotal": 14,
+    "targetedTests": 74,
+    "tscExit": 0,
+    "evidenceDirectory": "docs/research/m1-results/provenance-accepted",
+    "copiedHashesVerified": 5
+  },
+  "currentSupervisorReview": "docs/research/m1-results/deepseek-review-20260922T0945/supervisor-review.json",
+  "searchBudgetValidation": {
+    "passed": 6,
+    "total": 6,
+    "coldAndWarm": true,
+    "requestedTimeMs": [
+      5,
+      25,
+      100
+    ],
+    "maxObservedMs": 106.034042,
+    "limitation": "Observed legal-position checks only. The 5ms warm call took27.59ms, so this is not a strict wall-time guarantee. No game played.",
+    "evidence": "docs/research/m1-results/search-budget-validation-20260922"
+  },
+  "automationStatus": "PAUSED",
+  "ownerPolicy": {
+    "date": "2026-09-22T10:00:04.309922+00:00",
+    "instruction": "from now on don't delegate. too much overhead and monitoring",
+    "guidance": "docs/DELEGATION.md",
+    "requiresNewExplicitAuthorization": true
+  },
+  "directContinuation": {
+    "authorizedBy": "owner: do it!",
+    "updatedAt": "2026-09-22T14:01:18.537934+00:00",
+    "workspace": "/Users/za/.local/share/king-down-supervised-20260922/integration",
+    "searchRepair": "2d7e7b0",
+    "engineTestsPassed": 252,
+    "analysisTestsPassed": 11,
+    "state": "closed at owner request after Ogre pilots",
+    "automationStatus": "PAUSED",
+    "delegationAllowed": false,
+    "verifiedStudyGames": 13400,
+    "operationalTrialGames": 96,
+    "targetedContinuations": 114,
+    "sourceId": "b0ce8c42639c",
+    "humanBrowserChecksPassed": 9,
+    "humanPositionsPrepared": 152,
+    "humanParticipants": 0,
+    "plannedPhase1PhysicalGames": 6699,
+    "liveState": "/Users/za/.local/share/king-down-supervised-20260922/integration/campaign/local-state.json",
+    "pilotReview": "/Users/za/.local/share/king-down-supervised-20260922/integration/campaign/phase-1-pilot-review.md",
+    "endgameDiagnosticGames": 3,
+    "queuedSpecs": [],
+    "queueState": "/Users/za/.local/share/king-down-supervised-20260922/integration/campaign/followup-queue.json",
+    "implementationCommit": "4a53323",
+    "endedStudyGames": 13394,
+    "cappedStudyGames": 6,
+    "phase1PhysicalGames": 6699,
+    "phase1Report": "/Users/za/.local/share/king-down-supervised-20260922/integration/campaign/phase-1-report.md",
+    "phase1Evidence": "/Users/za/.local/share/king-down-supervised-20260922/integration/campaign/phase-1-evidence.json",
+    "paladinDiagnosticBranches": 96,
+    "selectedPaladinOpenings": 24,
+    "phase2Report": "/Users/za/.local/share/king-down-supervised-20260922/integration/campaign/phase-2-report.md",
+    "phase2Evidence": "/Users/za/.local/share/king-down-supervised-20260922/integration/campaign/phase-2-evidence.json",
+    "cancelledQueuedSpecs": [
+      "p4-baseline",
+      "p4-swap",
+      "p5-arrangements",
+      "p5-pool-current",
+      "p5-pool-fairy"
+    ],
+    "activeSimulationWriters": 0,
+    "futureExecutionRequiresNewOwnerInstruction": true,
+    "phase3Report": "/Users/za/.local/share/king-down-supervised-20260922/integration/campaign/phase-3-report.md",
+    "phase3Evidence": "/Users/za/.local/share/king-down-supervised-20260922/integration/campaign/phase-3-evidence.json",
+    "closeout": "/Users/za/.local/share/king-down-supervised-20260922/integration/campaign/CLOSEOUT.md",
+    "closeoutEvidence": "/Users/za/.local/share/king-down-supervised-20260922/integration/campaign/closeout-evidence.json",
+    "finalStudyCommit": "a252b08dc450d9da34ab60866209895da500107e"
+  },
+  "operationalTrialGames": 96,
+  "targetedContinuationGames": 114,
+  "modelAtRemoteStop": "qwen3.8:27b-mlx",
+  "lastLocalCheck": "2026-09-22T14:01:18.537934+00:00",
+  "ownerWrapup": {
+    "instruction": "start to wrap up what you are already doing. don\u2019t start anything new. complete and commit.",
+    "completedAt": "2026-09-22T14:01:18.537934+00:00",
+    "phase4Games": 0,
+    "phase5Games": 0,
+    "humanParticipants": 0
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "round": "20260922T080935Z",
+  "stoppedAt": "2026-09-22T08:33:07.408800+00:00",
+  "agentPid": 52766,
+  "exitCode": -15,
+  "elapsedMinutes": 23.53288644949595,
+  "completedTools": 29,
+  "implementationEdits": 0,
+  "contextCompactions": 2,
+  "peakObservedContextTokens": 29701,
+  "acceptedHead": "f4482cba3eb7fa4d7b5e52b6966e49ebee1890fa",
+  "campaignGames": 0,
+  "modelFootprintGBAtStop": 31,
+  "swapUsedMBAtStop": 8817.19,
+  "recovery": "Split starts/duplicate/sparse-pair handling from provenance qualification; restrict reads to owned files and startup summaries, disable discovery search, reduce per-round steps from 40 to 16. No source or model change.",
+  "newPrompt": "pair-starts-only.txt",
+  "acceptanceCriterion": "Actual source/test artifact, independent checks and passing targeted tests, not process liveness"
+}

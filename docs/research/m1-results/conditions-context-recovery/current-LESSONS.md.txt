@@ -1,0 +1,13 @@
+# M1 campaign lessons
+
+This task-specific digest preserves relevant constraints. The full snapshot lessons are archived with hashes in the sibling control directory, startup-context-originals/LESSONS.md.txt; production lessons remain unchanged.
+
+- Useful progress means source/test changes, real test evidence or actual completed games; live inference and document rereads alone are not progress.
+- Use the current bounded assignment. Create the requested new test file when it does not exist. Read only the relevant source sections; after reading the inputs, implement and verify the assigned deliverable.
+- Capture actual subprocess return codes and complete logs. Print a small result summary once. Repeat checks only after a failure or source edit; empty stdout does not mean failure.
+- Update status with JSON parse/modify/serialize and the real UTC clock, then validate it parses. Preserve accepted work and phase boundaries. A plan or launched process is not a completed study.
+- Source identity includes src/game.ts, uses canonical relative paths and rejects missing required roots. Never mix records across source/spec changes.
+- Replay stored LAN by matching a unique fully legal move, including special-move semantics.
+- Condition ownership uses stats[side].start, the full-board uppercase census for both colours. Denominators count actual owner armies. Seed equality alone does not establish matching positions. End type presence is not survival of original individual pieces.
+- No Jev calls in this campaign. If separately authorized later: numeric checks need known-true/false controls; invalid controls void the instrument. Never quote/commit a verdict after INSTRUMENT INVALID until the repaired spec passes. Narrative labels, fairness/game-breaking judgments, guide-text and document triage failed calibration and must not be retried without a new design. Measurements, adoption and taste stay in code and with the owner.
+- Human feedback must come from real participants. Preserve exact methods, limitations and raw counts; never invent observations.

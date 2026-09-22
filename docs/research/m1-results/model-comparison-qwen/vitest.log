@@ -1,0 +1,149 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.0 [39m[90m/Users/new/projects/king-down-supervised-20260921[39m
+
+ [31m❯[39m tools/conditions.test.ts [2m([22m[2m14 tests[22m[2m | [22m[31m9 failed[39m[2m)[22m[33m 1387[2mms[22m[39m
+   [32m✓[39m conditions scan [2m(3)[22m
+     [32m✓[39m counts owner armies by type, presence, moves, captures and end presence[32m 5[2mms[22m[39m
+     [32m✓[39m ignores invalid piece keys and nonpositive starting counts[32m 2[2mms[22m[39m
+     [32m✓[39m returns empty aggregates for an empty run[32m 1[2mms[22m[39m
+   [32m✓[39m conditions CLI [2m(2)[22m
+     [32m✓[39m prints owner armies, presence, moves per owner and still share from synthetic records[32m 127[2mms[22m[39m
+     [32m✓[39m handles an empty run without NaN or Infinity[32m 130[2mms[22m[39m
+   [31m❯[39m conditions paired validation [2m(9)[22m
+[31m     [31m×[31m computes the paired mean over shared gameIds (A 1,1 vs B 0,1 -> +0.500)[39m[32m 131[2mms[22m[39m
+[31m     [31m×[31m rejects a duplicate gameId within a file, naming file and id[39m[32m 121[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched shared field: startFen[39m[32m 129[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched shared field: seed[39m[32m 119[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched shared field: openingPlies[39m[32m 126[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched shared field: colourSwapped[39m[32m 126[2mms[22m[39m
+[31m     [31m×[31m reports separate unmatched counts for A and B[39m[32m 123[2mms[22m[39m
+[31m     [31m×[31m reports zero pairs as no estimate available[39m[32m 125[2mms[22m[39m
+[31m     [31m×[31m reports one pair as a descriptive mean with no interval and no NaN[39m[32m 121[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m9 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (14)[39m
+[2m   Start at [22m 09:49:48
+[2m   Duration [22m 1.56s[2m (tests 94%, transform 5%, import 1%)[22m
+
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 9 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mcomputes the paired mean over shared gameIds (A 1,1 vs B 0,1 -> +0.500)
+[31m[1mAssertionError[22m: expected 2 to be +0 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 2[39m
+
+[36m [2m❯[22m tools/conditions.test.ts:[2m186:20[22m[39m
+    [90m184|[39m       ]);
+    [90m185|[39m     const { status, out } = runPair(a, b);
+    [90m186|[39m     expect(status).toBe(0);
+    [90m   |[39m                    [31m^[39m
+    [90m187|[39m     expect(out).toContain('+0.500');
+    [90m188|[39m     expect(out).toContain('2 games');
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mrejects a duplicate gameId within a file, naming file and id
+[31m[1mAssertionError[22m: expected 'usage: tsx tools/conditions.ts --runs…' to contain '1'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ usage: tsx tools/conditions.ts --runs a,b,c | --pair a,b[39m
+[31m+[39m
+
+[36m [2m❯[22m tools/conditions.test.ts:[2m204:17[22m[39m
+    [90m202|[39m     expect(status).not.toBe(0);
+    [90m203|[39m     expect(err).toContain('pa');
+    [90m204|[39m     expect(err).toContain('1');
+    [90m   |[39m                 [31m^[39m
+    [90m205|[39m     });
+    [90m206|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mrejects a mismatched shared field: startFen
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mrejects a mismatched shared field: seed
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mrejects a mismatched shared field: openingPlies
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mrejects a mismatched shared field: colourSwapped
+[31m[1mAssertionError[22m: expected 'usage: tsx tools/conditions.ts --runs…' to contain '1'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ usage: tsx tools/conditions.ts --runs a,b,c | --pair a,b[39m
+[31m+[39m
+
+[36m [2m❯[22m tools/conditions.test.ts:[2m218:19[22m[39m
+    [90m216|[39m       const { status, err } = runPair(a, b);
+    [90m217|[39m       expect(status).not.toBe(0);
+    [90m218|[39m       expect(err).toContain('1');
+    [90m   |[39m                   [31m^[39m
+    [90m219|[39m       expect(err).toContain(_name);
+    [90m220|[39m     });
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mreports separate unmatched counts for A and B
+[31m[1mAssertionError[22m: expected 2 to be +0 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 2[39m
+
+[36m [2m❯[22m tools/conditions.test.ts:[2m228:20[22m[39m
+    [90m226|[39m     const b = writeRun('pb', [mk(2), mk(3), mk(4)]);
+    [90m227|[39m     const { status, out } = runPair(a, b);
+    [90m228|[39m     expect(status).toBe(0);
+    [90m   |[39m                    [31m^[39m
+    [90m229|[39m     expect(out).toContain('2 games');
+    [90m230|[39m     expect(out).toMatch(/unmatched/i);
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mreports zero pairs as no estimate available
+[31m[1mAssertionError[22m: expected 2 to be +0 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 2[39m
+
+[36m [2m❯[22m tools/conditions.test.ts:[2m240:20[22m[39m
+    [90m238|[39m     const b = writeRun('pb', [mk(2)]);
+    [90m239|[39m     const { status, out } = runPair(a, b);
+    [90m240|[39m     expect(status).toBe(0);
+    [90m   |[39m                    [31m^[39m
+    [90m241|[39m     expect(out).toMatch(/no estimate/i);
+    [90m242|[39m     expect(out).not.toContain('NaN');
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mreports one pair as a descriptive mean with no interval and no NaN
+[31m[1mAssertionError[22m: expected 2 to be +0 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 2[39m
+
+[36m [2m❯[22m tools/conditions.test.ts:[2m251:20[22m[39m
+    [90m249|[39m     const b = writeRun('pb', [mk(1, 0)]);
+    [90m250|[39m     const { status, out } = runPair(a, b);
+    [90m251|[39m     expect(status).toBe(0);
+    [90m   |[39m                    [31m^[39m
+    [90m252|[39m     expect(out).toContain('+1.000');
+    [90m253|[39m     expect(out).not.toContain('NaN');
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯[22m[39m
+

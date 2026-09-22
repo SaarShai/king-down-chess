@@ -1,0 +1,229 @@
+commit c3393615a6eb11db21c6b7fd50e4eda471f300a2
+Author:     M1 Campaign <m1-campaign@localhost>
+AuthorDate: Tue Sep 22 10:10:48 2026 +0100
+Commit:     M1 Campaign <m1-campaign@localhost>
+CommitDate: Tue Sep 22 10:10:48 2026 +0100
+
+    Validate paired game starts and sparse-sample reporting
+
+diff --git a/tools/conditions.test.ts b/tools/conditions.test.ts
+index 9e7983c..3f5654f 100644
+--- a/tools/conditions.test.ts
++++ b/tools/conditions.test.ts
+@@ -1,5 +1,5 @@
+ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+-import { execFileSync } from 'node:child_process';
++import { execFileSync, spawnSync } from 'node:child_process';
+ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+ import { tmpdir } from 'node:os';
+ import { join } from 'node:path';
+@@ -149,10 +149,108 @@ describe('conditions CLI', () => {
+     const file = writeRun('empty', []);
+ 
+     const out = execFileSync('node_modules/.bin/tsx',
+-       ['tools/conditions.ts', '--runs', file],
+-       { stdio: 'pipe' }).toString();
++        ['tools/conditions.ts', '--runs', file],
++        { stdio: 'pipe' }).toString();
+ 
+     expect(out).not.toContain('NaN');
+     expect(out).not.toContain('Infinity');
+-   });
++    });
++});
++
++// Paired validation: the --pair branch must reject duplicate gameIds, verify the four
++// shared fields (startFen, seed, openingPlies, colourSwapped), report shared/unmatched
++// counts, and degrade gracefully for sparse pairs. These are synthetic fixtures, not
++// played games. spawnSync is used so a non-zero exit status can be asserted.
++const runPair = (a: string, b: string): { status: number | null; out: string; err: string } => {
++  const r = spawnSync('node_modules/.bin/tsx',
++      ['tools/conditions.ts', '--pair', `${a},${b}`],
++      { stdio: 'pipe', cwd: process.cwd() });
++  return { status: r.status, out: r.stdout.toString(), err: r.stderr.toString() };
++};
++
++describe('conditions paired validation', () => {
++  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'cond-pair-')); });
++  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
++
++  it('computes the paired mean over shared gameIds (A 1,1 vs B 0,1 -> +0.500)', () => {
++    // Two shared gameIds with identical start/seed fields; score differences are +1 and 0.
++    const a = writeRun('pa', [
++        mkRec(1, 'a6k/8/8/8/8/8/8/A5AK w - - 0 1', [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }], [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }], 1, 'checkmate', 10),
++        mkRec(2, 'a6k/8/8/8/8/8/8/A5AK w - - 0 1', [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }], [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }], 1, 'checkmate', 10),
++      ]);
++    const b = writeRun('pb', [
++        mkRec(1, 'a6k/8/8/8/8/8/8/A5AK w - - 0 1', [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }], [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }], 0, 'checkmate', 10),
++        mkRec(2, 'a6k/8/8/8/8/8/8/A5AK w - - 0 1', [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }], [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }], 1, 'checkmate', 10),
++      ]);
++    const { status, out } = runPair(a, b);
++    expect(status).toBe(0);
++    expect(out).toContain('+0.500');
++    expect(out).toContain('2 games');
++    expect(out).not.toContain('NaN');
++    expect(out).not.toContain('Infinity');
++    });
++
++  it('rejects a duplicate gameId within a file, naming file and id', () => {
++    const a = writeRun('pa', [
++        mkRec(1, 'a6k/8/8/8/8/8/8/A5AK w - - 0 1', [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }], [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }], 1, 'checkmate', 10),
++        mkRec(1, 'a6k/8/8/8/8/8/8/A5AK w - - 0 1', [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }], [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }], 1, 'checkmate', 10),
++      ]);
++    const b = writeRun('pb', [
++        mkRec(1, 'a6k/8/8/8/8/8/8/A5AK w - - 0 1', [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }], [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }], 1, 'checkmate', 10),
++      ]);
++    const { status, err } = runPair(a, b);
++    expect(status).not.toBe(0);
++    expect(err).toContain('pa');
++    expect(err).toContain('1');
++    });
++
++  it.each([
++      ['startFen', (r: GameRecord) => ({ ...r, startFen: '8/8/8/8/8/8/8/8 w - - 0 1' })],
++      ['seed', (r: GameRecord) => ({ ...r, seed: 999 })],
++      ['openingPlies', (r: GameRecord) => ({ ...r, openingPlies: 5 })],
++      ['colourSwapped', (r: GameRecord) => ({ ...r, colourSwapped: true })],
++    ])('rejects a mismatched shared field: %s', (_name, mutate) => {
++      const base = mkRec(1, 'a6k/8/8/8/8/8/8/8/A5AK w - - 0 1', [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }], [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }], 1, 'checkmate', 10);
++      const a = writeRun('pa', [base]);
++      const b = writeRun('pb', [mutate(base)]);
++      const { status, err } = runPair(a, b);
++      expect(status).not.toBe(0);
++      expect(err).toContain('1');
++      expect(err).toContain(_name);
++    });
++
++  it('reports separate unmatched counts for A and B', () => {
++    // A has gameId 1,2,3; B has gameId 2,3,4 -> shared 2, unmatched A=1, unmatched B=1.
++    const mk = (id: number) => mkRec(id, 'a6k/8/8/8/8/8/8/8/A5AK w - - 0 1', [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }], [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }], 1, 'checkmate', 10);
++    const a = writeRun('pa', [mk(1), mk(2), mk(3)]);
++    const b = writeRun('pb', [mk(2), mk(3), mk(4)]);
++    const { status, out } = runPair(a, b);
++    expect(status).toBe(0);
++    expect(out).toContain('2 games');
++    expect(out).toMatch(/unmatched/i);
++    expect(out).toMatch(/A/);
++    expect(out).toMatch(/B/);
++    });
++
++  it('reports zero pairs as no estimate available', () => {
++    const mk = (id: number) => mkRec(id, 'a6k/8/8/8/8/8/8/8/A5AK w - - 0 1', [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }], [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }], 1, 'checkmate', 10);
++    const a = writeRun('pa', [mk(1)]);
++    const b = writeRun('pb', [mk(2)]);
++    const { status, out } = runPair(a, b);
++    expect(status).toBe(0);
++    expect(out).toMatch(/no estimate/i);
++    expect(out).not.toContain('NaN');
++    expect(out).not.toContain('Infinity');
++    });
++
++  it('reports one pair as a descriptive mean with no interval and no NaN', () => {
++    const mk = (id: number, result: 1 | 0.5 | 0) => mkRec(id, 'a6k/8/8/8/8/8/8/8/A5AK w - - 0 1', [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 1 }, { A: 1 }], [{ A: 1, K: 1 }, { A: 1, K: 1 }], [{ A: 0 }, { A: 0 }], result, 'checkmate', 10);
++    const a = writeRun('pa', [mk(1, 1)]);
++    const b = writeRun('pb', [mk(1, 0)]);
++    const { status, out } = runPair(a, b);
++    expect(status).toBe(0);
++    expect(out).toContain('+1.000');
++    expect(out).not.toContain('NaN');
++    expect(out).not.toContain('Infinity');
++    });
+ });
+diff --git a/tools/conditions.ts b/tools/conditions.ts
+index e0f9a51..4950e66 100644
+--- a/tools/conditions.ts
++++ b/tools/conditions.ts
+@@ -6,7 +6,7 @@
+  * condition? Does a dear piece go quiet in the wrong one?
+  *
+  *   tsx tools/conditions.ts --runs np-N,np-O,np-V-ortho,np-T
+- *   tsx tools/conditions.ts --pair np-V-ortho,np-N          # paired by gameId (same openings)
++  *   tsx tools/conditions.ts --pair np-V-ortho,np-N           # paired by gameId (common start/seed)
+  *
+  * Per run it prints, for every piece type the run contains:
+  *   presence   count/share of games where either army starts with the type
+@@ -17,8 +17,11 @@
+  *                        replace original individuals, whose survival is not measured
+  * and per run: decisive share, draws, capped, mean plies, White score.
+  *
+- * `--pair A,B` adds the paired difference over shared gameIds (same seed and ranks in the lab's
++ * `--pair A,B` adds the paired difference over shared gameIds (common start/seed in the lab's
+  * matched runs), plus the run's interaction counters so a condition can be read from the moves.
++ * A shared gameId must agree on startFen, seed, openingPlies and colourSwapped; a duplicate gameId
++ * in either file is an error. Same seeds do not guarantee identical played openings under different
++ * rules, so the pairing is a common start/seed, not a claim of identical openings.
+  */
+ import { createReadStream, existsSync } from 'node:fs';
+ import { createInterface } from 'node:readline';
+@@ -122,32 +125,61 @@ const main = async (): Promise<void> => {
+   if (PAIR.length === 2) {
+     const [a, b] = await Promise.all([scan(PAIR[0]), scan(PAIR[1])]);
+     show(a); show(b);
+-    // Paired difference needs the records themselves, not the aggregates.
++     // Paired difference needs the records themselves, not the aggregates.
+     const read = async (id: string): Promise<Map<number, GameRecord>> => {
+       const m = new Map<number, GameRecord>();
+       const rl = createInterface({ input: createReadStream(pathOf(id)), crlfDelay: Infinity });
+-      for await (const line of rl) { if (line) { const r = JSON.parse(line) as GameRecord; m.set(r.gameId, r); } }
++      for await (const line of rl) {
++        if (!line) continue;
++        const r = JSON.parse(line) as GameRecord;
++        if (m.has(r.gameId)) throw new Error(`conditions: ${id} has duplicate gameId ${r.gameId}`);
++        m.set(r.gameId, r);
++       }
+       return m;
+-    };
++     };
+     const [A, B] = await Promise.all([read(PAIR[0]), read(PAIR[1])]);
+-    const ids = [...A.keys()].filter(i => B.has(i));
++    const shared = [...A.keys()].filter(i => B.has(i));
++    const unmatchedA = [...A.keys()].filter(i => !B.has(i)).length;
++    const unmatchedB = [...B.keys()].filter(i => !A.has(i)).length;
++    // A shared gameId must agree on the four fields that fix the start; same seeds do not
++    // guarantee identical played openings under different rules, so this is a common start/seed.
++    const FIELDS: [keyof GameRecord, string][] = [
++       ['startFen', 'startFen'],
++       ['seed', 'seed'],
++       ['openingPlies', 'openingPlies'],
++       ['colourSwapped', 'colourSwapped'],
++      ];
++    for (const i of shared) {
++      const ra = A.get(i)!, rb = B.get(i)!;
++      for (const [field, label] of FIELDS) {
++        if (ra[field] !== rb[field]) throw new Error(`conditions: gameId ${i} ${label} differs between ${PAIR[0]} and ${PAIR[1]}`);
++       }
++      }
+     const mean = (xs: number[]): number => xs.reduce((x, y) => x + y, 0) / (xs.length || 1);
+     const ci = (xs: number[]): number => {
+       const n = xs.length; const m = mean(xs); if (n < 2) return NaN;
+       const v = xs.reduce((x, y) => x + (y - m) ** 2, 0) / (n - 1);
+       return 1.959964 * Math.sqrt(v / n);
+-    };
++     };
+     const diff = (f: (r: GameRecord) => number): [number, number] => {
+-      const xs = ids.map(i => f(A.get(i)!) - f(B.get(i)!));
++      const xs = shared.map(i => f(A.get(i)!) - f(B.get(i)!));
+       return [mean(xs), ci(xs)];
+-    };
++     };
++    console.log(`\npaired ${shared.length} games (${PAIR[0]} minus ${PAIR[1]}) · unmatched A ${unmatchedA} · unmatched B ${unmatchedB}`);
++    if (shared.length === 0) {
++      console.log('  no estimate available (no shared gameIds)');
++      return;
++     }
+     const [res, resCI] = diff(r => r.result);
+     const [dec, decCI] = diff(r => (r.result !== 0.5 ? 1 : 0));
+     const [ply, plyCI] = diff(r => r.plies);
+-    console.log(`\npaired ${ids.length} games (${PAIR[0]} minus ${PAIR[1]})`);
+-    console.log(`  result ${res >= 0 ? '+' : ''}${res.toFixed(3)} ± ${resCI.toFixed(3)} · decisive ${dec >= 0 ? '+' : ''}${dec.toFixed(3)} ± ${decCI.toFixed(3)} · plies ${ply >= 0 ? '+' : ''}${ply.toFixed(1)} ± ${plyCI.toFixed(1)}`);
++    if (shared.length === 1) {
++      console.log(`  result ${res >= 0 ? '+' : ''}${res.toFixed(3)} · decisive ${dec >= 0 ? '+' : ''}${dec.toFixed(3)} · plies ${ply >= 0 ? '+' : ''}${ply.toFixed(1)} (one pair: descriptive mean only, interval unavailable)`);
++      return;
++     }
++    console.log(`  result ${res >= 0 ? '+' : ''}${res.toFixed(3)} ± ${resCI.toFixed(3)} · decisive ${dec >= 0 ? '+' : ''}${dec.toFixed(3)} ± ${decCI.toFixed(3)} · plies ${ply >= 0 ? '+' : ''}${ply.toFixed(1)} ± ${plyCI.toFixed(1)} (per-game interval, not setup-clustered)`);
+     return;
+-  }
++   }
+   for (const id of RUNS) show(await scan(id));
+ };
+ 

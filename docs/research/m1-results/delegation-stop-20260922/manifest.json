@@ -1,0 +1,66 @@
+{
+  "provenance": {
+    "sessionID": "ses_f378ca9c5ffe6Ht5FsuhiKgsm1",
+    "directory": "/Users/za/.local/share/king-down-supervised-20260922/provenance",
+    "before": {
+      "type": "idle"
+    },
+    "after": {
+      "type": "idle"
+    },
+    "abortResult": "already accepted and idle",
+    "head": "a365c9805ea5aba6f4549dac4c28e32db9488f5b",
+    "untrackedArtifacts": [],
+    "stoppedAt": 1790070945.0653179,
+    "accepted": true
+  },
+  "search": {
+    "sessionID": "ses_f378ca8b5ffecujVHstHAVYG9H",
+    "directory": "/Users/za/.local/share/king-down-supervised-20260922/search",
+    "before": {
+      "type": "idle"
+    },
+    "after": {
+      "type": "idle"
+    },
+    "abortResult": true,
+    "head": "9123ba97682ecb4a62ba680684983d915abc67b6",
+    "untrackedArtifacts": [
+      "campaign/search-stall/rep.ts"
+    ],
+    "stoppedAt": 1790070945.148834,
+    "accepted": false
+  },
+  "protocol": {
+    "sessionID": "ses_f378ca694ffeeSXYB0FMJNrrlN",
+    "directory": "/Users/za/.local/share/king-down-supervised-20260922/protocol",
+    "before": {
+      "type": "idle"
+    },
+    "after": {
+      "type": "idle"
+    },
+    "abortResult": true,
+    "head": "4f724917b25a2d031157bcf031a6b25e6b784d6a",
+    "untrackedArtifacts": [],
+    "stoppedAt": 1790070945.233794,
+    "accepted": false
+  },
+  "analysis": {
+    "sessionID": "ses_f3779152fffem4yzejsDKpFYrt",
+    "directory": "/Users/za/.local/share/king-down-supervised-20260922/analysis",
+    "before": {
+      "type": "busy"
+    },
+    "after": {
+      "type": "idle"
+    },
+    "abortResult": true,
+    "head": "ffd78f097f4cd02bdce6c42259c60b33159b9b5e",
+    "untrackedArtifacts": [
+      "tools/campaign-head-to-head.ts"
+    ],
+    "stoppedAt": 1790070945.3160791,
+    "accepted": false
+  }
+}

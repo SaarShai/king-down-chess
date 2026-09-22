@@ -1,0 +1,88 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "enabled_providers": [
+    "ollama"
+  ],
+  "model": "ollama/kdc-m1-qwen-agent",
+  "small_model": "ollama/kdc-m1-qwen-agent",
+  "autoupdate": false,
+  "share": "disabled",
+  "snapshot": false,
+  "lsp": false,
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "M1 local Ollama",
+      "options": {
+        "baseURL": "http://127.0.0.1:11434/v1",
+        "timeout": 900000,
+        "chunkTimeout": 300000
+      },
+      "models": {
+        "kdc-m1-qwen-agent": {
+          "name": "Qwen 27B MLX \u2014 M1 supervised coding trial",
+          "tool_call": true,
+          "reasoning": true,
+          "temperature": true,
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          },
+          "options": {
+            "reasoningEffort": "none"
+          }
+        }
+      }
+    }
+  },
+  "agent": {
+    "build": {
+      "temperature": 0.2,
+      "steps": 16
+    }
+  },
+  "permission": {
+    "*": "allow",
+    "external_directory": {
+      "*": "deny",
+      "/Users/new/projects/king-down-supervised-20260921-control/**": "allow"
+    },
+    "task": "deny",
+    "question": "deny",
+    "webfetch": "deny",
+    "websearch": "deny",
+    "skill": "deny",
+    "read": {
+      "*": "deny",
+      "*AGENTS.md": "allow",
+      "*TASKS.md": "allow",
+      "*LESSONS.md": "allow",
+      "*tools/conditions.ts": "allow",
+      "*tools/conditions.test.ts": "allow",
+      "*campaign/pair-starts-*": "allow"
+    },
+    "bash": {
+      "*": "allow",
+      "git push*": "deny",
+      "sudo*": "deny",
+      "ssh*": "deny",
+      "scp*": "deny"
+    },
+    "doom_loop": "deny",
+    "grep": "deny",
+    "glob": "deny"
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 6000
+  },
+  "watcher": {
+    "ignore": [
+      "sim/out/**",
+      "campaign/**",
+      "node_modules/**",
+      ".git/**"
+    ]
+  }
+}

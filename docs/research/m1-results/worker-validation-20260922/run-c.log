@@ -1,0 +1,5 @@
+[m1-worker-validation-20260922-c] 8 games (0 already done), 8 to play on 2 workers -> sim/out/m1-worker-validation-20260922-c.jsonl
+[m1-worker-validation-20260922-c] depth 1, 4 random opening plies, ply cap 40, pairs on
+[m1-worker-validation-20260922-c] rules {}, values {}
+[m1-worker-validation-20260922-c] 8 games in 0h00m00s (13.2 games/s)
+[m1-worker-validation-20260922-c] summary -> sim/out/m1-worker-validation-20260922-c.summary.json

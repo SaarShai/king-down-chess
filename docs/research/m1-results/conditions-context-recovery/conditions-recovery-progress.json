@@ -1,0 +1,12 @@
+{
+  "checked": "2026-09-22T06:53:50.482182+00:00",
+  "round": "20260922T064801Z",
+  "state": "running",
+  "statisticsSourceChanges": [],
+  "testExists": false,
+  "usefulArtifact": false,
+  "protectedDiffBytes": 0,
+  "stderrBytes": 0,
+  "campaignJsonlFiles": 0,
+  "agentProcess": "51125 05:49 /Users/new/projects/king-down-supervised-20260921-control/runtime/node_modules/.bin/opencode"
+}

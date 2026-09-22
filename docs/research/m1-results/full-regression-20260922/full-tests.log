@@ -1,0 +1,71 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.0 [39m[90m/Users/new/projects/king-down-supervised-20260921[39m
+
+ [32m✓[39m src/sim/identity.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/sim/replay.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/game.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 197[2mms[22m[39m
+[90mstdout[2m | src/ai/nnue/net.test.ts[2m > [22m[2mthe nnue net[2m > [22m[2mmatches the trainer forward pass within 1 cp on 1000 positions (random weights)
+[22m[39m[nnue] random net: max 0.942 cp, mean 0.280 cp
+
+[90mstdout[2m | src/ai/nnue/net.test.ts[2m > [22m[2mthe nnue net[2m > [22m[2mmatches the trainer forward pass within 1 cp on 1000 positions (the shipped net)
+[22m[39m[nnue] no trained net on disk; random-weight test covers the rounding
+
+[90mstdout[2m | src/ai/nnue/net.test.ts[2m > [22m[2mtraining a residual net[2m > [22m[2mfits the gap to the linear evaluation, not the score
+[22m[39m[nnue] 320 training positions, 80 held out
+[nnue] residual target: |search - linear| > 150 cp on 0.0% of positions (clipped)
+[nnue] epoch   1  lr 0.0500  train 0.265780  val 0.282436  0s
+[nnue] epoch   2  lr 0.0468  train 0.174310  val 0.186078  0s
+[nnue] epoch   3  lr 0.0381  train 0.070579  val 0.077080  0s
+[nnue] epoch   4  lr 0.0263  train 0.023742  val 0.026091  0s
+[nnue] epoch   5  lr 0.0144  train 0.009014  val 0.009743  0s
+[nnue] epoch   6  lr 0.0057  train 0.005238  val 0.005553  0s
+[nnue] best validation 0.005553 at epoch 6
+[nnue] 320 training positions, 80 held out
+[nnue] epoch   1  lr 0.0500  train 0.264047  val 0.297818  0s
+[nnue] epoch   2  lr 0.0468  train 0.158834  val 0.199812  0s
+[nnue] epoch   3  lr 0.0381  train 0.051031  val 0.087286  0s
+[nnue] epoch   4  lr 0.0263  train 0.014271  val 0.040535  0s
+[nnue] epoch   5  lr 0.0144  train 0.007397  val 0.028258  0s
+[nnue] epoch   6  lr 0.0057  train 0.006333  val 0.025373  0s
+[nnue] best validation 0.025373 at epoch 6
+
+ [32m✓[39m src/ai/nnue/net.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 1044[2mms[22m[39m
+   [32m✓[39m training a residual net [2m(1)[22m
+     [33m[2m✓[22m[39m fits the gap to the linear evaluation, not the score[33m 683[2mms[22m[39m
+ [32m✓[39m src/sim/tune.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 1130[2mms[22m[39m
+   [32m✓[39m the game replay [2m(1)[22m
+     [33m[2m✓[22m[39m parses every notation the recorder writes back into the same move[33m 385[2mms[22m[39m
+   [32m✓[39m the lab pieces round-trip through the notation too [2m(1)[22m
+     [33m[2m✓[22m[39m parses ogre shoves and catapult lobs back into the same move, in all four variants[33m 664[2mms[22m[39m
+ [32m✓[39m src/sim/sim.test.ts [2m([22m[2m32 tests[22m[2m)[22m[33m 1662[2mms[22m[39m
+   [32m✓[39m runner (end to end) [2m(4)[22m
+     [33m[2m✓[22m[39m plays 2 games at depth 1 on 1 worker and records legal moves[33m 1212[2mms[22m[39m
+ [32m✓[39m src/rules/rules.test.ts [2m([22m[2m128 tests[22m[2m)[22m[33m 1922[2mms[22m[39m
+ [32m✓[39m tools/conditions.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 2995[2mms[22m[39m
+   [32m✓[39m conditions paired validation [2m(9)[22m
+     [33m[2m✓[22m[39m computes the paired mean over shared gameIds (A 1,1 vs B 0,1 -> +0.500)[33m 469[2mms[22m[39m
+     [33m[2m✓[22m[39m rejects a duplicate gameId within a file, naming file and id[33m 484[2mms[22m[39m
+ [32m✓[39m src/ai/search.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 80411[2mms[22m[39m
+   [32m✓[39m mate finding [2m(4)[22m
+     [33m[2m✓[22m[39m wins a beast chain instead of a single capture[33m 445[2mms[22m[39m
+   [32m✓[39m does not hang the queen [2m(3)[22m
+     [33m[2m✓[22m[39m leaves a king-defended pawn alone[33m 503[2mms[22m[39m
+     [33m[2m✓[22m[39m moves an attacked queen somewhere safe[33m 361[2mms[22m[39m
+     [33m[2m✓[22m[39m takes a free rook when there is one[33m 509[2mms[22m[39m
+   [32m✓[39m draw awareness [2m(1)[22m
+     [33m[2m✓[22m[39m avoids a repetition while it is winning[33m 378[2mms[22m[39m
+   [32m✓[39m fixed depth [2m(1)[22m
+     [33m[2m✓[22m[39m ignores the clock and repeats itself exactly after resetSearchState[33m 573[2mms[22m[39m
+   [32m✓[39m self-play [2m(1)[22m
+     [33m[2m✓[22m[39m plays 40 games of up to 120 plies without an illegal move or an exception[33m 74772[2mms[22m[39m
+   [32m✓[39m ogre and catapult [2m(2)[22m
+     [33m[2m✓[22m[39m lobs over the pawn screen to win the queen[33m 501[2mms[22m[39m
+     [33m[2m✓[22m[39m shoves its own pawn aside to discover a check and fork the rook with it[33m 1253[2mms[22m[39m
+   [32m✓[39m root temperature (opening variety) [2m(1)[22m
+     [33m[2m✓[22m[39m changes nothing when off, and samples inside the band when on[33m 1074[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m      Tests [22m [1m[32m230 passed[39m[22m[90m (230)[39m
+[2m   Start at [22m 10:24:53
+[2m   Duration [22m 81.15s[2m (tests 95%, transform 5%, import 1%)[22m
+

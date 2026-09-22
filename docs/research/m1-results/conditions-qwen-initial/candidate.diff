@@ -1,0 +1,124 @@
+diff --git a/tools/conditions.ts b/tools/conditions.ts
+index 5800b41..b5d2ee6 100644
+--- a/tools/conditions.ts
++++ b/tools/conditions.ts
+@@ -6,7 +6,7 @@
+  * condition? Does a dear piece go quiet in the wrong one?
+  *
+  *   tsx tools/conditions.ts --runs np-N,np-O,np-V-ortho,np-T
+- *   tsx tools/conditions.ts --pair np-V-ortho,np-N        # paired by gameId (same openings)
++ *   tsx tools/conditions.ts --pair np-V-ortho,np-N         # paired by gameId (same openings)
+  *
+  * Per run it prints, for every piece type the run contains:
+  *   presence   share of games where at least one of the side's armies starts with it
+@@ -20,6 +20,7 @@
+  */
+ import { createReadStream, existsSync } from 'node:fs';
+ import { createInterface } from 'node:readline';
++import { pathToFileURL } from 'node:url';
+ import { LETTERS } from '../src/rules/engine';
+ import type { GameRecord } from '../src/sim/game';
+ 
+@@ -29,28 +30,36 @@ const flag = (name: string, dflt: string): string => {
+ };
+ const RUNS = flag('runs', '').split(',').filter(Boolean);
+ const PAIR = flag('pair', '').split(',').filter(Boolean);
+-if (!RUNS.length && PAIR.length !== 2) {
+-  console.error('usage: tsx tools/conditions.ts --runs a,b,c | --pair a,b');
+-  process.exit(2);
+-}
+ const pathOf = (id: string): string => (id.includes('/') ? id : `sim/out/${id}.jsonl`);
+ 
+-/** Pieces a back rank contains (the rank with the king), counted per colour. */
+-const armyOf = (fen: string, colour: 0 | 1): string => {
+-  const fields = fen.split(' ')[0].split('/');
+-  const rank = colour === 0 ? fields[7] : fields[0];
+-  return rank;
+-};
+-
+-interface PieceStat { letters: Set<string>; moves: number; zero: number; survived: number; captures: number }
++interface PieceStat {
++  owners: number;
++  present: number;
++  moves: number;
++  zero: number;
++  survived: number;
++  captures: number;
++}
+ interface RunStat {
+-  id: string; games: number; decisive: number; draws: number; capped: number; plies: number; white: number;
++  id: string;
++  games: number;
++  decisive: number;
++  draws: number;
++  capped: number;
++  plies: number;
++  white: number;
+   pieces: Map<string, PieceStat>;
+   events: Record<string, number>;
+ }
+ const empty = (id: string): RunStat => ({ id, games: 0, decisive: 0, draws: 0, capped: 0, plies: 0, white: 0, pieces: new Map(), events: {} });
+ 
+-async function scan(id: string): Promise<RunStat> {
++/**
++ * One run, one piece type: `owners` is the count of separate armies that start with it (a side
++ * contributes `stats.start[type]` armies), `present` the games in which at least one such army
++ * appears, and the move/capture/survival counters are summed over those armies. Rates are divided
++ * by `owners`, so an empty run yields 0/0 rather than NaN.
++ */
++export async function scan(id: string): Promise<RunStat> {
+   const file = pathOf(id);
+   if (!existsSync(file)) throw new Error(`conditions: ${file} is missing`);
+   const st = empty(id);
+@@ -69,15 +78,16 @@ async function scan(id: string): Promise<RunStat> {
+       st.events[k] = (st.events[k] ?? 0) + sum;
+     }
+     for (const side of [0, 1] as const) {
+-      const rank = armyOf(rec.startFen, side);
+-      const own = new Set(rank.split(''));
+       const pst = rec.stats[side];
+-      for (const letter of own) {
+-        const p = st.pieces.get(letter) ?? { letters: new Set(), moves: 0, zero: 0, survived: 0, captures: 0 };
+-        p.letters.add(letter);
++      for (const [letter, count] of Object.entries(pst.start ?? {})) {
++        if (count <= 0) continue;
++        if (!LETTERS.includes(letter) || letter === 'K') continue;
++        const p = st.pieces.get(letter) ?? { owners: 0, present: 0, moves: 0, zero: 0, survived: 0, captures: 0 };
++        p.owners += count;
++        p.present += 1;
+         const moves = pst.moves[letter] ?? 0;
+         p.moves += moves;
+-        if (moves === 0) p.zero++;
++        if (moves === 0) p.zero += count;
+         p.survived += pst.survived[letter] ?? 0;
+         p.captures += pst.captures[letter] ?? 0;
+         st.pieces.set(letter, p);
+@@ -92,14 +102,11 @@ const show = (st: RunStat): void => {
+   const g = st.games || 1;
+   console.log(`\n${st.id}: ${st.games} games · decisive ${pct(st.decisive / g)} · draws ${pct(st.draws / g)} · capped ${pct(st.capped / g)} · plies ${(st.plies / g).toFixed(0)} · White ${(st.white / g).toFixed(3)}`);
+   const letters = [...st.pieces.keys()].filter(l => LETTERS.includes(l) && l !== 'K' && l !== '').sort();
+-  const caps: Record<string, number> = { P: 0, N: 0, B: 0, R: 0, Q: 0, A: 0, L: 0, G: 0, M: 0, S: 0, O: 0, C: 0, V: 0, T: 0 };
+   console.log('  piece | per game | still (no move) | survive | captures');
+   for (const l of letters) {
+     const p = st.pieces.get(l)!;
+-    // Owner-armies = games x armies that actually start with it.
+-    const owners = [...st.pieces.values()][0] && st.games; // each side owns it in these symmetric runs
+-    console.log(`  ${l.padEnd(5)} | ${(p.moves / (2 * g)).toFixed(2).padStart(8)} | ${pct(p.zero / (2 * g)).padStart(15)} | ${pct(p.survived / (2 * g)).padStart(7)} | ${(p.captures / (2 * g)).toFixed(2)}`.replace('$owners', ''));
+-    void caps;
++    const owners = p.owners || 1;
++    console.log(`   ${l.padEnd(5)} | ${(p.moves / owners).toFixed(2).padStart(8)} | ${pct(p.zero / owners).padStart(15)} | ${pct(p.survived / owners).padStart(7)} | ${(p.captures / owners).toFixed(2)}`);
+   }
+   const ev = Object.entries(st.events).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${(v / g).toFixed(2)}`);
+   if (ev.length) console.log(`  events/game: ${ev.join(', ')}`);
+@@ -138,4 +145,10 @@ const main = async (): Promise<void> => {
+   for (const id of RUNS) show(await scan(id));
+ };
+ 
+-main().catch(e => { console.error(e); process.exit(2); });
++if (import.meta.url === pathToFileURL(process.argv[1] ?? '').toString()) {
++  if (!RUNS.length && PAIR.length !== 2) {
++    console.error('usage: tsx tools/conditions.ts --runs a,b,c | --pair a,b');
++    process.exit(2);
++   }
++  main().catch(e => { console.error(e); process.exit(2); });
++}

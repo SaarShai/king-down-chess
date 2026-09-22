@@ -1,0 +1,70 @@
+[
+  {
+    "info": {
+      "parentID": "msg_0c884a728001BvtRtBeNFxqlSN",
+      "role": "assistant",
+      "mode": "build",
+      "agent": "build",
+      "path": {
+        "cwd": "/Users/za/.local/share/king-down-supervised-20260922/protocol",
+        "root": "/Users/za/.local/share/king-down-supervised-20260922/protocol"
+      },
+      "cost": 0.000955392,
+      "tokens": {
+        "total": 229912,
+        "input": 800,
+        "output": 191,
+        "reasoning": 57,
+        "cache": {
+          "write": 0,
+          "read": 228864
+        }
+      },
+      "modelID": "deepseek-v4.1-flash",
+      "providerID": "opencode-go",
+      "time": {
+        "created": 1790070865547,
+        "completed": 1790070879869
+      },
+      "finish": "tool-calls",
+      "id": "msg_0c889be8b001k6xB1A4fa0y1Lu",
+      "sessionID": "ses_f378ca694ffeeSXYB0FMJNrrlN"
+    },
+    "text": []
+  },
+  {
+    "info": {
+      "parentID": "msg_0c884a728001BvtRtBeNFxqlSN",
+      "role": "assistant",
+      "mode": "build",
+      "agent": "build",
+      "path": {
+        "cwd": "/Users/za/.local/share/king-down-supervised-20260922/protocol",
+        "root": "/Users/za/.local/share/king-down-supervised-20260922/protocol"
+      },
+      "cost": 0.001448796,
+      "tokens": {
+        "total": 231131,
+        "input": 310,
+        "output": 969,
+        "reasoning": 220,
+        "cache": {
+          "write": 0,
+          "read": 229632
+        }
+      },
+      "modelID": "deepseek-v4.1-flash",
+      "providerID": "opencode-go",
+      "time": {
+        "created": 1790070879874,
+        "completed": 1790070904089
+      },
+      "finish": "stop",
+      "id": "msg_0c889f682001pS3hcLZyRhGuai",
+      "sessionID": "ses_f378ca694ffeeSXYB0FMJNrrlN"
+    },
+    "text": [
+      "Corrections are implemented and committed as `4f72491`. No runs were launched; the 96 setups and pinned residual bytes are unchanged (verified byte-identical `setups`/`coverage`).\n\n## What changed\n1. **Finite, time-based budgets.** Every spec now carries an explicit finite `timeMs` per move; no depth-only specs. The primary `phase-1-eval-linear-vs-residual` uses **equal finite per-move time both sides (100/100 ms) with no depth cap**. The old depth-proxy arm is replaced by `phase-1-eval-linear-extra-time` (linear 400 ms vs residual 100 ms), explicitly a **cost-sensitivity** arm with a finite guard.\n2. **Physical-game ledger.** `campaign/specs/phase-1-budget-ledger.json`, 11 unique run ids, physical records counted once. Head-to-head = one run id of 1,600 records (each evaluation plays all 1,600). Totals: probes 72 \u00b7 pilots 1,800 \u00b7 expansion additions 4,200 \u00b7 fixed confirmation 2,400 \u00b7 **planned 8,472 / 10,000**, reserve 1,528 **unspent**. JSON `games` and commands match the ledger.\n3. **Caps as censoring + honest analysis.** Protocol \u00a76 lists exactly what is absent (head-to-head per-side report, censoring bounds, cluster bootstrap, matched-start/provenance audit, record de-duplication, per-evaluator cost, Guard-block counter). \u00a77 prespecifies all-record cap counts and conservative score/decisive/fairness bounds; incomplete pairs are never synthesized; ended-only numbers are labelled conditional.\n4. **Claim cleanup.** Removed \"only a depth proxy\"; the sensitivity arm is sensitivity evidence. Inconclusive/low-power keeps current defaults with no equivalence/adoption/reversion. The fixed unseen-seed confirmation sample is the only confirmatory evidence; pooled intervals are descriptive.\n5. **Mapping and units.** Corrected to `setup = pairId mod N`; the verifier reports `physical / independentUnits / structuralDuplicates` (archer 400/254/146; evaluator 400/400/0; beast 200/121/79). Openings are claimed equal-seed, not identical.\n6. **No `--depth` shortcut.** Removed; the JSON files (frozen copies) are the launch artifacts; no spec/source change after a run starts.\n\n## Verification\n`node_modules/.bin/tsx campaign/verify-phase-1.ts` \u2192 **171 PASS / 0 FAIL, exit 0**; `sourceId = 3545663dcf97`. It now checks finite `timeMs`, equal-time/no-cap primary, sensitivity time ratio, modulo mapping, unit accounting, ledger totals \u226410,000 and JSON alignment, unseen confirmation seeds, and the pinned blob sha `e17a27bf\u2026` (accepted Q6).\n\n## Concrete throughput proposals for review (gate T1 \u2014 not accepted)\nRun on M1, 24 games each, 12 mirror setups, `adjudicate: false`, no depth cap:\n- `phase-1-throughput-t50.proposed.json` \u2014 50 ms/move\n- `phase-1-throughput-t100.proposed.json` \u2014 100 ms/move\n- `phase-1-throughput-t200.proposed.json` \u2014 200 ms/move\n\nMeasure games/s, nodes/s, reached-depth distribution, mean plies, cap share, per-side cost; select `T*` with cap share <20% and wall-clock fitting 8,472 games. Provisional main-arm value 100 ms is a placeholder, not validated.\n\n## True remaining gates\n- **T1** throughput/time selection: not accepted; confirmed `T*` + frozen JSON copies required before any main run.\n- **S1** search stall: not accepted; finite `timeMs` is a guard, not a stall fix.\n- **E1** analysis: not accepted; the seven absent estimators in protocol \u00a76 must be added (or computed externally).\n- **R1** residual pinning: resolved here; supervisor verifies the pinned sha.\n- Human study: pending.\n\nCommitted files: `campaign/setups/phase-1.json`, `campaign/setups/phase-1-generate.ts`, `campaign/specs/*`, `campaign/protocols/phase-1.md`, `campaign/phase-1-protocol-report.md`, `campaign/verify-phase-1.ts`. Startup/contract files untouched."
+    ]
+  }
+]

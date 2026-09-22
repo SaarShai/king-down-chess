@@ -1,0 +1,155 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.0 [39m[90m/Users/new/projects/king-down-supervised-20260921[39m
+
+ [31m❯[39m tools/conditions.test.ts [2m([22m[2m14 tests[22m[2m | [22m[31m8 failed[39m[2m)[22m[33m 1472[2mms[22m[39m
+   [32m✓[39m conditions scan [2m(3)[22m
+     [32m✓[39m counts owner armies by type, presence, moves, captures and end presence[32m 4[2mms[22m[39m
+     [32m✓[39m ignores invalid piece keys and nonpositive starting counts[32m 1[2mms[22m[39m
+     [32m✓[39m returns empty aggregates for an empty run[32m 1[2mms[22m[39m
+   [32m✓[39m conditions CLI [2m(2)[22m
+     [32m✓[39m prints owner armies, presence, moves per owner and still share from synthetic records[32m 138[2mms[22m[39m
+     [32m✓[39m handles an empty run without NaN or Infinity[32m 125[2mms[22m[39m
+   [31m❯[39m conditions paired validation [2m(9)[22m
+     [32m✓[39m computes the paired mean over shared gameIds (A 1,1 vs B 0,1 -> +0.500)[32m 132[2mms[22m[39m
+[31m     [31m×[31m rejects a duplicate gameId within a file, naming file and id[39m[32m 132[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched shared field: startFen[39m[32m 133[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched shared field: seed[39m[32m 135[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched shared field: openingPlies[39m[32m 140[2mms[22m[39m
+[31m     [31m×[31m rejects a mismatched shared field: colourSwapped[39m[32m 134[2mms[22m[39m
+[31m     [31m×[31m reports separate unmatched counts for A and B[39m[32m 132[2mms[22m[39m
+[31m     [31m×[31m reports zero pairs as no estimate available[39m[32m 131[2mms[22m[39m
+[31m     [31m×[31m reports one pair as a descriptive mean with no interval and no NaN[39m[32m 132[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m8 failed[39m[22m[2m | [22m[1m[32m6 passed[39m[22m[90m (14)[39m
+[2m   Start at [22m 10:10:42
+[2m   Duration [22m 1.65s[2m (tests 94%, transform 5%, import 1%)[22m
+
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 8 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mrejects a duplicate gameId within a file, naming file and id
+[31m[1mAssertionError[22m: expected +0 not to be +0 // Object.is equality[39m
+[36m [2m❯[22m tools/conditions.test.ts:[2m202:24[22m[39m
+    [90m200|[39m       ]);
+    [90m201|[39m     const { status, err } = runPair(a, b);
+    [90m202|[39m     expect(status).not.toBe(0);
+    [90m   |[39m                        [31m^[39m
+    [90m203|[39m     expect(err).toContain('pa');
+    [90m204|[39m     expect(err).toContain('1');
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mrejects a mismatched shared field: startFen
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mrejects a mismatched shared field: seed
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mrejects a mismatched shared field: openingPlies
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mrejects a mismatched shared field: colourSwapped
+[31m[1mAssertionError[22m: expected +0 not to be +0 // Object.is equality[39m
+[36m [2m❯[22m tools/conditions.test.ts:[2m217:26[22m[39m
+    [90m215|[39m       const b = writeRun('pb', [mutate(base)]);
+    [90m216|[39m       const { status, err } = runPair(a, b);
+    [90m217|[39m       expect(status).not.toBe(0);
+    [90m   |[39m                          [31m^[39m
+    [90m218|[39m       expect(err).toContain('1');
+    [90m219|[39m       expect(err).toContain(_name);
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mreports separate unmatched counts for A and B
+[31m[1mAssertionError[22m: expected '\n/var/folders/yt/lcvhzjhj76ldb_pzwlt…' to match /unmatched/i[39m
+
+[32m- Expected:[39m
+/unmatched/i
+
+[31m+ Received:[39m
+"
+/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-bOIu1W/pa.jsonl: 3 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 1.000
+  piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner
+    A     |   3/3 (100.0%) |            6 |            1.00 |            0.0% |            100.0% | 0.00
+  Type present at end includes promotions; it does not track survival of original pieces.
+
+/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-bOIu1W/pb.jsonl: 3 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 1.000
+  piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner
+    A     |   3/3 (100.0%) |            6 |            1.00 |            0.0% |            100.0% | 0.00
+  Type present at end includes promotions; it does not track survival of original pieces.
+
+paired 2 games (/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-bOIu1W/pa.jsonl minus /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-bOIu1W/pb.jsonl)
+  result +0.000 ± 0.000 · decisive +0.000 ± 0.000 · plies +0.0 ± 0.0
+"
+
+[36m [2m❯[22m tools/conditions.test.ts:[2m230:17[22m[39m
+    [90m228|[39m     expect(status).toBe(0);
+    [90m229|[39m     expect(out).toContain('2 games');
+    [90m230|[39m     expect(out).toMatch(/unmatched/i);
+    [90m   |[39m                 [31m^[39m
+    [90m231|[39m     expect(out).toMatch(/A/);
+    [90m232|[39m     expect(out).toMatch(/B/);
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mreports zero pairs as no estimate available
+[31m[1mAssertionError[22m: expected '\n/var/folders/yt/lcvhzjhj76ldb_pzwlt…' to match /no estimate/i[39m
+
+[32m- Expected:[39m
+/no estimate/i
+
+[31m+ Received:[39m
+"
+/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-mspTL3/pa.jsonl: 1 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 1.000
+  piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner
+    A     |   1/1 (100.0%) |            2 |            1.00 |            0.0% |            100.0% | 0.00
+  Type present at end includes promotions; it does not track survival of original pieces.
+
+/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-mspTL3/pb.jsonl: 1 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 1.000
+  piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner
+    A     |   1/1 (100.0%) |            2 |            1.00 |            0.0% |            100.0% | 0.00
+  Type present at end includes promotions; it does not track survival of original pieces.
+
+paired 0 games (/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-mspTL3/pa.jsonl minus /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-mspTL3/pb.jsonl)
+  result +0.000 ± NaN · decisive +0.000 ± NaN · plies +0.0 ± NaN
+"
+
+[36m [2m❯[22m tools/conditions.test.ts:[2m241:17[22m[39m
+    [90m239|[39m     const { status, out } = runPair(a, b);
+    [90m240|[39m     expect(status).toBe(0);
+    [90m241|[39m     expect(out).toMatch(/no estimate/i);
+    [90m   |[39m                 [31m^[39m
+    [90m242|[39m     expect(out).not.toContain('NaN');
+    [90m243|[39m     expect(out).not.toContain('Infinity');
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions paired validation[2m > [22mreports one pair as a descriptive mean with no interval and no NaN
+[31m[1mAssertionError[22m: expected '\n/var/folders/yt/lcvhzjhj76ldb_pzwlt…' not to contain 'NaN'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- NaN[39m
+[31m+[39m
+[31m+ /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-mm2GTH/pa.jsonl: 1 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 1.000[39m
+[31m+   piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner[39m
+[31m+     A     |   1/1 (100.0%) |            2 |            1.00 |            0.0% |            100.0% | 0.00[39m
+[31m+   Type present at end includes promotions; it does not track survival of original pieces.[39m
+[31m+[39m
+[31m+ /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-mm2GTH/pb.jsonl: 1 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 0.000[39m
+[31m+   piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner[39m
+[31m+     A     |   1/1 (100.0%) |            2 |            1.00 |            0.0% |            100.0% | 0.00[39m
+[31m+   Type present at end includes promotions; it does not track survival of original pieces.[39m
+[31m+[39m
+[31m+ paired 1 games (/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-mm2GTH/pa.jsonl minus /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-pair-mm2GTH/pb.jsonl)[39m
+[31m+   result +1.000 ± NaN · decisive +0.000 ± NaN · plies +0.0 ± NaN[39m
+[31m+[39m
+
+[36m [2m❯[22m tools/conditions.test.ts:[2m253:21[22m[39m
+    [90m251|[39m     expect(status).toBe(0);
+    [90m252|[39m     expect(out).toContain('+1.000');
+    [90m253|[39m     expect(out).not.toContain('NaN');
+    [90m   |[39m                     [31m^[39m
+    [90m254|[39m     expect(out).not.toContain('Infinity');
+    [90m255|[39m     });
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯[22m[39m
+
+
+returnCode: 1

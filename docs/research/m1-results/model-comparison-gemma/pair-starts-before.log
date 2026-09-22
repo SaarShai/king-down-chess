@@ -1,0 +1,140 @@
+
+ RUN  v5.0.0 /Users/new/projects/king-down-supervised-20260921
+
+ ❯ tools/conditions.test.ts (15 tests | 8 failed) 1691ms
+   ❯ conditions CLI (12)
+     ❯ paired validation (9)
+       × calculates mean for matching IDs 166ms
+       × errors on duplicate gameId in a file 126ms
+       × errors on startFen mismatch 140ms
+       × errors on seed mismatch 134ms
+       × errors on openingPlies mismatch 142ms
+       × errors on colourSwapped mismatch 132ms
+       × handles zero pairs: no estimate available 145ms
+       × handles one pair: mean only, no interval 130ms
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 7 passed (15)
+   Start at  10:00:00
+   Duration  1.88s (tests 95%, transform 4%, import 1%)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tools/conditions.test.ts > conditions CLI > paired validation > calculates mean for matching IDs
+AssertionError: expected '\n/var/folders/yt/lcvhzjhj76ldb_pzwlt…' to contain 'result +0.500'
+
+- Expected
++ Received
+
+- result +0.500
++
++ /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-0FTGHS/pairA.jsonl: 1 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 1.000
++   piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner
++   Type present at end includes promotions; it does not track survival of original pieces.
++
++ /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-0FTGHS/pairB.jsonl: 1 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 0.000
++   piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner
++   Type present at end includes promotions; it does not track survival of original pieces.
++
++ paired 1 games (/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-0FTGHS/pairA.jsonl minus /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-0FTGHS/pairB.jsonl)
++   result +1.000 ± NaN · decisive +0.000 ± NaN · plies +0.0 ± NaN
++
+
+ ❯ tools/conditions.test.ts:199:19
+    197|          { stdio: 'pipe' }).toString();
+    198|
+    199|       expect(out).toContain('result +0.500');
+       |                   ^
+    200|     });
+    201|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tools/conditions.test.ts > conditions CLI > paired validation > errors on duplicate gameId in a file
+AssertionError: expected [Function] to throw an error
+ ❯ tools/conditions.test.ts:209:10
+    207|       expect(() => {
+    208|         execFileSync('node_modules/.bin/tsx', ['tools/conditions.ts', …
+    209|       }).toThrow();
+       |          ^
+    210|     });
+    211|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  tools/conditions.test.ts > conditions CLI > paired validation > errors on startFen mismatch
+ FAIL  tools/conditions.test.ts > conditions CLI > paired validation > errors on seed mismatch
+ FAIL  tools/conditions.test.ts > conditions CLI > paired validation > errors on openingPlies mismatch
+ FAIL  tools/conditions.test.ts > conditions CLI > paired validation > errors on colourSwapped mismatch
+AssertionError: expected [Function] to throw an error
+ ❯ tools/conditions.test.ts:225:10
+    223|       expect(() => {
+    224|         execFileSync('node_modules/.bin/tsx', ['tools/conditions.ts', …
+    225|       }).toThrow();
+       |          ^
+    226|     });
+    227|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  tools/conditions.test.ts > conditions CLI > paired validation > handles zero pairs: no estimate available
+AssertionError: expected '\n/var/folders/yt/lcvhzjhj76ldb_pzwlt…' not to contain '±'
+
+- Expected
++ Received
+
+- ±
++
++ /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-9MCLms/zeroA.jsonl: 1 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 1.000
++   piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner
++   Type present at end includes promotions; it does not track survival of original pieces.
++
++ /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-9MCLms/zeroB.jsonl: 1 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 0.000
++   piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner
++   Type present at end includes promotions; it does not track survival of original pieces.
++
++ paired 0 games (/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-9MCLms/zeroA.jsonl minus /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-9MCLms/zeroB.jsonl)
++   result +0.000 ± NaN · decisive +0.000 ± NaN · plies +0.0 ± NaN
++
+
+ ❯ tools/conditions.test.ts:251:23
+    249|          { stdio: 'pipe' }).toString();
+    250|
+    251|       expect(out).not.toContain('±');
+       |                       ^
+    252|     });
+    253|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  tools/conditions.test.ts > conditions CLI > paired validation > handles one pair: mean only, no interval
+AssertionError: expected '\n/var/folders/yt/lcvhzjhj76ldb_pzwlt…' not to contain '±'
+
+- Expected
++ Received
+
+- ±
++
++ /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-nrQdI6/oneA.jsonl: 1 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 1.000
++   piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner
++   Type present at end includes promotions; it does not track survival of original pieces.
++
++ /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-nrQdI6/oneB.jsonl: 1 games · decisive 100.0% · draws 0.0% · capped 0.0% · plies 10 · White 0.000
++   piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner
++   Type present at end includes promotions; it does not track survival of original pieces.
++
++ paired 1 games (/var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-nrQdI6/oneA.jsonl minus /var/folders/yt/lcvhzjhj76ldb_pzwltq48_c0000gn/T/cond-cli-nrQdI6/oneB.jsonl)
++   result +1.000 ± NaN · decisive +0.000 ± NaN · plies +0.0 ± NaN
++
+
+ ❯ tools/conditions.test.ts:265:23
+    263|
+    264|       expect(out).toContain('result +1.000');
+    265|       expect(out).not.toContain('±');
+       |                       ^
+    266|     });
+    267|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+

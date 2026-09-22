@@ -1,0 +1,13 @@
+{
+  "pair-independent.log": "d9956cee5caf7261e13caa42d46559553acbe4cb70821f33970b84a08bd2fd5f",
+  "conditions.test.ts.txt": "2735818fefca6ff4ff3d6f4865a02aafaae12e86daf3efbff2b5580c3afbac4b",
+  "accepted.patch.txt": "0799cdcc1bcbfca16fb21ff3f6375aa79e11c028128d07e33fabf5d6bbb69552",
+  "statistics.log": "49470c0494fbbd8c1de0ec92cd94b4936dea666dbce32283c9335e609c56e447",
+  "targeted-tests.log": "61f15e4a2dbed49f0d9417cdc68c41c34a5e2ac3f84bc3bdd0fe9b250ef217db",
+  "diff-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "baseline-regressions.log": "555685adccbd44d48dc8a7cf9cbaf09fd0ff8c91b84501c102467cd1e03bcf6d",
+  "conditions.ts.txt": "1279465a4f8aaa841bb3a94ef156636a48481d33acae75b889fbc6291b5dfdb6",
+  "tsc.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "independent.json": "8d49e5badc675903257c1d65a985346bdc4f445f10e25ff90d3b6ea16cbf717b",
+  "receipt.json": "16d61e2fffdfba8d981c8e0a50f57e2202ee55b4b40d39fb00422bffdcad03a5"
+}

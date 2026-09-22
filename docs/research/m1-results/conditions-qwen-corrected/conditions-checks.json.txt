@@ -1,0 +1,29 @@
+{
+  "checks": [
+    { "name": "tsc --noEmit", "command": "npx tsc --noEmit", "returnCode": 0, "passed": true },
+    { "name": "vitest conditions", "command": "npx vitest run tools/conditions.test.ts", "returnCode": 0, "passed": true, "testsPassed": 5, "testsFailed": 0 },
+    { "name": "git diff --check", "command": "git diff --check", "returnCode": 0, "passed": true }
+  ],
+  "before": {
+    "command": "npx vitest run tools/conditions.test.ts",
+    "returnCode": 1,
+    "testsPassed": 2,
+    "testsFailed": 1,
+    "log": "campaign/conditions-before.log"
+  },
+  "expectedTotals": {
+    "A": { "owners": 3, "present": 2, "moves": 6, "zero": 1, "survived": 2, "captures": 2 },
+    "G": { "owners": 1, "present": 1 }
+  },
+  "scope": [
+    "tools/conditions.ts",
+    "tools/conditions.test.ts",
+    "campaign/conditions-before.log",
+    "campaign/conditions-fix-report.md",
+    "campaign/conditions-checks.json",
+    "campaign/status.json"
+  ],
+  "noSimulations": true,
+  "noCloudCalls": true,
+  "noCommits": true
+}

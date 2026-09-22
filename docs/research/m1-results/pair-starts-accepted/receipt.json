@@ -1,0 +1,42 @@
+{
+  "acceptedAt": "2026-09-22T09:10:48.266421+00:00",
+  "commit": "c3393615a6eb11db21c6b7fd50e4eda471f300a2",
+  "baseModelCandidate": "qwen3.8:27b-mlx",
+  "supervisorFinishingEdits": [
+    "fix test CLI comma-separated path argument",
+    "correct two explanatory comments"
+  ],
+  "baselineFailingRegressions": 8,
+  "targetedTests": 57,
+  "pairIndependent": 12,
+  "statisticsIndependent": 12,
+  "checks": [
+    {
+      "name": "tsc",
+      "returnCode": 0
+    },
+    {
+      "name": "targeted-tests",
+      "returnCode": 0
+    },
+    {
+      "name": "pair-independent",
+      "returnCode": 0
+    },
+    {
+      "name": "statistics",
+      "returnCode": 0
+    },
+    {
+      "name": "diff-check",
+      "returnCode": 0
+    }
+  ],
+  "campaignGames": 0,
+  "validationGames": 24,
+  "remainingGates": [
+    "source/spec provenance qualification",
+    "search-stall diagnosis",
+    "study protocols and practical throughput pilot"
+  ]
+}

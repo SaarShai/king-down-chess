@@ -1,0 +1,35 @@
+{
+  "info": {
+    "parentID": "msg_0c878766a0012GTAh6jSlRpQaF",
+    "role": "assistant",
+    "mode": "build",
+    "agent": "build",
+    "path": {
+      "cwd": "/Users/za/.local/share/king-down-supervised-20260922/search",
+      "root": "/Users/za/.local/share/king-down-supervised-20260922/search"
+    },
+    "cost": 0.000709476,
+    "tokens": {
+      "total": 95480,
+      "input": 238,
+      "output": 650,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 94592
+      }
+    },
+    "modelID": "deepseek-v4.1-flash",
+    "providerID": "opencode-go",
+    "time": {
+      "created": 1790069938696,
+      "completed": 1790069943088
+    },
+    "finish": "stop",
+    "id": "msg_0c87b9a08001dX1bRNCCQqRdIV",
+    "sessionID": "ses_f378ca8b5ffecujVHstHAVYG9H"
+  },
+  "text": [
+    "Done. Bounded repair/evidence stage complete and committed as `9123ba9`.\n\n## Summary\n\n**Diagnosis (independently proven, deterministic legal FEN):** `g7/6k1/2q3pp/3o4/1p1p1P2/pQ1O2PP/6K1/2G5 w - - 0 1`. Quiescence reaches a check at `qdepth 0`, drives `qdepth` to `-55` through consecutive in-check evasions, and walks a repeat loop to the `MAX_PLY + QMAX` cap (ply 71). The in-check branch ignores `qdepth`, and `quiesce` never calls `repeated()`. Counter evidence (instrumentation now removed): `hits=57, maxNeg=55, maxPly=71, repeats=73`.\n\n**Repair tested:** `qdepth === 0` \u2192 `qdepth <= 0` in the quiet branch only; in-check evasions untouched, no stand-pat in check.\n\n**Before/after, fixed depth 4, `resetSearchState()`, no clock:**\n\n| version | move | score | nodes |\n|---|---|---|---|\n| baseline | Kg2-f2 | -287 | 25447 |\n| repaired | Kg2-f2 | -287 | 25447 |\n\nThe repair changes nothing on this FEN: the negative-qdepth subtree is all in-check evasions, where the quiet cutoff does not apply. The candidate repair is correct but **insufficient** to explain or bound the historical stall. The 25-minute game-884 stall was **not reconstructed**; warm-TT made the position faster (187\u2013427 nodes), not slower, so accumulated TT alone does not explain it.\n\n**Regression:** `src/ai/search-stall.test.ts` (4 passing) guards legal move, determinism, root-check evasion, mate-in-one, and a 40000-node bound. Verified the same test **also passes on the original source**, so it is a guard, not a baseline-failure proof \u2014 stated in the report and test comment.\n\n**Verification:** `tsc --noEmit` exit 0; `vitest run src/ai/search-stall.test.ts` 4 passed; `vitest run src/ai/search.test.ts` 16 passed (81.7 s); `tsx campaign/search-stall/measure.ts 4` confirms baseline.\n\n**Safety limitation:** fixed-depth searches remain unbounded in wall time (`hardDeadline = Infinity`, only the 72-ply cap), so the campaign safety gate cannot be satisfied by this change. Later campaign specs need a reviewed wall-clock/node budget. Not claimed as a global bound.\n\n**Committed:** `src/ai/search.ts`, `src/ai/search-stall.test.ts`, `campaign/search-stall-report.md`, `campaign/search-stall/measure.ts`. Supervisor-managed files (`AGENTS.md`, `LESSONS.md`, `TASKS.md`, `opencode.json`) left untouched. This is a review request, not acceptance."
+  ]
+}

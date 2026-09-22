@@ -1,0 +1,229 @@
+{
+  "checked": "2026-09-22T06:46:45.902588+00:00",
+  "round": "20260922T062840Z",
+  "events": [
+    {
+      "at": 1790058641424,
+      "tool": "read",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/tools/conditions.ts'}",
+      "outputChars": 8005
+    },
+    {
+      "at": 1790058645542,
+      "tool": "read",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/src/sim/game.ts'}",
+      "outputChars": 12745
+    },
+    {
+      "at": 1790058649809,
+      "tool": "read",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/tools/conditions.test.ts'}",
+      "outputChars": 0
+    },
+    {
+      "at": 1790058653975,
+      "tool": "read",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/campaign/status.json'}",
+      "outputChars": 1066
+    },
+    {
+      "at": 1790058753486,
+      "tool": "glob",
+      "input": "{'pattern': '**/conditions.test.ts'}",
+      "outputChars": 14
+    },
+    {
+      "at": 1790058758335,
+      "tool": "glob",
+      "input": "{'pattern': '**/conditions*.ts'}",
+      "outputChars": 69
+    },
+    {
+      "at": 1790058763649,
+      "tool": "read",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/TASKS.md'}",
+      "outputChars": 52101
+    },
+    {
+      "at": 1790058978466,
+      "tool": "glob",
+      "input": "{'pattern': '**/*conditions*'}",
+      "outputChars": 158
+    },
+    {
+      "at": 1790059101387,
+      "text": "## Objective\n- Repair condition-statistics in `/Users/new/projects/king-down-supervised-20260921` Phase 1 per bounded brief; keep only condition-statistics repair, preserve replay/source-identity acceptance.\n\n## Important Details\n- Scope limited to tools/conditions.ts, campaign/conditions-* evidence, campaign/status.json. Do not edit gameplay/defaults, AI, src files, packages, accepted fixes, or pairing logic this round.\n- No simulations, cloud/Jev calls, commits, or follow-on work. Supervisor acceptance required before proceeding.\n- Use existing stats[side].start full-board census keyed by uppercase canonical piece letters for BOTH colours; do not use back-rank FEN text or add a second FEN parser.\n- Delete obsolete armyOf function and unused caps/owners/letters bookkeeping.\n- Required stats/labels: owner armies per type = stats.start >0; presence = games with \u22651 owner army, count/share of all games; moves/captures summed over owner armies divided by actual owner count, labelled per ow"
+    },
+    {
+      "at": 1790059101387,
+      "text": "Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed."
+    },
+    {
+      "at": 1790059222573,
+      "tool": "bash",
+      "input": "{'command': 'ls -la'}",
+      "outputChars": 1255
+    },
+    {
+      "at": 1790059235164,
+      "tool": "read",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/TASKS.md'}",
+      "outputChars": 52101
+    },
+    {
+      "at": 1790059444503,
+      "tool": "read",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/TASKS.md', 'offset': 257}",
+      "outputChars": 13046
+    },
+    {
+      "at": 1790059502826,
+      "tool": "read",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/campaign/status.json'}",
+      "outputChars": 1066
+    },
+    {
+      "at": 1790059513454,
+      "tool": "read",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/tools/conditions.ts'}",
+      "outputChars": 8005
+    },
+    {
+      "at": 1790059556030,
+      "tool": "read",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/src/sim/game.ts'}",
+      "outputChars": 12745
+    }
+  ],
+  "stepTokens": [
+    {
+      "total": 8830,
+      "input": 8548,
+      "output": 282,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 0
+      }
+    },
+    {
+      "total": 15646,
+      "input": 7044,
+      "output": 58,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 8544
+      }
+    },
+    {
+      "total": 15701,
+      "input": 72,
+      "output": 45,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 15584
+      }
+    },
+    {
+      "total": 15796,
+      "input": 37,
+      "output": 58,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 15701
+      }
+    },
+    {
+      "total": 30693,
+      "input": 14820,
+      "output": 77,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 15796
+      }
+    },
+    {
+      "total": 4682,
+      "input": 3695,
+      "output": 987,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 0
+      }
+    },
+    {
+      "total": 8741,
+      "input": 8628,
+      "output": 107,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 6
+      }
+    },
+    {
+      "total": 9253,
+      "input": 565,
+      "output": 58,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 8630
+      }
+    },
+    {
+      "total": 24145,
+      "input": 14820,
+      "output": 72,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 9253
+      }
+    },
+    {
+      "total": 27968,
+      "input": 3764,
+      "output": 58,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 24146
+      }
+    },
+    {
+      "total": 28401,
+      "input": 374,
+      "output": 58,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 27969
+      }
+    },
+    {
+      "total": 31064,
+      "input": 2604,
+      "output": 58,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 28402
+      }
+    }
+  ],
+  "trackedEdits": [],
+  "testExists": false,
+  "startupDocumentBytes": {
+    "TASKS.md": 63839,
+    "LESSONS.md": 29607,
+    "AGENTS.md": 1913
+  },
+  "criterion": "At least one statistics source/test artifact after 15 minutes",
+  "usefulArtifact": false
+}

@@ -1,0 +1,13 @@
+{
+  "phase": 1,
+  "round": "20260922T083604Z",
+  "runnerPid": 53170,
+  "prompt": "/Users/new/projects/king-down-supervised-20260921-control/pair-starts-only.txt",
+  "log": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T083604Z.jsonl",
+  "errors": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T083604Z.stderr.log",
+  "started": 1790066164.35555,
+  "state": "agent_exited",
+  "agentPid": 53171,
+  "exitCode": 0,
+  "finished": 1790066934.6242821
+}

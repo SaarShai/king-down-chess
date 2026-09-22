@@ -1,0 +1,87 @@
+diff --git a/src/ai/search.ts b/src/ai/search.ts
+index d8d9592..14252a9 100644
+--- a/src/ai/search.ts
++++ b/src/ai/search.ts
+@@ -256,6 +256,26 @@ function repeated(ply: number, hm: number, key: number): boolean {
+   return false;
+ }
+ 
++/** TEMP DIAGNOSTIC. */
++export const qRep = { hitsPath: 0, hitsHist: 0, cuts: 0, minDist: 999, hmAtHit: 0 };
++
++/**
++ * Repetition test for quiescence. `repeated` bounds its path scan with the halfmove clock, but
++ * that bound is unsound in this variant: an ogre shove (or maester swap) can move a pawn back, so
++ * the same position can recur across a ply that reset the clock. Quiescence can therefore repeat
++ * without `hm` ever being large enough to see it. Scan the whole path instead; a matching key is a
++ * genuine two-fold (same board, turn and strike), so no window is needed.
++ */
++function repeatedQ(ply: number, hm: number, key: number): boolean {
++  for (let i = ply - 2; i >= 0; i -= 2) if (path[i] === key) {
++    qRep.hitsPath++; qRep.minDist = Math.min(qRep.minDist, ply - i); qRep.hmAtHit = hm;
++    return true;
++  }
++  const n = gameHistory.length;
++  for (let i = n - 1; i >= 0; i--) if (gameHistory[i] === key) { qRep.hitsHist++; return true; }
++  return false;
++}
++
+ const toTT = (s: number, ply: number): number => (s >= MATE_BOUND ? s + ply : s <= -MATE_BOUND ? s - ply : s);
+ const fromTT = (s: number, ply: number): number => (s >= MATE_BOUND ? s - ply : s <= -MATE_BOUND ? s + ply : s);
+ 
+@@ -276,16 +296,23 @@ const timeUp = (): boolean => {
+   return stop;
+ };
+ 
+-function quiesce(alpha: number, beta: number, ply: number, qdepth: number): number {
++function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: number): number {
+   const c = (rootTurn ^ (ply & 1)) as Color;
+   if (timeUp() || ply >= MAX_PLY + QMAX) return evalBoard(board, c);
++
++  // Same draw rule as negamax, so a repeated check chain cannot loop in here. `hm` still tracks the
++  // halfmove clock for the 50-move draw; repetition uses the full path (see `repeatedQ`).
++  const key = combine(hLo, hHi);
++  if (hm >= 100 || repeatedQ(ply, hm, key)) { qRep.cuts++; return 0; }
++  path[ply] = key;
++
+   const inChk = attacked(c);
+   let best: number;
+   if (inChk) {
+     best = -INF; // no stand-pat while in check: every evasion has to be looked at
+   } else {
+     best = evalBoard(board, c);
+-    if (best >= beta || qdepth <= 0) return best;
++    if (best >= beta || qdepth === 0) return best;
+     if (best > alpha) alpha = best;
+   }
+   const moves = genLegal(bufs[ply], c, inChk ? 'all' : 'captures');
+@@ -298,8 +325,9 @@ function quiesce(alpha: number, beta: number, ply: number, qdepth: number): numb
+     // Delta pruning: even winning this material would not reach alpha. Rifle shots are safe to
+     // prune here too — the gain is the whole story, there is no recapture to discover.
+     if (!inChk && stand + gain(m) + DELTA < alpha) continue;
++    const nhm = m.captures.length || typeOf(board[m.from]) === P ? 0 : hm + 1;
+     const base = apply(m);
+-    const v = -quiesce(-beta, -alpha, ply + 1, qdepth - 1);
++    const v = -quiesce(-beta, -alpha, ply + 1, qdepth - 1, nhm);
+     undo(base);
+     if (stop) break;
+     if (v > best) best = v;
+@@ -335,7 +363,7 @@ function negamax(depth: number, alpha: number, beta: number, ply: number, hm: nu
+ 
+   const inChk = attacked(c);
+   if (inChk && ply < rootDepth * 2) depth++; // check extension, capped at twice the nominal depth
+-  if (depth <= 0) return quiesce(alpha, beta, ply, QMAX);
++  if (depth <= 0) return quiesce(alpha, beta, ply, QMAX, hm);
+ 
+   const moves = genLegal(bufs[ply], c, 'all');
+   if (moves.length === 0) return inChk ? -MATE + ply : 0;
+@@ -410,7 +438,8 @@ export function quiesceScore(pos: Position): number {
+   nodes = 0;
+   stop = false;
+   hardDeadline = Infinity;
+-  return quiesce(-INF, INF, 0, QMAX);
++  gameHistory = [];
++  return quiesce(-INF, INF, 0, QMAX, pos.halfmove);
+ }
+ 
+ /** Key of a position, for `SearchOptions.history`. */

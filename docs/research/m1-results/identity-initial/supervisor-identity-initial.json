@@ -1,0 +1,34 @@
+{
+  "results": [
+    {
+      "name": "different absolute directories",
+      "passed": true
+    },
+    {
+      "name": "relative absolute trailing spellings",
+      "passed": true
+    },
+    {
+      "name": "actual project dot absolute trailing",
+      "passed": true
+    },
+    {
+      "name": "src/game.ts bytes affect identity",
+      "passed": true
+    },
+    {
+      "name": "renaming still-hashed file affects identity",
+      "passed": true
+    },
+    {
+      "name": "missing required source throws",
+      "passed": false,
+      "error": "AssertionError [ERR_ASSERTION]: Missing expected exception."
+    },
+    {
+      "name": "missing required directory throws",
+      "passed": false,
+      "error": "AssertionError [ERR_ASSERTION]: Missing expected exception."
+    }
+  ]
+}

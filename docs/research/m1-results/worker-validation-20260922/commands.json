@@ -1,0 +1,87 @@
+[
+  {
+    "name": "typescript",
+    "command": [
+      "./node_modules/.bin/tsc",
+      "--noEmit"
+    ],
+    "returnCode": 0,
+    "seconds": 0.256,
+    "pid": 53555,
+    "log": "typescript.log"
+  },
+  {
+    "name": "targeted-tests",
+    "command": [
+      "./node_modules/.bin/vitest",
+      "run",
+      "src/sim/identity.test.ts",
+      "src/sim/replay.test.ts",
+      "src/sim/sim.test.ts"
+    ],
+    "returnCode": 0,
+    "seconds": 1.325,
+    "pid": 53556,
+    "log": "targeted-tests.log"
+  },
+  {
+    "name": "run-a",
+    "command": [
+      "./node_modules/.bin/tsx",
+      "src/sim/run.ts",
+      "--spec",
+      "/Users/new/projects/king-down-supervised-20260921-control/worker-validation-20260922/a.spec.json",
+      "--workers",
+      "1"
+    ],
+    "returnCode": 0,
+    "seconds": 0.764,
+    "pid": 53562,
+    "log": "run-a.log"
+  },
+  {
+    "name": "run-b",
+    "command": [
+      "./node_modules/.bin/tsx",
+      "src/sim/run.ts",
+      "--spec",
+      "/Users/new/projects/king-down-supervised-20260921-control/worker-validation-20260922/b.spec.json",
+      "--workers",
+      "1"
+    ],
+    "returnCode": 0,
+    "seconds": 0.726,
+    "pid": 53564,
+    "log": "run-b.log"
+  },
+  {
+    "name": "run-c",
+    "command": [
+      "./node_modules/.bin/tsx",
+      "src/sim/run.ts",
+      "--spec",
+      "/Users/new/projects/king-down-supervised-20260921-control/worker-validation-20260922/c.spec.json",
+      "--workers",
+      "2"
+    ],
+    "returnCode": 0,
+    "seconds": 0.769,
+    "pid": 53566,
+    "log": "run-c.log"
+  },
+  {
+    "name": "audit",
+    "command": [
+      "./node_modules/.bin/tsx",
+      "/Users/new/projects/king-down-supervised-20260921-control/audit-worker-validation.ts",
+      "/Users/new/projects/king-down-supervised-20260921/sim/out/m1-worker-validation-20260922-a.jsonl",
+      "/Users/new/projects/king-down-supervised-20260921/sim/out/m1-worker-validation-20260922-b.jsonl",
+      "/Users/new/projects/king-down-supervised-20260921/sim/out/m1-worker-validation-20260922-c.jsonl",
+      "/Users/new/projects/king-down-supervised-20260921-control/worker-validation-20260922/audit.json"
+    ],
+    "returnCode": 0,
+    "seconds": 0.321,
+    "pid": 53568,
+    "log": "audit.log"
+  }
+]

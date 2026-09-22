@@ -1,0 +1,73 @@
+{
+  "provenance": {
+    "directory": "/Users/za/.local/share/king-down-supervised-20260922/provenance",
+    "prompt": "/Users/za/.local/share/king-down-supervised-20260922/provenance-prompt.txt",
+    "state": "accepted_inactive",
+    "baseHead": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+    "sessionID": "ses_f378ca9c5ffe6Ht5FsuhiKgsm1",
+    "parentID": "ses_f378caa21ffe76zTrrxgwd9XYx",
+    "model": "opencode-go/deepseek-v4.1-flash",
+    "started": 1790069397.0650759,
+    "initialIndependent": {
+      "passed": 11,
+      "total": 14,
+      "remaining": "whitespace-only identity rejection and fixture/report coherence"
+    },
+    "commit": "a365c980",
+    "localIntegrationCommit": "ffd78f0",
+    "remoteCommit": "2109d67f6daebc2e7ebc543bd7778964b51f337f",
+    "independentChecks": {
+      "passed": 14,
+      "total": 14
+    },
+    "remoteTargetedTests": 74,
+    "acceptedAt": "2026-09-22T09:40:43.246564+00:00",
+    "stoppedAt": 1790070945.0653179,
+    "headAtStop": "a365c9805ea5aba6f4549dac4c28e32db9488f5b"
+  },
+  "search": {
+    "directory": "/Users/za/.local/share/king-down-supervised-20260922/search",
+    "prompt": "/Users/za/.local/share/king-down-supervised-20260922/search-prompt.txt",
+    "state": "stopped_by_owner_unreviewed",
+    "baseHead": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+    "sessionID": "ses_f378ca8b5ffecujVHstHAVYG9H",
+    "parentID": "ses_f378caa21ffe76zTrrxgwd9XYx",
+    "model": "opencode-go/deepseek-v4.1-flash",
+    "started": 1790069397.3239958,
+    "priorRound": "step limit after useful negative-depth diagnostics, no accepted fix",
+    "reviewedAt": 1790070531.8599648,
+    "reviewEvidence": "/Users/za/Documents/king down chess/docs/research/m1-results/deepseek-review-20260922T0945",
+    "reviewedCommit": "9123ba9",
+    "stoppedAt": 1790070945.148834,
+    "headAtStop": "9123ba97682ecb4a62ba680684983d915abc67b6"
+  },
+  "protocol": {
+    "directory": "/Users/za/.local/share/king-down-supervised-20260922/protocol",
+    "prompt": "/Users/za/.local/share/king-down-supervised-20260922/protocol-prompt.txt",
+    "state": "stopped_by_owner_unreviewed",
+    "baseHead": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+    "sessionID": "ses_f378ca694ffeeSXYB0FMJNrrlN",
+    "parentID": "ses_f378caa21ffe76zTrrxgwd9XYx",
+    "model": "opencode-go/deepseek-v4.1-flash",
+    "started": 1790069397.869246,
+    "priorRound": "step limit after setup/spec/evaluator evidence; final protocol report pending",
+    "reviewedAt": 1790070531.883243,
+    "reviewEvidence": "/Users/za/Documents/king down chess/docs/research/m1-results/deepseek-review-20260922T0945",
+    "reviewedCommit": "54e6de0",
+    "stoppedAt": 1790070945.233794,
+    "headAtStop": "4f724917b25a2d031157bcf031a6b25e6b784d6a"
+  },
+  "analysis": {
+    "directory": "/Users/za/.local/share/king-down-supervised-20260922/analysis",
+    "prompt": "/Users/za/.local/share/king-down-supervised-20260922/analysis-prompt.txt",
+    "state": "stopped_by_owner_unreviewed",
+    "baseHead": "ffd78f097f4cd02bdce6c42259c60b33159b9b5e",
+    "sessionID": "ses_f3779152fffem4yzejsDKpFYrt",
+    "parentID": "ses_f378caa21ffe76zTrrxgwd9XYx",
+    "model": "opencode-go/deepseek-v4.1-flash",
+    "started": 1790070680.2905972,
+    "actualModelVerified": true,
+    "stoppedAt": 1790070945.3160791,
+    "headAtStop": "ffd78f097f4cd02bdce6c42259c60b33159b9b5e"
+  }
+}

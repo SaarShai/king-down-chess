@@ -1,0 +1,138 @@
+{
+  "kind": "execution validation; short capped games are not balance evidence",
+  "records": 24,
+  "reasons": {
+    "plyCap": 24
+  },
+  "sourceId": "3545663dcf97",
+  "specKey": "7f0087356cbf",
+  "deterministicHashes": [
+    "12d32d45bc962947b512abd373d0f89f1562298f6b89322092f309581680b0c2",
+    "12d32d45bc962947b512abd373d0f89f1562298f6b89322092f309581680b0c2",
+    "12d32d45bc962947b512abd373d0f89f1562298f6b89322092f309581680b0c2"
+  ],
+  "passed": 30,
+  "total": 30,
+  "checks": [
+    {
+      "name": "run 1: eight unique IDs",
+      "passed": true
+    },
+    {
+      "name": "run 1 game 0: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 1 game 1: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 1 game 2: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 1 game 3: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 1 game 4: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 1 game 5: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 1 game 6: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 1 game 7: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 2: eight unique IDs",
+      "passed": true
+    },
+    {
+      "name": "run 2 game 0: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 2 game 1: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 2 game 2: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 2 game 3: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 2 game 4: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 2 game 5: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 2 game 6: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 2 game 7: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 3: eight unique IDs",
+      "passed": true
+    },
+    {
+      "name": "run 3 game 0: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 3 game 1: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 3 game 2: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 3 game 3: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 3 game 4: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 3 game 5: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 3 game 6: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "run 3 game 7: identity, plies and legal replay",
+      "passed": true
+    },
+    {
+      "name": "single-worker repeat matches every timing-free field",
+      "passed": true
+    },
+    {
+      "name": "two-worker run matches every timing-free field",
+      "passed": true
+    },
+    {
+      "name": "one shared source/spec/rules identity across all 24 records",
+      "passed": true
+    }
+  ]
+}

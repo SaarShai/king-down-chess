@@ -1,0 +1,15 @@
+{
+  "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stopped-round.jsonl": "ccd663df24e5fbc314025d179656b44d29ed2af09eff9aba799dd212e1978eee",
+  "resolved-config.json": "0aaef85782539e1828e8446cfbc1c687a527c1ad2e4dcb0e98505c7d10f64884",
+  "conditions.test.ts.txt": "89007d32bdfa46a3b4da0c421c850558f6d13109fb09074ee3b3686af15bf469",
+  "opencode-after.json": "3948e1ec1b7aa5b877733fb4537259c73a97acf141244b83e9326ec158d50f9c",
+  "resolved-config.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "git-diff.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "status-before.json": "40419d1de28099eab8a8de386e58e5fa8a3d47d095824f21ba41227062d051d2",
+  "opencode-before.json": "93058d046457db2b2327f32943530d9a211bfe5809e8dec9d63941e08565a697",
+  "conditions.ts.txt": "e61532b96a1ece4d289638ae592bcf70a81a981bd607328abdb3a67ba0a25e27",
+  "runner-before-stop.json": "38d9b100329baef5fea0ef83ae161bc5eb9a1ac139212487ed4f99554d2b617d",
+  "runner-after-stop.json": "96f15239e373dddf4f6f3502397b855fa8d0182564880b88871b625debd6252c",
+  "receipt.json": "2ddfc7d935a0c16d7e3fdf165cda7d64675025327eeca213ad7e7e9108dc2711"
+}

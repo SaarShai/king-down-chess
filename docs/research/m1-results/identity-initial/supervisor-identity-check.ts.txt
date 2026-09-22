@@ -1,0 +1,27 @@
+import { sourceId } from '../king-down-supervised-20260921/src/sim/identity';
+import { mkdtempSync, mkdirSync, writeFileSync, renameSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, relative, dirname } from 'node:path';
+import assert from 'node:assert/strict';
+const a=mkdtempSync(join(tmpdir(),'kdc-id-supervisor-a-'));
+const b=mkdtempSync(join(tmpdir(),'kdc-id-supervisor-b-'));
+const results: {name:string,passed:boolean,error?:string}[]=[];
+function check(name:string,fn:()=>void){try{fn();results.push({name,passed:true});}catch(e){results.push({name,passed:false,error:String(e)});}}
+try {
+  for (const root of [a,b]) for (const [name,content] of Object.entries({'src/rules/a.ts':'rules','src/ai/a.ts':'ai','src/sim/a.ts':'sim','src/game.ts':'game'})) {
+    const p=join(root,name); mkdirSync(dirname(p),{recursive:true}); writeFileSync(p,content);
+  }
+  check('different absolute directories',()=>assert.equal(sourceId(a),sourceId(b)));
+  check('relative absolute trailing spellings',()=>assert.equal(new Set([sourceId(a),sourceId(a+'/'),sourceId(relative(process.cwd(),a))]).size,1));
+  check('actual project dot absolute trailing',()=>assert.equal(new Set([sourceId('.'),sourceId(process.cwd()),sourceId(process.cwd()+'/')]).size,1));
+  const before=sourceId(a); writeFileSync(join(a,'src/game.ts'),'changed');
+  check('src/game.ts bytes affect identity',()=>assert.notEqual(sourceId(a),before));
+  const renamedBefore=sourceId(b); renameSync(join(b,'src/rules/a.ts'),join(b,'src/rules/b.ts'));
+  check('renaming still-hashed file affects identity',()=>assert.notEqual(sourceId(b),renamedBefore));
+  rmSync(join(a,'src/game.ts'));
+  check('missing required source throws',()=>assert.throws(()=>sourceId(a)));
+  writeFileSync(join(a,'src/game.ts'),'game'); rmSync(join(a,'src/ai'),{recursive:true});
+  check('missing required directory throws',()=>assert.throws(()=>sourceId(a)));
+} finally {rmSync(a,{recursive:true,force:true});rmSync(b,{recursive:true,force:true});}
+console.log(JSON.stringify({results},null,2));
+process.exitCode=results.every(x=>x.passed)?0:1;
