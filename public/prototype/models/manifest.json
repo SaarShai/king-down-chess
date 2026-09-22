@@ -499,23 +499,23 @@
       "label": "Beast",
       "source": "Beast.obj",
       "height": 1.34,
-      "triangles": 21847,
+      "triangles": 21821,
       "sourceTriangles": 40722,
-      "bytes": 1433064,
+      "bytes": 1443880,
       "accent": 11100480,
-      "feature": "Muzzle harness",
+      "feature": "Leather head and wrist straps",
       "materialAreaShare": {
-        "army": 0.963174110601923,
-        "accent1": 0.03682588939807698
+        "army": 0.9108517042886075,
+        "accent1": 0.08914829571139249
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 2.2834566459906114e-09,
+        "surfaceAreaRelativeError": 4.989397894838987e-09,
         "sourceReducedTriangles": 21000,
-        "paintedTriangles": 21847
+        "paintedTriangles": 21821
       },
       "featureCleanup": {
         "iterations": 3,

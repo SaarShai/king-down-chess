@@ -6,7 +6,8 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(Path(__file__).resolve().parent));sys.dont_write_bytecode=True
 from sculpt_surface import read_figure,smooth_features,bake_creases
-from paint_regions import paint_surface
+from paint_regions import paint_surface,surface_signature
+from mathutils import Vector
 from roster_profiles import PROFILES
 from roster_rig import add_roster_walk
 bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
@@ -43,7 +44,13 @@ for index,p in enumerate(PROFILES):
   mat=bpy.data.materials.new(role);mat.diffuse_color=color;mat.use_nodes=True;mat.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value=color;mat.node_tree.nodes['Principled BSDF'].inputs['Roughness'].default_value=.85
   # Shared semantic names in glTF; material data stays local to each export.
   materials[role]=mat
- mesh,paint=paint_surface(mesh,name,height,roles,materials,p.get('regions',[]));obj.data=mesh
+ accent_faces=[];regions=p.get('regions',[])
+ if 'paint_faces' in p:
+  selection=json.loads((Path(__file__).resolve().parent/'paint-masks'/p['paint_faces']).read_text())
+  assert surface_signature(mesh)==selection['surfaceSha256'],f'{name}: surface changed; review the authored paint selection'
+  accent_faces=selection['accentFaces']
+  regions=regions+[(r['role'],[(Vector(n),d) for n,d in r['planes']]) for r in selection.get('regions',[])]
+ mesh,paint=paint_surface(mesh,name,height,roles,materials,regions,accent_faces);obj.data=mesh
  rig,walk=add_roster_walk(obj,root,p)
  root.rotation_euler.z=math.radians(p.get('yaw',0))
  bpy.ops.object.select_all(action='DESELECT');root.select_set(True);obj.select_set(True);rig.select_set(True)

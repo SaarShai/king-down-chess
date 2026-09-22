@@ -1,0 +1,116 @@
+[
+  {
+    "feature": "left crown strap",
+    "expected": "accent1",
+    "actual": "accent1",
+    "ok": true
+  },
+  {
+    "feature": "left temple strap",
+    "expected": "accent1",
+    "actual": "accent1",
+    "ok": true
+  },
+  {
+    "feature": "left rear strap",
+    "expected": "accent1",
+    "actual": "accent1",
+    "ok": true
+  },
+  {
+    "feature": "left diagonal strap",
+    "expected": "accent1",
+    "actual": "accent1",
+    "ok": true
+  },
+  {
+    "feature": "right crown strap",
+    "expected": "accent1",
+    "actual": "accent1",
+    "ok": true
+  },
+  {
+    "feature": "right temple strap",
+    "expected": "accent1",
+    "actual": "accent1",
+    "ok": true
+  },
+  {
+    "feature": "rear band right",
+    "expected": "accent1",
+    "actual": "accent1",
+    "ok": true
+  },
+  {
+    "feature": "rear band left",
+    "expected": "accent1",
+    "actual": "accent1",
+    "ok": true
+  },
+  {
+    "feature": "left wrist strap",
+    "expected": "accent1",
+    "actual": "accent1",
+    "ok": true
+  },
+  {
+    "feature": "right wrist strap",
+    "expected": "accent1",
+    "actual": "accent1",
+    "ok": true
+  },
+  {
+    "feature": "muzzle frame",
+    "expected": "army",
+    "actual": "army",
+    "ok": true
+  },
+  {
+    "feature": "teeth",
+    "expected": "army",
+    "actual": "army",
+    "ok": true
+  },
+  {
+    "feature": "forehead skin",
+    "expected": "army",
+    "actual": "army",
+    "ok": true
+  },
+  {
+    "feature": "arm skin",
+    "expected": "army",
+    "actual": "army",
+    "ok": true
+  },
+  {
+    "feature": "left buckle rim",
+    "expected": "army",
+    "actual": "army",
+    "ok": true
+  },
+  {
+    "feature": "right buckle rim",
+    "expected": "army",
+    "actual": "army",
+    "ok": true
+  },
+  {
+    "feature": "hand chain",
+    "expected": "army",
+    "actual": "army",
+    "ok": true
+  },
+  {
+    "feature": "fingers",
+    "expected": "army",
+    "actual": "army",
+    "ok": true
+  },
+  {
+    "feature": "back skin",
+    "expected": "army",
+    "actual": "army",
+    "ok": true
+  }
+]

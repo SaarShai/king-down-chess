@@ -9,7 +9,7 @@ export const CAST = [
  {key:'archer',label:'Archer',type:'archer',code:7,feature:'Hood',accent:0x718b3c},
  {key:'paladin',label:'Paladin',type:'paladin',code:8,feature:'Raised chest cross',accent:0xc69744},
  {key:'maester',label:'Maester',type:'maester',code:10,feature:'Goggle frame',accent:0x56a5a6},
- {key:'beast',label:'Beast',type:'beast',code:11,feature:'Muzzle harness',accent:0xa96140},
+ {key:'beast',label:'Beast',type:'beast',code:11,feature:'Leather head and wrist straps',accent:0xa96140},
  {key:'king-ember',label:'Ember King',type:'king',code:6,feature:'Cracked chest armour',accent:0xc16b44},
  {key:'king-frost',label:'Frost King',type:'king',code:6,feature:'Raised ice gauntlet',accent:0x67a6bf},
  {key:'king-gaya',label:'Gaya King',type:'king',code:6,feature:'Rhino pauldron',accent:0x7b9b53},

@@ -3,7 +3,7 @@
 Regions are convex volumes in (x, fraction of figure height, forward z). They
 change material boundaries only: no displacement, remeshing or runtime shader.
 """
-import bpy, math
+import bpy, math, hashlib, struct
 from mathutils import Vector
 
 
@@ -40,7 +40,15 @@ def regions(name):
     ]
 
 
-def paint_surface(mesh, name, height, roles, materials, region_list=None):
+def surface_signature(mesh):
+    """Bind an authored face selection to the exact reduced surface it was painted on."""
+    digest = hashlib.sha256()
+    for vertex in mesh.vertices: digest.update(struct.pack('<3f', *vertex.co))
+    for face in mesh.polygons: digest.update(struct.pack('<3I', *face.vertices))
+    return digest.hexdigest()
+
+
+def paint_surface(mesh, name, height, roles, materials, region_list=None, accent_faces=()):
     ao_attribute = mesh.color_attributes.active_color
     # Payload: paint-space position, original smooth normal, neutral crease shade.
     vertices = []
@@ -49,8 +57,11 @@ def paint_surface(mesh, name, height, roles, materials, region_list=None):
     for loop in mesh.loops:
         p, n, _ = vertices[loop.vertex_index]
         vertices[loop.vertex_index] = (p, n, ao_attribute.data[loop.index].color[0])
+    accent_faces = set(accent_faces)
+    assert accent_faces.issubset(range(len(mesh.polygons))), 'Paint selection contains an unknown face'
     faces = [([(vertices[mesh.loops[i].vertex_index][0], mesh.corner_normals[i].vector.copy(),
-                vertices[mesh.loops[i].vertex_index][2]) for i in p.loop_indices], 'army') for p in mesh.polygons]
+                vertices[mesh.loops[i].vertex_index][2]) for i in p.loop_indices],
+              'accent1' if p.index in accent_faces else 'army') for p in mesh.polygons]
     original_area = sum(p.area for p in mesh.polygons)
 
     def split(polygon, normal, distance):

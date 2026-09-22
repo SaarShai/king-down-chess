@@ -13,7 +13,7 @@
       "name": "Every cast asset has finite geometry, unit normals and normalized valid skin weights",
       "ok": true,
       "detail": {
-        "vertices": 340500,
+        "vertices": 340711,
         "geometries": 31,
         "maxNormalError": 1.1487132622889362e-7,
         "maxWeightError": 4.470348358154297e-8,
