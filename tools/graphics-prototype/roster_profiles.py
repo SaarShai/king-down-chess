@@ -63,8 +63,8 @@ PROFILES = [
       feature='Muzzle harness',accent=0xa96140,
       regions=[('accent1',box((-.35,.645,.24),(.34,.725,.65)))],
       hips=[(-.13,.32,-.065),(.17,.32,.075)],knees=[(-.13,.16,-.08),(.18,.16,.10)],ankles=[(-.14,.050,-.105),(.18,.050,.080)],
-      shoulders=[(-.29,.89,0),(.29,.89,0)],hands=[(-.20,.44,.36),(.23,.44,.36)],leg_radius=.095,
-      period=1.45,stride=.085,lift=.050,arm_swing=0,tail_back=-.27),
+      shoulders=[(-.29,.89,0),(.29,.89,0)],hands=[(-.20,.44,.36),(.23,.44,.36)],leg_radius=.15,
+      period=1.45,stride=.060,lift=.024,arm_swing=0,tail_back=-.27),
 ]
 
 PROFILES += [

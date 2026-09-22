@@ -34,6 +34,10 @@ def add_roster_walk(obj, root, profile):
         side=['L','R'][i];a=ankles[i].z;k=knees[i].z
         f=1-smooth(a+.014,min(k-.006,a+.060),v.z)
         thigh=smooth(k-.055,k+.055,v.z)
+        if p['key']=='beast':
+            # Broad clay ankles need a broad bend, not a narrow boot cuff.
+            f=1-smooth(a-.025,k+.025,v.z)
+            thigh=smooth(k-.08,k+.08,v.z)
         return {'foot.'+side:f,'shin.'+side:(1-f)*(1-thigh),'thigh.'+side:(1-f)*thigh}
     boot_floor=[math.inf,math.inf]
     for vertex in obj.data.vertices:
@@ -45,8 +49,23 @@ def add_roster_walk(obj, root, profile):
         for label,a,b,radius in p.get('prop_segments',[]):
             if distance(v,point(a),point(b))<radius:fixed=label
         if fixed:w={fixed:1.}
-        elif 'tail_back' in p and y<p['tail_back'] and z<.61:
-            amount=1-smooth(p['tail_back']-.08,p['tail_back'],y);w={'body':1-amount,'tail':amount}
+        elif p['key']=='beast':
+            # Its hands and belly hang below the hips. Height alone assigned
+            # them to opposing legs, tearing adjacent triangles as it stepped.
+            # Confine each leg to its own volume, with continuous attachments.
+            body=smooth(pelvis.z-.04,pelvis.z+.12,z)
+            hands=smooth(.15,.25,y)*smooth(.18,.24,z)
+            w={}
+            for i in range(2):
+                radius=p['leg_radius']
+                amount=(1-body)*(1-hands)*(1-smooth(radius,radius*2,distance(v,ankles[i],hips[i])))
+                for name,value in leg(v,i).items():w[name]=value*amount
+            total=sum(w.values())
+            if total>1:w={name:value/total for name,value in w.items()}
+            w['body']=max(0,1-total)
+            tail=(1-smooth(p['tail_back']-.08,p['tail_back'],y))*(1-smooth(.44,.61,z))
+            w={name:value*(1-tail) for name,value in w.items()}
+            w['tail']=tail
         elif cloth and 'cape_back' in p and y<p['cape_back'] and z<shoulders[0].z:
             body=smooth(shoulders[0].z-.20,shoulders[0].z,z)
             side=smooth(pelvis.x-.08,pelvis.x+.08,x)

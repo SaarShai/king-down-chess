@@ -1,0 +1,72 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "look": "current",
+      "cadence": "smooth",
+      "minRatio": 0.4056999066234586,
+      "maxRatio": 2.2312956623274025,
+      "p99": 1.1083530570874678,
+      "samples": 2432832,
+      "maxFeatureError": 8.060219158778636e-14,
+      "minFloor": 4.08562342696944e-9,
+      "maxFloor": 0.0029752632656746664,
+      "footTravel": 0.060802296096541995,
+      "loopError": 0,
+      "resetError": 0,
+      "armies": 2,
+      "checks": {
+        "noTearingOrCollapsedFolds": true,
+        "handsAndHeadKeepTheirShape": true,
+        "feetStillStep": true,
+        "loopAndReset": true,
+        "bothArmies": true
+      }
+    },
+    {
+      "look": "handmade",
+      "cadence": "smooth",
+      "minRatio": 0.4056092108877283,
+      "maxRatio": 2.2312110124554905,
+      "p99": 1.1083120365467911,
+      "samples": 2432832,
+      "maxFeatureError": 1.1213252548714081e-13,
+      "minFloor": 4.085623419571972e-9,
+      "maxFloor": 0.0029752632656746773,
+      "footTravel": 0.06080229609654205,
+      "loopError": 0,
+      "resetError": 0,
+      "armies": 2,
+      "checks": {
+        "noTearingOrCollapsedFolds": true,
+        "handsAndHeadKeepTheirShape": true,
+        "feetStillStep": true,
+        "loopAndReset": true,
+        "bothArmies": true
+      }
+    },
+    {
+      "look": "handmade",
+      "cadence": "stopmotion",
+      "minRatio": 0.4049940117226402,
+      "maxRatio": 2.224266278011977,
+      "p99": 1.1081598468098621,
+      "samples": 2432832,
+      "maxFeatureError": 1.5898393712632242e-13,
+      "minFloor": 4.0856234264888826e-9,
+      "maxFloor": 0.0029752632656746747,
+      "footTravel": 0.060262448595923536,
+      "loopError": 0,
+      "resetError": 0,
+      "armies": 2,
+      "checks": {
+        "noTearingOrCollapsedFolds": true,
+        "handsAndHeadKeepTheirShape": true,
+        "feetStillStep": true,
+        "loopAndReset": true,
+        "bothArmies": true
+      }
+    }
+  ],
+  "errors": []
+}
