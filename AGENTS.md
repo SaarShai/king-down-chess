@@ -2,6 +2,8 @@
 
 Read `TASKS.md` (current work, owner decisions) and `LESSONS.md` (rules learned; the Jev entries) at the start of every session. Verify before you mark anything done. Do not launch runs the owner has not asked for; `docs/QUEUE.md` is launched by name.
 
+Remote Mac / local models: for SSH, Remote Management, or Ollama work on the network MacBook, read `docs/LOCAL-AI-MACBOOK.md` and verify its device identity before state changes.
+
 ## Jev / TypeSafe (optional, explicit)
 - Client: `tools/jev.ts`, model pinned to `jev-1.13.0` (`TYPESAFE_MODEL` overrides). Key: `TYPESAFE_API_KEY` or `~/.config/typesafe/key`; never print or commit it.
 - Every call carries a known-true and a known-false control; if they do not separate, the run is void.
