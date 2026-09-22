@@ -1,0 +1,14 @@
+{
+  "id": "kit-pool-kit",
+  "games": 2000,
+  "backRanks": {
+    "sample": 40,
+    "pool": "QLRBNAAGMMSS"
+  },
+  "ai": {
+    "depth": 3
+  },
+  "seed": 98,
+  "commonSeeds": true,
+  "note": "Kit-rich arm: shipped pool with one R, one B and one N thinned (12 letters: Q1 L1 R1 B1 N1 A2 G1 M2 S2). Same sample/games/depth/seed as shipped.json. 7 of the 12 letters are kit (A+L+M+S), against 7 of 15 in the shipped pool, so the 7-letter draw carries 4.08 kit letters on average against 3.32 (sampler bishop retry included). With one B in the pool the sampler returns ranks holding 0 or 1 bishops (the opposite-colour pair rule cannot bind), so this arm also removes the bishop pair."
+}

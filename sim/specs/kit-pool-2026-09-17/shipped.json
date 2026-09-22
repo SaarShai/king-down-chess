@@ -1,0 +1,14 @@
+{
+  "id": "kit-pool-shipped",
+  "games": 2000,
+  "backRanks": {
+    "sample": 40,
+    "pool": "QLRRBBNNAAGMMSS"
+  },
+  "ai": {
+    "depth": 3
+  },
+  "seed": 98,
+  "commonSeeds": true,
+  "note": "Control arm: the shipped pool (15 letters, A2 G1 M2 S2). 40 sampled back ranks, 2000 games, depth 3, seed 98, common seeds. Balanced A/B against kit.json (kit-rich pool)."
+}
