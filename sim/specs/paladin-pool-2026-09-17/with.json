@@ -1,0 +1,14 @@
+{
+  "id": "pal-with",
+  "games": 2000,
+  "backRanks": {
+    "sample": 40,
+    "pool": "QLRRBBNNAAGMMSS"
+  },
+  "ai": {
+    "depth": 3
+  },
+  "seed": 96,
+  "commonSeeds": true,
+  "note": "Shipped pool (one paladin): 40 sampled back ranks, 2000 games, depth 3, seed 96. Arm with the paladin for the controlled presence test."
+}
