@@ -1,22 +1,22 @@
-# Network MacBook and local models
+# M1: network MacBook and local models
 
-Use this reference when controlling the project's network MacBook or using its local Ollama models. The inventory was last verified on 2026-09-21; live commands remain authoritative.
+`M1` is the canonical project name for this network MacBook. Use this reference when controlling M1 or using its local Ollama models. The inventory was last verified on 2026-09-21; live commands remain authoritative.
 
 ## Device identity and access
 
-- SSH alias: `new-macbook`
-- Primary command: `ssh -4 new-macbook`
+- SSH alias: `M1` (`new-macbook` remains as a compatibility alias)
+- Primary command: `ssh M1`
 - Account: `new`
 - mDNS name: `MacBook-Pro-2.local` (`LocalHostName`: `MacBook-Pro-2`)
 - Hardware: `MacBookPro18,2`, Apple M1 Max, 32 GiB unified memory
 - SSH ED25519 **server** fingerprint: `SHA256:e2GtnqVZpq4rDNvFsAayCsdu1iSqkFoX8CJCkxazwcM`
 
-The alias and its dedicated identity key are configured in the current user's `~/.ssh/config`. Preserve that configuration and key. Never print or commit private-key contents, passwords, or a DHCP-assigned IP address. Prefer mDNS because the IP can change. Use IPv4 (`-4`): link-local IPv6 resolution has intermittently timed out.
+The aliases, dedicated identity key, and IPv4 preference are configured in the current user's `~/.ssh/config`. Preserve that configuration and key. Never print or commit private-key contents, passwords, or a DHCP-assigned IP address. Prefer mDNS because the IP can change. The IPv4 preference avoids intermittent link-local IPv6 timeouts.
 
 Before a state-changing operation, verify that the connection still reaches this device:
 
 ```sh
-ssh -4 new-macbook 'printf "user=%s\n" "$USER"; scutil --get LocalHostName; sysctl -n hw.model; ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub'
+ssh M1 'printf "user=%s\n" "$USER"; scutil --get LocalHostName; sysctl -n hw.model; ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub'
 ```
 
 Expected identity: user `new`, local host `MacBook-Pro-2`, model `MacBookPro18,2`, and the server fingerprint above. Stop if these do not all match.
@@ -36,9 +36,9 @@ The API is available on the MacBook at `http://127.0.0.1:11434`. Execute CLI or 
 Useful checks:
 
 ```sh
-ssh -4 new-macbook '/Applications/Ollama.app/Contents/Resources/ollama list'
-ssh -4 new-macbook '/Applications/Ollama.app/Contents/Resources/ollama ps'
-ssh -4 new-macbook '/Applications/Ollama.app/Contents/Resources/ollama show qwen3.8:27b-mlx'
+ssh M1 '/Applications/Ollama.app/Contents/Resources/ollama list'
+ssh M1 '/Applications/Ollama.app/Contents/Resources/ollama ps'
+ssh M1 '/Applications/Ollama.app/Contents/Resources/ollama show qwen3.8:27b-mlx'
 ```
 
 ### Installed-model snapshot
