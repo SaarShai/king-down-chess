@@ -8,7 +8,8 @@ export interface Style {
   depthEdge: number;
   shading: 'lambert' | 'toon';
   toonBands?: number;
-  pieces: 'voxel' | 'sprite';
+  pieces: 'voxel' | 'sprite' | 'clay';
+  clayLook?: 'handmade' | 'plasticine';
   /** Inverted-hull outline behind each voxel piece (the pixel pass cannot outline dark pieces). */
   outline: boolean;
   /** Multiplies TARGET_HEIGHT so back-rank pieces stop covering the row behind. Default 1. */
@@ -38,6 +39,16 @@ export interface Style {
 
 /** Keys double as the `?style=` URL parameter. The first entry is the default. */
 export const STYLES: Record<string, Style> = {
+  clay: {
+    label: 'Handmade clay', pixelSize: 1, palette: false, dither: 0, normalEdge: 0, depthEdge: 0,
+    shading: 'lambert', pieces: 'clay', clayLook: 'handmade', outline: false, pieceScale: .85,
+    camera: { elev: 60, azim: 0 }, tiles: 'flat', lights: 'bright', shadow: true,
+  },
+  plasticine: {
+    label: 'Polished clay', pixelSize: 1, palette: false, dither: 0, normalEdge: 0, depthEdge: 0,
+    shading: 'lambert', pieces: 'clay', clayLook: 'plasticine', outline: false, pieceScale: .85,
+    camera: { elev: 60, azim: 0 }, tiles: 'flat', lights: 'bright', shadow: true,
+  },
   // The game's look (designer's pick, round 2 "B2 Dungeon voxel"): painted voxel sculpts on the
   // Drive stone tiles, four warm torch points, contact shadows. 53° is the flattest camera that
   // still keeps a king inside its own square (measured: at 52° the king's crown crosses the centre

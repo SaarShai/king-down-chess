@@ -1,5 +1,11 @@
 # Tasks
 
+## Playable clay integration — 2026-09-22
+- Owner requests a playable game combining the accepted graphics session with the completed research. Preserve current rules and pool: findings do not justify new defaults; Guard/arrangement studies were not run.
+- Plan: isolated `codex/playable-clay` checkout based on graphics `af30711`; integrate tested search repair; connect the accepted complete clay cast/materials/walking to the playable board; correct stale piece guidance and expose clearly labelled optional setup examples.
+- Verify: engine regression suite and production build; browser human/AI play, custom setup, capture/shove, undo/reset during animation, save/reload, all cast assets and mobile layout. No delegation, M1 work or new simulations.
+- [x] Integrated the full accepted clay cast and search repair in `codex/playable-clay`; current rules/pool unchanged. Optional historical setup examples and Ogre practice are labelled. Corrected stale rule guidance, hidden-label picking and mobile layout. 210 engine tests, TypeScript/build and 13 production-browser checks pass. Preview: `http://127.0.0.1:5188/?style=clay`; evidence: `docs/playable-clay/README.md` in the playable worktree. No delegation or research runs.
+
 ## Approved reconstructed Ogre in the game — 2026-09-22
 - [x] Owner-approved repaired reconstruction replaces the procedural Ogre in the study and playable renderer. Shared ivory/ink-blue clay material and exact cuff pigment; sculpt, face and repaired fingers preserved. Rules and starting rosters unchanged.
 - [x] Added restrained Walk/Shove clips without step squash; full-detail 36,888 triangles and compressed board mesh 14,312 triangles. Gameplay movement, shove timing, disposal and undo/rebuild interruption are integrated. Study covers both armies, looks, detail switching and capture previews.

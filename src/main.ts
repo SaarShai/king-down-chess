@@ -1,11 +1,12 @@
 import './style.css';
 import { Engine, Game, Side } from './game';
 import { setEvaluator } from './ai/eval';
+import { positionKey } from './ai/search';
 import { BoardRenderer } from './render/renderer';
 import { STYLES } from './render/styles';
 import { loadModels, setUseSculpts } from './render/voxels';
-import { Color, LETTERS, Move, NAMES, PieceType, RULES as GAME_RULES, RULES_2017, RULES_2021, SPENT, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
-import { CLASSIC_CHESS, fromFen, randomBackRank, toFen } from './rules/setup';
+import { A, S, Color, LETTERS, Move, NAMES, PieceType, RULES as GAME_RULES, RULES_2017, RULES_2021, SPENT, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
+import { CLASSIC_CHESS, POOL, fromFen, randomBackRank, toFen } from './rules/setup';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -49,6 +50,7 @@ setEvaluator('residual');
 const game = new Game();
 const engine = new Engine();
 const view = new BoardRenderer($('board'));
+view.onLoadError = () => { $('asset-status').textContent = 'A piece model could not load. Reload this page to retry.'; };
 (window as unknown as Record<string, unknown>).view = view; // tools/styleboard2.mjs aims its crops with view.screenOf()
 const sides: [Side, Side] = ['human', 'ai'];
 let selected: number | null = null;
@@ -76,7 +78,7 @@ const RULES: readonly (readonly [string, string])[] = [
   ['Moves 1 square in any direction.', 'Shoots without moving: an enemy diagonally adjacent, or 2 squares away orthogonally, through blockers.'],
   ['Moves like a queen and jumps over own pieces.', 'Takes by moving on, but never a king. Removes itself after capturing anything but a pawn.'],
   ['Moves 1 square in any direction, empty squares only.', 'Cannot capture. Cannot be captured, except by a king.'],
-  ['Moves 1 square in any direction; onto an own piece it swaps places.', 'Takes an adjacent enemy. With its own king on rank 1 it swaps with the king at any distance.'],
+  ['Moves 1 square in any direction; onto an own piece it swaps places.', 'Takes an adjacent enemy. With both on their home rank it swaps with its king at any distance.'],
   ['Moves 1 square in any direction, empty squares only.', 'Takes on any adjacent square but straight ahead, and may keep taking from each new square.'],
   // Lab pieces: they reach the browser only through a `?fen=` that names one (docs/research/sim-new-pieces-2026-09-14.md).
   ['Moves 1 square in any direction. Instead it may shove an adjacent piece 1 square away — shift-click a neighbour.', 'Takes by moving onto the enemy, a guard excepted. A shove is not a capture and never moves a king.'],
@@ -85,11 +87,22 @@ const RULES: readonly (readonly [string, string])[] = [
   ['Moves 1 square in any direction; on a capital square (d4 e4 d5 e5) it moves and captures like a queen.', 'Takes by moving onto the enemy.'],
 ];
 
+function pieceRules(t: number): readonly [string, string] {
+  if (t === A) return [RULES[t][0], `Shoots without moving, through blockers: ${
+    { classic: 'diagonally adjacent or 2 squares orthogonally',
+      plusDiag2: 'diagonally adjacent or 2 squares in any direction',
+      plusDiagFwd2: 'diagonally adjacent, 2 squares orthogonally, or 2 squares diagonally forward',
+      ring2: 'diagonally adjacent or any square on the distance-2 ring',
+      forward3: 'diagonally forward adjacent or 2 squares straight forward' }[GAME_RULES.archerShots]}.`];
+  if (t === S) return [RULES[t][0], `Takes on any adjacent square${GAME_RULES.beastCaptureForward ? ', including straight ahead' : ' except straight ahead'}.${GAME_RULES.beastChains ? ' May keep taking from each new square; choose Stop chain here to finish early.' : ''}`];
+  return RULES[t];
+}
+
 function showInfo(sq: number | null): void {
   const code = sq == null ? 0 : game.pos.board[sq];
   const t = code ? typeOf(code) : 0;
   $('info').innerHTML = (code
-    ? `<b>${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${RULES[t][0]} ${RULES[t][1]}`
+    ? `<b>${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${pieceRules(t)[0]} ${pieceRules(t)[1]}`
       // Lab only (docs/RULES.md §6.9): the shipped guard never captures, so it can never be spent.
       + (code & SPENT ? ' <b>This guard has used its capture.</b>' : '')
     : '') + kingsInfo();
@@ -182,7 +195,7 @@ async function maybeAi(): Promise<void> {
   // stage 1): the AI stops repeating one opening per back rank, at a cost the band bounds. Later
   // plies stay fully deterministic.
   const opening = game.history.length < 6;
-  const res = await engine.think(game.pos, { timeMs: +$<HTMLInputElement>('think').value, ...(opening ? { temperature: 15 } : {}) });
+  const res = await engine.think(game.pos, { timeMs: +$<HTMLInputElement>('think').value, history: game.history.map(h => positionKey(h.pos)), ...(opening ? { temperature: 15 } : {}) });
   if (g !== gen) return;
   busy = false;
   if (res.move) await commit(res.move);
@@ -370,13 +383,26 @@ function readSave(): Save | null {
   } catch { return null; }
 }
 
-$('rules-btn').onclick = () => $<HTMLDialogElement>('rules').showModal();
+$('rules-btn').onclick = () => {
+  $('guide-archer').textContent = pieceRules(A)[1];
+  $('guide-beast').textContent = pieceRules(S)[1];
+  $<HTMLDialogElement>('rules').showModal();
+};
 $('new-random').onclick = () => newGame(randomBackRank());
 $('new-classic').onclick = () => newGame(CLASSIC_CHESS);
 $('new-setup').onclick = () => {
-  const v = prompt('Back rank (8 letters, one K; from QLRRBBNNAAGGMMSS):', game.backRank)?.toUpperCase().trim();
+  const v = prompt(`Back rank (8 letters, one K; current draw pool ${POOL}):`, game.backRank)?.toUpperCase().trim();
   if (!v) return;
   try { newGame(v); } catch (e) { alert((e as Error).message); }
+};
+$('setup-example').onchange = e => {
+  const select = e.target as HTMLSelectElement;
+  if (!select.value) return;
+  if (select.value === 'ogre') {
+    $<HTMLSelectElement>('white').value = $<HTMLSelectElement>('black').value = 'human';
+    newGame(undefined, '7k/8/6o1/8/2OP4/8/8/K7 w - - 0 1');
+  } else newGame(select.value);
+  select.value = '';
 };
 $('white').onchange = $('black').onchange = () => { sides[0] = $<HTMLSelectElement>('white').value as Side; sides[1] = $<HTMLSelectElement>('black').value as Side; orient(); save(); void maybeAi(); };
 $('think').onchange = save;
@@ -455,6 +481,8 @@ else if (saved) {
 }
 orient();
 view.sync(game.pos);
+await view.ready();
+if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 refresh();
 if (!fen) save(); // pin the random back rank so a reload keeps this game
 if (finished()) showOver(); else void maybeAi();

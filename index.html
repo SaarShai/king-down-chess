@@ -4,9 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>King Down Chess</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="board"></div>
@@ -14,13 +11,21 @@
       <h1>KING DOWN CHESS</h1>
       <div id="turn"></div>
       <div id="status"></div>
+      <div id="asset-status" role="status" aria-live="polite">Loading pieces…</div>
       <div id="info"></div>
     </header>
     <aside id="panel">
       <section>
         <button id="new-random">New game</button>
-        <button id="new-classic">Classic chess</button>
+        <button id="new-classic">Chess starting army</button>
         <button id="new-setup">Custom setup…</button>
+        <label>Try a setup <select id="setup-example" aria-describedby="setup-note">
+          <option value="">Choose…</option>
+          <option value="MMSSNBNK">MMSSNBNK</option><option value="KGBMSSMB">KGBMSSMB</option>
+          <option value="NKBBMGQS">NKBBMGQS</option><option value="QNKMNRSG">QNKMNRSG</option>
+          <option value="SQBKRSML">SQBKRSML</option><option value="ogre">Ogre practice</option>
+        </select></label>
+        <small id="setup-note">Examples, not a ranking. Ogre is an experimental practice position.</small>
         <button id="rules-btn">Piece guide</button>
         <div class="btns three">
           <button id="undo" title="Take back the last move (Z)">Undo (Z)</button>
@@ -47,7 +52,7 @@
         <button id="reset-view">Reset view (R)</button>
         <label>Pixels <input id="pixel" type="range" min="1" max="6" step="1" value="2" /></label>
         <label>Edges <input id="edges" type="range" min="0" max="1" step="0.05" value="0.35" /></label>
-        <label>Sculpts <input id="sculpts" type="checkbox" checked /></label>
+        <label title="Only affects legacy voxel styles">Legacy sculpts <input id="sculpts" type="checkbox" checked /></label>
         <label>Labels <input id="labels" type="checkbox" /></label>
         <label>Coords <input id="coords" type="checkbox" checked /></label>
         <label>Palette <input id="palette" type="checkbox" checked /></label>
@@ -59,13 +64,13 @@
       <p>Chess rules apply (check, mate, stalemate, promotion to any piece but a king). No castling or en passant. The back rank is a random draw of 7 pieces + king, mirrored for both sides.</p>
       <table>
         <tr><th>Piece</th><th>Moves</th><th>Captures</th><th>Special</th></tr>
-        <tr><td>A Archer</td><td>1 square in any direction</td><td><b>Shoots without moving</b>: any enemy diagonally adjacent, or exactly 2 squares away orthogonally, through blockers</td><td>Gives check the same way</td></tr>
+        <tr><td>A Archer</td><td>1 square in any direction</td><td id="guide-archer"><b>Shoots without moving</b>: diagonally adjacent, 2 squares orthogonally, or 2 squares diagonally forward, through blockers</td><td>Gives check the same way</td></tr>
         <tr><td>L Paladin</td><td>Like a queen, <b>jumping own pieces</b></td><td>By moving onto the enemy</td><td>Cannot capture a king (never gives check). <b>Removed after capturing</b> anything but a pawn</td></tr>
         <tr><td>G Guard</td><td>1 square any direction, empty squares only</td><td><b>Cannot capture.</b></td><td><b>Cannot be captured, except by a king.</b></td></tr>
-        <tr><td>M Maester</td><td>1 square any direction</td><td>Adjacent enemy</td><td>Onto an own piece = <b>swap places</b>. Maester + king both on rank 1: swap at any distance</td></tr>
-        <tr><td>S Beast</td><td>1 square in any direction, empty only</td><td>Any adjacent square but straight ahead</td><td>May <b>keep capturing</b> from each new square (never a king as a continuation). Click victims in order; "Stop chain here" ends early</td></tr>
+        <tr><td>M Maester</td><td>1 square any direction</td><td>Adjacent enemy</td><td>Onto an own piece = <b>swap places</b>. Maester + king both on their home rank: swap at any distance</td></tr>
+        <tr><td>S Beast</td><td>1 square in any direction, empty only</td><td id="guide-beast">Any adjacent square, including straight ahead</td><td>May <b>keep capturing</b> from each new square (never a king as a continuation). Click victims in order; "Stop chain here" ends early</td></tr>
       </table>
-      <p>Letters in the setup string: P N B R Q K + A L G M S.</p>
+      <p>Current draw pool: Q L R R B B N N A A G M M S S. Seven pieces join the king; both armies use the same back rank. Two drawn bishops start on opposite-colour squares. Custom examples are optional.</p>
       <p><b>Kings' powers (lab — off by default).</b> <code>?kings=mud:march</code> gives both sides a
         power; <code>?kings=mud:march,shadow:darkness</code> names White and Black apart. Six are built:
         <b>Holy Light</b> (enemy pawns cannot take this king, and it cannot take pawns), <b>Mercy</b>

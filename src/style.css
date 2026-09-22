@@ -9,7 +9,7 @@
   --dash: repeating-linear-gradient(90deg, var(--ink) 0 4px, transparent 4px 8px);
   --caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4'%3E%3Cpath fill='%23151515' d='M0 0h8v1H0zM1 1h6v1H1zM2 2h4v1H2zM3 3h2v1H3z'/%3E%3C/svg%3E");
 
-  font-family: 'DotGothic16', 'Courier New', monospace;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
   line-height: 1.6;
   color: var(--ink);
@@ -33,14 +33,14 @@ html, body { margin: 0; height: 100%; background: var(--paper); overflow: hidden
 }
 #top h1 {
   margin: 0;
-  font-family: 'Press Start 2P', 'DotGothic16', monospace;
-  font-size: 13px; font-weight: 400; letter-spacing: 1px; line-height: 1.4;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 20px; font-weight: 700; letter-spacing: 1px; line-height: 1.4;
 }
 #turn { margin-top: 8px; color: var(--mid); }
 #status { margin-top: 2px; }
 #info { margin-top: 6px; max-width: 34ch; font-size: 13px; line-height: 1.45; }
 #info b { letter-spacing: 1px; text-transform: uppercase; }
-#turn:empty, #status:empty, #info:empty { display: none; }
+#asset-status:empty, #turn:empty, #status:empty, #info:empty { display: none; }
 
 /* ---- right rail ---- */
 #panel {
@@ -160,22 +160,24 @@ button:focus-visible, select:focus-visible, input:focus-visible {
 }
 
 @media (max-width: 720px) {
-  /* The renderer pads its 9.4-unit frustum out to the region's aspect, so a region taller than it
-     is wide only buys empty background: cap the band at a square and give the rest to the panel.
-     --board-lift then pulls the canvas up, because the camera looks down from 53° and that parks
-     the drawn board below the frustum centre; the overhang hides behind the viewport edge and the
-     panel. The lift is measured (2 x the offset, as half of it is spent moving the canvas), so
-     re-measure it at 390x844 if the default style's camera elevation changes. */
-  :root { --band: min(100vw, 58vh); --board-lift: 0.075; }
-  #board {
-    inset: calc(var(--band) * var(--board-lift) * -1) 0 auto 0;
-    height: calc(var(--band) * (1 + var(--board-lift)));
+  body { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto min(100vw, 48vh) minmax(0, 1fr); }
+  #top {
+    position: relative; grid-row: 1; top: auto; left: auto; padding: 7px 12px;
+    clip-path: none; filter: none; border: 0; border-bottom: 1px solid var(--hairline);
   }
+  #top h1 { font-size: 16px; }
+  #turn { margin-top: 2px; }
+  #info { max-width: none; font-size: 12px; }
+  #board { position: relative; grid-row: 2; inset: auto; height: 100%; min-height: 0; min-width: 0; }
   #panel {
-    top: var(--band); bottom: 0; left: 0; width: auto; height: auto;
+    position: relative; grid-row: 3; inset: auto; width: 100%; height: auto; min-height: 0;
     border-left: 0; border-top: 2px solid var(--ink);
   }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+#asset-status, #setup-note { font-size: 12px; color: #655c50; line-height: 1.4; }
+
+#style { width: 160px; }

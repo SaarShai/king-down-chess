@@ -4,13 +4,16 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { Color, LETTERS, Move, N, O, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
+import { Color, LETTERS, Move, K, N, O, RULES, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
 import { ARMY, TARGET_HEIGHT, pieceGeometry } from './voxels';
 import { Debris, Tweens, easeOut, labelSprite, linear } from './fx';
 import { PALETTES, createPalettePass, paletteTexture } from './palette';
 import { hasSprite, spriteMesh } from './sprites';
 import { STYLES, type Style } from './styles';
-import { OgreFigure } from './OgreFigure';
+import { ClayFigure } from './ClayFigure';
+import { CAST } from './prototype/CastCatalog';
+import { applyLookLighting } from './prototype/ClayLook';
+import { PieceContourPass } from './prototype/PieceContourPass';
 import type { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 export const tileCenter = (sq: number): THREE.Vector3 => new THREE.Vector3(file(sq) - 3.5, 0, 3.5 - rank(sq));
@@ -152,6 +155,8 @@ export class BoardRenderer {
   private renderer: THREE.WebGLRenderer;
   private composer: EffectComposer;
   private pixelPass: RenderPixelatedPass;
+  private clayPass: PieceContourPass;
+  onLoadError?: (error: unknown) => void;
   private palettePass: ShaderPass;
   private tiles: THREE.Mesh<THREE.BoxGeometry, THREE.MeshLambertMaterial>[] = [];
   private pieces = new Map<number, THREE.Group>();
@@ -251,6 +256,9 @@ export class BoardRenderer {
     this.composer = new EffectComposer(this.renderer);
     this.pixelPass = new RenderPixelatedPass(2, this.scene, this.camera, { normalEdgeStrength: 0.05, depthEdgeStrength: 0.3 });
     this.composer.addPass(this.pixelPass);
+    this.clayPass = new PieceContourPass(this.scene, this.camera);
+    this.clayPass.enabled = false;
+    this.composer.addPass(this.clayPass);
     this.composer.addPass(new OutputPass());
     this.palettePass = createPalettePass();
     this.composer.addPass(this.palettePass);
@@ -267,7 +275,7 @@ export class BoardRenderer {
     this.renderer.setAnimationLoop(() => this.frame());
   }
 
-  setPixelSize(n: number): void { this.pixelPass.setPixelSize(n); this.palettePass.uniforms.pixelSize.value = n; }
+  setPixelSize(n: number): void { this.pixelPass.setPixelSize(n); this.clayPass.setPixelSize(n); this.palettePass.uniforms.pixelSize.value = n; }
   setPalette(on: boolean, dither = 0.08): void { this.palettePass.enabled = on; this.palettePass.uniforms.ditherAmount.value = dither; }
   setEdges(normal: number, depth: number): void { this.pixelPass.normalEdgeStrength = normal; this.pixelPass.depthEdgeStrength = depth; }
   /** Letter chips over every piece — the last resort when two silhouettes still read alike. */
@@ -290,7 +298,7 @@ export class BoardRenderer {
     const dirty = mat !== this.pieceMat || style.pieces !== old.pieces || style.outline !== old.outline
       || style.pieceScale !== old.pieceScale || style.spriteOutline !== old.spriteOutline
       || style.shadow !== old.shadow || style.rim !== old.rim || style.outlineColor !== old.outlineColor
-      || style.pixelSize !== old.pixelSize;
+      || style.pixelSize !== old.pixelSize || style.clayLook !== old.clayLook;
     this.style = style;
     this.pieceMat = mat;
     this.outlineMat.color.setHex(style.outlineColor ?? 0x151515);
@@ -301,6 +309,10 @@ export class BoardRenderer {
     this.setCoords(style.coords ?? true);
     this.applyBoard();
     this.applyLights();
+    const clay = style.pieces === 'clay';
+    this.pixelPass.enabled = !clay;
+    this.clayPass.enabled = clay;
+    if (clay) applyLookLighting({ scene: this.scene, hemi: this.hemi, sun: this.sun, shadowMat: this.shadowMat }, style.clayLook ?? 'handmade');
     this.applyCamera();
     if (dirty && this.lastPos) this.rebuild(this.lastPos);
   }
@@ -461,7 +473,7 @@ export class BoardRenderer {
   sync(pos: Position): void {
     this.lastPos = pos;
     this.positionVersion++;
-    for (const g of this.pieces.values()) (g.userData.ogre as OgreFigure | undefined)?.reset();
+    for (const g of this.pieces.values()) (g.userData.figure as ClayFigure | undefined)?.reset();
     for (let sq = 0; sq < 64; sq++) {
       const code = pos.board[sq];
       const cur = this.pieces.get(sq);
@@ -472,9 +484,17 @@ export class BoardRenderer {
   }
 
   private removeFigure(g: THREE.Group): void {
-    (g.userData.ogre as OgreFigure | undefined)?.dispose();
+    (g.userData.figure as ClayFigure | undefined)?.dispose();
     this.world.remove(g);
+    this.updateContours();
   }
+
+  private updateContours(): void {
+    this.clayPass.setPieces([...this.pieces.values()].filter(g => g.parent === this.world)
+      .flatMap(g => g.userData.figure ? [(g.userData.figure as ClayFigure).model] : []));
+  }
+
+  async ready(): Promise<void> { await Promise.all([...this.pieces.values()].map(g => g.userData.figureReady)); }
 
   /** `style.rim` is in art pixels; one art pixel = pixelSize screen px = that many world units here. */
   private rimWorld(): number {
@@ -486,15 +506,24 @@ export class BoardRenderer {
   private spawn(sq: number, t: PieceType, c: Color): THREE.Group {
     const g = new THREE.Group();
     let top = TARGET_HEIGHT[t] * 1.15; // sprite art has extra headroom (sprites.ts SCALE)
-    if (t === O && this.options.ogreModel !== false) {
+    const king = RULES.kings[c]?.king ?? 'Frost';
+    const kingDesign = { Frost: 'frost', Flame: 'ember', Stratus: 'celestial', Mud: 'gaya', Spirit: 'spirit', Shadow: 'shadow' }[king];
+    const design = t === K ? `king-${kingDesign}` : CAST.find(entry => entry.code === t)?.key;
+    if (design && ((this.style.pieces === 'clay' && (t !== O || this.options.ogreModel !== false)) || (t === O && this.options.ogreModel !== false))) {
       if (c === 1) g.rotation.y = Math.PI;
       top = 1.3 * (this.style.pieceScale ?? 1);
-      g.userData.ogreReady = OgreFigure.load(c).then(figure => {
+      g.userData.figureReady = ClayFigure.load(design, c, this.style.clayLook ?? 'handmade').then(figure => {
         if (g.parent !== this.world) { figure.dispose(); return; }
-        figure.model.scale.setScalar(this.style.pieceScale ?? 1);
-        g.userData.ogre = figure;
+        // Study figures have different source heights. Fit the accepted shape to a
+        // playable square without changing its proportions or authored rig.
+        const size = new THREE.Box3().setFromObject(figure.model).getSize(new THREE.Vector3());
+        const scale = Math.min(TARGET_HEIGHT[t] / size.y, .92 / Math.max(size.x, size.z)) * (this.style.pieceScale ?? 1);
+        figure.model.scale.multiplyScalar(scale);
+        (g.userData.label as THREE.Sprite).position.y = size.y * scale + .25;
+        g.userData.figure = figure;
         g.add(figure.model);
-      }).catch(error => console.error('Could not load Ogre', error));
+        this.updateContours();
+      }).catch(error => { console.error('Could not load clay figure', error); this.onLoadError?.(error); });
     } else if (this.style.pieces === 'sprite' && hasSprite(t)) {
       g.add(spriteMesh(t, c, this.style.spriteOutline ? (this.style.outlineColor ?? 0x151515) : undefined));
       g.userData.sprite = true;
@@ -572,14 +601,14 @@ export class BoardRenderer {
       this.debris.burst(tileCenter(sq).setY(0.2), [pal.m, pal.s, pal.a]);
       this.shake = Math.max(this.shake, 0.12);
     };
-    await mover.userData.ogreReady;
+    await mover.userData.figureReady;
     if (!current()) return;
     if (m.shove) {
       // The shoved piece moves; under `push` the Ogre follows onto the square it left. No capture,
       // no debris. The engine's `m.to` is the Ogre's own square under `repel` and the shove source
       // under `push`, so the renderer reads `m.shove` and never the mode.
       const shoved = this.pieces.get(m.shove.from);
-      const ogre = mover.userData.ogre as OgreFigure | undefined;
+      const ogre = mover.userData.figure as ClayFigure | undefined;
       if (ogre) {
         const direction = tileCenter(m.shove.from).sub(tileCenter(m.from));
         ogre.model.rotation.y = Math.atan2(direction.x, direction.z) - mover.rotation.y;
@@ -631,19 +660,24 @@ export class BoardRenderer {
 
   private async hop(g: THREE.Object3D, from: number, to: number, dur: number, height: number): Promise<void> {
     const version = this.positionVersion;
-    await g.userData.ogreReady;
+    await g.userData.figureReady;
     if (version !== this.positionVersion) return;
     const a = tileCenter(from), b = tileCenter(to);
-    const ogre = g.userData.ogre as OgreFigure | undefined;
-    if (ogre) {
+    const figure = g.userData.figure as ClayFigure | undefined;
+    if (figure) {
       const direction = b.clone().sub(a);
-      ogre.model.rotation.y = Math.atan2(direction.x, direction.z) - g.rotation.y;
+      figure.model.rotation.y = Math.atan2(direction.x, direction.z) - g.rotation.y;
       await this.tweens.add(Math.max(dur, .85), k => {
         if (version !== this.positionVersion) return;
         g.position.lerpVectors(a, b, k);
-        ogre.sample('Walk', k);
+        if (typeOf(g.userData.code as number) === N) {
+          g.position.y = Math.sin(k * Math.PI) * height;
+          const shadow = g.userData.shadow as THREE.Mesh | undefined;
+          if (shadow) shadow.position.y = .02 - g.position.y;
+        }
+        figure.sample('Walk', k);
       }, linear);
-      if (version === this.positionVersion) ogre.reset();
+      if (version === this.positionVersion) figure.reset();
       return;
     }
     return this.tweens.add(dur, k => {
@@ -708,6 +742,8 @@ export class BoardRenderer {
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const objects: THREE.Object3D[] = [...this.tiles, ...this.pieces.values()];
     for (const hit of this.raycaster.intersectObjects(objects, true)) {
+      // Three raycasts invisible sprites too; hidden letter chips must not steal pawn clicks.
+      if (!hit.object.visible) continue;
       let o: THREE.Object3D | null = hit.object;
       while (o) {
         if (o.userData.sq != null) return o.userData.sq as number;

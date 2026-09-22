@@ -1,0 +1,20 @@
+{
+  "url": "http://127.0.0.1:5188/",
+  "checksPassed": 13,
+  "checks": [
+    "32 independently animated clay figures load in the default game",
+    "every initial pawn-square centre selects its own pawn, not the back rank",
+    "the clay knight retains its leap and returns to its rest pose",
+    "real board picking and a completed pawn walk",
+    "save/reload and undo restore the position",
+    "human move receives a legal worker-AI reply",
+    "optional mirrored setup and both accepted clay materials",
+    "piece guide describes the current Archer and Beast rules",
+    "undo during the Ogre shove cancels delayed movement",
+    "Ogre shove animation completes with the pawn on its legal square",
+    "capture disposes the victim, and undo restores its model",
+    "new game during a walk prevents stale animation from changing the new board",
+    "390px mobile board and scrollable controls fit without horizontal overflow"
+  ],
+  "errors": []
+}

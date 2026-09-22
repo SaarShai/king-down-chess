@@ -1,0 +1,13 @@
+
+> king-down-chess@0.0.1 test
+> vitest run
+
+
+ RUN  v5.0.0 /Users/za/.codex/worktrees/playable-clay/king down chess
+
+
+ Test Files  7 passed (7)
+      Tests  210 passed (210)
+   Start at  07:11:27
+   Duration  78.10s (tests 99%, transform 1%)
+

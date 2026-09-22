@@ -1,0 +1,32 @@
+# Playable clay edition — 2026-09-22
+
+Open the production preview at **http://127.0.0.1:5188/?style=clay**. Play against the computer or choose Human for both sides. Drag to orbit; scroll/pinch to zoom. The playable checkout is `/Users/za/.codex/worktrees/playable-clay/king down chess`, branch `codex/playable-clay`.
+
+To restart locally: run `npm run build`, then `npm run preview -- --host 127.0.0.1 --port 5188` from this checkout. The built static app is in `dist/`. Serve it over HTTP; opening its HTML through `file://` cannot run the module/worker game correctly. No cloud service, model delegation or keys are needed to play.
+
+## What changed in the actual game
+
+The completed studies did **not** establish a better standard ruleset or arrangement. All gameplay rules and the random draw pool remain unchanged. Random games draw seven pieces from `QLRRBBNNAAGMMSS` plus the king, mirrored for both armies; two drawn bishops occupy opposite colours. Guard remains in the back rank. No new abilities or king powers were adopted.
+
+The five historical arrangement finalists are available as optional examples, explicitly not a ranking: `MMSSNBNK`, `KGBMSSMB`, `NKBBMGQS`, `QNKMNRSG`, `SQBKRSML`. Their planned new controlled comparison was cancelled during research wrap-up. Ogre practice is a separate small experimental position using the existing repel rule, with two human players selected. Ogre is absent from the default pool. The chess starting-army button changes the army only; the guide explicitly states that castling and en passant are absent.
+
+The AI includes the tested fairy-pawn repetition repair from research commit `2d7e7b0` (integrated as `413fa3d`). Browser searches now also receive the actual prior positions, so the repair can recognize game history. This changes search reliability and decisions, not the legal rules. The existing residual evaluator remains selected; no training or rule-study runs were launched for this build.
+
+The piece guide now matches the existing current rules: Archer can also shoot two squares diagonally forward; Beast can capture straight ahead. These abilities were already present in the engine. The custom-setup prompt now names the actual one-Guard pool instead of the stale two-Guard pool.
+
+## Graphics integration
+
+Based on graphics-session commit `af30711` from “Audit chess graphic engine”. All accepted model files remain byte-identical. The full standard cast now uses the board-detail rigged models in actual play, with alabaster/ink-blue armies, feature-specific accents, softened handmade surfaces, clay-layer relief and articulated walking. Polished clay is also available. The accepted Ogre retains its repaired sculpt and texture-defined cuff colours. Its shove gesture moves the displaced piece at the authored contact timing.
+
+The existing shared Ogre loader was generalized into `ClayFigure`; geometry/materials are shared, skeletons and mixers are per piece, and only needed models load. Piece contours use the study's tested skin/morph-aware pass. Uniform board sizing preserves model proportions while fitting the playable squares. Knights retain their leap; walking, capturing, undo, new-game reset and style changes preserve the game state.
+
+Two integration issues were caught during browser verification: invisible letter sprites intercepted clicks on pawns (Three.js raycasts invisible sprites), and the desktop HUD covered the mobile back rank. Picking now excludes invisible hits; the mobile header has its own row above the board. The existing lightweight capture debris remains the game effect. The five elaborate capture sequences remain standalone study previews; their synchronous fragment construction is not put on the gameplay path. Physical-phone/older-device frame rates remain unmeasured.
+
+## Verification
+
+- `npm test`: **210/210 tests, seven files**; includes the five imported search regressions. `engine-tests.log`.
+- `npm run build`: passes TypeScript and production bundling. Vite retains a non-failing large-chunk notice. `build.log`.
+- `node tools/verify-playable-clay.mjs`: **13 browser checks pass** against the production preview, zero page/console errors. Includes real clicks on every initial pawn-square centre, knight leap, human/computer play, save/reload, optional setup, both clay materials, current rule text, capture/undo, Ogre shove and mid-animation undo, new-game recovery and 390×844 mobile layout. `browser-checks.json`.
+- Desktop and mobile screenshots were inspected: `desktop.png`, `mobile.png`. The header does not cover the mobile board. These are software checks, not participant play-test feedback.
+
+Research findings remain in the main project's `docs/research/direct-campaign-2026-09-22.md`. No research queue or delegation was restarted. This playable branch combines the accepted graphics and search repair without merging the separate experimental campaign into the owner's main checkout.
