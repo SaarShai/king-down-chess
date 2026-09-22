@@ -1,0 +1,6 @@
+{
+  "unchanged_outside_fingers_unique_positions": 18084,
+  "outside_position_equality": "pass at 1e-6 precision",
+  "finite_unit_normals": 24433,
+  "triangles": 36888
+}

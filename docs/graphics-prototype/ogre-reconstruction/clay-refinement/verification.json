@@ -1,0 +1,15 @@
+{
+  "source_sha256": "d16054ae3693084802eb1ea2eef82c515fd75cbdf5fc0b820191bfc46e40417e",
+  "changed_vertices": 493,
+  "max_displacement": 0.016172715611965444,
+  "outside_brush_max_displacement": 0.0,
+  "minimum_triangle_normal_dot": 0.4778377544134855,
+  "accent_triangles": 3213,
+  "retained_cuff_components": [
+    1684,
+    1529
+  ],
+  "triangles": 36888,
+  "uvs_and_topology": "preserved",
+  "scope": "middle fingertips only; body shape and face unchanged; smooth shading added"
+}

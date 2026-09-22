@@ -18,7 +18,7 @@ figure img{width:100%;display:block}figcaption{background:#202c35;padding:15px 1
  <header>
   <div><div class="eyebrow">King Down · Ogre reconstruction · 22 September 2026</div><h1>The Shover, built to push.</h1>
   <p class="intro">A wider shoulder girdle and heavier upper arms and forearms, preserving the small head, broad belly, short legs and terracotta hand pads. These three reference views guided the reconstructed mesh shown below.</p></div>
-  <div class="pill">3D mesh exported · sculpt review</div>
+  <div class="pill">Fingers repaired · handmade clay</div>
  </header>
  <section class="views" aria-label="Revised Ogre reference views">
   <figure><a href="front.png"><img src="front.png" alt="Front view of the revised Ogre, with enlarged rounded shoulders and thick arms"></a><figcaption><strong>Front</strong><span>Primary design reference ↗</span></figcaption></figure>
@@ -27,10 +27,17 @@ figure img{width:100%;display:block}figcaption{background:#202c35;padding:15px 1
  </section>
  <p class="small">Click a view to inspect it at full size. These are generated reference images, not renders of a completed mesh. Figure heights occupy 79–81% of their matching 1254 × 1254 transparent canvases; minor sculpt differences still need checking in 3D.</p>
  <section class="next">
-  <div><h2>The reconstruction worked</h2><p>The signed-in community TRELLIS demo produced a real, downloadable mesh from all three views. The broader shoulders, heavy arms, belly and short legs are present.</p><p class="small">36,888 triangles · 2.19 MB GLB · generated texture · static mesh. The original download and an editable Blender inspection scene are saved.</p><a href="http://localhost:5190/docs/graphics-prototype/ogre-reconstruction/viewer.html">Rotate the actual 3D model ↗</a></div>
-  <div><h2>What still needs sculpting</h2><p>The nose and tusks are mostly missing, fingers have partly merged, and the belt became several folds. The neutral views also expose surface faceting.</p><p class="small">This is a reconstruction base, not an accepted animated game asset. Refine these features and the clay hand pads before rigging. The previous game model has not been replaced.</p></div>
+  <div><h2>The reconstruction worked</h2><p>The signed-in community TRELLIS demo produced a real, downloadable mesh from all three views. The broader shoulders, heavy arms, belly and short legs are present.</p><p class="small">36,888 triangles · repaired fingertips · static mesh. The raw download and editable Blender scenes are saved.</p><a href="http://localhost:5190/docs/graphics-prototype/ogre-reconstruction/viewer.html">Rotate the actual 3D model ↗</a></div>
+  <div><h2>Finger repair + handmade clay</h2><p>The owner accepted the sculpt. Both middle fingertips now have cleaner, rounded curves. All geometry outside those small repairs is unchanged.</p><p class="small">The viewer opens in warm ivory clay with terracotta hand pads and pressed surface impressions. Switch to original colour or inspect either hand up close. Animation and game integration are still separate steps.</p></div>
  </section>
- <h2 style="margin-top:30px">The exported mesh, without its texture</h2>
+ <h2 style="margin-top:30px">Middle fingers — before and after</h2>
+ <section class="views" style="grid-template-columns:1fr 1fr" aria-label="Finger repair comparison">
+  <figure><img src="clay-refinement/hand--1-before.png" alt="Left hand before the middle fingertip repair"><figcaption>Left · before</figcaption></figure>
+  <figure><img src="clay-refinement/hand--1-after.png" alt="Left hand after the middle fingertip repair"><figcaption>Left · repaired</figcaption></figure>
+  <figure><img src="clay-refinement/hand-1-before.png" alt="Right hand before the middle fingertip repair"><figcaption>Right · before</figcaption></figure>
+  <figure><img src="clay-refinement/hand-1-after.png" alt="Right hand after the middle fingertip repair"><figcaption>Right · repaired</figcaption></figure>
+ </section>
+ <h2 style="margin-top:30px">Original reconstruction — neutral inspection</h2>
  <section class="views" aria-label="Neutral renders of the actual downloaded mesh">
   <figure><img src="trellis-trial/neutral-front.png" alt="Neutral front render of the actual Ogre mesh"><figcaption><strong>Front</strong><span>Face and silhouette</span></figcaption></figure>
   <figure><img src="trellis-trial/neutral-left.png" alt="Neutral side render of the actual Ogre mesh"><figcaption><strong>Side</strong><span>Arm and belly depth</span></figcaption></figure>
@@ -40,6 +47,6 @@ figure img{width:100%;display:block}figcaption{background:#202c35;padding:15px 1
   <figure><img src="trellis-trial/textured-three-quarter.png" alt="Actual exported mesh with its generated cream and orange texture"><figcaption><strong>Generated colour</strong><span>Texture can hide shape defects</span></figcaption></figure>
   <figure><img src="trellis-trial/neutral-three-quarter.png" alt="Same mesh and camera with a plain material"><figcaption><strong>Plain material</strong><span>Identical underlying geometry</span></figcaption></figure>
  </section>
- <nav class="links" aria-label="Reference resources"><a href="trellis-trial/ogre-original.glb" download>Download the actual GLB</a><a href="trellis-trial/ogre-inspection.blend" download>Blender inspection scene</a><a href="README.md">Reference package and reconstruction settings</a><a href="ogre-multiview-inputs.zip" download>Download the three PNG inputs</a><a href="../ogre-replacement/index.html">Library comparison and earlier trial</a><a href="../ogre-concept/ogre-shover-concept.png">Original concept sheet</a></nav>
+ <nav class="links" aria-label="Reference resources"><a href="clay-refinement/ogre-repaired.glb" download>Download repaired GLB</a><a href="clay-refinement/ogre-repaired.blend" download>Repaired Blender scene</a><a href="trellis-trial/ogre-original.glb" download>Original reconstruction GLB</a><a href="trellis-trial/ogre-inspection.blend" download>Blender inspection scene</a><a href="README.md">Reference package and reconstruction settings</a><a href="ogre-multiview-inputs.zip" download>Download the three PNG inputs</a><a href="../ogre-replacement/index.html">Library comparison and earlier trial</a><a href="../ogre-concept/ogre-shover-concept.png">Original concept sheet</a></nav>
 </main>
 </html>

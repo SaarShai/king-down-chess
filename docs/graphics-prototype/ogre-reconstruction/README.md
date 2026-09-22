@@ -2,7 +2,20 @@
 
 Owner request, 2026-09-22: continue the recommended multiview reconstruction workflow and enlarge the shoulders and arms to communicate pushing ability.
 
-## Completed
+## Current result — owner-accepted sculpt, repaired fingers
+
+The owner accepted the reconstructed Ogre overall and requested only the distorted middle fingers be fixed, plus a clay version. This supersedes the earlier proposed face/body cleanup below: the face, body, clothing and proportions were preserved.
+
+- Locally faired the two curled middle fingertips with feathered brushes. **493 vertices changed; no positions outside the finger brushes moved.** No triangle flipped; the mesh remains **36,888 triangles**. UVs/topology are preserved; soft normals remove faceted lighting without changing the body shape.
+- [Repaired GLB](clay-refinement/ogre-repaired.glb) and [editable Blender scene](clay-refinement/ogre-repaired.blend). Raw reconstruction remains byte-identical. Rebuild with `blender --background --threads 6 --python docs/graphics-prototype/ogre-reconstruction/clay-refinement/repair.py`.
+- The live viewer defaults to **Handmade clay**: warm ivory, low specular response, pressed/fingerprint relief, and terracotta cuffs. It reuses `src/render/prototype/ClayLook.ts`; its relief is procedural at runtime, not baked into the GLB. The original generated colour remains available for comparison.
+- Cuff guidance follows the original paint's two connected features. The shader samples the colour border per texel so the material edge does not follow individual triangle edges. Broad spatial limits only exclude unrelated arm shadows; they do not define a painted band.
+- Added hand close-ups and responsive framing. Verified both hand views, front, colour/clay switching, and no browser console errors.
+- Geometry evidence: [brush/triangle checks](clay-refinement/verification.json), [independent exported-buffer check](clay-refinement/export-check.json). The latter confirms 18,084 unique positions outside the finger region match at 1e-6 precision and all 24,433 exported normals are finite/unit length.
+
+[Left before](clay-refinement/hand--1-before.png) / [after](clay-refinement/hand--1-after.png), [right before](clay-refinement/hand-1-before.png) / [after](clay-refinement/hand-1-after.png). These comparisons use identical smooth neutral shading on both sides, so the difference is the actual finger repair.
+
+## Reference preparation
 
 - Revised canonical front reference with a much wider shoulder girdle and larger upper-arm/forearm mass, preserving the established character, small rounded head, heavy jaw, wide belly, short legs, clay palette and orange hand pads. The prompt targeted approximately +25% shoulder width and +35% arm thickness; these are art-direction targets, not measured mesh changes.
 - Matching left-profile and back references. No whole-sheet/gesture collage is sent as a reconstruction input. The plain rear tunic has no duplicated front knot; the rounded head remains above the shoulder ridge.
@@ -63,10 +76,4 @@ This is a useful reconstruction base, **not a finished game asset**. The front, 
 
 Alternatives checked: the official original TRELLIS demo currently disables user uploads; [Hunyuan3D-2mv](https://huggingface.co/spaces/tencent/Hunyuan3D-2mv) supports the views but its [license](https://github.com/Tencent-Hunyuan/Hunyuan3D-2/blob/main/LICENSE), especially §5(c), restricts outputs outside its defined territory, making it a poor choice for an unrestricted game release. [TripoSG](https://huggingface.co/spaces/VAST-AI/TripoSG) has a running official demo with GLB output and MIT model licensing, but its shape input is single-view, so prefer the multi-view candidate first.
 
-Next sculpt pass:
-
-1. Preserve the original GLB. Restore the nose, nostrils, eyes and tusks from the frontal design; separate the important finger contours and simplify the belt folds. Smooth surface faceting without erasing feature boundaries or changing the approved shoulder/arm mass.
-2. Apply exact clay hand-pad geometry/material regions and the game's two army palettes. Judge both armies in front, side and game-camera views at the accepted 0.5 pixel setting and at board size.
-3. After the static sculpt succeeds, build deformation topology/weights, Walk/Shove clips and close-up/board GLBs. Keep stable torso volume and planted steps; no whole-body step squash.
-
-The reconstruction is exported and inspected. Sculpt cleanup, rigging, animation and game integration remain unfinished; the game's existing Ogre is unchanged. The failed single-image TRELLIS.2 test remains documented separately in [the previous research](../ogre-replacement/README.md).
+Further animation/integration work remains separate: rig Walk/Shove and verify weights, clearance and runtime behaviour while preserving the accepted sculpt. No face/body redesign is planned. The current request—finger repair and a live clay version—is complete; the game's existing Ogre is unchanged until integration.
