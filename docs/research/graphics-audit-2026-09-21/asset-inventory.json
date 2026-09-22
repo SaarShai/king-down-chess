@@ -1,0 +1,695 @@
+{
+  "models": [
+    {
+      "name": "archer",
+      "size": [
+        18,
+        35,
+        22
+      ],
+      "voxels": 2141,
+      "triangles": 4928,
+      "accent_fraction": 0.348,
+      "unique_accent_rgb": 318,
+      "bytes": 39878
+    },
+    {
+      "name": "beast",
+      "size": [
+        24,
+        35,
+        29
+      ],
+      "voxels": 8423,
+      "triangles": 9260,
+      "accent_fraction": 0.177,
+      "unique_accent_rgb": 319,
+      "bytes": 140146
+    },
+    {
+      "name": "bishop",
+      "size": [
+        13,
+        35,
+        11
+      ],
+      "voxels": 1048,
+      "triangles": 2840,
+      "accent_fraction": 0.385,
+      "unique_accent_rgb": 230,
+      "bytes": 19970
+    },
+    {
+      "name": "guard",
+      "size": [
+        32,
+        35,
+        18
+      ],
+      "voxels": 8142,
+      "triangles": 8464,
+      "accent_fraction": 0.178,
+      "unique_accent_rgb": 227,
+      "bytes": 144291
+    },
+    {
+      "name": "king",
+      "size": [
+        17,
+        35,
+        18
+      ],
+      "voxels": 2866,
+      "triangles": 6132,
+      "accent_fraction": 0.205,
+      "unique_accent_rgb": 194,
+      "bytes": 51825
+    },
+    {
+      "name": "knight",
+      "size": [
+        21,
+        35,
+        17
+      ],
+      "voxels": 2197,
+      "triangles": 5252,
+      "accent_fraction": 0.617,
+      "unique_accent_rgb": 566,
+      "bytes": 46134
+    },
+    {
+      "name": "maester",
+      "size": [
+        23,
+        34,
+        24
+      ],
+      "voxels": 4969,
+      "triangles": 6968,
+      "accent_fraction": 0.367,
+      "unique_accent_rgb": 504,
+      "bytes": 92498
+    },
+    {
+      "name": "paladin",
+      "size": [
+        36,
+        35,
+        23
+      ],
+      "voxels": 4992,
+      "triangles": 8268,
+      "accent_fraction": 0.194,
+      "unique_accent_rgb": 367,
+      "bytes": 87978
+    },
+    {
+      "name": "pawn",
+      "size": [
+        14,
+        35,
+        10
+      ],
+      "voxels": 1202,
+      "triangles": 2840,
+      "accent_fraction": 0.334,
+      "unique_accent_rgb": 249,
+      "bytes": 21951
+    },
+    {
+      "name": "queen",
+      "size": [
+        19,
+        34,
+        17
+      ],
+      "voxels": 3723,
+      "triangles": 4656,
+      "accent_fraction": 0.204,
+      "unique_accent_rgb": 202,
+      "bytes": 63322
+    },
+    {
+      "name": "rook",
+      "size": [
+        30,
+        34,
+        25
+      ],
+      "voxels": 5127,
+      "triangles": 7624,
+      "accent_fraction": 0.241,
+      "unique_accent_rgb": 322,
+      "bytes": 91380
+    }
+  ],
+  "obj": [
+    {
+      "name": "Archer_2.obj",
+      "bytes": 3634518,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 18205,
+        "vt": 30563,
+        "vn": 18203,
+        "usemtl": 2,
+        "f": 36508
+      },
+      "triangles": 36514,
+      "vertex_components": 3
+    },
+    {
+      "name": "Beast.obj",
+      "bytes": 3712997,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 19729,
+        "vt": 20747,
+        "vn": 19727,
+        "usemtl": 2,
+        "f": 40728
+      },
+      "triangles": 40734,
+      "vertex_components": 3
+    },
+    {
+      "name": "Bishop.obj",
+      "bytes": 3708250,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 18152,
+        "vt": 33965,
+        "vn": 18138,
+        "usemtl": 2,
+        "f": 36383
+      },
+      "triangles": 36389,
+      "vertex_components": 3
+    },
+    {
+      "name": "Guard_22mm.obj",
+      "bytes": 6626689,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 29828,
+        "vt": 29828,
+        "vn": 60178,
+        "usemtl": 2,
+        "f": 60186
+      },
+      "triangles": 60192,
+      "vertex_components": 3
+    },
+    {
+      "name": "King_Celestial_22mm-1.obj",
+      "bytes": 6610511,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 29871,
+        "vt": 29871,
+        "vn": 59984,
+        "usemtl": 2,
+        "f": 59995
+      },
+      "triangles": 60001,
+      "vertex_components": 3
+    },
+    {
+      "name": "King_Ember_22mm.obj",
+      "bytes": 5603251,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 29758,
+        "vt": 29758,
+        "vn": 29756,
+        "usemtl": 2,
+        "f": 59726
+      },
+      "triangles": 59732,
+      "vertex_components": 3
+    },
+    {
+      "name": "King_Frost_22mm.obj",
+      "bytes": 5133856,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 29977,
+        "vt": 29942,
+        "vn": 38218,
+        "usemtl": 2,
+        "f": 38219
+      },
+      "triangles": 60024,
+      "vertex_components": 3
+    },
+    {
+      "name": "King_Gaya_22mm.obj",
+      "bytes": 6089414,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 28784,
+        "vt": 28784,
+        "vn": 49731,
+        "usemtl": 2,
+        "f": 57341
+      },
+      "triangles": 57347,
+      "vertex_components": 3
+    },
+    {
+      "name": "King_Shadow_22mm.obj",
+      "bytes": 5354259,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 28321,
+        "vt": 28319,
+        "vn": 28314,
+        "usemtl": 2,
+        "f": 57639
+      },
+      "triangles": 57645,
+      "vertex_components": 3
+    },
+    {
+      "name": "King_Spirit_22mm.obj",
+      "bytes": 3396389,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 18501,
+        "vt": 18501,
+        "vn": 18498,
+        "usemtl": 2,
+        "f": 36915
+      },
+      "triangles": 36921,
+      "vertex_components": 3
+    },
+    {
+      "name": "Maetser_22mm.obj",
+      "bytes": 3780015,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 20696,
+        "vt": 20692,
+        "vn": 20690,
+        "usemtl": 2,
+        "f": 40462
+      },
+      "triangles": 40468,
+      "vertex_components": 3
+    },
+    {
+      "name": "Paladin-0.obj",
+      "bytes": 7227350,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 30252,
+        "vt": 30249,
+        "vn": 66241,
+        "usemtl": 2,
+        "f": 67396
+      },
+      "triangles": 67402,
+      "vertex_components": 3
+    },
+    {
+      "name": "Queen_22m.obj",
+      "bytes": 5158960,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 27803,
+        "vt": 27800,
+        "vn": 27796,
+        "usemtl": 2,
+        "f": 54572
+      },
+      "triangles": 54578,
+      "vertex_components": 3
+    },
+    {
+      "name": "Rook_22mm.obj",
+      "bytes": 6513651,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 29682,
+        "vt": 29674,
+        "vn": 58689,
+        "usemtl": 2,
+        "f": 58693
+      },
+      "triangles": 59933,
+      "vertex_components": 3
+    },
+    {
+      "name": "knight_22mm.obj",
+      "bytes": 5559940,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 25270,
+        "vt": 25270,
+        "vn": 50685,
+        "usemtl": 2,
+        "f": 50690
+      },
+      "triangles": 50696,
+      "vertex_components": 3
+    },
+    {
+      "name": "knight_pose_22mm.obj",
+      "bytes": 5741317,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 26122,
+        "vt": 26119,
+        "vn": 52232,
+        "usemtl": 2,
+        "f": 52249
+      },
+      "triangles": 52257,
+      "vertex_components": 3
+    },
+    {
+      "name": "pawn_01_22mm.obj",
+      "bytes": 6285179,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 28467,
+        "vt": 28466,
+        "vn": 57111,
+        "usemtl": 1,
+        "f": 57119
+      },
+      "triangles": 57125,
+      "vertex_components": 3
+    },
+    {
+      "name": "pawn_02_22mm.obj",
+      "bytes": 4545538,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 24310,
+        "vt": 24310,
+        "vn": 24307,
+        "usemtl": 2,
+        "f": 48929
+      },
+      "triangles": 48935,
+      "vertex_components": 3
+    },
+    {
+      "name": "pawn_03_22mm.obj",
+      "bytes": 6373580,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 28832,
+        "vt": 28832,
+        "vn": 57867,
+        "usemtl": 2,
+        "f": 57879
+      },
+      "triangles": 57885,
+      "vertex_components": 3
+    },
+    {
+      "name": "pawn_22mm.obj",
+      "bytes": 6439823,
+      "records": {
+        "mtllib": 1,
+        "o": 1,
+        "v": 29088,
+        "vt": 29088,
+        "vn": 58491,
+        "usemtl": 2,
+        "f": 58506
+      },
+      "triangles": 58512,
+      "vertex_components": 3
+    }
+  ],
+  "sprites": [
+    {
+      "name": "archer-b.png",
+      "size": [
+        120,
+        192
+      ],
+      "bytes": 21653
+    },
+    {
+      "name": "archer-w.png",
+      "size": [
+        120,
+        192
+      ],
+      "bytes": 21807
+    },
+    {
+      "name": "beast-b.png",
+      "size": [
+        131,
+        192
+      ],
+      "bytes": 35649
+    },
+    {
+      "name": "beast-w.png",
+      "size": [
+        131,
+        192
+      ],
+      "bytes": 36487
+    },
+    {
+      "name": "bishop-b.png",
+      "size": [
+        63,
+        192
+      ],
+      "bytes": 12653
+    },
+    {
+      "name": "bishop-w.png",
+      "size": [
+        63,
+        192
+      ],
+      "bytes": 13190
+    },
+    {
+      "name": "guard-b.png",
+      "size": [
+        179,
+        192
+      ],
+      "bytes": 37662
+    },
+    {
+      "name": "guard-w.png",
+      "size": [
+        179,
+        192
+      ],
+      "bytes": 39661
+    },
+    {
+      "name": "king-b.png",
+      "size": [
+        151,
+        192
+      ],
+      "bytes": 34725
+    },
+    {
+      "name": "king-celestial-b.png",
+      "size": [
+        94,
+        192
+      ],
+      "bytes": 25174
+    },
+    {
+      "name": "king-celestial-w.png",
+      "size": [
+        94,
+        192
+      ],
+      "bytes": 25438
+    },
+    {
+      "name": "king-ember-b.png",
+      "size": [
+        151,
+        192
+      ],
+      "bytes": 34725
+    },
+    {
+      "name": "king-ember-w.png",
+      "size": [
+        151,
+        192
+      ],
+      "bytes": 35748
+    },
+    {
+      "name": "king-frost-b.png",
+      "size": [
+        92,
+        192
+      ],
+      "bytes": 23916
+    },
+    {
+      "name": "king-frost-w.png",
+      "size": [
+        92,
+        192
+      ],
+      "bytes": 24952
+    },
+    {
+      "name": "king-gaya-b.png",
+      "size": [
+        110,
+        192
+      ],
+      "bytes": 28116
+    },
+    {
+      "name": "king-gaya-w.png",
+      "size": [
+        110,
+        192
+      ],
+      "bytes": 28890
+    },
+    {
+      "name": "king-w.png",
+      "size": [
+        92,
+        192
+      ],
+      "bytes": 24952
+    },
+    {
+      "name": "knight-b.png",
+      "size": [
+        113,
+        192
+      ],
+      "bytes": 22838
+    },
+    {
+      "name": "knight-w.png",
+      "size": [
+        113,
+        192
+      ],
+      "bytes": 23684
+    },
+    {
+      "name": "maester-b.png",
+      "size": [
+        106,
+        192
+      ],
+      "bytes": 27374
+    },
+    {
+      "name": "maester-w.png",
+      "size": [
+        106,
+        192
+      ],
+      "bytes": 28910
+    },
+    {
+      "name": "paladin-b.png",
+      "size": [
+        186,
+        192
+      ],
+      "bytes": 36570
+    },
+    {
+      "name": "paladin-w.png",
+      "size": [
+        186,
+        192
+      ],
+      "bytes": 37323
+    },
+    {
+      "name": "pawn-b.png",
+      "size": [
+        73,
+        192
+      ],
+      "bytes": 14573
+    },
+    {
+      "name": "pawn-w.png",
+      "size": [
+        73,
+        192
+      ],
+      "bytes": 15012
+    },
+    {
+      "name": "queen-b.png",
+      "size": [
+        106,
+        192
+      ],
+      "bytes": 19136
+    },
+    {
+      "name": "queen-w.png",
+      "size": [
+        106,
+        192
+      ],
+      "bytes": 20601
+    },
+    {
+      "name": "rook-b.png",
+      "size": [
+        154,
+        192
+      ],
+      "bytes": 38292
+    },
+    {
+      "name": "rook-w.png",
+      "size": [
+        154,
+        192
+      ],
+      "bytes": 40999
+    }
+  ],
+  "source_paths": {
+    "paint_voxels_sheets": false,
+    "curated_colour_guides": true
+  }
+}

@@ -76,7 +76,7 @@ export const ARCHER_V = 505, PALADIN_V = 408, GUARD_V = 96, MAESTER_V = 318, BEA
  * The odds arms in `docs/research/sim-new-pieces-2026-09-14.md` price them; re-seed from there
  * before either piece is ever played for real.
  */
-export const OGRE_V = 300, CATAPULT_V = 400;
+export const OGRE_V = 318, CATAPULT_V = 400; // push reading re-priced 300 -> 318 (2026-09-17): the White edge vanishes at 318
 /**
  * The reaver (V, lab, 2026-09-17), orthogonal escape step (the `reaverStep` default). Measured by
  * odds match: 4.04 ± 0.56 pawns against a knight at 2.96, converging (next seed 404). The full

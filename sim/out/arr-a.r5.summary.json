@@ -1,0 +1,56 @@
+{
+  "spec": {
+    "id": "arr-a.r5",
+    "games": 8000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 96,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "backRanks": [
+      "GAMBRMAK",
+      "BRGNSRKA",
+      "KNQARMMS",
+      "NKBBMGQS",
+      "BKNSQAMB",
+      "KGBMSSMB",
+      "RMSQNAAK",
+      "RNQSGKRB",
+      "BAKRGMAN",
+      "MARNBBRK",
+      "LKQABSNR",
+      "MRGNBSNK",
+      "KSGLRMSB",
+      "SRKRANMS",
+      "GMNKQBSR",
+      "MQMKNABR",
+      "SNRBGSNK",
+      "QNKMNRSG",
+      "KMNRBQAS",
+      "KNRMMRSA",
+      "ASMMKNNB",
+      "ASMQBGRK",
+      "BNKRMSAS",
+      "AKLRRSGN",
+      "BBSKNMQR"
+    ],
+    "commonSeeds": true
+  },
+  "games": 8000,
+  "seconds": 3161.5,
+  "whiteScore": 0.5172,
+  "whiteWins": 3416,
+  "draws": 1443,
+  "blackWins": 3141,
+  "meanPlies": 101.8,
+  "reasons": {
+    "drawRepetition": 229,
+    "adjudicatedResign": 6554,
+    "adjudicatedDraw": 1054,
+    "drawMaterial": 53,
+    "plyCap": 61,
+    "draw50": 46,
+    "checkmate": 3
+  }
+}

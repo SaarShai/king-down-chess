@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "id": "kit-pool-kit",
+    "games": 2000,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRBNAAGMMSS"
+    },
+    "ai": {
+      "depth": 3
+    },
+    "seed": 98,
+    "commonSeeds": true,
+    "note": "Kit-rich arm: shipped pool with one R, one B and one N thinned (12 letters: Q1 L1 R1 B1 N1 A2 G1 M2 S2). Same sample/games/depth/seed as shipped.json. Expected kit (A+L+M+S) letters per 7-letter draw 3.5 vs 2.8 in the shipped pool. With one B in the pool the sampler returns ranks holding 0 or 1 bishops (the opposite-colour pair rule cannot bind), so this arm also removes most bishop pairs.",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 914.4,
+  "whiteScore": 0.5483,
+  "whiteWins": 924,
+  "draws": 345,
+  "blackWins": 731,
+  "meanPlies": 96.9,
+  "reasons": {
+    "adjudicatedResign": 1655,
+    "adjudicatedDraw": 258,
+    "drawRepetition": 53,
+    "drawMaterial": 11,
+    "draw50": 12,
+    "plyCap": 10,
+    "stalemate": 1
+  }
+}

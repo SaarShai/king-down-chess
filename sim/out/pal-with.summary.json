@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "id": "pal-with",
+    "games": 2000,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRRBBNNAAGMMSS"
+    },
+    "ai": {
+      "depth": 3
+    },
+    "seed": 96,
+    "commonSeeds": true,
+    "note": "Shipped pool (one paladin): 40 sampled back ranks, 2000 games, depth 3, seed 96. Arm with the paladin for the controlled presence test.",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 2000,
+  "seconds": 806.9,
+  "whiteScore": 0.5705,
+  "whiteWins": 977,
+  "draws": 328,
+  "blackWins": 695,
+  "meanPlies": 98.7,
+  "reasons": {
+    "adjudicatedResign": 1672,
+    "drawRepetition": 60,
+    "adjudicatedDraw": 231,
+    "drawMaterial": 14,
+    "draw50": 11,
+    "plyCap": 12
+  }
+}

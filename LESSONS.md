@@ -2,6 +2,16 @@
 
 Reusable corrections. Pattern → rule.
 
+- Graphics animation export (2026-09-21): Blender's broad action export included the other character's compatible action and kept a nonzero start time. → Export only the selected rig's active action, shift its time to zero, and verify one clip per asset, duration, first/last pose and actual skinned foot contact. A convincing static preview does not establish correct animation playback or contour deformation.
+
+- Graphics feature correction (2026-09-21): identifying colours belong to specific modeled parts (Guard shoulder plates, Archer hood), and broad smoothing can distort those parts. → Fit masks to each feature's actual orientation and outline, inspect neutral source geometry from multiple angles, preserve crease edges/corner normals, and use less smoothing on structural forms. The Archer's diagonal head needs a local-frame hood mask; passing render tests alone does not validate art placement.
+
+- Graphics cleanup correction (2026-09-21): tidier detail means simplifying/smoothing selected sculpt features as well as cleaning colour boundaries. → Keep the approved pixel resolution fixed; reduce small surface clutter while protecting the forms that identify the character, and judge both actual play size and a close view.
+
+- Graphics detail correction (2026-09-21): the owner's request for more pixels meant richer figures closer to the source art, not resolution alone. → Treat model/paint detail and rendering resolution as separate changes; increasing samples does not fulfill a request to recover character detail.
+
+- Graphics feedback (2026-09-21): preserving a detailed sculpt by merely changing its renderer can preserve the very detail density that makes it unreadable. → Compare an intentionally authored low-resolution model against the original, using the same recognizable design and judging at actual game size; do not assume higher fidelity is the preferred style.
+
 - Google Drive MCP `read_file_content` returned `{}` for every doc/sheet in this project. → Use `download_file_content` (base64) or, for link-shared files, `curl` the export URL (`/export?format=txt|xlsx`, `uc?export=download&id=`) and `gdown --folder` for folders.
 - macOS `base64` has no positional file arg. → `base64 -D -i in -o out`.
 - `gdown --folder` in the current release has no `--remaining-ok` flag. → Run it plain; check `find dir -type f | wc -l` for the 50-file cap.
@@ -246,3 +256,9 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
   owner-rejected from shipped rules — labels needed before it gates anything. `tools/next-ab.ts`
   is a deterministic rank with an optional labelled model opinion. `tools/jev-conditions.ts`
   deleted (failed controls twice, 2026-09-17).
+
+## Full-cast sculpt and animation work (2026-09-21)
+- Label coordinate units at the profile boundary. Joint landmarks are world units after scaling to the target figure height; paint volumes use a height fraction only on their vertical axis. A unit-height sketch is not a world-space rig.
+- Triangulate non-planar source faces before cutting paint boundaries. Keep the surface-area assertion; do not loosen it to hide incorrect tessellation. Check silhouette bounds after reduction: the Paladin lost extremities under collapse reduction and needs its usable source density preserved.
+- No-UV sculpt exports need deliberate texture coordinates before assigning bump/roughness maps. Keep material experiments scoped to the intended comparison.
+- Test a brief animation impulse by advancing known timesteps on the actual model; wall-clock screenshot delays can miss the entire transient under software-renderer load. Verify compression, rebound across rest and exact reset, and keep floor-contact appendages out of generic angular spring motion.
