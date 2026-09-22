@@ -1,0 +1,60 @@
+{
+  "service": "https://huggingface.co/spaces/trellis-community/TRELLIS",
+  "observed_at": "2026-09-22T10:15:17.244772+00:00",
+  "route": "Hugging Face wrapper in signed-in Chrome; native multiple-file picker",
+  "status": "exported_and_inspected",
+  "inputs": [
+    {
+      "name": "front.png",
+      "sha256": "58473e7393a7f963ab0fd7a0204b012627a9d91fda4a530084b40f233b9e5282"
+    },
+    {
+      "name": "left.png",
+      "sha256": "670d01eff6446247902002ca67b116eb73629b3bf3d6b18abe7f9457bb9bb3df"
+    },
+    {
+      "name": "back.png",
+      "sha256": "2466ac912158816b8695dba2195ca87c7262fa4e9508bcfcafd4b5875e099109"
+    }
+  ],
+  "input_order": "Not recorded by native picker; all three exact file hashes verified",
+  "settings": {
+    "seed": 0,
+    "ss_guidance_strength": 7.5,
+    "ss_sampling_steps": 12,
+    "slat_guidance_strength": 3,
+    "slat_sampling_steps": 12,
+    "multiimage_algo": "stochastic",
+    "mesh_simplify": 0.9,
+    "texture_size": 1024
+  },
+  "output": {
+    "file": "ogre-original.glb",
+    "bytes": 2193236,
+    "sha256": "d16054ae3693084802eb1ea2eef82c515fd75cbdf5fc0b820191bfc46e40417e",
+    "triangles": 36888,
+    "animation_count": 0
+  },
+  "art_review": {
+    "status": "reconstruction base, cleanup required before rigging",
+    "retained": [
+      "broad shoulders",
+      "heavy arms",
+      "large belly",
+      "short legs",
+      "orange hand-pad placement"
+    ],
+    "needs_work": [
+      "nose and tusks mostly absent",
+      "partly merged fingers",
+      "extra belt folds",
+      "surface faceting"
+    ]
+  },
+  "verification": [
+    "GLB version 2 header and declared length match",
+    "Imported successfully into Blender 5.2",
+    "Five rendered views visually inspected",
+    "Interactive Three.js texture/plain-clay/front controls verified; no console errors"
+  ]
+}

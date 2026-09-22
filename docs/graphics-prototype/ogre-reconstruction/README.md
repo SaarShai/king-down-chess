@@ -23,18 +23,50 @@ These are generated visual references, not geometrically exact projections of a 
 
 Images were prepared with built-in ImageGen, using the previous approved Shover cutout and then the revised front as references. Prompts are saved in `front-prompt.txt`, `framing-prompt.txt`, `left-prompt.txt`, `side-framing-prompt.txt` and `back-prompt.txt`. No image editing was done with a Python raster pipeline; Python was used only to inspect alpha/bounds and package the original PNG files.
 
-## Current blocker and next action
+## Earlier Tripo trial — not continued
 
-The [Tripo workspace](https://studio.tripo3d.ai/workspace/generate) is signed out. No Tripo API key is configured in the current process and no Tripo CLI is installed. The owner has been asked to sign in to an existing account. No images have been uploaded to Tripo, no generation credits have been consumed, no account has been created and no purchase has been made.
+The owner completed Google sign-in in the [Tripo workspace](https://studio.tripo3d.ai/workspace/generate) in **Chrome**. The Codex in-app tab failed with Google's `FedCM get() rejects with NetworkError: Error retrieving a token`; Chrome displayed its native account chooser successfully. Continue in the Chrome tab/group **Ogre login**, not the signed-out in-app tab. Completed onboarding for game assets/characters. No Tripo API key is configured in the current process and no Tripo CLI is installed.
 
-The signed-out UI defaults to **Public** and puts privacy controls under **Members Only**; private generation access cannot be established until sign-in. Recheck the actual account's privacy mode, credits and price before submitting. The owner's instruction to proceed with the suggested workflow authorizes the reconstruction and its necessary reference preparation; do not use it as authority to buy a subscription, create an account under new terms, or publish the artwork without resolving those concrete requirements.
+The signed-in account has **200 free credits**. However, its workspace banner gates multi-view and model export behind an upgrade. The detailed comparison qualifies free exports as **15 H2.5-only exports**, so this is not a blanket claim that every free export is unavailable. Free models are public/non-commercial; **Pro** includes multi-view, private models, commercial use and unlimited exports. The live monthly pricing selector shows **$20/month recurring with 3,000 monthly credits** (verified 2026-09-22). The lower $13/month headline requires $156 annual billing.
 
-After access is available:
+The owner chose **a route without a subscription**. No images have been uploaded to Tripo, no generation has been submitted, no generation credits have been consumed, and no subscription has been purchased. Do not resume the paid Tripo route without new owner direction.
 
-1. Confirm the multiple-image mode and load `front.png`, `left.png`, `back.png` in that order. If the interface exposes labeled direction slots, use their corresponding front/left/back slots. Do not fill a right-view slot with a mirrored left image as if it were independently established.
-2. Use the prepared geometry-only v3.1 settings, subject to the actual displayed price/account. Export the resulting GLB and retain the original response/seed/settings if available.
-3. Inspect the exported mesh in Blender with a neutral material. Verify head height, broad continuous shoulders, arm volume and clear short legs against all three references. Check closed/fused fingers, hidden back geometry and tunic/limb intersections. Correct these forms before sculpting extra texture.
-4. Apply exact clay hand-pad geometry/material regions and the game's two army palettes. Judge both armies in front, side and game-camera views at the accepted 0.5 pixel setting and at board size.
-5. Only after the static sculpt succeeds, build the deformation topology/weights, Walk/Shove clips and close-up/board GLBs. Keep the accepted stable torso volume and planted steps; no whole-body step squash.
+## Community TRELLIS reconstruction
 
-No new 3D model or animation has been created in this phase. The game's current Ogre and other pieces remain unchanged. The failed single-image TRELLIS.2 test remains documented separately in [the previous research](../ogre-replacement/README.md).
+The running [community TRELLIS demo](https://huggingface.co/spaces/trellis-community/TRELLIS) exposes multiple-image input and automatic GLB export without a subscription. Its [published app source](https://huggingface.co/spaces/trellis-community/TRELLIS/blob/main/app.py) confirms the multi-image pipeline and GLB export; the underlying [original TRELLIS code has an MIT license](https://github.com/microsoft/TRELLIS/blob/main/LICENSE). This is the original TRELLIS model in a community-maintained Space, not Microsoft's previously tested TRELLIS.2 demo. Multi-image conditioning is experimental and does not guarantee faithful hidden geometry.
+
+The owner explicitly approved uploading `front.png`, `left.png` and `back.png` to this community Space. Uploaded all three successfully through the direct in-app browser (Chrome's iframe file-chooser bridge timed out). Visually confirmed front/left/back in the gallery. Submitted **Multiple Images**, seed **0**, randomization **off**, sparse/latent guidance **7.5 / 3**, steps **12 / 12**, multi-image algorithm **stochastic**, simplification **0.9**, texture **1024**. The smaller simplification fraction retains more geometry than the default 0.95. Do not claim Microsoft operates this Space or promise private storage/deletion guarantees.
+
+### Earlier anonymous quota failure, 2026-09-22
+
+The UI displayed generic `Error` panels. Its Download GLB button became enabled but had no file: enabled controls alone do not establish successful generation. The published Gradio API reproduced the submission with the same approved inputs and settings. Session creation, multi-image selection and preprocessing passed. `/generate_and_extract_glb` rejected the anonymous request with:
+
+> You have exceeded your ZeroGPU quota (120s requested vs. 134s left). Try again in 22:44:28.
+
+Those figures are the service's exact message; their apparent mismatch is not resolved. No GLB was produced and no mesh inspection, sculpt refinement, rigging or game replacement was possible. Evidence, UTC time and input hashes: [trellis-trial/result.json](trellis-trial/result.json). The small [API reproduction script](trellis-trial/run.py) uses the official `gradio_client` in `/tmp/kingdown-ogre-gradio`, not a new game dependency. Do not retry the anonymous request until access/quota changes.
+
+### Successful signed-in reconstruction
+
+The owner completed free Hugging Face sign-in and enabled Chrome's ChatGPT extension **Allow access to file URLs** option. The direct `.hf.space` page accepted the files but generation still returned a generic error; it did not establish authenticated quota. The normal [Hugging Face wrapper](https://huggingface.co/spaces/trellis-community/TRELLIS) subsequently generated and exported successfully. No subscription or API token was used.
+
+Chrome's iframe filechooser bridge timed out. Native file selection worked: open the dedicated three-image folder, resolve `front.png` with Go to Folder, then extend the selection with Shift+Up twice. Command+A and row clicks had no effect in that picker. All three selected copies were hash-identical to the approved references. Do not navigate to the direct app merely to simplify uploads: its authentication context can differ. Also, an early AX `about:blank` for an iframe did not establish a blank rendered page; a later screenshot and DOM snapshot showed the loaded controls.
+
+The exact settings remained seed **0**, randomization off, steps **12/12**, guidance **7.5/3**, stochastic, simplify **0.9**, texture **1024**. Verified actual [GLB download](trellis-trial/ogre-original.glb): **2,193,236 bytes, 36,888 triangles, no animations**. Header/version/declared length passed, and Blender imported the mesh. Successful-run provenance and hashes: [success.json](trellis-trial/success.json). The earlier failed API evidence remains separate in `result.json`.
+
+### Art inspection
+
+This is a useful reconstruction base, **not a finished game asset**. The front, side and back retain broad shoulders, heavy arms, belly, short legs and orange hand-pad placement. The face loses most of the nose and tusks; fingers partly merge, the belt becomes multiple folds, and neutral shading exposes faceting. The texture conceals some missing geometry.
+
+- [Interactive model](http://localhost:5190/docs/graphics-prototype/ogre-reconstruction/viewer.html): drag to rotate, switch generated colour/plain clay, reset front.
+- [Front](trellis-trial/neutral-front.png), [side](trellis-trial/neutral-left.png), [back](trellis-trial/neutral-back.png), [neutral three-quarter](trellis-trial/neutral-three-quarter.png), [textured three-quarter](trellis-trial/textured-three-quarter.png).
+- [Editable inspection scene](trellis-trial/ogre-inspection.blend), [original service turntable](trellis-trial/turntable.mp4), and [reproducible Blender inspection script](trellis-trial/inspect_mesh.py). Run `blender --background --threads 6 --python docs/graphics-prototype/ogre-reconstruction/trellis-trial/inspect_mesh.py` to regenerate these unmodified-mesh views.
+
+Alternatives checked: the official original TRELLIS demo currently disables user uploads; [Hunyuan3D-2mv](https://huggingface.co/spaces/tencent/Hunyuan3D-2mv) supports the views but its [license](https://github.com/Tencent-Hunyuan/Hunyuan3D-2/blob/main/LICENSE), especially §5(c), restricts outputs outside its defined territory, making it a poor choice for an unrestricted game release. [TripoSG](https://huggingface.co/spaces/VAST-AI/TripoSG) has a running official demo with GLB output and MIT model licensing, but its shape input is single-view, so prefer the multi-view candidate first.
+
+Next sculpt pass:
+
+1. Preserve the original GLB. Restore the nose, nostrils, eyes and tusks from the frontal design; separate the important finger contours and simplify the belt folds. Smooth surface faceting without erasing feature boundaries or changing the approved shoulder/arm mass.
+2. Apply exact clay hand-pad geometry/material regions and the game's two army palettes. Judge both armies in front, side and game-camera views at the accepted 0.5 pixel setting and at board size.
+3. After the static sculpt succeeds, build deformation topology/weights, Walk/Shove clips and close-up/board GLBs. Keep stable torso volume and planted steps; no whole-body step squash.
+
+The reconstruction is exported and inspected. Sculpt cleanup, rigging, animation and game integration remain unfinished; the game's existing Ogre is unchanged. The failed single-image TRELLIS.2 test remains documented separately in [the previous research](../ogre-replacement/README.md).
