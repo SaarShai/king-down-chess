@@ -12,6 +12,7 @@ import { PieceContourPass, type ContourMode } from './PieceContourPass';
 import { WalkPreview, type ClayCadence } from './WalkPreview';
 import { CLAY_LOOK_COPY, CLAY_LOOK_LABELS, CLAY_LOOKS, type ClayLook, applyLookLighting, ensureSurfaceUv, materialForLook, softenClayNormals } from './ClayLook';
 import { CAST, character, defaultCharacter } from './CastCatalog';
+import { CapturePreview, CAPTURE_STYLES, CAPTURE_LABELS, CAPTURE_COPY, type CaptureStyle } from './CapturePreview';
 import './study.css';
 
 const variants=['baseline','sculpt','rebuilt','sprites','quiet'] as const;
@@ -32,11 +33,12 @@ let contourMode:ContourMode=['off','silhouette','adaptive'].includes(params.get(
 let look:ClayLook=CLAY_LOOKS.includes(params.get('look') as ClayLook)?params.get('look') as ClayLook:'current';
 let cadence:ClayCadence=params.get('cadence')==='stopmotion'?'stopmotion':'smooth';
 let running=false, walking=false, orbit=false, motion=0, lastFrame=0;
+let captureStyle:CaptureStyle=CAPTURE_STYLES.includes(params.get('capture') as CaptureStyle)?params.get('capture') as CaptureStyle:'burst';
 let epoch=0;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const source=import.meta.env.BASE_URL+'prototype/';
 document.title='King Down · Graphics study';
-document.body.innerHTML=`<main class="study"><header><div class="wordmark">KING DOWN<span>GRAPHICS STUDY · 04</span></div><div class="header-note">Sixteen characters. Sculpted, painted, brought to life.</div><a href="?">Open game ↗</a></header><section class="stage"><div id="stage-board"></div><canvas id="quiet-canvas" hidden></canvas><div class="scene-label"><span id="mode-label"></span><span id="view-hint">Drag to orbit · scroll to zoom</span></div><div class="armies"><span><i class="ivory"></i>Alabaster</span><span><i class="ink"></i>Ink blue</span></div></section><aside><div class="eyebrow">THE QUESTION</div><h1 id="variant-title"></h1><p id="description"></p><div class="controls"><label>Look <select id="look"><option value="current">Current refined</option><option value="plasticine">Polished plasticine</option><option value="handmade">Handmade clay</option></select></label><p class="control-note look-copy" id="look-copy"></p><label>Figure detail <select id="figure-detail"><option value="refined">Refined from source</option><option value="blockout">Earlier blockout</option></select></label><label>Clay motion <select id="cadence"><option value="smooth">Smooth · spring clay</option><option value="stopmotion">Stop-motion · 12 fps</option></select></label><p class="control-note" id="motion-note"></p><label>Pixel size <select id="pixels"><option value="0.5">0.5 px · double detail</option><option value="1">1 px · fine</option><option value="1.5">1.5 px · balanced</option><option value="2">2 px · chunky</option><option value="3">3 px · coarse</option><option value="4">4 px · stress test</option></select></label><label>Scene <select id="scene"><option value="pair">Guard + Archer</option><option value="overlap">Overlap close-up</option><option value="six">Six-piece lineup</option><option value="board">Full board · 32 pieces</option><option value="cast">All 16 designs · both armies</option><option value="character">Character close-up</option></select></label><label id="character-control">Character <select id="character">${CAST.map(c=>`<option value="${c.key}">${c.label}</option>`).join('')}</select></label><label>Contours <select id="contours"><option value="off">Off</option><option value="silhouette">Even silhouette</option><option value="adaptive">Overlap aware</option></select></label><p class="control-note" id="contour-note"></p><label>Palette <select id="palette"><option value="colour">Army + type accents</option><option value="gray">Grayscale check</option></select></label><button id="walk" aria-pressed="false">Walk in place</button><button id="poke">Poke / squish clay</button><p class="control-note" id="walk-note"></p><div class="button-row"><button id="move">Move</button><button id="ability">Ability</button></div><div class="button-row"><button id="spin">Rotate</button><button id="reset">Reset view</button></div></div><div class="detail" id="character-detail"><b>Guard</b><p>Keep the raised shoulder wings, recessed helmet and heavy fists. Steel blue on the shoulder plates; the rest stays in the army family.</p><b>Archer</b><p>Keep the pointed hood, split skirt and <em>two wrist crossbows</em>. Green on the hood; face, braid and crossbows stay in the army family.</p></div><details><summary>Compare the source artwork</summary><a href="${source}source-guides/guard_color_ref.jpg" target="_blank">Guard colour guide ↗</a><a href="${source}source-guides/Archer_color_ref.jpg" target="_blank">Archer colour guide ↗</a></details><p class="limits" id="limits"></p><output id="stats">Loading study assets…</output></aside><nav class="switcher" aria-label="Rendering candidates"><button id="prev" aria-label="Previous option">←</button><div class="tabs">${variants.map((v,i)=>`<button data-variant="${v}"><span>0${i+1}</span>${names[i]}</button>`).join('')}</div><button id="next" aria-label="Next option">→</button></nav></main>`;
+document.body.innerHTML=`<main class="study"><header><div class="wordmark">KING DOWN<span>GRAPHICS STUDY · 04</span></div><div class="header-note">Sixteen characters. Sculpted, painted, brought to life.</div><a href="?">Open game ↗</a></header><section class="stage"><div id="stage-board"></div><canvas id="quiet-canvas" hidden></canvas><div class="scene-label"><span id="mode-label"></span><span id="view-hint">Drag to orbit · scroll to zoom</span></div><div class="armies"><span><i class="ivory"></i>Alabaster</span><span><i class="ink"></i>Ink blue</span></div></section><aside><div class="eyebrow">THE QUESTION</div><h1 id="variant-title"></h1><p id="description"></p><div class="controls"><label>Look <select id="look"><option value="current">Current refined</option><option value="plasticine">Polished plasticine</option><option value="handmade">Handmade clay</option></select></label><p class="control-note look-copy" id="look-copy"></p><label>Figure detail <select id="figure-detail"><option value="refined">Refined from source</option><option value="blockout">Earlier blockout</option></select></label><label>Clay motion <select id="cadence"><option value="smooth">Smooth · spring clay</option><option value="stopmotion">Stop-motion · 12 fps</option></select></label><p class="control-note" id="motion-note"></p><label>Pixel size <select id="pixels"><option value="0.5">0.5 px · double detail</option><option value="1">1 px · fine</option><option value="1.5">1.5 px · balanced</option><option value="2">2 px · chunky</option><option value="3">3 px · coarse</option><option value="4">4 px · stress test</option></select></label><label>Scene <select id="scene"><option value="pair">Guard + Archer</option><option value="overlap">Overlap close-up</option><option value="six">Six-piece lineup</option><option value="board">Full board · 32 pieces</option><option value="cast">All 16 designs · both armies</option><option value="character">Character close-up</option></select></label><label id="character-control">Character <select id="character">${CAST.map(c=>`<option value="${c.key}">${c.label}</option>`).join('')}</select></label><label>Contours <select id="contours"><option value="off">Off</option><option value="silhouette">Even silhouette</option><option value="adaptive">Overlap aware</option></select></label><p class="control-note" id="contour-note"></p><label>Palette <select id="palette"><option value="colour">Army + type accents</option><option value="gray">Grayscale check</option></select></label><button id="walk" aria-pressed="false">Walk in place</button><button id="poke">Poke / squish clay</button><p class="control-note" id="walk-note"></p><div class="button-row"><button id="move">Move</button><button id="ability">Ability</button></div><label>Capture finish <select id="capture-style">${CAPTURE_STYLES.map(c=>`<option value="${c}">${CAPTURE_LABELS[c]}</option>`).join('')}</select></label><p class="control-note" id="capture-note"></p><div class="button-row"><button id="capture-play">Preview capture</button><button id="capture-reset">Restore pieces</button></div><div class="button-row"><button id="spin">Rotate</button><button id="reset">Reset view</button></div></div><div class="detail" id="character-detail"><b>Guard</b><p>Keep the raised shoulder wings, recessed helmet and heavy fists. Steel blue on the shoulder plates; the rest stays in the army family.</p><b>Archer</b><p>Keep the pointed hood, split skirt and <em>two wrist crossbows</em>. Green on the hood; face, braid and crossbows stay in the army family.</p></div><details><summary>Compare the source artwork</summary><a href="${source}source-guides/guard_color_ref.jpg" target="_blank">Guard colour guide ↗</a><a href="${source}source-guides/Archer_color_ref.jpg" target="_blank">Archer colour guide ↗</a></details><p class="limits" id="limits"></p><output id="stats">Loading study assets…</output></aside><nav class="switcher" aria-label="Rendering candidates"><button id="prev" aria-label="Previous option">←</button><div class="tabs">${variants.map((v,i)=>`<button data-variant="${v}"><span>0${i+1}</span>${names[i]}</button>`).join('')}</div><button id="next" aria-label="Next option">→</button></nav></main>`;
 const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 // Access to existing renderer internals is intentional and isolated to this throwaway study.
 const view:any=new BoardRenderer(el('stage-board'));
@@ -49,6 +51,7 @@ view.controls.minZoom=.6;view.controls.maxZoom=5;
 const contourPass=new PieceContourPass(view.scene,view.camera);
 view.composer.insertPass(contourPass,1);
 el<HTMLSelectElement>('look').value=look;el<HTMLSelectElement>('figure-detail').value=figureDetail;el<HTMLSelectElement>('cadence').value=cadence;el<HTMLSelectElement>('pixels').value=String(pixel);el<HTMLSelectElement>('contours').value=contourMode;
+el<HTMLSelectElement>('capture-style').value=captureStyle;
 const quiet=el<HTMLCanvasElement>('quiet-canvas');
 const loader=new GLTFLoader();
 const models=new Map<string,THREE.Group>();
@@ -93,6 +96,7 @@ await new Promise<void>((resolve,reject)=>{const s=document.createElement('scrip
 
 type Entry={sq:number,type:string,character:string,side:number,root:THREE.Group,visual:THREE.Group|THREE.Mesh,base:THREE.Vector3,walk?:WalkPreview};
 let entries:Entry[]=[];
+const captures=new Map<Entry,{preview:CapturePreview,shadows:THREE.Object3D[]}>();
 let selectedCharacter=CAST.some(c=>c.key===params.get('character'))?params.get('character')!:'queen';
 el<HTMLSelectElement>('character').value=selectedCharacter;
 let sceneMode=['pair','overlap','six','board','cast','character'].includes(params.get('scene')??'')?params.get('scene')!:'pair';
@@ -144,6 +148,7 @@ async function sprite(name:string,side:number):Promise<THREE.Mesh>{
  mesh.position.y=.71;mesh.userData.frame=-1;return mesh;
 }
 function clearStudyPieces(){
+ restoreCaptures();
  for(const e of entries){e.walk?.dispose();const skeletons=new Set<THREE.Skeleton>();e.visual.traverse((o:any)=>{if(o.isSkinnedMesh)skeletons.add(o.skeleton);});for(const s of skeletons)s.dispose();}
  for(const e of entries)if((e.visual as THREE.Mesh).isMesh){const m=e.visual as THREE.Mesh;m.geometry.dispose();const mat=m.material as THREE.MeshBasicMaterial;mat.map?.dispose();mat.dispose();}
  entries=[];
@@ -219,7 +224,7 @@ async function apply(){
  }
  const selected=character(selectedCharacter);
  el('character-detail').innerHTML=sceneMode==='character'?`<b>${selected.label}</b><p>${selected.feature}${selected.key==='pawn'?'.':': the identifying colour stays on this feature; the rest belongs to the army.'}</p><p>${['queen','king-shadow','king-spirit'].includes(selected.key)?'The original closed robe keeps its silhouette; motion suggests steps underneath.':'An articulated gait tailored to the original pose and equipment.'}</p>`:sceneMode==='cast'?'<b>The complete sculpt library</b><p>Pawn, Knight, Bishop, Rook, Queen, Guard, Archer, Paladin, Maester, Beast and six Kings. Choose Character close-up to inspect a design in both armies.</p>':'<b>Guard · shoulder plates</b><p>Steel blue on the raised shoulder plates.</p><b>Archer · hood</b><p>Green on the hood; face, braid and wrist crossbows stay in the army colour.</p>';
- syncWalkButton();contourPass.setPieces(entries.map(e=>e.visual));resetCamera();
+ syncWalkButton();syncCaptureControls();contourPass.setPieces(entries.map(e=>e.visual));resetCamera();
  // Candidate styles use one beauty draw plus an optional piece-ID draw; baseline retains its original pass.
  view.debris.mesh.visible=false;
  rebuildCanvas();updateStats();
@@ -234,7 +239,7 @@ function applyPixelSize(){
  view.renderer.setPixelRatio(ratio);view.composer.setPixelRatio(ratio);
  view.setPixelSize(pixel*ratio);contourPass.setPixelSize(pixel*ratio);
 }
-function syncUrl(){const url=new URL(location.href);url.searchParams.set('variant',variant);url.searchParams.set('scene',sceneMode);url.searchParams.set('pixels',String(pixel));url.searchParams.set('contours',contourMode);url.searchParams.set('detail',figureDetail);url.searchParams.set('character',selectedCharacter);url.searchParams.set('look',look);url.searchParams.set('cadence',cadence);history.replaceState({},'',url);}
+function syncUrl(){const url=new URL(location.href);url.searchParams.set('variant',variant);url.searchParams.set('scene',sceneMode);url.searchParams.set('pixels',String(pixel));url.searchParams.set('contours',contourMode);url.searchParams.set('detail',figureDetail);url.searchParams.set('character',selectedCharacter);url.searchParams.set('look',look);url.searchParams.set('cadence',cadence);url.searchParams.set('capture',captureStyle);history.replaceState({},'',url);}
 function choose(v:Variant){variant=v;return apply();}
 document.querySelectorAll<HTMLButtonElement>('[data-variant]').forEach(b=>b.onclick=()=>choose(b.dataset.variant as Variant));
 const cycle=(d:number)=>choose(variants[(variants.indexOf(variant)+d+variants.length)%variants.length]);
@@ -258,15 +263,41 @@ function syncWalkButton(){
  el('walk-note').textContent=available?'Each figure has its own stride and timing. Armour stays composed; cloth and the Beast’s tail follow through. Drag to inspect.':'Walking is available on all sixteen refined 3D designs.';
 }
 function setWalking(value:boolean){
+ if(value)restoreCaptures();
  walking=value&&entries.some(e=>e.walk);
  if(walking){running=false;motion=0;bolt.visible=ring.visible=false;for(const e of entries){e.root.position.copy(e.base);e.visual.rotation.x=e.visual.rotation.z=0;for(const c of e.root.children)if((c as THREE.Mesh).geometry===view.shadowGeo){c.position.y=.02;c.scale.setScalar(.8);}e.walk?.play();}}
  else for(const e of entries)e.walk?.stop();
  syncWalkButton();
 }
 el('walk').onclick=()=>setWalking(!walking);
-el('poke').onclick=()=>{for(const e of entries)e.walk?.poke();};
-function animate(which:'move'|'ability'){if(running)return;setWalking(false);for(const e of entries)e.walk?.reset();action=which;running=true;motion=0;}
+el('poke').onclick=()=>{restoreCaptures();for(const e of entries)e.walk?.poke();};
+function animate(which:'move'|'ability'){restoreCaptures();if(running)return;setWalking(false);for(const e of entries)e.walk?.reset();action=which;running=true;motion=0;}
 el('move').onclick=()=>animate('move');el('ability').onclick=()=>animate('ability');
+function syncCaptureControls(){
+ const available=variant==='rebuilt'&&figureDetail==='refined'&&sceneMode==='character';
+ el<HTMLSelectElement>('capture-style').disabled=!available;
+ el<HTMLButtonElement>('capture-play').disabled=!available;
+ el<HTMLButtonElement>('capture-reset').disabled=captures.size===0;
+ el('capture-note').textContent=available?CAPTURE_COPY[captureStyle]:'Choose Character close-up with Refined figures to preview a capture.';
+}
+function restoreCaptures(){
+ for(const {preview,shadows} of captures.values()){preview.dispose();for(const shadow of shadows)shadow.visible=true;}
+ captures.clear();contourPass.setPieces(entries.map(e=>e.visual));syncCaptureControls();
+}
+function capture(style:CaptureStyle=captureStyle){
+ if(variant!=='rebuilt'||figureDetail!=='refined'||sceneMode!=='character')return;
+ restoreCaptures();setWalking(false);running=false;motion=0;bolt.visible=ring.visible=false;
+ captureStyle=style;el<HTMLSelectElement>('capture-style').value=style;syncUrl();
+ for(const e of entries){
+  e.walk?.reset();e.root.position.copy(e.base);e.visual.rotation.x=e.visual.rotation.z=0;
+  const shadows=e.root.children.filter(c=>(c as THREE.Mesh).geometry===view.shadowGeo&&c.visible);
+  for(const shadow of shadows){shadow.visible=false;shadow.position.y=.02;shadow.scale.setScalar(.8);}
+  captures.set(e,{preview:new CapturePreview(e.visual,style,e.side,look==='current'?'smooth':cadence),shadows});
+ }
+ contourPass.setPieces(entries.map(e=>captures.get(e)?.preview.group??e.visual));syncCaptureControls();
+}
+el<HTMLSelectElement>('capture-style').onchange=e=>{captureStyle=(e.target as HTMLSelectElement).value as CaptureStyle;restoreCaptures();syncUrl();};
+el('capture-play').onclick=()=>capture();el('capture-reset').onclick=restoreCaptures;
 // Projectiles and impact rings stay in world space for the mesh and sprite approaches.
 const bolt=new THREE.Mesh(new THREE.ConeGeometry(.045,.35,4),new THREE.MeshBasicMaterial({color:0xecc279}));bolt.rotation.x=Math.PI/2;bolt.visible=false;view.world.add(bolt);
 const ring=new THREE.Mesh(new THREE.RingGeometry(.40,.47,32),new THREE.MeshBasicMaterial({color:0x9ed7c7,transparent:true,depthWrite:false,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.visible=false;view.world.add(ring);
@@ -338,7 +369,7 @@ function updateSprites(){
   mesh.quaternion.copy(e.root.quaternion.clone().invert().multiply(view.camera.quaternion));
  }
 }
-function frame(now:number){const elapsed=(now-lastFrame)/1000||0,dt=Math.min(.04,elapsed);lastFrame=now;stepAction(dt);
+function frame(now:number){const elapsed=(now-lastFrame)/1000||0,dt=Math.min(.04,elapsed);lastFrame=now;stepAction(dt);for(const {preview} of captures.values())preview.update(Math.min(.1,elapsed));
  // Preserve walk cadence on slower devices; clamp only long pauses such as a hidden tab.
  for(const e of entries)e.walk?.update(Math.min(.25,elapsed));
  if(orbit&&!reduced&&variant!=='quiet'){const off=view.camera.position.clone().sub(view.controls.target);off.applyAxisAngle(new THREE.Vector3(0,1,0),dt*.27);view.camera.position.copy(view.controls.target).add(off);}
@@ -347,4 +378,4 @@ function frame(now:number){const elapsed=(now-lastFrame)/1000||0,dt=Math.min(.04
  requestAnimationFrame(frame);
 }
 await apply();requestAnimationFrame(frame);
-(window as any).study={choose,apply,get variant(){return variant},get look(){return look},get cadence(){return cadence},setLook:(value:ClayLook)=>{look=value;el<HTMLSelectElement>('look').value=value;return apply();},poke:()=>{for(const e of entries)e.walk?.poke();},get entries(){return entries},get running(){return running},models,atlasCache,animate,setWalking,get walking(){return walking},view,contourPass,get scene(){return sceneMode},setScene:(mode:string)=>{sceneMode=mode;el<HTMLSelectElement>('scene').value=mode;return apply();},get pixel(){return pixel},get figureDetail(){return figureDetail},cast:CAST,get character(){return selectedCharacter},setCharacter:(key:string)=>{if(!CAST.some(c=>c.key===key))throw new Error('Unknown character');selectedCharacter=key;sceneMode='character';variant='rebuilt';figureDetail='refined';el<HTMLSelectElement>('character').value=key;return apply();}};
+(window as any).study={choose,apply,capture,restoreCaptures,get captures(){return [...captures.values()].map(c=>c.preview)},get captureStyle(){return captureStyle},get variant(){return variant},get look(){return look},get cadence(){return cadence},setLook:(value:ClayLook)=>{look=value;el<HTMLSelectElement>('look').value=value;return apply();},poke:()=>{for(const e of entries)e.walk?.poke();},get entries(){return entries},get running(){return running},models,atlasCache,animate,setWalking,get walking(){return walking},view,contourPass,get scene(){return sceneMode},setScene:(mode:string)=>{sceneMode=mode;el<HTMLSelectElement>('scene').value=mode;return apply();},get pixel(){return pixel},get figureDetail(){return figureDetail},cast:CAST,get character(){return selectedCharacter},setCharacter:(key:string)=>{if(!CAST.some(c=>c.key===key))throw new Error('Unknown character');selectedCharacter=key;sceneMode='character';variant='rebuilt';figureDetail='refined';el<HTMLSelectElement>('character').value=key;return apply();}};

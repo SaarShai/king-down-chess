@@ -1,0 +1,585 @@
+{
+  "date": "2026-09-21",
+  "checks": [
+    {
+      "name": "Sixteen distinct source designs including Queen and six Kings",
+      "ok": true
+    },
+    {
+      "name": "Full cast has two independently rigged armies",
+      "ok": true
+    },
+    {
+      "name": "Every cast asset has finite geometry, unit normals and normalized valid skin weights",
+      "ok": true,
+      "detail": {
+        "vertices": 340834,
+        "geometries": 31,
+        "maxNormalError": 1.1487132622889362e-7,
+        "maxWeightError": 4.470348358154297e-8,
+        "maxLoopError": 2.9391522145938313e-18,
+        "failures": []
+      }
+    },
+    {
+      "name": "All exported walks close their loop without a pose jump",
+      "ok": true,
+      "detail": {
+        "maxEndpointDifference": 2.9391522145938313e-18
+      }
+    },
+    {
+      "name": "Every cast mixer advances",
+      "ok": true
+    },
+    {
+      "name": "Pawn close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-pawn",
+          "rebuilt-pawn"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Knight close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-knight",
+          "rebuilt-knight"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Bishop close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-bishop",
+          "rebuilt-bishop"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Rook close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-rook",
+          "rebuilt-rook"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Queen close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-queen",
+          "rebuilt-queen"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Guard close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-guard",
+          "rebuilt-guard"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Archer close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-archer",
+          "rebuilt-archer"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Paladin close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-paladin",
+          "rebuilt-paladin"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Maester close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-maester",
+          "rebuilt-maester"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Beast close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-beast",
+          "rebuilt-beast"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Ember King close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-king-ember",
+          "rebuilt-king-ember"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Frost King close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-king-frost",
+          "rebuilt-king-frost"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Gaya King close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-king-gaya",
+          "rebuilt-king-gaya"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Celestial King close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-king-celestial",
+          "rebuilt-king-celestial"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Shadow King close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-king-shadow",
+          "rebuilt-king-shadow"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "Spirit King close-up loads both armies",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "rebuilt-king-spirit",
+          "rebuilt-king-spirit"
+        ],
+        "sides": [
+          0,
+          1
+        ],
+        "count": 2,
+        "canWalk": true
+      }
+    },
+    {
+      "name": "plasticine uses nonconstant texture coordinates and physical materials",
+      "ok": true
+    },
+    {
+      "name": "plasticine clay visibly deforms volume",
+      "ok": true
+    },
+    {
+      "name": "plasticine stop restores exact scale",
+      "ok": true
+    },
+    {
+      "name": "plasticine poke control compresses idle models",
+      "ok": true
+    },
+    {
+      "name": "handmade uses nonconstant texture coordinates and physical materials",
+      "ok": true
+    },
+    {
+      "name": "handmade clay visibly deforms volume",
+      "ok": true
+    },
+    {
+      "name": "handmade stop restores exact scale",
+      "ok": true
+    },
+    {
+      "name": "handmade poke control compresses idle models",
+      "ok": true
+    },
+    {
+      "name": "Clay poke compresses, rebounds beyond rest, and settles at 120 and 15 fps",
+      "ok": true,
+      "detail": [
+        {
+          "dt": 0.008333333333333333,
+          "low": 0.9422883666734031,
+          "high": 1.0129975750781932,
+          "end": 1
+        },
+        {
+          "dt": 0.06666666666666667,
+          "low": 0.9422883666734031,
+          "high": 1.0126192463018517,
+          "end": 1
+        }
+      ]
+    },
+    {
+      "name": "Poke also affects a walking figure",
+      "ok": true,
+      "detail": {
+        "scaleDifference": 0.08006313858277347
+      }
+    },
+    {
+      "name": "Stop-motion option plays the same articulated cast",
+      "ok": true
+    },
+    {
+      "name": "Character change cancels active walking",
+      "ok": true
+    },
+    {
+      "name": "Character and clay settings survive URL reload",
+      "ok": true
+    },
+    {
+      "name": "Phone layout stays within viewport",
+      "ok": true
+    },
+    {
+      "name": "Older comparisons return safely to the supported pair",
+      "ok": true
+    },
+    {
+      "name": "No browser errors",
+      "ok": true,
+      "detail": []
+    }
+  ],
+  "characters": [
+    {
+      "key": "pawn",
+      "keys": [
+        "rebuilt-pawn",
+        "rebuilt-pawn"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "knight",
+      "keys": [
+        "rebuilt-knight",
+        "rebuilt-knight"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "bishop",
+      "keys": [
+        "rebuilt-bishop",
+        "rebuilt-bishop"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "rook",
+      "keys": [
+        "rebuilt-rook",
+        "rebuilt-rook"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "queen",
+      "keys": [
+        "rebuilt-queen",
+        "rebuilt-queen"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "guard",
+      "keys": [
+        "rebuilt-guard",
+        "rebuilt-guard"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "archer",
+      "keys": [
+        "rebuilt-archer",
+        "rebuilt-archer"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "paladin",
+      "keys": [
+        "rebuilt-paladin",
+        "rebuilt-paladin"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "maester",
+      "keys": [
+        "rebuilt-maester",
+        "rebuilt-maester"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "beast",
+      "keys": [
+        "rebuilt-beast",
+        "rebuilt-beast"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "king-ember",
+      "keys": [
+        "rebuilt-king-ember",
+        "rebuilt-king-ember"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "king-frost",
+      "keys": [
+        "rebuilt-king-frost",
+        "rebuilt-king-frost"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "king-gaya",
+      "keys": [
+        "rebuilt-king-gaya",
+        "rebuilt-king-gaya"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "king-celestial",
+      "keys": [
+        "rebuilt-king-celestial",
+        "rebuilt-king-celestial"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "king-shadow",
+      "keys": [
+        "rebuilt-king-shadow",
+        "rebuilt-king-shadow"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    },
+    {
+      "key": "king-spirit",
+      "keys": [
+        "rebuilt-king-spirit",
+        "rebuilt-king-spirit"
+      ],
+      "sides": [
+        0,
+        1
+      ],
+      "count": 2,
+      "canWalk": true
+    }
+  ],
+  "errors": []
+}

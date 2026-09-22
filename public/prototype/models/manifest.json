@@ -291,12 +291,12 @@
       "height": 1.55,
       "triangles": 17999,
       "sourceTriangles": 36377,
-      "bytes": 843732,
+      "bytes": 841960,
       "accent": 9590398,
       "feature": "Mitre",
       "materialAreaShare": {
-        "army": 0.8972384185273022,
-        "accent1": 0.10276158147269779
+        "army": 0.893315668599763,
+        "accent1": 0.106684331400237
       },
       "creaseShadingRange": [
         0.5,

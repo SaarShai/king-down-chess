@@ -1,0 +1,211 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "style": "burst",
+      "bothArmies": true,
+      "hidden": true,
+      "finite": true,
+      "accent": true,
+      "deterministic": true,
+      "shaders": true,
+      "disposed": true,
+      "finished": true,
+      "restored": true,
+      "maxMeshes": 32
+    },
+    {
+      "style": "melt",
+      "bothArmies": true,
+      "hidden": true,
+      "finite": true,
+      "accent": true,
+      "deterministic": true,
+      "shaders": true,
+      "disposed": true,
+      "finished": true,
+      "restored": true,
+      "maxMeshes": 4
+    },
+    {
+      "style": "implode",
+      "bothArmies": true,
+      "hidden": true,
+      "finite": true,
+      "accent": true,
+      "deterministic": true,
+      "shaders": true,
+      "disposed": true,
+      "finished": true,
+      "restored": true,
+      "maxMeshes": 2
+    },
+    {
+      "style": "launch",
+      "bothArmies": true,
+      "hidden": true,
+      "finite": true,
+      "accent": true,
+      "deterministic": true,
+      "shaders": true,
+      "disposed": true,
+      "finished": true,
+      "restored": true,
+      "maxMeshes": 2
+    },
+    {
+      "style": "crack",
+      "bothArmies": true,
+      "hidden": true,
+      "finite": true,
+      "accent": true,
+      "deterministic": true,
+      "shaders": true,
+      "disposed": true,
+      "finished": true,
+      "restored": true,
+      "maxMeshes": 32
+    },
+    {
+      "check": "burst outlined silhouette",
+      "pass": true,
+      "mismatch": 0,
+      "area": 269552
+    },
+    {
+      "check": "melt outlined silhouette",
+      "pass": true,
+      "mismatch": 0,
+      "area": 267520
+    },
+    {
+      "check": "implode outlined silhouette",
+      "pass": true,
+      "mismatch": 0,
+      "area": 37491
+    },
+    {
+      "check": "crack outlined silhouette",
+      "pass": true,
+      "mismatch": 0,
+      "area": 301610
+    },
+    {
+      "check": "walk restores figures",
+      "pass": true
+    },
+    {
+      "check": "look switch cleans up",
+      "pass": true
+    },
+    {
+      "check": "non-character controls disabled",
+      "pass": true
+    },
+    {
+      "check": "pawn source snapshot and effects",
+      "pass": true,
+      "snapshotError": 1.3666337173035004e-8,
+      "finite": true
+    },
+    {
+      "check": "knight source snapshot and effects",
+      "pass": true,
+      "snapshotError": 1.1260284260572462e-8,
+      "finite": true
+    },
+    {
+      "check": "bishop source snapshot and effects",
+      "pass": true,
+      "snapshotError": 6.832082455332511e-9,
+      "finite": true
+    },
+    {
+      "check": "rook source snapshot and effects",
+      "pass": true,
+      "snapshotError": 2.81942601487728e-8,
+      "finite": true
+    },
+    {
+      "check": "queen source snapshot and effects",
+      "pass": true,
+      "snapshotError": 1.283915418426318e-8,
+      "finite": true
+    },
+    {
+      "check": "guard source snapshot and effects",
+      "pass": true,
+      "snapshotError": 7.972548185866679e-12,
+      "finite": true
+    },
+    {
+      "check": "archer source snapshot and effects",
+      "pass": true,
+      "snapshotError": 1.715972119953335e-8,
+      "finite": true
+    },
+    {
+      "check": "paladin source snapshot and effects",
+      "pass": true,
+      "snapshotError": 5.220747127405984e-18,
+      "finite": true
+    },
+    {
+      "check": "maester source snapshot and effects",
+      "pass": true,
+      "snapshotError": 6.033335235491183e-12,
+      "finite": true
+    },
+    {
+      "check": "beast source snapshot and effects",
+      "pass": true,
+      "snapshotError": 3.181360458680586e-17,
+      "finite": true
+    },
+    {
+      "check": "king-ember source snapshot and effects",
+      "pass": true,
+      "snapshotError": 1.2642599633849727e-8,
+      "finite": true
+    },
+    {
+      "check": "king-frost source snapshot and effects",
+      "pass": true,
+      "snapshotError": 8.936535955683667e-10,
+      "finite": true
+    },
+    {
+      "check": "king-gaya source snapshot and effects",
+      "pass": true,
+      "snapshotError": 3.8645631833533756e-11,
+      "finite": true
+    },
+    {
+      "check": "king-celestial source snapshot and effects",
+      "pass": true,
+      "snapshotError": 1.4019187366542951e-8,
+      "finite": true
+    },
+    {
+      "check": "king-shadow source snapshot and effects",
+      "pass": true,
+      "snapshotError": 0,
+      "finite": true
+    },
+    {
+      "check": "king-spirit source snapshot and effects",
+      "pass": true,
+      "snapshotError": 3.277064342110947e-9,
+      "finite": true
+    },
+    {
+      "check": "stop-motion holds poses between ticks",
+      "pass": true
+    },
+    {
+      "check": "mobile controls and URL",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

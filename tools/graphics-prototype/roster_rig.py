@@ -126,6 +126,16 @@ def add_roster_walk(obj, root, profile):
             groups[name].add([vertex.index],value/total,'REPLACE')
             if name.startswith('foot.') and value/total>.95:
                 i=0 if name.endswith('.L') else 1;boot_floor[i]=min(boot_floor[i],z)
+    if p['key']=='bishop':
+        # The source hem already penetrates the shoes at rest. Lift only its
+        # cloth-weighted surface, tapering to zero at the waist; keep both clay
+        # shape keys in sync so playback fades cannot restore the intersection.
+        for vertex in obj.data.vertices:
+            amount=sum(g.weight for g in vertex.groups if obj.vertex_groups[g.group].name.startswith('cloth.'))
+            offset=.070*amount*(1-smooth(.15,.55,vertex.co.z))
+            if obj.data.shape_keys:
+                for key in obj.data.shape_keys.key_blocks:key.data[vertex.index].co.z+=offset
+            vertex.co.z+=offset
     obj.parent=rig;modifier=obj.modifiers.new('Walk deformation','ARMATURE');modifier.object=rig
     rest={name:data.bones[name].matrix_local.copy() for name in points}
     def transform(name,q,pivot,shift):
@@ -165,7 +175,12 @@ def add_roster_walk(obj, root, profile):
             if cloth:
                 # Horizontal sweep and a positive hem lift keep long skirts out of the board.
                 lag=angle+i*math.pi-.35;lift=.010*(1-math.cos(angle*2))*.5
-                transform('cloth.'+side,Quaternion((0,0,1),math.sin(lag)*.024),hips[i],Vector((math.sin(lag)*.008,math.cos(lag)*.009,lift)))
+                if p['key']=='bishop':
+                    # The floor-length panels must travel with the feet beneath
+                    # them. Rest clearance above handles the concealed shoes.
+                    transform('cloth.'+side,Quaternion(),hips[i],Vector((0,forward*.65,height)))
+                else:
+                    transform('cloth.'+side,Quaternion((0,0,1),math.sin(lag)*.024),hips[i],Vector((math.sin(lag)*.008,math.cos(lag)*.009,lift)))
         if 'tail' in points:transform('tail',Quaternion((0,0,1),math.sin(angle-.4)*.085),points['tail'][0],Vector((0,0,.008*(1-math.cos(angle)))))
         contact_error=max(contact_error,min(heights))
         for bone in rig.pose.bones:

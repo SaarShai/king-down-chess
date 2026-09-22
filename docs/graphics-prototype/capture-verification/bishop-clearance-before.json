@@ -1,0 +1,1775 @@
+{
+  "bootTriangles": 677,
+  "robeTriangles": 1517,
+  "maxIntersections": 165,
+  "collidingPhases": 290,
+  "sourceRestIntersections": 59,
+  "newIntersections": 164,
+  "samples": 294,
+  "frames": [
+    {
+      "newIntersections": 0,
+      "phase": 0.0,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 87,
+      "phase": 0.0,
+      "weight": 1.0,
+      "intersections": 87
+    },
+    {
+      "newIntersections": 74,
+      "phase": 0.010416666666666666,
+      "weight": 1.0,
+      "intersections": 74
+    },
+    {
+      "newIntersections": 62,
+      "phase": 0.020833333333333332,
+      "weight": 1.0,
+      "intersections": 62
+    },
+    {
+      "newIntersections": 53,
+      "phase": 0.03125,
+      "weight": 1.0,
+      "intersections": 53
+    },
+    {
+      "newIntersections": 45,
+      "phase": 0.041666666666666664,
+      "weight": 1.0,
+      "intersections": 45
+    },
+    {
+      "newIntersections": 43,
+      "phase": 0.052083333333333336,
+      "weight": 1.0,
+      "intersections": 43
+    },
+    {
+      "newIntersections": 36,
+      "phase": 0.0625,
+      "weight": 1.0,
+      "intersections": 36
+    },
+    {
+      "newIntersections": 23,
+      "phase": 0.07291666666666667,
+      "weight": 1.0,
+      "intersections": 23
+    },
+    {
+      "newIntersections": 21,
+      "phase": 0.08333333333333333,
+      "weight": 1.0,
+      "intersections": 21
+    },
+    {
+      "newIntersections": 21,
+      "phase": 0.09375,
+      "weight": 1.0,
+      "intersections": 21
+    },
+    {
+      "newIntersections": 19,
+      "phase": 0.10416666666666667,
+      "weight": 1.0,
+      "intersections": 19
+    },
+    {
+      "newIntersections": 17,
+      "phase": 0.11458333333333333,
+      "weight": 1.0,
+      "intersections": 17
+    },
+    {
+      "newIntersections": 15,
+      "phase": 0.125,
+      "weight": 1.0,
+      "intersections": 15
+    },
+    {
+      "newIntersections": 14,
+      "phase": 0.13541666666666666,
+      "weight": 1.0,
+      "intersections": 14
+    },
+    {
+      "newIntersections": 8,
+      "phase": 0.14583333333333334,
+      "weight": 1.0,
+      "intersections": 8
+    },
+    {
+      "newIntersections": 8,
+      "phase": 0.15625,
+      "weight": 1.0,
+      "intersections": 8
+    },
+    {
+      "newIntersections": 4,
+      "phase": 0.16666666666666666,
+      "weight": 1.0,
+      "intersections": 4
+    },
+    {
+      "newIntersections": 4,
+      "phase": 0.17708333333333334,
+      "weight": 1.0,
+      "intersections": 4
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.1875,
+      "weight": 1.0,
+      "intersections": 0
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.19791666666666666,
+      "weight": 1.0,
+      "intersections": 0
+    },
+    {
+      "newIntersections": 8,
+      "phase": 0.20833333333333334,
+      "weight": 1.0,
+      "intersections": 8
+    },
+    {
+      "newIntersections": 18,
+      "phase": 0.21875,
+      "weight": 1.0,
+      "intersections": 18
+    },
+    {
+      "newIntersections": 43,
+      "phase": 0.22916666666666666,
+      "weight": 1.0,
+      "intersections": 43
+    },
+    {
+      "newIntersections": 59,
+      "phase": 0.23958333333333334,
+      "weight": 1.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 65,
+      "phase": 0.25,
+      "weight": 1.0,
+      "intersections": 66
+    },
+    {
+      "newIntersections": 74,
+      "phase": 0.2604166666666667,
+      "weight": 1.0,
+      "intersections": 76
+    },
+    {
+      "newIntersections": 77,
+      "phase": 0.2708333333333333,
+      "weight": 1.0,
+      "intersections": 80
+    },
+    {
+      "newIntersections": 111,
+      "phase": 0.28125,
+      "weight": 1.0,
+      "intersections": 117
+    },
+    {
+      "newIntersections": 131,
+      "phase": 0.2916666666666667,
+      "weight": 1.0,
+      "intersections": 136
+    },
+    {
+      "newIntersections": 133,
+      "phase": 0.3020833333333333,
+      "weight": 1.0,
+      "intersections": 136
+    },
+    {
+      "newIntersections": 132,
+      "phase": 0.3125,
+      "weight": 1.0,
+      "intersections": 135
+    },
+    {
+      "newIntersections": 150,
+      "phase": 0.3229166666666667,
+      "weight": 1.0,
+      "intersections": 151
+    },
+    {
+      "newIntersections": 164,
+      "phase": 0.3333333333333333,
+      "weight": 1.0,
+      "intersections": 165
+    },
+    {
+      "newIntersections": 159,
+      "phase": 0.34375,
+      "weight": 1.0,
+      "intersections": 160
+    },
+    {
+      "newIntersections": 152,
+      "phase": 0.3541666666666667,
+      "weight": 1.0,
+      "intersections": 153
+    },
+    {
+      "newIntersections": 143,
+      "phase": 0.3645833333333333,
+      "weight": 1.0,
+      "intersections": 143
+    },
+    {
+      "newIntersections": 141,
+      "phase": 0.375,
+      "weight": 1.0,
+      "intersections": 141
+    },
+    {
+      "newIntersections": 129,
+      "phase": 0.3854166666666667,
+      "weight": 1.0,
+      "intersections": 129
+    },
+    {
+      "newIntersections": 127,
+      "phase": 0.3958333333333333,
+      "weight": 1.0,
+      "intersections": 127
+    },
+    {
+      "newIntersections": 128,
+      "phase": 0.40625,
+      "weight": 1.0,
+      "intersections": 128
+    },
+    {
+      "newIntersections": 114,
+      "phase": 0.4166666666666667,
+      "weight": 1.0,
+      "intersections": 114
+    },
+    {
+      "newIntersections": 113,
+      "phase": 0.4270833333333333,
+      "weight": 1.0,
+      "intersections": 113
+    },
+    {
+      "newIntersections": 136,
+      "phase": 0.4375,
+      "weight": 1.0,
+      "intersections": 136
+    },
+    {
+      "newIntersections": 139,
+      "phase": 0.4479166666666667,
+      "weight": 1.0,
+      "intersections": 139
+    },
+    {
+      "newIntersections": 138,
+      "phase": 0.4583333333333333,
+      "weight": 1.0,
+      "intersections": 138
+    },
+    {
+      "newIntersections": 130,
+      "phase": 0.46875,
+      "weight": 1.0,
+      "intersections": 130
+    },
+    {
+      "newIntersections": 121,
+      "phase": 0.4791666666666667,
+      "weight": 1.0,
+      "intersections": 121
+    },
+    {
+      "newIntersections": 121,
+      "phase": 0.4895833333333333,
+      "weight": 1.0,
+      "intersections": 121
+    },
+    {
+      "newIntersections": 121,
+      "phase": 0.5,
+      "weight": 1.0,
+      "intersections": 121
+    },
+    {
+      "newIntersections": 136,
+      "phase": 0.5104166666666666,
+      "weight": 1.0,
+      "intersections": 136
+    },
+    {
+      "newIntersections": 135,
+      "phase": 0.5208333333333334,
+      "weight": 1.0,
+      "intersections": 135
+    },
+    {
+      "newIntersections": 120,
+      "phase": 0.53125,
+      "weight": 1.0,
+      "intersections": 120
+    },
+    {
+      "newIntersections": 114,
+      "phase": 0.5416666666666666,
+      "weight": 1.0,
+      "intersections": 114
+    },
+    {
+      "newIntersections": 120,
+      "phase": 0.5520833333333334,
+      "weight": 1.0,
+      "intersections": 120
+    },
+    {
+      "newIntersections": 131,
+      "phase": 0.5625,
+      "weight": 1.0,
+      "intersections": 131
+    },
+    {
+      "newIntersections": 127,
+      "phase": 0.5729166666666666,
+      "weight": 1.0,
+      "intersections": 127
+    },
+    {
+      "newIntersections": 132,
+      "phase": 0.5833333333333334,
+      "weight": 1.0,
+      "intersections": 132
+    },
+    {
+      "newIntersections": 141,
+      "phase": 0.59375,
+      "weight": 1.0,
+      "intersections": 141
+    },
+    {
+      "newIntersections": 132,
+      "phase": 0.6041666666666666,
+      "weight": 1.0,
+      "intersections": 132
+    },
+    {
+      "newIntersections": 129,
+      "phase": 0.6145833333333334,
+      "weight": 1.0,
+      "intersections": 129
+    },
+    {
+      "newIntersections": 132,
+      "phase": 0.625,
+      "weight": 1.0,
+      "intersections": 133
+    },
+    {
+      "newIntersections": 140,
+      "phase": 0.6354166666666666,
+      "weight": 1.0,
+      "intersections": 141
+    },
+    {
+      "newIntersections": 144,
+      "phase": 0.6458333333333334,
+      "weight": 1.0,
+      "intersections": 146
+    },
+    {
+      "newIntersections": 141,
+      "phase": 0.65625,
+      "weight": 1.0,
+      "intersections": 142
+    },
+    {
+      "newIntersections": 137,
+      "phase": 0.6666666666666666,
+      "weight": 1.0,
+      "intersections": 138
+    },
+    {
+      "newIntersections": 120,
+      "phase": 0.6770833333333334,
+      "weight": 1.0,
+      "intersections": 122
+    },
+    {
+      "newIntersections": 90,
+      "phase": 0.6875,
+      "weight": 1.0,
+      "intersections": 92
+    },
+    {
+      "newIntersections": 58,
+      "phase": 0.6979166666666666,
+      "weight": 1.0,
+      "intersections": 62
+    },
+    {
+      "newIntersections": 50,
+      "phase": 0.7083333333333334,
+      "weight": 1.0,
+      "intersections": 54
+    },
+    {
+      "newIntersections": 41,
+      "phase": 0.71875,
+      "weight": 1.0,
+      "intersections": 47
+    },
+    {
+      "newIntersections": 45,
+      "phase": 0.7291666666666666,
+      "weight": 1.0,
+      "intersections": 53
+    },
+    {
+      "newIntersections": 60,
+      "phase": 0.7395833333333334,
+      "weight": 1.0,
+      "intersections": 69
+    },
+    {
+      "newIntersections": 73,
+      "phase": 0.75,
+      "weight": 1.0,
+      "intersections": 87
+    },
+    {
+      "newIntersections": 93,
+      "phase": 0.7604166666666666,
+      "weight": 1.0,
+      "intersections": 109
+    },
+    {
+      "newIntersections": 100,
+      "phase": 0.7708333333333334,
+      "weight": 1.0,
+      "intersections": 120
+    },
+    {
+      "newIntersections": 102,
+      "phase": 0.78125,
+      "weight": 1.0,
+      "intersections": 127
+    },
+    {
+      "newIntersections": 104,
+      "phase": 0.7916666666666666,
+      "weight": 1.0,
+      "intersections": 132
+    },
+    {
+      "newIntersections": 103,
+      "phase": 0.8020833333333334,
+      "weight": 1.0,
+      "intersections": 114
+    },
+    {
+      "newIntersections": 85,
+      "phase": 0.8125,
+      "weight": 1.0,
+      "intersections": 91
+    },
+    {
+      "newIntersections": 86,
+      "phase": 0.8229166666666666,
+      "weight": 1.0,
+      "intersections": 92
+    },
+    {
+      "newIntersections": 83,
+      "phase": 0.8333333333333334,
+      "weight": 1.0,
+      "intersections": 84
+    },
+    {
+      "newIntersections": 85,
+      "phase": 0.84375,
+      "weight": 1.0,
+      "intersections": 86
+    },
+    {
+      "newIntersections": 86,
+      "phase": 0.8541666666666666,
+      "weight": 1.0,
+      "intersections": 87
+    },
+    {
+      "newIntersections": 85,
+      "phase": 0.8645833333333334,
+      "weight": 1.0,
+      "intersections": 86
+    },
+    {
+      "newIntersections": 85,
+      "phase": 0.875,
+      "weight": 1.0,
+      "intersections": 86
+    },
+    {
+      "newIntersections": 79,
+      "phase": 0.8854166666666666,
+      "weight": 1.0,
+      "intersections": 80
+    },
+    {
+      "newIntersections": 83,
+      "phase": 0.8958333333333334,
+      "weight": 1.0,
+      "intersections": 84
+    },
+    {
+      "newIntersections": 81,
+      "phase": 0.90625,
+      "weight": 1.0,
+      "intersections": 83
+    },
+    {
+      "newIntersections": 79,
+      "phase": 0.9166666666666666,
+      "weight": 1.0,
+      "intersections": 80
+    },
+    {
+      "newIntersections": 76,
+      "phase": 0.9270833333333334,
+      "weight": 1.0,
+      "intersections": 76
+    },
+    {
+      "newIntersections": 73,
+      "phase": 0.9375,
+      "weight": 1.0,
+      "intersections": 73
+    },
+    {
+      "newIntersections": 76,
+      "phase": 0.9479166666666666,
+      "weight": 1.0,
+      "intersections": 76
+    },
+    {
+      "newIntersections": 70,
+      "phase": 0.9583333333333334,
+      "weight": 1.0,
+      "intersections": 70
+    },
+    {
+      "newIntersections": 85,
+      "phase": 0.96875,
+      "weight": 1.0,
+      "intersections": 85
+    },
+    {
+      "newIntersections": 84,
+      "phase": 0.9791666666666666,
+      "weight": 1.0,
+      "intersections": 84
+    },
+    {
+      "newIntersections": 87,
+      "phase": 0.9895833333333334,
+      "weight": 1.0,
+      "intersections": 87
+    },
+    {
+      "newIntersections": 87,
+      "phase": 1.0,
+      "weight": 1.0,
+      "intersections": 87
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.0,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 13,
+      "phase": 0.0,
+      "weight": 0.25,
+      "intersections": 22
+    },
+    {
+      "newIntersections": 27,
+      "phase": 0.0,
+      "weight": 0.5,
+      "intersections": 29
+    },
+    {
+      "newIntersections": 45,
+      "phase": 0.0,
+      "weight": 0.75,
+      "intersections": 45
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.020833333333333332,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 14,
+      "phase": 0.020833333333333332,
+      "weight": 0.25,
+      "intersections": 22
+    },
+    {
+      "newIntersections": 26,
+      "phase": 0.020833333333333332,
+      "weight": 0.5,
+      "intersections": 27
+    },
+    {
+      "newIntersections": 27,
+      "phase": 0.020833333333333332,
+      "weight": 0.75,
+      "intersections": 27
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.041666666666666664,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 12,
+      "phase": 0.041666666666666664,
+      "weight": 0.25,
+      "intersections": 20
+    },
+    {
+      "newIntersections": 22,
+      "phase": 0.041666666666666664,
+      "weight": 0.5,
+      "intersections": 23
+    },
+    {
+      "newIntersections": 21,
+      "phase": 0.041666666666666664,
+      "weight": 0.75,
+      "intersections": 21
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.0625,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 10,
+      "phase": 0.0625,
+      "weight": 0.25,
+      "intersections": 18
+    },
+    {
+      "newIntersections": 19,
+      "phase": 0.0625,
+      "weight": 0.5,
+      "intersections": 19
+    },
+    {
+      "newIntersections": 21,
+      "phase": 0.0625,
+      "weight": 0.75,
+      "intersections": 21
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.08333333333333333,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 10,
+      "phase": 0.08333333333333333,
+      "weight": 0.25,
+      "intersections": 18
+    },
+    {
+      "newIntersections": 11,
+      "phase": 0.08333333333333333,
+      "weight": 0.5,
+      "intersections": 11
+    },
+    {
+      "newIntersections": 17,
+      "phase": 0.08333333333333333,
+      "weight": 0.75,
+      "intersections": 17
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.10416666666666667,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 4,
+      "phase": 0.10416666666666667,
+      "weight": 0.25,
+      "intersections": 12
+    },
+    {
+      "newIntersections": 11,
+      "phase": 0.10416666666666667,
+      "weight": 0.5,
+      "intersections": 11
+    },
+    {
+      "newIntersections": 11,
+      "phase": 0.10416666666666667,
+      "weight": 0.75,
+      "intersections": 11
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.125,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 4,
+      "phase": 0.125,
+      "weight": 0.25,
+      "intersections": 12
+    },
+    {
+      "newIntersections": 8,
+      "phase": 0.125,
+      "weight": 0.5,
+      "intersections": 8
+    },
+    {
+      "newIntersections": 11,
+      "phase": 0.125,
+      "weight": 0.75,
+      "intersections": 11
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.14583333333333334,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 4,
+      "phase": 0.14583333333333334,
+      "weight": 0.25,
+      "intersections": 12
+    },
+    {
+      "newIntersections": 4,
+      "phase": 0.14583333333333334,
+      "weight": 0.5,
+      "intersections": 4
+    },
+    {
+      "newIntersections": 10,
+      "phase": 0.14583333333333334,
+      "weight": 0.75,
+      "intersections": 10
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.16666666666666666,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 5,
+      "phase": 0.16666666666666666,
+      "weight": 0.25,
+      "intersections": 12
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.16666666666666666,
+      "weight": 0.5,
+      "intersections": 0
+    },
+    {
+      "newIntersections": 4,
+      "phase": 0.16666666666666666,
+      "weight": 0.75,
+      "intersections": 4
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.1875,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 5,
+      "phase": 0.1875,
+      "weight": 0.25,
+      "intersections": 14
+    },
+    {
+      "newIntersections": 12,
+      "phase": 0.1875,
+      "weight": 0.5,
+      "intersections": 12
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.1875,
+      "weight": 0.75,
+      "intersections": 0
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.20833333333333334,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 9,
+      "phase": 0.20833333333333334,
+      "weight": 0.25,
+      "intersections": 16
+    },
+    {
+      "newIntersections": 11,
+      "phase": 0.20833333333333334,
+      "weight": 0.5,
+      "intersections": 14
+    },
+    {
+      "newIntersections": 12,
+      "phase": 0.20833333333333334,
+      "weight": 0.75,
+      "intersections": 12
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.22916666666666666,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 18,
+      "phase": 0.22916666666666666,
+      "weight": 0.25,
+      "intersections": 26
+    },
+    {
+      "newIntersections": 21,
+      "phase": 0.22916666666666666,
+      "weight": 0.5,
+      "intersections": 26
+    },
+    {
+      "newIntersections": 35,
+      "phase": 0.22916666666666666,
+      "weight": 0.75,
+      "intersections": 36
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.25,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 32,
+      "phase": 0.25,
+      "weight": 0.25,
+      "intersections": 46
+    },
+    {
+      "newIntersections": 39,
+      "phase": 0.25,
+      "weight": 0.5,
+      "intersections": 42
+    },
+    {
+      "newIntersections": 53,
+      "phase": 0.25,
+      "weight": 0.75,
+      "intersections": 56
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.2708333333333333,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 47,
+      "phase": 0.2708333333333333,
+      "weight": 0.25,
+      "intersections": 68
+    },
+    {
+      "newIntersections": 59,
+      "phase": 0.2708333333333333,
+      "weight": 0.5,
+      "intersections": 66
+    },
+    {
+      "newIntersections": 69,
+      "phase": 0.2708333333333333,
+      "weight": 0.75,
+      "intersections": 76
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.2916666666666667,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 47,
+      "phase": 0.2916666666666667,
+      "weight": 0.25,
+      "intersections": 80
+    },
+    {
+      "newIntersections": 91,
+      "phase": 0.2916666666666667,
+      "weight": 0.5,
+      "intersections": 104
+    },
+    {
+      "newIntersections": 111,
+      "phase": 0.2916666666666667,
+      "weight": 0.75,
+      "intersections": 121
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.3125,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 63,
+      "phase": 0.3125,
+      "weight": 0.25,
+      "intersections": 89
+    },
+    {
+      "newIntersections": 99,
+      "phase": 0.3125,
+      "weight": 0.5,
+      "intersections": 111
+    },
+    {
+      "newIntersections": 107,
+      "phase": 0.3125,
+      "weight": 0.75,
+      "intersections": 113
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.3333333333333333,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 77,
+      "phase": 0.3333333333333333,
+      "weight": 0.25,
+      "intersections": 94
+    },
+    {
+      "newIntersections": 88,
+      "phase": 0.3333333333333333,
+      "weight": 0.5,
+      "intersections": 95
+    },
+    {
+      "newIntersections": 126,
+      "phase": 0.3333333333333333,
+      "weight": 0.75,
+      "intersections": 127
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.3541666666666667,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 69,
+      "phase": 0.3541666666666667,
+      "weight": 0.25,
+      "intersections": 83
+    },
+    {
+      "newIntersections": 102,
+      "phase": 0.3541666666666667,
+      "weight": 0.5,
+      "intersections": 103
+    },
+    {
+      "newIntersections": 155,
+      "phase": 0.3541666666666667,
+      "weight": 0.75,
+      "intersections": 156
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.375,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 63,
+      "phase": 0.375,
+      "weight": 0.25,
+      "intersections": 75
+    },
+    {
+      "newIntersections": 123,
+      "phase": 0.375,
+      "weight": 0.5,
+      "intersections": 124
+    },
+    {
+      "newIntersections": 150,
+      "phase": 0.375,
+      "weight": 0.75,
+      "intersections": 151
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.3958333333333333,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 63,
+      "phase": 0.3958333333333333,
+      "weight": 0.25,
+      "intersections": 75
+    },
+    {
+      "newIntersections": 138,
+      "phase": 0.3958333333333333,
+      "weight": 0.5,
+      "intersections": 139
+    },
+    {
+      "newIntersections": 135,
+      "phase": 0.3958333333333333,
+      "weight": 0.75,
+      "intersections": 135
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.4166666666666667,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 65,
+      "phase": 0.4166666666666667,
+      "weight": 0.25,
+      "intersections": 73
+    },
+    {
+      "newIntersections": 136,
+      "phase": 0.4166666666666667,
+      "weight": 0.5,
+      "intersections": 137
+    },
+    {
+      "newIntersections": 136,
+      "phase": 0.4166666666666667,
+      "weight": 0.75,
+      "intersections": 136
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.4375,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 73,
+      "phase": 0.4375,
+      "weight": 0.25,
+      "intersections": 81
+    },
+    {
+      "newIntersections": 149,
+      "phase": 0.4375,
+      "weight": 0.5,
+      "intersections": 150
+    },
+    {
+      "newIntersections": 132,
+      "phase": 0.4375,
+      "weight": 0.75,
+      "intersections": 132
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.4583333333333333,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 71,
+      "phase": 0.4583333333333333,
+      "weight": 0.25,
+      "intersections": 79
+    },
+    {
+      "newIntersections": 147,
+      "phase": 0.4583333333333333,
+      "weight": 0.5,
+      "intersections": 148
+    },
+    {
+      "newIntersections": 133,
+      "phase": 0.4583333333333333,
+      "weight": 0.75,
+      "intersections": 133
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.4791666666666667,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 67,
+      "phase": 0.4791666666666667,
+      "weight": 0.25,
+      "intersections": 77
+    },
+    {
+      "newIntersections": 141,
+      "phase": 0.4791666666666667,
+      "weight": 0.5,
+      "intersections": 142
+    },
+    {
+      "newIntersections": 132,
+      "phase": 0.4791666666666667,
+      "weight": 0.75,
+      "intersections": 132
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.5,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 69,
+      "phase": 0.5,
+      "weight": 0.25,
+      "intersections": 78
+    },
+    {
+      "newIntersections": 141,
+      "phase": 0.5,
+      "weight": 0.5,
+      "intersections": 142
+    },
+    {
+      "newIntersections": 134,
+      "phase": 0.5,
+      "weight": 0.75,
+      "intersections": 134
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.5208333333333334,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 67,
+      "phase": 0.5208333333333334,
+      "weight": 0.25,
+      "intersections": 77
+    },
+    {
+      "newIntersections": 154,
+      "phase": 0.5208333333333334,
+      "weight": 0.5,
+      "intersections": 155
+    },
+    {
+      "newIntersections": 128,
+      "phase": 0.5208333333333334,
+      "weight": 0.75,
+      "intersections": 128
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.5416666666666666,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 55,
+      "phase": 0.5416666666666666,
+      "weight": 0.25,
+      "intersections": 67
+    },
+    {
+      "newIntersections": 156,
+      "phase": 0.5416666666666666,
+      "weight": 0.5,
+      "intersections": 159
+    },
+    {
+      "newIntersections": 133,
+      "phase": 0.5416666666666666,
+      "weight": 0.75,
+      "intersections": 133
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.5625,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 51,
+      "phase": 0.5625,
+      "weight": 0.25,
+      "intersections": 67
+    },
+    {
+      "newIntersections": 142,
+      "phase": 0.5625,
+      "weight": 0.5,
+      "intersections": 147
+    },
+    {
+      "newIntersections": 132,
+      "phase": 0.5625,
+      "weight": 0.75,
+      "intersections": 132
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.5833333333333334,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 50,
+      "phase": 0.5833333333333334,
+      "weight": 0.25,
+      "intersections": 68
+    },
+    {
+      "newIntersections": 133,
+      "phase": 0.5833333333333334,
+      "weight": 0.5,
+      "intersections": 138
+    },
+    {
+      "newIntersections": 137,
+      "phase": 0.5833333333333334,
+      "weight": 0.75,
+      "intersections": 138
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.6041666666666666,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 50,
+      "phase": 0.6041666666666666,
+      "weight": 0.25,
+      "intersections": 66
+    },
+    {
+      "newIntersections": 99,
+      "phase": 0.6041666666666666,
+      "weight": 0.5,
+      "intersections": 103
+    },
+    {
+      "newIntersections": 157,
+      "phase": 0.6041666666666666,
+      "weight": 0.75,
+      "intersections": 158
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.625,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 50,
+      "phase": 0.625,
+      "weight": 0.25,
+      "intersections": 69
+    },
+    {
+      "newIntersections": 65,
+      "phase": 0.625,
+      "weight": 0.5,
+      "intersections": 72
+    },
+    {
+      "newIntersections": 146,
+      "phase": 0.625,
+      "weight": 0.75,
+      "intersections": 148
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.6458333333333334,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 51,
+      "phase": 0.6458333333333334,
+      "weight": 0.25,
+      "intersections": 71
+    },
+    {
+      "newIntersections": 56,
+      "phase": 0.6458333333333334,
+      "weight": 0.5,
+      "intersections": 64
+    },
+    {
+      "newIntersections": 120,
+      "phase": 0.6458333333333334,
+      "weight": 0.75,
+      "intersections": 124
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.6666666666666666,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 46,
+      "phase": 0.6666666666666666,
+      "weight": 0.25,
+      "intersections": 70
+    },
+    {
+      "newIntersections": 47,
+      "phase": 0.6666666666666666,
+      "weight": 0.5,
+      "intersections": 61
+    },
+    {
+      "newIntersections": 70,
+      "phase": 0.6666666666666666,
+      "weight": 0.75,
+      "intersections": 76
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.6875,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 38,
+      "phase": 0.6875,
+      "weight": 0.25,
+      "intersections": 66
+    },
+    {
+      "newIntersections": 45,
+      "phase": 0.6875,
+      "weight": 0.5,
+      "intersections": 63
+    },
+    {
+      "newIntersections": 51,
+      "phase": 0.6875,
+      "weight": 0.75,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.7083333333333334,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 28,
+      "phase": 0.7083333333333334,
+      "weight": 0.25,
+      "intersections": 63
+    },
+    {
+      "newIntersections": 43,
+      "phase": 0.7083333333333334,
+      "weight": 0.5,
+      "intersections": 62
+    },
+    {
+      "newIntersections": 38,
+      "phase": 0.7083333333333334,
+      "weight": 0.75,
+      "intersections": 52
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.7291666666666666,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 23,
+      "phase": 0.7291666666666666,
+      "weight": 0.25,
+      "intersections": 58
+    },
+    {
+      "newIntersections": 35,
+      "phase": 0.7291666666666666,
+      "weight": 0.5,
+      "intersections": 60
+    },
+    {
+      "newIntersections": 36,
+      "phase": 0.7291666666666666,
+      "weight": 0.75,
+      "intersections": 51
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.75,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 24,
+      "phase": 0.75,
+      "weight": 0.25,
+      "intersections": 56
+    },
+    {
+      "newIntersections": 30,
+      "phase": 0.75,
+      "weight": 0.5,
+      "intersections": 58
+    },
+    {
+      "newIntersections": 53,
+      "phase": 0.75,
+      "weight": 0.75,
+      "intersections": 71
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.7708333333333334,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 19,
+      "phase": 0.7708333333333334,
+      "weight": 0.25,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 36,
+      "phase": 0.7708333333333334,
+      "weight": 0.5,
+      "intersections": 70
+    },
+    {
+      "newIntersections": 66,
+      "phase": 0.7708333333333334,
+      "weight": 0.75,
+      "intersections": 94
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.7916666666666666,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 22,
+      "phase": 0.7916666666666666,
+      "weight": 0.25,
+      "intersections": 63
+    },
+    {
+      "newIntersections": 49,
+      "phase": 0.7916666666666666,
+      "weight": 0.5,
+      "intersections": 84
+    },
+    {
+      "newIntersections": 71,
+      "phase": 0.7916666666666666,
+      "weight": 0.75,
+      "intersections": 101
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.8125,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 19,
+      "phase": 0.8125,
+      "weight": 0.25,
+      "intersections": 61
+    },
+    {
+      "newIntersections": 48,
+      "phase": 0.8125,
+      "weight": 0.5,
+      "intersections": 77
+    },
+    {
+      "newIntersections": 75,
+      "phase": 0.8125,
+      "weight": 0.75,
+      "intersections": 86
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.8333333333333334,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 21,
+      "phase": 0.8333333333333334,
+      "weight": 0.25,
+      "intersections": 61
+    },
+    {
+      "newIntersections": 52,
+      "phase": 0.8333333333333334,
+      "weight": 0.5,
+      "intersections": 67
+    },
+    {
+      "newIntersections": 65,
+      "phase": 0.8333333333333334,
+      "weight": 0.75,
+      "intersections": 71
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.8541666666666666,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 21,
+      "phase": 0.8541666666666666,
+      "weight": 0.25,
+      "intersections": 57
+    },
+    {
+      "newIntersections": 41,
+      "phase": 0.8541666666666666,
+      "weight": 0.5,
+      "intersections": 54
+    },
+    {
+      "newIntersections": 66,
+      "phase": 0.8541666666666666,
+      "weight": 0.75,
+      "intersections": 67
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.875,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 19,
+      "phase": 0.875,
+      "weight": 0.25,
+      "intersections": 44
+    },
+    {
+      "newIntersections": 45,
+      "phase": 0.875,
+      "weight": 0.5,
+      "intersections": 55
+    },
+    {
+      "newIntersections": 69,
+      "phase": 0.875,
+      "weight": 0.75,
+      "intersections": 71
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.8958333333333334,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 15,
+      "phase": 0.8958333333333334,
+      "weight": 0.25,
+      "intersections": 32
+    },
+    {
+      "newIntersections": 39,
+      "phase": 0.8958333333333334,
+      "weight": 0.5,
+      "intersections": 44
+    },
+    {
+      "newIntersections": 68,
+      "phase": 0.8958333333333334,
+      "weight": 0.75,
+      "intersections": 70
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.9166666666666666,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 10,
+      "phase": 0.9166666666666666,
+      "weight": 0.25,
+      "intersections": 27
+    },
+    {
+      "newIntersections": 32,
+      "phase": 0.9166666666666666,
+      "weight": 0.5,
+      "intersections": 38
+    },
+    {
+      "newIntersections": 58,
+      "phase": 0.9166666666666666,
+      "weight": 0.75,
+      "intersections": 60
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.9375,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 11,
+      "phase": 0.9375,
+      "weight": 0.25,
+      "intersections": 27
+    },
+    {
+      "newIntersections": 25,
+      "phase": 0.9375,
+      "weight": 0.5,
+      "intersections": 30
+    },
+    {
+      "newIntersections": 55,
+      "phase": 0.9375,
+      "weight": 0.75,
+      "intersections": 56
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.9583333333333334,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 11,
+      "phase": 0.9583333333333334,
+      "weight": 0.25,
+      "intersections": 27
+    },
+    {
+      "newIntersections": 29,
+      "phase": 0.9583333333333334,
+      "weight": 0.5,
+      "intersections": 31
+    },
+    {
+      "newIntersections": 58,
+      "phase": 0.9583333333333334,
+      "weight": 0.75,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 0,
+      "phase": 0.9791666666666666,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 13,
+      "phase": 0.9791666666666666,
+      "weight": 0.25,
+      "intersections": 22
+    },
+    {
+      "newIntersections": 27,
+      "phase": 0.9791666666666666,
+      "weight": 0.5,
+      "intersections": 29
+    },
+    {
+      "newIntersections": 44,
+      "phase": 0.9791666666666666,
+      "weight": 0.75,
+      "intersections": 44
+    },
+    {
+      "newIntersections": 0,
+      "phase": 1.0,
+      "weight": 0.0,
+      "intersections": 59
+    },
+    {
+      "newIntersections": 13,
+      "phase": 1.0,
+      "weight": 0.25,
+      "intersections": 22
+    },
+    {
+      "newIntersections": 27,
+      "phase": 1.0,
+      "weight": 0.5,
+      "intersections": 29
+    },
+    {
+      "newIntersections": 45,
+      "phase": 1.0,
+      "weight": 0.75,
+      "intersections": 45
+    }
+  ]
+}

@@ -1,0 +1,364 @@
+{
+  "checks": [
+    {
+      "name": "All 15 accent designs have a raised clay surface in both armies",
+      "ok": true,
+      "detail": [
+        {
+          "key": "pawn",
+          "side": 0,
+          "count": 0,
+          "raised": 0,
+          "armyMax": 0,
+          "maxLift": 0,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "knight",
+          "side": 0,
+          "count": 2,
+          "raised": 309,
+          "armyMax": 0,
+          "maxLift": 0.00666005392766931,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "bishop",
+          "side": 0,
+          "count": 2,
+          "raised": 1319,
+          "armyMax": 0,
+          "maxLift": 0.006975056716348057,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "rook",
+          "side": 0,
+          "count": 2,
+          "raised": 4776,
+          "armyMax": 0,
+          "maxLift": 0.0063000576960511685,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "queen",
+          "side": 0,
+          "count": 2,
+          "raised": 379,
+          "armyMax": 0,
+          "maxLift": 0.006840057589991227,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "guard",
+          "side": 0,
+          "count": 2,
+          "raised": 3092,
+          "armyMax": 0,
+          "maxLift": 0.006300057356654519,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "archer",
+          "side": 0,
+          "count": 2,
+          "raised": 1183,
+          "armyMax": 0,
+          "maxLift": 0.006525052924639032,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "paladin",
+          "side": 0,
+          "count": 2,
+          "raised": 130,
+          "armyMax": 0,
+          "maxLift": 0.0063000124316997435,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "maester",
+          "side": 0,
+          "count": 2,
+          "raised": 463,
+          "armyMax": 0,
+          "maxLift": 0.005040029686563319,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "beast",
+          "side": 0,
+          "count": 2,
+          "raised": 1307,
+          "armyMax": 0,
+          "maxLift": 0.006030044248671915,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-ember",
+          "side": 0,
+          "count": 2,
+          "raised": 2943,
+          "armyMax": 0,
+          "maxLift": 0.0069750509671828356,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-frost",
+          "side": 0,
+          "count": 2,
+          "raised": 1598,
+          "armyMax": 0,
+          "maxLift": 0.0072000545752285905,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-gaya",
+          "side": 0,
+          "count": 2,
+          "raised": 1067,
+          "armyMax": 0,
+          "maxLift": 0.007425054247800328,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-celestial",
+          "side": 0,
+          "count": 2,
+          "raised": 336,
+          "armyMax": 0,
+          "maxLift": 0.007200042210446586,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-shadow",
+          "side": 0,
+          "count": 2,
+          "raised": 395,
+          "armyMax": 0,
+          "maxLift": 0.0072000184666115765,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-spirit",
+          "side": 0,
+          "count": 2,
+          "raised": 2766,
+          "armyMax": 0,
+          "maxLift": 0.006975026799913371,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "pawn",
+          "side": 1,
+          "count": 0,
+          "raised": 0,
+          "armyMax": 0,
+          "maxLift": 0,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "knight",
+          "side": 1,
+          "count": 2,
+          "raised": 309,
+          "armyMax": 0,
+          "maxLift": 0.00666005392766931,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "bishop",
+          "side": 1,
+          "count": 2,
+          "raised": 1319,
+          "armyMax": 0,
+          "maxLift": 0.006975056716348057,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "rook",
+          "side": 1,
+          "count": 2,
+          "raised": 4776,
+          "armyMax": 0,
+          "maxLift": 0.0063000576960511685,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "queen",
+          "side": 1,
+          "count": 2,
+          "raised": 379,
+          "armyMax": 0,
+          "maxLift": 0.006840057589991227,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "guard",
+          "side": 1,
+          "count": 2,
+          "raised": 3092,
+          "armyMax": 0,
+          "maxLift": 0.006300057356654519,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "archer",
+          "side": 1,
+          "count": 2,
+          "raised": 1183,
+          "armyMax": 0,
+          "maxLift": 0.006525052924639032,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "paladin",
+          "side": 1,
+          "count": 2,
+          "raised": 130,
+          "armyMax": 0,
+          "maxLift": 0.0063000124316997435,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "maester",
+          "side": 1,
+          "count": 2,
+          "raised": 463,
+          "armyMax": 0,
+          "maxLift": 0.005040029686563319,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "beast",
+          "side": 1,
+          "count": 2,
+          "raised": 1307,
+          "armyMax": 0,
+          "maxLift": 0.006030044248671915,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-ember",
+          "side": 1,
+          "count": 2,
+          "raised": 2943,
+          "armyMax": 0,
+          "maxLift": 0.0069750509671828356,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-frost",
+          "side": 1,
+          "count": 2,
+          "raised": 1598,
+          "armyMax": 0,
+          "maxLift": 0.0072000545752285905,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-gaya",
+          "side": 1,
+          "count": 2,
+          "raised": 1067,
+          "armyMax": 0,
+          "maxLift": 0.007425054247800328,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-celestial",
+          "side": 1,
+          "count": 2,
+          "raised": 336,
+          "armyMax": 0,
+          "maxLift": 0.007200042210446586,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-shadow",
+          "side": 1,
+          "count": 2,
+          "raised": 395,
+          "armyMax": 0,
+          "maxLift": 0.0072000184666115765,
+          "weightOK": true,
+          "finite": true
+        },
+        {
+          "key": "king-spirit",
+          "side": 1,
+          "count": 2,
+          "raised": 2766,
+          "armyMax": 0,
+          "maxLift": 0.006975026799913371,
+          "weightOK": true,
+          "finite": true
+        }
+      ]
+    },
+    {
+      "name": "Relief stays on the coloured feature and below 0.8% of a board unit",
+      "ok": true
+    },
+    {
+      "name": "Walking does not animate away or detach the applied layer",
+      "ok": true
+    },
+    {
+      "name": "Animated outlines match the native skinned + raised silhouettes exactly",
+      "ok": true,
+      "detail": {
+        "mismatch": 0,
+        "area": 419187
+      }
+    },
+    {
+      "name": "current selects the intended surface relief",
+      "ok": true
+    },
+    {
+      "name": "plasticine selects the intended surface relief",
+      "ok": true
+    },
+    {
+      "name": "handmade selects the intended surface relief",
+      "ok": true
+    },
+    {
+      "name": "No browser or shader errors",
+      "ok": true,
+      "detail": []
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,65 @@
+{
+  "baseline": "49a41e3",
+  "models": [
+    {
+      "asset": "rebuilt-archer.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-beast.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-guard.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-king-celestial.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-king-ember.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-king-frost.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-king-gaya.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-king-shadow.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-king-spirit.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-knight.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-maester.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-paladin.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-pawn.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-queen.glb",
+      "byteIdentical": true
+    },
+    {
+      "asset": "rebuilt-rook.glb",
+      "byteIdentical": true
+    }
+  ]
+}
