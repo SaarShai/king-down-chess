@@ -4,7 +4,7 @@ import { setEvaluator } from './ai/eval';
 import { positionKey } from './ai/search';
 import { BoardRenderer } from './render/renderer';
 import { STYLES } from './render/styles';
-import { loadModels, setUseSculpts } from './render/voxels';
+import { loadModels } from './render/voxels';
 import { A, S, Color, LETTERS, Move, NAMES, PieceType, RULES as GAME_RULES, RULES_2017, RULES_2021, SPENT, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, POOL, fromFen, randomBackRank, toFen } from './rules/setup';
 
@@ -354,7 +354,7 @@ function copyFallback(text: string): void {
 }
 
 /* ---- autosave ---- */
-interface Save { back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; style: string; coords: boolean; resigned: Color | null; rules?: Rules }
+interface Save { back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; coords: boolean; resigned: Color | null; rules?: Rules }
 const SAVE_KEY = 'kingdown.save';
 
 function save(): void {
@@ -365,7 +365,6 @@ function save(): void {
       moves: game.history.map(h => h.lan),
       white: sides[0], black: sides[1],
       think: +$<HTMLInputElement>('think').value,
-      style: styleSel.value,
       coords: coords.checked,
       resigned,
       // The rules the game is playing, so opening the save without its URL replays the same game
@@ -406,38 +405,12 @@ $('setup-example').onchange = e => {
 };
 $('white').onchange = $('black').onchange = () => { sides[0] = $<HTMLSelectElement>('white').value as Side; sides[1] = $<HTMLSelectElement>('black').value as Side; orient(); save(); void maybeAi(); };
 $('think').onchange = save;
-$<HTMLInputElement>('pixel').oninput = e => view.setPixelSize(+(e.target as HTMLInputElement).value);
-const palette = () => view.setPalette($<HTMLInputElement>('palette').checked, +$<HTMLInputElement>('dither').value);
-$('palette').onchange = $<HTMLInputElement>('dither').oninput = palette;
-$<HTMLInputElement>('edges').oninput = e => { const v = +(e.target as HTMLInputElement).value; view.setEdges(v * 0.3, v); };
-$('sculpts').onchange = e => { setUseSculpts((e.target as HTMLInputElement).checked); view.rebuild(game.pos); };
-
-const styleSel = $<HTMLSelectElement>('style');
-styleSel.innerHTML = Object.entries(STYLES).map(([k, s]) => `<option value="${k}">${s.label}</option>`).join('');
-const DEFAULT_STYLE = Object.keys(STYLES)[0];
-styleSel.value = params.get('style') || DEFAULT_STYLE;
-if (!styleSel.value) styleSel.value = DEFAULT_STYLE;
 const labels = $<HTMLInputElement>('labels');
 labels.checked = params.get('labels') === '1';
 labels.onchange = () => view.setLabels(labels.checked);
 view.setLabels(labels.checked);
 const coords = $<HTMLInputElement>('coords');
 coords.onchange = () => { view.setCoords(coords.checked); save(); };
-/** `?px=1..6` pins the pixel size, overriding whatever the style preset asks for. */
-const pxOverride = Math.min(6, Math.max(0, Math.round(Number(params.get('px')) || 0)));
-/** Apply a preset and move the manual sliders to match; dragging them afterwards still overrides. */
-function applyStyle(): void {
-  const s = STYLES[styleSel.value];
-  view.applyStyle(s);
-  const px = pxOverride || s.pixelSize;
-  view.setPixelSize(px);
-  $<HTMLInputElement>('pixel').value = String(px);
-  $<HTMLInputElement>('edges').value = String(s.depthEdge);
-  $<HTMLInputElement>('palette').checked = s.palette;
-  $<HTMLInputElement>('dither').value = String(s.dither);
-  view.setCoords(coords.checked); // the user's choice outlives the preset's own coords flag
-}
-styleSel.onchange = () => { applyStyle(); save(); };
 $('reset-view').onclick = () => view.resetView();
 addEventListener('keydown', e => {
   if (e.key === 'Escape') { selected = null; pending = []; refresh(); return; }
@@ -446,12 +419,9 @@ addEventListener('keydown', e => {
   if (e.key === 'z') undo();
 });
 
-/** `?fen=` wins over the autosave; settings go in before applyStyle(), the game after the models load. */
+/** `?fen=` wins over the autosave; restore player settings before loading the game. */
 const saved = params.has('fen') ? null : readSave();
 if (saved) {
-  // An explicit `?style=` wins over the autosave, exactly as `?fen=` does: a shared style link must
-  // work for a returning visitor. Without the guard the saved style silently overrode the URL.
-  if (!params.has('style') && saved.style && STYLES[saved.style]) styleSel.value = saved.style;
   if (saved.white) $<HTMLSelectElement>('white').value = saved.white;
   if (saved.black) $<HTMLSelectElement>('black').value = saved.black;
   if (saved.think) $<HTMLInputElement>('think').value = String(saved.think);
@@ -461,7 +431,9 @@ if (saved) {
 }
 
 await loadModels();
-applyStyle();
+// The playable game has one art direction; study controls stay in the study.
+view.applyStyle(STYLES.clay);
+view.setCoords(coords.checked);
 const fen = params.get('fen');
 if (fen) { try { game.load(fromFen(fen)); } catch (e) { alert(`Bad fen: ${(e as Error).message}`); } }
 else if (saved) {

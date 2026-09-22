@@ -13,6 +13,28 @@ async function ready() {
   await page.waitForFunction(() => window.view && window.view.pieces.size > 0 && [...window.view.pieces.values()].every(g => g.userData.figure));
   await page.evaluate(() => window.view.ready());
 }
+async function fixedPresentation() {
+  assert.equal(await page.locator('#style,#pixel,#edges,#sculpts,#palette,#dither').count(), 0);
+  assert.ok(await page.evaluate(() => {
+    const v = window.view, canvas = v.renderer.domElement;
+    return v.style.pieces === 'clay' && v.style.clayLook === 'handmade'
+      && v.clayPass.enabled && v.clayPass.pixelSize === .5
+      && v.clayPass.beauty.width === canvas.width * 2
+      && v.clayPass.beauty.height === canvas.height * 2
+      && [...v.pieces.values()].every(g => {
+        let handmade = true;
+        g.userData.figure.model.traverse(m => {
+          if (m.isMesh) for (const material of [m.material].flat()) handmade &&= material.userData.clayLook === 'handmade';
+        });
+        return handmade;
+      });
+  }), 'fixed handmade clay at twice the canvas resolution in both dimensions');
+}
+async function facingOpponent() {
+  assert.ok(await page.evaluate(() => [...window.view.pieces.values()].every(g =>
+    Math.abs(g.rotation.y - ((g.userData.code & 16) ? 0 : Math.PI)) < .001
+    && g.userData.figure.model.rotation.y === 0)), 'both armies must face their opponent at rest');
+}
 async function clickSquare(sq, shift = false) {
   const point = await page.evaluate(sq => window.view.screenOf(sq), sq);
   if (shift) await page.keyboard.down('Shift');
@@ -27,10 +49,12 @@ async function settled(sq, code) {
   await page.waitForFunction(() => [...window.view.pieces.values()].every(g => {
     const f=g.userData.figure;return !f || f.model.rotation.y === 0;
   }));
+  await facingOpponent();
 }
 try {
   await page.goto(url); await ready();
-  assert.equal(await page.locator('#style').inputValue(), 'clay');
+  await fixedPresentation(); await facingOpponent();
+  checks.push('fixed handmade clay at 0.5 px, no rendering controls, armies facing one another');
   assert.equal(await page.evaluate(() => window.view.pieces.size), 32);
   checks.push('32 independently animated clay figures load in the default game');
   await page.selectOption('#black', 'human'); await page.click('#new-classic'); await ready();
@@ -43,8 +67,15 @@ try {
   await clickSquare(12); await clickSquare(28); await settled(28, 1);
   assert.match(await page.locator('#moves').innerText(), /e2-e4/);
   checks.push('real board picking and a completed pawn walk');
-  await page.reload(); await ready();
+  await page.evaluate(() => {
+    const save = JSON.parse(localStorage.getItem('kingdown.save'));
+    save.style = 'plasticine'; localStorage.setItem('kingdown.save', JSON.stringify(save));
+  });
+  await page.reload(); await ready(); await fixedPresentation();
   assert.match(await page.locator('#moves').innerText(), /e2-e4/);
+  await page.goto(url+'?style=voxel&px=6'); await ready(); await fixedPresentation();
+  assert.match(await page.locator('#moves').innerText(), /e2-e4/);
+  checks.push('legacy saved styles and URL style/pixel overrides cannot change the fixed presentation');
   await page.click('#undo'); await settled(12,1);
   assert.equal(await page.locator('#moves').innerText(), '');
   checks.push('save/reload and undo restore the position');
@@ -58,10 +89,8 @@ try {
   await page.selectOption('#black', 'human');
   await page.selectOption('#setup-example', 'KGBMSSMB'); await ready();
   assert.equal(await page.locator('#setup').textContent(),'KGBMSSMB');
-  await page.selectOption('#style','plasticine'); await ready();
-  assert.ok(await page.evaluate(() => [...window.view.pieces.values()].every(g => { let valid=true;g.userData.figure.model.traverse(m=>{if(m.isMesh)for(const mat of [m.material].flat())valid&&=mat.userData.clayLook==='plasticine';});return valid; })));
-  await page.selectOption('#style','clay'); await ready();
-  checks.push('optional mirrored setup and both accepted clay materials');
+  await fixedPresentation(); await facingOpponent();
+  checks.push('optional mirrored setup keeps the fixed handmade material and opponent-facing armies');
   await page.click('#rules-btn');
   assert.match(await page.locator('#guide-archer').textContent(), /2 squares diagonally forward/);
   assert.match(await page.locator('#guide-beast').textContent(), /including straight ahead/);
@@ -99,6 +128,7 @@ try {
   const panel=await page.locator('#panel').boundingBox();assert.ok(panel.width<=390 && panel.y>200 && panel.y<600);
   const header=await page.locator('#top').boundingBox(), board=await page.locator('#board').boundingBox();
   assert.ok(board.y>=header.y+header.height-1, 'mobile header must not cover the back rank');
+  await fixedPresentation(); await facingOpponent();
   await page.screenshot({path:out+'/mobile.png'});
   checks.push('390px mobile board and scrollable controls fit without horizontal overflow');
   assert.deepEqual(errors,[]);

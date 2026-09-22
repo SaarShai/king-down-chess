@@ -37,10 +37,10 @@ export interface Style {
   coords?: boolean;
 }
 
-/** Keys double as the `?style=` URL parameter. The first entry is the default. */
+/** Shared renderer presets; the playable game always uses clay. Others serve the graphics study. */
 export const STYLES: Record<string, Style> = {
   clay: {
-    label: 'Handmade clay', pixelSize: 1, palette: false, dither: 0, normalEdge: 0, depthEdge: 0,
+    label: 'Handmade clay', pixelSize: 0.5, palette: false, dither: 0, normalEdge: 0, depthEdge: 0,
     shading: 'lambert', pieces: 'clay', clayLook: 'handmade', outline: false, pieceScale: .85,
     camera: { elev: 60, azim: 0 }, tiles: 'flat', lights: 'bright', shadow: true,
   },

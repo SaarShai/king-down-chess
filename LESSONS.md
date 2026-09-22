@@ -255,3 +255,7 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 ## Playable clay picking and layout — 2026-09-22
 - Three.js raycasts invisible label sprites. A hidden letter chip above a king/queen intercepted the pawn square even after the sculpt fitted the square; skip invisible ray hits and test all eight initial pawn-square centres with real pointer input. Reducing the visible model alone did not repair the interaction.
 - A responsive canvas inside CSS grid needs an explicit `minmax(0, 1fr)` column and `min-width: 0`; otherwise resizing from a wide viewport can preserve an oversized intrinsic canvas column. Keep the mobile HUD above the board, and verify both resize and actual element bounds, not just document overflow.
+
+## Clay facing and fixed presentation — 2026-09-22
+- The accepted clay sculpts face local +Z. White advances toward world −Z, so its resting parent rotates by π; Black's stays at zero. Do not reuse the legacy voxel orientation. Movement/contact turns are relative to that parent and must reset after movement and undo. Check both armies visually as well as their transforms.
+- The owner selected handmade clay at the study's 0.5 px double-detail setting for the playable game, with no rendering choices. Remove obsolete UI and URL/save overrides instead of merely changing the default; keep experimental presentation controls in the separate graphics study. Verify actual render-target dimensions and material state, not just a preset label.

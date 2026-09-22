@@ -510,7 +510,8 @@ export class BoardRenderer {
     const kingDesign = { Frost: 'frost', Flame: 'ember', Stratus: 'celestial', Mud: 'gaya', Spirit: 'spirit', Shadow: 'shadow' }[king];
     const design = t === K ? `king-${kingDesign}` : CAST.find(entry => entry.code === t)?.key;
     if (design && ((this.style.pieces === 'clay' && (t !== O || this.options.ogreModel !== false)) || (t === O && this.options.ogreModel !== false))) {
-      if (c === 1) g.rotation.y = Math.PI;
+      // Clay sculpts face local +Z; White advances toward world -Z.
+      if (c === 0) g.rotation.y = Math.PI;
       top = 1.3 * (this.style.pieceScale ?? 1);
       g.userData.figureReady = ClayFigure.load(design, c, this.style.clayLook ?? 'handmade').then(figure => {
         if (g.parent !== this.world) { figure.dispose(); return; }

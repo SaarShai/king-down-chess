@@ -179,5 +179,3 @@ button:focus-visible, select:focus-visible, input:focus-visible {
 }
 
 #asset-status, #setup-note { font-size: 12px; color: #655c50; line-height: 1.4; }
-
-#style { width: 160px; }
