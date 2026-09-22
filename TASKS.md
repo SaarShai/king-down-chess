@@ -1,5 +1,11 @@
 # Tasks
 
+## Fixed handmade-clay presentation — 2026-09-22
+- Owner correction: armies must face one another; use handmade clay at the study's 0.5 px double-detail rendering, without player rendering choices.
+- Plan: correct the clay models' resting orientation; pin the playable style/fidelity and remove rendering controls plus URL/save overrides. Preserve gameplay and the separate graphics study.
+- Verify: production build and browser checks for both armies, movement/undo, ignored old preferences, fixed material/render-target resolution and mobile layout; inspect screenshots.
+- [x] Corrected clay rest facing and fixed the game to handmade clay at 0.5 px. Removed rendering controls and legacy style/pixel overrides. TypeScript/build and all 15 production-browser checks pass with zero errors; desktop/mobile screenshots inspected. Refreshed the owner's game tab and confirmed its four saved moves survived. Implementation: `a4d6491` on `codex/playable-clay`. Handoff: `docs/PLAYABLE-CLAY.md`.
+
 ## Playable clay integration — 2026-09-22
 - Owner requests a playable game combining the accepted graphics session with the completed research. Preserve current rules and pool: findings do not justify new defaults; Guard/arrangement studies were not run.
 - Plan: isolated `codex/playable-clay` checkout based on graphics `af30711`; integrate tested search repair; connect the accepted complete clay cast/materials/walking to the playable board; correct stale piece guidance and expose clearly labelled optional setup examples.
