@@ -1,4 +1,4 @@
-/** The sixteen existing character designs, without alternate pawn/knight sculpt poses. */
+/** Source-derived cast plus the authored Ogre; alternate pawn/knight poses omitted. */
 export const CAST = [
  {key:'pawn',label:'Pawn',type:'pawn',code:1,feature:'Army colour throughout',accent:0xdcc9a2},
  {key:'knight',label:'Knight',type:'knight',code:2,feature:'Helmet crest',accent:0xb84939},
@@ -16,6 +16,7 @@ export const CAST = [
  {key:'king-celestial',label:'Celestial King',type:'king',code:6,feature:'Crown',accent:0xd0ad55},
  {key:'king-shadow',label:'Shadow King',type:'king',code:6,feature:'Sword blade',accent:0x8067a4},
  {key:'king-spirit',label:'Spirit King',type:'king',code:6,feature:'Clasped hands',accent:0x68aaa3},
+ {key:'ogre',label:'Ogre',type:'ogre',code:12,feature:'Attached clay pushing pads on the palms',accent:0xb96840},
 ] as const;
 export const character = (key:string) => CAST.find(c=>c.key===key)!;
 export const defaultCharacter = (type:string) => type==='king'?'king-frost':type;

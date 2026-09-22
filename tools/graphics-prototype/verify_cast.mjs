@@ -7,13 +7,13 @@ const errors=[],checks=[],characters=[];
 page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
 const check=(name,ok,detail)=>{checks.push({name,ok,detail});if(!ok)throw new Error(name+': '+JSON.stringify(detail));};
 try {
- await page.goto('http://localhost:5190/?study&variant=rebuilt&scene=cast&pixels=1&detail=refined&look=current');await page.waitForFunction(()=>window.study);
+ await page.goto('http://localhost:5190/?study&variant=rebuilt&scene=cast&pixels=1&detail=refined&look=current&mesh=sculpt');await page.waitForFunction(()=>window.study);
  const cast=await page.evaluate(()=>study.cast);
- check('Sixteen distinct source designs including Queen and six Kings',cast.length===16&&cast.filter(c=>c.type==='king').length===6&&cast.some(c=>c.key==='queen'));
+ check('Seventeen designs including Ogre, Queen and six Kings',cast.length===17&&cast.filter(c=>c.type==='king').length===6&&cast.some(c=>c.key==='queen'));
  check('Full cast has two independently rigged armies',await page.evaluate(()=>{
   const entries=study.entries;const allBones=new Set();let sum=0;
   for(const e of entries){const own=new Set();e.visual.traverse(o=>{if(o.isSkinnedMesh)for(const bone of o.skeleton.bones){own.add(bone);allBones.add(bone);}});sum+=own.size;}
-  return entries.length===32&&entries.every(e=>e.walk)&&sum===allBones.size&&new Set(entries.map(e=>e.character)).size===16;
+  return entries.length===34&&entries.every(e=>e.walk)&&sum===allBones.size&&new Set(entries.map(e=>e.character)).size===17;
  }));
  const assetChecks=await page.evaluate(()=>{
   const geometries=new Set(),failures=[];let vertices=0,maxNormalError=0,maxWeightError=0,maxLoopError=0;

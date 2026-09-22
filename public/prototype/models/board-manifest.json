@@ -1,0 +1,193 @@
+{
+  "method": "Meshoptimizer, 28% triangle target, 0.15% error cap, locked paint borders; lossless Meshopt encoding",
+  "models": [
+    {
+      "character": "archer",
+      "sourceSha256": "93c5fe23d3a0dbdd28aa88aaf9bc9d491654f029c0de41e1df69ba43ac5d3ea8",
+      "sourceTriangles": 20968,
+      "boardTriangles": 10786,
+      "sourceBytes": 1015876,
+      "boardBytes": 349892,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "beast",
+      "sourceSha256": "a571e5ac26b7a42e3c7397ef550535b30c1c73135694e06f38be78f598515020",
+      "sourceTriangles": 21821,
+      "boardTriangles": 20075,
+      "sourceBytes": 1564512,
+      "boardBytes": 691632,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "bishop",
+      "sourceSha256": "9550c4b8901720290ed2dd0a60d2dd39c0a478c26b8099f57b53ecb93d324fb1",
+      "sourceTriangles": 17999,
+      "boardTriangles": 11273,
+      "sourceBytes": 841960,
+      "boardBytes": 329024,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "guard",
+      "sourceSha256": "9af54279d6a7d64c8b8b85cd783c8e1183e50fc9d980f5201eed46ea03522436",
+      "sourceTriangles": 22416,
+      "boardTriangles": 19144,
+      "sourceBytes": 1526888,
+      "boardBytes": 699476,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "king-celestial",
+      "sourceSha256": "72ba0afaa9ea400199cd4e23c8d96f48ae6dfb2e78287a94ceb38b515a3221ac",
+      "sourceTriangles": 21999,
+      "boardTriangles": 12603,
+      "sourceBytes": 1250920,
+      "boardBytes": 455436,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "king-ember",
+      "sourceSha256": "49ce4fec2f64f1a75196eb814f0843f187f0e9165c2d76f4f91e4949f25ab166",
+      "sourceTriangles": 23000,
+      "boardTriangles": 14786,
+      "sourceBytes": 1377976,
+      "boardBytes": 534920,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "king-frost",
+      "sourceSha256": "8d27edde60469c5fe6d00ffaf71231df143b28cd6bbe32345970c957fdf79d57",
+      "sourceTriangles": 24244,
+      "boardTriangles": 11642,
+      "sourceBytes": 1094800,
+      "boardBytes": 336256,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "king-gaya",
+      "sourceSha256": "905746a683dfffb9ae8cce03c745a5da928fadaa5f33580b4231ff92dfe8cac3",
+      "sourceTriangles": 22992,
+      "boardTriangles": 16636,
+      "sourceBytes": 996712,
+      "boardBytes": 411160,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "king-shadow",
+      "sourceSha256": "b80da066da53dbd221d42aeac5500fb4eabbf7fedda29a43ea1dd011b687e103",
+      "sourceTriangles": 21993,
+      "boardTriangles": 16305,
+      "sourceBytes": 1415152,
+      "boardBytes": 598528,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "king-spirit",
+      "sourceSha256": "f530564bea08199af886b5336a634e749ae3fbf2a9186d55af78c6315492479c",
+      "sourceTriangles": 22578,
+      "boardTriangles": 14044,
+      "sourceBytes": 1348100,
+      "boardBytes": 581500,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "knight",
+      "sourceSha256": "2b31c90fda95bdd971d2304cc740063b9f5c123961f8271d94d2479474773919",
+      "sourceTriangles": 20000,
+      "boardTriangles": 10562,
+      "sourceBytes": 1033084,
+      "boardBytes": 340044,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "maester",
+      "sourceSha256": "601c4a1b16d42d44eb49b87c5e4f47608b953a045efbba2a7b29fbba0668e9a8",
+      "sourceTriangles": 18000,
+      "boardTriangles": 12056,
+      "sourceBytes": 776268,
+      "boardBytes": 287240,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "ogre",
+      "sourceSha256": "691072076d7fad7b5861d7100281c4d1784b78af987691bed6641ed9cd4527be",
+      "sourceTriangles": 27998,
+      "boardTriangles": 12606,
+      "sourceBytes": 1166400,
+      "boardBytes": 295780,
+      "clips": [
+        "Walk",
+        "Shove"
+      ]
+    },
+    {
+      "character": "paladin",
+      "sourceSha256": "df83b1eb0ed80d91c49dfc56dbd564e6a4d0812d5754303aed8e17ff53cef87b",
+      "sourceTriangles": 63913,
+      "boardTriangles": 41831,
+      "sourceBytes": 4949056,
+      "boardBytes": 1960040,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "pawn",
+      "sourceSha256": "53ebcb62ef389d99946f0b295abbab522a1bcc4a1c9365e7a8823961a8579dd7",
+      "sourceTriangles": 14999,
+      "boardTriangles": 10139,
+      "sourceBytes": 859240,
+      "boardBytes": 324612,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "queen",
+      "sourceSha256": "c7eede264cc6bb708cb3c7ab4055ab04aced8f2e0b79499af1e091fd811bda23",
+      "sourceTriangles": 19990,
+      "boardTriangles": 10368,
+      "sourceBytes": 914432,
+      "boardBytes": 301360,
+      "clips": [
+        "Walk"
+      ]
+    },
+    {
+      "character": "rook",
+      "sourceSha256": "978bfa92b11172d5a0e44f8dc364ed1782831e7f5c74e3b40be73b6f3d9a2433",
+      "sourceTriangles": 23856,
+      "boardTriangles": 20324,
+      "sourceBytes": 1424720,
+      "boardBytes": 674956,
+      "clips": [
+        "Walk"
+      ]
+    }
+  ]
+}

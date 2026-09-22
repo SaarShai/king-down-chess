@@ -1,0 +1,52 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "name": "idle debris omitted",
+      "ok": true
+    },
+    {
+      "name": "small burst trims unused instances",
+      "ok": true
+    },
+    {
+      "name": "hop shadow remains at board height",
+      "ok": true
+    },
+    {
+      "name": "repeated normal/flush projectiles release GPU geometry",
+      "ok": true
+    },
+    {
+      "name": "warm repeated clay/walk/capture switches do not accumulate GPU resources",
+      "ok": true,
+      "before": {
+        "geometries": 26,
+        "textures": 23
+      },
+      "samples": [
+        {
+          "geometries": 26,
+          "textures": 23
+        },
+        {
+          "geometries": 26,
+          "textures": 23
+        },
+        {
+          "geometries": 26,
+          "textures": 23
+        },
+        {
+          "geometries": 26,
+          "textures": 23
+        }
+      ]
+    },
+    {
+      "name": "no browser or shader errors",
+      "ok": true
+    }
+  ],
+  "errors": []
+}

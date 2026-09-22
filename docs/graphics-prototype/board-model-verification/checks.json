@@ -1,0 +1,526 @@
+{
+  "passed": true,
+  "totals": {
+    "sourceTriangles": 408766,
+    "boardTriangles": 265180,
+    "sourceBytes": 23556096,
+    "boardBytes": 9171856
+  },
+  "checks": [
+    {
+      "name": "archer: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 10786,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "archer: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "archer: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "beast: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 20075,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "beast: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "beast: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "bishop: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 11273,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "bishop: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "bishop: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "guard: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 19144,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "guard: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "guard: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-celestial: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 12603,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-celestial: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-celestial: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-ember: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 14786,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-ember: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-ember: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-frost: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 11642,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-frost: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-frost: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-gaya: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 16636,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-gaya: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-gaya: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-shadow: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 16305,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-shadow: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-shadow: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-spirit: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 14044,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-spirit: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-spirit: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "knight: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 10562,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "knight: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "knight: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "maester: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 12056,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "maester: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "maester: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "ogre: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 12606,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "ogre: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "ogre: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "paladin: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 41831,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "paladin: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "paladin: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "pawn: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 10139,
+        "accent": 0,
+        "clay": 0
+      }
+    },
+    {
+      "name": "pawn: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "pawn: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "queen: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 10368,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "queen: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "queen: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "rook: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 20324,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "rook: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "rook: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "Fresh character scene loads only its GLB",
+      "ok": true,
+      "detail": [
+        "http://localhost:5190/prototype/models/rebuilt-ogre.glb"
+      ]
+    },
+    {
+      "name": "board at phase 0: silhouette retained and workload reduced",
+      "ok": true,
+      "detail": {
+        "before": {
+          "frame": 16,
+          "calls": 292,
+          "triangles": 1182682,
+          "points": 0,
+          "lines": 0
+        },
+        "after": {
+          "frame": 56,
+          "calls": 292,
+          "triangles": 743210,
+          "points": 0,
+          "lines": 0,
+          "union": 119249,
+          "mismatch": 500,
+          "difference": 0.004192907278048453
+        }
+      }
+    },
+    {
+      "name": "board at phase 0.25: silhouette retained and workload reduced",
+      "ok": true,
+      "detail": {
+        "before": {
+          "frame": 92,
+          "calls": 292,
+          "triangles": 1182682,
+          "points": 0,
+          "lines": 0
+        },
+        "after": {
+          "frame": 104,
+          "calls": 292,
+          "triangles": 743210,
+          "points": 0,
+          "lines": 0,
+          "union": 116785,
+          "mismatch": 434,
+          "difference": 0.003716230680309971
+        }
+      }
+    },
+    {
+      "name": "board at phase 0.75: silhouette retained and workload reduced",
+      "ok": true,
+      "detail": {
+        "before": {
+          "frame": 116,
+          "calls": 292,
+          "triangles": 1182682,
+          "points": 0,
+          "lines": 0
+        },
+        "after": {
+          "frame": 128,
+          "calls": 292,
+          "triangles": 743210,
+          "points": 0,
+          "lines": 0,
+          "union": 117163,
+          "mismatch": 406,
+          "difference": 0.0034652578032313957
+        }
+      }
+    },
+    {
+      "name": "cast at phase 0: silhouette retained and workload reduced",
+      "ok": true,
+      "detail": {
+        "before": {
+          "frame": 144,
+          "calls": 332,
+          "triangles": 1636762,
+          "points": 0,
+          "lines": 0
+        },
+        "after": {
+          "frame": 180,
+          "calls": 332,
+          "triangles": 1062418,
+          "points": 0,
+          "lines": 0,
+          "union": 186822,
+          "mismatch": 573,
+          "difference": 0.003067090599608183
+        }
+      }
+    },
+    {
+      "name": "cast at phase 0.25: silhouette retained and workload reduced",
+      "ok": true,
+      "detail": {
+        "before": {
+          "frame": 216,
+          "calls": 332,
+          "triangles": 1636762,
+          "points": 0,
+          "lines": 0
+        },
+        "after": {
+          "frame": 228,
+          "calls": 332,
+          "triangles": 1062418,
+          "points": 0,
+          "lines": 0,
+          "union": 183803,
+          "mismatch": 482,
+          "difference": 0.002622372866601742
+        }
+      }
+    },
+    {
+      "name": "cast at phase 0.75: silhouette retained and workload reduced",
+      "ok": true,
+      "detail": {
+        "before": {
+          "frame": 240,
+          "calls": 332,
+          "triangles": 1636762,
+          "points": 0,
+          "lines": 0
+        },
+        "after": {
+          "frame": 252,
+          "calls": 332,
+          "triangles": 1062418,
+          "points": 0,
+          "lines": 0,
+          "union": 184882,
+          "mismatch": 512,
+          "difference": 0.00276933395354875
+        }
+      }
+    },
+    {
+      "name": "Distant cast automatically uses board meshes",
+      "ok": true
+    },
+    {
+      "name": "Zoom swaps detail without replacing roots or restarting walking",
+      "ok": true,
+      "detail": {
+        "tier": "sculpt",
+        "walking": true,
+        "rootsStable": true,
+        "times": [
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6,
+          0.6
+        ]
+      }
+    },
+    {
+      "name": "Repeated detail switching has stable GPU resources",
+      "ok": true,
+      "detail": [
+        {
+          "geometries": 133,
+          "textures": 138
+        },
+        {
+          "geometries": 133,
+          "textures": 138
+        },
+        {
+          "geometries": 133,
+          "textures": 138
+        },
+        {
+          "geometries": 133,
+          "textures": 138
+        }
+      ]
+    },
+    {
+      "name": "Mobile cast fits viewport",
+      "ok": true
+    },
+    {
+      "name": "No browser or shader errors",
+      "ok": true,
+      "detail": []
+    }
+  ],
+  "errors": []
+}

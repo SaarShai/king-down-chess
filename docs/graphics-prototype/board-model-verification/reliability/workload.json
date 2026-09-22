@@ -1,0 +1,35 @@
+{
+  "note": "Complete composer-frame counters; not physical-device FPS.",
+  "workloads": [
+    {
+      "scene": "character",
+      "pieces": 2,
+      "drawCalls": 32,
+      "submittedTriangles": 89890,
+      "canvasWidth": 690,
+      "canvasHeight": 630,
+      "geometries": 26,
+      "textures": 23
+    },
+    {
+      "scene": "board",
+      "pieces": 32,
+      "drawCalls": 292,
+      "submittedTriangles": 743210,
+      "canvasWidth": 690,
+      "canvasHeight": 630,
+      "geometries": 83,
+      "textures": 75
+    },
+    {
+      "scene": "cast",
+      "pieces": 34,
+      "drawCalls": 332,
+      "submittedTriangles": 1062418,
+      "canvasWidth": 690,
+      "canvasHeight": 630,
+      "geometries": 107,
+      "textures": 117
+    }
+  ]
+}

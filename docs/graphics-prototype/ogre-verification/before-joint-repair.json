@@ -1,0 +1,90 @@
+{
+  "passed": false,
+  "results": [
+    {
+      "quality": "sculpt",
+      "clip": "Walk",
+      "minRatio": 0.0777666624645035,
+      "maxRatio": 2.677420308115993,
+      "p99": 1.1923627705620985,
+      "rigidError": 2.3773018031914006e-7,
+      "minFloor": 0.007990222802992324,
+      "maxContact": 0.007990222802992593,
+      "travel": 0.06499999389052402,
+      "resetError": 0,
+      "loopError": 2.694223001241114e-18,
+      "wrongAccentWeights": 0,
+      "ok": false
+    },
+    {
+      "quality": "sculpt",
+      "clip": "Shove",
+      "minRatio": 0.22552700346504845,
+      "maxRatio": 3.355733867489875,
+      "p99": 1.326856452172399,
+      "rigidError": 1.5143221032687393e-7,
+      "minFloor": 0.007990222802992338,
+      "maxContact": 0.007990222802992338,
+      "travel": 0,
+      "resetError": 0,
+      "loopError": 6.748918980963771e-34,
+      "wrongAccentWeights": 0,
+      "ok": false
+    },
+    {
+      "quality": "sculpt",
+      "check": "Ability completes and resets",
+      "ok": true
+    },
+    {
+      "quality": "sculpt",
+      "check": "Walking interrupts shove",
+      "ok": true
+    },
+    {
+      "quality": "board",
+      "clip": "Walk",
+      "minRatio": 0.1681966652422127,
+      "maxRatio": 2.440190856335076,
+      "p99": 1.1327517110343441,
+      "rigidError": 4.1537231776356265e-7,
+      "minFloor": 0.007990222802992324,
+      "maxContact": 0.007990222802992593,
+      "travel": 0.06499999389052402,
+      "resetError": 0,
+      "loopError": 2.694223001241114e-18,
+      "wrongAccentWeights": 0,
+      "ok": false
+    },
+    {
+      "quality": "board",
+      "clip": "Shove",
+      "minRatio": 0.3248903670833803,
+      "maxRatio": 3.3557344606770063,
+      "p99": 1.3078058049532,
+      "rigidError": 2.5632035272060705e-7,
+      "minFloor": 0.007990222802992338,
+      "maxContact": 0.007990222802992338,
+      "travel": 0,
+      "resetError": 0,
+      "loopError": 6.748918980963771e-34,
+      "wrongAccentWeights": 0,
+      "ok": false
+    },
+    {
+      "quality": "board",
+      "check": "Ability completes and resets",
+      "ok": true
+    },
+    {
+      "quality": "board",
+      "check": "Walking interrupts shove",
+      "ok": true
+    },
+    {
+      "check": "Phone viewport fits",
+      "ok": true
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,158 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "quality": "sculpt",
+      "clip": "Walk",
+      "maskMismatch": 0,
+      "worstLow": {
+        "frame": 15,
+        "at": [
+          0.19474751061436935,
+          0.27733008565151673,
+          -0.03956504956734902
+        ]
+      },
+      "worstHigh": {
+        "frame": 39,
+        "at": [
+          -0.17004813345793435,
+          0.31733420867174134,
+          0.14890730414611575
+        ]
+      },
+      "minRatio": 0.5778919607374178,
+      "maxRatio": 1.2772727221136204,
+      "p99": 1.0542922242709967,
+      "rigidError": 2.3773018031914006e-7,
+      "minFloor": 0.007990222802992324,
+      "maxContact": 0.007990222802992593,
+      "travel": 0.06499999389052402,
+      "resetError": 0,
+      "loopError": 1.4695761072969157e-18,
+      "wrongAccentWeights": 0,
+      "ok": true
+    },
+    {
+      "quality": "sculpt",
+      "clip": "Shove",
+      "maskMismatch": 0,
+      "worstLow": {
+        "frame": 14,
+        "at": [
+          0.42685046590123826,
+          0.7994309695293389,
+          0.1261026122854696
+        ]
+      },
+      "worstHigh": {
+        "frame": 26,
+        "at": [
+          0.28661288654686146,
+          1.0618117681717933,
+          -0.06967985228877305
+        ]
+      },
+      "minRatio": 0.4446340711028002,
+      "maxRatio": 1.570096070092801,
+      "p99": 1.1413996387434742,
+      "rigidError": 2.1805379746275833e-7,
+      "minFloor": 0.007990222802992338,
+      "maxContact": 0.007990222802992338,
+      "travel": 0,
+      "resetError": 0,
+      "loopError": 6.748918980963771e-34,
+      "wrongAccentWeights": 0,
+      "ok": true
+    },
+    {
+      "quality": "sculpt",
+      "check": "Ability completes and resets",
+      "ok": true
+    },
+    {
+      "quality": "sculpt",
+      "check": "Walking interrupts shove",
+      "ok": true
+    },
+    {
+      "quality": "board",
+      "clip": "Walk",
+      "maskMismatch": 0,
+      "worstLow": {
+        "frame": 15,
+        "at": [
+          0.194747512141893,
+          0.2773300804239477,
+          -0.039565052830203784
+        ]
+      },
+      "worstHigh": {
+        "frame": 15,
+        "at": [
+          0.1697274139398267,
+          0.275823182348915,
+          0.13723750070578133
+        ]
+      },
+      "minRatio": 0.5778919907846546,
+      "maxRatio": 1.2711323914666948,
+      "p99": 1.0460057822830398,
+      "rigidError": 4.1537231776356265e-7,
+      "minFloor": 0.007990222802992324,
+      "maxContact": 0.007990222802992593,
+      "travel": 0.06499999389052402,
+      "resetError": 0,
+      "loopError": 1.4695761072969157e-18,
+      "wrongAccentWeights": 0,
+      "ok": true
+    },
+    {
+      "quality": "board",
+      "clip": "Shove",
+      "maskMismatch": 0,
+      "worstLow": {
+        "frame": 26,
+        "at": [
+          0.32356297169982257,
+          1.0909597848288881,
+          0.04186523161969402
+        ]
+      },
+      "worstHigh": {
+        "frame": 26,
+        "at": [
+          0.28661288654686146,
+          1.0618117681717933,
+          -0.06967985228877305
+        ]
+      },
+      "minRatio": 0.5162761262607637,
+      "maxRatio": 1.570096070092801,
+      "p99": 1.1407289169307788,
+      "rigidError": 3.052787602708662e-7,
+      "minFloor": 0.007990222802992338,
+      "maxContact": 0.007990222802992338,
+      "travel": 0,
+      "resetError": 0,
+      "loopError": 6.748918980963771e-34,
+      "wrongAccentWeights": 0,
+      "ok": true
+    },
+    {
+      "quality": "board",
+      "check": "Ability completes and resets",
+      "ok": true
+    },
+    {
+      "quality": "board",
+      "check": "Walking interrupts shove",
+      "ok": true
+    },
+    {
+      "check": "Phone viewport fits",
+      "ok": true
+    }
+  ],
+  "errors": []
+}

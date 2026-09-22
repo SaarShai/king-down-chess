@@ -1,5 +1,5 @@
 {
-  "method": "Source-derived full cast with feature-specific paint, optional applied-clay relief, crease shading and authored skeletal walking; earlier controls retained",
+  "method": "Source-derived cast plus an authored Ogre; semantic clay paint, articulated walks and earlier comparison controls",
   "models": [
     {
       "name": "blockout-guard",
@@ -943,6 +943,19 @@
         "concealedFeet": true,
         "scope": "Concealed steps under the original closed skirt"
       }
+    },
+    {
+      "name": "rebuilt-ogre",
+      "source": "Authored from approved Shover concept",
+      "triangles": 27998,
+      "bytes": 1166400,
+      "bones": 14,
+      "clips": [
+        "Walk",
+        "Shove"
+      ],
+      "feature": "Separate rounded terracotta palm pads",
+      "height": 1.4886798858642578
     }
   ]
 }
