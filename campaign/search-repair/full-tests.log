@@ -1,0 +1,9 @@
+
+ RUN  v5.0.0 /Users/za/.local/share/king-down-supervised-20260922/integration
+
+
+ Test Files  10 passed (10)
+      Tests  252 passed (252)
+   Start at  03:15:45
+   Duration  81.08s (tests 98%, transform 2%)
+

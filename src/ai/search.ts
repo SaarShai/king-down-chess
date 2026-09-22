@@ -61,7 +61,7 @@ const ttMove = new Int32Array(TT_SIZE);
 const ttMeta = new Int32Array(TT_SIZE);
 
 let nodes = 0, stop = false, hardDeadline = 0, rootDepth = 1;
-let gameHistory: number[] = [];
+let gameHistory = new Set<number>();
 /** Strike (Flame A) use per side during the current search, mirroring `Position.strike`. */
 let strikeUsed: [boolean, boolean] = [false, false];
 let strikeUndo: { sp: number; c: Color }[] = [];
@@ -247,13 +247,12 @@ function pick(moves: Move[], s: Int32Array, i: number): void {
 
 /**
  * Two-fold inside the search (and against the supplied game history) counts as a draw.
- * Nothing before the last irreversible move can repeat, so `hm` bounds both scans.
+ * Pawn moves reset the halfmove clock but need not be irreversible here: an Ogre
+ * can shove a pawn backward (and a Maester can swap it). Scan the whole path.
  */
-function repeated(ply: number, hm: number, key: number): boolean {
-  for (let i = ply - 2; i >= 0 && i >= ply - hm; i -= 2) if (path[i] === key) return true;
-  const n = gameHistory.length;
-  for (let i = n - 1; i >= 0 && i >= n - (hm - ply); i--) if (gameHistory[i] === key) return true;
-  return false;
+function repeated(ply: number, key: number): boolean {
+  for (let i = ply - 2; i >= 0; i -= 2) if (path[i] === key) return true;
+  return gameHistory.has(key);
 }
 
 const toTT = (s: number, ply: number): number => (s >= MATE_BOUND ? s + ply : s <= -MATE_BOUND ? s - ply : s);
@@ -276,9 +275,12 @@ const timeUp = (): boolean => {
   return stop;
 };
 
-function quiesce(alpha: number, beta: number, ply: number, qdepth: number): number {
+function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: number): number {
   const c = (rootTurn ^ (ply & 1)) as Color;
   if (timeUp() || ply >= MAX_PLY + QMAX) return evalBoard(board, c);
+  const key = combine(hLo, hHi);
+  if (hm >= 100 || repeated(ply, key)) return 0;
+  path[ply] = key;
   const inChk = attacked(c);
   let best: number;
   if (inChk) {
@@ -298,8 +300,9 @@ function quiesce(alpha: number, beta: number, ply: number, qdepth: number): numb
     // Delta pruning: even winning this material would not reach alpha. Rifle shots are safe to
     // prune here too — the gain is the whole story, there is no recapture to discover.
     if (!inChk && stand + gain(m) + DELTA < alpha) continue;
+    const nhm = m.captures.length || typeOf(board[m.from]) === P ? 0 : hm + 1;
     const base = apply(m);
-    const v = -quiesce(-beta, -alpha, ply + 1, qdepth - 1);
+    const v = -quiesce(-beta, -alpha, ply + 1, qdepth - 1, nhm);
     undo(base);
     if (stop) break;
     if (v > best) best = v;
@@ -314,7 +317,7 @@ function negamax(depth: number, alpha: number, beta: number, ply: number, hm: nu
   if (timeUp() || ply >= MAX_PLY) return evalBoard(board, c);
 
   const key = combine(hLo, hHi);
-  if (hm >= 100 || repeated(ply, hm, key)) return 0;
+  if (hm >= 100 || repeated(ply, key)) return 0;
   path[ply] = key;
 
   // Mate-distance pruning: a shorter mate already found elsewhere beats anything below here.
@@ -335,7 +338,7 @@ function negamax(depth: number, alpha: number, beta: number, ply: number, hm: nu
 
   const inChk = attacked(c);
   if (inChk && ply < rootDepth * 2) depth++; // check extension, capped at twice the nominal depth
-  if (depth <= 0) return quiesce(alpha, beta, ply, QMAX);
+  if (depth <= 0) return quiesce(alpha, beta, ply, QMAX, hm);
 
   const moves = genLegal(bufs[ply], c, 'all');
   if (moves.length === 0) return inChk ? -MATE + ply : 0;
@@ -404,13 +407,10 @@ export interface SearchResult {
  * same board, same answer.
  */
 export function quiesceScore(pos: Position): number {
-  board.set(pos.board);
-  rootTurn = pos.turn;
-  sp = 0;
-  nodes = 0;
-  stop = false;
+  initPosition(pos);
+  gameHistory.clear();
   hardDeadline = Infinity;
-  return quiesce(-INF, INF, 0, QMAX);
+  return quiesce(-INF, INF, 0, QMAX, pos.halfmove);
 }
 
 /** Key of a position, for `SearchOptions.history`. */
@@ -419,6 +419,19 @@ export function positionKey(pos: Position): number {
   if (pos.strike?.[0]) { hashOut[0] ^= Z_STRIKE_LO[0]; hashOut[1] ^= Z_STRIKE_HI[0]; }
   if (pos.strike?.[1]) { hashOut[0] ^= Z_STRIKE_LO[1]; hashOut[1] ^= Z_STRIKE_HI[1]; }
   return combine(hashOut[0], hashOut[1]);
+}
+
+function initPosition(pos: Position): void {
+  board.set(pos.board);
+  rootTurn = pos.turn;
+  positionKey(pos); // fills hashOut, including spent Strike state
+  hLo = hashOut[0];
+  hHi = hashOut[1];
+  sp = 0;
+  nodes = 0;
+  stop = false;
+  strikeUsed = [pos.strike?.[0] ?? false, pos.strike?.[1] ?? false];
+  strikeUndo = [];
 }
 
 /**
@@ -446,18 +459,9 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
   const maxDepth = Math.min(opts.maxDepth ?? MAX_PLY, MAX_PLY - QMAX);
   hardDeadline = start + timeMs;
 
-  board.set(pos.board);
-  rootTurn = pos.turn;
-  hashBoard(board, pos.turn, hashOut);
-  hLo = hashOut[0];
-  hHi = hashOut[1];
-  sp = 0;
-  nodes = 0;
-  stop = false;
+  initPosition(pos);
   rootDepth = 1;
-  gameHistory = opts.history ? (opts.history as readonly (number | bigint)[]).map(Number) : [];
-  strikeUsed = [pos.strike?.[0] ?? false, pos.strike?.[1] ?? false];
-  strikeUndo = [];
+  gameHistory = new Set(opts.history?.map(Number));
   killers.fill(0);
   for (let i = 0; i < history.length; i++) history[i] >>= 3; // fade, do not forget
   path[0] = combine(hLo, hHi);
@@ -515,5 +519,4 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
   result.nodes = nodes;
   return result;
 }
-
 

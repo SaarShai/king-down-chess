@@ -1,0 +1,38 @@
+{
+  fen: '7k/8/8/8/3p4/2BOK3/8/8 w - - 0 1',
+  check: true,
+  moves: [
+    'Bc3xd4',    'Od3xd4',
+    'Od3>d4-d5', 'Ke3-f3',
+    'Ke3-e4',    'Ke3-e2',
+    'Ke3-f4',    'Ke3-f2',
+    'Ke3xd4',    'Ke3-d2'
+  ]
+}
+{
+  fen: '7k/8/8/3p4/8/2BOK3/8/8 b - - 1 1',
+  check: true,
+  moves: [ 'd5-d4', 'Kh8-g8', 'Kh8-h7' ]
+}
+{ fen: '7k/8/8/8/3p4/2BOK3/8/8 w - - 0 2', same: true, halfmove: 0 }
+{
+  depth: 1,
+  result: { move: 'Od3xd4', score: 690, depth: 1, nodes: 448 },
+  ms: 6.824332999999996
+}
+{
+  depth: 2,
+  result: { move: 'Bc3xd4', score: 685, depth: 2, nodes: 519 },
+  ms: 3.2314999999999827
+}
+{
+  depth: 3,
+  result: { move: 'Ke3xd4', score: 669, depth: 3, nodes: 1075 },
+  ms: 5.690292000000028
+}
+{
+  depth: 4,
+  result: { move: 'Ke3xd4', score: 671, depth: 4, nodes: 1595 },
+  ms: 10.316125
+}
+{ q: 690, ms: 2.7009579999999858 }
