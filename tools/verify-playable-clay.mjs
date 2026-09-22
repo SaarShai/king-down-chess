@@ -87,8 +87,12 @@ try {
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length >= 2);
   checks.push('human move receives a legal worker-AI reply');
   await page.selectOption('#black', 'human');
-  await page.selectOption('#setup-example', 'KGBMSSMB'); await ready();
-  assert.equal(await page.locator('#setup').textContent(),'KGBMSSMB');
+  await page.selectOption('#setup-example', 'SQBKRSML'); await ready();
+  assert.equal(await page.locator('#setup').textContent(),'SQBKRSML');
+  const pawnSquares = [...Array(8)].flatMap((_, i) => [8+i, 48+i]);
+  assert.deepEqual(await page.evaluate(squares => squares.map(sq => {
+    const p = window.view.screenOf(sq); return window.view.pick({clientX:p.x,clientY:p.y});
+  }), pawnSquares), pawnSquares, 'resized pieces must not intercept neighbouring pawn-square centres');
   await fixedPresentation(); await facingOpponent();
   checks.push('optional mirrored setup keeps the fixed handmade material and opponent-facing armies');
   await page.click('#rules-btn');
@@ -122,6 +126,7 @@ try {
   assert.equal(await page.evaluate(()=>window.view.pieces.size),32);
   assert.equal(await page.locator('#moves').innerText(),'');
   checks.push('new game during a walk prevents stale animation from changing the new board');
+  await page.selectOption('#setup-example', 'SQBKRSML'); await ready();
   await page.screenshot({path:out+'/desktop.png'});
   await page.setViewportSize({width:390,height:844}); await page.waitForTimeout(300);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);

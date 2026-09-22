@@ -1,5 +1,10 @@
 # Tasks
 
+## Piece proportions — 2026-09-22
+- Owner requests Maester 50% smaller, Paladin 30% bigger and every king 20% smaller. Apply uniform size factors after the existing board fit so the width limit cannot cancel the requested change; adjust labels and ground shadows with the figures.
+- Verify: compare actual model scales against the prior build for both armies; build and exercise movement, picking, undo and mobile layout in the production browser. Keep handmade clay at 0.5 px.
+- [x] Applied uniform ×0.5 / ×1.3 / ×0.8 proportions after board fitting, with matching label heights and ground shadows. Six before/after figure comparisons match exactly; production build and all 15 browser checks pass, including both pawn ranks beside resized figures. Inspected mobile and live desktop; the owner's eight saved moves survived refresh. Evidence: `docs/playable-clay/piece-sizes.json` and `browser-checks.json`.
+
 ## Fixed handmade-clay presentation — 2026-09-22
 - Owner correction: armies must face one another; use handmade clay at the study's 0.5 px double-detail rendering, without player rendering choices.
 - Plan: correct the clay models' resting orientation; pin the playable style/fidelity and remove rendering controls plus URL/save overrides. Preserve gameplay and the separate graphics study.

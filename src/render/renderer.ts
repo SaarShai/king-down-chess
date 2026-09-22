@@ -4,7 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { Color, LETTERS, Move, K, N, O, RULES, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
+import { Color, LETTERS, Move, K, L, M, N, O, RULES, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
 import { ARMY, TARGET_HEIGHT, pieceGeometry } from './voxels';
 import { Debris, Tweens, easeOut, labelSprite, linear } from './fx';
 import { PALETTES, createPalettePass, paletteTexture } from './palette';
@@ -518,9 +518,12 @@ export class BoardRenderer {
         // Study figures have different source heights. Fit the accepted shape to a
         // playable square without changing its proportions or authored rig.
         const size = new THREE.Box3().setFromObject(figure.model).getSize(new THREE.Vector3());
-        const scale = Math.min(TARGET_HEIGHT[t] / size.y, .92 / Math.max(size.x, size.z)) * (this.style.pieceScale ?? 1);
+        // Owner proportions apply after fitting, including every king design.
+        const relativeSize = t === M ? .5 : t === L ? 1.3 : t === K ? .8 : 1;
+        const scale = Math.min(TARGET_HEIGHT[t] / size.y, .92 / Math.max(size.x, size.z)) * (this.style.pieceScale ?? 1) * relativeSize;
         figure.model.scale.multiplyScalar(scale);
         (g.userData.label as THREE.Sprite).position.y = size.y * scale + .25;
+        (g.userData.shadow as THREE.Mesh | undefined)?.scale.multiplyScalar(relativeSize);
         g.userData.figure = figure;
         g.add(figure.model);
         this.updateContours();
