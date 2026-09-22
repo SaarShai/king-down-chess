@@ -1,0 +1,26 @@
+{
+  "idleHidden": true,
+  "burstVisible": true,
+  "burstCount": 29,
+  "expiredHidden": true,
+  "expiredCount": 0,
+  "shadowMid": 0.020000000000000018,
+  "bodyMid": 0.35,
+  "shadowEnd": 0.01999999999999996,
+  "before": {
+    "geometries": 24,
+    "textures": 5
+  },
+  "after": {
+    "geometries": 24,
+    "textures": 5
+  },
+  "submitted": {
+    "calls": 52,
+    "triangles": 53994
+  },
+  "idle": {
+    "calls": 52,
+    "triangles": 53994
+  }
+}

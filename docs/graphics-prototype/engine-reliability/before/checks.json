@@ -1,0 +1,26 @@
+{
+  "passed": false,
+  "checks": [
+    {
+      "name": "idle debris omitted",
+      "ok": false
+    },
+    {
+      "name": "small burst trims unused instances",
+      "ok": false
+    },
+    {
+      "name": "hop shadow remains at board height",
+      "ok": false
+    },
+    {
+      "name": "repeated normal/flush projectiles release GPU geometry",
+      "ok": false
+    },
+    {
+      "name": "no browser or shader errors",
+      "ok": true
+    }
+  ],
+  "errors": []
+}

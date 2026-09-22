@@ -80,6 +80,8 @@ export class Debris {
     this.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.07, 0.07, 0.07), new THREE.MeshLambertMaterial(), max);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
+    this.mesh.count = 0;
+    this.mesh.visible = false;
     this.pos = new Float32Array(max * 3);
     this.vel = new Float32Array(max * 3);
     this.life = new Float32Array(max);
@@ -102,19 +104,23 @@ export class Debris {
   }
 
   step(dt: number): void {
-    let any = false;
+    let changed = false, liveEnd = 0;
     for (let i = 0; i < this.max; i++) {
       if (this.life[i] <= 0) continue;
-      any = true;
+      changed = true;
       const o = i * 3;
       this.vel[o + 1] -= 12 * dt;
       this.pos[o] += this.vel[o] * dt; this.pos[o + 1] += this.vel[o + 1] * dt; this.pos[o + 2] += this.vel[o + 2] * dt;
       if (this.pos[o + 1] < 0.035) { this.pos[o + 1] = 0.035; this.vel[o + 1] *= -0.35; this.vel[o] *= 0.6; this.vel[o + 2] *= 0.6; }
       this.life[i] -= dt;
+      if (this.life[i] > 0) liveEnd = i + 1;
       const k = Math.max(0, Math.min(1, this.life[i] / 0.3));
       this.m.compose(this.p.set(this.pos[o], this.pos[o + 1], this.pos[o + 2]), this.q, this.s.setScalar(k));
       this.mesh.setMatrixAt(i, this.m);
     }
-    if (any) this.mesh.instanceMatrix.needsUpdate = true;
+    // Trim the unused tail; dead slots inside the bounded ring remain zero-size.
+    this.mesh.count = liveEnd;
+    this.mesh.visible = liveEnd > 0;
+    if (changed) this.mesh.instanceMatrix.needsUpdate = true;
   }
 }

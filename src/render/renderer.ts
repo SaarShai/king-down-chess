@@ -508,6 +508,7 @@ export class BoardRenderer {
       disc.scale.setScalar(0.8);
       disc.position.y = 0.02;
       g.add(disc);
+      g.userData.shadow = disc;
     }
     const label = labelSprite(LETTERS[t]);
     label.position.y = top + 0.25;
@@ -595,6 +596,9 @@ export class BoardRenderer {
     return this.tweens.add(dur, k => {
       g.position.lerpVectors(a, b, k);
       g.position.y = Math.sin(k * Math.PI) * height;
+      // The figure rises; its contact shadow stays on the board.
+      const shadow = g.userData.shadow as THREE.Mesh | undefined;
+      if (shadow) shadow.position.y = 0.02 - g.position.y;
     });
   }
 
@@ -607,7 +611,11 @@ export class BoardRenderer {
     return this.tweens.add(0.28, k => {
       arrow.position.lerpVectors(a, b, k);
       arrow.position.y += Math.sin(k * Math.PI) * 0.4;
-      if (k >= 1) this.world.remove(arrow);
+      if (k >= 1) {
+        this.world.remove(arrow);
+        arrow.geometry.dispose();
+        arrow.material.dispose();
+      }
     }, linear);
   }
 
