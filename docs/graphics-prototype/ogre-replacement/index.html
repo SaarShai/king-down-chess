@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>King Down — Ogre replacement study</title>
+<style>
+  :root { color-scheme: dark; font: 16px/1.55 system-ui, sans-serif; background: #141d25; color: #e5e2d8; }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  main { max-width: 1280px; margin: auto; padding: 42px 28px 64px; }
+  header { max-width: 840px; margin-bottom: 30px; }
+  .eyebrow { color: #d1aa7b; text-transform: uppercase; letter-spacing: .15em; font-size: 12px; }
+  h1 { font-size: clamp(28px, 4vw, 48px); line-height: 1.12; margin: 12px 0 18px; letter-spacing: -.035em; }
+  h2 { font-size: 23px; margin: 34px 0 15px; }
+  h3 { font-size: 19px; margin: 0 0 10px; }
+  p { margin: 0 0 12px; }
+  a { color: #c7dccc; text-underline-offset: 3px; }
+  .muted { color: #a9b6bf; }
+  .target { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; align-items: start; }
+  .target img { width: 100%; display: block; border-radius: 8px; }
+  .target figure { margin: 0; }
+  figcaption { color: #b3bfc5; padding-top: 10px; font-size: 14px; }
+  .target aside { border-left: 2px solid #977354; padding: 0 0 0 22px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 9px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card { background: #202c35; border: 1px solid #35434a; border-radius: 10px; overflow: hidden; }
+  .card img { display: block; width: 100%; height: 245px; object-fit: contain; background: #10171c; }
+  .card .body { padding: 20px; }
+  .tag { display: block; color: #d1aa7b; font-size: 12px; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 9px; }
+  .note { margin-top: 18px; font-size: 14px; color: #a9b6bf; }
+  .route { background: #243630; border: 1px solid #496055; border-radius: 10px; padding: 24px 28px; margin-top: 34px; }
+  .route h2 { margin-top: 0; }
+  .route p { max-width: 950px; }
+  .trial { margin-top: 34px; padding: 26px; border: 1px solid #665744; border-radius: 10px; background: #272a27; }
+  .trial h2 { margin-top: 0; }
+  .trial-images { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+  .trial figure { margin: 0; }
+  .trial img { width: 100%; display: block; border-radius: 6px; }
+  @media (max-width: 850px) { .trial-images { grid-template-columns: repeat(2, 1fr); } }
+  details { border-top: 1px solid #405049; padding-top: 16px; margin-top: 18px; }
+  summary { cursor: pointer; color: #c7dccc; }
+  details p { margin-top: 14px; }
+  footer { margin-top: 26px; color: #a9b6bf; font-size: 13px; }
+  @media (max-width: 850px) { .target, .cards { grid-template-columns: 1fr; } .card img { height: 300px; } .target aside { margin-top: 8px; } }
+</style>
+<main>
+  <header>
+    <div class="eyebrow">King Down · Character development · 22 September 2026</div>
+    <h1>A better route to the Shover.</h1>
+    <p>The approved study has a continuous, heavy silhouette and a sculpted face. Those are the priorities for the replacement mesh.</p>
+    <p class="muted">Library candidates below are original third-party previews, not adapted models or claims of a finished replacement.</p>
+  </header>
+  <section class="target" aria-label="Approved reference and modelling priorities">
+    <figure>
+      <a href="../ogre-concept/ogre-shover-concept.png"><img src="../ogre-concept/ogre-shover-concept.png" alt="Approved Shover concept: broad sloping shoulders, short legs, large hands and terracotta pads in two army colours"></a>
+      <figcaption>The approved study remains the design reference. Click to inspect the complete sheet.</figcaption>
+    </figure>
+    <aside>
+      <h3>What the mesh must preserve</h3>
+      <ul>
+        <li>A small head sitting low between wide, sloping shoulders.</li>
+        <li>A connected shoulder–chest–belly mass, with no ball-shaped muscle joints.</li>
+        <li>A heavy lower jaw, recessed eyes and a broad blunt nose.</li>
+        <li>Short sturdy legs, wide feet and large, flattened hands.</li>
+        <li>Terracotta pads sculpted as separate clay on the pushing surfaces.</li>
+      </ul>
+      <p class="muted">The sheet varies slightly between views, especially around the hand pads. Establish one consistent neutral pose before reconstruction.</p>
+      <a href="../ogre-verification/rest-current.png">Compare the rejected procedural model ↗</a>
+    </aside>
+  </section>
+  <section class="trial" aria-label="Actual image-to-3D test result">
+    <span class="tag">Actual TRELLIS.2 trial · Preview generated · Mesh export failed</span>
+    <h2>Closer body mass. Still not a faithful sculpt.</h2>
+    <p>With your approval, the isolated reference was tested in Microsoft's public demo. These are its rendered 3D views. The neutral views expose a flattened head merging into a high back, heavy facial folds and exaggerated arm ridges. This pass is not accepted for the game.</p>
+    <div class="trial-images">
+      <figure><a href="trellis-textured.jpg"><img src="trellis-textured.jpg" alt="Textured TRELLIS.2 reconstruction of the Shover"></a><figcaption>Textured reconstruction</figcaption></figure>
+      <figure><a href="trellis-neutral-front.jpg"><img src="trellis-neutral-front.jpg" alt="Neutral front-facing render with exaggerated brows and flattened head"></a><figcaption>Neutral front</figcaption></figure>
+      <figure><a href="trellis-neutral-side.jpg"><img src="trellis-neutral-side.jpg" alt="Neutral side render revealing the high back merging into the head"></a><figcaption>Neutral side</figcaption></figure>
+      <figure><a href="trellis-neutral-back.jpg"><img src="trellis-neutral-back.jpg" alt="Neutral back render with invented bulging anatomy"></a><figcaption>Neutral back</figcaption></figure>
+    </div>
+    <p class="muted">One generation at 1024, seed 0. Export failed at both 300k faces / 2048 texture and 100k / 1024, returning a generic error. No downloadable mesh was produced; topology and animation remain untested.</p>
+  </section>
+  <h2>Reusable model candidates</h2>
+  <section class="cards" aria-label="Three licensed Ogre models">
+    <article class="card">
+      <a href="https://sketchfab.com/3d-models/stylized-ogre-gameready-character-e723ecbfdd82413cac16f1cab196ee5f"><img src="https://media.sketchfab.com/models/e723ecbfdd82413cac16f1cab196ee5f/thumbnails/5e0556c3cc3f4f5aa8a3b7f885b74e0b/5de4f12afc91483686e16b3df9fafe39.jpeg" alt="Klayzen's broad-bellied Ogre with large hands, fur shoulder cape and open mouth"></a>
+      <div class="body">
+        <span class="tag">Best library donor · CC BY 4.0</span>
+        <h3>Klayzen · Stylized Ogre</h3>
+        <p>10,038 triangles. Creator reports skinning and a rig.</p>
+        <p>Useful body mass and hands. Remove the cape, chains and armour; reshape the face and silhouette to the study. Closing the exaggerated mouth is real sculpting work.</p>
+        <p class="muted">Download is free with attribution, but requires Sketchfab login. Mesh and rig have not been downloaded or tested.</p>
+        <a href="https://sketchfab.com/3d-models/stylized-ogre-gameready-character-e723ecbfdd82413cac16f1cab196ee5f">Inspect source model ↗</a>
+      </div>
+    </article>
+    <article class="card">
+      <a href="https://blendswap.com/blend/12011"><img src="https://blendswap.com/blend_previews/12011/0/0?v=1c929ca9" alt="xGhostArtx7's simple green Ogre with a round belly, long arms and a short skirt"></a>
+      <div class="body">
+        <span class="tag">Simple body base · CC0</span>
+        <h3>xGhostArtx7 · Ogre</h3>
+        <p>Creator lists 7,444 triangles, textures and a rig.</p>
+        <p>A simpler belly and short outfit. Needs broader shoulders, larger hands, shorter proportions and substantial facial refinement.</p>
+        <p class="muted">Blender 2.6-era asset. A user reports hip, shoulder and elbow deformation problems; that report is unverified. Do not rely on its existing rig.</p>
+        <a href="https://blendswap.com/blend/12011">Inspect source model ↗</a>
+      </div>
+    </article>
+    <article class="card">
+      <a href="https://blendswap.com/blend/4979"><img src="https://blendswap.com/blend_previews/4979/0/0?v=14d35348" alt="Sazerac's muscular, long-limbed Ogre with tusks and a club"></a>
+      <div class="body">
+        <span class="tag">Anatomy donor only · CC0</span>
+        <h3>Sazerac · Ogre Creature</h3>
+        <p>Creator lists a Rigify rig and an editable Blender source.</p>
+        <p>A more developed face and connected anatomy, but the lean waist and long limbs pull away from the Shover. More reshaping than the other candidates.</p>
+        <p class="muted">Blender 2.6-era asset. Download requires BlendSwap login; its rig has not been validated in our pipeline.</p>
+        <a href="https://blendswap.com/blend/4979">Inspect source model ↗</a>
+      </div>
+    </article>
+  </section>
+  <p class="note">License and geometry facts come from the creators' listings and Sketchfab's public metadata. Fit assessments are visual judgments from the previews. External preview images require an internet connection.</p>
+  <section class="route">
+    <span class="tag">Recommended for fidelity</span>
+    <h2>Control the views, then sculpt the result.</h2>
+    <p>An image-to-3D pass gives us a base shaped by the actual character. Blender cleanup can then concentrate on the face, continuous shoulder mass, hands and animation joints.</p>
+    <ol>
+      <li>Keep <a href="shover-input.png">the prepared transparent single-view reference</a> as the character authority. Establish consistent front, side and back views, including the head height and exact hand-pad placement.</li>
+      <li>Try those views through <a href="https://developers.tripo3d.ai/en/docs/generation-multiview-to-model/standard">Tripo's multiview workflow</a>, or adapt Klayzen's official mesh. Inspect the geometry with a neutral material first.</li>
+      <li>Correct the sculpt in Blender. Build the coloured hand pads as exact separate surfaces.</li>
+      <li>Compare front, side and game-camera views beside Guard and Beast at board size. Rig only after the body and face read correctly.</li>
+    </ol>
+    <details>
+      <summary>Practical access and animation limits</summary>
+      <p>Tripo needs a service account and credits; its free tier is public/noncommercial. TRELLIS.2's public demo generated our approved test preview but failed GLB export. Its local release requires a Linux/NVIDIA GPU setup. No purchase or additional service upload has been made.</p>
+      <p>Generated geometry is a sculpting base. Knees, elbows, fingers and clothing still need inspection, suitable topology, weights and walk/shove clips. Our existing Three.js, clay materials, capture effects and board-mesh pipeline can accept the resulting GLB.</p>
+    </details>
+  </section>
+  <footer>Research comparison only. No replacement mesh is implemented. <a href="README.md">Sources, limitations and adaptation plan</a>.</footer>
+</main>
+</html>
