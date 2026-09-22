@@ -1,0 +1,56 @@
+{
+  "front": {
+    "size": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "opaque_bbox": [
+      119,
+      127,
+      1136,
+      1118
+    ],
+    "height_fraction": 0.79
+  },
+  "left": {
+    "size": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "opaque_bbox": [
+      378,
+      143,
+      890,
+      1140
+    ],
+    "height_fraction": 0.795
+  },
+  "back": {
+    "size": [
+      1254,
+      1254
+    ],
+    "mode": "RGBA",
+    "alpha_extrema": [
+      0,
+      255
+    ],
+    "opaque_bbox": [
+      108,
+      115,
+      1146,
+      1129
+    ],
+    "height_fraction": 0.809
+  }
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>King Down — the stronger Shover</title>
+<style>
+:root{color-scheme:dark;font:16px/1.55 system-ui,sans-serif;color:#e7e4dc;background:#151e26}
+*{box-sizing:border-box}body{margin:0}main{max-width:1380px;margin:auto;padding:36px 28px 50px}
+a{color:#c7dccd;text-underline-offset:4px}.eyebrow{color:#d1a075;font-size:12px;letter-spacing:.16em;text-transform:uppercase}
+header{display:flex;justify-content:space-between;gap:24px;align-items:start}h1{font-size:clamp(30px,4vw,48px);line-height:1.12;letter-spacing:-.04em;margin:12px 0 14px}
+p{margin:0 0 12px}.intro{max-width:840px;color:#b8c4ca}.pill{border:1px solid #665742;color:#e1bd91;border-radius:30px;padding:8px 14px;font-size:13px;white-space:nowrap}
+.views{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:26px 0 20px}figure{margin:0;overflow:hidden;border:1px solid #3b474c;border-radius:10px;background:#dcdedb}
+figure img{width:100%;display:block}figcaption{background:#202c35;padding:15px 18px;color:#dce3e4;display:flex;justify-content:space-between;gap:16px}figcaption span{color:#aebcc1;font-size:13px}
+.next{display:grid;grid-template-columns:1.15fr 1fr;gap:28px;background:#22342d;padding:22px 26px;border:1px solid #455d50;border-radius:10px;margin-top:24px}h2{font-size:19px;margin:0 0 10px}.small{font-size:14px;color:#b4c2c8}.links{display:flex;gap:22px;flex-wrap:wrap;margin-top:22px}
+@media(max-width:800px){header{display:block}.pill{display:inline-block;margin-top:10px}.views{grid-template-columns:1fr}.next{grid-template-columns:1fr}main{padding:25px 18px}}
+</style>
+<main>
+ <header>
+  <div><div class="eyebrow">King Down · Ogre reconstruction · 22 September 2026</div><h1>The Shover, built to push.</h1>
+  <p class="intro">A wider shoulder girdle and heavier upper arms and forearms, preserving the small head, broad belly, short legs and terracotta hand pads. These three reference views establish the shape for the next 3D reconstruction.</p></div>
+  <div class="pill">References ready · 3D generation pending</div>
+ </header>
+ <section class="views" aria-label="Revised Ogre reference views">
+  <figure><a href="front.png"><img src="front.png" alt="Front view of the revised Ogre, with enlarged rounded shoulders and thick arms"></a><figcaption><strong>Front</strong><span>Primary design reference ↗</span></figcaption></figure>
+  <figure><a href="left.png"><img src="left.png" alt="Left profile of the same Ogre showing its heavy forearms, projecting belly and rounded head above the shoulders"></a><figcaption><strong>Left profile</strong><span>Depth and head separation ↗</span></figcaption></figure>
+  <figure><a href="back.png"><img src="back.png" alt="Back view of the same Ogre with wide sloping shoulders and a short plain tunic"></a><figcaption><strong>Back</strong><span>Shoulder mass and plain hem ↗</span></figcaption></figure>
+ </section>
+ <p class="small">Click a view to inspect it at full size. These are generated reference images, not renders of a completed mesh. Figure heights occupy 79–81% of their matching 1254 × 1254 transparent canvases; minor sculpt differences still need checking in 3D.</p>
+ <section class="next">
+  <div><h2>The next test is prepared</h2><p>Tripo v3.1, multiple reference images, high-quality geometry, 100,000 polygons and no generated textures. The workspace currently displays <strong>30 credits</strong> for this setup.</p><p class="small">The workspace is signed out, so nothing has been submitted. Sign-in and the account's credits/private-generation access are the remaining service requirements.</p><a href="https://studio.tripo3d.ai/workspace/generate">Open Tripo workspace ↗</a></div>
+  <div><h2>What the actual sculpt must pass</h2><p>A rounded head above the shoulder line, connected shoulder and arm surfaces, readable hands, short clear legs and accents following the hand pads exactly.</p><p class="small">Inspect the exported mesh from front, side and back with a plain material. Refine in Blender before rigging. The previous game model has not been replaced.</p></div>
+ </section>
+ <nav class="links" aria-label="Reference resources"><a href="README.md">Reference package and reconstruction settings</a><a href="ogre-multiview-inputs.zip" download>Download the three PNG inputs</a><a href="../ogre-replacement/index.html">Library comparison and earlier trial</a><a href="../ogre-concept/ogre-shover-concept.png">Original concept sheet</a></nav>
+</main>
+</html>
