@@ -14,7 +14,7 @@ export const CAST = [
  {key:'king-frost',label:'Frost King',type:'king',code:6,feature:'Raised ice gauntlet',accent:0x67a6bf},
  {key:'king-gaya',label:'Gaya King',type:'king',code:6,feature:'Rhino pauldron',accent:0x7b9b53},
  {key:'king-celestial',label:'Celestial King',type:'king',code:6,feature:'Crown',accent:0xd0ad55},
- {key:'king-shadow',label:'Shadow King',type:'king',code:6,feature:'Sword',accent:0x8067a4},
+ {key:'king-shadow',label:'Shadow King',type:'king',code:6,feature:'Sword blade',accent:0x8067a4},
  {key:'king-spirit',label:'Spirit King',type:'king',code:6,feature:'Clasped hands',accent:0x68aaa3},
 ] as const;
 export const character = (key:string) => CAST.find(c=>c.key===key)!;

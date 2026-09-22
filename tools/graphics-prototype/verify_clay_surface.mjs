@@ -46,7 +46,7 @@ try{
  check('Textured figures remain animated',await p.evaluate(()=>study.walking&&study.entries.every(e=>e.walk.action.time>0)));
  await p.evaluate(()=>study.setCharacter('archer'));await p.screenshot({path:out+'/captures/clay-surface-handmade-archer.png'});
  await p.evaluate(()=>study.setScene('cast'));await p.screenshot({path:out+'/captures/clay-surface-handmade-cast.png'});
- check('Full cast uses the handmade shader',await p.evaluate(()=>study.entries.length===32&&study.entries.every(e=>{let ok=true;e.visual.traverse(o=>{if(o.isMesh)for(const m of Array.isArray(o.material)?o.material:[o.material])ok&&=m.customProgramCacheKey()==='pressed-clay-v2';});return ok;})));
+ check('Full cast uses the handmade shader with separate accent impressions',await p.evaluate(()=>study.entries.length===32&&study.entries.every(e=>{let ok=true;e.visual.traverse(o=>{if(o.isMesh)for(const m of Array.isArray(o.material)?o.material:[o.material])ok&&=m.customProgramCacheKey()===`pressed-clay-v3-${m.name==='accent1'}`;});return ok;})));
  await p.setViewportSize({width:390,height:844});await p.waitForTimeout(150);await p.screenshot({path:out+'/captures/clay-surface-mobile-cast.png'});
  check('Phone layout fits',await p.evaluate(()=>document.documentElement.scrollWidth===innerWidth));
  await p.evaluate(()=>study.setLook('plasticine'));

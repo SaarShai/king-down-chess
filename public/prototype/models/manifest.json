@@ -1,5 +1,5 @@
 {
-  "method": "Source-derived full cast with feature-specific paint, crease shading and authored skeletal walking; approved Guard/Archer preserved; earlier controls retained",
+  "method": "Source-derived full cast with feature-specific paint, optional applied-clay relief, crease shading and authored skeletal walking; earlier controls retained",
   "models": [
     {
       "name": "blockout-guard",
@@ -44,7 +44,7 @@
     {
       "name": "rebuilt-guard",
       "triangles": 22416,
-      "bytes": 1349592,
+      "bytes": 1526888,
       "source": "Guard_22mm.obj",
       "sourceTriangles": 60180,
       "materialAreaShare": {
@@ -63,6 +63,14 @@
         "surfaceAreaRelativeError": 1.2521321979264144e-08,
         "sourceReducedTriangles": 17999,
         "paintedTriangles": 22416
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 1961,
+        "boundaryVertices": 1649,
+        "maxLift": 0.006299999999999999,
+        "edgeWidth": 0.0336,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -104,7 +112,7 @@
     {
       "name": "rebuilt-archer",
       "triangles": 20968,
-      "bytes": 937464,
+      "bytes": 1015876,
       "source": "Archer_2.obj",
       "sourceTriangles": 36502,
       "materialAreaShare": {
@@ -123,6 +131,14 @@
         "surfaceAreaRelativeError": 3.8630306731235464e-09,
         "sourceReducedTriangles": 20000,
         "paintedTriangles": 20968
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 809,
+        "boundaryVertices": 267,
+        "maxLift": 0.0065249999999999996,
+        "edgeWidth": 0.0348,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -188,6 +204,7 @@
         "sourceReducedTriangles": 14999,
         "paintedTriangles": 14999
       },
+      "clayLayer": null,
       "featureCleanup": {
         "iterations": 3,
         "pinnedCreaseVertices": 18884,
@@ -217,23 +234,31 @@
       "label": "Knight",
       "source": "knight_22mm.obj",
       "height": 1.48,
-      "triangles": 20352,
+      "triangles": 20000,
       "sourceTriangles": 50684,
-      "bytes": 998536,
+      "bytes": 1033084,
       "accent": 12077369,
       "feature": "Helmet crest",
       "materialAreaShare": {
-        "army": 0.9434474607061134,
-        "accent1": 0.0565525392938866
+        "army": 0.9467359144710045,
+        "accent1": 0.05326408552899557
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 1.0872516442717028e-08,
+        "surfaceAreaRelativeError": 1.0151261831126135e-08,
         "sourceReducedTriangles": 20000,
-        "paintedTriangles": 20352
+        "paintedTriangles": 20000
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 225,
+        "boundaryVertices": 108,
+        "maxLift": 0.006659999999999999,
+        "edgeWidth": 0.03552,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -264,23 +289,31 @@
       "label": "Bishop",
       "source": "Bishop.obj",
       "height": 1.55,
-      "triangles": 18181,
+      "triangles": 17999,
       "sourceTriangles": 36377,
-      "bytes": 791620,
+      "bytes": 844204,
       "accent": 9590398,
       "feature": "Mitre",
       "materialAreaShare": {
-        "army": 0.887142636342873,
-        "accent1": 0.112857363657127
+        "army": 0.8972384185273022,
+        "accent1": 0.10276158147269779
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 5.0031309095643905e-09,
+        "surfaceAreaRelativeError": 5.012064097087432e-09,
         "sourceReducedTriangles": 17999,
-        "paintedTriangles": 18181
+        "paintedTriangles": 17999
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 1084,
+        "boundaryVertices": 0,
+        "maxLift": 0.006974999999999999,
+        "edgeWidth": 0.037200000000000004,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -311,23 +344,31 @@
       "label": "Rook",
       "source": "Rook_22mm.obj",
       "height": 1.4,
-      "triangles": 23564,
+      "triangles": 23856,
       "sourceTriangles": 59921,
-      "bytes": 1225436,
+      "bytes": 1424720,
       "accent": 11696209,
       "feature": "Tower crown",
       "materialAreaShare": {
-        "army": 0.8302799393759306,
-        "accent1": 0.16972006062406944
+        "army": 0.8605816459176059,
+        "accent1": 0.1394183540823941
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 1.2700818174948836e-09,
+        "surfaceAreaRelativeError": 1.982312092252414e-09,
         "sourceReducedTriangles": 22997,
-        "paintedTriangles": 23564
+        "paintedTriangles": 23856
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 2038,
+        "boundaryVertices": 573,
+        "maxLift": 0.006299999999999999,
+        "edgeWidth": 0.0336,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -358,23 +399,31 @@
       "label": "Queen",
       "source": "Queen_22m.obj",
       "height": 1.52,
-      "triangles": 20329,
+      "triangles": 19990,
       "sourceTriangles": 54566,
-      "bytes": 890524,
+      "bytes": 914432,
       "accent": 12018823,
       "feature": "Crown",
       "materialAreaShare": {
-        "army": 0.9691398538227467,
-        "accent1": 0.030860146177253273
+        "army": 0.9902722856759852,
+        "accent1": 0.00972771432401471
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 9.090669328415402e-10,
+        "surfaceAreaRelativeError": 2.4408675081133424e-10,
         "sourceReducedTriangles": 20000,
-        "paintedTriangles": 20329
+        "paintedTriangles": 19990
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 238,
+        "boundaryVertices": 0,
+        "maxLift": 0.00684,
+        "edgeWidth": 0.03648,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -405,23 +454,31 @@
       "label": "Paladin",
       "source": "Paladin-0.obj",
       "height": 1.4,
-      "triangles": 64384,
+      "triangles": 63913,
       "sourceTriangles": 67390,
-      "bytes": 4730532,
+      "bytes": 4948992,
       "accent": 13014852,
       "feature": "Raised chest cross",
       "materialAreaShare": {
-        "army": 0.9934330268031474,
-        "accent1": 0.006566973196852642
+        "army": 0.9944949866155439,
+        "accent1": 0.00550501338445613
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 2.0000847200662975e-08,
+        "surfaceAreaRelativeError": 2.128702036863217e-08,
         "sourceReducedTriangles": 67390,
-        "paintedTriangles": 64387
+        "paintedTriangles": 63916
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 109,
+        "boundaryVertices": 59,
+        "maxLift": 0.006299999999999999,
+        "edgeWidth": 0.0336,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -452,23 +509,31 @@
       "label": "Maester",
       "source": "Maetser_22mm.obj",
       "height": 1.12,
-      "triangles": 18573,
+      "triangles": 18000,
       "sourceTriangles": 40456,
-      "bytes": 773156,
+      "bytes": 776268,
       "accent": 5678502,
       "feature": "Goggle frame",
       "materialAreaShare": {
-        "army": 0.9844648249829396,
-        "accent1": 0.015535175017060341
+        "army": 0.9890238240218412,
+        "accent1": 0.010976175978158817
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 8.464451140000051e-09,
+        "surfaceAreaRelativeError": 8.063978707006925e-09,
         "sourceReducedTriangles": 18000,
-        "paintedTriangles": 18573
+        "paintedTriangles": 18000
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 285,
+        "boundaryVertices": 38,
+        "maxLift": 0.00504,
+        "edgeWidth": 0.026880000000000005,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -501,7 +566,7 @@
       "height": 1.34,
       "triangles": 21821,
       "sourceTriangles": 40722,
-      "bytes": 1443880,
+      "bytes": 1564512,
       "accent": 11100480,
       "feature": "Leather head and wrist straps",
       "materialAreaShare": {
@@ -516,6 +581,14 @@
         "surfaceAreaRelativeError": 4.989397894838987e-09,
         "sourceReducedTriangles": 21000,
         "paintedTriangles": 21821
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 649,
+        "boundaryVertices": 886,
+        "maxLift": 0.00603,
+        "edgeWidth": 0.03216,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -546,23 +619,31 @@
       "label": "Ember King",
       "source": "King_Ember_22mm.obj",
       "height": 1.55,
-      "triangles": 24068,
+      "triangles": 23000,
       "sourceTriangles": 59720,
-      "bytes": 1300288,
+      "bytes": 1377976,
       "accent": 12675908,
       "feature": "Cracked chest armour",
       "materialAreaShare": {
-        "army": 0.931119472548311,
-        "accent1": 0.06888052745168907
+        "army": 0.9434884626742203,
+        "accent1": 0.05651153732577975
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 5.257290602855846e-09,
+        "surfaceAreaRelativeError": 2.8763254000807592e-09,
         "sourceReducedTriangles": 23000,
-        "paintedTriangles": 24068
+        "paintedTriangles": 23000
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 1417,
+        "boundaryVertices": 405,
+        "maxLift": 0.006974999999999999,
+        "edgeWidth": 0.037200000000000004,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -593,23 +674,31 @@
       "label": "Frost King",
       "source": "King_Frost_22mm.obj",
       "height": 1.6,
-      "triangles": 22654,
+      "triangles": 24244,
       "sourceTriangles": 60012,
-      "bytes": 911832,
+      "bytes": 1094800,
       "accent": 6792895,
       "feature": "Raised ice gauntlet",
       "materialAreaShare": {
-        "army": 0.9597385897348265,
-        "accent1": 0.040261410265173506
+        "army": 0.9331278194163382,
+        "accent1": 0.06687218058366187
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 2.893818740190568e-09,
+        "surfaceAreaRelativeError": 5.221000076716109e-09,
         "sourceReducedTriangles": 22000,
-        "paintedTriangles": 22654
+        "paintedTriangles": 24244
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 1496,
+        "boundaryVertices": 681,
+        "maxLift": 0.0072,
+        "edgeWidth": 0.038400000000000004,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -640,23 +729,31 @@
       "label": "Gaya King",
       "source": "King_Gaya_22mm.obj",
       "height": 1.65,
-      "triangles": 24381,
+      "triangles": 22992,
       "sourceTriangles": 57335,
-      "bytes": 1029920,
+      "bytes": 996712,
       "accent": 8100691,
       "feature": "Rhino pauldron",
       "materialAreaShare": {
-        "army": 0.9148191808077488,
-        "accent1": 0.08518081919225112
+        "army": 0.948464618720124,
+        "accent1": 0.051535381279876
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 2.9202273932327216e-09,
+        "surfaceAreaRelativeError": 3.0387560245870304e-09,
         "sourceReducedTriangles": 23000,
-        "paintedTriangles": 24381
+        "paintedTriangles": 22992
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 856,
+        "boundaryVertices": 0,
+        "maxLift": 0.007424999999999999,
+        "edgeWidth": 0.039599999999999996,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -687,23 +784,31 @@
       "label": "Celestial King",
       "source": "King_Celestial_22mm-1.obj",
       "height": 1.6,
-      "triangles": 22533,
+      "triangles": 21999,
       "sourceTriangles": 59989,
-      "bytes": 1218312,
+      "bytes": 1250920,
       "accent": 13675861,
       "feature": "Crown",
       "materialAreaShare": {
-        "army": 0.9653819218106032,
-        "accent1": 0.03461807818939682
+        "army": 0.9906760391787718,
+        "accent1": 0.009323960821228234
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 4.1037162556989415e-09,
+        "surfaceAreaRelativeError": 3.543715987319729e-09,
         "sourceReducedTriangles": 21999,
-        "paintedTriangles": 22533
+        "paintedTriangles": 21999
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 181,
+        "boundaryVertices": 108,
+        "maxLift": 0.0072,
+        "edgeWidth": 0.038400000000000004,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -734,23 +839,31 @@
       "label": "Shadow King",
       "source": "King_Shadow_22mm.obj",
       "height": 1.6,
-      "triangles": 22507,
+      "triangles": 21993,
       "sourceTriangles": 57633,
-      "bytes": 1378180,
+      "bytes": 1415152,
       "accent": 8415140,
-      "feature": "Sword",
+      "feature": "Sword blade",
       "materialAreaShare": {
-        "army": 0.9485393202138785,
-        "accent1": 0.05146067978612141
+        "army": 0.958133843562354,
+        "accent1": 0.041866156437646025
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 6.483828363101907e-09,
+        "surfaceAreaRelativeError": 4.001187825508623e-09,
         "sourceReducedTriangles": 21999,
-        "paintedTriangles": 22510
+        "paintedTriangles": 21996
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 200,
+        "boundaryVertices": 31,
+        "maxLift": 0.0072,
+        "edgeWidth": 0.038400000000000004,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,
@@ -781,23 +894,31 @@
       "label": "Spirit King",
       "source": "King_Spirit_22mm.obj",
       "height": 1.55,
-      "triangles": 18967,
+      "triangles": 22578,
       "sourceTriangles": 36909,
-      "bytes": 947204,
+      "bytes": 1348100,
       "accent": 6859427,
       "feature": "Clasped hands",
       "materialAreaShare": {
-        "army": 0.9305883458025406,
-        "accent1": 0.06941165419745937
+        "army": 0.988313967240789,
+        "accent1": 0.011686032759210952
       },
       "creaseShadingRange": [
         0.5,
         1.0
       ],
       "paintBoundaryCheck": {
-        "surfaceAreaRelativeError": 2.7043844941232464e-09,
+        "surfaceAreaRelativeError": 3.3635894070016548e-09,
         "sourceReducedTriangles": 17999,
-        "paintedTriangles": 18967
+        "paintedTriangles": 22578
+      },
+      "clayLayer": {
+        "shapeKey": "ClayLayer",
+        "raisedVertices": 1757,
+        "boundaryVertices": 1023,
+        "maxLift": 0.006974999999999999,
+        "edgeWidth": 0.037200000000000004,
+        "armyDisplacement": 0
       },
       "featureCleanup": {
         "iterations": 3,

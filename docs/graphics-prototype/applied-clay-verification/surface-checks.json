@@ -1,0 +1,553 @@
+{
+  "probes": [
+    {
+      "character": "knight",
+      "feature": "crest side",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "knight",
+      "feature": "crest front",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "knight",
+      "feature": "crest rear",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "knight",
+      "feature": "horse helmet",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "knight",
+      "feature": "lance",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "bishop",
+      "feature": "mitre",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "bishop",
+      "feature": "mitre trim",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "bishop",
+      "feature": "hat band",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "bishop",
+      "feature": "face",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "rook",
+      "feature": "tower battlement",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "rook",
+      "feature": "tower front brick",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "rook",
+      "feature": "tower back brick",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "rook",
+      "feature": "tower left bevel",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "rook",
+      "feature": "forehead horn",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "rook",
+      "feature": "face",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "queen",
+      "feature": "crown rim",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "queen",
+      "feature": "crown back",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "queen",
+      "feature": "hair cap",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "queen",
+      "feature": "forehead",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "queen",
+      "feature": "braid",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "paladin",
+      "feature": "cross centre",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "paladin",
+      "feature": "cross rounded corner",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "paladin",
+      "feature": "cross left arm",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "paladin",
+      "feature": "chest armour",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "paladin",
+      "feature": "beard",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "maester",
+      "feature": "round goggle rim",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "maester",
+      "feature": "spectacle bridge",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "maester",
+      "feature": "frame bottom",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "maester",
+      "feature": "round lens",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "maester",
+      "feature": "square lens",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "maester",
+      "feature": "nose",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "maester",
+      "feature": "finger",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-ember",
+      "feature": "chest plate",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-ember",
+      "feature": "left chest plates",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-ember",
+      "feature": "right chest plates",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-ember",
+      "feature": "belt",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-ember",
+      "feature": "shoulder",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-frost",
+      "feature": "raised fist",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-frost",
+      "feature": "ice gauntlet",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-frost",
+      "feature": "ice spike",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-frost",
+      "feature": "upper arm",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-frost",
+      "feature": "shoulder spike",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-frost",
+      "feature": "chest",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-gaya",
+      "feature": "rhino skull",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-gaya",
+      "feature": "rhino jaw",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-gaya",
+      "feature": "first horn",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-gaya",
+      "feature": "second horn",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-gaya",
+      "feature": "chest skull",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-gaya",
+      "feature": "helmet",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-celestial",
+      "feature": "crown band",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-celestial",
+      "feature": "crown star",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-celestial",
+      "feature": "crown back",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-celestial",
+      "feature": "helmet dome",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-celestial",
+      "feature": "helmet visor",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-celestial",
+      "feature": "shoulder point",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-shadow",
+      "feature": "blade front",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-shadow",
+      "feature": "blade tip",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-shadow",
+      "feature": "blade back",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-shadow",
+      "feature": "hand",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-shadow",
+      "feature": "other fingers",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-shadow",
+      "feature": "cloak",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-spirit",
+      "feature": "left glove",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-spirit",
+      "feature": "clasped fingers",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-spirit",
+      "feature": "right glove",
+      "expected": "accent1",
+      "actual": "accent1",
+      "ok": true
+    },
+    {
+      "character": "king-spirit",
+      "feature": "sleeve",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-spirit",
+      "feature": "beard",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    },
+    {
+      "character": "king-spirit",
+      "feature": "robe",
+      "expected": "army",
+      "actual": "army",
+      "ok": true
+    }
+  ],
+  "layers": [
+    {
+      "character": "beast source surface",
+      "maxLift": 0.006030044241822828,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 649
+    },
+    {
+      "character": "bishop source surface",
+      "maxLift": 0.006975056700103468,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 1084
+    },
+    {
+      "character": "king-celestial source surface",
+      "maxLift": 0.007200042311787573,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 181
+    },
+    {
+      "character": "king-ember source surface",
+      "maxLift": 0.006975051015550801,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 1417
+    },
+    {
+      "character": "king-frost source surface",
+      "maxLift": 0.007200054488385137,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 1496
+    },
+    {
+      "character": "king-gaya source surface",
+      "maxLift": 0.007425054310166744,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 856
+    },
+    {
+      "character": "king-shadow source surface",
+      "maxLift": 0.007200018487735636,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 200
+    },
+    {
+      "character": "king-spirit source surface",
+      "maxLift": 0.006975026795092227,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 1756
+    },
+    {
+      "character": "knight source surface",
+      "maxLift": 0.006660054050908693,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 225
+    },
+    {
+      "character": "maester source surface",
+      "maxLift": 0.005040029686778092,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 285
+    },
+    {
+      "character": "paladin source surface",
+      "maxLift": 0.006300012464473286,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 109
+    },
+    {
+      "character": "queen source surface",
+      "maxLift": 0.006840057660093754,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 238
+    },
+    {
+      "character": "rook source surface",
+      "maxLift": 0.006300057823915088,
+      "armyAndSeamDisplacement": 0.0,
+      "raisedVertices": 2038
+    }
+  ]
+}

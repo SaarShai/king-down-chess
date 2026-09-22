@@ -16,6 +16,7 @@ sys.dont_write_bytecode = True
 from paint_regions import paint_surface
 from rig_walk import add_walk_rig
 from sculpt_surface import read_figure, smooth_features, bake_creases
+from clay_layer import add_clay_layer
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 for material in list(bpy.data.materials): bpy.data.materials.remove(material, do_unlink=True)
@@ -81,22 +82,23 @@ for name, source, height, target in [('guard','Guard_22mm.obj',1.40,18000), ('ar
     mesh, paint_report = paint_surface(mesh, name, height, roles, materials)
     obj.data = mesh
     feature_samples = check_feature_paint(mesh, name, height)
+    clay = add_clay_layer(obj, height)
     areas = {role:0. for role in roles}
     for polygon in mesh.polygons: areas[roles[polygon.material_index]] += polygon.area
     rig, walk_report = add_walk_rig(obj, root, name)
     bpy.ops.object.select_all(action='DESELECT');obj.select_set(True);root.select_set(True);rig.select_set(True)
     destination = OUT/('rebuilt-'+name+'.glb')
-    bpy.ops.export_scene.gltf(filepath=str(destination),use_selection=True,export_format='GLB',export_materials='EXPORT',export_animations=True,export_frame_range=True,export_force_sampling=True,export_animation_mode='ACTIVE_ACTIONS',export_nla_strips_merged_animation_name='Walk',export_anim_slide_to_zero=True,export_cameras=False,export_lights=False,export_vertex_color='ACTIVE',export_all_vertex_colors=False)
+    bpy.ops.export_scene.gltf(filepath=str(destination),use_selection=True,export_format='GLB',export_materials='EXPORT',export_animations=True,export_morph_animation=False,export_frame_range=True,export_force_sampling=True,export_animation_mode='ACTIVE_ACTIONS',export_nla_strips_merged_animation_name='Walk',export_anim_slide_to_zero=True,export_cameras=False,export_lights=False,export_vertex_color='ACTIVE',export_all_vertex_colors=False)
     mesh.calc_loop_triangles()
     report.append({'name':'rebuilt-'+name,'triangles':len(mesh.loop_triangles),'bytes':destination.stat().st_size,
-                   'source':source,'sourceTriangles':source_tris,'materialAreaShare':{k:round(v/sum(areas.values()),4) for k,v in areas.items()},'creaseShadingRange':ao_range,'paintBoundaryCheck':paint_report,'featureCleanup':smoothing_report,'featureSamples':feature_samples,'walk':walk_report})
+                   'source':source,'sourceTriangles':source_tris,'materialAreaShare':{k:round(v/sum(areas.values()),4) for k,v in areas.items()},'creaseShadingRange':ao_range,'paintBoundaryCheck':paint_report,'clayLayer':clay,'featureCleanup':smoothing_report,'featureSamples':feature_samples,'walk':walk_report})
     rig.data.pose_position='REST'
     root.location.x = -1. if name=='guard' else 1.
 
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'docs/graphics-prototype/rebuilt-pieces.blend'))
 manifest_path = OUT/'manifest.json'
 manifest = json.loads(manifest_path.read_text())
-manifest['method'] = 'Source-derived Guard/Archer with crease-protected surface relaxation, weighted normals and feature-specific paint boundaries and baked crease shading, with authored skeletal in-place walk clips; earlier blockouts retained for comparison'
+manifest['method'] = 'Source-derived full cast with feature-specific paint, optional applied-clay relief, crease shading and authored skeletal walking; earlier controls retained'
 manifest['models'] = [m for m in manifest['models'] if m['name'] not in ['rebuilt-guard','rebuilt-archer']] + report
 manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
 print('REFINEMENT_REPORT',json.dumps(report))

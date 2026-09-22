@@ -15,7 +15,7 @@ export const CLAY_LOOK_LABELS: Record<ClayLook, string> = {
 export const CLAY_LOOK_COPY: Record<ClayLook, string> = {
   current: 'The existing refined study material and pixel comparison.',
   plasticine: 'A smooth studio plasticine read: broad light, satin wax response and very fine rolled texture.',
-  handmade: 'Pressed thumbprints, overlapping tool marks and a dry matte surface, lit from the side to reveal the handwork.',
+  handmade: 'Coloured clay pressed onto the sculpt, with softly rounded edges, thumbprints and a dry matte surface.',
 };
 
 type ClaySpec = {
@@ -226,8 +226,8 @@ function handmadeTextures(): ClayTextures {
 
 /** Map across the sculpt's bind-space XYZ, including material boundaries. The
  * coordinates follow the rig; the physical-height gradient is stable under zoom. */
-function pressedClayShader(material: THREE.MeshPhysicalMaterial): void {
-  material.customProgramCacheKey = () => 'pressed-clay-v2';
+function pressedClayShader(material: THREE.MeshPhysicalMaterial, accent: boolean): void {
+  material.customProgramCacheKey = () => `pressed-clay-v3-${accent}`;
   material.onBeforeCompile = shader => {
     shader.vertexShader = 'varying vec3 vClayPosition; varying vec3 vClayNormal;\n' + shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvClayPosition = position; vClayNormal = normal;');
@@ -236,7 +236,7 @@ function pressedClayShader(material: THREE.MeshPhysicalMaterial): void {
       float pressedHeight(vec3 p) {
         vec3 w = pow(abs(normalize(vClayNormal)), vec3(6.));
         w /= max(.0001, w.x + w.y + w.z);
-        p *= 2.6;
+        p = p * 2.6 + ${accent ? 'vec3(.37, .61, .19)' : 'vec3(0.)'};
         return dot(w, vec3(texture2D(bumpMap, p.yz).r,
                            texture2D(bumpMap, p.zx).r,
                            texture2D(bumpMap, p.xy).r));
@@ -310,7 +310,10 @@ export function materialForLook({ color, role = '', vertexColors = false, look =
   clay.userData.clayLook = look;
   if (look === 'handmade') {
     clay.specularIntensity = .22;
-    pressedClayShader(clay);
+    // Separate lumps carry their own impressions rather than continuing a
+    // fingerprint straight across the colour seam. Reuse the same texture.
+    if (role === 'accent1') clay.bumpScale *= .75;
+    pressedClayShader(clay, role === 'accent1');
   }
   return clay;
 }

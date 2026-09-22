@@ -70,6 +70,7 @@ function visual(name:string,side:number,rebuilt:boolean):THREE.Group {
  const refined=rebuilt&&variant==='rebuilt'&&figureDetail==='refined';
  const key=refined?'rebuilt-'+defaultCharacter(name):pair&&rebuilt?(variant==='quiet'||figureDetail==='blockout'?'blockout-':'rebuilt-')+name:'original-'+name;
  const g=clone(models.get(key)!) as THREE.Group;
+ g.traverse(o=>{const m=o as THREE.Mesh;const layer=m.morphTargetDictionary?.ClayLayer;if(layer!==undefined&&m.morphTargetInfluences)m.morphTargetInfluences[layer]=variant==='rebuilt'&&look==='handmade'?1:0;});
  if(variant==='rebuilt'&&look==='handmade')softenClayNormals(g);
  g.traverse(o=>{if((o as THREE.Mesh).isMesh){const m=o as THREE.Mesh;ensureSurfaceUv(m.geometry);const mats=Array.isArray(m.material)?m.material:[m.material];const replaced=mats.map(x=>material(x.name,name,side,m.geometry.hasAttribute('color')));m.material=Array.isArray(m.material)?replaced:replaced[0];m.castShadow=false;m.receiveShadow=false;if((m as THREE.SkinnedMesh).isSkinnedMesh)m.frustumCulled=false;}});
  g.userData.modelKey=key;return g;

@@ -10,6 +10,7 @@ from paint_regions import paint_surface,surface_signature
 from mathutils import Vector
 from roster_profiles import PROFILES
 from roster_rig import add_roster_walk
+from clay_layer import add_clay_layer
 bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
 for material in list(bpy.data.materials):bpy.data.materials.remove(material,do_unlink=True)
 bpy.context.preferences.filepaths.save_version=0
@@ -51,15 +52,16 @@ for index,p in enumerate(PROFILES):
   accent_faces=selection['accentFaces']
   regions=regions+[(r['role'],[(Vector(n),d) for n,d in r['planes']]) for r in selection.get('regions',[])]
  mesh,paint=paint_surface(mesh,name,height,roles,materials,regions,accent_faces);obj.data=mesh
+ clay=add_clay_layer(obj,height)
  rig,walk=add_roster_walk(obj,root,p)
  root.rotation_euler.z=math.radians(p.get('yaw',0))
  bpy.ops.object.select_all(action='DESELECT');root.select_set(True);obj.select_set(True);rig.select_set(True)
  destination=out/('rebuilt-'+name+'.glb')
- bpy.ops.export_scene.gltf(filepath=str(destination),use_selection=True,export_format='GLB',export_materials='EXPORT',export_animations=True,export_frame_range=True,export_force_sampling=True,export_animation_mode='ACTIVE_ACTIONS',export_nla_strips_merged_animation_name='Walk',export_anim_slide_to_zero=True,export_cameras=False,export_lights=False,export_vertex_color='ACTIVE',export_all_vertex_colors=False)
+ bpy.ops.export_scene.gltf(filepath=str(destination),use_selection=True,export_format='GLB',export_materials='EXPORT',export_animations=True,export_morph_animation=False,export_frame_range=True,export_force_sampling=True,export_animation_mode='ACTIVE_ACTIONS',export_nla_strips_merged_animation_name='Walk',export_anim_slide_to_zero=True,export_cameras=False,export_lights=False,export_vertex_color='ACTIVE',export_all_vertex_colors=False)
  # Blender suffixes repeated names. Canonical roles are cleaned in the glTF JSON below.
  mesh.calc_loop_triangles();area=sum(f.area for f in mesh.polygons);accent_area=sum(f.area for f in mesh.polygons if f.material_index==1)
  if p['accent'] is not None:assert accent_area>0,f'{name} accent missed the actual surface'
- report={'name':'rebuilt-'+name,'label':p['label'],'source':p['source'],'height':height,'triangles':len(mesh.loop_triangles),'sourceTriangles':source_tris,'bytes':destination.stat().st_size,'accent':p['accent'],'feature':p['feature'],'materialAreaShare':{'army':1-accent_area/area,'accent1':accent_area/area},'creaseShadingRange':ao,'paintBoundaryCheck':paint,'featureCleanup':cleanup,'walk':walk}
+ report={'name':'rebuilt-'+name,'label':p['label'],'source':p['source'],'height':height,'triangles':len(mesh.loop_triangles),'sourceTriangles':source_tris,'bytes':destination.stat().st_size,'accent':p['accent'],'feature':p['feature'],'materialAreaShare':{'army':1-accent_area/area,'accent1':accent_area/area},'creaseShadingRange':ao,'paintBoundaryCheck':paint,'clayLayer':clay,'featureCleanup':cleanup,'walk':walk}
  reports.append(report);rig.data.pose_position='REST';root.location=(index%4*2.2,index//4*2.4,0)
  print('BUILT_CHARACTER',json.dumps(report),flush=True)
 # Canonical material roles are the runtime contract; normalize Blender's name suffixes.
@@ -72,6 +74,6 @@ for report in reports:
 if not chosen:bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'docs/graphics-prototype/complete-cast.blend'))
 manifest_path=out/'manifest.json';manifest=json.loads(manifest_path.read_text());names={r['name'] for r in reports}
 manifest['models']=[r for r in manifest['models'] if r['name'] not in names]+reports
-manifest['method']='Source-derived full cast with feature-specific paint, crease shading and authored skeletal walking; approved Guard/Archer preserved; earlier controls retained'
+manifest['method']='Source-derived full cast with feature-specific paint, optional applied-clay relief, crease shading and authored skeletal walking; earlier controls retained'
 manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
 print('ROSTER_COMPLETE',len(reports),flush=True)

@@ -1,0 +1,21 @@
+
+> king-down-chess@0.0.1 build
+> tsc --noEmit && vite build
+
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 34 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   5.56 kB │ gzip:   2.09 kB
+dist/assets/worker-CJDrdZ7d.js  143.88 kB
+dist/assets/main-DQoaMBkc.css     5.99 kB │ gzip:   2.04 kB
+dist/assets/index-CjRA-qDy.js     2.09 kB │ gzip:   1.04 kB
+dist/assets/main-rmpmasqQ.js    775.46 kB │ gzip: 262.31 kB
+
+✓ built in 313ms
+[plugin builtin:vite-reporter]
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

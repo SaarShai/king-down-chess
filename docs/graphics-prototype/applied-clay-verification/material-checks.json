@@ -1,0 +1,54 @@
+{
+  "checks": [
+    {
+      "name": "Pressed relief changes the figures under identical lights, without changing the background",
+      "ok": true,
+      "detail": {
+        "figurePixels": 299639,
+        "changedFraction": 0.23745240105593732,
+        "meanChannelDifference": 3.434225851775459,
+        "backgroundChanges": 0,
+        "allMattes": true,
+        "mapSize": 256
+      }
+    },
+    {
+      "name": "Handmade uses matte response and authored relief maps",
+      "ok": true,
+      "detail": {
+        "figurePixels": 299639,
+        "changedFraction": 0.23745240105593732,
+        "meanChannelDifference": 3.434225851775459,
+        "backgroundChanges": 0,
+        "allMattes": true,
+        "mapSize": 256
+      }
+    },
+    {
+      "name": "Handmade softens normals while sharing unchanged positions and rig weights",
+      "ok": true
+    },
+    {
+      "name": "Textured figures remain animated",
+      "ok": true
+    },
+    {
+      "name": "Full cast uses the handmade shader with separate accent impressions",
+      "ok": true
+    },
+    {
+      "name": "Phone layout fits",
+      "ok": true
+    },
+    {
+      "name": "Switching back keeps original source normals intact",
+      "ok": true
+    },
+    {
+      "name": "No shader, console or page errors",
+      "ok": true,
+      "detail": []
+    }
+  ],
+  "errors": []
+}
