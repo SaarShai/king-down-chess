@@ -2,6 +2,9 @@
 
 Read `TASKS.md` (current work, owner decisions) and `LESSONS.md` (rules learned; the Jev entries) at the start of every session. Verify before you mark anything done. Do not launch runs the owner has not asked for; `docs/QUEUE.md` is launched by name.
 
+## Delegation policy — owner decision, 2026-09-22
+Work directly in the main agent. The owner stopped delegation because its coordination and monitoring cost outweighed the benefit. Do not launch or resume subagents, OpenCode workers, Ollama agents, outsourced M1 jobs or delegation supervision from earlier campaign authorization. Delegation requires a new explicit owner instruction.
+
 ## Jev / TypeSafe (optional, explicit)
 - Client: `tools/jev.ts`, model pinned to `jev-1.13.0` (`TYPESAFE_MODEL` overrides). Key: `TYPESAFE_API_KEY` or `~/.config/typesafe/key`; never print or commit it.
 - Every call carries a known-true and a known-false control; if they do not separate, the run is void.
