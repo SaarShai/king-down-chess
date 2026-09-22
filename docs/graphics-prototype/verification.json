@@ -63,7 +63,7 @@
       "ok": true
     },
     {
-      "name": "Move returns to exact study placement",
+      "name": "Move settles at the next square",
       "ok": true
     },
     {
@@ -172,7 +172,7 @@
       }
     },
     {
-      "name": "Overlap mode motion returns figures home",
+      "name": "Overlap travel settles at its destination",
       "ok": true
     },
     {

@@ -10,6 +10,7 @@ import { loadModels } from '../voxels';
 import { fromFen } from '../../rules/setup';
 import { PieceContourPass, type ContourMode } from './PieceContourPass';
 import { WalkPreview, type ClayCadence } from './WalkPreview';
+import { characterMotion, MOTION_COPY, type MotionChoice } from './ClayLocomotion';
 import { CLAY_LOOK_COPY, CLAY_LOOK_LABELS, CLAY_LOOKS, type ClayLook, applyLookLighting, ensureSurfaceUv, materialForLook, softenClayNormals } from './ClayLook';
 import { CAST, character, defaultCharacter } from './CastCatalog';
 import './study.css';
@@ -20,7 +21,7 @@ const names=['Existing Dungeon','Original sculpts','Refined figures','16-angle s
 const copy=[
  'The shipped voxel conversion and Dungeon lighting. Use this as the reference for lost detail.',
  'Six original sculptures, simplified to about 6,500 triangles each. Colour regions are provisional.',
- 'Sixteen source-derived characters, including the Queen and all six Kings. Original silhouettes, one army colour and one identifying accent feature. Compare their articulated movement and two tactile clay looks.',
+ 'Sixteen source-derived characters, including the Queen and all six Kings. Original silhouettes, one army colour and one identifying accent feature. Compare their character movement and two tactile clay looks.',
  'The rebuilt pair baked into sixteen viewing angles. World movement stays smooth; the picture changes in steps.',
  'Actual QuietHours Canvas projection, drawing, shading and ink quantizer. Fixed isometric angle; drag pans.'
 ];
@@ -31,12 +32,13 @@ let figureDetail=params.get('detail')==='blockout'?'blockout':'refined';
 let contourMode:ContourMode=['off','silhouette','adaptive'].includes(params.get('contours')??'')?params.get('contours') as ContourMode:'adaptive';
 let look:ClayLook=CLAY_LOOKS.includes(params.get('look') as ClayLook)?params.get('look') as ClayLook:'current';
 let cadence:ClayCadence=params.get('cadence')==='stopmotion'?'stopmotion':'smooth';
+let motionChoice:MotionChoice=['character','shuffle','flow'].includes(params.get('motion')??'')?params.get('motion') as MotionChoice:'character';
 let running=false, walking=false, orbit=false, motion=0, lastFrame=0;
 let epoch=0;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const source=import.meta.env.BASE_URL+'prototype/';
 document.title='King Down · Graphics study';
-document.body.innerHTML=`<main class="study"><header><div class="wordmark">KING DOWN<span>GRAPHICS STUDY · 04</span></div><div class="header-note">Sixteen characters. Sculpted, painted, brought to life.</div><a href="?">Open game ↗</a></header><section class="stage"><div id="stage-board"></div><canvas id="quiet-canvas" hidden></canvas><div class="scene-label"><span id="mode-label"></span><span id="view-hint">Drag to orbit · scroll to zoom</span></div><div class="armies"><span><i class="ivory"></i>Alabaster</span><span><i class="ink"></i>Ink blue</span></div></section><aside><div class="eyebrow">THE QUESTION</div><h1 id="variant-title"></h1><p id="description"></p><div class="controls"><label>Look <select id="look"><option value="current">Current refined</option><option value="plasticine">Polished plasticine</option><option value="handmade">Handmade clay</option></select></label><p class="control-note look-copy" id="look-copy"></p><label>Figure detail <select id="figure-detail"><option value="refined">Refined from source</option><option value="blockout">Earlier blockout</option></select></label><label>Clay motion <select id="cadence"><option value="smooth">Smooth · spring clay</option><option value="stopmotion">Stop-motion · 12 fps</option></select></label><p class="control-note" id="motion-note"></p><label>Pixel size <select id="pixels"><option value="0.5">0.5 px · double detail</option><option value="1">1 px · fine</option><option value="1.5">1.5 px · balanced</option><option value="2">2 px · chunky</option><option value="3">3 px · coarse</option><option value="4">4 px · stress test</option></select></label><label>Scene <select id="scene"><option value="pair">Guard + Archer</option><option value="overlap">Overlap close-up</option><option value="six">Six-piece lineup</option><option value="board">Full board · 32 pieces</option><option value="cast">All 16 designs · both armies</option><option value="character">Character close-up</option></select></label><label id="character-control">Character <select id="character">${CAST.map(c=>`<option value="${c.key}">${c.label}</option>`).join('')}</select></label><label>Contours <select id="contours"><option value="off">Off</option><option value="silhouette">Even silhouette</option><option value="adaptive">Overlap aware</option></select></label><p class="control-note" id="contour-note"></p><label>Palette <select id="palette"><option value="colour">Army + type accents</option><option value="gray">Grayscale check</option></select></label><button id="walk" aria-pressed="false">Walk in place</button><button id="poke">Poke / squish clay</button><p class="control-note" id="walk-note"></p><div class="button-row"><button id="move">Move</button><button id="ability">Ability</button></div><div class="button-row"><button id="spin">Rotate</button><button id="reset">Reset view</button></div></div><div class="detail" id="character-detail"><b>Guard</b><p>Keep the raised shoulder wings, recessed helmet and heavy fists. Steel blue on the shoulder plates; the rest stays in the army family.</p><b>Archer</b><p>Keep the pointed hood, split skirt and <em>two wrist crossbows</em>. Green on the hood; face, braid and crossbows stay in the army family.</p></div><details><summary>Compare the source artwork</summary><a href="${source}source-guides/guard_color_ref.jpg" target="_blank">Guard colour guide ↗</a><a href="${source}source-guides/Archer_color_ref.jpg" target="_blank">Archer colour guide ↗</a></details><p class="limits" id="limits"></p><output id="stats">Loading study assets…</output></aside><nav class="switcher" aria-label="Rendering candidates"><button id="prev" aria-label="Previous option">←</button><div class="tabs">${variants.map((v,i)=>`<button data-variant="${v}"><span>0${i+1}</span>${names[i]}</button>`).join('')}</div><button id="next" aria-label="Next option">→</button></nav></main>`;
+document.body.innerHTML=`<main class="study"><header><div class="wordmark">KING DOWN<span>GRAPHICS STUDY · 04</span></div><div class="header-note">Sixteen characters. Sculpted, painted, brought to life.</div><a href="?">Open game ↗</a></header><section class="stage"><div id="stage-board"></div><canvas id="quiet-canvas" hidden></canvas><div class="scene-label"><span id="mode-label"></span><span id="view-hint">Drag to orbit · scroll to zoom</span></div><div class="armies"><span><i class="ivory"></i>Alabaster</span><span><i class="ink"></i>Ink blue</span></div></section><aside><div class="eyebrow">THE QUESTION</div><h1 id="variant-title"></h1><p id="description"></p><div class="controls"><label>Look <select id="look"><option value="current">Current refined</option><option value="plasticine">Polished plasticine</option><option value="handmade">Handmade clay</option></select></label><p class="control-note look-copy" id="look-copy"></p><label>Figure detail <select id="figure-detail"><option value="refined">Refined from source</option><option value="blockout">Earlier blockout</option></select></label><label>Clay motion <select id="cadence"><option value="smooth">Smooth · fluid clay</option><option value="stopmotion">Stop-motion · 12 fps</option></select></label><p class="control-note" id="motion-note"></p><label>Movement <select id="motion-style"><option value="character">Suited to each character</option><option value="flow">Clay flow</option><option value="shuffle">Weighted shuffle</option></select></label><label>Pixel size <select id="pixels"><option value="0.5">0.5 px · double detail</option><option value="1">1 px · fine</option><option value="1.5">1.5 px · balanced</option><option value="2">2 px · chunky</option><option value="3">3 px · coarse</option><option value="4">4 px · stress test</option></select></label><label>Scene <select id="scene"><option value="pair">Guard + Archer</option><option value="overlap">Overlap close-up</option><option value="six">Six-piece lineup</option><option value="board">Full board · 32 pieces</option><option value="cast">All 16 designs · both armies</option><option value="character">Character close-up</option></select></label><label id="character-control">Character <select id="character">${CAST.map(c=>`<option value="${c.key}">${c.label}</option>`).join('')}</select></label><label>Contours <select id="contours"><option value="off">Off</option><option value="silhouette">Even silhouette</option><option value="adaptive">Overlap aware</option></select></label><p class="control-note" id="contour-note"></p><label>Palette <select id="palette"><option value="colour">Army + type accents</option><option value="gray">Grayscale check</option></select></label><button id="walk" aria-pressed="false">Walk in place</button><button id="poke">Poke / squish clay</button><p class="control-note" id="walk-note"></p><div class="button-row"><button id="move">Move</button><button id="ability">Ability</button></div><div class="button-row"><button id="spin">Rotate</button><button id="reset">Reset view</button></div></div><div class="detail" id="character-detail"><b>Guard</b><p>Keep the raised shoulder wings, recessed helmet and heavy fists. Steel blue on the shoulder plates; the rest stays in the army family.</p><b>Archer</b><p>Keep the pointed hood, split skirt and <em>two wrist crossbows</em>. Green on the hood; face, braid and crossbows stay in the army family.</p></div><details><summary>Compare the source artwork</summary><a href="${source}source-guides/guard_color_ref.jpg" target="_blank">Guard colour guide ↗</a><a href="${source}source-guides/Archer_color_ref.jpg" target="_blank">Archer colour guide ↗</a></details><p class="limits" id="limits"></p><output id="stats">Loading study assets…</output></aside><nav class="switcher" aria-label="Rendering candidates"><button id="prev" aria-label="Previous option">←</button><div class="tabs">${variants.map((v,i)=>`<button data-variant="${v}"><span>0${i+1}</span>${names[i]}</button>`).join('')}</div><button id="next" aria-label="Next option">→</button></nav></main>`;
 const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 // Access to existing renderer internals is intentional and isolated to this throwaway study.
 const view:any=new BoardRenderer(el('stage-board'));
@@ -48,7 +50,7 @@ view.controls.enableDamping=false;
 view.controls.minZoom=.6;view.controls.maxZoom=5;
 const contourPass=new PieceContourPass(view.scene,view.camera);
 view.composer.insertPass(contourPass,1);
-el<HTMLSelectElement>('look').value=look;el<HTMLSelectElement>('figure-detail').value=figureDetail;el<HTMLSelectElement>('cadence').value=cadence;el<HTMLSelectElement>('pixels').value=String(pixel);el<HTMLSelectElement>('contours').value=contourMode;
+el<HTMLSelectElement>('look').value=look;el<HTMLSelectElement>('figure-detail').value=figureDetail;el<HTMLSelectElement>('cadence').value=cadence;el<HTMLSelectElement>('motion-style').value=motionChoice;el<HTMLSelectElement>('pixels').value=String(pixel);el<HTMLSelectElement>('contours').value=contourMode;
 const quiet=el<HTMLCanvasElement>('quiet-canvas');
 const loader=new GLTFLoader();
 const models=new Map<string,THREE.Group>();
@@ -90,7 +92,7 @@ for(const [side,pal] of palettes.entries())for(const [role,color] of Object.entr
 for(const [name,pair] of Object.entries(accents))for(let i=0;i<2;i++){const c=pair[i];QH.M[`type_${name}_${i}`]=[(c>>16)&255,(c>>8)&255,c&255];}
 await new Promise<void>((resolve,reject)=>{const s=document.createElement('script');s.src=source+'quiet-hours/inks.js';s.onload=()=>resolve();s.onerror=reject;document.head.append(s);});
 
-type Entry={sq:number,type:string,character:string,side:number,root:THREE.Group,visual:THREE.Group|THREE.Mesh,base:THREE.Vector3,walk?:WalkPreview};
+type Entry={sq:number,type:string,character:string,side:number,root:THREE.Group,visual:THREE.Group|THREE.Mesh,base:THREE.Vector3,heading:number,walk?:WalkPreview};
 let entries:Entry[]=[];
 let selectedCharacter=CAST.some(c=>c.key===params.get('character'))?params.get('character')!:'queen';
 el<HTMLSelectElement>('character').value=selectedCharacter;
@@ -184,7 +186,7 @@ async function apply(){
  const canContour=variant!=='baseline'&&!isQuiet;contourPass.enabled=canContour;view.pixelPass.enabled=!canContour;contourPass.mode=contourMode;
  el<HTMLSelectElement>('contours').disabled=!canContour;
  el('contour-note').textContent=canContour?'One thin contour per figure. Overlap aware strengthens shared edges and adjusts ink to the surface brightness.':'Contour comparison is available on Original sculpts, Rebuilt and Sprites.';
- el('limits').textContent=isQuiet?'Canvas study: earlier blockout pair only. Palette extended for the two armies. Painter sorting can misorder intersecting faces; this is not a production fallback.':variant==='sprites'?'One idle pose per angle; movement and effects animate in world space. Elevation is locked to the bake. No interpolated pose animation.':variant==='sculpt'?'Simplified original geometry with provisional colour zones. This is not a finished repaint of the source sculpts.':variant==='baseline'?'Existing voxel models and Dungeon style, placed on the same comparison board. This scene tests appearance, not chess rules.':'Refined geometry comes from the original sculpts; army/type colours remain intentional study assignments. All sixteen designs have articulated movement; closed robes suggest concealed steps. This is an in-place motion study. Sprite poses remain static; clay springs are authored secondary motion, not a collision simulation.';
+ el('limits').textContent=isQuiet?'Canvas study: earlier blockout pair only. Palette extended for the two armies. Painter sorting can misorder intersecting faces; this is not a production fallback.':variant==='sprites'?'One idle pose per angle; movement and effects animate in world space. Elevation is locked to the bake. No interpolated pose animation.':variant==='sculpt'?'Simplified original geometry with provisional colour zones. This is not a finished repaint of the source sculpts.':variant==='baseline'?'Existing voxel models and Dungeon style, placed on the same comparison board. This scene tests appearance, not chess rules.':'Refined geometry comes from the original sculpts; army/type colours remain intentional study assignments. Character motion combines articulated steps, weighted shuffles and clay flow. Preview travel includes a turn, advance and settle. The original sculpt keeps its proportions; only an explicit poke squashes it. These are authored effects, not a fluid simulation.';
  const style=variant==='baseline'?STYLES.dungeonVoxel:{...STYLES.cel,outline:false,pixelSize:pixel,pieceScale:1,tiles:'flat' as const,shadow:true,lights:'bright' as const};
  view.applyStyle(style);view.rebuild(pos);
  for(const tile of view.tiles){const f=tile.userData.sq%8,r=Math.floor(tile.userData.sq/8);tile.visible=sceneMode==='board'||sceneMode==='cast'||(sceneMode==='character'?(r>=3&&r<=4&&f>=2&&f<=5):(r>=2&&r<=5&&(sceneMode==='six'?f<6:f>=2&&f<=5)));}
@@ -211,13 +213,11 @@ async function apply(){
   }
   const clip=model.animations?.find((a:THREE.AnimationClip)=>a.name==='Walk');
   if(sceneMode==='character')g.rotation.y=0;
-  // Floor-length cloth keeps its authored sweep; carried props and the Rook's
-  // supporting fist keep their authored contact instead of receiving angular lag.
-  const groundedBones:(string|RegExp)[]=[/^cloth/, 'tail',...(design==='rook'||design==='knight'?['arm.L']:design==='pawn'?['arm.R']:[])];
-  entries.push({sq,type,character:design,side,root:g,visual:model,base:g.position.clone(),walk:clip?new WalkPreview(model,clip,{pliable:variant==='rebuilt'&&look!=='current',cadence:variant==='rebuilt'&&look!=='current'?cadence:'smooth',groundedBones}):undefined});
+  const kind=motionChoice==='character'?characterMotion(design):motionChoice;
+  entries.push({sq,type,character:design,side,root:g,visual:model,base:g.position.clone(),heading:g.rotation.y,walk:clip?new WalkPreview(model,clip,{pliable:variant==='rebuilt'&&look!=='current',cadence,motion:kind}):undefined});
  }
  const selected=character(selectedCharacter);
- el('character-detail').innerHTML=sceneMode==='character'?`<b>${selected.label}</b><p>${selected.feature}${selected.key==='pawn'?'.':': the identifying colour stays on this feature; the rest belongs to the army.'}</p><p>${['queen','king-shadow','king-spirit'].includes(selected.key)?'The original closed robe keeps its silhouette; motion suggests steps underneath.':'An articulated gait tailored to the original pose and equipment.'}</p>`:sceneMode==='cast'?'<b>The complete sculpt library</b><p>Pawn, Knight, Bishop, Rook, Queen, Guard, Archer, Paladin, Maester, Beast and six Kings. Choose Character close-up to inspect a design in both armies.</p>':'<b>Guard · shoulder plates</b><p>Steel blue on the raised shoulder plates.</p><b>Archer · hood</b><p>Green on the hood; face, braid and wrist crossbows stay in the army colour.</p>';
+ el('character-detail').innerHTML=sceneMode==='character'?`<b>${selected.label}</b><p>${selected.feature}${selected.key==='pawn'?'.':': the identifying colour stays on this feature; the rest belongs to the army.'}</p><p>${MOTION_COPY[motionChoice==='character'?characterMotion(selected.key):motionChoice]}</p>`:sceneMode==='cast'?'<b>The complete sculpt library</b><p>Pawn, Knight, Bishop, Rook, Queen, Guard, Archer, Paladin, Maester, Beast and six Kings. Choose Character close-up to inspect a design in both armies.</p>':'<b>Guard · shoulder plates</b><p>Steel blue on the raised shoulder plates.</p><b>Archer · hood</b><p>Green on the hood; face, braid and wrist crossbows stay in the army colour.</p>';
  syncWalkButton();contourPass.setPieces(entries.map(e=>e.visual));resetCamera();
  // Candidate styles use one beauty draw plus an optional piece-ID draw; baseline retains its original pass.
  view.debris.mesh.visible=false;
@@ -233,7 +233,7 @@ function applyPixelSize(){
  view.renderer.setPixelRatio(ratio);view.composer.setPixelRatio(ratio);
  view.setPixelSize(pixel*ratio);contourPass.setPixelSize(pixel*ratio);
 }
-function syncUrl(){const url=new URL(location.href);url.searchParams.set('variant',variant);url.searchParams.set('scene',sceneMode);url.searchParams.set('pixels',String(pixel));url.searchParams.set('contours',contourMode);url.searchParams.set('detail',figureDetail);url.searchParams.set('character',selectedCharacter);url.searchParams.set('look',look);url.searchParams.set('cadence',cadence);history.replaceState({},'',url);}
+function syncUrl(){const url=new URL(location.href);url.searchParams.set('variant',variant);url.searchParams.set('scene',sceneMode);url.searchParams.set('pixels',String(pixel));url.searchParams.set('contours',contourMode);url.searchParams.set('detail',figureDetail);url.searchParams.set('character',selectedCharacter);url.searchParams.set('look',look);url.searchParams.set('cadence',cadence);url.searchParams.set('motion',motionChoice);history.replaceState({},'',url);}
 function choose(v:Variant){variant=v;return apply();}
 document.querySelectorAll<HTMLButtonElement>('[data-variant]').forEach(b=>b.onclick=()=>choose(b.dataset.variant as Variant));
 const cycle=(d:number)=>choose(variants[(variants.indexOf(variant)+d+variants.length)%variants.length]);
@@ -247,45 +247,54 @@ el<HTMLSelectElement>('character').onchange=e=>{selectedCharacter=(e.target as H
 el<HTMLSelectElement>('scene').onchange=e=>{sceneMode=(e.target as HTMLSelectElement).value;void apply();};
 el<HTMLSelectElement>('contours').onchange=e=>{contourMode=(e.target as HTMLSelectElement).value as ContourMode;contourPass.mode=contourMode;syncUrl();updateStats();};
 el<HTMLSelectElement>('palette').onchange=e=>{const gray=(e.target as HTMLSelectElement).value==='gray';el('stage-board').style.filter=gray?'grayscale(1)':'';quiet.style.filter=gray?'grayscale(1)':'';};
-el('reset').onclick=()=>{orbit=false;el('spin').textContent='Rotate';resetCamera();};
+el('reset').onclick=()=>{running=false;bolt.visible=ring.visible=false;setWalking(false);for(const e of entries){e.walk?.reset();e.root.position.copy(e.base);e.root.rotation.y=e.heading;e.visual.rotation.x=e.visual.rotation.z=0;}orbit=false;el('spin').textContent='Rotate';resetCamera();};
 el('spin').onclick=()=>{orbit=!orbit;el('spin').textContent=orbit?'Stop rotation':'Rotate';};
 let action:'move'|'ability'='move';
 function syncWalkButton(){
- const available=entries.some(e=>e.walk),clay=variant==='rebuilt'&&look!=='current';const b=el<HTMLButtonElement>('walk');b.disabled=!available;b.textContent=walking?'Stop walking':'Walk in place';b.setAttribute('aria-pressed',String(walking));
- const cadenceControl=el<HTMLSelectElement>('cadence');cadenceControl.disabled=!clay;el('motion-note').textContent=clay?(cadence==='smooth'?'Smooth spring motion adds a small, deterministic lag to arms and cloth.':'12 fps stepping keeps the same spring motion between authored poses.'):'Clay motion is available for the two clay looks.';
+ const available=entries.some(e=>e.walk),clay=variant==='rebuilt'&&look!=='current';const b=el<HTMLButtonElement>('walk');b.disabled=!available;b.textContent=walking?'Stop motion':'Preview motion in place';b.setAttribute('aria-pressed',String(walking));
+ el<HTMLSelectElement>('cadence').disabled=!available;el<HTMLSelectElement>('motion-style').disabled=!available;
+ el('motion-note').textContent=cadence==='smooth'?'Continuous motion with a steady silhouette. No squash on each step.':'The same motion held in 12 fps poses; no squash on each step.';
  el<HTMLButtonElement>('poke').disabled=!clay||!available;
- el('walk-note').textContent=available?'Each figure has its own stride and timing. Armour stays composed; cloth and the Beast’s tail follow through. Drag to inspect.':'Walking is available on all sixteen refined 3D designs.';
+ el('move').textContent='Preview travel';
+ el('walk-note').textContent=available?(sceneMode==='character'?MOTION_COPY[entries[0].walk!.kind]:'Guard and Archer step; heavy sculpts shuffle; robes flow over a low clay wave. Preview travel to see the turn, advance and settle.'):'Movement is available on the refined 3D designs.';
 }
 function setWalking(value:boolean){
  walking=value&&entries.some(e=>e.walk);
- if(walking){running=false;motion=0;bolt.visible=ring.visible=false;for(const e of entries){e.root.position.copy(e.base);e.visual.rotation.x=e.visual.rotation.z=0;for(const c of e.root.children)if((c as THREE.Mesh).geometry===view.shadowGeo){c.position.y=.02;c.scale.setScalar(.8);}e.walk?.play();}}
+ if(walking){running=false;motion=0;bolt.visible=ring.visible=false;for(const e of entries){e.root.position.copy(e.base);e.root.rotation.y=e.heading;e.visual.rotation.x=e.visual.rotation.z=0;for(const c of e.root.children)if((c as THREE.Mesh).geometry===view.shadowGeo){c.position.y=.02;c.scale.setScalar(.8);}e.walk?.play();}}
  else for(const e of entries)e.walk?.stop();
  syncWalkButton();
 }
 el('walk').onclick=()=>setWalking(!walking);
+el<HTMLSelectElement>('motion-style').onchange=e=>{motionChoice=(e.target as HTMLSelectElement).value as MotionChoice;void apply();};
 el('poke').onclick=()=>{for(const e of entries)e.walk?.poke();};
-function animate(which:'move'|'ability'){if(running)return;setWalking(false);for(const e of entries)e.walk?.reset();action=which;running=true;motion=0;}
+function animate(which:'move'|'ability'){if(running)return;setWalking(false);for(const e of entries){e.walk?.reset();e.root.position.copy(e.base);e.root.rotation.y=e.heading;if(which==='move')e.walk?.play();}action=which;running=true;motion=0;}
 el('move').onclick=()=>animate('move');el('ability').onclick=()=>animate('ability');
 // Projectiles and impact rings stay in world space for the mesh and sprite approaches.
 const bolt=new THREE.Mesh(new THREE.ConeGeometry(.045,.35,4),new THREE.MeshBasicMaterial({color:0xecc279}));bolt.rotation.x=Math.PI/2;bolt.visible=false;view.world.add(bolt);
 const ring=new THREE.Mesh(new THREE.RingGeometry(.40,.47,32),new THREE.MeshBasicMaterial({color:0x9ed7c7,transparent:true,depthWrite:false,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.visible=false;view.world.add(ring);
 function stepAction(dt:number){
- if(!running)return;motion+=dt;const dur=action==='move'?1.4:1.65,t=Math.min(1,motion/dur);
+ if(!running)return;motion+=dt;
+ const dur=action==='move'?4.8:1.65,t=Math.min(1,motion/dur);
  const eased=(1-Math.cos(t*2*Math.PI))*.5;
- for(const e of entries){if(e.side!==0)continue;
-  e.root.position.copy(e.base);
+ for(const e of entries){
   if(action==='move'){
-   e.root.position.z-=eased*(sceneMode==='board'?1:1.05);e.root.position.y=Math.sin(eased*Math.PI)*(e.type==='guard'?.09:.30);
-   // A visual-only settle; the foot shadow is kept on the board.
-   e.visual.rotation.z=Math.sin(t*2*Math.PI)*.035;
-  }else if(e.type==='guard'){e.visual.rotation.x=-Math.sin(t*Math.PI)*.11;ring.visible=true;ring.position.copy(e.base).setY(.025);ring.scale.setScalar(.9+eased*.45);(ring.material as THREE.MeshBasicMaterial).opacity=Math.sin(t*Math.PI)*.85;}
-  else if(e.type==='archer'){
-   e.visual.rotation.x=-Math.sin(t*Math.PI)*.065;
-   const b=(t-.22)/.5;bolt.visible=b>=0&&b<=1;bolt.position.copy(e.base).add(new THREE.Vector3(.35,.85,-Math.max(0,b)*3.4));
+   // Face the destination before moving; both armies advance into the spare rank.
+   const direction=sceneMode==='character'?1:e.side===0?-1:1;
+   const heading=direction>0?0:Math.PI,turn=THREE.MathUtils.smootherstep(motion,0,.65);
+   e.root.rotation.y=e.heading+Math.atan2(Math.sin(heading-e.heading),Math.cos(heading-e.heading))*turn;
+   const progress=THREE.MathUtils.smootherstep(motion,.65,4.15);
+   const distance=sceneMode==='character'?.65:1;
+   e.root.position.copy(e.base);e.root.position.z+=direction*distance*progress;
+   if(motion>=4.15&&motion-dt<4.15)e.walk?.stop();
+  }else if(e.side===0){
+   if(e.type==='guard'){e.visual.rotation.x=-Math.sin(t*Math.PI)*.11;ring.visible=true;ring.position.copy(e.base).setY(.025);ring.scale.setScalar(.9+eased*.45);(ring.material as THREE.MeshBasicMaterial).opacity=Math.sin(t*Math.PI)*.85;}
+   else if(e.type==='archer'){
+    e.visual.rotation.x=-Math.sin(t*Math.PI)*.065;
+    const b=(t-.22)/.5;bolt.visible=b>=0&&b<=1;bolt.position.copy(e.base).add(new THREE.Vector3(.35,.85,-Math.max(0,b)*3.4));
+   }
   }
-  for(const child of e.root.children)if((child as THREE.Mesh).geometry===view.shadowGeo){child.position.y=.02-e.root.position.y;child.scale.setScalar(.75+e.root.position.y*.3);}
  }
- if(t>=1){running=false;bolt.visible=ring.visible=false;for(const e of entries){e.root.position.copy(e.base);e.visual.rotation.x=e.visual.rotation.z=0;}}
+ if(t>=1){running=false;bolt.visible=ring.visible=false;for(const e of entries){e.walk?.reset();if(action==='ability')e.visual.rotation.x=e.visual.rotation.z=0;}}
 }
 // Fixed-view Canvas option: reuse QH's camera, face drawing/shading and quantizer.
 // This small adapter projects the same low-poly model triangles, with painter-order limits.
@@ -337,7 +346,7 @@ function updateSprites(){
   mesh.quaternion.copy(e.root.quaternion.clone().invert().multiply(view.camera.quaternion));
  }
 }
-function frame(now:number){const elapsed=(now-lastFrame)/1000||0,dt=Math.min(.04,elapsed);lastFrame=now;stepAction(dt);
+function frame(now:number){const elapsed=(now-lastFrame)/1000||0,dt=Math.min(.04,elapsed);lastFrame=now;stepAction(Math.min(.25,elapsed));
  // Preserve walk cadence on slower devices; clamp only long pauses such as a hidden tab.
  for(const e of entries)e.walk?.update(Math.min(.25,elapsed));
  if(orbit&&!reduced&&variant!=='quiet'){const off=view.camera.position.clone().sub(view.controls.target);off.applyAxisAngle(new THREE.Vector3(0,1,0),dt*.27);view.camera.position.copy(view.controls.target).add(off);}
@@ -346,4 +355,4 @@ function frame(now:number){const elapsed=(now-lastFrame)/1000||0,dt=Math.min(.04
  requestAnimationFrame(frame);
 }
 await apply();requestAnimationFrame(frame);
-(window as any).study={choose,apply,get variant(){return variant},get look(){return look},get cadence(){return cadence},setLook:(value:ClayLook)=>{look=value;el<HTMLSelectElement>('look').value=value;return apply();},poke:()=>{for(const e of entries)e.walk?.poke();},get entries(){return entries},get running(){return running},models,atlasCache,animate,setWalking,get walking(){return walking},view,contourPass,get scene(){return sceneMode},setScene:(mode:string)=>{sceneMode=mode;el<HTMLSelectElement>('scene').value=mode;return apply();},get pixel(){return pixel},get figureDetail(){return figureDetail},cast:CAST,get character(){return selectedCharacter},setCharacter:(key:string)=>{if(!CAST.some(c=>c.key===key))throw new Error('Unknown character');selectedCharacter=key;sceneMode='character';variant='rebuilt';figureDetail='refined';el<HTMLSelectElement>('character').value=key;return apply();}};
+(window as any).study={choose,apply,get variant(){return variant},get look(){return look},get cadence(){return cadence},get motionChoice(){return motionChoice},setMotion:(value:MotionChoice)=>{motionChoice=value;el<HTMLSelectElement>('motion-style').value=value;return apply();},stepAction,setLook:(value:ClayLook)=>{look=value;el<HTMLSelectElement>('look').value=value;return apply();},poke:()=>{for(const e of entries)e.walk?.poke();},get entries(){return entries},get running(){return running},models,atlasCache,animate,setWalking,get walking(){return walking},view,contourPass,get scene(){return sceneMode},setScene:(mode:string)=>{sceneMode=mode;el<HTMLSelectElement>('scene').value=mode;return apply();},get pixel(){return pixel},get figureDetail(){return figureDetail},cast:CAST,get character(){return selectedCharacter},setCharacter:(key:string)=>{if(!CAST.some(c=>c.key===key))throw new Error('Unknown character');selectedCharacter=key;sceneMode='character';variant='rebuilt';figureDetail='refined';el<HTMLSelectElement>('character').value=key;return apply();}};

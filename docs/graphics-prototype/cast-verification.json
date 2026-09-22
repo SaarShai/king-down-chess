@@ -293,7 +293,7 @@
       "ok": true
     },
     {
-      "name": "plasticine clay visibly deforms volume",
+      "name": "plasticine locomotion keeps figure scale constant",
       "ok": true
     },
     {
@@ -309,7 +309,7 @@
       "ok": true
     },
     {
-      "name": "handmade clay visibly deforms volume",
+      "name": "handmade locomotion keeps figure scale constant",
       "ok": true
     },
     {
@@ -342,7 +342,7 @@
       "name": "Poke also affects a walking figure",
       "ok": true,
       "detail": {
-        "scaleDifference": 0.08006313858277347
+        "scaleDifference": 0.0577116333265969
       }
     },
     {

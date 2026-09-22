@@ -1,0 +1,28 @@
+{
+  "method": "24 phases of the loaded Beast; triangle edges longer than 0.005 model units; source probes captured before locomotion replacement",
+  "baked_without_clay_layer": {
+    "maxStretch": 23.594626099446085,
+    "minRatio": 0.043409277591917594,
+    "p99": 1.4069403331420247,
+    "minScale": 1,
+    "phase": 0.9166666666666666,
+    "edgesSampled": 1216416
+  },
+  "baked_without_tail_tracks": {
+    "maxStretch": 23.594626099446085,
+    "minRatio": 0.04454739594027169,
+    "p99": 1.406704759771744,
+    "minScale": 1,
+    "phase": 0.9166666666666666,
+    "edgesSampled": 1216416
+  },
+  "baked_without_leg_tracks": {
+    "maxStretch": 2.031326729819346,
+    "minRatio": 0.043409277591917594,
+    "p99": 1.0112818328365332,
+    "minScale": 1,
+    "phase": 0.4583333333333333,
+    "edgesSampled": 1216416
+  },
+  "replacement": "See locomotion-verification.json for a replay of the rejected clip and the shape-preserving shuffle on the same actual model."
+}

@@ -55,7 +55,7 @@ try {
    let ok=true;e.visual.traverse(o=>{if(!o.isMesh)return;const u=o.geometry.getAttribute('uv');const m=Array.isArray(o.material)?o.material:[o.material];ok&&=!!u&&m.every(x=>x.isMeshPhysicalMaterial&&x.bumpMap&&x.roughnessMap)&&u.array.some(v=>v!==u.array[0]);});return ok;
   })));
   await page.locator('#walk').click();await page.waitForTimeout(800);
-  check(look+' clay visibly deforms volume',await page.evaluate(()=>study.entries.some(e=>Math.abs(e.visual.scale.y-1)>.001)));
+  check(look+' locomotion keeps figure scale constant',await page.evaluate(()=>study.entries.every(e=>e.visual.scale.toArray().every(v=>Math.abs(v-1)<1e-10))));
   await page.screenshot({path:out+'/captures/clay-'+look+'-walk.png'});
   await page.locator('#walk').click();await page.waitForFunction(()=>study.entries.every(e=>!e.walk.action.isRunning()));
   check(look+' stop restores exact scale',await page.evaluate(scales=>study.entries.every((e,i)=>e.visual.scale.toArray().every((v,j)=>Math.abs(v-scales[i][j])<1e-10)),stillScales));
