@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { materialForLook } from '../../../src/render/prototype/ClayLook.ts';
+import { ogreMaterial, prepareOgreGeometry } from '../../../src/render/OgreMaterial.ts';
 
 const canvas = document.querySelector('canvas');
 const status = document.querySelector('#status');
@@ -23,39 +23,6 @@ for (const [x, y, z, intensity] of [[-2, 3, 3, 2.5], [3, 1, 1, 0.65], [0, 2, -3,
 }
 const materials = new Map();
 let look = 'clay';
-// Reuse the cast's pressed-clay material; retain only subtle colour variation and eyes.
-function clayMaterial(original) {
-  const material = materialForLook({ color: 0xdcc7a7, role: 'army', look: 'handmade' });
-  material.bumpScale = 0.018;
-  material.map = original.map;
-  const pressed = material.onBeforeCompile;
-  const cacheKey = material.customProgramCacheKey();
-  material.customProgramCacheKey = () => cacheKey + '-ogre-colour-v2';
-  material.onBeforeCompile = shader => {
-    pressed(shader);
-    shader.uniforms.clayAccent = { value: new THREE.Color(0xc46e43) };
-    shader.uniforms.clayPad = { value: original.name === 'accent1' ? 1 : 0 };
-    shader.fragmentShader = 'uniform vec3 clayAccent; uniform float clayPad;\n' + shader.fragmentShader;
-    // Sample the original cuff boundary per texel: face-level paint assignments
-    // alone leave triangular teeth along the rolled edge at close range.
-    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
-      #include <map_fragment>
-      #ifdef USE_MAP
-        vec3 paint = sampledDiffuseColor.rgb;
-        float pigment = dot(paint, vec3(.2126, .7152, .0722));
-        float eye = smoothstep(.22, .34, vClayPosition.y) * (1. - smoothstep(.015, .12, pigment));
-        float cuff = smoothstep(mix(2.4, 1.5, clayPad), mix(3.5, 1.85, clayPad), paint.r / max(paint.g, .001))
-          * smoothstep(mix(4., 1.9, clayPad), mix(6., 2.8, clayPad), paint.r / max(paint.b, .001))
-          * smoothstep(.003, .012, paint.r)
-          * smoothstep(.30, .34, abs(vClayPosition.x))
-          * (1. - smoothstep(.09, .12, vClayPosition.y));
-        vec3 body = diffuse * mix(vec3(1.), paint, mix(.18, .92, eye));
-        diffuseColor.rgb = mix(body, clayAccent, cuff);
-      #endif
-    `);
-  };
-  return material;
-}
 function applyLook() {
   for (const [mesh, pair] of materials) mesh.material = pair[look];
   for (const id of ['texture', 'clay']) document.querySelector(`#${id}`).setAttribute('aria-pressed', String(look === id));
@@ -91,7 +58,7 @@ try {
   const center = box.getCenter(new THREE.Vector3());
   gltf.scene.position.sub(center);
   gltf.scene.traverse(obj => {
-    if (obj.isMesh) materials.set(obj, { texture: obj.material, clay: clayMaterial(obj.material) });
+    if (obj.isMesh) { prepareOgreGeometry(obj.geometry); materials.set(obj, { texture: obj.material, clay: ogreMaterial(obj.material) }); }
   });
   scene.add(gltf.scene);
   applyLook();

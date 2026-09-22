@@ -13,8 +13,9 @@ const folder=new URL('../../public/prototype/models/',import.meta.url);
 await Promise.all([MeshoptEncoder.ready,MeshoptDecoder.ready,MeshoptSimplifier.ready]);
 const io=new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({'meshopt.encoder':MeshoptEncoder,'meshopt.decoder':MeshoptDecoder});
 const triangles=doc=>doc.getRoot().listMeshes().reduce((sum,m)=>sum+m.listPrimitives().reduce((n,p)=>n+p.getIndices().getCount()/3,0),0);
-const reports=[];
-for(const name of (await readdir(folder)).filter(n=>/^rebuilt-.*\.glb$/.test(n)).sort()){
+const only=process.argv[2];
+const reports=only?JSON.parse(await readFile(new URL('board-manifest.json',folder),'utf8')).models.filter(m=>m.character!==only):[];
+for(const name of (await readdir(folder)).filter(n=>/^rebuilt-.*\.glb$/.test(n)&&(!only||n===`rebuilt-${only}.glb`)).sort()){
   const path=new URL(name,folder),bytes=await readFile(path),doc=await io.read(fileURLToPath(path)),before=triangles(doc);
   await doc.transform(simplify({simplifier:MeshoptSimplifier,ratio:.28,error:.0015,lockBorder:true}),reorder({encoder:MeshoptEncoder,target:'size'}));
   doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({method:EXTMeshoptCompression.EncoderMethod.QUANTIZE});

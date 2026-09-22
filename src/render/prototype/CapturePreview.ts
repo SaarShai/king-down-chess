@@ -116,7 +116,7 @@ export class CapturePreview {
    const group=new THREE.Group(),points:THREE.Vector3[]=[];
    for(const {mesh} of this.surfaces){
     const geo=mesh.geometry,index=geo.index,n=index?.count??geo.getAttribute('position').count;
-    const attrs=['position','normal','color','uv','uv1'].filter(a=>geo.hasAttribute(a)),sizes=attrs.map(a=>geo.getAttribute(a).itemSize);
+    const attrs=['position','normal','color','uv','uv1','ogreBindPosition'].filter(a=>geo.hasAttribute(a)),sizes=attrs.map(a=>geo.getAttribute(a).itemSize);
     const batches=new Map<number,number[][]>();
     for(let i=0;i<n;i+=3){
      let polygon=[0,1,2].map(j=>{const vertex=index?index.getX(i+j):i+j;return attrs.flatMap(name=>{const a=geo.getAttribute(name);return Array.from({length:a.itemSize},(_,k)=>a.getComponent(vertex,k));});});

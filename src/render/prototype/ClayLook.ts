@@ -284,7 +284,7 @@ export function materialForLook({ color, role = '', vertexColors = false, look =
   if (look === 'current') {
     const current = vertexColors
       ? new THREE.MeshStandardMaterial({ color, vertexColors: true, roughness: 0.78, metalness: 0 })
-      : new THREE.MeshToonMaterial({ color, gradientMap: currentGradientMap });
+      : new THREE.MeshToonMaterial({ color, gradientMap: currentGradientMap ?? null });
     current.name = role;
     current.userData.clayLook = look;
     return current;

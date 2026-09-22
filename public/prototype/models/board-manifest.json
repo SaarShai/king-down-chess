@@ -134,18 +134,6 @@
       ]
     },
     {
-      "character": "ogre",
-      "sourceSha256": "691072076d7fad7b5861d7100281c4d1784b78af987691bed6641ed9cd4527be",
-      "sourceTriangles": 27998,
-      "boardTriangles": 12606,
-      "sourceBytes": 1166400,
-      "boardBytes": 295780,
-      "clips": [
-        "Walk",
-        "Shove"
-      ]
-    },
-    {
       "character": "paladin",
       "sourceSha256": "df83b1eb0ed80d91c49dfc56dbd564e6a4d0812d5754303aed8e17ff53cef87b",
       "sourceTriangles": 63913,
@@ -187,6 +175,18 @@
       "boardBytes": 674956,
       "clips": [
         "Walk"
+      ]
+    },
+    {
+      "character": "ogre",
+      "sourceSha256": "be15aed803ed637e9acd51dbba2e61a0a5733afff43efce0d3713aa3eb0a97a2",
+      "sourceTriangles": 36888,
+      "boardTriangles": 14312,
+      "sourceBytes": 2812896,
+      "boardBytes": 1680556,
+      "clips": [
+        "Walk",
+        "Shove"
       ]
     }
   ]

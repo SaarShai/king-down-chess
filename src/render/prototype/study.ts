@@ -14,6 +14,7 @@ import { WalkPreview, type ClayCadence } from './WalkPreview';
 import { CLAY_LOOK_COPY, CLAY_LOOK_LABELS, CLAY_LOOKS, type ClayLook, applyLookLighting, ensureSurfaceUv, materialForLook, softenClayNormals } from './ClayLook';
 import { CAST, character, defaultCharacter } from './CastCatalog';
 import { CapturePreview, CAPTURE_STYLES, CAPTURE_LABELS, CAPTURE_COPY, type CaptureStyle } from './CapturePreview';
+import { ogreMaterial, prepareOgreGeometry } from '../OgreMaterial';
 import './study.css';
 
 const variants=['baseline','sculpt','rebuilt','sprites','quiet'] as const;
@@ -22,7 +23,7 @@ const names=['Existing Dungeon','Original sculpts','Refined figures','16-angle s
 const copy=[
  'The shipped voxel conversion and Dungeon lighting. Use this as the reference for lost detail.',
  'Six original sculptures, simplified to about 6,500 triangles each. Colour regions are provisional.',
- 'Seventeen characters: the source-derived cast and the newly sculpted Ogre. Original silhouettes, one army colour and one identifying accent feature. Compare their articulated movement and two tactile clay looks.',
+ 'Seventeen characters: the source-derived cast and the approved reconstructed Ogre. Original silhouettes, one army colour and one identifying accent feature. Compare their articulated movement and two tactile clay looks.',
  'The rebuilt pair baked into sixteen viewing angles. World movement stays smooth; the picture changes in steps.',
  'Actual QuietHours Canvas projection, drawing, shading and ink quantizer. Fixed isometric angle; drag pans.'
 ];
@@ -46,7 +47,7 @@ document.title='King Down · Graphics study';
 document.body.innerHTML=`<main class="study"><header><div class="wordmark">KING DOWN<span>GRAPHICS STUDY · 04</span></div><div class="header-note">Seventeen characters. Sculpted, painted, brought to life.</div><a href="?">Open game ↗</a></header><section class="stage"><div id="stage-board"></div><canvas id="quiet-canvas" hidden></canvas><div class="scene-label"><span id="mode-label"></span><span id="view-hint">Drag to orbit · scroll to zoom</span></div><div class="armies"><span><i class="ivory"></i>Alabaster</span><span><i class="ink"></i>Ink blue</span></div></section><aside><div class="eyebrow">THE QUESTION</div><h1 id="variant-title"></h1><p id="description"></p><div class="controls"><label>Look <select id="look"><option value="current">Current refined</option><option value="plasticine">Polished plasticine</option><option value="handmade">Handmade clay</option></select></label><p class="control-note look-copy" id="look-copy"></p><label>Figure detail <select id="figure-detail"><option value="refined">Refined sculpture</option><option value="blockout">Earlier blockout</option></select></label><label>Mesh detail <select id="mesh-quality"><option value="auto">Automatic · board / close-up</option><option value="sculpt">Original sculpt</option><option value="board">Lighter board model</option></select></label><label>Clay motion <select id="cadence"><option value="smooth">Smooth · spring clay</option><option value="stopmotion">Stop-motion · 12 fps</option></select></label><p class="control-note" id="motion-note"></p><label>Pixel size <select id="pixels"><option value="0.5">0.5 px · double detail</option><option value="1">1 px · fine</option><option value="1.5">1.5 px · balanced</option><option value="2">2 px · chunky</option><option value="3">3 px · coarse</option><option value="4">4 px · stress test</option></select></label><label>Scene <select id="scene"><option value="pair">Guard + Archer</option><option value="overlap">Overlap close-up</option><option value="six">Six-piece lineup</option><option value="board">Full board · 32 pieces</option><option value="cast">All 17 designs · both armies</option><option value="character">Character close-up</option></select></label><label id="character-control">Character <select id="character">${CAST.map(c=>`<option value="${c.key}">${c.label}</option>`).join('')}</select></label><label>Contours <select id="contours"><option value="off">Off</option><option value="silhouette">Even silhouette</option><option value="adaptive">Overlap aware</option></select></label><p class="control-note" id="contour-note"></p><label>Palette <select id="palette"><option value="colour">Army + type accents</option><option value="gray">Grayscale check</option></select></label><button id="walk" aria-pressed="false">Walk in place</button><button id="poke">Poke / squish clay</button><p class="control-note" id="walk-note"></p><div class="button-row"><button id="move">Move</button><button id="ability">Ability</button></div><label>Capture finish <select id="capture-style">${CAPTURE_STYLES.map(c=>`<option value="${c}">${CAPTURE_LABELS[c]}</option>`).join('')}</select></label><p class="control-note" id="capture-note"></p><div class="button-row"><button id="capture-play">Preview capture</button><button id="capture-reset">Restore pieces</button></div><div class="button-row"><button id="spin">Rotate</button><button id="reset">Reset view</button></div></div><div class="detail" id="character-detail"><b>Guard</b><p>Keep the raised shoulder wings, recessed helmet and heavy fists. Steel blue on the shoulder plates; the rest stays in the army family.</p><b>Archer</b><p>Keep the pointed hood, split skirt and <em>two wrist crossbows</em>. Green on the hood; face, braid and crossbows stay in the army family.</p></div><details><summary>Compare the source artwork</summary><a href="${source}source-guides/guard_color_ref.jpg" target="_blank">Guard colour guide ↗</a><a href="${source}source-guides/Archer_color_ref.jpg" target="_blank">Archer colour guide ↗</a></details><p class="limits" id="limits"></p><output id="stats">Loading study assets…</output></aside><nav class="switcher" aria-label="Rendering candidates"><button id="prev" aria-label="Previous option">←</button><div class="tabs">${variants.map((v,i)=>`<button data-variant="${v}"><span>0${i+1}</span>${names[i]}</button>`).join('')}</div><button id="next" aria-label="Next option">→</button></nav></main>`;
 const el=<T extends HTMLElement=HTMLElement>(id:string)=>document.getElementById(id) as T;
 // Access to existing renderer internals is intentional and isolated to this throwaway study.
-const view:any=new BoardRenderer(el('stage-board'));
+const view:any=new BoardRenderer(el('stage-board'), { ogreModel: false });
 (window as any).view=view;
 // Keep the final colour-conversion pass from blending neighbouring pixel cells.
 for(const target of [view.composer.renderTarget1,view.composer.renderTarget2])target.texture.minFilter=target.texture.magFilter=THREE.NearestFilter;
@@ -79,8 +80,8 @@ function visual(name:string,side:number,rebuilt:boolean):THREE.Group {
  const key=refined?(meshTier==='board'?'board-':'rebuilt-')+defaultCharacter(name):pair&&rebuilt?(variant==='quiet'||figureDetail==='blockout'?'blockout-':'rebuilt-')+name:'original-'+name;
  const g=clone(models.get(key)!) as THREE.Group;
  g.traverse(o=>{const m=o as THREE.Mesh;const layer=m.morphTargetDictionary?.ClayLayer;if(layer!==undefined&&m.morphTargetInfluences)m.morphTargetInfluences[layer]=variant==='rebuilt'&&look==='handmade'?1:0;});
- if(variant==='rebuilt'&&look==='handmade')softenClayNormals(g);
- g.traverse(o=>{if((o as THREE.Mesh).isMesh){const m=o as THREE.Mesh;ensureSurfaceUv(m.geometry);const mats=Array.isArray(m.material)?m.material:[m.material];const replaced=mats.map(x=>material(x.name,name,side,m.geometry.hasAttribute('color')));m.material=Array.isArray(m.material)?replaced:replaced[0];m.castShadow=false;m.receiveShadow=false;if((m as THREE.SkinnedMesh).isSkinnedMesh)m.frustumCulled=false;}});
+ if(variant==='rebuilt'&&look==='handmade'&&name!=='ogre')softenClayNormals(g);
+ g.traverse(o=>{if((o as THREE.Mesh).isMesh){const m=o as THREE.Mesh;ensureSurfaceUv(m.geometry);const mats=Array.isArray(m.material)?m.material:[m.material];const replaced=mats.map(x=>{if(name==='ogre'&&refined){prepareOgreGeometry(m.geometry);const key=`ogre:${meshTier}:${side}:${look}:${x.uuid}`;if(!matCache.has(key))matCache.set(key,ogreMaterial(x as THREE.MeshStandardMaterial,side,look));return matCache.get(key)!;}return material(x.name,name,side,m.geometry.hasAttribute('color'));});m.material=Array.isArray(m.material)?replaced:replaced[0];m.castShadow=false;m.receiveShadow=false;if((m as THREE.SkinnedMesh).isSkinnedMesh)m.frustumCulled=false;}});
  g.userData.modelKey=key;return g;
 }
 let baselineReady:Promise<void>|undefined;
@@ -109,7 +110,7 @@ let entries:Entry[]=[];
 function motionFor(model:THREE.Group|THREE.Mesh,design:string){
  const clip=model.animations?.find(a=>a.name==='Walk');
  const groundedBones:(string|RegExp)[]=[/^cloth/,'tail',...(design==='rook'||design==='knight'?['arm.L']:design==='pawn'?['arm.R']:[])];
- const walk=clip?new WalkPreview(model,clip,{pliable:variant==='rebuilt'&&look!=='current',cadence:variant==='rebuilt'&&look!=='current'?cadence:'smooth',groundedBones,squash:design!=='ogre'}):undefined;
+ const walk=clip?new WalkPreview(model,clip,{pliable:variant==='rebuilt'&&look!=='current'&&design!=='ogre',cadence:variant==='rebuilt'&&look!=='current'?cadence:'smooth',groundedBones,squash:design!=='ogre'}):undefined;
  const shove=model.animations?.find(a=>a.name==='Shove');
  return {walk,shove:shove&&walk?walk.mixer.clipAction(shove):undefined};
 }
@@ -221,7 +222,7 @@ async function apply(){
  const canContour=variant!=='baseline'&&!isQuiet;contourPass.enabled=canContour;view.pixelPass.enabled=!canContour;contourPass.mode=contourMode;
  el<HTMLSelectElement>('contours').disabled=!canContour;
  el('contour-note').textContent=canContour?'One thin contour per figure. Overlap aware strengthens shared edges and adjusts ink to the surface brightness.':'Contour comparison is available on Original sculpts, Rebuilt and Sprites.';
- el('limits').textContent=isQuiet?'Canvas study: earlier blockout pair only. Palette extended for the two armies. Painter sorting can misorder intersecting faces; this is not a production fallback.':variant==='sprites'?'One idle pose per angle; movement and effects animate in world space. Elevation is locked to the bake. No interpolated pose animation.':variant==='sculpt'?'Simplified original geometry with provisional colour zones. This is not a finished repaint of the source sculpts.':variant==='baseline'?'Existing voxel models and Dungeon style, placed on the same comparison board. This scene tests appearance, not chess rules.':'Sixteen designs come from the original sculpts; the Ogre is newly authored from its approved concept. Army/type colours stay tied to defining features. All seventeen designs have articulated movement; closed robes suggest concealed steps. This is an in-place motion study. Sprite poses remain static; clay springs are authored secondary motion, not a collision simulation.';
+ el('limits').textContent=isQuiet?'Canvas study: earlier blockout pair only. Palette extended for the two armies. Painter sorting can misorder intersecting faces; this is not a production fallback.':variant==='sprites'?'One idle pose per angle; movement and effects animate in world space. Elevation is locked to the bake. No interpolated pose animation.':variant==='sculpt'?'Simplified original geometry with provisional colour zones. This is not a finished repaint of the source sculpts.':variant==='baseline'?'Existing voxel models and Dungeon style, placed on the same comparison board. This scene tests appearance, not chess rules.':'Sixteen designs come from the original sculpts; the Ogre uses its approved reconstructed sculpt. Army/type colours stay tied to defining features. All seventeen designs have articulated movement; closed robes suggest concealed steps. This is an in-place motion study. Sprite poses remain static; clay springs are authored secondary motion, not a collision simulation.';
  const style=variant==='baseline'?STYLES.dungeonVoxel:{...STYLES.cel,outline:false,pixelSize:pixel,pieceScale:1,tiles:'flat' as const,shadow:true,lights:'bright' as const};
  view.applyStyle(style);view.rebuild(pos);
  for(const tile of view.tiles){const f=tile.userData.sq%8,r=Math.floor(tile.userData.sq/8);tile.visible=sceneMode==='board'||sceneMode==='cast'||(sceneMode==='character'?(r>=3&&r<=4&&f>=2&&f<=5):(r>=2&&r<=5&&(sceneMode==='six'?f<6:f>=2&&f<=5)));}
@@ -251,7 +252,7 @@ async function apply(){
  }
  el('ability').textContent=sceneMode==='character'&&selectedCharacter==='ogre'?'Shove':'Ability';
  const selected=character(selectedCharacter);
- el('character-detail').innerHTML=sceneMode==='character'?`<b>${selected.label}</b><p>${selected.feature}${selected.key==='pawn'?'.':': the identifying colour stays on this feature; the rest belongs to the army.'}</p><p>${['queen','king-shadow','king-spirit'].includes(selected.key)?'The original closed robe keeps its silhouette; motion suggests steps underneath.':selected.key==='ogre'?'A newly authored Shover: planted steps, stable body and separate clay palm pads. Shove previews its brace-and-push gesture.':'An articulated gait tailored to the original pose and equipment.'}</p>`:sceneMode==='cast'?'<b>The complete sculpt library</b><p>Pawn, Knight, Bishop, Rook, Queen, Guard, Archer, Paladin, Maester, Beast, Ogre and six Kings. Choose Character close-up to inspect a design in both armies.</p>':'<b>Guard · shoulder plates</b><p>Steel blue on the raised shoulder plates.</p><b>Archer · hood</b><p>Green on the hood; face, braid and wrist crossbows stay in the army colour.</p>';
+ el('character-detail').innerHTML=sceneMode==='character'?`<b>${selected.label}</b><p>${selected.feature}${selected.key==='pawn'?'.':': the identifying colour stays on this feature; the rest belongs to the army.'}</p><p>${['queen','king-shadow','king-spirit'].includes(selected.key)?'The original closed robe keeps its silhouette; motion suggests steps underneath.':selected.key==='ogre'?'The approved Shover: planted steps, repaired fingers and terracotta clay cuffs. Shove previews its brace-and-push gesture.':'An articulated gait tailored to the original pose and equipment.'}</p>`:sceneMode==='cast'?'<b>The complete sculpt library</b><p>Pawn, Knight, Bishop, Rook, Queen, Guard, Archer, Paladin, Maester, Beast, Ogre and six Kings. Choose Character close-up to inspect a design in both armies.</p>':'<b>Guard · shoulder plates</b><p>Steel blue on the raised shoulder plates.</p><b>Archer · hood</b><p>Green on the hood; face, braid and wrist crossbows stay in the army colour.</p>';
  syncWalkButton();syncCaptureControls();contourPass.setPieces(entries.map(e=>e.visual));resetCamera();
  // Candidate styles use one beauty draw plus an optional piece-ID draw; baseline retains its original pass.
  view.debris.mesh.visible=false;
@@ -310,7 +311,7 @@ let action:'move'|'ability'='move';
 function syncWalkButton(){
  const available=entries.some(e=>e.walk),clay=variant==='rebuilt'&&look!=='current';const b=el<HTMLButtonElement>('walk');b.disabled=!available;b.textContent=walking?'Stop walking':'Walk in place';b.setAttribute('aria-pressed',String(walking));
  const cadenceControl=el<HTMLSelectElement>('cadence');cadenceControl.disabled=!clay;el('motion-note').textContent=clay?(cadence==='smooth'?'Smooth spring motion adds a small, deterministic lag to arms and cloth.':'12 fps stepping keeps the same spring motion between authored poses.'):'Clay motion is available for the two clay looks.';
- el<HTMLButtonElement>('poke').disabled=!clay||!available;
+ el<HTMLButtonElement>('poke').disabled=!clay||!available||(sceneMode==='character'&&selectedCharacter==='ogre');
  el('walk-note').textContent=available?'Each figure has its own stride and timing. Armour stays composed; cloth and the Beast’s tail follow through. Drag to inspect.':'Walking is available on all seventeen refined 3D designs.';
 }
 function setWalking(value:boolean){
@@ -322,7 +323,7 @@ function setWalking(value:boolean){
 }
 el('walk').onclick=()=>setWalking(!walking);
 el('poke').onclick=()=>{restoreCaptures();for(const e of entries)e.walk?.poke();};
-function animate(which:'move'|'ability'){restoreCaptures();if(running)return;setWalking(false);for(const e of entries)e.walk?.reset();action=which;running=true;motion=0;if(which==='ability')for(const e of entries)if(e.shove&&e.side===0){e.shove.reset().setLoop(THREE.LoopOnce,1).play();e.shove.clampWhenFinished=true;}}
+function animate(which:'move'|'ability'){restoreCaptures();if(running)return;setWalking(false);for(const e of entries)e.walk?.reset();action=which;running=true;motion=0;if(which==='move')for(const e of entries)if(e.character==='ogre'&&e.side===0)e.walk?.action.reset().play();if(which==='ability')for(const e of entries)if(e.shove&&e.side===0){e.shove.reset().setLoop(THREE.LoopOnce,1).play();e.shove.clampWhenFinished=true;}}
 el('move').onclick=()=>animate('move');el('ability').onclick=()=>animate('ability');
 function syncCaptureControls(){
  const available=variant==='rebuilt'&&figureDetail==='refined'&&sceneMode==='character';
@@ -358,7 +359,8 @@ function stepAction(dt:number){
  for(const e of entries){if(e.side!==0)continue;
   e.root.position.copy(e.base);
   if(action==='move'){
-   e.root.position.z-=eased*(sceneMode==='board'?1:1.05);e.root.position.y=Math.sin(eased*Math.PI)*(e.type==='guard'?.09:.30);
+   if(e.character==='ogre'&&e.walk){e.walk.action.time=motion% e.walk.action.getClip().duration;e.walk.mixer.update(0);}
+   e.root.position.z-=eased*(sceneMode==='board'?1:1.05);e.root.position.y=e.type==='ogre'?0:Math.sin(eased*Math.PI)*(e.type==='guard'?.09:.30);
    // A visual-only settle; the foot shadow is kept on the board.
    e.visual.rotation.z=Math.sin(t*2*Math.PI)*.035;
   }else if(e.type==='guard'){e.visual.rotation.x=-Math.sin(t*Math.PI)*.11;ring.visible=true;ring.position.copy(e.base).setY(.025);ring.scale.setScalar(.9+eased*.45);(ring.material as THREE.MeshBasicMaterial).opacity=Math.sin(t*Math.PI)*.85;}
@@ -368,7 +370,7 @@ function stepAction(dt:number){
   }
   for(const child of e.root.children)if((child as THREE.Mesh).geometry===view.shadowGeo){child.position.y=.02-e.root.position.y;child.scale.setScalar(.75+e.root.position.y*.3);}
  }
- if(t>=1){for(const e of entries)e.shove?.stop();running=false;bolt.visible=ring.visible=false;for(const e of entries){e.root.position.copy(e.base);e.visual.rotation.x=e.visual.rotation.z=0;}}
+ if(t>=1){for(const e of entries){e.shove?.stop();if(e.character==='ogre')e.walk?.reset();}running=false;bolt.visible=ring.visible=false;for(const e of entries){e.root.position.copy(e.base);e.visual.rotation.x=e.visual.rotation.z=0;}}
 }
 // Fixed-view Canvas option: reuse QH's camera, face drawing/shading and quantizer.
 // This small adapter projects the same low-poly model triangles, with painter-order limits.

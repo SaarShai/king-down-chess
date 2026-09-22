@@ -14,14 +14,15 @@ const skeleton=doc=>doc.getRoot().listSkins().map(s=>({joints:s.listJoints().map
 for(const m of manifest.models){
  const original=`public/prototype/models/rebuilt-${m.character}.glb`,board=`public/prototype/models/board-${m.character}.glb`,bytes=await readFile(original);
  const a=await io.read(original),b=await io.read(board);
- let valid=true,accent=0,clay=0;
+ let valid=true,accent=0,clay=0,textured=0;
  for(const mesh of b.getRoot().listMeshes())for(const p of mesh.listPrimitives()){
   if(p.getMaterial().getName()==='accent1')accent++;
   clay+=p.listTargets().length;
+  if(p.getMaterial().getBaseColorTexture())textured++;
   for(const semantic of p.listSemantics())valid&&=[...p.getAttribute(semantic).getArray()].every(Number.isFinite);
   const weights=p.getAttribute('WEIGHTS_0').getArray();for(let i=0;i<weights.length;i+=4)valid&&=Math.abs(weights[i]+weights[i+1]+weights[i+2]+weights[i+3]-1)<1e-4;
  }
- check(`${m.character}: valid reduced mesh, paint and clay retained`,valid&&m.boardTriangles<m.sourceTriangles&&(m.character==='pawn'||accent>0&&clay>0),{triangles:m.boardTriangles,accent,clay});
+ check(`${m.character}: valid reduced mesh, paint and clay retained`,valid&&m.boardTriangles<m.sourceTriangles&&(m.character==='pawn'||accent>0&&(clay>0||m.character==='ogre'&&textured===2)),{triangles:m.boardTriangles,accent,clay});
  check(`${m.character}: exact skeleton and clips`,JSON.stringify(animation(a))===JSON.stringify(animation(b))&&JSON.stringify(skeleton(a))===JSON.stringify(skeleton(b)));
  check(`${m.character}: source hash intact`,createHash('sha256').update(bytes).digest('hex')===m.sourceSha256&&(m.character==='ogre'||bytes.equals(execFileSync('git',['show',`c5c2de3:${original}`],{maxBuffer:10_000_000}))));
 }

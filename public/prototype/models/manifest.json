@@ -946,16 +946,18 @@
     },
     {
       "name": "rebuilt-ogre",
-      "source": "Authored from approved Shover concept",
-      "triangles": 27998,
-      "bytes": 1166400,
+      "source": "Owner-approved repaired TRELLIS reconstruction",
+      "sourceSha256": "8c672346e2a6b6fa29aa41b786631437627ca954c5011cf438f5ab773514150a",
+      "triangles": 36888,
+      "bytes": 2812896,
       "bones": 14,
       "clips": [
         "Walk",
         "Shove"
       ],
-      "feature": "Separate rounded terracotta palm pads",
-      "height": 1.4886798858642578
+      "feature": "Original raised cuffs, per-texel terracotta clay",
+      "sourceVertexDisplacement": 0,
+      "height": 1.2956392019987106
     }
   ]
 }

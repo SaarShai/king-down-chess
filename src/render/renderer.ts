@@ -4,12 +4,13 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { Color, LETTERS, Move, N, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
+import { Color, LETTERS, Move, N, O, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
 import { ARMY, TARGET_HEIGHT, pieceGeometry } from './voxels';
 import { Debris, Tweens, easeOut, labelSprite, linear } from './fx';
 import { PALETTES, createPalettePass, paletteTexture } from './palette';
 import { hasSprite, spriteMesh } from './sprites';
 import { STYLES, type Style } from './styles';
+import { OgreFigure } from './OgreFigure';
 import type { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 export const tileCenter = (sq: number): THREE.Vector3 => new THREE.Vector3(file(sq) - 3.5, 0, 3.5 - rank(sq));
@@ -163,6 +164,7 @@ export class BoardRenderer {
   private style: Style = Object.values(STYLES)[0];
   private labels = false;
   private lastPos: Position | null = null;
+  private positionVersion = 0;
   private flipped = false;
   private markerGeo = new THREE.BoxGeometry(0.22, 0.12, 0.22);
   private moveMat = new THREE.MeshLambertMaterial({ color: 0x5fd35f, emissive: 0x1f6f1f });
@@ -188,7 +190,7 @@ export class BoardRenderer {
   private hovered: number | null = null;
   private highlights: Highlights = {};
 
-  constructor(private container: HTMLElement) {
+  constructor(private container: HTMLElement, private readonly options: { ogreModel?: boolean } = {}) {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(1);
     container.appendChild(this.renderer.domElement);
@@ -450,7 +452,7 @@ export class BoardRenderer {
 
   /** Drop every piece mesh and rebuild (after switching model sets). */
   rebuild(pos: Position): void {
-    for (const g of this.pieces.values()) this.world.remove(g);
+    for (const g of this.pieces.values()) this.removeFigure(g);
     this.pieces.clear();
     this.sync(pos);
   }
@@ -458,13 +460,20 @@ export class BoardRenderer {
   /** Reconcile piece meshes with a position (only squares that differ are rebuilt). */
   sync(pos: Position): void {
     this.lastPos = pos;
+    this.positionVersion++;
+    for (const g of this.pieces.values()) (g.userData.ogre as OgreFigure | undefined)?.reset();
     for (let sq = 0; sq < 64; sq++) {
       const code = pos.board[sq];
       const cur = this.pieces.get(sq);
       if (cur && cur.userData.code === code && cur.position.distanceTo(tileCenter(sq)) < 0.01) continue;
-      if (cur) { this.world.remove(cur); this.pieces.delete(sq); }
+      if (cur) { this.removeFigure(cur); this.pieces.delete(sq); }
       if (code) this.pieces.set(sq, this.spawn(sq, typeOf(code), colorOf(code)));
     }
+  }
+
+  private removeFigure(g: THREE.Group): void {
+    (g.userData.ogre as OgreFigure | undefined)?.dispose();
+    this.world.remove(g);
   }
 
   /** `style.rim` is in art pixels; one art pixel = pixelSize screen px = that many world units here. */
@@ -477,9 +486,16 @@ export class BoardRenderer {
   private spawn(sq: number, t: PieceType, c: Color): THREE.Group {
     const g = new THREE.Group();
     let top = TARGET_HEIGHT[t] * 1.15; // sprite art has extra headroom (sprites.ts SCALE)
-    // A lab-only piece (ogre, catapult) has no sprite and no model: it falls through to the voxel
-    // path, which draws a plain box, so a `?fen=` carrying one renders instead of throwing.
-    if (this.style.pieces === 'sprite' && hasSprite(t)) {
+    if (t === O && this.options.ogreModel !== false) {
+      if (c === 1) g.rotation.y = Math.PI;
+      top = 1.3 * (this.style.pieceScale ?? 1);
+      g.userData.ogreReady = OgreFigure.load(c).then(figure => {
+        if (g.parent !== this.world) { figure.dispose(); return; }
+        figure.model.scale.setScalar(this.style.pieceScale ?? 1);
+        g.userData.ogre = figure;
+        g.add(figure.model);
+      }).catch(error => console.error('Could not load Ogre', error));
+    } else if (this.style.pieces === 'sprite' && hasSprite(t)) {
       g.add(spriteMesh(t, c, this.style.spriteOutline ? (this.style.outlineColor ?? 0x151515) : undefined));
       g.userData.sprite = true;
     } else {
@@ -542,6 +558,8 @@ export class BoardRenderer {
 
   /** Animate a move on the pre-move board; call sync(newPos) afterwards. */
   async animateMove(pos: Position, m: Move): Promise<void> {
+    const version = this.positionVersion;
+    const current = () => version === this.positionVersion;
     const mover = this.pieces.get(m.from);
     if (!mover) return;
     const t = typeOf(pos.board[m.from]);
@@ -549,51 +567,87 @@ export class BoardRenderer {
       const g = this.pieces.get(sq);
       if (!g) return;
       this.pieces.delete(sq);
-      this.world.remove(g);
+      this.removeFigure(g);
       const pal = ARMY[colorOf(g.userData.code as number)];
       this.debris.burst(tileCenter(sq).setY(0.2), [pal.m, pal.s, pal.a]);
       this.shake = Math.max(this.shake, 0.12);
     };
+    await mover.userData.ogreReady;
+    if (!current()) return;
     if (m.shove) {
       // The shoved piece moves; under `push` the Ogre follows onto the square it left. No capture,
       // no debris. The engine's `m.to` is the Ogre's own square under `repel` and the shove source
       // under `push`, so the renderer reads `m.shove` and never the mode.
       const shoved = this.pieces.get(m.shove.from);
+      const ogre = mover.userData.ogre as OgreFigure | undefined;
+      if (ogre) {
+        const direction = tileCenter(m.shove.from).sub(tileCenter(m.from));
+        ogre.model.rotation.y = Math.atan2(direction.x, direction.z) - mover.rotation.y;
+        const a = tileCenter(m.shove.from), b = tileCenter(m.shove.to);
+        await this.tweens.add(1.6, k => {
+          if (!current()) return;
+          ogre.sample('Shove', k);
+          if (shoved) shoved.position.lerpVectors(a, b, THREE.MathUtils.smoothstep(k, .32, .58));
+        }, linear);
+        if (!current()) return;
+        ogre.reset();
+      }
       if (shoved) {
-        await this.hop(shoved, m.shove.from, m.shove.to, 0.28, 0.25);
+        if (!ogre) await this.hop(shoved, m.shove.from, m.shove.to, 0.28, 0.25);
+        if (!current()) return;
         this.pieces.delete(m.shove.from);
         this.pieces.set(m.shove.to, shoved);
       }
       if (m.to !== m.from) {
         await this.hop(mover, m.from, m.to, 0.28, 0.2);
+        if (!current()) return;
         this.pieces.delete(m.from);
         this.pieces.set(m.to, mover);
       }
     } else if (m.to === m.from) {
       await this.arrow(m.from, m.captures[0]);
+      if (!current()) return;
       burst(m.captures[0]);
     } else if (m.swap) {
       const other = this.pieces.get(m.to)!;
       await Promise.all([this.hop(mover, m.from, m.to, 0.45, 0.7), this.hop(other, m.to, m.from, 0.45, 0.4)]);
+      if (!current()) return;
       this.pieces.set(m.to, mover);
       this.pieces.set(m.from, other);
     } else if (m.captures.length > 1) {
       let at = m.from;
-      for (const v of m.captures) { await this.hop(mover, at, v, 0.22, 0.35); burst(v); at = v; }
+      for (const v of m.captures) { await this.hop(mover, at, v, 0.22, 0.35); if (!current()) return; burst(v); at = v; }
       this.pieces.delete(m.from);
       this.pieces.set(m.to, mover);
     } else {
       await this.hop(mover, m.from, m.to, 0.35, t === N ? 1 : 0.35);
+      if (!current()) return;
       if (m.captures.length) burst(m.captures[0]);
       this.pieces.delete(m.from);
       this.pieces.set(m.to, mover);
-      if (m.selfRemove) { await this.tweens.wait(0.15); burst(m.to); this.shake = 0.25; }
+      if (m.selfRemove) { await this.tweens.wait(0.15); if (!current()) return; burst(m.to); this.shake = 0.25; }
     }
   }
 
-  private hop(g: THREE.Object3D, from: number, to: number, dur: number, height: number): Promise<void> {
+  private async hop(g: THREE.Object3D, from: number, to: number, dur: number, height: number): Promise<void> {
+    const version = this.positionVersion;
+    await g.userData.ogreReady;
+    if (version !== this.positionVersion) return;
     const a = tileCenter(from), b = tileCenter(to);
+    const ogre = g.userData.ogre as OgreFigure | undefined;
+    if (ogre) {
+      const direction = b.clone().sub(a);
+      ogre.model.rotation.y = Math.atan2(direction.x, direction.z) - g.rotation.y;
+      await this.tweens.add(Math.max(dur, .85), k => {
+        if (version !== this.positionVersion) return;
+        g.position.lerpVectors(a, b, k);
+        ogre.sample('Walk', k);
+      }, linear);
+      if (version === this.positionVersion) ogre.reset();
+      return;
+    }
     return this.tweens.add(dur, k => {
+      if (version !== this.positionVersion) return;
       g.position.lerpVectors(a, b, k);
       g.position.y = Math.sin(k * Math.PI) * height;
       // The figure rises; its contact shadow stays on the board.

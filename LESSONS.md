@@ -246,3 +246,8 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
   owner-rejected from shipped rules — labels needed before it gates anything. `tools/next-ab.ts`
   is a deterministic rank with an optional labelled model opinion. `tools/jev-conditions.ts`
   deleted (failed controls twice, 2026-09-17).
+
+## Reconstructed Ogre integration (2026-09-22)
+- Blender can bake parent normalization into exported skinned vertex positions. Export the rig in source coordinates, then add the board transform to its parent node; validate against the accepted GLB. Texture-space feature selection and clay relief depend on those bind coordinates.
+- A spatial arm mask must exclude spread toes and skirt corners. Preserve short reconstructed knee/hand forms with a restrained motion suited to the mesh; measure actual skinned edges and rigid-hand distances, not bone paths alone.
+- A study that replaces renderer-owned figures must disable the renderer's asynchronous model load. Otherwise a late resolved asset draws a second model and looks like broken surface shading. Rebuild/undo must also invalidate pending movement callbacks.

@@ -1,5 +1,10 @@
 # Tasks
 
+## Approved reconstructed Ogre in the game — 2026-09-22
+- [x] Owner-approved repaired reconstruction replaces the procedural Ogre in the study and playable renderer. Shared ivory/ink-blue clay material and exact cuff pigment; sculpt, face and repaired fingers preserved. Rules and starting rosters unchanged.
+- [x] Added restrained Walk/Shove clips without step squash; full-detail 36,888 triangles and compressed board mesh 14,312 triangles. Gameplay movement, shove timing, disposal and undo/rebuild interruption are integrated. Study covers both armies, looks, detail switching and capture previews.
+- [x] Verified 4 deformation groups over 61 samples at both tiers, 51 board-asset checks, 205 existing tests and production build. UI: legal movement/shove, mid-animation undo, all 34 figures, material/capture controls. Evidence: `docs/graphics-prototype/ogre-integration/README.md`. Close-up fragment construction and physical-device profiling remain documented engine follow-ups.
+
 Project tracker (checkable). Verification evidence goes next to each item.
 
 ## Phase 0 — Research & sources

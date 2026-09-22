@@ -1,0 +1,293 @@
+{
+  "checks": [
+    {
+      "name": "archer: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 10786,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "archer: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "archer: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "beast: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 20075,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "beast: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "beast: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "bishop: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 11273,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "bishop: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "bishop: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "guard: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 19144,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "guard: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "guard: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-celestial: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 12603,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-celestial: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-celestial: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-ember: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 14786,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-ember: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-ember: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-frost: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 11642,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-frost: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-frost: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-gaya: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 16636,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-gaya: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-gaya: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-shadow: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 16305,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-shadow: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-shadow: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "king-spirit: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 14044,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "king-spirit: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "king-spirit: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "knight: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 10562,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "knight: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "knight: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "maester: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 12056,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "maester: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "maester: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "paladin: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 41831,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "paladin: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "paladin: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "pawn: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 10139,
+        "accent": 0,
+        "clay": 0
+      }
+    },
+    {
+      "name": "pawn: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "pawn: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "queen: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 10368,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "queen: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "queen: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "rook: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 20324,
+        "accent": 1,
+        "clay": 2
+      }
+    },
+    {
+      "name": "rook: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "rook: source hash intact",
+      "ok": true
+    },
+    {
+      "name": "ogre: valid reduced mesh, paint and clay retained",
+      "ok": true,
+      "detail": {
+        "triangles": 14312,
+        "accent": 1,
+        "clay": 0
+      }
+    },
+    {
+      "name": "ogre: exact skeleton and clips",
+      "ok": true
+    },
+    {
+      "name": "ogre: source hash intact",
+      "ok": true
+    }
+  ]
+}

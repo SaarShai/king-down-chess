@@ -1,5 +1,7 @@
 # Ogre / The Shover — implemented 2026-09-22
 
+**Historical, rejected sculpt.** The owner-approved reconstruction replaces this asset and recipe. See [current integration and verification](../ogre-integration/README.md). The measurements below describe the earlier procedural model at commit `914ec07`.
+
 The approved concept is now an editable 3D clay character in the graphics study. Open `?study&variant=rebuilt&scene=character&character=ogre&pixels=.5&look=handmade` and use **Walk in place**, **Shove** or any capture finish. The complete cast now contains 17 designs, in both armies.
 
 The sculpture has a broad belly, small heavy-jawed head, blunt brows/tusks, four-digit hands, a short tunic and exposed legs. Separate rounded clay palm pads carry the terracotta accent; the body and fingers use the army material. Face recesses use neutral baked shading, not another identity colour. Clay relief, smooth/12 fps walking, independent army rigs and all five capture previews use the existing renderer. The Ogre's walking disables the per-step root squash; the other accepted characters are unchanged.
