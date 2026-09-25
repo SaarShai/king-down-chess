@@ -1,7 +1,7 @@
-# King Down Chess — rules spec (v0.1)
+# King Down Chess — current rules and dated decisions
 
-Source of truth: *King Down Classic — Rules of Play* (Saar Shai, 2017). This is the playable scope for v0.1.
-Kings' powers and card/spell effects are documented in §4–5 for later versions; they are **not** in the game yet.
+Starting source: *King Down Classic — Rules of Play* (Saar Shai, 2017), with the dated owner decisions below.
+Sections 1–3 describe the current default. Kings' powers in §4 are optional lab rules; card/spell effects in §5 remain unbuilt.
 
 ## 1. Base rules
 
@@ -13,23 +13,24 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 | En passant | not official (optional) | off |
 | Promotion | any piece except a king, fairy pieces included | **Q, R, B or N — the chess set** (§6.13, revised 2026-09-17) |
 | 50-move draw | not stated | on (100 plies) |
-| Threefold repetition | not stated | on (3rd time the same board + side to move appears) |
-| Insufficient material | not stated | on (conservative: neither side has P/R/Q/A/M/S and each has at most one minor) |
+| Threefold repetition | not stated | on (3rd occurrence of the same board, side to move and spent-Strike state) |
+| Insufficient material | not stated | on (conservative engine check; a live Strike power prevents this draw) |
 
 ## 2. Setup (Chess960-style)
 
 - Rank 2 / 7: 8 pawns each.
 - Rank 1 / 8: the king plus **7 pieces drawn at random** from the pool
-  `1 queen, 1 paladin, 2 rooks, 2 bishops, 2 knights, 2 archers, **1 guard**, 2 maesters, 2 beasts` (15 letters,
-  `QLRRBBNNAAGMMSS`),
+  `1 queen, 1 ogre, 2 rooks, 2 bishops, 2 knights, 2 archers, **1 guard**, 2 maesters, 2 beasts` (15 letters,
+  `QORRBBNNAAGMMSS`),
   in a random order that is **identical for both players**.
 - Our extra constraint (Chess960 spirit): if both bishops are drawn they start on opposite colours.
   There is no "king between rooks" rule because there is no castling.
-- A setup is shared as its 8-letter back-rank string, e.g. `RSAKGQLB` (see letters below).
+- A setup is shared as its 8-letter back-rank string, e.g. `RSAKGQOB` (see letters below).
 
 ## 3. Pieces
 
-Letters (FEN-style, uppercase = white): `P N B R Q K` standard, `A` archer, `L` paladin, `G` guard, `M` maester, `S` beast.
+Letters (FEN-style, uppercase = white): `P N B R Q K` standard, `A` archer, `L` paladin, `G` guard, `M` maester, `S` beast, `O` ogre.
+Paladin remains available in custom setups and historical promotion sets, outside the current random pool. Catapult (`C`), Reaver (`V`) and Templar (`T`) remain lab pieces. The archived Squire/reserve experiment is not part of this engine.
 Lab only: under `guardCaptures` + `guardCaptureLimit` (§6.9, never in a shipped game) a guard that has spent its one capture is written `H` (white) / `h` (black), so a position keeps that state through a FEN round-trip.
 King Down card-game names for the standard pieces: Pike = pawn, Steed = knight, Cross = bishop, Rock = rook, Thorn = queen.
 
@@ -37,11 +38,12 @@ King Down card-game names for the standard pieces: Pike = pawn, Steed = knight, 
 |---|---|---|---|
 | Pawn | 1 forward (2 from start rank) | 1 diagonal forward | promotes on last rank |
 | Knight, Bishop, Rook, Queen, King | standard | standard | — |
-| **Archer** | 1 square in any direction | **from a distance, without moving**: any enemy on a diagonally adjacent square, or exactly 2 squares away orthogonally — blockers are ignored | gives check the same way |
+| **Archer** | 1 square in any direction | **from a distance, without moving**: any enemy diagonally adjacent, exactly 2 squares away orthogonally, or on either forward diagonal at distance 2 — blockers are ignored (§6.16) | gives check the same way |
 | **Paladin** | like a queen; **jumps over friendly pieces**, blocked by enemies | by moving onto the enemy | **cannot capture a king** (so never gives check); **removes itself** after capturing anything but a pawn (§6.15) |
 | **Guard** | 1 square any direction, empty squares only | **cannot capture** | **cannot be captured, except by a king**; blocks sliders like any piece |
 | **Maester** | 1 square any direction | onto an adjacent enemy | onto an adjacent friend = **swap places**; if maester and own king are both on their first rank they may **swap at any distance** as a move |
-| **Beast** | 1 square in any direction, empty only | any of the **7 adjacent squares that are not straight ahead** | after capturing it **may keep capturing** from its new square in the same turn, but never a king as a continuation |
+| **Beast** | 1 square in any direction, empty only | any adjacent square, including straight ahead (§6.17) | after capturing it **may keep capturing** from its new square in the same turn, but never a king as a continuation |
+| **Ogre** | 1 square in any direction | onto an adjacent enemy, except a Guard | may push an adjacent friend or enemy, never a king, one square straight away onto an empty square; the Ogre follows into the vacated square; a Guard can be pushed |
 
 Interactions decided in code (`canCapture`): a guard is taken only by a king; a king is never taken by a paladin; a guard captures nothing at all.
 The attacker set used for check = every piece's capture pattern, so an archer checks through blockers and a paladin never checks.
@@ -137,6 +139,16 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
     only **price-neutral** one (beast 4.34 ± 0.42 pawns, captures +29%, decisive +1.4 ± 2.1, plies −6.6 ± 4.0);
     the diagonal readings halve the piece's value (1.81 / 1.99 pawns) and are lab readings only
     (`docs/research/sim-beast-all8-2026-09-17.md`, `sim-beast-diagonal-d4-2026-09-17.md`, `sim-beast-diagfwd-2026-09-17.md`).
+
+18. **Paladin leaves the random pool; Ogre push takes that slot (designer, 2026-09-24).** `POOL` is
+    `QORRBBNNAAGMMSS` (the single `L` becomes `O`). The Paladin stays legal for custom setups, FEN, and
+    promotion under historical sets that already include it. Default `ogreMode` is `push`; `repel` stays
+    a lab reading. Promotion stays `standard` (Q R B N). Ogre's evaluation value is 318; other values
+    are unchanged. Earlier evidence: `docs/research/sim-paladin-pool-2026-09-17.md`,
+    `direct-campaign-phase-2-2026-09-22.md`, `sim-ogre-movement-2026-09-17.md`,
+    `direct-campaign-phase-3-2026-09-22.md`. Selectively implemented on the accepted clay base:
+    [adoption record](cursor-recovery/2026-09-24-0213b442/EXECUTED.md). The new 24-game traffic sketch
+    does not establish a balance improvement or a precise first-move advantage.
 
 ### First measured evidence (2026-09-13, provisional) — superseded by §6.8
 

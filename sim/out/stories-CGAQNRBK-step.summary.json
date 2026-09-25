@@ -1,0 +1,29 @@
+{
+  "spec": {
+    "id": "stories-CGAQNRBK-step",
+    "games": 12,
+    "ai": {
+      "depth": 2
+    },
+    "seed": 96,
+    "backRanks": [
+      "CGAQNRBK"
+    ],
+    "rules": {
+      "squire": "step"
+    },
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 12,
+  "seconds": 2.1,
+  "whiteScore": 0.4167,
+  "whiteWins": 5,
+  "draws": 0,
+  "blackWins": 7,
+  "meanPlies": 79.3,
+  "reasons": {
+    "adjudicatedResign": 11,
+    "checkmate": 1
+  }
+}

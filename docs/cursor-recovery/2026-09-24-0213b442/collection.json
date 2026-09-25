@@ -1,0 +1,23 @@
+{
+  "collected_at": "2026-09-25T05:44:07.071184+00:00",
+  "parent": "0213b442-49e7-4cf4-b8b7-f9156eaec088",
+  "archive": "/Users/za/Documents/king-down-chess-recovery/2026-09-24-0213b442",
+  "source": "/Users/za/.cursor/projects/Users-za-Documents-king-down-chess/agent-transcripts/0213b442-49e7-4cf4-b8b7-f9156eaec088",
+  "transcripts": 888,
+  "children": 887,
+  "transcript_bytes": 9150929,
+  "declared_children": 887,
+  "missing_transcripts": [],
+  "extra_transcripts": [],
+  "database_rows": {
+    "composerData": 888,
+    "bubbleId": 34358,
+    "checkpointId": 25
+  },
+  "tool_result_records": 17586,
+  "launch_records": 887,
+  "launches_mapped": 887,
+  "workspace_files": 885,
+  "head": "62c9084bf5a9d80b0c10218ce3898c54ad1b3528",
+  "branch": "takeover"
+}

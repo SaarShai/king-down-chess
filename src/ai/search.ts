@@ -14,7 +14,7 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  Color, GenMode, K, Move, P, Position, RULES, WHITE, canCapture, colorOf, file, genPiece, isAttacked, landed, piece, rank, sq, typeOf,
+  Color, GenMode, K, Move, P, Position, RULES, WHITE, canCapture, colorOf, file, genPiece, isAttacked, landed, materialDraw, piece, rank, sq, typeOf,
 } from '../rules/engine';
 import { VALUES, evalBoard } from './eval';
 import { Z_HI, Z_LO, Z_TURN_HI, Z_TURN_LO, combine, hashBoard, zIndex } from './zobrist';
@@ -275,13 +275,28 @@ const timeUp = (): boolean => {
   return stop;
 };
 
+/** Terminal rules shared by root, full search and capture continuations. */
+function terminalScore(c: Color, ply: number, hm: number): number | null {
+  if (board.indexOf(piece(K, c)) < 0) return -MATE + ply;
+  if (board.indexOf(piece(K, (c ^ 1) as Color)) < 0) return MATE - ply;
+  if ((RULES.fiftyMove && hm >= 100) || (RULES.threefold && ply > 0 && repeated(ply, combine(hLo, hHi)))) {
+    // Mate ends the game before a draw-clock/history condition can claim it.
+    return attacked(c) && genLegal(bufs[ply], c, 'all').length === 0 ? -MATE + ply : 0;
+  }
+  return materialDraw(board, strikeUsed) ? 0 : null;
+}
+
 function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: number): number {
   const c = (rootTurn ^ (ply & 1)) as Color;
+  const terminal = terminalScore(c, ply, hm);
+  if (terminal != null) return terminal;
   if (timeUp() || ply >= MAX_PLY + QMAX) return evalBoard(board, c);
   const key = combine(hLo, hHi);
-  if (hm >= 100 || repeated(ply, key)) return 0;
   path[ply] = key;
   const inChk = attacked(c);
+  // Stalemate is terminal even at the capture-search horizon, before stand-pat.
+  const moves = genLegal(bufs[ply], c, 'all');
+  if (!moves.length) return inChk ? -MATE + ply : 0;
   let best: number;
   if (inChk) {
     best = -INF; // no stand-pat while in check: every evasion has to be looked at
@@ -290,8 +305,11 @@ function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: n
     if (best >= beta || qdepth === 0) return best;
     if (best > alpha) alpha = best;
   }
-  const moves = genLegal(bufs[ply], c, inChk ? 'all' : 'captures');
-  if (inChk && moves.length === 0) return -MATE + ply;
+  if (!inChk) {
+    let n = 0;
+    for (const m of moves) if (m.captures.length) moves[n++] = m;
+    moves.length = n;
+  }
   const s = score(moves, ply, 0);
   const stand = best;
   for (let i = 0; i < moves.length; i++) {
@@ -314,10 +332,11 @@ function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: n
 
 function negamax(depth: number, alpha: number, beta: number, ply: number, hm: number): number {
   const c = (rootTurn ^ (ply & 1)) as Color;
+  const terminal = terminalScore(c, ply, hm);
+  if (terminal != null) return terminal;
   if (timeUp() || ply >= MAX_PLY) return evalBoard(board, c);
 
   const key = combine(hLo, hHi);
-  if (hm >= 100 || repeated(ply, key)) return 0;
   path[ply] = key;
 
   // Mate-distance pruning: a shorter mate already found elsewhere beats anything below here.
@@ -466,11 +485,14 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
   for (let i = 0; i < history.length; i++) history[i] >>= 3; // fade, do not forget
   path[0] = combine(hLo, hHi);
 
+  const terminal = terminalScore(pos.turn, 0, pos.halfmove);
+  if (terminal != null) return { move: null, score: terminal, depth: 0, nodes: 0 };
+
   const temperature = opts.temperature ?? 0;
   const multi = opts.multiPv === 2 || temperature > 0;
   const rootMoves = genLegal(bufs[0], pos.turn, 'all');
   const result: SearchResult = { move: rootMoves[0] ?? null, score: 0, depth: 0, nodes: 0 };
-  if (rootMoves.length === 0) return result;
+  if (rootMoves.length === 0) { result.score = attacked(pos.turn) ? -MATE : 0; return result; }
 
   let prevElapsed = 0;
   let lastScores: { move: Move; score: number }[] = [];

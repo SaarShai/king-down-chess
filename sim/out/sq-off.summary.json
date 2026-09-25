@@ -1,0 +1,30 @@
+{
+  "spec": {
+    "id": "sq-off",
+    "games": 24,
+    "ai": {
+      "depth": 2
+    },
+    "seed": 93,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "squire": "off"
+    },
+    "backRanks": {
+      "sample": 8
+    }
+  },
+  "games": 24,
+  "seconds": 12.5,
+  "whiteScore": 0.6458,
+  "whiteWins": 15,
+  "draws": 1,
+  "blackWins": 8,
+  "meanPlies": 99.3,
+  "reasons": {
+    "adjudicatedResign": 22,
+    "checkmate": 1,
+    "adjudicatedDraw": 1
+  }
+}

@@ -1,5 +1,7 @@
 # Playable clay edition — 2026-09-22
 
+> Historical accepted baseline. The current adopted build, rules and verification are recorded in [PLAYABLE-CLAY.md](../PLAYABLE-CLAY.md). Screenshots and check counts in this folder remain evidence for the September 22 version.
+
 Open the production preview at **http://127.0.0.1:5188/**. Play against the computer or choose Human for both sides. Drag to orbit; scroll/pinch to zoom. The playable checkout is `/Users/za/.codex/worktrees/playable-clay/king down chess`, branch `codex/playable-clay`.
 
 To restart locally: run `npm run build`, then `npm run preview -- --host 127.0.0.1 --port 5188` from this checkout. The built static app is in `dist/`. Serve it over HTTP; opening its HTML through `file://` cannot run the module/worker game correctly. No cloud service, model delegation or keys are needed to play.

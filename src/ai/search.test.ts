@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BLACK, Color, Move, Position, Q, WHITE, colorOf, isAttacked, legalMoves, makeMove, parseSq, piece, status, typeOf,
+  BLACK, Color, Move, Position, Q, WHITE, colorOf, isAttacked, legalMoves, makeMove, parseSq, piece, setRules, status, typeOf,
 } from '../rules/engine';
 import { fromFen, randomBackRank, startPosition, toLan } from '../rules/setup';
 import { MATE, evaluate, positionKey, resetSearchState, search } from './search';
@@ -183,12 +183,15 @@ describe('ogre and catapult', () => {
     expect(res.score).toBeGreaterThan(100);
   });
 
-  it('shoves its own pawn aside to discover a check and fork the rook with it', () => {
+  it('repels its own pawn aside to discover a check and fork the rook with it', () => {
+    setRules({ ogreMode: 'repel' });
+    try {
     // Od4>e4-f4 opens the e-file onto the black king and the pawn lands attacking g5. Every answer
     // to the check loses the rook, and nothing else in the position wins material at all.
     const { lan, res } = best('4k3/8/8/6r1/3OP3/8/8/4R2K w - - 0 1', 1500);
     expect(lan).toBe('Od4>e4-f4');
     expect(res.score).toBeGreaterThan(300);
+    } finally { setRules(); resetSearchState(); }
   });
 });
 

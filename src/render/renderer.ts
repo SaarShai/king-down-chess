@@ -4,7 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { Color, LETTERS, Move, K, L, M, N, O, RULES, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
+import { C, Color, LETTERS, Move, K, L, M, N, O, RULES, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
 import { ARMY, TARGET_HEIGHT, pieceGeometry } from './voxels';
 import { Debris, Tweens, easeOut, labelSprite, linear } from './fx';
 import { PALETTES, createPalettePass, paletteTexture } from './palette';
@@ -26,11 +26,28 @@ export interface Highlights {
   /** Squares holding a piece an Ogre may shove (occupied, never a capture). */
   shoves?: number[];
   last?: number[];
+  hint?: number[];
   check?: number | null;
 }
 
 const LIGHT = 0xefebe3, DARK = 0x6f6b65;
 const BG_BRIGHT = 0xe9e6df, BG_TORCH = 0x120e0a;
+
+/** Soft tile wash for check — weaker than last-move blue so overlap stays readable. */
+const CHECK_TINT = 0x5a1010;
+/** Bright frame on the checked king; drawn as a ring mesh, not a full-tile wash. */
+const CHECK_RING = 0xe02828;
+
+/** Flat square frame (outer rim, hollow centre) so the piece and any last-move tint stay visible. */
+function checkRingGeometry(): THREE.BufferGeometry {
+  const s = new THREE.Shape();
+  const o = 0.48, i = 0.34;
+  s.moveTo(-o, -o); s.lineTo(o, -o); s.lineTo(o, o); s.lineTo(-o, o); s.closePath();
+  const hole = new THREE.Path();
+  hole.moveTo(-i, -i); hole.lineTo(-i, i); hole.lineTo(i, i); hole.lineTo(i, -i); hole.closePath();
+  s.holes.push(hole);
+  return new THREE.ShapeGeometry(s).rotateX(-Math.PI / 2);
+}
 
 /** Rim thickness in world units; the board shows ~95 px per unit at 900 px tall, so ~2 px. */
 const RIM = 0.04;
@@ -150,6 +167,7 @@ export class BoardRenderer {
   readonly world = new THREE.Group();
   /** `shift` lets the caller prefer a shove over the capture on the same occupied square. */
   onSquareClick: (sq: number, shift: boolean) => void = () => {};
+  onDragSelect: (sq: number) => void = () => {};
   onSquareHover: (sq: number | null) => void = () => {};
 
   private renderer: THREE.WebGLRenderer;
@@ -173,6 +191,8 @@ export class BoardRenderer {
   private flipped = false;
   private markerGeo = new THREE.BoxGeometry(0.22, 0.12, 0.22);
   private moveMat = new THREE.MeshLambertMaterial({ color: 0x5fd35f, emissive: 0x1f6f1f });
+  private checkRingGeo = checkRingGeometry();
+  private checkMat = new THREE.MeshBasicMaterial({ color: CHECK_RING, transparent: true, opacity: 0.92, depthWrite: false, side: THREE.DoubleSide });
   private raycaster = new THREE.Raycaster();
   private pointer = new THREE.Vector2();
   private shake = 0;
@@ -189,9 +209,10 @@ export class BoardRenderer {
   private edgeTex = edgeTexture();
   private shadowMat = new THREE.MeshBasicMaterial({ map: shadowTexture(), transparent: true, depthWrite: false });
   private shadowGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
-  private stone: Record<string, THREE.Texture> = {};
   private proc: Record<string, THREE.Texture> = {};
   private tap: PointerEvent | null = null; // pointerdown that may still turn into a click
+  private dragFrom: number | null = null;
+  private dragArmed = false;
   private hovered: number | null = null;
   private highlights: Highlights = {};
 
@@ -266,10 +287,10 @@ export class BoardRenderer {
     new ResizeObserver(() => this.resize()).observe(container);
     this.resize();
     const el = this.renderer.domElement;
-    el.addEventListener('pointermove', e => this.hover(this.pick(e)));
-    el.addEventListener('pointerdown', e => { this.tap = this.tap ? null : e; }); // a second finger cancels the tap
+    el.addEventListener('pointermove', e => this.onMove(e));
+    el.addEventListener('pointerdown', e => this.onDown(e), true); // before OrbitControls
     el.addEventListener('pointerup', e => this.onUp(e));
-    el.addEventListener('pointercancel', () => { this.tap = null; });
+    el.addEventListener('pointercancel', () => this.clearPointer());
     el.addEventListener('pointerleave', () => this.hover(null));
     this.timer.connect(document);
     this.renderer.setAnimationLoop(() => this.frame());
@@ -320,21 +341,10 @@ export class BoardRenderer {
   /** Tile top (flat / 1-px ring / stone albedo) and the block height that shows the side faces. */
   private applyBoard(): void {
     const kind = this.style.tiles ?? 'flat', torch = this.style.lights === 'torch';
-    if (kind === 'stone' && !this.stone.light) {
-      const load = (f: string): THREE.Texture => {
-        const t = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}textures/${f}`);
-        t.magFilter = t.minFilter = THREE.NearestFilter;
-        t.generateMipmaps = false;
-        t.colorSpace = THREE.SRGBColorSpace;
-        return t;
-      };
-      this.stone = { light: load('white_tile_1.jpg'), dark: load('black_tile_1.jpg'), frame: load('board_texture1.jpg') };
-    }
     if (kind === 'stoneProc' && !this.proc.light) {
       this.proc = { light: stoneTexture(STONE.light, 7), dark: stoneTexture(STONE.dark, 11), frame: stoneTexture(STONE.frame, 3) };
     }
-    // Both stone kinds take the same albedo knock-back and frame tint; only the maps differ.
-    const maps = kind === 'stone' ? this.stone : kind === 'stoneProc' ? this.proc : null;
+    const maps = kind === 'stoneProc' ? this.proc : null;
     const side = this.style.boardSide ?? SIDE;
     for (const tile of this.tiles) {
       const sq = tile.userData.sq as number;
@@ -471,6 +481,7 @@ export class BoardRenderer {
 
   /** Reconcile piece meshes with a position (only squares that differ are rebuilt). */
   sync(pos: Position): void {
+    this.clearPointer();
     this.lastPos = pos;
     this.positionVersion++;
     for (const g of this.pieces.values()) (g.userData.figure as ClayFigure | undefined)?.reset();
@@ -572,13 +583,16 @@ export class BoardRenderer {
 
   highlight(h: Highlights): void {
     this.highlights = h;
+    this.container.classList.toggle('king-in-check', h.check != null);
     for (const tile of this.tiles) tile.material.emissive.setHex(0);
     const set = (sqs: number[] | undefined, hex: number) => sqs?.forEach(sq => this.tiles[sq].material.emissive.setHex(hex));
     set(h.last, 0x2a3f6a);
+    set(h.hint, 0x1f6a3a);
     set(h.captures, 0x8a1f1f);
     set(h.swaps, 0x3f3f9a);
     set(h.shoves, 0x8a5a10); // amber: a shove target is occupied like a capture, but nothing is taken
-    if (h.check != null) set([h.check], 0xaa1010);
+    // Soft tint only when the square is not already last-move blue — ring carries the check signal either way.
+    if (h.check != null && !(h.last ?? []).includes(h.check)) set([h.check], CHECK_TINT);
     if (h.selected != null) set([h.selected], 0x7a6a10);
     if (this.hovered != null && !this.tiles[this.hovered].material.emissive.getHex()) set([this.hovered], 0x2a2a2a);
     this.markers.clear();
@@ -586,6 +600,11 @@ export class BoardRenderer {
       const m = new THREE.Mesh(this.markerGeo, this.moveMat);
       m.position.copy(tileCenter(sq)).setY(0.06);
       this.markers.add(m);
+    }
+    if (h.check != null) {
+      const ring = new THREE.Mesh(this.checkRingGeo, this.checkMat);
+      ring.position.copy(tileCenter(h.check)).setY(0.05);
+      this.markers.add(ring);
     }
   }
 
@@ -638,7 +657,7 @@ export class BoardRenderer {
         this.pieces.set(m.to, mover);
       }
     } else if (m.to === m.from) {
-      await this.arrow(m.from, m.captures[0]);
+      await this.arrow(m.from, m.captures[0], t === C ? 1.4 : 0.4, t === C ? 0.55 : 0.28);
       if (!current()) return;
       burst(m.captures[0]);
     } else if (m.swap) {
@@ -650,6 +669,16 @@ export class BoardRenderer {
     } else if (m.captures.length > 1) {
       let at = m.from;
       for (const v of m.captures) { await this.hop(mover, at, v, 0.22, 0.35); if (!current()) return; burst(v); at = v; }
+      this.pieces.delete(m.from);
+      this.pieces.set(m.to, mover);
+    } else if (m.captures.length === 1 && m.captures[0] !== m.to) {
+      // Reaver: show the capture square before the optional empty landing square.
+      const victim = m.captures[0];
+      await this.hop(mover, m.from, victim, 0.22, 0.35);
+      if (!current()) return;
+      burst(victim);
+      await this.hop(mover, victim, m.to, 0.22, 0.35);
+      if (!current()) return;
       this.pieces.delete(m.from);
       this.pieces.set(m.to, mover);
     } else {
@@ -694,15 +723,15 @@ export class BoardRenderer {
     });
   }
 
-  private arrow(from: number, to: number): Promise<void> {
+  private arrow(from: number, to: number, height = 0.4, dur = 0.28): Promise<void> {
     const a = tileCenter(from).setY(0.5), b = tileCenter(to).setY(0.4);
     const arrow = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.5), new THREE.MeshLambertMaterial({ color: 0x7a4b2a }));
     arrow.position.copy(a);
     arrow.lookAt(b);
     this.world.add(arrow);
-    return this.tweens.add(0.28, k => {
+    return this.tweens.add(dur, k => {
       arrow.position.lerpVectors(a, b, k);
-      arrow.position.y += Math.sin(k * Math.PI) * 0.4;
+      arrow.position.y += Math.sin(k * Math.PI) * height;
       if (k >= 1) {
         this.world.remove(arrow);
         arrow.geometry.dispose();
@@ -758,14 +787,66 @@ export class BoardRenderer {
     return null;
   }
 
-  /** Select only on a click: anything past 6 px was an OrbitControls drag. */
+  private ownPieceAt(sq: number): boolean {
+    const pos = this.lastPos;
+    if (!pos) return false;
+    const code = pos.board[sq];
+    return code !== 0 && colorOf(code) === pos.turn;
+  }
+
+  private clearPointer(): void {
+    const el = this.renderer.domElement;
+    if (this.tap && el.hasPointerCapture(this.tap.pointerId)) el.releasePointerCapture(this.tap.pointerId);
+    this.tap = null;
+    this.dragFrom = null;
+    this.dragArmed = false;
+    this.controls.enabled = true;
+  }
+
+  private onDown(e: PointerEvent): void {
+    if (this.tap) { this.clearPointer(); return; } // a second finger cancels the tap
+    this.tap = e;
+    this.dragFrom = null;
+    this.dragArmed = false;
+    if (e.button !== 0) return;
+    const sq = this.pick(e);
+    if (sq == null || !this.ownPieceAt(sq)) return;
+    this.dragFrom = sq;
+    this.renderer.domElement.setPointerCapture(e.pointerId);
+    this.controls.enabled = false; // piece grab, not orbit
+  }
+
+  private onMove(e: PointerEvent): void {
+    const d = this.tap;
+    if (d && this.dragFrom != null && !this.dragArmed
+      && Math.hypot(e.clientX - d.clientX, e.clientY - d.clientY) > 6) {
+      this.dragArmed = true;
+      this.onDragSelect(this.dragFrom);
+    }
+    this.hover(this.pick(e));
+  }
+
+  /**
+   * Click (≤6 px): onSquareClick as before.
+   * Drag from an own piece: onDragSelect already ran; onSquareClick on the release square
+   * (or the from-square if released off-board) so move / clear share the click path.
+   * Anything past 6 px that did not start on an own piece is OrbitControls.
+   */
   private onUp(e: PointerEvent): void {
     const d = this.tap;
-    this.tap = null;
+    const from = this.dragFrom;
+    const armed = this.dragArmed;
+    this.clearPointer();
     if (e.button !== 0 || d?.pointerId !== e.pointerId) return;
-    if (Math.hypot(e.clientX - d.clientX, e.clientY - d.clientY) > 6) return;
-    const sq = this.pick(e);
-    if (sq != null) this.onSquareClick(sq, e.shiftKey);
+    const moved = Math.hypot(e.clientX - d.clientX, e.clientY - d.clientY) > 6;
+    if (!moved) {
+      const sq = this.pick(e);
+      if (sq != null) this.onSquareClick(sq, e.shiftKey);
+      return;
+    }
+    if (from == null) return;
+    if (!armed) this.onDragSelect(from);
+    this.onSquareClick(this.pick(e) ?? from, e.shiftKey);
   }
 
   private hover(sq: number | null): void {

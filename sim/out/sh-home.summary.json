@@ -1,0 +1,31 @@
+{
+  "spec": {
+    "id": "sh-home",
+    "games": 48,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 95,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "squire": "step",
+      "squireHome": true
+    },
+    "backRanks": {
+      "sample": 12
+    }
+  },
+  "games": 48,
+  "seconds": 58,
+  "whiteScore": 0.6563,
+  "whiteWins": 28,
+  "draws": 7,
+  "blackWins": 13,
+  "meanPlies": 104.7,
+  "reasons": {
+    "drawRepetition": 5,
+    "adjudicatedResign": 41,
+    "adjudicatedDraw": 2
+  }
+}

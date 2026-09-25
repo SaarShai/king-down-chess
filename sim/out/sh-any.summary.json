@@ -1,0 +1,29 @@
+{
+  "spec": {
+    "id": "sh-any",
+    "games": 48,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 95,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "squire": "step"
+    },
+    "backRanks": {
+      "sample": 12
+    }
+  },
+  "games": 48,
+  "seconds": 23.6,
+  "whiteScore": 0.6354,
+  "whiteWins": 29,
+  "draws": 3,
+  "blackWins": 16,
+  "meanPlies": 92.8,
+  "reasons": {
+    "adjudicatedResign": 45,
+    "adjudicatedDraw": 3
+  }
+}

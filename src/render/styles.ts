@@ -16,9 +16,8 @@ export interface Style {
   pieceScale?: number;
   /** Camera pose in degrees (elevation above the board, azimuth from white's side). Default 54/0. */
   camera?: { elev: number; azim: number; zoom?: number };
-  /** Tile top: flat colour, a 1-art-pixel dark ring, the Drive stone albedo, or the procedural
-   *  pixel stone that replaces it (same mean luminance, no licence). Default 'flat'. */
-  tiles?: 'flat' | 'edged' | 'stone' | 'stoneProc';
+  /** Tile top: flat colour, a 1-art-pixel dark ring, or authored procedural stone. Default 'flat'. */
+  tiles?: 'flat' | 'edged' | 'stoneProc';
   /** 'torch' = dim hemisphere + 4 warm corner points + dark background. Default 'bright'. */
   lights?: 'bright' | 'torch';
   /** Which quantisation ramp the palette pass uses. Default 'db32'. */
@@ -50,13 +49,13 @@ export const STYLES: Record<string, Style> = {
     camera: { elev: 60, azim: 0 }, tiles: 'flat', lights: 'bright', shadow: true,
   },
   // The game's look (designer's pick, round 2 "B2 Dungeon voxel"): painted voxel sculpts on the
-  // Drive stone tiles, four warm torch points, contact shadows. 53° is the flattest camera that
+  // procedural stone tiles, four warm torch points, contact shadows. 53° is the flattest camera that
   // still keeps a king inside its own square (measured: at 52° the king's crown crosses the centre
   // of the square behind it by 2 px; tan 53° = 1.33 = the tallest piece, 1.55 × pieceScale 0.85).
   dungeonVoxel: {
     label: 'Dungeon', pixelSize: 2, palette: false, dither: 0.06, normalEdge: 0.05, depthEdge: 0.15,
     shading: 'lambert', pieces: 'voxel', outline: false, pieceScale: 0.85,
-    camera: { elev: 53, azim: 0 }, tiles: 'stone', lights: 'torch', shadow: true,
+    camera: { elev: 53, azim: 0 }, tiles: 'stoneProc', lights: 'torch', shadow: true,
   },
 
   // depthEdge stays low on `cel`: the hull outline already draws the silhouette, and the pass's
@@ -87,13 +86,13 @@ export const STYLES: Record<string, Style> = {
   dungeonSprite: {
     label: 'B1 Dungeon sprite', pixelSize: 2, palette: false, dither: 0.06, normalEdge: 0, depthEdge: 0,
     shading: 'lambert', pieces: 'sprite', outline: false,
-    camera: { elev: 60, azim: 0 }, tiles: 'stone', lights: 'torch', shadow: true,
+    camera: { elev: 60, azim: 0 }, tiles: 'stoneProc', lights: 'torch', shadow: true,
   },
   // B2 is the default preset, first in this list.
   dungeonBright: {
     label: 'B3 Dungeon (bright)', pixelSize: 2, palette: false, dither: 0.06, normalEdge: 0, depthEdge: 0,
     shading: 'lambert', pieces: 'sprite', outline: false,
-    camera: { elev: 60, azim: 0 }, tiles: 'stone', lights: 'bright', shadow: true,
+    camera: { elev: 60, azim: 0 }, tiles: 'stoneProc', lights: 'bright', shadow: true,
   },
 
   // --- C: iso pixel (§C) ---

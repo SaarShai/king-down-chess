@@ -77,6 +77,28 @@ describe('Game history and undo', () => {
 });
 
 describe('Game.playLan (autosave restore)', () => {
+
+  it.each([
+    ['Ogre push and promotion', '7k/P7/8/8/3p4/3O4/8/4K3 w - - 0 1', ['Od3>d4-d5', 'Kh8-h7', 'a7-a8=Q', 'Kh7-g7', 'Ke1-e2']],
+    ['Archer shot', '7k/8/8/2p5/8/2A5/8/4K3 w - - 0 1', ['Ac3*c5', 'Kh8-h7', 'Ac3-c4']],
+    ['Maester swap', '7k/8/8/8/8/8/8/MN5K w - - 0 1', ['Ma1<>b1', 'Kh8-h7', 'Na1-c2']],
+    ['Beast chain', 'k7/8/8/4r3/3p4/4S3/8/4K3 w - - 0 1', ['Se3xd4xe5']],
+    ['Catapult lob', '8/8/4p3/8/4k3/8/4C3/7K w - - 0 1', ['Ce2*e6']],
+    ['Paladin pawn survival', '8/8/3k4/4p3/4L3/8/8/4K3 w - - 0 1', ['Le4xe5']],
+    ['Paladin self-removal', 'k7/8/8/8/8/8/3L2n1/K7 w - - 0 1', ['Ld2xg2']],
+  ])('restores and undoes %s', (_name, fen, line) => {
+    setRules();
+    const original = new Game(); original.load(fromFen(fen));
+    expect(original.playLan(line)).toBe(line.length);
+    const restored = new Game(); restored.load(fromFen(fen));
+    expect(restored.playLan(original.history.map(h => h.lan))).toBe(line.length);
+    expect(toFen(restored.pos)).toBe(toFen(original.pos));
+    expect(restored.status).toBe(original.status);
+    for (const _ of line) expect(restored.undo()).toBe(true);
+    expect(toFen(restored.pos)).toBe(fen);
+    expect(restored.history).toHaveLength(0);
+  });
+
   it('replays a saved move list back to the same position', () => {
     const g = new Game(CLASSIC_CHESS);
     play(g, 'e2-e4', 'c7-c5', 'Ng1-f3', 'd7-d6');

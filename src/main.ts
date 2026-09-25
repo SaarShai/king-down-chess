@@ -1,12 +1,16 @@
 import './style.css';
+import { SkillName, skillPlan } from './ai/skill';
 import { Engine, Game, Side } from './game';
 import { setEvaluator } from './ai/eval';
 import { positionKey } from './ai/search';
 import { BoardRenderer } from './render/renderer';
+import { momentKind, momentText } from './moment';
+import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
 import { loadModels } from './render/voxels';
-import { A, S, Color, LETTERS, Move, NAMES, PieceType, RULES as GAME_RULES, RULES_2017, RULES_2021, SPENT, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
-import { CLASSIC_CHESS, POOL, fromFen, randomBackRank, toFen } from './rules/setup';
+import { A, B, C, Color, G, K, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Q, R, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
+import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen } from './rules/setup';
+import { TRY_THESE } from './try-these';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -62,47 +66,184 @@ let busy = false;
 let gen = 0;
 /** Closes an open promotion picker (resolving it with null). Set only while one is on screen. */
 let closePromo: (() => void) | null = null;
+/** Squares lit by Hint. Cleared when the player moves or selects something else. */
+let hintSquares: number[] = [];
+const seenMoments = new Set<string>();
 
 /** The game is over: mate, a draw, or somebody resigned. Blocks input and the AI. */
 const finished = (): boolean => resigned != null || game.status !== 'playing';
 
-/** Condensed from docs/RULES.md §3, indexed by piece type (same order as NAMES). */
-const RULES: readonly (readonly [string, string])[] = [
-  ['', ''],
-  ['Moves 1 square forward, 2 from its start rank.', 'Takes 1 square diagonally forward. Promotes on the last rank.'],
-  ['Moves in an L (2 + 1) over any piece.', 'Takes by moving onto the enemy.'],
-  ['Moves any distance diagonally.', 'Takes by moving onto the enemy.'],
-  ['Moves any distance orthogonally.', 'Takes by moving onto the enemy.'],
-  ['Moves any distance in a straight line.', 'Takes by moving onto the enemy.'],
-  ['Moves 1 square in any direction.', 'Takes by moving onto the enemy. Only a king can take a guard.'],
-  ['Moves 1 square in any direction.', 'Shoots without moving: an enemy diagonally adjacent, or 2 squares away orthogonally, through blockers.'],
-  ['Moves like a queen and jumps over own pieces.', 'Takes by moving on, but never a king. Removes itself after capturing anything but a pawn.'],
-  ['Moves 1 square in any direction, empty squares only.', 'Cannot capture. Cannot be captured, except by a king.'],
-  ['Moves 1 square in any direction; onto an own piece it swaps places.', 'Takes an adjacent enemy. With both on their home rank it swaps with its king at any distance.'],
-  ['Moves 1 square in any direction, empty squares only.', 'Takes on any adjacent square but straight ahead, and may keep taking from each new square.'],
-  // Lab pieces: they reach the browser only through a `?fen=` that names one (docs/research/sim-new-pieces-2026-09-14.md).
-  ['Moves 1 square in any direction. Instead it may shove an adjacent piece 1 square away — shift-click a neighbour.', 'Takes by moving onto the enemy, a guard excepted. A shove is not a capture and never moves a king.'],
-  ['Moves like a rook and never takes by moving.', 'Lobs along a rank or file over one enemy screen and takes the first piece beyond it.'],
-  ['Moves like a knight. After a capture it may step one square in any direction onto an empty square as part of the same move.', 'Takes like a knight; the step after it never captures. Click the victim, then the landing square.'],
-  ['Moves 1 square in any direction; on a capital square (d4 e4 d5 e5) it moves and captures like a queen.', 'Takes by moving onto the enemy.'],
-];
+/** Player-facing columns for one piece under the live `GAME_RULES` (and `POOL`). */
+type GuideRow = { moves: string; captures: string; special: string };
 
-function pieceRules(t: number): readonly [string, string] {
-  if (t === A) return [RULES[t][0], `Shoots without moving, through blockers: ${
-    { classic: 'diagonally adjacent or 2 squares orthogonally',
-      plusDiag2: 'diagonally adjacent or 2 squares in any direction',
-      plusDiagFwd2: 'diagonally adjacent, 2 squares orthogonally, or 2 squares diagonally forward',
-      ring2: 'diagonally adjacent or any square on the distance-2 ring',
-      forward3: 'diagonally forward adjacent or 2 squares straight forward' }[GAME_RULES.archerShots]}.`];
-  if (t === S) return [RULES[t][0], `Takes on any adjacent square${GAME_RULES.beastCaptureForward ? ', including straight ahead' : ' except straight ahead'}.${GAME_RULES.beastChains ? ' May keep taking from each new square; choose Stop chain here to finish early.' : ''}`];
-  return RULES[t];
+const ARCHER_SHOT_TEXT: Record<string, string> = {
+  classic: 'Shoots without moving: an enemy diagonally adjacent, or exactly 2 squares away orthogonally, through blockers.',
+  plusDiag2: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2) plus any enemy exactly 2 squares away diagonally, through blockers.',
+  ring2: 'Shoots without moving: any enemy on a diagonally adjacent square or anywhere on the ring 2 squares away, through blockers.',
+  forward3: 'Shoots without moving: an enemy on either forward diagonal, or the square exactly 2 ahead, through blockers.',
+  plusDiagFwd2: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2) plus either forward diagonal at distance 2, through blockers.',
+};
+
+/** Chess pieces always; fairies in POOL or the fixed set A L G M S O. */
+function guideTypes(): PieceType[] {
+  const always = new Set<PieceType>([P, N, B, R, Q, K, A, L, G, M, S, O]);
+  for (const ch of POOL) {
+    const t = LETTERS.indexOf(ch) as PieceType;
+    if (t > 0) always.add(t);
+  }
+  for (const p of game.pos.board) if (p) always.add(typeOf(p));
+  return [...always].sort((a, b) => a - b);
+}
+
+/** One guide for both the dialog table and the hover card — reads live rules and POOL. */
+function pieceGuide(t: PieceType): GuideRow {
+  const r = GAME_RULES;
+  switch (t) {
+    case P:
+      return {
+        moves: 'Moves 1 square forward, 2 from its start rank.',
+        captures: 'Takes 1 square diagonally forward.',
+        special: 'Promotes on the last rank.',
+      };
+    case N:
+      return { moves: 'Moves in an L (2 + 1) over any piece.', captures: 'Takes by moving onto the enemy.', special: '' };
+    case B:
+      return { moves: 'Moves any distance diagonally.', captures: 'Takes by moving onto the enemy.', special: '' };
+    case R:
+      return { moves: 'Moves any distance orthogonally.', captures: 'Takes by moving onto the enemy.', special: '' };
+    case Q:
+      return { moves: 'Moves any distance in a straight line.', captures: 'Takes by moving onto the enemy.', special: '' };
+    case K:
+      return {
+        moves: 'Moves 1 square in any direction.',
+        captures: 'Takes by moving onto the enemy.',
+        special: 'Only a king can take a guard.',
+      };
+    case A: {
+      const step = r.archerMove === 'ortho' ? 'Moves 1 square orthogonally.'
+        : r.archerMove === 'fwdBack' ? 'Moves 1 square ahead or back.'
+        : 'Moves 1 square in any direction.';
+      return {
+        moves: step,
+        captures: ARCHER_SHOT_TEXT[r.archerShots] ?? ARCHER_SHOT_TEXT.classic,
+        special: 'Never captures by moving onto a piece. ' + (r.archerChecks ? 'Gives check the same way it shoots.' : 'Cannot capture a king or give check.'),
+      };
+    }
+    case L: {
+      const die = r.paladinKamikaze === 'always' ? 'Removed after capturing anything.'
+        : r.paladinKamikaze === 'never' ? 'Survives its own captures.'
+        : 'Removed after capturing anything but a pawn.';
+      const check = r.paladinChecks
+        ? 'May capture a king (gives check).'
+        : 'Cannot capture a king (never gives check).';
+      const promo = r.promotionSet === 'anyNonKing' || r.promotionSet === 'anyNonKingNoGuard';
+      const draw = POOL.includes('L')
+        ? 'In the random draw.'
+        : promo
+          ? 'Not in the random draw. Custom setup, FEN, and promotion can still use it.'
+          : 'Not in the random draw. Custom setup and FEN can still place it. A pawn does not promote to it.';
+      return {
+        moves: 'Moves like a queen, jumping own pieces.',
+        captures: 'Takes by moving onto the enemy.',
+        special: `${check} ${die} ${draw}`,
+      };
+    }
+    case G:
+      return {
+        moves: 'Moves 1 square in any direction, empty squares only.',
+        captures: 'Cannot capture.',
+        special: 'Immortal wall: cannot be captured, except by a king.',
+      };
+    case M: {
+      const long = r.maesterLongSwap
+        ? ' Maester + own king both on their home rank: swap at any distance.'
+        : '';
+      const any = r.maesterSwapAny ? ' Swaps with any friendly piece anywhere.' : '';
+      return {
+        moves: 'Moves 1 square in any direction.',
+        captures: 'Takes an adjacent enemy.',
+        special: `Onto an own piece = swap places.${long}${any}`,
+      };
+    }
+    case S: {
+      const step = r.beastMove === 'forward' ? 'Moves 1 square straight ahead, empty only.'
+        : r.beastMove === 'diagFwdBack' ? 'Moves on the four diagonals, empty only.'
+        : 'Moves 1 square in any direction, empty squares only.';
+      let take: string;
+      if (r.beastCapture === 'diagForward') take = 'Takes on either forward diagonal.';
+      else if (r.beastCapture === 'diagonal') take = 'Takes on any of the four diagonals.';
+      else take = r.beastCaptureForward
+        ? 'Takes on any adjacent square.'
+        : 'Takes on any adjacent square but straight ahead.';
+      return {
+        moves: step,
+        captures: take,
+        special: r.beastChains ? 'May keep capturing from each new square (never a king as a continuation). Click victims in order; "Stop chain here" ends early.' : 'One capture per turn.',
+      };
+    }
+    case O: {
+      const shove = r.ogreMode === 'push'
+        ? 'Push: the ogre steps into the square the neighbour left.'
+        : 'Repel: the neighbour moves away and the ogre stays.';
+      return {
+        moves: 'Moves 1 square in any direction.',
+        captures: 'Takes by moving onto the enemy (a guard excepted).',
+        special: `Instead it may shove an adjacent piece 1 square away — shift-click a neighbour. ${shove} Kings are never shoved. Guards can be shoved. A shove is not a capture.`,
+      };
+    }
+    case C:
+      return {
+        moves: 'Moves like a rook and never takes by moving.',
+        captures: 'Lobs along a rank or file over one enemy screen and takes the first piece beyond it.',
+        special: '',
+      };
+    case V:
+      return {
+        moves: 'Moves like a knight. After a capture it may step one square onto an empty square as part of the same move.',
+        captures: 'Takes like a knight; the step after never captures.',
+        special: 'Click the victim, then the landing square.',
+      };
+    case T:
+      return {
+        moves: 'Moves 1 square in any direction; on a capital square (d4 e4 d5 e5) it moves and captures like a queen.',
+        captures: 'Takes by moving onto the enemy.',
+        special: '',
+      };
+    default:
+      return { moves: '', captures: '', special: '' };
+  }
+}
+
+function fillPieceGuide(): void {
+  const rows = $('rules-rows');
+  rows.innerHTML = '';
+  for (const t of guideTypes()) {
+    const g = pieceGuide(t);
+    const tr = document.createElement('tr');
+    const letter = LETTERS[t];
+    const name = NAMES[t][0].toUpperCase() + NAMES[t].slice(1);
+    tr.innerHTML = `<td>${letter} ${name}</td><td>${g.moves}</td><td>${g.captures}</td><td>${g.special}</td>`;
+    rows.appendChild(tr);
+  }
+  const poolLetters = POOL.split('').join(' ');
+  const promo = GAME_RULES.promotionSet === 'anyNonKing'
+    ? 'A pawn promotes to any piece but a king.'
+    : GAME_RULES.promotionSet === 'anyNonKingNoGuard'
+      ? 'A pawn promotes to any piece but a king or a guard.'
+      : 'A pawn promotes to a queen, rook, bishop, or knight.';
+  $('rules-lead').textContent =
+    `Mate the king. Both sides share one random back rank, drawn from the pool. No castling or en passant. ${promo}`;
+  $('rules-letters').textContent =
+    `The random draw pool is ${poolLetters}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
 }
 
 function showInfo(sq: number | null): void {
   const code = sq == null ? 0 : game.pos.board[sq];
   const t = code ? typeOf(code) : 0;
+  const g = t ? pieceGuide(t) : null;
+  const blurb = g ? [g.moves, g.captures, g.special].filter(Boolean).join(' ') : '';
   $('info').innerHTML = (code
-    ? `<b>${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${pieceRules(t)[0]} ${pieceRules(t)[1]}`
+    ? `<b>${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${blurb}`
       // Lab only (docs/RULES.md §6.9): the shipped guard never captures, so it can never be spent.
       + (code & SPENT ? ' <b>This guard has used its capture.</b>' : '')
     : '') + kingsInfo();
@@ -132,6 +273,7 @@ function refresh(): void {
     swaps,
     shoves,
     last: last ? [last.from, ...(last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? last.captures : [last.to])] : [],
+    hint: hintSquares,
     check: game.inCheck ? findKing(game.pos.board, game.pos.turn) : null,
   });
   $('stop-chain').hidden = !(pending.length && candidates().some(m => clickPath(m).length === pending.length));
@@ -139,7 +281,7 @@ function refresh(): void {
   $('turn').textContent = finished() ? '' : `${turn} to move${game.inCheck ? ' — CHECK' : ''}`;
   $('status').textContent = resigned != null ? result() : {
     playing: busy && sides[game.pos.turn] === 'ai' ? 'thinking…' : '',
-    checkmate: `Checkmate — ${game.pos.turn ? 'White' : 'Black'} wins`,
+    checkmate: result(),
     stalemate: 'Stalemate — draw',
     draw50: 'Draw — 50-move rule',
     drawRepetition: 'Draw — threefold repetition',
@@ -166,13 +308,25 @@ function refresh(): void {
   $<HTMLButtonElement>('undo').disabled = game.history.length === 0;
   $<HTMLButtonElement>('resign').disabled = finished();
   $<HTMLButtonElement>('copy').disabled = game.history.length === 0;
+  $<HTMLButtonElement>('hint').disabled = finished() || busy || sides[game.pos.turn] !== 'human';
 }
 
 async function commit(m: Move): Promise<void> {
   const g = gen;
   busy = true;
+  hintSquares = [];
   const pre = game.pos;
   game.play(m);
+  const line = momentText(pre, m, seenMoments);
+  if (line) { said = line; $('moment').textContent = line; }
+  const kind = momentKind(pre, m);
+  if (kind === 'shove' || kind === 'shoveGuard') snd.shove();
+  else if (kind === 'shot' || kind === 'deathTouch' || kind === 'strikeCapture' || kind === 'lob' || kind === 'strike') snd.shot();
+  else if (kind === 'chain' || kind === 'reaver') snd.chain();
+  else if (kind === 'swap' || kind === 'swapKing') snd.swap();
+  else if (m.captures.length || m.selfRemove) snd.capture();
+  else snd.move();
+  if (game.inCheck) snd.check();
   selected = null; pending = [];
   refresh();
   await view.animateMove(pre, m);
@@ -186,19 +340,26 @@ async function commit(m: Move): Promise<void> {
   if (finished()) showOver(); else void maybeAi();
 }
 
+type Skill = SkillName;
+const SKILL_NAMES: readonly Skill[] = ['beginner', 'casual', 'club', 'strong'];
+const isSkill = (v: unknown): v is Skill => typeof v === 'string' && (SKILL_NAMES as readonly string[]).includes(v);
+
 async function maybeAi(): Promise<void> {
   if (busy || finished() || sides[game.pos.turn] !== 'ai') return;
   busy = true;
   refresh();
   const g = gen;
-  // The first few plies sample root moves within 15 cp of the best (docs/research/ai-players.md,
-  // stage 1): the AI stops repeating one opening per back rank, at a cost the band bounds. Later
-  // plies stay fully deterministic.
-  const opening = game.history.length < 6;
-  const res = await engine.think(game.pos, { timeMs: +$<HTMLInputElement>('think').value, history: game.history.map(h => positionKey(h.pos)), ...(opening ? { temperature: 15 } : {}) });
+  const skill = $<HTMLSelectElement>('skill').value;
+  const plan = skillPlan(isSkill(skill) ? skill : 'club', +$<HTMLInputElement>('think').value, game.history.length);
+  const res = await engine.think(game.pos, { timeMs: plan.timeMs, temperature: plan.temperature, history: game.history.map(h => positionKey(h.pos)) });
   if (g !== gen) return;
+  const choices = game.legal;
+  const blunder = plan.blunder > 0 && choices.length > 0 && Math.random() < plan.blunder
+    ? choices[Math.floor(Math.random() * choices.length)]
+    : null;
   busy = false;
-  if (res.move) await commit(res.move);
+  const move = blunder ?? res.move;
+  if (move) await commit(move);
 }
 
 /** Resolves with the chosen move, or null when reset() closed the picker. */
@@ -219,6 +380,12 @@ function pickPromotion(options: Move[]): Promise<Move | null> {
 }
 
 async function choose(moves: Move[]): Promise<void> {
+  const queen = $<HTMLInputElement>('queen').checked
+    && moves.every(m => m.promo)
+    && moves.every(m => m.promo === Q || m.promo === R || m.promo === B || m.promo === N)
+    ? moves.find(m => m.promo === Q)
+    : undefined;
+  if (queen) return commit(queen);
   if (moves.length === 1 || !moves.every(m => m.promo)) return commit(moves[0]);
   busy = true; // the picker is modal: without this the board stays live and a second move slips in
   const m = await pickPromotion(moves);
@@ -227,8 +394,19 @@ async function choose(moves: Move[]): Promise<void> {
   return commit(m);
 }
 
+/** Drag arm: select without the click toggle so a second onSquareClick can still play the move. */
+view.onDragSelect = (sq) => {
+  if (busy || finished() || sides[game.pos.turn] !== 'human') return;
+  if (game.pos.board[sq] === 0 || colorOf(game.pos.board[sq]) !== game.pos.turn) return;
+  hintSquares = [];
+  selected = sq;
+  pending = [];
+  refresh();
+};
+
 view.onSquareClick = (sq, shift = false) => {
   if (busy || finished() || sides[game.pos.turn] !== 'human') return;
+  hintSquares = [];
   const own = game.pos.board[sq] !== 0 && colorOf(game.pos.board[sq]) === game.pos.turn;
   const next = candidates().filter(m => clickPath(m)[pending.length] === sq);
   if (selected == null || next.length === 0) {
@@ -250,17 +428,42 @@ view.onSquareClick = (sq, shift = false) => {
   pending.push(sq); // beast chain continues; "Stop here" commits the shorter capture
   refresh();
 };
+let said = '';
 view.onSquareHover = sq => {
   hovered = sq;
   $('hover').textContent = sq == null ? '' : sqName(sq);
   showInfo(selected ?? hovered);
+  const next = sq == null ? [] : candidates().filter(m => clickPath(m)[pending.length] === sq);
+  const ready = next.filter(m => clickPath(m).length === pending.length + 1);
+  const preview = ready.length === 1 ? momentText(game.pos, ready[0], seenMoments, true) : null;
+  $('moment').textContent = preview ?? said;
 };
 
+function restoreMoments(): void {
+  seenMoments.clear();
+  said = '';
+  for (const h of game.history) said = momentText(h.pos, h.move, seenMoments) ?? said;
+  $('moment').textContent = said;
+}
+
 $('stop-chain').onclick = () => { const m = candidates().find(m => clickPath(m).length === pending.length); if (m) void commit(m); };
+
+$('hint').onclick = async () => {
+  if (busy || finished() || sides[game.pos.turn] !== 'human') return;
+  busy = true;
+  refresh();
+  const g = gen;
+  const res = await engine.think(game.pos, { timeMs: 400, maxDepth: 3, history: game.history.map(h => positionKey(h.pos)) });
+  if (g !== gen) return;
+  busy = false;
+  hintSquares = res.move ? [res.move.from, ...clickPath(res.move)] : [];
+  refresh();
+};
 
 /** Stop any AI search in flight and drop the per-game UI state. */
 function reset(): void {
   gen++;
+  hintSquares = [];
   engine.cancel();
   closePromo?.(); // drop an open promotion picker instead of leaving its promise hanging
   busy = false;
@@ -270,9 +473,13 @@ function reset(): void {
 /** Look from Black's side whenever the human plays Black. */
 const orient = (): void => view.flip(sides[0] === 'ai' && sides[1] === 'human');
 
-function newGame(backRank?: string, fen?: string | null): void {
+function newGame(backRank?: string, fen?: string | null, rematch = false): void {
   reset();
+  if (!rematch) setRules({ ...preset, ...(kings ? { kings: parseKings(kings) } : {}) });
   resigned = null;
+  seenMoments.clear();
+  said = '';
+  $('moment').textContent = '';
   sides[0] = $<HTMLSelectElement>('white').value as Side;
   sides[1] = $<HTMLSelectElement>('black').value as Side;
   if (fen) game.load(fromFen(fen)); else game.newGame(backRank);
@@ -290,6 +497,7 @@ function undo(): void {
   resigned = null;
   game.undo();
   if (sides[game.pos.turn] === 'ai' && sides.includes('human')) game.undo();
+  restoreMoments();
   view.sync(game.pos);
   refresh();
   save();
@@ -300,7 +508,7 @@ function result(): string {
   if (resigned != null) return `${resigned ? 'Black' : 'White'} resigns — ${resigned ? 'White' : 'Black'} wins`;
   return {
     playing: '',
-    checkmate: `${game.pos.turn ? 'White' : 'Black'} wins by checkmate`,
+    checkmate: `${game.pos.turn ? 'White' : 'Black'} wins ${findKing(game.pos.board, game.pos.turn) < 0 ? 'by king capture' : 'by checkmate'}`,
     stalemate: 'Draw by stalemate',
     draw50: 'Draw by the 50-move rule',
     drawRepetition: 'Draw by repetition',
@@ -312,7 +520,17 @@ function showOver(): void {
   const n = Math.ceil(game.history.length / 2);
   const dlg = $<HTMLDialogElement>('over');
   $('over-title').textContent = result();
-  $('over-detail').textContent = `${n} move${n === 1 ? '' : 's'} · setup ${game.backRank || 'custom'}`;
+  const last = game.history.at(-1)?.lan;
+  // Ending reason wins over a prior moment caption (`said`); last-move text stays above.
+  const why =
+    (game.status === 'checkmate' ? (findKing(game.pos.board, game.pos.turn) < 0 ? 'The king was captured.' : 'The king is in check and no legal move escapes it.') : '')
+    || (game.status === 'stalemate' ? 'No legal move, and the king is not in check.' : '')
+    || (game.status === 'draw50' ? 'Fifty moves with no capture and no pawn move.' : '')
+    || (game.status === 'drawRepetition' ? 'The same position came up three times.' : '')
+    || (game.status === 'drawMaterial' ? 'Neither side has enough material to mate.' : '')
+    || (resigned != null ? 'That side gave up.' : '')
+    || said;
+  $('over-detail').textContent = [last ? `Last move ${last}.` : '', why, `${n} move${n === 1 ? '' : 's'} · setup ${game.backRank || 'custom'}`].filter(Boolean).join(' ');
   dlg.returnValue = ''; // Esc leaves the last button's value behind, which would re-fire it
   dlg.showModal();
 }
@@ -323,7 +541,7 @@ $<HTMLDialogElement>('over').onclose = () => {
   else if (v === 'rematch') {
     const [w, b] = [$<HTMLSelectElement>('white'), $<HTMLSelectElement>('black')];
     [w.value, b.value] = [b.value, w.value];
-    newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos));
+    newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true);
   }
 };
 
@@ -354,7 +572,7 @@ function copyFallback(text: string): void {
 }
 
 /* ---- autosave ---- */
-interface Save { back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; coords: boolean; resigned: Color | null; rules?: Rules }
+interface Save { back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: Skill; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean }
 const SAVE_KEY = 'kingdown.save';
 
 function save(): void {
@@ -365,7 +583,10 @@ function save(): void {
       moves: game.history.map(h => h.lan),
       white: sides[0], black: sides[1],
       think: +$<HTMLInputElement>('think').value,
+      skill: $<HTMLSelectElement>('skill').value as Skill,
       coords: coords.checked,
+      sound: $<HTMLInputElement>('sound').checked,
+      queen: $<HTMLInputElement>('queen').checked,
       resigned,
       // The rules the game is playing, so opening the save without its URL replays the same game
       // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
@@ -383,8 +604,7 @@ function readSave(): Save | null {
 }
 
 $('rules-btn').onclick = () => {
-  $('guide-archer').textContent = pieceRules(A)[1];
-  $('guide-beast').textContent = pieceRules(S)[1];
+  fillPieceGuide();
   $<HTMLDialogElement>('rules').showModal();
 };
 $('new-random').onclick = () => newGame(randomBackRank());
@@ -394,17 +614,30 @@ $('new-setup').onclick = () => {
   if (!v) return;
   try { newGame(v); } catch (e) { alert((e as Error).message); }
 };
+for (const row of TRY_THESE) {
+  const option = document.createElement('option');
+  option.value = row.code;
+  option.textContent = `${row.code}${row.code.includes('C') ? ' — Catapult lab' : ''}`;
+  option.title = row.watch;
+  $('setup-example').appendChild(option);
+}
 $('setup-example').onchange = e => {
   const select = e.target as HTMLSelectElement;
   if (!select.value) return;
   if (select.value === 'ogre') {
     $<HTMLSelectElement>('white').value = $<HTMLSelectElement>('black').value = 'human';
     newGame(undefined, '7k/8/6o1/8/2OP4/8/8/K7 w - - 0 1');
-  } else newGame(select.value);
+  } else {
+    newGame(select.value);
+    const example = TRY_THESE.find(row => row.code === select.value);
+    if (example) { said = example.watch; $('moment').textContent = said; }
+  }
   select.value = '';
 };
-$('white').onchange = $('black').onchange = () => { sides[0] = $<HTMLSelectElement>('white').value as Side; sides[1] = $<HTMLSelectElement>('black').value as Side; orient(); save(); void maybeAi(); };
-$('think').onchange = save;
+$('white').onchange = $('black').onchange = () => { reset(); view.sync(game.pos); sides[0] = $<HTMLSelectElement>('white').value as Side; sides[1] = $<HTMLSelectElement>('black').value as Side; orient(); refresh(); save(); void maybeAi(); };
+$('think').onchange = $('skill').onchange = save;
+$('sound').onchange = () => { setSound($<HTMLInputElement>('sound').checked); save(); };
+$('queen').onchange = save;
 const labels = $<HTMLInputElement>('labels');
 labels.checked = params.get('labels') === '1';
 labels.onchange = () => view.setLabels(labels.checked);
@@ -425,6 +658,10 @@ if (saved) {
   if (saved.white) $<HTMLSelectElement>('white').value = saved.white;
   if (saved.black) $<HTMLSelectElement>('black').value = saved.black;
   if (saved.think) $<HTMLInputElement>('think').value = String(saved.think);
+  if (typeof saved.sound === 'boolean') $<HTMLInputElement>('sound').checked = saved.sound;
+  if (typeof saved.queen === 'boolean') $<HTMLInputElement>('queen').checked = saved.queen;
+  // Old saves with no skill field stay Strong so a resumed game does not suddenly get easier.
+  $<HTMLSelectElement>('skill').value = isSkill(saved.skill) ? saved.skill : 'strong';
   if (typeof saved.coords === 'boolean') coords.checked = saved.coords;
   sides[0] = $<HTMLSelectElement>('white').value as Side;
   sides[1] = $<HTMLSelectElement>('black').value as Side;
@@ -455,6 +692,9 @@ orient();
 view.sync(game.pos);
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
+fillPieceGuide(); // after every setRules path (URL preset / save restore)
+setSound($<HTMLInputElement>('sound').checked);
+restoreMoments();
 refresh();
 if (!fen) save(); // pin the random back rank so a reload keeps this game
 if (finished()) showOver(); else void maybeAi();

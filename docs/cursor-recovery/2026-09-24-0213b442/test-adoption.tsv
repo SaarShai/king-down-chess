@@ -1,0 +1,37 @@
+recovered_candidate	outcome	adopted_location	reason
+src/ai/fifty-root.test.ts	consolidated	src/ai/terminal.test.ts	Terminal/legality contract retained; incidental score and preferred-move locks omitted.
+src/ai/king-capture.test.ts	consolidated	src/ai/terminal.test.ts	Terminal/legality contract retained; incidental score and preferred-move locks omitted.
+src/ai/king-draw.test.ts	consolidated	src/ai/terminal.test.ts	Terminal/legality contract retained; incidental score and preferred-move locks omitted.
+src/ai/maester-safe-escape.test.ts	consolidated	src/ai/terminal.test.ts	Terminal/legality contract retained; incidental score and preferred-move locks omitted.
+src/ai/mate-still-mate.test.ts	consolidated	src/ai/terminal.test.ts	Terminal/legality contract retained; incidental score and preferred-move locks omitted.
+src/ai/material-draw-search.test.ts	consolidated	src/ai/terminal.test.ts	Terminal/legality contract retained; incidental score and preferred-move locks omitted.
+src/ai/paladin-queen-now.test.ts	archived	private archive	Additional sparse preferred-move observation; Paladin self-removal and material outcomes already have semantic coverage.
+src/ai/search-mirror.test.ts	consolidated	src/ai/symmetry.test.ts	15 legal/status fixtures and 13 playing search fixtures; different chosen moves must prove an equal scored mirror candidate.
+src/ai/search-tiny-budget.test.ts	consolidated	src/ai/terminal.test.ts	Terminal/legality contract retained; incidental score and preferred-move locks omitted.
+src/ai/search-warm-state.test.ts	archived	private archive	Two depth-1 exact-move checks do not reconstruct the historical stall; preserve accepted repetition regressions instead.
+src/ai/skill.test.ts	consolidated	src/play.test.ts	Policy, prospective/completed captions or valid labelled examples; production UI checks in tools/verify-cursor-adoption.mjs.
+src/ai/stalemate-horizon.test.ts	consolidated	src/ai/terminal.test.ts	Terminal/legality contract retained; incidental score and preferred-move locks omitted.
+src/game-restore-chain.test.ts	consolidated	src/game.test.ts	Seven-row replay/FEN/undo matrix covers distinct move shapes; production browser checks cover storage and old preset saves.
+src/game-restore-fairy.test.ts	consolidated	src/game.test.ts	Seven-row replay/FEN/undo matrix covers distinct move shapes; production browser checks cover storage and old preset saves.
+src/game-restore-lob-undo.test.ts	consolidated	src/game.test.ts	Seven-row replay/FEN/undo matrix covers distinct move shapes; production browser checks cover storage and old preset saves.
+src/game-restore-lob.test.ts	consolidated	src/game.test.ts	Seven-row replay/FEN/undo matrix covers distinct move shapes; production browser checks cover storage and old preset saves.
+src/game-restore-paladin-pawn-undo.test.ts	consolidated	src/game.test.ts	Seven-row replay/FEN/undo matrix covers distinct move shapes; production browser checks cover storage and old preset saves.
+src/game-restore-paladin-pawn.test.ts	consolidated	src/game.test.ts	Seven-row replay/FEN/undo matrix covers distinct move shapes; production browser checks cover storage and old preset saves.
+src/game-restore-paladin-undo.test.ts	consolidated	src/game.test.ts	Seven-row replay/FEN/undo matrix covers distinct move shapes; production browser checks cover storage and old preset saves.
+src/game-restore-paladin.test.ts	consolidated	src/game.test.ts	Seven-row replay/FEN/undo matrix covers distinct move shapes; production browser checks cover storage and old preset saves.
+src/game-restore-shot.test.ts	consolidated	src/game.test.ts	Seven-row replay/FEN/undo matrix covers distinct move shapes; production browser checks cover storage and old preset saves.
+src/game-restore-swap.test.ts	consolidated	src/game.test.ts	Seven-row replay/FEN/undo matrix covers distinct move shapes; production browser checks cover storage and old preset saves.
+src/game-undo.test.ts	consolidated	src/game.test.ts	Seven-row replay/FEN/undo matrix covers distinct move shapes; production browser checks cover storage and old preset saves.
+src/moment.test.ts	consolidated	src/play.test.ts	Policy, prospective/completed captions or valid labelled examples; production UI checks in tools/verify-cursor-adoption.mjs.
+src/rules/beast-chain-pin.test.ts	consolidated	src/rules/rules.test.ts	Semantic safety/default checks; explicit historical repel fixtures stay separate from the new push default.
+src/rules/fairy-material.test.ts	existing coverage retained	src/rules/rules.test.ts;src/ai/terminal.test.ts	Existing material contracts plus shared game/search draw-rule and live-Strike handling; no extra one-piece twin files.
+src/rules/fen-boundary.test.ts	held	private archive	Malformed-input characterization is not a chosen parser contract; no speculative parser change.
+src/rules/fen-kings-and-last-rank.test.ts	held	private archive	Malformed-input characterization is not a chosen parser contract; no speculative parser change.
+src/rules/lab-material.test.ts	existing coverage retained	src/rules/rules.test.ts;src/ai/terminal.test.ts	Existing material contracts plus shared game/search draw-rule and live-Strike handling; no extra one-piece twin files.
+src/rules/legal-mirror.test.ts	consolidated	src/ai/symmetry.test.ts	15 legal/status fixtures and 13 playing search fixtures; different chosen moves must prove an equal scored mirror candidate.
+src/rules/material.test.ts	existing coverage retained	src/rules/rules.test.ts;src/ai/terminal.test.ts	Existing material contracts plus shared game/search draw-rule and live-Strike handling; no extra one-piece twin files.
+src/rules/no-king-capture.test.ts	contract covered	src/ai/terminal.test.ts;src/rules/rules.test.ts	King capture terminal score and own-king safety; the recovered misleading title/comment is not imported.
+src/rules/notation.test.ts	split	src/game.test.ts;src/rules/rules.test.ts	Ordinary fairy LAN/FEN replay retained; reserve-hand serialization stays with the archived experiment.
+src/rules/ogre-shove-pin.test.ts	consolidated	src/rules/rules.test.ts	Semantic safety/default checks; explicit historical repel fixtures stay separate from the new push default.
+src/rules/shipped-defaults.test.ts	consolidated	src/rules/rules.test.ts	Semantic safety/default checks; explicit historical repel fixtures stay separate from the new push default.
+src/try-these.test.ts	consolidated	src/play.test.ts	Policy, prospective/completed captions or valid labelled examples; production UI checks in tools/verify-cursor-adoption.mjs.

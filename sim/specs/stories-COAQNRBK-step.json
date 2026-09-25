@@ -1,0 +1,8 @@
+{
+  "id": "stories-COAQNRBK-step",
+  "games": 12,
+  "ai": { "depth": 2 },
+  "seed": 96,
+  "backRanks": ["COAQNRBK"],
+  "rules": { "squire": "step" }
+}

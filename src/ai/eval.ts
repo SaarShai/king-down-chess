@@ -68,15 +68,8 @@ export const PAWN_V = 100, KNIGHT_V = 316, BISHOP_V = 322, ROOK_V = 449, QUEEN_V
 export const ARCHER_V = 505, PALADIN_V = 408, GUARD_V = 96, MAESTER_V = 318, BEAST_V = 434;
 // BEAST_V 377 -> 434 with the blind spot removed (2026-09-17): captures +29%, odds match 4.34 ± 0.42
 // (inside the old error bar, but it is the best estimate under the shipped rule).
-/**
- * **Untuned seeds, not fitted numbers** — the only two in this file. The ogre and the catapult are
- * lab pieces (2026-09-14): they are not in `POOL`, no game in the Texel corpus contains one, and
- * their tables are all zero. 300 is "a shade under a minor, like the other one-steppers"; 400 is
- * "between a minor and a rook", the middle of the 3.5–4.5 pawn guess in `docs/PIECES-PROPOSED.md`.
- * The odds arms in `docs/research/sim-new-pieces-2026-09-14.md` price them; re-seed from there
- * before either piece is ever played for real.
- */
-export const OGRE_V = 300, CATAPULT_V = 400;
+/** Ogre push retains the adopted 318 value from the September 17 study. Catapult stays a lab seed. */
+export const OGRE_V = 318, CATAPULT_V = 400;
 /**
  * The reaver (V, lab, 2026-09-17), orthogonal escape step (the `reaverStep` default). Measured by
  * odds match: 4.04 ± 0.56 pawns against a knight at 2.96, converging (next seed 404). The full

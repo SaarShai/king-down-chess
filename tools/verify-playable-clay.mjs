@@ -3,8 +3,8 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 const url = process.env.PLAYABLE_URL || 'http://127.0.0.1:5188/';
-const out = 'docs/playable-clay'; mkdirSync(out, { recursive: true });
-const browser = await chromium.launch({ headless: true });
+const out = process.env.PLAYABLE_OUT || 'docs/playable-clay'; mkdirSync(out, { recursive: true });
+const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const errors = [], checks = [];
 page.on('pageerror', e => errors.push(e.message));
@@ -96,8 +96,8 @@ try {
   await fixedPresentation(); await facingOpponent();
   checks.push('optional mirrored setup keeps the fixed handmade material and opponent-facing armies');
   await page.click('#rules-btn');
-  assert.match(await page.locator('#guide-archer').textContent(), /2 squares diagonally forward/);
-  assert.match(await page.locator('#guide-beast').textContent(), /including straight ahead/);
+  assert.match(await page.locator('#rules-rows tr').filter({hasText:'A Archer'}).textContent(), /forward diagonal at distance 2/);
+  assert.match(await page.locator('#rules-rows tr').filter({hasText:'S Beast'}).textContent(), /Takes on any adjacent square/);
   await page.locator('#rules button').click();
   checks.push('piece guide describes the current Archer and Beast rules');
   // Interrupt the shove: a delayed animation must not change the restored position.

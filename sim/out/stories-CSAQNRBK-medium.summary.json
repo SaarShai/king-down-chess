@@ -1,0 +1,30 @@
+{
+  "spec": {
+    "id": "stories-CSAQNRBK-medium",
+    "games": 12,
+    "ai": {
+      "depth": 2
+    },
+    "seed": 96,
+    "backRanks": [
+      "CSAQNRBK"
+    ],
+    "rules": {
+      "mediumDrop": true
+    },
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 12,
+  "seconds": 6.1,
+  "whiteScore": 0.7083,
+  "whiteWins": 8,
+  "draws": 1,
+  "blackWins": 3,
+  "meanPlies": 81.5,
+  "reasons": {
+    "drawRepetition": 1,
+    "adjudicatedResign": 10,
+    "checkmate": 1
+  }
+}

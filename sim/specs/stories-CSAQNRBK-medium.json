@@ -1,0 +1,8 @@
+{
+  "id": "stories-CSAQNRBK-medium",
+  "games": 12,
+  "ai": { "depth": 2 },
+  "seed": 96,
+  "backRanks": ["CSAQNRBK"],
+  "rules": { "mediumDrop": true }
+}

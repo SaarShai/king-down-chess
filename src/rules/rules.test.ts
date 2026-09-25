@@ -643,7 +643,7 @@ describe('rule toggles', () => {
   });
 
   it('the pool holds one guard per army', () => {
-    expect(POOL).toBe('QLRRBBNNAAGMMSS');
+    expect(POOL).toBe('QORRBBNNAAGMMSS');
     expect(POOL.split('G')).toHaveLength(2);
     expect(POOL).toHaveLength(15);
   });
@@ -894,7 +894,7 @@ describe('rule toggles', () => {
 });
 
 /**
- * The two lab pieces (2026-09-14). Neither is in `POOL`: a game holds one only through `--pool` or
+ * Ogre and Catapult behavior, including historical lab readings. Ogre joined the pool on 2026-09-24; a Catapult is available through `--pool` or
  * an explicit back rank, so nothing below can change the shipped game. Report:
  * `docs/research/sim-new-pieces-2026-09-14.md`.
  */
@@ -914,7 +914,9 @@ describe('ogre (lab)', () => {
     expect(lan(pos, movesFrom(pos, 'c4')).some(s => s.includes('d4'))).toBe(false);
   });
 
-  it('repel (default) leaves the ogre where it stood; push follows the piece', () => {
+  it('push is the default; the explicit repel alternative stays in place', () => {
+    expect(DEFAULT_RULES.ogreMode).toBe('push');
+    setRules({ ogreMode: 'repel' });
     const shove = () => movesFrom(pos, 'c4').find(m => m.shove && m.shove.from === parseSq('c5'))!;
     const repel = makeMove(pos, shove());
     expect([typeOf(at(repel, 'c4')), at(repel, 'c5'), typeOf(at(repel, 'c6'))]).toEqual([O, 0, P]);
@@ -944,7 +946,8 @@ describe('ogre (lab)', () => {
       .toEqual(['Ob3-a2', 'Ob3-a3', 'Ob3-b2', 'Ob3-c2', 'Ob3-c3', 'Ob3-c4', 'Ob3xb4']);
   });
 
-  it('a shove obeys ordinary legality, and a shove that unmasks a check is legal', () => {
+  it('a repel obeys ordinary legality, and can unmask a check', () => {
+    setRules({ ogreMode: 'repel' });
     // Shoving the e4 pawn aside would open the e-file onto White's own king: illegal.
     const pin = fromFen('4r2k/8/8/8/3OP3/8/8/4K3 w - - 0 1');
     expect(lan(pin, movesFrom(pin, 'd4'))).not.toContain('Od4>e4-f4');
@@ -1132,8 +1135,9 @@ describe('ogre and catapult: notation, FEN and the pool', () => {
     expect([typeOf(board[parseSq('b8')]), typeOf(board[parseSq('c1')])]).toEqual([O, C]);
   });
 
-  it('neither piece is in the shipped pool, and a pawn never promotes to one', () => {
-    expect(POOL).not.toMatch(/[OC]/);
+  it('Ogre is in the pool, Catapult is not, and neither is a standard promotion', () => {
+    expect(POOL).toContain('O');
+    expect(POOL).not.toMatch(/[LC]/);
     const promo = fromFen('7k/P7/8/8/8/8/8/K7 w - - 0 1');
     expect(movesFrom(promo, 'a7').map(m => m.promo)).not.toContain(O);
     expect(movesFrom(promo, 'a7').map(m => m.promo)).not.toContain(C);
@@ -1572,5 +1576,57 @@ describe('Strike, capture reading (strikeMode=capture)', () => {
     // A blocked line is not a target: a white pawn on b2 hides everything behind it.
     const blocked = fromFen('4k3/8/8/8/8/2r5/1P6/R3K3 w - - 0 1');
     expect(legalMoves(blocked).some(m => m.strike && m.from === parseSq('a1') && m.captures.includes(parseSq('c3')))).toBe(false);
+  });
+});
+
+describe('beast chain pin and king-adjacent landing', () => {
+  it('beast is in the pool', () => {
+    expect(POOL.includes('S'), `POOL=${POOL}`).toBe(true);
+  });
+
+  it('chain whose first hop alone would expose the king is still legal if the final square is safe', () => {
+    // White beast e3 pins under black rook e5; black pawn d4 is the first hop.
+    // Se3xd4 alone opens the e-file (king in check); Se3xd4xe5 takes the rook and is safe.
+    const pos = fromFen('k7/8/8/4r3/3p4/4S3/8/4K3 w - - 0 1');
+    const firstOnly = { from: parseSq('e3'), to: parseSq('d4'), captures: [parseSq('d4')] };
+    expect(inCheck(makeMove(pos, firstOnly), WHITE), 'first hop alone must expose the king').toBe(true);
+
+    const chain = legalMoves(pos).find(m => toLan(pos, m) === 'Se3xd4xe5');
+    expect(chain, 'Se3xd4xe5 must be legal when only the final square is filtered').toBeDefined();
+    expect(inCheck(makeMove(pos, chain!), WHITE)).toBe(false);
+  });
+
+  it('a chain may land on a square next to the enemy king', () => {
+    // White beast d4 chains Sd4xc4xd5; black king e6 is adjacent to the landing square.
+    const pos = fromFen('8/8/4k3/3p4/2nS4/8/8/K7 w - - 0 1');
+    const chain = legalMoves(pos).find(m => toLan(pos, m) === 'Sd4xc4xd5');
+    expect(chain, 'Sd4xc4xd5 must be legal next to the enemy king').toBeDefined();
+    expect(chain!.to).toBe(parseSq('d5'));
+    expect(inCheck(makeMove(pos, chain!), BLACK)).toBe(true);
+  });
+});
+
+describe('ogre shove pin', () => {
+  it('may shove aside the sole pawn between an enemy rook and its own king', () => {
+    // White king e1, white pawn e2 (only piece on the e-file), white ogre d2,
+    // black rook e8, f2 empty for the shove aside.
+    const pos = fromFen('4r2k/8/8/8/8/8/3OP3/4K3 w - - 0 1');
+    const shove = legalMoves(pos).find(m => toLan(pos, m) === 'Od2>e2-f2');
+
+    expect(shove, 'Od2>e2-f2 must be legal').toBeDefined();
+    expect(shove!.shove).toEqual({ from: parseSq('e2'), to: parseSq('f2') });
+  });
+
+  it('cannot shove the enemy king', () => {
+    // White ogre d4 adjacent to black king e4; f4 empty beyond.
+    const pos = fromFen('8/8/8/8/3Ok3/8/8/4K3 w - - 0 1');
+    const kingShoves = legalMoves(pos).filter(
+      m => m.shove?.from === parseSq('e4'),
+    );
+
+    expect(
+      kingShoves.map(m => toLan(pos, m)),
+      'no shove of the enemy king',
+    ).toEqual([]);
   });
 });

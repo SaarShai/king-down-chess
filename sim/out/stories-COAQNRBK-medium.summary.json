@@ -1,0 +1,30 @@
+{
+  "spec": {
+    "id": "stories-COAQNRBK-medium",
+    "games": 12,
+    "ai": {
+      "depth": 2
+    },
+    "seed": 96,
+    "backRanks": [
+      "COAQNRBK"
+    ],
+    "rules": {
+      "mediumDrop": true
+    },
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 12,
+  "seconds": 2.1,
+  "whiteScore": 0.5833,
+  "whiteWins": 6,
+  "draws": 2,
+  "blackWins": 4,
+  "meanPlies": 86.3,
+  "reasons": {
+    "adjudicatedResign": 10,
+    "drawMaterial": 1,
+    "adjudicatedDraw": 1
+  }
+}

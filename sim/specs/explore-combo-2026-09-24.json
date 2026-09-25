@@ -1,0 +1,18 @@
+{
+  "id": "explore-combo-2026-09-24",
+  "games": 96,
+  "ai": { "depth": 2 },
+  "seed": 91,
+  "openingRandomPlies": 4,
+  "commonSeeds": true,
+  "values": { "C": 156 },
+  "backRanks": [
+    "COAQNRBK",
+    "CGAQNRBK",
+    "COGQNRBK",
+    "CSAQNRBK",
+    "OAQNRBKG",
+    "CQNRBKNM"
+  ],
+  "note": "Exploration only, 2026-09-24. Not an adoption run. Six mirrored back ranks, 16 games each, depth 2, shared opening seeds. Catapult priced at the stay bound (156), not the shipped 400. Ranks: ogre+archer, guard+archer, ogre+guard, beast+archer, no catapult, catapult with a maester and no other fairy attacker."
+}

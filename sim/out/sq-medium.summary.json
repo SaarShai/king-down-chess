@@ -1,0 +1,31 @@
+{
+  "spec": {
+    "id": "sq-medium",
+    "games": 24,
+    "ai": {
+      "depth": 2
+    },
+    "seed": 93,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "mediumDrop": true
+    },
+    "backRanks": {
+      "sample": 8
+    }
+  },
+  "games": 24,
+  "seconds": 3,
+  "whiteScore": 0.5833,
+  "whiteWins": 13,
+  "draws": 2,
+  "blackWins": 9,
+  "meanPlies": 83.6,
+  "reasons": {
+    "adjudicatedResign": 21,
+    "drawRepetition": 1,
+    "adjudicatedDraw": 1,
+    "checkmate": 1
+  }
+}

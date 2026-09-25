@@ -5,6 +5,7 @@
   --mid: #8a8680;
   --hairline: #d9d5cd;
   --white: #ffffff;
+  --check: #e02828; /* matches renderer CHECK_RING on the king square */
   --rail: 260px;
   --dash: repeating-linear-gradient(90deg, var(--ink) 0 4px, transparent 4px 8px);
   --caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='4'%3E%3Cpath fill='%23151515' d='M0 0h8v1H0zM1 1h6v1H1zM2 2h4v1H2zM3 3h2v1H3z'/%3E%3C/svg%3E");
@@ -37,10 +38,11 @@ html, body { margin: 0; height: 100%; background: var(--paper); overflow: hidden
   font-size: 20px; font-weight: 700; letter-spacing: 1px; line-height: 1.4;
 }
 #turn { margin-top: 8px; color: var(--mid); }
-#status { margin-top: 2px; }
+body:has(#board.king-in-check) #turn { color: var(--check); }
+#status, #moment { margin-top: 2px; }
 #info { margin-top: 6px; max-width: 34ch; font-size: 13px; line-height: 1.45; }
 #info b { letter-spacing: 1px; text-transform: uppercase; }
-#asset-status:empty, #turn:empty, #status:empty, #info:empty { display: none; }
+#asset-status:empty, #turn:empty, #status:empty, #moment:empty, #info:empty { display: none; }
 
 /* ---- right rail ---- */
 #panel {
@@ -107,6 +109,7 @@ input[type='checkbox']:checked { box-shadow: inset 0 0 0 2px var(--white), inset
 
 #stop-chain { background: var(--ink); color: var(--paper); }
 #stop-chain:hover { background: var(--paper); color: var(--ink); }
+
 .promo, .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .promo button, .btns button { text-align: center; padding: 7px 4px; }
 .btns.three { grid-template-columns: repeat(3, 1fr); }

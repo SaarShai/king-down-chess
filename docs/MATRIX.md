@@ -13,9 +13,10 @@ powers and every card remain **○ designed, not built**. Q1–Q7 are all answer
 `pb-ab-base24` is a recorded old-paladin control, not a current baseline.
 
 Q1…Q6 point at `docs/QUEUE.md`. Piece letters: P N B R Q K standard · A archer · L paladin · G guard · M maester · S beast ·
-**O ogre · C catapult · V reaver · T templar** — built as **lab pieces**: they are not in `POOL` and reach a game only through
-`--pool` or an explicit back rank, so every ● in their columns would be misleading and their own rules read ◐.
-**Status 2026-09-17:** the **Ogre** is the only one still under exploration (work plan gated in `TASKS.md`); the
+**O ogre** is in the random pool with push as its default (RULES.md §6.18, 2026-09-24).
+**C catapult · V reaver · T templar** remain lab pieces outside `POOL`. The recovered Squire/reserve
+prototype is archived, not adopted; no arriving ability is active in this engine.
+**Historical status 2026-09-17 (Ogre superseded by §6.18):** the **Ogre** is the only one still under exploration (work plan gated in `TASKS.md`); the
 **Catapult** (both readings below 1.66 pawns, never fires in 38% of games), **Reaver** (safe reading neutral at
 depth 4) and **Templar** (rejected) are **paused in the lab** (`docs/research/sim-catapult-explore-2026-09-17.md`).
 
@@ -26,7 +27,7 @@ depth 4) and **Templar** (rejected) are **paused in the lab** (`docs/research/si
 |  | P | N | B | R | Q | K | A | L | G | M | S | O | C |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Move | forward 1 | leap 2+1 | diagonal slide | straight slide | slide | step 1 | step 1 ◐ straight only / forward-back | slide, jumps friends | step 1 ◐ step 2 | step 1 ◐ step 2 | step 1 ◐ forward only / diagonals | step 1 | straight slide, empty squares only |
-| Capture | diagonal forward 1 | = move | = move | = move | = move | = move | **shot without moving**: diagonal-adjacent or 2 straight, blockers ignored ● **forward diagonal 2 adopted 2026-09-17** (`plusDiagFwd2`, mirrored for Black): decisive +8.8 ± 3.8 at depth 4, draws −8.2 ± 3.7; the archer re-prices 3.73 ± 0.42 → **5.05 ± 0.44 pawns** (`ARCHER_V` 505). ◐ +diagonal 2 / ring 2 / forward 3 remain lab readings (`docs/research/sim-piece-balance-2026-09-17.md`) | = move, then dies | none | = move (adjacent) | **every neighbour** (blind spot removed 2026-09-17; captures +29%, beast 4.34 ± 0.42 pawns, `BEAST_V` 434) ◐ the 7-neighbour blind spot, forward diagonals only, four diagonals; chains | = move, a guard excepted | **lob** over one enemy screen along a rank or file, first piece beyond it ◐ `catapultCapture` stay / land |
+| Capture | diagonal forward 1 | = move | = move | = move | = move | = move | **shot without moving**: diagonal-adjacent or 2 straight, blockers ignored ● **forward diagonal 2 adopted 2026-09-17** (`plusDiagFwd2`, mirrored for Black): decisive +8.8 ± 3.8 at depth 4, draws −8.2 ± 3.7; the archer re-prices 3.73 ± 0.42 → **5.05 ± 0.44 pawns** (`ARCHER_V` 505). ◐ +diagonal 2 / ring 2 / forward 3 remain lab readings (`docs/research/sim-piece-balance-2026-09-17.md`) | = move; dies after taking a non-pawn | none | = move (adjacent) | **every neighbour** (blind spot removed 2026-09-17; captures +29%, beast 4.34 ± 0.42 pawns, `BEAST_V` 434) ◐ the 7-neighbour blind spot, forward diagonals only, four diagonals; chains | = move, a guard excepted | **lob** over one enemy screen along a rank or file, first piece beyond it ◐ `catapultCapture` stay / land |
 
 ### A.1 Abilities × pieces
 
@@ -41,16 +42,16 @@ depth 4) and **Templar** (rejected) are **paused in the lab** (`docs/research/si
 | **4c Hop — over any piece** | — | ● | — | — | — | — | — | — | ◐ leap, home rank only (Q1) | — | — | — | — | ○ Leap card (range not obstructed) |
 | **4d Hop — over friends only** | — | — | — | — | — | — | — | ● ◐ off = blocked | — | — | — | — | — | ○ Mercy (king), ○ Mud Leap (over own pawns) |
 | **4e Hop — over enemies only** | — | — | — | — | — | — | — | ◐ over enemies too (degenerate, `sim-lm-buffs`) | — | — | — | — | ◐ the lob hops exactly one enemy — the screen, which may not be a friend | — |
-| **5a Control — move any adjacent piece** | — | — | — | — | — | — | — | — | — | — | — | ◐ shoves one neighbour 1 square straight away onto an empty square; `ogreMode` repel / push | — | ○ Earth Quake (shove), ○ Sky Lift (swap two units) |
-| **5b Control — friends only** | — | — | — | — | — | — | — | — | — | ● swap with an adjacent friend; long swap with the king, both on home rank ◐ any friend anywhere (Q3) / king anywhere | — | ◐ a friend is shovable | — | ○ Control card, ○ Strike + Haste (Flame) |
-| **5c Control — enemies only** | — | — | — | — | — | — | — | — | — | ◐ swap with an adjacent enemy (not the king) | — | ◐ so is an enemy, a guard included — the point of the piece | — | ○ Curse (take over), ○ Freeze (deny a move) |
-| **5d Push — relocate a neighbour, then follow** | — | — | — | — | — | — | — | — | — | — | — | ◐ **built** (`ogreMode: 'push'`): the shoved piece moves one square straight away and the ogre steps onto the emptied square. Measured value **3.18 ± 0.44 pawns**; captures +39%, survival 65% → 49% vs repel; the depth-3 push-vs-repel A/B is not significant under today's rules (+2.1 ± 2.9 decisive) — depth-4 arm running | — | ○ Earth Quake, ○ Sky Lift |
-| **5e Repel — relocate a neighbour, stay put** | — | — | — | — | — | — | — | — | — | — | — | ◐ **built, lab default** (`ogreMode: 'repel'`): the shoved piece moves, the ogre holds its square. Measured value **2.25 ± 0.43 pawns** — the price 300 in `src/ai/eval.ts` overprices it by 0.75 ± 0.43 | — | ○ Freeze (deny a move), ○ Curse |
-| **6a Trigger on capture** | — | — | — | — | — | — | — | ● dies ◐ survives pawn captures (Q2) / never dies | ◐ spent after one capture (rejected) | — | ● may capture again ◐ off | — | — | ○ Rage (extra capture) |
-| **6b Rule vs one specific piece** | — | — | — | — | — | — | ◐ cannot take a king | ● cannot take a king | ● only a king takes it | ● long swap only with the king | ● no king as a chain step | ◐ never shoves a king of either colour | ◐ a lob may take a king, so it checks through the screen | ○ Holy Light (king ↔ pawns) |
+| **5a Control — move any adjacent piece** | — | — | — | — | — | — | — | — | — | — | — | ● pushes one non-king neighbour 1 square straight away onto an empty square and follows; ◐ repel stays put | — | ○ Earth Quake (shove), ○ Sky Lift (swap two units) |
+| **5b Control — friends only** | — | — | — | — | — | — | — | — | — | ● swap with an adjacent friend; long swap with the king, both on home rank ◐ any friend anywhere (Q3) / king anywhere | — | ● a friend is pushable | — | ○ Control card, ○ Strike + Haste (Flame) |
+| **5c Control — enemies only** | — | — | — | — | — | — | — | — | — | ◐ swap with an adjacent enemy (not the king) | — | ● so is an enemy, a Guard included | — | ○ Curse (take over), ○ Freeze (deny a move) |
+| **5d Push — relocate a neighbour, then follow** | — | — | — | — | — | — | — | — | — | — | — | ● **default, 2026-09-24** (`ogreMode: 'push'`): the neighbour moves one square straight away and the Ogre follows. Value 318 adopted from the earlier 3.18 ± 0.44 pawn estimate. Historical depth-3/depth-4 results are in `sim-ogre-movement-2026-09-17.md` and `direct-campaign-phase-3-2026-09-22.md`; no run is active. | — | ○ Earth Quake, ○ Sky Lift |
+| **5e Repel — relocate a neighbour, stay put** | — | — | — | — | — | — | — | — | — | — | — | ◐ **lab alternative** (`ogreMode: 'repel'`): the neighbour moves and the Ogre stays. Historical measured value **2.25 ± 0.43 pawns**; current evaluation value 318 is for the adopted push default. | — | ○ Freeze (deny a move), ○ Curse |
+| **6a Trigger on capture** | — | — | — | — | — | — | — | ● dies after non-pawn captures; survives pawns ◐ always / never dies | ◐ spent after one capture (rejected) | — | ● may capture again ◐ off | — | — | ○ Rage (extra capture) |
+| **6b Rule vs one specific piece** | — | — | — | — | — | — | ◐ cannot take a king | ● cannot take a king | ● only a king takes it | ● long swap only with the king | ● no king as a chain step | ● never pushes a king of either colour | ◐ a lob may take a king, so it checks through the screen | ○ Holy Light (king ↔ pawns) |
 
-[1] No piece enters the board mid-game today. The seam is a captured-pieces reserve on `Position` plus a drop move (`from = −1`, Shogi style); the zone rule (home rank / own half) is then a filter on `to`, like promotion.
-[2] The beast moves 1 in any direction but takes only on the 7 squares that are not straight ahead, and may chain.
+[1] No piece enters the adopted game from a reserve. The archived Squire experiment explored this; see the recovery assessment before treating those results as evidence.
+[2] The Beast moves 1 to an empty neighbour or captures on any adjacent square; a capture may continue as a chain. The former straight-ahead blind spot was removed on September 17.
 
 ### A.2 Where each ability lives in the engine (`src/rules/engine.ts`)
 

@@ -1,0 +1,32 @@
+{
+  "spec": {
+    "id": "sq-forward",
+    "games": 24,
+    "ai": {
+      "depth": 2
+    },
+    "seed": 93,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "squire": "forward"
+    },
+    "backRanks": {
+      "sample": 8
+    }
+  },
+  "games": 24,
+  "seconds": 3.7,
+  "whiteScore": 0.5833,
+  "whiteWins": 12,
+  "draws": 4,
+  "blackWins": 8,
+  "meanPlies": 107.8,
+  "reasons": {
+    "drawRepetition": 1,
+    "adjudicatedResign": 20,
+    "drawMaterial": 1,
+    "adjudicatedDraw": 1,
+    "draw50": 1
+  }
+}

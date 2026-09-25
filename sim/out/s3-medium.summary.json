@@ -1,0 +1,31 @@
+{
+  "spec": {
+    "id": "s3-medium",
+    "games": 80,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 94,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "mediumDrop": true
+    },
+    "backRanks": {
+      "sample": 20
+    }
+  },
+  "games": 80,
+  "seconds": 44,
+  "whiteScore": 0.575,
+  "whiteWins": 42,
+  "draws": 8,
+  "blackWins": 30,
+  "meanPlies": 101.3,
+  "reasons": {
+    "adjudicatedResign": 72,
+    "adjudicatedDraw": 6,
+    "drawRepetition": 1,
+    "plyCap": 1
+  }
+}

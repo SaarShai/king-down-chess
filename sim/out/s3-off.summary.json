@@ -1,0 +1,28 @@
+{
+  "spec": {
+    "id": "s3-off",
+    "games": 80,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 94,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "backRanks": {
+      "sample": 20
+    }
+  },
+  "games": 80,
+  "seconds": 44.1,
+  "whiteScore": 0.45,
+  "whiteWins": 28,
+  "draws": 16,
+  "blackWins": 36,
+  "meanPlies": 101,
+  "reasons": {
+    "adjudicatedResign": 64,
+    "adjudicatedDraw": 14,
+    "drawRepetition": 1,
+    "draw50": 1
+  }
+}

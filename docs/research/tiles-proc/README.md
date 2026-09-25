@@ -1,5 +1,7 @@
 # Procedural pixel-stone tiles — before/after (completed 2026-09-16)
 
+> Status, 2026-09-24: the playable game uses fixed handmade clay. Legacy Dungeon presets now use procedural stone; the three stock-derived JPEGs and their loader have been removed from the build. Exact original bytes remain in the private recovery archive. The comparison below is historical; its style controls and default-style description no longer describe the playable app.
+
 The three board JPEGs in `public/textures/` derive from textures.com stock photos and may not be
 served as standalone files (ToS 6.3(a); `docs/research/licensing-2026-09-14.md`). The procedural
 option replaces them with a seeded canvas texture that keeps the same mean luminance. This is the
@@ -58,4 +60,4 @@ the designer's; the before/after crops are side by side in this directory.
 - [x] Generator, `means.json`, before/after screenshots (`before.png`, `after.png`, `*-crop.png`).
 - [x] Browser QA: both styles load, no console errors, screenshots regenerated from the current build.
 - [x] fps re-checked on a free machine (2026-09-17): 21.4 vs 21.6 fps, no difference.
-- [ ] Default decision (owner) and, if adopted, removing the three JPEGs from the published package.
+- [x] September 24 adoption removed the three JPEGs from `public/` and the production build. Legacy Dungeon uses `stoneProc`; fixed clay remains the playable presentation. This does not represent a new publication.

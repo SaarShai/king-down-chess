@@ -1,0 +1,31 @@
+{
+  "spec": {
+    "id": "s3-forward",
+    "games": 80,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 94,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "squire": "forward"
+    },
+    "backRanks": {
+      "sample": 20
+    }
+  },
+  "games": 80,
+  "seconds": 35.1,
+  "whiteScore": 0.4313,
+  "whiteWins": 30,
+  "draws": 9,
+  "blackWins": 41,
+  "meanPlies": 105.6,
+  "reasons": {
+    "adjudicatedResign": 69,
+    "checkmate": 2,
+    "adjudicatedDraw": 8,
+    "plyCap": 1
+  }
+}

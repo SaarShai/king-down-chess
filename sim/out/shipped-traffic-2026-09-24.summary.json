@@ -1,0 +1,23 @@
+{
+  "spec": {
+    "id": "shipped-traffic-2026-09-24",
+    "games": 24,
+    "ai": {
+      "depth": 2
+    },
+    "seed": 24,
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 24,
+  "seconds": 3.4,
+  "whiteScore": 0.5625,
+  "whiteWins": 13,
+  "draws": 1,
+  "blackWins": 10,
+  "meanPlies": 102.4,
+  "reasons": {
+    "adjudicatedResign": 23,
+    "adjudicatedDraw": 1
+  }
+}

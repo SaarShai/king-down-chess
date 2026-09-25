@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>King Down Chess</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23f7f5f0'/%3E%3Ctext x='5' y='25' font-family='serif' font-size='28' fill='%23151515'%3EK%3C/text%3E%3C/svg%3E" />
   </head>
   <body>
     <div id="board"></div>
@@ -12,9 +13,10 @@
       <div id="turn"></div>
       <div id="status"></div>
       <div id="asset-status" role="status" aria-live="polite">Loading pieces…</div>
-      <div id="info"></div>
     </header>
     <aside id="panel">
+      <div id="moment" role="status" aria-live="polite"></div>
+      <div id="info"></div>
       <section>
         <button id="new-random">New game</button>
         <button id="new-classic">Chess starting army</button>
@@ -25,8 +27,9 @@
           <option value="NKBBMGQS">NKBBMGQS</option><option value="QNKMNRSG">QNKMNRSG</option>
           <option value="SQBKRSML">SQBKRSML</option><option value="ogre">Ogre practice</option>
         </select></label>
-        <small id="setup-note">Examples, not a ranking. Ogre is an experimental practice position.</small>
+        <small id="setup-note">Examples, not a ranking. Catapult examples are experimental. All examples are optional.</small>
         <button id="rules-btn">Piece guide</button>
+        <button id="hint" type="button" title="Show one move the computer likes">Hint</button>
         <div class="btns three">
           <button id="undo" title="Take back the last move (Z)">Undo (Z)</button>
           <button id="resign" title="Resign the game">Resign</button>
@@ -38,6 +41,14 @@
         <label>White <select id="white"><option value="human">Human</option><option value="ai">Computer</option></select></label>
         <label>Black <select id="black"><option value="human">Human</option><option value="ai" selected>Computer</option></select></label>
         <label>Think <input id="think" type="range" min="200" max="4000" step="100" value="800" /></label>
+        <label>Sound <input id="sound" type="checkbox" checked /></label>
+        <label title="Promote to a queen without asking, when a queen, rook, bishop, or knight is the choice.">Always queen <input id="queen" type="checkbox" /></label>
+        <label title="Beginner and Casual vary their choices. Club caps thinking at 800 ms; Strong uses the full Think setting. These are not ratings.">Skill <select id="skill">
+          <option value="beginner">Beginner</option>
+          <option value="casual">Casual</option>
+          <option value="club" selected>Club</option>
+          <option value="strong">Strong</option>
+        </select></label>
       </section>
       <button id="stop-chain" hidden>Stop chain here</button>
       <div id="promo" class="promo" hidden></div>
@@ -55,17 +66,13 @@
     </aside>
     <dialog id="rules">
       <h2 tabindex="-1" autofocus>King Down pieces</h2>
-      <p>Chess rules apply (check, mate, stalemate, promotion to any piece but a king). No castling or en passant. The back rank is a random draw of 7 pieces + king, mirrored for both sides.</p>
+      <p id="rules-lead"></p>
       <table>
-        <tr><th>Piece</th><th>Moves</th><th>Captures</th><th>Special</th></tr>
-        <tr><td>A Archer</td><td>1 square in any direction</td><td id="guide-archer"><b>Shoots without moving</b>: diagonally adjacent, 2 squares orthogonally, or 2 squares diagonally forward, through blockers</td><td>Gives check the same way</td></tr>
-        <tr><td>L Paladin</td><td>Like a queen, <b>jumping own pieces</b></td><td>By moving onto the enemy</td><td>Cannot capture a king (never gives check). <b>Removed after capturing</b> anything but a pawn</td></tr>
-        <tr><td>G Guard</td><td>1 square any direction, empty squares only</td><td><b>Cannot capture.</b></td><td><b>Cannot be captured, except by a king.</b></td></tr>
-        <tr><td>M Maester</td><td>1 square any direction</td><td>Adjacent enemy</td><td>Onto an own piece = <b>swap places</b>. Maester + king both on their home rank: swap at any distance</td></tr>
-        <tr><td>S Beast</td><td>1 square in any direction, empty only</td><td id="guide-beast">Any adjacent square, including straight ahead</td><td>May <b>keep capturing</b> from each new square (never a king as a continuation). Click victims in order; "Stop chain here" ends early</td></tr>
+        <thead><tr><th>Piece</th><th>Moves</th><th>Captures</th><th>Special</th></tr></thead>
+        <tbody id="rules-rows"></tbody>
       </table>
-      <p>Current draw pool: Q L R R B B N N A A G M M S S. Seven pieces join the king; both armies use the same back rank. Two drawn bishops start on opposite-colour squares. Custom examples are optional.</p>
-      <p><b>Kings' powers (lab — off by default).</b> <code>?kings=mud:march</code> gives both sides a
+      <p id="rules-letters"></p>
+      <p><b>Kings' powers are a lab. They are off in a normal game.</b> <code>?kings=mud:march</code> gives both sides a
         power; <code>?kings=mud:march,shadow:darkness</code> names White and Black apart. Six are built:
         <b>Holy Light</b> (enemy pawns cannot take this king, and it cannot take pawns), <b>Mercy</b>
         (the king steps 1–2 and jumps friends, but takes only a guard), <b>Death Touch</b> (the king

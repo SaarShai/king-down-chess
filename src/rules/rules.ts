@@ -340,7 +340,7 @@ export interface Rules {
   promotionSet: PromotionSet;
   /** 100 plies without a capture or a pawn move is a draw. */
   fiftyMove: boolean;
-  /** The third occurrence of a position is a draw. Read by the simulation runner only. */
+  /** The third occurrence of a position is a draw. Game, search and simulation honor this switch. */
   threefold: boolean;
   /** No side keeps material that can force mate: draw. */
   insufficientMaterial: boolean;
@@ -393,7 +393,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   secondPlayerDoubleFirstTurn: false,
   ogreHop: false,
   ogreStep2: false,
-  ogreMode: 'repel' as OgreMode,
+  ogreMode: 'push' as OgreMode,
   ogreNoCapture: false,
   ogreShoveFriends: 'both' as OgreShoveFriends,
   strikeMode: 'move' as StrikeMode,

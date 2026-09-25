@@ -4,7 +4,7 @@ import { RULES } from './rules';
 
 /** King Down Classic pool: 7 of these join the king on the back rank. */
 /** Draw pool for a random back rank: 7 of these 15 plus the king. One guard per army (designer, 2026-09-13). */
-export const POOL = 'QLRRBBNNAAGMMSS';
+export const POOL = 'QORRBBNNAAGMMSS';
 export const CLASSIC_CHESS = 'RNBQKBNR';
 
 export function shuffle<T>(a: T[], rng: () => number): T[] {

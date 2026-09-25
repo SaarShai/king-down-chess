@@ -1,0 +1,30 @@
+{
+  "spec": {
+    "id": "sq-block",
+    "games": 24,
+    "ai": {
+      "depth": 2
+    },
+    "seed": 93,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "squire": "block"
+    },
+    "backRanks": {
+      "sample": 8
+    }
+  },
+  "games": 24,
+  "seconds": 4.8,
+  "whiteScore": 0.4375,
+  "whiteWins": 9,
+  "draws": 3,
+  "blackWins": 12,
+  "meanPlies": 90,
+  "reasons": {
+    "adjudicatedResign": 21,
+    "adjudicatedDraw": 2,
+    "drawMaterial": 1
+  }
+}

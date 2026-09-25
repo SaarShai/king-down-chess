@@ -1,0 +1,1903 @@
+{
+  "recorded_at_utc": "2026-09-25T07:00:53.405512+00:00",
+  "branch": "codex/cursor-adoption",
+  "base_commit": "c8f4ca7025011245a94f8b7ce644ca4aee1d17a9",
+  "source_manifest_sha256": "e4ac44010d580828b6411bd87faa7fa107af464e6ddc2eb520ea8afe22bf7ca0",
+  "checks": {
+    "full_suite": {
+      "files": 10,
+      "tests_passed": 267,
+      "log": "validation/tests.log"
+    },
+    "production_build": {
+      "passed": true,
+      "typecheck": true,
+      "log": "validation/build.log"
+    },
+    "clay_browser": {
+      "url": "http://127.0.0.1:5189/",
+      "checksPassed": 15,
+      "checks": [
+        "fixed handmade clay at 0.5 px, no rendering controls, armies facing one another",
+        "32 independently animated clay figures load in the default game",
+        "every initial pawn-square centre selects its own pawn, not the back rank",
+        "the clay knight retains its leap and returns to its rest pose",
+        "real board picking and a completed pawn walk",
+        "legacy saved styles and URL style/pixel overrides cannot change the fixed presentation",
+        "save/reload and undo restore the position",
+        "human move receives a legal worker-AI reply",
+        "optional mirrored setup keeps the fixed handmade material and opponent-facing armies",
+        "piece guide describes the current Archer and Beast rules",
+        "undo during the Ogre shove cancels delayed movement",
+        "Ogre shove animation completes with the pawn on its legal square",
+        "capture disposes the victim, and undo restores its model",
+        "new game during a walk prevents stale animation from changing the new board",
+        "390px mobile board and scrollable controls fit without horizontal overflow"
+      ],
+      "errors": []
+    },
+    "adoption_browser": {
+      "url": "http://127.0.0.1:5189/",
+      "checksPassed": 11,
+      "checks": [
+        "Hint uses history, marks a legal suggestion without playing, and clears on a move",
+        "old saves retain Strong; skill, auto-queen and effective mute survive reload",
+        "reset cancels a hint; real piece dragging plays through the normal move path without orbiting",
+        "dragging works from the flipped Black view and side changes cancel pending AI",
+        "underpromotion works; auto-queen respects promotion sets; old games retain their rules and new games use current defaults",
+        "guide and promotion text follow current, 2017 and 2021 presets",
+        "move explanations reconstruct from saved history and return after undo/replay",
+        "lab examples reuse the existing selector; current pieces enter the guide; check has a visible king ring",
+        "Catapult lob keeps the shooter and screen; undo during the arc preserves the restored victim",
+        "Reaver capture-then-step uses the real selection path and cancels cleanly on undo",
+        "real touch events drag a pawn on the mobile layout without horizontal overflow"
+      ],
+      "errors": []
+    },
+    "original_report_bodies_preserved": 21,
+    "compact_historical_files_byte_identical": 34,
+    "donor_product_paths_unchanged": 823,
+    "private_archive_manifest_unchanged": "204d35df1dcbdb6ea720350b8b0f98829df74aa32cad166eb3392bbee61983b5",
+    "accepted_public_assets_and_clay_loader_unchanged": true,
+    "dependency_manifests_unchanged": true,
+    "no_clock_or_reserve_port": true,
+    "adopted_test_files": 10,
+    "visual_inspection": [
+      "validation/clay/desktop.png",
+      "validation/clay/mobile.png",
+      "validation/touch-mobile.png"
+    ],
+    "local_document_links_resolve": 112,
+    "post_format_build_byte_identical_to_browser_tested_build": true,
+    "record_formatting": "TSV CRLF normalized to LF; fresh logs normalized only for trailing whitespace. Original collection bytes remain archived."
+  },
+  "source_files": {
+    "index.html": {
+      "sha256": "e59365119cd311d0fde9ea837e4aa5382df1c87cba40fa44dc3c8b39186a2737",
+      "bytes": 5288
+    },
+    "package-lock.json": {
+      "sha256": "2877630b28293702c3b6dfb22c4bd3f0fa43410d591432d6db2bc1bcc45162ab",
+      "bytes": 93726
+    },
+    "package.json": {
+      "sha256": "4ad084b02833aab6ca6558844909c7e6f4f3127b3cc3f38b64b4381b041ed281",
+      "bytes": 1083
+    },
+    "public/models/archer.json": {
+      "sha256": "536c5a5bc5e1f99cf7da337add37a7986c60af49042edf79823935c951932742",
+      "bytes": 39878
+    },
+    "public/models/beast.json": {
+      "sha256": "cc5fb4688d4871d36d5e5dcec10c5ea4fd9083da71475405e6e08014a37a151a",
+      "bytes": 140146
+    },
+    "public/models/bishop.json": {
+      "sha256": "1f2f966f098f8f7a8a2a51956904640f50c369d08faff0a249be55ea86d7737a",
+      "bytes": 19970
+    },
+    "public/models/guard.json": {
+      "sha256": "64d10f1ffd9a5eb50b393a97904c7ef3ae7a4b6cab69f267824683e274ecbbc0",
+      "bytes": 144291
+    },
+    "public/models/king.json": {
+      "sha256": "cced5992e7947bf31c218883c9b3fa918a1ad35296cf6f8cecacd6069d3f486d",
+      "bytes": 51825
+    },
+    "public/models/knight.json": {
+      "sha256": "1cc2916e8aa0f9433b66abd5b5e9001efdc3b9a3b95dc9d138b4f977bba74e14",
+      "bytes": 46134
+    },
+    "public/models/maester.json": {
+      "sha256": "746f3396c93446577db778b9478be25510b33ff8c3042d0c43b366d986f8a0b3",
+      "bytes": 92498
+    },
+    "public/models/paladin.json": {
+      "sha256": "a0654741d36d233074a80a7e0cf62bca20974f14211c539396527ce39d6896a0",
+      "bytes": 87978
+    },
+    "public/models/pawn.json": {
+      "sha256": "9a1a28c1cba44c1205d07efdf50104e2dccb54248984b9094e3e4aaab7456c9a",
+      "bytes": 21951
+    },
+    "public/models/queen.json": {
+      "sha256": "162cc9cd7e638eb01f2798dcc45624a6bb0d97fd4d8e22a2fbfb4d740e9a3e32",
+      "bytes": 63322
+    },
+    "public/models/rook.json": {
+      "sha256": "c6f4138642f4fce419d06ad39897633b291e8f628f3d2af381af50f1a07c26de",
+      "bytes": 91380
+    },
+    "public/prototype/atlases/refined-archer0.png": {
+      "sha256": "a2a7057bcbc5d22eac14e77baaed74aaf841f3fd439fe842cfcb6513d696b001",
+      "bytes": 369216
+    },
+    "public/prototype/atlases/refined-archer1.png": {
+      "sha256": "81c609c4412b1e63695cafcbacc4e2ba64056e04ec104d171ecd5941099433ec",
+      "bytes": 336490
+    },
+    "public/prototype/atlases/refined-guard0.png": {
+      "sha256": "f6a1d56fe4f62ade3522c6eef338d471e38dc7443297f841fd357942af162881",
+      "bytes": 585033
+    },
+    "public/prototype/atlases/refined-guard1.png": {
+      "sha256": "67e114c1dced40dfc8cc06ba22ac9795704bbfebdf493024353c07c2a2f59f0d",
+      "bytes": 538235
+    },
+    "public/prototype/models/blockout-archer.glb": {
+      "sha256": "b715573bfe7b03837c8566fe7297de13b15ac27682a2b5e60858a2035b70effb",
+      "bytes": 84832
+    },
+    "public/prototype/models/blockout-guard.glb": {
+      "sha256": "ea8bd4c37dd0b3172ae762b68b24a5a2945067282667ed9883832b32dfe95e17",
+      "bytes": 76224
+    },
+    "public/prototype/models/board-archer.glb": {
+      "sha256": "a4b64687e3db92e747c49086a649dc4c511e556da328b7282017f718a184b24b",
+      "bytes": 349892
+    },
+    "public/prototype/models/board-beast.glb": {
+      "sha256": "ba4cdcc0ff99d9e245a3400b3f5a65a5f89e8a21769a45ae48d10b5b39cc47d3",
+      "bytes": 691632
+    },
+    "public/prototype/models/board-bishop.glb": {
+      "sha256": "978f84836e7d8420d4e6aab9c67c754030bc75bf381da7c6920e15c6c1f61022",
+      "bytes": 329024
+    },
+    "public/prototype/models/board-guard.glb": {
+      "sha256": "861541f77a835da2d80a532581a9ab3ae9d835c5d0258eed4c107d4e1aa6b231",
+      "bytes": 699476
+    },
+    "public/prototype/models/board-king-celestial.glb": {
+      "sha256": "3aa995b272540b0ffae46dc64a72622f0cf2ed2422a1e6a990ae91c2a7211c81",
+      "bytes": 455436
+    },
+    "public/prototype/models/board-king-ember.glb": {
+      "sha256": "fbfb8889aaa86470d7829eec9a30c58fb38e6810a87564b34572438c0b81af4f",
+      "bytes": 534920
+    },
+    "public/prototype/models/board-king-frost.glb": {
+      "sha256": "fe8a04c83a7c79ad766f2510f270ea6274e809afbd39e1b2a256eecd3c25986d",
+      "bytes": 336256
+    },
+    "public/prototype/models/board-king-gaya.glb": {
+      "sha256": "10d6d8b9ad0592606b52ce7cdfebcbee621844238f6d4abb643ba1286df8d541",
+      "bytes": 411160
+    },
+    "public/prototype/models/board-king-shadow.glb": {
+      "sha256": "5fd54e51ae60c40359a7826e17581a7154230eda1ca2446cc05f907595b9eab1",
+      "bytes": 598528
+    },
+    "public/prototype/models/board-king-spirit.glb": {
+      "sha256": "584f49403e21c3d9ca598ba9c3abed7c0afd70727b43b55e37a4fce97fcf4396",
+      "bytes": 581500
+    },
+    "public/prototype/models/board-knight.glb": {
+      "sha256": "e638b47868ae3a59e6f5e022442f07cd9f1aee010f34b3100b8c7db5c6b97425",
+      "bytes": 340044
+    },
+    "public/prototype/models/board-maester.glb": {
+      "sha256": "ec4a65bd86f2bb003cec1ee49f6e70071b376247cf8fc77cc52f5fb89c6ae560",
+      "bytes": 287240
+    },
+    "public/prototype/models/board-manifest.json": {
+      "sha256": "791656cc375421dc12cd4140f89c6644cb4f39f718e28c79f352c41f2c0423f4",
+      "bytes": 5154
+    },
+    "public/prototype/models/board-ogre.glb": {
+      "sha256": "f6a62b4520795854d9c4fe72b9771dfd550e2fb58a2a0778ee6e263e9f680e65",
+      "bytes": 1680556
+    },
+    "public/prototype/models/board-paladin.glb": {
+      "sha256": "56fff3bb595663059b0c17cec81d63459a2f7c451bffb96184417e9afb228a8d",
+      "bytes": 1960040
+    },
+    "public/prototype/models/board-pawn.glb": {
+      "sha256": "47bf5928cb5e4b738bf071af4c79d705f344c5c99f91d9debe656b66c8f9b6f8",
+      "bytes": 324612
+    },
+    "public/prototype/models/board-queen.glb": {
+      "sha256": "fe69d5770672caa0bf36f3cbbe429954e2d434747083643d620ea8a3bcc68b80",
+      "bytes": 301360
+    },
+    "public/prototype/models/board-rook.glb": {
+      "sha256": "cd42a2a67dc1533d84a6c1efd992ceb47b0f0acc77fd960285a7b0f3f4e2f4cd",
+      "bytes": 674956
+    },
+    "public/prototype/models/manifest.json": {
+      "sha256": "093182aa0b724c395c9b2c0ce0ecbbabf8d06cf97d7412b70e9ab421993920a3",
+      "bytes": 25667
+    },
+    "public/prototype/models/original-archer.glb": {
+      "sha256": "7fbe80d0652250c044169a1d011c62f09b1baaaee134c36f5223700e802f8178",
+      "bytes": 121376
+    },
+    "public/prototype/models/original-bishop.glb": {
+      "sha256": "ca6f715f57fcc8dddc510df11298eba9a78af2b3a31344448dc8aa5bf1a8d13a",
+      "bytes": 119708
+    },
+    "public/prototype/models/original-guard.glb": {
+      "sha256": "1c394c0c092c70a3a8081c9fa85d71b61b15418e0507647d04b9bee7a26ce0a9",
+      "bytes": 116888
+    },
+    "public/prototype/models/original-king.glb": {
+      "sha256": "e7d42c5d48147494e93766004f6184f6ab5ddcd4c3dbf7afee31a5779e5b0ddd",
+      "bytes": 119944
+    },
+    "public/prototype/models/original-knight.glb": {
+      "sha256": "31be11e7b98c2c2a13801156ffb3eaea0e00de7479bee266d81a48a69e2952a8",
+      "bytes": 119280
+    },
+    "public/prototype/models/original-pawn.glb": {
+      "sha256": "dbbadf49440b326884f8bfd7a5bd72193cb767ea18a5eb500d073e329f3d94a6",
+      "bytes": 114256
+    },
+    "public/prototype/models/rebuilt-archer.glb": {
+      "sha256": "93c5fe23d3a0dbdd28aa88aaf9bc9d491654f029c0de41e1df69ba43ac5d3ea8",
+      "bytes": 1015876
+    },
+    "public/prototype/models/rebuilt-beast.glb": {
+      "sha256": "a571e5ac26b7a42e3c7397ef550535b30c1c73135694e06f38be78f598515020",
+      "bytes": 1564512
+    },
+    "public/prototype/models/rebuilt-bishop.glb": {
+      "sha256": "9550c4b8901720290ed2dd0a60d2dd39c0a478c26b8099f57b53ecb93d324fb1",
+      "bytes": 841960
+    },
+    "public/prototype/models/rebuilt-guard.glb": {
+      "sha256": "9af54279d6a7d64c8b8b85cd783c8e1183e50fc9d980f5201eed46ea03522436",
+      "bytes": 1526888
+    },
+    "public/prototype/models/rebuilt-king-celestial.glb": {
+      "sha256": "72ba0afaa9ea400199cd4e23c8d96f48ae6dfb2e78287a94ceb38b515a3221ac",
+      "bytes": 1250920
+    },
+    "public/prototype/models/rebuilt-king-ember.glb": {
+      "sha256": "49ce4fec2f64f1a75196eb814f0843f187f0e9165c2d76f4f91e4949f25ab166",
+      "bytes": 1377976
+    },
+    "public/prototype/models/rebuilt-king-frost.glb": {
+      "sha256": "8d27edde60469c5fe6d00ffaf71231df143b28cd6bbe32345970c957fdf79d57",
+      "bytes": 1094800
+    },
+    "public/prototype/models/rebuilt-king-gaya.glb": {
+      "sha256": "905746a683dfffb9ae8cce03c745a5da928fadaa5f33580b4231ff92dfe8cac3",
+      "bytes": 996712
+    },
+    "public/prototype/models/rebuilt-king-shadow.glb": {
+      "sha256": "b80da066da53dbd221d42aeac5500fb4eabbf7fedda29a43ea1dd011b687e103",
+      "bytes": 1415152
+    },
+    "public/prototype/models/rebuilt-king-spirit.glb": {
+      "sha256": "f530564bea08199af886b5336a634e749ae3fbf2a9186d55af78c6315492479c",
+      "bytes": 1348100
+    },
+    "public/prototype/models/rebuilt-knight.glb": {
+      "sha256": "2b31c90fda95bdd971d2304cc740063b9f5c123961f8271d94d2479474773919",
+      "bytes": 1033084
+    },
+    "public/prototype/models/rebuilt-maester.glb": {
+      "sha256": "601c4a1b16d42d44eb49b87c5e4f47608b953a045efbba2a7b29fbba0668e9a8",
+      "bytes": 776268
+    },
+    "public/prototype/models/rebuilt-ogre.glb": {
+      "sha256": "be15aed803ed637e9acd51dbba2e61a0a5733afff43efce0d3713aa3eb0a97a2",
+      "bytes": 2812896
+    },
+    "public/prototype/models/rebuilt-paladin.glb": {
+      "sha256": "df83b1eb0ed80d91c49dfc56dbd564e6a4d0812d5754303aed8e17ff53cef87b",
+      "bytes": 4949056
+    },
+    "public/prototype/models/rebuilt-pawn.glb": {
+      "sha256": "53ebcb62ef389d99946f0b295abbab522a1bcc4a1c9365e7a8823961a8579dd7",
+      "bytes": 859240
+    },
+    "public/prototype/models/rebuilt-queen.glb": {
+      "sha256": "c7eede264cc6bb708cb3c7ab4055ab04aced8f2e0b79499af1e091fd811bda23",
+      "bytes": 914432
+    },
+    "public/prototype/models/rebuilt-rook.glb": {
+      "sha256": "978bfa92b11172d5a0e44f8dc364ed1782831e7f5c74e3b40be73b6f3d9a2433",
+      "bytes": 1424720
+    },
+    "public/prototype/quiet-hours/LICENSE": {
+      "sha256": "fa655f413edefb7d5416d743714e4cdd7899134b2fb4003732b2ef9eecac4fd4",
+      "bytes": 1077
+    },
+    "public/prototype/quiet-hours/README.md": {
+      "sha256": "a6aa160404850e488a60aba799035875ea828eebc50c31f5b5659fb76a149b9f",
+      "bytes": 861
+    },
+    "public/prototype/quiet-hours/camera.js": {
+      "sha256": "861c940c7378ade2ac61d194733a6c38ea27f9e6bcf371ed4b071fb7d883b815",
+      "bytes": 1835
+    },
+    "public/prototype/quiet-hours/core.js": {
+      "sha256": "7c96030509a2cd8144a3f0cdcb9d2a1b032e68b89d13349e3cb1ea86694d8c79",
+      "bytes": 2070
+    },
+    "public/prototype/quiet-hours/draw.js": {
+      "sha256": "b996ebcefa8bc43f3437826b419e452e947d1273f189550e711ed86ec19b924d",
+      "bytes": 10652
+    },
+    "public/prototype/quiet-hours/inks.js": {
+      "sha256": "7b7e2e231fe868d6a07ad6c868c9046cae47178ee4518c9c94a9e54310feebb9",
+      "bytes": 3690
+    },
+    "public/prototype/quiet-hours/light.js": {
+      "sha256": "c53c5ae9c842b1052421e41a549ba1a5c84f2ca672c00b7594f2845167a50e69",
+      "bytes": 3213
+    },
+    "public/prototype/quiet-hours/palette.js": {
+      "sha256": "250b4d728aeb166b75595867711c1cc8be24250c38aa1fb82bf9048377caafad",
+      "bytes": 2808
+    },
+    "public/prototype/source-guides/Archer_color_ref.jpg": {
+      "sha256": "c15e6fc05c39e5c26320c2a47d5e421b4000760eaea8185856ba53ad7fe32d5c",
+      "bytes": 1915403
+    },
+    "public/prototype/source-guides/guard_color_ref.jpg": {
+      "sha256": "be037ddd3c7727bdaf78dae998bd4acdbf947e93819a9b1b4bfc299a6f97d3e4",
+      "bytes": 1340546
+    },
+    "public/sprites/blue-red/archer-b.png": {
+      "sha256": "5fe85672c18c8347cfbe5db19f444f7a6d6aea699961f79ad966191a67b03212",
+      "bytes": 13023
+    },
+    "public/sprites/blue-red/archer-w.png": {
+      "sha256": "94d0b26d4177a5d6244257fdcce72b4edc817d6f788e361cd0157947eb68157a",
+      "bytes": 13023
+    },
+    "public/sprites/blue-red/beast-b.png": {
+      "sha256": "cc79a27661f4f1f6c38539c645192822a62035f55f0d03c05e9d537d01295761",
+      "bytes": 20155
+    },
+    "public/sprites/blue-red/beast-w.png": {
+      "sha256": "967eb9e74910f55fbb3352c825f701dfa3f4ca45bd4f6f5d5d8ce94b376d6ddb",
+      "bytes": 20064
+    },
+    "public/sprites/blue-red/bishop-b.png": {
+      "sha256": "63de3d75ea2bffe1365c1a80b000b291f4cdc7f347e0208ba6764a266fbd059c",
+      "bytes": 8795
+    },
+    "public/sprites/blue-red/bishop-w.png": {
+      "sha256": "ebcdb912f646c2646eeda67c841b62d1f1a4024d77ae2f85318bf300509219ff",
+      "bytes": 8764
+    },
+    "public/sprites/blue-red/guard-b.png": {
+      "sha256": "bb8dbb445043161b263f251131ef94c106c3d4e9dccecab7f4f13de0b11ef653",
+      "bytes": 22289
+    },
+    "public/sprites/blue-red/guard-w.png": {
+      "sha256": "344eb939a50e9fb66fe2755615ee6afe86d740dda54a0cb0070600dcc84ae5e7",
+      "bytes": 22181
+    },
+    "public/sprites/blue-red/king-b.png": {
+      "sha256": "8e7397745865cf49732804f3dc0880f4086f7c02adda6129243b4f7dfdd991db",
+      "bytes": 19678
+    },
+    "public/sprites/blue-red/king-w.png": {
+      "sha256": "cbe4209624862ef41210ff3a4d133e14d8ae1a1b2ef2ae6a53723d112e87b80a",
+      "bytes": 15712
+    },
+    "public/sprites/blue-red/knight-b.png": {
+      "sha256": "d6330becb73ab55c2b3c7b84a4edeb19811e3c7fd53f0e59570f70dbb35db060",
+      "bytes": 15733
+    },
+    "public/sprites/blue-red/knight-w.png": {
+      "sha256": "6d4cdb7598869411c1a20be491150406efeeaced2a98a0ff55d4ec08e4c744d9",
+      "bytes": 15700
+    },
+    "public/sprites/blue-red/maester-b.png": {
+      "sha256": "e63c4a4566bb579be56628020f665d243505e333db5d63596a0faeaee58375dd",
+      "bytes": 16944
+    },
+    "public/sprites/blue-red/maester-w.png": {
+      "sha256": "2328ca8b7354c43243c8855070412c841cd7e435c371a32cafff9531223ce051",
+      "bytes": 16776
+    },
+    "public/sprites/blue-red/paladin-b.png": {
+      "sha256": "c0ef32de3afc74672ab1fe98453d73c7f58987eed8fbd0bae38906e61d5356b2",
+      "bytes": 20936
+    },
+    "public/sprites/blue-red/paladin-w.png": {
+      "sha256": "2e7ef0bfdf00dce3094cc53c0ddec5e748255102bcb35d7040d260fdbb668bf5",
+      "bytes": 20848
+    },
+    "public/sprites/blue-red/pawn-b.png": {
+      "sha256": "4d031dc034af601d07ec506126b846e96ac42dc1f574db6361c286870a761520",
+      "bytes": 9746
+    },
+    "public/sprites/blue-red/pawn-w.png": {
+      "sha256": "f82bf37fb6cb101452833b3d29e65d760f1b35126349c87300b4d127f1313f75",
+      "bytes": 9780
+    },
+    "public/sprites/blue-red/queen-b.png": {
+      "sha256": "cf6e3df5973a1702b0670d93d5984700949f144519eaede0f844843937f00e81",
+      "bytes": 12588
+    },
+    "public/sprites/blue-red/queen-w.png": {
+      "sha256": "557e5b3491354142897b49aebcea700d4cdaeaf64c3047327daa8da999f7e9aa",
+      "bytes": 12623
+    },
+    "public/sprites/blue-red/rook-b.png": {
+      "sha256": "c9d7ce7c3ed0d14c73018a5060ed006a7aff4a03000a91e0d6c92ad1ccd14a0c",
+      "bytes": 22371
+    },
+    "public/sprites/blue-red/rook-w.png": {
+      "sha256": "e8ead71a67143a40a4b20db8a0f378a3afd6e76aa908d2e09b9b250c0aef72fc",
+      "bytes": 22297
+    },
+    "public/sprites/green-purple/archer-b.png": {
+      "sha256": "7041c45c8d6cc76538a9d5d947a28d53993c9d88561060101b13d3ec160c5a66",
+      "bytes": 12997
+    },
+    "public/sprites/green-purple/archer-w.png": {
+      "sha256": "50dc72e5bceccde2235729e9f1b20c34811d5dfded8bb4def367d3623be62f4c",
+      "bytes": 12967
+    },
+    "public/sprites/green-purple/beast-b.png": {
+      "sha256": "30d8f43f275ec122cc5b667f8f153bc61841c9a144f8afb89f466635e82272eb",
+      "bytes": 20021
+    },
+    "public/sprites/green-purple/beast-w.png": {
+      "sha256": "8ae42a418914db8ec8a5dc304f993401abb7ef8dd598e8c61e9c466e5f808114",
+      "bytes": 20034
+    },
+    "public/sprites/green-purple/bishop-b.png": {
+      "sha256": "3ae07b36b4c266eee776c2b12f4dca2bfc23afba53d4c15785306287c03eaf39",
+      "bytes": 8690
+    },
+    "public/sprites/green-purple/bishop-w.png": {
+      "sha256": "6fac7e658a8a48c556ca904459437a2d4ebac8fe9dd603635969a0af3a311f1a",
+      "bytes": 8661
+    },
+    "public/sprites/green-purple/guard-b.png": {
+      "sha256": "a7c5e5d56db38808ebd4e718238d8b9eb2290ced6fbfc02ed3f321e4ba4f3654",
+      "bytes": 22387
+    },
+    "public/sprites/green-purple/guard-w.png": {
+      "sha256": "cb442a06383ae2ddc8e874be6154f5c506dead1b70d70aaa3ba6429005a3f903",
+      "bytes": 22262
+    },
+    "public/sprites/green-purple/king-b.png": {
+      "sha256": "238d0fff0a947e84a9f7cf3a78a1efb812e5cdbaa7550264a5e1e92fca4648ba",
+      "bytes": 15981
+    },
+    "public/sprites/green-purple/king-w.png": {
+      "sha256": "15f6bfce8e31a47bed11a756f23570bd826807ccdaf5a213eac237af017870fd",
+      "bytes": 16616
+    },
+    "public/sprites/green-purple/knight-b.png": {
+      "sha256": "a2908fba6c7c750f1bccde439b1fdbf0652067e2652c94ec4b3b25745fd7a04c",
+      "bytes": 15615
+    },
+    "public/sprites/green-purple/knight-w.png": {
+      "sha256": "ee13330e731e76c5f320ffba1d502cee078af5ed9f96c784e3bee45839bbf218",
+      "bytes": 15559
+    },
+    "public/sprites/green-purple/maester-b.png": {
+      "sha256": "9de1af24ed35838c7315bc169384d148d381f43bc27ffdbcb1eaa7e9550abc96",
+      "bytes": 16692
+    },
+    "public/sprites/green-purple/maester-w.png": {
+      "sha256": "d642f790054b2bad819d27f3d54906d5755ce388753bca5522addc1b02917109",
+      "bytes": 16610
+    },
+    "public/sprites/green-purple/paladin-b.png": {
+      "sha256": "ef6b822985c0ec6d8a5e3be02bcb3101b6a712cad107dfa246c2eb085f08555e",
+      "bytes": 20815
+    },
+    "public/sprites/green-purple/paladin-w.png": {
+      "sha256": "7cdb64c43aba089420eefbb26d24e54ae18d18b6441b9ba0af922916142efd25",
+      "bytes": 20723
+    },
+    "public/sprites/green-purple/pawn-b.png": {
+      "sha256": "97657b18017c91d2a33e82d8ccb7f6e0498534c76191fcaf4407d24c9f7d5f06",
+      "bytes": 9708
+    },
+    "public/sprites/green-purple/pawn-w.png": {
+      "sha256": "b6819c99a3fecb9f80c259ebbbb33e06e8277f073956bf0fa952bc7de0c5da4d",
+      "bytes": 9704
+    },
+    "public/sprites/green-purple/queen-b.png": {
+      "sha256": "92bcbeefd928628d8b82786ecafe90ebfa5741f72a299f7a9b2514cf40d9c82c",
+      "bytes": 12539
+    },
+    "public/sprites/green-purple/queen-w.png": {
+      "sha256": "5c030b7c35787706c790507123017fe85d4d8fc19103cc57378b8f86ed09e5ec",
+      "bytes": 12445
+    },
+    "public/sprites/green-purple/rook-b.png": {
+      "sha256": "48d63ac721e928f3aef3b865348e13f76ea0f64e698f5e72cb6903bee1c9c4b3",
+      "bytes": 22243
+    },
+    "public/sprites/green-purple/rook-w.png": {
+      "sha256": "554de299b84a7da3d753c1fbce64b91dd952a543defcc2355ed92125f0e0189a",
+      "bytes": 22178
+    },
+    "public/sprites/ivory-charcoal/archer-b.png": {
+      "sha256": "cf810802784b236d2688fa03cb462003badeeb81ae51e32d6e1bad6eae2417ca",
+      "bytes": 8899
+    },
+    "public/sprites/ivory-charcoal/archer-w.png": {
+      "sha256": "8eae071ddfbeb5ee673ba4936c3081d090077b07526dd7819b92c4fafe88c18b",
+      "bytes": 12937
+    },
+    "public/sprites/ivory-charcoal/beast-b.png": {
+      "sha256": "ed296331f5a7c1168db71641be342150b99a935b82eb464d3d2b91e3d66480f6",
+      "bytes": 11146
+    },
+    "public/sprites/ivory-charcoal/beast-w.png": {
+      "sha256": "fa2ac4294ebdb4825ba295fc3b7c74b5292542cf27326fb429db90e064d469cc",
+      "bytes": 18985
+    },
+    "public/sprites/ivory-charcoal/bishop-b.png": {
+      "sha256": "5c791fde7c32a6aa3c651f32cc09aa8c1eb35a1084b2ba05ed824fce962979b2",
+      "bytes": 5931
+    },
+    "public/sprites/ivory-charcoal/bishop-w.png": {
+      "sha256": "36cf5ad2782f7198c81137d575e844af5d40cd48df86712a030df583c514a4c8",
+      "bytes": 8606
+    },
+    "public/sprites/ivory-charcoal/guard-b.png": {
+      "sha256": "fc30ea42cae1a3328b4119e6a60c55253b6ba76d7fa6074442f509001f454168",
+      "bytes": 13114
+    },
+    "public/sprites/ivory-charcoal/guard-w.png": {
+      "sha256": "7c21ff2907e47ac8cded182d11550972992e1556684de55f835eae617457fe14",
+      "bytes": 21992
+    },
+    "public/sprites/ivory-charcoal/king-b.png": {
+      "sha256": "9b641779cf23baddb2c6adb9c82bb4af72861f4e6c09bbcca07746727c70fddc",
+      "bytes": 7315
+    },
+    "public/sprites/ivory-charcoal/king-w.png": {
+      "sha256": "062d2d00f3b1d87c261850f8ed3063f22f3c2aec62d0d415735f08989e76349a",
+      "bytes": 11506
+    },
+    "public/sprites/ivory-charcoal/knight-b.png": {
+      "sha256": "03f1e2ac497330a0c1f964a763c3f272d059cc0ffe5d82bc1efc477b4a3f5785",
+      "bytes": 10142
+    },
+    "public/sprites/ivory-charcoal/knight-w.png": {
+      "sha256": "7eee8ddaa786236de88bc1fbbb2615f0f845ef18199f5e73e8853266ab3f4943",
+      "bytes": 15255
+    },
+    "public/sprites/ivory-charcoal/maester-b.png": {
+      "sha256": "d43affaa787e8ce79826442b219a474505b4f81651ddd061f5ef8d1debcc3f26",
+      "bytes": 9832
+    },
+    "public/sprites/ivory-charcoal/maester-w.png": {
+      "sha256": "dd9b6faf7b4472f3c1ebbd68d24038c2effcac2d1b9e23dfde113b18da8eea84",
+      "bytes": 16155
+    },
+    "public/sprites/ivory-charcoal/paladin-b.png": {
+      "sha256": "dd6688e496abcc258eae35efa49865914a46fdae2b5459ad43f11728c292da15",
+      "bytes": 12866
+    },
+    "public/sprites/ivory-charcoal/paladin-w.png": {
+      "sha256": "733513ad2457e1af5ca2791f6f72a7bd8e992e430f4c35bd182ccd0964e30666",
+      "bytes": 20277
+    },
+    "public/sprites/ivory-charcoal/pawn-b.png": {
+      "sha256": "1ba74056ff8d73fda9a5b6979789d02c291155c8e64096e6f6be3c3319a186cc",
+      "bytes": 6770
+    },
+    "public/sprites/ivory-charcoal/pawn-w.png": {
+      "sha256": "1ea591c9cbb86bfd3783748b4d377456f699d90ca07b3c6c749be830ea04c022",
+      "bytes": 9713
+    },
+    "public/sprites/ivory-charcoal/queen-b.png": {
+      "sha256": "ee2971fce84d94b5c1f8a513df75feb1f00e16f2c29b153684aef0fb13d6678e",
+      "bytes": 7990
+    },
+    "public/sprites/ivory-charcoal/queen-w.png": {
+      "sha256": "464c7c9e17a156d77b15f83e2420cc63c1a87257453a8041411a84e1b57a796d",
+      "bytes": 12244
+    },
+    "public/sprites/ivory-charcoal/rook-b.png": {
+      "sha256": "a5aa904450d16b9e6151a45dfa79158986cd8417d8c1bc9a7795bd7a56f43dd1",
+      "bytes": 13136
+    },
+    "public/sprites/ivory-charcoal/rook-w.png": {
+      "sha256": "5f5ef7d707f55e96cb2b1e57e544fe9fd73868e21712149ab2d2dcfaa5a174d4",
+      "bytes": 21303
+    },
+    "public/sprites/painted-blue-red/archer-b.png": {
+      "sha256": "d527864e0e5734c47efa3fa109136da331a4b108d52e1582fd5cbecdab42f467",
+      "bytes": 21629
+    },
+    "public/sprites/painted-blue-red/archer-w.png": {
+      "sha256": "d2e4c9fe6c22e90f8e142471dca149a642a7622aee4572be37c1d7cf3f2f0229",
+      "bytes": 22165
+    },
+    "public/sprites/painted-blue-red/beast-b.png": {
+      "sha256": "445561a9e9d6d0c21250a01a4ca1af8a9a82d95283eaacb05e5d5f5265cce733",
+      "bytes": 35677
+    },
+    "public/sprites/painted-blue-red/beast-w.png": {
+      "sha256": "85c60f76540aebdf49297d38fbc8d9c90dfd2323881ec96c2316b2f51c6bb279",
+      "bytes": 36947
+    },
+    "public/sprites/painted-blue-red/bishop-b.png": {
+      "sha256": "32a659eeec08be00aa621433356498fdd17275e571cae55d4e3ce078c4925aa0",
+      "bytes": 12775
+    },
+    "public/sprites/painted-blue-red/bishop-w.png": {
+      "sha256": "2c2069654d9f2c8b99a4242e1a42219d49e79786dc79b4b2dea8394cc050c6dd",
+      "bytes": 13304
+    },
+    "public/sprites/painted-blue-red/guard-b.png": {
+      "sha256": "dd99857a936beb5f8f18ed594613f0342eded433b53f28e7e20c5df9f0a4ac00",
+      "bytes": 39653
+    },
+    "public/sprites/painted-blue-red/guard-w.png": {
+      "sha256": "c1d8d5fd55f8766ed1845a64ebfbb30f24d6a03493ef610684cd1a97c2ce5833",
+      "bytes": 39904
+    },
+    "public/sprites/painted-blue-red/king-b.png": {
+      "sha256": "1f6ecef92f6a3c6110b64a23269e20ff785e392649ffdea9ac30a82d09839dd3",
+      "bytes": 34293
+    },
+    "public/sprites/painted-blue-red/king-celestial-b.png": {
+      "sha256": "01d00dc39be29ada2e1657d961db0bdb7cb1bf2198aa5cb056c127f9f7857621",
+      "bytes": 25417
+    },
+    "public/sprites/painted-blue-red/king-celestial-w.png": {
+      "sha256": "d16853c03b2d37b9a50ed626eee435f4a6334c2f5ac4ac001abb35d26b30a536",
+      "bytes": 25816
+    },
+    "public/sprites/painted-blue-red/king-ember-b.png": {
+      "sha256": "1f6ecef92f6a3c6110b64a23269e20ff785e392649ffdea9ac30a82d09839dd3",
+      "bytes": 34293
+    },
+    "public/sprites/painted-blue-red/king-ember-w.png": {
+      "sha256": "7ed855ed83a0145ef19bfae2026014422306213cd5d54de95a73a6aa528bfade",
+      "bytes": 35681
+    },
+    "public/sprites/painted-blue-red/king-frost-b.png": {
+      "sha256": "ec24271106469bd1105932e0ee38ecfbea05dbb53f5f23b582e9b559ff82e00f",
+      "bytes": 24901
+    },
+    "public/sprites/painted-blue-red/king-frost-w.png": {
+      "sha256": "8d77d4291be81f43a4592ba5eea7ef6a8c514a68c835b9f145cb84c2e77e5446",
+      "bytes": 25539
+    },
+    "public/sprites/painted-blue-red/king-gaya-b.png": {
+      "sha256": "1c08d271fc497f04fd5166e8e53a6a0c6cc9c2880bcd9b9ffd085cbd195da421",
+      "bytes": 27846
+    },
+    "public/sprites/painted-blue-red/king-gaya-w.png": {
+      "sha256": "12a24067cdaa3ac01e63e835088974e6476474f5d2bea214f57dddf3d8745f0c",
+      "bytes": 29047
+    },
+    "public/sprites/painted-blue-red/king-w.png": {
+      "sha256": "8d77d4291be81f43a4592ba5eea7ef6a8c514a68c835b9f145cb84c2e77e5446",
+      "bytes": 25539
+    },
+    "public/sprites/painted-blue-red/knight-b.png": {
+      "sha256": "b16721590156490dbb2ec15bfe1036f34a170e79da6ea23bcdde026cea1e2d33",
+      "bytes": 22734
+    },
+    "public/sprites/painted-blue-red/knight-w.png": {
+      "sha256": "e2657eeea661fd0e299f357231988a547fba7ba829a6a81cabd8a981a13a452f",
+      "bytes": 23648
+    },
+    "public/sprites/painted-blue-red/maester-b.png": {
+      "sha256": "1382c6946275e62f25dded49a6e50da9dc8804d5e4e0d8459860f530fdbca44b",
+      "bytes": 27026
+    },
+    "public/sprites/painted-blue-red/maester-w.png": {
+      "sha256": "fc0407a6d20ab54b59830918524f64358ce7ea4d4d30ba190d4d9475e0e4650f",
+      "bytes": 28747
+    },
+    "public/sprites/painted-blue-red/paladin-b.png": {
+      "sha256": "c92ff87cd7c731a98a0e3b1081a64d2ad5f776d68e1c77c8301bc3fde019c2dd",
+      "bytes": 37010
+    },
+    "public/sprites/painted-blue-red/paladin-w.png": {
+      "sha256": "d992f841193d6d27826e57f72cd8d43e9fa76ec0c0a47b0e7af10dcc02657d01",
+      "bytes": 38153
+    },
+    "public/sprites/painted-blue-red/pawn-b.png": {
+      "sha256": "02708d920ecf5959e52ae3999522dfc549d0c25995d3316dbdae614849dbbdb2",
+      "bytes": 14856
+    },
+    "public/sprites/painted-blue-red/pawn-w.png": {
+      "sha256": "654e7086cd07060bdd9b3d281a4c751029ee5ff9063fbaac4f543592dd109de9",
+      "bytes": 15146
+    },
+    "public/sprites/painted-blue-red/queen-b.png": {
+      "sha256": "0585c51faa8f0d7f9154c7a8c96c9817e06333d4f0afa2ff5300d880ba89c48b",
+      "bytes": 19890
+    },
+    "public/sprites/painted-blue-red/queen-w.png": {
+      "sha256": "18011d3c878fcf65767365c9a399abd5324aba5da8eba7703c3c647ca171a319",
+      "bytes": 20461
+    },
+    "public/sprites/painted-blue-red/rook-b.png": {
+      "sha256": "eb211cf526c0928512e563b6a54704195d1d0d43b61531c83ceacc6885bda05c",
+      "bytes": 38755
+    },
+    "public/sprites/painted-blue-red/rook-w.png": {
+      "sha256": "fea0d1a2fadbf180ee1ebc339fc22e3feead7ab818c9198171203042bf1cad69",
+      "bytes": 40940
+    },
+    "public/sprites/painted-ivory-charcoal/archer-b.png": {
+      "sha256": "a31f3f20965411a88e575308685cd57587477d14e38dfafbfc2e2d15fca7b737",
+      "bytes": 21653
+    },
+    "public/sprites/painted-ivory-charcoal/archer-w.png": {
+      "sha256": "628d69c341656dd35230a25e39027804d589e9d11d2fde05f5bd5c7a3d035a45",
+      "bytes": 21807
+    },
+    "public/sprites/painted-ivory-charcoal/beast-b.png": {
+      "sha256": "9910a528eec88c9291b5733ddc1c749af87a1677741ac15e6887cacc1fa9ff7f",
+      "bytes": 35649
+    },
+    "public/sprites/painted-ivory-charcoal/beast-w.png": {
+      "sha256": "8d114baaee559387a0464068fcb585caefe7ca345f0413bde63ff2feab260817",
+      "bytes": 36487
+    },
+    "public/sprites/painted-ivory-charcoal/bishop-b.png": {
+      "sha256": "c76338f3262a40592d05c27c769c6605dab3a62b444086e373239bf5c2ce3016",
+      "bytes": 12653
+    },
+    "public/sprites/painted-ivory-charcoal/bishop-w.png": {
+      "sha256": "14006d21052237ca8c49c867d469f97f878dfbba594ceab4b3b8777d2863e0f2",
+      "bytes": 13190
+    },
+    "public/sprites/painted-ivory-charcoal/guard-b.png": {
+      "sha256": "d7b9dc8f43dae155a717f37ee46555117a5fb7962f621aef41c8e81e6aaab93b",
+      "bytes": 37662
+    },
+    "public/sprites/painted-ivory-charcoal/guard-w.png": {
+      "sha256": "055cd9cccb1048c3beac3667469dd9f0633a92cd60812a22a9fc4276caf86efe",
+      "bytes": 39661
+    },
+    "public/sprites/painted-ivory-charcoal/king-b.png": {
+      "sha256": "88c56a27809f9a9f9160cf8bef3634265658c5b5abe5f4535a51c2e6a1fd9dbc",
+      "bytes": 34725
+    },
+    "public/sprites/painted-ivory-charcoal/king-celestial-b.png": {
+      "sha256": "8ce9f202117925e066da7aec9d245edfc4e0149a2019e05c14d10313a0b5f6c6",
+      "bytes": 25174
+    },
+    "public/sprites/painted-ivory-charcoal/king-celestial-w.png": {
+      "sha256": "b09a4c8b18171c1ff5483a6249143d42feb425db6dc5ac9486fd4cbbf2af78f9",
+      "bytes": 25438
+    },
+    "public/sprites/painted-ivory-charcoal/king-ember-b.png": {
+      "sha256": "88c56a27809f9a9f9160cf8bef3634265658c5b5abe5f4535a51c2e6a1fd9dbc",
+      "bytes": 34725
+    },
+    "public/sprites/painted-ivory-charcoal/king-ember-w.png": {
+      "sha256": "27693a4f915b044a59d4691bf5d8466dd6844e951571163d3fa4aaa44790bcf5",
+      "bytes": 35748
+    },
+    "public/sprites/painted-ivory-charcoal/king-frost-b.png": {
+      "sha256": "dca063ef56f72baa628ed97f62f3e714356c299fb3d8ccc387502a500fb4b04f",
+      "bytes": 23916
+    },
+    "public/sprites/painted-ivory-charcoal/king-frost-w.png": {
+      "sha256": "d74d3367b5c9595f0514166403659e797cde06bc8c8b921983a01941cb0052ea",
+      "bytes": 24952
+    },
+    "public/sprites/painted-ivory-charcoal/king-gaya-b.png": {
+      "sha256": "d69385306646d33198bd13f366ea1d6cec93f0350dcdfd1ccfd7818292c09788",
+      "bytes": 28116
+    },
+    "public/sprites/painted-ivory-charcoal/king-gaya-w.png": {
+      "sha256": "03aad5d786ac28e1ef70fff7e9a6ef9a548b249240d0d77a5f852ec914f8d1ec",
+      "bytes": 28890
+    },
+    "public/sprites/painted-ivory-charcoal/king-w.png": {
+      "sha256": "d74d3367b5c9595f0514166403659e797cde06bc8c8b921983a01941cb0052ea",
+      "bytes": 24952
+    },
+    "public/sprites/painted-ivory-charcoal/knight-b.png": {
+      "sha256": "de971589133ff9b06fc6777dccd5a526a082306b9dad45d72b6f5fd8296d1004",
+      "bytes": 22838
+    },
+    "public/sprites/painted-ivory-charcoal/knight-w.png": {
+      "sha256": "d34a787fa20adf1bd0f9d92a4a9d7fb8d483c88ac4de61db5582fbd737313f9e",
+      "bytes": 23684
+    },
+    "public/sprites/painted-ivory-charcoal/maester-b.png": {
+      "sha256": "3960b92f7d81558e776e8335b08e398389d2d0d402f03e68d0f40441e345db3a",
+      "bytes": 27374
+    },
+    "public/sprites/painted-ivory-charcoal/maester-w.png": {
+      "sha256": "9856276aaefae6807d466706e7df8ddd26704adc597a4c6d1ec1a577b67e106c",
+      "bytes": 28910
+    },
+    "public/sprites/painted-ivory-charcoal/paladin-b.png": {
+      "sha256": "a195b35b60d61a09f6333f7fca71a3233731f3278f24f4b7476f1b9321f44cae",
+      "bytes": 36570
+    },
+    "public/sprites/painted-ivory-charcoal/paladin-w.png": {
+      "sha256": "93f5a6e6cca6efa0485dee87d77502a4e3da66d4bf517eb9e199f7c6c7ecfc68",
+      "bytes": 37323
+    },
+    "public/sprites/painted-ivory-charcoal/pawn-b.png": {
+      "sha256": "502c6eaa477972f9caef52d18cdc8d9cf71e7740e14063d9533326ec8d0bc1a6",
+      "bytes": 14573
+    },
+    "public/sprites/painted-ivory-charcoal/pawn-w.png": {
+      "sha256": "9f3cc1c392b2165a4c06aebb529ff8484ea33b477cb0d3a9abb2833a99ec574c",
+      "bytes": 15012
+    },
+    "public/sprites/painted-ivory-charcoal/queen-b.png": {
+      "sha256": "73e915f189e51f335ca6ba048ec9408032835abae89365dee9e38290eb37e3d3",
+      "bytes": 19136
+    },
+    "public/sprites/painted-ivory-charcoal/queen-w.png": {
+      "sha256": "10e0ea3fb871617f7367fd46277c424bd3354747475982e7c2bfd6c9b68f2f74",
+      "bytes": 20601
+    },
+    "public/sprites/painted-ivory-charcoal/rook-b.png": {
+      "sha256": "d35868db5a144a0f09fb32a0903c628254c595478bac3c5f22fa20ddf2cf7fd2",
+      "bytes": 38292
+    },
+    "public/sprites/painted-ivory-charcoal/rook-w.png": {
+      "sha256": "63ab1289a076107865e8cfbb6328f91b0a395a2768765cfa5740f0a76c2adefa",
+      "bytes": 40999
+    },
+    "src/ai/eval.ts": {
+      "sha256": "25a470739ea243774d643873a14b0de215fa49599bf3dcf173c3b33faad8c3d3",
+      "bytes": 25718
+    },
+    "src/ai/nnue/net.test.ts": {
+      "sha256": "8c0eda8b1796f5b53bda7128bd017204696d4a78d4b9d760ddc91fc13a2f5a10",
+      "bytes": 10474
+    },
+    "src/ai/nnue/net.ts": {
+      "sha256": "06945b1899948ed66e342f205f0a39a2d07526c2bd8b51c36a519d919bd3fbb0",
+      "bytes": 7085
+    },
+    "src/ai/nnue/weights.ts": {
+      "sha256": "58dfe1d415f8f09303b98613b038c6447823def23504d49aa155970c05178266",
+      "bytes": 121120
+    },
+    "src/ai/search-repetition.test.ts": {
+      "sha256": "6d8bd512182f0c927b61d4552dce47db8ed483622abe12b1831bcc755f1dc8e4",
+      "bytes": 2830
+    },
+    "src/ai/search.test.ts": {
+      "sha256": "c30253004ee08b31ba05b8e5d456e8fa23b0da61a14b8b1b93ee061f85346052",
+      "bytes": 9793
+    },
+    "src/ai/search.ts": {
+      "sha256": "4f778c87f8b8c99eaf3bf4bc6612e37de80c2519dfb7f4409e5d8695713dd4c5",
+      "bytes": 22437
+    },
+    "src/ai/skill.ts": {
+      "sha256": "356a3ed5e1c02c3ee69e9bad0218ed3b7585af6425f64df536e44abe5e789d9a",
+      "bytes": 1010
+    },
+    "src/ai/symmetry.test.ts": {
+      "sha256": "a162185bd1b6c3ea3ce1f55d96e5f80eb6eb2ae1eee1c7e517d5874a082487da",
+      "bytes": 3169
+    },
+    "src/ai/terminal.test.ts": {
+      "sha256": "45d5115fdd51c758dbb2560c3104376867baf4d03a30370b282a62ea2a5b1378",
+      "bytes": 4190
+    },
+    "src/ai/worker.ts": {
+      "sha256": "c2d3117628e3a2825f9cd474898861695d1a3b946123124dcd1d59236ab61102",
+      "bytes": 1098
+    },
+    "src/ai/zobrist.ts": {
+      "sha256": "dbeeafe1568fa5ddd193302db79c978d3d4c74339c86b06dd1f91514f1187143",
+      "bytes": 3086
+    },
+    "src/entry.ts": {
+      "sha256": "ac68240e37332b23aa886b8580728d2a614dba3f2200f340017839082adffa51",
+      "bytes": 238
+    },
+    "src/game.test.ts": {
+      "sha256": "9e1971411304a0150b2d32398aa38b2147a541b926b4a4c048377170e76745df",
+      "bytes": 9185
+    },
+    "src/game.ts": {
+      "sha256": "6fac1cab127de4967c0abe8e18bbccc8e595536aa04a025fa15bc733c8dd73c3",
+      "bytes": 5064
+    },
+    "src/main.ts": {
+      "sha256": "b5c49b155af46362b8eaa1651000e669fadee073555a2de0ace1050bb74bba3c",
+      "bytes": 32499
+    },
+    "src/moment.ts": {
+      "sha256": "4d11223171ee5f90ab0703bf1a6102cbf38109126d12366c39034f6b630cdafc",
+      "bytes": 2293
+    },
+    "src/play.test.ts": {
+      "sha256": "5c3380f7f6c35e5d6faa7daaf191de2809165ef1085aa7a4e477a3ed59a485ae",
+      "bytes": 1968
+    },
+    "src/render/ClayFigure.ts": {
+      "sha256": "58e3adf0bc70b4e94f314548e276fe421a48d0dcec76dc8a1452f9fb051451b4",
+      "bytes": 3994
+    },
+    "src/render/OgreMaterial.ts": {
+      "sha256": "c11048cdfb782ab1b91c687dd0b6baa3ad94c263006ab019e4ac4ee5b3f5f82f",
+      "bytes": 2831
+    },
+    "src/render/fx.ts": {
+      "sha256": "cb90fe604c57eaad9fb0b38fb0353099e0679049cc0b21b0b14180cacfddad6b",
+      "bytes": 5487
+    },
+    "src/render/palette.ts": {
+      "sha256": "57ee5a554d5f7c8c56bc370315a0afef343d21507534a469bf04a9b40f45ed29",
+      "bytes": 3546
+    },
+    "src/render/prototype/CapturePreview.ts": {
+      "sha256": "45961fdacfec39e5a1950f357a58e5f707aa36932a7b7c01310fd7600d98921e",
+      "bytes": 14125
+    },
+    "src/render/prototype/CastCatalog.ts": {
+      "sha256": "a3b752387962cdd660d59e16ee2949badef542b086ca08f3bcafd78665018b41",
+      "bytes": 1915
+    },
+    "src/render/prototype/ClayLook.ts": {
+      "sha256": "d9225b5d69234c36fd9a76bd7c16ddfd00b5dcfb3c12b4a665143105c91df5c0",
+      "bytes": 15275
+    },
+    "src/render/prototype/PieceContourPass.ts": {
+      "sha256": "745869f2d912e2ffbadf9a182ab0783f7467520e1cf5ffc646fd1211e42c96c4",
+      "bytes": 6230
+    },
+    "src/render/prototype/WalkPreview.ts": {
+      "sha256": "77ee8f664bfe2044696a94360166de4a17bc88b3d5fd04f98ae81b042d5f0c6c",
+      "bytes": 9854
+    },
+    "src/render/prototype/study.css": {
+      "sha256": "5182b085adf13459b466de981d442912a6f236b8b0a5181a791ed1caa1957c63",
+      "bytes": 4832
+    },
+    "src/render/prototype/study.ts": {
+      "sha256": "5691dfc67c49c3990bca44ce93bd46d4ce8bd790f395b0c3d350671447b16b2e",
+      "bytes": 45163
+    },
+    "src/render/renderer.ts": {
+      "sha256": "0bad1b903d607c34d7f6ae2d18fba4c1f681b001b27963ed9e82b9be63957e4b",
+      "bytes": 40476
+    },
+    "src/render/sfx.ts": {
+      "sha256": "558a6ca7f0bc6d9bb2875ace7338168f710acafd8448ab24423aba51e3ef5b91",
+      "bytes": 1123
+    },
+    "src/render/sprites.ts": {
+      "sha256": "8c35c3d700639ff21c153c1771a226aef1dae48e234940db9c752f8ca574bc79",
+      "bytes": 4288
+    },
+    "src/render/styles.ts": {
+      "sha256": "ea4d90d6af465d8910bcd7b720ccdb38e120ecbad0d1e99895ee50e18394471e",
+      "bytes": 6943
+    },
+    "src/render/voxels.ts": {
+      "sha256": "904dc9e87253cbdbe33fcd5b42e4e3453c9d50cab192994c19738ad32b5aa949",
+      "bytes": 9343
+    },
+    "src/rules/engine.ts": {
+      "sha256": "678713b0b7fcafee054d1404cf134de178fde02f012c541ccf066b57869a70d9",
+      "bytes": 48072
+    },
+    "src/rules/rules.test.ts": {
+      "sha256": "4e058de21d8f35354c79c1e29150dc482bec1a221bc651ab265e19e074355a0c",
+      "bytes": 87315
+    },
+    "src/rules/rules.ts": {
+      "sha256": "5b3aa7244d24b99d9246c419eba1ab25511dc474a4050f4260a672c46bd1cb45",
+      "bytes": 28692
+    },
+    "src/rules/setup.ts": {
+      "sha256": "479801cc00a92d7476e9dbffaab45bb454b06647732389c96fd6a97c7e3a4cc5",
+      "bytes": 5607
+    },
+    "src/sim/analyze.ts": {
+      "sha256": "33c0159c3760358b2b813c0436ceb98a7bb81c90ebd0151ab2cddaab15c44855",
+      "bytes": 43250
+    },
+    "src/sim/experiments.ts": {
+      "sha256": "a2a4b6f714796fb3c978b4343767c83f59b859ad597af8a72684fee7e55c6528",
+      "bytes": 23949
+    },
+    "src/sim/game.ts": {
+      "sha256": "330a67e0b9f83398981ad597517d38767bdd502eee7724efbdedbe11dda97585",
+      "bytes": 11432
+    },
+    "src/sim/gen.ts": {
+      "sha256": "c9336921a7027c9d4418670b0fb21edcb4c7d621435ce5058c8e56d8c11dab14",
+      "bytes": 28110
+    },
+    "src/sim/identity.ts": {
+      "sha256": "8ffa66cab117991cea67e6de5224fc001cb472290174f447a93d0ceef99bd3f0",
+      "bytes": 2954
+    },
+    "src/sim/replay.ts": {
+      "sha256": "32a4690ac273fe7b44dce32f02579bcfd3140f5a1a92b49f134456b4bf4ef5a5",
+      "bytes": 3397
+    },
+    "src/sim/rng.ts": {
+      "sha256": "68274b854e2a31fa5f5afee21ebe43691aeeb2c2d60549144d7fd8afb8ed4c4f",
+      "bytes": 376
+    },
+    "src/sim/run.ts": {
+      "sha256": "c1ffcc5a0c01ab0978269c085fdb349ea1422028402e600cf6635aa6028cb3d8",
+      "bytes": 12877
+    },
+    "src/sim/sim.test.ts": {
+      "sha256": "efda8a95d1bd0c2919f3c771a14eefba43de87f6e446a4d74021ec79578b7ba7",
+      "bytes": 29226
+    },
+    "src/sim/spec.ts": {
+      "sha256": "1e0a195abd95a977a2adb9a3275718f474995fe8f8c2eb07127286627a45f5d0",
+      "bytes": 14124
+    },
+    "src/sim/tune.test.ts": {
+      "sha256": "094b81d4a3bfaadd1b886b489524bc33ad91a84afd7123739dbb7b01a6b55fb4",
+      "bytes": 6003
+    },
+    "src/sim/tune.ts": {
+      "sha256": "1808ed5bf7edc62e480832c6b58c2a68d74f2557421dab00bb6b224f087b9594",
+      "bytes": 33258
+    },
+    "src/sim/weights.ts": {
+      "sha256": "f4f865ff4e4a47fe727d93949ab2941e43e13be1781d141924cb36d7b45ce734",
+      "bytes": 2717
+    },
+    "src/sim/worker.ts": {
+      "sha256": "1706e350541914a5ad2aa94734f750d9157768c8dfc8505201168cf2337dcaa5",
+      "bytes": 353
+    },
+    "src/style.css": {
+      "sha256": "b4fb7f211fbbbe825bbef381864ebdf624aa885d4fb3e19e70e7fc62e24c1321",
+      "bytes": 8323
+    },
+    "src/try-these.ts": {
+      "sha256": "d2048c4c7bc7f20e3427e61dc03906a40298ccd1b5c22b501ab61878d76084c1",
+      "bytes": 525
+    },
+    "tsconfig.json": {
+      "sha256": "3bdf17dc175c0e6ebb77c4e5404239a69658571deafa91ef7c683bcb2a215c82",
+      "bytes": 314
+    },
+    "vite.config.ts": {
+      "sha256": "a4dd4de8883c4ed3f1a54105c546c13b3230a461ad0134c7d51dba280850e253",
+      "bytes": 223
+    },
+    "tools/verify-cursor-adoption.mjs": {
+      "sha256": "db0b775268c61579520dfb1a126cf63d5a0d6d4ae16442550a60e5e63e70ddce",
+      "bytes": 12427
+    },
+    "tools/verify-playable-clay.mjs": {
+      "sha256": "9ba32c50409df0dc9f422fd8d4357bc0232c92e98c53115d680f0b0a5bdddf09",
+      "bytes": 9573
+    }
+  },
+  "build_files": {
+    "assets/index-BchGiU8b.js": {
+      "sha256": "428802c5ae0315f48ebbcb907d7c28ad2c4accfb44adafbe1250aca9ea5fb66d",
+      "bytes": 2090
+    },
+    "assets/main-CoyriDOK.css": {
+      "sha256": "e0431eb71aaffe7ee0b1a4ab76a63d475a3fdd7379d5dc52d7ba35ba0b3043aa",
+      "bytes": 6474
+    },
+    "assets/main-DIxFy9lW.js": {
+      "sha256": "1207ad92ed431a359e6a947ae8fbdb1c0f4d24859c66678bacce2f213ac96881",
+      "bytes": 941063
+    },
+    "assets/worker-BWaGQSYg.js": {
+      "sha256": "340104761eaad027739ad3778e1584fbc14095ce717a200b53e9a0d5e5162e5a",
+      "bytes": 144834
+    },
+    "index.html": {
+      "sha256": "bae6c205011ec5206edc60c7628ae8129dfd3a0786bbdfe45d98aa04a3778244",
+      "bytes": 5313
+    },
+    "models/archer.json": {
+      "sha256": "536c5a5bc5e1f99cf7da337add37a7986c60af49042edf79823935c951932742",
+      "bytes": 39878
+    },
+    "models/beast.json": {
+      "sha256": "cc5fb4688d4871d36d5e5dcec10c5ea4fd9083da71475405e6e08014a37a151a",
+      "bytes": 140146
+    },
+    "models/bishop.json": {
+      "sha256": "1f2f966f098f8f7a8a2a51956904640f50c369d08faff0a249be55ea86d7737a",
+      "bytes": 19970
+    },
+    "models/guard.json": {
+      "sha256": "64d10f1ffd9a5eb50b393a97904c7ef3ae7a4b6cab69f267824683e274ecbbc0",
+      "bytes": 144291
+    },
+    "models/king.json": {
+      "sha256": "cced5992e7947bf31c218883c9b3fa918a1ad35296cf6f8cecacd6069d3f486d",
+      "bytes": 51825
+    },
+    "models/knight.json": {
+      "sha256": "1cc2916e8aa0f9433b66abd5b5e9001efdc3b9a3b95dc9d138b4f977bba74e14",
+      "bytes": 46134
+    },
+    "models/maester.json": {
+      "sha256": "746f3396c93446577db778b9478be25510b33ff8c3042d0c43b366d986f8a0b3",
+      "bytes": 92498
+    },
+    "models/paladin.json": {
+      "sha256": "a0654741d36d233074a80a7e0cf62bca20974f14211c539396527ce39d6896a0",
+      "bytes": 87978
+    },
+    "models/pawn.json": {
+      "sha256": "9a1a28c1cba44c1205d07efdf50104e2dccb54248984b9094e3e4aaab7456c9a",
+      "bytes": 21951
+    },
+    "models/queen.json": {
+      "sha256": "162cc9cd7e638eb01f2798dcc45624a6bb0d97fd4d8e22a2fbfb4d740e9a3e32",
+      "bytes": 63322
+    },
+    "models/rook.json": {
+      "sha256": "c6f4138642f4fce419d06ad39897633b291e8f628f3d2af381af50f1a07c26de",
+      "bytes": 91380
+    },
+    "prototype/atlases/refined-archer0.png": {
+      "sha256": "a2a7057bcbc5d22eac14e77baaed74aaf841f3fd439fe842cfcb6513d696b001",
+      "bytes": 369216
+    },
+    "prototype/atlases/refined-archer1.png": {
+      "sha256": "81c609c4412b1e63695cafcbacc4e2ba64056e04ec104d171ecd5941099433ec",
+      "bytes": 336490
+    },
+    "prototype/atlases/refined-guard0.png": {
+      "sha256": "f6a1d56fe4f62ade3522c6eef338d471e38dc7443297f841fd357942af162881",
+      "bytes": 585033
+    },
+    "prototype/atlases/refined-guard1.png": {
+      "sha256": "67e114c1dced40dfc8cc06ba22ac9795704bbfebdf493024353c07c2a2f59f0d",
+      "bytes": 538235
+    },
+    "prototype/models/blockout-archer.glb": {
+      "sha256": "b715573bfe7b03837c8566fe7297de13b15ac27682a2b5e60858a2035b70effb",
+      "bytes": 84832
+    },
+    "prototype/models/blockout-guard.glb": {
+      "sha256": "ea8bd4c37dd0b3172ae762b68b24a5a2945067282667ed9883832b32dfe95e17",
+      "bytes": 76224
+    },
+    "prototype/models/board-archer.glb": {
+      "sha256": "a4b64687e3db92e747c49086a649dc4c511e556da328b7282017f718a184b24b",
+      "bytes": 349892
+    },
+    "prototype/models/board-beast.glb": {
+      "sha256": "ba4cdcc0ff99d9e245a3400b3f5a65a5f89e8a21769a45ae48d10b5b39cc47d3",
+      "bytes": 691632
+    },
+    "prototype/models/board-bishop.glb": {
+      "sha256": "978f84836e7d8420d4e6aab9c67c754030bc75bf381da7c6920e15c6c1f61022",
+      "bytes": 329024
+    },
+    "prototype/models/board-guard.glb": {
+      "sha256": "861541f77a835da2d80a532581a9ab3ae9d835c5d0258eed4c107d4e1aa6b231",
+      "bytes": 699476
+    },
+    "prototype/models/board-king-celestial.glb": {
+      "sha256": "3aa995b272540b0ffae46dc64a72622f0cf2ed2422a1e6a990ae91c2a7211c81",
+      "bytes": 455436
+    },
+    "prototype/models/board-king-ember.glb": {
+      "sha256": "fbfb8889aaa86470d7829eec9a30c58fb38e6810a87564b34572438c0b81af4f",
+      "bytes": 534920
+    },
+    "prototype/models/board-king-frost.glb": {
+      "sha256": "fe8a04c83a7c79ad766f2510f270ea6274e809afbd39e1b2a256eecd3c25986d",
+      "bytes": 336256
+    },
+    "prototype/models/board-king-gaya.glb": {
+      "sha256": "10d6d8b9ad0592606b52ce7cdfebcbee621844238f6d4abb643ba1286df8d541",
+      "bytes": 411160
+    },
+    "prototype/models/board-king-shadow.glb": {
+      "sha256": "5fd54e51ae60c40359a7826e17581a7154230eda1ca2446cc05f907595b9eab1",
+      "bytes": 598528
+    },
+    "prototype/models/board-king-spirit.glb": {
+      "sha256": "584f49403e21c3d9ca598ba9c3abed7c0afd70727b43b55e37a4fce97fcf4396",
+      "bytes": 581500
+    },
+    "prototype/models/board-knight.glb": {
+      "sha256": "e638b47868ae3a59e6f5e022442f07cd9f1aee010f34b3100b8c7db5c6b97425",
+      "bytes": 340044
+    },
+    "prototype/models/board-maester.glb": {
+      "sha256": "ec4a65bd86f2bb003cec1ee49f6e70071b376247cf8fc77cc52f5fb89c6ae560",
+      "bytes": 287240
+    },
+    "prototype/models/board-manifest.json": {
+      "sha256": "791656cc375421dc12cd4140f89c6644cb4f39f718e28c79f352c41f2c0423f4",
+      "bytes": 5154
+    },
+    "prototype/models/board-ogre.glb": {
+      "sha256": "f6a62b4520795854d9c4fe72b9771dfd550e2fb58a2a0778ee6e263e9f680e65",
+      "bytes": 1680556
+    },
+    "prototype/models/board-paladin.glb": {
+      "sha256": "56fff3bb595663059b0c17cec81d63459a2f7c451bffb96184417e9afb228a8d",
+      "bytes": 1960040
+    },
+    "prototype/models/board-pawn.glb": {
+      "sha256": "47bf5928cb5e4b738bf071af4c79d705f344c5c99f91d9debe656b66c8f9b6f8",
+      "bytes": 324612
+    },
+    "prototype/models/board-queen.glb": {
+      "sha256": "fe69d5770672caa0bf36f3cbbe429954e2d434747083643d620ea8a3bcc68b80",
+      "bytes": 301360
+    },
+    "prototype/models/board-rook.glb": {
+      "sha256": "cd42a2a67dc1533d84a6c1efd992ceb47b0f0acc77fd960285a7b0f3f4e2f4cd",
+      "bytes": 674956
+    },
+    "prototype/models/manifest.json": {
+      "sha256": "093182aa0b724c395c9b2c0ce0ecbbabf8d06cf97d7412b70e9ab421993920a3",
+      "bytes": 25667
+    },
+    "prototype/models/original-archer.glb": {
+      "sha256": "7fbe80d0652250c044169a1d011c62f09b1baaaee134c36f5223700e802f8178",
+      "bytes": 121376
+    },
+    "prototype/models/original-bishop.glb": {
+      "sha256": "ca6f715f57fcc8dddc510df11298eba9a78af2b3a31344448dc8aa5bf1a8d13a",
+      "bytes": 119708
+    },
+    "prototype/models/original-guard.glb": {
+      "sha256": "1c394c0c092c70a3a8081c9fa85d71b61b15418e0507647d04b9bee7a26ce0a9",
+      "bytes": 116888
+    },
+    "prototype/models/original-king.glb": {
+      "sha256": "e7d42c5d48147494e93766004f6184f6ab5ddcd4c3dbf7afee31a5779e5b0ddd",
+      "bytes": 119944
+    },
+    "prototype/models/original-knight.glb": {
+      "sha256": "31be11e7b98c2c2a13801156ffb3eaea0e00de7479bee266d81a48a69e2952a8",
+      "bytes": 119280
+    },
+    "prototype/models/original-pawn.glb": {
+      "sha256": "dbbadf49440b326884f8bfd7a5bd72193cb767ea18a5eb500d073e329f3d94a6",
+      "bytes": 114256
+    },
+    "prototype/models/rebuilt-archer.glb": {
+      "sha256": "93c5fe23d3a0dbdd28aa88aaf9bc9d491654f029c0de41e1df69ba43ac5d3ea8",
+      "bytes": 1015876
+    },
+    "prototype/models/rebuilt-beast.glb": {
+      "sha256": "a571e5ac26b7a42e3c7397ef550535b30c1c73135694e06f38be78f598515020",
+      "bytes": 1564512
+    },
+    "prototype/models/rebuilt-bishop.glb": {
+      "sha256": "9550c4b8901720290ed2dd0a60d2dd39c0a478c26b8099f57b53ecb93d324fb1",
+      "bytes": 841960
+    },
+    "prototype/models/rebuilt-guard.glb": {
+      "sha256": "9af54279d6a7d64c8b8b85cd783c8e1183e50fc9d980f5201eed46ea03522436",
+      "bytes": 1526888
+    },
+    "prototype/models/rebuilt-king-celestial.glb": {
+      "sha256": "72ba0afaa9ea400199cd4e23c8d96f48ae6dfb2e78287a94ceb38b515a3221ac",
+      "bytes": 1250920
+    },
+    "prototype/models/rebuilt-king-ember.glb": {
+      "sha256": "49ce4fec2f64f1a75196eb814f0843f187f0e9165c2d76f4f91e4949f25ab166",
+      "bytes": 1377976
+    },
+    "prototype/models/rebuilt-king-frost.glb": {
+      "sha256": "8d27edde60469c5fe6d00ffaf71231df143b28cd6bbe32345970c957fdf79d57",
+      "bytes": 1094800
+    },
+    "prototype/models/rebuilt-king-gaya.glb": {
+      "sha256": "905746a683dfffb9ae8cce03c745a5da928fadaa5f33580b4231ff92dfe8cac3",
+      "bytes": 996712
+    },
+    "prototype/models/rebuilt-king-shadow.glb": {
+      "sha256": "b80da066da53dbd221d42aeac5500fb4eabbf7fedda29a43ea1dd011b687e103",
+      "bytes": 1415152
+    },
+    "prototype/models/rebuilt-king-spirit.glb": {
+      "sha256": "f530564bea08199af886b5336a634e749ae3fbf2a9186d55af78c6315492479c",
+      "bytes": 1348100
+    },
+    "prototype/models/rebuilt-knight.glb": {
+      "sha256": "2b31c90fda95bdd971d2304cc740063b9f5c123961f8271d94d2479474773919",
+      "bytes": 1033084
+    },
+    "prototype/models/rebuilt-maester.glb": {
+      "sha256": "601c4a1b16d42d44eb49b87c5e4f47608b953a045efbba2a7b29fbba0668e9a8",
+      "bytes": 776268
+    },
+    "prototype/models/rebuilt-ogre.glb": {
+      "sha256": "be15aed803ed637e9acd51dbba2e61a0a5733afff43efce0d3713aa3eb0a97a2",
+      "bytes": 2812896
+    },
+    "prototype/models/rebuilt-paladin.glb": {
+      "sha256": "df83b1eb0ed80d91c49dfc56dbd564e6a4d0812d5754303aed8e17ff53cef87b",
+      "bytes": 4949056
+    },
+    "prototype/models/rebuilt-pawn.glb": {
+      "sha256": "53ebcb62ef389d99946f0b295abbab522a1bcc4a1c9365e7a8823961a8579dd7",
+      "bytes": 859240
+    },
+    "prototype/models/rebuilt-queen.glb": {
+      "sha256": "c7eede264cc6bb708cb3c7ab4055ab04aced8f2e0b79499af1e091fd811bda23",
+      "bytes": 914432
+    },
+    "prototype/models/rebuilt-rook.glb": {
+      "sha256": "978bfa92b11172d5a0e44f8dc364ed1782831e7f5c74e3b40be73b6f3d9a2433",
+      "bytes": 1424720
+    },
+    "prototype/quiet-hours/LICENSE": {
+      "sha256": "fa655f413edefb7d5416d743714e4cdd7899134b2fb4003732b2ef9eecac4fd4",
+      "bytes": 1077
+    },
+    "prototype/quiet-hours/README.md": {
+      "sha256": "a6aa160404850e488a60aba799035875ea828eebc50c31f5b5659fb76a149b9f",
+      "bytes": 861
+    },
+    "prototype/quiet-hours/camera.js": {
+      "sha256": "861c940c7378ade2ac61d194733a6c38ea27f9e6bcf371ed4b071fb7d883b815",
+      "bytes": 1835
+    },
+    "prototype/quiet-hours/core.js": {
+      "sha256": "7c96030509a2cd8144a3f0cdcb9d2a1b032e68b89d13349e3cb1ea86694d8c79",
+      "bytes": 2070
+    },
+    "prototype/quiet-hours/draw.js": {
+      "sha256": "b996ebcefa8bc43f3437826b419e452e947d1273f189550e711ed86ec19b924d",
+      "bytes": 10652
+    },
+    "prototype/quiet-hours/inks.js": {
+      "sha256": "7b7e2e231fe868d6a07ad6c868c9046cae47178ee4518c9c94a9e54310feebb9",
+      "bytes": 3690
+    },
+    "prototype/quiet-hours/light.js": {
+      "sha256": "c53c5ae9c842b1052421e41a549ba1a5c84f2ca672c00b7594f2845167a50e69",
+      "bytes": 3213
+    },
+    "prototype/quiet-hours/palette.js": {
+      "sha256": "250b4d728aeb166b75595867711c1cc8be24250c38aa1fb82bf9048377caafad",
+      "bytes": 2808
+    },
+    "prototype/source-guides/Archer_color_ref.jpg": {
+      "sha256": "c15e6fc05c39e5c26320c2a47d5e421b4000760eaea8185856ba53ad7fe32d5c",
+      "bytes": 1915403
+    },
+    "prototype/source-guides/guard_color_ref.jpg": {
+      "sha256": "be037ddd3c7727bdaf78dae998bd4acdbf947e93819a9b1b4bfc299a6f97d3e4",
+      "bytes": 1340546
+    },
+    "sprites/blue-red/archer-b.png": {
+      "sha256": "5fe85672c18c8347cfbe5db19f444f7a6d6aea699961f79ad966191a67b03212",
+      "bytes": 13023
+    },
+    "sprites/blue-red/archer-w.png": {
+      "sha256": "94d0b26d4177a5d6244257fdcce72b4edc817d6f788e361cd0157947eb68157a",
+      "bytes": 13023
+    },
+    "sprites/blue-red/beast-b.png": {
+      "sha256": "cc79a27661f4f1f6c38539c645192822a62035f55f0d03c05e9d537d01295761",
+      "bytes": 20155
+    },
+    "sprites/blue-red/beast-w.png": {
+      "sha256": "967eb9e74910f55fbb3352c825f701dfa3f4ca45bd4f6f5d5d8ce94b376d6ddb",
+      "bytes": 20064
+    },
+    "sprites/blue-red/bishop-b.png": {
+      "sha256": "63de3d75ea2bffe1365c1a80b000b291f4cdc7f347e0208ba6764a266fbd059c",
+      "bytes": 8795
+    },
+    "sprites/blue-red/bishop-w.png": {
+      "sha256": "ebcdb912f646c2646eeda67c841b62d1f1a4024d77ae2f85318bf300509219ff",
+      "bytes": 8764
+    },
+    "sprites/blue-red/guard-b.png": {
+      "sha256": "bb8dbb445043161b263f251131ef94c106c3d4e9dccecab7f4f13de0b11ef653",
+      "bytes": 22289
+    },
+    "sprites/blue-red/guard-w.png": {
+      "sha256": "344eb939a50e9fb66fe2755615ee6afe86d740dda54a0cb0070600dcc84ae5e7",
+      "bytes": 22181
+    },
+    "sprites/blue-red/king-b.png": {
+      "sha256": "8e7397745865cf49732804f3dc0880f4086f7c02adda6129243b4f7dfdd991db",
+      "bytes": 19678
+    },
+    "sprites/blue-red/king-w.png": {
+      "sha256": "cbe4209624862ef41210ff3a4d133e14d8ae1a1b2ef2ae6a53723d112e87b80a",
+      "bytes": 15712
+    },
+    "sprites/blue-red/knight-b.png": {
+      "sha256": "d6330becb73ab55c2b3c7b84a4edeb19811e3c7fd53f0e59570f70dbb35db060",
+      "bytes": 15733
+    },
+    "sprites/blue-red/knight-w.png": {
+      "sha256": "6d4cdb7598869411c1a20be491150406efeeaced2a98a0ff55d4ec08e4c744d9",
+      "bytes": 15700
+    },
+    "sprites/blue-red/maester-b.png": {
+      "sha256": "e63c4a4566bb579be56628020f665d243505e333db5d63596a0faeaee58375dd",
+      "bytes": 16944
+    },
+    "sprites/blue-red/maester-w.png": {
+      "sha256": "2328ca8b7354c43243c8855070412c841cd7e435c371a32cafff9531223ce051",
+      "bytes": 16776
+    },
+    "sprites/blue-red/paladin-b.png": {
+      "sha256": "c0ef32de3afc74672ab1fe98453d73c7f58987eed8fbd0bae38906e61d5356b2",
+      "bytes": 20936
+    },
+    "sprites/blue-red/paladin-w.png": {
+      "sha256": "2e7ef0bfdf00dce3094cc53c0ddec5e748255102bcb35d7040d260fdbb668bf5",
+      "bytes": 20848
+    },
+    "sprites/blue-red/pawn-b.png": {
+      "sha256": "4d031dc034af601d07ec506126b846e96ac42dc1f574db6361c286870a761520",
+      "bytes": 9746
+    },
+    "sprites/blue-red/pawn-w.png": {
+      "sha256": "f82bf37fb6cb101452833b3d29e65d760f1b35126349c87300b4d127f1313f75",
+      "bytes": 9780
+    },
+    "sprites/blue-red/queen-b.png": {
+      "sha256": "cf6e3df5973a1702b0670d93d5984700949f144519eaede0f844843937f00e81",
+      "bytes": 12588
+    },
+    "sprites/blue-red/queen-w.png": {
+      "sha256": "557e5b3491354142897b49aebcea700d4cdaeaf64c3047327daa8da999f7e9aa",
+      "bytes": 12623
+    },
+    "sprites/blue-red/rook-b.png": {
+      "sha256": "c9d7ce7c3ed0d14c73018a5060ed006a7aff4a03000a91e0d6c92ad1ccd14a0c",
+      "bytes": 22371
+    },
+    "sprites/blue-red/rook-w.png": {
+      "sha256": "e8ead71a67143a40a4b20db8a0f378a3afd6e76aa908d2e09b9b250c0aef72fc",
+      "bytes": 22297
+    },
+    "sprites/green-purple/archer-b.png": {
+      "sha256": "7041c45c8d6cc76538a9d5d947a28d53993c9d88561060101b13d3ec160c5a66",
+      "bytes": 12997
+    },
+    "sprites/green-purple/archer-w.png": {
+      "sha256": "50dc72e5bceccde2235729e9f1b20c34811d5dfded8bb4def367d3623be62f4c",
+      "bytes": 12967
+    },
+    "sprites/green-purple/beast-b.png": {
+      "sha256": "30d8f43f275ec122cc5b667f8f153bc61841c9a144f8afb89f466635e82272eb",
+      "bytes": 20021
+    },
+    "sprites/green-purple/beast-w.png": {
+      "sha256": "8ae42a418914db8ec8a5dc304f993401abb7ef8dd598e8c61e9c466e5f808114",
+      "bytes": 20034
+    },
+    "sprites/green-purple/bishop-b.png": {
+      "sha256": "3ae07b36b4c266eee776c2b12f4dca2bfc23afba53d4c15785306287c03eaf39",
+      "bytes": 8690
+    },
+    "sprites/green-purple/bishop-w.png": {
+      "sha256": "6fac7e658a8a48c556ca904459437a2d4ebac8fe9dd603635969a0af3a311f1a",
+      "bytes": 8661
+    },
+    "sprites/green-purple/guard-b.png": {
+      "sha256": "a7c5e5d56db38808ebd4e718238d8b9eb2290ced6fbfc02ed3f321e4ba4f3654",
+      "bytes": 22387
+    },
+    "sprites/green-purple/guard-w.png": {
+      "sha256": "cb442a06383ae2ddc8e874be6154f5c506dead1b70d70aaa3ba6429005a3f903",
+      "bytes": 22262
+    },
+    "sprites/green-purple/king-b.png": {
+      "sha256": "238d0fff0a947e84a9f7cf3a78a1efb812e5cdbaa7550264a5e1e92fca4648ba",
+      "bytes": 15981
+    },
+    "sprites/green-purple/king-w.png": {
+      "sha256": "15f6bfce8e31a47bed11a756f23570bd826807ccdaf5a213eac237af017870fd",
+      "bytes": 16616
+    },
+    "sprites/green-purple/knight-b.png": {
+      "sha256": "a2908fba6c7c750f1bccde439b1fdbf0652067e2652c94ec4b3b25745fd7a04c",
+      "bytes": 15615
+    },
+    "sprites/green-purple/knight-w.png": {
+      "sha256": "ee13330e731e76c5f320ffba1d502cee078af5ed9f96c784e3bee45839bbf218",
+      "bytes": 15559
+    },
+    "sprites/green-purple/maester-b.png": {
+      "sha256": "9de1af24ed35838c7315bc169384d148d381f43bc27ffdbcb1eaa7e9550abc96",
+      "bytes": 16692
+    },
+    "sprites/green-purple/maester-w.png": {
+      "sha256": "d642f790054b2bad819d27f3d54906d5755ce388753bca5522addc1b02917109",
+      "bytes": 16610
+    },
+    "sprites/green-purple/paladin-b.png": {
+      "sha256": "ef6b822985c0ec6d8a5e3be02bcb3101b6a712cad107dfa246c2eb085f08555e",
+      "bytes": 20815
+    },
+    "sprites/green-purple/paladin-w.png": {
+      "sha256": "7cdb64c43aba089420eefbb26d24e54ae18d18b6441b9ba0af922916142efd25",
+      "bytes": 20723
+    },
+    "sprites/green-purple/pawn-b.png": {
+      "sha256": "97657b18017c91d2a33e82d8ccb7f6e0498534c76191fcaf4407d24c9f7d5f06",
+      "bytes": 9708
+    },
+    "sprites/green-purple/pawn-w.png": {
+      "sha256": "b6819c99a3fecb9f80c259ebbbb33e06e8277f073956bf0fa952bc7de0c5da4d",
+      "bytes": 9704
+    },
+    "sprites/green-purple/queen-b.png": {
+      "sha256": "92bcbeefd928628d8b82786ecafe90ebfa5741f72a299f7a9b2514cf40d9c82c",
+      "bytes": 12539
+    },
+    "sprites/green-purple/queen-w.png": {
+      "sha256": "5c030b7c35787706c790507123017fe85d4d8fc19103cc57378b8f86ed09e5ec",
+      "bytes": 12445
+    },
+    "sprites/green-purple/rook-b.png": {
+      "sha256": "48d63ac721e928f3aef3b865348e13f76ea0f64e698f5e72cb6903bee1c9c4b3",
+      "bytes": 22243
+    },
+    "sprites/green-purple/rook-w.png": {
+      "sha256": "554de299b84a7da3d753c1fbce64b91dd952a543defcc2355ed92125f0e0189a",
+      "bytes": 22178
+    },
+    "sprites/ivory-charcoal/archer-b.png": {
+      "sha256": "cf810802784b236d2688fa03cb462003badeeb81ae51e32d6e1bad6eae2417ca",
+      "bytes": 8899
+    },
+    "sprites/ivory-charcoal/archer-w.png": {
+      "sha256": "8eae071ddfbeb5ee673ba4936c3081d090077b07526dd7819b92c4fafe88c18b",
+      "bytes": 12937
+    },
+    "sprites/ivory-charcoal/beast-b.png": {
+      "sha256": "ed296331f5a7c1168db71641be342150b99a935b82eb464d3d2b91e3d66480f6",
+      "bytes": 11146
+    },
+    "sprites/ivory-charcoal/beast-w.png": {
+      "sha256": "fa2ac4294ebdb4825ba295fc3b7c74b5292542cf27326fb429db90e064d469cc",
+      "bytes": 18985
+    },
+    "sprites/ivory-charcoal/bishop-b.png": {
+      "sha256": "5c791fde7c32a6aa3c651f32cc09aa8c1eb35a1084b2ba05ed824fce962979b2",
+      "bytes": 5931
+    },
+    "sprites/ivory-charcoal/bishop-w.png": {
+      "sha256": "36cf5ad2782f7198c81137d575e844af5d40cd48df86712a030df583c514a4c8",
+      "bytes": 8606
+    },
+    "sprites/ivory-charcoal/guard-b.png": {
+      "sha256": "fc30ea42cae1a3328b4119e6a60c55253b6ba76d7fa6074442f509001f454168",
+      "bytes": 13114
+    },
+    "sprites/ivory-charcoal/guard-w.png": {
+      "sha256": "7c21ff2907e47ac8cded182d11550972992e1556684de55f835eae617457fe14",
+      "bytes": 21992
+    },
+    "sprites/ivory-charcoal/king-b.png": {
+      "sha256": "9b641779cf23baddb2c6adb9c82bb4af72861f4e6c09bbcca07746727c70fddc",
+      "bytes": 7315
+    },
+    "sprites/ivory-charcoal/king-w.png": {
+      "sha256": "062d2d00f3b1d87c261850f8ed3063f22f3c2aec62d0d415735f08989e76349a",
+      "bytes": 11506
+    },
+    "sprites/ivory-charcoal/knight-b.png": {
+      "sha256": "03f1e2ac497330a0c1f964a763c3f272d059cc0ffe5d82bc1efc477b4a3f5785",
+      "bytes": 10142
+    },
+    "sprites/ivory-charcoal/knight-w.png": {
+      "sha256": "7eee8ddaa786236de88bc1fbbb2615f0f845ef18199f5e73e8853266ab3f4943",
+      "bytes": 15255
+    },
+    "sprites/ivory-charcoal/maester-b.png": {
+      "sha256": "d43affaa787e8ce79826442b219a474505b4f81651ddd061f5ef8d1debcc3f26",
+      "bytes": 9832
+    },
+    "sprites/ivory-charcoal/maester-w.png": {
+      "sha256": "dd9b6faf7b4472f3c1ebbd68d24038c2effcac2d1b9e23dfde113b18da8eea84",
+      "bytes": 16155
+    },
+    "sprites/ivory-charcoal/paladin-b.png": {
+      "sha256": "dd6688e496abcc258eae35efa49865914a46fdae2b5459ad43f11728c292da15",
+      "bytes": 12866
+    },
+    "sprites/ivory-charcoal/paladin-w.png": {
+      "sha256": "733513ad2457e1af5ca2791f6f72a7bd8e992e430f4c35bd182ccd0964e30666",
+      "bytes": 20277
+    },
+    "sprites/ivory-charcoal/pawn-b.png": {
+      "sha256": "1ba74056ff8d73fda9a5b6979789d02c291155c8e64096e6f6be3c3319a186cc",
+      "bytes": 6770
+    },
+    "sprites/ivory-charcoal/pawn-w.png": {
+      "sha256": "1ea591c9cbb86bfd3783748b4d377456f699d90ca07b3c6c749be830ea04c022",
+      "bytes": 9713
+    },
+    "sprites/ivory-charcoal/queen-b.png": {
+      "sha256": "ee2971fce84d94b5c1f8a513df75feb1f00e16f2c29b153684aef0fb13d6678e",
+      "bytes": 7990
+    },
+    "sprites/ivory-charcoal/queen-w.png": {
+      "sha256": "464c7c9e17a156d77b15f83e2420cc63c1a87257453a8041411a84e1b57a796d",
+      "bytes": 12244
+    },
+    "sprites/ivory-charcoal/rook-b.png": {
+      "sha256": "a5aa904450d16b9e6151a45dfa79158986cd8417d8c1bc9a7795bd7a56f43dd1",
+      "bytes": 13136
+    },
+    "sprites/ivory-charcoal/rook-w.png": {
+      "sha256": "5f5ef7d707f55e96cb2b1e57e544fe9fd73868e21712149ab2d2dcfaa5a174d4",
+      "bytes": 21303
+    },
+    "sprites/painted-blue-red/archer-b.png": {
+      "sha256": "d527864e0e5734c47efa3fa109136da331a4b108d52e1582fd5cbecdab42f467",
+      "bytes": 21629
+    },
+    "sprites/painted-blue-red/archer-w.png": {
+      "sha256": "d2e4c9fe6c22e90f8e142471dca149a642a7622aee4572be37c1d7cf3f2f0229",
+      "bytes": 22165
+    },
+    "sprites/painted-blue-red/beast-b.png": {
+      "sha256": "445561a9e9d6d0c21250a01a4ca1af8a9a82d95283eaacb05e5d5f5265cce733",
+      "bytes": 35677
+    },
+    "sprites/painted-blue-red/beast-w.png": {
+      "sha256": "85c60f76540aebdf49297d38fbc8d9c90dfd2323881ec96c2316b2f51c6bb279",
+      "bytes": 36947
+    },
+    "sprites/painted-blue-red/bishop-b.png": {
+      "sha256": "32a659eeec08be00aa621433356498fdd17275e571cae55d4e3ce078c4925aa0",
+      "bytes": 12775
+    },
+    "sprites/painted-blue-red/bishop-w.png": {
+      "sha256": "2c2069654d9f2c8b99a4242e1a42219d49e79786dc79b4b2dea8394cc050c6dd",
+      "bytes": 13304
+    },
+    "sprites/painted-blue-red/guard-b.png": {
+      "sha256": "dd99857a936beb5f8f18ed594613f0342eded433b53f28e7e20c5df9f0a4ac00",
+      "bytes": 39653
+    },
+    "sprites/painted-blue-red/guard-w.png": {
+      "sha256": "c1d8d5fd55f8766ed1845a64ebfbb30f24d6a03493ef610684cd1a97c2ce5833",
+      "bytes": 39904
+    },
+    "sprites/painted-blue-red/king-b.png": {
+      "sha256": "1f6ecef92f6a3c6110b64a23269e20ff785e392649ffdea9ac30a82d09839dd3",
+      "bytes": 34293
+    },
+    "sprites/painted-blue-red/king-celestial-b.png": {
+      "sha256": "01d00dc39be29ada2e1657d961db0bdb7cb1bf2198aa5cb056c127f9f7857621",
+      "bytes": 25417
+    },
+    "sprites/painted-blue-red/king-celestial-w.png": {
+      "sha256": "d16853c03b2d37b9a50ed626eee435f4a6334c2f5ac4ac001abb35d26b30a536",
+      "bytes": 25816
+    },
+    "sprites/painted-blue-red/king-ember-b.png": {
+      "sha256": "1f6ecef92f6a3c6110b64a23269e20ff785e392649ffdea9ac30a82d09839dd3",
+      "bytes": 34293
+    },
+    "sprites/painted-blue-red/king-ember-w.png": {
+      "sha256": "7ed855ed83a0145ef19bfae2026014422306213cd5d54de95a73a6aa528bfade",
+      "bytes": 35681
+    },
+    "sprites/painted-blue-red/king-frost-b.png": {
+      "sha256": "ec24271106469bd1105932e0ee38ecfbea05dbb53f5f23b582e9b559ff82e00f",
+      "bytes": 24901
+    },
+    "sprites/painted-blue-red/king-frost-w.png": {
+      "sha256": "8d77d4291be81f43a4592ba5eea7ef6a8c514a68c835b9f145cb84c2e77e5446",
+      "bytes": 25539
+    },
+    "sprites/painted-blue-red/king-gaya-b.png": {
+      "sha256": "1c08d271fc497f04fd5166e8e53a6a0c6cc9c2880bcd9b9ffd085cbd195da421",
+      "bytes": 27846
+    },
+    "sprites/painted-blue-red/king-gaya-w.png": {
+      "sha256": "12a24067cdaa3ac01e63e835088974e6476474f5d2bea214f57dddf3d8745f0c",
+      "bytes": 29047
+    },
+    "sprites/painted-blue-red/king-w.png": {
+      "sha256": "8d77d4291be81f43a4592ba5eea7ef6a8c514a68c835b9f145cb84c2e77e5446",
+      "bytes": 25539
+    },
+    "sprites/painted-blue-red/knight-b.png": {
+      "sha256": "b16721590156490dbb2ec15bfe1036f34a170e79da6ea23bcdde026cea1e2d33",
+      "bytes": 22734
+    },
+    "sprites/painted-blue-red/knight-w.png": {
+      "sha256": "e2657eeea661fd0e299f357231988a547fba7ba829a6a81cabd8a981a13a452f",
+      "bytes": 23648
+    },
+    "sprites/painted-blue-red/maester-b.png": {
+      "sha256": "1382c6946275e62f25dded49a6e50da9dc8804d5e4e0d8459860f530fdbca44b",
+      "bytes": 27026
+    },
+    "sprites/painted-blue-red/maester-w.png": {
+      "sha256": "fc0407a6d20ab54b59830918524f64358ce7ea4d4d30ba190d4d9475e0e4650f",
+      "bytes": 28747
+    },
+    "sprites/painted-blue-red/paladin-b.png": {
+      "sha256": "c92ff87cd7c731a98a0e3b1081a64d2ad5f776d68e1c77c8301bc3fde019c2dd",
+      "bytes": 37010
+    },
+    "sprites/painted-blue-red/paladin-w.png": {
+      "sha256": "d992f841193d6d27826e57f72cd8d43e9fa76ec0c0a47b0e7af10dcc02657d01",
+      "bytes": 38153
+    },
+    "sprites/painted-blue-red/pawn-b.png": {
+      "sha256": "02708d920ecf5959e52ae3999522dfc549d0c25995d3316dbdae614849dbbdb2",
+      "bytes": 14856
+    },
+    "sprites/painted-blue-red/pawn-w.png": {
+      "sha256": "654e7086cd07060bdd9b3d281a4c751029ee5ff9063fbaac4f543592dd109de9",
+      "bytes": 15146
+    },
+    "sprites/painted-blue-red/queen-b.png": {
+      "sha256": "0585c51faa8f0d7f9154c7a8c96c9817e06333d4f0afa2ff5300d880ba89c48b",
+      "bytes": 19890
+    },
+    "sprites/painted-blue-red/queen-w.png": {
+      "sha256": "18011d3c878fcf65767365c9a399abd5324aba5da8eba7703c3c647ca171a319",
+      "bytes": 20461
+    },
+    "sprites/painted-blue-red/rook-b.png": {
+      "sha256": "eb211cf526c0928512e563b6a54704195d1d0d43b61531c83ceacc6885bda05c",
+      "bytes": 38755
+    },
+    "sprites/painted-blue-red/rook-w.png": {
+      "sha256": "fea0d1a2fadbf180ee1ebc339fc22e3feead7ab818c9198171203042bf1cad69",
+      "bytes": 40940
+    },
+    "sprites/painted-ivory-charcoal/archer-b.png": {
+      "sha256": "a31f3f20965411a88e575308685cd57587477d14e38dfafbfc2e2d15fca7b737",
+      "bytes": 21653
+    },
+    "sprites/painted-ivory-charcoal/archer-w.png": {
+      "sha256": "628d69c341656dd35230a25e39027804d589e9d11d2fde05f5bd5c7a3d035a45",
+      "bytes": 21807
+    },
+    "sprites/painted-ivory-charcoal/beast-b.png": {
+      "sha256": "9910a528eec88c9291b5733ddc1c749af87a1677741ac15e6887cacc1fa9ff7f",
+      "bytes": 35649
+    },
+    "sprites/painted-ivory-charcoal/beast-w.png": {
+      "sha256": "8d114baaee559387a0464068fcb585caefe7ca345f0413bde63ff2feab260817",
+      "bytes": 36487
+    },
+    "sprites/painted-ivory-charcoal/bishop-b.png": {
+      "sha256": "c76338f3262a40592d05c27c769c6605dab3a62b444086e373239bf5c2ce3016",
+      "bytes": 12653
+    },
+    "sprites/painted-ivory-charcoal/bishop-w.png": {
+      "sha256": "14006d21052237ca8c49c867d469f97f878dfbba594ceab4b3b8777d2863e0f2",
+      "bytes": 13190
+    },
+    "sprites/painted-ivory-charcoal/guard-b.png": {
+      "sha256": "d7b9dc8f43dae155a717f37ee46555117a5fb7962f621aef41c8e81e6aaab93b",
+      "bytes": 37662
+    },
+    "sprites/painted-ivory-charcoal/guard-w.png": {
+      "sha256": "055cd9cccb1048c3beac3667469dd9f0633a92cd60812a22a9fc4276caf86efe",
+      "bytes": 39661
+    },
+    "sprites/painted-ivory-charcoal/king-b.png": {
+      "sha256": "88c56a27809f9a9f9160cf8bef3634265658c5b5abe5f4535a51c2e6a1fd9dbc",
+      "bytes": 34725
+    },
+    "sprites/painted-ivory-charcoal/king-celestial-b.png": {
+      "sha256": "8ce9f202117925e066da7aec9d245edfc4e0149a2019e05c14d10313a0b5f6c6",
+      "bytes": 25174
+    },
+    "sprites/painted-ivory-charcoal/king-celestial-w.png": {
+      "sha256": "b09a4c8b18171c1ff5483a6249143d42feb425db6dc5ac9486fd4cbbf2af78f9",
+      "bytes": 25438
+    },
+    "sprites/painted-ivory-charcoal/king-ember-b.png": {
+      "sha256": "88c56a27809f9a9f9160cf8bef3634265658c5b5abe5f4535a51c2e6a1fd9dbc",
+      "bytes": 34725
+    },
+    "sprites/painted-ivory-charcoal/king-ember-w.png": {
+      "sha256": "27693a4f915b044a59d4691bf5d8466dd6844e951571163d3fa4aaa44790bcf5",
+      "bytes": 35748
+    },
+    "sprites/painted-ivory-charcoal/king-frost-b.png": {
+      "sha256": "dca063ef56f72baa628ed97f62f3e714356c299fb3d8ccc387502a500fb4b04f",
+      "bytes": 23916
+    },
+    "sprites/painted-ivory-charcoal/king-frost-w.png": {
+      "sha256": "d74d3367b5c9595f0514166403659e797cde06bc8c8b921983a01941cb0052ea",
+      "bytes": 24952
+    },
+    "sprites/painted-ivory-charcoal/king-gaya-b.png": {
+      "sha256": "d69385306646d33198bd13f366ea1d6cec93f0350dcdfd1ccfd7818292c09788",
+      "bytes": 28116
+    },
+    "sprites/painted-ivory-charcoal/king-gaya-w.png": {
+      "sha256": "03aad5d786ac28e1ef70fff7e9a6ef9a548b249240d0d77a5f852ec914f8d1ec",
+      "bytes": 28890
+    },
+    "sprites/painted-ivory-charcoal/king-w.png": {
+      "sha256": "d74d3367b5c9595f0514166403659e797cde06bc8c8b921983a01941cb0052ea",
+      "bytes": 24952
+    },
+    "sprites/painted-ivory-charcoal/knight-b.png": {
+      "sha256": "de971589133ff9b06fc6777dccd5a526a082306b9dad45d72b6f5fd8296d1004",
+      "bytes": 22838
+    },
+    "sprites/painted-ivory-charcoal/knight-w.png": {
+      "sha256": "d34a787fa20adf1bd0f9d92a4a9d7fb8d483c88ac4de61db5582fbd737313f9e",
+      "bytes": 23684
+    },
+    "sprites/painted-ivory-charcoal/maester-b.png": {
+      "sha256": "3960b92f7d81558e776e8335b08e398389d2d0d402f03e68d0f40441e345db3a",
+      "bytes": 27374
+    },
+    "sprites/painted-ivory-charcoal/maester-w.png": {
+      "sha256": "9856276aaefae6807d466706e7df8ddd26704adc597a4c6d1ec1a577b67e106c",
+      "bytes": 28910
+    },
+    "sprites/painted-ivory-charcoal/paladin-b.png": {
+      "sha256": "a195b35b60d61a09f6333f7fca71a3233731f3278f24f4b7476f1b9321f44cae",
+      "bytes": 36570
+    },
+    "sprites/painted-ivory-charcoal/paladin-w.png": {
+      "sha256": "93f5a6e6cca6efa0485dee87d77502a4e3da66d4bf517eb9e199f7c6c7ecfc68",
+      "bytes": 37323
+    },
+    "sprites/painted-ivory-charcoal/pawn-b.png": {
+      "sha256": "502c6eaa477972f9caef52d18cdc8d9cf71e7740e14063d9533326ec8d0bc1a6",
+      "bytes": 14573
+    },
+    "sprites/painted-ivory-charcoal/pawn-w.png": {
+      "sha256": "9f3cc1c392b2165a4c06aebb529ff8484ea33b477cb0d3a9abb2833a99ec574c",
+      "bytes": 15012
+    },
+    "sprites/painted-ivory-charcoal/queen-b.png": {
+      "sha256": "73e915f189e51f335ca6ba048ec9408032835abae89365dee9e38290eb37e3d3",
+      "bytes": 19136
+    },
+    "sprites/painted-ivory-charcoal/queen-w.png": {
+      "sha256": "10e0ea3fb871617f7367fd46277c424bd3354747475982e7c2bfd6c9b68f2f74",
+      "bytes": 20601
+    },
+    "sprites/painted-ivory-charcoal/rook-b.png": {
+      "sha256": "d35868db5a144a0f09fb32a0903c628254c595478bac3c5f22fa20ddf2cf7fd2",
+      "bytes": 38292
+    },
+    "sprites/painted-ivory-charcoal/rook-w.png": {
+      "sha256": "63ab1289a076107865e8cfbb6328f91b0a395a2768765cfa5740f0a76c2adefa",
+      "bytes": 40999
+    }
+  },
+  "publication": false
+}

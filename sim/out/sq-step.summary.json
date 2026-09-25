@@ -1,0 +1,30 @@
+{
+  "spec": {
+    "id": "sq-step",
+    "games": 24,
+    "ai": {
+      "depth": 2
+    },
+    "seed": 93,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "squire": "step"
+    },
+    "backRanks": {
+      "sample": 8
+    }
+  },
+  "games": 24,
+  "seconds": 3.6,
+  "whiteScore": 0.5625,
+  "whiteWins": 11,
+  "draws": 5,
+  "blackWins": 8,
+  "meanPlies": 75.2,
+  "reasons": {
+    "adjudicatedResign": 19,
+    "adjudicatedDraw": 2,
+    "drawRepetition": 3
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "spec": {
+    "id": "stories-COAQNRBK-step",
+    "games": 12,
+    "ai": {
+      "depth": 2
+    },
+    "seed": 96,
+    "backRanks": [
+      "COAQNRBK"
+    ],
+    "rules": {
+      "squire": "step"
+    },
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 12,
+  "seconds": 3.3,
+  "whiteScore": 0.375,
+  "whiteWins": 4,
+  "draws": 1,
+  "blackWins": 7,
+  "meanPlies": 90.5,
+  "reasons": {
+    "adjudicatedResign": 11,
+    "adjudicatedDraw": 1
+  }
+}

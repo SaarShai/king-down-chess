@@ -1,8 +1,8 @@
 /** Game state (no rendering) and the AI worker wrapper. */
 import { Move, Position, Status, inCheck, legalMoves, makeMove, status } from './rules/engine';
 import { RULES } from './rules/rules';
-import { randomBackRank, startPosition, toFen, toLan } from './rules/setup';
-import { SearchOptions, SearchResult, search } from './ai/search';
+import { randomBackRank, startPosition, toLan } from './rules/setup';
+import { SearchOptions, SearchResult, positionKey, search } from './ai/search';
 
 export type Side = 'human' | 'ai';
 
@@ -13,7 +13,7 @@ export class Game {
   status: Status = 'playing';
   private cache: Move[] | null = null;
   /** Occurrences per position (board + side to move) for threefold repetition. */
-  private seen = new Map<string, number>();
+  private seen = new Map<number, number>();
 
   constructor(backRank?: string) { this.newGame(backRank); }
 
@@ -37,7 +37,7 @@ export class Game {
   }
 
   /** Board + side to move; the repetition key. */
-  private key(): string { return toFen(this.pos).split(' ', 2).join(' '); }
+  private key(): number { return positionKey(this.pos); }
 
   /** Count the current position, then set `status`; a position met 3 times is a repetition draw. */
   private update(): void {
@@ -47,7 +47,7 @@ export class Game {
 
   private setStatus(): void {
     const s = status(this.pos);
-    this.status = s === 'playing' && (this.seen.get(this.key()) ?? 1) >= 3 ? 'drawRepetition' : s;
+    this.status = s === 'playing' && RULES.threefold && (this.seen.get(this.key()) ?? 1) >= 3 ? 'drawRepetition' : s;
   }
 
   get legal(): Move[] { return (this.cache ??= legalMoves(this.pos)); }

@@ -822,17 +822,20 @@ export function insufficientMaterial(board: Uint8Array): boolean {
   return minors[WHITE] <= 1 && minors[BLACK] <= 1;
 }
 
+/** Material draw under the active rules; an unspent Strike can still change mating potential. */
+export function materialDraw(board: Uint8Array, strike?: readonly [boolean, boolean]): boolean {
+  const liveStrike = (c: Color): boolean => powerOf(c) === 'Strike' && !strike?.[c];
+  return RULES.insufficientMaterial && !liveStrike(WHITE) && !liveStrike(BLACK) && insufficientMaterial(board);
+}
+
 export type Status = 'playing' | 'checkmate' | 'stalemate' | 'draw50' | 'drawRepetition' | 'drawMaterial';
 
 /** Pure: repetition needs move history, so only `Game.status` can report 'drawRepetition'. */
 export function status(pos: Position): Status {
+  if (findKing(pos.board, pos.turn) < 0) return 'checkmate';
   if (legalMoves(pos).length === 0) return inCheck(pos) ? 'checkmate' : 'stalemate';
   if (RULES.fiftyMove && pos.halfmove >= 100) return 'draw50';
-  // A live Strike is mating potential the material scan cannot see (a piece reaches a square it
-  // never could, once). Do not declare a material draw in a Strike game — the expensive direction
-  // is calling a live game drawn, and this only touches games that picked Flame.
-  const strikeLive = (c: Color): boolean => powerOf(c) === 'Strike' && !pos.strike?.[c];
-  if (RULES.insufficientMaterial && insufficientMaterial(pos.board) && !strikeLive(WHITE) && !strikeLive(BLACK)) return 'drawMaterial';
+  if (materialDraw(pos.board, pos.strike)) return 'drawMaterial';
   return 'playing';
 }
 

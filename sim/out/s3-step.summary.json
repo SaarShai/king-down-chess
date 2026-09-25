@@ -1,0 +1,30 @@
+{
+  "spec": {
+    "id": "s3-step",
+    "games": 80,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 94,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "squire": "step"
+    },
+    "backRanks": {
+      "sample": 20
+    }
+  },
+  "games": 80,
+  "seconds": 52.9,
+  "whiteScore": 0.5437,
+  "whiteWins": 41,
+  "draws": 5,
+  "blackWins": 34,
+  "meanPlies": 91.5,
+  "reasons": {
+    "adjudicatedResign": 73,
+    "adjudicatedDraw": 5,
+    "checkmate": 2
+  }
+}

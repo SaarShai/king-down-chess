@@ -1,5 +1,18 @@
 # Tasks
 
+## Selective Cursor adoption — 2026-09-24
+- Owner: execute the recovery decisions. Work directly; no old agents, research campaigns, model calls or publication.
+- Base: approved `codex/playable-clay` at `c8f4ca7`; isolated branch `codex/cursor-adoption`.
+- Plan: retain the roster decision and reconcile terminal search fixes; port guide, skill, hint, auto-queen, sound, move explanations and optional examples onto fixed clay; consolidate semantic regression cases; preserve and qualify recovered research.
+- Hold: clock and Squire/reserve implementation; arbitrary capture styles and incidental score probes remain archived.
+- Verify: accepted repetition regression, consolidated rules/search/restore cases, full existing suite, typecheck/build, and production browser checks for saves, pointer/touch, promotion, cancellation, clay presentation and mobile layout.
+- [x] Engine and roster: Ogre push pool/value; shared terminal/draw handling; accepted repetition repair retained.
+- [x] Play improvements and compact regression coverage: guide, skills, hints, promotion, sound, explanations, drag and selected lab animations; 267 tests in 10 files pass.
+- [x] Research/document reconciliation: 21 qualified reports, 9 specs, 25 compact outputs; all 36 test candidates have final dispositions. Raw evidence remains archived.
+- [x] Production verification and final handoff: TypeScript/build, 15 clay checks and 11 adoption browser scenarios pass without errors; desktop/mobile screenshots inspected. No publication.
+- Evidence and disposition: `docs/cursor-recovery/2026-09-24-0213b442/`.
+- Current product entry point: `docs/PLAYABLE-CLAY.md`; implementation and verification: `docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`. Local preview: `http://127.0.0.1:5189/`.
+
 ## Piece proportions — 2026-09-22
 - Owner requests Maester 50% smaller, Paladin 30% bigger and every king 20% smaller. Apply uniform size factors after the existing board fit so the width limit cannot cancel the requested change; adjust labels and ground shadows with the figures.
 - Verify: compare actual model scales against the prior build for both armies; build and exercise movement, picking, undo and mobile layout in the production browser. Keep handmade clay at 0.5 px.

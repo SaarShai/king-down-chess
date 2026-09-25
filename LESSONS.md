@@ -259,3 +259,13 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 ## Clay facing and fixed presentation — 2026-09-22
 - The accepted clay sculpts face local +Z. White advances toward world −Z, so its resting parent rotates by π; Black's stays at zero. Do not reuse the legacy voxel orientation. Movement/contact turns are relative to that parent and must reset after movement and undo. Check both armies visually as well as their transforms.
 - The owner selected handmade clay at the study's 0.5 px double-detail setting for the playable game, with no rendering choices. Remove obsolete UI and URL/save overrides instead of merely changing the default; keep experimental presentation controls in the separate graphics study. Verify actual render-target dimensions and material state, not just a preset label.
+
+## Cursor recovery — 2026-09-24
+- A completed agent turn is not a completed product. Reconcile child registries, transcripts, saved checks and the final files before trusting a parent's checkboxes; piped test output can hide failure behind a successful shell status. The recovery of `0213b442` found all 887 children complete, but no final combined suite or production build.
+- Identify the accepted branch before integrating recovered changes. Cursor's old checkout lacked the approved clay presentation and already-proven repetition repair; its edited guide claimed a pool change that never reached the named worktree. Preserve the accepted implementation and port useful changes selectively.
+- Prefer a semantic regression over hundreds of shallow score/move-order locks. A failed prediction may expose an incorrect fixture, and a later terminal fix may correctly obsolete its expected score. Keep exploratory datasets tied to their source/rules, separating adjudications and unfinished caps from completed outcomes. See `docs/cursor-recovery/2026-09-24-0213b442/README.md` for the evidence.
+
+## Selective adoption — 2026-09-24
+- A new default invalidates a test's implicit rules, not necessarily its fixture. Keep historical repel regressions explicit while separately checking the new push default; preserve the accepted whole-history repetition repair.
+- Search must agree with game endings before ordinary evaluation, including at the capture horizon. Keep checkmate ahead of a fifty-move draw and honor disabled draw rules and a live Strike power; share the material-draw predicate instead of duplicating exceptions.
+- Mobile piece guidance in an auto-sized header moved the board under an active touch. Put changing explanations in the scrolling panel and assert stable board bounds across a real touch gesture. Wait for the camera flip to finish before sampling automation coordinates.

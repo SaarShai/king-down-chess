@@ -1,12 +1,15 @@
 # Five proposed fairy pieces (2026-09-14)
 
 Drawn from the balance lab (about 330,000 games), the guard study, the paladin and maester work, and
-the ability matrix in `MATRIX.md`. **Four of the five are now built as lab pieces**, all outside the pool and promotion list:
-the Ogre and Catapult (`docs/research/sim-new-pieces-2026-09-14.md`), the **Reaver**
+the ability matrix in `MATRIX.md`. **Status after selective adoption, 2026-09-24:** Ogre is in the random
+pool with push as its default (RULES.md §6.18). Catapult (`docs/research/sim-new-pieces-2026-09-14.md`), **Reaver**
 (`docs/research/sim-reaver-2026-09-17.md`: full step overpowered and rejected; orthogonal reading is
 the measured default at ~4.0 pawns, +7.1 decisive, neutral balance) and the **Templar**
 (`docs/research/sim-templar-2026-09-17.md`: rejected — only 4–8% of its moves come from a capital, it
-plays as a weak king-stepper and drags draws). Only the **Squire** is unbuilt.
+plays as a weak king-stepper and drags draws) remain lab pieces, outside the pool and standard promotions.
+**Squire was built experimentally in the recovered Cursor checkout; it is archived, not adopted.**
+That reserve experiment adds material and differs from the original replacement proposal below;
+its defects and research limits are recorded in [the recovery assessment](cursor-recovery/2026-09-24-0213b442/ASSESSMENT.md).
 Each piece below names the matrix cells it fills, what it is for, what to expect, what to watch, and
 how to measure it.
 
@@ -57,6 +60,9 @@ capture, `captures: [target]`. Attack detection for check uses the same walk.
 
 ### 2. Squire (E)
 
+Historical proposal follows. The September 24 implementation remains in the private recovery archive,
+not `src/`; preserving its research does not schedule work on it.
+
 **Rule.** Begins in hand: its home-rank square is empty at the start. Instead of moving, its owner may
 place it on any empty square of their home rank, and may do so to block a check. Once placed it moves
 and captures one square in any direction.
@@ -74,9 +80,9 @@ Crazyhouse writes it (`[E]`), one Zobrist key for the hand. The largest of the f
 
 ### 3. Ogre (O)
 
-**Rule.** Moves and captures one square in any direction. Instead of moving, it may shove one
-adjacent piece — friend or enemy, never a king — one square straight away from itself onto an empty
-square. A shoved guard moves like any other piece.
+**Current rule (2026-09-24).** Moves and captures one square in any direction. It may instead push one
+adjacent piece — friend or enemy, never a king — one square straight away onto an empty square,
+then follow into the vacated square. A Guard can be pushed. The original stay-put repel reading is lab-only.
 
 **Why.** The guard's immortality is its identity and Saar keeps it; guard blockades are the game's
 draw engine. The Ogre is the only piece that moves an enemy guard without breaking the rule that

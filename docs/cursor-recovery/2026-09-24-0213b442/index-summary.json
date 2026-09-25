@@ -1,0 +1,32 @@
+{
+  "agent_groups": {
+    "parent": 1,
+    "test-or-diagnostic": 803,
+    "implementation": 18,
+    "read-only-or-shell-result": 42,
+    "research": 21,
+    "documentation-or-scratch": 2,
+    "fable-advice": 1
+  },
+  "file_dispositions": {
+    "preserve-inherited": 1,
+    "reconcile-record": 5,
+    "correct-branch-claim": 1,
+    "port-selectively": 5,
+    "retain-asset-cleanup": 4,
+    "split-existing-suite": 2,
+    "split-core-changes": 6,
+    "retain-research-with-status": 21,
+    "retain-exploration": 34,
+    "archive-scratch": 1,
+    "archive-review-for-consolidation": 764,
+    "retain-case-consolidate": 36,
+    "archive-stale-assertion": 1,
+    "retain-with-review": 2,
+    "repair-before-port": 1,
+    "retain-examples": 1
+  },
+  "tracked_changed": 24,
+  "untracked": 861,
+  "new_tests": 801
+}
