@@ -298,3 +298,7 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 ## 2026-09-26 — preserve the animation goal when simplifying the weapon
 - Replacing the longbow with a wrist bow did not remove the requested cursor-following arm movement. Whole-sprite recoil and a projectile were insufficient. → Recheck the original interaction requirement after changing the visual method; report which part actually moves.
 - A small shoulder mesh can preserve a coherent painted figure while the forearm, hand and attached weapon rotate together. Keep the aim arc within the drawing's usable projection, check the shoulder at both limits, and test mesh orientation across the full arc including recoil. Do not infer visual acceptance from geometric invariants.
+
+## 2026-09-26 — rigid weapons and source-sheet registration
+- Deforming a complete already-aimed figure by image height can bend a long weapon when its lowered tip enters the stance region. → Apply weight shift to the body, then draw the aimed arm/weapon with one rigid thrust translation. Check actual low-angle contact as well as neutral motion.
+- Generated army pairs can drift from equal cell boundaries. → Inspect the alpha gutter and calibrate each army's source window, pivot and display origin; preserve complete shield edges and tips without destructive recropping.

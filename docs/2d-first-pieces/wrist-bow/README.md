@@ -18,7 +18,7 @@ Move the pointer within the preview to aim; click to fire. Dragging aims without
 
 The arm now follows continuously through **22° up to 30° down**. The target stays ahead of the wrist bow inside that arc; points behind her or outside her reach are projected into the reachable range. Exponential smoothing provides a short, steady response without an overshooting spring. A shot requested during movement waits briefly for the selected aim, then fires along the painted weapon's axis. The arm recoils by 1.8° and recovers; the torso stays planted.
 
-`aiming.mjs` draws the unchanged source image through a small Canvas 2D shoulder mesh. The stationary edge follows the hood, braid and bodice. The skin around the shoulder flexes locally, while the forearm, hand and bow rotate together. This preserves the coherent source drawing without exposing a cutout shoulder edge or independently stretching the fingers to a target. The neutral pose draws the original image directly. No new generated art, animation framework or dependency was added.
+`aiming.mjs`, using the shared `../painted-mesh.mjs` texture routine, draws the unchanged source image through a small Canvas 2D shoulder mesh. The stationary edge follows the hood, braid and bodice. The skin around the shoulder flexes locally, while the forearm, hand and bow rotate together. This preserves the coherent source drawing without exposing a cutout shoulder edge or independently stretching the fingers to a target. The neutral pose draws the original image directly. No new generated art, animation framework or dependency was added.
 
 The same geometry positions the muzzle, guide and target. SVG/Web Animations supplies the bolt and hit effects. Reset, army changes and motion-preference changes cancel queued and active shots. The animation loop stops when the pose settles. The Reduce motion control defaults to the system preference and makes aiming immediate, omitting recoil, bolt flight and hit-pulse motion.
 
@@ -35,3 +35,5 @@ This is one plane of aiming from one painted pose, not a full raise/reload/turn 
 - Previous board-shot/Pawn verification is retained in `verification.json`; those paths were not edited in the cursor-aiming pass. No game/engine files changed, so engine tests were not rerun.
 
 Serve from the project root with `python3 -m http.server 5192 --bind 127.0.0.1 --directory docs/2d-first-pieces`.
+
+The [Pawn lance study](../lance/README.md) uses the same preview styling and texture drawing, with its own shoulder geometry and thrust action. Archer geometry and browser shot checks passed after this extraction.

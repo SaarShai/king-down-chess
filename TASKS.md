@@ -1,5 +1,11 @@
 # Tasks
 
+## Pawn lance aiming — 2026-09-26
+- Owner: apply the accepted continuous 2D aiming approach to the Pawn and his lance.
+- Plan: preserve the Pawn's painted helmet/shield identity and army colours; make a coherent one-handed ready pose if needed, then animate the arm and rigid lance together with pointer aiming and a short thrust/recovery. Keep the accepted Archer working.
+- Verify: shoulder, elbow, grip and straight lance at both aim limits; complete silhouette and both army palettes; pointer/keyboard controls, thrust contact/recovery, reset and side-switch cancellation, reduced motion and narrow layout. Record generated art provenance and run focused geometry checks.
+- [x] New ivory/charcoal one-handed ready art and continuous lance aiming delivered at `/lance/`, with anticipation, planted-foot thrust/contact/recovery, slow/reduced motion and keyboard controls. Both armies, pointer drag, action cancellation and 390 px layout checked; 442 aim poses / 44,642 thrust samples pass. Archer regression checked after sharing texture drawing/styling. [Provenance and verification](docs/2d-first-pieces/lance/README.md). Physical touch remains untested; board animation and playable game unchanged.
+
 ## Wrist-bow cursor aiming — 2026-09-26
 - Owner correction: the arm must follow the cursor; projectile/recoil effects alone do not satisfy the animation request.
 - Plan: preserve the coherent painted Archer; articulate the complete shooting arm and attached wrist bow with fixed proportions, smooth bounded cursor aiming and shots aligned with the current aim. Use native browser motion and keep the game untouched.

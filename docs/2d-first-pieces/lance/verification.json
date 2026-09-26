@@ -1,0 +1,67 @@
+{
+  "date": "2026-09-26",
+  "artwork": "pawn.png",
+  "dimensions": [
+    1536,
+    1024
+  ],
+  "mode": "RGBA",
+  "alpha_range": [
+    0,
+    254
+  ],
+  "sha256": "77591073130502f042d3725d6f6b6f2666e6c3735efd6c555df6c25a71564103",
+  "alpha_preserved": true,
+  "source_cells": [
+    [
+      0,
+      0,
+      762,
+      1024
+    ],
+    [
+      762,
+      0,
+      774,
+      1024
+    ]
+  ],
+  "aim_degrees": {
+    "up": 20,
+    "down": 24
+  },
+  "thrust_pixels": 46,
+  "duration_ms": 800,
+  "slow_duration_ms": 2400,
+  "geometry": {
+    "aim_poses": 442,
+    "thrust_samples": 44642,
+    "minimum_triangle_area_ratio": 0.223,
+    "result": "pass"
+  },
+  "archer_regression": {
+    "geometry_poses": 940,
+    "result": "pass",
+    "browser": [
+      "ivory neutral",
+      "charcoal raised shot completes"
+    ]
+  },
+  "browser": [
+    "ivory and charcoal aim limits",
+    "low-angle contact and recovery on both armies",
+    "pointer drag aims without attack",
+    "keyboard target Enter",
+    "reset cancels action",
+    "army switch cancels action",
+    "reduced-motion aim and attack",
+    "390x844 full silhouette and controls; width and scrollWidth 390",
+    "no console warnings/errors"
+  ],
+  "limits": [
+    "one plane of aiming; no turn-around or walking",
+    "physical touchscreen not tested",
+    "two-piece board and playable game retain existing animation",
+    "new Pawn artwork awaits owner assessment"
+  ]
+}

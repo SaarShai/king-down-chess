@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>King Down · lance Pawn</title>
+<link rel="stylesheet" href="../aim-study.css">
+<main>
+<header><div><p class="eyebrow">King Down · painted 2D study</p><h1>The lance Pawn</h1></div><nav><a href="../wrist-bow/">Archer</a> · <a href="../">First two pieces</a></nav></header>
+<div class="layout">
+<section class="stage" aria-label="Pawn aiming preview">
+<canvas id="character" width="1000" height="1000" aria-hidden="true"></canvas>
+<svg id="scene" viewBox="0 0 1000 1000" role="group" tabindex="0" aria-label="Pawn aiming area. Move the pointer or drag to aim; click or press Space to thrust. Arrow keys adjust aim.">
+<path id="aim-line" d="M754 312H1064"/>
+<g id="target" transform="translate(850 520)" role="button" tabindex="0" aria-label="Thrust at the target"><circle r="55" fill="transparent"/><g id="bullseye" fill="none" stroke="#939a7d" stroke-width="2"><circle r="31"/><circle r="18"/><path d="M-40 0H40M0 -40V40" stroke-width="1"/></g><circle id="hit" r="31" fill="none" stroke="#ad783b" stroke-width="4"/><text class="target-label" text-anchor="middle" y="73">TARGET</text></g>
+</svg></section>
+<aside>
+<h2>Aim with your cursor.</h2>
+<p>Move around the preview to aim his lance. Click to thrust and recover. On touch, drag to aim, then tap Thrust.</p>
+<div class="army" aria-label="Choose army"><button type="button" data-side="0" aria-pressed="true">Ivory</button><button type="button" data-side="1" aria-pressed="false">Charcoal</button></div>
+<label class="aim-label" for="aim">Aim height <output id="aim-value" for="aim" aria-live="off">Level</output></label>
+<input class="aim-control" id="aim" type="range" min="-24" max="20" step="1" value="0" aria-label="Aim height">
+<div class="aim-ends"><span>Lower</span><span>Higher</span></div>
+<div class="actions"><button type="button" class="primary" id="thrust">Thrust lance</button><button type="button" id="reset">Reset</button></div>
+<p id="status" role="status" aria-live="polite">Ready. Move the pointer to aim, then click to thrust.</p>
+<p class="note">His grip stays closed around the shaft. A short weight shift drives the point forward, then he returns to guard.</p>
+<label class="motion-option"><input type="checkbox" id="reduce-motion"> Reduce motion</label>
+<label class="motion-option"><input type="checkbox" id="slow-motion"> Slow motion</label>
+<hr>
+<h2>On the board</h2>
+<div class="samples"><div class="sample"><canvas id="sample-ivory" width="1000" height="1000" role="img" aria-label="Ivory Pawn aiming at board size"></canvas></div><div class="sample dark"><canvas id="sample-charcoal" width="1000" height="1000" role="img" aria-label="Charcoal Pawn aiming at board size"></canvas></div></div>
+<div class="links"><a href="pawn.png">Full-size artwork</a><a href="README.md">Study notes</a></div>
+</aside>
+</div><footer>Original King Down Pawn used as the design reference. Complete figures · ivory and charcoal · pointed helmet and ochre shield mark.</footer>
+</main>
+<style>.sample canvas{width:126px;height:126px}.motion-option+.motion-option{margin-top:8px}</style>
+<script type="module">
+import { clamp } from '../painted-mesh.mjs';
+import { MIN_ANGLE, MAX_ANGLE, THRUST, aimAt, tipAt, targetPoint, thrustAt, drawPawn } from './aiming.mjs';
+const $ = id => document.getElementById(id), scene = $('scene');
+const preference = matchMedia('(prefers-reduced-motion: reduce)');
+$('reduce-motion').checked = preference.matches;
+const reduced = () => $('reduce-motion').checked;
+const art = new Image(); art.src = 'pawn.png';
+let side = 0, angle = 0, desiredAngle = 0, action = null, pendingAngle = null;
+let frame = 0, previousTime = 0, pointerDown = null, dragged = false;
+const ready = 'Ready. Move the pointer to aim, then click to thrust.';
+
+function draw(progress = 0) {
+  const extension = THRUST * thrustAt(progress);
+  drawPawn($('character'), art, side, angle, extension);
+  drawPawn($('sample-ivory'), art, 0, angle, extension);
+  drawPawn($('sample-charcoal'), art, 1, angle, extension);
+  const tip = tipAt(angle, side, extension), target = targetPoint(angle, side);
+  $('target').setAttribute('transform', `translate(${target.x} ${target.y})`);
+  $('aim-line').setAttribute('d', `M${tip.x} ${tip.y}L${target.x} ${target.y}`);
+  $('hit').style.opacity = action && progress >= .45 ? .8 * (1 - clamp((progress - .45) / .4, 0, 1)) : 0;
+}
+function tick(time) {
+  frame = 0;
+  const dt = previousTime ? Math.min((time - previousTime) / 1000, .05) : 1 / 60;
+  previousTime = time;
+  if (!action) {
+    const goal = pendingAngle ?? desiredAngle;
+    angle += (goal - angle) * (reduced() ? 1 : 1 - Math.exp(-14 * dt));
+    if (Math.abs(goal - angle) < .0001) angle = goal;
+    if (pendingAngle !== null && Math.abs(goal - angle) < .0035) {
+      angle = goal; pendingAngle = null;
+      if (reduced()) {
+        $('target').classList.add('hit'); $('status').textContent = 'Hit. Back in guard.'; $('thrust').disabled = false;
+      } else {
+        action = { start: time, duration: $('slow-motion').checked ? 2400 : 800, contact: false };
+        $('status').textContent = 'Thrusting…';
+      }
+    }
+  }
+  const progress = action ? clamp((time - action.start) / action.duration, 0, 1) : 0;
+  if (action && progress >= .45 && !action.contact) {
+    action.contact = true; $('target').classList.add('hit'); $('status').textContent = 'Contact. Recovering…';
+  }
+  draw(progress);
+  if (action && progress === 1) { action = null; $('thrust').disabled = false; $('status').textContent = 'Hit. Back in guard. Aim and thrust again.'; }
+  if (action || pendingAngle !== null || angle !== desiredAngle) wake(); else previousTime = 0;
+}
+function wake() { if (!frame && art.complete && art.naturalWidth) frame = requestAnimationFrame(tick); }
+function updateControl() {
+  const elevation = -desiredAngle * 180 / Math.PI;
+  $('aim').value = Math.round(elevation);
+  const label = Math.abs(elevation) < .5 ? 'Level' : `${Math.round(Math.abs(elevation))}° ${elevation > 0 ? 'up' : 'down'}`;
+  if ($('aim-value').value !== label) $('aim-value').value = label;
+  $('aim').setAttribute('aria-valuetext', label);
+}
+function aim(nextAngle) {
+  desiredAngle = clamp(nextAngle, MIN_ANGLE, MAX_ANGLE); updateControl();
+  if (!action && pendingAngle === null) { $('target').classList.remove('hit'); if ($('status').textContent !== ready) $('status').textContent = ready; }
+  wake();
+}
+function cancel() {
+  action = null; pendingAngle = null; $('thrust').disabled = false;
+  $('target').classList.remove('hit'); $('hit').style.opacity = 0; $('status').textContent = ready;
+}
+function reset() { cancel(); angle = desiredAngle = 0; updateControl(); wake(); }
+function thrust() {
+  if (action || pendingAngle !== null || !art.naturalWidth) return;
+  cancel(); pendingAngle = desiredAngle; $('thrust').disabled = true; $('status').textContent = 'Aiming…'; wake();
+}
+function pointerAim(event) {
+  const matrix = scene.getScreenCTM(); if (!matrix) return;
+  const p = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse()); aim(aimAt(p.x, p.y, side));
+}
+scene.addEventListener('pointermove', event => {
+  if (pointerDown && Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y) > 6) dragged = true;
+  pointerAim(event);
+});
+scene.addEventListener('pointerdown', event => {
+  if (event.button !== 0) return;
+  pointerDown = { x: event.clientX, y: event.clientY }; dragged = false; pointerAim(event); scene.setPointerCapture(event.pointerId);
+});
+scene.addEventListener('pointerup', () => { pointerDown = null; });
+scene.addEventListener('pointercancel', () => { pointerDown = null; dragged = true; });
+scene.addEventListener('click', event => { if (event.pointerType !== 'touch' && !dragged) thrust(); });
+scene.addEventListener('keydown', event => {
+  if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); thrust(); }
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); aim(desiredAngle + (event.key === 'ArrowUp' ? -1 : 1) * 2 * Math.PI / 180); }
+  if (event.key === 'Home') { event.preventDefault(); aim(0); }
+});
+$('aim').addEventListener('input', () => aim(-Number($('aim').value) * Math.PI / 180));
+$('thrust').addEventListener('click', thrust); $('reset').addEventListener('click', reset);
+for (const button of document.querySelectorAll('[data-side]')) button.addEventListener('click', () => {
+  cancel(); side = Number(button.dataset.side);
+  for (const other of document.querySelectorAll('[data-side]')) other.setAttribute('aria-pressed', String(other === button));
+  wake();
+});
+function motionChanged() { cancel(); wake(); }
+$('reduce-motion').addEventListener('change', motionChanged);
+preference.addEventListener('change', () => { $('reduce-motion').checked = preference.matches; motionChanged(); });
+art.addEventListener('load', wake);
+art.addEventListener('error', () => { $('status').textContent = 'Artwork could not load. Reload the preview to try again.'; $('thrust').disabled = true; });
+updateControl(); wake();
+</script>
+</html>

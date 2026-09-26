@@ -1,5 +1,7 @@
 # First two 2D pieces — 2026-09-25
 
+Current focused animations: [Archer wrist bow](wrist-bow/README.md) and [Pawn lance](lance/README.md), with continuous cursor aiming and their own attack actions.
+
 Current direction (2026-09-26): **painted 2D Archer with her compact wrist bow and natural arm proportions**. The [wrist-bow study](wrist-bow/README.md) supplies the Archer artwork now used by the two-piece board preview, and continuous cursor-driven arm aiming in the focused preview at `/wrist-bow/`. Both the earlier SVG limb rig and the subsequent 3D-rendered study were rejected by the owner. Preserve them as history; do not resume them as the current direction. The longbow sheets below are historical references.
 
 Owner direction: use the approved illustrated board concept and original King Down art as reference for new poses, angles, pieces and animation as needed. Figures must be complete at the bottom; army colour must dominate, with a few recognition accents. This replaces the earlier fixed-clay visual direction for new art work.
@@ -51,3 +53,7 @@ Verified JavaScript syntax, browser Archer shot completion, charcoal Pawn comple
 ## Wrist-bow cursor aiming — 2026-09-26
 
 The focused `/wrist-bow/` preview now animates the arm toward the pointer through a bounded aiming arc. A small shoulder mesh preserves the painted join; the forearm, hand and weapon rotate together. Both army-size samples follow, and the bolt leaves along the actual wrist-bow direction. Native Canvas/SVG/browser animations; no new artwork or dependencies. This is separate from the board's static shot. See the [controls, method and verification](wrist-bow/README.md).
+
+## Pawn lance aiming — 2026-09-26
+
+The focused `/lance/` preview adds a coherent one-handed lance pose in both army colours, cursor aiming and a short thrust with planted soles. Native Canvas motion preserves the grip and straight shaft through contact and recovery. The earlier board/Pawn frames remain unchanged. [Artwork provenance, controls and verification](lance/README.md).
