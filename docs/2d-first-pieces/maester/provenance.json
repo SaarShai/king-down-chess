@@ -1,0 +1,14 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-09-26",
+  "output": "maester.png",
+  "sha256": "1b23764aba9431a1d4a1231eb087046f36bb2668cc5ed04178b7bcc964ff71e7",
+  "generated_source": "/Users/za/.codex/generated_images/01a0d713-920a-73a1-bafb-c4a58ede1dfc/exec-1d7e822f-055b-42f0-9b4b-c6a8afe83896.png",
+  "original_source": "/Users/za/Documents/king down chess/art-src/pieces/final-ivory/Maester_colored2_no_shadow.png",
+  "original_copy": "original-reference.png",
+  "style_reference": "../knight/knight.png",
+  "prompts": [
+    "prompt.txt"
+  ],
+  "treatment": "Unmodified generated PNG copied into the project. Source-cell registration and motion happen at runtime; alpha preserved."
+}

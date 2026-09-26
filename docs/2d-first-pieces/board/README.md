@@ -93,3 +93,29 @@ Reproduce the regression through the real UI in a separate tab (the trial does n
 4. Bishop c4→e6 captures the Knight and changes counts to 7/6. Undo restores it. With Slow motion enabled, Undo during the same capture must leave both source and victim unchanged. Reduced-motion Guard d2→c2 completes immediately with the correct status.
 
 All those checks passed in the in-app browser. Thirteen existing motion/rule tests, module syntax and `git diff --check` passed; no browser warnings/errors were recorded. The original played tab was not reloaded or changed; the updated preview was verified separately. A specific visual or movement failure still needs its piece/action identified before claiming it fixed.
+
+## Queen, Paladin and Maester
+
+Three further painted characters bring the cast to ten per army. Each has a focused board position and a character preview: [Queen](../queen/README.md), [Paladin](../paladin/README.md), [Maester](../maester/README.md). Original references, exact imagegen prompts, unchanged generated PNGs and provenance are saved beside each piece. The Paladin needed a palette correction followed by a framing correction; both were reviewed before adoption.
+
+Queen rays use the production engine. Paladin charges pass over friends; he survives taking a Pawn but disappears with any non-Pawn target. Both-removal outcomes are labelled before the action, and the selection clears when he is removed. A Maester can step/capture or swap with an adjacent friend. Violet markers and separate Swap buttons identify exchanges; both actors travel on separated paths, counts stay unchanged, and Undo restores both. The king/long-swap case is not present in this kingless trial.
+
+The board bundle was rebuilt only to export Q/L/M constants; production engine/rule hashes remain unchanged. Character motion is deliberately restrained: Queen weight shift with grounded hem, Paladin brace with intact hammer/grip and a board-level bound, Maester rigid survey lean. No independent hammer swing, goggle-hand rig, walk cycles or additional facings are claimed.
+
+Saved built-in imagegen outputs and exact prompt set:
+
+| Character | Final artwork | Prompts |
+| --- | --- | --- |
+| Queen | [queen.png](../queen/queen.png) | [Generation](../queen/prompt.txt) |
+| Paladin | [paladin.png](../paladin/paladin.png) | [Generation](../paladin/prompt.txt), [colour correction](../paladin/revision-prompt.txt), [framing correction](../paladin/framing-prompt.txt) |
+| Maester | [maester.png](../maester/maester.png) | [Generation](../maester/prompt.txt) |
+
+Verification in the in-app browser on 2026-09-26:
+
+- Queen c4→g4 and Charcoal Queen f5→f2 captures complete; Undo restores the source and victim.
+- Paladin c4→g4 and Charcoal Paladin f5→b5 capture Pawns and survive, passing over friendly blockers. Captures c4→c7 and f5→f2 remove both non-Pawn target and attacker; counts become 5/5 and selection clears. Undo restores both; slow-motion cancellation leaves both unchanged. Reduced-motion removal gives the same outcome.
+- Maester c4↔d4 and Charcoal Maester f5↔e5 swaps move both figures, preserve counts at 4/4 and undo together. A swap with Guard b3 was canceled and then separately completed under reduced motion. Maester c4→c5 captures normally.
+- All three character previews support Hold pose, Reset, both army samples, keyboard activation and reduced motion; an army switch during a slow Paladin action cancels it. Full silhouettes and held poses inspected at portrait and board scale. All three previews and the 20-figure board fit 390 px without horizontal overflow; desktop board inspected at 1100×1100.
+- Seventeen focused tests pass, including the existing Archer/Pawn/Ogre/Knight/Bishop/Rook/Guard checks and new special-action/geometry cases. Source-cell alpha edges, stored PNG hashes, syntax and diff checks pass. No browser warnings/errors observed. Existing played tabs were not reloaded.
+
+These checks establish implemented behavior and inspected artwork, not owner acceptance. Physical touch and a complete game with kings/check remain outside this trial.

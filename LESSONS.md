@@ -2,6 +2,7 @@
 
 Reusable corrections. Pattern → rule.
 
+- A colour-only generated revision can also change framing and clip equipment. → Recheck alpha gutters, complete weapon edges and source registration after every revision, even when the prompt locks geometry. The Paladin required a separate framing correction after recolouring. (2026-09-26)
 - Board feedback can exist in the DOM and still be invisible below a tall board. → Responsive verification must check the actual status rectangle after board interaction, not only horizontal overflow or successful clicks. Zero-action selections must not instruct the player to choose a nonexistent marker. (2026-09-26)
 - Google Drive MCP `read_file_content` returned `{}` for every doc/sheet in this project. → Use `download_file_content` (base64) or, for link-shared files, `curl` the export URL (`/export?format=txt|xlsx`, `uc?export=download&id=`) and `gdown --folder` for folders.
 - macOS `base64` has no positional file arg. → `base64 -D -i in -o out`.

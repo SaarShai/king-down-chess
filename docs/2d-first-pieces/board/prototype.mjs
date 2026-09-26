@@ -1,5 +1,5 @@
 // Local visual/interaction prototype. The production game renderer is untouched.
-import { P,N,B,R,G,A,O,typeOf,colorOf,sqName,parseSq,makeMove } from './rules.mjs';
+import { P,N,B,R,Q,L,M,G,A,O,typeOf,colorOf,sqName,parseSq,makeMove } from './rules.mjs';
 import { layouts,createPosition,actionsFor,destination } from './model.mjs';
 import { clamp } from '../painted-mesh.mjs';
 import * as archer from '../wrist-bow/aiming.mjs';
@@ -9,14 +9,21 @@ import * as knight from '../knight/motion.mjs';
 import * as bishop from '../bishop/motion.mjs';
 import * as rook from '../rook/motion.mjs';
 import * as guard from '../guard/motion.mjs';
+import * as court from '../court-motion.mjs';
+import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 const $=id=>document.getElementById(id), scene=$('scene'), ctx=scene.getContext('2d'), detail=$('closeup').getContext('2d');
-const SIZE=960, PAD=32, TILE=112, names={ [P]:'Pawn',[N]:'Knight',[B]:'Bishop',[R]:'Rook',[G]:'Guard',[A]:'Archer',[O]:'Ogre' }, colours=['Ivory','Charcoal'];
-const art={ [P]:new Image(),[N]:new Image(),[B]:new Image(),[R]:new Image(),[G]:new Image(),[A]:new Image(),[O]:new Image() };
+const SIZE=960, PAD=32, TILE=112, names={ [P]:'Pawn',[N]:'Knight',[B]:'Bishop',[R]:'Rook',[Q]:'Queen',[L]:'Paladin',[M]:'Maester',[G]:'Guard',[A]:'Archer',[O]:'Ogre' }, colours=['Ivory','Charcoal'];
+const art=Object.fromEntries(Object.keys(names).map(type=>[type,new Image()]));
 const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.106,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
 specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
 specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.125};
 const newMotions={ [B]:bishop,[R]:rook,[G]:guard };
 for(const [type,scale] of [[B,.13],[R,.155],[G,.12]])specs[type]={anchor:newMotions[type].ANCHOR,hit:newMotions[type].HIT,scale};
+const courtNames={[Q]:'queen',[L]:'paladin',[M]:'maester'};
+for(const [type,name] of Object.entries(courtNames)){
+ specs[type]={anchor:court.ANCHOR,hit:court.HIT,scale:court.figures[name].scale};
+ newMotions[type]={DURATION:court.figures[name].duration,actionAt:court.actionAt};
+}
 const requestedLayout=new URLSearchParams(location.search).get('position');
 if(Object.hasOwn(layouts,requestedLayout))$('layout').value=requestedLayout;
 const idle=new Map(), work=new Map(), squares=new Map();
@@ -46,7 +53,7 @@ function sprite(value,angle=0,extension=0) {
  let canvas=staticPose?idle.get(key):work.get(type);
  if(canvas&&staticPose)return canvas;
  if(!canvas){canvas=document.createElement('canvas');canvas.width=1152;canvas.height=1152;(staticPose?idle:work).set(staticPose?key:type,canvas);}
- if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else if(type===N)knight.drawKnight(canvas,art[type],side,extension);else if(type===B)bishop.drawBishop(canvas,art[type],side,extension);else if(type===R)rook.drawRook(canvas,art[type],side,extension);else if(type===G)guard.drawGuard(canvas,art[type],side,extension);else pawn.drawPawn(canvas,art[type],side,angle,extension);
+ if(courtNames[type])court.drawCourt(canvas,art[type],courtNames[type],side,extension);else if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else if(type===N)knight.drawKnight(canvas,art[type],side,extension);else if(type===B)bishop.drawBishop(canvas,art[type],side,extension);else if(type===R)rook.drawRook(canvas,art[type],side,extension);else if(type===G)guard.drawGuard(canvas,art[type],side,extension);else pawn.drawPawn(canvas,art[type],side,angle,extension);
  return canvas;
 }
 function drawPiece(out,value,pose,opacity=1,extension=0) {
@@ -93,8 +100,20 @@ function render(time=performance.now()) {
  if(selected!==null&&poses.has(selected))Object.assign(poses.get(selected).pose,{angle:aimAngle,facing:aimFacing});
  let shot=null,hit=null;
  if(animation){
-  const a=animation,t=(time-a.start)/a.speed,actor=poses.get(a.move.from),victim=poses.get(a.move.shove?.from??a.move.captures[0]);
+  const a=animation,t=(time-a.start)/a.speed,actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
   if(a.type==='move')actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease(t/420))};
+  else if(a.type==='swap'){
+   const motion=swapAt(t/a.duration,a.from.foot,a.to.foot);
+   actor.pose={...a.from,foot:motion.actor};actor.extension=court.actionAt(t/a.duration);
+   victim.pose={...a.partner,foot:motion.partner};
+  }
+  else if(a.type==='paladin'){
+   const motion=chargeAt(t/a.duration),ground=mix(a.from.foot,a.to.foot,motion.travel);
+   const lift=Math.min(TILE*.42,Math.max(0,ground.y-150))*motion.lift;
+   actor.pose={...a.from,ground,lift,foot:{x:ground.x,y:ground.y-lift}};actor.extension=court.actionAt(t/a.duration);
+   if(victim){victim.opacity=1-clamp((t/a.duration-CHARGE_CONTACT)/.18,0,1);hit={point:a.target,t:(t/a.duration-CHARGE_CONTACT)/.22};}
+   if(a.move.selfRemove)actor.opacity=1-clamp((t/a.duration-.8)/.2,0,1);
+  }
   else if(a.type==='advance'){
    actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease(t/(a.duration*.65)))};
    actor.extension=newMotions[typeOf(a.value)].actionAt(t/a.duration);
@@ -134,9 +153,9 @@ function render(time=performance.now()) {
    else actor.pose={...a.from,angle:0};
   }
   if(a.closeup)drawEncounter(a,t);else $('encounter').hidden=true;
-  const impactTime=a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?a.duration*knight.LANDING:a.type==='advance'?a.duration*.5:440;
+  const impactTime=a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?a.duration*knight.LANDING:a.type==='paladin'?a.duration*CHARGE_CONTACT:a.type==='advance'?a.duration*.5:440;
   if(a.type==='knight'&&t>=a.duration*.35&&!a.airborne){a.airborne=true;$('status').textContent='Airborne. Clearing the intervening pieces…';}
-  if(a.type!=='move'&&t>=impactTime&&!a.contacted){a.contacted=true;$('status').textContent=a.type==='knight'?'Landed. Settling into stance…':'Hit. Recovering…';}
+  if(a.type!=='move'&&a.type!=='swap'&&t>=impactTime&&!a.contacted){a.contacted=true;$('status').textContent=a.move.selfRemove?'The Paladin and his target are removed together.':a.type==='knight'||(a.type==='paladin'&&!victim)?'Landed. Settling into stance…':'Hit. Recovering…';}
  }
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
@@ -167,23 +186,27 @@ function tick(time) {
 function wake(){if(ready&&!frame)frame=requestAnimationFrame(tick);}
 function describe(move,value) {
  const name=`${colours[colorOf(value)]} ${names[typeOf(value)]}`,from=sqName(move.from),to=sqName(destination(move));
+ if(move.swap)return `${name} swapped ${from} ↔ ${to}. Both pieces stay on the board.`;
+ if(move.selfRemove)return `${name} captured on ${to}. Both the Paladin and the target are removed.`;
  if(move.shove)return `${name} pushed ${to} → ${sqName(move.shove.to)} and followed to ${sqName(move.to)}.`;
  if(typeOf(value)===N)return `${name} leaped ${from} → ${to}${move.captures.length?' and captured':''}.`;
  return move.captures.length?(typeOf(value)===A?`${name} shot ${to} and stayed on ${from}.`:`${name} captured on ${to}.`):`${name} moved ${from} → ${to}.`;
 }
 function commit(move,value) {
  history.push({position,message:describe(move,value),lastSquares:[...lastSquares]});
- position=makeMove({...position,turn:colorOf(value)},move);lastSquares=[move.from,destination(move),...(move.shove?[move.shove.to]:[])];selected=move.to;hover=null;aimAngle=0;aimFacing=sideFacing(value);
+ position=makeMove({...position,turn:colorOf(value)},move);lastSquares=[move.from,destination(move),...(move.shove?[move.shove.to]:[])];selected=position.board[move.to]?move.to:null;hover=null;aimAngle=0;aimFacing=sideFacing(value);
  $('status').textContent=describe(move,value);updateUI();
 }
 function finish(){const {move,value}=animation;animation=null;$('encounter').hidden=true;commit(move,value);}
 function start(move) {
  if(animation||!ready)return;
  $('action-picker').close();
- const value=position.board[move.from],from=poseFor(value,move.from),to=poseFor(value,move.to),victimSquare=move.shove?.from??move.captures[0],victim=position.board[victimSquare];
+ const value=position.board[move.from],from=poseFor(value,move.from),to=poseFor(value,move.to),victimSquare=move.swap?move.to:move.shove?.from??move.captures[0],victim=position.board[victimSquare];
  if(reduced()){commit(move,value);wake();return;}
  const base={move,value,from,to,victim,start:performance.now(),speed:$('slow').checked?2.5:1,contacted:false};
- if(typeOf(value)===N){base.type='knight';base.duration=knight.DURATION;from.facing=Math.sign(to.foot.x-from.foot.x);}
+ if(move.swap){base.type='swap';base.duration=1100;base.partner=poseFor(victim,move.to);}
+ else if(typeOf(value)===N){base.type='knight';base.duration=knight.DURATION;from.facing=Math.sign(to.foot.x-from.foot.x);}
+ else if(typeOf(value)===L){base.type='paladin';base.duration=court.figures.paladin.duration;from.facing=Math.sign(to.foot.x-from.foot.x)||sideFacing(value);if(victim)base.target=world(specs[typeOf(victim)].hit,poseFor(victim,victimSquare),typeOf(victim));}
  else if(!victim){base.type='move';base.duration=420;const dx=to.foot.x-from.foot.x;from.facing=dx?Math.sign(dx):sideFacing(value);}
  else{
   const target=world(specs[typeOf(victim)].hit,poseFor(victim,victimSquare),typeOf(victim));
@@ -198,16 +221,17 @@ function start(move) {
    base.type='pawn';base.duration=1630;
    const contact=world(pawn.tipAt(pose.angle,colorOf(value),pawn.THRUST),pose,P);
    base.approach={x:pose.foot.x+target.x-contact.x,y:pose.foot.y+target.y-contact.y};
-  }else if(typeOf(value)===B||typeOf(value)===R){base.type='advance';base.duration=newMotions[typeOf(value)].DURATION;from.facing=pose.facing;}else{base.type='archer';base.duration=820;base.closeup=pose.outside;}
+  }else if([B,R,Q,M].includes(typeOf(value))){base.type='advance';base.duration=newMotions[typeOf(value)].DURATION;from.facing=pose.facing;}else{base.type='archer';base.duration=820;base.closeup=pose.outside;}
  }
- animation=base;$('status').textContent=base.type==='move'?'Moving…':base.type==='advance'?'Advancing to capture…':base.type==='knight'?'Preparing to leap…':base.type==='ogre'?'Bracing for contact…':base.closeup?'Taking aim · attack close-up.':'Taking aim…';updateUI();wake();
+ animation=base;$('status').textContent=base.type==='move'?'Moving…':base.type==='swap'?'Trading places…':base.type==='paladin'?(move.selfRemove?'Charging. This capture will remove both pieces…':'Preparing the Paladin’s charge…'):base.type==='advance'?'Advancing to capture…':base.type==='knight'?'Preparing to leap…':base.type==='ogre'?'Bracing for contact…':base.closeup?'Taking aim · attack close-up.':'Taking aim…';updateUI();wake();
 }
 function cancel(){animation=null;$('encounter').hidden=true;$('action-picker').close();hover=null;aimAngle=0;}
-function reset(){cancel();position=createPosition($('layout').value);history=[];lastSquares=[];selected=$('layout').value==='ranks'?parseSq('b3'):$('layout').value==='angles'?parseSq('d4'):parseSq('c4');aimFacing=1;$('status').textContent='Choose a marked square, or select any other piece.';updateUI();wake();}
+function reset(){cancel();position=createPosition($('layout').value);history=[];lastSquares=[];selected=$('layout').value==='ranks'?parseSq('b3'):$('layout').value==='angles'?parseSq('d4'):parseSq('c4');aimFacing=1;$('status').textContent=selectionPrompt();updateUI();wake();}
 function undo(){if(animation){cancel();$('status').textContent='Action canceled. The position is unchanged.';}else if(history.length){const last=history.pop();position=last.position;lastSquares=last.lastSquares;selected=null;hover=null;aimAngle=0;$('status').textContent='Last action undone. Choose either army.';}updateUI();wake();}
 function selectionPrompt(){
  if(selected===null)return 'Choose a piece from either army.';
  const value=position.board[selected],name=names[typeOf(value)];
+ if(actionsFor(position,selected).length&&typeOf(value)===L)return 'Choose a marked square. Capturing a non-Pawn removes the Paladin too.';
  if(actionsFor(position,selected).length)return `Choose a marked square for the ${name.toLowerCase()}.`;
  if(typeOf(value)===P){
   const ahead=selected+(colorOf(value)?-8:8),blocker=position.board[ahead];
@@ -229,18 +253,19 @@ function choose(square){
  else $('status').textContent=(actionsFor(position,selected).length?'That square is not available. ':'')+selectionPrompt();
  updateUI();wake();
 }
-function actionLabel(move,value){return move.shove?`Push ${sqName(move.shove.from)} → ${sqName(move.shove.to)}`:`${move.captures.length?(typeOf(value)===A?'Shoot':'Capture'):typeOf(value)===N?'Leap':'Move'} ${sqName(destination(move))}`;}
+function actionLabel(move,value){return move.swap?`Swap with ${sqName(move.to)}`:move.shove?`Push ${sqName(move.shove.from)} → ${sqName(move.shove.to)}`:`${move.captures.length?(typeOf(value)===A?'Shoot':'Capture'):typeOf(value)===N?'Leap':'Move'} ${sqName(destination(move))}${move.selfRemove?' · both removed':''}`;}
 function updateUI(){
  const value=selected===null?0:position.board[selected],moves=actionsFor(position,selected);
- for(const [sq,button] of squares){const v=position.board[sq],options=moves.filter(m=>destination(m)===sq),capture=options.some(m=>m.captures.length),push=options.some(m=>m.shove),kind=capture&&push?'capture or push':push?'push':capture?'attack':'move';button.className=`square${selected===sq?' selected':''}${options.length?(capture?' attack':'')+(push?' push':'')+(!capture&&!push?' move':''):''}${lastSquares.includes(sq)?' last':''}`;button.setAttribute('aria-pressed',String(selected===sq));button.setAttribute('aria-disabled',String(Boolean(animation)));button.setAttribute('aria-label',`${sqName(sq)}${v?`, ${colours[colorOf(v)]} ${names[typeOf(v)]}`:', empty'}${options.length?`, ${kind} available`:''}`);button.tabIndex=sq===(selected??parseSq('a1'))?0:-1;
+ for(const [sq,button] of squares){const v=position.board[sq],options=moves.filter(m=>destination(m)===sq),capture=options.some(m=>m.captures.length),push=options.some(m=>m.shove),swap=options.some(m=>m.swap),kind=swap?'swap':capture&&push?'capture or push':push?'push':capture?'attack':'move';button.className=`square${selected===sq?' selected':''}${options.length?(capture?' attack':'')+(push?' push':'')+(swap?' swap':'')+(!capture&&!push&&!swap?' move':''):''}${lastSquares.includes(sq)?' last':''}`;button.setAttribute('aria-pressed',String(selected===sq));button.setAttribute('aria-disabled',String(Boolean(animation)));button.setAttribute('aria-label',`${sqName(sq)}${v?`, ${colours[colorOf(v)]} ${names[typeOf(v)]}`:', empty'}${options.length?`, ${kind} available`:''}`);button.tabIndex=sq===(selected??parseSq('a1'))?0:-1;
+  button.title=options.some(m=>m.selfRemove)?'This capture removes the Paladin and his target.':'';
   if(push){const shove=options.find(m=>m.shove).shove,dx=Math.sign((shove.to&7)-(shove.from&7)),dy=Math.sign((shove.to>>3)-(shove.from>>3));button.dataset.pushArrow={'1,0':'→','-1,0':'←','0,1':'↑','0,-1':'↓','1,1':'↗','-1,1':'↖','1,-1':'↘','-1,-1':'↙'}[`${dx},${dy}`];}
  }
  $('allegiance').textContent=value?`${colours[colorOf(value)]} army`:'Choose a piece';$('piece-name').textContent=value?names[typeOf(value)]:'Your move.';
- $('description').textContent=!value?'Select a piece from either army to see its available actions.':typeOf(value)===A?'Aim the wrist bow at a marked enemy. The Archer captures without leaving her square.':typeOf(value)===B?'Move and capture along diagonals. Pieces block the path; the Guard cannot be captured.':typeOf(value)===R?'Move and capture along ranks and files. Pieces block the path; the Guard cannot be captured.':typeOf(value)===G?'Move one square in any direction to an empty square. The Guard cannot capture. Only a King can capture him; an Ogre can push him.':typeOf(value)===N?'Leap two squares in one direction and one across. Jump over pieces; capture only on the landing square.':typeOf(value)===O?'Move one square in any direction. Capture an enemy or push a neighbour into the empty square beyond, then follow.':'Advance into an empty square, or thrust at an enemy on a forward diagonal.';
- const moveCount=moves.filter(m=>!m.captures.length&&!m.shove).length,attackCount=moves.filter(m=>m.captures.length).length,pushCount=moves.filter(m=>m.shove).length;
+ $('description').textContent=!value?'Select a piece from either army to see its available actions.':typeOf(value)===Q?'Move and capture along clear ranks, files or diagonals. Pieces block the path; the Guard cannot be captured.':typeOf(value)===L?'Move along ranks, files or diagonals, passing over friends. Capturing a Pawn leaves the Paladin alive; capturing any other enemy removes him too. Guards block him.':typeOf(value)===M?'Move or capture one square in any direction, or swap with an adjacent friend. Swapping moves both pieces; it captures neither.':typeOf(value)===A?'Aim the wrist bow at a marked enemy. The Archer captures without leaving her square.':typeOf(value)===B?'Move and capture along diagonals. Pieces block the path; the Guard cannot be captured.':typeOf(value)===R?'Move and capture along ranks and files. Pieces block the path; the Guard cannot be captured.':typeOf(value)===G?'Move one square in any direction to an empty square. The Guard cannot capture. Only a King can capture him; an Ogre can push him.':typeOf(value)===N?'Leap two squares in one direction and one across. Jump over pieces; capture only on the landing square.':typeOf(value)===O?'Move one square in any direction. Capture an enemy or push a neighbour into the empty square beyond, then follow.':'Advance into an empty square, or thrust at an enemy on a forward diagonal.';
+ const moveCount=moves.filter(m=>!m.captures.length&&!m.shove&&!m.swap).length,attackCount=moves.filter(m=>m.captures.length).length,pushCount=moves.filter(m=>m.shove).length,swapCount=moves.filter(m=>m.swap).length;
  const selectionName=value?`${colours[colorOf(value)]} ${names[typeOf(value)]} · ${sqName(selected)}`:'';
- $('selection-state').textContent=value?`${selectionName} · ${moveCount} move${moveCount===1?'':'s'} · ${attackCount} attack${attackCount===1?'':'s'}${pushCount?` · ${pushCount} push${pushCount===1?'':'es'}`:''}`:'No piece selected';
- $('choices').replaceChildren();for(const m of moves){const b=document.createElement('button');b.textContent=actionLabel(m,value);b.className=m.shove?'push-action':m.captures.length?'capture':'';b.disabled=Boolean(animation);b.onclick=()=>start(m);b.onpointerenter=()=>{hover=destination(m);wake();};b.onfocus=()=>{hover=destination(m);wake();};$('choices').append(b);}
+ $('selection-state').textContent=value?`${selectionName} · ${moveCount} move${moveCount===1?'':'s'} · ${attackCount} attack${attackCount===1?'':'s'}${pushCount?` · ${pushCount} push${pushCount===1?'':'es'}`:''}${swapCount?` · ${swapCount} swap${swapCount===1?'':'s'}`:''}`:'No piece selected';
+ $('choices').replaceChildren();for(const m of moves){const b=document.createElement('button');b.textContent=actionLabel(m,value);b.className=m.swap?'swap-action':m.shove?'push-action':m.captures.length?'capture':'';b.disabled=Boolean(animation);b.onclick=()=>start(m);b.onpointerenter=()=>{hover=destination(m);wake();};b.onfocus=()=>{hover=destination(m);wake();};$('choices').append(b);}
  if(value&&!moves.length)$('selection-state').textContent=`${selectionName} · No available actions`;
  $('undo').disabled=!animation&&!history.length;
  for(const side of [0,1])$(side?'black-count':'white-count').textContent=Array.from(position.board).filter(v=>v&&colorOf(v)===side).length;
@@ -258,6 +283,6 @@ $('cancel-choice').onclick=()=>$('action-picker').close();
 $('reduced').onchange=()=>{if(animation)undo();else wake();};preference.addEventListener('change',()=>{$('reduced').checked=preference.matches;if(animation)undo();else wake();});
 updateUI();boardBackground();
 try{
- await Promise.all([[P,'../lance/pawn.png'],[A,'../wrist-bow/archer.png'],[O,'../ogre/ogre.png'],[N,'../knight/knight.png'],[B,'../bishop/bishop.png'],[R,'../rook/rook.png'],[G,'../guard/guard.png']].map(([type,url])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=url;})));
+ await Promise.all([[Q,'../queen/queen.png'],[L,'../paladin/paladin.png'],[M,'../maester/maester.png'],[P,'../lance/pawn.png'],[A,'../wrist-bow/archer.png'],[O,'../ogre/ogre.png'],[N,'../knight/knight.png'],[B,'../bishop/bishop.png'],[R,'../rook/rook.png'],[G,'../guard/guard.png']].map(([type,url])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=url;})));
  ready=true;reset();
 }catch{$('status').textContent='The artwork could not load. Reload the preview to try again.';}

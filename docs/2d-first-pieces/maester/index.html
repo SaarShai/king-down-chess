@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>King Down · the Maester</title><link rel="stylesheet" href="../aim-study.css">
+<body data-piece="maester"><main>
+<header><div><p class="eyebrow">King Down · painted 2D study</p><h1>The Maester</h1></div><nav><a href="../board/?position=maester">Try on the board</a> · <a href="../queen/">Queen</a> · <a href="../paladin/">Paladin</a> · <a href="../maester/">Maester</a></nav></header>
+<div class="layout"><section class="stage" aria-label="Maester motion preview">
+<canvas id="character" width="1152" height="1152" aria-hidden="true"></canvas>
+<svg id="scene" viewBox="0 0 1152 1152" role="button" tabindex="0" aria-label="Survey. Click or press Enter."><text x="576" y="1100" text-anchor="middle" class="target-label">PREPARE · HOLD · RECOVER</text></svg>
+</section><aside><h2>Survey. Exchange. Settle.</h2><p>Turquoise goggles, swept white hair, wrench and gear pack identify the Maester. A small rigid lean keeps all his tools and fingers intact; this is a whole-pose survey, not an independently moving hand.</p>
+<div class="army" aria-label="Choose army"><button data-side="0" aria-pressed="true">Ivory</button><button data-side="1" aria-pressed="false">Charcoal</button></div>
+<div class="actions"><button id="play" class="primary" disabled>Survey</button><button id="reset">Reset</button></div>
+<button id="hold" aria-pressed="false">Hold pose</button><p id="status" role="status">Loading artwork…</p>
+<label class="motion-option"><input type="checkbox" id="reduce-motion"> Reduce motion</label><label class="motion-option"><input type="checkbox" id="slow-motion"> Slow motion</label>
+<hr><h2>On the board</h2><p>Move or capture one square in any direction, or swap with an adjacent friendly piece. The board animates both figures trading places. Guards can be swapped with but cannot be captured.</p>
+<div class="samples"><div class="sample"><canvas id="sample-ivory" width="1152" height="1152" role="img" aria-label="Ivory Maester at board size"></canvas></div><div class="sample dark"><canvas id="sample-charcoal" width="1152" height="1152" role="img" aria-label="Charcoal Maester at board size"></canvas></div></div>
+<div class="links"><a href="maester.png">Full-size artwork</a><a href="original-reference.png">Original reference</a><a href="README.md">Study notes</a></div></aside></div>
+<footer>Original character identity · complete silhouette · ivory and charcoal · restrained motion</footer></main>
+<style>.sample canvas{width:134px;height:134px}.motion-option+.motion-option{margin-top:8px}#hold{font-size:13px;margin-bottom:12px}header nav{max-width:330px;text-align:right;line-height:1.8}</style>
+<script type="module" src="../court-study.mjs"></script></body></html>

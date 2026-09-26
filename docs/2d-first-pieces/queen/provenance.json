@@ -1,0 +1,14 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-09-26",
+  "output": "queen.png",
+  "sha256": "60e88233004ee9a93849085473d5261fa7ad126b668b430a5d57c77bc8076a2d",
+  "generated_source": "/Users/za/.codex/generated_images/01a0d713-920a-73a1-bafb-c4a58ede1dfc/exec-4484f2e3-3ee6-42bd-9611-b2ff126acab4.png",
+  "original_source": "/Users/za/Documents/king down chess/art-src/pieces/final-ivory/Queen.png",
+  "original_copy": "original-reference.png",
+  "style_reference": "../knight/knight.png",
+  "prompts": [
+    "prompt.txt"
+  ],
+  "treatment": "Unmodified generated PNG copied into the project. Source-cell registration and motion happen at runtime; alpha preserved."
+}

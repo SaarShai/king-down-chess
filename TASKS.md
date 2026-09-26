@@ -1,5 +1,11 @@
 # Tasks
 
+## Painted Queen, Paladin and Maester — 2026-09-26
+- Owner: do more pieces. Add these three directly, using original character references and the accepted painted style, ivory/charcoal dominant colours and complete silhouettes.
+- Plan: generate and inspect coherent army pairs; add restrained character motions/previews; integrate into the board with production Queen rays, Paladin friendly-piece jumping/capture outcome, and visible Maester swaps. Preserve the played board and production game.
+- Verify: source identity, anatomy/equipment, army registration and board-scale readability; both-army legal actions and special outcomes, cancellation/Undo, reduced motion and mobile layout. Save prompts/provenance and focused regression evidence.
+- [x] Queen, Paladin and Maester army pairs, shared restrained motions, character previews and ten-piece cast integrated. Both-army captures, Paladin survival/removal, Maester two-piece swaps, Undo/cancellation, reduced motion and 390 px layouts verified. Seventeen tests pass; original references, exact prompts, image hashes and [browser evidence](docs/2d-first-pieces/board/README.md#queen-paladin-and-maester) saved. Paladin palette/framing corrected before adoption. Artwork awaits owner review; production game and prior played positions remain unchanged.
+
 ## Painted-board troubleshooting — 2026-09-26
 - Owner: troubleshoot the combined cast. Preserve the current played position; reproduce in a separate browser tab. The owner has not specified a symptom yet.
 - Confirmed: at 765×995, selection details start at y=1008 and move feedback at y=1080, below the viewport. A blocked Pawn with zero actions is told to choose a marked square.

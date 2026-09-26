@@ -1,0 +1,16 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-09-26",
+  "output": "paladin.png",
+  "sha256": "87e3521d9ec58566b497624412d94e5f437711f5d51cf55800fe7ce00d9f9147",
+  "generated_source": "/Users/za/.codex/generated_images/01a0d713-920a-73a1-bafb-c4a58ede1dfc/exec-c2e0cd10-1f9d-4dc6-9a7b-9f88d13ab9d8.png",
+  "original_source": "/Users/za/Documents/king down chess/art-src/pieces/final-ivory/Paladin.colored2_no_shadow.png",
+  "original_copy": "original-reference.png",
+  "style_reference": "../knight/knight.png",
+  "prompts": [
+    "prompt.txt",
+    "revision-prompt.txt",
+    "framing-prompt.txt"
+  ],
+  "treatment": "Unmodified generated PNG copied into the project. Source-cell registration and motion happen at runtime; alpha preserved."
+}
