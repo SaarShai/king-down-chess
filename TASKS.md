@@ -1,5 +1,12 @@
 # Tasks
 
+## Interactive painted board trial — 2026-09-26
+- Owner: try the Pawn and Archer together on a 2D board with selection, movement, targeted attacks, captures and recovery.
+- Plan: build an isolated board prototype using the accepted painted assets and native motion; reuse the existing rules for these pieces, let the owner control either army, and make square occupancy/possible actions clear. Resolve attack facing without bending the artwork beyond its authored range. Leave the playable game intact.
+- Facing choice: Pawn captures approach a contact position before the jab. Archer shots outside the painted arm's range use a brief encounter close-up with the actual victim. This explicitly tests the need for additional directional art.
+- Verify: both armies move and capture correctly, Archer shoots without moving, Pawn occupies its capture square, target contact aligns, overlap does not block square picking, Undo/Reset cancels motion, keyboard/reduced-motion/mobile controls work. Record limitations and visual findings.
+- [x] Implemented [combined board trial](docs/2d-first-pieces/board/README.md): three positions, production piece rules, both armies, selection/aiming/movement/captures, Undo/Reset, keyboard and reduced motion. Browser checks cover both armies, lance contact, steep shot, blocked move, cancellation, and desktop/phone layouts. Await owner review; quiet movement glides and steep Archer shots use the encounter panel.
+
 ## Pawn lance aiming — 2026-09-26
 - Owner: apply the accepted continuous 2D aiming approach to the Pawn and his lance.
 - Plan: preserve the Pawn's painted helmet/shield identity and army colours; make a coherent one-handed ready pose if needed, then animate the arm and rigid lance together with pointer aiming and a short thrust/recovery. Keep the accepted Archer working.

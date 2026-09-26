@@ -302,3 +302,7 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 ## 2026-09-26 — rigid weapons and source-sheet registration
 - Deforming a complete already-aimed figure by image height can bend a long weapon when its lowered tip enters the stance region. → Apply weight shift to the body, then draw the aimed arm/weapon with one rigid thrust translation. Check actual low-angle contact as well as neutral motion.
 - Generated army pairs can drift from equal cell boundaries. → Inspect the alpha gutter and calibrate each army's source window, pivot and display origin; preserve complete shield edges and tips without destructive recropping.
+
+## 2026-09-26 — aiming drawings on a real board
+- A convincing sideways aiming study does not supply every facing a top-down board needs. → Keep the authored angle limits explicit. Test actual opponents and contact coordinates; use additional facing art before claiming fully directional motion. The board trial's steep-shot encounter panel is an experiment, not owner approval of that presentation.
+- Equipment can extend beyond a figure's occupied square. → Keep input tied to square occupancy, with visual selection/target markers, rather than letting overlapping sprite bounds capture a neighbouring piece's clicks.

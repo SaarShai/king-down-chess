@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>King Down · painted board trial</title>
+<link rel="stylesheet" href="board.css">
+<main>
+<header><div><p class="eyebrow">King Down · interactive 2D trial</p><h1>A small encounter.</h1></div><nav><a href="../lance/">Pawn</a><a href="../wrist-bow/">Archer</a><a href="../">Art study</a></nav></header>
+<p class="intro">Two pieces, on the board. Choose either army. Move to a green dot or attack a copper ring.</p>
+<div class="toolbar"><label>Position <select id="layout"><option value="crossfire">Crossfire</option><option value="ranks">Close ranks</option><option value="angles">Archer angles</option></select></label><div class="toolbar-actions"><button id="undo" disabled>Undo</button><button id="reset">Reset position</button></div></div>
+<div class="layout">
+<section class="board-shell" aria-label="Interactive painted board">
+ <div id="board"><canvas id="scene" width="960" height="960" aria-hidden="true"></canvas><div id="squares" role="group" aria-label="Board squares"></div>
+ <div id="encounter" hidden><p id="encounter-title"></p><canvas id="closeup" width="900" height="480" role="img" aria-label="Attack close-up of the selected piece and its actual opponent"></canvas></div></div>
+ <div class="legend"><span><i class="move-dot"></i> Move</span><span><i class="capture-dot"></i> Attack</span><span><i class="selected-dot"></i> Selected</span></div>
+</section>
+<aside>
+ <p class="eyebrow" id="allegiance">Choose a piece</p><h2 id="piece-name">Your move.</h2>
+ <p id="description">Select a Pawn or Archer from either army to see its available actions.</p>
+ <div id="selection-state" class="selection-state">No piece selected</div>
+ <p id="status" role="status" aria-live="polite">Loading artwork…</p>
+ <div id="choices" aria-label="Available actions"></div>
+ <div class="options"><label><input id="slow" type="checkbox"> Slow motion</label><label><input id="reduced" type="checkbox"> Reduce motion</label></div>
+ <div class="count-row"><span>Ivory <strong id="white-count">0</strong></span><span>Charcoal <strong id="black-count">0</strong></span></div>
+ <p class="note">Free play with both armies. No turns, check or promotion in this trial.</p>
+ <p class="note">Steep Archer shots use a close-up. Additional facing artwork is the next visual test.</p>
+ <details><summary>Controls &amp; recent moves</summary><p class="note">Click or tap a piece, then a marked square. Arrow keys move keyboard focus; Enter selects. Escape clears selection. Undo cancels an action in progress.</p><ol id="history"></ol></details>
+</aside>
+</div>
+<footer><span>Painted figures · current piece movement rules · local prototype</span><a href="README.md">Study notes</a></footer>
+</main>
+<script type="module" src="prototype.mjs"></script>
+</html>
