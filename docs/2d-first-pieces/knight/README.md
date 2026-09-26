@@ -12,9 +12,9 @@ Generated PNG and alpha are copied unchanged. SHA-256: `5276928ef44bf43a18691387
 
 ## Motion and rules
 
-Native Canvas moves one coherent pose through a preparatory tilt, an eased airborne arc, landing and a small settling bounce. Hands, spear and body keep their proportions. The shadow stays on the board plane; the arc lowers near the top edge to preserve the full spear. This is whole-figure motion, not a newly drawn leg cycle, independent spear strike or skeletal rig.
+Native Canvas bends the knees before takeoff, straightens into an eased airborne arc, then flexes the knees on landing. A connected mesh follows two fixed-length leg guides; the boots, spear and gripping hand remain planted during the crouch. The torso lowers 48 source pixels, with a small shoulder transition. The shadow stays on the board plane; the arc lowers near the top edge to preserve the full spear. This is a shallow crouch made from the accepted painting, not a walking cycle, new facing or independent spear strike. The mesh interpolates painted armour around the leg guides; the original image remains unchanged.
 
-The preview supports both armies, back-and-forth leaps over a stationary Pawn, click/Enter, Reset, slow and reduced motion. It demonstrates motion at approximately the figures' relative board sizes; the board demonstrates the actual L-shaped destinations. The board uses the production engine: two squares along one axis and one along the other, no obstruction by intervening pieces, no friendly landing. Captures occur at the landing square. Production game and rules remain unchanged.
+The preview supports both armies, back-and-forth leaps over a stationary Pawn, click/Enter, a held Crouch pose for inspection, Reset, slow and reduced motion. It demonstrates motion at approximately the figures' relative board sizes; the board demonstrates the actual L-shaped destinations. The board uses the production engine: two squares along one axis and one along the other, no obstruction by intervening pieces, no friendly landing. Captures occur at the landing square. Production game and rules remain unchanged.
 
 Try Ivory c4 → e5 (Pawn capture), c4 → d6 (Ogre capture), or Charcoal f5 → d4. Friendly b2/a5 are not offered to the Ivory Knight. Undo restores the source and captured piece; active Undo/Reset cancels before committing.
 
@@ -32,3 +32,7 @@ node --test docs/2d-first-pieces/knight/motion.test.mjs docs/2d-first-pieces/ogr
 ```
 
 Server and rule-bundle rebuild commands are in [the board notes](../board/README.md).
+
+### Knee-bend revision
+
+Owner requested visible knee flexion before jumping. Both armies’ held crouch, takeoff and landing were inspected in the browser; board capture, Undo and mid-action cancellation checked. The 1.35 second action now spends its first 28% crouching/extending with no translation or altitude. Landing includes a smaller planted knee flexion instead of bouncing the entire sprite. 101 crouch amounts (31,512 triangles) preserve triangle orientation, the two leg-guide lengths, spear/grip and boot points. Crouch clears on Reset, army change and reduced-motion selection.

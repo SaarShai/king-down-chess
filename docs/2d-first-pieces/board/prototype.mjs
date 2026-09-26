@@ -41,7 +41,7 @@ function sprite(value,angle=0,extension=0) {
  let canvas=staticPose?idle.get(key):work.get(type);
  if(canvas&&staticPose)return canvas;
  if(!canvas){canvas=document.createElement('canvas');canvas.width=1152;canvas.height=1152;(staticPose?idle:work).set(staticPose?key:type,canvas);}
- if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else if(type===N)knight.drawKnight(canvas,art[type],side);else pawn.drawPawn(canvas,art[type],side,angle,extension);
+ if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else if(type===N)knight.drawKnight(canvas,art[type],side,extension);else pawn.drawPawn(canvas,art[type],side,angle,extension);
  return canvas;
 }
 function drawPiece(out,value,pose,opacity=1,extension=0) {
@@ -94,6 +94,7 @@ function render(time=performance.now()) {
    // Keep the complete spear visible when jumping along the board's top edge.
    const lift=Math.min(TILE*.7,Math.max(0,ground.y-specs[N].scale*1000-12))*motion.lift;
    actor.pose={...a.from,ground,lift,foot:{x:ground.x,y:ground.y-lift},rotation:motion.rotation};
+   actor.extension=motion.crouch;
    const landing=a.duration*knight.LANDING;
    if(victim)victim.opacity=1-clamp((t-landing)/120,0,1);
    hit={point:a.to.foot,t:(t-landing)/180};

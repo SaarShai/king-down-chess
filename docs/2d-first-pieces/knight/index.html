@@ -10,9 +10,9 @@
 <svg id="scene" viewBox="0 0 1000 1000" role="button" tabindex="0" aria-label="Leap over the Pawn. Click or press Enter."><text x="500" y="966" text-anchor="middle" class="target-label">OVER THE PAWN · LAND ON THE OTHER SIDE</text></svg>
 </section><aside>
 <h2>Over the front line.</h2>
-<p>The horse-head helmet, spear and cape keep his original identity. His leap clears other pieces, then settles into a firm landing.</p>
+<p>The horse-head helmet, spear and cape keep his original identity. His leap clears other pieces, with bent knees before takeoff and a softer landing.</p>
 <div class="army" aria-label="Choose army"><button data-side="0" aria-pressed="true">Ivory</button><button data-side="1" aria-pressed="false">Charcoal</button></div>
-<div class="actions"><button id="leap" class="primary">Leap</button><button id="reset">Reset</button></div>
+<div class="actions"><button id="leap" class="primary">Leap</button><button id="crouch" aria-pressed="false">Crouch</button><button id="reset">Reset</button></div>
 <p id="status" role="status">Ready. Leap over the Pawn.</p>
 <label class="motion-option"><input type="checkbox" id="reduce-motion"> Reduce motion</label>
 <label class="motion-option"><input type="checkbox" id="slow-motion"> Slow motion</label>
@@ -27,16 +27,17 @@ import {drawPawn} from '../lance/aiming.mjs';
 const $=id=>document.getElementById(id),ctx=$('character').getContext('2d'),art=new Image(),pawnArt=new Image(),preference=matchMedia('(prefers-reduced-motion: reduce)');
 const figures=[0,1].map(()=>Object.assign(document.createElement('canvas'),{width:1152,height:1152}));
 const pawn=document.createElement('canvas');pawn.width=pawn.height=1152;
-let side=0,right=false,facing=1,action=null,frame=0,ready=false;
+let side=0,right=false,facing=1,action=null,frame=0,ready=false,heldCrouch=false;
 $('reduce-motion').checked=preference.matches;
 function draw(progress=0){
  ctx.clearRect(0,0,1000,1000);
  ctx.fillStyle='#e7e5d4';ctx.fillRect(110,866,220,48);ctx.fillRect(670,866,220,48);
  ctx.strokeStyle='#b3b7a0';ctx.lineWidth=2;ctx.setLineDash([6,10]);ctx.beginPath();ctx.moveTo(335,890);ctx.lineTo(665,890);ctx.stroke();ctx.setLineDash([]);
- const motion=action?leapAt(progress):{travel:0,lift:0,rotation:0},fromRight=action?action.fromRight:right;
+ const motion=action?leapAt(progress):{travel:0,lift:0,rotation:0,crouch:heldCrouch?1:0},fromRight=action?action.fromRight:right;
  const x=fromRight?750-500*motion.travel:250+500*motion.travel,lift=motion.lift*365;
  ctx.fillStyle='#3b42232b';ctx.beginPath();ctx.ellipse(x,893,72*(1-motion.lift*.32),10,0,0,Math.PI*2);ctx.fill();
  ctx.save();ctx.translate(500,895);ctx.scale(.465,.465);ctx.drawImage(pawn,-330,-870);ctx.restore();
+ drawKnight(figures[side],art,side,motion.crouch);
  ctx.save();ctx.translate(x,895-lift);ctx.scale(facing*.44,.44);ctx.rotate(motion.rotation);ctx.drawImage(figures[side],-ANCHOR.x,-ANCHOR.y);ctx.restore();
 }
 function tick(now){frame=0;if(!action)return;const t=Math.min(1,(now-action.start)/action.duration);draw(t);
@@ -44,10 +45,11 @@ function tick(now){frame=0;if(!action)return;const t=Math.min(1,(now-action.star
  if(t>=LANDING&&!action.landed){action.landed=true;$('status').textContent='Landed. Settling into stance…';}
  if(t===1){right=!action.fromRight;action=null;$('leap').disabled=false;draw();$('status').textContent='Ready on the other side. Leap again to return.';}else frame=requestAnimationFrame(tick);
 }
-function reset(){if(frame)cancelAnimationFrame(frame);frame=0;action=null;right=false;facing=1;$('leap').disabled=false;if(ready)draw();$('status').textContent='Ready. Leap over the Pawn.';}
-function leap(){if(!ready||action)return;facing=right?-1:1;if($('reduce-motion').checked){right=!right;draw();$('status').textContent='Leap complete. Motion reduced.';return;}
- action={fromRight:right,start:performance.now(),duration:DURATION*($('slow-motion').checked?3:1),airborne:false,landed:false};$('leap').disabled=true;$('status').textContent='Preparing to leap…';frame=requestAnimationFrame(tick);
+function reset(){if(frame)cancelAnimationFrame(frame);frame=0;action=null;right=false;facing=1;heldCrouch=false;$('crouch').setAttribute('aria-pressed','false');$('leap').disabled=false;if(ready)draw();$('status').textContent='Ready. Leap over the Pawn.';}
+function leap(){if(!ready||action)return;const offset=heldCrouch?.19:0;heldCrouch=false;$('crouch').setAttribute('aria-pressed','false');facing=right?-1:1;if($('reduce-motion').checked){right=!right;draw();$('status').textContent='Leap complete. Motion reduced.';return;}
+ const duration=DURATION*($('slow-motion').checked?3:1);action={fromRight:right,start:performance.now()-offset*duration,duration,airborne:false,landed:false};$('leap').disabled=true;$('status').textContent='Preparing to leap…';frame=requestAnimationFrame(tick);
 }
+$('crouch').onclick=()=>{if(!ready||action)return;heldCrouch=!heldCrouch;$('crouch').setAttribute('aria-pressed',String(heldCrouch));draw();$('status').textContent=heldCrouch?'Knees bent. Boots planted.':'Ready. Leap over the Pawn.';};
 $('leap').onclick=leap;$('reset').onclick=reset;$('scene').onclick=leap;
 $('scene').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();leap();}};
 for(const button of document.querySelectorAll('[data-side]'))button.onclick=()=>{side=Number(button.dataset.side);reset();if(ready)drawPawn(pawn,pawnArt,side,0);draw();for(const b of document.querySelectorAll('[data-side]'))b.setAttribute('aria-pressed',String(b===button));};
