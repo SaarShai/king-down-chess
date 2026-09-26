@@ -1,0 +1,69 @@
+{
+  "artwork": "archer.png",
+  "sha256": "dc6aa5839284efe45aaf2a5bb432356f1d805f82369938d2c066ce80acd14135",
+  "dimensions": [
+    1536,
+    1024
+  ],
+  "mode": "RGBA",
+  "alpha_range": [
+    0,
+    254
+  ],
+  "alpha_preserved_without_processing": true,
+  "cells": [
+    [
+      0,
+      0,
+      768,
+      1024
+    ],
+    [
+      768,
+      0,
+      768,
+      1024
+    ]
+  ],
+  "visible_bounds_per_cell_alpha_above_16": [
+    [
+      122,
+      36,
+      756,
+      970
+    ],
+    [
+      115,
+      36,
+      749,
+      970
+    ]
+  ],
+  "visual_review": [
+    "whole figure and full boots on both armies",
+    "shoulder, elbow, wrist and hand proportions in the aiming and relaxed arms",
+    "compact wrist device secured to the forearm",
+    "portrait and board-scale views",
+    "army palette and copper/green recognition details"
+  ],
+  "browser_checks": [
+    "ivory standalone shot completion",
+    "charcoal target activated with keyboard Enter",
+    "standalone reset during shot",
+    "army switch resets shot state",
+    "board ivory and charcoal shot completion",
+    "board slow shot canceled by reset",
+    "Pawn five-frame controls restored and advance completes",
+    "no warnings or errors in browser log"
+  ],
+  "syntax_checks": [
+    "wrist-bow page module",
+    "two-piece page module"
+  ],
+  "limitations": [
+    "one complete firing pose per army, not separate raise/reload pose frames",
+    "recoil translates the entire sprite; no articulated arm or hand animation",
+    "owner acceptance remains pending"
+  ],
+  "responsive_breakpoint_tested": false
+}

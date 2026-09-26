@@ -2,6 +2,10 @@
 
 Researched 2026-09-25. Owner rejected revision `1acbaeb` as much worse. This records a recommended method, not a completed replacement animation. Work was performed directly; no delegation, purchases, installs or external uploads.
 
+## Current owner decision — 2026-09-26
+
+The owner rejected the 3D-rendered experiment and chose **painted 2D with the original wrist bow**, explicitly requiring correct arm proportions. The [wrist-bow revision](../2d-first-pieces/wrist-bow/README.md) is now the active art study. It uses one complete illustrated pose per army with restrained recoil/projectile effects, so the runtime does not stretch or reassemble her arms. The routes below remain research/history, not authorization to restart a rig or 3D production campaign.
+
 ## Follow-up: a different representation, not another cutout tool
 
 The owner again identified the arms/hands as unacceptable and requested a different method. The earlier Spine recommendation below is retained as research, not an adopted implementation decision.

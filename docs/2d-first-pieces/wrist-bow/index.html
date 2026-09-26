@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>King Down · wrist-bow Archer</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eeeade;color:#303428;font:16px/1.55 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:26px}header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:22px}.eyebrow{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#677251;margin:0 0 6px}h1,h2{font-family:Georgia,serif;font-weight:400;line-height:1.1}h1{font-size:38px;margin:0}h2{font-size:24px;margin:0 0 12px}a{color:inherit;text-underline-offset:4px}header a{font-size:13px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:28px}.stage{align-self:start;border:1px solid #c9c8b8;border-radius:12px;background:#f7f4e9;overflow:hidden}.stage>svg{display:block;width:100%;height:auto;max-height:calc(100dvh - 165px)}#target{cursor:pointer;outline:none}#target:focus-visible circle{stroke:#bb8136;stroke-width:5}#bolt,#flash,#hit{opacity:0}#target.hit #bullseye{opacity:.18}.target-label{font:18px system-ui;fill:#858a78;letter-spacing:2px}aside{padding:14px 0}p{margin:0 0 18px}.note{font-size:13px;color:#727460}.army{display:flex;gap:8px;margin-bottom:20px}button{font:inherit;cursor:pointer;border:1px solid #a0a58f;border-radius:5px;padding:10px 14px;background:transparent;color:inherit}button[aria-pressed=true],.primary{background:#3b4a35;border-color:#3b4a35;color:#fff}button:hover{filter:brightness(.95)}button:focus-visible{outline:3px solid #b7a15d;outline-offset:3px}button:disabled{opacity:.65;cursor:default}.actions{display:grid;grid-template-columns:1fr auto;gap:8px;margin:22px 0 10px}.primary{font-size:14px;font-weight:600}.actions button:last-child{font-size:13px}#status{font-size:13px;min-height:42px;color:#657150}hr{border:0;border-top:1px solid #cecfbf;margin:24px 0}.samples{display:flex;gap:10px}.sample{display:grid;place-items:center;width:126px;height:166px;border-radius:5px;background:#e0ddca;border:1px solid #cdcebe}.sample.dark{background:#727e69}.sample svg{display:block;height:150px;width:112.5px}.links{font-size:12px;margin-top:18px;display:flex;gap:14px;flex-wrap:wrap}footer{font-size:12px;color:#757665;margin:18px 0} @media(max-width:720px){main{padding:18px}h1{font-size:29px}header a{font-size:11px}.layout{grid-template-columns:minmax(0,1fr);gap:16px}aside{padding:0}.stage>svg{max-height:65vh}.samples{justify-content:center}.sample{width:140px}.actions{margin-top:14px}}
+</style>
+<main>
+<header><div><p class="eyebrow">King Down · painted 2D study</p><h1>The wrist-bow Archer</h1></div><a href="../">First two pieces</a></header>
+<div class="layout">
+<section class="stage" aria-label="Archer firing preview">
+<svg viewBox="0 0 1152 1088" role="group" aria-label="Full-length Archer aiming her wrist bow at a target">
+<g id="character"><svg id="figure" x="0" y="32" width="768" height="1024" viewBox="0 0 768 1024" overflow="hidden" role="img" aria-label="Ivory Archer with wrist-mounted bow"><image href="archer.png" width="1536" height="1024"/></svg></g>
+<g id="muzzle" transform="translate(756 248)"><g id="flash" stroke="#83923e" stroke-width="3"><path d="M-7 -13L3 -4M0 -17L3 -6M15 -10L7 -3M16 9L7 3M-3 14L1 5"/></g><g id="bolt"><path d="M-38 0H0" stroke="#6a4a2b" stroke-width="3"/><path d="M1 0L-10 -5L-7 0L-10 5Z" fill="#87959a"/><path d="M-36 0L-42 -6L-28 -3M-36 0L-42 6L-28 3" fill="#88995b"/></g></g>
+<g id="target" transform="translate(1064 248)" role="button" tabindex="0" aria-label="Fire at the target"><circle r="55" fill="transparent"/><g id="bullseye" fill="none" stroke="#939a7d" stroke-width="2"><circle r="31"/><circle r="18"/><path d="M-40 0H40M0 -40V40" stroke-width="1"/></g><circle id="hit" r="31" fill="none" stroke="#ad783b" stroke-width="4"/><text class="target-label" text-anchor="middle" y="73">TARGET</text></g>
+</svg></section>
+<aside>
+<h2>Archer, simplified.</h2>
+<p>A compact bow strapped to her forearm. One arm aims; the other rests naturally at her side.</p>
+<div class="army" aria-label="Choose army"><button type="button" data-side="0" aria-pressed="true">Ivory</button><button type="button" data-side="1" aria-pressed="false">Charcoal</button></div>
+<div class="actions"><button type="button" class="primary" id="fire">Fire wrist bow</button><button type="button" id="reset">Reset</button></div>
+<p id="status" role="status" aria-live="polite">Ready. Click the target or fire the wrist bow.</p>
+<p class="note">Shot study: a bolt and small recoil. The complete painted figure keeps its proportions throughout.</p>
+<hr>
+<h2>On the board</h2>
+<div class="samples"><div class="sample"><svg viewBox="0 0 768 1024" role="img" aria-label="Ivory wrist-bow Archer at board size"><image href="archer.png" width="1536" height="1024"/></svg></div><div class="sample dark"><svg viewBox="768 0 768 1024" role="img" aria-label="Charcoal wrist-bow Archer at board size"><image href="archer.png" width="1536" height="1024"/></svg></div></div>
+<div class="links"><a href="archer.png">Full-size artwork</a><a href="README.md">Study notes</a></div>
+</aside>
+</div><footer>Original King Down Archer used as the design reference. Complete figures · ivory and charcoal · copper braid and green accents.</footer>
+</main>
+<script type="module">
+const $=id=>document.getElementById(id), reduce=matchMedia('(prefers-reduced-motion: reduce)');
+let running=false, revision=0, motions=[];
+function reset(){revision++;for(const motion of motions)motion.cancel();motions=[];running=false;$('fire').disabled=false;$('target').classList.remove('hit');$('bolt').style.opacity=0;$('flash').style.opacity=0;$('hit').style.opacity=0;$('status').textContent='Ready. Click the target or fire the wrist bow.';}
+function animate(node,frames,options){const motion=node.animate(frames,options);motions.push(motion);return motion;}
+async function fire(){
+ if(running)return;reset();running=true;$('fire').disabled=true;const run=revision;$('status').textContent='Firing…';
+ if(!reduce.matches){
+  $('bolt').style.opacity=1;
+  animate($('character'),[{transform:'translateX(0px)'},{transform:'translateX(-5px)',offset:.2},{transform:'translateX(0px)'}],{duration:320,easing:'ease-out'});
+  animate($('flash'),[{opacity:0},{opacity:.8,offset:.15},{opacity:0}],{duration:140});
+  try{await animate($('bolt'),[{transform:'translateX(0px)'},{transform:'translateX(308px)'}],{duration:220,easing:'linear',fill:'forwards'}).finished;}catch{return;}
+ }
+ if(run!==revision)return;$('bolt').style.opacity=0;$('target').classList.add('hit');
+ if(!reduce.matches){try{await animate($('hit'),[{opacity:.8,transform:'scale(.6)'},{opacity:0,transform:'scale(1.7)'}],{duration:270,easing:'ease-out'}).finished;}catch{return;}}
+ if(run!==revision)return;running=false;$('fire').disabled=false;$('status').textContent='Hit. The Archer stays in place. Fire again or reset.';
+}
+$('fire').addEventListener('click',fire);$('reset').addEventListener('click',reset);$('target').addEventListener('click',fire);
+$('target').addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();fire();}});
+for(const button of document.querySelectorAll('[data-side]'))button.addEventListener('click',()=>{reset();const side=Number(button.dataset.side);$('figure').setAttribute('viewBox',`${side*768} 0 768 1024`);$('figure').setAttribute('aria-label',`${side?'Charcoal':'Ivory'} Archer with wrist-mounted bow`);for(const other of document.querySelectorAll('[data-side]'))other.setAttribute('aria-pressed',String(other===button));});
+reduce.addEventListener('change',reset);
+</script>
+</html>

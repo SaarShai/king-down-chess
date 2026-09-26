@@ -1,5 +1,7 @@
 # Archer: one rendered-sprite experiment
 
+**Owner rejected this direction on 2026-09-26.** Continue with the [painted 2D wrist-bow Archer](../wrist-bow/README.md); retain this experiment only as history.
+
 2026-09-26. The owner asked to try a different method after rejecting the SVG arms/hands. This is **one full-draw still**, not an animation or an adopted replacement.
 
 Open [the study](http://127.0.0.1:5192/rendered-study/) for the full figure, 128 px image-height previews, and light/dark/green backgrounds. The existing game remains at port 5189.

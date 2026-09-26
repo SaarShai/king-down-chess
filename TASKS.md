@@ -1,11 +1,17 @@
 # Tasks
 
+## 2D wrist-bow Archer — 2026-09-26
+- Owner rejected the rendered 3D study. Return to illustrated 2D, use her original wrist bow and correct arm proportions.
+- Plan: use the original Archer and preferred painted sheet as references; make a complete firing silhouette with a compact forearm-mounted bow and natural arms; show both army colours at portrait and board scale, then use restrained recoil/projectile motion without stretching limb artwork.
+- Verify: shoulders/elbows/wrists and hands visually, weapon attachment, complete feet/equipment, dominant army colours, clean transparency and working shot/reset behavior. No claim that generated poses establish anatomical correctness without viewing them.
+- [x] Revised ivory/charcoal artwork and shot previews delivered: [wrist-bow study](docs/2d-first-pieces/wrist-bow/README.md). Complete arms/hands visually reviewed; fixed artwork preserves proportions during recoil. Two-piece board uses the new Archer; both armies, keyboard fire, reset/cancellation and Pawn advance checked. Exact prompt and unmodified generated PNG preserved. This is one firing pose with effects, not a full raise/reload animation.
+
 ## Archer rendered-sprite proof — 2026-09-26
 - Owner: try the proposed whole-character 3D-to-2D method; first deliverable is one full-draw still.
 - Plan: inspect the original sculpt; use coherent anatomy with poseable hands, a fixed camera and an ivory palette; save editable source and assess the actual render before animation.
 - Verify: full silhouette, hand/bow contact and anatomy close up and at board size; reopen the source and compare its render; separate technical success from owner acceptance.
 - [x] Single-pose experiment delivered: [study and disposition](docs/2d-first-pieces/rendered-study/README.md). Original fused sculpt deformation was discarded. MakeHuman CC0 anatomy/weights plus authored costume and bow produce an editable Blender still and transparent sprite; source hashes and reopening verified.
-- **Not adopted:** this still looks stiff and generically 3D; painted style, pose refinement and dark-square contrast remain below the intended quality bar. No replacement animation, game integration or owner acceptance is claimed. Accessories are static in this study.
+- **Rejected by owner; return to 2D with a wrist bow.** This still looks stiff and generically 3D; painted style, pose refinement and dark-square contrast remain below the intended quality bar. No replacement animation, game integration or owner acceptance is claimed. Accessories are static in this study.
 
 ## Reliable Archer animation method — 2026-09-25
 - Owner rejected the anatomy correction as much worse. Stop tuning the SVG cutout rig.
