@@ -1,0 +1,33 @@
+{
+  "tool": "built-in image_gen",
+  "generatedAt": "2026-09-26",
+  "asset": "guard.png",
+  "canvas": "1536x1024 RGBA, two equal 768x1024 cells",
+  "references": [
+    {
+      "role": "identity",
+      "path": "/Users/za/Documents/king down chess/art-src/pieces/final-ivory/Guard.colored2_no_shadow.png"
+    },
+    {
+      "role": "painted style and source-sheet registration",
+      "path": "/Users/za/.codex/worktrees/painted-guard/docs/2d-first-pieces/knight/knight.png"
+    },
+    {
+      "role": "painted style and source-sheet registration",
+      "path": "/Users/za/.codex/worktrees/painted-guard/docs/2d-first-pieces/ogre/ogre.png"
+    }
+  ],
+  "generationPrompt": "Use case: stylized-concept\nAsset type: transparent raster sprite sheet for a 2D chess game character study.\nInput images: Image 1 is the original Guard identity reference; preserve its enclosed stocky living-armour silhouette and broad frontal proportions. Images 2 and 3 are accepted painted 2D style and registration references; match their warm hand-painted, outlined, softly textured finish and complete-foot presentation.\nScene/backdrop: genuinely transparent background with no floor, glow, cast shadow, border, text or watermark.\nSubject: create exactly two full-body Guard characters in a single 1536 x 1024 landscape sheet, equal 768 x 1024 cells. The left cell is warm ivory army, the right cell is charcoal/slate army. Both face straight forward with the same restrained defensive planted brace pose and identical proportions. Guard is enclosed stocky living armour: massive shield-like rounded pauldrons, compact inset hood/helmet face with one tiny cold-blue slit accent, layered chest plate and skirt-like lower armour, thick articulated gauntlets with coherent hands, short sturdy armored boots fully visible. Preserve the original identity and silhouette; no sword, spear, held shield, cape, wings, horns, or extra equipment. Include only the existing shoulder armor as shield-like forms.\nStyle/medium: polished hand-painted 2D game art, warm ivory and charcoal/slate dominant army palettes, painterly brush texture, crisp dark contour, subtle highlights, coherent natural joints and hands.\nComposition/framing: each army is centered inside its own 768 x 1024 cell with complete silhouette, generous transparent margins, boots at the same shared ground line near the bottom, no cropping or touching the cell edges. Keep the source-sheet geometry and alpha clean.\nLighting/mood: soft neutral studio light from upper left, subtle edge highlights, no background lighting.\nColor palette: left armor warm ivory and parchment with charcoal seams; right armor charcoal/slate with cool gray highlights; tiny cold-blue slit accents only, no large blue areas and no burgundy/orange accents.\nMaterials/textures: painted steel/leather armor, readable seams and scuffs, softly varied brushwork, no photorealistic 3D render.\nConstraints: output must contain only the two isolated characters with true transparency; equal 768 px army cells; complete pauldrons, hood/helmet face, gauntlets/hands, lower armor and both boots; preserve Guard identity and forward defensive brace. Avoid any attack pose or body stretch, extra weapon, separate floating parts, missing feet, cropped gear, ground plane, shadow, glow, background, text, watermark, third army, mounted body, or redesign into Knight/Ogre.",
+  "editPrompt": "Use case: background-extraction\nAsset type: transparent raster sprite sheet for a 2D chess game.\nEdit target: the supplied two-cell Guard artwork.\nChange only the background: remove every studio gradient, glow, haze, floor, and cast shadow from the entire sheet and replace it with genuine full transparency. Keep both Guard characters exactly as painted, including the enclosed stocky armour silhouette, rounded shield-like pauldrons, inset hood/helmet faces, tiny cold-blue slit accents, articulated gauntlets and hands, lower armour, complete boots, and ivory-left / charcoal-right colors. Preserve the exact 1536 x 1024 canvas and equal 768 x 1024 cell split, source placement, scale, shared ground line and clean alpha around every edge. Do not add, remove, recolor, redraw, crop, mirror or deform the characters. No text, watermark, border, background, glow or shadow.",
+  "generatedSource": "/Users/za/.codex/generated_images/01a0de61-2843-7aa2-82d9-4109bef23898/exec-c9305945-c85d-4ee6-9078-96ba7306c1af.png",
+  "sourceSha256": "49a1216a3fdb84552452906a6eca682f141044861e855306b355c9229982dc6e",
+  "identitySha256": "3032b858ba5362c022516321c70de18c3b4cbbcbe97c2aa07f2ecd1913eef7ec",
+  "alpha": {
+    "mode": "RGBA",
+    "background": "transparent",
+    "cellBBoxes": {
+      "ivory": [28, 17, 754, 1000],
+      "charcoal": [13, 24, 739, 964]
+    }
+  }
+}

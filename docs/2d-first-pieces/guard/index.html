@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>King Down · the Guard</title>
+<link rel="stylesheet" href="../aim-study.css">
+<main>
+<header><div><p class="eyebrow">King Down · painted 2D study</p><h1>The Guard</h1></div><nav><a href="../knight/">Knight</a> · <a href="../ogre/">Ogre</a> · <a href="../board/?position=guard">Try him on the board</a></nav></header>
+<div class="layout"><section class="stage" aria-label="Guard defensive brace preview">
+<canvas id="character" width="1152" height="1152" aria-hidden="true"></canvas>
+<svg id="scene" viewBox="0 0 1152 1152" role="button" tabindex="0" aria-label="Brace against the ward line. Click or press Enter.">
+  <g id="ward"><rect x="948" y="286" width="18" height="500" rx="9" fill="#879074" opacity=".55"/><path d="M932 786h50" stroke="#879074" stroke-width="5"/><text x="957" y="834" text-anchor="middle" class="target-label">WARD LINE</text></g>
+  <path d="M846 448h82" stroke="#919778" stroke-width="2" stroke-dasharray="6 10" opacity=".55"/>
+  <circle id="hit" cx="842" cy="448" r="8" fill="#596b3b" opacity=".7"/>
+</svg>
+</section><aside>
+<h2>Hold the line.</h2>
+<p>The Guard is a compact wall of living armour. He plants his boots, settles toward the ward line and returns to the same intact stance.</p>
+<div class="army" aria-label="Choose army"><button type="button" data-side="0" aria-pressed="true">Ivory</button><button type="button" data-side="1" aria-pressed="false">Charcoal</button></div>
+<div class="actions"><button id="brace" class="primary">Brace</button><button id="reset">Reset</button></div>
+<p id="status" role="status">Ready. Brace against the ward line.</p>
+<label class="motion-option"><input type="checkbox" id="reduce-motion"> Reduce motion</label>
+<label class="motion-option"><input type="checkbox" id="slow-motion"> Slow motion</label>
+<hr><h2>On the board</h2>
+<p>Move one square in any direction to an empty square. The Guard cannot capture; only the King can capture him. An Ogre can push him.</p>
+<div class="samples"><div class="sample"><canvas id="sample-ivory" width="1152" height="1152" role="img" aria-label="Ivory Guard at board size"></canvas></div><div class="sample dark"><canvas id="sample-charcoal" width="1152" height="1152" role="img" aria-label="Charcoal Guard at board size"></canvas></div></div>
+<div class="links"><a href="guard.png">Full-size artwork</a><a href="README.md">Study notes</a></div>
+</aside></div><footer>Original Guard identity translated into painted 2D · ivory and charcoal · tiny cold-blue slit accent.</footer></main>
+<style>.sample canvas{width:134px;height:134px}.motion-option+.motion-option{margin-top:8px}</style>
+<script type="module">
+import { drawGuard, actionAt, DURATION } from './motion.mjs';
+const $ = id => document.getElementById(id), canvas = $('character'), ctx = canvas.getContext('2d'), art = new Image(), preference = matchMedia('(prefers-reduced-motion: reduce)');
+let side = 0, action = null, frame = 0, ready = false;
+$('reduce-motion').checked = preference.matches;
+
+function draw(progress = 0) {
+  const amount = action ? actionAt(progress) : 0;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#e7e5d4'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#3b42232b'; ctx.beginPath(); ctx.ellipse(576, 1050, 258, 18, 0, 0, Math.PI * 2); ctx.fill();
+  drawGuard(canvas, art, side, amount);
+  drawGuard($('sample-ivory'), art, 0, amount);
+  drawGuard($('sample-charcoal'), art, 1, amount);
+  $('ward').style.opacity = amount >= .5 ? '.9' : '.65';
+  $('hit').setAttribute('r', amount >= .5 ? '11' : '8');
+}
+
+function tick(now) {
+  frame = 0; if (!action) return;
+  const t = Math.min(1, (now - action.start) / action.duration); draw(t);
+  if (t >= .18 && !action.prepared) { action.prepared = true; $('status').textContent = 'Set. Moving into the brace…'; }
+  if (t >= .5 && !action.held) { action.held = true; $('status').textContent = 'Holding the line. Hands and boots stay planted.'; }
+  if (t === 1) { action = null; $('brace').disabled = false; $('status').textContent = 'Back in stance. Ready to brace again.'; draw(); }
+  else frame = requestAnimationFrame(tick);
+}
+
+function cancel() {
+  if (frame) cancelAnimationFrame(frame); frame = 0; action = null; $('brace').disabled = false;
+  if (ready) draw(); $('status').textContent = 'Ready. Brace against the ward line.';
+}
+
+function brace() {
+  if (!ready || action) return;
+  if ($('reduce-motion').checked) { draw(.5); $('status').textContent = 'Brace complete. Motion reduced.'; return; }
+  action = { start: performance.now(), duration: DURATION * ($('slow-motion').checked ? 3 : 1), prepared: false, held: false };
+  $('brace').disabled = true; $('status').textContent = 'Preparing to brace…'; frame = requestAnimationFrame(tick);
+}
+
+$('brace').onclick = brace; $('reset').onclick = cancel; $('scene').onclick = brace;
+$('scene').onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); brace(); } };
+for (const button of document.querySelectorAll('[data-side]')) button.onclick = () => {
+  side = Number(button.dataset.side); cancel();
+  for (const other of document.querySelectorAll('[data-side]')) other.setAttribute('aria-pressed', String(other === button));
+};
+$('reduce-motion').onchange = cancel; preference.onchange = () => { $('reduce-motion').checked = preference.matches; cancel(); };
+art.onload = () => { ready = true; draw(); };
+art.onerror = () => { $('status').textContent = 'Artwork could not load. Reload the preview.'; $('brace').disabled = true; };
+art.src = 'guard.png';
+</script>
+</html>
