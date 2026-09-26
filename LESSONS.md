@@ -2,6 +2,7 @@
 
 Reusable corrections. Pattern → rule.
 
+- Board feedback can exist in the DOM and still be invisible below a tall board. → Responsive verification must check the actual status rectangle after board interaction, not only horizontal overflow or successful clicks. Zero-action selections must not instruct the player to choose a nonexistent marker. (2026-09-26)
 - Google Drive MCP `read_file_content` returned `{}` for every doc/sheet in this project. → Use `download_file_content` (base64) or, for link-shared files, `curl` the export URL (`/export?format=txt|xlsx`, `uc?export=download&id=`) and `gdown --folder` for folders.
 - macOS `base64` has no positional file arg. → `base64 -D -i in -o out`.
 - `gdown --folder` in the current release has no `--remaining-ok` flag. → Run it plain; check `find dir -type f | wc -l` for the 50-file cap.

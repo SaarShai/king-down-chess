@@ -1,5 +1,12 @@
 # Tasks
 
+## Painted-board troubleshooting — 2026-09-26
+- Owner: troubleshoot the combined cast. Preserve the current played position; reproduce in a separate browser tab. The owner has not specified a symptom yet.
+- Confirmed: at 765×995, selection details start at y=1008 and move feedback at y=1080, below the viewport. A blocked Pawn with zero actions is told to choose a marked square.
+- Plan: keep action feedback beside the visible board, explain blocked selection accurately, and check capture/cancellation through the real UI. No art or rule changes without a reproduced defect.
+- Verify: recreate Archer a3→b4 blocking Pawn b3; visible, correct feedback after selection and invalid move; desktop/phone fit; capture, Undo and cancellation; focused existing tests and browser errors.
+- [x] Selection/action feedback now stays above the board while scrolling; a blocked Pawn names the blocking piece/square and suggests another piece. Escape clears stale feedback. Both armies, invalid destinations, capture/cancellation/Undo, reduced motion and 390/765/1280 px layouts verified; all 13 existing tests pass, with no browser errors. [Reproduction and limits](docs/2d-first-pieces/board/README.md#feedback-troubleshooting). The owner's original symptom remains unspecified; no animation/rule failure was reproduced. The played position remains untouched in its original tab.
+
 ## Knight crouch and parallel cast — 2026-09-26
 - Owner: bend the Knight’s knees before jumping; explicitly authorize subagents for several pieces in parallel. This authorization is scoped to this batch.
 - Plan: add a planted crouch and landing recovery to the Knight in both previews; three isolated workers build Bishop, Rook and Guard artwork/motion in their own directories. Root reviews and integrates accepted outputs into the existing board trial.

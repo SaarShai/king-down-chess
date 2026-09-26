@@ -78,3 +78,18 @@ Verified in the in-app browser on 2026-09-26:
 - Thirteen focused tests pass, covering existing Archer/Pawn/Ogre behavior, Knight crouch/jump, new piece motion, ray blockers, Guard immunity/noncapture/pushability, both armies and coherent trial fixtures. All changed scripts parse; bundled rule hashes match unchanged production sources. No browser warnings/errors observed.
 
 Motion remains deliberately bounded: Bishop presents one coherent painted pose, Rook rocks rigidly on the stone contact, Guard makes a small planted brace, and quiet movement glides. These are reviewable character studies, not full walking or directional animation sets.
+
+## Feedback troubleshooting
+
+2026-09-26: the owner requested troubleshooting without identifying the symptom. Read-only inspection of the played position found the selected Ivory Pawn on b3 blocked by the friendly Archer on b4. There were no logged browser errors. The rule correctly offered zero actions, but the UI said to choose a marked square. At the actual 765×995 window, selection details began at y=1008 and the status at y=1080, both below the screen. These are confirmed feedback defects; they do not establish the cause of an unspecified animation complaint.
+
+The status and a self-contained selection summary now sit above the board and remain visible while scrolling through it. A Pawn with zero actions names the piece/square blocking its advance; other immobile pieces explain that there are no actions. Empty-square clicks retain that useful explanation. Escape clears the selection and its old status together. Artwork, motion curves and rules are unchanged.
+
+Reproduce the regression through the real UI in a separate tab (the trial does not persist positions):
+
+1. Open `board/?position=cast`, move Ivory Archer a3→b4, select Pawn b3, then click empty c3. It must retain both pieces and show zero actions, with “The archer on b4 blocks this pawn” visibly beside the board. Before the fix it said “Choose a marked square for the pawn.”
+2. Move Charcoal Archer h6→g5, select Pawn g6, then click empty h6. The equivalent explanation must name g5. Press Escape: both the selection summary and status must clear.
+3. Repeat at 390×844, 765×995 and 1280×900; status bounding rectangle must be entirely within the viewport after interacting with the board, with no horizontal overflow. This checks the actual layout rather than just DOM presence.
+4. Bishop c4→e6 captures the Knight and changes counts to 7/6. Undo restores it. With Slow motion enabled, Undo during the same capture must leave both source and victim unchanged. Reduced-motion Guard d2→c2 completes immediately with the correct status.
+
+All those checks passed in the in-app browser. Thirteen existing motion/rule tests, module syntax and `git diff --check` passed; no browser warnings/errors were recorded. The original played tab was not reloaded or changed; the updated preview was verified separately. A specific visual or movement failure still needs its piece/action identified before claiming it fixed.

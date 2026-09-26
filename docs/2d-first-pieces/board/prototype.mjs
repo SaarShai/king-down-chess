@@ -205,6 +205,16 @@ function start(move) {
 function cancel(){animation=null;$('encounter').hidden=true;$('action-picker').close();hover=null;aimAngle=0;}
 function reset(){cancel();position=createPosition($('layout').value);history=[];lastSquares=[];selected=$('layout').value==='ranks'?parseSq('b3'):$('layout').value==='angles'?parseSq('d4'):parseSq('c4');aimFacing=1;$('status').textContent='Choose a marked square, or select any other piece.';updateUI();wake();}
 function undo(){if(animation){cancel();$('status').textContent='Action canceled. The position is unchanged.';}else if(history.length){const last=history.pop();position=last.position;lastSquares=last.lastSquares;selected=null;hover=null;aimAngle=0;$('status').textContent='Last action undone. Choose either army.';}updateUI();wake();}
+function selectionPrompt(){
+ if(selected===null)return 'Choose a piece from either army.';
+ const value=position.board[selected],name=names[typeOf(value)];
+ if(actionsFor(position,selected).length)return `Choose a marked square for the ${name.toLowerCase()}.`;
+ if(typeOf(value)===P){
+  const ahead=selected+(colorOf(value)?-8:8),blocker=position.board[ahead];
+  if(blocker)return `The ${names[typeOf(blocker)].toLowerCase()} on ${sqName(ahead)} blocks this pawn. No diagonal capture is available. Select another piece.`;
+ }
+ return `This ${name.toLowerCase()} has no available actions in this trial. Select another piece.`;
+}
 function choose(square){
  if(animation||!ready)return;
  const options=actionsFor(position,selected).filter(m=>destination(m)===square);
@@ -215,8 +225,8 @@ function choose(square){
   $('action-picker').showModal();return;
  }
  if(options.length){start(options[0]);return;}
- if(position.board[square]){selected=selected===square?null:square;hover=null;aimAngle=0;aimFacing=sideFacing(position.board[square]);$('status').textContent=selected===null?'Selection cleared.':`Choose a marked square for the ${names[typeOf(position.board[square])].toLowerCase()}.`;}
- else $('status').textContent='That square is not available. Choose a marked square.';
+ if(position.board[square]){selected=selected===square?null:square;hover=null;aimAngle=0;aimFacing=sideFacing(position.board[square]);$('status').textContent=selected===null?'Selection cleared.':selectionPrompt();}
+ else $('status').textContent=(actionsFor(position,selected).length?'That square is not available. ':'')+selectionPrompt();
  updateUI();wake();
 }
 function actionLabel(move,value){return move.shove?`Push ${sqName(move.shove.from)} → ${sqName(move.shove.to)}`:`${move.captures.length?(typeOf(value)===A?'Shoot':'Capture'):typeOf(value)===N?'Leap':'Move'} ${sqName(destination(move))}`;}
@@ -228,9 +238,10 @@ function updateUI(){
  $('allegiance').textContent=value?`${colours[colorOf(value)]} army`:'Choose a piece';$('piece-name').textContent=value?names[typeOf(value)]:'Your move.';
  $('description').textContent=!value?'Select a piece from either army to see its available actions.':typeOf(value)===A?'Aim the wrist bow at a marked enemy. The Archer captures without leaving her square.':typeOf(value)===B?'Move and capture along diagonals. Pieces block the path; the Guard cannot be captured.':typeOf(value)===R?'Move and capture along ranks and files. Pieces block the path; the Guard cannot be captured.':typeOf(value)===G?'Move one square in any direction to an empty square. The Guard cannot capture. Only a King can capture him; an Ogre can push him.':typeOf(value)===N?'Leap two squares in one direction and one across. Jump over pieces; capture only on the landing square.':typeOf(value)===O?'Move one square in any direction. Capture an enemy or push a neighbour into the empty square beyond, then follow.':'Advance into an empty square, or thrust at an enemy on a forward diagonal.';
  const moveCount=moves.filter(m=>!m.captures.length&&!m.shove).length,attackCount=moves.filter(m=>m.captures.length).length,pushCount=moves.filter(m=>m.shove).length;
- $('selection-state').textContent=value?`${sqName(selected)} · ${moveCount} move${moveCount===1?'':'s'} · ${attackCount} attack${attackCount===1?'':'s'}${pushCount?` · ${pushCount} push${pushCount===1?'':'es'}`:''}`:'No piece selected';
+ const selectionName=value?`${colours[colorOf(value)]} ${names[typeOf(value)]} · ${sqName(selected)}`:'';
+ $('selection-state').textContent=value?`${selectionName} · ${moveCount} move${moveCount===1?'':'s'} · ${attackCount} attack${attackCount===1?'':'s'}${pushCount?` · ${pushCount} push${pushCount===1?'':'es'}`:''}`:'No piece selected';
  $('choices').replaceChildren();for(const m of moves){const b=document.createElement('button');b.textContent=actionLabel(m,value);b.className=m.shove?'push-action':m.captures.length?'capture':'';b.disabled=Boolean(animation);b.onclick=()=>start(m);b.onpointerenter=()=>{hover=destination(m);wake();};b.onfocus=()=>{hover=destination(m);wake();};$('choices').append(b);}
- if(value&&!moves.length)$('selection-state').textContent=`${sqName(selected)} · No available actions in this trial`;
+ if(value&&!moves.length)$('selection-state').textContent=`${selectionName} · No available actions`;
  $('undo').disabled=!animation&&!history.length;
  for(const side of [0,1])$(side?'black-count':'white-count').textContent=Array.from(position.board).filter(v=>v&&colorOf(v)===side).length;
  $('history').replaceChildren();for(const h of history.slice(-6)){const li=document.createElement('li');li.textContent=h.message;$('history').append(li);}
@@ -238,7 +249,7 @@ function updateUI(){
 for(let row=0;row<8;row++)for(let col=0;col<8;col++){
  const sq=(7-row)*8+col,b=document.createElement('button');b.type='button';b.dataset.square=sqName(sq);b.onclick=()=>choose(sq);
  b.onpointerenter=()=>{if(!animation){hover=sq;wake();}};b.onfocus=()=>{if(!animation){hover=sq;wake();}};
- b.onkeydown=event=>{const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:8,ArrowDown:-8}[event.key];if(delta!==undefined){event.preventDefault();const f=sq&7,r=sq>>3;const nextF=clamp(f+(delta===1?1:delta===-1?-1:0),0,7),nextR=clamp(r+(delta===8?1:delta===-8?-1:0),0,7);squares.get(nextR*8+nextF).focus();}if(event.key==='Escape'){selected=null;hover=null;updateUI();wake();}};
+ b.onkeydown=event=>{const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:8,ArrowDown:-8}[event.key];if(delta!==undefined){event.preventDefault();const f=sq&7,r=sq>>3;const nextF=clamp(f+(delta===1?1:delta===-1?-1:0),0,7),nextR=clamp(r+(delta===8?1:delta===-8?-1:0),0,7);squares.get(nextR*8+nextF).focus();}if(event.key==='Escape'&&!animation){selected=null;hover=null;aimAngle=0;$('status').textContent='Selection cleared. Choose a piece from either army.';updateUI();wake();}};
  squares.set(sq,b);$('squares').append(b);
 }
 $('squares').addEventListener('pointerleave',()=>{if(!animation){hover=null;wake();}});
