@@ -1,8 +1,15 @@
 # Tasks
 
+## Reliable Archer animation method — 2026-09-25
+- Owner rejected the anatomy correction as much worse. Stop tuning the SVG cutout rig.
+- Plan: identify the art/rig failure, verify established animation-authoring and web-playback options against official sources, and record one practical production route and a small visual acceptance test.
+- Verify: distinguish documented tool capabilities from recommendations; identify editor/export constraints; preserve approved art and clearly mark rejected motion studies.
+- [x] Research complete: [production route and acceptance criteria](docs/research/archer-animation-workflow.md). Recommend Spine Professional with coherent layered art, meshes and alternate pose drawings, then standalone WebGL playback. Editor/export access and an authored Archer remain outstanding; the rejected rig is not repaired.
+
 ## Archer anatomy correction — 2026-09-25
 - Correct the doubled neck length and arm proportions/pivots. Check rest, full draw and aim extremes on both armies; preserve grip/string contact.
-- [x] Shortened neck join; replaced arm art and separated wrist/hand pivots; refined resting, aiming and drawing paths. Four tests pass, including 3,003 shot/aim samples. Both armies and shot completion/reset checked in browser. [Evidence](docs/2d-first-pieces/RIG.md).
+- **Rejected by owner:** the result looked much worse. The following checks only established mechanical behavior, not visual quality.
+- [x] Implementation only: shortened neck join; replaced arm art and separated wrist/hand pivots; refined resting, aiming and drawing paths. Four tests pass, including 3,003 shot/aim samples. Both armies and shot completion/reset checked in browser. [Evidence](docs/2d-first-pieces/RIG.md).
 
 ## Rigged Archer — 2026-09-25
 - Plan: painted part atlas, articulated SVG Archer with continuous aim/draw/release/recovery, both armies and a board-scale preview. Preserve previous frame study for comparison.

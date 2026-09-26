@@ -1,6 +1,6 @@
 # First two 2D pieces — 2026-09-25
 
-Latest: [continuously rigged Archer](RIG.md), running at `/rig.html`; the frame study below is retained for comparison.
+Status: the [SVG Archer rig](RIG.md) at `/rig.html` was rejected by the owner after the anatomy revision. Its mechanics tests are not evidence of acceptable artwork. The [replacement workflow research](../research/archer-animation-workflow.md) recommends a deliberately authored painted rig. Earlier full-figure art and frame studies remain references, not completed production animation.
 
 Owner direction: use the approved illustrated board concept and original King Down art as reference for new poses, angles, pieces and animation as needed. Figures must be complete at the bottom; army colour must dominate, with a few recognition accents. This replaces the earlier fixed-clay visual direction for new art work.
 

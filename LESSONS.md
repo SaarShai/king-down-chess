@@ -280,3 +280,8 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 ## Archer anatomy correction — 2026-09-25
 - Connected joints are not enough for a convincing painted rig. Check rest, full draw and intermediate poses for anatomy; overlapping neck tabs can double the visible neck, and a mathematically connected arm can still bend in the wrong plane. Separate hands from forearms so wrist rotation and projected arm length do not stretch the fingers.
 - For an authored elbow path, verify that its projected segments cannot collapse while crossing the shoulder. Aim should rotate the arm targets together, preserving prop attachments and reach.
+
+## Rejected Archer rig — 2026-09-25
+- Owner found the anatomy correction much worse. Do not treat finite joint coordinates, attached hands or passing motion tests as visual success. Compare intermediate silhouettes with coherent source drawings; stop patching a failed art/rig approach.
+- Stretching separately generated arm bitmaps to fit hand-authored elbow paths is not a substitute for correct perspective, layered artwork, mesh weights and alternate pose drawings. A professional runtime does not make poor source art anatomically correct.
+- Attachment constraints have phases: the drawing hand follows the string during draw, then releases it and follows through independently. The prior test asserting attachment throughout release encoded an animation error.

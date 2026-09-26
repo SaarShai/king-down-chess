@@ -1,4 +1,6 @@
-# Continuously animated Archer
+# Continuously animated Archer — rejected study
+
+**Owner rejected the anatomy revision as much worse (2026-09-25).** The verification below is historical mechanical evidence, not visual acceptance. Stop refining this implementation; see the [researched replacement workflow](../research/archer-animation-workflow.md).
 
 Run the existing study server and open `http://127.0.0.1:5192/rig.html`.
 
