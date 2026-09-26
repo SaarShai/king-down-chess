@@ -2,7 +2,15 @@
 
 Researched 2026-09-25. Owner rejected revision `1acbaeb` as much worse. This records a recommended method, not a completed replacement animation. Work was performed directly; no delegation, purchases, installs or external uploads.
 
-## Decision
+## Follow-up: a different representation, not another cutout tool
+
+The owner again identified the arms/hands as unacceptable and requested a different method. The earlier Spine recommendation below is retained as research, not an adopted implementation decision.
+
+New proposed experiment: **3D-assisted 2D sprites**. Build or adapt one anatomically sound, properly skinned character with complete arms and poseable hands; author the bow grip, string draw and release in Blender. Render complete character frames from a fixed orthographic camera. The browser plays those frames, so separate painted limbs are never stretched or reassembled at runtime. Army palettes and camera views can be rendered from the same source character. [Orthographic cameras](https://docs.blender.org/manual/en/4.4/render/cameras.html), [rendering image sequences](https://docs.blender.org/manual/de/5.1/render/output/animation.html).
+
+This is a recommendation, not a claimed guarantee: bad topology, skin weights or hand poses can still fail. Matching the original painted style is the main visual uncertainty; 3D-derived sprites can still look too much like rendered models. Use one full-draw render to test anatomy and painted appearance before producing a short shot sequence. Keep a stable camera, fixed output scale and foot position, transparent background and generous weapon bounds. Add directions only after that proof succeeds. This supplies consistent frames from one model, unlike the independently generated pose sheets already tried. No new 3D model or replacement animation has been built or authorised for purchase.
+
+## Earlier recommendation
 
 Stop developing the custom SVG cutout rig. Use **Spine Professional to author a coherent painted character with weighted meshes, pose-specific attachments and an authored shot**, then evaluate it in the official standalone WebGL runtime. Keep the original King Down artwork and the earlier full-figure study as visual references. The rejected generated arm atlas and hand-tuned elbow curves are not a production foundation.
 
