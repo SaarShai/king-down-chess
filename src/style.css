@@ -182,3 +182,10 @@ button:focus-visible, select:focus-visible, input:focus-visible {
 }
 
 #asset-status, #setup-note { font-size: 12px; color: #655c50; line-height: 1.4; }
+
+#move-help:empty { display: none; }
+#move-help { font-weight: 600; }
+#selection-actions button { min-height: 44px; }
+#move-choice { max-width: min(440px, calc(100vw - 32px)); }
+#move-choice button { min-height: 44px; }
+#cancel-choice { margin-top: 14px; }

@@ -1,0 +1,16 @@
+{
+  "checksPassed": 10,
+  "checks": [
+    "mouse: capture/push chooser, cancel, both outcomes, undo and stable board",
+    "mouse: Guard push needs no ambiguous choice",
+    "mouse: Beast cancel, finish after one, and continue then finish",
+    "mouse: Maester friendly swap and home-rank king swap",
+    "keyboard: Escape cancels and Shift-click remains a push shortcut",
+    "undo invalidates an open choice without committing a stale move",
+    "touch: capture/push chooser, cancel, both outcomes, undo and stable board",
+    "touch: Guard push needs no ambiguous choice",
+    "touch: Beast cancel, finish after one, and continue then finish",
+    "touch: Maester friendly swap and home-rank king swap"
+  ],
+  "errors": []
+}

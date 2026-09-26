@@ -66,6 +66,7 @@ let busy = false;
 let gen = 0;
 /** Closes an open promotion picker (resolving it with null). Set only while one is on screen. */
 let closePromo: (() => void) | null = null;
+let closeMoveChoice: (() => void) | null = null;
 /** Squares lit by Hint. Cleared when the player moves or selects something else. */
 let hintSquares: number[] = [];
 const seenMoments = new Set<string>();
@@ -178,7 +179,7 @@ function pieceGuide(t: PieceType): GuideRow {
       return {
         moves: step,
         captures: take,
-        special: r.beastChains ? 'May keep capturing from each new square (never a king as a continuation). Click victims in order; "Stop chain here" ends early.' : 'One capture per turn.',
+        special: r.beastChains ? 'May keep capturing from each new square (never a king as a continuation). Click victims in order; "Finish chain" ends early.' : 'One capture per turn.',
       };
     }
     case O: {
@@ -188,7 +189,7 @@ function pieceGuide(t: PieceType): GuideRow {
       return {
         moves: 'Moves 1 square in any direction.',
         captures: 'Takes by moving onto the enemy (a guard excepted).',
-        special: `Instead it may shove an adjacent piece 1 square away — shift-click a neighbour. ${shove} Kings are never shoved. Guards can be shoved. A shove is not a capture.`,
+        special: `Instead it may shove an adjacent piece 1 square away. Tap the neighbour; choose Capture or Push when both are legal. Shift-click is a push shortcut. ${shove} Kings are never shoved. Guards can be shoved. A shove is not a capture.`,
       };
     }
     case C:
@@ -276,7 +277,21 @@ function refresh(): void {
     hint: hintSquares,
     check: game.inCheck ? findKing(game.pos.board, game.pos.turn) : null,
   });
-  $('stop-chain').hidden = !(pending.length && candidates().some(m => clickPath(m).length === pending.length));
+  const canFinish = pending.length > 0 && cands.some(m => clickPath(m).length === pending.length);
+  const selectedType = selected == null ? 0 : typeOf(game.pos.board[selected]);
+  $('selection-actions').hidden = selected == null || busy;
+  $('stop-chain').hidden = !canFinish;
+  $('stop-chain').textContent = selectedType === S ? `Finish chain (${pending.length} capture${pending.length === 1 ? '' : 's'})` : 'Finish capture here';
+  const help: Partial<Record<PieceType, string>> = {
+    [O]: 'Tap a neighbour to push or capture. When both are legal, you can choose.',
+    [A]: 'Tap a marked enemy to shoot without moving, or a marked empty square to move.',
+    [M]: 'Tap a marked friendly piece to swap places, or another marked square to move or capture.',
+    [S]: pending.length ? 'Choose the next marked victim, or finish the chain below. Nothing moves until you finish.' : 'Tap a marked enemy to start a capture chain, or an empty square to move.',
+    [L]: 'Jump over friends along queen lines. Capturing a non-pawn also removes your Paladin.',
+    [C]: 'Tap a marked enemy beyond a screen to lob, or an empty square to move.',
+    [V]: pending.length ? 'Choose a marked landing square, or finish the capture here.' : 'Tap a marked enemy to capture, then choose where to land.',
+  };
+  $('move-help').textContent = selected == null || busy ? '' : help[selectedType as PieceType] ?? 'Tap a marked square to move or capture.';
   const turn = game.pos.turn ? 'Black' : 'White';
   $('turn').textContent = finished() ? '' : `${turn} to move${game.inCheck ? ' — CHECK' : ''}`;
   $('status').textContent = resigned != null ? result() : {
@@ -388,10 +403,36 @@ async function choose(moves: Move[]): Promise<void> {
   if (queen) return commit(queen);
   if (moves.length === 1 || !moves.every(m => m.promo)) return commit(moves[0]);
   busy = true; // the picker is modal: without this the board stays live and a second move slips in
+  refresh();
   const m = await pickPromotion(moves);
   if (!m) return; // reset() closed it; reset() also cleared busy
   busy = false;
   return commit(m);
+}
+
+/** Only genuinely ambiguous targets need a choice; native dialog supplies focus and touch access. */
+async function choosePushOrCapture(capture: Move, push: Move): Promise<void> {
+  const generation = gen;
+  busy = true;
+  refresh();
+  const dlg = $<HTMLDialogElement>('move-choice');
+  const target = sqName(push.shove!.from), destination = sqName(push.shove!.to);
+  $('move-choice-detail').textContent = `Capture removes the enemy on ${target}. Push moves it to ${destination}${push.to === push.from ? ' and leaves your Ogre in place' : ` and moves your Ogre to ${target}`}.`;
+  $('choose-capture').textContent = `Capture on ${target}`;
+  $('choose-push').textContent = `Push to ${destination}`;
+  const move = await new Promise<Move | null>(resolve => {
+    const done = (m: Move | null): void => { closeMoveChoice = null; dlg.close(); resolve(m); };
+    closeMoveChoice = () => done(null);
+    $('choose-capture').onclick = () => done(capture);
+    $('choose-push').onclick = () => done(push);
+    $('cancel-choice').onclick = () => done(null);
+    dlg.oncancel = e => { e.preventDefault(); done(null); };
+    dlg.showModal();
+  });
+  if (generation !== gen) return;
+  busy = false;
+  if (move) await commit(move);
+  else { selected = null; pending = []; refresh(); }
 }
 
 /** Drag arm: select without the click toggle so a second onSquareClick can still play the move. */
@@ -402,6 +443,7 @@ view.onDragSelect = (sq) => {
   selected = sq;
   pending = [];
   refresh();
+  $('panel').scrollTop = 0;
 };
 
 view.onSquareClick = (sq, shift = false) => {
@@ -412,21 +454,25 @@ view.onSquareClick = (sq, shift = false) => {
   if (selected == null || next.length === 0) {
     selected = own && sq !== selected ? sq : null;
     pending = [];
-    return refresh();
+    refresh();
+    if (selected != null) $('panel').scrollTop = 0;
+    return;
   }
   const complete = next.filter(m => clickPath(m).length === pending.length + 1);
   if (complete.length && complete.length === next.length) {
-    // An occupied neighbour can be both a capture and a shove target. Plain click takes it;
-    // shift-click shoves it. (A friend can only be shoved, so shift is optional there.)
-    if (complete.length > 1) {
-      const wanted = complete.filter(m => !!m.shove === shift);
-      if (wanted.length) { void choose(wanted); return; }
+    const push = complete.find(m => m.shove);
+    const capture = complete.find(m => !m.shove);
+    if (push && capture) {
+      if (shift) void choose([push]);
+      else void choosePushOrCapture(capture, push);
+      return;
     }
     void choose(complete);
     return;
   }
-  pending.push(sq); // beast chain continues; "Stop here" commits the shorter capture
+  pending.push(sq); // a finish button commits the shorter capture
   refresh();
+  $('panel').scrollTop = 0;
 };
 let said = '';
 view.onSquareHover = sq => {
@@ -445,6 +491,8 @@ function restoreMoments(): void {
   for (const h of game.history) said = momentText(h.pos, h.move, seenMoments) ?? said;
   $('moment').textContent = said;
 }
+
+$('cancel-selection').onclick = () => { selected = null; pending = []; refresh(); };
 
 $('stop-chain').onclick = () => { const m = candidates().find(m => clickPath(m).length === pending.length); if (m) void commit(m); };
 
@@ -465,6 +513,7 @@ function reset(): void {
   gen++;
   hintSquares = [];
   engine.cancel();
+  closeMoveChoice?.();
   closePromo?.(); // drop an open promotion picker instead of leaving its promise hanging
   busy = false;
   selected = null; pending = [];

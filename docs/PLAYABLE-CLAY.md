@@ -4,6 +4,8 @@ The current integrated checkout is `/Users/za/.codex/worktrees/cursor-adoption/k
 
 Local production preview: **http://127.0.0.1:5189/**. Restart from this checkout with `npm run build`, then `npm run preview -- --host 127.0.0.1 --port 5189 --strictPort`. The resulting static build is in `dist/`; serve it over HTTP. This adoption was not published.
 
+Latest follow-up: [special-move usability](special-moves/README.md). Ogre targets offer Capture / Push when both are legal; selection instructions and chain finish/cancel controls are reachable at the top of the panel.
+
 ## Current game
 
 - Random pool: **`QORRBBNNAAGMMSS`**. Seven drawn pieces plus the king; mirrored armies and opposite-colour bishops. Ogre uses **push**, following the displaced neighbour. Paladin remains available in custom setups and appropriate historical promotion sets.

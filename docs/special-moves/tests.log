@@ -1,0 +1,8 @@
+
+ RUN  v5.0.0 /Users/za/.codex/worktrees/cursor-adoption/king down chess
+
+
+ Test Files  2 passed (2)
+      Tests  25 passed (25)
+   Start at  22:05:20
+   Duration  403ms (tests 51%, transform 39%, import 8%, worker 1%)

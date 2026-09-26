@@ -15,6 +15,11 @@
       <div id="asset-status" role="status" aria-live="polite">Loading pieces…</div>
     </header>
     <aside id="panel">
+      <div id="move-help" role="status" aria-live="polite"></div>
+      <div id="selection-actions" class="btns" hidden>
+        <button id="stop-chain" hidden>Finish chain</button>
+        <button id="cancel-selection">Cancel selection</button>
+      </div>
       <div id="moment" role="status" aria-live="polite"></div>
       <div id="info"></div>
       <section>
@@ -50,7 +55,6 @@
           <option value="strong">Strong</option>
         </select></label>
       </section>
-      <button id="stop-chain" hidden>Stop chain here</button>
       <div id="promo" class="promo" hidden></div>
       <section class="sheet">
         <ol id="moves"></ol>
@@ -64,6 +68,15 @@
         <label>Coords <input id="coords" type="checkbox" checked /></label>
       </section>
     </aside>
+    <dialog id="move-choice" aria-labelledby="move-choice-title" aria-describedby="move-choice-detail">
+      <h2 id="move-choice-title" tabindex="-1" autofocus>Capture or push?</h2>
+      <p id="move-choice-detail"></p>
+      <div class="btns">
+        <button id="choose-capture"></button>
+        <button id="choose-push"></button>
+      </div>
+      <button id="cancel-choice">Cancel</button>
+    </dialog>
     <dialog id="rules">
       <h2 tabindex="-1" autofocus>King Down pieces</h2>
       <p id="rules-lead"></p>

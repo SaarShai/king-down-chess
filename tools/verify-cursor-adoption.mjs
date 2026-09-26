@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const url = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
-const out = 'docs/cursor-recovery/2026-09-24-0213b442/validation';
+const out = process.env.PLAYABLE_OUT || 'docs/cursor-recovery/2026-09-24-0213b442/validation';
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, hasTouch: true });

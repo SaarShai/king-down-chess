@@ -1,0 +1,92 @@
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+import { mkdirSync, writeFileSync } from 'node:fs';
+const out = 'docs/special-moves';
+mkdirSync(out, { recursive: true });
+const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
+const errors = [], checks = [];
+try {
+  for (const mobile of [false, true]) {
+    const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, hasTouch: mobile });
+    page.on('pageerror', e => errors.push(e.message));
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+    const url = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
+    await page.goto(url);
+    async function seed(fen) {
+      await page.evaluate(fen => localStorage.setItem('kingdown.save', JSON.stringify({ fen, back: '', moves: [], white: 'human', black: 'human', sound: false })), fen);
+      await page.goto(url); await page.waitForFunction(() => window.view?.pieces.size > 0);
+      await page.evaluate(() => window.view.ready());
+    }
+    async function tap(sq) {
+      const p = await page.evaluate(s => window.view.screenOf(s), sq);
+      if (mobile) await page.touchscreen.tap(p.x, p.y); else await page.mouse.click(p.x, p.y);
+    }
+    async function button(id) {
+      if (mobile) await page.locator(id).tap(); else await page.click(id);
+    }
+    const played = n => page.waitForFunction(n => JSON.parse(localStorage.getItem('kingdown.save')).moves.length === n, n);
+    const ogre = '7k/8/8/2p5/2O5/8/P7/K7 w - - 0 1';
+    await seed(ogre);
+    const bounds = await page.locator('#board').boundingBox();
+    await tap(26); assert.match(await page.locator('#move-help').innerText(), /push or capture/);
+    await tap(34); await page.locator('#move-choice').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#moves').innerText(), '');
+    assert.match(await page.locator('#move-choice-detail').innerText(), /c5.*c6/);
+    await page.screenshot({ path: `${out}/${mobile ? 'mobile' : 'desktop'}-choice.png` });
+    await button('#cancel-choice'); await played(0);
+    assert.equal(await page.locator('#move-choice').isVisible(), false);
+    await tap(26); await tap(34); await button('#choose-push'); await played(1);
+    assert.match(await page.locator('#moves').innerText(), /Oc4>c5-c6/);
+    assert.ok(await page.evaluate(() => window.view.pieces.has(42) && window.view.pieces.has(34) && !window.view.pieces.has(26)));
+    await button('#undo'); await played(0);
+    await tap(26); await tap(34); await button('#choose-capture'); await played(1);
+    assert.match(await page.locator('#moves').innerText(), /Oc4xc5/);
+    assert.equal(await page.evaluate(() => window.view.pieces.has(42)), false);
+    assert.deepEqual(await page.locator('#board').boundingBox(), bounds);
+    checks.push(`${mobile ? 'touch' : 'mouse'}: capture/push chooser, cancel, both outcomes, undo and stable board`);
+
+    await seed('7k/8/8/2g5/2O5/8/P7/K7 w - - 0 1');
+    await tap(26); await tap(34); await played(1);
+    assert.equal(await page.locator('#move-choice').isVisible(), false);
+    assert.match(await page.locator('#moves').innerText(), /Oc4>c5-c6/);
+    checks.push(`${mobile ? 'touch' : 'mouse'}: Guard push needs no ambiguous choice`);
+
+    const beast = '7k/8/5p2/3pp3/2nS4/8/8/K7 w - - 0 1';
+    await seed(beast); await tap(27); await tap(26);
+    assert.match(await page.locator('#move-help').innerText(), /next marked victim/);
+    assert.match(await page.locator('#stop-chain').innerText(), /1 capture/);
+    assert.equal(await page.locator('#moves').innerText(), '');
+    await button('#cancel-selection'); await played(0);
+    await tap(27); await tap(26); await button('#stop-chain'); await played(1);
+    assert.match(await page.locator('#moves').innerText(), /Sd4xc4/);
+    await button('#undo'); await played(0);
+    await tap(27); await tap(26); await tap(35); await button('#stop-chain'); await played(1);
+    assert.match(await page.locator('#moves').innerText(), /Sd4xc4xd5/);
+    checks.push(`${mobile ? 'touch' : 'mouse'}: Beast cancel, finish after one, and continue then finish`);
+
+    await seed('7k/8/8/8/8/8/P7/MN5K w - - 0 1');
+    await tap(0); assert.match(await page.locator('#move-help').innerText(), /friendly piece to swap/);
+    await tap(1); await played(1); assert.match(await page.locator('#moves').innerText(), /Ma1<>b1/);
+    await button('#undo'); await played(0);
+    await tap(0); await tap(7); await played(1); assert.match(await page.locator('#moves').innerText(), /Ma1<>h1/);
+    checks.push(`${mobile ? 'touch' : 'mouse'}: Maester friendly swap and home-rank king swap`);
+    if (!mobile) {
+      await seed(ogre); await tap(26); await tap(34); await page.keyboard.press('Escape');
+      assert.equal(await page.locator('#move-choice').isVisible(), false); await played(0);
+      await tap(26); await page.keyboard.down('Shift'); await tap(34); await page.keyboard.up('Shift'); await played(1);
+      assert.match(await page.locator('#moves').innerText(), /Oc4>c5-c6/);
+      checks.push('keyboard: Escape cancels and Shift-click remains a push shortcut');
+      await seed('7k/8/3o4/2p5/2O5/8/P7/K7 w - - 0 1');
+      await tap(26); await tap(34); await button('#choose-capture'); await played(1);
+      await tap(43); await tap(34); await page.locator('#move-choice').waitFor({ state: 'visible' });
+      await page.keyboard.press('z'); await played(0);
+      assert.equal(await page.locator('#move-choice').isVisible(), false);
+      assert.ok(await page.evaluate(() => window.view.pieces.has(26) && window.view.pieces.has(43)));
+      checks.push('undo invalidates an open choice without committing a stale move');
+    }
+    await page.close();
+  }
+  assert.deepEqual(errors, []);
+  writeFileSync(`${out}/browser-checks.json`, JSON.stringify({ checksPassed: checks.length, checks, errors }, null, 2) + '\n');
+  console.log(JSON.stringify({ checksPassed: checks.length, checks, errors }, null, 2));
+} finally { await browser.close(); }

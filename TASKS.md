@@ -1,5 +1,10 @@
 # Tasks
 
+## Special-move usability — 2026-09-25
+- Plan: visible capture/push choice, contextual selection instructions and reachable finish/cancel controls. Preserve rules, clay and saved games.
+- Verify: production build; real mouse/touch capture and shove, cancellation/reset, Beast chain finish/continue, Maester swap and existing UI checks.
+- [x] Implemented and verified: build, 25 targeted tests and 36 browser scenarios pass. Preview refreshed with game preserved. Evidence: [special-move usability](docs/special-moves/README.md).
+
 ## Selective Cursor adoption — 2026-09-24
 - Owner: execute the recovery decisions. Work directly; no old agents, research campaigns, model calls or publication.
 - Base: approved `codex/playable-clay` at `c8f4ca7`; isolated branch `codex/cursor-adoption`.
