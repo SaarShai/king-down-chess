@@ -285,3 +285,8 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 - Owner found the anatomy correction much worse. Do not treat finite joint coordinates, attached hands or passing motion tests as visual success. Compare intermediate silhouettes with coherent source drawings; stop patching a failed art/rig approach.
 - Stretching separately generated arm bitmaps to fit hand-authored elbow paths is not a substitute for correct perspective, layered artwork, mesh weights and alternate pose drawings. A professional runtime does not make poor source art anatomically correct.
 - Attachment constraints have phases: the drawing hand follows the string during draw, then releases it and follows through independently. The prior test asserting attachment throughout release encoded an animation error.
+
+## 2026-09-26 — coherent geometry is not finished character art
+- The original static Archer sculpt has body, costume and weapons fused into one surface. Spatial arm masks tore neighbouring geometry during a large pose change. → Do not promote static/scanned sculpts to an animation rig by region heuristics; start with suitable topology and authored weights or retopologize deliberately.
+- A height-based crop of an unposed human removed fingertips that happened to sit below the cutoff. → Preserve complete limbs using semantic mesh/weight membership, and inspect the rendered hands close up. Valid bones alone cannot catch missing surfaces.
+- A body rendered successfully from Blender still looked stiff and unlike the preferred painted artwork. → Treat source validity, anatomical/pose quality, style match and owner acceptance as separate gates. Do not launch frame production just because a still renders.

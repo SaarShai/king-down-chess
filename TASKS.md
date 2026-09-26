@@ -1,5 +1,12 @@
 # Tasks
 
+## Archer rendered-sprite proof — 2026-09-26
+- Owner: try the proposed whole-character 3D-to-2D method; first deliverable is one full-draw still.
+- Plan: inspect the original sculpt; use coherent anatomy with poseable hands, a fixed camera and an ivory palette; save editable source and assess the actual render before animation.
+- Verify: full silhouette, hand/bow contact and anatomy close up and at board size; reopen the source and compare its render; separate technical success from owner acceptance.
+- [x] Single-pose experiment delivered: [study and disposition](docs/2d-first-pieces/rendered-study/README.md). Original fused sculpt deformation was discarded. MakeHuman CC0 anatomy/weights plus authored costume and bow produce an editable Blender still and transparent sprite; source hashes and reopening verified.
+- **Not adopted:** this still looks stiff and generically 3D; painted style, pose refinement and dark-square contrast remain below the intended quality bar. No replacement animation, game integration or owner acceptance is claimed. Accessories are static in this study.
+
 ## Reliable Archer animation method — 2026-09-25
 - Owner rejected the anatomy correction as much worse. Stop tuning the SVG cutout rig.
 - Plan: identify the art/rig failure, verify established animation-authoring and web-playback options against official sources, and record one practical production route and a small visual acceptance test.

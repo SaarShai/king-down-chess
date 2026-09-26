@@ -1,0 +1,31 @@
+{
+  "blender": "5.2.0 LTS",
+  "size": [
+    1200,
+    1400
+  ],
+  "mode": "RGBA",
+  "visible_bounds": [
+    313,
+    134,
+    971,
+    1320
+  ],
+  "transparent_corners": true,
+  "margin_pixels": {
+    "left": 313,
+    "top": 134,
+    "right": 229,
+    "bottom": 80
+  },
+  "reopened_blend_render_identical": true,
+  "source_asset_hashes_verified": 6,
+  "browser_review": [
+    "full silhouette on light, dark and green",
+    "128 px image-height light/dark samples",
+    "background buttons and final preview"
+  ],
+  "visual_disposition": "Keep as a method experiment; stiff generic rendered style, pose/character refinement and dark-square weapon contrast remain unresolved. Not adopted.",
+  "animation_checked": false,
+  "owner_accepted": false
+}

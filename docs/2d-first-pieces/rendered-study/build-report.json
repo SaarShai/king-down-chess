@@ -1,0 +1,48 @@
+{
+  "source": "MakeHuman CC0 base, female shape targets, default skeleton and authored skin weights; original King Down costume as visual reference.",
+  "vertices": 19158,
+  "faces": 9044,
+  "bones": 163,
+  "pose": {
+    "R": {
+      "shoulder": [
+        -0.14520734548568726,
+        0.01950891502201557,
+        1.1911789178848267
+      ],
+      "elbow": [
+        -0.35899242758750916,
+        0.0427178256213665,
+        1.2321031093597412
+      ],
+      "wrist": [
+        -0.5260000228881836,
+        0.07500000298023224,
+        1.3350000381469727
+      ]
+    },
+    "L": {
+      "shoulder": [
+        0.14520734548568726,
+        0.01950891502201557,
+        1.1911789178848267
+      ],
+      "elbow": [
+        0.2682773470878601,
+        0.07777596265077591,
+        1.3625738620758057
+      ],
+      "wrist": [
+        0.08500000089406967,
+        0.14499999582767487,
+        1.3250000476837158
+      ]
+    }
+  },
+  "render": [
+    1200,
+    1400
+  ],
+  "method": "Editable 3D geometry and skeleton; actual finger bones posed; authored hood, braid and bow; orthographic Cycles render. No generated finish.",
+  "scope": "Single full-draw pose; no animation delivered. Costume and equipment are static meshes in this study, not a production animation rig."
+}
