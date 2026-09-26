@@ -276,3 +276,7 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 
 ## Continuous 2D character motion — 2026-09-25
 - Additional independently generated poses do not solve proportion and registration drift. For smooth character motion, use one consistent set of painted parts and interpolate joint transforms; keep frame drawings for changes the rig cannot represent. Ground contacts and hand-to-prop attachments must remain fixed through the action.
+
+## Archer anatomy correction — 2026-09-25
+- Connected joints are not enough for a convincing painted rig. Check rest, full draw and intermediate poses for anatomy; overlapping neck tabs can double the visible neck, and a mathematically connected arm can still bend in the wrong plane. Separate hands from forearms so wrist rotation and projected arm length do not stretch the fingers.
+- For an authored elbow path, verify that its projected segments cannot collapse while crossing the shoulder. Aim should rotate the arm targets together, preserving prop attachments and reach.

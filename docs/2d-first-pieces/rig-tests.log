@@ -1,11 +1,12 @@
-✔ shot holds at full draw, releases once, and returns to rest (2.047792ms)
-✔ arm solver preserves both segment lengths across reachable targets (0.241791ms)
-✔ singular and unreachable targets stay finite (0.064792ms)
-ℹ tests 3
+✔ shot holds at full draw, releases once, and returns to rest (2.756ms)
+✔ arm solver preserves both segment lengths across reachable targets (0.300917ms)
+✔ singular and unreachable targets stay finite (0.076958ms)
+✔ the complete shot keeps the bow reachable and both hands attached through aiming (7.087167ms)
+ℹ tests 4
 ℹ suites 0
-ℹ pass 3
+ℹ pass 4
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 95.977916
+ℹ duration_ms 107.465875
