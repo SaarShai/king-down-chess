@@ -306,3 +306,7 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 ## 2026-09-26 — aiming drawings on a real board
 - A convincing sideways aiming study does not supply every facing a top-down board needs. → Keep the authored angle limits explicit. Test actual opponents and contact coordinates; use additional facing art before claiming fully directional motion. The board trial's steep-shot encounter panel is an experiment, not owner approval of that presentation.
 - Equipment can extend beyond a figure's occupied square. → Keep input tied to square occupancy, with visual selection/target markers, rather than letting overlapping sprite bounds capture a neighbouring piece's clicks.
+
+## 2026-09-26 — adding the painted Ogre
+- A destination square does not uniquely identify an Ogre action: the same enemy can be captured or pushed. → Preserve both engine moves in the presentation, show an explicit choice, and verify different piece counts and final squares. Do not collapse actions into a map that keeps only one move per target.
+- A coherent braced pose can carry a restrained shove with one rigid upper-body weight shift and planted feet. → Describe it as that; it does not provide independent arm articulation or a walking cycle. Preserve the hands rather than stretching them to exaggerate the action.

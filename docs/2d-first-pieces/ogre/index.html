@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>King Down · the Ogre</title>
+<link rel="stylesheet" href="../aim-study.css">
+<main>
+<header><div><p class="eyebrow">King Down · painted 2D study</p><h1>The Ogre</h1></div><nav><a href="../board/?position=ogre">Try his shove on the board</a> · <a href="../lance/">Pawn</a> · <a href="../wrist-bow/">Archer</a></nav></header>
+<div class="layout"><section class="stage" aria-label="Ogre shove preview">
+<canvas id="character" width="1000" height="1060" aria-hidden="true"></canvas>
+<svg id="scene" viewBox="0 0 1000 1060" role="button" tabindex="0" aria-label="Shove the practice pad. Click or press Enter."><g id="pad"><rect x="826" y="368" width="26" height="240" rx="12" fill="#879074" opacity=".45"/><path d="M839 628V909M806 909h66" stroke="#879074" stroke-width="5"/><text x="839" y="960" text-anchor="middle" class="target-label">PRACTICE PAD</text></g></svg>
+</section><aside>
+<h2>Plant. Push. Recover.</h2>
+<p>His stance holds while his weight moves into the shove. Both arms and hands stay together in their painted pose.</p>
+<div class="army" aria-label="Choose army"><button type="button" data-side="0" aria-pressed="true">Ivory</button><button type="button" data-side="1" aria-pressed="false">Charcoal</button></div>
+<div class="actions"><button id="push" class="primary">Shove</button><button id="reset">Reset</button></div>
+<p id="status" role="status">Ready. Shove the practice pad, or try him on the board.</p>
+<label class="motion-option"><input type="checkbox" id="reduce-motion"> Reduce motion</label>
+<label class="motion-option"><input type="checkbox" id="slow-motion"> Slow motion</label>
+<hr><h2>On the board</h2>
+<p>Move one square in any direction. Capture an adjacent enemy, or push a neighbour into the empty square beyond and follow. Pushing keeps both pieces.</p>
+<div class="samples"><div class="sample"><canvas id="sample-ivory" width="1000" height="1060" role="img" aria-label="Ivory Ogre at board size"></canvas></div><div class="sample dark"><canvas id="sample-charcoal" width="1000" height="1060" role="img" aria-label="Charcoal Ogre at board size"></canvas></div></div>
+<div class="links"><a href="ogre.png">Full-size artwork</a><a href="README.md">Study notes</a></div>
+</aside></div><footer>Existing Ogre design translated into painted 2D · ivory and charcoal · terracotta cuffs.</footer></main>
+<style>.sample canvas{width:126px;height:134px}.stage{aspect-ratio:1000/1060}.motion-option+.motion-option{margin-top:8px}</style>
+<script type="module">
+import { drawOgre, pushAt, PUSH, palmAt } from './motion.mjs';
+const $=id=>document.getElementById(id), art=new Image(), preference=matchMedia('(prefers-reduced-motion: reduce)');
+let side=0, action=null, frame=0, ready=false;
+$('reduce-motion').checked=preference.matches;
+function draw(t=0){
+ const extension=PUSH*pushAt(t);
+ drawOgre($('character'),art,side,extension);drawOgre($('sample-ivory'),art,0,extension);drawOgre($('sample-charcoal'),art,1,extension);
+ $('pad').setAttribute('transform',`translate(${palmAt(side,PUSH).x-826} ${palmAt(side,PUSH).y-498})`);
+ $('pad').style.opacity=t>=.48&&t<.8?'.8':'1';
+}
+function tick(now){frame=0;if(!action)return;const t=Math.min(1,(now-action.start)/action.duration);draw(t);
+ if(t>=.48&&!action.hit){action.hit=true;$('status').textContent='Contact. Holding the push, then recovering…';}
+ if(t===1){action=null;$('push').disabled=false;$('status').textContent='Back in stance. Ready to shove again.';}else frame=requestAnimationFrame(tick);
+}
+function cancel(){if(frame)cancelAnimationFrame(frame);frame=0;action=null;$('push').disabled=false;if(ready)draw();$('status').textContent='Ready. Shove the practice pad, or try him on the board.';}
+function push(){if(!ready||action)return;if($('reduce-motion').checked){$('status').textContent='Shove complete. Motion reduced.';return;}
+ action={start:performance.now(),duration:$('slow-motion').checked?3000:1000,hit:false};$('push').disabled=true;$('status').textContent='Bracing…';frame=requestAnimationFrame(tick);
+}
+$('push').onclick=push;$('reset').onclick=cancel;$('scene').onclick=push;
+$('scene').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();push();}};
+for(const button of document.querySelectorAll('[data-side]'))button.onclick=()=>{side=Number(button.dataset.side);cancel();for(const b of document.querySelectorAll('[data-side]'))b.setAttribute('aria-pressed',String(b===button));};
+$('reduce-motion').onchange=cancel;preference.onchange=()=>{$('reduce-motion').checked=preference.matches;cancel();};
+art.onload=()=>{ready=true;draw();};art.onerror=()=>{$('status').textContent='Artwork could not load. Reload the preview.';$('push').disabled=true;};art.src='ogre.png';
+</script>
+</html>

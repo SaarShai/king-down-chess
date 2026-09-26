@@ -1,6 +1,8 @@
-# Pawn + Archer board trial
+# Painted board trial — Pawn, Archer and Ogre
 
 Open http://127.0.0.1:5192/board/. This is a local visual/interaction experiment, using the accepted full painted silhouettes, continuous shoulder motion and two army palettes. It does not replace the playable game on 5189. Owner review is pending.
+
+The third character is now available in **Ogre encounter**: [open his position](http://127.0.0.1:5192/board/?position=ogre). He has a planted shove, enemy/friendly pushes and an explicit capture-or-push choice. [Artwork, method and additional verification](../ogre/README.md).
 
 ## Try it
 
@@ -14,11 +16,11 @@ Choose a piece, then a green move dot or copper attack ring. Hovering a marked s
 
 An HTML button grid handles square picking and accessible names; native Canvas draws the board, existing sprites and effects. One requestAnimationFrame loop runs only during motion/aim changes. Idle sprites are cached. No new dependency or animation framework was added.
 
-The static preview imports a bundled copy of the production `genPiece` and `makeMove` functions. `rules-source.json` records the source hashes. The trial uses default Pawn/Archer piece rules, including obstruction, Pawn first-step options and stationary Archer captures. It intentionally omits alternating turns, kings/check, other pieces and promotions. Promotion moves are unavailable here. The bundle is a snapshot, not a live connection to game settings.
+The static preview imports a bundled copy of the production `genPiece` and `makeMove` functions. `rules-source.json` records the source hashes. The trial uses default Pawn/Archer/Ogre piece rules, including obstruction, Pawn first-step options, stationary Archer captures and Ogre follow-through pushes. It intentionally omits alternating turns, kings/check, other pieces and promotions. Promotion moves are unavailable here. The bundle is a snapshot, not a live connection to game settings.
 
 Move animations glide between squares. Pawn captures approach the actual victim, plant the stance for the existing lance jab, fade the victim at contact, then advance into its square. The approach is solved from the fully extended lance tip and victim's chest. Archer shots aim, launch a bolt from the wrist bow, recoil and recover while remaining on the source square. Board mutations happen only at completion, so cancellation cannot leave a late capture behind.
 
-The art remains unchanged: `../lance/pawn.png`, `../wrist-bow/archer.png` and their existing `aiming.mjs` renderers. No new poses were generated.
+Pawn and Archer art remains unchanged: `../lance/pawn.png`, `../wrist-bow/archer.png` and their existing `aiming.mjs` renderers. The new Ogre sheet is `../ogre/ogre.png`, with its restrained weight-shift renderer in `../ogre/motion.mjs`.
 
 ## Facing decision and findings
 

@@ -1,13 +1,17 @@
 // Local visual/interaction prototype. The production game renderer is untouched.
-import { P,A,typeOf,colorOf,sqName,parseSq,makeMove } from './rules.mjs';
-import { createPosition,actionsFor,destination } from './model.mjs';
+import { P,A,O,typeOf,colorOf,sqName,parseSq,makeMove } from './rules.mjs';
+import { layouts,createPosition,actionsFor,destination } from './model.mjs';
 import { clamp } from '../painted-mesh.mjs';
 import * as archer from '../wrist-bow/aiming.mjs';
 import * as pawn from '../lance/aiming.mjs';
+import * as ogre from '../ogre/motion.mjs';
 const $=id=>document.getElementById(id), scene=$('scene'), ctx=scene.getContext('2d'), detail=$('closeup').getContext('2d');
-const SIZE=960, PAD=32, TILE=112, names={ [P]:'Pawn',[A]:'Archer' }, colours=['Ivory','Charcoal'];
-const art={ [P]:new Image(),[A]:new Image() };
+const SIZE=960, PAD=32, TILE=112, names={ [P]:'Pawn',[A]:'Archer',[O]:'Ogre' }, colours=['Ivory','Charcoal'];
+const art={ [P]:new Image(),[A]:new Image(),[O]:new Image() };
 const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.106,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
+specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
+const requestedLayout=new URLSearchParams(location.search).get('position');
+if(Object.hasOwn(layouts,requestedLayout))$('layout').value=requestedLayout;
 const idle=new Map(), work=new Map(), squares=new Map();
 let position=createPosition(), selected=parseSq('c4'), hover=null, animation=null, history=[], lastSquares=[];
 let frame=0, previousTime=0, aimAngle=0, aimFacing=1, ready=false;
@@ -23,6 +27,7 @@ function tip(type,side,angle,extension=0) { return type===A?archer.muzzle(angle,
 function aimed(value,pose,target) {
  const type=typeOf(value), side=colorOf(value), spec=specs[type];
  pose={...pose,facing:Math.abs(target.x-pose.foot.x)>1?Math.sign(target.x-pose.foot.x):pose.facing};
+ if(type===O)return pose;
  const p=local(target,pose,type), pivot=type===A?{x:archer.pivot(side).x,y:archer.pivot(side).y+archer.FIGURE_Y}:spec.pivot;
  const zero=tip(type,side,0), dx=p.x-pivot.x,dy=p.y-pivot.y;
  const raw=Math.atan2(dy,dx)-Math.asin(clamp((zero.y-pivot.y)/Math.max(1,Math.hypot(dx,dy)),-1,1));
@@ -34,7 +39,7 @@ function sprite(value,angle=0,extension=0) {
  let canvas=staticPose?idle.get(key):work.get(type);
  if(canvas&&staticPose)return canvas;
  if(!canvas){canvas=document.createElement('canvas');canvas.width=1152;canvas.height=1152;(staticPose?idle:work).set(staticPose?key:type,canvas);}
- if(type===A)archer.drawArcher(canvas,art[type],side,angle);else pawn.drawPawn(canvas,art[type],side,angle,extension);
+ if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else pawn.drawPawn(canvas,art[type],side,angle,extension);
  return canvas;
 }
 function drawPiece(out,value,pose,opacity=1,extension=0) {
@@ -80,8 +85,16 @@ function render(time=performance.now()) {
  if(selected!==null&&poses.has(selected))Object.assign(poses.get(selected).pose,{angle:aimAngle,facing:aimFacing});
  let shot=null,hit=null;
  if(animation){
-  const a=animation,t=(time-a.start)/a.speed,actor=poses.get(a.move.from),victim=poses.get(a.move.captures[0]);
+  const a=animation,t=(time-a.start)/a.speed,actor=poses.get(a.move.from),victim=poses.get(a.move.shove?.from??a.move.captures[0]);
   if(a.type==='move')actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease(t/420))};
+  else if(a.type==='ogre'){
+   const drive=ease((t-780)/360),travel=a.move.shove?{x:(a.pushedTo.foot.x-a.victimPose.foot.x)*drive,y:(a.pushedTo.foot.y-a.victimPose.foot.y)*drive}:{x:0,y:0};
+   if(t<300)actor.pose={...a.pose,foot:mix(a.from.foot,a.approach,ease(t/300))};
+   else if(t<1300){actor.pose={...a.pose,foot:{x:a.approach.x+travel.x,y:a.approach.y+travel.y}};actor.extension=ogre.PUSH*ogre.pushAt((t-300)/1000);}
+   else actor.pose={...a.pose,foot:mix({x:a.approach.x+travel.x,y:a.approach.y+travel.y},a.to.foot,ease((t-1300)/300))};
+   if(victim){if(a.move.shove)victim.pose={...a.victimPose,foot:mix(a.victimPose.foot,a.pushedTo.foot,drive)};else victim.opacity=1-clamp((t-780)/180,0,1);}
+   hit={point:{x:a.target.x+travel.x,y:a.target.y+travel.y},t:(t-780)/260};
+  }
   else if(a.type==='pawn'){
    if(t<280)actor.pose={...a.from,angle:a.pose.angle*ease(t/280),facing:a.pose.facing};
    else if(t<550)actor.pose={...a.pose,foot:mix(a.from.foot,a.approach,ease((t-280)/270))};
@@ -97,7 +110,7 @@ function render(time=performance.now()) {
    else actor.pose={...a.from,angle:0};
   }
   if(a.closeup)drawEncounter(a,t);else $('encounter').hidden=true;
-  const impactTime=a.type==='pawn'?910:440;
+  const impactTime=a.type==='pawn'?910:a.type==='ogre'?780:440;
   if(a.type!=='move'&&t>=impactTime&&!a.contacted){a.contacted=true;$('status').textContent='Hit. Recovering…';}
  }
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
@@ -109,7 +122,7 @@ function render(time=performance.now()) {
 function drawEncounter(a,t) {
  $('encounter').hidden=false;$('encounter-title').textContent=`${colours[colorOf(a.value)]} Archer · ${sqName(a.move.from)} → ${sqName(a.move.captures[0])}`;
  detail.clearRect(0,0,900,480);
- const victimPose={foot:{x:665,y:445},scale:typeOf(a.victim)===A?.34:.40,facing:-1,angle:0};
+ const victimPose={foot:{x:665,y:445},scale:typeOf(a.victim)===A?.34:typeOf(a.victim)===O?.44:.40,facing:-1,angle:0};
  const target=world(specs[typeOf(a.victim)].hit,victimPose,typeOf(a.victim));
  const actor=aimed(a.value,{foot:{x:205,y:445},scale:.34,facing:1,angle:0},target);
  const angle=actor.angle*ease(t/160)-(t>180&&t<500?Math.sin((t-180)/320*Math.PI)*.025:0);
@@ -129,50 +142,67 @@ function tick(time) {
 function wake(){if(ready&&!frame)frame=requestAnimationFrame(tick);}
 function describe(move,value) {
  const name=`${colours[colorOf(value)]} ${names[typeOf(value)]}`,from=sqName(move.from),to=sqName(destination(move));
+ if(move.shove)return `${name} pushed ${to} → ${sqName(move.shove.to)} and followed to ${sqName(move.to)}.`;
  return move.captures.length?(typeOf(value)===A?`${name} shot ${to} and stayed on ${from}.`:`${name} captured on ${to}.`):`${name} moved ${from} → ${to}.`;
 }
 function commit(move,value) {
  history.push({position,message:describe(move,value),lastSquares:[...lastSquares]});
- position=makeMove({...position,turn:colorOf(value)},move);lastSquares=[move.from,destination(move)];selected=move.to;hover=null;aimAngle=0;aimFacing=sideFacing(value);
+ position=makeMove({...position,turn:colorOf(value)},move);lastSquares=[move.from,destination(move),...(move.shove?[move.shove.to]:[])];selected=move.to;hover=null;aimAngle=0;aimFacing=sideFacing(value);
  $('status').textContent=describe(move,value);updateUI();
 }
 function finish(){const {move,value}=animation;animation=null;$('encounter').hidden=true;commit(move,value);}
 function start(move) {
  if(animation||!ready)return;
- const value=position.board[move.from],from=poseFor(value,move.from),to=poseFor(value,move.to),victim=position.board[move.captures[0]];
+ $('action-picker').close();
+ const value=position.board[move.from],from=poseFor(value,move.from),to=poseFor(value,move.to),victimSquare=move.shove?.from??move.captures[0],victim=position.board[victimSquare];
  if(reduced()){commit(move,value);wake();return;}
  const base={move,value,from,to,victim,start:performance.now(),speed:$('slow').checked?2.5:1,contacted:false};
  if(!victim){base.type='move';base.duration=420;const dx=to.foot.x-from.foot.x;from.facing=dx?Math.sign(dx):sideFacing(value);}
  else{
-  const target=world(specs[typeOf(victim)].hit,poseFor(victim,move.captures[0]),typeOf(victim));
+  const target=world(specs[typeOf(victim)].hit,poseFor(victim,victimSquare),typeOf(victim));
   const pose=aimed(value,from,target);Object.assign(base,{target,pose});
-  if(typeOf(value)===P){
+  if(typeOf(value)===O){
+   base.type='ogre';base.duration=1600;
+   const contact=world(ogre.palmAt(colorOf(value),ogre.PUSH),pose,O);
+   base.approach={x:pose.foot.x+target.x-contact.x,y:pose.foot.y+target.y-contact.y};
+   base.victimPose=poseFor(victim,victimSquare);
+   if(move.shove)base.pushedTo=poseFor(victim,move.shove.to);
+  }else if(typeOf(value)===P){
    base.type='pawn';base.duration=1630;
    const contact=world(pawn.tipAt(pose.angle,colorOf(value),pawn.THRUST),pose,P);
    base.approach={x:pose.foot.x+target.x-contact.x,y:pose.foot.y+target.y-contact.y};
   }else{base.type='archer';base.duration=820;base.closeup=pose.outside;}
  }
- animation=base;$('status').textContent=base.type==='move'?'Moving…':base.closeup?'Taking aim · attack close-up.':'Taking aim…';updateUI();wake();
+ animation=base;$('status').textContent=base.type==='move'?'Moving…':base.type==='ogre'?'Bracing for contact…':base.closeup?'Taking aim · attack close-up.':'Taking aim…';updateUI();wake();
 }
-function cancel(){animation=null;$('encounter').hidden=true;hover=null;aimAngle=0;}
+function cancel(){animation=null;$('encounter').hidden=true;$('action-picker').close();hover=null;aimAngle=0;}
 function reset(){cancel();position=createPosition($('layout').value);history=[];lastSquares=[];selected=$('layout').value==='ranks'?parseSq('b3'):$('layout').value==='angles'?parseSq('d4'):parseSq('c4');aimFacing=1;$('status').textContent='Choose a marked square, or select any other piece.';updateUI();wake();}
 function undo(){if(animation){cancel();$('status').textContent='Action canceled. The position is unchanged.';}else if(history.length){const last=history.pop();position=last.position;lastSquares=last.lastSquares;selected=null;hover=null;aimAngle=0;$('status').textContent='Last action undone. Choose either army.';}updateUI();wake();}
 function choose(square){
  if(animation||!ready)return;
- const move=actionsFor(position,selected).find(m=>destination(m)===square);
- if(move){start(move);return;}
+ const options=actionsFor(position,selected).filter(m=>destination(m)===square);
+ if(options.length>1){
+  $('action-title').textContent=`Choose what happens on ${sqName(square)}`;
+  $('action-options').replaceChildren();
+  for(const move of options){const button=document.createElement('button');button.textContent=actionLabel(move,position.board[selected]);button.onclick=()=>start(move);$('action-options').append(button);}
+  $('action-picker').showModal();return;
+ }
+ if(options.length){start(options[0]);return;}
  if(position.board[square]){selected=selected===square?null:square;hover=null;aimAngle=0;aimFacing=sideFacing(position.board[square]);$('status').textContent=selected===null?'Selection cleared.':`Choose a marked square for the ${names[typeOf(position.board[square])].toLowerCase()}.`;}
  else $('status').textContent='That square is not available. Choose a marked square.';
  updateUI();wake();
 }
+function actionLabel(move,value){return move.shove?`Push ${sqName(move.shove.from)} → ${sqName(move.shove.to)}`:`${move.captures.length?(typeOf(value)===A?'Shoot':'Capture'):'Move'} ${sqName(destination(move))}`;}
 function updateUI(){
- const value=selected===null?0:position.board[selected],moves=actionsFor(position,selected),targetMap=new Map(moves.map(m=>[destination(m),m]));
- for(const [sq,button] of squares){const v=position.board[sq],move=targetMap.get(sq);button.className=`square${selected===sq?' selected':''}${move?(move.captures.length?' attack':' move'):''}${lastSquares.includes(sq)?' last':''}`;button.setAttribute('aria-pressed',String(selected===sq));button.setAttribute('aria-disabled',String(Boolean(animation)));button.setAttribute('aria-label',`${sqName(sq)}${v?`, ${colours[colorOf(v)]} ${names[typeOf(v)]}`:', empty'}${move?`, ${move.captures.length?'attack':'move'} available`:''}`);button.tabIndex=sq===(selected??parseSq('a1'))?0:-1;}
+ const value=selected===null?0:position.board[selected],moves=actionsFor(position,selected);
+ for(const [sq,button] of squares){const v=position.board[sq],options=moves.filter(m=>destination(m)===sq),capture=options.some(m=>m.captures.length),push=options.some(m=>m.shove),kind=capture&&push?'capture or push':push?'push':capture?'attack':'move';button.className=`square${selected===sq?' selected':''}${options.length?(capture?' attack':'')+(push?' push':'')+(!capture&&!push?' move':''):''}${lastSquares.includes(sq)?' last':''}`;button.setAttribute('aria-pressed',String(selected===sq));button.setAttribute('aria-disabled',String(Boolean(animation)));button.setAttribute('aria-label',`${sqName(sq)}${v?`, ${colours[colorOf(v)]} ${names[typeOf(v)]}`:', empty'}${options.length?`, ${kind} available`:''}`);button.tabIndex=sq===(selected??parseSq('a1'))?0:-1;
+  if(push){const shove=options.find(m=>m.shove).shove,dx=Math.sign((shove.to&7)-(shove.from&7)),dy=Math.sign((shove.to>>3)-(shove.from>>3));button.dataset.pushArrow={'1,0':'→','-1,0':'←','0,1':'↑','0,-1':'↓','1,1':'↗','-1,1':'↖','1,-1':'↘','-1,-1':'↙'}[`${dx},${dy}`];}
+ }
  $('allegiance').textContent=value?`${colours[colorOf(value)]} army`:'Choose a piece';$('piece-name').textContent=value?names[typeOf(value)]:'Your move.';
- $('description').textContent=!value?'Select a Pawn or Archer from either army to see its available actions.':typeOf(value)===A?'Aim the wrist bow at a marked enemy. The Archer captures without leaving her square.':'Advance into an empty square, or thrust at an enemy on a forward diagonal.';
- const moveCount=moves.filter(m=>!m.captures.length).length,attackCount=moves.length-moveCount;
- $('selection-state').textContent=value?`${sqName(selected)} · ${moveCount} move${moveCount===1?'':'s'} · ${attackCount} attack${attackCount===1?'':'s'}`:'No piece selected';
- $('choices').replaceChildren();for(const m of moves){const b=document.createElement('button');b.textContent=`${m.captures.length?(typeOf(value)===A?'Shoot':'Capture'):'Move'} ${sqName(destination(m))}`;b.className=m.captures.length?'capture':'';b.disabled=Boolean(animation);b.onclick=()=>start(m);b.onpointerenter=()=>{hover=destination(m);wake();};b.onfocus=()=>{hover=destination(m);wake();};$('choices').append(b);}
+ $('description').textContent=!value?'Select a piece from either army to see its available actions.':typeOf(value)===A?'Aim the wrist bow at a marked enemy. The Archer captures without leaving her square.':typeOf(value)===O?'Move one square in any direction. Capture an enemy or push a neighbour into the empty square beyond, then follow.':'Advance into an empty square, or thrust at an enemy on a forward diagonal.';
+ const moveCount=moves.filter(m=>!m.captures.length&&!m.shove).length,attackCount=moves.filter(m=>m.captures.length).length,pushCount=moves.filter(m=>m.shove).length;
+ $('selection-state').textContent=value?`${sqName(selected)} · ${moveCount} move${moveCount===1?'':'s'} · ${attackCount} attack${attackCount===1?'':'s'}${pushCount?` · ${pushCount} push${pushCount===1?'':'es'}`:''}`:'No piece selected';
+ $('choices').replaceChildren();for(const m of moves){const b=document.createElement('button');b.textContent=actionLabel(m,value);b.className=m.shove?'push-action':m.captures.length?'capture':'';b.disabled=Boolean(animation);b.onclick=()=>start(m);b.onpointerenter=()=>{hover=destination(m);wake();};b.onfocus=()=>{hover=destination(m);wake();};$('choices').append(b);}
  if(value&&!moves.length)$('selection-state').textContent=`${sqName(selected)} · No available actions in this trial`;
  $('undo').disabled=!animation&&!history.length;
  for(const side of [0,1])$(side?'black-count':'white-count').textContent=Array.from(position.board).filter(v=>v&&colorOf(v)===side).length;
@@ -186,9 +216,10 @@ for(let row=0;row<8;row++)for(let col=0;col<8;col++){
 }
 $('squares').addEventListener('pointerleave',()=>{if(!animation){hover=null;wake();}});
 $('reset').onclick=reset;$('undo').onclick=undo;$('layout').onchange=reset;
+$('cancel-choice').onclick=()=>$('action-picker').close();
 $('reduced').onchange=()=>{if(animation)undo();else wake();};preference.addEventListener('change',()=>{$('reduced').checked=preference.matches;if(animation)undo();else wake();});
 updateUI();boardBackground();
 try{
- await Promise.all([[P,'../lance/pawn.png'],[A,'../wrist-bow/archer.png']].map(([type,url])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=url;})));
+ await Promise.all([[P,'../lance/pawn.png'],[A,'../wrist-bow/archer.png'],[O,'../ogre/ogre.png']].map(([type,url])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=url;})));
  ready=true;reset();
 }catch{$('status').textContent='The artwork could not load. Reload the preview to try again.';}

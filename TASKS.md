@@ -1,5 +1,11 @@
 # Tasks
 
+## Painted Ogre — 2026-09-26
+- Owner: do the next character after the combined Pawn/Archer board. Select Ogre for its distinct silhouette and shove.
+- Plan: derive coherent ivory/charcoal painted artwork from the existing Ogre design and accepted painted style; animate a planted shove with intact hands; add Ogre movement, capture/push choice and actual pushed-piece motion to the existing board study. Keep production game/rules unchanged.
+- Verify: full feet/hands, army colours, motion at both sides and board scale; existing engine shove legality (friend/enemy, blocked destination), capture versus push choice, both pieces' final squares, Undo/cancellation, reduced motion and narrow layout. Preserve prompt/provenance and record limits.
+- [x] Delivered [painted Ogre and evidence](docs/2d-first-pieces/ogre/README.md), both armies, coherent planted shove and board encounter with distinct capture/push choice. Browser verified enemy/friendly pushes, capture, both final squares/counts, Undo/cancellation, keyboard/reduced motion and 390 px layout. Four focused tests pass, including 1,001 Ogre motion samples and existing Pawn/Archer checks. Art awaits owner review; locomotion and additional facings remain outside this pass.
+
 ## Interactive painted board trial — 2026-09-26
 - Owner: try the Pawn and Archer together on a 2D board with selection, movement, targeted attacks, captures and recovery.
 - Plan: build an isolated board prototype using the accepted painted assets and native motion; reuse the existing rules for these pieces, let the owner control either army, and make square occupancy/possible actions clear. Resolve attack facing without bending the artwork beyond its authored range. Leave the playable game intact.
