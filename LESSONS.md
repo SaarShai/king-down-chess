@@ -269,3 +269,7 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 - A new default invalidates a test's implicit rules, not necessarily its fixture. Keep historical repel regressions explicit while separately checking the new push default; preserve the accepted whole-history repetition repair.
 - Search must agree with game endings before ordinary evaluation, including at the capture horizon. Keep checkmate ahead of a fifty-move draw and honor disabled draw rules and a live Strike power; share the material-draw predicate instead of duplicating exceptions.
 - Mobile piece guidance in an auto-sized header moved the board under an active touch. Put changing explanations in the scrolling panel and assert stable board bounds across a real touch gesture. Wait for the camera flip to finish before sampling automation coordinates.
+
+## 2D artwork direction — 2026-09-25
+- Owner wants army colour dominant across each figure, with limited recognition-colour accents. Coloured bases alone do not satisfy that. Keep full feet, hems and equipment; no portrait-style bottom cutoff. Original King Down art is reference input for derived poses, variations and new pieces.
+- Display sprite-sheet frames with preserved aspect ratio when both width and height are constrained. Check actual phone layout; a fixed-height portrait with a clamped width can silently squeeze the figure.

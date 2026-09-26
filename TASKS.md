@@ -1,5 +1,11 @@
 # Tasks
 
+## 2D first-piece study — 2026-09-25
+- Owner: adopt the illustrated 2D direction; use original artwork as reference, keep complete figures, make army colour dominant with limited identifying accents; focus on two pieces.
+- Plan: Pawn and Archer by default; create ivory/charcoal idle and action artwork, then a separate board-scale study with movement/shot previews.
+- Verify: full silhouettes and equipment, consistent side colours and pose identity, board-size readability, working local study. Preserve the current game while the two-piece visual direction is developed.
+- [x] Pawn/Archer ivory and charcoal resting/action artwork saved; responsive board study and movement/shot controls checked in browser. Phone width 390 px without overflow. See [first-piece study](docs/2d-first-pieces/README.md). Art awaits owner assessment; full-game renderer conversion remains outside this two-piece pass.
+
 ## Special-move usability — 2026-09-25
 - Plan: visible capture/push choice, contextual selection instructions and reachable finish/cancel controls. Preserve rules, clay and saved games.
 - Verify: production build; real mouse/touch capture and shove, cancellation/reset, Beast chain finish/continue, Maester swap and existing UI checks.
