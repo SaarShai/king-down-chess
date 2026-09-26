@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>King Down · the Bishop</title>
+<link rel="stylesheet" href="../aim-study.css">
+<main>
+<header><div><p class="eyebrow">King Down · painted 2D study</p><h1>The Bishop</h1></div><nav><a href="../board/?position=bishop">Try the diagonal move</a> · <a href="../knight/">Knight</a> · <a href="../ogre/">Ogre</a> · <a href="../">Art study</a></nav></header>
+<div class="layout"><section class="stage" aria-label="Bishop book casting preview">
+<canvas id="character" width="1000" height="1060" aria-hidden="true"></canvas>
+<svg id="scene" viewBox="0 0 1000 1060" role="button" tabindex="0" aria-label="Present the book. Click or press Enter."><g id="target"><circle cx="690" cy="545" r="30" fill="#f0c65b" opacity=".16"/><circle cx="690" cy="545" r="11" fill="none" stroke="#b18d42" stroke-width="2"/><path d="M690 504v22M690 564v22M649 545h22M709 545h22" stroke="#b18d42" stroke-width="2" opacity=".75"/><text x="690" y="650" text-anchor="middle" class="target-label">PRESENT THE BOOK</text></g></svg>
+</section><aside>
+<h2>Study. Reveal. Recover.</h2>
+<p>The split Bishop hat, masked face, book and dagger keep the original identity. A restrained whole-figure presentation brings the book forward while hands and equipment stay rigid.</p>
+<div class="army" aria-label="Choose army"><button type="button" data-side="0" aria-pressed="true">Ivory</button><button type="button" data-side="1" aria-pressed="false">Charcoal</button></div>
+<div class="actions"><button id="cast" class="primary">Present book</button><button id="reset">Reset</button></div>
+<p id="status" role="status">Ready. Present the book.</p>
+<label class="motion-option"><input type="checkbox" id="reduce-motion"> Reduce motion</label>
+<label class="motion-option"><input type="checkbox" id="slow-motion"> Slow motion</label>
+<hr><h2>On the board</h2>
+<p>Move any number of clear squares on a diagonal. The book and dagger remain part of the same planted painted pose; the board link uses the production Bishop rules.</p>
+<div class="samples"><div class="sample"><canvas id="sample-ivory" width="1152" height="1152" role="img" aria-label="Ivory Bishop at board size"></canvas></div><div class="sample dark"><canvas id="sample-charcoal" width="1152" height="1152" role="img" aria-label="Charcoal Bishop at board size"></canvas></div></div>
+<div class="links"><a href="bishop.png">Full-size artwork</a><a href="original-reference.png">Original reference</a><a href="README.md">Study notes</a></div>
+</aside></div><footer>Original Bishop identity · complete split hat, book, dagger and hem · ivory and charcoal · restrained magenta accent.</footer></main>
+<style>.sample canvas{width:134px;height:134px}.motion-option+.motion-option{margin-top:8px}</style>
+<script type="module">
+import { actionAt, drawBishop, DURATION } from './motion.mjs';
+const $ = id => document.getElementById(id);
+const art = new Image();
+const preference = matchMedia('(prefers-reduced-motion: reduce)');
+let side = 0, action = null, frame = 0, ready = false;
+$('reduce-motion').checked = preference.matches;
+
+function draw(progress = 0) {
+  const extension = actionAt(progress);
+  drawBishop($('character'), art, side, extension);
+  drawBishop($('sample-ivory'), art, 0, extension);
+  drawBishop($('sample-charcoal'), art, 1, extension);
+  $('target').style.opacity = progress > 0.46 && progress < 0.82 ? '1' : '.7';
+}
+
+function tick(now) {
+  frame = 0;
+  if (!action) return;
+  const t = Math.min(1, (now - action.start) / action.duration);
+  draw(t);
+  if (t >= .2 && !action.wound) { action.wound = true; $('status').textContent = 'Opening the book…'; }
+  if (t >= .5 && !action.hit) { action.hit = true; $('status').textContent = 'Book presented. Holding the diagonal line…'; }
+  if (t >= .72 && !action.recovering) { action.recovering = true; $('status').textContent = 'Closing and recovering…'; }
+  if (t === 1) { action = null; $('cast').disabled = false; $('status').textContent = 'Back in stance. Ready to present again.'; draw(); }
+  else frame = requestAnimationFrame(tick);
+}
+
+function cancel() {
+  if (frame) cancelAnimationFrame(frame);
+  frame = 0; action = null; $('cast').disabled = false;
+  if (ready) draw();
+  $('status').textContent = 'Ready. Present the book.';
+}
+
+function cast() {
+  if (!ready || action) return;
+  if ($('reduce-motion').checked) { draw(0.5); $('status').textContent = 'Book presented. Motion reduced.'; return; }
+  action = { start: performance.now(), duration: DURATION * ($('slow-motion').checked ? 3 : 1), wound: false, hit: false, recovering: false };
+  $('cast').disabled = true; $('status').textContent = 'Gathering the book…'; frame = requestAnimationFrame(tick);
+}
+
+$('cast').onclick = cast; $('reset').onclick = cancel; $('scene').onclick = cast;
+$('scene').onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); cast(); } };
+for (const button of document.querySelectorAll('[data-side]')) button.onclick = () => {
+  side = Number(button.dataset.side); cancel();
+  for (const b of document.querySelectorAll('[data-side]')) b.setAttribute('aria-pressed', String(b === button));
+};
+$('reduce-motion').onchange = cancel;
+preference.onchange = () => { $('reduce-motion').checked = preference.matches; cancel(); };
+art.onload = () => { ready = true; draw(); };
+art.onerror = () => { $('status').textContent = 'Artwork could not load. Reload the preview.'; $('cast').disabled = true; };
+art.src = 'bishop.png';
+</script>
+</html>
