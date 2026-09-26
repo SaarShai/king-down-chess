@@ -1,5 +1,7 @@
 # First two 2D pieces — 2026-09-25
 
+Latest: [continuously rigged Archer](RIG.md), running at `/rig.html`; the frame study below is retained for comparison.
+
 Owner direction: use the approved illustrated board concept and original King Down art as reference for new poses, angles, pieces and animation as needed. Figures must be complete at the bottom; army colour must dominate, with a few recognition accents. This replaces the earlier fixed-clay visual direction for new art work.
 
 First pair: Pawn and Archer, proposed in the session; no alternate pair specified. Scope is an art and motion study, not conversion of the entire game.

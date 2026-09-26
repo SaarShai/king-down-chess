@@ -1,5 +1,10 @@
 # Tasks
 
+## Rigged Archer — 2026-09-25
+- Plan: painted part atlas, articulated SVG Archer with continuous aim/draw/release/recovery, both armies and a board-scale preview. Preserve previous frame study for comparison.
+- Verify: visual joint continuity and full silhouette at rest/full draw; pointer/touch targeting; sequence completion/reset; mobile sizing and reduced motion.
+- [x] Painted SVG rig implemented for both armies; continuous aiming, draw/release/recovery, projectile, scrubber and joint overlay. Three math tests and browser shot/reset/mobile checks pass. [Rig evidence](docs/2d-first-pieces/RIG.md).
+
 ## Additional animation frames — 2026-09-25
 - Plan: four additional action frames per piece and army; timed playback, frame inspection and reduced-motion support.
 - Verify: inspect full silhouettes, both armies, playback completion, reset cancellation and phone layout.

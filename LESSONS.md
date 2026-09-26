@@ -273,3 +273,6 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 ## 2D artwork direction — 2026-09-25
 - Owner wants army colour dominant across each figure, with limited recognition-colour accents. Coloured bases alone do not satisfy that. Keep full feet, hems and equipment; no portrait-style bottom cutoff. Original King Down art is reference input for derived poses, variations and new pieces.
 - Display sprite-sheet frames with preserved aspect ratio when both width and height are constrained. Check actual phone layout; a fixed-height portrait with a clamped width can silently squeeze the figure.
+
+## Continuous 2D character motion — 2026-09-25
+- Additional independently generated poses do not solve proportion and registration drift. For smooth character motion, use one consistent set of painted parts and interpolate joint transforms; keep frame drawings for changes the rig cannot represent. Ground contacts and hand-to-prop attachments must remain fixed through the action.
