@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>King Down · the Rook</title>
+<link rel="stylesheet" href="../aim-study.css">
+<main>
+<header><div><p class="eyebrow">King Down · painted 2D study</p><h1>The Rook</h1></div><nav><a href="../board/?position=rook">Try the Rook on the board</a> · <a href="../ogre/">Ogre</a> · <a href="../knight/">Knight</a> · <a href="../">Art study</a></nav></header>
+<div class="layout"><section class="stage" aria-label="Rook planted ram preview">
+<canvas id="character" width="1152" height="1024" aria-hidden="true"></canvas>
+<svg id="scene" viewBox="0 0 1152 1024" role="button" tabindex="0" aria-label="Brace and ram. Click or press Enter."><path d="M122 960h300" stroke="#879074" stroke-width="4" opacity=".55"/><path d="M272 630v330M238 960h68" stroke="#879074" stroke-width="5" opacity=".65"/><text x="272" y="994" text-anchor="middle" class="target-label">WEIGHT LINE</text></svg>
+</section><aside>
+<h2>Hold the line.</h2>
+<p>The Rook keeps its tower and fists rigid while a small planted weight shift gathers force and recovers. Its stone pillar stays part of one complete silhouette.</p>
+<div class="army" aria-label="Choose army"><button type="button" data-side="0" aria-pressed="true">Ivory</button><button type="button" data-side="1" aria-pressed="false">Charcoal</button></div>
+<div class="actions"><button id="ram" class="primary">Brace</button><button id="reset">Reset</button></div>
+<p id="status" role="status">Ready. Brace the line, or try the Rook on the board.</p>
+<label class="motion-option"><input type="checkbox" id="reduce-motion"> Reduce motion</label>
+<label class="motion-option"><input type="checkbox" id="slow-motion"> Slow motion</label>
+<hr><h2>Board scale</h2><p>The tower and pillar read as one heavy Rook silhouette. Incoming attacks use the torso hit point; the projecting hand and masonry stay part of the drawing.</p>
+<div class="samples"><div class="sample"><canvas id="sample-ivory" width="1152" height="1024" role="img" aria-label="Ivory Rook at board size"></canvas></div><div class="sample dark"><canvas id="sample-charcoal" width="1152" height="1024" role="img" aria-label="Charcoal Rook at board size"></canvas></div></div>
+<div class="links"><a href="rook.png">Full-size artwork</a><a href="original-reference.png">Original reference</a><a href="README.md">Study notes</a></div>
+</aside></div><footer>Original Rook identity translated into painted 2D · ivory and charcoal · tower, pillar arm and amber eyes.</footer></main>
+<style>.sample canvas{width:134px;height:119px}.stage{aspect-ratio:1152/1024}.motion-option+.motion-option{margin-top:8px}</style>
+<script type="module">
+import {drawRook,actionAt,DURATION,SHIFT} from './motion.mjs';
+const $=id=>document.getElementById(id),art=new Image(),preference=matchMedia('(prefers-reduced-motion: reduce)');
+let side=0,action=null,frame=0,ready=false;
+$('reduce-motion').checked=preference.matches;
+function draw(progress=0){drawRook($('character'),art,side,SHIFT*actionAt(progress));drawRook($('sample-ivory'),art,0,SHIFT*actionAt(progress));drawRook($('sample-charcoal'),art,1,SHIFT*actionAt(progress));}
+function tick(now){frame=0;if(!action)return;const t=Math.min(1,(now-action.start)/action.duration);draw(t);
+ if(t>=.48&&!action.hit){action.hit=true;$('status').textContent='Weight set. Holding the line, then recovering…';}
+ if(t===1){action=null;$('ram').disabled=false;$('status').textContent='Back in stance. Ready to brace again.';}else frame=requestAnimationFrame(tick);
+}
+function cancel(){if(frame)cancelAnimationFrame(frame);frame=0;action=null;$('ram').disabled=false;if(ready)draw();$('status').textContent='Ready. Brace the line, or try the Rook on the board.';}
+function ram(){if(!ready||action)return;if($('reduce-motion').checked){$('status').textContent='Brace complete. Motion reduced.';return;}action={start:performance.now(),duration:$('slow-motion').checked?3300: DURATION,hit:false};$('ram').disabled=true;$('status').textContent='Planting weight…';frame=requestAnimationFrame(tick);}
+$('ram').onclick=ram;$('reset').onclick=cancel;$('scene').onclick=ram;
+$('scene').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();ram();}};
+for(const button of document.querySelectorAll('[data-side]'))button.onclick=()=>{side=Number(button.dataset.side);cancel();for(const b of document.querySelectorAll('[data-side]'))b.setAttribute('aria-pressed',String(b===button));};
+$('reduce-motion').onchange=cancel;preference.onchange=()=>{$('reduce-motion').checked=preference.matches;cancel();};
+art.onload=()=>{ready=true;draw();};art.onerror=()=>{$('status').textContent='Artwork could not load. Reload the preview.';$('ram').disabled=true;};art.src='rook.png';
+</script></html>
