@@ -31,3 +31,11 @@ Open http://127.0.0.1:5192/ . The existing game remains at port 5189.
 Inspected actual generated sheets, transparent-alpha metadata and desktop/phone browser rendering. Checked ivory Archer shot completes without moving the Archer; enemy disappears. Checked charcoal Pawn advance and action-pose switch. Checked board-target activation in the 390 px phone layout, then restored the normal viewport. Phone page width 390 px, board width 344 px, no horizontal overflow. SVG view windows preserve the figure's aspect ratio at constrained portrait widths; board coordinates align with squares. Reset invalidates pending animation callbacks. No automated engine tests needed: no game code was changed.
 
 The first Archer sheet had insufficient space between rows; the kept revision fixes that. The mobile layout initially squeezed wide poses; corrected using aspect-preserving SVG display of the unchanged image sheets. Assessment of the final art remains open for owner feedback; do not describe it as owner-approved production artwork.
+
+## Extended animation — 2026-09-25
+
+Added `archer-animation.png` and `pawn-animation.png`, each with four sequential poses for both armies (16 newly generated frames total). Playback combines these with the original resting pose. Archer: ready, full draw, release, recovery. Pawn: anticipation, step, thrust, recovery. The Pawn sequence is an action study alongside the scripted advance, not a new chess rule.
+
+`animation.json` records actual sheet dimensions; fixed cells preserve scale through the four action frames. Explicit SVG clips prevent neighbouring rows from leaking into letterboxed portraits. `animation-prompts.json` preserves exact built-in image-generation prompts. Original sheets remain intact. New controls: Next frame, live frame name/count, and Slow motion (3× duration). Reduced-motion preference skips the timed action poses.
+
+Verified JavaScript syntax, browser Archer shot completion, charcoal Pawn completion, frame stepping, reset during slow playback, and 390px document width without overflow. Sheets and on-board preview inspected. This remains an illustrated key-pose sequence, not interpolated skeletal animation.

@@ -1,5 +1,10 @@
 # Tasks
 
+## Additional animation frames — 2026-09-25
+- Plan: four additional action frames per piece and army; timed playback, frame inspection and reduced-motion support.
+- Verify: inspect full silhouettes, both armies, playback completion, reset cancellation and phone layout.
+- [x] Added four new poses per army/piece; five-pose playback including rest, slow motion, frame stepping and gallery. Verified Archer/Pawn completion, cancellation and 390px layout. Evidence: docs/2d-first-pieces/README.md.
+
 ## 2D first-piece study — 2026-09-25
 - Owner: adopt the illustrated 2D direction; use original artwork as reference, keep complete figures, make army colour dominant with limited identifying accents; focus on two pieces.
 - Plan: Pawn and Archer by default; create ivory/charcoal idle and action artwork, then a separate board-scale study with movement/shot previews.
