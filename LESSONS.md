@@ -294,3 +294,7 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 ## 2026-09-26 — preserve the Archer's original weapon and 2D direction
 - The owner rejected the 3D test and replaced the introduced longbow with the original wrist bow. → Preserve meaningful source equipment before designing movement: the wrist bow removes the unnecessary string-drawing pose and its difficult arm assembly. Current direction is illustrated 2D, with natural shoulder/elbow/wrist proportions.
 - A coherent complete pose plus restrained projectile/recoil effects can serve this shot study without rebuilding limbs. → Keep the illustration's aspect ratio and anatomy fixed; describe this accurately as one pose with effects, not a full articulated animation or multiple drawn frames.
+
+## 2026-09-26 — preserve the animation goal when simplifying the weapon
+- Replacing the longbow with a wrist bow did not remove the requested cursor-following arm movement. Whole-sprite recoil and a projectile were insufficient. → Recheck the original interaction requirement after changing the visual method; report which part actually moves.
+- A small shoulder mesh can preserve a coherent painted figure while the forearm, hand and attached weapon rotate together. Keep the aim arc within the drawing's usable projection, check the shoulder at both limits, and test mesh orientation across the full arc including recoil. Do not infer visual acceptance from geometric invariants.

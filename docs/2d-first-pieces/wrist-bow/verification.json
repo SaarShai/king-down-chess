@@ -61,9 +61,54 @@
     "two-piece page module"
   ],
   "limitations": [
-    "one complete firing pose per army, not separate raise/reload pose frames",
-    "recoil translates the entire sprite; no articulated arm or hand animation",
+    "one painted aiming pose; no reload or turn-around drawing",
+    "aiming limited to 22 degrees up and 30 degrees down in the drawing plane",
+    "cursor aiming is in the focused preview; the two-piece board retains its static shot",
+    "physical touch input not tested",
     "owner acceptance remains pending"
   ],
-  "responsive_breakpoint_tested": false
+  "responsive_breakpoint_tested": true,
+  "cursor_aiming": {
+    "date": "2026-09-26",
+    "method": "native Canvas 2D shoulder mesh from the unchanged painted sheet; rigid hand and wrist bow",
+    "range_degrees": {
+      "up": 22,
+      "down": 30,
+      "recoil": 1.8
+    },
+    "geometry_check": {
+      "command": "node --test docs/2d-first-pieces/wrist-bow/aiming.test.mjs",
+      "sampled_poses": 940,
+      "armies": 2,
+      "minimum_triangle_area_ratio": 0.161,
+      "result": "pass"
+    },
+    "visual_checks": [
+      "neutral, up and down for ivory and charcoal",
+      "shoulder continuity, fixed hood/braid, hand and bow shape",
+      "both moving board-size samples",
+      "complete boots and equipment"
+    ],
+    "browser_checks": [
+      "pointer drag changes aim without firing",
+      "aimed ivory shot completion",
+      "charcoal keyboard shot waits for aim and completes",
+      "reset cancels shot",
+      "army switch cancels shot",
+      "local reduced-motion toggle: immediate aim and keyboard shot",
+      "390x844 layout, working slider, width and scrollWidth both 390px",
+      "normal viewport restored",
+      "no application warnings or errors"
+    ],
+    "syntax_checks": [
+      "index.html module",
+      "aiming.mjs"
+    ],
+    "unchanged": [
+      "source PNG SHA-256",
+      "two-piece board implementation",
+      "playable game"
+    ],
+    "touch_verification": "pointer path and native slider reviewed; physical touch untested"
+  }
 }

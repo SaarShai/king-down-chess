@@ -1,6 +1,6 @@
 # First two 2D pieces — 2026-09-25
 
-Current direction (2026-09-26): **painted 2D Archer with her compact wrist bow and natural arm proportions**. The [wrist-bow study](wrist-bow/README.md) supplies the Archer artwork now used by the two-piece board preview, and a focused shot preview at `/wrist-bow/`. Both the earlier SVG limb rig and the subsequent 3D-rendered study were rejected by the owner. Preserve them as history; do not resume them as the current direction. The longbow sheets below are historical references.
+Current direction (2026-09-26): **painted 2D Archer with her compact wrist bow and natural arm proportions**. The [wrist-bow study](wrist-bow/README.md) supplies the Archer artwork now used by the two-piece board preview, and continuous cursor-driven arm aiming in the focused preview at `/wrist-bow/`. Both the earlier SVG limb rig and the subsequent 3D-rendered study were rejected by the owner. Preserve them as history; do not resume them as the current direction. The longbow sheets below are historical references.
 
 Owner direction: use the approved illustrated board concept and original King Down art as reference for new poses, angles, pieces and animation as needed. Figures must be complete at the bottom; army colour must dominate, with a few recognition accents. This replaces the earlier fixed-clay visual direction for new art work.
 
@@ -44,6 +44,10 @@ Verified JavaScript syntax, browser Archer shot completion, charcoal Pawn comple
 
 ## Wrist-bow revision — 2026-09-26
 
-`wrist-bow/archer.png` contains ivory and charcoal versions of one full-body firing pose, made with built-in image generation from the original Archer and the preferred painted sheet. The longbow/string-drawing pose is replaced by a compact forearm-mounted bow; the free arm rests beside her body. The entire illustration remains intact during playback. Arm and hand proportions were visually checked at large and board sizes.
+`wrist-bow/archer.png` contains ivory and charcoal versions of one full-body firing pose, made with built-in image generation from the original Archer and the preferred painted sheet. The longbow/string-drawing pose is replaced by a compact forearm-mounted bow; the free arm rests beside her body. The board shot keeps the entire illustration intact during playback. Arm and hand proportions were visually checked at large and board sizes.
 
 `index.html` now uses this art for every Archer view. A bolt starts at the wrist device and travels to the marked Pawn, with small whole-sprite recoil. Archer no longer exposes the old five-frame longbow controls or gallery; Pawn retains its five poses. Reset cancels in-flight browser animations. The focused `/wrist-bow/` page also supports keyboard activation of its target. See its [verification record](wrist-bow/verification.json) for checked behavior and limits.
+
+## Wrist-bow cursor aiming — 2026-09-26
+
+The focused `/wrist-bow/` preview now animates the arm toward the pointer through a bounded aiming arc. A small shoulder mesh preserves the painted join; the forearm, hand and weapon rotate together. Both army-size samples follow, and the bolt leaves along the actual wrist-bow direction. Native Canvas/SVG/browser animations; no new artwork or dependencies. This is separate from the board's static shot. See the [controls, method and verification](wrist-bow/README.md).

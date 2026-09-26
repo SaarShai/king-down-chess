@@ -1,5 +1,11 @@
 # Tasks
 
+## Wrist-bow cursor aiming — 2026-09-26
+- Owner correction: the arm must follow the cursor; projectile/recoil effects alone do not satisfy the animation request.
+- Plan: preserve the coherent painted Archer; articulate the complete shooting arm and attached wrist bow with fixed proportions, smooth bounded cursor aiming and shots aligned with the current aim. Use native browser motion and keep the game untouched.
+- Verify: neutral/up/down silhouettes and shoulder continuity for both armies; actual pointer response, keyboard/touch alternative, bolt alignment, shot/reset/army-switch cancellation, reduced-motion behavior and small-scale readability.
+- [x] Focused preview now has continuous cursor aiming through a connected shoulder mesh, rigid hand/wrist-bow motion, aimed shots and arm recoil. Both armies and their small samples visually checked; pointer drag, keyboard, reduced-motion control, shot cancellation and 390 px layout checked. 940 geometry samples pass; [method, scope and evidence](docs/2d-first-pieces/wrist-bow/README.md). Physical touch remains untested; the board/game were not changed.
+
 ## 2D wrist-bow Archer — 2026-09-26
 - Owner rejected the rendered 3D study. Return to illustrated 2D, use her original wrist bow and correct arm proportions.
 - Plan: use the original Archer and preferred painted sheet as references; make a complete firing silhouette with a compact forearm-mounted bow and natural arms; show both army colours at portrait and board scale, then use restrained recoil/projectile motion without stretching limb artwork.
