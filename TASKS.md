@@ -1,5 +1,11 @@
 # Tasks
 
+## Painted Knight — 2026-09-26
+- Owner: do the next character after Ogre. Choose Knight for a distinct upright silhouette and jumping movement; preserve the original horse-head helmet, spear and cape (a foot soldier, not a mounted horse).
+- Plan: coherent ivory/charcoal painted figures, small recognition accents, full equipment/feet; restrained anticipation/leap/landing without deforming hands; focused character preview and existing board integration using production Knight rules.
+- Verify: identity, anatomy, colours and silhouette at portrait/board scale; exact L destinations, jumps over occupied squares, capture/landing for both armies, airborne depth/shadow, cancellation/Undo, reduced motion and narrow layout. Preserve source/prompt and evidence; leave the production game unchanged.
+- [x] Delivered [painted Knight and evidence](docs/2d-first-pieces/knight/README.md): original helmet/spear/cape identity, ivory/charcoal palettes, leap/landing preview and board position. Both armies' captures, blockers, Undo/cancellation, keyboard/reduced motion, top-edge visibility and 390 px layouts checked. Six focused tests pass, including 1,101 Knight curve samples and existing piece checks. Owner review pending; motion uses one coherent pose rather than a new leg cycle.
+
 ## Painted Ogre — 2026-09-26
 - Owner: do the next character after the combined Pawn/Archer board. Select Ogre for its distinct silhouette and shove.
 - Plan: derive coherent ivory/charcoal painted artwork from the existing Ogre design and accepted painted style; animate a planted shove with intact hands; add Ogre movement, capture/push choice and actual pushed-piece motion to the existing board study. Keep production game/rules unchanged.

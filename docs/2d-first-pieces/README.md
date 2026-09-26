@@ -1,6 +1,6 @@
 # First two 2D pieces — 2026-09-25
 
-Current focused animations: [Archer wrist bow](wrist-bow/README.md) and [Pawn lance](lance/README.md), with continuous cursor aiming and their own attack actions.
+Current studies: [Archer wrist bow](wrist-bow/README.md), [Pawn lance](lance/README.md), [Ogre shove](ogre/README.md), and [Knight leap](knight/README.md). All four are available on the [interactive board](board/README.md). The first-pair experiments below remain as history.
 
 Current direction (2026-09-26): **painted 2D Archer with her compact wrist bow and natural arm proportions**. The [wrist-bow study](wrist-bow/README.md) supplies the Archer artwork now used by the two-piece board preview, and continuous cursor-driven arm aiming in the focused preview at `/wrist-bow/`. Both the earlier SVG limb rig and the subsequent 3D-rendered study were rejected by the owner. Preserve them as history; do not resume them as the current direction. The longbow sheets below are historical references.
 

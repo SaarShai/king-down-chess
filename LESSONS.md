@@ -310,3 +310,8 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 ## 2026-09-26 — adding the painted Ogre
 - A destination square does not uniquely identify an Ogre action: the same enemy can be captured or pushed. → Preserve both engine moves in the presentation, show an explicit choice, and verify different piece counts and final squares. Do not collapse actions into a map that keeps only one move per target.
 - A coherent braced pose can carry a restrained shove with one rigid upper-body weight shift and planted feet. → Describe it as that; it does not provide independent arm articulation or a walking cycle. Preserve the hands rather than stretching them to exaggerate the action.
+
+## 2026-09-26 — painted Knight identity and airborne presentation
+- Inspect the original character before interpreting a chess name: King Down's Knight is a foot soldier with a horse-head helmet, spear and cape, not a horse or mounted rider.
+- Recognition colour must not take over a large costume surface. The first Knight generation's burgundy cape violated the army-colour direction; recolour its main area to the army and retain only a narrow accent.
+- Separate an airborne figure's lift from its board position so its shadow stays on the ground. Check the entire weapon at board edges, and maintain relative character scale in motion previews. Whole-figure travel is not an articulated leg cycle.
