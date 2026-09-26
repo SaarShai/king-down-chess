@@ -12,7 +12,7 @@ The two equal 768 × 1024 cells contain matched complete figures. The generated 
 
 `motion.mjs` exports `DURATION`, `ANCHOR`, `HIT`, `actionAt(t)` and `drawBishop(canvas,image,side,extension=0)`. The preview uses a short negative anticipation, rigid forward presentation, hold and recovery. `actionAt` returns a normalized extension in `[−0.16,1]`; the renderer turns it into a 22 px translation, 3 px lift and 0.018 rad whole-pose rotation. Hands, book, dagger, robe hem and feet remain one painted image. This is a restrained casting/book action, not a skeletal rig, independent hand articulation, walking cycle, or set of alternate facings.
 
-The preview includes Ivory and Charcoal, action/reset, keyboard activation, slow motion, reduced motion and 1152 px board-size samples. The board link is prepared for the production Bishop rules but is not changed by this study. Physical touchscreen behavior and owner acceptance of the artwork remain outside this pass.
+The preview includes Ivory and Charcoal, action/reset, keyboard activation, slow motion, reduced motion and 1152 px board-size samples. The parent task integrated the study with production Bishop rules in the board trial. Physical touchscreen behavior and owner acceptance of the artwork remain outside this pass.
 
 ## Verification
 
@@ -22,4 +22,4 @@ The focused motion test samples 1,001 points, checks the bounded anticipation/pr
 node --test docs/2d-first-pieces/bishop/motion.test.mjs
 ```
 
-Binary inspection confirms both assets are RGBA PNGs at the requested dimensions, and the generated sheet retains transparent corners and complete feet/hat/dagger silhouettes. Browser verification and board integration are owned by the parent task.
+Binary inspection confirms both assets are RGBA PNGs at the requested dimensions, and the generated sheet retains transparent corners and complete feet/hat/dagger silhouettes. Parent review checked both armies, book presentation, Reset, slow/reduced motion, keyboard and 390 px layout. Both Bishops capture on the board; Undo restores the victim. The parent removed an overlapping label and corrected the main canvas aspect ratio. See [shared verification](../board/README.md#parallel-cast-review).

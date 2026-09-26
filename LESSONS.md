@@ -319,3 +319,8 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 ## 2026-09-26 — Knight anticipation
 - Owner asked for knees to bend before jumping. A whole-sprite tilt was not enough. → Add an actual planted crouch in the shared character renderer, used by both the study and board; make the preparatory phase visible before travel begins and flex again at landing.
 - Keep a long grounded spear and its grip out of the leg deformation. Use bounded leg guides and inspect both army registrations; mathematical bone lengths and positive triangles supplement, not replace, visual review.
+
+## 2026-09-26 — reviewing parallel painted pieces
+- Equal-cell generation instructions do not prove the figures fit equal cells. The Rook’s fist crossed x=768; resizing the entire sheet did not repair that boundary. → Preserve the generated PNG and register actual complete source windows (the accepted Rook gutter is x=780).
+- A planted-motion test must assert actual opaque boot/contact points, not just a bounded curve or a translated anchor. The Guard’s soles ended above the original deformation cutoff; parent review moved the cutoff above the boots. A rigid Rook rock keeps one stone contact fixed and honestly lifts the rear foot.
+- Canvas aspect ratio and overlays are part of artwork quality. Preserve source proportions and draw board selection borders behind tall figures so they cannot appear to sever a neck or helmet.

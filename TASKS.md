@@ -1,5 +1,11 @@
 # Tasks
 
+## Knight crouch and parallel cast — 2026-09-26
+- Owner: bend the Knight’s knees before jumping; explicitly authorize subagents for several pieces in parallel. This authorization is scoped to this batch.
+- Plan: add a planted crouch and landing recovery to the Knight in both previews; three isolated workers build Bishop, Rook and Guard artwork/motion in their own directories. Root reviews and integrates accepted outputs into the existing board trial.
+- Verify: visible knee articulation, fixed boots and rigid spear; both armies, takeoff/landing, Reset/Undo and reduced motion. Review each new original-inspired silhouette, army palette, full feet/equipment, controls and board rules; run focused checks and browser inspection. Production game remains unchanged.
+- [x] [Knight crouch](docs/2d-first-pieces/knight/README.md) and three reviewed pieces integrated into [the seven-piece board trial](docs/2d-first-pieces/board/README.md#parallel-cast-review). Thirteen focused tests pass; both-army captures, Guard pushes/noncapture, Undo/cancellation, keyboard/reduced motion and 390 px layouts verified. Source art/prompts preserved. Rook registration/stone contact, Guard boot pinning and Bishop aspect ratio corrected during parent review. Artwork awaits owner review; production game unchanged.
+
 ## Painted Knight — 2026-09-26
 - Owner: do the next character after Ogre. Choose Knight for a distinct upright silhouette and jumping movement; preserve the original horse-head helmet, spear and cape (a foot soldier, not a mounted horse).
 - Plan: coherent ivory/charcoal painted figures, small recognition accents, full equipment/feet; restrained anticipation/leap/landing without deforming hands; focused character preview and existing board integration using production Knight rules.

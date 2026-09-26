@@ -35,10 +35,8 @@ $('reduce-motion').checked = preference.matches;
 
 function draw(progress = 0) {
   const amount = action ? actionAt(progress) : 0;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#e7e5d4'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#3b42232b'; ctx.beginPath(); ctx.ellipse(576, 1050, 258, 18, 0, 0, Math.PI * 2); ctx.fill();
   drawGuard(canvas, art, side, amount);
+  ctx.save();ctx.globalCompositeOperation='destination-over';ctx.fillStyle='#3b42232b';ctx.beginPath();ctx.ellipse(576,1024,220,18,0,0,Math.PI*2);ctx.fill();ctx.restore();
   drawGuard($('sample-ivory'), art, 0, amount);
   drawGuard($('sample-charcoal'), art, 1, amount);
   $('ward').style.opacity = amount >= .5 ? '.9' : '.65';
@@ -49,7 +47,7 @@ function tick(now) {
   frame = 0; if (!action) return;
   const t = Math.min(1, (now - action.start) / action.duration); draw(t);
   if (t >= .18 && !action.prepared) { action.prepared = true; $('status').textContent = 'Set. Moving into the brace…'; }
-  if (t >= .5 && !action.held) { action.held = true; $('status').textContent = 'Holding the line. Hands and boots stay planted.'; }
+  if (t >= .5 && !action.held) { action.held = true; $('status').textContent = 'Holding the line. Boots stay planted.'; }
   if (t === 1) { action = null; $('brace').disabled = false; $('status').textContent = 'Back in stance. Ready to brace again.'; draw(); }
   else frame = requestAnimationFrame(tick);
 }

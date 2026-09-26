@@ -20,6 +20,6 @@ The standalone preview supports Ivory and Charcoal, Brace, Reset, click/Enter ac
 
 ## Verification and limits
 
-- `guard.png` is 1536 × 1024 RGBA. Each 768 px cell has transparent padding: Ivory alpha bbox `[28,17,754,1000]`; Charcoal `[13,24,739,964]`. The opaque figure pixels stop around y=960, leaving the sole blend room.
+- `guard.png` is 1536 × 1024 RGBA. Each 768 px cell has transparent padding: Ivory alpha bbox `[28,17,754,1000]`; Charcoal `[13,24,739,964]`. The opaque soles lie around source y=960; the deformation ends at y=850 so the complete boots stay fixed.
 - `node --test docs/2d-first-pieces/guard/motion.test.mjs` passes 1,153 bounded action samples with preparation, +x brace, hold and recovery.
-- The browser preview is intentionally standalone and uses no new dependencies. Root will inspect the rendered motion and board registration before adoption. Physical touch hardware, full directional facings and production renderer integration are outside this pass.
+- The browser preview is intentionally standalone and uses no new dependencies. Parent browser review checked both colours, brace, Reset/army-change cancellation, keyboard, reduced motion and 390 px layout. The deformation cutoff was corrected to the actual boot boundary and fixed-boot/rigid-hand assertions added. Both Guards move without attacks and can be pushed by Ogres with both pieces surviving. See [shared verification](../board/README.md#parallel-cast-review). Physical touch hardware, full directional facings and production renderer integration are outside this pass.

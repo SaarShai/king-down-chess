@@ -9,7 +9,7 @@ export const HIT = { x: 576, y: 540 };
 const smooth = t => t * t * (3 - 2 * t);
 
 // A small preparation, rigid brace toward +x, hold, then release. The artwork
-// is translated as one piece so its gauntlets, hands and feet never stretch.
+// keeps upper armour and gauntlets rigid while boots remain fixed.
 export function actionAt(progress) {
   const t = clamp(progress, 0, 1);
   if (t === 0 || t === 1) return 0;
@@ -19,9 +19,9 @@ export function actionAt(progress) {
   return 1 - smooth((t - 0.82) / 0.18);
 }
 
-const bands = [0, 620, 700, 780, 850, 920, 980, 1024];
-const upperBodyShift = (point, extension) => {
-  const weight = clamp((1000 - point.y) / 240, 0, 1);
+const bands = [0, 620, 730, 760, 790, 820, 850, 980, 1024];
+export const upperBodyShift = (point, extension) => {
+  const weight = smooth(clamp((850 - point.y) / 120, 0, 1));
   return { x: point.x + extension * weight, y: point.y - extension * 0.08 * weight };
 };
 
