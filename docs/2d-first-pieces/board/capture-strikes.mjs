@@ -75,5 +75,14 @@ try {
     assert.deepEqual([await page.textContent('#white-count'), await page.textContent('#black-count')], counts);
     console.log(`ok ${layout} undo mid-strike`);
   }
+  // Real clock (no fake timers): every position loads, and a Beast chain finishes.
+  const live = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
+  live.on('pageerror', e => errors.push(`live: ${e.message}`));
+  await live.goto(`${url}?position=cast`);
+  for (const layout of await live.$$eval('#layout option', o => o.map(x => x.value))) { await live.selectOption('#layout', layout); await live.waitForTimeout(60); }
+  await live.selectOption('#layout', 'beast');
+  await live.click('[data-square=d4]'); await live.click('#choices button:has-text("Chain d5 → e6 → f5")');
+  await live.waitForFunction(() => /chained/.test(document.getElementById('status').textContent), null, { timeout: 5000 });
+  console.log('ok live beast chain and all positions');
   assert.deepEqual(errors, []);
 } finally { await browser.close(); }
