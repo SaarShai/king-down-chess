@@ -1,5 +1,5 @@
 // Local visual/interaction prototype. The production game renderer is untouched.
-import { P,N,B,R,Q,L,M,G,A,O,typeOf,colorOf,sqName,parseSq,makeMove } from './rules.mjs';
+import { P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName,parseSq,makeMove } from './rules.mjs';
 import { layouts,createPosition,actionsFor,destination } from './model.mjs';
 import { clamp } from '../painted-mesh.mjs';
 import * as archer from '../wrist-bow/aiming.mjs';
@@ -12,14 +12,14 @@ import * as guard from '../guard/motion.mjs';
 import * as court from '../court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 const $=id=>document.getElementById(id), scene=$('scene'), ctx=scene.getContext('2d'), detail=$('closeup').getContext('2d');
-const SIZE=960, PAD=32, TILE=112, names={ [P]:'Pawn',[N]:'Knight',[B]:'Bishop',[R]:'Rook',[Q]:'Queen',[L]:'Paladin',[M]:'Maester',[G]:'Guard',[A]:'Archer',[O]:'Ogre' }, colours=['Ivory','Charcoal'];
+const CHAIN_STEP=520, SIZE=960, PAD=32, TILE=112, names={ [K]:'King',[S]:'Beast',[P]:'Pawn',[N]:'Knight',[B]:'Bishop',[R]:'Rook',[Q]:'Queen',[L]:'Paladin',[M]:'Maester',[G]:'Guard',[A]:'Archer',[O]:'Ogre' }, colours=['Ivory','Charcoal'];
 const art=Object.fromEntries(Object.keys(names).map(type=>[type,new Image()]));
 const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.106,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
 specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
 specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.125};
 const newMotions={ [B]:bishop,[R]:rook,[G]:guard };
 for(const [type,scale] of [[B,.13],[R,.155],[G,.12]])specs[type]={anchor:newMotions[type].ANCHOR,hit:newMotions[type].HIT,scale};
-const courtNames={[Q]:'queen',[L]:'paladin',[M]:'maester'};
+const courtNames={[Q]:'queen',[L]:'paladin',[M]:'maester',[K]:'king',[S]:'beast'};
 for(const [type,name] of Object.entries(courtNames)){
  specs[type]={anchor:court.ANCHOR,hit:court.HIT,scale:court.figures[name].scale};
  newMotions[type]={DURATION:court.figures[name].duration,actionAt:court.actionAt};
@@ -161,6 +161,12 @@ function render(time=performance.now()) {
    if(victim&&chopped>=0){const k=ease(chopped/110);victim.pose={...victim.pose,sx:1+.28*k,sy:1-.5*k};victim.opacity=1-clamp((chopped-60)/260,0,1);}
    effects.push(()=>smash(ctx,a.victimFoot,chopped/420));
   }
+  else if(a.type==='chain'){
+   const step=Math.min(Math.floor(t/CHAIN_STEP),a.stops.length-1),local=t-step*CHAIN_STEP,start=step?a.stops[step-1]:a.from.foot,end=a.stops[step];
+   const facing=Math.abs(end.x-start.x)>1?Math.sign(end.x-start.x):actor.pose.facing;
+   actor.pose={...a.from,facing,foot:mix(start,end,ease(local/(CHAIN_STEP*.55)))};actor.extension=court.actionAt(clamp(local/CHAIN_STEP,0,1));
+   a.move.captures.forEach((sq,i)=>{const v=poses.get(sq);if(!v)return;const bite=i*CHAIN_STEP+CHAIN_STEP*.5;v.opacity=1-clamp((t-bite)/160,0,1);if(t>=bite)effects.push(()=>impact(ctx,world(specs[typeOf(v.value)].hit,v.pose,typeOf(v.value)),(t-bite)/240));});
+  }
   else if(a.type==='move')actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease(t/420))};
   else if(a.type==='swap'){
    const motion=swapAt(t/a.duration,a.from.foot,a.to.foot);
@@ -213,7 +219,7 @@ function render(time=performance.now()) {
    else actor.pose={...a.from,angle:0};
   }
   if(a.closeup)drawEncounter(a,t);else $('encounter').hidden=true;
-  const impactTime=a.type==='slash'?bishop.CONTACT_MS:a.type==='hammer'?court.SMASH.chop[1]:a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?a.duration*knight.LANDING:a.type==='paladin'?a.duration*CHARGE_CONTACT:a.type==='advance'?a.duration*.5:440;
+  const impactTime=a.type==='chain'?CHAIN_STEP*.5:a.type==='slash'?bishop.CONTACT_MS:a.type==='hammer'?court.SMASH.chop[1]:a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?a.duration*knight.LANDING:a.type==='paladin'?a.duration*CHARGE_CONTACT:a.type==='advance'?a.duration*.5:440;
   if(a.type==='knight'&&t>=a.duration*.35&&!a.airborne){a.airborne=true;$('status').textContent='Airborne. Clearing the intervening pieces…';}
   if(a.type!=='move'&&a.type!=='swap'&&t>=impactTime&&!a.contacted){a.contacted=true;$('status').textContent=a.move.selfRemove?'The Paladin and his target are removed together.':a.type==='knight'||(a.type==='paladin'&&!victim)?'Landed. Settling into stance…':'Hit. Recovering…';}
  }
@@ -248,6 +254,7 @@ function tick(time) {
 function wake(){if(ready&&!frame)frame=requestAnimationFrame(tick);}
 function describe(move,value) {
  const name=`${colours[colorOf(value)]} ${names[typeOf(value)]}`,from=sqName(move.from),to=sqName(destination(move));
+ if(move.captures.length>1)return `${name} chained ${move.captures.map(sqName).join(' → ')} and stopped on ${sqName(move.to)}.`;
  if(move.swap)return `${name} swapped ${from} ↔ ${to}. Both pieces stay on the board.`;
  if(move.selfRemove)return `${name} captured on ${to}. Both the Paladin and the target are removed.`;
  if(move.shove)return `${name} pushed ${to} → ${sqName(move.shove.to)} and followed to ${sqName(move.to)}.`;
@@ -293,9 +300,12 @@ function start(move) {
    const contact=world(bishop.tipAt(bishop.SLASH.contact,colorOf(value)),pose,B);
    // Strike the near edge of the victim so the two figures overlap less.
    base.approach={x:pose.foot.x+target.x-pose.facing*12-contact.x,y:pose.foot.y+target.y-contact.y};
-  }else if([R,Q,M].includes(typeOf(value))){base.type='advance';base.duration=newMotions[typeOf(value)].DURATION;from.facing=pose.facing;}else{base.type='archer';base.duration=820;base.closeup=pose.outside;}
+  }else if(typeOf(value)===S){
+   // Beast chain: bite each victim in order, finishing on the last one.
+   base.type='chain';base.stops=move.captures.map(sq=>poseFor(value,sq).foot);base.duration=move.captures.length*CHAIN_STEP+200;from.facing=pose.facing;
+  }else if([R,Q,M,K].includes(typeOf(value))){base.type='advance';base.duration=newMotions[typeOf(value)].DURATION;from.facing=pose.facing;}else{base.type='archer';base.duration=820;base.closeup=pose.outside;}
  }
- animation=base;$('status').textContent=base.type==='move'?'Moving…':base.type==='swap'?'Trading places…':base.type==='slash'?'Drawing the dagger…':base.type==='hammer'?(move.selfRemove?'Raising the hammer. This capture will remove both pieces…':'Raising the hammer…'):base.type==='paladin'?(move.selfRemove?'Charging. This capture will remove both pieces…':'Preparing the Paladin’s charge…'):base.type==='advance'?'Advancing to capture…':base.type==='knight'?'Preparing to leap…':base.type==='ogre'?'Bracing for contact…':base.closeup?'Taking aim · attack close-up.':'Taking aim…';updateUI();wake();
+ animation=base;$('status').textContent=base.type==='move'?'Moving…':base.type==='swap'?'Trading places…':base.type==='chain'?(move.captures.length>1?`Starting a ${move.captures.length}-bite chain…`:'Lunging to bite…'):base.type==='slash'?'Drawing the dagger…':base.type==='hammer'?(move.selfRemove?'Raising the hammer. This capture will remove both pieces…':'Raising the hammer…'):base.type==='paladin'?(move.selfRemove?'Charging. This capture will remove both pieces…':'Preparing the Paladin’s charge…'):base.type==='advance'?'Advancing to capture…':base.type==='knight'?'Preparing to leap…':base.type==='ogre'?'Bracing for contact…':base.closeup?'Taking aim · attack close-up.':'Taking aim…';updateUI();wake();
 }
 function cancel(){animation=null;$('encounter').hidden=true;$('action-picker').close();hover=null;aimAngle=0;}
 function reset(){cancel();position=createPosition($('layout').value);history=[];lastSquares=[];selected=$('layout').value==='ranks'?parseSq('b3'):$('layout').value==='angles'?parseSq('d4'):parseSq('c4');aimFacing=1;$('status').textContent=selectionPrompt();updateUI();wake();}
@@ -325,7 +335,7 @@ function choose(square){
  else $('status').textContent=(actionsFor(position,selected).length?'That square is not available. ':'')+selectionPrompt();
  updateUI();wake();
 }
-function actionLabel(move,value){return move.swap?`Swap with ${sqName(move.to)}`:move.shove?`Push ${sqName(move.shove.from)} → ${sqName(move.shove.to)}`:`${move.captures.length?(typeOf(value)===A?'Shoot':'Capture'):typeOf(value)===N?'Leap':'Move'} ${sqName(destination(move))}${move.selfRemove?' · both removed':''}`;}
+function actionLabel(move,value){return move.captures.length>1?`Chain ${move.captures.map(sqName).join(' → ')}`:move.swap?`Swap with ${sqName(move.to)}`:move.shove?`Push ${sqName(move.shove.from)} → ${sqName(move.shove.to)}`:`${move.captures.length?(typeOf(value)===A?'Shoot':'Capture'):typeOf(value)===N?'Leap':'Move'} ${sqName(destination(move))}${move.selfRemove?' · both removed':''}`;}
 function updateUI(){
  const value=selected===null?0:position.board[selected],moves=actionsFor(position,selected);
  for(const [sq,button] of squares){const v=position.board[sq],options=moves.filter(m=>destination(m)===sq),capture=options.some(m=>m.captures.length),push=options.some(m=>m.shove),swap=options.some(m=>m.swap),kind=swap?'swap':capture&&push?'capture or push':push?'push':capture?'attack':'move';button.className=`square${selected===sq?' selected':''}${options.length?(capture?' attack':'')+(push?' push':'')+(swap?' swap':'')+(!capture&&!push&&!swap?' move':''):''}${lastSquares.includes(sq)?' last':''}`;button.setAttribute('aria-pressed',String(selected===sq));button.setAttribute('aria-disabled',String(Boolean(animation)));button.setAttribute('aria-label',`${sqName(sq)}${v?`, ${colours[colorOf(v)]} ${names[typeOf(v)]}`:', empty'}${options.length?`, ${kind} available`:''}`);button.tabIndex=sq===(selected??parseSq('a1'))?0:-1;
@@ -333,7 +343,7 @@ function updateUI(){
   if(push){const shove=options.find(m=>m.shove).shove,dx=Math.sign((shove.to&7)-(shove.from&7)),dy=Math.sign((shove.to>>3)-(shove.from>>3));button.dataset.pushArrow={'1,0':'→','-1,0':'←','0,1':'↑','0,-1':'↓','1,1':'↗','-1,1':'↖','1,-1':'↘','-1,-1':'↙'}[`${dx},${dy}`];}
  }
  $('allegiance').textContent=value?`${colours[colorOf(value)]} army`:'Choose a piece';$('piece-name').textContent=value?names[typeOf(value)]:'Your move.';
- $('description').textContent=!value?'Select a piece from either army to see its available actions.':typeOf(value)===Q?'Move and capture along clear ranks, files or diagonals. Pieces block the path; the Guard cannot be captured.':typeOf(value)===L?'Move along ranks, files or diagonals, passing over friends. Capturing a Pawn leaves the Paladin alive; capturing any other enemy removes him too. Guards block him.':typeOf(value)===M?'Move or capture one square in any direction, or swap with an adjacent friend. Swapping moves both pieces; it captures neither.':typeOf(value)===A?'Aim the wrist bow at a marked enemy. The Archer captures without leaving her square.':typeOf(value)===B?'Move and capture along diagonals. Pieces block the path; the Guard cannot be captured.':typeOf(value)===R?'Move and capture along ranks and files. Pieces block the path; the Guard cannot be captured.':typeOf(value)===G?'Move one square in any direction to an empty square. The Guard cannot capture. Only a King can capture him; an Ogre can push him.':typeOf(value)===N?'Leap two squares in one direction and one across. Jump over pieces; capture only on the landing square.':typeOf(value)===O?'Move one square in any direction. Capture an enemy or push a neighbour into the empty square beyond, then follow.':'Advance into an empty square, or thrust at an enemy on a forward diagonal.';
+ $('description').textContent=!value?'Select a piece from either army to see its available actions.':typeOf(value)===K?'Move or capture one square in any direction. This trial has no check; king powers are off.':typeOf(value)===S?'Move one square in any direction. Capture an adjacent enemy, then keep biting adjacent enemies in the same turn. Choose a chain from the list, or stop after any bite.':typeOf(value)===Q?'Move and capture along clear ranks, files or diagonals. Pieces block the path; the Guard cannot be captured.':typeOf(value)===L?'Move along ranks, files or diagonals, passing over friends. Capturing a Pawn leaves the Paladin alive; capturing any other enemy removes him too. Guards block him.':typeOf(value)===M?'Move or capture one square in any direction, or swap with an adjacent friend. Swapping moves both pieces; it captures neither.':typeOf(value)===A?'Aim the wrist bow at a marked enemy. The Archer captures without leaving her square.':typeOf(value)===B?'Move and capture along diagonals. Pieces block the path; the Guard cannot be captured.':typeOf(value)===R?'Move and capture along ranks and files. Pieces block the path; the Guard cannot be captured.':typeOf(value)===G?'Move one square in any direction to an empty square. The Guard cannot capture. Only a King can capture him; an Ogre can push him.':typeOf(value)===N?'Leap two squares in one direction and one across. Jump over pieces; capture only on the landing square.':typeOf(value)===O?'Move one square in any direction. Capture an enemy or push a neighbour into the empty square beyond, then follow.':'Advance into an empty square, or thrust at an enemy on a forward diagonal.';
  const moveCount=moves.filter(m=>!m.captures.length&&!m.shove&&!m.swap).length,attackCount=moves.filter(m=>m.captures.length).length,pushCount=moves.filter(m=>m.shove).length,swapCount=moves.filter(m=>m.swap).length;
  const selectionName=value?`${colours[colorOf(value)]} ${names[typeOf(value)]} · ${sqName(selected)}`:'';
  $('selection-state').textContent=value?`${selectionName} · ${moveCount} move${moveCount===1?'':'s'} · ${attackCount} attack${attackCount===1?'':'s'}${pushCount?` · ${pushCount} push${pushCount===1?'':'es'}`:''}${swapCount?` · ${swapCount} swap${swapCount===1?'':'s'}`:''}`:'No piece selected';
@@ -355,6 +365,6 @@ $('cancel-choice').onclick=()=>$('action-picker').close();
 $('reduced').onchange=()=>{if(animation)undo();else wake();};preference.addEventListener('change',()=>{$('reduced').checked=preference.matches;if(animation)undo();else wake();});
 updateUI();boardBackground();
 try{
- await Promise.all([[Q,'../queen/queen.png'],[L,'../paladin/paladin.png'],[M,'../maester/maester.png'],[P,'../lance/pawn.png'],[A,'../wrist-bow/archer.png'],[O,'../ogre/ogre.png'],[N,'../knight/knight.png'],[B,'../bishop/bishop.png'],[R,'../rook/rook.png'],[G,'../guard/guard.png']].map(([type,url])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=url;})));
+ await Promise.all([[K,'../king/king.png'],[S,'../beast/beast.png'],[Q,'../queen/queen.png'],[L,'../paladin/paladin.png'],[M,'../maester/maester.png'],[P,'../lance/pawn.png'],[A,'../wrist-bow/archer.png'],[O,'../ogre/ogre.png'],[N,'../knight/knight.png'],[B,'../bishop/bishop.png'],[R,'../rook/rook.png'],[G,'../guard/guard.png']].map(([type,url])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=url;})));
  ready=true;reset();
 }catch{$('status').textContent='The artwork could not load. Reload the preview to try again.';}

@@ -1,0 +1,21 @@
+{
+  "tool": "Codex built-in image_gen via codex exec",
+  "date": "2026-09-26",
+  "output": "beast.png",
+  "sha256": "655e4b5450c66d9a4ecce85a51a6fb60ebdbbc36f22e4c4df47bb14b87e56c44",
+  "generated_output": "beast-generated.png",
+  "generated_sha256": "da449ac60d7dfdd55dfe9d98b9e8dba3c9aafde7ec1b6ad526c50992106f198c",
+  "generated_source": "/Users/za/.codex/generated_images/01a0e174-7c7f-7002-8d4a-19eb15d0daa8/exec-cbfaa818-ba40-4f8a-8871-a1fdc27e0a61.png",
+  "rejected": {
+    "file": "beast-v1-rejected.png",
+    "why": "snout crossed into the charcoal cell; glowing orange mouth and brown harness dominated the army colour",
+    "source": "/Users/za/.codex/generated_images/01a0e168-2346-7192-b008-d667ff0ae660/exec-ede4bcb1-6656-4f65-9ebc-27965ed264e7.png"
+  },
+  "original_source": "art-src/pieces/final-ivory/beast_colored.png",
+  "original_copy": "original-reference.png",
+  "style_reference": "../knight/knight.png",
+  "prompts": [
+    "prompt.txt (the FRAMING CORRECTION paragraph was added for the second generation)"
+  ],
+  "treatment": "beast.png = beast-generated.png with each figure's pixels shifted horizontally to centre it in its own 768px cell (ivory -44 px, charcoal -9 px). No other pixel change."
+}

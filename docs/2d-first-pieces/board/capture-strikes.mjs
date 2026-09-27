@@ -11,6 +11,9 @@ const cases = [
   { name: 'bishop-charcoal', layout: 'bishop', from: 'f5', to: 'c2', times: [0, 250, 420, 470, 494, 520, 600, 800, 1150], status: 'Charcoal Bishop captured on c2.', counts: ['3', '4'] },
   { name: 'paladin-ivory-pawn', layout: 'paladin', from: null, to: 'g4', times: [0, 240, 480, 700, 800, 860, 880, 960, 1100, 1550], status: 'Ivory Paladin captured on g4.', counts: ['6', '5'] },
   { name: 'paladin-charcoal-both', layout: 'paladin', from: 'f5', to: 'f2', times: [0, 240, 480, 700, 800, 860, 880, 960, 1100, 1550], status: /Both the Paladin and the target are removed/, counts: ['5', '5'] }
+,
+  { name: 'king-ivory', layout: 'king', from: null, to: 'c5', times: [0, 200, 400, 550, 700, 1100], status: 'Ivory King captured on c5.', counts: ['4', '3'] },
+  { name: 'beast-chain-ivory', layout: 'beast', from: 'd4', to: 'e6', choice: 'Chain d5 → e6 → f5', times: [0, 260, 400, 780, 920, 1300, 1440, 1760], status: /chained d5 → e6 → f5/, counts: ['5', '2'] }
 ];
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
 const errors = [];
@@ -33,9 +36,9 @@ try {
     if (c.from) await page.click(`[data-square=${c.from}]`);
     await page.evaluate(() => window.__step(window.__now()));
     const start = await page.evaluate(() => window.__now());
-    await page.click(`[data-square=${c.to}]`);
+    if (c.choice) await page.click(`#choices button:has-text("${c.choice}")`); else await page.click(`[data-square=${c.to}]`);
     const centre = sq => ({ x: 32 + ('abcdefgh'.indexOf(sq[0]) + .5) * 112, y: 32 + (8 - Number(sq[1]) + .5) * 112 });
-    const a = centre(c.from || 'c4'), b = centre(c.to), crop = [Math.max(0, Math.min(660, b.x - 150)), Math.max(0, Math.min(660, b.y - 190))];
+    const a = centre(c.from || 'c4'), b = centre(c.to || c.from), crop = [Math.max(0, Math.min(660, b.x - 150)), Math.max(0, Math.min(660, b.y - 190))];
     const png = await page.evaluate(({ times, start, crop }) => {
       const scene = document.getElementById('scene'), w = 300, h = 300, cols = 5;
       const out = document.createElement('canvas'); out.width = w * cols; out.height = h * Math.ceil(times.length / cols);

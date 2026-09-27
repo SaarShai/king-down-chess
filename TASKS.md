@@ -1,5 +1,8 @@
 # Tasks
 
+## Painted King and Beast — 2026-09-26
+- [x] Frost King and Beast painted in ivory/charcoal (Codex built-in image generation, run only for the two images), registered on the board, added to the cast, with King guard and Beast chain positions. Beast chains are selectable per chain and animate bite by bite. One Beast image rejected and regenerated. Checks: `capture-strikes.mjs` 8/8, node tests, 24-figure cast screenshot. [Details](docs/2d-first-pieces/board/README.md#king-and-beast--2026-09-26). Owner review pending.
+
 ## Public GitHub repo — 2026-09-26
 - [x] Published `main` to https://github.com/SaarShai/king-down-chess (public). Before pushing, history was rewritten to drop 18 textures.com-derived files (board tiles, frame slab, source floor photos, board composite; see docs/research/licensing-2026-09-14.md). Pre-rewrite backup: `/Users/za/Documents/king-down-chess-recovery/pre-publish-2026-09-26.bundle`. Only `main` is pushed; `archive/*` tags stay local.
 

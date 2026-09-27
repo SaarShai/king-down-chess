@@ -1,0 +1,14 @@
+{
+  "tool": "Codex built-in image_gen via codex exec",
+  "date": "2026-09-26",
+  "output": "king.png",
+  "sha256": "ab0972945632a18920983e1cade9b947efef3968aeab5945b35ee101c56c045d",
+  "generated_source": "/Users/za/.codex/generated_images/01a0e168-2346-76d3-9f76-852e88917197/exec-979d4013-f067-4ac1-85f2-db1ec824db0b.png",
+  "original_source": "art-src/pieces/final-ivory/King_Frost_colored no-shadow.png",
+  "original_copy": "original-reference.png",
+  "style_reference": "../knight/knight.png",
+  "prompts": [
+    "prompt.txt"
+  ],
+  "treatment": "Unmodified generated PNG. Frost King chosen because it is the game's default king design."
+}
