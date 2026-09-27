@@ -1,5 +1,9 @@
 # Tasks
 
+## Stone board from the capital tiles — 2026-09-27
+- Owner: instead of the original board, create artwork inspired by its centre four tiles, minus the gilding, covering the whole board.
+- [x] Two stone textures (cream limestone, charcoal slate) generated from the capital crop; `compose-board.py` lays an exact 8×8 with the capital's chamfer, red-brown outline, bevel and grout. Game and trial use it (112 KB WebP). Painted game check, 12 trial captures and build pass. [Provenance](docs/2d-first-pieces/board-art/README.md).
+
 ## Painted default, smaller art, King Down board — 2026-09-27
 - Owner: painted look is the default; shrink the painted images; use the board artwork from the King Down Drive.
 - [x] Painted 2D is the default look (`?look=clay` or the Look menu for clay). Pieces and board ship as full-resolution WebP: 1.9 MB instead of 23 MB, coordinates unchanged (`docs/2d-first-pieces/web-art.py`). The biome board (Drive `board_colored_4K.jpg`) is the board surface in game and trial; figures get a contrasting rim for readability. The marble chess side was not used: textures.com stock ([board-art](docs/2d-first-pieces/board-art/README.md)).

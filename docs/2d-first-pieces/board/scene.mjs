@@ -15,8 +15,8 @@ import {BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 // One literal URL per image: bundlers resolve and copy each file (a template string would not).
 const ART_FILES={king:new URL('../king/king.webp',import.meta.url).href,beast:new URL('../beast/beast.webp',import.meta.url).href,queen:new URL('../queen/queen.webp',import.meta.url).href,paladin:new URL('../paladin/paladin.webp',import.meta.url).href,maester:new URL('../maester/maester.webp',import.meta.url).href,pawn:new URL('../lance/pawn.webp',import.meta.url).href,archer:new URL('../wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../ogre/ogre.webp',import.meta.url).href,knight:new URL('../knight/knight.webp',import.meta.url).href,bishop:new URL('../bishop/bishop.webp',import.meta.url).href,rook:new URL('../rook/rook.webp',import.meta.url).href,guard:new URL('../guard/guard.webp',import.meta.url).href};
-// The King Down biome board (earth top, fire right, sky bottom, ice left, capital in the centre).
-const BOARD_ART=new URL('../board-art/biome-board.webp',import.meta.url).href;
+// Painted stone board inspired by the original King Down board's capital (board-art/README.md).
+const BOARD_ART=new URL('../board-art/stone-board.webp',import.meta.url).href;
 /**
  * pieces: {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName,LETTERS?} from the rules engine.
  * closeup: optional {panel,title,ctx} for steep Archer shots; without it the Archer shoots on the board.

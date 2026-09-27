@@ -8,5 +8,5 @@ SHEETS = ['king/king', 'beast/beast', 'queen/queen', 'paladin/paladin', 'maester
           'wrist-bow/archer', 'ogre/ogre', 'knight/knight', 'bishop/bishop', 'rook/rook', 'guard/guard']
 for name in SHEETS:
     Image.open(here / f'{name}.png').save(here / f'{name}.webp', 'WEBP', quality=82, method=6)
-# The King Down biome board (Drive `board_colored_4K.jpg`, 1200 px research copy).
-Image.open(here / '../research/drive-assets/final-art/board-biomes-capital.jpg').save(here / 'board-art/biome-board.webp', 'WEBP', quality=86, method=6)
+# The painted stone board (board-art/compose-board.py), inspired by the original board's capital.
+Image.open(here / 'board-art/stone-board.png').save(here / 'board-art/stone-board.webp', 'WEBP', quality=86, method=6)

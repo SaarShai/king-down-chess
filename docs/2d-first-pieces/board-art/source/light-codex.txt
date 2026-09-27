@@ -1,0 +1,1 @@
+Used image_gen exactly once with the verbatim prompt and reference. Saved the unmodified PNG to `light-stone.png` and its original path to `light-generated-source.txt` in the requested folder.

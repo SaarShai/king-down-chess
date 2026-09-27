@@ -1,0 +1,1 @@
+Used built-in image_gen exactly once with the verbatim prompt and reference. Saved `dark-stone.png` byte-for-byte unchanged and recorded its original path in `dark-generated-source.txt`.
