@@ -146,10 +146,10 @@ Motion is a rigid lean (same as the Maester). The Frost King's skin stays pale b
 
 Every capturing piece now has its own capture. New in this pass (`blows.mjs`: shared timeline; effects in `prototype.mjs`):
 
-- **Rook, tower slam:** stops beside the victim, rocks back, then topples forward so the tower lands on the victim. Board shake, squash, ground ring, cracks and dust (same effects as the Paladin).
-- **Queen, command:** a small commanding lean; the victim is knocked over away from her and fades, with a ring at the point of command.
+- **Rook, ground pound:** stops beside the victim and pounds the ground twice with his stone forearm (a small mesh bends at the elbow; `drawRookPound` in `../rook/motion.mjs`). Each thump raises dust and cracks; the first bounces the victim, the second crushes it.
+- **Queen, hurricane:** she spins up inside a funnel of wind, whirls across to the victim, and the victim is lifted, spun and carried off before she settles into the square.
 - **King, frost:** the victim ices over pale blue, then shatters into nine wedges that fly apart and fall.
-- **Beast, chomp:** stops beside each victim in the chain; two rows of bone teeth snap shut on the victim before it fades, then the next bite. After the last bite he steps onto that square.
+- **Beast, bite:** stops beside each victim; his teeth shoot out from inside the open mouth to the victim, snap shut, and pull back before the next bite. After the last bite he steps onto that square.
 
 Attackers now stand beside the victim, never on top of it, so straight-file captures stay readable. Checked by `capture-strikes.mjs` (Rook, Queen, King and Beast frame sheets in [strikes/](strikes/)) and `blows.test.mjs`.
 

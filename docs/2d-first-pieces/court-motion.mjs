@@ -70,3 +70,5 @@ export function drawPaladinSwing(canvas,image,side,angle){
  }
  ctx.restore();
 }
+// Centre of the Beast's open mouth in sprite-canvas coordinates.
+export function beastMouth(side){const [x,y]=figures.beast.origins[side];return {x:x+[600,597][side],y:y+430};}

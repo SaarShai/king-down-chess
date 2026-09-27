@@ -12,10 +12,11 @@ const cases = [
   { name: 'paladin-ivory-pawn', layout: 'paladin', from: null, to: 'g4', times: [0, 240, 480, 700, 800, 860, 880, 960, 1100, 1550], status: 'Ivory Paladin captured on g4.', counts: ['6', '5'] },
   { name: 'paladin-charcoal-both', layout: 'paladin', from: 'f5', to: 'f2', times: [0, 240, 480, 700, 800, 860, 880, 960, 1100, 1550], status: /Both the Paladin and the target are removed/, counts: ['5', '5'] }
 ,
-  { name: 'rook-ivory', layout: 'rook', from: null, to: 'c7', times: [0, 400, 560, 660, 720, 800, 900, 1150], status: 'Ivory Rook captured on c7.', counts: ['4', '3'] },
-  { name: 'queen-ivory', layout: 'queen', from: null, to: 'g4', times: [0, 400, 560, 660, 720, 800, 900, 1150], status: 'Ivory Queen captured on g4.', counts: ['5', '3'] },
+  { name: 'rook-ivory', layout: 'rook', from: null, to: 'c7', times: [0, 350, 540, 620, 700, 820, 900, 980, 1500], status: 'Ivory Rook captured on c7.', counts: ['4', '3'] },
+  { name: 'queen-ivory', layout: 'queen', from: null, to: 'g4', times: [0, 200, 400, 600, 780, 900, 1000, 1150, 1400], status: 'Ivory Queen captured on g4.', counts: ['5', '3'] },
   { name: 'king-ivory', layout: 'king', from: null, to: 'c5', times: [0, 400, 560, 660, 720, 800, 900, 1150], status: 'Ivory King captured on c5.', counts: ['4', '3'] },
-  { name: 'beast-chain-ivory', layout: 'beast', from: 'd4', to: 'e6', choice: 'Chain d5 → e6 → f5', times: [0, 260, 400, 780, 920, 1300, 1440, 1760], status: /chained d5 → e6 → f5/, counts: ['5', '2'] }
+  { name: 'beast-chain-ivory', layout: 'beast', from: 'd4', to: 'e6', choice: 'Chain d5 → e6 → f5', times: [0, 250, 330, 380, 420, 480, 560, 900, 1880], status: /chained d5 → e6 → f5/, counts: ['5', '2'] }
+  ,{ name: 'beast-bite-charcoal', layout: 'beast', from: 'f5', to: 'e4', choice: 'Capture e4', times: [0, 250, 300, 340, 370, 400, 450, 520, 760], status: 'Charcoal Beast captured on e4.', counts: ['4', '5'] }
 ];
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
 const errors = [];

@@ -13,7 +13,7 @@ import * as court from '../court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 import {BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 const $=id=>document.getElementById(id), scene=$('scene'), ctx=scene.getContext('2d'), detail=$('closeup').getContext('2d');
-const CHAIN_STEP=520, SIZE=960, PAD=32, TILE=112, names={ [K]:'King',[S]:'Beast',[P]:'Pawn',[N]:'Knight',[B]:'Bishop',[R]:'Rook',[Q]:'Queen',[L]:'Paladin',[M]:'Maester',[G]:'Guard',[A]:'Archer',[O]:'Ogre' }, colours=['Ivory','Charcoal'];
+const CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150}, SIZE=960, PAD=32, TILE=112, names={ [K]:'King',[S]:'Beast',[P]:'Pawn',[N]:'Knight',[B]:'Bishop',[R]:'Rook',[Q]:'Queen',[L]:'Paladin',[M]:'Maester',[G]:'Guard',[A]:'Archer',[O]:'Ogre' }, colours=['Ivory','Charcoal'];
 const art=Object.fromEntries(Object.keys(names).map(type=>[type,new Image()]));
 const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.106,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
 specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
@@ -54,7 +54,7 @@ function sprite(value,angle=0,extension=0) {
  let canvas=staticPose?idle.get(key):work.get(type);
  if(canvas&&staticPose)return canvas;
  if(!canvas){canvas=document.createElement('canvas');canvas.width=1152;canvas.height=1152;(staticPose?idle:work).set(staticPose?key:type,canvas);}
- if(type===L&&angle)court.drawPaladinSwing(canvas,art[type],side,angle);else if(type===B&&angle)bishop.drawSlash(canvas,art[type],side,angle);else if(courtNames[type])court.drawCourt(canvas,art[type],courtNames[type],side,extension);else if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else if(type===N)knight.drawKnight(canvas,art[type],side,extension);else if(type===B)bishop.drawBishop(canvas,art[type],side,extension);else if(type===R)rook.drawRook(canvas,art[type],side,extension);else if(type===G)guard.drawGuard(canvas,art[type],side,extension);else pawn.drawPawn(canvas,art[type],side,angle,extension);
+ if(type===L&&angle)court.drawPaladinSwing(canvas,art[type],side,angle);else if(type===B&&angle)bishop.drawSlash(canvas,art[type],side,angle);else if(courtNames[type])court.drawCourt(canvas,art[type],courtNames[type],side,extension);else if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else if(type===N)knight.drawKnight(canvas,art[type],side,extension);else if(type===B)bishop.drawBishop(canvas,art[type],side,extension);else if(type===R&&angle)rook.drawRookPound(canvas,art[type],side,angle);else if(type===R)rook.drawRook(canvas,art[type],side,extension);else if(type===G)guard.drawGuard(canvas,art[type],side,extension);else pawn.drawPawn(canvas,art[type],side,angle,extension);
  return canvas;
 }
 const fxCanvas=document.createElement('canvas');fxCanvas.width=SIZE;fxCanvas.height=SIZE;
@@ -134,6 +134,31 @@ function jaws(out,p,t) {
  }
  out.restore();
 }
+// Teeth shoot out of the Beast's mouth to the victim, snap shut, and retract.
+function teeth(out,mouth,target,ms,span) {
+ if(ms<0||ms>span)return;
+ const t=ms/span,reach=t<.35?ease(t/.35):t<.6?1:1-ease((t-.6)/.4),close=t<.35?0:ease(Math.min(1,(t-.35)/.1));
+ const p=mix(mouth,target,reach),scale=.45+.55*reach,gap=(3+26*(1-close))*scale,w=54*scale,n=6;
+ out.save();out.globalAlpha=t>.85?1-(t-.85)/.15:1;out.strokeStyle='#5a1c1c';out.lineWidth=3*scale;out.globalAlpha*=.8;
+ out.beginPath();out.moveTo(mouth.x,mouth.y);out.lineTo(p.x,p.y);out.stroke();out.globalAlpha/=.8;
+ out.fillStyle='#f3ead3';out.strokeStyle='#3b3226';out.lineWidth=1.3;out.lineJoin='round';
+ for(const dir of [-1,1])for(let i=0;i<n;i++){
+  const x0=p.x-w/2+i*w/n,x1=x0+w/n,xm=(x0+x1)/2,u=(xm-p.x)/(w/2),base=p.y+dir*(gap+10*scale*u*u);
+  out.beginPath();out.moveTo(x0,base);out.lineTo(x1,base);out.lineTo(xm,base-dir*(17-5*u*u)*scale);out.closePath();out.fill();out.stroke();
+ }
+ out.restore();
+}
+// A funnel of wind arcs around the spinning Queen.
+function vortex(out,foot,phase,strength) {
+ if(strength<=0)return;
+ out.save();out.lineCap='round';
+ for(let i=0;i<7;i++){
+  const h=i/6,y=foot.y-8-h*112,rx=14+h*34,ry=rx*.28,start=phase*1.6+i*.9;
+  out.globalAlpha=strength*(.25+.45*(1-h*.5));out.strokeStyle=i%2?'#e9e2cc':'#b9c7c9';out.lineWidth=2.2+1.4*(1-h);
+  out.beginPath();out.ellipse(foot.x+Math.sin(phase+h*3)*4,y,rx,ry,0,start,start+Math.PI*1.25);out.stroke();
+ }
+ out.restore();
+}
 function boardBackground() {
  ctx.clearRect(0,0,SIZE,SIZE);ctx.fillStyle='#e6e1cf';ctx.fillRect(0,0,SIZE,SIZE);
  for(let row=0;row<8;row++)for(let col=0;col<8;col++){
@@ -198,7 +223,29 @@ function render(time=performance.now()) {
     const step=Math.floor(t/CHAIN_STEP),local=t-step*CHAIN_STEP,start=step?a.stops[step-1]:a.from.foot,end=a.stops[step],victimFoot=foot(a.move.captures[step]);
     actor.pose={...a.from,facing:Math.sign(victimFoot.x-end.x)||actor.pose.facing,foot:mix(start,end,ease(local/(CHAIN_STEP*.45)))};actor.extension=court.actionAt(clamp(local/CHAIN_STEP,0,1));
    }else actor.pose={...a.from,facing:Math.sign(a.end.x-last.x)||actor.pose.facing,foot:mix(last,a.end,ease((t-bites)/200))};
-   a.move.captures.forEach((sq,i)=>{const v=poses.get(sq);if(!v)return;const bite=i*CHAIN_STEP+CHAIN_STEP*.5;v.opacity=1-clamp((t-bite)/160,0,1);const mouth=world(specs[typeOf(v.value)].hit,v.pose,typeOf(v.value));effects.push(()=>jaws(ctx,mouth,(t-bite+140)/420));if(t>=bite){const k=ease((t-bite)/120);v.pose={...v.pose,sx:1-.18*k,sy:1-.12*k};}});
+   a.move.captures.forEach((sq,i)=>{const v=poses.get(sq);if(!v)return;const bite=i*CHAIN_STEP+CHAIN_STEP*.45+CHAIN_STEP*.55*.45;v.opacity=1-clamp((t-bite)/160,0,1);const target=world(specs[typeOf(v.value)].hit,v.pose,typeOf(v.value)),stand={...a.from,foot:a.stops[i],facing:Math.sign(foot(sq).x-a.stops[i].x)||a.from.facing};const mouth=world(court.beastMouth(colorOf(a.value)),stand,S);effects.push(()=>teeth(ctx,mouth,target,t-(i*CHAIN_STEP+CHAIN_STEP*.45),CHAIN_STEP*.55));if(t>=bite){const k=ease((t-bite)/120);v.pose={...v.pose,sx:1-.18*k,sy:1-.12*k};}});
+  }
+  else if(a.type==='pound'){
+   const P=rook.POUND,foot=t<P.approach?mix(a.from.foot,a.stop,ease(t/P.approach)):t<P.settle?a.stop:mix(a.stop,a.to.foot,ease((t-P.settle)/(P.duration-P.settle)));
+   actor.pose={...a.pose,foot,angle:rook.poundAngle(t)};
+   const baseAt=world(rook.towerBase(colorOf(a.value),0),{...a.pose,foot:a.stop},R);
+   rook.SLAMS.forEach((slam,i)=>{const since=t-slam;if(since>=0)effects.push(()=>smash(ctx,{x:baseAt.x,y:baseAt.y-2},since/(i?420:320)));});
+   if(victim){
+    const first=t-rook.SLAMS[0],second=t-rook.SLAMS[1];
+    if(first>=0&&second<0)victim.pose={...victim.pose,foot:{x:victim.pose.foot.x,y:victim.pose.foot.y-16*Math.sin(Math.PI*clamp(first/220,0,1))}};
+    if(second>=0){const k=ease(second/110);victim.pose={...victim.pose,sx:1+.28*k,sy:1-.5*k};victim.opacity=1-clamp((second-60)/260,0,1);}
+   }
+  }
+  else if(a.type==='spin'){
+   const S=SPIN,[t0,t1]=S.travel,spinRate=t<S.release?clamp(t/250,0,1):1-clamp((t-S.release)/(a.duration-S.release),0,1);
+   const phase=t*.024*Math.max(spinRate,.001);
+   const foot=t<t0?a.from.foot:t<t1?mix(a.from.foot,a.stop,ease((t-t0)/(t1-t0))):t<S.release?a.stop:mix(a.stop,a.to.foot,ease((t-S.release)/(a.duration-S.release)));
+   const turn=Math.cos(phase);actor.pose={...a.from,foot,sx:spinRate>.02?(Math.abs(turn)<.2?.2*Math.sign(turn||1):turn):1};
+   const strength=Math.min(1,t/250)*(t<S.release?1:1-clamp((t-S.release)/220,0,1));
+   effects.push(()=>vortex(ctx,foot,phase,strength));
+   if(victim&&t>=S.contact){const k=clamp((t-S.contact)/420,0,1),turnV=Math.cos((t-S.contact)*.03);
+    victim.pose={...victim.pose,sx:(Math.abs(turnV)<.2?.2*Math.sign(turnV||1):turnV)*(1-.5*k),sy:1-.5*k,foot:{x:victim.pose.foot.x+(a.stop.x-victim.pose.foot.x)*.3*k,y:victim.pose.foot.y-46*k}};
+    victim.opacity=1-clamp((t-S.contact-150)/300,0,1);}
   }
   else if(a.type==='blow'){
    const spec=blows[a.blow],since=t-BLOW.strike;
@@ -261,7 +308,7 @@ function render(time=performance.now()) {
    else actor.pose={...a.from,angle:0};
   }
   if(a.closeup)drawEncounter(a,t);else $('encounter').hidden=true;
-  const impactTime=a.type==='blow'?BLOW.strike:a.type==='chain'?CHAIN_STEP*.5:a.type==='slash'?bishop.CONTACT_MS:a.type==='hammer'?court.SMASH.chop[1]:a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?a.duration*knight.LANDING:a.type==='paladin'?a.duration*CHARGE_CONTACT:a.type==='advance'?a.duration*.5:440;
+  const impactTime=a.type==='pound'?rook.SLAMS[1]:a.type==='spin'?SPIN.contact:a.type==='blow'?BLOW.strike:a.type==='chain'?CHAIN_STEP*.5:a.type==='slash'?bishop.CONTACT_MS:a.type==='hammer'?court.SMASH.chop[1]:a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?a.duration*knight.LANDING:a.type==='paladin'?a.duration*CHARGE_CONTACT:a.type==='advance'?a.duration*.5:440;
   if(a.type==='knight'&&t>=a.duration*.35&&!a.airborne){a.airborne=true;$('status').textContent='Airborne. Clearing the intervening pieces…';}
   if(a.type!=='move'&&a.type!=='swap'&&t>=impactTime&&!a.contacted){a.contacted=true;$('status').textContent=a.move.selfRemove?'The Paladin and his target are removed together.':a.type==='knight'||(a.type==='paladin'&&!victim)?'Landed. Settling into stance…':'Hit. Recovering…';}
  }
@@ -345,12 +392,20 @@ function start(move) {
   }else if(typeOf(value)===S){
    // Beast chain: bite each victim in order, finishing on the last one.
    base.type='chain';base.stops=move.captures.reduce((list,sq)=>[...list,stopPoint(list.at(-1)??from.foot,foot(sq),54,sideFacing(value))],[]);base.end=foot(move.to);base.duration=move.captures.length*CHAIN_STEP+200;from.facing=pose.facing;
-  }else if([R,Q,K].includes(typeOf(value))){
-   const name={[R]:'rook',[Q]:'queen',[K]:'king'}[typeOf(value)],victimFoot=foot(victimSquare);
+  }else if(typeOf(value)===R){
+   // Stand so the tower base lands just short of the victim's feet.
+   const victimFoot=foot(victimSquare),away=Math.sign(victimFoot.x-from.foot.x)||sideFacing(value),stand={...pose,facing:away};
+   const base0=world(rook.towerBase(colorOf(value),0),stand,R);
+   Object.assign(base,{type:'pound',duration:rook.POUND.duration,victimFoot,pose:stand,stop:{x:victimFoot.x-(base0.x-stand.foot.x)-away*16,y:victimFoot.y+2}});
+  }else if(typeOf(value)===Q){
+   const victimFoot=foot(victimSquare),away=Math.sign(victimFoot.x-from.foot.x)||sideFacing(value);
+   Object.assign(base,{type:'spin',duration:SPIN.duration,victimFoot,stop:stopPoint(from.foot,victimFoot,78,sideFacing(value)),away});
+  }else if([K].includes(typeOf(value))){
+   const name={[K]:'king'}[typeOf(value)],victimFoot=foot(victimSquare);
    Object.assign(base,{type:'blow',blow:name,duration:BLOW.duration,victimFoot,stop:stopPoint(from.foot,victimFoot,blows[name].gap,sideFacing(value)),away:Math.sign(victimFoot.x-from.foot.x)||sideFacing(value),shakeAt:name==='rook'?BLOW.strike:null});from.facing=pose.facing;
   }else if(M===typeOf(value)){base.type='advance';base.duration=newMotions[typeOf(value)].DURATION;from.facing=pose.facing;}else{base.type='archer';base.duration=820;base.closeup=pose.outside;}
  }
- animation=base;$('status').textContent=base.type==='move'?'Moving…':base.type==='swap'?'Trading places…':base.type==='blow'?blows[base.blow].verb:base.type==='chain'?(move.captures.length>1?`Starting a ${move.captures.length}-bite chain…`:'Lunging to bite…'):base.type==='slash'?'Drawing the dagger…':base.type==='hammer'?(move.selfRemove?'Raising the hammer. This capture will remove both pieces…':'Raising the hammer…'):base.type==='paladin'?(move.selfRemove?'Charging. This capture will remove both pieces…':'Preparing the Paladin’s charge…'):base.type==='advance'?'Advancing to capture…':base.type==='knight'?'Preparing to leap…':base.type==='ogre'?'Bracing for contact…':base.closeup?'Taking aim · attack close-up.':'Taking aim…';updateUI();wake();
+ animation=base;$('status').textContent=base.type==='move'?'Moving…':base.type==='swap'?'Trading places…':base.type==='pound'?'Pounding the ground…':base.type==='spin'?'Spinning up a whirlwind…':base.type==='blow'?blows[base.blow].verb:base.type==='chain'?(move.captures.length>1?`Starting a ${move.captures.length}-bite chain…`:'Lunging to bite…'):base.type==='slash'?'Drawing the dagger…':base.type==='hammer'?(move.selfRemove?'Raising the hammer. This capture will remove both pieces…':'Raising the hammer…'):base.type==='paladin'?(move.selfRemove?'Charging. This capture will remove both pieces…':'Preparing the Paladin’s charge…'):base.type==='advance'?'Advancing to capture…':base.type==='knight'?'Preparing to leap…':base.type==='ogre'?'Bracing for contact…':base.closeup?'Taking aim · attack close-up.':'Taking aim…';updateUI();wake();
 }
 function cancel(){animation=null;$('encounter').hidden=true;$('action-picker').close();hover=null;aimAngle=0;}
 function reset(){cancel();position=createPosition($('layout').value);history=[];lastSquares=[];selected=$('layout').value==='ranks'?parseSq('b3'):$('layout').value==='angles'?parseSq('d4'):parseSq('c4');aimFacing=1;$('status').textContent=selectionPrompt();updateUI();wake();}
