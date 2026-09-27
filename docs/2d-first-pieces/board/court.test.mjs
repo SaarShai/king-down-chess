@@ -22,14 +22,14 @@ test('Queen rays, Paladin survival/sacrifice and Maester swaps use production ru
   assert.ok(actionsFor(p,sq('d4')).some(m=>m.to===sq('d5')&&m.captures.length));assert.ok(!actionsFor(p,sq('d4')).some(m=>m.to===sq('d6')));
  }
 });
-test('new fixtures expose each special action and the full cast has ten pieces per army',()=>{
- for(const name of ['queen','paladin','maester','cast'])assert.equal(new Set(layouts[name].map(p=>p[0])).size,layouts[name].length);
+test('new fixtures expose each special action and the full cast has twelve pieces per army',()=>{
+ for(const name of ['queen','paladin','maester','cast','king','beast'])assert.equal(new Set(layouts[name].map(p=>p[0])).size,layouts[name].length);
  const paladin=createPosition('paladin');
  for(const [from,pawn,other] of [['c4','g4','c7'],['f5','b5','f2']]){
   const moves=actionsFor(paladin,sq(from));assert.ok(moves.some(m=>m.to===sq(pawn)&&m.captures.length&&!m.selfRemove));assert.ok(moves.some(m=>m.to===sq(other)&&m.selfRemove));
  }
  for(const [from,to] of [['c4','d4'],['f5','e5']])assert.ok(actionsFor(createPosition('maester'),sq(from)).some(m=>m.to===sq(to)&&m.swap));
- for(const side of [0,1])assert.equal(layouts.cast.filter(p=>p[2]===side).length,10);
+ for(const side of [0,1])assert.equal(layouts.cast.filter(p=>p[2]===side).length,12);
 });
 test('Paladin travel stays still during preparation; swap paths retain both actors and finish exactly',()=>{
  let previous=0;
