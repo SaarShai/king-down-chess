@@ -1,0 +1,12 @@
+{
+  "started": "2026-09-22T08:51:40.528273+00:00",
+  "model": "gemma4:31b-mlx",
+  "alias": "kdc-m1-gemma-agent",
+  "baseline": "f4482cba3eb7fa4d7b5e52b6966e49ebee1890fa",
+  "context": 32768,
+  "output": 4096,
+  "steps": 16,
+  "deadlineMinutes": 15,
+  "promptSha256": "7d3208610141806de735430e9f917b174a589d38136a928e103b78210660f08f",
+  "acceptance": "Same independent 10 cases, TypeScript, own tests and manual scope review; no supervisor corrections during trial."
+}

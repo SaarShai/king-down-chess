@@ -1,0 +1,17 @@
+{
+  "tsc---noEmit": {
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "vitest-run": {
+    "returncode": 0,
+    "stdout": "\n RUN  v5.0.0 /Users/new/projects/king-down-supervised-20260921\n\n\n Test Files  3 passed (3)\n      Tests  43 passed (43)\n   Start at  07:24:05\n   Duration  1.24s (tests 63%, transform 31%, import 5%, worker 1%)\n\n",
+    "stderr": ""
+  },
+  "diff---check": {
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+}

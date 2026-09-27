@@ -1,0 +1,16 @@
+Implement the first HALF of paired validation in /Users/new/projects/king-down-supervised-20260921. This is an implementation task, not exploration. Your previous round used 29 tool calls reading the same files, compacted twice, and made no edits. All that evidence is preserved. Supporting-source/history searches are deliberately disabled in this round; that is NOT a blocker.
+
+Read tools/conditions.ts and tools/conditions.test.ts ONCE, then edit those two files. You are not alone: preserve accepted statistics, all src/ files, package files and other projects. No simulations, cloud/Jev calls or commits. The supervisor handles provenance/spec-key checks in a later assignment; do not implement them now or read reports about them.
+
+Required changes to existing --pair branch:
+- While reading records, reject duplicate gameId within either file instead of silently overwriting a Map entry. Error names file and ID.
+- For every shared gameId, compare exact startFen, seed, openingPlies and colourSwapped. Throw on any mismatch, naming ID and field. These fields already exist on GameRecord. Do not parse FEN, compare played moves, or import any other source module.
+- Print the shared count and separate unmatched counts for A and B.
+- Zero pairs: no estimate available. One pair: descriptive mean only, interval unavailable. Two or more: existing mean/CI arithmetic, label interval per-game (not setup-clustered). Never print NaN/Infinity for sparse pairs.
+- Replace claims of 'same openings' with 'common start/seed'; same seeds do not guarantee identical played openings under different rules.
+
+Extend the existing temporary-record CLI tests, using existing mkRec/writeRun. Use spawnSync with the existing tsx executable, so failure statuses can be asserted. Tests: two matching IDs with known mean (A results 1,1 versus B 0,1 gives +0.500); duplicate ID error; each of the four mismatch fields (table-driven); unmatched A/B counts; zero pairs; one pair without interval/NaN. Preserve five accepted statistics tests. These are synthetic fixtures, not played games.
+
+Edit the tests first, save real failing output/return code to campaign/pair-starts-before.log, then implement. Use Python subprocess.run argument arrays with cwd for checks; no output pipelines. After edits run npx tsc --noEmit and npx vitest run tools/conditions.test.ts and git diff --check, saving complete stdout/stderr and actual return codes under campaign/pair-starts-*. Print only summaries. Do not run broader suites; supervisor will verify after acceptance.
+
+Finish with a short campaign/pair-starts-report.md: files changed, checks, remaining source/spec provenance work. Stop. Do not read/update historical campaign reports or status.json. The supervisor owns status for this small round. No more discovery is needed: after the two reads, make the first test edit.

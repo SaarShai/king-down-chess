@@ -1,0 +1,38 @@
+# Conditions statistics fix — report
+
+## What was wrong
+The `scan` function in `tools/conditions.ts` counted piece statistics in the wrong units.
+It treated a side's starting *piece count* as the number of *armies*, so two Archers on one
+side were counted as two armies instead of two pieces in one army. It also counted `present`
+per side (so a type present on both sides of one game was counted twice) and counted `zero`
+and `survived` by piece count rather than by owner army. The test fixture used incoherent FENs
+and asserted the wrong totals, so the test passed against the wrong logic.
+
+## What changed
+- `tools/conditions.ts`
+  - `scan`: each owning side adds exactly one to `owners`; `present` is counted once per game
+    (a `Set` of letters seen in the record); `zero` counts owner armies with no move;
+    `survived` counts owner armies with a positive end count; `moves` and `captures` are summed
+    over the armies. Start piece counts are no longer added to army counters.
+  - `show`: prints presence, owner armies, moves per owner, still (no move), TYPE PRESENT AT
+    END, and captures per owner, with the note that survival of original individuals is not
+    measured because of promotions.
+  - Header and CLI-guard comments corrected.
+- `tools/conditions.test.ts`
+  - Coherent fixtures: Game 1 (White A=2 start, A=4 moves, A=2 survived, A=1 capture; Black
+    A=1 start, A=0 moves) and Game 2 (White G=1 start, G=0 moves, G=1 survived; Black A=1
+    start, A=2 moves, A=1 survived, A=1 capture).
+  - Expected totals: A owners=3, present=2, moves=6, zero=1, survived=2, captures=2;
+    Guard owners=1, present=1.
+  - Added a real CLI test via `execFileSync` on a temp fixture (asserts exit 0, "66.7% end
+    presence", "33.3% still", "2.00 moves/owner", no NaN/Infinity) and an empty-run CLI test.
+
+## Verification
+- `npx tsc --noEmit` → return code 0.
+- `npx vitest run tools/conditions.test.ts` → 5 passed, return code 0.
+- `git diff --check` → return code 0.
+- Pre-fix failing run saved to `campaign/conditions-before.log` (return code 1, 1 failed).
+
+## Scope
+Only `tools/conditions.ts`, `tools/conditions.test.ts`, and `campaign/conditions-*` artifacts
+were modified. No game simulations, no cloud/Jev calls, no git commits.

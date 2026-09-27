@@ -1,0 +1,67 @@
+{
+  "purpose": "position-only finite-budget validation; no game played",
+  "fen": "g7/6k1/2q3pp/3o4/1p1p1P2/pQ1O2PP/6K1/2G5 w - - 0 1",
+  "results": [
+    {
+      "timeMs": 5,
+      "state": "cold",
+      "elapsedMs": 5.944540999999987,
+      "depth": 1,
+      "nodes": 87,
+      "move": "Qb3xb4",
+      "legal": true,
+      "passed": true
+    },
+    {
+      "timeMs": 5,
+      "state": "warm",
+      "elapsedMs": 27.592667000000006,
+      "depth": 2,
+      "nodes": 1025,
+      "move": "Qb3-b1",
+      "legal": true,
+      "passed": true
+    },
+    {
+      "timeMs": 25,
+      "state": "cold",
+      "elapsedMs": 19.59254200000001,
+      "depth": 2,
+      "nodes": 1261,
+      "move": "Qb3-b1",
+      "legal": true,
+      "passed": true
+    },
+    {
+      "timeMs": 25,
+      "state": "warm",
+      "elapsedMs": 28.682124999999985,
+      "depth": 3,
+      "nodes": 2049,
+      "move": "Qb3-c2",
+      "legal": true,
+      "passed": true
+    },
+    {
+      "timeMs": 100,
+      "state": "cold",
+      "elapsedMs": 101.48958400000004,
+      "depth": 4,
+      "nodes": 8193,
+      "move": "Qb3-c2",
+      "legal": true,
+      "passed": true
+    },
+    {
+      "timeMs": 100,
+      "state": "warm",
+      "elapsedMs": 106.034042,
+      "depth": 4,
+      "nodes": 17409,
+      "move": "Kg2-f2",
+      "legal": true,
+      "passed": true
+    }
+  ],
+  "passed": true
+}

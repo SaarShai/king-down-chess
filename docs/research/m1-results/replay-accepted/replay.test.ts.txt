@@ -1,0 +1,58 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { setRules } from '../rules/rules';
+import { fromFen, toFen, toLan } from '../rules/setup';
+import { legalMoves, makeMove } from '../rules/engine';
+import { replayRecord } from './replay';
+import type { GameRecord } from './game';
+
+const mkRec = (startFen: string, moves: string[]): GameRecord => ({
+  gameId: 77,
+  startFen,
+  moves: moves.map(lan => ({ lan, cp: 0, legal: 0, ms: 0 })),
+} as unknown as GameRecord);
+
+describe('replay legality', () => {
+  beforeEach(() => setRules({}));
+
+  it('rejects illegal pawn leap e2-e5 from classic start', () => {
+    const rec = mkRec('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', ['e2-e5']);
+    expect(() => replayRecord(rec)).toThrow(/ply 0/);
+  });
+
+  it('rejects move exposing own king', () => {
+    const start = '4r2k/8/8/8/8/8/4R3/4K3 w - - 0 1';
+    const rec = mkRec(start, ['Re2-f2']);
+    expect(() => replayRecord(rec)).toThrow(/ply 0/);
+  });
+
+  it('accepts ordinary legal move', () => {
+    const rec = mkRec('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', ['e2-e4']);
+    const out = replayRecord(rec);
+    expect(toFen(out.end)).toBe('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b - - 0 1');
+  });
+
+  it('replays archer stationary shot to same state as legal canonical move', () => {
+    const start = '7k/8/8/2p5/2Pp4/2A5/8/K7 w - - 0 1';
+    const pos = fromFen(start);
+    const legal = legalMoves(pos).find(m => toLan(pos, m) === 'Ac3*c5');
+    expect(legal).toBeDefined();
+    const rec = mkRec(start, ['Ac3*c5']);
+    const out = replayRecord(rec);
+    const expected = makeMove(pos, legal!);
+    expect(toFen(out.end)).toBe(toFen(expected));
+    expect(out.events.archerShots).toEqual([1, 0]);
+  });
+
+  it('replays maester swap to same state as legal canonical move', () => {
+    const start = '7k/8/8/8/8/8/pN6/M3K3 w - - 0 1';
+    const pos = fromFen(start);
+    const legal = legalMoves(pos).find(m => toLan(pos, m) === 'Ma1<>e1');
+    expect(legal).toBeDefined();
+    const rec = mkRec(start, ['Ma1<>e1']);
+    const out = replayRecord(rec);
+    const expected = makeMove(pos, legal!);
+    expect(toFen(out.end)).toBe(toFen(expected));
+    expect(out.events.maesterSwaps).toEqual([1, 0]);
+    expect(out.events.maesterLongSwaps).toEqual([1, 0]);
+  });
+});

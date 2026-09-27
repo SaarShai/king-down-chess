@@ -1,0 +1,35 @@
+{
+  "checked": "2026-09-22T07:19:47.865470+00:00",
+  "round": "20260922T071139Z",
+  "state": "running",
+  "logBytes": 163386,
+  "logMtime": "2026-09-22T07:15:43.647372+00:00",
+  "recentTools": [
+    {
+      "tool": "read",
+      "status": "completed",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/src/sim/game.ts'}"
+    },
+    {
+      "tool": "read",
+      "status": "completed",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/src/rules/engine.ts'}"
+    },
+    {
+      "tool": "read",
+      "status": "completed",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/campaign/status.json'}"
+    },
+    {
+      "tool": "read",
+      "status": "completed",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/src/sim/identity.test.ts'}"
+    }
+  ],
+  "sourceChanges": [],
+  "testExists": false,
+  "usefulArtifact": false,
+  "campaignGames": 0,
+  "stderrBytes": 0,
+  "protectedDiffBytes": 0
+}

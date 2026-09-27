@@ -1,0 +1,10 @@
+{
+  "head": "2109d67f6daebc2e7ebc543bd7778964b51f337f",
+  "sha256": {
+    "state.json": "d2ddcba8e9dcffe6f9caa3885d31e21456e4dd72a151fe3c09da79398563f4db",
+    "typescript.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "targeted-tests.log": "d7d36c4738a02feab73568cb4fe0279a550136d8339a399e0277a216993924e2",
+    "accepted.patch": "f7ec12300d5e493a6ff6ea79327c7d46473c3e0286f81fea461889589e324ea5",
+    "provenance-report.md": "c9fd82077450a9b9e70206492c82a3a0c5f5dea0bd420899c12c936385c9854f"
+  }
+}

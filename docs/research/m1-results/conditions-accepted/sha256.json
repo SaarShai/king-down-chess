@@ -1,0 +1,13 @@
+{
+  "accepted.patch.txt": "2b07f58835038828abe31cab2bac954e47aca5dbc77fb605336fc462a670c9a0",
+  "conditions.test.ts.txt": "89007d32bdfa46a3b4da0c421c850558f6d13109fb09074ee3b3686af15bf469",
+  "conditions.ts.txt": "e61532b96a1ece4d289638ae592bcf70a81a981bd607328abdb3a67ba0a25e27",
+  "diff-check.log": "02e00435d3feb1fd575ac32f6a1dbccfe20932515f75fd9ff4e80f9f401e7f09",
+  "independent.log": "be108db3d625966e43d521a5afb873d0967027d908fc52ddc1a03826da566c80",
+  "receipt.json": "9ea506f1771abcc4e4da1518c2e4a8122d83095ccedc549bec5c16dd9f367fdd",
+  "supervisor-review.md": "e849e508c7c6232687f1ac0aebb1fcbb63b49c6bac5a9612ccbdd5437d53a283",
+  "supervisor-tightening-before.log": "1aab72d918fb5565ea54e497130cccdb653051f4440b2eb5aedbb428b98b2dac",
+  "targeted-tests.log": "85b8b6077a7aafe296320513625dd36a70d3ff462c02b858033225005abc9add",
+  "tsc.log": "02e00435d3feb1fd575ac32f6a1dbccfe20932515f75fd9ff4e80f9f401e7f09",
+  "verification.json": "af7e4fa9c2169028c6f552b45459745f43990f93326e2246b0c2ebcbedb09a2b"
+}

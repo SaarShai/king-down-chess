@@ -131,6 +131,23 @@ cap-pawns and step-2 null, `guardImmune=false` rejected — interest −0.015 ±
 borderline better (decisive +3.7 ± 2.8, `sim/out/pl-arch-*.summary.json`); **values refreshed**
 under the adopted archer: L 3.74, M 2.82, S 3.68 (`ARCHER_V` 505 from the rook bracket).
 
+## Ran 2026-09-17 evening (arrangement + Ogre + composition)
+
+- **Arrangement benchmark** (`docs/research/arrangement-benchmark-2026-09-17.md` pre-registration; reports
+  `arrangement-sweep-a`, `-b`, `-finalists`): 110k+ games. Per-arrangement ranking is readable only at the
+  extremes (reliability 0.87–0.90 at 1,000 games/rank); the lever is composition. Top finalists: MMSSNBNK,
+  KGBMSSMB, NKBBMGQS, QNKMNRSG, SQBKRSML (depth-4 order preserved, rho 1.0); bottom: GAMBRMAK, NBAGKASN,
+  AKGBNRMR, SAKMBNNA, RNAAKSBS.
+- **Composition mining** (56k games): archer presence +4.8 decisive, beast +3.0, guard −4.3, maester −2.9,
+  queen −9.8 plies (pace, decisiveness neutral — matches the controlled test). Event-richest mixes all carry
+  A+L+M+S.
+- **Paladin pool test**: presence is worth **+6.2 White points** (paired, depth 4 subset +6.6) — a fairness
+  flag; removal returns White to 0.508. Owner decision pending (keep / remove / new reach rule).
+- **Kit-rich pool**: +0.27 mechanics/game (CI excludes zero), decisiveness +1.75 ± 2.4 (ns), fairness flat;
+  costs variety. Depth-4 and a two-bishop variant are the next step.
+- **Ogre**: push confirmed at depth 4 and fair at O=318; friends-only confirmed but does not stack; hop/step-2
+  null; no-capture neutral. Roster decision pending.
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard

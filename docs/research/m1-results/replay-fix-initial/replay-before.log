@@ -1,0 +1,14 @@
+
+ RUN  v5.0.0 /Users/new/projects/king-down-supervised-20260921
+
+ ❯ src/sim/replay.test.ts (5 tests | 3 failed) 8ms
+   ❯ replay legality (5)
+     × rejects illegal pawn leap e2-e5 from classic start 5ms
+     × rejects move exposing own king 1ms
+     × replays maester swap to same state as legal canonical move 1ms
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 2 passed (5)
+   Start at  06:22:50
+   Duration  288ms (transform 80%, import 15%, tests 4%, worker 1%)
+

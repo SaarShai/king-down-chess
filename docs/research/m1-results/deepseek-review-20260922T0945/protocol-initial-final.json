@@ -1,0 +1,35 @@
+{
+  "info": {
+    "parentID": "msg_0c87934a0001CXe9Ft4gHAvMnj",
+    "role": "assistant",
+    "mode": "build",
+    "agent": "build",
+    "path": {
+      "cwd": "/Users/za/.local/share/king-down-supervised-20260922/protocol",
+      "root": "/Users/za/.local/share/king-down-supervised-20260922/protocol"
+    },
+    "cost": 0.001130118,
+    "tokens": {
+      "total": 190316,
+      "input": 429,
+      "output": 831,
+      "reasoning": 0,
+      "cache": {
+        "write": 0,
+        "read": 189056
+      }
+    },
+    "modelID": "deepseek-v4.1-flash",
+    "providerID": "opencode-go",
+    "time": {
+      "created": 1790069925840,
+      "completed": 1790069932381
+    },
+    "finish": "stop",
+    "id": "msg_0c87b67d0001JkyMTlmpHy91TP",
+    "sessionID": "ses_f378ca694ffeeSXYB0FMJNrrlN"
+  },
+  "text": [
+    "Phase 1 package is complete, committed as `54e6de0`. No game, no search, no training was run. Human study pending.\n\n## Deliverables (owned files only)\n- `campaign/setups/phase-1.json` \u2014 96 explicit legal full-board setups: 64 mirror (`P1-001\u2026064`) + 32 asymmetric (`P1-065\u2026096`), full FENs + `fenSwapped` (colour-and-rank mirror), coverage block, deterministic pair/colour mapping.\n- `campaign/setups/phase-1-generate.ts` \u2014 retained deterministic generator (reproduces setups, specs, pinned arm).\n- `campaign/specs/phase-1-archer-adopted/classic.proposed.json` \u2014 single-rule A/B (`plusDiagFwd2` vs `classic`), identical setups/seed, all other rules frozen.\n- `campaign/specs/phase-1-eval-linear-vs-residual.proposed.json`, `\u2026-deep-linear.proposed.json` \u2014 per-side `evalParams`, `pairs: true`, deeper-linear depth-proxy check.\n- `campaign/specs/phase-1-residual-eval.json` \u2014 pinned campaign arm embedding the exact adopted Q6 blob bytes in the existing `EvalParams` format.\n- `campaign/specs/phase-1-beast-guard-focus.proposed.json`, `phase-1-throughput-d3/d4.proposed.json`.\n- `campaign/protocols/phase-1.md` \u2014 hypotheses, endpoints, SWE, clustered uncertainty, caps-vs-endings, budget \u226410,000, stopping/expansion rules, commands, gates.\n- `campaign/phase-1-protocol-report.md` \u2014 checklist, evidence, limitations, gates.\n- `campaign/verify-phase-1.ts` \u2014 validator.\n\n## Exact checks\n`node_modules/.bin/tsx campaign/verify-phase-1.ts` \u2192 **98 PASS / 0 FAIL, exit 0**; `sourceId = 3545663dcf97`.\n\n- Setups: every FEN round-trips, one king per side, no pawn on back rank, no lab piece, status `playing`, \u22651 legal move; `fenSwapped` equals the independent mirror. 71 distinct White compositions; 61 both-archer; 73 both-beast; 54 guard.\n- Specs: `buildJobs(spec).length == games`; one config per setup; pair/colour mapping correct; all job FENs are frozen setups; `usePairs` true; `adjudicate: false`. specKeys recorded.\n- Archer arms: exactly one differing rule (`archerShots`); adopted arm equals current defaults.\n- Residual: `netLoaded=true`, `netKind=residual`, `sha256(b64)=e17a27bf\u2026` matches the accepted Q6 model; applied on 94/96 setups (`mean|\u0394|=21.10`, `max|\u0394|=50`, no clip overflow); Ogre fallback \u0394=0; pinned arm byte-identical.\n\n## True remaining gates\n- **T1**: confirmation depth/time pending the supervisor-reviewed M1 throughput probes; depth 4 is a placeholder, nothing claimed validated.\n- **S1**: in-check quiescence stall reproducer/fix is a prerequisite owned elsewhere.\n- **E1**: head-to-head setup-clustered cluster bootstrap is not implemented in `src/sim/analyze.ts`.\n- Noted limits: both archer arms keep shipped `ARCHER_V` (no re-pricing); `sim/nnue/net.json` does not reproduce the committed blob (do not regenerate arms from it); repository `sim/nnue/eval-residual.json` unpinned (replaced by the campaign pinned arm; source files untouched).\n\nNo startup/contract files were staged. Total campaign games played: 0."
+  ]
+}

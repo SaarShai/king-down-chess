@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "id": "pal-without-d4",
+    "games": 800,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QRRBBNNAAGMMSS"
+    },
+    "ai": {
+      "depth": 4
+    },
+    "seed": 97,
+    "commonSeeds": true,
+    "note": "Same pool minus the paladin: 40 sampled back ranks, 2000 games, depth 3, seed 96. Control arm for the paladin presence test.",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 800,
+  "seconds": 1305.5,
+  "whiteScore": 0.5125,
+  "whiteWins": 310,
+  "draws": 200,
+  "blackWins": 290,
+  "meanPlies": 115,
+  "reasons": {
+    "adjudicatedResign": 600,
+    "adjudicatedDraw": 127,
+    "plyCap": 14,
+    "drawMaterial": 14,
+    "draw50": 18,
+    "drawRepetition": 27
+  }
+}

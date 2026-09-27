@@ -1,0 +1,14 @@
+{
+  "id": "pal-without",
+  "games": 2000,
+  "backRanks": {
+    "sample": 40,
+    "pool": "QRRBBNNAAGMMSS"
+  },
+  "ai": {
+    "depth": 3
+  },
+  "seed": 96,
+  "commonSeeds": true,
+  "note": "Same pool minus the paladin: 40 sampled back ranks, 2000 games, depth 3, seed 96. Control arm for the paladin presence test."
+}

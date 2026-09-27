@@ -1,0 +1,270 @@
+{
+  "fen": "rlgqkmab/pppppppp/2ns4/8/8/2NS4/PPPPPPPP/RLGQKMAB w - - 0 1",
+  "browser": "153.0.8010.12",
+  "metrics": [
+    {
+      "name": "dungeon-desktop",
+      "canvas": [
+        1180,
+        1000
+      ],
+      "pixelSize": 2,
+      "paletteEnabled": false,
+      "pieces": 36,
+      "drawCalls": 310,
+      "triangles": 359818,
+      "geometries": 91,
+      "textures": 25,
+      "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+      "types": [
+        {
+          "code": 4,
+          "triangles": 7624
+        },
+        {
+          "code": 8,
+          "triangles": 8268
+        },
+        {
+          "code": 9,
+          "triangles": 8464
+        },
+        {
+          "code": 5,
+          "triangles": 4656
+        },
+        {
+          "code": 6,
+          "triangles": 6132
+        },
+        {
+          "code": 10,
+          "triangles": 6968
+        },
+        {
+          "code": 7,
+          "triangles": 4928
+        },
+        {
+          "code": 3,
+          "triangles": 2840
+        }
+      ]
+    },
+    {
+      "name": "dungeon-px1",
+      "canvas": [
+        1180,
+        1000
+      ],
+      "pixelSize": 1,
+      "paletteEnabled": false,
+      "pieces": 36,
+      "drawCalls": 310,
+      "triangles": 359818,
+      "geometries": 91,
+      "textures": 25,
+      "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+      "types": [
+        {
+          "code": 4,
+          "triangles": 7624
+        },
+        {
+          "code": 8,
+          "triangles": 8268
+        },
+        {
+          "code": 9,
+          "triangles": 8464
+        },
+        {
+          "code": 5,
+          "triangles": 4656
+        },
+        {
+          "code": 6,
+          "triangles": 6132
+        },
+        {
+          "code": 10,
+          "triangles": 6968
+        },
+        {
+          "code": 7,
+          "triangles": 4928
+        },
+        {
+          "code": 3,
+          "triangles": 2840
+        }
+      ]
+    },
+    {
+      "name": "cel-desktop",
+      "canvas": [
+        1180,
+        1000
+      ],
+      "pixelSize": 1,
+      "paletteEnabled": false,
+      "pieces": 36,
+      "drawCalls": 310,
+      "triangles": 708122,
+      "geometries": 90,
+      "textures": 22,
+      "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+      "types": [
+        {
+          "code": 4,
+          "triangles": 7624
+        },
+        {
+          "code": 8,
+          "triangles": 8268
+        },
+        {
+          "code": 9,
+          "triangles": 8464
+        },
+        {
+          "code": 5,
+          "triangles": 4656
+        },
+        {
+          "code": 6,
+          "triangles": 6132
+        },
+        {
+          "code": 10,
+          "triangles": 6968
+        },
+        {
+          "code": 7,
+          "triangles": 4928
+        },
+        {
+          "code": 3,
+          "triangles": 2840
+        }
+      ]
+    },
+    {
+      "name": "sprites-desktop",
+      "canvas": [
+        1180,
+        1000
+      ],
+      "pixelSize": 1,
+      "paletteEnabled": false,
+      "pieces": 36,
+      "drawCalls": 238,
+      "triangles": 11370,
+      "geometries": 88,
+      "textures": 43,
+      "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+      "types": [
+        {
+          "code": 4,
+          "triangles": 2
+        },
+        {
+          "code": 8,
+          "triangles": 2
+        },
+        {
+          "code": 9,
+          "triangles": 2
+        },
+        {
+          "code": 5,
+          "triangles": 2
+        },
+        {
+          "code": 6,
+          "triangles": 2
+        },
+        {
+          "code": 10,
+          "triangles": 2
+        },
+        {
+          "code": 7,
+          "triangles": 2
+        },
+        {
+          "code": 3,
+          "triangles": 2
+        }
+      ]
+    },
+    {
+      "name": "dungeon-sprites",
+      "canvas": [
+        1180,
+        1000
+      ],
+      "pixelSize": 2,
+      "paletteEnabled": false,
+      "pieces": 36,
+      "drawCalls": 310,
+      "triangles": 11514,
+      "geometries": 89,
+      "textures": 47,
+      "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+      "types": [
+        {
+          "code": 4,
+          "triangles": 2
+        },
+        {
+          "code": 8,
+          "triangles": 2
+        },
+        {
+          "code": 9,
+          "triangles": 2
+        },
+        {
+          "code": 5,
+          "triangles": 2
+        },
+        {
+          "code": 6,
+          "triangles": 2
+        },
+        {
+          "code": 10,
+          "triangles": 2
+        },
+        {
+          "code": 7,
+          "triangles": 2
+        },
+        {
+          "code": 3,
+          "triangles": 2
+        }
+      ]
+    },
+    {
+      "name": "dungeon-mobile",
+      "canvas": [
+        390,
+        419
+      ],
+      "board": {
+        "x": 0,
+        "y": -29.25,
+        "width": 390,
+        "height": 419.25,
+        "top": -29.25,
+        "right": 390,
+        "bottom": 390,
+        "left": 0
+      },
+      "dpr": 1
+    }
+  ],
+  "errors": []
+}

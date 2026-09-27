@@ -1,0 +1,37 @@
+{
+  "checked": "2026-09-22T08:54:33.855393+00:00",
+  "elapsedMinutes": 2.8881688475608827,
+  "runner": {
+    "phase": 1,
+    "round": "20260922T085140Z",
+    "runnerPid": 53594,
+    "prompt": "/Users/new/projects/king-down-supervised-20260921-control/pair-starts-only.txt",
+    "log": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T085140Z.jsonl",
+    "errors": "/Users/new/projects/king-down-supervised-20260921-control/phase-1-20260922T085140Z.stderr.log",
+    "started": 1790067100.5656462,
+    "state": "running",
+    "agentPid": 53596
+  },
+  "session": [
+    "ses_f37afb160ffee097t9dqRha7La",
+    "/Users/new/projects/king-down-supervised-20260921"
+  ],
+  "logBytes": 34401,
+  "stderrBytes": 0,
+  "recent": [
+    {
+      "tool": "read",
+      "status": "completed",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/tools/conditions.ts'}",
+      "error": ""
+    },
+    {
+      "tool": "read",
+      "status": "completed",
+      "input": "{'filePath': '/Users/new/projects/king-down-supervised-20260921/tools/conditions.test.ts'}",
+      "error": ""
+    }
+  ],
+  "diff": "",
+  "model": "NAME                         ID              SIZE     PROCESSOR    CONTEXT    UNTIL              \nkdc-m1-gemma-agent:latest    0c6799155546    21 GB    100% GPU     32768      4 minutes from now    \n"
+}

@@ -1,0 +1,107 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { scan } from './conditions';
+import type { GameRecord, SideStats } from '../src/sim/game';
+
+const emptyStats = (): SideStats => ({ moves: {}, captures: {}, taken: {}, survived: {}, start: {} });
+
+const mkRec = (
+  gameId: number,
+  start: [Record<string, number>, Record<string, number>],
+  moves: [Record<string, number>, Record<string, number>],
+  survived: [Record<string, number>, Record<string, number>],
+  captures: [Record<string, number>, Record<string, number>],
+  result: 1 | 0.5 | 0,
+  reason: GameRecord['reason'],
+  plies: number,
+): GameRecord => ({
+  gameId,
+  pairId: gameId,
+  colourSwapped: false,
+  configId: 'test',
+  seed: gameId,
+  backRankWhite: 'RNBQKBNR',
+  backRankBlack: 'rnbqkbnr',
+  openingPlies: 0,
+  startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1',
+  result,
+  reason,
+  plies,
+  ms: 0,
+  firstCapturePly: null,
+  coverage: 0,
+  moves: [],
+  events: {},
+  stats: [
+    { start: start[0], moves: moves[0], survived: survived[0], captures: captures[0], taken: {} },
+    { start: start[1], moves: moves[1], survived: survived[1], captures: captures[1], taken: {} },
+  ],
+} as unknown as GameRecord);
+
+let dir = '';
+const writeRun = (id: string, recs: GameRecord[]): string => {
+  const p = join(dir, `${id}.jsonl`);
+  writeFileSync(p, recs.map(r => JSON.stringify(r)).join('\n') + '\n');
+  return p;
+};
+
+describe('conditions scan', () => {
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'cond-')); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('counts owner armies by type, presence, moves, captures and end presence', async () => {
+     // White owns two A armies, Black owns one A army: three owner armies in total.
+    const r1 = mkRec(1,
+       [{ A: 2 }, { A: 1 }],
+       [{ A: 3 }, { A: 1 }],
+       [{ A: 1 }, { A: 1 }],
+       [{ A: 2 }, { A: 1 }],
+       1, 'checkmate', 10);
+     // White has no A army this game; Black still owns one: presence stays at two games.
+    const r2 = mkRec(2,
+       [{}, {}],
+       [{}, {}],
+       [{}, {}],
+       [{}, {}],
+       0.5, 'draw50', 12);
+    const file = writeRun('archers', [r1, r2]);
+
+    const st = await scan(file);
+    expect(st.games).toBe(2);
+    const a = st.pieces.get('A');
+    expect(a).toBeDefined();
+    expect(a!.owners).toBe(3);
+    expect(a!.present).toBe(2);
+    expect(a!.moves).toBe(6);
+    expect(a!.captures).toBe(3);
+    expect(a!.survived).toBe(2);
+    expect(a!.zero).toBe(1);
+  });
+
+  it('ignores lower-case letters and digits in start counts', async () => {
+    const r1 = mkRec(1,
+      [{ A: 1, a: 5, '3': 2 }, { A: 1 }],
+      [{ A: 1 }, { A: 1 }],
+      [{ A: 1 }, { A: 1 }],
+      [{ A: 0 }, { A: 0 }],
+      1, 'checkmate', 5);
+    const file = writeRun('mixed', [r1]);
+
+    const st = await scan(file);
+    expect(st.pieces.get('a')).toBeUndefined();
+    expect(st.pieces.get('3')).toBeUndefined();
+    expect(st.pieces.get('A')!.owners).toBe(2);
+  });
+
+  it('returns zero rates without NaN on an empty run', async () => {
+    const file = writeRun('empty', []);
+    const st = await scan(file);
+    expect(st.games).toBe(0);
+    expect(st.pieces.size).toBe(0);
+    const g = st.games || 1;
+    expect(Number.isNaN(st.decisive / g)).toBe(false);
+    expect(Number.isNaN(st.plies / g)).toBe(false);
+  });
+});

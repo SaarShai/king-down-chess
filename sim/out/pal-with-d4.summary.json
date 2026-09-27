@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "id": "pal-with-d4",
+    "games": 800,
+    "backRanks": {
+      "sample": 40,
+      "pool": "QLRRBBNNAAGMMSS"
+    },
+    "ai": {
+      "depth": 4
+    },
+    "seed": 97,
+    "commonSeeds": true,
+    "note": "Shipped pool (one paladin): 40 sampled back ranks, 2000 games, depth 3, seed 96. Arm with the paladin for the controlled presence test.",
+    "maxPlies": 300,
+    "openingRandomPlies": 4
+  },
+  "games": 800,
+  "seconds": 1316.1,
+  "whiteScore": 0.5506,
+  "whiteWins": 339,
+  "draws": 203,
+  "blackWins": 258,
+  "meanPlies": 107.5,
+  "reasons": {
+    "adjudicatedResign": 597,
+    "adjudicatedDraw": 117,
+    "draw50": 10,
+    "drawRepetition": 40,
+    "drawMaterial": 26,
+    "plyCap": 10
+  }
+}

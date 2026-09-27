@@ -1,0 +1,48 @@
+{
+  "provenance": {
+    "directory": "/Users/za/.local/share/king-down-supervised-20260922/provenance",
+    "prompt": "/Users/za/.local/share/king-down-supervised-20260922/provenance-prompt.txt",
+    "state": "accepted",
+    "baseHead": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+    "sessionID": "ses_f378ca9c5ffe6Ht5FsuhiKgsm1",
+    "parentID": "ses_f378caa21ffe76zTrrxgwd9XYx",
+    "model": "opencode-go/deepseek-v4.1-flash",
+    "started": 1790069397.0650759,
+    "initialIndependent": {
+      "passed": 11,
+      "total": 14,
+      "remaining": "whitespace-only identity rejection and fixture/report coherence"
+    },
+    "commit": "a365c980",
+    "localIntegrationCommit": "ffd78f0",
+    "remoteCommit": "2109d67f6daebc2e7ebc543bd7778964b51f337f",
+    "independentChecks": {
+      "passed": 14,
+      "total": 14
+    },
+    "remoteTargetedTests": 74,
+    "acceptedAt": "2026-09-22T09:40:43.246564+00:00"
+  },
+  "search": {
+    "directory": "/Users/za/.local/share/king-down-supervised-20260922/search",
+    "prompt": "/Users/za/.local/share/king-down-supervised-20260922/search-prompt.txt",
+    "state": "focused_repair_running",
+    "baseHead": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+    "sessionID": "ses_f378ca8b5ffecujVHstHAVYG9H",
+    "parentID": "ses_f378caa21ffe76zTrrxgwd9XYx",
+    "model": "opencode-go/deepseek-v4.1-flash",
+    "started": 1790069397.3239958,
+    "priorRound": "step limit after useful negative-depth diagnostics, no accepted fix"
+  },
+  "protocol": {
+    "directory": "/Users/za/.local/share/king-down-supervised-20260922/protocol",
+    "prompt": "/Users/za/.local/share/king-down-supervised-20260922/protocol-prompt.txt",
+    "state": "protocol_completion_running",
+    "baseHead": "aa1efa3f69dd0ab95ad27074b34961a1a93a0006",
+    "sessionID": "ses_f378ca694ffeeSXYB0FMJNrrlN",
+    "parentID": "ses_f378caa21ffe76zTrrxgwd9XYx",
+    "model": "opencode-go/deepseek-v4.1-flash",
+    "started": 1790069397.869246,
+    "priorRound": "step limit after setup/spec/evaluator evidence; final protocol report pending"
+  }
+}

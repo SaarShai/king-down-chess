@@ -1,0 +1,19 @@
+{
+  "subtask": "replay legality",
+  "acceptedAt": "2026-09-22T05:53:39.405211+00:00",
+  "supervisor": "Codex",
+  "tests": {
+    "typecheck": 0,
+    "fullSuiteExit": 0,
+    "fullSuiteTests": 210,
+    "fullSuiteFiles": 7,
+    "independentScenarios": 7
+  },
+  "artifacts": {
+    "src/sim/replay.ts": "90c7fbbcea99acedd322e0b8fb63376bf6484e430811564f3086bbfc4fa3e7d0",
+    "src/sim/replay.test.ts": "4a9b544968eb0d004ca97d55795e8a2d4f2c580a786d4fd843a8b96a1fd65fbe",
+    "campaign/replay-fix-report.md": "a09202fcab27c0a0fce07b7e392115d5e8bb8e340495ae1aa9d8a60322568889"
+  },
+  "phase1Complete": false,
+  "gameplayDefaultsChanged": false
+}

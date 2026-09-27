@@ -1,0 +1,16 @@
+{
+  "standard": {
+    "drawCalls": 294,
+    "triangles": 301754
+  },
+  "shadowProbe": {
+    "restY": 0.02,
+    "observedMaximumWorldY": 0.37
+  },
+  "idleParticleSlots": 400,
+  "arrowGeometryProbe": {
+    "before": 87,
+    "after": 92,
+    "shots": 5
+  }
+}

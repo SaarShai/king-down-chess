@@ -1,0 +1,11 @@
+{
+  "identity-checks.json": "4c67b76c14a77f9aa0aa89ed3f519d79570c15b7e17c848f0d08bc17f25d61ef",
+  "identity-corrections.txt": "2f2772c87f5151497e5905b98bb50ab9f32d544ae8272cb047f6b9b2d5c962f0",
+  "identity-fix-report.md": "0a5c8c710ae6d9797ccf0e6072360c698dec3897a6ebba233ef38b4a185f835b",
+  "identity.test.ts.txt": "dfa4dbd41262cf3bad3681721a34b5823dc7e45d8da9079a95c2b7c93244c9fb",
+  "identity.ts.txt": "96fbf49707859ed6a68df5793f453e3310687399eaf841583306556a851afc96",
+  "supervisor-identity-check.ts.txt": "0931529d3aa9babea51f550124f9002d3b629851538ddb828c542704dfdf6b06",
+  "supervisor-identity-initial.json": "3e94b2c471c2c1c3b115eeb047c4483be44fa22babcd54af104e983385f0e0ae",
+  "tsc.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "vitest.log": "4876b1417c6c7a8584595e17716f7f0083ab019e426d1abdd34eccbe9c12ccf9"
+}

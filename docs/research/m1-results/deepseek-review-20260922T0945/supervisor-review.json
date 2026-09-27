@@ -1,0 +1,43 @@
+{
+  "checked": "2026-09-22T09:52:37.688404+00:00",
+  "search": {
+    "accepted": false,
+    "candidate": "9123ba9",
+    "baseline": {
+      "source": "integration/ffd78f0",
+      "nodes": 25447,
+      "score": -287,
+      "move": "Kg2-f2"
+    },
+    "candidateMeasurement": {
+      "nodes": 25447,
+      "score": -287,
+      "move": "Kg2-f2",
+      "elapsedMs": 166.4
+    },
+    "reason": "No effect on the legal test position; all proposed regressions also pass baseline; historical stall remains unproven. Returned targeted repetition/true-regression follow-up."
+  },
+  "protocol": {
+    "accepted": false,
+    "candidate": "54e6de0",
+    "staticChecks": {
+      "passed": 98,
+      "total": 98
+    },
+    "setups": 96,
+    "reason": "Depth-only specifications leave infinite time budgets; head-to-head physical counts and commands disagree with ledger; censoring/estimator/adoption claims need correction."
+  },
+  "m1BudgetValidation": {
+    "passed": 6,
+    "total": 6,
+    "coldAndWarm": true,
+    "requestedTimeMs": [
+      5,
+      25,
+      100
+    ],
+    "maxObservedMs": 106.034042,
+    "limitation": "Observed legal-position checks only. The 5ms warm call took27.59ms, so this is not a strict wall-time guarantee. No game played.",
+    "evidence": "docs/research/m1-results/search-budget-validation-20260922"
+  }
+}

@@ -1,0 +1,31 @@
+import { scan } from '../king-down-supervised-20260921/tools/conditions';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
+const fixture = resolve('../king-down-supervised-20260921-control/statistics-fixture.jsonl.txt');
+const results: { name: string; passed: boolean; error?: string }[] = [];
+function check(name: string, fn: () => void) {
+  try { fn(); results.push({ name, passed: true }); }
+  catch (e) { results.push({ name, passed: false, error: String(e) }); }
+}
+async function main() {
+  const st = await scan(fixture);
+  const a = st.pieces.get('A')!;
+  const g = st.pieces.get('G')!;
+  check('three owner armies, not four Archer pieces', () => assert.equal(a.owners, 3));
+  check('presence counted once per game', () => assert.equal(a.present, 2));
+  check('both colours contribute six moves', () => assert.equal(a.moves, 6));
+  check('one owner army made no Archer move', () => assert.equal(a.zero, 1));
+  check('two armies retain the type, not three pieces', () => assert.equal(a.survived, 2));
+  check('two captures across owner armies', () => assert.equal(a.captures, 2));
+  check('off-back-rank Guard ownership', () => assert.deepEqual(g, { owners: 1, present: 1, moves: 0, zero: 1, survived: 1, captures: 0 }));
+  check('no lowercase or empty-square piece keys', () => assert.deepEqual([...st.pieces.keys()].sort(), ['A', 'G']));
+  const cli = spawnSync('./node_modules/.bin/tsx', ['tools/conditions.ts', '--runs', fixture], { encoding: 'utf8' });
+  check('CLI succeeds', () => assert.equal(cli.status, 0, cli.stderr));
+  check('CLI shows correct end-presence rate', () => assert.match(cli.stdout, /66\.7%/));
+  check('CLI names the end-presence measure', () => assert.match(cli.stdout, /type present at end/i));
+  check('CLI identifies owner-army denominators', () => assert.match(cli.stdout, /owner/i));
+  console.log(JSON.stringify({ fixtureKind: 'synthetic test records, not played games', results, cliOutput: cli.stdout }, null, 2));
+  process.exitCode = results.every(r => r.passed) ? 0 : 1;
+}
+main().catch(e => { console.error(e); process.exitCode = 1; });

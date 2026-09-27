@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { replayRecord, eventsMatch } from '../king-down-supervised-20260921/src/sim/replay';
+import { setRules } from '../king-down-supervised-20260921/src/rules/rules';
+import { sourceId } from '../king-down-supervised-20260921/src/sim/identity';
+const files = process.argv.slice(2, 5);
+assert.equal(files.length, 3);
+const groups = files.map(file => readFileSync(file, 'utf8').trim().split('\n').map(line => JSON.parse(line)).sort((a, b) => a.gameId - b.gameId));
+const checks: { name: string; passed: boolean; error?: string }[] = [];
+function check(name: string, fn: () => void) { try { fn(); checks.push({ name, passed: true }); } catch (error) { checks.push({ name, passed: false, error: String(error) }); } }
+const expectedSrc = sourceId('/Users/new/projects/king-down-supervised-20260921');
+for (const [i, records] of groups.entries()) {
+  check(`run ${i + 1}: eight unique IDs`, () => assert.deepEqual(records.map(r => r.gameId), [0,1,2,3,4,5,6,7]));
+  for (const r of records) {
+    check(`run ${i + 1} game ${r.gameId}: identity, plies and legal replay`, () => {
+      assert.equal(r.src, expectedSrc);
+      assert.ok(r.specKey && r.rulesKey && r.rules);
+      assert.ok(r.plies > 0 && r.plies <= 40);
+      assert.equal(r.moves.length, r.plies);
+      assert.ok(!String(r.reason).startsWith('adjudicated'));
+      if (r.reason === 'plyCap') assert.equal(r.plies, 40);
+      setRules(r.rules);
+      const replay = replayRecord(r);
+      assert.equal(replay.plies, r.plies);
+      assert.equal(eventsMatch(replay.events, r.events), null);
+    });
+  }
+}
+const deterministic = (records: any[]) => records.map(({ms, moves, ...r}) => ({...r, moves: moves.map(({ms, ...move}: any) => move)}));
+check('single-worker repeat matches every timing-free field', () => assert.deepEqual(deterministic(groups[1]), deterministic(groups[0])));
+check('two-worker run matches every timing-free field', () => assert.deepEqual(deterministic(groups[2]), deterministic(groups[0])));
+check('one shared source/spec/rules identity across all 24 records', () => {
+  for (const key of ['src', 'specKey', 'rulesKey']) assert.equal(new Set(groups.flat().map(r => r[key])).size, 1);
+});
+const reasons: Record<string, number> = {};
+for (const r of groups.flat()) reasons[r.reason] = (reasons[r.reason] ?? 0) + 1;
+const hashes = groups.map(g => createHash('sha256').update(JSON.stringify(deterministic(g))).digest('hex'));
+const report = { kind: 'execution validation; short capped games are not balance evidence', records: groups.flat().length, reasons, sourceId: expectedSrc, specKey: groups[0][0]?.specKey, deterministicHashes: hashes, passed: checks.filter(c => c.passed).length, total: checks.length, checks };
+writeFileSync(process.argv[5], JSON.stringify(report, null, 2) + '\n');
+console.log(JSON.stringify({ records: report.records, reasons, passed: report.passed, total: report.total, deterministicHashes: hashes }));
+process.exitCode = checks.every(c => c.passed) ? 0 : 1;

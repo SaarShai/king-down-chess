@@ -1,0 +1,72 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.0 [39m[90m/Users/new/projects/king-down-supervised-20260921[39m
+
+ [31m❯[39m tools/conditions.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 352[2mms[22m[39m
+   [31m❯[39m conditions scan [2m(3)[22m
+     [32m✓[39m counts owner armies by type, presence, moves, captures and end presence[32m 6[2mms[22m[39m
+[31m     [31m×[31m ignores invalid piece keys and nonpositive starting counts[39m[32m 8[2mms[22m[39m
+     [32m✓[39m returns empty aggregates for an empty run[32m 1[2mms[22m[39m
+   [31m❯[39m conditions CLI [2m(2)[22m
+[31m     [31m×[31m prints owner armies, presence, moves per owner and still share from synthetic records[39m[32m 200[2mms[22m[39m
+     [32m✓[39m handles an empty run without NaN or Infinity[32m 136[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 09:05:40
+[2m   Duration [22m 545ms[2m (tests 80%, transform 16%, import 3%, worker 1%)[22m
+
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions scan[2m > [22mignores invalid piece keys and nonpositive starting counts
+[31m[1mAssertionError[22m: expected [ 'A', '', ' ', 'PN' ] to deeply equal [ 'A' ][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "A",[22m
+[31m+   "",[39m
+[31m+   " ",[39m
+[31m+   "PN",[39m
+[2m  ][22m
+
+[36m [2m❯[22m tools/conditions.test.ts:[2m103:35[22m[39m
+    [90m101|[39m     expect(st.pieces.get('a')).toBeUndefined();
+    [90m102|[39m     expect(st.pieces.get('3')).toBeUndefined();
+    [90m103|[39m     expect([...st.pieces.keys()]).toEqual(['A']);
+    [90m   |[39m                                   [31m^[39m
+    [90m104|[39m     expect(st.pieces.get('A')!.owners).toBe(2);
+    [90m105|[39m    });
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tools/conditions.test.ts[2m > [22mconditions CLI[2m > [22mprints owner armies, presence, moves per owner and still share from synthetic records
+[31m[1mAssertionError[22m: expected [ 'A', '100.0%', '3', '2.00', …(3) ] to deeply equal [ 'A', '2/2 (100.0%)', '3', …(4) ][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[33m@@ -1,8 +1,8 @@[39m
+[2m  [[22m
+[2m    "A",[22m
+[32m-   "2/2 (100.0%)",[39m
+[31m+   "100.0%",[39m
+[2m    "3",[22m
+[2m    "2.00",[22m
+[2m    "33.3%",[22m
+[2m    "66.7%",[22m
+[2m    "0.67",[22m
+
+[36m [2m❯[22m tools/conditions.test.ts:[2m140:46[22m[39m
+    [90m138|[39m
+    [90m139|[39m     const rows = out.split('\n').map(line => line.split('|').map(cell …
+    [90m140|[39m     expect(rows.find(row => row[0] === 'A')).toEqual(['A', '2/2 (100.0…
+    [90m   |[39m                                              [31m^[39m
+    [90m141|[39m     expect(rows.find(row => row[0] === 'G')).toEqual(['G', '1/2 (50.0%…
+    [90m142|[39m     expect(out).toContain('TYPE PRESENT AT END');
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+returnCode: 1

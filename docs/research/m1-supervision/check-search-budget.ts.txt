@@ -1,0 +1,18 @@
+import { fromFen, toLan } from '/Users/new/projects/king-down-supervised-20260921/src/rules/setup.ts';
+import { legalMoves } from '/Users/new/projects/king-down-supervised-20260921/src/rules/engine.ts';
+import { resetSearchState, search } from '/Users/new/projects/king-down-supervised-20260921/src/ai/search.ts';
+const fen = 'g7/6k1/2q3pp/3o4/1p1p1P2/pQ1O2PP/6K1/2G5 w - - 0 1';
+const results = [];
+for (const timeMs of [5, 25, 100]) {
+  resetSearchState();
+  for (const state of ['cold', 'warm']) {
+    const pos = fromFen(fen), start = performance.now();
+    const result = search(pos, {timeMs});
+    const elapsedMs = performance.now() - start;
+    const move = result.move ? toLan(pos, result.move) : null;
+    const legal = move !== null && legalMoves(pos).some(m => toLan(pos, m) === move);
+    results.push({timeMs, state, elapsedMs, depth:result.depth, nodes:result.nodes, move, legal, passed:legal && elapsedMs < 1000});
+  }
+}
+console.log(JSON.stringify({purpose:'position-only finite-budget validation; no game played', fen, results, passed:results.every(r=>r.passed)},null,2));
+if (!results.every(r=>r.passed)) process.exitCode = 1;

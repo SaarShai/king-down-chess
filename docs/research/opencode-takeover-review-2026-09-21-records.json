@@ -1,0 +1,798 @@
+{
+  "arr-a.r1": {
+    "games": 8000,
+    "unique_ids": 8000,
+    "bad_lines": 0,
+    "arrangements": 400,
+    "games_per_arrangement": [
+      20,
+      20
+    ],
+    "white": 0.531875,
+    "decisive": 0.83275,
+    "plies": 100.596,
+    "reasons": {
+      "adjudicatedResign": 6661,
+      "adjudicatedDraw": 974,
+      "drawRepetition": 208,
+      "draw50": 61,
+      "plyCap": 45,
+      "drawMaterial": 48,
+      "checkmate": 1,
+      "stalemate": 2
+    },
+    "stamps": [
+      {
+        "src": "f2d0a7bf5931",
+        "rulesKey": "37a776ee",
+        "specKey": "8679168bbdcc",
+        "games": 8000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 2427,
+    "mechanic_diversity": 3.364375
+  },
+  "arr-a.r2": {
+    "games": 8000,
+    "unique_ids": 8000,
+    "bad_lines": 0,
+    "arrangements": 200,
+    "games_per_arrangement": [
+      40,
+      40
+    ],
+    "white": 0.527625,
+    "decisive": 0.82375,
+    "plies": 101.076625,
+    "reasons": {
+      "adjudicatedResign": 6588,
+      "adjudicatedDraw": 1016,
+      "drawRepetition": 231,
+      "plyCap": 52,
+      "draw50": 50,
+      "drawMaterial": 59,
+      "checkmate": 2,
+      "stalemate": 2
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "37a776ee",
+        "specKey": "0e4658478381",
+        "games": 8000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 2224,
+    "mechanic_diversity": 3.30825
+  },
+  "arr-a.r3": {
+    "games": 8000,
+    "unique_ids": 8000,
+    "bad_lines": 0,
+    "arrangements": 100,
+    "games_per_arrangement": [
+      80,
+      80
+    ],
+    "white": 0.5334375,
+    "decisive": 0.829625,
+    "plies": 101.75175,
+    "reasons": {
+      "adjudicatedResign": 6637,
+      "adjudicatedDraw": 1004,
+      "plyCap": 43,
+      "drawRepetition": 218,
+      "drawMaterial": 42,
+      "draw50": 54,
+      "stalemate": 2
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "37a776ee",
+        "specKey": "e696a7b4334c",
+        "games": 8000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 2366,
+    "mechanic_diversity": 3.332875
+  },
+  "arr-a.r4": {
+    "games": 8000,
+    "unique_ids": 8000,
+    "bad_lines": 0,
+    "arrangements": 50,
+    "games_per_arrangement": [
+      160,
+      160
+    ],
+    "white": 0.5218125,
+    "decisive": 0.831125,
+    "plies": 100.121625,
+    "reasons": {
+      "adjudicatedResign": 6649,
+      "adjudicatedDraw": 986,
+      "draw50": 56,
+      "drawRepetition": 215,
+      "drawMaterial": 42,
+      "plyCap": 51,
+      "stalemate": 1
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "37a776ee",
+        "specKey": "09baeff17db1",
+        "games": 8000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 2861,
+    "mechanic_diversity": 3.225625
+  },
+  "arr-a.r5": {
+    "games": 8000,
+    "unique_ids": 8000,
+    "bad_lines": 0,
+    "arrangements": 25,
+    "games_per_arrangement": [
+      320,
+      320
+    ],
+    "white": 0.5171875,
+    "decisive": 0.819625,
+    "plies": 101.764,
+    "reasons": {
+      "drawRepetition": 229,
+      "adjudicatedResign": 6554,
+      "adjudicatedDraw": 1054,
+      "drawMaterial": 53,
+      "plyCap": 61,
+      "draw50": 46,
+      "checkmate": 3
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "37a776ee",
+        "specKey": "ca915cba438c",
+        "games": 8000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 2982,
+    "mechanic_diversity": 3.093125
+  },
+  "arr-b.r1": {
+    "games": 4000,
+    "unique_ids": 4000,
+    "bad_lines": 0,
+    "arrangements": 200,
+    "games_per_arrangement": [
+      20,
+      20
+    ],
+    "white": 0.533875,
+    "decisive": 0.82125,
+    "plies": 100.94375,
+    "reasons": {
+      "adjudicatedResign": 3285,
+      "adjudicatedDraw": 531,
+      "drawRepetition": 101,
+      "plyCap": 26,
+      "drawMaterial": 25,
+      "draw50": 32
+    },
+    "stamps": [
+      {
+        "src": "418c0d5c5318",
+        "rulesKey": "60dd023b",
+        "specKey": "d188a6d1d27c",
+        "games": 4000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 1065,
+    "mechanic_diversity": 3.337
+  },
+  "arr-b.r2": {
+    "games": 4000,
+    "unique_ids": 4000,
+    "bad_lines": 0,
+    "arrangements": 100,
+    "games_per_arrangement": [
+      40,
+      40
+    ],
+    "white": 0.53,
+    "decisive": 0.828,
+    "plies": 100.042,
+    "reasons": {
+      "adjudicatedResign": 3312,
+      "adjudicatedDraw": 493,
+      "stalemate": 1,
+      "draw50": 27,
+      "drawRepetition": 113,
+      "plyCap": 24,
+      "drawMaterial": 30
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "60dd023b",
+        "specKey": "a768050befa0",
+        "games": 4000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 1055,
+    "mechanic_diversity": 3.3155
+  },
+  "arr-b.r3": {
+    "games": 4000,
+    "unique_ids": 4000,
+    "bad_lines": 0,
+    "arrangements": 50,
+    "games_per_arrangement": [
+      80,
+      80
+    ],
+    "white": 0.536875,
+    "decisive": 0.84125,
+    "plies": 98.67225,
+    "reasons": {
+      "adjudicatedDraw": 449,
+      "adjudicatedResign": 3365,
+      "plyCap": 30,
+      "drawMaterial": 21,
+      "drawRepetition": 106,
+      "draw50": 29
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "60dd023b",
+        "specKey": "234b1b6bf641",
+        "games": 4000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 1369,
+    "mechanic_diversity": 3.26725
+  },
+  "arr-b.r4": {
+    "games": 4000,
+    "unique_ids": 4000,
+    "bad_lines": 0,
+    "arrangements": 25,
+    "games_per_arrangement": [
+      160,
+      160
+    ],
+    "white": 0.516,
+    "decisive": 0.8355,
+    "plies": 100.27225,
+    "reasons": {
+      "adjudicatedResign": 3342,
+      "adjudicatedDraw": 475,
+      "drawRepetition": 108,
+      "plyCap": 21,
+      "draw50": 26,
+      "drawMaterial": 28
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "60dd023b",
+        "specKey": "32e3ed4365e8",
+        "games": 4000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 1523,
+    "mechanic_diversity": 3.14625
+  },
+  "finalists": {
+    "games": 50000,
+    "unique_ids": 50000,
+    "bad_lines": 0,
+    "arrangements": 50,
+    "games_per_arrangement": [
+      1000,
+      1000
+    ],
+    "white": 0.51754,
+    "decisive": 0.82824,
+    "plies": 101.1223,
+    "reasons": {
+      "adjudicatedResign": 41404,
+      "draw50": 334,
+      "adjudicatedDraw": 6155,
+      "drawRepetition": 1400,
+      "drawMaterial": 361,
+      "plyCap": 329,
+      "stalemate": 9,
+      "checkmate": 8
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "ee0a45ad",
+        "specKey": "96d4bc000eac",
+        "games": 50000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 18994,
+    "mechanic_diversity": 3.12706
+  },
+  "arr-final-d4": {
+    "games": 2000,
+    "unique_ids": 2000,
+    "bad_lines": 0,
+    "arrangements": 5,
+    "games_per_arrangement": [
+      400,
+      400
+    ],
+    "white": 0.54425,
+    "decisive": 0.7315,
+    "plies": 113.6665,
+    "reasons": {
+      "adjudicatedResign": 1463,
+      "adjudicatedDraw": 362,
+      "plyCap": 37,
+      "drawRepetition": 72,
+      "drawMaterial": 39,
+      "draw50": 27
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "ee0a45ad",
+        "specKey": "521cdfb95e15",
+        "games": 2000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 1144,
+    "mechanic_diversity": 2.969
+  },
+  "pal-with": {
+    "games": 2000,
+    "unique_ids": 2000,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      50,
+      50
+    ],
+    "white": 0.5705,
+    "decisive": 0.836,
+    "plies": 98.731,
+    "reasons": {
+      "adjudicatedResign": 1672,
+      "drawRepetition": 60,
+      "adjudicatedDraw": 231,
+      "drawMaterial": 14,
+      "draw50": 11,
+      "plyCap": 12
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "ee0a45ad",
+        "specKey": "2a178aa6ef1d",
+        "games": 2000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 559,
+    "mechanic_diversity": 3.2225
+  },
+  "pal-without": {
+    "games": 2000,
+    "unique_ids": 2000,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      50,
+      50
+    ],
+    "white": 0.50825,
+    "decisive": 0.8285,
+    "plies": 97.463,
+    "reasons": {
+      "adjudicatedResign": 1657,
+      "adjudicatedDraw": 257,
+      "drawRepetition": 51,
+      "drawMaterial": 11,
+      "draw50": 9,
+      "plyCap": 15
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "ee0a45ad",
+        "specKey": "bf4364335c7f",
+        "games": 2000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 731,
+    "mechanic_diversity": 2.939
+  },
+  "pal-with-d4": {
+    "games": 800,
+    "unique_ids": 800,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      20,
+      20
+    ],
+    "white": 0.550625,
+    "decisive": 0.74625,
+    "plies": 107.465,
+    "reasons": {
+      "adjudicatedResign": 597,
+      "adjudicatedDraw": 117,
+      "draw50": 10,
+      "drawRepetition": 40,
+      "drawMaterial": 26,
+      "plyCap": 10
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "ee0a45ad",
+        "specKey": "5defb32a17f5",
+        "games": 800
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 163,
+    "mechanic_diversity": 3.16875
+  },
+  "pal-without-d4": {
+    "games": 800,
+    "unique_ids": 800,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      20,
+      20
+    ],
+    "white": 0.5125,
+    "decisive": 0.75,
+    "plies": 114.99625,
+    "reasons": {
+      "adjudicatedResign": 600,
+      "adjudicatedDraw": 127,
+      "plyCap": 14,
+      "drawMaterial": 14,
+      "draw50": 18,
+      "drawRepetition": 27
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "ee0a45ad",
+        "specKey": "e9451890e650",
+        "games": 800
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 188,
+    "mechanic_diversity": 2.95625
+  },
+  "kit-pool-shipped": {
+    "games": 2000,
+    "unique_ids": 2000,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      50,
+      50
+    ],
+    "white": 0.5525,
+    "decisive": 0.81,
+    "plies": 98.6225,
+    "reasons": {
+      "adjudicatedResign": 1620,
+      "drawRepetition": 50,
+      "adjudicatedDraw": 290,
+      "plyCap": 13,
+      "drawMaterial": 16,
+      "draw50": 10,
+      "stalemate": 1
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "ee0a45ad",
+        "specKey": "eea1a6eadbaf",
+        "games": 2000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 561,
+    "mechanic_diversity": 3.3
+  },
+  "kit-pool-kit": {
+    "games": 2000,
+    "unique_ids": 2000,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      50,
+      50
+    ],
+    "white": 0.54825,
+    "decisive": 0.8275,
+    "plies": 96.942,
+    "reasons": {
+      "adjudicatedResign": 1655,
+      "adjudicatedDraw": 258,
+      "drawRepetition": 53,
+      "drawMaterial": 11,
+      "draw50": 12,
+      "plyCap": 10,
+      "stalemate": 1
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "ee0a45ad",
+        "specKey": "8bbaef43856f",
+        "games": 2000
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 609,
+    "mechanic_diversity": 3.565
+  },
+  "pb-ab-O-push-d4b.base": {
+    "games": 1600,
+    "unique_ids": 1600,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      40,
+      40
+    ],
+    "white": 0.50875,
+    "decisive": 0.67625,
+    "plies": 111.9375,
+    "reasons": {
+      "adjudicatedResign": 1082,
+      "adjudicatedDraw": 289,
+      "drawRepetition": 164,
+      "draw50": 14,
+      "drawMaterial": 22,
+      "plyCap": 28,
+      "stalemate": 1
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "ee0a45ad",
+        "specKey": "e0c43bc64632",
+        "games": 1600
+      }
+    ],
+    "ogre_shoves": 4125,
+    "ogre_friend_shoves": 3776,
+    "ogre_enemy_shoves": 349,
+    "beast_true_chains": 271,
+    "mechanic_diversity": 2.953125
+  },
+  "pb-ab-O-push-d4b.var": {
+    "games": 1600,
+    "unique_ids": 1600,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      40,
+      40
+    ],
+    "white": 0.551875,
+    "decisive": 0.77,
+    "plies": 112.55625,
+    "reasons": {
+      "adjudicatedDraw": 233,
+      "adjudicatedResign": 1232,
+      "drawMaterial": 30,
+      "drawRepetition": 63,
+      "plyCap": 20,
+      "draw50": 21,
+      "stalemate": 1
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "f221cdd2",
+        "specKey": "685cacc37c3e",
+        "games": 1600
+      }
+    ],
+    "ogre_shoves": 5344,
+    "ogre_friend_shoves": 5294,
+    "ogre_enemy_shoves": 50,
+    "beast_true_chains": 318,
+    "mechanic_diversity": 3.004375
+  },
+  "pb-ab-O-push-d4-v318.base": {
+    "games": 1599,
+    "unique_ids": 1599,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      39,
+      40
+    ],
+    "white": 0.5218886804252658,
+    "decisive": 0.6904315196998124,
+    "plies": 110.46841776110068,
+    "reasons": {
+      "adjudicatedDraw": 271,
+      "adjudicatedResign": 1104,
+      "drawRepetition": 164,
+      "drawMaterial": 18,
+      "plyCap": 16,
+      "draw50": 26
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "ee0a45ad",
+        "specKey": "dd2974a15b8f",
+        "games": 1599
+      }
+    ],
+    "ogre_shoves": 4067,
+    "ogre_friend_shoves": 3741,
+    "ogre_enemy_shoves": 326,
+    "beast_true_chains": 300,
+    "mechanic_diversity": 2.9706066291432145
+  },
+  "pb-ab-O-push-d4-v318.var": {
+    "games": 1600,
+    "unique_ids": 1600,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      40,
+      40
+    ],
+    "white": 0.525625,
+    "decisive": 0.76125,
+    "plies": 113.119375,
+    "reasons": {
+      "adjudicatedResign": 1218,
+      "adjudicatedDraw": 272,
+      "drawRepetition": 54,
+      "plyCap": 16,
+      "draw50": 14,
+      "drawMaterial": 24,
+      "stalemate": 2
+    },
+    "stamps": [
+      {
+        "src": "4be3ddab3232",
+        "rulesKey": "f221cdd2",
+        "specKey": "3f9e9fd993c9",
+        "games": 1600
+      }
+    ],
+    "ogre_shoves": 5185,
+    "ogre_friend_shoves": 5145,
+    "ogre_enemy_shoves": 40,
+    "beast_true_chains": 298,
+    "mechanic_diversity": 3.056875
+  },
+  "pb-noadj": {
+    "games": 1600,
+    "unique_ids": 1600,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      40,
+      40
+    ],
+    "white": 0.5328125,
+    "decisive": 0.871875,
+    "plies": 148.8775,
+    "reasons": {
+      "checkmate": 1395,
+      "drawRepetition": 138,
+      "plyCap": 36,
+      "drawMaterial": 15,
+      "draw50": 16
+    },
+    "stamps": [
+      {
+        "src": "bdef42b60c3d",
+        "rulesKey": "d0650d21",
+        "specKey": "832ba5b5ec43",
+        "games": 1600
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 409,
+    "mechanic_diversity": 4.22375
+  },
+  "pb-ab-G-nocap.base": {
+    "games": 1600,
+    "unique_ids": 1600,
+    "bad_lines": 0,
+    "arrangements": 40,
+    "games_per_arrangement": [
+      40,
+      40
+    ],
+    "white": 0.54125,
+    "decisive": 0.79125,
+    "plies": 110.780625,
+    "reasons": {
+      "adjudicatedResign": 1266,
+      "adjudicatedDraw": 266,
+      "drawMaterial": 11,
+      "drawRepetition": 43,
+      "plyCap": 7,
+      "draw50": 7
+    },
+    "stamps": [
+      {
+        "src": "be143551ebf2",
+        "rulesKey": "9ad46c8a",
+        "specKey": "f187433ca2d9",
+        "games": 1600
+      }
+    ],
+    "ogre_shoves": 0,
+    "ogre_friend_shoves": 0,
+    "ogre_enemy_shoves": 0,
+    "beast_true_chains": 265,
+    "mechanic_diversity": 3.4425
+  }
+}

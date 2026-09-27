@@ -1,0 +1,15 @@
+{
+  "changedAt": "2026-09-22T07:11:38.977837+00:00",
+  "oldModel": "muse-glimmer:30b-mlx",
+  "newModel": "qwen3.8:27b-mlx",
+  "executionAlias": "kdc-m1-qwen-agent",
+  "reason": "Muse had zero statistics source/test changes in two consecutive rounds, including reduced startup context; second round called absent requested test a blocker",
+  "comparison": "Same prompt, startup summaries, source and runtime limits; switch only local model",
+  "acceptedSubtasks": [
+    "replay legality",
+    "source identity"
+  ],
+  "completedGames": 0,
+  "contextTokens": 32768,
+  "outputTokens": 4096
+}

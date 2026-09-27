@@ -1,0 +1,190 @@
+diff --git a/tools/conditions.test.ts b/tools/conditions.test.ts
+index 9e7983c..299fc41 100644
+--- a/tools/conditions.test.ts
++++ b/tools/conditions.test.ts
+@@ -116,6 +116,35 @@ describe('conditions CLI', () => {
+   beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'cond-cli-')); });
+   afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+ 
++  it('prints owner armies, presence, moves per owner and still share from synthetic records', () => {
++    // Same synthetic fixture as the scan test, written to a temp file the CLI reads.
++    const r1 = mkRec(1, 'a6k/8/8/8/8/8/8/A5AK w - - 0 1',
++       [{ A: 2, K: 1 }, { A: 1, K: 1 }],
++       [{ A: 4 }, { A: 0 }],
++       [{ A: 2, K: 1 }, { A: 0, K: 1 }],
++       [{ A: 1 }, { A: 0 }],
++       1, 'checkmate', 10);
++    const r2 = mkRec(2, 'a6k/8/8/8/8/8/2G5/7K w - - 0 1',
++       [{ G: 1, K: 1 }, { A: 1, K: 1 }],
++       [{ G: 0 }, { A: 2 }],
++       [{ G: 1, K: 1 }, { A: 1, K: 1 }],
++       [{ G: 0 }, { A: 1 }],
++       0.5, 'draw50', 12);
++    const file = writeRun('cli', [r1, r2]);
++
++    const out = execFileSync('node_modules/.bin/tsx',
++       ['tools/conditions.ts', '--runs', file],
++       { stdio: 'pipe' }).toString();
++
++    const rows = out.split('\n').map(line => line.split('|').map(cell => cell.trim()));
++    expect(rows.find(row => row[0] === 'A')).toEqual(['A', '2/2 (100.0%)', '3', '2.00', '33.3%', '66.7%', '0.67']);
++    expect(rows.find(row => row[0] === 'G')).toEqual(['G', '1/2 (50.0%)', '1', '0.00', '100.0%', '100.0%', '0.00']);
++    expect(out).toContain('TYPE PRESENT AT END');
++    expect(out).toContain('promotions');
++    expect(out).not.toContain('NaN');
++    expect(out).not.toContain('Infinity');
++   });
++
+   it('prints owner armies, presence, moves per owner and still share from synthetic records', () => {
+     // Same synthetic fixture as the scan test, written to a temp file the CLI reads.
+     const r1 = mkRec(1, 'a6k/8/8/8/8/8/8/A5AK w - - 0 1',
+@@ -154,5 +183,87 @@ describe('conditions CLI', () => {
+ 
+     expect(out).not.toContain('NaN');
+     expect(out).not.toContain('Infinity');
+-   });
++  });
++
++  describe('paired validation', () => {
++    it('calculates mean for matching IDs', () => {
++      const rA = mkRec(10, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 1, 'checkmate', 10);
++      const rB = mkRec(10, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 0.5, 'checkmate', 10);
++      const fA = writeRun('pairA', [rA]);
++      const fB = writeRun('pairB', [rB]);
++
++      const out = execFileSync('node_modules/.bin/tsx',
++         ['tools/conditions.ts', '--pair', `${fA},${fB}`],
++         { stdio: 'pipe' }).toString();
++
++      expect(out).toContain('result +0.500');
++    });
++
++    it('errors on duplicate gameId in a file', () => {
++      const r1 = mkRec(1, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 1, 'checkmate', 10);
++      const r2 = mkRec(1, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 1, 'checkmate', 10);
++      const f = writeRun('dup', [r1, r2]);
++
++      expect(() => {
++        execFileSync('node_modules/.bin/tsx', ['tools/conditions.ts', '--pair', `${f},${f}`], { stdio: 'pipe' });
++      }).toThrow();
++    });
++
++    it.each([
++      ['startFen', (r: any) => ({ ...r, startFen: 'diff' })],
++      ['seed', (r: any) => ({ ...r, seed: 999 })],
++      ['openingPlies', (r: any) => ({ ...r, openingPlies: 5 })],
++      ['colourSwapped', (r: any) => ({ ...r, colourSwapped: true })],
++    ])('errors on %s mismatch', (field, mutate) => {
++      const rA = mkRec(10, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 1, 'checkmate', 10);
++      const rB = mutate(mkRec(10, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 0, 'checkmate', 10));
++      const fA = writeRun(`pairA_${field}`, [rA]);
++      const fB = writeRun(`pairB_${field}`, [rB]);
++
++      expect(() => {
++        execFileSync('node_modules/.bin/tsx', ['tools/conditions.ts', '--pair', `${fA},${fB}`], { stdio: 'pipe' });
++      }).toThrow();
++    });
++
++    it('prints unmatched counts', () => {
++      const rA = mkRec(1, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 1, 'checkmate', 10);
++      const rB = mkRec(2, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 0, 'checkmate', 10);
++      const fA = writeRun('unmatchA', [rA]);
++      const fB = writeRun('unmatchB', [rB]);
++
++      const out = execFileSync('node_modules/.bin/tsx',
++         ['tools/conditions.ts', '--pair', `${fA},${fB}`],
++         { stdio: 'pipe' }).toString();
++
++      expect(out).toContain('paired 0 games');
++    });
++
++    it('handles zero pairs: no estimate available', () => {
++      const rA = mkRec(1, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 1, 'checkmate', 10);
++      const rB = mkRec(2, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 0, 'checkmate', 10);
++      const fA = writeRun('zeroA', [rA]);
++      const fB = writeRun('zeroB', [rB]);
++
++      const out = execFileSync('node_modules/.bin/tsx',
++         ['tools/conditions.ts', '--pair', `${fA},${fB}`],
++         { stdio: 'pipe' }).toString();
++
++      expect(out).not.toContain('±');
++    });
++
++    it('handles one pair: mean only, no interval', () => {
++      const rA = mkRec(1, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 1, 'checkmate', 10);
++      const rB = mkRec(1, 'fen', [{K:1}, {K:1}], [{}, {}], [{}, {}], [{}, {}], 0, 'checkmate', 10);
++      const fA = writeRun('oneA', [rA]);
++      const fB = writeRun('oneB', [rB]);
++
++      const out = execFileSync('node_modules/.bin/tsx',
++         ['tools/conditions.ts', '--pair', `${fA},${fB}`],
++         { stdio: 'pipe' }).toString();
++
++      expect(out).toContain('result +1.000');
++      expect(out).not.toContain('±');
++    });
++  });
++
+ });
+diff --git a/tools/conditions.ts b/tools/conditions.ts
+index e0f9a51..8ed6b44 100644
+--- a/tools/conditions.ts
++++ b/tools/conditions.ts
+@@ -6,7 +6,7 @@
+  * condition? Does a dear piece go quiet in the wrong one?
+  *
+  *   tsx tools/conditions.ts --runs np-N,np-O,np-V-ortho,np-T
+- *   tsx tools/conditions.ts --pair np-V-ortho,np-N          # paired by gameId (same openings)
++ *   tsx tools/conditions.ts --pair np-V-ortho,np-N          # paired by gameId (common start/seed)
+  *
+  * Per run it prints, for every piece type the run contains:
+  *   presence   count/share of games where either army starts with the type
+@@ -126,7 +126,12 @@ const main = async (): Promise<void> => {
+     const read = async (id: string): Promise<Map<number, GameRecord>> => {
+       const m = new Map<number, GameRecord>();
+       const rl = createInterface({ input: createReadStream(pathOf(id)), crlfDelay: Infinity });
+-      for await (const line of rl) { if (line) { const r = JSON.parse(line) as GameRecord; m.set(r.gameId, r); } }
++      for await (const line of rl) {
++        if (!line) continue;
++        const r = JSON.parse(line) as GameRecord;
++        if (m.has(r.gameId)) throw new Error(`duplicate gameId ${r.gameId} in ${pathOf(id)}`);
++        m.set(r.gameId, r);
++      }
+       return m;
+     };
+     const [A, B] = await Promise.all([read(PAIR[0]), read(PAIR[1])]);
+@@ -138,14 +143,31 @@ const main = async (): Promise<void> => {
+       return 1.959964 * Math.sqrt(v / n);
+     };
+     const diff = (f: (r: GameRecord) => number): [number, number] => {
+-      const xs = ids.map(i => f(A.get(i)!) - f(B.get(i)!));
++      const xs = ids.map(i => {
++        const rA = A.get(i)!;
++        const rB = B.get(i)!;
++        if (rA.startFen !== rB.startFen) throw new Error(`gameId ${i}: startFen mismatch`);
++        if (rA.seed !== rB.seed) throw new Error(`gameId ${i}: seed mismatch`);
++        if (rA.openingPlies !== rB.openingPlies) throw new Error(`gameId ${i}: openingPlies mismatch`);
++        if (rA.colourSwapped !== rB.colourSwapped) throw new Error(`gameId ${i}: colourSwapped mismatch`);
++        return f(rA) - f(rB);
++      });
+       return [mean(xs), ci(xs)];
+     };
+     const [res, resCI] = diff(r => r.result);
+     const [dec, decCI] = diff(r => (r.result !== 0.5 ? 1 : 0));
+     const [ply, plyCI] = diff(r => r.plies);
+     console.log(`\npaired ${ids.length} games (${PAIR[0]} minus ${PAIR[1]})`);
+-    console.log(`  result ${res >= 0 ? '+' : ''}${res.toFixed(3)} ± ${resCI.toFixed(3)} · decisive ${dec >= 0 ? '+' : ''}${dec.toFixed(3)} ± ${decCI.toFixed(3)} · plies ${ply >= 0 ? '+' : ''}${ply.toFixed(1)} ± ${plyCI.toFixed(1)}`);
++    console.log(`  unmatched A: ${A.size - ids.length}, unmatched B: ${B.size - ids.length}`);
++    const fmt = (v: number, ciVal: number) => {
++      if (isNaN(ciVal)) return v >= 0 ? `+${v.toFixed(3)}` : v.toFixed(3);
++      return `${v >= 0 ? '+' : ''}${v.toFixed(3)} ± ${ciVal.toFixed(3)}`;
++    };
++    const fmtPly = (v: number, ciVal: number) => {
++      if (isNaN(ciVal)) return v >= 0 ? `+${v.toFixed(1)}` : v.toFixed(1);
++      return `${v >= 0 ? '+' : ''}${v.toFixed(1)} ± ${ciVal.toFixed(1)}`;
++    };
++    console.log(`  result ${fmt(res, resCI)} · decisive ${fmt(dec, decCI)} · plies ${fmtPly(ply, plyCI)}`);
+     return;
+   }
+   for (const id of RUNS) show(await scan(id));

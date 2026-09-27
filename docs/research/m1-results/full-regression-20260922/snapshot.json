@@ -1,0 +1,21 @@
+{
+  "memory": "The system has 34359738368 (2097152 pages with a page size of 16384).\nSystem-wide memory free percentage: 91%\n",
+  "sourceHead": "c3393615a6eb11db21c6b7fd50e4eda471f300a2",
+  "records": [
+    {
+      "path": "sim/out/m1-worker-validation-20260922-b.jsonl",
+      "records": 8,
+      "mtime": 1790067037.4434733
+    },
+    {
+      "path": "sim/out/m1-worker-validation-20260922-c.jsonl",
+      "records": 8,
+      "mtime": 1790067038.2107134
+    },
+    {
+      "path": "sim/out/m1-worker-validation-20260922-a.jsonl",
+      "records": 8,
+      "mtime": 1790067036.7140338
+    }
+  ]
+}

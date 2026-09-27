@@ -1,0 +1,56 @@
+{
+  "fixtureKind": "synthetic test records, not played games",
+  "results": [
+    {
+      "name": "three owner armies, not four Archer pieces",
+      "passed": true
+    },
+    {
+      "name": "presence counted once per game",
+      "passed": true
+    },
+    {
+      "name": "both colours contribute six moves",
+      "passed": true
+    },
+    {
+      "name": "one owner army made no Archer move",
+      "passed": true
+    },
+    {
+      "name": "two armies retain the type, not three pieces",
+      "passed": true
+    },
+    {
+      "name": "two captures across owner armies",
+      "passed": true
+    },
+    {
+      "name": "off-back-rank Guard ownership",
+      "passed": true
+    },
+    {
+      "name": "no lowercase or empty-square piece keys",
+      "passed": true
+    },
+    {
+      "name": "CLI succeeds",
+      "passed": true
+    },
+    {
+      "name": "CLI shows correct end-presence rate",
+      "passed": true
+    },
+    {
+      "name": "CLI names the end-presence measure",
+      "passed": true
+    },
+    {
+      "name": "CLI identifies owner-army denominators",
+      "passed": true
+    }
+  ],
+  "cliOutput": "\n/Users/new/projects/king-down-supervised-20260921-control/statistics-fixture.jsonl.txt: 2 games · decisive 0.0% · draws 100.0% · capped 0.0% · plies 10 · White 0.500\n  piece | presence | owner armies | moves per owner | still (no move) | TYPE PRESENT AT END | captures per owner\n    A     |   2/2 (100.0%) |            3 |            2.00 |           33.3% |             66.7% | 0.67\n    G     |    1/2 (50.0%) |            1 |            0.00 |          100.0% |            100.0% | 0.00\n  Type present at end includes promotions; it does not track survival of original pieces.\n"
+}
+
+returnCode: 0

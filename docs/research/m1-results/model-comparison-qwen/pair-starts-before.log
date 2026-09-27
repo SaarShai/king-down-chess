@@ -1,0 +1,143 @@
+
+ RUN  v5.0.0 /Users/new/projects/king-down-supervised-20260921
+
+ ❯ tools/conditions.test.ts (14 tests | 9 failed) 1494ms
+   ❯ conditions paired validation (9)
+     × computes the paired mean over shared gameIds (A 1,1 vs B 0,1 -> +0.500) 148ms
+     × rejects a duplicate gameId within a file, naming file and id 129ms
+     × rejects a mismatched shared field: startFen 130ms
+     × rejects a mismatched shared field: seed 133ms
+     × rejects a mismatched shared field: openingPlies 138ms
+     × rejects a mismatched shared field: colourSwapped 135ms
+     × reports separate unmatched counts for A and B 131ms
+     × reports zero pairs as no estimate available 132ms
+     × reports one pair as a descriptive mean with no interval and no NaN 133ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tools/conditions.test.ts > conditions paired validation > computes the paired mean over shared gameIds (A 1,1 vs B 0,1 -> +0.500)
+AssertionError: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ tools/conditions.test.ts:186:20
+    184|       ]);
+    185|     const { status, out } = runPair(a, b);
+    186|     expect(status).toBe(0);
+       |                    ^
+    187|     expect(out).toContain('+0.500');
+    188|     expect(out).toContain('2 games');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  tools/conditions.test.ts > conditions paired validation > rejects a duplicate gameId within a file, naming file and id
+AssertionError: expected 'usage: tsx tools/conditions.ts --runs…' to contain '1'
+
+- Expected
++ Received
+
+- 1
++ usage: tsx tools/conditions.ts --runs a,b,c | --pair a,b
++
+
+ ❯ tools/conditions.test.ts:204:17
+    202|     expect(status).not.toBe(0);
+    203|     expect(err).toContain('pa');
+    204|     expect(err).toContain('1');
+       |                 ^
+    205|     });
+    206|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  tools/conditions.test.ts > conditions paired validation > rejects a mismatched shared field: startFen
+ FAIL  tools/conditions.test.ts > conditions paired validation > rejects a mismatched shared field: seed
+ FAIL  tools/conditions.test.ts > conditions paired validation > rejects a mismatched shared field: openingPlies
+ FAIL  tools/conditions.test.ts > conditions paired validation > rejects a mismatched shared field: colourSwapped
+AssertionError: expected 'usage: tsx tools/conditions.ts --runs…' to contain '1'
+
+- Expected
++ Received
+
+- 1
++ usage: tsx tools/conditions.ts --runs a,b,c | --pair a,b
++
+
+ ❯ tools/conditions.test.ts:218:19
+    216|       const { status, err } = runPair(a, b);
+    217|       expect(status).not.toBe(0);
+    218|       expect(err).toContain('1');
+       |                   ^
+    219|       expect(err).toContain(_name);
+    220|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  tools/conditions.test.ts > conditions paired validation > reports separate unmatched counts for A and B
+AssertionError: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ tools/conditions.test.ts:228:20
+    226|     const b = writeRun('pb', [mk(2), mk(3), mk(4)]);
+    227|     const { status, out } = runPair(a, b);
+    228|     expect(status).toBe(0);
+       |                    ^
+    229|     expect(out).toContain('2 games');
+    230|     expect(out).toMatch(/unmatched/i);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  tools/conditions.test.ts > conditions paired validation > reports zero pairs as no estimate available
+AssertionError: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ tools/conditions.test.ts:240:20
+    238|     const b = writeRun('pb', [mk(2)]);
+    239|     const { status, out } = runPair(a, b);
+    240|     expect(status).toBe(0);
+       |                    ^
+    241|     expect(out).toMatch(/no estimate/i);
+    242|     expect(out).not.toContain('NaN');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  tools/conditions.test.ts > conditions paired validation > reports one pair as a descriptive mean with no interval and no NaN
+AssertionError: expected 2 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 2
+
+ ❯ tools/conditions.test.ts:251:20
+    249|     const b = writeRun('pb', [mk(1, 0)]);
+    250|     const { status, out } = runPair(a, b);
+    251|     expect(status).toBe(0);
+       |                    ^
+    252|     expect(out).toContain('+1.000');
+    253|     expect(out).not.toContain('NaN');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 5 passed (14)
+   Start at  09:43:46
+   Duration  1.67s (tests 94%, transform 5%, import 1%)
+
+EXIT=1

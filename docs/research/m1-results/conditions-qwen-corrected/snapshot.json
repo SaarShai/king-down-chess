@@ -1,0 +1,12 @@
+{
+  "captured": "2026-09-22T08:04:42.550604+00:00",
+  "hashes": {
+    "tools/conditions.ts": "03c6cb64b661cb60316fa79a449ce2652eafc3253cc973a3fb80e86dc170fd3c",
+    "tools/conditions.test.ts": "4688c0e846c4f427d521ed818700b5f167433a982c12ee7cbcdf1df73fae8d74",
+    "campaign/conditions-fix-report.md": "4e8d0565c149a0bc45a04bda0cc63162a830252839aae5d218709d30a77fb1ab",
+    "campaign/conditions-checks.json": "72626f07c53c4502504f8acd91152d624fff6f17510623fe7d2fb230841c2632",
+    "campaign/conditions-before.log": "670f08ec3725f02e9dcefc44bd4a1b79234d603a7ead40570338e1378af5b9c7",
+    "campaign/status.json": "f4936f61af32f6d8cfa40f476625b7dc6b41d0b4377fb0bac86c082de7f40761"
+  },
+  "supervisorExit": 0
+}

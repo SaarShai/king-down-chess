@@ -1,0 +1,21 @@
+{
+  "kind": "synthetic test fixture, not played games or human feedback",
+  "A": {
+    "ownerArmies": 3,
+    "gamesPresent": 2,
+    "totalMoves": 6,
+    "zeroMoveArmies": 1,
+    "endPresentArmies": 2,
+    "totalCaptures": 2,
+    "movesPerOwner": 2,
+    "zeroMovePercent": 33.3,
+    "endPresentPercent": 66.7,
+    "capturesPerOwnerRounded": 0.67
+  },
+  "G": {
+    "ownerArmies": 1,
+    "gamesPresent": 1,
+    "zeroMovePercent": 100,
+    "endPresentPercent": 100
+  }
+}

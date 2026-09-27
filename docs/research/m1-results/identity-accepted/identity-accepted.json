@@ -1,0 +1,32 @@
+{
+  "acceptedAt": "2026-09-22T06:28:06.938311+00:00",
+  "subtask": "source identity",
+  "targetedTests": 43,
+  "independentScenarios": 7,
+  "verification": {
+    "checked": "2026-09-22T06:26:44.699918+00:00",
+    "tsc": {
+      "returncode": 0,
+      "log": "/Users/new/projects/king-down-supervised-20260921-control/supervisor-identity-tsc.log"
+    },
+    "tests": {
+      "returncode": 0,
+      "log": "/Users/new/projects/king-down-supervised-20260921-control/supervisor-identity-tests.log"
+    },
+    "scenarios": {
+      "returncode": 0,
+      "log": "/Users/new/projects/king-down-supervised-20260921-control/supervisor-identity-scenarios.log"
+    },
+    "whitespace": {
+      "returncode": 0,
+      "log": "/Users/new/projects/king-down-supervised-20260921-control/supervisor-identity-whitespace.log"
+    },
+    "protectedDiffBytes": 0
+  },
+  "files": {
+    "src/sim/identity.ts": "2be09f61c99b7fec6d00aa61bc364dd3479d3339985702e3ad2bc43c11aec354",
+    "src/sim/identity.test.ts": "0ad2d9d463a59f907f051c14350b8881bc1544a2deac18c7f461e6792d36d7b1",
+    "campaign/identity-fix-report.md": "bfd507d9aa76264556bce2561c880ae1f682feddf551237cca4a692580233c30"
+  },
+  "statusJsonSupervisorRepair": true
+}

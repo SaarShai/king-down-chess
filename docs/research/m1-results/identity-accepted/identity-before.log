@@ -1,0 +1,40 @@
+
+ RUN  v5.0.0 /Users/new/projects/king-down-supervised-20260921
+
+ ❯ src/sim/identity.test.ts (6 tests | 2 failed) 19ms
+   ❯ sourceId (6)
+     × missing required src/game.ts throws 4ms
+     × missing required directory throws 2ms
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 4 passed (6)
+   Start at  07:23:19
+   Duration  213ms (transform 70%, tests 16%, import 12%, worker 2%)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/sim/identity.test.ts > sourceId > missing required src/game.ts throws
+AssertionError: expected [Function] to throw an error
+ ❯ src/sim/identity.test.ts:102:35
+    100|         'src/sim/a.ts': 's',
+    101|       });
+    102|       expect(() => sourceId(dir)).toThrow();
+       |                                   ^
+    103|     } finally {
+    104|       rmSync(dir, { recursive: true, force: true });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/sim/identity.test.ts > sourceId > missing required directory throws
+AssertionError: expected [Function] to throw an error
+ ❯ src/sim/identity.test.ts:116:35
+    114|         'src/game.ts': 'g',
+    115|       });
+    116|       expect(() => sourceId(dir)).toThrow();
+       |                                   ^
+    117|     } finally {
+    118|       rmSync(dir, { recursive: true, force: true });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+

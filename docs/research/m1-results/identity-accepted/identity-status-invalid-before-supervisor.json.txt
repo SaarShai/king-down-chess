@@ -1,0 +1,59 @@
+{
+  "phase": 1,
+  "state": "working",
+  "action": "identity review corrections",
+  "updated": "2026-09-22T07:00:00.000000+00:00",
+  "completedGames": 0,
+  "processes": [],
+  "phases": [
+    {
+      "phase": 1,
+      "state": "incomplete"
+    },
+    {
+      "phase": 2,
+      "state": "assigned_not_started"
+    },
+    {
+      "phase": 3,
+      "state": "assigned_not_started"
+    },
+    {
+      "phase": 4,
+      "state": "assigned_not_started"
+    },
+    {
+      "phase": 5,
+      "state": "assigned_not_started"
+    }
+  ],
+  "humanSessions": "pending_real_participants",
+  "contract": "docs/research/m1-supervised-campaign-2026-09-21.md",
+  "acceptedSubtasks": [
+    "replay legality"
+  ],
+  "identitySubtask": "ready_for_review"
+}
+    {
+      "phase": 2,
+      "state": "assigned_not_started"
+    },
+    {
+      "phase": 3,
+      "state": "assigned_not_started"
+    },
+    {
+      "phase": 4,
+      "state": "assigned_not_started"
+    },
+    {
+      "phase": 5,
+      "state": "assigned_not_started"
+    }
+  ],
+  "humanSessions": "pending_real_participants",
+  "contract": "docs/research/m1-supervised-campaign-2026-09-21.md",
+  "acceptedSubtasks": [
+    "replay legality"
+  ]
+}

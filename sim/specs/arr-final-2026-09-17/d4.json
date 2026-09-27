@@ -1,0 +1,17 @@
+{
+  "id": "arr-final-d4",
+  "games": 2000,
+  "backRanks": [
+    "MMSSNBNK", "KGBMSSMB", "NKBBMGQS", "QNKMNRSG", "SQBKRSML"
+  ],
+  "commonSeeds": true,
+  "ai": { "depth": 4 },
+  "seed": 95,
+  "command": "node_modules/.bin/tsx src/sim/run.ts --id arr-final-d4 --spec sim/specs/arr-final-2026-09-17/d4.json --depth 4 --workers 6",
+  "notes": [
+    "Depth-4 confirmation arm of the top 5 of sim/out/finalists.report.json (pre-registered rule 5).",
+    "`games` is the total over all back ranks in this repo's runner (src/sim/spec.ts buildJobs), so 5 x 400 games; the task's literal `--games 400` would give 80 per rank, so the spec carries 2000 and the run uses it.",
+    "Seed 95 and commonSeeds true: the same opening streams as the depth-3 finalist run, so the two depths are paired.",
+    "Report: sim/out/arr-final-d4.report.json via node_modules/.bin/tsx src/sim/analyze.ts --id arr-final-d4."
+  ]
+}

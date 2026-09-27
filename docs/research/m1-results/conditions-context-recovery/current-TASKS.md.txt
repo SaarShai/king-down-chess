@@ -1,0 +1,15 @@
+# M1 isolated campaign tracker
+
+This is the task-specific summary for the isolated M1 copy. The full source snapshot tracker is preserved with hashes in the sibling control directory, startup-context-originals/TASKS.md.txt. The owner's production tracker is unchanged. Use the current assignment and campaign/status.json for this round; the supervisor supplies historical evidence when needed.
+
+- Accepted: replay legality (19a25d3; TypeScript and 210 full-suite tests).
+- Accepted: source identity (683779d; TypeScript, 43 targeted tests and seven independent checks).
+- Current: condition-statistics repair, tools/conditions.ts and tools/conditions.test.ts only, with report/check/status artifacts named by the assignment.
+- Next prerequisite gates: paired-start/spec validation, search-stall diagnosis, current-game protocol and throughput pilot.
+- Phase 1 incomplete; zero campaign games. Phases 2–5 assigned, not started.
+- Authorized studies, advanced only by the supervisor: current-game confirmation; Paladin matched substitutions; Ogre enemy relocation; Guard–pawn setup swap; arrangement/composition and human test pack. The full budgets and study definitions remain in docs/research/m1-supervised-campaign-2026-09-21.md; consult only the assigned phase when it begins.
+- No gameplay/default/value/weight adoption, unrelated queue runs, paused lab-piece/king studies, training, publication, cloud or Jev calls. Work only in this isolated copy and its control directory. Other projects and jobs are outside scope.
+- Human sessions require real participants; feedback remains pending. Models cannot supply human evidence.
+- Value is one axis: report paralysis, conditions and interactions. Near-equal evidence favours existing simpler rules. A hard-to-remember rule is not adopted on numbers alone. Rule adoption and enjoyment judgments remain with the owner.
+- One agent writer, initially at most two simulation workers when later authorized. Preserve stalled cases and source/spec identity; no silent restarts, dropped games or append after identity changes.
+- Verify actual tests/artifacts and counts before reporting completion. The supervisor accepts each subtask. Fifteen-minute supervision is active.

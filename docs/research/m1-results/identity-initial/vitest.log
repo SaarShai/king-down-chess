@@ -1,0 +1,9 @@
+
+ RUN  v5.0.0 /Users/new/projects/king-down-supervised-20260921
+
+
+ Test Files  3 passed (3)
+      Tests  41 passed (41)
+   Start at  07:09:05
+   Duration  1.21s (tests 67%, transform 27%, import 5%, worker 1%)
+

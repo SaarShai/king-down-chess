@@ -1,0 +1,91 @@
+import { describe, test, expect } from 'vitest';
+import { sourceId } from './identity';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+function makeFixture(base: string, files: Record<string, string>) {
+  for (const [rel, content] of Object.entries(files)) {
+    const p = join(base, rel);
+    mkdirSync(p.substring(0, p.lastIndexOf('/')), { recursive: true });
+    writeFileSync(p, content);
+  }
+}
+
+describe('sourceId', () => {
+  test('changing src/game.ts changes hash', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'id-'));
+    try {
+      makeFixture(dir, {
+        'src/rules/a.ts': 'r',
+        'src/ai/a.ts': 'a',
+        'src/sim/a.ts': 's',
+        'src/game.ts': 'v1',
+      });
+      const h1 = sourceId(dir);
+      writeFileSync(join(dir, 'src/game.ts'), 'v2');
+      const h2 = sourceId(dir);
+      expect(h1).not.toBe(h2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('identical trees in different absolute dirs have same hash', () => {
+    const d1 = mkdtempSync(join(tmpdir(), 'id1-'));
+    const d2 = mkdtempSync(join(tmpdir(), 'id2-'));
+    try {
+      const files = {
+        'src/rules/a.ts': 'r',
+        'src/ai/a.ts': 'a',
+        'src/sim/a.ts': 's',
+        'src/game.ts': 'g',
+      };
+      makeFixture(d1, files);
+      makeFixture(d2, files);
+      expect(sourceId(d1)).toBe(sourceId(d2));
+    } finally {
+      rmSync(d1, { recursive: true, force: true });
+      rmSync(d2, { recursive: true, force: true });
+    }
+  });
+
+  test('absolute/relative/trailing-slash spellings agree', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'id-'));
+    try {
+      makeFixture(dir, {
+        'src/rules/a.ts': 'r',
+        'src/ai/a.ts': 'a',
+        'src/sim/a.ts': 's',
+        'src/game.ts': 'g',
+      });
+      const h1 = sourceId(dir);
+      const h2 = sourceId(dir + '/');
+      const h3 = sourceId('.');
+      // h3 uses cwd; we only check consistency of dir variants
+      expect(h1).toBe(h2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('renaming file changes hash even if content identical', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'id-'));
+    try {
+      makeFixture(dir, {
+        'src/rules/a.ts': 'r',
+        'src/ai/a.ts': 'a',
+        'src/sim/a.ts': 's',
+        'src/game.ts': 'g',
+      });
+      const h1 = sourceId(dir);
+      // rename src/game.ts to src/game2.ts
+      rmSync(join(dir, 'src/game.ts'));
+      writeFileSync(join(dir, 'src/game2.ts'), 'g');
+      const h2 = sourceId(dir);
+      expect(h1).not.toBe(h2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

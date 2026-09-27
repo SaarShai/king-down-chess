@@ -1,0 +1,29 @@
+{
+  "acceptedAt": "2026-09-22T08:08:42.965423+00:00",
+  "commit": "f4482cba3eb7fa4d7b5e52b6966e49ebee1890fa",
+  "remoteWorkspace": "/Users/new/projects/king-down-supervised-20260921",
+  "model": "qwen3.8:27b-mlx",
+  "modelRound": "20260922T073910Z",
+  "modelIndependentChecks": {
+    "passed": 12,
+    "total": 12
+  },
+  "supervisorFinalChecks": {
+    "targetedTests": 48,
+    "independentChecks": 12,
+    "tscExit": 0,
+    "diffCheckExit": 0
+  },
+  "supervisorFinishingEdits": [
+    "reject empty/space/multi-letter and nonpositive starting census keys",
+    "print present-game counts and promotion/end-presence clarification",
+    "coherent synthetic FENs and exact CLI column assertions; remove misleading arithmetic assertions/comments"
+  ],
+  "games": 0,
+  "gameplaySourceUnchanged": true,
+  "remainingGates": [
+    "paired-start/spec validation",
+    "search-stall diagnosis",
+    "protocol and throughput pilot"
+  ]
+}

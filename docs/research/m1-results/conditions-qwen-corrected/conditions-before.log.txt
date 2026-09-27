@@ -1,0 +1,36 @@
+
+ RUN  v5.0.0 /Users/new/projects/king-down-supervised-20260921
+
+ ❯ tools/conditions.test.ts (3 tests | 1 failed) 10ms
+   ❯ conditions scan (3)
+     × counts owner armies by type, presence, moves, captures and end presence 7ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  08:45:23
+   Duration  168ms (transform 73%, import 13%, tests 12%, worker 3%)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tools/conditions.test.ts > conditions scan > counts owner armies by type, presence, moves, captures and end presence
+AssertionError: expected 4 to be 6 // Object.is equality
+
+- Expected
++ Received
+
+- 6
++ 4
+
+ ❯ tools/conditions.test.ts:77:22
+     75|     expect(a!.owners).toBe(3);
+     76|     expect(a!.present).toBe(2);
+     77|     expect(a!.moves).toBe(6);
+       |                      ^
+     78|     expect(a!.captures).toBe(3);
+     79|     expect(a!.survived).toBe(2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+[return code: 1]

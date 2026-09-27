@@ -1,0 +1,84 @@
+{
+  "checked": "2026-09-22T09:14:37.963164+00:00",
+  "status": {
+    "phase": 1,
+    "state": "working",
+    "action": "Codex prepares source/spec qualification; M1 reserved for prescribed verification and simulation jobs",
+    "updated": "2026-09-22T09:14:37.963164+00:00",
+    "completedGames": 0,
+    "processes": [],
+    "phases": [
+      {
+        "phase": 1,
+        "state": "incomplete"
+      },
+      {
+        "phase": 2,
+        "state": "assigned_not_started"
+      },
+      {
+        "phase": 3,
+        "state": "assigned_not_started"
+      },
+      {
+        "phase": 4,
+        "state": "assigned_not_started"
+      },
+      {
+        "phase": 5,
+        "state": "assigned_not_started"
+      }
+    ],
+    "humanSessions": "pending_real_participants",
+    "contract": "docs/research/m1-supervised-campaign-2026-09-21.md",
+    "acceptedSubtasks": [
+      "replay legality",
+      "source identity",
+      "condition statistics",
+      "paired starts/duplicates/sparse reporting"
+    ],
+    "identitySubtask": "accepted",
+    "conditionsSubtask": "accepted",
+    "conditionsReport": "campaign/conditions-fix-report.md",
+    "conditionsChecks": "campaign/conditions-checks.json",
+    "conditionsCommit": "f4482cba3eb7fa4d7b5e52b6966e49ebee1890fa",
+    "conditionsSupervisorReview": "campaign/conditions-supervisor-review.md",
+    "pairSubtask": "provenance_pending",
+    "pairProvenanceSubtask": "pending",
+    "lastRecovery": "/Users/new/projects/king-down-supervised-20260921-control/pair-context-recovery/receipt.json",
+    "validationGames": 24,
+    "workerValidation": "/Users/new/projects/king-down-supervised-20260921-control/worker-validation-20260922/audit.json",
+    "workMode": "prescribed_execution",
+    "modelActive": false,
+    "preferredBoundedModel": "qwen3.8:27b-mlx",
+    "pairStartsSubtask": "accepted",
+    "pairStartsCommit": "c3393615a6eb11db21c6b7fd50e4eda471f300a2",
+    "modelComparison": "Gemma 9/12 independent checks; Qwen 12/12, test-helper correction required. Neither authorized for open-ended research."
+  },
+  "head": "c3393615a6eb11db21c6b7fd50e4eda471f300a2",
+  "ollama": "NAME    ID    SIZE    PROCESSOR    CONTEXT    UNTIL \n",
+  "records": [
+    {
+      "path": "sim/out/m1-worker-validation-20260922-b.jsonl",
+      "records": 8,
+      "purpose": "execution validation",
+      "plyCaps": 8,
+      "mtime": 1790067037.4434733
+    },
+    {
+      "path": "sim/out/m1-worker-validation-20260922-c.jsonl",
+      "records": 8,
+      "purpose": "execution validation",
+      "plyCaps": 8,
+      "mtime": 1790067038.2107134
+    },
+    {
+      "path": "sim/out/m1-worker-validation-20260922-a.jsonl",
+      "records": 8,
+      "purpose": "execution validation",
+      "plyCaps": 8,
+      "mtime": 1790067036.7140338
+    }
+  ],
+  "protectedDiff": ""
+}

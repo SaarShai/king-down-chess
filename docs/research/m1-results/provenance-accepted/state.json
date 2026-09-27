@@ -1,0 +1,17 @@
+{
+  "state": "passed",
+  "pid": 54733,
+  "head": "2109d67f6daebc2e7ebc543bd7778964b51f337f",
+  "started": 1790069917.953032,
+  "checks": [
+    {
+      "name": "typescript",
+      "exitCode": 0
+    },
+    {
+      "name": "targeted-tests",
+      "exitCode": 0
+    }
+  ],
+  "finished": 1790069922.214697
+}

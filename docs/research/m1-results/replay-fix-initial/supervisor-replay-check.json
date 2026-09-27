@@ -1,0 +1,15 @@
+{
+  "checkedAt": "2026-09-22T05:31:25.666Z",
+  "sourceSha256": "90c7fbbcea99acedd322e0b8fb63376bf6484e430811564f3086bbfc4fa3e7d0",
+  "scenarios": 7,
+  "status": "passed",
+  "cases": [
+    "illegal leap",
+    "wrong side",
+    "king exposed",
+    "legal pawn move",
+    "Archer stationary shot",
+    "Maester king swap",
+    "promotion"
+  ]
+}

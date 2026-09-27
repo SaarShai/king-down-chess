@@ -1,0 +1,27 @@
+{
+  "id": "ses_f378caa21ffe76zTrrxgwd9XYx",
+  "slug": "glowing-engine",
+  "projectID": "5ee2ea1df8a61c00aabd86d0e1b81f407aa229e9",
+  "directory": "/Users/za/.local/share/king-down-supervised-20260922/integration",
+  "path": "",
+  "cost": 0,
+  "tokens": {
+    "input": 0,
+    "output": 0,
+    "reasoning": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "title": "King Down supervised research \u2014 Codex managed DeepSeek delegation",
+  "model": {
+    "id": "deepseek-v4.1-flash",
+    "providerID": "opencode-go"
+  },
+  "version": "1.18.32",
+  "time": {
+    "created": 1790069396958,
+    "updated": 1790069396958
+  }
+}

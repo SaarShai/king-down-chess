@@ -1,0 +1,14 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.0 [39m[90m/Users/new/projects/king-down-supervised-20260921[39m
+
+ [32m✓[39m src/sim/replay.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/sim/identity.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/sim/sim.test.ts [2m([22m[2m32 tests[22m[2m)[22m[33m 777[2mms[22m[39m
+   [32m✓[39m runner (end to end) [2m(4)[22m
+     [33m[2m✓[22m[39m plays 2 games at depth 1 on 1 worker and records legal moves[33m 551[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m43 passed[39m[22m[90m (43)[39m
+[2m   Start at [22m 09:50:34
+[2m   Duration [22m 1.12s[2m (tests 62%, transform 31%, import 6%, worker 1%)[22m
+
