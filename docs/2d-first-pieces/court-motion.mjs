@@ -41,3 +41,29 @@ export function drawCourt(canvas,image,name,side,extension=0){
  }
  ctx.restore();
 }
+// Paladin hammer chop: the rigid torso, arms and hammer pivot at the hips while
+// boots stay planted. Everything held (hammer, pommel, gauntlets) sits above
+// HIP_RIGID, so only the lower tabard and knees between HIP_RIGID and HIP_FIXED bend.
+export const HIP={x:330,y:640}, HAMMER_FACE={x:716,y:500};
+const HIP_RIGID=620,HIP_FIXED=800,HIP_ROWS=[0,620,650,680,710,740,770,800,1024];
+export const SMASH={duration:1550,charge:480,lift:[480,760],chop:[760,880],hold:1150,recover:1450,back:-.2,down:.42,settle:.38};
+export function smashAngle(ms){
+ const s=SMASH;
+ if(ms<=s.lift[0]||ms>=s.recover)return 0;
+ if(ms<s.lift[1])return s.back*smooth((ms-s.lift[0])/(s.lift[1]-s.lift[0]));
+ if(ms<s.chop[1]){const t=(ms-s.chop[0])/(s.chop[1]-s.chop[0]);return ms<s.chop[0]?s.back:s.back+(s.down-s.back)*t*t;}
+ if(ms<s.hold)return s.down+(s.settle-s.down)*smooth((ms-s.chop[1])/(s.hold-s.chop[1]));
+ return s.settle*(1-smooth((ms-s.hold)/(s.recover-s.hold)));
+}
+const hipWeight=y=>smooth((HIP_FIXED-y)/(HIP_FIXED-HIP_RIGID));
+export function bendPoint(point,angle){return rotate(point,angle*hipWeight(point.y),HIP);}
+export function hammerFace(side,angle){const [x,y]=figures.paladin.origins[side],p=bendPoint(HAMMER_FACE,angle);return {x:x+p.x,y:y+p.y};}
+export function drawPaladinSwing(canvas,image,side,angle){
+ const ctx=canvas.getContext('2d'),[x,y]=figures.paladin.origins[side],cell=[side*768,0,768,1024];
+ ctx.clearRect(0,0,canvas.width,canvas.height);ctx.save();ctx.translate(x,y);
+ for(let i=0;i<HIP_ROWS.length-1;i++){
+  const c=[{x:0,y:HIP_ROWS[i]},{x:768,y:HIP_ROWS[i]},{x:0,y:HIP_ROWS[i+1]},{x:768,y:HIP_ROWS[i+1]}];
+  for(const idx of [[0,1,2],[1,3,2]]){const s=idx.map(j=>c[j]);paintTriangle(ctx,image,s,s.map(p=>bendPoint(p,angle)),cell);}
+ }
+ ctx.restore();
+}

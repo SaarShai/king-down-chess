@@ -1,5 +1,10 @@
 # Tasks
 
+## Bishop slash and Paladin hammer captures — 2026-09-26
+- Owner: add a knife-slice capture for the Bishop and a hammer capture for the Paladin. Continue from the Codex 2D session: merge `takeover` into `codex/2d-first-pieces` (done, `b73deb9`).
+- [x] Bishop dagger arm cut from the painting and swung about the shoulder; slash streak, cut flash and split victim. Paladin hip/knee bend with rigid hammer, streak, board shake, squash, ground ring, cracks and dust. Both armies, Pawn survival and both-removed outcomes, mid-strike Undo verified in headless Chrome; 23 node tests pass. [Details and frame sheets](docs/2d-first-pieces/board/README.md#bishop-dagger-slash-and-paladin-hammer-smash--2026-09-26). Owner review pending.
+- Open: King and Beast still have no painted 2D art (needs image generation). Overhead hammer swing needs a raised-hammer drawing.
+
 ## Painted Queen, Paladin and Maester — 2026-09-26
 - Owner: do more pieces. Add these three directly, using original character references and the accepted painted style, ivory/charcoal dominant colours and complete silhouettes.
 - Plan: generate and inspect coherent army pairs; add restrained character motions/previews; integrate into the board with production Queen rays, Paladin friendly-piece jumping/capture outcome, and visible Maester swaps. Preserve the played board and production game.

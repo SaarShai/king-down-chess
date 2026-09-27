@@ -119,3 +119,15 @@ Verification in the in-app browser on 2026-09-26:
 - Seventeen focused tests pass, including the existing Archer/Pawn/Ogre/Knight/Bishop/Rook/Guard checks and new special-action/geometry cases. Source-cell alpha edges, stored PNG hashes, syntax and diff checks pass. No browser warnings/errors observed. Existing played tabs were not reloaded.
 
 These checks establish implemented behavior and inspected artwork, not owner acceptance. Physical touch and a complete game with kings/check remain outside this trial.
+
+## Bishop dagger slash and Paladin hammer smash — 2026-09-26
+
+Owner: animate the Bishop capture as a knife slice and the Paladin capture with his hammer.
+
+- **Bishop:** glides to the victim's near edge, pulls the dagger arm back, then slashes forward and up. The sleeve, hand and dagger are cut from the painting along their outline (`ARM` in `../bishop/motion.mjs`) and rotate rigidly about the shoulder. The arm hangs clear of the robe, so no hidden area is exposed; the shoulder pad is redrawn on top to hide the sleeve root. A steel streak follows the dagger tip. At contact a white cut line flashes, the victim splits along the slash direction, the upper half slides down the cut and both halves fade. He then steps into the square.
+- **Paladin:** hops to the victim, leans back to raise the hammer, then chops forward. Hammer, pommel and gauntlets stay rigid above the knees (`drawPaladinSwing` in `../court-motion.mjs`); only the lower tabard and knees bend while the boots stay planted. A warm streak follows the hammer head. At impact the board shakes, the victim squashes and fades, and a ground ring, cracks and dust spread from its feet. He survives a Pawn capture and steps in; after a non-Pawn capture he fades on the spot.
+- Non-capturing moves, reduced motion and all other pieces are unchanged.
+
+Limits: the art is still one painted pose per piece. The Bishop swings a rigid bell sleeve with no elbow bend; the Paladin's blow is a whole-body lean, not an overhead swing. A true overhead swing needs new raised-hammer artwork.
+
+Verify: `node docs/2d-first-pieces/board/capture-strikes.mjs` (with the 5192 server up) drives both armies through a fake clock, checks final squares, counts and statuses, cancels each strike mid-swing with Undo, and writes frame sheets to [strikes/](strikes/). `strikes.test.mjs` checks the swing curves and that the held hammer does not stretch. 23 node tests pass.

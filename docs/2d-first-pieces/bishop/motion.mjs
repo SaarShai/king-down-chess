@@ -43,3 +43,40 @@ export function drawBishop(canvas, image, side, extension = 0) {
   ctx.drawImage(image, sourceX, 0, 768, 1024, 0, 0, 768, 1024);
   ctx.restore();
 }
+
+// Dagger slash rig. The sleeve, hand and dagger hang clear of the robe, so the
+// arm is cut along its painted outline and swung rigidly about the shoulder.
+// The pad is redrawn on top to hide the sleeve root. Ivory cell coordinates;
+// the charcoal figure sits 93 px further left in its cell.
+const ARM_SHIFT = [0, -93];
+const ARM = [[495,388],[560,388],[585,430],[598,500],[610,580],[622,660],[628,705],[615,718],[598,712],[590,745],[574,752],[546,718],[526,670],[512,668],[494,650],[490,600],[500,575],[506,530],[505,470],[498,420]];
+const PAD = [[470,300],[612,300],[612,402],[560,396],[500,392],[470,392]];
+export const PIVOT = { x: 535, y: 402 };
+const TIP = { x: 578, y: 744 };
+// Swing angle in the source cell: positive sweeps the dagger forward and up.
+export const SLASH = { duration: 1150, approach: 380, wind: [200, 420], strike: [420, 545], hold: 720, back: -0.45, reach: 1.7, follow: 1.8, contact: 1.35 };
+export function slashAngle(ms) {
+  const s = SLASH;
+  if (ms <= s.wind[0] || ms >= s.duration) return 0;
+  if (ms < s.wind[1]) return s.back * smooth((ms - s.wind[0]) / (s.wind[1] - s.wind[0]));
+  if (ms < s.strike[1]) return s.back + (s.reach - s.back) * smooth((ms - s.strike[0]) / (s.strike[1] - s.strike[0]));
+  if (ms < s.hold) return s.reach + (s.follow - s.reach) * smooth((ms - s.strike[1]) / (s.hold - s.strike[1]));
+  return s.follow * (1 - smooth((ms - s.hold) / (s.duration - s.hold)));
+}
+// First moment the swing passes the contact angle.
+export const CONTACT_MS = (() => { for (let ms = SLASH.strike[0]; ms < SLASH.strike[1]; ms++) if (slashAngle(ms) >= SLASH.contact) return ms; return SLASH.strike[1]; })();
+const shifted = (p, side) => ({ x: p.x + ARM_SHIFT[side], y: p.y });
+const toCanvas = (p, side) => ({ x: (side ? 173 : 268) + 768 - p.x, y: p.y });
+export function tipAt(swing, side = 0) { return toCanvas(rotate(shifted(TIP, side), swing, shifted(PIVOT, side)), side); }
+function trace(ctx, points, side, fresh = true) { if (fresh) ctx.beginPath(); points.forEach(([x, y], i) => ctx[i ? 'lineTo' : 'moveTo'](x + ARM_SHIFT[side], y)); ctx.closePath(); }
+function rotate(p, a, c) { const x = p.x - c.x, y = p.y - c.y; return { x: c.x + x * Math.cos(a) - y * Math.sin(a), y: c.y + x * Math.sin(a) + y * Math.cos(a) }; }
+export function drawSlash(canvas, image, side, swing) {
+  const ctx = canvas.getContext('2d'), sourceX = side ? 768 : 0, pivot = shifted(PIVOT, side);
+  const paint = () => ctx.drawImage(image, sourceX, 0, 768, 1024, 0, 0, 768, 1024);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save(); ctx.translate((side ? 173 : 268) + 768, 0); ctx.scale(-1, 1);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, 768, 1024); trace(ctx, ARM, side, false); ctx.clip('evenodd'); paint(); ctx.restore();
+  ctx.save(); ctx.translate(pivot.x, pivot.y); ctx.rotate(swing); ctx.translate(-pivot.x, -pivot.y); trace(ctx, ARM, side); ctx.clip(); paint(); ctx.restore();
+  ctx.save(); trace(ctx, PAD, side); ctx.clip(); paint(); ctx.restore();
+  ctx.restore();
+}
