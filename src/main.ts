@@ -4,6 +4,7 @@ import { Engine, Game, Side } from './game';
 import { setEvaluator } from './ai/eval';
 import { positionKey } from './ai/search';
 import { BoardRenderer } from './render/renderer';
+import { PaintedView, type BoardView } from './render/PaintedView';
 import { momentKind, momentText } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
@@ -53,7 +54,18 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 setEvaluator('residual');
 const game = new Game();
 const engine = new Engine();
-const view = new BoardRenderer($('board'));
+/** `?look=painted|clay`, else the saved choice. Clay 3D stays the default until the owner picks. */
+const LOOK_KEY = 'kingdown.look';
+const look = params.get('look') ?? (() => { try { return localStorage.getItem(LOOK_KEY); } catch { return null; } })() ?? 'clay';
+const view: BoardView = look === 'painted' ? new PaintedView($('board')) : new BoardRenderer($('board'));
+$<HTMLSelectElement>('look').value = look === 'painted' ? 'painted' : 'clay';
+$<HTMLSelectElement>('look').onchange = () => {
+  try { localStorage.setItem(LOOK_KEY, $<HTMLSelectElement>('look').value); } catch { /* private mode: the URL still switches */ }
+  const url = new URL(location.href);
+  url.searchParams.set('look', $<HTMLSelectElement>('look').value);
+  location.href = url.href;
+};
+$('reset-view').hidden = look === 'painted';
 view.onLoadError = () => { $('asset-status').textContent = 'A piece model could not load. Reload this page to retry.'; };
 (window as unknown as Record<string, unknown>).view = view; // tools/styleboard2.mjs aims its crops with view.screenOf()
 const sides: [Side, Side] = ['human', 'ai'];

@@ -1,5 +1,10 @@
 # Tasks
 
+## Painted 2D look in the real game — 2026-09-27
+- Owner: continue work on the game; choose what contributes most. Choice: make the painted 2D board playable as a full game instead of a separate trial.
+- [x] Shared scene extracted from the board trial (`docs/2d-first-pieces/board/scene.mjs`); trial rebuilt on it (all 12 trial checks pass). `PaintedView` implements the game's board interface; *Look* switch (Clay 3D default / Painted 2D), `?look=painted`. Verified with `tools/verify-painted-game.mjs` (computer game, human drag/click moves, flipped board, phone) and the clay special-move checks; 267 + 24 tests, build pass. [Details](docs/painted-game/README.md).
+- Open: owner to choose the default look; downscale painted sheets before web publishing.
+
 ## Capture animations for every capturing piece — 2026-09-26
 - [x] Rook tower slam, Queen knock-over, King freeze-and-shatter, Beast teeth chomp, with attackers stopping beside the victim. `capture-strikes.mjs` 10/10; node and vitest pass. [Details](docs/2d-first-pieces/board/README.md#more-capture-animations--2026-09-26).
 - Open: Maester capture (options proposed to owner: goggle beam, gear-pack clamp, wrench swing needing new art).

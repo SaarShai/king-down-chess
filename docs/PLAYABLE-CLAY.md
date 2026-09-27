@@ -2,7 +2,7 @@
 
 The integrated checkout is the main repository, `/Users/za/Documents/king down chess`, branch **`main`** (consolidated 2026-09-26 from `codex/cursor-adoption`, the painted 2D trial and `takeover`). It builds on accepted clay commit `c8f4ca7`. The former dirty `takeover` state is preserved as tag `archive/takeover-donor-worktree` and in the private recovery archive; superseded study branches are tags under `archive/`.
 
-Local production preview: **http://127.0.0.1:5189/**. Restart from this checkout with `npm run build`, then `npm run preview -- --host 127.0.0.1 --port 5189 --strictPort`. The resulting static build is in `dist/`; serve it over HTTP. This adoption was not published.
+Local production preview: **http://127.0.0.1:5189/**. The same game in the painted 2D look: **http://127.0.0.1:5189/?look=painted** ([notes](painted-game/README.md)). Restart from this checkout with `npm run build`, then `npm run preview -- --host 127.0.0.1 --port 5189 --strictPort`. The resulting static build is in `dist/`; serve it over HTTP. This adoption was not published.
 
 Latest follow-up: [special-move usability](special-moves/README.md). Ogre targets offer Capture / Push when both are legal; selection instructions and chain finish/cancel controls are reachable at the top of the panel.
 

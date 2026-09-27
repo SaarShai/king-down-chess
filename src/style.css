@@ -189,3 +189,9 @@ button:focus-visible, select:focus-visible, input:focus-visible {
 #move-choice { max-width: min(440px, calc(100vw - 32px)); }
 #move-choice button { min-height: 44px; }
 #cancel-choice { margin-top: 14px; }
+
+/* Painted 2D look: one square canvas, centred in the board area. */
+#board.painted { display: flex; align-items: center; justify-content: center; background: #e6e1cf; }
+/* Desktop: keep the board below the floating title card. */
+@media (min-width: 721px) { #board.painted { padding: 56px 16px 8px; box-sizing: border-box; } }
+#board.painted canvas { image-rendering: auto; touch-action: none; width: auto; height: auto; }
