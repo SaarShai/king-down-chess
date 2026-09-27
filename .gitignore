@@ -21,3 +21,6 @@ dist/
 /dist/
 # The takeover's review build (docs/RELEASE-REVIEW-2026-09-16.md); reproducible from its commit.
 /dist-review/
+
+# Original King Down art for the trailer; card illustration rights unconfirmed (docs/trailer/PLAN.md)
+docs/trailer/assets/

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>King Down trailer</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Cinzel+Decorative:wght@700;900&display=block" rel="stylesheet">
+<style>
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+  .shot, .shot > canvas, .shot > .layer { position: absolute; inset: 0; }
+  .layer { perspective: 1700px; perspective-origin: 50% 40%; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script type="module" src="./player.mjs"></script>
+</body>
+</html>

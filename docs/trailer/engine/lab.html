@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Motion lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&display=block" rel="stylesheet">
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style></head>
+<body><canvas id="c" width="1920" height="1080"></canvas>
+<script type="module">
+// Motion lab: ?style=arrow|bite|scan|shove|stand|slam&name=ARCHER — one name reveal on a dark stage, for tuning.
+import { W, H, finish } from './runtime.mjs';
+import { title, drawTitle, titleHits, camera, grade, bloom, aberration, embers } from './motion.mjs';
+const q = new URLSearchParams(location.search), style = q.get('style') || 'arrow', name = q.get('name') || 'ARCHER';
+const g = document.getElementById('c').getContext('2d');
+window.ready = (async () => {
+  await document.fonts.load('900 100px Cinzel');
+  const T = title(name), hits = titleHits(T, style).map(at => ({ at: at + 0.4, amount: style === 'shove' ? 0.9 : style === 'bite' ? 0.35 : 0.2 }));
+  const cam = camera({ shakes: hits, handheld: 0.5 });
+  window.duration = 2.6;
+  window.renderAt = t => {
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const bg = g.createRadialGradient(W / 2, H / 2, 50, W / 2, H / 2, W * 0.7); bg.addColorStop(0, '#2a1d14'); bg.addColorStop(1, '#050303');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    g.save(); cam.apply(g, t);
+    embers(g, t, { n: 60, seed: 3, rise: 30 });
+    drawTitle(g, T, t - 0.4, style, W / 2, H / 2 + 60);
+    g.restore();
+    grade(g, { amount: 0.35 }); bloom(g, { strength: 0.5 });
+    aberration(g, 7 * Math.max(0, ...hits.map(h => (t >= h.at ? Math.exp(-(t - h.at) * 14) : 0))));
+    finish(g, t);
+  };
+  window.renderAt(0);
+  return true;
+})();
+</script></body></html>

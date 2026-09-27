@@ -1,5 +1,89 @@
 # Tasks
 
+## Trailer v2 — shorter wake and intros, a designed cut — 2026-09-27
+- Owner (on v1): the wake is too long (keep the glints on eyes, teeth and tips); the harsh cut after the Knight is hit looks like an error, make it intentional; things can be much shorter; cut the intros 25–30 %.
+- [x] Wake 12 → 9 s: the dark wait after the landing is shorter (torchlight spreads at 120 units/s, was 88), the first three glints come a beat apart (were 0.75 s), and every glint from the teeth on keeps its rhythm. The clash is unchanged, 3 s earlier. Its times are now relative to `CLASH`.
+- [x] The cut (`wake.mjs` `CUT`): the contact frame, then a hit-stop of two impact frames (light silhouettes and speed lines on black, then ink silhouettes on paper with a red-hot contact), then black with a cool afterimage of the duel and a burn at the contact, fading before the boom.
+- [x] Intros 7 → 5 s each (−29 %, 35 → 25 s): 0.5 s off the head (the Maester's swap runs 2.3×, the whip lands on it), the card hold 3.5 → 2.5 s, the action after the resume 1.5 → 1 s. Hits stay on the beat grid; the Guard's name starts 0.25 s sooner so its gold holds before the whip.
+- [x] Sound follows the picture with no mirrors: `wake.mjs` and `intro.mjs` export their timing; `cues.mjs` and `score.mjs` read it. That also fixed name-reveal sounds that were 50–160 ms late (the cue sheet had its own stale reveal starts). The last wake glint (the attacker's tip) now has its sound.
+- Trailer 72 → 59 s. Montage, kings and title unchanged (their v1 chunks are reused).
+- [x] Rendered with `--blur 4` (4 new chunks, no page errors) and sent as `king-down-trailer-v2.mp4`: 59.0 s, 1770 frames, audio 59.0 s. Checked frame strips of every intro (hits, card holds, the Guard's gold) and both new joints (wake → Archer on the boom; Guard → montage whip).
+- Verified so far: soundtrack renders 59.0 s, −14.0 LUFS, −1.1 dBTP; digital silence 8.6–9.0; the boom on 9.0; the title hit (−7.4 LUFS momentary) is still the loudest moment. Cut frames checked at full size (hit-stop frames crisp under `--blur 4`, afterimage gone by the boom).
+
+## Trailer build — engine, first pass, motion pass — 2026-09-27
+- Owner: make a start on the trailer, keep it flexible for notes, use workflows and subagents; "utilize graphic motion as only you know how to do well".
+- [x] Engine `docs/trailer/engine/`: the timeline is data (`timeline.mjs`), one module per shot (`create(params, env) → draw(t)`), `player.mjs` composites with fades (`?t=`, `?shot=`, `?play`). Render: `node tools/render-trailer.mjs still|video` (serves `docs/` itself; `--blur N --shutter deg` true motion blur).
+- [x] Motion toolkit `engine/motion.mjs` (curves, springs, speed ramps, camera with parallax and trauma shake, particles, optics) and five motivated name reveals (arrow, bite, scan, shove, stand; `engine/lab.html`). Standard: [MOTION.md](docs/trailer/MOTION.md).
+- [x] First pass, workflow of 6 agents (~60 min): all shots (`wake`, `intro` ×5, `montage`, `kings` + `cards`, `title`) and 7 generated backdrops and a card back (`assets/gen/`, prompts and hashes in `provenance.json`, `regen.py`). No page errors; frames are deterministic. First-pass animatic reviewed.
+- [x] Fixed from agent reports: `aberration()` painted red/blue strips at frame edges; the render tool counted optional-asset 404s as errors and shared a Python server whose backlog of 5 dropped module loads under parallel renders.
+- [x] Motion pass (workflow of 10 agents, ~100 min: a designer, then a director per shot): name reveals in the intros, living card holds, layered whips with a real box smear, speed ramps, impact stacks, hits on the 120 BPM grid, pure-white kings→title handoff. All five verdicts "ship with notes"; frames deterministic, no page errors.
+- [x] Render tool: the `--blur` shutter now opens on the frame time (a centred shutter blended hard cuts and put every hit one frame late).
+- Notes for the owner (taste): the Ogre's name still rams in from the left (a `drawTitle` shove direction option would fix it); meteor hang length; the drop's ease-in hold in the wake and title.
+- [x] Full render with `--blur 4` (7 parallel chunks, ~20 min): 2160 frames, no page errors; cuts checked; sent to the owner with sound as `king-down-trailer-v1.mp4`.
+- Owner (mid-pass): add sound with open-source libraries and free tools.
+- [x] Sound engine `engine/audio/` (`mix.mjs` renders offline in Web Audio; `sfx.mjs`, `cues.mjs` in shot-local time, `score.mjs`; `audio.html?play` to listen). `render-trailer.mjs audio` masters to −14 LUFS / −1 dBTP (two-pass ffmpeg loudnorm); `video --audio` muxes. Checked: empty soundtrack renders 73.5 s, 48 kHz stereo.
+- [x] Sound workflow (3 agents, ~2 h): 66 synthesized sounds on 176 cues synced to the motion pass (`cues.mjs` reads timeline params, `titleHits` and the montage's own `CUES`); a hybrid-orchestral temp score, 120 BPM, D minor, from VSCO 2 CE (CC0, 156 files, 265 MB, `tools/fetch-trailer-samples.sh`, pinned commit, git-ignored); mix and master. Master −14.0 LUFS, −1.0 dBTP, LRA 10.7; the title hit is the loudest moment; true silence under the black; 169/176 cues start within one frame (the other 7 are designed swells). Details: [AUDIO.md](docs/trailer/AUDIO.md). Nobody has listened yet: every check is a measurement.
+- Open (owner, sound): keep the temp score or license a track; the loudness target (−14 now, −16 for a web embed); silence under the white before the title; the optional VSCO credit.
+- Follow-ups (engine, from agent reports): `scene.mjs` fx layer is 1× (soft victims at 3× zoom; intro works around it); `load()` resolves before the stone art (montage polls a pixel); Paladin board shake cannot be disabled; `runtime.flush` shares one clock between mounted shots (each scene must `redraw()` before `flush`).
+- Open (owner): music; the two wake readings (armies left/right, the first victim a Knight); tracking `assets/gen/` in git (no rights question); CTA text.
+
+## Beast capture fixed — 2026-09-27
+- Owner: the Beast's capture animation is all wrong.
+- Found: the "teeth" were flat geometric triangles drawn beside the victim (read as a zipper), the painted mouth never closed, and the Beast stopped *beside* victims instead of on the squares the rules move it through.
+- [x] The lower jaw (steel plate and teeth) is cut from the art and hinged at the back of the jaw (`drawBeastBite`, `court-motion.mjs`); a darkened copy of the jaw stays behind as throat shadow. Each bite: lunge to the victim's near side with the jaw opening, clamp shut, shake, victim squashes and fades with an impact ring, then the Beast steps onto that square; a chain repeats from each captured square and ends on the last. Old teeth/jaws effect code removed.
+- Verified: close-ups of both armies open and closed; trial `capture-strikes.mjs` 15/15 (denser Beast frames); 267 + 25 tests; build; `verify-painted-game.mjs`.
+- Delegation: owner explicitly asked (2026-09-27) to use Claude workflows and subagents for the trailer work.
+
+## Trailer v2 — cinematic intros and digital cards — 2026-09-27
+- Owner: rethink the trailer to showcase beautiful animation, as little text as possible, piece names introduced cinematically; redesign the cards (keep the art, new graphic design, digital: tilt, shine, holographic characters, art effects). Focus on the trailer; show the script and screenshots.
+- [x] [Plan v2](docs/trailer/PLAN.md): 72 s script in five acts (the board wakes, five character intros, montage, holographic kings and power cards, title); new card design; production and art list.
+- [x] Concept renderer `docs/trailer/concepts/` (time-driven, deterministic): Archer intro, slow-motion Beast chain from the real game scene at double resolution, three redesigned holographic cards with King Frost projected. Stills and an 8.6 s motion reel rendered with Playwright + ffmpeg (in git-ignored `docs/trailer/assets/`, original art rights unconfirmed).
+- Open (owner): music, end-card URL, generated hero poses, rights to the card art and 2014 film.
+
+## Trailer, piece unlocks, roguelike survey — 2026-09-27
+- Owner: (1) plan and script an animated trailer showing the King Down pieces and teasing the power cards (original art allowed; new art via Images 2.5 through Codex); (2) players start with 1–2 King Down pieces and unlock the rest; a piece either player has is in their shared games; (3) what chess roguelikes exist.
+- [x] Trailer plan and script v1 (superseded the same day by v2 below). Found in `art-src/`: the 2014 57 s King Down film (kings footage), 13 spell illustrations, three print card PDFs; full card faces are on Drive (`Outlines/Base Pack`). Not started: waits for owner approval and the four decisions in the plan.
+- [x] Unlock design: [docs/PROGRESSION.md](docs/PROGRESSION.md) (start Archer + Beast; Maester → Ogre → Guard; union rule; balance runs to queue). Not built.
+- [x] Roguelike survey + recommendation: market review §6.
+
+## Review, market research and ten suggestions — 2026-09-27
+- Owner: review everything done, research similar chess games/platforms (indie successes), give 10 suggestions.
+- [x] [Report](docs/research/market-review-2026-09-27.md): state of the game, 15 comparables (Really Bad Chess, 5D Chess, Gambonanza, Pawnbarian, Shotgun King, Chess 2, Battle Chess, Knightmare Chess, Chess.com, Lichess, Onitama, ChessCraft, portals, BGA), what players look for, ten ranked suggestions with effort and evidence. Research done directly (no subagents, per AGENTS.md).
+- Open (owner): choose which suggestions to build; #9 (kings' powers mode) is a rules decision.
+
+## Sounds, captured pieces, move list — 2026-09-27
+- Owner: decide the open UX questions, then continue.
+- [x] **Sounds:** the seven chiptune beeps replaced by short synthesized sounds that suit the painted look (stone knock for a move, thump for a capture, bowstring, soft two-note chime for check, stone scrape for a shove, two snaps for a bite, whoosh for a swap). Same `snd` API, still no sound files, still created only when sound is on. `tools/render-sounds.mjs` renders them offline, fails on clipping or silence, and writes `docs/sounds/king-down-sounds.wav` to listen to (deterministic).
+- [x] **Captured pieces** read as grouped names ("pawn ×2, beast") instead of letters that mean little for the King Down pieces.
+- [x] **Move list** scrolls inside itself: in a long game the latest move and the captured pieces fell below the window, and the scroll-to-latest did nothing (the old CSS let the list grow so display controls under it could scroll; nothing is under it now).
+- Verified: adoption 11/11, playable-clay 15/15, painted game, special moves (mouse + touch), qa 17/17, 267 + 25 tests, tsc, build; sounds fire at contact in both looks with no errors; long game on desktop and 390 px phone keeps the latest move and captures in view with no page scroll.
+## Simpler menus and UX — 2026-09-27
+- Owner: simplify the menus and UX overall.
+- Before: ~20 controls stacked in the side panel (3 new-game buttons, setup examples + note, guide, hint, undo/resign/copy, setup code, white/black/think/sound/always-queen/skill, look/reset-view/labels/coords).
+- Plan: the panel keeps only what play needs — menu row (New game · Guide · Settings), move feedback, play row (Hint · Undo · Resign), moves and captures. **New game** dialog: players, computer strength, then one click on an army starts. **Settings** dialog: sound, always queen, look, letters, coordinates, thinking time, reset view; this game's setup code and Copy moves. No feature removed; element ids kept so tools only open the dialog first.
+- Verify: desktop and phone screenshots; every tool (adoption, painted, special moves, qa, playable-clay) updated to the dialog path and passing; tests, tsc, build.
+- [x] Done as planned. Panel: 6 buttons + feedback + moves (was ~20 controls); empty move list says "No moves yet". Menu dialogs swallow Z/R; an open capture-or-push choice still lets Z undo (tested behaviour). Tools reach dialog controls through a `ui()` helper (opens the dialog holding the control, acts, closes it).
+- Verified: adoption 11/11, playable-clay 15/15, painted game, special moves (mouse + touch), qa 17/17, 267 + 25 tests, tsc, build; a scratch flow check of both dialogs (all four army choices, Escape, settings saved, Z blocked in menus, look switch). Screenshots refreshed in `docs/playable-clay`, `docs/special-moves`, `docs/painted-game`.
+- [x] Decided (owner delegated, 2026-09-27): "Custom back rank…" → "Custom army…"; "Try a setup" → "Example armies" with a one-line note (the old three-sentence note was agent-written, not an owner request); Resign stays in the main row (a game action, already confirmed by a prompt).
+
+## Archer shot, sound timing, promotion dialog — 2026-09-27
+- Owner: more game improvements. Choices, from playing the painted game: the three weakest points a player meets in ordinary games.
+- [x] **Archer shot** (painted): the arrow was ⅙ of a tile and hard to see on dark squares, and the victim only faded. Now a larger arrow with a pale trail; the victim is knocked back, topples away from the Archer and fades; larger impact ring. Shared scene, so the trial's on-board shots match.
+- [x] **Hit sounds on contact** (both looks): the capture tone played when a move started, 0.4–0.9 s before the hit. `animateMove(pos, move, onContact)` now reports the contact; launch sounds (move, arrow release, swap) stay at the start. Measured: Pawn 1017 ms, Maester 864 ms, Archer twang 5 ms then hit 453 ms; clay likewise.
+- [x] **Promotion dialog**: the piece choice sat at the bottom of the side panel (off-screen on a phone) while the board was locked, so the game looked frozen. Now a modal like the Ogre's capture-or-push choice, titled with the square, with Cancel/Escape (the pawn stays, the board frees).
+- [x] `tools/qa.mjs` was silently broken since painted became the default (`window.view.pieces is not iterable`): now pinned to clay; stale expectations fixed (Ogre `push` mode, capture-or-push dialog); the removed `?style` case deleted. 17/17.
+- Verified: `verify-cursor-adoption.mjs` 11/11 (new promotion-Cancel check), `verify-painted-game.mjs`, `verify-special-moves.mjs`, `qa.mjs` 17/17, trial `capture-strikes.mjs` 15/15, 267 + 25 tests, tsc, build; phone screenshots of the dialog.
+
+## Maester goggle beam and lab-piece crash — 2026-09-27
+- Owner: continue making the game better. Choice: the Maester was the one default-pool piece whose painted capture was still a plain slide onto the victim.
+- [x] Maester goggle beam (owner's option, no new art): lens glow, a scanning fan sweeps the victim, the victim comes apart in strips with gears, then he steps in. Shared scene, so game and trial both use it. [Details](docs/2d-first-pieces/board/README.md#maester-goggle-beam--2026-09-27).
+- [x] Found and fixed: any lab-piece capture (Catapult, Reaver) in the painted look threw `Cannot read properties of undefined (reading 'DURATION')`; lab tokens now slide in. The effect canvas also covers the headroom, so back-rank victims keep their heads.
+- Verified: `capture-strikes.mjs` 11 sheets + 3 mid-strike Undos; `verify-painted-game.mjs` with a new Maester and Catapult capture case, no page errors; frame sheets in the game for up, down, sideways, back rank and the flipped board; 267 + 25 tests, tsc, build.
+- Open: owner review of the beam; gear-pack clamp or wrench swing remain alternatives.
+
+## Drag-as-Black check fix — 2026-09-27
+- [x] `verify-cursor-adoption.mjs` failed at "dragging works from the flipped Black view". Cause: the check, not the renderer. `frame()` advances tweens at most 50 ms a frame; headless WebGL draws this scene at ~21 fps, so the 400 ms Black-view flip was still running after the fixed 450 ms wait. `screenOf()` gave mid-flip points, the press landed on empty d7, and OrbitControls took the drag as an orbit. The tool's `ready()` now waits until no tween is pending. Tool 11/11 in 3 of 3 runs; 267 + 24 tests pass.
+
 ## Stone board from the capital tiles — 2026-09-27
 - Owner: instead of the original board, create artwork inspired by its centre four tiles, minus the gilding, covering the whole board.
 - [x] Two stone textures (cream limestone, charcoal slate) generated from the capital crop; `compose-board.py` lays an exact 8×8 with the capital's chamfer, red-brown outline, bevel and grout. Game and trial use it (112 KB WebP). Painted game check, 12 trial captures and build pass. [Provenance](docs/2d-first-pieces/board-art/README.md).
@@ -16,7 +100,7 @@
 
 ## Capture animations for every capturing piece — 2026-09-26
 - [x] Rook tower slam, Queen knock-over, King freeze-and-shatter, Beast teeth chomp, with attackers stopping beside the victim. `capture-strikes.mjs` 10/10; node and vitest pass. [Details](docs/2d-first-pieces/board/README.md#more-capture-animations--2026-09-26).
-- Open: Maester capture (options proposed to owner: goggle beam, gear-pack clamp, wrench swing needing new art).
+- Open: Maester capture (options proposed to owner: goggle beam, gear-pack clamp, wrench swing needing new art). → Goggle beam built 2026-09-27, owner review pending.
 
 ## Painted King and Beast — 2026-09-26
 - [x] Frost King and Beast painted in ivory/charcoal (Codex built-in image generation, run only for the two images), registered on the board, added to the cast, with King guard and Beast chain positions. Beast chains are selectable per chain and animate bite by bite. One Beast image rejected and regenerated. Checks: `capture-strikes.mjs` 8/8, node tests, 24-figure cast screenshot. [Details](docs/2d-first-pieces/board/README.md#king-and-beast--2026-09-26). Owner review pending.
