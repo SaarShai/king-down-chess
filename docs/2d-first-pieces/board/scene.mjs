@@ -14,7 +14,9 @@ import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 import {BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 // One literal URL per image: bundlers resolve and copy each file (a template string would not).
-const ART_FILES={king:new URL('../king/king.png',import.meta.url).href,beast:new URL('../beast/beast.png',import.meta.url).href,queen:new URL('../queen/queen.png',import.meta.url).href,paladin:new URL('../paladin/paladin.png',import.meta.url).href,maester:new URL('../maester/maester.png',import.meta.url).href,pawn:new URL('../lance/pawn.png',import.meta.url).href,archer:new URL('../wrist-bow/archer.png',import.meta.url).href,ogre:new URL('../ogre/ogre.png',import.meta.url).href,knight:new URL('../knight/knight.png',import.meta.url).href,bishop:new URL('../bishop/bishop.png',import.meta.url).href,rook:new URL('../rook/rook.png',import.meta.url).href,guard:new URL('../guard/guard.png',import.meta.url).href};
+const ART_FILES={king:new URL('../king/king.webp',import.meta.url).href,beast:new URL('../beast/beast.webp',import.meta.url).href,queen:new URL('../queen/queen.webp',import.meta.url).href,paladin:new URL('../paladin/paladin.webp',import.meta.url).href,maester:new URL('../maester/maester.webp',import.meta.url).href,pawn:new URL('../lance/pawn.webp',import.meta.url).href,archer:new URL('../wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../ogre/ogre.webp',import.meta.url).href,knight:new URL('../knight/knight.webp',import.meta.url).href,bishop:new URL('../bishop/bishop.webp',import.meta.url).href,rook:new URL('../rook/rook.webp',import.meta.url).href,guard:new URL('../guard/guard.webp',import.meta.url).href};
+// The King Down biome board (earth top, fire right, sky bottom, ice left, capital in the centre).
+const BOARD_ART=new URL('../board-art/biome-board.webp',import.meta.url).href;
 /**
  * pieces: {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName,LETTERS?} from the rules engine.
  * closeup: optional {panel,title,ctx} for steep Archer shots; without it the Archer shoots on the board.
@@ -28,6 +30,7 @@ export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom
  const CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
  const ART={[K]:'king',[S]:'beast',[Q]:'queen',[L]:'paladin',[M]:'maester',[P]:'pawn',[A]:'archer',[O]:'ogre',[N]:'knight',[B]:'bishop',[R]:'rook',[G]:'guard'};
  const art=Object.fromEntries(Object.keys(ART).map(type=>[type,new Image()]));
+ const boardArt=new Image();
  const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.106,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
 specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
 specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.125};
@@ -113,7 +116,10 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
  }
  const spec=specs[typeOf(value)],ground=pose.ground??pose.foot,shadowScale=clamp(1-(pose.lift??0)/TILE*.4,.6,1);
  out.save();out.globalAlpha=opacity;out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*shadowScale,36*pose.scale*shadowScale,0,0,Math.PI*2);out.fill();
- out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);out.drawImage(sprite(value,pose.angle,extension),-spec.anchor.x,-spec.anchor.y);out.restore();
+ out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
+ // A soft contrasting rim keeps each army readable on the painted board's light and dark zones.
+ out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=5;
+ out.drawImage(sprite(value,pose.angle,extension),-spec.anchor.x,-spec.anchor.y);out.restore();
 }
 function bolt(out,start,end,t,scale=1) {
  if(t<0||t>1)return;
@@ -183,7 +189,12 @@ function vortex(out,foot,phase,strength) {
 }
  function boardBackground() {
   ctx.clearRect(0,-headroom,SIZE,SIZE+headroom);ctx.fillStyle='#e6e1cf';ctx.fillRect(0,-headroom,SIZE,SIZE+headroom);
-  for(let row=0;row<8;row++)for(let col=0;col<8;col++){
+  if(boardArt.complete&&boardArt.naturalWidth){
+   // The painted board turns with the viewer, like the physical board.
+   ctx.save();if(flipped){ctx.translate(PAD+4*TILE,PAD+4*TILE);ctx.rotate(Math.PI);ctx.translate(-PAD-4*TILE,-PAD-4*TILE);}
+   ctx.drawImage(boardArt,PAD,PAD,8*TILE,8*TILE);ctx.restore();
+   ctx.strokeStyle='#3a3528';ctx.lineWidth=3;ctx.strokeRect(PAD-1.5,PAD-1.5,8*TILE+3,8*TILE+3);ctx.lineWidth=1;
+  }else for(let row=0;row<8;row++)for(let col=0;col<8;col++){
    ctx.fillStyle=(row+col)%2?'#89977b':'#e9e6d5';ctx.fillRect(PAD+col*TILE,PAD+row*TILE,TILE,TILE);
    ctx.strokeStyle='#656e4d14';ctx.strokeRect(PAD+col*TILE+.5,PAD+row*TILE+.5,TILE-1,TILE-1);
   }
@@ -428,7 +439,7 @@ function drawEncounter(a,t) {
   foot,cell,
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
-  load(){return Promise.all(Object.entries(ART).map(([type,name])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=ART_FILES[name];}))).then(()=>{ready=true;wake();});},
+  load(){boardArt.onload=()=>wake();boardArt.src=BOARD_ART;return Promise.all(Object.entries(ART).map(([type,name])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=ART_FILES[name];}))).then(()=>{ready=true;wake();});},
   /** New position: ends any finished or running animation. */
   setPosition(next){if(animation&&!animation.done)animation.resolve(false);animation=null;position=next;aimAngle=0;wake();},
   setSelected(sq){if(sq!==selected){selected=sq;aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},

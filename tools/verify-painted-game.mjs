@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 const url = new URL(process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/');
-url.searchParams.set('look', 'painted');
+url.searchParams.set('look', 'painted'); // also the default; the phone check below uses the bare URL
 const out = 'docs/painted-game';
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
@@ -71,8 +71,8 @@ try {
   // 3. Phone width: the board fits without horizontal scrolling.
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
   watch(phone);
-  await phone.goto(url.href);
-  await phone.waitForFunction(() => document.querySelector('#board canvas')?.clientWidth > 300);
+  await phone.goto(url.origin + url.pathname); // no parameter: painted must be the default
+  await phone.waitForFunction(() => document.getElementById('board').classList.contains('painted') && document.querySelector('#board canvas')?.clientWidth > 300);
   const fit = await phone.evaluate(() => ({ doc: document.documentElement.scrollWidth, board: document.querySelector('#board canvas').getBoundingClientRect().width }));
   assert.ok(fit.doc <= 390 && fit.board >= 340, JSON.stringify(fit));
   await phone.screenshot({ path: `${out}/phone.png` });

@@ -1,5 +1,10 @@
 # Tasks
 
+## Painted default, smaller art, King Down board — 2026-09-27
+- Owner: painted look is the default; shrink the painted images; use the board artwork from the King Down Drive.
+- [x] Painted 2D is the default look (`?look=clay` or the Look menu for clay). Pieces and board ship as full-resolution WebP: 1.9 MB instead of 23 MB, coordinates unchanged (`docs/2d-first-pieces/web-art.py`). The biome board (Drive `board_colored_4K.jpg`) is the board surface in game and trial; figures get a contrasting rim for readability. The marble chess side was not used: textures.com stock ([board-art](docs/2d-first-pieces/board-art/README.md)).
+- Verified: painted game check (default URL, computer game, human moves, flipped board, phone), 12 trial captures, clay special-move checks, 267 + 24 tests, build. `verify-cursor-adoption.mjs` fails at drag-as-Black, also on its original commit (pre-existing; separate task).
+
 ## Painted 2D look in the real game — 2026-09-27
 - Owner: continue work on the game; choose what contributes most. Choice: make the painted 2D board playable as a full game instead of a separate trial.
 - [x] Shared scene extracted from the board trial (`docs/2d-first-pieces/board/scene.mjs`); trial rebuilt on it (all 12 trial checks pass). `PaintedView` implements the game's board interface; *Look* switch (Clay 3D default / Painted 2D), `?look=painted`. Verified with `tools/verify-painted-game.mjs` (computer game, human drag/click moves, flipped board, phone) and the clay special-move checks; 267 + 24 tests, build pass. [Details](docs/painted-game/README.md).

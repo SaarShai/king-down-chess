@@ -6,6 +6,7 @@ const url = process.env.PLAYABLE_URL || 'http://127.0.0.1:5188/';
 const out = process.env.PLAYABLE_OUT || 'docs/playable-clay'; mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+await page.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
 const errors = [], checks = [];
 page.on('pageerror', e => errors.push(e.message));
 page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });

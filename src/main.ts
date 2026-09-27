@@ -54,18 +54,18 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 setEvaluator('residual');
 const game = new Game();
 const engine = new Engine();
-/** `?look=painted|clay`, else the saved choice. Clay 3D stays the default until the owner picks. */
+/** `?look=painted|clay`, else the saved choice. Painted 2D is the default (owner, 2026-09-27). */
 const LOOK_KEY = 'kingdown.look';
-const look = params.get('look') ?? (() => { try { return localStorage.getItem(LOOK_KEY); } catch { return null; } })() ?? 'clay';
-const view: BoardView = look === 'painted' ? new PaintedView($('board')) : new BoardRenderer($('board'));
-$<HTMLSelectElement>('look').value = look === 'painted' ? 'painted' : 'clay';
+const look = params.get('look') ?? (() => { try { return localStorage.getItem(LOOK_KEY); } catch { return null; } })() ?? 'painted';
+const view: BoardView = look === 'clay' ? new BoardRenderer($('board')) : new PaintedView($('board'));
+$<HTMLSelectElement>('look').value = look === 'clay' ? 'clay' : 'painted';
 $<HTMLSelectElement>('look').onchange = () => {
   try { localStorage.setItem(LOOK_KEY, $<HTMLSelectElement>('look').value); } catch { /* private mode: the URL still switches */ }
   const url = new URL(location.href);
   url.searchParams.set('look', $<HTMLSelectElement>('look').value);
   location.href = url.href;
 };
-$('reset-view').hidden = look === 'painted';
+$('reset-view').hidden = look !== 'clay';
 view.onLoadError = () => { $('asset-status').textContent = 'A piece model could not load. Reload this page to retry.'; };
 (window as unknown as Record<string, unknown>).view = view; // tools/styleboard2.mjs aims its crops with view.screenOf()
 const sides: [Side, Side] = ['human', 'ai'];
