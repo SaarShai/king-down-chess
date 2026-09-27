@@ -1,5 +1,8 @@
 # Tasks
 
+## Public GitHub repo — 2026-09-26
+- [x] Published `main` to https://github.com/SaarShai/king-down-chess (public). Before pushing, history was rewritten to drop 18 textures.com-derived files (board tiles, frame slab, source floor photos, board composite; see docs/research/licensing-2026-09-14.md). Pre-rewrite backup: `/Users/za/Documents/king-down-chess-recovery/pre-publish-2026-09-26.bundle`. Only `main` is pushed; `archive/*` tags stay local.
+
 ## Branch consolidation — 2026-09-26
 - Owner: resolve, merge and clean the branches and worktrees.
 - [x] `main` fast-forwarded to the combined line (clay game, Cursor adoption, painted 2D trial, `takeover` research). Main checkout switched to `main`; seven Codex worktrees and nine branches removed. Preserved first as tags: `archive/takeover-donor-worktree` (the 901 uncommitted Cursor donor files; also in the private recovery archive), `archive/clay-study`, `archive/painted-bishop|guard|rook` (superseded study branches). `/Users/za/Documents/king-down-sim` left untouched (17 uncommitted sim files).
