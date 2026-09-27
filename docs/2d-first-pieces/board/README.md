@@ -141,3 +141,16 @@ The cast is now twelve per army. The King is the Frost King, the game's default 
 - **Painted cast:** now includes both Kings (d1, e8) and Beasts (g2, b7).
 
 Motion is a rigid lean (same as the Maester). The Frost King's skin stays pale blue in both armies; his ice armour carries the army colour. Verified by `capture-strikes.mjs` (King capture, 3-bite chain, counts and messages) and the [24-figure cast](strikes/cast-24.png).
+
+## More capture animations — 2026-09-26
+
+Every capturing piece now has its own capture. New in this pass (`blows.mjs`: shared timeline; effects in `prototype.mjs`):
+
+- **Rook, tower slam:** stops beside the victim, rocks back, then topples forward so the tower lands on the victim. Board shake, squash, ground ring, cracks and dust (same effects as the Paladin).
+- **Queen, command:** a small commanding lean; the victim is knocked over away from her and fades, with a ring at the point of command.
+- **King, frost:** the victim ices over pale blue, then shatters into nine wedges that fly apart and fall.
+- **Beast, chomp:** stops beside each victim in the chain; two rows of bone teeth snap shut on the victim before it fades, then the next bite. After the last bite he steps onto that square.
+
+Attackers now stand beside the victim, never on top of it, so straight-file captures stay readable. Checked by `capture-strikes.mjs` (Rook, Queen, King and Beast frame sheets in [strikes/](strikes/)) and `blows.test.mjs`.
+
+The Maester still uses the generic lean-and-fade. Guard never captures.

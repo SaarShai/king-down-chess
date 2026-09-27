@@ -1,5 +1,9 @@
 # Tasks
 
+## Capture animations for every capturing piece — 2026-09-26
+- [x] Rook tower slam, Queen knock-over, King freeze-and-shatter, Beast teeth chomp, with attackers stopping beside the victim. `capture-strikes.mjs` 10/10; node and vitest pass. [Details](docs/2d-first-pieces/board/README.md#more-capture-animations--2026-09-26).
+- Open: Maester capture (options proposed to owner: goggle beam, gear-pack clamp, wrench swing needing new art).
+
 ## Painted King and Beast — 2026-09-26
 - [x] Frost King and Beast painted in ivory/charcoal (Codex built-in image generation, run only for the two images), registered on the board, added to the cast, with King guard and Beast chain positions. Beast chains are selectable per chain and animate bite by bite. One Beast image rejected and regenerated. Checks: `capture-strikes.mjs` 8/8, node tests, 24-figure cast screenshot. [Details](docs/2d-first-pieces/board/README.md#king-and-beast--2026-09-26). Owner review pending.
 
