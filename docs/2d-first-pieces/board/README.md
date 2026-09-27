@@ -149,8 +149,20 @@ Every capturing piece now has its own capture. New in this pass (`blows.mjs`: sh
 - **Rook, ground pound:** stops beside the victim and pounds the ground twice with his stone forearm (a small mesh bends at the elbow; `drawRookPound` in `../rook/motion.mjs`). Each thump raises dust and cracks; the first bounces the victim, the second crushes it.
 - **Queen, hurricane:** she spins up inside a funnel of wind, whirls across to the victim, and the victim is lifted, spun and carried off before she settles into the square.
 - **King, frost:** the victim ices over pale blue, then shatters into nine wedges that fly apart and fall.
-- **Beast, bite:** stops beside each victim; his teeth shoot out from inside the open mouth to the victim, snap shut, and pull back before the next bite. After the last bite he steps onto that square.
+- **Beast, bite** (redone 2026-09-27): lunges to the victim's near side and clamps his own hinged lower jaw shut on it; the victim shakes and fades; he steps onto that square. A chain repeats from each captured square, as the rules move him.
 
 Attackers now stand beside the victim, never on top of it, so straight-file captures stay readable. Checked by `capture-strikes.mjs` (Rook, Queen, King and Beast frame sheets in [strikes/](strikes/)) and `blows.test.mjs`.
 
 The Maester still uses the generic lean-and-fade. Guard never captures.
+
+## Maester goggle beam — 2026-09-27
+
+The Maester captures from his own square, then steps in (the owner's "goggle beam" option; it needs no new art):
+
+- his monocular lens lights up; a turquoise scanning fan reaches the victim and sweeps it up and down;
+- the victim turns turquoise, then comes apart in horizontal strips from the top down, and brass and steel gears spill out;
+- the Maester then walks onto the square.
+
+The lens point is measured from the art (both armies land on one sprite point) and follows his survey lean. Timings are `BEAM` in `../court-motion.mjs`; drawing is in `scene.mjs`, so the game's painted look uses it too. The effect canvas now also covers the headroom, so a tall back-rank victim keeps its head during an effect (this also applies to the King's frost). Checked by `capture-strikes.mjs` (both armies, straight up and straight down, Undo mid-beam; [maester-ivory.png](strikes/maester-ivory.png), [maester-charcoal.png](strikes/maester-charcoal.png)) and `strikes.test.mjs`. The other two options (gear-pack clamp; wrench swing, which needs new art) stay open if the owner prefers them.
+
+**Archer on-board shot (2026-09-27):** the arrow is drawn 1.8× larger with a pale trail, so it reads on dark squares; the victim is knocked back and topples away from the Archer before it fades, with a 1.6× impact ring. Steep shots in the trial still use the close-up panel. `play(move, {onContact})` reports the contact moment, which the game uses to time its hit sound.

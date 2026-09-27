@@ -609,13 +609,15 @@ export class BoardRenderer {
   }
 
   /** Animate a move on the pre-move board; call sync(newPos) afterwards. */
-  async animateMove(pos: Position, m: Move): Promise<void> {
+  /** `onContact` fires when a capture or shove lands (main.ts times the hit sound to it). */
+  async animateMove(pos: Position, m: Move, onContact?: () => void): Promise<void> {
     const version = this.positionVersion;
     const current = () => version === this.positionVersion;
     const mover = this.pieces.get(m.from);
     if (!mover) return;
     const t = typeOf(pos.board[m.from]);
     const burst = (sq: number) => {
+      onContact?.();
       const g = this.pieces.get(sq);
       if (!g) return;
       this.pieces.delete(sq);
@@ -639,13 +641,14 @@ export class BoardRenderer {
         await this.tweens.add(1.6, k => {
           if (!current()) return;
           ogre.sample('Shove', k);
+          if (k >= .32) onContact?.();
           if (shoved) shoved.position.lerpVectors(a, b, THREE.MathUtils.smoothstep(k, .32, .58));
         }, linear);
         if (!current()) return;
         ogre.reset();
       }
       if (shoved) {
-        if (!ogre) await this.hop(shoved, m.shove.from, m.shove.to, 0.28, 0.25);
+        if (!ogre) { onContact?.(); await this.hop(shoved, m.shove.from, m.shove.to, 0.28, 0.25); }
         if (!current()) return;
         this.pieces.delete(m.shove.from);
         this.pieces.set(m.shove.to, shoved);

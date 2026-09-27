@@ -117,9 +117,9 @@ button:disabled { cursor: default; color: var(--mid); border-color: var(--mid); 
 button:disabled:hover { background: var(--white); color: var(--mid); }
 
 /* ---- move sheet ---- */
-/* The move sheet takes whatever the rail has left but never shrinks below its rows:
-   on a short window the art controls under it scroll instead of the game state. */
-.sheet { flex: 1 0 auto; }
+/* The move sheet takes whatever the rail has left; long games scroll inside the list, so the
+   latest move and the captured pieces stay in view. */
+.sheet { flex: 1 1 0; min-height: 180px; }
 #moves {
   flex: 1; min-height: 66px; overflow: auto; margin: 0; padding: 4px;
   list-style: none; background: var(--white); border: 2px solid var(--ink);
@@ -132,7 +132,7 @@ button:disabled:hover { background: var(--white); color: var(--mid); }
 /* ---- captured pieces ---- */
 .taken { display: flex; align-items: baseline; gap: 8px; min-height: 1.6em; font-size: 13px; }
 .taken b { flex: none; width: 74px; color: var(--mid); font-weight: 400; }
-.taken span { letter-spacing: 2px; overflow-wrap: anywhere; }
+.taken span { overflow-wrap: anywhere; }
 .taken span:empty::before { content: '—'; color: var(--hairline); }
 
 /* ---- rules dialog ---- */
@@ -186,9 +186,15 @@ button:focus-visible, select:focus-visible, input:focus-visible {
 #move-help:empty { display: none; }
 #move-help { font-weight: 600; }
 #selection-actions button { min-height: 44px; }
-#move-choice { max-width: min(440px, calc(100vw - 32px)); }
-#move-choice button { min-height: 44px; }
-#cancel-choice { margin-top: 14px; }
+#move-choice, #promo { max-width: min(440px, calc(100vw - 32px)); }
+#new-game, #settings { width: min(400px, calc(100vw - 32px)); }
+dialog h3 { margin: 18px 0 8px; font-size: 13px; font-weight: 400; letter-spacing: 1px; text-transform: uppercase; color: var(--mid); }
+.fields { display: flex; flex-direction: column; gap: 10px; }
+.menu { grid-template-columns: repeat(3, auto); }
+.menu button { padding: 7px 6px; white-space: nowrap; }
+#moves:empty::before { content: 'No moves yet'; display: block; padding: 1px 4px; color: var(--mid); }
+#move-choice button, #promo button { min-height: 44px; }
+#cancel-choice, #cancel-promo { margin-top: 14px; }
 
 /* Painted 2D look: one square canvas, centred in the board area. */
 #board.painted { display: flex; align-items: center; justify-content: center; background: #e6e1cf; }

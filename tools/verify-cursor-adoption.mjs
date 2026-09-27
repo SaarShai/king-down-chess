@@ -22,9 +22,19 @@ await page.addInitScript(() => {
     postMessage(message, ...rest) { window.searchRequests.push(message.opts); return super.postMessage(message, ...rest); }
   };
 });
+/** New game and Settings controls sit in dialogs: open the one holding `sel`, act, close it if still open. */
+async function ui(action, sel, ...args) {
+  const id = await page.evaluate(sel => document.querySelector(sel).closest('dialog')?.id, sel);
+  if (id) await page.click(id === 'new-game' ? '#new-game-btn' : '#settings-btn');
+  await page[action](sel, ...args);
+  if (id && await page.evaluate(id => document.getElementById(id).open, id)) await page.keyboard.press('Escape');
+}
 async function ready() {
   await page.waitForFunction(() => window.view?.pieces.size > 0);
   await page.evaluate(() => window.view.ready());
+  // Tweens advance at most 50 ms a frame, and headless WebGL draws ~20 fps, so the 400 ms Black-view
+  // flip outlasts any fixed wait; screenOf() aims at the settled camera only.
+  await page.waitForFunction(() => window.view.tweens.list.length === 0);
 }
 async function seed(fen, settings = {}, query = '') {
   await page.evaluate(({ fen, settings }) => localStorage.setItem('kingdown.save', JSON.stringify({
@@ -47,7 +57,7 @@ try {
   await page.goto(url); await ready();
   assert.equal(await page.locator('#skill').inputValue(), 'club');
   assert.equal(await page.locator('#clock,#time-w,#time-b,#try-these').count(), 0);
-  await page.selectOption('#black', 'human'); await page.click('#new-classic'); await ready();
+  await ui('selectOption', '#black', 'human'); await ui('click', '#new-classic'); await ready();
   await page.click('#hint');
   await page.waitForFunction(() => window.view.highlights.hint.length > 0 && !document.querySelector('#hint').disabled);
   assert.equal(await page.locator('#moves').innerText(), '');
@@ -66,13 +76,13 @@ try {
   assert.equal(await page.locator('#sound').isChecked(), false);
   await click(52); await click(36); await played(2);
   assert.equal(await page.evaluate(() => window.audioContexts), 0, 'muted reload must not create an audio context');
-  await page.selectOption('#skill', 'casual'); await page.check('#queen');
+  await ui('selectOption', '#skill', 'casual'); await ui('check', '#queen');
   await page.reload(); await ready();
   assert.equal(await page.locator('#skill').inputValue(), 'casual');
   assert.equal(await page.locator('#queen').isChecked(), true);
   checks.push('old saves retain Strong; skill, auto-queen and effective mute survive reload');
 
-  await page.click('#hint'); await page.click('#new-classic'); await ready();
+  await page.click('#hint'); await ui('click', '#new-classic'); await ready();
   await page.waitForTimeout(650);
   assert.deepEqual(await page.evaluate(() => window.view.highlights.hint), []);
   assert.equal(await page.locator('#moves').innerText(), '');
@@ -84,15 +94,19 @@ try {
   checks.push('reset cancels a hint; real piece dragging plays through the normal move path without orbiting');
 
   await seed('7k/4p3/8/8/8/8/P7/K7 b - - 0 1', { white: 'ai', black: 'human' });
-  await page.waitForTimeout(450); // the Black-view camera flip takes 400 ms
   await drag(52, 36);
   await page.waitForFunction(() => document.querySelector('#moves').textContent.includes('e7-e5'));
-  await page.selectOption('#white', 'human');
+  await ui('selectOption', '#white', 'human');
   assert.ok(await page.evaluate(() => window.view.controls.enabled));
   checks.push('dragging works from the flipped Black view and side changes cancel pending AI');
 
   const promotion = '7k/P7/8/8/8/8/8/K7 w - - 0 1';
   await seed(promotion); await click(48); await click(56);
+  await page.locator('#promo').waitFor({ state: 'visible' });
+  await page.click('#cancel-promo'); // Cancel keeps the pawn and frees the board
+  assert.equal(await page.locator('#promo').isVisible(), false);
+  assert.ok(await page.evaluate(() => window.view.pieces.get(48)?.userData.code === 1 && !document.querySelector('#hint').disabled));
+  await click(48); await click(56);
   await page.locator('#promo').waitFor({ state: 'visible' });
   await page.locator('#promo button').filter({ hasText: 'R rook' }).click(); await played(1);
   assert.equal(await page.evaluate(() => window.view.pieces.get(56)?.userData.code), 4);
@@ -105,10 +119,10 @@ try {
   await page.locator('#promo button').filter({ hasText: 'A archer' }).click(); await played(1);
   await page.goto(url); await ready();
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules.promotionSet), 'anyNonKing');
-  await page.click('#new-classic'); await ready();
+  await ui('click', '#new-classic'); await ready();
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules.promotionSet), 'standard');
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules.ogreMode), 'push');
-  checks.push('underpromotion works; auto-queen respects promotion sets; old games retain their rules and new games use current defaults');
+  checks.push('promotion dialog cancels cleanly; underpromotion works; auto-queen respects promotion sets; old games retain their rules and new games use current defaults');
 
   for (const [query, archer, beast, promotionText] of [
     ['', /forward diagonal at distance 2/, /any adjacent square/, /queen, rook, bishop, or knight/],
@@ -135,7 +149,7 @@ try {
   assert.match(await page.locator('#moment').innerText(), /archer shot/);
   checks.push('move explanations reconstruct from saved history and return after undo/replay');
 
-  await page.selectOption('#setup-example', 'COAQNRBK'); await ready();
+  await ui('selectOption', '#setup-example', 'COAQNRBK'); await ready();
   assert.match(await page.locator('#moment').innerText(), /Catapult lab/);
   assert.equal(await page.locator('#setup').innerText(), 'COAQNRBK');
   await page.click('#rules-btn');
@@ -169,7 +183,7 @@ try {
   assert.ok(await page.evaluate(() => window.view.pieces.has(27) && window.view.pieces.has(44) && !window.view.pieces.has(43)));
   checks.push('Reaver capture-then-step uses the real selection path and cancels cleanly on undo');
 
-  await page.click('#new-classic'); await ready();
+  await ui('click', '#new-classic'); await ready();
   await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(250);
   const a = await point(12), b = await point(28);
   const boardBounds = await page.locator('#board').boundingBox();

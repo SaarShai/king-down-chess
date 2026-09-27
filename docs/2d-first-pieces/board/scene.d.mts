@@ -24,7 +24,8 @@ export interface PaintedScene {
   setReducedMotion(on: boolean): void;
   setDecorate(fn: ((ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over') => void) | null): void;
   redraw(): void;
-  play(move: SceneMove, options?: { speed?: number }): Promise<boolean>;
+  /** onContact fires once when the strike lands (not for plain moves or swaps). */
+  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null }): Promise<boolean>;
   cancel(): void;
 }
 export function createScene(options: {

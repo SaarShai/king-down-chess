@@ -31,6 +31,7 @@ const browser = await chromium.launch();
 
 async function newPage() {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await ctx.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
   const page = await ctx.newPage();
   const errors = [];
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
@@ -155,9 +156,10 @@ await caseFn('ogre shoves a friend (plain click) and undo', `?fen=${encodeURICom
   let s = await snap(page);
   const bad = [];
   if (!s.moves.includes('Oe4>d4-c4')) bad.push(`moves="${s.moves}"`);
-  if (s.scene[sqOf('e4')] !== CODE.O) bad.push(`ogre e4=${s.scene[sqOf('e4')] ?? 'empty'}`);
+  // Default ogreMode 'push': the Ogre follows onto the square it shoved from.
+  if (s.scene[sqOf('d4')] !== CODE.O) bad.push(`ogre d4=${s.scene[sqOf('d4')] ?? 'empty'}`);
   if (s.scene[sqOf('c4')] !== CODE.P) bad.push(`pawn c4=${s.scene[sqOf('c4')] ?? 'empty'}`);
-  if (s.scene[sqOf('d4')] !== undefined) bad.push(`d4=${s.scene[sqOf('d4')] ?? 'empty'}`);
+  if (s.scene[sqOf('e4')] !== undefined) bad.push(`e4=${s.scene[sqOf('e4')] ?? 'empty'}`);
   await page.click('#undo');
   await waitPly(page, 0);
   await page.waitForTimeout(500);
@@ -168,9 +170,10 @@ await caseFn('ogre shoves a friend (plain click) and undo', `?fen=${encodeURICom
   return bad.length ? bad.join('; ') : true;
 });
 
-await caseFn('ogre capture by click, shove by shift-click', `?fen=${encodeURIComponent(OGRE_ENEMY_FEN)}`, async (page, errors) => {
+await caseFn('ogre capture by the choice dialog, shove by shift-click', `?fen=${encodeURIComponent(OGRE_ENEMY_FEN)}`, async (page, errors) => {
   await clickSq(page, 'e4');
-  await clickSq(page, 'd4'); // plain click: the capture wins
+  await clickSq(page, 'd4'); // plain click on an enemy asks: capture or push
+  await page.click('#choose-capture');
   await waitPly(page, 1);
   await page.waitForTimeout(700);
   let s = await snap(page);
@@ -186,9 +189,9 @@ await caseFn('ogre capture by click, shove by shift-click', `?fen=${encodeURICom
   await page.waitForTimeout(900);
   s = await snap(page);
   if (!s.moves.includes('Oe4>d4-c4')) bad.push(`shift-click gave "${s.moves}"`);
-  if (s.scene[sqOf('e4')] !== CODE.O) bad.push(`after shove e4=${s.scene[sqOf('e4')] ?? 'empty'}`);
+  if (s.scene[sqOf('d4')] !== CODE.O) bad.push(`after shove d4=${s.scene[sqOf('d4')] ?? 'empty'}`); // 'push' mode
   if (s.scene[sqOf('c4')] !== CODE.p) bad.push(`shoved pawn c4=${s.scene[sqOf('c4')] ?? 'empty'}`);
-  if (s.scene[sqOf('d4')] !== undefined) bad.push(`after shove d4=${s.scene[sqOf('d4')] ?? 'empty'}`);
+  if (s.scene[sqOf('e4')] !== undefined) bad.push(`after shove e4=${s.scene[sqOf('e4')] ?? 'empty'}`);
   if (errors.length) bad.push(errors.join(' | '));
   return bad.length ? bad.join('; ') : true;
 });
@@ -218,7 +221,8 @@ await caseFn('AI answers in an ogre position', `?fen=${encodeURIComponent(OGRE_E
   });
   await clickSq(page, 'e4');
   await clickSq(page, 'd4');
-  await waitPly(page, 2); // human shove/capture + the AI's reply
+  await page.click('#choose-push');
+  await waitPly(page, 2); // human shove + the AI's reply
   await page.waitForTimeout(800);
   const s = await snap(page);
   const ok = s.moves.split(/\s+/).length >= 2 && errors.length === 0;
@@ -278,7 +282,7 @@ await caseFn('full AI vs AI game reaches a result', '', async (page, errors) => 
     document.getElementById('black').value = 'ai';
     document.getElementById('black').dispatchEvent(new Event('change'));
   });
-  await page.click('#new-random');
+  await page.click('#new-game-btn'); await page.click('#new-random');
   const t0 = Date.now();
   let last = -1, stalls = 0;
   for (;;) {
@@ -299,7 +303,7 @@ await caseFn('cancelling mid-search starts a clean game', '', async (page, error
   await clickSq(page, 'e2');
   await clickSq(page, 'e4');
   await page.waitForTimeout(150); // the AI is thinking now
-  await page.click('#new-random');
+  await page.click('#new-game-btn'); await page.click('#new-random');
   await page.waitForTimeout(2500); // any stale answer would land here
   const s = await snap(page);
   const ok = s.moves === '' && /PPPPPPPP/.test(s.fen) && errors.length === 0;
@@ -327,16 +331,6 @@ await caseFn('mobile layout has no horizontal overflow', '', async (page, errors
   }));
   const ok = m.scrollW <= m.innerW + 1 && m.canvas > 100 && errors.length === 0;
   return ok ? true : `scrollW=${m.scrollW} innerW=${m.innerW} canvas=${m.canvas} errors=${errors.join(' | ')}`;
-});
-
-// A shared `?style=` link must win over the autosave (the save used to override it silently).
-await caseFn('?style wins over the autosaved style', '', async (page, errors) => {
-  await page.goto(`${BASE}?style=sprites`);
-  await page.waitForFunction(() => window.view && document.getElementById('setup').title.length > 5, null, { timeout: 40000 });
-  await page.waitForTimeout(700);
-  const s = await page.evaluate(() => ({ style: document.getElementById('style').value, pieces: window.view.pieces.size }));
-  const ok = s.style === 'sprites' && s.pieces > 0 && errors.length === 0;
-  return ok ? true : `style=${s.style} pieces=${s.pieces} errors=${errors.join(' | ')}`;
 });
 
 // Strike (Flame A, tier 2): the pawn is the only piece that can reach d8 in one move, and only

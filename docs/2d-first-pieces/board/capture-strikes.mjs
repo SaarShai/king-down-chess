@@ -1,4 +1,4 @@
-// Contact sheets for the Bishop dagger slash and Paladin hammer smash, driven by
+// Contact sheets for the capture strikes (Bishop slash, Paladin smash, Maester beam, …), driven by
 // a fake clock so every frame is exact. Run with the 5192 study server up:
 //   node docs/2d-first-pieces/board/capture-strikes.mjs
 import { chromium } from 'playwright';
@@ -15,8 +15,10 @@ const cases = [
   { name: 'rook-ivory', layout: 'rook', from: null, to: 'c7', times: [0, 350, 540, 620, 700, 820, 900, 980, 1500], status: 'Ivory Rook captured on c7.', counts: ['4', '3'] },
   { name: 'queen-ivory', layout: 'queen', from: null, to: 'g4', times: [0, 200, 400, 600, 780, 900, 1000, 1150, 1400], status: 'Ivory Queen captured on g4.', counts: ['5', '3'] },
   { name: 'king-ivory', layout: 'king', from: null, to: 'c5', times: [0, 400, 560, 660, 720, 800, 900, 1150], status: 'Ivory King captured on c5.', counts: ['4', '3'] },
-  { name: 'beast-chain-ivory', layout: 'beast', from: 'd4', to: 'e6', choice: 'Chain d5 → e6 → f5', times: [0, 250, 330, 380, 420, 480, 560, 900, 1880], status: /chained d5 → e6 → f5/, counts: ['5', '2'] }
-  ,{ name: 'beast-bite-charcoal', layout: 'beast', from: 'f5', to: 'e4', choice: 'Capture e4', times: [0, 250, 300, 340, 370, 400, 450, 520, 760], status: 'Charcoal Beast captured on e4.', counts: ['4', '5'] }
+  { name: 'beast-chain-ivory', layout: 'beast', from: 'd4', to: 'e6', choice: 'Chain d5 → e6 → f5', times: [0, 100, 170, 200, 260, 340, 460, 620, 760, 1300, 1600, 1800], status: /chained d5 → e6 → f5/, counts: ['5', '2'] }
+  ,{ name: 'beast-bite-charcoal', layout: 'beast', from: 'f5', to: 'e4', choice: 'Capture e4', times: [0, 100, 170, 200, 230, 280, 350, 420, 500, 600], status: 'Charcoal Beast captured on e4.', counts: ['4', '5'] }
+  ,{ name: 'maester-ivory', layout: 'maester', from: null, to: 'c5', times: [0, 250, 440, 540, 640, 740, 900, 1100, 1300, 1500], status: 'Ivory Maester captured on c5.', counts: ['4', '3'] }
+  ,{ name: 'maester-charcoal', layout: 'maester', from: 'f5', to: 'f4', times: [0, 250, 440, 540, 640, 740, 900, 1100, 1300, 1500], status: 'Charcoal Maester captured on f4.', counts: ['3', '4'] }
 ];
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
 const errors = [];
@@ -61,8 +63,8 @@ try {
     assert.deepEqual([await page.textContent('#white-count'), await page.textContent('#black-count')], c.counts, `${c.name}: counts`);
     console.log(`ok ${c.name}: ${status}`);
   }
-  // Undo mid-strike cancels without a late capture, for both new strikes.
-  for (const [layout, to, counts] of [['bishop', 'e2', ['4', '4']], ['paladin', 'g4', ['6', '6']]]) {
+  // Undo mid-strike cancels without a late capture.
+  for (const [layout, to, counts] of [['bishop', 'e2', ['4', '4']], ['paladin', 'g4', ['6', '6']], ['maester', 'c5', ['4', '4']]]) {
     await page.goto(`${url}?position=${layout}`);
     await page.waitForFunction(() => !/Loading/.test(document.getElementById('status').textContent));
     await page.evaluate(() => window.__step(window.__now()));

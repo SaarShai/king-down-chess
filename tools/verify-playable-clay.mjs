@@ -10,6 +10,13 @@ await page.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); /
 const errors = [], checks = [];
 page.on('pageerror', e => errors.push(e.message));
 page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+/** New game and Settings controls sit in dialogs: open the one holding `sel`, act, close it if still open. */
+async function ui(action, sel, ...args) {
+  const id = await page.evaluate(sel => document.querySelector(sel).closest('dialog')?.id, sel);
+  if (id) await page.click(id === 'new-game' ? '#new-game-btn' : '#settings-btn');
+  await page[action](sel, ...args);
+  if (id && await page.evaluate(id => document.getElementById(id).open, id)) await page.keyboard.press('Escape');
+}
 async function ready() {
   await page.waitForFunction(() => window.view && window.view.pieces.size > 0 && [...window.view.pieces.values()].every(g => g.userData.figure));
   await page.evaluate(() => window.view.ready());
@@ -58,7 +65,7 @@ try {
   checks.push('fixed handmade clay at 0.5 px, no rendering controls, armies facing one another');
   assert.equal(await page.evaluate(() => window.view.pieces.size), 32);
   checks.push('32 independently animated clay figures load in the default game');
-  await page.selectOption('#black', 'human'); await page.click('#new-classic'); await ready();
+  await ui('selectOption', '#black', 'human'); await ui('click', '#new-classic'); await ready();
   assert.deepEqual(await page.evaluate(()=>Array.from({length:8},(_,i)=>{const sq=8+i,p=window.view.screenOf(sq);return window.view.pick({clientX:p.x,clientY:p.y});})),[8,9,10,11,12,13,14,15]);
   checks.push('every initial pawn-square centre selects its own pawn, not the back rank');
   await clickSquare(1); await clickSquare(18);
@@ -80,15 +87,15 @@ try {
   await page.click('#undo'); await settled(12,1);
   assert.equal(await page.locator('#moves').innerText(), '');
   checks.push('save/reload and undo restore the position');
-  await page.selectOption('#black', 'ai');
-  await page.locator('#think').fill('200');
+  await ui('selectOption', '#black', 'ai');
+  await ui('fill', '#think', '200');
   await clickSquare(12); await clickSquare(28);
   await page.waitForFunction(() => document.querySelector('#moves').textContent.trim().split(/\s+/).length >= 3 && document.querySelector('#turn').textContent.includes('White'));
   await page.waitForFunction(() => document.querySelector('#status').textContent === '');
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length >= 2);
   checks.push('human move receives a legal worker-AI reply');
-  await page.selectOption('#black', 'human');
-  await page.selectOption('#setup-example', 'SQBKRSML'); await ready();
+  await ui('selectOption', '#black', 'human');
+  await ui('selectOption', '#setup-example', 'SQBKRSML'); await ready();
   assert.equal(await page.locator('#setup').textContent(),'SQBKRSML');
   const pawnSquares = [...Array(8)].flatMap((_, i) => [8+i, 48+i]);
   assert.deepEqual(await page.evaluate(squares => squares.map(sq => {
@@ -102,7 +109,7 @@ try {
   await page.locator('#rules button').click();
   checks.push('piece guide describes the current Archer and Beast rules');
   // Interrupt the shove: a delayed animation must not change the restored position.
-  await page.selectOption('#setup-example','ogre'); await ready();
+  await ui('selectOption', '#setup-example','ogre'); await ready();
   await clickSquare(26); await clickSquare(27);
   await page.waitForFunction(()=>document.querySelector('#moves').textContent.includes('Oc4>d4-e4'));
   await page.click('#undo'); await settled(27,1);
@@ -115,19 +122,19 @@ try {
   checks.push('Ogre shove animation completes with the pawn on its legal square');
   // A legal rook capture also exercises figure disposal and contour membership.
   await page.goto(url+'?fen='+encodeURIComponent('7k/8/8/8/8/p7/8/R6K w - - 0 1')); await ready();
-  await page.selectOption('#black','human'); await clickSquare(0); await clickSquare(16); await settled(16,4);
+  await ui('selectOption', '#black','human'); await clickSquare(0); await clickSquare(16); await settled(16,4);
   assert.equal(await page.evaluate(()=>window.view.pieces.size),3);
   assert.match(await page.locator('#moves').textContent(),/Ra1xa3/);
   await page.click('#undo'); await ready();
   assert.equal(await page.evaluate(()=>window.view.pieces.size),4);
   checks.push('capture disposes the victim, and undo restores its model');
-  await page.click('#new-classic'); await ready();
+  await ui('click', '#new-classic'); await ready();
   await clickSquare(12); await clickSquare(28);
-  await page.click('#new-random'); await ready(); await page.waitForTimeout(1000);
+  await ui('click', '#new-random'); await ready(); await page.waitForTimeout(1000);
   assert.equal(await page.evaluate(()=>window.view.pieces.size),32);
   assert.equal(await page.locator('#moves').innerText(),'');
   checks.push('new game during a walk prevents stale animation from changing the new board');
-  await page.selectOption('#setup-example', 'SQBKRSML'); await ready();
+  await ui('selectOption', '#setup-example', 'SQBKRSML'); await ready();
   await page.screenshot({path:out+'/desktop.png'});
   await page.setViewportSize({width:390,height:844}); await page.waitForTimeout(300);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);

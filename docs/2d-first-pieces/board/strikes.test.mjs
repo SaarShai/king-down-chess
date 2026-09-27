@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { slashAngle, SLASH, CONTACT_MS } from '../bishop/motion.mjs';
-import { smashAngle, SMASH, bendPoint } from '../court-motion.mjs';
+import { smashAngle, SMASH, bendPoint, BEAM, scanOffset, maesterLens } from '../court-motion.mjs';
 
 const continuous = (f, end, limit) => { for (let ms = 1; ms <= end; ms++) assert.ok(Math.abs(f(ms) - f(ms - 1)) < limit, `jump at ${ms} ms`); };
 
@@ -23,4 +23,13 @@ test('paladin smash lifts, chops and keeps hammer, gauntlets and pommel rigid', 
     const before = Math.hypot(held[i].x - held[0].x, held[i].y - held[0].y), after = Math.hypot(moved[i].x - moved[0].x, moved[i].y - moved[0].y);
     assert.ok(Math.abs(before - after) < .5, `point ${i} stretched by ${after - before}`);
   }
+});
+
+test('maester beam: phases in order, scan joins smoothly, lens registered alike in both armies', () => {
+  assert.ok(BEAM.on + BEAM.reach <= BEAM.scan[0] && BEAM.scan[1] <= BEAM.apart[0] && BEAM.off[1] <= BEAM.walk[0] && BEAM.walk[1] === BEAM.duration);
+  assert.equal(scanOffset(BEAM.scan[0]), 0); assert.equal(scanOffset(BEAM.scan[1]), 0);
+  continuous(scanOffset, BEAM.duration, .02);
+  const [ivory, charcoal] = [maesterLens(0), maesterLens(1)];
+  assert.ok(Math.hypot(ivory.x - charcoal.x, ivory.y - charcoal.y) < 4, 'both lenses at one sprite point');
+  assert.ok(ivory.x > 576, 'the lens is ahead of the feet, on the facing side');
 });

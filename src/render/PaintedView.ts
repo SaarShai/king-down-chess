@@ -10,7 +10,8 @@ export interface BoardView {
   onSquareHover: (sq: number | null) => void;
   onLoadError?: (error: unknown) => void;
   sync(pos: Position): void;
-  animateMove(pos: Position, m: Move): Promise<void>;
+  /** `onContact` fires when a capture or shove lands; it may fire more than once, or not at all. */
+  animateMove(pos: Position, m: Move, onContact?: () => void): Promise<void>;
   highlight(h: Highlights): void;
   flip(black: boolean): void;
   setLabels(on: boolean): void;
@@ -68,10 +69,10 @@ export class PaintedView implements BoardView {
     this.scene.setPosition(pos);
   }
 
-  async animateMove(pos: Position, m: Move): Promise<void> {
+  async animateMove(pos: Position, m: Move, onContact?: () => void): Promise<void> {
     if (this.pos !== pos) this.sync(pos);
     if (reducedMotion.matches) return;
-    await this.scene.play(m);
+    await this.scene.play(m, { onContact });
   }
 
   highlight(h: Highlights): void {

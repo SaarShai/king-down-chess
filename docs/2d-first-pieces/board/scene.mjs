@@ -42,7 +42,8 @@ for(const [type,name] of Object.entries(courtNames)){
  newMotions[type]={DURATION:court.figures[name].duration,actionAt:court.actionAt};
 }
  const FALLBACK={anchor:{x:576,y:1018},hit:{x:576,y:640},scale:.1};
- for(let type=1;type<16;type++)if(!specs[type])specs[type]=FALLBACK;
+ // Lab pieces without painted art: a token that slides in, no body motion.
+ for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
  let position={board:new Uint8Array(64)}, selected=null, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
  let frame=0, previousTime=0, ready=false, flipped=false, coords=true, labels=false, reducedMotion=false, decorate=null;
@@ -79,17 +80,33 @@ function sprite(value,angle=0,extension=0) {
  let canvas=staticPose?idle.get(key):work.get(type);
  if(canvas&&staticPose)return canvas;
  if(!canvas){canvas=document.createElement('canvas');canvas.width=1152;canvas.height=1152;(staticPose?idle:work).set(staticPose?key:type,canvas);}
- if(type===L&&angle)court.drawPaladinSwing(canvas,art[type],side,angle);else if(type===B&&angle)bishop.drawSlash(canvas,art[type],side,angle);else if(courtNames[type])court.drawCourt(canvas,art[type],courtNames[type],side,extension);else if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else if(type===N)knight.drawKnight(canvas,art[type],side,extension);else if(type===B)bishop.drawBishop(canvas,art[type],side,extension);else if(type===R&&angle)rook.drawRookPound(canvas,art[type],side,angle);else if(type===R)rook.drawRook(canvas,art[type],side,extension);else if(type===G)guard.drawGuard(canvas,art[type],side,extension);else pawn.drawPawn(canvas,art[type],side,angle,extension);
+ if(type===L&&angle)court.drawPaladinSwing(canvas,art[type],side,angle);else if(type===S&&angle)court.drawBeastBite(canvas,art[type],side,angle);else if(type===B&&angle)bishop.drawSlash(canvas,art[type],side,angle);else if(courtNames[type])court.drawCourt(canvas,art[type],courtNames[type],side,extension);else if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else if(type===N)knight.drawKnight(canvas,art[type],side,extension);else if(type===B)bishop.drawBishop(canvas,art[type],side,extension);else if(type===R&&angle)rook.drawRookPound(canvas,art[type],side,angle);else if(type===R)rook.drawRook(canvas,art[type],side,extension);else if(type===G)guard.drawGuard(canvas,art[type],side,extension);else pawn.drawPawn(canvas,art[type],side,angle,extension);
  return canvas;
 }
-const fxCanvas=document.createElement('canvas');fxCanvas.width=SIZE;fxCanvas.height=SIZE;
-// fx: {cut} splits along a slash; {frost, shatter} ices the figure then breaks it into wedges.
+// Covers the headroom too, so an effect never crops a back-rank figure's head.
+const fxCanvas=document.createElement('canvas');fxCanvas.width=SIZE;fxCanvas.height=SIZE+headroom;
+// fx: {cut} splits along a slash; {frost, shatter} ices the figure then breaks it into wedges;
+// {scan, apart} tints it with a moving scan line, then takes it apart in horizontal strips.
 function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
  if(opacity<=0)return;
- if(fx&&(fx.frost||fx.shatter)){
-  const c=fxCanvas.getContext('2d');c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,SIZE,SIZE);drawPiece(c,value,pose,1,extension);
-  if(fx.frost){c.globalCompositeOperation='source-atop';c.fillStyle=`rgba(196,230,255,${.72*fx.frost})`;c.fillRect(0,0,SIZE,SIZE);c.globalCompositeOperation='source-over';}
-  if(!fx.shatter){out.save();out.globalAlpha=opacity;out.drawImage(fxCanvas,0,0);out.restore();return;}
+ if(fx&&(fx.frost||fx.shatter||fx.scan||fx.apart)){
+  const c=fxCanvas.getContext('2d');c.setTransform(1,0,0,1,0,headroom);c.clearRect(0,-headroom,SIZE,SIZE+headroom);drawPiece(c,value,pose,1,extension);
+  c.globalCompositeOperation='source-atop';
+  if(fx.frost){c.fillStyle=`rgba(196,230,255,${.72*fx.frost})`;c.fillRect(0,-headroom,SIZE,SIZE+headroom);}
+  if(fx.scan){c.fillStyle=`rgba(64,224,208,${.42*fx.scan.tint})`;c.fillRect(0,-headroom,SIZE,SIZE+headroom);if(fx.scan.y!=null){c.fillStyle='rgba(228,255,250,.95)';c.fillRect(0,fx.scan.y-2.5,SIZE,5);}}
+  c.globalCompositeOperation='source-over';
+  const layer=()=>out.drawImage(fxCanvas,0,-headroom);
+  if(fx.apart){
+   // Strips come loose from the top down, sliding apart alternately and dropping.
+   const {top,bottom,t}=fx.apart,n=8,h=(bottom-top)/n;
+   for(let i=0;i<n;i++){
+    const u=clamp((t-i*.06)/.55,0,1),y0=i?top+i*h:-headroom,y1=i<n-1?top+(i+1)*h:SIZE;
+    out.save();out.globalAlpha=opacity*(1-u);out.translate((i%2?1:-1)*24*ease(u),30*u*u);
+    out.beginPath();out.rect(0,y0,SIZE,y1-y0);out.clip();layer();out.restore();
+   }
+   return;
+  }
+  if(!fx.shatter){out.save();out.globalAlpha=opacity;layer();out.restore();return;}
   const {point,t}=fx.shatter,k=ease(t),n=9;
   for(let i=0;i<n;i++){
    const a0=i/n*Math.PI*2+.3,a1=(i+1)/n*Math.PI*2+.3,mid=(a0+a1)/2,far=400;
@@ -97,7 +114,7 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
    out.translate(Math.cos(mid)*48*k,Math.sin(mid)*34*k+70*t*t);
    out.translate(point.x,point.y);out.rotate((i%2?1:-1)*.7*k);out.translate(-point.x,-point.y);
    out.beginPath();out.moveTo(point.x,point.y);out.lineTo(point.x+Math.cos(a0)*far,point.y+Math.sin(a0)*far);out.lineTo(point.x+Math.cos(a1)*far,point.y+Math.sin(a1)*far);out.closePath();out.clip();
-   out.drawImage(fxCanvas,0,0);out.restore();
+   layer();out.restore();
   }
   return;
  }
@@ -123,7 +140,9 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
 }
 function bolt(out,start,end,t,scale=1) {
  if(t<0||t>1)return;
- const p=mix(start,end,t),angle=Math.atan2(end.y-start.y,end.x-start.x);
+ const p=mix(start,end,t),tail=mix(start,end,Math.max(0,t-.35)),angle=Math.atan2(end.y-start.y,end.x-start.x);
+ // A pale trail keeps the small arrow visible on dark squares.
+ streak(out,[tail,mix(tail,p,.5),p],2.2*scale,'#fff8e6');
  out.save();out.translate(p.x,p.y);out.rotate(angle);out.lineWidth=2.4*scale;out.strokeStyle='#6e4e2d';out.beginPath();out.moveTo(-19*scale,0);out.lineTo(0,0);out.stroke();
  out.fillStyle='#a1a9a3';out.beginPath();out.moveTo(4*scale,0);out.lineTo(-5*scale,-3.5*scale);out.lineTo(-5*scale,3.5*scale);out.closePath();out.fill();out.restore();
 }
@@ -151,28 +170,31 @@ function smash(out,point,t) {
  for(let i=0;i<9;i++){const a=i*.698+.2,r=10+52*k;out.globalAlpha=.55*(1-t);out.beginPath();out.arc(point.x+Math.cos(a)*r,point.y+Math.sin(a)*r*.32-18*k,5+9*k,0,Math.PI*2);out.fill();}
  out.restore();
 }
-// Two rows of bone teeth snapping shut on the victim.
-function jaws(out,p,t) {
- if(t<0||t>1)return;
- const close=ease(Math.min(1,t/.35)),gap=3+30*(1-close),w=58,n=6;out.save();out.globalAlpha=t>.6?1-(t-.6)/.4:1;
- out.fillStyle='#f3ead3';out.strokeStyle='#3b3226';out.lineWidth=1.3;out.lineJoin='round';
- for(const dir of [-1,1])for(let i=0;i<n;i++){
-  const x0=p.x-w/2+i*w/n,x1=x0+w/n,xm=(x0+x1)/2,u=(xm-p.x)/(w/2),base=p.y+dir*(gap+10*u*u);
-  out.beginPath();out.moveTo(x0,base);out.lineTo(x1,base);out.lineTo(xm,base-dir*(17-5*u*u));out.closePath();out.fill();out.stroke();
- }
+// Turquoise scanning fan from the Maester's lens to a line across the victim.
+function scanBeam(out,lens,centre,width,alpha) {
+ if(alpha<=0)return;
+ const l={x:centre.x-width/2,y:centre.y},r={x:centre.x+width/2,y:centre.y};
+ out.save();out.globalAlpha=alpha;out.lineCap='round';
+ out.fillStyle='rgba(90,240,222,.22)';out.beginPath();out.moveTo(lens.x,lens.y);out.lineTo(l.x,l.y);out.lineTo(r.x,r.y);out.closePath();out.fill();
+ out.strokeStyle='rgba(150,255,238,.75)';out.lineWidth=1.4;out.beginPath();out.moveTo(l.x,l.y);out.lineTo(lens.x,lens.y);out.lineTo(r.x,r.y);out.stroke();
+ out.strokeStyle='rgba(235,255,252,.95)';out.lineWidth=2.2;out.beginPath();out.moveTo(l.x,l.y);out.lineTo(r.x,r.y);out.stroke();
  out.restore();
 }
-// Teeth shoot out of the Beast's mouth to the victim, snap shut, and retract.
-function teeth(out,mouth,target,ms,span) {
- if(ms<0||ms>span)return;
- const t=ms/span,reach=t<.35?ease(t/.35):t<.6?1:1-ease((t-.6)/.4),close=t<.35?0:ease(Math.min(1,(t-.35)/.1));
- const p=mix(mouth,target,reach),scale=.45+.55*reach,gap=(3+26*(1-close))*scale,w=54*scale,n=6;
- out.save();out.globalAlpha=t>.85?1-(t-.85)/.15:1;out.strokeStyle='#5a1c1c';out.lineWidth=3*scale;out.globalAlpha*=.8;
- out.beginPath();out.moveTo(mouth.x,mouth.y);out.lineTo(p.x,p.y);out.stroke();out.globalAlpha/=.8;
- out.fillStyle='#f3ead3';out.strokeStyle='#3b3226';out.lineWidth=1.3;out.lineJoin='round';
- for(const dir of [-1,1])for(let i=0;i<n;i++){
-  const x0=p.x-w/2+i*w/n,x1=x0+w/n,xm=(x0+x1)/2,u=(xm-p.x)/(w/2),base=p.y+dir*(gap+10*scale*u*u);
-  out.beginPath();out.moveTo(x0,base);out.lineTo(x1,base);out.lineTo(xm,base-dir*(17-5*u*u)*scale);out.closePath();out.fill();out.stroke();
+function lensGlow(out,lens,k) {
+ if(k<=0)return;
+ out.save();out.globalAlpha=k;out.fillStyle='rgba(120,245,230,.35)';out.beginPath();out.arc(lens.x,lens.y,4+5*k,0,Math.PI*2);out.fill();
+ out.fillStyle='rgba(225,255,250,.95)';out.beginPath();out.arc(lens.x,lens.y,2.5,0,Math.PI*2);out.fill();out.restore();
+}
+// Small brass and steel gears spilling out of a dismantled piece.
+function gears(out,point,t) {
+ if(t<0||t>1)return;
+ out.save();out.globalAlpha=1-t*t;out.lineWidth=1;out.strokeStyle='#4a3a1c';
+ for(let i=0;i<7;i++){
+  const a=-Math.PI/2+(i-3)*.42,v=60+14*(i%3),r=i%2?4.5:6.5;
+  out.save();out.translate(point.x+Math.cos(a)*v*t,point.y+Math.sin(a)*v*t+140*t*t);out.rotate((i%2?1:-1)*t*6);
+  out.fillStyle=i%3?'#b8913f':'#9aa3a0';out.beginPath();
+  for(let k=0;k<16;k++){const rr=k%2?r:r*1.35,aa=k/16*Math.PI*2;out.lineTo(Math.cos(aa)*rr,Math.sin(aa)*rr);}
+  out.closePath();out.fill();out.stroke();out.fillStyle='#3a2f1a';out.beginPath();out.arc(0,0,r*.35,0,Math.PI*2);out.fill();out.restore();
  }
  out.restore();
 }
@@ -250,13 +272,23 @@ function vortex(out,foot,phase,strength) {
    effects.push(()=>smash(ctx,a.victimFoot,chopped/420));
   }
   else if(a.type==='chain'){
-   // Stop beside each victim and bite; after the last bite step onto its square.
-   const bites=a.stops.length*CHAIN_STEP,last=a.stops.at(-1);
-   if(t<bites){
-    const step=Math.floor(t/CHAIN_STEP),local=t-step*CHAIN_STEP,start=step?a.stops[step-1]:a.from.foot,end=a.stops[step],victimFoot=foot(a.move.captures[step]);
-    actor.pose={...a.from,facing:Math.sign(victimFoot.x-end.x)||actor.pose.facing,foot:mix(start,end,ease(local/(CHAIN_STEP*.45)))};actor.extension=court.actionAt(clamp(local/CHAIN_STEP,0,1));
-   }else actor.pose={...a.from,facing:Math.sign(a.end.x-last.x)||actor.pose.facing,foot:mix(last,a.end,ease((t-bites)/200))};
-   a.move.captures.forEach((sq,i)=>{const v=poses.get(sq);if(!v)return;const bite=i*CHAIN_STEP+CHAIN_STEP*.45+CHAIN_STEP*.55*.45;v.opacity=1-clamp((t-bite)/160,0,1);const target=world(specs[typeOf(v.value)].hit,v.pose,typeOf(v.value)),stand={...a.from,foot:a.stops[i],facing:Math.sign(foot(sq).x-a.stops[i].x)||a.from.facing};const mouth=world(court.beastMouth(colorOf(a.value)),stand,S);effects.push(()=>teeth(ctx,mouth,target,t-(i*CHAIN_STEP+CHAIN_STEP*.45),CHAIN_STEP*.55));if(t>=bite){const k=ease((t-bite)/120);v.pose={...v.pose,sx:1-.18*k,sy:1-.12*k};}});
+   // Beast: lunge until the jaws meet the victim, clamp shut, shake, then step onto that square;
+   // a chain repeats from each captured square in turn, as the rules move him.
+   const n=a.move.captures.length,step=Math.min(n-1,Math.floor(t/CHAIN_STEP)),k=clamp((t-step*CHAIN_STEP)/CHAIN_STEP,0,1);
+   const sq=a.move.captures[step],start=step?foot(a.move.captures[step-1]):a.from.foot,land=foot(sq),v=poses.get(sq);
+   const facing=Math.sign(land.x-start.x)||(step?actor.pose.facing:a.from.facing);
+   const target=v?world(specs[typeOf(v.value)].hit,v.pose,typeOf(v.value)):land;
+   const mouth=world(court.beastMouth(colorOf(a.value)),{...a.from,facing,foot:start},S),near={x:target.x-facing*26,y:target.y-6},bite={x:start.x+near.x-mouth.x,y:start.y+near.y-mouth.y};
+   let at=bite,jaw=court.BEAST_CLOSED;
+   if(k<.3){at=mix(start,bite,ease(k/.3));jaw=.1*ease(k/.3);}
+   else if(k<.38)jaw=.1+(court.BEAST_CLOSED-.1)*ease((k-.3)/.08);
+   else if(k<.62)at={x:bite.x+Math.sin((k-.38)*90)*3,y:bite.y};
+   else{at=mix(bite,land,ease((k-.62)/.38));jaw=court.BEAST_CLOSED*(1-ease((k-.62)/.38));}
+   if(t>=n*CHAIN_STEP){at=land;jaw=0;}
+   actor.pose={...a.from,facing,foot:at,angle:jaw};
+   a.move.captures.forEach((c,i)=>{const w=poses.get(c);if(!w)return;const since=t-(i+.36)*CHAIN_STEP;if(since<0)return;
+    const e=clamp(since/180,0,1);w.pose={...w.pose,foot:{x:w.pose.foot.x+Math.sin(since*.09)*5*(1-e),y:w.pose.foot.y},sx:1-.25*e,sy:1-.2*e};w.opacity=1-clamp((since-60)/160,0,1);
+    const hit=world(specs[typeOf(w.value)].hit,poses.get(c).pose,typeOf(w.value));effects.push(()=>impact(ctx,hit,since/280,1.5));});
   }
   else if(a.type==='pound'){
    const P=rook.POUND,foot=t<P.approach?mix(a.from.foot,a.stop,ease(t/P.approach)):t<P.settle?a.stop:mix(a.stop,a.to.foot,ease((t-P.settle)/(P.duration-P.settle)));
@@ -288,6 +320,20 @@ function vortex(out,foot,phase,strength) {
     else if(spec.effect==='topple'){const k=ease(since/380);victim.pose={...victim.pose,rotation:1.45*k*a.away*victim.pose.facing,foot:{x:victim.pose.foot.x+a.away*12*k,y:victim.pose.foot.y}};victim.opacity=1-clamp((since-220)/300,0,1);effects.push(()=>impact(ctx,a.target,since/320,1.6));}
     else victim.fx={frost:clamp(since/160,0,1),shatter:since>200?{point:a.target,t:clamp((since-200)/420,0,1)}:null};
    }
+  }
+  else if(a.type==='beam'){
+   // Maester: scan the victim from his square, take it apart, then step in.
+   const s=court.BEAM,height=a.victimFoot.y-a.target.y,off=court.scanOffset(t),scanY=a.target.y+off*height*(off<0?1:.85);
+   actor.extension=court.actionAt(t/a.duration);
+   actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease((t-s.walk[0])/(s.walk[1]-s.walk[0])))};
+   const lens=world(court.maesterLens(colorOf(a.value),actor.extension),actor.pose,M),reach=ease((t-s.on)/s.reach),fade=1-clamp((t-s.off[0])/(s.off[1]-s.off[0]),0,1);
+   effects.push(()=>{lensGlow(ctx,lens,Math.min(ease(t/s.on),fade));if(t>=s.on)scanBeam(ctx,lens,mix(lens,{x:a.target.x,y:scanY},reach),62*reach,fade);});
+   if(victim&&t>=s.scan[0]){
+    const apart=(t-s.apart[0])/(s.apart[1]-s.apart[0]);
+    victim.fx={scan:{tint:clamp((t-s.scan[0])/200,0,1),y:t<s.scan[1]?scanY:null},apart:apart>=0?{top:a.victimFoot.y-height*2.3,bottom:a.victimFoot.y+12,t:clamp(apart,0,1)}:null};
+    if(apart>=1)victim.opacity=0;
+   }
+   effects.push(()=>gears(ctx,a.target,(t-s.apart[0])/700));
   }
   else if(a.type==='move')actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease(t/420))};
   else if(a.type==='swap'){
@@ -336,21 +382,26 @@ function vortex(out,foot,phase,strength) {
   }else{
    actor.pose={...a.pose,angle:a.pose.angle*ease(t/160)};
    if(t>180&&t<500)actor.pose.angle-=Math.sin(clamp((t-180)/320,0,1)*Math.PI)*1.8*Math.PI/180;
-   if(victim)victim.opacity=1-clamp((t-440)/180,0,1);
-   if(!a.closeup){shot={start:world(archer.muzzle(a.pose.angle,colorOf(a.value)),a.pose,A),end:a.target,t:(t-180)/260};hit={point:a.target,t:(t-440)/260};}
+   if(victim&&a.closeup)victim.opacity=1-clamp((t-440)/180,0,1);
+   else if(victim&&t>=440){
+    // Struck: the victim is knocked back and topples away from the Archer, then fades.
+    const k=ease((t-440)/380);victim.pose={...victim.pose,rotation:1.3*k*a.away*victim.pose.facing,foot:{x:victim.pose.foot.x+a.away*10*k,y:victim.pose.foot.y}};
+    victim.opacity=1-clamp((t-640)/320,0,1);
+   }
+   if(!a.closeup){shot={start:world(archer.muzzle(a.pose.angle,colorOf(a.value)),a.pose,A),end:a.target,t:(t-180)/260,scale:1.8};hit={point:a.target,t:(t-440)/300,scale:1.6};}
    else actor.pose={...a.from,angle:0};
   }
   if(a.closeup)drawEncounter(a,t);else if(closeup)closeup.panel.hidden=true;
-  const impactTime=a.type==='pound'?rook.SLAMS[1]:a.type==='spin'?SPIN.contact:a.type==='blow'?BLOW.strike:a.type==='chain'?CHAIN_STEP*.5:a.type==='slash'?bishop.CONTACT_MS:a.type==='hammer'?court.SMASH.chop[1]:a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?a.duration*knight.LANDING:a.type==='paladin'?a.duration*CHARGE_CONTACT:a.type==='advance'?a.duration*.5:440;
+  const impactTime=a.type==='pound'?rook.SLAMS[1]:a.type==='spin'?SPIN.contact:a.type==='blow'?BLOW.strike:a.type==='chain'?CHAIN_STEP*.36:a.type==='slash'?bishop.CONTACT_MS:a.type==='hammer'?court.SMASH.chop[1]:a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?a.duration*knight.LANDING:a.type==='paladin'?a.duration*CHARGE_CONTACT:a.type==='advance'?a.duration*.5:a.type==='beam'?court.BEAM.apart[0]:440;
   if(a.type==='knight'&&t>=a.duration*.35&&!a.airborne){a.airborne=true;onStatus('Airborne. Clearing the intervening pieces…');}
-  if(a.type!=='move'&&a.type!=='swap'&&t>=impactTime&&!a.contacted){a.contacted=true;onStatus(a.move.selfRemove?'The Paladin and his target are removed together.':a.type==='knight'||(a.type==='paladin'&&!victim)?'Landed. Settling into stance…':'Hit. Recovering…');}
+  if(a.type!=='move'&&a.type!=='swap'&&t>=impactTime&&!a.contacted){a.contacted=true;a.onContact?.();onStatus(a.move.selfRemove?'The Paladin and his target are removed together.':a.type==='beam'?'Measured. Taking it apart…':a.type==='knight'||(a.type==='paladin'&&!victim)?'Landed. Settling into stance…':'Hit. Recovering…');}
  }
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
  for(const [,unit] of ordered)drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,unit.fx);
  for(const effect of effects)effect();
- if(shot)bolt(ctx,shot.start,shot.end,shot.t);
- if(hit)impact(ctx,hit.point,hit.t);
+ if(shot)bolt(ctx,shot.start,shot.end,shot.t,shot.scale);
+ if(hit)impact(ctx,hit.point,hit.t,hit.scale);
  decorate?.(ctx,api,'over');
  ctx.restore();
 }
@@ -416,7 +467,7 @@ function drawEncounter(a,t) {
    base.approach={x:pose.foot.x+target.x-pose.facing*12-contact.x,y:pose.foot.y+target.y-contact.y};
   }else if(typeOf(value)===S){
    // Beast chain: bite each victim in order, finishing on the last one.
-   base.type='chain';base.stops=move.captures.reduce((list,sq)=>[...list,stopPoint(list.at(-1)??from.foot,foot(sq),54,sideFacing(value))],[]);base.end=foot(move.to);base.duration=move.captures.length*CHAIN_STEP+200;from.facing=pose.facing;
+   base.type='chain';base.duration=move.captures.length*CHAIN_STEP+120;from.facing=pose.facing;
   }else if(typeOf(value)===R){
    // Stand so the tower base lands just short of the victim's feet.
    const victimFoot=foot(victimSquare),away=Math.sign(victimFoot.x-from.foot.x)||sideFacing(value),stand={...pose,facing:away};
@@ -428,9 +479,11 @@ function drawEncounter(a,t) {
   }else if([K].includes(typeOf(value))){
    const name={[K]:'king'}[typeOf(value)],victimFoot=foot(victimSquare);
    Object.assign(base,{type:'blow',blow:name,duration:BLOW.duration,victimFoot,stop:stopPoint(from.foot,victimFoot,blows[name].gap,sideFacing(value)),away:Math.sign(victimFoot.x-from.foot.x)||sideFacing(value),shakeAt:name==='rook'?BLOW.strike:null});from.facing=pose.facing;
-  }else if(M===typeOf(value)||!ART[typeOf(value)]){base.type='advance';base.duration=newMotions[typeOf(value)].DURATION;from.facing=pose.facing;}else{base.type='archer';base.duration=820;base.closeup=pose.outside&&!!closeup;}
+  }else if(typeOf(value)===M){
+   Object.assign(base,{type:'beam',duration:court.BEAM.duration,victimFoot:foot(victimSquare)});from.facing=pose.facing;
+  }else if(!ART[typeOf(value)]){base.type='advance';base.duration=newMotions[typeOf(value)].DURATION;from.facing=pose.facing;}else{base.type='archer';base.duration=1000;base.closeup=pose.outside&&!!closeup;base.away=Math.sign(target.x-from.foot.x)||sideFacing(value);}
  }
- return {base,verb:base.type==='move'?'Moving…':base.type==='swap'?'Trading places…':base.type==='pound'?'Pounding the ground…':base.type==='spin'?'Spinning up a whirlwind…':base.type==='blow'?blows[base.blow].verb:base.type==='chain'?(move.captures.length>1?`Starting a ${move.captures.length}-bite chain…`:'Lunging to bite…'):base.type==='slash'?'Drawing the dagger…':base.type==='hammer'?(move.selfRemove?'Raising the hammer. This capture will remove both pieces…':'Raising the hammer…'):base.type==='paladin'?(move.selfRemove?'Charging. This capture will remove both pieces…':'Preparing the Paladin’s charge…'):base.type==='advance'?'Advancing to capture…':base.type==='knight'?'Preparing to leap…':base.type==='ogre'?'Bracing for contact…':base.closeup?'Taking aim · attack close-up.':'Taking aim…'};
+ return {base,verb:base.type==='move'?'Moving…':base.type==='swap'?'Trading places…':base.type==='pound'?'Pounding the ground…':base.type==='spin'?'Spinning up a whirlwind…':base.type==='blow'?blows[base.blow].verb:base.type==='chain'?(move.captures.length>1?`Starting a ${move.captures.length}-bite chain…`:'Lunging to bite…'):base.type==='slash'?'Drawing the dagger…':base.type==='hammer'?(move.selfRemove?'Raising the hammer. This capture will remove both pieces…':'Raising the hammer…'):base.type==='paladin'?(move.selfRemove?'Charging. This capture will remove both pieces…':'Preparing the Paladin’s charge…'):base.type==='advance'?'Advancing to capture…':base.type==='beam'?'Sighting through the goggles…':base.type==='knight'?'Preparing to leap…':base.type==='ogre'?'Bracing for contact…':base.closeup?'Taking aim · attack close-up.':'Taking aim…'};
  }
  const api={
   SIZE,PAD,TILE,headroom,
@@ -451,10 +504,10 @@ function drawEncounter(a,t) {
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
-  play(move,{speed=1}={}){
+  play(move,{speed=1,onContact=null}={}){
    if(animation&&!animation.done)animation.resolve(false);
    const {base,verb}=plan(move,speed);
-   return new Promise(resolve=>{animation={...base,resolve};onStatus(verb);wake();});
+   return new Promise(resolve=>{animation={...base,resolve,onContact};onStatus(verb);wake();});
   },
   cancel(){if(animation&&!animation.done)animation.resolve(false);animation=null;if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();},
  };

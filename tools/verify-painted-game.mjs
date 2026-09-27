@@ -28,7 +28,7 @@ try {
   await page.evaluate(() => localStorage.removeItem('kingdown.save'));
   await page.goto(url.href);
   await page.waitForFunction(() => document.getElementById('board').classList.contains('painted') && document.querySelector('#board canvas'));
-  await page.click('#new-random');
+  await page.click('#new-game-btn'); await page.click('#new-random');
   await setSides(page, 'ai', 'ai');
   let last = -1, stalls = 0;
   for (let i = 0; i < 90; i++) {
@@ -45,7 +45,7 @@ try {
 
   // 1b. Human mouse input: drag a pawn two squares, then click-click a knight or any legal move.
   await setSides(page, 'human', 'ai');
-  await page.click('#new-random');
+  await page.click('#new-game-btn'); await page.click('#new-random');
   await page.waitForTimeout(300);
   const at = sq => page.evaluate(sq => window.view.screenOf(sq), sq);
   const e2 = await at(12), e4 = await at(28);
@@ -60,13 +60,24 @@ try {
 
   // 2. Human as Black: the board turns round, and Undo during the computer's animation is clean.
   await setSides(page, 'ai', 'human');
-  await page.click('#new-random');
+  await page.click('#new-game-btn'); await page.click('#new-random');
   await page.waitForFunction(() => document.querySelectorAll('#moves li').length > 0, null, { timeout: 15000 });
   const a8 = await page.evaluate(() => window.view.screenOf(56)), a1 = await page.evaluate(() => window.view.screenOf(0));
   assert.ok(a8.y > a1.y, 'Black at the bottom when the human plays Black');
   await page.click('#undo');
   await page.waitForTimeout(300);
   console.log('ok flipped board, undo during play');
+
+  // 2b. The Maester's goggle beam and a lab piece (a token) capture and finish without errors.
+  for (const [fen, from, to, move] of [['7k/8/8/2p5/2M5/8/8/4K3 w - - 0 1', 26, 34, 'Mc4xc5'], ['7k/8/4p3/8/4p3/8/4C3/K7 w - - 0 1', 12, 44, 'Ce2*e6']]) {
+    const u = new URL(url); u.searchParams.set('fen', fen);
+    await page.goto(u.href);
+    await page.waitForFunction(sq => window.view?.pos?.board[sq] > 0, to); // the FEN position has loaded
+    for (const sq of [from, to]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
+    await page.waitForFunction(m => document.getElementById('moves').textContent.includes(m), move, { timeout: 5000 });
+    await page.waitForFunction(() => !window.view.scene.animating, null, { timeout: 5000 });
+  }
+  console.log('ok Maester beam and Catapult token captures');
 
   // 3. Phone width: the board fits without horizontal scrolling.
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });

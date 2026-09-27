@@ -326,11 +326,14 @@ function refresh(): void {
     for (const c of h.move.captures) taken[mover].push(h.pos.board[c]);
     if (h.move.selfRemove) taken[1 - mover].push(h.pos.board[h.move.from]);
   }
-  const letters = (codes: number[]): string => codes
-    .map(p => `<span title="${colorOf(p) ? 'black' : 'white'} ${NAMES[typeOf(p)]}">${colorOf(p) ? LETTERS[typeOf(p)].toLowerCase() : LETTERS[typeOf(p)]}</span>`)
-    .join('');
-  $('took-w').innerHTML = letters(taken[0]);
-  $('took-b').innerHTML = letters(taken[1]);
+  // Grouped names ("pawn ×2, beast"): letters alone mean little for the King Down pieces.
+  const names = (codes: number[]): string => {
+    const count = new Map<PieceType, number>();
+    for (const p of codes) count.set(typeOf(p), (count.get(typeOf(p)) ?? 0) + 1);
+    return [...count].sort(([a], [b]) => a - b).map(([t, n]) => `<span>${NAMES[t]}${n > 1 ? ` ×${n}` : ''}</span>`).join(', ');
+  };
+  $('took-w').innerHTML = names(taken[0]);
+  $('took-b').innerHTML = names(taken[1]);
   showInfo(selected ?? hovered);
   $<HTMLButtonElement>('undo').disabled = game.history.length === 0;
   $<HTMLButtonElement>('resign').disabled = finished();
@@ -347,19 +350,23 @@ async function commit(m: Move): Promise<void> {
   const line = momentText(pre, m, seenMoments);
   if (line) { said = line; $('moment').textContent = line; }
   const kind = momentKind(pre, m);
-  if (kind === 'shove' || kind === 'shoveGuard') snd.shove();
-  else if (kind === 'shot' || kind === 'deathTouch' || kind === 'strikeCapture' || kind === 'lob' || kind === 'strike') snd.shot();
-  else if (kind === 'chain' || kind === 'reaver') snd.chain();
+  // Launch sounds play now; the hit sounds when the board shows the contact.
+  const hit = kind === 'shove' || kind === 'shoveGuard' ? snd.shove
+    : kind === 'chain' || kind === 'reaver' ? snd.chain
+    : m.captures.length || m.selfRemove ? snd.capture : null;
+  if (kind === 'shot' || kind === 'deathTouch' || kind === 'strikeCapture' || kind === 'lob' || kind === 'strike') snd.shot();
   else if (kind === 'swap' || kind === 'swapKing') snd.swap();
-  else if (m.captures.length || m.selfRemove) snd.capture();
-  else snd.move();
+  else if (!hit) snd.move();
   if (game.inCheck) snd.check();
   selected = null; pending = [];
   refresh();
-  await view.animateMove(pre, m);
+  let struck = false;
+  const strike = (): void => { if (!struck && g === gen) { struck = true; hit?.(); } };
+  await view.animateMove(pre, m, strike);
   // New game / Undo / Resign landed inside the animation: that game is gone. Returning here is what
   // keeps a second maybeAi() loop from starting and replaying this move onto the new position.
   if (g !== gen) return;
+  strike(); // no animation (reduced motion) or no contact reported: sound the hit now
   view.sync(game.pos);
   busy = false;
   refresh();
@@ -389,13 +396,13 @@ async function maybeAi(): Promise<void> {
   if (move) await commit(move);
 }
 
-/** Resolves with the chosen move, or null when reset() closed the picker. */
+/** A modal beside the board, so a phone player sees it. Resolves with the choice, or null on Cancel/Escape or reset(). */
 function pickPromotion(options: Move[]): Promise<Move | null> {
-  const box = $('promo');
+  const dlg = $<HTMLDialogElement>('promo'), box = $('promo-choices');
+  $('promo-title').textContent = `Promote the pawn on ${sqName(options[0].to)}`;
   box.innerHTML = '';
-  box.hidden = false;
   return new Promise(resolve => {
-    const done = (m: Move | null): void => { box.hidden = true; closePromo = null; resolve(m); };
+    const done = (m: Move | null): void => { closePromo = null; dlg.close(); resolve(m); };
     closePromo = () => done(null);
     for (const m of options) {
       const b = document.createElement('button');
@@ -403,6 +410,9 @@ function pickPromotion(options: Move[]): Promise<Move | null> {
       b.onclick = () => done(m);
       box.appendChild(b);
     }
+    $('cancel-promo').onclick = () => done(null);
+    dlg.oncancel = e => { e.preventDefault(); done(null); };
+    dlg.showModal();
   });
 }
 
@@ -414,12 +424,14 @@ async function choose(moves: Move[]): Promise<void> {
     : undefined;
   if (queen) return commit(queen);
   if (moves.length === 1 || !moves.every(m => m.promo)) return commit(moves[0]);
+  const generation = gen;
   busy = true; // the picker is modal: without this the board stays live and a second move slips in
   refresh();
   const m = await pickPromotion(moves);
-  if (!m) return; // reset() closed it; reset() also cleared busy
+  if (generation !== gen) return; // reset() closed it and cleared busy
   busy = false;
-  return commit(m);
+  if (m) return commit(m);
+  selected = null; pending = []; refresh(); // cancelled: the pawn stays, nothing selected
 }
 
 /** Only genuinely ambiguous targets need a choice; native dialog supplies focus and touch access. */
@@ -535,6 +547,7 @@ function reset(): void {
 const orient = (): void => view.flip(sides[0] === 'ai' && sides[1] === 'human');
 
 function newGame(backRank?: string, fen?: string | null, rematch = false): void {
+  $<HTMLDialogElement>('new-game').close(); // every army choice in the dialog starts here
   reset();
   if (!rematch) setRules({ ...preset, ...(kings ? { kings: parseKings(kings) } : {}) });
   resigned = null;
@@ -664,6 +677,8 @@ function readSave(): Save | null {
   } catch { return null; }
 }
 
+$('new-game-btn').onclick = () => $<HTMLDialogElement>('new-game').showModal();
+$('settings-btn').onclick = () => $<HTMLDialogElement>('settings').showModal();
 $('rules-btn').onclick = () => {
   fillPieceGuide();
   $<HTMLDialogElement>('rules').showModal();
@@ -708,7 +723,8 @@ coords.onchange = () => { view.setCoords(coords.checked); save(); };
 $('reset-view').onclick = () => view.resetView();
 addEventListener('keydown', e => {
   if (e.key === 'Escape') { selected = null; pending = []; refresh(); return; }
-  if ((e.target as HTMLElement).closest('input,select,textarea')) return;
+  // Menus swallow shortcuts; an open move choice does not (Z there undoes, and that is tested).
+  if ((e.target as HTMLElement).closest('input,select,textarea') || document.querySelector('#new-game[open], #settings[open]')) return;
   if (e.key === 'r') view.resetView();
   if (e.key === 'z') undo();
 });

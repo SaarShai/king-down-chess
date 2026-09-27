@@ -70,5 +70,26 @@ export function drawPaladinSwing(canvas,image,side,angle){
  }
  ctx.restore();
 }
+// Maester goggle beam: the lens lights, a scanning fan reaches the victim and sweeps it up and down,
+// the victim comes apart in strips, then the Maester steps onto the square.
+export const BEAM={duration:1500,on:280,reach:160,scan:[440,840],apart:[840,1300],off:[840,1000],walk:[1100,1500]};
+// -1..1 sweep of the scan line about the victim's middle; 0 outside the scan, so it joins smoothly.
+export function scanOffset(ms){const [a,b]=BEAM.scan;return ms<=a||ms>=b?0:Math.sin((ms-a)/(b-a)*Math.PI*2);}
+// Front (round) lens of the goggles in each army's art cell.
+const MAESTER_LENS=[{x:222,y:288},{x:120,y:288}];
+export function maesterLens(side,amount=0){return registeredPoint('maester',side,MAESTER_LENS[side],amount);}
+// Beast bite: the lower jaw (steel plate and teeth) is cut from the art and turns about the mouth corner.
+// Negative angles close the mouth. A darkened copy of the jaw stays behind as throat shadow in the gap.
+const BEAST_JAW=[[480,397],[517,402],[522,445],[565,462],[610,480],[680,515],[682,535],[650,575],[615,604],[550,575],[480,530],[462,500],[464,450]];
+export const BEAST_HINGE={x:474,y:412}, BEAST_CLOSED=-0.3;
+export function drawBeastBite(canvas,image,side,angle){
+ const ctx=canvas.getContext('2d'),[x,y]=figures.beast.origins[side],cell=[side*768,0,768,1024];
+ const jaw=()=>{ctx.beginPath();BEAST_JAW.forEach(([px,py],i)=>i?ctx.lineTo(px,py):ctx.moveTo(px,py));ctx.closePath();};
+ ctx.clearRect(0,0,canvas.width,canvas.height);ctx.save();ctx.translate(x,y);
+ ctx.save();jaw();ctx.rect(768,0,-768,1024);ctx.clip('evenodd');ctx.drawImage(image,...cell,0,0,768,1024);ctx.restore();
+ ctx.save();jaw();ctx.clip();ctx.filter='brightness(.28) saturate(.6)';ctx.drawImage(image,...cell,0,0,768,1024);ctx.restore();
+ ctx.save();ctx.translate(BEAST_HINGE.x,BEAST_HINGE.y);ctx.rotate(angle);ctx.translate(-BEAST_HINGE.x,-BEAST_HINGE.y);jaw();ctx.clip();ctx.drawImage(image,...cell,0,0,768,1024);ctx.restore();
+ ctx.restore();
+}
 // Centre of the Beast's open mouth in sprite-canvas coordinates.
 export function beastMouth(side){const [x,y]=figures.beast.origins[side];return {x:x+[600,597][side],y:y+430};}
