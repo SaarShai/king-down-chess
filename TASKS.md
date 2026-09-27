@@ -1,5 +1,10 @@
 # Tasks
 
+## Branch consolidation — 2026-09-26
+- Owner: resolve, merge and clean the branches and worktrees.
+- [x] `main` fast-forwarded to the combined line (clay game, Cursor adoption, painted 2D trial, `takeover` research). Main checkout switched to `main`; seven Codex worktrees and nine branches removed. Preserved first as tags: `archive/takeover-donor-worktree` (the 901 uncommitted Cursor donor files; also in the private recovery archive), `archive/clay-study`, `archive/painted-bishop|guard|rook` (superseded study branches). `/Users/za/Documents/king-down-sim` left untouched (17 uncommitted sim files).
+- [x] `npm test` now runs 267 vitest + 23 node tests (vitest scoped to `src/`); production build passes; 2D strike checks and 26 playable special-move browser scenarios pass from `main`. Previews: launch configs `playable` (5189) and `painted-2d` (5192).
+
 ## Bishop slash and Paladin hammer captures — 2026-09-26
 - Owner: add a knife-slice capture for the Bishop and a hammer capture for the Paladin. Continue from the Codex 2D session: merge `takeover` into `codex/2d-first-pieces` (done, `b73deb9`).
 - [x] Bishop dagger arm cut from the painting and swung about the shoulder; slash streak, cut flash and split victim. Paladin hip/knee bend with rigid hammer, streak, board shake, squash, ground ring, cracks and dust. Both armies, Pawn survival and both-removed outcomes, mid-strike Undo verified in headless Chrome; 23 node tests pass. [Details and frame sheets](docs/2d-first-pieces/board/README.md#bishop-dagger-slash-and-paladin-hammer-smash--2026-09-26). Owner review pending.
