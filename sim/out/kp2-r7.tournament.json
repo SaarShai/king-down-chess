@@ -1,0 +1,37 @@
+{
+  "id": "kp2-r7",
+  "entrants": [
+    "Freeze",
+    "IceWall",
+    "Strike",
+    "Haste",
+    "Flight",
+    "Sacrifice",
+    "March",
+    "Leap",
+    "HolyLight",
+    "Mercy",
+    "DeathTouch",
+    "Darkness",
+    "none"
+  ],
+  "pairs": 24,
+  "depth": 3,
+  "seed": 707,
+  "rules": {
+    "markFree": true,
+    "freezeUses": 1,
+    "hasteCaptures": false,
+    "strikeCaptures": false,
+    "strikePawns": false,
+    "mercyAura": true,
+    "marchUses": 0,
+    "holyLightTakesPawns": true,
+    "holyLightShelter": true,
+    "holyLightShelterOrtho": true,
+    "darknessMoves": true
+  },
+  "mirror": false,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

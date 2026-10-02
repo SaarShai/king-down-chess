@@ -39,7 +39,7 @@ it('search respects prior positions even when the halfmove clock is zero', () =>
 });
 
 it('includes spent Strike state in the search repetition key', () => {
-  const pos = { ...fromFen(CYCLE), strike: [true, false] as [boolean, boolean] };
+  const pos = { ...fromFen(CYCLE), used: [1, 0] as [number, number] };
   const history = legalMoves(pos).map(m => positionKey(makeMove(pos, m)));
   resetSearchState();
   expect(search(pos, { maxDepth: 1, history }).score === 0).toBe(true);

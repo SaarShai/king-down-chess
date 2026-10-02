@@ -52,7 +52,7 @@ describe('terminal rules agree in the game and search', () => {
     setRules({ kings: parseKings('flame:strike') });
     expect(status(minor)).toBe('playing');
     expect(search(minor, { maxDepth: 1 }).move).not.toBeNull();
-    const spent = { ...minor, strike: [true, true] as [boolean, boolean] };
+    const spent = { ...minor, used: [1, 1] as [number, number] };
     expect(status(spent)).toBe('drawMaterial');
     expect(search(spent, { maxDepth: 1 }).move).toBeNull();
     setRules({ fiftyMove: false });

@@ -5,9 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#2b2621" />
     <title>King Down Chess</title>
+    <meta name="description" content="A chess variant with archers, guards, maesters, beasts, ogres and paladins." />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232b2621'/%3E%3Cpath d='M6 12l5 5 5-8 5 8 5-5-2 13H8z' fill='%23d9a441' stroke='%23f3ead7' stroke-width='1.5' stroke-linejoin='round' transform='rotate(-14 16 16)'/%3E%3C/svg%3E" />
     <link rel="preload" href="./fonts/cinzel-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="./fonts/alegreya-sans-regular-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   </head>
   <body>
     <!-- Icons (24 px, stroked in currentColor). Buttons show them beside their labels; the label is the accessible name. -->
@@ -52,6 +55,13 @@
         <button id="undo" title="Take back the last move (Z)"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
         <button id="resign" title="Resign the game"><svg class="icon" aria-hidden="true"><use href="#i-resign"/></svg><span class="label">Resign</span></button>
       </div>
+      <div id="powers" hidden>
+        <div class="btns">
+          <button id="power-btn" type="button" title="Spend your king's power on your next move"></button>
+          <button id="end-haste" type="button" hidden title="End the turn without the Haste piece's second move">End turn</button>
+        </div>
+        <div id="power-status" role="status" aria-live="polite"></div>
+      </div>
       <button id="share" hidden title="A link that holds this game, for a friend to open and answer"><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg><span class="label">Send the game link</span></button>
       <section class="sheet" aria-label="Moves and captured pieces">
         <ol id="moves" aria-label="Moves. Each move opens the board after it."></ol>
@@ -95,6 +105,12 @@
           <option value="club" selected>Club</option>
           <option value="strong">Strong</option>
         </select></label>
+      </fieldset>
+      <fieldset class="fields group" id="kings-powers">
+        <legend>Kings' powers</legend>
+        <label>White's king <select id="power-white"><option value="none">No power</option></select></label>
+        <label>Black's king <select id="power-black"><option value="none">No power</option></select></label>
+        <small id="powers-note">Each king may bring one power from the King Down rulebook. The Guide explains them.</small>
       </fieldset>
       <h3>Choose an army to start</h3>
       <div class="fields armies" id="armies">
@@ -159,13 +175,10 @@
       <div id="rules-rows" class="piece-cards"></div>
       <p id="rules-letters"></p>
       <p id="rules-notation"></p>
-      <p class="lab-note"><b>Kings' powers are a lab. They are off in a normal game.</b> <code>?kings=mud:march</code> gives both sides a
-        power; <code>?kings=mud:march,shadow:darkness</code> names White and Black apart. Six are built:
-        <b>Holy Light</b> (enemy pawns cannot take this king, and it cannot take pawns), <b>Mercy</b>
-        (the king steps 1–2 and jumps friends, but takes only a guard), <b>Death Touch</b> (the king
-        takes an adjacent enemy without moving — it can only take this way), <b>Darkness</b> (pawns step diagonally and take
-        straight ahead, no double step), <b>March</b> (pawns step two squares from any rank) and
-        <b>Leap</b> (rooks, bishops and the queen pass over their own pawns).</p>
+      <h3>Kings' powers</h3>
+      <p id="powers-guide">In <b>New game</b>, each king may bring one power. Spend a power with the
+        <b>Use</b> button under the board: it lights the pieces or squares the power can reach.</p>
+      <ul id="powers-list"></ul>
       <form method="dialog"><button>Close</button></form>
     </dialog>
     <dialog id="over" aria-labelledby="over-title" aria-describedby="over-detail">

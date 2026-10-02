@@ -68,3 +68,26 @@ export function hashBoard(board: Uint8Array, turn: Color, out: Int32Array): void
   out[0] = lo;
   out[1] = hi;
 }
+
+/*
+ * King powers (2026-10-02), appended after every earlier draw so no historic key moves:
+ * a Freeze/Ice Wall mark per marking side and square (2 × 64), a pending Haste square (64), uses
+ * spent per side (2 × 8, index 0 unused), the Sacrifice reserve per side and type at counts 1…3
+ * (2 × 16 × 4; index 0 of each count group unused, a count of 3 or more shares the last key), the
+ * turns a mark still covers when more than one (index 2…3), and a pending free-mark move.
+ */
+const draw = (n: number): [Int32Array, Int32Array] => {
+  const lo = new Int32Array(n), hi = new Int32Array(n);
+  for (let i = 0; i < n; i++) { lo[i] = next() | 0; hi[i] = next() & 0xfffff; }
+  return [lo, hi];
+};
+export const [Z_MARK_LO, Z_MARK_HI] = draw(2 * 64);
+export const [Z_HASTE_LO, Z_HASTE_HI] = draw(64);
+export const [Z_USED_LO, Z_USED_HI] = draw(2 * 8);
+export const [Z_LOST_LO, Z_LOST_HI] = draw(2 * 16 * 4);
+export const [Z_LEFT_LO, Z_LEFT_HI] = draw(4);
+export const [Z_FREE_LO, Z_FREE_HI] = draw(1);
+/** Slot of "side `c` has spent `u` uses" (u ≥ 1, capped at 7). */
+export const usedIndex = (c: number, u: number): number => c * 8 + Math.min(u, 7);
+/** Slot of "reserve index `i` (= colour * 16 + type) holds `n` pieces" (n ≥ 1, capped at 3). */
+export const lostIndex = (i: number, n: number): number => i * 4 + Math.min(n, 3);

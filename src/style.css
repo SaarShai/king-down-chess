@@ -366,7 +366,8 @@ dialog small { color: var(--ink-soft); }
 .piece-card dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 10px; margin: 0; font-size: var(--fs-sm); line-height: 1.4; }
 .piece-card dt { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-ink); padding-top: 1px; }
 .piece-card dd { margin: 0; }
-.lab-note { font-size: var(--fs-sm); color: var(--ink-soft); }
+#powers-guide { font-size: var(--fs-sm); color: var(--ink-soft); }
+#powers-list { margin: 0; padding-left: 1.2em; font-size: var(--fs-sm); line-height: var(--lh); }
 
 /* ---- title screen ---- */
 #title-screen {
@@ -484,3 +485,8 @@ dialog small { color: var(--ink-soft); }
 /* Desktop: keep the board below the floating title card. */
 @media (min-width: 721px) { #board.painted { padding: 64px 16px 8px; box-sizing: border-box; } }
 #board.painted canvas { image-rendering: auto; touch-action: none; width: auto; height: auto; }
+
+/* Kings' powers: the bar under the play row; an armed power is outlined until it is spent or cancelled. */
+#powers { margin-top: var(--space-2); }
+#power-status { margin-top: var(--space-1); font-size: var(--fs-sm); line-height: var(--lh); color: var(--ink); }
+#power-btn.armed { outline: 3px solid var(--accent); outline-offset: 2px; } /* burgundy: 3:1 or more on parchment, unlike gold */

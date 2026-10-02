@@ -1,0 +1,25 @@
+{
+  "id": "kp2-base-d3",
+  "entrants": [
+    "Freeze",
+    "IceWall",
+    "Strike",
+    "Haste",
+    "Flight",
+    "Sacrifice",
+    "March",
+    "Leap",
+    "HolyLight",
+    "Mercy",
+    "DeathTouch",
+    "Darkness",
+    "none"
+  ],
+  "pairs": 8,
+  "depth": 3,
+  "seed": 202,
+  "rules": {},
+  "mirror": false,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

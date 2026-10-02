@@ -4,8 +4,9 @@ import { createHash } from 'node:crypto';
 import { resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { availableParallelism } from 'node:os';
-import { Worker } from 'node:worker_threads';
+import type { Worker } from 'node:worker_threads';
 import { GameRecord } from './game';
+import { tsWorker } from './ts-worker';
 import { DEFAULT_RULES, Rules, ruleDiff, setRules } from '../rules/rules';
 import { POOL } from '../rules/setup';
 import { Job, OUT_DIR, RunSpec, buildJobs, loadSpec, parseFlags, paths, usePairs } from './spec';
@@ -182,22 +183,30 @@ export async function run(spec: RunSpec, nWorkers: number): Promise<void> {
     process.stdout.write(process.stdout.isTTY ? `\r${line}   ` : `${line}\n`);
   }, 2000);
 
-  await new Promise<void>((resolve, reject) => {
-    const workers = Array.from({ length: Math.max(1, Math.min(nWorkers, jobs.length)) }, () => {
-      const w = new Worker(new URL('./worker.ts', import.meta.url), { workerData: spec });
-      w.on('message', (rec: GameRecord) => {
-        out.write(JSON.stringify({ ...rec, ...stamp }) + '\n');
-        finished++;
-        if (next < jobs.length) w.postMessage(jobs[next++]);
-        else { w.terminate(); if (finished === jobs.length) resolve(); }
-      });
-      w.on('error', reject);
-      return w;
+  // A worker that dies (a failed import, a thrown game) must end the run: before 2026-10-02 the
+  // rejection left `tick` running, so the process printed "0/2 0.0 games/s" forever.
+  const workers: Worker[] = [];
+  const retired = new Set<Worker>(); // terminated on purpose: their exit code means nothing
+  try {
+    await new Promise<void>((resolve, reject) => {
+      for (let i = 0; i < Math.max(1, Math.min(nWorkers, jobs.length)); i++) {
+        const w = tsWorker(new URL('./worker.ts', import.meta.url), { workerData: spec });
+        w.on('message', (rec: GameRecord) => {
+          out.write(JSON.stringify({ ...rec, ...stamp }) + '\n');
+          finished++;
+          if (next < jobs.length) w.postMessage(jobs[next++]);
+          else { retired.add(w); void w.terminate(); if (finished === jobs.length) resolve(); }
+        });
+        w.on('error', reject);
+        w.on('exit', code => { if (!retired.has(w)) reject(new Error(`[${spec.id}] a worker exited (code ${code}) with ${jobs.length - finished} games unplayed`)); });
+        workers.push(w);
+      }
+      for (const w of workers) if (next < jobs.length) w.postMessage(jobs[next++]);
     });
-    for (const w of workers) if (next < jobs.length) w.postMessage(jobs[next++]);
-  });
-
-  clearInterval(tick);
+  } finally {
+    clearInterval(tick);
+    for (const w of workers) void w.terminate();
+  }
   await new Promise<void>(res => out.end(res)); // flush before writeSummary reads the file back
   const secs = (Date.now() - t0) / 1000;
   process.stdout.write(`${process.stdout.isTTY ? '\r' : ''}[${spec.id}] ${finished} games in ${hms(secs)} (${(finished / secs).toFixed(1)} games/s)\n`);

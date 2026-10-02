@@ -1,0 +1,170 @@
+[
+ {
+  "piece": "king",
+  "side": "ivory",
+  "move": "d4-e4",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "king",
+  "side": "charcoal",
+  "move": "e5-d5",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "guard",
+  "side": "ivory",
+  "move": "d4-e4",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "guard",
+  "side": "charcoal",
+  "move": "e5-d5",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "maester",
+  "side": "ivory",
+  "move": "d4-e4",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "maester",
+  "side": "charcoal",
+  "move": "e5-d5",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "ogre",
+  "side": "ivory",
+  "move": "d4-e4",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "ogre",
+  "side": "charcoal",
+  "move": "e5-d5",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "beast",
+  "side": "ivory",
+  "move": "d4-e5",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "beast",
+  "side": "charcoal",
+  "move": "e5-d4",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "archer",
+  "side": "ivory",
+  "move": "d4-e4",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "archer",
+  "side": "charcoal",
+  "move": "e5-d5",
+  "gait": "walk",
+  "ms": 440
+ },
+ {
+  "piece": "rook",
+  "side": "ivory",
+  "move": "b4-e4",
+  "gait": "glide",
+  "ms": 434
+ },
+ {
+  "piece": "rook",
+  "side": "charcoal",
+  "move": "g5-d5",
+  "gait": "glide",
+  "ms": 434
+ },
+ {
+  "piece": "bishop",
+  "side": "ivory",
+  "move": "c3-f6",
+  "gait": "glide",
+  "ms": 434
+ },
+ {
+  "piece": "bishop",
+  "side": "charcoal",
+  "move": "f6-c3",
+  "gait": "glide",
+  "ms": 434
+ },
+ {
+  "piece": "queen",
+  "side": "ivory",
+  "move": "c4-f4",
+  "gait": "glide",
+  "ms": 434
+ },
+ {
+  "piece": "queen",
+  "side": "charcoal",
+  "move": "f5-c5",
+  "gait": "glide",
+  "ms": 434
+ },
+ {
+  "piece": "pawn",
+  "side": "ivory",
+  "move": "d2-d4",
+  "gait": "hop",
+  "ms": 420
+ },
+ {
+  "piece": "pawn",
+  "side": "charcoal",
+  "move": "e7-e6",
+  "gait": "hop",
+  "ms": 420
+ },
+ {
+  "piece": "knight",
+  "side": "ivory",
+  "move": "c3-e4",
+  "gait": "leap (unchanged)",
+  "ms": null
+ },
+ {
+  "piece": "knight",
+  "side": "charcoal",
+  "move": "f6-d5",
+  "gait": "leap (unchanged)",
+  "ms": null
+ },
+ {
+  "piece": "paladin",
+  "side": "ivory",
+  "move": "c3-f3",
+  "gait": "charge (unchanged)",
+  "ms": null
+ },
+ {
+  "piece": "paladin",
+  "side": "charcoal",
+  "move": "f6-c6",
+  "gait": "charge (unchanged)",
+  "ms": null
+ }
+]

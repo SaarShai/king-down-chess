@@ -60,6 +60,8 @@ export type CatapultCapture = 'stay' | 'land';
  * victim without moving. Both spend the side's one use.
  */
 export type StrikeMode = 'move' | 'capture';
+/** Haste's second move: anything (`any`) or a move that captures nothing (`quiet`). */
+export type HasteSecond = 'any' | 'quiet';
 
 // -----------------------------------------------------------------------------------------------
 // Kings' powers (docs/RULES.md §4, docs/KINGS-POWERS-PLAN.md). Each army has a king; the player
@@ -83,20 +85,25 @@ export const KINGS: Readonly<Record<KingName, readonly [PowerName, PowerName]>> 
   Shadow: ['DeathTouch', 'Darkness'],
 });
 
-/**
- * The six powers the engine actually plays: the stateless rule modifiers of the plan's tier 1.
- * The other six need per-side state on `Position` (tier 2) or a captured-pieces reserve (tier 3),
- * and `parseKing` **refuses** them rather than hand the lab a game whose power does nothing — a
- * power used in no game measures nothing (plan §3.4).
- */
+/** The stateless powers: pure rule modifiers of the board plus this field, always on. */
 export const TIER1: readonly PowerName[] = ['HolyLight', 'Mercy', 'DeathTouch', 'Darkness', 'March', 'Leap'];
 
+/** Every power the engine plays — all twelve since 2026-10-02 (docs/RULES.md §4). */
+export const BUILT: readonly PowerName[] = [
+  'Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'HolyLight', 'Mercy', 'DeathTouch', 'Darkness',
+];
+
 /**
- * Everything `parseKing` accepts: tier 1 plus the tier-2 powers that carry their own game state —
- * today only **Strike** (Flame A), whose per-side one-use flag lives on `Position.strike`. The
- * remaining five still need marks, charges or a reserve, and stay refused for the same reason.
+ * The powers a player *spends*: each use is a move tagged with `Move.power`, and the side's count of
+ * spent uses travels with the position (`Position.used`). The count each side may spend is a rule
+ * (`Rules.freezeUses` and the rest): the 2017 rulebook's numbers are the defaults (docs/RULES.md
+ * §6.5), and 0 means unlimited. March and Leap at 0 are the stateless always-on readings measured in
+ * docs/research/sim-kings-2026-09-16.md.
  */
-export const BUILT: readonly PowerName[] = [...TIER1, 'Strike'];
+export const USES_RULE: Readonly<Partial<Record<PowerName, keyof Rules>>> = Object.freeze({
+  Freeze: 'freezeUses', IceWall: 'iceWallUses', Strike: 'strikeUses', Haste: 'hasteUses',
+  Flight: 'flightUses', Sacrifice: 'sacrificeUses', March: 'marchUses', Leap: 'leapUses',
+});
 
 /** `"Spirit:Mercy"` (case-insensitive), or `"none"` / `"-"` / `""` for a king with no power. */
 export function parseKing(text: string): KingChoice | null {
@@ -107,9 +114,6 @@ export function parseKing(text: string): KingChoice | null {
   if (!king) throw new Error(`unknown king "${k}" (${Object.keys(KINGS).join(' | ')} | none)`);
   const power = KINGS[king].find(n => n.toLowerCase() === p.toLowerCase());
   if (!power) throw new Error(`king ${king} has no power "${p}" (${KINGS[king].join(' | ')})`);
-  if (!BUILT.includes(power)) {
-    throw new Error(`${king}:${power} is not built yet — built powers are ${BUILT.join(' | ')} (docs/KINGS-POWERS-PLAN.md §2)`);
-  }
   return { king, power };
 }
 
@@ -308,6 +312,93 @@ export interface Rules {
   /** Strike (Flame A) reading: `move` (as written) or `capture` (capture without moving). */
   strikeMode: StrikeMode;
   /**
+   * Strike may capture (the rulebook). Off (balance lab, 2026-10-02): the queen-like move goes only
+   * to an empty square — a reposition, like Flight but along the piece's queen lines.
+   */
+  strikeCaptures: boolean;
+  /**
+   * Per-game uses of each spendable king power (`USES_RULE`); 0 = unlimited. The defaults are the
+   * 2017 rulebook's token counts (docs/RULES.md §6.5): Freeze 2, Ice Wall 2, Strike 1, Haste 1,
+   * Flight 1, Sacrifice 1, March 3, Leap 3. March and Leap at 0 are the always-on readings: a
+   * marching pawn's double step and a leaping slider's ray are then ordinary moves and attacks.
+   * Counted, they are power moves like the others — never a king capture, never an attack.
+   */
+  freezeUses: number;
+  iceWallUses: number;
+  /**
+   * Haste's second move (balance lab, 2026-10-02): `any` (the rulebook) or `quiet` — the second
+   * move may not capture, so a Haste can take and escape, or set up, but never take twice.
+   */
+  hasteSecond: HasteSecond;
+  /** A Haste turn may capture (the rulebook). Off (balance lab): neither of its two moves captures. */
+  hasteCaptures: boolean;
+  /**
+   * Freeze and Ice Wall as a free action (balance lab, 2026-10-02): the mark does not end the turn;
+   * the marking side then makes an ordinary move (or ends the turn). Off: the mark is the whole turn.
+   */
+  markFree: boolean;
+  /**
+   * After a free Freeze (`markFree`), the ordinary move of that turn takes nothing (balance lab,
+   * 2026-10-02): a Freeze can stop a piece but cannot open the capture it was guarding that turn.
+   */
+  freezeQuiet: boolean;
+  /** How many of the opponent's turns a Freeze or Ice Wall mark covers (balance lab; the rulebook: 1). */
+  markTurns: 1 | 2;
+  /**
+   * Mercy (balance lab, 2026-10-02): the king keeps its ordinary adjacent capture. Off (the
+   * rulebook): it takes nothing but a guard. The two-square reach stays move-only either way.
+   */
+  mercyCaptures: boolean;
+  /**
+   * Mercy's shelter (balance lab, 2026-10-02): no capture takes a piece standing next to its own
+   * Mercy king. The king itself is not sheltered. Off (the rulebook): nothing is.
+   */
+  mercyAura: boolean;
+  /** Strike by a pawn (the rulebook: "any own piece (not king)"). Off (balance lab): pieces only. */
+  strikePawns: boolean;
+  /**
+   * Sacrifice as a comeback (balance lab, 2026-10-02): usable only while the side has fewer pieces
+   * than the opponent, kings and pawns not counted. Off (the rulebook): whenever a piece was lost.
+   */
+  sacrificeBehind: boolean;
+  /** Holy Light (balance lab): the king may take pawns. Off (the rulebook): it takes none. */
+  holyLightTakesPawns: boolean;
+  /**
+   * Holy Light (balance lab): the light covers the king's neighbours too — no enemy pawn takes a
+   * piece standing next to a Holy Light king. Off (the rulebook): only the king is covered.
+   */
+  holyLightAura: boolean;
+  /**
+   * Holy Light (balance lab): Mercy's shelter under the light — no capture at all takes a piece next
+   * to the Holy Light king. Off (the rulebook): only the king is covered, and only from pawns.
+   */
+  holyLightShelter: boolean;
+  /** The Holy Light shelter covers only the four orthogonal neighbours (balance lab). */
+  holyLightShelterOrtho: boolean;
+  /** Mercy's shelter covers only the four orthogonal neighbours (balance lab). */
+  mercyAuraOrtho: boolean;
+  /** Mercy's shelter stops only pawn captures (balance lab), like Holy Light's aura. */
+  mercyAuraPawns: boolean;
+  /** Holy Light (balance lab): no enemy knight takes the king either. Off (the rulebook): pawns only. */
+  holyLightKnights: boolean;
+  /**
+   * Darkness (balance lab): the pawns also keep their ordinary moves (one or two straight ahead from
+   * the start), but still take only straight ahead. A half step between the rulebook and `darknessKeep`.
+   */
+  darknessMoves: boolean;
+  /**
+   * Darkness (balance lab): the pawns keep their ordinary moves as well, so a pawn moves and takes
+   * one square forward, straight or diagonal (its first double step too). Off (the rulebook): the
+   * two verbs swap and the double step is gone.
+   */
+  darknessKeep: boolean;
+  strikeUses: number;
+  hasteUses: number;
+  flightUses: number;
+  sacrificeUses: number;
+  marchUses: number;
+  leapUses: number;
+  /**
    * The Reaver's escape step (piece type `V`, lab-only, same pool note as the Ogre). `any` (proposal
    * reading): after a capture the Reaver may step one square in any of the 8 directions onto an
    * empty square. `ortho`: only the 4 orthogonal directions — the designed nerf for "it dodges
@@ -328,10 +419,12 @@ export interface Rules {
    * no power. That is what the browser plays (plan decision 21) and it is the control arm of every
    * A/B (decision 20) — "both sides, or neither".
    *
-   * Only the six stateless tier-1 powers are built: **Holy Light** and **Mercy** (Spirit),
-   * **Death Touch** and **Darkness** (Shadow), **March** and **Leap** (Mud). Each is a pure
-   * function of the board plus this field, so there is no new `Position` field, no FEN field, no
-   * Zobrist key, no repetition change and no search state. `parseKing` refuses the other six.
+   * All twelve powers are built. The always-on ones (**Holy Light**, **Mercy**, **Death Touch**,
+   * **Darkness**, and March and Leap at 0 uses) are pure functions of the board plus this
+   * field. The spendable ones (**Freeze**, **Ice Wall**, **Strike**, **Haste**, **Flight**,
+   * **Sacrifice**, and counted March/Leap) carry game state on `Position` — uses spent, a Freeze or
+   * Ice Wall mark, a pending Haste square, the Sacrifice reserve — which FEN field 7, the search's
+   * hash and the repetition key all include.
    */
   kings: readonly [KingChoice | null, KingChoice | null];
   /** Setup: reject a back rank whose two bishops share a square colour (Chess960 spirit). */
@@ -397,6 +490,33 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   ogreNoCapture: false,
   ogreShoveFriends: 'both' as OgreShoveFriends,
   strikeMode: 'move' as StrikeMode,
+  strikeCaptures: true,
+  freezeUses: 2,
+  iceWallUses: 2,
+  hasteSecond: 'any' as HasteSecond,
+  hasteCaptures: true,
+  markFree: false,
+  freezeQuiet: false,
+  markTurns: 1 as 1 | 2,
+  mercyCaptures: false,
+  mercyAura: false,
+  strikePawns: true,
+  sacrificeBehind: false,
+  holyLightTakesPawns: false,
+  holyLightAura: false,
+  darknessKeep: false,
+  holyLightKnights: false,
+  holyLightShelter: false,
+  holyLightShelterOrtho: false,
+  mercyAuraOrtho: false,
+  mercyAuraPawns: false,
+  darknessMoves: false,
+  strikeUses: 1,
+  hasteUses: 1,
+  flightUses: 1,
+  sacrificeUses: 1,
+  marchUses: 3,
+  leapUses: 3,
   reaverStep: 'ortho' as ReaverStep,
   catapultCapture: 'stay' as CatapultCapture,
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
@@ -442,6 +562,25 @@ export const RULES_2021: Readonly<Rules> = Object.freeze({
   beastCapture: 'diagForward' as BeastCapture,
 });
 
+/**
+ * The kings' powers as balanced on 2026-10-02 (docs/research/kings-powers-balance-2026-10-02.md):
+ * the readings the game applies whenever a king has a power. The rule defaults stay the 2017
+ * rulebook's, so `?rules=2017` and the lab can still play the powers as printed.
+ */
+export const POWERS_BALANCED: Readonly<Partial<Rules>> = Object.freeze({
+  markFree: true,            // Freeze and Ice Wall: mark, then make your move
+  freezeUses: 1,             // Freeze once a game
+  hasteCaptures: false,      // Haste: neither move captures
+  strikePawns: false,        // Strike: pieces only
+  strikeCaptures: false,     // Strike: to an empty square
+  mercyAura: true,           // Mercy: the pieces next to the king cannot be taken
+  marchUses: 0,              // March: always on
+  holyLightTakesPawns: true, // Holy Light: the king may take pawns
+  holyLightShelter: true,    // Holy Light: the pieces beside, in front of or behind the king
+  holyLightShelterOrtho: true, //   cannot be taken (round 6)
+  darknessMoves: true,       // Darkness: pawns keep their straight steps
+});
+
 /** Reset to the defaults, then apply `over`. Call with no argument to restore today's rules. */
 export function setRules(over?: Partial<Rules>): Rules {
   Object.assign(RULES, DEFAULT_RULES, over);
@@ -464,6 +603,16 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   ogreMode: ['repel', 'push'],
   ogreShoveFriends: ['both', 'enemies', 'friends'],
   strikeMode: ['move', 'capture'],
+  freezeUses: [0, 1, 2, 3, 4, 5, 6],
+  iceWallUses: [0, 1, 2, 3, 4, 5, 6],
+  hasteSecond: ['any', 'quiet'],
+  markTurns: [1, 2],
+  strikeUses: [0, 1, 2, 3, 4, 5, 6],
+  hasteUses: [0, 1, 2, 3, 4, 5, 6],
+  flightUses: [0, 1, 2, 3, 4, 5, 6],
+  sacrificeUses: [0, 1, 2, 3, 4, 5, 6],
+  marchUses: [0, 1, 2, 3, 4, 5, 6],
+  leapUses: [0, 1, 2, 3, 4, 5, 6],
   reaverStep: ['any', 'ortho'],
   catapultCapture: ['stay', 'land'],
 };

@@ -1,0 +1,54 @@
+{
+  "id": "kp2-r4",
+  "entrants": [
+    "Freeze",
+    "IceWall",
+    "Strike",
+    "Haste",
+    "Flight",
+    "Sacrifice",
+    "March",
+    "Leap",
+    "HolyLight",
+    "Mercy",
+    "DeathTouch",
+    "Darkness",
+    "Strike~vtwo",
+    "IceWall~vthree",
+    "HolyLight~vknight",
+    "DeathTouch~vmove",
+    "none"
+  ],
+  "pairs": 16,
+  "depth": 3,
+  "seed": 202,
+  "rules": {
+    "markFree": true,
+    "freezeUses": 1,
+    "hasteCaptures": false,
+    "strikeCaptures": false,
+    "strikePawns": false,
+    "flightUses": 2,
+    "mercyAura": true,
+    "marchUses": 0,
+    "holyLightTakesPawns": true,
+    "darknessMoves": true
+  },
+  "variants": {
+    "two": {
+      "strikeUses": 2
+    },
+    "three": {
+      "iceWallUses": 3
+    },
+    "knight": {
+      "holyLightKnights": true
+    },
+    "move": {
+      "deathTouchMoves": true
+    }
+  },
+  "mirror": false,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

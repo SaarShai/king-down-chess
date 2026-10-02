@@ -1,11 +1,12 @@
 /** Play one game headless (AI vs AI) and record everything the analyser needs. */
-import { LETTERS, Move, Position, WHITE, colorOf, status, typeOf } from '../rules/engine';
+import { LETTERS, Move, Position, PowerTag, WHITE, colorOf, status, typeOf } from '../rules/engine';
 import { RULES, Rules, setRules } from '../rules/rules';
 import { fromFen, toFen, toLan } from '../rules/setup';
 import { readFileSync } from 'node:fs';
 import { Game } from '../game';
 import { EvalParams, setEvalParams, setPieceValues } from '../ai/eval';
 import * as AI from '../ai/search';
+import { setPowerHold } from '../ai/search';
 import { Adjudicate, Job, RunSpec, adjudication, sideOptions } from './spec';
 import { countMove, emptyEvents } from './replay';
 import { mulberry32 } from './rng';
@@ -25,6 +26,11 @@ export interface PlyRecord {
   /** Best root score minus second best, in cp (mover's view). Only with `multiPv` (decision cost). */
   gap?: number;
   ms: number;
+  /**
+   * Who moved (0 white, 1 black). Written since 2026-10-02 because a Haste turn takes two plies,
+   * after which the mover no longer follows the ply's parity (`moverAt` cannot know it).
+   */
+  by?: 0 | 1;
 }
 
 /** Per piece letter. `captures` is keyed by the mover, `taken` by the victim. */
@@ -58,6 +64,11 @@ export interface Events {
   catapultChecks: [number, number];
   /** Strike (Flame A): the one-use queen-like action, per side. */
   strikes: [number, number];
+  /**
+   * Every king power spent, by tag (`Move.power`; `pass` = a Haste turn that ended without its
+   * second move), per side. Absent from records written before 2026-10-02.
+   */
+  powers: Partial<Record<PowerTag | 'pass', [number, number]>>;
 }
 
 export interface GameRecord {
@@ -163,6 +174,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
   const t0 = performance.now();
   setRules(spec.rules); // per game: cheap, and an A/B run changes rules between sub-runs
   setPieceValues(spec.values); // same reason; with no `values` this restores the shipped constants
+  setPowerHold(spec.powerHold as Parameters<typeof setPowerHold>[0]); // likewise: none = the search's defaults
   const rng = mulberry32(job.seed);
   const game = startGame(job.backRankWhite, job.backRankBlack, job.fen);
   const startFen = toFen(game.pos);
@@ -194,11 +206,19 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
     let gap: number | undefined;
 
     if (moves.length < openingPlies) {
-      move = legal[Math.floor(rng() * legal.length)] ?? null;
+      // A random opening move is one of the pieces' own moves, never a king power: Flight alone
+      // adds ~200 moves a position, so a uniform pick would spend the powers by chance. With no
+      // powers in play the list is unchanged, so earlier runs replay exactly.
+      const own = legal.some(m => m.power || m.pass) ? legal.filter(m => !m.power && !m.pass) : legal;
+      move = own[Math.floor(rng() * own.length)] ?? null;
     } else {
       // Two evaluations in one process: swap the tables, and drop the transposition table with
       // them — an entry stored by one side's evaluation is not a score the other side may read.
       if (evals) { setEvalParams(evals[c]); resetSearch(); }
+      if (spec.powerHoldSides) {
+        setPowerHold({ ...spec.powerHold, ...spec.powerHoldSides[c] } as Parameters<typeof setPowerHold>[0]);
+        resetSearch();
+      }
       const r = AI.search(pos, { ...opts[c], history, ...(spec.multiPv ? { multiPv: 2 as const } : {}) }) as Partial<AI.SearchResult>;
       move = resolve(pos, legal, r?.move) ?? legal[0] ?? null;
       if (typeof r?.score === 'number') cp = c === WHITE ? r.score : -r.score;
@@ -223,7 +243,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
       ...(cp === undefined ? {} : { cp }), ...(depth === undefined ? {} : { depth }),
       ...(nodes === undefined ? {} : { nodes }),
       ...(gap === undefined ? {} : { gap }),
-      legal: legal.length, ms: +(performance.now() - t).toFixed(2),
+      legal: legal.length, ms: +(performance.now() - t).toFixed(2), by: c,
     });
     game.play(move);
     applyDrawRules(game);
