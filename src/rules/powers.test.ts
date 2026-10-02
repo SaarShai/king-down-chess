@@ -260,6 +260,14 @@ describe('balance-lab readings', () => {
     expect(lans(p)).toContain('--');
   });
 
+  it('strikeCaptures off: a Strike only repositions', () => {
+    powers('Strike', null, { strikeCaptures: false });
+    const pos = fromFen('4k3/8/8/8/8/2r5/8/R3K3 w - - 0 1');
+    const strikes = lans(pos).filter(l => l.endsWith('!'));
+    expect(strikes).toContain('Ra1-b2!');
+    expect(strikes.some(l => l.includes('x'))).toBe(false);
+  });
+
   it('mercyCaptures: the Mercy king keeps its adjacent capture and the attack that goes with it', () => {
     const fen = 'k7/8/8/8/3Kp3/8/8/8 w - - 0 1';
     powers('Mercy', null);

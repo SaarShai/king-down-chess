@@ -938,7 +938,7 @@ export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: A
             }
             // The first occupied square stops the walk in both readings; only `move` passes through
             // empty squares. `capture` takes a queen-reach victim and stays where it stood.
-            if (colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) {
+            if (RULES.strikeCaptures && colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) {
               out.push(capture ? { from: s, to: s, captures: [to], power: 'strike' } : { from: s, to, captures: [to], power: 'strike' });
             }
             break;

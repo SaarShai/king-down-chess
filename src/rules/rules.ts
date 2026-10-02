@@ -312,6 +312,11 @@ export interface Rules {
   /** Strike (Flame A) reading: `move` (as written) or `capture` (capture without moving). */
   strikeMode: StrikeMode;
   /**
+   * Strike may capture (the rulebook). Off (balance lab, 2026-10-02): the queen-like move goes only
+   * to an empty square — a reposition, like Flight but along the piece's queen lines.
+   */
+  strikeCaptures: boolean;
+  /**
    * Per-game uses of each spendable king power (`USES_RULE`); 0 = unlimited. The defaults are the
    * 2017 rulebook's token counts (docs/RULES.md §6.5): Freeze 2, Ice Wall 2, Strike 1, Haste 1,
    * Flight 1, Sacrifice 1, March 3, Leap 3. March and Leap at 0 are the always-on readings: a
@@ -435,6 +440,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   ogreNoCapture: false,
   ogreShoveFriends: 'both' as OgreShoveFriends,
   strikeMode: 'move' as StrikeMode,
+  strikeCaptures: true,
   freezeUses: 2,
   iceWallUses: 2,
   hasteSecond: 'any' as HasteSecond,
