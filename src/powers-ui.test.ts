@@ -25,5 +25,6 @@ describe('power texts follow the rules in force', () => {
     setRules({ ...POWERS_BALANCED });
     expect(powerText('HolyLight')).toBe('enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken');
     expect(powerText('Mercy')).toBe('your king steps 1–2 squares and jumps your pieces, but takes only a guard; your pieces next to it cannot be taken');
+    expect(powerText('DeathTouch')).toBe('your king takes an enemy next to it, or two squares away straight forward, back or sideways over an empty square, without moving \u2014 it can only take this way');
   });
 });

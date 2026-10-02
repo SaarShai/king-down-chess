@@ -1,0 +1,16 @@
+[powers-net] 176452 positions from pn-g1 (sha256 131670846061c7e0…)
+[powers-net] starting net, held out: no powers 0.001442 (7277), powers 0.001223 (10255), Ogre on the board 0.001172 (8404)
+[nnue] 158920 training positions, 17532 held out
+[nnue] residual target: |search - linear| > 150 cp on 4.3% of positions (clipped)
+[nnue] epoch   0  (the starting net)  val 0.001314
+[nnue] epoch   1  lr 0.0030  train 0.001284  val 0.001290  3s
+[nnue] epoch   2  lr 0.0029  train 0.001262  val 0.001290  6s
+[nnue] epoch   3  lr 0.0026  train 0.001250  val 0.001290  8s
+[nnue] epoch   4  lr 0.0021  train 0.001246  val 0.001290  11s
+[nnue] epoch   5  lr 0.0016  train 0.001246  val 0.001291  14s
+[nnue] epoch   6  lr 0.0010  train 0.001240  val 0.001292  17s
+[nnue] epoch   7  lr 0.0006  train 0.001240  val 0.001292  20s
+[nnue] epoch   8  lr 0.0003  train 0.001241  val 0.001293  22s
+[nnue] best validation 0.001290 at epoch 1
+[powers-net] c-adapt, held out: no powers 0.001436, powers 0.001186, Ogre on the board 0.001154
+[powers-net] wrote sim/nnue-powers/c-adapt.{weights.ts,arm.json,train.json} and current.arm.json

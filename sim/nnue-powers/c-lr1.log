@@ -1,0 +1,20 @@
+[powers-net] 176452 positions from pn-g1 (sha256 131670846061c7e0…)
+[powers-net] starting net, held out: no powers 0.001442 (7277), powers 0.001223 (10255), Ogre on the board 0.001172 (8404)
+[nnue] 158920 training positions, 17532 held out
+[nnue] residual target: |search - linear| > 150 cp on 4.3% of positions (clipped)
+[nnue] epoch   0  (the starting net)  val 0.001314
+[nnue] epoch   1  lr 0.0010  train 0.001174  val 0.001238  3s
+[nnue] epoch   2  lr 0.0010  train 0.001101  val 0.001242  6s
+[nnue] epoch   3  lr 0.0009  train 0.001052  val 0.001256  9s
+[nnue] epoch   4  lr 0.0009  train 0.001016  val 0.001267  12s
+[nnue] epoch   5  lr 0.0008  train 0.000991  val 0.001278  15s
+[nnue] epoch   6  lr 0.0006  train 0.000968  val 0.001292  18s
+[nnue] epoch   7  lr 0.0005  train 0.000950  val 0.001304  21s
+[nnue] epoch   8  lr 0.0004  train 0.000936  val 0.001311  24s
+[nnue] epoch   9  lr 0.0003  train 0.000926  val 0.001315  27s
+[nnue] epoch  10  lr 0.0002  train 0.000924  val 0.001319  30s
+[nnue] epoch  11  lr 0.0001  train 0.000916  val 0.001320  33s
+[nnue] epoch  12  lr 0.0001  train 0.000926  val 0.001322  35s
+[nnue] best validation 0.001238 at epoch 1
+[powers-net] c-lr1, held out: no powers 0.001333, powers 0.001170, Ogre on the board 0.001163
+[powers-net] wrote sim/nnue-powers/c-lr1.{weights.ts,arm.json,train.json} and current.arm.json
