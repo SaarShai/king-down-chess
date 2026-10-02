@@ -248,7 +248,7 @@ export function canCapture(att: number, vic: PieceType): boolean {
   // take (plan decision 15: a piece may be hard to take, never impossible; a permanently immortal
   // guard is the measured draw engine). Stated here and not in `genPiece`, so `isAttacked` follows
   // for nothing: its DIRS8 loop asks `canCapture` for the king like every other piece.
-  if (at === K && vic !== G && powerOf(colorOf(att)) === 'Mercy') return false;
+  if (at === K && vic !== G && powerOf(colorOf(att)) === 'Mercy' && !RULES.mercyCaptures) return false;
   // Holy Light (Spirit A): no enemy pawn takes this side's king, and this king takes no pawn. A
   // capture is always cross-colour, so the victim's side is `colorOf(att) ^ 1` and one byte decides
   // both directions. The guard is untouched: a Spirit king still takes one (§1.9).
@@ -1017,10 +1017,12 @@ export function filterMarks(c: Color, mark: number | undefined, out: Move[], n0 
 export function genHasteFollowUp(board: Uint8Array, at: number, mode: GenMode, out: Move[]): void {
   const n0 = out.length;
   genPiece(board, at, mode, out);
+  // `hasteSecond: 'quiet'` (balance lab): the second move captures nothing at all.
+  const quiet = RULES.hasteSecond === 'quiet';
   let n = n0;
   for (let i = n0; i < out.length; i++) {
     const m = out[i];
-    if (!m.captures.some(s => typeOf(board[s]) === K)) out[n++] = m;
+    if (quiet ? m.captures.length === 0 : !m.captures.some(s => typeOf(board[s]) === K)) out[n++] = m;
   }
   out.length = n;
   if (mode === 'all') out.push({ from: at, to: at, captures: [], pass: true });

@@ -206,7 +206,11 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
     let gap: number | undefined;
 
     if (moves.length < openingPlies) {
-      move = legal[Math.floor(rng() * legal.length)] ?? null;
+      // A random opening move is one of the pieces' own moves, never a king power: Flight alone
+      // adds ~200 moves a position, so a uniform pick would spend the powers by chance. With no
+      // powers in play the list is unchanged, so earlier runs replay exactly.
+      const own = legal.some(m => m.power || m.pass) ? legal.filter(m => !m.power && !m.pass) : legal;
+      move = own[Math.floor(rng() * own.length)] ?? null;
     } else {
       // Two evaluations in one process: swap the tables, and drop the transposition table with
       // them — an entry stored by one side's evaluation is not a score the other side may read.

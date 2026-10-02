@@ -60,6 +60,8 @@ export type CatapultCapture = 'stay' | 'land';
  * victim without moving. Both spend the side's one use.
  */
 export type StrikeMode = 'move' | 'capture';
+/** Haste's second move: anything (`any`) or a move that captures nothing (`quiet`). */
+export type HasteSecond = 'any' | 'quiet';
 
 // -----------------------------------------------------------------------------------------------
 // Kings' powers (docs/RULES.md §4, docs/KINGS-POWERS-PLAN.md). Each army has a king; the player
@@ -318,6 +320,16 @@ export interface Rules {
    */
   freezeUses: number;
   iceWallUses: number;
+  /**
+   * Haste's second move (balance lab, 2026-10-02): `any` (the rulebook) or `quiet` — the second
+   * move may not capture, so a Haste can take and escape, or set up, but never take twice.
+   */
+  hasteSecond: HasteSecond;
+  /**
+   * Mercy (balance lab, 2026-10-02): the king keeps its ordinary adjacent capture. Off (the
+   * rulebook): it takes nothing but a guard. The two-square reach stays move-only either way.
+   */
+  mercyCaptures: boolean;
   strikeUses: number;
   hasteUses: number;
   flightUses: number;
@@ -418,6 +430,8 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   strikeMode: 'move' as StrikeMode,
   freezeUses: 2,
   iceWallUses: 2,
+  hasteSecond: 'any' as HasteSecond,
+  mercyCaptures: false,
   strikeUses: 1,
   hasteUses: 1,
   flightUses: 1,
@@ -493,6 +507,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   strikeMode: ['move', 'capture'],
   freezeUses: [0, 1, 2, 3, 4, 5, 6],
   iceWallUses: [0, 1, 2, 3, 4, 5, 6],
+  hasteSecond: ['any', 'quiet'],
   strikeUses: [0, 1, 2, 3, 4, 5, 6],
   hasteUses: [0, 1, 2, 3, 4, 5, 6],
   flightUses: [0, 1, 2, 3, 4, 5, 6],

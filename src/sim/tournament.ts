@@ -7,10 +7,14 @@
  *       [--rule freezeUses=3 ...] [--hold Freeze=60,...] [--powerPlies 2] [--mirror] [--none]
  *   tsx src/sim/tournament.ts report --id kp2-a [--id kp2-b ...]
  *
+ * `--shard i/n` plays only the colour-swapped pairs with `pairId % n === i`, into
+ * `<id>.shard<i>of<n>.jsonl`, so one tournament can run on several machines; `report` reads the
+ * main file and every shard file of an id.
+ *
  * `--none` adds a plain king as a reference entrant. `run` resumes by game id; a changed rule,
  * entrant list, seed or depth must use a new id (the header line records them and is checked).
  */
-import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -123,22 +127,30 @@ export function compress(job: TJob, rec: GameRecord): TRecord {
   };
 }
 
-const files = (id: string) => ({ jsonl: `${OUT_DIR}/${id}.jsonl`, spec: `${OUT_DIR}/${id}.tournament.json` });
+export interface Shard { i: number; n: number }
+const files = (id: string, shard?: Shard) => ({
+  jsonl: `${OUT_DIR}/${id}${shard ? `.shard${shard.i}of${shard.n}` : ''}.jsonl`, spec: `${OUT_DIR}/${id}.tournament.json`,
+});
 
+/** Every game of a tournament: its main file and any shard files, each game once. */
 export function readRecords(id: string): TRecord[] {
-  const { jsonl } = files(id);
-  if (!existsSync(jsonl)) return [];
-  return readFileSync(jsonl, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l) as TRecord);
+  const paths = [files(id).jsonl, ...readdirSync(OUT_DIR).filter(f => f.startsWith(`${id}.shard`) && f.endsWith('.jsonl')).map(f => `${OUT_DIR}/${f}`)];
+  const seen = new Map<number, TRecord>();
+  for (const path of paths) {
+    if (!existsSync(path)) continue;
+    for (const l of readFileSync(path, 'utf8').split('\n')) if (l) { const r = JSON.parse(l) as TRecord; seen.set(r.gameId, r); }
+  }
+  return [...seen.values()].sort((a, b) => a.gameId - b.gameId);
 }
 
-export async function runTournament(t: TournamentSpec, nWorkers: number): Promise<void> {
+export async function runTournament(t: TournamentSpec, nWorkers: number, shard?: Shard): Promise<void> {
   mkdirSync(OUT_DIR, { recursive: true });
-  const f = files(t.id);
+  const f = files(t.id, shard);
   if (existsSync(f.spec)) {
     const old = JSON.parse(readFileSync(f.spec, 'utf8')) as TournamentSpec;
     if (JSON.stringify(old) !== JSON.stringify(t)) throw new Error(`[${t.id}] ${f.spec} holds a different tournament; give this one a new id`);
   } else writeFileSync(f.spec, JSON.stringify(t, null, 2) + '\n');
-  const all = schedule(t);
+  const all = schedule(t).filter(j => !shard || j.pairId % shard.n === shard.i);
   const done = new Set(readRecords(t.id).map(r => r.gameId));
   const jobs = all.filter(j => !done.has(j.gameId));
   console.log(`[${t.id}] ${t.entrants.length} entrants, ${all.length} games (${done.size} done), depth ${t.depth}, ${nWorkers} workers`);
@@ -407,6 +419,7 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
       ...(typeof f.powerPlies === 'string' ? { powerPlies: Number(f.powerPlies) } : {}),
       mirror: !!f.mirror, maxPlies: num('maxPlies', 300), openingRandomPlies: num('openingRandomPlies', 4),
     };
-    runTournament(t, num('workers', availableParallelism())).catch(fail);
+    const shard = typeof f.shard === 'string' ? (([i, n]) => ({ i: +i, n: +n }))(f.shard.split('/')) : undefined;
+    runTournament(t, num('workers', availableParallelism()), shard).catch(fail);
   }
 }

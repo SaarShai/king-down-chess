@@ -636,6 +636,9 @@ export class BoardRenderer {
   /** `onContact` fires when a capture or shove lands (main.ts times the hit sound to it). */
   async animateMove(pos: Position, m: Move, onContact?: () => void): Promise<void> {
     if (this.pace === 'off') return;
+    // King powers that move nothing (Freeze, Ice Wall, a Haste pass) or change a piece in place
+    // (Sacrifice): nothing to animate; main.ts syncs the board afterwards.
+    if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice') return;
     this.moving = true;
     try { await this.animate(pos, m, onContact); } finally { this.moving = false; }
   }

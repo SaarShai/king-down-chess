@@ -94,6 +94,9 @@ export class PaintedView implements BoardView {
   async animateMove(pos: Position, m: Move, onContact?: () => void): Promise<void> {
     if (this.pos !== pos) this.sync(pos);
     if (this.pace === 'off') return;
+    // King powers that move nothing (Freeze, Ice Wall, a Haste pass) or change a piece in place
+    // (Sacrifice): there is no motion to play, and main.ts syncs the new board right after.
+    if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice') return;
     await this.scene.play(m, { onContact, speed: this.pace === 'fast' ? 0.5 : 1 });
   }
 

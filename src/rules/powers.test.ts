@@ -251,6 +251,27 @@ describe('March and Leap, counted (the rulebook’s 3 uses)', () => {
   });
 });
 
+describe('balance-lab readings', () => {
+  it('hasteSecond quiet: the second move of a Haste captures nothing', () => {
+    powers('Haste', null, { hasteSecond: 'quiet' });
+    const p = play(fromFen('7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1'), 'Ra1xa5!H');
+    expect(lans(p)).not.toContain('Ra5xe5');
+    expect(lans(p)).toContain('Ra5-d5');
+    expect(lans(p)).toContain('--');
+  });
+
+  it('mercyCaptures: the Mercy king keeps its adjacent capture and the attack that goes with it', () => {
+    const fen = 'k7/8/8/8/3Kp3/8/8/8 w - - 0 1';
+    powers('Mercy', null);
+    expect(lans(fromFen(fen))).not.toContain('Kd4xe4');
+    expect(isAttacked(fromFen(fen).board, parseSq('e4'), WHITE)).toBe(false);
+    powers('Mercy', null, { mercyCaptures: true });
+    expect(lans(fromFen(fen))).toContain('Kd4xe4');
+    expect(lans(fromFen(fen))).toContain('Kd4-d6');      // the two-square step is still there
+    expect(isAttacked(fromFen(fen).board, parseSq('e4'), WHITE)).toBe(true);
+  });
+});
+
 describe('the search keeps the power state exactly as positionKey does', () => {
   const cases: [string, PowerName | null, PowerName | null, string][] = [
     ['freeze', 'Freeze', 'IceWall', '4k3/8/3m4/3n4/3o4/8/3P4/4K3 w - - 0 1'],
