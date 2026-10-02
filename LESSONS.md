@@ -2,6 +2,11 @@
 
 Reusable corrections. Pattern → rule.
 
+- A kings' powers tournament let its random opening moves include power moves. Flight alone adds about 200 moves to a position, so most powers were spent by chance in the first four plies and the run measured nothing. → Random opening moves come from the pieces' own moves only (`m.power` excluded); after any new move kind, check what the opening randomiser can pick. (2026-10-02)
+- `create_session` with a short commit SHA as the source revision failed at start (`ref_not_found`). → Start compute sessions on a branch name and have the prompt check out the full 40-character SHA. (2026-10-02)
+- tsx compiles with `keepNames`, which wraps every inner arrow function in a naming call; in the attack test's hot loop that cost more than the work. → Keep closures out of hot paths (module-level helpers, precomputed tables) and measure the search with node counts held equal. (2026-10-02)
+- Sim workers stopped loading TypeScript under Node 22 (`new Worker(file.ts)` ignores the parent's tsx loader), and the runner waited forever for games a dead worker would never play. → Start workers through `src/sim/worker-boot.mjs` (`tsWorker()`), and fail the run when a worker exits with games unplayed. (2026-10-02)
+- Cloud sessions ship a Chromium build that Playwright 1.63 does not look for. → `.claude/hooks/cloud-setup.sh` links it (`tools/pw-cloud-link.mjs`); run browser tools with `PLAYABLE_BROWSER=chromium`. (2026-10-02)
 - A new timing check failed twice for reasons outside the code: its King-walk position (two bare kings) was an immediate draw, so no move could be played; and the Fast timing ran on into the computer's reply, which started the moment the timed move ended. → Test positions need material on both sides (or check the game is not over), and time only the animation you mean: `view.scene.playing` names it, so stop when it changes. Also: a background wait `while pgrep -f "tools/qa.mjs"` matched its own shell's command line and never ended; wait on the PID (`kill -0 $pid`). (2026-10-02)
 - The committed trial strike sheets differ byte for byte from a fresh run on unchanged `main` in a cloud session (another Chromium build). → "Byte-identical" means identical to the same tool's run on `main` in the same environment; save that run first, then compare. (2026-10-02)
 
