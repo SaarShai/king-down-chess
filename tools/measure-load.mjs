@@ -6,7 +6,7 @@
  * Each run is a fresh browser profile (empty cache, no service worker) at 390×844, CPU slowed 4×,
  * network 1.6 Mbps down / 750 kbps up / 150 ms round trip (Chrome's "slow 4G" class).
  * "Board ready" is when the game has drawn its pieces (view.ready() resolved and "Loading pieces…" is gone);
- * "first move" is when a click-click e2→e4 made right then shows in the move list.
+ * "first move" is when a tap on e2 then e4 (300 ms apart), made right then, shows in the move list.
  * Bytes are what crossed the network (compressed size) until the first move.
  * The repeat visit reloads in the same profile; the offline check then cuts the network and reloads again.
  */
@@ -20,6 +20,7 @@ const runs = +arg('--runs', 3);
 const outFile = arg('--out', null);
 const NET = { offline: false, latency: 150, downloadThroughput: 1.6e6 / 8, uploadThroughput: 0.75e6 / 8 };
 const CPU = 4;
+const log = (...a) => { if (process.env.DEBUG) console.error(new Date().toISOString().slice(11, 19), ...a); };
 
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER });
 
@@ -30,14 +31,22 @@ async function measureVisit(page, net, look) {
   page.on('pageerror', onError);
   net.bytes = 0; net.requests = 0;
   const t0 = Date.now();
+  log(look, 'goto');
   await page.goto(url, { waitUntil: 'commit' });
   await page.waitForFunction(() => window.view && document.getElementById('asset-status')?.textContent !== 'Loading pieces…', null, { timeout: 180000, polling: 50 });
+  log(look, 'board drawn');
   const readyAt = await page.evaluate(async () => { await window.view.ready(); return performance.now(); });
   const bytesAtReady = net.bytes;
+  log(look, 'ready', bytesAtReady);
   const at = sq => page.evaluate(sq => window.view.screenOf(sq), sq);
   const e2 = await at(12), e4 = await at(28);
-  await page.mouse.click(e2.x, e2.y); await page.mouse.click(e4.x, e4.y);
-  await page.waitForFunction(() => /e2-e4/.test(document.getElementById('moves')?.textContent ?? ''), null, { timeout: 60000, polling: 50 });
+  // Tap the pawn, give the selection a moment to register (as a player would), tap its target;
+  // retry while the page is still too busy to take the taps.
+  for (let attempt = 0; ; attempt++) {
+    await page.mouse.click(e2.x, e2.y); await page.waitForTimeout(300); await page.mouse.click(e4.x, e4.y);
+    try { await page.waitForFunction(() => /e2-e4/.test(document.getElementById('moves')?.textContent ?? ''), null, { timeout: 5000, polling: 50 }); break; }
+    catch (e) { log(look, 'move retry', attempt); if (attempt >= 10) throw e; }
+  }
   const moveAt = await page.evaluate(() => performance.now());
   const actualLook = await page.evaluate(() => document.getElementById('look').value);
   if (actualLook !== look) throw new Error(`expected the ${look} look, got ${actualLook}`);
@@ -73,7 +82,12 @@ for (const look of ['painted', 'clay']) {
       // Repeat visit in the same profile: what a returning player sees.
       repeat = await measureVisit(page, net, look);
       // Offline: give a service worker a moment to finish caching, then cut the network and reload.
-      await page.evaluate(() => navigator.serviceWorker?.ready.then(() => new Promise(r => setTimeout(r, 3000))) ?? null).catch(() => {});
+      // (A page with no service worker never becomes "ready", so wait at most 20 s.)
+      log(look, 'offline check');
+      await page.evaluate(() => Promise.race([
+        navigator.serviceWorker?.ready.then(() => new Promise(r => setTimeout(r, 3000))),
+        new Promise(r => setTimeout(r, 20000)),
+      ])).catch(() => {});
       await context.setOffline(true);
       await cdp.send('Network.emulateNetworkConditions', { ...NET, offline: true });
       try { offline = { ok: true, ...await measureVisit(page, net, look) }; }
