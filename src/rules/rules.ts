@@ -407,6 +407,8 @@ export interface Rules {
    * over an empty square. Off (the rulebook): adjacent only.
    */
   deathTouchReach: boolean;
+  /** The two-square touch reaches along files and ranks only, not diagonals (balance lab). */
+  deathTouchReachOrtho: boolean;
   strikeUses: number;
   hasteUses: number;
   flightUses: number;
@@ -529,6 +531,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   darknessTakeAhead: false,
   darknessStepDiag: false,
   deathTouchReach: false,
+  deathTouchReachOrtho: false,
   strikeUses: 1,
   hasteUses: 1,
   flightUses: 1,

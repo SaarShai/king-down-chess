@@ -1751,6 +1751,13 @@ describe('balance-lab readings of the kings’ powers (2026-10-02)', () => {
     expect(lan(pos, movesFrom(pos, 'd4'))).not.toContain('Kd4*f6');
     setRules({ kings: [touch[0], touch[0]], deathTouchReach: true });
     crossCheckAttacks(313, 60);
+    setRules({ kings: touch, deathTouchReach: true, deathTouchReachOrtho: true });
+    const ortho = lan(pos, movesFrom(pos, 'd4'));
+    expect(ortho).toContain('Kd4*b4');     // along the rank
+    expect(ortho).not.toContain('Kd4*f6'); // not on the diagonal
+    expect(isAttacked(pos.board, parseSq('f6'), WHITE)).toBe(false);
+    setRules({ kings: [touch[0], touch[0]], deathTouchReach: true, deathTouchReachOrtho: true });
+    crossCheckAttacks(314, 60);
   });
 
   it('Holy Light: holyLightKnights keeps enemy knights off the king too', () => {

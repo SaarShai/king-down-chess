@@ -484,7 +484,8 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
       // king never enters its square. `isAttacked` needs nothing — the shot covers exactly the 8
       // squares the king attacked before.
       if (powerOf(c) === 'DeathTouch') {
-        for (const [df, dr] of DIRS8) {
+        for (let d = 0; d < 8; d++) {
+          const [df, dr] = DIRS8[d];
           const to = step(from, df, dr);
           if (to < 0) continue;
           const v = board[to];
@@ -496,7 +497,7 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
           }
           // `deathTouchReach` (round 8): the touch also reaches two squares in a straight line, over
           // an empty square; a move-free shot like the adjacent one. Mirrored in `isAttacked`.
-          if (RULES.deathTouchReach && !v) {
+          if (RULES.deathTouchReach && !v && !(RULES.deathTouchReachOrtho && d >= 4)) {
             const two = step(to, df, dr);
             const w = two >= 0 ? board[two] : 0;
             if (w && colorOf(w) !== c && canCapture(p, typeOf(w))) out.push({ from, to: from, captures: [two] });
@@ -918,7 +919,7 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
   }
   // `deathTouchReach` (round 8): a Death Touch king two squares away in a straight line, over an
   // empty square (the mirror of its shot in `case K`).
-  if (RULES.deathTouchReach && powerOf(by) === 'DeathTouch') for (let d = 0; d < 8; d++) {
+  if (RULES.deathTouchReach && powerOf(by) === 'DeathTouch') for (let d = 0; d < (RULES.deathTouchReachOrtho ? 4 : 8); d++) {
     const s = NEIGHBOUR[target * 8 + d];
     if (s < 0 || board[s]) continue;
     const s2 = NEIGHBOUR[s * 8 + d];
