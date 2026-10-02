@@ -10,7 +10,8 @@
  *          (`REC_P` records); games: sim/out/<id>.jsonl. Resumes by game id.
  *   train  fit the residual on one or more corpora, by default fine-tuning the adopted net
  *            tsx src/sim/powers-net.ts train --data pn-a,pn-b --name cand1 [--init current|none]
- *            [--epochs 8] [--lr 0.003] [--batch 8192] [--seed 20261002]
+ *            [--epochs 8] [--lr 0.003] [--batch 8192] [--seed 20261002] [--adapter]
+ *          `--adapter` trains only the new Ogre and power rows: a board with neither plays the adopted net.
  *          Writes sim/nnue-powers/<name>.weights.ts (a candidate, never src/), <name>.train.json, and the
  *          two match arms <name>.arm.json and current.arm.json.
  *   match  candidate against the adopted net: colour-swapped pairs on one army, opening and pair of
@@ -465,7 +466,10 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
       evaluator: str('evaluator', 'residual') as Evaluator, maxPlies: num('maxPlies', 300), openingRandomPlies: num('openingRandomPlies', 4),
     }, workers).catch(fail);
   } else if (cmd === 'train') {
-    const opts: TrainOpts = { epochs: num('epochs', 8), batch: num('batch', 8192), lr: num('lr', 0.003), lambda: num('lambda', 0), seed: num('seed', 20261002), loss: 'res' };
+    const opts: TrainOpts = {
+      epochs: num('epochs', 8), batch: num('batch', 8192), lr: num('lr', 0.003), lambda: num('lambda', 0), seed: num('seed', 20261002), loss: 'res',
+      ...(f.adapter ? { trainFrom: BOARD_INPUTS } : {}),
+    };
     train(str('data', '').split(',').filter(Boolean), str('name', 'cand'), opts, str('init', 'current') === 'none' ? 'none' : 'current').catch(fail);
   } else if (cmd === 'match') {
     match({

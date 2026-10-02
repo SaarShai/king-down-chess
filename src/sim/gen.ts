@@ -226,7 +226,14 @@ export function forward(net: Net, mine: Int32Array, theirs: Int32Array, n: numbe
  * the band where moves are actually chosen, and the best fit is inside the clip the engine applies
  * — which is the whole point: material never passes through the net.
  */
-export interface TrainOpts { epochs: number; batch: number; lr: number; lambda: number; seed: number; loss: 'wdl' | 'cp' | 'res' }
+export interface TrainOpts {
+  epochs: number; batch: number; lr: number; lambda: number; seed: number; loss: 'wdl' | 'cp' | 'res';
+  /**
+   * Train only the input rows from this one on (`BOARD_INPUTS`: the Ogre and power rows), leaving every
+   * other weight as `init` had it, so a board with neither plays exactly the starting net. Absent: all.
+   */
+  trainFrom?: number;
+}
 
 /**
  * `evaluateBoard` over the whole corpus, mover's point of view — the term a residual sits on.
@@ -360,7 +367,8 @@ export function trainNet(buf: Uint8Array, n: number, opts: TrainOpts, init?: Net
         const x = w[i] - (lr * (m[i] / bc1)) / (Math.sqrt(v[i] / bc2) + 1e-8);
         w[i] = x > lim ? lim : x < -lim ? -lim : x;
       };
-      for (let i = 0; i < NW; i++) adam(net.w1, gw1, mw1, vw1, i, lim1);
+      for (let i = (opts.trainFrom ?? 0) * HIDDEN; i < NW; i++) adam(net.w1, gw1, mw1, vw1, i, lim1);
+      if (opts.trainFrom) continue; // the adapter: nothing past the new rows moves
       for (let i = 0; i < HIDDEN; i++) adam(net.b1, gb1, mb1, vb1, i, lim1);
       for (let i = 0; i < 2 * HIDDEN; i++) adam(net.w2, gw2, mw2, vw2, i, lim2);
       const gi = gb2 * scale;
