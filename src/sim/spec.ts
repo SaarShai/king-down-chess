@@ -71,6 +71,12 @@ export interface RunSpec {
    * (`setPowerHold` in src/ai/search.ts); anything left out keeps the search's default.
    */
   powerHold?: Partial<Record<string, number>>;
+  /**
+   * Per board colour, layered over `powerHold` for that side's searches only (a holding-value
+   * calibration match). The search's tables are swapped between plies, so the transposition table
+   * is cleared with them, as for `evalParams`.
+   */
+  powerHoldSides?: [Partial<Record<string, number>> | undefined, Partial<Record<string, number>> | undefined];
   openingRandomPlies?: number;
   maxPlies?: number;
   /**

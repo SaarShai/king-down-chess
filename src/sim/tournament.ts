@@ -33,7 +33,16 @@ const KING_OF = Object.fromEntries(
 ) as Record<PowerName, KingName>;
 export const choice = (p: PowerName | 'none'): KingChoice | null => (p === 'none' ? null : { king: KING_OF[p], power: p });
 
-export type Entrant = PowerName | 'none';
+/**
+ * A power name, `none`, or a power with a holding-value variant: `Strike~h200` plays Strike with an
+ * unspent use worth 200 cp to that side's search (a calibration entrant).
+ */
+export type Entrant = PowerName | 'none' | `${PowerName}~h${number}`;
+const basePower = (e: Entrant): PowerName | 'none' => e.split('~')[0] as PowerName | 'none';
+const holdOf = (e: Entrant): Partial<Record<string, number>> | undefined => {
+  const m = /~h(\d+)$/.exec(e);
+  return m ? { [basePower(e)]: Number(m[1]) } : undefined;
+};
 
 export interface TournamentSpec {
   id: string;
@@ -98,10 +107,12 @@ export function schedule(t: TournamentSpec): TJob[] {
 
 /** The RunSpec `playGame` wants for one tournament game. */
 export function gameSpec(t: TournamentSpec, job: TJob): RunSpec {
+  const sides = [holdOf(job.white), holdOf(job.black)] as [Partial<Record<string, number>> | undefined, Partial<Record<string, number>> | undefined];
   return {
     id: t.id, games: 1, seed: t.seed, ai: { depth: t.depth, ...(t.powerPlies === undefined ? {} : { powerPlies: t.powerPlies }) },
-    rules: { ...t.rules, kings: [choice(job.white), choice(job.black)] },
+    rules: { ...t.rules, kings: [choice(basePower(job.white)), choice(basePower(job.black))] },
     ...(t.powerHold ? { powerHold: t.powerHold } : {}),
+    ...(sides[0] || sides[1] ? { powerHoldSides: sides } : {}),
     maxPlies: t.maxPlies, openingRandomPlies: t.openingRandomPlies,
   };
 }
@@ -383,11 +394,13 @@ export function report(ids: readonly string[]): string {
 
 function parseEntrants(text: string | true | undefined, none: boolean): Entrant[] {
   const list = typeof text === 'string' ? text.split(',').map(s => s.trim()).filter(Boolean) : [...ALL_POWERS];
-  const out = list.map(s => {
-    if (s === 'none') return 'none' as const;
-    const p = ALL_POWERS.find(x => x.toLowerCase() === s.toLowerCase());
-    if (!p) throw new Error(`unknown power "${s}" (${ALL_POWERS.join(', ')}, none)`);
-    return p;
+  const out = list.map((s): Entrant => {
+    if (s === 'none') return 'none';
+    const [name, variant] = s.split('~');
+    const p = ALL_POWERS.find(x => x.toLowerCase() === name.toLowerCase());
+    if (!p) throw new Error(`unknown power "${s}" (${ALL_POWERS.join(', ')}, none; a hold variant is Power~h120)`);
+    if (variant !== undefined && !/^h\d+$/.test(variant)) throw new Error(`bad variant "${s}" (Power~h120)`);
+    return (variant ? `${p}~${variant}` : p) as Entrant;
   });
   if (none && !out.includes('none')) out.push('none');
   return out;

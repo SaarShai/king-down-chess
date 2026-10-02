@@ -215,6 +215,10 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
       // Two evaluations in one process: swap the tables, and drop the transposition table with
       // them — an entry stored by one side's evaluation is not a score the other side may read.
       if (evals) { setEvalParams(evals[c]); resetSearch(); }
+      if (spec.powerHoldSides) {
+        setPowerHold({ ...spec.powerHold, ...spec.powerHoldSides[c] } as Parameters<typeof setPowerHold>[0]);
+        resetSearch();
+      }
       const r = AI.search(pos, { ...opts[c], history, ...(spec.multiPv ? { multiPv: 2 as const } : {}) }) as Partial<AI.SearchResult>;
       move = resolve(pos, legal, r?.move) ?? legal[0] ?? null;
       if (typeof r?.score === 'number') cp = c === WHITE ? r.score : -r.score;
