@@ -19,6 +19,7 @@ import {
 } from '../rules/engine';
 import type { PowerName } from '../rules/rules';
 import { VALUES, evalBoard } from './eval';
+import { NET_POWERS } from './nnue/net';
 import {
   Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LEFT_HI, Z_LEFT_LO, Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO,
   Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO,
@@ -125,6 +126,8 @@ export function setPowerHold(over?: Partial<Record<PowerName, number>> & { sacri
 /** Per side for this search: uses allowed (-1 not spendable, 0 unlimited) and the power's name. */
 const usesMax = [-1, -1];
 const powerAt: (PowerName | '')[] = ['', ''];
+/** Per side: the power's row in the net (`NET_POWERS`), or -1. */
+const powerRow = [-1, -1];
 
 function setUsed(c: Color, v: number): void {
   if (usedHashed[c]) {
@@ -187,8 +190,19 @@ function powerTerm(c: Color): number {
   return (p ? hold[p] ?? 0 : 0) * left;
 }
 
+/**
+ * The power side `c` shows the net: its row while the power can still act (always-on, unlimited, or
+ * uses left), else -1. A spent one-use power is no longer part of the position.
+ */
+function livePower(c: Color): number {
+  const r = powerRow[c];
+  if (r < 0) return -1;
+  const n = usesMax[c];
+  return n <= 0 || usedPair[c] < n ? r : -1;
+}
+
 /** The leaf score: the board's evaluation plus both sides' unspent powers, from `c`'s point of view. */
-const evaluateNode = (c: Color): number => evalBoard(board, c) + powerTerm(c) - powerTerm((c ^ 1) as Color);
+const evaluateNode = (c: Color): number => evalBoard(board, c, livePower(WHITE), livePower(1)) + powerTerm(c) - powerTerm((c ^ 1) as Color);
 
 // ---------------------------------------------------------------------------------------------
 // Make / unmake on the scratch board, with an incremental hash.
@@ -674,9 +688,21 @@ function initPosition(pos: Position): void {
   for (let c = 0; c < 2; c++) {
     usesMax[c] = powerUses(c as Color);
     powerAt[c] = powerOf(c as Color);
+    powerRow[c] = powerAt[c] ? NET_POWERS.indexOf(powerAt[c] as PowerName) : -1;
     usedHashed[c] = usesMax[c] > 0;
     lostHashed[c] = powerAt[c] === 'Sacrifice';
   }
+}
+
+/**
+ * For the net's training data (tools/powers-net.ts): the live power rows `[white, black]` the search
+ * shows the net in `pos`, and the unspent-power term it adds to the board evaluation there, from the
+ * side to move's point of view. Under the current rules (`RULES.kings`). Not for use inside a search:
+ * it resets the search's scratch position.
+ */
+export function leafPowers(pos: Position): { rows: [number, number]; term: number } {
+  initPosition(pos);
+  return { rows: [livePower(WHITE), livePower(1)], term: powerTerm(pos.turn) - powerTerm((pos.turn ^ 1) as Color) };
 }
 
 /** A move that resets the 50-move clock: a capture or a pawn move (never a mark or a pass). */
