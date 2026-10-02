@@ -1659,6 +1659,24 @@ describe('balance-lab readings of the kings’ powers (2026-10-02)', () => {
     crossCheckAttacks(302, 60);
   });
 
+  it('Mercy: mercyAura shelters the pieces next to the king from every capture', () => {
+    // White knight d3 stands next to the Mercy king e2, the knight b3 does not; Black rook d8,
+    // bishop a4 and pawn c4 attack them.
+    const fen = '3r3k/8/8/8/b1p5/1N1N4/4K3/8 b - - 0 1';
+    setRules({ kings: k('Spirit', 'Mercy') });
+    expect(lan(fromFen(fen), legalMoves(fromFen(fen)))).toEqual(expect.arrayContaining(['Rd8xd3', 'c4xd3', 'c4xb3', 'Ba4xb3']));
+    setRules({ kings: k('Spirit', 'Mercy'), mercyAura: true });
+    const moves = lan(fromFen(fen), legalMoves(fromFen(fen)));
+    expect(moves).not.toContain('Rd8xd3');
+    expect(moves).not.toContain('c4xd3');
+    expect(moves).toEqual(expect.arrayContaining(['c4xb3', 'Ba4xb3']));
+    expect(isAttacked(fromFen(fen).board, parseSq('d3'), BLACK)).toBe(false);
+    expect(isAttacked(fromFen(fen).board, parseSq('e2'), BLACK)).toBe(false); // not checked here
+    crossCheckAttacks(304, 60);
+    setRules({ kings: [null, { king: 'Spirit', power: 'Mercy' }], mercyAura: true });
+    crossCheckAttacks(305, 60);
+  });
+
   it('Darkness: darknessKeep adds the ordinary pawn moves to the swapped ones', () => {
     setRules({ kings: k('Shadow', 'Darkness'), darknessKeep: true });
     const home = fromFen('7k/8/8/8/8/2p1p3/3P4/K7 w - - 0 1');
@@ -1677,6 +1695,42 @@ describe('balance-lab readings of the kings’ powers (2026-10-02)', () => {
     const pieces = lan(fromFen(fen), legalMoves(fromFen(fen)));
     expect(pieces.some(l => l.startsWith('a2-') && l.endsWith('!'))).toBe(false);
     expect(pieces.some(l => l.startsWith('Nb1-') && l.endsWith('!'))).toBe(true);
+  });
+
+  it('Haste: hasteCaptures=false keeps both moves of the turn quiet', () => {
+    const fen = '4k3/8/8/1p6/8/8/8/R3K3 w - - 0 1';
+    setRules({ kings: k('Flame', 'Haste') });
+    expect(lan(fromFen(fen), legalMoves(fromFen(fen)))).toContain('Ra1-a5!H');
+    let pos = makeMove(fromFen(fen), legalMoves(fromFen(fen)).find(m => toLan(fromFen(fen), m) === 'Ra1-a5!H')!);
+    expect(lan(pos, legalMoves(pos))).toContain('Ra5xb5');
+    setRules({ kings: k('Flame', 'Haste'), hasteCaptures: false });
+    const start = fromFen('4k3/8/8/8/p7/8/8/R3K3 w - - 0 1');
+    expect(lan(start, legalMoves(start))).toContain('Ra1xa4');
+    expect(lan(start, legalMoves(start)).filter(l => l.endsWith('!H') && l.includes('x'))).toEqual([]);
+    setRules({ kings: k('Flame', 'Haste') });
+    expect(lan(fromFen('4k3/8/8/8/p7/8/8/R3K3 w - - 0 1'), legalMoves(fromFen('4k3/8/8/8/p7/8/8/R3K3 w - - 0 1')))).toContain('Ra1xa4!H');
+    setRules({ kings: k('Flame', 'Haste'), hasteCaptures: false });
+    pos = makeMove(fromFen(fen), legalMoves(fromFen(fen)).find(m => toLan(fromFen(fen), m) === 'Ra1-a5!H')!);
+    expect(lan(pos, legalMoves(pos))).not.toContain('Ra5xb5');
+    expect(lan(pos, legalMoves(pos))).toContain('Ra5-a6');
+  });
+
+  it('Freeze: freezeQuiet makes the move after a free Freeze a quiet one', () => {
+    // The black knight d5 guards the pawn c3; White freezes it, then wants Rc1xc3.
+    const fen = '4k3/8/8/3n4/8/2p5/8/2R1K3 w - - 0 1';
+    const afterFreeze = (more: Partial<Rules>) => {
+      setRules({ kings: k('Frost', 'Freeze'), markFree: true, ...more });
+      const pos = fromFen(fen);
+      return makeMove(pos, legalMoves(pos).find(m => toLan(pos, m) === '!F:d5')!);
+    };
+    let pos = afterFreeze({});
+    expect(lan(pos, legalMoves(pos))).toContain('Rc1xc3');
+    pos = afterFreeze({ freezeQuiet: true });
+    expect(lan(pos, legalMoves(pos))).not.toContain('Rc1xc3');
+    expect(lan(pos, legalMoves(pos))).toContain('Rc1-c2');
+    resetSearchState();
+    const best = search(pos, { maxDepth: 2 }).move;
+    expect(best && best.captures.length).toBeFalsy();
   });
 
   it('Sacrifice: sacrificeBehind offers the swap only while the side has fewer pieces', () => {

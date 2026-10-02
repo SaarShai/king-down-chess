@@ -291,6 +291,26 @@ function inLight(board: Uint8Array, sq: number, side: number): boolean {
   return false;
 }
 
+/**
+ * Mercy's shelter (`mercyAura`, balance lab): `sq` holds a piece, not a king, standing next to its
+ * own side's Mercy king, so no capture may take it.
+ */
+function sheltered(board: Uint8Array, sq: number): boolean {
+  const v = board[sq];
+  if (!v || typeOf(v) === K || powerOf(colorOf(v)) !== 'Mercy') return false;
+  const k = piece(K, colorOf(v));
+  for (let d = 0; d < 8; d++) { const n = NEIGHBOUR[sq * 8 + d]; if (n >= 0 && board[n] === k) return true; }
+  return false;
+}
+
+/** Drop the moves from `n0` on that would capture a sheltered piece (`mercyAura`). */
+function dropSheltered(board: Uint8Array, out: Move[], n0: number): void {
+  for (let i = out.length - 1; i >= n0; i--) {
+    const caps = out[i].captures;
+    for (let j = 0; j < caps.length; j++) if (sheltered(board, caps[j])) { out.splice(i, 1); break; }
+  }
+}
+
 function pawnPush(out: Move[], from: number, to: number, captures: number[], lastRank: number): void {
   if (rank(to) === lastRank) for (const promo of PROMOTION_SETS[RULES.promotionSet]) out.push({ from, to, captures, promo });
   else out.push({ from, to, captures });
@@ -685,6 +705,8 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
 export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Move[]): void {
   const n0 = out.length;
   genPieceRaw(board, from, mode, out);
+  // Mercy's shelter covers every mode: `isAttacked` mirrors it, so the attack sets stay equal.
+  if (RULES.mercyAura) dropSheltered(board, out, n0);
   if (mode === 'attacks') return; // check/mate detection stays standard: see the C2/C5 notes above
   if (RULES.capitalSanctuary) {
     for (let i = out.length - 1; i >= n0; i--) {
@@ -837,6 +859,7 @@ const RAY: Int8Array[] = Array.from({ length: 64 * 8 }, (_, i) => {
 });
 
 export function isAttacked(board: Uint8Array, target: number, by: Color): boolean {
+  if (RULES.mercyAura && sheltered(board, target)) return false;
   const victim = board[target] ? typeOf(board[target]) : 0;
   // `isAttacked` is the hottest function in the project, so it creates no closure per call (the
   // simulator runs under tsx, whose name-keeping wraps every closure it creates), walks precomputed
@@ -927,6 +950,13 @@ export function inCheck(pos: Position, c: Color = pos.turn): boolean {
  */
 export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number): void {
   if (!canSpend(c, used)) return;
+  const start = out.length;
+  genPowerMovesRaw(board, c, used, lost, out, n0, n1);
+  // A power capture (Strike, a counted Leap) spares a sheltered piece like any other capture.
+  if (RULES.mercyAura) dropSheltered(board, out, start);
+}
+
+function genPowerMovesRaw(board: Uint8Array, c: Color, used: number, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number): void {
   const power = powerOf(c);
   switch (power) {
     case 'Freeze': case 'IceWall': {
@@ -955,7 +985,7 @@ export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: A
             }
             // The first occupied square stops the walk in both readings; only `move` passes through
             // empty squares. `capture` takes a queen-reach victim and stays where it stood.
-            if (RULES.strikeCaptures && colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) {
+            if (RULES.strikeCaptures && colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v)) && !(typeOf(p) === P && inLight(board, to, c ^ 1))) {
               out.push(capture ? { from: s, to: s, captures: [to], power: 'strike' } : { from: s, to, captures: [to], power: 'strike' });
             }
             break;
@@ -967,7 +997,8 @@ export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: A
     case 'Haste': {
       // Any ordinary move, after which the same piece may move again. A paladin that removes itself
       // has no second move to make, so its captures are not offered as a Haste.
-      for (let i = n0; i < n1; i++) if (!out[i].selfRemove) out.push({ ...out[i], power: 'haste' });
+      // `hasteCaptures: false` (balance lab): the first move is quiet too.
+      for (let i = n0; i < n1; i++) if (!out[i].selfRemove && (RULES.hasteCaptures || !out[i].captures.length)) out.push({ ...out[i], power: 'haste' });
       return;
     }
     case 'Flight': {
@@ -1072,7 +1103,7 @@ export function genHasteFollowUp(board: Uint8Array, at: number, mode: GenMode, o
   const n0 = out.length;
   genPiece(board, at, mode, out);
   // `hasteSecond: 'quiet'` (balance lab): the second move captures nothing at all.
-  const quiet = RULES.hasteSecond === 'quiet';
+  const quiet = RULES.hasteSecond === 'quiet' || !RULES.hasteCaptures;
   let n = n0;
   for (let i = n0; i < out.length; i++) {
     const m = out[i];
@@ -1080,6 +1111,14 @@ export function genHasteFollowUp(board: Uint8Array, at: number, mode: GenMode, o
   }
   out.length = n;
   if (mode === 'all') out.push({ from: at, to: at, captures: [], pass: true });
+}
+
+/** `freezeQuiet` (balance lab): the ordinary move after a free Freeze takes nothing. */
+export function filterFree(c: Color, free: boolean | undefined, out: Move[]): void {
+  if (!free || !RULES.freezeQuiet || powerOf(c) !== 'Freeze') return;
+  let n = 0;
+  for (let i = 0; i < out.length; i++) if (!out[i].captures.length) out[n++] = out[i];
+  out.length = n;
 }
 
 /** The `pass` that ends a free-mark turn without an ordinary move, named by the side's king square. */
@@ -1095,7 +1134,7 @@ export function pseudoMoves(pos: Position, mode: GenMode = 'all'): Move[] {
   else {
     for (let s = 0; s < 64; s++) if (pos.board[s] && colorOf(pos.board[s]) === c) genPiece(pos.board, s, mode, out);
     // After a free mark (`markFree`): the ordinary move, or end the turn; no second power.
-    if (pos.free) { if (mode === 'all') out.push(freePass(pos.board, c)); }
+    if (pos.free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(pos.board, c)); }
     else if (mode === 'all') genPowerMoves(pos.board, c, pos.used?.[c] ?? 0, pos.lost, out, 0, out.length);
   }
   filterMarks(c, pos.mark, pos.markBy, out);

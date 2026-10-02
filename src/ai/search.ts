@@ -14,7 +14,7 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  Color, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, filterMarks, freePass, genHasteFollowUp, genPiece, genPowerMoves, isAttacked,
+  Color, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, filterFree, filterMarks, freePass, genHasteFollowUp, genPiece, genPowerMoves, isAttacked,
   keepsLost, landed, materialDraw, piece, powerOf, powerUses, typeOf,
 } from '../rules/engine';
 import type { PowerName } from '../rules/rules';
@@ -330,7 +330,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
       const p = board[s];
       if (p && colorOf(p) === c) genPiece(board, s, mode, out);
     }
-    if (free) { if (mode === 'all') out.push(freePass(board, c)); }
+    if (free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(board, c)); }
     else if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) genPowerMoves(board, c, usedPair[c], trackLost ? lost : undefined, out, 0, out.length);
   }
   if (mark >= 0) filterMarks(c, mark, markBy as Color, out);

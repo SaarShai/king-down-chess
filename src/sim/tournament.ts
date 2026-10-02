@@ -51,12 +51,12 @@ const holdOf = (e: Entrant): Partial<Record<string, number>> | undefined => {
  * applies it only when the other side's power does not read that rule (rules are global to a game).
  */
 export const RULE_POWERS: Partial<Record<keyof Rules, readonly PowerName[]>> = {
-  freezeUses: ['Freeze'], iceWallUses: ['IceWall'], markFree: ['Freeze', 'IceWall'], markTurns: ['Freeze', 'IceWall'],
+  freezeUses: ['Freeze'], freezeQuiet: ['Freeze'], iceWallUses: ['IceWall'], markFree: ['Freeze', 'IceWall'], markTurns: ['Freeze', 'IceWall'],
   strikeUses: ['Strike'], strikeCaptures: ['Strike'], strikeMode: ['Strike'], strikePawns: ['Strike'],
-  hasteUses: ['Haste'], hasteSecond: ['Haste'],
+  hasteUses: ['Haste'], hasteSecond: ['Haste'], hasteCaptures: ['Haste'],
   flightUses: ['Flight'], sacrificeUses: ['Sacrifice'], sacrificeBehind: ['Sacrifice'],
   marchUses: ['March'], leapUses: ['Leap'],
-  holyLightTakesPawns: ['HolyLight'], holyLightAura: ['HolyLight'], mercyCaptures: ['Mercy'],
+  holyLightTakesPawns: ['HolyLight'], holyLightAura: ['HolyLight'], mercyCaptures: ['Mercy'], mercyAura: ['Mercy'],
   deathTouchMoves: ['DeathTouch'], darknessKeep: ['Darkness'],
 };
 const variantOf = (t: TournamentSpec, e: Entrant): Partial<Rules> => {

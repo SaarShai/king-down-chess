@@ -330,11 +330,18 @@ export interface Rules {
    * move may not capture, so a Haste can take and escape, or set up, but never take twice.
    */
   hasteSecond: HasteSecond;
+  /** A Haste turn may capture (the rulebook). Off (balance lab): neither of its two moves captures. */
+  hasteCaptures: boolean;
   /**
    * Freeze and Ice Wall as a free action (balance lab, 2026-10-02): the mark does not end the turn;
    * the marking side then makes an ordinary move (or ends the turn). Off: the mark is the whole turn.
    */
   markFree: boolean;
+  /**
+   * After a free Freeze (`markFree`), the ordinary move of that turn takes nothing (balance lab,
+   * 2026-10-02): a Freeze can stop a piece but cannot open the capture it was guarding that turn.
+   */
+  freezeQuiet: boolean;
   /** How many of the opponent's turns a Freeze or Ice Wall mark covers (balance lab; the rulebook: 1). */
   markTurns: 1 | 2;
   /**
@@ -342,6 +349,11 @@ export interface Rules {
    * rulebook): it takes nothing but a guard. The two-square reach stays move-only either way.
    */
   mercyCaptures: boolean;
+  /**
+   * Mercy's shelter (balance lab, 2026-10-02): no capture takes a piece standing next to its own
+   * Mercy king. The king itself is not sheltered. Off (the rulebook): nothing is.
+   */
+  mercyAura: boolean;
   /** Strike by a pawn (the rulebook: "any own piece (not king)"). Off (balance lab): pieces only. */
   strikePawns: boolean;
   /**
@@ -464,9 +476,12 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   freezeUses: 2,
   iceWallUses: 2,
   hasteSecond: 'any' as HasteSecond,
+  hasteCaptures: true,
   markFree: false,
+  freezeQuiet: false,
   markTurns: 1 as 1 | 2,
   mercyCaptures: false,
+  mercyAura: false,
   strikePawns: true,
   sacrificeBehind: false,
   holyLightTakesPawns: false,
