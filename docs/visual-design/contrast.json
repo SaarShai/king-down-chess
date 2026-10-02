@@ -1,0 +1,210 @@
+[
+  {
+    "text": "--ink #2b2621",
+    "surface": "--parchment #f3ead7",
+    "where": "body text on the panel",
+    "ratio": 12.53,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--ink #2b2621",
+    "surface": "--vellum #fbf7ee",
+    "where": "body text in dialogs, cards, move list",
+    "ratio": 14.01,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--ink #2b2621",
+    "surface": "--parchment-deep #e7d8b8",
+    "where": "move list stripes, hovered move",
+    "ratio": 10.64,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--ink-soft #5b5045",
+    "surface": "--parchment #f3ead7",
+    "where": "secondary text (notes, captured labels)",
+    "ratio": 6.56,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--ink-soft #5b5045",
+    "surface": "--vellum #fbf7ee",
+    "where": "secondary text in dialogs",
+    "ratio": 7.33,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--ink-soft #5b5045",
+    "surface": "--parchment-deep #e7d8b8",
+    "where": "move numbers on the list stripes",
+    "ratio": 5.57,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--ink-soft #5b5045",
+    "surface": "--stone-100 #ebe6da",
+    "where": "disabled button labels",
+    "ratio": 6.3,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--gold-ink #7a5712",
+    "surface": "--vellum #fbf7ee",
+    "where": "card labels (MOVES, CAPTURES)",
+    "ratio": 6.14,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--gold-ink #7a5712",
+    "surface": "--parchment #f3ead7",
+    "where": "card labels on the card gradient end",
+    "ratio": 5.49,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--vellum #fbf7ee",
+    "surface": "--accent #842c21",
+    "where": "primary button labels",
+    "ratio": 8.31,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--vellum #fbf7ee",
+    "surface": "--accent-deep #5a1c14",
+    "where": "primary button pressed edge",
+    "ratio": 12.19,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--vellum #fbf7ee",
+    "surface": "--stone-700 #4d453c",
+    "where": "piece-letter badges",
+    "ratio": 8.8,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--vellum #fbf7ee",
+    "surface": "--ink #2b2621",
+    "where": "the move shown in review",
+    "ratio": 14.01,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--danger #b0251b",
+    "surface": "--parchment #f3ead7",
+    "where": "turn line in check",
+    "ratio": 5.62,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--on-night #f3ead7",
+    "surface": "--night #221d18",
+    "where": "title tagline and buttons on the title",
+    "ratio": 13.97,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--on-night-soft #d6c9ad",
+    "surface": "--night #221d18",
+    "where": "title tagline",
+    "ratio": 10.2,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "--focus #1c5bb0",
+    "surface": "--parchment #f3ead7",
+    "where": "focus ring on the panel",
+    "ratio": 5.54,
+    "min": 3,
+    "pass": true
+  },
+  {
+    "text": "--focus #1c5bb0",
+    "surface": "--vellum #fbf7ee",
+    "where": "focus ring in dialogs",
+    "ratio": 6.19,
+    "min": 3,
+    "pass": true
+  },
+  {
+    "text": "--stone-700 #4d453c",
+    "surface": "--parchment #f3ead7",
+    "where": "button and field borders",
+    "ratio": 7.87,
+    "min": 3,
+    "pass": true
+  },
+  {
+    "text": "--stone-500 #8a8072",
+    "surface": "--vellum #fbf7ee",
+    "where": "move list border, quiet buttons",
+    "ratio": 3.63,
+    "min": 3,
+    "pass": true
+  },
+  {
+    "text": "--accent #842c21",
+    "surface": "--vellum #fbf7ee",
+    "where": "checked boxes, slider thumb",
+    "ratio": 8.31,
+    "min": 3,
+    "pass": true
+  },
+  {
+    "text": "#e9c071",
+    "surface": "#221d18",
+    "where": "\"Down\" in the wordmark (large)",
+    "ratio": 9.74,
+    "min": 3,
+    "pass": true
+  },
+  {
+    "text": "#2b2621",
+    "surface": "#fff6dc",
+    "where": "help line",
+    "ratio": 13.89,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "#8cc0ff",
+    "surface": "#221d18",
+    "where": "focus ring on the title screen",
+    "ratio": 8.83,
+    "min": 3,
+    "pass": true
+  },
+  {
+    "text": "#2b2621",
+    "surface": "#efe4cc",
+    "where": "button label at the bottom of its gradient",
+    "ratio": 11.87,
+    "min": 4.5,
+    "pass": true
+  },
+  {
+    "text": "#2b2621",
+    "surface": "#e6e1cf",
+    "where": "board surround (coordinates are drawn by the scene)",
+    "ratio": 11.44,
+    "min": 4.5,
+    "pass": true
+  }
+]
