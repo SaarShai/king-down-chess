@@ -2,6 +2,8 @@
 
 Read `TASKS.md` (current work, owner decisions) and `LESSONS.md` (rules learned; the Jev entries) at the start of every session. Verify before you mark anything done. Do not launch runs the owner has not asked for; `docs/QUEUE.md` is launched by name.
 
+Cloud sessions (claude.ai/code): `.claude/hooks/cloud-setup.sh` runs `npm ci` and tries to install Playwright Chromium. A cloud clone holds only Git: no raw art in `art-src/` (only its manifest), no bulk sim data, no TypeSafe key, no access to M1. Commit and push finished work; anything left only in the cloud is lost.
+
 M1 / local models: for SSH, Remote Management, or Ollama work on M1, read `docs/LOCAL-AI-MACBOOK.md` and verify its device identity before state changes.
 
 ## Delegation policy — owner decision, 2026-09-22
