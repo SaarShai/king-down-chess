@@ -332,4 +332,14 @@ Death Touch with this reach 56.7 (plain Death Touch 42.3), Mercy 55.3, Holy Ligh
 Shadow king's 51.7, so the light and dark kings are level with each other and just above the
 field, and with this Death Touch nine of twelve powers sit inside 50 ± 4 (spread 14 points).
 
-Raw games: `claude/kp2-results-*` branches (`sim/out/*.jsonl`); reports and specs in `sim/out/`.
+## Final check — the official set with the new Death Touch
+
+All twelve official readings (Death Touch with the files-and-ranks reach) and a plain king, seed
+1111, 12 pairs, depth 3, run in this one session: 1,872 games (`sim/out/kp2-r11.report.md`; each
+±5.5). Against the other powers: Mercy 60.4, Haste 54.7, Strike 54.5, Death Touch 52.3, Freeze
+50.9, March 49.6, Flight 48.7, Sacrifice 48.1, Leap 46.2, Ice Wall 45.6, Holy Light 44.9,
+Darkness 43.9; plain king 33.9. All twelve within 44–60, spread 16.5. Spirit's two powers average
+52.7, Shadow's 48.1 — level within this round's error. Mercy has measured 55–62 in every round
+since its shelter, so it is the one power to watch in play.
+
+Raw games: `claude/kp2-results-*` branches (rounds 1–10); `sim/out/kp2-r11.jsonl` locally (`sim/out/*.jsonl`); reports and specs in `sim/out/`.
