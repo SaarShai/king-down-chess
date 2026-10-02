@@ -19,6 +19,9 @@
  *            --base sim/nnue-powers/current.arm.json --pairs 200 --depth 3 --mode none|powers
  *            [--timeMs 800] [--workers 4] [--seed 7]
  *   report tsx src/sim/powers-net.ts report --id pm-a [--id pm-b]
+ *   skills each weaker level against Club, as the browser plays them (`skillPlan`: its time cap, score
+ *          band and random-move chance), colour-swapped pairs, half the games with powers
+ *            tsx src/sim/powers-net.ts skills --id sk-a --pairs 10 [--arm sim/nnue-powers/cand1.arm.json]
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -30,8 +33,10 @@ import type { Worker } from 'node:worker_threads';
 import { Color, Position, WHITE, inCheck, legalMoves, makeMove } from '../rules/engine';
 import { POWERS_BALANCED, PowerName, Rules, setRules } from '../rules/rules';
 import { fromFen, randomBackRank, toLan } from '../rules/setup';
-import { EvalParams, Evaluator, evalParams, evaluate, setEvaluator } from '../ai/eval';
-import { leafPowers, quiesceScore } from '../ai/search';
+import { EvalParams, Evaluator, evalParams, evaluate, setEvalParams, setEvaluator } from '../ai/eval';
+import { leafPowers, positionKey, quiesceScore, resetSearchState, search } from '../ai/search';
+import { SkillName, skillPlan } from '../ai/skill';
+import { Game } from '../game';
 import { BOARD_INPUTS, HIDDEN, INPUTS, NET_POWERS, QA, QB, packNet } from '../ai/nnue/net';
 import { NET_B64 } from '../ai/nnue/weights';
 import { Net, REC_P, TrainOpts, VAL_BIT, quantise, trainNet } from './gen';
@@ -367,6 +372,74 @@ export function matchReport(ids: string[]): string {
 }
 
 // -------------------------------------------------------------------------------------------------
+// 4. Skill levels: does Beginner still lose to Club, and Casual too?
+
+interface SkillJob { gameId: number; pairId: number; level: SkillName; levelWhite: boolean; kings: [Side, Side]; army: string; seed: number }
+interface SkillSpec { id: string; pairs: number; seed: number; arm?: string; thinkMs: number }
+
+function skillGame(sp: SkillSpec, job: SkillJob): Record<string, unknown> {
+  const rules = rulesFor(job.kings);
+  setRules(rules);
+  if (sp.arm) setEvalParams(JSON.parse(readFileSync(sp.arm, 'utf8')) as EvalParams);
+  else setEvaluator('residual');
+  resetSearchState();
+  const rng = mulberry32(job.seed);
+  const game = new Game(job.army);
+  const keys: number[] = [];
+  let streak = 0, sign = 0, result: number | null = null, reason = '';
+  while (game.status === 'playing' && game.history.length < 240) {
+    const c = game.pos.turn;
+    const level: SkillName = (c === WHITE) === job.levelWhite ? job.level : 'club';
+    const plan = skillPlan(level, sp.thinkMs, game.history.length);
+    keys.push(positionKey(game.pos));
+    const r = search(game.pos, { timeMs: plan.timeMs, temperature: plan.temperature, rng, history: keys });
+    const legal = game.legal;
+    const blunder = plan.blunder > 0 && rng() < plan.blunder ? legal[Math.floor(rng() * legal.length)] : null;
+    const lan = r.move ? toLan(game.pos, r.move) : '';
+    const move = blunder ?? legal.find(m => toLan(game.pos, m) === lan) ?? legal[0];
+    // Resign only on the Club side's own lasting verdict (the weaker side's search is not trusted).
+    if (level === 'club') {
+      const w = c === WHITE ? r.score : -r.score;
+      const sg = w >= 800 ? 1 : w <= -800 ? -1 : 0;
+      streak = sg !== 0 && sg === sign ? streak + 1 : sg ? 1 : 0;
+      sign = sg;
+      if (streak >= 3) { result = sg > 0 ? 1 : 0; reason = 'adjudicatedResign'; break; }
+    }
+    game.play(move);
+  }
+  if (result === null) {
+    reason = game.status === 'playing' ? 'plyCap' : game.status;
+    result = game.status === 'checkmate' ? (game.pos.turn === WHITE ? 0 : 1) : 0.5;
+  }
+  setRules();
+  const levelScore = job.levelWhite ? result : 1 - result;
+  return { ...job, result, levelScore, reason, plies: game.history.length };
+}
+
+async function skills(sp: SkillSpec, workers: number): Promise<void> {
+  const rng = mulberry32(sp.seed);
+  const jobs: SkillJob[] = [];
+  for (const level of ['beginner', 'casual'] as SkillName[]) {
+    for (let p = 0; p < sp.pairs; p++) {
+      const kings = p % 2 ? drawKings(rng, 0, false) : (['none', 'none'] as [Side, Side]);
+      const army = randomBackRank(rng);
+      const seed = (sp.seed * 1_000_003 + jobs.length * 7919) >>> 0;
+      for (const levelWhite of [true, false]) jobs.push({ gameId: jobs.length, pairId: jobs.length >> 1, level, levelWhite, kings, army, seed: seed + (levelWhite ? 0 : 1) });
+    }
+  }
+  const out: Record<string, unknown>[] = [];
+  await runPool<SkillJob, Record<string, unknown>>('powers-skills', sp, jobs, workers, r => out.push(r), sp.id);
+  mkdirSync(OUT_DIR, { recursive: true });
+  writeFileSync(`${OUT_DIR}/${sp.id}.skills.jsonl`, out.map(r => JSON.stringify(r)).join('\n') + '\n');
+  for (const level of ['beginner', 'casual']) {
+    const g = out.filter(r => r.level === level);
+    const score = g.reduce((a, r) => a + (r.levelScore as number), 0) / Math.max(1, g.length);
+    const wins = g.filter(r => r.levelScore === 1).length, draws = g.filter(r => r.levelScore === 0.5).length;
+    console.log(`[${sp.id}] ${level} vs club: ${g.length} games, score ${(100 * score).toFixed(1)}% (${wins} wins, ${draws} draws, ${g.length - wins - draws} losses)`);
+  }
+}
+
+// -------------------------------------------------------------------------------------------------
 
 if (!isMainThread) {
   const { role, payload } = workerData as { role: string; payload: unknown };
@@ -375,6 +448,7 @@ if (!isMainThread) {
     parentPort!.postMessage(r);
   });
   else if (role === 'powers-match') parentPort!.on('message', (job: MatchJob) => parentPort!.postMessage(matchGame(payload as MatchSpec, job)));
+  else if (role === 'powers-skills') parentPort!.on('message', (job: SkillJob) => parentPort!.postMessage(skillGame(payload as SkillSpec, job)));
 }
 
 if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolvePath(process.argv[1])) {
@@ -400,6 +474,8 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
       mode: str('mode', 'none') === 'powers' ? 'powers' : 'none', seed: num('seed', 7),
       maxPlies: num('maxPlies', 300), openingRandomPlies: num('openingRandomPlies', 4),
     }, workers).catch(fail);
+  } else if (cmd === 'skills') {
+    skills({ id: str('id', 'sk'), pairs: num('pairs', 10), seed: num('seed', 11), thinkMs: num('thinkMs', 800), ...(typeof f.arm === 'string' ? { arm: f.arm } : {}) }, workers).catch(fail);
   } else if (cmd === 'report') {
     const ids = argv.flatMap((a, i) => (a === '--id' ? [argv[i + 1]] : []));
     console.log(matchReport(ids));
