@@ -2,6 +2,8 @@
 
 Reusable corrections. Pattern → rule.
 
+- A baseline of the browser tools on main ran with tool files already edited for the new UI (Guide cards, title skip), so `verify-playable-clay.mjs` "failed on main" waiting for `.piece-card`, a selector main's build cannot have. Screenshot runs against the same preview server during that baseline also coincided with a clay figure's "Failed to fetch". → Take a baseline from a clean worktree of the base branch (`git worktree add /tmp/main-wt main`, symlink `node_modules`), and run nothing else against its server while it runs. Then edit tools. (2026-10-02)
+
 - A lesson's `save()` guard did not protect the match: changing a player cleared lesson mode first, then saved the lesson position over the match. → Keep the live `Game` separate from the lesson `Game`, preserve its rules and player sides, and test lifecycle controls as well as lesson moves. Lessons must run under the rules their instructions teach. (2026-09-29)
 
 - Moving the lessons button into the Guide dialog broke two tools that closed the Guide with `#rules button` (strict mode: two buttons). Only the painted check was rerun after the move, so the break showed one batch later. → After adding or moving a control, grep the tools for selectors of that container (`grep -n "#rules button" tools/*.mjs`) and prefer specific selectors (`#rules form button`); rerun every tool after any UI move, not only the one that tests the feature. (2026-09-27)
