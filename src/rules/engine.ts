@@ -159,9 +159,12 @@ const FORWARD_SETS: Partial<Record<ArcherShots, readonly Delta[]>> = {
 };
 const mirrored = (set: readonly Delta[]): readonly Delta[] => set.map(([df, dr]) => [df, -dr] as Delta);
 /** An archer's shot deltas seen from the archer. `forward3` and `plusDiagFwd2` depend on colour. */
+const MIRRORED: Partial<Record<ArcherShots, readonly Delta[]>> = Object.fromEntries(
+  Object.entries(FORWARD_SETS).map(([k, set]) => [k, mirrored(set!)]),
+);
 const archerShotsFor = (c: Color): readonly Delta[] => {
   const forward = FORWARD_SETS[RULES.archerShots];
-  if (forward) return c === BLACK ? mirrored(forward) : forward;
+  if (forward) return c === BLACK ? MIRRORED[RULES.archerShots]! : forward; // built once, not per call
   return ARCHER_SHOT_SETS[RULES.archerShots];
 };
 
@@ -262,6 +265,36 @@ export function findKing(board: Uint8Array, c: Color): number {
 /** all = every pseudo-legal move; captures = only moves that remove something (chains included); attacks = first-level captures only. */
 export type GenMode = 'all' | 'captures' | 'attacks';
 
+/** A pawn move onto `to`, as one move per promotion piece when `to` is the last rank. */
+function pawnPush(out: Move[], from: number, to: number, captures: number[], lastRank: number): void {
+  if (rank(to) === lastRank) for (const promo of PROMOTION_SETS[RULES.promotionSet]) out.push({ from, to, captures, promo });
+  else out.push({ from, to, captures });
+}
+
+/**
+ * The beast's chain from `at`, as a module function so no closure is made per generated beast.
+ * `scratch` is the board with the chain's victims removed so far (made on the first link).
+ */
+function beastChain(board: Uint8Array, scratch: Uint8Array | null, from: number, at: number, caps: number[], c: Color,
+  capDirs: readonly Delta[], dr: number, mode: GenMode, out: Move[]): void {
+  for (const [df, ddr] of capDirs) {
+    if (RULES.beastCapture === 'adjacent' && df === 0 && ddr === dr && !RULES.beastCaptureForward) continue; // straight ahead is move-only
+    const target = step(at, df, ddr);
+    if (target < 0) continue;
+    const v = (scratch ?? board)[target];
+    if (!v || colorOf(v) === c) continue;
+    const vt = typeOf(v);
+    if (!canCapture(S, vt) || (caps.length > 0 && vt === K)) continue; // a chain may not continue onto a king
+    const next = [...caps, target];
+    out.push({ from, to: target, captures: next });
+    if (mode === 'attacks' || vt === K || !RULES.beastChains) continue;
+    const sc = scratch ?? new Uint8Array(board);
+    sc[target] = 0;
+    beastChain(board, sc, from, target, next, c, capDirs, dr, mode, out);
+    sc[target] = v;
+  }
+}
+
 function leaper(board: Uint8Array, from: number, c: Color, att: number, deltas: readonly Delta[], mode: GenMode, out: Move[]): void {
   for (const [df, dr] of deltas) {
     const to = step(from, df, dr);
@@ -302,50 +335,46 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
   switch (t) {
     case P: {
       const dr = fwd(c), startRank = c === WHITE ? 1 : 6, lastRank = c === WHITE ? 7 : 0;
-      const push = (to: number, captures: number[]) => {
-        if (rank(to) === lastRank) for (const promo of PROMOTION_SETS[RULES.promotionSet]) out.push({ from, to, captures, promo });
-        else out.push({ from, to, captures });
-      };
       // **Darkness** (Shadow B): the pawn's two verbs swap — it steps on the forward diagonals and
       // captures straight ahead — and the double first step is gone. Promotion follows on its own,
-      // because `push()` promotes by rank and both paths call it. The matching branch is the pawn
+      // because `pawnPush()` promotes by rank and both paths call it. The matching branch is the pawn
       // walk in `isAttacked`, which is the only other place that knows where a pawn takes from.
       if (powerOf(c) === 'Darkness') {
         if (mode === 'all') for (const df of [-1, 1]) {
           const to = step(from, df, dr);
-          if (to >= 0 && !board[to]) push(to, []);
+          if (to >= 0 && !board[to]) pawnPush(out, from, to, [], lastRank);
         }
         const ahead = step(from, 0, dr);
-        if (ahead >= 0 && board[ahead] && colorOf(board[ahead]) !== c && canCapture(p, typeOf(board[ahead]))) push(ahead, [ahead]);
+        if (ahead >= 0 && board[ahead] && colorOf(board[ahead]) !== c && canCapture(p, typeOf(board[ahead]))) pawnPush(out, from, ahead, [ahead], lastRank);
         return;
       }
       if (mode === 'all') {
         const s1 = step(from, 0, dr);
         if (s1 >= 0 && !board[s1]) {
-          push(s1, []);
+          pawnPush(out, from, s1, [], lastRank);
           // Always-on **March** (Mud A, `marchUses: 0`): the double step from *any* rank, both
           // squares empty. Dropping the home-rank test is the whole power — and it is why the second
-          // square goes through `push()` too: from rank 6 a marching pawn lands on the last rank and
+          // square goes through `pawnPush()` too: from rank 6 a marching pawn lands on the last rank and
           // must promote. Counted March (the default) is a power move (`genPowerMoves`).
           const s2 = step(from, 0, 2 * dr);
-          if ((marchAlways(c) || rank(from) === startRank) && s2 >= 0 && !board[s2]) push(s2, []);
+          if ((marchAlways(c) || rank(from) === startRank) && s2 >= 0 && !board[s2]) pawnPush(out, from, s2, [], lastRank);
         }
       }
       // **C4** (`pawnCapitalCapture`, `docs/MATRIX.md` §B.2): a pawn standing in the capital
-      // (d4 e4 d5 e5) may also take **straight ahead**. `push()` is the ordinary advance's own
+      // (d4 e4 d5 e5) may also take **straight ahead**. `pawnPush()` is the ordinary advance's own
       // path, so a capture that reached the last rank would promote exactly like a push. The move
       // is generated for `all` and `captures` but never for `attacks`: a straight capture is a
       // move, not a new attack, so `isAttacked` keeps the pawn's ordinary two diagonals (the same
       // deliberate check-detection split as `capitalSanctuary`).
       if (RULES.pawnCapitalCapture && mode !== 'attacks' && CAPITAL.includes(from)) {
         const ahead = step(from, 0, dr);
-        if (ahead >= 0 && board[ahead] && colorOf(board[ahead]) !== c && canCapture(p, typeOf(board[ahead]))) push(ahead, [ahead]);
+        if (ahead >= 0 && board[ahead] && colorOf(board[ahead]) !== c && canCapture(p, typeOf(board[ahead]))) pawnPush(out, from, ahead, [ahead], lastRank);
       }
       for (const df of [-1, 1]) {
         const to = step(from, df, dr);
         // The real piece byte, not the bare type: `canCapture` reads the attacker's colour off it,
         // which is how Holy Light knows whose king a pawn may not take.
-        if (to >= 0 && board[to] && colorOf(board[to]) !== c && canCapture(p, typeOf(board[to]))) push(to, [to]);
+        if (to >= 0 && board[to] && colorOf(board[to]) !== c && canCapture(p, typeOf(board[to]))) pawnPush(out, from, to, [to], lastRank);
       }
       return;
     }
@@ -498,26 +527,7 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
       // maul with the two forward diagonals, or all four. Chaining is untouched: a chain just
       // continues on the same directions from each new square.
       const capDirs = RULES.beastCapture === 'diagForward' ? DIAG_FWD[c] : RULES.beastCapture === 'diagonal' ? DIAG : DIRS8;
-      let scratch: Uint8Array | null = null;
-      const chain = (at: number, caps: number[]): void => {
-        for (const [df, ddr] of capDirs) {
-          if (RULES.beastCapture === 'adjacent' && df === 0 && ddr === dr && !RULES.beastCaptureForward) continue; // straight ahead is move-only
-          const target = step(at, df, ddr);
-          if (target < 0) continue;
-          const v = (scratch ?? board)[target];
-          if (!v || colorOf(v) === c) continue;
-          const vt = typeOf(v);
-          if (!canCapture(S, vt) || (caps.length > 0 && vt === K)) continue; // a chain may not continue onto a king
-          const next = [...caps, target];
-          out.push({ from, to: target, captures: next });
-          if (mode === 'attacks' || vt === K || !RULES.beastChains) continue;
-          scratch ??= new Uint8Array(board);
-          scratch[target] = 0;
-          chain(target, next);
-          scratch[target] = v;
-        }
-      };
-      chain(from, []);
+      beastChain(board, null, from, from, [], c, capDirs, dr, mode, out);
       return;
     }
     case V: {
@@ -765,39 +775,64 @@ function beastTakesFrom(df: number, dr: number, by: Color): boolean {
   return RULES.beastCaptureForward || !(df === 0 && dr === -fwd(by));
 }
 
+/** Is the piece on `s` of colour `by` and type `t`, and may it take a `victim` (0 = an empty target)? */
+function hits(board: Uint8Array, s: number, t: PieceType, by: Color, victim: number): boolean {
+  const p = board[s];
+  return p !== 0 && colorOf(p) === by && typeOf(p) === t && (victim === 0 || canCapture(p, victim as PieceType));
+}
+
+/**
+ * Board geometry for `isAttacked`, computed once: the knight squares of each square, its eight
+ * neighbours by direction (-1 off the board), and the squares of each of its eight rays, outward.
+ * Indexed `s * 8 + d` with `d` the index into `DIRS8`.
+ */
+const KNIGHT_TO: Int8Array[] = Array.from({ length: 64 }, (_, s) => Int8Array.from(KNIGHT.map(([df, dr]) => step(s, df, dr)).filter(t => t >= 0)));
+const NEIGHBOUR = Int8Array.from({ length: 64 * 8 }, (_, i) => step(i >> 3, DIRS8[i & 7][0], DIRS8[i & 7][1]));
+const RAY: Int8Array[] = Array.from({ length: 64 * 8 }, (_, i) => {
+  const [df, dr] = DIRS8[i & 7], out: number[] = [];
+  for (let t = step(i >> 3, df, dr); t >= 0; t = step(t, df, dr)) out.push(t);
+  return Int8Array.from(out);
+});
+
 export function isAttacked(board: Uint8Array, target: number, by: Color): boolean {
   const victim = board[target] ? typeOf(board[target]) : 0;
-  // One 64-byte scan, so the lob test below costs nothing on a board with no catapult — which is
-  // every shipped game, and `isAttacked` is the hottest function in the project.
-  const lobber = board.includes(piece(C, by));
-  const hit = (s: number, t: PieceType): boolean => {
-    const p = board[s];
-    return p !== 0 && colorOf(p) === by && typeOf(p) === t && (victim === 0 || canCapture(p, victim as PieceType));
-  };
-  for (const [df, dr] of KNIGHT) { const s = step(target, df, dr); if (s >= 0 && (hit(s, N) || hit(s, V))) return true; }
-  for (const [df, dr] of DIRS8) {
-    const s = step(target, df, dr);
+  // `isAttacked` is the hottest function in the project, so it creates no closure per call (the
+  // simulator runs under tsx, whose name-keeping wraps every closure it creates), walks precomputed
+  // geometry, and looks for a catapult only when a lob is geometrically possible (-1 = not yet).
+  let lobber = -1;
+  const kn = KNIGHT_TO[target];
+  for (let i = 0; i < kn.length; i++) if (hits(board, kn[i], N, by, victim) || hits(board, kn[i], V, by, victim)) return true;
+  for (let d = 0; d < 8; d++) {
+    const s = NEIGHBOUR[target * 8 + d];
     if (s < 0) continue;
-    // `hit` answers "can this piece take a king here" through `canCapture`, but an empty target
+    const p = board[s];
+    if (!p || colorOf(p) !== by) continue;
+    // `hits` answers "can this piece take a king here" through `canCapture`, but an empty target
     // short-circuits it, so the no-capture Ogre is gated explicitly — the same shape the guard's
     // `guardCaptures` gate uses. `crossCheckAttacks` fails without it.
-    if (hit(s, K) || hit(s, M) || (!RULES.ogreNoCapture && hit(s, O)) || hit(s, T) || (RULES.guardCaptures !== 'none' && hit(s, G) && guardMayLand(board[s], target))) return true;
-    if (hit(s, S) && beastTakesFrom(df, dr, by)) return true;
+    if (hits(board, s, K, by, victim) || hits(board, s, M, by, victim) || (!RULES.ogreNoCapture && hits(board, s, O, by, victim)) || hits(board, s, T, by, victim) || (RULES.guardCaptures !== 'none' && hits(board, s, G, by, victim) && guardMayLand(p, target))) return true;
+    if (hits(board, s, S, by, victim) && beastTakesFrom(DIRS8[d][0], DIRS8[d][1], by)) return true;
   }
   // A pawn of `by` that takes the target stands on one of the two squares diagonally behind it —
   // or, under **Darkness**, on the single square straight behind it (the mirror of `case P`).
-  for (const df of powerOf(by) === 'Darkness' ? [0] : [-1, 1]) { const s = step(target, df, -fwd(by)); if (s >= 0 && hit(s, P)) return true; }
+  const back = -fwd(by);
+  if (powerOf(by) === 'Darkness') { const s = step(target, 0, back); if (s >= 0 && hits(board, s, P, by, victim)) return true; }
+  else {
+    const s1 = step(target, -1, back), s2 = step(target, 1, back);
+    if ((s1 >= 0 && hits(board, s1, P, by, victim)) || (s2 >= 0 && hits(board, s2, P, by, victim))) return true;
+  }
   // Walk the shot deltas *negated*: an archer that shoots (df, dr) sits at (-df, -dr) from its
   // target. The symmetric sets do not care; `forward3` does.
-  for (const [df, dr] of archerShotsFor(by)) { const s = step(target, -df, -dr); if (s >= 0 && hit(s, A)) return true; }
+  const shots = archerShotsFor(by);
+  for (let i = 0; i < shots.length; i++) { const s = step(target, -shots[i][0], -shots[i][1]); if (s >= 0 && hits(board, s, A, by, victim)) return true; }
   for (let i = 0; i < 8; i++) {
-    const [df, dr] = DIRS8[i];
+    const ray = RAY[target * 8 + i];
     const sliderType = i < 4 ? R : B;
     // A `by`-coloured piece in the way blocks sliders; whether it blocks a paladin is a rule, so
     // the two get their own flags (they differ under `paladinJumpsFriends: false`).
     let blockedForSliders = false, blockedForPaladin = false, first = true;
-    for (let s = step(target, df, dr); s >= 0; s = step(s, df, dr)) {
-      const p = board[s];
+    for (let j = 0; j < ray.length; j++) {
+      const s = ray[j], p = board[s];
       if (!p) continue;
       const isFirst = first;
       first = false;
@@ -806,10 +841,10 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
         // must not belong to the shooter — so the walk the sliders already make *is* the walk the
         // lob needs, and only the leg past the screen is new work. That is why the lob lives inside
         // this loop instead of walking four rays of its own.
-        if (lobber && i < 4 && isFirst) {
-          for (let t = step(s, df, dr); t >= 0; t = step(t, df, dr)) {
-            if (!board[t]) continue;
-            if (hit(t, C)) return true;
+        if (i < 4 && isFirst && (lobber < 0 ? (lobber = board.includes(piece(C, by)) ? 1 : 0) : lobber)) {
+          for (let jj = j + 1; jj < ray.length; jj++) {
+            if (!board[ray[jj]]) continue;
+            if (hits(board, ray[jj], C, by, victim)) return true;
             break;
           }
         }

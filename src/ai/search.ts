@@ -269,6 +269,22 @@ function undoQuiet(base: number): void {
   }
 }
 
+/**
+ * `LINE[k * 64 + s]` is 1 when `s` lies on one of the eight lines through `k`, at any distance. A
+ * move can expose its own king only along such a line, so `genLegal` tests the others for nothing.
+ */
+const LINE = ((): Uint8Array => {
+  const t = new Uint8Array(64 * 64);
+  const D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  for (let k = 0; k < 64; k++) for (const [df, dr] of D8) {
+    for (let f = (k & 7) + df, r = (k >> 3) + dr; f >= 0 && f < 8 && r >= 0 && r < 8; f += df, r += dr) t[k * 64 + r * 8 + f] = 1;
+  }
+  return t;
+})();
+/** Off for the cross-check test only: then every move is made and the king looked at. */
+let fastLegality = true;
+export function setFastLegality(on: boolean): void { fastLegality = on; }
+
 const attacked = (c: Color): boolean => {
   const k = board.indexOf(piece(K, c));
   return k >= 0 && isAttacked(board, k, (c ^ 1) as Color);
@@ -279,7 +295,7 @@ const attacked = (c: Color): boolean => {
  * power moves come from the engine's own `genPowerMoves`, offered while `ply <= powerPlyMax`; a
  * pending Haste allows only the hasted piece and `pass`; a mark filters what it forbids.
  */
-function genLegal(out: Move[], c: Color, mode: GenMode, ply: number): Move[] {
+function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnown?: boolean): Move[] {
   out.length = 0;
   if (hasteSq >= 0) genHasteFollowUp(board, hasteSq, mode, out);
   else {
@@ -290,16 +306,42 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number): Move[] {
     if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) genPowerMoves(board, c, usedPair[c], trackLost ? lost : undefined, out, 0, out.length);
   }
   if (mark >= 0) filterMarks(c, mark, out);
+  // Legality is "make it, then look at our king" — but only a move that could expose the king needs
+  // the look: we are in check; the king itself moves (Death Touch and Mercy included); a swap or a
+  // shove moves a second piece; the mover leaves a line through the king (a slider's ray opens);
+  // a capture removes a piece on such a line; or an enemy catapult could use the arriving piece as
+  // its screen. Archer shots ignore blockers and the leapers are never blocked, so nothing else can
+  // change an attack on the king. `setFastLegality(false)` turns this off for the cross-check test.
+  const k = board.indexOf(piece(K, c));
+  const inChk = k < 0 || (inCheckKnown ?? attacked(c));
+  const lines = k * 64;
+  const lob = board.includes(piece(13 /* C */, (c ^ 1) as Color));
   let n = 0;
   for (let i = 0; i < out.length; i++) {
     const m = out[i];
-    const base = applyQuiet(m);
-    const ok = !attacked(c);
-    undoQuiet(base);
-    if (ok) out[n++] = m;
+    let test: boolean;
+    if (!fastLegality || inChk) test = true;
+    else if (m.power === 'freeze' || m.power === 'ward' || m.pass) test = false; // no square changes
+    else {
+      test = m.from === k || m.swap === true || m.shove !== undefined || LINE[lines + m.from] === 1 || (lob && LINE[lines + m.to] === 1);
+      for (let j = 0; !test && j < m.captures.length; j++) if (LINE[lines + m.captures[j]] === 1) test = true;
+    }
+    if (test) {
+      const base = applyQuiet(m);
+      const ok = !attacked(c);
+      undoQuiet(base);
+      if (!ok) continue;
+    }
+    out[n++] = m;
   }
   out.length = n;
   return out;
+}
+
+/** Test probe: the search's own legal list for `pos` at the root (power moves included). */
+export function searchLegal(pos: Position): Move[] {
+  initPosition(pos);
+  return [...genLegal([], pos.turn, 'all', 0)];
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -397,7 +439,7 @@ function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: n
   const inChk = attacked(c);
   // Stalemate is terminal even at the capture-search horizon, before stand-pat. No power is started
   // here (`ply` past `powerPlyMax`), so a capture continuation never holds the turn.
-  const moves = genLegal(bufs[ply], c, 'all', MAX_PLY);
+  const moves = genLegal(bufs[ply], c, 'all', MAX_PLY, inChk);
   if (!moves.length) return inChk ? -MATE + ply : 0;
   let best: number;
   if (inChk) {
@@ -462,7 +504,7 @@ function negamax(depth: number, alpha: number, beta: number, ply: number, hm: nu
   if (inChk && ply < rootDepth * 2) depth++; // check extension, capped at twice the nominal depth
   if (depth <= 0 && hasteSq < 0) return quiesce(alpha, beta, ply, QMAX, hm);
 
-  const moves = genLegal(bufs[ply], c, 'all', ply);
+  const moves = genLegal(bufs[ply], c, 'all', ply, inChk);
   if (moves.length === 0) return inChk ? -MATE + ply : 0;
   const s = score(moves, ply, ttEnc);
 

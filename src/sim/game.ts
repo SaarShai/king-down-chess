@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { Game } from '../game';
 import { EvalParams, setEvalParams, setPieceValues } from '../ai/eval';
 import * as AI from '../ai/search';
+import { setPowerHold } from '../ai/search';
 import { Adjudicate, Job, RunSpec, adjudication, sideOptions } from './spec';
 import { countMove, emptyEvents } from './replay';
 import { mulberry32 } from './rng';
@@ -25,6 +26,11 @@ export interface PlyRecord {
   /** Best root score minus second best, in cp (mover's view). Only with `multiPv` (decision cost). */
   gap?: number;
   ms: number;
+  /**
+   * Who moved (0 white, 1 black). Written since 2026-10-02 because a Haste turn takes two plies,
+   * after which the mover no longer follows the ply's parity (`moverAt` cannot know it).
+   */
+  by?: 0 | 1;
 }
 
 /** Per piece letter. `captures` is keyed by the mover, `taken` by the victim. */
@@ -168,6 +174,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
   const t0 = performance.now();
   setRules(spec.rules); // per game: cheap, and an A/B run changes rules between sub-runs
   setPieceValues(spec.values); // same reason; with no `values` this restores the shipped constants
+  setPowerHold(spec.powerHold as Parameters<typeof setPowerHold>[0]); // likewise: none = the search's defaults
   const rng = mulberry32(job.seed);
   const game = startGame(job.backRankWhite, job.backRankBlack, job.fen);
   const startFen = toFen(game.pos);
@@ -228,7 +235,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
       ...(cp === undefined ? {} : { cp }), ...(depth === undefined ? {} : { depth }),
       ...(nodes === undefined ? {} : { nodes }),
       ...(gap === undefined ? {} : { gap }),
-      legal: legal.length, ms: +(performance.now() - t).toFixed(2),
+      legal: legal.length, ms: +(performance.now() - t).toFixed(2), by: c,
     });
     game.play(move);
     applyDrawRules(game);

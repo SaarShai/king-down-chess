@@ -5,7 +5,8 @@ import { RULES, Rules, parseRule } from '../rules/rules';
 import { POOL, randomBackRank, shuffle } from '../rules/setup';
 import { mulberry32 } from './rng';
 
-export interface AiSide { depth?: number; timeMs?: number }
+/** `powerPlies`: how deep in the tree the search offers king powers (`SearchOptions.powerPlies`). */
+export interface AiSide { depth?: number; timeMs?: number; powerPlies?: number }
 
 /** Fishtest-style live adjudication (docs/research/sim-methodology.md §3). */
 export interface Adjudicate {
@@ -65,6 +66,11 @@ export interface RunSpec {
   evalParams?: { white?: string; black?: string };
   /** Ask the search for the second-best root score, for the decision-cost metric. Costs ~2x. */
   multiPv?: boolean;
+  /**
+   * What the search holds an unspent king-power use to be worth, in centipawns, by power name
+   * (`setPowerHold` in src/ai/search.ts); anything left out keeps the search's default.
+   */
+  powerHold?: Partial<Record<string, number>>;
   openingRandomPlies?: number;
   maxPlies?: number;
   /**
@@ -233,15 +239,21 @@ export function adjudication(spec: RunSpec): Adjudicate | null {
  * A fixed-depth run gets `timeMs: Infinity` so the wall clock cannot make a run unrepeatable
  * (docs/research/sim-methodology.md §7.1); an explicit timeMs still wins.
  */
-export function sideOptions(spec: RunSpec, colourSwapped = false): [{ maxDepth?: number; timeMs: number }, { maxDepth?: number; timeMs: number }] {
-  const mk = (s?: AiSide) => {
+export function sideOptions(spec: RunSpec, colourSwapped = false): [SideSearch, SideSearch] {
+  const mk = (s?: AiSide): SideSearch => {
     const depth = s?.depth ?? spec.ai.depth;
     const timeMs = s?.timeMs ?? spec.ai.timeMs;
-    return { ...(depth === undefined ? {} : { maxDepth: depth }), timeMs: timeMs ?? (depth === undefined ? 1000 : Infinity) };
+    const powerPlies = s?.powerPlies ?? spec.ai.powerPlies;
+    return {
+      ...(depth === undefined ? {} : { maxDepth: depth }), timeMs: timeMs ?? (depth === undefined ? 1000 : Infinity),
+      ...(powerPlies === undefined ? {} : { powerPlies }),
+    };
   };
   const [a, b] = [mk(spec.ai.white), mk(spec.ai.black)];
   return colourSwapped ? [b, a] : [a, b];
 }
+
+export interface SideSearch { maxDepth?: number; timeMs: number; powerPlies?: number }
 
 /**
  * Pairs cancel the opening bias between two *different* sides. With one engine, equal settings and
