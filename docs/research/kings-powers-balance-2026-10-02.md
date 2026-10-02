@@ -262,4 +262,37 @@ pairs, 936 games) ordered the powers the same way with a wider spread: Mercy 60,
 Sacrifice 59, Haste 56, Strike 56, Freeze 55, Leap 51, Ice Wall 44, March 42, Death Touch 41,
 Darkness 41, Holy Light 36 (each ±6–8).
 
+## Round 6 — Mercy and Holy Light variations
+
+Owner (2026-10-02): adopt the balanced readings as the official rules, and "experiment with
+different variations and combinations" of Mercy and Holy Light. The official set plus five
+variants, seed 505, 16 pairs, depth 3: 4,608 games (`sim/out/kp2-r6.report.md`).
+
+| entrant | vs powers |
+|---|---|
+| Holy Light, all 8 neighbours sheltered | 63.6 ± 4.4 |
+| the same, and the king takes no pawns | 62.6 ± 4.3 |
+| Sacrifice | 56.5 ± 3.7 |
+| Haste | 56.5 ± 4.0 |
+| **Mercy, neighbours sheltered (official)** | **54.6 ± 4.2** |
+| March | 54.4 ± 4.0 |
+| Freeze | 53.0 ± 4.1 |
+| **Holy Light, pieces beside, in front of and behind sheltered** | **52.8 ± 4.6** |
+| Leap | 51.8 ± 4.0 |
+| Flight | 50.3 ± 4.1 |
+| Strike | 48.8 ± 4.1 |
+| Ice Wall | 47.6 ± 4.0 |
+| Darkness | 47.0 ± 4.1 |
+| Death Touch | 44.3 ± 3.9 |
+| Holy Light, no shelter (previous) | 42.7 ± 4.2 |
+| *plain king* | 39.6 ± 3.6 |
+| Mercy, only beside/front/behind sheltered | 36.9 ± 4.0 |
+| Mercy, sheltered only from pawns | 26.7 ± 3.7 |
+
+**Chosen:** Mercy keeps its shelter of all eight neighbours; Holy Light gets the four-square
+shelter (beside, in front of, behind), which brings it to 53%. One idea, two shapes, easy to tell
+apart. Mercy is sensitive to its shelter's shape: with four squares it falls below the plain
+king, so it stays at eight. (Mercy measured 62 in the final check and 55 here: the field
+and armies differ, so its true level is likely in between.)
+
 Raw games: `claude/kp2-results-*` branches (`sim/out/*.jsonl`); reports and specs in `sim/out/`.

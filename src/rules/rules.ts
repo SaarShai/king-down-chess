@@ -576,6 +576,8 @@ export const POWERS_BALANCED: Readonly<Partial<Rules>> = Object.freeze({
   mercyAura: true,           // Mercy: the pieces next to the king cannot be taken
   marchUses: 0,              // March: always on
   holyLightTakesPawns: true, // Holy Light: the king may take pawns
+  holyLightShelter: true,    // Holy Light: the pieces beside, in front of or behind the king
+  holyLightShelterOrtho: true, //   cannot be taken (round 6)
   darknessMoves: true,       // Darkness: pawns keep their straight steps
 });
 

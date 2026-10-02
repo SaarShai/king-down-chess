@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { setRules } from './rules/rules';
+import { POWERS_BALANCED, setRules } from './rules/rules';
 import { powerText } from './powers-ui';
 
 afterEach(() => setRules());
@@ -19,5 +19,11 @@ describe('power texts follow the rules in force', () => {
     expect(powerText('HolyLight')).toBe('enemy pawns cannot take your king');
     expect(powerText('Mercy')).toBe('your king steps 1–2 squares and jumps your pieces (it takes only next to itself)');
     expect(powerText('Darkness')).toBe('your pawns may also step diagonally and take straight ahead');
+  });
+
+  it('reads the official kings’ powers rules', () => {
+    setRules({ ...POWERS_BALANCED });
+    expect(powerText('HolyLight')).toBe('enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken');
+    expect(powerText('Mercy')).toBe('your king steps 1–2 squares and jumps your pieces, but takes only a guard; your pieces next to it cannot be taken');
   });
 });
