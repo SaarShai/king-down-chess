@@ -9,7 +9,7 @@ import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
 import { loadModels } from './render/voxels';
-import { A, B, C, Color, G, K, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, file as fileOf, findKing, isAttacked, kingLabel, KingChoice, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
@@ -70,6 +70,11 @@ $<HTMLSelectElement>('look').onchange = () => {
 $('reset-view').hidden = look !== 'clay';
 view.onLoadError = () => { $('asset-status').textContent = 'A piece model could not load. Reload this page to retry.'; };
 (window as unknown as Record<string, unknown>).view = view; // tools/styleboard2.mjs aims its crops with view.screenOf()
+/** Threat markers and the keyboard cursor, drawn over the board (pointer events pass through). */
+const marksLayer = document.createElement('div');
+marksLayer.id = 'board-marks';
+marksLayer.setAttribute('aria-hidden', 'true');
+$('board').appendChild(marksLayer);
 const sides: [Side, Side] = ['human', 'ai'];
 let selected: number | null = null;
 let pending: number[] = []; // beast chain squares clicked so far
@@ -105,6 +110,12 @@ let replaying = false;
 let marked: (KeyMoment & { text: string })[] = [];
 /** Replaces the review help line while a key moment is on the board. */
 let reviewNote = '';
+/** Why the last tap did nothing ("That is Black's piece…"); shown in the help line until the next action. */
+let notice = '';
+/** The board is seen from Black's side (orient()). */
+let flipped = false;
+/** The keyboard cursor's square while the board has focus; null when it does not. */
+let cursor: number | null = null;
 
 /** The game is over: mate, a draw, or somebody resigned. Blocks input and the AI. */
 const finished = (): boolean => resigned != null || game.status !== 'playing';
@@ -252,17 +263,28 @@ function pieceGuide(t: PieceType): GuideRow {
   }
 }
 
+/** Painted figures cut from the board's sheets (docs/visual-design/make-ui-art.py); none for the lab pieces. */
+const ART: Partial<Record<PieceType, string>> = Object.fromEntries(
+  ([P, N, B, R, Q, K, A, L, G, M, S, O] as PieceType[]).map(t => [t, NAMES[t]]));
+const pieceArt = (t: PieceType, black = false): string | null =>
+  ART[t] ? `${import.meta.env.BASE_URL}ui/pieces/${ART[t]}-${black ? 'b' : 'w'}.webp` : null;
+
 function fillPieceGuide(): void {
   const rows = $('rules-rows');
   rows.innerHTML = '';
   for (const t of guideTypes()) {
     const g = pieceGuide(t);
-    const tr = document.createElement('tr');
+    const card = document.createElement('article');
+    card.className = 'piece-card';
+    card.dataset.piece = NAMES[t];
     const letter = LETTERS[t];
     const name = NAMES[t][0].toUpperCase() + NAMES[t].slice(1);
-    // data-label names the column when a phone stacks the cells (style.css).
-    tr.innerHTML = `<td>${letter} ${name}</td><td data-label="Moves">${g.moves}</td><td data-label="Captures">${g.captures}</td><td data-label="Special">${g.special}</td>`;
-    rows.appendChild(tr);
+    const art = pieceArt(t);
+    // The heading keeps "A Archer" as one text run: tools find a card by it.
+    card.innerHTML = `<div class="pc-art">${art ? `<img src="${art}" alt="" loading="lazy" decoding="async">` : `<span class="pc-medallion" aria-hidden="true">${letter}</span>`}</div>`
+      + `<div class="pc-body"><h3><span class="pc-letter" title="Its letter in the move list">${letter}</span> ${name}</h3><dl>`
+      + `<dt>Moves</dt><dd>${g.moves}</dd><dt>Captures</dt><dd>${g.captures}</dd>${g.special ? `<dt>Special</dt><dd>${g.special}</dd>` : ''}</dl></div>`;
+    rows.appendChild(card);
   }
   const poolLetters = POOL.split('').join(' ');
   const promo = GAME_RULES.promotionSet === 'anyNonKing'
@@ -331,7 +353,7 @@ function refresh(): void {
     [C]: 'Tap a marked enemy beyond a screen to lob, or an empty square to move.',
     [V]: pending.length ? 'Choose a marked landing square, or finish the capture here.' : 'Tap a marked enemy to capture, then choose where to land.',
   };
-  $('move-help').textContent = viewing != null
+  $('move-help').textContent = notice ? notice : viewing != null
     ? reviewNote || `Tap the board to return to the game.${matchMedia('(hover: hover)').matches ? ' ← → step through the moves.' : ''}`
     : selected == null || busy
       ? (linkSide != null && game.pos.turn !== linkSide && !finished() ? 'Your move is played. Send the game link so your friend can answer.' : '')
@@ -357,7 +379,8 @@ function refresh(): void {
   // Each move is a button to the board after it (data-ply = plies played by then).
   moves.innerHTML = game.history.map((h, i) => {
     const km = marked.find(k => k.ply === i), mark = !km ? '' : km.kind !== 'loss' || km.loss >= 500 ? '??' : '?';
-    const ply = `<span data-ply="${i + 1}"${viewing === i + 1 ? ' class="viewing"' : ''}${km ? ` title="${km.text}"` : ''}>${i % 2 === 0 ? `<b>${h.lan}</b>` : h.lan}${mark}</span>`;
+    // A button per move, so the list is reachable by keyboard; aria-current marks the move on the board.
+    const ply = `<button type="button" data-ply="${i + 1}"${viewing === i + 1 ? ' class="viewing" aria-current="true"' : ''}${km ? ` title="${km.text}"` : ''} aria-label="${i % 2 ? 'Black' : 'White'} ${h.lan}${km ? `, ${km.text}` : ''}">${i % 2 === 0 ? `<b>${h.lan}</b>` : h.lan}${mark}</button>`;
     return i % 2 === 0 ? `<li>${i / 2 + 1}. ${ply}` : ` ${ply}</li>`;
   }).join('');
   if (viewing == null) moves.scrollTop = moves.scrollHeight;
@@ -386,6 +409,85 @@ function refresh(): void {
   $('return-game').hidden = lesson == null;
   $('next-lesson').textContent = lesson != null && lesson + 1 < LESSONS.length ? `Next lesson: ${LESSONS[lesson + 1].name}` : 'Start a game';
   $<HTMLButtonElement>('hint').disabled = finished() || busy || viewing != null || !myTurn();
+  const progress = $('lesson-progress');
+  progress.hidden = lesson == null;
+  document.body.classList.toggle('in-lesson', lesson != null);
+  if (lesson != null) {
+    progress.innerHTML = LESSONS.map((l, i) => `<span class="${i < lesson! || (i === lesson && lessonDone) ? 'done' : i === lesson ? 'now' : ''}" title="${l.name}"></span>`).join('');
+  }
+  drawMarks();
+}
+
+/** Squares the side not to move attacks: the mover's pieces it can take, and the empty squares it covers. */
+function threats(): { pieces: number[]; squares: number[] } {
+  const pos = game.pos, them = (pos.turn ^ 1) as Color;
+  const pieces = new Set<number>(), squares: number[] = [];
+  // Read-only: the engine's own move generator, asked as if it were the other side's turn.
+  for (const m of pseudoMoves({ ...pos, turn: them }, 'captures')) {
+    for (const c of m.captures) if (pos.board[c] && colorOf(pos.board[c]) === pos.turn) pieces.add(c);
+  }
+  for (let s = 0; s < 64; s++) {
+    const p = pos.board[s];
+    if (!p) { if (isAttacked(pos.board, s, them)) squares.push(s); }
+    else if (colorOf(p) === pos.turn && typeOf(p) === K && isAttacked(pos.board, s, them)) pieces.add(s);
+  }
+  return { pieces: [...pieces], squares };
+}
+
+let marksFrame = 0;
+/** Threat markers (Settings → Show threats) and the keyboard cursor, placed with view.screenOf(). */
+function drawMarks(): void {
+  cancelAnimationFrame(marksFrame);
+  const on = $<HTMLInputElement>('threats').checked && viewing == null && !busy && !finished() && myTurn();
+  const t = on ? threats() : { pieces: [], squares: [] };
+  if (!t.pieces.length && !t.squares.length && cursor == null) { marksLayer.innerHTML = ''; return; }
+  const box = $('board').getBoundingClientRect(), items: string[] = [];
+  const at = (s: number, cls: string): void => {
+    const c = view.screenOf(s), n = view.screenOf(fileOf(s) < 7 ? s + 1 : s - 1);
+    const w = Math.hypot(c.x - n.x, c.y - n.y);
+    items.push(`<i class="${cls}" style="left:${(c.x - box.left - w / 2).toFixed(1)}px;top:${(c.y - box.top - w / 2).toFixed(1)}px;width:${w.toFixed(1)}px;height:${w.toFixed(1)}px"></i>`);
+  };
+  for (const s of t.squares) at(s, 'mk-cover');
+  for (const s of t.pieces) at(s, 'mk-threat');
+  if (cursor != null) at(cursor, 'mk-cursor');
+  marksLayer.innerHTML = items.join('');
+  // The clay camera can orbit and tween; follow it while marks are on screen.
+  if (look === 'clay') marksFrame = requestAnimationFrame(drawMarks);
+}
+new ResizeObserver(() => drawMarks()).observe($('board'));
+
+/** One sentence for a screen reader: who moved what, and what it did. */
+function describeMove(pre: Position, m: Move): string {
+  const mover = pre.board[m.from], side = colorOf(mover) ? 'Black' : 'White', name = NAMES[typeOf(mover)];
+  const the = (s: number): string => `${NAMES[typeOf(pre.board[s])]} on ${sqName(s)}`;
+  let text = m.shove
+    ? `${side} ${name} on ${sqName(m.from)} shoves the ${the(m.shove.from)} to ${sqName(m.shove.to)}${m.to !== m.from ? `, stepping to ${sqName(m.to)}` : ''}`
+    : m.swap ? `${side} ${name} on ${sqName(m.from)} swaps places with the ${the(m.to)}`
+    : m.to === m.from && m.captures.length ? `${side} ${name} on ${sqName(m.from)} takes the ${m.captures.map(the).join(' and the ')} without moving`
+    : `${side} ${name} ${sqName(m.from)} to ${sqName(m.to)}${m.captures.length ? `, taking the ${m.captures.map(the).join(', then the ')}` : ''}`;
+  if (m.promo) text += `, and becomes a ${NAMES[m.promo]}`;
+  if (m.selfRemove) text += `; the ${name} leaves the board`;
+  return `${text}.`;
+}
+
+/** Why a tap on `to` did not play a move for the piece on `from` (only exported engine functions). */
+function whyNot(from: number, to: number): string {
+  const pos = game.pos, mover = pos.board[from], name = NAMES[typeOf(mover)], target = pos.board[to];
+  if (pseudoMoves(pos).some(m => m.from === from && clickPath(m)[0] === to)) {
+    return game.inCheck ? `Your king is in check, and that ${name} move does not stop it.` : `Not allowed: that ${name} move would leave your king in check.`;
+  }
+  if (target && typeOf(target) === G && colorOf(target) !== pos.turn && typeOf(mover) !== K) return 'Not allowed: a guard can only be taken by a king.';
+  const can = game.legal.some(m => m.from === from) ? ' The marked squares show where it can go.' : '';
+  return `Not allowed: the ${name} cannot ${target ? `take the ${NAMES[typeOf(target)]} on` : 'reach'} ${sqName(to)}.${can}`;
+}
+
+/** The keyboard cursor's square and piece, for the screen reader. */
+function sayCursor(): void {
+  if (cursor == null) return;
+  const p = game.pos.board[cursor];
+  const what = p ? `${colorOf(p) ? 'black' : 'white'} ${NAMES[typeOf(p)]}` : 'empty';
+  const target = selected != null && candidates().some(m => clickPath(m)[pending.length] === cursor);
+  $('cursor-say').textContent = `${sqName(cursor)}, ${what}${cursor === selected ? ', selected' : target ? ', can go here' : ''}`;
 }
 
 async function commit(m: Move): Promise<void> {
@@ -396,6 +498,8 @@ async function commit(m: Move): Promise<void> {
   navGen++;
   if (viewing != null) { viewing = null; view.sync(pre); } // a review ends when a move is played
   game.play(m);
+  notice = '';
+  $('announce').textContent = describeMove(pre, m) + (game.inCheck && !finished() ? ' Check.' : '') + (finished() ? ` ${result()}.` : '');
   const line = momentText(pre, m, seenMoments);
   if (line) { said = line; $('moment').textContent = line; }
   const kind = momentKind(pre, m);
@@ -509,7 +613,8 @@ function pickPromotion(options: Move[]): Promise<Move | null> {
     closePromo = () => done(null);
     for (const m of options) {
       const b = document.createElement('button');
-      b.textContent = `${LETTERS[m.promo!]} ${NAMES[m.promo as PieceType]}`;
+      const art = pieceArt(m.promo as PieceType, game.pos.turn === 1);
+      b.innerHTML = `${art ? `<img src="${art}" alt="" aria-hidden="true">` : ''}<span>${LETTERS[m.promo!]} ${NAMES[m.promo as PieceType]}</span>`;
       b.onclick = () => done(m);
       box.appendChild(b);
     }
@@ -567,22 +672,38 @@ view.onDragSelect = (sq) => {
   if (busy || viewing != null || finished() || !myTurn()) return;
   if (game.pos.board[sq] === 0 || colorOf(game.pos.board[sq]) !== game.pos.turn) return;
   hintSquares = [];
+  notice = '';
   selected = sq;
   pending = [];
   refresh();
   $('panel').scrollTop = 0;
 };
 
+/** Show why a tap did nothing, in the help line (a live region). */
+const refuse = (why: string): void => { notice = why; refresh(); };
+
 view.onSquareClick = (sq, shift = false) => {
-  if (busy) { view.skip(); return; } // a tap during an animation skips it
+  if (busy) { if (thinking) refuse('The computer is thinking. Wait for its move.'); view.skip(); return; } // a tap during an animation skips it
   if (viewing != null) { void showPly(game.history.length, false); return; }
-  if (finished() || !myTurn()) return;
+  if (finished()) return refuse(lesson != null ? '' : 'The game is over. Start a new game, or Undo to take back a move.');
+  if (!myTurn()) {
+    return refuse(lessonDone ? 'Lesson done. Choose the next lesson below.'
+      : sides[game.pos.turn] === 'ai' ? "It is the computer's move." : '');
+  }
   hintSquares = [];
-  const own = game.pos.board[sq] !== 0 && colorOf(game.pos.board[sq]) === game.pos.turn;
+  notice = '';
+  const p = game.pos.board[sq], own = p !== 0 && colorOf(p) === game.pos.turn;
   const next = candidates().filter(m => clickPath(m)[pending.length] === sq);
   if (selected == null || next.length === 0) {
+    const turn = game.pos.turn ? 'Black' : 'White';
+    if (selected != null && !own && sq !== selected) notice = pending.length ? 'That square is not marked, so the capture chain was cancelled.' : whyNot(selected, sq);
+    else if (selected == null && p && !own) notice = `That is ${turn === 'White' ? 'Black' : 'White'}'s ${NAMES[typeOf(p)]}. ${turn} to move: choose one of your own pieces.`;
+    else if (selected == null && !p) notice = `Choose one of ${turn}'s pieces first.`;
     selected = own && sq !== selected ? sq : null;
     pending = [];
+    if (selected != null && !game.legal.some(m => m.from === selected)) {
+      notice = `This ${NAMES[typeOf(p)]} has no legal move${game.inCheck ? ': your king is in check, and it cannot help' : ' right now'}.`;
+    }
     refresh();
     if (selected != null) $('panel').scrollTop = 0;
     return;
@@ -681,12 +802,14 @@ function reset(): void {
   closePromo?.(); // drop an open promotion picker instead of leaving its promise hanging
   busy = false;
   selected = null; pending = [];
+  notice = '';
 }
 
 /** Look from Black's side whenever the human plays Black. */
-const orient = (): void => view.flip(sides[0] === 'human' && sides[1] === 'human' && linkSide != null
-  ? linkSide === 1
-  : sides[0] === 'ai' && sides[1] === 'human');
+const orient = (): void => {
+  flipped = sides[0] === 'human' && sides[1] === 'human' && linkSide != null ? linkSide === 1 : sides[0] === 'ai' && sides[1] === 'human';
+  view.flip(flipped);
+};
 
 function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null): void {
   $<HTMLDialogElement>('new-game').close(); // every army choice in the dialog starts here
@@ -720,6 +843,7 @@ function undo(): void {
   if (sides[game.pos.turn] === 'ai' && sides.includes('human')) game.undo();
   restoreMoments();
   view.sync(game.pos);
+  $('announce').textContent = `Move taken back. ${game.pos.turn ? 'Black' : 'White'} to move.`;
   refresh();
   save();
   void maybeAi(); // no-op on a human's turn; restarts the computer if we ran out of plies to take back
@@ -756,6 +880,7 @@ function showOver(): void {
   // King Down: the mated or resigning side's king topples (none after a draw or a king capture).
   const loser = resigned ?? (game.status === 'checkmate' ? game.pos.turn : null), king = loser == null ? -1 : findKing(game.pos.board, loser);
   view.setFallen(king >= 0 ? king : null);
+  dlg.dataset.fallen = loser == null ? 'none' : loser ? 'b' : 'w'; // the dialog's painted kings show it too
   $('share-result').hidden = daily == null;
   $('share-result').textContent = "Copy today's result";
   dlg.showModal();
@@ -855,8 +980,9 @@ $('share').onclick = async () => {
     catch (e) { if ((e as Error).name === 'AbortError') return; }
   }
   navigator.clipboard?.writeText(url).catch(() => copyFallback(url)) ?? copyFallback(url);
-  button.textContent = 'Link copied. Paste it to your friend.';
-  setTimeout(() => { button.textContent = 'Send the game link'; }, 2500);
+  const label = button.querySelector('.label') ?? button;
+  label.textContent = 'Link copied. Paste it to your friend.';
+  setTimeout(() => { label.textContent = 'Send the game link'; }, 2500);
 };
 
 /** No clipboard API (or permission denied): a throwaway textarea + execCommand still works everywhere. */
@@ -871,7 +997,7 @@ function copyFallback(text: string): void {
 }
 
 /* ---- autosave ---- */
-interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: Skill; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null }
+interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: Skill; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean }
 const SAVE_KEY = 'kingdown.save';
 
 function save(): void {
@@ -888,6 +1014,7 @@ function save(): void {
       sound: $<HTMLInputElement>('sound').checked,
       queen: $<HTMLInputElement>('queen').checked,
       pace: pace.value as Pace,
+      threats: $<HTMLInputElement>('threats').checked,
       link: linkSide,
       daily,
       resigned,
@@ -961,6 +1088,7 @@ $('white').onchange = $('black').onchange = () => {
 $('think').onchange = $('skill').onchange = save;
 $('sound').onchange = () => { setSound($<HTMLInputElement>('sound').checked); save(); };
 $('queen').onchange = save;
+$('threats').onchange = () => { drawMarks(); save(); };
 const pace = $<HTMLSelectElement>('pace');
 // No saved choice: the system's reduced-motion setting picks Off.
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) pace.value = 'off';
@@ -975,13 +1103,42 @@ $('reset-view').onclick = () => view.resetView();
 addEventListener('keydown', e => {
   if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; refresh(); return; }
   // Menus swallow shortcuts; an open move choice does not (Z there undoes, and that is tested).
-  if ((e.target as HTMLElement).closest('input,select,textarea') || document.querySelector('#new-game[open], #settings[open]')) return;
+  if ((e.target as HTMLElement).closest('input,select,textarea') || document.querySelector('#new-game[open], #settings[open], #title-screen[open]')) return;
   if (e.key === 'r') view.resetView();
   if (e.key === 'z') undo();
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     e.preventDefault();
     void showPly((viewing ?? game.history.length) + (e.key === 'ArrowLeft' ? -1 : 1));
   }
+});
+
+/* ---- keyboard play on the board ---- */
+const boardEl = $('board');
+const homeSquare = (): number => selected ?? square(4, game.pos.turn ? 6 : 1);
+boardEl.addEventListener('focus', () => {
+  if (!boardEl.matches(':focus-visible')) return; // a mouse or touch tap does not show the cursor
+  cursor ??= homeSquare(); sayCursor(); drawMarks();
+});
+boardEl.addEventListener('blur', () => { cursor = null; drawMarks(); });
+boardEl.addEventListener('keydown', e => {
+  const step: Record<string, [number, number]> = { ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+  const enter = e.key === 'Enter' || e.key === ' ';
+  if (!(e.key in step) && !enter) return;
+  e.preventDefault(); e.stopPropagation(); // ← → here move the cursor, not the review
+  if (cursor == null) cursor = homeSquare();
+  else if (enter) {
+    view.onSquareClick(cursor, e.shiftKey);
+    if (selected === cursor) {
+      const to = [...new Set(candidates().map(m => clickPath(m)[pending.length]))].map(sqName);
+      $('cursor-say').textContent = to.length ? `${sqName(cursor)} selected. It can go to ${to.join(', ')}.` : '';
+    }
+    drawMarks();
+    return;
+  } else {
+    const [df, dr] = step[e.key], k = flipped ? -1 : 1, f = fileOf(cursor) + df * k, r = rankOf(cursor) + dr * k;
+    if (f >= 0 && f < 8 && r >= 0 && r < 8) cursor = square(f, r);
+  }
+  sayCursor(); drawMarks();
 });
 
 /**
@@ -998,6 +1155,7 @@ if (saved) {
   if (saved.think) $<HTMLInputElement>('think').value = String(saved.think);
   if (typeof saved.sound === 'boolean') $<HTMLInputElement>('sound').checked = saved.sound;
   if (typeof saved.queen === 'boolean') $<HTMLInputElement>('queen').checked = saved.queen;
+  if (typeof saved.threats === 'boolean') $<HTMLInputElement>('threats').checked = saved.threats;
   if (saved.pace === 'normal' || saved.pace === 'fast' || saved.pace === 'off') pace.value = saved.pace;
   // Old saves with no skill field stay Strong so a resumed game does not suddenly get easier.
   $<HTMLSelectElement>('skill').value = isSkill(saved.skill) ? saved.skill : 'strong';
@@ -1005,6 +1163,41 @@ if (saved) {
   sides[0] = $<HTMLSelectElement>('white').value as Side;
   sides[1] = $<HTMLSelectElement>('black').value as Side;
 }
+
+/*
+ * Title screen: once per browser tab, never over a game link or a `?fen=`/`?army=` URL. `?title=0`
+ * skips it, and so does sessionStorage `kingdown.title-seen` (the browser tools set it).
+ */
+const TITLE_SEEN = 'kingdown.title-seen';
+const titleSeen = (): boolean => { try { return sessionStorage.getItem(TITLE_SEEN) === '1'; } catch { return false; } };
+const showTitle = !link && !params.has('fen') && !params.has('army') && params.get('title') !== '0' && !titleSeen();
+type TitleChoice = 'continue' | 'play' | 'learn';
+let titleChoice = 'continue' as TitleChoice;
+const titleClosed = new Promise<void>(resolve => {
+  if (!showTitle) return resolve();
+  const dlg = $<HTMLDialogElement>('title-screen');
+  const resumable = !!saved && saved.moves.length > 0;
+  const firstVisit = !saved;
+  $('title-continue').hidden = !resumable;
+  if (resumable) $('title-continue').querySelector('.label')!.textContent = `Continue · move ${Math.floor(saved!.moves.length / 2) + 1}`;
+  $('title-first').hidden = !firstVisit;
+  // A first visit leads with the lessons; otherwise Play (or Continue) leads.
+  $('title-learn').classList.toggle('primary', firstVisit);
+  $('title-play').classList.toggle('primary', !firstVisit && !resumable);
+  if (firstVisit) $('title-learn').parentElement!.prepend($('title-learn'));
+  const pick = (c: TitleChoice) => () => { titleChoice = c; dlg.close(); };
+  $('title-continue').onclick = pick('continue');
+  $('title-play').onclick = pick('play');
+  $('title-learn').onclick = pick('learn');
+  dlg.addEventListener('close', () => {
+    try { sessionStorage.setItem(TITLE_SEEN, '1'); } catch { /* private mode: it shows again next time */ }
+    document.body.classList.remove('title-up');
+    resolve();
+  }, { once: true });
+  document.body.classList.add('title-up');
+  dlg.showModal();
+  ($(firstVisit ? 'title-learn' : resumable ? 'title-continue' : 'title-play')).focus();
+});
 
 await loadModels();
 // The playable game has one art direction; study controls stay in the study.
@@ -1054,4 +1247,10 @@ setSound($<HTMLInputElement>('sound').checked);
 restoreMoments();
 refresh();
 if (!fen) save(); // pin the random back rank so a reload keeps this game (and keep an opened link's game)
-if (finished()) showOver(); else void maybeAi();
+await titleClosed; // the computer waits for the player, and no dialog opens over the title
+if (titleChoice === 'learn') startLesson(0);
+else {
+  if (titleChoice === 'play') $<HTMLDialogElement>('new-game').showModal();
+  else if (finished()) showOver();
+  void maybeAi();
+}
