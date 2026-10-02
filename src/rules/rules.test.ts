@@ -1686,6 +1686,15 @@ describe('balance-lab readings of the kings’ powers (2026-10-02)', () => {
     crossCheckAttacks(303, 60);
   });
 
+  it('Holy Light: holyLightShelter shelters the king\u2019s neighbours from every capture', () => {
+    const fen = '3r3k/8/8/8/b1p5/1N1N4/4K3/8 b - - 0 1';
+    setRules({ kings: k('Spirit', 'HolyLight'), holyLightShelter: true });
+    const moves = lan(fromFen(fen), legalMoves(fromFen(fen)));
+    expect(moves).not.toContain('Rd8xd3');
+    expect(moves).toEqual(expect.arrayContaining(['c4xb3', 'Ba4xb3']));
+    crossCheckAttacks(308, 60);
+  });
+
   it('Darkness: darknessMoves adds the straight steps but no diagonal capture', () => {
     setRules({ kings: k('Shadow', 'Darkness'), darknessMoves: true });
     const home = fromFen('7k/8/8/8/8/2p1p3/3P4/K7 w - - 0 1');

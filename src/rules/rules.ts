@@ -368,6 +368,11 @@ export interface Rules {
    * piece standing next to a Holy Light king. Off (the rulebook): only the king is covered.
    */
   holyLightAura: boolean;
+  /**
+   * Holy Light (balance lab): Mercy's shelter under the light — no capture at all takes a piece next
+   * to the Holy Light king. Off (the rulebook): only the king is covered, and only from pawns.
+   */
+  holyLightShelter: boolean;
   /** Holy Light (balance lab): no enemy knight takes the king either. Off (the rulebook): pawns only. */
   holyLightKnights: boolean;
   /**
@@ -495,6 +500,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   holyLightAura: false,
   darknessKeep: false,
   holyLightKnights: false,
+  holyLightShelter: false,
   darknessMoves: false,
   strikeUses: 1,
   hasteUses: 1,

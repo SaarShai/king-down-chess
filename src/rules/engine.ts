@@ -298,7 +298,8 @@ function inLight(board: Uint8Array, sq: number, side: number): boolean {
  */
 function sheltered(board: Uint8Array, sq: number): boolean {
   const v = board[sq];
-  if (!v || typeOf(v) === K || powerOf(colorOf(v)) !== 'Mercy') return false;
+  const pw = v ? powerOf(colorOf(v)) : null;
+  if (!v || typeOf(v) === K || !((pw === 'Mercy' && RULES.mercyAura) || (pw === 'HolyLight' && RULES.holyLightShelter))) return false;
   const k = piece(K, colorOf(v));
   for (let d = 0; d < 8; d++) { const n = NEIGHBOUR[sq * 8 + d]; if (n >= 0 && board[n] === k) return true; }
   return false;
@@ -716,7 +717,7 @@ export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Mo
   const n0 = out.length;
   genPieceRaw(board, from, mode, out);
   // Mercy's shelter covers every mode: `isAttacked` mirrors it, so the attack sets stay equal.
-  if (RULES.mercyAura) dropSheltered(board, out, n0);
+  if (RULES.mercyAura || RULES.holyLightShelter) dropSheltered(board, out, n0);
   if (mode === 'attacks') return; // check/mate detection stays standard: see the C2/C5 notes above
   if (RULES.capitalSanctuary) {
     for (let i = out.length - 1; i >= n0; i--) {
@@ -869,7 +870,7 @@ const RAY: Int8Array[] = Array.from({ length: 64 * 8 }, (_, i) => {
 });
 
 export function isAttacked(board: Uint8Array, target: number, by: Color): boolean {
-  if (RULES.mercyAura && sheltered(board, target)) return false;
+  if ((RULES.mercyAura || RULES.holyLightShelter) && sheltered(board, target)) return false;
   const victim = board[target] ? typeOf(board[target]) : 0;
   // `isAttacked` is the hottest function in the project, so it creates no closure per call (the
   // simulator runs under tsx, whose name-keeping wraps every closure it creates), walks precomputed
@@ -963,7 +964,7 @@ export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: A
   const start = out.length;
   genPowerMovesRaw(board, c, used, lost, out, n0, n1);
   // A power capture (Strike, a counted Leap) spares a sheltered piece like any other capture.
-  if (RULES.mercyAura) dropSheltered(board, out, start);
+  if (RULES.mercyAura || RULES.holyLightShelter) dropSheltered(board, out, start);
 }
 
 function genPowerMovesRaw(board: Uint8Array, c: Color, used: number, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number): void {
