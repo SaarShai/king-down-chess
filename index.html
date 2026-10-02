@@ -26,12 +26,15 @@
         <button id="cancel-selection">Cancel selection</button>
       </div>
       <div id="moment" role="status" aria-live="polite"></div>
+      <button id="next-lesson" hidden></button>
+      <button id="return-game" hidden>Return to game</button>
       <div id="info"></div>
       <div class="btns three">
         <button id="hint" type="button" title="Show one move the computer likes">Hint</button>
         <button id="undo" title="Take back the last move (Z)">Undo</button>
         <button id="resign" title="Resign the game">Resign</button>
       </div>
+      <button id="share" hidden title="A link that holds this game, for a friend to open and answer">Send the game link</button>
       <section class="sheet">
         <ol id="moves"></ol>
         <div class="taken"><b>White took</b><span id="took-w"></span></div>
@@ -44,6 +47,7 @@
       <div class="fields">
         <label>White <select id="white"><option value="human">Human</option><option value="ai">Computer</option></select></label>
         <label>Black <select id="black"><option value="human">Human</option><option value="ai" selected>Computer</option></select></label>
+        <small id="players-note">Two people can share one device, or each play on their own: after each move, send the game link.</small>
         <label title="Beginner and Casual vary their choices. Club caps thinking at 800 ms; Strong uses the full thinking time in Settings. These are not ratings.">Computer <select id="skill">
           <option value="beginner">Beginner</option>
           <option value="casual">Casual</option>
@@ -53,6 +57,7 @@
       </div>
       <h3>Choose an army to start</h3>
       <div class="fields">
+        <button id="new-daily" title="Every player gets the same army today">Today's army, the same for everyone</button>
         <button id="new-random">Random King Down army</button>
         <button id="new-classic">Chess starting army</button>
         <button id="new-setup">Custom army…</button>
@@ -71,6 +76,8 @@
       <div class="fields">
         <label>Sound <input id="sound" type="checkbox" checked /></label>
         <label title="Promote to a queen without asking, when a queen, rook, bishop, or knight is the choice.">Always promote to queen <input id="queen" type="checkbox" /></label>
+        <label title="Tap the board during an animation to skip it.">Animations <select id="pace"><option value="normal">Normal</option><option value="fast">Fast</option><option value="off">Off</option></select></label>
+        <small id="pace-note">Tap the board to skip an animation.</small>
         <label>Look <select id="look"><option value="painted">Painted 2D</option><option value="clay">Clay 3D</option></select></label>
         <label>Piece letters <input id="labels" type="checkbox" /></label>
         <label>Coordinates <input id="coords" type="checkbox" checked /></label>
@@ -100,12 +107,14 @@
     </dialog>
     <dialog id="rules">
       <h2 tabindex="-1" autofocus>King Down pieces</h2>
+      <button id="learn" class="learn">Learn the six King Down pieces by playing, one move each</button>
       <p id="rules-lead"></p>
       <table>
         <thead><tr><th>Piece</th><th>Moves</th><th>Captures</th><th>Special</th></tr></thead>
         <tbody id="rules-rows"></tbody>
       </table>
       <p id="rules-letters"></p>
+      <p id="rules-notation"></p>
       <p><b>Kings' powers are a lab. They are off in a normal game.</b> <code>?kings=mud:march</code> gives both sides a
         power; <code>?kings=mud:march,shadow:darkness</code> names White and Black apart. Six are built:
         <b>Holy Light</b> (enemy pawns cannot take this king, and it cannot take pawns), <b>Mercy</b>
@@ -118,6 +127,8 @@
     <dialog id="over">
       <h2 id="over-title" tabindex="-1" autofocus></h2>
       <p id="over-detail"></p>
+      <div id="over-moments" class="fields" aria-live="polite"></div>
+      <button id="share-result" type="button" hidden></button>
       <form method="dialog">
         <button value="rematch">Rematch</button>
         <button value="new">New game</button>

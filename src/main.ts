@@ -2,16 +2,18 @@ import './style.css';
 import { SkillName, skillPlan } from './ai/skill';
 import { Engine, Game, Side } from './game';
 import { setEvaluator } from './ai/eval';
-import { positionKey } from './ai/search';
+import { positionKey, type SearchResult } from './ai/search';
 import { BoardRenderer } from './render/renderer';
-import { PaintedView, type BoardView } from './render/PaintedView';
-import { momentKind, momentText } from './moment';
+import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
+import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
 import { loadModels } from './render/voxels';
-import { A, B, C, Color, G, K, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Q, R, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
-import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen } from './rules/setup';
+import { A, B, C, Color, G, K, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
+import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
+import { LESSONS } from './lessons';
+import { mulberry32 } from './sim/rng';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -52,7 +54,7 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 // The adopted Q6 residual net: stronger play at the same time budget, validated before adoption.
 setEvaluator('residual');
-const game = new Game();
+let game = new Game();
 const engine = new Engine();
 /** `?look=painted|clay`, else the saved choice. Painted 2D is the default (owner, 2026-09-27). */
 const LOOK_KEY = 'kingdown.look';
@@ -74,6 +76,8 @@ let pending: number[] = []; // beast chain squares clicked so far
 let hovered: number | null = null;
 let resigned: Color | null = null;
 let busy = false;
+/** The computer is searching (not animating), so the header can say so. */
+let thinking = false;
 /** The in-flight token. reset() bumps it; every await in commit/maybeAi/choose drops out if it changed. */
 let gen = 0;
 /** Closes an open promotion picker (resolving it with null). Set only while one is on screen. */
@@ -82,9 +86,30 @@ let closeMoveChoice: (() => void) | null = null;
 /** Squares lit by Hint. Cleared when the player moves or selects something else. */
 let hintSquares: number[] = [];
 const seenMoments = new Set<string>();
+/** The date (YYYY-MM-DD) when this game is that day's army, for the shareable result. */
+let daily: string | null = null;
+/** The lesson on the board (index into LESSONS), and whether its goal move was played. */
+let lesson: number | null = null;
+let lessonDone = false;
+/** Keep the actual game, including repetition history, while a separate game runs the lessons. */
+let lessonReturn: { game: Game; sides: [Side, Side]; rules: Rules; resigned: Color | null; linkSide: Color | null } | null = null;
+/** In a game played by link, the side this device plays (the side to move when the link opened). */
+let linkSide: Color | null = null;
+/** Plies shown on the board while reviewing earlier moves; null = the live game. */
+let viewing: number | null = null;
+/** Bumped by every review step, so a superseded step's animation does not sync the board. */
+let navGen = 0;
+/** A review step is replaying a move; `busy` is set too, so the board treats it as an animation. */
+let replaying = false;
+/** The finished game's key moments, marked in the move list; cleared when the game changes. */
+let marked: (KeyMoment & { text: string })[] = [];
+/** Replaces the review help line while a key moment is on the board. */
+let reviewNote = '';
 
 /** The game is over: mate, a draw, or somebody resigned. Blocks input and the AI. */
 const finished = (): boolean => resigned != null || game.status !== 'playing';
+/** This device may move now: a person's turn, and in a link game only its own side. */
+const myTurn = (): boolean => sides[game.pos.turn] === 'human' && (linkSide == null || game.pos.turn === linkSide) && !lessonDone;
 
 /** Player-facing columns for one piece under the live `GAME_RULES` (and `POOL`). */
 type GuideRow = { moves: string; captures: string; special: string };
@@ -235,7 +260,8 @@ function fillPieceGuide(): void {
     const tr = document.createElement('tr');
     const letter = LETTERS[t];
     const name = NAMES[t][0].toUpperCase() + NAMES[t].slice(1);
-    tr.innerHTML = `<td>${letter} ${name}</td><td>${g.moves}</td><td>${g.captures}</td><td>${g.special}</td>`;
+    // data-label names the column when a phone stacks the cells (style.css).
+    tr.innerHTML = `<td>${letter} ${name}</td><td data-label="Moves">${g.moves}</td><td data-label="Captures">${g.captures}</td><td data-label="Special">${g.special}</td>`;
     rows.appendChild(tr);
   }
   const poolLetters = POOL.split('').join(' ');
@@ -246,6 +272,8 @@ function fillPieceGuide(): void {
       : 'A pawn promotes to a queen, rook, bishop, or knight.';
   $('rules-lead').textContent =
     `Mate the king. Both sides share one random back rank, drawn from the pool. No castling or en passant. ${promo}`;
+  $('rules-notation').textContent =
+    'In the move list: - moves, x captures, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes.';
   $('rules-letters').textContent =
     `The random draw pool is ${poolLetters}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
 }
@@ -278,7 +306,7 @@ function refresh(): void {
   const next = cands.map(m => clickPath(m)[pending.length]).filter((s): s is number => s != null);
   const swaps = cands.filter(m => m.swap).map(m => m.to);
   const shoves = cands.filter(m => m.shove).map(m => m.shove!.from);
-  const last = game.history.at(-1)?.move;
+  const last = (viewing == null ? game.history.at(-1) : game.history[viewing - 1])?.move;
   view.highlight({
     selected,
     moves: next.filter(sq => !game.pos.board[sq]),
@@ -287,7 +315,7 @@ function refresh(): void {
     shoves,
     last: last ? [last.from, ...(last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? last.captures : [last.to])] : [],
     hint: hintSquares,
-    check: game.inCheck ? findKing(game.pos.board, game.pos.turn) : null,
+    check: game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
   });
   const canFinish = pending.length > 0 && cands.some(m => clickPath(m).length === pending.length);
   const selectedType = selected == null ? 0 : typeOf(game.pos.board[selected]);
@@ -303,11 +331,20 @@ function refresh(): void {
     [C]: 'Tap a marked enemy beyond a screen to lob, or an empty square to move.',
     [V]: pending.length ? 'Choose a marked landing square, or finish the capture here.' : 'Tap a marked enemy to capture, then choose where to land.',
   };
-  $('move-help').textContent = selected == null || busy ? '' : help[selectedType as PieceType] ?? 'Tap a marked square to move or capture.';
+  $('move-help').textContent = viewing != null
+    ? reviewNote || `Tap the board to return to the game.${matchMedia('(hover: hover)').matches ? ' ← → step through the moves.' : ''}`
+    : selected == null || busy
+      ? (linkSide != null && game.pos.turn !== linkSide && !finished() ? 'Your move is played. Send the game link so your friend can answer.' : '')
+      : help[selectedType as PieceType] ?? 'Tap a marked square to move or capture.';
   const turn = game.pos.turn ? 'Black' : 'White';
-  $('turn').textContent = finished() ? '' : `${turn} to move${game.inCheck ? ' — CHECK' : ''}`;
-  $('status').textContent = resigned != null ? result() : {
-    playing: busy && sides[game.pos.turn] === 'ai' ? 'thinking…' : '',
+  // In review the header names the move shown, as the list numbers it ("after 5… a5-a4").
+  const shown = viewing == null ? '' : viewing === 0 ? 'the start'
+    : `after ${Math.ceil(viewing / 2)}${viewing % 2 ? '.' : '…'} ${game.history[viewing - 1].lan}`;
+  $('turn').textContent = viewing != null ? `Reviewing ${shown}`
+    : lesson != null ? `Lesson ${lesson + 1} of ${LESSONS.length}: ${LESSONS[lesson].name}`
+    : finished() ? '' : `${turn} to move${game.inCheck ? ' — CHECK' : ''}`;
+  $('status').textContent = viewing != null ? '' : resigned != null ? result() : {
+    playing: thinking ? 'thinking…' : '',
     checkmate: result(),
     stalemate: 'Stalemate — draw',
     draw50: 'Draw — 50-move rule',
@@ -317,8 +354,14 @@ function refresh(): void {
   $('setup').textContent = game.backRank || 'custom';
   $('setup').title = toFen(game.pos);
   const moves = $('moves');
-  moves.innerHTML = game.history.map((h, i) => (i % 2 === 0 ? `<li>${i / 2 + 1}. <b>${h.lan}</b>` : ` ${h.lan}</li>`)).join('');
-  moves.scrollTop = moves.scrollHeight;
+  // Each move is a button to the board after it (data-ply = plies played by then).
+  moves.innerHTML = game.history.map((h, i) => {
+    const km = marked.find(k => k.ply === i), mark = !km ? '' : km.kind !== 'loss' || km.loss >= 500 ? '??' : '?';
+    const ply = `<span data-ply="${i + 1}"${viewing === i + 1 ? ' class="viewing"' : ''}${km ? ` title="${km.text}"` : ''}>${i % 2 === 0 ? `<b>${h.lan}</b>` : h.lan}${mark}</span>`;
+    return i % 2 === 0 ? `<li>${i / 2 + 1}. ${ply}` : ` ${ply}</li>`;
+  }).join('');
+  if (viewing == null) moves.scrollTop = moves.scrollHeight;
+  else moves.querySelector('.viewing')?.scrollIntoView({ block: 'nearest' });
   // Captured pieces: a piece the mover removed counts for the mover; a paladin that removes itself is its own side's loss.
   const taken: [number[], number[]] = [[], []];
   for (const h of game.history) {
@@ -336,9 +379,13 @@ function refresh(): void {
   $('took-b').innerHTML = names(taken[1]);
   showInfo(selected ?? hovered);
   $<HTMLButtonElement>('undo').disabled = game.history.length === 0;
-  $<HTMLButtonElement>('resign').disabled = finished();
+  $<HTMLButtonElement>('resign').disabled = finished() || lesson != null;
   $<HTMLButtonElement>('copy').disabled = game.history.length === 0;
-  $<HTMLButtonElement>('hint').disabled = finished() || busy || sides[game.pos.turn] !== 'human';
+  $('share').hidden = sides[0] !== 'human' || sides[1] !== 'human' || game.history.length === 0 || lesson != null;
+  $('next-lesson').hidden = lesson == null || !lessonDone;
+  $('return-game').hidden = lesson == null;
+  $('next-lesson').textContent = lesson != null && lesson + 1 < LESSONS.length ? `Next lesson: ${LESSONS[lesson + 1].name}` : 'Start a game';
+  $<HTMLButtonElement>('hint').disabled = finished() || busy || viewing != null || !myTurn();
 }
 
 async function commit(m: Move): Promise<void> {
@@ -346,6 +393,8 @@ async function commit(m: Move): Promise<void> {
   busy = true;
   hintSquares = [];
   const pre = game.pos;
+  navGen++;
+  if (viewing != null) { viewing = null; view.sync(pre); } // a review ends when a move is played
   game.play(m);
   const line = momentText(pre, m, seenMoments);
   if (line) { said = line; $('moment').textContent = line; }
@@ -369,10 +418,63 @@ async function commit(m: Move): Promise<void> {
   strike(); // no animation (reduced motion) or no contact reported: sound the hit now
   view.sync(game.pos);
   busy = false;
+  if (lesson != null) return lessonResult(pre, m);
   refresh();
   save();
   if (finished()) showOver(); else void maybeAi();
 }
+
+/** A lesson move: the goal ends the lesson; any other move is taken back with the task again. */
+function lessonResult(pre: Position, m: Move): void {
+  const l = LESSONS[lesson!];
+  if (l.goal(pre, m)) { lessonDone = true; said = `Well done. ${l.done}`; }
+  else { game.undo(); view.sync(game.pos); said = `Not quite. ${l.task}`; }
+  $('moment').textContent = said;
+  refresh();
+}
+
+/** A lesson: its position, both sides moved from this device, and nothing saved (the autosave keeps the real game). */
+function startLesson(i: number): void {
+  $<HTMLDialogElement>('rules').close();
+  if (lesson == null) {
+    lessonReturn = { game, sides: [...sides], rules: { ...GAME_RULES }, resigned, linkSide };
+  }
+  reset();
+  setRules(); // these lessons teach today's rules, even when the match uses an older preset
+  game = new Game();
+  resigned = null; linkSide = null;
+  lesson = i; lessonDone = false;
+  sides[0] = sides[1] = 'human';
+  game.load(fromFen(LESSONS[i].fen));
+  seenMoments.clear();
+  said = LESSONS[i].task; $('moment').textContent = said;
+  view.sync(game.pos);
+  orient();
+  refresh();
+}
+
+$('learn').onclick = () => startLesson(0);
+$('return-game').onclick = () => {
+  if (!lessonReturn) return;
+  reset();
+  ({ game, resigned, linkSide } = lessonReturn);
+  [sides[0], sides[1]] = lessonReturn.sides;
+  setRules(lessonReturn.rules);
+  lessonReturn = null;
+  lesson = null; lessonDone = false;
+  $<HTMLSelectElement>('white').value = sides[0];
+  $<HTMLSelectElement>('black').value = sides[1];
+  restoreMoments();
+  view.sync(game.pos);
+  orient();
+  refresh();
+  save();
+  if (finished()) showOver(); else void maybeAi();
+};
+$('next-lesson').onclick = () => {
+  if (lesson != null && lesson + 1 < LESSONS.length) startLesson(lesson + 1);
+  else $<HTMLDialogElement>('new-game').showModal();
+};
 
 type Skill = SkillName;
 const SKILL_NAMES: readonly Skill[] = ['beginner', 'casual', 'club', 'strong'];
@@ -380,13 +482,14 @@ const isSkill = (v: unknown): v is Skill => typeof v === 'string' && (SKILL_NAME
 
 async function maybeAi(): Promise<void> {
   if (busy || finished() || sides[game.pos.turn] !== 'ai') return;
-  busy = true;
+  busy = thinking = true;
   refresh();
   const g = gen;
   const skill = $<HTMLSelectElement>('skill').value;
   const plan = skillPlan(isSkill(skill) ? skill : 'club', +$<HTMLInputElement>('think').value, game.history.length);
   const res = await engine.think(game.pos, { timeMs: plan.timeMs, temperature: plan.temperature, history: game.history.map(h => positionKey(h.pos)) });
   if (g !== gen) return;
+  thinking = false;
   const choices = game.legal;
   const blunder = plan.blunder > 0 && choices.length > 0 && Math.random() < plan.blunder
     ? choices[Math.floor(Math.random() * choices.length)]
@@ -461,7 +564,7 @@ async function choosePushOrCapture(capture: Move, push: Move): Promise<void> {
 
 /** Drag arm: select without the click toggle so a second onSquareClick can still play the move. */
 view.onDragSelect = (sq) => {
-  if (busy || finished() || sides[game.pos.turn] !== 'human') return;
+  if (busy || viewing != null || finished() || !myTurn()) return;
   if (game.pos.board[sq] === 0 || colorOf(game.pos.board[sq]) !== game.pos.turn) return;
   hintSquares = [];
   selected = sq;
@@ -471,7 +574,9 @@ view.onDragSelect = (sq) => {
 };
 
 view.onSquareClick = (sq, shift = false) => {
-  if (busy || finished() || sides[game.pos.turn] !== 'human') return;
+  if (busy) { view.skip(); return; } // a tap during an animation skips it
+  if (viewing != null) { void showPly(game.history.length, false); return; }
+  if (finished() || !myTurn()) return;
   hintSquares = [];
   const own = game.pos.board[sq] !== 0 && colorOf(game.pos.board[sq]) === game.pos.turn;
   const next = candidates().filter(m => clickPath(m)[pending.length] === sq);
@@ -521,7 +626,7 @@ $('cancel-selection').onclick = () => { selected = null; pending = []; refresh()
 $('stop-chain').onclick = () => { const m = candidates().find(m => clickPath(m).length === pending.length); if (m) void commit(m); };
 
 $('hint').onclick = async () => {
-  if (busy || finished() || sides[game.pos.turn] !== 'human') return;
+  if (busy || finished() || !myTurn()) return;
   busy = true;
   refresh();
   const g = gen;
@@ -532,9 +637,44 @@ $('hint').onclick = async () => {
   refresh();
 };
 
+/**
+ * Review: show the board after `n` plies. One step forward replays that move's animation unless
+ * `replay` is false; n = the game's length returns to the live game. Not while a move or the computer is in progress.
+ */
+async function showPly(n: number, replay = true): Promise<void> {
+  const len = game.history.length, from = viewing ?? len;
+  n = Math.max(0, Math.min(len, n));
+  if ((busy && !replaying) || n === from) return;
+  const at = (k: number) => (k === len ? game.pos : game.history[k].pos);
+  const g = ++navGen;
+  view.skip(); // a step during a replay ends it; its continuation sees the new navGen
+  busy = replaying = false;
+  viewing = n === len ? null : n;
+  selected = null; pending = []; hintSquares = []; reviewNote = '';
+  refresh();
+  if (replay && n === from + 1) {
+    view.sync(at(from));
+    busy = replaying = true; // the board is locked like any move animation; a tap skips it
+    await view.animateMove(at(from), game.history[from].move);
+    if (g !== navGen) return;
+    busy = replaying = false;
+  }
+  view.sync(at(n));
+  refresh();
+}
+
+$('moves').onclick = e => {
+  const ply = (e.target as HTMLElement).closest<HTMLElement>('[data-ply]');
+  if (ply) void showPly(+ply.dataset.ply!);
+};
+
 /** Stop any AI search in flight and drop the per-game UI state. */
 function reset(): void {
   gen++;
+  navGen++;
+  replaying = thinking = false;
+  marked = [];
+  if (viewing != null) { viewing = null; view.sync(game.pos); }
   hintSquares = [];
   engine.cancel();
   closeMoveChoice?.();
@@ -544,13 +684,19 @@ function reset(): void {
 }
 
 /** Look from Black's side whenever the human plays Black. */
-const orient = (): void => view.flip(sides[0] === 'ai' && sides[1] === 'human');
+const orient = (): void => view.flip(sides[0] === 'human' && sides[1] === 'human' && linkSide != null
+  ? linkSide === 1
+  : sides[0] === 'ai' && sides[1] === 'human');
 
-function newGame(backRank?: string, fen?: string | null, rematch = false): void {
+function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null): void {
   $<HTMLDialogElement>('new-game').close(); // every army choice in the dialog starts here
   reset();
   if (!rematch) setRules({ ...preset, ...(kings ? { kings: parseKings(kings) } : {}) });
   resigned = null;
+  linkSide = null;
+  lesson = null; lessonDone = false;
+  lessonReturn = null;
+  daily = dailyDate;
   seenMoments.clear();
   said = '';
   $('moment').textContent = '';
@@ -569,6 +715,7 @@ function undo(): void {
   if (!game.history.length) return;
   reset();
   resigned = null;
+  lessonDone = false;
   game.undo();
   if (sides[game.pos.turn] === 'ai' && sides.includes('human')) game.undo();
   restoreMoments();
@@ -606,7 +753,56 @@ function showOver(): void {
     || said;
   $('over-detail').textContent = [last ? `Last move ${last}.` : '', why, `${n} move${n === 1 ? '' : 's'} · setup ${game.backRank || 'custom'}`].filter(Boolean).join(' ');
   dlg.returnValue = ''; // Esc leaves the last button's value behind, which would re-fire it
+  // King Down: the mated or resigning side's king topples (none after a draw or a king capture).
+  const loser = resigned ?? (game.status === 'checkmate' ? game.pos.turn : null), king = loser == null ? -1 : findKing(game.pos.board, loser);
+  view.setFallen(king >= 0 ? king : null);
+  $('share-result').hidden = daily == null;
+  $('share-result').textContent = "Copy today's result";
   dlg.showModal();
+  void listMoments();
+}
+
+/**
+ * Key moments: score every position of the finished game, then list the moves that gave away
+ * the most (moment.ts `keyMoments`). A moment opens the review before that move, the better one marked.
+ */
+async function listMoments(): Promise<void> {
+  const g = gen, box = $('over-moments'), dlg = $<HTMLDialogElement>('over');
+  box.innerHTML = '<small>Finding the key moments…</small>';
+  marked = [];
+  const keys = game.history.map(h => positionKey(h.pos));
+  const results: SearchResult[] = [], before: number[] = [], after: number[] = [];
+  for (let k = 0; k < game.history.length; k++) {
+    const h = game.history[k], next = game.history[k + 1]?.pos ?? game.pos;
+    const best = await engine.think(h.pos, { timeMs: 200, maxDepth: 3, history: keys.slice(0, k) });
+    if (g !== gen) return; // the game changed (New game, Rematch, Undo): its search was cancelled
+    // The played move, one ply shallower: the same horizon as the root's view of it.
+    const reply = await engine.think(next, { timeMs: 200, maxDepth: 2, history: keys.slice(0, k + 1) });
+    if (g !== gen) return;
+    const same = best.move != null && toLan(h.pos, best.move) === h.lan;
+    results.push(best); before.push(best.score); after.push(same ? -best.score : reply.score);
+  }
+  const found = keyMoments(before, after);
+  box.innerHTML = found.length ? '<h3>Key moments</h3>' : '<small>No move gave away 2 pawns or more.</small>';
+  for (const km of found) {
+    const h = game.history[km.ply], better = results[km.ply].move;
+    const what = km.kind === 'missedMate' ? 'missed a forced mate'
+      : km.kind === 'allowedMate' ? 'allowed a forced mate'
+      : `gave away about ${Math.round(km.loss / 100)} pawns`;
+    const text = `${Math.floor(km.ply / 2) + 1}${km.ply % 2 ? '…' : '.'} ${h.lan}: ${h.pos.turn ? 'Black' : 'White'} ${what}.${better ? ` Better: ${toLan(h.pos, better)}.` : ''}`;
+    marked.push({ ...km, text });
+    const b = document.createElement('button');
+    b.textContent = text;
+    b.onclick = async () => {
+      dlg.close();
+      await showPly(km.ply, false);
+      reviewNote = `${text}${better ? ' The better move is marked.' : ''}`;
+      hintSquares = better ? [better.from, ...clickPath(better)] : [];
+      refresh();
+    };
+    box.appendChild(b);
+  }
+  refresh(); // marks the moments in the move list
 }
 
 $<HTMLDialogElement>('over').onclose = () => {
@@ -621,7 +817,7 @@ $<HTMLDialogElement>('over').onclose = () => {
 
 $('undo').onclick = undo;
 $('resign').onclick = () => {
-  if (finished()) return;
+  if (finished() || lesson != null) return;
   if (!confirm(`Resign as ${game.pos.turn ? 'Black' : 'White'}?`)) return;
   reset();
   resigned = game.pos.turn;
@@ -632,6 +828,35 @@ $('resign').onclick = () => {
 $('copy').onclick = () => {
   const text = game.history.map((h, i) => (i % 2 === 0 ? `${i / 2 + 1}. ${h.lan}` : h.lan)).join(' ');
   navigator.clipboard?.writeText(text).catch(() => copyFallback(text)) ?? copyFallback(text);
+};
+
+/** This page's URL without a game link's parameters. */
+function gameLinkless(): string {
+  const url = new URL(location.href);
+  for (const k of ['army', 'fen', 'moves']) url.searchParams.delete(k);
+  return url.href;
+}
+
+/** A link that holds this whole game, for a friend to open and answer on their device (no server). */
+function gameLink(): string {
+  const url = new URL(location.pathname, location.origin);
+  for (const k of ['rules', 'kings']) { const v = params.get(k); if (v) url.searchParams.set(k, v); }
+  if (game.backRank) url.searchParams.set('army', game.backRank);
+  else url.searchParams.set('fen', toFen(game.history[0]?.pos ?? game.pos));
+  url.searchParams.set('moves', game.history.map(h => h.lan).join('_')); // '_' needs no escaping in a URL
+  return url.href;
+}
+
+$('share').onclick = async () => {
+  const url = gameLink(), button = $('share');
+  // A phone opens its share sheet (chat apps); elsewhere the link goes to the clipboard.
+  if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+    try { await navigator.share({ title: 'King Down Chess', text: `King Down Chess: ${game.pos.turn ? 'Black' : 'White'} to move`, url }); return; }
+    catch (e) { if ((e as Error).name === 'AbortError') return; }
+  }
+  navigator.clipboard?.writeText(url).catch(() => copyFallback(url)) ?? copyFallback(url);
+  button.textContent = 'Link copied. Paste it to your friend.';
+  setTimeout(() => { button.textContent = 'Send the game link'; }, 2500);
 };
 
 /** No clipboard API (or permission denied): a throwaway textarea + execCommand still works everywhere. */
@@ -646,10 +871,11 @@ function copyFallback(text: string): void {
 }
 
 /* ---- autosave ---- */
-interface Save { back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: Skill; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean }
+interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: Skill; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null }
 const SAVE_KEY = 'kingdown.save';
 
 function save(): void {
+  if (lesson != null) return; // a lesson never replaces the saved game
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       back: game.backRank,
@@ -661,6 +887,9 @@ function save(): void {
       coords: coords.checked,
       sound: $<HTMLInputElement>('sound').checked,
       queen: $<HTMLInputElement>('queen').checked,
+      pace: pace.value as Pace,
+      link: linkSide,
+      daily,
       resigned,
       // The rules the game is playing, so opening the save without its URL replays the same game
       // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
@@ -684,6 +913,18 @@ $('rules-btn').onclick = () => {
   $<HTMLDialogElement>('rules').showModal();
 };
 $('new-random').onclick = () => newGame(randomBackRank());
+/** Today's army: the same random army for every player on a given local date. */
+const today = (): string => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+$('new-daily').onclick = () => { const d = today(); newGame(randomBackRank(mulberry32(+d.replace(/-/g, ''))), null, false, d); };
+$('share-result').onclick = () => {
+  const n = Math.ceil(game.history.length / 2), people = sides.filter(s => s === 'human').length;
+  const me = sides.indexOf('human') as Color, winner = resigned != null ? 1 - resigned : game.status === 'checkmate' ? 1 - game.pos.turn : -1;
+  const outcome = people !== 1 ? result().toLowerCase() : winner < 0 ? 'drew' : winner === me ? 'won' : 'lost';
+  const vs = people === 1 ? ` against the ${$<HTMLSelectElement>('skill').value} computer` : '';
+  const text = `King Down daily ${daily} (${game.backRank}): ${outcome} in ${n} move${n === 1 ? '' : 's'}${vs}. ${location.origin}${location.pathname}`;
+  navigator.clipboard?.writeText(text).catch(() => copyFallback(text)) ?? copyFallback(text);
+  $('share-result').textContent = 'Result copied';
+};
 $('new-classic').onclick = () => newGame(CLASSIC_CHESS);
 $('new-setup').onclick = () => {
   const v = prompt(`Back rank (8 letters, one K; current draw pool ${POOL}):`, game.backRank)?.toUpperCase().trim();
@@ -710,10 +951,20 @@ $('setup-example').onchange = e => {
   }
   select.value = '';
 };
-$('white').onchange = $('black').onchange = () => { reset(); view.sync(game.pos); sides[0] = $<HTMLSelectElement>('white').value as Side; sides[1] = $<HTMLSelectElement>('black').value as Side; orient(); refresh(); save(); void maybeAi(); };
+$('white').onchange = $('black').onchange = () => {
+  if (lesson != null) return; // configure the next game without turning the lesson into the saved match
+  reset(); view.sync(game.pos);
+  sides[0] = $<HTMLSelectElement>('white').value as Side;
+  sides[1] = $<HTMLSelectElement>('black').value as Side;
+  orient(); refresh(); save(); void maybeAi();
+};
 $('think').onchange = $('skill').onchange = save;
 $('sound').onchange = () => { setSound($<HTMLInputElement>('sound').checked); save(); };
 $('queen').onchange = save;
+const pace = $<HTMLSelectElement>('pace');
+// No saved choice: the system's reduced-motion setting picks Off.
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) pace.value = 'off';
+pace.onchange = () => { view.setPace(pace.value as Pace); save(); };
 const labels = $<HTMLInputElement>('labels');
 labels.checked = params.get('labels') === '1';
 labels.onchange = () => view.setLabels(labels.checked);
@@ -722,21 +973,32 @@ const coords = $<HTMLInputElement>('coords');
 coords.onchange = () => { view.setCoords(coords.checked); save(); };
 $('reset-view').onclick = () => view.resetView();
 addEventListener('keydown', e => {
-  if (e.key === 'Escape') { selected = null; pending = []; refresh(); return; }
+  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; refresh(); return; }
   // Menus swallow shortcuts; an open move choice does not (Z there undoes, and that is tested).
   if ((e.target as HTMLElement).closest('input,select,textarea') || document.querySelector('#new-game[open], #settings[open]')) return;
   if (e.key === 'r') view.resetView();
   if (e.key === 'z') undo();
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    e.preventDefault();
+    void showPly((viewing ?? game.history.length) + (e.key === 'ArrowLeft' ? -1 : 1));
+  }
 });
 
-/** `?fen=` wins over the autosave; restore player settings before loading the game. */
-const saved = params.has('fen') ? null : readSave();
+/**
+ * `?army=` or `?fen=`, with `&moves=`: a game sent by a friend (`gameLink`). It keeps this device's
+ * settings, and replaces the autosave after a confirm, unless it continues the saved game.
+ */
+const linkMoves = params.get('moves');
+const link = linkMoves != null && (params.has('army') || params.has('fen'));
+/** A plain `?fen=` wins over the autosave; restore player settings before loading the game. */
+const saved = params.has('fen') && !link ? null : readSave();
 if (saved) {
   if (saved.white) $<HTMLSelectElement>('white').value = saved.white;
   if (saved.black) $<HTMLSelectElement>('black').value = saved.black;
   if (saved.think) $<HTMLInputElement>('think').value = String(saved.think);
   if (typeof saved.sound === 'boolean') $<HTMLInputElement>('sound').checked = saved.sound;
   if (typeof saved.queen === 'boolean') $<HTMLInputElement>('queen').checked = saved.queen;
+  if (saved.pace === 'normal' || saved.pace === 'fast' || saved.pace === 'off') pace.value = saved.pace;
   // Old saves with no skill field stay Strong so a resumed game does not suddenly get easier.
   $<HTMLSelectElement>('skill').value = isSkill(saved.skill) ? saved.skill : 'strong';
   if (typeof saved.coords === 'boolean') coords.checked = saved.coords;
@@ -748,9 +1010,27 @@ await loadModels();
 // The playable game has one art direction; study controls stay in the study.
 view.applyStyle(STYLES.clay);
 view.setCoords(coords.checked);
-const fen = params.get('fen');
-if (fen) { try { game.load(fromFen(fen)); } catch (e) { alert(`Bad fen: ${(e as Error).message}`); } }
+view.setPace(pace.value as Pace);
+const fen = link ? null : params.get('fen');
+const lans = linkMoves?.split('_').filter(Boolean) ?? [];
+const continues = !!saved && (params.get('army') ? saved.back === params.get('army') : !saved.back && saved.fen === params.get('fen'))
+  && saved.moves.every((m, i) => lans[i] === m);
+const openLink = link && (!saved?.moves.length || continues || confirm('Open the game from this link? It replaces your current game.'));
+if (link) history.replaceState(null, '', gameLinkless()); // a reload then resumes the autosave
+if (openLink) {
+  try {
+    const army = params.get('army');
+    if (army) game.newGame(army); else game.load(fromFen(params.get('fen')!));
+    if (game.playLan(lans) < lans.length) alert('Part of this game link could not be read; the game stops before that move.');
+  } catch (e) { alert(`This game link could not be read: ${(e as Error).message}`); game.newGame(); }
+  $<HTMLSelectElement>('white').value = $<HTMLSelectElement>('black').value = 'human';
+  sides[0] = sides[1] = 'human';
+  linkSide = game.pos.turn;
+}
+else if (fen) { try { game.load(fromFen(fen)); } catch (e) { alert(`Bad fen: ${(e as Error).message}`); } }
 else if (saved) {
+  if (saved.link === 0 || saved.link === 1) linkSide = saved.link;
+  if (typeof saved.daily === 'string') daily = saved.daily;
   const savedRules = saved.rules;
   const urlRules = preset || kings;
   const rulesDiffer = !!urlRules && !!savedRules && JSON.stringify(savedRules) !== JSON.stringify({ ...GAME_RULES });
@@ -773,5 +1053,5 @@ fillPieceGuide(); // after every setRules path (URL preset / save restore)
 setSound($<HTMLInputElement>('sound').checked);
 restoreMoments();
 refresh();
-if (!fen) save(); // pin the random back rank so a reload keeps this game
+if (!fen) save(); // pin the random back rank so a reload keeps this game (and keep an opened link's game)
 if (finished()) showOver(); else void maybeAi();

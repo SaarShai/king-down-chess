@@ -1,0 +1,147 @@
+{
+  "date": "2026-09-29",
+  "claudeSession": "01010c18-3283-4331-92dc-4f6696baa502",
+  "branch": "claude/relaxed-sanderson-cf6369",
+  "head": "2befe02f10aea82328490efaf5db21c5c041e0f4",
+  "preview": "http://127.0.0.1:5190/",
+  "unitTests": {
+    "vitest": 276,
+    "node": 25,
+    "exit": 0
+  },
+  "typescriptAndProductionBuild": "passed",
+  "checks": [
+    {
+      "check": "verify-lesson-return.mjs",
+      "exit": 0,
+      "seconds": 10.5,
+      "log": "/tmp/king-down-claude-recovery-2026-09-29/checks/verify-lesson-return.mjs.log",
+      "evidence": [
+        "ok painted desktop: lesson save protection, return, rules, new game",
+        "ok painted phone: lesson save protection, return, rules, new game",
+        "ok clay desktop: lesson save protection, return, rules, new game",
+        "ok clay phone: lesson save protection, return, rules, new game"
+      ]
+    },
+    {
+      "check": "verify-painted-game.mjs",
+      "exit": 0,
+      "seconds": 75.8,
+      "log": "/tmp/king-down-claude-recovery-2026-09-29/checks/verify-painted-game.mjs.log",
+      "evidence": [
+        "ok computer game: 61 plies",
+        "ok 5 captures animated",
+        "ok human drag and click-click moves",
+        "ok flipped board, undo during play",
+        "ok Maester beam and Catapult token captures",
+        "ok review: list, arrows, replay, return",
+        "ok key moments: \"1. Ra1-a7: White allowed a forced mate. Better: f2-f3.\"",
+        "ok game link: ?army=RNBQKBNR&moves=e2-e4_e7-e5",
+        "ok lessons: six signature moves, a wrong move taken back, save untouched",
+        "ok today's army: King Down daily 2026-09-29 (RKSSAOAN): lost in 0 moves against the club computer. http://127.0.0.1:5190/",
+        "ok animations: normal 1645 ms, fast 828 ms, tap-skip 156 ms, off 1 ms",
+        "ok phone: board 365 px"
+      ]
+    },
+    {
+      "check": "verify-cursor-adoption.mjs",
+      "exit": 0,
+      "seconds": 17.9,
+      "log": "/tmp/king-down-claude-recovery-2026-09-29/checks/verify-cursor-adoption.mjs.log",
+      "evidence": []
+    },
+    {
+      "check": "verify-playable-clay.mjs",
+      "exit": 0,
+      "seconds": 17.1,
+      "log": "/tmp/king-down-claude-recovery-2026-09-29/checks/verify-playable-clay.mjs.log",
+      "evidence": []
+    },
+    {
+      "check": "verify-special-moves.mjs",
+      "exit": 0,
+      "seconds": 29.3,
+      "log": "/tmp/king-down-claude-recovery-2026-09-29/checks/verify-special-moves.mjs.log",
+      "evidence": []
+    },
+    {
+      "check": "qa.mjs",
+      "exit": 0,
+      "seconds": 190.9,
+      "log": "/tmp/king-down-claude-recovery-2026-09-29/checks/qa.mjs.log",
+      "evidence": [
+        "PASS paladin default: survives the pawn capture \u2014 ok",
+        "PASS paladin ?rules=2017: dies on the pawn capture \u2014 ok",
+        "PASS default archer steps diagonally \u2014 ok",
+        "PASS ?rules=2021 archer has no diagonal step \u2014 ok",
+        "PASS save/restore keeps the active rules \u2014 ok",
+        "PASS ogre shoves a friend (plain click) and undo \u2014 ok",
+        "PASS ogre capture by the choice dialog, shove by shift-click \u2014 ok",
+        "PASS catapult lobs over a screen and stays put \u2014 ok",
+        "PASS AI answers in an ogre position \u2014 ok",
+        "PASS kings choice survives save/restore \u2014 ok",
+        "PASS AI uses Death Touch in the worker \u2014 ok",
+        "PASS Darkness pawn capture survives save/restore \u2014 ok",
+        "PASS full AI vs AI game reaches a result \u2014 result: Draw by repetition \u00b7 50 plies \u00b7 98s",
+        "PASS cancelling mid-search starts a clean game \u2014 ok",
+        "PASS promotion picker promotes to a queen \u2014 ok",
+        "PASS mobile layout has no horizontal overflow \u2014 ok",
+        "PASS strike: a pawn moves as a queen once (flame:strike) \u2014 ok",
+        "PASS paladin default: survives the pawn capture",
+        "PASS paladin ?rules=2017: dies on the pawn capture",
+        "PASS default archer steps diagonally",
+        "PASS ?rules=2021 archer has no diagonal step",
+        "PASS save/restore keeps the active rules",
+        "PASS ogre shoves a friend (plain click) and undo",
+        "PASS ogre capture by the choice dialog, shove by shift-click",
+        "PASS catapult lobs over a screen and stays put",
+        "PASS AI answers in an ogre position",
+        "PASS kings choice survives save/restore",
+        "PASS AI uses Death Touch in the worker",
+        "PASS Darkness pawn capture survives save/restore",
+        "PASS full AI vs AI game reaches a result",
+        "PASS cancelling mid-search starts a clean game",
+        "PASS promotion picker promotes to a queen",
+        "PASS mobile layout has no horizontal overflow",
+        "PASS strike: a pawn moves as a queen once (flame:strike)"
+      ]
+    },
+    {
+      "check": "capture-strikes.mjs",
+      "exit": 0,
+      "evidence": [
+        "ok bishop-ivory: Ivory Bishop captured on e2.",
+        "ok bishop-charcoal: Charcoal Bishop captured on c2.",
+        "ok paladin-ivory-pawn: Ivory Paladin captured on g4.",
+        "ok paladin-charcoal-both: Charcoal Paladin captured on f2. Both the Paladin and the target are removed.",
+        "ok rook-ivory: Ivory Rook captured on c7.",
+        "ok queen-ivory: Ivory Queen captured on g4.",
+        "ok king-ivory: Ivory King captured on c5.",
+        "ok beast-chain-ivory: Ivory Beast chained d5 \u2192 e6 \u2192 f5 and stopped on f5.",
+        "ok beast-bite-charcoal: Charcoal Beast captured on e4.",
+        "ok maester-ivory: Ivory Maester captured on c5.",
+        "ok maester-charcoal: Charcoal Maester captured on f4.",
+        "ok bishop undo mid-strike",
+        "ok paladin undo mid-strike",
+        "ok maester undo mid-strike",
+        "ok live beast chain and all positions"
+      ]
+    }
+  ],
+  "sourceHashes": {
+    "src/main.ts": "6037044dd8dba0617c33f985fd2e748df86b314f182c8a5901939db15755196b",
+    "index.html": "240ef775b87aa78d0d3d389c614b9380acb35e62381fcd27ba9a539d3001fb31",
+    "src/lessons.ts": "738dc958aa5931d9e785b2413a92f040d57c6e994c05ac946bb929c68b190ab5",
+    "tools/verify-lesson-return.mjs": "4151aa12b3b68ea2957e0b2f23a0847579d80d01dc9053a1d4726cf6b3a6b2c6",
+    "docs/2d-first-pieces/board/scene.mjs": "dd86a4cd4be4aba2812ad7da63590e1ffd245d557c10c0aeb9108eca044d1ddf"
+  },
+  "baselineReproduction": {
+    "trigger": "Start a lesson, open New game, change Black from Human to Computer, cancel the dialog",
+    "beforeBackRank": "RNBQKBNR",
+    "afterBackRank": "",
+    "afterFen": "7k/8/8/4p3/3A4/8/8/K7 w - - 0 1",
+    "saveChanged": true
+  },
+  "testEnvironmentRepair": "The extra trial check first passed 14 cases, then module requests were reset by the Python test server. It passed all 15 after raising the server request queue from 5 to 128. No product changes were needed.",
+  "inheritedSnapshot": "/tmp/king-down-claude-recovery-2026-09-29"
+}

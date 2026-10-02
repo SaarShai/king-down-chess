@@ -79,11 +79,155 @@ try {
   }
   console.log('ok Maester beam and Catapult token captures');
 
+  // 2c. Animations: Fast plays a capture in about half the time, a tap on the board skips it,
+  // Off shows only the result. Each case ends on the post-move board.
+  const pawnTakes = async (pace, tapAfter = null) => {
+    const u = new URL(url); u.searchParams.set('fen', '7k/8/8/3p4/4P3/8/8/K7 w - - 0 1');
+    await page.goto(u.href);
+    await page.waitForFunction(() => window.view?.pos?.board[35] > 0);
+    await page.evaluate(v => { const s = document.getElementById('pace'); s.value = v; s.dispatchEvent(new Event('change')); }, pace);
+    for (const sq of [28, 35]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
+    const t0 = Date.now(), started = await page.evaluate(() => window.view.scene.animating);
+    if (tapAfter != null) { await page.waitForTimeout(tapAfter); const p = await at(0); await page.mouse.click(p.x, p.y); }
+    await page.waitForFunction(() => !window.view.scene.animating && window.view.pos.board[28] === 0 && window.view.pos.board[35] > 0, null, { timeout: 5000 });
+    return { started, ms: Date.now() - t0 };
+  };
+  const normal = await pawnTakes('normal'), fast = await pawnTakes('fast'), tapped = await pawnTakes('normal', 150), off = await pawnTakes('off');
+  assert.ok(normal.started && fast.started && tapped.started && !off.started, JSON.stringify({ normal, fast, tapped, off }));
+  assert.ok(fast.ms < normal.ms * 0.65, `fast ${fast.ms} ms vs normal ${normal.ms} ms`);
+  assert.ok(tapped.ms < 600 && off.ms < 400, `tap-skip ${tapped.ms} ms, off ${off.ms} ms`);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).pace), 'off', 'the choice is saved');
+  await page.evaluate(() => { const s = document.getElementById('pace'); s.value = 'normal'; s.dispatchEvent(new Event('change')); });
+  // 2d. Review: a move in the list shows the board after it, ← steps back, → replays the next move,
+  // the board is read-only meanwhile, and a tap on it returns to the game.
+  {
+    const u = new URL(url); u.searchParams.set('fen', '7k/8/8/3p4/4P3/8/8/K7 w - - 0 1');
+    await page.goto(u.href);
+    await page.waitForFunction(() => window.view?.pos?.board[35] > 0);
+    await page.evaluate(() => { const s = document.getElementById('black'); s.value = 'human'; s.dispatchEvent(new Event('change')); });
+    for (const sq of [28, 35, 63, 62]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); }
+    await page.waitForFunction(() => /Kh8-g8/.test(document.getElementById('moves').textContent));
+    const board = () => page.evaluate(() => [28, 35, 62, 63].map(sq => window.view.pos.board[sq] > 0 ? 1 : 0).join(''));
+    assert.equal(await board(), '0110', 'live: pawn on d5, king on g8');
+    await page.click('#moves [data-ply="1"]');
+    assert.equal(await board(), '0101', 'after move 1: pawn on d5, king still on h8');
+    assert.equal(await page.textContent('#turn'), 'Reviewing after 1. e4xd5');
+    const pawn = await at(35); await page.mouse.click(pawn.x, pawn.y); // leaves the review, selects nothing
+    assert.equal(await board(), '0110', 'a tap on the board returns to the game');
+    await page.click('#moves [data-ply="1"]'); await page.keyboard.press('ArrowLeft');
+    assert.equal(await board(), '1101', 'the start: both pawns, king on h8');
+    await page.keyboard.press('ArrowRight');
+    assert.ok(await page.evaluate(() => window.view.scene.animating), '→ replays the capture');
+    await page.waitForFunction(() => !window.view.scene.animating);
+    assert.equal(await board(), '0101');
+    assert.equal(await page.evaluate(() => document.querySelector('#moves .viewing')?.dataset.ply), '1');
+    await page.keyboard.press('Escape');
+    assert.equal(await board(), '0110');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#moves [data-ply]').length), 2, 'review changes no move');
+    console.log('ok review: list, arrows, replay, return');
+  }
+
+  // 2e. Key moments: White's rook leaves the back rank, Black mates on e1. The result dialog names
+  // the blunder, and its button opens the review before it with the better move marked.
+  {
+    const u = new URL(url); u.searchParams.set('fen', '4r1k1/8/8/8/8/8/5PPP/R5K1 w - - 0 1');
+    await page.goto(u.href);
+    await page.waitForFunction(() => window.view?.pos?.board[60] > 0);
+    await page.evaluate(() => { const s = document.getElementById('black'); s.value = 'human'; s.dispatchEvent(new Event('change')); });
+    for (const sq of [0, 48, 60, 4]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); }
+    await page.waitForFunction(() => document.getElementById('over').open && document.querySelector('#over-moments button'), null, { timeout: 15000 });
+    assert.equal(await page.evaluate(() => window.view.fallen?.sq), 6, 'the mated king on g1 topples');
+    await page.waitForFunction(() => /Ra1-a7\?\?/.test(document.getElementById('moves').textContent));
+    assert.match(await page.getAttribute('#moves [data-ply="1"]', 'title'), /allowed a forced mate/, 'the move list marks the blunder');
+    const text = await page.textContent('#over-moments button');
+    assert.match(text, /^1\. Ra1-a7: White allowed a forced mate\. Better: /, text);
+    await page.click('#over-moments button');
+    assert.equal(await page.textContent('#turn'), 'Reviewing the start');
+    assert.equal(await page.evaluate(() => window.view.marks.hint.length), 2, 'the better move is marked');
+    assert.equal(await page.evaluate(() => window.view.pos.board[0] > 0), true, 'the rook is back on a1');
+    console.log(`ok key moments: "${text}"`);
+  }
+  // 2f. Game link: open a friend's link (it replaces a different saved game only after a question),
+  // answer as Black, send the link back; the friend's device continues its saved game without asking.
+  {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: url.origin });
+    const u = new URL(url); u.searchParams.set('army', 'RNBQKBNR'); u.searchParams.set('moves', 'e2-e4');
+    let asked = null; page.once('dialog', d => { asked = d.message(); d.accept(); });
+    await page.goto(u.href);
+    await page.waitForFunction(() => window.view?.pos?.board[28] > 0 && !window.view.pos.board[12]);
+    assert.match(asked ?? '', /replaces your current game/, 'a different saved game asks first');
+    assert.equal(new URL(page.url()).searchParams.has('moves'), false, 'the link parameters are dropped');
+    assert.deepEqual(await page.evaluate(() => [document.getElementById('white').value, document.getElementById('black').value]), ['human', 'human']);
+    assert.ok((await at(56)).y > (await at(0)).y, 'Black, to move, plays from the bottom');
+    for (const sq of [52, 36]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
+    await page.waitForFunction(() => /e7-e5/.test(document.getElementById('moves').textContent) && !window.view.scene.animating);
+    assert.match(await page.textContent('#move-help'), /Send the game link/);
+    const d2 = await at(11); await page.mouse.click(d2.x, d2.y);
+    assert.equal(await page.evaluate(() => window.view.marks.selected), null, "the friend's pieces do not move here");
+    assert.ok(await page.evaluate(() => document.getElementById('hint').disabled), "no Hint on the friend's turn");
+    await page.click('#share');
+    const sent = new URL(await page.evaluate(() => navigator.clipboard.readText()));
+    assert.deepEqual([sent.searchParams.get('army'), sent.searchParams.get('moves')], ['RNBQKBNR', 'e2-e4_e7-e5']);
+    await page.reload(); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
+    assert.ok((await at(56)).y > (await at(0)).y, 'a reload keeps the side and the game');
+    // The friend's device: its saved game is the start of the link, so it opens without a question.
+    await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('kingdown.save')); s.moves = ['e2-e4']; s.link = 0; localStorage.setItem('kingdown.save', JSON.stringify(s)); });
+    asked = null; const ask = d => { asked = d.message(); d.dismiss(); }; page.on('dialog', ask);
+    await page.goto(sent.href); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
+    page.off('dialog', ask);
+    assert.equal(asked, null, 'a continuation opens without a question');
+    assert.ok((await at(56)).y < (await at(0)).y, 'White, to move, plays from the bottom');
+    console.log(`ok game link: ${sent.search}`);
+  }
+  // 2g. Lessons: each of the six pieces' signature moves from the New game dialog; a wrong move is
+  // taken back; the saved game stays as it was.
+  {
+    const before = await page.evaluate(() => localStorage.getItem('kingdown.save'));
+    await page.click('#rules-btn'); await page.click('#learn');
+    const play = async squares => {
+      const prev = await page.textContent('#moment');
+      for (const sq of squares) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
+      if (await page.evaluate(() => document.getElementById('move-choice').open)) await page.click('#choose-push');
+      await page.waitForFunction(prev => { const t = document.getElementById('moment').textContent; return t !== prev && /^(Well done|Not quite)/.test(t) && !window.view.scene.animating; }, prev);
+    };
+    await play([27, 35]); // the Archer steps instead of shooting
+    assert.match(await page.textContent('#moment'), /^Not quite/);
+    assert.equal(await page.evaluate(() => window.view.pos.board[27] > 0 && !window.view.pos.board[35]), true, 'the wrong move is taken back');
+    const steps = [[27, 36], [11, 12], [27, 28], [27, 35, 43], [27, 35], [3, 43]];
+    for (const [i, squares] of steps.entries()) {
+      assert.match(await page.textContent('#turn'), new RegExp(`Lesson ${i + 1} of 6`));
+      await play(squares);
+      assert.match(await page.textContent('#moment'), /^Well done/, `lesson ${i + 1}`);
+      assert.equal(await page.isVisible('#next-lesson'), true);
+      if (i < 5) await page.click('#next-lesson');
+    }
+    assert.equal(await page.textContent('#next-lesson'), 'Start a game');
+    assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.save')), before, 'lessons leave the saved game alone');
+    console.log('ok lessons: six signature moves, a wrong move taken back, save untouched');
+  }
+  // 2h. Today's army: the same army twice on one day; after the game the result can be copied.
+  {
+    await page.evaluate(() => { for (const [id, v] of [['white', 'human'], ['black', 'ai']]) { const s = document.getElementById(id); s.value = v; s.dispatchEvent(new Event('change')); } });
+    const army = async () => { await page.click('#new-game-btn'); await page.click('#new-daily'); return page.textContent('#setup'); };
+    const first = await army(), second = await army();
+    assert.ok(/^[A-Z]{8}$/.test(first) && first === second, `${first} / ${second}`);
+    page.once('dialog', d => d.accept()); await page.click('#resign');
+    await page.waitForFunction(() => document.getElementById('over').open);
+    assert.equal(await page.evaluate(() => window.view.fallen?.sq), await page.evaluate(() => window.view.pos.board.findIndex(v => v === 6)), 'the resigning White king topples');
+    await page.click('#share-result');
+    const shared = await page.evaluate(() => navigator.clipboard.readText());
+    assert.match(shared, new RegExp(`^King Down daily \\d{4}-\\d{2}-\\d{2} \\(${first}\\): lost in 0 moves against the \\w+ computer\\. http`), shared);
+    await page.keyboard.press('Escape');
+    console.log(`ok today's army: ${shared}`);
+  }
+  console.log(`ok animations: normal ${normal.ms} ms, fast ${fast.ms} ms, tap-skip ${tapped.ms} ms, off ${off.ms} ms`);
+
   // 3. Phone width: the board fits without horizontal scrolling.
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
   watch(phone);
   await phone.goto(url.origin + url.pathname); // no parameter: painted must be the default
   await phone.waitForFunction(() => document.getElementById('board').classList.contains('painted') && document.querySelector('#board canvas')?.clientWidth > 300);
+  await phone.evaluate(() => window.view.ready()); // the art, so the screenshot shows the board
   const fit = await phone.evaluate(() => ({ doc: document.documentElement.scrollWidth, board: document.querySelector('#board canvas').getBoundingClientRect().width }));
   assert.ok(fit.doc <= 390 && fit.board >= 340, JSON.stringify(fit));
   await phone.screenshot({ path: `${out}/phone.png` });

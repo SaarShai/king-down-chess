@@ -106,7 +106,7 @@ try {
   await page.click('#rules-btn');
   assert.match(await page.locator('#rules-rows tr').filter({hasText:'A Archer'}).textContent(), /forward diagonal at distance 2/);
   assert.match(await page.locator('#rules-rows tr').filter({hasText:'S Beast'}).textContent(), /Takes on any adjacent square/);
-  await page.locator('#rules button').click();
+  await page.locator('#rules form button').click();
   checks.push('piece guide describes the current Archer and Beast rules');
   // Interrupt the shove: a delayed animation must not change the restored position.
   await ui('selectOption', '#setup-example','ogre'); await ready();
@@ -128,6 +128,29 @@ try {
   await page.click('#undo'); await ready();
   assert.equal(await page.evaluate(()=>window.view.pieces.size),4);
   checks.push('capture disposes the victim, and undo restores its model');
+  // Animations: a tap during the walk ends it on the final board; Fast doubles the tween rate; Off plays none.
+  const moving = () => page.evaluate(()=>window.view.moving);
+  await clickSquare(0); await clickSquare(16); await page.waitForTimeout(150);
+  const walking = await moving(); await clickSquare(63); const afterTap = await moving();
+  await settled(16,4);
+  assert.equal(await page.evaluate(()=>window.view.pieces.size),3);
+  await page.click('#undo'); await ready();
+  await ui('selectOption', '#pace', 'fast'); assert.equal(await page.evaluate(()=>window.view.tweens.rate), 2);
+  await ui('selectOption', '#pace', 'off');
+  await clickSquare(0); await clickSquare(16); const offMoving = await moving(); await settled(16,4);
+  assert.deepEqual({ walking, afterTap, offMoving }, { walking: true, afterTap: false, offMoving: false });
+  await ui('selectOption', '#pace', 'normal'); await page.click('#undo'); await ready();
+  checks.push('a tap skips the capture walk, Fast doubles the tween rate, Off shows only the result');
+  // Review: ← shows the board before the capture, → replays it onto the live board.
+  await clickSquare(0); await clickSquare(16); await settled(16,4);
+  await page.keyboard.press('ArrowLeft'); await settled(0,4);
+  assert.ok(await page.evaluate(()=>window.view.pieces.has(16) && !window.view.moving), 'the pawn is back on a3');
+  await page.keyboard.press('ArrowRight');
+  assert.ok(await page.evaluate(()=>window.view.moving), '→ replays the capture');
+  await settled(16,4);
+  assert.equal(await page.evaluate(()=>window.view.pieces.size),3);
+  await page.click('#undo'); await ready();
+  checks.push('review: ← shows the board before the capture, → replays it');
   await ui('click', '#new-classic'); await ready();
   await clickSquare(12); await clickSquare(28);
   await ui('click', '#new-random'); await ready(); await page.waitForTimeout(1000);

@@ -35,3 +35,24 @@ export function momentText(pre: Position, m: Move, seen: Set<string>, preview = 
   if (!preview) seen.add(kind);
   return LINES[kind][preview ? 1 : 0];
 }
+
+/** A played move that gave away much of its mover's position (centipawns), or a forced mate. */
+export interface KeyMoment { ply: number; loss: number; kind: 'loss' | 'missedMate' | 'allowedMate' }
+
+/**
+ * `before[k]`: the search score of the position before ply k, for its mover. `after[k]`: the score
+ * of the position after it, for the opponent, searched one ply shallower so both see the same horizon.
+ * Move k gave away before[k] + after[k]. Returns up to `limit` moves that gave away `threshold`
+ * or more, largest first, then in game order.
+ */
+export function keyMoments(before: readonly number[], after: readonly number[], limit = 3, threshold = 200): KeyMoment[] {
+  const MATED = 99_000, CAP = 1500; // search.ts: MATE − 1000 bounds the mate scores
+  const cap = (s: number): number => Math.max(-CAP, Math.min(CAP, s));
+  const found: KeyMoment[] = [];
+  for (let k = 0; k < before.length; k++) {
+    const loss = cap(before[k]) + cap(after[k]);
+    if (loss < threshold) continue;
+    found.push({ ply: k, loss, kind: after[k] >= MATED ? 'allowedMate' : before[k] >= MATED ? 'missedMate' : 'loss' });
+  }
+  return found.sort((a, b) => b.loss - a.loss).slice(0, limit).sort((a, b) => a.ply - b.ply);
+}

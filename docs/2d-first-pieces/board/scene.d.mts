@@ -19,9 +19,12 @@ export interface PaintedScene {
   setSelected(square: number | null): void;
   setAim(square: number | null): void;
   setFlipped(on: boolean): void;
-  setCoords(on: boolean): void;
+  setCoords(on: boolean, size?: number): void;
   setLabels(on: boolean): void;
   setReducedMotion(on: boolean): void;
+  setFallen(square: number | null, animate?: boolean): void;
+  /** Backing pixels per board unit; resizes the canvas and the effect layer. Default 1. */
+  setResolution(k: number): void;
   setDecorate(fn: ((ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over') => void) | null): void;
   redraw(): void;
   /** onContact fires once when the strike lands (not for plain moves or swaps). */

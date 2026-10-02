@@ -15,6 +15,7 @@ import { CAST } from './prototype/CastCatalog';
 import { applyLookLighting } from './prototype/ClayLook';
 import { PieceContourPass } from './prototype/PieceContourPass';
 import type { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import type { Pace } from './PaintedView';
 
 export const tileCenter = (sq: number): THREE.Vector3 => new THREE.Vector3(file(sq) - 3.5, 0, 3.5 - rank(sq));
 
@@ -180,6 +181,9 @@ export class BoardRenderer {
   private pieces = new Map<number, THREE.Group>();
   private markers = new THREE.Group();
   private tweens = new Tweens();
+  private pace: Pace = 'normal';
+  private moving = false;
+  private fallen: { pos: Position; sq: number } | null = null;
   private debris: Debris;
   private lambertMat = new THREE.MeshLambertMaterial({ vertexColors: true });
   private toonMats = new Map<number, THREE.MeshToonMaterial>();
@@ -492,6 +496,21 @@ export class BoardRenderer {
       if (cur) { this.removeFigure(cur); this.pieces.delete(sq); }
       if (code) this.pieces.set(sq, this.spawn(sq, typeOf(code), colorOf(code)));
     }
+    this.showFallen(false);
+  }
+
+  setFallen(sq: number | null): void {
+    this.fallen = sq == null || !this.lastPos ? null : { pos: this.lastPos, sq };
+    this.showFallen(true);
+  }
+
+  /** The fallen king lies on its side while the board shows the position it fell in. */
+  private showFallen(animate: boolean): void {
+    for (const g of this.pieces.values()) g.rotation.z = 0;
+    const f = this.fallen, g = f && f.pos === this.lastPos ? this.pieces.get(f.sq) : undefined;
+    if (!g) return;
+    if (!animate) { g.rotation.z = 1.4; return; }
+    void this.tweens.add(0.65, k => { if (this.fallen === f && f!.pos === this.lastPos) g.rotation.z = 1.4 * k; });
   }
 
   private removeFigure(g: THREE.Group): void {
@@ -608,9 +627,20 @@ export class BoardRenderer {
     }
   }
 
+  setPace(pace: Pace): void { this.pace = pace; this.tweens.rate = pace === 'fast' ? 2 : 1; }
+
+  /** Stale-version tweens return early, so the flush just resolves them; main.ts then syncs. */
+  skip(): void { if (!this.moving) return; this.positionVersion++; this.tweens.flush(); }
+
   /** Animate a move on the pre-move board; call sync(newPos) afterwards. */
   /** `onContact` fires when a capture or shove lands (main.ts times the hit sound to it). */
   async animateMove(pos: Position, m: Move, onContact?: () => void): Promise<void> {
+    if (this.pace === 'off') return;
+    this.moving = true;
+    try { await this.animate(pos, m, onContact); } finally { this.moving = false; }
+  }
+
+  private async animate(pos: Position, m: Move, onContact?: () => void): Promise<void> {
     const version = this.positionVersion;
     const current = () => version === this.positionVersion;
     const mover = this.pieces.get(m.from);

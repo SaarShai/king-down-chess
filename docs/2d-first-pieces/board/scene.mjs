@@ -27,7 +27,7 @@ const BOARD_ART=new URL('../board-art/stone-board.webp',import.meta.url).href;
 export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0}) {
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
- const CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
+ const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
  const ART={[K]:'king',[S]:'beast',[Q]:'queen',[L]:'paladin',[M]:'maester',[P]:'pawn',[A]:'archer',[O]:'ogre',[N]:'knight',[B]:'bishop',[R]:'rook',[G]:'guard'};
  const art=Object.fromEntries(Object.keys(ART).map(type=>[type,new Image()]));
  const boardArt=new Image();
@@ -46,7 +46,7 @@ for(const [type,name] of Object.entries(courtNames)){
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
  let position={board:new Uint8Array(64)}, selected=null, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
- let frame=0, previousTime=0, ready=false, flipped=false, coords=true, labels=false, reducedMotion=false, decorate=null;
+ let fallen=null, res=1, frame=0, previousTime=0, ready=false, flipped=false, coords=true, coordSize=13, labels=false, reducedMotion=false, decorate=null;
  const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
  const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
  const cell=s=>({col:flipped?7-(s&7):s&7,row:flipped?s>>3:7-(s>>3)});
@@ -83,19 +83,19 @@ function sprite(value,angle=0,extension=0) {
  if(type===L&&angle)court.drawPaladinSwing(canvas,art[type],side,angle);else if(type===S&&angle)court.drawBeastBite(canvas,art[type],side,angle);else if(type===B&&angle)bishop.drawSlash(canvas,art[type],side,angle);else if(courtNames[type])court.drawCourt(canvas,art[type],courtNames[type],side,extension);else if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else if(type===N)knight.drawKnight(canvas,art[type],side,extension);else if(type===B)bishop.drawBishop(canvas,art[type],side,extension);else if(type===R&&angle)rook.drawRookPound(canvas,art[type],side,angle);else if(type===R)rook.drawRook(canvas,art[type],side,extension);else if(type===G)guard.drawGuard(canvas,art[type],side,extension);else pawn.drawPawn(canvas,art[type],side,angle,extension);
  return canvas;
 }
-// Covers the headroom too, so an effect never crops a back-rank figure's head.
+// Covers the headroom too, so an effect never crops a back-rank figure's head. Sized by setResolution().
 const fxCanvas=document.createElement('canvas');fxCanvas.width=SIZE;fxCanvas.height=SIZE+headroom;
 // fx: {cut} splits along a slash; {frost, shatter} ices the figure then breaks it into wedges;
 // {scan, apart} tints it with a moving scan line, then takes it apart in horizontal strips.
 function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
  if(opacity<=0)return;
  if(fx&&(fx.frost||fx.shatter||fx.scan||fx.apart)){
-  const c=fxCanvas.getContext('2d');c.setTransform(1,0,0,1,0,headroom);c.clearRect(0,-headroom,SIZE,SIZE+headroom);drawPiece(c,value,pose,1,extension);
+  const c=fxCanvas.getContext('2d');c.setTransform(res,0,0,res,0,headroom*res);c.clearRect(0,-headroom,SIZE,SIZE+headroom);drawPiece(c,value,pose,1,extension);
   c.globalCompositeOperation='source-atop';
   if(fx.frost){c.fillStyle=`rgba(196,230,255,${.72*fx.frost})`;c.fillRect(0,-headroom,SIZE,SIZE+headroom);}
   if(fx.scan){c.fillStyle=`rgba(64,224,208,${.42*fx.scan.tint})`;c.fillRect(0,-headroom,SIZE,SIZE+headroom);if(fx.scan.y!=null){c.fillStyle='rgba(228,255,250,.95)';c.fillRect(0,fx.scan.y-2.5,SIZE,5);}}
   c.globalCompositeOperation='source-over';
-  const layer=()=>out.drawImage(fxCanvas,0,-headroom);
+  const layer=()=>res===1?out.drawImage(fxCanvas,0,-headroom):out.drawImage(fxCanvas,0,-headroom,SIZE,SIZE+headroom);
   if(fx.apart){
    // Strips come loose from the top down, sliding apart alternately and dropping.
    const {top,bottom,t}=fx.apart,n=8,h=(bottom-top)/n;
@@ -135,7 +135,7 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
  out.save();out.globalAlpha=opacity;out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*shadowScale,36*pose.scale*shadowScale,0,0,Math.PI*2);out.fill();
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A soft contrasting rim keeps each army readable on the painted board's light and dark zones.
- out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=5;
+ out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=5*res; // shadows ignore the transform
  out.drawImage(sprite(value,pose.angle,extension),-spec.anchor.x,-spec.anchor.y);out.restore();
 }
 function bolt(out,start,end,t,scale=1) {
@@ -222,7 +222,7 @@ function vortex(out,foot,phase,strength) {
   }
   decorate?.(ctx,api,'under');
   if(selected!==null){const c=cell(selected);ctx.strokeStyle='#6b7954';ctx.lineWidth=3;ctx.strokeRect(PAD+c.col*TILE+1.5,PAD+c.row*TILE+1.5,TILE-3,TILE-3);ctx.lineWidth=1;}
-  if(coords){ctx.fillStyle='#6d765d';ctx.font='13px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+  if(coords){ctx.fillStyle='#6d765d';ctx.font=`${coordSize}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
    for(let i=0;i<8;i++){ctx.fillText('abcdefgh'[flipped?7-i:i],PAD+(i+.5)*TILE,SIZE-14);ctx.fillText(String(flipped?i+1:8-i),15,PAD+(i+.5)*TILE);}}
  }
  function selectionTarget() {
@@ -242,6 +242,8 @@ function vortex(out,foot,phase,strength) {
  const poses=new Map();
  for(let sq=0;sq<64;sq++)if(position.board[sq])poses.set(sq,{value:position.board[sq],pose:poseFor(position.board[sq],sq),opacity:1,extension:0});
  if(selected!==null&&poses.has(selected))Object.assign(poses.get(selected).pose,{angle:aimAngle,facing:aimFacing});
+ // King Down: the beaten king topples backwards onto the board.
+ if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq);u.pose={...u.pose,rotation:-1.5*ease((time-fallen.start)/FALL)};}
  let shot=null,hit=null;const effects=[];
  if(animation){
   const a=animation,t=clamp((time-a.start)/a.speed,0,a.duration),actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
@@ -425,7 +427,7 @@ function drawEncounter(a,t) {
   if(a&&!a.done&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
   if(labels)drawLabels();
-  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle))wake();else previousTime=0;
+  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL))wake();else previousTime=0;
  }
  function drawLabels() {
   ctx.save();ctx.font='bold 15px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
@@ -492,15 +494,21 @@ function drawEncounter(a,t) {
   foot,cell,
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
-  load(){boardArt.onload=()=>wake();boardArt.src=BOARD_ART;return Promise.all(Object.entries(ART).map(([type,name])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=ART_FILES[name];}))).then(()=>{ready=true;wake();});},
+  // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
+  load(){const board=new Promise(resolve=>{boardArt.onload=boardArt.onerror=resolve;boardArt.src=BOARD_ART;});return Promise.all([board,...Object.entries(ART).map(([type,name])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=ART_FILES[name];}))]).then(()=>{ready=true;wake();});},
   /** New position: ends any finished or running animation. */
   setPosition(next){if(animation&&!animation.done)animation.resolve(false);animation=null;position=next;aimAngle=0;wake();},
   setSelected(sq){if(sq!==selected){selected=sq;aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
   setAim(sq){aimSquare=sq;wake();},
   setFlipped(on){flipped=on;idle.clear();wake();},
-  setCoords(on){coords=on;wake();},
+  /** size: letter height in board units (default 13); a small board on a phone needs more. */
+  setCoords(on,size=13){coords=on;coordSize=size;wake();},
   setLabels(on){labels=on;wake();},
   setReducedMotion(on){reducedMotion=on;},
+  /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. */
+  setFallen(sq,animate=true){fallen=sq==null?null:{sq,start:animate?performance.now():-Infinity};wake();},
+  /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
+  setResolution(k){if(k===res)return;res=k;canvas.width=fxCanvas.width=Math.round(SIZE*k);canvas.height=fxCanvas.height=Math.round((SIZE+headroom)*k);ctx.setTransform(k,0,0,k,0,0);wake();},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */

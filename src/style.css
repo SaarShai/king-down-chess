@@ -68,14 +68,15 @@ button {
   box-shadow: 3px 3px 0 var(--ink);
   transition: transform 60ms steps(1), box-shadow 60ms steps(1);
 }
-button:hover, select:hover { background: var(--ink); color: var(--paper); }
+/* Touch screens keep :hover after a tap, which left a tapped button dark. */
+@media (hover: hover) { button:hover, select:hover { background: var(--ink); color: var(--paper); } }
 button:active { transform: translate(3px, 3px); box-shadow: none; }
 select {
   width: 118px; flex: none; padding: 5px 22px 5px 8px;
   appearance: none; -webkit-appearance: none;
   background-image: var(--caret); background-repeat: no-repeat; background-position: right 7px center;
 }
-select:hover { background-color: var(--ink); }
+@media (hover: hover) { select:hover { background-color: var(--ink); } }
 label { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 code {
@@ -108,13 +109,13 @@ input[type='checkbox'] {
 input[type='checkbox']:checked { box-shadow: inset 0 0 0 2px var(--white), inset 0 0 0 5px var(--ink); }
 
 #stop-chain { background: var(--ink); color: var(--paper); }
-#stop-chain:hover { background: var(--paper); color: var(--ink); }
+@media (hover: hover) { #stop-chain:hover { background: var(--paper); color: var(--ink); } }
 
 .promo, .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .promo button, .btns button { text-align: center; padding: 7px 4px; }
 .btns.three { grid-template-columns: repeat(3, 1fr); }
 button:disabled { cursor: default; color: var(--mid); border-color: var(--mid); box-shadow: 3px 3px 0 var(--hairline); }
-button:disabled:hover { background: var(--white); color: var(--mid); }
+@media (hover: hover) { button:disabled:hover { background: var(--white); color: var(--mid); } }
 
 /* ---- move sheet ---- */
 /* The move sheet takes whatever the rail has left; long games scroll inside the list, so the
@@ -126,6 +127,9 @@ button:disabled:hover { background: var(--white); color: var(--mid); }
   font-variant-numeric: tabular-nums; font-size: 13px;
 }
 #moves li { padding: 1px 4px; }
+#moves [data-ply] { cursor: pointer; padding: 0 2px; }
+#moves .viewing { background: var(--ink); color: var(--paper); }
+@media (hover: hover) { #moves [data-ply]:hover { text-decoration: underline; } }
 #moves li:nth-child(odd) { background: var(--paper); }
 .hover { min-height: 1.6em; color: var(--mid); font-variant-numeric: tabular-nums; }
 
@@ -155,6 +159,10 @@ dialog form { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10
 dialog form button { width: auto; padding: 7px 16px; }
 #over { max-width: min(420px, calc(100vw - 32px)); }
 #over p { color: var(--mid); }
+#over-moments h3 { margin-top: 4px; }
+#share-result { margin-top: 12px; }
+#rules .learn { margin-bottom: 14px; }
+#over-moments button { font-size: 13px; line-height: 1.4; }
 
 /* ---- focus & motion ---- */
 :focus { outline: none; }
@@ -168,8 +176,11 @@ button:focus-visible, select:focus-visible, input:focus-visible {
     position: relative; grid-row: 1; top: auto; left: auto; padding: 7px 12px;
     clip-path: none; filter: none; border: 0; border-bottom: 1px solid var(--hairline);
   }
-  #top h1 { font-size: 16px; }
+  /* Turn and status share one line, so "thinking…" never pushes the board down. */
+  #top { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
+  #top h1 { font-size: 16px; flex-basis: 100%; }
   #turn { margin-top: 2px; }
+  #status { margin-top: 0; }
   #info { max-width: none; font-size: 12px; }
   #board { position: relative; grid-row: 2; inset: auto; height: 100%; min-height: 0; min-width: 0; }
   #panel {
@@ -177,11 +188,21 @@ button:focus-visible, select:focus-visible, input:focus-visible {
     border-left: 0; border-top: 2px solid var(--ink);
   }
 }
+/* Phones: the piece guide stacks each piece's cells instead of scrolling sideways. */
+@media (max-width: 720px) {
+  #rules thead { display: none; }
+  #rules tr, #rules td { display: block; }
+  #rules tr { margin-bottom: 10px; border: 1px solid var(--hairline); }
+  #rules td { border: 0; padding: 3px 8px; }
+  #rules td:first-child { background: var(--ink); color: var(--paper); }
+  #rules td[data-label]::before { content: attr(data-label) ': '; color: var(--mid); }
+  #rules td:empty { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
 
-#asset-status, #setup-note { font-size: 12px; color: #655c50; line-height: 1.4; }
+#asset-status, #setup-note, #pace-note, #players-note { font-size: 12px; color: #655c50; line-height: 1.4; }
 
 #move-help:empty { display: none; }
 #move-help { font-weight: 600; }

@@ -134,7 +134,7 @@ try {
     assert.match(await page.locator('#rules-rows tr').filter({ hasText: 'A Archer' }).innerText(), archer);
     assert.match(await page.locator('#rules-rows tr').filter({ hasText: 'S Beast' }).innerText(), beast);
     assert.match(await page.locator('#rules-lead').innerText(), promotionText);
-    await page.locator('#rules button').click();
+    await page.locator('#rules form button').click();
   }
   checks.push('guide and promotion text follow current, 2017 and 2021 presets');
 
@@ -154,7 +154,7 @@ try {
   assert.equal(await page.locator('#setup').innerText(), 'COAQNRBK');
   await page.click('#rules-btn');
   assert.equal(await page.locator('#rules-rows tr').filter({ hasText: 'C Catapult' }).count(), 1);
-  await page.locator('#rules button').click();
+  await page.locator('#rules form button').click();
   await seed('7k/8/8/8/8/8/7r/7K w - - 0 1');
   assert.ok(await page.evaluate(() => document.querySelector('#board').classList.contains('king-in-check')
     && window.view.highlights.check === 7 && window.view.markers.children.some(m => m.material.color.getHex() === 0xe02828)));

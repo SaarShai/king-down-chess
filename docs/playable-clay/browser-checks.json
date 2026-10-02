@@ -1,6 +1,6 @@
 {
-  "url": "http://127.0.0.1:5188/",
-  "checksPassed": 15,
+  "url": "http://127.0.0.1:5190/",
+  "checksPassed": 17,
   "checks": [
     "fixed handmade clay at 0.5 px, no rendering controls, armies facing one another",
     "32 independently animated clay figures load in the default game",
@@ -15,6 +15,8 @@
     "undo during the Ogre shove cancels delayed movement",
     "Ogre shove animation completes with the pawn on its legal square",
     "capture disposes the victim, and undo restores its model",
+    "a tap skips the capture walk, Fast doubles the tween rate, Off shows only the result",
+    "review: ← shows the board before the capture, → replays it",
     "new game during a walk prevents stale animation from changing the new board",
     "390px mobile board and scrollable controls fit without horizontal overflow"
   ],

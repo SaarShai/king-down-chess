@@ -39,6 +39,8 @@ interface Tween { t: number; dur: number; ease: Ease; update: (k: number) => voi
 
 export class Tweens {
   private list: Tween[] = [];
+  /** Time multiplier: 2 plays every tween twice as fast (the Fast animation setting). */
+  rate = 1;
   constructor() {
     // rAF stops in a hidden tab, so a tween started or running there would never resolve and the game
     // loop (which awaits animations) would stall. Finish everything instantly while hidden.
@@ -57,7 +59,7 @@ export class Tweens {
   wait(dur: number): Promise<void> { return this.add(dur, () => {}, linear); }
   step(dt: number): void {
     for (const tw of [...this.list]) {
-      tw.t += dt;
+      tw.t += dt * this.rate;
       const k = Math.min(1, tw.t / tw.dur);
       tw.update(tw.ease(k));
       if (k >= 1) { this.list.splice(this.list.indexOf(tw), 1); tw.resolve(); }
