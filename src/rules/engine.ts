@@ -267,6 +267,7 @@ export function canCapture(att: number, vic: PieceType): boolean {
   // capture is always cross-colour, so the victim's side is `colorOf(att) ^ 1` and one byte decides
   // both directions. The guard is untouched: a Spirit king still takes one (§1.9).
   if (at === P && vic === K && powerOf((colorOf(att) ^ 1) as Color) === 'HolyLight') return false;
+  if (at === N && vic === K && RULES.holyLightKnights && powerOf((colorOf(att) ^ 1) as Color) === 'HolyLight') return false;
   if (at === K && vic === P && powerOf(colorOf(att)) === 'HolyLight' && !RULES.holyLightTakesPawns) return false;
   if (vic === K) return (at !== L || RULES.paladinChecks) && (RULES.archerChecks || at !== A);
   return true;
@@ -394,6 +395,15 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
         if (ahead >= 0 && board[ahead] && colorOf(board[ahead]) !== c && canCapture(p, typeOf(board[ahead])) && !inLight(board, ahead, c ^ 1)) pawnPush(out, from, ahead, [ahead], lastRank);
         // `darknessKeep` (balance lab): the ordinary pawn moves below as well — the two sets never
         // overlap, because one set goes to empty squares where the other takes.
+        // `darknessMoves` (balance lab): the ordinary straight steps too, but no diagonal capture.
+        if (RULES.darknessMoves && !RULES.darknessKeep && mode === 'all') {
+          const s1 = step(from, 0, dr);
+          if (s1 >= 0 && !board[s1]) {
+            pawnPush(out, from, s1, [], lastRank);
+            const s2 = step(from, 0, 2 * dr);
+            if ((marchAlways(c) || rank(from) === startRank) && s2 >= 0 && !board[s2]) pawnPush(out, from, s2, [], lastRank);
+          }
+        }
         if (!RULES.darknessKeep) return;
       }
       if (mode === 'all') {

@@ -368,6 +368,13 @@ export interface Rules {
    * piece standing next to a Holy Light king. Off (the rulebook): only the king is covered.
    */
   holyLightAura: boolean;
+  /** Holy Light (balance lab): no enemy knight takes the king either. Off (the rulebook): pawns only. */
+  holyLightKnights: boolean;
+  /**
+   * Darkness (balance lab): the pawns also keep their ordinary moves (one or two straight ahead from
+   * the start), but still take only straight ahead. A half step between the rulebook and `darknessKeep`.
+   */
+  darknessMoves: boolean;
   /**
    * Darkness (balance lab): the pawns keep their ordinary moves as well, so a pawn moves and takes
    * one square forward, straight or diagonal (its first double step too). Off (the rulebook): the
@@ -487,6 +494,8 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   holyLightTakesPawns: false,
   holyLightAura: false,
   darknessKeep: false,
+  holyLightKnights: false,
+  darknessMoves: false,
   strikeUses: 1,
   hasteUses: 1,
   flightUses: 1,

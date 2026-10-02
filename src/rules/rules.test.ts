@@ -1686,6 +1686,24 @@ describe('balance-lab readings of the kings’ powers (2026-10-02)', () => {
     crossCheckAttacks(303, 60);
   });
 
+  it('Darkness: darknessMoves adds the straight steps but no diagonal capture', () => {
+    setRules({ kings: k('Shadow', 'Darkness'), darknessMoves: true });
+    const home = fromFen('7k/8/8/8/8/2p1p3/3P4/K7 w - - 0 1');
+    expect(lan(home, movesFrom(home, 'd2'))).toEqual(['d2-d3', 'd2-d4'].sort());
+    const open = fromFen('7k/8/8/3p4/3P4/8/8/K7 w - - 0 1');
+    expect(lan(open, movesFrom(open, 'd4'))).toEqual(['d4-c5', 'd4-e5', 'd4xd5'].sort());
+    crossCheckAttacks(306, 60);
+  });
+
+  it('Holy Light: holyLightKnights keeps enemy knights off the king too', () => {
+    const fen = '4k3/8/8/8/8/3n4/8/4K3 w - - 0 1'; // the knight d3 attacks e1
+    setRules({ kings: k('Spirit', 'HolyLight') });
+    expect(isAttacked(fromFen(fen).board, parseSq('e1'), BLACK)).toBe(true);
+    setRules({ kings: k('Spirit', 'HolyLight'), holyLightKnights: true });
+    expect(isAttacked(fromFen(fen).board, parseSq('e1'), BLACK)).toBe(false);
+    crossCheckAttacks(307, 60);
+  });
+
   it('Strike: strikePawns=false strikes with pieces only', () => {
     const fen = '4k3/8/8/8/8/8/P7/1N2K3 w - - 0 1';
     setRules({ kings: k('Flame', 'Strike') });
