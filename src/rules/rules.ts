@@ -392,6 +392,21 @@ export interface Rules {
    * two verbs swap and the double step is gone.
    */
   darknessKeep: boolean;
+  /**
+   * Darkness (balance lab, round 8): ordinary pawns that may also take straight ahead — no diagonal
+   * steps. Takes precedence over `darknessMoves` and `darknessKeep`.
+   */
+  darknessTakeAhead: boolean;
+  /**
+   * Darkness (balance lab, round 8): ordinary pawns that may also step diagonally forward — no
+   * straight capture. Takes precedence over `darknessMoves` and `darknessKeep`.
+   */
+  darknessStepDiag: boolean;
+  /**
+   * Death Touch (balance lab, round 8): the king also touches two squares away in a straight line,
+   * over an empty square. Off (the rulebook): adjacent only.
+   */
+  deathTouchReach: boolean;
   strikeUses: number;
   hasteUses: number;
   flightUses: number;
@@ -511,6 +526,9 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   mercyAuraOrtho: false,
   mercyAuraPawns: false,
   darknessMoves: false,
+  darknessTakeAhead: false,
+  darknessStepDiag: false,
+  deathTouchReach: false,
   strikeUses: 1,
   hasteUses: 1,
   flightUses: 1,
