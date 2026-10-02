@@ -45,13 +45,15 @@ async function page(request) {
     const first = await Promise.race([network, timeout]);
     if (first) return first;
   } catch { /* offline: fall through to the cache */ }
-  return (await cache.match('./')) ?? network;
+  return (await cache.match('./', { ignoreVary: true })) ?? network;
 }
 
 /** Hashed and versioned files never change under one VERSION: the cache first, else fetch and keep. */
 async function asset(request) {
   const cache = await caches.open(CACHE);
-  const hit = await cache.match(request, { ignoreSearch: true });
+  // ignoreVary: servers send `Vary: Origin`, and a page's module-script requests carry an Origin
+  // header that the precache's requests do not, so a strict lookup would miss when offline.
+  const hit = await cache.match(request, { ignoreSearch: true, ignoreVary: true });
   if (hit) return hit;
   const response = await fetch(request);
   if (response.ok && response.type === 'basic') cache.put(request, response.clone());

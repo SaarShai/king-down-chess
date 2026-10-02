@@ -2,6 +2,9 @@
 
 Reusable corrections. Pattern → rule.
 
+- A load measurement with a service worker looked 4× faster and showed 0.14 MB transferred: once `clients.claim()` took over, the page's files came through the worker, whose own fetches the CDP network emulation does not throttle or count. The worker had also started precaching on `load`, in parallel with the first visit's own downloads. → Register the worker only after the board is drawn, and cross-check every load measurement with one run under `serviceWorkers: 'block'`; the numbers must agree. Bound any wait on `navigator.serviceWorker.ready`: it never resolves on a page with no registration, which hung the first script for 28 min. (2026-10-02)
+- To build main beside a branch, `git checkout main -- .` overwrote the branch's tracked files in place (recovered with `git checkout HEAD -- .`). → Build another revision from `git worktree add <dir> main` (symlink `node_modules`), never by checking its files out over the working tree. (2026-10-02)
+
 - A lesson's `save()` guard did not protect the match: changing a player cleared lesson mode first, then saved the lesson position over the match. → Keep the live `Game` separate from the lesson `Game`, preserve its rules and player sides, and test lifecycle controls as well as lesson moves. Lessons must run under the rules their instructions teach. (2026-09-29)
 
 - Moving the lessons button into the Guide dialog broke two tools that closed the Guide with `#rules button` (strict mode: two buttons). Only the painted check was rerun after the move, so the break showed one batch later. → After adding or moving a control, grep the tools for selectors of that container (`grep -n "#rules button" tools/*.mjs`) and prefer specific selectors (`#rules form button`); rerun every tool after any UI move, not only the one that tests the feature. (2026-09-27)

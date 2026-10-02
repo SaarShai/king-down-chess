@@ -49,10 +49,11 @@ function offlineBuild(): Plugin {
     writeBundle() {
       cpSync(publicDir, outDir, { recursive: true, filter: src => published(relative(publicDir, src).split(sep).join('/')) });
       const files = walk(outDir).map(path => relative(outDir, path).split(sep).join('/')).filter(f => f !== 'sw.js').sort();
-      const hash = createHash('sha256');
+      const template = readFileSync(join(publicDir, 'sw.js'), 'utf8');
+      const hash = createHash('sha256').update(template); // a change to the worker itself is a new version too
       for (const f of files) hash.update(f).update(readFileSync(join(outDir, f)));
       const precache = ['./', ...files.filter(f => f !== 'index.html' && !clayOnly.has(f) && !/^(prototype|models)\//.test(f) && !f.endsWith('.map'))];
-      const sw = readFileSync(join(publicDir, 'sw.js'), 'utf8')
+      const sw = template
         .replace("const VERSION = 'dev';", `const VERSION = '${hash.digest('hex').slice(0, 12)}';`)
         .replace('const PRECACHE = [];', `const PRECACHE = ${JSON.stringify(precache)};`);
       if (!sw.includes('const PRECACHE = [".')) throw new Error('sw.js template markers not found');
