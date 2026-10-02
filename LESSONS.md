@@ -2,6 +2,9 @@
 
 Reusable corrections. Pattern → rule.
 
+- A new timing check failed twice for reasons outside the code: its King-walk position (two bare kings) was an immediate draw, so no move could be played; and the Fast timing ran on into the computer's reply, which started the moment the timed move ended. → Test positions need material on both sides (or check the game is not over), and time only the animation you mean: `view.scene.playing` names it, so stop when it changes. Also: a background wait `while pgrep -f "tools/qa.mjs"` matched its own shell's command line and never ended; wait on the PID (`kill -0 $pid`). (2026-10-02)
+- The committed trial strike sheets differ byte for byte from a fresh run on unchanged `main` in a cloud session (another Chromium build). → "Byte-identical" means identical to the same tool's run on `main` in the same environment; save that run first, then compare. (2026-10-02)
+
 - A lesson's `save()` guard did not protect the match: changing a player cleared lesson mode first, then saved the lesson position over the match. → Keep the live `Game` separate from the lesson `Game`, preserve its rules and player sides, and test lifecycle controls as well as lesson moves. Lessons must run under the rules their instructions teach. (2026-09-29)
 
 - Moving the lessons button into the Guide dialog broke two tools that closed the Guide with `#rules button` (strict mode: two buttons). Only the painted check was rerun after the move, so the break showed one batch later. → After adding or moving a control, grep the tools for selectors of that container (`grep -n "#rules button" tools/*.mjs`) and prefer specific selectors (`#rules form button`); rerun every tool after any UI move, not only the one that tests the feature. (2026-09-27)
