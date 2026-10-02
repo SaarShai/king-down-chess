@@ -14,7 +14,7 @@ import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './ru
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { mulberry32 } from './sim/rng';
-import { POWER_NAME, POWER_TAG, POWER_TEXT, fillPowerSelect, kingsParam, needsArming, readPowerSelect, usesAllowed, usesLeft } from './powers-ui';
+import { POWER_NAME, POWER_TAG, fillPowerSelect, kingsParam, needsArming, powerText, readPowerSelect, usesAllowed, usesLeft } from './powers-ui';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -37,7 +37,7 @@ const powerLabel = (c: Color): string => {
   const k = GAME_RULES.kings[c];
   if (!k) return 'no power';
   const left = usesLeft(game.pos, c);
-  return `${POWER_NAME[k.power]}${left === null ? '' : `, ${left} left`} — ${POWER_TEXT[k.power]}`;
+  return `${POWER_NAME[k.power]}${left === null ? '' : `, ${left} left`} — ${powerText(k.power)}`;
 };
 
 /** One line for the info card, so a game with kings' powers says on screen which are live. */
@@ -276,7 +276,7 @@ function fillPieceGuide(): void {
     + 'Kings\' powers: ! Strike, !H Haste (-- ends a Haste turn early), ~ Flight, !F: Freeze, !W: Ice Wall, !S: Sacrifice, !M March, !L Leap.';
   // The twelve powers, with the use counts the rules set today.
   $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
-    `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p)}) — ${POWER_TEXT[p]}`).join('; ')}.</li>`).join('');
+    `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p)}) — ${powerText(p)}`).join('; ')}.</li>`).join('');
   $('rules-letters').textContent =
     `The random draw pool is ${poolLetters}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
 }

@@ -375,7 +375,7 @@ function invert(M: Float64Array, k: number): Float64Array {
 const pct = (x: number): string => `${(100 * x).toFixed(1)}%`;
 
 /** `e`'s score over colour-swapped pairs against the powers only (the plain king left out), ± its standard error. */
-function scoreVsPowers(recs: readonly TRecord[], e: Entrant): { m: number; se: number; n: number } {
+export function scoreVsPowers(recs: readonly TRecord[], e: Entrant): { m: number; se: number; n: number } {
   const byPair = new Map<number, number[]>();
   for (const r of recs) {
     if ((r.white === e) === (r.black === e) || basePower(r.white === e ? r.black : r.white) === 'none') continue;

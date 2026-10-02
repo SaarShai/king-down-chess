@@ -54,4 +54,70 @@ in `sim/out/*.jsonl` (not versioned); reports and tournament specs are.
 
 ## Round 1 — the rulebook as written
 
-*(Filled in.)*
+1,248 games (8 colour-swapped pairs per matchup), played twice: at depth 3 and at depth 2. Score
+against the other powers, ±95%:
+
+| power | depth 3 | depth 2 |
+|---|---|---|
+| Haste | 79.8 ± 5.0 | 79.8 ± 5.4 |
+| Strike | 77.6 ± 5.8 | 65.6 ± 7.0 |
+| Sacrifice | 56.8 ± 7.1 | 71.6 ± 6.5 |
+| Death Touch | 55.7 ± 7.5 | 38.4 ± 6.2 |
+| Leap | 49.4 ± 6.9 | 57.7 ± 6.7 |
+| Ice Wall | 46.0 ± 6.6 | 40.9 ± 6.2 |
+| March | 46.0 ± 7.2 | 44.3 ± 6.6 |
+| Holy Light | 45.5 ± 7.5 | 39.2 ± 6.2 |
+| *plain king* | 45.1 ± 6.9 | 36.7 ± 6.1 |
+| Flight | 44.3 ± 7.7 | 46.0 ± 6.8 |
+| Freeze | 40.6 ± 6.8 | 46.9 ± 7.3 |
+| Darkness | 37.8 ± 6.9 | 40.1 ± 6.9 |
+| Mercy | 20.5 ± 5.8 | 29.5 ± 6.5 |
+
+**Three powers in the band, a spread of 59 points.** Haste and Strike win four games in five;
+Mercy loses four in five — even a plain king beats it (72%).
+
+**Depth changes the answer**, so every later round is at depth 3. From depth 2 to depth 3,
+Sacrifice falls 15 points and Death Touch rises 17 — more than either interval. A balance measured
+by a weak player does not carry to a stronger one, which is also why a final check at depth 4 is
+worth its cost.
+
+**How the powers were used** (`tools/kings-playtest.ts`, depth 3; the swing is the user's material
+over the six plies after the use, in pawns):
+
+- **Strike** is a pawn's power: pawns made 160 of 185 strikes, at a median ply 10, and the median
+  swing was +2.3 — a pawn moves like a queen, takes a piece, and only a pawn can be lost back.
+- **Haste** (+2.9 median) can take twice, or take and step back out of reach.
+- **Sacrifice** (+3.3 median) is a free promotion: a pawn becomes a lost rook, bishop or queen.
+- **Freeze and Ice Wall** as a whole turn are followed by a median loss of a pawn (−2.6 and −2.3
+  on average). The computer reaches for them when it is already losing material, to push the loss
+  past its horizon: as written they are worth less than a move.
+- **Mercy**: a king that cannot capture cannot take a checking piece or a pawn in the ending.
+
+## Round 2 — five first changes
+
+Changes: Strike cannot capture; Haste's second move cannot capture; Freeze and Ice Wall are a free
+action, then the ordinary move (the rulebook marks only Strike, Flight and Sacrifice "counts as a
+turn"); Mercy's king captures; March is always on. 2,496 games, 16 pairs per matchup, same armies
+and openings.
+
+| power | round 1 | round 2 |
+|---|---|---|
+| Freeze | 40.6 ± 6.8 | **73.4 ± 4.7** |
+| Haste | 79.8 ± 5.0 | 67.2 ± 4.6 |
+| Strike | 77.6 ± 5.8 | 63.1 ± 4.8 |
+| Leap | 49.4 ± 6.9 | 53.8 ± 5.2 |
+| Sacrifice | 56.8 ± 7.1 | 48.3 ± 5.3 |
+| Ice Wall | 46.0 ± 6.6 | 48.0 ± 5.2 |
+| Death Touch | 55.7 ± 7.5 | 47.7 ± 5.1 |
+| Flight | 44.3 ± 7.7 | 46.2 ± 5.1 |
+| March | 46.0 ± 7.2 | 45.5 ± 4.5 |
+| Mercy | 20.5 ± 5.8 | 39.1 ± 5.0 |
+| *plain king* | 45.1 ± 6.9 | 38.9 ± 4.7 |
+| Holy Light | 45.5 ± 7.5 | 37.8 ± 5.0 |
+| Darkness | 37.8 ± 6.9 | 30.0 ± 4.7 |
+
+**Five in the band, a spread of 44 points.** Mercy doubled its score. A free Freeze overshot: it
+freezes the defender, then takes what the defender guarded (+1.0 median swing, 117 of 322 uses
+gained two pawns or more). Haste still gains +3.2 a use by taking and running; a Strike that
+cannot capture still lets a pawn run to the seventh rank and promote (pawns made 92 of 168
+strikes). Darkness, Holy Light and Mercy stay at or below the plain king.

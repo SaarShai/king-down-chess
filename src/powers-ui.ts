@@ -10,21 +10,40 @@ export const POWER_NAME: Record<PowerName, string> = {
   March: 'March', Leap: 'Leap', HolyLight: 'Holy Light', Mercy: 'Mercy', DeathTouch: 'Death Touch', Darkness: 'Darkness',
 };
 
-/** One line per power, as a player reads it. Use counts come from the rules, not from here. */
-export const POWER_TEXT: Record<PowerName, string> = {
-  Freeze: 'as your move, freeze an enemy piece (not the king): it cannot move on its next turn',
-  IceWall: 'as your move, wall one of your pieces (not the king): it cannot be captured on the next turn',
-  Strike: 'move any piece except the king as if it were a queen',
-  Haste: 'move one piece twice in one turn (the second move is optional)',
-  Flight: 'move any piece except the king to any empty square in your half of the board',
-  Sacrifice: 'turn one of your pawns into one of your pieces that was captured earlier',
-  March: 'a pawn steps two squares from any rank',
-  Leap: 'a rook, bishop or queen passes over your own pawns',
-  HolyLight: 'enemy pawns cannot take your king, and it cannot take pawns',
-  Mercy: 'your king steps 1–2 squares and jumps your pieces, but takes only a guard',
-  DeathTouch: 'your king takes an adjacent enemy without moving — it can only take this way',
-  Darkness: 'your pawns step diagonally and take straight ahead, with no double step',
-};
+/**
+ * One line per power, as a player reads it, under the rules in force (the balance-lab readings of
+ * docs/research/kings-powers-balance-2026-10-02.md change several). Use counts come from the rules.
+ */
+export function powerText(power: PowerName): string {
+  const r = RULES;
+  const turns = r.markTurns > 1 ? `its next ${r.markTurns} turns` : 'its next turn';
+  switch (power) {
+    case 'Freeze': return r.markFree
+      ? `freeze an enemy piece (not the king), then make your move${r.freezeQuiet ? ', which cannot capture' : ''}: the frozen piece cannot move on ${turns}`
+      : `as your move, freeze an enemy piece (not the king): it cannot move on ${turns}`;
+    case 'IceWall': return r.markFree
+      ? `wall one of your pieces (not the king), then make your move: the walled piece cannot be captured on the next ${r.markTurns > 1 ? `${r.markTurns} turns` : 'turn'}`
+      : `as your move, wall one of your pieces (not the king): it cannot be captured on the next ${r.markTurns > 1 ? `${r.markTurns} turns` : 'turn'}`;
+    case 'Strike': {
+      const who = r.strikePawns ? 'any piece except the king' : 'any piece except a pawn or the king';
+      if (r.strikeMode === 'capture') return `${who} takes an enemy a queen\u2019s move away without moving`;
+      return `move ${who} as if it were a queen${r.strikeCaptures ? '' : ', to an empty square'}`;
+    }
+    case 'Haste': return `move one piece twice in one turn (the second move is optional)${!r.hasteCaptures ? '; neither move captures' : r.hasteSecond === 'quiet' ? '; the second move cannot capture' : ''}`;
+    case 'Flight': return 'move any piece except the king to any empty square in your half of the board';
+    case 'Sacrifice': return `turn one of your pawns into one of your pieces that was captured earlier${r.sacrificeBehind ? ', while you have fewer pieces than your opponent' : ''}`;
+    case 'March': return r.marchUses === 0 ? 'any pawn may step two squares from any rank' : 'a pawn steps two squares from any rank';
+    case 'Leap': return 'a rook, bishop or queen passes over your own pawns';
+    case 'HolyLight': return `enemy pawns cannot take your king${r.holyLightAura ? ' or the pieces next to it' : ''}${r.holyLightTakesPawns ? '' : ', and it cannot take pawns'}`;
+    case 'Mercy': return `your king steps 1\u20132 squares and jumps your pieces${r.mercyCaptures ? ' (it takes only next to itself)' : ', but takes only a guard'}${r.mercyAura ? '; your pieces next to it cannot be taken' : ''}`;
+    case 'DeathTouch': return r.deathTouchMoves
+      ? 'your king takes an adjacent enemy without moving, or by moving onto it'
+      : 'your king takes an adjacent enemy without moving \u2014 it can only take this way';
+    case 'Darkness': return r.darknessKeep
+      ? 'your pawns may also step diagonally and take straight ahead'
+      : 'your pawns step diagonally and take straight ahead, with no double step';
+  }
+}
 
 /** The move tag each spendable power leaves (`Move.power`). */
 export const POWER_TAG: Partial<Record<PowerName, PowerTag>> = {
@@ -66,7 +85,7 @@ export function powerTitle(power: PowerName): string {
 export function powerOptions(): { group: string; options: { value: string; label: string; title: string }[] }[] {
   return (Object.entries(KINGS) as [KingName, readonly PowerName[]][]).map(([king, powers]) => ({
     group: `${king} king`,
-    options: powers.map(p => ({ value: `${king}:${p}`, label: powerTitle(p), title: POWER_TEXT[p] })),
+    options: powers.map(p => ({ value: `${king}:${p}`, label: powerTitle(p), title: powerText(p) })),
   }));
 }
 
