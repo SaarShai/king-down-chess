@@ -1124,7 +1124,9 @@ boardEl.addEventListener('keydown', e => {
   const step: Record<string, [number, number]> = { ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
   const enter = e.key === 'Enter' || e.key === ' ';
   if (!(e.key in step) && !enter) return;
-  e.preventDefault(); e.stopPropagation(); // ← → here move the cursor, not the review
+  // A mouse or touch tap focuses the board without the cursor: ← → then still step through the review.
+  if (cursor == null && !enter) return;
+  e.preventDefault(); e.stopPropagation(); // with the cursor on, ← → move it instead of the review
   if (cursor == null) cursor = homeSquare();
   else if (enter) {
     view.onSquareClick(cursor, e.shiftKey);

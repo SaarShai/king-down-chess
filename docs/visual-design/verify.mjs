@@ -91,6 +91,12 @@ try {
   await page.waitForFunction(() => /Reviewing after 1\. e2-e4/.test(document.getElementById('turn').textContent));
   await page.keyboard.press('Escape');
   ok('keyboard: a move in the list is a button; Enter opens its review');
+  // A mouse tap focuses the board without the cursor, so ← still steps back through the moves.
+  await tap(page, 0); await page.keyboard.press('ArrowLeft');
+  await page.waitForFunction(() => /^Reviewing/.test(document.getElementById('turn').textContent));
+  assert.equal(await page.locator('#board-marks .mk-cursor').count(), 0);
+  await page.keyboard.press('Escape');
+  ok('mouse: after a tap on the board, ← still opens the review (no cursor)');
   await page.context().close();
 
   // 3. Show threats: a rook on d5 attacks the knight on d2 and covers 12 empty squares; its king 3 more.
