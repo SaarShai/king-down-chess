@@ -57,7 +57,7 @@ counts are plain counters (§6.5). Powers never capture a king and add no attack
 
 **Balanced on 2026-10-02** (`docs/research/kings-powers-balance-2026-10-02.md`): head-to-head
 round-robins of all twelve, at depth 3, over five rounds. As printed, the powers spread from 21% to
-80% against each other; the readings below bring nine of twelve within 42–56% (a 20-point spread).
+80% against each other; the readings below bring all twelve within 42–57% (a 15-point spread).
 **Owner decision (2026-10-02): the balanced readings are the official kings' powers rules.** The game
 applies them whenever a king has a power (`POWERS_BALANCED` in `src/rules/rules.ts`); the
 rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every reading is one toggle.
@@ -80,8 +80,8 @@ rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every rea
 Holy Light's shelter was added after round 6 (owner asked for Mercy and Holy Light variations to be
 tested): it lifted Holy Light from 43% to 53%; sheltering all eight neighbours overshot to 64%, and
 narrower Mercy shelters (beside/front/behind only, or only against pawns) fell to 37% and 27%.
-Still outside 50 ± 4 in round 6: Sacrifice and Haste 56.5%, Mercy 54.6% (high); Death Touch 44%
-(low). A confirmation round of the full official set is in the report. The other readings measured, and why they were not chosen, are in
+Confirmation round (3,744 games on fresh armies): all twelve within 42–57% against the other
+powers; Haste, Sacrifice and Mercy 56–57% (high), Death Touch 43% and Darkness 42% (low). The other readings measured, and why they were not chosen, are in
 the report; the toggles stay in the lab. Earlier single-power measurements of the six always-on
 powers: `docs/research/sim-kings-2026-09-16.md`.
 

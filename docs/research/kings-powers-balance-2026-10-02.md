@@ -6,43 +6,38 @@ any power's rules and iterate until they are fairly well balanced.
 
 ## Summary
 
-**The twelve powers went from a 59-point spread to about 20, and nine of the twelve now sit within
-42–56%** against the other powers (depth 3, 4,944 games on armies and openings never used for
-tuning). The game now plays the balanced readings whenever a king has a power (`POWERS_BALANCED`);
-the rulebook as printed stays available behind `?rules=2017`.
+**The twelve powers went from a 59-point spread to 15, and all twelve now sit within 42–57%**
+against the other powers (confirmation round: depth 3, 3,744 games on armies and openings never
+used for tuning). The game plays these readings whenever a king has a power (`POWERS_BALANCED`);
+"No power" stays the default, and the rulebook as printed stays available behind `?rules=2017`.
+Owner decision (2026-10-02): these are the official kings' powers rules.
 
-| power | rulebook as printed | balanced reading | final check |
+| power | rulebook as printed | official reading | confirmation |
 |---|---|---|---|
-| Freeze | the whole turn, 2 a game — 41% | **free action, then your move; once a game** | 52% |
-| Ice Wall | the whole turn — 46% | **free action, then your move** (2 a game) | 45% |
-| Strike | any piece, takes — 78% | **pieces only, to an empty square** | 49% |
-| Haste | two moves, may take — 80% | **neither move takes** | 56% |
-| Flight | once — 44% | unchanged (a second use overshoots: 58%) | 49% |
-| Sacrifice | 57% | unchanged | 47% |
-| March | 3 a game — 46% | **always on** (shorter rule) | 47% |
+| Freeze | the whole turn, 2 a game — 41% | **free action, then your move; once a game** | 54% |
+| Ice Wall | the whole turn — 46% | **free action, then your move** (2 a game) | 47% |
+| Strike | any piece, takes — 78% | **pieces only, to an empty square** | 52% |
+| Haste | two moves, may take — 80% | **neither move takes** | 57% |
+| Flight | once — 44% | unchanged (a second use overshoots: 58%) | 46% |
+| Sacrifice | 57% | unchanged | 57% |
+| March | 3 a game — 46% | **always on** (shorter rule) | 48% |
 | Leap | 3 a game — 49% | unchanged | 48% |
-| Holy Light | pawns cannot take the king; it takes no pawns — 46% | **the king may take pawns** (shorter rule) | 42% |
-| Mercy | king steps 1–2, takes nothing — 21% | **as printed, and the pieces next to the king cannot be taken** | 62% |
-| Death Touch | 56% | unchanged | 44% |
+| Holy Light | pawns cannot take the king; it takes no pawns — 46% | **the king may take pawns, and the pieces beside, in front of and behind it cannot be taken** | 50% |
+| Mercy | king steps 1–2, takes nothing — 21% | **as printed, and the pieces next to the king cannot be taken** | 56% |
+| Death Touch | 56% | unchanged | 43% |
 | Darkness | 38% | **pawns also keep their straight steps**, still take only straight ahead | 42% |
 
-**Still outside the target (50 ± 4):** Mercy is high (62%) and Haste a little high (56%); Holy Light,
-Darkness, Death Touch and Ice Wall are low (42–45%). No simple change measured in this pass closes
-those gaps without overshooting: Mercy without the shelter is the weakest power of all (21–37%), and
-Holy Light with the same shelter jumps to 60%. These are the owner's choices (below).
+**Still a little outside the target (50 ± 4):** Haste, Sacrifice and Mercy are high (56–57%);
+Death Touch and Darkness are low (42–43%). A plain king scores 34% against any power. Every
+power's level moves by several points between rounds on different armies (each ±4), so these are
+small edges, not clear winners.
 
 **Depth matters.** A depth-4 check of the round-4 set (936 games) kept the order but widened the
 spread to 24 points: Mercy, Flight with two uses and Sacrifice near 59%, Holy Light 36%. Balance
 measured by a computer player is a guide for people, not a guarantee.
 
-**For the owner:**
-1. Adopt the balanced readings as the mode's rules (they are the game's default for powers in this
-   PR), or keep any power as printed — each is one toggle.
-2. Mercy: keep the shelter (strong, 62%), or try a lighter version later. Holy Light: accept 42%, or
-   give it the shelter too (60%) and lighten Mercy.
-3. Freeze and Ice Wall as a free action is a rulebook reading, not a change: the rulebook marks only
-   Strike, Flight and Sacrifice "counts as a turn". Strike "pieces only" likewise reads "piece" as
-   the rulebook's Sacrifice text uses it (a pawn is not a piece).
+**Next, if wanted:** the two lowest (Death Touch, Darkness) could get a small boost and Haste or
+Sacrifice a small trim; the report lists the readings already measured for each.
 
 ## What was built
 
@@ -294,5 +289,14 @@ shelter (beside, in front of, behind), which brings it to 53%. One idea, two sha
 apart. Mercy is sensitive to its shelter's shape: with four squares it falls below the plain
 king, so it stays at eight. (Mercy measured 62 in the final check and 55 here: the field
 and armies differ, so its true level is likely in between.)
+
+## Confirmation round — the official set on fresh armies
+
+The twelve official readings and a plain king, seed 707 (armies and openings not used before), 24
+pairs, depth 3: 3,744 games (`sim/out/kp2-r7.report.md`). Against the other powers: Haste 56.9,
+Sacrifice 56.9, Mercy 55.9, Freeze 53.9, Strike 51.5, Holy Light 50.3, Leap 48.4, March 48.0, Ice
+Wall 47.4, Flight 46.0, Death Touch 43.0, Darkness 41.8 (each ±4); plain king 34.4. Seven of
+twelve inside 50 ± 4; spread 15 points. White's first-move edge +10 ± 11 Elo; 84–92% of games
+decisive.
 
 Raw games: `claude/kp2-results-*` branches (`sim/out/*.jsonl`); reports and specs in `sim/out/`.
