@@ -299,4 +299,17 @@ Wall 47.4, Flight 46.0, Death Touch 43.0, Darkness 41.8 (each ±4); plain king 3
 twelve inside 50 ± 4; spread 15 points. White's first-move edge +10 ± 11 Elo; 84–92% of games
 decisive.
 
+## Round 8 — boosts for Death Touch and Darkness, a trim for Sacrifice
+
+The official set plus four lab readings, seed 808, 16 pairs, depth 3: 4,192 games
+(`sim/out/kp2-r8.report.md`). Against the other powers: Death Touch reaching two squares in a
+straight line over an empty square 63.5; Darkness "pawns also take straight ahead" 58.9; Darkness
+"pawns also step diagonally" 58.7; Mercy 57.7; Sacrifice only while behind in pieces 44.0 (plain
+Sacrifice 51.2); Darkness 43.4; Death Touch 40.1; plain king 35.0.
+
+Owner (2026-10-02): the light and dark kings may be somewhat stronger than the other four if they
+are balanced with each other, and **no reading may change how other pieces move**, so the two new
+Darkness readings are out and today's Darkness stays. Sacrifice stays as printed (the comeback rule
+over-trims). Death Touch's reach is the king's own ability; a files-and-ranks-only reach is next.
+
 Raw games: `claude/kp2-results-*` branches (`sim/out/*.jsonl`); reports and specs in `sim/out/`.
