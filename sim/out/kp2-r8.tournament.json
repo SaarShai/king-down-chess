@@ -1,0 +1,55 @@
+{
+  "id": "kp2-r8",
+  "entrants": [
+    "Freeze",
+    "IceWall",
+    "Strike",
+    "Haste",
+    "Flight",
+    "Sacrifice",
+    "March",
+    "Leap",
+    "HolyLight",
+    "Mercy",
+    "DeathTouch",
+    "Darkness",
+    "Darkness~vahead",
+    "Darkness~vdiag",
+    "DeathTouch~vreach",
+    "Sacrifice~vbehind",
+    "none"
+  ],
+  "pairs": 16,
+  "depth": 3,
+  "seed": 808,
+  "rules": {
+    "markFree": true,
+    "freezeUses": 1,
+    "hasteCaptures": false,
+    "strikeCaptures": false,
+    "strikePawns": false,
+    "mercyAura": true,
+    "marchUses": 0,
+    "holyLightTakesPawns": true,
+    "holyLightShelter": true,
+    "holyLightShelterOrtho": true,
+    "darknessMoves": true
+  },
+  "variants": {
+    "ahead": {
+      "darknessTakeAhead": true
+    },
+    "diag": {
+      "darknessStepDiag": true
+    },
+    "reach": {
+      "deathTouchReach": true
+    },
+    "behind": {
+      "sacrificeBehind": true
+    }
+  },
+  "mirror": false,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

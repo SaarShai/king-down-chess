@@ -1719,6 +1719,47 @@ describe('balance-lab readings of the kings’ powers (2026-10-02)', () => {
     crossCheckAttacks(306, 60);
   });
 
+  it('Darkness: darknessTakeAhead is ordinary pawns that may also take straight ahead', () => {
+    setRules({ kings: k('Shadow', 'Darkness'), darknessMoves: true, darknessTakeAhead: true });
+    const home = fromFen('7k/8/8/8/8/2p1p3/3P4/K7 w - - 0 1');
+    expect(lan(home, movesFrom(home, 'd2'))).toEqual(['d2-d3', 'd2-d4', 'd2xc3', 'd2xe3'].sort());
+    const open = fromFen('7k/8/8/2ppp3/3P4/8/8/K7 w - - 0 1');
+    expect(lan(open, movesFrom(open, 'd4'))).toEqual(['d4xc5', 'd4xd5', 'd4xe5'].sort());
+    crossCheckAttacks(311, 60);
+  });
+
+  it('Darkness: darknessStepDiag is ordinary pawns that may also step diagonally', () => {
+    setRules({ kings: k('Shadow', 'Darkness'), darknessMoves: true, darknessStepDiag: true });
+    const pos = fromFen('7k/8/8/2p5/3P4/8/8/K7 w - - 0 1');
+    expect(lan(pos, movesFrom(pos, 'd4'))).toEqual(['d4-d5', 'd4-e5', 'd4xc5'].sort());
+    const blocked = fromFen('7k/8/8/3p4/3P4/8/8/K7 w - - 0 1');
+    expect(lan(blocked, movesFrom(blocked, 'd4'))).toEqual(['d4-c5', 'd4-e5'].sort()); // no straight capture
+    crossCheckAttacks(312, 60);
+  });
+
+  it('Death Touch: deathTouchReach touches two squares away over an empty square', () => {
+    const touch: Rules['kings'] = [{ king: 'Shadow', power: 'DeathTouch' }, null];
+    setRules({ kings: touch, deathTouchReach: true });
+    const pos = fromFen('7k/8/5r2/8/1n1K4/8/8/8 w - - 0 1');
+    const moves = lan(pos, movesFrom(pos, 'd4'));
+    expect(moves).toContain('Kd4*f6'); // over the empty e5
+    expect(moves).toContain('Kd4*b4'); // over the empty c4
+    const screened = fromFen('7k/8/5r2/4p3/3K4/8/8/8 w - - 0 1');
+    expect(lan(screened, movesFrom(screened, 'd4'))).not.toContain('Kd4*f6'); // a piece in between stops it
+    expect(isAttacked(pos.board, parseSq('f6'), WHITE)).toBe(true);
+    setRules({ kings: touch });
+    expect(lan(pos, movesFrom(pos, 'd4'))).not.toContain('Kd4*f6');
+    setRules({ kings: [touch[0], touch[0]], deathTouchReach: true });
+    crossCheckAttacks(313, 60);
+    setRules({ kings: touch, deathTouchReach: true, deathTouchReachOrtho: true });
+    const ortho = lan(pos, movesFrom(pos, 'd4'));
+    expect(ortho).toContain('Kd4*b4');     // along the rank
+    expect(ortho).not.toContain('Kd4*f6'); // not on the diagonal
+    expect(isAttacked(pos.board, parseSq('f6'), WHITE)).toBe(false);
+    setRules({ kings: [touch[0], touch[0]], deathTouchReach: true, deathTouchReachOrtho: true });
+    crossCheckAttacks(314, 60);
+  });
+
   it('Holy Light: holyLightKnights keeps enemy knights off the king too', () => {
     const fen = '4k3/8/8/8/8/3n4/8/4K3 w - - 0 1'; // the knight d3 attacks e1
     setRules({ kings: k('Spirit', 'HolyLight') });

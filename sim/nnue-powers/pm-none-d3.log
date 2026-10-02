@@ -1,0 +1,22 @@
+[pm-none-d3] 400 pairs (0 games done), depth 3, mode none, 4 workers
+[pm-none-d3] 35/800  0.58 games/s  ETA 22 min
+[pm-none-d3] 76/800  0.63 games/s  ETA 19 min
+[pm-none-d3] 118/800  0.66 games/s  ETA 17 min
+[pm-none-d3] 152/800  0.63 games/s  ETA 17 min
+[pm-none-d3] 201/800  0.67 games/s  ETA 15 min
+[pm-none-d3] 241/800  0.67 games/s  ETA 14 min
+[pm-none-d3] 288/800  0.69 games/s  ETA 12 min
+[pm-none-d3] 334/800  0.70 games/s  ETA 11 min
+[pm-none-d3] 375/800  0.69 games/s  ETA 10 min
+[pm-none-d3] 417/800  0.69 games/s  ETA 9 min
+[pm-none-d3] 452/800  0.68 games/s  ETA 8 min
+[pm-none-d3] 484/800  0.67 games/s  ETA 8 min
+[pm-none-d3] 529/800  0.68 games/s  ETA 7 min
+[pm-none-d3] 571/800  0.68 games/s  ETA 6 min
+[pm-none-d3] 613/800  0.68 games/s  ETA 5 min
+[pm-none-d3] 654/800  0.68 games/s  ETA 4 min
+[pm-none-d3] 698/800  0.68 games/s  ETA 2 min
+[pm-none-d3] 735/800  0.68 games/s  ETA 2 min
+[pm-none-d3] 784/800  0.69 games/s  ETA 0 min
+[pm-none-d3] 800 games in 19.5 min
+[pm-none-d3] 800 games, 400 pairs, pentanomial [41, 36, 137, 54, 132]: candidate score 0.625  Elo +88.7 ± 22.2  LOS 100.0%  draws 12.9%  plies 99

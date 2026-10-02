@@ -1,0 +1,38 @@
+[pm-pow-t800] 60 pairs (0 games done), 800 ms a move, mode powers, 4 workers
+[pm-pow-t800] 2/120  0.03 games/s  ETA 59 min
+[pm-pow-t800] 7/120  0.06 games/s  ETA 32 min
+[pm-pow-t800] 11/120  0.06 games/s  ETA 30 min
+[pm-pow-t800] 13/120  0.05 games/s  ETA 33 min
+[pm-pow-t800] 18/120  0.06 games/s  ETA 28 min
+[pm-pow-t800] 25/120  0.07 games/s  ETA 23 min
+[pm-pow-t800] 28/120  0.07 games/s  ETA 23 min
+[pm-pow-t800] 30/120  0.06 games/s  ETA 24 min
+[pm-pow-t800] 34/120  0.06 games/s  ETA 23 min
+[pm-pow-t800] 36/120  0.06 games/s  ETA 23 min
+[pm-pow-t800] 39/120  0.06 games/s  ETA 23 min
+[pm-pow-t800] 44/120  0.06 games/s  ETA 21 min
+[pm-pow-t800] 46/120  0.06 games/s  ETA 21 min
+[pm-pow-t800] 52/120  0.06 games/s  ETA 18 min
+[pm-pow-t800] 54/120  0.06 games/s  ETA 18 min
+[pm-pow-t800] 57/120  0.06 games/s  ETA 18 min
+[pm-pow-t800] 58/120  0.06 games/s  ETA 18 min
+[pm-pow-t800] 62/120  0.06 games/s  ETA 17 min
+[pm-pow-t800] 65/120  0.06 games/s  ETA 16 min
+[pm-pow-t800] 69/120  0.06 games/s  ETA 15 min
+[pm-pow-t800] 73/120  0.06 games/s  ETA 14 min
+[pm-pow-t800] 75/120  0.06 games/s  ETA 13 min
+[pm-pow-t800] 78/120  0.06 games/s  ETA 12 min
+[pm-pow-t800] 82/120  0.06 games/s  ETA 11 min
+[pm-pow-t800] 86/120  0.06 games/s  ETA 10 min
+[pm-pow-t800] 90/120  0.06 games/s  ETA 9 min
+[pm-pow-t800] 94/120  0.06 games/s  ETA 7 min
+[pm-pow-t800] 97/120  0.06 games/s  ETA 7 min
+[pm-pow-t800] 99/120  0.06 games/s  ETA 6 min
+[pm-pow-t800] 103/120  0.06 games/s  ETA 5 min
+[pm-pow-t800] 106/120  0.06 games/s  ETA 4 min
+[pm-pow-t800] 110/120  0.06 games/s  ETA 3 min
+[pm-pow-t800] 114/120  0.06 games/s  ETA 2 min
+[pm-pow-t800] 118/120  0.06 games/s  ETA 1 min
+[pm-pow-t800] 118/120  0.06 games/s  ETA 1 min
+[pm-pow-t800] 120 games in 35.4 min
+[pm-pow-t800] 120 games, 60 pairs, pentanomial [3, 2, 26, 12, 17]: candidate score 0.658  Elo +113.9 ± 47.5  LOS 100.0%  draws 15.0%  plies 103

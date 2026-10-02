@@ -392,6 +392,23 @@ export interface Rules {
    * two verbs swap and the double step is gone.
    */
   darknessKeep: boolean;
+  /**
+   * Darkness (balance lab, round 8): ordinary pawns that may also take straight ahead — no diagonal
+   * steps. Takes precedence over `darknessMoves` and `darknessKeep`.
+   */
+  darknessTakeAhead: boolean;
+  /**
+   * Darkness (balance lab, round 8): ordinary pawns that may also step diagonally forward — no
+   * straight capture. Takes precedence over `darknessMoves` and `darknessKeep`.
+   */
+  darknessStepDiag: boolean;
+  /**
+   * Death Touch (balance lab, round 8): the king also touches two squares away in a straight line,
+   * over an empty square. Off (the rulebook): adjacent only.
+   */
+  deathTouchReach: boolean;
+  /** The two-square touch reaches along files and ranks only, not diagonals (balance lab). */
+  deathTouchReachOrtho: boolean;
   strikeUses: number;
   hasteUses: number;
   flightUses: number;
@@ -511,6 +528,10 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   mercyAuraOrtho: false,
   mercyAuraPawns: false,
   darknessMoves: false,
+  darknessTakeAhead: false,
+  darknessStepDiag: false,
+  deathTouchReach: false,
+  deathTouchReachOrtho: false,
   strikeUses: 1,
   hasteUses: 1,
   flightUses: 1,
@@ -579,6 +600,8 @@ export const POWERS_BALANCED: Readonly<Partial<Rules>> = Object.freeze({
   holyLightShelter: true,    // Holy Light: the pieces beside, in front of or behind the king
   holyLightShelterOrtho: true, //   cannot be taken (round 6)
   darknessMoves: true,       // Darkness: pawns keep their straight steps
+  deathTouchReach: true,     // Death Touch: also two squares away, straight forward, back or
+  deathTouchReachOrtho: true, //   sideways, over an empty square (round 10)
 });
 
 /** Reset to the defaults, then apply `over`. Call with no argument to restore today's rules. */
