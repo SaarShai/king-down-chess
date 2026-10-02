@@ -6,6 +6,7 @@ const url = process.env.PLAYABLE_URL || 'http://127.0.0.1:5188/';
 const out = process.env.PLAYABLE_OUT || 'docs/playable-clay'; mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
 await page.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
 const errors = [], checks = [];
 page.on('pageerror', e => errors.push(e.message));
@@ -104,8 +105,8 @@ try {
   await fixedPresentation(); await facingOpponent();
   checks.push('optional mirrored setup keeps the fixed handmade material and opponent-facing armies');
   await page.click('#rules-btn');
-  assert.match(await page.locator('#rules-rows tr').filter({hasText:'A Archer'}).textContent(), /forward diagonal at distance 2/);
-  assert.match(await page.locator('#rules-rows tr').filter({hasText:'S Beast'}).textContent(), /Takes on any adjacent square/);
+  assert.match(await page.locator('#rules-rows .piece-card').filter({hasText:'A Archer'}).textContent(), /forward diagonal at distance 2/);
+  assert.match(await page.locator('#rules-rows .piece-card').filter({hasText:'S Beast'}).textContent(), /Takes on any adjacent square/);
   await page.locator('#rules form button').click();
   checks.push('piece guide describes the current Archer and Beast rules');
   // Interrupt the shove: a delayed animation must not change the restored position.

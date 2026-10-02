@@ -23,6 +23,7 @@ const plies = page => page.$$eval('#moves li', li => li.map(l => l.textContent.t
 try {
   // 1. Computer vs computer: every capture animation must finish and hand the move on.
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
   watch(page);
   await page.goto(url.href);
   await page.evaluate(() => localStorage.removeItem('kingdown.save'));
@@ -224,6 +225,7 @@ try {
 
   // 3. Phone width: the board fits without horizontal scrolling.
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  await phone.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
   watch(phone);
   await phone.goto(url.origin + url.pathname); // no parameter: painted must be the default
   await phone.waitForFunction(() => document.getElementById('board').classList.contains('painted') && document.querySelector('#board canvas')?.clientWidth > 300);

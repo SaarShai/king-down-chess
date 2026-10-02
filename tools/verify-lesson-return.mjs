@@ -12,6 +12,7 @@ const errors = [];
 try {
   for (const look of ['painted', 'clay']) for (const phone of [false, true]) {
     const page = await browser.newPage({ viewport: phone ? { width: 390, height: 844 } : { width: 1280, height: 900 }, hasTouch: phone });
+    await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
     page.on('pageerror', e => errors.push(e.message));
     const url = new URL(base);
     url.search = new URLSearchParams({ look, rules: '2021', army: 'RNBQKBNR', moves: 'e2-e4_e7-e5' });
