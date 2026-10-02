@@ -2,6 +2,8 @@
 
 Reusable corrections. Pattern → rule.
 
+- The random-army pool gained the Ogre after the residual net was trained, and the evaluator's "lab piece → plain evaluation" fallback quietly switched the net off on about half of all browser games from 2026-09-25 (commit bda05fb) until today, unnoticed. → After any change to `POOL`, check which evaluator a random army actually gets (`evalBoard` vs `evaluateBoard` on a board with each pool piece), and retrain or extend the net. (2026-10-02)
+- A wait loop `while pgrep -f "<pattern>"` never ended: `pgrep -f` matched the loop's own shell, whose command line contains the pattern. → Write the pattern so it cannot match itself (`pgrep -f "powers-net.ts [m]atch"`), or wait on the process's own output (a "done" line). (2026-10-02)
 - A kings' powers tournament let its random opening moves include power moves. Flight alone adds about 200 moves to a position, so most powers were spent by chance in the first four plies and the run measured nothing. → Random opening moves come from the pieces' own moves only (`m.power` excluded); after any new move kind, check what the opening randomiser can pick. (2026-10-02)
 - `create_session` with a short commit SHA as the source revision failed at start (`ref_not_found`). → Start compute sessions on a branch name and have the prompt check out the full 40-character SHA. (2026-10-02)
 - tsx compiles with `keepNames`, which wraps every inner arrow function in a naming call; in the attack test's hot loop that cost more than the work. → Keep closures out of hot paths (module-level helpers, precomputed tables) and measure the search with node counts held equal. (2026-10-02)

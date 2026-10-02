@@ -1,0 +1,11 @@
+{
+  "id": "pn-g1",
+  "games": 6000,
+  "depth": 3,
+  "seed": 20261002,
+  "nonePct": 0.3333333333333333,
+  "evaluator": "residual",
+  "maxPlies": 300,
+  "openingRandomPlies": 4,
+  "src": "7c7beca37a18"
+}

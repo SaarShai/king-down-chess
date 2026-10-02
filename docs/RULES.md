@@ -74,7 +74,7 @@ rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every rea
 | Mud | **Leap** (3 uses) | own pieces may jump over own pawns when moving several squares | as printed |
 | Spirit | **Holy Light** (always on) | king cannot be captured by enemy pawns and cannot capture pawns | the king may take pawns, and **no piece beside, in front of or behind the Holy Light king can be captured** (`holyLightTakesPawns`, `holyLightShelter`, `holyLightShelterOrtho`) |
 | Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, and **no piece next to the Mercy king can be captured** (`mercyAura`) |
-| Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed |
+| Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward, back or sideways, over an empty square** (`deathTouchReach`, `deathTouchReachOrtho`) |
 | Shadow | **Darkness** (always on) | own pawns move 1 diagonally and capture 1 straight forward; no double first move | pawns also keep their straight steps (double from the start); they still capture only straight ahead (`darknessMoves`) |
 
 Holy Light's shelter was added after round 6 (owner asked for Mercy and Holy Light variations to be

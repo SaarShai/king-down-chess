@@ -1,0 +1,112 @@
+{
+  "opts": {
+    "epochs": 12,
+    "batch": 1024,
+    "lr": 0.0005,
+    "lambda": 0,
+    "seed": 20261002,
+    "loss": "res"
+  },
+  "init": "current",
+  "positions": 176452,
+  "bestEpoch": 2,
+  "bestVal": 0.00124,
+  "curve": [
+    {
+      "epoch": 1,
+      "train": 0.001219,
+      "val": 0.001246
+    },
+    {
+      "epoch": 2,
+      "train": 0.001163,
+      "val": 0.00124
+    },
+    {
+      "epoch": 3,
+      "train": 0.001128,
+      "val": 0.001242
+    },
+    {
+      "epoch": 4,
+      "train": 0.001101,
+      "val": 0.001246
+    },
+    {
+      "epoch": 5,
+      "train": 0.001084,
+      "val": 0.00125
+    },
+    {
+      "epoch": 6,
+      "train": 0.001065,
+      "val": 0.001256
+    },
+    {
+      "epoch": 7,
+      "train": 0.001052,
+      "val": 0.001261
+    },
+    {
+      "epoch": 8,
+      "train": 0.001041,
+      "val": 0.001265
+    },
+    {
+      "epoch": 9,
+      "train": 0.001031,
+      "val": 0.001266
+    },
+    {
+      "epoch": 10,
+      "train": 0.001031,
+      "val": 0.001269
+    },
+    {
+      "epoch": 11,
+      "train": 0.001025,
+      "val": 0.001269
+    },
+    {
+      "epoch": 12,
+      "train": 0.001036,
+      "val": 0.00127
+    }
+  ],
+  "heldOut": {
+    "start": {
+      "plain": 0.0014424527080406332,
+      "powers": 0.001222699551157688,
+      "ogre": 0.0011720108072186808,
+      "nPlain": 7277,
+      "nPowers": 10255,
+      "nOgre": 8404
+    },
+    "candidate": {
+      "plain": 0.0013337037191120716,
+      "powers": 0.0011730362541236088,
+      "ogre": 0.0011675666935613994,
+      "nPlain": 7277,
+      "nPowers": 10255,
+      "nOgre": 8404
+    }
+  },
+  "dataset": {
+    "ids": [
+      "pn-g1"
+    ],
+    "parts": [
+      {
+        "id": "pn-g1",
+        "positions": 176452
+      }
+    ],
+    "sha256": "131670846061c7e02f4a0dc38fde174b957587830bcbbd0b2bbdc263edd1e3f8"
+  },
+  "trainedBy": "e8478fb29518",
+  "model": {
+    "file": "sim/nnue-powers/c-lr05.weights.ts",
+    "kind": "residual",
+    "sha256": "ce9ccd58198c2ed6fd2b1286ed4a4a949a8146b996c4897fcf3d648e2e1d90b1"
+  }
+}

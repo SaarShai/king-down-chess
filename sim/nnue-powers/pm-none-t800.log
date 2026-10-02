@@ -1,0 +1,40 @@
+[pm-none-t800] 60 pairs (0 games done), 800 ms a move, mode none, 4 workers
+[pm-none-t800] 2/120  0.03 games/s  ETA 59 min
+[pm-none-t800] 4/120  0.03 games/s  ETA 58 min
+[pm-none-t800] 7/120  0.04 games/s  ETA 48 min
+[pm-none-t800] 11/120  0.05 games/s  ETA 40 min
+[pm-none-t800] 14/120  0.05 games/s  ETA 38 min
+[pm-none-t800] 17/120  0.05 games/s  ETA 36 min
+[pm-none-t800] 18/120  0.04 games/s  ETA 40 min
+[pm-none-t800] 24/120  0.05 games/s  ETA 32 min
+[pm-none-t800] 25/120  0.05 games/s  ETA 34 min
+[pm-none-t800] 28/120  0.05 games/s  ETA 33 min
+[pm-none-t800] 31/120  0.05 games/s  ETA 32 min
+[pm-none-t800] 35/120  0.05 games/s  ETA 29 min
+[pm-none-t800] 39/120  0.05 games/s  ETA 27 min
+[pm-none-t800] 42/120  0.05 games/s  ETA 26 min
+[pm-none-t800] 47/120  0.05 games/s  ETA 23 min
+[pm-none-t800] 48/120  0.05 games/s  ETA 24 min
+[pm-none-t800] 53/120  0.05 games/s  ETA 21 min
+[pm-none-t800] 57/120  0.05 games/s  ETA 20 min
+[pm-none-t800] 60/120  0.05 games/s  ETA 19 min
+[pm-none-t800] 64/120  0.05 games/s  ETA 18 min
+[pm-none-t800] 68/120  0.05 games/s  ETA 16 min
+[pm-none-t800] 70/120  0.05 games/s  ETA 16 min
+[pm-none-t800] 74/120  0.05 games/s  ETA 14 min
+[pm-none-t800] 76/120  0.05 games/s  ETA 14 min
+[pm-none-t800] 81/120  0.05 games/s  ETA 12 min
+[pm-none-t800] 82/120  0.05 games/s  ETA 12 min
+[pm-none-t800] 86/120  0.05 games/s  ETA 11 min
+[pm-none-t800] 89/120  0.05 games/s  ETA 10 min
+[pm-none-t800] 92/120  0.05 games/s  ETA 9 min
+[pm-none-t800] 96/120  0.05 games/s  ETA 8 min
+[pm-none-t800] 98/120  0.05 games/s  ETA 7 min
+[pm-none-t800] 103/120  0.05 games/s  ETA 5 min
+[pm-none-t800] 106/120  0.05 games/s  ETA 4 min
+[pm-none-t800] 110/120  0.05 games/s  ETA 3 min
+[pm-none-t800] 113/120  0.05 games/s  ETA 2 min
+[pm-none-t800] 116/120  0.05 games/s  ETA 1 min
+[pm-none-t800] 118/120  0.05 games/s  ETA 1 min
+[pm-none-t800] 120 games in 37.9 min
+[pm-none-t800] 120 games, 60 pairs, pentanomial [9, 7, 15, 6, 23]: candidate score 0.613  Elo +79.5 ± 64.4  LOS 99.1%  draws 10.8%  plies 109

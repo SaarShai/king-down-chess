@@ -393,7 +393,20 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
       // because `pawnPush()` promotes by rank and both paths call it. The matching branch is the pawn
       // walk in `isAttacked`, which is the only other place that knows where a pawn takes from.
       const dark = powerOf(c) === 'Darkness';
-      if (dark) {
+      // Round-8 lab readings: ordinary pawns plus one of the two Darkness verbs. The extra verb never
+      // overlaps an ordinary one (a straight capture needs an occupied square, a diagonal step an
+      // empty one), so the ordinary moves below simply follow.
+      if (dark && (RULES.darknessTakeAhead || RULES.darknessStepDiag)) {
+        if (RULES.darknessStepDiag) {
+          if (mode === 'all') for (const df of [-1, 1]) {
+            const to = step(from, df, dr);
+            if (to >= 0 && !board[to]) pawnPush(out, from, to, [], lastRank);
+          }
+        } else {
+          const ahead = step(from, 0, dr);
+          if (ahead >= 0 && board[ahead] && colorOf(board[ahead]) !== c && canCapture(p, typeOf(board[ahead])) && !inLight(board, ahead, c ^ 1)) pawnPush(out, from, ahead, [ahead], lastRank);
+        }
+      } else if (dark) {
         if (mode === 'all') for (const df of [-1, 1]) {
           const to = step(from, df, dr);
           if (to >= 0 && !board[to]) pawnPush(out, from, to, [], lastRank);
@@ -471,7 +484,8 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
       // king never enters its square. `isAttacked` needs nothing — the shot covers exactly the 8
       // squares the king attacked before.
       if (powerOf(c) === 'DeathTouch') {
-        for (const [df, dr] of DIRS8) {
+        for (let d = 0; d < 8; d++) {
+          const [df, dr] = DIRS8[d];
           const to = step(from, df, dr);
           if (to < 0) continue;
           const v = board[to];
@@ -480,6 +494,13 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
             out.push({ from, to: from, captures: [to] }); // the shot
             // The second reading (`deathTouchMoves`): keep the displacement capture as well.
             if (RULES.deathTouchMoves) out.push({ from, to, captures: [to] });
+          }
+          // `deathTouchReach` (round 8): the touch also reaches two squares in a straight line, over
+          // an empty square; a move-free shot like the adjacent one. Mirrored in `isAttacked`.
+          if (RULES.deathTouchReach && !v && !(RULES.deathTouchReachOrtho && d >= 4)) {
+            const two = step(to, df, dr);
+            const w = two >= 0 ? board[two] : 0;
+            if (w && colorOf(w) !== c && canCapture(p, typeOf(w))) out.push({ from, to: from, captures: [two] });
           }
         }
         return;
@@ -896,13 +917,22 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
     if (hits(board, s, K, by, victim) || hits(board, s, M, by, victim) || (!RULES.ogreNoCapture && hits(board, s, O, by, victim)) || hits(board, s, T, by, victim) || (RULES.guardCaptures !== 'none' && hits(board, s, G, by, victim) && guardMayLand(p, target))) return true;
     if (hits(board, s, S, by, victim) && beastTakesFrom(DIRS8[d][0], DIRS8[d][1], by)) return true;
   }
+  // `deathTouchReach` (round 8): a Death Touch king two squares away in a straight line, over an
+  // empty square (the mirror of its shot in `case K`).
+  if (RULES.deathTouchReach && powerOf(by) === 'DeathTouch') for (let d = 0; d < (RULES.deathTouchReachOrtho ? 4 : 8); d++) {
+    const s = NEIGHBOUR[target * 8 + d];
+    if (s < 0 || board[s]) continue;
+    const s2 = NEIGHBOUR[s * 8 + d];
+    if (s2 >= 0 && hits(board, s2, K, by, victim)) return true;
+  }
   // A pawn of `by` that takes the target stands on one of the two squares diagonally behind it —
   // or, under **Darkness**, on the single square straight behind it (the mirror of `case P`).
   // `darknessKeep` keeps both. A piece in a Holy Light king's aura is out of every pawn's reach.
   const back = -fwd(by), dark = powerOf(by) === 'Darkness';
   if (shelter === 0 && !inLight(board, target, by ^ 1)) {
-    if (dark) { const s = step(target, 0, back); if (s >= 0 && hits(board, s, P, by, victim)) return true; }
-    if (!dark || RULES.darknessKeep) {
+    const ahead = dark && !RULES.darknessStepDiag;
+    if (ahead) { const s = step(target, 0, back); if (s >= 0 && hits(board, s, P, by, victim)) return true; }
+    if (!dark || RULES.darknessKeep || RULES.darknessTakeAhead || RULES.darknessStepDiag) {
       const s1 = step(target, -1, back), s2 = step(target, 1, back);
       if ((s1 >= 0 && hits(board, s1, P, by, victim)) || (s2 >= 0 && hits(board, s2, P, by, victim))) return true;
     }

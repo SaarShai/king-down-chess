@@ -36,10 +36,15 @@ export function powerText(power: PowerName): string {
     case 'Leap': return 'a rook, bishop or queen passes over your own pawns';
     case 'HolyLight': return `enemy pawns${r.holyLightKnights ? ' and knights' : ''} cannot take your king${r.holyLightAura ? ' or the pieces next to it' : ''}${r.holyLightTakesPawns ? '' : ', and it cannot take pawns'}${r.holyLightShelter ? `; your pieces ${r.holyLightShelterOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken` : ''}`;
     case 'Mercy': return `your king steps 1\u20132 squares and jumps your pieces${r.mercyCaptures ? ' (it takes only next to itself)' : ', but takes only a guard'}${r.mercyAura ? `; your pieces ${r.mercyAuraOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken${r.mercyAuraPawns ? ' by pawns' : ''}` : ''}`;
-    case 'DeathTouch': return r.deathTouchMoves
-      ? 'your king takes an adjacent enemy without moving, or by moving onto it'
-      : 'your king takes an adjacent enemy without moving \u2014 it can only take this way';
-    case 'Darkness': return r.darknessKeep
+    case 'DeathTouch': {
+      const reach = r.deathTouchReach ? `an enemy next to it, or two squares away ${r.deathTouchReachOrtho ? 'straight forward, back or sideways' : 'in a straight line'} over an empty square,` : 'an adjacent enemy';
+      return r.deathTouchMoves
+        ? `your king takes ${reach} without moving, or by moving onto it`
+        : `your king takes ${reach} without moving \u2014 it can only take this way`;
+    }
+    case 'Darkness': return r.darknessTakeAhead ? 'your pawns may also take straight ahead'
+      : r.darknessStepDiag ? 'your pawns may also step diagonally forward'
+      : r.darknessKeep
       ? 'your pawns may also step diagonally and take straight ahead'
       : r.darknessMoves ? 'your pawns may also step diagonally, and take only straight ahead'
       : 'your pawns step diagonally and take straight ahead, with no double step';
