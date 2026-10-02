@@ -98,6 +98,8 @@ To take it down: **Settings → Pages → Unpublish site** (or turn the source o
 ```sh
 npm run build && npx vite preview --host 127.0.0.1 --port 5189 --strictPort &
 PLAYABLE_URL=http://127.0.0.1:5189/ PLAYABLE_BROWSER=chromium node tools/measure-load.mjs --runs 3
+# Updates and offline: a new deployment shows on the next load, and offline works right after it
+PLAYABLE_BROWSER=chromium node docs/perf/check-update.mjs
 # The same build under a sub-path, as GitHub Pages serves it:
 npx vite preview --host 127.0.0.1 --port 5193 --strictPort --base /king-down-chess/ &
 PLAYABLE_URL=http://127.0.0.1:5193/king-down-chess/ PLAYABLE_BROWSER=chromium node tools/measure-load.mjs --runs 1
