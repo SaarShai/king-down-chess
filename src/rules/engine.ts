@@ -293,23 +293,29 @@ function inLight(board: Uint8Array, sq: number, side: number): boolean {
 }
 
 /**
- * Mercy's shelter (`mercyAura`, balance lab): `sq` holds a piece, not a king, standing next to its
- * own side's Mercy king, so no capture may take it.
+ * Mercy's shelter (`mercyAura`) and Holy Light's (`holyLightShelter`), balance lab: `sq` holds a
+ * piece, not a king, standing next to its own side's sheltering king. Returns what the shelter stops
+ * there: every capture (2), only a pawn's (1, `mercyAuraPawns`), or nothing (0). The `*Ortho`
+ * readings shelter only the four orthogonal neighbours.
  */
-function sheltered(board: Uint8Array, sq: number): boolean {
+function sheltered(board: Uint8Array, sq: number): number {
   const v = board[sq];
-  const pw = v ? powerOf(colorOf(v)) : null;
-  if (!v || typeOf(v) === K || !((pw === 'Mercy' && RULES.mercyAura) || (pw === 'HolyLight' && RULES.holyLightShelter))) return false;
+  if (!v || typeOf(v) === K) return 0;
+  const pw = powerOf(colorOf(v));
+  let ortho: boolean, level: number;
+  if (pw === 'Mercy' && RULES.mercyAura) { ortho = RULES.mercyAuraOrtho; level = RULES.mercyAuraPawns ? 1 : 2; }
+  else if (pw === 'HolyLight' && RULES.holyLightShelter) { ortho = RULES.holyLightShelterOrtho; level = 2; }
+  else return 0;
   const k = piece(K, colorOf(v));
-  for (let d = 0; d < 8; d++) { const n = NEIGHBOUR[sq * 8 + d]; if (n >= 0 && board[n] === k) return true; }
-  return false;
+  for (let d = 0; d < (ortho ? 4 : 8); d++) { const n = NEIGHBOUR[sq * 8 + d]; if (n >= 0 && board[n] === k) return level; }
+  return 0;
 }
 
-/** Drop the moves from `n0` on that would capture a sheltered piece (`mercyAura`). */
+/** Drop the moves from `n0` on that would capture a sheltered piece (`mercyAura`, `holyLightShelter`). */
 function dropSheltered(board: Uint8Array, out: Move[], n0: number): void {
   for (let i = out.length - 1; i >= n0; i--) {
-    const caps = out[i].captures;
-    for (let j = 0; j < caps.length; j++) if (sheltered(board, caps[j])) { out.splice(i, 1); break; }
+    const caps = out[i].captures, pawn = typeOf(board[out[i].from]) === P;
+    for (let j = 0; j < caps.length; j++) { const l = sheltered(board, caps[j]); if (l === 2 || (l === 1 && pawn)) { out.splice(i, 1); break; } }
   }
 }
 
@@ -870,7 +876,8 @@ const RAY: Int8Array[] = Array.from({ length: 64 * 8 }, (_, i) => {
 });
 
 export function isAttacked(board: Uint8Array, target: number, by: Color): boolean {
-  if ((RULES.mercyAura || RULES.holyLightShelter) && sheltered(board, target)) return false;
+  const shelter = RULES.mercyAura || RULES.holyLightShelter ? sheltered(board, target) : 0;
+  if (shelter === 2) return false;
   const victim = board[target] ? typeOf(board[target]) : 0;
   // `isAttacked` is the hottest function in the project, so it creates no closure per call (the
   // simulator runs under tsx, whose name-keeping wraps every closure it creates), walks precomputed
@@ -893,7 +900,7 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
   // or, under **Darkness**, on the single square straight behind it (the mirror of `case P`).
   // `darknessKeep` keeps both. A piece in a Holy Light king's aura is out of every pawn's reach.
   const back = -fwd(by), dark = powerOf(by) === 'Darkness';
-  if (!inLight(board, target, by ^ 1)) {
+  if (shelter === 0 && !inLight(board, target, by ^ 1)) {
     if (dark) { const s = step(target, 0, back); if (s >= 0 && hits(board, s, P, by, victim)) return true; }
     if (!dark || RULES.darknessKeep) {
       const s1 = step(target, -1, back), s2 = step(target, 1, back);

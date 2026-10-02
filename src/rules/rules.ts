@@ -373,6 +373,12 @@ export interface Rules {
    * to the Holy Light king. Off (the rulebook): only the king is covered, and only from pawns.
    */
   holyLightShelter: boolean;
+  /** The Holy Light shelter covers only the four orthogonal neighbours (balance lab). */
+  holyLightShelterOrtho: boolean;
+  /** Mercy's shelter covers only the four orthogonal neighbours (balance lab). */
+  mercyAuraOrtho: boolean;
+  /** Mercy's shelter stops only pawn captures (balance lab), like Holy Light's aura. */
+  mercyAuraPawns: boolean;
   /** Holy Light (balance lab): no enemy knight takes the king either. Off (the rulebook): pawns only. */
   holyLightKnights: boolean;
   /**
@@ -501,6 +507,9 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   darknessKeep: false,
   holyLightKnights: false,
   holyLightShelter: false,
+  holyLightShelterOrtho: false,
+  mercyAuraOrtho: false,
+  mercyAuraPawns: false,
   darknessMoves: false,
   strikeUses: 1,
   hasteUses: 1,

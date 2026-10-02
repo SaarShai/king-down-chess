@@ -34,8 +34,8 @@ export function powerText(power: PowerName): string {
     case 'Sacrifice': return `turn one of your pawns into one of your pieces that was captured earlier${r.sacrificeBehind ? ', while you have fewer pieces than your opponent' : ''}`;
     case 'March': return r.marchUses === 0 ? 'any pawn may step two squares from any rank' : 'a pawn steps two squares from any rank';
     case 'Leap': return 'a rook, bishop or queen passes over your own pawns';
-    case 'HolyLight': return `enemy pawns${r.holyLightKnights ? ' and knights' : ''} cannot take your king${r.holyLightAura ? ' or the pieces next to it' : ''}${r.holyLightTakesPawns ? '' : ', and it cannot take pawns'}${r.holyLightShelter ? '; your pieces next to it cannot be taken' : ''}`;
-    case 'Mercy': return `your king steps 1\u20132 squares and jumps your pieces${r.mercyCaptures ? ' (it takes only next to itself)' : ', but takes only a guard'}${r.mercyAura ? '; your pieces next to it cannot be taken' : ''}`;
+    case 'HolyLight': return `enemy pawns${r.holyLightKnights ? ' and knights' : ''} cannot take your king${r.holyLightAura ? ' or the pieces next to it' : ''}${r.holyLightTakesPawns ? '' : ', and it cannot take pawns'}${r.holyLightShelter ? `; your pieces ${r.holyLightShelterOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken` : ''}`;
+    case 'Mercy': return `your king steps 1\u20132 squares and jumps your pieces${r.mercyCaptures ? ' (it takes only next to itself)' : ', but takes only a guard'}${r.mercyAura ? `; your pieces ${r.mercyAuraOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken${r.mercyAuraPawns ? ' by pawns' : ''}` : ''}`;
     case 'DeathTouch': return r.deathTouchMoves
       ? 'your king takes an adjacent enemy without moving, or by moving onto it'
       : 'your king takes an adjacent enemy without moving \u2014 it can only take this way';

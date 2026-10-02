@@ -1695,6 +1695,21 @@ describe('balance-lab readings of the kings’ powers (2026-10-02)', () => {
     crossCheckAttacks(308, 60);
   });
 
+  it('Mercy: the orthogonal and pawns-only shelters', () => {
+    // Knights d2 (beside the king e2) and d3 (diagonal); Black rook d8, pawns c3 and c4.
+    const fen = '3r3k/8/8/8/2p5/2pN4/3NK3/8 b - - 0 1';
+    setRules({ kings: k('Spirit', 'Mercy'), mercyAura: true, mercyAuraOrtho: true });
+    let moves = lan(fromFen(fen), legalMoves(fromFen(fen)));
+    expect(moves).toContain('Rd8xd3');   // diagonal neighbour: not sheltered
+    expect(moves).not.toContain('c3xd2'); // orthogonal neighbour: sheltered
+    crossCheckAttacks(309, 60);
+    setRules({ kings: k('Spirit', 'Mercy'), mercyAura: true, mercyAuraPawns: true });
+    moves = lan(fromFen(fen), legalMoves(fromFen(fen)));
+    expect(moves).toContain('Rd8xd3');    // a rook may take in the shelter
+    expect(moves).not.toContain('c4xd3'); // a pawn may not
+    crossCheckAttacks(310, 60);
+  });
+
   it('Darkness: darknessMoves adds the straight steps but no diagonal capture', () => {
     setRules({ kings: k('Shadow', 'Darkness'), darknessMoves: true });
     const home = fromFen('7k/8/8/8/8/2p1p3/3P4/K7 w - - 0 1');
