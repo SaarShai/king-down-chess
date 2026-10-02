@@ -1,0 +1,14 @@
+{
+  "id": "pm-none-t800",
+  "cand": "sim/nnue-powers/c-lr1.arm.json",
+  "base": "sim/nnue-powers/current.arm.json",
+  "pairs": 60,
+  "timeMs": 800,
+  "mode": "none",
+  "seed": 7301,
+  "maxPlies": 300,
+  "openingRandomPlies": 4,
+  "candSha": "6e6fcb4d07308856",
+  "baseSha": "f9f835156336543c",
+  "src": "e302d780becf"
+}

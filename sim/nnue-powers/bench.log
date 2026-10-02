@@ -1,0 +1,2 @@
+[bench] sim/nnue-powers/current.arm.json: depth 5 55k nodes/s over 25.2 s; a 1 s search reaches depth 4.81 (mean of 16)
+[bench] sim/nnue-powers/c-lr1.arm.json: depth 5 50k nodes/s over 27.5 s; a 1 s search reaches depth 5.00 (mean of 16)

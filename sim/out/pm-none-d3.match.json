@@ -1,0 +1,14 @@
+{
+  "id": "pm-none-d3",
+  "cand": "sim/nnue-powers/c-lr1.arm.json",
+  "base": "sim/nnue-powers/current.arm.json",
+  "pairs": 400,
+  "depth": 3,
+  "mode": "none",
+  "seed": 7201,
+  "maxPlies": 300,
+  "openingRandomPlies": 4,
+  "candSha": "6e6fcb4d07308856",
+  "baseSha": "f9f835156336543c",
+  "src": "e8478fb29518"
+}

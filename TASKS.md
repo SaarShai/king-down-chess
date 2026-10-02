@@ -1,5 +1,13 @@
 # Tasks
 
+## Stronger computer player for the kings' powers mode — 2026-10-02
+- Request (owner, through the main session): make the computer player stronger, above all in the kings' powers mode. Branch `ai-powers` (local, not pushed, not deployed).
+- Found: the adopted net (2026-09-17) knew nothing of the powers, and **the game switched it off on every board with an Ogre** — the Ogre joined the random-army pool after the net was trained, so about 47% of random and daily armies played without it.
+- [x] Net inputs for the Ogre and for each side's king power (while it can still act); old nets still load and play exactly as before. Download 121 → 134 kB of text for the net.
+- [x] Corpus: 2,280 games at depth 3 under the official powers rules (32% without powers), 176,452 positions; the adopted net fine-tuned on it (`src/sim/powers-net.ts`).
+- [x] **Adopted** into `src/ai/nnue/weights.ts`. Against the old net: ordinary games +89 ± 22 Elo at depth 3 (800 games), +80 ± 64 at 800 ms a move (120 games); powers games +68 ± 21 at depth 3 (800 games), +114 ± 48 at 800 ms (120 games). Most of the gain is on boards with an Ogre. Beginner and Casual still lose every game to Club (20 each). tsc, 305 tests and the build pass. Report: `docs/research/ai-powers-2026-10-02.md`.
+- [ ] Not done: policy / move ordering (no compute left for its equal-time match); a bigger corpus (the net stopped improving after one or two passes over this one).
+
 ## Kings' powers mode: all twelve powers, balanced head to head — 2026-10-02
 - Owner (2026-10-02): "start working on the kids' power mode [read as the kings' powers mode] … run playtests and balancing sessions and monte carlo to evaluate their balance compared with each other … adjust the rules for any of the powers and iterate the testing until they are fairly well balanced." The powers come from docs/RULES.md §4 (the 2017 rulebook); the Drive connector in this session belongs to another account and has no King Down folder.
 - **Owner authorization (2026-10-02):** "regarding the improvements - do what you recommend, in parallel to the kings' powers mode. you can launch cloud subagents to do any of it." Delegated: faster load and installable (`claude/perf-installable`), title screen, fonts and dialogs (`claude/visual-design`), piece motion and board atmosphere (`claude/painted-motion`), and tournament compute shards (`claude/kp2-results-*`, result branches only, no PRs). No subagent deploys publicly; the owner merges.

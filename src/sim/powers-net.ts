@@ -20,6 +20,9 @@
  *            --base sim/nnue-powers/current.arm.json --pairs 200 --depth 3 --mode none|powers
  *            [--timeMs 800] [--workers 4] [--seed 7]
  *   report tsx src/sim/powers-net.ts report --id pm-a [--id pm-b]
+ *   bench  speed of two arms on the same positions (random armies, half with powers): nodes per
+ *          second at a fixed depth and the depth a one-second search reaches
+ *            tsx src/sim/powers-net.ts bench --arms sim/nnue-powers/current.arm.json,sim/nnue-powers/cand1.arm.json
  *   skills each weaker level against Club, as the browser plays them (`skillPlan`: its time cap, score
  *          band and random-move chance), colour-swapped pairs, half the games with powers
  *            tsx src/sim/powers-net.ts skills --id sk-a --pairs 10 [--arm sim/nnue-powers/cand1.arm.json]
@@ -440,6 +443,38 @@ async function skills(sp: SkillSpec, workers: number): Promise<void> {
   }
 }
 
+async function bench(arms: string[], nPos: number, depth: number, seed: number): Promise<void> {
+  const rng = mulberry32(seed);
+  const cases: { pos: Position; rules: Partial<Rules> }[] = [];
+  for (let i = 0; i < nPos; i++) {
+    const rules = rulesFor(i % 2 ? drawKings(rng, 0, false) : ['none', 'none']);
+    setRules(rules);
+    let pos = fromFen(toFenOf(randomBackRank(rng)));
+    for (let k = 0; k < 8; k++) {
+      const ms = legalMoves(pos).filter(m => !m.power && !m.pass);
+      if (!ms.length) break;
+      pos = makeMove(pos, ms[Math.floor(rng() * ms.length)]);
+    }
+    cases.push({ pos, rules });
+  }
+  for (const arm of arms) {
+    setEvalParams(JSON.parse(readFileSync(arm, 'utf8')) as EvalParams);
+    let nodes = 0, ms = 0, depthSum = 0;
+    for (const c of cases) {
+      setRules(c.rules);
+      resetSearchState();
+      const t = performance.now();
+      nodes += search(c.pos, { maxDepth: depth }).nodes;
+      ms += performance.now() - t;
+      resetSearchState();
+      depthSum += search(c.pos, { timeMs: 1000 }).depth;
+    }
+    console.log(`[bench] ${arm}: depth ${depth} ${Math.round(nodes / (ms / 1000) / 1000)}k nodes/s over ${(ms / 1000).toFixed(1)} s; a 1 s search reaches depth ${(depthSum / nPos).toFixed(2)} (mean of ${nPos})`);
+  }
+  setRules();
+}
+const toFenOf = (rank: string): string => `${rank.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${rank} w - - 0 1`;
+
 // -------------------------------------------------------------------------------------------------
 
 if (!isMainThread) {
@@ -478,6 +513,8 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
       mode: str('mode', 'none') === 'powers' ? 'powers' : 'none', seed: num('seed', 7),
       maxPlies: num('maxPlies', 300), openingRandomPlies: num('openingRandomPlies', 4),
     }, workers).catch(fail);
+  } else if (cmd === 'bench') {
+    bench(str('arms', '').split(',').filter(Boolean), num('positions', 16), num('depth', 5), num('seed', 4242)).catch(fail);
   } else if (cmd === 'skills') {
     skills({ id: str('id', 'sk'), pairs: num('pairs', 10), seed: num('seed', 11), thinkMs: num('thinkMs', 800), ...(typeof f.arm === 'string' ? { arm: f.arm } : {}) }, workers).catch(fail);
   } else if (cmd === 'report') {
