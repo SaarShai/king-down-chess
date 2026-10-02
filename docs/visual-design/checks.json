@@ -1,11 +1,11 @@
 {
-  "url": "http://127.0.0.1:5191/",
+  "url": "http://127.0.0.1:5189/",
   "checksPassed": 10,
   "checks": [
     "title: first visit points to the lessons, Learn starts lesson 1, a reload skips the title",
-    "title: Continue resumes the saved game, Play opens New game",
+    "title: Continue resumes the saved game, Play opens New game and the computer waits for it",
     "title: never over ?fen=, a game link, or ?title=0",
-    "keyboard: Tab, arrows and Enter play e2-e4; announced \"White pawn e2 to e4.\" then \"Black pawn g7 to g6.\"",
+    "keyboard: Tab, arrows and Enter play e2-e4; announced \"White pawn e2 to e4.\" then \"Black knight b8 to c6.\"",
     "keyboard: a move in the list is a button; Enter opens its review",
     "mouse: after a tap on the board, ← still opens the review (no cursor)",
     "Show threats: off by default; marks the attacked knight and 15 covered squares; saved",

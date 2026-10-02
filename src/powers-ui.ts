@@ -59,6 +59,8 @@ export const POWER_TAG: Partial<Record<PowerName, PowerTag>> = {
  */
 const ARMED: ReadonlySet<PowerTag> = new Set(['freeze', 'ward', 'strike', 'haste', 'flight', 'sacrifice']);
 export const needsArming = (m: Move): boolean => m.pass === true || (m.power !== undefined && ARMED.has(m.power));
+/** Whether a click can reach `m`: while a power is armed only its moves, otherwise none that need arming. */
+export const offered = (m: Move, armedTag: string | null): boolean => (armedTag ? m.power === armedTag : !needsArming(m));
 
 /** Uses allowed by the rules (0 = unlimited), or null for an always-on power. */
 export function usesAllowed(power: PowerName): number | null {

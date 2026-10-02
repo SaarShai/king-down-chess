@@ -2,6 +2,7 @@
 
 Reusable corrections. Pattern → rule.
 
+- Two branches built at the same time met in review: the new screens asked the move generator "as if it were the other side's turn" by copying the whole position, so a pending Haste second move came along and the threat markers vanished; and the screen-reader line took the piece on `from` as the mover, which a Freeze (an enemy square) breaks. → After a new move kind or position field lands, check every helper outside the engine that reads `pseudoMoves`, `m.from` or `m.to` (`grep -n "pseudoMoves\|board\[m.from\]" src/*.ts`), and give power moves their own wording. (2026-10-02)
 - A kings' powers tournament let its random opening moves include power moves. Flight alone adds about 200 moves to a position, so most powers were spent by chance in the first four plies and the run measured nothing. → Random opening moves come from the pieces' own moves only (`m.power` excluded); after any new move kind, check what the opening randomiser can pick. (2026-10-02)
 - `create_session` with a short commit SHA as the source revision failed at start (`ref_not_found`). → Start compute sessions on a branch name and have the prompt check out the full 40-character SHA. (2026-10-02)
 - tsx compiles with `keepNames`, which wraps every inner arrow function in a naming call; in the attack test's hot loop that cost more than the work. → Keep closures out of hot paths (module-level helpers, precomputed tables) and measure the search with node counts held equal. (2026-10-02)

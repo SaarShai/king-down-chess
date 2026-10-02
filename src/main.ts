@@ -7,12 +7,13 @@ import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, file as fileOf, findKing, isAttacked, kingLabel, KingChoice, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, file as fileOf, findKing, kingLabel, KingChoice, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { mulberry32 } from './sim/rng';
-import { POWER_NAME, POWER_TAG, fillPowerSelect, kingsParam, needsArming, powerText, readPowerSelect, usesAllowed, usesLeft } from './powers-ui';
+import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
+import { POWER_NAME, POWER_TAG, fillPowerSelect, kingsParam, offered, powerText, readPowerSelect, usesAllowed, usesLeft } from './powers-ui';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -342,7 +343,7 @@ const candidates = (): Move[] => {
   if (selected == null) return [];
   const tag = armedTag();
   return game.legal.filter(m => m.from === selected && pending.every((sq, i) => clickPath(m)[i] === sq)
-    && (tag ? m.power === tag : !needsArming(m)));
+    && offered(m, tag));
 };
 /** Armed Freeze, Ice Wall or Sacrifice: their moves name a piece, not a destination. */
 const markTargets = (): Move[] => {
@@ -406,18 +407,16 @@ function refresh(): void {
   const moves = $('moves');
   // Each move is a button to the board after it (data-ply = plies played by then). A line is White's
   // turn and Black's; a Haste turn is two plies by one side, so turns follow the side that moved.
-  let line = 0, html = '', open = false;
+  const numbers = moveNumbers(game.history.map(h => h.pos.turn));
+  let html = '';
   game.history.forEach((h, i) => {
     const km = marked.find(k => k.ply === i), mark = !km ? '' : km.kind !== 'loss' || km.loss >= 500 ? '??' : '?';
     const white = h.pos.turn === 0;
     // A button per move, so the list is reachable by keyboard; aria-current marks the move on the board.
     const ply = `<button type="button" data-ply="${i + 1}"${viewing === i + 1 ? ' class="viewing" aria-current="true"' : ''}${km ? ` title="${km.text}"` : ''} aria-label="${white ? 'White' : 'Black'} ${h.lan}${km ? `, ${km.text}` : ''}">${white ? `<b>${h.lan}</b>` : h.lan}${mark}</button>`;
-    const sameTurn = i > 0 && game.history[i - 1].pos.turn === h.pos.turn;
-    if (white && !sameTurn) { html += `${open ? '</li>' : ''}<li>${++line}. `; open = true; }
-    else if (!open) { html += `<li>${++line}… `; open = true; }
-    html += `${sameTurn || !white ? ' ' : ''}${ply}`;
+    html += i === 0 || numbers[i] !== numbers[i - 1] ? `${i ? '</li>' : ''}<li>${numbers[i]}${white ? '.' : '…'} ${ply}` : ` ${ply}`;
   });
-  moves.innerHTML = html + (open ? '</li>' : '');
+  moves.innerHTML = html + (html ? '</li>' : '');
   if (viewing == null) moves.scrollTop = moves.scrollHeight;
   else moves.querySelector('.viewing')?.scrollIntoView({ block: 'nearest' });
   // Captured pieces: a piece the mover removed counts for the mover; a paladin that removes itself is its own side's loss.
@@ -483,28 +482,12 @@ function refreshPowers(): void {
     : ''; // the info card already says what each king's power does
 }
 
-/** Squares the side not to move attacks: the mover's pieces it can take, and the empty squares it covers. */
-function threats(): { pieces: number[]; squares: number[] } {
-  const pos = game.pos, them = (pos.turn ^ 1) as Color;
-  const pieces = new Set<number>(), squares: number[] = [];
-  // Read-only: the engine's own move generator, asked as if it were the other side's turn.
-  for (const m of pseudoMoves({ ...pos, turn: them }, 'captures')) {
-    for (const c of m.captures) if (pos.board[c] && colorOf(pos.board[c]) === pos.turn) pieces.add(c);
-  }
-  for (let s = 0; s < 64; s++) {
-    const p = pos.board[s];
-    if (!p) { if (isAttacked(pos.board, s, them)) squares.push(s); }
-    else if (colorOf(p) === pos.turn && typeOf(p) === K && isAttacked(pos.board, s, them)) pieces.add(s);
-  }
-  return { pieces: [...pieces], squares };
-}
-
 let marksFrame = 0;
 /** Threat markers (Settings → Show threats) and the keyboard cursor, placed with view.screenOf(). */
 function drawMarks(): void {
   cancelAnimationFrame(marksFrame);
   const on = $<HTMLInputElement>('threats').checked && viewing == null && !busy && !finished() && myTurn();
-  const t = on ? threats() : { pieces: [], squares: [] };
+  const t = on ? threatsIn(game.pos) : { pieces: [], squares: [] };
   if (!t.pieces.length && !t.squares.length && cursor == null) { marksLayer.innerHTML = ''; return; }
   const box = $('board').getBoundingClientRect(), items: string[] = [];
   const at = (s: number, cls: string): void => {
@@ -521,28 +504,16 @@ function drawMarks(): void {
 }
 new ResizeObserver(() => drawMarks()).observe($('board'));
 
-/** One sentence for a screen reader: who moved what, and what it did. */
-function describeMove(pre: Position, m: Move): string {
-  const mover = pre.board[m.from], side = colorOf(mover) ? 'Black' : 'White', name = NAMES[typeOf(mover)];
-  const the = (s: number): string => `${NAMES[typeOf(pre.board[s])]} on ${sqName(s)}`;
-  let text = m.shove
-    ? `${side} ${name} on ${sqName(m.from)} shoves the ${the(m.shove.from)} to ${sqName(m.shove.to)}${m.to !== m.from ? `, stepping to ${sqName(m.to)}` : ''}`
-    : m.swap ? `${side} ${name} on ${sqName(m.from)} swaps places with the ${the(m.to)}`
-    : m.to === m.from && m.captures.length ? `${side} ${name} on ${sqName(m.from)} takes the ${m.captures.map(the).join(' and the ')} without moving`
-    : `${side} ${name} ${sqName(m.from)} to ${sqName(m.to)}${m.captures.length ? `, taking the ${m.captures.map(the).join(', then the ')}` : ''}`;
-  if (m.promo) text += `, and becomes a ${NAMES[m.promo]}`;
-  if (m.selfRemove) text += `; the ${name} leaves the board`;
-  return `${text}.`;
-}
-
 /** Why a tap on `to` did not play a move for the piece on `from` (only exported engine functions). */
 function whyNot(from: number, to: number): string {
   const pos = game.pos, mover = pos.board[from], name = NAMES[typeOf(mover)], target = pos.board[to];
-  if (pseudoMoves(pos).some(m => m.from === from && clickPath(m)[0] === to)) {
+  // Only the moves a click can reach (candidates()): an unarmed power move is not "a move into check".
+  const tag = armedTag();
+  if (pseudoMoves(pos).some(m => m.from === from && offered(m, tag) && clickPath(m)[0] === to)) {
     return game.inCheck ? `Your king is in check, and that ${name} move does not stop it.` : `Not allowed: that ${name} move would leave your king in check.`;
   }
   if (target && typeOf(target) === G && colorOf(target) !== pos.turn && typeOf(mover) !== K) return 'Not allowed: a guard can only be taken by a king.';
-  const can = game.legal.some(m => m.from === from) ? ' The marked squares show where it can go.' : '';
+  const can = game.legal.some(m => m.from === from && offered(m, tag)) ? ' The marked squares show where it can go.' : '';
   return `Not allowed: the ${name} cannot ${target ? `take the ${NAMES[typeOf(target)]} on` : 'reach'} ${sqName(to)}.${can}`;
 }
 
@@ -973,8 +944,11 @@ function result(): string {
   }[game.status];
 }
 
+/** Moves played so far, counted as the move list numbers them (a Haste turn is one move). */
+const movesPlayed = (): number => moveNumbers(game.history.map(h => h.pos.turn)).at(-1) ?? 0;
+
 function showOver(): void {
-  const n = Math.ceil(game.history.length / 2);
+  const n = movesPlayed();
   const dlg = $<HTMLDialogElement>('over');
   $('over-title').textContent = result();
   const last = game.history.at(-1)?.lan;
@@ -1159,7 +1133,7 @@ $('new-random').onclick = () => newGame(randomBackRank());
 const today = (): string => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
 $('new-daily').onclick = () => { const d = today(); newGame(randomBackRank(mulberry32(+d.replace(/-/g, ''))), null, false, d); };
 $('share-result').onclick = () => {
-  const n = Math.ceil(game.history.length / 2), people = sides.filter(s => s === 'human').length;
+  const n = movesPlayed(), people = sides.filter(s => s === 'human').length;
   const me = sides.indexOf('human') as Color, winner = resigned != null ? 1 - resigned : game.status === 'checkmate' ? 1 - game.pos.turn : -1;
   const outcome = people !== 1 ? result().toLowerCase() : winner < 0 ? 'drew' : winner === me ? 'won' : 'lost';
   const vs = people === 1 ? ` against the ${$<HTMLSelectElement>('skill').value} computer` : '';
@@ -1296,7 +1270,6 @@ const titleClosed = new Promise<void>(resolve => {
   const resumable = !!saved && saved.moves.length > 0;
   const firstVisit = !saved;
   $('title-continue').hidden = !resumable;
-  if (resumable) $('title-continue').querySelector('.label')!.textContent = `Continue · move ${Math.floor(saved!.moves.length / 2) + 1}`;
   $('title-first').hidden = !firstVisit;
   // A first visit leads with the lessons; otherwise Play (or Continue) leads.
   $('title-learn').classList.toggle('primary', firstVisit);
@@ -1354,6 +1327,11 @@ else if (saved) {
     resigned = saved.resigned ?? null;
   } catch { game.newGame(); } // a save from an older format: start fresh
 }
+// The title's Continue names the move the restored game is on (set before the first paint; a
+// Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
+if (showTitle && game.history.length) {
+  $('title-continue').querySelector('.label')!.textContent = `Continue · move ${nextMoveNumber(game.history.map(h => h.pos.turn), game.pos.turn)}`;
+}
 orient();
 view.sync(game.pos);
 await view.ready();
@@ -1368,7 +1346,15 @@ if (!fen) save(); // pin the random back rank so a reload keeps this game (and k
 await titleClosed; // the computer waits for the player, and no dialog opens over the title
 if (titleChoice === 'learn') startLesson(0);
 else {
-  if (titleChoice === 'play') $<HTMLDialogElement>('new-game').showModal();
-  else if (finished()) showOver();
-  void maybeAi();
+  if (titleChoice === 'play') {
+    // The saved game's computer waits behind the dialog: it may move only once New game is closed
+    // (a started game runs its own computer; maybeAi() does nothing while one is already thinking).
+    const dlg = $<HTMLDialogElement>('new-game');
+    dlg.addEventListener('close', () => void maybeAi(), { once: true });
+    dlg.showModal();
+  }
+  else {
+    if (finished()) showOver();
+    void maybeAi();
+  }
 }

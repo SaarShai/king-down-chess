@@ -55,11 +55,16 @@ try {
   assert.equal(await titleOpen(page), false);
   assert.match(await page.locator('#moves').innerText(), /e2-e4/);
   await page.context().close();
-  page = await open('', { skipTitle: false, save });
+  // Play with the computer to move: it waits while New game is open, and moves once it is closed.
+  page = await open('', { skipTitle: false, save: { ...save, moves: ['e2-e4'], skill: 'beginner', think: 200 } });
   await page.click('#title-play');
   await page.waitForFunction(() => document.getElementById('new-game').open);
+  await page.waitForTimeout(2500); // the beginner computer answers in well under a second
+  assert.equal(await page.locator('#moves button').count(), 1, 'the computer does not move behind New game');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.querySelectorAll('#moves button').length === 2, null, { timeout: 15000 });
   await page.context().close();
-  ok('title: Continue resumes the saved game, Play opens New game');
+  ok('title: Continue resumes the saved game, Play opens New game and the computer waits for it');
 
   for (const q of ['?fen=' + encodeURIComponent(START), '?army=RNBQKBNR&moves=e2-e4', '?title=0']) {
     page = await open(q, { skipTitle: false });
