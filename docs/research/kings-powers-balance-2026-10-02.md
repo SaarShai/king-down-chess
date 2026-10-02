@@ -24,7 +24,7 @@ Owner decision (2026-10-02): these are the official kings' powers rules.
 | Leap | 3 a game — 49% | unchanged | 48% |
 | Holy Light | pawns cannot take the king; it takes no pawns — 46% | **the king may take pawns, and the pieces beside, in front of and behind it cannot be taken** | 50% |
 | Mercy | king steps 1–2, takes nothing — 21% | **as printed, and the pieces next to the king cannot be taken** | 56% |
-| Death Touch | 56% | unchanged | 43% |
+| Death Touch | 56% | **also reaches two squares straight forward, back or sideways, over an empty square** (round 10) | 57% in round 10 (43% without the reach) |
 | Darkness | 38% | **pawns also keep their straight steps**, still take only straight ahead | 42% |
 
 **Still a little outside the target (50 ± 4):** Haste, Sacrifice and Mercy are high (56–57%);
@@ -311,5 +311,25 @@ Owner (2026-10-02): the light and dark kings may be somewhat stronger than the o
 are balanced with each other, and **no reading may change how other pieces move**, so the two new
 Darkness readings are out and today's Darkness stays. Sacrifice stays as printed (the comeback rule
 over-trims). Death Touch's reach is the king's own ability; a files-and-ranks-only reach is next.
+
+## Round 9 — a stronger tier for the light and dark kings
+
+Owner: the light (Spirit) and dark (Shadow) kings may be somewhat stronger than the other four if
+they are balanced with each other. The eight other powers, Mercy, both Holy Light shelters, Death
+Touch with the full two-square reach and the two Darkness pawn readings; seed 909, 16 pairs: 3,296
+games (`sim/out/kp2-r9.report.md`). Against the other powers: Death Touch with full reach 60.9,
+Holy Light sheltering all eight neighbours 57.4, Mercy 52.8, Holy Light (four squares) 47.5. Head
+to head the three strong ones are even (Death Touch 52 against the eight-square Holy Light, 50
+against Mercy). But Darkness, which stays as it is (no reading may change how other pieces move),
+is about 45, so a full-reach Death Touch would split the Shadow king's two powers by 15 points.
+
+## Round 10 — Death Touch reaching along files and ranks only
+
+The twelve official powers and Death Touch whose extra reach is straight forward, back or sideways
+only; seed 1010, 16 pairs: 2,880 games (`sim/out/kp2-r10.report.md`). Against the other powers:
+Death Touch with this reach 56.7 (plain Death Touch 42.3), Mercy 55.3, Holy Light 48.2, Darkness
+46.6; the other eight 47.0–55.7. **Adopted:** the Spirit king's two powers average 51.8 and the
+Shadow king's 51.7, so the light and dark kings are level with each other and just above the
+field, and with this Death Touch nine of twelve powers sit inside 50 ± 4 (spread 14 points).
 
 Raw games: `claude/kp2-results-*` branches (`sim/out/*.jsonl`); reports and specs in `sim/out/`.

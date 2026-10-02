@@ -600,6 +600,8 @@ export const POWERS_BALANCED: Readonly<Partial<Rules>> = Object.freeze({
   holyLightShelter: true,    // Holy Light: the pieces beside, in front of or behind the king
   holyLightShelterOrtho: true, //   cannot be taken (round 6)
   darknessMoves: true,       // Darkness: pawns keep their straight steps
+  deathTouchReach: true,     // Death Touch: also two squares away, straight forward, back or
+  deathTouchReachOrtho: true, //   sideways, over an empty square (round 10)
 });
 
 /** Reset to the defaults, then apply `over`. Call with no argument to restore today's rules. */
