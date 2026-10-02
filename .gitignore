@@ -27,3 +27,4 @@ docs/trailer/assets/
 
 # Local agent worktrees
 /.claude/worktrees/
+/sim/nnue-powers/*.bin

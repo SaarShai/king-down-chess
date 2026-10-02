@@ -7,7 +7,7 @@
  * left-right symmetric and encode only centrality and advancement.
  */
 import { A, B, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, canCapture, colorOf, typeOf } from '../rules/engine';
-import { NetKind, RESIDUAL_MAX, loadNet, loadedNetB64, netKind, netLoaded, nnueEval } from './nnue/net';
+import { NetKind, RESIDUAL_MAX, loadNet, loadedNetB64, netHasOgre, netKind, netLoaded, nnueEval } from './nnue/net';
 
 /*
  * Material values (centipawns). **Every number in this file is fitted, not reasoned** — and every
@@ -439,23 +439,30 @@ export function setEvaluator(e: Evaluator = 'nnue'): void {
 }
 
 /**
- * The net has 11 piece types; the lab pieces (ogre, catapult, reaver, templar) are type 12+. A board
- * that contains one plays the linear evaluation instead of throwing: those pieces reach a game only
+ * The first net has 11 piece types; the lab pieces (ogre, catapult, reaver, templar) are type 12+. A
+ * net trained since 2026-10-02 also sees the Ogre, which joined the random-army pool. A board that
+ * contains a piece the loaded net cannot see plays the linear evaluation instead of throwing: those pieces reach a game only
  * through a `?fen=` or a lab spec, and the browser adopted the residual net, so a lab position must
  * not break the AI.
  */
 const hasNetTypes = (board: Uint8Array): boolean => {
-  for (let s = 0; s < 64; s++) if ((board[s] & 15) > 11) return true; // low nibble = type (bit 4 is colour)
+  // Since 2026-10-02 a net can have Ogre inputs (type 12); one without them falls back as before.
+  const max = netHasOgre() ? 12 : 11;
+  for (let s = 0; s < 64; s++) if ((board[s] & 15) > max) return true; // low nibble = type (bit 4 is colour)
   return false;
 };
 
-/** What `src/ai/search.ts` calls at every leaf. Centipawns, side-to-move's point of view. */
-export const evalBoard = (board: Uint8Array, turn: Color): number => {
+/**
+ * What `src/ai/search.ts` calls at every leaf. Centipawns, side-to-move's point of view. `pw` / `pb`
+ * are White's and Black's live king powers for the net (index in `NET_POWERS`, -1 for none or spent);
+ * the linear evaluation does not read them.
+ */
+export const evalBoard = (board: Uint8Array, turn: Color, pw = -1, pb = -1): number => {
   const net = EVALUATOR !== 'linear' && !hasNetTypes(board);
   if (!net) return evaluateBoard(board, turn);
-  if (EVALUATOR === 'nnue') return nnueEval(board, turn);
+  if (EVALUATOR === 'nnue') return nnueEval(board, turn, pw, pb);
   const linear = evaluateBoard(board, turn);
-  const r = nnueEval(board, turn);
+  const r = nnueEval(board, turn, pw, pb);
   return linear + (r > RESIDUAL_MAX ? RESIDUAL_MAX : r < -RESIDUAL_MAX ? -RESIDUAL_MAX : r);
 };
 

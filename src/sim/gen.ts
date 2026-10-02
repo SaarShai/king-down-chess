@@ -25,7 +25,7 @@ import { setRules } from '../rules/rules';
 import { fromFen, toLan } from '../rules/setup';
 import { evaluate, evaluateBoard, setEvaluator } from '../ai/eval';
 import { quiesceScore, resetSearchState } from '../ai/search';
-import { HIDDEN, INPUTS, N_WEIGHTS, NetKind, QA, QB, RESIDUAL_MAX, SCALE, W_MAX, featureIndex, packNet } from '../ai/nnue/net';
+import { BOARD_INPUTS, HIDDEN, INPUTS, N_WEIGHTS, NetKind, QA, QB, RESIDUAL_MAX, SCALE, W_MAX, featureIndex, packNet, powerFeature } from '../ai/nnue/net';
 import { parseFlags, paths } from './spec';
 import { parseLan } from './tune';
 import { readRun } from './run';
@@ -45,6 +45,12 @@ const CANDIDATE_TS = `${NNUE_DIR}/weights-candidate.ts`;
 
 /** 64 board bytes, side to move, flags (result*2 | validation bit), Int16 score. */
 export const REC = 68;
+/**
+ * The kings' powers record (tools/powers-net.ts): `REC`, then White's and Black's live power row + 1
+ * (0 = none or spent), then the search's unspent-power term (Int16, side to move's view), which the
+ * residual sits on together with the linear evaluation.
+ */
+export const REC_P = 72;
 export const VAL_BIT = 4;
 const VAL_EVERY = 10;
 /** Past this the position is decided and the score is a mate count, not an evaluation. */
@@ -150,8 +156,11 @@ async function sample(ids: string[], limitPerRun: number, cap: number): Promise<
 // -----------------------------------------------------------------------------------------------
 // 2. Training.
 
-/** Active feature indices for both perspectives. Returns how many pieces were on the board. */
-export function features(buf: Uint8Array, off: number, turn: Color, mine: Int32Array, theirs: Int32Array): number {
+/**
+ * Active feature indices for both perspectives. Returns how many features are active: the pieces on
+ * the board, plus the live powers when the record is a `REC_P` one.
+ */
+export function features(buf: Uint8Array, off: number, turn: Color, mine: Int32Array, theirs: Int32Array, rec = REC): number {
   let n = 0;
   for (let s = 0; s < 64; s++) {
     const p = buf[off + s];
@@ -161,6 +170,15 @@ export function features(buf: Uint8Array, off: number, turn: Color, mine: Int32A
     theirs[n] = featureIndex(t, c, s, (turn ^ 1) as Color);
     n++;
   }
+  if (rec >= REC_P) {
+    for (let c = 0 as Color; c < 2; c = (c + 1) as Color) {
+      const row = buf[off + 68 + c] - 1;
+      if (row < 0) continue;
+      mine[n] = powerFeature(row, c, turn);
+      theirs[n] = powerFeature(row, c, (turn ^ 1) as Color);
+      n++;
+    }
+  }
   return n;
 }
 
@@ -169,7 +187,9 @@ export interface Net { w1: Float32Array; b1: Float32Array; w2: Float32Array; b2:
 function initNet(rng: () => number): Net {
   const w1 = new Float32Array(INPUTS * HIDDEN), w2 = new Float32Array(2 * HIDDEN);
   const b1 = new Float32Array(HIDDEN).fill(0.5); // start every neuron inside the clipped ReLU's live band
-  for (let i = 0; i < w1.length; i++) w1[i] = (rng() * 2 - 1) * 0.09;
+  // The board rows only, so the random stream (and a board-only training run) is what it was before
+  // the power rows existed; the power rows start at zero and stay there unless power records train them.
+  for (let i = 0; i < BOARD_INPUTS * HIDDEN; i++) w1[i] = (rng() * 2 - 1) * 0.09;
   for (let i = 0; i < w2.length; i++) w2[i] = (rng() * 2 - 1) * 0.1;
   return { w1, b1, w2, b2: 0 };
 }
@@ -206,7 +226,14 @@ export function forward(net: Net, mine: Int32Array, theirs: Int32Array, n: numbe
  * the band where moves are actually chosen, and the best fit is inside the clip the engine applies
  * — which is the whole point: material never passes through the net.
  */
-export interface TrainOpts { epochs: number; batch: number; lr: number; lambda: number; seed: number; loss: 'wdl' | 'cp' | 'res' }
+export interface TrainOpts {
+  epochs: number; batch: number; lr: number; lambda: number; seed: number; loss: 'wdl' | 'cp' | 'res';
+  /**
+   * Train only the input rows from this one on (`BOARD_INPUTS`: the Ogre and power rows), leaving every
+   * other weight as `init` had it, so a board with neither plays exactly the starting net. Absent: all.
+   */
+  trainFrom?: number;
+}
 
 /**
  * `evaluateBoard` over the whole corpus, mover's point of view — the term a residual sits on.
@@ -214,13 +241,15 @@ export interface TrainOpts { epochs: number; batch: number; lr: number; lambda: 
  * the side to move that the record already carries, and computing it with the engine's own
  * function is the only way it cannot drift from what the engine adds at run time.
  */
-function linearBases(buf: Uint8Array, n: number): Float32Array {
+function linearBases(buf: Uint8Array, n: number, rec = REC): Float32Array {
   setRules(); // the beast-target term reads the rules
   const out = new Float32Array(n);
   let clipped = 0;
   for (let i = 0; i < n; i++) {
-    const off = i * REC;
+    const off = i * rec;
     out[i] = evaluateBoard(buf.subarray(off, off + 64), buf[off + 64] as Color);
+    // A powers record: the search adds the unspent-power term to the board too, so the net sits on both.
+    if (rec >= REC_P) out[i] += ((buf[off + 70] | (buf[off + 71] << 8)) << 16) >> 16;
     if (Math.abs((((buf[off + 66] | (buf[off + 67] << 8)) << 16) >> 16) - out[i]) > RESIDUAL_MAX) clipped++;
   }
   // If this is large the bound is wrong, and the net is being asked to fit a target it cannot
@@ -229,9 +258,15 @@ function linearBases(buf: Uint8Array, n: number): Float32Array {
   return out;
 }
 
-export function trainNet(buf: Uint8Array, n: number, opts: TrainOpts): { net: Net; curve: { epoch: number; train: number; val: number }[]; bestEpoch: number; bestVal: number } {
+/**
+ * `init` starts from a given net (fine-tuning; epoch 0 is then a candidate for the best checkpoint) and
+ * `rec` is the record size (`REC`, or `REC_P` for the kings' powers corpus).
+ */
+export function trainNet(buf: Uint8Array, n: number, opts: TrainOpts, init?: Net, rec = REC): { net: Net; curve: { epoch: number; train: number; val: number }[]; bestEpoch: number; bestVal: number } {
+  const REC = rec; // shadows the module constant: every offset below is in records of this size
   const rng = mulberry32(opts.seed);
   const net = initNet(rng);
+  if (init) { net.w1.set(init.w1); net.b1.set(init.b1); net.w2.set(init.w2); net.b2 = init.b2; }
   const NW = INPUTS * HIDDEN;
   const gw1 = new Float32Array(NW), gb1 = new Float32Array(HIDDEN), gw2 = new Float32Array(2 * HIDDEN);
   const mw1 = new Float32Array(NW), vw1 = new Float32Array(NW);
@@ -239,7 +274,7 @@ export function trainNet(buf: Uint8Array, n: number, opts: TrainOpts): { net: Ne
   const mw2 = new Float32Array(2 * HIDDEN), vw2 = new Float32Array(2 * HIDDEN);
   let mb2 = 0, vb2 = 0, gb2 = 0;
   const acc = new Float32Array(2 * HIDDEN), h = new Float32Array(2 * HIDDEN), dh = new Float32Array(2 * HIDDEN);
-  const mine = new Int32Array(64), theirs = new Int32Array(64);
+  const mine = new Int32Array(66), theirs = new Int32Array(66);
 
   // Train / validation split, by the bit the sampler set (whole games, never a straddle).
   const train = new Int32Array(n), val = new Int32Array(n);
@@ -252,7 +287,7 @@ export function trainNet(buf: Uint8Array, n: number, opts: TrainOpts): { net: Ne
 
   const cpOf = (off: number): number => ((buf[off + 66] | (buf[off + 67] << 8)) << 16) >> 16;
   /** Non-null only for `--loss res`; zero everywhere else leaves the other two losses untouched. */
-  const bases = opts.loss === 'res' ? linearBases(buf, n) : null;
+  const bases = opts.loss === 'res' ? linearBases(buf, n, rec) : null;
   const baseOf = (i: number): number => (bases ? bases[i] : 0);
   const target = (i: number): number => {
     const off = i * REC;
@@ -277,7 +312,7 @@ export function trainNet(buf: Uint8Array, n: number, opts: TrainOpts): { net: Ne
     let sum = 0;
     for (let k = 0; k < idx.length; k++) {
       const i = idx[k], off = i * REC;
-      const cnt = features(buf, off, buf[off + 64] as Color, mine, theirs);
+      const cnt = features(buf, off, buf[off + 64] as Color, mine, theirs, rec);
       sum += dLoss(forward(net, mine, theirs, cnt, acc, h), target(i), baseOf(i))[0];
     }
     return sum / Math.max(1, idx.length);
@@ -292,6 +327,10 @@ export function trainNet(buf: Uint8Array, n: number, opts: TrainOpts): { net: Ne
   // rank alone, and held-out error turns up again after the first epoch or two.
   let best = { w1: Float32Array.from(net.w1), b1: Float32Array.from(net.b1), w2: Float32Array.from(net.w2), b2: net.b2 };
   let bestVal = Infinity, bestEpoch = 0;
+  if (init) {
+    bestVal = +loss(valIdx).toFixed(6);
+    console.log(`[nnue] epoch   0  (the starting net)  val ${bestVal.toFixed(6)}`);
+  }
   let step = 0;
   const t0 = Date.now();
   for (let e = 1; e <= opts.epochs; e++) {
@@ -302,7 +341,7 @@ export function trainNet(buf: Uint8Array, n: number, opts: TrainOpts): { net: Ne
       gw1.fill(0); gb1.fill(0); gw2.fill(0); gb2 = 0;
       for (let k = b; k < end; k++) {
         const i = trainIdx[k], off = i * REC;
-        const cnt = features(buf, off, buf[off + 64] as Color, mine, theirs);
+        const cnt = features(buf, off, buf[off + 64] as Color, mine, theirs, rec);
         const dy = dLoss(forward(net, mine, theirs, cnt, acc, h), target(i), baseOf(i))[1];
         for (let i2 = 0; i2 < 2 * HIDDEN; i2++) {
           gw2[i2] += dy * h[i2];
@@ -328,7 +367,8 @@ export function trainNet(buf: Uint8Array, n: number, opts: TrainOpts): { net: Ne
         const x = w[i] - (lr * (m[i] / bc1)) / (Math.sqrt(v[i] / bc2) + 1e-8);
         w[i] = x > lim ? lim : x < -lim ? -lim : x;
       };
-      for (let i = 0; i < NW; i++) adam(net.w1, gw1, mw1, vw1, i, lim1);
+      for (let i = (opts.trainFrom ?? 0) * HIDDEN; i < NW; i++) adam(net.w1, gw1, mw1, vw1, i, lim1);
+      if (opts.trainFrom) continue; // the adapter: nothing past the new rows moves
       for (let i = 0; i < HIDDEN; i++) adam(net.b1, gb1, mb1, vb1, i, lim1);
       for (let i = 0; i < 2 * HIDDEN; i++) adam(net.w2, gw2, mw2, vw2, i, lim2);
       const gi = gb2 * scale;
@@ -359,7 +399,8 @@ export function quantise(net: Net): Int16Array {
     if (q > W_MAX || q < -W_MAX) throw new Error(`nnue: weight ${x} leaves Int16 range`);
     w[o++] = q;
   };
-  for (let i = 0; i < INPUTS * HIDDEN; i++) put(net.w1[i] * QA);
+  // `?? 0`: a float net saved before the power rows existed is shorter; its power rows are zero.
+  for (let i = 0; i < INPUTS * HIDDEN; i++) put((net.w1[i] ?? 0) * QA);
   for (let i = 0; i < HIDDEN; i++) put(net.b1[i] * QA);
   for (let i = 0; i < 2 * HIDDEN; i++) put(net.w2[i] * QB);
   put(net.b2 * QB);
