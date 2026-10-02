@@ -355,15 +355,22 @@ function refresh(): void {
   const cands = candidates();
   const next = cands.map(m => clickPath(m)[pending.length]).filter((s): s is number => s != null);
   const swaps = cands.filter(m => m.swap).map(m => m.to);
-  // Armed Freeze / Ice Wall / Sacrifice light their targets in the shove colour (a power, not a capture).
-  const shoves = [...cands.filter(m => m.shove).map(m => m.shove!.from), ...new Set(markTargets().map(m => m.to))];
+  const shoves = cands.filter(m => m.shove).map(m => m.shove!.from);
+  // Armed Freeze / Ice Wall / Sacrifice name a piece: a power target, not a capture.
+  const named = [...new Set(markTargets().map(m => m.to))];
+  const step = (m: Move): number | undefined => clickPath(m)[pending.length];
+  const powers = [...new Set([...cands.filter(m => m.power && !m.pass).map(step).filter((s): s is number => s != null), ...named])];
+  // The Archer shoots without moving: its target gets a sight rather than a strike.
+  const shots = [...new Set(cands.filter(m => m.to === m.from && m.captures.length && step(m) === m.captures[0]).map(m => m.captures[0]))];
   const last = (viewing == null ? game.history.at(-1) : game.history[viewing - 1])?.move;
   view.highlight({
     selected,
     moves: next.filter(sq => !game.pos.board[sq]),
-    captures: next.filter(sq => game.pos.board[sq] !== 0 && !swaps.includes(sq) && !shoves.includes(sq)),
+    captures: next.filter(sq => game.pos.board[sq] !== 0 && !swaps.includes(sq) && !shoves.includes(sq) && !named.includes(sq)),
     swaps,
     shoves,
+    shots,
+    powers,
     last: last ? [last.from, ...(last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? last.captures : [last.to])] : [],
     hint: hintSquares,
     check: game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
@@ -486,6 +493,7 @@ let marksFrame = 0;
 /** Threat markers (Settings → Show threats) and the keyboard cursor, placed with view.screenOf(). */
 function drawMarks(): void {
   cancelAnimationFrame(marksFrame);
+  view.setPreview?.(cursor);
   const on = $<HTMLInputElement>('threats').checked && viewing == null && !busy && !finished() && myTurn();
   const t = on ? threatsIn(game.pos) : { pieces: [], squares: [] };
   if (!t.pieces.length && !t.squares.length && cursor == null) { marksLayer.innerHTML = ''; return; }

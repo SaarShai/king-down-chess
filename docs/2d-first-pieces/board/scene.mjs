@@ -51,7 +51,7 @@ for(const [type,name] of Object.entries(courtNames)){
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, and the board's frame and light.
  // All off by default, so the trial and the trailer draw exactly as before.
  const lively={moves:false,idle:false,atmosphere:false};
- let selectedAt=0, idleTimer=0, framePattern=null;
+ let selectedAt=0, idleTimer=0, framePattern=null, awakeUntil=0;
  const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
  const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
  const cell=s=>({col:flipped?7-(s&7):s&7,row:flipped?s>>3:7-(s>>3)});
@@ -485,7 +485,7 @@ function drawEncounter(a,t) {
   if(a&&!a.done&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
   if(labels)drawLabels();
-  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL))wake();
+  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil)wake();
   else{previousTime=0;if(idling()){clearTimeout(idleTimer);idleTimer=setTimeout(wake,33);}} // the idle breath needs only ~30 frames a second
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
@@ -583,6 +583,10 @@ function drawEncounter(a,t) {
   setLively(options){Object.assign(lively,options);wake();},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
+  /** Draw every frame for the next `ms` (a decoration's own short animation, such as markers appearing). */
+  keepAwake(ms){awakeUntil=Math.max(awakeUntil,performance.now()+ms);wake();},
+  /** A see-through copy of a figure standing on `square` (a move preview); for setDecorate. */
+  ghost(out,value,square,opacity=.4){if(ready&&value)drawPiece(out,value,poseFor(value,square),opacity);},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
   play(move,{speed=1,onContact=null,gait=null}={}){
    if(animation&&!animation.done)animation.resolve(false);

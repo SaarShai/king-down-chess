@@ -4,6 +4,56 @@ Owner request (2026-10-02): improve graphic design and UX, so the game looks des
 with its painted storybook pieces and stone board, and is easier to start and to use. This folder holds
 the design note, the checks and the before/after screenshots.
 
+## Round 2 — owner requests (2026-10-02)
+
+The owner asked for three things; screenshots (from the production build) in [round2/](round2/).
+
+1. **"For the main screen - include a lineup of all of the pieces."** The title screen now has a row of
+   all twelve pieces under the two kings, standing on a stone ledge with their names in small capitals.
+   The armies alternate (black Pawn, white Knight, black Bishop, white Rook…), and each figure is sized
+   as it stands on the board (the Ogre tallest, the Maester smallest). They rise in one after another
+   (not with reduced motion) and lift with a gold glow under the pointer. Two rows of six on a phone;
+   Learn and Play stay on screen at 390×844. The figures are the Guide's cuts of the painted sheets.
+   [desktop](round2/title-desktop.webp) · [phone](round2/title-phone.webp)
+2. **"Ogre and rook/rock, for the white side - they have skin color, but it needs to be the same base
+   color as the other pieces."** [`ivory-skin.py`](ivory-skin.py) recolours the white half of the Ogre
+   and Rook sheets (`docs/2d-first-pieces/ogre/ogre.png`, `rook/rook.png`, their WebP copies; the
+   board, the trial, the strikes, the trailer, the title and the Guide all use these). It samples the
+   ivory from the other white figures (Guard, Beast, Knight, Bishop, Paladin, Queen), masks the skin by
+   hue, saturation and brightness with soft edges (the Ogre's red wristbands, the Rook's stone and
+   glowing eyes, the loincloth and the outlines stay as painted), matches the skin's brightness to the
+   ivory's so the shading is kept, and takes hue and saturation from the ivory at that brightness. The
+   black half of each PNG is pixel-for-pixel unchanged; the WebP copies are re-encoded as
+   `web-art.py` does (black half within 1/255 on average). It reads the originals from git (commit
+   `84fb194`), so it can be rerun. [before/after](round2/ivory-ogre-rook-before-after.webp) ·
+   [close-up](round2/ivory-closeup-before-after.webp) · [black unchanged](round2/charcoal-unchanged-before-after.webp)
+3. **"Improve the presentation of available moves and takes when clicking on a piece."** New markers
+   on the painted board ([`src/render/marks.ts`](../../src/render/marks.ts)), all drawn on the canvas.
+   Each kind has its own shape, so colour is never the only cue:
+
+   | Kind | Marker |
+   |---|---|
+   | Move | A gold cut gem floating over a soft glow where the feet will stand; a glint crosses it now and then. |
+   | Capture | A crimson ring at the enemy's feet and four corner brackets that breathe inwards. |
+   | Archer shot | The same, plus a turning gun-sight over the target's body and a dashed outer ring. |
+   | Maester swap | Two violet arrows chasing round the friend's feet. |
+   | Ogre shove | A teal ring and chevrons marching out on the side the piece will be pushed to. |
+   | King's power | A blue rune circle (six-point star) under the square; armed power moves get blue gems. Freeze, Ice Wall and Sacrifice targets show the rune. |
+   | Selected piece | A warm glow and a gold ring at its feet. |
+
+   When a piece is selected its markers pop in, rippling out from it (300 ms each, 38 ms later per
+   square of distance). Pointing at a move shows a see-through copy of the piece standing there on a
+   gold ring; pointing at a capture turns its brackets and ring gold. The keyboard cursor previews the
+   same way. With Animations off or reduced motion the markers appear at once and stay still. Pulses
+   ride the selected figure's ~30 fps idle; only the pop-in asks for full-rate frames. The clay look
+   keeps its tile tints (Freeze/Ice Wall/Sacrifice targets now tint amber there too).
+   [moves](round2/moves-desktop.webp) · [phone](round2/moves-phone.webp) ·
+   [preview](round2/moves-hover-move-desktop.webp) · [capture under the pointer](round2/moves-hover-capture-desktop.webp) ·
+   [Archer](round2/special-archer-desktop.webp) · [Ogre](round2/special-ogre-desktop.webp) ·
+   [Maester](round2/special-maester-desktop.webp) · [Flight](round2/special-flight-desktop.webp) ·
+   [Freeze](round2/special-freeze-desktop.webp) · [reduced motion](round2/moves-reduced-motion-desktop.webp) ·
+   [video](round2/markers.webm) (recorded in real time in headless Chromium, so the frame rate is lower than on a device)
+
 ## What changed
 
 | Area | Before | After |

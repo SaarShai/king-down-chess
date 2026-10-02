@@ -1,5 +1,5 @@
 // Checks the visual design pass in a real browser: title screen, keyboard play, move announcements,
-// Show threats, refusal messages, piece cards and phone tap targets.
+// Show threats, refusal messages, piece cards, phone tap targets, the title's piece lineup and the move markers.
 // Needs a running build: PLAYABLE_URL=http://127.0.0.1:5189/ PLAYABLE_BROWSER=chromium node docs/visual-design/verify.mjs
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
@@ -161,6 +161,39 @@ try {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   ok('phone: every visible control in the panel, New game, Settings and Guide is at least 44 px');
   await page.context().close();
+
+  // 7. Round 2: the title's lineup shows all twelve pieces and leaves the buttons on screen.
+  for (const [kind, viewport, touch] of [['desktop', { width: 1280, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
+    page = await open('', { skipTitle: false, viewport, touch });
+    const figs = page.locator('.title-lineup img');
+    assert.equal(await figs.count(), 12, 'twelve figures');
+    await page.waitForFunction(() => [...document.querySelectorAll('.title-lineup img')].every(i => i.complete && i.naturalWidth > 0));
+    const names = await page.locator('.title-lineup span').allInnerTexts();
+    assert.equal(new Set(names.map(n => n.toLowerCase())).size, 12, 'twelve different names');
+    for (const id of ['#title-learn', '#title-play']) {
+      const r = await page.locator(id).boundingBox();
+      assert.ok(r && r.y >= 0 && r.y + r.height <= viewport.height, `${id} on screen (${kind})`);
+    }
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `no sideways scroll (${kind})`);
+    await page.context().close();
+  }
+  ok('title lineup: twelve painted figures with names; Learn and Play stay on screen at 1280×900 and 390×844');
+
+  // 8. Round 2 markers: shots, powers and the keyboard preview reach the painted board.
+  page = await open('?fen=' + encodeURIComponent('4k3/8/1p3r2/8/3A4/8/8/4K3 w - - 0 1'));
+  await ready(page);
+  await tap(page, 27); // the archer on d4
+  const shotMarks = await page.evaluate(() => ({ shots: window.view.marks.shots, captures: window.view.marks.captures }));
+  assert.deepEqual([...shotMarks.shots].sort(), [41, 45], 'the archer sights b6 and f6');
+  assert.deepEqual([...shotMarks.captures].sort(), [41, 45]);
+  await page.context().close();
+  page = await open('?kings=stratus:flight,none&fen=' + encodeURIComponent('4k3/p7/8/8/8/8/P7/1N2K3 w - - 0 1'));
+  await ready(page);
+  await page.click('#power-btn'); await tap(page, 1);
+  const flight = await page.evaluate(() => ({ powers: window.view.marks.powers.length, moves: window.view.marks.moves.length }));
+  assert.ok(flight.powers > 0 && flight.powers === flight.moves, `Flight's squares are power marks (${flight.powers}/${flight.moves})`);
+  await page.context().close();
+  ok('markers: Archer targets are sights; an armed Flight marks its squares as power moves');
 
   assert.deepEqual(errors, []);
   writeFileSync(new URL('./checks.json', import.meta.url), JSON.stringify({ url: base, checksPassed: checks.length, checks, errors }, null, 2) + '\n');

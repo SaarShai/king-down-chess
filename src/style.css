@@ -378,7 +378,7 @@ dialog small { color: var(--ink-soft); }
     radial-gradient(60% 45% at 50% 40%, rgba(214, 160, 72, 0.28), transparent 70%),
     radial-gradient(120% 90% at 50% 30%, #4a3e31 0%, var(--night) 55%, #120f0c 100%);
 }
-#title-screen[open] { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+#title-screen[open] { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; }
 #title-screen::backdrop { background: var(--night); }
 .title-stage { position: relative; min-height: 0; perspective: 900px; }
 .title-floor {
@@ -418,7 +418,38 @@ dialog small { color: var(--ink-soft); }
 .title-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
 .title-actions button { width: auto; min-width: 200px; min-height: 52px; justify-content: center; font-size: var(--fs-lg); padding: 10px 22px; }
 .title-actions button.primary { border-color: #e9c071; box-shadow: 0 2px 0 var(--accent-deep), 0 0 0 1px rgba(233, 192, 113, 0.5); }
+/* The lineup: every piece on a stone ledge, alternating armies, sized as they stand on the board. */
+.title-lineup {
+  --fig: 112px; /* the tallest figure (the Ogre); the others scale by --h */
+  position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 0 2px;
+  width: min(100%, 1040px); margin: 0 auto; padding: 0 var(--space-4) 0; list-style: none;
+}
+/* The ledge: a strip of dark stone with a lit gold edge, under the figures' feet. */
+.title-lineup::before {
+  content: ''; position: absolute; left: 6%; right: 6%; bottom: 17px; height: 16px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(10, 7, 4, 0.75), rgba(10, 7, 4, 0));
+}
+.title-lineup::after {
+  content: ''; position: absolute; left: 10%; right: 10%; bottom: 20px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(233, 192, 113, 0.55) 20%, rgba(233, 192, 113, 0.55) 80%, transparent);
+}
+.title-lineup li {
+  position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  flex: 1 1 0; min-width: 0; max-width: 84px;
+}
+.title-lineup img {
+  height: calc(var(--fig) * var(--h)); width: auto; max-width: 118%; object-fit: contain; object-position: bottom;
+  filter: drop-shadow(0 6px 5px rgba(0, 0, 0, 0.6));
+  transition: translate 220ms cubic-bezier(.2, .8, .2, 1), filter 220ms;
+}
+.title-lineup span {
+  margin-top: 6px; font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--on-night-soft); white-space: nowrap; transition: color 220ms;
+}
+.title-lineup li:hover img { translate: 0 -6px; filter: drop-shadow(0 10px 7px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 10px rgba(233, 192, 113, 0.45)); }
+.title-lineup li:hover span { color: #e9c071; }
 @media (prefers-reduced-motion: no-preference) {
+  #title-screen[open] .title-lineup li { animation: rise 520ms cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(260ms + var(--i) * 45ms); }
   #title-screen[open] .title-fig { animation: rise 700ms cubic-bezier(.2, .8, .2, 1) both; }
   #title-screen[open] .fig-1, #title-screen[open] .fig-4 { animation-delay: 120ms; }
   #title-screen[open] .title-copy { animation: fade 600ms ease-out 200ms both; }
@@ -466,8 +497,17 @@ dialog small { color: var(--ink-soft); }
   .pc-medallion { width: 52px; height: 52px; font-size: 24px; margin-bottom: 20px; }
   .piece-card dl { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .piece-card dd { margin-bottom: 4px; }
-  #title-screen[open] { grid-template-rows: minmax(0, 1fr) auto; }
+  #title-screen[open] { grid-template-rows: minmax(0, 1fr) auto auto; }
   .title-fig { height: min(52%, 58vw); bottom: 8%; }
+  /* Two rows of six on a phone, each on its own ledge line. */
+  .title-lineup { --fig: 64px; flex-wrap: wrap; gap: 4px 0; width: min(100%, 380px); padding: 0 var(--space-3); }
+  .title-lineup li { flex: 0 0 calc(100% / 6); max-width: none; padding-bottom: 2px; }
+  .title-lineup::before, .title-lineup::after { display: none; }
+  .title-lineup li::before {
+    content: ''; position: absolute; z-index: -1; left: 4%; right: 4%; bottom: 14px; height: 10px; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(10, 7, 4, 0.75), rgba(10, 7, 4, 0));
+  }
+  .title-lineup span { margin-top: 3px; font-size: 9.5px; letter-spacing: 0.04em; }
   .fig-1, .fig-4 { display: none; }
   .title-actions { flex-direction: column; align-items: stretch; width: min(100%, 340px); }
   .title-actions button { min-width: 0; }

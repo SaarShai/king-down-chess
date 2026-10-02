@@ -35,6 +35,10 @@ export interface PaintedScene {
   setLively(options: { moves?: boolean; idle?: boolean; atmosphere?: boolean }): void;
   setDecorate(fn: ((ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over') => void) | null): void;
   redraw(): void;
+  /** Draw every frame for the next `ms` milliseconds (a decoration's own short animation). */
+  keepAwake(ms: number): void;
+  /** A see-through copy of figure `piece` standing on `square` (a move preview), drawn into `ctx`; for setDecorate. */
+  ghost(ctx: CanvasRenderingContext2D, piece: number, square: number, opacity?: number): void;
   /** onContact fires once when the strike lands (not for plain moves or swaps). */
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
   play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null }): Promise<boolean>;
