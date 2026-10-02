@@ -18,7 +18,9 @@ const PAGE_TIMEOUT_MS = 4000;
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    await cache.addAll(PRECACHE.map(url => new Request(url, { cache: 'reload' })));
+    // Hashed files under assets/ never change, so the copies this visit just downloaded will do;
+    // everything else is fetched fresh.
+    await cache.addAll(PRECACHE.map(url => new Request(url, { cache: url.startsWith('assets/') ? 'default' : 'reload' })));
     await self.skipWaiting();
   })());
 });

@@ -9,6 +9,8 @@
  * "first move" is when a tap on e2 then e4 (300 ms apart), made right then, shows in the move list.
  * Bytes are what crossed the network (compressed size) until the first move.
  * The repeat visit reloads in the same profile; the offline check then cuts the network and reloads again.
+ * Emulated network limits do not apply to a service worker's own fetches, so one extra cold run per look
+ * blocks service workers: its numbers must match the normal cold runs.
  */
 import { chromium } from 'playwright';
 import { writeFileSync } from 'node:fs';
@@ -54,8 +56,8 @@ async function measureVisit(page, net, look) {
   return { look, boardReadyMs: Math.round(readyAt), firstMoveMs: Math.round(moveAt), bytesAtReady, bytesAtMove: net.bytes, requests: net.requests, wallMs: Date.now() - t0, errors };
 }
 
-async function freshPage(look) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: false });
+async function freshPage(look, serviceWorkers = 'allow') {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: false, serviceWorkers });
   await context.addInitScript(look => {
     try { if (!localStorage.getItem('kingdown.look')) localStorage.setItem('kingdown.look', look); } catch { /* storage blocked */ }
   }, look);
@@ -95,8 +97,13 @@ for (const look of ['painted', 'clay']) {
     }
     await context.close();
   }
+  // Cross-check: the network emulation does not reach a service worker's own downloads, so one
+  // more cold run with service workers blocked must agree with the runs above.
+  const noWorker = await freshPage(look, 'block');
+  const coldNoServiceWorker = await measureVisit(noWorker.page, noWorker.net, look);
+  await noWorker.context.close();
   results.looks[look] = {
-    cold,
+    cold, coldNoServiceWorker,
     median: {
       boardReadyMs: median(cold.map(c => c.boardReadyMs)),
       firstMoveMs: median(cold.map(c => c.firstMoveMs)),
@@ -107,6 +114,7 @@ for (const look of ['painted', 'clay']) {
   const m = results.looks[look].median;
   console.log(`${look}: board ready ${(m.boardReadyMs / 1000).toFixed(1)} s, first move ${(m.firstMoveMs / 1000).toFixed(1)} s, `
     + `${(m.bytesAtMove / 1e6).toFixed(2)} MB transferred (median of ${runs}); `
+    + `without service worker ${(coldNoServiceWorker.boardReadyMs / 1000).toFixed(1)} s, ${(coldNoServiceWorker.bytesAtMove / 1e6).toFixed(2)} MB; `
     + `repeat visit ${(repeat.boardReadyMs / 1000).toFixed(1)} s, ${(repeat.bytesAtMove / 1e6).toFixed(2)} MB; `
     + `offline reload ${offline.ok ? `ok, board in ${(offline.boardReadyMs / 1000).toFixed(1)} s` : `FAILED (${offline.error})`}`);
   for (const c of [...cold, repeat]) if (c.errors.length) console.log(`  page errors: ${c.errors.join(' | ')}`);

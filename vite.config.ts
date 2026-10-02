@@ -23,9 +23,13 @@ function offlineBuild(): Plugin {
     apply: 'build',
     configResolved(config) { publicDir = config.publicDir; outDir = resolve(config.root, config.build.outDir); },
     transformIndexHtml() {
-      // After load, so registering never competes with the first visit's downloads.
-      return [{ tag: 'script', injectTo: 'head', children:
-        "if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));" }];
+      // Only once the board is drawn (main.ts exposes `view` for the tools), so caching for offline
+      // never competes with a first visit's downloads; it gives up waiting after 60 s.
+      return [{ tag: 'script', injectTo: 'head', children: `if ('serviceWorker' in navigator) addEventListener('load', async () => {
+  for (let t = 0; !window.view && t < 300; t++) await new Promise(r => setTimeout(r, 200));
+  await Promise.race([window.view?.ready(), new Promise(r => setTimeout(r, 60000))]);
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+});` }];
     },
     generateBundle(_options, bundle) {
       // Chunks reachable without the clay look are precached; clay's are cached when first used.

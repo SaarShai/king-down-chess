@@ -1,0 +1,149 @@
+{
+  "url": "http://127.0.0.1:5189/",
+  "network": "1.6 Mbps down, 750 kbps up, 150 ms RTT",
+  "cpu": "4x slowdown",
+  "viewport": "390x844",
+  "runs": 3,
+  "looks": {
+    "painted": {
+      "cold": [
+        {
+          "look": "painted",
+          "boardReadyMs": 12719,
+          "firstMoveMs": 13849,
+          "bytesAtReady": 2063282,
+          "bytesAtMove": 2063282,
+          "requests": 19,
+          "wallMs": 14114,
+          "errors": []
+        },
+        {
+          "look": "painted",
+          "boardReadyMs": 12936,
+          "firstMoveMs": 14110,
+          "bytesAtReady": 2063282,
+          "bytesAtMove": 2063282,
+          "requests": 19,
+          "wallMs": 14368,
+          "errors": []
+        },
+        {
+          "look": "painted",
+          "boardReadyMs": 13147,
+          "firstMoveMs": 14306,
+          "bytesAtReady": 2063282,
+          "bytesAtMove": 2063282,
+          "requests": 19,
+          "wallMs": 14564,
+          "errors": []
+        }
+      ],
+      "coldNoServiceWorker": {
+        "look": "painted",
+        "boardReadyMs": 12863,
+        "firstMoveMs": 14066,
+        "bytesAtReady": 2063282,
+        "bytesAtMove": 2063282,
+        "requests": 19,
+        "wallMs": 14339,
+        "errors": []
+      },
+      "median": {
+        "boardReadyMs": 12936,
+        "firstMoveMs": 14110,
+        "bytesAtMove": 2063282
+      },
+      "repeat": {
+        "look": "painted",
+        "boardReadyMs": 2508,
+        "firstMoveMs": 3617,
+        "bytesAtReady": 0,
+        "bytesAtMove": 0,
+        "requests": 19,
+        "wallMs": 3888,
+        "errors": []
+      },
+      "offline": {
+        "ok": true,
+        "look": "painted",
+        "boardReadyMs": 2810,
+        "firstMoveMs": 3457,
+        "bytesAtReady": 0,
+        "bytesAtMove": 0,
+        "requests": 19,
+        "wallMs": 3461,
+        "errors": []
+      }
+    },
+    "clay": {
+      "cold": [
+        {
+          "look": "clay",
+          "boardReadyMs": 20267,
+          "firstMoveMs": 23944,
+          "bytesAtReady": 3134691,
+          "bytesAtMove": 3134691,
+          "requests": 25,
+          "wallMs": 24424,
+          "errors": []
+        },
+        {
+          "look": "clay",
+          "boardReadyMs": 30195,
+          "firstMoveMs": 33800,
+          "bytesAtReady": 4826546,
+          "bytesAtMove": 4826546,
+          "requests": 27,
+          "wallMs": 34326,
+          "errors": []
+        },
+        {
+          "look": "clay",
+          "boardReadyMs": 27491,
+          "firstMoveMs": 31710,
+          "bytesAtReady": 4214868,
+          "bytesAtMove": 4214868,
+          "requests": 26,
+          "wallMs": 32295,
+          "errors": []
+        }
+      ],
+      "coldNoServiceWorker": {
+        "look": "clay",
+        "boardReadyMs": 30366,
+        "firstMoveMs": 34181,
+        "bytesAtReady": 4830198,
+        "bytesAtMove": 4830198,
+        "requests": 27,
+        "wallMs": 34635,
+        "errors": []
+      },
+      "median": {
+        "boardReadyMs": 27491,
+        "firstMoveMs": 31710,
+        "bytesAtMove": 4214868
+      },
+      "repeat": {
+        "look": "clay",
+        "boardReadyMs": 10203,
+        "firstMoveMs": 14510,
+        "bytesAtReady": 0,
+        "bytesAtMove": 0,
+        "requests": 26,
+        "wallMs": 15008,
+        "errors": []
+      },
+      "offline": {
+        "ok": true,
+        "look": "clay",
+        "boardReadyMs": 8772,
+        "firstMoveMs": 12297,
+        "bytesAtReady": 0,
+        "bytesAtMove": 0,
+        "requests": 26,
+        "wallMs": 12799,
+        "errors": []
+      }
+    }
+  }
+}
