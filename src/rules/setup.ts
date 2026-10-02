@@ -46,9 +46,10 @@ export function startPosition(backRank: string = randomBackRank()): Position {
  * Uppercase = white. `H`/`h` is a guard that has spent its one capture (`Rules.guardCaptureLimit`).
  *
  * Field 7 is the kings' power state, written only when there is some (docs/RULES.md §4):
- * `/`-separated tokens — `u1.0` uses spent [white.black], `me5` a Freeze/Ice Wall mark, `hd4` a
- * pending Haste second move, `lRn` the Sacrifice reserve (pieces each side lost, uppercase white;
- * an empty `l` still says the reserve is kept). The pre-2026-10-02 field `w` / `b` / `wb` (a spent
+ * `/`-separated tokens — `u1.0` uses spent [white.black], `me5w` a Freeze/Ice Wall mark and the
+ * side that set it (`me5w2`: it covers two more turns), `f` a free mark's ordinary move still to
+ * come, `hd4` a pending Haste second move, `lRn` the Sacrifice reserve (pieces each side lost,
+ * uppercase white; an empty `l` still says the reserve is kept). The pre-2026-10-02 field `w` / `b` / `wb` (a spent
  * Strike) still reads, as one use spent.
  */
 export function toFen(pos: Position): string {
@@ -73,7 +74,8 @@ export function toFen(pos: Position): string {
 function powerField(pos: Position): string {
   const parts: string[] = [];
   if (pos.used && (pos.used[0] || pos.used[1])) parts.push(`u${pos.used[0]}.${pos.used[1]}`);
-  if (pos.mark !== undefined) parts.push(`m${sqName(pos.mark)}`);
+  if (pos.mark !== undefined) parts.push(`m${sqName(pos.mark)}${pos.markBy === BLACK ? 'b' : 'w'}${(pos.markLeft ?? 1) > 1 ? pos.markLeft : ''}`);
+  if (pos.free) parts.push('f');
   if (pos.haste !== undefined) parts.push(`h${sqName(pos.haste)}`);
   if (pos.lost) {
     let l = '';
@@ -96,7 +98,11 @@ function readPowerField(field: string, pos: Position): void {
   for (const token of field.split('/')) {
     const kind = token[0], rest = token.slice(1);
     if (kind === 'u') { const [w = '0', b = '0'] = rest.split('.'); pos.used = [+w, +b]; }
-    else if (kind === 'm') pos.mark = parseSq(rest);
+    else if (kind === 'm') {
+      pos.mark = parseSq(rest.slice(0, 2));
+      pos.markBy = rest[2] === 'b' ? BLACK : WHITE;
+      if (rest.length > 3) pos.markLeft = +rest.slice(3);
+    } else if (kind === 'f') pos.free = true;
     else if (kind === 'h') pos.haste = parseSq(rest);
     else if (kind === 'l') {
       const lost = new Array<number>(32).fill(0);

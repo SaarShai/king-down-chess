@@ -427,7 +427,8 @@ function refreshPowers(): void {
   const tag = k ? POWER_TAG[k.power] : undefined;
   const left = usesLeft(game.pos, c);
   const spendable = !!tag && tag !== 'march' && tag !== 'leap';
-  const canUse = live && myTurn() && !busy && spendable && left !== 0 && game.pos.haste === undefined
+  const midTurn = game.pos.haste !== undefined || !!game.pos.free; // a Haste or a free mark awaits its next move
+  const canUse = live && myTurn() && !busy && spendable && left !== 0 && !midTurn
     && game.legal.some(m => m.power === tag);
   if (!canUse) armed = false;
   $('powers').hidden = !live;
@@ -436,7 +437,7 @@ function refreshPowers(): void {
   btn.disabled = !canUse;
   btn.textContent = !k ? '' : armed ? `Cancel ${POWER_NAME[k.power]}` : `Use ${POWER_NAME[k.power]}${left === null ? '' : ` (${left} left)`}`;
   btn.classList.toggle('armed', armed);
-  $('end-haste').hidden = !(live && myTurn() && !busy && game.pos.haste !== undefined);
+  $('end-haste').hidden = !(live && myTurn() && !busy && midTurn);
   $('power-status').textContent = !k ? '' : armed
     ? (tag === 'freeze' ? 'Tap an enemy piece to freeze it for one turn.'
       : tag === 'ward' ? 'Tap one of your pieces to wall it for one turn.'
@@ -444,6 +445,7 @@ function refreshPowers(): void {
       : tag === 'haste' ? 'Move a piece; it may then move again.'
       : `Choose a piece, then a marked square (${POWER_NAME[k.power]}).`)
     : game.pos.haste !== undefined && myTurn() ? 'Haste: move the same piece again, or end the turn.'
+    : game.pos.free && myTurn() ? 'Now make your move, or end the turn.'
     : ''; // the info card already says what each king's power does
 }
 
@@ -820,7 +822,7 @@ function undo(): void {
   lessonDone = false;
   game.undo();
   // Back to a person's turn, and never into the middle of a Haste turn: take that turn back whole.
-  while (game.history.length && ((sides[game.pos.turn] === 'ai' && sides.includes('human')) || game.pos.haste !== undefined)) game.undo();
+  while (game.history.length && ((sides[game.pos.turn] === 'ai' && sides.includes('human')) || game.pos.haste !== undefined || game.pos.free)) game.undo();
   restoreMoments();
   view.sync(game.pos);
   refresh();

@@ -14,13 +14,14 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  Color, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, filterMarks, genHasteFollowUp, genPiece, genPowerMoves, isAttacked,
+  Color, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, filterMarks, freePass, genHasteFollowUp, genPiece, genPowerMoves, isAttacked,
   keepsLost, landed, materialDraw, piece, powerOf, powerUses, typeOf,
 } from '../rules/engine';
 import type { PowerName } from '../rules/rules';
 import { VALUES, evalBoard } from './eval';
 import {
-  Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO, Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO,
+  Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LEFT_HI, Z_LEFT_LO, Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO,
+  Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO,
   combine, hashBoard, lostIndex, usedIndex, zIndex,
 } from './zobrist';
 
@@ -76,8 +77,12 @@ let gameHistory = new Set<number>();
 const sideAt = new Uint8Array(MAX_PLY + QMAX + 2);
 /** Uses spent per side (`Position.used`); a mutable pair, so `materialDraw` reads it with no allocation. */
 const usedPair: [number, number] = [0, 0];
-/** Freeze/Ice Wall mark binding the side to move, and the pending Haste square; -1 = none. */
-let mark = -1, hasteSq = -1;
+/**
+ * Freeze/Ice Wall mark (-1 = none), the side that set it, the turns of the other side it still
+ * covers, a pending free-mark move (`Position.free`), and the pending Haste square (-1 = none).
+ */
+let mark = -1, markBy = 0, markLeft = 1, hasteSq = -1;
+let free = false;
 /** Sacrifice reserve (`Position.lost`), kept only when `trackLost`. */
 const lost = new Int32Array(32);
 let trackLost = false;
@@ -90,6 +95,7 @@ let lostTop = 0;
 const FRAMES = MAX_PLY + QMAX + 8;
 const fBase = new Int32Array(FRAMES), fUsed0 = new Int32Array(FRAMES), fUsed1 = new Int32Array(FRAMES);
 const fMark = new Int32Array(FRAMES), fHaste = new Int32Array(FRAMES), fLostTop = new Int32Array(FRAMES), fFlip = new Uint8Array(FRAMES);
+const fMarkBy = new Uint8Array(FRAMES), fMarkLeft = new Uint8Array(FRAMES), fFree = new Uint8Array(FRAMES);
 let fsp = 0;
 /**
  * Power moves are offered only at plies 0…`powerPlyMax` (root, reply, own next move by default);
@@ -128,10 +134,22 @@ function setUsed(c: Color, v: number): void {
   }
   usedPair[c] = v;
 }
-function setMark(v: number): void {
-  if (mark >= 0) { hLo ^= Z_MARK_LO[mark]; hHi ^= Z_MARK_HI[mark]; }
-  if (v >= 0) { hLo ^= Z_MARK_LO[v]; hHi ^= Z_MARK_HI[v]; }
-  mark = v;
+/** Set the mark (-1 clears it), with its keys: square per marking side, and turns left above 1. */
+function setMark(v: number, by: number, left: number): void {
+  if (mark >= 0) {
+    const i = markBy * 64 + mark;
+    hLo ^= Z_MARK_LO[i]; hHi ^= Z_MARK_HI[i];
+    if (markLeft > 1) { hLo ^= Z_LEFT_LO[markLeft]; hHi ^= Z_LEFT_HI[markLeft]; }
+  }
+  if (v >= 0) {
+    const i = by * 64 + v;
+    hLo ^= Z_MARK_LO[i]; hHi ^= Z_MARK_HI[i];
+    if (left > 1) { hLo ^= Z_LEFT_LO[left]; hHi ^= Z_LEFT_HI[left]; }
+  }
+  mark = v; markBy = by; markLeft = left;
+}
+function setFree(v: boolean): void {
+  if (v !== free) { hLo ^= Z_FREE_LO[0]; hHi ^= Z_FREE_HI[0]; free = v; }
 }
 function setHaste(v: number): void {
   if (hasteSq >= 0) { hLo ^= Z_HASTE_LO[hasteSq]; hHi ^= Z_HASTE_HI[hasteSq]; }
@@ -193,6 +211,7 @@ function apply(m: Move, c: Color): number {
   const base = sp;
   fBase[fsp] = base; fUsed0[fsp] = usedPair[0]; fUsed1[fsp] = usedPair[1];
   fMark[fsp] = mark; fHaste[fsp] = hasteSq; fLostTop[fsp] = lostTop;
+  fMarkBy[fsp] = markBy; fMarkLeft[fsp] = markLeft; fFree[fsp] = free ? 1 : 0;
   const still = m.power === 'freeze' || m.power === 'ward' || m.pass === true;
   if (!still) {
     const mover = board[m.from], other = board[m.to];
@@ -207,9 +226,16 @@ function apply(m: Move, c: Color): number {
     write(m.to, m.selfRemove ? 0 : landed(mover, m));
   }
   if (m.power) setUsed(c, usedPair[c] + 1);
-  const holdTurn = m.power === 'haste';
-  setMark(m.power === 'freeze' || m.power === 'ward' ? m.to : holdTurn ? mark : -1);
-  setHaste(holdTurn ? m.to : -1);
+  const isMark = m.power === 'freeze' || m.power === 'ward';
+  const holdTurn = m.power === 'haste' || (isMark && RULES.markFree);
+  // Mirror of makeMove: a mark lasts through its side's moves and `markLeft` turns of the other.
+  if (isMark) setMark(m.to, c, RULES.markTurns);
+  else if (mark >= 0) {
+    const left = c === markBy || holdTurn ? markLeft : markLeft - 1;
+    setMark(left > 0 ? mark : -1, markBy, left);
+  }
+  setFree(isMark && RULES.markFree);
+  setHaste(m.power === 'haste' ? m.to : -1);
   fFlip[fsp] = holdTurn ? 0 : 1;
   if (!holdTurn) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
   fsp++;
@@ -220,7 +246,8 @@ function undo(base: number): void {
   fsp--;
   if (fFlip[fsp]) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
   setHaste(fHaste[fsp]);
-  setMark(fMark[fsp]);
+  setFree(fFree[fsp] === 1);
+  setMark(fMark[fsp], fMarkBy[fsp], fMarkLeft[fsp]);
   setUsed(0, fUsed0[fsp]);
   setUsed(1, fUsed1[fsp]);
   while (lostTop > fLostTop[fsp]) { lostTop--; const i = lostLogIdx[lostTop]; lostSet(i, lost[i] - lostLogDelta[lostTop]); }
@@ -303,9 +330,10 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
       const p = board[s];
       if (p && colorOf(p) === c) genPiece(board, s, mode, out);
     }
-    if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) genPowerMoves(board, c, usedPair[c], trackLost ? lost : undefined, out, 0, out.length);
+    if (free) { if (mode === 'all') out.push(freePass(board, c)); }
+    else if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) genPowerMoves(board, c, usedPair[c], trackLost ? lost : undefined, out, 0, out.length);
   }
-  if (mark >= 0) filterMarks(c, mark, out);
+  if (mark >= 0) filterMarks(c, mark, markBy as Color, out);
   // Legality is "make it, then look at our king" — but only a move that could expose the king needs
   // the look: we are in check; the king itself moves (Death Touch and Mercy included); a swap or a
   // shove moves a second piece; the mover leaves a line through the king (a slider's ray opens);
@@ -502,7 +530,7 @@ function negamax(depth: number, alpha: number, beta: number, ply: number, hm: nu
 
   const inChk = attacked(c);
   if (inChk && ply < rootDepth * 2) depth++; // check extension, capped at twice the nominal depth
-  if (depth <= 0 && hasteSq < 0) return quiesce(alpha, beta, ply, QMAX, hm);
+  if (depth <= 0 && hasteSq < 0 && !free) return quiesce(alpha, beta, ply, QMAX, hm);
 
   const moves = genLegal(bufs[ply], c, 'all', ply, inChk);
   if (moves.length === 0) return inChk ? -MATE + ply : 0;
@@ -514,11 +542,12 @@ function negamax(depth: number, alpha: number, beta: number, ply: number, hm: nu
     const m = moves[i];
     const quiet = m.captures.length === 0 && !m.promo;
     const nhm = moveResets(m) ? 0 : hm + 1;
-    const holdTurn = m.power === 'haste';
+    const holdTurn = m.power === 'haste' || (RULES.markFree && (m.power === 'freeze' || m.power === 'ward'));
     const base = apply(m, c);
     let v: number;
     if (holdTurn) {
-      // Haste: the same side moves again — same depth (the turn is not over), same sign, full window.
+      // Haste, or a free mark: the same side moves again — same depth (the turn is not over), same
+      // sign, full window.
       sideAt[ply + 1] = c;
       v = negamax(depth, alpha, beta, ply + 1, nhm);
     } else {
@@ -607,7 +636,13 @@ export function positionKey(pos: Position): number {
       }
     }
   }
-  if (pos.mark !== undefined) { lo ^= Z_MARK_LO[pos.mark]; hi ^= Z_MARK_HI[pos.mark]; }
+  if (pos.mark !== undefined) {
+    const i = (pos.markBy ?? 0) * 64 + pos.mark;
+    lo ^= Z_MARK_LO[i]; hi ^= Z_MARK_HI[i];
+    const left = pos.markLeft ?? 1;
+    if (left > 1) { lo ^= Z_LEFT_LO[left]; hi ^= Z_LEFT_HI[left]; }
+  }
+  if (pos.free) { lo ^= Z_FREE_LO[0]; hi ^= Z_FREE_HI[0]; }
   if (pos.haste !== undefined) { lo ^= Z_HASTE_LO[pos.haste]; hi ^= Z_HASTE_HI[pos.haste]; }
   hashOut[0] = lo;
   hashOut[1] = hi;
@@ -629,6 +664,9 @@ function initPosition(pos: Position): void {
   usedPair[0] = pos.used?.[0] ?? 0;
   usedPair[1] = pos.used?.[1] ?? 0;
   mark = pos.mark ?? -1;
+  markBy = pos.markBy ?? 0;
+  markLeft = pos.markLeft ?? 1;
+  free = !!pos.free;
   hasteSq = pos.haste ?? -1;
   trackLost = keepsLost();
   lost.fill(0);
@@ -708,11 +746,11 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
     for (let i = 0; i < rootMoves.length; i++) {
       const m = rootMoves[i];
       const nhm = moveResets(m) ? 0 : pos.halfmove + 1;
-      const holdTurn = m.power === 'haste';
+      const holdTurn = m.power === 'haste' || (RULES.markFree && (m.power === 'freeze' || m.power === 'ward'));
       const base = apply(m, pos.turn);
       let v: number;
       if (holdTurn) {
-        // Haste: the second move belongs to this same turn — searched at the same depth, same sign.
+        // Haste or a free mark: the next move belongs to this same turn — same depth, same sign.
         sideAt[1] = pos.turn;
         v = negamax(depth, multi ? -INF : alpha, INF, 1, nhm);
       } else {

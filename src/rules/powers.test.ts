@@ -37,7 +37,7 @@ describe('Freeze (Frost A)', () => {
     const freezes = lans(pos).filter(l => l.startsWith('!F:'));
     expect(freezes).toEqual(['!F:d5', '!F:d6']);
     let p = play(pos, '!F:d5');
-    expect(toFen(p)).toBe('4k3/8/3p4/3n4/8/8/8/4K3 b - - 1 1 u1.0/md5'); // no square changed
+    expect(toFen(p)).toBe('4k3/8/3p4/3n4/8/8/8/4K3 b - - 1 1 u1.0/md5w'); // no square changed
     expect(p.used).toEqual([1, 0]);
     p = play(p, 'Ke8-f8');
     p = play(p, '!F:d5');
@@ -272,6 +272,42 @@ describe('balance-lab readings', () => {
   });
 });
 
+describe('Freeze and Ice Wall readings: free action, two turns', () => {
+  it('markFree: the mark keeps the turn for an ordinary move (or a pass), then binds the opponent', () => {
+    powers('Freeze', null, { markFree: true });
+    let p = play(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'), '!F:d5');
+    expect(p.turn).toBe(WHITE);
+    expect(p.free).toBe(true);
+    expect(lans(p).some(l => l.startsWith('!F:'))).toBe(false); // no second power this turn
+    expect(lans(p)).toContain('--');
+    p = play(p, 'a2-a4');
+    expect(p.turn).toBe(BLACK);
+    expect(p.free).toBeUndefined();
+    expect(lans(p).some(l => l.startsWith('Nd5'))).toBe(false); // frozen for Black's turn
+    p = play(p, 'Ke8-f8');
+    expect(p.mark).toBeUndefined();
+    expect(toFen(play(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'), '!F:d5')).split(' ')[6]).toBe('u1.0/md5w/f');
+  });
+
+  it('markTurns 2: an Ice Wall covers two of the opponent\u2019s turns', () => {
+    powers('IceWall', null, { markTurns: 2 });
+    let p = play(fromFen('4k3/8/8/8/R7/8/2b5/4K3 w - - 0 1'), '!W:a4');
+    expect(lans(p)).not.toContain('Bc2xa4');
+    p = play(play(p, 'Ke8-f8'), 'Ke1-f1');
+    expect(p.markLeft).toBeUndefined();          // one turn left
+    expect(lans(p)).not.toContain('Bc2xa4');     // still walled on Black's second turn
+    p = play(play(p, 'Kf8-e8'), 'Kf1-e1');
+    expect(lans(p)).toContain('Bc2xa4');
+  });
+
+  it('a whole-turn mark is the rulebook default', () => {
+    powers('Freeze', null);
+    const p = play(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'), '!F:d5');
+    expect(p.turn).toBe(BLACK);
+    expect(p.free).toBeUndefined();
+  });
+});
+
 describe('the search keeps the power state exactly as positionKey does', () => {
   const cases: [string, PowerName | null, PowerName | null, string][] = [
     ['freeze', 'Freeze', 'IceWall', '4k3/8/3m4/3n4/3o4/8/3P4/4K3 w - - 0 1'],
@@ -282,7 +318,9 @@ describe('the search keeps the power state exactly as positionKey does', () => {
     ['sacrifice', 'Sacrifice', 'Haste', '4k3/8/8/8/3b4/8/P1N5/4K3 w - - 0 1 lQr'],
     ['march', 'March', 'Leap', '4k3/p7/8/8/8/4P3/3P4/4K3 w - - 0 1'],
     ['leap', 'Leap', 'March', '7k/8/8/p7/8/8/P7/R6K w - - 0 1'],
-    ['frozen side', null, 'Freeze', '4k3/8/8/3n4/8/8/8/4K3 b - - 1 1 u0.1/md5'],
+    ['frozen side', 'Freeze', null, '4k3/8/8/3n4/8/8/8/4K3 b - - 1 1 u1.0/md5w'],
+    ['free mark', 'Freeze', null, '4k3/8/8/3n4/8/8/P7/4K3 w - - 1 1 u1.0/md5w/f'],
+    ['two-turn mark', 'IceWall', 'Freeze', '4k3/8/8/8/R7/8/2b5/4K3 b - - 1 1 u1.0/ma4w2'],
   ];
   for (const [name, white, black, fen] of cases) {
     it(name, () => {
@@ -302,8 +340,8 @@ describe('the search keeps the power state exactly as positionKey does', () => {
     const spend: PowerName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap'];
     let seed = 11;
     const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
-    for (let g = 0; g < 16; g++) {
-      powers(spend[g % 8], spend[(g * 3 + 1) % 8]);
+    for (let g = 0; g < 24; g++) {
+      powers(spend[g % 8], spend[(g * 3 + 1) % 8], g >= 16 ? { markFree: true, markTurns: 2 } : {});
       let pos = fromFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1');
       for (let ply = 0; ply < 60 && status(pos) === 'playing'; ply++) {
         const moves = legalMoves(pos);
@@ -327,7 +365,9 @@ describe('the search keeps the power state exactly as positionKey does', () => {
 function normalised(p: Position): Position {
   const out: Position = { board: p.board, turn: p.turn, halfmove: p.halfmove, ply: p.ply };
   if (p.used && (p.used[0] || p.used[1])) out.used = p.used;
-  if (p.mark !== undefined) out.mark = p.mark;
+  if (p.mark !== undefined) { out.mark = p.mark; out.markBy = p.markBy; }
+  if ((p.markLeft ?? 1) > 1) out.markLeft = p.markLeft;
+  if (p.free) out.free = true;
   if (p.haste !== undefined) out.haste = p.haste;
   if (p.lost) out.lost = p.lost;
   return out;

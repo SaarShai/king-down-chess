@@ -110,11 +110,21 @@ export interface Position {
    */
   used?: readonly [number, number];
   /**
-   * A Freeze or Ice Wall mark that binds the side to move: the square the opponent named with the
-   * move before. The opponent's power says which (`markKind`). It lasts the whole turn — through a
-   * Haste's second move — and the next move that passes the turn clears it.
+   * A Freeze or Ice Wall mark: the square the marking side named. `markBy`'s power says which
+   * (`markKind`), and it binds the other side only. It lasts through the marking side's own moves
+   * and `markLeft` turns of the bound side (1 under the rulebook; `markTurns: 2` makes it 2); a
+   * Haste's second move is part of the same turn.
    */
   mark?: number;
+  /** The side that set `mark`. */
+  markBy?: Color;
+  /** Turns of the bound side the mark still covers; absent = 1. */
+  markLeft?: number;
+  /**
+   * `markFree`: the side has just set a free Freeze/Ice Wall mark and still makes its ordinary move
+   * this turn (or ends it with a `pass`); no power is offered in that move.
+   */
+  free?: boolean;
   /** Haste: the square of the piece that may still make its optional second move this turn. */
   haste?: number;
   /**
@@ -219,9 +229,13 @@ export function canSpend(c: Color, used: number): boolean {
 const marchAlways = (c: Color): boolean => powerOf(c) === 'March' && RULES.marchUses === 0;
 const leapAlways = (c: Color): boolean => powerOf(c) === 'Leap' && RULES.leapUses === 0;
 
-/** How a mark binding the side to move `c` reads: the opponent set it with Freeze or Ice Wall. */
-export function markKind(c: Color): 'frozen' | 'warded' | '' {
-  const p = powerOf((c ^ 1) as Color);
+/**
+ * How a mark set by `markBy` binds the side to move `c`: not at all on the marking side's own turn,
+ * else frozen (a Freeze) or warded (an Ice Wall).
+ */
+export function markKind(c: Color, markBy: Color | undefined): 'frozen' | 'warded' | '' {
+  if (markBy === undefined || markBy === c) return '';
+  const p = powerOf(markBy);
   return p === 'Freeze' ? 'frozen' : p === 'IceWall' ? 'warded' : '';
 }
 
@@ -727,7 +741,8 @@ export function makeMove(pos: Position, m: Move): Position {
   const reset = !still && (m.captures.length > 0 || typeOf(mover) === P);
   // The turn holds after Black's first move under `secondPlayerDoubleFirstTurn` (see the rule's
   // comment in ./rules.ts for why that is a ply check), and after the first move of a Haste.
-  const hold = (RULES.secondPlayerDoubleFirstTurn && pos.ply === 1) || m.power === 'haste';
+  const isMark = m.power === 'freeze' || m.power === 'ward';
+  const hold = (RULES.secondPlayerDoubleFirstTurn && pos.ply === 1) || m.power === 'haste' || (isMark && RULES.markFree);
   const next: Position = { board, turn: (hold ? c : c ^ 1) as Color, halfmove: reset ? 0 : pos.halfmove + 1, ply: pos.ply + 1 };
   let used = pos.used;
   if (m.power) {
@@ -736,8 +751,21 @@ export function makeMove(pos: Position, m: Move): Position {
     used = u;
   }
   if (used && (used[0] || used[1])) next.used = used;
-  if (m.power === 'freeze' || m.power === 'ward') next.mark = m.to;
-  else if (hold && pos.mark !== undefined) next.mark = pos.mark; // a mark binds the whole turn
+  if (isMark) {
+    next.mark = m.to;
+    next.markBy = c;
+    if (RULES.markTurns > 1) next.markLeft = RULES.markTurns;
+    if (RULES.markFree) next.free = true;
+  } else if (pos.mark !== undefined) {
+    // A mark lasts through its own side's moves, and through `markLeft` turns of the side it binds:
+    // a bound side's move that passes the turn uses one up (a Haste's first move does not).
+    const left = c === pos.markBy || hold ? (pos.markLeft ?? 1) : (pos.markLeft ?? 1) - 1;
+    if (left > 0) {
+      next.mark = pos.mark;
+      next.markBy = pos.markBy;
+      if (left > 1) next.markLeft = left;
+    }
+  }
   if (m.power === 'haste') next.haste = m.to;
   if (lost) next.lost = lost;
   return next;
@@ -995,9 +1023,9 @@ export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: A
  * (it may still be warded). A warded piece cannot be captured, by a chain either — the chain's
  * shorter prefixes stay. Neither changes an attack: a frozen piece still gives check.
  */
-export function filterMarks(c: Color, mark: number | undefined, out: Move[], n0 = 0): void {
+export function filterMarks(c: Color, mark: number | undefined, markBy: Color | undefined, out: Move[], n0 = 0): void {
   if (mark === undefined || mark < 0) return;
-  const kind = markKind(c);
+  const kind = markKind(c, markBy);
   if (!kind) return;
   let n = n0;
   for (let i = n0; i < out.length; i++) {
@@ -1028,15 +1056,23 @@ export function genHasteFollowUp(board: Uint8Array, at: number, mode: GenMode, o
   if (mode === 'all') out.push({ from: at, to: at, captures: [], pass: true });
 }
 
+/** The `pass` that ends a free-mark turn without an ordinary move, named by the side's king square. */
+export function freePass(board: Uint8Array, c: Color): Move {
+  const k = findKing(board, c);
+  return { from: k, to: k, captures: [], pass: true };
+}
+
 export function pseudoMoves(pos: Position, mode: GenMode = 'all'): Move[] {
   const out: Move[] = [];
   const c = pos.turn;
   if (pos.haste !== undefined) genHasteFollowUp(pos.board, pos.haste, mode, out);
   else {
     for (let s = 0; s < 64; s++) if (pos.board[s] && colorOf(pos.board[s]) === c) genPiece(pos.board, s, mode, out);
-    if (mode === 'all') genPowerMoves(pos.board, c, pos.used?.[c] ?? 0, pos.lost, out, 0, out.length);
+    // After a free mark (`markFree`): the ordinary move, or end the turn; no second power.
+    if (pos.free) { if (mode === 'all') out.push(freePass(pos.board, c)); }
+    else if (mode === 'all') genPowerMoves(pos.board, c, pos.used?.[c] ?? 0, pos.lost, out, 0, out.length);
   }
-  filterMarks(c, pos.mark, out);
+  filterMarks(c, pos.mark, pos.markBy, out);
   return out;
 }
 

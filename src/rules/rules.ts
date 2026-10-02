@@ -326,6 +326,13 @@ export interface Rules {
    */
   hasteSecond: HasteSecond;
   /**
+   * Freeze and Ice Wall as a free action (balance lab, 2026-10-02): the mark does not end the turn;
+   * the marking side then makes an ordinary move (or ends the turn). Off: the mark is the whole turn.
+   */
+  markFree: boolean;
+  /** How many of the opponent's turns a Freeze or Ice Wall mark covers (balance lab; the rulebook: 1). */
+  markTurns: 1 | 2;
+  /**
    * Mercy (balance lab, 2026-10-02): the king keeps its ordinary adjacent capture. Off (the
    * rulebook): it takes nothing but a guard. The two-square reach stays move-only either way.
    */
@@ -431,6 +438,8 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   freezeUses: 2,
   iceWallUses: 2,
   hasteSecond: 'any' as HasteSecond,
+  markFree: false,
+  markTurns: 1 as 1 | 2,
   mercyCaptures: false,
   strikeUses: 1,
   hasteUses: 1,
@@ -508,6 +517,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   freezeUses: [0, 1, 2, 3, 4, 5, 6],
   iceWallUses: [0, 1, 2, 3, 4, 5, 6],
   hasteSecond: ['any', 'quiet'],
+  markTurns: [1, 2],
   strikeUses: [0, 1, 2, 3, 4, 5, 6],
   hasteUses: [0, 1, 2, 3, 4, 5, 6],
   flightUses: [0, 1, 2, 3, 4, 5, 6],
