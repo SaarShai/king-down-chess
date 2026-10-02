@@ -98,6 +98,49 @@ try {
   assert.ok(tapped.ms < 600 && off.ms < 400, `tap-skip ${tapped.ms} ms, off ${off.ms} ms`);
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).pace), 'off', 'the choice is saved');
   await page.evaluate(() => { const s = document.getElementById('pace'); s.value = 'normal'; s.dispatchEvent(new Event('change')); });
+  // 2c'. Quiet moves have a gait (Rook glide, Pawn hop, King walk), under 500 ms at Normal; Fast halves
+  // it, a tap skips it, Off shows only the result. Timed in the page from the first animated frame.
+  const quiet = async (fen, from, to, pace, tapAfter = null) => {
+    const u = new URL(url); u.searchParams.set('fen', fen);
+    await page.goto(u.href);
+    await page.waitForFunction(sq => window.view?.pos?.board[sq] > 0, from);
+    await page.evaluate(() => window.view.ready());
+    await page.evaluate(v => { const s = document.getElementById('pace'); s.value = v; s.dispatchEvent(new Event('change')); }, pace);
+    // A frame watcher started before the click times the animation from its first frame to its last.
+    await page.evaluate(() => {
+      window.__quiet = new Promise(done => {
+        let t0 = null, kind = null; const limit = performance.now() + 4000;
+        const f = () => {
+          // Ends when this animation does (a computer reply may start right after it).
+          const on = window.view.scene.animating && (kind == null || window.view.scene.playing === kind);
+          if (on && t0 == null) { t0 = performance.now(); kind = window.view.scene.playing; }
+          if ((t0 != null && !on) || performance.now() > limit) done({ kind, ms: t0 == null ? 0 : Math.round(performance.now() - t0) }); else requestAnimationFrame(f);
+        };
+        f();
+      });
+    });
+    for (const sq of [from, to]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
+    const timing = page.evaluate(() => window.__quiet);
+    if (tapAfter != null) { await page.waitForTimeout(tapAfter); const p = await at(56); await page.mouse.click(p.x, p.y); }
+    const r = await timing;
+    await page.waitForFunction(([from, to]) => window.view.pos.board[from] === 0 && window.view.pos.board[to] > 0, [from, to], { timeout: 5000 }).catch(async e => {
+      console.log(r, await page.evaluate(() => ({ moves: document.getElementById('moves').textContent, status: document.getElementById('status').textContent, dialogs: [...document.querySelectorAll('dialog[open]')].map(d => d.id + ':' + d.textContent.slice(0, 120)), w: document.getElementById('white').value, b: document.getElementById('black').value, board: [...window.view.pos.board].map((v, i) => v ? i : -1).filter(i => i >= 0) })));
+      throw e;
+    });
+    return r;
+  };
+  const glides = [];
+  for (const [fen, from, to, gait] of [['7k/8/8/8/8/8/8/R6K w - - 0 1', 0, 24, 'glide'], ['7k/8/8/8/8/8/4P3/K7 w - - 0 1', 12, 28, 'hop'], ['7k/p7/8/8/8/8/8/3K4 w - - 0 1', 3, 4, 'walk']]) {
+    const n = await quiet(fen, from, to, 'normal'), f = await quiet(fen, from, to, 'fast');
+    assert.equal(n.kind, gait, `quiet move ${from}-${to}: ${gait}`);
+    assert.ok(n.ms < 560 && f.ms < n.ms * 0.7, `quiet ${gait}: normal ${n.ms} ms, fast ${f.ms} ms`);
+    glides.push(`${gait} ${n.ms}/${f.ms} ms`);
+  }
+  const qTap = await quiet('7k/8/8/8/8/8/8/R6K w - - 0 1', 0, 24, 'normal', 80), qOff = await quiet('7k/8/8/8/8/8/8/R6K w - - 0 1', 0, 24, 'off');
+  assert.ok(qTap.ms < 300, `quiet tap-skip ${qTap.ms} ms`);
+  assert.equal(qOff.kind, null, 'Off: no quiet animation');
+  await page.evaluate(() => { const s = document.getElementById('pace'); s.value = 'normal'; s.dispatchEvent(new Event('change')); });
+  console.log(`ok quiet moves (normal/fast): ${glides.join(', ')}; tap-skip ${qTap.ms} ms; off none`);
   // 2d. Review: a move in the list shows the board after it, ← steps back, → replays the next move,
   // the board is read-only meanwhile, and a tap on it returns to the game.
   {

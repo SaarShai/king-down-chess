@@ -17,7 +17,8 @@
 import { copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { availableParallelism } from 'node:os';
-import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
+import { type Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
+import { tsWorker } from './ts-worker';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolve as resolvePath } from 'node:path';
 import {
@@ -266,7 +267,7 @@ export function parseLan(board: Uint8Array, lan: string): Move {
   // Strike (Flame A): a trailing `!` marks the one queen-like action, so replay spends the flag.
   let strike = false;
   if (text.endsWith('!')) { strike = true; text = text.slice(0, -1); }
-  const mark = (m: Move): Move => (strike ? { ...m, strike: true } : m);
+  const mark = (m: Move): Move => (strike ? { ...m, power: 'strike' } : m);
   const from = sq(text.slice(0, 2)), rest = text.slice(2);
   if (rest.startsWith('>')) {
     // Mirror engine.ts: under `ogreMode: 'push'` the ogre follows onto the square it emptied.
@@ -422,7 +423,7 @@ class Pool {
     const per = Math.ceil(buf.length / REC / n) * REC;
     this.workers = Array.from({ length: n }, (_, i) => {
       const slice = buf.slice(i * per, Math.min(buf.length, (i + 1) * per));
-      const w = new Worker(new URL(import.meta.url), { workerData: { role: 'tune', buf: slice.buffer }, transferList: [slice.buffer] });
+      const w = tsWorker(new URL(import.meta.url), { workerData: { role: 'tune', buf: slice.buffer }, transferList: [slice.buffer] });
       // Once, not per epoch: a few hundred epochs of `once('error')` is a listener leak.
       w.on('error', e => { console.error(e); process.exit(1); });
       return w;

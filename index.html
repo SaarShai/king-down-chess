@@ -38,6 +38,13 @@
         <button id="undo" title="Take back the last move (Z)">Undo</button>
         <button id="resign" title="Resign the game">Resign</button>
       </div>
+      <div id="powers" hidden>
+        <div class="btns">
+          <button id="power-btn" type="button" title="Spend your king's power on your next move"></button>
+          <button id="end-haste" type="button" hidden title="End the turn without the Haste piece's second move">End turn</button>
+        </div>
+        <div id="power-status" role="status" aria-live="polite"></div>
+      </div>
       <button id="share" hidden title="A link that holds this game, for a friend to open and answer">Send the game link</button>
       <section class="sheet">
         <ol id="moves"></ol>
@@ -58,6 +65,12 @@
           <option value="club" selected>Club</option>
           <option value="strong">Strong</option>
         </select></label>
+      </div>
+      <h3>Kings' powers</h3>
+      <div class="fields">
+        <label>White's king <select id="power-white"><option value="none">No power</option></select></label>
+        <label>Black's king <select id="power-black"><option value="none">No power</option></select></label>
+        <small id="powers-note">Each king may bring one power from the King Down rulebook. The Guide explains them.</small>
       </div>
       <h3>Choose an army to start</h3>
       <div class="fields">
@@ -119,13 +132,10 @@
       </table>
       <p id="rules-letters"></p>
       <p id="rules-notation"></p>
-      <p><b>Kings' powers are a lab. They are off in a normal game.</b> <code>?kings=mud:march</code> gives both sides a
-        power; <code>?kings=mud:march,shadow:darkness</code> names White and Black apart. Six are built:
-        <b>Holy Light</b> (enemy pawns cannot take this king, and it cannot take pawns), <b>Mercy</b>
-        (the king steps 1–2 and jumps friends, but takes only a guard), <b>Death Touch</b> (the king
-        takes an adjacent enemy without moving — it can only take this way), <b>Darkness</b> (pawns step diagonally and take
-        straight ahead, no double step), <b>March</b> (pawns step two squares from any rank) and
-        <b>Leap</b> (rooks, bishops and the queen pass over their own pawns).</p>
+      <h3>Kings' powers</h3>
+      <p id="powers-guide">In <b>New game</b>, each king may bring one power. Spend a power with the
+        <b>Use</b> button under the board: it lights the pieces or squares the power can reach.</p>
+      <ul id="powers-list"></ul>
       <form method="dialog"><button>Close</button></form>
     </dialog>
     <dialog id="over">

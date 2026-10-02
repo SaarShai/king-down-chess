@@ -1,5 +1,5 @@
 /** Start positions, FEN-style serialisation and move notation. */
-import { BLACK, G, LETTERS, Move, P, PieceType, Position, SPENT, V, WHITE, colorOf, piece, rank, sq, sqName, typeOf } from './engine';
+import { BLACK, Color, G, LETTERS, Move, P, PieceType, Position, SPENT, V, WHITE, colorOf, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
 import { RULES } from './rules';
 
 /** King Down Classic pool: 7 of these join the king on the back rank. */
@@ -42,9 +42,15 @@ export function startPosition(backRank: string = randomBackRank()): Position {
 }
 
 /**
- * FEN-shaped: `<board> <turn> - - <halfmove> <fullmove> [strike]` (castling/en-passant always "-").
+ * FEN-shaped: `<board> <turn> - - <halfmove> <fullmove> [powers]` (castling/en-passant always "-").
  * Uppercase = white. `H`/`h` is a guard that has spent its one capture (`Rules.guardCaptureLimit`).
- * Field 7 is written only when a Strike (Flame A) has been used: `w`, `b` or `wb`.
+ *
+ * Field 7 is the kings' power state, written only when there is some (docs/RULES.md §4):
+ * `/`-separated tokens — `u1.0` uses spent [white.black], `me5w` a Freeze/Ice Wall mark and the
+ * side that set it (`me5w2`: it covers two more turns), `f` a free mark's ordinary move still to
+ * come, `hd4` a pending Haste second move, `lRn` the Sacrifice reserve (pieces each side lost,
+ * uppercase white; an empty `l` still says the reserve is kept). The pre-2026-10-02 field `w` / `b` / `wb` (a spent
+ * Strike) still reads, as one use spent.
  */
 export function toFen(pos: Position): string {
   const rows: string[] = [];
@@ -60,13 +66,58 @@ export function toFen(pos: Position): string {
     if (empty) row += empty;
     rows.push(row);
   }
-  const flags = pos.strike;
-  const extra = flags && (flags[0] || flags[1]) ? ` ${(flags[0] ? 'w' : '')}${flags[1] ? 'b' : ''}` : '';
-  return `${rows.join('/')} ${pos.turn === WHITE ? 'w' : 'b'} - - ${pos.halfmove} ${Math.floor(pos.ply / 2) + 1}${extra}`;
+  const powers = powerField(pos);
+  return `${rows.join('/')} ${pos.turn === WHITE ? 'w' : 'b'} - - ${pos.halfmove} ${Math.floor(pos.ply / 2) + 1}${powers ? ' ' + powers : ''}`;
+}
+
+/** FEN field 7, or '' when the position carries no power state. */
+function powerField(pos: Position): string {
+  const parts: string[] = [];
+  if (pos.used && (pos.used[0] || pos.used[1])) parts.push(`u${pos.used[0]}.${pos.used[1]}`);
+  if (pos.mark !== undefined) parts.push(`m${sqName(pos.mark)}${pos.markBy === BLACK ? 'b' : 'w'}${(pos.markLeft ?? 1) > 1 ? pos.markLeft : ''}`);
+  if (pos.free) parts.push('f');
+  if (pos.haste !== undefined) parts.push(`h${sqName(pos.haste)}`);
+  if (pos.lost) {
+    let l = '';
+    for (let c = 0; c < 2; c++) for (let t = 1; t < 16; t++) {
+      const letter = c === WHITE ? LETTERS[t] : LETTERS[t].toLowerCase();
+      l += letter.repeat(Math.max(0, pos.lost[c * 16 + t] ?? 0));
+    }
+    parts.push(`l${l}`);
+  }
+  return parts.join('/');
+}
+
+/** Read FEN field 7 into `pos` (see `toFen`). */
+function readPowerField(field: string, pos: Position): void {
+  if (!field) return;
+  if (/^(w|b|wb)$/.test(field)) { // before 2026-10-02: the side(s) whose one Strike was spent
+    pos.used = [field.includes('w') ? 1 : 0, field.includes('b') ? 1 : 0];
+    return;
+  }
+  for (const token of field.split('/')) {
+    const kind = token[0], rest = token.slice(1);
+    if (kind === 'u') { const [w = '0', b = '0'] = rest.split('.'); pos.used = [+w, +b]; }
+    else if (kind === 'm') {
+      pos.mark = parseSq(rest.slice(0, 2));
+      pos.markBy = rest[2] === 'b' ? BLACK : WHITE;
+      if (rest.length > 3) pos.markLeft = +rest.slice(3);
+    } else if (kind === 'f') pos.free = true;
+    else if (kind === 'h') pos.haste = parseSq(rest);
+    else if (kind === 'l') {
+      const lost = new Array<number>(32).fill(0);
+      for (const ch of rest) {
+        const up = ch.toUpperCase(), t = LETTERS.indexOf(up);
+        if (t <= 0) throw new Error(`bad reserve letter ${ch} in ${field}`);
+        lost[(ch === up ? WHITE : BLACK) * 16 + t]++;
+      }
+      pos.lost = lost;
+    } else throw new Error(`bad power field ${field}`);
+  }
 }
 
 export function fromFen(fen: string): Position {
-  const [boardPart, turn = 'w', , , halfmove = '0', fullmove = '1', strikeField = ''] = fen.trim().split(/\s+/);
+  const [boardPart, turn = 'w', , , halfmove = '0', fullmove = '1', powers = ''] = fen.trim().split(/\s+/);
   const board = new Uint8Array(64);
   const rows = boardPart.split('/');
   if (rows.length !== 8) throw new Error(`bad FEN ${fen}`);
@@ -81,12 +132,10 @@ export function fromFen(fen: string): Position {
       board[sq(f++, 7 - i)] = piece(t, ch === up ? WHITE : BLACK) | spent;
     }
   });
-  const color = turn === 'w' ? WHITE : BLACK;
-  const strike: [boolean, boolean] = [strikeField.includes('w'), strikeField.includes('b')];
-  return {
-    board, turn: color, halfmove: +halfmove, ply: (+fullmove - 1) * 2 + color,
-    ...(strike[0] || strike[1] ? { strike } : {}),
-  };
+  const color: Color = turn === 'w' ? WHITE : BLACK;
+  const pos: Position = { board, turn: color, halfmove: +halfmove, ply: (+fullmove - 1) * 2 + color };
+  readPowerField(powers, pos);
+  return pos;
 }
 
 /**
@@ -100,6 +149,13 @@ export function fromFen(fen: string): Position {
 export function toLan(pos: Position, m: Move): string {
   const t = typeOf(pos.board[m.from]);
   const letter = t === P ? '' : LETTERS[t];
+  // King powers that do not read as a piece's move (docs/RULES.md §4): a Haste pass, Freeze (`F`),
+  // Ice Wall (`W`), Sacrifice (`S`, the pawn's square and the returned piece) and Flight (`~`).
+  if (m.pass) return '--';
+  if (m.power === 'freeze') return `!F:${sqName(m.to)}`;
+  if (m.power === 'ward') return `!W:${sqName(m.to)}`;
+  if (m.power === 'sacrifice') return `!S:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;
+  if (m.power === 'flight') return `${letter}${sqName(m.from)}~${sqName(m.to)}`;
   let s: string;
   if (m.shove) s = `${letter}${sqName(m.from)}>${sqName(m.shove.from)}-${sqName(m.shove.to)}`;
   else if (m.swap) s = `${letter}${sqName(m.from)}<>${sqName(m.to)}`;
@@ -111,7 +167,12 @@ export function toLan(pos: Position, m: Move): string {
   else if (m.captures.length > 1) s = `${letter}${sqName(m.from)}${m.captures.map(c => 'x' + sqName(c)).join('')}`;
   else s = `${letter}${sqName(m.from)}${m.captures.length ? 'x' : '-'}${sqName(m.to)}`;
   if (m.promo) s += '=' + LETTERS[m.promo];
-  if (m.strike) s += '!'; // Strike (Flame A): a queen-like action by an ordinary piece
+  // The other powers ride on an ordinary move's notation: Strike `!` (a queen-like action by an
+  // ordinary piece), Haste `!H` (the turn holds), counted March `!M` and Leap `!L`.
+  if (m.power === 'strike') s += '!';
+  else if (m.power === 'haste') s += '!H';
+  else if (m.power === 'march') s += '!M';
+  else if (m.power === 'leap') s += '!L';
   return s;
 }
 

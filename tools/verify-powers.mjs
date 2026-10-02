@@ -1,0 +1,122 @@
+// The kings' powers through the real HUD: arm a power, spend it with clicks, end a Haste turn, and
+// pick powers in New game. Needs a running build:
+//   PLAYABLE_URL=http://127.0.0.1:5189/ node tools/verify-powers.mjs   (PLAYABLE_BROWSER=chromium in cloud sessions)
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+import { mkdirSync } from 'node:fs';
+
+const base = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
+const out = 'docs/kings-powers';
+mkdirSync(out, { recursive: true });
+const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
+const errors = [];
+const sq = name => (name.charCodeAt(1) - 49) * 8 + (name.charCodeAt(0) - 97);
+const moves = page => page.$eval('#moves', e => e.textContent);
+
+/** A page on `fen` with these kings, White human, Black the beginner computer (fast replies). */
+async function open(page, kings, fen) {
+  const url = new URL(base);
+  url.searchParams.set('kings', kings);
+  url.searchParams.set('fen', fen);
+  await page.goto(base);
+  await page.evaluate(() => localStorage.setItem('kingdown.save', JSON.stringify({ back: '', fen: '8/8/8/8/8/8/8/8 w - - 0 1', moves: [], white: 'human', black: 'ai', think: 200, skill: 'beginner', coords: true, resigned: null, pace: 'off' })));
+  await page.goto(url.href);
+  await page.waitForFunction(() => document.querySelector('#board canvas') && !document.getElementById('powers').hidden);
+}
+const click = async (page, name) => {
+  const p = await page.evaluate(s => window.view.screenOf(s), sq(name));
+  await page.mouse.click(p.x, p.y);
+};
+const waitText = (page, re, timeout = 10000) =>
+  page.waitForFunction(r => new RegExp(r).test(document.getElementById('moves').textContent), re.source, { timeout });
+
+try {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  // "Failed to fetch" is a request cut off by the test's own navigation (it also shows on main).
+  page.on('pageerror', e => { if (!/Failed to fetch/.test(e.message)) errors.push(e.message); });
+  page.on('console', m => { if (m.type() === 'error' && !/Failed to fetch/.test(m.text())) errors.push(m.text()); });
+
+  // Freeze (balanced: once a game, then the ordinary move): the button arms it, a tap on the enemy
+  // knight spends it, White still moves, and the computer cannot move the knight.
+  await open(page, 'frost:freeze,none', '4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1');
+  assert.match(await page.textContent('#power-btn'), /Use Freeze \(1 left\)/);
+  await click(page, 'd5');                      // unarmed: tapping an enemy does nothing
+  assert.doesNotMatch(await moves(page), /!F/);
+  await page.click('#power-btn');
+  assert.match(await page.textContent('#power-status'), /Tap an enemy piece/);
+  await click(page, 'd5');
+  await waitText(page, /!F:d5/);
+  await page.waitForFunction(() => /Now make your move/.test(document.getElementById('power-status').textContent));
+  await click(page, 'a2'); await click(page, 'a3');
+  await waitText(page, /a2-a3/);
+  await page.waitForFunction(() => document.getElementById('moves').textContent.trim().split(/\s+/).length >= 4, null, { timeout: 15000 });
+  assert.doesNotMatch(await moves(page), /Nd5-/, 'the frozen knight did not move');
+  assert.match(await page.textContent('#power-btn'), /0 left/);
+  console.log(`ok freeze: ${(await moves(page)).trim()}`);
+
+  // Haste (balanced: neither move captures): arm, move the rook, the same rook moves again.
+  await open(page, 'flame:haste,none', '7k/p7/8/8/8/8/8/R5K1 w - - 0 1');
+  await page.click('#power-btn');
+  await click(page, 'a1'); await click(page, 'a4');
+  await waitText(page, /Ra1-a4!H/);
+  await page.waitForFunction(() => !document.getElementById('end-haste').hidden);
+  assert.match(await page.textContent('#power-status'), /move the same piece again/);
+  await click(page, 'e4');                      // the hasted rook is already selected
+  await waitText(page, /Ra4-e4/);
+  const line = await page.$eval('#moves li', li => li.textContent.trim());
+  assert.match(line, /^1\. Ra1-a4!H Ra4-e4/, 'one turn, two plies, one line');
+  console.log(`ok haste: ${line}`);
+
+  // Haste ended early with the End turn button.
+  await open(page, 'flame:haste,none', '7k/p7/8/8/8/8/8/R5K1 w - - 0 1');
+  await page.click('#power-btn');
+  await click(page, 'a1'); await click(page, 'a4');
+  await page.waitForFunction(() => !document.getElementById('end-haste').hidden);
+  await page.click('#end-haste');
+  await waitText(page, /--/);
+  console.log('ok haste ended early');
+
+  // Sacrifice: the pawn becomes the lost queen.
+  await open(page, 'stratus:sacrifice,none', '4k3/8/8/8/8/8/P7/4K3 w - - 0 1 lQ');
+  await page.click('#power-btn');
+  await click(page, 'a2');
+  await waitText(page, /!S:a2=Q/);
+  console.log('ok sacrifice');
+
+  // Flight: arm, choose the knight, a square in our half.
+  await open(page, 'stratus:flight,none', '4k3/p7/8/8/8/8/P7/1N2K3 w - - 0 1');
+  await page.click('#power-btn');
+  await click(page, 'b1'); await click(page, 'h4');
+  await waitText(page, /Nb1~h4/);
+  console.log('ok flight');
+
+  // Always-on power: no button, a line that says what it does.
+  await open(page, 'shadow:deathtouch,none', '4k3/p7/8/8/8/8/P7/4K3 w - - 0 1');
+  assert.equal(await page.isHidden('#power-btn'), true);
+  assert.match(await page.textContent('#info'), /White's king: Death Touch/);
+  console.log('ok always-on power shown');
+
+  // New game: pick a power per side; the game starts with them (and the info card names them).
+  await page.click('#new-game-btn');
+  await page.selectOption('#power-white', 'Mud:March');
+  await page.selectOption('#power-black', 'Frost:IceWall');
+  await page.click('#new-classic');
+  await page.waitForFunction(() => /White's king: March — /.test(document.getElementById('info').textContent)
+    && /Black's king: Ice Wall, 2 left/.test(document.getElementById('info').textContent));
+  await page.screenshot({ path: `${out}/new-game-powers.png` });
+  console.log('ok new game with powers');
+
+  // Phone width: the power bar fits and stays usable.
+  const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  phone.on('pageerror', e => { if (!/Failed to fetch/.test(e.message)) errors.push(e.message); });
+  await open(phone, 'frost:freeze,flame:haste', '4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1');
+  const box = await phone.$eval('#power-btn', b => { const r = b.getBoundingClientRect(); return { right: r.right, w: innerWidth }; });
+  assert.ok(box.right <= box.w, 'the power button fits the phone width');
+  await phone.screenshot({ path: `${out}/phone-powers.png` });
+  console.log('ok phone layout');
+
+  assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
+  console.log('ok no page errors');
+} finally {
+  await browser.close();
+}

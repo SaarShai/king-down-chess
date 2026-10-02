@@ -4,7 +4,7 @@
  * the two cannot drift. Sampling and the Q6 audit both validate records with it: a move list that
  * replays to different events than the record stored is a record of a different game.
  */
-import { A, C, Color, G, K, Move, Position, S, colorOf, inCheck, makeMove, typeOf } from '../rules/engine';
+import { A, C, Color, G, K, Move, Position, S, colorOf, inCheck, legalMoves, makeMove, typeOf } from '../rules/engine';
 import { fromFen, toLan } from '../rules/setup';
 import { parseLan } from './tune';
 import type { Events, GameRecord } from './game';
@@ -14,7 +14,7 @@ export function emptyEvents(): Events {
     archerShots: [0, 0], beastChains: [[], []], maesterSwaps: [0, 0], maesterLongSwaps: [0, 0],
     paladinSacrifices: [0, 0], promotions: [0, 0], checks: [0, 0],
     ogreShoves: [0, 0], ogreShovesFriend: [0, 0], ogreShovesGuard: [0, 0], catapultChecks: [0, 0],
-    strikes: [0, 0],
+    strikes: [0, 0], powers: {},
   };
 }
 
@@ -36,7 +36,9 @@ export function countMove(events: Events, pos: Position, move: Move, post: Posit
     if (colorOf(shoved) === c) events.ogreShovesFriend[c]++;
     if (typeOf(shoved) === G) events.ogreShovesGuard[c]++;
   }
-  if (move.strike) events.strikes[c]++;
+  if (move.power === 'strike') events.strikes[c]++;
+  if (move.power) (events.powers[move.power] ??= [0, 0])[c]++;
+  else if (move.pass) (events.powers.pass ??= [0, 0])[c]++;
   if (inCheck(post)) { events.checks[c]++; if (mt === C) events.catapultChecks[c]++; }
 }
 
@@ -53,8 +55,10 @@ export function replayRecord(rec: GameRecord): Replay {
   const events = emptyEvents();
   for (let i = 0; i < rec.moves.length; i++) {
     const lan = rec.moves[i].lan;
-    const m = parseLan(pos.board, lan);
-    if (toLan(pos, m) !== lan) throw new Error(`game ${rec.gameId} ply ${i}: parsed ${toLan(pos, m)} from ${lan}`);
+    // The king powers' notation (`!F:e5`, `Nb1~e3`, `--`, `d4-d6!M` …) is matched against the legal
+    // moves, which also checks the power state; the rest parse without generating moves.
+    const m = /[!~]|^--$/.test(lan) ? legalMoves(pos).find(x => toLan(pos, x) === lan) : parseLan(pos.board, lan);
+    if (!m || toLan(pos, m) !== lan) throw new Error(`game ${rec.gameId} ply ${i}: parsed ${m ? toLan(pos, m) : 'nothing'} from ${lan}`);
     const next = makeMove(pos, m);
     countMove(events, pos, m, next);
     pos = next;

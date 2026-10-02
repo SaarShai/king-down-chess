@@ -12,6 +12,7 @@ import * as guard from '../guard/motion.mjs';
 import * as court from '../court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 import {BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
+import {GAITS,GAIT_OF,idleAt} from './gait.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 // One literal URL per image: bundlers resolve and copy each file (a template string would not).
 const ART_FILES={king:new URL('../king/king.webp',import.meta.url).href,beast:new URL('../beast/beast.webp',import.meta.url).href,queen:new URL('../queen/queen.webp',import.meta.url).href,paladin:new URL('../paladin/paladin.webp',import.meta.url).href,maester:new URL('../maester/maester.webp',import.meta.url).href,pawn:new URL('../lance/pawn.webp',import.meta.url).href,archer:new URL('../wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../ogre/ogre.webp',import.meta.url).href,knight:new URL('../knight/knight.webp',import.meta.url).href,bishop:new URL('../bishop/bishop.webp',import.meta.url).href,rook:new URL('../rook/rook.webp',import.meta.url).href,guard:new URL('../guard/guard.webp',import.meta.url).href};
@@ -47,6 +48,10 @@ for(const [type,name] of Object.entries(courtNames)){
  const idle=new Map(), work=new Map();
  let position={board:new Uint8Array(64)}, selected=null, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
  let fallen=null, res=1, frame=0, previousTime=0, ready=false, flipped=false, coords=true, coordSize=13, labels=false, reducedMotion=false, decorate=null;
+ // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, and the board's frame and light.
+ // All off by default, so the trial and the trailer draw exactly as before.
+ const lively={moves:false,idle:false,atmosphere:false};
+ let selectedAt=0, idleTimer=0, framePattern=null;
  const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
  const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
  const cell=s=>({col:flipped?7-(s&7):s&7,row:flipped?s>>3:7-(s>>3)});
@@ -131,12 +136,20 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
   }
   return;
  }
- const spec=specs[typeOf(value)],ground=pose.ground??pose.foot,shadowScale=clamp(1-(pose.lift??0)/TILE*.4,.6,1);
- out.save();out.globalAlpha=opacity;out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*shadowScale,36*pose.scale*shadowScale,0,0,Math.PI*2);out.fill();
+ const spec=specs[typeOf(value)],ground=pose.ground??pose.foot,shadowScale=clamp(1-(pose.lift??0)/TILE*.4,.6,1)*(pose.shadow??1);
+ out.save();out.globalAlpha=opacity;
+ if(lively.atmosphere)contactShadow(out,ground,230*pose.scale*shadowScale);
+ else{out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*shadowScale,36*pose.scale*shadowScale,0,0,Math.PI*2);out.fill();}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A soft contrasting rim keeps each army readable on the painted board's light and dark zones.
  out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=5*res; // shadows ignore the transform
  out.drawImage(sprite(value,pose.angle,extension),-spec.anchor.x,-spec.anchor.y);out.restore();
+}
+// A soft contact shadow: dark where the feet touch the stone, fading out, nudged away from the warm light.
+function contactShadow(out,ground,r) {
+ out.save();out.translate(ground.x+r*.06,ground.y-1);out.scale(1,.2);
+ const g=out.createRadialGradient(0,0,0,0,0,r);g.addColorStop(0,'rgba(30,20,8,.5)');g.addColorStop(.35,'rgba(30,20,8,.3)');g.addColorStop(1,'rgba(30,20,8,0)');
+ out.fillStyle=g;out.beginPath();out.arc(0,0,r,0,Math.PI*2);out.fill();out.restore();
 }
 function bolt(out,start,end,t,scale=1) {
  if(t<0||t>1)return;
@@ -213,8 +226,10 @@ function vortex(out,foot,phase,strength) {
   ctx.clearRect(0,-headroom,SIZE,SIZE+headroom);ctx.fillStyle='#e6e1cf';ctx.fillRect(0,-headroom,SIZE,SIZE+headroom);
   if(boardArt.complete&&boardArt.naturalWidth){
    // The painted board turns with the viewer, like the physical board.
+   if(lively.atmosphere)drawFrame();
    ctx.save();if(flipped){ctx.translate(PAD+4*TILE,PAD+4*TILE);ctx.rotate(Math.PI);ctx.translate(-PAD-4*TILE,-PAD-4*TILE);}
    ctx.drawImage(boardArt,PAD,PAD,8*TILE,8*TILE);ctx.restore();
+   if(lively.atmosphere)drawLight();
    ctx.strokeStyle='#3a3528';ctx.lineWidth=3;ctx.strokeRect(PAD-1.5,PAD-1.5,8*TILE+3,8*TILE+3);ctx.lineWidth=1;
   }else for(let row=0;row<8;row++)for(let col=0;col<8;col++){
    ctx.fillStyle=(row+col)%2?'#89977b':'#e9e6d5';ctx.fillRect(PAD+col*TILE,PAD+row*TILE,TILE,TILE);
@@ -222,8 +237,45 @@ function vortex(out,foot,phase,strength) {
   }
   decorate?.(ctx,api,'under');
   if(selected!==null){const c=cell(selected);ctx.strokeStyle='#6b7954';ctx.lineWidth=3;ctx.strokeRect(PAD+c.col*TILE+1.5,PAD+c.row*TILE+1.5,TILE-3,TILE-3);ctx.lineWidth=1;}
-  if(coords){ctx.fillStyle='#6d765d';ctx.font=`${coordSize}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
+  if(coords){ctx.fillStyle=lively.atmosphere&&boardArt.naturalWidth?'#e4d8bb':'#6d765d';ctx.font=`${coordSize}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
    for(let i=0;i<8;i++){ctx.fillText('abcdefgh'[flipped?7-i:i],PAD+(i+.5)*TILE,SIZE-14);ctx.fillText(String(flipped?i+1:8-i),15,PAD+(i+.5)*TILE);}}
+ }
+ // A slate frame cut from the board's own dark stone, lit from the top left like the board.
+ function drawFrame() {
+  const o=PAD-26,w=8*TILE+52,b=PAD+8*TILE;
+  if(!framePattern){
+   // A mirrored 2×2 crop from inside one dark tile tiles without seams.
+   const n=boardArt.naturalWidth/8,crop=n*.6,c=document.createElement('canvas');c.width=c.height=288;const g=c.getContext('2d');
+   for(const [mx,my] of [[0,0],[1,0],[0,1],[1,1]]){g.save();g.translate(mx*288,my*288);g.scale(mx?-1:1,my?-1:1);g.drawImage(boardArt,n+n*.2,n*.2,crop,crop,mx?0:0,0,144,144);g.restore();}
+   framePattern=ctx.createPattern(c,'repeat');framePattern.setTransform?.(new DOMMatrix().scale(.5));
+  }
+  ctx.save();
+  ctx.shadowColor='rgba(46,32,14,.38)';ctx.shadowBlur=16*res;ctx.shadowOffsetY=5*res;
+  ctx.fillStyle='#3b352c';ctx.beginPath();ctx.roundRect(o,o,w,w,7);ctx.fill();
+  ctx.shadowColor='transparent';ctx.fillStyle=framePattern;ctx.fill();
+  // Warm cast, then a bevel: lit top and left faces, shaded bottom and right.
+  ctx.fillStyle='rgba(120,84,40,.16)';ctx.fill();
+  const lit=ctx.createLinearGradient(o,o,o+w,o+w);lit.addColorStop(0,'rgba(255,238,205,.2)');lit.addColorStop(.5,'rgba(255,238,205,0)');lit.addColorStop(.5,'rgba(16,10,4,0)');lit.addColorStop(1,'rgba(16,10,4,.28)');
+  ctx.fillStyle=lit;ctx.fill();
+  ctx.strokeStyle='rgba(236,224,196,.55)';ctx.lineWidth=1.5;ctx.beginPath();ctx.roundRect(o+1.5,o+1.5,w-3,w-3,6);ctx.stroke();
+  ctx.strokeStyle='rgba(20,14,6,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.roundRect(o+.5,o+.5,w-1,w-1,7);ctx.stroke();
+  // The board sits a step below the frame: a fine lit lip around the opening.
+  ctx.strokeStyle='rgba(236,224,196,.35)';ctx.lineWidth=1.5;ctx.strokeRect(PAD-5,PAD-5,b-PAD+10,b-PAD+10);
+  ctx.restore();
+ }
+ // Warm light from the top left with a soft fall-off to the far corners, and the frame's shade on the stone.
+ function drawLight() {
+  const b=8*TILE,cx=PAD+b/2;
+  ctx.save();ctx.beginPath();ctx.rect(PAD,PAD,b,b);ctx.clip();
+  ctx.globalCompositeOperation='soft-light';
+  const warm=ctx.createRadialGradient(PAD+b*.3,PAD+b*.22,0,PAD+b*.3,PAD+b*.22,b*.95);warm.addColorStop(0,'rgba(255,190,110,.55)');warm.addColorStop(1,'rgba(255,190,110,0)');
+  ctx.fillStyle=warm;ctx.fillRect(PAD,PAD,b,b);
+  ctx.globalCompositeOperation='multiply';
+  const fall=ctx.createRadialGradient(cx-b*.08,cx-b*.1,b*.38,cx,cx,b*.78);fall.addColorStop(0,'rgba(120,90,60,0)');fall.addColorStop(1,'rgba(120,90,60,.2)');
+  ctx.fillStyle=fall;ctx.fillRect(PAD,PAD,b,b);
+  ctx.globalCompositeOperation='source-over';
+  for(const [x0,y0,x1,y1] of [[PAD,PAD,PAD,PAD+12],[PAD,PAD,PAD+12,PAD]]){const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,'rgba(24,16,6,.32)');g.addColorStop(1,'rgba(24,16,6,0)');ctx.fillStyle=g;ctx.fillRect(PAD,PAD,y1>y0?b:12,y1>y0?12:b);}
+  ctx.restore();
  }
  function selectionTarget() {
   if(aimSquare===null)return null;
@@ -242,6 +294,7 @@ function vortex(out,foot,phase,strength) {
  const poses=new Map();
  for(let sq=0;sq<64;sq++)if(position.board[sq])poses.set(sq,{value:position.board[sq],pose:poseFor(position.board[sq],sq),opacity:1,extension:0});
  if(selected!==null&&poses.has(selected))Object.assign(poses.get(selected).pose,{angle:aimAngle,facing:aimFacing});
+ if(idling()){const p=poses.get(selected).pose,i=idleAt(time-selectedAt);Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
  // King Down: the beaten king topples backwards onto the board.
  if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq);u.pose={...u.pose,rotation:-1.5*ease((time-fallen.start)/FALL)};}
  let shot=null,hit=null;const effects=[];
@@ -338,6 +391,11 @@ function vortex(out,foot,phase,strength) {
    effects.push(()=>gears(ctx,a.target,(t-s.apart[0])/700));
   }
   else if(a.type==='move')actor.pose={...a.from,foot:mix(a.from.foot,a.to.foot,ease(t/420))};
+  else if(a.type==='gait'){
+   // Quiet move with character (gait.mjs): feet travel along the ground line; lift, squash and lean on top.
+   const m=GAITS[a.gait].at(t/a.duration,a.squares),ground=mix(a.from.foot,a.to.foot,m.travel);
+   actor.pose={...a.from,ground,lift:m.lift,foot:{x:ground.x,y:ground.y-m.lift},sx:m.sx,sy:m.sy,rotation:m.tilt*a.lean,shadow:m.shadow};
+  }
   else if(a.type==='swap'){
    const motion=swapAt(t/a.duration,a.from.foot,a.to.foot);
    actor.pose={...a.from,foot:motion.actor};actor.extension=court.actionAt(t/a.duration);
@@ -396,7 +454,7 @@ function vortex(out,foot,phase,strength) {
   if(a.closeup)drawEncounter(a,t);else if(closeup)closeup.panel.hidden=true;
   const impactTime=a.type==='pound'?rook.SLAMS[1]:a.type==='spin'?SPIN.contact:a.type==='blow'?BLOW.strike:a.type==='chain'?CHAIN_STEP*.36:a.type==='slash'?bishop.CONTACT_MS:a.type==='hammer'?court.SMASH.chop[1]:a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?a.duration*knight.LANDING:a.type==='paladin'?a.duration*CHARGE_CONTACT:a.type==='advance'?a.duration*.5:a.type==='beam'?court.BEAM.apart[0]:440;
   if(a.type==='knight'&&t>=a.duration*.35&&!a.airborne){a.airborne=true;onStatus('Airborne. Clearing the intervening pieces…');}
-  if(a.type!=='move'&&a.type!=='swap'&&t>=impactTime&&!a.contacted){a.contacted=true;a.onContact?.();onStatus(a.move.selfRemove?'The Paladin and his target are removed together.':a.type==='beam'?'Measured. Taking it apart…':a.type==='knight'||(a.type==='paladin'&&!victim)?'Landed. Settling into stance…':'Hit. Recovering…');}
+  if(a.type!=='move'&&a.type!=='gait'&&a.type!=='swap'&&t>=impactTime&&!a.contacted){a.contacted=true;a.onContact?.();onStatus(a.move.selfRemove?'The Paladin and his target are removed together.':a.type==='beam'?'Measured. Taking it apart…':a.type==='knight'||(a.type==='paladin'&&!victim)?'Landed. Settling into stance…':'Hit. Recovering…');}
  }
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
@@ -427,8 +485,10 @@ function drawEncounter(a,t) {
   if(a&&!a.done&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
   if(labels)drawLabels();
-  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL))wake();else previousTime=0;
+  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL))wake();
+  else{previousTime=0;if(idling()){clearTimeout(idleTimer);idleTimer=setTimeout(wake,33);}} // the idle breath needs only ~30 frames a second
  }
+ function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
  function drawLabels() {
   ctx.save();ctx.font='bold 15px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
   for(let sq=0;sq<64;sq++){const v=position.board[sq];if(!v||animation)continue;const p=foot(sq),x=p.x+TILE*.36,y=p.y-TILE*.12;
@@ -437,7 +497,7 @@ function drawEncounter(a,t) {
   ctx.restore();
  }
  function wake(){if(ready&&!frame)frame=requestAnimationFrame(tick);}
- function plan(move,speed) {
+ function plan(move,speed,gait=null) {
  const value=position.board[move.from],from=poseFor(value,move.from),to=poseFor(value,move.to),victimSquare=move.swap?move.to:move.shove?.from??move.captures[0],victim=position.board[victimSquare];
  const base={move,value,from,to,victim,start:performance.now(),speed,contacted:false};
  if(move.swap){base.type='swap';base.duration=1100;base.partner=poseFor(victim,move.to);}
@@ -448,7 +508,15 @@ function drawEncounter(a,t) {
   Object.assign(base,{type:'hammer',duration:court.SMASH.duration,shakeAt:court.SMASH.chop[1],target,pose,victimFoot:foot(victimSquare),approach:{x:pose.foot.x+target.x-pose.facing*12-contact.x,y:pose.foot.y+target.y-contact.y}});
  }
  else if(typeOf(value)===L){base.type='paladin';base.duration=court.figures.paladin.duration;from.facing=Math.sign(to.foot.x-from.foot.x)||sideFacing(value);if(victim)base.target=world(specs[typeOf(victim)].hit,poseFor(victim,victimSquare),typeOf(victim));}
- else if(!victim){base.type='move';base.duration=420;const dx=to.foot.x-from.foot.x;from.facing=dx?Math.sign(dx):sideFacing(value);}
+ else if(!victim){
+  const dx=to.foot.x-from.foot.x,dy=to.foot.y-from.foot.y;from.facing=dx?Math.sign(dx):sideFacing(value);
+  gait=gait??(lively.moves?GAIT_OF[ART[typeOf(value)]]:null);
+  if(GAITS[gait]){
+   const squares=Math.max(Math.abs((move.to&7)-(move.from&7)),Math.abs((move.to>>3)-(move.from>>3)));
+   // Lean fully into a sideways move, less when walking up or down the board.
+   Object.assign(base,{type:'gait',gait,squares,duration:GAITS[gait].duration(squares),lean:.35+.65*Math.abs(dx)/(Math.hypot(dx,dy)||1)});
+  }else{base.type='move';base.duration=420;}
+ }
  else{
   const target=world(specs[typeOf(victim)].hit,poseFor(victim,victimSquare),typeOf(victim));
   const pose=aimed(value,from,target);Object.assign(base,{target,pose});
@@ -485,11 +553,13 @@ function drawEncounter(a,t) {
    Object.assign(base,{type:'beam',duration:court.BEAM.duration,victimFoot:foot(victimSquare)});from.facing=pose.facing;
   }else if(!ART[typeOf(value)]){base.type='advance';base.duration=newMotions[typeOf(value)].DURATION;from.facing=pose.facing;}else{base.type='archer';base.duration=1000;base.closeup=pose.outside&&!!closeup;base.away=Math.sign(target.x-from.foot.x)||sideFacing(value);}
  }
- return {base,verb:base.type==='move'?'Moving…':base.type==='swap'?'Trading places…':base.type==='pound'?'Pounding the ground…':base.type==='spin'?'Spinning up a whirlwind…':base.type==='blow'?blows[base.blow].verb:base.type==='chain'?(move.captures.length>1?`Starting a ${move.captures.length}-bite chain…`:'Lunging to bite…'):base.type==='slash'?'Drawing the dagger…':base.type==='hammer'?(move.selfRemove?'Raising the hammer. This capture will remove both pieces…':'Raising the hammer…'):base.type==='paladin'?(move.selfRemove?'Charging. This capture will remove both pieces…':'Preparing the Paladin’s charge…'):base.type==='advance'?'Advancing to capture…':base.type==='beam'?'Sighting through the goggles…':base.type==='knight'?'Preparing to leap…':base.type==='ogre'?'Bracing for contact…':base.closeup?'Taking aim · attack close-up.':'Taking aim…'};
+ return {base,verb:base.type==='move'||base.type==='gait'?'Moving…':base.type==='swap'?'Trading places…':base.type==='pound'?'Pounding the ground…':base.type==='spin'?'Spinning up a whirlwind…':base.type==='blow'?blows[base.blow].verb:base.type==='chain'?(move.captures.length>1?`Starting a ${move.captures.length}-bite chain…`:'Lunging to bite…'):base.type==='slash'?'Drawing the dagger…':base.type==='hammer'?(move.selfRemove?'Raising the hammer. This capture will remove both pieces…':'Raising the hammer…'):base.type==='paladin'?(move.selfRemove?'Charging. This capture will remove both pieces…':'Preparing the Paladin’s charge…'):base.type==='advance'?'Advancing to capture…':base.type==='beam'?'Sighting through the goggles…':base.type==='knight'?'Preparing to leap…':base.type==='ogre'?'Bracing for contact…':base.closeup?'Taking aim · attack close-up.':'Taking aim…'};
  }
  const api={
   SIZE,PAD,TILE,headroom,
   get animating(){return !!animation&&!animation.done;},
+  /** What is playing: a gait name for a quiet move with character, else the animation kind ('move' for the plain slide); null when idle. */
+  get playing(){return animation&&!animation.done?animation.gait??animation.type:null;},
   get position(){return position;},
   foot,cell,
   /** Board square under a point in canvas pixels, or null. */
@@ -498,7 +568,7 @@ function drawEncounter(a,t) {
   load(){const board=new Promise(resolve=>{boardArt.onload=boardArt.onerror=resolve;boardArt.src=BOARD_ART;});return Promise.all([board,...Object.entries(ART).map(([type,name])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=ART_FILES[name];}))]).then(()=>{ready=true;wake();});},
   /** New position: ends any finished or running animation. */
   setPosition(next){if(animation&&!animation.done)animation.resolve(false);animation=null;position=next;aimAngle=0;wake();},
-  setSelected(sq){if(sq!==selected){selected=sq;aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
+  setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
   setAim(sq){aimSquare=sq;wake();},
   setFlipped(on){flipped=on;idle.clear();wake();},
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
@@ -509,12 +579,14 @@ function drawEncounter(a,t) {
   setFallen(sq,animate=true){fallen=sq==null?null:{sq,start:animate?performance.now():-Infinity};wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
   setResolution(k){if(k===res)return;res=k;canvas.width=fxCanvas.width=Math.round(SIZE*k);canvas.height=fxCanvas.height=Math.round((SIZE+headroom)*k);ctx.setTransform(k,0,0,k,0,0);wake();},
+  /** Opt in to quiet-move gaits (moves), the selected figure's idle breath (idle) and the stone frame, contact shadows and warm light (atmosphere). */
+  setLively(options){Object.assign(lively,options);wake();},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
-  play(move,{speed=1,onContact=null}={}){
+  play(move,{speed=1,onContact=null,gait=null}={}){
    if(animation&&!animation.done)animation.resolve(false);
-   const {base,verb}=plan(move,speed);
+   const {base,verb}=plan(move,speed,gait);
    return new Promise(resolve=>{animation={...base,resolve,onContact};onStatus(verb);wake();});
   },
   cancel(){if(animation&&!animation.done)animation.resolve(false);animation=null;if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();},

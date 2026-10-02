@@ -12,13 +12,23 @@ const LINES = {
   paladin: ['The paladin captured and left the board.', 'Capture this piece; the paladin will also leave the board.'],
   strike: ['A piece used its one-time queen move.', 'Spend the one-time Strike to move this piece like a queen.'],
   strikeCapture: ['A piece used its one-time Strike to capture without moving.', 'Spend the one-time Strike to capture without moving.'],
+  freeze: ['The king froze an enemy piece for one turn.', 'Freeze this piece: it cannot move on its next turn.'],
+  ward: ['The king put an ice wall on a piece for one turn.', 'Ice Wall: this piece cannot be captured next turn.'],
+  haste: ['A piece used Haste: it may move again.', 'Haste: move this piece, then move it again (or end the turn).'],
+  pass: ['The hasted piece stayed put.', 'End the turn without the second move.'],
+  flight: ['A piece took Flight to its own half.', 'Fly this piece to any empty square in your half.'],
+  sacrifice: ['A pawn was sacrificed to bring a lost piece back.', 'Sacrifice this pawn to return a lost piece here.'],
+  march: ['A pawn marched two squares.', 'March: two squares from any rank.'],
+  leap: ['A piece leapt over its own pawns.', 'Leap over your own pawns.'],
   deathTouch: ['The king captured without moving.', 'Capture this piece without moving the king.'],
   reaver: ['The reaver captured, then stepped aside.', 'Capture, then step onto the chosen empty square.'],
 } as const;
 
 export function momentKind(pre: Position, m: Move): keyof typeof LINES | null {
   const t = typeOf(pre.board[m.from]);
-  if (m.strike) return m.to === m.from ? 'strikeCapture' : 'strike';
+  if (m.pass) return 'pass';
+  if (m.power === 'strike') return m.to === m.from ? 'strikeCapture' : 'strike';
+  if (m.power) return m.power;
   if (m.shove) return typeOf(pre.board[m.shove.from]) === G ? 'shoveGuard' : 'shove';
   if (m.swap) return typeOf(pre.board[m.to]) === K ? 'swapKing' : 'swap';
   if (m.selfRemove) return 'paladin';

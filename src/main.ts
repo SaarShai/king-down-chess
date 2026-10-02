@@ -7,45 +7,47 @@ import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, B, C, Color, G, K, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { mulberry32 } from './sim/rng';
+import { POWER_NAME, POWER_TAG, fillPowerSelect, kingsParam, needsArming, powerText, readPowerSelect, usesAllowed, usesLeft } from './powers-ui';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
 const preset = { 2017: RULES_2017, 2021: RULES_2021 }[params.get('rules') ?? ''];
 /**
  * `?kings=spirit:mercy,mud:march` — White first; one value gives both sides the same king
- * (docs/RULES.md §4, docs/KINGS-POWERS-PLAN.md §3.2). The default is **no powers** (decision 21):
- * nothing ships un-measured, and there is no picker until a run has priced them.
+ * (docs/RULES.md §4). The default is **no powers**; the New game dialog picks each side's power.
  */
 const kings = params.get('kings');
 // Before the first Game: its constructor builds a position and asks for its status.
-if (preset || kings) setRules({ ...preset, ...(kings ? { kings: parseKings(kings) } : {}) });
-/** One line per power, for the info card. The six built powers only; tier 2–3 cannot be selected. */
-const POWER_TEXT: Partial<Record<PowerName, string>> = {
-  HolyLight: 'enemy pawns cannot take this king, and it cannot take pawns',
-  Strike: 'once per game, move any piece except the king as if it were a queen',
-  Mercy: 'the king steps 1–2, jumps friends and takes only a guard',
-  DeathTouch: 'the king takes an adjacent enemy without moving — it can only take this way',
-  Darkness: 'pawns step diagonally and take straight ahead, with no double step',
-  March: 'pawns step two squares from any rank',
-  Leap: 'rooks, bishops and the queen pass over their own pawns',
+/** With any power in play, the balanced readings apply (an older `?rules=` preset still overrides them). */
+const withPowers = (k: Rules['kings']): Partial<Rules> => (k[0] || k[1] ? POWERS_BALANCED : {});
+if (preset || kings) {
+  const k = kings ? parseKings(kings) : undefined;
+  setRules({ ...(k ? withPowers(k) : {}), ...preset, ...(k ? { kings: k } : {}) });
+}
+/** "twice a game", "always on". */
+const usesText = (p: PowerName): string => {
+  const n = usesAllowed(p);
+  return n === null || n === 0 ? 'always on' : n === 1 ? 'once a game' : n === 2 ? 'twice a game' : `${n} times a game`;
 };
-const powerLabel = (k: KingChoice | null): string => (k
-  ? `${k.king}:${k.power} — ${POWER_TEXT[k.power] ?? 'a lab power'}`
-  : 'plain king');
 
-/** One line for the info card, so a `?kings=` game says on screen which powers are live. */
+/** "Freeze, 2 left — as your move, freeze…" for side `c`, or "no power". */
+const powerLabel = (c: Color): string => {
+  const k = GAME_RULES.kings[c];
+  if (!k) return 'no power';
+  const left = usesLeft(game.pos, c);
+  return `${POWER_NAME[k.power]}${left === null ? '' : `, ${left} left`} — ${powerText(k.power)}`;
+};
+
+/** One line for the info card, so a game with kings' powers says on screen which are live. */
 const kingsInfo = (): string => {
   const [w, b] = GAME_RULES.kings;
   if (!w && !b) return '';
-  const same = w && b && w.king === b.king && w.power === b.power;
-  return same
-    ? `<div>Kings — both ${powerLabel(w)}</div>`
-    : `<div>Kings — White ${powerLabel(w)} · Black ${powerLabel(b)}</div>`;
+  return `<div>White's king: ${powerLabel(0)}</div><div>Black's king: ${powerLabel(1)}</div>`;
 };
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -73,6 +75,8 @@ const sides: [Side, Side] = ['human', 'ai'];
 let selected: number | null = null;
 let pending: number[] = []; // beast chain squares clicked so far
 let hovered: number | null = null;
+/** The player to move has armed their king's power: the next click spends it. */
+let armed = false;
 let resigned: Color | null = null;
 let busy = false;
 /** The computer is searching (not animating), so the header can say so. */
@@ -272,7 +276,11 @@ function fillPieceGuide(): void {
   $('rules-lead').textContent =
     `Mate the king. Both sides share one random back rank, drawn from the pool. No castling or en passant. ${promo}`;
   $('rules-notation').textContent =
-    'In the move list: - moves, x captures, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes.';
+    'In the move list: - moves, x captures, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes. '
+    + 'Kings\' powers: ! Strike, !H Haste (-- ends a Haste turn early), ~ Flight, !F: Freeze, !W: Ice Wall, !S: Sacrifice, !M March, !L Leap.';
+  // The twelve powers, with the use counts the rules set today.
+  $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
+    `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p)}) — ${powerText(p)}`).join('; ')}.</li>`).join('');
   $('rules-letters').textContent =
     `The random draw pool is ${poolLetters}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
 }
@@ -292,19 +300,40 @@ function showInfo(sq: number | null): void {
 /** Squares the user clicks to identify a move: a shove target, chain victims, shot target, or the destination. */
 const clickPath = (m: Move): number[] => (m.shove
   ? [m.shove.from] // click the neighbour to shove, under both `repel` (to === from) and `push`
+  // A mark, a sacrifice and a Haste pass change no square: the square itself is the click.
+  : m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice' ? [m.to]
   : m.to === m.from ? [m.captures[0]]
   : m.captures.length > 1 ? m.captures
   // Reaver: click the victim, then the landing square (`Vb1xc3-d3`).
   : m.captures.length === 1 && m.to !== m.captures[0] ? [m.captures[0], m.to]
   : [m.to]);
-const candidates = (): Move[] =>
-  selected == null ? [] : game.legal.filter(m => m.from === selected && pending.every((sq, i) => clickPath(m)[i] === sq));
+/** The side to move's power tag while it is armed, else null. */
+const armedTag = (): string | null => {
+  const power = GAME_RULES.kings[game.pos.turn]?.power;
+  return armed && power ? POWER_TAG[power] ?? null : null;
+};
+/**
+ * The selected piece's moves that match the clicks so far. A power that shares squares with
+ * ordinary moves is offered only while armed, and then only its own moves (`needsArming`).
+ */
+const candidates = (): Move[] => {
+  if (selected == null) return [];
+  const tag = armedTag();
+  return game.legal.filter(m => m.from === selected && pending.every((sq, i) => clickPath(m)[i] === sq)
+    && (tag ? m.power === tag : !needsArming(m)));
+};
+/** Armed Freeze, Ice Wall or Sacrifice: their moves name a piece, not a destination. */
+const markTargets = (): Move[] => {
+  const tag = armedTag();
+  return tag === 'freeze' || tag === 'ward' || tag === 'sacrifice' ? game.legal.filter(m => m.power === tag) : [];
+};
 
 function refresh(): void {
   const cands = candidates();
   const next = cands.map(m => clickPath(m)[pending.length]).filter((s): s is number => s != null);
   const swaps = cands.filter(m => m.swap).map(m => m.to);
-  const shoves = cands.filter(m => m.shove).map(m => m.shove!.from);
+  // Armed Freeze / Ice Wall / Sacrifice light their targets in the shove colour (a power, not a capture).
+  const shoves = [...cands.filter(m => m.shove).map(m => m.shove!.from), ...new Set(markTargets().map(m => m.to))];
   const last = (viewing == null ? game.history.at(-1) : game.history[viewing - 1])?.move;
   view.highlight({
     selected,
@@ -353,18 +382,25 @@ function refresh(): void {
   $('setup').textContent = game.backRank || 'custom';
   $('setup').title = toFen(game.pos);
   const moves = $('moves');
-  // Each move is a button to the board after it (data-ply = plies played by then).
-  moves.innerHTML = game.history.map((h, i) => {
+  // Each move is a button to the board after it (data-ply = plies played by then). A line is White's
+  // turn and Black's; a Haste turn is two plies by one side, so turns follow the side that moved.
+  let line = 0, html = '', open = false;
+  game.history.forEach((h, i) => {
     const km = marked.find(k => k.ply === i), mark = !km ? '' : km.kind !== 'loss' || km.loss >= 500 ? '??' : '?';
-    const ply = `<span data-ply="${i + 1}"${viewing === i + 1 ? ' class="viewing"' : ''}${km ? ` title="${km.text}"` : ''}>${i % 2 === 0 ? `<b>${h.lan}</b>` : h.lan}${mark}</span>`;
-    return i % 2 === 0 ? `<li>${i / 2 + 1}. ${ply}` : ` ${ply}</li>`;
-  }).join('');
+    const white = h.pos.turn === 0;
+    const ply = `<span data-ply="${i + 1}"${viewing === i + 1 ? ' class="viewing"' : ''}${km ? ` title="${km.text}"` : ''}>${white ? `<b>${h.lan}</b>` : h.lan}${mark}</span>`;
+    const sameTurn = i > 0 && game.history[i - 1].pos.turn === h.pos.turn;
+    if (white && !sameTurn) { html += `${open ? '</li>' : ''}<li>${++line}. `; open = true; }
+    else if (!open) { html += `<li>${++line}… `; open = true; }
+    html += `${sameTurn || !white ? ' ' : ''}${ply}`;
+  });
+  moves.innerHTML = html + (open ? '</li>' : '');
   if (viewing == null) moves.scrollTop = moves.scrollHeight;
   else moves.querySelector('.viewing')?.scrollIntoView({ block: 'nearest' });
   // Captured pieces: a piece the mover removed counts for the mover; a paladin that removes itself is its own side's loss.
   const taken: [number[], number[]] = [[], []];
   for (const h of game.history) {
-    const mover = colorOf(h.pos.board[h.move.from]);
+    const mover = h.pos.turn; // not the piece on `from`: a Freeze names an enemy square
     for (const c of h.move.captures) taken[mover].push(h.pos.board[c]);
     if (h.move.selfRemove) taken[1 - mover].push(h.pos.board[h.move.from]);
   }
@@ -385,6 +421,36 @@ function refresh(): void {
   $('return-game').hidden = lesson == null;
   $('next-lesson').textContent = lesson != null && lesson + 1 < LESSONS.length ? `Next lesson: ${LESSONS[lesson + 1].name}` : 'Start a game';
   $<HTMLButtonElement>('hint').disabled = finished() || busy || viewing != null || !myTurn();
+  refreshPowers();
+}
+
+/** The power bar: arm the side to move's power, end a Haste turn, or read an always-on power. */
+function refreshPowers(): void {
+  const c = game.pos.turn, k = GAME_RULES.kings[c];
+  const live = !!k && viewing == null && !finished() && lesson == null;
+  const tag = k ? POWER_TAG[k.power] : undefined;
+  const left = usesLeft(game.pos, c);
+  const spendable = !!tag && tag !== 'march' && tag !== 'leap';
+  const midTurn = game.pos.haste !== undefined || !!game.pos.free; // a Haste or a free mark awaits its next move
+  const canUse = live && myTurn() && !busy && spendable && left !== 0 && !midTurn
+    && game.legal.some(m => m.power === tag);
+  if (!canUse) armed = false;
+  $('powers').hidden = !live;
+  const btn = $<HTMLButtonElement>('power-btn');
+  btn.hidden = !spendable;
+  btn.disabled = !canUse;
+  btn.textContent = !k ? '' : armed ? `Cancel ${POWER_NAME[k.power]}` : `Use ${POWER_NAME[k.power]}${left === null ? '' : ` (${left} left)`}`;
+  btn.classList.toggle('armed', armed);
+  $('end-haste').hidden = !(live && myTurn() && !busy && midTurn);
+  $('power-status').textContent = !k ? '' : armed
+    ? (tag === 'freeze' ? 'Tap an enemy piece to freeze it for one turn.'
+      : tag === 'ward' ? 'Tap one of your pieces to wall it for one turn.'
+      : tag === 'sacrifice' ? 'Tap one of your pawns to bring back a lost piece there.'
+      : tag === 'haste' ? 'Move a piece; it may then move again.'
+      : `Choose a piece, then a marked square (${POWER_NAME[k.power]}).`)
+    : game.pos.haste !== undefined && myTurn() ? 'Haste: move the same piece again, or end the turn.'
+    : game.pos.free && myTurn() ? 'Now make your move, or end the turn.'
+    : ''; // the info card already says what each king's power does
 }
 
 async function commit(m: Move): Promise<void> {
@@ -406,7 +472,7 @@ async function commit(m: Move): Promise<void> {
   else if (kind === 'swap' || kind === 'swapKing') snd.swap();
   else if (!hit) snd.move();
   if (game.inCheck) snd.check();
-  selected = null; pending = [];
+  selected = null; pending = []; armed = false;
   refresh();
   let struck = false;
   const strike = (): void => { if (!struck && g === gen) { struck = true; hit?.(); } };
@@ -418,6 +484,8 @@ async function commit(m: Move): Promise<void> {
   view.sync(game.pos);
   busy = false;
   if (lesson != null) return lessonResult(pre, m);
+  // After a Haste's first move the same piece is ready for its second.
+  if (game.pos.haste !== undefined && myTurn()) selected = game.pos.haste;
   refresh();
   save();
   if (finished()) showOver(); else void maybeAi();
@@ -561,6 +629,40 @@ async function choosePushOrCapture(capture: Move, push: Move): Promise<void> {
   else { selected = null; pending = []; refresh(); }
 }
 
+/** A mark is one move; a sacrifice asks which lost piece comes back (the promotion picker's look). */
+async function choosePower(moves: Move[]): Promise<void> {
+  if (moves.length === 1) return commit(moves[0]);
+  const generation = gen;
+  busy = true;
+  refresh();
+  const dlg = $<HTMLDialogElement>('promo'), box = $('promo-choices');
+  $('promo-title').textContent = `Sacrifice the pawn on ${sqName(moves[0].from)}: which piece returns?`;
+  box.innerHTML = '';
+  const m = await new Promise<Move | null>(resolve => {
+    const done = (x: Move | null): void => { closePromo = null; dlg.close(); resolve(x); };
+    closePromo = () => done(null);
+    for (const x of moves) {
+      const b = document.createElement('button');
+      b.textContent = `${LETTERS[x.promo!]} ${NAMES[x.promo as PieceType]}`;
+      b.onclick = () => done(x);
+      box.appendChild(b);
+    }
+    $('cancel-promo').onclick = () => done(null);
+    dlg.oncancel = e => { e.preventDefault(); done(null); };
+    dlg.showModal();
+  });
+  if (generation !== gen) return;
+  busy = false;
+  if (m) return commit(m);
+  armed = false; refresh();
+}
+
+$('power-btn').onclick = () => { armed = !armed; selected = null; pending = []; refresh(); };
+$('end-haste').onclick = () => {
+  const pass = game.legal.find(m => m.pass);
+  if (pass && myTurn() && !busy) void commit(pass);
+};
+
 /** Drag arm: select without the click toggle so a second onSquareClick can still play the move. */
 view.onDragSelect = (sq) => {
   if (busy || viewing != null || finished() || !myTurn()) return;
@@ -577,6 +679,13 @@ view.onSquareClick = (sq, shift = false) => {
   if (viewing != null) { void showPly(game.history.length, false); return; }
   if (finished() || !myTurn()) return;
   hintSquares = [];
+  const targets = markTargets();
+  if (targets.length) { // armed Freeze / Ice Wall / Sacrifice: tap the piece itself
+    const here = targets.filter(m => m.to === sq);
+    if (here.length) void choosePower(here);
+    else { armed = false; refresh(); }
+    return;
+  }
   const own = game.pos.board[sq] !== 0 && colorOf(game.pos.board[sq]) === game.pos.turn;
   const next = candidates().filter(m => clickPath(m)[pending.length] === sq);
   if (selected == null || next.length === 0) {
@@ -679,7 +788,7 @@ function reset(): void {
   closeMoveChoice?.();
   closePromo?.(); // drop an open promotion picker instead of leaving its promise hanging
   busy = false;
-  selected = null; pending = [];
+  selected = null; pending = []; armed = false;
 }
 
 /** Look from Black's side whenever the human plays Black. */
@@ -690,7 +799,10 @@ const orient = (): void => view.flip(sides[0] === 'human' && sides[1] === 'human
 function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null): void {
   $<HTMLDialogElement>('new-game').close(); // every army choice in the dialog starts here
   reset();
-  if (!rematch) setRules({ ...preset, ...(kings ? { kings: parseKings(kings) } : {}) });
+  if (!rematch) {
+    const k: Rules['kings'] = [readPowerSelect($('power-white')), readPowerSelect($('power-black'))];
+    setRules({ ...withPowers(k), ...preset, kings: k });
+  }
   resigned = null;
   linkSide = null;
   lesson = null; lessonDone = false;
@@ -716,7 +828,8 @@ function undo(): void {
   resigned = null;
   lessonDone = false;
   game.undo();
-  if (sides[game.pos.turn] === 'ai' && sides.includes('human')) game.undo();
+  // Back to a person's turn, and never into the middle of a Haste turn: take that turn back whole.
+  while (game.history.length && ((sides[game.pos.turn] === 'ai' && sides.includes('human')) || game.pos.haste !== undefined || game.pos.free)) game.undo();
   restoreMoments();
   view.sync(game.pos);
   refresh();
@@ -839,7 +952,10 @@ function gameLinkless(): string {
 /** A link that holds this whole game, for a friend to open and answer on their device (no server). */
 function gameLink(): string {
   const url = new URL(location.pathname, location.origin);
-  for (const k of ['rules', 'kings']) { const v = params.get(k); if (v) url.searchParams.set(k, v); }
+  const rules = params.get('rules');
+  if (rules) url.searchParams.set('rules', rules);
+  const k = kingsParam(GAME_RULES.kings);
+  if (k) url.searchParams.set('kings', k);
   if (game.backRank) url.searchParams.set('army', game.backRank);
   else url.searchParams.set('fen', toFen(game.history[0]?.pos ?? game.pos));
   url.searchParams.set('moves', game.history.map(h => h.lan).join('_')); // '_' needs no escaping in a URL
@@ -972,7 +1088,7 @@ const coords = $<HTMLInputElement>('coords');
 coords.onchange = () => { view.setCoords(coords.checked); save(); };
 $('reset-view').onclick = () => view.resetView();
 addEventListener('keydown', e => {
-  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; refresh(); return; }
+  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; armed = false; refresh(); return; }
   // Menus swallow shortcuts; an open move choice does not (Z there undoes, and that is tested).
   if ((e.target as HTMLElement).closest('input,select,textarea') || document.querySelector('#new-game[open], #settings[open]')) return;
   if (e.key === 'r') view.resetView();
@@ -1048,6 +1164,8 @@ view.sync(game.pos);
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 fillPieceGuide(); // after every setRules path (URL preset / save restore)
+fillPowerSelect($('power-white'), GAME_RULES.kings[0]); // the next game starts with this game's powers
+fillPowerSelect($('power-black'), GAME_RULES.kings[1]);
 setSound($<HTMLInputElement>('sound').checked);
 restoreMoments();
 refresh();
