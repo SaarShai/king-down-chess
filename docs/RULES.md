@@ -49,16 +49,17 @@ Interactions decided in code (`canCapture`): a guard is taken only by a king; a 
 The attacker set used for check = every piece's capture pattern, so an archer checks through blockers and a paladin never checks.
 Design space by ability (arriving, shield, handicap, hopping, control, on-capture triggers) and by board zone (capital): `docs/MATRIX.md`.
 
-## 4. Kings' powers (all twelve built; balanced readings when a king has a power)
+## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)
 
-Each army has a king with two candidate powers; each player picks one before the game (New game, or
-`?kings=frost:freeze,mud:march`). Token-spending mechanics are dropped; the rulebook's per-game use
+Kings' powers is a game mode: each player may pick one power for their king before the game (New game,
+or `?kings=frost:freeze,mud:march`). **No power is the default**, and either side may play without one. Token-spending mechanics are dropped; the rulebook's per-game use
 counts are plain counters (§6.5). Powers never capture a king and add no attacked square.
 
 **Balanced on 2026-10-02** (`docs/research/kings-powers-balance-2026-10-02.md`): head-to-head
 round-robins of all twelve, at depth 3, over five rounds. As printed, the powers spread from 21% to
 80% against each other; the readings below bring nine of twelve within 42–56% (a 20-point spread).
-The game applies them whenever a king has a power (`POWERS_BALANCED` in `src/rules/rules.ts`); the
+**Owner decision (2026-10-02): the balanced readings are the official kings' powers rules.** The game
+applies them whenever a king has a power (`POWERS_BALANCED` in `src/rules/rules.ts`); the
 rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every reading is one toggle.
 
 | King | Power | As printed (2017 rulebook) | Balanced reading |
