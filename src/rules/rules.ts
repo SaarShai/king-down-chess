@@ -553,6 +553,23 @@ export const RULES_2021: Readonly<Rules> = Object.freeze({
   beastCapture: 'diagForward' as BeastCapture,
 });
 
+/**
+ * The kings' powers as balanced on 2026-10-02 (docs/research/kings-powers-balance-2026-10-02.md):
+ * the readings the game applies whenever a king has a power. The rule defaults stay the 2017
+ * rulebook's, so `?rules=2017` and the lab can still play the powers as printed.
+ */
+export const POWERS_BALANCED: Readonly<Partial<Rules>> = Object.freeze({
+  markFree: true,            // Freeze and Ice Wall: mark, then make your move
+  freezeUses: 1,             // Freeze once a game
+  hasteCaptures: false,      // Haste: neither move captures
+  strikePawns: false,        // Strike: pieces only
+  strikeCaptures: false,     // Strike: to an empty square
+  mercyAura: true,           // Mercy: the pieces next to the king cannot be taken
+  marchUses: 0,              // March: always on
+  holyLightTakesPawns: true, // Holy Light: the king may take pawns
+  darknessMoves: true,       // Darkness: pawns keep their straight steps
+});
+
 /** Reset to the defaults, then apply `over`. Call with no argument to restore today's rules. */
 export function setRules(over?: Partial<Rules>): Rules {
   Object.assign(RULES, DEFAULT_RULES, over);

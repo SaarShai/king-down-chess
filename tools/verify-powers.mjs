@@ -36,37 +36,41 @@ try {
   page.on('pageerror', e => { if (!/Failed to fetch/.test(e.message)) errors.push(e.message); });
   page.on('console', m => { if (m.type() === 'error' && !/Failed to fetch/.test(m.text())) errors.push(m.text()); });
 
-  // Freeze: the button arms it, a tap on the enemy knight spends it, the computer cannot move the knight.
+  // Freeze (balanced: once a game, then the ordinary move): the button arms it, a tap on the enemy
+  // knight spends it, White still moves, and the computer cannot move the knight.
   await open(page, 'frost:freeze,none', '4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1');
-  assert.match(await page.textContent('#power-btn'), /Use Freeze \(2 left\)/);
+  assert.match(await page.textContent('#power-btn'), /Use Freeze \(1 left\)/);
   await click(page, 'd5');                      // unarmed: tapping an enemy does nothing
   assert.doesNotMatch(await moves(page), /!F/);
   await page.click('#power-btn');
   assert.match(await page.textContent('#power-status'), /Tap an enemy piece/);
   await click(page, 'd5');
   await waitText(page, /!F:d5/);
-  await page.waitForFunction(() => document.getElementById('moves').textContent.trim().split(/\s+/).length >= 3, null, { timeout: 15000 });
+  await page.waitForFunction(() => /Now make your move/.test(document.getElementById('power-status').textContent));
+  await click(page, 'a2'); await click(page, 'a3');
+  await waitText(page, /a2-a3/);
+  await page.waitForFunction(() => document.getElementById('moves').textContent.trim().split(/\s+/).length >= 4, null, { timeout: 15000 });
   assert.doesNotMatch(await moves(page), /Nd5-/, 'the frozen knight did not move');
-  assert.match(await page.textContent('#power-btn'), /1 left/);
+  assert.match(await page.textContent('#power-btn'), /0 left/);
   console.log(`ok freeze: ${(await moves(page)).trim()}`);
 
-  // Haste: arm, move the rook, the same rook moves again (it is selected), the turn passes.
-  await open(page, 'flame:haste,none', '7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1');
+  // Haste (balanced: neither move captures): arm, move the rook, the same rook moves again.
+  await open(page, 'flame:haste,none', '7k/p7/8/8/8/8/8/R5K1 w - - 0 1');
   await page.click('#power-btn');
-  await click(page, 'a1'); await click(page, 'a5');
-  await waitText(page, /Ra1xa5!H/);
+  await click(page, 'a1'); await click(page, 'a4');
+  await waitText(page, /Ra1-a4!H/);
   await page.waitForFunction(() => !document.getElementById('end-haste').hidden);
   assert.match(await page.textContent('#power-status'), /move the same piece again/);
-  await click(page, 'e5');                      // the hasted rook is already selected
-  await waitText(page, /Ra5xe5/);
+  await click(page, 'e4');                      // the hasted rook is already selected
+  await waitText(page, /Ra4-e4/);
   const line = await page.$eval('#moves li', li => li.textContent.trim());
-  assert.match(line, /^1\. Ra1xa5!H Ra5xe5/, 'one turn, two plies, one line');
+  assert.match(line, /^1\. Ra1-a4!H Ra4-e4/, 'one turn, two plies, one line');
   console.log(`ok haste: ${line}`);
 
   // Haste ended early with the End turn button.
-  await open(page, 'flame:haste,none', '7k/8/8/r7/8/8/8/R5K1 w - - 0 1');
+  await open(page, 'flame:haste,none', '7k/p7/8/8/8/8/8/R5K1 w - - 0 1');
   await page.click('#power-btn');
-  await click(page, 'a1'); await click(page, 'a5');
+  await click(page, 'a1'); await click(page, 'a4');
   await page.waitForFunction(() => !document.getElementById('end-haste').hidden);
   await page.click('#end-haste');
   await waitText(page, /--/);
@@ -97,7 +101,7 @@ try {
   await page.selectOption('#power-white', 'Mud:March');
   await page.selectOption('#power-black', 'Frost:IceWall');
   await page.click('#new-classic');
-  await page.waitForFunction(() => /White's king: March, 3 left/.test(document.getElementById('info').textContent)
+  await page.waitForFunction(() => /White's king: March — /.test(document.getElementById('info').textContent)
     && /Black's king: Ice Wall, 2 left/.test(document.getElementById('info').textContent));
   await page.screenshot({ path: `${out}/new-game-powers.png` });
   console.log('ok new game with powers');

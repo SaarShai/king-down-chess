@@ -9,7 +9,7 @@ import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
 import { loadModels } from './render/voxels';
-import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
@@ -25,7 +25,12 @@ const preset = { 2017: RULES_2017, 2021: RULES_2021 }[params.get('rules') ?? '']
  */
 const kings = params.get('kings');
 // Before the first Game: its constructor builds a position and asks for its status.
-if (preset || kings) setRules({ ...preset, ...(kings ? { kings: parseKings(kings) } : {}) });
+/** With any power in play, the balanced readings apply (an older `?rules=` preset still overrides them). */
+const withPowers = (k: Rules['kings']): Partial<Rules> => (k[0] || k[1] ? POWERS_BALANCED : {});
+if (preset || kings) {
+  const k = kings ? parseKings(kings) : undefined;
+  setRules({ ...(k ? withPowers(k) : {}), ...preset, ...(k ? { kings: k } : {}) });
+}
 /** "twice a game", "always on". */
 const usesText = (p: PowerName): string => {
   const n = usesAllowed(p);
@@ -795,7 +800,10 @@ const orient = (): void => view.flip(sides[0] === 'human' && sides[1] === 'human
 function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null): void {
   $<HTMLDialogElement>('new-game').close(); // every army choice in the dialog starts here
   reset();
-  if (!rematch) setRules({ ...preset, kings: [readPowerSelect($('power-white')), readPowerSelect($('power-black'))] });
+  if (!rematch) {
+    const k: Rules['kings'] = [readPowerSelect($('power-white')), readPowerSelect($('power-black'))];
+    setRules({ ...withPowers(k), ...preset, kings: k });
+  }
   resigned = null;
   linkSide = null;
   lesson = null; lessonDone = false;

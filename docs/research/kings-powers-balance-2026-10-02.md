@@ -6,7 +6,43 @@ any power's rules and iterate until they are fairly well balanced.
 
 ## Summary
 
-*(Filled in when the last round is in.)*
+**The twelve powers went from a 59-point spread to about 20, and nine of the twelve now sit within
+42–56%** against the other powers (depth 3, 4,944 games on armies and openings never used for
+tuning). The game now plays the balanced readings whenever a king has a power (`POWERS_BALANCED`);
+the rulebook as printed stays available behind `?rules=2017`.
+
+| power | rulebook as printed | balanced reading | final check |
+|---|---|---|---|
+| Freeze | the whole turn, 2 a game — 41% | **free action, then your move; once a game** | 52% |
+| Ice Wall | the whole turn — 46% | **free action, then your move** (2 a game) | 45% |
+| Strike | any piece, takes — 78% | **pieces only, to an empty square** | 49% |
+| Haste | two moves, may take — 80% | **neither move takes** | 56% |
+| Flight | once — 44% | unchanged (a second use overshoots: 58%) | 49% |
+| Sacrifice | 57% | unchanged | 47% |
+| March | 3 a game — 46% | **always on** (shorter rule) | 47% |
+| Leap | 3 a game — 49% | unchanged | 48% |
+| Holy Light | pawns cannot take the king; it takes no pawns — 46% | **the king may take pawns** (shorter rule) | 42% |
+| Mercy | king steps 1–2, takes nothing — 21% | **as printed, and the pieces next to the king cannot be taken** | 62% |
+| Death Touch | 56% | unchanged | 44% |
+| Darkness | 38% | **pawns also keep their straight steps**, still take only straight ahead | 42% |
+
+**Still outside the target (50 ± 4):** Mercy is high (62%) and Haste a little high (56%); Holy Light,
+Darkness, Death Touch and Ice Wall are low (42–45%). No simple change measured in this pass closes
+those gaps without overshooting: Mercy without the shelter is the weakest power of all (21–37%), and
+Holy Light with the same shelter jumps to 60%. These are the owner's choices (below).
+
+**Depth matters.** A depth-4 check of the round-4 set (936 games) kept the order but widened the
+spread to 24 points: Mercy, Flight with two uses and Sacrifice near 59%, Holy Light 36%. Balance
+measured by a computer player is a guide for people, not a guarantee.
+
+**For the owner:**
+1. Adopt the balanced readings as the mode's rules (they are the game's default for powers in this
+   PR), or keep any power as printed — each is one toggle.
+2. Mercy: keep the shelter (strong, 62%), or try a lighter version later. Holy Light: accept 42%, or
+   give it the shelter too (60%) and lighten Mercy.
+3. Freeze and Ice Wall as a free action is a rulebook reading, not a change: the rulebook marks only
+   Strike, Flight and Sacrifice "counts as a turn". Strike "pieces only" likewise reads "piece" as
+   the rulebook's Sacrifice text uses it (a pawn is not a piece).
 
 ## What was built
 
@@ -194,3 +230,36 @@ second Strike overshoots. Holy Light is the one power still clearly low.
 The final check (below) plays the round-4 base on fresh armies and openings (seed 303, 24 pairs),
 with two last readings beside it — Flight once again, now that the field has moved, and Holy Light
 with Mercy's shelter — and a depth-4 run of the base set.
+
+## Final check — fresh armies, and depth 4
+
+The round-4 base (with Flight back to one use beside two, and Holy Light with Mercy's shelter as a
+variant), seed 303 (armies and openings not used in rounds 1–4), 24 pairs, depth 3: 4,944 games.
+
+| entrant | vs powers | decisive |
+|---|---|---|
+| Mercy + shelter | 61.9 ± 3.6 | 83.6% |
+| Holy Light + shelter (variant) | 59.7 ± 3.5 | 81.4% |
+| Flight twice | 58.3 ± 3.8 | 90.4% |
+| Haste, no captures | 55.9 ± 3.7 | 87.6% |
+| Freeze, one free use | 52.2 ± 3.7 | 89.6% |
+| Strike, pieces only, no captures | 49.4 ± 3.7 | 87.2% |
+| **Flight once (the rulebook)** | **49.0 ± 3.7** | 84.8% |
+| Leap | 48.2 ± 3.8 | 86.2% |
+| March | 46.7 ± 3.7 | 88.1% |
+| Sacrifice | 46.6 ± 3.7 | 87.8% |
+| Ice Wall | 44.6 ± 3.5 | 86.5% |
+| Death Touch | 43.6 ± 3.5 | 82.3% |
+| Holy Light, takes pawns | 42.3 ± 3.5 | 84.5% |
+| Darkness, straight steps kept | 42.2 ± 3.7 | 93.8% |
+| *plain king* | 38.5 ± 3.2 | 84.8% |
+
+White's first-move edge: −1 ± 10 Elo. Games stay sharp: 82–94% decisive, about 95 plies.
+
+On fresh positions **Flight goes back to the rulebook's one use** (49%); two uses overshoot. Mercy's
+shelter is stronger here than in round 4 (62 against 56). The depth-4 run (round-4 set, seed 404, 6
+pairs, 936 games) ordered the powers the same way with a wider spread: Mercy 60, Flight twice 59,
+Sacrifice 59, Haste 56, Strike 56, Freeze 55, Leap 51, Ice Wall 44, March 42, Death Touch 41,
+Darkness 41, Holy Light 36 (each ±6–8).
+
+Raw games: `claude/kp2-results-*` branches (`sim/out/*.jsonl`); reports and specs in `sim/out/`.
