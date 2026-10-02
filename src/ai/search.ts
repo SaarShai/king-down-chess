@@ -14,10 +14,15 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  Color, GenMode, K, Move, P, Position, RULES, WHITE, canCapture, colorOf, file, genPiece, isAttacked, landed, materialDraw, piece, rank, sq, typeOf,
+  Color, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, filterMarks, genHasteFollowUp, genPiece, genPowerMoves, isAttacked,
+  keepsLost, landed, materialDraw, piece, powerOf, powerUses, typeOf,
 } from '../rules/engine';
+import type { PowerName } from '../rules/rules';
 import { VALUES, evalBoard } from './eval';
-import { Z_HI, Z_LO, Z_TURN_HI, Z_TURN_LO, combine, hashBoard, zIndex } from './zobrist';
+import {
+  Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO, Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO,
+  combine, hashBoard, lostIndex, usedIndex, zIndex,
+} from './zobrist';
 
 export { VALUES, evaluate, evaluatorName, setEvaluator } from './eval';
 
@@ -62,13 +67,110 @@ const ttMeta = new Int32Array(TT_SIZE);
 
 let nodes = 0, stop = false, hardDeadline = 0, rootDepth = 1;
 let gameHistory = new Set<number>();
-/** Strike (Flame A) use per side during the current search, mirroring `Position.strike`. */
-let strikeUsed: [boolean, boolean] = [false, false];
-let strikeUndo: { sp: number; c: Color }[] = [];
-/** Incremental-hash constants for a spent Strike, so `path` sees the state the way `positionKey` does. */
-const Z_STRIKE_LO = [0x1f123bb5, 0x7b1d477a], Z_STRIKE_HI = [0x5c8a1b3d, 0x2ea9c6f1];
-/** Queen directions, local because `engine.DIRS8` is private and `genPiece` is not being changed. */
-const SLIDE8: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+
+// ---------------------------------------------------------------------------------------------
+// King powers (docs/RULES.md §4): the position state `Position` carries for them, mirrored here and
+// kept in the incremental hash exactly as `positionKey` folds it in. One frame per `apply`.
+
+/** The side to move at each ply. Not `root ^ (ply & 1)`: after a Haste's first move the same side moves again. */
+const sideAt = new Uint8Array(MAX_PLY + QMAX + 2);
+/** Uses spent per side (`Position.used`); a mutable pair, so `materialDraw` reads it with no allocation. */
+const usedPair: [number, number] = [0, 0];
+/** Freeze/Ice Wall mark binding the side to move, and the pending Haste square; -1 = none. */
+let mark = -1, hasteSq = -1;
+/** Sacrifice reserve (`Position.lost`), kept only when `trackLost`. */
+const lost = new Int32Array(32);
+let trackLost = false;
+/** Per side, for this search: is the uses count hashed (a counted power), is the reserve hashed (Sacrifice). */
+const usedHashed = [false, false], lostHashed = [false, false];
+/** Undo log of reserve changes: index and delta. */
+const lostLogIdx = new Int32Array(MAX_PLY * 64), lostLogDelta = new Int8Array(MAX_PLY * 64);
+let lostTop = 0;
+/** One frame per `apply`: what `undo` restores. */
+const FRAMES = MAX_PLY + QMAX + 8;
+const fBase = new Int32Array(FRAMES), fUsed0 = new Int32Array(FRAMES), fUsed1 = new Int32Array(FRAMES);
+const fMark = new Int32Array(FRAMES), fHaste = new Int32Array(FRAMES), fLostTop = new Int32Array(FRAMES), fFlip = new Uint8Array(FRAMES);
+let fsp = 0;
+/**
+ * Power moves are offered only at plies 0…`powerPlyMax` (root, reply, own next move by default);
+ * below that the search plays the pieces' own moves. A search heuristic, not a rule: Flight alone
+ * adds ~200 moves a node while unspent. Marks and a pending Haste bind at every ply.
+ */
+let powerPlyMax = 2;
+
+/**
+ * What one unspent use is worth to its owner, in centipawns, so the search spends it only for more
+ * than that. Without this term the search would burn a one-use power on the first move that scores a
+ * centipawn better. Sacrifice is priced by its reserve instead (`powerTerm`). Unlimited powers
+ * (0 uses) hold nothing. `setPowerHold` overrides these for an experiment.
+ */
+const HOLD_DEFAULT: Readonly<Partial<Record<PowerName, number>>> = Object.freeze({
+  Freeze: 40, IceWall: 30, Strike: 120, Haste: 150, Flight: 60, March: 15, Leap: 20,
+});
+const hold: Partial<Record<PowerName, number>> = { ...HOLD_DEFAULT };
+/** Share of the best returnable piece's gain (piece − pawn) an unspent Sacrifice is worth. */
+let sacrificeHoldShare = 0.5;
+export function setPowerHold(over?: Partial<Record<PowerName, number>> & { sacrificeShare?: number }): void {
+  for (const k of Object.keys(hold) as PowerName[]) delete hold[k];
+  Object.assign(hold, HOLD_DEFAULT, over);
+  delete (hold as Record<string, unknown>).sacrificeShare;
+  sacrificeHoldShare = over?.sacrificeShare ?? 0.5;
+}
+/** Per side for this search: uses allowed (-1 not spendable, 0 unlimited) and the power's name. */
+const usesMax = [-1, -1];
+const powerAt: (PowerName | '')[] = ['', ''];
+
+function setUsed(c: Color, v: number): void {
+  if (usedHashed[c]) {
+    const old = usedPair[c];
+    if (old > 0) { const i = usedIndex(c, old); hLo ^= Z_USED_LO[i]; hHi ^= Z_USED_HI[i]; }
+    if (v > 0) { const i = usedIndex(c, v); hLo ^= Z_USED_LO[i]; hHi ^= Z_USED_HI[i]; }
+  }
+  usedPair[c] = v;
+}
+function setMark(v: number): void {
+  if (mark >= 0) { hLo ^= Z_MARK_LO[mark]; hHi ^= Z_MARK_HI[mark]; }
+  if (v >= 0) { hLo ^= Z_MARK_LO[v]; hHi ^= Z_MARK_HI[v]; }
+  mark = v;
+}
+function setHaste(v: number): void {
+  if (hasteSq >= 0) { hLo ^= Z_HASTE_LO[hasteSq]; hHi ^= Z_HASTE_HI[hasteSq]; }
+  if (v >= 0) { hLo ^= Z_HASTE_LO[v]; hHi ^= Z_HASTE_HI[v]; }
+  hasteSq = v;
+}
+/** Change one reserve count, with its hash, without logging (the log is `lostAdd`'s job). */
+function lostSet(i: number, v: number): void {
+  if (lostHashed[i >> 4]) {
+    const old = lost[i];
+    if (old > 0) { const k = lostIndex(i, old); hLo ^= Z_LOST_LO[k]; hHi ^= Z_LOST_HI[k]; }
+    if (v > 0) { const k = lostIndex(i, v); hLo ^= Z_LOST_LO[k]; hHi ^= Z_LOST_HI[k]; }
+  }
+  lost[i] = v;
+}
+function lostAdd(i: number, d: number): void {
+  lostSet(i, lost[i] + d);
+  lostLogIdx[lostTop] = i;
+  lostLogDelta[lostTop] = d;
+  lostTop++;
+}
+
+/** The unspent-power term for side `c`: what keeping its remaining uses is worth (see `hold`). */
+function powerTerm(c: Color): number {
+  const n = usesMax[c];
+  if (n <= 0) return 0; // no spendable power, or unlimited uses
+  const left = n - usedPair[c];
+  if (left <= 0) return 0;
+  const p = powerAt[c];
+  if (p === 'Sacrifice') {
+    let best = 0;
+    for (let t = 1; t < 16; t++) if (lost[c * 16 + t] > 0 && t !== P && t !== K && t !== 9 /* G */) best = Math.max(best, VALUES[t]);
+    return best > VALUES[P] ? Math.round(sacrificeHoldShare * (best - VALUES[P])) * Math.min(left, 1) : 0;
+  }
+  return (p ? hold[p] ?? 0 : 0) * left;
+}
+
+/** The leaf score: the board's evaluation plus both sides' unspent powers, from `c`'s point of view. */
+const evaluateNode = (c: Color): number => evalBoard(board, c) + powerTerm(c) - powerTerm((c ^ 1) as Color);
 
 // ---------------------------------------------------------------------------------------------
 // Make / unmake on the scratch board, with an incremental hash.
@@ -83,33 +185,45 @@ function write(s: number, v: number): void {
   board[s] = v;
 }
 
-/** Same writes, in the same order, as engine.makeMove. Returns the undo mark. */
-function apply(m: Move): number {
+/**
+ * Same writes, in the same order, as engine.makeMove, plus the power state it updates. Returns the
+ * undo mark. `c` is the side moving: a Freeze names an *enemy* square, so the board cannot say.
+ */
+function apply(m: Move, c: Color): number {
   const base = sp;
-  const mover = board[m.from], other = board[m.to];
-  for (let i = 0; i < m.captures.length; i++) write(m.captures[i], 0);
-  if (m.shove) { write(m.shove.to, board[m.shove.from]); write(m.shove.from, 0); }
-  write(m.from, m.swap ? other : 0);
-  write(m.to, m.selfRemove ? 0 : landed(mover, m));
-  hLo ^= Z_TURN_LO;
-  hHi ^= Z_TURN_HI;
-  if (m.strike) {
-    const c = colorOf(mover);
-    strikeUsed[c] = true;
-    strikeUndo.push({ sp, c });
-    hLo ^= Z_STRIKE_LO[c];
-    hHi ^= Z_STRIKE_HI[c];
+  fBase[fsp] = base; fUsed0[fsp] = usedPair[0]; fUsed1[fsp] = usedPair[1];
+  fMark[fsp] = mark; fHaste[fsp] = hasteSq; fLostTop[fsp] = lostTop;
+  const still = m.power === 'freeze' || m.power === 'ward' || m.pass === true;
+  if (!still) {
+    const mover = board[m.from], other = board[m.to];
+    if (trackLost) {
+      for (let i = 0; i < m.captures.length; i++) { const v = board[m.captures[i]]; lostAdd(colorOf(v) * 16 + typeOf(v), 1); }
+      if (m.selfRemove) lostAdd(c * 16 + typeOf(mover), 1);
+      if (m.power === 'sacrifice' && m.promo) lostAdd(c * 16 + m.promo, -1);
+    }
+    for (let i = 0; i < m.captures.length; i++) write(m.captures[i], 0);
+    if (m.shove) { write(m.shove.to, board[m.shove.from]); write(m.shove.from, 0); }
+    write(m.from, m.swap ? other : 0);
+    write(m.to, m.selfRemove ? 0 : landed(mover, m));
   }
+  if (m.power) setUsed(c, usedPair[c] + 1);
+  const holdTurn = m.power === 'haste';
+  setMark(m.power === 'freeze' || m.power === 'ward' ? m.to : holdTurn ? mark : -1);
+  setHaste(holdTurn ? m.to : -1);
+  fFlip[fsp] = holdTurn ? 0 : 1;
+  if (!holdTurn) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
+  fsp++;
   return base;
 }
 
 function undo(base: number): void {
-  while (strikeUndo.length && strikeUndo[strikeUndo.length - 1].sp > base) {
-    const e = strikeUndo.pop()!;
-    strikeUsed[e.c] = false;
-    hLo ^= Z_STRIKE_LO[e.c];
-    hHi ^= Z_STRIKE_HI[e.c];
-  }
+  fsp--;
+  if (fFlip[fsp]) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
+  setHaste(fHaste[fsp]);
+  setMark(fMark[fsp]);
+  setUsed(0, fUsed0[fsp]);
+  setUsed(1, fUsed1[fsp]);
+  while (lostTop > fLostTop[fsp]) { lostTop--; const i = lostLogIdx[lostTop]; lostSet(i, lost[i] - lostLogDelta[lostTop]); }
   while (sp > base) {
     sp--;
     const s = undoSq[sp], old = undoPc[sp], cur = board[s];
@@ -117,8 +231,6 @@ function undo(base: number): void {
     if (old) { const i = zIndex(old, s); hLo ^= Z_LO[i]; hHi ^= Z_HI[i]; }
     board[s] = old;
   }
-  hLo ^= Z_TURN_LO;
-  hHi ^= Z_TURN_HI;
 }
 
 /**
@@ -129,6 +241,7 @@ function undo(base: number): void {
  */
 function applyQuiet(m: Move): number {
   const base = sp;
+  if (m.power === 'freeze' || m.power === 'ward' || m.pass) return base; // they change no square
   const mover = board[m.from], other = board[m.to];
   for (let i = 0; i < m.captures.length; i++) {
     undoSq[sp] = m.captures[i];
@@ -161,35 +274,22 @@ const attacked = (c: Color): boolean => {
   return k >= 0 && isAttacked(board, k, (c ^ 1) as Color);
 };
 
-/** Legal moves into a reused buffer: pseudo-legal, then make/unmake and look at our own king. */
-function genLegal(out: Move[], c: Color, mode: GenMode): Move[] {
+/**
+ * Legal moves into a reused buffer: pseudo-legal, then make/unmake and look at our own king. The
+ * power moves come from the engine's own `genPowerMoves`, offered while `ply <= powerPlyMax`; a
+ * pending Haste allows only the hasted piece and `pass`; a mark filters what it forbids.
+ */
+function genLegal(out: Move[], c: Color, mode: GenMode, ply: number): Move[] {
   out.length = 0;
-  for (let s = 0; s < 64; s++) {
-    const p = board[s];
-    if (p && colorOf(p) === c) genPiece(board, s, mode, out);
-  }
-  // Strike (Flame A), mirroring `pseudoMoves`: once per side, an own non-king piece moves as a
-  // queen. Kept out of `genPiece`, which is also the attack generator.
-  if (mode === 'all' && RULES.kings[c]?.power === 'Strike' && !strikeUsed[c]) {
-    const capture = RULES.strikeMode === 'capture';
+  if (hasteSq >= 0) genHasteFollowUp(board, hasteSq, mode, out);
+  else {
     for (let s = 0; s < 64; s++) {
       const p = board[s];
-      if (!p || colorOf(p) !== c || typeOf(p) === K) continue;
-      for (const [df, dr] of SLIDE8) {
-        for (let f = file(s) + df, r = rank(s) + dr; f >= 0 && f < 8 && r >= 0 && r < 8; f += df, r += dr) {
-          const to = sq(f, r), v = board[to];
-          if (!v) {
-            if (!capture) out.push({ from: s, to, captures: [], strike: true });
-            continue;
-          }
-          if (colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) {
-            out.push(capture ? { from: s, to: s, captures: [to], strike: true } : { from: s, to, captures: [to], strike: true });
-          }
-          break;
-        }
-      }
+      if (p && colorOf(p) === c) genPiece(board, s, mode, out);
     }
+    if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) genPowerMoves(board, c, usedPair[c], trackLost ? lost : undefined, out, 0, out.length);
   }
+  if (mark >= 0) filterMarks(c, mark, out);
   let n = 0;
   for (let i = 0; i < out.length; i++) {
     const m = out[i];
@@ -248,10 +348,11 @@ function pick(moves: Move[], s: Int32Array, i: number): void {
 /**
  * Two-fold inside the search (and against the supplied game history) counts as a draw.
  * Pawn moves reset the halfmove clock but need not be irreversible here: an Ogre
- * can shove a pawn backward (and a Maester can swap it). Scan the whole path.
+ * can shove a pawn backward (and a Maester can swap it). Scan the whole path — every ply, not every
+ * second one: a Haste turn takes two plies, and the key carries the side to move anyway.
  */
 function repeated(ply: number, key: number): boolean {
-  for (let i = ply - 2; i >= 0; i -= 2) if (path[i] === key) return true;
+  for (let i = ply - 1; i >= 0; i--) if (path[i] === key) return true;
   return gameHistory.has(key);
 }
 
@@ -281,27 +382,28 @@ function terminalScore(c: Color, ply: number, hm: number): number | null {
   if (board.indexOf(piece(K, (c ^ 1) as Color)) < 0) return MATE - ply;
   if ((RULES.fiftyMove && hm >= 100) || (RULES.threefold && ply > 0 && repeated(ply, combine(hLo, hHi)))) {
     // Mate ends the game before a draw-clock/history condition can claim it.
-    return attacked(c) && genLegal(bufs[ply], c, 'all').length === 0 ? -MATE + ply : 0;
+    return attacked(c) && genLegal(bufs[ply], c, 'all', ply).length === 0 ? -MATE + ply : 0;
   }
-  return materialDraw(board, strikeUsed) ? 0 : null;
+  return materialDraw(board, usedPair) ? 0 : null;
 }
 
 function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: number): number {
-  const c = (rootTurn ^ (ply & 1)) as Color;
+  const c = sideAt[ply] as Color;
   const terminal = terminalScore(c, ply, hm);
   if (terminal != null) return terminal;
-  if (timeUp() || ply >= MAX_PLY + QMAX) return evalBoard(board, c);
+  if (timeUp() || ply >= MAX_PLY + QMAX) return evaluateNode(c);
   const key = combine(hLo, hHi);
   path[ply] = key;
   const inChk = attacked(c);
-  // Stalemate is terminal even at the capture-search horizon, before stand-pat.
-  const moves = genLegal(bufs[ply], c, 'all');
+  // Stalemate is terminal even at the capture-search horizon, before stand-pat. No power is started
+  // here (`ply` past `powerPlyMax`), so a capture continuation never holds the turn.
+  const moves = genLegal(bufs[ply], c, 'all', MAX_PLY);
   if (!moves.length) return inChk ? -MATE + ply : 0;
   let best: number;
   if (inChk) {
     best = -INF; // no stand-pat while in check: every evasion has to be looked at
   } else {
-    best = evalBoard(board, c);
+    best = evaluateNode(c);
     if (best >= beta || qdepth === 0) return best;
     if (best > alpha) alpha = best;
   }
@@ -319,7 +421,8 @@ function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: n
     // prune here too — the gain is the whole story, there is no recapture to discover.
     if (!inChk && stand + gain(m) + DELTA < alpha) continue;
     const nhm = m.captures.length || typeOf(board[m.from]) === P ? 0 : hm + 1;
-    const base = apply(m);
+    const base = apply(m, c);
+    sideAt[ply + 1] = c ^ 1;
     const v = -quiesce(-beta, -alpha, ply + 1, qdepth - 1, nhm);
     undo(base);
     if (stop) break;
@@ -331,10 +434,10 @@ function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: n
 }
 
 function negamax(depth: number, alpha: number, beta: number, ply: number, hm: number): number {
-  const c = (rootTurn ^ (ply & 1)) as Color;
+  const c = sideAt[ply] as Color;
   const terminal = terminalScore(c, ply, hm);
   if (terminal != null) return terminal;
-  if (timeUp() || ply >= MAX_PLY) return evalBoard(board, c);
+  if (timeUp() || ply >= MAX_PLY) return evaluateNode(c);
 
   const key = combine(hLo, hHi);
   path[ply] = key;
@@ -357,9 +460,9 @@ function negamax(depth: number, alpha: number, beta: number, ply: number, hm: nu
 
   const inChk = attacked(c);
   if (inChk && ply < rootDepth * 2) depth++; // check extension, capped at twice the nominal depth
-  if (depth <= 0) return quiesce(alpha, beta, ply, QMAX, hm);
+  if (depth <= 0 && hasteSq < 0) return quiesce(alpha, beta, ply, QMAX, hm);
 
-  const moves = genLegal(bufs[ply], c, 'all');
+  const moves = genLegal(bufs[ply], c, 'all', ply);
   if (moves.length === 0) return inChk ? -MATE + ply : 0;
   const s = score(moves, ply, ttEnc);
 
@@ -368,10 +471,19 @@ function negamax(depth: number, alpha: number, beta: number, ply: number, hm: nu
     pick(moves, s, i);
     const m = moves[i];
     const quiet = m.captures.length === 0 && !m.promo;
-    const nhm = m.captures.length || typeOf(board[m.from]) === P ? 0 : hm + 1;
-    const base = apply(m);
-    let v = -negamax(depth - 1, i === 0 ? -beta : -alpha - 1, -alpha, ply + 1, nhm);
-    if (i > 0 && v > alpha && v < beta) v = -negamax(depth - 1, -beta, -alpha, ply + 1, nhm);
+    const nhm = moveResets(m) ? 0 : hm + 1;
+    const holdTurn = m.power === 'haste';
+    const base = apply(m, c);
+    let v: number;
+    if (holdTurn) {
+      // Haste: the same side moves again — same depth (the turn is not over), same sign, full window.
+      sideAt[ply + 1] = c;
+      v = negamax(depth, alpha, beta, ply + 1, nhm);
+    } else {
+      sideAt[ply + 1] = c ^ 1;
+      v = -negamax(depth - 1, i === 0 ? -beta : -alpha - 1, -alpha, ply + 1, nhm);
+      if (i > 0 && v > alpha && v < beta) v = -negamax(depth - 1, -beta, -alpha, ply + 1, nhm);
+    }
     undo(base);
     if (stop) return best === -INF ? alpha : best;
     if (v > best) { best = v; bestEnc = encode(m); }
@@ -412,6 +524,8 @@ export interface SearchOptions {
   temperature?: number;
   /** Random source for `temperature`; defaults to `Math.random`. Pass a seeded one for tests. */
   rng?: () => number;
+  /** King powers are offered at plies 0…`powerPlies` of the tree (default 2); see `powerPlyMax`. */
+  powerPlies?: number;
 }
 export interface SearchResult {
   move: Move | null; score: number; depth: number; nodes: number;
@@ -432,25 +546,73 @@ export function quiesceScore(pos: Position): number {
   return quiesce(-INF, INF, 0, QMAX, pos.halfmove);
 }
 
-/** Key of a position, for `SearchOptions.history`. */
+/**
+ * Key of a position, for `SearchOptions.history` and `Game`'s repetition count: the board, the side
+ * to move and the king-power state that changes the legal moves — uses spent of a counted power,
+ * a Freeze/Ice Wall mark, a pending Haste, and the reserve of a side that plays Sacrifice. The
+ * search keeps the same key incrementally (`apply`/`undo`), so the two are one definition.
+ */
 export function positionKey(pos: Position): number {
   hashBoard(pos.board, pos.turn, hashOut);
-  if (pos.strike?.[0]) { hashOut[0] ^= Z_STRIKE_LO[0]; hashOut[1] ^= Z_STRIKE_HI[0]; }
-  if (pos.strike?.[1]) { hashOut[0] ^= Z_STRIKE_LO[1]; hashOut[1] ^= Z_STRIKE_HI[1]; }
-  return combine(hashOut[0], hashOut[1]);
+  let lo = hashOut[0], hi = hashOut[1];
+  for (let c = 0; c < 2; c++) {
+    const u = pos.used?.[c] ?? 0;
+    if (u > 0 && powerUses(c as Color) > 0) { const i = usedIndex(c, u); lo ^= Z_USED_LO[i]; hi ^= Z_USED_HI[i]; }
+    if (pos.lost && powerOf(c as Color) === 'Sacrifice') {
+      for (let t = 1; t < 16; t++) {
+        const n = pos.lost[c * 16 + t];
+        if (n > 0) { const k = lostIndex(c * 16 + t, n); lo ^= Z_LOST_LO[k]; hi ^= Z_LOST_HI[k]; }
+      }
+    }
+  }
+  if (pos.mark !== undefined) { lo ^= Z_MARK_LO[pos.mark]; hi ^= Z_MARK_HI[pos.mark]; }
+  if (pos.haste !== undefined) { lo ^= Z_HASTE_LO[pos.haste]; hi ^= Z_HASTE_HI[pos.haste]; }
+  hashOut[0] = lo;
+  hashOut[1] = hi;
+  return combine(lo, hi);
 }
 
 function initPosition(pos: Position): void {
   board.set(pos.board);
   rootTurn = pos.turn;
-  positionKey(pos); // fills hashOut, including spent Strike state
+  sideAt[0] = pos.turn;
+  positionKey(pos); // fills hashOut, including the power state
   hLo = hashOut[0];
   hHi = hashOut[1];
   sp = 0;
+  fsp = 0;
+  lostTop = 0;
   nodes = 0;
   stop = false;
-  strikeUsed = [pos.strike?.[0] ?? false, pos.strike?.[1] ?? false];
-  strikeUndo = [];
+  usedPair[0] = pos.used?.[0] ?? 0;
+  usedPair[1] = pos.used?.[1] ?? 0;
+  mark = pos.mark ?? -1;
+  hasteSq = pos.haste ?? -1;
+  trackLost = keepsLost();
+  lost.fill(0);
+  if (pos.lost) for (let i = 0; i < 32; i++) lost[i] = pos.lost[i] ?? 0;
+  for (let c = 0; c < 2; c++) {
+    usesMax[c] = powerUses(c as Color);
+    powerAt[c] = powerOf(c as Color);
+    usedHashed[c] = usesMax[c] > 0;
+    lostHashed[c] = powerAt[c] === 'Sacrifice';
+  }
+}
+
+/** A move that resets the 50-move clock: a capture or a pawn move (never a mark or a pass). */
+const moveResets = (m: Move): boolean =>
+  m.captures.length > 0 || (!m.pass && m.power !== 'freeze' && m.power !== 'ward' && typeOf(board[m.from]) === P);
+
+/**
+ * Test probe: apply `m` to `pos` the way the search does and return the incremental key after it and
+ * after the undo, to compare with `positionKey(makeMove(pos, m))` and `positionKey(pos)`.
+ */
+export function probeApply(pos: Position, m: Move): { after: number; back: number } {
+  initPosition(pos);
+  const base = apply(m, pos.turn);
+  const after = combine(hLo, hHi);
+  undo(base);
+  return { after, back: combine(hLo, hHi) };
 }
 
 /**
@@ -479,6 +641,7 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
   hardDeadline = start + timeMs;
 
   initPosition(pos);
+  powerPlyMax = opts.powerPlies ?? 2;
   rootDepth = 1;
   gameHistory = new Set(opts.history?.map(Number));
   killers.fill(0);
@@ -490,7 +653,7 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
 
   const temperature = opts.temperature ?? 0;
   const multi = opts.multiPv === 2 || temperature > 0;
-  const rootMoves = genLegal(bufs[0], pos.turn, 'all');
+  const rootMoves = genLegal(bufs[0], pos.turn, 'all', 0);
   const result: SearchResult = { move: rootMoves[0] ?? null, score: 0, depth: 0, nodes: 0 };
   if (rootMoves.length === 0) { result.score = attacked(pos.turn) ? -MATE : 0; return result; }
 
@@ -502,11 +665,20 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
     const scores: { move: Move; score: number }[] = [];
     for (let i = 0; i < rootMoves.length; i++) {
       const m = rootMoves[i];
-      const nhm = m.captures.length || typeOf(board[m.from]) === P ? 0 : pos.halfmove + 1;
-      const base = apply(m);
-      // MultiPV needs every root move's true score, so it cannot use the null window.
-      let v = -negamax(depth - 1, multi || i === 0 ? -INF : -alpha - 1, multi ? INF : -alpha, 1, nhm);
-      if (!multi && i > 0 && v > alpha) v = -negamax(depth - 1, -INF, -alpha, 1, nhm);
+      const nhm = moveResets(m) ? 0 : pos.halfmove + 1;
+      const holdTurn = m.power === 'haste';
+      const base = apply(m, pos.turn);
+      let v: number;
+      if (holdTurn) {
+        // Haste: the second move belongs to this same turn — searched at the same depth, same sign.
+        sideAt[1] = pos.turn;
+        v = negamax(depth, multi ? -INF : alpha, INF, 1, nhm);
+      } else {
+        sideAt[1] = pos.turn ^ 1;
+        // MultiPV needs every root move's true score, so it cannot use the null window.
+        v = -negamax(depth - 1, multi || i === 0 ? -INF : -alpha - 1, multi ? INF : -alpha, 1, nhm);
+        if (!multi && i > 0 && v > alpha) v = -negamax(depth - 1, -INF, -alpha, 1, nhm);
+      }
       undo(base);
       if (stop) break;
       scores.push({ move: m, score: v });

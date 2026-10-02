@@ -83,20 +83,25 @@ export const KINGS: Readonly<Record<KingName, readonly [PowerName, PowerName]>> 
   Shadow: ['DeathTouch', 'Darkness'],
 });
 
-/**
- * The six powers the engine actually plays: the stateless rule modifiers of the plan's tier 1.
- * The other six need per-side state on `Position` (tier 2) or a captured-pieces reserve (tier 3),
- * and `parseKing` **refuses** them rather than hand the lab a game whose power does nothing — a
- * power used in no game measures nothing (plan §3.4).
- */
+/** The stateless powers: pure rule modifiers of the board plus this field, always on. */
 export const TIER1: readonly PowerName[] = ['HolyLight', 'Mercy', 'DeathTouch', 'Darkness', 'March', 'Leap'];
 
+/** Every power the engine plays — all twelve since 2026-10-02 (docs/RULES.md §4). */
+export const BUILT: readonly PowerName[] = [
+  'Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'HolyLight', 'Mercy', 'DeathTouch', 'Darkness',
+];
+
 /**
- * Everything `parseKing` accepts: tier 1 plus the tier-2 powers that carry their own game state —
- * today only **Strike** (Flame A), whose per-side one-use flag lives on `Position.strike`. The
- * remaining five still need marks, charges or a reserve, and stay refused for the same reason.
+ * The powers a player *spends*: each use is a move tagged with `Move.power`, and the side's count of
+ * spent uses travels with the position (`Position.used`). The count each side may spend is a rule
+ * (`Rules.freezeUses` and the rest): the 2017 rulebook's numbers are the defaults (docs/RULES.md
+ * §6.5), and 0 means unlimited. March and Leap at 0 are the stateless always-on readings measured in
+ * docs/research/sim-kings-2026-09-16.md.
  */
-export const BUILT: readonly PowerName[] = [...TIER1, 'Strike'];
+export const USES_RULE: Readonly<Partial<Record<PowerName, keyof Rules>>> = Object.freeze({
+  Freeze: 'freezeUses', IceWall: 'iceWallUses', Strike: 'strikeUses', Haste: 'hasteUses',
+  Flight: 'flightUses', Sacrifice: 'sacrificeUses', March: 'marchUses', Leap: 'leapUses',
+});
 
 /** `"Spirit:Mercy"` (case-insensitive), or `"none"` / `"-"` / `""` for a king with no power. */
 export function parseKing(text: string): KingChoice | null {
@@ -107,9 +112,6 @@ export function parseKing(text: string): KingChoice | null {
   if (!king) throw new Error(`unknown king "${k}" (${Object.keys(KINGS).join(' | ')} | none)`);
   const power = KINGS[king].find(n => n.toLowerCase() === p.toLowerCase());
   if (!power) throw new Error(`king ${king} has no power "${p}" (${KINGS[king].join(' | ')})`);
-  if (!BUILT.includes(power)) {
-    throw new Error(`${king}:${power} is not built yet — built powers are ${BUILT.join(' | ')} (docs/KINGS-POWERS-PLAN.md §2)`);
-  }
   return { king, power };
 }
 
@@ -308,6 +310,21 @@ export interface Rules {
   /** Strike (Flame A) reading: `move` (as written) or `capture` (capture without moving). */
   strikeMode: StrikeMode;
   /**
+   * Per-game uses of each spendable king power (`USES_RULE`); 0 = unlimited. The defaults are the
+   * 2017 rulebook's token counts (docs/RULES.md §6.5): Freeze 2, Ice Wall 2, Strike 1, Haste 1,
+   * Flight 1, Sacrifice 1, March 3, Leap 3. March and Leap at 0 are the always-on readings: a
+   * marching pawn's double step and a leaping slider's ray are then ordinary moves and attacks.
+   * Counted, they are power moves like the others — never a king capture, never an attack.
+   */
+  freezeUses: number;
+  iceWallUses: number;
+  strikeUses: number;
+  hasteUses: number;
+  flightUses: number;
+  sacrificeUses: number;
+  marchUses: number;
+  leapUses: number;
+  /**
    * The Reaver's escape step (piece type `V`, lab-only, same pool note as the Ogre). `any` (proposal
    * reading): after a capture the Reaver may step one square in any of the 8 directions onto an
    * empty square. `ortho`: only the 4 orthogonal directions — the designed nerf for "it dodges
@@ -328,10 +345,12 @@ export interface Rules {
    * no power. That is what the browser plays (plan decision 21) and it is the control arm of every
    * A/B (decision 20) — "both sides, or neither".
    *
-   * Only the six stateless tier-1 powers are built: **Holy Light** and **Mercy** (Spirit),
-   * **Death Touch** and **Darkness** (Shadow), **March** and **Leap** (Mud). Each is a pure
-   * function of the board plus this field, so there is no new `Position` field, no FEN field, no
-   * Zobrist key, no repetition change and no search state. `parseKing` refuses the other six.
+   * All twelve powers are built. The always-on ones (**Holy Light**, **Mercy**, **Death Touch**,
+   * **Darkness**, and March and Leap at 0 uses) are pure functions of the board plus this
+   * field. The spendable ones (**Freeze**, **Ice Wall**, **Strike**, **Haste**, **Flight**,
+   * **Sacrifice**, and counted March/Leap) carry game state on `Position` — uses spent, a Freeze or
+   * Ice Wall mark, a pending Haste square, the Sacrifice reserve — which FEN field 7, the search's
+   * hash and the repetition key all include.
    */
   kings: readonly [KingChoice | null, KingChoice | null];
   /** Setup: reject a back rank whose two bishops share a square colour (Chess960 spirit). */
@@ -397,6 +416,14 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   ogreNoCapture: false,
   ogreShoveFriends: 'both' as OgreShoveFriends,
   strikeMode: 'move' as StrikeMode,
+  freezeUses: 2,
+  iceWallUses: 2,
+  strikeUses: 1,
+  hasteUses: 1,
+  flightUses: 1,
+  sacrificeUses: 1,
+  marchUses: 3,
+  leapUses: 3,
   reaverStep: 'ortho' as ReaverStep,
   catapultCapture: 'stay' as CatapultCapture,
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
@@ -464,6 +491,14 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   ogreMode: ['repel', 'push'],
   ogreShoveFriends: ['both', 'enemies', 'friends'],
   strikeMode: ['move', 'capture'],
+  freezeUses: [0, 1, 2, 3, 4, 5, 6],
+  iceWallUses: [0, 1, 2, 3, 4, 5, 6],
+  strikeUses: [0, 1, 2, 3, 4, 5, 6],
+  hasteUses: [0, 1, 2, 3, 4, 5, 6],
+  flightUses: [0, 1, 2, 3, 4, 5, 6],
+  sacrificeUses: [0, 1, 2, 3, 4, 5, 6],
+  marchUses: [0, 1, 2, 3, 4, 5, 6],
+  leapUses: [0, 1, 2, 3, 4, 5, 6],
   reaverStep: ['any', 'ortho'],
   catapultCapture: ['stay', 'land'],
 };

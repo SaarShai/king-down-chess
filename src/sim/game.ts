@@ -1,5 +1,5 @@
 /** Play one game headless (AI vs AI) and record everything the analyser needs. */
-import { LETTERS, Move, Position, WHITE, colorOf, status, typeOf } from '../rules/engine';
+import { LETTERS, Move, Position, PowerTag, WHITE, colorOf, status, typeOf } from '../rules/engine';
 import { RULES, Rules, setRules } from '../rules/rules';
 import { fromFen, toFen, toLan } from '../rules/setup';
 import { readFileSync } from 'node:fs';
@@ -58,6 +58,11 @@ export interface Events {
   catapultChecks: [number, number];
   /** Strike (Flame A): the one-use queen-like action, per side. */
   strikes: [number, number];
+  /**
+   * Every king power spent, by tag (`Move.power`; `pass` = a Haste turn that ended without its
+   * second move), per side. Absent from records written before 2026-10-02.
+   */
+  powers: Partial<Record<PowerTag | 'pass', [number, number]>>;
 }
 
 export interface GameRecord {

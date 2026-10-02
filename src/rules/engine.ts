@@ -8,9 +8,9 @@
  * to `setRules` the defaults apply, which is exactly the game the browser plays today.
  */
 
-import { ArcherShots, PowerName, RULES, Rules } from './rules';
+import { ArcherShots, PowerName, RULES, Rules, USES_RULE } from './rules';
 export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CatapultCapture, GuardCaptures, KingChoice, KingName, OgreMode, OgreShoveFriends, PaladinKamikaze, PowerName, PromotionSet, Rules, StrikeMode } from './rules';
-export { BUILT, DEFAULT_RULES, KINGS, RULES, RULES_2017, RULES_2021, TIER1, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
+export { BUILT, DEFAULT_RULES, KINGS, RULES, RULES_2017, RULES_2021, TIER1, USES_RULE, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 
 export type Color = 0 | 1;
 export const WHITE: Color = 0;
@@ -74,14 +74,28 @@ export interface Move {
   /** Paladin: the mover leaves the board after capturing. */
   selfRemove?: boolean;
   /**
-   * Strike (Flame A, tier 2): the side's one queen-like action by a non-king piece. Under
-   * `strikeMode: 'move'` the piece moves as a queen; under `'capture'` it takes a queen-reach victim
-   * without moving (`to === from`). Either way it keeps its own type (a pawn never promotes) and the
-   * side's flag in `Position.strike` is spent.
+   * A king power spent by this move (docs/RULES.md §4). Each spends one of the side's uses
+   * (`Position.used`):
+   * - `freeze` / `ward` (Freeze, Ice Wall): mark one piece and change no square; `from === to ===`
+   *   the marked piece, and the mark binds the opponent's next turn (`Position.mark`).
+   * - `strike`: a non-king piece moves as a queen (`strikeMode: 'capture'`: takes without moving);
+   *   it keeps its own type, so a striking pawn never promotes.
+   * - `haste`: an ordinary move after which the turn does not pass: the same piece may move again
+   *   (`Position.haste`), or the side ends the turn with a `pass`.
+   * - `flight`: a non-king piece jumps to any empty square in its own half.
+   * - `sacrifice`: an own pawn becomes a piece the side lost earlier; `from === to`, `promo` names it.
+   * - `march` / `leap`: the counted pawn double step from any rank, and a slider passing over its own
+   *   pawns. (At 0 uses they are always on, as ordinary moves with no tag.)
+   * No power move ever captures a king, and none adds an attacked square.
    */
-  strike?: boolean;
+  power?: PowerTag;
+  /** Haste: end the turn without the optional second move; `from === to ===` the hasted piece. */
+  pass?: boolean;
   promo?: PieceType;
 }
+
+/** The tag on a move that spends a king power (`Move.power`). */
+export type PowerTag = 'freeze' | 'ward' | 'strike' | 'haste' | 'flight' | 'sacrifice' | 'march' | 'leap';
 
 export interface Position {
   board: Uint8Array;
@@ -90,11 +104,25 @@ export interface Position {
   halfmove: number;
   ply: number;
   /**
-   * Strike (Flame A): per side, whether the one queen-like action has been used. Absent = neither.
-   * Game state, not a rule: it travels with the position (FEN field 7) and `positionKey` folds it
-   * in, so two boards that differ only by a spent Strike are not the same position to repetition.
+   * King powers: uses each side has spent of its spendable power (`Rules.freezeUses` and the rest),
+   * `[white, black]`. Absent = none. Game state, not a rule: it travels with the position (FEN field
+   * 7) and `positionKey` folds it in, so positions that differ only here are not the same position.
    */
-  strike?: readonly [boolean, boolean];
+  used?: readonly [number, number];
+  /**
+   * A Freeze or Ice Wall mark that binds the side to move: the square the opponent named with the
+   * move before. The opponent's power says which (`markKind`). It lasts the whole turn — through a
+   * Haste's second move — and the next move that passes the turn clears it.
+   */
+  mark?: number;
+  /** Haste: the square of the piece that may still make its optional second move this turn. */
+  haste?: number;
+  /**
+   * Sacrifice's reserve: pieces each side has lost (captured, or removed by its own paladin),
+   * counted at index `colour * 16 + type`. Kept only while a side plays Sacrifice; a piece the power
+   * returns leaves the count.
+   */
+  lost?: readonly number[];
 }
 
 type Delta = readonly [number, number];
@@ -164,7 +192,38 @@ const chebyshev = (a: number, b: number): number => Math.max(Math.abs(file(a) - 
  * null test, so it costs what `RULES.archerShots` costs — see `./rules.ts` for why the rule set is
  * module state. The six tier-1 powers are stateless, so this is the *whole* of their state.
  */
-const powerOf = (c: Color): PowerName | '' => RULES.kings[c]?.power ?? '';
+export const powerOf = (c: Color): PowerName | '' => RULES.kings[c]?.power ?? '';
+
+/**
+ * Uses side `c` may spend of its power: n > 0 counted, 0 unlimited, -1 when its power is not a
+ * spendable one (or it has none). The counts are rules (`USES_RULE`), the spent ones game state.
+ */
+export function powerUses(c: Color): number {
+  const p = powerOf(c);
+  const key = p ? USES_RULE[p] : undefined;
+  return key ? (RULES[key] as number) : -1;
+}
+
+/** May side `c`, having spent `used` uses, spend one more now? March and Leap at 0 are always on, never spent. */
+export function canSpend(c: Color, used: number): boolean {
+  const n = powerUses(c);
+  if (n < 0) return false;
+  if (n === 0) return powerOf(c) !== 'March' && powerOf(c) !== 'Leap';
+  return used < n;
+}
+
+/** March and Leap at 0 uses: the stateless always-on readings (ordinary moves and attacks). */
+const marchAlways = (c: Color): boolean => powerOf(c) === 'March' && RULES.marchUses === 0;
+const leapAlways = (c: Color): boolean => powerOf(c) === 'Leap' && RULES.leapUses === 0;
+
+/** How a mark binding the side to move `c` reads: the opponent set it with Freeze or Ice Wall. */
+export function markKind(c: Color): 'frozen' | 'warded' | '' {
+  const p = powerOf((c ^ 1) as Color);
+  return p === 'Freeze' ? 'frozen' : p === 'IceWall' ? 'warded' : '';
+}
+
+/** A game keeps the Sacrifice reserve (`Position.lost`) only while a side plays Sacrifice. */
+export const keepsLost = (): boolean => RULES.kings[0]?.power === 'Sacrifice' || RULES.kings[1]?.power === 'Sacrifice';
 
 /**
  * May the attacker `att` remove a piece of type `vic`? Guard captures nothing and is taken only by
@@ -214,16 +273,17 @@ function leaper(board: Uint8Array, from: number, c: Color, att: number, deltas: 
 }
 
 /**
- * Rook, bishop and queen rays — and therefore the whole seam of **Leap** (Mud B): a slider of a
- * Mud:Leap side passes over its **own pawns**, and every other blocker still stops the ray. The
- * paladin jumps friends already (`case L`) and a one-stepper has no ray, so nothing else changes.
+ * Rook, bishop and queen rays — and the seam of the always-on **Leap** (Mud B, `leapUses: 0`): a
+ * slider of a Mud:Leap side passes over its **own pawns**, and every other blocker still stops the
+ * ray. The paladin jumps friends already (`case L`) and a one-stepper has no ray.
  *
- * Move and capture are the same ray here, so Leap is the one tier-1 power that **does** change the
- * attack set: `isAttacked`'s hand-written mirror of this walk carries the same condition, and
- * `crossCheckAttacks()` is what proves the two have not drifted.
+ * Move and capture are the same ray here, so always-on Leap **does** change the attack set:
+ * `isAttacked`'s hand-written mirror of this walk carries the same condition, and
+ * `crossCheckAttacks()` is what proves the two have not drifted. Counted Leap (the default, 3 uses)
+ * is a power move instead (`genPowerMoves`): no king capture, no attack.
  */
 function slider(board: Uint8Array, from: number, c: Color, att: number, dirs: readonly Delta[], mode: GenMode, out: Move[]): void {
-  const leap = powerOf(c) === 'Leap';
+  const leap = leapAlways(c);
   for (const [df, dr] of dirs) {
     for (let to = step(from, df, dr); to >= 0; to = step(to, df, dr)) {
       const v = board[to];
@@ -263,12 +323,12 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
         const s1 = step(from, 0, dr);
         if (s1 >= 0 && !board[s1]) {
           push(s1, []);
-          // **March** (Mud A): the double step from *any* rank, both squares empty. Dropping the
-          // home-rank test is the whole power — and it is why the second square goes through
-          // `push()` too: from rank 6 a marching pawn lands on the last rank and must promote,
-          // which the home-rank-only step could never reach.
+          // Always-on **March** (Mud A, `marchUses: 0`): the double step from *any* rank, both
+          // squares empty. Dropping the home-rank test is the whole power — and it is why the second
+          // square goes through `push()` too: from rank 6 a marching pawn lands on the last rank and
+          // must promote. Counted March (the default) is a power move (`genPowerMoves`).
           const s2 = step(from, 0, 2 * dr);
-          if ((powerOf(c) === 'March' || rank(from) === startRank) && s2 >= 0 && !board[s2]) push(s2, []);
+          if ((marchAlways(c) || rank(from) === startRank) && s2 >= 0 && !board[s2]) push(s2, []);
         }
       }
       // **C4** (`pawnCapitalCapture`, `docs/MATRIX.md` §B.2): a pawn standing in the capital
@@ -625,29 +685,52 @@ export function landed(mover: number, m: Move): number {
   return mover;
 }
 
+/**
+ * Sacrifice's reserve after `m`: every piece it removes joins its owner's count, a paladin that
+ * removes itself joins its own side's, and a piece the power returns leaves it. Read `board`
+ * *before* the move's writes.
+ */
+function loseInto(lost: readonly number[] | undefined, board: Uint8Array, m: Move, mover: number): number[] {
+  const out = lost ? [...lost] : new Array<number>(32).fill(0);
+  for (const s of m.captures) { const v = board[s]; out[colorOf(v) * 16 + typeOf(v)]++; }
+  if (m.selfRemove) out[colorOf(mover) * 16 + typeOf(mover)]++;
+  if (m.power === 'sacrifice' && m.promo) out[colorOf(mover) * 16 + m.promo]--;
+  return out;
+}
+
 export function makeMove(pos: Position, m: Move): Position {
+  const c = pos.turn;
   const board = new Uint8Array(pos.board);
+  // Freeze and Ice Wall change no square (the mark is the whole move), and neither does a Haste pass.
+  const still = m.power === 'freeze' || m.power === 'ward' || m.pass === true;
   const mover = board[m.from], other = board[m.to];
-  for (const c of m.captures) board[c] = 0;
-  // The shoved piece moves first: under `ogreMode: 'push'` the Ogre lands on the square it just
-  // left, so the two writes below would otherwise undo each other.
-  if (m.shove) { board[m.shove.to] = board[m.shove.from]; board[m.shove.from] = 0; }
-  board[m.from] = m.swap ? other : 0;
-  board[m.to] = m.selfRemove ? 0 : landed(mover, m);
-  const reset = m.captures.length > 0 || typeOf(mover) === P;
-  // `secondPlayerDoubleFirstTurn`: Black's first turn is two moves, so the side to move does not
-  // flip after ply 1. See the rule's comment in ./rules.ts for why this is a ply check.
-  const again = RULES.secondPlayerDoubleFirstTurn && pos.ply === 1;
-  let strike = pos.strike;
-  if (m.strike) {
-    const flags: [boolean, boolean] = [pos.strike?.[0] ?? false, pos.strike?.[1] ?? false];
-    flags[pos.turn] = true;
-    strike = flags;
+  let lost = pos.lost;
+  if (!still) {
+    if (keepsLost()) lost = loseInto(lost, board, m, mover);
+    for (const s of m.captures) board[s] = 0;
+    // The shoved piece moves first: under `ogreMode: 'push'` the Ogre lands on the square it just
+    // left, so the two writes below would otherwise undo each other.
+    if (m.shove) { board[m.shove.to] = board[m.shove.from]; board[m.shove.from] = 0; }
+    board[m.from] = m.swap ? other : 0;
+    board[m.to] = m.selfRemove ? 0 : landed(mover, m);
   }
-  return {
-    board, turn: (again ? pos.turn : pos.turn ^ 1) as Color, halfmove: reset ? 0 : pos.halfmove + 1, ply: pos.ply + 1,
-    ...(strike ? { strike } : {}),
-  };
+  const reset = !still && (m.captures.length > 0 || typeOf(mover) === P);
+  // The turn holds after Black's first move under `secondPlayerDoubleFirstTurn` (see the rule's
+  // comment in ./rules.ts for why that is a ply check), and after the first move of a Haste.
+  const hold = (RULES.secondPlayerDoubleFirstTurn && pos.ply === 1) || m.power === 'haste';
+  const next: Position = { board, turn: (hold ? c : c ^ 1) as Color, halfmove: reset ? 0 : pos.halfmove + 1, ply: pos.ply + 1 };
+  let used = pos.used;
+  if (m.power) {
+    const u: [number, number] = [used?.[0] ?? 0, used?.[1] ?? 0];
+    u[c]++;
+    used = u;
+  }
+  if (used && (used[0] || used[1])) next.used = used;
+  if (m.power === 'freeze' || m.power === 'ward') next.mark = m.to;
+  else if (hold && pos.mark !== undefined) next.mark = pos.mark; // a mark binds the whole turn
+  if (m.power === 'haste') next.haste = m.to;
+  if (lost) next.lost = lost;
+  return next;
 }
 
 /**
@@ -740,9 +823,10 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
       const t = typeOf(p);
       if (!blockedForSliders && (t === sliderType || t === Q || (t === T && CAPITAL.includes(s))) && (victim === 0 || canCapture(p, victim as PieceType))) return true;
       if (!blockedForPaladin && t === L && (victim === 0 || canCapture(p, victim as PieceType))) return true;
-      // **Leap** (Mud B): an own pawn does not stop a `by` slider, which is the mirror of the
-      // `continue` in `slider()`. The paladin is untouched — it jumps friends already.
-      if (!(t === P && powerOf(by) === 'Leap')) blockedForSliders = true;
+      // Always-on **Leap** (Mud B): an own pawn does not stop a `by` slider, which is the mirror of
+      // the `continue` in `slider()`. The paladin is untouched — it jumps friends already. Counted
+      // Leap adds no attack (a power move never takes a king).
+      if (!(t === P && leapAlways(by))) blockedForSliders = true;
       if (!RULES.paladinJumpsFriends) blockedForPaladin = true;
     }
   }
@@ -754,35 +838,168 @@ export function inCheck(pos: Position, c: Color = pos.turn): boolean {
   return k >= 0 && isAttacked(pos.board, k, (c ^ 1) as Color);
 }
 
-export function pseudoMoves(pos: Position, mode: GenMode = 'all'): Move[] {
-  const out: Move[] = [];
-  for (let s = 0; s < 64; s++) if (pos.board[s] && colorOf(pos.board[s]) === pos.turn) genPiece(pos.board, s, mode, out);
-  const c = pos.turn;
-  // Strike (Flame A): while the side's one use is unspent, any own non-king piece may also move as a
-  // queen, as the whole turn. It never takes a king and never promotes — the piece keeps its type
-  // (`landed`), and it is not an attack: `isAttacked` still sees only the piece's normal pattern.
-  if (mode === 'all' && powerOf(c) === 'Strike' && !pos.strike?.[c]) {
-    const capture = RULES.strikeMode === 'capture';
-    for (let s = 0; s < 64; s++) {
-      const p = pos.board[s];
-      if (!p || colorOf(p) !== c || typeOf(p) === K) continue;
-      for (const [df, dr] of DIRS8) {
-        for (let f = file(s) + df, r = rank(s) + dr; f >= 0 && f < 8 && r >= 0 && r < 8; f += df, r += dr) {
-          const to = sq(f, r), v = pos.board[to];
-          if (!v) {
-            if (!capture) out.push({ from: s, to, captures: [], strike: true });
-            continue;
+/**
+ * The spendable king powers' moves for side `c` (docs/RULES.md §4), appended to `out` while the
+ * side has a use left. `out[n0..n1)` must hold the side's ordinary moves: Haste is those moves
+ * again, tagged. `src/ai/search.ts` calls this too, so the engine and the search cannot drift.
+ * Legality (own king safe) is the caller's filter, like every other move; a Freeze or Ice Wall
+ * changes no square, so it can never answer a check.
+ */
+export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number): void {
+  if (!canSpend(c, used)) return;
+  const power = powerOf(c);
+  switch (power) {
+    case 'Freeze': case 'IceWall': {
+      // Freeze names an enemy piece, Ice Wall an own one; never a king.
+      const tag = power === 'Freeze' ? 'freeze' : 'ward';
+      const enemy = power === 'Freeze';
+      for (let s = 0; s < 64; s++) {
+        const p = board[s];
+        if (p && typeOf(p) !== K && (colorOf(p) !== c) === enemy) out.push({ from: s, to: s, captures: [], power: tag });
+      }
+      return;
+    }
+    case 'Strike': {
+      // Any own non-king piece moves as a queen, as the whole turn; it keeps its own type (`landed`)
+      // and its own capture rules (`canCapture` with the real byte), and never takes a king.
+      const capture = RULES.strikeMode === 'capture';
+      for (let s = 0; s < 64; s++) {
+        const p = board[s];
+        if (!p || colorOf(p) !== c || typeOf(p) === K) continue;
+        for (const [df, dr] of DIRS8) {
+          for (let to = step(s, df, dr); to >= 0; to = step(to, df, dr)) {
+            const v = board[to];
+            if (!v) {
+              if (!capture) out.push({ from: s, to, captures: [], power: 'strike' });
+              continue;
+            }
+            // The first occupied square stops the walk in both readings; only `move` passes through
+            // empty squares. `capture` takes a queen-reach victim and stays where it stood.
+            if (colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) {
+              out.push(capture ? { from: s, to: s, captures: [to], power: 'strike' } : { from: s, to, captures: [to], power: 'strike' });
+            }
+            break;
           }
-          // The first occupied square stops the walk in both readings; only `move` passes through
-          // empty squares. `capture` takes a queen-reach victim and stays where it stood.
-          if (colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) {
-            out.push(capture ? { from: s, to: s, captures: [to], strike: true } : { from: s, to, captures: [to], strike: true });
-          }
-          break;
         }
       }
+      return;
+    }
+    case 'Haste': {
+      // Any ordinary move, after which the same piece may move again. A paladin that removes itself
+      // has no second move to make, so its captures are not offered as a Haste.
+      for (let i = n0; i < n1; i++) if (!out[i].selfRemove) out.push({ ...out[i], power: 'haste' });
+      return;
+    }
+    case 'Flight': {
+      // Any own non-king piece to any empty square of its own half (ranks 1-4 / 5-8). A pawn may not
+      // land on its own back rank, where no pawn ever stands; it may fly back to its start rank and
+      // regain the double step, which is a rank test, not history.
+      const lo = c === WHITE ? 0 : 32, back = c === WHITE ? 0 : 7;
+      for (let s = 0; s < 64; s++) {
+        const p = board[s];
+        if (!p || colorOf(p) !== c || typeOf(p) === K) continue;
+        const pawn = typeOf(p) === P;
+        for (let t = lo; t < lo + 32; t++) {
+          if (board[t] || (pawn && rank(t) === back) || !guardMayLand(p, t)) continue;
+          out.push({ from: s, to: t, captures: [], power: 'flight' });
+        }
+      }
+      return;
+    }
+    case 'Sacrifice': {
+      // An own pawn becomes a piece the side lost earlier, on the pawn's square; the pawn leaves play.
+      // Never a guard (a pawn may not become a wall, docs/RULES.md §6.13) and never a pawn or king.
+      if (!lost) return;
+      const types: PieceType[] = [];
+      for (let t = 1; t < 16; t++) if (t !== P && t !== K && t !== G && lost[c * 16 + t] > 0) types.push(t as PieceType);
+      if (!types.length) return;
+      const pawn = piece(P, c);
+      for (let s = 0; s < 64; s++) if (board[s] === pawn) for (const promo of types) out.push({ from: s, to: s, captures: [], promo, power: 'sacrifice' });
+      return;
+    }
+    case 'March': {
+      // Counted reading: the double step from a rank other than the start rank, both squares empty.
+      const dr = fwd(c), startRank = c === WHITE ? 1 : 6, lastRank = c === WHITE ? 7 : 0, pawn = piece(P, c);
+      for (let s = 0; s < 64; s++) {
+        if (board[s] !== pawn || rank(s) === startRank) continue;
+        const s1 = step(s, 0, dr), s2 = s1 < 0 ? -1 : step(s1, 0, dr);
+        if (s2 < 0 || board[s1] || board[s2]) continue;
+        if (rank(s2) === lastRank) for (const promo of PROMOTION_SETS[RULES.promotionSet]) out.push({ from: s, to: s2, captures: [], promo, power: 'march' });
+        else out.push({ from: s, to: s2, captures: [], power: 'march' });
+      }
+      return;
+    }
+    case 'Leap': {
+      // Counted reading: a rook, bishop or queen continues past its own pawns; a square reached only
+      // over one is a Leap. Every other blocker stops the ray, and a Leap never takes a king.
+      for (let s = 0; s < 64; s++) {
+        const p = board[s];
+        if (!p || colorOf(p) !== c) continue;
+        const t = typeOf(p);
+        const dirs = t === R ? ORTHO : t === B ? DIAG : t === Q ? DIRS8 : null;
+        if (!dirs) continue;
+        for (const [df, dr] of dirs) {
+          let jumped = false;
+          for (let to = step(s, df, dr); to >= 0; to = step(to, df, dr)) {
+            const v = board[to];
+            if (!v) { if (jumped) out.push({ from: s, to, captures: [], power: 'leap' }); continue; }
+            if (colorOf(v) === c && typeOf(v) === P) { jumped = true; continue; }
+            if (jumped && colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) out.push({ from: s, to, captures: [to], power: 'leap' });
+            break;
+          }
+        }
+      }
+      return;
     }
   }
+}
+
+/**
+ * Drop the moves a Freeze or Ice Wall mark forbids the side to move `c` (from `out[n0]` on). A
+ * frozen piece does not move by any hand: not itself, not by its own maester's swap or ogre's shove
+ * (it may still be warded). A warded piece cannot be captured, by a chain either — the chain's
+ * shorter prefixes stay. Neither changes an attack: a frozen piece still gives check.
+ */
+export function filterMarks(c: Color, mark: number | undefined, out: Move[], n0 = 0): void {
+  if (mark === undefined || mark < 0) return;
+  const kind = markKind(c);
+  if (!kind) return;
+  let n = n0;
+  for (let i = n0; i < out.length; i++) {
+    const m = out[i];
+    const blocked = kind === 'frozen'
+      ? (m.from === mark && m.power !== 'ward' && m.power !== 'freeze') || (m.swap === true && m.to === mark) || m.shove?.from === mark
+      : m.captures.includes(mark);
+    if (!blocked) out[n++] = m;
+  }
+  out.length = n;
+}
+
+/**
+ * Haste's second move: only the hasted piece on `at` moves, and never onto a king (the first move
+ * may have given check). `pass` ends the turn instead, so the side always has a move here.
+ */
+export function genHasteFollowUp(board: Uint8Array, at: number, mode: GenMode, out: Move[]): void {
+  const n0 = out.length;
+  genPiece(board, at, mode, out);
+  let n = n0;
+  for (let i = n0; i < out.length; i++) {
+    const m = out[i];
+    if (!m.captures.some(s => typeOf(board[s]) === K)) out[n++] = m;
+  }
+  out.length = n;
+  if (mode === 'all') out.push({ from: at, to: at, captures: [], pass: true });
+}
+
+export function pseudoMoves(pos: Position, mode: GenMode = 'all'): Move[] {
+  const out: Move[] = [];
+  const c = pos.turn;
+  if (pos.haste !== undefined) genHasteFollowUp(pos.board, pos.haste, mode, out);
+  else {
+    for (let s = 0; s < 64; s++) if (pos.board[s] && colorOf(pos.board[s]) === c) genPiece(pos.board, s, mode, out);
+    if (mode === 'all') genPowerMoves(pos.board, c, pos.used?.[c] ?? 0, pos.lost, out, 0, out.length);
+  }
+  filterMarks(c, pos.mark, out);
   return out;
 }
 
@@ -823,8 +1040,8 @@ export function insufficientMaterial(board: Uint8Array): boolean {
 }
 
 /** Material draw under the active rules; an unspent Strike can still change mating potential. */
-export function materialDraw(board: Uint8Array, strike?: readonly [boolean, boolean]): boolean {
-  const liveStrike = (c: Color): boolean => powerOf(c) === 'Strike' && !strike?.[c];
+export function materialDraw(board: Uint8Array, used?: readonly [number, number]): boolean {
+  const liveStrike = (c: Color): boolean => powerOf(c) === 'Strike' && canSpend(c, used?.[c] ?? 0);
   return RULES.insufficientMaterial && !liveStrike(WHITE) && !liveStrike(BLACK) && insufficientMaterial(board);
 }
 
@@ -835,7 +1052,7 @@ export function status(pos: Position): Status {
   if (findKing(pos.board, pos.turn) < 0) return 'checkmate';
   if (legalMoves(pos).length === 0) return inCheck(pos) ? 'checkmate' : 'stalemate';
   if (RULES.fiftyMove && pos.halfmove >= 100) return 'draw50';
-  if (materialDraw(pos.board, pos.strike)) return 'drawMaterial';
+  if (materialDraw(pos.board, pos.used)) return 'drawMaterial';
   return 'playing';
 }
 

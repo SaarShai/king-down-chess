@@ -267,7 +267,7 @@ export function parseLan(board: Uint8Array, lan: string): Move {
   // Strike (Flame A): a trailing `!` marks the one queen-like action, so replay spends the flag.
   let strike = false;
   if (text.endsWith('!')) { strike = true; text = text.slice(0, -1); }
-  const mark = (m: Move): Move => (strike ? { ...m, strike: true } : m);
+  const mark = (m: Move): Move => (strike ? { ...m, power: 'strike' } : m);
   const from = sq(text.slice(0, 2)), rest = text.slice(2);
   if (rest.startsWith('>')) {
     // Mirror engine.ts: under `ogreMode: 'push'` the ogre follows onto the square it emptied.

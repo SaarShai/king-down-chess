@@ -1156,14 +1156,14 @@ describe('ogre and catapult: notation, FEN and the pool', () => {
 describe('kings powers: parsing and defaults', () => {
   afterEach(() => setRules());
 
-  it('parses symmetric and asymmetric choices, and refuses tier 2', () => {
+  it('parses symmetric and asymmetric choices', () => {
     expect(parseKings('spirit:mercy')).toEqual([{ king: 'Spirit', power: 'Mercy' }, { king: 'Spirit', power: 'Mercy' }]);
     expect(parseKings('spirit:mercy,mud:march')).toEqual([
       { king: 'Spirit', power: 'Mercy' }, { king: 'Mud', power: 'March' },
     ]);
     expect(parseKings('none')).toEqual([null, null]);
     expect(parseKing('-')).toBeNull();
-    expect(() => parseKing('frost:freeze')).toThrow(/not built yet/);
+    expect(parseKing('frost:freeze')).toEqual({ king: 'Frost', power: 'Freeze' }); // all twelve are built
     expect(() => parseKing('frost:nope')).toThrow(/no power/);
     expect(RULES.kings).toEqual([null, null]); // powers stay off by default
   });
@@ -1292,12 +1292,12 @@ describe('Darkness (Shadow B)', () => {
   it('agrees with the generated attacks', () => { crossCheckAttacks(204); });
 });
 
-describe('March (Mud A)', () => {
+describe('March (Mud A), always-on reading (marchUses 0)', () => {
   afterEach(() => setRules());
   const march: Rules['kings'] = [{ king: 'Mud', power: 'March' }, null];
 
   it('steps two from any rank, both squares empty, promotion included', () => {
-    setRules({ kings: march });
+    setRules({ kings: march, marchUses: 0 });
     const mid = fromFen('7k/8/8/8/8/4P3/8/K7 w - - 0 1');
     expect(lan(mid, movesFrom(mid, 'e3'))).toContain('e3-e5');
     const blocked = fromFen('7k/8/8/8/4p3/4P3/8/K7 w - - 0 1');
@@ -1308,7 +1308,7 @@ describe('March (Mud A)', () => {
   });
 });
 
-describe('Leap (Mud B)', () => {
+describe('Leap (Mud B), always-on reading (leapUses 0)', () => {
   afterEach(() => setRules());
   const leap: Rules['kings'] = [{ king: 'Mud', power: 'Leap' }, null];
 
@@ -1316,7 +1316,7 @@ describe('Leap (Mud B)', () => {
     const fen = '7k/8/8/p7/8/8/P7/R6K w - - 0 1'; // own pawn a2, enemy pawn a5
     const plain = fromFen(fen);
     expect(lan(plain, movesFrom(plain, 'a1'))).not.toContain('Ra1-a3'); // the own pawn a2 blocks
-    setRules({ kings: leap });
+    setRules({ kings: leap, leapUses: 0 });
     const leaping = fromFen(fen);
     const moves = lan(leaping, movesFrom(leaping, 'a1'));
     expect(moves).toContain('Ra1-a3');
@@ -1326,7 +1326,7 @@ describe('Leap (Mud B)', () => {
 
   it('is asymmetric and changes the attack set, unlike the other powers', () => {
     const fen = 'r7/p7/k7/8/8/8/7P/1K5R w - - 0 1';
-    setRules({ kings: [leap[0], null] });
+    setRules({ kings: [leap[0], null], leapUses: 0 });
     const pos = fromFen(fen);
     expect(lan(pos, movesFrom(pos, 'h1'))).toContain('Rh1-h3');
     expect(lan(pos, movesFrom(pos, 'a8'))).toEqual([]); // Black has no power: its own pawn still blocks
@@ -1334,7 +1334,7 @@ describe('Leap (Mud B)', () => {
     expect(isAttacked(pos.board, parseSq('a3'), BLACK)).toBe(false);
   });
 
-  it('agrees with the generated attacks', () => { crossCheckAttacks(205); });
+  it('agrees with the generated attacks', () => { setRules({ kings: [leap[0], leap[0]], leapUses: 0 }); crossCheckAttacks(205); });
 });
 
 describe('kings powers: lifecycle', () => {
@@ -1511,11 +1511,10 @@ describe('Death Touch second reading (lab toggle)', () => {
 describe('king power: Strike (Flame A, tier 2)', () => {
   const flame = { kings: [{ king: 'Flame', power: 'Strike' }, { king: 'Flame', power: 'Strike' }] as const };
   afterEach(() => setRules({ kings: [null, null] }));
-  const strikes = (pos: Position) => legalMoves(pos).filter(m => m.strike);
+  const strikes = (pos: Position) => legalMoves(pos).filter(m => m.power === 'strike');
 
-  it('is accepted by parseKing only now that it is built', () => {
+  it('is accepted by parseKing', () => {
     expect(parseKing('flame:strike')).toEqual({ king: 'Flame', power: 'Strike' });
-    expect(() => parseKing('frost:freeze')).toThrow(/not built/);
   });
 
   it('gives each own non-king piece a queen-like action, once', () => {
@@ -1527,7 +1526,7 @@ describe('king power: Strike (Flame A, tier 2)', () => {
     expect(strikes(pos).some(m => m.from === parseSq('e1'))).toBe(false); // the king never strikes
 
     const after = makeMove(pos, d2.find(m => toLan(pos, m) === 'd2-d8!')!);
-    expect(after.strike).toEqual([true, false]);
+    expect(after.used).toEqual([1, 0]);
     expect(strikes(after).length).toBeGreaterThan(0);  // Black's is still live
     expect(strikes(makeMove(after, legalMoves(after)[0]))).toHaveLength(0); // White's is spent
   });
@@ -1545,15 +1544,16 @@ describe('king power: Strike (Flame A, tier 2)', () => {
   it('can block a check, and its use survives FEN and the LAN parser', () => {
     setRules(flame);
     const pos = fromFen('4r3/8/8/8/8/8/P7/4K3 w - - 0 1');
-    const block = legalMoves(pos).find(m => m.strike && toLan(pos, m) === 'a2-e2!');
+    const block = legalMoves(pos).find(m => m.power === 'strike' && toLan(pos, m) === 'a2-e2!');
     expect(block).toBeDefined();
     const after = makeMove(pos, block!);
-    expect(after.strike).toEqual([true, false]);
+    expect(after.used).toEqual([1, 0]);
     expect(inCheck(after, WHITE)).toBe(false);
     const round = fromFen(toFen(after));
-    expect(round.strike).toEqual([true, false]);
+    expect(round.used).toEqual([1, 0]);
     expect(toFen(after).split(' ')).toHaveLength(7);
-    expect(parseLan(after.board, 'a2-e2!').strike).toBe(true);
+    expect(parseLan(after.board, 'a2-e2!').power).toBe('strike');
+    expect(fromFen('4k3/8/8/8/8/8/8/4K3 b - - 0 1 w').used).toEqual([1, 0]); // the pre-2026-10-02 field
   });
 });
 
@@ -1564,18 +1564,18 @@ describe('Strike, capture reading (strikeMode=capture)', () => {
   it('takes a queen-reach victim without moving, once', () => {
     setRules({ ...flame, strikeMode: 'capture' });
     const pos = fromFen('4k3/8/8/8/8/2r5/8/R3K3 w - - 0 1'); // black rook c3, white rook a1: a1-c3 is empty
-    const shot = legalMoves(pos).find(m => m.strike && m.from === parseSq('a1') && m.to === parseSq('a1'));
+    const shot = legalMoves(pos).find(m => m.power === 'strike' && m.from === parseSq('a1') && m.to === parseSq('a1'));
     expect(shot).toBeDefined();
     expect(shot!.captures).toEqual([parseSq('c3')]);
     expect(toLan(pos, shot!)).toBe('Ra1*c3!');
     const after = makeMove(pos, shot!);
     expect(at(after, 'a1')).toBe(piece(R, WHITE));   // never moved
     expect(at(after, 'c3')).toBe(0);                 // victim gone
-    expect(after.strike).toEqual([true, false]);
-    expect(fromFen(toFen(after)).strike).toEqual([true, false]);
+    expect(after.used).toEqual([1, 0]);
+    expect(fromFen(toFen(after)).used).toEqual([1, 0]);
     // A blocked line is not a target: a white pawn on b2 hides everything behind it.
     const blocked = fromFen('4k3/8/8/8/8/2r5/1P6/R3K3 w - - 0 1');
-    expect(legalMoves(blocked).some(m => m.strike && m.from === parseSq('a1') && m.captures.includes(parseSq('c3')))).toBe(false);
+    expect(legalMoves(blocked).some(m => m.power === 'strike' && m.from === parseSq('a1') && m.captures.includes(parseSq('c3')))).toBe(false);
   });
 });
 
