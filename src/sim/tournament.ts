@@ -20,7 +20,7 @@ import { resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import type { Worker } from 'node:worker_threads';
-import { KINGS, KingChoice, KingName, PowerName, Rules, ruleDiff, setRules } from '../rules/rules';
+import { KINGS, KingChoice, KingName, PowerName, Rules, parseRule, ruleDiff, setRules } from '../rules/rules';
 import { randomBackRank } from '../rules/setup';
 import { mulberry32 } from './rng';
 import { OUT_DIR, RunSpec, parseFlags, parseRuleFlags } from './spec';
@@ -34,15 +34,47 @@ const KING_OF = Object.fromEntries(
 export const choice = (p: PowerName | 'none'): KingChoice | null => (p === 'none' ? null : { king: KING_OF[p], power: p });
 
 /**
- * A power name, `none`, or a power with a holding-value variant: `Strike~h200` plays Strike with an
- * unspent use worth 200 cp to that side's search (a calibration entrant).
+ * A power name, `none`, or a variant of a power. `Strike~h200` plays Strike with an unspent use worth
+ * 200 cp to that side's search (a calibration entrant). `Sacrifice~vbehind` plays Sacrifice under the
+ * spec's rule variant `behind` (`--variant behind:sacrificeBehind=true`), so one round can screen several
+ * readings of a power against the same field (a screening entrant).
  */
-export type Entrant = PowerName | 'none' | `${PowerName}~h${number}`;
-const basePower = (e: Entrant): PowerName | 'none' => e.split('~')[0] as PowerName | 'none';
+export type Entrant = PowerName | 'none' | `${PowerName}~h${number}` | `${PowerName}~v${string}`;
+export const basePower = (e: Entrant): PowerName | 'none' => e.split('~')[0] as PowerName | 'none';
 const holdOf = (e: Entrant): Partial<Record<string, number>> | undefined => {
   const m = /~h(\d+)$/.exec(e);
   return m ? { [basePower(e)]: Number(m[1]) } : undefined;
 };
+
+/**
+ * The powers each power rule changes. A rule variant may set only rules of its own power, and a game
+ * applies it only when the other side's power does not read that rule (rules are global to a game).
+ */
+export const RULE_POWERS: Partial<Record<keyof Rules, readonly PowerName[]>> = {
+  freezeUses: ['Freeze'], iceWallUses: ['IceWall'], markFree: ['Freeze', 'IceWall'], markTurns: ['Freeze', 'IceWall'],
+  strikeUses: ['Strike'], strikeCaptures: ['Strike'], strikeMode: ['Strike'], strikePawns: ['Strike'],
+  hasteUses: ['Haste'], hasteSecond: ['Haste'],
+  flightUses: ['Flight'], sacrificeUses: ['Sacrifice'], sacrificeBehind: ['Sacrifice'],
+  marchUses: ['March'], leapUses: ['Leap'],
+  holyLightTakesPawns: ['HolyLight'], holyLightAura: ['HolyLight'], mercyCaptures: ['Mercy'],
+  deathTouchMoves: ['DeathTouch'], darknessKeep: ['Darkness'],
+};
+const variantOf = (t: TournamentSpec, e: Entrant): Partial<Rules> => {
+  const m = /~v(.+)$/.exec(e);
+  if (!m) return {};
+  const v = t.variants?.[m[1]];
+  if (!v) throw new Error(`[${t.id}] entrant ${e}: no variant "${m[1]}" (--variant ${m[1]}:rule=value)`);
+  return v;
+};
+/** Whether `a`'s rule variant would change `b`'s power in their game (then they do not meet). */
+const clashes = (t: TournamentSpec, a: Entrant, b: Entrant): boolean => {
+  const pb = basePower(b);
+  return pb !== 'none' && Object.keys(variantOf(t, a)).some(k => RULE_POWERS[k as keyof Rules]?.includes(pb));
+};
+/** One game's rules: the tournament's, both sides' rule variants, and the two kings. */
+export function gameRules(t: TournamentSpec, white: Entrant, black: Entrant): Partial<Rules> {
+  return { ...t.rules, ...variantOf(t, white), ...variantOf(t, black), kings: [choice(basePower(white)), choice(basePower(black))] };
+}
 
 export interface TournamentSpec {
   id: string;
@@ -53,6 +85,8 @@ export interface TournamentSpec {
   seed: number;
   /** Rules for every game; `kings` is set per game. */
   rules: Partial<Rules>;
+  /** Named rule variants for `Power~v<name>` entrants (each sets rules of that power only). */
+  variants?: Record<string, Partial<Rules>>;
   powerHold?: Partial<Record<string, number>>;
   powerPlies?: number;
   /** Also play each entrant against itself (the matchup's colour edge, and a sanity line). */
@@ -91,6 +125,7 @@ export function schedule(t: TournamentSpec): TJob[] {
   const e = t.entrants;
   for (let i = 0; i < e.length; i++) {
     for (let j = t.mirror ? i : i + 1; j < e.length; j++) {
+      if (clashes(t, e[i], e[j]) || clashes(t, e[j], e[i])) continue;
       for (let p = 0; p < t.pairs; p++) {
         const pairId = jobs.length >> 1;
         for (const swap of [false, true]) {
@@ -110,7 +145,7 @@ export function gameSpec(t: TournamentSpec, job: TJob): RunSpec {
   const sides = [holdOf(job.white), holdOf(job.black)] as [Partial<Record<string, number>> | undefined, Partial<Record<string, number>> | undefined];
   return {
     id: t.id, games: 1, seed: t.seed, ai: { depth: t.depth, ...(t.powerPlies === undefined ? {} : { powerPlies: t.powerPlies }) },
-    rules: { ...t.rules, kings: [choice(basePower(job.white)), choice(basePower(job.black))] },
+    rules: gameRules(t, job.white, job.black),
     ...(t.powerHold ? { powerHold: t.powerHold } : {}),
     ...(sides[0] || sides[1] ? { powerHoldSides: sides } : {}),
     maxPlies: t.maxPlies, openingRandomPlies: t.openingRandomPlies,
@@ -339,6 +374,19 @@ function invert(M: Float64Array, k: number): Float64Array {
 
 const pct = (x: number): string => `${(100 * x).toFixed(1)}%`;
 
+/** `e`'s score over colour-swapped pairs against the powers only (the plain king left out), ± its standard error. */
+function scoreVsPowers(recs: readonly TRecord[], e: Entrant): { m: number; se: number; n: number } {
+  const byPair = new Map<number, number[]>();
+  for (const r of recs) {
+    if ((r.white === e) === (r.black === e) || basePower(r.white === e ? r.black : r.white) === 'none') continue;
+    (byPair.get(r.pairId) ?? byPair.set(r.pairId, []).get(r.pairId)!).push(r.white === e ? r.result : 1 - r.result);
+  }
+  const means = [...byPair.values()].map(l => l.reduce((a, b) => a + b, 0) / l.length);
+  const m = means.reduce((a, b) => a + b, 0) / Math.max(1, means.length);
+  const sd = Math.sqrt(means.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, means.length - 1));
+  return { m, se: sd / Math.sqrt(Math.max(1, means.length)), n: means.length };
+}
+
 export function report(ids: readonly string[]): string {
   const specs = ids.map(id => JSON.parse(readFileSync(files(id).spec, 'utf8')) as TournamentSpec);
   const recs = ids.flatMap(readRecords);
@@ -348,9 +396,12 @@ export function report(ids: readonly string[]): string {
   const lines: string[] = [];
   lines.push(`# Kings' powers tournament: ${ids.join(' + ')}`, '');
   lines.push(`${recs.length} games, depth ${[...new Set(specs.map(s => s.depth))].join('/')}, ${entrants.length} entrants. Rules: \`${JSON.stringify(ruleDiff(specs[0].rules))}\`${specs[0].powerHold ? `, hold \`${JSON.stringify(specs[0].powerHold)}\`` : ''}.`, '');
+  const variants = Object.assign({}, ...specs.map(s => s.variants ?? {})) as Record<string, Partial<Rules>>;
+  if (Object.keys(variants).length) lines.push(`Variants: ${Object.entries(variants).map(([k, v]) => `\`~v${k}\` = \`${JSON.stringify(v)}\``).join(', ')}. A variant does not meet an entrant whose power its rules would change.`, '');
   lines.push(`First move: White ${white >= 0 ? '+' : ''}${white.toFixed(0)} ± ${(1.96 * whiteSe).toFixed(0)} Elo.`, '');
-  lines.push('| power | Elo (BT) | ±95% | score vs field | ±95% | games | used / game | games used | first use (ply, median) | decisive | draws | plies |');
-  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|');
+  lines.push('| power | Elo (BT) | ±95% | score vs field | ±95% | vs powers | ±95% | games | used / game | games used | first use (ply, median) | decisive | draws | plies |');
+  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  const vs = new Map(ratings.map(r => [r.entrant, scoreVsPowers(recs, r.entrant)]));
   for (const r of ratings) {
     const mine = recs.filter(g => g.white === r.entrant || g.black === r.entrant);
     let uses = 0, usedGames = 0;
@@ -367,8 +418,14 @@ export function report(ids: readonly string[]): string {
     first.sort((a, b) => a - b);
     const decisive = mine.filter(g => g.result !== 0.5).length / Math.max(1, mine.length);
     const plies = mine.reduce((a, g) => a + g.plies, 0) / Math.max(1, mine.length);
-    lines.push(`| ${r.entrant} | ${r.elo >= 0 ? '+' : ''}${r.elo.toFixed(0)} | ${(1.96 * r.se).toFixed(0)} | ${pct(r.score)} | ${(196 * r.scoreSe).toFixed(1)} | ${r.games} | ${(uses / Math.max(1, sides)).toFixed(2)} | ${pct(usedGames / Math.max(1, sides))} | ${first.length ? first[first.length >> 1] : '-'} | ${pct(decisive)} | ${pct(1 - decisive)} | ${plies.toFixed(0)} |`);
+    const v = vs.get(r.entrant)!;
+    lines.push(`| ${r.entrant} | ${r.elo >= 0 ? '+' : ''}${r.elo.toFixed(0)} | ${(1.96 * r.se).toFixed(0)} | ${pct(r.score)} | ${(196 * r.scoreSe).toFixed(1)} | ${pct(v.m)} | ${(196 * v.se).toFixed(1)} | ${r.games} | ${(uses / Math.max(1, sides)).toFixed(2)} | ${pct(usedGames / Math.max(1, sides))} | ${first.length ? first[first.length >> 1] : '-'} | ${pct(decisive)} | ${pct(1 - decisive)} | ${plies.toFixed(0)} |`);
   }
+  // The balance target: every power's score against the other powers inside 50 ± 4 points.
+  const powers = ratings.filter(r => basePower(r.entrant) !== 'none').map(r => ({ e: r.entrant, ...vs.get(r.entrant)! }));
+  const inside = powers.filter(p => Math.abs(p.m - 0.5) <= 0.04);
+  const spread = Math.max(...powers.map(p => p.m)) - Math.min(...powers.map(p => p.m));
+  lines.push('', `Against the other powers: ${inside.length} of ${powers.length} inside 50 ± 4 points; spread ${(100 * spread).toFixed(1)} points.${powers.length - inside.length ? ` Outside: ${powers.filter(p => Math.abs(p.m - 0.5) > 0.04).map(p => `${p.e} ${pct(p.m)}`).join(', ')}.` : ''}`);
   const pw = pairwise(recs);
   lines.push('', '## Matchups (row power\'s score against the column power)', '');
   const order = ratings.map(r => r.entrant);
@@ -398,12 +455,36 @@ function parseEntrants(text: string | true | undefined, none: boolean): Entrant[
     if (s === 'none') return 'none';
     const [name, variant] = s.split('~');
     const p = ALL_POWERS.find(x => x.toLowerCase() === name.toLowerCase());
-    if (!p) throw new Error(`unknown power "${s}" (${ALL_POWERS.join(', ')}, none; a hold variant is Power~h120)`);
-    if (variant !== undefined && !/^h\d+$/.test(variant)) throw new Error(`bad variant "${s}" (Power~h120)`);
+    if (!p) throw new Error(`unknown power "${s}" (${ALL_POWERS.join(', ')}, none; variants are Power~h120 and Power~v<name>)`);
+    if (variant !== undefined && !/^(h\d+|v\w+)$/.test(variant)) throw new Error(`bad variant "${s}" (Power~h120 or Power~v<name>)`);
     return (variant ? `${p}~${variant}` : p) as Entrant;
   });
   if (none && !out.includes('none')) out.push('none');
   return out;
+}
+
+/**
+ * `--variant behind:sacrificeBehind=true,sacrificeUses=2` (repeatable). Every rule of a variant must
+ * belong to the power of each entrant that names it.
+ */
+function parseVariants(argv: readonly string[], entrants: readonly Entrant[]): Record<string, Partial<Rules>> | undefined {
+  const out: Record<string, Partial<Rules>> = {};
+  for (let i = 0; i < argv.length; i++) {
+    const text = argv[i] === '--variant' ? argv[++i] : argv[i].startsWith('--variant=') ? argv[i].slice(10) : undefined;
+    if (text === undefined) continue;
+    const [name, body = ''] = text.split(':');
+    out[name] = Object.assign({}, ...body.split(',').filter(Boolean).map(parseRule));
+  }
+  for (const e of entrants) {
+    const m = /~v(.+)$/.exec(e);
+    if (!m) continue;
+    const v = out[m[1]];
+    if (!v) throw new Error(`entrant ${e}: no --variant ${m[1]}:rule=value`);
+    for (const k of Object.keys(v)) {
+      if (!RULE_POWERS[k as keyof Rules]?.includes(basePower(e) as PowerName)) throw new Error(`variant ${m[1]}: rule ${k} is not a rule of ${basePower(e)}`);
+    }
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 function parseHold(text: string | true | undefined): Partial<Record<string, number>> | undefined {
@@ -423,11 +504,14 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
     writeFileSync(`${OUT_DIR}/${ids.join('+')}.report.md`, text);
     console.log(text);
   } else {
+    const entrants = parseEntrants(f.powers, !!f.none);
+    const variants = parseVariants(argv, entrants);
     const t: TournamentSpec = {
       id: typeof f.id === 'string' ? f.id : 'kp2',
-      entrants: parseEntrants(f.powers, !!f.none),
+      entrants,
       pairs: num('pairs', 20), depth: num('depth', 3), seed: num('seed', 101),
       rules: parseRuleFlags(argv),
+      ...(variants ? { variants } : {}),
       ...(parseHold(f.hold) ? { powerHold: parseHold(f.hold) } : {}),
       ...(typeof f.powerPlies === 'string' ? { powerPlies: Number(f.powerPlies) } : {}),
       mirror: !!f.mirror, maxPlies: num('maxPlies', 300), openingRandomPlies: num('openingRandomPlies', 4),

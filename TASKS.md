@@ -1,5 +1,15 @@
 # Tasks
 
+## Kings' powers mode: all twelve powers, balanced head to head — 2026-10-02
+- Owner (2026-10-02): "start working on the kids' power mode [read as the kings' powers mode] … run playtests and balancing sessions and monte carlo to evaluate their balance compared with each other … adjust the rules for any of the powers and iterate the testing until they are fairly well balanced." The powers come from docs/RULES.md §4 (the 2017 rulebook); the Drive connector in this session belongs to another account and has no King Down folder.
+- **Owner authorization (2026-10-02):** "regarding the improvements - do what you recommend, in parallel to the kings' powers mode. you can launch cloud subagents to do any of it." Delegated: faster load and installable (`claude/perf-installable`), title screen, fonts and dialogs (`claude/visual-design`), piece motion and board atmosphere (`claude/painted-motion`), and tournament compute shards (`claude/kp2-results-*`, result branches only, no PRs). No subagent deploys publicly; the owner merges.
+- [x] Sim workers load TypeScript again (Node 22 under tsx): `src/sim/worker-boot.mjs` + `tsWorker()`. A worker that dies with games unplayed now fails the run in under a second instead of hanging.
+- [x] All twelve powers in the engine (Freeze, Ice Wall, Haste, Flight, Sacrifice new; March and Leap counted, 3 uses), with the rulebook's use counts, per-side power state in FEN field 7, notation, undo, repetition and the search hash. `src/rules/powers.test.ts` (38 tests).
+- [x] The computer plays every power (power moves at plies 0–2, Haste's second move inside the turn, a holding value per unspent use). Search 4–5× faster with identical node counts (precomputed attack geometry, legality tested only for moves that can expose the king).
+- [x] Game: New game picks a power per king; Use arms it, End turn closes a Haste turn early; the Guide lists the twelve. `tools/verify-powers.mjs` passes (Freeze, Haste, Haste ended early, Sacrifice, Flight, always-on, New game, phone).
+- [x] Tournament runner (`src/sim/tournament.ts`): round-robin, colour-swapped pairs on common armies and openings, Bradley–Terry ratings with a first-move term, sharding for cloud compute. Playtest review: `tools/kings-playtest.ts`.
+- [ ] Balance rounds and the report: `docs/research/kings-powers-balance-2026-10-02.md`.
+
 ## Claude continuation: lessons protect the current game — 2026-09-29
 - Recovered session `01010c18-3283-4331-92dc-4f6696baa502` ("Continue improving the King Down game"). It ended normally after eight improvements, all uncommitted in this checkout. Main is clean and two commits behind this checkout. Preserve the inherited work; do not commit or publish.
 - Plan: verify the inherited build, reproduce lesson/save transitions, then keep lessons separate from the live game and offer a return to it. Check older-rule games too: the six lessons teach the current rules.

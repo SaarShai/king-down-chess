@@ -13,7 +13,7 @@ const { NAMES, legalMoves, makeMove, typeOf, colorOf } = await import(root + 'ru
 const { setRules } = await import(root + 'rules/rules.ts');
 const { fromFen, toLan } = await import(root + 'rules/setup.ts');
 const { VALUES } = await import(root + 'ai/eval.ts');
-const { readRecords, choice } = await import(root + 'sim/tournament.ts');
+const { readRecords, gameRules } = await import(root + 'sim/tournament.ts');
 
 type Rec = {
   gameId: number; white: string; black: string; backRank: string; result: number; reason: string; plies: number;
@@ -39,8 +39,9 @@ const games = new Map<string, Rec[]>();
 for (const id of ids) {
   const spec = JSON.parse(readFileSync(`sim/out/${id}.tournament.json`, 'utf8'));
   for (const r of readRecords(id) as Rec[]) {
-    const sides = [r.white.split('~')[0], r.black.split('~')[0]];
-    setRules({ ...spec.rules, kings: [choice(sides[0]), choice(sides[1])] });
+    // By entrant, so a rule variant (`Sacrifice~vbehind`) is reviewed apart from its base power.
+    const sides = [r.white, r.black];
+    setRules(gameRules(spec, r.white, r.black));
     let pos = fromFen(`${r.backRank.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${r.backRank} w - - 0 1`);
     const boards: Uint8Array[] = [pos.board];
     const movers: number[] = [];

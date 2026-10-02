@@ -267,7 +267,7 @@ export function canCapture(att: number, vic: PieceType): boolean {
   // capture is always cross-colour, so the victim's side is `colorOf(att) ^ 1` and one byte decides
   // both directions. The guard is untouched: a Spirit king still takes one (§1.9).
   if (at === P && vic === K && powerOf((colorOf(att) ^ 1) as Color) === 'HolyLight') return false;
-  if (at === K && vic === P && powerOf(colorOf(att)) === 'HolyLight') return false;
+  if (at === K && vic === P && powerOf(colorOf(att)) === 'HolyLight' && !RULES.holyLightTakesPawns) return false;
   if (vic === K) return (at !== L || RULES.paladinChecks) && (RULES.archerChecks || at !== A);
   return true;
 }
@@ -280,6 +280,17 @@ export function findKing(board: Uint8Array, c: Color): number {
 export type GenMode = 'all' | 'captures' | 'attacks';
 
 /** A pawn move onto `to`, as one move per promotion piece when `to` is the last rank. */
+/**
+ * Holy Light's aura (`holyLightAura`, balance lab): `sq` stands next to `side`'s Holy Light king, so
+ * no enemy pawn may take it. The king itself is covered by `canCapture` under every reading.
+ */
+function inLight(board: Uint8Array, sq: number, side: number): boolean {
+  if (!RULES.holyLightAura || powerOf(side as Color) !== 'HolyLight') return false;
+  const k = piece(K, side as Color);
+  for (let d = 0; d < 8; d++) { const n = NEIGHBOUR[sq * 8 + d]; if (n >= 0 && board[n] === k) return true; }
+  return false;
+}
+
 function pawnPush(out: Move[], from: number, to: number, captures: number[], lastRank: number): void {
   if (rank(to) === lastRank) for (const promo of PROMOTION_SETS[RULES.promotionSet]) out.push({ from, to, captures, promo });
   else out.push({ from, to, captures });
@@ -353,14 +364,17 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
       // captures straight ahead — and the double first step is gone. Promotion follows on its own,
       // because `pawnPush()` promotes by rank and both paths call it. The matching branch is the pawn
       // walk in `isAttacked`, which is the only other place that knows where a pawn takes from.
-      if (powerOf(c) === 'Darkness') {
+      const dark = powerOf(c) === 'Darkness';
+      if (dark) {
         if (mode === 'all') for (const df of [-1, 1]) {
           const to = step(from, df, dr);
           if (to >= 0 && !board[to]) pawnPush(out, from, to, [], lastRank);
         }
         const ahead = step(from, 0, dr);
-        if (ahead >= 0 && board[ahead] && colorOf(board[ahead]) !== c && canCapture(p, typeOf(board[ahead]))) pawnPush(out, from, ahead, [ahead], lastRank);
-        return;
+        if (ahead >= 0 && board[ahead] && colorOf(board[ahead]) !== c && canCapture(p, typeOf(board[ahead])) && !inLight(board, ahead, c ^ 1)) pawnPush(out, from, ahead, [ahead], lastRank);
+        // `darknessKeep` (balance lab): the ordinary pawn moves below as well — the two sets never
+        // overlap, because one set goes to empty squares where the other takes.
+        if (!RULES.darknessKeep) return;
       }
       if (mode === 'all') {
         const s1 = step(from, 0, dr);
@@ -380,15 +394,15 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
       // is generated for `all` and `captures` but never for `attacks`: a straight capture is a
       // move, not a new attack, so `isAttacked` keeps the pawn's ordinary two diagonals (the same
       // deliberate check-detection split as `capitalSanctuary`).
-      if (RULES.pawnCapitalCapture && mode !== 'attacks' && CAPITAL.includes(from)) {
+      if (RULES.pawnCapitalCapture && mode !== 'attacks' && !dark && CAPITAL.includes(from)) {
         const ahead = step(from, 0, dr);
-        if (ahead >= 0 && board[ahead] && colorOf(board[ahead]) !== c && canCapture(p, typeOf(board[ahead]))) pawnPush(out, from, ahead, [ahead], lastRank);
+        if (ahead >= 0 && board[ahead] && colorOf(board[ahead]) !== c && canCapture(p, typeOf(board[ahead])) && !inLight(board, ahead, c ^ 1)) pawnPush(out, from, ahead, [ahead], lastRank);
       }
       for (const df of [-1, 1]) {
         const to = step(from, df, dr);
         // The real piece byte, not the bare type: `canCapture` reads the attacker's colour off it,
         // which is how Holy Light knows whose king a pawn may not take.
-        if (to >= 0 && board[to] && colorOf(board[to]) !== c && canCapture(p, typeOf(board[to]))) pawnPush(out, from, to, [to], lastRank);
+        if (to >= 0 && board[to] && colorOf(board[to]) !== c && canCapture(p, typeOf(board[to])) && !inLight(board, to, c ^ 1)) pawnPush(out, from, to, [to], lastRank);
       }
       return;
     }
@@ -843,11 +857,14 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
   }
   // A pawn of `by` that takes the target stands on one of the two squares diagonally behind it —
   // or, under **Darkness**, on the single square straight behind it (the mirror of `case P`).
-  const back = -fwd(by);
-  if (powerOf(by) === 'Darkness') { const s = step(target, 0, back); if (s >= 0 && hits(board, s, P, by, victim)) return true; }
-  else {
-    const s1 = step(target, -1, back), s2 = step(target, 1, back);
-    if ((s1 >= 0 && hits(board, s1, P, by, victim)) || (s2 >= 0 && hits(board, s2, P, by, victim))) return true;
+  // `darknessKeep` keeps both. A piece in a Holy Light king's aura is out of every pawn's reach.
+  const back = -fwd(by), dark = powerOf(by) === 'Darkness';
+  if (!inLight(board, target, by ^ 1)) {
+    if (dark) { const s = step(target, 0, back); if (s >= 0 && hits(board, s, P, by, victim)) return true; }
+    if (!dark || RULES.darknessKeep) {
+      const s1 = step(target, -1, back), s2 = step(target, 1, back);
+      if ((s1 >= 0 && hits(board, s1, P, by, victim)) || (s2 >= 0 && hits(board, s2, P, by, victim))) return true;
+    }
   }
   // Walk the shot deltas *negated*: an archer that shoots (df, dr) sits at (-df, -dr) from its
   // target. The symmetric sets do not care; `forward3` does.
@@ -928,7 +945,7 @@ export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: A
       const capture = RULES.strikeMode === 'capture';
       for (let s = 0; s < 64; s++) {
         const p = board[s];
-        if (!p || colorOf(p) !== c || typeOf(p) === K) continue;
+        if (!p || colorOf(p) !== c || typeOf(p) === K || (typeOf(p) === P && !RULES.strikePawns)) continue;
         for (const [df, dr] of DIRS8) {
           for (let to = step(s, df, dr); to >= 0; to = step(to, df, dr)) {
             const v = board[to];
@@ -973,6 +990,15 @@ export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: A
       // An own pawn becomes a piece the side lost earlier, on the pawn's square; the pawn leaves play.
       // Never a guard (a pawn may not become a wall, docs/RULES.md §6.13) and never a pawn or king.
       if (!lost) return;
+      // `sacrificeBehind` (balance lab): only while this side has fewer pieces, kings and pawns aside.
+      if (RULES.sacrificeBehind) {
+        let mine = 0, theirs = 0;
+        for (let s = 0; s < 64; s++) {
+          const p = board[s];
+          if (p && typeOf(p) !== P && typeOf(p) !== K) { if (colorOf(p) === c) mine++; else theirs++; }
+        }
+        if (mine >= theirs) return;
+      }
       const types: PieceType[] = [];
       for (let t = 1; t < 16; t++) if (t !== P && t !== K && t !== G && lost[c * 16 + t] > 0) types.push(t as PieceType);
       if (!types.length) return;

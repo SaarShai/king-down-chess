@@ -342,6 +342,26 @@ export interface Rules {
    * rulebook): it takes nothing but a guard. The two-square reach stays move-only either way.
    */
   mercyCaptures: boolean;
+  /** Strike by a pawn (the rulebook: "any own piece (not king)"). Off (balance lab): pieces only. */
+  strikePawns: boolean;
+  /**
+   * Sacrifice as a comeback (balance lab, 2026-10-02): usable only while the side has fewer pieces
+   * than the opponent, kings and pawns not counted. Off (the rulebook): whenever a piece was lost.
+   */
+  sacrificeBehind: boolean;
+  /** Holy Light (balance lab): the king may take pawns. Off (the rulebook): it takes none. */
+  holyLightTakesPawns: boolean;
+  /**
+   * Holy Light (balance lab): the light covers the king's neighbours too — no enemy pawn takes a
+   * piece standing next to a Holy Light king. Off (the rulebook): only the king is covered.
+   */
+  holyLightAura: boolean;
+  /**
+   * Darkness (balance lab): the pawns keep their ordinary moves as well, so a pawn moves and takes
+   * one square forward, straight or diagonal (its first double step too). Off (the rulebook): the
+   * two verbs swap and the double step is gone.
+   */
+  darknessKeep: boolean;
   strikeUses: number;
   hasteUses: number;
   flightUses: number;
@@ -447,6 +467,11 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   markFree: false,
   markTurns: 1 as 1 | 2,
   mercyCaptures: false,
+  strikePawns: true,
+  sacrificeBehind: false,
+  holyLightTakesPawns: false,
+  holyLightAura: false,
+  darknessKeep: false,
   strikeUses: 1,
   hasteUses: 1,
   flightUses: 1,

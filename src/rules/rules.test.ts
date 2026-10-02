@@ -1630,3 +1630,61 @@ describe('ogre shove pin', () => {
     ).toEqual([]);
   });
 });
+
+describe('balance-lab readings of the kings’ powers (2026-10-02)', () => {
+  afterEach(() => setRules());
+  const k = (king: string, power: string): Rules['kings'] => [{ king, power } as Rules['kings'][0], null];
+
+  it('Holy Light: holyLightTakesPawns lets the king take a pawn', () => {
+    const fen = '7k/8/8/8/8/3p4/4K3/8 w - - 0 1';
+    setRules({ kings: k('Spirit', 'HolyLight') });
+    expect(lan(fromFen(fen), movesFrom(fromFen(fen), 'e2'))).not.toContain('Ke2xd3');
+    setRules({ kings: k('Spirit', 'HolyLight'), holyLightTakesPawns: true });
+    expect(lan(fromFen(fen), movesFrom(fromFen(fen), 'e2'))).toContain('Ke2xd3');
+  });
+
+  it('Holy Light: holyLightAura keeps enemy pawns off the king’s neighbours, and only those', () => {
+    // White knights d3 (next to the king e2) and b3 (not); Black pawns c4 and a4 attack both.
+    const fen = '7k/8/8/8/p1p5/1N1N4/4K3/8 b - - 0 1';
+    setRules({ kings: k('Spirit', 'HolyLight') });
+    expect(lan(fromFen(fen), legalMoves(fromFen(fen)))).toEqual(expect.arrayContaining(['c4xd3', 'c4xb3', 'a4xb3']));
+    setRules({ kings: k('Spirit', 'HolyLight'), holyLightAura: true });
+    const moves = lan(fromFen(fen), legalMoves(fromFen(fen)));
+    expect(moves).not.toContain('c4xd3');
+    expect(moves).toEqual(expect.arrayContaining(['c4xb3', 'a4xb3']));
+    expect(isAttacked(fromFen(fen).board, parseSq('d3'), BLACK)).toBe(false);
+    expect(isAttacked(fromFen(fen).board, parseSq('b3'), BLACK)).toBe(true);
+    crossCheckAttacks(301, 60);
+    setRules({ kings: [null, { king: 'Spirit', power: 'HolyLight' }], holyLightAura: true });
+    crossCheckAttacks(302, 60);
+  });
+
+  it('Darkness: darknessKeep adds the ordinary pawn moves to the swapped ones', () => {
+    setRules({ kings: k('Shadow', 'Darkness'), darknessKeep: true });
+    const home = fromFen('7k/8/8/8/8/2p1p3/3P4/K7 w - - 0 1');
+    expect(lan(home, movesFrom(home, 'd2'))).toEqual(['d2-d3', 'd2-d4', 'd2xc3', 'd2xe3'].sort());
+    const open = fromFen('7k/8/8/3p4/3P4/8/8/K7 w - - 0 1');
+    expect(lan(open, movesFrom(open, 'd4'))).toEqual(['d4-c5', 'd4-e5', 'd4xd5'].sort());
+    crossCheckAttacks(303, 60);
+  });
+
+  it('Strike: strikePawns=false strikes with pieces only', () => {
+    const fen = '4k3/8/8/8/8/8/P7/1N2K3 w - - 0 1';
+    setRules({ kings: k('Flame', 'Strike') });
+    const all = lan(fromFen(fen), legalMoves(fromFen(fen)));
+    expect(all.some(l => l.startsWith('a2-') && l.endsWith('!'))).toBe(true);
+    setRules({ kings: k('Flame', 'Strike'), strikePawns: false });
+    const pieces = lan(fromFen(fen), legalMoves(fromFen(fen)));
+    expect(pieces.some(l => l.startsWith('a2-') && l.endsWith('!'))).toBe(false);
+    expect(pieces.some(l => l.startsWith('Nb1-') && l.endsWith('!'))).toBe(true);
+  });
+
+  it('Sacrifice: sacrificeBehind offers the swap only while the side has fewer pieces', () => {
+    setRules({ kings: k('Stratus', 'Sacrifice'), sacrificeBehind: true });
+    // A lost rook in the reserve (`lR1`); level on pieces: no swap. One piece down: the swap.
+    const level = fromFen('4k2n/8/8/8/8/8/P7/4K2N w - - 0 1 lR');
+    expect(lan(level, legalMoves(level)).some(l => l.startsWith('!S:'))).toBe(false);
+    const behind = fromFen('4k1nn/8/8/8/8/8/P7/4K2N w - - 0 1 lR');
+    expect(lan(behind, legalMoves(behind))).toContain('!S:a2=R');
+  });
+});

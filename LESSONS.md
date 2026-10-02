@@ -2,6 +2,12 @@
 
 Reusable corrections. Pattern → rule.
 
+- A kings' powers tournament let its random opening moves include power moves. Flight alone adds about 200 moves to a position, so most powers were spent by chance in the first four plies and the run measured nothing. → Random opening moves come from the pieces' own moves only (`m.power` excluded); after any new move kind, check what the opening randomiser can pick. (2026-10-02)
+- `create_session` with a short commit SHA as the source revision failed at start (`ref_not_found`). → Start compute sessions on a branch name and have the prompt check out the full 40-character SHA. (2026-10-02)
+- tsx compiles with `keepNames`, which wraps every inner arrow function in a naming call; in the attack test's hot loop that cost more than the work. → Keep closures out of hot paths (module-level helpers, precomputed tables) and measure the search with node counts held equal. (2026-10-02)
+- Sim workers stopped loading TypeScript under Node 22 (`new Worker(file.ts)` ignores the parent's tsx loader), and the runner waited forever for games a dead worker would never play. → Start workers through `src/sim/worker-boot.mjs` (`tsWorker()`), and fail the run when a worker exits with games unplayed. (2026-10-02)
+- Cloud sessions ship a Chromium build that Playwright 1.63 does not look for. → `.claude/hooks/cloud-setup.sh` links it (`tools/pw-cloud-link.mjs`); run browser tools with `PLAYABLE_BROWSER=chromium`. (2026-10-02)
+
 - A lesson's `save()` guard did not protect the match: changing a player cleared lesson mode first, then saved the lesson position over the match. → Keep the live `Game` separate from the lesson `Game`, preserve its rules and player sides, and test lifecycle controls as well as lesson moves. Lessons must run under the rules their instructions teach. (2026-09-29)
 
 - Moving the lessons button into the Guide dialog broke two tools that closed the Guide with `#rules button` (strict mode: two buttons). Only the painted check was rerun after the move, so the break showed one batch later. → After adding or moving a control, grep the tools for selectors of that container (`grep -n "#rules button" tools/*.mjs`) and prefer specific selectors (`#rules form button`); rerun every tool after any UI move, not only the one that tests the feature. (2026-09-27)
