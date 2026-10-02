@@ -121,3 +121,41 @@ freezes the defender, then takes what the defender guarded (+1.0 median swing, 1
 gained two pawns or more). Haste still gains +3.2 a use by taking and running; a Strike that
 cannot capture still lets a pawn run to the seventh rank and promote (pawns made 92 of 168
 strikes). Darkness, Holy Light and Mercy stay at or below the plain king.
+
+## Round 3 — several readings screened at once
+
+Base changes: a free Freeze's move cannot capture; neither Haste move captures; Strike is pieces
+only and cannot capture; Holy Light's king may take pawns; Darkness pawns keep their ordinary moves.
+Variants played in the same field (a variant never meets its own power): Freeze with one use and no
+quiet move (`once`); Strike pieces only but capturing (`take`); Holy Light also covering its king's
+neighbours from pawns (`aura`); Mercy as written plus a shelter — no capture takes a piece next to
+the Mercy king — with (`shelterx`) and without (`shelter`) the king's own capture; Flight twice
+(`twice`). 5,248 games, 16 pairs.
+
+| entrant | vs powers |
+|---|---|
+| Darkness (keeps ordinary moves) | 74.5 ± 3.8 |
+| Mercy, shelter + captures | 68.6 ± 4.0 |
+| Freeze, free, quiet move, 2 uses | 63.5 ± 4.2 |
+| Strike, pieces only, captures | 59.1 ± 4.1 |
+| **Mercy, as written + shelter** | **53.5 ± 4.2** |
+| **Flight, 2 uses** | **51.9 ± 4.2** |
+| **Freeze, free, 1 use** | **50.2 ± 4.2** |
+| **Leap** | **49.3 ± 4.1** |
+| **Haste, no captures** | **47.5 ± 4.0** |
+| Strike, pieces only, no captures | 45.5 ± 4.3 |
+| Death Touch | 44.9 ± 3.9 |
+| Ice Wall | 44.8 ± 3.8 |
+| Sacrifice | 44.0 ± 4.3 |
+| Flight, 1 use | 43.3 ± 4.3 |
+| March (always on) | 42.9 ± 3.9 |
+| Holy Light + aura | 40.6 ± 4.0 |
+| Holy Light, takes pawns | 39.4 ± 4.0 |
+| Mercy, captures | 37.3 ± 4.1 |
+| *plain king* | 35.9 ± 3.7 |
+
+**Haste is fixed** (80 → 47.5), **Freeze with one free use lands at 50**, **Flight twice at 52**, and
+**Mercy as written plus the shelter at 53.5** — the shelter keeps the name's meaning (the king
+spares, and shields those beside it) where letting the king capture did not help (37). Darkness
+overshot from 30 to 74.5; Strike sits between its two readings (45.5 and 59); Holy Light did not
+move with either change.
