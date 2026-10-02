@@ -159,3 +159,38 @@ the Mercy king — with (`shelterx`) and without (`shelter`) the king's own capt
 spares, and shields those beside it) where letting the king capture did not help (37). Darkness
 overshot from 30 to 74.5; Strike sits between its two readings (45.5 and 59); Holy Light did not
 move with either change.
+
+## Round 4 — the round-3 winners together
+
+Base: Freeze free with one use; Ice Wall free; Haste without captures; Strike pieces only without
+captures; Flight twice; Mercy as written plus the shelter; March always on; Holy Light takes pawns;
+Darkness pawns keep their straight steps but still take only straight ahead (`darknessMoves`).
+Variants: Strike twice (`two`), Ice Wall three times (`three`), Holy Light also safe from knights
+(`knight`), Death Touch keeping the ordinary capture (`move`). 4,224 games, 16 pairs.
+
+| entrant | vs powers |
+|---|---|
+| Strike twice | 58.5 ± 4.2 |
+| Mercy + shelter | 55.6 ± 4.2 |
+| Flight twice | 55.5 ± 4.2 |
+| Freeze, one free use | 54.1 ± 4.1 |
+| Haste, no captures | 53.5 ± 4.1 |
+| Leap | 52.3 ± 4.2 |
+| Ice Wall | 51.9 ± 3.9 |
+| Ice Wall three times | 51.2 ± 4.2 |
+| Strike, pieces only, no captures | 49.6 ± 4.4 |
+| Sacrifice | 47.7 ± 4.6 |
+| Death Touch (either reading) | 47.1 / 47.0 |
+| Darkness, straight steps kept | 46.6 ± 4.4 |
+| March | 45.9 ± 4.1 |
+| Holy Light (either reading) | 41.7 / 41.0 |
+| *plain king* | 38.6 ± 3.7 |
+
+**The twelve base powers span 41.7–55.6, a spread of 14 points** (59 in round 1). Darkness's half
+step lands at 46.6. The variants change nothing worth a longer rule: a third Ice Wall use, Death
+Touch's second capture and Holy Light's knight cover each move their power less than a point; a
+second Strike overshoots. Holy Light is the one power still clearly low.
+
+The final check (below) plays the round-4 base on fresh armies and openings (seed 303, 24 pairs),
+with two last readings beside it — Flight once again, now that the field has moved, and Holy Light
+with Mercy's shelter — and a depth-4 run of the base set.
