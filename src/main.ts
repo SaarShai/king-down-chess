@@ -3,12 +3,10 @@ import { SkillName, skillPlan } from './ai/skill';
 import { Engine, Game, Side } from './game';
 import { setEvaluator } from './ai/eval';
 import { positionKey, type SearchResult } from './ai/search';
-import { BoardRenderer } from './render/renderer';
 import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { loadModels } from './render/voxels';
 import { A, B, C, Color, G, K, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, findKing, kingLabel, KingChoice, PowerName, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
@@ -59,7 +57,8 @@ const engine = new Engine();
 /** `?look=painted|clay`, else the saved choice. Painted 2D is the default (owner, 2026-09-27). */
 const LOOK_KEY = 'kingdown.look';
 const look = params.get('look') ?? (() => { try { return localStorage.getItem(LOOK_KEY); } catch { return null; } })() ?? 'painted';
-const view: BoardView = look === 'clay' ? new BoardRenderer($('board')) : new PaintedView($('board'));
+// Clay (three.js) is a separate chunk, fetched only for that look; painted needs none of it.
+const view: BoardView = look === 'clay' ? await (await import('./render/clay')).createClayView($('board')) : new PaintedView($('board'));
 $<HTMLSelectElement>('look').value = look === 'clay' ? 'clay' : 'painted';
 $<HTMLSelectElement>('look').onchange = () => {
   try { localStorage.setItem(LOOK_KEY, $<HTMLSelectElement>('look').value); } catch { /* private mode: the URL still switches */ }
@@ -1006,7 +1005,6 @@ if (saved) {
   sides[1] = $<HTMLSelectElement>('black').value as Side;
 }
 
-await loadModels();
 // The playable game has one art direction; study controls stay in the study.
 view.applyStyle(STYLES.clay);
 view.setCoords(coords.checked);
