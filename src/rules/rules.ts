@@ -444,6 +444,14 @@ export interface Rules {
    * hash and the repetition key all include.
    */
   kings: readonly [KingChoice | null, KingChoice | null];
+  /**
+   * Card mode (lab, 2026-10-03): each side's hand of one-use cards, `[white, black]`. A card is one
+   * use of a spendable power, with that power's rules; a side plays at most one a turn (each power
+   * move is the turn, or a free mark then the ordinary move). Which cards are played travels in
+   * `Position.used` as a bit per hand index. Empty hands (the default) = no card mode; the kings'
+   * powers stay as they are, so give the kings no power in card mode.
+   */
+  hands: readonly [readonly PowerName[], readonly PowerName[]];
   /** Setup: reject a back rank whose two bishops share a square colour (Chess960 spirit). */
   bishopsOppositeColours: boolean;
   /** Which pieces a pawn may become on the last rank. */
@@ -541,6 +549,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   reaverStep: 'ortho' as ReaverStep,
   catapultCapture: 'stay' as CatapultCapture,
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
+  hands: [[], []] as readonly [readonly PowerName[], readonly PowerName[]],
   bishopsOppositeColours: true,
   // Reverted to the chess set on 2026-09-17 (designer guideline: do not keep a rule that adds
   // nothing measurable). Fairy promotions were 1.3% of all promotions and moved no outcome metric;
@@ -607,6 +616,12 @@ export const POWERS_BALANCED: Readonly<Partial<Rules>> = Object.freeze({
 /** Reset to the defaults, then apply `over`. Call with no argument to restore today's rules. */
 export function setRules(over?: Partial<Rules>): Rules {
   Object.assign(RULES, DEFAULT_RULES, over);
+  // A hand replaces its side's spendable king power, which would vanish unnoticed: refuse the mix.
+  for (const c of [0, 1] as const) {
+    const p = RULES.kings[c]?.power, key = p && USES_RULE[p];
+    const spendable = !!key && !((p === 'March' || p === 'Leap') && RULES[key] === 0);
+    if (RULES.hands[c].length && spendable) throw new Error(`side ${c} has a hand and the king power ${p}: card mode plays kings without spendable powers`);
+  }
   return RULES;
 }
 
@@ -649,6 +664,16 @@ export function parseRule(text: string): Partial<Rules> {
   if (key === 'kings') return { kings: parseKings(value) };
   if (key === 'kingWhite') return { kings: [parseKing(value), null] };
   if (key === 'kingBlack') return { kings: [null, parseKing(value)] };
+  // `hands=Freeze+Haste` gives both sides that hand, `hands=Freeze+Haste,Flight` names them apart.
+  if (key === 'hands') {
+    const side = (t: string): PowerName[] => t.split('+').filter(Boolean).map(n => {
+      const p = (Object.values(KINGS).flat() as PowerName[]).find(x => x.toLowerCase() === n.toLowerCase());
+      if (!p || !USES_RULE[p]) throw new Error(`hands: "${n}" is not a one-use power (${Object.keys(USES_RULE).join(', ')})`);
+      return p;
+    });
+    const [w, b = w] = value.split(',');
+    return { hands: [side(w), side(b)] };
+  }
   const def = DEFAULT_RULES[key as keyof Rules];
   if (def === undefined) throw new Error(`unknown rule "${key}" (${Object.keys(DEFAULT_RULES).join(', ')}, kingWhite, kingBlack)`);
   const choices = CHOICES[key];

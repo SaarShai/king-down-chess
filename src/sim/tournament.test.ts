@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   type Entrant, type TJob, type TRecord, type TournamentSpec,
-  checkResume, drawOf, halfWidth, pairDraw, poolRounds, reportText, resampleArmies, schedule, scoreVsPowers, tFromZ,
+  checkResume, drawOf, gameSpec, halfWidth, handFor, pairDraw, poolRounds, reportText, resampleArmies, schedule, scoreVsPowers, tFromZ,
 } from './tournament';
 
 const spec = (over: Partial<TournamentSpec> = {}): TournamentSpec => ({
@@ -74,6 +74,28 @@ describe('tournament schedule', () => {
     const vs = (a: Entrant): string[] => jobs.filter(j => j.a === a && j.b === 'Flight').map(drawOf);
     expect(vs('Haste~h100')).toEqual(vs('Haste'));
     expect(pairDraw(7, 'Haste', 'Flight', 1)).not.toEqual(pairDraw(7, 'Haste', 'Freeze', 1));
+  });
+
+  it('anchor: every entrant meets only the anchor, and the anchor meets itself with mirror', () => {
+    const jobs = schedule(spec({ entrants: ['Freeze', 'Haste', 'Flight', 'none'], anchor: 'none', mirror: true, armies: 'perPair' }));
+    expect([...new Set(jobs.map(j => `${j.a}|${j.b}`))]).toEqual(['Freeze|none', 'Haste|none', 'Flight|none', 'none|none']);
+    expect(jobs.length).toBe(4 * 3 * 2);
+  });
+
+  it('cards: both sides of a mirror get one hand; cards3 is the first half of cards6 on the same army', () => {
+    const t = spec({ entrants: ['none', 'cards3', 'cards6'], mirror: true, mirrorOnly: true, armies: 'perPair', pairs: 4 });
+    const jobs = schedule(t);
+    expect([...new Set(jobs.map(j => `${j.a}|${j.b}`))]).toEqual(['none|none', 'cards3|cards3', 'cards6|cards6']);
+    expect(jobs.map(j => j.pairId)).toEqual(jobs.map((_, g) => g)); // one game a pair: the swap would replay it
+    for (let p = 0; p < 4; p++) {
+      const [n, c3, c6] = ['none', 'cards3', 'cards6'].map(e => jobs.find(j => j.a === e && j.pairId % 4 === p)!);
+      expect(drawOf(c3)).toBe(drawOf(n)); // the same army and opening for every entrant
+      const h3 = handFor(t, 'cards3', c3.seed), h6 = handFor(t, 'cards6', c6.seed);
+      expect([h3.length, new Set(h6).size, h6.slice(0, 3)]).toEqual([3, 6, h3]);
+      expect(gameSpec(t, c3).rules?.hands).toEqual([h3, h3]);
+      expect(gameSpec(t, n).rules?.hands).toBeUndefined();
+    }
+    expect(handFor(t, 'cards6', 1)).not.toEqual(handFor(t, 'cards6', 2));
   });
 
   it('a resume refuses records that this code would schedule differently', () => {
@@ -177,6 +199,29 @@ describe('report', () => {
     expect(text).toMatch(/Off centre with all 4 tested together \(simultaneous 95% band, 2\.\d\d standard errors on 10 armies\): Mercy 66\.7% ± 12\.\d, Darkness 33\.3% ± 0\.0\./);
     expect(text).toContain('Kings (the mean of their two powers against the other powers): Spirit 58.3 ± 6.3, Shadow 41.7 ± 6.3; Spirit − Shadow 16.7 ± 12.5 points (4.1 to 29.2).');
     expect(text).not.toContain('NaN');
+  });
+
+  it('values each entrant against the anchor in Elo and pawns, with its draws against the mirror', () => {
+    // Haste wins every pair against the plain king on armies 0–5 and draws on 6–9: score 0.8.
+    const a = spec({ entrants: ['Haste', 'none'], pairs: 10, seed: 3, anchor: 'none', mirror: true, armies: 'perPair' });
+    const recs = schedule(a).map(j => play(j, j.a === j.b ? 0.5 : j.pairId % 10 < 6 ? (j.white === 'Haste' ? 1 : 0) : 0.5));
+    const text = reportText([a], [recs]);
+    // 400 · log10(0.8 / 0.2) = +241 Elo = +3.76 pawns at 64 Elo per pawn; 40% draws against 100% in the mirror.
+    expect(text).toMatch(/\| Haste \| 80\.0% \| [\d.]+ \| \+241 \| \+3\.76 \| [\d.]+ \| 40\.0% \| -60\.0 \| [\d.]+ \| 10 \|/);
+    expect(text).toContain("mirror games (100.0% ± 0.0, 10 pairs)");
+    expect(text).not.toMatch(/NaN|Infinity/);
+  });
+
+  it('mirror rounds: White score, draws and cards played, and their differences from no cards', () => {
+    const t = spec({ entrants: ['none', 'cards3'], mirror: true, mirrorOnly: true, armies: 'perPair', pairs: 10 });
+    // No cards: every game drawn. With cards: White wins on even pairs and draws on odd ones.
+    const recs = schedule(t).map(j => ({ ...play(j, j.a === 'none' || j.pairId % 2 ? 0.5 : 1), uses: [1, 0] as [number, number] }));
+    const text = reportText([t], [recs]);
+    expect(text).toContain('## Same hand for both sides');
+    expect(text).not.toContain('Elo');
+    expect(text).toMatch(/\| none \| 50\.0 \| 0\.0 \| 100\.0 \| 0\.0 \| 40\.0 \| 0\.0 \| - \| - \| - \| - \| - \| - \| 0\.50 \| 10 \|/);
+    // Over 10 single-game pairs: White 75 ± t9 · 0.264 / √10 = ±18.9; draws 50 ± 37.7.
+    expect(text).toMatch(/\| cards3 \| 75\.0 \| 18\.9 \| 50\.0 \| 37\.7 \| 40\.0 \| 0\.0 \| \+25\.0 \| 18\.9 \| -50\.0 \| 37\.7 \| \+0\.0 \| 0\.0 \| 0\.50 \| 10 \|/);
   });
 
   it('marks a round still being played, and shows no score for a power with no games yet', () => {

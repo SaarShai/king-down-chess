@@ -40,6 +40,10 @@ eleven, it sits right at the edge of the band. Mercy (55 ± 5) is high and Fligh
 Darkness (44 ± 6) low on their own intervals, which with twelve powers can be chance. All four are
 for the next round, on many more armies, to confirm. Details in Round 12, below.
 
+**Update 2026-10-03 (round 13, 1,872 fresh armies):** over rounds 11–13, **Mercy (56) and Haste (56)
+are high and Darkness (43) low**, all three clearly; Flight is fine (47). Spirit's powers now average
+about 3 points above Shadow's. Details in Round 13, below.
+
 **Depth matters.** A depth-4 check of the round-4 set (936 games) kept the order but widened the
 spread to 24 points: Mercy, Flight with two uses and Sacrifice near 59%, Holy Light 36%. Balance
 measured by a computer player is a guide for people, not a guarantee.
@@ -54,7 +58,7 @@ Sacrifice a small trim; the report lists the readings already measured for each.
   Touch and Darkness. Seven were built before (six always-on, plus Strike); Freeze, Ice Wall, Haste,
   Flight and Sacrifice are new, and March and Leap now default to the rulebook's 3 uses.
 - **Game state for spent powers** travels with the position: uses spent per side, a Freeze or Ice
-  Wall mark (with the side that set it), a pending Haste second move, a free-mark move, and
+  Wall mark for each side, a pending Haste second move, a free-mark move, and
   Sacrifice's reserve of lost pieces. FEN field 7, the move notation, undo, repetition and the
   search's hash all carry it.
 - **The computer plays every power.** Power moves are offered at the first three plies of the
@@ -405,4 +409,65 @@ dozen armies. Each pair's army depends only on the seed, the pair number and the
 variant entrant (`Haste~v<name>`) plays the same armies its base power plays against each opponent
 in the same round.
 
-Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`; reports and specs in `sim/out/`.
+## Round 13 — the official set on 1,872 fresh armies (2026-10-03)
+
+The same rules as rounds 11 and 12, seed 3333, 24 pairs, a fresh army for every pair
+(`--armies perPair`), depth 3: 3,744 games in 37 minutes on the owner's Mac
+(`sim/out/kp2-r13.report.md`). Against the other powers (95%, armies resampled): Mercy 58.0 ± 4.1,
+Haste 55.9 ± 3.7, Death Touch 53.5 ± 3.9, Freeze 51.3 ± 4.0, Leap 50.6 ± 3.8, Strike 50.5 ± 3.8,
+Sacrifice 50.1 ± 4.0, Flight 49.5 ± 3.9, Holy Light 48.2 ± 3.7, March 45.7 ± 4.0, Ice Wall 43.7 ± 4.0,
+Darkness 43.0 ± 3.9; plain king 35.8. Tested together, four are off centre: Mercy and Haste high,
+Ice Wall and Darkness low. Spirit − Shadow +4.9 ± 4.1.
+
+**All three rounds** (1,896 armies, 7,488 games, `sim/out/kp2-r11+kp2-r12+kp2-r13.report.md`):
+Mercy 56.3 ± 3.3, Haste 55.5 ± 2.4, Death Touch 53.7 ± 2.9, Strike 51.2 ± 2.6, Leap 51.2 ± 3.6,
+Sacrifice 50.9 ± 3.2, Freeze 50.3 ± 2.8, Flight 47.4 ± 2.8, Holy Light 47.3 ± 2.9, March 46.5 ± 2.8,
+Ice Wall 46.1 ± 3.0, Darkness 43.4 ± 3.4; plain king 35.3. Tested together, three are off centre:
+**Mercy and Haste high, Darkness low**. Ice Wall, March (low) and Death Touch (high) are off 50 on
+their own intervals only. Spirit − Shadow **+3.2 ± 3.1** (0.2 to 6.3).
+
+**Reading.** Round 13 settles what rounds 11–12 left open. Mercy, Haste and Darkness are off centre,
+by 5–7 points each. Flight is not (47.4): its lows in rounds 11–12 came from their armies. Ice Wall
+read low here (43.7) but less so over all three rounds (46.1): a candidate to watch. The light and
+dark kings are no longer level: Spirit's two powers average about 3 points above Shadow's, from Mercy
+high and Darkness low. Any fix for Mercy or Darkness moves that gap too.
+
+**A mark bug, and a re-check.** After round 13, a review of card mode found that a position held
+only one Freeze or Ice Wall mark. The side a mark bound could set its own mark, which erased the
+first, and then (under the free-mark reading) make the move the first mark forbade. The fix
+(`dcb9d1f`) keeps one mark per side. Under the official set only the Freeze–Ice Wall matchup has a
+mark on both sides, so it alone was replayed on the fixed engine with the same armies (`fi-r11`,
+`fi-r12`, `fi-r13`; 96 games). Freeze scored 62.0 of 96 against Ice Wall, against 59.5 before. Each
+power plays 1,152 games over the three rounds, so either power's score moves by about 0.2 points.
+No conclusion above changes.
+
+**Options for the three off-centre powers (sent to the owner 2026-10-03, not chosen yet).** From a
+read-only review of the engine and the stored games, with an adversarial check. The sizes are
+rough; only a measurement decides.
+
+- **Haste** (55.5). Without captures, its two moves still set up a threat that the opponent has
+  one move to answer: the hasted piece took something on its next turn after 45% of the Haste turns
+  that the game went on from (147 of 328; 123 of 451 ended the game at once, 105 of them won by
+  the Haste side; `cards-a1`, one-use Haste against a plain king). Trims, each on Haste's own moves only:
+  H1 the second move may not end next to an enemy piece (about −2 to −9); H2 the second move may
+  not end where the piece attacks an enemy piece; H3 the second move may not go forward (70% of
+  second moves did); H4 neither move may give check (about −1 to −4, a companion to the others).
+  Not proposed: "the hasted piece may not take on the next turn", which limits an ordinary move.
+- **Mercy** (56.3). M1 enemy pawns may still take pieces next to the Mercy king (about −6, range
+  −3 to −12); M2 M1, and the Mercy king may take pawns, as Holy Light does (a smaller cut); M3 the
+  Mercy king no longer jumps over its own pieces (unmeasured, about −1 to −5).
+- **Darkness** (43.4). Open question for the owner: may Darkness gain a second part that leaves its
+  pawns as they are? If so: D1 no piece diagonally next to the Darkness king can be taken, the
+  diagonal twin of Holy Light's shelter (about +4.5, range +2 to +9); D2 the same, except by
+  pawns (smaller). If not: first check how much of the 43.4 comes from the computer player, whose
+  evaluation was never tuned for Darkness pawns (no rule change).
+- **Spirit and Shadow level.** With m the change of Mercy and k that of Darkness (each against the
+  other powers), the gap is about 3.25 + (6/11)(m − k), so the kings are level when k − m ≈ 6: for
+  example Mercy −3 and Darkness +3.
+- **Measuring.** One round with the chosen variants as `~v` entrants on seed 3333 and
+  `--armies perPair`: each variant then plays the armies its base power played in round 13. At
+  24 pairs a variant − base difference is about ±4.5, so screen at most about three readings per
+  power, with 48 pairs or more, and screen the Haste and Spirit/Shadow variants in the same round
+  (a Haste trim raises every other power a little).
+
+Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`; round 13 on the owner's Mac (`sim/out/` of the main checkout) until a results branch is approved; reports and specs in `sim/out/`.
