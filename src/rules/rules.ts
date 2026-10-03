@@ -448,6 +448,12 @@ export interface Rules {
   deathTouchReach: boolean;
   /** The two-square touch reaches along files and ranks only, not diagonals (balance lab). */
   deathTouchReachOrtho: boolean;
+  /** The two-square touch never goes backward, toward its own back rank (balance lab, round 14). */
+  deathTouchReachNoBack: boolean;
+  /** The two-square touch goes only straight forward or back, never sideways (balance lab, round 14). */
+  deathTouchReachForwardBack: boolean;
+  /** The two-square touch takes pieces only, never pawns; the adjacent touch still does (balance lab, round 14). */
+  deathTouchReachPieces: boolean;
   strikeUses: number;
   hasteUses: number;
   flightUses: number;
@@ -589,6 +595,9 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   darknessShelterPawnsTake: false,
   deathTouchReach: false,
   deathTouchReachOrtho: false,
+  deathTouchReachNoBack: false,
+  deathTouchReachForwardBack: false,
+  deathTouchReachPieces: false,
   strikeUses: 1,
   hasteUses: 1,
   flightUses: 1,

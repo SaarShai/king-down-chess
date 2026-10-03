@@ -3,11 +3,14 @@
  * official set: Haste's limits on its moves (`hasteApart`, `hasteNoThreat`, `hasteNoForward`,
  * `hasteNoCheck`), Mercy's trims (`mercyAuraPawnsTake`, `mercyTakesPawns`, `mercyNoJump`) and
  * Darkness's diagonal shelter (`darknessShelter`, `darknessShelterPawnsTake`). The attack mirror for
- * the shelters is cross-checked in rules.test.ts.
+ * the shelters is cross-checked in rules.test.ts. Death Touch's trims of its two-square reach
+ * (`deathTouchReachNoBack`, `deathTouchReachForwardBack`, `deathTouchReachPieces`, round 14) are
+ * cross-checked here.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  BLACK, Color, K, Move, P, Position, WHITE, colorOf, file, inCheck, isAttacked, legalMoves, makeMove, parseSq, piece, powerOf, rank, status, typeOf,
+  B, BLACK, Color, K, Move, N, P, PieceType, Position, Q, R, WHITE, colorOf, file, genPiece, inCheck, isAttacked, legalMoves, makeMove, parseSq, piece, powerOf, rank,
+  sqName, status, typeOf,
 } from './engine';
 import { fromFen, randomBackRank, startPosition, toFen, toLan } from './setup';
 import { KingChoice, PowerName, RULES, Rules, parseRule, setRules } from './rules';
@@ -15,7 +18,7 @@ import { positionKey, probeApply, resetSearchState, searchLegal, setFastLegality
 import { RULE_POWERS } from '../sim/tournament';
 import { powerText } from '../powers-ui';
 
-const KING_OF: Partial<Record<PowerName, KingChoice['king']>> = { Haste: 'Flame', Strike: 'Flame', Mercy: 'Spirit', Darkness: 'Shadow' };
+const KING_OF: Partial<Record<PowerName, KingChoice['king']>> = { Haste: 'Flame', Strike: 'Flame', Mercy: 'Spirit', Darkness: 'Shadow', DeathTouch: 'Shadow' };
 const k = (power: PowerName | null): KingChoice | null => (power ? { king: KING_OF[power]!, power } : null);
 const powers = (white: PowerName | null, black: PowerName | null, more: Partial<Rules> = {}): void => {
   setRules({ kings: [k(white), k(black)], ...more });
@@ -225,10 +228,201 @@ describe('Darkness readings: the diagonal shelter', () => {
   });
 });
 
+/** The Death Touch shots (`to === from`) of the side to move, by victim square. */
+const shots = (pos: Position): string[] => legalMoves(pos).filter(m => m.to === m.from && m.captures.length === 1).map(m => sqName(m.captures[0])).sort();
+
+/**
+ * The reach's attack mirror: on random boards with a Death Touch king of each colour, `isAttacked`
+ * answers on every occupied enemy square exactly what `genPiece('attacks')` generates. Returns the
+ * two-square shots it saw, so a caller can tell the check is not vacuous.
+ */
+function crossCheckTouch(seed: number, trials: number): number {
+  const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+  const types: PieceType[] = [P, N, B, R, Q];
+  let reach = 0;
+  for (let trial = 0; trial < trials; trial++) {
+    const board = new Uint8Array(64);
+    for (const c of [WHITE, BLACK]) board[Math.floor(rng() * 64)] = piece(K, c);
+    for (let s = 0; s < 64; s++) {
+      if (board[s] || rng() < 0.6) continue;
+      const t = types[Math.floor(rng() * types.length)];
+      if (t === P && (s < 8 || s >= 56)) continue;
+      board[s] = piece(t, rng() < 0.5 ? WHITE : BLACK);
+    }
+    for (const by of [WHITE, BLACK]) {
+      const out: Move[] = [];
+      for (let s = 0; s < 64; s++) if (board[s] && colorOf(board[s]) === by) genPiece(board, s, 'attacks', out);
+      const attacked = new Set(out.map(m => m.captures[0]));
+      reach += out.filter(m => m.to === m.from && Math.max(Math.abs(file(m.captures[0]) - file(m.from)), Math.abs(rank(m.captures[0]) - rank(m.from))) === 2).length;
+      for (let s = 0; s < 64; s++) {
+        if (!board[s] || colorOf(board[s]) === by) continue;
+        expect(isAttacked(board, s, by), `trial ${trial} ${sqName(s)} by ${by}`).toBe(attacked.has(s));
+      }
+    }
+  }
+  return reach;
+}
+
+describe('Death Touch readings: trims of the two-square reach (official: straight forward, back or sideways)', () => {
+  const touch = (white: boolean, black: boolean, more: Partial<Rules> = {}): void => {
+    powers(white ? 'DeathTouch' : null, black ? 'DeathTouch' : null, { deathTouchReach: true, deathTouchReachOrtho: true, ...more });
+  };
+  // White Death Touch king d4; Black knights d6 (ahead), d2 (behind), b4 and f4 (beside), pawn c3
+  // (next to it). The same board turned round for Black: king e5, ahead is e3.
+  const white = '7k/8/3n4/8/1n1K1n2/2p5/3n4/8 w - - 0 1';
+  const black = '8/4N3/5P2/2N1k1N1/8/4N3/8/7K b - - 0 1';
+
+  it('deathTouchReachNoBack: the reach goes forward or sideways, never back', () => {
+    touch(true, false);
+    expect(shots(fromFen(white))).toEqual(['b4', 'c3', 'd2', 'd6', 'f4']);
+    touch(true, false, { deathTouchReachNoBack: true });
+    expect(shots(fromFen(white))).toEqual(['b4', 'c3', 'd6', 'f4']);
+    expect(isAttacked(fromFen(white).board, sq('d2'), WHITE)).toBe(false);
+    expect(isAttacked(fromFen(white).board, sq('d6'), WHITE)).toBe(true);
+    touch(false, true);
+    expect(shots(fromFen(black))).toEqual(['c5', 'e3', 'e7', 'f6', 'g5']);
+    touch(false, true, { deathTouchReachNoBack: true });
+    expect(shots(fromFen(black))).toEqual(['c5', 'e3', 'f6', 'g5']); // e7 is behind a Black king
+    expect(isAttacked(fromFen(black).board, sq('e7'), BLACK)).toBe(false);
+    expect(isAttacked(fromFen(black).board, sq('e3'), BLACK)).toBe(true);
+  });
+
+  it('deathTouchReachForwardBack: the reach goes straight forward or back, never sideways', () => {
+    touch(true, false, { deathTouchReachForwardBack: true });
+    expect(shots(fromFen(white))).toEqual(['c3', 'd2', 'd6']);
+    expect(isAttacked(fromFen(white).board, sq('f4'), WHITE)).toBe(false);
+    expect(isAttacked(fromFen(white).board, sq('d2'), WHITE)).toBe(true);
+    touch(false, true, { deathTouchReachForwardBack: true });
+    expect(shots(fromFen(black))).toEqual(['e3', 'e7', 'f6']);
+    expect(isAttacked(fromFen(black).board, sq('c5'), BLACK)).toBe(false);
+    // Both trims leave the one line straight ahead.
+    touch(true, true, { deathTouchReachNoBack: true, deathTouchReachForwardBack: true });
+    expect(shots(fromFen(white))).toEqual(['c3', 'd6']);
+    expect(shots(fromFen(black))).toEqual(['e3', 'f6']);
+    // Without the reach, neither trim changes anything: the adjacent touch only.
+    powers('DeathTouch', null, { deathTouchReachNoBack: true, deathTouchReachForwardBack: true, deathTouchReachPieces: true });
+    expect(shots(fromFen(white))).toEqual(['c3']);
+  });
+
+  it('deathTouchReachPieces: the reach takes no pawn; the adjacent touch still does', () => {
+    // As above, with pawns on d6, b4 and f4 (Black) and e3, c5 and g5 (White); a knight stays behind.
+    const wp = '7k/8/3p4/8/1p1K1p2/2p5/3n4/8 w - - 0 1', bp = '8/4N3/5P2/2P1k1P1/8/4P3/8/7K b - - 0 1';
+    touch(true, true);
+    expect(shots(fromFen(wp))).toEqual(['b4', 'c3', 'd2', 'd6', 'f4']);
+    expect(shots(fromFen(bp))).toEqual(['c5', 'e3', 'e7', 'f6', 'g5']);
+    touch(true, true, { deathTouchReachPieces: true });
+    expect(shots(fromFen(wp))).toEqual(['c3', 'd2']);
+    expect(shots(fromFen(bp))).toEqual(['e7', 'f6']);
+    expect(isAttacked(fromFen(wp).board, sq('d6'), WHITE)).toBe(false);
+    expect(isAttacked(fromFen(wp).board, sq('c3'), WHITE)).toBe(true);
+    expect(isAttacked(fromFen(bp).board, sq('e3'), BLACK)).toBe(false);
+    expect(isAttacked(fromFen(bp).board, sq('e7'), BLACK)).toBe(true);
+    expect(isAttacked(fromFen(wp).board, sq('d5'), WHITE)).toBe(true); // an empty square: a piece may land there
+  });
+
+  it('the reach gives check only along the lines it keeps', () => {
+    // Black kings two squares behind (d2), ahead (d6) and beside (f4) a White Death Touch king d4.
+    const at = (s: string): Position => fromFen(`8/8/${s === 'd6' ? '3k4' : '8'}/8/3K${s === 'f4' ? '1k2' : '4'}/8/${s === 'd2' ? '3k4' : '8'}/8 b - - 0 1`);
+    const checks = (more: Partial<Rules>): boolean[] => { touch(true, false, more); return ['d2', 'd6', 'f4'].map(s => inCheck(at(s))); };
+    expect(checks({})).toEqual([true, true, true]);
+    expect(checks({ deathTouchReachNoBack: true })).toEqual([false, true, true]);
+    expect(checks({ deathTouchReachForwardBack: true })).toEqual([true, true, false]);
+    expect(checks({ deathTouchReachPieces: true })).toEqual([true, true, true]); // a king is a piece
+    // Black's view: a White king behind it (e7) is safe under NoBack.
+    touch(false, true, { deathTouchReachNoBack: true });
+    expect(inCheck(fromFen('8/4K3/8/4k3/8/8/8/8 w - - 0 1'))).toBe(false);
+    expect(inCheck(fromFen('8/8/8/4k3/8/4K3/8/8 w - - 0 1'))).toBe(true);
+  });
+
+  it('isAttacked agrees with the generated touches on random boards under each trim', () => {
+    const sets: Partial<Rules>[] = [
+      {}, { deathTouchReachNoBack: true }, { deathTouchReachForwardBack: true }, { deathTouchReachPieces: true },
+      { deathTouchReachNoBack: true, deathTouchReachForwardBack: true, deathTouchReachPieces: true },
+      { deathTouchReachOrtho: false, deathTouchReachNoBack: true }, { deathTouchReachOrtho: false, deathTouchReachForwardBack: true },
+    ];
+    sets.forEach((more, i) => {
+      touch(true, true, more);
+      expect(crossCheckTouch(400 + i, 300), JSON.stringify(more)).toBeGreaterThan(30);
+    });
+  });
+
+  it('the rule text follows each trim', () => {
+    const r = (more: Partial<Rules>): Rules => setRules({ deathTouchReach: true, deathTouchReachOrtho: true, ...more });
+    const base = 'your king takes an enemy next to it, or two squares away straight forward, back or sideways over an empty square, without moving \u2014 it can only take this way';
+    expect(powerText('DeathTouch', r({}))).toBe(base);
+    expect(powerText('DeathTouch', r({ deathTouchReachNoBack: true }))).toBe(base.replace('forward, back or sideways', 'forward or sideways'));
+    expect(powerText('DeathTouch', r({ deathTouchReachForwardBack: true }))).toBe(base.replace('forward, back or sideways', 'forward or back'));
+    expect(powerText('DeathTouch', r({ deathTouchReachNoBack: true, deathTouchReachForwardBack: true }))).toContain('two squares away straight forward over');
+    expect(powerText('DeathTouch', r({ deathTouchReachPieces: true }))).toBe(base.replace('or two squares', 'or a piece (not a pawn) two squares'));
+  });
+});
+
+/** The reach rules, checked from outside the generator on one legal move `m` of `pos`. */
+function touchObeys(pos: Position, m: Move): string {
+  if (m.to !== m.from || m.captures.length !== 1 || typeOf(pos.board[m.from]) !== K || powerOf(pos.turn) !== 'DeathTouch') return '';
+  const s = m.captures[0], df = file(s) - file(m.from), dr = rank(s) - rank(m.from);
+  if (Math.max(Math.abs(df), Math.abs(dr)) !== 2) return '';
+  if (pos.board[(m.from + s) >> 1]) return 'over a piece';
+  if (RULES.deathTouchReachOrtho && df !== 0 && dr !== 0) return 'diagonal';
+  if (RULES.deathTouchReachNoBack && dr * (pos.turn === WHITE ? 1 : -1) < 0) return 'backward';
+  if (RULES.deathTouchReachForwardBack && df !== 0) return 'sideways';
+  if (RULES.deathTouchReachPieces && typeOf(pos.board[s]) === P) return 'a pawn';
+  return '';
+}
+
+describe('random games under the Death Touch trims', () => {
+  const sets: [PowerName | null, PowerName | null, Partial<Rules>][] = [
+    ['DeathTouch', 'DeathTouch', { deathTouchReachNoBack: true }],
+    ['DeathTouch', 'Mercy', { deathTouchReachForwardBack: true, mercyAura: true }],
+    ['Darkness', 'DeathTouch', { deathTouchReachPieces: true, darknessMoves: true }],
+    ['DeathTouch', 'DeathTouch', { deathTouchReachNoBack: true, deathTouchReachForwardBack: true, deathTouchReachPieces: true }],
+  ];
+  it('the engine and the search offer the same legal moves, every shot obeys the trims, and the keys stay in step', () => {
+    let seed = 1414;
+    const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+    const reach = { deathTouchReach: true, deathTouchReachOrtho: true };
+    let reachSeen = 0, dropped = 0;
+    for (let g = 0; g < sets.length * 6; g++) {
+      const [w, b, more] = sets[g % sets.length];
+      let pos = startPosition(randomBackRank(rng));
+      for (let ply = 0; ply < 100; ply++) {
+        powers(w, b, { ...reach, ...more, deathTouchReachNoBack: false, deathTouchReachForwardBack: false, deathTouchReachPieces: false });
+        const before = lans(pos);
+        powers(w, b, { ...reach, ...more });
+        if (status(pos) !== 'playing') break;
+        const moves = legalMoves(pos);
+        const engine = lans(pos, moves);
+        dropped += before.filter(l => !engine.includes(l)).length;
+        expect(lans(pos, searchLegal(pos)), toFen(pos)).toEqual(engine);
+        setFastLegality(false);
+        expect(lans(pos, searchLegal(pos)), toFen(pos)).toEqual(engine);
+        setFastLegality(true);
+        for (const m of moves) {
+          expect(touchObeys(pos, m), `${toFen(pos)} ${toLan(pos, m)}`).toBe('');
+          if (m.to === m.from && m.captures.length && Math.max(Math.abs(file(m.captures[0]) - file(m.from)), Math.abs(rank(m.captures[0]) - rank(m.from))) === 2) reachSeen++;
+        }
+        // Half the turns take something, so the board opens and the kings meet.
+        const takes = moves.filter(x => x.captures.length);
+        const pick = takes.length && rng() < 0.5 ? takes : moves, m = pick[Math.floor(rng() * pick.length)];
+        const { after, back } = probeApply(pos, m);
+        const next = makeMove(pos, m);
+        expect(after, `${toFen(pos)} ${toLan(pos, m)}`).toBe(positionKey(next));
+        expect(back).toBe(positionKey(pos));
+        pos = next;
+      }
+    }
+    // The games reach the trims (2026-10-03: 140 two-square shots offered, 37 moves the trims
+    // dropped), so the checks above are not vacuous.
+    expect(reachSeen).toBeGreaterThan(60);
+    expect(dropped).toBeGreaterThan(15);
+  }, 120_000);
+});
+
 const NEW: [keyof Rules, PowerName][] = [
   ['hasteApart', 'Haste'], ['hasteNoThreat', 'Haste'], ['hasteNoForward', 'Haste'], ['hasteNoCheck', 'Haste'],
   ['mercyAuraPawnsTake', 'Mercy'], ['mercyTakesPawns', 'Mercy'], ['mercyNoJump', 'Mercy'],
   ['darknessShelter', 'Darkness'], ['darknessShelterPawnsTake', 'Darkness'],
+  ['deathTouchReachNoBack', 'DeathTouch'], ['deathTouchReachForwardBack', 'DeathTouch'], ['deathTouchReachPieces', 'DeathTouch'],
 ];
 
 describe('the new readings as tournament variants', () => {

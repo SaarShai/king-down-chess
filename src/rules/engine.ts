@@ -531,11 +531,12 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
             if (RULES.deathTouchMoves) out.push({ from, to, captures: [to] });
           }
           // `deathTouchReach` (round 8): the touch also reaches two squares in a straight line, over
-          // an empty square; a move-free shot like the adjacent one. Mirrored in `isAttacked`.
-          if (RULES.deathTouchReach && !v && !(RULES.deathTouchReachOrtho && d >= 4)) {
+          // an empty square; a move-free shot like the adjacent one. `touchReaches` holds the lines it
+          // may take and `deathTouchReachPieces` spares pawns (balance lab). Mirrored in `isAttacked`.
+          if (RULES.deathTouchReach && !v && touchReaches(df, dr, c)) {
             const two = step(to, df, dr);
             const w = two >= 0 ? board[two] : 0;
-            if (w && colorOf(w) !== c && canCapture(p, typeOf(w))) out.push({ from, to: from, captures: [two] });
+            if (w && colorOf(w) !== c && canCapture(p, typeOf(w)) && !(RULES.deathTouchReachPieces && typeOf(w) === P)) out.push({ from, to: from, captures: [two] });
           }
         }
         return;
@@ -911,6 +912,18 @@ function beastTakesFrom(df: number, dr: number, by: Color): boolean {
   return RULES.beastCaptureForward || !(df === 0 && dr === -fwd(by));
 }
 
+/**
+ * May the two-square Death Touch of a king of colour `c` go along `(df, dr)`, seen from the king?
+ * `deathTouchReachOrtho` drops the diagonals; the balance-lab trims drop every line toward its own
+ * back rank (`deathTouchReachNoBack`) or every line but straight forward and back
+ * (`deathTouchReachForwardBack`). The shot in `case K` and `isAttacked` share it.
+ */
+function touchReaches(df: number, dr: number, c: Color): boolean {
+  if (RULES.deathTouchReachOrtho && df !== 0 && dr !== 0) return false;
+  if (RULES.deathTouchReachNoBack && dr === -fwd(c)) return false;
+  return !RULES.deathTouchReachForwardBack || df === 0;
+}
+
 /** Is the piece on `s` of colour `by` and type `t`, and may it take a `victim` (0 = an empty target)? */
 function hits(board: Uint8Array, s: number, t: PieceType, by: Color, victim: number): boolean {
   const p = board[s];
@@ -969,12 +982,13 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
     if (hits(board, s, S, by, victim) && beastTakesFrom(DIRS8[d][0], DIRS8[d][1], by)) return true;
   }
   // `deathTouchReach` (round 8): a Death Touch king two squares away in a straight line, over an
-  // empty square (the mirror of its shot in `case K`).
-  if (RULES.deathTouchReach && powerOf(by) === 'DeathTouch') for (let d = 0; d < (RULES.deathTouchReachOrtho ? 4 : 8); d++) {
+  // empty square (the mirror of its shot in `case K`). The king on `s2` touches back along -DIRS8[d];
+  // an empty target stays attacked under `deathTouchReachPieces`, as `hits` treats every empty one.
+  if (RULES.deathTouchReach && powerOf(by) === 'DeathTouch' && !(RULES.deathTouchReachPieces && victim === P)) for (let d = 0; d < (RULES.deathTouchReachOrtho ? 4 : 8); d++) {
     const s = NEIGHBOUR[target * 8 + d];
     if (s < 0 || board[s]) continue;
     const s2 = NEIGHBOUR[s * 8 + d];
-    if (s2 >= 0 && hits(board, s2, K, by, victim)) return true;
+    if (s2 >= 0 && hits(board, s2, K, by, victim) && touchReaches(-DIRS8[d][0], -DIRS8[d][1], by)) return true;
   }
   // A piece in a Holy Light king's aura is out of every pawn's reach.
   if (shelter === 0 && !inLight(board, target, by ^ 1) && pawnTakes(board, target, by, victim)) return true;

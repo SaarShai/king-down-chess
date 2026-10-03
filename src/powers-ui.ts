@@ -38,7 +38,11 @@ export function powerText(power: PowerName, r: Rules = RULES): string {
     case 'HolyLight': return `enemy pawns${r.holyLightKnights ? ' and knights' : ''} cannot take your king${r.holyLightAura ? ' or the pieces next to it' : ''}${r.holyLightTakesPawns ? '' : ', and it cannot take pawns'}${r.holyLightShelter ? `; your pieces ${r.holyLightShelterOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken` : ''}`;
     case 'Mercy': return `your king steps 1\u20132 squares${r.mercyNoJump ? '' : ' and jumps your pieces'}${r.mercyCaptures ? ' (it takes only next to itself)' : r.mercyTakesPawns ? ', but takes only a pawn or a guard' : ', but takes only a guard'}${r.mercyAura ? `; your pieces ${r.mercyAuraOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken${r.mercyAuraPawns ? ' by pawns' : r.mercyAuraPawnsTake ? ' except by pawns' : ''}` : ''}`;
     case 'DeathTouch': {
-      const reach = r.deathTouchReach ? `an enemy next to it, or two squares away ${r.deathTouchReachOrtho ? 'straight forward, back or sideways' : 'in a straight line'} over an empty square,` : 'an adjacent enemy';
+      // The balance-lab trims narrow only the two-square touch: its lines, and pawns (`Pieces`).
+      const lines = r.deathTouchReachForwardBack ? (r.deathTouchReachNoBack ? 'straight forward' : 'straight forward or back')
+        : r.deathTouchReachOrtho ? (r.deathTouchReachNoBack ? 'straight forward or sideways' : 'straight forward, back or sideways')
+        : r.deathTouchReachNoBack ? 'in a straight line but not backward' : 'in a straight line';
+      const reach = r.deathTouchReach ? `an enemy next to it, or ${r.deathTouchReachPieces ? 'a piece (not a pawn) ' : ''}two squares away ${lines} over an empty square,` : 'an adjacent enemy';
       return r.deathTouchMoves
         ? `your king takes ${reach} without moving, or by moving onto it`
         : `your king takes ${reach} without moving \u2014 it can only take this way`;

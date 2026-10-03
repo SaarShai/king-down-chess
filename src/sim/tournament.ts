@@ -82,7 +82,9 @@ export const RULE_POWERS: Partial<Record<keyof Rules, readonly PowerName[]>> = {
   marchUses: ['March'], leapUses: ['Leap'],
   holyLightTakesPawns: ['HolyLight'], holyLightAura: ['HolyLight'], holyLightKnights: ['HolyLight'], holyLightShelter: ['HolyLight'], holyLightShelterOrtho: ['HolyLight'], mercyCaptures: ['Mercy'], mercyAura: ['Mercy'], mercyAuraOrtho: ['Mercy'], mercyAuraPawns: ['Mercy'],
   mercyAuraPawnsTake: ['Mercy'], mercyTakesPawns: ['Mercy'], mercyNoJump: ['Mercy'],
-  deathTouchMoves: ['DeathTouch'], deathTouchReach: ['DeathTouch'], deathTouchReachOrtho: ['DeathTouch'], darknessKeep: ['Darkness'], darknessMoves: ['Darkness'], darknessTakeAhead: ['Darkness'], darknessStepDiag: ['Darkness'],
+  deathTouchMoves: ['DeathTouch'], deathTouchReach: ['DeathTouch'], deathTouchReachOrtho: ['DeathTouch'],
+  deathTouchReachNoBack: ['DeathTouch'], deathTouchReachForwardBack: ['DeathTouch'], deathTouchReachPieces: ['DeathTouch'],
+  darknessKeep: ['Darkness'], darknessMoves: ['Darkness'], darknessTakeAhead: ['Darkness'], darknessStepDiag: ['Darkness'],
   darknessShelter: ['Darkness'], darknessShelterPawnsTake: ['Darkness'],
 };
 const variantOf = (t: TournamentSpec, e: Entrant): Partial<Rules> => {
