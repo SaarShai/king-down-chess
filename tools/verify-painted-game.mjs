@@ -42,6 +42,9 @@ try {
   assert.ok(taken > 0, 'the game included captures');
   await page.screenshot({ path: `${out}/computer-game.png` });
   console.log(`ok ${taken} captures animated`);
+  // A game that finished before 60 plies leaves the result dialog open over the board; close it so
+  // the next case's clicks reach the panel.
+  if (await page.evaluate(() => document.getElementById('over').open)) await page.click('#over button[value="close"]');
 
   // 1b. Human mouse input: drag a pawn two squares, then click-click a knight or any legal move.
   await setSides(page, 'human', 'ai');
