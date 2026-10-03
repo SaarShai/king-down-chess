@@ -441,4 +441,33 @@ mark on both sides, so it alone was replayed on the fixed engine with the same a
 power plays 1,152 games over the three rounds, so either power's score moves by about 0.2 points.
 No conclusion above changes.
 
+**Options for the three off-centre powers (sent to the owner 2026-10-03, not chosen yet).** From a
+read-only review of the engine and the stored games, with an adversarial check. The sizes are
+rough; only a measurement decides.
+
+- **Haste** (55.5). Without captures, its two moves still set up a threat that the opponent has
+  one move to answer: the hasted piece took something on its next turn after 45% of the Haste turns
+  that the game went on from (147 of 328; 123 of 451 ended the game at once, 105 of them won by
+  the Haste side; `cards-a1`, one-use Haste against a plain king). Trims, each on Haste's own moves only:
+  H1 the second move may not end next to an enemy piece (about −2 to −9); H2 the second move may
+  not end where the piece attacks an enemy piece; H3 the second move may not go forward (70% of
+  second moves did); H4 neither move may give check (about −1 to −4, a companion to the others).
+  Not proposed: "the hasted piece may not take on the next turn", which limits an ordinary move.
+- **Mercy** (56.3). M1 enemy pawns may still take pieces next to the Mercy king (about −6, range
+  −3 to −12); M2 M1, and the Mercy king may take pawns, as Holy Light does (a smaller cut); M3 the
+  Mercy king no longer jumps over its own pieces (unmeasured, about −1 to −5).
+- **Darkness** (43.4). Open question for the owner: may Darkness gain a second part that leaves its
+  pawns as they are? If so: D1 no piece diagonally next to the Darkness king can be taken, the
+  diagonal twin of Holy Light's shelter (about +4.5, range +2 to +9); D2 the same, except by
+  pawns (smaller). If not: first check how much of the 43.4 comes from the computer player, whose
+  evaluation was never tuned for Darkness pawns (no rule change).
+- **Spirit and Shadow level.** With m the change of Mercy and k that of Darkness (each against the
+  other powers), the gap is about 3.25 + (6/11)(m − k), so the kings are level when k − m ≈ 6: for
+  example Mercy −3 and Darkness +3.
+- **Measuring.** One round with the chosen variants as `~v` entrants on seed 3333 and
+  `--armies perPair`: each variant then plays the armies its base power played in round 13. At
+  24 pairs a variant − base difference is about ±4.5, so screen at most about three readings per
+  power, with 48 pairs or more, and screen the Haste and Spirit/Shadow variants in the same round
+  (a Haste trim raises every other power a little).
+
 Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`; round 13 on the owner's Mac (`sim/out/` of the main checkout) until a results branch is approved; reports and specs in `sim/out/`.

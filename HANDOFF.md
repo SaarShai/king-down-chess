@@ -1,4 +1,4 @@
-# Handoff — King Down Chess, 2026-10-03 (second session)
+# Handoff — King Down Chess, 2026-10-03 (third session)
 
 For the next agent session. Read `AGENTS.md`, then `TASKS.md` and `LESSONS.md` (project rules),
 then this file. `TASKS.md` stays the record of work and owner decisions; this file says where the
@@ -10,7 +10,7 @@ work stopped and what to do next.
 
 | PR | branch | what |
 |---|---|---|
-| [#1](https://github.com/SaarShai/king-down-chess/pull/1) | `claude/wonderful-ritchie-4cgq32` | Kings' powers mode (12 powers, balanced), the stronger power-aware computer player, the tournament tools. **Push new work here** unless the owner says otherwise. |
+| [#1](https://github.com/SaarShai/king-down-chess/pull/1) | `claude/wonderful-ritchie-4cgq32` | Kings' powers mode (12 powers, balanced), the stronger power-aware computer player, the tournament tools, card mode (lab). **Push new work here** unless the owner says otherwise. |
 | [#2](https://github.com/SaarShai/king-down-chess/pull/2) | `claude/painted-motion` | Painted look: quiet moves, breathing selection, framed board |
 | [#4](https://github.com/SaarShai/king-down-chess/pull/4) | `claude/perf-installable` | Faster first load, installable/offline, GitHub Pages |
 | [#3](https://github.com/SaarShai/king-down-chess/pull/3) | `claude/visual-design` | Title screen, stone-and-parchment look, piece cards, move/take markers |
@@ -21,54 +21,66 @@ three stacked branches to keep them up to date; after every push to #1, merge it
 
 **Kings' powers rules:** the official readings are `POWERS_BALANCED` in `src/rules/rules.ts`; no
 rule has changed since round 11. Report: `docs/research/kings-powers-balance-2026-10-02.md`
-(rounds 1–12); rules text `docs/RULES.md` §4.
+(rounds 1–13); rules text `docs/RULES.md` §4.
 
-**Balance, rounds 11 and 12 pooled (24 armies; `sim/out/kp2-r11+kp2-r12.report.md`).** All twelve
-powers 43.8–55.2% against the other powers, and **no power is clearly off centre yet**. Haste
-(55.2 ± 3.4) is borderline: tested together with the other eleven it sits exactly at the band's
-edge. Mercy (54.5), Flight (45.4) and Darkness (43.8) are off 50 on their own intervals only, which
-with twelve powers can be chance. All four are candidates for round 13. Spirit − Shadow +1.6 ± 4.9:
-no clear gap, but up to about 6 points is not ruled out. (With 12–24 armies the report uses t
-quantiles; two reviews this session corrected earlier, over-confident readings.)
+**Balance, rounds 11–13 pooled (1,896 armies, 7,488 games;
+`sim/out/kp2-r11+kp2-r12+kp2-r13.report.md`).** Tested together, three powers are off centre:
+**Mercy 56.3 ± 3.3 and Haste 55.5 ± 2.4 high, Darkness 43.4 ± 3.4 low.** Flight is fine (47.4).
+Ice Wall (46.1), March (46.5) and Death Touch (53.7) are off 50 on their own intervals only.
+**Spirit − Shadow +3.2 ± 3.1** (0.2 to 6.3): the light king is ahead, from Mercy high and Darkness
+low. The owner has the options (end of the Round 13 section of `docs/research/kings-powers-balance-2026-10-02.md`) and has not chosen yet.
 
-**Tournament runner (this session).** `--armies perPair` gives every pair its own army (1,872 in
-a 24-pair round instead of 24); without it the schedule is unchanged. `report` prints intervals
-resampled over armies, a screen and a simultaneous verdict for "off centre", king averages and
-Spirit − Shadow, and marks partial rounds. `run` refuses to resume onto a changed schedule. Tests:
-`src/sim/tournament.test.ts` (schedules of all recorded rounds and of K13 pinned).
+**Mark bug (fixed in `dcb9d1f`).** A position held one Freeze/Ice Wall mark, so the side it bound
+could set its own mark, erase the first and (under the free-mark reading) make the forbidden move.
+Now one mark per side (`Position.marks`). It also affected the playable game when both kings hold
+Frost powers. Only the Freeze–Ice Wall matchup of rounds 11–13 could trigger it; replayed on the
+fixed engine (`fi-r11..13`), either power moves about 0.2 points. The search key's high half was
+also a function of its low half (32-bit keys, not 52); fixed in `src/ai/zobrist.ts`.
+
+**Card mode (lab, owner 2026-10-03).** Action/effect cards only, no piece cards. Built: `Rules.hands`
+(a hand of one-use cards per side, each one use of a spendable power: Freeze, Ice Wall, Strike,
+Haste, Flight, Sacrifice, March, Leap; at most one card a turn), `cards<k>` tournament entrants
+(both sides get the same k cards, dealt per pair; smaller hands are the first cards of larger
+ones), `--mirrorOnly` (same-hand rounds), `--anchor` (every entrant against one reference). Not in
+the playable game yet. Report: `docs/research/cards-2026-10-03.md`.
+- Phase A (`cards-a1`, 5,400 games): every card is worth something (Haste +2.3 pawns … March
+  +0.5), and no card raised draws.
+- Phase B (`cards-b2`: 0, 3, 6 cards; `cards-b3`: 4, 5 cards; same armies): together, hands of 3–6 cards remove most of
+  White's first-move edge (55.4% → 50.5% ± 1.9; the sizes do not clearly differ, though 4 cards
+  read 54.1%), about halve the draws (16.5% → 7–10%) and shorten games (102 → 77.5 turns with 6
+  cards). Recommended: 6 cards; the owner has not chosen yet.
+- Owner (on the provisional results): a smaller first-move edge, shorter games and fewer draws
+  count for cards. Cards **may** change how pieces move or take (the kings'-powers limit does not
+  apply to cards); eleven such cards are proposed in the report, none built.
 
 **Kaggle (owner, 2026-10-03):** consider it for compute; see `AGENTS.md` (Compute) and
 `tools/kaggle-tournament.mjs`. Token: `.secrets/kaggle_api_token` in the main checkout
-(git-ignored), or `KAGGLE_API_TOKEN`. One notebook (4 CPUs) is about 1/15 of the owner's M3 Max,
-and its games are identical to local ones. A private smoke notebook `saarshai/kd-smoke-s0of1`
-remains in the owner's Kaggle account (harmless; delete only if the owner asks).
+(git-ignored), or `KAGGLE_API_TOKEN`. One notebook (4 CPUs) runs at about 1/5 the speed of 4 Mac
+workers, and its games are identical to local ones. The account runs at most **5 notebooks at
+once**; a push beyond that is refused ("Maximum batch CPU session count of 5 reached"; the tool
+reports it; resend with `--only`). Used for `cards-a1`
+(4 of 8 shards) and `cards-b3` (3 of 16). A private smoke notebook `saarshai/kd-smoke-s0of1`
+remains in the owner's account (harmless; delete only if the owner asks).
 
 ## What to do next (in this order)
 
-1. **Round 13 (K13 in `docs/QUEUE.md`) needs the owner's go.** The official set on a fresh army for
-   every pair, 3,744 games, about 20–30 min on the Mac's 16 cores (or split with Kaggle). Then
-   pool it with rounds 11–12 and read the "tested together" line.
-2. **Then ask the owner** about any power K13 confirms off centre (candidates: Haste, Mercy,
-   Flight, Darkness). Readings already measured: Haste — the rulebook's two moves that may take
-   (80%), second move without captures (67%), neither move takes (official; 47–57% by round);
-   Flight — one use (official; 42–50%), two uses (52–58%, overshoots). New readings must not change
-   how other pieces move; today's Darkness stays; the Mercy and Holy Light shelters are fine.
-3. If the owner picks readings, screen them as `~v<name>` entrants with their base powers in the
-   same round (they then play the same armies), and add a variant − base line to `report`.
-
-4. **Card mode (owner, 2026-10-03, open):** action/effect cards only, no piece cards. The owner's
-   idea: each player gets the same random collection (e.g. 6), each card used once. The suggestion
-   given: the same open hand for both, at most one card per turn as a free action before the move,
-   no card on the first move, chess-native rewrites of the original spells, and a separate mode
-   from kings' powers at first. A design note with a 12-card pool was offered; wait for the owner.
-   Sources: `docs/research/drive-cards.md`, the 2015 rulebook in `art-src/rules/` (image-only PDF;
-   tolls are paid by pawning cards, pp. 11–15).
+1. **Kings' powers fixes need the owner's choice.** Options sent on 2026-10-03 (end of the Round 13 section of `docs/research/kings-powers-balance-2026-10-02.md`).
+   When the owner picks, build each reading as a lab toggle, and screen it as a `~v<name>` entrant
+   beside its base power in one round on `--armies perPair` (they then play the same armies); add
+   a variant − base line to `report`. Owner rules: Spirit and Shadow level; no king-power reading
+   may change how other pieces move; today's Darkness stays; shelters are fine.
+2. **Card mode needs the owner's choices:** the hand size (Phase B), and which of the proposed
+   movement-changing cards to build. Then the playable game: a hand display and a way to play a
+   card (none exists yet).
+3. **Raw games** of round 13, `fi-r11..13` and the card rounds are only in the main checkout's
+   `sim/out/` (git-ignored). Ask the owner before pushing them to a results branch.
 
 ## Owner decisions and standing rules (also in TASKS.md)
 
 - Kings' powers is a separate game mode; "No power" stays the default in New game.
 - Light (Spirit) and dark (Shadow) kings may be somewhat stronger than the other four but must be
   balanced with each other.
+- No king-power reading may change how other pieces move; cards may.
 - Compute: Kaggle where it helps (2026-10-03); tournaments in one session, no cloud worker
   sessions; ignore Codex/GPT. Runs need the owner's go.
 - Explain results in plain, non-technical language; answer the question before doing more work.
@@ -79,8 +91,7 @@ remains in the owner's Kaggle account (harmless; delete only if the owner asks).
 
 ## How to run things
 
-- **Unit tests and types:** `npx tsc --noEmit`, `npx vitest run` (about 90 s; 350+ tests on the top
-  of the stack).
+- **Unit tests and types:** `npx tsc --noEmit`, `npx vitest run` (about 90 s; 368 tests on PR #1).
 - **Merge forward after a push to #1** (from a worktree with `node_modules` linked):
   ```sh
   git fetch origin claude/wonderful-ritchie-4cgq32 claude/painted-motion claude/perf-installable claude/visual-design
@@ -99,18 +110,21 @@ remains in the owner's Kaggle account (harmless; delete only if the owner asks).
   The checks rewrite screenshots under `docs/painted-game/`; revert them unless wanted.
 - **Tournaments:** `npx tsx src/sim/tournament.ts run --id <id> --none --pairs <n> --depth 3 --seed <n>
   --armies perPair` plus one `--rule key=value` per entry of the last spec's `rules`
-  (`sim/out/kp2-r12.tournament.json`; K13 in `docs/QUEUE.md` has them written out). Runs resume by
-  game id. On macOS start long runs with `nohup … &`; in a cloud container with `setsid nohup … &`
-  (background jobs there are stopped after 2 hours). Report: `npx tsx src/sim/tournament.ts report
-  --id <id> [--id <id2> …]`. zsh does not split `$VAR` into words: spell out flags.
-- **On Kaggle:** `node tools/kaggle-tournament.mjs push --id <id> --shards <n> [--first <i>] -- <run
-  flags>`, then `status` and `pull` with the same `--id`. The commit must be pushed first.
+  (`sim/out/kp2-r13.tournament.json`). Card rounds: `--powers none,cards3,cards6 --mirrorOnly`
+  (`sim/out/cards-b2.tournament.json`). Runs resume by game id. **Start every long run detached**
+  (`nohup … &` on the Mac, `setsid nohup … &` in a cloud container): an agent's background shell
+  is stopped after at most 2 hours, and its runs with it. Report: `npx tsx src/sim/tournament.ts
+  report --id <id> [--id <id2> …]`. zsh does not split `$VAR` into words: spell out flags.
+- **On Kaggle:** `node tools/kaggle-tournament.mjs push --id <id> --shards <n> [--first <i> | --only
+  <i,j>] -- <run flags>`, then `status` and `pull` with the same `--id`. The commit must be pushed
+  first; the notebooks play that commit, so local shards must run the same commit too.
 - **Tournaments play the linear evaluation.** The browser's computer player uses the residual net;
   the sim never switches, so balance numbers describe the linear-evaluation engine at depth 3.
 - **Raw games:** `sim/out/*.jsonl` is not versioned on the PR branches. Rounds 1–10 are on the
   `claude/kp2-results-*` shard branches; rounds 11 and 12 on `claude/kp2-results-r11-r12`. To use them:
   `git fetch origin claude/kp2-results-r11-r12 && git checkout origin/claude/kp2-results-r11-r12 -- sim/out/kp2-r11.jsonl sim/out/kp2-r12.jsonl`
-  (then `git restore --staged sim/out/kp2-r11.jsonl sim/out/kp2-r12.jsonl`).
+  (then `git restore --staged sim/out/kp2-r11.jsonl sim/out/kp2-r12.jsonl`). Round 13 and the card
+  rounds: the main checkout's `sim/out/` only.
 - **Shell gotchas:** do not `pkill -f` a pattern that also matches your own shell command; kill by
   PID. A `pgrep -f` wait loop can match itself.
 

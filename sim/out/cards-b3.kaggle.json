@@ -1,0 +1,40 @@
+{
+  "id": "cards-b3",
+  "sha": "dcb9d1f6beaaa07b1fc9aedb20d5e4777b864797",
+  "shards": 16,
+  "args": [
+    "--powers",
+    "cards4,cards5",
+    "--mirrorOnly",
+    "--pairs",
+    "800",
+    "--depth",
+    "3",
+    "--seed",
+    "5555",
+    "--armies",
+    "perPair",
+    "--rule",
+    "markFree=true",
+    "--rule",
+    "hasteCaptures=false",
+    "--rule",
+    "strikeCaptures=false",
+    "--rule",
+    "strikePawns=false"
+  ],
+  "kernels": [
+    {
+      "shard": 13,
+      "ref": "saarshai/kd-cards-b3-s13of16"
+    },
+    {
+      "shard": 14,
+      "ref": "saarshai/kd-cards-b3-s14of16"
+    },
+    {
+      "shard": 15,
+      "ref": "saarshai/kd-cards-b3-s15of16"
+    }
+  ]
+}
