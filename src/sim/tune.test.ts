@@ -31,6 +31,20 @@ function randomPosition(rng: () => number): Position {
   return { board, turn: rng() < 0.5 ? WHITE : BLACK, halfmove: 0, ply: 0 };
 }
 
+describe('the evaluation', () => {
+  it('scores 5000 random positions exactly like their colour-and-rank mirrors', () => {
+    setRules();
+    const rng = mulberry32(20261003);
+    for (let i = 0; i < 5000; i++) {
+      const pos = randomPosition(rng);
+      const board = new Uint8Array(64);
+      for (let s = 0; s < 64; s++) if (pos.board[s]) board[s ^ 56] = pos.board[s] ^ 16; // flip colour, keep flags
+      const mirror: Position = { ...pos, board, turn: (pos.turn ^ 1) as Color };
+      expect([i, evaluate(mirror)]).toEqual([i, evaluate(pos)]);
+    }
+  });
+});
+
 describe('the tuner evaluation', () => {
   it('matches evaluate() bit for bit on 1000 random positions with the live parameters', () => {
     setRules();
@@ -39,7 +53,7 @@ describe('the tuner evaluation', () => {
     const rng = mulberry32(20260913);
     for (let i = 0; i < 1000; i++) {
       const pos = randomPosition(rng);
-      const mine = moverCp(evalVector(pos.board, pos.turn, v), pos.turn, p.tempo);
+      const mine = moverCp(evalVector(pos.board, pos.turn, v, undefined, 1, true), pos.turn, p.tempo);
       expect([i, mine]).toEqual([i, evaluate(pos)]);
     }
   });

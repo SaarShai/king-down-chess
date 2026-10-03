@@ -396,7 +396,8 @@ export function evaluateBoard(board: Uint8Array, turn: Color): number {
       const d = cheb(m, k);
       if (d <= 2) v += MAESTER_NEAR_KING[d];
     }
-    score += c === WHITE ? v : -v;
+    // Rounded per king, so the total is a whole number and a position and its mirror score alike.
+    score += c === WHITE ? Math.round(v) : -Math.round(v);
   }
   return Math.round(turn === WHITE ? score : -score) + TEMPO;
 }

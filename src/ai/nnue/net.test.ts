@@ -241,7 +241,7 @@ describe('the residual evaluator', () => {
     expect(() => setEvaluator('nnue')).toThrow(/full net/);
   });
 
-  it('is mirror-symmetric within a centipawn', () => {
+  it('is exactly mirror-symmetric', () => {
     hostile();
     const rng = mulberry32(101);
     for (let i = 0; i < 200; i++) {
@@ -251,10 +251,8 @@ describe('the residual evaluator', () => {
         const p = board[s];
         if (p) flipped[s ^ 56] = piece(typeOf(p), (colorOf(p) ^ 1) as Color) | (p & SPENT);
       }
-      // The net half is exact; the linear half blends the two king tables by a fractional phase
-      // and rounds, which is the same 1 cp the evaluation's own mirror test allows.
-      const d = Math.abs(evalBoard(flipped, (turn ^ 1) as Color) - evalBoard(board, turn));
-      expect([i, d <= 1]).toEqual([i, true]);
+      // Exact: the net half is integer, and the linear half rounds each king's phase blend.
+      expect([i, evalBoard(flipped, (turn ^ 1) as Color)]).toEqual([i, evalBoard(board, turn)]);
     }
   });
 

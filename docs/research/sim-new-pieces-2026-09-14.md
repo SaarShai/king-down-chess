@@ -24,10 +24,13 @@ ships as the toggle default. The Catapult is **unresolved between its two readin
 how often it fires and the A/B's intervals (`+1.6 ± 2.8` score, `−0.9 ± 2.8` decisive) cover zero.
 The shove that motivates the Ogre — moving a **guard** out of the way — happened in **1.95% of games**
 in the composition run and **2.9%** with `push`: real, but rare, and it is not where the piece's value
-comes from. Both pieces stay lab-only. The queued follow-up **ran on 2026-09-17**: `push`'s advantage
-* grew at depth 4 (**+10.2 ± 4.7** decisive points against +5.3 ± 3.0 at depth 3) — but so did White's
-score (**+4.9 ± 3.1**, flat at depth 3), and re-seeding the Ogre at its measured value moved the value
-to **2.43 ± 0.58 pawns**, so it has not converged. Details in §7.
+comes from. Both pieces stay lab-only. The queued follow-up **ran on 2026-09-17**. At depth 4 `push`
+still adds decisive games (**+10.2 ± 4.7** points; +5.3 ± 3.0 at depth 3: a larger estimate, but the
+intervals overlap). At the over-priced seed (O=300) it also raised White's score at depth 4
+(**+4.9 ± 3.1** points). At depth 3 White's score did not move (−1.1 ± 2.7). Re-run with both arms at
+the measured price (O=195), `push` still adds decisive games (**+9.0 ± 4.9** points). In that run no
+White shift was detected (+0.5 ± 2.8). The Ogre's own value read **2.43 ± 0.58 pawns** from a 195 cp
+seed; the reading is still far from its seed, so the next pass seeds 243. Details in §7.
 
 ---
 
@@ -232,24 +235,28 @@ the findings:
 ## 7. Limitations and the bounded next decision
 
 - **Depth 3 originally; one depth-4 arm now.** The follow-up (below) confirms the direction at depth 4
-  and adds a caveat. The piece values remain single-pass guesses refined once, not converged.
+  and adds a caveat. The piece values are single-pass guesses refined once, and still moving (below).
 - **The follow-up ran 2026-09-17** (`tools/newpieces-followup.sh`, 25 minutes after the Q6 chain
   freed the cores). Three results:
   - **`push` vs `repel` at depth 4, 800 games an arm**: decisive **+0.102 ± 0.047** (it was
-    +0.053 ± 0.030 at depth 3 — the effect grows with depth, it does not wash out), draws
-    **−0.104 ± 0.048**, plies +4.6 ± 4.2. At the over-priced seed (O=300) the paired **White score
-    moved +0.049 ± 0.031** (base 0.516 → push 0.564).
+    +0.053 ± 0.030 at depth 3: the effect holds at depth 4; the estimate is larger, but the two
+    intervals overlap, so it is not shown to grow), draws **−0.104 ± 0.048**, plies +4.6 ± 4.2. At the
+    over-priced seed (O=300) the paired **White score moved +0.049 ± 0.031** (base 0.516 → push 0.564).
+    At depth 3 it had not moved (−0.011 ± 0.027, §5).
   - **The same A/B re-run at the measured price (O=195 both arms, seed 72, 2026-09-17)**: decisive
-    **+0.090 ± 0.049**, draws **−0.069 ± 0.048**, capped −0.021 ± 0.011 — and the **White shift is
-    gone (+0.005 ± 0.028)**. The earlier balance caution was an artefact of the over-priced Ogre, not
-    of the push reading.
+    **+0.090 ± 0.049**, draws **−0.069 ± 0.048**, capped −0.021 ± 0.011. **No White shift was detected
+    (+0.005 ± 0.028).** The two runs differ in price and in seed (51 and 72), so the likeliest reading
+    is that the earlier shift came from the over-priced Ogre rather than from `push` itself; that is an
+    inference from two runs, not a direct test.
   - **Ogre `repel` re-seeded to 195 cp**: the odds arm now reads **−47 ± 37 Elo** vs a knight →
-    implied **2.43 ± 0.58 pawns**, up from 1.95 at the over-priced 300 cp seed; next seed 243. Not
-    converged — the value is between 2.0 and 3.0.
+    implied **2.43 ± 0.58 pawns** (95% range 1.85–3.01), up from 1.95 at the over-priced 300 cp seed;
+    next seed 243. The reading is still far from the seed it was measured at, so the value has not
+    settled.
   - **Catapult `stay` re-seeded to 175 cp**: reads **−100 ± 37 Elo** → implied "below 1.66" again,
     next seed 160. The Catapult is weak at any seed tried; `land` remains unresolved (its A/B did not
     move the balance intervals).
 - **Recommendation.** Keep both pieces lab-only, outside `POOL` and `PROMOTIONS` (they are). If either
-  is ever promoted: choose **`push`** — now with a second-depth confirmation — accept the White shift
-  or price it in a further convergence pass, and do not adopt the Catapult on this evidence.
+  is ever promoted: choose **`push`** — now with a second-depth confirmation — and check White's score
+  again after a further pricing pass (the shift seen at the over-priced seed was not detected at 195);
+  do not adopt the Catapult on this evidence.
 

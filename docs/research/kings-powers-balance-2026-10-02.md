@@ -32,6 +32,12 @@ Death Touch and Darkness are low (42–43%). A plain king scores 34% against any
 power's level moves by several points between rounds on different armies (each ±4), so these are
 small edges, not clear winners.
 
+**Update 2026-10-03 (round 12):** a rematch on 12 new armies showed that a round measures balance
+only on the armies it drew (12–20 per round), so single-round intervals were too narrow. Pooled over
+two rounds (24 armies), with intervals resampled over armies, all twelve sit within 44–55%; only
+Haste (55 ± 3) and Flight (45 ± 4) are clearly off centre, and Mercy (55 ± 5) needs no change.
+Details in Round 12, below.
+
 **Depth matters.** A depth-4 check of the round-4 set (936 games) kept the order but widened the
 spread to 24 points: Mercy, Flight with two uses and Sacrifice near 59%, Holy Light 36%. Balance
 measured by a computer player is a guide for people, not a guarantee.
@@ -67,6 +73,10 @@ edge, and every matchup plays the same armies and openings (common random number
 ("none") plays too, as a reference. Ratings come from a Bradley–Terry fit with a first-move term;
 "score vs field" is a power's average score over all its games, which the balanced schedule makes
 fair. Intervals are 95%.
+
+**Caveat (found 2026-10-03).** A round draws one army per pair slot and every matchup reuses them,
+so a round with 12 pairs measures 12 armies. A power's strength depends on the army, and the
+intervals in rounds 1–11 are per game, so they leave out the army-to-army variation (Round 12).
 
 **Players.** Both sides are the same engine at fixed depth 3 (the balance lab's standard), with
 four random opening moves for variety. A random opening move is always one of the pieces' own
@@ -339,7 +349,39 @@ All twelve official readings (Death Touch with the files-and-ranks reach) and a 
 ±5.5). Against the other powers: Mercy 60.4, Haste 54.7, Strike 54.5, Death Touch 52.3, Freeze
 50.9, March 49.6, Flight 48.7, Sacrifice 48.1, Leap 46.2, Ice Wall 45.6, Holy Light 44.9,
 Darkness 43.9; plain king 33.9. All twelve within 44–60, spread 16.5. Spirit's two powers average
-52.7, Shadow's 48.1 — level within this round's error. Mercy has measured 55–62 in every round
-since its shelter, so it is the one power to watch in play.
+52.7, Shadow's 48.1 — level within this round's error. Mercy had measured 55–62 in every round
+since its shelter, so it was the one power to watch, until round 12 on new armies read 48.7 (below).
 
-Raw games: `claude/kp2-results-*` branches (rounds 1–10); `sim/out/kp2-r11.jsonl` locally (`sim/out/*.jsonl`); reports and specs in `sim/out/`.
+## Round 12 — the official set again, on 12 new armies (2026-10-03)
+
+The same rules as the final check, seed 2222, 12 pairs, depth 3: 1,872 games
+(`sim/out/kp2-r12.report.md`). Against the other powers: Leap 57.6, Death Touch 55.7, Haste 55.7,
+Sacrifice 55.5, Ice Wall 51.3, Strike 49.4, Mercy 48.7, Holy Light 47.9, Freeze 47.5, March 45.1,
+Darkness 43.6, Flight 42.0; plain king 35.9. Mercy read 60.4 in the final check and 48.7 here; Leap
+moved from 46.2 to 57.6.
+
+**Why the two rounds disagree.** Both ran the same rules and the same engine: the code changes
+between them only matter with the net evaluator, which tournaments do not use. The seed changed,
+and the seed picks the armies. A round uses one random army per pair slot (`armies[p]` in
+`src/sim/tournament.ts`), so 12 pairs means 12 armies, shared by all 78 matchups. A power's
+strength depends on the army (Mercy takes only a guard; the shelters depend on what stands next to
+the king), so a round measures balance on its 12 armies, and its per-game intervals (±5.5) leave
+that out. Resampling the 12 armies gives intervals of ±4.3 to ±9.5 points per power in one round.
+The colour-swapped pairs are not the cause: pair-level and game-level intervals agree (ratio 0.99).
+
+**Both rounds together** (24 armies, 3,744 games, `sim/out/kp2-r11+kp2-r12.report.md`), with 95%
+intervals from resampling the armies: Haste 55.2 ± 3.1, Mercy 54.5 ± 5.1, Death Touch 54.0 ± 4.0,
+Strike 52.0 ± 3.5, Leap 51.9 ± 6.3, Sacrifice 51.8 ± 5.2, Freeze 49.2 ± 4.0, Ice Wall 48.5 ± 4.6,
+March 47.3 ± 3.8, Holy Light 46.4 ± 4.3, Flight 45.4 ± 3.7, Darkness 43.8 ± 5.7; plain king 34.9.
+All twelve within 43.8–55.2, spread 11.5. Spirit's two powers average 50.5, Shadow's 48.9.
+
+**Reading.** Mercy needs no change: its interval covers 50, and its single-round high came from the
+armies. Only Haste (above 50 even at the low end of its interval) and Flight (below 50 even at the
+high end) are clearly off centre, each by about 5 points. Darkness is the lowest, but its interval
+is wide. Earlier single-round verdicts in this report (for example "all twelve within 44–60") carry
+the same caveat: each describes 12–20 armies.
+
+**For the next round:** use more armies (more pairs per matchup), or a fresh army for every pair,
+or pool rounds with different seeds; and report intervals resampled over armies.
+
+Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`; reports and specs in `sim/out/`.

@@ -26,8 +26,8 @@ a recommendation. **No default changes without a decision here.**
 - **Evidence:** option (b) was built as the `deathTouchMoves` toggle and measured on 2026-09-17
   (1,600 games an arm at depth 3, 400 at depth 4): decisive **−6.0 ± 2.7** versus the delivered
   reading's −5.0 ± 2.7, draws +4.2 ± 2.7, capped +1.8 ± 0.9, plies +8.0 ± 2.5; depth 4 repeats the
-  direction (−6.3 ± 6.0). **Both readings drag draws** — the power is not the anti-draw tool the
-  proposal imagined.
+  direction (−6.3 ± 6.0). **Both readings cut decisive games** at depth 3; in these runs neither
+  made games more decisive, so the power did not act as an anti-draw tool at this engine strength.
 - **Recommendation: neither reading ships**; keep the power off by default and out of the picker
   until a stronger design exists. The toggle stays as lab evidence (`deathTouchMoves`).
 
