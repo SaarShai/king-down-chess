@@ -178,7 +178,7 @@ The 15 polypainted ZBrush tools do **not** fit the budget: 1.6 GB for the set al
 | `board_texture1.jpg` | `board/board_texture1.jpg` | 3.5 MB | grey stone slab, 4000×4000, for the frame or table; **not seamless**, never tile it | same folder as the stock photos — licence unconfirmed |
 | `board-02(1).jpg` | `concept art/board-02(1).jpg` | 4.3 MB | the board brief in the designer's handwriting: four biomes, overlap at the seams, icebergs that merge near the capital | original, the designer's own hand |
 
-## emblems-logo — 8 files, 11.4 MB
+## emblems-logo — 10 files (plus 2 unused variants), 13.5 MB
 
 | File | Source Drive path | Size | Why kept | Licence note |
 |---|---|---:|---|---|
@@ -190,6 +190,8 @@ The 15 polypainted ZBrush tools do **not** fit the budget: 1.6 GB for the set al
 | `logo 02.jpg` | `concept art/logo 02.jpg` | 668 KB | the finished **colour** logo, 1000×2000 | original art, no credit in file |
 | `sword.png` | `concept art/sword.png` | 463 KB | the sword alone with alpha; a capture or strike effect | original art, no credit in file |
 | `range-tiles.png` | `video images/range-tiles.png` | 2.4 MB | the designer's own move / capture tile legend, 1920×1080 | original art, no credit in file |
+| `spirit emblem.png` | — (made 2026-10-03) | 1.0 MB | the Spirit (light) king's emblem, 1254×1254, alpha; painted to match the four element emblems | generated with Codex image_gen on the owner's plan, from the four emblems as reference; `generated-variants/spirit-b.png` is the unused alternative |
+| `shadow emblem.png` | — (made 2026-10-03) | 1.1 MB | the Shadow (dark) king's emblem, 1254×1254, alpha | generated with Codex image_gen on the owner's plan, same references; `generated-variants/shadow-b.png` is the unused alternative |
 
 **No AI source exists for the emblems or the logo.** The only layered sources are
 `final art/Emblems(1)/*.psd` at 37–151 MB each, which are too large; they stay on the Drive.
