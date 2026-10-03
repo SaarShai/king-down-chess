@@ -165,6 +165,22 @@ mark bug; `cards-b2` reran it on the fixed engine (2,400 games), and `cards-b3` 
 the same armies (owner: "should you also test 4 and 5 cards?"; 1,600 games, 3 of 16 parts on
 Kaggle). Report: `docs/research/cards-2026-10-03.md`.
 
+## Running 2026-10-03: K14 (all nine readings) and cards-a2 (the four new cards)
+
+Launched on the owner's go ("test all. let's get all of the information to judge"; new cards: "do
+whichever you suggest"), on branch `claude/fixes-and-cards` after an adversarial review.
+
+- **K14 (`kp2-r14`):** the twelve official powers and the plain king, plus `Haste~vh1..vh4`,
+  `Mercy~vm1..vm3`, `Darkness~vd1`, `Darkness~vd2` (`--variant h1:hasteApart=true`,
+  `h2:hasteNoThreat=true`, `h3:hasteNoForward=true`, `h4:hasteNoCheck=true`,
+  `m1:mercyAuraPawnsTake=true`, `m2:mercyAuraPawnsTake=true,mercyTakesPawns=true`,
+  `m3:mercyNoJump=true`, `d1:darknessShelter=true`, `d2:darknessShelter=true,darknessShelterPawnsTake=true`);
+  the official rules of round 13; seed 1414, 48 pairs, `--armies perPair`, depth 3. 212 matchups
+  (a variant does not meet its own base power or a sibling), 20,352 games: 21 shards, 5 on Kaggle.
+- **cards-a2:** `card:Mimic`, `card:Vault`, `card:Curse`, `card:SkyLift` against `none`
+  (`--anchor none --mirror`), 300 pairs, seed 5454, `--armies perPair`, depth 3, the card rules of
+  `cards-a1`; every card plays the no-card baseline's armies. 3,000 games on the Mac.
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard

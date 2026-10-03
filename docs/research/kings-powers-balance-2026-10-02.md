@@ -464,10 +464,14 @@ rough; only a measurement decides.
 - **Spirit and Shadow level.** With m the change of Mercy and k that of Darkness (each against the
   other powers), the gap is about 3.25 + (6/11)(m − k), so the kings are level when k − m ≈ 6: for
   example Mercy −3 and Darkness +3.
-- **Measuring.** One round with the chosen variants as `~v` entrants on seed 3333 and
-  `--armies perPair`: each variant then plays the armies its base power played in round 13. At
-  24 pairs a variant − base difference is about ±4.5, so screen at most about three readings per
-  power, with 48 pairs or more, and screen the Haste and Spirit/Shadow variants in the same round
-  (a Haste trim raises every other power a little).
+- **Measuring.** One round with the variants as `~v` entrants beside their base powers, on
+  `--armies perPair`: a variant plays the same armies as its base power against each opponent, so
+  variant − base is paired within the round. At 24 pairs that difference is about ±4.5; 48 pairs
+  narrow it. The Haste and Spirit/Shadow variants share the round (a Haste trim raises every other
+  power a little). A new seed, not round 13's: the same seed would replay round 13's 3,744 games of
+  the official set exactly, and pooling the two rounds would count them twice.
+- **Owner (2026-10-03):** "test all. let's get all of the information to judge. and yes, darkness
+  can get a second part." All nine readings are built as lab toggles (`src/rules/power-fixes.test.ts`)
+  and screened together in round 14 (`docs/QUEUE.md`).
 
-Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`, round 13 and the `fi-r11..13` re-check in `claude/kp2-results-r13-cards`; reports and specs in `sim/out/`.
+Raw games (`sim/out/*.jsonl` is not versioned on `main`): branch `claude/kp2-results`, every round so far in one place; reports and specs in `sim/out/`.

@@ -1046,6 +1046,16 @@ export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: A
   else hand.forEach((p, k) => { if (!(used >> k & 1) && hand.findIndex((q, i) => q === p && !(used >> i & 1)) === k) genPowerMovesRaw(p, board, c, lost, out, n0, n1); });
   // A power capture (Strike, a counted Leap, a Vault) spares a sheltered piece like any other capture.
   if (shelters()) dropSheltered(board, out, start);
+  // ... and obeys the capital lab rules (C2/C5) as genPiece's captures do.
+  if (RULES.capitalSanctuary || RULES.capitalNoCapture) {
+    let n = start;
+    for (let i = start; i < out.length; i++) {
+      const m = out[i];
+      const barred = m.captures.length > 0 && ((RULES.capitalSanctuary && m.captures.some(v => CAPITAL.includes(v))) || (RULES.capitalNoCapture && CAPITAL.includes(m.from)));
+      if (!barred) out[n++] = m;
+    }
+    out.length = n;
+  }
 }
 
 /** Scratch for the Mimic and Vault cards: a borrowed type's moves, and the squares a piece reaches by its own moves. */
@@ -1262,7 +1272,7 @@ export function filterMarks(c: Color, mark: number | undefined, markBy: Color | 
   for (let i = n0; i < out.length; i++) {
     const m = out[i];
     const blocked = kind === 'frozen'
-      ? (m.from === mark && m.power !== 'ward' && m.power !== 'freeze') || (m.swap === true && m.to === mark) || m.shove?.from === mark
+      ? (m.from === mark && m.power !== 'ward' && m.power !== 'freeze' && m.power !== 'curse') || (m.swap === true && m.to === mark) || m.shove?.from === mark
       : m.captures.includes(mark) || (m.power === 'curse' && m.from === mark);
     if (!blocked) out[n++] = m;
   }

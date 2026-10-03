@@ -94,8 +94,9 @@ const variantOf = (t: TournamentSpec, e: Entrant): Partial<Rules> => {
 };
 /** Whether `a`'s rule variant would change `b`'s power in their game (then they do not meet). */
 const clashes = (t: TournamentSpec, a: Entrant, b: Entrant): boolean => {
-  const pb = basePower(b);
-  return pb !== 'none' && Object.keys(variantOf(t, a)).some(k => RULE_POWERS[k as keyof Rules]?.includes(pb));
+  // A card entrant holds its cards' powers: a Haste variant's rule would bind its Haste card too.
+  const pb = basePower(b), held: readonly CardName[] = b.startsWith('card:') ? [b.slice(5) as CardName] : b.startsWith('cards') ? t.cardPool ?? CARD_POOL : pb === 'none' ? [] : [pb];
+  return Object.keys(variantOf(t, a)).some(k => RULE_POWERS[k as keyof Rules]?.some(p => held.includes(p)));
 };
 /** One game's rules: the tournament's, both sides' rule variants, and the two kings. */
 export function gameRules(t: TournamentSpec, white: Entrant, black: Entrant): Partial<Rules> {
@@ -582,6 +583,14 @@ export function reportText(specs: readonly TournamentSpec[], rounds: readonly (r
   const ids = specs.map(s => s.id);
   const recs = poolRounds(rounds);
   const scheduled = specs.reduce((a, s) => a + schedule(s).length, 0);
+  // Two rounds with the same seed replay the same games (same entrants, army, opening and rules).
+  const seen = new Map<string, number>();
+  let repeats = 0;
+  rounds.forEach((rs, k) => rs.forEach(r => {
+    const key = `${r.white}|${r.black}|${drawOf(r)}|${JSON.stringify(gameRules(specs[k], r.white as Entrant, r.black as Entrant))}`;
+    const first = seen.get(key);
+    if (first === undefined) seen.set(key, k); else if (first !== k) repeats++;
+  }));
   const entrants = [...new Set(specs.flatMap(s => s.entrants))];
   const { ratings, white, whiteSe } = rate(recs, entrants);
   ratings.sort((x, y) => y.elo - x.elo);
@@ -589,6 +598,7 @@ export function reportText(specs: readonly TournamentSpec[], rounds: readonly (r
   lines.push(`# Kings' powers tournament: ${ids.join(' + ')}`, '');
   lines.push(`${recs.length} of ${scheduled} games, depth ${[...new Set(specs.map(s => s.depth))].join('/')}, ${entrants.length} entrants. Rules: \`${JSON.stringify(ruleDiff(specs[0].rules))}\`${specs[0].powerHold ? `, hold \`${JSON.stringify(specs[0].powerHold)}\`` : ''}.`, '');
   if (recs.length < scheduled) lines.push(`**Partial:** ${scheduled - recs.length} games still to play; every number below is provisional.`, '');
+  if (repeats) lines.push(`**Repeated games:** ${repeats} games of a later round replay a game of an earlier one (same entrants, army, opening and rules); the pooled intervals count them twice. Pool rounds with different seeds.`, '');
   const variants = Object.assign({}, ...specs.map(s => s.variants ?? {})) as Record<string, Partial<Rules>>;
   if (Object.keys(variants).length) lines.push(`Variants: ${Object.entries(variants).map(([k, v]) => `\`~v${k}\` = \`${JSON.stringify(v)}\``).join(', ')}. A variant does not meet an entrant whose power its rules would change.`, '');
   if (specs.every(s => s.mirrorOnly)) return [...lines, ...mirrorSection(recs, entrants), '', endings(recs)].join('\n') + '\n';

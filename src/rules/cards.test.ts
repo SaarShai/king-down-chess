@@ -86,6 +86,23 @@ describe('card mode', () => {
     expect(lans(q)).not.toContain('Nd5xc3');
   });
 
+  it('a Curse may move the enemy piece that stands on its own Freeze square', () => {
+    hands(['Freeze'], ['Curse']);
+    // White freezes the rook on f6 and, the mark being free, takes it there: the bishop now stands
+    // on the square White's mark binds, but it is White's own piece, so Black may curse it.
+    const p = play(play(fromFen('k7/8/5r2/8/8/8/1B6/K7 w - - 0 1'), '!F:f6'), 'Bb2xf6');
+    expect(lans(p).some(l => l.startsWith('!C:f6-'))).toBe(true);
+  });
+
+  it('a Vault capture obeys the capital lab rules like any capture', () => {
+    hands(['Vault'], [], { capitalSanctuary: true });
+    expect(lans(fromFen('4k3/8/8/R1P1n3/8/8/8/4K3 w - - 0 1'))).not.toContain('Ra5xe5!V');
+    hands(['Vault'], []);
+    expect(lans(fromFen('4k3/8/8/R1P1n3/8/8/8/4K3 w - - 0 1'))).toContain('Ra5xe5!V');
+    hands(['Vault'], [], { capitalNoCapture: true });
+    expect(lans(fromFen('4k3/3n4/8/3p4/3R4/8/8/4K3 w - - 0 1')).some(l => l.includes('x'))).toBe(false);
+  });
+
   it('refuses a hand beside a spendable king power on the same side', () => {
     expect(() => setRules({ hands: [['Haste'], []], kings: [{ king: 'Flame', power: 'Strike' }, null] })).toThrow(/card mode/);
     expect(() => setRules({ hands: [['Haste'], []], kings: [{ king: 'Spirit', power: 'Mercy' }, null] })).not.toThrow();

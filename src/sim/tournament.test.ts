@@ -111,6 +111,14 @@ describe('tournament schedule', () => {
     expect(handFor(t, 'card:SkyLift', 1)).toEqual(['SkyLift']);
   });
 
+  it('a variant does not meet a card entrant that may hold its power', () => {
+    const t = spec({ entrants: ['Haste~vh1', 'card:Haste', 'card:Mimic', 'cards8', 'Haste', 'none'], variants: { h1: { hasteApart: true } } });
+    const met = new Set(schedule(t).map(j => [j.a, j.b].sort().join('|')));
+    const meets = (a: string, b: string): boolean => met.has([a, b].sort().join('|'));
+    expect([meets('Haste~vh1', 'card:Haste'), meets('Haste~vh1', 'cards8'), meets('Haste~vh1', 'Haste')]).toEqual([false, false, false]);
+    expect([meets('Haste~vh1', 'card:Mimic'), meets('Haste~vh1', 'none'), meets('card:Haste', 'Haste')]).toEqual([true, true, true]);
+  });
+
   it('counts every card played, the card-only ones included', () => {
     const job = schedule(spec({ entrants: ['none', 'card:Vault'] }))[0];
     const lans = ['e2-e4', 'Ra1-a5!V', 'Nb1-c3!X', '!C:d5-d4', '!K:a1<>b1', 'Nb1-c3', '--'];
@@ -242,6 +250,14 @@ describe('report', () => {
     expect(text).toMatch(/\| none \| 50\.0 \| 0\.0 \| 100\.0 \| 0\.0 \| 40\.0 \| 0\.0 \| - \| - \| - \| - \| - \| - \| 0\.50 \| 10 \|/);
     // Over 10 single-game pairs: White 75 ± t9 · 0.264 / √10 = ±18.9; draws 50 ± 37.7.
     expect(text).toMatch(/\| cards3 \| 75\.0 \| 18\.9 \| 50\.0 \| 37\.7 \| 40\.0 \| 0\.0 \| \+25\.0 \| 18\.9 \| -50\.0 \| 37\.7 \| \+0\.0 \| 0\.0 \| 0\.50 \| 10 \|/);
+  });
+
+  it('flags games that two pooled rounds both played (the same seed replays them)', () => {
+    const a = spec({ id: 'r1', entrants: ['Haste', 'none'], pairs: 4, seed: 3, armies: 'perPair' });
+    const recs = schedule(a).map(j => play(j, 1));
+    expect(reportText([a, { ...a, id: 'r2' }], [recs, recs])).toContain(`**Repeated games:** ${recs.length} games`);
+    const c = { ...a, id: 'r3', seed: 4 };
+    expect(reportText([a, c], [recs, schedule(c).map(j => play(j, 1))])).not.toContain('Repeated games');
   });
 
   it('marks a round still being played, and shows no score for a power with no games yet', () => {
