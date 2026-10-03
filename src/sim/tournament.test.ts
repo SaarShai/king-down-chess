@@ -209,6 +209,7 @@ describe('report', () => {
     // 400 · log10(0.8 / 0.2) = +241 Elo = +3.76 pawns at 64 Elo per pawn; 40% draws against 100% in the mirror.
     expect(text).toMatch(/\| Haste \| 80\.0% \| [\d.]+ \| \+241 \| \+3\.76 \| [\d.]+ \| 40\.0% \| -60\.0 \| [\d.]+ \| 10 \|/);
     expect(text).toContain("mirror games (100.0% ± 0.0, 10 pairs)");
+    expect(text).not.toMatch(/NaN|Infinity/);
   });
 
   it('mirror rounds: White score, draws and cards played, and their differences from no cards', () => {
@@ -218,9 +219,9 @@ describe('report', () => {
     const text = reportText([t], [recs]);
     expect(text).toContain('## Same hand for both sides');
     expect(text).not.toContain('Elo');
-    expect(text).toMatch(/\| none \| 50\.0 \| 0\.0 \| 100\.0 \| 0\.0 \| - \| - \| - \| - \| 40 \| 0\.50 \| 10 \|/);
+    expect(text).toMatch(/\| none \| 50\.0 \| 0\.0 \| 100\.0 \| 0\.0 \| 40\.0 \| 0\.0 \| - \| - \| - \| - \| - \| - \| 0\.50 \| 10 \|/);
     // Over 10 single-game pairs: White 75 ± t9 · 0.264 / √10 = ±18.9; draws 50 ± 37.7.
-    expect(text).toMatch(/\| cards3 \| 75\.0 \| 18\.9 \| 50\.0 \| 37\.7 \| \+25\.0 \| 18\.9 \| -50\.0 \| 37\.7 \| 40 \| 0\.50 \| 10 \|/);
+    expect(text).toMatch(/\| cards3 \| 75\.0 \| 18\.9 \| 50\.0 \| 37\.7 \| 40\.0 \| 0\.0 \| \+25\.0 \| 18\.9 \| -50\.0 \| 37\.7 \| \+0\.0 \| 0\.0 \| 0\.50 \| 10 \|/);
   });
 
   it('marks a round still being played, and shows no score for a power with no games yet', () => {

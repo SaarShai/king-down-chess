@@ -616,6 +616,12 @@ export const POWERS_BALANCED: Readonly<Partial<Rules>> = Object.freeze({
 /** Reset to the defaults, then apply `over`. Call with no argument to restore today's rules. */
 export function setRules(over?: Partial<Rules>): Rules {
   Object.assign(RULES, DEFAULT_RULES, over);
+  // A hand replaces its side's spendable king power, which would vanish unnoticed: refuse the mix.
+  for (const c of [0, 1] as const) {
+    const p = RULES.kings[c]?.power, key = p && USES_RULE[p];
+    const spendable = !!key && !((p === 'March' || p === 'Leap') && RULES[key] === 0);
+    if (RULES.hands[c].length && spendable) throw new Error(`side ${c} has a hand and the king power ${p}: card mode plays kings without spendable powers`);
+  }
   return RULES;
 }
 

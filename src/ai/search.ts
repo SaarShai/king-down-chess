@@ -21,7 +21,7 @@ import type { PowerName } from '../rules/rules';
 import { VALUES, evalBoard } from './eval';
 import { NET_POWERS } from './nnue/net';
 import {
-  Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LEFT_HI, Z_LEFT_LO, Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO,
+  Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LEFTB_HI, Z_LEFTB_LO, Z_LEFT_HI, Z_LEFT_LO, Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO,
   Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO, Z_WARD_HI, Z_WARD_LO,
   combine, hashBoard, lostIndex, usedIndex, zIndex,
 } from './zobrist';
@@ -78,14 +78,11 @@ let gameHistory = new Set<number>();
 const sideAt = new Uint8Array(MAX_PLY + QMAX + 2);
 /** Uses spent per side (`Position.used`); a mutable pair, so `materialDraw` reads it with no allocation. */
 const usedPair: [number, number] = [0, 0];
-/**
- * Freeze/Ice Wall mark (-1 = none), the side that set it, the turns of the other side it still
- * covers, a pending free-mark move (`Position.free`), and the pending Haste square (-1 = none).
- */
-let mark = -1, markBy = 0, markLeft = 1, hasteSq = -1;
+/** A pending free-mark move (`Position.free`), and the pending Haste square (-1 = none). */
+let hasteSq = -1;
+/** Freeze/Ice Wall marks, one slot per marking side (`Position.marks`): square (-1 = none), turns left, card-mode Ice Wall. */
+const markSq = new Int32Array([-1, -1]), markLeft = new Int32Array([1, 1]), markWard = new Uint8Array(2);
 let free = false;
-/** Card mode: the mark is an Ice Wall (`Position.ward`). */
-let markWard = false;
 /** Sacrifice reserve (`Position.lost`), kept only when `trackLost`. */
 const lost = new Int32Array(32);
 let trackLost = false;
@@ -98,7 +95,7 @@ let lostTop = 0;
 const FRAMES = MAX_PLY + QMAX + 8;
 const fBase = new Int32Array(FRAMES), fUsed0 = new Int32Array(FRAMES), fUsed1 = new Int32Array(FRAMES);
 const fMark = new Int32Array(FRAMES), fHaste = new Int32Array(FRAMES), fLostTop = new Int32Array(FRAMES), fFlip = new Uint8Array(FRAMES);
-const fMarkBy = new Uint8Array(FRAMES), fMarkLeft = new Uint8Array(FRAMES), fFree = new Uint8Array(FRAMES), fWard = new Uint8Array(FRAMES);
+const fMark1 = new Int32Array(FRAMES), fMarkLeft = new Uint8Array(FRAMES), fMarkLeft1 = new Uint8Array(FRAMES), fFree = new Uint8Array(FRAMES), fWard = new Uint8Array(FRAMES);
 let fsp = 0;
 /**
  * Power moves are offered only at plies 0…`powerPlyMax` (root, reply, own next move by default);
@@ -146,21 +143,18 @@ function setUsed(c: Color, v: number): void {
   }
   usedPair[c] = v;
 }
-/** Set the mark (-1 clears it), with its keys: square per marking side, and turns left above 1. */
-function setMark(v: number, by: number, left: number, ward = false): void {
-  if (mark >= 0) {
-    const i = markBy * 64 + mark;
-    hLo ^= Z_MARK_LO[i]; hHi ^= Z_MARK_HI[i];
-    if (markLeft > 1) { hLo ^= Z_LEFT_LO[markLeft]; hHi ^= Z_LEFT_HI[markLeft]; }
-    if (markWard) { hLo ^= Z_WARD_LO[0]; hHi ^= Z_WARD_HI[0]; }
-  }
-  if (v >= 0) {
-    const i = by * 64 + v;
-    hLo ^= Z_MARK_LO[i]; hHi ^= Z_MARK_HI[i];
-    if (left > 1) { hLo ^= Z_LEFT_LO[left]; hHi ^= Z_LEFT_HI[left]; }
-    if (ward) { hLo ^= Z_WARD_LO[0]; hHi ^= Z_WARD_HI[0]; }
-  }
-  mark = v; markBy = by; markLeft = left; markWard = v >= 0 && ward;
+/** The keys of side `by`'s mark on `sq`: square, turns left above 1, a card-mode Ice Wall. */
+function markKey(by: number, sq: number, left: number, ward: boolean): void {
+  const i = by * 64 + sq;
+  hLo ^= Z_MARK_LO[i]; hHi ^= Z_MARK_HI[i];
+  if (left > 1) { hLo ^= by ? Z_LEFTB_LO[left] : Z_LEFT_LO[left]; hHi ^= by ? Z_LEFTB_HI[left] : Z_LEFT_HI[left]; }
+  if (ward) { hLo ^= Z_WARD_LO[by]; hHi ^= Z_WARD_HI[by]; }
+}
+/** Set side `by`'s mark (-1 clears it), with its keys. */
+function setMark(by: number, v: number, left: number, ward = false): void {
+  if (markSq[by] >= 0) markKey(by, markSq[by], markLeft[by], markWard[by] === 1);
+  if (v >= 0) markKey(by, v, left, ward);
+  markSq[by] = v; markLeft[by] = left; markWard[by] = v >= 0 && ward ? 1 : 0;
 }
 function setFree(v: boolean): void {
   if (v !== free) { hLo ^= Z_FREE_LO[0]; hHi ^= Z_FREE_HI[0]; free = v; }
@@ -191,9 +185,10 @@ function powerTerm(c: Color): number {
   const hand = handAt[c];
   if (hand.length) {
     // Card mode: each unplayed card holds what one use of its power holds.
-    let t = 0;
-    for (let k = 0; k < hand.length; k++) if (!(usedPair[c] >> k & 1)) t += hand[k] === 'Sacrifice' ? sacrificeTerm(c) : hold[hand[k]] ?? 0;
-    return t;
+    // Two Sacrifice cards share one reserve, so they hold what one does (as in king mode).
+    let t = 0, sacrifice = false;
+    for (let k = 0; k < hand.length; k++) if (!(usedPair[c] >> k & 1)) { if (hand[k] === 'Sacrifice') sacrifice = true; else t += hold[hand[k]] ?? 0; }
+    return sacrifice ? t + sacrificeTerm(c) : t;
   }
   const n = usesMax[c];
   if (n <= 0) return 0; // no spendable power, or unlimited uses
@@ -245,8 +240,8 @@ function write(s: number, v: number): void {
 function apply(m: Move, c: Color): number {
   const base = sp;
   fBase[fsp] = base; fUsed0[fsp] = usedPair[0]; fUsed1[fsp] = usedPair[1];
-  fMark[fsp] = mark; fHaste[fsp] = hasteSq; fLostTop[fsp] = lostTop;
-  fMarkBy[fsp] = markBy; fMarkLeft[fsp] = markLeft; fFree[fsp] = free ? 1 : 0; fWard[fsp] = markWard ? 1 : 0;
+  fMark[fsp] = markSq[0]; fMark1[fsp] = markSq[1]; fHaste[fsp] = hasteSq; fLostTop[fsp] = lostTop;
+  fMarkLeft[fsp] = markLeft[0]; fMarkLeft1[fsp] = markLeft[1]; fFree[fsp] = free ? 1 : 0; fWard[fsp] = markWard[0] | markWard[1] << 1;
   const still = m.power === 'freeze' || m.power === 'ward' || m.pass === true;
   if (!still) {
     const mover = board[m.from], other = board[m.to];
@@ -263,12 +258,11 @@ function apply(m: Move, c: Color): number {
   if (m.power) setUsed(c, spend(c, usedPair[c], m.power));
   const isMark = m.power === 'freeze' || m.power === 'ward';
   const holdTurn = m.power === 'haste' || (isMark && RULES.markFree);
-  // Mirror of makeMove: a mark lasts through its side's moves and `markLeft` turns of the other.
-  if (isMark) setMark(m.to, c, RULES.markTurns, m.power === 'ward' && handAt[c].length > 0);
-  else if (mark >= 0) {
-    const left = c === markBy || holdTurn ? markLeft : markLeft - 1;
-    setMark(left > 0 ? mark : -1, markBy, left, markWard);
-  }
+  // Mirror of makeMove: the opponent's mark uses up a turn when this move passes the turn; a new
+  // mark replaces only the mover's own slot.
+  const o = c ^ 1;
+  if (markSq[o] >= 0 && !holdTurn) { const left = markLeft[o] - 1; setMark(o, left > 0 ? markSq[o] : -1, left, markWard[o] === 1); }
+  if (isMark) setMark(c, m.to, RULES.markTurns, m.power === 'ward' && handAt[c].length > 0);
   setFree(isMark && RULES.markFree);
   setHaste(m.power === 'haste' ? m.to : -1);
   fFlip[fsp] = holdTurn ? 0 : 1;
@@ -282,7 +276,8 @@ function undo(base: number): void {
   if (fFlip[fsp]) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
   setHaste(fHaste[fsp]);
   setFree(fFree[fsp] === 1);
-  setMark(fMark[fsp], fMarkBy[fsp], fMarkLeft[fsp], fWard[fsp] === 1);
+  setMark(0, fMark[fsp], fMarkLeft[fsp], (fWard[fsp] & 1) === 1);
+  setMark(1, fMark1[fsp], fMarkLeft1[fsp], (fWard[fsp] & 2) === 2);
   setUsed(0, fUsed0[fsp]);
   setUsed(1, fUsed1[fsp]);
   while (lostTop > fLostTop[fsp]) { lostTop--; const i = lostLogIdx[lostTop]; lostSet(i, lost[i] - lostLogDelta[lostTop]); }
@@ -368,7 +363,8 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
     if (free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(board, c)); }
     else if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) genPowerMoves(board, c, usedPair[c], trackLost ? lost : undefined, out, 0, out.length);
   }
-  if (mark >= 0) filterMarks(c, mark, markBy as Color, out, 0, markWard);
+  // Only the opponent's mark binds the side to move.
+  if (markSq[c ^ 1] >= 0) filterMarks(c, markSq[c ^ 1], (c ^ 1) as Color, out, 0, markWard[c ^ 1] === 1);
   // Legality is "make it, then look at our king" — but only a move that could expose the king needs
   // the look: we are in check; the king itself moves (Death Touch and Mercy included); a swap or a
   // shove moves a second piece; the mover leaves a line through the king (a slider's ray opens);
@@ -672,12 +668,13 @@ export function positionKey(pos: Position): number {
       }
     }
   }
-  if (pos.mark !== undefined) {
-    const i = (pos.markBy ?? 0) * 64 + pos.mark;
+  for (let by = 0; by < 2; by++) {
+    const k = pos.marks?.[by];
+    if (!k) continue;
+    const i = by * 64 + k.sq, left = k.left ?? 1;
     lo ^= Z_MARK_LO[i]; hi ^= Z_MARK_HI[i];
-    const left = pos.markLeft ?? 1;
-    if (left > 1) { lo ^= Z_LEFT_LO[left]; hi ^= Z_LEFT_HI[left]; }
-    if (pos.ward) { lo ^= Z_WARD_LO[0]; hi ^= Z_WARD_HI[0]; }
+    if (left > 1) { lo ^= by ? Z_LEFTB_LO[left] : Z_LEFT_LO[left]; hi ^= by ? Z_LEFTB_HI[left] : Z_LEFT_HI[left]; }
+    if (k.ward) { lo ^= Z_WARD_LO[by]; hi ^= Z_WARD_HI[by]; }
   }
   if (pos.free) { lo ^= Z_FREE_LO[0]; hi ^= Z_FREE_HI[0]; }
   if (pos.haste !== undefined) { lo ^= Z_HASTE_LO[pos.haste]; hi ^= Z_HASTE_HI[pos.haste]; }
@@ -700,10 +697,10 @@ function initPosition(pos: Position): void {
   stop = false;
   usedPair[0] = pos.used?.[0] ?? 0;
   usedPair[1] = pos.used?.[1] ?? 0;
-  mark = pos.mark ?? -1;
-  markBy = pos.markBy ?? 0;
-  markLeft = pos.markLeft ?? 1;
-  markWard = !!pos.ward;
+  for (let by = 0; by < 2; by++) {
+    const k = pos.marks?.[by];
+    markSq[by] = k ? k.sq : -1; markLeft[by] = k?.left ?? 1; markWard[by] = k?.ward ? 1 : 0;
+  }
   free = !!pos.free;
   hasteSq = pos.haste ?? -1;
   trackLost = keepsLost();

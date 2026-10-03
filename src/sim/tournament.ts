@@ -613,16 +613,19 @@ export function reportText(specs: readonly TournamentSpec[], rounds: readonly (r
   }
   // The balance target: every power's score against the other powers inside 50 ± 4 points.
   const powers = ratings.filter(r => basePower(r.entrant) !== 'none' && vs.get(r.entrant)!.n).map(r => ({ e: r.entrant, ...vs.get(r.entrant)! }));
-  const inside = powers.filter(p => Math.abs(p.m - 0.5) <= 0.04);
-  const spread = Math.max(...powers.map(p => p.m)) - Math.min(...powers.map(p => p.m));
-  lines.push('', `Against the other powers: ${inside.length} of ${powers.length} inside 50 ± 4 points; spread ${(100 * spread).toFixed(1)} points.${powers.length - inside.length ? ` Outside: ${powers.filter(p => Math.abs(p.m - 0.5) > 0.04).map(p => `${p.e} ${pct(p.m)}`).join(', ')}.` : ''}`);
-  // Two readings of "off centre": each power on its own (a screen), and all of them tested together.
-  const own = powers.filter(p => Math.abs(vsP.m.get(p.e)! - 0.5) > halfWidth(vsP, vsP.samples.get(p.e)!));
-  const { c, band } = simultaneous(vsP, powers.map(p => p.e));
-  const joint = powers.filter(p => Math.abs(vsP.m.get(p.e)! - 0.5) > band.get(p.e)!);
-  const at = (e: Entrant, w: number): string => `${e} ${pct(vsP.m.get(e)!)} ± ${(100 * w).toFixed(1)}`;
-  lines.push('', `Outside 50% on its own armies interval (a screen: with ${powers.length} powers tested, about ${(0.05 * powers.length).toFixed(1)} would be flagged by chance if all were level): ${own.length ? own.map(p => at(p.e, halfWidth(vsP, vsP.samples.get(p.e)!))).join(', ') : 'none'}.`);
-  lines.push('', `Off centre with all ${powers.length} tested together (simultaneous 95% band, ${c.toFixed(2)} standard errors on ${vsP.draws} armies): ${joint.length ? joint.map(p => at(p.e, band.get(p.e)!)).join(', ') : 'none'}.`);
+  // Powers that met no other power (an --anchor round) have no balance lines.
+  if (powers.length) {
+    const inside = powers.filter(p => Math.abs(p.m - 0.5) <= 0.04);
+    const spread = Math.max(...powers.map(p => p.m)) - Math.min(...powers.map(p => p.m));
+    lines.push('', `Against the other powers: ${inside.length} of ${powers.length} inside 50 ± 4 points; spread ${(100 * spread).toFixed(1)} points.${powers.length - inside.length ? ` Outside: ${powers.filter(p => Math.abs(p.m - 0.5) > 0.04).map(p => `${p.e} ${pct(p.m)}`).join(', ')}.` : ''}`);
+    // Two readings of "off centre": each power on its own (a screen), and all of them tested together.
+    const own = powers.filter(p => Math.abs(vsP.m.get(p.e)! - 0.5) > halfWidth(vsP, vsP.samples.get(p.e)!));
+    const { c, band } = simultaneous(vsP, powers.map(p => p.e));
+    const joint = powers.filter(p => Math.abs(vsP.m.get(p.e)! - 0.5) > band.get(p.e)!);
+    const at = (e: Entrant, w: number): string => `${e} ${pct(vsP.m.get(e)!)} ± ${(100 * w).toFixed(1)}`;
+    lines.push('', `Outside 50% on its own armies interval (a screen: with ${powers.length} powers tested, about ${(0.05 * powers.length).toFixed(1)} would be flagged by chance if all were level): ${own.length ? own.map(p => at(p.e, halfWidth(vsP, vsP.samples.get(p.e)!))).join(', ') : 'none'}.`);
+    lines.push('', `Off centre with all ${powers.length} tested together (simultaneous 95% band, ${c.toFixed(2)} standard errors on ${vsP.draws} armies): ${joint.length ? joint.map(p => at(p.e, band.get(p.e)!)).join(', ') : 'none'}.`);
+  }
   // Each king's two powers, averaged; the light and dark kings must stay level with each other (owner, 2026-10-02).
   const kings = (Object.keys(KINGS) as KingName[]).filter(k => KINGS[k].every(p => !Number.isNaN(vsP.m.get(p) ?? NaN)));
   const king = new Map(kings.map(k => {
@@ -684,31 +687,34 @@ export function mirrorSection(recs: readonly TRecord[], entrants: readonly Entra
     for (const r of recs) if (r.white === e && r.black === e) (out.get(drawOf(r)) ?? out.set(drawOf(r), []).get(drawOf(r))!).push(r);
     return out;
   };
+  // Length in turns: a free mark and a Haste's first move are plies of a turn that goes on.
+  const turns = (r: TRecord): number => r.plies - r.lans.filter(l => /^!F:|^!W:|!H$/.test(l)).length;
   const per = (rs: readonly TRecord[]) => ({
     white: rs.reduce((a, r) => a + r.result, 0) / rs.length,
     draws: rs.filter(r => r.result === 0.5).length / rs.length,
-    plies: rs.reduce((a, r) => a + r.plies, 0) / rs.length,
+    turns: rs.reduce((a, r) => a + turns(r), 0) / rs.length,
     cards: rs.reduce((a, r) => a + r.uses[0] + r.uses[1], 0) / (2 * rs.length),
   });
   const base = entrants.includes('none') ? pairsOf('none') : undefined;
   const f1 = (x: number, w: number): string => `${(100 * x).toFixed(1)} | ${(100 * w).toFixed(1)}`;
   const out = ['## Same hand for both sides', '',
-    `Each entrant against itself: White's score (50% = no first-move edge), the share of drawn games, plies and cards played per side, with 95% intervals over pairs (one army each)${base ? '; Δ columns are differences from `none` on the same armies' : ''}.`, '',
-    '| entrant | White % | ±95% | draws % | ±95% | Δ White | ±95% | Δ draws | ±95% | plies | cards / side | pairs |', '|---|---|---|---|---|---|---|---|---|---|---|---|'];
+    `Each entrant against itself: White's score (50% = no first-move edge), the share of drawn games, the length in turns (a free mark or a Haste is one turn with its move) and the cards played per side, with 95% intervals over pairs (one army each)${base ? '; Δ columns are differences from `none` on the same armies' : ''}.`, '',
+    '| entrant | White % | ±95% | draws % | ±95% | turns | ±95% | Δ White | ±95% | Δ draws | ±95% | Δ turns | ±95% | cards / side | pairs |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|'];
   for (const e of entrants) {
     const ps = pairsOf(e);
     if (!ps.size) continue;
     const vals = [...ps.entries()].map(([d, rs]) => ({ d, ...per(rs) }));
-    const [w, ww] = meanCi(vals.map(v => v.white)), [dr, dw] = meanCi(vals.map(v => v.draws));
-    let delta = '- | - | - | -';
+    const [w, ww] = meanCi(vals.map(v => v.white)), [dr, dw] = meanCi(vals.map(v => v.draws)), [tn, tw] = meanCi(vals.map(v => v.turns));
+    let delta = '- | - | - | - | - | -';
     if (base && e !== 'none') {
       const paired = vals.filter(v => base.has(v.d)).map(v => ({ v, b: per(base.get(v.d)!) }));
       if (paired.length) {
         const [a, aw] = meanCi(paired.map(p => p.v.white - p.b.white)), [b, bw] = meanCi(paired.map(p => p.v.draws - p.b.draws));
-        delta = `${a >= 0 ? '+' : ''}${f1(a, aw)} | ${b >= 0 ? '+' : ''}${f1(b, bw)}`;
+        const [t, tdw] = meanCi(paired.map(p => p.v.turns - p.b.turns));
+        delta = `${a >= 0 ? '+' : ''}${f1(a, aw)} | ${b >= 0 ? '+' : ''}${f1(b, bw)} | ${t >= 0 ? '+' : ''}${t.toFixed(1)} | ${tdw.toFixed(1)}`;
       }
     }
-    out.push(`| ${e} | ${f1(w, ww)} | ${f1(dr, dw)} | ${delta} | ${(vals.reduce((a, v) => a + v.plies, 0) / vals.length).toFixed(0)} | ${(vals.reduce((a, v) => a + v.cards, 0) / vals.length).toFixed(2)} | ${vals.length} |`);
+    out.push(`| ${e} | ${f1(w, ww)} | ${f1(dr, dw)} | ${tn.toFixed(1)} | ${tw.toFixed(1)} | ${delta} | ${(vals.reduce((a, v) => a + v.cards, 0) / vals.length).toFixed(2)} | ${vals.length} |`);
   }
   return out;
 }
@@ -811,6 +817,12 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
     const variants = parseVariants(argv, entrants);
     if (f.armies !== undefined && f.armies !== 'perPair' && f.armies !== 'shared') throw new Error(`--armies ${f.armies}: perPair or shared`);
     if (typeof f.anchor === 'string' && !entrants.includes(parseEntrants(f.anchor, false)[0])) throw new Error(`--anchor ${f.anchor} is not an entrant`);
+    // The same check as `hands=`: one-use powers only.
+    const cardPool = typeof f.cardPool === 'string' ? parseRule(`hands=${f.cardPool.split(',').join('+')}`).hands![0] as PowerName[] : undefined;
+    for (const e of entrants) {
+      const k = e.startsWith('cards') ? Number(e.slice(5)) : 0;
+      if (k > Math.min(8, (cardPool ?? CARD_POOL).length)) throw new Error(`${e}: a hand holds at most ${Math.min(8, (cardPool ?? CARD_POOL).length)} cards from this pool`);
+    }
     const t: TournamentSpec = {
       id: typeof f.id === 'string' ? f.id : 'kp2',
       entrants,
@@ -819,13 +831,13 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
       ...(f.armies === 'perPair' ? { armies: 'perPair' as const } : {}),
       ...(typeof f.anchor === 'string' ? { anchor: parseEntrants(f.anchor, false)[0] } : {}),
       ...(f.mirrorOnly ? { mirrorOnly: true } : {}),
-      ...(typeof f.cardPool === 'string' ? { cardPool: parseEntrants(f.cardPool, false).map(basePower).filter((p): p is PowerName => p !== 'none') } : {}),
+      ...(cardPool ? { cardPool } : {}),
       depth: num('depth', 3), seed: num('seed', 101),
       rules: parseRuleFlags(argv),
       ...(variants ? { variants } : {}),
       ...(parseHold(f.hold) ? { powerHold: parseHold(f.hold) } : {}),
       ...(typeof f.powerPlies === 'string' ? { powerPlies: Number(f.powerPlies) } : {}),
-      mirror: !!f.mirror, maxPlies: num('maxPlies', 300), openingRandomPlies: num('openingRandomPlies', 4),
+      mirror: !!f.mirror || !!f.mirrorOnly, maxPlies: num('maxPlies', 300), openingRandomPlies: num('openingRandomPlies', 4),
     };
     const shard = typeof f.shard === 'string' ? (([i, n]) => ({ i: +i, n: +n }))(f.shard.split('/')) : undefined;
     runTournament(t, num('workers', availableParallelism()), shard).catch(fail);

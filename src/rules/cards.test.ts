@@ -42,9 +42,9 @@ describe('card mode', () => {
     expect(tags(p)).toEqual(['haste', 'ward']); // Freeze is played
     p = play(p, '!W:a3');
     expect(p.used).toEqual([0b011, 0]);
-    expect(p.ward).toBe(true);
-    expect(toFen(p).split(' ')[6]).toBe('u3.0/ma3w/i/f');
-    expect(fromFen(toFen(p)).ward).toBe(true);
+    expect(p.marks?.[WHITE]?.ward).toBe(true);
+    expect(toFen(p).split(' ')[6]).toBe('u3.0/ma3wi/f');
+    expect(fromFen(toFen(p)).marks?.[WHITE]?.ward).toBe(true);
   });
 
   it('a hand may hold two copies: each is played on its own', () => {
@@ -67,7 +67,32 @@ describe('card mode', () => {
     expect(lans(warded)).not.toContain('Bc2xa4');
     const frozen = play(play(start, '!F:c2'), '--');
     expect(lans(frozen).some(l => l.startsWith('Bc2'))).toBe(false);
-    expect(positionKey(warded)).not.toBe(positionKey({ ...warded, ward: undefined }));
+    expect(positionKey(warded)).not.toBe(positionKey({ ...warded, marks: [{ sq: warded.marks![WHITE]!.sq }, undefined] }));
+  });
+
+  it('a side bound by a mark cannot lift it by marking back', () => {
+    hands(['Freeze'], ['Freeze']);
+    let p = play(play(fromFen('4k3/8/8/3n4/8/8/P6P/4K3 w - - 0 1'), '!F:d5'), 'a2-a3');
+    p = play(p, '!F:a3'); // Black freezes White's pawn: the knight stays frozen this turn
+    expect(lans(p).some(l => l.startsWith('Nd5'))).toBe(false);
+    expect(toFen(p).split(' ')[6]).toBe('u1.1/md5w/ma3b/f');
+    p = play(p, 'Ke8-f8');
+    expect(lans(p).some(l => l.startsWith('a3'))).toBe(false); // and White's pawn is frozen now
+    hands(['IceWall'], ['IceWall']);
+    let q = play(play(fromFen('4k3/8/8/3n4/8/2R5/P7/4K3 w - - 0 1'), '!W:c3'), 'a2-a3');
+    q = play(q, '!W:d5');
+    expect(lans(q)).not.toContain('Nd5xc3');
+  });
+
+  it('refuses a hand beside a spendable king power on the same side', () => {
+    expect(() => setRules({ hands: [['Haste'], []], kings: [{ king: 'Flame', power: 'Strike' }, null] })).toThrow(/card mode/);
+    expect(() => setRules({ hands: [['Haste'], []], kings: [{ king: 'Spirit', power: 'Mercy' }, null] })).not.toThrow();
+  });
+
+  it('two Sacrifice cards hold what one does, so the search still cashes one in', () => {
+    hands(['Sacrifice', 'Sacrifice'], []);
+    const pos = fromFen('4k3/8/8/8/8/8/P6P/4K3 w - - 0 1 lQ');
+    expect(toLan(pos, search(pos, { maxDepth: 3 }).move!)).toMatch(/^!S:/);
   });
 
   it('the played cards are part of the position', () => {

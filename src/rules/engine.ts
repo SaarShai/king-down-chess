@@ -110,18 +110,13 @@ export interface Position {
    */
   used?: readonly [number, number];
   /**
-   * A Freeze or Ice Wall mark: the square the marking side named. `markBy`'s power says which
-   * (`markKind`), and it binds the other side only. It lasts through the marking side's own moves
-   * and `markLeft` turns of the bound side (1 under the rulebook; `markTurns: 2` makes it 2); a
-   * Haste's second move is part of the same turn.
+   * Freeze and Ice Wall marks, one slot per marking side (`[by White, by Black]`), so a side bound
+   * by the opponent's mark can set its own without lifting it. A mark binds the other side only; its
+   * marker's power says which kind (`markKind`). It lasts through the marking side's own moves and
+   * `left` turns of the bound side (absent = 1; `markTurns: 2` makes it 2); a Haste's second move is
+   * part of the same turn. `ward` (card mode only): an Ice Wall, since a hand may hold both.
    */
-  mark?: number;
-  /** The side that set `mark`. */
-  markBy?: Color;
-  /** Card mode only: the mark is an Ice Wall (a hand may hold Freeze and Ice Wall, so `markBy` cannot say). */
-  ward?: boolean;
-  /** Turns of the bound side the mark still covers; absent = 1. */
-  markLeft?: number;
+  marks?: readonly [Mark | undefined, Mark | undefined];
   /**
    * `markFree`: the side has just set a free Freeze/Ice Wall mark and still makes its ordinary move
    * this turn (or ends it with a `pass`); no power is offered in that move.
@@ -136,6 +131,8 @@ export interface Position {
    */
   lost?: readonly number[];
 }
+
+export interface Mark { sq: number; left?: number; ward?: boolean }
 
 type Delta = readonly [number, number];
 const DIRS8: readonly Delta[] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
@@ -847,23 +844,20 @@ export function makeMove(pos: Position, m: Move): Position {
     used = u;
   }
   if (used && (used[0] || used[1])) next.used = used;
-  if (isMark) {
-    next.mark = m.to;
-    next.markBy = c;
-    if (m.power === 'ward' && handOf(c).length) next.ward = true;
-    if (RULES.markTurns > 1) next.markLeft = RULES.markTurns;
-    if (RULES.markFree) next.free = true;
-  } else if (pos.mark !== undefined) {
-    // A mark lasts through its own side's moves, and through `markLeft` turns of the side it binds:
-    // a bound side's move that passes the turn uses one up (a Haste's first move does not).
-    const left = c === pos.markBy || hold ? (pos.markLeft ?? 1) : (pos.markLeft ?? 1) - 1;
-    if (left > 0) {
-      next.mark = pos.mark;
-      next.markBy = pos.markBy;
-      if (pos.ward) next.ward = true;
-      if (left > 1) next.markLeft = left;
-    }
+  // The opponent's mark binds the mover: a move that passes the turn uses up one of its turns (a
+  // Haste's first move and a free mark do not). The mover's own mark lasts through its own moves; a
+  // new mark replaces only the mover's own slot.
+  const marks: [Mark | undefined, Mark | undefined] = [pos.marks?.[0], pos.marks?.[1]];
+  const o = (c ^ 1) as Color, theirs = marks[o];
+  if (theirs && !hold) {
+    const left = (theirs.left ?? 1) - 1, { left: _, ...rest } = theirs;
+    marks[o] = left > 1 ? { ...rest, left } : left === 1 ? rest : undefined;
   }
+  if (isMark) {
+    marks[c] = { sq: m.to, ...(RULES.markTurns > 1 ? { left: RULES.markTurns } : {}), ...(m.power === 'ward' && handOf(c).length ? { ward: true } : {}) };
+    if (RULES.markFree) next.free = true;
+  }
+  if (marks[0] || marks[1]) next.marks = marks;
   if (m.power === 'haste') next.haste = m.to;
   if (lost) next.lost = lost;
   return next;
@@ -1154,7 +1148,7 @@ function genPowerMovesRaw(power: PowerName | '', board: Uint8Array, c: Color, lo
  * (it may still be warded). A warded piece cannot be captured, by a chain either — the chain's
  * shorter prefixes stay. Neither changes an attack: a frozen piece still gives check.
  */
-export function filterMarks(c: Color, mark: number | undefined, markBy: Color | undefined, out: Move[], n0 = 0, ward = false): void {
+export function filterMarks(c: Color, mark: number | undefined, markBy: Color | undefined, out: Move[], n0 = 0, ward: boolean | undefined = false): void {
   if (mark === undefined || mark < 0) return;
   const kind = markKind(c, markBy, ward);
   if (!kind) return;
@@ -1212,7 +1206,9 @@ export function pseudoMoves(pos: Position, mode: GenMode = 'all'): Move[] {
     if (pos.free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(pos.board, c)); }
     else if (mode === 'all') genPowerMoves(pos.board, c, pos.used?.[c] ?? 0, pos.lost, out, 0, out.length);
   }
-  filterMarks(c, pos.mark, pos.markBy, out, 0, pos.ward);
+  // Only the opponent's mark binds the side to move.
+  const theirs = pos.marks?.[c ^ 1];
+  if (theirs) filterMarks(c, theirs.sq, (c ^ 1) as Color, out, 0, theirs.ward);
   return out;
 }
 

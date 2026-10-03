@@ -13,7 +13,7 @@ const { NAMES, legalMoves, makeMove, typeOf, colorOf } = await import(root + 'ru
 const { setRules } = await import(root + 'rules/rules.ts');
 const { fromFen, toLan } = await import(root + 'rules/setup.ts');
 const { VALUES } = await import(root + 'ai/eval.ts');
-const { readRecords, gameRules } = await import(root + 'sim/tournament.ts');
+const { readRecords, gameSpec } = await import(root + 'sim/tournament.ts');
 
 type Rec = {
   gameId: number; white: string; black: string; backRank: string; result: number; reason: string; plies: number;
@@ -41,14 +41,15 @@ for (const id of ids) {
   for (const r of readRecords(id) as Rec[]) {
     // By entrant, so a rule variant (`Sacrifice~vbehind`) is reviewed apart from its base power.
     const sides = [r.white, r.black];
-    setRules(gameRules(spec, r.white, r.black));
+    // gameSpec, not gameRules: it adds a cards<k> round's dealt hands.
+    setRules(gameSpec(spec, r).rules);
     let pos = fromFen(`${r.backRank.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${r.backRank} w - - 0 1`);
     const boards: Uint8Array[] = [pos.board];
     const movers: number[] = [];
     const events: { ply: number; lan: string; side: number; piece: string; target: string }[] = [];
     for (let i = 0; i < r.lans.length; i++) {
       const m = legalMoves(pos).find((x: { power?: string }) => toLan(pos, x) === r.lans[i]);
-      if (!m) break;
+      if (!m) { console.warn(`${id} game ${r.gameId}: ply ${i} (${r.lans[i]}) does not replay; the rest of that game is skipped`); break; }
       const side = pos.turn;
       if (m.power) {
         const target = m.power === 'freeze' || m.power === 'ward' ? NAMES[typeOf(pos.board[m.to])]
