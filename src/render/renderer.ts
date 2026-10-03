@@ -26,6 +26,13 @@ export interface Highlights {
   swaps?: number[];
   /** Squares holding a piece an Ogre may shove (occupied, never a capture). */
   shoves?: number[];
+  /** Captures made from a distance (the Archer shoots without moving); also listed in `captures`. */
+  shots?: number[];
+  /**
+   * Squares a king's power acts on: an armed power's moves (also listed in `moves` or `captures`)
+   * and the pieces an armed Freeze, Ice Wall or Sacrifice can name.
+   */
+  powers?: number[];
   last?: number[];
   hint?: number[];
   check?: number | null;
@@ -610,6 +617,8 @@ export class BoardRenderer {
     set(h.captures, 0x8a1f1f);
     set(h.swaps, 0x3f3f9a);
     set(h.shoves, 0x8a5a10); // amber: a shove target is occupied like a capture, but nothing is taken
+    // A Freeze, Ice Wall or Sacrifice target: amber like a shove (a power, not a capture).
+    set(h.powers?.filter(sq => !h.moves?.includes(sq) && !h.captures?.includes(sq)), 0x8a5a10);
     // Soft tint only when the square is not already last-move blue — ring carries the check signal either way.
     if (h.check != null && !(h.last ?? []).includes(h.check)) set([h.check], CHECK_TINT);
     if (h.selected != null) set([h.selected], 0x7a6a10);

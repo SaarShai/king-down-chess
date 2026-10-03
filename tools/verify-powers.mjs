@@ -32,6 +32,7 @@ const waitText = (page, re, timeout = 10000) =>
 
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
   // "Failed to fetch" is a request cut off by the test's own navigation (it also shows on main).
   page.on('pageerror', e => { if (!/Failed to fetch/.test(e.message)) errors.push(e.message); });
   page.on('console', m => { if (m.type() === 'error' && !/Failed to fetch/.test(m.text())) errors.push(m.text()); });
@@ -108,6 +109,7 @@ try {
 
   // Phone width: the power bar fits and stays usable.
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  await phone.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
   phone.on('pageerror', e => { if (!/Failed to fetch/.test(e.message)) errors.push(e.message); });
   await open(phone, 'frost:freeze,flame:haste', '4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1');
   const box = await phone.$eval('#power-btn', b => { const r = b.getBoundingClientRect(); return { right: r.right, w: innerWidth }; });

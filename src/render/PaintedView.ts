@@ -1,5 +1,6 @@
 import { createScene, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, Q, R, S, colorOf, sqName, typeOf, type Move, type Position } from '../rules/engine';
+import { drawMarks, POP_MS, RIPPLE_MS } from './marks';
 import type { Highlights } from './renderer';
 import type { Style } from './styles';
 
@@ -28,6 +29,8 @@ export interface BoardView {
   applyStyle(style: Style): void;
   ready(): Promise<void>;
   screenOf(sq: number): { x: number; y: number };
+  /** The keyboard cursor's square (null: none), previewed like the square under the pointer. */
+  setPreview?(sq: number | null): void;
 }
 
 /** Canvas pixels above the board, so tall back-rank figures are not clipped. */
@@ -55,6 +58,11 @@ export class PaintedView implements BoardView {
   private coords = true;
   private fallen: { pos: Position; sq: number } | null = null;
   private motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+  /** Keyboard cursor square, previewed like the hovered square. */
+  private cursor: number | null = null;
+  /** When the current set of move markers appeared, and which set it was (they pop in once per set). */
+  private marksSince = 0;
+  private marksKey = '';
 
   constructor(private container: HTMLElement) {
     container.classList.add('painted');
@@ -117,9 +125,24 @@ export class PaintedView implements BoardView {
     this.marks = h;
     this.container.classList.toggle('king-in-check', h.check != null);
     this.scene.setSelected(h.selected ?? null);
+    // A new selection (or new targets) pops its markers in, rippling out from the piece.
+    const key = [h.selected, h.moves, h.captures, h.swaps, h.shoves, h.powers].map(l => String(l ?? '')).join('|');
+    if (key !== this.marksKey) {
+      this.marksKey = key; this.marksSince = performance.now();
+      if (this.motion()) this.scene.keepAwake(POP_MS + 12 * RIPPLE_MS + 50);
+    }
     this.aim();
     this.scene.redraw();
   }
+
+  setPreview(sq: number | null): void {
+    if (sq === this.cursor) return;
+    this.cursor = sq;
+    this.scene.redraw();
+  }
+
+  /** Markers animate only while animations are on and the system allows motion. */
+  private motion(): boolean { return this.pace !== 'off' && !this.motionQuery.matches; }
 
   flip(black: boolean): void { this.scene.setFlipped(black); }
   setLabels(on: boolean): void { this.scene.setLabels(on); }
@@ -140,10 +163,10 @@ export class PaintedView implements BoardView {
   }
 
   private drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over'): void {
-    const { PAD, TILE } = scene, m = this.marks, k = this.mark;
-    const box = (sq: number) => { const c = scene.cell(sq); return { x: PAD + c.col * TILE, y: PAD + c.row * TILE }; };
-    ctx.save();
+    const { PAD, TILE } = scene, m = this.marks;
     if (layer === 'under') {
+      const box = (sq: number) => { const c = scene.cell(sq); return { x: PAD + c.col * TILE, y: PAD + c.row * TILE }; };
+      ctx.save();
       // The last move: a warm wash, strong enough for both stone colours (Hint keeps the outline).
       for (const sq of m.last ?? []) { const b = box(sq); ctx.fillStyle = '#e6b84a6e'; ctx.fillRect(b.x, b.y, TILE, TILE); }
       if (m.check != null) {
@@ -151,27 +174,13 @@ export class PaintedView implements BoardView {
         ctx.fillStyle = '#c0392b55'; ctx.strokeStyle = '#b3261e'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.ellipse(f.x, f.y - 2, 44, 15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
-    } else if (!scene.animating) {
-      for (const sq of m.hint ?? []) { const b = box(sq); ctx.strokeStyle = '#c99a2e'; ctx.lineWidth = 4 * k; ctx.strokeRect(b.x + 4, b.y + 4, TILE - 8, TILE - 8); }
-      for (const sq of m.moves ?? []) {
-        // On the ground where the feet will stand; a larger dot grows upwards.
-        const b = box(sq); ctx.fillStyle = '#58754f'; ctx.strokeStyle = '#f3f3dfaa'; ctx.lineWidth = 4 * k;
-        ctx.beginPath(); ctx.arc(b.x + TILE / 2, b.y + TILE * 0.86 - 8 * (k - 1), 8 * k, 0, Math.PI * 2); ctx.stroke(); ctx.fill();
-      }
-      for (const sq of m.captures ?? []) {
-        const b = box(sq); ctx.strokeStyle = '#b17b4d'; ctx.lineWidth = 3 * k;
-        ctx.beginPath(); ctx.arc(b.x + TILE / 2, b.y + TILE / 2, TILE * 0.44, 0, Math.PI * 2); ctx.stroke();
-      }
-      for (const [squares, colour, glyph] of [[m.swaps, '#80659c', '↔'], [m.shoves, '#3d8179', '⇥']] as const) {
-        for (const sq of squares ?? []) {
-          const b = box(sq); ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.lineWidth = 2.5 * k; ctx.setLineDash([7 * k, 5 * k]);
-          ctx.strokeRect(b.x + 7, b.y + 7, TILE - 14, TILE - 14); ctx.setLineDash([]);
-          ctx.font = `bold ${22 * k}px system-ui`; ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.fillText(glyph, b.x + TILE - 11, b.y + 10);
-        }
-      }
-      if (this.hovered != null) { const b = box(this.hovered); ctx.strokeStyle = '#ffffffaa'; ctx.lineWidth = 2; ctx.strokeRect(b.x + 1, b.y + 1, TILE - 2, TILE - 2); }
+      ctx.restore();
     }
-    ctx.restore();
+    if (scene.animating) return;
+    const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
+    drawMarks(ctx, scene, layer, {
+      marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, motion: this.motion(), since: this.marksSince,
+    });
   }
 
   private pick(e: PointerEvent): number | null {

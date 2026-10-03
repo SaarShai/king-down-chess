@@ -8,6 +8,7 @@ const out = process.env.PLAYABLE_OUT || 'docs/cursor-recovery/2026-09-24-0213b44
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, hasTouch: true });
+await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
 await page.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
 const errors = [], checks = [];
 page.on('pageerror', e => errors.push(e.message));
@@ -131,8 +132,8 @@ try {
   ]) {
     await seed('7k/8/8/8/4A3/8/P7/K7 w - - 0 1', {}, query);
     await page.click('#rules-btn');
-    assert.match(await page.locator('#rules-rows tr').filter({ hasText: 'A Archer' }).innerText(), archer);
-    assert.match(await page.locator('#rules-rows tr').filter({ hasText: 'S Beast' }).innerText(), beast);
+    assert.match(await page.locator('#rules-rows .piece-card').filter({ hasText: 'A Archer' }).innerText(), archer);
+    assert.match(await page.locator('#rules-rows .piece-card').filter({ hasText: 'S Beast' }).innerText(), beast);
     assert.match(await page.locator('#rules-lead').innerText(), promotionText);
     await page.locator('#rules form button').click();
   }
@@ -153,7 +154,7 @@ try {
   assert.match(await page.locator('#moment').innerText(), /Catapult lab/);
   assert.equal(await page.locator('#setup').innerText(), 'COAQNRBK');
   await page.click('#rules-btn');
-  assert.equal(await page.locator('#rules-rows tr').filter({ hasText: 'C Catapult' }).count(), 1);
+  assert.equal(await page.locator('#rules-rows .piece-card').filter({ hasText: 'C Catapult' }).count(), 1);
   await page.locator('#rules form button').click();
   await seed('7k/8/8/8/8/8/7r/7K w - - 0 1');
   assert.ok(await page.evaluate(() => document.querySelector('#board').classList.contains('king-in-check')

@@ -31,6 +31,7 @@ const browser = await chromium.launch();
 
 async function newPage() {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await ctx.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
   await ctx.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
   const page = await ctx.newPage();
   const errors = [];
