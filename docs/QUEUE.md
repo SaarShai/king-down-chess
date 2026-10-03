@@ -148,6 +148,49 @@ under the adopted archer: L 3.74, M 2.82, S 3.68 (`ARCHER_V` 505 from the rook b
 - **Ogre**: push confirmed at depth 4 and fair at O=318; friends-only confirmed but does not stack; hop/step-2
   null; no-capture neutral. Roster decision pending.
 
+## K13 — kings' powers round 13: the official set on a fresh army for every pair (queued 2026-10-03)
+
+**Why.** Rounds 11–12 together cover only 24 armies, and on them no power is clearly off centre:
+Haste (55.2 ± 3.4) is borderline, and Mercy (54.5 ± 5.4), Flight (45.4 ± 4.0) and Darkness
+(43.8 ± 6.0) are off 50 on their own intervals only, which can be chance. Before any power changes for being high or low, measure it on fresh
+armies (LESSONS.md 2026-10-03). With `--armies perPair` and 24 pairs this round plays 1,872 armies;
+pooled with rounds 11–12 the intervals come to about ±3.
+
+**Commands** (repo root, PR #1's branch; the rules are round 12's, `sim/out/kp2-r12.tournament.json`):
+
+```sh
+nohup npx tsx src/sim/tournament.ts run --id kp2-r13 --none --pairs 24 --depth 3 --seed 3333 --armies perPair \
+  --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikeCaptures=false \
+  --rule strikePawns=false --rule mercyAura=true --rule marchUses=0 --rule holyLightTakesPawns=true \
+  --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true \
+  --rule deathTouchReach=true --rule deathTouchReachOrtho=true > sim/out/kp2-r13.log 2>&1 &
+npx tsx src/sim/tournament.ts report --id kp2-r13
+npx tsx src/sim/tournament.ts report --id kp2-r11 --id kp2-r12 --id kp2-r13
+```
+
+Read the first two lines of the log: `armies perPair`, and a `rules` line with the thirteen rules
+above. Re-running the same command resumes. **Machine time:** 3,744 games. This Mac played a
+24-game depth-3 sample in 30 s on 4 workers, so about 20–30 min on all 16 cores (an extrapolation
+from 3 powers under other rules; it can be off by half).
+
+**Kaggle instead (or as well):** the same games, identical move for move, on Kaggle notebooks of 4
+CPUs each, each at about 1/5 of 4 Mac workers (measured: 138 s against 30 s) and so about 1/15 of
+the whole Mac (extrapolated): 4 notebooks would
+take about 1.5 hours, if Kaggle runs them at once (not yet tried with more than one). Worth it only
+while the Mac is busy, or beside it. Each shard is a quarter of the pairs; shards
+can split between machines (e.g. Kaggle plays shards 2–3, the Mac `--shard 0/4` and `--shard 1/4`):
+
+```sh
+node tools/kaggle-tournament.mjs push --id kp2-r13 --shards 4 -- --none --pairs 24 --depth 3 --seed 3333 --armies perPair --rule markFree=true …   # the same --rule flags
+node tools/kaggle-tournament.mjs status --id kp2-r13
+node tools/kaggle-tournament.mjs pull --id kp2-r13
+```
+
+**Decides:** the report's "Off centre with all 12 tested together" line, and Spirit − Shadow; the
+"on its own interval" line only names candidates. Then the owner picks any Haste trim or Flight
+change to screen (as `~v<name>` entrants with their base powers in the same round, so they play the
+same armies).
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard

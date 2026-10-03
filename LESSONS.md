@@ -411,6 +411,14 @@ The 24 strongest selected Paladin opening examples still scored White +505 to +1
   one round. Pair-level and game-level intervals agree (ratio 0.99): the colour-swapped pairs are
   not the problem.
 - **Rules:** (1) judge a power on pooled rounds with different seeds, or on many armies, not on one
-  round of 12; (2) report intervals resampled over armies next to the per-game ones; (3) before
-  changing a power for being high or low, check it on fresh armies.
+  round of 12; new rounds use `--armies perPair` (a fresh army for every pair); (2) read the
+  "±95% armies" columns of `report`, not the per-game ones; a power is off centre only on the
+  report's "all tested together" line — twelve separate 95% intervals flag a power by chance in
+  about half of all rounds, so the per-power list is a screen of candidates; and with 12–24 armies
+  intervals need t quantiles, not 1.96 (a first reading of rounds 11–12 called Haste, then Flight and
+  Darkness, "clearly off centre"; calibrated, Haste is borderline and the rest are candidates);
+  (3) before changing a power for being high or low, check it on fresh armies.
+- A pooled report grouped games by `pairId`, which restarts at 0 in every round, so rounds with
+  different layouts would have merged unrelated pairs (found by review before round 13). → Key
+  anything per round (`poolRounds`) before pooling rounds; test a pool of two different layouts.
 

@@ -34,9 +34,11 @@ small edges, not clear winners.
 
 **Update 2026-10-03 (round 12):** a rematch on 12 new armies showed that a round measures balance
 only on the armies it drew (12–20 per round), so single-round intervals were too narrow. Pooled over
-two rounds (24 armies), with intervals resampled over armies, all twelve sit within 44–55%; only
-Haste (55 ± 3) and Flight (45 ± 4) are clearly off centre, and Mercy (55 ± 5) needs no change.
-Details in Round 12, below.
+two rounds (24 armies), with intervals resampled over armies, all twelve sit within 44–55%, and
+no power is clearly off centre yet. Haste (55 ± 3) is borderline: tested together with the other
+eleven, it sits right at the edge of the band. Mercy (55 ± 5) is high and Flight (45 ± 4) and
+Darkness (44 ± 6) low on their own intervals, which with twelve powers can be chance. All four are
+for the next round, on many more armies, to confirm. Details in Round 12, below.
 
 **Depth matters.** A depth-4 check of the round-4 set (936 games) kept the order but widened the
 spread to 24 points: Mercy, Flight with two uses and Sacrifice near 59%, Holy Light 36%. Balance
@@ -77,6 +79,11 @@ fair. Intervals are 95%.
 **Caveat (found 2026-10-03).** A round draws one army per pair slot and every matchup reuses them,
 so a round with 12 pairs measures 12 armies. A power's strength depends on the army, and the
 intervals in rounds 1–11 are per game, so they leave out the army-to-army variation (Round 12).
+Since 2026-10-03 the runner can draw a fresh army for every pair (`--armies perPair`: 936 armies in a
+12-pair round instead of 12), and `report` prints intervals resampled over armies ("±95% armies"),
+two lists of powers off 50% (each power on its own, a screen; and all of them tested together,
+the verdict), each king's average, and Spirit − Shadow. With few armies (12 or 24) it uses t
+quantiles, because a mean over few armies has heavier tails than a normal curve.
 
 **Players.** Both sides are the same engine at fixed depth 3 (the balance lab's standard), with
 four random opening moves for variety. A random opening move is always one of the pieces' own
@@ -366,22 +373,36 @@ and the seed picks the armies. A round uses one random army per pair slot (`armi
 `src/sim/tournament.ts`), so 12 pairs means 12 armies, shared by all 78 matchups. A power's
 strength depends on the army (Mercy takes only a guard; the shelters depend on what stands next to
 the king), so a round measures balance on its 12 armies, and its per-game intervals (±5.5) leave
-that out. Resampling the 12 armies gives intervals of ±4.3 to ±9.5 points per power in one round.
+that out. Resampling the 12 armies gives intervals of ±4.9 to ±11 points per power in one round.
 The colour-swapped pairs are not the cause: pair-level and game-level intervals agree (ratio 0.99).
 
 **Both rounds together** (24 armies, 3,744 games, `sim/out/kp2-r11+kp2-r12.report.md`), with 95%
-intervals from resampling the armies: Haste 55.2 ± 3.1, Mercy 54.5 ± 5.1, Death Touch 54.0 ± 4.0,
-Strike 52.0 ± 3.5, Leap 51.9 ± 6.3, Sacrifice 51.8 ± 5.2, Freeze 49.2 ± 4.0, Ice Wall 48.5 ± 4.6,
-March 47.3 ± 3.8, Holy Light 46.4 ± 4.3, Flight 45.4 ± 3.7, Darkness 43.8 ± 5.7; plain king 34.9.
-All twelve within 43.8–55.2, spread 11.5. Spirit's two powers average 50.5, Shadow's 48.9.
+intervals from resampling the armies: Haste 55.2 ± 3.4, Mercy 54.5 ± 5.4, Death Touch 54.0 ± 4.7,
+Strike 52.0 ± 3.8, Leap 51.9 ± 6.5, Sacrifice 51.8 ± 5.5, Freeze 49.2 ± 4.3, Ice Wall 48.5 ± 4.9,
+March 47.3 ± 4.1, Holy Light 46.4 ± 4.7, Flight 45.4 ± 4.0, Darkness 43.8 ± 6.0; plain king 34.9.
+All twelve within 43.8–55.2, spread 11.5. Spirit's two powers average 50.5, Shadow's 48.9. (These
+are `report`'s numbers: 10,000 resamples, a small-sample correction, and t with 23 degrees of
+freedom instead of the normal 1.96, which together widen each interval by about 8%. The handoff's
+first script used 2,000 resamples and neither correction.)
 
-**Reading.** Mercy needs no change: its interval covers 50, and its single-round high came from the
-armies. Only Haste (above 50 even at the low end of its interval) and Flight (below 50 even at the
-high end) are clearly off centre, each by about 5 points. Darkness is the lowest, but its interval
-is wide. Earlier single-round verdicts in this report (for example "all twelve within 44–60") carry
+**Reading.** No power is clearly off centre on these 24 armies. Haste is the nearest: 5.2 points
+above 50, exactly the width of the band that allows for testing all twelve (±5.2; the band uses t
+with 23 degrees of freedom, because a mean over 24 armies has heavier tails than a normal curve).
+Mercy (about 49–60), Flight (about 41–49) and Darkness (about 38–50) are off 50 on their own
+intervals, or nearly so, but twelve such tests flag one power in about two rounds by chance. Mercy
+is not shown to be off 50, nor inside the 50 ± 4 target; rounds 7 and 10 read it at 56 and 55 on
+other armies, so round 12's 49 looks like the outlier. Tested together, neither round alone flags any
+power. Spirit − Shadow is +1.6 ± 4.9 points (about −3 to +6.5): no clear gap between the light and
+dark kings, but a gap of up to about 6 points in Spirit's favour is not ruled out (round 11 alone
+read +4.5, round 12 −1.3). Earlier single-round verdicts in this report (for example "all twelve within 44–60") carry
 the same caveat: each describes 12–20 armies.
 
-**For the next round:** use more armies (more pairs per matchup), or a fresh army for every pair,
-or pool rounds with different seeds; and report intervals resampled over armies.
+**For the next round:** a fresh army for every pair (`--armies perPair`), so one round of 1,872
+games covers 936 armies instead of 12; `report` gives the intervals resampled over armies (done
+2026-10-03). On rounds 11–12 the armies add about a third to the variance of a power's score, so
+at the same number of games the intervals come out about 15% narrower, and no longer rest on a
+dozen armies. Each pair's army depends only on the seed, the pair number and the two powers, so a
+variant entrant (`Haste~v<name>`) plays the same armies its base power plays against each opponent
+in the same round.
 
 Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`; reports and specs in `sim/out/`.

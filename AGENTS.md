@@ -11,6 +11,9 @@ Work directly in the main agent. The owner stopped delegation because its coordi
 
 For questions about delegation, or after new authorization, read [docs/DELEGATION.md](docs/DELEGATION.md): measured M1/DeepSeek capabilities, prompt templates, acceptance checks and preserved unfinished work. This reference is not permission to delegate.
 
+## Compute — owner decision, 2026-10-03
+Before a compute task (tournaments, many game sessions, training data), consider Kaggle CPU notebooks besides this Mac. Tournaments: `node tools/kaggle-tournament.mjs push|status|pull` plays shards on Kaggle; its games are identical to local ones, so Kaggle and local shards pool in one report. One notebook has 4 CPUs, about 1/5 the speed of 4 workers on the M3 Max (measured) and so about 1/15 of the whole Mac: it pays as extra capacity beside the Mac or while the Mac is busy. Token: `KAGGLE_API_TOKEN`, or `.secrets/kaggle_api_token` in the main checkout (git-ignored); never print or commit it. Runs still need the owner's go.
+
 ## Jev / TypeSafe (optional, explicit)
 - Client: `tools/jev.ts`, model pinned to `jev-1.13.0` (`TYPESAFE_MODEL` overrides). Key: `TYPESAFE_API_KEY` or `~/.config/typesafe/key`; never print or commit it.
 - Every call carries a known-true and a known-false control; if they do not separate, the run is void.
