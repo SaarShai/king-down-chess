@@ -8,7 +8,7 @@ export const figures={
  maester:{duration:1100,origins:[[268,56],[165,54]],mirror:true,scale:.105},
  // King and Beast: one rigid pose each; the whole figure leans about the feet.
  king:{duration:1100,origins:[[138,16],[228,16]],mirror:false,scale:.122},
- beast:{duration:1000,origins:[[154,54],[149,54]],mirror:false,scale:.15}
+ beast:{duration:1000,origins:[[154,54],[149,54]],mirror:false,scale:.1275}
 };
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
 export function actionAt(progress){

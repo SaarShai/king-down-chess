@@ -72,8 +72,8 @@ remains in the owner's account (harmless; delete only if the owner asks).
 2. **Card mode needs the owner's choices:** the hand size (Phase B), and which of the proposed
    movement-changing cards to build. Then the playable game: a hand display and a way to play a
    card (none exists yet).
-3. **Raw games** of round 13, `fi-r11..13` and the card rounds are only in the main checkout's
-   `sim/out/` (git-ignored). Ask the owner before pushing them to a results branch.
+3. **Raw games** of round 13, `fi-r11..13` and the card rounds are on `claude/kp2-results-r13-cards`
+   (owner: "yes"); later rounds go to a results branch the same way.
 
 ## Owner decisions and standing rules (also in TASKS.md)
 
@@ -123,8 +123,8 @@ remains in the owner's account (harmless; delete only if the owner asks).
 - **Raw games:** `sim/out/*.jsonl` is not versioned on the PR branches. Rounds 1–10 are on the
   `claude/kp2-results-*` shard branches; rounds 11 and 12 on `claude/kp2-results-r11-r12`. To use them:
   `git fetch origin claude/kp2-results-r11-r12 && git checkout origin/claude/kp2-results-r11-r12 -- sim/out/kp2-r11.jsonl sim/out/kp2-r12.jsonl`
-  (then `git restore --staged sim/out/kp2-r11.jsonl sim/out/kp2-r12.jsonl`). Round 13 and the card
-  rounds: the main checkout's `sim/out/` only.
+  (then `git restore --staged sim/out/kp2-r11.jsonl sim/out/kp2-r12.jsonl`). Round 13, `fi-r11..13`
+  and the card rounds: `claude/kp2-results-r13-cards`.
 - **Shell gotchas:** do not `pkill -f` a pattern that also matches your own shell command; kill by
   PID. A `pgrep -f` wait loop can match itself.
 
