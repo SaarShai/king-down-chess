@@ -384,4 +384,4 @@ the same caveat: each describes 12–20 armies.
 **For the next round:** use more armies (more pairs per matchup), or a fresh army for every pair,
 or pool rounds with different seeds; and report intervals resampled over armies.
 
-Raw games: `claude/kp2-results-*` branches (rounds 1–10); `sim/out/kp2-r11.jsonl` and `kp2-r12.jsonl` locally (`sim/out/*.jsonl` is not versioned); reports and specs in `sim/out/`.
+Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`; reports and specs in `sim/out/`.

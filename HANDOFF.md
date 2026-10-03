@@ -128,9 +128,11 @@ each other; they may be a little stronger than the rest).
   intervals(['sim/out/kp2-r11.jsonl', 'sim/out/kp2-r12.jsonl'])
   ```
   Scores are exact; the ± widths move by a few tenths from run to run (resampling).
-- **Raw games:** `sim/out/*.jsonl` is not versioned. Rounds 1–10 are on the `claude/kp2-results-*`
-  branches. Rounds 11 and 12 existed only in the 2026-10-03 container unless they were pushed to a
-  results branch afterwards (ask the owner / check `git ls-remote --heads origin 'claude/kp2-results-*'`).
+- **Raw games:** `sim/out/*.jsonl` is not versioned on the PR branches. Rounds 1–10 are on the
+  `claude/kp2-results-*` shard branches; rounds 11 and 12 on `claude/kp2-results-r11-r12` (owner
+  approved, 2026-10-03). Results branches get no PRs. To use them:
+  `git fetch origin claude/kp2-results-r11-r12 && git checkout origin/claude/kp2-results-r11-r12 -- sim/out/kp2-r11.jsonl sim/out/kp2-r12.jsonl`
+  (then `git restore --staged sim/out/kp2-r11.jsonl sim/out/kp2-r12.jsonl` so they stay out of your commits).
 - **Shell gotchas:** do not `pkill -f` a pattern that also matches your own shell command (it kills
   the shell); kill by PID. A `pgrep -f` wait loop can match itself.
 
