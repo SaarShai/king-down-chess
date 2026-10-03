@@ -1,0 +1,80 @@
+{
+  "id": "kp2-r14",
+  "entrants": [
+    "Freeze",
+    "IceWall",
+    "Strike",
+    "Haste",
+    "Flight",
+    "Sacrifice",
+    "March",
+    "Leap",
+    "HolyLight",
+    "Mercy",
+    "DeathTouch",
+    "Darkness",
+    "Haste~vh1",
+    "Haste~vh2",
+    "Haste~vh3",
+    "Haste~vh4",
+    "Mercy~vm1",
+    "Mercy~vm2",
+    "Mercy~vm3",
+    "Darkness~vd1",
+    "Darkness~vd2",
+    "none"
+  ],
+  "pairs": 48,
+  "armies": "perPair",
+  "depth": 3,
+  "seed": 1414,
+  "rules": {
+    "markFree": true,
+    "freezeUses": 1,
+    "hasteCaptures": false,
+    "strikeCaptures": false,
+    "strikePawns": false,
+    "mercyAura": true,
+    "marchUses": 0,
+    "holyLightTakesPawns": true,
+    "holyLightShelter": true,
+    "holyLightShelterOrtho": true,
+    "darknessMoves": true,
+    "deathTouchReach": true,
+    "deathTouchReachOrtho": true
+  },
+  "variants": {
+    "h1": {
+      "hasteApart": true
+    },
+    "h2": {
+      "hasteNoThreat": true
+    },
+    "h3": {
+      "hasteNoForward": true
+    },
+    "h4": {
+      "hasteNoCheck": true
+    },
+    "m1": {
+      "mercyAuraPawnsTake": true
+    },
+    "m2": {
+      "mercyAuraPawnsTake": true,
+      "mercyTakesPawns": true
+    },
+    "m3": {
+      "mercyNoJump": true
+    },
+    "d1": {
+      "darknessShelter": true
+    },
+    "d2": {
+      "darknessShelter": true,
+      "darknessShelterPawnsTake": true
+    }
+  },
+  "mirror": false,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

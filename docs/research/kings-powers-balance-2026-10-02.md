@@ -475,3 +475,35 @@ rough; only a measurement decides.
   and screened together in round 14 (`docs/QUEUE.md`).
 
 Raw games (`sim/out/*.jsonl` is not versioned on `main`): branch `claude/kp2-results`, every round so far in one place; reports and specs in `sim/out/`.
+
+## Round 14 — all nine readings screened (2026-10-03)
+
+Owner: "test all. let's get all of the information to judge." The twelve official powers, the plain
+king and the nine readings as variant entrants, on seed 1414 (fresh armies), 48 pairs, `--armies
+perPair`, depth 3: 20,352 games on the Mac and 5 Kaggle notebooks (`sim/out/kp2-r14.report.md`). A
+variant plays the same armies as its base power against each opponent, so each line below is a
+paired difference against the 11 other official powers (528 pairs, 95%).
+
+| reading | power today → with it | change | draws | game length (plies) |
+|---|---|---|---|---|
+| H1 Haste: second move not next to an enemy | 56.8 → 48.2 | −8.6 ± 3.4 | +1.0 ± 2.6 | +3.7 ± 3.4 |
+| H2 Haste: second move not threatening | 56.8 → 44.6 | −12.2 ± 3.5 | +2.1 ± 2.7 | +5.7 ± 3.6 |
+| H3 Haste: second move not forward | 56.8 → 48.8 | −8.0 ± 3.4 | +2.4 ± 2.5 | +3.3 ± 3.3 |
+| H4 Haste: no check | 56.8 → 54.2 | −2.6 ± 2.3 | +0.9 ± 1.8 | +2.5 ± 2.3 |
+| M1 Mercy: pawns may take in the shelter | 56.2 → 49.1 | −7.1 ± 2.7 | +0.7 ± 2.4 | +2.2 ± 2.8 |
+| M2 Mercy: M1 and the king takes pawns | 56.2 → 50.0 | −6.1 ± 2.7 | +0.5 ± 2.5 | +2.3 ± 2.9 |
+| M3 Mercy: no jump | 56.2 → 47.0 | −9.1 ± 3.7 | −0.5 ± 3.0 | −5.5 ± 3.7 |
+| D1 Darkness: diagonal shelter | 42.8 → 52.3 | +9.5 ± 3.1 | −0.1 ± 2.3 | +1.1 ± 3.0 |
+| D2 Darkness: diagonal shelter, pawns may take | 42.8 → 50.2 | +7.4 ± 3.0 | +1.1 ± 2.2 | +0.4 ± 2.8 |
+
+Official powers in this round, against the other eleven: Haste 56.8, Mercy 56.2, Death Touch 54.0,
+Strike 52.4, Leap 51.6, Sacrifice 50.0, Freeze 48.4, Holy Light 48.2, March 46.6, Flight 46.6, Ice
+Wall 46.5, Darkness 42.8 (each ±2.7–2.8): round 13's picture again, on new armies.
+
+**Reading.** Each of the three has a reading that lands near 50: Haste H1 or H3 (48–49), Mercy M2
+(50.0) and Darkness D2 (50.2). None changes the draw rate clearly. Taken together (each change
+spread over the field, as above), every power then sits inside 50 ± 4 except **Death Touch (about
+54.6)**, and **Shadow leads Spirit by about 3.6** (Spirit 49.5, Shadow 53.1), because Death Touch
+is the high one of Shadow's two powers. Fixing Mercy alone levels the kings but leaves Darkness at
+44; fixing Darkness alone levels them but leaves Mercy at 56. So the package H1/H3 + M2 + D2 needs a
+small Death Touch trim of about 3–4 points to be level; that trim is not measured yet.

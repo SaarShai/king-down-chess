@@ -165,7 +165,7 @@ mark bug; `cards-b2` reran it on the fixed engine (2,400 games), and `cards-b3` 
 the same armies (owner: "should you also test 4 and 5 cards?"; 1,600 games, 3 of 16 parts on
 Kaggle). Report: `docs/research/cards-2026-10-03.md`.
 
-## Running 2026-10-03: K14 (all nine readings) and cards-a2 (the four new cards)
+## Ran 2026-10-03: K14 (all nine readings) and cards-a2 (the four new cards)
 
 Launched on the owner's go ("test all. let's get all of the information to judge"; new cards: "do
 whichever you suggest"), on branch `claude/fixes-and-cards` after an adversarial review.
@@ -180,6 +180,7 @@ whichever you suggest"), on branch `claude/fixes-and-cards` after an adversarial
 - **cards-a2:** `card:Mimic`, `card:Vault`, `card:Curse`, `card:SkyLift` against `none`
   (`--anchor none --mirror`), 300 pairs, seed 5454, `--armies perPair`, depth 3, the card rules of
   `cards-a1`; every card plays the no-card baseline's armies. 3,000 games on the Mac.
+- **Results:** K14 in `docs/research/kings-powers-balance-2026-10-02.md` (Round 14): H1/H3, M2 and D2 each land near 50, but together leave Death Touch about 54.6 and Shadow about 3.6 ahead of Spirit. cards-a2 in `docs/research/cards-2026-10-03.md` (measurement 3).
 
 ## Dropped
 
