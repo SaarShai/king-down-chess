@@ -53,3 +53,23 @@ ssh M1 '/Applications/Ollama.app/Contents/Resources/ollama show qwen3.8:27b-mlx'
 The first three models were pulled, checksum-verified by Ollama, and smoke-tested through `/api/generate` on 2026-09-21. Tests used `stream: false`, `think: false`, and `keep_alive: 0`, so successful tests unloaded the models afterward. Muse can consume more than 16 output tokens before visible text even with thinking disabled; allow at least `num_predict: 128` for its smoke test.
 
 Use `ollama list` and `ollama show MODEL` for current inventory and metadata. Models load into unified memory on demand; an empty `ollama ps` means they are installed but currently unloaded, not unavailable. Use `ollama stop MODEL` when a persistent session should be unloaded.
+
+## Tournament shards
+
+Owner (2026-10-03): "can you have games run on that mac?" M1 can play King Down tournament shards
+beside this Mac and Kaggle. Its 10 cores (8 performance, 2 efficiency) leave 2 free at 8 workers.
+
+- **When:** M1 on the same network as this Mac (mDNS: `ssh M1` fails to resolve otherwise), on
+  mains power (it was on battery at the first test), and not busy with Illustrator, Photoshop or
+  Ollama work. Run the identity check above first.
+- **Checkout:** `~/projects/king-down-runs`, a sparse checkout (`package.json`, `package-lock.json`,
+  `tsconfig.json`, `src/`) of the public repo, Node 24 at `/usr/local/bin`. The other King Down
+  folders in `~/projects` belong to earlier sessions; leave them.
+- **Per run:** push the run's commit first, then
+  `ssh M1 'export PATH=/usr/local/bin:$PATH; cd ~/projects/king-down-runs && git fetch -q --depth 1 --filter=blob:none origin <branch> && git checkout -q FETCH_HEAD && npm ci --no-audit --no-fund --loglevel=error'`.
+  Copy the run flags over (`scp`), start each shard detached (`nohup npx tsx src/sim/tournament.ts run --id <id> <flags> --shard i/n --workers 8 > sim/out/<id>.shard<i>of<n>.log 2>&1 &`),
+  and copy `sim/out/<id>.shard<i>of<n>.jsonl` back into this Mac's `sim/out/` when done. Give M1
+  shards no other machine plays.
+- **Check (2026-10-03):** 82 test games at commit `2f93342`; the 46 this Mac had also played were
+  identical move for move. Speed on mains power is not measured yet (on battery, 8 workers: 52
+  kings' powers games in 5.6 min, a small sample with a long tail).
