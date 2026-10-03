@@ -54,6 +54,36 @@ The owner asked for three things; screenshots (from the production build) in [ro
    [Freeze](round2/special-freeze-desktop.webp) · [reduced motion](round2/moves-reduced-motion-desktop.webp) ·
    [video](round2/markers.webm) (recorded in real time in headless Chromium, so the frame rate is lower than on a device)
 
+## Round 3 — a simpler New game (2026-10-03)
+
+Owner: "the first menu after the first screen should be simplified. there should be only very few
+choices, and 3 top buttons as suggested game modes and setups. also, simplify the menu of picking a king
+by showing the "emblems" of each king as a button. also, the default non-power kings should be the spirit
+for white and the shadow for black."
+
+- **Three games at the top** (one radio group): *Play the computer* (the default: you play White, no
+  powers), *Kings' powers* (against the computer, each king brings one power) and *Two players* (one
+  device, or the game link). Below them: the computer's level as one row (Beginner, Casual, **Club**,
+  Strong), or for two players a *Kings' powers* box. Then **Start game** and Cancel.
+- **King picker** (Kings' powers, or Two players with the box): per side, six emblem buttons in the rules'
+  order (Frost, Flame, Stratus, Mud, Spirit, Shadow), then that king's two powers and *No power*, with the
+  official count and one-line rule of the chosen power under them. White is **Spirit** and Black is
+  **Shadow** by default; with powers on, each king starts with its first power. A game with no powers
+  keeps plain kings in the rules.
+- **More options** (folded): the side you play, and the army (Random King Down army, Today's army, Chess
+  starting army, Custom army…, the example armies and Ogre practice).
+- The dialog edits a copy: Cancel drops the changes, Start game keeps them for next time
+  (`localStorage['kingdown.new-game']`; a save from before reads as its own setup).
+- The level, side and players of the game in progress no longer change from the dialog; they change with
+  a new game. `?players=human,ai` (White, then Black) sets them for a lab page and the browser checks.
+- Emblems: [`make-emblems.py`](make-emblems.py) cuts each king's emblem to a 256 px WebP: the four
+  element emblems of 2019 (`art-src/emblems-logo/`: water = Frost, fire = Flame, air = Stratus,
+  earth = Mud) and the Spirit and Shadow emblems painted for this dialog on 2026-10-03 (`--spirit`,
+  `--shadow`; their PNG masters are not in `art-src/` yet).
+- Check: `tools/verify-new-game.mjs`. Screenshots: [desktop](new-game/desktop-computer.jpg) ·
+  [desktop, Kings' powers](new-game/desktop-powers.jpg) · [phone](new-game/phone-computer.jpg) ·
+  [phone, Kings' powers](new-game/phone-powers.jpg)
+
 ## What changed
 
 | Area | Before | After |
@@ -113,6 +143,8 @@ panel and 14.0:1 in dialogs. UI parts: focus ring 5.5:1, borders 3.6–7.9:1.
   returning player, never over links/`?fen=`/`?title=0`), keyboard play of e2-e4 with both announcements,
   move-list buttons, Show threats on a known position (1 ring, 15 dots), five refusal messages, Guide cards
   and promotion figures, and every phone control ≥ 44 px. Results: [checks.json](checks.json).
+- `PLAYABLE_URL=… node tools/verify-new-game.mjs` — the New game dialog: defaults, the game each mode
+  starts, the picker's power lines, Cancel, memory, custom army, keyboard, phone.
 - `node docs/visual-design/shots.mjs <url> before|after` — the screenshots below.
 - `python3 docs/visual-design/make-ui-art.py` — re-cuts `public/ui/` from the painted sheets.
 

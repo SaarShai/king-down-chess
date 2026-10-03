@@ -109,39 +109,58 @@
     </dialog>
     <dialog id="new-game" aria-labelledby="new-game-title">
       <h2 id="new-game-title" tabindex="-1" autofocus>New game</h2>
-      <fieldset class="fields group" id="players">
-        <legend>Players</legend>
-        <label>White <select id="white"><option value="human">Human</option><option value="ai">Computer</option></select></label>
-        <label>Black <select id="black"><option value="human">Human</option><option value="ai" selected>Computer</option></select></label>
-        <small id="players-note">Two people can share one device, or each play on their own: after each move, send the game link.</small>
-        <label title="Beginner and Casual vary their choices. Club caps thinking at 800 ms; Strong uses the full thinking time in Settings. These are not ratings.">Computer <select id="skill">
-          <option value="beginner">Beginner</option>
-          <option value="casual">Casual</option>
-          <option value="club" selected>Club</option>
-          <option value="strong">Strong</option>
-        </select></label>
+      <fieldset class="modes" id="modes">
+        <legend class="sr-only">Choose a game</legend>
+        <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" />
+          <span class="mode-art" aria-hidden="true"><img src="./ui/pieces/king-w.webp" alt="" /></span>
+          <span class="mode-text"><b>Play the computer</b><small>You against the computer, with no powers.</small></span></label>
+        <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" />
+          <span class="mode-art emblem-fan" aria-hidden="true"><img src="./ui/emblems/frost.webp" alt="" /><img src="./ui/emblems/flame.webp" alt="" /><img src="./ui/emblems/stratus.webp" alt="" /></span>
+          <span class="mode-text"><b>Kings' powers</b><small>Against the computer. Each king brings one power.</small></span></label>
+        <label class="mode"><input type="radio" name="mode" value="two" id="mode-two" />
+          <span class="mode-art" aria-hidden="true"><img src="./ui/pieces/king-w.webp" alt="" /><img class="face-left" src="./ui/pieces/king-b.webp" alt="" /></span>
+          <span class="mode-text"><b>Two players</b><small>Share one device, or send the game link after each move.</small></span></label>
       </fieldset>
-      <fieldset class="fields group" id="kings-powers">
-        <legend>Kings' powers</legend>
-        <label>White's king <select id="power-white"><option value="none">No power</option></select></label>
-        <label>Black's king <select id="power-black"><option value="none">No power</option></select></label>
-        <small id="powers-note">Each king may bring one power from the King Down rulebook. The Guide explains them.</small>
+      <fieldset class="seg" id="level" title="Beginner and Casual vary their choices. Club caps thinking at 800 ms; Strong uses the full thinking time in Settings. These are not ratings.">
+        <legend>Computer level</legend>
+        <div class="seg-row">
+          <label><input type="radio" name="level" value="beginner" id="level-beginner" /><span>Beginner</span></label>
+          <label><input type="radio" name="level" value="casual" id="level-casual" /><span>Casual</span></label>
+          <label><input type="radio" name="level" value="club" id="level-club" /><span>Club</span></label>
+          <label><input type="radio" name="level" value="strong" id="level-strong" /><span>Strong</span></label>
+        </div>
       </fieldset>
-      <h3>Choose an army to start</h3>
-      <div class="fields armies" id="armies">
-        <button id="new-daily" title="Every player gets the same army today">Today's army, the same for everyone</button>
-        <button id="new-random" class="primary">Random King Down army</button>
-        <button id="new-classic">Chess starting army</button>
-        <button id="new-setup">Custom army…</button>
-        <label>Example armies <select id="setup-example" aria-describedby="setup-note">
-          <option value="">Choose…</option>
-          <option value="MMSSNBNK">MMSSNBNK</option><option value="KGBMSSMB">KGBMSSMB</option>
-          <option value="NKBBMGQS">NKBBMGQS</option><option value="QNKMNRSG">QNKMNRSG</option>
-          <option value="SQBKRSML">SQBKRSML</option><option value="ogre">Ogre practice</option>
-        </select></label>
-        <small id="setup-note">Hand-picked armies to explore. Catapult ones use an experimental piece.</small>
+      <label class="check" id="two-powers-row" hidden><input type="checkbox" id="two-powers" /><span>Kings' powers <small>Each king brings one power.</small></span></label>
+      <div id="king-picker" hidden>
+        <div class="king-pick" id="pick-0"></div>
+        <div class="king-pick" id="pick-1"></div>
       </div>
-      <form method="dialog"><button>Cancel</button></form>
+      <details id="more-options">
+        <summary>More options</summary>
+        <fieldset class="seg" id="side-choice">
+          <legend>You play</legend>
+          <div class="seg-row">
+            <label><input type="radio" name="side" value="0" id="side-white" /><span>White</span></label>
+            <label><input type="radio" name="side" value="1" id="side-black" /><span>Black</span></label>
+          </div>
+        </fieldset>
+        <label class="army">Army <select id="army" aria-describedby="army-note">
+          <option value="random">Random King Down army</option>
+          <option value="daily" title="Every player gets the same army today">Today's army, the same for everyone</option>
+          <option value="classic">Chess starting army</option>
+          <option value="custom">Custom army…</option>
+          <optgroup label="Example armies" id="army-examples">
+            <option value="MMSSNBNK">MMSSNBNK</option><option value="KGBMSSMB">KGBMSSMB</option>
+            <option value="NKBBMGQS">NKBBMGQS</option><option value="QNKMNRSG">QNKMNRSG</option>
+            <option value="SQBKRSML">SQBKRSML</option><option value="ogre">Ogre practice</option>
+          </optgroup>
+        </select></label>
+        <small id="army-note">Example armies are hand-picked to explore. Catapult ones use an experimental piece.</small>
+      </details>
+      <form method="dialog">
+        <button value="cancel">Cancel</button>
+        <button id="start-game" type="button" class="primary">Start game</button>
+      </form>
     </dialog>
     <dialog id="settings" aria-labelledby="settings-title">
       <h2 id="settings-title" tabindex="-1" autofocus>Settings</h2>
@@ -191,7 +210,7 @@
       <p id="rules-letters"></p>
       <p id="rules-notation"></p>
       <h3>Kings' powers</h3>
-      <p id="powers-guide">In <b>New game</b>, each king may bring one power. Spend a power with the
+      <p id="powers-guide">In <b>New game</b>, choose <b>Kings' powers</b>: each king brings one power. Spend a power with the
         <b>Use</b> button under the board: it lights the pieces or squares the power can reach.</p>
       <ul id="powers-list"></ul>
       <form method="dialog"><button>Close</button></form>
