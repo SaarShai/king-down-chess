@@ -1,0 +1,24 @@
+{
+  "id": "cards-a2",
+  "entrants": [
+    "card:Mimic",
+    "card:Vault",
+    "card:Curse",
+    "card:SkyLift",
+    "none"
+  ],
+  "pairs": 300,
+  "armies": "perPair",
+  "anchor": "none",
+  "depth": 3,
+  "seed": 5454,
+  "rules": {
+    "markFree": true,
+    "hasteCaptures": false,
+    "strikeCaptures": false,
+    "strikePawns": false
+  },
+  "mirror": true,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}
