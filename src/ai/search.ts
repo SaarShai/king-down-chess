@@ -15,14 +15,14 @@
  */
 import {
   Color, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, filterFree, filterMarks, freePass, genHasteFollowUp, genPiece, genPowerMoves, isAttacked,
-  keepsLost, landed, materialDraw, piece, powerOf, powerUses, typeOf,
+  handOf, keepsLost, landed, materialDraw, piece, powerOf, powerUses, spend, typeOf,
 } from '../rules/engine';
 import type { PowerName } from '../rules/rules';
 import { VALUES, evalBoard } from './eval';
 import { NET_POWERS } from './nnue/net';
 import {
   Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LEFT_HI, Z_LEFT_LO, Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO,
-  Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO,
+  Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO, Z_WARD_HI, Z_WARD_LO,
   combine, hashBoard, lostIndex, usedIndex, zIndex,
 } from './zobrist';
 
@@ -84,6 +84,8 @@ const usedPair: [number, number] = [0, 0];
  */
 let mark = -1, markBy = 0, markLeft = 1, hasteSq = -1;
 let free = false;
+/** Card mode: the mark is an Ice Wall (`Position.ward`). */
+let markWard = false;
 /** Sacrifice reserve (`Position.lost`), kept only when `trackLost`. */
 const lost = new Int32Array(32);
 let trackLost = false;
@@ -96,7 +98,7 @@ let lostTop = 0;
 const FRAMES = MAX_PLY + QMAX + 8;
 const fBase = new Int32Array(FRAMES), fUsed0 = new Int32Array(FRAMES), fUsed1 = new Int32Array(FRAMES);
 const fMark = new Int32Array(FRAMES), fHaste = new Int32Array(FRAMES), fLostTop = new Int32Array(FRAMES), fFlip = new Uint8Array(FRAMES);
-const fMarkBy = new Uint8Array(FRAMES), fMarkLeft = new Uint8Array(FRAMES), fFree = new Uint8Array(FRAMES);
+const fMarkBy = new Uint8Array(FRAMES), fMarkLeft = new Uint8Array(FRAMES), fFree = new Uint8Array(FRAMES), fWard = new Uint8Array(FRAMES);
 let fsp = 0;
 /**
  * Power moves are offered only at plies 0…`powerPlyMax` (root, reply, own next move by default);
@@ -126,30 +128,39 @@ export function setPowerHold(over?: Partial<Record<PowerName, number>> & { sacri
 /** Per side for this search: uses allowed (-1 not spendable, 0 unlimited) and the power's name. */
 const usesMax = [-1, -1];
 const powerAt: (PowerName | '')[] = ['', ''];
+/** Per side: its card hand (`Rules.hands`); empty outside card mode. */
+const handAt: (readonly PowerName[])[] = [[], []];
 /** Per side: the power's row in the net (`NET_POWERS`), or -1. */
 const powerRow = [-1, -1];
 
 function setUsed(c: Color, v: number): void {
   if (usedHashed[c]) {
     const old = usedPair[c];
-    if (old > 0) { const i = usedIndex(c, old); hLo ^= Z_USED_LO[i]; hHi ^= Z_USED_HI[i]; }
-    if (v > 0) { const i = usedIndex(c, v); hLo ^= Z_USED_LO[i]; hHi ^= Z_USED_HI[i]; }
+    if (handAt[c].length) {
+      // Card mode: one key per played card (bit k of `used`).
+      for (let d = old ^ v, k = 0; d; d >>= 1, k++) if (d & 1) { hLo ^= Z_USED_LO[c * 8 + k]; hHi ^= Z_USED_HI[c * 8 + k]; }
+    } else {
+      if (old > 0) { const i = usedIndex(c, old); hLo ^= Z_USED_LO[i]; hHi ^= Z_USED_HI[i]; }
+      if (v > 0) { const i = usedIndex(c, v); hLo ^= Z_USED_LO[i]; hHi ^= Z_USED_HI[i]; }
+    }
   }
   usedPair[c] = v;
 }
 /** Set the mark (-1 clears it), with its keys: square per marking side, and turns left above 1. */
-function setMark(v: number, by: number, left: number): void {
+function setMark(v: number, by: number, left: number, ward = false): void {
   if (mark >= 0) {
     const i = markBy * 64 + mark;
     hLo ^= Z_MARK_LO[i]; hHi ^= Z_MARK_HI[i];
     if (markLeft > 1) { hLo ^= Z_LEFT_LO[markLeft]; hHi ^= Z_LEFT_HI[markLeft]; }
+    if (markWard) { hLo ^= Z_WARD_LO[0]; hHi ^= Z_WARD_HI[0]; }
   }
   if (v >= 0) {
     const i = by * 64 + v;
     hLo ^= Z_MARK_LO[i]; hHi ^= Z_MARK_HI[i];
     if (left > 1) { hLo ^= Z_LEFT_LO[left]; hHi ^= Z_LEFT_HI[left]; }
+    if (ward) { hLo ^= Z_WARD_LO[0]; hHi ^= Z_WARD_HI[0]; }
   }
-  mark = v; markBy = by; markLeft = left;
+  mark = v; markBy = by; markLeft = left; markWard = v >= 0 && ward;
 }
 function setFree(v: boolean): void {
   if (v !== free) { hLo ^= Z_FREE_LO[0]; hHi ^= Z_FREE_HI[0]; free = v; }
@@ -177,17 +188,26 @@ function lostAdd(i: number, d: number): void {
 
 /** The unspent-power term for side `c`: what keeping its remaining uses is worth (see `hold`). */
 function powerTerm(c: Color): number {
+  const hand = handAt[c];
+  if (hand.length) {
+    // Card mode: each unplayed card holds what one use of its power holds.
+    let t = 0;
+    for (let k = 0; k < hand.length; k++) if (!(usedPair[c] >> k & 1)) t += hand[k] === 'Sacrifice' ? sacrificeTerm(c) : hold[hand[k]] ?? 0;
+    return t;
+  }
   const n = usesMax[c];
   if (n <= 0) return 0; // no spendable power, or unlimited uses
   const left = n - usedPair[c];
   if (left <= 0) return 0;
   const p = powerAt[c];
-  if (p === 'Sacrifice') {
-    let best = 0;
-    for (let t = 1; t < 16; t++) if (lost[c * 16 + t] > 0 && t !== P && t !== K && t !== 9 /* G */) best = Math.max(best, VALUES[t]);
-    return best > VALUES[P] ? Math.round(sacrificeHoldShare * (best - VALUES[P])) * Math.min(left, 1) : 0;
-  }
+  if (p === 'Sacrifice') return sacrificeTerm(c);
   return (p ? hold[p] ?? 0 : 0) * left;
+}
+/** An unspent Sacrifice: a share of what the best returnable piece gains over the pawn it replaces. */
+function sacrificeTerm(c: Color): number {
+  let best = 0;
+  for (let t = 1; t < 16; t++) if (lost[c * 16 + t] > 0 && t !== P && t !== K && t !== 9 /* G */) best = Math.max(best, VALUES[t]);
+  return best > VALUES[P] ? Math.round(sacrificeHoldShare * (best - VALUES[P])) : 0;
 }
 
 /**
@@ -196,7 +216,8 @@ function powerTerm(c: Color): number {
  */
 function livePower(c: Color): number {
   const r = powerRow[c];
-  if (r < 0) return -1;
+  // ponytail: the net has no card inputs, so card mode shows it none (tournaments use the linear evaluation).
+  if (r < 0 || handAt[c].length) return -1;
   const n = usesMax[c];
   return n <= 0 || usedPair[c] < n ? r : -1;
 }
@@ -225,7 +246,7 @@ function apply(m: Move, c: Color): number {
   const base = sp;
   fBase[fsp] = base; fUsed0[fsp] = usedPair[0]; fUsed1[fsp] = usedPair[1];
   fMark[fsp] = mark; fHaste[fsp] = hasteSq; fLostTop[fsp] = lostTop;
-  fMarkBy[fsp] = markBy; fMarkLeft[fsp] = markLeft; fFree[fsp] = free ? 1 : 0;
+  fMarkBy[fsp] = markBy; fMarkLeft[fsp] = markLeft; fFree[fsp] = free ? 1 : 0; fWard[fsp] = markWard ? 1 : 0;
   const still = m.power === 'freeze' || m.power === 'ward' || m.pass === true;
   if (!still) {
     const mover = board[m.from], other = board[m.to];
@@ -239,14 +260,14 @@ function apply(m: Move, c: Color): number {
     write(m.from, m.swap ? other : 0);
     write(m.to, m.selfRemove ? 0 : landed(mover, m));
   }
-  if (m.power) setUsed(c, usedPair[c] + 1);
+  if (m.power) setUsed(c, spend(c, usedPair[c], m.power));
   const isMark = m.power === 'freeze' || m.power === 'ward';
   const holdTurn = m.power === 'haste' || (isMark && RULES.markFree);
   // Mirror of makeMove: a mark lasts through its side's moves and `markLeft` turns of the other.
-  if (isMark) setMark(m.to, c, RULES.markTurns);
+  if (isMark) setMark(m.to, c, RULES.markTurns, m.power === 'ward' && handAt[c].length > 0);
   else if (mark >= 0) {
     const left = c === markBy || holdTurn ? markLeft : markLeft - 1;
-    setMark(left > 0 ? mark : -1, markBy, left);
+    setMark(left > 0 ? mark : -1, markBy, left, markWard);
   }
   setFree(isMark && RULES.markFree);
   setHaste(m.power === 'haste' ? m.to : -1);
@@ -261,7 +282,7 @@ function undo(base: number): void {
   if (fFlip[fsp]) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
   setHaste(fHaste[fsp]);
   setFree(fFree[fsp] === 1);
-  setMark(fMark[fsp], fMarkBy[fsp], fMarkLeft[fsp]);
+  setMark(fMark[fsp], fMarkBy[fsp], fMarkLeft[fsp], fWard[fsp] === 1);
   setUsed(0, fUsed0[fsp]);
   setUsed(1, fUsed1[fsp]);
   while (lostTop > fLostTop[fsp]) { lostTop--; const i = lostLogIdx[lostTop]; lostSet(i, lost[i] - lostLogDelta[lostTop]); }
@@ -347,7 +368,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
     if (free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(board, c)); }
     else if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) genPowerMoves(board, c, usedPair[c], trackLost ? lost : undefined, out, 0, out.length);
   }
-  if (mark >= 0) filterMarks(c, mark, markBy as Color, out);
+  if (mark >= 0) filterMarks(c, mark, markBy as Color, out, 0, markWard);
   // Legality is "make it, then look at our king" — but only a move that could expose the king needs
   // the look: we are in check; the king itself moves (Death Touch and Mercy included); a swap or a
   // shove moves a second piece; the mover leaves a line through the king (a slider's ray opens);
@@ -642,8 +663,9 @@ export function positionKey(pos: Position): number {
   let lo = hashOut[0], hi = hashOut[1];
   for (let c = 0; c < 2; c++) {
     const u = pos.used?.[c] ?? 0;
-    if (u > 0 && powerUses(c as Color) > 0) { const i = usedIndex(c, u); lo ^= Z_USED_LO[i]; hi ^= Z_USED_HI[i]; }
-    if (pos.lost && powerOf(c as Color) === 'Sacrifice') {
+    if (handOf(c as Color).length) { for (let k = 0; k < 8; k++) if (u >> k & 1) { lo ^= Z_USED_LO[c * 8 + k]; hi ^= Z_USED_HI[c * 8 + k]; } }
+    else if (u > 0 && powerUses(c as Color) > 0) { const i = usedIndex(c, u); lo ^= Z_USED_LO[i]; hi ^= Z_USED_HI[i]; }
+    if (pos.lost && (powerOf(c as Color) === 'Sacrifice' || handOf(c as Color).includes('Sacrifice'))) {
       for (let t = 1; t < 16; t++) {
         const n = pos.lost[c * 16 + t];
         if (n > 0) { const k = lostIndex(c * 16 + t, n); lo ^= Z_LOST_LO[k]; hi ^= Z_LOST_HI[k]; }
@@ -655,6 +677,7 @@ export function positionKey(pos: Position): number {
     lo ^= Z_MARK_LO[i]; hi ^= Z_MARK_HI[i];
     const left = pos.markLeft ?? 1;
     if (left > 1) { lo ^= Z_LEFT_LO[left]; hi ^= Z_LEFT_HI[left]; }
+    if (pos.ward) { lo ^= Z_WARD_LO[0]; hi ^= Z_WARD_HI[0]; }
   }
   if (pos.free) { lo ^= Z_FREE_LO[0]; hi ^= Z_FREE_HI[0]; }
   if (pos.haste !== undefined) { lo ^= Z_HASTE_LO[pos.haste]; hi ^= Z_HASTE_HI[pos.haste]; }
@@ -680,17 +703,20 @@ function initPosition(pos: Position): void {
   mark = pos.mark ?? -1;
   markBy = pos.markBy ?? 0;
   markLeft = pos.markLeft ?? 1;
+  markWard = !!pos.ward;
   free = !!pos.free;
   hasteSq = pos.haste ?? -1;
   trackLost = keepsLost();
   lost.fill(0);
   if (pos.lost) for (let i = 0; i < 32; i++) lost[i] = pos.lost[i] ?? 0;
   for (let c = 0; c < 2; c++) {
-    usesMax[c] = powerUses(c as Color);
+    handAt[c] = handOf(c as Color);
+    if (handAt[c].length > 8) throw new Error('a hand holds at most 8 cards (one hash key per card)');
+    usesMax[c] = handAt[c].length || powerUses(c as Color);
     powerAt[c] = powerOf(c as Color);
     powerRow[c] = powerAt[c] ? NET_POWERS.indexOf(powerAt[c] as PowerName) : -1;
     usedHashed[c] = usesMax[c] > 0;
-    lostHashed[c] = powerAt[c] === 'Sacrifice';
+    lostHashed[c] = powerAt[c] === 'Sacrifice' || handAt[c].includes('Sacrifice');
   }
 }
 

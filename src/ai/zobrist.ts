@@ -87,6 +87,8 @@ export const [Z_USED_LO, Z_USED_HI] = draw(2 * 8);
 export const [Z_LOST_LO, Z_LOST_HI] = draw(2 * 16 * 4);
 export const [Z_LEFT_LO, Z_LEFT_HI] = draw(4);
 export const [Z_FREE_LO, Z_FREE_HI] = draw(1);
+/** Card mode: the mark is an Ice Wall (a hand can hold Freeze and Ice Wall both). */
+export const [Z_WARD_LO, Z_WARD_HI] = draw(1);
 /** Slot of "side `c` has spent `u` uses" (u ≥ 1, capped at 7). */
 export const usedIndex = (c: number, u: number): number => c * 8 + Math.min(u, 7);
 /** Slot of "reserve index `i` (= colour * 16 + type) holds `n` pieces" (n ≥ 1, capped at 3). */

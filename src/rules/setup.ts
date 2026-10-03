@@ -75,6 +75,7 @@ function powerField(pos: Position): string {
   const parts: string[] = [];
   if (pos.used && (pos.used[0] || pos.used[1])) parts.push(`u${pos.used[0]}.${pos.used[1]}`);
   if (pos.mark !== undefined) parts.push(`m${sqName(pos.mark)}${pos.markBy === BLACK ? 'b' : 'w'}${(pos.markLeft ?? 1) > 1 ? pos.markLeft : ''}`);
+  if (pos.ward) parts.push('i');
   if (pos.free) parts.push('f');
   if (pos.haste !== undefined) parts.push(`h${sqName(pos.haste)}`);
   if (pos.lost) {
@@ -102,7 +103,8 @@ function readPowerField(field: string, pos: Position): void {
       pos.mark = parseSq(rest.slice(0, 2));
       pos.markBy = rest[2] === 'b' ? BLACK : WHITE;
       if (rest.length > 3) pos.markLeft = +rest.slice(3);
-    } else if (kind === 'f') pos.free = true;
+    } else if (kind === 'i') pos.ward = true;
+    else if (kind === 'f') pos.free = true;
     else if (kind === 'h') pos.haste = parseSq(rest);
     else if (kind === 'l') {
       const lost = new Array<number>(32).fill(0);

@@ -44,8 +44,22 @@ export const choice = (p: PowerName | 'none'): KingChoice | null => (p === 'none
  * spec's rule variant `behind` (`--variant behind:sacrificeBehind=true`), so one round can screen several
  * readings of a power against the same field (a screening entrant).
  */
-export type Entrant = PowerName | 'none' | `${PowerName}~h${number}` | `${PowerName}~v${string}`;
-export const basePower = (e: Entrant): PowerName | 'none' => e.split('~')[0] as PowerName | 'none';
+export type Entrant = PowerName | 'none' | `${PowerName}~h${number}` | `${PowerName}~v${string}` | `cards${number}`;
+/** A `cards<k>` entrant (card mode) plays a plain king: its powers are its hand. */
+export const basePower = (e: Entrant): PowerName | 'none' => (e.startsWith('cards') ? 'none' : e.split('~')[0] as PowerName | 'none');
+/** The one-use powers card mode deals from, unless a spec names its own `cardPool`. */
+export const CARD_POOL: readonly PowerName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap'];
+/**
+ * A `cards<k>` entrant's hand in one game: the first k cards of the pool shuffled by the pair's own
+ * opening seed. So `cards3` holds the first half of the same pair's `cards6`, both sides of a mirror
+ * hold the same hand, and every entrant of a `perPair` round sees the same hands on the same army.
+ */
+export function handFor(t: TournamentSpec, e: Entrant, seed: number): PowerName[] {
+  if (!e.startsWith('cards')) return [];
+  const pool = [...(t.cardPool ?? CARD_POOL)], rng = mulberry32(seed ^ 0x5bd1e995);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return pool.slice(0, Number(e.slice(5)));
+}
 const holdOf = (e: Entrant): Partial<Record<string, number>> | undefined => {
   const m = /~h(\d+)$/.exec(e);
   return m ? { [basePower(e)]: Number(m[1]) } : undefined;
@@ -97,6 +111,10 @@ export interface TournamentSpec {
    * king. Absent: every matchup.
    */
   anchor?: Entrant;
+  /** Play only each entrant against itself (with `mirror`): for `cards<k>`, both sides with the same hand. */
+  mirrorOnly?: boolean;
+  /** Card mode: the cards `cards<k>` entrants are dealt from (default `CARD_POOL`). */
+  cardPool?: PowerName[];
   depth: number;
   seed: number;
   /** Rules for every game; `kings` is set per game. */
@@ -154,14 +172,17 @@ export function schedule(t: TournamentSpec): TJob[] {
   const seeds = Array.from({ length: t.pairs }, (_, p) => (t.seed * 1_000_003 + p * 7919) >>> 0);
   const jobs: TJob[] = [];
   const e = t.entrants;
+  let pairs = 0;
   for (let i = 0; i < e.length; i++) {
     for (let j = t.mirror ? i : i + 1; j < e.length; j++) {
       if (clashes(t, e[i], e[j]) || clashes(t, e[j], e[i])) continue;
       if (t.anchor !== undefined && e[i] !== t.anchor && e[j] !== t.anchor) continue;
+      if (t.mirrorOnly && i !== j) continue;
       for (let p = 0; p < t.pairs; p++) {
-        const pairId = jobs.length >> 1;
+        const pairId = pairs++;
         const draw = t.armies === 'perPair' ? pairDraw(t.seed, e[i], e[j], p) : { backRank: armies[p], seed: seeds[p] };
-        for (const swap of [false, true]) {
+        // A mirror's colour swap replays the same game exactly, so a mirror-only round plays it once.
+        for (const swap of t.mirrorOnly ? [false] : [false, true]) {
           jobs.push({
             gameId: jobs.length, pairId, a: e[i], b: e[j],
             white: swap ? e[j] : e[i], black: swap ? e[i] : e[j], ...draw,
@@ -178,7 +199,7 @@ export function gameSpec(t: TournamentSpec, job: TJob): RunSpec {
   const sides = [holdOf(job.white), holdOf(job.black)] as [Partial<Record<string, number>> | undefined, Partial<Record<string, number>> | undefined];
   return {
     id: t.id, games: 1, seed: t.seed, ai: { depth: t.depth, ...(t.powerPlies === undefined ? {} : { powerPlies: t.powerPlies }) },
-    rules: gameRules(t, job.white, job.black),
+    rules: { ...gameRules(t, job.white, job.black), ...(job.white.startsWith('cards') || job.black.startsWith('cards') ? { hands: [handFor(t, job.white, job.seed), handFor(t, job.black, job.seed)] } : {}) },
     ...(t.powerHold ? { powerHold: t.powerHold } : {}),
     ...(sides[0] || sides[1] ? { powerHoldSides: sides } : {}),
     maxPlies: t.maxPlies, openingRandomPlies: t.openingRandomPlies,
@@ -563,6 +584,7 @@ export function reportText(specs: readonly TournamentSpec[], rounds: readonly (r
   if (recs.length < scheduled) lines.push(`**Partial:** ${scheduled - recs.length} games still to play; every number below is provisional.`, '');
   const variants = Object.assign({}, ...specs.map(s => s.variants ?? {})) as Record<string, Partial<Rules>>;
   if (Object.keys(variants).length) lines.push(`Variants: ${Object.entries(variants).map(([k, v]) => `\`~v${k}\` = \`${JSON.stringify(v)}\``).join(', ')}. A variant does not meet an entrant whose power its rules would change.`, '');
+  if (specs.every(s => s.mirrorOnly)) return [...lines, ...mirrorSection(recs, entrants), '', endings(recs)].join('\n') + '\n';
   lines.push(`First move: White ${white >= 0 ? '+' : ''}${white.toFixed(0)} ± ${(1.96 * whiteSe).toFixed(0)} Elo.`, '');
   const field = resampleArmies(recs, entrants, false), vsP = resampleArmies(recs, entrants, true);
   const hw = (a: ArmyResample, e: Entrant): string => (Number.isNaN(a.m.get(e)!) ? '-' : (100 * halfWidth(a, a.samples.get(e)!)).toFixed(1));
@@ -634,10 +656,61 @@ export function reportText(specs: readonly TournamentSpec[], rounds: readonly (r
     });
     lines.push(`| **${a}** | ${cells.join(' | ')} |`);
   }
+  lines.push('', endings(recs));
+  return lines.join('\n') + '\n';
+}
+
+function endings(recs: readonly TRecord[]): string {
   const reasons = new Map<string, number>();
   for (const g of recs) reasons.set(g.reason, (reasons.get(g.reason) ?? 0) + 1);
-  lines.push('', `Endings: ${[...reasons].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${pct(v / recs.length)}`).join(', ')}.`);
-  return lines.join('\n') + '\n';
+  return `Endings: ${[...reasons].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${pct(v / recs.length)}`).join(', ')}.`;
+}
+
+/** Mean and 95% half-width of per-pair values (a pair is one army, so the interval counts armies). */
+const meanCi = (xs: readonly number[]): [number, number] => {
+  const m = xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+  const sd = Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, xs.length - 1));
+  return [m, tFromZ(1.96, Math.max(1, xs.length - 1)) * sd / Math.sqrt(Math.max(1, xs.length))];
+};
+
+/**
+ * Mirror rounds (`mirrorOnly`): each entrant against itself, e.g. `cards3` with the same hand on both
+ * sides. Per entrant: White's score (the first-move edge), draws, length and cards played; and the
+ * same measures as differences from `none` on the same armies (paired by draw), when `none` played.
+ */
+export function mirrorSection(recs: readonly TRecord[], entrants: readonly Entrant[]): string[] {
+  const pairsOf = (e: Entrant): Map<string, TRecord[]> => {
+    const out = new Map<string, TRecord[]>();
+    for (const r of recs) if (r.white === e && r.black === e) (out.get(drawOf(r)) ?? out.set(drawOf(r), []).get(drawOf(r))!).push(r);
+    return out;
+  };
+  const per = (rs: readonly TRecord[]) => ({
+    white: rs.reduce((a, r) => a + r.result, 0) / rs.length,
+    draws: rs.filter(r => r.result === 0.5).length / rs.length,
+    plies: rs.reduce((a, r) => a + r.plies, 0) / rs.length,
+    cards: rs.reduce((a, r) => a + r.uses[0] + r.uses[1], 0) / (2 * rs.length),
+  });
+  const base = entrants.includes('none') ? pairsOf('none') : undefined;
+  const f1 = (x: number, w: number): string => `${(100 * x).toFixed(1)} | ${(100 * w).toFixed(1)}`;
+  const out = ['## Same hand for both sides', '',
+    `Each entrant against itself: White's score (50% = no first-move edge), the share of drawn games, plies and cards played per side, with 95% intervals over pairs (one army each)${base ? '; Δ columns are differences from `none` on the same armies' : ''}.`, '',
+    '| entrant | White % | ±95% | draws % | ±95% | Δ White | ±95% | Δ draws | ±95% | plies | cards / side | pairs |', '|---|---|---|---|---|---|---|---|---|---|---|---|'];
+  for (const e of entrants) {
+    const ps = pairsOf(e);
+    if (!ps.size) continue;
+    const vals = [...ps.entries()].map(([d, rs]) => ({ d, ...per(rs) }));
+    const [w, ww] = meanCi(vals.map(v => v.white)), [dr, dw] = meanCi(vals.map(v => v.draws));
+    let delta = '- | - | - | -';
+    if (base && e !== 'none') {
+      const paired = vals.filter(v => base.has(v.d)).map(v => ({ v, b: per(base.get(v.d)!) }));
+      if (paired.length) {
+        const [a, aw] = meanCi(paired.map(p => p.v.white - p.b.white)), [b, bw] = meanCi(paired.map(p => p.v.draws - p.b.draws));
+        delta = `${a >= 0 ? '+' : ''}${f1(a, aw)} | ${b >= 0 ? '+' : ''}${f1(b, bw)}`;
+      }
+    }
+    out.push(`| ${e} | ${f1(w, ww)} | ${f1(dr, dw)} | ${delta} | ${(vals.reduce((a, v) => a + v.plies, 0) / vals.length).toFixed(0)} | ${(vals.reduce((a, v) => a + v.cards, 0) / vals.length).toFixed(2)} | ${vals.length} |`);
+  }
+  return out;
 }
 
 /** Elo per pawn at depth 3, the balance lab's pawn-odds calibration (docs/research/sim-results-2026-09-13.md: 64 ± 16). */
@@ -682,6 +755,7 @@ function parseEntrants(text: string | true | undefined, none: boolean): Entrant[
   const list = typeof text === 'string' ? text.split(',').map(s => s.trim()).filter(Boolean) : [...ALL_POWERS];
   const out = list.map((s): Entrant => {
     if (s === 'none') return 'none';
+    if (/^cards\d+$/.test(s)) return s as Entrant;
     const [name, variant] = s.split('~');
     const p = ALL_POWERS.find(x => x.toLowerCase() === name.toLowerCase());
     if (!p) throw new Error(`unknown power "${s}" (${ALL_POWERS.join(', ')}, none; variants are Power~h120 and Power~v<name>)`);
@@ -744,6 +818,8 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
       // Left out when shared, so the specs of rounds 1–12 still match and resume.
       ...(f.armies === 'perPair' ? { armies: 'perPair' as const } : {}),
       ...(typeof f.anchor === 'string' ? { anchor: parseEntrants(f.anchor, false)[0] } : {}),
+      ...(f.mirrorOnly ? { mirrorOnly: true } : {}),
+      ...(typeof f.cardPool === 'string' ? { cardPool: parseEntrants(f.cardPool, false).map(basePower).filter((p): p is PowerName => p !== 'none') } : {}),
       depth: num('depth', 3), seed: num('seed', 101),
       rules: parseRuleFlags(argv),
       ...(variants ? { variants } : {}),
