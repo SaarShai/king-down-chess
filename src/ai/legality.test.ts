@@ -2,13 +2,13 @@
  * The search's legal-move filter skips the king-safety probe for moves that cannot expose the king
  * (`genLegal` in ./search.ts). Held to the engine's own `legalMoves`, which makes every move and looks
  * at the king, on random positions with every piece type (catapults included: their screen is the
- * one way an arriving piece can expose a king) and random kings' powers.
+ * one way an arriving piece can expose a king) and random kings' powers, or random card hands.
  */
 import { afterEach, expect, it } from 'vitest';
 import {
-  A, B, BLACK, C, Color, G, K, L, M, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, inCheck, legalMoves, piece,
+  A, B, BLACK, C, Color, G, K, L, M, Mark, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, inCheck, legalMoves, piece,
 } from '../rules/engine';
-import { KINGS, KingName, PowerName, setRules } from '../rules/rules';
+import { CARD_ONLY, CardName, KINGS, KingName, PowerName, TIER1, USES_RULE, setRules } from '../rules/rules';
 import { toFen, toLan } from '../rules/setup';
 import { searchLegal, setFastLegality } from './search';
 
@@ -17,23 +17,29 @@ afterEach(() => { setRules(); setFastLegality(true); });
 const TYPES: PieceType[] = [P, N, B, R, Q, A, L, G, M, S, O, C, V, T];
 const POWERS = (Object.entries(KINGS) as [KingName, readonly PowerName[]][]).flatMap(([king, ps]) => ps.map(power => ({ king, power })));
 
+/** A random position: both kings apart, about 30% of the other squares holding a random piece. */
+function randomBoard(rng: () => number): Uint8Array {
+  const board = new Uint8Array(64);
+  const kw = Math.floor(rng() * 64);
+  let kb = Math.floor(rng() * 64);
+  while (kb === kw || Math.max(Math.abs((kb & 7) - (kw & 7)), Math.abs((kb >> 3) - (kw >> 3))) < 2) kb = Math.floor(rng() * 64);
+  board[kw] = piece(K, WHITE);
+  board[kb] = piece(K, BLACK);
+  for (let s = 0; s < 64; s++) {
+    if (board[s] || rng() < 0.7) continue;
+    const t = TYPES[Math.floor(rng() * TYPES.length)];
+    if (t === P && (s < 8 || s >= 56)) continue;
+    board[s] = piece(t, rng() < 0.5 ? WHITE : BLACK);
+  }
+  return board;
+}
+
 it('skipping the king probe never changes the legal moves', () => {
   let seed = 4242;
   const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
   let checked = 0, inCheckCount = 0;
   for (let trial = 0; trial < 4000; trial++) {
-    const board = new Uint8Array(64);
-    const kw = Math.floor(rng() * 64);
-    let kb = Math.floor(rng() * 64);
-    while (kb === kw || Math.max(Math.abs((kb & 7) - (kw & 7)), Math.abs((kb >> 3) - (kw >> 3))) < 2) kb = Math.floor(rng() * 64);
-    board[kw] = piece(K, WHITE);
-    board[kb] = piece(K, BLACK);
-    for (let s = 0; s < 64; s++) {
-      if (board[s] || rng() < 0.7) continue;
-      const t = TYPES[Math.floor(rng() * TYPES.length)];
-      if (t === P && (s < 8 || s >= 56)) continue;
-      board[s] = piece(t, rng() < 0.5 ? WHITE : BLACK);
-    }
+    const board = randomBoard(rng);
     const turn = (rng() < 0.5 ? WHITE : BLACK) as Color;
     const pos: Position = { board, turn, halfmove: 0, ply: 0 };
     if (inCheck(pos, (turn ^ 1) as Color)) continue; // the side not to move may not be in check
@@ -52,4 +58,44 @@ it('skipping the king probe never changes the legal moves', () => {
   }
   expect(checked).toBeGreaterThan(1000);
   expect(inCheckCount).toBeGreaterThan(50);
+}, 120_000);
+
+it('the same with card hands, the card-only cards included, and marks on the board', () => {
+  let seed = 9191;
+  const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+  const pick = <X>(xs: readonly X[]): X => xs[Math.floor(rng() * xs.length)];
+  const CARDS: readonly CardName[] = [...(Object.keys(USES_RULE) as PowerName[]), ...CARD_ONLY, ...CARD_ONLY]; // the new cards twice as often
+  const STATELESS = POWERS.filter(k => TIER1.includes(k.power) && k.power !== 'March' && k.power !== 'Leap');
+  let checked = 0, inCheckCount = 0;
+  const played = new Set<string>();
+  for (let trial = 0; trial < 3000; trial++) {
+    const board = randomBoard(rng);
+    const turn = (rng() < 0.5 ? WHITE : BLACK) as Color;
+    const pos: Position = { board, turn, halfmove: 0, ply: 0 };
+    if (inCheck(pos, (turn ^ 1) as Color)) continue;
+    const hand = (): CardName[] => Array.from({ length: 1 + Math.floor(rng() * 4) }, () => pick(CARDS));
+    const hw = hand(), hb = hand();
+    setRules({ hands: [hw, hb], kings: [rng() < 0.3 ? pick(STATELESS) : null, rng() < 0.3 ? pick(STATELESS) : null], markTurns: rng() < 0.5 ? 2 : 1 });
+    // Some cards already played, some marks set (by either side, a card-mode Ice Wall or a Freeze).
+    pos.used = [Math.floor(rng() * (1 << hw.length)) & ~1, Math.floor(rng() * (1 << hb.length)) & ~1];
+    const mark = (): Mark | undefined => (rng() < 0.4 ? { sq: Math.floor(rng() * 64), ...(rng() < 0.5 ? { ward: true } : {}) } : undefined);
+    pos.marks = [mark(), mark()];
+    if (hw.includes('Sacrifice') || hb.includes('Sacrifice')) { const lost = new Array<number>(32).fill(0); lost[pick(TYPES)] = 1; lost[16 + pick(TYPES)] = 1; pos.lost = lost; }
+    if (inCheck(pos)) inCheckCount++;
+    const engineMoves = legalMoves(pos);
+    for (const m of engineMoves) if (m.power) played.add(m.power);
+    const engine = engineMoves.map(m => toLan(pos, m)).sort();
+    const fast = searchLegal(pos).map(m => toLan(pos, m)).sort();
+    setFastLegality(false);
+    const slow = searchLegal(pos).map(m => toLan(pos, m)).sort();
+    setFastLegality(true);
+    const where = `${toFen(pos)} hands ${JSON.stringify([hw, hb])}`;
+    expect(new Set(engine).size, where).toBe(engine.length); // every move has its own notation
+    expect(fast, where).toEqual(slow);
+    expect(fast, where).toEqual(engine);
+    checked++;
+  }
+  expect(checked).toBeGreaterThan(1000);
+  expect(inCheckCount).toBeGreaterThan(50);
+  for (const tag of ['mimic', 'vault', 'curse', 'skylift']) expect(played).toContain(tag);
 }, 120_000);

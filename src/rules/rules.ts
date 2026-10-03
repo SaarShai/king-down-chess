@@ -74,6 +74,20 @@ export type PowerName =
   | 'Freeze' | 'IceWall' | 'Strike' | 'Haste' | 'Flight' | 'Sacrifice'
   | 'March' | 'Leap' | 'HolyLight' | 'Mercy' | 'DeathTouch' | 'Darkness';
 export interface KingChoice { king: KingName; power: PowerName }
+/**
+ * What card mode deals (`Rules.hands`): a one-use king power, or a card that no king has (`CARD_ONLY`).
+ * A card-only name is never a `PowerName`, so the king picker and the per-power tables never see it.
+ */
+export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift';
+/**
+ * The cards no king has (lab, 2026-10-03), each one use and the turn's move:
+ * - **Mimic**: a piece (not king or pawn) moves, to an empty square only, the way one of the side's
+ *   other piece types moves (not a king or pawn); it keeps its own type.
+ * - **Vault**: a rook, bishop or queen passes exactly one piece on its line, of either side.
+ * - **Curse**: an enemy piece or pawn (not the king) steps one square onto an empty square.
+ * - **SkyLift**: two of the side's own pieces (not king or pawn, not one type) trade squares.
+ */
+export const CARD_ONLY: readonly CardName[] = ['Mimic', 'Vault', 'Curse', 'SkyLift'];
 
 /** Each king's two powers, A first (docs/RULES.md §4). */
 export const KINGS: Readonly<Record<KingName, readonly [PowerName, PowerName]>> = Object.freeze({
@@ -471,12 +485,13 @@ export interface Rules {
   kings: readonly [KingChoice | null, KingChoice | null];
   /**
    * Card mode (lab, 2026-10-03): each side's hand of one-use cards, `[white, black]`. A card is one
-   * use of a spendable power, with that power's rules; a side plays at most one a turn (each power
+   * use of a spendable power, with that power's rules, or a card no king has (`CARD_ONLY`, off unless
+   * a hand names it); a side plays at most one a turn (each power
    * move is the turn, or a free mark then the ordinary move). Which cards are played travels in
    * `Position.used` as a bit per hand index. Empty hands (the default) = no card mode; the kings'
    * powers stay as they are, so give the kings no power in card mode.
    */
-  hands: readonly [readonly PowerName[], readonly PowerName[]];
+  hands: readonly [readonly CardName[], readonly CardName[]];
   /** Setup: reject a back rank whose two bishops share a square colour (Chess960 spirit). */
   bishopsOppositeColours: boolean;
   /** Which pieces a pawn may become on the last rank. */
@@ -583,7 +598,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   reaverStep: 'ortho' as ReaverStep,
   catapultCapture: 'stay' as CatapultCapture,
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
-  hands: [[], []] as readonly [readonly PowerName[], readonly PowerName[]],
+  hands: [[], []] as readonly [readonly CardName[], readonly CardName[]],
   bishopsOppositeColours: true,
   // Reverted to the chess set on 2026-09-17 (designer guideline: do not keep a rule that adds
   // nothing measurable). Fairy promotions were 1.3% of all promotions and moved no outcome metric;
@@ -700,9 +715,10 @@ export function parseRule(text: string): Partial<Rules> {
   if (key === 'kingBlack') return { kings: [null, parseKing(value)] };
   // `hands=Freeze+Haste` gives both sides that hand, `hands=Freeze+Haste,Flight` names them apart.
   if (key === 'hands') {
-    const side = (t: string): PowerName[] => t.split('+').filter(Boolean).map(n => {
-      const p = (Object.values(KINGS).flat() as PowerName[]).find(x => x.toLowerCase() === n.toLowerCase());
-      if (!p || !USES_RULE[p]) throw new Error(`hands: "${n}" is not a one-use power (${Object.keys(USES_RULE).join(', ')})`);
+    const cards: readonly CardName[] = [...(Object.keys(USES_RULE) as PowerName[]), ...CARD_ONLY];
+    const side = (t: string): CardName[] => t.split('+').filter(Boolean).map(n => {
+      const p = cards.find(x => x.toLowerCase() === n.toLowerCase());
+      if (!p) throw new Error(`hands: "${n}" is not a one-use power or card (${cards.join(', ')})`);
       return p;
     });
     const [w, b = w] = value.split(',');

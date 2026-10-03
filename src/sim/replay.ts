@@ -24,7 +24,7 @@ export function countMove(events: Events, pos: Position, move: Move, post: Posit
   const mt = typeOf(pos.board[move.from]);
   if (mt === A && move.to === move.from) events.archerShots[c]++;
   if (mt === S && move.captures.length) events.beastChains[c].push(move.captures.length);
-  if (move.swap) {
+  if (move.swap && move.power !== 'skylift') { // a SkyLift card uses the swap's shape, but no maester
     events.maesterSwaps[c]++;
     if (typeOf(pos.board[move.to]) === K) events.maesterLongSwaps[c]++;
   }
@@ -39,7 +39,8 @@ export function countMove(events: Events, pos: Position, move: Move, post: Posit
   if (move.power === 'strike') events.strikes[c]++;
   if (move.power) (events.powers[move.power] ??= [0, 0])[c]++;
   else if (move.pass) (events.powers.pass ??= [0, 0])[c]++;
-  if (inCheck(post)) { events.checks[c]++; if (mt === C) events.catapultChecks[c]++; }
+  // A Curse moves an enemy piece: an enemy catapult never checks its own king.
+  if (inCheck(post)) { events.checks[c]++; if (mt === C && move.power !== 'curse') events.catapultChecks[c]++; }
 }
 
 export interface Replay { events: Events; plies: number; end: Position }

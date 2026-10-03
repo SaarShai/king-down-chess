@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   type Entrant, type TJob, type TRecord, type TournamentSpec,
-  checkResume, drawOf, gameSpec, halfWidth, handFor, pairDraw, poolRounds, reportText, resampleArmies, schedule, scoreVsPowers, tFromZ,
+  checkResume, compress, drawOf, gameSpec, halfWidth, handFor, pairDraw, poolRounds, reportText, resampleArmies, schedule, scoreVsPowers, tFromZ,
 } from './tournament';
+import type { GameRecord } from './game';
 
 const spec = (over: Partial<TournamentSpec> = {}): TournamentSpec => ({
   id: 't', entrants: ['Freeze', 'Haste', 'Flight', 'none'], pairs: 3, depth: 1, seed: 2222, rules: {},
@@ -96,6 +97,25 @@ describe('tournament schedule', () => {
       expect(gameSpec(t, n).rules?.hands).toBeUndefined();
     }
     expect(handFor(t, 'cards6', 1)).not.toEqual(handFor(t, 'cards6', 2));
+  });
+
+  it('card:<Name>: a one-card hand on the armies none plays, against the anchor none', () => {
+    const t = spec({ entrants: ['none', 'card:Mimic', 'card:Curse'], anchor: 'none', mirror: true, armies: 'perPair', pairs: 3 });
+    const jobs = schedule(t);
+    expect([...new Set(jobs.map(j => `${j.a}|${j.b}`))]).toEqual(['none|none', 'none|card:Mimic', 'none|card:Curse']);
+    const mirror = (p: number): TJob => jobs.find(k => k.b === 'none' && k.pairId % 3 === p)!;
+    for (const j of jobs) expect(drawOf(j)).toBe(drawOf(mirror(j.pairId % 3)));
+    const g = jobs.find(j => j.white === 'card:Mimic')!;
+    expect(gameSpec(t, g).rules).toMatchObject({ hands: [['Mimic'], []], kings: [null, null] });
+    expect(gameSpec(t, mirror(0)).rules?.hands).toBeUndefined();
+    expect(handFor(t, 'card:SkyLift', 1)).toEqual(['SkyLift']);
+  });
+
+  it('counts every card played, the card-only ones included', () => {
+    const job = schedule(spec({ entrants: ['none', 'card:Vault'] }))[0];
+    const lans = ['e2-e4', 'Ra1-a5!V', 'Nb1-c3!X', '!C:d5-d4', '!K:a1<>b1', 'Nb1-c3', '--'];
+    const rec = { moves: lans.map((lan, i) => ({ lan, by: i & 1 })), result: 0.5, reason: 'draw', plies: lans.length, ms: 1, events: { checks: [0, 0] } } as unknown as GameRecord;
+    expect([compress(job, rec).uses, compress(job, rec).firstUse]).toEqual([[2, 2], [2, 1]]);
   });
 
   it('a resume refuses records that this code would schedule differently', () => {

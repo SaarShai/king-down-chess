@@ -8,9 +8,9 @@
  * to `setRules` the defaults apply, which is exactly the game the browser plays today.
  */
 
-import { ArcherShots, PowerName, RULES, Rules, USES_RULE } from './rules';
-export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CatapultCapture, GuardCaptures, KingChoice, KingName, OgreMode, OgreShoveFriends, PaladinKamikaze, PowerName, PromotionSet, Rules, StrikeMode } from './rules';
-export { BUILT, DEFAULT_RULES, KINGS, POWERS_BALANCED, RULES, RULES_2017, RULES_2021, TIER1, USES_RULE, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
+import { ArcherShots, CardName, PowerName, RULES, Rules, USES_RULE } from './rules';
+export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CardName, CatapultCapture, GuardCaptures, KingChoice, KingName, OgreMode, OgreShoveFriends, PaladinKamikaze, PowerName, PromotionSet, Rules, StrikeMode } from './rules';
+export { BUILT, CARD_ONLY, DEFAULT_RULES, KINGS, POWERS_BALANCED, RULES, RULES_2017, RULES_2021, TIER1, USES_RULE, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 
 export type Color = 0 | 1;
 export const WHITE: Color = 0;
@@ -86,6 +86,9 @@ export interface Move {
    * - `sacrifice`: an own pawn becomes a piece the side lost earlier; `from === to`, `promo` names it.
    * - `march` / `leap`: the counted pawn double step from any rank, and a slider passing over its own
    *   pawns. (At 0 uses they are always on, as ordinary moves with no tag.)
+   * - Card-only cards (`CARD_ONLY`): `mimic`, a piece moves to an empty square as another own type
+   *   moves; `vault`, a slider passes exactly one piece; `curse`, `from` is an *enemy* piece that
+   *   steps one square; `skylift`, two own pieces trade squares (the maester swap's shape, `swap`).
    * No power move ever captures a king, and none adds an attacked square.
    */
   power?: PowerTag;
@@ -95,7 +98,7 @@ export interface Move {
 }
 
 /** The tag on a move that spends a king power (`Move.power`). */
-export type PowerTag = 'freeze' | 'ward' | 'strike' | 'haste' | 'flight' | 'sacrifice' | 'march' | 'leap';
+export type PowerTag = 'freeze' | 'ward' | 'strike' | 'haste' | 'flight' | 'sacrifice' | 'march' | 'leap' | 'mimic' | 'vault' | 'curse' | 'skylift';
 
 export interface Position {
   board: Uint8Array;
@@ -217,13 +220,14 @@ export function powerUses(c: Color): number {
 }
 
 /** Card mode: side `c`'s hand (`Rules.hands`); empty outside card mode. */
-export const handOf = (c: Color): readonly PowerName[] => RULES.hands[c];
-/** The power each power-move tag spends. */
-const TAG_POWER: Readonly<Record<PowerTag, PowerName>> = {
+export const handOf = (c: Color): readonly CardName[] => RULES.hands[c];
+/** The power (or card) each power-move tag spends. */
+const TAG_POWER: Readonly<Record<PowerTag, CardName>> = {
   freeze: 'Freeze', ward: 'IceWall', strike: 'Strike', haste: 'Haste', flight: 'Flight', sacrifice: 'Sacrifice', march: 'March', leap: 'Leap',
+  mimic: 'Mimic', vault: 'Vault', curse: 'Curse', skylift: 'SkyLift',
 };
 /** Card mode: may side `c` (cards played: the bits of `used`) still play a `power` card? */
-const holdsCard = (c: Color, used: number, power: PowerName): boolean => handOf(c).some((p, k) => p === power && !(used >> k & 1));
+const holdsCard = (c: Color, used: number, power: CardName): boolean => handOf(c).some((p, k) => p === power && !(used >> k & 1));
 /** Side `c`'s spent state after a power move tagged `tag`: one more use, or in card mode the bit of the first unplayed card of that power. */
 export function spend(c: Color, used: number, tag: PowerTag): number {
   const hand = handOf(c);
@@ -407,9 +411,12 @@ function slider(board: Uint8Array, from: number, c: Color, att: number, dirs: re
   }
 }
 
-/** The unfiltered switch behind `genPiece`; see the exported wrapper for the C2 filter. */
-function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]): void {
-  const p = board[from];
+/**
+ * The unfiltered switch behind `genPiece`; see the exported wrapper for the C2 filter. `p` is the
+ * piece that moves: the one on `from`, or another type of the same colour for a Mimic card (no case
+ * reads `board[from]` again).
+ */
+function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[], p = board[from]): void {
   const c = colorOf(p), t = typeOf(p);
   switch (t) {
     case P: {
@@ -1037,11 +1044,26 @@ export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: A
   if (!hand.length) genPowerMovesRaw(powerOf(c), board, c, lost, out, n0, n1);
   // Card mode: each unplayed card's moves, once per power (a second copy offers the same moves).
   else hand.forEach((p, k) => { if (!(used >> k & 1) && hand.findIndex((q, i) => q === p && !(used >> i & 1)) === k) genPowerMovesRaw(p, board, c, lost, out, n0, n1); });
-  // A power capture (Strike, a counted Leap) spares a sheltered piece like any other capture.
+  // A power capture (Strike, a counted Leap, a Vault) spares a sheltered piece like any other capture.
   if (shelters()) dropSheltered(board, out, start);
 }
 
-function genPowerMovesRaw(power: PowerName | '', board: Uint8Array, c: Color, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number): void {
+/** Scratch for the Mimic and Vault cards: a borrowed type's moves, and the squares a piece reaches by its own moves. */
+const BORROWED: Move[] = [];
+const REACH = new Uint8Array(64);
+/**
+ * Mark in `REACH` the squares the piece on `s` reaches by its own plain moves in `out[n0..n1)` (one
+ * piece moving from `s` to `to`, taking at most what stands on `to`), so a card does not offer them again.
+ */
+function ownReach(out: readonly Move[], n0: number, n1: number, s: number): void {
+  REACH.fill(0);
+  for (let i = n0; i < n1; i++) {
+    const m = out[i];
+    if (m.from === s && m.to !== s && !m.swap && !m.shove && !m.selfRemove && (!m.captures.length || (m.captures.length === 1 && m.captures[0] === m.to))) REACH[m.to] = 1;
+  }
+}
+
+function genPowerMovesRaw(power: CardName | '', board: Uint8Array, c: Color, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number): void {
   switch (power) {
     case 'Freeze': case 'IceWall': {
       // Freeze names an enemy piece, Ice Wall an own one; never a king.
@@ -1136,24 +1158,88 @@ function genPowerMovesRaw(power: PowerName | '', board: Uint8Array, c: Color, lo
       }
       return;
     }
-    case 'Leap': {
+    case 'Leap': case 'Vault': {
       // Counted reading: a rook, bishop or queen continues past its own pawns; a square reached only
       // over one is a Leap. Every other blocker stops the ray, and a Leap never takes a king.
+      // The Vault card: past exactly one piece of either side (a king included, which it does not
+      // touch), to an empty square or onto the first piece beyond, if it may take that piece; a
+      // second piece always stops it. A square its own moves reach (always-on Leap) is not offered.
+      const vault = power === 'Vault', tag: PowerTag = vault ? 'vault' : 'leap';
       for (let s = 0; s < 64; s++) {
         const p = board[s];
         if (!p || colorOf(p) !== c) continue;
         const t = typeOf(p);
         const dirs = t === R ? ORTHO : t === B ? DIAG : t === Q ? DIRS8 : null;
         if (!dirs) continue;
+        if (vault) ownReach(out, n0, n1, s);
         for (const [df, dr] of dirs) {
           let jumped = false;
           for (let to = step(s, df, dr); to >= 0; to = step(to, df, dr)) {
             const v = board[to];
-            if (!v) { if (jumped) out.push({ from: s, to, captures: [], power: 'leap' }); continue; }
-            if (colorOf(v) === c && typeOf(v) === P) { jumped = true; continue; }
-            if (jumped && colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v))) out.push({ from: s, to, captures: [to], power: 'leap' });
+            if (!v) { if (jumped && !(vault && REACH[to])) out.push({ from: s, to, captures: [], power: tag }); continue; }
+            if (vault ? !jumped : colorOf(v) === c && typeOf(v) === P) { jumped = true; continue; }
+            if (jumped && colorOf(v) !== c && typeOf(v) !== K && canCapture(p, typeOf(v)) && !(vault && REACH[to])) out.push({ from: s, to, captures: [to], power: tag });
             break;
           }
+        }
+      }
+      return;
+    }
+    case 'Mimic': {
+      // A piece, not the king or a pawn, moves the way another type among the side's own pieces
+      // moves (not a king or a pawn): that type's plain moves from this square onto an empty square,
+      // blocked as that type is blocked, never its captures, shots, swaps, shoves or chains. It keeps
+      // its own type (`landed`), lands where a guard may land if it is one, and is not offered a
+      // square its own moves reach. One move per square, whichever types reach it.
+      let types = 0;
+      for (let s = 0; s < 64; s++) { const p = board[s]; if (p && colorOf(p) === c) types |= 1 << typeOf(p); }
+      types &= ~(1 << K | 1 << P);
+      for (let s = 0; s < 64; s++) {
+        const p = board[s];
+        if (!p || colorOf(p) !== c || typeOf(p) === K || typeOf(p) === P) continue;
+        const borrow = types & ~(1 << typeOf(p));
+        if (!borrow) continue;
+        ownReach(out, n0, n1, s);
+        for (let t = 1; t < 16; t++) {
+          if (!(borrow >> t & 1)) continue;
+          BORROWED.length = 0;
+          genPieceRaw(board, s, 'all', BORROWED, piece(t as PieceType, c));
+          for (const m of BORROWED) {
+            if (m.captures.length || m.swap || m.shove || m.selfRemove || REACH[m.to] || !guardMayLand(p, m.to)) continue;
+            REACH[m.to] = 1;
+            out.push({ from: s, to: m.to, captures: [], power: 'mimic' });
+          }
+        }
+      }
+      return;
+    }
+    case 'Curse': {
+      // An enemy piece or pawn, not the king, steps one square in any direction onto an empty square.
+      // It takes nothing and stays the opponent's, of its own type; a pawn lands on ranks 2-7 only,
+      // so it never promotes. Legality is the caller's as always: a Curse that puts an enemy piece
+      // where it attacks our king is not legal.
+      for (let s = 0; s < 64; s++) {
+        const p = board[s];
+        if (!p || colorOf(p) === c || typeOf(p) === K) continue;
+        const pawn = typeOf(p) === P;
+        for (let d = 0; d < 8; d++) {
+          const to = NEIGHBOUR[s * 8 + d];
+          if (to < 0 || board[to] || (pawn && (rank(to) === 0 || rank(to) === 7)) || !guardMayLand(p, to)) continue;
+          out.push({ from: s, to, captures: [], power: 'curse' });
+        }
+      }
+      return;
+    }
+    case 'SkyLift': {
+      // Two own pieces trade squares at any distance, in the maester swap's shape: neither the king
+      // nor a pawn, not two of one type, and each lands where a guard may land (Flight's limit).
+      for (let a = 0; a < 64; a++) {
+        const p = board[a];
+        if (!p || colorOf(p) !== c || typeOf(p) === K || typeOf(p) === P) continue;
+        for (let b = a + 1; b < 64; b++) {
+          const q = board[b];
+          if (!q || colorOf(q) !== c || typeOf(q) === K || typeOf(q) === P || typeOf(q) === typeOf(p) || !guardMayLand(p, b) || !guardMayLand(q, a)) continue;
+          out.push({ from: a, to: b, captures: [], swap: true, power: 'skylift' });
         }
       }
       return;
@@ -1164,8 +1250,9 @@ function genPowerMovesRaw(power: PowerName | '', board: Uint8Array, c: Color, lo
 /**
  * Drop the moves a Freeze or Ice Wall mark forbids the side to move `c` (from `out[n0]` on). A
  * frozen piece does not move by any hand: not itself, not by its own maester's swap or ogre's shove
- * (it may still be warded). A warded piece cannot be captured, by a chain either — the chain's
- * shorter prefixes stay. Neither changes an attack: a frozen piece still gives check.
+ * or a SkyLift (it may still be warded). A warded piece cannot be captured, by a chain either — the
+ * chain's shorter prefixes stay — nor moved by a Curse. Neither changes an attack: a frozen piece
+ * still gives check.
  */
 export function filterMarks(c: Color, mark: number | undefined, markBy: Color | undefined, out: Move[], n0 = 0, ward: boolean | undefined = false): void {
   if (mark === undefined || mark < 0) return;
@@ -1176,9 +1263,20 @@ export function filterMarks(c: Color, mark: number | undefined, markBy: Color | 
     const m = out[i];
     const blocked = kind === 'frozen'
       ? (m.from === mark && m.power !== 'ward' && m.power !== 'freeze') || (m.swap === true && m.to === mark) || m.shove?.from === mark
-      : m.captures.includes(mark);
+      : m.captures.includes(mark) || (m.power === 'curse' && m.from === mark);
     if (!blocked) out[n++] = m;
   }
+  out.length = n;
+}
+
+/**
+ * Curse: the side to move `c` may not move the enemy piece that its own Freeze (`mark`, set by `c`)
+ * still holds; under `markTurns: 2` that mark binds the piece's next turn too.
+ */
+export function filterHeld(c: Color, mark: number | undefined, ward: boolean | undefined, out: Move[]): void {
+  if (mark === undefined || mark < 0 || !handOf(c).includes('Curse') || markKind((c ^ 1) as Color, c, ward) !== 'frozen') return;
+  let n = 0;
+  for (let i = 0; i < out.length; i++) if (out[i].power !== 'curse' || out[i].from !== mark) out[n++] = out[i];
   out.length = n;
 }
 
@@ -1249,9 +1347,10 @@ export function pseudoMoves(pos: Position, mode: GenMode = 'all'): Move[] {
     if (pos.free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(pos.board, c)); }
     else if (mode === 'all') genPowerMoves(pos.board, c, pos.used?.[c] ?? 0, pos.lost, out, 0, out.length);
   }
-  // Only the opponent's mark binds the side to move.
-  const theirs = pos.marks?.[c ^ 1];
+  // Only the opponent's mark binds the side to move; its own Freeze only keeps a Curse off its piece.
+  const theirs = pos.marks?.[c ^ 1], mine = pos.marks?.[c];
   if (theirs) filterMarks(c, theirs.sq, (c ^ 1) as Color, out, 0, theirs.ward);
+  if (mine) filterHeld(c, mine.sq, mine.ward, out);
   return out;
 }
 
@@ -1291,7 +1390,11 @@ export function insufficientMaterial(board: Uint8Array): boolean {
   return minors[WHITE] <= 1 && minors[BLACK] <= 1;
 }
 
-/** Material draw under the active rules; an unspent Strike can still change mating potential. */
+/**
+ * Material draw under the active rules; an unspent Strike can still change mating potential. The
+ * card-only cards need no clause: like Flight, each moves pieces once but changes no type and adds
+ * no attacked square, so the material that can mate stays what the board shows.
+ */
 export function materialDraw(board: Uint8Array, used?: readonly [number, number]): boolean {
   const liveStrike = (c: Color): boolean => handOf(c).length ? holdsCard(c, used?.[c] ?? 0, 'Strike') : powerOf(c) === 'Strike' && canSpend(c, used?.[c] ?? 0);
   return RULES.insufficientMaterial && !liveStrike(WHITE) && !liveStrike(BLACK) && insufficientMaterial(board);
