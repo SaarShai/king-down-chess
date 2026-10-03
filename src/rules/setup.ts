@@ -1,5 +1,5 @@
 /** Start positions, FEN-style serialisation and move notation. */
-import { BLACK, Color, G, LETTERS, Move, P, PieceType, Position, SPENT, V, WHITE, colorOf, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
+import { BLACK, Color, G, LETTERS, Mark, Move, P, PieceType, Position, SPENT, V, WHITE, colorOf, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
 import { RULES } from './rules';
 
 /** King Down Classic pool: 7 of these join the king on the back rank. */
@@ -74,7 +74,8 @@ export function toFen(pos: Position): string {
 function powerField(pos: Position): string {
   const parts: string[] = [];
   if (pos.used && (pos.used[0] || pos.used[1])) parts.push(`u${pos.used[0]}.${pos.used[1]}`);
-  if (pos.mark !== undefined) parts.push(`m${sqName(pos.mark)}${pos.markBy === BLACK ? 'b' : 'w'}${(pos.markLeft ?? 1) > 1 ? pos.markLeft : ''}`);
+  // One token per marking side: square, side, `i` for a card-mode Ice Wall, turns left above 1.
+  pos.marks?.forEach((k, by) => { if (k) parts.push(`m${sqName(k.sq)}${by === BLACK ? 'b' : 'w'}${k.ward ? 'i' : ''}${(k.left ?? 1) > 1 ? k.left : ''}`); });
   if (pos.free) parts.push('f');
   if (pos.haste !== undefined) parts.push(`h${sqName(pos.haste)}`);
   if (pos.lost) {
@@ -99,9 +100,10 @@ function readPowerField(field: string, pos: Position): void {
     const kind = token[0], rest = token.slice(1);
     if (kind === 'u') { const [w = '0', b = '0'] = rest.split('.'); pos.used = [+w, +b]; }
     else if (kind === 'm') {
-      pos.mark = parseSq(rest.slice(0, 2));
-      pos.markBy = rest[2] === 'b' ? BLACK : WHITE;
-      if (rest.length > 3) pos.markLeft = +rest.slice(3);
+      const by = rest[2] === 'b' ? BLACK : WHITE, ward = rest[3] === 'i', left = rest.slice(ward ? 4 : 3);
+      const marks: [Mark | undefined, Mark | undefined] = [pos.marks?.[0], pos.marks?.[1]];
+      marks[by] = { sq: parseSq(rest.slice(0, 2)), ...(left ? { left: +left } : {}), ...(ward ? { ward: true } : {}) };
+      pos.marks = marks;
     } else if (kind === 'f') pos.free = true;
     else if (kind === 'h') pos.haste = parseSq(rest);
     else if (kind === 'l') {

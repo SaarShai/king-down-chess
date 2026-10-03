@@ -1,0 +1,36 @@
+{
+  "id": "cards-a1",
+  "entrants": [
+    "Freeze",
+    "IceWall",
+    "Strike",
+    "Haste",
+    "Flight",
+    "Sacrifice",
+    "March",
+    "Leap",
+    "none"
+  ],
+  "pairs": 300,
+  "armies": "perPair",
+  "anchor": "none",
+  "depth": 3,
+  "seed": 4444,
+  "rules": {
+    "markFree": true,
+    "freezeUses": 1,
+    "iceWallUses": 1,
+    "strikeUses": 1,
+    "hasteUses": 1,
+    "flightUses": 1,
+    "sacrificeUses": 1,
+    "marchUses": 1,
+    "leapUses": 1,
+    "hasteCaptures": false,
+    "strikeCaptures": false,
+    "strikePawns": false
+  },
+  "mirror": true,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

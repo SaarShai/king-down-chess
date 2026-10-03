@@ -17,6 +17,19 @@ const next = (): number => {
   seed ^= seed << 5;
   return seed >>> 0;
 };
+/**
+ * A `hi` half from its own (mulberry32) stream. xorshift is linear over GF(2), so a `hi` taken from
+ * the `lo` stream was a fixed function of `lo` and added no bits: keys carried 32, not 52 (review,
+ * 2026-10-03). `next()` still advances, so every `lo` keeps its value and the table index too.
+ */
+let hiSeed = 0x6a09e667;
+const nextHi = (): number => {
+  next();
+  let t = (hiSeed = (hiSeed + 0x6d2b79f5) | 0);
+  t = Math.imul(t ^ (t >>> 15), 1 | t);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) & 0xfffff; // 20 bits keeps combine() exact
+};
 
 /**
  * Index = ((spent * 2 + colour) * SLOTS + type) * 64 + square; `SLOTS` is the type count (slot 0
@@ -31,7 +44,7 @@ const fill = (spent: number, c: number, t: number): void => {
   const base = ((spent * 2 + c) * SLOTS + t) << 6;
   for (let i = base; i < base + 64; i++) {
     Z_LO[i] = next() | 0;
-    Z_HI[i] = next() & 0xfffff; // 20 bits keeps combine() exact
+    Z_HI[i] = nextHi();
   }
 };
 /*
@@ -43,7 +56,7 @@ const fill = (spent: number, c: number, t: number): void => {
  */
 for (let c = 0; c < 2; c++) for (let t = 0; t < 12; t++) fill(0, c, t);
 export const Z_TURN_LO = next() | 0;
-export const Z_TURN_HI = next() & 0xfffff;
+export const Z_TURN_HI = nextHi();
 for (let c = 0; c < 2; c++) for (let t = 0; t < 12; t++) fill(1, c, t);
 for (let spent = 0; spent < 2; spent++) for (let c = 0; c < 2; c++) for (let t = 12; t < SLOTS; t++) fill(spent, c, t);
 
@@ -78,7 +91,7 @@ export function hashBoard(board: Uint8Array, turn: Color, out: Int32Array): void
  */
 const draw = (n: number): [Int32Array, Int32Array] => {
   const lo = new Int32Array(n), hi = new Int32Array(n);
-  for (let i = 0; i < n; i++) { lo[i] = next() | 0; hi[i] = next() & 0xfffff; }
+  for (let i = 0; i < n; i++) { lo[i] = next() | 0; hi[i] = nextHi(); }
   return [lo, hi];
 };
 export const [Z_MARK_LO, Z_MARK_HI] = draw(2 * 64);
@@ -87,6 +100,10 @@ export const [Z_USED_LO, Z_USED_HI] = draw(2 * 8);
 export const [Z_LOST_LO, Z_LOST_HI] = draw(2 * 16 * 4);
 export const [Z_LEFT_LO, Z_LEFT_HI] = draw(4);
 export const [Z_FREE_LO, Z_FREE_HI] = draw(1);
+/** Card mode: a side's mark is an Ice Wall (a hand can hold Freeze and Ice Wall both); one key per marking side. */
+export const [Z_WARD_LO, Z_WARD_HI] = draw(2);
+/** Turns left above 1 on Black's mark (White's use `Z_LEFT`), so two live marks never cancel. */
+export const [Z_LEFTB_LO, Z_LEFTB_HI] = draw(4);
 /** Slot of "side `c` has spent `u` uses" (u ≥ 1, capped at 7). */
 export const usedIndex = (c: number, u: number): number => c * 8 + Math.min(u, 7);
 /** Slot of "reserve index `i` (= colour * 16 + type) holds `n` pieces" (n ≥ 1, capped at 3). */

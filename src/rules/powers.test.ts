@@ -55,7 +55,7 @@ describe('Freeze (Frost A)', () => {
     expect(black.some(l => l.includes('>d5'))).toBe(false);    // Od4>d5-…
     expect(black).toContain('Md6-c6');                         // the rest of the army moves
     const next = play(play(p, 'Ke8-f8'), 'Ke1-f1');            // the mark ends with Black's turn
-    expect(next.mark).toBeUndefined();
+    expect(next.marks).toBeUndefined();
     expect(lans(next).some(l => l.startsWith('Nd5'))).toBe(true);
   });
 
@@ -74,10 +74,10 @@ describe('Freeze (Frost A)', () => {
     const before = toFen(g.pos);
     g.play(g.legal.find(m => toLan(g.pos, m) === '!F:d5')!);
     const round = fromFen(toFen(g.pos));
-    expect(round.mark).toBe(parseSq('d5'));
+    expect(round.marks?.[WHITE]?.sq).toBe(parseSq('d5'));
     expect(round.used).toEqual([1, 0]);
     expect(positionKey(round)).toBe(positionKey(g.pos));
-    expect(positionKey(g.pos)).not.toBe(positionKey({ ...g.pos, mark: undefined }));
+    expect(positionKey(g.pos)).not.toBe(positionKey({ ...g.pos, marks: undefined }));
     expect(g.undo()).toBe(true);
     expect(toFen(g.pos)).toBe(before);
   });
@@ -137,7 +137,7 @@ describe('Haste (Flame B)', () => {
     let p = fromFen('4k3/8/8/8/8/8/8/R3K2N b - - 0 1');
     p = play(p, '!F:h1');
     p = play(p, 'Ra1-a2!H');
-    expect(p.mark).toBe(parseSq('h1'));
+    expect(p.marks?.[BLACK]?.sq).toBe(parseSq('h1'));
     expect(lans(p).some(l => l.startsWith('Nh1'))).toBe(false);
   });
 
@@ -293,8 +293,15 @@ describe('Freeze and Ice Wall readings: free action, two turns', () => {
     expect(p.free).toBeUndefined();
     expect(lans(p).some(l => l.startsWith('Nd5'))).toBe(false); // frozen for Black's turn
     p = play(p, 'Ke8-f8');
-    expect(p.mark).toBeUndefined();
+    expect(p.marks).toBeUndefined();
     expect(toFen(play(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'), '!F:d5')).split(' ')[6]).toBe('u1.0/md5w/f');
+  });
+
+  it('a free mark by the bound side leaves the opponent\u2019s mark in place', () => {
+    powers('IceWall', 'Freeze', { markFree: true });
+    let p = play(play(fromFen('4k3/8/8/3n4/8/2R5/P6P/4K3 w - - 0 1'), '!W:c3'), 'a2-a3');
+    p = play(p, '!F:h2');
+    expect(lans(p)).not.toContain('Nd5xc3'); // still walled for Black's turn
   });
 
   it('markTurns 2: an Ice Wall covers two of the opponent\u2019s turns', () => {
@@ -302,7 +309,7 @@ describe('Freeze and Ice Wall readings: free action, two turns', () => {
     let p = play(fromFen('4k3/8/8/8/R7/8/2b5/4K3 w - - 0 1'), '!W:a4');
     expect(lans(p)).not.toContain('Bc2xa4');
     p = play(play(p, 'Ke8-f8'), 'Ke1-f1');
-    expect(p.markLeft).toBeUndefined();          // one turn left
+    expect(p.marks?.[WHITE]?.left).toBeUndefined(); // one turn left
     expect(lans(p)).not.toContain('Bc2xa4');     // still walled on Black's second turn
     p = play(play(p, 'Kf8-e8'), 'Kf1-e1');
     expect(lans(p)).toContain('Bc2xa4');
@@ -373,8 +380,7 @@ describe('the search keeps the power state exactly as positionKey does', () => {
 function normalised(p: Position): Position {
   const out: Position = { board: p.board, turn: p.turn, halfmove: p.halfmove, ply: p.ply };
   if (p.used && (p.used[0] || p.used[1])) out.used = p.used;
-  if (p.mark !== undefined) { out.mark = p.mark; out.markBy = p.markBy; }
-  if ((p.markLeft ?? 1) > 1) out.markLeft = p.markLeft;
+  if (p.marks) out.marks = p.marks;
   if (p.free) out.free = true;
   if (p.haste !== undefined) out.haste = p.haste;
   if (p.lost) out.lost = p.lost;
@@ -393,7 +399,7 @@ describe('rule sets of the powers', () => {
     setRules();
     let pos = fromFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1');
     for (const lan of ['e2-e4', 'd7-d5', 'e4xd5', 'Qd8xd5']) pos = play(pos, lan);
-    expect(pos.used ?? pos.mark ?? pos.haste ?? pos.lost).toBeUndefined();
+    expect(pos.used ?? pos.marks ?? pos.haste ?? pos.lost).toBeUndefined();
     expect(toFen(pos).split(' ')).toHaveLength(6);
     expect(typeOf(at(pos, 'd5'))).toBe(Q);
     expect([K, R, P].length).toBe(3);
