@@ -110,16 +110,13 @@ export interface Position {
    */
   used?: readonly [number, number];
   /**
-   * A Freeze or Ice Wall mark: the square the marking side named. `markBy`'s power says which
-   * (`markKind`), and it binds the other side only. It lasts through the marking side's own moves
-   * and `markLeft` turns of the bound side (1 under the rulebook; `markTurns: 2` makes it 2); a
-   * Haste's second move is part of the same turn.
+   * Freeze and Ice Wall marks, one slot per marking side (`[by White, by Black]`), so a side bound
+   * by the opponent's mark can set its own without lifting it. A mark binds the other side only; its
+   * marker's power says which kind (`markKind`). It lasts through the marking side's own moves and
+   * `left` turns of the bound side (absent = 1; `markTurns: 2` makes it 2); a Haste's second move is
+   * part of the same turn. `ward` (card mode only): an Ice Wall, since a hand may hold both.
    */
-  mark?: number;
-  /** The side that set `mark`. */
-  markBy?: Color;
-  /** Turns of the bound side the mark still covers; absent = 1. */
-  markLeft?: number;
+  marks?: readonly [Mark | undefined, Mark | undefined];
   /**
    * `markFree`: the side has just set a free Freeze/Ice Wall mark and still makes its ordinary move
    * this turn (or ends it with a `pass`); no power is offered in that move.
@@ -134,6 +131,8 @@ export interface Position {
    */
   lost?: readonly number[];
 }
+
+export interface Mark { sq: number; left?: number; ward?: boolean }
 
 type Delta = readonly [number, number];
 const DIRS8: readonly Delta[] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
@@ -217,8 +216,26 @@ export function powerUses(c: Color): number {
   return key ? (RULES[key] as number) : -1;
 }
 
+/** Card mode: side `c`'s hand (`Rules.hands`); empty outside card mode. */
+export const handOf = (c: Color): readonly PowerName[] => RULES.hands[c];
+/** The power each power-move tag spends. */
+const TAG_POWER: Readonly<Record<PowerTag, PowerName>> = {
+  freeze: 'Freeze', ward: 'IceWall', strike: 'Strike', haste: 'Haste', flight: 'Flight', sacrifice: 'Sacrifice', march: 'March', leap: 'Leap',
+};
+/** Card mode: may side `c` (cards played: the bits of `used`) still play a `power` card? */
+const holdsCard = (c: Color, used: number, power: PowerName): boolean => handOf(c).some((p, k) => p === power && !(used >> k & 1));
+/** Side `c`'s spent state after a power move tagged `tag`: one more use, or in card mode the bit of the first unplayed card of that power. */
+export function spend(c: Color, used: number, tag: PowerTag): number {
+  const hand = handOf(c);
+  if (!hand.length) return used + 1;
+  const k = hand.findIndex((p, i) => p === TAG_POWER[tag] && !(used >> i & 1));
+  return k < 0 ? used : used | 1 << k;
+}
+
 /** May side `c`, having spent `used` uses, spend one more now? March and Leap at 0 are always on, never spent. */
 export function canSpend(c: Color, used: number): boolean {
+  const hand = handOf(c);
+  if (hand.length) return (~used & ((1 << hand.length) - 1)) !== 0;
   const n = powerUses(c);
   if (n < 0) return false;
   if (n === 0) return powerOf(c) !== 'March' && powerOf(c) !== 'Leap';
@@ -233,14 +250,16 @@ const leapAlways = (c: Color): boolean => powerOf(c) === 'Leap' && RULES.leapUse
  * How a mark set by `markBy` binds the side to move `c`: not at all on the marking side's own turn,
  * else frozen (a Freeze) or warded (an Ice Wall).
  */
-export function markKind(c: Color, markBy: Color | undefined): 'frozen' | 'warded' | '' {
+export function markKind(c: Color, markBy: Color | undefined, ward = false): 'frozen' | 'warded' | '' {
   if (markBy === undefined || markBy === c) return '';
+  if (handOf(markBy).length) return ward ? 'warded' : 'frozen';
   const p = powerOf(markBy);
   return p === 'Freeze' ? 'frozen' : p === 'IceWall' ? 'warded' : '';
 }
 
 /** A game keeps the Sacrifice reserve (`Position.lost`) only while a side plays Sacrifice. */
-export const keepsLost = (): boolean => RULES.kings[0]?.power === 'Sacrifice' || RULES.kings[1]?.power === 'Sacrifice';
+export const keepsLost = (): boolean => RULES.kings[0]?.power === 'Sacrifice' || RULES.kings[1]?.power === 'Sacrifice'
+  || RULES.hands[0].includes('Sacrifice') || RULES.hands[1].includes('Sacrifice');
 
 /**
  * May the attacker `att` remove a piece of type `vic`? Guard captures nothing and is taken only by
@@ -821,25 +840,24 @@ export function makeMove(pos: Position, m: Move): Position {
   let used = pos.used;
   if (m.power) {
     const u: [number, number] = [used?.[0] ?? 0, used?.[1] ?? 0];
-    u[c]++;
+    u[c] = spend(c, u[c], m.power);
     used = u;
   }
   if (used && (used[0] || used[1])) next.used = used;
-  if (isMark) {
-    next.mark = m.to;
-    next.markBy = c;
-    if (RULES.markTurns > 1) next.markLeft = RULES.markTurns;
-    if (RULES.markFree) next.free = true;
-  } else if (pos.mark !== undefined) {
-    // A mark lasts through its own side's moves, and through `markLeft` turns of the side it binds:
-    // a bound side's move that passes the turn uses one up (a Haste's first move does not).
-    const left = c === pos.markBy || hold ? (pos.markLeft ?? 1) : (pos.markLeft ?? 1) - 1;
-    if (left > 0) {
-      next.mark = pos.mark;
-      next.markBy = pos.markBy;
-      if (left > 1) next.markLeft = left;
-    }
+  // The opponent's mark binds the mover: a move that passes the turn uses up one of its turns (a
+  // Haste's first move and a free mark do not). The mover's own mark lasts through its own moves; a
+  // new mark replaces only the mover's own slot.
+  const marks: [Mark | undefined, Mark | undefined] = [pos.marks?.[0], pos.marks?.[1]];
+  const o = (c ^ 1) as Color, theirs = marks[o];
+  if (theirs && !hold) {
+    const left = (theirs.left ?? 1) - 1, { left: _, ...rest } = theirs;
+    marks[o] = left > 1 ? { ...rest, left } : left === 1 ? rest : undefined;
   }
+  if (isMark) {
+    marks[c] = { sq: m.to, ...(RULES.markTurns > 1 ? { left: RULES.markTurns } : {}), ...(m.power === 'ward' && handOf(c).length ? { ward: true } : {}) };
+    if (RULES.markFree) next.free = true;
+  }
+  if (marks[0] || marks[1]) next.marks = marks;
   if (m.power === 'haste') next.haste = m.to;
   if (lost) next.lost = lost;
   return next;
@@ -999,13 +1017,15 @@ export function inCheck(pos: Position, c: Color = pos.turn): boolean {
 export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number): void {
   if (!canSpend(c, used)) return;
   const start = out.length;
-  genPowerMovesRaw(board, c, used, lost, out, n0, n1);
+  const hand = handOf(c);
+  if (!hand.length) genPowerMovesRaw(powerOf(c), board, c, lost, out, n0, n1);
+  // Card mode: each unplayed card's moves, once per power (a second copy offers the same moves).
+  else hand.forEach((p, k) => { if (!(used >> k & 1) && hand.findIndex((q, i) => q === p && !(used >> i & 1)) === k) genPowerMovesRaw(p, board, c, lost, out, n0, n1); });
   // A power capture (Strike, a counted Leap) spares a sheltered piece like any other capture.
   if (RULES.mercyAura || RULES.holyLightShelter) dropSheltered(board, out, start);
 }
 
-function genPowerMovesRaw(board: Uint8Array, c: Color, used: number, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number): void {
-  const power = powerOf(c);
+function genPowerMovesRaw(power: PowerName | '', board: Uint8Array, c: Color, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number): void {
   switch (power) {
     case 'Freeze': case 'IceWall': {
       // Freeze names an enemy piece, Ice Wall an own one; never a king.
@@ -1128,9 +1148,9 @@ function genPowerMovesRaw(board: Uint8Array, c: Color, used: number, lost: Array
  * (it may still be warded). A warded piece cannot be captured, by a chain either — the chain's
  * shorter prefixes stay. Neither changes an attack: a frozen piece still gives check.
  */
-export function filterMarks(c: Color, mark: number | undefined, markBy: Color | undefined, out: Move[], n0 = 0): void {
+export function filterMarks(c: Color, mark: number | undefined, markBy: Color | undefined, out: Move[], n0 = 0, ward: boolean | undefined = false): void {
   if (mark === undefined || mark < 0) return;
-  const kind = markKind(c, markBy);
+  const kind = markKind(c, markBy, ward);
   if (!kind) return;
   let n = n0;
   for (let i = n0; i < out.length; i++) {
@@ -1163,6 +1183,7 @@ export function genHasteFollowUp(board: Uint8Array, at: number, mode: GenMode, o
 
 /** `freezeQuiet` (balance lab): the ordinary move after a free Freeze takes nothing. */
 export function filterFree(c: Color, free: boolean | undefined, out: Move[]): void {
+  // ponytail: in card mode `freezeQuiet` does nothing (a lab reading, off in the official set); pass the mark's kind if it is ever needed there.
   if (!free || !RULES.freezeQuiet || powerOf(c) !== 'Freeze') return;
   let n = 0;
   for (let i = 0; i < out.length; i++) if (!out[i].captures.length) out[n++] = out[i];
@@ -1185,7 +1206,9 @@ export function pseudoMoves(pos: Position, mode: GenMode = 'all'): Move[] {
     if (pos.free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(pos.board, c)); }
     else if (mode === 'all') genPowerMoves(pos.board, c, pos.used?.[c] ?? 0, pos.lost, out, 0, out.length);
   }
-  filterMarks(c, pos.mark, pos.markBy, out);
+  // Only the opponent's mark binds the side to move.
+  const theirs = pos.marks?.[c ^ 1];
+  if (theirs) filterMarks(c, theirs.sq, (c ^ 1) as Color, out, 0, theirs.ward);
   return out;
 }
 
@@ -1227,7 +1250,7 @@ export function insufficientMaterial(board: Uint8Array): boolean {
 
 /** Material draw under the active rules; an unspent Strike can still change mating potential. */
 export function materialDraw(board: Uint8Array, used?: readonly [number, number]): boolean {
-  const liveStrike = (c: Color): boolean => powerOf(c) === 'Strike' && canSpend(c, used?.[c] ?? 0);
+  const liveStrike = (c: Color): boolean => handOf(c).length ? holdsCard(c, used?.[c] ?? 0, 'Strike') : powerOf(c) === 'Strike' && canSpend(c, used?.[c] ?? 0);
   return RULES.insufficientMaterial && !liveStrike(WHITE) && !liveStrike(BLACK) && insufficientMaterial(board);
 }
 

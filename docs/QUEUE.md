@@ -148,48 +148,22 @@ under the adopted archer: L 3.74, M 2.82, S 3.68 (`ARCHER_V` 505 from the rook b
 - **Ogre**: push confirmed at depth 4 and fair at O=318; friends-only confirmed but does not stack; hop/step-2
   null; no-capture neutral. Roster decision pending.
 
-## K13 — kings' powers round 13: the official set on a fresh army for every pair (queued 2026-10-03)
+## Ran 2026-10-03: K13 — kings' powers round 13 on 1,872 fresh armies
 
-**Why.** Rounds 11–12 together cover only 24 armies, and on them no power is clearly off centre:
-Haste (55.2 ± 3.4) is borderline, and Mercy (54.5 ± 5.4), Flight (45.4 ± 4.0) and Darkness
-(43.8 ± 6.0) are off 50 on their own intervals only, which can be chance. Before any power changes for being high or low, measure it on fresh
-armies (LESSONS.md 2026-10-03). With `--armies perPair` and 24 pairs this round plays 1,872 armies;
-pooled with rounds 11–12 the intervals come to about ±3.
+Launched on the owner's go ("do the measurements you suggest"). 3,744 games in 37 min on the Mac
+(1.7 games/s while other work ran; the estimate of 20–30 min was a little short). Result: over
+rounds 11–13, Mercy and Haste high and Darkness low, all three clearly; Flight fine; Spirit −
+Shadow +3.2 ± 3.1. Report: `docs/research/kings-powers-balance-2026-10-02.md`, Round 13. The
+command is kept in git history (this file, 2026-10-03).
 
-**Commands** (repo root, PR #1's branch; the rules are round 12's, `sim/out/kp2-r12.tournament.json`):
+## Ran 2026-10-03: card mode, phases A and B
 
-```sh
-nohup npx tsx src/sim/tournament.ts run --id kp2-r13 --none --pairs 24 --depth 3 --seed 3333 --armies perPair \
-  --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikeCaptures=false \
-  --rule strikePawns=false --rule mercyAura=true --rule marchUses=0 --rule holyLightTakesPawns=true \
-  --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true \
-  --rule deathTouchReach=true --rule deathTouchReachOrtho=true > sim/out/kp2-r13.log 2>&1 &
-npx tsx src/sim/tournament.ts report --id kp2-r13
-npx tsx src/sim/tournament.ts report --id kp2-r11 --id kp2-r12 --id kp2-r13
-```
-
-Read the first two lines of the log: `armies perPair`, and a `rules` line with the thirteen rules
-above. Re-running the same command resumes. **Machine time:** 3,744 games. This Mac played a
-24-game depth-3 sample in 30 s on 4 workers, so about 20–30 min on all 16 cores (an extrapolation
-from 3 powers under other rules; it can be off by half).
-
-**Kaggle instead (or as well):** the same games, identical move for move, on Kaggle notebooks of 4
-CPUs each, each at about 1/5 of 4 Mac workers (measured: 138 s against 30 s) and so about 1/15 of
-the whole Mac (extrapolated): 4 notebooks would
-take about 1.5 hours, if Kaggle runs them at once (not yet tried with more than one). Worth it only
-while the Mac is busy, or beside it. Each shard is a quarter of the pairs; shards
-can split between machines (e.g. Kaggle plays shards 2–3, the Mac `--shard 0/4` and `--shard 1/4`):
-
-```sh
-node tools/kaggle-tournament.mjs push --id kp2-r13 --shards 4 -- --none --pairs 24 --depth 3 --seed 3333 --armies perPair --rule markFree=true …   # the same --rule flags
-node tools/kaggle-tournament.mjs status --id kp2-r13
-node tools/kaggle-tournament.mjs pull --id kp2-r13
-```
-
-**Decides:** the report's "Off centre with all 12 tested together" line, and Spirit − Shadow; the
-"on its own interval" line only names candidates. Then the owner picks any Haste trim or Flight
-change to screen (as `~v<name>` entrants with their base powers in the same round, so they play the
-same armies).
+Launched on the owner's go ("do the measurements you suggest"). Phase A (`cards-a1`): each card
+against no card, 300 pairs per card on fresh armies, 5,400 games on the Mac and 4 Kaggle notebooks.
+Phase B, the same hand for both sides: `cards-b1` (0, 3 and 6 cards) was stopped and voided by the
+mark bug; `cards-b2` reran it on the fixed engine (2,400 games), and `cards-b3` adds 4 and 5 cards on
+the same armies (owner: "should you also test 4 and 5 cards?"; 1,600 games, 3 of 16 parts on
+Kaggle). Report: `docs/research/cards-2026-10-03.md`.
 
 ## Dropped
 
