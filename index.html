@@ -167,7 +167,22 @@
         <div class="row">Setup <code id="setup"></code></div>
         <button id="copy" title="Copy the move list as LAN">Copy moves</button>
       </div>
+      <!-- Filled by src/account/account.ts once the board is drawn. -->
+      <section id="account" aria-labelledby="account-title" hidden>
+        <h3 id="account-title">Account</h3>
+        <div id="account-body" class="fields"></div>
+        <p id="account-note" role="status" aria-live="polite"></p>
+      </section>
       <form method="dialog"><button>Close</button></form>
+    </dialog>
+    <dialog id="delete-account" aria-labelledby="delete-account-title" aria-describedby="delete-account-detail">
+      <h2 id="delete-account-title" tabindex="-1" autofocus>Delete your account?</h2>
+      <p id="delete-account-detail">This deletes your account for good: your name, picture and rating, and the settings, lessons
+        and game saved with it. You cannot undo it. The games on this device stay, and you can keep playing without an account.</p>
+      <form method="dialog">
+        <button value="cancel">Keep my account</button>
+        <button value="delete" class="primary">Delete my account</button>
+      </form>
     </dialog>
     <dialog id="move-choice" aria-labelledby="move-choice-title" aria-describedby="move-choice-detail">
       <h2 id="move-choice-title" tabindex="-1" autofocus>Capture or push?</h2>

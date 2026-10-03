@@ -309,6 +309,19 @@ dialog small { color: var(--ink-soft); }
 #move-choice button, #promo button { min-height: var(--tap); }
 #cancel-choice, #cancel-promo { margin-top: var(--space-4); justify-content: center; }
 
+/* Settings → Account (src/account/account.ts) */
+#account-body p { margin: 0; }
+#account-body button { min-height: var(--tap); justify-content: center; }
+#account-body small, #account-note { font-size: var(--fs-xs); line-height: 1.4; color: var(--ink-soft); }
+#account-note { margin: var(--space-2) 0 0; }
+#account-note:empty { display: none; }
+.account-who { display: flex; align-items: center; gap: var(--space-3); }
+.account-who img { flex: none; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 1px solid var(--stone-500); }
+.account-who b, .account-who small { display: block; overflow-wrap: anywhere; }
+.account-links { display: flex; gap: var(--space-4); }
+.account-links a { display: inline-flex; align-items: center; min-height: var(--tap); min-width: var(--tap); color: var(--accent); font-weight: 700; }
+#delete-account { width: min(440px, calc(100vw - 32px)); }
+
 /* promotion: each choice shows its painted figure */
 .promo { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
 .promo button { flex-direction: column; gap: 4px; padding: 8px 4px; }
