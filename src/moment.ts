@@ -20,6 +20,10 @@ const LINES = {
   sacrifice: ['A pawn was sacrificed to bring a lost piece back.', 'Sacrifice this pawn to return a lost piece here.'],
   march: ['A pawn marched two squares.', 'March: two squares from any rank.'],
   leap: ['A piece leapt over its own pawns.', 'Leap over your own pawns.'],
+  mimic: ['A piece moved the way another of its army moves.', 'Mimic: move this piece the way another of your pieces moves.'],
+  vault: ['A piece vaulted over another piece.', 'Vault over one piece on the line.'],
+  curse: ['An enemy piece was moved one square.', 'Curse: move this enemy piece one square.'],
+  skylift: ['Two pieces traded squares.', 'Sky Lift: trade the squares of these two pieces.'],
   deathTouch: ['The king captured without moving.', 'Capture this piece without moving the king.'],
   reaver: ['The reaver captured, then stepped aside.', 'Capture, then step onto the chosen empty square.'],
 } as const;

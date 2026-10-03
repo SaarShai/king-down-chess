@@ -14,10 +14,10 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  Color, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, filterFree, filterMarks, freePass, genHasteFollowUp, genPiece, genPowerMoves, isAttacked,
+  Color, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, filterFree, filterHeld, filterMarks, freePass, genHasteFollowUp, genPiece, genPowerMoves, isAttacked,
   handOf, keepsLost, landed, materialDraw, piece, powerOf, powerUses, spend, typeOf,
 } from '../rules/engine';
-import type { PowerName } from '../rules/rules';
+import type { CardName, PowerName } from '../rules/rules';
 import { VALUES, evalBoard } from './eval';
 import { NET_POWERS } from './nnue/net';
 import {
@@ -110,14 +110,16 @@ let powerPlyMax = 2;
  * centipawn better. Sacrifice is priced by its reserve instead (`powerTerm`). Unlimited powers
  * (0 uses) hold nothing. `setPowerHold` overrides these for an experiment.
  */
-const HOLD_DEFAULT: Readonly<Partial<Record<PowerName, number>>> = Object.freeze({
+const HOLD_DEFAULT: Readonly<Partial<Record<CardName, number>>> = Object.freeze({
   Freeze: 40, IceWall: 30, Strike: 120, Haste: 150, Flight: 60, March: 15, Leap: 20,
+  // The card-only cards: starting guesses, not yet measured.
+  Mimic: 60, Vault: 30, Curse: 40, SkyLift: 60,
 });
-const hold: Partial<Record<PowerName, number>> = { ...HOLD_DEFAULT };
+const hold: Partial<Record<CardName, number>> = { ...HOLD_DEFAULT };
 /** Share of the best returnable piece's gain (piece − pawn) an unspent Sacrifice is worth. */
 let sacrificeHoldShare = 0.5;
-export function setPowerHold(over?: Partial<Record<PowerName, number>> & { sacrificeShare?: number }): void {
-  for (const k of Object.keys(hold) as PowerName[]) delete hold[k];
+export function setPowerHold(over?: Partial<Record<CardName, number>> & { sacrificeShare?: number }): void {
+  for (const k of Object.keys(hold) as CardName[]) delete hold[k];
   Object.assign(hold, HOLD_DEFAULT, over);
   delete (hold as Record<string, unknown>).sacrificeShare;
   sacrificeHoldShare = over?.sacrificeShare ?? 0.5;
@@ -126,7 +128,7 @@ export function setPowerHold(over?: Partial<Record<PowerName, number>> & { sacri
 const usesMax = [-1, -1];
 const powerAt: (PowerName | '')[] = ['', ''];
 /** Per side: its card hand (`Rules.hands`); empty outside card mode. */
-const handAt: (readonly PowerName[])[] = [[], []];
+const handAt: (readonly CardName[])[] = [[], []];
 /** Per side: the power's row in the net (`NET_POWERS`), or -1. */
 const powerRow = [-1, -1];
 
@@ -363,14 +365,16 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
     if (free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(board, c)); }
     else if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) genPowerMoves(board, c, usedPair[c], trackLost ? lost : undefined, out, 0, out.length);
   }
-  // Only the opponent's mark binds the side to move.
+  // Only the opponent's mark binds the side to move; its own Freeze only keeps a Curse off its piece.
   if (markSq[c ^ 1] >= 0) filterMarks(c, markSq[c ^ 1], (c ^ 1) as Color, out, 0, markWard[c ^ 1] === 1);
+  if (markSq[c] >= 0) filterHeld(c, markSq[c], markWard[c] === 1, out);
   // Legality is "make it, then look at our king" — but only a move that could expose the king needs
   // the look: we are in check; the king itself moves (Death Touch and Mercy included); a swap or a
-  // shove moves a second piece; the mover leaves a line through the king (a slider's ray opens);
-  // a capture removes a piece on such a line; or an enemy catapult could use the arriving piece as
-  // its screen. Archer shots ignore blockers and the leapers are never blocked, so nothing else can
-  // change an attack on the king. `setFastLegality(false)` turns this off for the cross-check test.
+  // shove moves a second piece (a SkyLift is a swap); the mover leaves a line through the king (a
+  // slider's ray opens); a capture removes a piece on such a line; or an enemy catapult could use
+  // the arriving piece as its screen. Archer shots ignore blockers and the leapers are never blocked,
+  // so nothing else can change an attack on the king — except a Curse, which moves an *enemy* piece
+  // that may arrive attacking it. `setFastLegality(false)` turns this off for the cross-check test.
   const k = board.indexOf(piece(K, c));
   const inChk = k < 0 || (inCheckKnown ?? attacked(c));
   const lines = k * 64;
@@ -382,7 +386,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
     if (!fastLegality || inChk) test = true;
     else if (m.power === 'freeze' || m.power === 'ward' || m.pass) test = false; // no square changes
     else {
-      test = m.from === k || m.swap === true || m.shove !== undefined || LINE[lines + m.from] === 1 || (lob && LINE[lines + m.to] === 1);
+      test = m.power === 'curse' || m.from === k || m.swap === true || m.shove !== undefined || LINE[lines + m.from] === 1 || (lob && LINE[lines + m.to] === 1);
       for (let j = 0; !test && j < m.captures.length; j++) if (LINE[lines + m.captures[j]] === 1) test = true;
     }
     if (test) {
