@@ -1,10 +1,15 @@
 /**
  * Kings' powers round-robin (docs/RULES.md §4): every power against every other, as colour-swapped
- * pairs on shared armies and opening seeds, so a matchup's two games cancel the first-move edge and
- * every matchup plays the same positions (common random numbers). One JSON line per game.
+ * pairs on one army and opening seed each, so a pair's two games cancel the first-move edge. One
+ * JSON line per game.
+ *
+ * Armies: by default pair p of every matchup plays army p (12 pairs = 12 armies for the whole round).
+ * A power's strength depends on the army, so such a round measures only the armies it drew
+ * (LESSONS.md 2026-10-03). `--armies perPair` draws a fresh army and opening for every pair instead.
+ * `report` gives intervals that resample the armies next to the per-game ones.
  *
  *   tsx src/sim/tournament.ts run --id kp2-a --pairs 40 --depth 3 --workers 4 [--powers Freeze,Haste,...]
- *       [--rule freezeUses=3 ...] [--hold Freeze=60,...] [--powerPlies 2] [--mirror] [--none]
+ *       [--rule freezeUses=3 ...] [--hold Freeze=60,...] [--powerPlies 2] [--mirror] [--none] [--armies perPair]
  *   tsx src/sim/tournament.ts report --id kp2-a [--id kp2-b ...]
  *
  * `--shard i/n` plays only the colour-swapped pairs with `pairId % n === i`, into
@@ -81,6 +86,11 @@ export interface TournamentSpec {
   entrants: Entrant[];
   /** Colour-swapped game pairs per matchup. */
   pairs: number;
+  /**
+   * `perPair`: every pair draws its own army and opening seed (`pairDraw`). Absent: pair p of every
+   * matchup plays army p (rounds 1–12).
+   */
+  armies?: 'perPair';
   depth: number;
   seed: number;
   /** Rules for every game; `kings` is set per game. */
@@ -114,11 +124,26 @@ export interface TRecord {
   lans: string[];
 }
 
+/**
+ * Pair p's army and opening seed under `--armies perPair`. They depend only on the seed, p and the
+ * two base powers (under the round's rules, which `schedule` sets first), so adding or removing an
+ * entrant changes no other matchup's games, and a variant (`Haste~vtrim`) plays the same armies as
+ * its base power against each opponent.
+ */
+export function pairDraw(seed: number, a: Entrant, b: Entrant, p: number): { backRank: string; seed: number } {
+  // FNV-1a of the key, then mulberry32 from that hash.
+  let h = 0x811c9dc5;
+  for (const c of `${seed}|${[basePower(a), basePower(b)].sort().join('|')}|${p}`) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193);
+  const rng = mulberry32(h);
+  const backRank = randomBackRank(rng);
+  return { backRank, seed: Math.floor(rng() * 2 ** 32) };
+}
+
 /** The schedule: every unordered matchup (and mirrors if asked), `pairs` colour-swapped pairs each. */
 export function schedule(t: TournamentSpec): TJob[] {
   setRules(t.rules);
   const rng = mulberry32(t.seed);
-  // Shared across matchups: pair p of every matchup plays army p with opening seed p.
+  // Shared across matchups unless `armies` is `perPair`: pair p of every matchup plays army p with opening seed p.
   const armies = Array.from({ length: t.pairs }, () => randomBackRank(rng));
   const seeds = Array.from({ length: t.pairs }, (_, p) => (t.seed * 1_000_003 + p * 7919) >>> 0);
   const jobs: TJob[] = [];
@@ -128,10 +153,11 @@ export function schedule(t: TournamentSpec): TJob[] {
       if (clashes(t, e[i], e[j]) || clashes(t, e[j], e[i])) continue;
       for (let p = 0; p < t.pairs; p++) {
         const pairId = jobs.length >> 1;
+        const draw = t.armies === 'perPair' ? pairDraw(t.seed, e[i], e[j], p) : { backRank: armies[p], seed: seeds[p] };
         for (const swap of [false, true]) {
           jobs.push({
             gameId: jobs.length, pairId, a: e[i], b: e[j],
-            white: swap ? e[j] : e[i], black: swap ? e[i] : e[j], backRank: armies[p], seed: seeds[p],
+            white: swap ? e[j] : e[i], black: swap ? e[i] : e[j], ...draw,
           });
         }
       }
@@ -196,10 +222,12 @@ export async function runTournament(t: TournamentSpec, nWorkers: number, shard?:
     const old = JSON.parse(readFileSync(f.spec, 'utf8')) as TournamentSpec;
     if (JSON.stringify(old) !== JSON.stringify(t)) throw new Error(`[${t.id}] ${f.spec} holds a different tournament; give this one a new id`);
   } else writeFileSync(f.spec, JSON.stringify(t, null, 2) + '\n');
-  const all = schedule(t).filter(j => !shard || j.pairId % shard.n === shard.i);
-  const done = new Set(readRecords(t.id).map(r => r.gameId));
+  const sched = schedule(t), recorded = readRecords(t.id);
+  checkResume(t, sched, recorded);
+  const all = sched.filter(j => !shard || j.pairId % shard.n === shard.i);
+  const done = new Set(recorded.map(r => r.gameId));
   const jobs = all.filter(j => !done.has(j.gameId));
-  console.log(`[${t.id}] ${t.entrants.length} entrants, ${all.length} games (${done.size} done), depth ${t.depth}, ${nWorkers} workers`);
+  console.log(`[${t.id}] ${t.entrants.length} entrants, ${all.length} games (${done.size} done), depth ${t.depth}, armies ${t.armies ?? 'shared'}, ${nWorkers} workers`);
   console.log(`[${t.id}] rules ${JSON.stringify(ruleDiff(t.rules))}${t.powerHold ? `, hold ${JSON.stringify(t.powerHold)}` : ''}${t.powerPlies !== undefined ? `, powerPlies ${t.powerPlies}` : ''}`);
   if (!jobs.length) return;
   const out = createWriteStream(f.jsonl, { flags: 'a' });
@@ -387,20 +415,153 @@ export function scoreVsPowers(recs: readonly TRecord[], e: Entrant): { m: number
   return { m, se: sd / Math.sqrt(Math.max(1, means.length)), n: means.length };
 }
 
+/** The random draw a game played on: its army and opening seed. Games on one draw are not independent. */
+export const drawOf = (r: Pick<TRecord, 'backRank' | 'seed'>): string => `${r.backRank}|${r.seed}`;
+
+export interface ArmyResample {
+  /** Distinct draws (armies with their opening seeds) in the records. */
+  draws: number;
+  /** Each entrant's score over all its games (games-weighted), `NaN` with no games. */
+  m: Map<Entrant, number>;
+  /** Each entrant's score in each resample, `NaN` where it played none of the drawn armies. */
+  samples: Map<Entrant, Float64Array>;
+}
+
+/**
+ * Bootstrap over armies: `B` resamples of the draws with replacement, and each entrant's score over
+ * the games on the drawn armies. Mirror games are left out, and with `vsPowers` the games against
+ * the plain king too (as in `scoreVsPowers`). A plain bootstrap underestimates the variance with few
+ * draws, so each resample's distance from `m` is scaled by √(G/(G−1)); the tails are `halfWidth`'s
+ * job. Fixed seed, so a report reads the same each time.
+ */
+export function resampleArmies(recs: readonly TRecord[], entrants: readonly Entrant[], vsPowers: boolean, B = 10_000, seed = 7): ArmyResample {
+  const idx = new Map(entrants.map((e, i) => [e, i]));
+  const n = entrants.length;
+  const byDraw = new Map<string, Map<number, [number, number]>>(); // per draw: entrant -> [score, games]
+  for (const r of recs) {
+    if (r.white === r.black) continue;
+    const d = drawOf(r);
+    const cell = byDraw.get(d) ?? byDraw.set(d, new Map()).get(d)!;
+    for (const [e, other, s] of [[r.white, r.black, r.result], [r.black, r.white, 1 - r.result]] as const) {
+      const i = idx.get(e);
+      if (i === undefined || (vsPowers && basePower(other) === 'none')) continue;
+      const v = cell.get(i) ?? cell.set(i, [0, 0]).get(i)!;
+      v[0] += s;
+      v[1]++;
+    }
+  }
+  // Sparse cells: a perPair draw holds the games of one matchup, so two entrants.
+  const cells = [...byDraw.values()].map(c => ({ i: Int32Array.from(c.keys()), s: Float64Array.from(c.values(), v => v[0]), k: Float64Array.from(c.values(), v => v[1]) }));
+  const S = new Float64Array(n), K = new Float64Array(n);
+  for (const c of cells) for (let j = 0; j < c.i.length; j++) { S[c.i[j]] += c.s[j]; K[c.i[j]] += c.k[j]; }
+  const m = new Map(entrants.map((e, i) => [e, K[i] ? S[i] / K[i] : NaN]));
+  const G = cells.length, f = G > 1 ? Math.sqrt(G / (G - 1)) : 1;
+  const samples = new Map(entrants.map(e => [e, new Float64Array(B)]));
+  const rng = mulberry32(seed);
+  const sum = new Float64Array(n), cnt = new Float64Array(n);
+  for (let b = 0; b < B; b++) {
+    sum.fill(0);
+    cnt.fill(0);
+    for (let g = 0; g < G; g++) {
+      const c = cells[Math.floor(rng() * G)];
+      for (let j = 0; j < c.i.length; j++) { sum[c.i[j]] += c.s[j]; cnt[c.i[j]] += c.k[j]; }
+    }
+    entrants.forEach((e, i) => { samples.get(e)![b] = cnt[i] ? m.get(e)! + f * (sum[i] / cnt[i] - m.get(e)!) : NaN; });
+  }
+  return { draws: G, m, samples };
+}
+
+/**
+ * The quantile of Student's t with `nu` degrees of freedom that has the tail of the normal quantile
+ * `z` (Abramowitz & Stegun 26.7.5; within 0.003 of the exact value for nu >= 9 up to z = 3.5).
+ */
+export function tFromZ(z: number, nu: number): number {
+  const z2 = z * z;
+  const g = [
+    (z2 + 1) * z / 4,
+    ((5 * z2 + 16) * z2 + 3) * z / 96,
+    (((3 * z2 + 19) * z2 + 17) * z2 - 15) * z / 384,
+    ((((79 * z2 + 776) * z2 + 1482) * z2 - 1920) * z2 - 945) * z / 92160,
+  ];
+  return z + g.reduce((acc, gi, i) => acc + gi / nu ** (i + 1), 0);
+}
+
+const sdOf = (sample: ArrayLike<number>): number => {
+  const s = Array.from(sample).filter(x => !Number.isNaN(x));
+  const mean = s.reduce((a, b) => a + b, 0) / s.length;
+  return Math.sqrt(s.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, s.length - 1));
+};
+
+/**
+ * Half the width of a 95% interval from a resampled score: t with G − 1 degrees of freedom times its
+ * spread. A mean over few armies has heavier tails than a normal curve (12 armies: 1.96 standard
+ * errors cover 92%, 2.20 cover 95%); with hundreds of armies this is the usual 1.96.
+ */
+export const halfWidth = (a: ArmyResample, sample: ArrayLike<number>): number => tFromZ(1.96, Math.max(1, a.draws - 1)) * sdOf(sample);
+
+/**
+ * Which powers are off 50% once all of them are tested together: a simultaneous 95% band from the
+ * same resamples (the 95th percentile of each resample's largest |score − m| / sd over the powers,
+ * moved onto the t scale of G − 1 degrees of freedom like `halfWidth`). Twelve separate 95% intervals
+ * would flag a power by chance in about half of all rounds where every power is level; this band
+ * does so in about one round in twenty (slightly more with few armies, as each sd is estimated).
+ */
+export function simultaneous(a: ArmyResample, powers: readonly Entrant[]): { c: number; band: Map<Entrant, number> } {
+  const ps = powers.filter(e => !Number.isNaN(a.m.get(e)!));
+  const sd = new Map(ps.map(e => [e, sdOf(a.samples.get(e)!)]));
+  const B = ps.length ? a.samples.get(ps[0])!.length : 0;
+  const maxima: number[] = [];
+  for (let b = 0; b < B; b++) {
+    let worst = 0;
+    for (const e of ps) {
+      const x = a.samples.get(e)![b];
+      if (!Number.isNaN(x) && sd.get(e)! > 0) worst = Math.max(worst, Math.abs(x - a.m.get(e)!) / sd.get(e)!);
+    }
+    maxima.push(worst);
+  }
+  maxima.sort((x, y) => x - y);
+  const c = maxima.length ? tFromZ(maxima[Math.floor(0.95 * maxima.length)], Math.max(1, a.draws - 1)) : NaN;
+  return { c, band: new Map(ps.map(e => [e, c * sd.get(e)!])) };
+}
+
+/** A resume must find every recorded game where this code schedules it; otherwise the schedule changed under the run. */
+export function checkResume(t: TournamentSpec, jobs: readonly TJob[], recs: readonly TRecord[]): void {
+  for (const r of recs) {
+    const j = jobs[r.gameId];
+    if (!j || j.white !== r.white || j.black !== r.black || j.backRank !== r.backRank || j.seed !== r.seed) {
+      throw new Error(`[${t.id}] game ${r.gameId} was played as ${r.white}-${r.black} on ${drawOf(r)}, but this code schedules ${j ? `${j.white}-${j.black} on ${drawOf(j)}` : 'no such game'}; the schedule changed, so give the run a new id`);
+    }
+  }
+}
+
+/** Several rounds' games as one list. pairIds restart at 0 in every round, so each round's are offset: otherwise pooled rounds would merge unrelated pairs. */
+export const poolRounds = (rounds: readonly (readonly TRecord[])[]): TRecord[] =>
+  rounds.flatMap((rs, k) => rs.map(r => ({ ...r, pairId: k * 10_000_000 + r.pairId })));
+
 export function report(ids: readonly string[]): string {
-  const specs = ids.map(id => JSON.parse(readFileSync(files(id).spec, 'utf8')) as TournamentSpec);
-  const recs = ids.flatMap(readRecords);
+  return reportText(ids.map(id => JSON.parse(readFileSync(files(id).spec, 'utf8')) as TournamentSpec), ids.map(readRecords));
+}
+
+/** The report of one or more rounds: `rounds[k]` holds the games of `specs[k]`. */
+export function reportText(specs: readonly TournamentSpec[], rounds: readonly (readonly TRecord[])[]): string {
+  const ids = specs.map(s => s.id);
+  const recs = poolRounds(rounds);
+  const scheduled = specs.reduce((a, s) => a + schedule(s).length, 0);
   const entrants = [...new Set(specs.flatMap(s => s.entrants))];
   const { ratings, white, whiteSe } = rate(recs, entrants);
   ratings.sort((x, y) => y.elo - x.elo);
   const lines: string[] = [];
   lines.push(`# Kings' powers tournament: ${ids.join(' + ')}`, '');
-  lines.push(`${recs.length} games, depth ${[...new Set(specs.map(s => s.depth))].join('/')}, ${entrants.length} entrants. Rules: \`${JSON.stringify(ruleDiff(specs[0].rules))}\`${specs[0].powerHold ? `, hold \`${JSON.stringify(specs[0].powerHold)}\`` : ''}.`, '');
+  lines.push(`${recs.length} of ${scheduled} games, depth ${[...new Set(specs.map(s => s.depth))].join('/')}, ${entrants.length} entrants. Rules: \`${JSON.stringify(ruleDiff(specs[0].rules))}\`${specs[0].powerHold ? `, hold \`${JSON.stringify(specs[0].powerHold)}\`` : ''}.`, '');
+  if (recs.length < scheduled) lines.push(`**Partial:** ${scheduled - recs.length} games still to play; every number below is provisional.`, '');
   const variants = Object.assign({}, ...specs.map(s => s.variants ?? {})) as Record<string, Partial<Rules>>;
   if (Object.keys(variants).length) lines.push(`Variants: ${Object.entries(variants).map(([k, v]) => `\`~v${k}\` = \`${JSON.stringify(v)}\``).join(', ')}. A variant does not meet an entrant whose power its rules would change.`, '');
   lines.push(`First move: White ${white >= 0 ? '+' : ''}${white.toFixed(0)} ± ${(1.96 * whiteSe).toFixed(0)} Elo.`, '');
-  lines.push('| power | Elo (BT) | ±95% | score vs field | ±95% | vs powers | ±95% | games | used / game | games used | first use (ply, median) | decisive | draws | plies |');
-  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  const field = resampleArmies(recs, entrants, false), vsP = resampleArmies(recs, entrants, true);
+  const hw = (a: ArmyResample, e: Entrant): string => (Number.isNaN(a.m.get(e)!) ? '-' : (100 * halfWidth(a, a.samples.get(e)!)).toFixed(1));
+  lines.push(`${field.draws} armies (${specs.map(s => (s.armies === 'perPair' ? `${s.id}: a fresh army for every pair` : `${s.id}: one army per pair slot, shared by every matchup`)).join('; ')}). The "armies" intervals resample the armies with their games; a power's strength depends on the army, so they are the ones to read (LESSONS.md 2026-10-03). The other ± are per game.`, '');
+  lines.push('| power | Elo (BT) | ±95% | score vs field | ±95% | ±95% armies | vs powers | ±95% | ±95% armies | games | used / game | games used | first use (ply, median) | decisive | draws | plies |');
+  lines.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   const vs = new Map(ratings.map(r => [r.entrant, scoreVsPowers(recs, r.entrant)]));
   for (const r of ratings) {
     const mine = recs.filter(g => g.white === r.entrant || g.black === r.entrant);
@@ -419,13 +580,36 @@ export function report(ids: readonly string[]): string {
     const decisive = mine.filter(g => g.result !== 0.5).length / Math.max(1, mine.length);
     const plies = mine.reduce((a, g) => a + g.plies, 0) / Math.max(1, mine.length);
     const v = vs.get(r.entrant)!;
-    lines.push(`| ${r.entrant} | ${r.elo >= 0 ? '+' : ''}${r.elo.toFixed(0)} | ${(1.96 * r.se).toFixed(0)} | ${pct(r.score)} | ${(196 * r.scoreSe).toFixed(1)} | ${pct(v.m)} | ${(196 * v.se).toFixed(1)} | ${r.games} | ${(uses / Math.max(1, sides)).toFixed(2)} | ${pct(usedGames / Math.max(1, sides))} | ${first.length ? first[first.length >> 1] : '-'} | ${pct(decisive)} | ${pct(1 - decisive)} | ${plies.toFixed(0)} |`);
+    lines.push(`| ${r.entrant} | ${r.elo >= 0 ? '+' : ''}${r.elo.toFixed(0)} | ${(1.96 * r.se).toFixed(0)} | ${pct(r.score)} | ${(196 * r.scoreSe).toFixed(1)} | ${hw(field, r.entrant)} | ${v.n ? pct(v.m) : '-'} | ${v.n ? (196 * v.se).toFixed(1) : '-'} | ${hw(vsP, r.entrant)} | ${r.games} | ${(uses / Math.max(1, sides)).toFixed(2)} | ${pct(usedGames / Math.max(1, sides))} | ${first.length ? first[first.length >> 1] : '-'} | ${pct(decisive)} | ${pct(1 - decisive)} | ${plies.toFixed(0)} |`);
   }
   // The balance target: every power's score against the other powers inside 50 ± 4 points.
-  const powers = ratings.filter(r => basePower(r.entrant) !== 'none').map(r => ({ e: r.entrant, ...vs.get(r.entrant)! }));
+  const powers = ratings.filter(r => basePower(r.entrant) !== 'none' && vs.get(r.entrant)!.n).map(r => ({ e: r.entrant, ...vs.get(r.entrant)! }));
   const inside = powers.filter(p => Math.abs(p.m - 0.5) <= 0.04);
   const spread = Math.max(...powers.map(p => p.m)) - Math.min(...powers.map(p => p.m));
   lines.push('', `Against the other powers: ${inside.length} of ${powers.length} inside 50 ± 4 points; spread ${(100 * spread).toFixed(1)} points.${powers.length - inside.length ? ` Outside: ${powers.filter(p => Math.abs(p.m - 0.5) > 0.04).map(p => `${p.e} ${pct(p.m)}`).join(', ')}.` : ''}`);
+  // Two readings of "off centre": each power on its own (a screen), and all of them tested together.
+  const own = powers.filter(p => Math.abs(vsP.m.get(p.e)! - 0.5) > halfWidth(vsP, vsP.samples.get(p.e)!));
+  const { c, band } = simultaneous(vsP, powers.map(p => p.e));
+  const joint = powers.filter(p => Math.abs(vsP.m.get(p.e)! - 0.5) > band.get(p.e)!);
+  const at = (e: Entrant, w: number): string => `${e} ${pct(vsP.m.get(e)!)} ± ${(100 * w).toFixed(1)}`;
+  lines.push('', `Outside 50% on its own armies interval (a screen: with ${powers.length} powers tested, about ${(0.05 * powers.length).toFixed(1)} would be flagged by chance if all were level): ${own.length ? own.map(p => at(p.e, halfWidth(vsP, vsP.samples.get(p.e)!))).join(', ') : 'none'}.`);
+  lines.push('', `Off centre with all ${powers.length} tested together (simultaneous 95% band, ${c.toFixed(2)} standard errors on ${vsP.draws} armies): ${joint.length ? joint.map(p => at(p.e, band.get(p.e)!)).join(', ') : 'none'}.`);
+  // Each king's two powers, averaged; the light and dark kings must stay level with each other (owner, 2026-10-02).
+  const kings = (Object.keys(KINGS) as KingName[]).filter(k => KINGS[k].every(p => !Number.isNaN(vsP.m.get(p) ?? NaN)));
+  const king = new Map(kings.map(k => {
+    const [p, q] = KINGS[k].map(x => vsP.samples.get(x)!);
+    return [k, { m: (vsP.m.get(KINGS[k][0])! + vsP.m.get(KINGS[k][1])!) / 2, s: p.map((x, b) => (x + q[b]) / 2) }];
+  }));
+  const pm = (x: number, s: ArrayLike<number>): string => `${(100 * x).toFixed(1)} ± ${(100 * halfWidth(vsP, s)).toFixed(1)}`;
+  if (kings.length) {
+    const sp = king.get('Spirit'), sh = king.get('Shadow');
+    let light = '';
+    if (sp && sh) {
+      const d = sp.s.map((x, b) => x - sh.s[b]), w = halfWidth(vsP, d);
+      light = `; Spirit − Shadow ${pm(sp.m - sh.m, d)} points (${(100 * (sp.m - sh.m - w)).toFixed(1)} to ${(100 * (sp.m - sh.m + w)).toFixed(1)})`;
+    }
+    lines.push('', `Kings (the mean of their two powers against the other powers): ${kings.map(k => `${k} ${pm(king.get(k)!.m, king.get(k)!.s)}`).join(', ')}${light}.`);
+  }
   const pw = pairwise(recs);
   lines.push('', '## Matchups (row power\'s score against the column power)', '');
   const order = ratings.map(r => r.entrant);
@@ -506,10 +690,14 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
   } else {
     const entrants = parseEntrants(f.powers, !!f.none);
     const variants = parseVariants(argv, entrants);
+    if (f.armies !== undefined && f.armies !== 'perPair' && f.armies !== 'shared') throw new Error(`--armies ${f.armies}: perPair or shared`);
     const t: TournamentSpec = {
       id: typeof f.id === 'string' ? f.id : 'kp2',
       entrants,
-      pairs: num('pairs', 20), depth: num('depth', 3), seed: num('seed', 101),
+      pairs: num('pairs', 20),
+      // Left out when shared, so the specs of rounds 1–12 still match and resume.
+      ...(f.armies === 'perPair' ? { armies: 'perPair' as const } : {}),
+      depth: num('depth', 3), seed: num('seed', 101),
       rules: parseRuleFlags(argv),
       ...(variants ? { variants } : {}),
       ...(parseHold(f.hold) ? { powerHold: parseHold(f.hold) } : {}),
