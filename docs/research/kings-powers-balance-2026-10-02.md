@@ -470,4 +470,4 @@ rough; only a measurement decides.
   power, with 48 pairs or more, and screen the Haste and Spirit/Shadow variants in the same round
   (a Haste trim raises every other power a little).
 
-Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`; round 13 on the owner's Mac (`sim/out/` of the main checkout) until a results branch is approved; reports and specs in `sim/out/`.
+Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`, round 13 and the `fi-r11..13` re-check in `claude/kp2-results-r13-cards`; reports and specs in `sim/out/`.
