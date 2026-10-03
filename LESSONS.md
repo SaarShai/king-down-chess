@@ -395,3 +395,17 @@ The 24 strongest selected Paladin opening examples still scored White +505 to +1
 ## Clay facing and fixed presentation — 2026-09-22
 - The accepted clay sculpts face local +Z. White advances toward world −Z, so its resting parent rotates by π; Black's stays at zero. Do not reuse the legacy voxel orientation. Movement/contact turns are relative to that parent and must reset after movement and undo. Check both armies visually as well as their transforms.
 - The owner selected handmade clay at the study's 0.5 px double-detail setting for the playable game, with no rendering choices. Remove obsolete UI and URL/save overrides instead of merely changing the default; keep experimental presentation controls in the separate graphics study. Verify actual render-target dimensions and material state, not just a preset label.
+
+## 2026-10-03 — a balance round measures only the armies it drew
+- **What happened:** round 12 re-ran round 11's exact rules and engine with a new seed. Mercy went
+  60.4 → 48.7 and Leap 46.2 → 57.6 against intervals of ±5.5 per round. Mercy had been "the one
+  power to watch" on the strength of single rounds.
+- **Cause:** `src/sim/tournament.ts` draws one army per pair slot (`armies[p]`) and every matchup
+  reuses it, so 12 pairs = 12 armies. A power's strength depends on the army, and the per-game
+  interval leaves the army-to-army variation out. Resampling the armies gives ±4–10 per power in
+  one round. Pair-level and game-level intervals agree (ratio 0.99): the colour-swapped pairs are
+  not the problem.
+- **Rules:** (1) judge a power on pooled rounds with different seeds, or on many armies, not on one
+  round of 12; (2) report intervals resampled over armies next to the per-game ones; (3) before
+  changing a power for being high or low, check it on fresh armies.
+

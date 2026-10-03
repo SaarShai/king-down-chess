@@ -1,7 +1,7 @@
 # Tasks
 
 ## Stronger computer player for the kings' powers mode — 2026-10-02
-- Request (owner, through the main session): make the computer player stronger, above all in the kings' powers mode. Branch `ai-powers` (local, not pushed, not deployed).
+- Request (owner, through the main session): make the computer player stronger, above all in the kings' powers mode. Branch `ai-powers`, merged into PR #1's branch on 2026-10-02 (`cba22ba`); not deployed.
 - Found: the adopted net (2026-09-17) knew nothing of the powers, and **the game switched it off on every board with an Ogre** — the Ogre joined the random-army pool after the net was trained, so about 47% of random and daily armies played without it.
 - [x] Net inputs for the Ogre and for each side's king power (while it can still act); old nets still load and play exactly as before. Download 121 → 134 kB of text for the net.
 - [x] Corpus: 2,280 games at depth 3 under the official powers rules (32% without powers), 176,452 positions; the adopted net fine-tuned on it (`src/sim/powers-net.ts`).
@@ -21,6 +21,9 @@
 - **Owner guidance (2026-10-02, later):** "do everything you recommend". The light (Spirit) and dark (Shadow) kings may be somewhat stronger than the other four, but must be balanced with each other. **No new power readings that change how other pieces move** (e.g. "pawns also take straight ahead"); today's Darkness reading stays, and the Mercy/Holy Light shelters are acceptable (like Ice Wall). Compute: ignore Codex/GPT (owner). From round 11 on, run tournaments in this one session, not spread over cloud worker sessions (owner, 2026-10-02: "from now on, switch to one session"); rounds 9 and 10 already running on cloud shards finish as they are.
 - Browser checks on this branch: `verify-powers` (updated for the balanced rules), `verify-lesson-return` and `verify-painted-game` pass. `verify-special-moves`, `verify-cursor-adoption`, `verify-playable-clay` and `qa` time out in this cloud container on main's build too (slow software WebGL); not caused by this branch.
 - Merging with the three improvement branches: trial merges conflict in `src/main.ts` (perf, visual), `index.html` (visual) and TASKS/LESSONS (all) — small; resolve after the owner picks an order.
+- [x] **Round 12 (2026-10-03):** the official set again on 12 new armies (seed 2222, 1,872 games, `sim/out/kp2-r12.report.md`). Mercy 60.4 → 48.7, Leap 46.2 → 57.6, with the same rules and engine. Cause: a round reuses one army per pair slot for all 78 matchups (12 pairs = 12 armies), and a power's strength depends on the army; the per-game intervals (±5.5) leave that out. Resampled over armies: ±4–10 points per power in one round. Pooled with round 11 (24 armies, `sim/out/kp2-r11+kp2-r12.report.md`): all twelve 43.8–55.2; only Haste 55.2 ± 3.1 and Flight 45.4 ± 3.7 clearly off centre; **Mercy 54.5 ± 5.1 needs no change**. Spirit 50.5, Shadow 48.9. Report: Round 12 section; LESSONS.md 2026-10-03.
+- [ ] Next for balance (not started; runs need the owner's go): give the tournament runner more armies per round or a fresh army per pair, and have `report` print intervals resampled over armies (the round-12 numbers came from a script in `HANDOFF.md`). Then, with the owner, decide on a small Haste trim or Flight boost; no rule has changed since round 11.
+- [x] 2026-10-03 small fixes: the power picker shows the official counts and texts before any powers game (it said Freeze "2 per game"; a powers game gives one); `verify-painted-game` closes the result window after an early finish and has a finished-game case (mate in one); the stacked PRs got the early-finish fix.
 
 ## Painted motion: quiet moves with character, a breathing selection, a framed warm board — 2026-10-02
 - Owner (2026-10-02): improve performance, graphics, graphic design and UX in parallel cloud sessions. This track: in the painted look, pieces that move with character and a board with atmosphere. Branch `claude/painted-motion`; files limited to the scene, `PaintedView.ts`, `docs/painted-motion/` and tools.
@@ -455,7 +458,7 @@ Project tracker (checkable). Verification evidence goes next to each item.
 - [x] New defaults adopted + v0.6 published (2026-09-13): archerMove any, beastMove any, guard captures one pawn per lifetime (SPENT bit, FEN `H/h`) + step 2, eval A280 L310 G170 M330 S215; presets `?rules=2017|2021`; RULES.md §3/§6.8, piece guide, info cards updated; 97 tests green; Playwright 9/9
 - [x] R5 Texel tuning shipped (2026-09-13, `sim-tuning-2026-09-13.md`): 584k quiet positions from 28.6k v0.6 games, 408 params, +113 ± 27 Elo at depth 3, +117 ± 33 at depth 4; odds-match design values under the tuned engine: A 3.4, L 2.2, G < 1.5, M 2.2, S 2.7 pawns (paladin/maester fell, archer/beast rose); 102 tests green
 - [x] Batch 3 (2026-09-13, 76,100 games, `sim-batch3-2026-09-13.md`): guards are the draw engine (+20 draw points for 2 guards at fixed value); fairy count matters at constant value; guardImmune=false is the cheapest anti-draw lever; maester beside king +15 Elo; two paladins beat two maesters by 61 Elo at equal table value; army value does NOT drive pace (mining headline reversed); interest ordering survives depth (ρ 0.81) but not rule changes (ρ −0.16)
-- [ ] Known: eval mirror-symmetry test relaxed to 1 cp (float king-phase blend) — fix with an integer phase after the current measurement round
+- [x] Known: eval mirror-symmetry test relaxed to 1 cp (float king-phase blend). **Fixed 2026-10-03:** each king's blend is rounded on its own, the mirror tests are exact again, plus 5,000 random positions.
 - [x] Dashboard: `npm run dashboard` → `docs/dashboard/index.html`, published https://claude.ai/code/artifact/556509ef-4701-4811-89d1-58824ee8c5f8 (republish after each run batch)
 - [x] Full-scale runs done across batches 1–3 (154 runs, ~300k games, ~12 h machine time)
 
@@ -585,10 +588,10 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [x] Release summary: `docs/RELEASE-REVIEW-2026-09-16.md` — tested behaviour, disabled candidates, limitations (licensing blocks publication), and the publication note. **Not published.**
 
 ## Phase 2 — Later (not scheduled)
-- [ ] Kings' powers (docs/RULES.md §4) behind a variant config
+- [x] Kings' powers (docs/RULES.md §4) behind a variant config (2026-10-02: all twelve built, balanced and official; `docs/research/kings-powers-balance-2026-10-02.md`)
 - [ ] Card/spell effects (§5)
 - [x] Threefold repetition, insufficient material (2026-09-13): `insufficientMaterial()` + `Game` position counts; `Status` gains `drawRepetition`/`drawMaterial`. Tests 18/18 green.
-- [ ] Stronger AI (see research report), online play
+- [ ] Stronger AI (see research report), online play. Stronger AI partly done 2026-10-02: power-aware net, +89 Elo without powers / +68 with (`docs/research/ai-powers-2026-10-02.md`); online play not started
 
 ## Claude local-record recovery — 2026-09-14
 - [x] Locate project sessions, Desktop metadata, memory, and related backups. Evidence: `docs/claude-recovery/README.md`.
@@ -613,7 +616,7 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [x] **Templar (T) built and rejected**: queen-on-capital design never fires (4–8% of moves from a capital); implied value 2.15–2.39 pawns, decisive −5.4 ± 2.7 (bonus: −2.5 ± 2.6), draws up. Report: `docs/research/sim-templar-2026-09-17.md`; PIECES-PROPOSED updated. The interest axis (Jev 2.23) and the game-priority axis disagree — both recorded.
 - [x] `tools/jev-interest.ts` hardened to 3 runs with spread and controls in every run (spreads ≤0.11; routine 0.06, highlight 2.95): the measured-interest ranking is now stable.
 - [x] Paired placement experiments (2026-09-17): maester near-king (−1.3 ± 5.4 decisive), bishop near-king (+0.5 ± 4.8), Ogre a-file (+1.4 ± 4.3) — **all null**; the location screens were rank-sampling confounds. `docs/research/conditions-2026-09-17.md` §3 corrected.
-- [ ] **Next by measured-interest ranking: Strike 2.87 / Squire 2.86 / Flight 2.56 / Sacrifice 2.40 / Ice Wall 2.16 / Freeze 2.07.** Strike, Flight, Freeze and Ice Wall all need the same tier-2 plumbing first: per-side charge state (and Freeze/Ice Wall a one-turn mark) carried through `Position`, `makeMove`, Zobrist, FEN's seventh field and the search's make/unmake — the plan's documented design (`docs/KINGS-POWERS-PLAN.md` §2, "the single easiest bug to ship in tier 2" is the hash). Build that plumbing once, then add the powers one at a time with tests and fresh-control pilots.
+- [x] (Done 2026-10-02: all twelve powers built with the tier-2 plumbing.) **Next by measured-interest ranking: Strike 2.87 / Squire 2.86 / Flight 2.56 / Sacrifice 2.40 / Ice Wall 2.16 / Freeze 2.07.** Strike, Flight, Freeze and Ice Wall all need the same tier-2 plumbing first: per-side charge state (and Freeze/Ice Wall a one-turn mark) carried through `Position`, `makeMove`, Zobrist, FEN's seventh field and the search's make/unmake — the plan's documented design (`docs/KINGS-POWERS-PLAN.md` §2, "the single easiest bug to ship in tier 2" is the hash). Build that plumbing once, then add the powers one at a time with tests and fresh-control pilots.
 
 ### Piece evaluation practice (owner direction, 2026-09-17)
 - **Value is one axis, not the verdict.** Every piece evaluation now reports, besides the odds-match value:
@@ -640,4 +643,4 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [x] `tools/next-ab.ts` + `docs/research/pending-levers.json`: deterministic rank (unmeasured → pilot first; then |effect|/half-width, depth 4 open first); `--jev` prints a labelled opinion. Today: guard-in-pawn-row pilot first; Jev picks the Ogre depth-4 arm (0.86).
 - [x] `AGENTS.md` (+ `CLAUDE.md`, `.agents/rules`, `.cursor/rules` pointers) so any agent starts from TASKS/LESSONS and the Jev rules. `tools/jev-conditions.ts` deleted.
 - [ ] Owner: fill the owner column in `design-screen-2026-09-21.md` and, if wanted, label the 13 rule sentences in `rule-simplicity-2026-09-21.md`; then the screens can be re-gated.
-- [ ] Report wording to fix (flagged by the claim check, not edited here): `sim-kings-2026-09-16.md` "worse, not better" (overlapping intervals) and `kings-decisions-2026-09-16.md:29` "not the anti-draw tool"; Ogre §7 two-part claims.
+- [x] (2026-10-03: the Death Touch sentence is reworded; "worse, not better" is no longer in that report; the Ogre claims in `sim-new-pieces-2026-09-14.md` §0 and §7 are split into one number each: "grows" softened to "holds" (overlapping intervals), the White shift stated per depth and per price, "converged" replaced by the reading-vs-seed evidence and the true 95% range 1.85–3.01.) Report wording to fix (flagged by the claim check, not edited here): `sim-kings-2026-09-16.md` "worse, not better" (overlapping intervals) and `kings-decisions-2026-09-16.md:29` "not the anti-draw tool"; Ogre §7 two-part claims.

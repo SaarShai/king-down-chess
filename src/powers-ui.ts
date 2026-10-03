@@ -3,7 +3,7 @@
  * power moves the player must arm first. The engine decides what is legal; this module only says
  * how a person reaches it.
  */
-import { Color, KINGS, KingChoice, KingName, Move, PowerName, PowerTag, Position, RULES, USES_RULE, parseKing } from './rules/engine';
+import { Color, KINGS, KingChoice, KingName, Move, PowerName, POWERS_BALANCED, PowerTag, Position, RULES, type Rules, USES_RULE, parseKing } from './rules/engine';
 
 export const POWER_NAME: Record<PowerName, string> = {
   Freeze: 'Freeze', IceWall: 'Ice Wall', Strike: 'Strike', Haste: 'Haste', Flight: 'Flight', Sacrifice: 'Sacrifice',
@@ -14,8 +14,7 @@ export const POWER_NAME: Record<PowerName, string> = {
  * One line per power, as a player reads it, under the rules in force (the balance-lab readings of
  * docs/research/kings-powers-balance-2026-10-02.md change several). Use counts come from the rules.
  */
-export function powerText(power: PowerName): string {
-  const r = RULES;
+export function powerText(power: PowerName, r: Rules = RULES): string {
   const turns = r.markTurns > 1 ? `its next ${r.markTurns} turns` : 'its next turn';
   switch (power) {
     case 'Freeze': return r.markFree
@@ -66,9 +65,9 @@ const ARMED: ReadonlySet<PowerTag> = new Set(['freeze', 'ward', 'strike', 'haste
 export const needsArming = (m: Move): boolean => m.pass === true || (m.power !== undefined && ARMED.has(m.power));
 
 /** Uses allowed by the rules (0 = unlimited), or null for an always-on power. */
-export function usesAllowed(power: PowerName): number | null {
+export function usesAllowed(power: PowerName, r: Rules = RULES): number | null {
   const key = USES_RULE[power];
-  return key ? (RULES[key] as number) : null;
+  return key ? (r[key] as number) : null;
 }
 
 /** Uses left for side `c` in `pos`, or null when its power is always on (or unlimited). */
@@ -81,17 +80,21 @@ export function usesLeft(pos: Position, c: Color): number | null {
 }
 
 /** "Freeze (2 per game)" / "Holy Light (always on)". */
-export function powerTitle(power: PowerName): string {
-  const n = usesAllowed(power);
+export function powerTitle(power: PowerName, r: Rules = RULES): string {
+  const n = usesAllowed(power, r);
   const count = n === null || n === 0 ? 'always on' : `${n} per game`;
   return `${POWER_NAME[power]} (${count})`;
 }
 
-/** Options for a power picker: "no power" then each king's two powers. */
+/**
+ * Options for a power picker: "no power" then each king's two powers. They describe the rules a
+ * game with powers is played under (the official readings), not the rules of the game in progress.
+ */
 export function powerOptions(): { group: string; options: { value: string; label: string; title: string }[] }[] {
+  const r: Rules = { ...RULES, ...POWERS_BALANCED };
   return (Object.entries(KINGS) as [KingName, readonly PowerName[]][]).map(([king, powers]) => ({
     group: `${king} king`,
-    options: powers.map(p => ({ value: `${king}:${p}`, label: powerTitle(p), title: powerText(p) })),
+    options: powers.map(p => ({ value: `${king}:${p}`, label: powerTitle(p, r), title: powerText(p, r) })),
   }));
 }
 

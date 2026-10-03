@@ -91,12 +91,7 @@ describe('evaluation', () => {
     ];
     for (const fen of fens) {
       const pos = fromFen(fen);
-      // Within one centipawn, not bit-for-bit. The king term blends KING_MG and KING_EG by a
-      // fractional phase, so the total is a float and the two boards accumulate it in a different
-      // square order; a total that lands exactly on a half centipawn then rounds the two ways.
-      // A real asymmetry -- a table that is not left-right symmetric, or a colour-specific term --
-      // is worth tens of centipawns, so the tolerance does not weaken what this test catches.
-      expect([fen, Math.abs(evaluate(flip(pos)) - evaluate(pos)) <= 1]).toEqual([fen, true]);
+      expect([fen, evaluate(flip(pos))]).toEqual([fen, evaluate(pos)]);
     }
   });
 });
