@@ -72,11 +72,13 @@ const holdOf = (e: Entrant): Partial<Record<string, number>> | undefined => {
 export const RULE_POWERS: Partial<Record<keyof Rules, readonly PowerName[]>> = {
   freezeUses: ['Freeze'], freezeQuiet: ['Freeze'], iceWallUses: ['IceWall'], markFree: ['Freeze', 'IceWall'], markTurns: ['Freeze', 'IceWall'],
   strikeUses: ['Strike'], strikeCaptures: ['Strike'], strikeMode: ['Strike'], strikePawns: ['Strike'],
-  hasteUses: ['Haste'], hasteSecond: ['Haste'], hasteCaptures: ['Haste'],
+  hasteUses: ['Haste'], hasteSecond: ['Haste'], hasteCaptures: ['Haste'], hasteApart: ['Haste'], hasteNoThreat: ['Haste'], hasteNoForward: ['Haste'], hasteNoCheck: ['Haste'],
   flightUses: ['Flight'], sacrificeUses: ['Sacrifice'], sacrificeBehind: ['Sacrifice'],
   marchUses: ['March'], leapUses: ['Leap'],
   holyLightTakesPawns: ['HolyLight'], holyLightAura: ['HolyLight'], holyLightKnights: ['HolyLight'], holyLightShelter: ['HolyLight'], holyLightShelterOrtho: ['HolyLight'], mercyCaptures: ['Mercy'], mercyAura: ['Mercy'], mercyAuraOrtho: ['Mercy'], mercyAuraPawns: ['Mercy'],
+  mercyAuraPawnsTake: ['Mercy'], mercyTakesPawns: ['Mercy'], mercyNoJump: ['Mercy'],
   deathTouchMoves: ['DeathTouch'], deathTouchReach: ['DeathTouch'], deathTouchReachOrtho: ['DeathTouch'], darknessKeep: ['Darkness'], darknessMoves: ['Darkness'], darknessTakeAhead: ['Darkness'], darknessStepDiag: ['Darkness'],
+  darknessShelter: ['Darkness'], darknessShelterPawnsTake: ['Darkness'],
 };
 const variantOf = (t: TournamentSpec, e: Entrant): Partial<Rules> => {
   const m = /~v(.+)$/.exec(e);

@@ -281,7 +281,8 @@ export function canCapture(att: number, vic: PieceType): boolean {
   // take (plan decision 15: a piece may be hard to take, never impossible; a permanently immortal
   // guard is the measured draw engine). Stated here and not in `genPiece`, so `isAttacked` follows
   // for nothing: its DIRS8 loop asks `canCapture` for the king like every other piece.
-  if (at === K && vic !== G && powerOf(colorOf(att)) === 'Mercy' && !RULES.mercyCaptures) return false;
+  // `mercyTakesPawns` (balance lab) adds the pawns, the way `holyLightTakesPawns` does for Holy Light.
+  if (at === K && vic !== G && powerOf(colorOf(att)) === 'Mercy' && !RULES.mercyCaptures && !(vic === P && RULES.mercyTakesPawns)) return false;
   // Holy Light (Spirit A): no enemy pawn takes this side's king, and this king takes no pawn. A
   // capture is always cross-colour, so the victim's side is `colorOf(att) ^ 1` and one byte decides
   // both directions. The guard is untouched: a Spirit king still takes one (§1.9).
@@ -311,30 +312,36 @@ function inLight(board: Uint8Array, sq: number, side: number): boolean {
   return false;
 }
 
+/** Is any shelter rule on (`mercyAura`, `holyLightShelter`, `darknessShelter`)? The gate of `sheltered`'s three callers. */
+const shelters = (): boolean => RULES.mercyAura || RULES.holyLightShelter || RULES.darknessShelter;
+
 /**
- * Mercy's shelter (`mercyAura`) and Holy Light's (`holyLightShelter`), balance lab: `sq` holds a
- * piece, not a king, standing next to its own side's sheltering king. Returns what the shelter stops
- * there: every capture (2), only a pawn's (1, `mercyAuraPawns`), or nothing (0). The `*Ortho`
- * readings shelter only the four orthogonal neighbours.
+ * Mercy's shelter (`mercyAura`), Holy Light's (`holyLightShelter`) and Darkness's
+ * (`darknessShelter`), balance lab: `sq` holds a piece, not a king, standing next to its own side's
+ * sheltering king. Returns what the shelter stops there: every capture (2), only a pawn's (1,
+ * `mercyAuraPawns`), every capture but a pawn's (3, `mercyAuraPawnsTake`,
+ * `darknessShelterPawnsTake`), or nothing (0). The `*Ortho` readings shelter only the four
+ * orthogonal neighbours, Darkness only the four diagonal ones (`DIRS8` 4-7).
  */
 function sheltered(board: Uint8Array, sq: number): number {
   const v = board[sq];
   if (!v || typeOf(v) === K) return 0;
   const pw = powerOf(colorOf(v));
-  let ortho: boolean, level: number;
-  if (pw === 'Mercy' && RULES.mercyAura) { ortho = RULES.mercyAuraOrtho; level = RULES.mercyAuraPawns ? 1 : 2; }
-  else if (pw === 'HolyLight' && RULES.holyLightShelter) { ortho = RULES.holyLightShelterOrtho; level = 2; }
+  let lo = 0, hi: number, level: number;
+  if (pw === 'Mercy' && RULES.mercyAura) { hi = RULES.mercyAuraOrtho ? 4 : 8; level = RULES.mercyAuraPawns ? 1 : RULES.mercyAuraPawnsTake ? 3 : 2; }
+  else if (pw === 'HolyLight' && RULES.holyLightShelter) { hi = RULES.holyLightShelterOrtho ? 4 : 8; level = 2; }
+  else if (pw === 'Darkness' && RULES.darknessShelter) { lo = 4; hi = 8; level = RULES.darknessShelterPawnsTake ? 3 : 2; }
   else return 0;
   const k = piece(K, colorOf(v));
-  for (let d = 0; d < (ortho ? 4 : 8); d++) { const n = NEIGHBOUR[sq * 8 + d]; if (n >= 0 && board[n] === k) return level; }
+  for (let d = lo; d < hi; d++) { const n = NEIGHBOUR[sq * 8 + d]; if (n >= 0 && board[n] === k) return level; }
   return 0;
 }
 
-/** Drop the moves from `n0` on that would capture a sheltered piece (`mercyAura`, `holyLightShelter`). */
+/** Drop the moves from `n0` on that would capture a sheltered piece (see `sheltered`). */
 function dropSheltered(board: Uint8Array, out: Move[], n0: number): void {
   for (let i = out.length - 1; i >= n0; i--) {
     const caps = out[i].captures, pawn = typeOf(board[out[i].from]) === P;
-    for (let j = 0; j < caps.length; j++) { const l = sheltered(board, caps[j]); if (l === 2 || (l === 1 && pawn)) { out.splice(i, 1); break; } }
+    for (let j = 0; j < caps.length; j++) { const l = sheltered(board, caps[j]); if (l === 2 || (l === 1 && pawn) || (l === 3 && !pawn)) { out.splice(i, 1); break; } }
   }
 }
 
@@ -488,8 +495,10 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
           if (one < 0) continue;
           const v = board[one];
           if (v) {
-            // An enemy stops the ray (and may be taken only if it is a guard); a friend is jumped.
+            // An enemy stops the ray (and may be taken only if it is a guard); a friend is jumped,
+            // unless `mercyNoJump` (balance lab) makes it stop the ray too.
             if (colorOf(v) !== c) { if (canCapture(p, typeOf(v))) out.push({ from, to: one, captures: [one] }); continue; }
+            if (RULES.mercyNoJump) continue;
           } else if (mode === 'all') out.push({ from, to: one, captures: [] });
           const two = step(one, df, dr);
           if (two >= 0 && !board[two] && mode === 'all') out.push({ from, to: two, captures: [] });
@@ -762,8 +771,8 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
 export function genPiece(board: Uint8Array, from: number, mode: GenMode, out: Move[]): void {
   const n0 = out.length;
   genPieceRaw(board, from, mode, out);
-  // Mercy's shelter covers every mode: `isAttacked` mirrors it, so the attack sets stay equal.
-  if (RULES.mercyAura || RULES.holyLightShelter) dropSheltered(board, out, n0);
+  // The shelters cover every mode: `isAttacked` mirrors them, so the attack sets stay equal.
+  if (shelters()) dropSheltered(board, out, n0);
   if (mode === 'attacks') return; // check/mate detection stays standard: see the C2/C5 notes above
   if (RULES.capitalSanctuary) {
     for (let i = out.length - 1; i >= n0; i--) {
@@ -914,10 +923,27 @@ const RAY: Int8Array[] = Array.from({ length: 64 * 8 }, (_, i) => {
   return Int8Array.from(out);
 });
 
+/**
+ * Does a pawn of `by` take `target`? It stands on one of the two squares diagonally behind it — or,
+ * under **Darkness**, on the single square straight behind it (the mirror of `case P`).
+ * `darknessKeep` keeps both.
+ */
+function pawnTakes(board: Uint8Array, target: number, by: Color, victim: number): boolean {
+  const back = -fwd(by), dark = powerOf(by) === 'Darkness';
+  if (dark && !RULES.darknessStepDiag) { const s = step(target, 0, back); if (s >= 0 && hits(board, s, P, by, victim)) return true; }
+  if (!dark || RULES.darknessKeep || RULES.darknessTakeAhead || RULES.darknessStepDiag) {
+    const s1 = step(target, -1, back), s2 = step(target, 1, back);
+    if ((s1 >= 0 && hits(board, s1, P, by, victim)) || (s2 >= 0 && hits(board, s2, P, by, victim))) return true;
+  }
+  return false;
+}
+
 export function isAttacked(board: Uint8Array, target: number, by: Color): boolean {
-  const shelter = RULES.mercyAura || RULES.holyLightShelter ? sheltered(board, target) : 0;
+  const shelter = shelters() ? sheltered(board, target) : 0;
   if (shelter === 2) return false;
   const victim = board[target] ? typeOf(board[target]) : 0;
+  // A shelter only a pawn may break: the pawn walk is the whole answer.
+  if (shelter === 3) return pawnTakes(board, target, by, victim);
   // `isAttacked` is the hottest function in the project, so it creates no closure per call (the
   // simulator runs under tsx, whose name-keeping wraps every closure it creates), walks precomputed
   // geometry, and looks for a catapult only when a lob is geometrically possible (-1 = not yet).
@@ -943,18 +969,8 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
     const s2 = NEIGHBOUR[s * 8 + d];
     if (s2 >= 0 && hits(board, s2, K, by, victim)) return true;
   }
-  // A pawn of `by` that takes the target stands on one of the two squares diagonally behind it —
-  // or, under **Darkness**, on the single square straight behind it (the mirror of `case P`).
-  // `darknessKeep` keeps both. A piece in a Holy Light king's aura is out of every pawn's reach.
-  const back = -fwd(by), dark = powerOf(by) === 'Darkness';
-  if (shelter === 0 && !inLight(board, target, by ^ 1)) {
-    const ahead = dark && !RULES.darknessStepDiag;
-    if (ahead) { const s = step(target, 0, back); if (s >= 0 && hits(board, s, P, by, victim)) return true; }
-    if (!dark || RULES.darknessKeep || RULES.darknessTakeAhead || RULES.darknessStepDiag) {
-      const s1 = step(target, -1, back), s2 = step(target, 1, back);
-      if ((s1 >= 0 && hits(board, s1, P, by, victim)) || (s2 >= 0 && hits(board, s2, P, by, victim))) return true;
-    }
-  }
+  // A piece in a Holy Light king's aura is out of every pawn's reach.
+  if (shelter === 0 && !inLight(board, target, by ^ 1) && pawnTakes(board, target, by, victim)) return true;
   // Walk the shot deltas *negated*: an archer that shoots (df, dr) sits at (-df, -dr) from its
   // target. The symmetric sets do not care; `forward3` does.
   const shots = archerShotsFor(by);
@@ -1022,7 +1038,7 @@ export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: A
   // Card mode: each unplayed card's moves, once per power (a second copy offers the same moves).
   else hand.forEach((p, k) => { if (!(used >> k & 1) && hand.findIndex((q, i) => q === p && !(used >> i & 1)) === k) genPowerMovesRaw(p, board, c, lost, out, n0, n1); });
   // A power capture (Strike, a counted Leap) spares a sheltered piece like any other capture.
-  if (RULES.mercyAura || RULES.holyLightShelter) dropSheltered(board, out, start);
+  if (shelters()) dropSheltered(board, out, start);
 }
 
 function genPowerMovesRaw(power: PowerName | '', board: Uint8Array, c: Color, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number): void {
@@ -1065,8 +1081,11 @@ function genPowerMovesRaw(power: PowerName | '', board: Uint8Array, c: Color, lo
     case 'Haste': {
       // Any ordinary move, after which the same piece may move again. A paladin that removes itself
       // has no second move to make, so its captures are not offered as a Haste.
-      // `hasteCaptures: false` (balance lab): the first move is quiet too.
-      for (let i = n0; i < n1; i++) if (!out[i].selfRemove && (RULES.hasteCaptures || !out[i].captures.length)) out.push({ ...out[i], power: 'haste' });
+      // `hasteCaptures: false` (balance lab): the first move is quiet too. `hasteNoCheck`: it gives no check.
+      for (let i = n0; i < n1; i++) {
+        const m = out[i];
+        if (!m.selfRemove && (RULES.hasteCaptures || !m.captures.length) && !(RULES.hasteNoCheck && givesCheck(boardAfter(board, m, c), c))) out.push({ ...m, power: 'haste' });
+      }
       return;
     }
     case 'Flight': {
@@ -1172,13 +1191,37 @@ export function genHasteFollowUp(board: Uint8Array, at: number, mode: GenMode, o
   genPiece(board, at, mode, out);
   // `hasteSecond: 'quiet'` (balance lab): the second move captures nothing at all.
   const quiet = RULES.hasteSecond === 'quiet' || !RULES.hasteCaptures;
+  const limits = RULES.hasteApart || RULES.hasteNoThreat || RULES.hasteNoForward || RULES.hasteNoCheck;
+  const c = colorOf(board[at]);
   let n = n0;
   for (let i = n0; i < out.length; i++) {
     const m = out[i];
-    if (quiet ? m.captures.length === 0 : !m.captures.some(s => typeOf(board[s]) === K)) out[n++] = m;
+    if ((quiet ? m.captures.length === 0 : !m.captures.some(s => typeOf(board[s]) === K)) && (!limits || hasteMayEnd(board, m, c))) out[n++] = m;
   }
   out.length = n;
   if (mode === 'all') out.push({ from: at, to: at, captures: [], pass: true });
+}
+
+/** `board` after `m` by `c`, as a fresh board: `makeMove`'s own writes, so the caller's board is never touched. */
+const boardAfter = (board: Uint8Array, m: Move, c: Color): Uint8Array => makeMove({ board, turn: c, halfmove: 0, ply: 0 }, m).board;
+
+/** Is the king of `c`'s opponent in check on `after` (`hasteNoCheck`)? */
+function givesCheck(after: Uint8Array, c: Color): boolean {
+  const k = findKing(after, (c ^ 1) as Color);
+  return k >= 0 && isAttacked(after, k, c);
+}
+
+/**
+ * The Haste readings' limits on a second move `m` by `c` (balance lab, `Rules.hasteApart` and the
+ * rest). Each reads where the hasted piece ends, `m.to`, on the board after the move: an Ogre's
+ * shoved piece and a Maester's swapped friend stand where the move put them.
+ */
+function hasteMayEnd(board: Uint8Array, m: Move, c: Color): boolean {
+  if (RULES.hasteNoForward && (rank(m.to) - rank(m.from)) * fwd(c) > 0) return false;
+  const after = boardAfter(board, m, c);
+  if (RULES.hasteApart) for (let d = 0; d < 8; d++) { const n = NEIGHBOUR[m.to * 8 + d]; if (n >= 0 && after[n] && colorOf(after[n]) !== c) return false; }
+  if (RULES.hasteNoThreat) { const threats: Move[] = []; genPiece(after, m.to, 'captures', threats); if (threats.length) return false; }
+  return !RULES.hasteNoCheck || !givesCheck(after, c);
 }
 
 /** `freezeQuiet` (balance lab): the ordinary move after a free Freeze takes nothing. */
