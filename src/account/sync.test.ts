@@ -14,7 +14,15 @@ const cloud = (row: Row | null = null) => {
   const r = { row, pulls: 0, pushes: 0, fail: 0 } as { row: Row | null; pulls: number; pushes: number; fail: number };
   const remote: Remote = {
     async pull() { r.pulls++; if (r.fail > 0) { r.fail--; throw new Error('offline'); } return r.row && reorder(r.row) as Row; },
-    async push(part) { r.pushes++; if (r.fail > 0) { r.fail--; throw new Error('offline'); } r.row = { ...r.row, ...(reorder(part) as Row) }; },
+    async push(part) {
+      r.pushes++;
+      if (r.fail > 0) { r.fail--; throw new Error('offline'); }
+      // Like the database (0001_accounts.sql): a section is kept only when the one sent is newer.
+      const next: Row = { ...r.row };
+      for (const s of Object.keys(part) as Section[]) if (!next[s] || part[s]!.at > next[s]!.at) next[s] = reorder(part[s]) as Row[Section];
+      r.row = next;
+      return reorder(next) as Row;
+    },
   };
   return Object.assign(r, { remote });
 };
@@ -61,7 +69,7 @@ describe('stamp', () => {
 describe('merge', () => {
   const l = (at: number, v: unknown) => ({ at, json: JSON.stringify(v) });
   it('per section: the newer copy wins; a missing side takes the other', () => {
-    expect(merge({ settings: l(5, {}), saved_game: l(9, { a: 1 }) }, { settings: { at: 7, v: { x: 1 } }, saved_game: { at: 8, v: { a: 2 } }, lessons: { at: 1, v: {} } }))
+    expect(merge({ settings: l(5, {}), saved_game: l(9, { a: 1 }) }, { settings: { at: 7, v: { x: 1 } }, saved_game: { at: 8, v: { moves: [] } }, lessons: { at: 1, v: { done: [] } } }))
       .toEqual({ down: ['settings', 'lessons'], up: ['saved_game'] });
     expect(merge({ settings: l(0, {}) }, null)).toEqual({ down: [], up: ['settings'] });
   });
@@ -70,8 +78,10 @@ describe('merge', () => {
     expect(merge({ settings: l(0, { a: 1, b: 2 }) }, { settings: { at: 0, v: { b: 2, a: 1 } } })).toEqual({ down: [], up: [] });
     expect(merge({ settings: l(3, { a: 1 }) }, { settings: { at: 3, v: { a: 1, new: 1 } } })).toEqual({ down: [], up: [] });
   });
-  it('ignores a cloud section that is not an object', () => {
+  it('ignores a cloud section it cannot use', () => {
     expect(merge({}, { settings: { at: 9, v: 'junk' }, lessons: null })).toEqual({ down: [], up: [] });
+    expect(merge({}, { saved_game: { at: 9, v: { fen: 'x' } }, lessons: { at: 9, v: { done: 'Archer' } } })).toEqual({ down: [], up: [] });
+    expect(merge({}, { settings: { at: 9, v: [1] } })).toEqual({ down: [], up: [] });
   });
 });
 
@@ -159,6 +169,44 @@ describe('Sync with a fake server', () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(c.pulls).toBe(3);
     expect(c.row?.saved_game).toMatchObject({ v: { moves: ['e2-e4'] } });
+  });
+
+  it('a device that was offline cannot replace a newer copy another device sent meanwhile: it takes that copy', async () => {
+    const c = cloud(), a = device({ 'kingdown.save': save(['e2-e4']) }, c), b = device({ 'kingdown.save': save(['e2-e4']) }, c);
+    await a.sync.pull();
+    await b.sync.pull();
+    vi.setSystemTime(1_500_000);
+    a.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'a7-a6'])));
+    c.fail = 1;
+    a.sync.changed();
+    await vi.advanceTimersByTimeAsync(2000); // A is offline: its write fails and waits 5 s
+    vi.setSystemTime(2_000_000);
+    b.st.setItem('kingdown.save', JSON.stringify(save(['e2-e4', 'e7-e5'])));
+    b.sync.changed();
+    await vi.advanceTimersByTimeAsync(2000); // B, online, sends its later game
+    expect(c.row?.saved_game).toMatchObject({ at: 2_000_000, v: { moves: ['e2-e4', 'e7-e5'] } });
+    await vi.advanceTimersByTimeAsync(3000); // A is back: its older game does not replace B's, and B's comes down to A
+    expect(c.row?.saved_game).toMatchObject({ at: 2_000_000, v: { moves: ['e2-e4', 'e7-e5'] } });
+    expect(a.applied).toEqual([['saved_game']]);
+    expect((readLocal(a.st).saved_game as { moves: string[] }).moves).toEqual(['e2-e4', 'e7-e5']);
+  });
+
+  it('lessons done on two devices add up', async () => {
+    const c = cloud();
+    const a = device({ 'kingdown.save': save([]), 'kingdown.lessons': { done: ['Archer'] } }, c);
+    const b = device({ 'kingdown.save': save([]), 'kingdown.lessons': { done: ['Guard'] } }, c);
+    await a.sync.pull();
+    await b.sync.pull(); // the account had Archer: B takes it, keeps Guard, and sends both
+    expect(readLocal(b.st).lessons).toEqual({ done: ['Archer', 'Guard'] });
+    expect(c.row?.lessons?.v).toEqual({ done: ['Archer', 'Guard'] });
+    await a.sync.pull();
+    expect(readLocal(a.st).lessons).toEqual({ done: ['Archer', 'Guard'] });
+    vi.setSystemTime(2_000_000);
+    await vi.advanceTimersByTimeAsync(5000);
+    const pushes = c.pushes;
+    await a.sync.pull();
+    await b.sync.pull();
+    expect(c.pushes).toBe(pushes); // settled: nothing more goes up
   });
 
   it('stops for good after sign-out', async () => {

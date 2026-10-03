@@ -1,8 +1,8 @@
 // Settings → Account and the cloud save in a real browser, against a fake Supabase (every request to
 // the project is answered here; nothing reaches the real server). Signed out, the sign-in redirect,
 // the return from it, the cloud save (newer copy comes down, a move goes up after 2 s), sign-out,
-// account deletion, a newer game arriving during a lesson or under the title, and a server that
-// cannot be reached.
+// account deletion, a newer game arriving during a lesson or under the title, a newer game another
+// device sent while this one was behind, a server that cannot be reached, and signing out offline.
 // PLAYABLE_URL=http://127.0.0.1:5198/ PLAYABLE_BROWSER=chromium node tools/verify-account.mjs
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
@@ -51,10 +51,17 @@ async function open({ query = '', stored = null, row = null, down = false, phone
       await new Promise(res => setTimeout(res, delay));
       return json(200, server.row ? [server.row] : []);
     }
-    if (url.pathname === '/rest/v1/user_data' && req.method() === 'POST') { server.row = { ...server.row, ...JSON.parse(req.postData()) }; return json(201); }
+    if (url.pathname === '/rest/v1/user_data' && req.method() === 'POST') {
+      // Like the database (0001_accounts.sql): a section is kept only when the one sent is newer; the reply is the row as kept.
+      const sent = JSON.parse(req.postData()), next = { ...server.row };
+      for (const s of ['settings', 'lessons', 'saved_game']) if (sent[s] && !(next[s]?.at >= sent[s].at)) next[s] = sent[s];
+      server.row = next;
+      return json(201, { settings: next.settings ?? null, lessons: next.lessons ?? null, saved_game: next.saved_game ?? null });
+    }
     return json(404, { message: 'not in the fake server' });
   });
   const page = await ctx.newPage();
+  await page.clock.install();
   page.on('pageerror', e => server.errors.push(e.message));
   page.on('request', r => { if (/assets\/client-/.test(r.url())) server.scripts.push(r.url()); });
   page.on('dialog', d => d.accept());
@@ -131,6 +138,8 @@ try {
     assert.equal(body.user_id, UID);
     assert.deepEqual(Object.keys(body).sort(), ['saved_game', 'settings', 'user_id']);
     assert.match(up.headers.prefer, /resolution=merge-duplicates/);
+    assert.match(up.headers.prefer, /return=representation/, 'asks for the row as kept');
+    assert.equal(up.url.searchParams.get('select'), 'settings,lessons,saved_game');
     assert.equal(up.headers.apikey, 'sb_publishable_8jB5OXiSB56JSJBfPjLvbQ_cKIemhX9');
     await close();
   }
@@ -260,4 +269,39 @@ try {
     await close();
   }
   ok('server unreachable: the game loads, plays and saves here; retries quietly with nothing on screen');
+
+  // 8. Another device sent a newer game while this one sat idle: this device's next move does not
+  //    replace it in the account, and the newer game comes down here instead.
+  {
+    const p = await open({ stored: session(), row: structuredClone(row) }), { page, server, close } = p;
+    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length === 2);
+    const elsewhere = { at: now + 3_600_000, v: { ...row.saved_game.v, moves: ['d2-d4', 'd7-d5', 'c2-c4'] } };
+    server.row = { ...server.row, saved_game: elsewhere };
+    await tap(p, 6); await tap(p, 21); // g1-f3 on the older game
+    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length === 3);
+    await page.waitForFunction(() => document.querySelector('#moves [data-ply]')?.textContent.includes('d2-d4'), null, { timeout: 8000 });
+    assert.deepEqual(await moves(page), ['d2-d4', 'd7-d5', 'c2-c4']);
+    assert.equal(await page.locator('#moment').innerText(), 'Loaded your newer saved game from your account.');
+    assert.deepEqual(server.row.saved_game, elsewhere, 'the account keeps the newer game');
+    assert.deepEqual((await save(page)).moves, ['d2-d4', 'd7-d5', 'c2-c4']);
+    assert.deepEqual(server.errors, []);
+    await close();
+  }
+  ok('a newer game from another device is never replaced by an older one: the move here goes up, the account keeps the newer game, and it comes down');
+
+  // 9. Sign out with no connection after the session ran out: still signed out here, also after a reload.
+  {
+    const { page, close } = await open({ stored: session(), down: true });
+    await page.clock.fastForward('02:00:00'); // the hour-long session runs out; it cannot be renewed offline
+    await settings(page);
+    await page.locator('#account-body >> text=Sign out').click();
+    await page.locator('#account-body >> text=Continue with Google').waitFor();
+    assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.auth')), null);
+    await page.reload();
+    await page.waitForFunction(() => window.view?.ready);
+    await settings(page);
+    assert.deepEqual(await accountButtons(page), ['Continue with Google', 'Continue with GitHub']);
+    await close();
+  }
+  ok('signing out offline with a session that ran out signs out on this device, and a reload stays signed out');
 } finally { await browser.close(); }

@@ -106,11 +106,15 @@ export function startAccount(onApply: (down: Section[]) => void): void {
       say(`Opening ${PROVIDERS.find(([p]) => p === provider)?.[1]}…`);
       try { await (await load()).signIn(provider); } catch { say('Could not reach the sign-in service. Check your connection and try again.'); }
     } else if (b.dataset.act === 'sign-out') {
+      // The last changes go up first (waiting 3 s at most), so the account's copy has them.
+      await Promise.race([sync?.flush(), new Promise(r => setTimeout(r, 3000))]);
       try { await (await load()).signOut(); } catch { try { localStorage.removeItem(AUTH_KEY); } catch { /* blocked */ } }
       sync?.stop(); sync = null; userId = ''; user = null;
       render();
       say('Signed out. Your games stay on this device.');
     } else if (b.dataset.act === 'delete') {
+      // Inside another site's frame, a click may not be the player's own (clickjacking).
+      if (window.top !== window.self) return say('Open King Down in its own tab to delete your account.');
       ask.returnValue = '';
       ask.showModal();
     }

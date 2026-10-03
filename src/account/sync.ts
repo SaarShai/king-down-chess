@@ -7,8 +7,11 @@ export const SECTIONS = ['settings', 'lessons', 'saved_game'] as const;
 export type Section = (typeof SECTIONS)[number];
 export type Stamped = { at: number; v: unknown };
 export type Row = Partial<Record<Section, Stamped | null>>;
-/** The player's user_data row. Both calls throw when the server cannot be reached. */
-export interface Remote { pull(): Promise<Row | null>; push(row: Row): Promise<void> }
+/**
+ * The player's user_data row. Both calls throw when the server cannot be reached. `push` answers with
+ * the row as the database kept it: it keeps a section only when the one sent is newer (0001_accounts.sql).
+ */
+export interface Remote { pull(): Promise<Row | null>; push(row: Row): Promise<Row | null> }
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
 /** When each section last changed here, and its value then (to see the next change). */
 type Stamps = Partial<Record<Section, { at: number; json: string }>>;
@@ -23,6 +26,13 @@ const pick = (o: Record<string, unknown>, keys: string[]) => Object.fromEntries(
 /** JSON with sorted keys: the database reorders the keys of what it keeps. */
 const canon = (v: unknown): string => JSON.stringify(v, (_k, x) =>
   x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1))) : x);
+
+/** A cloud copy this version can use: an object, and the saved game and lessons need their lists. */
+function usable(s: Section, v: unknown): v is Record<string, unknown> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return false;
+  const o = v as Record<string, unknown>;
+  return s === 'saved_game' ? Array.isArray(o.moves) : s === 'lessons' ? Array.isArray(o.done) : true;
+}
 
 /** This device's copy of each section, or null when it has none. */
 export function readLocal(store: Store): Record<Section, unknown> {
@@ -64,7 +74,7 @@ export function merge(local: Stamps, cloud: Row | null): { up: Section[]; down: 
   const up: Section[] = [], down: Section[] = [];
   for (const s of SECTIONS) {
     const l = local[s], c = cloud?.[s];
-    if (c && typeof c.at === 'number' && c.v && typeof c.v === 'object' && (!l || c.at > l.at || (c.at === 0 && l.at === 0 && canon(c.v) !== l.json))) down.push(s);
+    if (c && typeof c.at === 'number' && usable(s, c.v) && (!l || c.at > l.at || (c.at === 0 && l.at === 0 && canon(c.v) !== l.json))) down.push(s);
     else if (l && (!c || l.at > c.at)) up.push(s);
   }
   return { up, down };
@@ -86,14 +96,7 @@ export class Sync {
     return this.run(async () => {
       const row = await this.remote.pull();
       if (this.stopped) return;
-      const stamps = stamp(this.store), { down } = merge(stamps, row);
-      this.cloudAt = {};
-      for (const s of SECTIONS) if (typeof row?.[s]?.at === 'number') this.cloudAt[s] = row[s]!.at;
-      for (const s of down) {
-        writeLocal(this.store, s, row![s]!.v);
-        stamps[s] = { at: row![s]!.at, json: canon(readLocal(this.store)[s]) };
-      }
-      if (down.length) { this.store.setItem(STAMPS, JSON.stringify(stamps)); this.onApply(down); }
+      this.take(row);
       this.pulled = true;
       await this.send();
     });
@@ -103,8 +106,7 @@ export class Sync {
   changed(): void {
     if (this.stopped) return;
     stamp(this.store);
-    clearTimeout(this.timer);
-    this.timer = setTimeout(() => void this.flush(), this.delayMs);
+    this.later(this.delayMs);
   }
 
   /** Sends now (the page is being hidden, the connection is back). */
@@ -122,8 +124,35 @@ export class Sync {
       if (l && local[s] != null && l.at > (this.cloudAt[s] ?? -1)) row[s] = { at: l.at, v: local[s] };
     }
     if (this.stopped || !Object.keys(row).length) return;
-    await this.remote.push(row);
-    for (const s of SECTIONS) if (row[s]) this.cloudAt[s] = row[s]!.at;
+    const kept = await this.remote.push(row);
+    if (this.stopped) return;
+    if (kept) this.take(kept); // another device sent a newer copy meanwhile: it comes down now
+    else for (const s of SECTIONS) if (row[s]) this.cloudAt[s] = row[s]!.at;
+  }
+
+  /** Writes here each section the cloud has newer, and notes the cloud's times. */
+  private take(row: Row | null): void {
+    const stamps = stamp(this.store), { down } = merge(stamps, row);
+    this.cloudAt = {};
+    for (const s of SECTIONS) if (typeof row?.[s]?.at === 'number') this.cloudAt[s] = row[s]!.at;
+    for (const s of down) {
+      const { at, v } = row![s]!;
+      if (s === 'lessons') {
+        // Lessons done only add up: keep the ones done only here. Then this copy differs from the
+        // cloud's, so it counts as a new change and goes up.
+        const cloud = v as { done: unknown[] }, mine = (readLocal(this.store).lessons as { done?: unknown } | null)?.done;
+        const more = Array.isArray(mine) ? mine.filter(x => !cloud.done.includes(x)) : [];
+        writeLocal(this.store, s, more.length ? { ...cloud, done: [...cloud.done, ...more] } : cloud);
+        if (more.length) this.later(this.delayMs);
+      } else writeLocal(this.store, s, v);
+      stamps[s] = { at, json: canon(s === 'lessons' ? v : readLocal(this.store)[s]) };
+    }
+    if (down.length) { this.store.setItem(STAMPS, JSON.stringify(stamps)); this.onApply(down); }
+  }
+
+  private later(ms: number): void {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => void this.flush(), ms);
   }
 
   /** One request at a time; a failure waits 5 s, then twice as long each time, up to 5 min. */
@@ -131,8 +160,7 @@ export class Sync {
     return this.queue = this.queue.then(op).then(() => { this.retryMs = 0; }, () => {
       if (this.stopped) return;
       this.retryMs = Math.min(this.retryMs ? this.retryMs * 2 : 5000, 300000);
-      clearTimeout(this.timer);
-      this.timer = setTimeout(() => void this.flush(), this.retryMs);
+      this.later(this.retryMs);
     });
   }
 }

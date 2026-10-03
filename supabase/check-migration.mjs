@@ -1,5 +1,5 @@
 // Applies supabase/migrations/0001_accounts.sql twice to a stand-in for Supabase (Postgres in WASM)
-// and checks the profile trigger, Row Level Security, the grants and account deletion.
+// and checks the profile trigger, Row Level Security, the grants, the newer-copy rule and account deletion.
 //   npm install --no-save @electric-sql/pglite && node supabase/check-migration.mjs
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
@@ -25,7 +25,7 @@ await db.exec(`
   grant usage on schema public to anon;
   alter default privileges in schema public grant all on tables to anon, authenticated;
   alter default privileges in schema public grant all on functions to anon, authenticated;
-  insert into auth.users values ('${OLD}', 'old@example.com', '{"user_name":"oldtimer","avatar_url":"https://a/old.png"}');
+  insert into auth.users values ('${OLD}', 'old@example.com', '{"user_name":"oldtimer","avatar_url":"https://avatars.githubusercontent.com/u/3?v=4"}');
 `);
 
 await db.exec(sql);
@@ -33,16 +33,16 @@ await db.exec(sql); // idempotent
 const one = async (q, p) => (await db.query(q, p)).rows;
 
 // Trigger and backfill.
-await db.query(`insert into auth.users values ($1, 'a@example.com', $2)`, [A, { full_name: 'Ada Lovelace', picture: 'https://g/ada.png', name: 'ignored' }]);
-await db.query(`insert into auth.users values ($1, 'b@example.com', $2)`, [B, { name: '', user_name: 'bob', avatar_url: 'https://gh/bob.png' }]);
-await db.query(`insert into auth.users values ('44444444-4444-4444-4444-444444444444', null, $1)`, [{ full_name: 'x'.repeat(80) }]);
-await db.query(`insert into auth.users values ('55555555-5555-5555-5555-555555555555', null, null)`);
+await db.query(`insert into auth.users values ($1, 'a@example.com', $2)`, [A, { full_name: 'Ada Lovelace', picture: 'https://lh3.googleusercontent.com/a/ada=s96-c', name: 'ignored', rating: 3000 }]);
+await db.query(`insert into auth.users values ($1, 'b@example.com', $2)`, [B, { name: '', user_name: 'bob', avatar_url: 'https://avatars.githubusercontent.com/u/2?v=4' }]);
+await db.query(`insert into auth.users values ('44444444-4444-4444-4444-444444444444', null, $1)`, [{ full_name: 'x'.repeat(80), avatar_url: 'https://tracker.example/p.gif?u=' }]);
+await db.query(`insert into auth.users values ('55555555-5555-5555-5555-555555555555', null, $1)`, [{ avatar_url: 'javascript:alert(1)', picture: 'https://evil.example/.googleusercontent.com/x' }]);
 const profiles = await one(`select id, display_name, avatar_url, rating from public.profiles order by id`);
 assert.deepEqual(profiles.map(p => [p.display_name, p.avatar_url, p.rating]), [
-  ['Ada Lovelace', 'https://g/ada.png', 1200],
-  ['bob', 'https://gh/bob.png', 1200],
-  ['oldtimer', 'https://a/old.png', 1200],
-  ['x'.repeat(50), null, 1200],
+  ['Ada Lovelace', 'https://lh3.googleusercontent.com/a/ada=s96-c', 1200], // a rating in the sign-up data is ignored
+  ['bob', 'https://avatars.githubusercontent.com/u/2?v=4', 1200],
+  ['oldtimer', 'https://avatars.githubusercontent.com/u/3?v=4', 1200],
+  ['x'.repeat(50), null, 1200], // a picture from any other server is dropped
   [null, null, 1200],
 ]);
 assert.ok(!Object.keys(profiles[0]).includes('email'));
@@ -64,7 +64,8 @@ await denied('anon', null, 'select public.delete_my_account()');
 await denied('anon', null, `insert into public.user_data (user_id) values ('${A}')`);
 
 // authenticated A
-assert.equal((await as('authenticated', A, 'select * from public.profiles')).rows.length, 5, 'signed-in players read profiles');
+assert.equal((await as('authenticated', A, 'select id, display_name, avatar_url, rating from public.profiles')).rows.length, 5, 'signed-in players read profiles');
+await denied('authenticated', A, 'select created_at from public.profiles');
 assert.equal((await as('authenticated', A, `update public.profiles set display_name = 'Ada' where id = '${A}'`)).affectedRows, 1);
 assert.equal((await as('authenticated', A, `update public.profiles set display_name = 'Hacked' where id = '${B}'`)).affectedRows, 0, 'cannot rename another player');
 await denied('authenticated', A, `update public.profiles set rating = 3000 where id = '${A}'`);
@@ -79,18 +80,33 @@ const upsert = (id, col, v) => `insert into public.user_data (user_id, ${col}) v
 await as('authenticated', A, upsert(A, 'settings', { at: 1, v: { sound: true } }));
 await as('authenticated', A, upsert(A, 'saved_game', { at: 2, v: { moves: ['e2-e4'] } }));
 await as('authenticated', B, upsert(B, 'lessons', { at: 3, v: { done: ['Archer'] } }));
-await denied('authenticated', A, upsert(B, 'settings', { at: 9, v: {} }));
+await denied('authenticated', A, upsert(B, 'settings', { at: 9, v: {} })); // onto B's row
+await denied('authenticated', A, upsert(OLD, 'settings', { at: 9, v: {} })); // a row for a player who has none yet
+await denied('authenticated', A, `insert into public.user_data (user_id, settings) values ('${OLD}', '{"at":9,"v":{}}')`); // plain insert (POST without upsert)
 await denied('authenticated', A, upsert(A, 'unlocks', { at: 9, v: ['all'] }));
 await denied('authenticated', A, `update public.user_data set unlocks = '[]' where user_id = '${A}'`);
 await denied('authenticated', A, upsert(A, 'saved_game', { at: 9, v: 'x'.repeat(300000) }), /check constraint/);
+await denied('authenticated', A, upsert(A, 'settings', { v: { sound: false } }), /check constraint/); // no time
+await denied('authenticated', A, upsert(A, 'settings', { at: '9', v: {} }), /check constraint|invalid input/);
+await denied('authenticated', A, upsert(A, 'lessons', ['not', 'a', 'section']), /check constraint/);
+// A copy older than (or as old as) the stored one never replaces it; a newer one does.
+await as('authenticated', A, upsert(A, 'saved_game', { at: 1, v: { moves: ['older'] } }));
+await as('authenticated', A, upsert(A, 'saved_game', { at: 2, v: { moves: ['same time'] } }));
+assert.deepEqual((await one(`select saved_game from public.user_data where user_id = '${A}'`))[0].saved_game, { at: 2, v: { moves: ['e2-e4'] } });
+await as('authenticated', A, `update public.user_data set settings = '{"at":0,"v":{}}', saved_game = '{"at":3,"v":{"moves":["d2-d4"]}}' where user_id = '${A}'`);
 const mine = (await as('authenticated', A, 'select * from public.user_data')).rows;
 assert.equal(mine.length, 1);
-assert.deepEqual([mine[0].settings, mine[0].saved_game], [{ at: 1, v: { sound: true } }, { at: 2, v: { moves: ['e2-e4'] } }]);
+assert.deepEqual([mine[0].settings, mine[0].saved_game], [{ at: 1, v: { sound: true } }, { at: 3, v: { moves: ['d2-d4'] } }]);
+assert.equal((await as('authenticated', A, `select * from public.user_data where user_id = '${B}'`)).rows.length, 0, 'cannot read another player\'s data');
 assert.equal((await as('authenticated', A, `update public.user_data set user_id = '${B}' where user_id = '${A}'`).catch(e => e)).message?.match(/row-level security|duplicate/) ? 1 : 0, 1, 'cannot move a row to another player');
 assert.equal((await as('authenticated', A, `update public.user_data set lessons = '{}' where user_id = '${B}'`)).affectedRows, 0);
 await denied('authenticated', A, `delete from public.user_data where user_id = '${A}'`);
 await denied('authenticated', A, `select public.handle_new_user()`, /permission denied|trigger functions/);
 await denied('authenticated', A, `select public.touch_updated_at()`, /permission denied|trigger functions/);
+await denied('authenticated', A, `select public.keep_newer_sections()`, /permission denied|trigger functions/);
+await denied('authenticated', A, `select public.profile_picture('{}')`);
+const config = (await one(`select proname, proconfig from pg_proc where pronamespace = 'public'::regnamespace`));
+assert.ok(config.length >= 6 && config.every(f => f.proconfig?.includes('search_path=""')), 'every function has a fixed, empty search_path');
 
 // Deleting A removes A's account, profile and data, and nothing of B's.
 await as('authenticated', A, 'select public.delete_my_account()');
@@ -99,6 +115,8 @@ assert.equal((await one(`select count(*)::int n from public.profiles where id = 
 assert.equal((await one(`select count(*)::int n from public.user_data where user_id = '${A}'`))[0].n, 0);
 assert.equal((await one(`select count(*)::int n from public.user_data where user_id = '${B}'`))[0].n, 1);
 assert.equal((await one(`select count(*)::int n from auth.users`))[0].n, 4);
+// A write still in flight with the deleted player's token cannot bring the data back.
+await denied('authenticated', A, upsert(A, 'settings', { at: 99, v: {} }), /foreign key/);
 // Signed in with no uid claim: deletes nothing.
 await as('authenticated', null, 'select public.delete_my_account()');
 assert.equal((await one(`select count(*)::int n from auth.users`))[0].n, 4);
