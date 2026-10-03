@@ -312,6 +312,8 @@ dialog small { color: var(--ink-soft); }
 /* Settings → Account (src/account/account.ts) */
 #account-body p { margin: 0; }
 #account-body button { min-height: var(--tap); justify-content: center; }
+#account-body .logo { flex: none; width: 20px; height: 20px; }
+#account-body .logo-google { box-sizing: content-box; padding: 3px; background: #fff; border-radius: 4px; width: 16px; height: 16px; }
 #account-body small, #account-note { font-size: var(--fs-xs); line-height: 1.4; color: var(--ink-soft); }
 #account-note { margin: var(--space-2) 0 0; }
 #account-note:empty { display: none; }

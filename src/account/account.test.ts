@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { accountHtml, userOf } from './account';
 
-const buttons = (html: string) => [...html.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map(m => m[1]);
+const buttons = (html: string) => [...html.matchAll(/<button[^>]*>(.*?)<\/button>/g)].map(m => m[1].replace(/<[^>]*>/g, ''));
 
 describe('Settings → Account', () => {
   it('signed out: the reason to sign in, Google and GitHub, and the privacy and terms links', () => {
