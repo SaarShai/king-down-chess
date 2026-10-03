@@ -576,10 +576,10 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [x] Release summary: `docs/RELEASE-REVIEW-2026-09-16.md` — tested behaviour, disabled candidates, limitations (licensing blocks publication), and the publication note. **Not published.**
 
 ## Phase 2 — Later (not scheduled)
-- [ ] Kings' powers (docs/RULES.md §4) behind a variant config
+- [x] Kings' powers (docs/RULES.md §4) behind a variant config (2026-10-02: all twelve built, balanced and official; `docs/research/kings-powers-balance-2026-10-02.md`)
 - [ ] Card/spell effects (§5)
 - [x] Threefold repetition, insufficient material (2026-09-13): `insufficientMaterial()` + `Game` position counts; `Status` gains `drawRepetition`/`drawMaterial`. Tests 18/18 green.
-- [ ] Stronger AI (see research report), online play
+- [ ] Stronger AI (see research report), online play. Stronger AI partly done 2026-10-02: power-aware net, +89 Elo without powers / +68 with (`docs/research/ai-powers-2026-10-02.md`); online play not started
 
 ## Claude local-record recovery — 2026-09-14
 - [x] Locate project sessions, Desktop metadata, memory, and related backups. Evidence: `docs/claude-recovery/README.md`.
@@ -604,7 +604,7 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [x] **Templar (T) built and rejected**: queen-on-capital design never fires (4–8% of moves from a capital); implied value 2.15–2.39 pawns, decisive −5.4 ± 2.7 (bonus: −2.5 ± 2.6), draws up. Report: `docs/research/sim-templar-2026-09-17.md`; PIECES-PROPOSED updated. The interest axis (Jev 2.23) and the game-priority axis disagree — both recorded.
 - [x] `tools/jev-interest.ts` hardened to 3 runs with spread and controls in every run (spreads ≤0.11; routine 0.06, highlight 2.95): the measured-interest ranking is now stable.
 - [x] Paired placement experiments (2026-09-17): maester near-king (−1.3 ± 5.4 decisive), bishop near-king (+0.5 ± 4.8), Ogre a-file (+1.4 ± 4.3) — **all null**; the location screens were rank-sampling confounds. `docs/research/conditions-2026-09-17.md` §3 corrected.
-- [ ] **Next by measured-interest ranking: Strike 2.87 / Squire 2.86 / Flight 2.56 / Sacrifice 2.40 / Ice Wall 2.16 / Freeze 2.07.** Strike, Flight, Freeze and Ice Wall all need the same tier-2 plumbing first: per-side charge state (and Freeze/Ice Wall a one-turn mark) carried through `Position`, `makeMove`, Zobrist, FEN's seventh field and the search's make/unmake — the plan's documented design (`docs/KINGS-POWERS-PLAN.md` §2, "the single easiest bug to ship in tier 2" is the hash). Build that plumbing once, then add the powers one at a time with tests and fresh-control pilots.
+- [x] (Done 2026-10-02: all twelve powers built with the tier-2 plumbing.) **Next by measured-interest ranking: Strike 2.87 / Squire 2.86 / Flight 2.56 / Sacrifice 2.40 / Ice Wall 2.16 / Freeze 2.07.** Strike, Flight, Freeze and Ice Wall all need the same tier-2 plumbing first: per-side charge state (and Freeze/Ice Wall a one-turn mark) carried through `Position`, `makeMove`, Zobrist, FEN's seventh field and the search's make/unmake — the plan's documented design (`docs/KINGS-POWERS-PLAN.md` §2, "the single easiest bug to ship in tier 2" is the hash). Build that plumbing once, then add the powers one at a time with tests and fresh-control pilots.
 
 ### Piece evaluation practice (owner direction, 2026-09-17)
 - **Value is one axis, not the verdict.** Every piece evaluation now reports, besides the odds-match value:
