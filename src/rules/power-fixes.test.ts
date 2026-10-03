@@ -65,6 +65,11 @@ describe('Haste readings (the official Haste: neither move captures)', () => {
     const archer = lans(play(fromFen('7k/6n1/8/8/8/2A5/8/K7 w - - 0 1'), 'Ac3-d4!H'));
     expect(archer).not.toContain('Ad4-e5');
     expect(archer).toContain('Ad4-d3');
+    // The capture rules include the shelters: a piece in a Mercy shelter is no target.
+    const sheltered = '6nk/8/8/8/8/8/8/R5K1 w - - 0 1'; // Rg4 would see the knight g8, next to its king
+    expect(lans(play(fromFen(sheltered), 'Ra1-a4!H'))).not.toContain('Ra4-g4');
+    powers('Haste', 'Mercy', { hasteCaptures: false, hasteNoThreat: true, mercyAura: true });
+    expect(lans(play(fromFen(sheltered), 'Ra1-a4!H'))).toContain('Ra4-g4');
   });
 
   it('hasteNoForward: the second move may not go toward the enemy, for either colour', () => {
@@ -120,6 +125,11 @@ describe('Mercy readings (the official Mercy: the shelter on)', () => {
     const noPawn = fromFen('3r3k/8/8/8/8/3N4/4K3/8 b - - 0 1');
     expect(isAttacked(noPawn.board, sq('d3'), BLACK)).toBe(false); // the rook alone does not reach it
     expect(lans(noPawn)).not.toContain('Rd8xd3');
+    // It only trims the shelter: without `mercyAura` it changes nothing.
+    powers('Mercy', null);
+    const plain = lans(fromFen(fen));
+    powers('Mercy', null, { mercyAuraPawnsTake: true });
+    expect(lans(fromFen(fen))).toEqual(plain);
   });
 
   it('mercyTakesPawns: the king takes an adjacent pawn, and nothing else but a guard', () => {
@@ -188,6 +198,11 @@ describe('Darkness readings: the diagonal shelter', () => {
     expect(moves).not.toContain('Ra3xd3');
     expect(isAttacked(fromFen(fen).board, sq('d3'), BLACK)).toBe(true);
     expect(isAttacked(fromFen('4r2k/8/8/8/8/r2NN3/4K3/8 b - - 0 1').board, sq('d3'), BLACK)).toBe(false);
+    // It only trims the shelter: without `darknessShelter` it changes nothing.
+    powers('Darkness', null, { darknessMoves: true });
+    const plain = lans(fromFen(fen));
+    powers('Darkness', null, { darknessMoves: true, darknessShelterPawnsTake: true });
+    expect(lans(fromFen(fen))).toEqual(plain);
   });
 
   it('the shelter holds against power moves and cards', () => {
