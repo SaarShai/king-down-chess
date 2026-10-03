@@ -1710,6 +1710,20 @@ describe('balance-lab readings of the kings’ powers (2026-10-02)', () => {
     crossCheckAttacks(310, 60);
   });
 
+  it('the 2026-10-03 shelters keep the attack mirror: Mercy pawns take, Mercy takes pawns, Darkness X', () => {
+    // The pieces generated from random boards under each shelter (power-fixes.test.ts has the moves).
+    const mercy = { king: 'Spirit', power: 'Mercy' } as Rules['kings'][0], dark = { king: 'Shadow', power: 'Darkness' } as Rules['kings'][0];
+    const sets: Partial<Rules>[] = [
+      { kings: [mercy, mercy], mercyAura: true, mercyAuraPawnsTake: true },
+      { kings: [null, mercy], mercyAura: true, mercyAuraPawnsTake: true, mercyTakesPawns: true },
+      { kings: [mercy, dark], mercyAura: true, mercyAuraPawnsTake: true, darknessMoves: true, darknessShelter: true },
+      { kings: [dark, dark], darknessMoves: true, darknessShelter: true },
+      { kings: [dark, null], darknessShelter: true, darknessShelterPawnsTake: true },
+      { kings: [null, dark], darknessKeep: true, darknessShelter: true, darknessShelterPawnsTake: true },
+    ];
+    sets.forEach((r, i) => { setRules(r); crossCheckAttacks(320 + i, 200); });
+  });
+
   it('Darkness: darknessMoves adds the straight steps but no diagonal capture', () => {
     setRules({ kings: k('Shadow', 'Darkness'), darknessMoves: true });
     const home = fromFen('7k/8/8/8/8/2p1p3/3P4/K7 w - - 0 1');

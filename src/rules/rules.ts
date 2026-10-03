@@ -333,6 +333,18 @@ export interface Rules {
   /** A Haste turn may capture (the rulebook). Off (balance lab): neither of its two moves captures. */
   hasteCaptures: boolean;
   /**
+   * Haste readings (balance lab, 2026-10-03), each a limit on top of the others; the `pass` that
+   * skips the second move stays. `hasteApart`: the second move may not end next to an enemy piece
+   * (the 8 neighbours, the king included). `hasteNoThreat`: it may not end where the moved piece
+   * could capture an enemy piece or take the king by its own capture rules, on the board after the
+   * move. `hasteNoForward`: it may not end on a rank nearer the enemy's back rank than the one it
+   * starts from. `hasteNoCheck`: neither move may leave the enemy king in check.
+   */
+  hasteApart: boolean;
+  hasteNoThreat: boolean;
+  hasteNoForward: boolean;
+  hasteNoCheck: boolean;
+  /**
    * Freeze and Ice Wall as a free action (balance lab, 2026-10-02): the mark does not end the turn;
    * the marking side then makes an ordinary move (or ends the turn). Off: the mark is the whole turn.
    */
@@ -379,6 +391,12 @@ export interface Rules {
   mercyAuraOrtho: boolean;
   /** Mercy's shelter stops only pawn captures (balance lab), like Holy Light's aura. */
   mercyAuraPawns: boolean;
+  /** Mercy's shelter stops every capture but a pawn's (balance lab). `mercyAuraPawns` takes precedence. */
+  mercyAuraPawnsTake: boolean;
+  /** Mercy (balance lab): the king may also take enemy pawns next to it. Off (the rulebook): only a guard. */
+  mercyTakesPawns: boolean;
+  /** Mercy (balance lab): the two-square step needs an empty square between — the king jumps nothing. */
+  mercyNoJump: boolean;
   /** Holy Light (balance lab): no enemy knight takes the king either. Off (the rulebook): pawns only. */
   holyLightKnights: boolean;
   /**
@@ -402,6 +420,13 @@ export interface Rules {
    * straight capture. Takes precedence over `darknessMoves` and `darknessKeep`.
    */
   darknessStepDiag: boolean;
+  /**
+   * Darkness (balance lab, 2026-10-03): no capture takes a piece standing diagonally next to its own
+   * Darkness king — the diagonal twin of `holyLightShelterOrtho`. The king itself is not sheltered.
+   */
+  darknessShelter: boolean;
+  /** The Darkness shelter stops every capture but a pawn's (balance lab). */
+  darknessShelterPawnsTake: boolean;
   /**
    * Death Touch (balance lab, round 8): the king also touches two squares away in a straight line,
    * over an empty square. Off (the rulebook): adjacent only.
@@ -520,6 +545,10 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   iceWallUses: 2,
   hasteSecond: 'any' as HasteSecond,
   hasteCaptures: true,
+  hasteApart: false,
+  hasteNoThreat: false,
+  hasteNoForward: false,
+  hasteNoCheck: false,
   markFree: false,
   freezeQuiet: false,
   markTurns: 1 as 1 | 2,
@@ -535,9 +564,14 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   holyLightShelterOrtho: false,
   mercyAuraOrtho: false,
   mercyAuraPawns: false,
+  mercyAuraPawnsTake: false,
+  mercyTakesPawns: false,
+  mercyNoJump: false,
   darknessMoves: false,
   darknessTakeAhead: false,
   darknessStepDiag: false,
+  darknessShelter: false,
+  darknessShelterPawnsTake: false,
   deathTouchReach: false,
   deathTouchReachOrtho: false,
   strikeUses: 1,

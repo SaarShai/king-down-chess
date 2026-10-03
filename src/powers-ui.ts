@@ -28,25 +28,28 @@ export function powerText(power: PowerName, r: Rules = RULES): string {
       if (r.strikeMode === 'capture') return `${who} takes an enemy a queen\u2019s move away without moving`;
       return `move ${who} as if it were a queen${r.strikeCaptures ? '' : ', to an empty square'}`;
     }
-    case 'Haste': return `move one piece twice in one turn (the second move is optional)${!r.hasteCaptures ? '; neither move captures' : r.hasteSecond === 'quiet' ? '; the second move cannot capture' : ''}`;
+    case 'Haste': return `move one piece twice in one turn (the second move is optional)${!r.hasteCaptures ? '; neither move captures' : r.hasteSecond === 'quiet' ? '; the second move cannot capture' : ''}`
+      + `${r.hasteNoCheck ? '; neither move may give check' : ''}${r.hasteApart ? '; the second move may not end next to an enemy piece' : ''}`
+      + `${r.hasteNoThreat ? '; the second move may not end where the piece could capture' : ''}${r.hasteNoForward ? '; the second move may not go forward' : ''}`;
     case 'Flight': return 'move any piece except the king to any empty square in your half of the board';
     case 'Sacrifice': return `turn one of your pawns into one of your pieces that was captured earlier${r.sacrificeBehind ? ', while you have fewer pieces than your opponent' : ''}`;
     case 'March': return r.marchUses === 0 ? 'any pawn may step two squares from any rank' : 'a pawn steps two squares from any rank';
     case 'Leap': return 'a rook, bishop or queen passes over your own pawns';
     case 'HolyLight': return `enemy pawns${r.holyLightKnights ? ' and knights' : ''} cannot take your king${r.holyLightAura ? ' or the pieces next to it' : ''}${r.holyLightTakesPawns ? '' : ', and it cannot take pawns'}${r.holyLightShelter ? `; your pieces ${r.holyLightShelterOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken` : ''}`;
-    case 'Mercy': return `your king steps 1\u20132 squares and jumps your pieces${r.mercyCaptures ? ' (it takes only next to itself)' : ', but takes only a guard'}${r.mercyAura ? `; your pieces ${r.mercyAuraOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken${r.mercyAuraPawns ? ' by pawns' : ''}` : ''}`;
+    case 'Mercy': return `your king steps 1\u20132 squares${r.mercyNoJump ? '' : ' and jumps your pieces'}${r.mercyCaptures ? ' (it takes only next to itself)' : r.mercyTakesPawns ? ', but takes only a pawn or a guard' : ', but takes only a guard'}${r.mercyAura ? `; your pieces ${r.mercyAuraOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken${r.mercyAuraPawns ? ' by pawns' : r.mercyAuraPawnsTake ? ' except by pawns' : ''}` : ''}`;
     case 'DeathTouch': {
       const reach = r.deathTouchReach ? `an enemy next to it, or two squares away ${r.deathTouchReachOrtho ? 'straight forward, back or sideways' : 'in a straight line'} over an empty square,` : 'an adjacent enemy';
       return r.deathTouchMoves
         ? `your king takes ${reach} without moving, or by moving onto it`
         : `your king takes ${reach} without moving \u2014 it can only take this way`;
     }
-    case 'Darkness': return r.darknessTakeAhead ? 'your pawns may also take straight ahead'
+    case 'Darkness': return (r.darknessTakeAhead ? 'your pawns may also take straight ahead'
       : r.darknessStepDiag ? 'your pawns may also step diagonally forward'
       : r.darknessKeep
       ? 'your pawns may also step diagonally and take straight ahead'
       : r.darknessMoves ? 'your pawns may also step diagonally, and take only straight ahead'
-      : 'your pawns step diagonally and take straight ahead, with no double step';
+      : 'your pawns step diagonally and take straight ahead, with no double step')
+      + (r.darknessShelter ? `; your pieces diagonally next to your king cannot be taken${r.darknessShelterPawnsTake ? ' except by pawns' : ''}` : '');
   }
 }
 
