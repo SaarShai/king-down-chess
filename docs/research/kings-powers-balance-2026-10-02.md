@@ -40,6 +40,10 @@ eleven, it sits right at the edge of the band. Mercy (55 ± 5) is high and Fligh
 Darkness (44 ± 6) low on their own intervals, which with twelve powers can be chance. All four are
 for the next round, on many more armies, to confirm. Details in Round 12, below.
 
+**Update 2026-10-03 (round 13, 1,872 fresh armies):** over rounds 11–13, **Mercy (56) and Haste (56)
+are high and Darkness (43) low**, all three clearly; Flight is fine (47). Spirit's powers now average
+about 3 points above Shadow's. Details in Round 13, below.
+
 **Depth matters.** A depth-4 check of the round-4 set (936 games) kept the order but widened the
 spread to 24 points: Mercy, Flight with two uses and Sacrifice near 59%, Holy Light 36%. Balance
 measured by a computer player is a guide for people, not a guarantee.
@@ -405,4 +409,27 @@ dozen armies. Each pair's army depends only on the seed, the pair number and the
 variant entrant (`Haste~v<name>`) plays the same armies its base power plays against each opponent
 in the same round.
 
-Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`; reports and specs in `sim/out/`.
+## Round 13 — the official set on 1,872 fresh armies (2026-10-03)
+
+The same rules as rounds 11 and 12, seed 3333, 24 pairs, a fresh army for every pair
+(`--armies perPair`), depth 3: 3,744 games in 37 minutes on the owner's Mac
+(`sim/out/kp2-r13.report.md`). Against the other powers (95%, armies resampled): Mercy 58.0 ± 4.1,
+Haste 55.9 ± 3.7, Death Touch 53.5 ± 3.9, Freeze 51.3 ± 4.0, Leap 50.6 ± 3.8, Strike 50.5 ± 3.8,
+Sacrifice 50.1 ± 4.0, Flight 49.5 ± 3.9, Holy Light 48.2 ± 3.7, March 45.7 ± 4.0, Ice Wall 43.7 ± 4.0,
+Darkness 43.0 ± 3.9; plain king 35.8. Tested together, four are off centre: Mercy and Haste high,
+Ice Wall and Darkness low. Spirit − Shadow +4.9 ± 4.1.
+
+**All three rounds** (1,896 armies, 7,488 games, `sim/out/kp2-r11+kp2-r12+kp2-r13.report.md`):
+Mercy 56.3 ± 3.3, Haste 55.5 ± 2.4, Death Touch 53.7 ± 2.9, Strike 51.2 ± 2.6, Leap 51.2 ± 3.6,
+Sacrifice 50.9 ± 3.2, Freeze 50.3 ± 2.8, Flight 47.4 ± 2.8, Holy Light 47.3 ± 2.9, March 46.5 ± 2.8,
+Ice Wall 46.1 ± 3.0, Darkness 43.4 ± 3.4; plain king 35.3. Tested together, three are off centre:
+**Mercy and Haste high, Darkness low**. Ice Wall, March (low) and Death Touch (high) are off 50 on
+their own intervals only. Spirit − Shadow **+3.2 ± 3.1** (0.2 to 6.3).
+
+**Reading.** Round 13 settles what rounds 11–12 left open. Mercy, Haste and Darkness are off centre,
+by 5–7 points each. Flight is not (47.4): its lows in rounds 11–12 came from their armies. Ice Wall
+read low here (43.7) but less so over all three rounds (46.1): a candidate to watch. The light and
+dark kings are no longer level: Spirit's two powers average about 3 points above Shadow's, from Mercy
+high and Darkness low. Any fix for Mercy or Darkness moves that gap too.
+
+Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`; round 13 on the owner's Mac (`sim/out/` of the main checkout) until a results branch is approved; reports and specs in `sim/out/`.
