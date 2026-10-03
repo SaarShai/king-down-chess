@@ -269,11 +269,18 @@ describe('the card-only cards', () => {
 
   it('the cards leave the material draw alone and never touch a king', () => {
     hands(['Mimic', 'Vault', 'Curse', 'SkyLift'], ['Mimic', 'Vault', 'Curse', 'SkyLift']);
-    const pos = fromFen('4k3/8/8/8/8/8/8/1N2K3 w - - 0 1');
-    expect(materialDraw(pos.board, pos.used)).toBe(true);
-    for (const m of legalMoves(pos)) {
-      if (!m.power) continue;
-      expect(typeOf(pos.board[m.from])).not.toBe(K);
+    const dead = fromFen('4k3/8/8/8/8/8/8/1N2K3 w - - 0 1');
+    expect(materialDraw(dead.board, dead.used)).toBe(true);
+    hands(['Strike'], []);
+    expect(materialDraw(dead.board, dead.used)).toBe(false); // a live Strike is the one card that keeps it open
+    // Every card has moves here, and a Vault may pass a king (Rh1 over e1), but no card moves or takes one.
+    hands(['Mimic', 'Vault', 'Curse', 'SkyLift'], ['Mimic', 'Vault', 'Curse', 'SkyLift']);
+    const pos = fromFen('r3k3/8/8/8/8/8/8/RN2K2R w - - 0 1');
+    const cards = legalMoves(pos).filter(m => m.power);
+    expect(new Set(cards.map(m => m.power))).toEqual(new Set(['mimic', 'vault', 'curse', 'skylift']));
+    expect(lans(pos, cards)).toContain('Rh1-d1!V');
+    for (const m of cards) {
+      expect([m.from, ...(m.swap ? [m.to] : [])].some(s => typeOf(pos.board[s]) === K)).toBe(false);
       expect(m.captures.some(s => typeOf(pos.board[s]) === K)).toBe(false);
     }
   });

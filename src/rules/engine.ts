@@ -1349,7 +1349,8 @@ export function insufficientMaterial(board: Uint8Array): boolean {
 
 /**
  * Material draw under the active rules; an unspent Strike can still change mating potential. The
- * card-only cards need no clause: they move pieces but change no type, and none gives check by itself.
+ * card-only cards need no clause: like Flight, each moves pieces once but changes no type and adds
+ * no attacked square, so the material that can mate stays what the board shows.
  */
 export function materialDraw(board: Uint8Array, used?: readonly [number, number]): boolean {
   const liveStrike = (c: Color): boolean => handOf(c).length ? holdsCard(c, used?.[c] ?? 0, 'Strike') : powerOf(c) === 'Strike' && canSpend(c, used?.[c] ?? 0);
