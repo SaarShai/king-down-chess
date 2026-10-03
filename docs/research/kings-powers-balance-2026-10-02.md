@@ -58,7 +58,7 @@ Sacrifice a small trim; the report lists the readings already measured for each.
   Touch and Darkness. Seven were built before (six always-on, plus Strike); Freeze, Ice Wall, Haste,
   Flight and Sacrifice are new, and March and Leap now default to the rulebook's 3 uses.
 - **Game state for spent powers** travels with the position: uses spent per side, a Freeze or Ice
-  Wall mark (with the side that set it), a pending Haste second move, a free-mark move, and
+  Wall mark for each side, a pending Haste second move, a free-mark move, and
   Sacrifice's reserve of lost pieces. FEN field 7, the move notation, undo, repetition and the
   search's hash all carry it.
 - **The computer plays every power.** Power moves are offered at the first three plies of the
@@ -431,5 +431,14 @@ by 5–7 points each. Flight is not (47.4): its lows in rounds 11–12 came from
 read low here (43.7) but less so over all three rounds (46.1): a candidate to watch. The light and
 dark kings are no longer level: Spirit's two powers average about 3 points above Shadow's, from Mercy
 high and Darkness low. Any fix for Mercy or Darkness moves that gap too.
+
+**A mark bug, and a re-check.** After round 13, a review of card mode found that a position held
+only one Freeze or Ice Wall mark. The side a mark bound could set its own mark, which erased the
+first, and then (under the free-mark reading) make the move the first mark forbade. The fix
+(`dcb9d1f`) keeps one mark per side. Under the official set only the Freeze–Ice Wall matchup has a
+mark on both sides, so it alone was replayed on the fixed engine with the same armies (`fi-r11`,
+`fi-r12`, `fi-r13`; 96 games). Freeze scored 62.0 of 96 against Ice Wall, against 59.5 before. Each
+power plays 1,152 games over the three rounds, so either power's score moves by about 0.2 points.
+No conclusion above changes.
 
 Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`; round 13 on the owner's Mac (`sim/out/` of the main checkout) until a results branch is approved; reports and specs in `sim/out/`.
