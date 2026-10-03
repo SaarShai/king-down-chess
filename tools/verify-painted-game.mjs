@@ -46,6 +46,21 @@ try {
   // the next case's clicks reach the panel.
   if (await page.evaluate(() => document.getElementById('over').open)) await page.click('#over button[value="close"]');
 
+  // 1a. A game that ends: the result window opens over the board, closes, and hands the panel back.
+  await page.goto(`${url.href}&fen=${encodeURIComponent('6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1')}`);
+  // "Loading pieces…" clears only after the position is loaded and the view is ready to take clicks.
+  await page.waitForFunction(() => document.querySelector('#board canvas') && document.getElementById('asset-status').textContent === '');
+  const rook = await page.evaluate(() => window.view.screenOf(0)), mate = await page.evaluate(() => window.view.screenOf(56));
+  await page.mouse.click(rook.x, rook.y); await page.mouse.click(mate.x, mate.y); // Ra1-a8 mates
+  await page.waitForFunction(() => document.getElementById('over').open, null, { timeout: 10000 });
+  await assert.rejects(page.click('#new-game-btn', { timeout: 1000 }), 'the open result window covers the panel');
+  await page.click('#over button[value="close"]');
+  await page.click('#new-game-btn', { timeout: 2000 });
+  assert.ok(await page.evaluate(() => document.getElementById('new-game').open), 'the panel works after the result window closes');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.getElementById('new-game').open);
+  console.log('ok a finished game: the result window opens, closes and hands the panel back');
+
   // 1b. Human mouse input: drag a pawn two squares, then click-click a knight or any legal move.
   await setSides(page, 'human', 'ai');
   await page.click('#new-game-btn'); await page.click('#new-random');
