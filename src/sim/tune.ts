@@ -175,7 +175,7 @@ function shieldCount(board: Uint8Array, k: number, c: Color): void {
  * Score of `board` from **White's** point of view, tempo included, unrounded. With `g`, adds
  * `w * d(score)/d(parameter)` to every entry — the only thing the fit needs from the evaluation.
  */
-export function evalVector(board: Uint8Array, turn: Color, v: Float64Array, g?: Float64Array, w = 1): number {
+export function evalVector(board: Uint8Array, turn: Color, v: Float64Array, g?: Float64Array, w = 1, exact = false): number {
   let score = 0, npm = 0;
   kingSq[0] = kingSq[1] = -1;
   maesters.length = 0;
@@ -211,8 +211,8 @@ export function evalVector(board: Uint8Array, turn: Color, v: Float64Array, g?: 
     const mg = pstI(KING_MG_SLOT, rel), eg = pstI(KING_EG_SLOT, rel);
     shieldCount(board, k, c);
     const shield = shieldN[0] * v[SHIELD0] + shieldN[1] * v[SHIELD0 + 1] + shieldN[2] * v[SHIELD0 + 2] - shieldN[3] * v[SHIELD0 + 3];
-    // Accumulated in `evaluateBoard`'s order, so the two agree to the last bit and not just to a
-    // centipawn: the phase blend is the one float in the whole evaluation.
+    // With `exact`, rounded per king as `evaluateBoard` does, so the two agree to the last bit: the
+    // phase blend is the one float in the whole evaluation. Training keeps it smooth.
     let val = v[mg] * phase + v[eg] * (1 - phase) + shield * phase;
     dPhase += sign * (v[mg] - v[eg] + shield);
     if (g) {
@@ -226,7 +226,7 @@ export function evalVector(board: Uint8Array, turn: Color, v: Float64Array, g?: 
       const d = cheb(m, k);
       if (d === 1 || d === 2) { val += v[MAE0 + d - 1]; if (g) g[MAE0 + d - 1] += w * sign; }
     }
-    score += sign * val;
+    score += sign * (exact ? Math.round(val) : val);
   }
   // The phase is non-pawn material over phaseMax, so every material value pulls on the king tables.
   if (g && !full) {
