@@ -67,6 +67,17 @@ try {
   checks.push('fixed handmade clay at 0.5 px, no rendering controls, armies facing one another');
   assert.equal(await page.evaluate(() => window.view.pieces.size), 32);
   checks.push('32 independently animated clay figures load in the default game');
+  // Kings with no power are Spirit (White) and Shadow (Black); a king with a power shows its own king.
+  const kings = () => page.evaluate(() => [...window.view.pieces.values()].filter(g => g.userData.king)
+    .map(g => `${g.userData.code & 16 ? 'b' : 'w'}:${g.userData.king}`).sort());
+  const kingFiles = () => page.evaluate(() => performance.getEntriesByType('resource')
+    .map(e => e.name.match(/board-king-([a-z]+)\.glb/)?.[1]).filter(Boolean));
+  assert.deepEqual(await kings(), ['b:Shadow', 'w:Spirit']);
+  assert.deepEqual((await kingFiles()).sort(), ['shadow', 'spirit']);
+  await startGame(page, { mode: 'powers', kings: ['Frost:Freeze', 'Mud:none'], army: 'classic' }); await ready();
+  assert.deepEqual(await kings(), ['b:Shadow', 'w:Frost'], 'the White king is rebuilt as Frost; Black has no power');
+  assert.ok((await kingFiles()).includes('frost'));
+  checks.push('kings with no power are the Spirit and Shadow figures; a new game with Frost Freeze rebuilds the White king');
   await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   assert.deepEqual(await page.evaluate(()=>Array.from({length:8},(_,i)=>{const sq=8+i,p=window.view.screenOf(sq);return window.view.pick({clientX:p.x,clientY:p.y});})),[8,9,10,11,12,13,14,15]);
   checks.push('every initial pawn-square centre selects its own pawn, not the back rank');

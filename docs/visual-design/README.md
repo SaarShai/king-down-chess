@@ -78,8 +78,12 @@ for white and the shadow for black."
   a new game. `?players=human,ai` (White, then Black) sets them for a lab page and the browser checks.
 - Emblems: [`make-emblems.py`](make-emblems.py) cuts each king's emblem to a 256 px WebP: the four
   element emblems of 2019 (`art-src/emblems-logo/`: water = Frost, fire = Flame, air = Stratus,
-  earth = Mud) and the Spirit and Shadow emblems painted for this dialog on 2026-10-03 (`--spirit`,
-  `--shadow`; their PNG masters are not in `art-src/` yet).
+  earth = Mud) and the Spirit and Shadow emblems made for this dialog on 2026-10-03 with image
+  generation. Their PNG masters are not in `art-src/` yet: they go there as `spirit emblem.png` and
+  `shadow emblem.png` (the script stops while a source is missing).
+- Kings with no power still look like Spirit (White) and Shadow (Black) where a look draws each king
+  differently: the clay look's king figures (`src/render/renderer.ts`; before, both were Frost). A new
+  game with other kings rebuilds the king figures.
 - Check: `tools/verify-new-game.mjs`. Screenshots: [desktop](new-game/desktop-computer.jpg) ·
   [desktop, Kings' powers](new-game/desktop-powers.jpg) · [phone](new-game/phone-computer.jpg) ·
   [phone, Kings' powers](new-game/phone-powers.jpg)

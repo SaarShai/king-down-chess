@@ -2,9 +2,11 @@
 
 The four element emblems are King Down art from 2019 (art-src/emblems-logo/, not in Git):
 water = Frost (ice crystal), fire = Flame, air = Stratus (wings), earth = Mud (ram horns).
-Spirit (gold star, white wings) and Shadow (dark blade, crescent horns, smoke) were painted on
-2026-10-03 in the same style; pass their PNGs with --spirit and --shadow. Without them, the white and
-the black king figures stand in (public/ui/pieces/king-w.webp, king-b.webp).
+Spirit (an ivory and gold shield, a star of light, small white wings) and Shadow (an obsidian shield,
+a silver crescent moon, thorns, violet smoke) were made on 2026-10-03 in the same style with image
+generation (spirit-a and shadow-a of that round). Their 1254 px masters belong in the same folder as
+"spirit emblem.png" and "shadow emblem.png"; --spirit and --shadow name other files. The script stops if
+a source is missing, so a rerun never replaces an emblem with a stand-in.
 
 Each image is cut to its painted area, fitted in the square and centred, so all six read at one size.
 Run from the repo root:
@@ -20,10 +22,14 @@ OUT = Path('public/ui/emblems')
 
 ap = argparse.ArgumentParser()
 ap.add_argument('--src', default='art-src/emblems-logo')
-ap.add_argument('--spirit', default='public/ui/pieces/king-w.webp')
-ap.add_argument('--shadow', default='public/ui/pieces/king-b.webp')
+ap.add_argument('--spirit', help='default: <src>/spirit emblem.png')
+ap.add_argument('--shadow', help='default: <src>/shadow emblem.png')
 args = ap.parse_args()
-sources = {k: Path(args.src) / v for k, v in ELEMENTS.items()} | {'spirit': Path(args.spirit), 'shadow': Path(args.shadow)}
+src = Path(args.src)
+sources = {k: src / v for k, v in ELEMENTS.items()} | {
+    'spirit': Path(args.spirit or src / 'spirit emblem.png'), 'shadow': Path(args.shadow or src / 'shadow emblem.png')}
+missing = [str(p) for p in sources.values() if not p.is_file()]
+if missing: raise SystemExit('missing emblem sources: ' + ', '.join(missing))
 
 OUT.mkdir(parents=True, exist_ok=True)
 for king, path in sources.items():

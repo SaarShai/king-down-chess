@@ -85,6 +85,12 @@ export const KINGS: Readonly<Record<KingName, readonly [PowerName, PowerName]>> 
   Shadow: ['DeathTouch', 'Darkness'],
 });
 
+/**
+ * The king each side shows when it has no power: White's is Spirit, Black's is Shadow (owner,
+ * 2026-10-03). Not a rule: for the rules a king with no power is `null` in `Rules.kings`.
+ */
+export const PLAIN_KINGS: readonly [KingName, KingName] = ['Spirit', 'Shadow'];
+
 /** The stateless powers: pure rule modifiers of the board plus this field, always on. */
 export const TIER1: readonly PowerName[] = ['HolyLight', 'Mercy', 'DeathTouch', 'Darkness', 'March', 'Leap'];
 

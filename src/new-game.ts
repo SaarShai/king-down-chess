@@ -5,7 +5,7 @@
  */
 import type { SkillName } from './ai/skill';
 import type { Side } from './game';
-import { KINGS, type Color, type KingChoice, type KingName, type PowerName } from './rules/engine';
+import { KINGS, PLAIN_KINGS, type Color, type KingChoice, type KingName, type PowerName } from './rules/engine';
 import { POWER_NAME, powerOptions } from './powers-ui';
 
 /** Play the computer (no powers), Kings' powers against the computer, or two people. */
@@ -28,9 +28,6 @@ export const LEVELS: readonly SkillName[] = ['beginner', 'casual', 'club', 'stro
 export const isLevel = (v: unknown): v is SkillName => typeof v === 'string' && (LEVELS as readonly string[]).includes(v);
 const KING_NAMES = Object.keys(KINGS) as KingName[];
 const SIDE = ['White', 'Black'] as const;
-
-/** A game with no powers still has a king per side: White's is Spirit, Black's is Shadow (owner, 2026-10-03). */
-export const PLAIN_KINGS: readonly [KingName, KingName] = ['Spirit', 'Shadow'];
 
 export const defaultSetup = (): Setup => ({
   mode: 'computer', level: 'club', side: 0, twoPowers: false,
