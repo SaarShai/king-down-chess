@@ -1,0 +1,62 @@
+{
+  "id": "cards-a1",
+  "sha": "6d3b9b23a26af852c74d16903c448765a9c99fcb",
+  "shards": 8,
+  "args": [
+    "--powers",
+    "Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,none",
+    "--anchor",
+    "none",
+    "--mirror",
+    "--pairs",
+    "300",
+    "--depth",
+    "3",
+    "--seed",
+    "4444",
+    "--armies",
+    "perPair",
+    "--rule",
+    "markFree=true",
+    "--rule",
+    "freezeUses=1",
+    "--rule",
+    "iceWallUses=1",
+    "--rule",
+    "strikeUses=1",
+    "--rule",
+    "hasteUses=1",
+    "--rule",
+    "flightUses=1",
+    "--rule",
+    "sacrificeUses=1",
+    "--rule",
+    "marchUses=1",
+    "--rule",
+    "leapUses=1",
+    "--rule",
+    "hasteCaptures=false",
+    "--rule",
+    "strikeCaptures=false",
+    "--rule",
+    "strikePawns=false"
+  ],
+  "kernels": [
+    {
+      "shard": 4,
+      "ref": "saarshai/kd-cards-a1-s4of8"
+    },
+    {
+      "shard": 5,
+      "ref": "saarshai/kd-cards-a1-s5of8"
+    },
+    {
+      "shard": 6,
+      "ref": "saarshai/kd-cards-a1-s6of8"
+    },
+    {
+      "shard": 7,
+      "ref": "saarshai/kd-cards-a1-s7of8"
+    }
+  ]
+}

@@ -222,3 +222,8 @@ dialog h3 { margin: 18px 0 8px; font-size: 13px; font-weight: 400; letter-spacin
 /* Desktop: keep the board below the floating title card. */
 @media (min-width: 721px) { #board.painted { padding: 56px 16px 8px; box-sizing: border-box; } }
 #board.painted canvas { image-rendering: auto; touch-action: none; width: auto; height: auto; }
+
+/* Kings' powers: the bar under the play row; an armed power is outlined until it is spent or cancelled. */
+#powers { margin-top: 8px; }
+#power-status { margin-top: 4px; font-size: 13px; line-height: 1.4; }
+#power-btn.armed { outline: 2px solid #b8862b; outline-offset: 1px; }

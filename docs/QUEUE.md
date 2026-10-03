@@ -148,6 +148,23 @@ under the adopted archer: L 3.74, M 2.82, S 3.68 (`ARCHER_V` 505 from the rook b
 - **Ogre**: push confirmed at depth 4 and fair at O=318; friends-only confirmed but does not stack; hop/step-2
   null; no-capture neutral. Roster decision pending.
 
+## Ran 2026-10-03: K13 — kings' powers round 13 on 1,872 fresh armies
+
+Launched on the owner's go ("do the measurements you suggest"). 3,744 games in 37 min on the Mac
+(1.7 games/s while other work ran; the estimate of 20–30 min was a little short). Result: over
+rounds 11–13, Mercy and Haste high and Darkness low, all three clearly; Flight fine; Spirit −
+Shadow +3.2 ± 3.1. Report: `docs/research/kings-powers-balance-2026-10-02.md`, Round 13. The
+command is kept in git history (this file, 2026-10-03).
+
+## Ran 2026-10-03: card mode, phases A and B
+
+Launched on the owner's go ("do the measurements you suggest"). Phase A (`cards-a1`): each card
+against no card, 300 pairs per card on fresh armies, 5,400 games on the Mac and 4 Kaggle notebooks.
+Phase B, the same hand for both sides: `cards-b1` (0, 3 and 6 cards) was stopped and voided by the
+mark bug; `cards-b2` reran it on the fixed engine (2,400 games), and `cards-b3` adds 4 and 5 cards on
+the same armies (owner: "should you also test 4 and 5 cards?"; 1,600 games, 3 of 16 parts on
+Kaggle). Report: `docs/research/cards-2026-10-03.md`.
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard

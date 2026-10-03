@@ -2,6 +2,16 @@
 
 Reusable corrections. Pattern → rule.
 
+- A position held one Freeze/Ice Wall mark, so the side it bound could play its own mark and erase it; under `markFree` (the official reading) it then made the forbidden move, and the search found the trick. It lived from the free-mark reading (2026-10-02) until a review of card mode (2026-10-03), because every test marked with one side only. → State that each side can set keeps one slot per side (`Position.marks`); test every two-sided power with both sides using it in turn, before measuring it. (2026-10-03)
+- The hash's high half was drawn from the same xorshift stream as the low half; xorshift is linear, so the high half was a fixed function of the low one and keys carried 32 bits, not the 52 the comment claimed. → Draw independent halves from independent generators, and test a claim about key width (distinct low halves with equal high halves must exist). (2026-10-03)
+- The random-army pool gained the Ogre after the residual net was trained, and the evaluator's "lab piece → plain evaluation" fallback quietly switched the net off on about half of all browser games from 2026-09-25 (commit bda05fb) until today, unnoticed. → After any change to `POOL`, check which evaluator a random army actually gets (`evalBoard` vs `evaluateBoard` on a board with each pool piece), and retrain or extend the net. (2026-10-02)
+- A wait loop `while pgrep -f "<pattern>"` never ended: `pgrep -f` matched the loop's own shell, whose command line contains the pattern. → Write the pattern so it cannot match itself (`pgrep -f "powers-net.ts [m]atch"`), or wait on the process's own output (a "done" line). (2026-10-02)
+- A kings' powers tournament let its random opening moves include power moves. Flight alone adds about 200 moves to a position, so most powers were spent by chance in the first four plies and the run measured nothing. → Random opening moves come from the pieces' own moves only (`m.power` excluded); after any new move kind, check what the opening randomiser can pick. (2026-10-02)
+- `create_session` with a short commit SHA as the source revision failed at start (`ref_not_found`). → Start compute sessions on a branch name and have the prompt check out the full 40-character SHA. (2026-10-02)
+- tsx compiles with `keepNames`, which wraps every inner arrow function in a naming call; in the attack test's hot loop that cost more than the work. → Keep closures out of hot paths (module-level helpers, precomputed tables) and measure the search with node counts held equal. (2026-10-02)
+- Sim workers stopped loading TypeScript under Node 22 (`new Worker(file.ts)` ignores the parent's tsx loader), and the runner waited forever for games a dead worker would never play. → Start workers through `src/sim/worker-boot.mjs` (`tsWorker()`), and fail the run when a worker exits with games unplayed. (2026-10-02)
+- Cloud sessions ship a Chromium build that Playwright 1.63 does not look for. → `.claude/hooks/cloud-setup.sh` links it (`tools/pw-cloud-link.mjs`); run browser tools with `PLAYABLE_BROWSER=chromium`. (2026-10-02)
+
 - A lesson's `save()` guard did not protect the match: changing a player cleared lesson mode first, then saved the lesson position over the match. → Keep the live `Game` separate from the lesson `Game`, preserve its rules and player sides, and test lifecycle controls as well as lesson moves. Lessons must run under the rules their instructions teach. (2026-09-29)
 
 - Moving the lessons button into the Guide dialog broke two tools that closed the Guide with `#rules button` (strict mode: two buttons). Only the painted check was rerun after the move, so the break showed one batch later. → After adding or moving a control, grep the tools for selectors of that container (`grep -n "#rules button" tools/*.mjs`) and prefer specific selectors (`#rules form button`); rerun every tool after any UI move, not only the one that tests the feature. (2026-09-27)
@@ -385,3 +395,25 @@ The 24 strongest selected Paladin opening examples still scored White +505 to +1
 ## Clay facing and fixed presentation — 2026-09-22
 - The accepted clay sculpts face local +Z. White advances toward world −Z, so its resting parent rotates by π; Black's stays at zero. Do not reuse the legacy voxel orientation. Movement/contact turns are relative to that parent and must reset after movement and undo. Check both armies visually as well as their transforms.
 - The owner selected handmade clay at the study's 0.5 px double-detail setting for the playable game, with no rendering choices. Remove obsolete UI and URL/save overrides instead of merely changing the default; keep experimental presentation controls in the separate graphics study. Verify actual render-target dimensions and material state, not just a preset label.
+
+## 2026-10-03 — a balance round measures only the armies it drew
+- **What happened:** round 12 re-ran round 11's exact rules and engine with a new seed. Mercy went
+  60.4 → 48.7 and Leap 46.2 → 57.6 against intervals of ±5.5 per round. Mercy had been "the one
+  power to watch" on the strength of single rounds.
+- **Cause:** `src/sim/tournament.ts` draws one army per pair slot (`armies[p]`) and every matchup
+  reuses it, so 12 pairs = 12 armies. A power's strength depends on the army, and the per-game
+  interval leaves the army-to-army variation out. Resampling the armies gives ±4–10 per power in
+  one round. Pair-level and game-level intervals agree (ratio 0.99): the colour-swapped pairs are
+  not the problem.
+- **Rules:** (1) judge a power on pooled rounds with different seeds, or on many armies, not on one
+  round of 12; new rounds use `--armies perPair` (a fresh army for every pair); (2) read the
+  "±95% armies" columns of `report`, not the per-game ones; a power is off centre only on the
+  report's "all tested together" line — twelve separate 95% intervals flag a power by chance in
+  about half of all rounds, so the per-power list is a screen of candidates; and with 12–24 armies
+  intervals need t quantiles, not 1.96 (a first reading of rounds 11–12 called Haste, then Flight and
+  Darkness, "clearly off centre"; calibrated, Haste is borderline and the rest are candidates);
+  (3) before changing a power for being high or low, check it on fresh armies.
+- A pooled report grouped games by `pairId`, which restarts at 0 in every round, so rounds with
+  different layouts would have merged unrelated pairs (found by review before round 13). → Key
+  anything per round (`poolRounds`) before pooling rounds; test a pool of two different layouts.
+

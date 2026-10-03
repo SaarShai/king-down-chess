@@ -1,0 +1,22 @@
+{
+  "id": "cards-b2",
+  "entrants": [
+    "none",
+    "cards3",
+    "cards6"
+  ],
+  "pairs": 800,
+  "armies": "perPair",
+  "mirrorOnly": true,
+  "depth": 3,
+  "seed": 5555,
+  "rules": {
+    "markFree": true,
+    "hasteCaptures": false,
+    "strikeCaptures": false,
+    "strikePawns": false
+  },
+  "mirror": true,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

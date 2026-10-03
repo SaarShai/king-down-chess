@@ -1,3 +1,6 @@
+# Local secrets (the Kaggle token): never commit.
+/.secrets/
+
 node_modules/
 dist/
 .DS_Store
@@ -27,3 +30,4 @@ docs/trailer/assets/
 
 # Local agent worktrees
 /.claude/worktrees/
+/sim/nnue-powers/*.bin

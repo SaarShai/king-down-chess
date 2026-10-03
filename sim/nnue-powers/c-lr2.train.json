@@ -1,0 +1,102 @@
+{
+  "opts": {
+    "epochs": 10,
+    "batch": 2048,
+    "lr": 0.002,
+    "lambda": 0,
+    "seed": 20261002,
+    "loss": "res"
+  },
+  "init": "current",
+  "positions": 176452,
+  "bestEpoch": 1,
+  "bestVal": 0.001239,
+  "curve": [
+    {
+      "epoch": 1,
+      "train": 0.001147,
+      "val": 0.001239
+    },
+    {
+      "epoch": 2,
+      "train": 0.001065,
+      "val": 0.00125
+    },
+    {
+      "epoch": 3,
+      "train": 0.001009,
+      "val": 0.001268
+    },
+    {
+      "epoch": 4,
+      "train": 0.00097,
+      "val": 0.001282
+    },
+    {
+      "epoch": 5,
+      "train": 0.000946,
+      "val": 0.001295
+    },
+    {
+      "epoch": 6,
+      "train": 0.000924,
+      "val": 0.00131
+    },
+    {
+      "epoch": 7,
+      "train": 0.000908,
+      "val": 0.001324
+    },
+    {
+      "epoch": 8,
+      "train": 0.000897,
+      "val": 0.001331
+    },
+    {
+      "epoch": 9,
+      "train": 0.000891,
+      "val": 0.001333
+    },
+    {
+      "epoch": 10,
+      "train": 0.000893,
+      "val": 0.001336
+    }
+  ],
+  "heldOut": {
+    "start": {
+      "plain": 0.0014424527080406332,
+      "powers": 0.001222699551157688,
+      "ogre": 0.0011720108072186808,
+      "nPlain": 7277,
+      "nPowers": 10255,
+      "nOgre": 8404
+    },
+    "candidate": {
+      "plain": 0.0013292207287722987,
+      "powers": 0.0011742108074226563,
+      "ogre": 0.001172223059216298,
+      "nPlain": 7277,
+      "nPowers": 10255,
+      "nOgre": 8404
+    }
+  },
+  "dataset": {
+    "ids": [
+      "pn-g1"
+    ],
+    "parts": [
+      {
+        "id": "pn-g1",
+        "positions": 176452
+      }
+    ],
+    "sha256": "131670846061c7e02f4a0dc38fde174b957587830bcbbd0b2bbdc263edd1e3f8"
+  },
+  "trainedBy": "e8478fb29518",
+  "model": {
+    "file": "sim/nnue-powers/c-lr2.weights.ts",
+    "kind": "residual",
+    "sha256": "8332420018360d64200057e31f54cb7fd1851ce8aff14196f7be19c54fc5bab7"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "kp2-r2",
+  "entrants": [
+    "Freeze",
+    "IceWall",
+    "Strike",
+    "Haste",
+    "Flight",
+    "Sacrifice",
+    "March",
+    "Leap",
+    "HolyLight",
+    "Mercy",
+    "DeathTouch",
+    "Darkness",
+    "none"
+  ],
+  "pairs": 16,
+  "depth": 3,
+  "seed": 202,
+  "rules": {
+    "strikeCaptures": false,
+    "hasteSecond": "quiet",
+    "markFree": true,
+    "mercyCaptures": true,
+    "marchUses": 0
+  },
+  "mirror": false,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

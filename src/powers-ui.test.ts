@@ -1,0 +1,39 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { POWERS_BALANCED, setRules } from './rules/rules';
+import { powerOptions, powerText } from './powers-ui';
+
+afterEach(() => setRules());
+
+describe('power texts follow the rules in force', () => {
+  it('reads the rulebook by default', () => {
+    expect(powerText('Freeze')).toBe('as your move, freeze an enemy piece (not the king): it cannot move on its next turn');
+    expect(powerText('HolyLight')).toBe('enemy pawns cannot take your king, and it cannot take pawns');
+    expect(powerText('Strike')).toBe('move any piece except the king as if it were a queen');
+  });
+
+  it('names the balance-lab readings', () => {
+    setRules({ markFree: true, freezeQuiet: true, strikePawns: false, strikeCaptures: false, hasteCaptures: false, holyLightTakesPawns: true, mercyCaptures: true, darknessKeep: true });
+    expect(powerText('Freeze')).toBe('freeze an enemy piece (not the king), then make your move, which cannot capture: the frozen piece cannot move on its next turn');
+    expect(powerText('Strike')).toBe('move any piece except a pawn or the king as if it were a queen, to an empty square');
+    expect(powerText('Haste')).toBe('move one piece twice in one turn (the second move is optional); neither move captures');
+    expect(powerText('HolyLight')).toBe('enemy pawns cannot take your king');
+    expect(powerText('Mercy')).toBe('your king steps 1–2 squares and jumps your pieces (it takes only next to itself)');
+    expect(powerText('Darkness')).toBe('your pawns may also step diagonally and take straight ahead');
+  });
+
+  it('reads the official kings’ powers rules', () => {
+    setRules({ ...POWERS_BALANCED });
+    expect(powerText('HolyLight')).toBe('enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken');
+    expect(powerText('Mercy')).toBe('your king steps 1–2 squares and jumps your pieces, but takes only a guard; your pieces next to it cannot be taken');
+    expect(powerText('DeathTouch')).toBe('your king takes an enemy next to it, or two squares away straight forward, back or sideways over an empty square, without moving \u2014 it can only take this way');
+  });
+});
+
+describe('the power picker', () => {
+  it('shows the official counts even before a game with powers starts', () => {
+    setRules(); // plain rules: the rulebook gives Freeze two uses, the official set one
+    const freeze = powerOptions().flatMap(g => g.options).find(o => o.value === 'Frost:Freeze')!;
+    expect(freeze.label).toBe('Freeze (1 per game)');
+    expect(powerOptions().flatMap(g => g.options).find(o => o.value === 'Spirit:Mercy')!.title).toContain('takes only a guard');
+  });
+});

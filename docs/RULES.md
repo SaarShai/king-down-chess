@@ -49,32 +49,41 @@ Interactions decided in code (`canCapture`): a guard is taken only by a king; a 
 The attacker set used for check = every piece's capture pattern, so an archer checks through blockers and a paladin never checks.
 Design space by ability (arriving, shield, handicap, hopping, control, on-capture triggers) and by board zone (capital): `docs/MATRIX.md`.
 
-## 4. Kings' powers (six stateless powers plus Strike, off by default)
+## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)
 
-Each army has a king with two candidate powers; the player picks one after setup. Token-spending mechanics are ignored per project scope;
-when we enable powers we will decide per power whether it is "always on" or "N uses" — the six built
-powers are currently **always on** with no charge counter. Powers cannot capture a king nor give check/mate.
+Kings' powers is a game mode: each player may pick one power for their king before the game (New game,
+or `?kings=frost:freeze,mud:march`). **No power is the default**, and either side may play without one. Token-spending mechanics are dropped; the rulebook's per-game use
+counts are plain counters (§6.5). Powers never capture a king and add no attacked square.
 
-**Implemented (lab, off by default; `?kings=<king>:<power>`):** the stateless tier-1 powers **Holy
-Light, Mercy, Death Touch, Darkness, March and Leap**, plus **Strike** (Flame A, tier 2): once per
-side per game, any own non-king piece moves as if it were a queen, as the whole turn. The piece
-keeps its own type (a striking pawn never promotes) and a strike never captures a king and is not
-an attack — `isAttacked` still sees only the piece's normal pattern. The one-use flag is game
-state: it lives on `Position.strike`, round-trips in FEN field 7 (`w`/`b`/`wb`, written only when
-spent), prints as a trailing `!` in LAN, and `parseKing` refuses the remaining five (they still need
-marks, charges or a reserve). The exact implemented semantics, the guide text, 21 targeted tests and
-the measured (or queued) campaign are in `docs/research/sim-kings-2026-09-16.md`; the material
-unresolved owner choices (Mercy vs guard immunity, the Death Touch verb, always-on vs charged
-March/Leap, adjacent Mercy kings, the Darkness evaluation confound) are listed there too.
+**Balanced on 2026-10-02** (`docs/research/kings-powers-balance-2026-10-02.md`): head-to-head
+round-robins of all twelve, at depth 3, over five rounds. As printed, the powers spread from 21% to
+80% against each other; the readings below bring all twelve within 42–57% (a 15-point spread).
+**Owner decision (2026-10-02): the balanced readings are the official kings' powers rules.** The game
+applies them whenever a king has a power (`POWERS_BALANCED` in `src/rules/rules.ts`); the
+rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every reading is one toggle.
 
-| King | Power A | Power B |
-|---|---|---|
-| Frost | **Freeze**: pick an enemy piece (not king); it cannot move during the opponent's next turn | **Ice Wall**: pick a friendly piece (not king); it cannot be captured during the opponent's next turn |
-| Flame | **Strike**: move any own piece (not king) as if it were a queen; counts as a turn — **built** | **Haste**: move one piece twice in a single turn |
-| Stratus | **Flight**: move any own piece (not king) to any empty square in own half (ranks 1–4); counts as a turn | **Sacrifice**: swap any own pawn with any own piece captured earlier; counts as a turn |
-| Mud | **March**: any pawn may move two forward (if unblocked) | **Leap**: own pieces may jump over own pawns when moving several squares |
-| Spirit | **Holy Light** (always on): king cannot be captured by enemy pawns and cannot capture pawns | **Mercy** (always on): king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces |
-| Shadow | **Death Touch** (always on): king captures adjacent enemies without moving | **Darkness** (always on): own pawns move 1 diagonally and capture 1 straight forward; no double first move |
+| King | Power | As printed (2017 rulebook) | Balanced reading |
+|---|---|---|---|
+| Frost | **Freeze** (2 uses) | pick an enemy piece (not king); it cannot move during the opponent's next turn | a free action, then your move; **once** a game (`markFree`, `freezeUses: 1`) |
+| Frost | **Ice Wall** (2 uses) | pick a friendly piece (not king); it cannot be captured during the opponent's next turn | a free action, then your move (`markFree`) |
+| Flame | **Strike** (1 use) | move any own piece (not king) as if it were a queen; counts as a turn | pieces only (no pawns), to an empty square (`strikePawns: false`, `strikeCaptures: false`) |
+| Flame | **Haste** (1 use) | move one piece twice in a single turn | neither move captures (`hasteCaptures: false`) |
+| Stratus | **Flight** (1 use) | move any own piece (not king) to any empty square in own half; counts as a turn | as printed |
+| Stratus | **Sacrifice** (1 use) | swap any own pawn with any own piece captured earlier; counts as a turn | as printed |
+| Mud | **March** (3 uses) | any pawn may move two forward (if unblocked) | always on (`marchUses: 0`) |
+| Mud | **Leap** (3 uses) | own pieces may jump over own pawns when moving several squares | as printed |
+| Spirit | **Holy Light** (always on) | king cannot be captured by enemy pawns and cannot capture pawns | the king may take pawns, and **no piece beside, in front of or behind the Holy Light king can be captured** (`holyLightTakesPawns`, `holyLightShelter`, `holyLightShelterOrtho`) |
+| Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, and **no piece next to the Mercy king can be captured** (`mercyAura`) |
+| Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward, back or sideways, over an empty square** (`deathTouchReach`, `deathTouchReachOrtho`) |
+| Shadow | **Darkness** (always on) | own pawns move 1 diagonally and capture 1 straight forward; no double first move | pawns also keep their straight steps (double from the start); they still capture only straight ahead (`darknessMoves`) |
+
+Holy Light's shelter was added after round 6 (owner asked for Mercy and Holy Light variations to be
+tested): it lifted Holy Light from 43% to 53%; sheltering all eight neighbours overshot to 64%, and
+narrower Mercy shelters (beside/front/behind only, or only against pawns) fell to 37% and 27%.
+Confirmation round (3,744 games on fresh armies): all twelve within 42–57% against the other
+powers; Haste, Sacrifice and Mercy 56–57% (high), Death Touch 43% and Darkness 42% (low). The other readings measured, and why they were not chosen, are in
+the report; the toggles stay in the lab. Earlier single-power measurements of the six always-on
+powers: `docs/research/sim-kings-2026-09-16.md`.
 
 ## 5. Card / spell effects (documented, not yet enabled)
 

@@ -9,15 +9,19 @@ import { existsSync, readFileSync } from 'node:fs';
 import { A, B, Color, G, K, L, M, N, P, PieceType, Q, R, S, SPENT, WHITE, colorOf, makeMove, piece, status, typeOf } from '../../rules/engine';
 import { fromFen, shuffle, toLan } from '../../rules/setup';
 import { mulberry32 } from '../../sim/rng';
-import { Net, REC, TrainOpts, VAL_BIT, features, forward, quantise, trainNet } from '../../sim/gen';
+import { Net, REC, REC_P, TrainOpts, VAL_BIT, features, forward, quantise, trainNet } from '../../sim/gen';
 import { MATE, resetSearchState, search } from '../search';
 import { evalBoard, evaluateBoard, setEvaluator } from '../eval';
-import { HIDDEN, INPUTS, N_WEIGHTS, RESIDUAL_MAX, SCALE, loadNet, nnueEval, packNet } from './net';
+import { BOARD_INPUTS, HIDDEN, INPUTS, NET_POWERS, N_WEIGHTS, N_WEIGHTS_BOARD, RESIDUAL_MAX, SCALE, loadNet, netHasOgre, nnueEval, packNet } from './net';
+import { leafPowers } from '../search';
+import { POWERS_BALANCED, setRules } from '../../rules/rules';
 import { NET_B64 } from './weights';
 
 const TYPES: PieceType[] = [P, N, B, R, Q, A, L, G, M, S];
+/** With the Ogre, which the power-aware net (2026-10-02) also sees. */
+const TYPES_O: PieceType[] = [...TYPES, 12 as PieceType];
 
-function randomBoard(rng: () => number): { board: Uint8Array; turn: Color } {
+function randomBoard(rng: () => number, types = TYPES): { board: Uint8Array; turn: Color } {
   const board = new Uint8Array(64);
   const free = shuffle([...Array(64).keys()], rng);
   let i = 0;
@@ -25,7 +29,7 @@ function randomBoard(rng: () => number): { board: Uint8Array; turn: Color } {
   board[free[i++]] = piece(K, 1);
   const n = 2 + Math.floor(rng() * 26);
   for (let j = 0; j < n; j++) {
-    const t = TYPES[Math.floor(rng() * TYPES.length)];
+    const t = types[Math.floor(rng() * types.length)];
     board[free[i++]] = piece(t, rng() < 0.5 ? WHITE : 1) | (t === G && rng() < 0.3 ? SPENT : 0);
   }
   return { board, turn: (rng() < 0.5 ? 0 : 1) as Color };
@@ -110,6 +114,94 @@ describe('the nnue net', () => {
   });
 });
 
+/** A REC_P record of `board`/`turn` with live power rows `pw`/`pb` (-1 = none), for `features`. */
+function powerRecord(board: Uint8Array, turn: Color, pw: number, pb: number): Uint8Array {
+  const buf = new Uint8Array(REC_P);
+  buf.set(board, 0);
+  buf[64] = turn;
+  buf[68] = pw + 1;
+  buf[69] = pb + 1;
+  return buf;
+}
+
+describe('the kings\' power inputs', () => {
+  const randomNet = (seed: number): Net => {
+    const rng = mulberry32(seed);
+    return {
+      w1: Float32Array.from({ length: INPUTS * HIDDEN }, () => (rng() * 2 - 1) * 0.2),
+      b1: Float32Array.from({ length: HIDDEN }, () => (rng() * 2 - 1) * 0.5),
+      w2: Float32Array.from({ length: 2 * HIDDEN }, () => (rng() * 2 - 1) * 1.0),
+      b2: -0.07,
+    };
+  };
+  afterEach(() => { if (NET_B64) loadNet(NET_B64); setRules(); });
+
+  it('engine and trainer agree within 1 cp with powers live, and the powers change the answer', () => {
+    const net = randomNet(11);
+    loadNet(packNet(quantise(net)));
+    const rng = mulberry32(12);
+    const mine = new Int32Array(66), theirs = new Int32Array(66);
+    const acc = new Float32Array(2 * HIDDEN), h = new Float32Array(2 * HIDDEN);
+    let moved = 0;
+    for (let i = 0; i < 500; i++) {
+      const { board, turn } = randomBoard(rng, TYPES_O);
+      const pw = Math.floor(rng() * 13) - 1, pb = Math.floor(rng() * 13) - 1;
+      const buf = powerRecord(board, turn, pw, pb);
+      const cnt = features(buf, 0, turn, mine, theirs, REC_P);
+      const float = forward(net, mine, theirs, cnt, acc, h) * SCALE;
+      const got = nnueEval(board, turn, pw, pb);
+      expect([i, Math.abs(got - float) <= 1]).toEqual([i, true]);
+      if ((pw >= 0 || pb >= 0) && got !== nnueEval(board, turn)) moved++;
+    }
+    expect(moved).toBeGreaterThan(300);
+  });
+
+  it('is colour-symmetric with powers: mirror the board and swap the two powers', () => {
+    loadNet(packNet(quantise(randomNet(13))));
+    const rng = mulberry32(14);
+    for (let i = 0; i < 200; i++) {
+      const { board, turn } = randomBoard(rng, TYPES_O);
+      const pw = Math.floor(rng() * 13) - 1, pb = Math.floor(rng() * 13) - 1;
+      const flipped = new Uint8Array(64);
+      for (let s = 0; s < 64; s++) {
+        const p = board[s];
+        if (p) flipped[s ^ 56] = piece(typeOf(p), (colorOf(p) ^ 1) as Color) | (p & SPENT);
+      }
+      expect([i, nnueEval(flipped, (turn ^ 1) as Color, pb, pw)]).toEqual([i, nnueEval(board, turn, pw, pb)]);
+    }
+  });
+
+  it('loads a blob written before the power inputs, and the powers then change nothing', () => {
+    const rng = mulberry32(15);
+    const w = Int16Array.from({ length: N_WEIGHTS_BOARD }, () => Math.round((rng() * 2 - 1) * 3000));
+    loadNet(packNet(quantise(randomNet(16)))); // power rows full of numbers first: they must be cleared
+    loadNet(packNet_(w));
+    for (let i = 0; i < 100; i++) {
+      const { board, turn } = randomBoard(rng);
+      expect(nnueEval(board, turn, i % 12, (i * 5) % 12)).toBe(nnueEval(board, turn));
+    }
+    expect(N_WEIGHTS - N_WEIGHTS_BOARD).toBe((INPUTS - BOARD_INPUTS) * HIDDEN);
+    expect(netHasOgre()).toBe(false);
+  });
+
+  it('shows the net only a power that can still act', () => {
+    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Flame', power: 'Strike' }, { king: 'Shadow', power: 'DeathTouch' }] });
+    const pos = fromFen('4k3/8/8/8/8/8/8/4K3 w - - 0 1');
+    const strike = NET_POWERS.indexOf('Strike'), death = NET_POWERS.indexOf('DeathTouch');
+    expect(leafPowers(pos).rows).toEqual([strike, death]);
+    expect(leafPowers({ ...pos, used: [1, 0] }).rows).toEqual([-1, death]); // Strike spent; Death Touch is always on
+    expect(leafPowers(pos).term).toBeGreaterThan(0); // White holds an unspent Strike
+  });
+});
+
+/** `packNet` refuses any length but the current one; a board-only blob is just its bytes. */
+function packNet_(w: Int16Array): string {
+  const bytes = new Uint8Array(w.buffer, w.byteOffset, w.byteLength);
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
 /**
  * The material + residual evaluator: `linear + clip(net, ±RESIDUAL_MAX)`.
  *
@@ -149,7 +241,7 @@ describe('the residual evaluator', () => {
     expect(() => setEvaluator('nnue')).toThrow(/full net/);
   });
 
-  it('is mirror-symmetric within a centipawn', () => {
+  it('is exactly mirror-symmetric', () => {
     hostile();
     const rng = mulberry32(101);
     for (let i = 0; i < 200; i++) {
@@ -159,10 +251,8 @@ describe('the residual evaluator', () => {
         const p = board[s];
         if (p) flipped[s ^ 56] = piece(typeOf(p), (colorOf(p) ^ 1) as Color) | (p & SPENT);
       }
-      // The net half is exact; the linear half blends the two king tables by a fractional phase
-      // and rounds, which is the same 1 cp the evaluation's own mirror test allows.
-      const d = Math.abs(evalBoard(flipped, (turn ^ 1) as Color) - evalBoard(board, turn));
-      expect([i, d <= 1]).toEqual([i, true]);
+      // Exact: the net half is integer, and the linear half rounds each king's phase blend.
+      expect([i, evalBoard(flipped, (turn ^ 1) as Color)]).toEqual([i, evalBoard(board, turn)]);
     }
   });
 
@@ -184,11 +274,16 @@ describe('the residual evaluator', () => {
   });
   it('falls back to the linear evaluation on a board with a lab piece the net cannot see', () => {
     hostile(); // a deliberately extreme residual net: any leakage would move the score wildly
-    const pos = fromFen('7k/8/8/8/3O4/8/8/K7 w - - 0 1'); // white ogre (type 12)
+    const pos = fromFen('7k/8/8/8/3C4/8/8/K7 w - - 0 1'); // white catapult (type 13)
     const got = evalBoard(pos.board, WHITE);
     expect(got).toBe(evaluateBoard(pos.board, WHITE)); // exactly linear, no throw, no net
-    const black = fromFen('7k/8/8/8/3o4/8/8/K7 w - - 0 1'); // black ogre (type 12 | colour)
+    const black = fromFen('7k/8/8/8/3c4/8/8/K7 w - - 0 1'); // black catapult (type 13 | colour)
     expect(evalBoard(black.board, WHITE)).toBe(evaluateBoard(black.board, WHITE));
+    // The Ogre (type 12): a net with Ogre inputs reads it; a board-only net falls back, as it always did.
+    const ogre = fromFen('7k/8/8/8/3O4/8/8/K7 w - - 0 1');
+    expect(evalBoard(ogre.board, WHITE)).not.toBe(evaluateBoard(ogre.board, WHITE));
+    loadNet(packNet_(HOSTILE.subarray(0, N_WEIGHTS_BOARD)), 'residual');
+    expect(evalBoard(ogre.board, WHITE)).toBe(evaluateBoard(ogre.board, WHITE));
   });
 });
 

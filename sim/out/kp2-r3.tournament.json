@@ -1,0 +1,63 @@
+{
+  "id": "kp2-r3",
+  "entrants": [
+    "Freeze",
+    "IceWall",
+    "Strike",
+    "Haste",
+    "Flight",
+    "Sacrifice",
+    "March",
+    "Leap",
+    "HolyLight",
+    "Mercy",
+    "DeathTouch",
+    "Darkness",
+    "Freeze~vonce",
+    "Strike~vtake",
+    "HolyLight~vaura",
+    "Mercy~vshelter",
+    "Mercy~vshelterx",
+    "Flight~vtwice",
+    "none"
+  ],
+  "pairs": 16,
+  "depth": 3,
+  "seed": 202,
+  "rules": {
+    "markFree": true,
+    "freezeQuiet": true,
+    "hasteCaptures": false,
+    "strikeCaptures": false,
+    "strikePawns": false,
+    "mercyCaptures": true,
+    "marchUses": 0,
+    "holyLightTakesPawns": true,
+    "darknessKeep": true
+  },
+  "variants": {
+    "once": {
+      "freezeUses": 1,
+      "freezeQuiet": false
+    },
+    "take": {
+      "strikeCaptures": true
+    },
+    "aura": {
+      "holyLightAura": true
+    },
+    "shelter": {
+      "mercyCaptures": false,
+      "mercyAura": true
+    },
+    "shelterx": {
+      "mercyAura": true
+    },
+    "twice": {
+      "flightUses": 2
+    }
+  },
+  "mirror": false,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

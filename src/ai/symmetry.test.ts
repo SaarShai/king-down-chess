@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { Color, Position, inCheck, legalMoves, makeMove, setRules, status } from '../rules/engine';
+import { Color, Mark, Position, inCheck, legalMoves, makeMove, setRules, status } from '../rules/engine';
 import { fromFen, toLan } from '../rules/setup';
 import { quiesceScore, resetSearchState, search } from './search';
 
@@ -10,7 +10,10 @@ function flip(pos: Position): Position {
   const board = new Uint8Array(64);
   pos.board.forEach((p, square) => { if (p) board[square ^ 56] = p ^ 16; });
   return { ...pos, board, turn: (pos.turn ^ 1) as Color,
-    ...(pos.strike ? { strike: [pos.strike[1], pos.strike[0]] as [boolean, boolean] } : {}) };
+    ...(pos.used ? { used: [pos.used[1], pos.used[0]] as [number, number] } : {}),
+    ...(pos.marks ? { marks: [pos.marks[1], pos.marks[0]].map(k => k && { ...k, sq: k.sq ^ 56 }) as [Mark | undefined, Mark | undefined] } : {}),
+    ...(pos.haste !== undefined ? { haste: pos.haste ^ 56 } : {}),
+    ...(pos.lost ? { lost: [...pos.lost.slice(16), ...pos.lost.slice(0, 16)] } : {}) };
 }
 const flipLan = (lan: string): string => lan.replace(/[a-h][1-8]/g, sq => sq[0] + (9 - +sq[1]));
 const FENS: readonly string[] = [

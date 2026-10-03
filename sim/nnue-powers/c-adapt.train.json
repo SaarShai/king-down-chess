@@ -1,0 +1,93 @@
+{
+  "opts": {
+    "epochs": 8,
+    "batch": 1024,
+    "lr": 0.003,
+    "lambda": 0,
+    "seed": 20261002,
+    "loss": "res",
+    "trainFrom": 1408
+  },
+  "init": "current",
+  "positions": 176452,
+  "bestEpoch": 1,
+  "bestVal": 0.00129,
+  "curve": [
+    {
+      "epoch": 1,
+      "train": 0.001284,
+      "val": 0.00129
+    },
+    {
+      "epoch": 2,
+      "train": 0.001262,
+      "val": 0.00129
+    },
+    {
+      "epoch": 3,
+      "train": 0.00125,
+      "val": 0.00129
+    },
+    {
+      "epoch": 4,
+      "train": 0.001246,
+      "val": 0.00129
+    },
+    {
+      "epoch": 5,
+      "train": 0.001246,
+      "val": 0.001291
+    },
+    {
+      "epoch": 6,
+      "train": 0.00124,
+      "val": 0.001292
+    },
+    {
+      "epoch": 7,
+      "train": 0.00124,
+      "val": 0.001292
+    },
+    {
+      "epoch": 8,
+      "train": 0.001241,
+      "val": 0.001293
+    }
+  ],
+  "heldOut": {
+    "start": {
+      "plain": 0.0014424527080406332,
+      "powers": 0.001222699551157688,
+      "ogre": 0.0011720108072186808,
+      "nPlain": 7277,
+      "nPowers": 10255,
+      "nOgre": 8404
+    },
+    "candidate": {
+      "plain": 0.0014360414500987349,
+      "powers": 0.0011860990063514588,
+      "ogre": 0.0011543060552289576,
+      "nPlain": 7277,
+      "nPowers": 10255,
+      "nOgre": 8404
+    }
+  },
+  "dataset": {
+    "ids": [
+      "pn-g1"
+    ],
+    "parts": [
+      {
+        "id": "pn-g1",
+        "positions": 176452
+      }
+    ],
+    "sha256": "131670846061c7e02f4a0dc38fde174b957587830bcbbd0b2bbdc263edd1e3f8"
+  },
+  "trainedBy": "e8478fb29518",
+  "model": {
+    "file": "sim/nnue-powers/c-adapt.weights.ts",
+    "kind": "residual",
+    "sha256": "5e1b35e62d5cd3da6124ef27f406bd77f04c4ab62d887dbff52e6d5960fd529e"
+  }
+}
