@@ -11,6 +11,8 @@ export interface SceneMove { from: number; to: number; captures: number[]; swap?
 export interface PaintedScene {
   readonly SIZE: number; readonly PAD: number; readonly TILE: number; readonly headroom: number;
   readonly animating: boolean;
+  /** A gait name ('walk', 'glide', 'hop') for a quiet move with character, else the animation kind; null when nothing plays. */
+  readonly playing: string | null;
   foot(square: number): { x: number; y: number };
   cell(square: number): { col: number; row: number };
   squareAt(x: number, y: number): number | null;
@@ -25,10 +27,17 @@ export interface PaintedScene {
   setFallen(square: number | null, animate?: boolean): void;
   /** Backing pixels per board unit; resizes the canvas and the effect layer. Default 1. */
   setResolution(k: number): void;
+  /**
+   * Opt-in liveliness (all off by default, so the trial and the trailer are unchanged):
+   * moves: quiet moves use each figure's gait (gait.mjs); idle: the selected figure breathes;
+   * atmosphere: a stone frame, soft contact shadows and warm light on the board.
+   */
+  setLively(options: { moves?: boolean; idle?: boolean; atmosphere?: boolean }): void;
   setDecorate(fn: ((ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over') => void) | null): void;
   redraw(): void;
   /** onContact fires once when the strike lands (not for plain moves or swaps). */
-  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null }): Promise<boolean>;
+  /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
+  play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null }): Promise<boolean>;
   cancel(): void;
 }
 export function createScene(options: {

@@ -54,6 +54,7 @@ export class PaintedView implements BoardView {
   private mark = 1;
   private coords = true;
   private fallen: { pos: Position; sq: number } | null = null;
+  private motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
 
   constructor(private container: HTMLElement) {
     container.classList.add('painted');
@@ -61,6 +62,10 @@ export class PaintedView implements BoardView {
     container.appendChild(this.canvas);
     this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM });
     this.scene.setDecorate((ctx, scene, layer) => this.drawMarks(ctx, scene, layer));
+    // The game opts in to quiet-move gaits, the selected figure's idle and the framed, warm board
+    // (the trial and the trailer keep the plain scene).
+    this.motionQuery.addEventListener('change', () => this.applyLively());
+    this.applyLively();
     this.loaded = this.scene.load().catch(error => { this.onLoadError?.(error); });
     // Keep the square board as large as the container allows.
     new ResizeObserver(([entry]) => {
@@ -100,8 +105,13 @@ export class PaintedView implements BoardView {
     await this.scene.play(m, { onContact, speed: this.pace === 'fast' ? 0.5 : 1 });
   }
 
-  setPace(pace: Pace): void { this.pace = pace; }
+  setPace(pace: Pace): void { this.pace = pace; this.applyLively(); }
   skip(): void { if (this.scene.animating) this.scene.cancel(); }
+
+  /** The selected figure breathes only while animations are on and the system allows motion. */
+  private applyLively(): void {
+    this.scene.setLively({ moves: true, atmosphere: true, idle: this.pace !== 'off' && !this.motionQuery.matches });
+  }
 
   highlight(h: Highlights): void {
     this.marks = h;
