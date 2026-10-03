@@ -1,0 +1,17 @@
+{
+  "name": "King Down Chess",
+  "short_name": "King Down",
+  "description": "A chess variant with archers, guards, maesters, beasts, ogres and paladins. Play the computer or a friend.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f5f0",
+  "theme_color": "#151515",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,115 @@
+{
+  "url": "http://127.0.0.1:5189/",
+  "network": "1.6 Mbps down, 750 kbps up, 150 ms RTT",
+  "cpu": "4x slowdown",
+  "viewport": "390x844",
+  "runs": 3,
+  "looks": {
+    "painted": {
+      "cold": [
+        {
+          "look": "painted",
+          "boardReadyMs": 14991,
+          "firstMoveMs": 16142,
+          "bytesAtReady": 2446799,
+          "bytesAtMove": 2446799,
+          "requests": 28,
+          "wallMs": 16397,
+          "errors": []
+        },
+        {
+          "look": "painted",
+          "boardReadyMs": 15225,
+          "firstMoveMs": 16370,
+          "bytesAtReady": 2446799,
+          "bytesAtMove": 2446799,
+          "requests": 28,
+          "wallMs": 16599,
+          "errors": []
+        },
+        {
+          "look": "painted",
+          "boardReadyMs": 15208,
+          "firstMoveMs": 16376,
+          "bytesAtReady": 2446799,
+          "bytesAtMove": 2446799,
+          "requests": 28,
+          "wallMs": 16678,
+          "errors": []
+        }
+      ],
+      "median": {
+        "boardReadyMs": 15208,
+        "firstMoveMs": 16370,
+        "bytesAtMove": 2446799
+      },
+      "repeat": {
+        "look": "painted",
+        "boardReadyMs": 2814,
+        "firstMoveMs": 3918,
+        "bytesAtReady": 3712,
+        "bytesAtMove": 3712,
+        "requests": 28,
+        "wallMs": 3925,
+        "errors": []
+      },
+      "offline": {
+        "ok": false,
+        "error": "page.goto: net::ERR_INTERNET_DISCONNECTED at http://127.0.0.1:5189/"
+      }
+    },
+    "clay": {
+      "cold": [
+        {
+          "look": "clay",
+          "boardReadyMs": 32433,
+          "firstMoveMs": 36304,
+          "bytesAtReady": 5217653,
+          "bytesAtMove": 5217653,
+          "requests": 24,
+          "wallMs": 36851,
+          "errors": []
+        },
+        {
+          "look": "clay",
+          "boardReadyMs": 25013,
+          "firstMoveMs": 28973,
+          "bytesAtReady": 3893150,
+          "bytesAtMove": 3893150,
+          "requests": 22,
+          "wallMs": 29535,
+          "errors": []
+        },
+        {
+          "look": "clay",
+          "boardReadyMs": 32718,
+          "firstMoveMs": 36650,
+          "bytesAtReady": 5175869,
+          "bytesAtMove": 5175869,
+          "requests": 24,
+          "wallMs": 37169,
+          "errors": []
+        }
+      ],
+      "median": {
+        "boardReadyMs": 32433,
+        "firstMoveMs": 36304,
+        "bytesAtMove": 5175869
+      },
+      "repeat": {
+        "look": "clay",
+        "boardReadyMs": 11882,
+        "firstMoveMs": 15818,
+        "bytesAtReady": 3077,
+        "bytesAtMove": 3077,
+        "requests": 24,
+        "wallMs": 16290,
+        "errors": []
+      },
+      "offline": {
+        "ok": false,
+        "error": "page.goto: net::ERR_INTERNET_DISCONNECTED at http://127.0.0.1:5189/"
+      }
+    }
+  }
+}
