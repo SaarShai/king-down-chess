@@ -91,6 +91,12 @@ export interface TournamentSpec {
    * matchup plays army p (rounds 1–12).
    */
   armies?: 'perPair';
+  /**
+   * Play only the matchups against this entrant (a star, not a round-robin), plus its mirror with
+   * `mirror`: each entrant's value against a reference, e.g. a one-use power (a card) against a plain
+   * king. Absent: every matchup.
+   */
+  anchor?: Entrant;
   depth: number;
   seed: number;
   /** Rules for every game; `kings` is set per game. */
@@ -151,6 +157,7 @@ export function schedule(t: TournamentSpec): TJob[] {
   for (let i = 0; i < e.length; i++) {
     for (let j = t.mirror ? i : i + 1; j < e.length; j++) {
       if (clashes(t, e[i], e[j]) || clashes(t, e[j], e[i])) continue;
+      if (t.anchor !== undefined && e[i] !== t.anchor && e[j] !== t.anchor) continue;
       for (let p = 0; p < t.pairs; p++) {
         const pairId = jobs.length >> 1;
         const draw = t.armies === 'perPair' ? pairDraw(t.seed, e[i], e[j], p) : { backRank: armies[p], seed: seeds[p] };
@@ -610,6 +617,8 @@ export function reportText(specs: readonly TournamentSpec[], rounds: readonly (r
     }
     lines.push('', `Kings (the mean of their two powers against the other powers): ${kings.map(k => `${k} ${pm(king.get(k)!.m, king.get(k)!.s)}`).join(', ')}${light}.`);
   }
+  const anchor = specs.find(s => s.anchor !== undefined)?.anchor;
+  if (anchor !== undefined) lines.push('', ...anchorSection(recs, entrants, anchor));
   const pw = pairwise(recs);
   lines.push('', '## Matchups (row power\'s score against the column power)', '');
   const order = ratings.map(r => r.entrant);
@@ -629,6 +638,42 @@ export function reportText(specs: readonly TournamentSpec[], rounds: readonly (r
   for (const g of recs) reasons.set(g.reason, (reasons.get(g.reason) ?? 0) + 1);
   lines.push('', `Endings: ${[...reasons].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${pct(v / recs.length)}`).join(', ')}.`);
   return lines.join('\n') + '\n';
+}
+
+/** Elo per pawn at depth 3, the balance lab's pawn-odds calibration (docs/research/sim-results-2026-09-13.md: 64 ± 16). */
+const ELO_PER_PAWN = 64;
+
+/**
+ * Each entrant against the anchor: its score, Elo and value in pawns (Elo / 64), and the share of
+ * drawn games against the anchor's own mirror games. Intervals resample the armies; the pawn value
+ * also carries the calibration's own ±25%.
+ */
+export function anchorSection(recs: readonly TRecord[], entrants: readonly Entrant[], anchor: Entrant): string[] {
+  const vsA = recs.filter(r => (r.white === anchor) !== (r.black === anchor));
+  const field = resampleArmies(vsA, entrants, false);
+  const elo = (s: number): number => 400 * Math.log10(Math.min(0.999, Math.max(0.001, s)) / (1 - Math.min(0.999, Math.max(0.001, s))));
+  // Draws per pair, so the interval counts the pair (one army) once.
+  const drawShare = (rs: readonly TRecord[]): { m: number; w: number; n: number } => {
+    const byPair = new Map<number, number[]>();
+    for (const r of rs) (byPair.get(r.pairId) ?? byPair.set(r.pairId, []).get(r.pairId)!).push(r.result === 0.5 ? 1 : 0);
+    const xs = [...byPair.values()].map(l => l.reduce((a, b) => a + b, 0) / l.length);
+    const m = xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+    const sd = Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, xs.length - 1));
+    return { m, w: 1.96 * sd / Math.sqrt(Math.max(1, xs.length)), n: xs.length };
+  };
+  const base = drawShare(recs.filter(r => r.white === anchor && r.black === anchor));
+  const out = [`## Against ${anchor}`, '',
+    `Each entrant's score against ${anchor} (±95%, armies resampled), in Elo and in pawns at ${ELO_PER_PAWN} Elo per pawn (depth 3; that calibration is itself ±25%), and its games' draw share against ${anchor}'s mirror games (${base.n ? `${pct(base.m)} ± ${(100 * base.w).toFixed(1)}, ${base.n} pairs` : 'none played'}).`, '',
+    '| entrant | score | ±95% | Elo | pawns | ±95% | draws | Δ draws | ±95% | pairs |', '|---|---|---|---|---|---|---|---|---|---|'];
+  const rows = entrants.filter(e => e !== anchor && !Number.isNaN(field.m.get(e)!)).map(e => {
+    const m = field.m.get(e)!, w = halfWidth(field, field.samples.get(e)!);
+    const d = drawShare(vsA.filter(r => r.white === e || r.black === e));
+    const dw = Math.sqrt(d.w ** 2 + base.w ** 2);
+    const pawns = elo(m) / ELO_PER_PAWN, pw = (elo(Math.min(0.999, m + w)) - elo(Math.max(0.001, m - w))) / 2 / ELO_PER_PAWN;
+    return { e, m, line: `| ${e} | ${pct(m)} | ${(100 * w).toFixed(1)} | ${elo(m) >= 0 ? '+' : ''}${elo(m).toFixed(0)} | ${pawns >= 0 ? '+' : ''}${pawns.toFixed(2)} | ${pw.toFixed(2)} | ${pct(d.m)} | ${base.n ? `${d.m >= base.m ? '+' : ''}${(100 * (d.m - base.m)).toFixed(1)}` : '-'} | ${base.n ? (100 * dw).toFixed(1) : '-'} | ${d.n} |` };
+  });
+  rows.sort((x, y) => y.m - x.m);
+  return [...out, ...rows.map(r => r.line)];
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -691,12 +736,14 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
     const entrants = parseEntrants(f.powers, !!f.none);
     const variants = parseVariants(argv, entrants);
     if (f.armies !== undefined && f.armies !== 'perPair' && f.armies !== 'shared') throw new Error(`--armies ${f.armies}: perPair or shared`);
+    if (typeof f.anchor === 'string' && !entrants.includes(parseEntrants(f.anchor, false)[0])) throw new Error(`--anchor ${f.anchor} is not an entrant`);
     const t: TournamentSpec = {
       id: typeof f.id === 'string' ? f.id : 'kp2',
       entrants,
       pairs: num('pairs', 20),
       // Left out when shared, so the specs of rounds 1–12 still match and resume.
       ...(f.armies === 'perPair' ? { armies: 'perPair' as const } : {}),
+      ...(typeof f.anchor === 'string' ? { anchor: parseEntrants(f.anchor, false)[0] } : {}),
       depth: num('depth', 3), seed: num('seed', 101),
       rules: parseRuleFlags(argv),
       ...(variants ? { variants } : {}),

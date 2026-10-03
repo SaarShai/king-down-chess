@@ -76,6 +76,12 @@ describe('tournament schedule', () => {
     expect(pairDraw(7, 'Haste', 'Flight', 1)).not.toEqual(pairDraw(7, 'Haste', 'Freeze', 1));
   });
 
+  it('anchor: every entrant meets only the anchor, and the anchor meets itself with mirror', () => {
+    const jobs = schedule(spec({ entrants: ['Freeze', 'Haste', 'Flight', 'none'], anchor: 'none', mirror: true, armies: 'perPair' }));
+    expect([...new Set(jobs.map(j => `${j.a}|${j.b}`))]).toEqual(['Freeze|none', 'Haste|none', 'Flight|none', 'none|none']);
+    expect(jobs.length).toBe(4 * 3 * 2);
+  });
+
   it('a resume refuses records that this code would schedule differently', () => {
     const t = spec();
     const jobs = schedule(t);
@@ -177,6 +183,16 @@ describe('report', () => {
     expect(text).toMatch(/Off centre with all 4 tested together \(simultaneous 95% band, 2\.\d\d standard errors on 10 armies\): Mercy 66\.7% ± 12\.\d, Darkness 33\.3% ± 0\.0\./);
     expect(text).toContain('Kings (the mean of their two powers against the other powers): Spirit 58.3 ± 6.3, Shadow 41.7 ± 6.3; Spirit − Shadow 16.7 ± 12.5 points (4.1 to 29.2).');
     expect(text).not.toContain('NaN');
+  });
+
+  it('values each entrant against the anchor in Elo and pawns, with its draws against the mirror', () => {
+    // Haste wins every pair against the plain king on armies 0–5 and draws on 6–9: score 0.8.
+    const a = spec({ entrants: ['Haste', 'none'], pairs: 10, seed: 3, anchor: 'none', mirror: true, armies: 'perPair' });
+    const recs = schedule(a).map(j => play(j, j.a === j.b ? 0.5 : j.pairId % 10 < 6 ? (j.white === 'Haste' ? 1 : 0) : 0.5));
+    const text = reportText([a], [recs]);
+    // 400 · log10(0.8 / 0.2) = +241 Elo = +3.76 pawns at 64 Elo per pawn; 40% draws against 100% in the mirror.
+    expect(text).toMatch(/\| Haste \| 80\.0% \| [\d.]+ \| \+241 \| \+3\.76 \| [\d.]+ \| 40\.0% \| -60\.0 \| [\d.]+ \| 10 \|/);
+    expect(text).toContain("mirror games (100.0% ± 0.0, 10 pairs)");
   });
 
   it('marks a round still being played, and shows no score for a power with no games yet', () => {
