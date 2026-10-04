@@ -640,3 +640,40 @@ band: 57.6 (round 13: 55.5; round 15 with H1: 46.6). Ice Wall is at its lower ed
 Suggested: **Darkness king step**. Not adopted: the owner decides. Open question for the owner: the
 step may pass over a square an enemy attacks (only the landing square must not be in check), as
 built; plain chess forbids castling through an attacked square.
+
+## Round 17 — the king step on fresh armies, two more versions, and depth 4 (2026-10-04)
+
+Owner (2026-10-04): "before we make these decisions i'd like you to run more tests and collect more
+data." Rules: the official set (with Mercy M2). Variants: `Darkness~vks` (the king step as in round
+16), `~vkss` (`darknessKingStepSafe`: the step may not pass over a square an enemy attacks) and
+`~vkst` (`darknessKingStepTakes`: the step may also take on the square where it lands). Seed 1717,
+40 pairs, `--armies perPair`, depth 3: 99 matchups, 7,920 games, 8 shards on this Mac (77 min). A
+start at 112 pairs was stopped after 13 min (power games ran at 1 game/s, so it would have taken 6
+h; `sim/out/void-r17-p112/`). Depth 4: today's Darkness and the king step, each against the other 11
+(`--anchor`), seed 1718, 16 pairs, 352 games each.
+
+**Each version against today's Darkness on the same armies** (against the 11 other powers, 95%):
+
+| version | round 17 | round 16 + 17 | draws | game length (plies) |
+|---|---|---|---|---|
+| king step | +3.2 ± 2.6 | **+3.4 ± 1.8** (1,144 pairs) | +1.0 ± 1.3 | +2.9 ± 1.6 |
+| safe step (not over an attacked square) | +1.8 ± 2.5 | — | −0.8 ± 1.7 | +0.7 ± 2.2 |
+| taking step (may take where it lands) | +16.5 ± 3.6 | — | +2.2 ± 2.5 | +1.3 ± 3.0 |
+| king step, depth 4 | +5.1 ± 3.7 (176 pairs) | | | |
+
+**The field with each version in place** (rounds 16 and 17 together; the safe and taking steps were
+played in round 17 only):
+
+| Darkness | Darkness score | Spirit − Shadow | powers in 50 ± 4 | spread |
+|---|---|---|---|---|
+| today | 44.4 ± 2.0 | +1.6 ± 1.9 | 9 | 12.7 |
+| **king step** | **47.8 ± 2.0** | **−0.8 ± 1.9** | **10** | **11.3** |
+| safe step | 47.8 ± 3.2 | −1.9 ± 2.1 | 10 | 11.8 |
+| taking step | 62.6 ± 3.1 | −6.3 ± 2.1 | 9 | 18.3 |
+
+**Reading.** On fresh armies, which were not used to pick it, the king step gives the same gain as in
+round 16 (+3.2 against +3.5). Pooled: Darkness 44.4 → 47.8, Spirit and Shadow level. At depth 4 the
+gain holds (+5.1 ± 3.7; Darkness is lower there, 40.2 → 45.3, on 352 games each). The safe step is
+weaker on these armies (+1.8 against +3.2 for the step, each ±2.5): the difference is not clear. The
+taking step is far too strong (Darkness 62.6). Haste is again the one power clearly outside the
+band (57.2 pooled); Ice Wall sits at its lower edge (45.8).
