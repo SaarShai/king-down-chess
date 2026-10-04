@@ -500,9 +500,13 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
       // already narrowed to guards (and pawns, `mercyTakesPawns`), so `isAttacked` needs no branch:
       // the two-square reach is move-only and adds no attacked square. `darknessKingStep2` (balance
       // lab) gives the Darkness king the same step over an empty square; it keeps its ordinary
-      // adjacent capture.
+      // adjacent capture. Round 17: `darknessKingStepSafe` refuses the step over a square the enemy
+      // attacks (the king still on its square; move-only), and `darknessKingStepTakes` lets it end on
+      // an enemy and take it, by the adjacent capture's rules (`canCapture` here, the shelters and
+      // marks downstream). That take is an attack, mirrored in `isAttacked`; it takes precedence.
       const mercy = powerOf(c) === 'Mercy';
       if (mercy || (RULES.darknessKingStep2 && powerOf(c) === 'Darkness')) {
+        const takes = !mercy && RULES.darknessKingStepTakes, safe = !mercy && !takes && RULES.darknessKingStepSafe;
         for (const [df, dr] of DIRS8) {
           const one = step(from, df, dr);
           if (one < 0) continue;
@@ -515,7 +519,10 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
             if (!mercy || RULES.mercyNoJump) continue;
           } else if (mode === 'all') out.push({ from, to: one, captures: [] });
           const two = step(one, df, dr);
-          if (two >= 0 && !board[two] && mode === 'all') out.push({ from, to: two, captures: [] });
+          if (two < 0) continue;
+          const w = board[two];
+          if (!w) { if (mode === 'all' && !(safe && isAttacked(board, one, (c ^ 1) as Color))) out.push({ from, to: two, captures: [] }); }
+          else if (takes && colorOf(w) !== c && canCapture(p, typeOf(w))) out.push({ from, to: two, captures: [two] });
         }
         return;
       }
@@ -991,11 +998,14 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
   // `deathTouchReach` (round 8): a Death Touch king two squares away in a straight line, over an
   // empty square (the mirror of its shot in `case K`). The king on `s2` touches back along -DIRS8[d];
   // an empty target stays attacked under `deathTouchReachPieces`, as `hits` treats every empty one.
-  if (RULES.deathTouchReach && powerOf(by) === 'DeathTouch' && !(RULES.deathTouchReachPieces && victim === P)) for (let d = 0; d < (RULES.deathTouchReachOrtho ? 4 : 8); d++) {
+  // `darknessKingStepTakes` (round 17) is the same shape on all 8 lines: the Darkness king's take.
+  const touch = RULES.deathTouchReach && powerOf(by) === 'DeathTouch' && !(RULES.deathTouchReachPieces && victim === P);
+  const darkTake = RULES.darknessKingStepTakes && RULES.darknessKingStep2 && powerOf(by) === 'Darkness';
+  if (touch || darkTake) for (let d = 0; d < (touch && RULES.deathTouchReachOrtho ? 4 : 8); d++) {
     const s = NEIGHBOUR[target * 8 + d];
     if (s < 0 || board[s]) continue;
     const s2 = NEIGHBOUR[s * 8 + d];
-    if (s2 >= 0 && hits(board, s2, K, by, victim) && touchReaches(-DIRS8[d][0], -DIRS8[d][1], by)) return true;
+    if (s2 >= 0 && hits(board, s2, K, by, victim) && (darkTake || touchReaches(-DIRS8[d][0], -DIRS8[d][1], by))) return true;
   }
   // A piece in a Holy Light king's aura is out of every pawn's reach.
   if (shelter === 0 && !inLight(board, target, by ^ 1) && pawnTakes(board, target, by, victim)) return true;

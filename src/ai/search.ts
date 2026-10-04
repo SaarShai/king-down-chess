@@ -373,7 +373,10 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // included); a swap or a shove moves a second piece (a SkyLift is a swap); the mover leaves a line
   // through the king (a slider's ray opens); a capture removes a piece on such a line; or an enemy
   // catapult could use the arriving piece as its screen. The shelters and the Darkness pawn armour
-  // change which pieces may be taken, never the king, so they add nothing here. Archer shots ignore blockers and the leapers are never blocked,
+  // change which pieces may be taken, never the king, so they add nothing here. The two-square
+  // reaches (Death Touch's, the Darkness king's take) pass over a square next to our king, and a
+  // move that empties it leaves a line through the king, so it is tested.
+  // Archer shots ignore blockers and the leapers are never blocked,
   // so nothing else can change an attack on the king — except a Curse, which moves an *enemy* piece
   // that may arrive attacking it. `setFastLegality(false)` turns this off for the cross-check test.
   const k = board.indexOf(piece(K, c));

@@ -463,6 +463,16 @@ export interface Rules {
    */
   darknessKingStep2: boolean;
   /**
+   * Darkness (balance lab, round 17), with `darknessKingStep2`: the two-square step may not pass over
+   * a square an enemy attacks (like castling). Move-only. `darknessKingStepTakes` takes precedence.
+   */
+  darknessKingStepSafe: boolean;
+  /**
+   * Darkness (balance lab, round 17), with `darknessKingStep2`: the two-square step may also end on an
+   * enemy piece and take it, by the ordinary king capture's rules. So it adds attacked squares.
+   */
+  darknessKingStepTakes: boolean;
+  /**
    * Death Touch (balance lab, round 8): the king also touches two squares away in a straight line,
    * over an empty square. Off (the rulebook): adjacent only.
    */
@@ -617,6 +627,8 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   darknessPawnArmor: false,
   darknessAuraPawns: false,
   darknessKingStep2: false,
+  darknessKingStepSafe: false,
+  darknessKingStepTakes: false,
   deathTouchReach: false,
   deathTouchReachOrtho: false,
   deathTouchReachNoBack: false,

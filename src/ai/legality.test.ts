@@ -3,7 +3,8 @@
  * (`genLegal` in ./search.ts). Held to the engine's own `legalMoves`, which makes every move and looks
  * at the king, on random positions with every piece type (catapults included: their screen is the
  * one way an arriving piece can expose a king) and random kings' powers, or random card hands, or
- * the Darkness and Mercy lab readings.
+ * the Darkness and Mercy lab readings (the Darkness king's two-square take adds an attack over a
+ * square next to the king it attacks).
  */
 import { afterEach, expect, it } from 'vitest';
 import {
@@ -101,15 +102,16 @@ it('the same with card hands, the card-only cards included, and marks on the boa
   for (const tag of ['mimic', 'vault', 'curse', 'skylift']) expect(played).toContain(tag);
 }, 120_000);
 
-it('the same under the Darkness and Mercy readings, the round-16 ones included', () => {
+it('the same under the Darkness and Mercy readings, the round-16 and round-17 ones included', () => {
   let seed = 1616;
   const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
   const dark: KingChoice = { king: 'Shadow', power: 'Darkness' }, mercy: KingChoice = { king: 'Spirit', power: 'Mercy' };
   const READINGS: (keyof Rules)[] = [
     'darknessMoves', 'darknessShelter', 'darknessShelterPawnsTake', 'darknessPawnArmor', 'darknessAuraPawns', 'darknessKingStep2',
+    'darknessKingStepSafe', 'darknessKingStepTakes',
     'mercyAura', 'mercyAuraPawnsTake', 'mercyTakesPawns', 'mercyNoJump',
   ];
-  const ROUND16 = { darknessPawnArmor: false, darknessAuraPawns: false, darknessKingStep2: false };
+  const ROUND16 = { darknessPawnArmor: false, darknessAuraPawns: false, darknessKingStep2: false, darknessKingStepSafe: false, darknessKingStepTakes: false };
   let checked = 0, inCheckCount = 0, changed = 0;
   for (let trial = 0; trial < 3000; trial++) {
     const board = randomBoard(rng);

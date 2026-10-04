@@ -87,6 +87,7 @@ export const RULE_POWERS: Partial<Record<keyof Rules, readonly PowerName[]>> = {
   darknessKeep: ['Darkness'], darknessMoves: ['Darkness'], darknessTakeAhead: ['Darkness'], darknessStepDiag: ['Darkness'],
   darknessShelter: ['Darkness'], darknessShelterPawnsTake: ['Darkness'],
   darknessPawnArmor: ['Darkness'], darknessAuraPawns: ['Darkness'], darknessKingStep2: ['Darkness'],
+  darknessKingStepSafe: ['Darkness'], darknessKingStepTakes: ['Darkness'],
 };
 const variantOf = (t: TournamentSpec, e: Entrant): Partial<Rules> => {
   const m = /~v(.+)$/.exec(e);
