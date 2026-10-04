@@ -642,10 +642,12 @@ describe('rule toggles', () => {
     crossCheckAttacks(137);
   });
 
-  it('the pool holds one guard per army', () => {
-    expect(POOL).toBe('QORRBBNNAAGMMSS');
+  it('the pool holds one guard and one beast per army', () => {
+    expect(POOL).toBe('QORRBBNNAAGMMS');
     expect(POOL.split('G')).toHaveLength(2);
-    expect(POOL).toHaveLength(15);
+    expect(POOL.split('S')).toHaveLength(2);
+    expect(POOL).toHaveLength(14);
+    for (let i = 0; i < 500; i++) expect(randomBackRank().split("S").length).toBeLessThanOrEqual(2);
   });
 
   it('isAttacked still agrees with genPiece("attacks") under every paladin and maester buff at once', () => {

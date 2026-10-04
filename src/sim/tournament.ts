@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import type { Worker } from 'node:worker_threads';
 import { CardName, KINGS, KingChoice, KingName, PowerName, Rules, parseRule, ruleDiff, setRules } from '../rules/rules';
-import { randomBackRank } from '../rules/setup';
+import { POOL, POOL_2BEASTS, randomBackRank } from '../rules/setup';
 import { mulberry32 } from './rng';
 import { OUT_DIR, RunSpec, parseFlags, parseRuleFlags } from './spec';
 import { tsWorker } from './ts-worker';
@@ -129,6 +129,8 @@ export interface TournamentSpec {
   cardPool?: CardName[];
   depth: number;
   seed: number;
+  /** The army pool (`POOL` when the round was made). Absent: a round recorded before 2026-10-04, `POOL_2BEASTS`. */
+  pool?: string;
   /** Rules for every game; `kings` is set per game. */
   rules: Partial<Rules>;
   /** Named rule variants for `Power~v<name>` entrants (each sets rules of that power only). */
@@ -166,12 +168,12 @@ export interface TRecord {
  * entrant changes no other matchup's games, and a variant (`Haste~vtrim`) plays the same armies as
  * its base power against each opponent.
  */
-export function pairDraw(seed: number, a: Entrant, b: Entrant, p: number): { backRank: string; seed: number } {
+export function pairDraw(seed: number, a: Entrant, b: Entrant, p: number, pool = POOL_2BEASTS): { backRank: string; seed: number } {
   // FNV-1a of the key, then mulberry32 from that hash.
   let h = 0x811c9dc5;
   for (const c of `${seed}|${[basePower(a), basePower(b)].sort().join('|')}|${p}`) h = Math.imul(h ^ c.charCodeAt(0), 0x01000193);
   const rng = mulberry32(h);
-  const backRank = randomBackRank(rng);
+  const backRank = randomBackRank(rng, pool);
   return { backRank, seed: Math.floor(rng() * 2 ** 32) };
 }
 
@@ -180,7 +182,8 @@ export function schedule(t: TournamentSpec): TJob[] {
   setRules(t.rules);
   const rng = mulberry32(t.seed);
   // Shared across matchups unless `armies` is `perPair`: pair p of every matchup plays army p with opening seed p.
-  const armies = Array.from({ length: t.pairs }, () => randomBackRank(rng));
+  const pool = t.pool ?? POOL_2BEASTS;
+  const armies = Array.from({ length: t.pairs }, () => randomBackRank(rng, pool));
   const seeds = Array.from({ length: t.pairs }, (_, p) => (t.seed * 1_000_003 + p * 7919) >>> 0);
   const jobs: TJob[] = [];
   const e = t.entrants;
@@ -192,7 +195,7 @@ export function schedule(t: TournamentSpec): TJob[] {
       if (t.mirrorOnly && i !== j) continue;
       for (let p = 0; p < t.pairs; p++) {
         const pairId = pairs++;
-        const draw = t.armies === 'perPair' ? pairDraw(t.seed, e[i], e[j], p) : { backRank: armies[p], seed: seeds[p] };
+        const draw = t.armies === 'perPair' ? pairDraw(t.seed, e[i], e[j], p, pool) : { backRank: armies[p], seed: seeds[p] };
         // A mirror's colour swap replays the same game exactly, so a mirror-only round plays it once.
         for (const swap of t.mirrorOnly ? [false] : [false, true]) {
           jobs.push({
@@ -862,6 +865,7 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
       ...(f.mirrorOnly ? { mirrorOnly: true } : {}),
       ...(cardPool ? { cardPool } : {}),
       depth: num('depth', 3), seed: num('seed', 101),
+      pool: POOL,
       rules: parseRuleFlags(argv),
       ...(variants ? { variants } : {}),
       ...(parseHold(f.hold) ? { powerHold: parseHold(f.hold) } : {}),
