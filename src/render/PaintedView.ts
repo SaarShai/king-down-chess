@@ -123,12 +123,14 @@ export class PaintedView implements BoardView {
   skip(): void { if (this.scene.animating) this.scene.cancel(); }
 
   /**
-   * The selected figure breathes, and each king shows his own effect (king-effects.mjs), only while
-   * animations are on and the system allows motion; the kings' effects also stop while the tab is hidden.
+   * The selected figure breathes, each king shows his own effect (king-effects.mjs) and resting pawns
+   * fidget (lance/idle.mjs) only while animations are on and the system allows motion; the kings' effects
+   * and the pawns also stop while the tab is hidden. A king's capture always uses his own death for the
+   * victim (king-captures.mjs; Animations Off plays no capture at all).
    */
   private applyLively(): void {
-    const motion = this.pace !== 'off' && !this.motionQuery.matches;
-    this.scene.setLively({ moves: true, atmosphere: true, idle: motion, kings: motion && !document.hidden });
+    const motion = this.pace !== 'off' && !this.motionQuery.matches, shown = motion && !document.hidden;
+    this.scene.setLively({ moves: true, atmosphere: true, captures: true, idle: motion, kings: shown, pawns: shown });
   }
 
   highlight(h: Highlights): void {

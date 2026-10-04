@@ -5,7 +5,10 @@
 //   <king>.mp4, <king>.webp  one loop period (two in the MP4) of each king's panel, at desktop game size on a
 //                         2× screen (1.6 px per board unit; the game draws 1.75), 25 frames a second; the WebP loops forever
 //   <king>-sheet.png      six frames of that loop, both armies
-//   board.png             the whole board, Flame (White) against Shadow (Black)
+//   <king>-capture.mp4, .webp, -sheet.png  that king's captures one after another (both armies, a pawn and a
+//                         knight; Shadow also Death Touch), at Normal speed
+//   pawns-idle.mp4, .webp  the whole board over one loop of the resting pawns' timetable (12.8 s)
+//   board.png             the whole board, Spirit (White) against Shadow (Black)
 // A fake clock drives every frame, so each recording is exact and loops without a seam. --quick: sheets only;
 // --page: only the HTML file.
 import { chromium } from 'playwright';
@@ -16,6 +19,7 @@ import { execFileSync } from 'node:child_process';
 import { extname, join, normalize, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PERIOD } from '../docs/2d-first-pieces/board/king-effects.mjs';
+import { LOOP as PAWN_LOOP } from '../docs/2d-first-pieces/lance/idle.mjs';
 
 const out = resolve(process.argv[2] ?? 'kfx-shots'), quick = process.argv.includes('--quick'), pageOnly = process.argv.includes('--page');
 const docs = fileURLToPath(new URL('../docs/', import.meta.url));
@@ -66,64 +70,111 @@ try {
     window.__step = to => { T = to; const q = queue; queue = []; q.forEach(f => f(T)); };
     window.__now = () => T;
   });
-  await tab.goto(`http://127.0.0.1:${server.address().port}/king-effects/preview.html`);
+  await tab.goto(`http://127.0.0.1:${server.address().port}/king-effects/preview.html?record`);
   await tab.evaluate(() => window.preview.ready);
-  const SCALE = 1.6, FPS = 25;
-  for (const design of Object.keys(PERIOD)) {
-    const period = PERIOD[design], count = quick ? 6 : Math.round(period / 1000 * FPS);
-    // Let the effects grow in first (900 ms), then record one exact period.
-    const shots = await tab.evaluate(async ({ design, period, count, SCALE, sheet }) => {
-      const { scene, canvas } = window.preview.scenes[design], C = window.preview.CROP;
-      for (const s of Object.values(window.preview.scenes)) if (s.scene !== scene) s.scene.setLively({ kings: false });
-      scene.setResolution(1.75);
-      // Each frame is asked for (the scene's own 30 fps timer runs on the real clock).
-      const at = t => { scene.redraw(); window.__step(t); };
-      const start = window.__now() + 16; at(start);
-      await new Promise(r => setTimeout(r, 300)); // an effect's own art (the lava mask) arrives
-      for (let t = 0; t <= 1200; t += 40) at(start + t);
-      const t0 = start + 1200, list = [];
-      for (let i = 0; i < count; i++) {
-        at(t0 + i * (sheet ? period / count : 1000 / 25));
-        const c = document.createElement('canvas'); c.width = 2 * Math.round(C.w * SCALE / 2); c.height = 2 * Math.round(C.h * SCALE / 2); // even, for H.264
-        const k = canvas.width / 960;
-        c.getContext('2d').drawImage(canvas, C.x * k, C.y * k, C.w * k, C.h * k, 0, 0, c.width, c.height);
-        list.push(c.toDataURL('image/png'));
-      }
-      for (const s of Object.values(window.preview.scenes)) s.scene.setLively({ kings: true });
-      return list;
-    }, { design, period, count, SCALE, sheet: quick });
-    const dir = join(out, `.frames-${design}`);
+  await tab.evaluate(() => {
+    // Page-side helpers: only one scene draws at a time; each frame is asked for (the scene's own 30 fps
+    // timer runs on the real clock), and grab() copies a crop of it.
+    window.rec = {
+      only(key) { for (const [k, s] of Object.entries(window.preview.scenes)) s.scene.setLively({ kings: k === key, pawns: k === key }); const s = window.preview.scenes[key]; s.scene.setResolution(1.75); return true; },
+      at(key, t) { window.preview.scenes[key].scene.redraw(); window.__step(t); },
+      grab(key, crop, scale) {
+        const { canvas } = window.preview.scenes[key], c = document.createElement('canvas'), k = canvas.width / 960;
+        c.width = 2 * Math.round(crop.w * scale / 2); c.height = 2 * Math.round(crop.h * scale / 2); // even, for H.264
+        c.getContext('2d').drawImage(canvas, crop.x * k, crop.y * k, crop.w * k, crop.h * k, 0, 0, c.width, c.height);
+        return c.toDataURL('image/png');
+      },
+    };
+  });
+  const SCALE = 1.6, FPS = 25, STEP = 1000 / FPS;
+  const CROP = await tab.evaluate(() => window.preview.CROP);
+  let clock = await tab.evaluate(() => window.__now() + 16);
+  const at = (key, t) => tab.evaluate(([key, t]) => window.rec.at(key, t), [key, t]);
+  const grab = (key, crop, scale) => tab.evaluate(([key, crop, scale]) => window.rec.grab(key, crop, scale), [key, crop, scale]);
+  async function encode(name, shots, { loop = true, webpScale = 1 } = {}) {
+    const dir = join(out, `.frames-${name}`);
     await rm(dir, { recursive: true, force: true }); await mkdir(dir, { recursive: true });
-    for (const [i, src] of shots.entries()) await writeFile(join(dir, `${String(i).padStart(4, '0')}.png`), Buffer.from(src.split(',')[1], 'base64'));
-    // Six frames across the period, labelled, for a quick look.
-    const pick = Array.from({ length: 6 }, (_, i) => Math.floor(i * shots.length / 6));
-    const sheet = await tab.evaluate(async ({ srcs, times, title }) => {
-      const imgs = await Promise.all(srcs.map(async s => { const i = new Image(); i.src = s; await i.decode(); return i; }));
-      const w = imgs[0].width, h = imgs[0].height, head = 34, c = document.createElement('canvas');
-      c.width = w * 2 + 12; c.height = 3 * (h + head) + 40;
+    const pngs = [];
+    for (const [i, src] of shots.entries()) { const f = join(dir, `${String(i).padStart(4, '0')}.png`); await writeFile(f, Buffer.from(src.split(',')[1], 'base64')); pngs.push(f); }
+    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...(loop ? ['-stream_loop', '1'] : []), '-framerate', String(FPS), '-i', join(dir, '%04d.png'), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '16', '-preset', 'slow', '-movflags', '+faststart', join(out, `${name}.mp4`)]);
+    // The WebP may be smaller than the MP4 (a whole board stays a few MB).
+    const small = webpScale === 1 ? pngs : pngs.map(f => { const s = f.replace(/\.png$/, '-small.png'); execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', f, '-vf', `scale=iw*${webpScale}:-2`, s]); return s; });
+    execFileSync('img2webp', ['-loop', '0', '-lossy', '-q', '80', '-m', '4', '-d', String(STEP), ...small, '-o', join(out, `${name}.webp`)], { stdio: 'ignore' });
+    await rm(dir, { recursive: true, force: true });
+  }
+  async function sheet(name, rows, title) {
+    const png = await tab.evaluate(async ({ rows, title }) => {
+      const load = async s => { const i = new Image(); i.src = s; await i.decode(); return i; };
+      const imgs = await Promise.all(rows.map(r => Promise.all(r.frames.map(load))));
+      const w = imgs[0][0].width, h = imgs[0][0].height, cols = Math.max(...rows.map(r => r.frames.length)), head = 30, label = 34;
+      const c = document.createElement('canvas'); c.width = cols * (w + 8); c.height = 40 + rows.length * (h + head + label);
       const g = c.getContext('2d'); g.fillStyle = '#f4f0e4'; g.fillRect(0, 0, c.width, c.height);
       g.fillStyle = '#222'; g.font = 'bold 26px sans-serif'; g.fillText(title, 8, 28);
-      imgs.forEach((img, i) => { const x = (i % 2) * (w + 12), y = 40 + Math.floor(i / 2) * (h + head); g.font = '20px sans-serif'; g.fillText(`${times[i]} ms`, x + 4, y + 24); g.drawImage(img, x, y + head); });
+      rows.forEach((r, j) => { const y = 40 + j * (h + head + label); g.font = 'bold 22px sans-serif'; g.fillText(r.label, 8, y + 24);
+        imgs[j].forEach((img, i) => { g.font = '19px sans-serif'; g.fillText(`${r.times[i]} ms`, i * (w + 8) + 4, y + label + 22); g.drawImage(img, i * (w + 8), y + label + head); }); });
       return c.toDataURL('image/png');
-    }, { srcs: pick.map(i => shots[i]), times: pick.map(i => Math.round(quick ? i * period / 6 : i * 40)), title: `${design[0].toUpperCase()}${design.slice(1)} king: ivory (left two) and charcoal (right two), loop ${period / 1000} s` });
-    await writeFile(join(out, `${design}-sheet.png`), Buffer.from(sheet.split(',')[1], 'base64'));
-    if (!quick) {
-      const frames = join(dir, '%04d.png');
-      execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-stream_loop', '1', '-framerate', String(FPS), '-i', frames, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '16', '-preset', 'slow', '-movflags', '+faststart', join(out, `${design}.mp4`)]);
-      const pngs = shots.map((_, i) => join(dir, `${String(i).padStart(4, '0')}.png`));
-      execFileSync('img2webp', ['-loop', '0', '-lossy', '-q', '82', '-m', '4', '-d', String(1000 / FPS), ...pngs, '-o', join(out, `${design}.webp`)], { stdio: 'ignore' });
-    }
-    await rm(dir, { recursive: true, force: true });
+    }, { rows, title });
+    await writeFile(join(out, name), Buffer.from(png.split(',')[1], 'base64'));
+  }
+  const cap = d => `${d[0].toUpperCase()}${d.slice(1)}`;
+
+  // 1. Each king at rest: one exact loop (after the effects have grown in).
+  for (const design of Object.keys(PERIOD)) {
+    const period = PERIOD[design], count = Math.round(period / STEP);
+    await tab.evaluate(key => window.rec.only(key), design);
+    await at(design, clock); await new Promise(r => setTimeout(r, 300)); // an effect's own art arrives
+    for (let t = 0; t <= 1200; t += 40) await at(design, clock + t);
+    const t0 = clock + 1200, shots = [], pick = Array.from({ length: 6 }, (_, i) => Math.floor(i * count / 6));
+    for (let i = 0; i < count; i++) { if (quick && !pick.includes(i)) continue; await at(design, t0 + i * STEP); shots.push(await grab(design, CROP, SCALE)); }
+    clock = t0 + period + 1000;
+    const six = quick ? shots : pick.map(i => shots[i]);
+    await sheet(`${design}-sheet.png`, [{ label: 'Ivory (left two) and charcoal (right two)', frames: six, times: pick.map(i => Math.round(i * STEP)) }], `${cap(design)} king at rest, loop ${period / 1000} s`);
+    if (!quick) await encode(design, shots);
     console.log(`${design}: ${shots.length} frames${quick ? '' : `, ${design}.mp4, ${design}.webp`}, ${design}-sheet.png`);
   }
-  // The whole board at desktop game size on a 2× screen.
-  const boardShot = await tab.evaluate(() => {
-    const { scene, canvas } = window.preview.scenes.board;
-    scene.setResolution(1.75); const t = window.__now() + 40;
-    for (let ms = 0; ms <= 2400; ms += 40) { scene.redraw(); window.__step(t + ms); }
-    return canvas.toDataURL('image/png');
-  });
-  await writeFile(join(out, 'board.png'), Buffer.from(boardShot.split(',')[1], 'base64'));
-  console.log('board.png');
+
+  // 2. Each king's captures, one after another (Normal speed): a short pause, the capture, the result.
+  for (const design of Object.keys(PERIOD)) {
+    const key = `capture-${design}`, list = await tab.evaluate(d => window.preview.capturesFor(d).map(c => c.label), design);
+    await tab.evaluate(key => window.rec.only(key), key);
+    const shots = [], rows = [];
+    for (let c = 0; c < list.length; c++) {
+      const duration = await tab.evaluate(([key, design, c]) => {
+        const { scene } = window.preview.scenes[key], move = window.preview.setUpCapture(scene, window.preview.capturesFor(design)[c]);
+        window.rec.at(key, window.__now() + 16); scene.play(move); return 1660;
+      }, [key, design, c]);
+      clock = await tab.evaluate(() => window.__now());
+      const start = clock, total = 360 + duration + 600, row = { label: list[c], frames: [], times: [] }, marks = [0, 520, 800, 1040, 1280, 1520];
+      // play() started at `start`; frames from 360 ms before it would be a still, so the clip shows a pause first.
+      for (let i = 0; i < 9; i++) shots.push(await grab(key, CROP, SCALE));
+      for (let t = 0; t <= duration + 600; t += STEP) {
+        await at(key, start + t);
+        if (!quick || marks.some(m => Math.abs(m - t) < STEP / 2)) shots.push(await grab(key, CROP, SCALE));
+        const m = marks.find(m => Math.abs(m - t) < STEP / 2);
+        if (m != null && (c === 1 || c === 2 || c >= 4)) { row.frames.push(shots.at(-1)); row.times.push(m); }
+      }
+      if (row.frames.length) rows.push(row);
+      clock = start + total;
+    }
+    await sheet(`${design}-capture-sheet.png`, rows, `${cap(design)} king takes a piece (times from the start of the move)`);
+    if (!quick) await encode(`${design}-capture`, shots, { loop: false });
+    console.log(`${design} captures: ${list.length}${quick ? '' : `, ${design}-capture.mp4, ${design}-capture.webp`}, ${design}-capture-sheet.png`);
+  }
+
+  // 3. The whole board with resting pawns: one loop of the pawns' timetable.
+  {
+    const key = 'board', full = { x: 0, y: 0, w: 960, h: 1024 };
+    await tab.evaluate(key => window.rec.only(key), key);
+    for (let t = 0; t <= 1200; t += 40) await at(key, clock + t);
+    const t0 = Math.ceil((clock + 1300) / PAWN_LOOP) * PAWN_LOOP, count = Math.round(PAWN_LOOP / STEP), shots = [];
+    for (let i = 0; i < count; i++) { if (quick && i % 40) continue; await at(key, t0 + i * STEP); shots.push(await grab(key, full, .8)); }
+    clock = t0 + PAWN_LOOP;
+    const acting = await tab.evaluate(() => window.preview.scenes.board.scene.pawns);
+    if (!quick) await encode('pawns-idle', shots, { webpScale: .75 });
+    await at(key, clock + 40);
+    const boardShot = await tab.evaluate(() => window.preview.scenes.board.canvas.toDataURL('image/png'));
+    await writeFile(join(out, 'board.png'), Buffer.from(boardShot.split(',')[1], 'base64'));
+    console.log(`pawns at rest: ${shots.length} frames over ${PAWN_LOOP / 1000} s (last frame: ${acting.acting} of ${acting.resting} acting)${quick ? '' : ', pawns-idle.mp4, pawns-idle.webp'}, board.png`);
+  }
 } finally { await browser.close(); server.close(); }
 if (errors.length) { console.error(errors.join('\n')); process.exit(1); }

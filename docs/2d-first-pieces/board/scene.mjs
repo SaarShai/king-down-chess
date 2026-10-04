@@ -11,9 +11,11 @@ import * as rook from '../rook/motion.mjs';
 import * as guard from '../guard/motion.mjs';
 import * as court from '../court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
-import {BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
+import {BLOW,KING_BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt} from './gait.mjs';
 import {createKingEffects} from './king-effects.mjs';
+import {DEATHS,THEMED,drawDeath} from './king-captures.mjs';
+import * as pawnIdle from '../lance/idle.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 // One literal URL per image: bundlers resolve and copy each file (a template string would not).
 const ART_FILES={beast:new URL('../beast/beast.webp',import.meta.url).href,queen:new URL('../queen/queen.webp',import.meta.url).href,paladin:new URL('../paladin/paladin.webp',import.meta.url).href,maester:new URL('../maester/maester.webp',import.meta.url).href,pawn:new URL('../lance/pawn.webp',import.meta.url).href,archer:new URL('../wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../ogre/ogre.webp',import.meta.url).href,knight:new URL('../knight/knight.webp',import.meta.url).href,bishop:new URL('../bishop/bishop.webp',import.meta.url).href,rook:new URL('../rook/rook.webp',import.meta.url).href,guard:new URL('../guard/guard.webp',import.meta.url).href};
@@ -68,10 +70,10 @@ for(const [type,name] of Object.entries(courtNames)){
  let fallen=null, res=1, frame=0, previousTime=0, ready=false, flipped=false, coords=true, coordSize=13, labels=false, reducedMotion=false, decorate=null;
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
- const lively={moves:false,idle:false,atmosphere:false,kings:false};
+ const lively={moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
  const kingFx=createKingEffects({sheet:design=>kingArt[design]?.image??null,onLoad:()=>wake()});
  // Square → when a king's effect started there (what stands on his square grows back after a move).
- let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[];
+ let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[],pawnsAtRest=0,pawnsActing=0;
  let selectedAt=0, idleTimer=0, framePattern=null, awakeUntil=0;
  const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
  const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
@@ -99,13 +101,20 @@ function aimed(value,pose,target) {
  const raw=Math.atan2(dy,dx)-Math.asin(clamp((zero.y-pivot.y)/Math.max(1,Math.hypot(dx,dy)),-1,1));
  return {...pose,angle:clamp(raw,spec.min,spec.max),outside:raw<spec.min-.01||raw>spec.max+.01};
 }
-function sprite(value,angle=0,extension=0) {
- const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null,key=design?`${type}:${side}:${design}`:`${type}:${side}`;
+// sheet: a king's sheet drawn in place of his own (an effect's: the Shadow King without his smoke).
+// rest: a resting pawn's action (lance/idle.mjs), drawn from his still sprite.
+function sprite(value,angle=0,extension=0,sheet=null,rest=null) {
+ const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null,key=design?`${type}:${side}:${design}${sheet?':effect':''}`:`${type}:${side}`;
  if(!ART[type])return token(value);
- const image=design?kingImage(design).image:art[type];
+ const image=design?sheet??kingImage(design).image:art[type];
  if(design&&!image)return blank;
  if(design)drawnKings[side]=design;
  const staticPose=Math.abs(angle)<.00001&&Math.abs(extension)<.0001;
+ if(rest&&staticPose&&type===P){
+  const still=sprite(value);let canvas=work.get('pawn-rest');
+  if(!canvas){canvas=document.createElement('canvas');canvas.width=canvas.height=1152;work.set('pawn-rest',canvas);}
+  pawnIdle.drawIdle(canvas,still,rest);return canvas;
+ }
  let canvas=staticPose?idle.get(key):work.get(type);
  if(canvas&&staticPose)return canvas;
  if(!canvas){canvas=document.createElement('canvas');canvas.width=1152;canvas.height=1152;(staticPose?idle:work).set(staticPose?key:type,canvas);}
@@ -120,6 +129,16 @@ const fxCanvas=document.createElement('canvas');fxCanvas.width=SIZE;fxCanvas.hei
 // {scan, apart} tints it with a moving scan line, then takes it apart in horizontal strips.
 function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
  if(opacity<=0)return;
+ if(fx?.death){
+  // A king's capture (king-captures.mjs): the victim is drawn into the effect layer as the death needs.
+  const c=fxCanvas.getContext('2d'),h=fx.death.hit;
+  drawDeath(out,{...fx.death,size:SIZE,headroom,
+   clear(){c.setTransform(res,0,0,res,0,headroom*res);c.globalCompositeOperation='source-over';c.globalAlpha=1;c.clearRect(0,-headroom,SIZE,SIZE+headroom);return c;},
+   draw(g,{dy=0,q=1,wobble=0}={}){drawPiece(g,value,{...pose,foot:{x:h.x+(pose.foot.x-h.x)*q+wobble,y:h.y+(pose.foot.y-h.y)*q+dy},sx:(pose.sx??1)*q,sy:(pose.sy??1)*q,shadow:.001},1,extension);},
+   layer(clip){out.save();out.globalAlpha=opacity;if(clip!==Infinity){out.beginPath();out.rect(0,-headroom,SIZE,clip+headroom);out.clip();}if(res===1)out.drawImage(fxCanvas,0,-headroom);else out.drawImage(fxCanvas,0,-headroom,SIZE,SIZE+headroom);out.restore();},
+  });
+  return;
+ }
  if(fx&&(fx.frost||fx.shatter||fx.scan||fx.apart)){
   const c=fxCanvas.getContext('2d');c.setTransform(res,0,0,res,0,headroom*res);c.clearRect(0,-headroom,SIZE,SIZE+headroom);drawPiece(c,value,pose,1,extension);
   c.globalCompositeOperation='source-atop';
@@ -169,7 +188,7 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A soft contrasting rim keeps each army readable on the painted board's light and dark zones.
  out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=5*res; // shadows ignore the transform
- out.drawImage(sprite(value,pose.angle,extension),-spec.anchor.x,-spec.anchor.y);out.restore();
+ out.drawImage(sprite(value,pose.angle,extension,pose.sheet,pose.rest),-spec.anchor.x,-spec.anchor.y);out.restore();
 }
 // A soft contact shadow: dark where the feet touch the stone, fading out, nudged away from the warm light.
 function contactShadow(out,ground,r) {
@@ -303,6 +322,17 @@ function vortex(out,foot,phase,strength) {
   for(const [x0,y0,x1,y1] of [[PAD,PAD,PAD,PAD+12],[PAD,PAD,PAD+12,PAD]]){const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,'rgba(24,16,6,.32)');g.addColorStop(1,'rgba(24,16,6,0)');ctx.fillStyle=g;ctx.fillRect(PAD,PAD,y1>y0?b:12,y1>y0?12:b);}
   ctx.restore();
  }
+ // The y of a figure's highest painted point on `square` (from its still sprite, read once per piece).
+ const tops=new Map();
+ function topOf(value,square){
+  const spec=specs[typeOf(value)],pose=poseFor(value,square);
+  if(!tops.has(value)){
+   const c=document.createElement('canvas');c.width=c.height=144;const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(sprite(value),0,0,144,144);
+   const data=g.getImageData(0,0,144,144).data;let row=0;while(row<143&&![...Array(144).keys()].some(x=>data[(row*144+x)*4+3]>24))row++;
+   tops.set(value,row*8);
+  }
+  return pose.foot.y+(tops.get(value)-spec.anchor.y)*pose.scale;
+ }
  function selectionTarget() {
   if(aimSquare===null)return null;
   const value=position.board[aimSquare];
@@ -324,7 +354,7 @@ function vortex(out,foot,phase,strength) {
   const a=animation&&!animation.done?animation:null,moving=a&&(a.move.from===sq||(a.move.swap&&a.move.to===sq));
   const since=moving?null:kingSince.get(sq)??time;if(since!=null)nextSince.set(sq,since);
   const g=moving?1-ease((time-a.start)/(200*a.speed)):ease((time-since)/900);
-  const s={design,side,pose:unit.pose,t:time+side*1777,k,g,facing:unit.pose.facing};
+  const s={design,side,pose:unit.pose,t:time+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing};
   s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
   return s;
  }
@@ -410,10 +440,11 @@ function vortex(out,foot,phase,strength) {
     victim.opacity=1-clamp((t-S.contact-150)/300,0,1);}
   }
   else if(a.type==='blow'){
-   const spec=blows[a.blow],since=t-BLOW.strike;
-   actor.pose={...a.pose,foot:footAt(t,a.from.foot,a.stop,a.to.foot),rotation:tiltAt(t,spec.tilt)};
+   const spec=blows[a.blow],T=a.timing,since=t-T.strike;
+   actor.pose={...a.pose,foot:footAt(t,a.from.foot,a.stop,a.to.foot,T),rotation:tiltAt(t,spec.tilt,T)};
    if(victim&&since>=0){
-    if(spec.effect==='smash'){const k=ease(since/110);victim.pose={...victim.pose,sx:1+.28*k,sy:1-.5*k};victim.opacity=1-clamp((since-60)/260,0,1);effects.push(()=>smash(ctx,a.victimFoot,since/420));}
+    if(a.theme){victim.fx={death:{theme:a.theme,side:colorOf(a.value),t:since,foot:a.victimFoot,top:a.victimTop,hit:a.target}};if(since>=DEATHS[a.theme].end)victim.opacity=0;}
+    else if(spec.effect==='smash'){const k=ease(since/110);victim.pose={...victim.pose,sx:1+.28*k,sy:1-.5*k};victim.opacity=1-clamp((since-60)/260,0,1);effects.push(()=>smash(ctx,a.victimFoot,since/420));}
     else if(spec.effect==='topple'){const k=ease(since/380);victim.pose={...victim.pose,rotation:1.45*k*a.away*victim.pose.facing,foot:{x:victim.pose.foot.x+a.away*12*k,y:victim.pose.foot.y}};victim.opacity=1-clamp((since-220)/300,0,1);effects.push(()=>impact(ctx,a.target,since/320,1.6));}
     else victim.fx={frost:clamp(since/160,0,1),shatter:since>200?{point:a.target,t:clamp((since-200)/420,0,1)}:null};
    }
@@ -494,9 +525,16 @@ function vortex(out,foot,phase,strength) {
    else actor.pose={...a.from,angle:0};
   }
   if(a.closeup)drawEncounter(a,t);else if(closeup)closeup.panel.hidden=true;
-  const impactTime=a.type==='pound'?rook.SLAMS[1]:a.type==='spin'?SPIN.contact:a.type==='blow'?BLOW.strike:a.type==='chain'?CHAIN_STEP*.36:a.type==='slash'?bishop.CONTACT_MS:a.type==='hammer'?court.SMASH.chop[1]:a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?a.duration*knight.LANDING:a.type==='paladin'?a.duration*CHARGE_CONTACT:a.type==='advance'?a.duration*.5:a.type==='beam'?court.BEAM.apart[0]:440;
+  const impactTime=a.type==='pound'?rook.SLAMS[1]:a.type==='spin'?SPIN.contact:a.type==='blow'?a.timing.strike:a.type==='chain'?CHAIN_STEP*.36:a.type==='slash'?bishop.CONTACT_MS:a.type==='hammer'?court.SMASH.chop[1]:a.type==='pawn'?910:a.type==='ogre'?780:a.type==='knight'?a.duration*knight.LANDING:a.type==='paladin'?a.duration*CHARGE_CONTACT:a.type==='advance'?a.duration*.5:a.type==='beam'?court.BEAM.apart[0]:440;
   if(a.type==='knight'&&t>=a.duration*.35&&!a.airborne){a.airborne=true;onStatus('Airborne. Clearing the intervening pieces…');}
   if(a.type!=='move'&&a.type!=='gait'&&a.type!=='swap'&&t>=impactTime&&!a.contacted){a.contacted=true;a.onContact?.();onStatus(a.move.selfRemove?'The Paladin and his target are removed together.':a.type==='beam'?'Measured. Taking it apart…':a.type==='knight'||(a.type==='paladin'&&!victim)?'Landed. Settling into stance…':'Hit. Recovering…');}
+ }
+ // Resting pawns (lance/idle.mjs): any pawn that is not selected, moving, struck or aiming.
+ pawnsAtRest=0;pawnsActing=0;
+ if(lively.pawns&&!reducedMotion)for(const [sq,u] of poses){
+  if(typeOf(u.value)!==P||sq===selected||u.fx||u.extension||u.pose.angle||animation&&!animation.done&&animation.move.from===sq)continue;
+  pawnsAtRest++;const rest=pawnIdle.idleAt(sq*2+colorOf(u.value)+1,time);
+  if(rest){u.pose={...u.pose,rest};pawnsActing++;}
  }
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
@@ -539,7 +577,7 @@ function drawEncounter(a,t) {
   render(time);
   if(labels)drawLabels();
   if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil)wake();
-  else{previousTime=0;if(idling()||fxDrawn.length){clearTimeout(idleTimer);idleTimer=setTimeout(wake,33);}} // the idle breath and the kings' effects need only ~30 frames a second
+  else{previousTime=0;if(idling()||fxDrawn.length||pawnsAtRest){clearTimeout(idleTimer);idleTimer=setTimeout(wake,33);}} // the idle breath, the kings' effects and resting pawns need only ~30 frames a second
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
  function drawLabels() {
@@ -600,8 +638,11 @@ function drawEncounter(a,t) {
    const victimFoot=foot(victimSquare),away=Math.sign(victimFoot.x-from.foot.x)||sideFacing(value);
    Object.assign(base,{type:'spin',duration:SPIN.duration,victimFoot,stop:stopPoint(from.foot,victimFoot,78,sideFacing(value)),away});
   }else if([K].includes(typeOf(value))){
-   const name={[K]:'king'}[typeOf(value)],victimFoot=foot(victimSquare);
-   Object.assign(base,{type:'blow',blow:name,duration:BLOW.duration,victimFoot,stop:stopPoint(from.foot,victimFoot,blows[name].gap,sideFacing(value)),away:Math.sign(victimFoot.x-from.foot.x)||sideFacing(value),shakeAt:name==='rook'?BLOW.strike:null});from.facing=pose.facing;
+   // With themed captures (setLively captures) the victim dies the capturing king's way (king-captures.mjs);
+   // Death Touch (the king stays on his square, to === from) strikes from where he stands.
+   const name={[K]:'king'}[typeOf(value)],victimFoot=foot(victimSquare),design=kings[colorOf(value)];
+   const theme=lively.captures&&THEMED.includes(design)?design:null,timing=theme?KING_BLOW:BLOW,touch=theme&&move.to===move.from;
+   Object.assign(base,{type:'blow',blow:name,theme,timing,duration:timing.duration,victimFoot,victimTop:theme?topOf(victim,victimSquare):0,stop:touch?from.foot:stopPoint(from.foot,victimFoot,blows[name].gap,sideFacing(value)),away:Math.sign(victimFoot.x-from.foot.x)||sideFacing(value),shakeAt:name==='rook'?BLOW.strike:null});from.facing=pose.facing;
   }else if(typeOf(value)===M){
    Object.assign(base,{type:'beam',duration:court.BEAM.duration,victimFoot:foot(victimSquare)});from.facing=pose.facing;
   }else if(!ART[typeOf(value)]){base.type='advance';base.duration=newMotions[typeOf(value)].DURATION;from.facing=pose.facing;}else{base.type='archer';base.duration=1000;base.closeup=pose.outside&&!!closeup;base.away=Math.sign(target.x-from.foot.x)||sideFacing(value);}
@@ -637,10 +678,16 @@ function drawEncounter(a,t) {
   setFallen(sq,animate=true){fallen=sq==null?null:{sq,start:animate?performance.now():-Infinity};wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
   setResolution(k){if(k===res)return;res=k;canvas.width=fxCanvas.width=Math.round(SIZE*k);canvas.height=fxCanvas.height=Math.round((SIZE+headroom)*k);ctx.setTransform(k,0,0,k,0,0);wake();},
-  /** Opt in to quiet-move gaits (moves), the selected figure's idle breath (idle), the stone frame, contact shadows and warm light (atmosphere), and the kings' idle effects (kings). */
+  /**
+   * Opt in to quiet-move gaits (moves), the selected figure's idle breath (idle), the stone frame, contact shadows
+   * and warm light (atmosphere), the kings' idle effects (kings), each king's own death for what he takes
+   * (captures) and the resting pawns' small actions (pawns).
+   */
   setLively(options){Object.assign(lively,options);if(lively.kings)for(const design of kings)kingFx.has(design);wake();},
   /** The king designs whose effects the last frame drew (for checks). */
   get effects(){return [...fxDrawn];},
+  /** Resting pawns in the last frame, and how many of them were acting (for checks). */
+  get pawns(){return {resting:pawnsAtRest,acting:pawnsActing};},
   /** Frames drawn so far (for checks). */
   get frames(){return frames;},
   setDecorate(fn){decorate=fn;wake();},

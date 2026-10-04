@@ -38,11 +38,15 @@ export interface PaintedScene {
    * Opt-in liveliness (all off by default, so the trial and the trailer are unchanged):
    * moves: quiet moves use each figure's gait (gait.mjs); idle: the selected figure breathes;
    * atmosphere: a stone frame, soft contact shadows and warm light on the board;
-   * kings: each king's own idle effect (king-effects.mjs), redrawn about 30 times a second while one shows.
+   * kings: each king's own idle effect (king-effects.mjs), redrawn about 30 times a second while one shows;
+   * captures: a piece a king takes dies that king's way (king-captures.mjs; Stratus keeps the shatter);
+   * pawns: resting pawns now and then shake the spear, move the helmet or hitch the shield (lance/idle.mjs).
    */
-  setLively(options: { moves?: boolean; idle?: boolean; atmosphere?: boolean; kings?: boolean }): void;
+  setLively(options: { moves?: boolean; idle?: boolean; atmosphere?: boolean; kings?: boolean; captures?: boolean; pawns?: boolean }): void;
   /** The king designs whose effects the last frame drew (empty: none). */
   readonly effects: KingDesign[];
+  /** Resting pawns in the last frame and how many of them were acting. */
+  readonly pawns: { resting: number; acting: number };
   /** Frames drawn since the scene was made. */
   readonly frames: number;
   /**

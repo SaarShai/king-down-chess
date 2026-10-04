@@ -13,7 +13,7 @@
   header p { margin: 0 0 12px; color: var(--muted); max-width: 70ch; }
   .controls { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
   .controls label { display: inline-flex; gap: 6px; align-items: center; min-height: 32px; cursor: pointer; }
-  #grid { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: 1240px; margin: 0 auto; }
+  #grid, #captures { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: 1240px; margin: 0 auto; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; max-width: 100%; }
   .card h2 { font: 600 18px/1.2 Georgia, serif; margin: 0 0 8px; }
   .card p { margin: 6px 0 0; color: var(--muted); font-size: 14px; max-width: 46ch; }
@@ -24,10 +24,16 @@
   .whole { max-width: 1240px; margin: 28px auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .whole h2 { font: 600 20px/1.2 Georgia, serif; margin: 0; }
   select { font: inherit; padding: 4px 6px; }
+  section.part { max-width: 1240px; margin: 32px auto 0; }
+  section.part > h2 { font: 600 20px/1.2 Georgia, serif; margin: 0 0 4px; text-align: center; }
+  section.part > p { margin: 0 auto 14px; color: var(--muted); max-width: 70ch; text-align: center; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; max-width: 46ch; }
+  .buttons button { font: inherit; font-size: 13px; min-height: 32px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .buttons button[aria-pressed="true"] { border-color: var(--ink); font-weight: 600; }
 </style>
 <header>
   <h1>King effects: preview</h1>
-  <p>Each king on a light and a dark square, ivory army on the left and charcoal on the right. This is the game's own painted board and drawing code, at the size the game shows it. Nothing here is in the game yet.</p>
+  <p>The game's own painted board and drawing code, at the size the game shows it. Nothing here is in the game yet. First each king on a light and a dark square (ivory army left, charcoal right), then how each king takes a piece, then a whole board with resting pawns.</p>
   <div class="controls" role="group" aria-label="Preview options">
     <span>Size:</span>
     <label><input type="radio" name="size" value="desktop" checked> Desktop game</label>
@@ -37,9 +43,18 @@
   </div>
 </header>
 <main>
-  <div id="grid"></div>
+  <section class="part" aria-labelledby="effects-title">
+    <h2 id="effects-title">The kings at rest</h2>
+    <div id="grid"></div>
+  </section>
+  <section class="part" aria-labelledby="captures-title">
+    <h2 id="captures-title">How each king takes a piece</h2>
+    <p>Each card plays its captures in turn: ivory and charcoal, a pawn and a knight. A button plays one now.</p>
+    <div id="captures"></div>
+  </section>
   <section class="whole">
-    <h2>On a whole board</h2>
+    <h2>A whole board: resting pawns and two kings</h2>
+    <p style="margin:0;color:var(--muted);max-width:70ch;text-align:center">Now and then a pawn shakes his spear, moves his helmet a little or hitches up his shield, each at his own time.</p>
     <div class="controls">
       <label>White king <select id="white"></select></label>
       <label>Black king <select id="black"></select></label>
