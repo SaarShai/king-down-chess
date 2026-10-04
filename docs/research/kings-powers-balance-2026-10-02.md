@@ -44,6 +44,11 @@ for the next round, on many more armies, to confirm. Details in Round 12, below.
 are high and Darkness (43) low**, all three clearly; Flight is fine (47). Spirit's powers now average
 about 3 points above Shadow's. Details in Round 13, below.
 
+**Update 2026-10-03 (owner decisions after rounds 14–15):** Mercy is now official as reading M2
+(pawns may take in its shelter, and the Mercy king may take pawns; about 50% in rounds 14–15). Haste
+and Death Touch stay as they are. Darkness stays as it is while simpler second parts are tested
+(round 16). Details at the end of Round 15.
+
 **Depth matters.** A depth-4 check of the round-4 set (936 games) kept the order but widened the
 spread to 24 points: Mercy, Flight with two uses and Sacrifice near 59%, Holy Light 36%. Balance
 measured by a computer player is a guide for people, not a guarantee.
@@ -562,3 +567,22 @@ official set drew 13.6% (round 14: 13.4%), White scored 52.1% (+13 ± 5 Elo).
 Suggested package for the owner: **Haste H3, Mercy M2, Darkness D2, Death Touch T2**. Not adopted:
 the owner decides. A confirmation round with the package as the rules, on fresh armies, would check
 it without that selection.
+
+**Owner decisions (2026-10-03).** Haste ("flame"): "the change is too cumbersome and not worth the
+gain"; Mercy: "yes"; Darkness: "change too cumbersome but i don't like the 42% score, we must find a
+different change to bring close to 50%"; Death Touch: "too cumbersome". So Mercy M2 is official
+(`POWERS_BALANCED`), Haste and Death Touch keep today's readings, and Darkness keeps today's reading
+until a simpler second part is found. Limits for that part: one short sentence, no exceptions, and
+no reading that changes how other pieces move (a shelter is allowed). Built as lab toggles for
+round 16 (`src/rules/power-fixes.test.ts`):
+
+- `darknessPawnArmor`: enemy pawns cannot take your pawns.
+- `darknessAuraPawns`: enemy pawns cannot take your pieces next to your king (all 8 neighbours,
+  pawns too; not the king).
+- `darknessKingStep2`: your king may also step two squares in a straight line, over an empty
+  square, to an empty square (never a capture; it must not end in check).
+- D1 (`darknessShelter`, built for round 14): your pieces diagonally next to your king cannot be
+  taken. Round 14 measured +9.5 ± 3.1 (42.8 → 52.3).
+
+Not measured yet. Round 16 (owner's go) would screen the three new readings as `Darkness~v`
+variants beside D1, under the official rules with M2.

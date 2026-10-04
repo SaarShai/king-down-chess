@@ -2,13 +2,14 @@
  * The search's legal-move filter skips the king-safety probe for moves that cannot expose the king
  * (`genLegal` in ./search.ts). Held to the engine's own `legalMoves`, which makes every move and looks
  * at the king, on random positions with every piece type (catapults included: their screen is the
- * one way an arriving piece can expose a king) and random kings' powers, or random card hands.
+ * one way an arriving piece can expose a king) and random kings' powers, or random card hands, or
+ * the Darkness and Mercy lab readings.
  */
 import { afterEach, expect, it } from 'vitest';
 import {
   A, B, BLACK, C, Color, G, K, L, M, Mark, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, inCheck, legalMoves, piece,
 } from '../rules/engine';
-import { CARD_ONLY, CardName, KINGS, KingName, PowerName, TIER1, USES_RULE, setRules } from '../rules/rules';
+import { CARD_ONLY, CardName, KINGS, KingChoice, KingName, PowerName, Rules, TIER1, USES_RULE, setRules } from '../rules/rules';
 import { toFen, toLan } from '../rules/setup';
 import { searchLegal, setFastLegality } from './search';
 
@@ -98,4 +99,43 @@ it('the same with card hands, the card-only cards included, and marks on the boa
   expect(checked).toBeGreaterThan(1000);
   expect(inCheckCount).toBeGreaterThan(50);
   for (const tag of ['mimic', 'vault', 'curse', 'skylift']) expect(played).toContain(tag);
+}, 120_000);
+
+it('the same under the Darkness and Mercy readings, the round-16 ones included', () => {
+  let seed = 1616;
+  const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+  const dark: KingChoice = { king: 'Shadow', power: 'Darkness' }, mercy: KingChoice = { king: 'Spirit', power: 'Mercy' };
+  const READINGS: (keyof Rules)[] = [
+    'darknessMoves', 'darknessShelter', 'darknessShelterPawnsTake', 'darknessPawnArmor', 'darknessAuraPawns', 'darknessKingStep2',
+    'mercyAura', 'mercyAuraPawnsTake', 'mercyTakesPawns', 'mercyNoJump',
+  ];
+  const ROUND16 = { darknessPawnArmor: false, darknessAuraPawns: false, darknessKingStep2: false };
+  let checked = 0, inCheckCount = 0, changed = 0;
+  for (let trial = 0; trial < 3000; trial++) {
+    const board = randomBoard(rng);
+    const turn = (rng() < 0.5 ? WHITE : BLACK) as Color;
+    const pos: Position = { board, turn, halfmove: 0, ply: 0 };
+    if (inCheck(pos, (turn ^ 1) as Color)) continue;
+    // Darkness on one side or both; the other side Mercy, another power or a plain king.
+    const other = rng() < 0.4 ? mercy : rng() < 0.5 ? POWERS[Math.floor(rng() * POWERS.length)] : null;
+    const kings: Rules['kings'] = rng() < 0.3 ? [dark, dark] : rng() < 0.5 ? [dark, other] : [other, dark];
+    const flags = Object.fromEntries(READINGS.map(r => [r, rng() < 0.5])) as Partial<Rules>;
+    setRules({ kings, ...flags, ...ROUND16 });
+    const without = legalMoves(pos).map(m => toLan(pos, m)).sort();
+    setRules({ kings, ...flags });
+    if (inCheck(pos)) inCheckCount++;
+    const engine = legalMoves(pos).map(m => toLan(pos, m)).sort();
+    const fast = searchLegal(pos).map(m => toLan(pos, m)).sort();
+    setFastLegality(false);
+    const slow = searchLegal(pos).map(m => toLan(pos, m)).sort();
+    setFastLegality(true);
+    const where = `${toFen(pos)} ${JSON.stringify({ kings, ...flags })}`;
+    expect(fast, where).toEqual(slow);
+    expect(fast, where).toEqual(engine);
+    if (engine.join() !== without.join()) changed++;
+    checked++;
+  }
+  expect(checked).toBeGreaterThan(1000);
+  expect(inCheckCount).toBeGreaterThan(50);
+  expect(changed).toBeGreaterThan(150); // the round-16 readings change the legal moves here (2026-10-03: 276 positions)
 }, 120_000);

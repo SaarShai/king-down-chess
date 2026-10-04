@@ -369,10 +369,11 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   if (markSq[c ^ 1] >= 0) filterMarks(c, markSq[c ^ 1], (c ^ 1) as Color, out, 0, markWard[c ^ 1] === 1);
   if (markSq[c] >= 0) filterHeld(c, markSq[c], markWard[c] === 1, out);
   // Legality is "make it, then look at our king" — but only a move that could expose the king needs
-  // the look: we are in check; the king itself moves (Death Touch and Mercy included); a swap or a
-  // shove moves a second piece (a SkyLift is a swap); the mover leaves a line through the king (a
-  // slider's ray opens); a capture removes a piece on such a line; or an enemy catapult could use
-  // the arriving piece as its screen. Archer shots ignore blockers and the leapers are never blocked,
+  // the look: we are in check; the king itself moves (Death Touch, Mercy and the Darkness step
+  // included); a swap or a shove moves a second piece (a SkyLift is a swap); the mover leaves a line
+  // through the king (a slider's ray opens); a capture removes a piece on such a line; or an enemy
+  // catapult could use the arriving piece as its screen. The shelters and the Darkness pawn armour
+  // change which pieces may be taken, never the king, so they add nothing here. Archer shots ignore blockers and the leapers are never blocked,
   // so nothing else can change an attack on the king — except a Curse, which moves an *enemy* piece
   // that may arrive attacking it. `setFastLegality(false)` turns this off for the cross-check test.
   const k = board.indexOf(piece(K, c));

@@ -293,6 +293,8 @@ export function canCapture(att: number, vic: PieceType): boolean {
   if (at === P && vic === K && powerOf((colorOf(att) ^ 1) as Color) === 'HolyLight') return false;
   if (at === N && vic === K && RULES.holyLightKnights && powerOf((colorOf(att) ^ 1) as Color) === 'HolyLight') return false;
   if (at === K && vic === P && powerOf(colorOf(att)) === 'HolyLight' && !RULES.holyLightTakesPawns) return false;
+  // `darknessPawnArmor` (balance lab): no enemy pawn takes a Darkness side's pawn, by the same byte.
+  if (at === P && vic === P && RULES.darknessPawnArmor && powerOf((colorOf(att) ^ 1) as Color) === 'Darkness') return false;
   if (vic === K) return (at !== L || RULES.paladinChecks) && (RULES.archerChecks || at !== A);
   return true;
 }
@@ -316,16 +318,16 @@ function inLight(board: Uint8Array, sq: number, side: number): boolean {
   return false;
 }
 
-/** Is any shelter rule on (`mercyAura`, `holyLightShelter`, `darknessShelter`)? The gate of `sheltered`'s three callers. */
-const shelters = (): boolean => RULES.mercyAura || RULES.holyLightShelter || RULES.darknessShelter;
+/** Is any shelter rule on (`mercyAura`, `holyLightShelter`, `darknessShelter`, `darknessAuraPawns`)? The gate of `sheltered`'s three callers. */
+const shelters = (): boolean => RULES.mercyAura || RULES.holyLightShelter || RULES.darknessShelter || RULES.darknessAuraPawns;
 
 /**
  * Mercy's shelter (`mercyAura`), Holy Light's (`holyLightShelter`) and Darkness's
- * (`darknessShelter`), balance lab: `sq` holds a piece, not a king, standing next to its own side's
- * sheltering king. Returns what the shelter stops there: every capture (2), only a pawn's (1,
- * `mercyAuraPawns`), every capture but a pawn's (3, `mercyAuraPawnsTake`,
- * `darknessShelterPawnsTake`), or nothing (0). The `*Ortho` readings shelter only the four
- * orthogonal neighbours, Darkness only the four diagonal ones (`DIRS8` 4-7).
+ * (`darknessShelter`, or `darknessAuraPawns`), balance lab: `sq` holds a piece, not a king, standing
+ * next to its own side's sheltering king. Returns what the shelter stops there: every capture (2),
+ * only a pawn's (1, `mercyAuraPawns`, `darknessAuraPawns`), every capture but a pawn's (3,
+ * `mercyAuraPawnsTake`, `darknessShelterPawnsTake`), or nothing (0). The `*Ortho` readings shelter
+ * only the four orthogonal neighbours, `darknessShelter` only the four diagonal ones (`DIRS8` 4-7).
  */
 function sheltered(board: Uint8Array, sq: number): number {
   const v = board[sq];
@@ -335,6 +337,7 @@ function sheltered(board: Uint8Array, sq: number): number {
   if (pw === 'Mercy' && RULES.mercyAura) { hi = RULES.mercyAuraOrtho ? 4 : 8; level = RULES.mercyAuraPawns ? 1 : RULES.mercyAuraPawnsTake ? 3 : 2; }
   else if (pw === 'HolyLight' && RULES.holyLightShelter) { hi = RULES.holyLightShelterOrtho ? 4 : 8; level = 2; }
   else if (pw === 'Darkness' && RULES.darknessShelter) { lo = 4; hi = 8; level = RULES.darknessShelterPawnsTake ? 3 : 2; }
+  else if (pw === 'Darkness' && RULES.darknessAuraPawns) { hi = 8; level = 1; }
   else return 0;
   const k = piece(K, colorOf(v));
   for (let d = lo; d < hi; d++) { const n = NEIGHBOUR[sq * 8 + d]; if (n >= 0 && board[n] === k) return level; }
@@ -494,18 +497,22 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
       // **Mercy** (Spirit B): 1 or 2 squares in any direction, jumping its own pieces and stopped
       // by enemies (decision 14 — the paladin's shape, capped at 2), capturing nothing but a guard
       // (decision 15). The capture is the ordinary adjacent king capture that `canCapture` has
-      // already narrowed to guards, so `isAttacked` needs no branch: the two-square reach is
-      // move-only and adds no attacked square.
-      if (powerOf(c) === 'Mercy') {
+      // already narrowed to guards (and pawns, `mercyTakesPawns`), so `isAttacked` needs no branch:
+      // the two-square reach is move-only and adds no attacked square. `darknessKingStep2` (balance
+      // lab) gives the Darkness king the same step over an empty square; it keeps its ordinary
+      // adjacent capture.
+      const mercy = powerOf(c) === 'Mercy';
+      if (mercy || (RULES.darknessKingStep2 && powerOf(c) === 'Darkness')) {
         for (const [df, dr] of DIRS8) {
           const one = step(from, df, dr);
           if (one < 0) continue;
           const v = board[one];
           if (v) {
-            // An enemy stops the ray (and may be taken only if it is a guard); a friend is jumped,
-            // unless `mercyNoJump` (balance lab) makes it stop the ray too.
+            // An enemy stops the ray (and is taken if `canCapture` lets the king: a Mercy king takes
+            // a guard, and a pawn under `mercyTakesPawns`). A friend is jumped by Mercy, unless
+            // `mercyNoJump` (balance lab) makes it stop the ray too; the Darkness king jumps nothing.
             if (colorOf(v) !== c) { if (canCapture(p, typeOf(v))) out.push({ from, to: one, captures: [one] }); continue; }
-            if (RULES.mercyNoJump) continue;
+            if (!mercy || RULES.mercyNoJump) continue;
           } else if (mode === 'all') out.push({ from, to: one, captures: [] });
           const two = step(one, df, dr);
           if (two >= 0 && !board[two] && mode === 'all') out.push({ from, to: two, captures: [] });

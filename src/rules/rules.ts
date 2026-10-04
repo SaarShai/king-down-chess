@@ -448,6 +448,21 @@ export interface Rules {
   /** The Darkness shelter stops every capture but a pawn's (balance lab). */
   darknessShelterPawnsTake: boolean;
   /**
+   * Darkness (balance lab, round 16): enemy pawns cannot take your pawns. Any other piece still can.
+   * The pawn pair is decided in `canCapture`, like Holy Light's pawns and king.
+   */
+  darknessPawnArmor: boolean;
+  /**
+   * Darkness (balance lab, round 16): enemy pawns cannot take your pieces next to your king (all 8
+   * neighbours, pawns too; not the king). `darknessShelter` takes precedence.
+   */
+  darknessAuraPawns: boolean;
+  /**
+   * Darkness (balance lab, round 16): the king may also step two squares in a straight line (8
+   * directions), over an empty square, to an empty square. Move-only, like Mercy's two-square step.
+   */
+  darknessKingStep2: boolean;
+  /**
    * Death Touch (balance lab, round 8): the king also touches two squares away in a straight line,
    * over an empty square. Off (the rulebook): adjacent only.
    */
@@ -599,6 +614,9 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   darknessStepDiag: false,
   darknessShelter: false,
   darknessShelterPawnsTake: false,
+  darknessPawnArmor: false,
+  darknessAuraPawns: false,
+  darknessKingStep2: false,
   deathTouchReach: false,
   deathTouchReachOrtho: false,
   deathTouchReachNoBack: false,
@@ -667,7 +685,9 @@ export const POWERS_BALANCED: Readonly<Partial<Rules>> = Object.freeze({
   hasteCaptures: false,      // Haste: neither move captures
   strikePawns: false,        // Strike: pieces only
   strikeCaptures: false,     // Strike: to an empty square
-  mercyAura: true,           // Mercy: the pieces next to the king cannot be taken
+  mercyAura: true,           // Mercy: the pieces next to the king cannot be taken,
+  mercyAuraPawnsTake: true,  //   except by pawns, and the king may take pawns
+  mercyTakesPawns: true,     //   (reading M2, owner 2026-10-03)
   marchUses: 0,              // March: always on
   holyLightTakesPawns: true, // Holy Light: the king may take pawns
   holyLightShelter: true,    // Holy Light: the pieces beside, in front of or behind the king

@@ -98,6 +98,18 @@ try {
   assert.match(await page.textContent('#info'), /White's king: Death Touch/);
   console.log('ok always-on power shown');
 
+  // The Guide lists the twelve as a game with powers plays them, in a game with powers and without.
+  const mercyLine = /Mercy \(always on\) — your king steps 1–2 squares and jumps your pieces, but takes only a pawn or a guard; your pieces next to it cannot be taken except by pawns/;
+  assert.match(await page.textContent('#powers-list'), mercyLine);
+  await page.evaluate(() => localStorage.setItem('kingdown.save', JSON.stringify({ back: '', fen: '4k3/p7/8/8/8/8/P7/4K3 w - - 0 1', moves: [], white: 'human', black: 'ai', think: 200, skill: 'beginner', coords: true, resigned: null, pace: 'off' })));
+  await page.goto(base);
+  await page.waitForFunction(() => document.querySelector('#board canvas') && /Mercy/.test(document.getElementById('powers-list').textContent));
+  assert.equal(await page.isHidden('#powers'), true, 'a game without powers');
+  const guide = await page.textContent('#powers-list');
+  assert.match(guide, mercyLine);
+  assert.match(guide, /Freeze \(once a game\)/);
+  console.log('ok the Guide lists the official powers');
+
   // New game: Kings' powers, a king and a power per side; the game starts with them (and the info card names them).
   await startGame(page, { mode: 'powers', kings: ['Mud:March', 'Frost:IceWall'], army: 'classic' });
   await page.waitForFunction(() => /White's king: March — /.test(document.getElementById('info').textContent)

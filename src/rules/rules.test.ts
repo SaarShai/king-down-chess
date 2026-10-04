@@ -1724,6 +1724,20 @@ describe('balance-lab readings of the kings’ powers (2026-10-02)', () => {
     sets.forEach((r, i) => { setRules(r); crossCheckAttacks(320 + i, 200); });
   });
 
+  it('the round-16 Darkness readings keep the attack mirror: pawn armour, pawn aura, king step', () => {
+    const mercy = { king: 'Spirit', power: 'Mercy' } as Rules['kings'][0], dark = { king: 'Shadow', power: 'Darkness' } as Rules['kings'][0];
+    const m2 = { mercyAura: true, mercyAuraPawnsTake: true, mercyTakesPawns: true };
+    const sets: Partial<Rules>[] = [
+      { kings: [dark, dark], darknessMoves: true, darknessPawnArmor: true },
+      { kings: [null, dark], darknessPawnArmor: true },
+      { kings: [dark, null], darknessMoves: true, darknessAuraPawns: true },
+      { kings: [mercy, dark], ...m2, darknessMoves: true, darknessAuraPawns: true, darknessPawnArmor: true },
+      { kings: [dark, mercy], ...m2, darknessMoves: true, darknessKingStep2: true },
+      { kings: [dark, dark], darknessKeep: true, darknessShelter: true, darknessAuraPawns: true, darknessPawnArmor: true, darknessKingStep2: true },
+    ];
+    sets.forEach((r, i) => { setRules(r); crossCheckAttacks(330 + i, 200); });
+  });
+
   it('Darkness: darknessMoves adds the straight steps but no diagonal capture', () => {
     setRules({ kings: k('Shadow', 'Darkness'), darknessMoves: true });
     const home = fromFen('7k/8/8/8/8/2p1p3/3P4/K7 w - - 0 1');

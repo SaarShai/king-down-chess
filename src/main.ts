@@ -32,8 +32,8 @@ if (preset || kings) {
   setRules({ ...(k ? withPowers(k) : {}), ...preset, ...(k ? { kings: k } : {}) });
 }
 /** "twice a game", "always on". */
-const usesText = (p: PowerName): string => {
-  const n = usesAllowed(p);
+const usesText = (p: PowerName, r: Rules = GAME_RULES): string => {
+  const n = usesAllowed(p, r);
   return n === null || n === 0 ? 'always on' : n === 1 ? 'once a game' : n === 2 ? 'twice a game' : `${n} times a game`;
 };
 
@@ -306,9 +306,11 @@ function fillPieceGuide(): void {
   $('rules-notation').textContent =
     'In the move list: - moves, x captures, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes. '
     + 'Kings\' powers: ! Strike, !H Haste (-- ends a Haste turn early), ~ Flight, !F: Freeze, !W: Ice Wall, !S: Sacrifice, !M March, !L Leap.';
-  // The twelve powers, with the use counts the rules set today.
+  // The twelve powers as a game with powers plays them: this game's rules when a king has a power,
+  // else the official readings (as the New game picker shows them).
+  const pr: Rules = GAME_RULES.kings[0] || GAME_RULES.kings[1] ? GAME_RULES : { ...GAME_RULES, ...POWERS_BALANCED };
   $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
-    `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p)}) — ${powerText(p)}`).join('; ')}.</li>`).join('');
+    `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p, pr)}) — ${powerText(p, pr)}`).join('; ')}.</li>`).join('');
   $('rules-letters').textContent =
     `The random draw pool is ${poolLetters}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
 }

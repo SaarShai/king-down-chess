@@ -73,7 +73,7 @@ rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every rea
 | Mud | **March** (3 uses) | any pawn may move two forward (if unblocked) | always on (`marchUses: 0`) |
 | Mud | **Leap** (3 uses) | own pieces may jump over own pawns when moving several squares | as printed |
 | Spirit | **Holy Light** (always on) | king cannot be captured by enemy pawns and cannot capture pawns | the king may take pawns, and **no piece beside, in front of or behind the Holy Light king can be captured** (`holyLightTakesPawns`, `holyLightShelter`, `holyLightShelterOrtho`) |
-| Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, and **no piece next to the Mercy king can be captured** (`mercyAura`) |
+| Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, but the king may take pawns; and **no piece next to the Mercy king can be captured, except by a pawn** (`mercyAura`, `mercyAuraPawnsTake`, `mercyTakesPawns`: reading M2, owner 2026-10-03) |
 | Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward, back or sideways, over an empty square** (`deathTouchReach`, `deathTouchReachOrtho`) |
 | Shadow | **Darkness** (always on) | own pawns move 1 diagonally and capture 1 straight forward; no double first move | pawns also keep their straight steps (double from the start); they still capture only straight ahead (`darknessMoves`) |
 
@@ -84,6 +84,16 @@ Confirmation round (3,744 games on fresh armies): all twelve within 42–57% aga
 powers; Haste, Sacrifice and Mercy 56–57% (high), Death Touch 43% and Darkness 42% (low). The other readings measured, and why they were not chosen, are in
 the report; the toggles stay in the lab. Earlier single-power measurements of the six always-on
 powers: `docs/research/sim-kings-2026-09-16.md`.
+
+**Owner decisions (2026-10-03), after rounds 14 and 15.** Mercy: "yes": reading M2 is official (in
+rounds 14 and 15 it moved Mercy from about 56% to 50%). Haste and Death Touch stay as they are: the
+trims are "too cumbersome and not worth the gain". Darkness stays as it is for now: the diagonal
+shelter that pawns may break (D2) is "too cumbersome", but Darkness at about 42% is not accepted, so
+round 16 tests simple second parts, one short sentence each, as lab toggles: enemy pawns cannot take
+your pawns (`darknessPawnArmor`); enemy pawns cannot take your pieces next to your king
+(`darknessAuraPawns`); your king may also step two squares in a straight line, over an empty square,
+to an empty square (`darknessKingStep2`); and D1, your pieces diagonally next to your king cannot be
+taken (`darknessShelter`). No king-power reading changes how other pieces move.
 
 ## 5. Card / spell effects (documented, not yet enabled)
 

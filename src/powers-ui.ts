@@ -53,7 +53,10 @@ export function powerText(power: PowerName, r: Rules = RULES): string {
       ? 'your pawns may also step diagonally and take straight ahead'
       : r.darknessMoves ? 'your pawns may also step diagonally, and take only straight ahead'
       : 'your pawns step diagonally and take straight ahead, with no double step')
-      + (r.darknessShelter ? `; your pieces diagonally next to your king cannot be taken${r.darknessShelterPawnsTake ? ' except by pawns' : ''}` : '');
+      + (r.darknessShelter ? `; your pieces diagonally next to your king cannot be taken${r.darknessShelterPawnsTake ? ' except by pawns' : ''}`
+        : r.darknessAuraPawns ? '; enemy pawns cannot take your pieces next to your king' : '')
+      + (r.darknessPawnArmor ? '; enemy pawns cannot take your pawns' : '')
+      + (r.darknessKingStep2 ? '; your king may also step two squares in a straight line, over an empty square, to an empty square' : '');
   }
 }
 

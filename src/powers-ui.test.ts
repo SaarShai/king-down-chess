@@ -24,7 +24,7 @@ describe('power texts follow the rules in force', () => {
   it('reads the official kings’ powers rules', () => {
     setRules({ ...POWERS_BALANCED });
     expect(powerText('HolyLight')).toBe('enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken');
-    expect(powerText('Mercy')).toBe('your king steps 1–2 squares and jumps your pieces, but takes only a guard; your pieces next to it cannot be taken');
+    expect(powerText('Mercy')).toBe('your king steps 1–2 squares and jumps your pieces, but takes only a pawn or a guard; your pieces next to it cannot be taken except by pawns');
     expect(powerText('DeathTouch')).toBe('your king takes an enemy next to it, or two squares away straight forward, back or sideways over an empty square, without moving \u2014 it can only take this way');
   });
 });
@@ -34,6 +34,6 @@ describe('the power picker', () => {
     setRules(); // plain rules: the rulebook gives Freeze two uses, the official set one
     const freeze = powerOptions().flatMap(g => g.options).find(o => o.value === 'Frost:Freeze')!;
     expect(freeze.label).toBe('Freeze (1 per game)');
-    expect(powerOptions().flatMap(g => g.options).find(o => o.value === 'Spirit:Mercy')!.title).toContain('takes only a guard');
+    expect(powerOptions().flatMap(g => g.options).find(o => o.value === 'Spirit:Mercy')!.title).toContain('takes only a pawn or a guard');
   });
 });
