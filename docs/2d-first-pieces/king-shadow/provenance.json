@@ -1,0 +1,13 @@
+{
+  "tool": "Codex built-in image_gen via codex exec",
+  "date": "2026-10-04",
+  "output": "king.png",
+  "sha256": "fbb0f51856a1ce9d40f55fb3728ddbebc975bdf02e56773592af87030aba355b",
+  "generated_source": "/Users/za/.codex/generated_images/01a107cc-4bea-7163-a037-52a18e3e81ac/exec-1d64dce7-a4e8-4e00-87a5-0f620d4c9278.png",
+  "original_source": "art-src/pieces/final-ivory/Shadow_king_color.png",
+  "style_reference": "../knight/knight.png",
+  "prompts": [
+    "prompt.txt"
+  ],
+  "treatment": "Unmodified generated PNG. Accepted on the first generation."
+}

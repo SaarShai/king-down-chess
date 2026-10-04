@@ -73,13 +73,18 @@
     <!-- Screen readers: every move by either side, and the keyboard cursor's square. -->
     <div id="announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <div id="cursor-say" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-    <dialog id="title-screen" aria-labelledby="title-word" aria-describedby="title-tagline">
+    <dialog id="title-screen" aria-labelledby="title-word">
       <div class="title-stage" aria-hidden="true">
         <img class="title-floor" src="./ui/stone-board.webp" alt="" width="640" height="640" />
-        <img class="title-fig fig-1" src="./ui/pieces/ogre-w.webp" alt="" />
-        <img class="title-fig fig-2" src="./ui/pieces/king-w.webp" alt="" />
-        <img class="title-fig fig-3" src="./ui/pieces/king-b.webp" alt="" />
-        <img class="title-fig fig-4" src="./ui/pieces/beast-b.webp" alt="" />
+        <!-- The six kings in a shallow arc: Spirit and Shadow (the kings with no power) in the middle. -->
+        <div class="title-kings">
+          <img class="tk-outer" src="./ui/kings/mud.webp" alt="" />
+          <img class="tk-inner" src="./ui/kings/flame.webp" alt="" />
+          <img class="tk-centre" src="./ui/kings/spirit.webp" alt="" />
+          <img class="tk-centre tk-right" src="./ui/kings/shadow.webp" alt="" />
+          <img class="tk-inner tk-right" src="./ui/kings/frost.webp" alt="" />
+          <img class="tk-outer tk-right" src="./ui/kings/stratus.webp" alt="" />
+        </div>
       </div>
       <!-- Every piece in the game, alternating the two armies; sized as they stand on the board. -->
       <ul class="title-lineup" aria-label="The twelve pieces">
@@ -98,8 +103,6 @@
       </ul>
       <div class="title-copy">
         <h1 id="title-word" class="wordmark"><svg class="wordmark-crown" aria-hidden="true"><use href="#i-crown"/></svg><span class="wm-king">King</span> <span class="wm-down">Down</span><span class="wm-chess">Chess</span></h1>
-        <p id="title-tagline" class="tagline">Chess with archers, ogres, beasts and guards.</p>
-        <p id="title-first" class="title-first" hidden>New here? Start with the lessons: six pieces, one move each.</p>
         <div class="title-actions">
           <button id="title-continue" class="primary" hidden><svg class="icon" aria-hidden="true"><use href="#i-continue"/></svg><span class="label">Continue</span></button>
           <button id="title-learn"><svg class="icon" aria-hidden="true"><use href="#i-learn"/></svg><span class="label">Learn the pieces</span></button>

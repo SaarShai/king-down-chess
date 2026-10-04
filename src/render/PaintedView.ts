@@ -1,5 +1,5 @@
-import { createScene, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
-import { A, B, G, K, L, LETTERS, M, N, O, P, Q, R, S, colorOf, sqName, typeOf, type Move, type Position } from '../rules/engine';
+import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
+import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, RULES, S, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { drawMarks, POP_MS, RIPPLE_MS } from './marks';
 import type { Highlights } from './renderer';
 import type { Style } from './styles';
@@ -32,6 +32,9 @@ export interface BoardView {
   /** The keyboard cursor's square (null: none), previewed like the square under the pointer. */
   setPreview?(sq: number | null): void;
 }
+
+/** The king sheet a side's King is drawn with: the king it plays, Spirit (White) and Shadow (Black) without powers. */
+const kingDesign = (c: Color): KingDesign => (RULES.kings[c]?.king ?? PLAIN_KINGS[c]).toLowerCase() as KingDesign;
 
 /** Canvas pixels above the board, so tall back-rank figures are not clipped. */
 const HEADROOM = 64;
@@ -68,8 +71,8 @@ export class PaintedView implements BoardView {
     container.classList.add('painted');
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
-    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM });
-    this.scene.setDecorate((ctx, scene, layer) => this.drawMarks(ctx, scene, layer));
+    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(0), kingDesign(1)] });
+    this.scene.setDecorate((ctx, scene, layer, row) => this.drawMarks(ctx, scene, layer, row));
     // The game opts in to quiet-move gaits, the selected figure's idle and the framed, warm board
     // (the trial and the trailer keep the plain scene).
     this.motionQuery.addEventListener('change', () => this.applyLively());
@@ -95,6 +98,7 @@ export class PaintedView implements BoardView {
 
   sync(pos: Position): void {
     this.pos = pos;
+    this.scene.setKings([kingDesign(0), kingDesign(1)]);
     this.scene.setPosition(pos);
     this.scene.setFallen(this.fallen?.pos === pos ? this.fallen.sq : null, false);
   }
@@ -150,6 +154,8 @@ export class PaintedView implements BoardView {
   resetView(): void {}
   applyStyle(): void {}
   ready(): Promise<void> { return this.loaded; }
+  /** [white, black] king designs on the board, and the ones last drawn (for the browser checks). */
+  get kings(): { set: KingDesign[]; drawn: (KingDesign | null)[] } { return { set: this.scene.kings, drawn: this.scene.drawnKings }; }
 
   screenOf(sq: number): { x: number; y: number } {
     const r = this.canvas.getBoundingClientRect(), { col, row } = this.scene.cell(sq), k = r.width / 960, t = this.scene.TILE;
@@ -162,7 +168,7 @@ export class PaintedView implements BoardView {
     this.scene.setAim(h != null && [...(m.captures ?? []), ...(m.moves ?? [])].includes(h) ? h : null);
   }
 
-  private drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over'): void {
+  private drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number): void {
     const { PAD, TILE } = scene, m = this.marks;
     if (layer === 'under') {
       const box = (sq: number) => { const c = scene.cell(sq); return { x: PAD + c.col * TILE, y: PAD + c.row * TILE }; };
@@ -180,7 +186,7 @@ export class PaintedView implements BoardView {
     const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
     drawMarks(ctx, scene, layer, {
       marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, motion: this.motion(), since: this.marksSince,
-    });
+    }, row);
   }
 
   private pick(e: PointerEvent): number | null {

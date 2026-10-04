@@ -376,7 +376,8 @@ function refresh(): void {
     shoves,
     shots,
     powers,
-    last: last ? [last.from, ...(last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? last.captures : [last.to])] : [],
+    // Owner (2026-10-04): the square the piece left is not marked; where it went (or what it hit) is.
+    last: !last ? [] : last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? [...last.captures] : [last.to],
     hint: hintSquares,
     check: game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
   });
@@ -1352,7 +1353,6 @@ const titleClosed = new Promise<void>(resolve => {
   const resumable = !!saved && saved.moves.length > 0;
   const firstVisit = !saved;
   $('title-continue').hidden = !resumable;
-  $('title-first').hidden = !firstVisit;
   // A first visit leads with the lessons; otherwise Play (or Continue) leads.
   $('title-learn').classList.toggle('primary', firstVisit);
   $('title-play').classList.toggle('primary', !firstVisit && !resumable);

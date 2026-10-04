@@ -73,7 +73,7 @@ What the numbers mean:
   are not downloaded in advance: they are cached the first time a player opens the clay look, and
   then that look works offline too.
 - `public/manifest.webmanifest` and `public/icons/`: name, colours, and icons cut from the painted ivory
-  Frost King (`docs/2d-first-pieces/king/king.webp`, the game's own art; made by
+  Frost King (`docs/2d-first-pieces/king-frost/king.webp`, the game's own art; made by
   [make-icons.mjs](make-icons.mjs)). `index.html` gained four head tags (description, theme colour,
   manifest, Apple touch icon).
 - `.github/workflows/pages.yml`: builds and publishes to GitHub Pages, **only when started by hand**.

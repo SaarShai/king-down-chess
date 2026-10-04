@@ -1,0 +1,13 @@
+{
+  "tool": "Codex built-in image_gen via codex exec",
+  "date": "2026-10-04",
+  "output": "king.png",
+  "sha256": "6b6f6f87089bf43fefe3bd709a45a217016278daf1d1fdbbf6bbdc4dcd247ac0",
+  "generated_source": "/Users/za/.codex/generated_images/01a107cc-4bea-7b41-9446-4e4372977709/exec-0664c811-5548-4ccb-a697-a140e57aee20.png",
+  "original_source": "art-src/pieces/final-ivory/King_Celestial_colored no-shadow.png",
+  "style_reference": "../knight/knight.png",
+  "prompts": [
+    "prompt.txt"
+  ],
+  "treatment": "Unmodified generated PNG. Accepted on the first generation."
+}

@@ -511,11 +511,15 @@ label.army select { width: 100%; font-weight: 400; }
   -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
   mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
 }
-.title-fig { position: absolute; bottom: 7%; left: 50%; height: 62%; width: auto; filter: drop-shadow(0 14px 12px rgba(0, 0, 0, 0.55)); }
-.fig-2 { transform: translateX(-104%); }
-.fig-3 { transform: translateX(4%) scaleX(-1); }
-.fig-1 { height: 44%; bottom: 15%; transform: translateX(-215%); filter: brightness(0.72) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
-.fig-4 { height: 44%; bottom: 15%; transform: translateX(118%) scaleX(-1); filter: brightness(0.72) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
+/* The six kings: the centre two largest and nearest, the outer ones smaller, set back (higher) and dimmed. */
+.title-kings {
+  position: absolute; left: 50%; bottom: 7%; translate: -50% 0; height: min(62%, 25vw); width: max-content;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.title-kings img { flex: none; height: 100%; width: auto; margin: 0 -1.2%; filter: drop-shadow(0 14px 12px rgba(0, 0, 0, 0.55)); }
+.title-kings .tk-right { transform: scaleX(-1); }
+.title-kings .tk-inner { position: relative; z-index: -1; height: 82%; margin-bottom: 4%; filter: brightness(0.86) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
+.title-kings .tk-outer { position: relative; z-index: -2; height: 66%; margin-bottom: 8%; filter: brightness(0.72) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
 .title-copy { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4) max(6vh, 28px); text-align: center; }
 .wordmark {
   display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 0 0.28em;
@@ -532,11 +536,6 @@ label.army select { width: 100%; font-weight: 400; }
   width: 0.62em; height: 0.62em; margin-right: -0.12em; align-self: flex-start;
   fill: rgba(233, 192, 113, 0.28); stroke: #e9c071; stroke-width: 1.6; stroke-linejoin: round;
   transform: translateY(-0.05em) rotate(-28deg);
-}
-.tagline { margin: 0; font-size: var(--fs-lg); color: var(--on-night-soft); }
-.title-first {
-  margin: 0; padding: 6px 14px; border: 1px solid rgba(233, 192, 113, 0.6); border-radius: 999px;
-  background: rgba(243, 234, 215, 0.08); color: var(--on-night);
 }
 .title-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
 .title-actions button { width: auto; min-width: 200px; min-height: 52px; justify-content: center; font-size: var(--fs-lg); padding: 10px 22px; }
@@ -573,8 +572,9 @@ label.army select { width: 100%; font-weight: 400; }
 .title-lineup li:hover span { color: #e9c071; }
 @media (prefers-reduced-motion: no-preference) {
   #title-screen[open] .title-lineup li { animation: rise 520ms cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(260ms + var(--i) * 45ms); }
-  #title-screen[open] .title-fig { animation: rise 700ms cubic-bezier(.2, .8, .2, 1) both; }
-  #title-screen[open] .fig-1, #title-screen[open] .fig-4 { animation-delay: 120ms; }
+  #title-screen[open] .title-kings img { animation: rise 700ms cubic-bezier(.2, .8, .2, 1) both; }
+  #title-screen[open] .title-kings .tk-inner { animation-delay: 80ms; }
+  #title-screen[open] .title-kings .tk-outer { animation-delay: 160ms; }
   #title-screen[open] .title-copy { animation: fade 600ms ease-out 200ms both; }
 }
 @keyframes rise { from { opacity: 0; translate: 0 24px; } }
@@ -621,7 +621,9 @@ label.army select { width: 100%; font-weight: 400; }
   .piece-card dl { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .piece-card dd { margin-bottom: 4px; }
   #title-screen[open] { grid-template-rows: minmax(0, 1fr) auto auto; }
-  .title-fig { height: min(52%, 58vw); bottom: 8%; }
+  /* All six inside a 390 px screen with its 16 px gutters: smaller, overlapping a little more. */
+  .title-kings { height: min(52%, 32vw); bottom: 8%; }
+  .title-kings img { margin: 0 -2.4%; }
   /* Two rows of six on a phone, each on its own ledge line. */
   .title-lineup { --fig: 64px; flex-wrap: wrap; gap: 4px 0; width: min(100%, 380px); padding: 0 var(--space-3); }
   .title-lineup li { flex: 0 0 calc(100% / 6); max-width: none; padding-bottom: 2px; }
@@ -631,10 +633,8 @@ label.army select { width: 100%; font-weight: 400; }
     background: radial-gradient(closest-side, rgba(10, 7, 4, 0.75), rgba(10, 7, 4, 0));
   }
   .title-lineup span { margin-top: 3px; font-size: 9.5px; letter-spacing: 0.04em; }
-  .fig-1, .fig-4 { display: none; }
   .title-actions { flex-direction: column; align-items: stretch; width: min(100%, 340px); }
   .title-actions button { min-width: 0; }
-  .tagline { font-size: var(--fs-md); }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

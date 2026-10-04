@@ -1,6 +1,6 @@
 /** Billboard pieces for the HD-2D style: one pre-rendered plane per piece, turned at the camera. */
 import * as THREE from 'three';
-import { A, B, Color, G, K, L, M, N, P, PieceType, Q, R, S } from '../rules/engine';
+import { A, B, Color, G, K, type KingName, L, M, N, P, PieceType, Q, R, S } from '../rules/engine';
 import { TARGET_HEIGHT } from './voxels';
 
 /** The renderer billboards each plane at the camera every frame, so no fixed lean here. */
@@ -15,6 +15,12 @@ const FILE: Partial<Record<PieceType, string>> = {
   [P]: 'pawn', [N]: 'knight', [B]: 'bishop', [R]: 'rook', [Q]: 'queen', [K]: 'king',
   [A]: 'archer', [L]: 'paladin', [G]: 'guard', [M]: 'maester', [S]: 'beast',
 };
+
+/**
+ * Kings with their own sprite in the painted-* sets (tools/sprites-painted.py). Spirit and Shadow
+ * have none yet: they, and every king in the other sets, use the set's plain `king-w`/`king-b`.
+ */
+const KING_SPRITE: Partial<Record<KingName, string>> = { Frost: 'king-frost', Flame: 'king-ember', Stratus: 'king-celestial', Mud: 'king-gaya' };
 
 /** Is there sprite art for this type? No, for a lab-only piece; the renderer then draws a box. */
 export const hasSprite = (t: PieceType): boolean => FILE[t] !== undefined;
@@ -46,8 +52,9 @@ function outlined(img: CanvasImageSource & { width: number; height: number }, co
   return cv;
 }
 
-function texture(t: PieceType, c: Color, outline?: number): Promise<THREE.Texture> {
-  const name = `${FILE[t]}-${c ? 'b' : 'w'}`;
+function texture(t: PieceType, c: Color, outline?: number, king?: KingName): Promise<THREE.Texture> {
+  const own = t === K && king && ARMY.startsWith('painted-') ? KING_SPRITE[king] : undefined;
+  const name = `${own ?? FILE[t]}-${c ? 'b' : 'w'}`;
   const key = outline == null ? name : `${name}:${outline}`;
   let p = textures.get(key);
   if (!p) {
@@ -85,11 +92,11 @@ function plane(w: number, h: number): THREE.PlaneGeometry {
  * One piece billboard. The texture may still be loading — the mesh is hidden until it lands,
  * then takes its width from the image aspect. The renderer billboards it at the camera every frame.
  */
-export function spriteMesh(t: PieceType, c: Color, outline?: number): THREE.Object3D {
+export function spriteMesh(t: PieceType, c: Color, outline?: number, king?: KingName): THREE.Object3D {
   const h = TARGET_HEIGHT[t] * SCALE;
   const mat = new THREE.MeshBasicMaterial({ alphaTest: 0.5, transparent: false, side: THREE.DoubleSide, visible: false });
   const mesh = new THREE.Mesh(plane(h, h), mat);
-  void texture(t, c, outline).then(tex => {
+  void texture(t, c, outline, king).then(tex => {
     const img = tex.image as { width: number; height: number };
     mesh.geometry = plane((h * img.width) / img.height, h);
     mat.map = tex;
