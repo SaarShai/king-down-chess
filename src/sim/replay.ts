@@ -47,11 +47,13 @@ export interface Replay { events: Events; plies: number; end: Position }
 
 /**
  * Replay the recorded LANs under the **live** rules (the caller sets them from the run's stamp
- * first). Throws on the first move that is not legal now — a stronger check than "the text parses",
- * because the same LAN can be legal under two rule sets and move different pieces (LESSONS.md
- * 2026-09-14: `Ld4xd5` under old and new paladin semantics). Only the king powers' notation is
- * matched against the legal moves: an ordinary move is parsed, so one that round-trips but is not
- * legal (`Qd8-d4` through the queen's own pawn) replays without an error.
+ * first). Throws on the first move that does not round-trip under them: the parsed move must print
+ * as the recorded LAN, because the same LAN can move different pieces under two rule sets
+ * (LESSONS.md 2026-09-14: `Ld4xd5` under old and new paladin semantics). That is not a legality
+ * check. Only the king powers' notation is matched against the legal moves: an ordinary move is
+ * parsed, so one that round-trips but is not legal (`Qd8-d4` through the queen's own pawn) replays
+ * without an error. A caller that must refuse it checks `legalMoves` itself
+ * (`tools/piece-activity.ts` does).
  *
  * `onMove` sees every move with the positions before and after it and its 0-based ply
  * (`tools/piece-activity.ts` counts per piece with it).

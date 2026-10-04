@@ -122,8 +122,9 @@ export function countGame(g: StoredGame, countOpening = false): { row: Float64Ar
     }
     if (countOpening || i >= g.openingPlies) {
       const ph = phaseOf(i + 1);
-      // Exposure: the mover's pieces on the board at this ply (pieces that had the turn).
-      for (let s = 0; s < 64; s++) { const p = pos.board[s]; if (p && colorOf(p) === pos.turn) v[at(typeOf(p), F.exp + ph)]++; }
+      // Exposure: the mover's pieces on the board, once per turn. A turn that holds (a Haste's first
+      // move, a free Freeze mark) is counted at the ply that ends it.
+      if (next.turn !== pos.turn) for (let s = 0; s < 64; s++) { const p = pos.board[s]; if (p && colorOf(p) === pos.turn) v[at(typeOf(p), F.exp + ph)]++; }
       if (!m.power && !m.pass) {
         const t = typeOf(pos.board[m.from]);
         v[at(t, F.moves)]++;
@@ -259,12 +260,15 @@ export function bootstrap(rows: readonly Float64Array[], types: readonly number[
 export type Verdict = 'PASS' | 'pass?' | 'fail?' | 'FAIL' | 'n/a';
 /**
  * Inside [min, max]? `PASS` / `FAIL` when the whole interval agrees with the point, `pass?` / `fail?`
- * when the point is on that side but the interval crosses the line.
+ * when the point is on that side but the interval crosses the line, or when there is no interval
+ * (`--boot 0`).
  */
 export function verdict(x: number, ci: [number, number] | undefined, min: number, max = Infinity): Verdict {
   if (!Number.isFinite(x)) return 'n/a';
-  const [lo, hi] = ci ?? [x, x];
-  if (x >= min && x <= max) return lo >= min && hi <= max ? 'PASS' : 'pass?';
+  const inside = x >= min && x <= max;
+  if (!ci) return inside ? 'pass?' : 'fail?';
+  const [lo, hi] = ci;
+  if (inside) return lo >= min && hi <= max ? 'PASS' : 'pass?';
   return hi < min || lo > max ? 'FAIL' : 'fail?';
 }
 const RANK: Verdict[] = ['FAIL', 'fail?', 'pass?', 'PASS'];
@@ -309,7 +313,7 @@ export function reportText(tally: Tally, B = 500, head: string[] = []): string {
     ...head,
     `${n} games counted. Left out: ${tally.powers} with a king power or cards, ${tally.failed.length} that did not replay${tally.failed.length ? ` (first: ${tally.failed[0]})` : ''}.`,
     `Counted: ordinary piece moves and their captures only (no king power or card move). Random opening plies: ${tally.countOpening ? 'counted' : 'not counted'}.`,
-    `Pawns and kings are not reported and not in the averages. The capture average leaves out ${noCapture.size ? 'the guard (it captures nothing by rule)' : 'nothing'}. Intervals: 95%, ${B} resamples of the games.`,
+    `Pawns and kings are not reported and not in the averages. The capture average leaves out ${noCapture.size ? 'the guard (it captures nothing by rule)' : 'nothing'}. ${B > 0 ? `Intervals: 95%, ${B} resamples of the games.` : 'No intervals (`--boot 0`): no verdict is settled.'}`,
     '',
     '## Moves, captures and use',
     '',

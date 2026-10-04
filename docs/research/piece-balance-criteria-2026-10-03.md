@@ -164,7 +164,9 @@ the times below double).
 Speeds used for the estimates (16 workers on this Mac): depth 3 about 6 games/s (`cards-b2.log`:
 6.2 → 5.9 games/s over its first 706 ordinary games; `pb-A-fwd2-vsR2.log`: 7.5 games/s on 14
 workers for value games, 2026-09-17; today's smoke arms 2.1–2.6 s a game per worker); depth 4
-about 1.9 games/s (today's smoke arms: 8.2–8.9 s a game per worker).
+about 1.9 games/s (today's smoke arms: 8.2–8.9 s a game per worker; a 32-game `--vs R --pieces A`
+arm at depth 4 under other load, 2026-10-04: 1.5 games/s, which makes (ii) about 27 min). No kept
+log has a depth-4 values arm.
 
 **(i) Worth at depth 3**, every pool piece but the Queen and the Archer against the Knight, with a
 fresh pawn calibration. 6 arms × 1,000 games + 3,000 pawn games = 9,000 games, **about 25 min**:
@@ -173,7 +175,11 @@ fresh pawn calibration. 6 arms × 1,000 games + 3,000 pawn games = 9,000 games, 
 nohup npx tsx src/sim/run.ts --experiment values --id pv-d3 --pieces ORBGMS --games 1000 --depth 3 --seed 1003 --workers 16 > sim/out/pv-d3.log 2>&1 &
 ```
 
-Result: `sim/out/pv-d3.experiment.md`. The Guard's row will be a bound ("< …"), as before.
+Result: `sim/out/pv-d3.experiment.md`. The Guard's row will be a bound ("< …"), as before. Read the
+Bishop's row with care: its arm puts the extra bishop on b1, a light square like the f1 bishop's
+(`RBBQKBNR`), so it measures a second bishop of one colour. A pool army never holds that
+(`bishopsOppositeColours`, `src/rules/setup.ts`), and the row may read lower than a pool bishop's
+worth.
 
 **(i-b) The Archer at depth 3 against the Rook**, with the calibration from (i) (its line "One pawn =
 E Elo"; put E in place of `<E>`). 1,000 games, **about 3 min**:
@@ -199,17 +205,21 @@ one game per army). 12,000 games, **about 35 min** on the Mac alone:
 
 ```
 nohup npx tsx src/sim/tournament.ts run --id pa-r1 --powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 7001 --workers 16 > sim/out/pa-r1.log 2>&1 &
+# when the run has finished (its log ends with "12000 games in …"):
 npx tsx tools/piece-activity.ts pa-r1 --boot 1000 > sim/out/pa-r1.activity.md
 ```
 
-The tool takes about 30 s for 12,000 games. With 5 Kaggle notebooks (about 1/3 of the Mac) it is
-about 27 min: push shards 15–19 of 20 and play 0–14 here, one worker each. Start shard 0 alone first
-and the others once `sim/out/pa-r1.tournament.json` exists, so they do not race to write it:
+The tool takes under a minute for 12,000 games (9,400 stored games with 1,000 resamples: 33 s).
+With 5 Kaggle notebooks (about 1/3 of the Mac) it is about 27 min: push shards 15–19 of 20 and play
+0–14 here, one worker each. Start shard 0 alone first and the others once its log has its first
+line (it writes `sim/out/pa-r1.tournament.json` before that line), so they do not race to write it:
 
 ```
 node tools/kaggle-tournament.mjs push --id pa-r1 --shards 20 --first 15 -- --powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 7001
 nohup npx tsx src/sim/tournament.ts run --id pa-r1 --powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 7001 --shard 0/20 --workers 1 > sim/out/pa-r1.shard0.log 2>&1 &
-seq 1 14 | xargs -P 14 -I{} sh -c 'npx tsx src/sim/tournament.ts run --id pa-r1 --powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 7001 --shard {}/20 --workers 1 > sim/out/pa-r1.shard{}.log 2>&1' &
+until grep -q entrants sim/out/pa-r1.shard0.log 2>/dev/null; do sleep 1; done
+for i in $(seq 1 14); do nohup npx tsx src/sim/tournament.ts run --id pa-r1 --powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 7001 --shard $i/20 --workers 1 > sim/out/pa-r1.shard$i.log 2>&1 & done
+# when `node tools/kaggle-tournament.mjs status --id pa-r1` shows the notebooks complete:
 node tools/kaggle-tournament.mjs pull --id pa-r1
 ```
 

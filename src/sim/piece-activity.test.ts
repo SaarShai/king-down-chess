@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { B, LETTERS, M, N, Q, R } from '../rules/engine';
+import { B, LETTERS, M, N, P, Q, R } from '../rules/engine';
 import { F, GAME, type StoredGame, addGame, at, countGame, fromRun, fromTournament, median, newTally, reportText, summarise, total, verdict } from '../../tools/piece-activity';
 import { playGame } from './game';
 import { type TournamentSpec, compress, gameSpec, schedule } from './tournament';
@@ -71,6 +71,26 @@ describe('piece activity counting', () => {
     expect(reportText(tally, 20)).toContain('| Q queen | 1 | 2 |');
   });
 
+  it('a promoted pawn is a new piece: its moves count for its new type, but it is not a starting piece', () => {
+    const lans = ['a7-a8=Q', 'Ke8-e7', 'Qa8-a1', 'Ke7-e6', 'Qa1-a2', 'Ke6-e7'];
+    const { row, first } = countGame({ key: 'promo', gameId: 2, startFen: '4k3/P7/8/8/8/8/8/4K3 w - - 0 1', lans, rules: {}, openingPlies: 0, result: 0.5, ordinary: true });
+    const v = (t: number, f: number): number => row[at(t, f)];
+    expect([v(P, F.start), v(P, F.moves), v(P, F.moved)]).toEqual([1, 1, 1]);
+    expect([v(Q, F.start), v(Q, F.moves), v(Q, F.moved), v(Q, F.exp)]).toEqual([0, 2, 0, 2]);
+    expect(first[Q]).toEqual([]);
+  });
+
+  it('exposure is counted once per turn: a Haste turn of two plies is one turn', () => {
+    // Flame's Haste for White: Ng1-f3!H holds the turn, and Nf3-g5 ends it.
+    const g: StoredGame = {
+      key: 'haste', gameId: 3, startFen: CLASSIC, lans: ['e2-e4', 'e7-e5', 'Ng1-f3!H', 'Nf3-g5', 'Nb8-c6', 'Bf1-c4'],
+      rules: { kings: [{ king: 'Flame', power: 'Haste' }, null] }, openingPlies: 0, result: 0.5, ordinary: false,
+    };
+    const { row } = countGame(g);
+    // White's knights: 3 turns × 2; Black's: 2 turns × 2. The power move is not counted, its second move is.
+    expect([row[at(N, F.exp)], row[at(N, F.moves)], row[at(B, F.exp)]]).toEqual([10, 2, 10]);
+  });
+
   it('a record that does not replay is counted as failed, not as a game', () => {
     const tally = newTally();
     addGame(tally, { ...knightsGame(), lans: ['e2-e4', 'Qd8-d4'] });
@@ -110,5 +130,11 @@ describe('piece activity counting', () => {
     expect(verdict(0.8, [0.7, 0.84], 0.85)).toBe('FAIL');
     expect(verdict(1.6, [1.4, 1.7], 0.5, 1.5)).toBe('fail?');
     expect(verdict(NaN, undefined, 0.5)).toBe('n/a');
+    // No interval (`--boot 0`): the point alone settles nothing.
+    expect(verdict(0.9, undefined, 0.85)).toBe('pass?');
+    expect(verdict(0.8, undefined, 0.85)).toBe('fail?');
+    const tally = newTally();
+    addGame(tally, knightsGame());
+    expect(reportText(tally, 0)).not.toMatch(/\| (PASS|FAIL) /);
   });
 });
