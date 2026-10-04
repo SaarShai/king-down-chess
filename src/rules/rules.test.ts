@@ -7,7 +7,7 @@ import { parseLan } from '../sim/tune';
 import { CLASSIC_CHESS, POOL, fromFen, randomBackRank, startPosition, toFen, toLan } from './setup';
 import { DEFAULT_RULES, RULES, RULES_2017, RULES_2021, Rules, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 import { Game } from '../game';
-import { resetSearchState, search } from '../ai/search';
+import { resetSearchState, search, searchLegal } from '../ai/search';
 
 const at = (pos: Position, name: string) => pos.board[parseSq(name)];
 const movesFrom = (pos: Position, name: string) => legalMoves(pos).filter(m => m.from === parseSq(name));
@@ -733,6 +733,51 @@ describe('rule toggles', () => {
     const b = fromFen('P6k/8/2a5/8/P3P3/8/8/K7 b - - 0 1'); // a4 and e4 are forward for Black; a8 is not
     expect(lan(b, movesFrom(b, 'c6')).filter(s => s.includes('*'))).toEqual(['Ac6*a4', 'Ac6*e4']);
     crossCheckAttacks(104);
+  });
+
+  it('archerShots: the three middle lab sets, for both colours (2026-10-04)', () => {
+    // An archer with enemy pawns on its four diagonal neighbours and on the whole ring two away.
+    const w = fromFen('k7/8/1ppppp2/1pp1pp2/1p1A1p2/1pp1pp2/1ppppp2/7K w - - 0 1');
+    const b = fromFen('7k/1PPPPP2/1PP1PP2/1P1a1P2/1PP1PP2/1PPPPP2/8/K7 b - - 0 1');
+    const shots = (pos: Position, from: string) => lan(pos, movesFrom(pos, from)).filter(x => x.includes('*')).map(x => x.slice(4));
+    const near = (pos: Position, from: string) => shots(pos, from).filter(t => Math.abs(t.charCodeAt(1) - from.charCodeAt(1)) === 1);
+    const WHITE_SHOTS = { // seen from d4, White's forward is up
+      plusDiagFwd2: ['b4', 'b6', 'c3', 'c5', 'd2', 'd6', 'e3', 'e5', 'f4', 'f6'],
+      plusDiagFwd2Clear: ['b4', 'c3', 'c5', 'd2', 'd6', 'e3', 'e5', 'f4'], // b6 and f6: c5 and e5 are in the way
+      fwd2NoBack: ['b4', 'b6', 'c3', 'c5', 'd6', 'e3', 'e5', 'f4', 'f6'],
+      fwd2NoSide: ['b6', 'c3', 'c5', 'd2', 'd6', 'e3', 'e5', 'f6'],
+    };
+    const BLACK_SHOTS = { // seen from d5, Black's forward is down
+      plusDiagFwd2: ['b3', 'b5', 'c4', 'c6', 'd3', 'd7', 'e4', 'e6', 'f3', 'f5'],
+      plusDiagFwd2Clear: ['b5', 'c4', 'c6', 'd3', 'd7', 'e4', 'e6', 'f5'],
+      fwd2NoBack: ['b3', 'b5', 'c4', 'c6', 'd3', 'e4', 'e6', 'f3', 'f5'],
+      fwd2NoSide: ['b3', 'c4', 'c6', 'd3', 'd7', 'e4', 'e6', 'f3'],
+    };
+    (Object.keys(WHITE_SHOTS) as (keyof typeof WHITE_SHOTS)[]).forEach((set, i) => {
+      setRules({ archerShots: set });
+      expect(shots(w, 'd4'), set).toEqual(WHITE_SHOTS[set]);
+      expect(shots(b, 'd5'), set).toEqual(BLACK_SHOTS[set]);
+      expect(near(w, 'd4')).toEqual(['c3', 'c5', 'e3', 'e5']); // the diagonal neighbours stay in every set
+      crossCheckAttacks(150 + i, 300);
+    });
+    // plusDiagFwd2Clear: one blocker stops one shot; a blocker of either colour, and only on the forward side.
+    setRules({ archerShots: 'plusDiagFwd2Clear' });
+    const one = fromFen('k7/8/1p3p2/2P5/3A4/8/8/7K w - - 0 1'); // c5 is White's own pawn, e5 empty
+    expect(shots(one, 'd4')).toEqual(['f6']);
+    // Check: the archer gives check over an empty square only, and the blocker is pinned.
+    const clearKing = '8/8/8/4k3/8/2A5/8/K7 b - - 0 1', blocked = '8/8/8/4k3/3p4/2A5/8/K7 b - - 0 1';
+    expect(inCheck(fromFen(clearKing))).toBe(true);
+    expect(inCheck(fromFen(blocked))).toBe(false);
+    const pinned = fromFen(blocked);
+    expect(lan(pinned, movesFrom(pinned, 'd4'))).toEqual(['d4xc3']); // d4-d3 would open the shot
+    expect(lan(pinned, searchLegal(pinned).filter(m => m.from === parseSq('d4')))).toEqual(['d4xc3']);
+    // Black's archer shoots down the board: f6 to d4 over e5.
+    const blackPin = fromFen('8/8/5a2/4P3/3K4/8/8/7k w - - 0 1');
+    expect(inCheck(blackPin)).toBe(false);
+    expect(lan(blackPin, movesFrom(blackPin, 'e5'))).toEqual(['e5xf6']);
+    expect(inCheck(fromFen('8/8/5a2/8/3K4/8/8/7k w - - 0 1'))).toBe(true);
+    // The other sets ignore the blocker, as today's default does.
+    for (const set of ['plusDiagFwd2', 'fwd2NoBack', 'fwd2NoSide'] as const) { setRules({ archerShots: set }); expect(inCheck(fromFen(blocked)), set).toBe(true); }
   });
 
   it('guardCaptures=pawns (lab): it clears pawns only, gives no check either way and still cannot mate', () => {

@@ -20,13 +20,15 @@
 export type PromotionSet = 'anyNonKing' | 'standard' | 'anyNonKingNoFairy' | 'anyNonKingNoGuard';
 /** Squares an archer may step to (move-only either way). `fwdBack` is the 2021 concept: 1 ahead or 1 back. */
 export type ArcherMove = 'ortho' | 'any' | 'fwdBack';
-/** Which squares an archer shoots, blockers ignored. `forward3` is the only asymmetric set, so it is read per side. */
 /**
  * Archer shot set. `plusDiagFwd2` (2026-09-17) is the measured middle ground: classic plus the two
  * **forward** two-square diagonals, so each side's widening faces the enemy. It is colour-dependent,
- * like `forward3` — see `archerShotsFor` in engine.ts.
+ * like `forward3` — see `archerShotsFor` in engine.ts. Three lab sets between it and `classic`
+ * (2026-10-04): `plusDiagFwd2Clear` (the same shots, but a forward diagonal-2 shot needs the
+ * square between empty), `fwd2NoBack` (without the shot 2 straight back) and `fwd2NoSide` (without
+ * the two shots 2 to the side).
  */
-export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plusDiagFwd2';
+export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plusDiagFwd2' | 'plusDiagFwd2Clear' | 'fwd2NoBack' | 'fwd2NoSide';
 /** What a guard may take by moving onto it. `any` turns it into a commoner that gives check. */
 export type GuardCaptures = 'none' | 'pawns' | 'any';
 /** Lab: the guard's double step from its home rank — none, through an empty square, or over anything. */
@@ -232,7 +234,8 @@ export interface Rules {
   archerMove: ArcherMove;
   /**
    * The archer's shot table: `classic` (diagonal-adjacent + orthogonal 2), `plusDiag2` (+ diagonal 2),
-   * `ring2` (+ the whole Chebyshev-2 ring), `forward3` (the 2 forward diagonals + the square 2 ahead).
+   * `ring2` (+ the whole Chebyshev-2 ring), `forward3` (the 2 forward diagonals + the square 2 ahead),
+   * `plusDiagFwd2` (classic + the 2 forward diagonal-2 squares) and its three lab trims (see `ArcherShots`).
    */
   archerShots: ArcherShots;
   /** A beast steps straight ahead, in any of the 8 directions, or on the 4 diagonals (empty squares). */
@@ -458,8 +461,9 @@ export interface Rules {
    */
   darknessAuraPawns: boolean;
   /**
-   * Darkness (balance lab, round 16): the king may also step two squares in a straight line (8
-   * directions), over an empty square, to an empty square. Move-only, like Mercy's two-square step.
+   * Darkness (round 16; official since 2026-10-04, owner): the king may also step two squares in a
+   * straight line (8 directions), over an empty square, to an empty square. The middle square may be
+   * attacked. Move-only, like Mercy's two-square step.
    */
   darknessKingStep2: boolean;
   /**
@@ -704,7 +708,8 @@ export const POWERS_BALANCED: Readonly<Partial<Rules>> = Object.freeze({
   holyLightTakesPawns: true, // Holy Light: the king may take pawns
   holyLightShelter: true,    // Holy Light: the pieces beside, in front of or behind the king
   holyLightShelterOrtho: true, //   cannot be taken (round 6)
-  darknessMoves: true,       // Darkness: pawns keep their straight steps
+  darknessMoves: true,       // Darkness: pawns keep their straight steps,
+  darknessKingStep2: true,   //   and the king may step two squares over an empty square (owner 2026-10-04)
   deathTouchReach: true,     // Death Touch: also two squares away, straight forward, back or
   deathTouchReachOrtho: true, //   sideways, over an empty square (round 10)
 });
@@ -729,7 +734,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   guardDoubleFirst: ['off', 'slide', 'leap'],
   guardCaptureLimit: [0, 1],
   archerMove: ['ortho', 'any', 'fwdBack'],
-  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2'],
+  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide'],
   beastMove: ['forward', 'any', 'diagFwdBack'],
   beastCapture: ['adjacent', 'diagForward', 'diagonal'],
   maesterStep: [1, 2],

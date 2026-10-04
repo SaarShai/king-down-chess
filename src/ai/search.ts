@@ -376,7 +376,9 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // change which pieces may be taken, never the king, so they add nothing here. The two-square
   // reaches (Death Touch's, the Darkness king's take) pass over a square next to our king, and a
   // move that empties it leaves a line through the king, so it is tested.
-  // Archer shots ignore blockers and the leapers are never blocked,
+  // A `plusDiagFwd2Clear` archer shot two squares diagonally is blocked by the square between,
+  // which is diagonally next to our king: a move that empties it leaves a line through the king, and
+  // one that fills it only blocks. The other archer shots ignore blockers and the leapers are never blocked,
   // so nothing else can change an attack on the king — except a Curse, which moves an *enemy* piece
   // that may arrive attacking it. `setFastLegality(false)` turns this off for the cross-check test.
   const k = board.indexOf(piece(K, c));

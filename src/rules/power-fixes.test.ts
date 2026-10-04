@@ -8,7 +8,7 @@
  * cross-checked here. Mercy's M2 (`mercyAuraPawnsTake`, `mercyTakesPawns`) is official since
  * 2026-10-03. Round 16 adds three one-sentence Darkness readings (`darknessPawnArmor`,
  * `darknessAuraPawns`, `darknessKingStep2`), and round 17 two more versions of the king step
- * (`darknessKingStepSafe`, `darknessKingStepTakes`).
+ * (`darknessKingStepSafe`, `darknessKingStepTakes`). The king step is official since 2026-10-04.
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import {
@@ -16,7 +16,7 @@ import {
   sqName, status, typeOf,
 } from './engine';
 import { fromFen, randomBackRank, startPosition, toFen, toLan } from './setup';
-import { KingChoice, POWERS_BALANCED, PowerName, RULES, Rules, parseRule, setRules } from './rules';
+import { KingChoice, POWERS_BALANCED, PowerName, RULES, RULES_2017, RULES_2021, Rules, parseRule, setRules } from './rules';
 import { positionKey, probeApply, resetSearchState, searchLegal, setFastLegality } from '../ai/search';
 import { RULE_POWERS } from '../sim/tournament';
 import { powerText } from '../powers-ui';
@@ -322,6 +322,21 @@ describe('Darkness readings, round 16: one sentence each (owner, 2026-10-03)', (
     expect(lans(open)).toEqual([...one].sort());
   });
 
+  it('the official Darkness has the king step (owner, 2026-10-04): over an attacked square too, never onto a piece', () => {
+    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Shadow', power: 'Darkness' }, null] });
+    expect(RULES.darknessMoves && RULES.darknessKingStep2).toBe(true);
+    expect(RULES.darknessKingStepSafe || RULES.darknessKingStepTakes).toBe(false);
+    expect(lans(fromFen('7k/8/8/r7/3K4/8/8/8 w - - 0 1'))).toContain('Kd4-d6'); // over d5, which the rook a5 holds
+    expect(lans(fromFen('7k/8/3n4/8/3K4/8/8/8 w - - 0 1')).filter(l => l.startsWith('Kd4') && l.endsWith('d6'))).toEqual([]); // no take
+    expect(powerText('Darkness')).toBe('your pawns may also step diagonally, and take only straight ahead; your king may also step two squares in a straight line, over an empty square');
+    // An older preset plays the printed Darkness: it overrides the official readings, as main.ts applies them.
+    for (const preset of [RULES_2017, RULES_2021]) {
+      setRules({ ...POWERS_BALANCED, ...preset, kings: [{ king: 'Shadow', power: 'Darkness' }, null] });
+      expect(RULES.darknessKingStep2 || RULES.darknessMoves).toBe(false);
+      expect(lans(fromFen('7k/8/8/8/3K4/8/8/8 w - - 0 1')).filter(far)).toEqual([]);
+    }
+  });
+
   /** A king move of two squares (`Kd4-d6`, `Kd4xd6`): the step, and under `darknessKingStepTakes` the take. */
   const far = (l: string): boolean => l[0] === 'K' && Math.max(Math.abs(l.charCodeAt(1) - l.charCodeAt(4)), Math.abs(l.charCodeAt(2) - l.charCodeAt(5))) === 2;
   const step2 = { darknessKingStep2: true }, safe = { ...step2, darknessKingStepSafe: true }, takes = { ...step2, darknessKingStepTakes: true };
@@ -529,7 +544,7 @@ describe('Darkness readings, round 16: one sentence each (owner, 2026-10-03)', (
     expect(powerText('Darkness', r({}))).toBe(base);
     expect(powerText('Darkness', r({ darknessPawnArmor: true }))).toBe(`${base}; enemy pawns cannot take your pawns`);
     expect(powerText('Darkness', r({ darknessAuraPawns: true }))).toBe(`${base}; enemy pawns cannot take your pieces next to your king`);
-    expect(powerText('Darkness', r({ darknessKingStep2: true }))).toBe(`${base}; your king may also step two squares in a straight line, over an empty square, to an empty square`);
+    expect(powerText('Darkness', r({ darknessKingStep2: true }))).toBe(`${base}; your king may also step two squares in a straight line, over an empty square`);
     expect(powerText('Darkness', r({ darknessKingStep2: true, darknessKingStepSafe: true }))).toBe(`${base}; your king may also step two squares in a straight line, over an empty square that no enemy attacks, to an empty square`);
     const take = `${base}; your king may also move two squares in a straight line over an empty square, and may take there`;
     expect(powerText('Darkness', r({ darknessKingStep2: true, darknessKingStepTakes: true }))).toBe(take);

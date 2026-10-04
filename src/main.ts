@@ -140,6 +140,9 @@ const ARCHER_SHOT_TEXT: Record<string, string> = {
   ring2: 'Shoots without moving: any enemy on a diagonally adjacent square or anywhere on the ring 2 squares away, through blockers.',
   forward3: 'Shoots without moving: an enemy on either forward diagonal, or the square exactly 2 ahead, through blockers.',
   plusDiagFwd2: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2) plus either forward diagonal at distance 2, through blockers.',
+  plusDiagFwd2Clear: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2, through blockers) plus either forward diagonal at distance 2, over an empty square.',
+  fwd2NoBack: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or to the side, or either forward diagonal at distance 2, through blockers.',
+  fwd2NoSide: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or behind, or either forward diagonal at distance 2, through blockers.',
 };
 
 /** Chess pieces always; fairies in POOL or the fixed set A L G M S O. */

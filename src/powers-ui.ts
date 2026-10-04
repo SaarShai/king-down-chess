@@ -59,7 +59,7 @@ export function powerText(power: PowerName, r: Rules = RULES): string {
       + (!r.darknessKingStep2 ? ''
         : r.darknessKingStepTakes ? '; your king may also move two squares in a straight line over an empty square, and may take there'
         : r.darknessKingStepSafe ? '; your king may also step two squares in a straight line, over an empty square that no enemy attacks, to an empty square'
-        : '; your king may also step two squares in a straight line, over an empty square, to an empty square');
+        : '; your king may also step two squares in a straight line, over an empty square');
   }
 }
 

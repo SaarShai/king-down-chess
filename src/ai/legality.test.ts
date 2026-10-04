@@ -141,3 +141,40 @@ it('the same under the Darkness and Mercy readings, the round-16 and round-17 on
   expect(inCheckCount).toBeGreaterThan(50);
   expect(changed).toBeGreaterThan(150); // the round-16 readings change the legal moves here (2026-10-03: 276 positions)
 }, 120_000);
+
+it('the same under each archer shot set, the three middle lab sets included (2026-10-04)', () => {
+  // `plusDiagFwd2Clear` is the one shot set with a blocker: the square between the archer and a
+  // two-square diagonal target. Moves that empty or fill it must stay exact.
+  let seed = 1818;
+  const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+  const SETS: Rules['archerShots'][] = ['plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide'];
+  let checked = 0, inCheckCount = 0;
+  const changed: Record<string, number> = {};
+  for (let trial = 0; trial < 6000; trial++) {
+    const board = randomBoard(rng);
+    // More archers: each side gets one more on a random empty square.
+    for (const c of [WHITE, BLACK]) { const s = Math.floor(rng() * 64); if (!board[s]) board[s] = piece(A, c); }
+    const turn = (rng() < 0.5 ? WHITE : BLACK) as Color;
+    const pos: Position = { board, turn, halfmove: 0, ply: 0 };
+    const archerShots = SETS[trial % SETS.length];
+    const kings: Rules['kings'] = [rng() < 0.3 ? POWERS[Math.floor(rng() * POWERS.length)] : null, rng() < 0.3 ? POWERS[Math.floor(rng() * POWERS.length)] : null];
+    setRules({ archerShots, kings });
+    if (inCheck(pos, (turn ^ 1) as Color)) continue;
+    if (inCheck(pos)) inCheckCount++;
+    const engine = legalMoves(pos).map(m => toLan(pos, m)).sort();
+    const fast = searchLegal(pos).map(m => toLan(pos, m)).sort();
+    setFastLegality(false);
+    const slow = searchLegal(pos).map(m => toLan(pos, m)).sort();
+    setFastLegality(true);
+    const where = `${toFen(pos)} ${JSON.stringify({ archerShots, kings })}`;
+    expect(fast, where).toEqual(slow);
+    expect(fast, where).toEqual(engine);
+    setRules({ kings });
+    if (legalMoves(pos).map(m => toLan(pos, m)).sort().join() !== engine.join()) changed[archerShots] = (changed[archerShots] ?? 0) + 1;
+    checked++;
+  }
+  expect(checked).toBeGreaterThan(1000);
+  expect(inCheckCount).toBeGreaterThan(50);
+  // Each lab set changes the legal moves against today's default on some boards.
+  for (const set of SETS.slice(1)) expect(changed[set] ?? 0, set).toBeGreaterThan(20);
+}, 120_000);

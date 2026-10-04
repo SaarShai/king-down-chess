@@ -108,12 +108,14 @@ try {
   const guide = await page.textContent('#powers-list');
   assert.match(guide, mercyLine);
   assert.match(guide, /Freeze \(once a game\)/);
+  assert.match(guide, /Darkness \(always on\) — your pawns may also step diagonally, and take only straight ahead; your king may also step two squares in a straight line, over an empty square\./);
   // `?rules=2017` plays the powers as printed (the preset overrides the official readings), so its Guide lists them so.
   await page.goto(`${base}?rules=2017`);
   await page.waitForFunction(() => document.querySelector('#board canvas') && /Mercy/.test(document.getElementById('powers-list').textContent));
   const printed = await page.textContent('#powers-list');
   assert.match(printed, /Freeze \(twice a game\)/);
   assert.match(printed, /Mercy \(always on\) — your king steps 1–2 squares and jumps your pieces, but takes only a guard\./);
+  assert.match(printed, /Darkness \(always on\) — your pawns step diagonally and take straight ahead, with no double step\./);
   await page.goto(base);
   console.log('ok the Guide lists the official powers, and the printed ones under ?rules=2017');
 

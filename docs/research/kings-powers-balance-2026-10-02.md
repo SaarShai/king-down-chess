@@ -25,7 +25,7 @@ Owner decision (2026-10-02): these are the official kings' powers rules.
 | Holy Light | pawns cannot take the king; it takes no pawns — 46% | **the king may take pawns, and the pieces beside, in front of and behind it cannot be taken** | 50% |
 | Mercy | king steps 1–2, takes nothing — 21% | **as printed, and the pieces next to the king cannot be taken** | 56% |
 | Death Touch | 56% | **also reaches two squares straight forward, back or sideways, over an empty square** (round 10) | 57% in round 10 (43% without the reach) |
-| Darkness | 38% | **pawns also keep their straight steps**, still take only straight ahead | 42% |
+| Darkness | 38% | **pawns also keep their straight steps**, still take only straight ahead; **the king may also step two squares in a straight line, over an empty square** (2026-10-04) | 42%; 48% with the king step (rounds 16–17) |
 
 **Still a little outside the target (50 ± 4):** Haste, Sacrifice and Mercy are high (56–57%);
 Death Touch and Darkness are low (42–43%). A plain king scores 34% against any power. Every
@@ -53,6 +53,11 @@ and Death Touch stay as they are. Darkness stays as it is while simpler second p
 (your king may also step two squares straight, over an empty square) brings Darkness from 43 to 47
 and keeps Spirit and Shadow level. D1 and the pawn armour overshoot to 53, the pawn aura does
 nothing. Haste (58) is now the one power clearly outside 50 ± 4. Details in Round 16, below.
+
+**Update 2026-10-04 (owner decision):** "1. B": the Darkness king step is official as tested in
+rounds 16–17 (`darknessKingStep2`; it may pass over an attacked square). Pooled over the two rounds
+it brings Darkness from 44.4 to 47.8, with Spirit and Shadow level (−0.8 ± 1.9). The safe and the
+taking step stay lab toggles, off. Details in Round 17, below.
 
 **Depth matters.** A depth-4 check of the round-4 set (936 games) kept the order but widened the
 spread to 24 points: Mercy, Flight with two uses and Sacrifice near 59%, Holy Light 36%. Balance

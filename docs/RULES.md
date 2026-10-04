@@ -75,7 +75,7 @@ rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every rea
 | Spirit | **Holy Light** (always on) | king cannot be captured by enemy pawns and cannot capture pawns | the king may take pawns, and **no piece beside, in front of or behind the Holy Light king can be captured** (`holyLightTakesPawns`, `holyLightShelter`, `holyLightShelterOrtho`) |
 | Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, but the king may take pawns; and **no piece next to the Mercy king can be captured, except by a pawn** (`mercyAura`, `mercyAuraPawnsTake`, `mercyTakesPawns`: reading M2, owner 2026-10-03) |
 | Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward, back or sideways, over an empty square** (`deathTouchReach`, `deathTouchReachOrtho`) |
-| Shadow | **Darkness** (always on) | own pawns move 1 diagonally and capture 1 straight forward; no double first move | pawns also keep their straight steps (double from the start); they still capture only straight ahead (`darknessMoves`) |
+| Shadow | **Darkness** (always on) | own pawns move 1 diagonally and capture 1 straight forward; no double first move | pawns also keep their straight steps (double from the start); they still capture only straight ahead (`darknessMoves`); **the king may also step two squares in a straight line, over an empty square** (`darknessKingStep2`, owner 2026-10-04) |
 
 Holy Light's shelter was added after round 6 (owner asked for Mercy and Holy Light variations to be
 tested): it lifted Holy Light from 43% to 53%; sheltering all eight neighbours overshot to 64%, and
@@ -94,6 +94,13 @@ your pawns (`darknessPawnArmor`); enemy pawns cannot take your pieces next to yo
 (`darknessAuraPawns`); your king may also step two squares in a straight line, over an empty square,
 to an empty square (`darknessKingStep2`); and D1, your pieces diagonally next to your king cannot be
 taken (`darknessShelter`). No king-power reading changes how other pieces move.
+
+**Owner decision (2026-10-04), after rounds 16 and 17:** "1. B", the king step as tested: your king
+may also step two squares in a straight line, over an empty square (`darknessKingStep2`). The middle
+square may be attacked; the step never takes and adds no attacked square. Over rounds 16 and 17 it
+moved Darkness from about 44% to 48%, with Spirit and Shadow level. The safe step
+(`darknessKingStepSafe`) and the taking step (`darknessKingStepTakes`) stay lab toggles, off.
+`?rules=2017` and `?rules=2021` still play the printed Darkness.
 
 ## 5. Card / spell effects (documented, not yet enabled)
 
@@ -151,7 +158,10 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
     fresh control): decisive **+8.8 ± 3.8**, draws **−8.2 ± 3.7**, plies −14.2 ± 4.8, white score +2.6 ± 2.6
     (fair). The cost is the piece's value: **3.73 ± 0.42 → 5.05 ± 0.44 pawns** (odds match vs a rook),
     so `ARCHER_V` moves 337 → 505 with it. The other sweep levers were rejected or null
-    (`docs/research/sim-piece-balance-2026-09-17.md`).
+    (`docs/research/sim-piece-balance-2026-09-17.md`). Three lab sets between it and `classic` wait for
+    measurement (owner, 2026-10-04: "archer - test and measure first"): `plusDiagFwd2Clear` (a forward
+    diagonal-2 shot needs the square between empty), `fwd2NoBack` (no shot 2 straight back) and
+    `fwd2NoSide` (no shots 2 to the side).
 17. **The beast's blind spot goes (designer, 2026-09-17).** `beastCaptureForward` defaults to `true`: the beast
     captures on **every** adjacent square (the "seven except straight ahead" rule cost more to remember than it
     earned). All three simplifications were measured at 1,600 games an arm, depth 4: removing the blind spot is the
