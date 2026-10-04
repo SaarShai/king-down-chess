@@ -152,6 +152,29 @@ queen moves late (median first move at ply 31). All games: draws 16.5%, White 55
 4. Every number describes how the depth-3 computer uses the pieces, with the lab's linear
    evaluation; the browser plays with the residual net (`src/main.ts`).
 
+## Results (2026-10-04)
+
+Owner (2026-10-04): "before we make these decisions i'd like you to run more tests and collect more
+data." Full outputs: `piece-runs-2026-10-04-*.md` beside this file.
+
+**Worth (criterion 1), two Muller passes, depth 3** (pass 2 plays at pass 1's prices, `--values
+O=293,R=365,B=299,M=321,S=414,A=463`): Ogre 2.60, Bishop 3.17 (the same-colour caveat above), Knight
+3.16 (anchor), Maester 3.28, Rook 3.84, Beast 4.27, Archer 4.11 (vs the Rook at 3.65; 4.43 at depth
+4), Guard < 1.66. Pass 1 read the Archer at 5.47 because it took the Rook at its engine price (4.49);
+pass 1 measured the Rook at 3.65. So the Archer passes criterion 1; the Guard fails; the Ogre sits
+near the floor (±0.28).
+
+**Activity (criteria 2–6), 12,000 ordinary games (`pa-r1`, seed 7001, depth 3):** Archer **FAIL** on
+captures (2.11× the average piece) and on draws (armies with it draw 6.2 points less); Guard FAIL on
+4b and 5 (70% move); Rook FAIL on 5 (81% move); Bishop FAIL on 4b (0.94). All other lines pass or
+are unsettled. All games: draws 17.4%, White 51.7%, 101.1 plies. At depth 4 (`pa-d4`, the first
+1,600 of these armies) the Archer takes 2.15× the average piece's captures.
+
+**The classic Archer** (`archerShots=classic`, before Decision 16; `pa-acl`, the first 9,000 of these
+armies): its captures fall to 1.33× (PASS) and its draws line passes (+1.0), but the whole game draws
+22.3% against 17.6% on the same armies (White 51.3 against 51.2, 107 against 101 plies). The Beast's
+armies then draw clearly less (FAIL). The Guard and Rook lines stay as they are.
+
 ## How to run
 
 Run from the repository root of a checkout with this branch (`claude/piece-activity`): the R and B
