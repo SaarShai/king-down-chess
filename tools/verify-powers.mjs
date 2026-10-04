@@ -4,6 +4,7 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
+import { startGame } from './new-game-ui.mjs';
 
 const base = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
 const out = 'docs/kings-powers';
@@ -97,11 +98,8 @@ try {
   assert.match(await page.textContent('#info'), /White's king: Death Touch/);
   console.log('ok always-on power shown');
 
-  // New game: pick a power per side; the game starts with them (and the info card names them).
-  await page.click('#new-game-btn');
-  await page.selectOption('#power-white', 'Mud:March');
-  await page.selectOption('#power-black', 'Frost:IceWall');
-  await page.click('#new-classic');
+  // New game: Kings' powers, a king and a power per side; the game starts with them (and the info card names them).
+  await startGame(page, { mode: 'powers', kings: ['Mud:March', 'Frost:IceWall'], army: 'classic' });
   await page.waitForFunction(() => /White's king: March — /.test(document.getElementById('info').textContent)
     && /Black's king: Ice Wall, 2 left/.test(document.getElementById('info').textContent));
   await page.screenshot({ path: `${out}/new-game-powers.png` });

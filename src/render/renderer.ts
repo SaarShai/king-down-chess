@@ -4,7 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { C, Color, LETTERS, Move, K, L, M, N, O, RULES, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
+import { C, Color, LETTERS, Move, K, type KingName, L, M, N, O, PLAIN_KINGS, RULES, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
 import { ARMY, TARGET_HEIGHT, pieceGeometry } from './voxels';
 import { Debris, Tweens, easeOut, labelSprite, linear } from './fx';
 import { PALETTES, createPalettePass, paletteTexture } from './palette';
@@ -18,6 +18,9 @@ import type { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import type { Pace } from './PaintedView';
 
 export const tileCenter = (sq: number): THREE.Vector3 => new THREE.Vector3(file(sq) - 3.5, 0, 3.5 - rank(sq));
+/** The king a king piece shows: its side's king with a power, else Spirit or Shadow; undefined for other pieces. */
+const kingOf = (code: number): KingName | undefined =>
+  typeOf(code) === K ? RULES.kings[colorOf(code)]?.king ?? PLAIN_KINGS[colorOf(code)] : undefined;
 
 export interface Highlights {
   selected?: number | null;
@@ -499,7 +502,8 @@ export class BoardRenderer {
     for (let sq = 0; sq < 64; sq++) {
       const code = pos.board[sq];
       const cur = this.pieces.get(sq);
-      if (cur && cur.userData.code === code && cur.position.distanceTo(tileCenter(sq)) < 0.01) continue;
+      // A king is rebuilt when the next game gives it another king (its figure shows which).
+      if (cur && cur.userData.code === code && cur.userData.king === kingOf(code) && cur.position.distanceTo(tileCenter(sq)) < 0.01) continue;
       if (cur) { this.removeFigure(cur); this.pieces.delete(sq); }
       if (code) this.pieces.set(sq, this.spawn(sq, typeOf(code), colorOf(code)));
     }
@@ -543,9 +547,9 @@ export class BoardRenderer {
   private spawn(sq: number, t: PieceType, c: Color): THREE.Group {
     const g = new THREE.Group();
     let top = TARGET_HEIGHT[t] * 1.15; // sprite art has extra headroom (sprites.ts SCALE)
-    const king = RULES.kings[c]?.king ?? 'Frost';
-    const kingDesign = { Frost: 'frost', Flame: 'ember', Stratus: 'celestial', Mud: 'gaya', Spirit: 'spirit', Shadow: 'shadow' }[king];
-    const design = t === K ? `king-${kingDesign}` : CAST.find(entry => entry.code === t)?.key;
+    const king = kingOf(t | (c << 4));
+    const kingDesign = king && { Frost: 'frost', Flame: 'ember', Stratus: 'celestial', Mud: 'gaya', Spirit: 'spirit', Shadow: 'shadow' }[king];
+    const design = kingDesign ? `king-${kingDesign}` : CAST.find(entry => entry.code === t)?.key;
     if (design && ((this.style.pieces === 'clay' && (t !== O || this.options.ogreModel !== false)) || (t === O && this.options.ogreModel !== false))) {
       // Clay sculpts face local +Z; White advances toward world -Z.
       if (c === 0) g.rotation.y = Math.PI;
@@ -603,6 +607,7 @@ export class BoardRenderer {
     g.add(label);
     g.position.copy(tileCenter(sq));
     g.userData.code = t | (c << 4);
+    g.userData.king = kingOf(g.userData.code);
     this.world.add(g);
     return g;
   }

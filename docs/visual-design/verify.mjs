@@ -149,7 +149,7 @@ try {
   // 6. Phone: tap targets of at least 44 px, no sideways scroll.
   page = await open('', { viewport: { width: 390, height: 844 }, touch: true, save });
   await ready(page);
-  const small = async scope => page.$$eval(`${scope} button, ${scope} select, ${scope} label`, els => els
+  const small = async scope => page.$$eval(`${scope} button, ${scope} select, ${scope} label, ${scope} summary`, els => els
     .filter(e => e.offsetParent && getComputedStyle(e).visibility !== 'hidden')
     .map(e => ({ id: e.id || e.textContent.trim().slice(0, 24), r: e.getBoundingClientRect() }))
     .filter(({ r }) => r.height < 44 || r.width < 44)
@@ -158,8 +158,17 @@ try {
   for (const [btn, dlg] of [['#new-game-btn', '#new-game'], ['#settings-btn', '#settings'], ['#rules-btn', '#rules']]) {
     await page.click(btn); assert.deepEqual(await small(dlg), [], dlg); await page.keyboard.press('Escape');
   }
+  // New game in each of its three modes, with More options open: the king picker's emblems and powers too.
+  await page.click('#new-game-btn'); await page.click('#more-options summary');
+  for (const mode of ['computer', 'powers', 'two']) {
+    await page.click(`label:has(#mode-${mode})`);
+    if (mode === 'two') await page.check('#two-powers');
+    assert.deepEqual(await small('#new-game'), [], `New game: ${mode}`);
+  }
+  assert.equal(await page.locator('#new-game .emblem:visible').count(), 12, 'six emblems a side');
+  await page.keyboard.press('Escape');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  ok('phone: every visible control in the panel, New game, Settings and Guide is at least 44 px');
+  ok('phone: every visible control in the panel, New game (all three modes, More options open), Settings and Guide is at least 44 px');
   await page.context().close();
 
   // 7. Round 2: the title's lineup shows all twelve pieces and leaves the buttons on screen.

@@ -11,6 +11,7 @@
  * position. Real mouse clicks; the hover probe works around the camera angle (LESSONS.md 2026-09-14).
  */
 import { createRequire } from 'node:module';
+import { startGame } from './new-game-ui.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
@@ -40,14 +41,10 @@ async function newPage() {
   return { ctx, page, errors };
 }
 
-async function boot(page, query, { humans = true } = {}) {
-  await page.goto(BASE + query);
+/** `players`: who plays White and Black (`?players=`, main.ts); two people unless a case says otherwise. */
+async function boot(page, query, { players = 'human,human' } = {}) {
+  await page.goto(BASE + query + (query ? '&' : '?') + `players=${players}`);
   await page.waitForFunction(() => window.view && document.getElementById('setup').title.length > 5, null, { timeout: 40000 });
-  await page.evaluate(h => {
-    document.getElementById('white').value = h ? 'human' : 'ai';
-    document.getElementById('black').value = 'human';
-    document.getElementById('black').dispatchEvent(new Event('change'));
-  }, humans);
 }
 
 /** Hover first and read `#hover`; a tall mesh covers the tile centre behind it at this camera. */
@@ -217,8 +214,6 @@ await caseFn('catapult lobs over a screen and stays put', `?fen=${encodeURICompo
 await caseFn('AI answers in an ogre position', `?fen=${encodeURIComponent(OGRE_ENEMY_FEN)}`, async (page, errors) => {
   await page.evaluate(() => {
     const think = document.getElementById('think'); think.value = '200'; think.dispatchEvent(new Event('change'));
-    document.getElementById('black').value = 'ai';
-    document.getElementById('black').dispatchEvent(new Event('change'));
   });
   await clickSq(page, 'e4');
   await clickSq(page, 'd4');
@@ -228,30 +223,26 @@ await caseFn('AI answers in an ogre position', `?fen=${encodeURIComponent(OGRE_E
   const s = await snap(page);
   const ok = s.moves.split(/\s+/).length >= 2 && errors.length === 0;
   return ok ? true : `moves="${s.moves}" errors=${errors.join(' | ')}`;
-});
+}, { players: 'human,ai' });
 
 await caseFn('kings choice survives save/restore', '?kings=mud:march', async (page, errors) => {
   await page.goto(BASE); // no query
   await page.waitForFunction(() => window.view && document.getElementById('setup').title.length > 5, null, { timeout: 40000 });
-  await page.waitForFunction(() => /Kings —/.test(document.getElementById('info').textContent), null, { timeout: 20000 });
+  // The info card names each side's power (main.ts kingsInfo); it said "Kings — both Mud:March" before.
+  await page.waitForFunction(() => /White's king:/.test(document.getElementById('info').textContent), null, { timeout: 20000 });
   const s = await snap(page);
-  const ok = /Kings — both Mud:March/.test(s.info.replace(/\s+/g, ' ')) && errors.length === 0;
+  const ok = /White's king: March — .*Black's king: March — /.test(s.info.replace(/\s+/g, ' ')) && errors.length === 0;
   return ok ? true : `info="${s.info.replace(/\n/g, ' ')}" errors=${errors.join(' | ')}`;
 });
 
 // Death Touch through the real worker: the AI's only good move is the shot a plain king cannot play.
 await caseFn('AI uses Death Touch in the worker', `?kings=shadow:deathtouch&fen=${encodeURIComponent('7k/8/4p3/3r4/3K4/8/8/8 w - - 0 1')}`, async (page, errors) => {
-  await page.evaluate(() => {
-    const think = document.getElementById('think'); think.value = '200'; think.dispatchEvent(new Event('change'));
-    document.getElementById('white').value = 'ai';
-    document.getElementById('white').dispatchEvent(new Event('change'));
-  });
   await waitPly(page, 1);
   await page.waitForTimeout(600);
   const s = await snap(page);
   const ok = s.moves.includes('Kd4*d5') && errors.length === 0;
   return ok ? true : `moves="${s.moves}" errors=${errors.join(' | ')}`;
-});
+}, { players: 'ai,human' });
 
 // Darkness: a pawn captures straight ahead — illegal under the default rules, so the restored game
 // only replays if the active rules came back with the save.
@@ -276,14 +267,8 @@ await caseFn('Darkness pawn capture survives save/restore', `?kings=shadow:darkn
 // Release cases: a full AI game, cancellation mid-search, promotion, and the mobile layout.
 
 await caseFn('full AI vs AI game reaches a result', '', async (page, errors) => {
-  await page.evaluate(() => {
-    localStorage.removeItem('kingdown.save');
-    const think = document.getElementById('think'); think.value = '200'; think.dispatchEvent(new Event('change'));
-    document.getElementById('white').value = 'ai';
-    document.getElementById('black').value = 'ai';
-    document.getElementById('black').dispatchEvent(new Event('change'));
-  });
-  await page.click('#new-game-btn'); await page.click('#new-random');
+  // A fresh page's random army, the computer on both sides (`?players=ai,ai`), 200 ms a move.
+  await page.evaluate(() => { const think = document.getElementById('think'); think.value = '200'; think.dispatchEvent(new Event('change')); });
   const t0 = Date.now();
   let last = -1, stalls = 0;
   for (;;) {
@@ -298,18 +283,18 @@ await caseFn('full AI vs AI game reaches a result', '', async (page, errors) => 
     last = st.plies;
     if (stalls >= 40 || Date.now() - t0 > 1500000) return { ok: false, detail: `stalled at ${st.plies} plies after ${((Date.now() - t0) / 1000).toFixed(0)}s` };
   }
-}, { humans: false });
+}, { players: 'ai,ai' });
 
 await caseFn('cancelling mid-search starts a clean game', '', async (page, errors) => {
   await clickSq(page, 'e2');
   await clickSq(page, 'e4');
   await page.waitForTimeout(150); // the AI is thinking now
-  await page.click('#new-game-btn'); await page.click('#new-random');
+  await startGame(page); // New game's first choice: you play White against the computer
   await page.waitForTimeout(2500); // any stale answer would land here
   const s = await snap(page);
   const ok = s.moves === '' && /PPPPPPPP/.test(s.fen) && errors.length === 0;
   return ok ? true : `moves="${s.moves}" fen="${s.fen}" errors=${errors.join(' | ')}`;
-});
+}, { players: 'human,ai' });
 
 await caseFn('promotion picker promotes to a queen', `?fen=${encodeURIComponent('7k/P7/8/8/8/8/8/K7 w - - 0 1')}`, async (page, errors) => {
   await clickSq(page, 'a7');

@@ -3,7 +3,7 @@
  * power moves the player must arm first. The engine decides what is legal; this module only says
  * how a person reaches it.
  */
-import { Color, KINGS, KingChoice, KingName, Move, PowerName, POWERS_BALANCED, PowerTag, Position, RULES, type Rules, USES_RULE, parseKing } from './rules/engine';
+import { Color, KINGS, KingChoice, KingName, Move, PowerName, POWERS_BALANCED, PowerTag, Position, RULES, type Rules, USES_RULE } from './rules/engine';
 
 export const POWER_NAME: Record<PowerName, string> = {
   Freeze: 'Freeze', IceWall: 'Ice Wall', Strike: 'Strike', Haste: 'Haste', Flight: 'Flight', Sacrifice: 'Sacrifice',
@@ -96,36 +96,17 @@ export function powerTitle(power: PowerName, r: Rules = RULES): string {
 }
 
 /**
- * Options for a power picker: "no power" then each king's two powers. They describe the rules a
- * game with powers is played under (the official readings), not the rules of the game in progress.
+ * Each king's two powers for the New game picker, with their counts and one-line rules. They describe
+ * the rules a game with powers is played under (the official readings), not the game in progress.
  */
-export function powerOptions(): { group: string; options: { value: string; label: string; title: string }[] }[] {
+export function powerOptions(): { king: KingName; group: string; options: { value: string; label: string; title: string }[] }[] {
   const r: Rules = { ...RULES, ...POWERS_BALANCED };
   return (Object.entries(KINGS) as [KingName, readonly PowerName[]][]).map(([king, powers]) => ({
+    king,
     group: `${king} king`,
     options: powers.map(p => ({ value: `${king}:${p}`, label: powerTitle(p, r), title: powerText(p, r) })),
   }));
 }
-
-/** Fill a `<select>` with "No power" and the twelve powers, keeping `value` selected. */
-export function fillPowerSelect(select: HTMLSelectElement, value: KingChoice | null): void {
-  select.innerHTML = '<option value="none">No power</option>';
-  for (const { group, options } of powerOptions()) {
-    const g = document.createElement('optgroup');
-    g.label = group;
-    for (const o of options) {
-      const opt = document.createElement('option');
-      opt.value = o.value;
-      opt.textContent = o.label;
-      opt.title = o.title;
-      g.appendChild(opt);
-    }
-    select.appendChild(g);
-  }
-  select.value = value ? `${value.king}:${value.power}` : 'none';
-}
-
-export const readPowerSelect = (select: HTMLSelectElement): KingChoice | null => parseKing(select.value);
 
 /** `?kings=` text for a game link: "frost:freeze,mud:march", "none" for a plain king. */
 export function kingsParam(kings: readonly [KingChoice | null, KingChoice | null]): string | null {

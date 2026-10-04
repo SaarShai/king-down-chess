@@ -1,15 +1,15 @@
 {
-  "url": "http://127.0.0.1:5190/",
+  "url": "http://127.0.0.1:5197/",
   "checksPassed": 11,
   "checks": [
     "Hint uses history, marks a legal suggestion without playing, and clears on a move",
-    "old saves retain Strong; skill, auto-queen and effective mute survive reload",
+    "old saves retain Strong; the computer level, auto-queen and effective mute survive reload",
     "reset cancels a hint; real piece dragging plays through the normal move path without orbiting",
-    "dragging works from the flipped Black view and side changes cancel pending AI",
+    "dragging works from the flipped Black view and a new game cancels the pending computer move",
     "promotion dialog cancels cleanly; underpromotion works; auto-queen respects promotion sets; old games retain their rules and new games use current defaults",
     "guide and promotion text follow current, 2017 and 2021 presets",
     "move explanations reconstruct from saved history and return after undo/replay",
-    "lab examples reuse the existing selector; current pieces enter the guide; check has a visible king ring",
+    "lab examples are in the New game army list; current pieces enter the guide; check has a visible king ring",
     "Catapult lob keeps the shooter and screen; undo during the arc preserves the restored victim",
     "Reaver capture-then-step uses the real selection path and cancels cleanly on undo",
     "real touch events drag a pawn on the mobile layout without horizontal overflow"

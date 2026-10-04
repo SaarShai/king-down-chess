@@ -152,9 +152,10 @@ try {
       game.on('pageerror', e => errors.push(`game: ${e.message}`));
       const u = new URL(process.env.PLAYABLE_URL); u.searchParams.set('look', 'painted');
       u.searchParams.set('fen', black ? 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b - - 1 2' : 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w - - 0 2');
+      if (black) u.searchParams.set('players', 'human,human'); // Black to move, and no computer
       await game.goto(u.href);
       await game.waitForFunction(() => window.view?.pos?.board[4] > 0);
-      if (black) await game.evaluate(() => { const set = (id, v) => { const s = document.getElementById(id); s.value = v; s.dispatchEvent(new Event('change')); }; set('white', 'human'); set('black', 'human'); window.view.flip(true); });
+      if (black) await game.evaluate(() => window.view.flip(true));
       await game.evaluate(() => window.view.ready());
       const sq = black ? 57 : 6, p = await game.evaluate(sq => window.view.screenOf(sq), sq);
       await game.mouse.click(p.x, p.y); await game.waitForTimeout(900);
