@@ -507,3 +507,58 @@ spread over the field, as above), every power then sits inside 50 ± 4 except **
 is the high one of Shadow's two powers. Fixing Mercy alone levels the kings but leaves Darkness at
 44; fixing Darkness alone levels them but leaves Mercy at 56. So the package H1/H3 + M2 + D2 needs a
 small Death Touch trim of about 3–4 points to be level; that trim is not measured yet.
+
+## Round 15 — the package, with H3 and five Death Touch trims (2026-10-03)
+
+Owner: "plan and execute the next runs" (overnight). Round 14's package is the round's rules:
+Haste H1, Mercy M2, Darkness D2 (`hasteApart`, `mercyAuraPawnsTake`, `mercyTakesPawns`,
+`darknessShelter`, `darknessShelterPawnsTake`). Variants: Haste H3 in place of H1, and five Death
+Touch trims of the two-square reach (round 10's reading: straight forward, back or sideways over an
+empty square). Seed 1515 (fresh armies), 64 pairs, `--armies perPair`, depth 3: 19,840 games on this
+Mac (`sim/out/kp2-r15.report.md`). Every variant meets every power but its own, so each choice
+below is put in place from games played, not predicted.
+
+**Each variant against its base on the same armies** (against the 11 other powers, 704 pairs, 95%):
+
+| variant | change | draws | game length (plies) |
+|---|---|---|---|
+| H3 Haste: second move not forward (instead of H1) | +3.1 ± 2.3 | −1.0 ± 1.9 | −2.1 ± 2.4 |
+| T1 Death Touch: no backward reach | −1.2 ± 0.7 | +0.2 ± 0.9 | +0.5 ± 0.8 |
+| T2 Death Touch: no sideways reach | −5.9 ± 2.0 | −1.4 ± 1.9 | +0.1 ± 2.1 |
+| T3 Death Touch: the reach takes pieces only | −2.3 ± 1.4 | +0.1 ± 1.4 | −0.4 ± 1.5 |
+| T4 Death Touch: forward reach only | −6.7 ± 2.0 | −1.4 ± 1.9 | −0.9 ± 2.1 |
+| T5 Death Touch: no reach (as printed) | −12.4 ± 2.3 | −1.6 ± 2.1 | −1.5 ± 2.4 |
+
+**The field with each choice in place** (each power against the other 11; ± about 2.4 for each
+power; Spirit = Holy Light and Mercy, Shadow = Death Touch and Darkness; the Spirit − Shadow
+interval combines the two kings' pairs):
+
+| Haste | Death Touch | powers in 50 ± 4 | spread | Death Touch | Haste | Spirit − Shadow |
+|---|---|---|---|---|---|---|
+| H1 | reach as today | 11 | 7.9 | 54.5 | 46.6 | −3.6 ± 2.4 |
+| H1 | T2 no sideways reach | 12 | 6.0 | 48.6 | 47.7 | −0.1 ± 2.4 |
+| H1 | T4 forward reach only | 12 | 5.9 | 47.8 | 47.8 | +0.2 ± 2.4 |
+| H3 | reach as today | 11 | 7.6 | 54.3 | 49.6 | −4.0 ± 2.4 |
+| H3 | T1 no backward reach | 12 | 6.5 | 53.3 | 49.8 | −3.2 ± 2.4 |
+| H3 | T3 pieces only | 12 | 5.8 | 52.2 | 50.1 | −2.7 ± 2.4 |
+| **H3** | **T2 no sideways reach** | **12** | **5.7** | **49.0** | **50.2** | **−0.7 ± 2.4** |
+| H3 | T4 forward reach only | 12 | 5.9 | 48.2 | 50.2 | −0.5 ± 2.5 |
+| H3 | T5 no reach | 11 | 11.4 | 42.0 | 50.9 | +3.1 ± 2.5 |
+
+With H3 and T2, all twelve powers: Darkness 53.1, Sacrifice 52.5, Leap 51.6, Strike 51.4, Mercy
+50.5, Haste 50.2, Holy Light 50.1, Freeze 49.1, Death Touch 49.0, Flight 47.6, Ice Wall 47.5, March
+47.4.
+
+**Reading.** Round 14's package holds on new armies: Mercy (M2) and Darkness (D2) land near 50, and
+Death Touch is again the high one (54.5) with Shadow ahead of Spirit (the report's own kings line
+for the round's rules: Spirit − Shadow −3.0 ± 2.8). **T2, no sideways reach, fixes both**: Death
+Touch 49.0 and Spirit − Shadow −0.7 ± 2.4, with every power between 47.4 and 53.1 (a spread of 5.7;
+rounds 11–13 had 12.9). It was picked as the best of twelve combinations on these games, so it
+reads a little better than it is. T4 (forward only) does the same with one more cut; T1 and T3 are too
+small (Shadow still ahead), T5 too large (Death Touch 42). **H3 over H1**: Haste 50.2 against 47.7,
+and no clear change in draws (−1.0 ± 1.9). No trim changes the draw rate clearly. Games of the
+official set drew 13.6% (round 14: 13.4%), White scored 52.1% (+13 ± 5 Elo).
+
+Suggested package for the owner: **Haste H3, Mercy M2, Darkness D2, Death Touch T2**. Not adopted:
+the owner decides. A confirmation round with the package as the rules, on fresh armies, would check
+it without that selection.

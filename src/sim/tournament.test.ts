@@ -260,6 +260,15 @@ describe('report', () => {
     expect(reportText([a, c], [recs, schedule(c).map(j => play(j, 1))])).not.toContain('Repeated games');
   });
 
+  it('a round dealing from another card pool replays no game, and the report says the pools differ', () => {
+    const a = spec({ id: 'p8', entrants: ['cards6'], mirror: true, mirrorOnly: true, armies: 'perPair', pairs: 4 });
+    const b = { ...a, id: 'p12', cardPool: [...(['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap'] as const), 'Mimic', 'Vault', 'Curse', 'SkyLift'] } as TournamentSpec;
+    const text = reportText([a, b], [schedule(a).map(j => play(j, 1)), schedule(b).map(j => play(j, 1))]);
+    expect(text).not.toContain('Repeated games');
+    expect(text).toContain('**Different card pools:**');
+    expect(reportText([a, { ...a, id: 'p8b', seed: 9 }], [[], []])).not.toContain('Different card pools');
+  });
+
   it('marks a round still being played, and shows no score for a power with no games yet', () => {
     const text = reportText([t], [games.filter(g => g.a !== 'Darkness' && g.b !== 'Darkness')]);
     expect(text).toContain('**Partial:** 80 games still to play');

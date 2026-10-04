@@ -585,11 +585,11 @@ export function reportText(specs: readonly TournamentSpec[], rounds: readonly (r
   const ids = specs.map(s => s.id);
   const recs = poolRounds(rounds);
   const scheduled = specs.reduce((a, s) => a + schedule(s).length, 0);
-  // Two rounds with the same seed replay the same games (same entrants, army, opening and rules).
+  // Two rounds with the same seed replay the same games (same entrants, army, opening, rules and hands).
   const seen = new Map<string, number>();
   let repeats = 0;
   rounds.forEach((rs, k) => rs.forEach(r => {
-    const key = `${r.white}|${r.black}|${drawOf(r)}|${JSON.stringify(gameRules(specs[k], r.white as Entrant, r.black as Entrant))}`;
+    const key = `${r.white}|${r.black}|${drawOf(r)}|${JSON.stringify(gameRules(specs[k], r.white as Entrant, r.black as Entrant))}|${handFor(specs[k], r.white as Entrant, r.seed)}`;
     const first = seen.get(key);
     if (first === undefined) seen.set(key, k); else if (first !== k) repeats++;
   }));
@@ -600,6 +600,8 @@ export function reportText(specs: readonly TournamentSpec[], rounds: readonly (r
   lines.push(`# Kings' powers tournament: ${ids.join(' + ')}`, '');
   lines.push(`${recs.length} of ${scheduled} games, depth ${[...new Set(specs.map(s => s.depth))].join('/')}, ${entrants.length} entrants. Rules: \`${JSON.stringify(ruleDiff(specs[0].rules))}\`${specs[0].powerHold ? `, hold \`${JSON.stringify(specs[0].powerHold)}\`` : ''}.`, '');
   if (recs.length < scheduled) lines.push(`**Partial:** ${scheduled - recs.length} games still to play; every number below is provisional.`, '');
+  const pools = new Set(specs.filter(sp => sp.entrants.some(e => e.startsWith('cards'))).map(sp => (sp.cardPool ?? CARD_POOL).join(',')));
+  if (pools.size > 1) lines.push('**Different card pools:** these rounds deal `cards<k>` hands from different pools, but an entrant name pools them as one; report each pool on its own.', '');
   if (repeats) lines.push(`**Repeated games:** ${repeats} games of a later round replay a game of an earlier one (same entrants, army, opening and rules); the pooled intervals count them twice. Pool rounds with different seeds.`, '');
   const variants = Object.assign({}, ...specs.map(s => s.variants ?? {})) as Record<string, Partial<Rules>>;
   if (Object.keys(variants).length) lines.push(`Variants: ${Object.entries(variants).map(([k, v]) => `\`~v${k}\` = \`${JSON.stringify(v)}\``).join(', ')}. A variant does not meet an entrant whose power its rules would change.`, '');
