@@ -49,9 +49,17 @@ export interface Replay { events: Events; plies: number; end: Position }
  * Replay the recorded LANs under the **live** rules (the caller sets them from the run's stamp
  * first). Throws on the first move that is not legal now — a stronger check than "the text parses",
  * because the same LAN can be legal under two rule sets and move different pieces (LESSONS.md
- * 2026-09-14: `Ld4xd5` under old and new paladin semantics).
+ * 2026-09-14: `Ld4xd5` under old and new paladin semantics). Only the king powers' notation is
+ * matched against the legal moves: an ordinary move is parsed, so one that round-trips but is not
+ * legal (`Qd8-d4` through the queen's own pawn) replays without an error.
+ *
+ * `onMove` sees every move with the positions before and after it and its 0-based ply
+ * (`tools/piece-activity.ts` counts per piece with it).
  */
-export function replayRecord(rec: GameRecord): Replay {
+export function replayRecord(
+  rec: Pick<GameRecord, 'gameId' | 'startFen'> & { moves: readonly { lan: string }[] },
+  onMove?: (pos: Position, move: Move, next: Position, ply: number) => void,
+): Replay {
   let pos = fromFen(rec.startFen);
   const events = emptyEvents();
   for (let i = 0; i < rec.moves.length; i++) {
@@ -62,6 +70,7 @@ export function replayRecord(rec: GameRecord): Replay {
     if (!m || toLan(pos, m) !== lan) throw new Error(`game ${rec.gameId} ply ${i}: parsed ${m ? toLan(pos, m) : 'nothing'} from ${lan}`);
     const next = makeMove(pos, m);
     countMove(events, pos, m, next);
+    onMove?.(pos, m, next, i);
     pos = next;
   }
   return { events, plies: rec.moves.length, end: pos };
