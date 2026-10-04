@@ -6,6 +6,7 @@ import {
   checkResume, compress, drawOf, gameSpec, halfWidth, handFor, pairDraw, poolRounds, reportText, resampleArmies, schedule, scoreVsPowers, tFromZ,
 } from './tournament';
 import type { GameRecord } from './game';
+import { POOL } from '../rules/setup';
 
 const spec = (over: Partial<TournamentSpec> = {}): TournamentSpec => ({
   id: 't', entrants: ['Freeze', 'Haste', 'Flight', 'none'], pairs: 3, depth: 1, seed: 2222, rules: {},
@@ -28,6 +29,14 @@ describe('tournament schedule', () => {
       'kp2-r10': '0eed788c332ac1d9', 'kp2-r11': '93855049006bb50a', 'kp2-r12': 'e312f6310f1b5da8',
     };
     for (const [id, h] of Object.entries(PLAYED)) expect([id, hash(schedule(recorded(id)))]).toEqual([id, h]);
+  });
+
+  it('a round with today\'s pool draws one beast at most; one without a pool keeps the old pool', () => {
+    for (const armies of [undefined, 'perPair' as const]) {
+      const jobs = schedule(spec({ pairs: 200, armies, pool: POOL }));
+      expect(jobs.every(j => j.backRank.split('S').length <= 2)).toBe(true);
+    }
+    expect(schedule(spec({ pairs: 200 })).some(j => j.backRank.split('S').length === 3)).toBe(true);
   });
 
   it('shared armies: pair p of every matchup plays army p', () => {

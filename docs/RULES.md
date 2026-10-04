@@ -20,8 +20,8 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 
 - Rank 2 / 7: 8 pawns each.
 - Rank 1 / 8: the king plus **7 pieces drawn at random** from the pool
-  `1 queen, 1 ogre, 2 rooks, 2 bishops, 2 knights, 2 archers, **1 guard**, 2 maesters, 2 beasts` (15 letters,
-  `QORRBBNNAAGMMSS`),
+  `1 queen, 1 ogre, 2 rooks, 2 bishops, 2 knights, 2 archers, **1 guard**, 2 maesters, **1 beast**` (14 letters,
+  `QORRBBNNAAGMMS`),
   in a random order that is **identical for both players**.
 - Our extra constraint (Chess960 spirit): if both bishops are drawn they start on opposite colours.
   There is no "king between rooks" rule because there is no castling.
@@ -233,3 +233,6 @@ Reduced runs at depth 3: `docs/research/sim-results-2026-09-13.md`. The error ba
     adds nothing measurable" guideline it was reverted. The HUD picker builds its buttons from the legal moves, so it
     follows on its own. `anyNonKingNoGuard` and `anyNonKing` stay selectable lab readings; `?rules=2017` plays
     `anyNonKing`.
+
+**One beast per army (designer, 2026-10-04).** "There should never be 2 beasts in one game." `POOL` is now
+`QORRBBNNAAGMMS` (14 letters): an army draws 7 of them, so it holds at most one beast. Earlier pool runs (rounds up to 17, `pa-*`) drew from the 15-letter pool.

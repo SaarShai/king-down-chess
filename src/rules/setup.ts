@@ -4,7 +4,9 @@ import { RULES } from './rules';
 
 /** King Down Classic pool: 7 of these join the king on the back rank. */
 /** Draw pool for a random back rank: 7 of these 15 plus the king. One guard per army (designer, 2026-09-13). */
-export const POOL = 'QORRBBNNAAGMMSS';
+export const POOL = 'QORRBBNNAAGMMS'; // one beast at most (owner, 2026-10-04)
+/** The pool before 2026-10-04 (two beasts): recorded tournaments without a `pool` drew from it. */
+export const POOL_2BEASTS = 'QORRBBNNAAGMMSS';
 export const CLASSIC_CHESS = 'RNBQKBNR';
 
 export function shuffle<T>(a: T[], rng: () => number): T[] {
@@ -15,10 +17,10 @@ export function shuffle<T>(a: T[], rng: () => number): T[] {
   return a;
 }
 
-/** Random back rank: 7 pieces from POOL + king, shuffled; two bishops must sit on opposite colours (`Rules.bishopsOppositeColours`). */
-export function randomBackRank(rng: () => number = Math.random): string {
+/** Random back rank: 7 pieces from `pool` (default POOL) + king, shuffled; two bishops must sit on opposite colours (`Rules.bishopsOppositeColours`). */
+export function randomBackRank(rng: () => number = Math.random, pool: string = POOL): string {
   for (;;) {
-    const picks = shuffle(POOL.split(''), rng).slice(0, 7);
+    const picks = shuffle(pool.split(''), rng).slice(0, 7);
     const row = shuffle([...picks, 'K'], rng);
     const bishops = row.flatMap((p, i) => (p === 'B' ? [i] : []));
     if (RULES.bishopsOppositeColours && bishops.length === 2 && (bishops[0] + bishops[1]) % 2 === 0) continue;
