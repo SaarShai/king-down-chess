@@ -1,9 +1,10 @@
 {
-  "url": "http://127.0.0.1:5191/",
-  "checksPassed": 17,
+  "url": "http://127.0.0.1:5197/",
+  "checksPassed": 18,
   "checks": [
     "fixed handmade clay at 0.5 px, no rendering controls, armies facing one another",
     "32 independently animated clay figures load in the default game",
+    "kings with no power are the Spirit and Shadow figures; a new game with Frost Freeze rebuilds the White king",
     "every initial pawn-square centre selects its own pawn, not the back rank",
     "the clay knight retains its leap and returns to its rest pose",
     "real board picking and a completed pawn walk",

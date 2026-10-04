@@ -3,7 +3,7 @@
  * power moves the player must arm first. The engine decides what is legal; this module only says
  * how a person reaches it.
  */
-import { Color, KINGS, KingChoice, KingName, Move, PowerName, POWERS_BALANCED, PowerTag, Position, RULES, type Rules, USES_RULE, parseKing } from './rules/engine';
+import { Color, KINGS, KingChoice, KingName, Move, PowerName, POWERS_BALANCED, PowerTag, Position, RULES, type Rules, USES_RULE } from './rules/engine';
 
 export const POWER_NAME: Record<PowerName, string> = {
   Freeze: 'Freeze', IceWall: 'Ice Wall', Strike: 'Strike', Haste: 'Haste', Flight: 'Flight', Sacrifice: 'Sacrifice',
@@ -28,25 +28,32 @@ export function powerText(power: PowerName, r: Rules = RULES): string {
       if (r.strikeMode === 'capture') return `${who} takes an enemy a queen\u2019s move away without moving`;
       return `move ${who} as if it were a queen${r.strikeCaptures ? '' : ', to an empty square'}`;
     }
-    case 'Haste': return `move one piece twice in one turn (the second move is optional)${!r.hasteCaptures ? '; neither move captures' : r.hasteSecond === 'quiet' ? '; the second move cannot capture' : ''}`;
+    case 'Haste': return `move one piece twice in one turn (the second move is optional)${!r.hasteCaptures ? '; neither move captures' : r.hasteSecond === 'quiet' ? '; the second move cannot capture' : ''}`
+      + `${r.hasteNoCheck ? '; neither move may give check' : ''}${r.hasteApart ? '; the second move may not end next to an enemy piece' : ''}`
+      + `${r.hasteNoThreat ? '; the second move may not end where the piece could capture' : ''}${r.hasteNoForward ? '; the second move may not go forward' : ''}`;
     case 'Flight': return 'move any piece except the king to any empty square in your half of the board';
     case 'Sacrifice': return `turn one of your pawns into one of your pieces that was captured earlier${r.sacrificeBehind ? ', while you have fewer pieces than your opponent' : ''}`;
     case 'March': return r.marchUses === 0 ? 'any pawn may step two squares from any rank' : 'a pawn steps two squares from any rank';
     case 'Leap': return 'a rook, bishop or queen passes over your own pawns';
     case 'HolyLight': return `enemy pawns${r.holyLightKnights ? ' and knights' : ''} cannot take your king${r.holyLightAura ? ' or the pieces next to it' : ''}${r.holyLightTakesPawns ? '' : ', and it cannot take pawns'}${r.holyLightShelter ? `; your pieces ${r.holyLightShelterOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken` : ''}`;
-    case 'Mercy': return `your king steps 1\u20132 squares and jumps your pieces${r.mercyCaptures ? ' (it takes only next to itself)' : ', but takes only a guard'}${r.mercyAura ? `; your pieces ${r.mercyAuraOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken${r.mercyAuraPawns ? ' by pawns' : ''}` : ''}`;
+    case 'Mercy': return `your king steps 1\u20132 squares${r.mercyNoJump ? '' : ' and jumps your pieces'}${r.mercyCaptures ? ' (it takes only next to itself)' : r.mercyTakesPawns ? ', but takes only a pawn or a guard' : ', but takes only a guard'}${r.mercyAura ? `; your pieces ${r.mercyAuraOrtho ? 'beside, in front of or behind it' : 'next to it'} cannot be taken${r.mercyAuraPawns ? ' by pawns' : r.mercyAuraPawnsTake ? ' except by pawns' : ''}` : ''}`;
     case 'DeathTouch': {
-      const reach = r.deathTouchReach ? `an enemy next to it, or two squares away ${r.deathTouchReachOrtho ? 'straight forward, back or sideways' : 'in a straight line'} over an empty square,` : 'an adjacent enemy';
+      // The balance-lab trims narrow only the two-square touch: its lines, and pawns (`Pieces`).
+      const lines = r.deathTouchReachForwardBack ? (r.deathTouchReachNoBack ? 'straight forward' : 'straight forward or back')
+        : r.deathTouchReachOrtho ? (r.deathTouchReachNoBack ? 'straight forward or sideways' : 'straight forward, back or sideways')
+        : r.deathTouchReachNoBack ? 'in a straight line but not backward' : 'in a straight line';
+      const reach = r.deathTouchReach ? `an enemy next to it, or ${r.deathTouchReachPieces ? 'a piece (not a pawn) ' : ''}two squares away ${lines} over an empty square,` : 'an adjacent enemy';
       return r.deathTouchMoves
         ? `your king takes ${reach} without moving, or by moving onto it`
         : `your king takes ${reach} without moving \u2014 it can only take this way`;
     }
-    case 'Darkness': return r.darknessTakeAhead ? 'your pawns may also take straight ahead'
+    case 'Darkness': return (r.darknessTakeAhead ? 'your pawns may also take straight ahead'
       : r.darknessStepDiag ? 'your pawns may also step diagonally forward'
       : r.darknessKeep
       ? 'your pawns may also step diagonally and take straight ahead'
       : r.darknessMoves ? 'your pawns may also step diagonally, and take only straight ahead'
-      : 'your pawns step diagonally and take straight ahead, with no double step';
+      : 'your pawns step diagonally and take straight ahead, with no double step')
+      + (r.darknessShelter ? `; your pieces diagonally next to your king cannot be taken${r.darknessShelterPawnsTake ? ' except by pawns' : ''}` : '');
   }
 }
 
@@ -89,36 +96,17 @@ export function powerTitle(power: PowerName, r: Rules = RULES): string {
 }
 
 /**
- * Options for a power picker: "no power" then each king's two powers. They describe the rules a
- * game with powers is played under (the official readings), not the rules of the game in progress.
+ * Each king's two powers for the New game picker, with their counts and one-line rules. They describe
+ * the rules a game with powers is played under (the official readings), not the game in progress.
  */
-export function powerOptions(): { group: string; options: { value: string; label: string; title: string }[] }[] {
+export function powerOptions(): { king: KingName; group: string; options: { value: string; label: string; title: string }[] }[] {
   const r: Rules = { ...RULES, ...POWERS_BALANCED };
   return (Object.entries(KINGS) as [KingName, readonly PowerName[]][]).map(([king, powers]) => ({
+    king,
     group: `${king} king`,
     options: powers.map(p => ({ value: `${king}:${p}`, label: powerTitle(p, r), title: powerText(p, r) })),
   }));
 }
-
-/** Fill a `<select>` with "No power" and the twelve powers, keeping `value` selected. */
-export function fillPowerSelect(select: HTMLSelectElement, value: KingChoice | null): void {
-  select.innerHTML = '<option value="none">No power</option>';
-  for (const { group, options } of powerOptions()) {
-    const g = document.createElement('optgroup');
-    g.label = group;
-    for (const o of options) {
-      const opt = document.createElement('option');
-      opt.value = o.value;
-      opt.textContent = o.label;
-      opt.title = o.title;
-      g.appendChild(opt);
-    }
-    select.appendChild(g);
-  }
-  select.value = value ? `${value.king}:${value.power}` : 'none';
-}
-
-export const readPowerSelect = (select: HTMLSelectElement): KingChoice | null => parseKing(select.value);
 
 /** `?kings=` text for a game link: "frost:freeze,mud:march", "none" for a plain king. */
 export function kingsParam(kings: readonly [KingChoice | null, KingChoice | null]): string | null {

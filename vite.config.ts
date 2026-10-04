@@ -14,10 +14,13 @@ const walk = (dir: string): string[] => readdirSync(dir).flatMap(name => {
   return statSync(path).isDirectory() ? walk(path) : [path];
 });
 
+/** Code a player may never need: the clay look and the Supabase client (only for an account). */
+const onDemand = /\/src\/(render\/clay|account\/client)\.ts$/;
+
 /** Copies the published public files and writes dist/sw.js with a content version and its precache list. */
 function offlineBuild(): Plugin {
   let publicDir = '', outDir = '';
-  const clayOnly = new Set<string>();
+  const later = new Set<string>();
   return {
     name: 'king-down-offline',
     apply: 'build',
@@ -32,19 +35,19 @@ function offlineBuild(): Plugin {
 });` }];
     },
     generateBundle(_options, bundle) {
-      // Chunks reachable without the clay look are precached; clay's are cached when first used.
+      // Chunks reachable without the clay look or an account are precached; the others are cached when first used.
       const chunks = Object.values(bundle).filter(f => f.type === 'chunk');
       const byName = new Map(chunks.map(c => [c.fileName, c]));
       const painted = new Set<string>();
       const visit = (name: string) => {
         const c = byName.get(name);
-        if (!c || painted.has(name) || c.facadeModuleId?.replaceAll('\\', '/').endsWith('/src/render/clay.ts')) return;
+        if (!c || painted.has(name) || onDemand.test(c.facadeModuleId?.replaceAll('\\', '/') ?? '')) return;
         painted.add(name);
         for (const next of [...c.imports, ...c.dynamicImports]) visit(next);
       };
       for (const c of chunks) if (c.isEntry) visit(c.fileName);
-      clayOnly.clear();
-      for (const c of chunks) if (!painted.has(c.fileName)) clayOnly.add(c.fileName);
+      later.clear();
+      for (const c of chunks) if (!painted.has(c.fileName)) later.add(c.fileName);
     },
     writeBundle() {
       cpSync(publicDir, outDir, { recursive: true, filter: src => published(relative(publicDir, src).split(sep).join('/')) });
@@ -52,7 +55,7 @@ function offlineBuild(): Plugin {
       const template = readFileSync(join(publicDir, 'sw.js'), 'utf8');
       const hash = createHash('sha256').update(template); // a change to the worker itself is a new version too
       for (const f of files) hash.update(f).update(readFileSync(join(outDir, f)));
-      const precache = ['./', ...files.filter(f => f !== 'index.html' && !clayOnly.has(f) && !/^(prototype|models)\//.test(f) && !f.endsWith('.map'))];
+      const precache = ['./', ...files.filter(f => f !== 'index.html' && !later.has(f) && !/^(prototype|models)\//.test(f) && !f.endsWith('.map'))];
       const sw = template
         .replace("const VERSION = 'dev';", `const VERSION = '${hash.digest('hex').slice(0, 12)}';`)
         .replace('const PRECACHE = [];', `const PRECACHE = ${JSON.stringify(precache)};`);

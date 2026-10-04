@@ -3,6 +3,7 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
+import { setUpGame, startGame } from './new-game-ui.mjs';
 
 const base = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
 const out = process.env.PLAYABLE_OUT || 'docs/painted-game';
@@ -29,7 +30,7 @@ try {
     };
     await page.click('#rules-btn'); await page.click('#learn');
     // This used to abandon the lesson and save its tiny board over the match.
-    await page.click('#new-game-btn'); await page.selectOption('#black', 'ai'); await page.keyboard.press('Escape');
+    await setUpGame(page, { mode: 'computer', level: 'strong' }); await page.keyboard.press('Escape');
     assert.equal(await saved(), before, 'choosing a future opponent in a lesson preserves the saved match');
     assert.match(await page.textContent('#turn'), /Lesson 1 of 6/);
     if (look === 'painted') {
@@ -53,7 +54,8 @@ try {
     assert.equal(await saved(), before, 'return restores moves, rules, players and link side');
     assert.deepEqual(await board(), position, 'the original board is restored');
     assert.equal(await page.isVisible('#return-game'), false);
-    assert.equal(await page.inputValue('#black'), 'human', 'the original players are restored');
+    const back = JSON.parse(await saved());
+    assert.deepEqual([back.white, back.black], ['human', 'human'], 'the original players are restored');
     assert.equal(await page.textContent('#turn'), 'White to move');
     // Returning midway through a lesson works too; choosing an army explicitly ends the lessons.
     await page.click('#rules-btn'); await page.click('#learn'); await page.click('#return-game');
@@ -67,7 +69,7 @@ try {
       assert.deepEqual(await board(), sentBoard);
     }
     await page.click('#rules-btn'); await page.click('#learn');
-    await page.click('#new-game-btn'); await page.click('#new-classic');
+    await startGame(page, { army: 'classic' });
     assert.equal(await page.isVisible('#return-game'), false);
     const fresh = JSON.parse(await saved());
     assert.equal(fresh.back, 'RNBQKBNR');

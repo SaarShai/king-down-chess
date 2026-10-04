@@ -2,6 +2,7 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { startGame } from './new-game-ui.mjs';
 
 const url = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
 const out = process.env.PLAYABLE_OUT || 'docs/cursor-recovery/2026-09-24-0213b442/validation';
@@ -23,7 +24,7 @@ await page.addInitScript(() => {
     postMessage(message, ...rest) { window.searchRequests.push(message.opts); return super.postMessage(message, ...rest); }
   };
 });
-/** New game and Settings controls sit in dialogs: open the one holding `sel`, act, close it if still open. */
+/** Settings controls sit in a dialog: open it, act, close it if still open. New game: tools/new-game-ui.mjs. */
 async function ui(action, sel, ...args) {
   const id = await page.evaluate(sel => document.querySelector(sel).closest('dialog')?.id, sel);
   if (id) await page.click(id === 'new-game' ? '#new-game-btn' : '#settings-btn');
@@ -56,9 +57,18 @@ async function drag(from, to) {
 }
 try {
   await page.goto(url); await ready();
-  assert.equal(await page.locator('#skill').inputValue(), 'club');
+  const savedSkill = () => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).skill);
+  /** The level New game shows when it opens. */
+  const dialogLevel = async () => {
+    await page.click('#new-game-btn');
+    const level = await page.evaluate(() => document.querySelector('#new-game input[name="level"]:checked')?.value);
+    await page.keyboard.press('Escape');
+    return level;
+  };
+  assert.equal(await dialogLevel(), 'club', 'New game offers the Club computer first');
+  assert.equal(await savedSkill(), 'club');
   assert.equal(await page.locator('#clock,#time-w,#time-b,#try-these').count(), 0);
-  await ui('selectOption', '#black', 'human'); await ui('click', '#new-classic'); await ready();
+  await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   await page.click('#hint');
   await page.waitForFunction(() => window.view.highlights.hint.length > 0 && !document.querySelector('#hint').disabled);
   assert.equal(await page.locator('#moves').innerText(), '');
@@ -73,17 +83,18 @@ try {
     localStorage.setItem('kingdown.save', JSON.stringify(s));
   });
   await page.reload(); await ready();
-  assert.equal(await page.locator('#skill').inputValue(), 'strong');
+  assert.equal(await savedSkill(), 'strong', 'an old save keeps the Strong computer');
   assert.equal(await page.locator('#sound').isChecked(), false);
   await click(52); await click(36); await played(2);
   assert.equal(await page.evaluate(() => window.audioContexts), 0, 'muted reload must not create an audio context');
-  await ui('selectOption', '#skill', 'casual'); await ui('check', '#queen');
+  await startGame(page, { mode: 'computer', level: 'casual', army: 'classic' }); await ready(); await ui('check', '#queen');
   await page.reload(); await ready();
-  assert.equal(await page.locator('#skill').inputValue(), 'casual');
+  assert.equal(await savedSkill(), 'casual');
+  assert.equal(await dialogLevel(), 'casual', 'New game remembers the level');
   assert.equal(await page.locator('#queen').isChecked(), true);
-  checks.push('old saves retain Strong; skill, auto-queen and effective mute survive reload');
+  checks.push('old saves retain Strong; the computer level, auto-queen and effective mute survive reload');
 
-  await page.click('#hint'); await ui('click', '#new-classic'); await ready();
+  await page.click('#hint'); await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   await page.waitForTimeout(650);
   assert.deepEqual(await page.evaluate(() => window.view.highlights.hint), []);
   assert.equal(await page.locator('#moves').innerText(), '');
@@ -97,9 +108,11 @@ try {
   await seed('7k/4p3/8/8/8/8/P7/K7 b - - 0 1', { white: 'ai', black: 'human' });
   await drag(52, 36);
   await page.waitForFunction(() => document.querySelector('#moves').textContent.includes('e7-e5'));
-  await ui('selectOption', '#white', 'human');
+  await startGame(page, { mode: 'two', army: 'classic' }); await ready();
+  await page.waitForTimeout(700); // a stale computer reply would land here
+  assert.equal(await page.locator('#moves').innerText(), '');
   assert.ok(await page.evaluate(() => window.view.controls.enabled));
-  checks.push('dragging works from the flipped Black view and side changes cancel pending AI');
+  checks.push('dragging works from the flipped Black view and a new game cancels the pending computer move');
 
   const promotion = '7k/P7/8/8/8/8/8/K7 w - - 0 1';
   await seed(promotion); await click(48); await click(56);
@@ -120,7 +133,7 @@ try {
   await page.locator('#promo button').filter({ hasText: 'A archer' }).click(); await played(1);
   await page.goto(url); await ready();
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules.promotionSet), 'anyNonKing');
-  await ui('click', '#new-classic'); await ready();
+  await startGame(page, { army: 'classic' }); await ready();
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules.promotionSet), 'standard');
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules.ogreMode), 'push');
   checks.push('promotion dialog cancels cleanly; underpromotion works; auto-queen respects promotion sets; old games retain their rules and new games use current defaults');
@@ -150,7 +163,7 @@ try {
   assert.match(await page.locator('#moment').innerText(), /archer shot/);
   checks.push('move explanations reconstruct from saved history and return after undo/replay');
 
-  await ui('selectOption', '#setup-example', 'COAQNRBK'); await ready();
+  await startGame(page, { army: 'COAQNRBK' }); await ready();
   assert.match(await page.locator('#moment').innerText(), /Catapult lab/);
   assert.equal(await page.locator('#setup').innerText(), 'COAQNRBK');
   await page.click('#rules-btn');
@@ -159,7 +172,7 @@ try {
   await seed('7k/8/8/8/8/8/7r/7K w - - 0 1');
   assert.ok(await page.evaluate(() => document.querySelector('#board').classList.contains('king-in-check')
     && window.view.highlights.check === 7 && window.view.markers.children.some(m => m.material.color.getHex() === 0xe02828)));
-  checks.push('lab examples reuse the existing selector; current pieces enter the guide; check has a visible king ring');
+  checks.push('lab examples are in the New game army list; current pieces enter the guide; check has a visible king ring');
 
   await seed('7k/8/4p3/8/4p3/8/4C3/K7 w - - 0 1');
   await click(12); await click(44); await played(1);
@@ -184,7 +197,7 @@ try {
   assert.ok(await page.evaluate(() => window.view.pieces.has(27) && window.view.pieces.has(44) && !window.view.pieces.has(43)));
   checks.push('Reaver capture-then-step uses the real selection path and cancels cleanly on undo');
 
-  await ui('click', '#new-classic'); await ready();
+  await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(250);
   const a = await point(12), b = await point(28);
   const boardBounds = await page.locator('#board').boundingBox();

@@ -13,7 +13,8 @@ import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { mulberry32 } from './sim/rng';
 import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
-import { POWER_NAME, POWER_TAG, fillPowerSelect, kingsParam, offered, powerText, readPowerSelect, usesAllowed, usesLeft } from './powers-ui';
+import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, usesAllowed, usesLeft } from './powers-ui';
+import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -78,6 +79,10 @@ marksLayer.id = 'board-marks';
 marksLayer.setAttribute('aria-hidden', 'true');
 $('board').appendChild(marksLayer);
 const sides: [Side, Side] = ['human', 'ai'];
+/** The computer's level in this game (New game sets it). */
+let skill: SkillName = 'club';
+/** The next game's setup: the last one started from New game (remembered across visits). */
+let setup: Setup = defaultSetup();
 let selected: number | null = null;
 let pending: number[] = []; // beast chain squares clicked so far
 let hovered: number | null = null;
@@ -577,10 +582,19 @@ async function commit(m: Move): Promise<void> {
 /** A lesson move: the goal ends the lesson; any other move is taken back with the task again. */
 function lessonResult(pre: Position, m: Move): void {
   const l = LESSONS[lesson!];
-  if (l.goal(pre, m)) { lessonDone = true; said = `Well done. ${l.done}`; }
+  if (l.goal(pre, m)) { lessonDone = true; said = `Well done. ${l.done}`; noteLesson(l.name); }
   else { game.undo(); view.sync(game.pos); said = `Not quite. ${l.task}`; }
   $('moment').textContent = said;
   refresh();
+}
+
+/** Lessons done, by name, in localStorage `kingdown.lessons` (the account keeps a copy; nothing shows it yet). */
+function noteLesson(name: string): void {
+  try {
+    const done: string[] = JSON.parse(localStorage.getItem('kingdown.lessons') ?? '{}').done ?? [];
+    if (!done.includes(name)) localStorage.setItem('kingdown.lessons', JSON.stringify({ done: [...done, name] }));
+  } catch { /* private mode */ }
+  account?.changed();
 }
 
 /** A lesson: its position, both sides moved from this device, and nothing saved (the autosave keeps the real game). */
@@ -606,14 +620,14 @@ function startLesson(i: number): void {
 $('learn').onclick = () => startLesson(0);
 $('return-game').onclick = () => {
   if (!lessonReturn) return;
+  const s = cloudGame ? readSave() : null;
+  if (s) return openSaved(s);
   reset();
   ({ game, resigned, linkSide } = lessonReturn);
   [sides[0], sides[1]] = lessonReturn.sides;
   setRules(lessonReturn.rules);
   lessonReturn = null;
   lesson = null; lessonDone = false;
-  $<HTMLSelectElement>('white').value = sides[0];
-  $<HTMLSelectElement>('black').value = sides[1];
   restoreMoments();
   view.sync(game.pos);
   orient();
@@ -623,20 +637,15 @@ $('return-game').onclick = () => {
 };
 $('next-lesson').onclick = () => {
   if (lesson != null && lesson + 1 < LESSONS.length) startLesson(lesson + 1);
-  else $<HTMLDialogElement>('new-game').showModal();
+  else openNewGame();
 };
-
-type Skill = SkillName;
-const SKILL_NAMES: readonly Skill[] = ['beginner', 'casual', 'club', 'strong'];
-const isSkill = (v: unknown): v is Skill => typeof v === 'string' && (SKILL_NAMES as readonly string[]).includes(v);
 
 async function maybeAi(): Promise<void> {
   if (busy || finished() || sides[game.pos.turn] !== 'ai') return;
   busy = thinking = true;
   refresh();
   const g = gen;
-  const skill = $<HTMLSelectElement>('skill').value;
-  const plan = skillPlan(isSkill(skill) ? skill : 'club', +$<HTMLInputElement>('think').value, game.history.length);
+  const plan = skillPlan(skill, +$<HTMLInputElement>('think').value, game.history.length);
   const res = await engine.think(game.pos, { timeMs: plan.timeMs, temperature: plan.temperature, history: game.history.map(h => positionKey(h.pos)) });
   if (g !== gen) return;
   thinking = false;
@@ -898,23 +907,28 @@ const orient = (): void => {
   view.flip(flipped);
 };
 
-function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null): void {
+/**
+ * A game from `setup` (New game's last Start), or a rematch of this one with the sides swapped.
+ * `players` overrides who plays (Ogre practice is for two people).
+ */
+function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null, players?: [Side, Side]): void {
   $<HTMLDialogElement>('new-game').close(); // every army choice in the dialog starts here
   reset();
   if (!rematch) {
-    const k: Rules['kings'] = [readPowerSelect($('power-white')), readPowerSelect($('power-black'))];
+    const k = kingsOf(setup);
     setRules({ ...withPowers(k), ...preset, kings: k });
+    skill = setup.level;
   }
   resigned = null;
   linkSide = null;
   lesson = null; lessonDone = false;
   lessonReturn = null;
+  cloudGame = false;
   daily = dailyDate;
   seenMoments.clear();
   said = '';
   $('moment').textContent = '';
-  sides[0] = $<HTMLSelectElement>('white').value as Side;
-  sides[1] = $<HTMLSelectElement>('black').value as Side;
+  [sides[0], sides[1]] = players ?? (rematch ? [sides[1], sides[0]] : playersOf(setup));
   if (fen) game.load(fromFen(fen)); else game.newGame(backRank);
   view.sync(game.pos);
   orient();
@@ -1028,8 +1042,6 @@ $<HTMLDialogElement>('over').onclose = () => {
   const v = $<HTMLDialogElement>('over').returnValue;
   if (v === 'new') newGame(randomBackRank());
   else if (v === 'rematch') {
-    const [w, b] = [$<HTMLSelectElement>('white'), $<HTMLSelectElement>('black')];
-    [w.value, b.value] = [b.value, w.value];
     newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true);
   }
 };
@@ -1094,8 +1106,13 @@ function copyFallback(text: string): void {
 }
 
 /* ---- autosave ---- */
-interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: Skill; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean }
+/** account/sync.ts splits these fields into settings and the saved game: name a new one there too. */
+interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean }
 const SAVE_KEY = 'kingdown.save';
+/** Settings → Account and the cloud save, loaded after the board is drawn (null until then, or offline). */
+let account: typeof import('./account/account') | null = null;
+/** A newer saved game came from the account during a lesson: Return to game opens it. */
+let cloudGame = false;
 
 function save(): void {
   if (lesson != null) return; // a lesson never replaces the saved game
@@ -1106,7 +1123,7 @@ function save(): void {
       moves: game.history.map(h => h.lan),
       white: sides[0], black: sides[1],
       think: +$<HTMLInputElement>('think').value,
-      skill: $<HTMLSelectElement>('skill').value as Skill,
+      skill,
       coords: coords.checked,
       sound: $<HTMLInputElement>('sound').checked,
       queen: $<HTMLInputElement>('queen').checked,
@@ -1120,6 +1137,70 @@ function save(): void {
       rules: { ...GAME_RULES },
     } satisfies Save));
   } catch { /* private mode or a full quota: play on without a save */ }
+  account?.changed();
+}
+
+/** A save's settings onto the controls (at start-up, or newer ones from the account). */
+function applySettings(s: Save): void {
+  if (s.think) $<HTMLInputElement>('think').value = String(s.think);
+  if (typeof s.sound === 'boolean') $<HTMLInputElement>('sound').checked = s.sound;
+  if (typeof s.queen === 'boolean') $<HTMLInputElement>('queen').checked = s.queen;
+  if (typeof s.threats === 'boolean') $<HTMLInputElement>('threats').checked = s.threats;
+  if (s.pace === 'normal' || s.pace === 'fast' || s.pace === 'off') pace.value = s.pace;
+  // Old saves with no skill field stay Strong so a resumed game does not suddenly get easier.
+  skill = isLevel(s.skill) ? s.skill : 'strong';
+  if (typeof s.coords === 'boolean') coords.checked = s.coords;
+}
+
+/** A save's rules, army and moves onto `game`; a save it cannot read starts a new game. */
+function replay(s: Save): void {
+  try {
+    if (s.rules) setRules(s.rules); // before playLan: the moves must replay under their own rules
+    if (s.back) game.newGame(s.back); else game.load(fromFen(s.fen));
+    game.playLan(s.moves);
+    resigned = s.resigned ?? null;
+  } catch { game.newGame(); } // a save from an older format: start fresh
+}
+
+/** Sections the account had newer than this device; account/sync.ts already wrote them to the save. */
+function fromAccount(down: string[]): void {
+  const s = readSave();
+  if (!s) return;
+  if (down.includes('settings')) {
+    applySettings(s);
+    setSound($<HTMLInputElement>('sound').checked); view.setPace(pace.value as Pace); view.setCoords(coords.checked);
+    refresh();
+  }
+  if (down.includes('saved_game')) { if (lesson != null) cloudGame = true; else if (!fen) openSaved(s); }
+}
+
+function labelContinue(): void {
+  if (!game.history.length) return;
+  $('title-continue').querySelector('.label')!.textContent = `Continue · move ${nextMoveNumber(game.history.map(h => h.pos.turn), game.pos.turn)}`;
+}
+
+/** The account's saved game replaces the one on the board (but not a position opened by `?fen=`). */
+function openSaved(s: Save): void {
+  reset();
+  $<HTMLDialogElement>('over').close();
+  cloudGame = false;
+  lesson = null; lessonDone = false; lessonReturn = null;
+  if (isSide(s.white)) sides[0] = s.white;
+  if (isSide(s.black)) sides[1] = s.black;
+  linkSide = s.link === 0 || s.link === 1 ? s.link : null;
+  daily = typeof s.daily === 'string' ? s.daily : null;
+  resigned = null;
+  replay(s);
+  restoreMoments();
+  said = 'Loaded your newer saved game from your account.';
+  $('moment').textContent = said;
+  view.sync(game.pos);
+  orient();
+  fillPieceGuide();
+  refresh();
+  // Over the title or New game the computer waits, as at start-up; the title offers this game.
+  if ($<HTMLDialogElement>('title-screen').open) { $('title-continue').hidden = !game.history.length; labelContinue(); }
+  else if (!$<HTMLDialogElement>('new-game').open) void maybeAi();
 }
 
 function readSave(): Save | null {
@@ -1130,59 +1211,56 @@ function readSave(): Save | null {
   } catch { return null; }
 }
 
-$('new-game-btn').onclick = () => $<HTMLDialogElement>('new-game').showModal();
-$('settings-btn').onclick = () => $<HTMLDialogElement>('settings').showModal();
-$('rules-btn').onclick = () => {
-  fillPieceGuide();
-  $<HTMLDialogElement>('rules').showModal();
-};
-$('new-random').onclick = () => newGame(randomBackRank());
+/* ---- New game ---- */
+const SETUP_KEY = 'kingdown.new-game';
+const loadSetup = (): Setup | null => { try { return parseSetup(JSON.parse(localStorage.getItem(SETUP_KEY) ?? 'null')); } catch { return null; } };
 /** Today's army: the same random army for every player on a given local date. */
 const today = (): string => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-$('new-daily').onclick = () => { const d = today(); newGame(randomBackRank(mulberry32(+d.replace(/-/g, ''))), null, false, d); };
-$('share-result').onclick = () => {
-  const n = movesPlayed(), people = sides.filter(s => s === 'human').length;
-  const me = sides.indexOf('human') as Color, winner = resigned != null ? 1 - resigned : game.status === 'checkmate' ? 1 - game.pos.turn : -1;
-  const outcome = people !== 1 ? result().toLowerCase() : winner < 0 ? 'drew' : winner === me ? 'won' : 'lost';
-  const vs = people === 1 ? ` against the ${$<HTMLSelectElement>('skill').value} computer` : '';
-  const text = `King Down daily ${daily} (${game.backRank}): ${outcome} in ${n} move${n === 1 ? '' : 's'}${vs}. ${location.origin}${location.pathname}`;
-  navigator.clipboard?.writeText(text).catch(() => copyFallback(text)) ?? copyFallback(text);
-  $('share-result').textContent = 'Result copied';
-};
-$('new-classic').onclick = () => newGame(CLASSIC_CHESS);
-$('new-setup').onclick = () => {
-  const v = prompt(`Back rank (8 letters, one K; current draw pool ${POOL}):`, game.backRank)?.toUpperCase().trim();
-  if (!v) return;
-  try { newGame(v); } catch (e) { alert((e as Error).message); }
-};
+const OGRE_PRACTICE = '7k/8/6o1/8/2OP4/8/8/K7 w - - 0 1';
 for (const row of TRY_THESE) {
   const option = document.createElement('option');
   option.value = row.code;
   option.textContent = `${row.code}${row.code.includes('C') ? ' — Catapult lab' : ''}`;
   option.title = row.watch;
-  $('setup-example').appendChild(option);
+  $('army-examples').appendChild(option);
 }
-$('setup-example').onchange = e => {
-  const select = e.target as HTMLSelectElement;
-  if (!select.value) return;
-  if (select.value === 'ogre') {
-    $<HTMLSelectElement>('white').value = $<HTMLSelectElement>('black').value = 'human';
-    newGame(undefined, '7k/8/6o1/8/2OP4/8/8/K7 w - - 0 1');
-  } else {
-    newGame(select.value);
-    const example = TRY_THESE.find(row => row.code === select.value);
-    if (example) { said = example.watch; $('moment').textContent = said; }
+/** Start game: the dialog's setup becomes the next game's, and its army starts. */
+const dialog = newGameDialog(s => {
+  let back: string | undefined;
+  if (s.army === 'custom') {
+    back = prompt(`Back rank (8 letters, one K; current draw pool ${POOL}):`, game.backRank)?.toUpperCase().trim();
+    if (!back) return; // the dialog stays open
   }
-  select.value = '';
+  setup = s;
+  try { localStorage.setItem(SETUP_KEY, JSON.stringify(s)); } catch { /* private mode: the choices last this visit */ }
+  if (s.army === 'daily') { const d = today(); newGame(randomBackRank(mulberry32(+d.replace(/-/g, ''))), null, false, d); }
+  else if (s.army === 'classic') newGame(CLASSIC_CHESS);
+  else if (s.army === 'ogre') newGame(undefined, OGRE_PRACTICE, false, null, ['human', 'human']);
+  else if (back) { try { newGame(back); } catch (e) { alert((e as Error).message); } }
+  else if (s.army !== 'random') {
+    newGame(s.army);
+    const example = TRY_THESE.find(row => row.code === s.army);
+    if (example) { said = example.watch; $('moment').textContent = said; }
+  } else newGame(randomBackRank());
+});
+const openNewGame = (): void => dialog.open(setup);
+
+$('new-game-btn').onclick = openNewGame;
+$('settings-btn').onclick = () => $<HTMLDialogElement>('settings').showModal();
+$('rules-btn').onclick = () => {
+  fillPieceGuide();
+  $<HTMLDialogElement>('rules').showModal();
 };
-$('white').onchange = $('black').onchange = () => {
-  if (lesson != null) return; // configure the next game without turning the lesson into the saved match
-  reset(); view.sync(game.pos);
-  sides[0] = $<HTMLSelectElement>('white').value as Side;
-  sides[1] = $<HTMLSelectElement>('black').value as Side;
-  orient(); refresh(); save(); void maybeAi();
+$('share-result').onclick = () => {
+  const n = movesPlayed(), people = sides.filter(s => s === 'human').length;
+  const me = sides.indexOf('human') as Color, winner = resigned != null ? 1 - resigned : game.status === 'checkmate' ? 1 - game.pos.turn : -1;
+  const outcome = people !== 1 ? result().toLowerCase() : winner < 0 ? 'drew' : winner === me ? 'won' : 'lost';
+  const vs = people === 1 ? ` against the ${skill} computer` : '';
+  const text = `King Down daily ${daily} (${game.backRank}): ${outcome} in ${n} move${n === 1 ? '' : 's'}${vs}. ${location.origin}${location.pathname}`;
+  navigator.clipboard?.writeText(text).catch(() => copyFallback(text)) ?? copyFallback(text);
+  $('share-result').textContent = 'Result copied';
 };
-$('think').onchange = $('skill').onchange = save;
+$('think').onchange = save;
 $('sound').onchange = () => { setSound($<HTMLInputElement>('sound').checked); save(); };
 $('queen').onchange = save;
 $('threats').onchange = () => { drawMarks(); save(); };
@@ -1248,20 +1326,16 @@ const linkMoves = params.get('moves');
 const link = linkMoves != null && (params.has('army') || params.has('fen'));
 /** A plain `?fen=` wins over the autosave; restore player settings before loading the game. */
 const saved = params.has('fen') && !link ? null : readSave();
+const isSide = (v: unknown): v is Side => v === 'human' || v === 'ai';
 if (saved) {
-  if (saved.white) $<HTMLSelectElement>('white').value = saved.white;
-  if (saved.black) $<HTMLSelectElement>('black').value = saved.black;
-  if (saved.think) $<HTMLInputElement>('think').value = String(saved.think);
-  if (typeof saved.sound === 'boolean') $<HTMLInputElement>('sound').checked = saved.sound;
-  if (typeof saved.queen === 'boolean') $<HTMLInputElement>('queen').checked = saved.queen;
-  if (typeof saved.threats === 'boolean') $<HTMLInputElement>('threats').checked = saved.threats;
-  if (saved.pace === 'normal' || saved.pace === 'fast' || saved.pace === 'off') pace.value = saved.pace;
-  // Old saves with no skill field stay Strong so a resumed game does not suddenly get easier.
-  $<HTMLSelectElement>('skill').value = isSkill(saved.skill) ? saved.skill : 'strong';
-  if (typeof saved.coords === 'boolean') coords.checked = saved.coords;
-  sides[0] = $<HTMLSelectElement>('white').value as Side;
-  sides[1] = $<HTMLSelectElement>('black').value as Side;
+  if (isSide(saved.white)) sides[0] = saved.white;
+  if (isSide(saved.black)) sides[1] = saved.black;
+  applySettings(saved);
 }
+setup = loadSetup() ?? (saved ? setupOfGame(sides, saved.rules?.kings ?? [null, null], skill) : defaultSetup());
+/** `?players=human,ai` (White, then Black): who plays the game this page opens. For the lab and the browser checks. */
+const urlPlayers = params.get('players')?.split(',');
+if (urlPlayers?.length === 2 && urlPlayers.every(isSide)) [sides[0], sides[1]] = urlPlayers;
 
 /*
  * Title screen: once per browser tab, never over a game link or a `?fen=`/`?army=` URL. `?title=0`
@@ -1313,7 +1387,6 @@ if (openLink) {
     if (army) game.newGame(army); else game.load(fromFen(params.get('fen')!));
     if (game.playLan(lans) < lans.length) alert('Part of this game link could not be read; the game stops before that move.');
   } catch (e) { alert(`This game link could not be read: ${(e as Error).message}`); game.newGame(); }
-  $<HTMLSelectElement>('white').value = $<HTMLSelectElement>('black').value = 'human';
   sides[0] = sides[1] = 'human';
   linkSide = game.pos.turn;
 }
@@ -1328,38 +1401,30 @@ else if (saved) {
     // The URL names a rule set and the autosave played a different one. Replaying the moves would
     // reinterpret them, so keep the URL's fresh game and let the next save overwrite the old one.
     console.warn('kingdown: the autosave played different rules than the URL asks for; starting fresh');
-  } else try {
-    if (savedRules) setRules(savedRules); // before playLan: the moves must replay under their own rules
-    if (saved.back) game.newGame(saved.back); else game.load(fromFen(saved.fen));
-    game.playLan(saved.moves);
-    resigned = saved.resigned ?? null;
-  } catch { game.newGame(); } // a save from an older format: start fresh
+  } else replay(saved);
 }
 // The title's Continue names the move the restored game is on (set before the first paint; a
 // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
-if (showTitle && game.history.length) {
-  $('title-continue').querySelector('.label')!.textContent = `Continue · move ${nextMoveNumber(game.history.map(h => h.pos.turn), game.pos.turn)}`;
-}
+if (showTitle) labelContinue();
 orient();
 view.sync(game.pos);
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 fillPieceGuide(); // after every setRules path (URL preset / save restore)
-fillPowerSelect($('power-white'), GAME_RULES.kings[0]); // the next game starts with this game's powers
-fillPowerSelect($('power-black'), GAME_RULES.kings[1]);
 setSound($<HTMLInputElement>('sound').checked);
 restoreMoments();
 refresh();
 if (!fen) save(); // pin the random back rank so a reload keeps this game (and keep an opened link's game)
+void import('./account/account').then(m => { account = m; m.changed(); m.startAccount(fromAccount); })
+  .catch(() => { /* offline on a first visit: play on without an account */ });
 await titleClosed; // the computer waits for the player, and no dialog opens over the title
 if (titleChoice === 'learn') startLesson(0);
 else {
   if (titleChoice === 'play') {
     // The saved game's computer waits behind the dialog: it may move only once New game is closed
     // (a started game runs its own computer; maybeAi() does nothing while one is already thinking).
-    const dlg = $<HTMLDialogElement>('new-game');
-    dlg.addEventListener('close', () => void maybeAi(), { once: true });
-    dlg.showModal();
+    $('new-game').addEventListener('close', () => void maybeAi(), { once: true });
+    openNewGame();
   }
   else {
     if (finished()) showOver();

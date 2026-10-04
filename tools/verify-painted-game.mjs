@@ -3,6 +3,7 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
+import { startGame } from './new-game-ui.mjs';
 const url = new URL(process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/');
 url.searchParams.set('look', 'painted'); // also the default; the phone check below uses the bare URL
 const out = 'docs/painted-game';
@@ -13,12 +14,8 @@ const watch = page => {
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 };
-const setSides = (page, white, black) => page.evaluate(([w, b]) => {
-  const set = (id, v) => { const s = document.getElementById(id); s.value = v; s.dispatchEvent(new Event('change')); };
-  document.getElementById('think').value = '200';
-  document.getElementById('skill').value = 'beginner';
-  set('white', w); set('black', b);
-}, [white, black]);
+/** The saved game's players, [White, Black]. */
+const players = page => page.evaluate(() => { const s = JSON.parse(localStorage.getItem('kingdown.save')); return [s.white, s.black]; });
 const plies = page => page.$$eval('#moves li', li => li.map(l => l.textContent.trim().split(/\s+/).slice(1)).flat().length);
 try {
   // 1. Computer vs computer: every capture animation must finish and hand the move on.
@@ -29,8 +26,13 @@ try {
   await page.evaluate(() => localStorage.removeItem('kingdown.save'));
   await page.goto(url.href);
   await page.waitForFunction(() => document.getElementById('board').classList.contains('painted') && document.querySelector('#board canvas'));
-  await page.click('#new-game-btn'); await page.click('#new-random');
-  await setSides(page, 'ai', 'ai');
+  // A beginner game with 200 ms to think, reopened with the computer on both sides (`?players=`).
+  await startGame(page, { mode: 'computer', level: 'beginner' });
+  await page.evaluate(() => { const t = document.getElementById('think'); t.value = '200'; t.dispatchEvent(new Event('change')); });
+  const both = new URL(url); both.searchParams.set('players', 'ai,ai');
+  await page.goto(both.href);
+  await page.waitForFunction(() => document.querySelector('#board canvas'));
+  assert.deepEqual(await players(page), ['ai', 'ai']);
   let last = -1, stalls = 0;
   for (let i = 0; i < 90; i++) {
     await page.waitForTimeout(1500);
@@ -63,8 +65,7 @@ try {
   console.log('ok a finished game: the result window opens, closes and hands the panel back');
 
   // 1b. Human mouse input: drag a pawn two squares, then click-click a knight or any legal move.
-  await setSides(page, 'human', 'ai');
-  await page.click('#new-game-btn'); await page.click('#new-random');
+  await startGame(page, { mode: 'computer', side: 'white', level: 'beginner' });
   await page.waitForTimeout(300);
   const at = sq => page.evaluate(sq => window.view.screenOf(sq), sq);
   const e2 = await at(12), e4 = await at(28);
@@ -78,8 +79,8 @@ try {
   console.log('ok human drag and click-click moves');
 
   // 2. Human as Black: the board turns round, and Undo during the computer's animation is clean.
-  await setSides(page, 'ai', 'human');
-  await page.click('#new-game-btn'); await page.click('#new-random');
+  await startGame(page, { mode: 'computer', side: 'black', level: 'beginner' });
+  assert.deepEqual(await players(page), ['ai', 'human']);
   await page.waitForFunction(() => document.querySelectorAll('#moves li').length > 0, null, { timeout: 15000 });
   const a8 = await page.evaluate(() => window.view.screenOf(56)), a1 = await page.evaluate(() => window.view.screenOf(0));
   assert.ok(a8.y > a1.y, 'Black at the bottom when the human plays Black');
@@ -143,7 +144,7 @@ try {
     if (tapAfter != null) { await page.waitForTimeout(tapAfter); const p = await at(56); await page.mouse.click(p.x, p.y); }
     const r = await timing;
     await page.waitForFunction(([from, to]) => window.view.pos.board[from] === 0 && window.view.pos.board[to] > 0, [from, to], { timeout: 5000 }).catch(async e => {
-      console.log(r, await page.evaluate(() => ({ moves: document.getElementById('moves').textContent, status: document.getElementById('status').textContent, dialogs: [...document.querySelectorAll('dialog[open]')].map(d => d.id + ':' + d.textContent.slice(0, 120)), w: document.getElementById('white').value, b: document.getElementById('black').value, board: [...window.view.pos.board].map((v, i) => v ? i : -1).filter(i => i >= 0) })));
+      console.log(r, await page.evaluate(() => ({ moves: document.getElementById('moves').textContent, status: document.getElementById('status').textContent, dialogs: [...document.querySelectorAll('dialog[open]')].map(d => d.id + ':' + d.textContent.slice(0, 120)), save: localStorage.getItem('kingdown.save'), board: [...window.view.pos.board].map((v, i) => v ? i : -1).filter(i => i >= 0) })));
       throw e;
     });
     return r;
@@ -163,10 +164,9 @@ try {
   // 2d. Review: a move in the list shows the board after it, ← steps back, → replays the next move,
   // the board is read-only meanwhile, and a tap on it returns to the game.
   {
-    const u = new URL(url); u.searchParams.set('fen', '7k/8/8/3p4/4P3/8/8/K7 w - - 0 1');
+    const u = new URL(url); u.searchParams.set('fen', '7k/8/8/3p4/4P3/8/8/K7 w - - 0 1'); u.searchParams.set('players', 'human,human');
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[35] > 0);
-    await page.evaluate(() => { const s = document.getElementById('black'); s.value = 'human'; s.dispatchEvent(new Event('change')); });
     for (const sq of [28, 35, 63, 62]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); }
     await page.waitForFunction(() => /Kh8-g8/.test(document.getElementById('moves').textContent));
     const board = () => page.evaluate(() => [28, 35, 62, 63].map(sq => window.view.pos.board[sq] > 0 ? 1 : 0).join(''));
@@ -192,10 +192,9 @@ try {
   // 2e. Key moments: White's rook leaves the back rank, Black mates on e1. The result dialog names
   // the blunder, and its button opens the review before it with the better move marked.
   {
-    const u = new URL(url); u.searchParams.set('fen', '4r1k1/8/8/8/8/8/5PPP/R5K1 w - - 0 1');
+    const u = new URL(url); u.searchParams.set('fen', '4r1k1/8/8/8/8/8/5PPP/R5K1 w - - 0 1'); u.searchParams.set('players', 'human,human');
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[60] > 0);
-    await page.evaluate(() => { const s = document.getElementById('black'); s.value = 'human'; s.dispatchEvent(new Event('change')); });
     for (const sq of [0, 48, 60, 4]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); }
     await page.waitForFunction(() => document.getElementById('over').open && document.querySelector('#over-moments button'), null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), 6, 'the mated king on g1 topples');
@@ -219,7 +218,7 @@ try {
     await page.waitForFunction(() => window.view?.pos?.board[28] > 0 && !window.view.pos.board[12]);
     assert.match(asked ?? '', /replaces your current game/, 'a different saved game asks first');
     assert.equal(new URL(page.url()).searchParams.has('moves'), false, 'the link parameters are dropped');
-    assert.deepEqual(await page.evaluate(() => [document.getElementById('white').value, document.getElementById('black').value]), ['human', 'human']);
+    assert.deepEqual(await players(page), ['human', 'human']);
     assert.ok((await at(56)).y > (await at(0)).y, 'Black, to move, plays from the bottom');
     for (const sq of [52, 36]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
     await page.waitForFunction(() => /e7-e5/.test(document.getElementById('moves').textContent) && !window.view.scene.animating);
@@ -269,8 +268,7 @@ try {
   }
   // 2h. Today's army: the same army twice on one day; after the game the result can be copied.
   {
-    await page.evaluate(() => { for (const [id, v] of [['white', 'human'], ['black', 'ai']]) { const s = document.getElementById(id); s.value = v; s.dispatchEvent(new Event('change')); } });
-    const army = async () => { await page.click('#new-game-btn'); await page.click('#new-daily'); return page.textContent('#setup'); };
+    const army = async () => { await startGame(page, { mode: 'computer', side: 'white', army: 'daily' }); return page.textContent('#setup'); };
     const first = await army(), second = await army();
     assert.ok(/^[A-Z]{8}$/.test(first) && first === second, `${first} / ${second}`);
     page.once('dialog', d => d.accept()); await page.click('#resign');

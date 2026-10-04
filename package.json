@@ -19,6 +19,7 @@
     "graphics:check:cast": "node tools/graphics-prototype/verify_cast.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "three": "^0.186.0"
   },
   "devDependencies": {

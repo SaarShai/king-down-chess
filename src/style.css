@@ -303,11 +303,134 @@ dialog form { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10
 dialog form button { width: auto; min-width: 96px; justify-content: center; padding: 8px 18px; }
 .fields { display: flex; flex-direction: column; gap: 10px; }
 dialog small { color: var(--ink-soft); }
-#asset-status, #setup-note, #pace-note, #players-note, #threats-note { font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.4; }
-#new-game, #settings { width: min(420px, calc(100vw - 32px)); }
+#asset-status, #army-note, #pace-note, #threats-note { font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.4; }
+#settings { width: min(420px, calc(100vw - 32px)); }
 #move-choice, #promo { max-width: min(460px, calc(100vw - 32px)); }
 #move-choice button, #promo button { min-height: var(--tap); }
 #cancel-choice, #cancel-promo { margin-top: var(--space-4); justify-content: center; }
+
+/* ---- New game: three suggested games, the level, a king picker per side, More options ---- */
+#new-game { width: min(560px, calc(100vw - 32px)); }
+.modes, .seg { margin: 0; padding: 0; border: 0; min-width: 0; }
+.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+/* The radios stay in the page for the keyboard and screen readers; the card or segment shows the state. */
+.modes input, .seg input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+label.mode {
+  position: relative; flex-direction: column; justify-content: flex-start; gap: 6px;
+  padding: 10px 8px 12px; text-align: center; cursor: pointer;
+  background: linear-gradient(var(--vellum), #efe4cc);
+  border: 1px solid var(--stone-500); border-radius: var(--radius);
+  box-shadow: var(--lift), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: box-shadow 120ms, border-color 120ms;
+}
+@media (hover: hover) { label.mode:hover { background: linear-gradient(#fffdf6, #f5ebd5); } }
+label.mode:has(input:checked) {
+  border-color: var(--accent-deep); background: linear-gradient(#fffaf0, var(--parchment-deep));
+  box-shadow: 0 0 0 2px var(--accent), 0 3px 0 var(--accent-deep);
+}
+.mode-art { display: flex; align-items: flex-end; justify-content: center; height: 64px; }
+.mode-art img { height: 100%; width: auto; filter: drop-shadow(0 3px 3px rgba(43, 38, 33, 0.3)); }
+.mode-art .face-left { transform: scaleX(-1); margin-left: -8px; }
+.emblem-fan img { height: 44px; margin: 0 -7px; }
+.emblem-fan img:nth-child(2) { position: relative; z-index: 1; height: 62px; }
+.mode-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mode-text b { font-family: var(--font-display); font-size: var(--fs-md); font-weight: 700; letter-spacing: 0.02em; line-height: 1.2; }
+.mode-text small { font-size: var(--fs-xs); line-height: 1.35; }
+label.mode:has(input:focus-visible), .seg-row label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* Segmented choices: the computer's level, and the side you play. */
+.seg { margin-top: var(--space-4); }
+.seg legend { margin: 0 0 var(--space-2); }
+.seg-row {
+  display: flex; background: var(--vellum);
+  border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift);
+}
+.seg-row label {
+  position: relative; flex: 1 1 0; justify-content: center; min-width: 0; padding: 6px 4px;
+  font-weight: 700; text-align: center; cursor: pointer; border-left: 1px solid var(--stone-300);
+}
+.seg-row label:first-child { border-left: 0; border-radius: var(--radius) 0 0 var(--radius); }
+.seg-row label:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+@media (hover: hover) { .seg-row label:hover { background: #fffdf6; } }
+.seg-row label:has(input:checked) { color: var(--vellum); background: linear-gradient(#9c3a2d, var(--accent)); }
+.seg-row label:has(input:focus-visible) { outline-offset: -3px; outline-color: #8cc0ff; }
+
+label.check {
+  justify-content: flex-start; gap: var(--space-3); margin-top: var(--space-4); padding: 8px 12px; cursor: pointer;
+  font-weight: 700; background: rgba(251, 247, 238, 0.7); border: 1px solid var(--stone-300); border-radius: var(--radius);
+}
+label.check small { display: block; font-weight: 400; font-size: var(--fs-xs); }
+
+/* The king picker: six emblems per side, then that king's two powers and No power. */
+#king-picker { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+.king-pick { padding: var(--space-3); background: rgba(251, 247, 238, 0.7); border: 1px solid var(--stone-300); border-radius: var(--radius); }
+.king-pick h3 { margin: 0 0 var(--space-2); }
+.king-pick .who { color: var(--gold-ink); }
+.emblems { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+button.emblem {
+  flex-direction: column; justify-content: flex-end; gap: 1px; min-width: 0; min-height: 0; padding: 4px 2px 3px;
+  text-align: center; font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft);
+  background: transparent; border-color: transparent; box-shadow: none;
+}
+button.emblem img {
+  display: block; width: 100%; max-width: 64px; height: auto; aspect-ratio: 1; object-fit: contain;
+  filter: saturate(0.7) drop-shadow(0 2px 2px rgba(43, 38, 33, 0.25)); opacity: 0.82;
+  transition: opacity 120ms, filter 120ms;
+}
+button.emblem span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+@media (hover: hover) { button.emblem:hover { background: rgba(255, 255, 255, 0.55); } button.emblem:hover img { opacity: 1; } }
+button.emblem[aria-pressed='true'] {
+  color: var(--ink); background: var(--vellum); border-color: var(--accent-deep);
+  box-shadow: 0 0 0 1px var(--accent), 0 2px 0 var(--accent-deep);
+}
+button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3px rgba(43, 38, 33, 0.35)) drop-shadow(0 0 6px rgba(201, 154, 62, 0.55)); }
+.power-choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
+.power-choice button { justify-content: center; padding: 6px 4px; text-align: center; font-size: var(--fs-sm); }
+.power-choice button[aria-pressed='true'] {
+  color: var(--vellum); background: linear-gradient(#9c3a2d, var(--accent));
+  border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
+}
+.power-text { min-height: 2.9em; margin: var(--space-2) 0 0; font-size: var(--fs-sm); line-height: 1.45; }
+
+#more-options { margin-top: var(--space-4); padding-top: var(--space-1); border-top: 1px solid var(--stone-300); }
+#more-options summary {
+  display: flex; align-items: center; gap: 10px; min-height: var(--tap); width: fit-content;
+  font-weight: 700; cursor: pointer; list-style: none;
+}
+#more-options summary::-webkit-details-marker { display: none; }
+#more-options summary::before {
+  content: ''; width: 7px; height: 7px; margin-left: 3px;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg); transition: transform 120ms;
+}
+#more-options[open] summary::before { transform: rotate(45deg); }
+#more-options .seg { margin-top: var(--space-2); }
+label.army { flex-direction: column; align-items: stretch; gap: 6px; margin-top: var(--space-4); font-weight: 700; }
+label.army select { width: 100%; font-weight: 400; }
+#army-note { display: block; margin-top: 6px; }
+
+@media (max-width: 600px) {
+  .modes { grid-template-columns: minmax(0, 1fr); }
+  label.mode { flex-direction: row; gap: var(--space-3); padding: 8px 12px; text-align: left; }
+  .mode-art { flex: none; width: 66px; height: 50px; }
+  .emblem-fan img { height: 32px; margin: 0 -8px; }
+  .emblem-fan img:nth-child(2) { height: 46px; }
+}
+
+/* Settings → Account (src/account/account.ts) */
+#account-body p { margin: 0; }
+#account-body button { min-height: var(--tap); justify-content: center; }
+#account-body .logo { flex: none; width: 20px; height: 20px; }
+#account-body .logo-google { box-sizing: content-box; padding: 3px; background: #fff; border-radius: 4px; width: 16px; height: 16px; }
+#account-body small, #account-note { font-size: var(--fs-xs); line-height: 1.4; color: var(--ink-soft); }
+#account-note { margin: var(--space-2) 0 0; }
+#account-note:empty { display: none; }
+.account-who { display: flex; align-items: center; gap: var(--space-3); }
+.account-who img { flex: none; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 1px solid var(--stone-500); }
+.account-who b, .account-who small { display: block; overflow-wrap: anywhere; }
+.account-links { display: flex; gap: var(--space-4); }
+.account-links a { display: inline-flex; align-items: center; min-height: var(--tap); min-width: var(--tap); color: var(--accent); font-weight: 700; }
+#delete-account { width: min(440px, calc(100vw - 32px)); }
 
 /* promotion: each choice shows its painted figure */
 .promo { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }

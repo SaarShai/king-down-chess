@@ -1,0 +1,84 @@
+{
+  "id": "kp2-r14",
+  "sha": "2f93342c46d40761b09ec4cbfa23ba643098c608",
+  "shards": 21,
+  "args": [
+    "--powers",
+    "Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness,Haste~vh1,Haste~vh2,Haste~vh3,Haste~vh4,Mercy~vm1,Mercy~vm2,Mercy~vm3,Darkness~vd1,Darkness~vd2",
+    "--none",
+    "--variant",
+    "h1:hasteApart=true",
+    "--variant",
+    "h2:hasteNoThreat=true",
+    "--variant",
+    "h3:hasteNoForward=true",
+    "--variant",
+    "h4:hasteNoCheck=true",
+    "--variant",
+    "m1:mercyAuraPawnsTake=true",
+    "--variant",
+    "m2:mercyAuraPawnsTake=true,mercyTakesPawns=true",
+    "--variant",
+    "m3:mercyNoJump=true",
+    "--variant",
+    "d1:darknessShelter=true",
+    "--variant",
+    "d2:darknessShelter=true,darknessShelterPawnsTake=true",
+    "--pairs",
+    "48",
+    "--depth",
+    "3",
+    "--seed",
+    "1414",
+    "--armies",
+    "perPair",
+    "--rule",
+    "markFree=true",
+    "--rule",
+    "freezeUses=1",
+    "--rule",
+    "hasteCaptures=false",
+    "--rule",
+    "strikeCaptures=false",
+    "--rule",
+    "strikePawns=false",
+    "--rule",
+    "mercyAura=true",
+    "--rule",
+    "marchUses=0",
+    "--rule",
+    "holyLightTakesPawns=true",
+    "--rule",
+    "holyLightShelter=true",
+    "--rule",
+    "holyLightShelterOrtho=true",
+    "--rule",
+    "darknessMoves=true",
+    "--rule",
+    "deathTouchReach=true",
+    "--rule",
+    "deathTouchReachOrtho=true"
+  ],
+  "kernels": [
+    {
+      "shard": 16,
+      "ref": "saarshai/kd-kp2-r14-s16of21"
+    },
+    {
+      "shard": 17,
+      "ref": "saarshai/kd-kp2-r14-s17of21"
+    },
+    {
+      "shard": 18,
+      "ref": "saarshai/kd-kp2-r14-s18of21"
+    },
+    {
+      "shard": 19,
+      "ref": "saarshai/kd-kp2-r14-s19of21"
+    },
+    {
+      "shard": 20,
+      "ref": "saarshai/kd-kp2-r14-s20of21"
+    }
+  ]
+}
