@@ -251,7 +251,7 @@ are in `Chess Expansion Concept.ai`; this book's are the source.
 | bishop, rook, queen, archer | 3 |
 | paladin, guard, maester, beast | 4 |
 | king | 5 |
-| ogre | none: the book has no Ogre. Drawn by hand in the same format (2026-10-04); the other options are in `docs/visual-design/piece-icons/` |
+| ogre | none: the book has no Ogre. Drawn by hand in the same format (2026-10-04): option B, the face, the owner's choice; the unused options are in `docs/visual-design/piece-icons/` |
 
 ## video — 1 file, 148.4 MB
 

@@ -122,15 +122,15 @@ try {
   assert.ok(await page.evaluate(() => window.view.pieces.get(48)?.userData.code === 1 && !document.querySelector('#hint').disabled));
   await click(48); await click(56);
   await page.locator('#promo').waitFor({ state: 'visible' });
-  await page.locator('#promo button').filter({ hasText: 'R rook' }).click(); await played(1);
+  await page.locator('#promo button').filter({ hasText: 'rook' }).click(); await played(1);
   assert.equal(await page.evaluate(() => window.view.pieces.get(56)?.userData.code), 4);
   await seed(promotion, { queen: true }); await click(48); await click(56); await played(1);
   assert.equal(await page.locator('#promo').isVisible(), false);
   assert.equal(await page.evaluate(() => window.view.pieces.get(56)?.userData.code), 5);
   await seed(promotion, { queen: true }, '?rules=2017'); await click(48); await click(56);
   await page.locator('#promo').waitFor({ state: 'visible' });
-  assert.equal(await page.locator('#promo button').filter({ hasText: 'L paladin' }).count(), 1);
-  await page.locator('#promo button').filter({ hasText: 'A archer' }).click(); await played(1);
+  assert.equal(await page.locator('#promo button').filter({ hasText: 'paladin' }).count(), 1);
+  await page.locator('#promo button').filter({ hasText: 'archer' }).click(); await played(1);
   await page.goto(url); await ready();
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules.promotionSet), 'anyNonKing');
   await startGame(page, { army: 'classic' }); await ready();
@@ -145,8 +145,8 @@ try {
   ]) {
     await seed('7k/8/8/8/4A3/8/P7/K7 w - - 0 1', {}, query);
     await page.click('#rules-btn');
-    assert.match(await page.locator('#rules-rows .piece-card').filter({ hasText: 'A Archer' }).innerText(), archer);
-    assert.match(await page.locator('#rules-rows .piece-card').filter({ hasText: 'S Beast' }).innerText(), beast);
+    assert.match(await page.locator('#rules-rows .piece-card[data-piece="archer"]').innerText(), archer);
+    assert.match(await page.locator('#rules-rows .piece-card[data-piece="beast"]').innerText(), beast);
     assert.match(await page.locator('#rules-lead').innerText(), promotionText);
     await page.locator('#rules form button').click();
   }
@@ -167,7 +167,7 @@ try {
   assert.match(await page.locator('#moment').innerText(), /Catapult lab/);
   assert.equal(await page.locator('#setup').innerText(), 'COAQNRBK');
   await page.click('#rules-btn');
-  assert.equal(await page.locator('#rules-rows .piece-card').filter({ hasText: 'C Catapult' }).count(), 1);
+  assert.equal(await page.locator('#rules-rows .piece-card[data-piece="catapult"]').count(), 1);
   await page.locator('#rules form button').click();
   await seed('7k/8/8/8/8/8/7r/7K w - - 0 1');
   assert.ok(await page.evaluate(() => document.querySelector('#board').classList.contains('king-in-check')

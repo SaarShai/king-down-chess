@@ -290,10 +290,11 @@ function fillPieceGuide(): void {
     const letter = LETTERS[t];
     const name = NAMES[t][0].toUpperCase() + NAMES[t].slice(1);
     const art = pieceArt(t);
-    // The heading keeps "A Archer" as one text run: tools find a card by it.
-    // The rulebook's icon sits on the figure's shoulder, as in the 2017 book; a lab piece shows its letter.
-    card.innerHTML = `<div class="pc-art">${art ? `${pieceIcon(t)}<img src="${art}" alt="" loading="lazy" decoding="async">` : `<span class="pc-medallion" aria-hidden="true">${letter}</span>`}</div>`
-      + `<div class="pc-body"><h3><span class="pc-letter" title="Its letter in the move list">${letter}</span> ${name}</h3><dl>`
+    // The heading shows the piece's icon before its name (tools find a card by data-piece); a lab piece has
+    // no icon and shows its letter, as its art does.
+    const icon = pieceIcon(t);
+    card.innerHTML = `<div class="pc-art">${art ? `<img src="${art}" alt="" loading="lazy" decoding="async">` : `<span class="pc-medallion" aria-hidden="true">${letter}</span>`}</div>`
+      + `<div class="pc-body"><h3>${icon || `<span class="pc-letter" title="Its letter in the move list">${letter}</span>`} ${name}</h3><dl>`
       + `<dt>Moves</dt><dd>${g.moves}</dd><dt>Captures</dt><dd>${g.captures}</dd>${g.special ? `<dt>Special</dt><dd>${g.special}</dd>` : ''}</dl></div>`;
     rows.appendChild(card);
   }
@@ -305,16 +306,19 @@ function fillPieceGuide(): void {
   $('rules-lead').textContent =
     `Mate the king. Both sides share one random back rank, drawn from the pool. No castling or en passant. ${promo}`;
   $('rules-notation').textContent =
-    'In the move list: - moves, x captures, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes. '
+    // The move list keeps the letters (LAN), so the Guide names them here, once.
+    `In the move list a move starts with its piece's letter (none for a pawn): ${([N, B, R, Q, K, A, L, G, M, S, O] as PieceType[]).map(t => `${LETTERS[t]} ${NAMES[t]}`).join(', ')}. `
+    + 'Then - moves, x captures, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes. '
     + 'Kings\' powers: ! Strike, !H Haste (-- ends a Haste turn early), ~ Flight, !F: Freeze, !W: Ice Wall, !S: Sacrifice, !M March, !L Leap.';
   // The twelve powers, with the use counts the rules set today.
   $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
     `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p)}) — ${powerText(p)}`).join('; ')}.</li>`).join('');
-  // Each piece once, as its icon and letter with how many the pool holds ("R ×2"); its name for a pointer and a screen reader.
+  // Each piece once, as its icon and how many the pool holds ("×2"); its name for a pointer and a screen reader.
   const pool = [...new Set(POOL)].map(ch => {
-    const t = LETTERS.indexOf(ch) as PieceType, n = POOL.split(ch).length - 1;
-    return `<span class="pool-piece" title="${NAMES[t]}">${pieceIcon(t)}${ch}<span class="sr-only"> (${NAMES[t]})</span>${n > 1 ? ` ×${n}` : ''}</span>`;
-  }).join(', ');
+    const t = LETTERS.indexOf(ch) as PieceType, n = POOL.split(ch).length - 1, icon = pieceIcon(t);
+    const name = `${NAMES[t]}${n > 1 ? ` ×${n}` : ''}`;
+    return icon ? `<span class="pool-piece" title="${name}">${icon}${n > 1 ? `<span aria-hidden="true">×${n}</span>` : ''}<span class="sr-only">${name}</span></span>` : `<span class="pool-piece">${name}</span>`;
+  }).join('<span class="sr-only">, </span>');
   $('rules-letters').innerHTML =
     `The random draw pool is ${pool}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
 }
@@ -682,7 +686,7 @@ function pickPromotion(options: Move[]): Promise<Move | null> {
     for (const m of options) {
       const b = document.createElement('button');
       const art = pieceArt(m.promo as PieceType, game.pos.turn === 1);
-      b.innerHTML = `${art ? `<img src="${art}" alt="" aria-hidden="true">` : ''}<span>${LETTERS[m.promo!]} ${NAMES[m.promo as PieceType]}</span>`;
+      b.innerHTML = `${art ? `<img src="${art}" alt="" aria-hidden="true">` : ''}<span>${pieceIcon(m.promo as PieceType, game.pos.turn)} ${NAMES[m.promo as PieceType]}</span>`;
       b.onclick = () => done(m);
       box.appendChild(b);
     }
@@ -749,7 +753,7 @@ async function choosePower(moves: Move[]): Promise<void> {
     closePromo = () => done(null);
     for (const x of moves) {
       const b = document.createElement('button');
-      b.textContent = `${LETTERS[x.promo!]} ${NAMES[x.promo as PieceType]}`;
+      b.innerHTML = `${pieceIcon(x.promo as PieceType, game.pos.turn)} ${NAMES[x.promo as PieceType]}`;
       b.onclick = () => done(x);
       box.appendChild(b);
     }

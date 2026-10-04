@@ -116,8 +116,8 @@ try {
   await fixedPresentation(); await facingOpponent();
   checks.push('optional mirrored setup keeps the fixed handmade material and opponent-facing armies');
   await page.click('#rules-btn');
-  assert.match(await page.locator('#rules-rows .piece-card').filter({hasText:'A Archer'}).textContent(), /forward diagonal at distance 2/);
-  assert.match(await page.locator('#rules-rows .piece-card').filter({hasText:'S Beast'}).textContent(), /Takes on any adjacent square/);
+  assert.match(await page.locator('#rules-rows .piece-card[data-piece="archer"]').textContent(), /forward diagonal at distance 2/);
+  assert.match(await page.locator('#rules-rows .piece-card[data-piece="beast"]').textContent(), /Takes on any adjacent square/);
   await page.locator('#rules form button').click();
   checks.push('piece guide describes the current Archer and Beast rules');
   // Interrupt the shove: a delayed animation must not change the restored position.

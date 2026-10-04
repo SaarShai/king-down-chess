@@ -153,10 +153,11 @@ section { display: flex; flex-direction: column; gap: var(--space-2); }
 }
 /* Piece icons from the 2017 rulebook (src/piece-icons.ts): ring and glyph in currentColor, the disc in
    --pi-disc (the rulebook's blue-grey when unset), the glyph in --pi-glyph when set. One per army:
-   White a pale disc, Black a dark disc with a pale glyph; the ring stays ink, so both read on parchment. */
+   White a pale disc in an ink ring; Black a charcoal disc and a pale glyph in a ring a little lighter
+   than the disc, so it reads as a ring at 16-32 px and not as a solid coin. */
 .pi { display: inline-block; width: 1.4em; height: 1.4em; flex: none; vertical-align: -0.35em; color: var(--ink); stroke: none; }
 .pi-w { --pi-disc: #fffcf4; }
-.pi-b { --pi-disc: #4a4850; --pi-glyph: var(--parchment); }
+.pi-b { --pi-disc: #4a4850; --pi-ring: #6e6a74; --pi-glyph: var(--parchment); }
 
 /* ---- controls ---- */
 button, select, input { font: inherit; color: var(--ink); }
@@ -487,11 +488,11 @@ label.army select { width: 100%; font-weight: 400; }
   box-shadow: inset 0 0 0 1px rgba(77, 69, 60, 0.35);
 }
 .pc-art img { display: block; max-width: 100%; max-height: 116px; width: auto; height: auto; object-fit: contain; }
-/* The rulebook's icon on the figure's shoulder, where the 2017 book puts it. */
-.pc-art { position: relative; }
-.pc-art .pi { position: absolute; top: 6px; left: 6px; width: 34px; height: 34px; filter: drop-shadow(0 1px 1px rgba(43, 38, 33, 0.35)); }
-.pool-piece { white-space: nowrap; font-weight: 700; }
-.pool-piece .pi { width: 20px; height: 20px; margin-right: 2px; vertical-align: -5px; }
+.piece-card h3 .pi { width: 28px; height: 28px; margin-right: 2px; vertical-align: -6px; }
+.pool-piece { display: inline-flex; align-items: center; margin-right: 6px; white-space: nowrap; font-weight: 700; vertical-align: -6px; }
+.pool-piece .pi { width: 22px; height: 22px; }
+.pool-piece:last-of-type { margin-right: 0; }
+.promo button .pi { width: 20px; height: 20px; vertical-align: -5px; }
 .pc-medallion {
   display: grid; place-items: center; width: 64px; height: 64px; margin-bottom: 26px; border-radius: 50%;
   font-family: var(--font-display); font-size: 30px; font-weight: 700; color: var(--vellum);
@@ -641,7 +642,6 @@ label.army select { width: 100%; font-weight: 400; }
   .pc-art { height: 100px; }
   .pc-art img { max-height: 90px; }
   .pc-medallion { width: 52px; height: 52px; font-size: 24px; margin-bottom: 20px; }
-  .pc-art .pi { top: 4px; left: 4px; width: 26px; height: 26px; }
   .piece-card dl { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .piece-card dd { margin-bottom: 4px; }
   #title-screen[open] { grid-template-rows: minmax(0, 1fr) auto auto; }
