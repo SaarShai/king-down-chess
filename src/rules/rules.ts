@@ -26,9 +26,11 @@ export type ArcherMove = 'ortho' | 'any' | 'fwdBack';
  * like `forward3` — see `archerShotsFor` in engine.ts. Three lab sets between it and `classic`
  * (2026-10-04): `plusDiagFwd2Clear` (the same shots, but a forward diagonal-2 shot needs the
  * square between empty), `fwd2NoBack` (without the shot 2 straight back) and `fwd2NoSide` (without
- * the two shots 2 to the side).
+ * the two shots 2 to the side). Two more (owner, 2026-10-04: "it can take at a distance without
+ * putting itself in danger"): `far2` (only today's two-square shots: 2 straight, 2 forward-diagonal)
+ * and `over2` (the same shots, only over a piece of either colour on the square between).
  */
-export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plusDiagFwd2' | 'plusDiagFwd2Clear' | 'fwd2NoBack' | 'fwd2NoSide';
+export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plusDiagFwd2' | 'plusDiagFwd2Clear' | 'fwd2NoBack' | 'fwd2NoSide' | 'far2' | 'over2';
 /** What a guard may take by moving onto it. `any` turns it into a commoner that gives check. */
 export type GuardCaptures = 'none' | 'pawns' | 'any';
 /** Lab: the guard's double step from its home rank — none, through an empty square, or over anything. */
@@ -734,7 +736,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   guardDoubleFirst: ['off', 'slide', 'leap'],
   guardCaptureLimit: [0, 1],
   archerMove: ['ortho', 'any', 'fwdBack'],
-  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide'],
+  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide', 'far2', 'over2'],
   beastMove: ['forward', 'any', 'diagFwdBack'],
   beastCapture: ['adjacent', 'diagForward', 'diagonal'],
   maesterStep: [1, 2],

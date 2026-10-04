@@ -14,7 +14,7 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  Color, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, filterFree, filterHeld, filterMarks, freePass, genHasteFollowUp, genPiece, genPowerMoves, isAttacked,
+  A, Color, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, filterFree, filterHeld, filterMarks, freePass, genHasteFollowUp, genPiece, genPowerMoves, isAttacked,
   handOf, keepsLost, landed, materialDraw, piece, powerOf, powerUses, spend, typeOf,
 } from '../rules/engine';
 import type { CardName, PowerName } from '../rules/rules';
@@ -378,13 +378,15 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // move that empties it leaves a line through the king, so it is tested.
   // A `plusDiagFwd2Clear` archer shot two squares diagonally is blocked by the square between,
   // which is diagonally next to our king: a move that empties it leaves a line through the king, and
-  // one that fills it only blocks. The other archer shots ignore blockers and the leapers are never blocked,
+  // one that fills it only blocks. An `over2` archer shoots only over a piece on the square between, which
+  // is next to our king: a move that fills it can open the shot, so, like a catapult's screen, a move
+  // arriving on a line through the king is tested while an enemy archer stands on the board. The other archer shots ignore blockers and the leapers are never blocked,
   // so nothing else can change an attack on the king — except a Curse, which moves an *enemy* piece
   // that may arrive attacking it. `setFastLegality(false)` turns this off for the cross-check test.
   const k = board.indexOf(piece(K, c));
   const inChk = k < 0 || (inCheckKnown ?? attacked(c));
   const lines = k * 64;
-  const lob = board.includes(piece(13 /* C */, (c ^ 1) as Color));
+  const lob = board.includes(piece(13 /* C */, (c ^ 1) as Color)) || (RULES.archerShots === 'over2' && board.includes(piece(A, (c ^ 1) as Color)));
   let n = 0;
   for (let i = 0; i < out.length; i++) {
     const m = out[i];

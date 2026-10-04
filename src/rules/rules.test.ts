@@ -782,6 +782,31 @@ describe('rule toggles', () => {
     for (const set of ['plusDiagFwd2', 'fwd2NoBack', 'fwd2NoSide'] as const) { setRules({ archerShots: set }); expect(inCheck(fromFen(blocked)), set).toBe(true); }
   });
 
+  it('archerShots: far2 and over2, two-square shots only, for both colours (2026-10-04)', () => {
+    const w = fromFen('k7/8/1ppppp2/1pp1pp2/1p1A1p2/1pp1pp2/1ppppp2/7K w - - 0 1');
+    const b = fromFen('7k/1PPPPP2/1PP1PP2/1P1a1P2/1PP1PP2/1PPPPP2/8/K7 b - - 0 1');
+    const shots = (pos: Position, from: string) => lan(pos, movesFrom(pos, from)).filter(x => x.includes('*')).map(x => x.slice(4)).sort();
+    // far2: no diagonal neighbour, every two-square shot through blockers.
+    setRules({ archerShots: 'far2' });
+    expect(shots(w, 'd4')).toEqual(['b4', 'b6', 'd2', 'd6', 'f4', 'f6']);
+    expect(shots(b, 'd5')).toEqual(['b3', 'b5', 'd3', 'd7', 'f3', 'f5']);
+    crossCheckAttacks(160, 300);
+    // over2: the same squares, only over a piece; here only the diagonal neighbours are occupied.
+    setRules({ archerShots: 'over2' });
+    expect(shots(w, 'd4')).toEqual(['b6', 'f6']);
+    expect(shots(b, 'd5')).toEqual(['b3', 'f3']);
+    crossCheckAttacks(161, 300);
+    // Check only over a piece; a piece that would fill the square between cannot go there.
+    const open = '8/8/8/4k3/8/2A5/8/K7 b - - 0 1', screened = '8/8/8/4k3/3p4/2A5/8/K7 b - - 0 1';
+    expect(inCheck(fromFen(open))).toBe(false);
+    expect(inCheck(fromFen(screened))).toBe(true);
+    const screen = fromFen('8/8/8/1n2k3/8/2A5/8/K7 b - - 0 1');
+    expect(movesFrom(screen, 'b5').some(m => m.to === parseSq('d4'))).toBe(false);
+    expect(searchLegal(screen).some(m => m.from === parseSq('b5') && m.to === parseSq('d4'))).toBe(false);
+    setRules({ archerShots: 'far2' });
+    expect(inCheck(fromFen(open))).toBe(true);
+  });
+
   it('guardCaptures=pawns (lab): it clears pawns only, gives no check either way and still cannot mate', () => {
     const pos = fromFen('7k/8/8/8/3pn3/3G4/8/K7 w - - 0 1');
     expect(movesFrom(pos, 'd3').some(m => m.captures.length)).toBe(false); // the shipped wall
