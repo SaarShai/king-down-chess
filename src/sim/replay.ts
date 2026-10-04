@@ -9,6 +9,8 @@ import { fromFen, toLan } from '../rules/setup';
 import { parseLan } from './tune';
 import type { Events, GameRecord } from './game';
 
+const NO_SHOT: ReadonlySet<string> = new Set(['firewall', 'rescue', 'growth', 'growthb', 'quake', 'quakeb']);
+
 export function emptyEvents(): Events {
   return {
     archerShots: [0, 0], beastChains: [[], []], maesterSwaps: [0, 0], maesterLongSwaps: [0, 0],
@@ -22,9 +24,10 @@ export function emptyEvents(): Events {
 export function countMove(events: Events, pos: Position, move: Move, post: Position): void {
   const c = pos.turn;
   const mt = typeOf(pos.board[move.from]);
-  if (mt === A && move.to === move.from) events.archerShots[c]++;
+  // The 2014 cards that keep `to === from` name a square, not an archer's shot.
+  if (mt === A && move.to === move.from && !NO_SHOT.has(move.power ?? '')) events.archerShots[c]++;
   if (mt === S && move.captures.length) events.beastChains[c].push(move.captures.length);
-  if (move.swap && move.power !== 'skylift') { // a SkyLift card uses the swap's shape, but no maester
+  if (move.swap && move.power !== 'skylift' && move.power !== 'firewallb') { // SkyLift and FirewallB use the swap's shape, but no maester
     events.maesterSwaps[c]++;
     if (typeOf(pos.board[move.to]) === K) events.maesterLongSwaps[c]++;
   }
@@ -37,10 +40,11 @@ export function countMove(events: Events, pos: Position, move: Move, post: Posit
     if (typeOf(shoved) === G) events.ogreShovesGuard[c]++;
   }
   if (move.power === 'strike') events.strikes[c]++;
-  if (move.power) (events.powers[move.power] ??= [0, 0])[c]++;
+  // The card spent: a Mirror's copy counts as the Mirror (`via`).
+  if (move.power) (events.powers[move.via ?? move.power] ??= [0, 0])[c]++;
   else if (move.pass) (events.powers.pass ??= [0, 0])[c]++;
-  // A Curse moves an enemy piece: an enemy catapult never checks its own king.
-  if (inCheck(post)) { events.checks[c]++; if (mt === C && move.power !== 'curse') events.catapultChecks[c]++; }
+  // A Curse moves an enemy piece: an enemy catapult never checks its own king; nor is a quake's square or a swap's enemy the catapult's move.
+  if (inCheck(post)) { events.checks[c]++; if (mt === C && move.power !== 'curse' && !move.pushes) events.catapultChecks[c]++; }
 }
 
 export interface Replay { events: Events; plies: number; end: Position }

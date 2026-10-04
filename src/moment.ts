@@ -25,6 +25,20 @@ const LINES = {
   curse: ['An enemy piece was moved one square.', 'Curse: move this enemy piece one square.'],
   skylift: ['Two pieces traded squares.', 'Sky Lift: trade the squares of these two pieces.'],
   salvation: ['A captured piece returned to its first rank.', 'Salvation: return this captured piece to this square.'],
+  rage: ['A piece raged: it may move again, and take.', 'Rage: move this piece, then move it again (or end the turn); either move may take.'],
+  rageb: ['A piece raged: its second move must take.', 'Rage: move this piece, then take with it (or end the turn).'],
+  firewall: ['A firewall: no piece of that side can be taken next turn.', 'Firewall: none of your pieces can be taken next turn.'],
+  firewallb: ['A piece traded squares with an enemy piece.', 'Firewall: trade the squares of this piece and the enemy piece next to it.'],
+  quake: ['An earthquake pushed the pieces around a square.', 'Earth Quake: push the pieces next to this square one square away.'],
+  quakeb: ['An earthquake pushed the pieces around a square.', 'Earth Quake: push the pieces next to this square one square away.'],
+  burn: ['A piece burned an enemy piece in the centre.', 'Burn: take this centre piece as a queen would.'],
+  firestarter: ['A piece took on the back rank as a queen would.', 'Fire Starter: take this back-rank piece as a queen would.'],
+  control: ['A piece moved the way a friendly piece next to it moves.', 'Control: move this piece the way the friendly piece next to it moves.'],
+  rescue: ['A mark was kept for one more turn.', 'Rescue: your last Freeze, Ice Wall or Firewall binds one more turn.'],
+  growth: ['A card was drawn.', 'Growth: draw the next card.'],
+  growthb: ['A card was drawn.', 'Growth: draw the next card, then make your move.'],
+  mirror: ['A card was copied from the opponent.', 'Mirror: play the card your opponent played last.'],
+  mirrorb: ['A card was played twice.', 'Mirror: play this card and keep it.'],
   deathTouch: ['The king captured without moving.', 'Capture this piece without moving the king.'],
   reaver: ['The reaver captured, then stepped aside.', 'Capture, then step onto the chosen empty square.'],
 } as const;
@@ -32,6 +46,7 @@ const LINES = {
 export function momentKind(pre: Position, m: Move): keyof typeof LINES | null {
   const t = typeOf(pre.board[m.from]);
   if (m.pass) return 'pass';
+  if (m.via) return m.via;
   if (m.power === 'strike') return m.to === m.from ? 'strikeCapture' : 'strike';
   if (m.power) return m.power;
   if (m.shove) return typeOf(pre.board[m.shove.from]) === G ? 'shoveGuard' : 'shove';

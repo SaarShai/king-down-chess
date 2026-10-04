@@ -85,7 +85,9 @@ export interface KingChoice { king: KingName; power: PowerName }
  * What card mode deals (`Rules.hands`): a one-use king power, or a card that no king has (`CARD_ONLY`).
  * A card-only name is never a `PowerName`, so the king picker and the per-power tables never see it.
  */
-export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Salvation';
+export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Salvation'
+  | 'Rage' | 'RageB' | 'Mirror' | 'MirrorB' | 'Firewall' | 'FirewallB' | 'EarthQuake' | 'EarthQuakeB'
+  | 'Burn' | 'FireStarter' | 'Control' | 'Rescue' | 'Growth' | 'GrowthB';
 /**
  * The cards no king has (lab, 2026-10-03), each one use and the turn's move:
  * - **Mimic**: a piece (not king or pawn) moves, to an empty square only, the way one of the side's
@@ -96,8 +98,30 @@ export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Sa
  * - **Salvation** (2026-10-04): one of the side's captured pieces returns to an empty square of its
  *   own first rank. The pieces are Sacrifice's reserve (`Position.lost`) with Sacrifice's limits: no
  *   pawn, no guard, never a king; a captured promoted piece returns as what it was when taken.
+ *
+ * The 2014 cards (owner, 2026-10-04: "cards - let's add all"), a `B` name the softer variant; the
+ * texts are `cardText` in src/powers-ui.ts, the readings `docs/research/cards-2026-10-03.md`:
+ * - **Rage** / **RageB**: one piece moves twice in the turn (Haste's shape, the second move may be
+ *   skipped); Rage may take on either move, RageB's second move must take.
+ * - **Mirror**: play the card the opponent played last; **MirrorB**: play another card of the hand,
+ *   which stays in the hand. Either is the copied card's move, with that card's rules.
+ * - **Firewall**: no piece of the side can be taken (nor cursed or swapped) on the opponent's next
+ *   turn, a mark like Ice Wall's on every piece; **FirewallB**: an own piece (not the king) and an
+ *   enemy piece (not the king) next to it trade squares.
+ * - **EarthQuake**: the pieces next to a square (not kings) are pushed one square straight away
+ *   from it where the square beyond is empty; **EarthQuakeB**: a square next to an own piece.
+ * - **Burn**: an own piece (not a pawn or king) takes an enemy (not the king) on d4 e4 d5 e5 as a
+ *   queen would; **FireStarter**: the same on the enemy's back rank.
+ * - **Control**: an own piece (not a pawn or king) moves and takes as a friendly piece next to it
+ *   (not a pawn or king) does.
+ * - **Rescue**: the side's Freeze, Ice Wall or Firewall from its previous turn binds one more turn.
+ * - **Growth** / **GrowthB**: draw the next card of the side's pile (`Rules.piles`), as the turn
+ *   (Growth) or then make the move (GrowthB).
  */
-export const CARD_ONLY: readonly CardName[] = ['Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation'];
+export const CARD_ONLY: readonly CardName[] = [
+  'Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation',
+  'Rage', 'RageB', 'Mirror', 'MirrorB', 'Firewall', 'FirewallB', 'EarthQuake', 'EarthQuakeB', 'Burn', 'FireStarter', 'Control', 'Rescue', 'Growth', 'GrowthB',
+];
 
 /** Each king's two powers, A first (docs/RULES.md §4). */
 export const KINGS: Readonly<Record<KingName, readonly [PowerName, PowerName]>> = Object.freeze({
@@ -134,6 +158,9 @@ export const USES_RULE: Readonly<Partial<Record<PowerName, keyof Rules>>> = Obje
   Freeze: 'freezeUses', IceWall: 'iceWallUses', Strike: 'strikeUses', Haste: 'hasteUses',
   Flight: 'flightUses', Sacrifice: 'sacrificeUses', March: 'marchUses', Leap: 'leapUses',
 });
+
+/** Every card card mode deals: the one-use powers, then the card-only cards. Its order is the card's hash slot (`Z_LAST`): append only. */
+export const ALL_CARDS: readonly CardName[] = [...(Object.keys(USES_RULE) as PowerName[]), ...CARD_ONLY];
 
 /** `"Spirit:Mercy"` (case-insensitive), or `"none"` / `"-"` / `""` for a king with no power. */
 export function parseKing(text: string): KingChoice | null {
@@ -551,6 +578,13 @@ export interface Rules {
    * powers stay as they are, so give the kings no power in card mode.
    */
   hands: readonly [readonly CardName[], readonly CardName[]];
+  /**
+   * Card mode, Growth (2026-10-04): each side's draw pile, `[white, black]`, in the order it is
+   * drawn; a drawn card joins the hand after the dealt ones (`Position.drawn` counts them), so its
+   * played bit is the next index of `Position.used`. A hand holds at most 8 cards, dealt and drawn.
+   * Empty (the default) = nothing to draw.
+   */
+  piles: readonly [readonly CardName[], readonly CardName[]];
   /** Setup: reject a back rank whose two bishops share a square colour (Chess960 spirit). */
   bishopsOppositeColours: boolean;
   /** Which pieces a pawn may become on the last rank. */
@@ -667,6 +701,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   catapultCapture: 'stay' as CatapultCapture,
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
   hands: [[], []] as readonly [readonly CardName[], readonly CardName[]],
+  piles: [[], []] as readonly [readonly CardName[], readonly CardName[]],
   bishopsOppositeColours: true,
   // Reverted to the chess set on 2026-09-17 (designer guideline: do not keep a rule that adds
   // nothing measurable). Fairy promotions were 1.3% of all promotions and moved no outcome metric;
@@ -786,15 +821,15 @@ export function parseRule(text: string): Partial<Rules> {
   if (key === 'kingWhite') return { kings: [parseKing(value), null] };
   if (key === 'kingBlack') return { kings: [null, parseKing(value)] };
   // `hands=Freeze+Haste` gives both sides that hand, `hands=Freeze+Haste,Flight` names them apart.
-  if (key === 'hands') {
-    const cards: readonly CardName[] = [...(Object.keys(USES_RULE) as PowerName[]), ...CARD_ONLY];
+  // `piles=` the same way: the cards each side draws, in order (Growth).
+  if (key === 'hands' || key === 'piles') {
     const side = (t: string): CardName[] => t.split('+').filter(Boolean).map(n => {
-      const p = cards.find(x => x.toLowerCase() === n.toLowerCase());
-      if (!p) throw new Error(`hands: "${n}" is not a one-use power or card (${cards.join(', ')})`);
+      const p = ALL_CARDS.find(x => x.toLowerCase() === n.toLowerCase());
+      if (!p) throw new Error(`${key}: "${n}" is not a one-use power or card (${ALL_CARDS.join(', ')})`);
       return p;
     });
     const [w, b = w] = value.split(',');
-    return { hands: [side(w), side(b)] };
+    return { [key]: [side(w), side(b)] } as Partial<Rules>;
   }
   const def = DEFAULT_RULES[key as keyof Rules];
   if (def === undefined) throw new Error(`unknown rule "${key}" (${Object.keys(DEFAULT_RULES).join(', ')}, kingWhite, kingBlack)`);

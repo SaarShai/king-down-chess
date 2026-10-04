@@ -112,3 +112,16 @@ export const waitIndex = (c: number, n: number): number => c * 4 + Math.min(n, 3
 export const usedIndex = (c: number, u: number): number => c * 8 + Math.min(u, 7);
 /** Slot of "reserve index `i` (= colour * 16 + type) holds `n` pieces" (n ≥ 1, capped at 3). */
 export const lostIndex = (i: number, n: number): number => i * 4 + Math.min(n, 3);
+/*
+ * The 2014 cards (2026-10-04), appended after every earlier draw: a Firewall mark per marking side,
+ * a pending Rage (index 0) or RageB (index 1) second move, the card each side played last (Mirror;
+ * 32 slots per side by `ALL_CARDS` order), and the cards each side has drawn at counts 1…7
+ * (Growth). A mark that has just ended (`left: 0`, for a Rescue) uses index 0 of `Z_LEFT` /
+ * `Z_LEFTB`, drawn before and never used until now.
+ */
+export const [Z_ALL_LO, Z_ALL_HI] = draw(2);
+export const [Z_RAGE_LO, Z_RAGE_HI] = draw(2);
+export const [Z_LAST_LO, Z_LAST_HI] = draw(2 * 32);
+export const [Z_DRAWN_LO, Z_DRAWN_HI] = draw(2 * 8);
+/** Slot of "side `c` has drawn `n` cards" (n ≥ 1, capped at 7). */
+export const drawnIndex = (c: number, n: number): number => c * 8 + Math.min(n, 7);

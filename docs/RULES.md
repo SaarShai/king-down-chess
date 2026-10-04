@@ -1,7 +1,7 @@
 # King Down Chess — current rules and dated decisions
 
 Starting source: *King Down Classic — Rules of Play* (Saar Shai, 2017), with the dated owner decisions below.
-Sections 1–3 describe the current default. Kings' powers in §4 are optional lab rules; card/spell effects in §5 remain unbuilt.
+Sections 1–3 describe the current default. Kings' powers in §4 are optional lab rules; card/spell effects in §5 are built as lab cards (card mode), not in the playable game.
 
 ## 1. Base rules
 
@@ -112,8 +112,11 @@ Rescue (keep an effect for another turn), Leap (range not obstructed); elemental
 Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maester has Control, Beast has Rage.
 
 Card mode (lab only, not in the playable game; `docs/research/cards-2026-10-03.md`) deals one-use cards: the
-spendable king powers and five card-only cards, Mimic, Vault, Curse, Sky Lift and **Salvation** (2026-10-04: "Return
-one of your captured pieces to an empty square of your back rank"; a pawn, a guard or the king never returns).
+spendable king powers and the card-only cards, Mimic, Vault, Curse, Sky Lift and **Salvation** (2026-10-04: "Return
+one of your captured pieces to an empty square of your back rank"; a pawn, a guard or the king never returns), and
+(2026-10-04, owner: "cards - let's add all") the 2014 cards **Rage**, **Mirror**, **Firewall**, **Earth Quake**,
+**Burn**, **Fire Starter**, **Control**, **Rescue** and **Growth**, with softer `B` readings of Rage, Mirror, Firewall,
+Earth Quake and Growth; their texts and readings are in that report ("The 2014 cards"). Not measured yet.
 
 ## 6. Decisions (2026-09-13, chosen for balance and fun)
 

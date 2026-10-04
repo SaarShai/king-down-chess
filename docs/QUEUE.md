@@ -238,6 +238,19 @@ launched. Each needs the owner's go.
   detached chain: `docs/research/piece-balance-criteria-2026-10-03.md`, "Guard reserve". Decides:
   whether a guard that enters from beside the board passes criteria 1 and 5.
 
+## Queued 2026-10-04: cards-m5, every card against no card (branch `claude/cards-all`)
+
+Built on the owner's go ("cards - let's add all and test variations for whatever might not work in
+our version or might be overpowered"); not launched. Needs the owner's go.
+
+- **cards-m5:** the 13 new cards that can act against no card (Rescue and MirrorB each with a
+  Freeze), the Freeze alone, and Salvation, each against `none` with the no-card mirror games, 300
+  pairs, seed 5858, depth 3, the card rules of `cards-a2`: 9,600 games, about 42 min on the Mac, about
+  30–37 min in 23 shards with the M1 and 5 Kaggle notebooks. **cards-m5-mirror:** Mirror against a
+  Freeze, 1,800 games, about 8 min. Replaces `cards-a3` (Salvation is in it). Commands:
+  `docs/research/cards-2026-10-03.md`, "Measurement 5". Decides: each card's value and draws against
+  no card, and whether each softer `B` reading is needed.
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard

@@ -5,7 +5,9 @@
  * one way an arriving piece can expose a king) and random kings' powers, or random card hands, or
  * the Darkness and Mercy lab readings (the Darkness king's two-square take adds an attack over a
  * square next to the king it attacks), or guards waiting to enter (`guardReserve`; a drop fills a
- * square, which only a catapult's screen turns against the king).
+ * square, which only a catapult's screen turns against the king). The card hands hold the 2014
+ * cards too, with their state: piles and drawn cards, a last card to mirror, Firewall marks, ended
+ * marks a Rescue may renew, and a Rage's pending second move.
  */
 import { afterEach, expect, it } from 'vitest';
 import {
@@ -67,26 +69,39 @@ it('the same with card hands, the card-only cards included, and marks on the boa
   let seed = 9191;
   const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
   const pick = <X>(xs: readonly X[]): X => xs[Math.floor(rng() * xs.length)];
-  const CARDS: readonly CardName[] = [...(Object.keys(USES_RULE) as PowerName[]), ...CARD_ONLY, ...CARD_ONLY]; // the new cards twice as often
+  const CARDS: readonly CardName[] = [...(Object.keys(USES_RULE) as PowerName[]), ...CARD_ONLY, ...CARD_ONLY]; // the card-only cards twice as often
   const STATELESS = POWERS.filter(k => TIER1.includes(k.power) && k.power !== 'March' && k.power !== 'Leap');
   let checked = 0, inCheckCount = 0;
   const played = new Set<string>();
-  for (let trial = 0; trial < 3000; trial++) {
+  for (let trial = 0; trial < 4000; trial++) {
     const board = randomBoard(rng);
     const turn = (rng() < 0.5 ? WHITE : BLACK) as Color;
     const pos: Position = { board, turn, halfmove: 0, ply: 0 };
     if (inCheck(pos, (turn ^ 1) as Color)) continue;
     const hand = (): CardName[] => Array.from({ length: 1 + Math.floor(rng() * 4) }, () => pick(CARDS));
-    const hw = hand(), hb = hand();
-    setRules({ hands: [hw, hb], kings: [rng() < 0.3 ? pick(STATELESS) : null, rng() < 0.3 ? pick(STATELESS) : null], markTurns: rng() < 0.5 ? 2 : 1 });
-    // Some cards already played, some marks set (by either side, a card-mode Ice Wall or a Freeze).
-    pos.used = [Math.floor(rng() * (1 << hw.length)) & ~1, Math.floor(rng() * (1 << hb.length)) & ~1];
-    const mark = (): Mark | undefined => (rng() < 0.4 ? { sq: Math.floor(rng() * 64), ...(rng() < 0.5 ? { ward: true } : {}) } : undefined);
+    const hw = hand(), hb = hand(), pw = hand(), pb = hand();
+    const markFree = rng() < 0.8;
+    setRules({ hands: [hw, hb], piles: [pw, pb], kings: [rng() < 0.3 ? pick(STATELESS) : null, rng() < 0.3 ? pick(STATELESS) : null], markTurns: rng() < 0.5 ? 2 : 1, markFree });
+    // Some cards drawn and some played; the last card of each side; some marks set (by either side:
+    // a Freeze, a card-mode Ice Wall or Firewall, or one just ended).
+    pos.drawn = [Math.floor(rng() * 3), Math.floor(rng() * 3)];
+    pos.used = [Math.floor(rng() * (1 << (hw.length + pos.drawn[0]))) & ~1, Math.floor(rng() * (1 << (hb.length + pos.drawn[1]))) & ~1];
+    pos.last = [rng() < 0.6 ? pick(CARDS) : undefined, rng() < 0.6 ? pick(CARDS) : undefined];
+    const mark = (): Mark | undefined => {
+      if (rng() < 0.5) return undefined;
+      const r = rng();
+      return { sq: Math.floor(rng() * 64), ...(r < 0.3 ? { ward: true } : r < 0.5 ? { ward: true, all: true } : {}), ...(rng() < 0.3 ? { left: 0 } : {}) };
+    };
     pos.marks = [mark(), mark()];
-    if ([...hw, ...hb].some(h => h === 'Sacrifice' || h === 'Salvation')) { const lost = new Array<number>(32).fill(0); lost[pick(TYPES)] = 1; lost[16 + pick(TYPES)] = 1; pos.lost = lost; }
+    // A Rage's (or RageB's) second move pending for a piece of the side to move.
+    if (rng() < 0.15) {
+      const own = [...board.keys()].filter(s => board[s] && (board[s] >> 4 & 1) === turn && (board[s] & 15) !== K);
+      if (own.length) { pos.haste = pick(own); pos.rage = rng() < 0.5 ? 1 : 2; }
+    }
+    if ([...hw, ...hb, ...pw, ...pb].some(h => h === 'Sacrifice' || h === 'Salvation')) { const lost = new Array<number>(32).fill(0); lost[pick(TYPES)] = 1; lost[16 + pick(TYPES)] = 1; pos.lost = lost; }
     if (inCheck(pos)) inCheckCount++;
     const engineMoves = legalMoves(pos);
-    for (const m of engineMoves) if (m.power) played.add(m.power);
+    for (const m of engineMoves) { if (m.power) played.add(m.power); if (m.via) played.add(m.via); if (pos.rage && !m.pass) played.add(`rage${pos.rage}`); }
     const engine = engineMoves.map(m => toLan(pos, m)).sort();
     const fast = searchLegal(pos).map(m => toLan(pos, m)).sort();
     setFastLegality(false);
@@ -100,7 +115,8 @@ it('the same with card hands, the card-only cards included, and marks on the boa
   }
   expect(checked).toBeGreaterThan(1000);
   expect(inCheckCount).toBeGreaterThan(50);
-  for (const tag of ['mimic', 'vault', 'curse', 'skylift', 'salvation']) expect(played).toContain(tag);
+  for (const tag of ['mimic', 'vault', 'curse', 'skylift', 'salvation', 'rage', 'rageb', 'firewall', 'firewallb', 'quake', 'quakeb', 'burn', 'firestarter',
+    'control', 'rescue', 'growth', 'growthb', 'mirror', 'mirrorb', 'rage1', 'rage2']) expect(played).toContain(tag);
 }, 120_000);
 
 it('the same with guards waiting to enter, more catapults on the board, and Salvation cards', () => {

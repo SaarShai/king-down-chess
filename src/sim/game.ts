@@ -68,7 +68,7 @@ export interface Events {
    * Every king power spent, by tag (`Move.power`; `pass` = a Haste turn that ended without its
    * second move), per side. Absent from records written before 2026-10-02.
    */
-  powers: Partial<Record<PowerTag | 'pass', [number, number]>>;
+  powers: Partial<Record<PowerTag | 'pass' | 'mirror' | 'mirrorb', [number, number]>>;
 }
 
 export interface GameRecord {
@@ -235,7 +235,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
 
     const mt = move.drop ?? typeOf(pos.board[move.from]); // a drop's square is empty
     const letter = LETTERS[mt];
-    bump(stats[c].moves, letter);
+    if (mt) bump(stats[c].moves, letter); // an Earth Quake's square may be empty
     touched[move.from] = 1;
     touched[move.to] = 1;
     if (move.captures.length) {

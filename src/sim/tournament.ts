@@ -43,27 +43,40 @@ export const choice = (p: PowerName | 'none'): KingChoice | null => (p === 'none
  * 200 cp to that side's search (a calibration entrant). `Sacrifice~vbehind` plays Sacrifice under the
  * spec's rule variant `behind` (`--variant behind:sacrificeBehind=true`), so one round can screen several
  * readings of a power against the same field (a screening entrant). `cards<k>` is a dealt hand of k
- * cards, `card:<Name>` a hand of that one card (e.g. `card:Mimic`, to measure one card against `none`).
+ * cards, `card:<Name>` a hand of that one card (e.g. `card:Mimic`, to measure one card against `none`),
+ * and `card:<A>+<B>` a hand of those cards (`card:Freeze+Rescue`: a card that needs another).
  */
-export type Entrant = PowerName | 'none' | `${PowerName}~h${number}` | `${PowerName}~v${string}` | `cards${number}` | `card:${CardName}`;
+export type Entrant = PowerName | 'none' | `${PowerName}~h${number}` | `${PowerName}~v${string}` | `cards${number}` | `card:${string}`;
 /** A card-mode entrant (`cards<k>`, `card:<Name>`): its powers are its hand. */
 const dealt = (e: Entrant): boolean => e.startsWith('card');
 /** A card-mode entrant plays a plain king, so it plays the armies `none` plays (`pairDraw`). */
 export const basePower = (e: Entrant): PowerName | 'none' => (dealt(e) ? 'none' : e.split('~')[0] as PowerName | 'none');
 /** The one-use powers card mode deals from, unless a spec names its own `cardPool`. */
 export const CARD_POOL: readonly CardName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap'];
+/** The pool shuffled by the pair's own opening seed: the order cards are dealt and drawn in. */
+function dealOrder(t: TournamentSpec, seed: number): CardName[] {
+  const pool = [...(t.cardPool ?? CARD_POOL)], rng = mulberry32(seed ^ 0x5bd1e995);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return pool;
+}
 /**
  * A `cards<k>` entrant's hand in one game: the first k cards of the pool shuffled by the pair's own
  * opening seed. So `cards3` holds the first half of the same pair's `cards6`, both sides of a mirror
  * hold the same hand, and every entrant of a `perPair` round sees the same hands on the same army.
- * A `card:<Name>` entrant always holds that one card.
+ * A `card:<Name>` entrant always holds that one card (`card:<A>+<B>`: those cards).
  */
 export function handFor(t: TournamentSpec, e: Entrant, seed: number): CardName[] {
-  if (e.startsWith('card:')) return [e.slice(5) as CardName];
+  if (e.startsWith('card:')) return e.slice(5).split('+') as CardName[];
   if (!e.startsWith('cards')) return [];
-  const pool = [...(t.cardPool ?? CARD_POOL)], rng = mulberry32(seed ^ 0x5bd1e995);
-  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  return pool.slice(0, Number(e.slice(5)));
+  return dealOrder(t, seed).slice(0, Number(e.slice(5)));
+}
+/**
+ * A side's draw pile (Growth): the pool in the same deal order, without the cards of its hand. Both
+ * sides draw in one order, so a `cards<k>` mirror stays fair: each side's n-th draw is the same card.
+ */
+export function pileFor(t: TournamentSpec, hand: readonly CardName[], seed: number): CardName[] {
+  const left = [...hand];
+  return dealOrder(t, seed).filter(x => { const i = left.indexOf(x); if (i < 0) return true; left.splice(i, 1); return false; });
 }
 const holdOf = (e: Entrant): Partial<Record<string, number>> | undefined => {
   const m = /~h(\d+)$/.exec(e);
@@ -99,7 +112,7 @@ const variantOf = (t: TournamentSpec, e: Entrant): Partial<Rules> => {
 /** Whether `a`'s rule variant would change `b`'s power in their game (then they do not meet). */
 const clashes = (t: TournamentSpec, a: Entrant, b: Entrant): boolean => {
   // A card entrant holds its cards' powers: a Haste variant's rule would bind its Haste card too.
-  const pb = basePower(b), held: readonly CardName[] = b.startsWith('card:') ? [b.slice(5) as CardName] : b.startsWith('cards') ? t.cardPool ?? CARD_POOL : pb === 'none' ? [] : [pb];
+  const pb = basePower(b), held: readonly CardName[] = b.startsWith('card:') ? b.slice(5).split('+') as CardName[] : b.startsWith('cards') ? t.cardPool ?? CARD_POOL : pb === 'none' ? [] : [pb];
   return Object.keys(variantOf(t, a)).some(k => RULE_POWERS[k as keyof Rules]?.some(p => held.includes(p)));
 };
 /** One game's rules: the tournament's, both sides' rule variants, and the two kings. */
@@ -125,7 +138,7 @@ export interface TournamentSpec {
   anchor?: Entrant;
   /** Play only each entrant against itself (with `mirror`): for `cards<k>`, both sides with the same hand. */
   mirrorOnly?: boolean;
-  /** Card mode: the cards `cards<k>` entrants are dealt from (default `CARD_POOL`). */
+  /** Card mode: the cards `cards<k>` entrants are dealt from, and a Growth card draws from (default `CARD_POOL`). */
   cardPool?: CardName[];
   depth: number;
   seed: number;
@@ -212,9 +225,12 @@ export function schedule(t: TournamentSpec): TJob[] {
 /** The RunSpec `playGame` wants for one tournament game. */
 export function gameSpec(t: TournamentSpec, job: TJob): RunSpec {
   const sides = [holdOf(job.white), holdOf(job.black)] as [Partial<Record<string, number>> | undefined, Partial<Record<string, number>> | undefined];
+  const hw = handFor(t, job.white, job.seed), hb = handFor(t, job.black, job.seed);
+  // Draw piles only where a Growth card can draw, so other rounds' rules stay as they were.
+  const piles = [...hw, ...hb].some(x => x === 'Growth' || x === 'GrowthB') ? { piles: [pileFor(t, hw, job.seed), pileFor(t, hb, job.seed)] as const } : {};
   return {
     id: t.id, games: 1, seed: t.seed, ai: { depth: t.depth, ...(t.powerPlies === undefined ? {} : { powerPlies: t.powerPlies }) },
-    rules: { ...gameRules(t, job.white, job.black), ...(dealt(job.white) || dealt(job.black) ? { hands: [handFor(t, job.white, job.seed), handFor(t, job.black, job.seed)] } : {}) },
+    rules: { ...gameRules(t, job.white, job.black), ...(dealt(job.white) || dealt(job.black) ? { hands: [hw, hb] } : {}), ...piles },
     ...(t.powerHold ? { powerHold: t.powerHold } : {}),
     ...(sides[0] || sides[1] ? { powerHoldSides: sides } : {}),
     maxPlies: t.maxPlies, openingRandomPlies: t.openingRandomPlies,
@@ -229,9 +245,9 @@ export function compress(job: TJob, rec: GameRecord): TRecord {
     // The side of ply i is not i % 2 after a Haste turn: `by` says who moved.
     const by = m.by ?? ((i & 1) as 0 | 1);
     // A power move's notation carries its tag (`!F:`, `!W:`, `!S:`, `!H`, `!M`, `!L`, a Strike's
-    // trailing `!`, a Flight's `~`, and the cards `!X`, `!V`, `!C:`, `!K:`, `!R`); a Haste pass (`--`)
-    // is not a use, nor a waiting guard's entry (`G@b1`).
-    if (/![FWSHMLXVCKR]|!$|~/.test(m.lan)) {
+    // trailing `!`, a Flight's `~`, the cards `!X`, `!V`, `!C:`, `!K:`, `!R` and the 2014 cards'
+    // letters, setup.ts `toLan`); a Haste pass (`--`) is not a use, nor a waiting guard's entry (`G@b1`).
+    if (/![A-Z]|!$|~/.test(m.lan)) {
       uses[by]++;
       if (firstUse[by] === null) firstUse[by] = i;
     }
@@ -714,9 +730,10 @@ export function mirrorSection(recs: readonly TRecord[], entrants: readonly Entra
     for (const r of recs) if (r.white === e && r.black === e) (out.get(drawOf(r)) ?? out.set(drawOf(r), []).get(drawOf(r))!).push(r);
     return out;
   };
-  // Length in turns: a free mark and a Haste's first move are plies of a turn that goes on. Every
-  // other card (`!X`, `!V`, `!C:`, `!K:`, `!R` included) is the whole turn.
-  const turns = (r: TRecord): number => r.plies - r.lans.filter(l => /^!F:|^!W:|!H$/.test(l)).length;
+  // Length in turns: a free mark (Freeze, Ice Wall, Firewall, Rescue), a GrowthB and a Haste's or a
+  // Rage's first move are plies of a turn that goes on, a Mirror's copy of one too (`!Y`, `!Z`).
+  // Every other card (`!X`, `!V`, `!C:`, `!K:`, `!R` included) is the whole turn.
+  const turns = (r: TRecord): number => r.plies - r.lans.filter(l => /^(!F:|!W:|!P|!D:|!G\+)|![HAB](!Y|!Z)?$/.test(l)).length;
   const per = (rs: readonly TRecord[]) => ({
     white: rs.reduce((a, r) => a + r.result, 0) / rs.length,
     draws: rs.filter(r => r.result === 0.5).length / rs.length,
@@ -792,8 +809,8 @@ function parseEntrants(text: string | true | undefined, none: boolean): Entrant[
     if (/^cards\d+$/.test(s)) return s as Entrant;
     if (s.startsWith('card:')) {
       const hand = parseRule(`hands=${s.slice(5)}`).hands![0];
-      if (hand.length !== 1) throw new Error(`bad entrant "${s}" (card:<one card>, e.g. card:Mimic)`);
-      return `card:${hand[0]}` as Entrant;
+      if (!hand.length || hand.length > 8) throw new Error(`bad entrant "${s}" (card:<card>[+<card>…], e.g. card:Mimic, card:Freeze+Rescue)`);
+      return `card:${hand.join('+')}` as Entrant;
     }
     const [name, variant] = s.split('~');
     const p = ALL_POWERS.find(x => x.toLowerCase() === name.toLowerCase());
