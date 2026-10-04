@@ -37,9 +37,14 @@ export interface PaintedScene {
   /**
    * Opt-in liveliness (all off by default, so the trial and the trailer are unchanged):
    * moves: quiet moves use each figure's gait (gait.mjs); idle: the selected figure breathes;
-   * atmosphere: a stone frame, soft contact shadows and warm light on the board.
+   * atmosphere: a stone frame, soft contact shadows and warm light on the board;
+   * kings: each king's own idle effect (king-effects.mjs), redrawn about 30 times a second while one shows.
    */
-  setLively(options: { moves?: boolean; idle?: boolean; atmosphere?: boolean }): void;
+  setLively(options: { moves?: boolean; idle?: boolean; atmosphere?: boolean; kings?: boolean }): void;
+  /** The king designs whose effects the last frame drew (empty: none). */
+  readonly effects: KingDesign[];
+  /** Frames drawn since the scene was made. */
+  readonly frames: number;
   /**
    * 'under': once, below every figure. 'over': once per screen row (0 = top) after that row's figures,
    * so a figure in a lower row stands in front of the markers behind it.

@@ -13,6 +13,7 @@ import * as court from '../court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 import {BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt} from './gait.mjs';
+import {createKingEffects} from './king-effects.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 // One literal URL per image: bundlers resolve and copy each file (a template string would not).
 const ART_FILES={beast:new URL('../beast/beast.webp',import.meta.url).href,queen:new URL('../queen/queen.webp',import.meta.url).href,paladin:new URL('../paladin/paladin.webp',import.meta.url).href,maester:new URL('../maester/maester.webp',import.meta.url).href,pawn:new URL('../lance/pawn.webp',import.meta.url).href,archer:new URL('../wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../ogre/ogre.webp',import.meta.url).href,knight:new URL('../knight/knight.webp',import.meta.url).href,bishop:new URL('../bishop/bishop.webp',import.meta.url).href,rook:new URL('../rook/rook.webp',import.meta.url).href,guard:new URL('../guard/guard.webp',import.meta.url).href};
@@ -65,9 +66,12 @@ for(const [type,name] of Object.entries(courtNames)){
  const idle=new Map(), work=new Map();
  let position={board:new Uint8Array(64)}, selected=null, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
  let fallen=null, res=1, frame=0, previousTime=0, ready=false, flipped=false, coords=true, coordSize=13, labels=false, reducedMotion=false, decorate=null;
- // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, and the board's frame and light.
- // All off by default, so the trial and the trailer draw exactly as before.
- const lively={moves:false,idle:false,atmosphere:false};
+ // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
+ // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
+ const lively={moves:false,idle:false,atmosphere:false,kings:false};
+ const kingFx=createKingEffects({sheet:design=>kingArt[design]?.image??null,onLoad:()=>wake()});
+ // Square → when a king's effect started there (what stands on his square grows back after a move).
+ let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[];
  let selectedAt=0, idleTimer=0, framePattern=null, awakeUntil=0;
  const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
  const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
@@ -309,7 +313,23 @@ function vortex(out,foot,phase,strength) {
   const value=position.board[selected],pose=poseFor(value,selected),target=selectionTarget();
   return target?aimed(value,pose,target):pose;
  }
+ // A king's effect this frame, or null. k fades the whole effect as he falls; g fades what stands on his
+ // square while he moves (it grows back on the new square).
+ function kingEffect(sq,unit,time){
+  const side=colorOf(unit.value),design=kings[side];
+  if(!lively.kings||reducedMotion||unit.fx||!kingFx.has(design))return null;
+  let k=unit.opacity;
+  if(fallen?.sq===sq)k*=1-ease((time-fallen.start)/FALL);
+  if(k<=.001)return null;
+  const a=animation&&!animation.done?animation:null,moving=a&&(a.move.from===sq||(a.move.swap&&a.move.to===sq));
+  const since=moving?null:kingSince.get(sq)??time;if(since!=null)nextSince.set(sq,since);
+  const g=moving?1-ease((time-a.start)/(200*a.speed)):ease((time-since)/900);
+  const s={design,side,pose:unit.pose,t:time+side*1777,k,g,facing:unit.pose.facing};
+  s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
+  return s;
+ }
  function render(time=performance.now()) {
+ frames++;fxDrawn=[];nextSince=new Map();
  const a0=animation,since=a0?.shakeAt!=null?(time-a0.start)/a0.speed-a0.shakeAt:-1,shake=since>=0&&since<240?7*(1-since/240):0;
  ctx.save();ctx.translate(0,headroom);if(shake)ctx.translate(Math.sin(since*.09)*shake,Math.cos(since*.13)*shake*.6);
  boardBackground();
@@ -484,10 +504,14 @@ function vortex(out,foot,phase,strength) {
  // own square's figure, and a tall figure standing in front of it (a lower row) covers it.
  let overRow=0;
  const over=last=>{for(;overRow<=last;overRow++)decorate?.(ctx,api,'over',overRow);};
- for(const [,unit] of ordered){
+ for(const [sq,unit] of ordered){
   if(!animation)over(Math.floor((unit.pose.foot.y-40-PAD)/TILE)-1);
-  drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,unit.fx);
+  const fx=typeOf(unit.value)===K?kingEffect(sq,unit,time):null;
+  if(fx){kingFx.back(ctx,fx);fxDrawn.push(fx.design);}
+  drawPiece(ctx,unit.value,fx?.pose??unit.pose,unit.opacity,unit.extension,unit.fx);
+  if(fx)kingFx.front(ctx,fx);
  }
+ kingSince=nextSince;
  for(const effect of effects)effect();
  if(shot)bolt(ctx,shot.start,shot.end,shot.t,shot.scale);
  if(hit)impact(ctx,hit.point,hit.t,hit.scale);
@@ -515,7 +539,7 @@ function drawEncounter(a,t) {
   render(time);
   if(labels)drawLabels();
   if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil)wake();
-  else{previousTime=0;if(idling()){clearTimeout(idleTimer);idleTimer=setTimeout(wake,33);}} // the idle breath needs only ~30 frames a second
+  else{previousTime=0;if(idling()||fxDrawn.length){clearTimeout(idleTimer);idleTimer=setTimeout(wake,33);}} // the idle breath and the kings' effects need only ~30 frames a second
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}
  function drawLabels() {
@@ -601,7 +625,7 @@ function drawEncounter(a,t) {
   setAim(sq){aimSquare=sq;wake();},
   setFlipped(on){flipped=on;idle.clear();wake();},
   /** [white, black] king designs ('frost' … 'shadow'): each side's king figure. */
-  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;kings=[...next];for(const design of kings)kingImage(design).loaded.catch(()=>{});wake();},
+  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;kings=[...next];for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)kingFx.has(design);}wake();},
   get kings(){return [...kings];},
   /** The king design each side's figure was last drawn with (null: not yet drawn). */
   get drawnKings(){return [...drawnKings];},
@@ -613,8 +637,12 @@ function drawEncounter(a,t) {
   setFallen(sq,animate=true){fallen=sq==null?null:{sq,start:animate?performance.now():-Infinity};wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
   setResolution(k){if(k===res)return;res=k;canvas.width=fxCanvas.width=Math.round(SIZE*k);canvas.height=fxCanvas.height=Math.round((SIZE+headroom)*k);ctx.setTransform(k,0,0,k,0,0);wake();},
-  /** Opt in to quiet-move gaits (moves), the selected figure's idle breath (idle) and the stone frame, contact shadows and warm light (atmosphere). */
-  setLively(options){Object.assign(lively,options);wake();},
+  /** Opt in to quiet-move gaits (moves), the selected figure's idle breath (idle), the stone frame, contact shadows and warm light (atmosphere), and the kings' idle effects (kings). */
+  setLively(options){Object.assign(lively,options);if(lively.kings)for(const design of kings)kingFx.has(design);wake();},
+  /** The king designs whose effects the last frame drew (for checks). */
+  get effects(){return [...fxDrawn];},
+  /** Frames drawn so far (for checks). */
+  get frames(){return frames;},
   setDecorate(fn){decorate=fn;wake();},
   redraw(){wake();},
   /** Draw every frame for the next `ms` (a decoration's own short animation, such as markers appearing). */
