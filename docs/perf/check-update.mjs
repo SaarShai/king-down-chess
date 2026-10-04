@@ -53,6 +53,29 @@ try {
   await page.reload(); await ready();
   assert.equal(await page.evaluate(() => document.documentElement.dataset.deploy), 'v2');
   console.log('ok offline reload right after the update');
+
+  // Another page of the site (Privacy, from Settings → Account) never takes the game's place offline.
+  await context.setOffline(false);
+  writeFileSync(join(dir, 'privacy.html'), '<!doctype html><title>Privacy policy</title><p>Privacy</p>');
+  const other = await context.newPage();
+  await other.goto(`${url}privacy.html`);
+  assert.equal(await other.title(), 'Privacy policy');
+  await other.close();
+  // Signed in, offline, the account's code never downloaded: the game loads and plays as before.
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  await page.evaluate(exp => {
+    sessionStorage.setItem('kingdown.title-seen', '1');
+    localStorage.setItem('kingdown.auth', JSON.stringify({ access_token: 'x.y.z', refresh_token: 'r', token_type: 'bearer', expires_in: 3600, expires_at: exp,
+      user: { id: '0a7c1d2e-3f40-4b5c-8d6e-7f8091a2b3c4', user_metadata: { full_name: 'Ada' }, app_metadata: { provider: 'google' } } }));
+  }, exp);
+  await context.route('https://utqzovjmclfyojedmwok.supabase.co/**', r => r.abort('internetdisconnected'));
+  await context.setOffline(true);
+  await page.reload(); await ready();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.deploy), 'v2', 'the game, not the other page');
+  await page.waitForFunction(() => document.querySelector('#account-body b')?.textContent === 'Ada');
+  for (const sq of [12, 28]) { const p = await page.evaluate(s => window.view.screenOf(s), sq); await page.mouse.click(p.x, p.y); } // e2-e4
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length >= 1);
+  console.log('ok after opening another page of the site, an offline start is still the game; signed in and offline, it plays and saves');
   assert.deepEqual(errors, []);
 } finally {
   await browser.close();

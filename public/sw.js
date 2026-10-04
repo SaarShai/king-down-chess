@@ -61,7 +61,11 @@ async function asset(request) {
 }
 
 self.addEventListener('fetch', event => {
-  const { request } = event;
-  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
-  event.respondWith(request.mode === 'navigate' ? page(request) : asset(request));
+  const { request } = event, url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+  if (request.mode !== 'navigate') return event.respondWith(asset(request));
+  // Only the game's own page is kept for offline play. Another page of the site (Privacy, Terms)
+  // goes straight to the network, so opening it can never put it in the game's place.
+  const start = new URL('./', self.registration.scope).pathname;
+  if (url.pathname === start || url.pathname === `${start}index.html`) event.respondWith(page(request));
 });

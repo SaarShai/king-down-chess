@@ -582,10 +582,19 @@ async function commit(m: Move): Promise<void> {
 /** A lesson move: the goal ends the lesson; any other move is taken back with the task again. */
 function lessonResult(pre: Position, m: Move): void {
   const l = LESSONS[lesson!];
-  if (l.goal(pre, m)) { lessonDone = true; said = `Well done. ${l.done}`; }
+  if (l.goal(pre, m)) { lessonDone = true; said = `Well done. ${l.done}`; noteLesson(l.name); }
   else { game.undo(); view.sync(game.pos); said = `Not quite. ${l.task}`; }
   $('moment').textContent = said;
   refresh();
+}
+
+/** Lessons done, by name, in localStorage `kingdown.lessons` (the account keeps a copy; nothing shows it yet). */
+function noteLesson(name: string): void {
+  try {
+    const done: string[] = JSON.parse(localStorage.getItem('kingdown.lessons') ?? '{}').done ?? [];
+    if (!done.includes(name)) localStorage.setItem('kingdown.lessons', JSON.stringify({ done: [...done, name] }));
+  } catch { /* private mode */ }
+  account?.changed();
 }
 
 /** A lesson: its position, both sides moved from this device, and nothing saved (the autosave keeps the real game). */
@@ -611,6 +620,8 @@ function startLesson(i: number): void {
 $('learn').onclick = () => startLesson(0);
 $('return-game').onclick = () => {
   if (!lessonReturn) return;
+  const s = cloudGame ? readSave() : null;
+  if (s) return openSaved(s);
   reset();
   ({ game, resigned, linkSide } = lessonReturn);
   [sides[0], sides[1]] = lessonReturn.sides;
@@ -912,6 +923,7 @@ function newGame(backRank?: string, fen?: string | null, rematch = false, dailyD
   linkSide = null;
   lesson = null; lessonDone = false;
   lessonReturn = null;
+  cloudGame = false;
   daily = dailyDate;
   seenMoments.clear();
   said = '';
@@ -1094,8 +1106,13 @@ function copyFallback(text: string): void {
 }
 
 /* ---- autosave ---- */
+/** account/sync.ts splits these fields into settings and the saved game: name a new one there too. */
 interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean }
 const SAVE_KEY = 'kingdown.save';
+/** Settings → Account and the cloud save, loaded after the board is drawn (null until then, or offline). */
+let account: typeof import('./account/account') | null = null;
+/** A newer saved game came from the account during a lesson: Return to game opens it. */
+let cloudGame = false;
 
 function save(): void {
   if (lesson != null) return; // a lesson never replaces the saved game
@@ -1120,6 +1137,70 @@ function save(): void {
       rules: { ...GAME_RULES },
     } satisfies Save));
   } catch { /* private mode or a full quota: play on without a save */ }
+  account?.changed();
+}
+
+/** A save's settings onto the controls (at start-up, or newer ones from the account). */
+function applySettings(s: Save): void {
+  if (s.think) $<HTMLInputElement>('think').value = String(s.think);
+  if (typeof s.sound === 'boolean') $<HTMLInputElement>('sound').checked = s.sound;
+  if (typeof s.queen === 'boolean') $<HTMLInputElement>('queen').checked = s.queen;
+  if (typeof s.threats === 'boolean') $<HTMLInputElement>('threats').checked = s.threats;
+  if (s.pace === 'normal' || s.pace === 'fast' || s.pace === 'off') pace.value = s.pace;
+  // Old saves with no skill field stay Strong so a resumed game does not suddenly get easier.
+  skill = isLevel(s.skill) ? s.skill : 'strong';
+  if (typeof s.coords === 'boolean') coords.checked = s.coords;
+}
+
+/** A save's rules, army and moves onto `game`; a save it cannot read starts a new game. */
+function replay(s: Save): void {
+  try {
+    if (s.rules) setRules(s.rules); // before playLan: the moves must replay under their own rules
+    if (s.back) game.newGame(s.back); else game.load(fromFen(s.fen));
+    game.playLan(s.moves);
+    resigned = s.resigned ?? null;
+  } catch { game.newGame(); } // a save from an older format: start fresh
+}
+
+/** Sections the account had newer than this device; account/sync.ts already wrote them to the save. */
+function fromAccount(down: string[]): void {
+  const s = readSave();
+  if (!s) return;
+  if (down.includes('settings')) {
+    applySettings(s);
+    setSound($<HTMLInputElement>('sound').checked); view.setPace(pace.value as Pace); view.setCoords(coords.checked);
+    refresh();
+  }
+  if (down.includes('saved_game')) { if (lesson != null) cloudGame = true; else if (!fen) openSaved(s); }
+}
+
+function labelContinue(): void {
+  if (!game.history.length) return;
+  $('title-continue').querySelector('.label')!.textContent = `Continue · move ${nextMoveNumber(game.history.map(h => h.pos.turn), game.pos.turn)}`;
+}
+
+/** The account's saved game replaces the one on the board (but not a position opened by `?fen=`). */
+function openSaved(s: Save): void {
+  reset();
+  $<HTMLDialogElement>('over').close();
+  cloudGame = false;
+  lesson = null; lessonDone = false; lessonReturn = null;
+  if (isSide(s.white)) sides[0] = s.white;
+  if (isSide(s.black)) sides[1] = s.black;
+  linkSide = s.link === 0 || s.link === 1 ? s.link : null;
+  daily = typeof s.daily === 'string' ? s.daily : null;
+  resigned = null;
+  replay(s);
+  restoreMoments();
+  said = 'Loaded your newer saved game from your account.';
+  $('moment').textContent = said;
+  view.sync(game.pos);
+  orient();
+  fillPieceGuide();
+  refresh();
+  // Over the title or New game the computer waits, as at start-up; the title offers this game.
+  if ($<HTMLDialogElement>('title-screen').open) { $('title-continue').hidden = !game.history.length; labelContinue(); }
+  else if (!$<HTMLDialogElement>('new-game').open) void maybeAi();
 }
 
 function readSave(): Save | null {
@@ -1249,14 +1330,7 @@ const isSide = (v: unknown): v is Side => v === 'human' || v === 'ai';
 if (saved) {
   if (isSide(saved.white)) sides[0] = saved.white;
   if (isSide(saved.black)) sides[1] = saved.black;
-  if (saved.think) $<HTMLInputElement>('think').value = String(saved.think);
-  if (typeof saved.sound === 'boolean') $<HTMLInputElement>('sound').checked = saved.sound;
-  if (typeof saved.queen === 'boolean') $<HTMLInputElement>('queen').checked = saved.queen;
-  if (typeof saved.threats === 'boolean') $<HTMLInputElement>('threats').checked = saved.threats;
-  if (saved.pace === 'normal' || saved.pace === 'fast' || saved.pace === 'off') pace.value = saved.pace;
-  // Old saves with no skill field stay Strong so a resumed game does not suddenly get easier.
-  skill = isLevel(saved.skill) ? saved.skill : 'strong';
-  if (typeof saved.coords === 'boolean') coords.checked = saved.coords;
+  applySettings(saved);
 }
 setup = loadSetup() ?? (saved ? setupOfGame(sides, saved.rules?.kings ?? [null, null], skill) : defaultSetup());
 /** `?players=human,ai` (White, then Black): who plays the game this page opens. For the lab and the browser checks. */
@@ -1327,18 +1401,11 @@ else if (saved) {
     // The URL names a rule set and the autosave played a different one. Replaying the moves would
     // reinterpret them, so keep the URL's fresh game and let the next save overwrite the old one.
     console.warn('kingdown: the autosave played different rules than the URL asks for; starting fresh');
-  } else try {
-    if (savedRules) setRules(savedRules); // before playLan: the moves must replay under their own rules
-    if (saved.back) game.newGame(saved.back); else game.load(fromFen(saved.fen));
-    game.playLan(saved.moves);
-    resigned = saved.resigned ?? null;
-  } catch { game.newGame(); } // a save from an older format: start fresh
+  } else replay(saved);
 }
 // The title's Continue names the move the restored game is on (set before the first paint; a
 // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
-if (showTitle && game.history.length) {
-  $('title-continue').querySelector('.label')!.textContent = `Continue · move ${nextMoveNumber(game.history.map(h => h.pos.turn), game.pos.turn)}`;
-}
+if (showTitle) labelContinue();
 orient();
 view.sync(game.pos);
 await view.ready();
@@ -1348,6 +1415,8 @@ setSound($<HTMLInputElement>('sound').checked);
 restoreMoments();
 refresh();
 if (!fen) save(); // pin the random back rank so a reload keeps this game (and keep an opened link's game)
+void import('./account/account').then(m => { account = m; m.changed(); m.startAccount(fromAccount); })
+  .catch(() => { /* offline on a first visit: play on without an account */ });
 await titleClosed; // the computer waits for the player, and no dialog opens over the title
 if (titleChoice === 'learn') startLesson(0);
 else {
