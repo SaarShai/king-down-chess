@@ -15,6 +15,7 @@ import { mulberry32 } from './sim/rng';
 import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, usesAllowed, usesLeft } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
+import { pieceIcon } from './piece-icons';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -290,12 +291,12 @@ function fillPieceGuide(): void {
     const name = NAMES[t][0].toUpperCase() + NAMES[t].slice(1);
     const art = pieceArt(t);
     // The heading keeps "A Archer" as one text run: tools find a card by it.
-    card.innerHTML = `<div class="pc-art">${art ? `<img src="${art}" alt="" loading="lazy" decoding="async">` : `<span class="pc-medallion" aria-hidden="true">${letter}</span>`}</div>`
+    // The rulebook's icon sits on the figure's shoulder, as in the 2017 book; a lab piece shows its letter.
+    card.innerHTML = `<div class="pc-art">${art ? `${pieceIcon(t)}<img src="${art}" alt="" loading="lazy" decoding="async">` : `<span class="pc-medallion" aria-hidden="true">${letter}</span>`}</div>`
       + `<div class="pc-body"><h3><span class="pc-letter" title="Its letter in the move list">${letter}</span> ${name}</h3><dl>`
       + `<dt>Moves</dt><dd>${g.moves}</dd><dt>Captures</dt><dd>${g.captures}</dd>${g.special ? `<dt>Special</dt><dd>${g.special}</dd>` : ''}</dl></div>`;
     rows.appendChild(card);
   }
-  const poolLetters = POOL.split('').join(' ');
   const promo = GAME_RULES.promotionSet === 'anyNonKing'
     ? 'A pawn promotes to any piece but a king.'
     : GAME_RULES.promotionSet === 'anyNonKingNoGuard'
@@ -309,8 +310,13 @@ function fillPieceGuide(): void {
   // The twelve powers, with the use counts the rules set today.
   $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
     `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p)}) — ${powerText(p)}`).join('; ')}.</li>`).join('');
-  $('rules-letters').textContent =
-    `The random draw pool is ${poolLetters}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
+  // Each piece once, as its icon and letter with how many the pool holds ("R ×2"); its name for a pointer and a screen reader.
+  const pool = [...new Set(POOL)].map(ch => {
+    const t = LETTERS.indexOf(ch) as PieceType, n = POOL.split(ch).length - 1;
+    return `<span class="pool-piece" title="${NAMES[t]}">${pieceIcon(t)}${ch}<span class="sr-only"> (${NAMES[t]})</span>${n > 1 ? ` ×${n}` : ''}</span>`;
+  }).join(', ');
+  $('rules-letters').innerHTML =
+    `The random draw pool is ${pool}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
 }
 
 function showInfo(sq: number | null): void {
@@ -319,7 +325,7 @@ function showInfo(sq: number | null): void {
   const g = t ? pieceGuide(t) : null;
   const blurb = g ? [g.moves, g.captures, g.special].filter(Boolean).join(' ') : '';
   $('info').innerHTML = (code
-    ? `<b>${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${blurb}`
+    ? `<b>${pieceIcon(typeOf(code), colorOf(code))} ${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${blurb}`
       // Lab only (docs/RULES.md §6.9): the shipped guard never captures, so it can never be spent.
       + (code & SPENT ? ' <b>This guard has used its capture.</b>' : '')
     : '') + kingsInfo();
@@ -439,11 +445,15 @@ function refresh(): void {
     for (const c of h.move.captures) taken[mover].push(h.pos.board[c]);
     if (h.move.selfRemove) taken[1 - mover].push(h.pos.board[h.move.from]);
   }
-  // Grouped names ("pawn ×2, beast"): letters alone mean little for the King Down pieces.
+  // Grouped icons in each piece's own colours (a paladin that removed itself is on its own side's line).
+  // A screen reader and a pointer get the names: "pawn ×2, beast". A lab piece has no icon, only its name.
   const names = (codes: number[]): string => {
-    const count = new Map<PieceType, number>();
-    for (const p of codes) count.set(typeOf(p), (count.get(typeOf(p)) ?? 0) + 1);
-    return [...count].sort(([a], [b]) => a - b).map(([t, n]) => `<span>${NAMES[t]}${n > 1 ? ` ×${n}` : ''}</span>`).join(', ');
+    const count = new Map<number, number>(); // key: type * 2 + colour
+    for (const p of codes) { const k = typeOf(p) * 2 + colorOf(p); count.set(k, (count.get(k) ?? 0) + 1); }
+    return [...count].sort(([a], [b]) => a - b).map(([k, n]) => {
+      const t = (k >> 1) as PieceType, icon = pieceIcon(t, (k & 1) as Color), name = `${NAMES[t]}${n > 1 ? ` ×${n}` : ''}`;
+      return icon ? `<span class="took" title="${name}">${icon}${n > 1 ? `<span aria-hidden="true">×${n}</span>` : ''}<span class="sr-only">${name}</span></span>` : `<span class="took">${name}</span>`;
+    }).join('<span class="sr-only">, </span>');
   };
   $('took-w').innerHTML = names(taken[0]);
   $('took-b').innerHTML = names(taken[1]);
@@ -460,7 +470,9 @@ function refresh(): void {
   progress.hidden = lesson == null;
   document.body.classList.toggle('in-lesson', lesson != null);
   if (lesson != null) {
-    progress.innerHTML = LESSONS.map((l, i) => `<span class="${i < lesson! || (i === lesson && lessonDone) ? 'done' : i === lesson ? 'now' : ''}" title="${l.name}"></span>`).join('');
+    // Each lesson as the icon of the piece it teaches (a lesson is named after its piece).
+    const taught = (name: string) => NAMES.indexOf(name.toLowerCase() as typeof NAMES[number]) as PieceType;
+    progress.innerHTML = LESSONS.map((l, i) => `<span class="${i < lesson! || (i === lesson && lessonDone) ? 'done' : i === lesson ? 'now' : ''}" title="${l.name}">${pieceIcon(taught(l.name))}</span>`).join('');
   }
   refreshPowers();
   drawMarks();

@@ -88,6 +88,24 @@ for white and the shadow for black."
   [desktop, Kings' powers](new-game/desktop-powers.jpg) · [phone](new-game/phone-computer.jpg) ·
   [phone, Kings' powers](new-game/phone-powers.jpg)
 
+## Round 4 — the rulebook's piece icons (2026-10-04, waiting for the owner's approval)
+
+Owner: "for the symbols of the fairy pieces, in the original king down rules, we had symbols/icons for
+them. import those. you also need to come up with a new one for ogre."
+
+- **Icons:** `public/ui/icons/<piece>.svg`, one per piece, 48-unit viewBox, root `id="icon"`. The eleven of
+  the 2017 rulebook are its own vector paths ([`tools/extract-piece-icons.py`](../../tools/extract-piece-icons.py),
+  sources in `art-src/MANIFEST.md`). The Ogre's is new: option A, an open palm with the cuff (the push).
+  Options B (face) and C (fist) are in [`piece-icons/`](piece-icons/).
+- **Paint:** ring and glyph are `currentColor`, the disc `--pi-disc` (the book's blue-grey when unset), the
+  glyph `--pi-glyph` when set. `.pi` (`src/style.css`) is the book's look; `.pi-w` White (a pale disc),
+  `.pi-b` Black (a dark disc, a pale glyph). `src/piece-icons.ts` writes the markup:
+  `<svg class="pi" aria-hidden="true"><use href="./ui/icons/<piece>.svg#icon"/></svg>`.
+- **Where:** the title lineup (beside or above each name), the Guide cards (on the figure's shoulder, as in
+  the book), the Guide's draw pool (icon and letter), the selected piece's card, the captured pieces
+  (icons in their army's colours, grouped; the names stay for screen readers), the lesson progress (the
+  piece each lesson teaches). The move list keeps its letters; so do the board's letter chips.
+
 ## What changed
 
 | Area | Before | After |
