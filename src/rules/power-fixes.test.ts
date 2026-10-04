@@ -321,6 +321,62 @@ describe('Darkness readings, round 16: one sentence each (owner, 2026-10-03)', (
     expect(lans(open)).toEqual([...one].sort());
   });
 
+  it('on random boards each reading changes exactly what its sentence says, no more and no less', () => {
+    // From the moves with the reading off: the armour and the aura drop the pawn captures they name,
+    // and the step adds every straight two-square king step over and onto an empty square that does
+    // not end in check. `obeys` (below) checks only the moves offered; this also finds a missing one.
+    let seed = 1604;
+    const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+    const dark: KingChoice = { king: 'Shadow', power: 'Darkness' };
+    const types: PieceType[] = [P, P, P, N, B, R, Q];
+    const near = (a: number, b: number): boolean => a !== b && Math.max(Math.abs(file(a) - file(b)), Math.abs(rank(a) - rank(b))) === 1;
+    const changed = { darknessPawnArmor: 0, darknessAuraPawns: 0, darknessKingStep2: 0 };
+    for (let trial = 0; trial < 4000; trial++) {
+      const board = new Uint8Array(64);
+      const kw = Math.floor(rng() * 64);
+      let kb = kw;
+      while (Math.max(Math.abs(file(kb) - file(kw)), Math.abs(rank(kb) - rank(kw))) < 2) kb = Math.floor(rng() * 64);
+      board[kw] = piece(K, WHITE); board[kb] = piece(K, BLACK);
+      for (let s = 0; s < 64; s++) {
+        if (board[s] || rng() < 0.6) continue;
+        const t = types[Math.floor(rng() * types.length)];
+        if (t !== P || (s >= 8 && s < 56)) board[s] = piece(t, rng() < 0.5 ? WHITE : BLACK);
+      }
+      const pos: Position = { board, turn: (rng() < 0.5 ? WHITE : BLACK) as Color, halfmove: 0, ply: 0 };
+      const c = pos.turn, o = (c ^ 1) as Color;
+      const kings: Rules['kings'] = rng() < 0.3 ? [dark, dark] : rng() < 0.5 ? [dark, null] : [null, dark];
+      const base: Partial<Rules> = { kings, darknessMoves: rng() < 0.7, darknessShelter: rng() < 0.2 };
+      setRules(base);
+      if (inCheck(pos, o)) continue;
+      const offMoves = legalMoves(pos), off = lans(pos, offMoves);
+      for (const key of Object.keys(changed) as (keyof typeof changed)[]) {
+        setRules({ ...base, [key]: true });
+        let expected = off;
+        if (key === 'darknessKingStep2' && powerOf(c) === 'Darkness') {
+          const k = board.indexOf(piece(K, c)), steps: Move[] = [];
+          for (const [df, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+            const f = file(k) + 2 * df, r = rank(k) + 2 * dr, mid = k + df + 8 * dr, to = k + 2 * (df + 8 * dr);
+            if (f < 0 || f > 7 || r < 0 || r > 7 || board[mid] || board[to]) continue;
+            const m: Move = { from: k, to, captures: [] };
+            if (!inCheck(makeMove(pos, m), c)) steps.push(m);
+          }
+          expected = [...off, ...lans(pos, steps)].sort();
+        } else if (key !== 'darknessKingStep2' && powerOf(o) === 'Darkness' && !(key === 'darknessAuraPawns' && base.darknessShelter)) {
+          const ko = board.indexOf(piece(K, o));
+          const named = (s: number): boolean => colorOf(board[s]) === o
+            && (key === 'darknessPawnArmor' ? typeOf(board[s]) === P : typeOf(board[s]) !== K && near(s, ko));
+          expected = lans(pos, offMoves.filter(m => !(typeOf(board[m.from]) === P && m.captures.some(named))));
+        }
+        const where = `${toFen(pos)} ${key} ${JSON.stringify(base)}`;
+        expect(lans(pos), where).toEqual(expected);
+        expect(lans(pos, searchLegal(pos)), where).toEqual(expected);
+        if (expected.join() !== off.join()) changed[key]++;
+      }
+    }
+    // Not vacuous (2026-10-04: 115, 25 and 466 boards).
+    expect(Math.min(...Object.values(changed))).toBeGreaterThan(15);
+  });
+
   it('the rule text names each reading', () => {
     const base = 'your pawns may also step diagonally, and take only straight ahead';
     const r = (more: Partial<Rules>): Rules => setRules({ darknessMoves: true, ...more });

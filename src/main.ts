@@ -307,8 +307,8 @@ function fillPieceGuide(): void {
     'In the move list: - moves, x captures, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes. '
     + 'Kings\' powers: ! Strike, !H Haste (-- ends a Haste turn early), ~ Flight, !F: Freeze, !W: Ice Wall, !S: Sacrifice, !M March, !L Leap.';
   // The twelve powers as a game with powers plays them: this game's rules when a king has a power,
-  // else the official readings (as the New game picker shows them).
-  const pr: Rules = GAME_RULES.kings[0] || GAME_RULES.kings[1] ? GAME_RULES : { ...GAME_RULES, ...POWERS_BALANCED };
+  // else the official readings, which an older `?rules=` preset overrides (as `newGame` sets them).
+  const pr: Rules = GAME_RULES.kings[0] || GAME_RULES.kings[1] ? GAME_RULES : { ...GAME_RULES, ...POWERS_BALANCED, ...preset };
   $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
     `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p, pr)}) — ${powerText(p, pr)}`).join('; ')}.</li>`).join('');
   $('rules-letters').textContent =
