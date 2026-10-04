@@ -66,9 +66,10 @@ export function replayRecord(
   const events = emptyEvents();
   for (let i = 0; i < rec.moves.length; i++) {
     const lan = rec.moves[i].lan;
-    // The king powers' notation (`!F:e5`, `Nb1~e3`, `--`, `d4-d6!M` …) is matched against the legal
-    // moves, which also checks the power state; the rest parse without generating moves.
-    const m = /[!~]|^--$/.test(lan) ? legalMoves(pos).find(x => toLan(pos, x) === lan) : parseLan(pos.board, lan);
+    // The king powers' notation (`!F:e5`, `Nb1~e3`, `--`, `d4-d6!M` …) and the drops (`G@b1`,
+    // `N@b1!R`) are matched against the legal moves, which also checks the power state and the
+    // waiting guards; the rest parse without generating moves.
+    const m = /[!~@]|^--$/.test(lan) ? legalMoves(pos).find(x => toLan(pos, x) === lan) : parseLan(pos.board, lan);
     if (!m || toLan(pos, m) !== lan) throw new Error(`game ${rec.gameId} ply ${i}: parsed ${m ? toLan(pos, m) : 'nothing'} from ${lan}`);
     const next = makeMove(pos, m);
     countMove(events, pos, m, next);

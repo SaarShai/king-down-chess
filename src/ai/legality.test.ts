@@ -4,13 +4,14 @@
  * at the king, on random positions with every piece type (catapults included: their screen is the
  * one way an arriving piece can expose a king) and random kings' powers, or random card hands, or
  * the Darkness and Mercy lab readings (the Darkness king's two-square take adds an attack over a
- * square next to the king it attacks).
+ * square next to the king it attacks), or guards waiting to enter (`guardReserve`; a drop fills a
+ * square, which only a catapult's screen turns against the king).
  */
 import { afterEach, expect, it } from 'vitest';
 import {
-  A, B, BLACK, C, Color, G, K, L, M, Mark, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, inCheck, legalMoves, piece,
+  A, B, BLACK, C, Color, G, K, L, M, Mark, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, inCheck, legalMoves, piece, pseudoMoves,
 } from '../rules/engine';
-import { CARD_ONLY, CardName, KINGS, KingChoice, KingName, PowerName, Rules, TIER1, USES_RULE, setRules } from '../rules/rules';
+import { CARD_ONLY, CardName, KINGS, KingChoice, KingName, PowerName, RULES, Rules, TIER1, USES_RULE, setRules } from '../rules/rules';
 import { toFen, toLan } from '../rules/setup';
 import { searchLegal, setFastLegality } from './search';
 
@@ -82,7 +83,7 @@ it('the same with card hands, the card-only cards included, and marks on the boa
     pos.used = [Math.floor(rng() * (1 << hw.length)) & ~1, Math.floor(rng() * (1 << hb.length)) & ~1];
     const mark = (): Mark | undefined => (rng() < 0.4 ? { sq: Math.floor(rng() * 64), ...(rng() < 0.5 ? { ward: true } : {}) } : undefined);
     pos.marks = [mark(), mark()];
-    if (hw.includes('Sacrifice') || hb.includes('Sacrifice')) { const lost = new Array<number>(32).fill(0); lost[pick(TYPES)] = 1; lost[16 + pick(TYPES)] = 1; pos.lost = lost; }
+    if ([...hw, ...hb].some(h => h === 'Sacrifice' || h === 'Salvation')) { const lost = new Array<number>(32).fill(0); lost[pick(TYPES)] = 1; lost[16 + pick(TYPES)] = 1; pos.lost = lost; }
     if (inCheck(pos)) inCheckCount++;
     const engineMoves = legalMoves(pos);
     for (const m of engineMoves) if (m.power) played.add(m.power);
@@ -99,7 +100,44 @@ it('the same with card hands, the card-only cards included, and marks on the boa
   }
   expect(checked).toBeGreaterThan(1000);
   expect(inCheckCount).toBeGreaterThan(50);
-  for (const tag of ['mimic', 'vault', 'curse', 'skylift']) expect(played).toContain(tag);
+  for (const tag of ['mimic', 'vault', 'curse', 'skylift', 'salvation']) expect(played).toContain(tag);
+}, 120_000);
+
+it('the same with guards waiting to enter, more catapults on the board, and Salvation cards', () => {
+  let seed = 2020;
+  const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+  let checked = 0, inCheckCount = 0, drops = 0, refused = 0;
+  for (let trial = 0; trial < 3000; trial++) {
+    const board = randomBoard(rng);
+    // A catapult on a random empty square for either side: a dropped piece may become its screen.
+    for (const c of [WHITE, BLACK]) { const s = Math.floor(rng() * 64); if (!board[s] && rng() < 0.6) board[s] = piece(C, c); }
+    const turn = (rng() < 0.5 ? WHITE : BLACK) as Color;
+    const pos: Position = { board, turn, halfmove: 0, ply: 0, waiting: [rng() < 0.7 ? 1 : 0, rng() < 0.7 ? 1 : 0] };
+    if (inCheck(pos, (turn ^ 1) as Color)) continue;
+    const salvation = rng() < 0.3;
+    if (salvation) { const lost = new Array<number>(32).fill(0); lost[N] = 1; lost[16 + Q] = 1; lost[R] = 1; lost[16 + R] = 1; pos.lost = lost; }
+    setRules({
+      guardReserve: rng() < 0.5 ? 'rank1' : 'rank12', guardNoSecondRank: rng() < 0.2,
+      ...(salvation ? { hands: [['Salvation'], ['Salvation']] as const } : {}),
+    });
+    if (inCheck(pos)) inCheckCount++;
+    const engineMoves = legalMoves(pos);
+    drops += engineMoves.filter(m => m.drop).length;
+    refused += pseudoMoves(pos).filter(m => m.drop).length - engineMoves.filter(m => m.drop).length;
+    const engine = engineMoves.map(m => toLan(pos, m)).sort();
+    const fast = searchLegal(pos).map(m => toLan(pos, m)).sort();
+    setFastLegality(false);
+    const slow = searchLegal(pos).map(m => toLan(pos, m)).sort();
+    setFastLegality(true);
+    const where = `${toFen(pos)} ${JSON.stringify(RULES.guardReserve)}`;
+    expect(fast, where).toEqual(slow);
+    expect(fast, where).toEqual(engine);
+    checked++;
+  }
+  expect(checked).toBeGreaterThan(1000);
+  expect(inCheckCount).toBeGreaterThan(50);
+  expect(drops).toBeGreaterThan(3000); // 2026-10-04: 4,950 drops
+  expect(refused, String(refused)).toBeGreaterThan(3000); // drops that leave the king in check or do not answer one (2026-10-04: 6,735)
 }, 120_000);
 
 it('the same under the Darkness and Mercy readings, the round-16 and round-17 ones included', () => {

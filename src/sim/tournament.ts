@@ -229,8 +229,9 @@ export function compress(job: TJob, rec: GameRecord): TRecord {
     // The side of ply i is not i % 2 after a Haste turn: `by` says who moved.
     const by = m.by ?? ((i & 1) as 0 | 1);
     // A power move's notation carries its tag (`!F:`, `!W:`, `!S:`, `!H`, `!M`, `!L`, a Strike's
-    // trailing `!`, a Flight's `~`, and the cards `!X`, `!V`, `!C:`, `!K:`); a Haste pass (`--`) is not a use.
-    if (/![FWSHMLXVCK]|!$|~/.test(m.lan)) {
+    // trailing `!`, a Flight's `~`, and the cards `!X`, `!V`, `!C:`, `!K:`, `!R`); a Haste pass (`--`)
+    // is not a use, nor a waiting guard's entry (`G@b1`).
+    if (/![FWSHMLXVCKR]|!$|~/.test(m.lan)) {
       uses[by]++;
       if (firstUse[by] === null) firstUse[by] = i;
     }
@@ -714,7 +715,7 @@ export function mirrorSection(recs: readonly TRecord[], entrants: readonly Entra
     return out;
   };
   // Length in turns: a free mark and a Haste's first move are plies of a turn that goes on. Every
-  // other card (`!X`, `!V`, `!C:`, `!K:` included) is the whole turn.
+  // other card (`!X`, `!V`, `!C:`, `!K:`, `!R` included) is the whole turn.
   const turns = (r: TRecord): number => r.plies - r.lans.filter(l => /^!F:|^!W:|!H$/.test(l)).length;
   const per = (rs: readonly TRecord[]) => ({
     white: rs.reduce((a, r) => a + r.result, 0) / rs.length,

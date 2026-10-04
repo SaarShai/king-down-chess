@@ -9,7 +9,7 @@
  */
 
 import { ArcherShots, CardName, PowerName, RULES, Rules, USES_RULE } from './rules';
-export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CardName, CatapultCapture, GuardCaptures, KingChoice, KingName, OgreMode, OgreShoveFriends, PaladinKamikaze, PowerName, PromotionSet, Rules, StrikeMode } from './rules';
+export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CardName, CatapultCapture, GuardCaptures, GuardReserve, KingChoice, KingName, OgreMode, OgreShoveFriends, PaladinKamikaze, PowerName, PromotionSet, Rules, StrikeMode } from './rules';
 export { BUILT, CARD_ONLY, DEFAULT_RULES, KINGS, PLAIN_KINGS, POWERS_BALANCED, RULES, RULES_2017, RULES_2021, TIER1, USES_RULE, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 
 export type Color = 0 | 1;
@@ -88,17 +88,24 @@ export interface Move {
    *   pawns. (At 0 uses they are always on, as ordinary moves with no tag.)
    * - Card-only cards (`CARD_ONLY`): `mimic`, a piece moves to an empty square as another own type
    *   moves; `vault`, a slider passes exactly one piece; `curse`, `from` is an *enemy* piece that
-   *   steps one square; `skylift`, two own pieces trade squares (the maester swap's shape, `swap`).
+   *   steps one square; `skylift`, two own pieces trade squares (the maester swap's shape, `swap`);
+   *   `salvation`, a captured piece returns (a `drop` from the reserve, `Position.lost`).
    * No power move ever captures a king, and none adds an attacked square.
    */
   power?: PowerTag;
   /** Haste: end the turn without the optional second move; `from === to ===` the hasted piece. */
   pass?: boolean;
   promo?: PieceType;
+  /**
+   * A piece of this type enters from beside the board onto the empty square `from === to`: a
+   * waiting guard (`Rules.guardReserve`, no power) or a Salvation card's returned piece. It empties
+   * no square, so it never opens a line; its colour is the mover's (`moverOf`).
+   */
+  drop?: PieceType;
 }
 
 /** The tag on a move that spends a king power (`Move.power`). */
-export type PowerTag = 'freeze' | 'ward' | 'strike' | 'haste' | 'flight' | 'sacrifice' | 'march' | 'leap' | 'mimic' | 'vault' | 'curse' | 'skylift';
+export type PowerTag = 'freeze' | 'ward' | 'strike' | 'haste' | 'flight' | 'sacrifice' | 'march' | 'leap' | 'mimic' | 'vault' | 'curse' | 'skylift' | 'salvation';
 
 export interface Position {
   board: Uint8Array;
@@ -133,6 +140,11 @@ export interface Position {
    * returns leaves the count.
    */
   lost?: readonly number[];
+  /**
+   * Guards waiting beside the board (`Rules.guardReserve`), `[white, black]`; absent = none. Each
+   * enters as a move (`Move.drop`). FEN field 7 `g1.1`; `positionKey` folds it in.
+   */
+  waiting?: readonly [number, number];
 }
 
 export interface Mark { sq: number; left?: number; ward?: boolean }
@@ -238,7 +250,7 @@ export const handOf = (c: Color): readonly CardName[] => RULES.hands[c];
 /** The power (or card) each power-move tag spends. */
 const TAG_POWER: Readonly<Record<PowerTag, CardName>> = {
   freeze: 'Freeze', ward: 'IceWall', strike: 'Strike', haste: 'Haste', flight: 'Flight', sacrifice: 'Sacrifice', march: 'March', leap: 'Leap',
-  mimic: 'Mimic', vault: 'Vault', curse: 'Curse', skylift: 'SkyLift',
+  mimic: 'Mimic', vault: 'Vault', curse: 'Curse', skylift: 'SkyLift', salvation: 'Salvation',
 };
 /** Card mode: may side `c` (cards played: the bits of `used`) still play a `power` card? */
 const holdsCard = (c: Color, used: number, power: CardName): boolean => handOf(c).some((p, k) => p === power && !(used >> k & 1));
@@ -275,9 +287,14 @@ export function markKind(c: Color, markBy: Color | undefined, ward = false): 'fr
   return p === 'Freeze' ? 'frozen' : p === 'IceWall' ? 'warded' : '';
 }
 
-/** A game keeps the Sacrifice reserve (`Position.lost`) only while a side plays Sacrifice. */
-export const keepsLost = (): boolean => RULES.kings[0]?.power === 'Sacrifice' || RULES.kings[1]?.power === 'Sacrifice'
-  || RULES.hands[0].includes('Sacrifice') || RULES.hands[1].includes('Sacrifice');
+/** Does side `c` draw on the reserve (`Position.lost`): a Sacrifice power, or a Sacrifice or Salvation card? Then its reserve is hashed. */
+export const drawsOnLost = (c: Color): boolean => powerOf(c) === 'Sacrifice' || handOf(c).includes('Sacrifice') || handOf(c).includes('Salvation');
+/** A game keeps the reserve (`Position.lost`) only while a side draws on it. */
+export const keepsLost = (): boolean => drawsOnLost(WHITE) || drawsOnLost(BLACK);
+/** May a lost piece of type `t` come back (Sacrifice, Salvation)? Never a pawn, a king or a guard. */
+export const returnable = (t: number): boolean => t !== P && t !== K && t !== G;
+/** The piece that moves: a dropped piece (its square is empty), else the one on `from`. */
+export const moverOf = (board: Uint8Array, m: Move, c: Color): number => (m.drop ? piece(m.drop, c) : board[m.from]);
 
 /**
  * May the attacker `att` remove a piece of type `vic`? Guard captures nothing and is taken only by
@@ -851,7 +868,7 @@ export function landed(mover: number, m: Move): number {
 
 /**
  * Sacrifice's reserve after `m`: every piece it removes joins its owner's count, a paladin that
- * removes itself joins its own side's, and a piece the power returns leaves it. Read `board`
+ * removes itself joins its own side's, and a piece Sacrifice or Salvation returns leaves it. Read `board`
  * *before* the move's writes.
  */
 function loseInto(lost: readonly number[] | undefined, board: Uint8Array, m: Move, mover: number): number[] {
@@ -859,6 +876,7 @@ function loseInto(lost: readonly number[] | undefined, board: Uint8Array, m: Mov
   for (const s of m.captures) { const v = board[s]; out[colorOf(v) * 16 + typeOf(v)]++; }
   if (m.selfRemove) out[colorOf(mover) * 16 + typeOf(mover)]++;
   if (m.power === 'sacrifice' && m.promo) out[colorOf(mover) * 16 + m.promo]--;
+  if (m.power === 'salvation' && m.drop) out[colorOf(mover) * 16 + m.drop]--;
   return out;
 }
 
@@ -867,7 +885,7 @@ export function makeMove(pos: Position, m: Move): Position {
   const board = new Uint8Array(pos.board);
   // Freeze and Ice Wall change no square (the mark is the whole move), and neither does a Haste pass.
   const still = m.power === 'freeze' || m.power === 'ward' || m.pass === true;
-  const mover = board[m.from], other = board[m.to];
+  const mover = moverOf(board, m, c), other = board[m.to];
   let lost = pos.lost;
   if (!still) {
     if (keepsLost()) lost = loseInto(lost, board, m, mover);
@@ -907,6 +925,9 @@ export function makeMove(pos: Position, m: Move): Position {
   if (marks[0] || marks[1]) next.marks = marks;
   if (m.power === 'haste') next.haste = m.to;
   if (lost) next.lost = lost;
+  let waiting = pos.waiting;
+  if (m.drop && !m.power && waiting) { const w: [number, number] = [waiting[0], waiting[1]]; w[c]--; waiting = w; }
+  if (waiting && (waiting[0] || waiting[1])) next.waiting = waiting;
   return next;
 }
 
@@ -1201,10 +1222,21 @@ function genPowerMovesRaw(power: CardName | '', board: Uint8Array, c: Color, los
         if (mine >= theirs) return;
       }
       const types: PieceType[] = [];
-      for (let t = 1; t < 16; t++) if (t !== P && t !== K && t !== G && lost[c * 16 + t] > 0) types.push(t as PieceType);
+      for (let t = 1; t < 16; t++) if (returnable(t) && lost[c * 16 + t] > 0) types.push(t as PieceType);
       if (!types.length) return;
       const pawn = piece(P, c);
       for (let s = 0; s < 64; s++) if (board[s] === pawn) for (const promo of types) out.push({ from: s, to: s, captures: [], promo, power: 'sacrifice' });
+      return;
+    }
+    case 'Salvation': {
+      // A piece of Sacrifice's reserve (not a pawn, guard or king) returns to an empty square of the
+      // side's own first rank, unspent and unmarked; the turn is the card. It may give check.
+      if (!lost) return;
+      const r0 = c === WHITE ? 0 : 56;
+      for (let t = 1; t < 16; t++) {
+        if (!returnable(t) || !(lost[c * 16 + t] > 0)) continue;
+        for (let s = r0; s < r0 + 8; s++) if (!board[s]) out.push({ from: s, to: s, captures: [], drop: t as PieceType, power: 'salvation' });
+      }
       return;
     }
     case 'March': {
@@ -1311,7 +1343,7 @@ function genPowerMovesRaw(power: CardName | '', board: Uint8Array, c: Color, los
 /**
  * Drop the moves a Freeze or Ice Wall mark forbids the side to move `c` (from `out[n0]` on). A
  * frozen piece does not move by any hand: not itself, not by its own maester's swap or ogre's shove
- * or a SkyLift (it may still be warded). A warded piece cannot be captured, by a chain either — the
+ * or a SkyLift (it may still be warded); a piece dropped onto an emptied marked square is not it. A warded piece cannot be captured, by a chain either — the
  * chain's shorter prefixes stay — nor moved by a Curse. Neither changes an attack: a frozen piece
  * still gives check.
  */
@@ -1323,7 +1355,7 @@ export function filterMarks(c: Color, mark: number | undefined, markBy: Color | 
   for (let i = n0; i < out.length; i++) {
     const m = out[i];
     const blocked = kind === 'frozen'
-      ? (m.from === mark && m.power !== 'ward' && m.power !== 'freeze' && m.power !== 'curse') || (m.swap === true && m.to === mark) || m.shove?.from === mark
+      ? (m.from === mark && m.power !== 'ward' && m.power !== 'freeze' && m.power !== 'curse' && !m.drop) || (m.swap === true && m.to === mark) || m.shove?.from === mark
       : m.captures.includes(mark) || (m.power === 'curse' && m.from === mark);
     if (!blocked) out[n++] = m;
   }
@@ -1392,6 +1424,20 @@ export function filterFree(c: Color, free: boolean | undefined, out: Move[]): vo
   out.length = n;
 }
 
+/**
+ * `guardReserve`: side `c` has a guard waiting; it may enter on any empty square of its first rank
+ * (`rank1`) or first two ranks (`rank12`) where a guard may land. An ordinary move, not a power, so
+ * it is offered at every ply and after a free mark. Under `off` a waiting guard (a FEN) never enters.
+ */
+export function genGuardDrops(board: Uint8Array, c: Color, out: Move[]): void {
+  if (RULES.guardReserve === 'off') return;
+  const g = piece(G, c), ranks = RULES.guardReserve === 'rank12' ? 2 : 1;
+  for (let i = 0; i < ranks; i++) {
+    const r0 = (c === WHITE ? i : 7 - i) * 8;
+    for (let s = r0; s < r0 + 8; s++) if (!board[s] && guardMayLand(g, s)) out.push({ from: s, to: s, captures: [], drop: G });
+  }
+}
+
 /** The `pass` that ends a free-mark turn without an ordinary move, named by the side's king square. */
 export function freePass(board: Uint8Array, c: Color): Move {
   const k = findKing(board, c);
@@ -1404,6 +1450,7 @@ export function pseudoMoves(pos: Position, mode: GenMode = 'all'): Move[] {
   if (pos.haste !== undefined) genHasteFollowUp(pos.board, pos.haste, mode, out);
   else {
     for (let s = 0; s < 64; s++) if (pos.board[s] && colorOf(pos.board[s]) === c) genPiece(pos.board, s, mode, out);
+    if (mode === 'all' && pos.waiting?.[c]) genGuardDrops(pos.board, c, out);
     // After a free mark (`markFree`): the ordinary move, or end the turn; no second power.
     if (pos.free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(pos.board, c)); }
     else if (mode === 'all') genPowerMoves(pos.board, c, pos.used?.[c] ?? 0, pos.lost, out, 0, out.length);
@@ -1452,13 +1499,23 @@ export function insufficientMaterial(board: Uint8Array): boolean {
 }
 
 /**
- * Material draw under the active rules; an unspent Strike can still change mating potential. The
- * card-only cards need no clause: like Flight, each moves pieces once but changes no type and adds
- * no attacked square, so the material that can mate stays what the board shows.
+ * Material draw under the active rules; an unspent Strike can still change mating potential, and so
+ * can a piece that may still enter: a Salvation card with a returnable piece in the reserve
+ * (`lost`; conservative, whatever the piece), or a waiting guard (`waiting`) when guards mate
+ * (`guardCaptures: 'any'`). The other card-only cards need no clause: like Flight, each moves pieces
+ * once but changes no type and adds no attacked square, so the material that can mate stays what the
+ * board shows.
  */
-export function materialDraw(board: Uint8Array, used?: readonly [number, number]): boolean {
-  const liveStrike = (c: Color): boolean => handOf(c).length ? holdsCard(c, used?.[c] ?? 0, 'Strike') : powerOf(c) === 'Strike' && canSpend(c, used?.[c] ?? 0);
-  return RULES.insufficientMaterial && !liveStrike(WHITE) && !liveStrike(BLACK) && insufficientMaterial(board);
+export function materialDraw(board: Uint8Array, used?: readonly [number, number], lost?: ArrayLike<number>, waiting?: ArrayLike<number>): boolean {
+  const live = (c: Color): boolean => {
+    const u = used?.[c] ?? 0;
+    if (!handOf(c).length) return powerOf(c) === 'Strike' && canSpend(c, u);
+    if (holdsCard(c, u, 'Strike')) return true;
+    if (lost && holdsCard(c, u, 'Salvation')) for (let t = 1; t < 16; t++) if (returnable(t) && lost[c * 16 + t] > 0) return true;
+    return false;
+  };
+  const guards = RULES.guardCaptures === 'any' && !!waiting && (waiting[0] > 0 || waiting[1] > 0);
+  return RULES.insufficientMaterial && !live(WHITE) && !live(BLACK) && !guards && insufficientMaterial(board);
 }
 
 export type Status = 'playing' | 'checkmate' | 'stalemate' | 'draw50' | 'drawRepetition' | 'drawMaterial';
@@ -1468,7 +1525,7 @@ export function status(pos: Position): Status {
   if (findKing(pos.board, pos.turn) < 0) return 'checkmate';
   if (legalMoves(pos).length === 0) return inCheck(pos) ? 'checkmate' : 'stalemate';
   if (RULES.fiftyMove && pos.halfmove >= 100) return 'draw50';
-  if (materialDraw(pos.board, pos.used)) return 'drawMaterial';
+  if (materialDraw(pos.board, pos.used, pos.lost, pos.waiting)) return 'drawMaterial';
   return 'playing';
 }
 

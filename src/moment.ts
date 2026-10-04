@@ -24,6 +24,7 @@ const LINES = {
   vault: ['A piece vaulted over another piece.', 'Vault over one piece on the line.'],
   curse: ['An enemy piece was moved one square.', 'Curse: move this enemy piece one square.'],
   skylift: ['Two pieces traded squares.', 'Sky Lift: trade the squares of these two pieces.'],
+  salvation: ['A captured piece returned to its first rank.', 'Salvation: return this captured piece to this square.'],
   deathTouch: ['The king captured without moving.', 'Capture this piece without moving the king.'],
   reaver: ['The reaver captured, then stepped aside.', 'Capture, then step onto the chosen empty square.'],
 } as const;

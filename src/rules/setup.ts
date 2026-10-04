@@ -28,7 +28,24 @@ export function randomBackRank(rng: () => number = Math.random, pool: string = P
   }
 }
 
-/** Both sides mirror the same back rank (as in King Down Classic / Chess960); pawns on ranks 2 and 7. */
+/**
+ * A start position under `guardReserve` (lab): each side's guards leave its first rank and wait
+ * beside the board (`Position.waiting`); their squares stay empty. The identity when the rule is off.
+ */
+export function waitGuards(pos: Position): Position {
+  if (RULES.guardReserve === 'off') return pos;
+  const board = new Uint8Array(pos.board), waiting: [number, number] = [pos.waiting?.[0] ?? 0, pos.waiting?.[1] ?? 0];
+  for (let f = 0; f < 8; f++) for (const c of [WHITE, BLACK] as const) {
+    const s = sq(f, c === WHITE ? 0 : 7);
+    if (board[s] && typeOf(board[s]) === G && colorOf(board[s]) === c) { board[s] = 0; waiting[c]++; }
+  }
+  return waiting[0] || waiting[1] ? { ...pos, board, waiting } : pos;
+}
+
+/**
+ * Both sides mirror the same back rank (as in King Down Classic / Chess960); pawns on ranks 2 and 7.
+ * Under `guardReserve` the guards wait beside the board (`waitGuards`).
+ */
 export function startPosition(backRank: string = randomBackRank()): Position {
   if (!/^[A-Z]{8}$/.test(backRank) || backRank.split('K').length !== 2) throw new Error(`bad back rank ${backRank}`);
   const board = new Uint8Array(64);
@@ -40,7 +57,7 @@ export function startPosition(backRank: string = randomBackRank()): Position {
     board[sq(f, 1)] = piece(P, WHITE);
     board[sq(f, 6)] = piece(P, BLACK);
   }
-  return { board, turn: WHITE, halfmove: 0, ply: 0 };
+  return waitGuards({ board, turn: WHITE, halfmove: 0, ply: 0 });
 }
 
 /**
@@ -51,7 +68,8 @@ export function startPosition(backRank: string = randomBackRank()): Position {
  * `/`-separated tokens — `u1.0` uses spent [white.black], `me5w` a Freeze/Ice Wall mark and the
  * side that set it (`me5w2`: it covers two more turns), `f` a free mark's ordinary move still to
  * come, `hd4` a pending Haste second move, `lRn` the Sacrifice reserve (pieces each side lost,
- * uppercase white; an empty `l` still says the reserve is kept). The pre-2026-10-02 field `w` / `b` / `wb` (a spent
+ * uppercase white; an empty `l` still says the reserve is kept), `g1.0` guards waiting beside the
+ * board [white.black] (`Rules.guardReserve`). The pre-2026-10-02 field `w` / `b` / `wb` (a spent
  * Strike) still reads, as one use spent.
  */
 export function toFen(pos: Position): string {
@@ -88,6 +106,7 @@ function powerField(pos: Position): string {
     }
     parts.push(`l${l}`);
   }
+  if (pos.waiting && (pos.waiting[0] || pos.waiting[1])) parts.push(`g${pos.waiting[0]}.${pos.waiting[1]}`);
   return parts.join('/');
 }
 
@@ -116,7 +135,8 @@ function readPowerField(field: string, pos: Position): void {
         lost[(ch === up ? WHITE : BLACK) * 16 + t]++;
       }
       pos.lost = lost;
-    } else throw new Error(`bad power field ${field}`);
+    } else if (kind === 'g') { const [w = '0', b = '0'] = rest.split('.'); pos.waiting = [+w, +b]; }
+    else throw new Error(`bad power field ${field}`);
   }
 }
 
@@ -144,7 +164,8 @@ export function fromFen(fen: string): Position {
 
 /**
  * Long algebraic: Nb1-c3, Bc4xf7, Ae4*d5 (shot or catapult lob), Ma1<>e1 (swap),
- * Sd4xe5xf6 (chain), Oe4>f5-f6 (the ogre on e4 shoves the piece on f5 to f6), e7-e8=Q.
+ * Sd4xe5xf6 (chain), Oe4>f5-f6 (the ogre on e4 shoves the piece on f5 to f6), e7-e8=Q, G@b1 (a
+ * waiting guard enters on b1), N@b1!R (a Salvation card returns a knight to b1).
  *
  * A shove prints where the *shoved* piece went and not where the ogre ended up, because the ogre's
  * square follows from `ogreMode` — the same way `selfRemove` follows from `paladinKamikaze`. A
@@ -157,6 +178,7 @@ export function toLan(pos: Position, m: Move): string {
   // Ice Wall (`W`), Sacrifice (`S`, the pawn's square and the returned piece) and Flight (`~`); and
   // the Curse card (`C`, an enemy piece's step) and SkyLift (`K`, before the maester swap it looks like).
   if (m.pass) return '--';
+  if (m.drop) return `${LETTERS[m.drop]}@${sqName(m.to)}${m.power === 'salvation' ? '!R' : ''}`;
   if (m.power === 'freeze') return `!F:${sqName(m.to)}`;
   if (m.power === 'ward') return `!W:${sqName(m.to)}`;
   if (m.power === 'sacrifice') return `!S:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;

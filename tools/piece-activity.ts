@@ -18,7 +18,9 @@
  * random opening plies are not counted unless `--withRandomOpening`. The pieces are the types that
  * start on the back ranks; pawns and kings are not reported and not in the averages. A promoted
  * pawn is a new piece of its new type: its moves count for that type, but it is not a starting
- * piece (starting count, first move, never moved).
+ * piece (starting count, first move, never moved). Under `guardReserve` a guard waiting beside the
+ * board is a starting piece: it counts in the exposure while it waits, and its entry (`G@b1`) is its
+ * first move. A Salvation card's returned piece is a new piece, like a promoted pawn.
  *
  * Intervals: 95%, from `--boot` resamples of the games (a game is the independent unit).
  */
@@ -64,6 +66,7 @@ export function fromRun(rec: GameRecord, file: string, fallback: Partial<Rules> 
 
 export function fromTournament(rec: TRecord, t: TournamentSpec, file: string): StoredGame {
   const rules = gameSpec(t, rec).rules ?? {};
+  setRules(rules); // the start position follows the rules (`guardReserve` takes the guards off)
   return {
     key: `${basename(file)}#${rec.gameId}`, gameId: rec.gameId, startFen: toFen(startPosition(rec.backRank)), lans: rec.lans, rules,
     openingPlies: t.openingRandomPlies, result: rec.result, ordinary: ordinaryRules(rules),
@@ -111,8 +114,12 @@ export function countGame(g: StoredGame, countOpening = false): { row: Float64Ar
   // Every piece on the board: its type now, whether it started the game, its first counted move.
   const pieces: { type: PieceType; start: boolean; first: number }[] = [];
   const ids = new Int32Array(64).fill(-1);
-  const board0 = fromFen(g.startFen).board;
+  const start = fromFen(g.startFen), board0 = start.board;
   for (let s = 0; s < 64; s++) if (board0[s]) { ids[s] = pieces.length; pieces.push({ type: typeOf(board0[s]), start: true, first: 0 }); }
+  // Guards waiting beside the board (`guardReserve`) start the game too: they count in the exposure
+  // while they wait, and the move that brings one in is its first move.
+  const waiting: number[][] = [[], []];
+  start.waiting?.forEach((n, c) => { for (let k = 0; k < n; k++) { waiting[c].push(pieces.length); pieces.push({ type: G, start: true, first: 0 }); } });
   replayRecord({ gameId: g.gameId, startFen: g.startFen, moves: g.lans.map(lan => ({ lan })) }, (pos, m, next, i) => {
     // The replay parses ordinary moves without generating them. A move the game's rules do not allow
     // (a record of another engine or rule set) is a record of another game: refuse it.
@@ -124,18 +131,25 @@ export function countGame(g: StoredGame, countOpening = false): { row: Float64Ar
       const ph = phaseOf(i + 1);
       // Exposure: the mover's pieces on the board, once per turn. A turn that holds (a Haste's first
       // move, a free Freeze mark) is counted at the ply that ends it.
-      if (next.turn !== pos.turn) for (let s = 0; s < 64; s++) { const p = pos.board[s]; if (p && colorOf(p) === pos.turn) v[at(typeOf(p), F.exp + ph)]++; }
+      if (next.turn !== pos.turn) {
+        for (let s = 0; s < 64; s++) { const p = pos.board[s]; if (p && colorOf(p) === pos.turn) v[at(typeOf(p), F.exp + ph)]++; }
+        v[at(G, F.exp + ph)] += waiting[pos.turn].length;
+      }
       if (!m.power && !m.pass) {
-        const t = typeOf(pos.board[m.from]);
+        const t = m.drop ?? typeOf(pos.board[m.from]);
         v[at(t, F.moves)]++;
         v[at(t, F.caps)] += m.captures.length;
         v[at(t, F.ev + ph)] += 1 + m.captures.length;
-        const p = pieces[ids[m.from]];
+        const p = pieces[m.drop ? waiting[pos.turn][waiting[pos.turn].length - 1] : ids[m.from]];
         if (p.start && !p.first) p.first = i + 1;
       }
     }
-    // Follow every piece to its new square, as makeMove moves it.
-    if (!(m.power === 'freeze' || m.power === 'ward' || m.pass)) {
+    // Follow every piece to its new square, as makeMove moves it. A waiting guard takes its place on
+    // the board; a Salvation card's piece is a new piece, like a promotion.
+    if (m.drop) {
+      if (m.power) { ids[m.to] = pieces.length; pieces.push({ type: m.drop, start: false, first: 0 }); }
+      else ids[m.to] = waiting[pos.turn].pop()!;
+    } else if (!(m.power === 'freeze' || m.power === 'ward' || m.pass)) {
       for (const s of m.captures) ids[s] = -1;
       if (m.shove) { ids[m.shove.to] = ids[m.shove.from]; ids[m.shove.from] = -1; }
       const mover = ids[m.from], other = ids[m.to];

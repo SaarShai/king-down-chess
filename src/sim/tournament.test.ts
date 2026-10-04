@@ -135,6 +135,15 @@ describe('tournament schedule', () => {
     expect([compress(job, rec).uses, compress(job, rec).firstUse]).toEqual([[2, 2], [2, 1]]);
   });
 
+  it('card:Salvation: a one-card hand; a return is a card played, a waiting guard\'s entry is not', () => {
+    const t = spec({ entrants: ['none', 'card:Salvation'], anchor: 'none', mirror: true, armies: 'perPair', pairs: 2, rules: { guardReserve: 'rank1' } });
+    const g = schedule(t).find(j => j.white === 'card:Salvation')!;
+    expect(gameSpec(t, g).rules).toMatchObject({ hands: [['Salvation'], []], guardReserve: 'rank1' });
+    const lans = ['G@d1', 'e7-e5', 'N@b1!R', 'G@d8'];
+    const rec = { moves: lans.map((lan, i) => ({ lan, by: i & 1 })), result: 0.5, reason: 'draw', plies: lans.length, ms: 1, events: { checks: [0, 0] } } as unknown as GameRecord;
+    expect([compress(g, rec).uses, compress(g, rec).firstUse]).toEqual([[1, 0], [2, null]]);
+  });
+
   it('a resume refuses records that this code would schedule differently', () => {
     const t = spec();
     const jobs = schedule(t);

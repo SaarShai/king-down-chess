@@ -14,16 +14,16 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  Color, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, filterFree, filterHeld, filterMarks, freePass, genHasteFollowUp, genPiece, genPowerMoves, isAttacked,
-  handOf, keepsLost, landed, materialDraw, piece, powerOf, powerUses, spend, typeOf,
+  Color, G, GenMode, K, Move, P, Position, RULES, WHITE, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, freePass, genGuardDrops, genHasteFollowUp, genPiece,
+  genPowerMoves, handOf, isAttacked, keepsLost, landed, materialDraw, moverOf, piece, powerOf, powerUses, returnable, spend, typeOf,
 } from '../rules/engine';
 import type { CardName, PowerName } from '../rules/rules';
 import { VALUES, evalBoard } from './eval';
 import { NET_POWERS } from './nnue/net';
 import {
   Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LEFTB_HI, Z_LEFTB_LO, Z_LEFT_HI, Z_LEFT_LO, Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO,
-  Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO, Z_WARD_HI, Z_WARD_LO,
-  combine, hashBoard, lostIndex, usedIndex, zIndex,
+  Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO, Z_WAIT_HI, Z_WAIT_LO, Z_WARD_HI, Z_WARD_LO,
+  combine, hashBoard, lostIndex, usedIndex, waitIndex, zIndex,
 } from './zobrist';
 
 export { VALUES, evaluate, evaluatorName, setEvaluator } from './eval';
@@ -88,6 +88,8 @@ const lost = new Int32Array(32);
 let trackLost = false;
 /** Per side, for this search: is the uses count hashed (a counted power), is the reserve hashed (Sacrifice). */
 const usedHashed = [false, false], lostHashed = [false, false];
+/** Guards waiting beside the board per side (`Position.waiting`, `Rules.guardReserve`). */
+const waitN = new Int32Array(2);
 /** Undo log of reserve changes: index and delta. */
 const lostLogIdx = new Int32Array(MAX_PLY * 64), lostLogDelta = new Int8Array(MAX_PLY * 64);
 let lostTop = 0;
@@ -96,6 +98,7 @@ const FRAMES = MAX_PLY + QMAX + 8;
 const fBase = new Int32Array(FRAMES), fUsed0 = new Int32Array(FRAMES), fUsed1 = new Int32Array(FRAMES);
 const fMark = new Int32Array(FRAMES), fHaste = new Int32Array(FRAMES), fLostTop = new Int32Array(FRAMES), fFlip = new Uint8Array(FRAMES);
 const fMark1 = new Int32Array(FRAMES), fMarkLeft = new Uint8Array(FRAMES), fMarkLeft1 = new Uint8Array(FRAMES), fFree = new Uint8Array(FRAMES), fWard = new Uint8Array(FRAMES);
+const fWait0 = new Uint8Array(FRAMES), fWait1 = new Uint8Array(FRAMES);
 let fsp = 0;
 /**
  * Power moves are offered only at plies 0…`powerPlyMax` (root, reply, own next move by default);
@@ -175,6 +178,12 @@ function lostSet(i: number, v: number): void {
   }
   lost[i] = v;
 }
+/** Set side `c`'s waiting guards, with their keys. */
+function setWait(c: number, v: number): void {
+  if (waitN[c] > 0) { const i = waitIndex(c, waitN[c]); hLo ^= Z_WAIT_LO[i]; hHi ^= Z_WAIT_HI[i]; }
+  if (v > 0) { const i = waitIndex(c, v); hLo ^= Z_WAIT_LO[i]; hHi ^= Z_WAIT_HI[i]; }
+  waitN[c] = v;
+}
 function lostAdd(i: number, d: number): void {
   lostSet(i, lost[i] + d);
   lostLogIdx[lostTop] = i;
@@ -187,10 +196,15 @@ function powerTerm(c: Color): number {
   const hand = handAt[c];
   if (hand.length) {
     // Card mode: each unplayed card holds what one use of its power holds.
-    // Two Sacrifice cards share one reserve, so they hold what one does (as in king mode).
-    let t = 0, sacrifice = false;
-    for (let k = 0; k < hand.length; k++) if (!(usedPair[c] >> k & 1)) { if (hand[k] === 'Sacrifice') sacrifice = true; else t += hold[hand[k]] ?? 0; }
-    return sacrifice ? t + sacrificeTerm(c) : t;
+    // Two Sacrifice (or Salvation) cards share one reserve, so they hold what one does (as in king mode).
+    let t = 0, sacrifice = false, salvation = false;
+    for (let k = 0; k < hand.length; k++) {
+      if (usedPair[c] >> k & 1) continue;
+      if (hand[k] === 'Sacrifice') sacrifice = true;
+      else if (hand[k] === 'Salvation') salvation = true;
+      else t += hold[hand[k]] ?? 0;
+    }
+    return t + (sacrifice ? sacrificeTerm(c) : 0) + (salvation ? salvationTerm(c) : 0);
   }
   const n = usesMax[c];
   if (n <= 0) return 0; // no spendable power, or unlimited uses
@@ -200,12 +214,23 @@ function powerTerm(c: Color): number {
   if (p === 'Sacrifice') return sacrificeTerm(c);
   return (p ? hold[p] ?? 0 : 0) * left;
 }
+/** The value of the best piece side `c` may bring back from the reserve (0 when none). */
+function bestReturnable(c: Color): number {
+  let best = 0;
+  for (let t = 1; t < 16; t++) if (lost[c * 16 + t] > 0 && returnable(t)) best = Math.max(best, VALUES[t]);
+  return best;
+}
 /** An unspent Sacrifice: a share of what the best returnable piece gains over the pawn it replaces. */
 function sacrificeTerm(c: Color): number {
-  let best = 0;
-  for (let t = 1; t < 16; t++) if (lost[c * 16 + t] > 0 && t !== P && t !== K && t !== 9 /* G */) best = Math.max(best, VALUES[t]);
+  const best = bestReturnable(c);
   return best > VALUES[P] ? Math.round(sacrificeHoldShare * (best - VALUES[P])) : 0;
 }
+/**
+ * An unplayed Salvation card: the same share of the best returnable piece, whole (no pawn is
+ * spent), so the search plays the card when that piece on the board is worth more than the share.
+ * ponytail: Sacrifice's share, not measured for Salvation; `setPowerHold({ sacrificeShare })` moves both.
+ */
+const salvationTerm = (c: Color): number => Math.round(sacrificeHoldShare * bestReturnable(c));
 
 /**
  * The power side `c` shows the net: its row while the power can still act (always-on, unlimited, or
@@ -220,7 +245,9 @@ function livePower(c: Color): number {
 }
 
 /** The leaf score: the board's evaluation plus both sides' unspent powers, from `c`'s point of view. */
-const evaluateNode = (c: Color): number => evalBoard(board, c, livePower(WHITE), livePower(1)) + powerTerm(c) - powerTerm((c ^ 1) as Color);
+const evaluateNode = (c: Color): number => evalBoard(board, c, livePower(WHITE), livePower(1)) + powerTerm(c) - powerTerm((c ^ 1) as Color)
+  // A waiting guard counts as the material it is, so entering is judged by where it stands, not by the material it adds.
+  + (waitN[c] - waitN[c ^ 1]) * VALUES[G];
 
 // ---------------------------------------------------------------------------------------------
 // Make / unmake on the scratch board, with an incremental hash.
@@ -244,14 +271,17 @@ function apply(m: Move, c: Color): number {
   fBase[fsp] = base; fUsed0[fsp] = usedPair[0]; fUsed1[fsp] = usedPair[1];
   fMark[fsp] = markSq[0]; fMark1[fsp] = markSq[1]; fHaste[fsp] = hasteSq; fLostTop[fsp] = lostTop;
   fMarkLeft[fsp] = markLeft[0]; fMarkLeft1[fsp] = markLeft[1]; fFree[fsp] = free ? 1 : 0; fWard[fsp] = markWard[0] | markWard[1] << 1;
+  fWait0[fsp] = waitN[0]; fWait1[fsp] = waitN[1];
   const still = m.power === 'freeze' || m.power === 'ward' || m.pass === true;
   if (!still) {
-    const mover = board[m.from], other = board[m.to];
+    const mover = moverOf(board, m, c), other = board[m.to];
     if (trackLost) {
       for (let i = 0; i < m.captures.length; i++) { const v = board[m.captures[i]]; lostAdd(colorOf(v) * 16 + typeOf(v), 1); }
       if (m.selfRemove) lostAdd(c * 16 + typeOf(mover), 1);
       if (m.power === 'sacrifice' && m.promo) lostAdd(c * 16 + m.promo, -1);
+      if (m.power === 'salvation' && m.drop) lostAdd(c * 16 + m.drop, -1);
     }
+    if (m.drop && !m.power) setWait(c, waitN[c] - 1);
     for (let i = 0; i < m.captures.length; i++) write(m.captures[i], 0);
     if (m.shove) { write(m.shove.to, board[m.shove.from]); write(m.shove.from, 0); }
     write(m.from, m.swap ? other : 0);
@@ -282,6 +312,8 @@ function undo(base: number): void {
   setMark(1, fMark1[fsp], fMarkLeft1[fsp], (fWard[fsp] & 2) === 2);
   setUsed(0, fUsed0[fsp]);
   setUsed(1, fUsed1[fsp]);
+  if (waitN[0] !== fWait0[fsp]) setWait(0, fWait0[fsp]);
+  if (waitN[1] !== fWait1[fsp]) setWait(1, fWait1[fsp]);
   while (lostTop > fLostTop[fsp]) { lostTop--; const i = lostLogIdx[lostTop]; lostSet(i, lost[i] - lostLogDelta[lostTop]); }
   while (sp > base) {
     sp--;
@@ -298,10 +330,10 @@ function undo(base: number): void {
  * so maintaining the key there is pure cost. Measured: it is what made the first in-place version
  * slower than the engine's allocating `makeMove`.
  */
-function applyQuiet(m: Move): number {
+function applyQuiet(m: Move, c: Color): number {
   const base = sp;
   if (m.power === 'freeze' || m.power === 'ward' || m.pass) return base; // they change no square
-  const mover = board[m.from], other = board[m.to];
+  const mover = moverOf(board, m, c), other = board[m.to];
   for (let i = 0; i < m.captures.length; i++) {
     undoSq[sp] = m.captures[i];
     undoPc[sp] = board[m.captures[i]];
@@ -314,7 +346,7 @@ function applyQuiet(m: Move): number {
     undoSq[sp] = m.shove.from; undoPc[sp] = board[m.shove.from]; sp++;
     board[m.shove.from] = 0;
   }
-  undoSq[sp] = m.from; undoPc[sp] = mover; sp++;
+  undoSq[sp] = m.from; undoPc[sp] = board[m.from]; sp++; // not `mover`: a drop's square starts empty
   board[m.from] = m.swap ? other : 0;
   undoSq[sp] = m.to; undoPc[sp] = board[m.to]; sp++;
   board[m.to] = m.selfRemove ? 0 : landed(mover, m);
@@ -362,6 +394,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
       const p = board[s];
       if (p && colorOf(p) === c) genPiece(board, s, mode, out);
     }
+    if (mode === 'all' && waitN[c] > 0) genGuardDrops(board, c, out);
     if (free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(board, c)); }
     else if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) genPowerMoves(board, c, usedPair[c], trackLost ? lost : undefined, out, 0, out.length);
   }
@@ -380,7 +413,9 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // which is diagonally next to our king: a move that empties it leaves a line through the king, and
   // one that fills it only blocks. The other archer shots ignore blockers and the leapers are never blocked,
   // so nothing else can change an attack on the king — except a Curse, which moves an *enemy* piece
-  // that may arrive attacking it. `setFastLegality(false)` turns this off for the cross-check test.
+  // that may arrive attacking it. A drop (a waiting guard, a Salvation) fills one square and empties
+  // none, so only the catapult's screen can make it expose the king. `setFastLegality(false)` turns
+  // this off for the cross-check test.
   const k = board.indexOf(piece(K, c));
   const inChk = k < 0 || (inCheckKnown ?? attacked(c));
   const lines = k * 64;
@@ -391,12 +426,13 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
     let test: boolean;
     if (!fastLegality || inChk) test = true;
     else if (m.power === 'freeze' || m.power === 'ward' || m.pass) test = false; // no square changes
+    else if (m.drop) test = lob && LINE[lines + m.to] === 1;
     else {
       test = m.power === 'curse' || m.from === k || m.swap === true || m.shove !== undefined || LINE[lines + m.from] === 1 || (lob && LINE[lines + m.to] === 1);
       for (let j = 0; !test && j < m.captures.length; j++) if (LINE[lines + m.captures[j]] === 1) test = true;
     }
     if (test) {
-      const base = applyQuiet(m);
+      const base = applyQuiet(m, c);
       const ok = !attacked(c);
       undoQuiet(base);
       if (!ok) continue;
@@ -421,13 +457,14 @@ function gain(m: Move): number {
   let g = 0;
   for (let i = 0; i < m.captures.length; i++) g += VALUES[typeOf(board[m.captures[i]])];
   if (m.promo) g += VALUES[m.promo] - VALUES[P];
+  if (m.power === 'salvation') g += VALUES[m.drop!];
   if (m.selfRemove) g -= VALUES[typeOf(board[m.from])];
   return g;
 }
 
 /** Compact move signature for TT / killer slots. Distinct chains can collide; ordering only. */
 const encode = (m: Move): number =>
-  (m.from | (m.to << 6) | ((m.promo ?? 0) << 12) | (Math.min(m.captures.length, 15) << 16)) + 1;
+  (m.from | (m.to << 6) | ((m.promo ?? m.drop ?? 0) << 12) | (Math.min(m.captures.length, 15) << 16)) + 1;
 
 function score(moves: Move[], ply: number, ttEnc: number): Int32Array {
   if (orderBufs[ply].length < moves.length) orderBufs[ply] = new Int32Array(moves.length * 2);
@@ -436,7 +473,7 @@ function score(moves: Move[], ply: number, ttEnc: number): Int32Array {
   for (let i = 0; i < moves.length; i++) {
     const m = moves[i], enc = encode(m);
     if (enc === ttEnc) s[i] = 1 << 28;
-    else if (m.captures.length || m.promo) s[i] = (1 << 24) + gain(m) * 16 - VALUES[typeOf(board[m.from])];
+    else if (m.captures.length || m.promo || m.power === 'salvation') s[i] = (1 << 24) + gain(m) * 16 - VALUES[m.drop ?? typeOf(board[m.from])];
     else if (enc === k0) s[i] = (1 << 23) + 1;
     else if (enc === k1) s[i] = 1 << 23;
     else s[i] = Math.min(history[(m.from << 6) | m.to], (1 << 22) - 1);
@@ -495,7 +532,7 @@ function terminalScore(c: Color, ply: number, hm: number): number | null {
     // Mate ends the game before a draw-clock/history condition can claim it.
     return attacked(c) && genLegal(bufs[ply], c, 'all', ply).length === 0 ? -MATE + ply : 0;
   }
-  return materialDraw(board, usedPair) ? 0 : null;
+  return materialDraw(board, usedPair, trackLost ? lost : undefined, waitN) ? 0 : null;
 }
 
 function quiesce(alpha: number, beta: number, ply: number, qdepth: number, hm: number): number {
@@ -661,7 +698,8 @@ export function quiesceScore(pos: Position): number {
 /**
  * Key of a position, for `SearchOptions.history` and `Game`'s repetition count: the board, the side
  * to move and the king-power state that changes the legal moves — uses spent of a counted power,
- * a Freeze/Ice Wall mark, a pending Haste, and the reserve of a side that plays Sacrifice. The
+ * a Freeze/Ice Wall mark, a pending Haste, the reserve of a side that plays Sacrifice or holds a
+ * Sacrifice or Salvation card, and the guards waiting beside the board. The
  * search keeps the same key incrementally (`apply`/`undo`), so the two are one definition.
  */
 export function positionKey(pos: Position): number {
@@ -671,12 +709,14 @@ export function positionKey(pos: Position): number {
     const u = pos.used?.[c] ?? 0;
     if (handOf(c as Color).length) { for (let k = 0; k < 8; k++) if (u >> k & 1) { lo ^= Z_USED_LO[c * 8 + k]; hi ^= Z_USED_HI[c * 8 + k]; } }
     else if (u > 0 && powerUses(c as Color) > 0) { const i = usedIndex(c, u); lo ^= Z_USED_LO[i]; hi ^= Z_USED_HI[i]; }
-    if (pos.lost && (powerOf(c as Color) === 'Sacrifice' || handOf(c as Color).includes('Sacrifice'))) {
+    if (pos.lost && drawsOnLost(c as Color)) {
       for (let t = 1; t < 16; t++) {
         const n = pos.lost[c * 16 + t];
         if (n > 0) { const k = lostIndex(c * 16 + t, n); lo ^= Z_LOST_LO[k]; hi ^= Z_LOST_HI[k]; }
       }
     }
+    const w = pos.waiting?.[c] ?? 0;
+    if (w > 0) { const i = waitIndex(c, w); lo ^= Z_WAIT_LO[i]; hi ^= Z_WAIT_HI[i]; }
   }
   for (let by = 0; by < 2; by++) {
     const k = pos.marks?.[by];
@@ -716,6 +756,7 @@ function initPosition(pos: Position): void {
   trackLost = keepsLost();
   lost.fill(0);
   if (pos.lost) for (let i = 0; i < 32; i++) lost[i] = pos.lost[i] ?? 0;
+  waitN[0] = pos.waiting?.[0] ?? 0; waitN[1] = pos.waiting?.[1] ?? 0;
   for (let c = 0; c < 2; c++) {
     handAt[c] = handOf(c as Color);
     if (handAt[c].length > 8) throw new Error('a hand holds at most 8 cards (one hash key per card)');
@@ -723,7 +764,7 @@ function initPosition(pos: Position): void {
     powerAt[c] = powerOf(c as Color);
     powerRow[c] = powerAt[c] ? NET_POWERS.indexOf(powerAt[c] as PowerName) : -1;
     usedHashed[c] = usesMax[c] > 0;
-    lostHashed[c] = powerAt[c] === 'Sacrifice' || handAt[c].includes('Sacrifice');
+    lostHashed[c] = drawsOnLost(c as Color);
   }
 }
 

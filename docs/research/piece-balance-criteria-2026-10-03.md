@@ -261,3 +261,50 @@ Total for (i)–(iii): about 85 min on the Mac.
 the experiments fix (before: `TypeError` in the report). The tool's counts matched the per-piece
 counts that 1,040 stored games recorded as they were played, exactly (starting pieces, moves and
 captures, every type, with the random plies counted).
+
+## Guard reserve (lab, 2026-10-04)
+
+Owner (2026-10-04): "guard - do the testing". The Guard fails criteria 1 and 5 (worth < 1.66
+pawns; 70% move). This lab rule lets it start beside the board instead: **"Your Guard starts beside
+the board; as a move, place it on any empty square of your first rank"** (`--rule
+guardReserve=rank1`), or **"… of your first two ranks"** (`guardReserve=rank12`). Off by default;
+built on branch `claude/salvation` beside the Salvation card, whose drop move it shares.
+
+- **Start and FEN:** the back ranks are drawn as before; each guard's square is then left empty and
+  the guard waits (`Position.waiting`, FEN field 7 `g1.1`). An army without a guard is unaffected.
+  The sims apply it to every start, the values experiment's hand-built armies included.
+- **The move:** `G@b1`, an ordinary move (no power, no card), offered whenever a guard waits, also
+  after a free Freeze mark. It must not leave the own king in check (between an enemy catapult and
+  the king the guard is its screen), and it **may answer a check by blocking it**: that is what a wall
+  is for. With `guardNoSecondRank` it never enters on rank 2. Once placed it is an ordinary guard.
+  It resets no 50-move clock. A waiting guard is part of the position (keys, repetition, replay).
+- **Dead draws and stalemate:** a waiting guard is no mating material (a guard takes nothing), but a
+  side whose guard may still enter is not stalemated.
+- **The search** counts a waiting guard at the guard's material value, so it enters where the square
+  helps (the evaluation's guard terms), not to gain material.
+- **The activity tool** counts a waiting guard as a starting piece, in the exposure while it waits,
+  and its entry as its first move (tests in `src/sim/piece-activity.test.ts`; its counts match the
+  per-piece counts the games recorded as they were played).
+- **Smoke** (20 games, `--powers none --mirrorOnly --armies perPair --depth 2 --rule
+  guardReserve=rank1`, outputs deleted): 11 armies had a guard; all 22 guards entered (the tool:
+  100% moved, first move at a median ply of 35.5). A 4-game values arm (`--pieces G`) started each
+  game with the guard side's guard waiting.
+
+**Runs (not started; owner's go).** Activity on the armies of `pa-a14` (seed 7001 on today's
+one-beast pool; `pa-r1` drew from the two-beast pool, so its armies differ), then the Guard's worth
+against the Knight at pass 2's prices, for each reading. 9,000 + 1,000 games each: about 23 min +
+3 min (`pa-r1`: 12,000 games in 30.3 min; the guard arms of 2026-10-04: about 3 min each), so
+**about 52 min for both** on the Mac with 16 workers, twice that on the 61 W charger. Drops add a few
+moves per node while a guard waits, so the games may run a little slower.
+
+```
+nohup bash -c 'for v in 1 12; do
+  npx tsx src/sim/tournament.ts run --id pa-grs$v --powers none --mirrorOnly --pairs 9000 --armies perPair --depth 3 --seed 7001 --rule guardReserve=rank$v --workers 16 > sim/out/pa-grs$v.log 2>&1
+  npx tsx tools/piece-activity.ts pa-grs$v --boot 1000 > sim/out/pa-grs$v.activity.md
+  npx tsx src/sim/run.ts --experiment values --id pv-G-grs$v --pieces G --eloPerPawn 70 --values O=293,R=365,B=299,M=321,S=414,A=463 --rule guardReserve=rank$v --games 1000 --depth 3 --seed 1023 --workers 16 > sim/out/pv-G-grs$v.log 2>&1
+done' > sim/out/grs.log 2>&1 &
+```
+
+Read: `pa-grs1.activity.md` and `pa-grs12.activity.md` against `pa-a14.activity.md` (same armies,
+today's rules), the Guard's rows above all (criteria 3–5); `pv-G-grs1.experiment.md` and
+`pv-G-grs12.experiment.md` against the Guard's < 1.66 pawns.

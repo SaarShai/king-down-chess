@@ -1,7 +1,7 @@
 /** Play one game headless (AI vs AI) and record everything the analyser needs. */
 import { LETTERS, Move, Position, PowerTag, WHITE, colorOf, status, typeOf } from '../rules/engine';
 import { RULES, Rules, setRules } from '../rules/rules';
-import { fromFen, toFen, toLan } from '../rules/setup';
+import { fromFen, toFen, toLan, waitGuards } from '../rules/setup';
 import { readFileSync } from 'node:fs';
 import { Game } from '../game';
 import { EvalParams, setEvalParams, setPieceValues } from '../ai/eval';
@@ -104,8 +104,10 @@ export interface GameRecord {
 const emptyStats = (): SideStats => ({ moves: {}, captures: {}, taken: {}, survived: {}, start: {} });
 const bump = (r: Record<string, number>, k: string, n = 1): void => { r[k] = (r[k] ?? 0) + n; };
 
-function census(board: Uint8Array, into: [Record<string, number>, Record<string, number>]): void {
-  for (const p of board) if (p) bump(into[colorOf(p)], LETTERS[typeOf(p)]);
+/** The pieces of each side: on the board, and the guards waiting beside it (`guardReserve`). */
+function census(pos: Position, into: [Record<string, number>, Record<string, number>]): void {
+  for (const p of pos.board) if (p) bump(into[colorOf(p)], LETTERS[typeOf(p)]);
+  pos.waiting?.forEach((n, c) => { if (n) bump(into[c], 'G', n); });
 }
 
 /**
@@ -155,11 +157,14 @@ function evalSides(spec: RunSpec, colourSwapped: boolean): [EvalParams | undefin
   return colourSwapped ? [b, a] : [a, b];
 }
 
-/** Asymmetric pairs need a hand-built position; `startPosition` mirrors one rank onto both sides. */
+/**
+ * Asymmetric pairs need a hand-built position; `startPosition` mirrors one rank onto both sides.
+ * Every start, a FEN one included, takes the guards off under `guardReserve` (`waitGuards`).
+ */
 export function startGame(white: string, black: string, fen?: string): Game {
   const g = new Game(white);
-  if (fen) g.load(fromFen(fen));
-  else if (black !== white) g.load(fromFen(`${black.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${white} w - - 0 1`));
+  if (fen) g.load(waitGuards(fromFen(fen)));
+  else if (black !== white) g.load(waitGuards(fromFen(`${black.toLowerCase()}/pppppppp/8/8/8/8/PPPPPPPP/${white} w - - 0 1`)));
   return g;
 }
 
@@ -186,7 +191,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
   resetSearch();
 
   const stats: [SideStats, SideStats] = [emptyStats(), emptyStats()];
-  census(game.pos.board, [stats[0].start, stats[1].start]);
+  census(game.pos, [stats[0].start, stats[1].start]);
   const events = emptyEvents();
   const moves: PlyRecord[] = [];
   const history: number[] = [];
@@ -228,7 +233,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
     }
     if (!move) break; // status would not be 'playing' if this happened; belt and braces
 
-    const mt = typeOf(pos.board[move.from]);
+    const mt = move.drop ?? typeOf(pos.board[move.from]); // a drop's square is empty
     const letter = LETTERS[mt];
     bump(stats[c].moves, letter);
     touched[move.from] = 1;
@@ -263,7 +268,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
 
   if (!reason) reason = game.status === 'playing' ? 'plyCap' : (game.status as EndReason);
   if (reason === 'checkmate') result = game.pos.turn === WHITE ? 0 : 1;
-  census(game.pos.board, [stats[0].survived, stats[1].survived]);
+  census(game.pos, [stats[0].survived, stats[1].survived]);
 
   return {
     gameId: job.gameId, pairId: job.pairId, colourSwapped: job.colourSwapped, configId: job.configId,

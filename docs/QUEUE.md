@@ -224,6 +224,20 @@ workers each) and 5 Kaggle notebooks (shards 8–12); the M1 was off this networ
   (Round 16): the king step puts Darkness at 46.9 with Spirit − Shadow −0.7 ± 2.4; D1 and the pawn
   armour overshoot (53.5, 52.7) with Shadow ahead; the pawn aura does nothing.
 
+## Queued 2026-10-04: cards-a3 (Salvation) and the guard reserve (branch `claude/salvation`)
+
+Built on the owner's go ("'Salvation (a 2014 card)' - yes, build"; "guard - do the testing"); not
+launched. Each needs the owner's go.
+
+- **cards-a3:** `card:Salvation` against `none` (`--anchor none --mirror`), 300 pairs, seed 5656,
+  `--armies perPair`, depth 3, the card rules of `cards-a2`; 1,200 games, about 5–6 min. Command and
+  rules: `docs/research/cards-2026-10-03.md`, "Salvation". Decides: Salvation's value and draws
+  against no card (measurement 1).
+- **pa-grs1, pa-grs12, pv-G-grs1, pv-G-grs12:** activity on `pa-a14`'s armies (9,000 games each) and
+  the Guard's worth (1,000 games each) under `guardReserve=rank1` and `rank12`; about 52 min. One
+  detached chain: `docs/research/piece-balance-criteria-2026-10-03.md`, "Guard reserve". Decides:
+  whether a guard that enters from beside the board passes criteria 1 and 5.
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard

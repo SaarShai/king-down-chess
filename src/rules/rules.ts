@@ -33,6 +33,11 @@ export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plus
 export type GuardCaptures = 'none' | 'pawns' | 'any';
 /** Lab: the guard's double step from its home rank — none, through an empty square, or over anything. */
 export type GuardDoubleFirst = 'off' | 'slide' | 'leap';
+/**
+ * Lab (2026-10-04): the guard starts beside the board and enters as a move (`Rules.guardReserve`).
+ * `rank1`: onto any empty square of the side's first rank; `rank12`: of its first two ranks.
+ */
+export type GuardReserve = 'off' | 'rank1' | 'rank12';
 /** Squares a beast may step to (empty only; its captures are a separate rule). */
 export type BeastMove = 'forward' | 'any' | 'diagFwdBack';
 /**
@@ -80,7 +85,7 @@ export interface KingChoice { king: KingName; power: PowerName }
  * What card mode deals (`Rules.hands`): a one-use king power, or a card that no king has (`CARD_ONLY`).
  * A card-only name is never a `PowerName`, so the king picker and the per-power tables never see it.
  */
-export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift';
+export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Salvation';
 /**
  * The cards no king has (lab, 2026-10-03), each one use and the turn's move:
  * - **Mimic**: a piece (not king or pawn) moves, to an empty square only, the way one of the side's
@@ -88,8 +93,11 @@ export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift';
  * - **Vault**: a rook, bishop or queen passes exactly one piece on its line, of either side.
  * - **Curse**: an enemy piece or pawn (not the king) steps one square onto an empty square.
  * - **SkyLift**: two of the side's own pieces (not king or pawn, not one type) trade squares.
+ * - **Salvation** (2026-10-04): one of the side's captured pieces returns to an empty square of its
+ *   own first rank. The pieces are Sacrifice's reserve (`Position.lost`) with Sacrifice's limits: no
+ *   pawn, no guard, never a king; a captured promoted piece returns as what it was when taken.
  */
-export const CARD_ONLY: readonly CardName[] = ['Mimic', 'Vault', 'Curse', 'SkyLift'];
+export const CARD_ONLY: readonly CardName[] = ['Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation'];
 
 /** Each king's two powers, A first (docs/RULES.md §4). */
 export const KINGS: Readonly<Record<KingName, readonly [PowerName, PowerName]>> = Object.freeze({
@@ -181,6 +189,16 @@ export interface Rules {
   guardNoSecondRank: boolean;
   /** Lab-only, off by default: a guard may never finish a move on a capital square (d4 e4 d5 e5). */
   guardNoCapital: boolean;
+  /**
+   * Lab (2026-10-04), `off` by default: "Your Guard starts beside the board; as a move, place it on
+   * any empty square of your first rank" (`rank1`; `rank12`: of your first two ranks). The start
+   * position leaves each guard's back-rank square empty and the guard waits (`Position.waiting`,
+   * FEN field 7 `g1.1`); the back ranks are drawn as before. Placing it is an ordinary move with no
+   * power (`Move.drop`, written `G@b1`): it may answer a check by blocking, never leaves the
+   * own king in check, and lands only where a guard may land (`guardNoSecondRank` keeps it off rank
+   * 2). Once placed it is an ordinary guard.
+   */
+  guardReserve: GuardReserve;
   /**
    * Lab-only, off by default (C2, `docs/MATRIX.md` §B.2): a piece standing on a capital square
    * (d4 e4 d5 e5) cannot be captured. Every generated capture whose victim stands there is dropped,
@@ -560,6 +578,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   guardDoubleFirst: 'off' as GuardDoubleFirst,
   guardNoSecondRank: false,
   guardNoCapital: false,
+  guardReserve: 'off' as GuardReserve,
   capitalSanctuary: false,
   capitalNoCapture: false,
   guardCapitalStep: false,
@@ -732,6 +751,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   guardCaptures: ['none', 'pawns', 'any'],
   guardStep: [1, 2],
   guardDoubleFirst: ['off', 'slide', 'leap'],
+  guardReserve: ['off', 'rank1', 'rank12'],
   guardCaptureLimit: [0, 1],
   archerMove: ['ortho', 'any', 'fwdBack'],
   archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide'],

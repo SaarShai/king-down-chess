@@ -31,7 +31,7 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 
 Letters (FEN-style, uppercase = white): `P N B R Q K` standard, `A` archer, `L` paladin, `G` guard, `M` maester, `S` beast, `O` ogre.
 Paladin remains available in custom setups and historical promotion sets, outside the current random pool. Catapult (`C`), Reaver (`V`) and Templar (`T`) remain lab pieces. The archived Squire/reserve experiment is not part of this engine.
-Lab only: under `guardCaptures` + `guardCaptureLimit` (§6.9, never in a shipped game) a guard that has spent its one capture is written `H` (white) / `h` (black), so a position keeps that state through a FEN round-trip.
+Lab only: under `guardCaptures` + `guardCaptureLimit` (§6.9, never in a shipped game) a guard that has spent its one capture is written `H` (white) / `h` (black), so a position keeps that state through a FEN round-trip. Under `guardReserve` (§6.9) a guard waiting beside the board is FEN field 7 `g1.0` ([white.black]) and enters as `G@b1`.
 King Down card-game names for the standard pieces: Pike = pawn, Steed = knight, Cross = bishop, Rock = rook, Thorn = queen.
 
 | Piece | Move | Capture | Special |
@@ -111,6 +111,10 @@ Growth (draw), Burn (capture inside the capital zone), Control (control a friend
 Rescue (keep an effect for another turn), Leap (range not obstructed); elemental: Fire Starter, Frost Bite (freeze in range), Sky Lift (swap two units), Earth Quake (shove adjacent units).
 Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maester has Control, Beast has Rage.
 
+Card mode (lab only, not in the playable game; `docs/research/cards-2026-10-03.md`) deals one-use cards: the
+spendable king powers and five card-only cards, Mimic, Vault, Curse, Sky Lift and **Salvation** (2026-10-04: "Return
+one of your captured pieces to an empty square of your back rank"; a pawn, a guard or the king never returns).
+
 ## 6. Decisions (2026-09-13, chosen for balance and fun)
 
 1. **Bishops on opposite colours: KEEP.** Same-colour bishops leave one colour complex undefended and dull; opposite colours give richer interactions (as in Chess960).
@@ -140,6 +144,9 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
    measured neutral (+1 ± 45 Elo) and is not adopted either. The toggles `guardCaptures`, `guardCaptureLimit` and
    `guardStep`, `guardDoubleFirst` (a pawn-like double step from the home rank; queued, docs/QUEUE.md Q1), the `SPENT` bit and the FEN `H`/`h` marker stay in the code for the balance lab; they are inert
    under the defaults, because a guard that cannot capture can never become spent.
+   Lab (2026-10-04, owner: "guard - do the testing"): `guardReserve=rank1` — "Your Guard starts beside the board; as
+   a move, place it on any empty square of your first rank" (`rank12`: first two ranks). Off by default; the rules and
+   the queued runs are in `docs/research/piece-balance-criteria-2026-10-03.md` ("Guard reserve").
 
 14. **No double first turn for Black (designer, 2026-09-14).** Measured in `sim-queue-2026-09-14`: on the full pool the rule
     turns White's 0.533 into 0.472 (−0.062 ± 0.026), an edge for Black of the size White had; without the paladin it lands

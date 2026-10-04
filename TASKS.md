@@ -1,5 +1,14 @@
 # Tasks
 
+## Salvation card and guard reserve — 2026-10-04 (open)
+
+- **Owner (2026-10-04):** "'Salvation (a 2014 card)' - yes, build." And: "guard - do the testing". Branch `claude/salvation` (from `claude/archer-runs`).
+- [x] **Salvation** (card mode, lab): "Return one of your captured pieces to an empty square of your back rank." Card-only (`CARD_ONLY`, `card:Salvation`, `--cardPool …,Salvation`), one use, the card is the turn. The pieces are Sacrifice's reserve with its limits: no pawn, no guard, never the king; a promoted piece returns as what it was when taken. It may block a check and may give check; never leaves its own king in check; the returned piece is unspent and unmarked; while it can still return a piece the game is not a material draw. Notation `N@b1!R`. Rules and reasons: `docs/research/cards-2026-10-03.md`, "Salvation".
+- [x] **Guard reserve** (lab rule `guardReserve`: `off` | `rank1` | `rank12`): "Your Guard starts beside the board; as a move, place it on any empty square of your first rank" (or first two ranks). Back ranks drawn as before, the guard's square left empty; FEN field 7 `g1.1`; the entry `G@b1` is an ordinary move that may block a check, never leaves the own king in check, keeps off rank 2 under `guardNoSecondRank`. The sims, the values experiment and the activity tool (a waiting guard is a starting piece; its entry is its first move) read it. Rules: `docs/research/piece-balance-criteria-2026-10-03.md`, "Guard reserve".
+- [x] One drop move (`Move.drop`) serves both: engine, the search's make/unmake, Zobrist keys (`Z_WAIT`), FEN, notation, replay, the tournament's card counter. Found and fixed on the way: the search's legality probe restored a drop's empty square as the dropped piece (a phantom piece stayed on the board); the random cross-check caught it.
+- Verified: `tsc`; vitest 493 (475 before; 18 new: 7 Salvation in `cards.test.ts`, 7 in `guard-reserve.test.ts`, a legality cross-check on 3,000 random boards with waiting guards, catapults and Salvation, Salvation in the random-hands cross-check and the random-games key/FEN test, 2 in `piece-activity.test.ts`, 1 in `tournament.test.ts`); 11 mutations of the new code each fail a test; `vite build`. Smoke (outputs deleted): `card:Salvation,none`, 6 games at depth 2: the card played in 5; `--rule guardReserve=rank1`, 20 games at depth 2: all 22 guards entered; a 4-game guard values arm.
+- [ ] Owner's go: `cards-a3` (Salvation against no card, 1,200 games, about 6 min) and the guard reserve runs `pa-grs1`, `pa-grs12`, `pv-G-grs1`, `pv-G-grs12` (about 52 min). Commands in the two docs above and `docs/QUEUE.md`.
+
 ## Archer: three middle shot sets — 2026-10-04 (open)
 
 - **Owner (2026-10-04):** "archer - test and measure first". Today's `plusDiagFwd2` has more captures than `classic`; `classic` has about 5 points more draws.

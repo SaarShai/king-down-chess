@@ -1,14 +1,15 @@
 /**
  * Card mode (lab): each side holds a hand of one-use cards, each one use of a spendable power or a
- * card no king has (Mimic, Vault, Curse, SkyLift), at most one a turn. Generation, the played-card
+ * card no king has (Mimic, Vault, Curse, SkyLift, Salvation), at most one a turn. Generation, the played-card
  * bits in `Position.used`, the Ice Wall flag, FEN, and the search's incremental key.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { BLACK, K, Move, N, Position, WHITE, inCheck, legalMoves, makeMove, materialDraw, parseSq, status, typeOf } from './engine';
+import { BLACK, K, Move, N, Position, Q, R, WHITE, inCheck, legalMoves, makeMove, materialDraw, parseSq, status, typeOf } from './engine';
 import { fromFen, randomBackRank, toFen, toLan } from './setup';
 import { CardName, parseRule, setRules } from './rules';
 import { positionKey, probeApply, resetSearchState, search, searchLegal } from '../ai/search';
 import { mulberry32 } from '../sim/rng';
+import { replayRecord } from '../sim/replay';
 
 const hands = (white: CardName[], black: CardName[], more = {}): void => { setRules({ hands: [white, black], markFree: true, ...more }); };
 const lans = (pos: Position, ms: readonly Move[] = legalMoves(pos)): string[] => ms.map(m => toLan(pos, m)).sort();
@@ -27,6 +28,7 @@ describe('card mode', () => {
     expect(parseRule('hands=Flight,IceWall+Leap')).toEqual({ hands: [['Flight'], ['IceWall', 'Leap']] });
     expect(() => parseRule('hands=Mercy')).toThrow(/not a one-use power/);
     expect(parseRule('hands=mimic+Vault,curse+SKYLIFT')).toEqual({ hands: [['Mimic', 'Vault'], ['Curse', 'SkyLift']] });
+    expect(parseRule('hands=salvation')).toEqual({ hands: [['Salvation'], ['Salvation']] });
   });
 
   it('offers every unplayed card, one a turn, and each card once', () => {
@@ -122,11 +124,12 @@ describe('card mode', () => {
   });
 
   it('random games keep the search key, FEN and the played cards in step', () => {
-    const pool: CardName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'Curse', 'SkyLift'];
+    const pool: CardName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap', 'Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation'];
+    const played = new Set<string>();
     let seed = 7;
     const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
     for (let g = 0; g < 24; g++) {
-      const hand = pool.filter((_, i) => (g * 37 + i * 11) % 3 !== 0);
+      const hand = pool.filter((_, i) => (g * 37 + i * 11) % 3 !== 0).slice(-8); // a hand holds at most 8
       hands(hand, [...hand].reverse(), { hasteCaptures: false, strikeCaptures: false });
       // Every other game on a fairy army, so Mimic borrows the fairy pieces' moves too.
       const rank = g % 2 ? randomBackRank(mulberry32(g)) : 'RNBQKBNR';
@@ -137,16 +140,19 @@ describe('card mode', () => {
         expect(new Set(all).size, toFen(pos)).toBe(all.length); // a move is found again by its notation
         const powered = moves.filter(m => m.power || m.pass);
         const m = powered.length && rng() < 0.4 ? powered[Math.floor(rng() * powered.length)] : moves[Math.floor(rng() * moves.length)];
+        if (m.power) played.add(m.power);
         const { after, back } = probeApply(pos, m);
         const next = makeMove(pos, m);
         expect(after, `${toFen(pos)} ${toLan(pos, m)}`).toBe(positionKey(next));
         expect(back).toBe(positionKey(pos));
         expect(fromFen(toFen(next)).used ?? [0, 0], toFen(next)).toEqual(next.used ?? [0, 0]);
+        expect(fromFen(toFen(next)).lost, toFen(next)).toEqual(next.lost); // the reserve a Salvation returns from
         // Only the bits of cards a side holds are ever set.
         for (const c of [WHITE, BLACK]) expect((next.used?.[c] ?? 0) >> hand.length).toBe(0);
         pos = next;
       }
     }
+    expect(played).toContain('salvation');
   });
 
   it('the search plays a card when it wins material', () => {
@@ -307,5 +313,95 @@ describe('the card-only cards', () => {
     // Taking the knight on a3 loses the rook to the rook on a6; vaulting over the knight takes that rook.
     const pos = fromFen('4k3/8/r7/8/8/n7/8/R3K3 w - - 0 1');
     expect(toLan(pos, search(pos, { maxDepth: 2 }).move!)).toBe('Ra1xa6!V');
+  });
+});
+
+describe('the Salvation card', () => {
+  const returns = (pos: Position): string[] => lans(pos).filter(l => l.endsWith('!R'));
+  const legalSame = (pos: Position): void => { expect(lans(pos, searchLegal(pos))).toEqual(lans(pos)); };
+
+  it('a captured piece returns to an empty square of the own first rank, as the turn', () => {
+    hands(['Salvation'], []);
+    // White lost a queen, a rook, a guard and a pawn: the queen and the rook may return, to b1-d1 or f1-h1.
+    const pos = fromFen('4k3/8/8/8/8/8/P7/N3K3 w - - 3 9 lQRGP');
+    const empty = ['b1', 'c1', 'd1', 'f1', 'g1', 'h1'];
+    expect(returns(pos)).toEqual([...empty.map(s => `Q@${s}!R`), ...empty.map(s => `R@${s}!R`)].sort());
+    const next = play(pos, 'R@h1!R');
+    expect([typeOf(next.board[parseSq('h1')]), next.board[parseSq('h1')] >> 4, next.turn, next.used, next.halfmove]).toEqual([R, WHITE, BLACK, [1, 0], 4]);
+    expect(toFen(next)).toBe('4k3/8/8/8/8/8/P7/N3K2R b - - 4 9 u1.0/lPQG');
+    expect(fromFen(toFen(next))).toEqual(next);
+    const { after, back } = probeApply(pos, legalMoves(pos).find(m => toLan(pos, m) === 'R@h1!R')!);
+    expect([after, back]).toEqual([positionKey(next), positionKey(pos)]);
+    expect(returns(next)).toEqual([]); // Black holds no Salvation
+    expect(returns(play(next, 'Ke8-f8'))).toEqual([]); // and White's card is spent
+    legalSame(pos);
+  });
+
+  it('Black returns to its own first rank, from its own captured pieces only', () => {
+    hands(['Salvation'], ['Salvation']);
+    // White lost a queen and a rook, Black only a knight; h8 is Black's one empty square.
+    expect(returns(fromFen('rnbqkbn1/8/8/8/8/8/8/4K3 b - - 0 1 lQRn'))).toEqual(['N@h8!R']);
+    const black = fromFen('rnbqkb2/8/8/8/8/8/8/4K3 b - - 0 1 lQRn');
+    expect(returns(black)).toEqual(['N@g8!R', 'N@h8!R']);
+    expect(play(black, 'N@g8!R').board[parseSq('g8')]).toBe(N | BLACK << 4);
+  });
+
+  it('nothing returns without a lost piece, an empty first-rank square or the card: pawns and guards never', () => {
+    hands(['Salvation'], []);
+    expect(returns(fromFen('4k3/8/8/8/8/8/8/4K3 w - - 0 1'))).toEqual([]); // no reserve kept yet
+    expect(returns(fromFen('4k3/8/8/8/8/8/8/4K3 w - - 0 1 lPPGq'))).toEqual([]);
+    expect(returns(fromFen('4k3/8/8/8/8/8/8/RNBQKBNR w - - 0 1 lQ'))).toEqual([]);
+    hands([], ['Salvation']);
+    expect(returns(fromFen('4k3/8/8/8/8/8/8/4K3 w - - 0 1 lQ'))).toEqual([]);
+  });
+
+  it('may answer a check by blocking, never leaves its king in check, and may give check', () => {
+    hands(['Salvation'], []);
+    // The rook on a1 checks along the first rank: only a return between them answers it.
+    const checked = fromFen('4k3/8/8/8/8/8/8/r3K3 w - - 0 1 lN');
+    expect(returns(checked)).toEqual(['N@b1!R', 'N@c1!R', 'N@d1!R']);
+    legalSame(checked);
+    // A piece put between an enemy catapult and the king is its screen: not legal.
+    const screen = fromFen('4k3/8/8/8/8/8/8/K6c w - - 0 1 lN');
+    expect(returns(screen)).toEqual([]);
+    legalSame(screen);
+    // A rook returned to the open a-file checks the king on a8.
+    const open = fromFen('k7/8/8/8/8/8/8/4K3 w - - 0 1 lR');
+    expect(inCheck(play(open, 'R@a1!R'))).toBe(true);
+    legalSame(open);
+  });
+
+  it('a mark on a square emptied since does not bar a return there', () => {
+    hands(['Salvation'], ['Freeze']);
+    // Black freezes the knight on b1 and, the mark being free, its archer shoots it: b1 is empty,
+    // and Black's mark there still binds White this turn, but the returned knight is a new piece.
+    const pos = play(play(fromFen('4k3/8/8/8/8/8/a7/1N2K3 b - - 0 1 l'), '!F:b1'), 'Aa2*b1');
+    expect(pos.marks?.[BLACK]?.sq).toBe(parseSq('b1'));
+    expect(returns(pos)).toContain('N@b1!R');
+    legalSame(pos);
+  });
+
+  it('keeps a dead draw open while a returnable piece waits; the search plays it', () => {
+    hands(['Salvation'], []);
+    const dead = fromFen('4k3/8/8/8/8/8/8/1N2K3 w - - 0 1 lQ');
+    expect(materialDraw(dead.board, dead.used, dead.lost)).toBe(false);
+    expect(status(dead)).toBe('playing');
+    expect(materialDraw(dead.board, dead.used, [0])).toBe(true); // nothing to return
+    expect(status(fromFen('4k3/8/8/8/8/8/8/1N2K3 w - - 0 1 lG'))).toBe('drawMaterial'); // a guard never returns
+    expect(status({ ...dead, used: [1, 0] })).toBe('drawMaterial'); // the card is spent
+    hands([], []);
+    expect(status(dead)).toBe('drawMaterial');
+    hands(['Salvation'], []);
+    const pos = fromFen('4k3/8/8/8/8/8/P7/1N2K3 w - - 0 1 lQ');
+    expect(toLan(pos, search(pos, { maxDepth: 3 }).move!)).toMatch(/^Q@[a-h]1!R$/);
+  });
+
+  it('a recorded Salvation replays by its notation', () => {
+    hands(['Salvation'], []);
+    const startFen = '4k3/8/8/8/8/8/P7/N3K3 w - - 0 1 lQ';
+    const { end, events } = replayRecord({ gameId: 1, startFen, moves: ['Q@d1!R', 'Ke8-f8', 'Qd1-d7'].map(lan => ({ lan })) });
+    expect(typeOf(end.board[parseSq('d7')])).toBe(Q);
+    expect(events.powers.salvation).toEqual([1, 0]);
+    expect(() => replayRecord({ gameId: 2, startFen, moves: [{ lan: 'R@d1!R' }] })).toThrow(/parsed nothing/);
   });
 });

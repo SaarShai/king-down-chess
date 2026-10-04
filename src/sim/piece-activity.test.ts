@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { B, LETTERS, M, N, P, Q, R } from '../rules/engine';
+import { B, G, LETTERS, M, N, P, Q, R } from '../rules/engine';
 import { F, GAME, type StoredGame, addGame, at, countGame, fromRun, fromTournament, median, newTally, reportText, summarise, total, verdict } from '../../tools/piece-activity';
 import { playGame } from './game';
 import { type TournamentSpec, compress, gameSpec, schedule } from './tournament';
@@ -91,6 +91,17 @@ describe('piece activity counting', () => {
     expect([row[at(N, F.exp)], row[at(N, F.moves)], row[at(B, F.exp)]]).toEqual([10, 2, 10]);
   });
 
+  it('guardReserve: a waiting guard starts the game and is exposed while it waits; its entry is its first move', () => {
+    const g: StoredGame = {
+      key: 'reserve', gameId: 4, startFen: 'rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w - - 0 1 g1.1',
+      lans: ['e2-e4', 'e7-e5', 'G@d1', 'Ng8-f6', 'Gd1-e2', 'Nf6-g8'], rules: { guardReserve: 'rank1' }, openingPlies: 0, result: 0.5, ordinary: true,
+    };
+    const { row, first } = countGame(g);
+    // Two guards start (both waiting); White's enters at ply 3 and moves on at ply 5; Black's never enters.
+    expect([row[at(G, F.start)], row[at(G, F.moves)], row[at(G, F.moved)], row[at(G, F.exp)]]).toEqual([2, 2, 1, 6]);
+    expect(first[G]).toEqual([3]);
+  });
+
   it('a record that does not replay is counted as failed, not as a game', () => {
     const tally = newTally();
     addGame(tally, { ...knightsGame(), lans: ['e2-e4', 'Qd8-d4'] });
@@ -121,6 +132,29 @@ describe('piece activity counting', () => {
       }
     }
     expect(special).toBeGreaterThan(0);
+  });
+
+  it('agrees with the recorded counts when the guards wait beside the board (guardReserve)', () => {
+    const t: TournamentSpec = {
+      id: 'pg', entrants: ['none'], pairs: 2, armies: 'perPair', mirrorOnly: true, depth: 1, seed: 11,
+      rules: { guardReserve: 'rank12' }, mirror: true, maxPlies: 120, openingRandomPlies: 4,
+    };
+    const jobs = schedule(t);
+    let entered = 0;
+    for (const [k, job] of [...jobs, ...['AOMSKGNB', 'RNBGKBNR'].map((backRank, i) => ({ ...jobs[0], gameId: 10 + i, backRank }))].entries()) {
+      const spec = gameSpec(t, job);
+      const rec = playGame(spec, { gameId: job.gameId, pairId: job.pairId, colourSwapped: false, configId: job.backRank, seed: job.seed, backRankWhite: job.backRank, backRankBlack: job.backRank });
+      entered += rec.moves.filter(m => m.lan.startsWith('G@')).length;
+      for (const g of [fromTournament(compress(job, rec), t, 'pg.jsonl'), fromRun(rec, 'pg-run.jsonl', spec.rules)]) {
+        const { row } = countGame(g, true);
+        for (let ty = 1; ty < LETTERS.length; ty++) {
+          const l = LETTERS[ty], sum = (r: Record<string, number>[]): number => (r[0][l] ?? 0) + (r[1][l] ?? 0);
+          expect([k, l, row[at(ty, F.start)], row[at(ty, F.moves)], row[at(ty, F.caps)]])
+            .toEqual([k, l, sum(rec.stats.map(s => s.start)), sum(rec.stats.map(s => s.moves)), sum(rec.stats.map(s => s.captures))]);
+        }
+      }
+    }
+    expect(entered).toBeGreaterThan(0);
   });
 
   it('verdicts: the whole interval decides PASS and FAIL', () => {
