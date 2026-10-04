@@ -152,12 +152,15 @@ export function toLan(pos: Position, m: Move): string {
   const t = typeOf(pos.board[m.from]);
   const letter = t === P ? '' : LETTERS[t];
   // King powers that do not read as a piece's move (docs/RULES.md §4): a Haste pass, Freeze (`F`),
-  // Ice Wall (`W`), Sacrifice (`S`, the pawn's square and the returned piece) and Flight (`~`).
+  // Ice Wall (`W`), Sacrifice (`S`, the pawn's square and the returned piece) and Flight (`~`); and
+  // the Curse card (`C`, an enemy piece's step) and SkyLift (`K`, before the maester swap it looks like).
   if (m.pass) return '--';
   if (m.power === 'freeze') return `!F:${sqName(m.to)}`;
   if (m.power === 'ward') return `!W:${sqName(m.to)}`;
   if (m.power === 'sacrifice') return `!S:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;
   if (m.power === 'flight') return `${letter}${sqName(m.from)}~${sqName(m.to)}`;
+  if (m.power === 'curse') return `!C:${sqName(m.from)}-${sqName(m.to)}`;
+  if (m.power === 'skylift') return `!K:${sqName(m.from)}<>${sqName(m.to)}`;
   let s: string;
   if (m.shove) s = `${letter}${sqName(m.from)}>${sqName(m.shove.from)}-${sqName(m.shove.to)}`;
   else if (m.swap) s = `${letter}${sqName(m.from)}<>${sqName(m.to)}`;
@@ -170,11 +173,14 @@ export function toLan(pos: Position, m: Move): string {
   else s = `${letter}${sqName(m.from)}${m.captures.length ? 'x' : '-'}${sqName(m.to)}`;
   if (m.promo) s += '=' + LETTERS[m.promo];
   // The other powers ride on an ordinary move's notation: Strike `!` (a queen-like action by an
-  // ordinary piece), Haste `!H` (the turn holds), counted March `!M` and Leap `!L`.
+  // ordinary piece), Haste `!H` (the turn holds), counted March `!M` and Leap `!L`, and the Mimic
+  // `!X` and Vault `!V` cards.
   if (m.power === 'strike') s += '!';
   else if (m.power === 'haste') s += '!H';
   else if (m.power === 'march') s += '!M';
   else if (m.power === 'leap') s += '!L';
+  else if (m.power === 'mimic') s += '!X';
+  else if (m.power === 'vault') s += '!V';
   return s;
 }
 

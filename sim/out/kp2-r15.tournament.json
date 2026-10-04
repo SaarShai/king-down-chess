@@ -1,0 +1,73 @@
+{
+  "id": "kp2-r15",
+  "entrants": [
+    "Freeze",
+    "IceWall",
+    "Strike",
+    "Haste",
+    "Flight",
+    "Sacrifice",
+    "March",
+    "Leap",
+    "HolyLight",
+    "Mercy",
+    "DeathTouch",
+    "Darkness",
+    "Haste~vh3",
+    "DeathTouch~vt1",
+    "DeathTouch~vt2",
+    "DeathTouch~vt3",
+    "DeathTouch~vt4",
+    "DeathTouch~vt5",
+    "none"
+  ],
+  "pairs": 64,
+  "armies": "perPair",
+  "depth": 3,
+  "seed": 1515,
+  "rules": {
+    "markFree": true,
+    "freezeUses": 1,
+    "hasteCaptures": false,
+    "strikeCaptures": false,
+    "strikePawns": false,
+    "mercyAura": true,
+    "marchUses": 0,
+    "holyLightTakesPawns": true,
+    "holyLightShelter": true,
+    "holyLightShelterOrtho": true,
+    "darknessMoves": true,
+    "deathTouchReach": true,
+    "deathTouchReachOrtho": true,
+    "hasteApart": true,
+    "mercyAuraPawnsTake": true,
+    "mercyTakesPawns": true,
+    "darknessShelter": true,
+    "darknessShelterPawnsTake": true
+  },
+  "variants": {
+    "h3": {
+      "hasteApart": false,
+      "hasteNoForward": true
+    },
+    "t1": {
+      "deathTouchReachNoBack": true
+    },
+    "t2": {
+      "deathTouchReachForwardBack": true
+    },
+    "t3": {
+      "deathTouchReachPieces": true
+    },
+    "t4": {
+      "deathTouchReachNoBack": true,
+      "deathTouchReachForwardBack": true
+    },
+    "t5": {
+      "deathTouchReach": false
+    }
+  },
+  "mirror": false,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

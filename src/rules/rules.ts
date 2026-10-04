@@ -74,6 +74,20 @@ export type PowerName =
   | 'Freeze' | 'IceWall' | 'Strike' | 'Haste' | 'Flight' | 'Sacrifice'
   | 'March' | 'Leap' | 'HolyLight' | 'Mercy' | 'DeathTouch' | 'Darkness';
 export interface KingChoice { king: KingName; power: PowerName }
+/**
+ * What card mode deals (`Rules.hands`): a one-use king power, or a card that no king has (`CARD_ONLY`).
+ * A card-only name is never a `PowerName`, so the king picker and the per-power tables never see it.
+ */
+export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift';
+/**
+ * The cards no king has (lab, 2026-10-03), each one use and the turn's move:
+ * - **Mimic**: a piece (not king or pawn) moves, to an empty square only, the way one of the side's
+ *   other piece types moves (not a king or pawn); it keeps its own type.
+ * - **Vault**: a rook, bishop or queen passes exactly one piece on its line, of either side.
+ * - **Curse**: an enemy piece or pawn (not the king) steps one square onto an empty square.
+ * - **SkyLift**: two of the side's own pieces (not king or pawn, not one type) trade squares.
+ */
+export const CARD_ONLY: readonly CardName[] = ['Mimic', 'Vault', 'Curse', 'SkyLift'];
 
 /** Each king's two powers, A first (docs/RULES.md §4). */
 export const KINGS: Readonly<Record<KingName, readonly [PowerName, PowerName]>> = Object.freeze({
@@ -333,6 +347,18 @@ export interface Rules {
   /** A Haste turn may capture (the rulebook). Off (balance lab): neither of its two moves captures. */
   hasteCaptures: boolean;
   /**
+   * Haste readings (balance lab, 2026-10-03), each a limit on top of the others; the `pass` that
+   * skips the second move stays. `hasteApart`: the second move may not end next to an enemy piece
+   * (the 8 neighbours, the king included). `hasteNoThreat`: it may not end where the moved piece
+   * could capture an enemy piece or take the king by its own capture rules, on the board after the
+   * move. `hasteNoForward`: it may not end on a rank nearer the enemy's back rank than the one it
+   * starts from. `hasteNoCheck`: neither move may leave the enemy king in check.
+   */
+  hasteApart: boolean;
+  hasteNoThreat: boolean;
+  hasteNoForward: boolean;
+  hasteNoCheck: boolean;
+  /**
    * Freeze and Ice Wall as a free action (balance lab, 2026-10-02): the mark does not end the turn;
    * the marking side then makes an ordinary move (or ends the turn). Off: the mark is the whole turn.
    */
@@ -379,6 +405,12 @@ export interface Rules {
   mercyAuraOrtho: boolean;
   /** Mercy's shelter stops only pawn captures (balance lab), like Holy Light's aura. */
   mercyAuraPawns: boolean;
+  /** Mercy's shelter stops every capture but a pawn's (balance lab). `mercyAuraPawns` takes precedence. */
+  mercyAuraPawnsTake: boolean;
+  /** Mercy (balance lab): the king may also take enemy pawns next to it. Off (the rulebook): only a guard. */
+  mercyTakesPawns: boolean;
+  /** Mercy (balance lab): the two-square step needs an empty square between — the king jumps nothing. */
+  mercyNoJump: boolean;
   /** Holy Light (balance lab): no enemy knight takes the king either. Off (the rulebook): pawns only. */
   holyLightKnights: boolean;
   /**
@@ -403,12 +435,25 @@ export interface Rules {
    */
   darknessStepDiag: boolean;
   /**
+   * Darkness (balance lab, 2026-10-03): no capture takes a piece standing diagonally next to its own
+   * Darkness king — the diagonal twin of `holyLightShelterOrtho`. The king itself is not sheltered.
+   */
+  darknessShelter: boolean;
+  /** The Darkness shelter stops every capture but a pawn's (balance lab). */
+  darknessShelterPawnsTake: boolean;
+  /**
    * Death Touch (balance lab, round 8): the king also touches two squares away in a straight line,
    * over an empty square. Off (the rulebook): adjacent only.
    */
   deathTouchReach: boolean;
   /** The two-square touch reaches along files and ranks only, not diagonals (balance lab). */
   deathTouchReachOrtho: boolean;
+  /** The two-square touch never goes backward, toward its own back rank (balance lab, round 14). */
+  deathTouchReachNoBack: boolean;
+  /** The two-square touch goes only straight forward or back, never sideways (balance lab, round 14). */
+  deathTouchReachForwardBack: boolean;
+  /** The two-square touch takes pieces only, never pawns; the adjacent touch still does (balance lab, round 14). */
+  deathTouchReachPieces: boolean;
   strikeUses: number;
   hasteUses: number;
   flightUses: number;
@@ -446,12 +491,13 @@ export interface Rules {
   kings: readonly [KingChoice | null, KingChoice | null];
   /**
    * Card mode (lab, 2026-10-03): each side's hand of one-use cards, `[white, black]`. A card is one
-   * use of a spendable power, with that power's rules; a side plays at most one a turn (each power
+   * use of a spendable power, with that power's rules, or a card no king has (`CARD_ONLY`, off unless
+   * a hand names it); a side plays at most one a turn (each power
    * move is the turn, or a free mark then the ordinary move). Which cards are played travels in
    * `Position.used` as a bit per hand index. Empty hands (the default) = no card mode; the kings'
    * powers stay as they are, so give the kings no power in card mode.
    */
-  hands: readonly [readonly PowerName[], readonly PowerName[]];
+  hands: readonly [readonly CardName[], readonly CardName[]];
   /** Setup: reject a back rank whose two bishops share a square colour (Chess960 spirit). */
   bishopsOppositeColours: boolean;
   /** Which pieces a pawn may become on the last rank. */
@@ -520,6 +566,10 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   iceWallUses: 2,
   hasteSecond: 'any' as HasteSecond,
   hasteCaptures: true,
+  hasteApart: false,
+  hasteNoThreat: false,
+  hasteNoForward: false,
+  hasteNoCheck: false,
   markFree: false,
   freezeQuiet: false,
   markTurns: 1 as 1 | 2,
@@ -535,11 +585,19 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   holyLightShelterOrtho: false,
   mercyAuraOrtho: false,
   mercyAuraPawns: false,
+  mercyAuraPawnsTake: false,
+  mercyTakesPawns: false,
+  mercyNoJump: false,
   darknessMoves: false,
   darknessTakeAhead: false,
   darknessStepDiag: false,
+  darknessShelter: false,
+  darknessShelterPawnsTake: false,
   deathTouchReach: false,
   deathTouchReachOrtho: false,
+  deathTouchReachNoBack: false,
+  deathTouchReachForwardBack: false,
+  deathTouchReachPieces: false,
   strikeUses: 1,
   hasteUses: 1,
   flightUses: 1,
@@ -549,7 +607,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   reaverStep: 'ortho' as ReaverStep,
   catapultCapture: 'stay' as CatapultCapture,
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
-  hands: [[], []] as readonly [readonly PowerName[], readonly PowerName[]],
+  hands: [[], []] as readonly [readonly CardName[], readonly CardName[]],
   bishopsOppositeColours: true,
   // Reverted to the chess set on 2026-09-17 (designer guideline: do not keep a rule that adds
   // nothing measurable). Fairy promotions were 1.3% of all promotions and moved no outcome metric;
@@ -666,9 +724,10 @@ export function parseRule(text: string): Partial<Rules> {
   if (key === 'kingBlack') return { kings: [null, parseKing(value)] };
   // `hands=Freeze+Haste` gives both sides that hand, `hands=Freeze+Haste,Flight` names them apart.
   if (key === 'hands') {
-    const side = (t: string): PowerName[] => t.split('+').filter(Boolean).map(n => {
-      const p = (Object.values(KINGS).flat() as PowerName[]).find(x => x.toLowerCase() === n.toLowerCase());
-      if (!p || !USES_RULE[p]) throw new Error(`hands: "${n}" is not a one-use power (${Object.keys(USES_RULE).join(', ')})`);
+    const cards: readonly CardName[] = [...(Object.keys(USES_RULE) as PowerName[]), ...CARD_ONLY];
+    const side = (t: string): CardName[] => t.split('+').filter(Boolean).map(n => {
+      const p = cards.find(x => x.toLowerCase() === n.toLowerCase());
+      if (!p) throw new Error(`hands: "${n}" is not a one-use power or card (${cards.join(', ')})`);
       return p;
     });
     const [w, b = w] = value.split(',');

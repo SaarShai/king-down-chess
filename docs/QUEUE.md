@@ -165,6 +165,51 @@ mark bug; `cards-b2` reran it on the fixed engine (2,400 games), and `cards-b3` 
 the same armies (owner: "should you also test 4 and 5 cards?"; 1,600 games, 3 of 16 parts on
 Kaggle). Report: `docs/research/cards-2026-10-03.md`.
 
+## Ran 2026-10-03: K14 (all nine readings) and cards-a2 (the four new cards)
+
+Launched on the owner's go ("test all. let's get all of the information to judge"; new cards: "do
+whichever you suggest"), on branch `claude/fixes-and-cards` after an adversarial review.
+
+- **K14 (`kp2-r14`):** the twelve official powers and the plain king, plus `Haste~vh1..vh4`,
+  `Mercy~vm1..vm3`, `Darkness~vd1`, `Darkness~vd2` (`--variant h1:hasteApart=true`,
+  `h2:hasteNoThreat=true`, `h3:hasteNoForward=true`, `h4:hasteNoCheck=true`,
+  `m1:mercyAuraPawnsTake=true`, `m2:mercyAuraPawnsTake=true,mercyTakesPawns=true`,
+  `m3:mercyNoJump=true`, `d1:darknessShelter=true`, `d2:darknessShelter=true,darknessShelterPawnsTake=true`);
+  the official rules of round 13; seed 1414, 48 pairs, `--armies perPair`, depth 3. 212 matchups
+  (a variant does not meet its own base power or a sibling), 20,352 games: 21 shards, 5 on Kaggle.
+- **cards-a2:** `card:Mimic`, `card:Vault`, `card:Curse`, `card:SkyLift` against `none`
+  (`--anchor none --mirror`), 300 pairs, seed 5454, `--armies perPair`, depth 3, the card rules of
+  `cards-a1`; every card plays the no-card baseline's armies. 3,000 games on the Mac.
+- **Results:** K14 in `docs/research/kings-powers-balance-2026-10-02.md` (Round 14): H1/H3, M2 and D2 each land near 50, but together leave Death Touch about 54.6 and Shadow about 3.6 ahead of Spirit. cards-a2 in `docs/research/cards-2026-10-03.md` (measurement 3).
+
+## Ran 2026-10-03 night: K15, the rest of cards-b4, cards-b5
+
+Launched on the owner's go ("plan and execute the next runs to use up those 8 hours"), this Mac
+(`night.sh`: 16 one-worker shards at a time, `xargs -P 16`) and 5 Kaggle notebooks. The M1 was off
+this network.
+
+- **K15 (`kp2-r15`, branch `claude/dt-trims`):** round 14's rules plus the package H1 + M2 + D2
+  (`hasteApart`, `mercyAuraPawnsTake`, `mercyTakesPawns`, `darknessShelter`,
+  `darknessShelterPawnsTake`) as the round's rules; variants `Haste~vh3`
+  (`hasteApart=false,hasteNoForward=true`) and `DeathTouch~vt1..vt5` (no backward reach; no
+  sideways reach; the reach takes pieces only; forward reach only; no reach). Seed 1515, 64 pairs,
+  `--armies perPair`, depth 3; 155 matchups, 19,840 games, 52 shards. First started at 96 pairs, then
+  cut to 64: on its 61 W charger this Mac ran at half speed (93 → 177 ms a ply), so 96 pairs would
+  not finish overnight (the 1,501 games of that start are in `sim/out/void-r15-p96/`). Decides: which Death
+  Touch trim puts it in 50 ± 4 with Spirit − Shadow near 0, under the package. Each choice
+  is put in place from games played (every variant meets every other power), not predicted.
+- **cards-b4, shards 0–7** (7 and 8 cards; the M1's half): shards 0–4 on Kaggle, 5–7 here.
+- **cards-b5:** `cards6` dealt from all twelve cards (`--cardPool` the eight powers plus Mimic,
+  Vault, Curse, SkyLift), `--mirrorOnly`, 800 pairs, seed 5555 (cards-b2's armies, so paired with
+  its `cards6` and `none`), the card rules of `cards-b2`. 16 shards, 11–15 on Kaggle when the
+  cards-b4 notebooks finish. Decides: whether the four new cards keep White's score, draws and
+  game length where the eight-card deal has them.
+- **Results** (all done by 18:36): K15 in `docs/research/kings-powers-balance-2026-10-02.md` (Round
+  15): Haste H3 + Mercy M2 + Darkness D2 + Death Touch T2 (no sideways reach) puts all twelve powers
+  at 47.4–53.1 with Spirit − Shadow −0.7 ± 2.4. Cards in `docs/research/cards-2026-10-03.md`
+  (measurement 4): eight cards have fewer draws (4.1%) and shorter games than six, as fair; six
+  cards from all twelve play like six from the eight. Kaggle was not needed for cards-b5.
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard

@@ -464,10 +464,101 @@ rough; only a measurement decides.
 - **Spirit and Shadow level.** With m the change of Mercy and k that of Darkness (each against the
   other powers), the gap is about 3.25 + (6/11)(m − k), so the kings are level when k − m ≈ 6: for
   example Mercy −3 and Darkness +3.
-- **Measuring.** One round with the chosen variants as `~v` entrants on seed 3333 and
-  `--armies perPair`: each variant then plays the armies its base power played in round 13. At
-  24 pairs a variant − base difference is about ±4.5, so screen at most about three readings per
-  power, with 48 pairs or more, and screen the Haste and Spirit/Shadow variants in the same round
-  (a Haste trim raises every other power a little).
+- **Measuring.** One round with the variants as `~v` entrants beside their base powers, on
+  `--armies perPair`: a variant plays the same armies as its base power against each opponent, so
+  variant − base is paired within the round. At 24 pairs that difference is about ±4.5; 48 pairs
+  narrow it. The Haste and Spirit/Shadow variants share the round (a Haste trim raises every other
+  power a little). A new seed, not round 13's: the same seed would replay round 13's 3,744 games of
+  the official set exactly, and pooling the two rounds would count them twice.
+- **Owner (2026-10-03):** "test all. let's get all of the information to judge. and yes, darkness
+  can get a second part." All nine readings are built as lab toggles (`src/rules/power-fixes.test.ts`)
+  and screened together in round 14 (`docs/QUEUE.md`).
 
-Raw games (`sim/out/*.jsonl` is not versioned on this branch): `claude/kp2-results-*` branches, rounds 1–10 in the shard branches and rounds 11–12 in `claude/kp2-results-r11-r12`, round 13 and the `fi-r11..13` re-check in `claude/kp2-results-r13-cards`; reports and specs in `sim/out/`.
+Raw games (`sim/out/*.jsonl` is not versioned on `main`): branch `claude/kp2-results`, every round so far in one place; reports and specs in `sim/out/`.
+
+## Round 14 — all nine readings screened (2026-10-03)
+
+Owner: "test all. let's get all of the information to judge." The twelve official powers, the plain
+king and the nine readings as variant entrants, on seed 1414 (fresh armies), 48 pairs, `--armies
+perPair`, depth 3: 20,352 games on the Mac and 5 Kaggle notebooks (`sim/out/kp2-r14.report.md`). A
+variant plays the same armies as its base power against each opponent, so each line below is a
+paired difference against the 11 other official powers (528 pairs, 95%).
+
+| reading | power today → with it | change | draws | game length (plies) |
+|---|---|---|---|---|
+| H1 Haste: second move not next to an enemy | 56.8 → 48.2 | −8.6 ± 3.4 | +1.0 ± 2.6 | +3.7 ± 3.4 |
+| H2 Haste: second move not threatening | 56.8 → 44.6 | −12.2 ± 3.5 | +2.1 ± 2.7 | +5.7 ± 3.6 |
+| H3 Haste: second move not forward | 56.8 → 48.8 | −8.0 ± 3.4 | +2.4 ± 2.5 | +3.3 ± 3.3 |
+| H4 Haste: no check | 56.8 → 54.2 | −2.6 ± 2.3 | +0.9 ± 1.8 | +2.5 ± 2.3 |
+| M1 Mercy: pawns may take in the shelter | 56.2 → 49.1 | −7.1 ± 2.7 | +0.7 ± 2.4 | +2.2 ± 2.8 |
+| M2 Mercy: M1 and the king takes pawns | 56.2 → 50.0 | −6.1 ± 2.7 | +0.5 ± 2.5 | +2.3 ± 2.9 |
+| M3 Mercy: no jump | 56.2 → 47.0 | −9.1 ± 3.7 | −0.5 ± 3.0 | −5.5 ± 3.7 |
+| D1 Darkness: diagonal shelter | 42.8 → 52.3 | +9.5 ± 3.1 | −0.1 ± 2.3 | +1.1 ± 3.0 |
+| D2 Darkness: diagonal shelter, pawns may take | 42.8 → 50.2 | +7.4 ± 3.0 | +1.1 ± 2.2 | +0.4 ± 2.8 |
+
+Official powers in this round, against the other eleven: Haste 56.8, Mercy 56.2, Death Touch 54.0,
+Strike 52.4, Leap 51.6, Sacrifice 50.0, Freeze 48.4, Holy Light 48.2, March 46.6, Flight 46.6, Ice
+Wall 46.5, Darkness 42.8 (each ±2.7–2.8): round 13's picture again, on new armies.
+
+**Reading.** Each of the three has a reading that lands near 50: Haste H1 or H3 (48–49), Mercy M2
+(50.0) and Darkness D2 (50.2). None changes the draw rate clearly. Taken together (each change
+spread over the field, as above), every power then sits inside 50 ± 4 except **Death Touch (about
+54.6)**, and **Shadow leads Spirit by about 3.6** (Spirit 49.5, Shadow 53.1), because Death Touch
+is the high one of Shadow's two powers. Fixing Mercy alone levels the kings but leaves Darkness at
+44; fixing Darkness alone levels them but leaves Mercy at 56. So the package H1/H3 + M2 + D2 needs a
+small Death Touch trim of about 3–4 points to be level; that trim is not measured yet.
+
+## Round 15 — the package, with H3 and five Death Touch trims (2026-10-03)
+
+Owner: "plan and execute the next runs" (overnight). Round 14's package is the round's rules:
+Haste H1, Mercy M2, Darkness D2 (`hasteApart`, `mercyAuraPawnsTake`, `mercyTakesPawns`,
+`darknessShelter`, `darknessShelterPawnsTake`). Variants: Haste H3 in place of H1, and five Death
+Touch trims of the two-square reach (round 10's reading: straight forward, back or sideways over an
+empty square). Seed 1515 (fresh armies), 64 pairs, `--armies perPair`, depth 3: 19,840 games on this
+Mac (`sim/out/kp2-r15.report.md`). Every variant meets every power but its own, so each choice
+below is put in place from games played, not predicted.
+
+**Each variant against its base on the same armies** (against the 11 other powers, 704 pairs, 95%):
+
+| variant | change | draws | game length (plies) |
+|---|---|---|---|
+| H3 Haste: second move not forward (instead of H1) | +3.1 ± 2.3 | −1.0 ± 1.9 | −2.1 ± 2.4 |
+| T1 Death Touch: no backward reach | −1.2 ± 0.7 | +0.2 ± 0.9 | +0.5 ± 0.8 |
+| T2 Death Touch: no sideways reach | −5.9 ± 2.0 | −1.4 ± 1.9 | +0.1 ± 2.1 |
+| T3 Death Touch: the reach takes pieces only | −2.3 ± 1.4 | +0.1 ± 1.4 | −0.4 ± 1.5 |
+| T4 Death Touch: forward reach only | −6.7 ± 2.0 | −1.4 ± 1.9 | −0.9 ± 2.1 |
+| T5 Death Touch: no reach (as printed) | −12.4 ± 2.3 | −1.6 ± 2.1 | −1.5 ± 2.4 |
+
+**The field with each choice in place** (each power against the other 11; ± about 2.4 for each
+power; Spirit = Holy Light and Mercy, Shadow = Death Touch and Darkness; the Spirit − Shadow
+interval combines the two kings' pairs):
+
+| Haste | Death Touch | powers in 50 ± 4 | spread | Death Touch | Haste | Spirit − Shadow |
+|---|---|---|---|---|---|---|
+| H1 | reach as today | 11 | 7.9 | 54.5 | 46.6 | −3.6 ± 2.4 |
+| H1 | T2 no sideways reach | 12 | 6.0 | 48.6 | 47.7 | −0.1 ± 2.4 |
+| H1 | T4 forward reach only | 12 | 5.9 | 47.8 | 47.8 | +0.2 ± 2.4 |
+| H3 | reach as today | 11 | 7.6 | 54.3 | 49.6 | −4.0 ± 2.4 |
+| H3 | T1 no backward reach | 12 | 6.5 | 53.3 | 49.8 | −3.2 ± 2.4 |
+| H3 | T3 pieces only | 12 | 5.8 | 52.2 | 50.1 | −2.7 ± 2.4 |
+| **H3** | **T2 no sideways reach** | **12** | **5.7** | **49.0** | **50.2** | **−0.7 ± 2.4** |
+| H3 | T4 forward reach only | 12 | 5.9 | 48.2 | 50.2 | −0.5 ± 2.5 |
+| H3 | T5 no reach | 11 | 11.4 | 42.0 | 50.9 | +3.1 ± 2.5 |
+
+With H3 and T2, all twelve powers: Darkness 53.1, Sacrifice 52.5, Leap 51.6, Strike 51.4, Mercy
+50.5, Haste 50.2, Holy Light 50.1, Freeze 49.1, Death Touch 49.0, Flight 47.6, Ice Wall 47.5, March
+47.4.
+
+**Reading.** Round 14's package holds on new armies: Mercy (M2) and Darkness (D2) land near 50, and
+Death Touch is again the high one (54.5) with Shadow ahead of Spirit (the report's own kings line
+for the round's rules: Spirit − Shadow −3.0 ± 2.8). **T2, no sideways reach, fixes both**: Death
+Touch 49.0 and Spirit − Shadow −0.7 ± 2.4, with every power between 47.4 and 53.1 (a spread of 5.7;
+rounds 11–13 had 12.9). It was picked as the best of twelve combinations on these games, so it
+reads a little better than it is. T4 (forward only) does the same with one more cut; T1 and T3 are too
+small (Shadow still ahead), T5 too large (Death Touch 42). **H3 over H1**: Haste 50.2 against 47.7,
+and no clear change in draws (−1.0 ± 1.9). No trim changes the draw rate clearly. Games of the
+official set drew 13.6% (round 14: 13.4%), White scored 52.1% (+13 ± 5 Elo).
+
+Suggested package for the owner: **Haste H3, Mercy M2, Darkness D2, Death Touch T2**. Not adopted:
+the owner decides. A confirmation round with the package as the rules, on fresh armies, would check
+it without that selection.
