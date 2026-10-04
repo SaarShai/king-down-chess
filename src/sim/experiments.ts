@@ -19,13 +19,17 @@ import { ARCHER_V, BEAST_V, BISHOP_V, CATAPULT_V, GUARD_V, KNIGHT_V, MAESTER_V, 
 /** The standard piece a `--vs` swap replaces, by letter, in centipawns (the fitted constants). */
 const VS_V: Record<string, number> = { N: KNIGHT_V, B: BISHOP_V, R: ROOK_V, Q: QUEEN_V };
 
-/** The shipped fairy set. `--pieces O` / `--pieces C` reaches the two lab pieces below. */
+/**
+ * The shipped fairy set. `--pieces O` / `--pieces C` reaches the two lab pieces below, and
+ * `--pieces RB` the standard pieces (the piece-balance criteria measure every pool piece).
+ */
 const FAIRY = 'ALGMS';
-/** Engine seed values today (`src/ai/eval.ts`) and the research priors, both in pawns. */
-const SEEDED: Record<string, number> = { A: ARCHER_V, L: PALADIN_V, G: GUARD_V, M: MAESTER_V, S: BEAST_V, O: OGRE_V, C: CATAPULT_V, V: REAVER_V, T: TEMPLAR_V };
+/** Engine seed values today (`src/ai/eval.ts`, centipawns) and the research priors (pawns). */
+const SEEDED: Record<string, number> = { ...VS_V, A: ARCHER_V, L: PALADIN_V, G: GUARD_V, M: MAESTER_V, S: BEAST_V, O: OGRE_V, C: CATAPULT_V, V: REAVER_V, T: TEMPLAR_V };
 // O and C: `docs/PIECES-PROPOSED.md` guesses "about 3 pawns" and "3.5-4.5 while the board is full".
-const PRIOR: Record<string, number> = { A: 3.5, L: 4.0, G: 2.0, M: 3.5, S: 2.2, O: 3.0, C: 4.0, V: 3.75, T: 3.75 };
-const NAME: Record<string, string> = { A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre', C: 'catapult', V: 'reaver', T: 'templar' };
+// N B R Q: the classical 3, 3, 5, 9.
+const PRIOR: Record<string, number> = { N: 3, B: 3, R: 5, Q: 9, A: 3.5, L: 4.0, G: 2.0, M: 3.5, S: 2.2, O: 3.0, C: 4.0, V: 3.75, T: 3.75 };
+const NAME: Record<string, string> = { N: 'knight', B: 'bishop', R: 'rook', Q: 'queen', A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre', C: 'catapult', V: 'reaver', T: 'templar' };
 
 const f2 = (x: number): string => x.toFixed(2);
 const signed = (x: number, d = 0): string => `${x >= 0 ? '+' : ''}${x.toFixed(d)}`;
