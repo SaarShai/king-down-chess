@@ -210,6 +210,20 @@ this network.
   (measurement 4): eight cards have fewer draws (4.1%) and shorter games than six, as fair; six
   cards from all twelve play like six from the eight. Kaggle was not needed for cards-b5.
 
+## Ran 2026-10-04: K16
+
+Owner: Darkness "we must find a different change to bring close to 50%". This Mac (shards 0–7, 2
+workers each) and 5 Kaggle notebooks (shards 8–12); the M1 was off this network.
+
+- **K16 (`kp2-r16`, branch `claude/powers-r16` at 6640091):** the official set (round 14's readings
+  with Mercy M2) as the round's rules; variants `Darkness~vd1` (`darknessShelter`), `~vpa`
+  (`darknessPawnArmor`), `~vau` (`darknessAuraPawns`), `~vks` (`darknessKingStep2`). Seed 1616, 64
+  pairs, `--armies perPair`, depth 3; 126 matchups, 16,128 games, 13 shards. Decides: which second
+  part brings Darkness near 50 with Spirit − Shadow near 0.
+- **Results** (Mac 95 min, Kaggle 150–165 min): in `docs/research/kings-powers-balance-2026-10-02.md`
+  (Round 16): the king step puts Darkness at 46.9 with Spirit − Shadow −0.7 ± 2.4; D1 and the pawn
+  armour overshoot (53.5, 52.7) with Shadow ahead; the pawn aura does nothing.
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard
