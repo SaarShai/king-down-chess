@@ -39,7 +39,8 @@
 - **Owner (2026-10-03), answers:** on the hand size, "is 6 the optimal one for white-black balance and draws and quicker games?" (answered: of 3–6, yes on length, level on balance and draws; 7 and 8 untested, offered). New cards: "do whichever you suggest" → build Mimic, Vault, Curse and Sky Lift, then measure each against no card. Raw games: "yes" → pushed to `claude/kp2-results-r13-cards`.
 - [x] Build Mimic, Vault, Curse, Sky Lift (card-only names, `card:<Name>` entrants), then `cards-a2`: each against no card on the same armies (measurement 3).
 - [x] Overnight 2026-10-03: 7 and 8 cards (`cards-b4`) and 6 cards from all twelve (`cards-b5`), on measurement 2's armies. Eight cards: draws 4.1% (six: 6.8%), about 7 turns shorter, as fair; seven like six; the four new cards fit the deal (measurement 4). Fixed on the way: `report` called rounds with different card pools repeats of each other; it now keys a game on its hands too and warns when pooled rounds deal from different pools.
-- [ ] Owner: hand size (now suggested: eight from all twelve; six if eight are too many) and whether the four new cards join the deal. Then card mode in the playable game.
+- **Owner decision (2026-10-03):** "on balance i think 6 cards is best. the most important is to eliminate white's advantage and to not have too many cards." **Hand size: six.**
+- [ ] Owner: whether the four new cards join the deal (suggested: yes; six from all twelve played like six from the eight). Then card mode in the playable game.
 
 ## Kaggle for compute — 2026-10-03
 - Owner (2026-10-03): "please use kaggle where it is helpful and possible, such as for running many game sessions … agents from now on, when intending to run compute tasks, should consider using kaggle." A new API token, to be saved in the local project.
