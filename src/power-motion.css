@@ -368,19 +368,18 @@ button.emblem[aria-pressed='true'] .kx-shadow img { filter: drop-shadow(0 0 3px 
   100% { opacity: 0; transform: translate(calc(var(--dx) * -.5), -28px) scale(.4); }
 }
 
-/* Stratus: wind and drifting clouds */
-.kx .wind { fill: none; stroke: #6f9fcc; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 20 12 7 61; opacity: .85; }
-.kx .wind-2 { stroke: #9cc0e4; stroke-width: 1.7; stroke-dasharray: 15 35; }
-.kx .cloud { fill: #fff; stroke: #9db9d6; stroke-width: 1; }
-.kx .gust-line { fill: none; stroke: #8db3d8; stroke-width: 1.8; stroke-linecap: round; }
-.kx-spin { animation: kx-spin 6s linear infinite; }
-.kx-spin-r { animation: kx-spin 4.4s linear infinite reverse; }
-.kx-cloud { animation: kx-drift 4.2s ease-in-out infinite; --dx: 9px; }
-.kx-cloud-r { animation: kx-drift 4.2s ease-in-out infinite; --dx: -8px; }
-.kx-gust { opacity: .7; animation: kx-gust 2.6s ease-in-out infinite; }
-@keyframes kx-spin { to { transform: rotate(360deg); } }
-@keyframes kx-drift { 0%, 100% { transform: none; } 50% { transform: translateX(var(--dx)); } }
-@keyframes kx-gust { 0% { opacity: 0; transform: translateX(-10px); } 30% { opacity: .9; } 70% { opacity: .6; } 100% { opacity: 0; transform: translateX(14px); } }
+/* Stratus: wind gusts behind the emblem, each at its own speed */
+.kx .kx-gust { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100 100; opacity: .75; }
+.kx .gust-1 { stroke: #6795c4; stroke-width: 2.6; }
+.kx .gust-2 { stroke: #92b8e0; stroke-width: 1.9; }
+.kx-gust { animation: kx-gust 2.4s cubic-bezier(.45, .05, .55, .95) infinite; }
+.kx .kx-g1 { animation-duration: 2.3s; animation-delay: 0s; } .kx .kx-g2 { animation-duration: 3.1s; animation-delay: -1.2s; }
+.kx .kx-g3 { animation-duration: 1.8s; animation-delay: -.5s; } .kx .kx-g4 { animation-duration: 2.7s; animation-delay: -2s; }
+.kx .kx-g5 { animation-duration: 2.1s; animation-delay: -1.5s; } .kx .kx-g6 { animation-duration: 3.4s; animation-delay: -.9s; }
+@keyframes kx-gust {
+  0% { stroke-dashoffset: 100; opacity: 0; transform: translateX(-5px); } 12% { opacity: .9; }
+  48% { stroke-dashoffset: 0; } 78% { opacity: .8; } 100% { stroke-dashoffset: -100; opacity: 0; transform: translateX(6px); }
+}
 
 /* Mud: falling leaves and earth motes */
 .kx .leaf { fill: #7da33a; stroke: #3d5a1c; stroke-width: .5; }
@@ -405,13 +404,19 @@ button.emblem[aria-pressed='true'] .kx-shadow img { filter: drop-shadow(0 0 3px 
 @keyframes kx-rays { to { transform: rotate(30deg); } }
 @keyframes kx-halo { 0% { opacity: .9; transform: scale(.72); } 100% { opacity: 0; transform: scale(1.5); } }
 
-/* Shadow: curling smoke and a dark aura */
-.kx .curl { fill: none; stroke: rgba(74, 40, 104, .7); stroke-width: 2.6; stroke-linecap: round; }
-.kx .curl-2 { stroke: rgba(120, 80, 160, .55); stroke-width: 1.8; }
-.kx-aura { animation: kx-glow 3.2s ease-in-out infinite; }
-.kx-smoke { opacity: .8; animation: kx-smoke 3.6s ease-in-out infinite; }
-.kx-curl { opacity: .6; animation: kx-curl 3s ease-in-out infinite; }
-@keyframes kx-smoke {
-  0% { opacity: 0; transform: translateY(12px) scale(.7); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), -26px) scale(1.35); }
+/* Shadow: a dark purple vortex behind the emblem, drawing inward */
+.kx .vx-light { fill: #4f2580; }
+.kx .vx-mote { fill: #a983d8; }
+.kx .kx-vx { transform-box: view-box; transform-origin: 50% 50%; }
+.kx-turn { animation: kx-turn 9s linear infinite; }
+.kx-pull { opacity: .35; animation: kx-pull 3.4s cubic-bezier(.5, 0, .9, .6) infinite; }
+.kx .kx-p1 { animation-delay: -1.7s; }
+.kx-eye { animation: kx-glow 3.4s ease-in-out infinite; }
+.kx-mote-in { opacity: 0; animation: kx-mote-in 2.8s cubic-bezier(.4, 0, .9, .5) infinite; }
+.kx .kx-m1 { animation-delay: -.7s; --a: 90deg; } .kx .kx-m2 { animation-delay: -1.4s; --a: 200deg; } .kx .kx-m3 { animation-delay: -2.1s; --a: 300deg; }
+@keyframes kx-turn { to { transform: rotate(360deg); } }
+@keyframes kx-pull { 0% { opacity: 0; transform: scale(1.15); } 30% { opacity: .5; } 100% { opacity: 0; transform: rotate(150deg) scale(.4); } }
+@keyframes kx-mote-in {
+  0% { opacity: 0; transform: rotate(var(--a, 0deg)) translateX(46px); } 20% { opacity: .9; }
+  100% { opacity: 0; transform: rotate(calc(var(--a, 0deg) + 330deg)) translateX(3px); }
 }
-@keyframes kx-curl { 0% { opacity: 0; transform: translateY(10px) scaleY(.7); } 35% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), -20px) rotate(10deg) scaleY(1.15); } }

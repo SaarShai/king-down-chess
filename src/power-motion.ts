@@ -179,6 +179,40 @@ const sparkle = (x: number, y: number, s: number, n: number): string =>
 const dot = (cls: string, x: number, y: number, r: number, n: number): string =>
   `<circle class="a c ${cls} kx-d${n}" cx="${x}" cy="${y}" r="${r}"/>`;
 
+/**
+ * A gust from (x, y), `len` long to the right (`dir` 1) or left (-1), bending by `bend`, ending in a
+ * curl up (`curl` 1) or down (-1). Drawn and erased along its length (pathLength 100) by CSS.
+ */
+function gust(x: number, y: number, len: number, bend: number, curl: number, cls: string, width: 1 | 2): string {
+  const d = (dx: number) => (dx * (x > 50 ? -1 : 1) * (Math.abs(dx) < 10 ? 1.35 : 1)).toFixed(1), c = (dy: number) => (dy * curl * 1.35).toFixed(1);
+  const path = `M${x} ${y}c${d(len * .3)} ${-bend} ${d(len * .62)} ${bend} ${d(len)} ${c(-1.5)}`
+    + `c${d(5)} ${c(-1)} ${d(8)} ${c(-5)} ${d(5)} ${c(-8)}c${d(-2.6)} ${c(-2.6)} ${d(-6.4)} ${c(-.6)} ${d(-5)} ${c(2.4)}c${d(.9)} ${c(1.8)} ${d(3.4)} ${c(1.4)} ${d(3.6)} ${c(-.2)}`;
+  return `<path class="a kx-gust ${cls} gust-${width}" d="${path}" pathLength="100"/>`;
+}
+
+/**
+ * `arms` spiral arms around (50, 50), each turning inward counter-clockwise from radius `r` to 4 and
+ * narrowing from `w` radians; `turn0` rotates the whole set. Turned clockwise, the arms seem to flow in.
+ */
+function vortex(arms: number, r: number, w: number, turn0: number): string {
+  const T = 1.7 * Math.PI, N = 26, k = Math.log(r / 4) / T;
+  const pt = (t: number, a: number) => {
+    const rad = r * Math.exp(-k * t);
+    return `${(50 + rad * Math.cos(a)).toFixed(1)} ${(50 + rad * Math.sin(a)).toFixed(1)}`;
+  };
+  let d = '';
+  for (let i = 0; i < arms; i++) {
+    const base = turn0 + i * 2 * Math.PI / arms, edge: string[] = [], back: string[] = [];
+    for (let j = 0; j <= N; j++) {
+      const t = T * j / N, a = base - t;
+      edge.push(pt(t, a));
+      back.push(pt(t, a + w * (1 - .7 * j / N)));
+    }
+    d += `M${edge.join('L')}L${back.reverse().join('L')}z`;
+  }
+  return d;
+}
+
 const FX: Record<KingName, (g: string) => [back: string, front: string]> = {
   Frost: g => [
     `<defs>${grad(g, '#9fd8ff', .75)}</defs><circle class="a c kx-glow" cx="50" cy="56" r="48" fill="url(#${g})"/>`,
@@ -191,13 +225,13 @@ const FX: Record<KingName, (g: string) => [back: string, front: string]> = {
       + dot('kx-ember ember', 28, 26, 2, 4) + dot('kx-ember ember ember-hot', 52, 4, 1.7, 5) + dot('kx-ember ember ember-hot', 72, 22, 1.6, 6)
       + dot('kx-ember ember ember-hot', 40, 50, 1.5, 3) + dot('kx-ember ember', 62, 58, 1.8, 5),
   ],
+  // Stratus: wind gusts behind the emblem, each a curved streak with a curled tip that sweeps across
+  // and fades, at its own speed. The emblem has its own painted clouds.
   Stratus: g => [
-    `<defs>${grad(g, '#cfe6ff', .8)}</defs><circle class="a c kx-glow" cx="50" cy="50" r="48" fill="url(#${g})"/>`
-      + '<circle class="a c kx-spin wind" cx="50" cy="48" r="44" pathLength="100"/>',
-    '<circle class="a c kx-spin-r wind wind-2" cx="50" cy="50" r="38" pathLength="100"/>'
-      + '<g class="a kx-cloud kx-d0"><path class="cloud" d="M8 86a6 6 0 0 1 6-7 8 8 0 0 1 15-2 5 5 0 0 1 4 9z"/></g>'
-      + '<g class="a kx-cloud-r kx-d2"><path class="cloud" d="M64 92a5 5 0 0 1 5-6 7 7 0 0 1 13-1 4.5 4.5 0 0 1 3 7z"/></g>'
-      + '<path class="a kx-gust gust-line kx-d1" d="M6 30q14-6 26 0"/><path class="a kx-gust gust-line kx-d3" d="M66 64q14-6 28 0"/>',
+    `<defs>${grad(g, '#cfe6ff', .7)}</defs><circle class="a c kx-glow" cx="50" cy="50" r="48" fill="url(#${g})"/>`
+      + gust(-12, 8, 82, 8, 1, 'kx-g1', 1) + gust(112, 20, 70, -8, -1, 'kx-g2', 2) + gust(-14, 66, 60, 7, -1, 'kx-g3', 1)
+      + gust(114, 86, 76, 8, 1, 'kx-g4', 2) + gust(-10, 94, 66, -6, 1, 'kx-g5', 1) + gust(110, 36, 46, 6, -1, 'kx-g6', 2),
+    '',
   ],
   Mud: g => [
     `<defs><radialGradient id="${g}"><stop offset="0" stop-color="#9aae4a" stop-opacity=".7"/><stop offset=".6" stop-color="#8a6a32" stop-opacity=".3"/><stop offset="1" stop-color="#8a6a32" stop-opacity="0"/></radialGradient></defs><circle class="a c kx-glow" cx="50" cy="56" r="48" fill="url(#${g})"/>`,
@@ -220,14 +254,21 @@ const FX: Record<KingName, (g: string) => [back: string, front: string]> = {
       dot('kx-rise light', 30, 70, 1.4, 1) + dot('kx-rise light', 70, 66, 1.2, 4) + dot('kx-rise light', 54, 80, 1.1, 2),
     ];
   },
-  Shadow: g => [
-    `<defs>${grad(g, '#3a1f52', .75)}<radialGradient id="${g}s"><stop offset="0" stop-color="#2c1a3c" stop-opacity=".55"/><stop offset=".55" stop-color="#3b2350" stop-opacity=".3"/><stop offset="1" stop-color="#3b2350" stop-opacity="0"/></radialGradient></defs>`
-      + `<circle class="a c kx-aura" cx="50" cy="56" r="50" fill="url(#${g})"/>`
-      + `<circle class="a c kx-smoke kx-d0" cx="28" cy="72" r="24" fill="url(#${g}s)"/><circle class="a c kx-smoke kx-d2" cx="72" cy="68" r="22" fill="url(#${g}s)"/><circle class="a c kx-smoke kx-d4" cx="50" cy="44" r="26" fill="url(#${g}s)"/>`,
-    `<circle class="a c kx-smoke kx-d1" cx="24" cy="92" r="18" fill="url(#${g}s)"/><circle class="a c kx-smoke kx-d3" cx="78" cy="90" r="16" fill="url(#${g}s)"/>`
-      + '<path class="a kx-curl curl kx-d0" d="M16 84c-8-10 6-14 0-24s4-14 2-20"/><path class="a kx-curl curl kx-d2" d="M84 80c8-10-6-14 0-24s-4-14-2-20"/>'
-      + '<path class="a kx-curl curl curl-2 kx-d4" d="M50 98c-6-8 5-12 0-20"/>',
-  ],
+  // Shadow: a dark purple vortex behind the emblem, turning slowly; fainter arms and motes of light are
+  // drawn into its eye.
+  Shadow: g => {
+    const ink = `<radialGradient id="${g}a" gradientUnits="userSpaceOnUse" cx="50" cy="50" r="62"><stop offset="0" stop-color="#050307" stop-opacity=".97"/>`
+      + '<stop offset=".45" stop-color="#170a24" stop-opacity=".92"/><stop offset=".78" stop-color="#3a1863" stop-opacity=".72"/><stop offset="1" stop-color="#4a2380" stop-opacity="0"/></radialGradient>';
+    const disc = `<radialGradient id="${g}d"><stop offset="0" stop-color="#050307" stop-opacity=".95"/><stop offset=".55" stop-color="#1f0e30" stop-opacity=".65"/><stop offset="1" stop-color="#2e1546" stop-opacity="0"/></radialGradient>`;
+    return [
+      `<defs>${ink}${disc}</defs><circle class="a c kx-eye" cx="50" cy="50" r="56" fill="url(#${g}d)"/>`
+        + `<g class="a kx-vx kx-turn"><path d="${vortex(5, 62, .34, 0)}" fill="url(#${g}a)"/></g>`
+        + `<g class="a kx-vx kx-pull kx-p0"><path class="vx-light" d="${vortex(5, 58, .16, .6)}"/></g>`
+        + `<g class="a kx-vx kx-pull kx-p1"><path class="vx-light" d="${vortex(5, 58, .16, .6)}"/></g>`
+        + [0, 1, 2, 3].map(n => `<circle class="a c kx-mote-in kx-m${n} vx-mote" cx="50" cy="50" r="1.5"/>`).join(''),
+      '',
+    ];
+  },
 };
 
 /**
