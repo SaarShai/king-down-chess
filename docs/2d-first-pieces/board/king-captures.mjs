@@ -9,7 +9,8 @@
 //   spirit  the piece turns into a glowing silhouette of itself (white for the ivory king, black for the
 //           charcoal one) and implodes in a flash
 //   stratus a whirlwind lifts the piece off its square, spinning, and a gust throws it over the other
-//           pieces and off the board past its edge, where it fades out (the blue curled gusts of his emblem)
+//           pieces and off the board past its edge, where it fades out (the blue curled gusts of his emblem;
+//           near an edge back over the king, on the back rank along the band above the board)
 // The king's own motion is blows.mjs KING_BLOW; these effects start at its strike. Times are ms after the strike, at Normal speed (Fast halves them).
 // Units are board units (the board is 960 wide).
 import {clamp} from '../painted-mesh.mjs';
@@ -500,8 +501,9 @@ function whirl(out,cx,foot,height,w,t,alpha,front,clear=null){
 // Where the thrown piece is at d.t. Three ways off the board:
 //   side  away from the king, over the board and past its edge, in an arc over the pieces in its way;
 //   over  near an edge (less than 2.5 squares of room): the whirlwind first lifts it above the king's head,
-//         then it is thrown the other way, over him;
-//   up    in the top rows (no room above for an arc): it is thrown up and out over the far edge.
+//         then it is thrown the other way, over him, staying above his head until it is past him;
+//   top   on the back rank (no room above for an arc): away from the king and up into the band above the
+//         board, shrinking as it goes, over the heads of the pieces on the rank, and off past the far corner.
 // It gets smaller as it goes (flying off, away from us) and fades out before the canvas edge.
 function throwPath(d){
  const D=DEATHS.stratus,t=d.t,height=d.foot.y-d.top,headroom=d.headroom??64;
@@ -509,22 +511,23 @@ function throwPath(d){
  const board=d.board??{left:32,right:(d.size??960)-32},king=d.king??{x:d.foot.x-(d.away||1)*58,top:d.foot.y-140,l:d.foot.x-(d.away||1)*58-30,r:d.foot.x-(d.away||1)*58+30};
  let half=16;for(const row of d.shape??[])half=Math.max(half,(row.r-row.l)/2);
  let away=d.away||1;const room=side=>side>0?board.right-d.foot.x:d.foot.x-board.left;
- const mode=d.top+headroom<150?'up':room(away)<280?'over':'side';
- let run=0,up=0,opacity=1;
- if(mode==='up'){
-  // Up and away from us: it rises, shrinking to a third, drifts a little away from the king and fades out
-  // over the last part of the way, its top never above the canvas's top edge.
-  q=1-.65*ease(fly);
-  const qEnd=.35,rise=d.hit.y+(d.top-d.hit.y)*qEnd+headroom-8-34;run=away*60*run0;up=-34*lift-rise*run0;
-  opacity=1-ease(span(fly,.55,1));
+ const mode=d.top+headroom<150?'top':room(away)<280?'over':'side';
+ if(mode==='over')away=-away;
+ const edge=(away>0?board.right:board.left)+away*26,dist=Math.abs(edge-d.foot.x),run=(edge-d.foot.x)*run0;
+ let up=0,opacity=1-ease(clamp((Math.abs(run)-(dist-80))/80,0,1));
+ if(mode==='top'){
+  // It shrinks to two fifths and rises quickly into the band above the board (its top 6 units under the
+  // canvas's top), then flies along it; near an edge it goes out over the corner, fading on the way.
+  q=1-.6*ease(Math.min(1,fly*1.4));
+  const qEnd=.4,rise=d.hit.y+(d.top-d.hit.y)*qEnd+headroom-6;
+  up=-Math.min(34,rise)*lift-Math.max(0,rise-34)*ease(Math.min(1,fly*1.8));
+  // (It fades by its flight, not by the edge: near a corner it has only a square to go sideways.)
+  opacity=1-ease(span(fly,.72,1));
  }else{
-  if(mode==='over')away=-away;
-  const edge=(away>0?board.right:board.left)+away*26,dist=Math.abs(edge-d.foot.x);
-  // over: first up above the king's head (and his crown's clearance), then across with a small arc.
-  const liftH=mode==='over'?Math.max(34,d.foot.y-king.top+12):34;
+  // over: up above the king's head (with room for his crown) and kept there until it is past him.
+  const liftH=mode==='over'?Math.max(34,d.foot.y-king.top+14):34;
   const peak=mode==='over'?Math.max(0,Math.min(40,d.top-liftH+headroom-30)):Math.max(30,Math.min(115,d.top+headroom-12-34));
-  run=(edge-d.foot.x)*run0;up=-liftH*lift*(mode==='over'?1-.5*fly:1)-peak*Math.sin(Math.PI*Math.min(1,fly*1.1));
-  opacity=1-ease(clamp((Math.abs(run)-(dist-80))/80,0,1));
+  up=-liftH*lift-peak*Math.sin(Math.PI*Math.min(1,fly*1.1));
  }
  const spin=away*(.25*lift*Math.sin(t/60)*(1-fly)+2.2*fly*fly);
  const cx=d.hit.x+run,cy=d.hit.y+up,footY=d.hit.y+(d.foot.y-d.hit.y)*q+up,topY=d.hit.y+(d.top-d.hit.y)*q+up;
@@ -552,7 +555,7 @@ function throwOff(out,d){
    for(const [colour,lw,dy] of WIND){out.globalAlpha=a;out.strokeStyle=colour;out.lineWidth=lw*.7;for(let j=0;j<3;j++){const a0=(i?-1:1)*(.6+1.6*p)+j*TAU/3;out.beginPath();out.ellipse(d.foot.x,d.foot.y-3+dy,rx,rx*.3,0,a0,a0+1.2);out.stroke();}}
    out.restore();}
   // Its shadow on the board while it is in the air: dark enough for the dark wood, smaller the higher it is.
-  if(t<D.end&&opacity>.01&&P.mode!=='up'){
+  if(t<D.end&&opacity>.01){
    const k=clamp(1-airborne/220,.45,1),r=half*1.3*q*(.6+.4*k);
    const g=out.createRadialGradient(px,d.foot.y-2,0,px,d.foot.y-2,r);g.addColorStop(0,'rgba(14,9,4,.7)');g.addColorStop(.6,'rgba(14,9,4,.35)');g.addColorStop(1,'rgba(14,9,4,0)');
    out.save();out.globalAlpha=opacity*k;out.translate(px,d.foot.y-2);out.scale(1,.3);out.translate(-px,-(d.foot.y-2));out.fillStyle=g;out.beginPath();out.arc(px,d.foot.y-2,r,0,TAU);out.fill();out.restore();
@@ -567,8 +570,8 @@ function throwOff(out,d){
    out.save();out.beginPath();out.rect(-200,-400,(d.size??960)+400,(d.size??960)+800);out.rect(king.l-4,king.top-8,king.r-king.l+8,king.foot-king.top+12);out.clip('evenodd');
    for(let i=0;i<4;i++){
     const ph=frac(fly*2.4+i*.27),yy=cy+(i-1.5)*height*.26*q,len=(52+24*rand(i,40))*q+20,x0=cx-away*(Math.min(half,22)*q+6);
-    const head=clamp(ph*1.7,0,1),tail=clamp(ph*1.7-.7,0,1),dir=P.mode==='up'?-Math.PI/2+away*.35:away>0?-.08+.16*rand(i,42):Math.PI+.08-.16*rand(i,42);
-    const gx=P.mode==='up'?cx+(i-1.5)*14*q:x0,gy=P.mode==='up'?footY+12:yy;
+    const head=clamp(ph*1.7,0,1),tail=clamp(ph*1.7-.7,0,1),dir=away>0?-.08+.16*rand(i,42):Math.PI+.08-.16*rand(i,42);
+    const gx=x0,gy=yy;
     gust(out,gx,gy,dir,len,(rand(i,43)-.5)*.5,head,tail,.9*opacity*ease(fly*6),i%2?1:-1);
    }
    out.restore();

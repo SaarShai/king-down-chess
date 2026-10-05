@@ -43,7 +43,7 @@ export function startTitleKings(root,{enabled=()=>true}={}){
  const sprites=new Map();
  let running=true,timer=0,frame=0,frames=0,started=0;
  // draw(t): every started king at time t now (for recordings with their own clock).
- const state={stop,get frames(){return frames;},get running(){return running;},get started(){return started;},draw(t){for(const k of kings)if(k.canvas&&k.since!=null)draw(k,t);}};
+ const state={stop,get frames(){return frames;},get running(){return running;},get started(){return started;},get kings(){return kings;},draw(t){for(const k of kings)if(k.canvas&&k.since!=null)draw(k,t);}};
  if(!enabled()||motion.matches||!kings.length){running=false;return state;}
  const sprite=(design,image)=>{
   let c=sprites.get(image);
@@ -60,8 +60,9 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   const bx0=Math.min(foot.x-REACH.left,img.offsetLeft/u),bx1=Math.max(foot.x+REACH.right,(img.offsetLeft+img.offsetWidth)/u);
   const by0=Math.min(foot.y-REACH.up,img.offsetTop/u),by1=Math.max(foot.y+REACH.down,(img.offsetTop+img.offsetHeight)/u);
   Object.assign(k,{u,dpr,foot,bx0,by0});
-  // The room to the nearest neighbour's feet (CSS px → his board units): his hands reach about a third of it.
-  const i=kings.indexOf(k),near=[kings[i-1],kings[i+1]].filter(n=>n?.foot).map(n=>Math.abs(n.foot.x*n.u-foot.x*u)/u);
+  // The room to the nearest neighbour (the middle of his image, from the fixed layout; CSS px → this king's
+  // board units): the hands and flakes reach about a third of it.
+  const i=kings.indexOf(k),near=[kings[i-1],kings[i+1]].filter(Boolean).map(n=>Math.abs(n.img.offsetLeft+n.img.offsetWidth/2-foot.x*u)/u);
   if(near.length)k.spread=Math.max(.2,Math.min(.6,Math.min(...near)*.3/44));
   const c=k.canvas;
   c.style.left=`${bx0*u}px`;c.style.top=`${by0*u}px`;c.style.width=`${(bx1-bx0)*u}px`;c.style.height=`${(by1-by0)*u}px`;
@@ -78,13 +79,34 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   // Frost's flakes in the room between him and his neighbours.
   const s={design,side:0,pose:{foot:k.foot,scale:SCALE,facing,angle:0},t:t-k.since+k.offset,k:kk,opacity:1,g:1,facing,spread:k.spread??.5};
   s.pose=fx.pose(s);s.ground=s.pose.ground??s.pose.foot;
-  fx.back(g,s);
+  // The effects are drawn on a layer of their own with the neighbouring kings' figures cut out of it, so an
+  // effect never covers a neighbour (his own figure keeps its overlap, as the images have).
+  const layer=effects(k),l=layer.getContext('2d');
+  const put=()=>{cutNeighbours(k,l);g.save();g.setTransform(1,0,0,1,0,0);g.drawImage(layer,0,0);g.restore();};
+  l.setTransform(1,0,0,1,0,0);l.clearRect(0,0,layer.width,layer.height);l.setTransform(g.getTransform());fx.back(l,s);put();
   g.save();
   if(k.filter.shadow){const d=k.filter.shadow;g.shadowColor=d.color;g.shadowOffsetX=d.x*dpr;g.shadowOffsetY=d.y*dpr;g.shadowBlur=d.blur*dpr;}
   g.translate(s.pose.foot.x,s.pose.foot.y);g.scale(SCALE*facing*(s.pose.sx??1),SCALE*(s.pose.sy??1));
   g.drawImage(sprite(design,s.pose.sheet??image),-A.x,-A.y);
   g.restore();
-  fx.front(g,s);
+  l.setTransform(1,0,0,1,0,0);l.clearRect(0,0,layer.width,layer.height);l.setTransform(g.getTransform());fx.front(l,s);put();
+ }
+ // A king's effect layer, the size of his canvas.
+ function effects(k){
+  const c=k.canvas;let l=k.layer;
+  if(!l){l=k.layer=document.createElement('canvas');}
+  if(l.width!==c.width||l.height!==c.height){l.width=c.width;l.height=c.height;}
+  return l;
+ }
+ // Cuts the neighbouring kings' figures (their images, where they stand) out of a king's effect layer.
+ function cutNeighbours(k,l){
+  const i=kings.indexOf(k);
+  l.save();l.setTransform(k.dpr,0,0,k.dpr,-k.bx0*k.u*k.dpr,-k.by0*k.u*k.dpr);l.globalCompositeOperation='destination-out';
+  for(const n of [kings[i-1],kings[i+1]]){
+   if(!n)continue;const im=n.img,x=im.offsetLeft,y=im.offsetTop,w=im.offsetWidth,h=im.offsetHeight;
+   if(n.mirror){l.save();l.translate(x+w,y);l.scale(-1,1);l.drawImage(im,0,0,w,h);l.restore();}else l.drawImage(im,x,y,w,h);
+  }
+  l.restore();
  }
  function tick(time){
   frame=0;if(!running)return;

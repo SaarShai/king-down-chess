@@ -145,11 +145,17 @@ try {
         let t = window.__now() + 16; for (let i = 0; i <= 30; i++) window.rec.at(key, t += 40); scene.play(move); return 1660;
       }, [key, design, c]);
       clock = await tab.evaluate(() => window.__now());
-      const start = clock, total = 360 + duration + 600, row = { label: list[c], frames: [], times: [] }, marks = design === 'stratus' ? [0, 800, 1120, 1280, 1400, 1520] : [0, 520, 800, 1040, 1280, 1520];
+      // After the move the position comes, as in the game; Mud's and Shadow's clips run on to show the
+      // effect growing back on the king's new (or, after Death Touch, his own) square.
+      const after = design === 'mud' ? 2900 : design === 'shadow' ? 1700 : 600;
+      const start = clock, total = 360 + duration + after, row = { label: list[c], frames: [], times: [] };
+      const marks = design === 'stratus' ? [0, 800, 1120, 1280, 1400, 1520] : design === 'mud' ? [0, 800, 1040, 1280, 2800, 4480] : [0, 520, 800, 1040, 1280, 1520];
+      let synced = false;
       // play() started at `start`; frames from 360 ms before it would be a still, so the clip shows a pause first.
       const box = await tab.evaluate(key => window.preview.boxOf(key), key), scale = box.w > 900 ? 1 : SCALE;
       for (let i = 0; i < 9; i++) shots.push(await grab(key, box, scale));
-      for (let t = 0; t <= duration + 600; t += STEP) {
+      for (let t = 0; t <= duration + after; t += STEP) {
+        if (!synced && t >= duration) { synced = true; await tab.evaluate(([key, design, c]) => window.preview.afterCapture(window.preview.scenes[key].scene, window.preview.capturesFor(design)[c], design), [key, design, c]); }
         await at(key, start + t);
         if (!quick || marks.some(m => Math.abs(m - t) < STEP / 2)) shots.push(await grab(key, box, scale));
         const m = marks.find(m => Math.abs(m - t) < STEP / 2);

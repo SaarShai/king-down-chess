@@ -94,9 +94,14 @@ for (const design of Object.keys(INFO)) {
 // 2. Captures: each card plays its captures in turn; a button plays one now.
 /** Sets up capture `c` on a scene and returns its move (the scene shows the position before it). */
 // design: Stratus's cards add a rook standing in the throw's way (it flies over it).
+const bystanders = (c, design) => design === 'stratus' && !c.touch ? [[c.king[1] ? 'b4' : 'g4', R, 1 - c.king[1]]] : [];
+/** After capture c, as the game shows it: the king on the square he took (or still on his own after Death Touch). */
+export function afterCapture(scene, c, design) {
+  scene.setPosition(position([[c.touch ? c.king[0] : c.victim[0], K, c.king[1]], ...bystanders(c, design)]));
+}
 export function setUpCapture(scene, c, design) {
   const [ksq, side] = c.king, [vsq, type] = c.victim;
-  const pos = position([[ksq, K, side], [vsq, type, 1 - side], ...(design === 'stratus' && !c.touch ? [[side ? 'b4' : 'g4', R, 1 - side]] : [])]);
+  const pos = position([[ksq, K, side], [vsq, type, 1 - side], ...bystanders(c, design)]);
   scene.setSelected(null); scene.setPosition(pos);
   const moves = []; genPiece(pos.board, parseSq(ksq), 'all', moves);
   const take = moves.find(m => m.to === parseSq(vsq) && m.captures.length);
@@ -118,7 +123,9 @@ for (const design of Object.keys(INFO)) {
     await wait(1200); if (mine !== token) return;
     await scene.play(move);
     if (mine !== token) return;
-    await wait(700); if (mine !== token) return;
+    // As the game does: the new position right after the move; then his effect grows back on his square.
+    afterCapture(scene, c, design);
+    await wait(3000); if (mine !== token) return;
     next = (i + 1) % list.length; play(next);
   }
   list.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c.label; b.addEventListener('click', () => play(i)); buttons.appendChild(b); });
@@ -168,4 +175,4 @@ const ready = Promise.all(Object.values(scenes).map(({ scene }) => scene.load())
 startTitles();
 // The recording tool drives the captures itself (?record).
 if (!new URLSearchParams(location.search).has('record')) ready.then(() => { for (const s of Object.values(scenes)) s.start?.(); });
-window.preview = { scenes, CROP, boxOf, CAPTURES, capturesFor, setUpCapture, ready, titleKings, titles };
+window.preview = { scenes, CROP, boxOf, CAPTURES, capturesFor, setUpCapture, afterCapture, ready, titleKings, titles };

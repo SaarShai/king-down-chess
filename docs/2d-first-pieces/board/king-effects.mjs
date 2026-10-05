@@ -31,10 +31,10 @@ const L=288;
 const layer=()=>{const c=document.createElement('canvas');c.width=c.height=L;return c;};
 
 /**
- * Where a king's loop starts when his effect starts (ms): the two armies a little apart, except Mud, whose
- * loop must start at its beginning (the grass comes up before the vines).
+ * Where a king's loop starts when his effect starts (ms): the two armies a little apart. Mud's loop must start
+ * at its beginning (the grass comes up before the vines), so the charcoal king's simply starts 1.5 s later.
  */
-export function phaseOffset(design,side){return design==='mud'?0:side*1777;}
+export function phaseOffset(design,side){return design==='mud'?-side*1500:side*1777;}
 /** Stratus: how far he floats above his square (board units) at time t; k fades it. */
 export function hoverAt(t,k=1){return k*(3+6*(1-Math.cos(TAU*t/PERIOD.stratus))/2);}
 
@@ -116,7 +116,8 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    // (--night #221d18, --ink #2b2621, and the title's #120f0c): an aura widened out from his body, so it
    // darkens even dark wood round him, and a close rim; no pale part at all.
    if(!side)return {gold:tinted(big,2,'#ffe7a6'),rim:blurAlpha(tinted(big,2,'#fff2cf'),5),halo:blurAlpha(tinted(big,4,'#ffe2a0'),10)};
-   return {gold:tinted(big,2,'#2b2621'),rim:blurAlpha(tinted(big,2,'#120f0c',4),5),halo:blurAlpha(tinted(big,4,'#120f0c',5),9)};
+   // inner: a tight dense band round his outline, strongest on a dark square, where the wide halo hardly shows.
+   return {gold:tinted(big,2,'#2b2621'),rim:blurAlpha(tinted(big,2,'#120f0c',4),5),halo:blurAlpha(tinted(big,4,'#120f0c',5),9),inner:blurAlpha(tinted(big,2,'#0c0a08',8),4)};
   });
  }
  // Soft rays fanning up from his crown, drawn once and blurred (no hard edges): board units ×4,
@@ -234,7 +235,11 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  // A full patch of tufts round his feet (an inner and an outer ring), dark at the root, fresh at the tip.
  const TUFTS=52,ROOT=GRASS_ROOT,TIP=GRASS_TIP;
  // 0 → 1 (sprout) → hold → 0 (sink back) over one period, each tuft a little apart.
- const grow=u=>u<.26?smooth(u/.26):u<.66?1:u<.92?1-smooth((u-.66)/.26):0;
+ // It never goes quite bare: it sinks back to a short stubble and grows again from there.
+ const grow=u=>u<.24?.12+.88*smooth(u/.24):u<.66?1:1-.88*smooth((u-.66)/.34);
+ // A tuft or vine `lag` behind the loop: nothing until its first start, then its own place in the loop.
+ const after=(u0,lag)=>u0-lag<0?-1:frac(u0-lag);
+ const grownAt=(u0,lag)=>{const u=after(u0,lag);return u<0?0:grow(u);};
  // Blade fills in blade space (root at 0, tip at -1), made once per canvas.
  const bladeFills=new WeakMap();
  function fills(ctx){
@@ -243,11 +248,11 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   return f;
  }
  function grass(ctx,s,front){
-  const u0=s.t/PERIOD.mud,f=fills(ctx),m=ctx.getTransform();
+  const u0=Math.max(0,s.t)/PERIOD.mud,f=fills(ctx),m=ctx.getTransform();
   for(let i=0;i<TUFTS;i++){
    const ringNo=i%3,angle=TAU*(i+.37*ringNo+rand(i,1)*.6)/TUFTS,depth=Math.sin(angle);if((depth>0)!==front)continue;
    const ring=[.32,.6,.86][ringNo]+.14*rand(i,2),bx=s.ground.x+Math.cos(angle)*50*ring,by=s.ground.y-4+depth*16*ring;
-   const g=grow(frac(u0-rand(i,4)*.14))*s.g*s.k;if(g<.02)continue;
+   const g=grownAt(u0,rand(i,4)*.14)*s.g*s.k;if(g<.02)continue;
    const out=Math.cos(angle)>0?1:-1,blades=5+Math.floor(rand(i,3)*5),inner=ringNo===0;
    for(let j=0;j<blades;j++){
     const q=j/(blades-1)-.5,h=(8+12*rand(i,10+j))*(1-.35*Math.abs(q))*(inner?.85:1)*g;if(h<.6)continue;
@@ -261,7 +266,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   ctx.setTransform(m);
  }
  function earth(ctx,s){
-  const u0=s.t/PERIOD.mud,k=s.k*s.g*(.55+.45*grow(frac(u0-.06)));
+  const u0=Math.max(0,s.t)/PERIOD.mud,k=s.k*s.g*(.55+.45*grownAt(u0,.06));
   const g=ctx.createRadialGradient(0,0,0,0,0,1);g.addColorStop(0,'rgba(66,44,20,.7)');g.addColorStop(.7,'rgba(66,44,20,.45)');g.addColorStop(1,'rgba(66,44,20,0)');
   ctx.save();ctx.globalAlpha=k;ctx.translate(s.ground.x,s.ground.y-4);ctx.scale(56,18);ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
  }
@@ -289,11 +294,11 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   ctx.strokeStyle='rgba(214,206,160,.5)';ctx.lineWidth=.45;ctx.beginPath();ctx.moveTo(.8,0);ctx.lineTo(l*.85,0);ctx.stroke();
  }
  function vines(ctx,s,front){
-  const u0=s.t/PERIOD.mud;
+  const u0=Math.max(0,s.t)/PERIOD.mud;
   ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
   for(const v of VINES){
    const [, d0,, d1,, phase,seed]=v;if(((d0+d1)/2>0)!==front)continue;
-   const len=vineGrow(frac(u0-phase)),g=len*s.g*s.k;if(g<.02)continue;
+   const vu=after(u0,phase),len=vu<0?0:vineGrow(vu),g=len*s.g*s.k;if(g<.02)continue;
    const n=Math.max(2,Math.round(N*g)),sway=Math.sin(TAU*(u0*2+seed*.17))*1.4,pts=[];
    for(let i=0;i<=n;i++)pts.push(vinePoint(v,i/N,s,sway));
    // Stem: thick at the root, and tapering to a fine shoot over the last few points before the tip.
@@ -336,7 +341,9 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    ctx.save();ctx.globalAlpha=s.k*s.g*(.3+.7*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(52,18);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
    // It breathes as the ivory glow does, from faint to deep; the halo reaches about as far as the ivory one.
    ctx.save();ctx.globalAlpha=s.k*(.35+.65*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(raysDark(),-40,-42,80,44);ctx.restore();
-   if(sp){ctx.globalAlpha=s.k*(.4+.6*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(.45+.55*b);inSpirit(ctx,s,sp.rim);}
+   // (On a light square the same black reads far stronger, so it is used more lightly there.)
+   if(sp){const d=s.darkSquare;ctx.globalAlpha=s.k*(d?.4+.6*b:.2+.4*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(d?.45+.55*b:.25+.4*b);inSpirit(ctx,s,sp.rim);
+    ctx.globalAlpha=s.k*(d?.7+.3*b:.1+.2*b);inSpirit(ctx,s,sp.inner);}
    ctx.restore();return;
   }
   ctx.globalCompositeOperation='lighter';
@@ -426,6 +433,8 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   /** The pose the figure is drawn with (Stratus floats; Shadow is drawn without his painted smoke, which moves). */
   pose(s){
    if(s.design==='shadow'){const l=shadowLayers(s.side);return l?{...s.pose,sheet:l.body}:s.pose;}
+   // The charcoal Spirit: his black aura takes the place of the army's pale readability rim.
+   if(s.design==='spirit'&&s.side===1)return {...s.pose,rim:1-.85*s.k};
    if(s.design!=='stratus')return s.pose;
    const p=s.pose,lift=hoverAt(s.t,s.k),ground=p.ground??p.foot;
    return {...p,ground,foot:{x:p.foot.x,y:p.foot.y-lift},lift:(p.lift??0)+lift,shadow:(p.shadow??1)*(1-.045*lift)};

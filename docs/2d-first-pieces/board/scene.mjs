@@ -191,7 +191,8 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
  else{out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*shadowScale,36*pose.scale*shadowScale,0,0,Math.PI*2);out.fill();}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A soft contrasting rim keeps each army readable on the painted board's light and dark zones.
- out.shadowColor=colorOf(value)?'rgba(250,246,232,.85)':'rgba(28,24,16,.8)';out.shadowBlur=5*res; // shadows ignore the transform
+ // (pose.rim: an effect may thin it, as the charcoal Spirit's black aura does.)
+ out.shadowColor=colorOf(value)?`rgba(250,246,232,${.85*(pose.rim??1)})`:'rgba(28,24,16,.8)';out.shadowBlur=5*res; // shadows ignore the transform
  out.drawImage(sprite(value,pose.angle,extension,pose.sheet,pose.rest),-spec.anchor.x,-spec.anchor.y);out.restore();
 }
 // A soft contact shadow: dark where the feet touch the stone, fading out, nudged away from the warm light.
@@ -365,7 +366,8 @@ function vortex(out,foot,phase,strength) {
   // While he moves, what stands on his square fades from where it was (it may still have been growing in).
   const grown=t=>ease((t-since)/900),g=moving?grown(a.start)*(1-ease((time-a.start)/(200*a.speed))):grown(time);
   // Each effect's loop starts again when he arrives on a square (so Mud's grass comes before his vines).
-  const s={design,side,pose:unit.pose,t:time-since+phaseOffset(design,side),k,opacity:unit.opacity,g,facing:unit.pose.facing};
+  // darkSquare: the square he stands on (a1 is dark); an effect may set its strength by it.
+  const s={design,side,pose:unit.pose,t:time-since+phaseOffset(design,side),k,opacity:unit.opacity,g,facing:unit.pose.facing,darkSquare:((sq&7)+(sq>>3))%2===0};
   s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
   return s;
  }
@@ -611,6 +613,12 @@ function drawEncounter(a,t) {
   ctx.restore();
  }
  function wake(){if(ready&&!frame)frame=requestAnimationFrame(tick);}
+ // A move is over: a king's effect on the square he moved from starts again from nothing if he is there next
+ // (he stayed, as with Death Touch, or came back); its fade-out during the move stays seamless.
+ function endMove(){
+  if(animation){if(!animation.done)animation.resolve(false);kingSince.delete(animation.move.from);if(animation.move.swap)kingSince.delete(animation.move.to);}
+  animation=null;
+ }
  function plan(move,speed,gait=null) {
  const value=position.board[move.from],from=poseFor(value,move.from),to=poseFor(value,move.to),victimSquare=move.swap?move.to:move.shove?.from??move.captures[0],victim=position.board[victimSquare];
  const base={move,value,from,to,victim,start:performance.now(),speed,contacted:false};
@@ -684,7 +692,7 @@ function drawEncounter(a,t) {
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
   load(){const board=new Promise(resolve=>{boardArt.onload=boardArt.onerror=resolve;boardArt.src=BOARD_ART;});return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
   /** New position: ends any finished or running animation. */
-  setPosition(next){if(animation&&!animation.done)animation.resolve(false);animation=null;position=next;aimAngle=0;wake();},
+  setPosition(next){endMove();position=next;aimAngle=0;wake();},
   setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
   setAim(sq){aimSquare=sq;wake();},
   setFlipped(on){flipped=on;idle.clear();wake();},
@@ -725,7 +733,7 @@ function drawEncounter(a,t) {
    const {base,verb}=plan(move,speed,gait);
    return new Promise(resolve=>{animation={...base,resolve,onContact};onStatus(verb);wake();});
   },
-  cancel(){if(animation&&!animation.done)animation.resolve(false);animation=null;if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();},
+  cancel(){endMove();if(closeup)closeup.panel.hidden=true;aimAngle=0;wake();},
  };
  return api;
 }
