@@ -175,6 +175,57 @@ armies): its captures fall to 1.33× (PASS) and its draws line passes (+1.0), bu
 22.3% against 17.6% on the same armies (White 51.3 against 51.2, 107 against 101 plies). The Beast's
 armies then draw clearly less (FAIL). The Guard and Rook lines stay as they are.
 
+### The Archer readings (2026-10-04)
+
+Owner (2026-10-04): "archer - test and measure first", then "currently it is too powerful in that it
+can take at a distance without putting itself in danger. so i think we should test both" (only the
+two-square shots; only over a piece). Each reading: 9,000 ordinary games on the one-Beast pool
+(seed 7001, depth 3, the same armies for every reading), and its worth against the Rook (3.65) in
+1,000 games (seed 1034, pass-2 prices). Full outputs: `piece-runs-2026-10-04-pa-<id>.md` and
+`…-pv-A-<id>.md`.
+
+| reading | `archerShots` | captures × average (2: 0.5–1.5) | draws Δ, armies with it (6: ±3) | all games draw | worth (pawns) |
+|---|---|---|---|---|---|
+| today (`a14`) | `plusDiagFwd2` | **2.08** [2.06, 2.11] FAIL | −5.9 FAIL | 18.9% | 4.46 ± 0.29 |
+| diagonal shot needs a clear square (`abk`) | `plusDiagFwd2Clear` | 2.08 FAIL | −5.9 FAIL | 18.9% | 4.32 ± 0.29 |
+| no shot 2 back (`anb`) | `fwd2NoBack` | 2.07 FAIL | −5.8 FAIL | 19.0% | 4.34 ± 0.28 |
+| no shots 2 sideways (`ans`) | `fwd2NoSide` | 1.93 FAIL | −6.3 FAIL | 18.6% | 3.99 ± 0.28 |
+| only the two-square shots (`af2`) | `far2` | 1.54 [1.51, 1.56] FAIL (just) | −4.1 fail? | **20.3%** | 2.83 ± 0.28 |
+| only over a piece (`ao2`) | `over2` | 0.50 [0.49, 0.51] fail? (on the line) | −7.1 FAIL | 17.9% | < 2.15 |
+
+The three middle readings change almost nothing. Only `far2` and `over2` move the Archer, in
+opposite ways: `far2` keeps it near its capture limit, costs about 1.6 pawns of worth (below the
+Bishop) and raises the whole game's draws by 1.4 points; `over2` makes it the least capturing piece
+of all (1.1× moves, worth under 2.15 pawns) and lowers the draws by 1.0. The other pieces' lines
+move with it, because the average piece's captures move: under `far2` the Bishop's 4b reaches the
+line (1.00, pass?); under `over2` the Queen (1.61×) and the Beast (1.62×) fail the capture limit
+instead, and the Maester's armies fail on draws. The three middle readings leave every other line
+as it is. The classic Archer (`pa-acl`, above) is on the two-Beast pool, so it is not in this table.
+
+### The Guard readings (2026-10-04)
+
+Owner (2026-10-04): "guard - test both B and C", then "guard - do the testing" (a Guard that is
+dropped onto the board, not moved up from the first rank). B, C and C′ played the first 9,000 of
+`pa-r1`'s armies (two-Beast pool; the control is `pa-r1`); the two reserve readings played the
+one-Beast armies above (the control is `a14`). Worth: against the Knight, 1,000 games, pass-2
+prices. Outputs: `piece-runs-2026-10-04-pa-g*.md`, `…-pv-G-g*.md`.
+
+| reading | rule | moves × average (3: ≥ 0.5) | moved in the game (5: ≥ 85%) | best phase × average (4b: ≥ 1) | draws Δ (6: ±3) | worth vs Knight |
+|---|---|---|---|---|---|---|
+| today (`pa-r1`) | — | 0.56 | 70.2% FAIL | 0.41 FAIL | +3.2 | −190 ± 17 Elo |
+| today (`a14`, one Beast) | — | 0.54 | 72.4% FAIL | 0.38 FAIL | +2.9 | |
+| B: double first step (`gdf`) | `guardDoubleFirst=slide` | 0.73 | 77.8% FAIL | 0.53 FAIL | +4.4 | −197 ± 17 |
+| C: two-square step (`gs2`) | `guardStep=2` | 0.77 | 78.2% FAIL | 0.54 FAIL | +4.1 | −184 ± 17 |
+| C′: two squares from the centre (`gcs`) | `guardCapitalStep` | 0.56 | 70.4% FAIL | 0.41 FAIL | +3.2 | −212 ± 17 |
+| reserve, enters on rank 1 (`grs1`) | `guardReserve=rank1` | 0.64 | **89.6% PASS** | 0.38 FAIL | +2.9 | −186 ± 17 |
+| reserve, rank 1 or 2 (`grs12`) | `guardReserve=rank12` | 0.67 | **95.4% PASS** | 0.52 FAIL | +3.0 | −181 ± 18 |
+
+No reading changes the Guard's worth: every one is 180–210 Elo below a Knight, under 1.66 pawns.
+Only the reserve passes criterion 5, and partly by its rule: the entry (`G@b1`) counts as the
+Guard's first move. No reading passes 4b: the Guard is the least active piece in every phase. B and C
+make the games longer (+10.7%, +12.1%; the line is ±10%). Whole-game draws: B 18.2%, C 18.0%, C′
+17.6% (control 17.6%); reserve 18.9% both (control 18.9%).
+
 ## How to run
 
 Run from the repository root of a checkout with this branch (`claude/piece-activity`): the R and B
