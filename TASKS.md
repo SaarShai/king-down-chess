@@ -8,6 +8,14 @@
   - In the air (hop, leap, the Stratus hover) the contact goes first and a soft oval stays on the floor where the piece will land; a toppled or fallen figure keeps a pool along its body.
   - All shadows are drawn on the floor before any figure, so a moving piece's shadow never darkens a figure in front of it. The ivory Spirit lights his own floor (no dark ring inside his glow).
   - Measured at the feet (desktop board): dark squares 50–74% darkening (was 8–25%), light squares 35–57% (was 22–35%); nothing outside the occupied squares or on the frame. Cost: JavaScript +0.02–0.06 ms a frame, GPU and software raster within noise; the outlines are read once, in idle time after the first frame (about 50 ms on this Mac, 150 ms at 4× CPU throttle), and kept across a board flip. Atmosphere off is byte-identical.
+- [x] Review fixes (art, readability and engineering reviews of the first version), same branch:
+  - The charcoal army's pale rim no longer makes a light ring between the hem or the soles and the shadow: it fades out over the last few units above the soles (and along a lying figure's lower edge). The rim of a still figure is now made once instead of blurred every frame.
+  - No frame without a shadow: both facings of a figure are built together (a first move to the other side, an aim, a spin); until a figure's own shadow is built (load, a new king, a promotion) it has a plain pool, and its own shadow fades in over it, all figures together.
+  - Lifted victims (the Queen's spin, the Rook's pound) keep their shadow on the floor. A king's victim's shadow fades over 180 ms from the strike instead of going in one frame; frozen and scanned victims' shadows stay on the floor, untinted, and fade as the pieces fly apart.
+  - Toppling figures lose the contact by about 27°; the fallen king has a pool along his body's lower edge and no haze past his feet.
+  - In the air the shadow only gets lighter as the figure rises (the Stratus hover was backwards); the oval at a hop's top on dark wood is lighter than a standing contact (39% darkening, was 52%). The dark-wood pool is back to the spec's strength (.70).
+  - Shadow strengths and shapes are in `contact-shadow.mjs`, with unit tests (`contact-shadow.test.mjs`).
+  - Measured: at the feet, dark squares 63% darkening on average and light squares 53% (the shadow alone, against the same board without shadows); nothing outside the occupied squares. GPU time a frame 3.7 ms (7.5 ms before any of this, 6.9 ms in the first version; the cached rim), JavaScript and the first frame as before. Atmosphere off is still byte-identical.
 - [ ] Owner: approve, change or drop. Before/after: `sim/out/previews/shadow-compare.png` (main checkout).
 
 ## The six kings' own effects on the painted board — 2026-10-04 (waiting for the owner's approval)

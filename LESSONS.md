@@ -358,7 +358,7 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 ## 2026-09-26 — painted Knight identity and airborne presentation
 - Inspect the original character before interpreting a chess name: King Down's Knight is a foot soldier with a horse-head helmet, spear and cape, not a horse or mounted rider.
 - Recognition colour must not take over a large costume surface. The first Knight generation's burgundy cape violated the army-colour direction; recolour its main area to the army and retain only a narrow accent.
-- Separate an airborne figure's lift from its board position so its shadow stays on the ground. Check the entire weapon at board edges, and maintain relative character scale in motion previews. Whole-figure travel is not an articulated leg cycle.
+- Separate an airborne figure's lift from its board position so its shadow stays on the ground: in `scene.mjs` every pose that raises a figure, a capture's victim too, sets `pose.ground` to the floor point (2026-10-05: the Queen-spin and Rook-pound victims did not, and their contact shadows floated up with them). Check the entire weapon at board edges, and maintain relative character scale in motion previews. Whole-figure travel is not an articulated leg cycle.
 
 ## 2026-09-26 — Knight anticipation
 - Owner asked for knees to bend before jumping. A whole-sprite tilt was not enough. → Add an actual planted crouch in the shared character renderer, used by both the study and board; make the preparatory phase visible before travel begins and flex again at landing.
