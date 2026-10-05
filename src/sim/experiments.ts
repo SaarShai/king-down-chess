@@ -90,14 +90,31 @@ function pawnOdds(f: number): { white: string; black: string; fen: string; fenSw
 }
 
 /**
+ * Muller's second step (`--odds`), for a piece that leaves the band *below* its reference: the
+ * reference army also plays a pawn down, cycled over the eight files like the calibration, so the
+ * arm measures piece + one pawn against the reference and lands back inside the band. `fen` gives
+ * the fairy army White; `fenSwapped` gives it Black, and the reference keeps the missing pawn.
+ */
+function oddsConfig(rank: string, f: number): { white: string; black: string; fen: string; fenSwapped: string } {
+  const gapped = `${'p'.repeat(f)}1${'p'.repeat(7 - f)}`;
+  return {
+    white: rank, black: CLASSIC_CHESS,
+    fen: `${CLASSIC_CHESS.toLowerCase()}/${gapped}/8/8/8/8/PPPPPPPP/${rank} w - - 0 1`,
+    fenSwapped: `${rank.toLowerCase()}/pppppppp/8/8/8/8/${gapped.toUpperCase()}/${CLASSIC_CHESS} w - - 0 1`,
+  };
+}
+
+/**
  * One arm per fairy piece (it replaces a knight on one side only) plus a pawn-odds calibration
  * arm. The calibration turns Elo into pawns, which is the only way to state an implied value
- * without a guessed conversion constant.
+ * without a guessed conversion constant. `odds`: the reference army gives a pawn (`oddsConfig`).
  */
-export function valueSpecs(base: RunSpec, vs = 'N', pieces = FAIRY, calibrate = true): RunSpec[] {
+export function valueSpecs(base: RunSpec, vs = 'N', pieces = FAIRY, calibrate = true, odds = false): RunSpec[] {
   const arms = [...pieces].map(letter => ({
     id: `${base.id}.${letter}`,
-    asymmetric: [{ white: swapRank(letter, vs), black: CLASSIC_CHESS }],
+    asymmetric: odds
+      ? Array.from({ length: 8 }, (_, f) => oddsConfig(swapRank(letter, vs), f))
+      : [{ white: swapRank(letter, vs), black: CLASSIC_CHESS }],
   }));
   return [
     ...arms,
@@ -115,8 +132,8 @@ export function valueSpecs(base: RunSpec, vs = 'N', pieces = FAIRY, calibrate = 
  * (56 ± 25, then 64 ± 16, then 65 ± 16 at depth 3), so a follow-up run that only needs the
  * conversion should not spend two thirds of its budget re-measuring it.
  */
-export async function runValues(base: RunSpec, workers: number, vs = 'N', pieces = FAIRY, pawnElo?: number): Promise<string> {
-  const specs = valueSpecs(base, vs, pieces, pawnElo === undefined);
+export async function runValues(base: RunSpec, workers: number, vs = 'N', pieces = FAIRY, pawnElo?: number, odds = false): Promise<string> {
+  const specs = valueSpecs(base, vs, pieces, pawnElo === undefined, odds);
   const arms: Arm[] = [];
   for (const spec of specs) {
     await run(spec, workers);
@@ -134,6 +151,9 @@ export async function runValues(base: RunSpec, workers: number, vs = 'N', pieces
   // The baseline is the piece the swap replaces: a `--vs R` pass measures the fairy against a rook,
   // and reporting it against the knight's value understates the result by (rook - knight).
   const baseline = (base.values?.[vs] ?? VS_V[vs] ?? KNIGHT_V) / 100;
+  // Under `--odds` the fairy army plays against the reference *and* an extra pawn: one pawn is the
+  // calibration's average pawn, so it comes off the baseline exactly.
+  const reference = baseline - (odds ? 1 : 0);
 
   // Muller keeps the imbalance inside about 1.5 pawns, because the score stops being linear in
   // material outside it. A swap beyond that band is a direction, not a value.
@@ -142,14 +162,14 @@ export async function runValues(base: RunSpec, workers: number, vs = 'N', pieces
   const rows = fairy.map(a => {
     const delta = a.elo / eloPerPawn;
     const err = a.err95 / eloPerPawn;
-    const implied = baseline + delta;
+    const implied = reference + delta;
     const linear = Math.abs(delta) <= BAND;
     if (!linear) outside++;
     return [
       `${a.key} (${NAME[a.key]})`, `${signed(a.elo)} ± ${a.err95.toFixed(0)}`,
       usable ? `${signed(delta, 2)} ± ${err.toFixed(2)}${linear ? '' : ' **'}` : 'n/a',
       // The bound points the way the arm went: a buffed piece can leave the band on the high side.
-      usable ? (linear ? `${f2(implied)} ± ${err.toFixed(2)}` : `${delta > 0 ? '>' : '<'} ${f2(baseline + (delta > 0 ? BAND : -BAND))} **`) : 'n/a',
+      usable ? (linear ? `${f2(implied)} ± ${err.toFixed(2)}` : `${delta > 0 ? '>' : '<'} ${f2(reference + (delta > 0 ? BAND : -BAND))} **`) : 'n/a',
       f2(seeded[a.key] / 100), f2(PRIOR[a.key]),
       usable ? Math.max(50, Math.round(implied * 100)) : 'n/a',
     ];
@@ -159,7 +179,8 @@ export async function runValues(base: RunSpec, workers: number, vs = 'N', pieces
 
 Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **${NAMES[LETTERS.indexOf(vs) as PieceType]}** of the
 classic arrangement \`${CLASSIC_CHESS}\` with one fairy piece, on one side only, and plays
-colour-reversed pairs. The last arm gives White pawn odds; it converts Elo into pawns.
+colour-reversed pairs.${odds ? ` **Muller's second step:** the ${NAMES[LETTERS.indexOf(vs) as PieceType]} army also plays a pawn down
+(one file per config, all eight), so each arm measures the fairy piece plus a pawn.` : ''} The last arm gives White pawn odds; it converts Elo into pawns.
 
 Depth ${base.ai.depth ?? '-'}, ${base.games} games per arm, ${base.openingRandomPlies ?? 0} random opening plies.
 Rules: ${Object.keys(ruleDiff(base.rules ?? {})).length ? `\`${JSON.stringify(ruleDiff(base.rules ?? {}))}\`` : 'defaults'}.
@@ -179,7 +200,7 @@ ${usable ? '' : `
 ## Implied values
 ${table(['piece', `Elo vs ${vs.toLowerCase()}`, 'Δ pawns', 'implied value (pawns)', 'engine seed', 'research prior', 'next seed (cp)'], rows)}
 
-Implied value = ${vs.toLowerCase()} (${f2(baseline)}) + Elo / ${eloPerPawn.toFixed(0)}.
+Implied value = ${vs.toLowerCase()} (${f2(baseline)})${odds ? ' − 1 (the pawn of odds)' : ''} + Elo / ${eloPerPawn.toFixed(0)}.
 ${outside ? `
 \*\* ${outside} swap(s) fall outside the linear band of ±${BAND} pawns that Muller's method needs. The score
 saturates there, so the conversion under-reads the gap: take the marked rows as "far from a knight,
@@ -395,7 +416,7 @@ export async function runExperiment(kind: string, spec: RunSpec, workers: number
   if (kind === 'values') {
     await runValues(spec, workers, typeof flags.vs === 'string' ? flags.vs : 'N',
       typeof flags.pieces === 'string' ? flags.pieces : FAIRY,
-      typeof flags.eloPerPawn === 'string' ? Number(flags.eloPerPawn) : undefined);
+      typeof flags.eloPerPawn === 'string' ? Number(flags.eloPerPawn) : undefined, !!flags.odds);
   }
   else if (kind === 'sweep') await runSweep(spec, workers, num('arrangements', 100), num('rounds', 2));
   else if (kind === 'ab') await runAb(spec, workers, { ...spec.rules }, !flags.noReplay);
