@@ -2,9 +2,10 @@
 //   flame   lava light flows through the cracks and seams of his armour (king-flame/lava-mask.webp, cut from the art)
 //   frost   ice flakes drift down around and in front of him and fade out on his square's floor
 //   stratus he hovers a few board units up and down; his shadow shrinks as he rises
-//   mud     a thick patch of grass sprouts round his feet and leafy vines rise from the earth, arch over and
-//           root again; grass and vines sway and sink back
-//   spirit  a holy glow round him, short rays behind his head and light on his square brighten and dim
+//   mud     a thick patch of grass sprouts round his feet and brown leafy vines rise from the earth, arch over
+//           and root again; grass and vines sway and sink back (colours: mud-palette.mjs)
+//   spirit  a holy glow round him, short rays behind his head and light on his square brighten and dim:
+//           white and gold for the ivory king, black (with a thin pale edge) for the charcoal king
 //   shadow  skeletal hands (black for the charcoal army, bone white for the ivory) reach up out of cracks
 //           round his feet, clutch and sink back; his painted smoke drifts and curls upward
 //           (king-shadow/smoke-mask.webp, cut from the art: the figure is drawn without it, the smoke moves)
@@ -14,6 +15,7 @@
 import {clamp} from '../painted-mesh.mjs';
 import * as court from '../court-motion.mjs';
 import {drawHand,drawCrack} from './skeleton-hands.mjs';
+import {GRASS_ROOT,GRASS_TIP,LEAF,VINE} from './mud-palette.mjs';
 
 export const PERIOD={flame:4800,frost:6000,stratus:4000,mud:8000,spirit:4000,shadow:6400};
 export const KING_EFFECTS=Object.keys(PERIOD);
@@ -101,12 +103,22 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   return cached(`spirit:${side}`,()=>{
    const image=sheet('spirit');if(!image)return null;
    const big=document.createElement('canvas');big.width=big.height=1152;court.drawCourt(big,image,'king-spirit',side,0);
-   return {gold:tinted(big,2,'#ffe7a6'),rim:blurAlpha(tinted(big,2,'#fff2cf'),5),halo:blurAlpha(tinted(big,4,'#ffe2a0'),10)};
+   // The ivory king glows white and gold; the charcoal king glows black: a dark halo and sheen, with a thin
+   // pale edge round the dark (an eclipse's) so it still reads on a dark square.
+   if(!side)return {gold:tinted(big,2,'#ffe7a6'),rim:blurAlpha(tinted(big,2,'#fff2cf'),5),halo:blurAlpha(tinted(big,4,'#ffe2a0'),10)};
+   return {gold:tinted(big,2,'#17131c'),rim:blurAlpha(tinted(big,2,'#0c0a10'),5),halo:blurAlpha(tinted(big,4,'#0a080e'),10),edge:blurAlpha(tinted(big,2,'#d8d4e6'),9)};
   });
  }
  // Soft rays fanning up from his crown, drawn once and blurred (no hard edges): board units ×4,
  // 80 × 44 units round the point they fan from (40, 42).
- let rayLayer=null;
+ let rayLayer=null,darkRays=null;
+ // The same rays in black (the charcoal king's), and a pale copy a little larger for their edge.
+ function raysDark(){
+  if(darkRays)return darkRays;
+  const light=rays(),c=document.createElement('canvas');c.width=light.width;c.height=light.height;const g=c.getContext('2d');
+  g.drawImage(light,0,0);g.globalCompositeOperation='source-in';g.fillStyle='#0b0910';g.fillRect(0,0,c.width,c.height);
+  return darkRays=c;
+ }
  function rays(){
   if(rayLayer)return rayLayer;
   const k=4,c=document.createElement('canvas');c.width=80*k;c.height=44*k;const g=c.getContext('2d');
@@ -207,7 +219,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
 
  // —— Mud ——
  // A full patch of tufts round his feet (an inner and an outer ring), dark at the root, fresh at the tip.
- const TUFTS=52,ROOT=['#2f4a17','#36531a','#3c5c1d'],TIP=['#8cc04a','#a2cc58','#b5d66a'];
+ const TUFTS=52,ROOT=GRASS_ROOT,TIP=GRASS_TIP;
  // 0 → 1 (sprout) → hold → 0 (sink back) over one period, each tuft a little apart.
  const grow=u=>u<.28?smooth(u/.28):u<.6?1:u<.86?1-smooth((u-.6)/.26):0;
  // Blade fills in blade space (root at 0, tip at -1), made once per canvas.
@@ -251,13 +263,12 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   const lift=Math.sin(Math.PI*f)**.75*h*(1+lean*(f-.5)),wob=Math.sin(TAU*f*1.5+seed)*2.2*Math.sin(Math.PI*f);
   return {x:s.ground.x+(x+wob+sway*Math.sin(Math.PI*f))*s.facing,y:s.ground.y-4+d*15-lift};
  }
- const LEAF=['#4f8a2a','#62a034','#3f7424'];
  // An ivy-like leaf of length l along +x: two lobes, a point, a pale midrib.
  function leaf(ctx,l,colour){
   ctx.fillStyle=colour;ctx.beginPath();ctx.moveTo(0,0);
   ctx.bezierCurveTo(l*.15,-l*.55,l*.7,-l*.55,l,0);ctx.bezierCurveTo(l*.7,l*.55,l*.15,l*.55,0,0);ctx.fill();
-  ctx.strokeStyle='rgba(24,46,10,.8)';ctx.lineWidth=.55;ctx.stroke();
-  ctx.strokeStyle='rgba(190,220,140,.55)';ctx.lineWidth=.45;ctx.beginPath();ctx.moveTo(.8,0);ctx.lineTo(l*.85,0);ctx.stroke();
+  ctx.strokeStyle='rgba(43,38,33,.75)';ctx.lineWidth=.55;ctx.stroke();
+  ctx.strokeStyle='rgba(214,206,160,.5)';ctx.lineWidth=.45;ctx.beginPath();ctx.moveTo(.8,0);ctx.lineTo(l*.85,0);ctx.stroke();
  }
  function vines(ctx,s,front){
   const u0=s.t/PERIOD.mud;
@@ -268,7 +279,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    const n=Math.max(2,Math.round(N*g)),sway=Math.sin(TAU*(u0*2+seed*.17))*1.4,pts=[];
    for(let i=0;i<=n;i++)pts.push(vinePoint(v,i/N,s,sway));
    // Stem: thick at the root, thin at the growing tip (outline, body, a lit edge).
-   for(const [colour,scale,dy] of [['#1c300d',1.45,0],['#3d6a1e',1,0],['#8cc055',.32,-.5]]){
+   for(const [colour,scale,dy] of [[VINE.outline,1.45,0],[VINE.body,1,0],[VINE.lit,.32,-.5]]){
     ctx.strokeStyle=colour;
     for(let i=1;i<pts.length;i++){const w=(1.1+2.4*(1-i/N))*scale;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(pts[i-1].x,pts[i-1].y+dy);ctx.lineTo(pts[i].x,pts[i].y+dy);ctx.stroke();}
    }
@@ -278,7 +289,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
     ctx.save();ctx.translate(p.x,p.y);ctx.rotate(a);ctx.scale(open,open);leaf(ctx,4.5+2.5*rand(seed,i+20),LEAF[(seed+i)%3]);ctx.restore();
    }
    // A curled tendril at the growing tip.
-   if(g<.98){const t=pts.at(-1),b=pts.at(-2),a=Math.atan2(t.y-b.y,t.x-b.x);ctx.strokeStyle='#5e9431';ctx.lineWidth=.8;ctx.beginPath();for(let k=0;k<=12;k++){const r=3.4*(1-k/14),th=a+k*.55*side0(seed);const x=t.x+Math.cos(th)*r-Math.cos(a)*3.4,y=t.y+Math.sin(th)*r-Math.sin(a)*3.4;k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();}
+   if(g<.98){const t=pts.at(-1),b=pts.at(-2),a=Math.atan2(t.y-b.y,t.x-b.x);ctx.strokeStyle=VINE.tendril;ctx.lineWidth=.8;ctx.beginPath();for(let k=0;k<=12;k++){const r=3.4*(1-k/14),th=a+k*.55*side0(seed);const x=t.x+Math.cos(th)*r-Math.cos(a)*3.4,y=t.y+Math.sin(th)*r-Math.sin(a)*3.4;k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();}
    // The earth each end comes out of.
    ctx.fillStyle='rgba(58,38,18,.85)';for(const e of [pts[0],...(g>.97?[vinePoint(v,1,s,sway)]:[])]){ctx.beginPath();ctx.ellipse(e.x,e.y+.6,4.2,1.7,0,0,TAU);ctx.fill();}
   }
@@ -290,20 +301,33 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  // A slow breath from dim to a white-gold peak (no flicker: one smooth cosine).
  const breath=t=>(1-Math.cos(TAU*t/PERIOD.spirit))/2;
  function holyBack(ctx,s){
-  const b=breath(s.t),sp=spiritLayers(s.side),sy=s.pose.sy??1,head={x:s.pose.foot.x,y:s.pose.foot.y-118*sy};
-  ctx.save();ctx.globalCompositeOperation='lighter';
-  // Light pooled on his square.
-  const pool=ctx.createRadialGradient(0,0,0,0,0,1);pool.addColorStop(0,'rgba(255,238,178,.85)');pool.addColorStop(.55,'rgba(255,232,160,.4)');pool.addColorStop(1,'rgba(255,232,160,0)');
-  ctx.save();ctx.globalAlpha=s.k*s.g*(.28+.55*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(48,16);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
+  const b=breath(s.t),sp=spiritLayers(s.side),sy=s.pose.sy??1,head={x:s.pose.foot.x,y:s.pose.foot.y-118*sy},dark=s.side===1;
+  ctx.save();
+  // Light pooled on his square (a pool of shadow for the charcoal king, with a faint pale ring round it).
+  const pool=ctx.createRadialGradient(0,0,0,0,0,1);
+  if(dark){pool.addColorStop(0,'rgba(8,6,12,.85)');pool.addColorStop(.55,'rgba(10,8,14,.5)');pool.addColorStop(.86,'rgba(10,8,14,.12)');pool.addColorStop(.93,'rgba(214,210,228,.22)');pool.addColorStop(1,'rgba(214,210,228,0)');}
+  else{pool.addColorStop(0,'rgba(255,238,178,.85)');pool.addColorStop(.55,'rgba(255,232,160,.4)');pool.addColorStop(1,'rgba(255,232,160,0)');}
+  ctx.globalCompositeOperation=dark?'source-over':'lighter';
+  ctx.save();ctx.globalAlpha=s.k*s.g*(dark?.4+.5*b:.28+.55*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(48,16);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
   // Short soft rays behind his crown, in a narrow fan that turns a little (about 36 units: not over the next square).
-  ctx.save();ctx.globalAlpha=s.k*(.18+.55*b);ctx.translate(head.x,head.y);ctx.rotate(.05*Math.sin(TAU*s.t/PERIOD.spirit/2));ctx.drawImage(rays(),-40,-42,80,44);ctx.restore();
-  // The glow round his outline: the wide halo, and the close rim brightening towards the peak.
-  if(sp){ctx.globalAlpha=s.k*(.4+.5*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(.3+.7*b);inSpirit(ctx,s,sp.rim);}
+  const turn=.05*Math.sin(TAU*s.t/PERIOD.spirit/2);
+  if(dark){
+   ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*(.06+.1*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(rays(),-44,-46,88,48);ctx.restore();
+   ctx.save();ctx.globalAlpha=s.k*(.3+.55*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(raysDark(),-40,-42,80,44);ctx.restore();
+  }else{ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*(.18+.55*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(rays(),-40,-42,80,44);ctx.restore();}
+  // The glow round his outline: the wide halo, and the close rim towards the peak (dark: a pale edge
+  // outside the dark halo, so it shows on a dark square).
+  if(sp){
+   if(dark){ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*(.16+.26*b);inSpirit(ctx,s,sp.edge);ctx.globalCompositeOperation='source-over';}
+   else ctx.globalCompositeOperation='lighter';
+   ctx.globalAlpha=s.k*(dark?.55+.4*b:.4+.5*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(dark?.35+.6*b:.3+.7*b);inSpirit(ctx,s,sp.rim);
+  }
   ctx.restore();
  }
  function holyFront(ctx,s){
   const sp=spiritLayers(s.side);if(!sp)return;
-  ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*(s.side?.1+.42*breath(s.t):.05+.25*breath(s.t));inSpirit(ctx,s,sp.gold);ctx.restore();
+  // A sheen on the figure: gold for the ivory king, a dark one (multiplied) for the charcoal king.
+  ctx.save();ctx.globalCompositeOperation=s.side?'multiply':'lighter';ctx.globalAlpha=s.k*(s.side?.12+.38*breath(s.t):.05+.25*breath(s.t));inSpirit(ctx,s,sp.gold);ctx.restore();
  }
 
  // —— Shadow ——

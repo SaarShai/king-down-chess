@@ -11,12 +11,12 @@ const TITLE_FLOOR = new URL('../../public/ui/stone-board.webp',import.meta.url).
 
 const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName };
 const INFO = {
-  flame: ['Flame', 'Lava light flows through the cracks and seams of his armour.', 'Lava climbs up the piece and pulls it down into a glowing pool.'],
+  flame: ['Flame', 'Lava light flows through the cracks and seams of his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
   frost: ['Frost', 'Ice flakes drift down around and in front of him and melt on his square.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
-  stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises.', 'Not chosen yet: the old ice shatter stays for now.'],
-  mud: ['Mud', 'Roots spread over his square and grass sprouts round his feet; both sink back.', 'Vines wind up over the piece and pull it down into the earth.'],
-  spirit: ['Spirit', 'A holy light round him, rays behind him and light on his square brighten and dim.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
-  shadow: ['Shadow', 'Skeletal hands reach up out of cracks round his feet; his smoke drifts and curls upward.', 'A big crack opens across the square and swallows the piece. Death Touch takes it without moving.'],
+  stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises, over rings of wind.', 'A whirlwind lifts the piece off its square, and a gust of curled wind throws it off the board.'],
+  mud: ['Mud', 'Muted grass grows thick round his feet, and brown leafy vines rise from the ground, arch over and root again; both sway and sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth.'],
+  spirit: ['Spirit', 'A soft glow round him, short rays above his crown and light on his square brighten and dim: white and gold for the ivory king, black for the charcoal king.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
+  shadow: ['Shadow', 'Skeletal hands (white for the ivory king, black for the charcoal one) reach up out of cracks round his feet; his smoke drifts and curls upward.', 'A crack opens under the piece; skeletal hands rise out of it, take hold of the piece and pull it down. Death Touch takes it without moving.'],
 };
 // Ivory on c4 (light) and d4 (dark), charcoal on e4 (light) and f4 (dark); canvas units (board + headroom).
 export const CROP = { x: PAD + 2 * TILE - 12, y: HEADROOM + PAD + 3 * TILE - 2, w: 4 * TILE + 24, h: 2 * TILE + 26 };

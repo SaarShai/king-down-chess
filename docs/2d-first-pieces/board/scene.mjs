@@ -134,7 +134,11 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
   const c=fxCanvas.getContext('2d'),h=fx.death.hit;
   drawDeath(out,{...fx.death,size:SIZE,headroom,
    clear(){c.setTransform(res,0,0,res,0,headroom*res);c.globalCompositeOperation='source-over';c.globalAlpha=1;c.clearRect(0,-headroom,SIZE,SIZE+headroom);return c;},
-   draw(g,{dy=0,q=1,wobble=0}={}){drawPiece(g,value,{...pose,foot:{x:h.x+(pose.foot.x-h.x)*q+wobble,y:h.y+(pose.foot.y-h.y)*q+dy},sx:(pose.sx??1)*q,sy:(pose.sy??1)*q,shadow:.001},1,extension);},
+   // dx, dy: moved; q: scaled about its middle; spin: turned about its middle (radians, clockwise on screen).
+   draw(g,{dx=0,dy=0,q=1,wobble=0,spin=0}={}){
+    const fx=(pose.foot.x-h.x)*q,fy=(pose.foot.y-h.y)*q,c=Math.cos(spin),sn=Math.sin(spin);
+    drawPiece(g,value,{...pose,foot:{x:h.x+dx+wobble+fx*c-fy*sn,y:h.y+dy+fx*sn+fy*c},sx:(pose.sx??1)*q,sy:(pose.sy??1)*q,rotation:(pose.rotation??0)+spin*pose.facing,shadow:.001},1,extension);
+   },
    layer(clip){out.save();out.globalAlpha=opacity;if(clip!==Infinity){out.beginPath();out.rect(0,-headroom,SIZE,clip+headroom);out.clip();}if(res===1)out.drawImage(fxCanvas,0,-headroom);else out.drawImage(fxCanvas,0,-headroom,SIZE,SIZE+headroom);out.restore();},
   });
   return;
@@ -446,7 +450,7 @@ function vortex(out,foot,phase,strength) {
    const spec=blows[a.blow],T=a.timing,since=t-T.strike;
    actor.pose={...a.pose,foot:footAt(t,a.from.foot,a.stop,a.to.foot,T),rotation:tiltAt(t,spec.tilt,T)};
    if(victim&&since>=0){
-    if(a.theme){victim.fx={death:{theme:a.theme,side:colorOf(a.value),t:since,foot:a.victimFoot,top:a.victimShape.top,shape:a.victimShape.rows,hit:a.target}};if(since>=DEATHS[a.theme].end)victim.opacity=0;}
+    if(a.theme){victim.fx={death:{theme:a.theme,side:colorOf(a.value),t:since,foot:a.victimFoot,top:a.victimShape.top,shape:a.victimShape.rows,hit:a.target,away:a.away}};if(since>=DEATHS[a.theme].end)victim.opacity=0;}
     else if(spec.effect==='smash'){const k=ease(since/110);victim.pose={...victim.pose,sx:1+.28*k,sy:1-.5*k};victim.opacity=1-clamp((since-60)/260,0,1);effects.push(()=>smash(ctx,a.victimFoot,since/420));}
     else if(spec.effect==='topple'){const k=ease(since/380);victim.pose={...victim.pose,rotation:1.45*k*a.away*victim.pose.facing,foot:{x:victim.pose.foot.x+a.away*12*k,y:victim.pose.foot.y}};victim.opacity=1-clamp((since-220)/300,0,1);effects.push(()=>impact(ctx,a.target,since/320,1.6));}
     else victim.fx={frost:clamp(since/160,0,1),shatter:since>200?{point:a.target,t:clamp((since-200)/420,0,1)}:null};

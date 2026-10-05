@@ -39,7 +39,7 @@ export interface PaintedScene {
    * moves: quiet moves use each figure's gait (gait.mjs); idle: the selected figure breathes;
    * atmosphere: a stone frame, soft contact shadows and warm light on the board;
    * kings: each king's own idle effect (king-effects.mjs), redrawn about 30 times a second while one shows;
-   * captures: a piece a king takes dies that king's way (king-captures.mjs; Stratus keeps the shatter);
+   * captures: a piece a king takes dies that king's way (king-captures.mjs);
    * pawns: resting pawns now and then shake the spear, move the helmet or hitch the shield (lance/idle.mjs).
    */
   setLively(options: { moves?: boolean; idle?: boolean; atmosphere?: boolean; kings?: boolean; captures?: boolean; pawns?: boolean }): void;
