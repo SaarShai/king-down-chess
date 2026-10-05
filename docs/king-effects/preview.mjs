@@ -13,8 +13,8 @@ const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M,
 const INFO = {
   flame: ['Flame', 'Lava light flows through the cracks and seams of his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
   frost: ['Frost', 'Ice flakes drift down around and in front of him and melt on his square.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
-  stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises, over rings of wind.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board.'],
-  mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up.'],
+  stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises, over rings of wind.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
+  mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up. Then his own grass, and after it a vine, grow on his new square.'],
   spirit: ['Spirit', 'The ivory king: a white and gold glow round him, short rays of light above his crown and light on his square. The charcoal king: a black aura, black rays and a dark pool on his square. Both breathe slowly in and out.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
   shadow: ['Shadow', 'Skeletal hands (white for the ivory king, black for the charcoal one) reach up out of cracks round his feet; his smoke drifts and curls upward.', 'A crack opens under the piece; skeletal hands rise out of it, take hold of the piece and pull it down. Death Touch takes it without moving.'],
 };
@@ -22,7 +22,8 @@ const INFO = {
 export const CROP = { x: PAD + 2 * TILE - 12, y: HEADROOM + PAD + 3 * TILE - 2, w: 4 * TILE + 24, h: 2 * TILE + 26 };
 // Stratus's capture throws the piece off the board: his card shows the whole width of rank 4 and its frame.
 // (Tall enough for the arc: the piece flies about two squares above its own.)
-export const WIDE = { x: 0, y: HEADROOM + PAD + TILE, w: 960, h: 4 * TILE + 26 };
+// Rank 8 and the band above it to rank 4, for the back-rank throw too.
+export const WIDE = { x: 0, y: 0, w: 960, h: HEADROOM + PAD + 5 * TILE + 26 };
 export const boxOf = key => key === 'capture-stratus' ? WIDE : CROP;
 // The game's board is 776 px wide in a 1440 × 900 window and 365 px on a 390 px phone.
 const SIZES = { desktop: 776 / 960, phone: 365 / 960, double: 1.6 };
@@ -43,6 +44,10 @@ export const CAPTURES = [
   { label: 'Charcoal takes a knight', king: ['e4', 1], victim: ['d4', N] },
   { label: 'Death Touch (ivory)', king: ['d4', 0], victim: ['e4', N], touch: true, only: 'shadow' },
   { label: 'Death Touch (charcoal)', king: ['e4', 1], victim: ['d4', P], touch: true, only: 'shadow' },
+  // Stratus's other throws: along the band above the board on the back rank (over a rook on the rank), and
+  // back over the king from the edge file (over a rook on the way).
+  { label: 'Back rank (ivory)', king: ['d8', 0], victim: ['e8', N], by: [['g8', R, 1]], only: 'stratus' },
+  { label: 'Edge file (charcoal)', king: ['b4', 1], victim: ['a4', P], by: [['e4', R, 0]], only: 'stratus' },
 ];
 export const capturesFor = design => CAPTURES.filter(c => !c.only || c.only === design);
 
@@ -94,7 +99,7 @@ for (const design of Object.keys(INFO)) {
 // 2. Captures: each card plays its captures in turn; a button plays one now.
 /** Sets up capture `c` on a scene and returns its move (the scene shows the position before it). */
 // design: Stratus's cards add a rook standing in the throw's way (it flies over it).
-const bystanders = (c, design) => design === 'stratus' && !c.touch ? [[c.king[1] ? 'b4' : 'g4', R, 1 - c.king[1]]] : [];
+const bystanders = (c, design) => c.by ?? (design === 'stratus' && !c.touch ? [[c.king[1] ? 'b4' : 'g4', R, 1 - c.king[1]]] : []);
 /** After capture c, as the game shows it: the king on the square he took (or still on his own after Death Touch). */
 export function afterCapture(scene, c, design) {
   scene.setPosition(position([[c.touch ? c.king[0] : c.victim[0], K, c.king[1]], ...bystanders(c, design)]));

@@ -43,10 +43,9 @@ export function drawHand(ctx,x,y,h){
  const k=h.size??1,r=h.rise??1,bone=BONE[h.side??1],floor=h.floor??y,reach=(h.reach??60)*k;
  if(r<=.01)return;
  ctx.save();ctx.beginPath();
- // With a lip: the old box above, its bottom following the crack's near edge; beyond the crack's ends the
- // bottom rises steeply, so nothing shows at floor level beside the crack (as if out of solid stone), while
- // fingers higher up are never cut.
- if(h.lip?.length){const L=x-40*k,R=x+40*k,[x0,y0]=h.lip[0],[x1,y1]=h.lip.at(-1),s=1.4;ctx.moveTo(L,floor-reach);ctx.lineTo(R,floor-reach);ctx.lineTo(R,Math.min(y1,y1-(R-x1)*s));ctx.lineTo(x1,y1);for(let i=h.lip.length-1;i>=0;i--)ctx.lineTo(...h.lip[i]);ctx.lineTo(x0,y0);ctx.lineTo(L,Math.min(y0,y0-(x0-L)*s));ctx.closePath();}
+ // With a lip: everything above the floor line shows (bone is never cut in the air); below it, only what is
+ // in the crack's opening (its near edge is the clip's bottom between the crack's ends).
+ if(h.lip?.length){const L=x-40*k,R=x+40*k,[x0,y0]=h.lip[0],[x1,y1]=h.lip.at(-1);ctx.moveTo(L,floor-reach);ctx.lineTo(R,floor-reach);ctx.lineTo(R,y1);ctx.lineTo(x1,y1);for(let i=h.lip.length-1;i>=0;i--)ctx.lineTo(...h.lip[i]);ctx.lineTo(x0,y0);ctx.lineTo(L,y0);ctx.closePath();}
  else ctx.rect(x-40*k,floor-reach,80*k,reach);
  ctx.clip();
  ctx.translate(x,y+(1-r)*34*k);ctx.rotate(h.angle??0);ctx.scale(k*(h.flip?-1:1),k);ctx.lineCap='round';ctx.lineJoin='round';
@@ -74,13 +73,17 @@ export function drawCrack(ctx,x,y,w,h,seed,{points=7,branches=3,glow=null}={}){
  if(h<.05)return;
  const n=points,{top,bottom}=edgesOf(x,y,w,h,seed,n);
  if(glow){ctx.fillStyle=glow;ctx.beginPath();ctx.ellipse(x,y,w+6,h+5,0,0,TAU);ctx.fill();}
+ // The lit lip and the hairline cracks come in with the opening (a thin slit has short faint ones).
+ const grown=Math.min(1,h/(w/4)),a0=ctx.globalAlpha;
  ctx.fillStyle='#050407';ctx.beginPath();top.forEach(([px,py],i)=>i?ctx.lineTo(px,py):ctx.moveTo(px,py));for(let i=n;i>=0;i--)ctx.lineTo(...bottom[i]);ctx.closePath();ctx.fill();
+ ctx.globalAlpha=a0*grown;
  ctx.lineWidth=.9+w/60;ctx.strokeStyle='rgba(226,214,190,.45)';ctx.beginPath();top.forEach(([px,py],i)=>i?ctx.lineTo(px,py-.6):ctx.moveTo(px,py-.6));ctx.stroke();
  ctx.lineWidth=.7+w/80;ctx.strokeStyle='rgba(8,6,10,.75)';ctx.beginPath();
  for(let b=0;b<branches;b++)for(const e of [-1,1]){
   let px=x+e*w*(1-.3*b/branches),py=y+(b?(rand(seed,60+b)-.5)*h*2:0),a=(e>0?0:Math.PI)+(b?(rand(seed,70+b+e)-.5)*1.6:0);ctx.moveTo(px,py);
-  for(let i=0;i<3;i++){const l=(2.5+2*rand(seed,40+i+e+b*5))*Math.max(1,w/14);px+=Math.cos(a)*l;py+=Math.sin(a)*l*.5+(rand(seed,50+i+e)-.5)*2;a+=(rand(seed,80+i+b)-.5)*.8;ctx.lineTo(px,py);}
+  for(let i=0;i<3;i++){const l=(2.5+2*rand(seed,40+i+e+b*5))*Math.max(1,w/14)*grown;px+=Math.cos(a)*l;py+=Math.sin(a)*l*.5+(rand(seed,50+i+e)-.5)*2;a+=(rand(seed,80+i+b)-.5)*.8;ctx.lineTo(px,py);}
  }
  ctx.stroke();
+ ctx.globalAlpha=a0;
  return top;
 }

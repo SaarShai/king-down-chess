@@ -60,10 +60,10 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   const bx0=Math.min(foot.x-REACH.left,img.offsetLeft/u),bx1=Math.max(foot.x+REACH.right,(img.offsetLeft+img.offsetWidth)/u);
   const by0=Math.min(foot.y-REACH.up,img.offsetTop/u),by1=Math.max(foot.y+REACH.down,(img.offsetTop+img.offsetHeight)/u);
   Object.assign(k,{u,dpr,foot,bx0,by0});
-  // The room to the nearest neighbour (the middle of his image, from the fixed layout; CSS px → this king's
-  // board units): the hands and flakes reach about a third of it.
-  const i=kings.indexOf(k),near=[kings[i-1],kings[i+1]].filter(Boolean).map(n=>Math.abs(n.img.offsetLeft+n.img.offsetWidth/2-foot.x*u)/u);
-  if(near.length)k.spread=Math.max(.2,Math.min(.6,Math.min(...near)*.3/44));
+  // The room to the nearest neighbour's figure (the near edge of his image, from the fixed layout; CSS px →
+  // this king's board units): Shadow's hands reach about 41 × spread + 14 units, so they stop short of it.
+  const i=kings.indexOf(k),fx0=foot.x*u,near=[kings[i-1],kings[i+1]].filter(Boolean).map(n=>(n===kings[i-1]?fx0-(n.img.offsetLeft+n.img.offsetWidth):n.img.offsetLeft-fx0)/u);
+  if(near.length)k.spread=Math.max(.15,Math.min(.6,(Math.min(...near)-18)/41));
   const c=k.canvas;
   c.style.left=`${bx0*u}px`;c.style.top=`${by0*u}px`;c.style.width=`${(bx1-bx0)*u}px`;c.style.height=`${(by1-by0)*u}px`;
   // A canvas is cleared when its size is set, so set it only when it changes, and draw him again at once.
@@ -79,6 +79,7 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   // Frost's flakes in the room between him and his neighbours.
   const s={design,side:0,pose:{foot:k.foot,scale:SCALE,facing,angle:0},t:t-k.since+k.offset,k:kk,opacity:1,g:1,facing,spread:k.spread??.5};
   s.pose=fx.pose(s);s.ground=s.pose.ground??s.pose.foot;
+  k.lift=(s.pose.foot.y-k.foot.y)*u; // CSS px his figure is drawn above its image (Stratus hovers)
   // The effects are drawn on a layer of their own with the neighbouring kings' figures cut out of it, so an
   // effect never covers a neighbour (his own figure keeps its overlap, as the images have).
   const layer=effects(k),l=layer.getContext('2d');
@@ -104,7 +105,9 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   l.save();l.setTransform(k.dpr,0,0,k.dpr,-k.bx0*k.u*k.dpr,-k.by0*k.u*k.dpr);l.globalCompositeOperation='destination-out';
   for(const n of [kings[i-1],kings[i+1]]){
    if(!n)continue;const im=n.img,x=im.offsetLeft,y=im.offsetTop,w=im.offsetWidth,h=im.offsetHeight;
-   if(n.mirror){l.save();l.translate(x+w,y);l.scale(-1,1);l.drawImage(im,0,0,w,h);l.restore();}else l.drawImage(im,x,y,w,h);
+   // (Where he is drawn now: Stratus hovers above his image.)
+   const dy=n.lift??0;
+   if(n.mirror){l.save();l.translate(x+w,y+dy);l.scale(-1,1);l.drawImage(im,0,0,w,h);l.restore();}else l.drawImage(im,x,y+dy,w,h);
   }
   l.restore();
  }

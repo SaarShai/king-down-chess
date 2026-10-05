@@ -513,22 +513,27 @@ function throwPath(d){
  let away=d.away||1;const room=side=>side>0?board.right-d.foot.x:d.foot.x-board.left;
  const mode=d.top+headroom<150?'top':room(away)<280?'over':'side';
  if(mode==='over')away=-away;
- const edge=(away>0?board.right:board.left)+away*26,dist=Math.abs(edge-d.foot.x),run=(edge-d.foot.x)*run0;
- let up=0,opacity=1-ease(clamp((Math.abs(run)-(dist-80))/80,0,1));
- if(mode==='top'){
-  // It shrinks to two fifths and rises quickly into the band above the board (its top 6 units under the
-  // canvas's top), then flies along it; near an edge it goes out over the corner, fading on the way.
-  q=1-.6*ease(Math.min(1,fly*1.4));
-  const qEnd=.4,rise=d.hit.y+(d.top-d.hit.y)*qEnd+headroom-6;
-  up=-Math.min(34,rise)*lift-Math.max(0,rise-34)*ease(Math.min(1,fly*1.8));
-  // (It fades by its flight, not by the edge: near a corner it has only a square to go sideways.)
-  opacity=1-ease(span(fly,.72,1));
+ const edge=(away>0?board.right:board.left)+away*26,dist=Math.abs(edge-d.foot.x);let run=(edge-d.foot.x)*run0;
+ let up=0,corner=false;
+ // The highest it may go at size qq: its top 6 units under the canvas's top.
+ const band=qq=>-headroom+6-(d.hit.y+(d.top-d.hit.y)*qq);
+ const liftH=mode==='over'?Math.max(34,d.foot.y-king.top+14):34;
+ if(mode==='top'||(mode==='over'&&d.foot.y<300)){
+  // In the band above the board: it shrinks to two fifths and rises quickly to the band (on the back rank,
+  // or from the next rank back over the king), over the heads of the back rank, then flies along it.
+  // It is up in the band before it moves along it much, so it clears the heads of the pieces next to it.
+  q=1-.6*ease(Math.min(1,fly*2));
+  const base=-liftH*lift,e=ease(Math.min(1,fly*3.2)),f=clamp((fly-.2)/.8,0,1);
+  up=Math.max(band(q),base+(band(q)-base)*e);run=(edge-d.foot.x)*f*(.35+.65*f);
+  // A short corner throw fades by its flight (it has only a square to go sideways); a long one by the edge.
+  corner=dist<200;
  }else{
   // over: up above the king's head (with room for his crown) and kept there until it is past him.
-  const liftH=mode==='over'?Math.max(34,d.foot.y-king.top+14):34;
   const peak=mode==='over'?Math.max(0,Math.min(40,d.top-liftH+headroom-30)):Math.max(30,Math.min(115,d.top+headroom-12-34));
-  up=-liftH*lift-peak*Math.sin(Math.PI*Math.min(1,fly*1.1));
+  up=Math.max(band(q),-liftH*lift-peak*Math.sin(Math.PI*Math.min(1,fly*1.1)));
  }
+ // It fades over the last 80 units of its way, past the board's edge (a short corner throw by its flight).
+ const opacity=corner?1-ease(span(fly,.72,1)):1-ease(clamp((Math.abs(run)-(dist-80))/80,0,1));
  const spin=away*(.25*lift*Math.sin(t/60)*(1-fly)+2.2*fly*fly);
  const cx=d.hit.x+run,cy=d.hit.y+up,footY=d.hit.y+(d.foot.y-d.hit.y)*q+up,topY=d.hit.y+(d.top-d.hit.y)*q+up;
  return {mode,away,lift,fly,run,up,q,spin,opacity,half,height,king,cx,cy,footY,topY,px:d.foot.x+run};
@@ -540,8 +545,12 @@ export function throwAbove(d){
  if(P.fly<=0&&P.lift<.05)return false;
  return P.cx+reach<k.l||P.cx-reach>k.r||P.footY<k.top-4;
 }
+// d.part: 'back' (drawn in the piece's own place), 'front' (over every figure), or neither (all at once).
+// d.above: the piece itself is over every figure now (throwAbove); before that it draws with the back part.
+// The near halves of the rings always draw with the front part, so they never jump in front of a neighbour.
 function throwOff(out,d){
  const D=DEATHS.stratus,t=d.t,back=d.part!=='front',front=d.part!=='back',P=throwPath(d);
+ const pieceHere=d.part===undefined||(d.part==='back')!==!!d.above;
  const {away,lift,fly,run,up,q,spin,opacity,half,height,king,cx,cy,footY,px}=P,airborne=-up;
  const whirlK=ease(t/D.gust)*(1-.55*ease(span(t,D.throw[0],D.throw[1])))*opacity,wr=(half+4)*q;
  // The rings' near halves stop short of the king, wherever he is from the piece now.
@@ -563,7 +572,7 @@ function throwOff(out,d){
   // The back halves of the whirlwind's rings stay behind whoever stands in front.
   whirl(out,cx,footY,height*1.05*q,wr,t,whirlK,false);
  }
- if(front){
+ if(pieceHere){
   // The gust that throws it: curled streaks from just behind it, racing ahead the way it goes, again and
   // again while it flies, drawn behind the piece so it stays readable, and never over the king.
   if(fly>0){
@@ -577,9 +586,9 @@ function throwOff(out,d){
    out.restore();
   }
   if(t<D.end&&opacity>.01){const c=d.clear();d.draw(c,{dx:run,dy:up,q,spin});c.globalCompositeOperation='destination-in';c.globalAlpha=opacity;c.fillStyle='#000';c.fillRect(-100,-200,d.size+200,d.size+400);c.globalCompositeOperation='source-over';c.globalAlpha=1;d.layer(Infinity);}
-  // The front halves of the rings, thinning as it flies so the piece shows through.
-  whirl(out,cx,footY,height*1.05*q,wr,t,whirlK*(1-.6*fly),true,nearKing?clear:null);
  }
+ // The front halves of the rings, thinning as it flies so the piece shows through.
+ if(front)whirl(out,cx,footY,height*1.05*q,wr,t,whirlK*(1-.6*fly),true,nearKing?clear:null);
 }
 
 // —— Spirit ——

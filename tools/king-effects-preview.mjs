@@ -123,8 +123,10 @@ try {
     const period = PERIOD[design], count = Math.round(period / STEP);
     await tab.evaluate(key => window.rec.only(key), design);
     await at(design, clock); await new Promise(r => setTimeout(r, 300)); // an effect's own art arrives
-    for (let t = 0; t <= 1200; t += 40) await at(design, clock + t);
-    const t0 = clock + 1200, shots = [], pick = Array.from({ length: 6 }, (_, i) => Math.floor(i * count / 6));
+    // A full period first (Mud's charcoal king starts 1.5 s late and his tufts lag), so the recording loops.
+    const pre = period + 1200;
+    for (let t = 0; t <= pre; t += 40) await at(design, clock + t);
+    const t0 = clock + pre, shots = [], pick = Array.from({ length: 6 }, (_, i) => Math.floor(i * count / 6));
     for (let i = 0; i < count; i++) { if (quick && !pick.includes(i)) continue; await at(design, t0 + i * STEP); shots.push(await grab(design, CROP, SCALE)); }
     clock = t0 + period + 1000;
     const six = quick ? shots : pick.map(i => shots[i]);
@@ -149,7 +151,7 @@ try {
       // effect growing back on the king's new (or, after Death Touch, his own) square.
       const after = design === 'mud' ? 2900 : design === 'shadow' ? 1700 : 600;
       const start = clock, total = 360 + duration + after, row = { label: list[c], frames: [], times: [] };
-      const marks = design === 'stratus' ? [0, 800, 1120, 1280, 1400, 1520] : design === 'mud' ? [0, 800, 1040, 1280, 2800, 4480] : [0, 520, 800, 1040, 1280, 1520];
+      const marks = design === 'stratus' ? [0, 800, 1120, 1280, 1400, 1520] : design === 'mud' ? [0, 800, 1040, 1560, 2800, 4480] : [0, 520, 800, 1040, 1280, 1520];
       let synced = false;
       // play() started at `start`; frames from 360 ms before it would be a still, so the clip shows a pause first.
       const box = await tab.evaluate(key => window.preview.boxOf(key), key), scale = box.w > 900 ? 1 : SCALE;

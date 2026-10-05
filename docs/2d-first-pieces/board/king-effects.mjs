@@ -32,9 +32,16 @@ const layer=()=>{const c=document.createElement('canvas');c.width=c.height=L;ret
 
 /**
  * Where a king's loop starts when his effect starts (ms): the two armies a little apart. Mud's loop must start
- * at its beginning (the grass comes up before the vines), so the charcoal king's simply starts 1.5 s later.
+ * at its beginning (the grass comes up before the vines), so when both kings start together (together: a new
+ * game or position) the charcoal king's simply starts 1.5 s later; after a move he starts at once.
  */
-export function phaseOffset(design,side){return design==='mud'?-side*1500:side*1777;}
+export function phaseOffset(design,side,together=true){return design==='mud'?(together?-side*1500:0):side*1777;}
+/**
+ * Two clocks. s.t starts again when he arrives on a square: what grows on his square (grass, vines, hands,
+ * light on the floor) grows back from its beginning. s.now never restarts: what goes with his figure (his
+ * lava, his falling flakes, his smoke, his hover) keeps its phase across a move, so nothing on him jumps.
+ */
+const figureClock=s=>s.now??s.t;
 /** Stratus: how far he floats above his square (board units) at time t; k fades it. */
 export function hoverAt(t,k=1){return k*(3+6*(1-Math.cos(TAU*t/PERIOD.stratus))/2);}
 
@@ -142,6 +149,15 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   g.fill();
   return rayLayer=blurAlpha(c,7);
  }
+ // Clips to the dark squares round a king's square (dark) or to everything else; with no cell (the title),
+ // dark draws everywhere and the other pass nothing.
+ function clipSquares(ctx,cell,dark){
+  ctx.beginPath();
+  if(!cell){if(!dark)ctx.rect(0,0,0,0);else ctx.rect(-1e4,-1e4,2e4,2e4);ctx.clip();return;}
+  if(!dark)ctx.rect(-1e4,-1e4,2e4,2e4);
+  for(let dr=-2;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if(((dc+dr)%2===0)===cell.dark)ctx.rect(cell.x+dc*cell.size,cell.y+dr*cell.size,cell.size,cell.size);
+  ctx.clip('evenodd');
+ }
  // A Spirit layer over the figure (padded layer → sprite px).
  function inSpirit(ctx,s,image){inFigure(ctx,s.pose,()=>ctx.drawImage(image,-PADL,-PADL,SPAN,SPAN));}
  // Draws `image` (a layer) over the figure, with the scene's own figure transform (drawPiece).
@@ -153,7 +169,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  // —— Flame ——
  function lava(ctx,s){
   const f=flameLayers(s.side);if(!f)return;
-  const [a,b]=lavaNoise(),u=frac(s.t/PERIOD.flame),g=f.work.getContext('2d');
+  const [a,b]=lavaNoise(),u=frac(figureClock(s)/PERIOD.flame),g=f.work.getContext('2d');
   g.globalCompositeOperation='source-over';g.globalAlpha=1;g.clearRect(0,0,L,L);
   // A dim ember glow, then two fields of brighter lava flowing down and across through the cracks.
   g.fillStyle='rgba(226,70,12,.34)';g.fillRect(0,0,L,L);
@@ -183,7 +199,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   }
  }
  function flakes(ctx,s,front){
-  const top=s.pose.foot.y-170,u0=s.t/PERIOD.frost;
+  const top=s.pose.foot.y-170,u0=figureClock(s)/PERIOD.frost;
   ctx.save();ctx.lineCap='round';
   for(let i=0;i<FLAKES;i++){
    const z=rand(i,3)*2-1;if((z>0)!==front)continue;
@@ -234,8 +250,8 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  // —— Mud ——
  // A full patch of tufts round his feet (an inner and an outer ring), dark at the root, fresh at the tip.
  const TUFTS=52,ROOT=GRASS_ROOT,TIP=GRASS_TIP;
- // 0 → 1 (sprout) → hold → 0 (sink back) over one period, each tuft a little apart.
- // It never goes quite bare: it sinks back to a short stubble and grows again from there.
+ // Each tuft, a little apart from the others: sprouts to full height, holds, and sinks back to a short
+ // stubble (it never goes quite bare), then grows again from there; one period.
  const grow=u=>u<.24?.12+.88*smooth(u/.24):u<.66?1:1-.88*smooth((u-.66)/.34);
  // A tuft or vine `lag` behind the loop: nothing until its first start, then its own place in the loop.
  const after=(u0,lag)=>u0-lag<0?-1:frac(u0-lag);
@@ -276,8 +292,8 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  const VINES=[[-46,-.3,-20,-.85,30,0,1],[18,-.9,46,-.25,27,.03,2],[-48,.25,-26,.85,24,.015,3],[22,.85,48,.3,25,.045,4],[-12,.98,12,.95,17,.06,5],[-30,-.98,6,-.95,22,.05,6]];
  // A vine grows out of the ground along its length once the grass is well up (the grass: grow() with up
  // to .14 of lag), holds, then draws back into the ground the way it came (its tip goes back down into the
- // first hole), and is gone while the grass still stands (by .72 with a vine's lag of at most .06; the first
- // grass is gone at .86). Returns its length 0..1.
+ // first hole), and is gone while the grass still stands (by .72 with a vine's lag of at most .06; the grass
+ // only starts to sink at .66 and goes down to a stubble). Returns its length 0..1.
  const vineGrow=u=>u<.26?0:u<.42?smooth((u-.26)/.16):u<.54?1:u<.66?1-smooth((u-.54)/.12):0;
  const N=26;
  // A vine's centre line: an arch between its two feet, leaning and kinked a little, so no two look alike.
@@ -340,10 +356,17 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    const pool=ctx.createRadialGradient(0,0,0,0,0,1);pool.addColorStop(0,'rgba(18,15,12,.9)');pool.addColorStop(.6,'rgba(34,29,24,.55)');pool.addColorStop(1,'rgba(34,29,24,0)');
    ctx.save();ctx.globalAlpha=s.k*s.g*(.3+.7*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(52,18);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
    // It breathes as the ivory glow does, from faint to deep; the halo reaches about as far as the ivory one.
-   ctx.save();ctx.globalAlpha=s.k*(.35+.65*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(raysDark(),-40,-42,80,44);ctx.restore();
-   // (On a light square the same black reads far stronger, so it is used more lightly there.)
-   if(sp){const d=s.darkSquare;ctx.globalAlpha=s.k*(d?.4+.6*b:.2+.4*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(d?.45+.55*b:.25+.4*b);inSpirit(ctx,s,sp.rim);
-    ctx.globalAlpha=s.k*(d?.7+.3*b:.1+.2*b);inSpirit(ctx,s,sp.inner);}
+   ctx.save();ctx.globalAlpha=s.k*s.g*(.35+.65*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(raysDark(),-40,-42,80,44);ctx.restore();
+   // The aura: where the board under it is dark wood the black needs more strength than over light stone, so
+   // each layer is drawn twice, clipped to the dark squares round him and to everything else (his head and
+   // shoulders stand over the next rank's square, the other colour). It grows in with his square's effects.
+   if(sp)for(const dark of [true,false]){
+    ctx.save();clipSquares(ctx,s.cell,dark);const k=s.k*s.g;
+    ctx.globalAlpha=k*(dark?.4+.6*b:.2+.4*b);inSpirit(ctx,s,sp.halo);
+    ctx.globalAlpha=k*(dark?.45+.55*b:.25+.4*b);inSpirit(ctx,s,sp.rim);
+    ctx.globalAlpha=k*(dark?.25+.75*b:.06+.2*b);inSpirit(ctx,s,sp.inner);
+    ctx.restore();
+   }
    ctx.restore();return;
   }
   ctx.globalCompositeOperation='lighter';
@@ -351,16 +374,16 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   const pool=ctx.createRadialGradient(0,0,0,0,0,1);pool.addColorStop(0,'rgba(255,238,178,.85)');pool.addColorStop(.55,'rgba(255,232,160,.4)');pool.addColorStop(1,'rgba(255,232,160,0)');
   ctx.save();ctx.globalAlpha=s.k*s.g*(.28+.55*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(48,16);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
   // Short soft rays behind his crown, in a narrow fan that turns a little (about 36 units: not over the next square).
-  ctx.save();ctx.globalAlpha=s.k*(.18+.55*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(rays(),-40,-42,80,44);ctx.restore();
+  ctx.save();ctx.globalAlpha=s.k*s.g*(.18+.55*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(rays(),-40,-42,80,44);ctx.restore();
   // The glow round his outline: the wide halo, and the close rim brightening towards the peak.
-  if(sp){ctx.globalAlpha=s.k*(.4+.5*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(.3+.7*b);inSpirit(ctx,s,sp.rim);}
+  if(sp){ctx.globalAlpha=s.k*s.g*(.4+.5*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*s.g*(.3+.7*b);inSpirit(ctx,s,sp.rim);}
   ctx.restore();
  }
  function holyFront(ctx,s){
   const sp=spiritLayers(s.side);if(!sp)return;
   // A sheen on the figure: gold for the ivory king; for the charcoal king a light shade (multiplied), so he
   // looks wrapped in darkness but keeps his own modelling.
-  ctx.save();ctx.globalCompositeOperation=s.side?'multiply':'lighter';ctx.globalAlpha=s.k*(s.side?.03+.07*breath(s.t):.05+.25*breath(s.t));inSpirit(ctx,s,sp.gold);ctx.restore();
+  ctx.save();ctx.globalCompositeOperation=s.side?'multiply':'lighter';ctx.globalAlpha=s.k*s.g*(s.side?.03+.07*breath(s.t):.05+.25*breath(s.t));inSpirit(ctx,s,sp.gold);ctx.restore();
  }
 
  // —— Shadow ——
@@ -377,19 +400,21 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   const u0=s.t/PERIOD.shadow,out=[];
   for(const [i,[hx,depth,lean,size,phase]] of HANDS.entries()){
    const u=frac(u0-phase),r=rise(u)*s.g*s.k,open=gap(u)*s.g*s.k;if(open<.02)continue;
-   const x=s.ground.x+hx*s.facing*(s.spread??1),y=s.ground.y-4+depth*13,k=size*(.92+.08*depth),sway=.05*Math.sin(TAU*(u0*2+phase));
-   // The crack is open before the hand comes through it.
-   out.push({i,x,y,k,r,front:depth>0,open,hand:{side:s.side,size:k,flip:hx*s.facing<0,angle:(lean+sway)*s.facing*(r*.6+.4),rise:r,curl:clutch(u)}});
+   // (A small spread also leans the hands less, so they stay in the room he has.)
+   const sp=s.spread??1,x=s.ground.x+hx*s.facing*sp,y=s.ground.y-4+depth*13,k=size*(.92+.08*depth),sway=.05*Math.sin(TAU*(u0*2+phase)),tilt=(lean+sway)*Math.min(1,sp*1.6);
+   // The crack is open before the hand comes through it; it is wide and lies a little toward the side the
+   // hand leans, so a leaning hand's fingers cross the floor inside it, not beside its end.
+   out.push({i,x,y,k,r,front:depth>0,open,cx:x+lean*s.facing*Math.min(1,sp*1.6)*14*k,w:12.5*k,hand:{side:s.side,size:k,flip:hx*s.facing<0,angle:tilt*s.facing*(r*.6+.4),rise:r,curl:clutch(u)}});
   }
   return out;
  }
  // Cracks are drawn with the floor (before the figure), so none is ever drawn over him.
- function cracks(ctx,s){for(const h of handsNow(s))h.edge=drawCrack(ctx,h.x,h.y,10.5*h.k,h.open*2.9*h.k,h.i+1);}
+ function cracks(ctx,s){for(const h of handsNow(s))drawCrack(ctx,h.cx,h.y,h.w,h.open*2.9*h.k,h.i+1);}
  function hands(ctx,s,front){
   for(const h of handsNow(s)){
    if(h.front!==front||h.r<.01)continue;
    // The hand shows above its crack's near lip only, so it comes up out of the dark gap.
-   const lip=crackLip(h.x,h.y,10.5*h.k,h.open*2.9*h.k,h.i+1);
+   const lip=crackLip(h.cx,h.y,h.w,h.open*2.9*h.k,h.i+1);
    drawHand(ctx,h.x,h.y,{...h.hand,lip});
   }
  }
@@ -414,7 +439,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  }
  function smoke(ctx,s){
   const l=shadowLayers(s.side);if(!l)return;
-  const g=l.work.getContext('2d'),motion=s.k/(s.opacity||1),u0=s.t/PERIOD.shadow;
+  const g=l.work.getContext('2d'),motion=s.k/(s.opacity||1),u0=figureClock(s)/PERIOD.shadow;
   g.globalCompositeOperation='source-over';g.globalAlpha=1;g.clearRect(0,0,SMOKE,SMOKE);g.globalCompositeOperation='lighter';
   for(let phase=0;phase<2;phase++){
    const u=frac(u0*2+phase/2),w=1-Math.abs(2*u-1),rise=-44*(u-.5)*motion;if(w<.003)continue;
@@ -434,9 +459,9 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   pose(s){
    if(s.design==='shadow'){const l=shadowLayers(s.side);return l?{...s.pose,sheet:l.body}:s.pose;}
    // The charcoal Spirit: his black aura takes the place of the army's pale readability rim.
-   if(s.design==='spirit'&&s.side===1)return {...s.pose,rim:1-.85*s.k};
+   if(s.design==='spirit'&&s.side===1)return {...s.pose,rim:1-.85*s.k*(s.g??1)};
    if(s.design!=='stratus')return s.pose;
-   const p=s.pose,lift=hoverAt(s.t,s.k),ground=p.ground??p.foot;
+   const p=s.pose,lift=hoverAt(figureClock(s),s.k),ground=p.ground??p.foot;
    return {...p,ground,foot:{x:p.foot.x,y:p.foot.y-lift},lift:(p.lift??0)+lift,shadow:(p.shadow??1)*(1-.045*lift)};
   },
   /**

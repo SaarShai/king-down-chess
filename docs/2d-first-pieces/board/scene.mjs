@@ -73,7 +73,8 @@ for(const [type,name] of Object.entries(courtNames)){
  const lively={moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
  const kingFx=createKingEffects({sheet:design=>kingArt[design]?.image??null,onLoad:()=>wake()});
  // Square → when a king's effect started there (what stands on his square grows back after a move).
- let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[],pawnsAtRest=0,pawnsActing=0;
+ // drawnBefore: how many kings' effects the frame before drew (none: they all start together now).
+ let kingSince=new Map(),nextSince=new Map(),frames=0,fxDrawn=[],drawnBefore=0,pawnsAtRest=0,pawnsActing=0;
  let selectedAt=0, idleTimer=0, framePattern=null, awakeUntil=0;
  const ease=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
  const mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t});
@@ -361,18 +362,23 @@ function vortex(out,foot,phase,strength) {
   if(k<=.001)return null;
   // (A finished move counts until the next position comes: its last frame shows him on his new square.)
   const a=animation,moving=!!a&&(a.move.from===sq||(a.move.swap&&a.move.to===sq));
-  // When his effect started on this square; kept while he moves off it, so nothing jumps.
-  const since=kingSince.get(sq)??time;nextSince.set(sq,since);
+  // When his effect started on this square (and its loop's offset); kept while he moves off it, so nothing
+  // jumps. A different piece on the square starts afresh. The two armies' loops are set apart only when no
+  // king's effect was drawn the frame before (a new game or position): after a move only the mover restarts.
+  const old=kingSince.get(sq),entry=old?.value===unit.value?old:{since:time,value:unit.value,offset:phaseOffset(design,side,drawnBefore===0)};
+  nextSince.set(sq,entry);const since=entry.since;
   // While he moves, what stands on his square fades from where it was (it may still have been growing in).
   const grown=t=>ease((t-since)/900),g=moving?grown(a.start)*(1-ease((time-a.start)/(200*a.speed))):grown(time);
   // Each effect's loop starts again when he arrives on a square (so Mud's grass comes before his vines).
-  // darkSquare: the square he stands on (a1 is dark); an effect may set its strength by it.
-  const s={design,side,pose:unit.pose,t:time-since+phaseOffset(design,side),k,opacity:unit.opacity,g,facing:unit.pose.facing,darkSquare:((sq&7)+(sq>>3))%2===0};
+  // now: a clock that never restarts (Stratus's hover keeps its phase across a move). cell: his square's
+  // top-left corner and size, and whether it is dark (a1 is) — an effect may follow the squares' colours.
+  const c=cell(sq),s={design,side,pose:unit.pose,t:time-since+entry.offset,now:time+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing,
+   cell:{x:PAD+c.col*TILE,y:PAD+c.row*TILE,size:TILE,dark:((sq&7)+(sq>>3))%2===0}};
   s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
   return s;
  }
  function render(time=performance.now()) {
- frames++;fxDrawn=[];nextSince=new Map();
+ frames++;drawnBefore=fxDrawn.length;fxDrawn=[];nextSince=new Map();
  const a0=animation,since=a0?.shakeAt!=null?(time-a0.start)/a0.speed-a0.shakeAt:-1,shake=since>=0&&since<240?7*(1-since/240):0;
  ctx.save();ctx.translate(0,headroom);if(shake)ctx.translate(Math.sin(since*.09)*shake,Math.cos(since*.13)*shake*.6);
  boardBackground();
@@ -567,9 +573,11 @@ function vortex(out,foot,phase,strength) {
   if(fx){kingFx.back(ctx,fx);fxDrawn.push(fx.design);}
   // (above: a time, or a test of the death's own state: the piece is clear of the king or over his head.)
   const death=unit.fx?.death,above=death&&DEATHS[death.theme].above;
-  if(above!=null&&(typeof above==='function'?above({...death,size:SIZE,headroom}):death.t>=above)){
-   drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...death,part:'back'}});
-   late.push(()=>drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...death,part:'front'}}));
+  if(above!=null&&death.t>=0){
+   // Drawn in two parts from the strike on: its own place, and over every figure ('above': the piece too).
+   const up=typeof above==='function'?above({...death,size:SIZE,headroom}):death.t>=above,d2={...death,above:up};
+   drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'back'}});
+   late.push(()=>drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'front'}}));
   }else drawPiece(ctx,unit.value,fx?.pose??unit.pose,unit.opacity,unit.extension,unit.fx);
   if(fx)kingFx.front(ctx,fx);
  }
