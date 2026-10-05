@@ -266,3 +266,4 @@ Reduced runs at depth 3: `docs/research/sim-results-2026-09-13.md`. The error ba
 
 **One beast per army (designer, 2026-10-04).** "There should never be 2 beasts in one game." `POOL` is now
 `QORRBBNNAAGMMS` (14 letters): an army draws 7 of them, so it holds at most one beast. Earlier pool runs (rounds up to 17, `pa-*`) drew from the 15-letter pool.
+Custom armies too (designer, 2026-10-04: "one beast per army - that should always be the case"): New game refuses a custom back rank with two beasts.

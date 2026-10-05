@@ -224,10 +224,10 @@ workers each) and 5 Kaggle notebooks (shards 8–12); the M1 was off this networ
   (Round 16): the king step puts Darkness at 46.9 with Spirit − Shadow −0.7 ± 2.4; D1 and the pawn
   armour overshoot (53.5, 52.7) with Shadow ahead; the pawn aura does nothing.
 
-## Queued 2026-10-04: cards-a3 (Salvation) and the guard reserve (branch `claude/salvation`)
+## Ran 2026-10-04: the guard reserve; cards-a3 replaced by cards-m5 (branch `claude/salvation`)
 
-Built on the owner's go ("'Salvation (a 2014 card)' - yes, build"; "guard - do the testing"); not
-launched. Each needs the owner's go.
+Built on the owner's go ("'Salvation (a 2014 card)' - yes, build"; "guard - do the testing"). The
+guard reserve runs ran on 2026-10-04. `cards-a3` did not run: cards-m5 (below) played Salvation.
 
 - **cards-a3:** `card:Salvation` against `none` (`--anchor none --mirror`), 300 pairs, seed 5656,
   `--armies perPair`, depth 3, the card rules of `cards-a2`; 1,200 games, about 5–6 min. Command and
@@ -237,11 +237,15 @@ launched. Each needs the owner's go.
   the Guard's worth (1,000 games each) under `guardReserve=rank1` and `rank12`; about 52 min. One
   detached chain: `docs/research/piece-balance-criteria-2026-10-03.md`, "Guard reserve". Decides:
   whether a guard that enters from beside the board passes criteria 1 and 5.
+- **Results:** `docs/research/piece-balance-criteria-2026-10-03.md`, "The Guard readings
+  (2026-10-04)", on `claude/archer-far`. Only the reserve passes criterion 5 (89.6% and 95.4% moved),
+  partly because the entry counts as a move. The Guard's worth does not change (−186 and −181 ± 18
+  Elo against the Knight); draws do not change. Salvation, in cards-m5: +0.71 ± 0.40 pawns.
 
-## Queued 2026-10-04: cards-m5, every card against no card (branch `claude/cards-all`)
+## Ran 2026-10-04: cards-m5, every card against no card (branch `claude/cards-all`)
 
 Built on the owner's go ("cards - let's add all and test variations for whatever might not work in
-our version or might be overpowered"); not launched. Needs the owner's go.
+our version or might be overpowered"). Ran 2026-10-04.
 
 - **cards-m5:** the 13 new cards that can act against no card (Rescue and MirrorB each with a
   Freeze), the Freeze alone, and Salvation, each against `none` with the no-card mirror games, 300
@@ -250,6 +254,10 @@ our version or might be overpowered"); not launched. Needs the owner's go.
   Freeze, 1,800 games, about 8 min. Replaces `cards-a3` (Salvation is in it). Commands:
   `docs/research/cards-2026-10-03.md`, "Measurement 5". Decides: each card's value and draws against
   no card, and whether each softer `B` reading is needed.
+- **Results:** `docs/research/cards-2026-10-03.md`, "Measurement 5", Results (2026-10-04). Rage
+  +4.06 and RageB +3.97 pawns: about 1.7 Hastes, the one overpowered card, and RageB is not softer.
+  MirrorB +2.22; Mirror about 0. Rescue +0.40, nothing measurable. Raw games are not on a results
+  branch yet.
 
 ## Dropped
 

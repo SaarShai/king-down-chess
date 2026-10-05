@@ -6,22 +6,19 @@ work stopped and what to do next.
 
 ## Where things stand
 
-**Pull requests** (all drafts; the owner reviews and merges, never merge yourself):
+**Pull requests:** all five are merged into main: #1–#4 (`claude/wonderful-ritchie-4cgq32`,
+`claude/painted-motion`, `claude/perf-installable`, `claude/visual-design`) on 2026-10-03, and #5
+(`claude/merge-night`) on 2026-10-04. Do not push to those branches. New work goes on its own
+`claude/<topic>` branch. Owner-approved branches are joined on one integration branch for one PR, as
+#5 was; the next one is `claude/integration-2026-10-05` (cards-all, one-beast, card-art, piece-icons
+with six-kings; see `TASKS.md`). The owner merges; never merge yourself. Merging into main does not
+deploy (`AGENTS.md`, Hosting).
 
-| PR | branch | what |
-|---|---|---|
-| [#1](https://github.com/SaarShai/king-down-chess/pull/1) | `claude/wonderful-ritchie-4cgq32` | Kings' powers mode (12 powers, balanced), the stronger power-aware computer player, the tournament tools, card mode (lab). **Push new work here** unless the owner says otherwise. |
-| [#2](https://github.com/SaarShai/king-down-chess/pull/2) | `claude/painted-motion` | Painted look: quiet moves, breathing selection, framed board |
-| [#4](https://github.com/SaarShai/king-down-chess/pull/4) | `claude/perf-installable` | Faster first load, installable/offline, GitHub Pages |
-| [#3](https://github.com/SaarShai/king-down-chess/pull/3) | `claude/visual-design` | Title screen, stone-and-parchment look, piece cards, move/take markers |
-
-The PRs are **stacked**: #1 → #2 → #4 → #3. Each branch contains the one before it, joined with
-merge commits (never rebase or force-push these branches). The owner authorized pushing to the
-three stacked branches to keep them up to date; after every push to #1, merge it forward (below).
-
-**Kings' powers rules:** the official readings are `POWERS_BALANCED` in `src/rules/rules.ts`; no
-rule has changed since round 11. Report: `docs/research/kings-powers-balance-2026-10-02.md`
-(rounds 1–13); rules text `docs/RULES.md` §4.
+**Kings' powers rules:** the official readings are `POWERS_BALANCED` in `src/rules/rules.ts`.
+Since round 11 two readings changed, both owner-adopted: Mercy M2 (2026-10-03) and the Darkness king
+step (2026-10-04, rounds 16–17); they reach main with `claude/integration-2026-10-05`. Report:
+`docs/research/kings-powers-balance-2026-10-02.md`; rules text `docs/RULES.md` §4. The balance
+numbers below are from rounds 11–13, before those changes.
 
 **Balance, rounds 11–13 pooled (1,896 armies, 7,488 games;
 `sim/out/kp2-r11+kp2-r12+kp2-r13.report.md`).** Tested together, three powers are off centre:
@@ -91,16 +88,7 @@ remains in the owner's account (harmless; delete only if the owner asks).
 
 ## How to run things
 
-- **Unit tests and types:** `npx tsc --noEmit`, `npx vitest run` (about 90 s; 368 tests on PR #1).
-- **Merge forward after a push to #1** (from a worktree with `node_modules` linked):
-  ```sh
-  git fetch origin claude/wonderful-ritchie-4cgq32 claude/painted-motion claude/perf-installable claude/visual-design
-  git checkout -B pm origin/claude/painted-motion && git merge origin/claude/wonderful-ritchie-4cgq32
-  git checkout -B pi origin/claude/perf-installable && git merge pm
-  git checkout -B vd origin/claude/visual-design && git merge pi
-  npx tsc --noEmit && npx vitest run
-  git push origin pm:claude/painted-motion pi:claude/perf-installable vd:claude/visual-design
-  ```
+- **Unit tests and types:** `npx tsc --noEmit`, `npx vitest run` (about 90 s; 558 tests on `claude/integration-2026-10-05`).
 - **Browser checks:** build and serve, then run a check (`PLAYABLE_BROWSER=chromium` in cloud
   containers, which lack the Chrome channel):
   ```sh
