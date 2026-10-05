@@ -138,7 +138,19 @@ try {
   await page.click('#rules-btn');
   const cards = page.locator('#rules-rows .piece-card');
   assert.ok(await cards.count() >= 12);
-  const loaded = await page.$$eval('#rules-rows img', imgs => Promise.all(imgs.map(i => i.decode().then(() => i.naturalWidth > 0, () => false))));
+  // The figures load lazily: when the Guide opens, some are not loaded yet, and decode() on such an image
+  // can reject. So, one at a time, scroll each figure into view, wait for its load (10 s at most), then decode it.
+  const loaded = await page.$$eval('#rules-rows img', async imgs => {
+    const out = [];
+    for (const i of imgs) {
+      i.scrollIntoView({ block: 'center' });
+      if (!i.complete) await Promise.race([
+        new Promise(r => { i.addEventListener('load', r, { once: true }); i.addEventListener('error', r, { once: true }); }),
+        new Promise(r => setTimeout(r, 10_000))]);
+      out.push(await i.decode().then(() => i.naturalWidth > 0, () => false));
+    }
+    return out;
+  });
   assert.ok(loaded.length >= 12 && loaded.every(Boolean), 'every card figure loads');
   await page.locator('#rules form button').click();
   await tap(page, 48); await tap(page, 56);

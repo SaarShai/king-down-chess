@@ -239,8 +239,9 @@ guard reserve runs ran on 2026-10-04. `cards-a3` did not run: cards-m5 (below) p
   whether a guard that enters from beside the board passes criteria 1 and 5.
 - **Results:** `docs/research/piece-balance-criteria-2026-10-03.md`, "The Guard readings
   (2026-10-04)", on `claude/archer-far`. Only the reserve passes criterion 5 (89.6% and 95.4% moved),
-  partly because the entry counts as a move. The Guard's worth does not change (−186 and −181 ± 18
-  Elo against the Knight); draws do not change. Salvation, in cards-m5: +0.71 ± 0.40 pawns.
+  partly because the entry counts as a move. The Guard's worth does not change (−186 ± 17 and
+  −181 ± 18 Elo against the Knight); draws do not change. Salvation, in cards-m5: +0.71 ± 0.40 pawns.
+  Raw games: `origin/claude/kp2-results` (4567479).
 
 ## Ran 2026-10-04: cards-m5, every card against no card (branch `claude/cards-all`)
 
@@ -256,8 +257,8 @@ our version or might be overpowered"). Ran 2026-10-04.
   no card, and whether each softer `B` reading is needed.
 - **Results:** `docs/research/cards-2026-10-03.md`, "Measurement 5", Results (2026-10-04). Rage
   +4.06 and RageB +3.97 pawns: about 1.7 Hastes, the one overpowered card, and RageB is not softer.
-  MirrorB +2.22; Mirror about 0. Rescue +0.40, nothing measurable. Raw games are not on a results
-  branch yet.
+  MirrorB +2.22; Mirror about 0. Rescue +0.40, nothing measurable. Raw games:
+  `origin/claude/kp2-results` (4567479).
 
 ## Dropped
 

@@ -6,13 +6,13 @@ work stopped and what to do next.
 
 ## Where things stand
 
-**Pull requests:** all five are merged into main: #1–#4 (`claude/wonderful-ritchie-4cgq32`,
-`claude/painted-motion`, `claude/perf-installable`, `claude/visual-design`) on 2026-10-03, and #5
-(`claude/merge-night`) on 2026-10-04. Do not push to those branches. New work goes on its own
-`claude/<topic>` branch. Owner-approved branches are joined on one integration branch for one PR, as
-#5 was; the next one is `claude/integration-2026-10-05` (cards-all, one-beast, card-art, piece-icons
-with six-kings; see `TASKS.md`). The owner merges; never merge yourself. Merging into main does not
-deploy (`AGENTS.md`, Hosting).
+**Pull requests:** all five are merged into main on 2026-10-03 (local time): #1–#4
+(`claude/wonderful-ritchie-4cgq32`, `claude/painted-motion`, `claude/perf-installable`,
+`claude/visual-design`) and #5 (`claude/merge-night`). Do not push to those branches. New work goes
+on its own `claude/<topic>` branch. Owner-approved branches are joined on one integration branch for
+one PR, as #5 was; the next one is `claude/integration-2026-10-05` (cards-all, one-beast, card-art,
+piece-icons with six-kings; see `TASKS.md`). The owner merges; never merge yourself. Merging into
+main does not deploy (`AGENTS.md`, Hosting).
 
 **Kings' powers rules:** the official readings are `POWERS_BALANCED` in `src/rules/rules.ts`.
 Since round 11 two readings changed, both owner-adopted: Mercy M2 (2026-10-03) and the Darkness king
@@ -88,7 +88,7 @@ remains in the owner's account (harmless; delete only if the owner asks).
 
 ## How to run things
 
-- **Unit tests and types:** `npx tsc --noEmit`, `npx vitest run` (about 90 s; 558 tests on `claude/integration-2026-10-05`).
+- **Unit tests and types:** `npx tsc --noEmit`, `npx vitest run` (about 90 s; 559 tests on `claude/integration-2026-10-05`).
 - **Browser checks:** build and serve, then run a check (`PLAYABLE_BROWSER=chromium` in cloud
   containers, which lack the Chrome channel):
   ```sh
