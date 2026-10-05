@@ -283,8 +283,8 @@ describe('Control', () => {
     // The guard moves as the rook beside it, past its own steps (b2, c1), and does not take the pawn on b3.
     const guard = fromFen('4k3/8/8/8/8/1p6/8/RG2K3 w - - 0 1');
     expect(card(guard, '!O').filter(l => l.startsWith('G'))).toEqual(['Gb1-d1!O']);
-    // The knight next to an archer shoots as one, from its square; the archer takes as a knight.
-    const archer = fromFen('4k3/8/8/8/8/2p5/8/NA2K3 w - - 0 1');
+    // The knight next to an archer shoots as one, from its square (over the pawn on b2); the archer takes as a knight.
+    const archer = fromFen('4k3/8/8/8/8/2p5/1P6/NA2K3 w - - 0 1');
     expect(card(archer, '!O')).toEqual(expect.arrayContaining(['Na1*c3!O', 'Ab1xc3!O']));
     legalSame(guard);
     legalSame(archer);
