@@ -188,6 +188,15 @@ Earth Quake and Growth; their texts and readings are in that report ("The 2014 c
     `direct-campaign-phase-3-2026-09-22.md`. Selectively implemented on the accepted clay base:
     [adoption record](cursor-recovery/2026-09-24-0213b442/EXECUTED.md). The new 24-game traffic sketch
     does not establish a balance improvement or a precise first-move advantage.
+19. **The over-a-piece Archer is held; today's Archer stays (owner, 2026-10-05: "option B").** The owner
+    first approved `archerShots: 'over2'` (the Archer takes an enemy exactly 2 squares away straight or on
+    a forward diagonal, only over a piece of either side, and no longer its diagonal neighbours; built on
+    `claude/archer-over2`). Re-pricing it for the computer then measured its worth at **0.83 ± 0.25 pawns**
+    (four Muller passes against the Knight at depth 3, the last two with the Knight army a pawn down:
+    `ARCHER_V` would fall 505 → 83; `docs/research/piece-runs-2026-10-05-pv-A-over2.md` on that branch),
+    far under criterion 1's 2.5–5.5 pawns. So this release keeps Decision 16: `archerShots`
+    `'plusDiagFwd2'`, `ARCHER_V` 505, the Archer lesson and the Guide text unchanged. Next: on the M1, an
+    over-a-piece Archer with more reach, aiming at a worth of at least 2.5 pawns with few draws.
 
 ### First measured evidence (2026-09-13, provisional) — superseded by §6.8
 

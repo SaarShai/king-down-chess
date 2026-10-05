@@ -1,4 +1,4 @@
-# Handoff — King Down Chess, 2026-10-03 (third session)
+# Handoff — King Down Chess, 2026-10-03 (third session); release branch 2026-10-05
 
 For the next agent session. Read `AGENTS.md`, then `TASKS.md` and `LESSONS.md` (project rules),
 then this file. `TASKS.md` stays the record of work and owner decisions; this file says where the
@@ -10,9 +10,18 @@ work stopped and what to do next.
 (`claude/wonderful-ritchie-4cgq32`, `claude/painted-motion`, `claude/perf-installable`,
 `claude/visual-design`) and #5 (`claude/merge-night`). Do not push to those branches. New work goes
 on its own `claude/<topic>` branch. Owner-approved branches are joined on one integration branch for
-one PR, as #5 was; the next one is `claude/integration-2026-10-05` (cards-all, one-beast, card-art,
-piece-icons with six-kings; see `TASKS.md`). The owner merges; never merge yourself. Merging into
-main does not deploy (`AGENTS.md`, Hosting).
+one PR, as #5 was. The owner merges; never merge yourself. Merging into main does not deploy
+(`AGENTS.md`, Hosting).
+
+**Release, 2026-10-05: `claude/release-2026-10-05`.** It is `claude/integration-2026-10-05` before
+its Archer merge (45ec461: cards-all, one-beast, card-art, piece-icons with six-kings) with
+`claude/release-visuals` (king-effects with power-motion) and the review's fixes. The owner chose
+"option B": the over-a-piece Archer (`claude/archer-over2`) is held because it measured 0.83 pawns,
+so today's Archer stays (`docs/RULES.md` Decision 19); everything else is deployed. The next Archer
+step is a test on the M1 of an over-a-piece Archer with more reach (worth at least 2.5 pawns, few
+draws). `claude/integration-2026-10-05` (with the Archer) is not the release. What the release holds
+and its checks: `TASKS.md`, first section. Next, for the lead: the PR and the deploy (`AGENTS.md`,
+Hosting).
 
 **Kings' powers rules:** the official readings are `POWERS_BALANCED` in `src/rules/rules.ts`.
 Since round 11 two readings changed, both owner-adopted: Mercy M2 (2026-10-03) and the Darkness king
