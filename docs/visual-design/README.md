@@ -70,6 +70,11 @@ for white and the shadow for black."
   official count and one-line rule of the chosen power under them. White is **Spirit** and Black is
   **Shadow** by default; with powers on, each king starts with its first power. A game with no powers
   keeps plain kings in the rules.
+- **Motion** ([`src/power-motion.ts`](../../src/power-motion.ts), `.css`; branch `claude/power-motion`,
+  for the owner's approval): each power button shows a small board vignette of its power. The vignette is
+  still when idle and loops on hover, focus and while chosen. The chosen emblem shows its element live.
+  Only transform and opacity move (and one stroke draw). With reduced motion, each picture keeps a still
+  frame that shows the power.
 - **More options** (folded): the side you play, and the army (Random King Down army, Today's army, Chess
   starting army, Custom army…, the example armies and Ogre practice).
 - The dialog edits a copy: Cancel drops the changes, Start game keeps them for next time
