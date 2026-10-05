@@ -151,11 +151,18 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  }
  // Clips to the dark squares round a king's square (dark) or to everything else; with no cell (the title),
  // dark draws everywhere and the other pass nothing.
- function clipSquares(ctx,cell,dark){
+ // Clips to what is dark under him (dark) or to everything else: the board's 32 dark squares and the dark
+ // stone frame round them; the cream page outside the frame and the light squares are light. The pattern is
+ // the board's own, wherever he stands, so nothing changes as he moves. With no board (the title), dark draws
+ // everywhere and the other pass nothing.
+ function clipSquares(ctx,board,dark){
   ctx.beginPath();
-  if(!cell){if(!dark)ctx.rect(0,0,0,0);else ctx.rect(-1e4,-1e4,2e4,2e4);ctx.clip();return;}
+  if(!board){if(!dark)ctx.rect(0,0,0,0);else ctx.rect(-1e4,-1e4,2e4,2e4);ctx.clip();return;}
+  const {x,y,tile,frame}=board,size=8*tile;
   if(!dark)ctx.rect(-1e4,-1e4,2e4,2e4);
-  for(let dr=-2;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if(((dc+dr)%2===0)===cell.dark)ctx.rect(cell.x+dc*cell.size,cell.y+dr*cell.size,cell.size,cell.size);
+  // The frame: the ring between the board and its outer edge (evenodd: the board's own area is cut out).
+  if(frame){ctx.rect(x-frame,y-frame,size+2*frame,size+2*frame);ctx.rect(x,y,size,size);}
+  for(let row=0;row<8;row++)for(let col=0;col<8;col++)if((col+row)%2===1)ctx.rect(x+col*tile,y+row*tile,tile,tile);
   ctx.clip('evenodd');
  }
  // A Spirit layer over the figure (padded layer → sprite px).
@@ -348,20 +355,22 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   // His crown, following the figure's lean (a strike tilts him about his feet): the figure is drawn
   // scale(facing) then rotate(rotation), so on screen he turns by rotation × facing (measured: the fan's
   // anchor stays on the drawn crown through the capture, both armies; tools: drawImage transforms).
-  const b=breath(s.t),sp=spiritLayers(s.side),r=s.pose.rotation??0,lean=r*s.pose.facing;
-  const head={x:s.pose.foot.x+118*(s.pose.sx??1)*Math.sin(lean),y:s.pose.foot.y-118*(s.pose.sy??1)*Math.cos(r)},turn=.05*Math.sin(TAU*s.t/PERIOD.spirit/2)+lean;
+  // His glow goes with his figure: it breathes on the clock that never restarts and stays on him through a
+  // move. Only the light (or shadow) pooled on his square fades as he leaves it and grows back where he arrives.
+  const tt=figureClock(s),b=breath(tt),sp=spiritLayers(s.side),r=s.pose.rotation??0,lean=r*s.pose.facing;
+  const head={x:s.pose.foot.x+118*(s.pose.sx??1)*Math.sin(lean),y:s.pose.foot.y-118*(s.pose.sy??1)*Math.cos(r)},turn=.05*Math.sin(TAU*tt/PERIOD.spirit/2)+lean;
   ctx.save();
   if(s.side===1){
    // The charcoal king: black only, drawn over the board (no added light). Never fully gone at the dim point.
    const pool=ctx.createRadialGradient(0,0,0,0,0,1);pool.addColorStop(0,'rgba(18,15,12,.9)');pool.addColorStop(.6,'rgba(34,29,24,.55)');pool.addColorStop(1,'rgba(34,29,24,0)');
    ctx.save();ctx.globalAlpha=s.k*s.g*(.3+.7*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(52,18);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
    // It breathes as the ivory glow does, from faint to deep; the halo reaches about as far as the ivory one.
-   ctx.save();ctx.globalAlpha=s.k*s.g*(.35+.65*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(raysDark(),-40,-42,80,44);ctx.restore();
-   // The aura: where the board under it is dark wood the black needs more strength than over light stone, so
-   // each layer is drawn twice, clipped to the dark squares round him and to everything else (his head and
-   // shoulders stand over the next rank's square, the other colour). It grows in with his square's effects.
+   ctx.save();ctx.globalAlpha=s.k*(.35+.65*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(raysDark(),-40,-42,80,44);ctx.restore();
+   // The aura: where what is drawn under it is dark (dark squares, the stone frame) the black needs more
+   // strength than over light stone or the cream page, so each layer is drawn twice, clipped to each (his head
+   // and shoulders stand over the next rank's square, or over the frame and the page on the back rank).
    if(sp)for(const dark of [true,false]){
-    ctx.save();clipSquares(ctx,s.cell,dark);const k=s.k*s.g;
+    ctx.save();clipSquares(ctx,s.board,dark);const k=s.k;
     ctx.globalAlpha=k*(dark?.4+.6*b:.2+.4*b);inSpirit(ctx,s,sp.halo);
     ctx.globalAlpha=k*(dark?.45+.55*b:.25+.4*b);inSpirit(ctx,s,sp.rim);
     ctx.globalAlpha=k*(dark?.25+.75*b:.06+.2*b);inSpirit(ctx,s,sp.inner);
@@ -374,16 +383,16 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   const pool=ctx.createRadialGradient(0,0,0,0,0,1);pool.addColorStop(0,'rgba(255,238,178,.85)');pool.addColorStop(.55,'rgba(255,232,160,.4)');pool.addColorStop(1,'rgba(255,232,160,0)');
   ctx.save();ctx.globalAlpha=s.k*s.g*(.28+.55*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(48,16);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
   // Short soft rays behind his crown, in a narrow fan that turns a little (about 36 units: not over the next square).
-  ctx.save();ctx.globalAlpha=s.k*s.g*(.18+.55*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(rays(),-40,-42,80,44);ctx.restore();
+  ctx.save();ctx.globalAlpha=s.k*(.18+.55*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(rays(),-40,-42,80,44);ctx.restore();
   // The glow round his outline: the wide halo, and the close rim brightening towards the peak.
-  if(sp){ctx.globalAlpha=s.k*s.g*(.4+.5*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*s.g*(.3+.7*b);inSpirit(ctx,s,sp.rim);}
+  if(sp){ctx.globalAlpha=s.k*(.4+.5*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(.3+.7*b);inSpirit(ctx,s,sp.rim);}
   ctx.restore();
  }
  function holyFront(ctx,s){
   const sp=spiritLayers(s.side);if(!sp)return;
   // A sheen on the figure: gold for the ivory king; for the charcoal king a light shade (multiplied), so he
   // looks wrapped in darkness but keeps his own modelling.
-  ctx.save();ctx.globalCompositeOperation=s.side?'multiply':'lighter';ctx.globalAlpha=s.k*s.g*(s.side?.03+.07*breath(s.t):.05+.25*breath(s.t));inSpirit(ctx,s,sp.gold);ctx.restore();
+  ctx.save();ctx.globalCompositeOperation=s.side?'multiply':'lighter';ctx.globalAlpha=s.k*(s.side?.03+.07*breath(figureClock(s)):.05+.25*breath(figureClock(s)));inSpirit(ctx,s,sp.gold);ctx.restore();
  }
 
  // —— Shadow ——
@@ -459,7 +468,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   pose(s){
    if(s.design==='shadow'){const l=shadowLayers(s.side);return l?{...s.pose,sheet:l.body}:s.pose;}
    // The charcoal Spirit: his black aura takes the place of the army's pale readability rim.
-   if(s.design==='spirit'&&s.side===1)return {...s.pose,rim:1-.85*s.k*(s.g??1)};
+   if(s.design==='spirit'&&s.side===1)return {...s.pose,rim:1-.85*s.k};
    if(s.design!=='stratus')return s.pose;
    const p=s.pose,lift=hoverAt(figureClock(s),s.k),ground=p.ground??p.foot;
    return {...p,ground,foot:{x:p.foot.x,y:p.foot.y-lift},lift:(p.lift??0)+lift,shadow:(p.shadow??1)*(1-.045*lift)};

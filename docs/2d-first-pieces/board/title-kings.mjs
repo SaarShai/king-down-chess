@@ -104,7 +104,8 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   const i=kings.indexOf(k);
   l.save();l.setTransform(k.dpr,0,0,k.dpr,-k.bx0*k.u*k.dpr,-k.by0*k.u*k.dpr);l.globalCompositeOperation='destination-out';
   for(const n of [kings[i-1],kings[i+1]]){
-   if(!n)continue;const im=n.img,x=im.offsetLeft,y=im.offsetTop,w=im.offsetWidth,h=im.offsetHeight;
+   // (An image that failed to load has nothing to cut, and drawing it would throw.)
+   if(!n||!n.img.complete||!n.img.naturalWidth)continue;const im=n.img,x=im.offsetLeft,y=im.offsetTop,w=im.offsetWidth,h=im.offsetHeight;
    // (Where he is drawn now: Stratus hovers above his image.)
    const dy=n.lift??0;
    if(n.mirror){l.save();l.translate(x+w,y+dy);l.scale(-1,1);l.drawImage(im,0,0,w,h);l.restore();}else l.drawImage(im,x,y+dy,w,h);

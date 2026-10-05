@@ -370,10 +370,12 @@ function vortex(out,foot,phase,strength) {
   // While he moves, what stands on his square fades from where it was (it may still have been growing in).
   const grown=t=>ease((t-since)/900),g=moving?grown(a.start)*(1-ease((time-a.start)/(200*a.speed))):grown(time);
   // Each effect's loop starts again when he arrives on a square (so Mud's grass comes before his vines).
-  // now: a clock that never restarts (Stratus's hover keeps its phase across a move). cell: his square's
-  // top-left corner and size, and whether it is dark (a1 is) — an effect may follow the squares' colours.
-  const c=cell(sq),s={design,side,pose:unit.pose,t:time-since+entry.offset,now:time+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing,
-   cell:{x:PAD+c.col*TILE,y:PAD+c.row*TILE,size:TILE,dark:((sq&7)+(sq>>3))%2===0}};
+  // now: a clock that never restarts (Stratus's hover keeps its phase across a move). board: where the
+  // squares are on the canvas (on screen a square is dark when its column + row is odd, a1 at either side's
+  // corner) and how wide the dark stone frame round them is (none on the plain board) — an effect may follow
+  // the colour of what is drawn under it.
+  const s={design,side,pose:unit.pose,t:time-since+entry.offset,now:time+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing,
+   board:{x:PAD,y:PAD,tile:TILE,frame:lively.atmosphere&&boardArt.naturalWidth?26:0}};
   s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
   return s;
  }
