@@ -1,6 +1,6 @@
 // The New game dialog in a real browser: its defaults, the game each of the three modes starts
 // (players, computer level, kings and powers), the king picker's power texts, Cancel, memory, an
-// older save, a custom army, the keyboard, and the phone layout. Screenshots: docs/visual-design/new-game/.
+// older save, a custom army, the keyboard, the phone layout, and the picker's motion art. Screenshots: docs/visual-design/new-game/.
 // Needs a running build: PLAYABLE_URL=http://127.0.0.1:5189/ node tools/verify-new-game.mjs
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
@@ -14,8 +14,8 @@ const browser = await chromium.launch({ headless: true, channel: process.env.PLA
 const errors = [];
 const ok = msg => console.log(`ok ${msg}`);
 
-async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null } = {}) {
-  const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch });
+async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null, reducedMotion = 'no-preference' } = {}) {
+  const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, reducedMotion });
   await ctx.addInitScript(s => {
     sessionStorage.setItem('kingdown.title-seen', '1'); // skip the title screen (main.ts)
     if (s && !sessionStorage.getItem('seeded')) { localStorage.setItem('kingdown.save', JSON.stringify(s)); sessionStorage.setItem('seeded', '1'); }
@@ -33,6 +33,13 @@ const checked = (page, name) => page.evaluate(n => document.querySelector(`#new-
 const pressed = (page, c) => page.evaluate(c => [...document.querySelectorAll(`#pick-${c} [aria-pressed="true"]`)].map(b => b.dataset.king ?? b.dataset.power), c);
 const powerLine = (page, c) => page.textContent(`#pick-${c} .power-text`);
 const shown = (page, id) => page.isVisible(`#${id}`);
+/** Running CSS animations (not the buttons' own transitions) inside `sel`, and the properties they change. */
+const motion = (page, sel) => page.evaluate(sel => {
+  const box = document.querySelector(sel), anims = document.getAnimations().filter(a => a instanceof CSSAnimation && box.contains(a.effect?.target));
+  const props = new Set(anims.flatMap(a => a.effect.getKeyframes().flatMap(k => Object.keys(k))));
+  ['offset', 'easing', 'composite', 'computedOffset'].forEach(k => props.delete(k));
+  return { running: anims.filter(a => a.playState === 'running').length, props: [...props].sort() };
+}, sel);
 /** The painted board draws each side's King with that king's sheet: waits until both are drawn as `kings`. */
 const kingsDrawn = (page, kings) => page.waitForFunction(k => {
   const v = window.view.kings; return v && [...v.set, ...v.drawn].join() === [...k, ...k].join();
@@ -84,6 +91,34 @@ try {
   assert.deepEqual(await pressed(page, 0), ['Shadow', '']);
   assert.equal(await powerLine(page, 0), 'No power: a plain chess king.');
   ok(`picker: six emblems a side in KINGS order, Spirit and Shadow first, ${lines.length} official power lines, No power`);
+
+  // Motion art (src/power-motion.ts): hidden from screen readers, names unchanged; only the chosen
+  // power and the chosen king move, and only by transform, opacity and a stroke draw.
+  await page.click('#pick-0 .emblem[data-king="Frost"]');
+  await page.mouse.move(1, 1);
+  for (const [name, power] of [['Freeze', 'Freeze'], ['Ice Wall', 'IceWall'], ['No power', '']]) {
+    assert.equal(await page.getByRole('group', { name: "White's power" }).getByRole('button', { name, exact: true }).getAttribute('data-power'), power, name);
+  }
+  assert.equal(await page.$$eval('#king-picker .pm, #king-picker .kx', es => es.every(e => e.closest('[aria-hidden="true"]'))), true, 'art is aria-hidden');
+  assert.equal(await page.$$eval('#pick-0 .kx', es => es.filter(e => getComputedStyle(e).display !== 'none').map(e => e.closest('.emblem').dataset.king).join()), 'Frost,Frost');
+  assert.ok((await motion(page, '#pick-0 .emblem[data-king="Frost"]')).running > 5, 'the chosen emblem is live');
+  assert.equal((await motion(page, '#pick-0 .emblem[data-king="Flame"]')).running, 0, 'other emblems are still');
+  const chosen = await motion(page, '#pick-0 .power-choice [data-slot="0"]');
+  assert.ok(chosen.running >= 3, 'the chosen power plays');
+  assert.equal((await motion(page, '#pick-0 .power-choice [data-slot="1"]')).running, 0, 'an idle power is still');
+  await page.hover('#pick-0 .power-choice [data-slot="1"]');
+  assert.ok((await motion(page, '#pick-0 .power-choice [data-slot="1"]')).running >= 3, 'hover plays it');
+  await page.mouse.move(1, 1);
+  const props = new Set();
+  for (const king of ['Frost', 'Flame', 'Stratus', 'Mud', 'Spirit', 'Shadow']) {
+    await page.click(`#pick-0 .emblem[data-king="${king}"]`);
+    for (const slot of ['0', '1']) {
+      await page.click(`#pick-0 .power-choice [data-slot="${slot}"]`);
+      (await motion(page, '#pick-0')).props.forEach(p => props.add(p));
+    }
+  }
+  assert.deepEqual([...props].sort(), ['opacity', 'strokeDashoffset', 'transform'], 'compositor-friendly properties only');
+  ok('motion art: names and pressed states unchanged, art hidden from screen readers; only the chosen power, a hovered one and the chosen emblem move, by transform, opacity and a stroke draw');
 
   // Cancel drops the changes: the dialog opens again on the last game's setup.
   await page.keyboard.press('Escape');
@@ -193,8 +228,23 @@ try {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.getElementById('new-game').scrollWidth <= document.getElementById('new-game').clientWidth), mode);
     if (mode === 'powers') await page.screenshot({ path: `${out}/phone-powers.jpg`, type: 'jpeg', quality: 86 });
   }
+  // The power buttons with their pictures: 44 px targets or more, labels whole and at 14 px.
+  for (const b of await page.$$eval('#king-picker .power-choice button', bs => bs.map(b => {
+    const r = b.getBoundingClientRect(), l = b.querySelector('.pm-label');
+    return { w: r.width, h: r.height, fs: parseFloat(getComputedStyle(l).fontSize), whole: l.scrollWidth <= l.clientWidth + 1 };
+  }))) assert.ok(b.w >= 44 && b.h >= 44 && b.fs >= 14 && b.whole, JSON.stringify(b));
   await page.context().close();
-  ok('phone: no sideways scroll in the three modes with More options open');
+  ok('phone: no sideways scroll in the three modes with More options open; power buttons 44 px or more with whole 14 px labels');
+
+  // 10. Reduced motion: nothing in the picker moves; each picture keeps its still frame.
+  page = await open({ reducedMotion: 'reduce' });
+  await page.click('#new-game-btn');
+  await page.click('label:has(#mode-powers)');
+  await page.click('#pick-0 .emblem[data-king="Frost"]');
+  assert.equal((await motion(page, '#king-picker')).running, 0);
+  assert.equal(await page.$eval('#pick-0 .fz-ice', e => getComputedStyle(e).opacity), '1', 'the Freeze still shows the ice');
+  await page.context().close();
+  ok('reduced motion: no animation in the picker; the still frames show the powers');
 
   assert.deepEqual(errors, []);
   ok('no page errors');
