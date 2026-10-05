@@ -148,10 +148,10 @@ it('the same under each archer shot set, the three middle lab sets included (202
   let seed = 1818;
   const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
   // `over2` shoots only over a piece there, so a move that fills it can open a shot (2026-10-04).
-  const SETS: Rules['archerShots'][] = ['plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide', 'far2', 'over2'];
+  const SETS: Rules['archerShots'][] = ['plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide', 'far2', 'over2', 'nearOver2'];
   let checked = 0, inCheckCount = 0;
   const changed: Record<string, number> = {};
-  for (let trial = 0; trial < 9000; trial++) {
+  for (let trial = 0; trial < 10500; trial++) {
     const board = randomBoard(rng);
     // More archers: each side gets one more on a random empty square.
     for (const c of [WHITE, BLACK]) { const s = Math.floor(rng() * 64); if (!board[s]) board[s] = piece(A, c); }
