@@ -65,7 +65,12 @@ export const PAWN_V = 100, KNIGHT_V = 316, BISHOP_V = 322, ROOK_V = 449, QUEEN_V
 // S 3.08 -> 3.68 -> 3.77; each second-pass move is inside its error bar, so this is the fixed
 // point (`sim/out/pb-values-refresh{,2}.experiment.md`). The guard measures out of band below
 // 1.66; its 96 stays (a wall's worth is positional, and the material scan is not the instrument).
-export const ARCHER_V = 505, PALADIN_V = 408, GUARD_V = 96, MAESTER_V = 318, BEAST_V = 434;
+// ARCHER_V re-priced 505 -> 83 with `archerShots: 'over2'` (adopted 2026-10-05: it shoots only over
+// a piece). Odds match vs a knight, 1,000 games a pass, depth 3, 77 Elo a pawn (pv-d3), seed 1036:
+// at 505 it reads 1.94 ± 0.24; at 194 it leaves the band below (< 1.66); with Muller's second step
+// (`--odds`, the knight army a pawn down) 0.84 ± 0.26 at 138, then 0.83 ± 0.25 at 84 — the fixed
+// point (docs/research/piece-runs-2026-10-05-pv-A-over2.md).
+export const ARCHER_V = 83, PALADIN_V = 408, GUARD_V = 96, MAESTER_V = 318, BEAST_V = 434;
 // BEAST_V 377 -> 434 with the blind spot removed (2026-09-17): captures +29%, odds match 4.34 ± 0.42
 // (inside the old error bar, but it is the best estimate under the shipped rule).
 /** Ogre push retains the adopted 318 value from the September 17 study. Catapult stays a lab seed. */

@@ -219,6 +219,13 @@ its worth falls under 2.15. So every reading with a fair capture share (`nearOve
 draws like an army without an Archer; only the strong readings (today, `far2`) and `over2` keep the
 draws down. `over2` does it with the weakest Archer: the Queen and the Beast take its captures.
 
+**Adopted (owner, 2026-10-05: "yes, what you recommend"):** `over2` is the official Archer
+(`docs/RULES.md` Decision 19). Re-priced for the computer by four Muller passes against the Knight
+(1,000 games each, depth 3): 1.94 ± 0.24 pawns at the old price 505, out of the band below at 194,
+then, with the Knight army a pawn down (`--odds`), 0.84 ± 0.26 at 138 and 0.83 ± 0.25 at 84, the
+fixed point: `ARCHER_V` 505 → 83 (`piece-runs-2026-10-05-pv-A-over2.md`). Criterion 1 (2.5–5.5
+pawns) fails, as the reading's bound already said.
+
 ### The Guard readings (2026-10-04)
 
 Owner (2026-10-04): "guard - test both B and C", then "guard - do the testing" (a Guard that is

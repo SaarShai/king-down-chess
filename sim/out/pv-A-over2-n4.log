@@ -1,0 +1,140 @@
+[pv-A-over2-n4.A] 1000 games (0 already done), 1000 to play on 12 workers -> sim/out/pv-A-over2-n4.A.jsonl
+[pv-A-over2-n4.A] depth 3, 4 random opening plies, ply cap 300, pairs on
+[pv-A-over2-n4.A] rules {}, values {"A":84}
+[pv-A-over2-n4.A] 1/1000  0.5 games/s  ETA 0h33m19s
+[pv-A-over2-n4.A] 16/1000  4.0 games/s  ETA 0h04m06s
+[pv-A-over2-n4.A] 29/1000  4.8 games/s  ETA 0h03m21s
+[pv-A-over2-n4.A] 43/1000  5.4 games/s  ETA 0h02m58s
+[pv-A-over2-n4.A] 55/1000  5.5 games/s  ETA 0h02m51s
+[pv-A-over2-n4.A] 66/1000  5.5 games/s  ETA 0h02m50s
+[pv-A-over2-n4.A] 73/1000  5.2 games/s  ETA 0h02m58s
+[pv-A-over2-n4.A] 80/1000  5.0 games/s  ETA 0h03m04s
+[pv-A-over2-n4.A] 92/1000  5.1 games/s  ETA 0h02m57s
+[pv-A-over2-n4.A] 103/1000  5.1 games/s  ETA 0h02m54s
+[pv-A-over2-n4.A] 115/1000  5.2 games/s  ETA 0h02m49s
+[pv-A-over2-n4.A] 128/1000  5.3 games/s  ETA 0h02m43s
+[pv-A-over2-n4.A] 143/1000  5.5 games/s  ETA 0h02m35s
+[pv-A-over2-n4.A] 157/1000  5.6 games/s  ETA 0h02m30s
+[pv-A-over2-n4.A] 166/1000  5.5 games/s  ETA 0h02m30s
+[pv-A-over2-n4.A] 175/1000  5.5 games/s  ETA 0h02m31s
+[pv-A-over2-n4.A] 185/1000  5.4 games/s  ETA 0h02m29s
+[pv-A-over2-n4.A] 193/1000  5.4 games/s  ETA 0h02m30s
+[pv-A-over2-n4.A] 204/1000  5.4 games/s  ETA 0h02m28s
+[pv-A-over2-n4.A] 218/1000  5.4 games/s  ETA 0h02m23s
+[pv-A-over2-n4.A] 228/1000  5.4 games/s  ETA 0h02m22s
+[pv-A-over2-n4.A] 238/1000  5.4 games/s  ETA 0h02m21s
+[pv-A-over2-n4.A] 249/1000  5.4 games/s  ETA 0h02m18s
+[pv-A-over2-n4.A] 259/1000  5.4 games/s  ETA 0h02m17s
+[pv-A-over2-n4.A] 268/1000  5.4 games/s  ETA 0h02m16s
+[pv-A-over2-n4.A] 278/1000  5.3 games/s  ETA 0h02m15s
+[pv-A-over2-n4.A] 290/1000  5.4 games/s  ETA 0h02m12s
+[pv-A-over2-n4.A] 300/1000  5.4 games/s  ETA 0h02m10s
+[pv-A-over2-n4.A] 311/1000  5.4 games/s  ETA 0h02m08s
+[pv-A-over2-n4.A] 323/1000  5.4 games/s  ETA 0h02m05s
+[pv-A-over2-n4.A] 339/1000  5.5 games/s  ETA 0h02m01s
+[pv-A-over2-n4.A] 344/1000  5.4 games/s  ETA 0h02m02s
+[pv-A-over2-n4.A] 354/1000  5.4 games/s  ETA 0h02m00s
+[pv-A-over2-n4.A] 367/1000  5.4 games/s  ETA 0h01m57s
+[pv-A-over2-n4.A] 374/1000  5.3 games/s  ETA 0h01m57s
+[pv-A-over2-n4.A] 389/1000  5.4 games/s  ETA 0h01m53s
+[pv-A-over2-n4.A] 401/1000  5.4 games/s  ETA 0h01m50s
+[pv-A-over2-n4.A] 414/1000  5.4 games/s  ETA 0h01m47s
+[pv-A-over2-n4.A] 422/1000  5.4 games/s  ETA 0h01m46s
+[pv-A-over2-n4.A] 436/1000  5.4 games/s  ETA 0h01m43s
+[pv-A-over2-n4.A] 449/1000  5.5 games/s  ETA 0h01m40s
+[pv-A-over2-n4.A] 456/1000  5.4 games/s  ETA 0h01m40s
+[pv-A-over2-n4.A] 467/1000  5.4 games/s  ETA 0h01m38s
+[pv-A-over2-n4.A] 476/1000  5.4 games/s  ETA 0h01m36s
+[pv-A-over2-n4.A] 487/1000  5.4 games/s  ETA 0h01m34s
+[pv-A-over2-n4.A] 494/1000  5.4 games/s  ETA 0h01m34s
+[pv-A-over2-n4.A] 504/1000  5.4 games/s  ETA 0h01m32s
+[pv-A-over2-n4.A] 516/1000  5.4 games/s  ETA 0h01m30s
+[pv-A-over2-n4.A] 522/1000  5.3 games/s  ETA 0h01m29s
+[pv-A-over2-n4.A] 536/1000  5.4 games/s  ETA 0h01m26s
+[pv-A-over2-n4.A] 549/1000  5.4 games/s  ETA 0h01m23s
+[pv-A-over2-n4.A] 561/1000  5.4 games/s  ETA 0h01m21s
+[pv-A-over2-n4.A] 569/1000  5.4 games/s  ETA 0h01m20s
+[pv-A-over2-n4.A] 583/1000  5.4 games/s  ETA 0h01m17s
+[pv-A-over2-n4.A] 593/1000  5.4 games/s  ETA 0h01m15s
+[pv-A-over2-n4.A] 598/1000  5.3 games/s  ETA 0h01m15s
+[pv-A-over2-n4.A] 614/1000  5.4 games/s  ETA 0h01m11s
+[pv-A-over2-n4.A] 625/1000  5.4 games/s  ETA 0h01m09s
+[pv-A-over2-n4.A] 637/1000  5.4 games/s  ETA 0h01m07s
+[pv-A-over2-n4.A] 644/1000  5.4 games/s  ETA 0h01m06s
+[pv-A-over2-n4.A] 655/1000  5.4 games/s  ETA 0h01m04s
+[pv-A-over2-n4.A] 668/1000  5.4 games/s  ETA 0h01m01s
+[pv-A-over2-n4.A] 672/1000  5.3 games/s  ETA 0h01m01s
+[pv-A-over2-n4.A] 684/1000  5.3 games/s  ETA 0h00m59s
+[pv-A-over2-n4.A] 695/1000  5.3 games/s  ETA 0h00m57s
+[pv-A-over2-n4.A] 706/1000  5.3 games/s  ETA 0h00m55s
+[pv-A-over2-n4.A] 713/1000  5.3 games/s  ETA 0h00m53s
+[pv-A-over2-n4.A] 727/1000  5.3 games/s  ETA 0h00m51s
+[pv-A-over2-n4.A] 738/1000  5.3 games/s  ETA 0h00m49s
+[pv-A-over2-n4.A] 745/1000  5.3 games/s  ETA 0h00m47s
+[pv-A-over2-n4.A] 751/1000  5.3 games/s  ETA 0h00m47s
+[pv-A-over2-n4.A] 761/1000  5.3 games/s  ETA 0h00m45s
+[pv-A-over2-n4.A] 771/1000  5.3 games/s  ETA 0h00m43s
+[pv-A-over2-n4.A] 777/1000  5.2 games/s  ETA 0h00m42s
+[pv-A-over2-n4.A] 786/1000  5.2 games/s  ETA 0h00m40s
+[pv-A-over2-n4.A] 800/1000  5.3 games/s  ETA 0h00m38s
+[pv-A-over2-n4.A] 803/1000  5.2 games/s  ETA 0h00m37s
+[pv-A-over2-n4.A] 814/1000  5.2 games/s  ETA 0h00m35s
+[pv-A-over2-n4.A] 826/1000  5.2 games/s  ETA 0h00m33s
+[pv-A-over2-n4.A] 839/1000  5.2 games/s  ETA 0h00m30s
+[pv-A-over2-n4.A] 846/1000  5.2 games/s  ETA 0h00m29s
+[pv-A-over2-n4.A] 859/1000  5.2 games/s  ETA 0h00m26s
+[pv-A-over2-n4.A] 865/1000  5.2 games/s  ETA 0h00m25s
+[pv-A-over2-n4.A] 872/1000  5.2 games/s  ETA 0h00m24s
+[pv-A-over2-n4.A] 881/1000  5.2 games/s  ETA 0h00m22s
+[pv-A-over2-n4.A] 891/1000  5.2 games/s  ETA 0h00m21s
+[pv-A-over2-n4.A] 904/1000  5.2 games/s  ETA 0h00m18s
+[pv-A-over2-n4.A] 912/1000  5.2 games/s  ETA 0h00m16s
+[pv-A-over2-n4.A] 922/1000  5.2 games/s  ETA 0h00m15s
+[pv-A-over2-n4.A] 933/1000  5.2 games/s  ETA 0h00m12s
+[pv-A-over2-n4.A] 943/1000  5.2 games/s  ETA 0h00m11s
+[pv-A-over2-n4.A] 953/1000  5.2 games/s  ETA 0h00m09s
+[pv-A-over2-n4.A] 964/1000  5.2 games/s  ETA 0h00m06s
+[pv-A-over2-n4.A] 976/1000  5.2 games/s  ETA 0h00m04s
+[pv-A-over2-n4.A] 979/1000  5.1 games/s  ETA 0h00m04s
+[pv-A-over2-n4.A] 994/1000  5.2 games/s  ETA 0h00m01s
+[pv-A-over2-n4.A] 999/1000  5.1 games/s  ETA 0h00m00s
+[pv-A-over2-n4.A] 1000 games in 0h03m14s (5.1 games/s)
+[pv-A-over2-n4.A] summary -> sim/out/pv-A-over2-n4.A.summary.json
+# Piece values — pv-A-over2-n4
+
+Muller's asymmetric-material method (docs/SIM-PLAN.md §7). Each arm replaces one **knight** of the
+classic arrangement `RNBQKBNR` with one fairy piece, on one side only, and plays
+colour-reversed pairs. **Muller's second step:** the knight army also plays a pawn down
+(one file per config, all eight), so each arm measures the fairy piece plus a pawn. The last arm gives White pawn odds; it converts Elo into pawns.
+
+Depth 3, 1000 games per arm, 4 random opening plies.
+Rules: defaults.
+Engine values: `A=84` (the rest keep `src/ai/eval.ts`).
+
+## Arms (scores are the fairy army's, folded over the colour swap)
+| arm | games | pairs | pentanomial | score | Elo ±95% | nElo | LOS | LLR | SPRT | draws | capped | plies |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A | 1000 | 500 | [177, 56, 190, 30, 47] | 0.357 | -102 ± 19 | -110 | 0.0% | -3.36 | H0 | 9.5% | 0.1% | 86 |
+
+**One pawn = 77 Elo** at this depth
+(carried over with `--eloPerPawn`; no calibration arm was played here). Every
+implied value below carries that calibration error on top of its own.
+
+
+## Implied values
+| piece | Elo vs n | Δ pawns | implied value (pawns) | engine seed | research prior | next seed (cp) |
+|---|---|---|---|---|---|---|
+| A (archer) | -102 ± 19 | -1.33 ± 0.25 | 0.83 ± 0.25 | 0.84 | 3.50 | 83 |
+
+Implied value = n (3.16) − 1 (the pawn of odds) + Elo / 77.
+
+
+## Muller fixed-point update
+Write the "next seed" column into `src/ai/eval.ts`, then run this experiment again. The values are
+converged when a pass moves no piece by more than its error bar. A seed that inverts a plausible
+exchange makes self-play blind, so never stop after one pass.
+
+```ts
+export const ARCHER_V = 83;
+```
+
