@@ -13,7 +13,7 @@ import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { mulberry32 } from './sim/rng';
 import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
-import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, usesAllowed, usesLeft } from './powers-ui';
+import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
 
@@ -314,8 +314,8 @@ function fillPieceGuide(): void {
     + 'Then - moves, x captures, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes. '
     + 'Kings\' powers: ! Strike, !H Haste (-- ends a Haste turn early), ~ Flight, !F: Freeze, !W: Ice Wall, !S: Sacrifice, !M March, !L Leap.';
   // The twelve powers as a game with powers plays them: this game's rules when a king has a power,
-  // else the official readings, which an older `?rules=` preset overrides (as `newGame` sets them).
-  const pr: Rules = GAME_RULES.kings[0] || GAME_RULES.kings[1] ? GAME_RULES : { ...GAME_RULES, ...POWERS_BALANCED, ...preset };
+  // else the official readings, which an older `?rules=` preset overrides (as the New game picker shows them).
+  const pr: Rules = GAME_RULES.kings[0] || GAME_RULES.kings[1] ? GAME_RULES : powersRules(preset);
   $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
     `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p, pr)}) — ${powerText(p, pr)}`).join('; ')}.</li>`).join('');
   // Each piece once, as its icon and how many the pool holds ("×2"); its name for a pointer and a screen reader.
@@ -1265,7 +1265,7 @@ const dialog = newGameDialog(s => {
     const example = TRY_THESE.find(row => row.code === s.army);
     if (example) { said = example.watch; $('moment').textContent = said; }
   } else newGame(randomBackRank());
-});
+}, preset);
 const openNewGame = (): void => dialog.open(setup);
 
 $('new-game-btn').onclick = openNewGame;

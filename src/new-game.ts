@@ -5,7 +5,7 @@
  */
 import type { SkillName } from './ai/skill';
 import type { Side } from './game';
-import { KINGS, PLAIN_KINGS, type Color, type KingChoice, type KingName, type PowerName } from './rules/engine';
+import { KINGS, PLAIN_KINGS, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
 import { POWER_NAME, powerOptions } from './powers-ui';
 
 /** Play the computer (no powers), Kings' powers against the computer, or two people. */
@@ -85,13 +85,16 @@ export function parseSetup(v: unknown): Setup | null {
 
 /* ---- the dialog ---- */
 
-/** Builds the king pickers (in the KINGS order of src/rules/rules.ts) and wires every control once. */
-export function newGameDialog(start: (s: Setup) => void): { open(s: Setup): void } {
+/**
+ * Builds the king pickers (in the KINGS order of src/rules/rules.ts) and wires every control once.
+ * `preset`: the page's `?rules=` preset, which the games it starts play over the official readings.
+ */
+export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>): { open(s: Setup): void } {
   const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
   const dlg = $<HTMLDialogElement>('new-game');
   const radios = (name: string) => [...dlg.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)];
   let draft = defaultSetup();
-  let options = new Map(powerOptions().map(g => [g.king, g.options]));
+  let options = new Map(powerOptions(preset).map(g => [g.king, g.options]));
 
   for (const c of [0, 1] as const) {
     $(`pick-${c}`).innerHTML = `<h3 id="pick-${c}-title">${SIDE[c]}'s king <span class="who"></span></h3>`
@@ -150,7 +153,7 @@ export function newGameDialog(start: (s: Setup) => void): { open(s: Setup): void
   return {
     open(s: Setup): void {
       draft = copy(s);
-      options = new Map(powerOptions().map(g => [g.king, g.options])); // the use counts of the rules in force
+      options = new Map(powerOptions(preset).map(g => [g.king, g.options])); // the use counts of the rules in force
       render();
       dlg.showModal();
     },

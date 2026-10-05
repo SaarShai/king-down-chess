@@ -134,11 +134,17 @@ export function powerTitle(power: PowerName, r: Rules = RULES): string {
 }
 
 /**
- * Each king's two powers for the New game picker, with their counts and one-line rules. They describe
- * the rules a game with powers is played under (the official readings), not the game in progress.
+ * The rules a game with powers is played under: the official readings, which an older `?rules=`
+ * preset overrides (as `newGame` in main.ts sets them). The picker and the Guide both read them.
  */
-export function powerOptions(): { king: KingName; group: string; options: { value: string; label: string; title: string }[] }[] {
-  const r: Rules = { ...RULES, ...POWERS_BALANCED };
+export const powersRules = (preset?: Partial<Rules>): Rules => ({ ...RULES, ...POWERS_BALANCED, ...preset });
+
+/**
+ * Each king's two powers for the New game picker, with their counts and one-line rules. They describe
+ * the rules a game with powers is played under (`powersRules`), not the game in progress.
+ */
+export function powerOptions(preset?: Partial<Rules>): { king: KingName; group: string; options: { value: string; label: string; title: string }[] }[] {
+  const r = powersRules(preset);
   return (Object.entries(KINGS) as [KingName, readonly PowerName[]][]).map(([king, powers]) => ({
     king,
     group: `${king} king`,

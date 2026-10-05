@@ -14,7 +14,7 @@ const browser = await chromium.launch({ headless: true, channel: process.env.PLA
 const errors = [];
 const ok = msg => console.log(`ok ${msg}`);
 
-async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null } = {}) {
+async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null, query = '' } = {}) {
   const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch });
   await ctx.addInitScript(s => {
     sessionStorage.setItem('kingdown.title-seen', '1'); // skip the title screen (main.ts)
@@ -23,7 +23,7 @@ async function open({ viewport = { width: 1280, height: 900 }, touch = false, sa
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto(base);
+  await page.goto(base + query);
   await page.waitForFunction(() => window.view?.ready);
   await page.evaluate(() => window.view.ready());
   return page;
@@ -184,7 +184,22 @@ try {
   await page.context().close();
   ok("an older save: Kings' powers, Strong, you play Black, Frost Freeze against Shadow with no power");
 
-  // 9. Phone 390×844: no sideways scroll in any mode, More options open; screenshots.
+  // 9. `?rules=2017` plays the powers as printed (the preset overrides the official readings, as newGame
+  // sets them), so the picker shows them so, and the game it starts plays the line the picker showed.
+  page = await open({ query: '?rules=2017' });
+  await setUpGame(page, { mode: 'powers', kings: ['Frost:Freeze', 'Spirit:Mercy'] });
+  const freeze2017 = 'Freeze (2 per game) — as your move, freeze an enemy piece (not the king): it cannot move on its next turn.';
+  assert.equal(await powerLine(page, 0), freeze2017);
+  assert.equal(await powerLine(page, 1), 'Mercy (always on) — your king steps 1–2 squares and jumps your pieces, but takes only a guard.');
+  await page.click('#pick-1 .emblem[data-king="Shadow"]');
+  await page.click('#pick-1 .power-choice button[data-power="Darkness"]');
+  assert.equal(await powerLine(page, 1), 'Darkness (always on) — your pawns step diagonally and take straight ahead, with no double step.');
+  await startGame(page, { army: 'classic' });
+  await info(page, /White's king: Freeze, 2 left — as your move, freeze an enemy piece \(not the king\): it cannot move on its next turn/);
+  await page.context().close();
+  ok('?rules=2017: the picker shows the printed powers (Freeze twice, Mercy, Darkness), and the game plays them');
+
+  // 10. Phone 390×844: no sideways scroll in any mode, More options open; screenshots.
   page = await open({ viewport: { width: 390, height: 844 }, touch: true });
   await page.click('#new-game-btn');
   await page.screenshot({ path: `${out}/phone-computer.jpg`, type: 'jpeg', quality: 86 });

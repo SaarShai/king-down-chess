@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { POWERS_BALANCED, setRules } from './rules/rules';
+import { POWERS_BALANCED, RULES_2017, setRules } from './rules/rules';
 import { powerOptions, powerText } from './powers-ui';
 
 afterEach(() => setRules());
@@ -36,5 +36,11 @@ describe('the power picker', () => {
     const freeze = powerOptions().flatMap(g => g.options).find(o => o.value === 'Frost:Freeze')!;
     expect(freeze.label).toBe('Freeze (1 per game)');
     expect(powerOptions().flatMap(g => g.options).find(o => o.value === 'Spirit:Mercy')!.title).toContain('takes only a pawn or a guard');
+  });
+
+  it('puts a `?rules=` preset over the official readings, as the game it starts plays them', () => {
+    const opts = powerOptions(RULES_2017).flatMap(g => g.options);
+    expect(opts.find(o => o.value === 'Frost:Freeze')!.label).toBe('Freeze (2 per game)');
+    expect(opts.find(o => o.value === 'Spirit:Mercy')!.title).toBe('your king steps 1–2 squares and jumps your pieces, but takes only a guard');
   });
 });
