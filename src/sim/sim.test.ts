@@ -15,7 +15,7 @@ import { mulberry32 } from './rng';
 import { Game } from '../game';
 import { A, BLACK, G, WHITE, moverAt, parseSq } from '../rules/engine';
 import { setRules } from '../rules/rules';
-import { CLASSIC_CHESS } from '../rules/setup';
+import { CLASSIC_CHESS, fromFen } from '../rules/setup';
 
 describe('statistics', () => {
   it('wilson matches published values', () => {
@@ -491,6 +491,17 @@ describe('value experiment', () => {
     expect(pawn.every(p => p.fen !== p.fenSwapped)).toBe(true);
     // `--eloPerPawn` reuses a stored calibration, so the pawn arm is not played at all.
     expect(valueSpecs({ id: 'v', games: 10, ai: { depth: 3 }, seed: 1 }, 'N', 'A', false).map(s => s.id)).toEqual(['v.A']);
+  });
+
+  it('--odds (Muller\'s second step): the reference army plays a pawn down on every file, in both colours', () => {
+    const [arm] = valueSpecs({ id: 'v', games: 10, ai: { depth: 3 }, seed: 1 }, 'N', 'A', false, true);
+    const c = arm.asymmetric!;
+    expect(c).toHaveLength(8);
+    expect(c.every(x => x.white === 'RABQKBNR' && x.black === CLASSIC_CHESS)).toBe(true);
+    // The archer army keeps its eight pawns; the knight army misses one, as Black and then as White.
+    expect(c[0].fen).toBe('rnbqkbnr/1ppppppp/8/8/8/8/PPPPPPPP/RABQKBNR w - - 0 1');
+    expect(c[3].fenSwapped).toBe('rabqkbnr/pppppppp/8/8/8/8/PPP1PPPP/RNBQKBNR w - - 0 1');
+    for (const x of c) for (const fen of [x.fen!, x.fenSwapped!]) expect(fromFen(fen).board.filter(Boolean)).toHaveLength(31);
   });
 
   it('armStats scores from the first arrangement, folding the colour swap', () => {
