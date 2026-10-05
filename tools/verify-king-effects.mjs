@@ -61,6 +61,9 @@ try {
 
   // 2. Animations Off: no effect is drawn (the board equals one drawn with the effects switched off), no redraw loop.
   await pace(page, 'off'); await drawn(page, 0);
+  // The kings without their effects are new figures: their contact shadows are built in idle time (within
+  // half a second) and drawn in one more frame. Then the board must be still.
+  for (let i = 0; i < 10 && await framesIn(page, 300) > 0; i++);
   assert.deepEqual(await effects(page), []);
   assert.equal((await pawns(page)).resting, 0, 'Animations Off: the pawns stand still');
   assert.ok(await framesIn(page, 1000) <= 1, 'Animations Off: the board stops redrawing');
@@ -205,8 +208,24 @@ try {
     await still.waitForFunction(() => document.getElementById('title-screen').open); await wait(1500);
     assert.equal(await still.evaluate(() => document.querySelectorAll('.title-kings canvas').length + (window.titleKings?.started ?? 0)), 0, 'title kings: none with reduced motion');
     await still.close();
-    // A phone held in landscape has no room for the kings (0 px high): no page error, and once it turns to
-    // portrait the six effects run; back in landscape the loop still runs.
+    // Settings → Animations Off (saved): no entrance animation and no kings' effects on the title.
+    // Control: with Normal the entrance runs.
+    for (const saved of ['off', 'normal']) {
+      const p = await newPage({ viewport: { width: 1440, height: 900 } });
+      await p.addInitScript(v => { sessionStorage.removeItem('kingdown.title-seen'); localStorage.setItem('kingdown.save', JSON.stringify({ moves: [], pace: v })); }, saved);
+      await p.goto(title.href);
+      await p.waitForFunction(() => document.getElementById('title-screen').open);
+      const running = await p.evaluate(() => document.getElementById('title-screen').getAnimations({ subtree: true }).length);
+      if (saved === 'off') {
+        assert.equal(running, 0, `title with Animations Off: ${running} entrance animations run`);
+        await wait(1500);
+        assert.equal(await p.evaluate(() => document.querySelectorAll('.title-kings canvas').length + (window.titleKings?.started ?? 0)), 0, 'title kings: none with Animations Off');
+      } else assert.ok(running > 0, 'title with Normal: the entrance runs (the control)');
+      await p.close();
+    }
+    console.log('ok title: with Animations Off saved, no entrance animation and no kings\' effects (with Normal the entrance runs)');
+    // A phone held in landscape: no page error, and once it turns to portrait the six effects run; back in
+    // landscape the loop still runs.
     for (const [w, h] of [[568, 320], [667, 375]]) {
       const land = await newPage({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
       await land.addInitScript(() => sessionStorage.removeItem('kingdown.title-seen'));

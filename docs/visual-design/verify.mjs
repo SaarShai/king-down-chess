@@ -210,8 +210,10 @@ try {
   ok('title lineup: twelve painted figures with names; Learn and Play stay on screen at 1280×900 and 390×844');
 
   // 7b. The title from a small phone to a desktop: the lineup inside the screen, no name into the next one,
-  // and the lineup, kings, wordmark and buttons centred (a tablet's lineup once widened the whole title).
-  for (const [w, h] of [[320, 568], [390, 844], [721, 1000], [768, 1024], [834, 1112], [844, 390], [1024, 768], [1440, 900]]) {
+  // and the lineup, kings, wordmark and buttons centred (a tablet's lineup once widened the whole title);
+  // top to bottom, every figure, the wordmark and the buttons on the screen (a phone in landscape once cut
+  // off the top row and Play).
+  for (const [w, h] of [[320, 568], [390, 844], [568, 320], [667, 375], [721, 1000], [768, 1024], [834, 1112], [844, 390], [1024, 768], [1440, 900]]) {
     page = await open('', { skipTitle: false, viewport: { width: w, height: h }, touch: w < 721 });
     await page.waitForFunction(() => [...document.querySelectorAll('#title-screen img')].every(i => i.complete) && document.fonts.status === 'loaded');
     const m = await page.evaluate(() => {
@@ -221,15 +223,17 @@ try {
       const into = spans.slice(1).filter((s, i) => Math.abs(s.top - spans[i].top) < 4 && spans[i].right > s.left + 0.5).map(s => s.name);
       const lineup = [...document.querySelectorAll('.title-lineup li')], buttons = [...document.querySelectorAll('.title-actions button:not([hidden])')];
       const row = { left: Math.min(...buttons.map(b => r(b).left)), right: Math.max(...buttons.map(b => r(b).right)) };
-      return { out, into, wide: r(document.getElementById('title-screen')).width - vw,
+      const tall = [...lineup, document.getElementById('title-word'), ...buttons].filter(e => r(e).top < -0.5 || r(e).bottom > innerHeight + 0.5).map(e => e.textContent.trim().slice(0, 16));
+      return { out, into, tall, wide: r(document.getElementById('title-screen')).width - vw,
         off: [(r(lineup[0]).left + r(lineup.at(-1)).right) / 2 - vw / 2, mid(document.querySelector('.title-kings')), mid(document.getElementById('title-word')), (row.left + row.right) / 2 - vw / 2] };
     });
     assert.deepEqual(m.out, [], `${w}×${h}: names off the screen`);
     assert.deepEqual(m.into, [], `${w}×${h}: names running into the one before`);
+    assert.deepEqual(m.tall, [], `${w}×${h}: off the top or the bottom of the screen`);
     assert.ok(m.wide <= 0.5 && m.off.every(d => Math.abs(d) <= 2), `${w}×${h}: the title is ${m.wide} px wider than the screen; lineup, kings, wordmark, buttons off centre by ${m.off.map(d => d.toFixed(1))}`);
     await page.context().close();
   }
-  ok('title at 320–1440 px (and 844×390): the lineup fits the screen, no name runs into the next, all centred');
+  ok('title at 320–1440 px (and 568×320, 667×375, 844×390): the lineup fits the screen, no name runs into the next, all centred, nothing off the top or bottom');
 
   // 8. Round 2 markers: shots, powers and the keyboard preview reach the painted board.
   page = await open('?fen=' + encodeURIComponent('4k3/8/1p3r2/8/3A4/8/8/4K3 w - - 0 1'));

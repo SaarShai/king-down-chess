@@ -1400,6 +1400,7 @@ const titleClosed = new Promise<void>(resolve => {
     resolve();
   }, { once: true });
   document.body.classList.add('title-up');
+  document.documentElement.dataset.pace = pace.value; // before it opens: Animations Off skips the entrance (style.css)
   dlg.showModal();
   // The six kings' resting effects: loaded after the title is up, so its first paint never waits; none
   // with Animations Off or reduced motion (the module checks reduced motion itself).

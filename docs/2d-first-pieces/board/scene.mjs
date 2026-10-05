@@ -319,8 +319,10 @@ function shadeOval(out,x,y,rx,ry,alpha,soft){
  for(const [at,rest,lifted] of [[0,1,1],[.5,.92,.72],[.8,.45,.3],[1,0,0]])g.addColorStop(at,`rgba(${rgb},${rest+(lifted-rest)*soft})`);
  out.fillStyle=g;out.beginPath();out.arc(0,0,1,0,Math.PI*2);out.fill();out.restore();
 }
-// The frame being drawn (render() sets it): a new set of stamps fades in from the first frame that draws it.
-let frameTime=0;
+// The frame being drawn (render() sets it): a new set of stamps fades in from the first frame that draws it, and
+// the board stays awake until the fade ends (shadowsFading). With motion off (lively.idle false: Animations Off or
+// reduced motion) the stamps show at once.
+let frameTime=0,shadowsFading=false;
 // The figure's contact shadow on the floor (pose.ground, or under its feet); shadowWeights says how much of each part
 // shows. In the air the pool slides a little away from the light and hands over to an oval; a figure that tips
 // over or lies on the floor has a pool under its body, along its lower edge.
@@ -330,7 +332,8 @@ function contactShadow(out,value,pose,opacity) {
  if(design&&!pose.sheet&&!kingArt[design]?.image)return; // (the figure is not drawn yet either)
  const ground=pose.ground??pose.foot,sx=pose.sx??1,sy=pose.sy??1,set=shadowStamps(value,pose.sheet,pose.facing*sx<0?-1:1);
  if(set?.empty)return;
- const fade=set?clamp((frameTime-(set.since.t??=frameTime))/160,0,1):0,shape=set??fallbackShape(specs[type]);
+ const fade=!set?0:lively.idle?clamp((frameTime-(set.since.t??=frameTime))/160,0,1):1,shape=set??fallbackShape(specs[type]);
+ if(set&&fade<1)shadowsFading=true;
  const dk=out===closeup?.ctx?0:groundDark(ground),pick=([light,dark])=>light+(dark-light)*dk;
  // A squash widens the shadow; a figure that shrinks (a victim) shrinks it.
  const k=pose.scale/shape.scale,m=Math.max(Math.abs(sx),sy),wide=k*m,deep=k*Math.min(1,m),shrink=1-.3*(1-Math.exp(-w.air/30));
@@ -573,7 +576,7 @@ function vortex(out,foot,phase,strength) {
   return s;
  }
  function render(time=performance.now()) {
- frames++;frameTime=time;drawnBefore=fxDrawn.length;fxDrawn=[];nextSince=new Map();
+ frames++;frameTime=time;shadowsFading=false;drawnBefore=fxDrawn.length;fxDrawn=[];nextSince=new Map();
  const a0=animation,since=a0?.shakeAt!=null?(time-a0.start)/a0.speed-a0.shakeAt:-1,shake=since>=0&&since<240?7*(1-since/240):0;
  ctx.save();ctx.translate(0,headroom);if(shake)ctx.translate(Math.sin(since*.09)*shake,Math.cos(since*.13)*shake*.6);
  boardBackground();
@@ -811,7 +814,7 @@ function drawEncounter(a,t) {
   if(a&&!a.done&&(time-a.start)>=a.duration*a.speed){a.done=true;a.resolve(true);}
   render(time);
   if(labels)drawLabels();
-  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil)wake();
+  if((a&&!a.done)||(wanted&&aimAngle!==wanted.angle)||(fallen&&time-fallen.start<FALL)||time<awakeUntil||shadowsFading)wake();
   else{previousTime=0;if(idling()||fxDrawn.length||pawnsAtRest){clearTimeout(idleTimer);idleTimer=setTimeout(wake,33);}} // the idle breath, the kings' effects and resting pawns need only ~30 frames a second
  }
  function idling(){return lively.idle&&!reducedMotion&&!animation&&selected!==null&&!!position.board[selected]&&fallen?.sq!==selected;}

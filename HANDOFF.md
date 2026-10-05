@@ -15,9 +15,10 @@ one PR, as #5 was. The owner merges; never merge yourself. Merging into main doe
 
 **Release, 2026-10-05: `claude/release-2026-10-05`.** It is `claude/integration-2026-10-05` before
 its Archer merge (45ec461: cards-all, one-beast, card-art, piece-icons with six-kings) with
-`claude/release-visuals` (king-effects with power-motion) and the review's fixes. The owner chose
+`claude/release-visuals` (king-effects with power-motion), `claude/piece-shadows` (the new contact
+shadows) and the reviews' fixes. The owner chose
 "option B": the over-a-piece Archer (`claude/archer-over2`) is held because it measured 0.83 pawns,
-so today's Archer stays (`docs/RULES.md` Decision 19); everything else is deployed. The next Archer
+so today's Archer stays (`docs/RULES.md` Decision 19); everything else is to be deployed. The next Archer
 step is a test on the M1 of an over-a-piece Archer with more reach (worth at least 2.5 pawns, few
 draws). `claude/integration-2026-10-05` (with the Archer) is not the release. What the release holds
 and its checks: `TASKS.md`, first section. Next, for the lead: the PR and the deploy (`AGENTS.md`,
