@@ -52,10 +52,10 @@ for (const id of ids) {
       if (!m) { console.warn(`${id} game ${r.gameId}: ply ${i} (${r.lans[i]}) does not replay; the rest of that game is skipped`); break; }
       const side = pos.turn;
       if (m.power) {
-        // A SkyLift's target is the piece it trades squares with; a Curse's piece is the enemy one it moved.
-        const target = m.power === 'freeze' || m.power === 'ward' || m.power === 'skylift' ? NAMES[typeOf(pos.board[m.to])]
-          : m.power === 'sacrifice' ? NAMES[m.promo] : m.captures.length ? m.captures.map((s: number) => NAMES[typeOf(pos.board[s])]).join('+') : '';
-        events.push({ ply: i, lan: r.lans[i], side, piece: NAMES[typeOf(pos.board[m.from])], target });
+        // A SkyLift's or FirewallB's target is the piece it trades squares with; a Curse's piece is the enemy one it moved.
+        const target = m.power === 'freeze' || m.power === 'ward' || m.power === 'skylift' || m.power === 'firewallb' ? NAMES[typeOf(pos.board[m.to])]
+          : m.power === 'sacrifice' ? NAMES[m.promo] : m.power === 'salvation' ? NAMES[m.drop] : m.captures.length ? m.captures.map((s: number) => NAMES[typeOf(pos.board[s])]).join('+') : '';
+        events.push({ ply: i, lan: r.lans[i], side, piece: m.drop ? '' : NAMES[typeOf(pos.board[m.from])], target });
       }
       movers.push(side);
       pos = makeMove(pos, m);

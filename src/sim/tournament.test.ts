@@ -3,9 +3,10 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   type Entrant, type TJob, type TRecord, type TournamentSpec,
-  checkResume, compress, drawOf, gameSpec, halfWidth, handFor, pairDraw, poolRounds, reportText, resampleArmies, schedule, scoreVsPowers, tFromZ,
+  checkResume, compress, drawOf, gameSpec, halfWidth, handFor, mirrorSection, pairDraw, pileFor, poolRounds, reportText, resampleArmies, schedule, scoreVsPowers, tFromZ,
 } from './tournament';
 import type { GameRecord } from './game';
+import { POOL } from '../rules/setup';
 
 const spec = (over: Partial<TournamentSpec> = {}): TournamentSpec => ({
   id: 't', entrants: ['Freeze', 'Haste', 'Flight', 'none'], pairs: 3, depth: 1, seed: 2222, rules: {},
@@ -28,6 +29,14 @@ describe('tournament schedule', () => {
       'kp2-r10': '0eed788c332ac1d9', 'kp2-r11': '93855049006bb50a', 'kp2-r12': 'e312f6310f1b5da8',
     };
     for (const [id, h] of Object.entries(PLAYED)) expect([id, hash(schedule(recorded(id)))]).toEqual([id, h]);
+  });
+
+  it('a round with today\'s pool draws one beast at most; one without a pool keeps the old pool', () => {
+    for (const armies of [undefined, 'perPair' as const]) {
+      const jobs = schedule(spec({ pairs: 200, armies, pool: POOL }));
+      expect(jobs.every(j => j.backRank.split('S').length <= 2)).toBe(true);
+    }
+    expect(schedule(spec({ pairs: 200 })).some(j => j.backRank.split('S').length === 3)).toBe(true);
   });
 
   it('shared armies: pair p of every matchup plays army p', () => {
@@ -124,6 +133,46 @@ describe('tournament schedule', () => {
     const lans = ['e2-e4', 'Ra1-a5!V', 'Nb1-c3!X', '!C:d5-d4', '!K:a1<>b1', 'Nb1-c3', '--'];
     const rec = { moves: lans.map((lan, i) => ({ lan, by: i & 1 })), result: 0.5, reason: 'draw', plies: lans.length, ms: 1, events: { checks: [0, 0] } } as unknown as GameRecord;
     expect([compress(job, rec).uses, compress(job, rec).firstUse]).toEqual([[2, 2], [2, 1]]);
+  });
+
+  it('card:Salvation: a one-card hand; a return is a card played, a waiting guard\'s entry is not', () => {
+    const t = spec({ entrants: ['none', 'card:Salvation'], anchor: 'none', mirror: true, armies: 'perPair', pairs: 2, rules: { guardReserve: 'rank1' } });
+    const g = schedule(t).find(j => j.white === 'card:Salvation')!;
+    expect(gameSpec(t, g).rules).toMatchObject({ hands: [['Salvation'], []], guardReserve: 'rank1' });
+    const lans = ['G@d1', 'e7-e5', 'N@b1!R', 'G@d8'];
+    const rec = { moves: lans.map((lan, i) => ({ lan, by: i & 1 })), result: 0.5, reason: 'draw', plies: lans.length, ms: 1, events: { checks: [0, 0] } } as unknown as GameRecord;
+    expect([compress(g, rec).uses, compress(g, rec).firstUse]).toEqual([[1, 0], [2, null]]);
+  });
+
+  it('card:<A>+<B> holds those cards; a Growth draws from the pool in the deal order, without its own hand', () => {
+    const t = spec({ entrants: ['none', 'card:Freeze+Rescue', 'card:Growth', 'card:Rage'], anchor: 'none', armies: 'perPair', pairs: 2 });
+    const jobs = schedule(t), job = (e: string): TJob => jobs.find(j => j.white === e)!;
+    expect(gameSpec(t, job('card:Freeze+Rescue')).rules).toMatchObject({ hands: [['Freeze', 'Rescue'], []] });
+    expect(gameSpec(t, job('card:Rage')).rules?.piles).toBeUndefined(); // no Growth: no piles, the rules as before
+    const g = job('card:Growth'), r = gameSpec(t, g).rules!;
+    expect(r.hands).toEqual([['Growth'], []]);
+    expect(r.piles![0]).toEqual(pileFor(t, ['Growth'], g.seed));
+    expect([...r.piles![0]].sort()).toEqual(['Flight', 'Freeze', 'Haste', 'IceWall', 'Leap', 'March', 'Sacrifice', 'Strike']); // the default pool
+    // cards<k>: the pile is the rest of the deal, the same for both sides.
+    const c = spec({ entrants: ['cards6'], mirror: true, mirrorOnly: true, armies: 'perPair', pairs: 2, cardPool: ['Growth', 'Freeze', 'Haste', 'Flight', 'Strike', 'Leap', 'March', 'Mimic', 'GrowthB'] });
+    const cj = schedule(c)[0], cr = gameSpec(c, cj).rules!;
+    if (cr.hands![0].some(x => x === 'Growth' || x === 'GrowthB')) {
+      expect(cr.piles).toEqual([pileFor(c, cr.hands![0], cj.seed), pileFor(c, cr.hands![0], cj.seed)]);
+      expect([...cr.hands![0], ...cr.piles![0]].sort()).toEqual([...c.cardPool!].sort());
+    }
+    const order = pileFor(c, [], 5); // the whole deal order
+    expect([handFor(c, 'cards6', 5), pileFor(c, handFor(c, 'cards6', 5), 5)]).toEqual([order.slice(0, 6), order.slice(6)]);
+  });
+
+  it('counts the 2014 cards played, and the turns their free actions and second moves share', () => {
+    const job = schedule(spec({ entrants: ['none', 'card:Rage'] }))[0];
+    const lans = ['Ra1-a4!A', 'Ra4-a5', 'Nb1-c3!B', '!P', 'e2-e4', '!E:c4<>d5', '!Q:d4', '!U:d4', 'Rd1xd4!N', 'Qd1xd8!T', 'Nb1-b4!O', '!D:e5', 'e2-e4', '!G', '!G+', 'd2-d4', '!F:d5!Y', 'd4-d5', 'Ra1-a2!H!Z'];
+    const rec = { moves: lans.map(lan => ({ lan, by: 0 })), result: 0.5, reason: 'draw', plies: lans.length, ms: 1, events: { checks: [0, 0] } } as unknown as GameRecord;
+    expect(compress(job, rec).uses).toEqual([14, 0]);
+    // Turns: the Rage's, the RageB's and the Haste's first moves, the Firewall, the Rescue, the GrowthB and the mirrored Freeze go on.
+    const r: TRecord = { ...play({ ...job, white: 'cards6', black: 'cards6', a: 'cards6', b: 'cards6' }, 0.5), plies: lans.length, lans };
+    const line = mirrorSection([r], ['cards6']).find(l => l.startsWith('| cards6'))!;
+    expect(line.split('|')[6].trim()).toBe(String((lans.length - 7).toFixed(1)));
   });
 
   it('a resume refuses records that this code would schedule differently', () => {

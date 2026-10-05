@@ -104,7 +104,24 @@ export const [Z_FREE_LO, Z_FREE_HI] = draw(1);
 export const [Z_WARD_LO, Z_WARD_HI] = draw(2);
 /** Turns left above 1 on Black's mark (White's use `Z_LEFT`), so two live marks never cancel. */
 export const [Z_LEFTB_LO, Z_LEFTB_HI] = draw(4);
+/** `guardReserve` (2026-10-04): guards waiting beside the board per side at counts 1…3 (`waitIndex`). */
+export const [Z_WAIT_LO, Z_WAIT_HI] = draw(2 * 4);
+/** Slot of "side `c` has `n` guards waiting" (n ≥ 1, capped at 3). */
+export const waitIndex = (c: number, n: number): number => c * 4 + Math.min(n, 3);
 /** Slot of "side `c` has spent `u` uses" (u ≥ 1, capped at 7). */
 export const usedIndex = (c: number, u: number): number => c * 8 + Math.min(u, 7);
 /** Slot of "reserve index `i` (= colour * 16 + type) holds `n` pieces" (n ≥ 1, capped at 3). */
 export const lostIndex = (i: number, n: number): number => i * 4 + Math.min(n, 3);
+/*
+ * The 2014 cards (2026-10-04), appended after every earlier draw: a Firewall mark per marking side,
+ * a pending Rage (index 0) or RageB (index 1) second move, the card each side played last (Mirror;
+ * 32 slots per side by `ALL_CARDS` order), and the cards each side has drawn at counts 1…7
+ * (Growth). A mark that has just ended (`left: 0`, for a Rescue) uses index 0 of `Z_LEFT` /
+ * `Z_LEFTB`, drawn before and never used until now.
+ */
+export const [Z_ALL_LO, Z_ALL_HI] = draw(2);
+export const [Z_RAGE_LO, Z_RAGE_HI] = draw(2);
+export const [Z_LAST_LO, Z_LAST_HI] = draw(2 * 32);
+export const [Z_DRAWN_LO, Z_DRAWN_HI] = draw(2 * 8);
+/** Slot of "side `c` has drawn `n` cards" (n ≥ 1, capped at 7). */
+export const drawnIndex = (c: number, n: number): number => c * 8 + Math.min(n, 7);

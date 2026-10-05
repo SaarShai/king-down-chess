@@ -76,6 +76,8 @@ try {
   assert.equal(new Set(lines).size, 12, 'twelve different power lines');
   assert.ok(lines.every(l => /^[A-Z][a-zA-Z ]+ \((\d per game|always on)\) — [a-z].+\.$/.test(l)), lines.join('\n'));
   assert.equal(lines[0], 'Freeze (1 per game) — freeze an enemy piece (not the king), then make your move: the frozen piece cannot move on its next turn.');
+  assert.equal(lines[9], 'Mercy (always on) — your king steps 1–2 squares and jumps your pieces, but takes only a pawn or a guard; your pieces next to it cannot be taken except by pawns.');
+  assert.ok(lines.includes('Darkness (always on) — your pawns may also step diagonally, and take only straight ahead; your king may also step two squares in a straight line, over an empty square.'), lines.join('\n'));
   await page.click('#pick-0 .power-choice button[data-power=""]');
   assert.deepEqual(await pressed(page, 0), ['Shadow', '']);
   assert.equal(await powerLine(page, 0), 'No power: a plain chess king.');

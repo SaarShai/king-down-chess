@@ -210,6 +210,47 @@ this network.
   (measurement 4): eight cards have fewer draws (4.1%) and shorter games than six, as fair; six
   cards from all twelve play like six from the eight. Kaggle was not needed for cards-b5.
 
+## Ran 2026-10-04: K16
+
+Owner: Darkness "we must find a different change to bring close to 50%". This Mac (shards 0–7, 2
+workers each) and 5 Kaggle notebooks (shards 8–12); the M1 was off this network.
+
+- **K16 (`kp2-r16`, branch `claude/powers-r16` at 6640091):** the official set (round 14's readings
+  with Mercy M2) as the round's rules; variants `Darkness~vd1` (`darknessShelter`), `~vpa`
+  (`darknessPawnArmor`), `~vau` (`darknessAuraPawns`), `~vks` (`darknessKingStep2`). Seed 1616, 64
+  pairs, `--armies perPair`, depth 3; 126 matchups, 16,128 games, 13 shards. Decides: which second
+  part brings Darkness near 50 with Spirit − Shadow near 0.
+- **Results** (Mac 95 min, Kaggle 150–165 min): in `docs/research/kings-powers-balance-2026-10-02.md`
+  (Round 16): the king step puts Darkness at 46.9 with Spirit − Shadow −0.7 ± 2.4; D1 and the pawn
+  armour overshoot (53.5, 52.7) with Shadow ahead; the pawn aura does nothing.
+
+## Queued 2026-10-04: cards-a3 (Salvation) and the guard reserve (branch `claude/salvation`)
+
+Built on the owner's go ("'Salvation (a 2014 card)' - yes, build"; "guard - do the testing"); not
+launched. Each needs the owner's go.
+
+- **cards-a3:** `card:Salvation` against `none` (`--anchor none --mirror`), 300 pairs, seed 5656,
+  `--armies perPair`, depth 3, the card rules of `cards-a2`; 1,200 games, about 5–6 min. Command and
+  rules: `docs/research/cards-2026-10-03.md`, "Salvation". Decides: Salvation's value and draws
+  against no card (measurement 1).
+- **pa-grs1, pa-grs12, pv-G-grs1, pv-G-grs12:** activity on `pa-a14`'s armies (9,000 games each) and
+  the Guard's worth (1,000 games each) under `guardReserve=rank1` and `rank12`; about 52 min. One
+  detached chain: `docs/research/piece-balance-criteria-2026-10-03.md`, "Guard reserve". Decides:
+  whether a guard that enters from beside the board passes criteria 1 and 5.
+
+## Queued 2026-10-04: cards-m5, every card against no card (branch `claude/cards-all`)
+
+Built on the owner's go ("cards - let's add all and test variations for whatever might not work in
+our version or might be overpowered"); not launched. Needs the owner's go.
+
+- **cards-m5:** the 13 new cards that can act against no card (Rescue and MirrorB each with a
+  Freeze), the Freeze alone, and Salvation, each against `none` with the no-card mirror games, 300
+  pairs, seed 5858, depth 3, the card rules of `cards-a2`: 9,600 games, about 42 min on the Mac, about
+  30–37 min in 23 shards with the M1 and 5 Kaggle notebooks. **cards-m5-mirror:** Mirror against a
+  Freeze, 1,800 games, about 8 min. Replaces `cards-a3` (Salvation is in it). Commands:
+  `docs/research/cards-2026-10-03.md`, "Measurement 5". Decides: each card's value and draws against
+  no card, and whether each softer `B` reading is needed.
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard
