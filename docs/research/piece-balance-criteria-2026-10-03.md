@@ -192,6 +192,7 @@ two-square shots; only over a piece). Each reading: 9,000 ordinary games on the 
 | no shots 2 sideways (`ans`) | `fwd2NoSide` | 1.93 FAIL | −6.3 FAIL | 18.6% | 3.99 ± 0.28 |
 | only the two-square shots (`af2`) | `far2` | 1.54 [1.51, 1.56] FAIL (just) | −4.1 fail? | **20.3%** | 2.83 ± 0.28 |
 | only over a piece (`ao2`) | `over2` | 0.50 [0.49, 0.51] fail? (on the line) | −7.1 FAIL | 17.9% | < 2.15 |
+| near or over: diagonal neighbours, two-square shots only over a piece (`ano`) | `nearOver2` | 0.97 [0.95, 0.98] PASS | +1.5 pass? | **24.6%** | 2.39 ± 0.27 |
 
 The three middle readings change almost nothing. Only `far2` and `over2` move the Archer, in
 opposite ways: `far2` keeps it near its capture limit, costs about 1.6 pawns of worth (below the
@@ -201,6 +202,14 @@ move with it, because the average piece's captures move: under `far2` the Bishop
 line (1.00, pass?); under `over2` the Queen (1.61×) and the Beast (1.62×) fail the capture limit
 instead, and the Maester's armies fail on draws. The three middle readings leave every other line
 as it is. The classic Archer (`pa-acl`, above) is on the two-Beast pool, so it is not in this table.
+
+**Near or over** (owner, 2026-10-04: "archer - do the test"; the M1, at 12fa84f): the Archer passes
+every line of its own, and the Rook (moved 86.7%) and the Bishop (4b 1.05) pass too. But the game
+draws: 24.6% against 18.9%, and 112.5 plies against 103.7. Games with an Archer now draw 24.9%,
+games without one 23.5% (the same in every run of this table); today's Archer brings them down to
+17.6%. The one-square diagonal shots are what raise the draws: the classic Archer, which has them,
+draws 4.7 points more than today's, and `over2` without them draws the least (with an Archer 16.3%).
+Its worth, 2.39 ± 0.27, is at the 2.5 line.
 
 ### The Guard readings (2026-10-04)
 
