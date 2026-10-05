@@ -102,8 +102,20 @@ try {
   await page.waitForFunction(() => document.getElementById('over').open, null, { timeout: 10000 });
   await wait(900);
   assert.deepEqual(await effects(page), ['spirit'], 'the fallen king has no effect');
+  // The result window shows the kings that played, as the board draws them: ivory Spirit and charcoal Shadow.
+  const overKings = p => p.$$eval('#over .over-king', imgs => Promise.all(imgs.map(i => i.decode().then(() => i.naturalWidth > 0, () => false).then(ok => `${new URL(i.src).pathname.split('/').slice(-2).join('/')}${ok ? '' : ' (not loaded)'}`))));
+  assert.deepEqual(await overKings(page), ['kings/spirit.webp', 'kings/shadow-b.webp']);
   await page.click('#over button[value="close"]');
-  console.log('ok King Down: the fallen king\'s effect stops, the winner\'s stays');
+  // Picked kings: Frost (White) and Flame (Black).
+  url.searchParams.set('kings', 'frost:freeze,flame:strike');
+  await open(page, '6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1');
+  url.searchParams.delete('kings');
+  assert.deepEqual(await effects(page), ['flame', 'frost']);
+  await page.mouse.click(rook.x, rook.y); await page.mouse.click(mate.x, mate.y);
+  await page.waitForFunction(() => document.getElementById('over').open, null, { timeout: 10000 });
+  assert.deepEqual(await overKings(page), ['kings/frost.webp', 'kings/flame-b.webp']);
+  await page.click('#over button[value="close"]');
+  console.log('ok King Down: the fallen king\'s effect stops, the winner\'s stays; the result window shows the kings that played (Spirit and Shadow; Frost and Flame)');
 
   // 6. A king's move: his effect follows him and his square's effects grow back there.
   await open(page, '4k3/p7/8/8/8/8/P7/4K3 w - - 0 1'); // pawns, or two bare kings are a draw at once
@@ -193,6 +205,23 @@ try {
     await still.waitForFunction(() => document.getElementById('title-screen').open); await wait(1500);
     assert.equal(await still.evaluate(() => document.querySelectorAll('.title-kings canvas').length + (window.titleKings?.started ?? 0)), 0, 'title kings: none with reduced motion');
     await still.close();
+    // A phone held in landscape has no room for the kings (0 px high): no page error, and once it turns to
+    // portrait the six effects run; back in landscape the loop still runs.
+    for (const [w, h] of [[568, 320], [667, 375]]) {
+      const land = await newPage({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+      await land.addInitScript(() => sessionStorage.removeItem('kingdown.title-seen'));
+      await land.goto(title.href);
+      await land.waitForFunction(() => window.titleKings?.started === 6, null, { timeout: 20000 }); await wait(800);
+      await land.setViewportSize({ width: h, height: w }); await wait(1000);
+      const f = await land.evaluate(() => window.titleKings.frames); await wait(1000);
+      const turned = await land.evaluate(() => ({ frames: window.titleKings.frames, shown: [...document.querySelectorAll('.title-kings canvas')].filter(c => c.width && c.height && c.style.visibility === 'visible').length }));
+      assert.ok(turned.frames - f >= 10 && turned.shown === 6, `title kings, ${w}×${h} turned to portrait: ${turned.frames - f} frames a second, ${turned.shown} showing`);
+      await land.setViewportSize({ width: w, height: h }); await wait(500);
+      const g = await land.evaluate(() => window.titleKings.frames); await wait(800);
+      assert.ok(await land.evaluate(() => window.titleKings.frames) - g >= 5, `title kings, back to ${w}×${h}: the loop runs`);
+      await land.close();
+    }
+    console.log(`ok title kings: a phone in landscape (568×320, 667×375) has no error, and turned to portrait shows all six running`);
     console.log(`ok title kings: none blinks when they start at different times; six effects at ${perSecond} fps (${titleMs.mean.toFixed(2)} ms mean, ${titleMs.max.toFixed(2)} ms max a frame, 1440×900), stopped while hidden, removed on close, none with reduced motion`);
   }
 

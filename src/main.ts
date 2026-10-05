@@ -7,7 +7,7 @@ import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, file as fileOf, findKing, kingLabel, KingChoice, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, file as fileOf, findKing, kingLabel, KingChoice, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
@@ -278,9 +278,13 @@ function pieceGuide(t: PieceType): GuideRow {
 
 /** Painted figures cut from the board's sheets (docs/visual-design/make-ui-art.py); none for the lab pieces. */
 const ART: Partial<Record<PieceType, string>> = Object.fromEntries(
-  ([P, N, B, R, Q, K, A, L, G, M, S, O] as PieceType[]).map(t => [t, NAMES[t]]));
+  ([P, N, B, R, Q, A, L, G, M, S, O] as PieceType[]).map(t => [t, NAMES[t]]));
+/** A side's king as the board draws him: the king it plays (Spirit and Shadow without powers), in its army's colour. */
+const kingArt = (c: Color): string =>
+  `${import.meta.env.BASE_URL}ui/kings/${(GAME_RULES.kings[c]?.king ?? PLAIN_KINGS[c]).toLowerCase()}${c ? '-b' : ''}.webp`;
 const pieceArt = (t: PieceType, black = false): string | null =>
-  ART[t] ? `${import.meta.env.BASE_URL}ui/pieces/${ART[t]}-${black ? 'b' : 'w'}.webp` : null;
+  t === K ? kingArt(black ? 1 : 0)
+    : ART[t] ? `${import.meta.env.BASE_URL}ui/pieces/${ART[t]}-${black ? 'b' : 'w'}.webp` : null;
 
 function fillPieceGuide(): void {
   const rows = $('rules-rows');
@@ -1011,6 +1015,8 @@ function showOver(): void {
   const loser = resigned ?? (game.status === 'checkmate' ? game.pos.turn : null), king = loser == null ? -1 : findKing(game.pos.board, loser);
   view.setFallen(king >= 0 ? king : null);
   dlg.dataset.fallen = loser == null ? 'none' : loser ? 'b' : 'w'; // the dialog's painted kings show it too
+  dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0); // the kings that played, as on the board
+  dlg.querySelector<HTMLImageElement>('.over-b')!.src = kingArt(1);
   $('share-result').hidden = daily == null;
   $('share-result').textContent = "Copy today's result";
   dlg.showModal();
@@ -1190,7 +1196,7 @@ function fromAccount(down: string[]): void {
   if (!s) return;
   if (down.includes('settings')) {
     applySettings(s);
-    setSound($<HTMLInputElement>('sound').checked); view.setPace(pace.value as Pace); view.setCoords(coords.checked);
+    setSound($<HTMLInputElement>('sound').checked); applyPace(); view.setCoords(coords.checked);
     refresh();
   }
   if (down.includes('saved_game')) { if (lesson != null) cloudGame = true; else if (!fen) openSaved(s); }
@@ -1290,7 +1296,12 @@ $('threats').onchange = () => { drawMarks(); save(); };
 const pace = $<HTMLSelectElement>('pace');
 // No saved choice: the system's reduced-motion setting picks Off.
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) pace.value = 'off';
-pace.onchange = () => { view.setPace(pace.value as Pace); save(); };
+/** The board's animation speed; Off also stills the New game picker's motion art (power-motion.css), as reduced motion does. */
+function applyPace(): void {
+  view.setPace(pace.value as Pace);
+  document.documentElement.dataset.pace = pace.value;
+}
+pace.onchange = () => { applyPace(); save(); };
 const labels = $<HTMLInputElement>('labels');
 labels.checked = params.get('labels') === '1';
 labels.onchange = () => view.setLabels(labels.checked);
@@ -1404,7 +1415,7 @@ const titleClosed = new Promise<void>(resolve => {
 // The playable game has one art direction; study controls stay in the study.
 view.applyStyle(STYLES.clay);
 view.setCoords(coords.checked);
-view.setPace(pace.value as Pace);
+applyPace();
 const fen = link ? null : params.get('fen');
 const lans = linkMoves?.split('_').filter(Boolean) ?? [];
 const continues = !!saved && (params.get('army') ? saved.back === params.get('army') : !saved.back && saved.fen === params.get('fen'))

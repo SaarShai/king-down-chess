@@ -53,6 +53,8 @@ export function startTitleKings(root,{enabled=()=>true}={}){
  // Where each figure stands, in the image's own layout box (transforms and the rise animation aside).
  function place(k){
   const {img,design}=k,spec=court.kings[design],[ox,oy]=spec.origins[0],fit=spec.fit??1,[x0,y0,,y1]=k.box;
+  // No room for the image (a phone held in landscape): an empty canvas, which draw() skips, until there is.
+  if(!img.offsetHeight){k.canvas.width=k.canvas.height=0;return;}
   const s=img.offsetHeight/(y1-y0),u=s/(fit*SCALE),dpr=Math.min(2,devicePixelRatio||1);
   const fx=k.mirror?img.offsetLeft+img.offsetWidth+x0*s+s*(ox-A.x):img.offsetLeft-x0*s-s*(ox-A.x),fy=img.offsetTop-y0*s-s*(oy-A.y);
   const foot={x:fx/u,y:fy/u};
@@ -72,6 +74,7 @@ export function startTitleKings(root,{enabled=()=>true}={}){
  }
  function draw(k,t){
   const {canvas:c,u,dpr,design}=k,g=c.getContext('2d'),image=sheets[design];
+  if(!c.width||!c.height)return; // (drawing a 0 × 0 layer would throw)
   g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,c.width,c.height);
   g.setTransform(dpr*u,0,0,dpr*u,-k.bx0*dpr*u,-k.by0*dpr*u);
   const kk=ease((t-k.since)/900),facing=k.mirror?-1:1;
@@ -114,9 +117,11 @@ export function startTitleKings(root,{enabled=()=>true}={}){
  }
  function tick(time){
   frame=0;if(!running)return;
-  for(const k of kings)if(k.canvas&&k.since!=null){draw(k,time);if(!k.shown){k.shown=true;k.canvas.style.visibility='visible';k.img.style.visibility='hidden';}}
-  frames++;
-  schedule();
+  // Scheduled even if a draw throws, so one bad frame never stops the loop for good.
+  try{
+   for(const k of kings)if(k.canvas&&k.since!=null){draw(k,time);if(!k.shown){k.shown=true;k.canvas.style.visibility='visible';k.img.style.visibility='hidden';}}
+   frames++;
+  }finally{schedule();}
  }
  function schedule(){if(!running||document.hidden||frame)return;clearTimeout(timer);timer=setTimeout(()=>{frame=requestAnimationFrame(tick);},33);}
  const onVisible=()=>{if(!document.hidden)schedule();};

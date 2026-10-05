@@ -263,6 +263,18 @@ try {
   await page.context().close();
   ok('reduced motion: no animation in the picker; the still frames show the powers');
 
+  // 12. Settings → Animations Off stills the picker too: no picture or emblem moves; the still frames show.
+  page = await open();
+  await page.evaluate(() => { const s = document.getElementById('pace'); s.value = 'off'; s.dispatchEvent(new Event('change')); });
+  await page.click('#new-game-btn');
+  await page.click('label:has(#mode-powers)');
+  await page.click('#pick-0 .emblem[data-king="Frost"]');
+  await page.hover('#pick-0 .power-choice button[data-power="IceWall"]');
+  assert.equal((await motion(page, '#king-picker')).running, 0);
+  assert.equal(await page.$eval('#pick-0 .fz-ice', e => getComputedStyle(e).opacity), '1', 'the Freeze still shows the ice');
+  await page.context().close();
+  ok('Animations Off: no animation in the picker (chosen power, hovered power, live emblem); the still frames show the powers');
+
   assert.deepEqual(errors, []);
   ok('no page errors');
 } finally { await browser.close(); }

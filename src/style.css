@@ -522,7 +522,8 @@ label.army select { width: 100%; font-weight: 400; }
     radial-gradient(60% 45% at 50% 40%, rgba(214, 160, 72, 0.28), transparent 70%),
     radial-gradient(120% 90% at 50% 30%, #4a3e31 0%, var(--night) 55%, #120f0c 100%);
 }
-#title-screen[open] { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; }
+/* One column the width of the screen: no content (the lineup's names) can widen the title and push it off centre. */
+#title-screen[open] { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; }
 #title-screen::backdrop { background: var(--night); }
 .title-stage { position: relative; min-height: 0; perspective: 900px; }
 .title-floor {
@@ -600,6 +601,14 @@ label.army select { width: 100%; font-weight: 400; }
   #title-screen[open] .title-kings .tk-inner { animation-delay: 80ms; }
   #title-screen[open] .title-kings .tk-outer { animation-delay: 160ms; }
   #title-screen[open] .title-copy { animation: fade 600ms ease-out 200ms both; }
+}
+/* Tablets: twelve names with their icons need about 1000 px in one row. Here the icon goes above its name,
+   as on a phone, and the figures scale with the screen, so the row fits from 721 px and stays centred. */
+@media (min-width: 721px) and (max-width: 1023px) {
+  .title-lineup { --fig: min(112px, 10.8vw); }
+  .title-lineup span { flex-direction: column; gap: 2px; margin-top: 4px; font-size: 10px; letter-spacing: 0.06em; }
+  .title-lineup::before { bottom: 31px; } /* the ledge under the feet, above the taller names */
+  .title-lineup::after { bottom: 34px; }
 }
 @keyframes rise { from { opacity: 0; translate: 0 24px; } }
 @keyframes fade { from { opacity: 0; } }

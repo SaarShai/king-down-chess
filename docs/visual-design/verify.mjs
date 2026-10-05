@@ -152,11 +152,19 @@ try {
     return out;
   });
   assert.ok(loaded.length >= 12 && loaded.every(Boolean), 'every card figure loads');
+  const kingCard = p => p.$eval('#rules-rows [data-piece="king"] img', i => new URL(i.src).pathname.split('/').slice(-2).join('/'));
+  assert.equal(await kingCard(page), 'kings/spirit.webp', 'the King card shows White\'s king as the board draws him (Spirit without powers)');
   await page.locator('#rules form button').click();
   await tap(page, 48); await tap(page, 56);
   await page.locator('#promo').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#promo-choices img').count(), 4);
-  ok(`Guide: ${await cards.count()} piece cards, ${loaded.length} painted figures loaded; promotion shows figures`);
+  const nCards = await cards.count();
+  await page.context().close();
+  page = await open('?kings=mud:march,stratus:flight&fen=' + encodeURIComponent('4k3/p7/8/8/8/8/P7/4K3 w - - 0 1'));
+  await ready(page);
+  await page.click('#rules-btn');
+  assert.equal(await kingCard(page), 'kings/mud.webp', 'the King card shows the picked White king');
+  ok(`Guide: ${nCards} piece cards, ${loaded.length} painted figures loaded; the King card shows White's king (Spirit; Mud when picked); promotion shows figures`);
   await page.context().close();
 
   // 6. Phone: tap targets of at least 44 px, no sideways scroll.
@@ -200,6 +208,28 @@ try {
     await page.context().close();
   }
   ok('title lineup: twelve painted figures with names; Learn and Play stay on screen at 1280×900 and 390×844');
+
+  // 7b. The title from a small phone to a desktop: the lineup inside the screen, no name into the next one,
+  // and the lineup, kings, wordmark and buttons centred (a tablet's lineup once widened the whole title).
+  for (const [w, h] of [[320, 568], [390, 844], [721, 1000], [768, 1024], [834, 1112], [844, 390], [1024, 768], [1440, 900]]) {
+    page = await open('', { skipTitle: false, viewport: { width: w, height: h }, touch: w < 721 });
+    await page.waitForFunction(() => [...document.querySelectorAll('#title-screen img')].every(i => i.complete) && document.fonts.status === 'loaded');
+    const m = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth, r = e => e.getBoundingClientRect(), mid = e => { const b = r(e); return (b.left + b.right) / 2 - vw / 2; };
+      const spans = [...document.querySelectorAll('.title-lineup span')].map(s => ({ name: s.textContent, ...r(s).toJSON() }));
+      const out = spans.filter(s => s.left < -0.5 || s.right > vw + 0.5).map(s => s.name);
+      const into = spans.slice(1).filter((s, i) => Math.abs(s.top - spans[i].top) < 4 && spans[i].right > s.left + 0.5).map(s => s.name);
+      const lineup = [...document.querySelectorAll('.title-lineup li')], buttons = [...document.querySelectorAll('.title-actions button:not([hidden])')];
+      const row = { left: Math.min(...buttons.map(b => r(b).left)), right: Math.max(...buttons.map(b => r(b).right)) };
+      return { out, into, wide: r(document.getElementById('title-screen')).width - vw,
+        off: [(r(lineup[0]).left + r(lineup.at(-1)).right) / 2 - vw / 2, mid(document.querySelector('.title-kings')), mid(document.getElementById('title-word')), (row.left + row.right) / 2 - vw / 2] };
+    });
+    assert.deepEqual(m.out, [], `${w}×${h}: names off the screen`);
+    assert.deepEqual(m.into, [], `${w}×${h}: names running into the one before`);
+    assert.ok(m.wide <= 0.5 && m.off.every(d => Math.abs(d) <= 2), `${w}×${h}: the title is ${m.wide} px wider than the screen; lineup, kings, wordmark, buttons off centre by ${m.off.map(d => d.toFixed(1))}`);
+    await page.context().close();
+  }
+  ok('title at 320–1440 px (and 844×390): the lineup fits the screen, no name runs into the next, all centred');
 
   // 8. Round 2 markers: shots, powers and the keyboard preview reach the painted board.
   page = await open('?fen=' + encodeURIComponent('4k3/8/1p3r2/8/3A4/8/8/4K3 w - - 0 1'));
