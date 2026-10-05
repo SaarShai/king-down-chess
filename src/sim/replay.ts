@@ -9,6 +9,8 @@ import { fromFen, toLan } from '../rules/setup';
 import { parseLan } from './tune';
 import type { Events, GameRecord } from './game';
 
+const NO_SHOT: ReadonlySet<string> = new Set(['firewall', 'rescue', 'growth', 'growthb', 'quake', 'quakeb']);
+
 export function emptyEvents(): Events {
   return {
     archerShots: [0, 0], beastChains: [[], []], maesterSwaps: [0, 0], maesterLongSwaps: [0, 0],
@@ -22,9 +24,10 @@ export function emptyEvents(): Events {
 export function countMove(events: Events, pos: Position, move: Move, post: Position): void {
   const c = pos.turn;
   const mt = typeOf(pos.board[move.from]);
-  if (mt === A && move.to === move.from) events.archerShots[c]++;
+  // The 2014 cards that keep `to === from` name a square, not an archer's shot.
+  if (mt === A && move.to === move.from && !NO_SHOT.has(move.power ?? '')) events.archerShots[c]++;
   if (mt === S && move.captures.length) events.beastChains[c].push(move.captures.length);
-  if (move.swap && move.power !== 'skylift') { // a SkyLift card uses the swap's shape, but no maester
+  if (move.swap && move.power !== 'skylift' && move.power !== 'firewallb') { // SkyLift and FirewallB use the swap's shape, but no maester
     events.maesterSwaps[c]++;
     if (typeOf(pos.board[move.to]) === K) events.maesterLongSwaps[c]++;
   }
@@ -37,31 +40,44 @@ export function countMove(events: Events, pos: Position, move: Move, post: Posit
     if (typeOf(shoved) === G) events.ogreShovesGuard[c]++;
   }
   if (move.power === 'strike') events.strikes[c]++;
-  if (move.power) (events.powers[move.power] ??= [0, 0])[c]++;
+  // The card spent: a Mirror's copy counts as the Mirror (`via`).
+  if (move.power) (events.powers[move.via ?? move.power] ??= [0, 0])[c]++;
   else if (move.pass) (events.powers.pass ??= [0, 0])[c]++;
-  // A Curse moves an enemy piece: an enemy catapult never checks its own king.
-  if (inCheck(post)) { events.checks[c]++; if (mt === C && move.power !== 'curse') events.catapultChecks[c]++; }
+  // A Curse moves an enemy piece: an enemy catapult never checks its own king; nor is a quake's square or a swap's enemy the catapult's move.
+  if (inCheck(post)) { events.checks[c]++; if (mt === C && move.power !== 'curse' && !move.pushes) events.catapultChecks[c]++; }
 }
 
 export interface Replay { events: Events; plies: number; end: Position }
 
 /**
  * Replay the recorded LANs under the **live** rules (the caller sets them from the run's stamp
- * first). Throws on the first move that is not legal now — a stronger check than "the text parses",
- * because the same LAN can be legal under two rule sets and move different pieces (LESSONS.md
- * 2026-09-14: `Ld4xd5` under old and new paladin semantics).
+ * first). Throws on the first move that does not round-trip under them: the parsed move must print
+ * as the recorded LAN, because the same LAN can move different pieces under two rule sets
+ * (LESSONS.md 2026-09-14: `Ld4xd5` under old and new paladin semantics). That is not a legality
+ * check. Only the king powers' notation is matched against the legal moves: an ordinary move is
+ * parsed, so one that round-trips but is not legal (`Qd8-d4` through the queen's own pawn) replays
+ * without an error. A caller that must refuse it checks `legalMoves` itself
+ * (`tools/piece-activity.ts` does).
+ *
+ * `onMove` sees every move with the positions before and after it and its 0-based ply
+ * (`tools/piece-activity.ts` counts per piece with it).
  */
-export function replayRecord(rec: GameRecord): Replay {
+export function replayRecord(
+  rec: Pick<GameRecord, 'gameId' | 'startFen'> & { moves: readonly { lan: string }[] },
+  onMove?: (pos: Position, move: Move, next: Position, ply: number) => void,
+): Replay {
   let pos = fromFen(rec.startFen);
   const events = emptyEvents();
   for (let i = 0; i < rec.moves.length; i++) {
     const lan = rec.moves[i].lan;
-    // The king powers' notation (`!F:e5`, `Nb1~e3`, `--`, `d4-d6!M` …) is matched against the legal
-    // moves, which also checks the power state; the rest parse without generating moves.
-    const m = /[!~]|^--$/.test(lan) ? legalMoves(pos).find(x => toLan(pos, x) === lan) : parseLan(pos.board, lan);
+    // The king powers' notation (`!F:e5`, `Nb1~e3`, `--`, `d4-d6!M` …) and the drops (`G@b1`,
+    // `N@b1!R`) are matched against the legal moves, which also checks the power state and the
+    // waiting guards; the rest parse without generating moves.
+    const m = /[!~@]|^--$/.test(lan) ? legalMoves(pos).find(x => toLan(pos, x) === lan) : parseLan(pos.board, lan);
     if (!m || toLan(pos, m) !== lan) throw new Error(`game ${rec.gameId} ply ${i}: parsed ${m ? toLan(pos, m) : 'nothing'} from ${lan}`);
     const next = makeMove(pos, m);
     countMove(events, pos, m, next);
+    onMove?.(pos, m, next, i);
     pos = next;
   }
   return { events, plies: rec.moves.length, end: pos };

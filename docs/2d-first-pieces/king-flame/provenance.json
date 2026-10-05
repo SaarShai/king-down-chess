@@ -1,0 +1,13 @@
+{
+  "tool": "Codex built-in image_gen via codex exec",
+  "date": "2026-10-04",
+  "output": "king.png",
+  "sha256": "10e9e30250329532cb91ff05218d55bb92d67fc71d57719d6bc431ba09b61073",
+  "generated_source": "/Users/za/.codex/generated_images/01a107d0-e75a-75e1-abd5-d22a602beab1/exec-b9fe97a3-3dcc-4744-8ac0-ba8a3a04cd7e.png",
+  "original_source": "art-src/pieces/final-ivory/King_ember_colored2 no-shadow.png",
+  "style_reference": "../knight/knight.png",
+  "prompts": [
+    "prompt.txt"
+  ],
+  "treatment": "Unmodified generated PNG. Second generation: the first had a large lava chest and a cape crossing into the charcoal cell."
+}

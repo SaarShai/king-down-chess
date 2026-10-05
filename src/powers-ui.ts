@@ -3,7 +3,7 @@
  * power moves the player must arm first. The engine decides what is legal; this module only says
  * how a person reaches it.
  */
-import { Color, KINGS, KingChoice, KingName, Move, PowerName, POWERS_BALANCED, PowerTag, Position, RULES, type Rules, USES_RULE } from './rules/engine';
+import { CardName, Color, KINGS, KingChoice, KingName, Move, PowerName, POWERS_BALANCED, PowerTag, Position, RULES, type Rules, USES_RULE } from './rules/engine';
 
 export const POWER_NAME: Record<PowerName, string> = {
   Freeze: 'Freeze', IceWall: 'Ice Wall', Strike: 'Strike', Haste: 'Haste', Flight: 'Flight', Sacrifice: 'Sacrifice',
@@ -53,8 +53,46 @@ export function powerText(power: PowerName, r: Rules = RULES): string {
       ? 'your pawns may also step diagonally and take straight ahead'
       : r.darknessMoves ? 'your pawns may also step diagonally, and take only straight ahead'
       : 'your pawns step diagonally and take straight ahead, with no double step')
-      + (r.darknessShelter ? `; your pieces diagonally next to your king cannot be taken${r.darknessShelterPawnsTake ? ' except by pawns' : ''}` : '');
+      + (r.darknessShelter ? `; your pieces diagonally next to your king cannot be taken${r.darknessShelterPawnsTake ? ' except by pawns' : ''}`
+        : r.darknessAuraPawns ? '; enemy pawns cannot take your pieces next to your king' : '')
+      + (r.darknessPawnArmor ? '; enemy pawns cannot take your pawns' : '')
+      + (!r.darknessKingStep2 ? ''
+        : r.darknessKingStepTakes ? '; your king may also move two squares in a straight line over an empty square, and may take there'
+        : r.darknessKingStepSafe ? '; your king may also step two squares in a straight line, over an empty square that no enemy attacks, to an empty square'
+        : '; your king may also step two squares in a straight line, over an empty square');
   }
+}
+
+/**
+ * One sentence per card (card mode, lab), as a player reads it under the rules in force: a one-use
+ * power's line (`powerText`), or a card no king has. Freeze, Ice Wall, Firewall and Rescue are free
+ * actions under `markFree`, as the marks are.
+ */
+export function cardText(card: CardName, r: Rules = RULES): string {
+  if (card in USES_RULE) return powerText(card as PowerName, r);
+  const then = (t: string): string => (r.markFree ? `${t}; then make your move` : `as your move, ${t}`);
+  switch (card) {
+    case 'Mimic': return 'move one of your pieces (not a pawn or the king), to an empty square, the way another of your pieces moves';
+    case 'Vault': return 'a rook, bishop or queen passes over one piece on its line';
+    case 'Curse': return 'move an enemy piece or pawn (not the king) one square, to an empty square';
+    case 'SkyLift': return 'two of your pieces (not pawns or the king, not of one kind) trade squares';
+    case 'Salvation': return 'return one of your captured pieces to an empty square of your back rank';
+    case 'Rage': return 'one of your pieces moves twice this turn and may take on either move (the second move is optional)';
+    case 'RageB': return 'one of your pieces moves twice this turn; its second move, if it makes one, must take';
+    case 'Mirror': return 'play the card your opponent played last, as if it were in your hand';
+    case 'MirrorB': return 'play another card from your hand; it stays in your hand';
+    case 'Firewall': return then('none of your pieces can be taken on your opponent\u2019s next turn');
+    case 'FirewallB': return 'swap one of your pieces (not the king) with an enemy piece (not the king) next to it';
+    case 'EarthQuake': return 'choose a square: each piece next to it, except a king, is pushed one square straight away from it if that square is empty';
+    case 'EarthQuakeB': return 'choose a square next to one of your pieces: each piece next to it, except a king, is pushed one square straight away from it if that square is empty';
+    case 'Burn': return 'one of your pieces (not a pawn or the king) takes an enemy piece on d4, e4, d5 or e5 as a queen would';
+    case 'FireStarter': return 'one of your pieces (not a pawn or the king) takes an enemy piece on the enemy back rank as a queen would';
+    case 'Control': return 'one of your pieces (not a pawn or the king) moves and takes this turn as a friendly piece next to it does';
+    case 'Rescue': return then('your Freeze, Ice Wall or Firewall from your previous turn lasts one more turn');
+    case 'Growth': return 'as your move, draw the next card';
+    case 'GrowthB': return 'draw the next card, then make your move';
+  }
+  return card;
 }
 
 /** The move tag each spendable power leaves (`Move.power`). */
@@ -96,11 +134,17 @@ export function powerTitle(power: PowerName, r: Rules = RULES): string {
 }
 
 /**
- * Each king's two powers for the New game picker, with their counts and one-line rules. They describe
- * the rules a game with powers is played under (the official readings), not the game in progress.
+ * The rules a game with powers is played under: the official readings, which an older `?rules=`
+ * preset overrides (as `newGame` in main.ts sets them). The picker and the Guide both read them.
  */
-export function powerOptions(): { king: KingName; group: string; options: { value: string; label: string; title: string }[] }[] {
-  const r: Rules = { ...RULES, ...POWERS_BALANCED };
+export const powersRules = (preset?: Partial<Rules>): Rules => ({ ...RULES, ...POWERS_BALANCED, ...preset });
+
+/**
+ * Each king's two powers for the New game picker, with their counts and one-line rules. They describe
+ * the rules a game with powers is played under (`powersRules`), not the game in progress.
+ */
+export function powerOptions(preset?: Partial<Rules>): { king: KingName; group: string; options: { value: string; label: string; title: string }[] }[] {
+  const r = powersRules(preset);
   return (Object.entries(KINGS) as [KingName, readonly PowerName[]][]).map(([king, powers]) => ({
     king,
     group: `${king} king`,

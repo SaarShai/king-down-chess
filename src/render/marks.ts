@@ -65,7 +65,8 @@ const COLOURS = {
   move: '255,214,128', capture: '214,52,40', shot: '214,52,40', swap: '160,120,220', shove: '64,190,176', power: '96,160,255',
 };
 
-export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', s: MarkState): void {
+/** `row`: for the 'over' layer, draw only that screen row's squares (the scene calls it row by row). */
+export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', s: MarkState, row?: number): void {
   const { PAD, TILE } = scene, m = s.marks, k = s.k;
   const now = performance.now();
   const from = m.selected != null ? scene.cell(m.selected) : null;
@@ -81,6 +82,7 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
   const ground = (sq: number) => { const f = scene.foot(sq); return { x: f.x, y: f.y - 4 }; };
   const powers = new Set(m.powers ?? []), shots = new Set(m.shots ?? []);
   const hover = (sq: number) => s.preview === sq;
+  const inRow = (sq: number) => row == null || scene.cell(sq).row === row;
 
   ctx.save();
   if (layer === 'under') {
@@ -128,21 +130,21 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
     }
   } else {
     for (const sq of m.moves ?? []) {
-      const a = appear(sq); if (a <= 0) continue;
+      const a = appear(sq); if (a <= 0 || !inRow(sq)) continue;
       const g = ground(sq), bob = s.motion ? Math.sin(time * 2.6 + sq) * 2.2 : 0;
       if (hover(sq) && s.piece) continue; // the preview figure stands there instead
       gem(ctx, g.x, g.y - 22 * Math.min(k, 1.6) - bob, Math.min(k, 1.6) * a, time + sq * 0.37, powers.has(sq));
     }
     for (const sq of m.captures ?? []) {
-      const a = appear(sq); if (a <= 0) continue;
+      const a = appear(sq); if (a <= 0 || !inRow(sq)) continue;
       const b = box(sq), h = hover(sq), p = pulse(sq, 3);
       brackets(ctx, b.x, b.y, TILE, (h ? 13 : 6 + 4 * p) + (1 - Math.min(1, a)) * 18, Math.min(a, 1), h, k, powers.has(sq));
       if (shots.has(sq)) sight(ctx, b.x + TILE / 2, ground(sq).y - 58, (h ? 19 : 16) * Math.max(1, k * 0.8) * a, time, h);
     }
-    for (const sq of m.hint ?? []) { const b = box(sq); ctx.strokeStyle = '#c99a2e'; ctx.lineWidth = 4 * k; ctx.strokeRect(b.x + 4, b.y + 4, TILE - 8, TILE - 8); }
+    for (const sq of m.hint ?? []) { if (!inRow(sq)) continue; const b = box(sq); ctx.strokeStyle = '#c99a2e'; ctx.lineWidth = 4 * k; ctx.strokeRect(b.x + 4, b.y + 4, TILE - 8, TILE - 8); }
     const p = s.preview;
     const marked = p != null && [m.moves, m.captures, m.swaps, m.shoves, m.powers].some(l => l?.includes(p));
-    if (p != null && !marked) { const b = box(p); ctx.strokeStyle = '#ffffffaa'; ctx.lineWidth = 2; ctx.strokeRect(b.x + 1, b.y + 1, TILE - 2, TILE - 2); }
+    if (p != null && !marked && inRow(p)) { const b = box(p); ctx.strokeStyle = '#ffffffaa'; ctx.lineWidth = 2; ctx.strokeRect(b.x + 1, b.y + 1, TILE - 2, TILE - 2); }
   }
   ctx.restore();
 }

@@ -215,7 +215,7 @@ describe('runner (end to end)', () => {
     execFileSync('node_modules/.bin/tsx',
       ['src/sim/run.ts', '--id', id, '--games', '2', '--depth', '1', '--sample', '2', '--seed', '5',
         '--workers', '1', '--maxPlies', '60', '--openingRandomPlies', '4'],
-      { stdio: 'pipe' });
+      { stdio: 'pipe', timeout: 110_000 }); // a sync call blocks vitest's own timeout
 
     const recs = readRecords(jsonl);
     expect(recs).toHaveLength(2);

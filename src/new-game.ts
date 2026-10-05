@@ -5,7 +5,8 @@
  */
 import type { SkillName } from './ai/skill';
 import type { Side } from './game';
-import { KINGS, PLAIN_KINGS, type Color, type KingChoice, type KingName, type PowerName } from './rules/engine';
+import { KINGS, PLAIN_KINGS, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
+import { emblemArt, powerArt } from './power-motion';
 import { POWER_NAME, powerOptions } from './powers-ui';
 
 /** Play the computer (no powers), Kings' powers against the computer, or two people. */
@@ -85,21 +86,26 @@ export function parseSetup(v: unknown): Setup | null {
 
 /* ---- the dialog ---- */
 
-/** Builds the king pickers (in the KINGS order of src/rules/rules.ts) and wires every control once. */
-export function newGameDialog(start: (s: Setup) => void): { open(s: Setup): void } {
+/**
+ * Builds the king pickers (in the KINGS order of src/rules/rules.ts) and wires every control once.
+ * `preset`: the page's `?rules=` preset, which the games it starts play over the official readings.
+ */
+export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>): { open(s: Setup): void } {
   const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
   const dlg = $<HTMLDialogElement>('new-game');
   const radios = (name: string) => [...dlg.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)];
   let draft = defaultSetup();
-  let options = new Map(powerOptions().map(g => [g.king, g.options]));
+  let options = new Map(powerOptions(preset).map(g => [g.king, g.options]));
 
   for (const c of [0, 1] as const) {
     $(`pick-${c}`).innerHTML = `<h3 id="pick-${c}-title">${SIDE[c]}'s king <span class="who"></span></h3>`
       + `<div class="emblems" role="group" aria-labelledby="pick-${c}-title">${KING_NAMES.map(k =>
         `<button type="button" class="emblem" data-king="${k}" aria-pressed="false" title="${k} king: ${KINGS[k].map(p => POWER_NAME[p]).join(' or ')}">`
-        + `<img src="./ui/emblems/${k.toLowerCase()}.webp" alt="" width="128" height="128" decoding="async" /><span>${k}</span></button>`).join('')}</div>`
+        + emblemArt(k, `<img src="./ui/emblems/${k.toLowerCase()}.webp" alt="" width="128" height="128" decoding="async" />`)
+        + `<span class="em-name">${k}</span></button>`).join('')}</div>`
       + `<div class="power-choice" role="group" aria-label="${SIDE[c]}'s power">`
-      + '<button type="button" data-slot="0"></button><button type="button" data-slot="1"></button><button type="button" data-slot="none" data-power="">No power</button></div>'
+      + '<button type="button" data-slot="0"></button><button type="button" data-slot="1"></button>'
+      + `<button type="button" data-slot="none" data-power="">${powerArt(null)}<span class="pm-label">No power</span></button></div>`
       + `<p class="power-text" aria-live="polite"></p>`;
     for (const b of $(`pick-${c}`).querySelectorAll<HTMLButtonElement>('.emblem')) {
       b.onclick = () => { draft = withKing(draft, c, b.dataset.king as KingName); render(); };
@@ -136,7 +142,9 @@ export function newGameDialog(start: (s: Setup) => void): { open(s: Setup): void
       const opts = options.get(king)!;
       for (const b of box.querySelectorAll<HTMLButtonElement>('.power-choice button')) {
         const slot = b.dataset.slot!, p = slot === 'none' ? null : KINGS[king][+slot];
-        if (p) { b.textContent = POWER_NAME[p]; b.dataset.power = p; b.title = opts[+slot].title; }
+        // A new power gets its own vignette; the label is the button's text (the art has none).
+        if (p && b.dataset.power !== p) { b.innerHTML = `${powerArt(p)}<span class="pm-label">${POWER_NAME[p]}</span>`; b.dataset.power = p; }
+        if (p) b.title = opts[+slot].title;
         b.setAttribute('aria-pressed', String(p === power));
       }
       const chosen = power ? opts[KINGS[king].indexOf(power)] : null, line = box.querySelector('.power-text')!;
@@ -150,7 +158,7 @@ export function newGameDialog(start: (s: Setup) => void): { open(s: Setup): void
   return {
     open(s: Setup): void {
       draft = copy(s);
-      options = new Map(powerOptions().map(g => [g.king, g.options])); // the use counts of the rules in force
+      options = new Map(powerOptions(preset).map(g => [g.king, g.options])); // the use counts of the rules in force
       render();
       dlg.showModal();
     },

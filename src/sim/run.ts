@@ -32,11 +32,11 @@ export interface Stamp { rules: Rules; rulesKey: string; pool: string; specKey: 
  */
 export function stampOf(spec: RunSpec): Stamp {
   const rules = { ...DEFAULT_RULES, ...spec.rules }; // exactly what run() puts in RULES
-  // Keys added later (kings, hands) count only when set, so stamps of older runs still match.
-  const { hands, ...noHands } = rules;
-  const r = hands[0].length || hands[1].length ? rules : noHands;
-  const { kings, ...noKings } = r;
-  const keyed = kings[0] || kings[1] ? r : noKings;
+  // Keys added later (kings, hands, piles) count only when set, so stamps of older runs still match.
+  const keyed: Partial<Rules> = { ...rules };
+  if (!rules.hands[0].length && !rules.hands[1].length) delete keyed.hands;
+  if (!rules.piles[0].length && !rules.piles[1].length) delete keyed.piles;
+  if (!rules.kings[0] && !rules.kings[1]) delete keyed.kings;
   return {
     rules,
     rulesKey: createHash('sha1').update(JSON.stringify(keyed)).digest('hex').slice(0, 8),

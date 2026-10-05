@@ -1,7 +1,7 @@
 # King Down Chess — current rules and dated decisions
 
 Starting source: *King Down Classic — Rules of Play* (Saar Shai, 2017), with the dated owner decisions below.
-Sections 1–3 describe the current default. Kings' powers in §4 are optional lab rules; card/spell effects in §5 remain unbuilt.
+Sections 1–3 describe the current default. Kings' powers in §4 are optional lab rules; card/spell effects in §5 are built as lab cards (card mode), not in the playable game.
 
 ## 1. Base rules
 
@@ -20,8 +20,8 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 
 - Rank 2 / 7: 8 pawns each.
 - Rank 1 / 8: the king plus **7 pieces drawn at random** from the pool
-  `1 queen, 1 ogre, 2 rooks, 2 bishops, 2 knights, 2 archers, **1 guard**, 2 maesters, 2 beasts` (15 letters,
-  `QORRBBNNAAGMMSS`),
+  `1 queen, 1 ogre, 2 rooks, 2 bishops, 2 knights, 2 archers, **1 guard**, 2 maesters, **1 beast**` (14 letters,
+  `QORRBBNNAAGMMS`),
   in a random order that is **identical for both players**.
 - Our extra constraint (Chess960 spirit): if both bishops are drawn they start on opposite colours.
   There is no "king between rooks" rule because there is no castling.
@@ -31,7 +31,7 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 
 Letters (FEN-style, uppercase = white): `P N B R Q K` standard, `A` archer, `L` paladin, `G` guard, `M` maester, `S` beast, `O` ogre.
 Paladin remains available in custom setups and historical promotion sets, outside the current random pool. Catapult (`C`), Reaver (`V`) and Templar (`T`) remain lab pieces. The archived Squire/reserve experiment is not part of this engine.
-Lab only: under `guardCaptures` + `guardCaptureLimit` (§6.9, never in a shipped game) a guard that has spent its one capture is written `H` (white) / `h` (black), so a position keeps that state through a FEN round-trip.
+Lab only: under `guardCaptures` + `guardCaptureLimit` (§6.9, never in a shipped game) a guard that has spent its one capture is written `H` (white) / `h` (black), so a position keeps that state through a FEN round-trip. Under `guardReserve` (§6.9) a guard waiting beside the board is FEN field 7 `g1.0` ([white.black]) and enters as `G@b1`.
 King Down card-game names for the standard pieces: Pike = pawn, Steed = knight, Cross = bishop, Rock = rook, Thorn = queen.
 
 | Piece | Move | Capture | Special |
@@ -73,9 +73,9 @@ rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every rea
 | Mud | **March** (3 uses) | any pawn may move two forward (if unblocked) | always on (`marchUses: 0`) |
 | Mud | **Leap** (3 uses) | own pieces may jump over own pawns when moving several squares | as printed |
 | Spirit | **Holy Light** (always on) | king cannot be captured by enemy pawns and cannot capture pawns | the king may take pawns, and **no piece beside, in front of or behind the Holy Light king can be captured** (`holyLightTakesPawns`, `holyLightShelter`, `holyLightShelterOrtho`) |
-| Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, and **no piece next to the Mercy king can be captured** (`mercyAura`) |
+| Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, but the king may take pawns; and **no piece next to the Mercy king can be captured, except by a pawn** (`mercyAura`, `mercyAuraPawnsTake`, `mercyTakesPawns`: reading M2, owner 2026-10-03) |
 | Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward, back or sideways, over an empty square** (`deathTouchReach`, `deathTouchReachOrtho`) |
-| Shadow | **Darkness** (always on) | own pawns move 1 diagonally and capture 1 straight forward; no double first move | pawns also keep their straight steps (double from the start); they still capture only straight ahead (`darknessMoves`) |
+| Shadow | **Darkness** (always on) | own pawns move 1 diagonally and capture 1 straight forward; no double first move | pawns also keep their straight steps (double from the start); they still capture only straight ahead (`darknessMoves`); **the king may also step two squares in a straight line, over an empty square** (`darknessKingStep2`, owner 2026-10-04) |
 
 Holy Light's shelter was added after round 6 (owner asked for Mercy and Holy Light variations to be
 tested): it lifted Holy Light from 43% to 53%; sheltering all eight neighbours overshot to 64%, and
@@ -85,6 +85,23 @@ powers; Haste, Sacrifice and Mercy 56–57% (high), Death Touch 43% and Darkness
 the report; the toggles stay in the lab. Earlier single-power measurements of the six always-on
 powers: `docs/research/sim-kings-2026-09-16.md`.
 
+**Owner decisions (2026-10-03), after rounds 14 and 15.** Mercy: "yes": reading M2 is official (in
+rounds 14 and 15 it moved Mercy from about 56% to 50%). Haste and Death Touch stay as they are: the
+trims are "too cumbersome and not worth the gain". Darkness stays as it is for now: the diagonal
+shelter that pawns may break (D2) is "too cumbersome", but Darkness at about 42% is not accepted, so
+round 16 tests simple second parts, one short sentence each, as lab toggles: enemy pawns cannot take
+your pawns (`darknessPawnArmor`); enemy pawns cannot take your pieces next to your king
+(`darknessAuraPawns`); your king may also step two squares in a straight line, over an empty square,
+to an empty square (`darknessKingStep2`); and D1, your pieces diagonally next to your king cannot be
+taken (`darknessShelter`). No king-power reading changes how other pieces move.
+
+**Owner decision (2026-10-04), after rounds 16 and 17:** "1. B", the king step as tested: your king
+may also step two squares in a straight line, over an empty square (`darknessKingStep2`). The middle
+square may be attacked; the step never takes and adds no attacked square. Over rounds 16 and 17 it
+moved Darkness from about 44% to 48%, with Spirit and Shadow level. The safe step
+(`darknessKingStepSafe`) and the taking step (`darknessKingStepTakes`) stay lab toggles, off.
+`?rules=2017` and `?rules=2021` still play the printed Darkness.
+
 ## 5. Card / spell effects (documented, not yet enabled)
 
 From the card-game rulebook drafts (temp 2.0 / 4.0), stripped of toll/action-point costs. Candidate effects to port later as timed modifiers:
@@ -93,6 +110,13 @@ Mirror (copy a spell), Rage (extra capture), Curse (control an enemy piece of th
 Growth (draw), Burn (capture inside the capital zone), Control (control a friendly piece in range), Sacrifice (swap with a captured piece),
 Rescue (keep an effect for another turn), Leap (range not obstructed); elemental: Fire Starter, Frost Bite (freeze in range), Sky Lift (swap two units), Earth Quake (shove adjacent units).
 Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maester has Control, Beast has Rage.
+
+Card mode (lab only, not in the playable game; `docs/research/cards-2026-10-03.md`) deals one-use cards: the
+spendable king powers and the card-only cards, Mimic, Vault, Curse, Sky Lift and **Salvation** (2026-10-04: "Return
+one of your captured pieces to an empty square of your back rank"; a pawn, a guard or the king never returns), and
+(2026-10-04, owner: "cards - let's add all") the 2014 cards **Rage**, **Mirror**, **Firewall**, **Earth Quake**,
+**Burn**, **Fire Starter**, **Control**, **Rescue** and **Growth**, with softer `B` readings of Rage, Mirror, Firewall,
+Earth Quake and Growth; their texts and readings are in that report ("The 2014 cards"). Not measured yet.
 
 ## 6. Decisions (2026-09-13, chosen for balance and fun)
 
@@ -123,6 +147,9 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
    measured neutral (+1 ± 45 Elo) and is not adopted either. The toggles `guardCaptures`, `guardCaptureLimit` and
    `guardStep`, `guardDoubleFirst` (a pawn-like double step from the home rank; queued, docs/QUEUE.md Q1), the `SPENT` bit and the FEN `H`/`h` marker stay in the code for the balance lab; they are inert
    under the defaults, because a guard that cannot capture can never become spent.
+   Lab (2026-10-04, owner: "guard - do the testing"): `guardReserve=rank1` — "Your Guard starts beside the board; as
+   a move, place it on any empty square of your first rank" (`rank12`: first two ranks). Off by default; the rules and
+   the queued runs are in `docs/research/piece-balance-criteria-2026-10-03.md` ("Guard reserve").
 
 14. **No double first turn for Black (designer, 2026-09-14).** Measured in `sim-queue-2026-09-14`: on the full pool the rule
     turns White's 0.533 into 0.472 (−0.062 ± 0.026), an edge for Black of the size White had; without the paladin it lands
@@ -141,7 +168,10 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
     fresh control): decisive **+8.8 ± 3.8**, draws **−8.2 ± 3.7**, plies −14.2 ± 4.8, white score +2.6 ± 2.6
     (fair). The cost is the piece's value: **3.73 ± 0.42 → 5.05 ± 0.44 pawns** (odds match vs a rook),
     so `ARCHER_V` moves 337 → 505 with it. The other sweep levers were rejected or null
-    (`docs/research/sim-piece-balance-2026-09-17.md`).
+    (`docs/research/sim-piece-balance-2026-09-17.md`). Three lab sets between it and `classic` wait for
+    measurement (owner, 2026-10-04: "archer - test and measure first"): `plusDiagFwd2Clear` (a forward
+    diagonal-2 shot needs the square between empty), `fwd2NoBack` (no shot 2 straight back) and
+    `fwd2NoSide` (no shots 2 to the side).
 17. **The beast's blind spot goes (designer, 2026-09-17).** `beastCaptureForward` defaults to `true`: the beast
     captures on **every** adjacent square (the "seven except straight ahead" rule cost more to remember than it
     earned). All three simplifications were measured at 1,600 games an arm, depth 4: removing the blind spot is the
@@ -158,6 +188,15 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
     `direct-campaign-phase-3-2026-09-22.md`. Selectively implemented on the accepted clay base:
     [adoption record](cursor-recovery/2026-09-24-0213b442/EXECUTED.md). The new 24-game traffic sketch
     does not establish a balance improvement or a precise first-move advantage.
+19. **The over-a-piece Archer is held; today's Archer stays (owner, 2026-10-05: "option B").** The owner
+    first approved `archerShots: 'over2'` (the Archer takes an enemy exactly 2 squares away straight or on
+    a forward diagonal, only over a piece of either side, and no longer its diagonal neighbours; built on
+    `claude/archer-over2`). Re-pricing it for the computer then measured its worth at **0.83 ± 0.25 pawns**
+    (four Muller passes against the Knight at depth 3, the last two with the Knight army a pawn down:
+    `ARCHER_V` would fall 505 → 83; `docs/research/piece-runs-2026-10-05-pv-A-over2.md` on that branch),
+    far under criterion 1's 2.5–5.5 pawns. So this release keeps Decision 16: `archerShots`
+    `'plusDiagFwd2'`, `ARCHER_V` 505, the Archer lesson and the Guide text unchanged. Next: on the M1, an
+    over-a-piece Archer with more reach, aiming at a worth of at least 2.5 pawns with few draws.
 
 ### First measured evidence (2026-09-13, provisional) — superseded by §6.8
 
@@ -233,3 +272,7 @@ Reduced runs at depth 3: `docs/research/sim-results-2026-09-13.md`. The error ba
     adds nothing measurable" guideline it was reverted. The HUD picker builds its buttons from the legal moves, so it
     follows on its own. `anyNonKingNoGuard` and `anyNonKing` stay selectable lab readings; `?rules=2017` plays
     `anyNonKing`.
+
+**One beast per army (designer, 2026-10-04).** "There should never be 2 beasts in one game." `POOL` is now
+`QORRBBNNAAGMMS` (14 letters): an army draws 7 of them, so it holds at most one beast. Earlier pool runs (rounds up to 17, `pa-*`) drew from the 15-letter pool.
+Custom armies too (designer, 2026-10-04: "one beast per army - that should always be the case"): New game refuses a custom back rank with two beasts.

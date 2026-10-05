@@ -7,14 +7,15 @@ import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, file as fileOf, findKing, kingLabel, KingChoice, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, file as fileOf, findKing, kingLabel, KingChoice, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { mulberry32 } from './sim/rng';
 import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
-import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, usesAllowed, usesLeft } from './powers-ui';
+import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
+import { pieceIcon } from './piece-icons';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -32,8 +33,8 @@ if (preset || kings) {
   setRules({ ...(k ? withPowers(k) : {}), ...preset, ...(k ? { kings: k } : {}) });
 }
 /** "twice a game", "always on". */
-const usesText = (p: PowerName): string => {
-  const n = usesAllowed(p);
+const usesText = (p: PowerName, r: Rules = GAME_RULES): string => {
+  const n = usesAllowed(p, r);
   return n === null || n === 0 ? 'always on' : n === 1 ? 'once a game' : n === 2 ? 'twice a game' : `${n} times a game`;
 };
 
@@ -140,6 +141,9 @@ const ARCHER_SHOT_TEXT: Record<string, string> = {
   ring2: 'Shoots without moving: any enemy on a diagonally adjacent square or anywhere on the ring 2 squares away, through blockers.',
   forward3: 'Shoots without moving: an enemy on either forward diagonal, or the square exactly 2 ahead, through blockers.',
   plusDiagFwd2: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2) plus either forward diagonal at distance 2, through blockers.',
+  plusDiagFwd2Clear: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2, through blockers) plus either forward diagonal at distance 2, over an empty square.',
+  fwd2NoBack: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or to the side, or either forward diagonal at distance 2, through blockers.',
+  fwd2NoSide: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or behind, or either forward diagonal at distance 2, through blockers.',
 };
 
 /** Chess pieces always; fairies in POOL or the fixed set A L G M S O. */
@@ -274,9 +278,13 @@ function pieceGuide(t: PieceType): GuideRow {
 
 /** Painted figures cut from the board's sheets (docs/visual-design/make-ui-art.py); none for the lab pieces. */
 const ART: Partial<Record<PieceType, string>> = Object.fromEntries(
-  ([P, N, B, R, Q, K, A, L, G, M, S, O] as PieceType[]).map(t => [t, NAMES[t]]));
+  ([P, N, B, R, Q, A, L, G, M, S, O] as PieceType[]).map(t => [t, NAMES[t]]));
+/** A side's king as the board draws him: the king it plays (Spirit and Shadow without powers), in its army's colour. */
+const kingArt = (c: Color): string =>
+  `${import.meta.env.BASE_URL}ui/kings/${(GAME_RULES.kings[c]?.king ?? PLAIN_KINGS[c]).toLowerCase()}${c ? '-b' : ''}.webp`;
 const pieceArt = (t: PieceType, black = false): string | null =>
-  ART[t] ? `${import.meta.env.BASE_URL}ui/pieces/${ART[t]}-${black ? 'b' : 'w'}.webp` : null;
+  t === K ? kingArt(black ? 1 : 0)
+    : ART[t] ? `${import.meta.env.BASE_URL}ui/pieces/${ART[t]}-${black ? 'b' : 'w'}.webp` : null;
 
 function fillPieceGuide(): void {
   const rows = $('rules-rows');
@@ -289,13 +297,14 @@ function fillPieceGuide(): void {
     const letter = LETTERS[t];
     const name = NAMES[t][0].toUpperCase() + NAMES[t].slice(1);
     const art = pieceArt(t);
-    // The heading keeps "A Archer" as one text run: tools find a card by it.
+    // The heading shows the piece's icon before its name (tools find a card by data-piece); a lab piece has
+    // no icon and shows its letter, as its art does.
+    const icon = pieceIcon(t);
     card.innerHTML = `<div class="pc-art">${art ? `<img src="${art}" alt="" loading="lazy" decoding="async">` : `<span class="pc-medallion" aria-hidden="true">${letter}</span>`}</div>`
-      + `<div class="pc-body"><h3><span class="pc-letter" title="Its letter in the move list">${letter}</span> ${name}</h3><dl>`
+      + `<div class="pc-body"><h3>${icon || `<span class="pc-letter" title="Its letter in the move list">${letter}</span>`} ${name}</h3><dl>`
       + `<dt>Moves</dt><dd>${g.moves}</dd><dt>Captures</dt><dd>${g.captures}</dd>${g.special ? `<dt>Special</dt><dd>${g.special}</dd>` : ''}</dl></div>`;
     rows.appendChild(card);
   }
-  const poolLetters = POOL.split('').join(' ');
   const promo = GAME_RULES.promotionSet === 'anyNonKing'
     ? 'A pawn promotes to any piece but a king.'
     : GAME_RULES.promotionSet === 'anyNonKingNoGuard'
@@ -304,13 +313,23 @@ function fillPieceGuide(): void {
   $('rules-lead').textContent =
     `Mate the king. Both sides share one random back rank, drawn from the pool. No castling or en passant. ${promo}`;
   $('rules-notation').textContent =
-    'In the move list: - moves, x captures, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes. '
+    // The move list keeps the letters (LAN), so the Guide names them here, once.
+    `In the move list a move starts with its piece's letter (none for a pawn): ${([N, B, R, Q, K, A, L, G, M, S, O] as PieceType[]).map(t => `${LETTERS[t]} ${NAMES[t]}`).join(', ')}. `
+    + 'Then - moves, x captures, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes. '
     + 'Kings\' powers: ! Strike, !H Haste (-- ends a Haste turn early), ~ Flight, !F: Freeze, !W: Ice Wall, !S: Sacrifice, !M March, !L Leap.';
-  // The twelve powers, with the use counts the rules set today.
+  // The twelve powers as a game with powers plays them: this game's rules when a king has a power,
+  // else the official readings, which an older `?rules=` preset overrides (as the New game picker shows them).
+  const pr: Rules = GAME_RULES.kings[0] || GAME_RULES.kings[1] ? GAME_RULES : powersRules(preset);
   $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
-    `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p)}) — ${powerText(p)}`).join('; ')}.</li>`).join('');
-  $('rules-letters').textContent =
-    `The random draw pool is ${poolLetters}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
+    `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p, pr)}) — ${powerText(p, pr)}`).join('; ')}.</li>`).join('');
+  // Each piece once, as its icon and how many the pool holds ("×2"); its name for a pointer and a screen reader.
+  const pool = [...new Set(POOL)].map(ch => {
+    const t = LETTERS.indexOf(ch) as PieceType, n = POOL.split(ch).length - 1, icon = pieceIcon(t);
+    const name = `${NAMES[t]}${n > 1 ? ` ×${n}` : ''}`;
+    return icon ? `<span class="pool-piece" title="${name}">${icon}${n > 1 ? `<span aria-hidden="true">×${n}</span>` : ''}<span class="sr-only">${name}</span></span>` : `<span class="pool-piece">${name}</span>`;
+  }).join('<span class="sr-only">, </span>');
+  $('rules-letters').innerHTML =
+    `The random draw pool is ${pool}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
 }
 
 function showInfo(sq: number | null): void {
@@ -319,7 +338,7 @@ function showInfo(sq: number | null): void {
   const g = t ? pieceGuide(t) : null;
   const blurb = g ? [g.moves, g.captures, g.special].filter(Boolean).join(' ') : '';
   $('info').innerHTML = (code
-    ? `<b>${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${blurb}`
+    ? `<b>${pieceIcon(typeOf(code), colorOf(code))} ${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${blurb}`
       // Lab only (docs/RULES.md §6.9): the shipped guard never captures, so it can never be spent.
       + (code & SPENT ? ' <b>This guard has used its capture.</b>' : '')
     : '') + kingsInfo();
@@ -376,7 +395,8 @@ function refresh(): void {
     shoves,
     shots,
     powers,
-    last: last ? [last.from, ...(last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? last.captures : [last.to])] : [],
+    // Owner (2026-10-04): the square the piece left is not marked; where it went (or what it hit) is.
+    last: !last ? [] : last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? [...last.captures] : [last.to],
     hint: hintSquares,
     check: game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
   });
@@ -438,11 +458,15 @@ function refresh(): void {
     for (const c of h.move.captures) taken[mover].push(h.pos.board[c]);
     if (h.move.selfRemove) taken[1 - mover].push(h.pos.board[h.move.from]);
   }
-  // Grouped names ("pawn ×2, beast"): letters alone mean little for the King Down pieces.
+  // Grouped icons in each piece's own colours (a paladin that removed itself is on its own side's line).
+  // A screen reader and a pointer get the names: "pawn ×2, beast". A lab piece has no icon, only its name.
   const names = (codes: number[]): string => {
-    const count = new Map<PieceType, number>();
-    for (const p of codes) count.set(typeOf(p), (count.get(typeOf(p)) ?? 0) + 1);
-    return [...count].sort(([a], [b]) => a - b).map(([t, n]) => `<span>${NAMES[t]}${n > 1 ? ` ×${n}` : ''}</span>`).join(', ');
+    const count = new Map<number, number>(); // key: type * 2 + colour
+    for (const p of codes) { const k = typeOf(p) * 2 + colorOf(p); count.set(k, (count.get(k) ?? 0) + 1); }
+    return [...count].sort(([a], [b]) => a - b).map(([k, n]) => {
+      const t = (k >> 1) as PieceType, icon = pieceIcon(t, (k & 1) as Color), name = `${NAMES[t]}${n > 1 ? ` ×${n}` : ''}`;
+      return icon ? `<span class="took" title="${name}">${icon}${n > 1 ? `<span aria-hidden="true">×${n}</span>` : ''}<span class="sr-only">${name}</span></span>` : `<span class="took">${name}</span>`;
+    }).join('<span class="sr-only">, </span>');
   };
   $('took-w').innerHTML = names(taken[0]);
   $('took-b').innerHTML = names(taken[1]);
@@ -459,7 +483,9 @@ function refresh(): void {
   progress.hidden = lesson == null;
   document.body.classList.toggle('in-lesson', lesson != null);
   if (lesson != null) {
-    progress.innerHTML = LESSONS.map((l, i) => `<span class="${i < lesson! || (i === lesson && lessonDone) ? 'done' : i === lesson ? 'now' : ''}" title="${l.name}"></span>`).join('');
+    // Each lesson as the icon of the piece it teaches (a lesson is named after its piece).
+    const taught = (name: string) => NAMES.indexOf(name.toLowerCase() as typeof NAMES[number]) as PieceType;
+    progress.innerHTML = LESSONS.map((l, i) => `<span class="${i < lesson! || (i === lesson && lessonDone) ? 'done' : i === lesson ? 'now' : ''}" title="${l.name}">${pieceIcon(taught(l.name))}</span>`).join('');
   }
   refreshPowers();
   drawMarks();
@@ -669,7 +695,7 @@ function pickPromotion(options: Move[]): Promise<Move | null> {
     for (const m of options) {
       const b = document.createElement('button');
       const art = pieceArt(m.promo as PieceType, game.pos.turn === 1);
-      b.innerHTML = `${art ? `<img src="${art}" alt="" aria-hidden="true">` : ''}<span>${LETTERS[m.promo!]} ${NAMES[m.promo as PieceType]}</span>`;
+      b.innerHTML = `${art ? `<img src="${art}" alt="" aria-hidden="true">` : ''}<span>${pieceIcon(m.promo as PieceType, game.pos.turn)} ${NAMES[m.promo as PieceType]}</span>`;
       b.onclick = () => done(m);
       box.appendChild(b);
     }
@@ -736,7 +762,7 @@ async function choosePower(moves: Move[]): Promise<void> {
     closePromo = () => done(null);
     for (const x of moves) {
       const b = document.createElement('button');
-      b.textContent = `${LETTERS[x.promo!]} ${NAMES[x.promo as PieceType]}`;
+      b.innerHTML = `${pieceIcon(x.promo as PieceType, game.pos.turn)} ${NAMES[x.promo as PieceType]}`;
       b.onclick = () => done(x);
       box.appendChild(b);
     }
@@ -989,6 +1015,8 @@ function showOver(): void {
   const loser = resigned ?? (game.status === 'checkmate' ? game.pos.turn : null), king = loser == null ? -1 : findKing(game.pos.board, loser);
   view.setFallen(king >= 0 ? king : null);
   dlg.dataset.fallen = loser == null ? 'none' : loser ? 'b' : 'w'; // the dialog's painted kings show it too
+  dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0); // the kings that played, as on the board
+  dlg.querySelector<HTMLImageElement>('.over-b')!.src = kingArt(1);
   $('share-result').hidden = daily == null;
   $('share-result').textContent = "Copy today's result";
   dlg.showModal();
@@ -1168,7 +1196,7 @@ function fromAccount(down: string[]): void {
   if (!s) return;
   if (down.includes('settings')) {
     applySettings(s);
-    setSound($<HTMLInputElement>('sound').checked); view.setPace(pace.value as Pace); view.setCoords(coords.checked);
+    setSound($<HTMLInputElement>('sound').checked); applyPace(); view.setCoords(coords.checked);
     refresh();
   }
   if (down.includes('saved_game')) { if (lesson != null) cloudGame = true; else if (!fen) openSaved(s); }
@@ -1230,6 +1258,7 @@ const dialog = newGameDialog(s => {
   if (s.army === 'custom') {
     back = prompt(`Back rank (8 letters, one K; current draw pool ${POOL}):`, game.backRank)?.toUpperCase().trim();
     if (!back) return; // the dialog stays open
+    if (back.split('S').length > 2) { alert('One Beast per army.'); return; } // owner, 2026-10-04
   }
   setup = s;
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(s)); } catch { /* private mode: the choices last this visit */ }
@@ -1242,7 +1271,7 @@ const dialog = newGameDialog(s => {
     const example = TRY_THESE.find(row => row.code === s.army);
     if (example) { said = example.watch; $('moment').textContent = said; }
   } else newGame(randomBackRank());
-});
+}, preset);
 const openNewGame = (): void => dialog.open(setup);
 
 $('new-game-btn').onclick = openNewGame;
@@ -1267,7 +1296,12 @@ $('threats').onchange = () => { drawMarks(); save(); };
 const pace = $<HTMLSelectElement>('pace');
 // No saved choice: the system's reduced-motion setting picks Off.
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) pace.value = 'off';
-pace.onchange = () => { view.setPace(pace.value as Pace); save(); };
+/** The board's animation speed; Off also stills the New game picker's motion art (power-motion.css), as reduced motion does. */
+function applyPace(): void {
+  view.setPace(pace.value as Pace);
+  document.documentElement.dataset.pace = pace.value;
+}
+pace.onchange = () => { applyPace(); save(); };
 const labels = $<HTMLInputElement>('labels');
 labels.checked = params.get('labels') === '1';
 labels.onchange = () => view.setLabels(labels.checked);
@@ -1352,7 +1386,6 @@ const titleClosed = new Promise<void>(resolve => {
   const resumable = !!saved && saved.moves.length > 0;
   const firstVisit = !saved;
   $('title-continue').hidden = !resumable;
-  $('title-first').hidden = !firstVisit;
   // A first visit leads with the lessons; otherwise Play (or Continue) leads.
   $('title-learn').classList.toggle('primary', firstVisit);
   $('title-play').classList.toggle('primary', !firstVisit && !resumable);
@@ -1367,14 +1400,23 @@ const titleClosed = new Promise<void>(resolve => {
     resolve();
   }, { once: true });
   document.body.classList.add('title-up');
+  document.documentElement.dataset.pace = pace.value; // before it opens: Animations Off skips the entrance (style.css)
   dlg.showModal();
+  // The six kings' resting effects: loaded after the title is up, so its first paint never waits; none
+  // with Animations Off or reduced motion (the module checks reduced motion itself).
+  if (pace.value !== 'off') void import('../docs/2d-first-pieces/board/title-kings.mjs').then(({ startTitleKings }) => {
+    if (!dlg.open) return;
+    const kings = startTitleKings(dlg.querySelector('.title-kings')!, { enabled: () => pace.value !== 'off' });
+    (window as unknown as { titleKings?: unknown }).titleKings = kings; // for the browser checks
+    dlg.addEventListener('close', () => kings.stop(), { once: true });
+  }).catch(() => { /* offline before it was cached: the still kings stay */ });
   ($(firstVisit ? 'title-learn' : resumable ? 'title-continue' : 'title-play')).focus();
 });
 
 // The playable game has one art direction; study controls stay in the study.
 view.applyStyle(STYLES.clay);
 view.setCoords(coords.checked);
-view.setPace(pace.value as Pace);
+applyPace();
 const fen = link ? null : params.get('fen');
 const lans = linkMoves?.split('_').filter(Boolean) ?? [];
 const continues = !!saved && (params.get('army') ? saved.back === params.get('army') : !saved.back && saved.fen === params.get('fen'))

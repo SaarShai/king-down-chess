@@ -70,6 +70,11 @@ for white and the shadow for black."
   official count and one-line rule of the chosen power under them. White is **Spirit** and Black is
   **Shadow** by default; with powers on, each king starts with its first power. A game with no powers
   keeps plain kings in the rules.
+- **Motion** ([`src/power-motion.ts`](../../src/power-motion.ts), `.css`; branch `claude/power-motion`,
+  for the owner's approval): each power button shows a small board vignette of its power. The vignette is
+  still when idle and loops on hover, focus and while chosen. The chosen emblem shows its element live.
+  Only transform and opacity move (and one stroke draw). With reduced motion, each picture keeps a still
+  frame that shows the power.
 - **More options** (folded): the side you play, and the army (Random King Down army, Today's army, Chess
   starting army, Custom army…, the example armies and Ogre practice).
 - The dialog edits a copy: Cancel drops the changes, Start game keeps them for next time
@@ -87,6 +92,27 @@ for white and the shadow for black."
 - Check: `tools/verify-new-game.mjs`. Screenshots: [desktop](new-game/desktop-computer.jpg) ·
   [desktop, Kings' powers](new-game/desktop-powers.jpg) · [phone](new-game/phone-computer.jpg) ·
   [phone, Kings' powers](new-game/phone-powers.jpg)
+
+## Round 4 — the rulebook's piece icons (2026-10-04)
+
+Owner: "for the symbols of the fairy pieces, in the original king down rules, we had symbols/icons for
+them. import those. you also need to come up with a new one for ogre." Then: "symbols - yes" · "ogre - B" ·
+"guide - replace the first letter (e.g. P for pawn) with the icon. same for board panel."
+
+- **Icons:** `public/ui/icons/<piece>.svg`, one per piece, 48-unit viewBox, root `id="icon"`. The eleven of
+  the 2017 rulebook are its own vector paths ([`tools/extract-piece-icons.py`](../../tools/extract-piece-icons.py),
+  sources in `art-src/MANIFEST.md`). The Ogre's is new: option B, the face (tusks, angry eyes, ears),
+  the owner's choice. The unused options A (palm) and C (fist) are in [`piece-icons/`](piece-icons/).
+- **Paint:** ring and glyph are `currentColor`, the disc `--pi-disc` (the book's blue-grey when unset), the
+  glyph `--pi-glyph` when set. `.pi` (`src/style.css`) is the book's look; `.pi-w` White (a pale disc),
+  `.pi-b` Black (a charcoal disc, a pale glyph, a ring a little lighter than the disc). `src/piece-icons.ts` writes the markup:
+  `<svg class="pi" aria-hidden="true"><use href="./ui/icons/<piece>.svg#icon"/></svg>`.
+- **Where:** the title lineup (beside or above each name); in place of the letters, the Guide card headings,
+  the Guide's draw pool (icon and count) and the promotion and Sacrifice choices; the selected piece's card,
+  the captured pieces (icons in their army's colours, grouped; the names stay for screen readers), the
+  lesson progress (the piece each lesson teaches). The move list keeps its letters (LAN), and the Guide's
+  notation line names them ("N knight, … O ogre"); so do the board's letter chips (Settings → Piece
+  letters). A lab piece has no icon and keeps its letter.
 
 ## What changed
 
@@ -107,7 +133,7 @@ for white and the shadow for black."
 | Phones | Mixed control heights. | Every control in the panel and the dialogs is at least 44 px; visible focus everywhere. |
 
 Every element id is kept. Two kinds of tool selectors changed: the Guide's `#rules-rows tr` became
-`#rules-rows .piece-card` (cards keep the "A Archer" text), and each browser tool now sets
+`#rules-rows .piece-card` (since Round 4 a tool finds a card by `data-piece`), and each browser tool now sets
 `sessionStorage['kingdown.title-seen'] = '1'` to skip the title screen.
 
 ## Fonts (SIL Open Font License 1.1, self-hosted)

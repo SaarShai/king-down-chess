@@ -4,7 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RenderPixelatedPass } from 'three/addons/postprocessing/RenderPixelatedPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { C, Color, LETTERS, Move, K, type KingName, L, M, N, O, PLAIN_KINGS, RULES, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
+import { A, C, Color, G, LETTERS, Move, K, type KingName, L, M, N, O, PLAIN_KINGS, RULES, Position, PieceType, colorOf, file, rank, typeOf } from '../rules/engine';
 import { ARMY, TARGET_HEIGHT, pieceGeometry } from './voxels';
 import { Debris, Tweens, easeOut, labelSprite, linear } from './fx';
 import { PALETTES, createPalettePass, paletteTexture } from './palette';
@@ -560,7 +560,8 @@ export class BoardRenderer {
         // playable square without changing its proportions or authored rig.
         const size = new THREE.Box3().setFromObject(figure.model).getSize(new THREE.Vector3());
         // Owner proportions apply after fitting, including every king design.
-        const relativeSize = t === M ? .5 : t === L ? 1.3 : t === K ? .8 : 1;
+        // Kings 15% and the Guard and Archer 10% larger than before (owner, 2026-10-04), as on the painted board.
+        const relativeSize = t === M ? .5 : t === L ? 1.3 : t === K ? .92 : t === G || t === A ? 1.1 : 1;
         const scale = Math.min(TARGET_HEIGHT[t] / size.y, .92 / Math.max(size.x, size.z)) * (this.style.pieceScale ?? 1) * relativeSize;
         figure.model.scale.multiplyScalar(scale);
         (g.userData.label as THREE.Sprite).position.y = size.y * scale + .25;
@@ -570,7 +571,7 @@ export class BoardRenderer {
         this.updateContours();
       }).catch(error => { console.error('Could not load clay figure', error); this.onLoadError?.(error); });
     } else if (this.style.pieces === 'sprite' && hasSprite(t)) {
-      g.add(spriteMesh(t, c, this.style.spriteOutline ? (this.style.outlineColor ?? 0x151515) : undefined));
+      g.add(spriteMesh(t, c, this.style.spriteOutline ? (this.style.outlineColor ?? 0x151515) : undefined, king));
       g.userData.sprite = true;
     } else {
       const geo = pieceGeometry(t, c);

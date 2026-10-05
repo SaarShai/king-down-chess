@@ -26,7 +26,7 @@ const CATAPULT_FEN = '7k/8/2n5/8/2p5/8/8/2C4K w - - 0 1';  // C c1, screen p c4,
 const sqOf = n => (('abcdefgh'.indexOf(n[0])) | ((+n[1] - 1) << 3));
 const results = [];
 const pass = (id, ok, detail) => { results.push({ id, ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'} ${id} — ${detail}`); };
-const CODE = { L: 8, l: 24, p: 17, n: 18, O: 12, C: 13, k: 22, P: 1, Q: 5, A: 7 }; // type | colour<<4
+const CODE = { L: 8, l: 24, p: 17, n: 18, O: 12, C: 13, k: 22, P: 1, N: 2, Q: 5, A: 7 }; // type | colour<<4
 
 const browser = await chromium.launch();
 
@@ -319,16 +319,25 @@ await caseFn('mobile layout has no horizontal overflow', '', async (page, errors
   return ok ? true : `scrollW=${m.scrollW} innerW=${m.innerW} canvas=${m.canvas} errors=${errors.join(' | ')}`;
 });
 
-// Strike (Flame A, tier 2): the pawn is the only piece that can reach d8 in one move, and only
-// through the power — the click path, the LAN suffix and the live rule all have to line up.
-await caseFn('strike: a pawn moves as a queen once (flame:strike)', `?kings=flame:strike&fen=${encodeURIComponent('4k3/8/8/8/7p/8/3P4/4K3 w - - 0 1')}`, async (page, errors) => {
+// Strike (Flame A) as a powers game plays it (POWERS_BALANCED): a piece, not a pawn or the king,
+// moves once as a queen to an empty square, and only after the power button arms it. The knight on
+// d2 reaches d8 only through the power: the arming, the click path, the LAN suffix and the live rule
+// all have to line up.
+await caseFn('strike: an armed knight moves as a queen once (flame:strike)', `?kings=flame:strike&fen=${encodeURIComponent('4k3/8/8/8/7p/8/3N4/4K3 w - - 0 1')}`, async (page, errors) => {
   const info = await page.evaluate(() => document.getElementById('info').textContent);
   await clickSq(page, 'd2');
+  await clickSq(page, 'd8'); // unarmed: not a knight's move, so nothing happens
+  await page.waitForTimeout(400);
+  const unarmed = (await snap(page)).moves;
+  await page.click('#power-btn');
+  await clickSq(page, 'd2');
   await clickSq(page, 'd8');
+  await waitPly(page, 1);
   await page.waitForTimeout(400);
   const s = await snap(page);
-  const ok = info.includes('Strike') && s.moves.includes('d2-d8!') && errors.length === 0;
-  return ok ? true : `info=${info.includes('Strike')} moves="${s.moves}" errors=${errors.join(' | ')}`;
+  const spent = /White's king: Strike, 0 left/.test(s.info);
+  const ok = info.includes('Strike') && unarmed === '' && s.moves.includes('Nd2-d8!') && s.scene[sqOf('d8')] === CODE.N && spent && errors.length === 0;
+  return ok ? true : `info=${info.includes('Strike')} unarmed="${unarmed}" moves="${s.moves}" d8=${s.scene[sqOf('d8')] ?? 'empty'} spent=${spent} errors=${errors.join(' | ')}`;
 });
 
 await browser.close();

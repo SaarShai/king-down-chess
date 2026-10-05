@@ -7,7 +7,7 @@ import { parseLan } from '../sim/tune';
 import { CLASSIC_CHESS, POOL, fromFen, randomBackRank, startPosition, toFen, toLan } from './setup';
 import { DEFAULT_RULES, RULES, RULES_2017, RULES_2021, Rules, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 import { Game } from '../game';
-import { resetSearchState, search } from '../ai/search';
+import { resetSearchState, search, searchLegal } from '../ai/search';
 
 const at = (pos: Position, name: string) => pos.board[parseSq(name)];
 const movesFrom = (pos: Position, name: string) => legalMoves(pos).filter(m => m.from === parseSq(name));
@@ -642,10 +642,12 @@ describe('rule toggles', () => {
     crossCheckAttacks(137);
   });
 
-  it('the pool holds one guard per army', () => {
-    expect(POOL).toBe('QORRBBNNAAGMMSS');
+  it('the pool holds one guard and one beast per army', () => {
+    expect(POOL).toBe('QORRBBNNAAGMMS');
     expect(POOL.split('G')).toHaveLength(2);
-    expect(POOL).toHaveLength(15);
+    expect(POOL.split('S')).toHaveLength(2);
+    expect(POOL).toHaveLength(14);
+    for (let i = 0; i < 500; i++) expect(randomBackRank().split("S").length).toBeLessThanOrEqual(2);
   });
 
   it('isAttacked still agrees with genPiece("attacks") under every paladin and maester buff at once', () => {
@@ -733,6 +735,51 @@ describe('rule toggles', () => {
     const b = fromFen('P6k/8/2a5/8/P3P3/8/8/K7 b - - 0 1'); // a4 and e4 are forward for Black; a8 is not
     expect(lan(b, movesFrom(b, 'c6')).filter(s => s.includes('*'))).toEqual(['Ac6*a4', 'Ac6*e4']);
     crossCheckAttacks(104);
+  });
+
+  it('archerShots: the three middle lab sets, for both colours (2026-10-04)', () => {
+    // An archer with enemy pawns on its four diagonal neighbours and on the whole ring two away.
+    const w = fromFen('k7/8/1ppppp2/1pp1pp2/1p1A1p2/1pp1pp2/1ppppp2/7K w - - 0 1');
+    const b = fromFen('7k/1PPPPP2/1PP1PP2/1P1a1P2/1PP1PP2/1PPPPP2/8/K7 b - - 0 1');
+    const shots = (pos: Position, from: string) => lan(pos, movesFrom(pos, from)).filter(x => x.includes('*')).map(x => x.slice(4));
+    const near = (pos: Position, from: string) => shots(pos, from).filter(t => Math.abs(t.charCodeAt(1) - from.charCodeAt(1)) === 1);
+    const WHITE_SHOTS = { // seen from d4, White's forward is up
+      plusDiagFwd2: ['b4', 'b6', 'c3', 'c5', 'd2', 'd6', 'e3', 'e5', 'f4', 'f6'],
+      plusDiagFwd2Clear: ['b4', 'c3', 'c5', 'd2', 'd6', 'e3', 'e5', 'f4'], // b6 and f6: c5 and e5 are in the way
+      fwd2NoBack: ['b4', 'b6', 'c3', 'c5', 'd6', 'e3', 'e5', 'f4', 'f6'],
+      fwd2NoSide: ['b6', 'c3', 'c5', 'd2', 'd6', 'e3', 'e5', 'f6'],
+    };
+    const BLACK_SHOTS = { // seen from d5, Black's forward is down
+      plusDiagFwd2: ['b3', 'b5', 'c4', 'c6', 'd3', 'd7', 'e4', 'e6', 'f3', 'f5'],
+      plusDiagFwd2Clear: ['b5', 'c4', 'c6', 'd3', 'd7', 'e4', 'e6', 'f5'],
+      fwd2NoBack: ['b3', 'b5', 'c4', 'c6', 'd3', 'e4', 'e6', 'f3', 'f5'],
+      fwd2NoSide: ['b3', 'c4', 'c6', 'd3', 'd7', 'e4', 'e6', 'f3'],
+    };
+    (Object.keys(WHITE_SHOTS) as (keyof typeof WHITE_SHOTS)[]).forEach((set, i) => {
+      setRules({ archerShots: set });
+      expect(shots(w, 'd4'), set).toEqual(WHITE_SHOTS[set]);
+      expect(shots(b, 'd5'), set).toEqual(BLACK_SHOTS[set]);
+      expect(near(w, 'd4')).toEqual(['c3', 'c5', 'e3', 'e5']); // the diagonal neighbours stay in every set
+      crossCheckAttacks(150 + i, 300);
+    });
+    // plusDiagFwd2Clear: one blocker stops one shot; a blocker of either colour, and only on the forward side.
+    setRules({ archerShots: 'plusDiagFwd2Clear' });
+    const one = fromFen('k7/8/1p3p2/2P5/3A4/8/8/7K w - - 0 1'); // c5 is White's own pawn, e5 empty
+    expect(shots(one, 'd4')).toEqual(['f6']);
+    // Check: the archer gives check over an empty square only, and the blocker is pinned.
+    const clearKing = '8/8/8/4k3/8/2A5/8/K7 b - - 0 1', blocked = '8/8/8/4k3/3p4/2A5/8/K7 b - - 0 1';
+    expect(inCheck(fromFen(clearKing))).toBe(true);
+    expect(inCheck(fromFen(blocked))).toBe(false);
+    const pinned = fromFen(blocked);
+    expect(lan(pinned, movesFrom(pinned, 'd4'))).toEqual(['d4xc3']); // d4-d3 would open the shot
+    expect(lan(pinned, searchLegal(pinned).filter(m => m.from === parseSq('d4')))).toEqual(['d4xc3']);
+    // Black's archer shoots down the board: f6 to d4 over e5.
+    const blackPin = fromFen('8/8/5a2/4P3/3K4/8/8/7k w - - 0 1');
+    expect(inCheck(blackPin)).toBe(false);
+    expect(lan(blackPin, movesFrom(blackPin, 'e5'))).toEqual(['e5xf6']);
+    expect(inCheck(fromFen('8/8/5a2/8/3K4/8/8/7k w - - 0 1'))).toBe(true);
+    // The other sets ignore the blocker, as today's default does.
+    for (const set of ['plusDiagFwd2', 'fwd2NoBack', 'fwd2NoSide'] as const) { setRules({ archerShots: set }); expect(inCheck(fromFen(blocked)), set).toBe(true); }
   });
 
   it('guardCaptures=pawns (lab): it clears pawns only, gives no check either way and still cannot mate', () => {
@@ -1722,6 +1769,36 @@ describe('balance-lab readings of the kings’ powers (2026-10-02)', () => {
       { kings: [null, dark], darknessKeep: true, darknessShelter: true, darknessShelterPawnsTake: true },
     ];
     sets.forEach((r, i) => { setRules(r); crossCheckAttacks(320 + i, 200); });
+  });
+
+  it('the round-16 Darkness readings keep the attack mirror: pawn armour, pawn aura, king step', () => {
+    const mercy = { king: 'Spirit', power: 'Mercy' } as Rules['kings'][0], dark = { king: 'Shadow', power: 'Darkness' } as Rules['kings'][0];
+    const m2 = { mercyAura: true, mercyAuraPawnsTake: true, mercyTakesPawns: true };
+    const sets: Partial<Rules>[] = [
+      { kings: [dark, dark], darknessMoves: true, darknessPawnArmor: true },
+      { kings: [null, dark], darknessPawnArmor: true },
+      { kings: [dark, null], darknessMoves: true, darknessAuraPawns: true },
+      { kings: [mercy, dark], ...m2, darknessMoves: true, darknessAuraPawns: true, darknessPawnArmor: true },
+      { kings: [dark, mercy], ...m2, darknessMoves: true, darknessKingStep2: true },
+      { kings: [dark, dark], darknessKeep: true, darknessShelter: true, darknessAuraPawns: true, darknessPawnArmor: true, darknessKingStep2: true },
+    ];
+    sets.forEach((r, i) => { setRules(r); crossCheckAttacks(330 + i, 200); });
+  });
+
+  it('the round-17 king steps keep the attack mirror: the take adds attacks, the safe step none', () => {
+    const k2 = (king: string, power: string) => ({ king, power }) as Rules['kings'][0];
+    const dark = k2('Shadow', 'Darkness'), mercy = k2('Spirit', 'Mercy'), holy = k2('Spirit', 'HolyLight'), touch = k2('Shadow', 'DeathTouch');
+    const takes = { darknessKingStep2: true, darknessKingStepTakes: true };
+    const sets: Partial<Rules>[] = [
+      { kings: [dark, dark], darknessMoves: true, ...takes },
+      { kings: [dark, mercy], mercyAura: true, mercyAuraPawnsTake: true, mercyTakesPawns: true, darknessMoves: true, ...takes },
+      { kings: [holy, dark], holyLightShelter: true, holyLightShelterOrtho: true, holyLightTakesPawns: true, ...takes },
+      { kings: [dark, touch], darknessShelter: true, deathTouchReach: true, deathTouchReachOrtho: true, ...takes }, // one loop, two powers
+      { kings: [null, dark], darknessAuraPawns: true, ...takes, darknessKingStepSafe: true },
+      { kings: [dark, null], darknessKingStep2: true, darknessKingStepSafe: true },
+      { kings: [dark, dark], darknessKingStepTakes: true, darknessKingStepSafe: true }, // no king step: nothing
+    ];
+    sets.forEach((r, i) => { setRules(r); crossCheckAttacks(340 + i, 300); });
   });
 
   it('Darkness: darknessMoves adds the straight steps but no diagonal capture', () => {

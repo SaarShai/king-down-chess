@@ -7,9 +7,24 @@ export const figures={
  paladin:{duration:1450,origins:[[224,108],[224,108]],mirror:false,bands:[0,640,670,700,730,760,780,1024],shift:{x:28,y:4},fixed:780,rigid:640,scale:.14},
  maester:{duration:1100,origins:[[268,56],[165,54]],mirror:true,scale:.105},
  // King and Beast: one rigid pose each; the whole figure leans about the feet.
- king:{duration:1100,origins:[[138,16],[228,16]],mirror:false,scale:.122},
+ // Owner 2026-10-04: kings 15% larger on the board (.122 → .1403).
+ king:{duration:1100,origins:[[138,16],[228,16]],mirror:false,scale:.1403},
  beast:{duration:1000,origins:[[154,54],[149,54]],mirror:false,scale:.1275}
 };
+// The six king sheets (king-<design>/king.webp). Each origin puts that army's figure with its
+// body (head and torso) centred over ANCHOR.x and its soles on ANCHOR.y; `fit` scales it about ANCHOR so every
+// king stands about as tall as the Frost King (figures.king.scale stays the board scale).
+export const KING_DESIGNS=['frost','flame','stratus','mud','spirit','shadow'];
+export const kings={
+ frost:{origins:[[138,16],[228,16]],fit:1},
+ flame:{origins:[[125,15],[242,15]],fit:.99},
+ stratus:{origins:[[123,15],[127,13]],fit:.98},
+ mud:{origins:[[116,6],[216,5]],fit:.97},
+ spirit:{origins:[[123,27],[251,26]],fit:.99},
+ // Shadow: centred on its mass, since smoke and the sword pull the upper body's centre apart.
+ shadow:{origins:[[208,9],[261,9]],fit:.98}
+};
+for(const design of KING_DESIGNS)figures[`king-${design}`]={...figures.king,...kings[design]};
 const smooth=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
 export function actionAt(progress){
  const t=clamp(progress,0,1);
@@ -34,7 +49,7 @@ export function registeredPoint(name,side,point,amount=0){
 export function drawCourt(canvas,image,name,side,extension=0){
  const ctx=canvas.getContext('2d'),spec=figures[name],amount=clamp(extension,-.12,1);
  ctx.clearRect(0,0,canvas.width,canvas.height);ctx.save();
- if(!spec.bands){ctx.translate(ANCHOR.x,ANCHOR.y);ctx.rotate(-amount*.022);ctx.translate(-ANCHOR.x,-ANCHOR.y);}
+ if(!spec.bands){ctx.translate(ANCHOR.x,ANCHOR.y);ctx.rotate(-amount*.022);if(spec.fit&&spec.fit!==1)ctx.scale(spec.fit,spec.fit);ctx.translate(-ANCHOR.x,-ANCHOR.y);}
  const [x,y]=spec.origins[side];ctx.translate(x+(spec.mirror?768:0),y);if(spec.mirror)ctx.scale(-1,1);
  const cell=[side*768,0,768,1024];
  if(!spec.bands||Math.abs(amount)<.0001)ctx.drawImage(image,...cell,0,0,768,1024);

@@ -20,17 +20,24 @@
 export type PromotionSet = 'anyNonKing' | 'standard' | 'anyNonKingNoFairy' | 'anyNonKingNoGuard';
 /** Squares an archer may step to (move-only either way). `fwdBack` is the 2021 concept: 1 ahead or 1 back. */
 export type ArcherMove = 'ortho' | 'any' | 'fwdBack';
-/** Which squares an archer shoots, blockers ignored. `forward3` is the only asymmetric set, so it is read per side. */
 /**
  * Archer shot set. `plusDiagFwd2` (2026-09-17) is the measured middle ground: classic plus the two
  * **forward** two-square diagonals, so each side's widening faces the enemy. It is colour-dependent,
- * like `forward3` — see `archerShotsFor` in engine.ts.
+ * like `forward3` — see `archerShotsFor` in engine.ts. Three lab sets between it and `classic`
+ * (2026-10-04): `plusDiagFwd2Clear` (the same shots, but a forward diagonal-2 shot needs the
+ * square between empty), `fwd2NoBack` (without the shot 2 straight back) and `fwd2NoSide` (without
+ * the two shots 2 to the side).
  */
-export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plusDiagFwd2';
+export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plusDiagFwd2' | 'plusDiagFwd2Clear' | 'fwd2NoBack' | 'fwd2NoSide';
 /** What a guard may take by moving onto it. `any` turns it into a commoner that gives check. */
 export type GuardCaptures = 'none' | 'pawns' | 'any';
 /** Lab: the guard's double step from its home rank — none, through an empty square, or over anything. */
 export type GuardDoubleFirst = 'off' | 'slide' | 'leap';
+/**
+ * Lab (2026-10-04): the guard starts beside the board and enters as a move (`Rules.guardReserve`).
+ * `rank1`: onto any empty square of the side's first rank; `rank12`: of its first two ranks.
+ */
+export type GuardReserve = 'off' | 'rank1' | 'rank12';
 /** Squares a beast may step to (empty only; its captures are a separate rule). */
 export type BeastMove = 'forward' | 'any' | 'diagFwdBack';
 /**
@@ -78,7 +85,9 @@ export interface KingChoice { king: KingName; power: PowerName }
  * What card mode deals (`Rules.hands`): a one-use king power, or a card that no king has (`CARD_ONLY`).
  * A card-only name is never a `PowerName`, so the king picker and the per-power tables never see it.
  */
-export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift';
+export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Salvation'
+  | 'Rage' | 'RageB' | 'Mirror' | 'MirrorB' | 'Firewall' | 'FirewallB' | 'EarthQuake' | 'EarthQuakeB'
+  | 'Burn' | 'FireStarter' | 'Control' | 'Rescue' | 'Growth' | 'GrowthB';
 /**
  * The cards no king has (lab, 2026-10-03), each one use and the turn's move:
  * - **Mimic**: a piece (not king or pawn) moves, to an empty square only, the way one of the side's
@@ -86,8 +95,33 @@ export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift';
  * - **Vault**: a rook, bishop or queen passes exactly one piece on its line, of either side.
  * - **Curse**: an enemy piece or pawn (not the king) steps one square onto an empty square.
  * - **SkyLift**: two of the side's own pieces (not king or pawn, not one type) trade squares.
+ * - **Salvation** (2026-10-04): one of the side's captured pieces returns to an empty square of its
+ *   own first rank. The pieces are Sacrifice's reserve (`Position.lost`) with Sacrifice's limits: no
+ *   pawn, no guard, never a king; a captured promoted piece returns as what it was when taken.
+ *
+ * The 2014 cards (owner, 2026-10-04: "cards - let's add all"), a `B` name the softer variant; the
+ * texts are `cardText` in src/powers-ui.ts, the readings `docs/research/cards-2026-10-03.md`:
+ * - **Rage** / **RageB**: one piece moves twice in the turn (Haste's shape, the second move may be
+ *   skipped); Rage may take on either move, RageB's second move must take.
+ * - **Mirror**: play the card the opponent played last; **MirrorB**: play another card of the hand,
+ *   which stays in the hand. Either is the copied card's move, with that card's rules.
+ * - **Firewall**: no piece of the side can be taken (nor cursed or swapped) on the opponent's next
+ *   turn, a mark like Ice Wall's on every piece; **FirewallB**: an own piece (not the king) and an
+ *   enemy piece (not the king) next to it trade squares.
+ * - **EarthQuake**: the pieces next to a square (not kings) are pushed one square straight away
+ *   from it where the square beyond is empty; **EarthQuakeB**: a square next to an own piece.
+ * - **Burn**: an own piece (not a pawn or king) takes an enemy (not the king) on d4 e4 d5 e5 as a
+ *   queen would; **FireStarter**: the same on the enemy's back rank.
+ * - **Control**: an own piece (not a pawn or king) moves and takes as a friendly piece next to it
+ *   (not a pawn or king) does.
+ * - **Rescue**: the side's Freeze, Ice Wall or Firewall from its previous turn binds one more turn.
+ * - **Growth** / **GrowthB**: draw the next card of the side's pile (`Rules.piles`), as the turn
+ *   (Growth) or then make the move (GrowthB).
  */
-export const CARD_ONLY: readonly CardName[] = ['Mimic', 'Vault', 'Curse', 'SkyLift'];
+export const CARD_ONLY: readonly CardName[] = [
+  'Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation',
+  'Rage', 'RageB', 'Mirror', 'MirrorB', 'Firewall', 'FirewallB', 'EarthQuake', 'EarthQuakeB', 'Burn', 'FireStarter', 'Control', 'Rescue', 'Growth', 'GrowthB',
+];
 
 /** Each king's two powers, A first (docs/RULES.md §4). */
 export const KINGS: Readonly<Record<KingName, readonly [PowerName, PowerName]>> = Object.freeze({
@@ -124,6 +158,9 @@ export const USES_RULE: Readonly<Partial<Record<PowerName, keyof Rules>>> = Obje
   Freeze: 'freezeUses', IceWall: 'iceWallUses', Strike: 'strikeUses', Haste: 'hasteUses',
   Flight: 'flightUses', Sacrifice: 'sacrificeUses', March: 'marchUses', Leap: 'leapUses',
 });
+
+/** Every card card mode deals: the one-use powers, then the card-only cards. Its order is the card's hash slot (`Z_LAST`): append only. */
+export const ALL_CARDS: readonly CardName[] = [...(Object.keys(USES_RULE) as PowerName[]), ...CARD_ONLY];
 
 /** `"Spirit:Mercy"` (case-insensitive), or `"none"` / `"-"` / `""` for a king with no power. */
 export function parseKing(text: string): KingChoice | null {
@@ -180,6 +217,16 @@ export interface Rules {
   /** Lab-only, off by default: a guard may never finish a move on a capital square (d4 e4 d5 e5). */
   guardNoCapital: boolean;
   /**
+   * Lab (2026-10-04), `off` by default: "Your Guard starts beside the board; as a move, place it on
+   * any empty square of your first rank" (`rank1`; `rank12`: of your first two ranks). The start
+   * position leaves each guard's back-rank square empty and the guard waits (`Position.waiting`,
+   * FEN field 7 `g1.1`); the back ranks are drawn as before. Placing it is an ordinary move with no
+   * power (`Move.drop`, written `G@b1`): it may answer a check by blocking, never leaves the
+   * own king in check, and lands only where a guard may land (`guardNoSecondRank` keeps it off rank
+   * 2). Once placed it is an ordinary guard.
+   */
+  guardReserve: GuardReserve;
+  /**
    * Lab-only, off by default (C2, `docs/MATRIX.md` §B.2): a piece standing on a capital square
    * (d4 e4 d5 e5) cannot be captured. Every generated capture whose victim stands there is dropped,
    * for both colours and every piece, so the four centre tiles are a sanctuary. A move onto an
@@ -232,7 +279,8 @@ export interface Rules {
   archerMove: ArcherMove;
   /**
    * The archer's shot table: `classic` (diagonal-adjacent + orthogonal 2), `plusDiag2` (+ diagonal 2),
-   * `ring2` (+ the whole Chebyshev-2 ring), `forward3` (the 2 forward diagonals + the square 2 ahead).
+   * `ring2` (+ the whole Chebyshev-2 ring), `forward3` (the 2 forward diagonals + the square 2 ahead),
+   * `plusDiagFwd2` (classic + the 2 forward diagonal-2 squares) and its three lab trims (see `ArcherShots`).
    */
   archerShots: ArcherShots;
   /** A beast steps straight ahead, in any of the 8 directions, or on the 4 diagonals (empty squares). */
@@ -448,6 +496,32 @@ export interface Rules {
   /** The Darkness shelter stops every capture but a pawn's (balance lab). */
   darknessShelterPawnsTake: boolean;
   /**
+   * Darkness (balance lab, round 16): enemy pawns cannot take your pawns. Any other piece still can.
+   * The pawn pair is decided in `canCapture`, like Holy Light's pawns and king.
+   */
+  darknessPawnArmor: boolean;
+  /**
+   * Darkness (balance lab, round 16): enemy pawns cannot take your pieces next to your king (all 8
+   * neighbours, pawns too; not the king). `darknessShelter` takes precedence.
+   */
+  darknessAuraPawns: boolean;
+  /**
+   * Darkness (round 16; official since 2026-10-04, owner): the king may also step two squares in a
+   * straight line (8 directions), over an empty square, to an empty square. The middle square may be
+   * attacked. Move-only, like Mercy's two-square step.
+   */
+  darknessKingStep2: boolean;
+  /**
+   * Darkness (balance lab, round 17), with `darknessKingStep2`: the two-square step may not pass over
+   * a square an enemy attacks (like castling). Move-only. `darknessKingStepTakes` takes precedence.
+   */
+  darknessKingStepSafe: boolean;
+  /**
+   * Darkness (balance lab, round 17), with `darknessKingStep2`: the two-square step may also end on an
+   * enemy piece and take it, by the ordinary king capture's rules. So it adds attacked squares.
+   */
+  darknessKingStepTakes: boolean;
+  /**
    * Death Touch (balance lab, round 8): the king also touches two squares away in a straight line,
    * over an empty square. Off (the rulebook): adjacent only.
    */
@@ -504,6 +578,13 @@ export interface Rules {
    * powers stay as they are, so give the kings no power in card mode.
    */
   hands: readonly [readonly CardName[], readonly CardName[]];
+  /**
+   * Card mode, Growth (2026-10-04): each side's draw pile, `[white, black]`, in the order it is
+   * drawn; a drawn card joins the hand after the dealt ones (`Position.drawn` counts them), so its
+   * played bit is the next index of `Position.used`. A hand holds at most 8 cards, dealt and drawn.
+   * Empty (the default) = nothing to draw.
+   */
+  piles: readonly [readonly CardName[], readonly CardName[]];
   /** Setup: reject a back rank whose two bishops share a square colour (Chess960 spirit). */
   bishopsOppositeColours: boolean;
   /** Which pieces a pawn may become on the last rank. */
@@ -531,6 +612,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   guardDoubleFirst: 'off' as GuardDoubleFirst,
   guardNoSecondRank: false,
   guardNoCapital: false,
+  guardReserve: 'off' as GuardReserve,
   capitalSanctuary: false,
   capitalNoCapture: false,
   guardCapitalStep: false,
@@ -599,6 +681,11 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   darknessStepDiag: false,
   darknessShelter: false,
   darknessShelterPawnsTake: false,
+  darknessPawnArmor: false,
+  darknessAuraPawns: false,
+  darknessKingStep2: false,
+  darknessKingStepSafe: false,
+  darknessKingStepTakes: false,
   deathTouchReach: false,
   deathTouchReachOrtho: false,
   deathTouchReachNoBack: false,
@@ -614,6 +701,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   catapultCapture: 'stay' as CatapultCapture,
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
   hands: [[], []] as readonly [readonly CardName[], readonly CardName[]],
+  piles: [[], []] as readonly [readonly CardName[], readonly CardName[]],
   bishopsOppositeColours: true,
   // Reverted to the chess set on 2026-09-17 (designer guideline: do not keep a rule that adds
   // nothing measurable). Fairy promotions were 1.3% of all promotions and moved no outcome metric;
@@ -667,12 +755,15 @@ export const POWERS_BALANCED: Readonly<Partial<Rules>> = Object.freeze({
   hasteCaptures: false,      // Haste: neither move captures
   strikePawns: false,        // Strike: pieces only
   strikeCaptures: false,     // Strike: to an empty square
-  mercyAura: true,           // Mercy: the pieces next to the king cannot be taken
+  mercyAura: true,           // Mercy: the pieces next to the king cannot be taken,
+  mercyAuraPawnsTake: true,  //   except by pawns, and the king may take pawns
+  mercyTakesPawns: true,     //   (reading M2, owner 2026-10-03)
   marchUses: 0,              // March: always on
   holyLightTakesPawns: true, // Holy Light: the king may take pawns
   holyLightShelter: true,    // Holy Light: the pieces beside, in front of or behind the king
   holyLightShelterOrtho: true, //   cannot be taken (round 6)
-  darknessMoves: true,       // Darkness: pawns keep their straight steps
+  darknessMoves: true,       // Darkness: pawns keep their straight steps,
+  darknessKingStep2: true,   //   and the king may step two squares over an empty square (owner 2026-10-04)
   deathTouchReach: true,     // Death Touch: also two squares away, straight forward, back or
   deathTouchReachOrtho: true, //   sideways, over an empty square (round 10)
 });
@@ -695,9 +786,10 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   guardCaptures: ['none', 'pawns', 'any'],
   guardStep: [1, 2],
   guardDoubleFirst: ['off', 'slide', 'leap'],
+  guardReserve: ['off', 'rank1', 'rank12'],
   guardCaptureLimit: [0, 1],
   archerMove: ['ortho', 'any', 'fwdBack'],
-  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2'],
+  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide'],
   beastMove: ['forward', 'any', 'diagFwdBack'],
   beastCapture: ['adjacent', 'diagForward', 'diagonal'],
   maesterStep: [1, 2],
@@ -729,15 +821,15 @@ export function parseRule(text: string): Partial<Rules> {
   if (key === 'kingWhite') return { kings: [parseKing(value), null] };
   if (key === 'kingBlack') return { kings: [null, parseKing(value)] };
   // `hands=Freeze+Haste` gives both sides that hand, `hands=Freeze+Haste,Flight` names them apart.
-  if (key === 'hands') {
-    const cards: readonly CardName[] = [...(Object.keys(USES_RULE) as PowerName[]), ...CARD_ONLY];
+  // `piles=` the same way: the cards each side draws, in order (Growth).
+  if (key === 'hands' || key === 'piles') {
     const side = (t: string): CardName[] => t.split('+').filter(Boolean).map(n => {
-      const p = cards.find(x => x.toLowerCase() === n.toLowerCase());
-      if (!p) throw new Error(`hands: "${n}" is not a one-use power or card (${cards.join(', ')})`);
+      const p = ALL_CARDS.find(x => x.toLowerCase() === n.toLowerCase());
+      if (!p) throw new Error(`${key}: "${n}" is not a one-use power or card (${ALL_CARDS.join(', ')})`);
       return p;
     });
     const [w, b = w] = value.split(',');
-    return { hands: [side(w), side(b)] };
+    return { [key]: [side(w), side(b)] } as Partial<Rules>;
   }
   const def = DEFAULT_RULES[key as keyof Rules];
   if (def === undefined) throw new Error(`unknown rule "${key}" (${Object.keys(DEFAULT_RULES).join(', ')}, kingWhite, kingBlack)`);

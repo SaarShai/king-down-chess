@@ -73,33 +73,37 @@
     <!-- Screen readers: every move by either side, and the keyboard cursor's square. -->
     <div id="announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <div id="cursor-say" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-    <dialog id="title-screen" aria-labelledby="title-word" aria-describedby="title-tagline">
+    <dialog id="title-screen" aria-labelledby="title-word">
       <div class="title-stage" aria-hidden="true">
         <img class="title-floor" src="./ui/stone-board.webp" alt="" width="640" height="640" />
-        <img class="title-fig fig-1" src="./ui/pieces/ogre-w.webp" alt="" />
-        <img class="title-fig fig-2" src="./ui/pieces/king-w.webp" alt="" />
-        <img class="title-fig fig-3" src="./ui/pieces/king-b.webp" alt="" />
-        <img class="title-fig fig-4" src="./ui/pieces/beast-b.webp" alt="" />
+        <!-- The six kings in a shallow arc: Spirit and Shadow (the kings with no power) in the middle.
+             Once risen, each shows his resting effect (board/title-kings.mjs, started by main.ts). -->
+        <div class="title-kings">
+          <img class="tk-outer" src="./ui/kings/mud.webp" alt="" data-king="mud" />
+          <img class="tk-inner" src="./ui/kings/flame.webp" alt="" data-king="flame" />
+          <img class="tk-centre" src="./ui/kings/spirit.webp" alt="" data-king="spirit" />
+          <img class="tk-centre tk-right" src="./ui/kings/shadow.webp" alt="" data-king="shadow" />
+          <img class="tk-inner tk-right" src="./ui/kings/frost.webp" alt="" data-king="frost" />
+          <img class="tk-outer tk-right" src="./ui/kings/stratus.webp" alt="" data-king="stratus" />
+        </div>
       </div>
       <!-- Every piece in the game, alternating the two armies; sized as they stand on the board. -->
       <ul class="title-lineup" aria-label="The twelve pieces">
-          <li style="--h:0.74;--i:0"><img src="./ui/pieces/pawn-b.webp" alt="" decoding="async" /><span>Pawn</span></li>
-          <li style="--h:0.79;--i:1"><img src="./ui/pieces/knight-w.webp" alt="" decoding="async" /><span>Knight</span></li>
-          <li style="--h:0.87;--i:2"><img src="./ui/pieces/bishop-b.webp" alt="" decoding="async" /><span>Bishop</span></li>
-          <li style="--h:0.96;--i:3"><img src="./ui/pieces/rook-w.webp" alt="" decoding="async" /><span>Rook</span></li>
-          <li style="--h:0.79;--i:4"><img src="./ui/pieces/queen-b.webp" alt="" decoding="async" /><span>Queen</span></li>
-          <li style="--h:0.81;--i:5"><img src="./ui/pieces/king-w.webp" alt="" decoding="async" /><span>King</span></li>
-          <li style="--h:0.72;--i:6"><img src="./ui/pieces/archer-b.webp" alt="" decoding="async" /><span>Archer</span></li>
-          <li style="--h:0.86;--i:7"><img src="./ui/pieces/paladin-w.webp" alt="" decoding="async" /><span>Paladin</span></li>
-          <li style="--h:0.78;--i:8"><img src="./ui/pieces/guard-b.webp" alt="" decoding="async" /><span>Guard</span></li>
-          <li style="--h:0.66;--i:9"><img src="./ui/pieces/maester-w.webp" alt="" decoding="async" /><span>Maester</span></li>
-          <li style="--h:0.87;--i:10"><img src="./ui/pieces/beast-b.webp" alt="" decoding="async" /><span>Beast</span></li>
-          <li style="--h:1;--i:11"><img src="./ui/pieces/ogre-w.webp" alt="" decoding="async" /><span>Ogre</span></li>
+          <li style="--h:0.74;--i:0"><img src="./ui/pieces/pawn-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/pawn.svg#icon"/></svg>Pawn</span></li>
+          <li style="--h:0.79;--i:1"><img src="./ui/pieces/knight-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/knight.svg#icon"/></svg>Knight</span></li>
+          <li style="--h:0.87;--i:2"><img src="./ui/pieces/bishop-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/bishop.svg#icon"/></svg>Bishop</span></li>
+          <li style="--h:0.96;--i:3"><img src="./ui/pieces/rook-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/rook.svg#icon"/></svg>Rook</span></li>
+          <li style="--h:0.79;--i:4"><img src="./ui/pieces/queen-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/queen.svg#icon"/></svg>Queen</span></li>
+          <li style="--h:0.81;--i:5"><img src="./ui/kings/spirit.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/king.svg#icon"/></svg>King</span></li>
+          <li style="--h:0.72;--i:6"><img src="./ui/pieces/archer-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/archer.svg#icon"/></svg>Archer</span></li>
+          <li style="--h:0.86;--i:7"><img src="./ui/pieces/paladin-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/paladin.svg#icon"/></svg>Paladin</span></li>
+          <li style="--h:0.78;--i:8"><img src="./ui/pieces/guard-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/guard.svg#icon"/></svg>Guard</span></li>
+          <li style="--h:0.66;--i:9"><img src="./ui/pieces/maester-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/maester.svg#icon"/></svg>Maester</span></li>
+          <li style="--h:0.87;--i:10"><img src="./ui/pieces/beast-b.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/beast.svg#icon"/></svg>Beast</span></li>
+          <li style="--h:1;--i:11"><img src="./ui/pieces/ogre-w.webp" alt="" decoding="async" /><span><svg class="pi" aria-hidden="true" focusable="false"><use href="./ui/icons/ogre.svg#icon"/></svg>Ogre</span></li>
       </ul>
       <div class="title-copy">
         <h1 id="title-word" class="wordmark"><svg class="wordmark-crown" aria-hidden="true"><use href="#i-crown"/></svg><span class="wm-king">King</span> <span class="wm-down">Down</span><span class="wm-chess">Chess</span></h1>
-        <p id="title-tagline" class="tagline">Chess with archers, ogres, beasts and guards.</p>
-        <p id="title-first" class="title-first" hidden>New here? Start with the lessons: six pieces, one move each.</p>
         <div class="title-actions">
           <button id="title-continue" class="primary" hidden><svg class="icon" aria-hidden="true"><use href="#i-continue"/></svg><span class="label">Continue</span></button>
           <button id="title-learn"><svg class="icon" aria-hidden="true"><use href="#i-learn"/></svg><span class="label">Learn the pieces</span></button>
@@ -112,13 +116,13 @@
       <fieldset class="modes" id="modes">
         <legend class="sr-only">Choose a game</legend>
         <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" />
-          <span class="mode-art" aria-hidden="true"><img src="./ui/pieces/king-w.webp" alt="" /></span>
+          <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /></span>
           <span class="mode-text"><b>Play the computer</b><small>You against the computer, with no powers.</small></span></label>
         <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" />
           <span class="mode-art emblem-fan" aria-hidden="true"><img src="./ui/emblems/frost.webp" alt="" /><img src="./ui/emblems/flame.webp" alt="" /><img src="./ui/emblems/stratus.webp" alt="" /></span>
           <span class="mode-text"><b>Kings' powers</b><small>Against the computer. Each king brings one power.</small></span></label>
         <label class="mode"><input type="radio" name="mode" value="two" id="mode-two" />
-          <span class="mode-art" aria-hidden="true"><img src="./ui/pieces/king-w.webp" alt="" /><img class="face-left" src="./ui/pieces/king-b.webp" alt="" /></span>
+          <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /><img class="face-left" src="./ui/kings/shadow-b.webp" alt="" /></span>
           <span class="mode-text"><b>Two players</b><small>Share one device, or send the game link after each move.</small></span></label>
       </fieldset>
       <fieldset class="seg" id="level" title="Beginner and Casual vary their choices. Club caps thinking at 800 ms; Strong uses the full thinking time in Settings. These are not ratings.">
@@ -231,9 +235,10 @@
       <form method="dialog"><button>Close</button></form>
     </dialog>
     <dialog id="over" aria-labelledby="over-title" aria-describedby="over-detail">
+      <!-- The kings that played (main.ts showOver); Spirit and Shadow, the kings without powers, until then. -->
       <div class="over-art" aria-hidden="true">
-        <img class="over-king over-w" src="./ui/pieces/king-w.webp" alt="" />
-        <img class="over-king over-b" src="./ui/pieces/king-b.webp" alt="" />
+        <img class="over-king over-w" src="./ui/kings/spirit.webp" alt="" />
+        <img class="over-king over-b" src="./ui/kings/shadow-b.webp" alt="" />
       </div>
       <h2 id="over-title" tabindex="-1" autofocus></h2>
       <p id="over-detail"></p>

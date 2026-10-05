@@ -25,7 +25,7 @@ Owner decision (2026-10-02): these are the official kings' powers rules.
 | Holy Light | pawns cannot take the king; it takes no pawns — 46% | **the king may take pawns, and the pieces beside, in front of and behind it cannot be taken** | 50% |
 | Mercy | king steps 1–2, takes nothing — 21% | **as printed, and the pieces next to the king cannot be taken** | 56% |
 | Death Touch | 56% | **also reaches two squares straight forward, back or sideways, over an empty square** (round 10) | 57% in round 10 (43% without the reach) |
-| Darkness | 38% | **pawns also keep their straight steps**, still take only straight ahead | 42% |
+| Darkness | 38% | **pawns also keep their straight steps**, still take only straight ahead; **the king may also step two squares in a straight line, over an empty square** (2026-10-04) | 42%; 48% with the king step (rounds 16–17) |
 
 **Still a little outside the target (50 ± 4):** Haste, Sacrifice and Mercy are high (56–57%);
 Death Touch and Darkness are low (42–43%). A plain king scores 34% against any power. Every
@@ -43,6 +43,21 @@ for the next round, on many more armies, to confirm. Details in Round 12, below.
 **Update 2026-10-03 (round 13, 1,872 fresh armies):** over rounds 11–13, **Mercy (56) and Haste (56)
 are high and Darkness (43) low**, all three clearly; Flight is fine (47). Spirit's powers now average
 about 3 points above Shadow's. Details in Round 13, below.
+
+**Update 2026-10-03 (owner decisions after rounds 14–15):** Mercy is now official as reading M2
+(pawns may take in its shelter, and the Mercy king may take pawns; about 50% in rounds 14–15). Haste
+and Death Touch stay as they are. Darkness stays as it is while simpler second parts are tested
+(round 16). Details at the end of Round 15.
+
+**Update 2026-10-04 (round 16):** of four one-sentence second parts for Darkness, **the king step**
+(your king may also step two squares straight, over an empty square) brings Darkness from 43 to 47
+and keeps Spirit and Shadow level. D1 and the pawn armour overshoot to 53, the pawn aura does
+nothing. Haste (58) is now the one power clearly outside 50 ± 4. Details in Round 16, below.
+
+**Update 2026-10-04 (owner decision):** "1. B": the Darkness king step is official as tested in
+rounds 16–17 (`darknessKingStep2`; it may pass over an attacked square). Pooled over the two rounds
+it brings Darkness from 44.4 to 47.8, with Spirit and Shadow level (−0.8 ± 1.9). The safe and the
+taking step stay lab toggles, off. Details in Round 17, below.
 
 **Depth matters.** A depth-4 check of the round-4 set (936 games) kept the order but widened the
 spread to 24 points: Mercy, Flight with two uses and Sacrifice near 59%, Holy Light 36%. Balance
@@ -562,3 +577,108 @@ official set drew 13.6% (round 14: 13.4%), White scored 52.1% (+13 ± 5 Elo).
 Suggested package for the owner: **Haste H3, Mercy M2, Darkness D2, Death Touch T2**. Not adopted:
 the owner decides. A confirmation round with the package as the rules, on fresh armies, would check
 it without that selection.
+
+**Owner decisions (2026-10-03).** Haste ("flame"): "the change is too cumbersome and not worth the
+gain"; Mercy: "yes"; Darkness: "change too cumbersome but i don't like the 42% score, we must find a
+different change to bring close to 50%"; Death Touch: "too cumbersome". So Mercy M2 is official
+(`POWERS_BALANCED`), Haste and Death Touch keep today's readings, and Darkness keeps today's reading
+until a simpler second part is found. Limits for that part: one short sentence, no exceptions, and
+no reading that changes how other pieces move (a shelter is allowed). Built as lab toggles for
+round 16 (`src/rules/power-fixes.test.ts`):
+
+- `darknessPawnArmor`: enemy pawns cannot take your pawns.
+- `darknessAuraPawns`: enemy pawns cannot take your pieces next to your king (all 8 neighbours,
+  pawns too; not the king).
+- `darknessKingStep2`: your king may also step two squares in a straight line, over an empty
+  square, to an empty square (never a capture; it must not end in check).
+- D1 (`darknessShelter`, built for round 14): your pieces diagonally next to your king cannot be
+  taken. Round 14 measured +9.5 ± 3.1 (42.8 → 52.3).
+
+Measured in round 16, below.
+
+## Round 16 — four second parts for Darkness (2026-10-04)
+
+The round's rules are the official set: round 14's readings with Mercy M2. Variants: the four
+Darkness second parts above, as `Darkness~vd1` (D1), `~vpa` (pawn armour), `~vau` (pawn aura) and
+`~vks` (king step). Seed 1616 (fresh armies), 64 pairs, `--armies perPair`, depth 3: 126 matchups,
+16,128 games, 13 shards: 0–7 on this Mac (2 workers each, 95 min), 8–12 on 5 Kaggle notebooks
+(150–165 min) (`sim/out/kp2-r16.report.md`). Every variant meets every power but its own, so each
+candidate below is put in place from games played.
+
+**Each candidate against today's Darkness on the same armies** (against the 11 other powers, 704
+pairs, 95%):
+
+| candidate | change | draws | game length (plies) |
+|---|---|---|---|
+| D1 shelter: your pieces diagonally next to your king cannot be taken | +10.1 ± 2.9 | +0.1 ± 1.8 | +4.4 ± 2.6 |
+| Pawn armour: enemy pawns cannot take your pawns | +9.3 ± 3.3 | −0.8 ± 2.1 | −4.8 ± 2.8 |
+| Pawn aura: enemy pawns cannot take your pieces next to your king | +0.5 ± 1.9 | −0.5 ± 1.3 | +0.7 ± 1.6 |
+| King step: your king may also step two squares straight, over an empty square | +3.5 ± 2.3 | +1.1 ± 1.7 | +2.7 ± 2.1 |
+
+**The field with each candidate in place** (each power against the other 11; ± about 2.5 for each
+power; Spirit − Shadow as in round 15):
+
+| Darkness | Darkness score | Spirit − Shadow | powers in 50 ± 4 | spread |
+|---|---|---|---|---|
+| today | 43.4 ± 2.5 | +1.7 ± 2.4 | 9 | 14.3 |
+| D1 shelter | 53.5 ± 2.6 | −4.4 ± 2.4 | 10 | 13.0 |
+| pawn armour | 52.7 ± 2.6 | −3.6 ± 2.4 | 10 | 13.2 |
+| pawn aura | 43.9 ± 2.5 | +1.3 ± 2.4 | 9 | 13.6 |
+| **king step** | **46.9 ± 2.5** | **−0.7 ± 2.4** | **10** | **11.9** |
+
+With the king step, all twelve powers: Haste 57.6, Death Touch 52.9, Strike 51.8, Freeze 51.5,
+Sacrifice 50.3, Mercy 49.5, Holy Light 49.0, March 48.9, Flight 48.0, Leap 47.9, Darkness 46.9,
+Ice Wall 45.7.
+
+**Reading.** No candidate puts Darkness at 50 with Spirit and Shadow level, because Death Touch
+(52.9) is already above 50: with Darkness at 50, Shadow is about 1.5 points ahead of Spirit, and
+both candidates that get there go past it. **The king step** brings Darkness from 43.4 to 46.9
+(inside 50 ± 4) and keeps Spirit and Shadow level (−0.7 ± 2.4); it also gives the smallest spread.
+**D1 and the pawn armour** overshoot (53.5 and 52.7) and put Shadow clearly ahead of Spirit (−4.4
+and −3.6, both intervals below 0). **The pawn aura** does nothing measurable (+0.5 ± 1.9). No
+candidate changes draws clearly. The official set's games drew 12.8%, White scored 50.8% (+10 ± 5
+Elo for the first move), 97.0 plies.
+
+**Outside Darkness.** Haste (today's reading, owner 2026-10-03) is the one power clearly outside the
+band: 57.6 (round 13: 55.5; round 15 with H1: 46.6). Ice Wall is at its lower edge (45.7).
+
+Suggested: **Darkness king step**. Not adopted: the owner decides. Open question for the owner: the
+step may pass over a square an enemy attacks (only the landing square must not be in check), as
+built; plain chess forbids castling through an attacked square.
+
+## Round 17 — the king step on fresh armies, two more versions, and depth 4 (2026-10-04)
+
+Owner (2026-10-04): "before we make these decisions i'd like you to run more tests and collect more
+data." Rules: the official set (with Mercy M2). Variants: `Darkness~vks` (the king step as in round
+16), `~vkss` (`darknessKingStepSafe`: the step may not pass over a square an enemy attacks) and
+`~vkst` (`darknessKingStepTakes`: the step may also take on the square where it lands). Seed 1717,
+40 pairs, `--armies perPair`, depth 3: 99 matchups, 7,920 games, 8 shards on this Mac (77 min). A
+start at 112 pairs was stopped after 13 min (power games ran at 1 game/s, so it would have taken 6
+h; `sim/out/void-r17-p112/`). Depth 4: today's Darkness and the king step, each against the other 11
+(`--anchor`), seed 1718, 16 pairs, 352 games each.
+
+**Each version against today's Darkness on the same armies** (against the 11 other powers, 95%):
+
+| version | round 17 | round 16 + 17 | draws | game length (plies) |
+|---|---|---|---|---|
+| king step | +3.2 ± 2.6 | **+3.4 ± 1.8** (1,144 pairs) | +1.0 ± 1.3 | +2.9 ± 1.6 |
+| safe step (not over an attacked square) | +1.8 ± 2.5 | — | −0.8 ± 1.7 | +0.7 ± 2.2 |
+| taking step (may take where it lands) | +16.5 ± 3.6 | — | +2.2 ± 2.5 | +1.3 ± 3.0 |
+| king step, depth 4 | +5.1 ± 3.7 (176 pairs) | | | |
+
+**The field with each version in place** (rounds 16 and 17 together; the safe and taking steps were
+played in round 17 only):
+
+| Darkness | Darkness score | Spirit − Shadow | powers in 50 ± 4 | spread |
+|---|---|---|---|---|
+| today | 44.4 ± 2.0 | +1.6 ± 1.9 | 9 | 12.7 |
+| **king step** | **47.8 ± 2.0** | **−0.8 ± 1.9** | **10** | **11.3** |
+| safe step | 47.8 ± 3.2 | −1.9 ± 2.1 | 10 | 11.8 |
+| taking step | 62.6 ± 3.1 | −6.3 ± 2.1 | 9 | 18.3 |
+
+**Reading.** On fresh armies, which were not used to pick it, the king step gives the same gain as in
+round 16 (+3.2 against +3.5). Pooled: Darkness 44.4 → 47.8, Spirit and Shadow level. At depth 4 the
+gain holds (+5.1 ± 3.7; Darkness is lower there, 40.2 → 45.3, on 352 games each). The safe step is
+weaker on these armies (+1.8 against +3.2 for the step, each ±2.5): the difference is not clear. The
+taking step is far too strong (Darkness 62.6). Haste is again the one power clearly outside the
+band (57.2 pooled); Ice Wall sits at its lower edge (45.8).

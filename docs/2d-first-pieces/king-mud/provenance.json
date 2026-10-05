@@ -1,0 +1,13 @@
+{
+  "tool": "Codex built-in image_gen via codex exec",
+  "date": "2026-10-04",
+  "output": "king.png",
+  "sha256": "53098106f2ce6159f011f54cbc4cb71062a25763b8b96e950ccbc805f59108fb",
+  "generated_source": "/Users/za/.codex/generated_images/01a107d0-e75a-77b1-ad00-22105bbd4327/exec-43f7eb46-b712-4d08-81e4-9085d19268e6.png",
+  "original_source": "art-src/pieces/final-ivory/King_gaya_colored2 no-shadow.png",
+  "style_reference": "../knight/knight.png",
+  "prompts": [
+    "prompt.txt"
+  ],
+  "treatment": "Unmodified generated PNG. Second generation: in the first, warm tan skin and brown leather left the figure well under 85% army colour."
+}

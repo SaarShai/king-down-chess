@@ -34,7 +34,8 @@ try {
   // 1. Title screen: a first visit leads with the lessons.
   let page = await open('', { skipTitle: false });
   assert.equal(await titleOpen(page), true, 'title on a first visit');
-  assert.equal(await page.locator('#title-first').isVisible(), true);
+  assert.equal(await page.locator('#title-learn').evaluate(b => b.classList.contains('primary') && !b.previousElementSibling), true, 'Learn leads, first, on a first visit');
+  assert.equal(await page.locator('.title-kings img').evaluateAll(imgs => imgs.filter(i => i.complete && i.naturalWidth && i.checkVisibility()).length), 6, 'the six kings on the title');
   assert.equal(await page.locator('#title-continue').isVisible(), false, 'no Continue without a saved game');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'title-learn', 'Learn has the focus on a first visit');
   await page.click('#title-learn');
@@ -50,7 +51,7 @@ try {
   page = await open('', { skipTitle: false, save });
   assert.equal(await page.locator('#title-continue').isVisible(), true);
   assert.match(await page.locator('#title-continue').innerText(), /Continue · move 2/);
-  assert.equal(await page.locator('#title-first').isVisible(), false);
+  assert.equal(await page.locator('#title-learn').evaluate(b => b.classList.contains('primary')), false, 'Learn does not lead for a returning player');
   await page.click('#title-continue');
   assert.equal(await titleOpen(page), false);
   assert.match(await page.locator('#moves').innerText(), /e2-e4/);
@@ -137,13 +138,33 @@ try {
   await page.click('#rules-btn');
   const cards = page.locator('#rules-rows .piece-card');
   assert.ok(await cards.count() >= 12);
-  const loaded = await page.$$eval('#rules-rows img', imgs => Promise.all(imgs.map(i => i.decode().then(() => i.naturalWidth > 0, () => false))));
+  // The figures load lazily: when the Guide opens, some are not loaded yet, and decode() on such an image
+  // can reject. So, one at a time, scroll each figure into view, wait for its load (10 s at most), then decode it.
+  const loaded = await page.$$eval('#rules-rows img', async imgs => {
+    const out = [];
+    for (const i of imgs) {
+      i.scrollIntoView({ block: 'center' });
+      if (!i.complete) await Promise.race([
+        new Promise(r => { i.addEventListener('load', r, { once: true }); i.addEventListener('error', r, { once: true }); }),
+        new Promise(r => setTimeout(r, 10_000))]);
+      out.push(await i.decode().then(() => i.naturalWidth > 0, () => false));
+    }
+    return out;
+  });
   assert.ok(loaded.length >= 12 && loaded.every(Boolean), 'every card figure loads');
+  const kingCard = p => p.$eval('#rules-rows [data-piece="king"] img', i => new URL(i.src).pathname.split('/').slice(-2).join('/'));
+  assert.equal(await kingCard(page), 'kings/spirit.webp', 'the King card shows White\'s king as the board draws him (Spirit without powers)');
   await page.locator('#rules form button').click();
   await tap(page, 48); await tap(page, 56);
   await page.locator('#promo').waitFor({ state: 'visible' });
   assert.equal(await page.locator('#promo-choices img').count(), 4);
-  ok(`Guide: ${await cards.count()} piece cards, ${loaded.length} painted figures loaded; promotion shows figures`);
+  const nCards = await cards.count();
+  await page.context().close();
+  page = await open('?kings=mud:march,stratus:flight&fen=' + encodeURIComponent('4k3/p7/8/8/8/8/P7/4K3 w - - 0 1'));
+  await ready(page);
+  await page.click('#rules-btn');
+  assert.equal(await kingCard(page), 'kings/mud.webp', 'the King card shows the picked White king');
+  ok(`Guide: ${nCards} piece cards, ${loaded.length} painted figures loaded; the King card shows White's king (Spirit; Mud when picked); promotion shows figures`);
   await page.context().close();
 
   // 6. Phone: tap targets of at least 44 px, no sideways scroll.
@@ -187,6 +208,32 @@ try {
     await page.context().close();
   }
   ok('title lineup: twelve painted figures with names; Learn and Play stay on screen at 1280×900 and 390×844');
+
+  // 7b. The title from a small phone to a desktop: the lineup inside the screen, no name into the next one,
+  // and the lineup, kings, wordmark and buttons centred (a tablet's lineup once widened the whole title);
+  // top to bottom, every figure, the wordmark and the buttons on the screen (a phone in landscape once cut
+  // off the top row and Play).
+  for (const [w, h] of [[320, 568], [390, 844], [568, 320], [667, 375], [721, 1000], [768, 1024], [834, 1112], [844, 390], [1024, 768], [1440, 900]]) {
+    page = await open('', { skipTitle: false, viewport: { width: w, height: h }, touch: w < 721 });
+    await page.waitForFunction(() => [...document.querySelectorAll('#title-screen img')].every(i => i.complete) && document.fonts.status === 'loaded');
+    const m = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth, r = e => e.getBoundingClientRect(), mid = e => { const b = r(e); return (b.left + b.right) / 2 - vw / 2; };
+      const spans = [...document.querySelectorAll('.title-lineup span')].map(s => ({ name: s.textContent, ...r(s).toJSON() }));
+      const out = spans.filter(s => s.left < -0.5 || s.right > vw + 0.5).map(s => s.name);
+      const into = spans.slice(1).filter((s, i) => Math.abs(s.top - spans[i].top) < 4 && spans[i].right > s.left + 0.5).map(s => s.name);
+      const lineup = [...document.querySelectorAll('.title-lineup li')], buttons = [...document.querySelectorAll('.title-actions button:not([hidden])')];
+      const row = { left: Math.min(...buttons.map(b => r(b).left)), right: Math.max(...buttons.map(b => r(b).right)) };
+      const tall = [...lineup, document.getElementById('title-word'), ...buttons].filter(e => r(e).top < -0.5 || r(e).bottom > innerHeight + 0.5).map(e => e.textContent.trim().slice(0, 16));
+      return { out, into, tall, wide: r(document.getElementById('title-screen')).width - vw,
+        off: [(r(lineup[0]).left + r(lineup.at(-1)).right) / 2 - vw / 2, mid(document.querySelector('.title-kings')), mid(document.getElementById('title-word')), (row.left + row.right) / 2 - vw / 2] };
+    });
+    assert.deepEqual(m.out, [], `${w}×${h}: names off the screen`);
+    assert.deepEqual(m.into, [], `${w}×${h}: names running into the one before`);
+    assert.deepEqual(m.tall, [], `${w}×${h}: off the top or the bottom of the screen`);
+    assert.ok(m.wide <= 0.5 && m.off.every(d => Math.abs(d) <= 2), `${w}×${h}: the title is ${m.wide} px wider than the screen; lineup, kings, wordmark, buttons off centre by ${m.off.map(d => d.toFixed(1))}`);
+    await page.context().close();
+  }
+  ok('title at 320–1440 px (and 568×320, 667×375, 844×390): the lineup fits the screen, no name runs into the next, all centred, nothing off the top or bottom');
 
   // 8. Round 2 markers: shots, powers and the keyboard preview reach the painted board.
   page = await open('?fen=' + encodeURIComponent('4k3/8/1p3r2/8/3A4/8/8/4K3 w - - 0 1'));

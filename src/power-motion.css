@@ -1,0 +1,438 @@
+/* Motion art for the New game king picker (src/power-motion.ts).
+   Power vignettes: still when idle; they play on hover, keyboard focus and while their power is chosen.
+   Emblem effects: only on the chosen king. Every loop starts and ends on the markup's still frame, so
+   `prefers-reduced-motion` (style.css stops all animation) shows a picture of the power, not a blank.
+   Only transform, opacity and one stroke draw are animated: no layout work per frame. */
+
+/* ---- the power buttons: the vignette above the label ---- */
+.power-choice button { flex-direction: column; justify-content: flex-start; gap: 4px; padding: 6px 4px 7px; }
+.power-choice .pm-label { display: block; }
+.pm {
+  position: relative; display: block; flex: none; width: min(100%, 104px); aspect-ratio: 5 / 3;
+  border-radius: 5px; overflow: hidden; opacity: .9; transition: opacity 150ms;
+  --own: #f6efdf; --own-line: #2b2621; --foe: #231d18; --foe-line: #d8ccb2; --pm-dur: 3.2s;
+}
+/* Black's picker: its own pieces are the dark ones. */
+#pick-1 .pm { --own: #231d18; --own-line: #d8ccb2; --foe: #f6efdf; --foe-line: #2b2621; }
+.pm::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(201, 154, 62, .8), inset 0 0 7px rgba(10, 6, 2, .55);
+}
+.pm svg { display: block; width: 100%; height: 100%; overflow: hidden; }
+.power-choice button:is(:hover, :focus-visible, [aria-pressed='true']) .pm { opacity: 1; }
+
+/* board and pieces */
+.pm .sq-d { fill: #54463a; }
+.pm .sq-l { fill: #75644f; }
+.pm .gs { fill: rgba(0, 0, 0, .42); }
+.pm .w, .pm .b { stroke-width: .75; stroke-linejoin: round; }
+.pm .w { fill: var(--own); stroke: var(--own-line); }
+.pm .b { fill: var(--foe); stroke: var(--foe-line); }
+.pm [class*='trace'], .pm .wisp, .pm .gust, .pm .flake, .pm .facet, .pm .glint, .pm .spark, .pm .spark-gold,
+.pm .bolt-tail, .pm .ring-ice, .pm .ring-gold, .pm .tendril, .pm .tendril-glow { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Settings → Animations: Off stills the pictures and the chosen emblem, as reduced motion does (main.ts sets data-pace). */
+:root[data-pace='off'] :is(.pm, .kx) * { animation: none !important; }
+
+/* every animated part shares one loop; each scene names its own keyframes */
+.pm .a { animation: none var(--pm-dur) ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.pm .c { transform-origin: 50% 50%; }
+.pm .l { transform-origin: 0 50%; }
+.pm .r { transform-origin: 100% 50%; }
+/* idle: the still frame */
+.power-choice button:not(:hover, :focus-visible, [aria-pressed='true']) .pm .a { animation-name: none; }
+
+/* ---- Freeze: an ice shard from the king; the rook frosts over and only shakes ---- */
+.pm .ice { fill: rgba(190, 232, 255, .38); stroke: #e8f8ff; stroke-width: .7; stroke-linejoin: round; }
+.pm .facet { stroke: rgba(232, 248, 255, .6); stroke-width: .45; }
+.pm .flake { stroke: #e8f8ff; stroke-width: .9; }
+.pm .bolt { fill: #f2fbff; stroke: #8fd3ff; stroke-width: .5; }
+.pm .bolt-tail { stroke: rgba(160, 220, 255, .75); stroke-width: 1.4; }
+.pm .ring-ice { stroke: #dff4ff; stroke-width: 1; }
+.pm .fz-tint { fill: #bfe6ff; opacity: .8; }
+.pm .fz-bolt, .pm .fz-ring { opacity: 0; }
+.pm-Freeze .fz-tint { animation-name: pm-fz-tint; }
+.pm-Freeze .fz-ice { animation-name: pm-fz-ice; }
+.pm-Freeze .fz-flake { animation-name: pm-fz-flake; }
+.pm-Freeze .fz-bolt { animation-name: pm-fz-bolt; }
+.pm-Freeze .fz-ring { animation-name: pm-fz-ring; }
+.pm-Freeze .fz-rook { animation-name: pm-fz-rook; }
+@keyframes pm-fz-tint { 0%, 14% { opacity: .8; } 24%, 46% { opacity: 0; } 50% { opacity: .95; } 58%, 100% { opacity: .8; } }
+@keyframes pm-fz-ice {
+  0%, 14% { opacity: 1; transform: none; } 24% { opacity: 0; transform: scaleY(.25); } 46% { opacity: 0; transform: scale(.4); }
+  51% { opacity: 1; transform: scale(1.1); } 56%, 100% { opacity: 1; transform: none; }
+}
+@keyframes pm-fz-flake {
+  0%, 14% { opacity: 1; transform: none; } 22% { opacity: 0; transform: rotate(20deg) scale(.5); } 50% { opacity: 0; transform: scale(.3); }
+  56% { opacity: 1; transform: rotate(40deg) scale(1.3); } 62% { transform: rotate(48deg); } 100% { opacity: 1; transform: rotate(60deg); }
+}
+@keyframes pm-fz-bolt {
+  0%, 27% { opacity: 0; transform: none; } 30% { opacity: 1; transform: none; animation-timing-function: cubic-bezier(.5, 0, .9, .6); }
+  46% { opacity: 1; transform: translate(32px, -28px); } 48%, 100% { opacity: 0; transform: translate(32px, -28px); }
+}
+@keyframes pm-fz-ring { 0%, 46% { opacity: 0; transform: scale(.3); } 48% { opacity: 1; transform: scale(.6); } 62%, 100% { opacity: 0; transform: scale(1.8); } }
+@keyframes pm-fz-rook {
+  0%, 66% { transform: none; } 68% { transform: translate(-.9px, 0); } 70% { transform: translate(.9px, 0); }
+  72% { transform: translate(-.7px, 0); } 74% { transform: translate(.5px, 0); } 76%, 100% { transform: none; }
+}
+
+/* ---- Ice Wall: an ice dome rises over our knight; the bishop bounces off it ---- */
+.pm .glint { stroke: rgba(255, 255, 255, .85); stroke-width: .8; }
+.pm .spark { stroke: #f2fbff; stroke-width: .9; }
+.pm .iw-spark { opacity: 0; }
+.pm-IceWall .iw-wall { animation-name: pm-iw-wall; }
+.pm-IceWall .iw-bishop { animation-name: pm-iw-bishop; }
+.pm-IceWall .iw-spark { animation-name: pm-iw-spark; }
+@keyframes pm-iw-wall {
+  0%, 12% { opacity: 1; transform: none; } 22% { opacity: 0; transform: scaleY(.2); } 28% { opacity: 0; transform: scaleY(0); }
+  40% { opacity: 1; transform: scaleY(1.08); } 44%, 53% { opacity: 1; transform: none; } 56% { transform: scale(1.06); } 62%, 100% { opacity: 1; transform: none; }
+}
+@keyframes pm-iw-bishop {
+  0%, 42% { transform: none; animation-timing-function: cubic-bezier(.55, 0, .9, .45); }
+  54% { transform: translate(-18px, 18px); animation-timing-function: cubic-bezier(.2, .7, .3, 1); } 72%, 100% { transform: none; }
+}
+@keyframes pm-iw-spark { 0%, 53% { opacity: 0; transform: scale(.3); } 55% { opacity: 1; transform: scale(1) rotate(10deg); } 68%, 100% { opacity: 0; transform: scale(1.6) rotate(22deg); } }
+
+/* ---- Strike: the knight dashes four squares like a queen, trailing fire ---- */
+.pm .ember { fill: #ffb347; }
+.pm .st-trail { opacity: .45; }
+.pm .st-burst { opacity: .7; }
+.pm-Strike .st-knight { animation-name: pm-st-knight; }
+.pm-Strike .st-trail { animation-name: pm-st-trail; }
+.pm-Strike .st-burst { animation-name: pm-st-burst; }
+@keyframes pm-st-knight {
+  0%, 14% { opacity: 1; transform: none; } 20% { opacity: 0; transform: none; } 21% { opacity: 0; transform: translateX(-64px); }
+  27% { opacity: 1; transform: translateX(-64px); } 33% { transform: translateX(-66px); animation-timing-function: cubic-bezier(.6, 0, .9, .4); }
+  42% { transform: translateX(1.5px); } 46%, 100% { opacity: 1; transform: none; }
+}
+@keyframes pm-st-trail {
+  0%, 14% { opacity: .45; transform: none; } 20%, 33% { opacity: 0; transform: scaleX(0); }
+  34% { opacity: 1; transform: scaleX(.03); animation-timing-function: cubic-bezier(.6, 0, .9, .4); } 42% { opacity: 1; transform: none; }
+  62% { opacity: .7; } 100% { opacity: .45; transform: none; }
+}
+@keyframes pm-st-burst {
+  0%, 14% { opacity: .7; transform: none; } 20%, 41% { opacity: 0; transform: scale(.4); } 43% { opacity: 1; transform: scale(.7); }
+  60% { opacity: .85; transform: scale(1.3); } 100% { opacity: .7; transform: none; }
+}
+
+/* ---- Haste: one rook, two moves in one turn; a pip lights for each ---- */
+.pm .trace-fire { stroke: #ff9a3c; stroke-width: 1.1; stroke-dasharray: 1.2 2.6; opacity: .55; }
+.pm .ghost-fire { fill: #ff8a2a; }
+.pm .hs-g1 { opacity: .28; }
+.pm .hs-g2 { opacity: .4; }
+.pm .pip { fill: #f2c25a; stroke: #2b2621; stroke-width: .6; }
+.pm-Haste .hs-rook { animation-name: pm-hs-rook; }
+.pm-Haste .hs-g1 { animation-name: pm-hs-g1; }
+.pm-Haste .hs-g2 { animation-name: pm-hs-g2; }
+.pm-Haste .hs-path { animation-name: pm-hs-path; }
+.pm-Haste .hs-p1 { animation-name: pm-hs-p1; }
+.pm-Haste .hs-p2 { animation-name: pm-hs-p2; }
+@keyframes pm-hs-rook {
+  0%, 12% { opacity: 1; transform: none; } 18% { opacity: 0; transform: none; } 19% { opacity: 0; transform: translate(-48px, 32px); }
+  25%, 30% { opacity: 1; transform: translate(-48px, 32px); animation-timing-function: cubic-bezier(.5, 0, .25, 1); }
+  38%, 46% { transform: translate(-48px, 0); animation-timing-function: cubic-bezier(.5, 0, .25, 1); } 55%, 100% { opacity: 1; transform: none; }
+}
+@keyframes pm-hs-g1 { 0%, 12% { opacity: .28; } 18%, 30% { opacity: 0; } 31% { opacity: .75; } 50%, 100% { opacity: .28; } }
+@keyframes pm-hs-g2 { 0%, 12% { opacity: .4; } 18%, 46% { opacity: 0; } 47% { opacity: .8; } 66%, 100% { opacity: .4; } }
+@keyframes pm-hs-path { 0%, 12% { opacity: .55; } 18%, 30% { opacity: 0; } 55%, 100% { opacity: .55; } }
+@keyframes pm-hs-p1 { 0%, 12% { opacity: 1; transform: none; } 18%, 36% { opacity: .25; transform: none; } 38% { opacity: 1; transform: scale(1.6); } 44%, 100% { opacity: 1; transform: none; } }
+@keyframes pm-hs-p2 { 0%, 12% { opacity: 1; transform: none; } 18%, 53% { opacity: .25; transform: none; } 55% { opacity: 1; transform: scale(1.6); } 61%, 100% { opacity: 1; transform: none; } }
+
+/* ---- Flight: lifted on the wind, over its own pieces, to an empty square ---- */
+.pm .trace-air { stroke: rgba(214, 236, 255, .5); stroke-width: .9; stroke-dasharray: 1.2 2.6; }
+.pm .gust { stroke: #dff1ff; stroke-width: 1; }
+.pm .fl-piece { transform: translateX(-32px); }
+.pm .fl-lift { transform: translateY(-28px) scale(1.22); }
+.pm .fl-shadow { transform: scale(.6); opacity: .5; }
+.pm .fl-gust { opacity: .9; }
+.pm-Flight .fl-piece { animation-name: pm-fl-piece; }
+.pm-Flight .fl-lift { animation-name: pm-fl-lift; }
+.pm-Flight .fl-shadow { animation-name: pm-fl-shadow; }
+.pm-Flight .fl-gust { animation-name: pm-fl-gust; }
+@keyframes pm-fl-piece {
+  0% { transform: translateX(-32px); animation-timing-function: linear; } 14%, 44% { opacity: 1; transform: none; }
+  48% { opacity: 0; transform: none; } 49% { opacity: 0; transform: translateX(-64px); } 54% { opacity: 1; }
+  86% { transform: translateX(-64px); animation-timing-function: linear; } 100% { opacity: 1; transform: translateX(-32px); }
+}
+@keyframes pm-fl-lift {
+  0% { transform: translateY(-28px) scale(1.22); animation-timing-function: cubic-bezier(.55, .085, .68, .53); }
+  14% { transform: none; } 16% { transform: scale(1.06, .92); } 19%, 86% { transform: none; animation-timing-function: cubic-bezier(.25, .46, .45, .94); }
+  100% { transform: translateY(-28px) scale(1.22); }
+}
+@keyframes pm-fl-shadow { 0% { transform: scale(.6); opacity: .5; } 14%, 86% { transform: none; opacity: 1; } 100% { transform: scale(.6); opacity: .5; } }
+@keyframes pm-fl-gust { 0% { opacity: .9; } 10%, 74% { opacity: 0; } 84%, 100% { opacity: .9; } }
+
+/* ---- Sacrifice: a captured rook's spirit comes down into a pawn, which becomes it ---- */
+.pm .ghost { fill: rgba(255, 240, 200, .22); stroke: #ffe39a; stroke-width: .6; stroke-dasharray: 1.2 1; }
+.pm .ring-gold { stroke: #ffe39a; stroke-width: 1; }
+.pm .sc-ghost { transform: translateY(-12px); opacity: .75; }
+.pm .sc-rook, .pm .sc-flash { opacity: 0; }
+.pm .sc-beam { opacity: .55; }
+.pm-Sacrifice .sc-ghost { animation-name: pm-sc-ghost; }
+.pm-Sacrifice .sc-pawn { animation-name: pm-sc-pawn; }
+.pm-Sacrifice .sc-rook { animation-name: pm-sc-rook; }
+.pm-Sacrifice .sc-beam { animation-name: pm-sc-beam; }
+.pm-Sacrifice .sc-flash { animation-name: pm-sc-flash; }
+@keyframes pm-sc-ghost {
+  0% { opacity: .75; transform: translateY(-12px); } 10% { opacity: .9; transform: translateY(-2px); } 14% { opacity: 0; transform: none; }
+  62% { opacity: 0; transform: translate(32px, -16px); } 70% { opacity: .6; transform: translate(30px, -16px); }
+  88% { opacity: .75; transform: translate(9px, -14px); } 100% { opacity: .75; transform: translateY(-12px); }
+}
+@keyframes pm-sc-pawn { 0%, 10% { opacity: 1; transform: none; } 15% { opacity: 0; transform: scale(1.15); } 60% { opacity: 0; transform: none; } 66%, 100% { opacity: 1; transform: none; } }
+@keyframes pm-sc-rook { 0%, 12% { opacity: 0; transform: scale(.6); } 17% { opacity: 1; transform: scale(1.12); } 21%, 52% { opacity: 1; transform: none; } 58%, 100% { opacity: 0; transform: none; } }
+@keyframes pm-sc-beam {
+  0% { opacity: .55; transform: none; } 10% { opacity: .95; } 15% { opacity: 1; transform: scaleX(1.25); } 30% { opacity: 0; transform: none; }
+  66% { opacity: 0; } 88% { opacity: .35; } 100% { opacity: .55; }
+}
+@keyframes pm-sc-flash { 0%, 12% { opacity: 0; transform: scale(.4); } 15% { opacity: 1; transform: scale(.8); } 30%, 100% { opacity: 0; transform: scale(1.9); } }
+
+/* ---- March: two pawns, one after the other, step two squares ---- */
+.pm .print { fill: rgba(196, 160, 104, .8); }
+.pm .dust { fill: rgba(196, 164, 112, .85); }
+.pm .mr-pa { opacity: .75; }
+.pm .mr-pb, .pm .mr-da, .pm .mr-db { opacity: 0; }
+.pm-March .mr-a { animation-name: pm-mr-a; }
+.pm-March .mr-b { animation-name: pm-mr-b; }
+.pm-March .mr-pa { animation-name: pm-mr-pa; }
+.pm-March .mr-pb { animation-name: pm-mr-pb; }
+.pm-March .mr-da { animation-name: pm-mr-da; }
+.pm-March .mr-db { animation-name: pm-mr-db; }
+@keyframes pm-mr-a {
+  0%, 50% { opacity: 1; transform: none; } 56% { opacity: 0; transform: none; } 57% { opacity: 0; transform: translateY(32px); }
+  62%, 70% { opacity: 1; transform: translateY(32px); } 77% { transform: translateY(16px); } 84%, 100% { opacity: 1; transform: none; }
+}
+@keyframes pm-mr-b {
+  0%, 10% { transform: none; } 17% { transform: translateY(-16px); } 24%, 50% { opacity: 1; transform: translateY(-32px); }
+  56% { opacity: 0; transform: translateY(-32px); } 57% { opacity: 0; transform: none; } 62%, 100% { opacity: 1; transform: none; }
+}
+@keyframes pm-mr-pa { 0%, 50% { opacity: .75; } 56%, 71% { opacity: 0; } 79%, 100% { opacity: .75; } }
+@keyframes pm-mr-pb { 0%, 11% { opacity: 0; } 19%, 50% { opacity: .75; } 56%, 100% { opacity: 0; } }
+@keyframes pm-mr-da { 0%, 83% { opacity: 0; transform: scale(.5); } 85% { opacity: .9; transform: scale(.8); } 97%, 100% { opacity: 0; transform: scale(1.7); } }
+@keyframes pm-mr-db { 0%, 23% { opacity: 0; transform: scale(.5); } 25% { opacity: .9; transform: scale(.8); } 37%, 100% { opacity: 0; transform: scale(1.7); } }
+
+/* ---- Leap: a rook vaults its own pawns ---- */
+.pm .trace-leaf { stroke: rgba(150, 196, 84, .7); stroke-width: .9; stroke-dasharray: 1.2 2.6; }
+.pm .leaf { fill: #8fbf4a; stroke: #3d5a1c; stroke-width: .35; }
+.pm .leaf-2 { fill: #c8b24a; }
+.pm .lp-rook { transform: translateX(-24px); }
+.pm .lp-lift { transform: translateY(-14px) scale(1.06); }
+.pm-Leap .lp-rook { animation-name: pm-lp-rook; }
+.pm-Leap .lp-lift { animation-name: pm-lp-lift; }
+.pm-Leap .lp-leaf { animation-name: pm-lp-leaf; }
+.pm-Leap .lp-l2 { animation-delay: -.12s; }
+.pm-Leap .lp-l3 { animation-delay: -.24s; }
+@keyframes pm-lp-rook {
+  0% { transform: translateX(-24px); animation-timing-function: linear; } 8%, 46% { opacity: 1; transform: none; } 52% { opacity: 0; transform: none; }
+  53% { opacity: 0; transform: translateX(-48px); } 58% { opacity: 1; } 84% { transform: translateX(-48px); animation-timing-function: linear; }
+  100% { opacity: 1; transform: translateX(-24px); }
+}
+@keyframes pm-lp-lift {
+  0% { transform: translateY(-14px) scale(1.06); animation-timing-function: cubic-bezier(.55, .085, .68, .53); } 8% { transform: none; }
+  10% { transform: scale(1.07, .92); } 13%, 84% { transform: none; animation-timing-function: cubic-bezier(.25, .46, .45, .94); }
+  100% { transform: translateY(-14px) scale(1.06); }
+}
+@keyframes pm-lp-leaf {
+  0% { opacity: 1; transform: none; } 30% { opacity: .9; transform: translate(-2px, 7px) rotate(70deg); } 48% { opacity: 0; transform: translate(-3px, 11px) rotate(110deg); }
+  49%, 86% { opacity: 0; transform: translateY(-3px); } 94%, 100% { opacity: 1; transform: none; }
+}
+
+/* ---- Holy Light: light on the squares beside, in front and behind; a pawn's capture is turned back ---- */
+.pm .holy { fill: #ffe7a0; }
+.pm .spark-gold { stroke: #fff4cc; stroke-width: 1; }
+.pm .hl-cross { opacity: .5; }
+.pm .hl-flash { opacity: 0; }
+.pm-HolyLight .hl-rays { animation-name: pm-hl-rays; animation-timing-function: linear; }
+.pm-HolyLight .hl-halo { animation-name: pm-hl-halo; }
+.pm-HolyLight .hl-cross { animation-name: pm-hl-cross; }
+.pm-HolyLight .hl-pawn { animation-name: pm-hl-pawn; }
+.pm-HolyLight .hl-flash { animation-name: pm-hl-flash; }
+@keyframes pm-hl-rays { to { transform: rotate(30deg); } }
+@keyframes pm-hl-halo { 0%, 30%, 100% { transform: none; } 41% { transform: scale(1.4); } }
+@keyframes pm-hl-cross { 0%, 30% { opacity: .5; } 40% { opacity: .95; } 60%, 100% { opacity: .5; } }
+@keyframes pm-hl-pawn {
+  0%, 28% { transform: none; animation-timing-function: cubic-bezier(.55, 0, .9, .45); }
+  38% { transform: translate(7px, 7px); animation-timing-function: cubic-bezier(.2, .7, .3, 1); } 56%, 100% { transform: none; }
+}
+@keyframes pm-hl-flash { 0%, 37% { opacity: 0; transform: scale(.3); } 39% { opacity: 1; transform: none; } 54%, 100% { opacity: 0; transform: scale(1.7) rotate(15deg); } }
+
+/* ---- Mercy: the king steps two squares over its own pawn; the pieces next to it are sheltered ---- */
+.pm .trace-gold { stroke: rgba(255, 228, 160, .75); stroke-width: .9; stroke-dasharray: 1.2 2.6; opacity: .55; }
+.pm .shield { fill: none; stroke: #ffe39a; stroke-width: .9; }
+.pm-Mercy .mc-king { animation-name: pm-mc-king; }
+.pm-Mercy .mc-lift { animation-name: pm-mc-lift; }
+.pm-Mercy .mc-aura { animation-name: pm-mc-aura; }
+.pm-Mercy .mc-sh { animation-name: pm-mc-sh; }
+.pm-Mercy .mc-arc { animation-name: pm-mc-arc; }
+@keyframes pm-mc-king {
+  0%, 14% { opacity: 1; transform: none; } 20% { opacity: 0; transform: none; } 21% { opacity: 0; transform: translateX(-32px); }
+  27%, 34% { opacity: 1; transform: translateX(-32px); animation-timing-function: linear; } 50%, 100% { opacity: 1; transform: none; }
+}
+@keyframes pm-mc-lift {
+  0%, 34% { transform: none; animation-timing-function: cubic-bezier(.25, .46, .45, .94); }
+  42% { transform: translateY(-12px) scale(1.06); animation-timing-function: cubic-bezier(.55, .085, .68, .53); }
+  50% { transform: none; } 52% { transform: scale(1.07, .92); } 55%, 100% { transform: none; }
+}
+@keyframes pm-mc-aura {
+  0%, 14% { opacity: 1; transform: none; } 30%, 50% { opacity: .3; transform: scale(.85); } 56% { opacity: 1; transform: scale(1.05); }
+  62% { transform: none; } 80% { opacity: .8; } 100% { opacity: 1; transform: none; }
+}
+@keyframes pm-mc-sh { 0%, 17% { opacity: 1; } 21%, 50% { opacity: 0; } 57%, 100% { opacity: 1; } }
+@keyframes pm-mc-arc { 0%, 14% { opacity: .55; } 20%, 34% { opacity: 0; } 50%, 100% { opacity: .55; } }
+
+/* ---- Death Touch: the king stays; its touch takes the knight two squares away ---- */
+.pm .tendril { stroke: #c9a2ff; stroke-width: 1.1; stroke-dasharray: 100; }
+.pm .tendril-glow { stroke: rgba(110, 50, 170, .55); stroke-width: 3.2; stroke-dasharray: 100; }
+.pm .dt-enemy { opacity: .45; transform: translateY(-1px); }
+.pm .dt-s1, .pm .dt-s2, .pm .dt-s3 { opacity: .6; transform: translateY(-2px); }
+.pm .dt-aura { opacity: .8; }
+.pm-DeathTouch .dt-tendril { animation-name: pm-dt-tendril; }
+.pm-DeathTouch .dt-enemy { animation-name: pm-dt-enemy; }
+.pm-DeathTouch .dt-s1, .pm-DeathTouch .dt-s2, .pm-DeathTouch .dt-s3 { animation-name: pm-dt-smoke; }
+.pm-DeathTouch .dt-s2 { animation-delay: -.1s; }
+.pm-DeathTouch .dt-s3 { animation-delay: -.2s; }
+.pm-DeathTouch .dt-aura { animation-name: pm-dt-aura; }
+@keyframes pm-dt-tendril {
+  0%, 8% { stroke-dashoffset: 0; opacity: 1; } 20% { stroke-dashoffset: 0; opacity: 0; } 21%, 58% { stroke-dashoffset: 100; opacity: 0; }
+  59% { stroke-dashoffset: 100; opacity: 1; animation-timing-function: cubic-bezier(.5, 0, .5, 1); } 72%, 100% { stroke-dashoffset: 0; opacity: 1; }
+}
+@keyframes pm-dt-enemy {
+  0% { opacity: .45; transform: translateY(-1px); } 16% { opacity: 0; transform: translateY(-4px) scale(.85); } 46% { opacity: 0; transform: none; }
+  54%, 72% { opacity: 1; transform: none; } 74% { transform: translateX(-.8px); } 76% { transform: translateX(.8px); }
+  78% { opacity: .9; transform: none; } 100% { opacity: .45; transform: translateY(-1px); }
+}
+@keyframes pm-dt-smoke {
+  0% { opacity: .6; transform: translateY(-2px); } 20% { opacity: 0; transform: translateY(-9px) scale(1.7); } 21%, 72% { opacity: 0; transform: scale(.5); }
+  80% { opacity: .8; transform: none; } 100% { opacity: .6; transform: translateY(-2px); }
+}
+@keyframes pm-dt-aura { 0% { opacity: .8; transform: none; } 60% { opacity: .45; } 72% { opacity: 1; transform: scale(1.2); } 84% { opacity: .9; transform: none; } 100% { opacity: .8; } }
+
+/* ---- Darkness: a pawn steps diagonally; another takes only straight ahead; the king glides two squares ---- */
+.pm .wisp { stroke: rgba(176, 130, 236, .85); stroke-width: 1.6; }
+.pm .dk-ta, .pm .dk-tk { opacity: .65; }
+.pm .dk-tb, .pm .dk-sm { opacity: 0; }
+.pm-Darkness .dk-a { animation-name: pm-dk-a; }
+.pm-Darkness .dk-ta { animation-name: pm-dk-ta; }
+.pm-Darkness .dk-b { animation-name: pm-dk-b; }
+.pm-Darkness .dk-tb { animation-name: pm-dk-tb; }
+.pm-Darkness .dk-e { animation-name: pm-dk-e; }
+.pm-Darkness .dk-sm { animation-name: pm-dk-sm; }
+.pm-Darkness .dk-k { animation-name: pm-dk-k; }
+.pm-Darkness .dk-tk { animation-name: pm-dk-tk; }
+@keyframes pm-dk-a {
+  0%, 46% { opacity: 1; transform: none; } 52% { opacity: 0; transform: none; } 53% { opacity: 0; transform: translate(-16px, 16px); }
+  58%, 64% { opacity: 1; transform: translate(-16px, 16px); } 76%, 100% { opacity: 1; transform: none; }
+}
+@keyframes pm-dk-ta { 0%, 46% { opacity: .65; } 52%, 64% { opacity: 0; } 72% { opacity: .95; } 100% { opacity: .65; } }
+@keyframes pm-dk-b {
+  0%, 10% { transform: none; animation-timing-function: cubic-bezier(.55, 0, .7, .4); } 20%, 46% { opacity: 1; transform: translateY(-16px); }
+  52% { opacity: 0; transform: translateY(-16px); } 53% { opacity: 0; transform: none; } 58%, 100% { opacity: 1; transform: none; }
+}
+@keyframes pm-dk-tb { 0%, 10% { opacity: 0; } 18% { opacity: .9; } 40% { opacity: .3; } 52%, 100% { opacity: 0; } }
+@keyframes pm-dk-e { 0%, 17% { opacity: 1; transform: none; } 23% { opacity: 0; transform: translateY(-2px) scale(.8); } 52% { opacity: 0; transform: none; } 58%, 100% { opacity: 1; transform: none; } }
+@keyframes pm-dk-sm { 0%, 17% { opacity: 0; transform: scale(.4); } 22% { opacity: .9; transform: none; } 44%, 100% { opacity: 0; transform: translateY(-5px) scale(1.8); } }
+/* the king: gone from its square, back two squares off, then one glide over the empty square, dimming as it crosses */
+@keyframes pm-dk-k {
+  0%, 22% { opacity: 1; transform: none; } 26% { opacity: 0; transform: none; } 27% { opacity: 0; transform: translateX(32px); }
+  31%, 33% { opacity: 1; transform: translateX(32px); } 39% { opacity: .7; } 45%, 100% { opacity: 1; transform: none; }
+}
+/* its trail grows behind it, from the square it left */
+@keyframes pm-dk-tk {
+  0%, 22% { opacity: .65; transform: none; } 26% { opacity: 0; transform: none; } 27%, 33% { opacity: 0; transform: scaleX(0); }
+  38% { opacity: .95; } 45% { transform: none; } 52% { opacity: .95; } 100% { opacity: .65; transform: none; }
+}
+
+/* ---- the emblems: the chosen king's element, live ---- */
+button.emblem { position: relative; overflow: hidden; }
+button.emblem .em-name { position: relative; }
+.em-art { position: relative; display: block; width: 100%; max-width: 64px; aspect-ratio: 1; }
+button.emblem .em-art img { position: relative; width: 100%; max-width: none; }
+.kx { position: absolute; left: -15%; top: -15%; width: 130%; height: 130%; overflow: visible; pointer-events: none; }
+button.emblem:not([aria-pressed='true']) .kx { display: none; }
+.kx .a { transform-box: fill-box; transform-origin: 50% 50%; animation-delay: calc(var(--n, 0) * -.45s); }
+.kx-d1 { --n: 1; } .kx-d2 { --n: 2; } .kx-d3 { --n: 3; } .kx-d4 { --n: 4; } .kx-d5 { --n: 5; } .kx-d6 { --n: 6; }
+.kx-d1, .kx-d4 { --dx: 5px; } .kx-d2, .kx-d5 { --dx: -4px; } .kx-d0, .kx-d3, .kx-d6 { --dx: 2px; }
+
+/* the chosen emblem's own rim light */
+button.emblem[aria-pressed='true'] .kx-frost img { filter: drop-shadow(0 0 2px rgba(110, 196, 250, .95)) drop-shadow(0 2px 3px rgba(43, 38, 33, .3)); }
+button.emblem[aria-pressed='true'] .kx-flame img { filter: drop-shadow(0 0 3px rgba(255, 130, 30, .9)) drop-shadow(0 2px 3px rgba(43, 38, 33, .3)); }
+button.emblem[aria-pressed='true'] .kx-stratus img { filter: drop-shadow(0 0 3px rgba(130, 180, 230, .95)) drop-shadow(0 2px 3px rgba(43, 38, 33, .3)); }
+button.emblem[aria-pressed='true'] .kx-mud img { filter: drop-shadow(0 0 3px rgba(130, 150, 50, .9)) drop-shadow(0 2px 3px rgba(43, 38, 33, .3)); }
+button.emblem[aria-pressed='true'] .kx-spirit img { filter: drop-shadow(0 0 4px rgba(240, 196, 90, .95)) drop-shadow(0 2px 3px rgba(43, 38, 33, .3)); }
+button.emblem[aria-pressed='true'] .kx-shadow img { filter: drop-shadow(0 0 3px rgba(90, 40, 130, .9)) drop-shadow(0 2px 3px rgba(43, 38, 33, .3)); }
+
+/* Frost: frost sparkle and cold light */
+.kx .star { fill: #fff; stroke: #4fa8e0; stroke-width: .8; stroke-linejoin: round; }
+.kx .snow { fill: #8fd0f5; }
+.kx-glow { animation: kx-glow 3s ease-in-out infinite; }
+.kx-tw { animation: kx-tw 2.6s ease-in-out infinite; }
+.kx-snow { opacity: .8; animation: kx-snow 3.4s linear infinite; }
+@keyframes kx-glow { 0%, 100% { opacity: .75; transform: none; } 50% { opacity: 1; transform: scale(1.06); } }
+@keyframes kx-tw { 0% { opacity: 0; transform: scale(.2); } 30% { opacity: 1; transform: rotate(45deg); } 60%, 100% { opacity: 0; transform: scale(.2) rotate(90deg); } }
+@keyframes kx-snow { 0% { opacity: 0; transform: translateY(-6px); } 20% { opacity: 1; } 80% { opacity: .9; } 100% { opacity: 0; transform: translate(4px, 22px); } }
+
+/* Flame: embers and heat */
+.kx .ember { fill: #ff8a1c; }
+.kx .ember-hot { fill: #ffd060; }
+.kx-heat { animation: kx-heat 1.5s ease-in-out infinite; }
+.kx-ember { opacity: .95; animation: kx-ember 1.9s ease-out infinite; }
+@keyframes kx-heat {
+  0%, 100% { opacity: .75; transform: none; } 23% { opacity: 1; transform: scale(1.04, 1.07); } 41% { opacity: .82; transform: scale(.99); }
+  63% { opacity: .95; transform: scale(1.03, 1.05); } 82% { opacity: .78; transform: none; }
+}
+@keyframes kx-ember {
+  0% { opacity: 0; transform: translateY(20px) scale(.6); } 15% { opacity: 1; } 60% { opacity: .9; transform: translate(var(--dx), -6px); }
+  100% { opacity: 0; transform: translate(calc(var(--dx) * -.5), -28px) scale(.4); }
+}
+
+/* Stratus: wind gusts behind the emblem, each at its own speed */
+.kx .kx-gust { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100 100; opacity: .75; }
+.kx .gust-1 { stroke: #6795c4; stroke-width: 2.6; }
+.kx .gust-2 { stroke: #92b8e0; stroke-width: 1.9; }
+.kx-gust { animation: kx-gust 2.4s cubic-bezier(.45, .05, .55, .95) infinite; }
+.kx .kx-g1 { animation-duration: 2.3s; animation-delay: 0s; } .kx .kx-g2 { animation-duration: 3.1s; animation-delay: -1.2s; }
+.kx .kx-g3 { animation-duration: 1.8s; animation-delay: -.5s; } .kx .kx-g4 { animation-duration: 2.7s; animation-delay: -2s; }
+.kx .kx-g5 { animation-duration: 2.1s; animation-delay: -1.5s; } .kx .kx-g6 { animation-duration: 3.4s; animation-delay: -.9s; }
+@keyframes kx-gust {
+  0% { stroke-dashoffset: 100; opacity: 0; transform: translateX(-5px); } 12% { opacity: .9; }
+  48% { stroke-dashoffset: 0; } 78% { opacity: .8; } 100% { stroke-dashoffset: -100; opacity: 0; transform: translateX(6px); }
+}
+
+/* Mud: falling leaves and earth motes */
+.kx .leaf { fill: #7da33a; stroke: #3d5a1c; stroke-width: .5; }
+.kx .leaf-2 { fill: #b9c24a; }
+.kx .leaf-3 { fill: #c08a3a; }
+.kx .mote { fill: #8a6634; }
+.kx-leaf { animation: kx-leaf 3.6s ease-in-out infinite; }
+.kx-mote { opacity: .8; animation: kx-mote 3s ease-out infinite; }
+@keyframes kx-leaf {
+  0% { opacity: 0; transform: translateY(-6px); } 15% { opacity: 1; } 50% { transform: translate(4px, 10px) rotate(120deg); }
+  85% { opacity: 1; } 100% { opacity: 0; transform: translate(-2px, 24px) rotate(240deg); }
+}
+@keyframes kx-mote { 0% { opacity: 0; transform: none; } 30% { opacity: .9; } 100% { opacity: 0; transform: translate(var(--dx), -22px); } }
+
+/* Spirit: soft rays and a pulsing halo */
+.kx .halo { fill: none; stroke: #e0ad45; stroke-width: 2; }
+.kx .light { fill: #f0c457; }
+.kx-rays { animation: kx-rays 5s linear infinite; }
+.kx-halo { opacity: .5; animation: kx-halo 2.6s ease-out infinite; }
+.kx-halo.kx-d3 { animation-delay: -1.3s; }
+.kx-rise { opacity: .85; animation: kx-mote 2.6s ease-out infinite; }
+@keyframes kx-rays { to { transform: rotate(30deg); } }
+@keyframes kx-halo { 0% { opacity: .9; transform: scale(.72); } 100% { opacity: 0; transform: scale(1.5); } }
+
+/* Shadow: a dark purple vortex behind the emblem, drawing inward */
+.kx .vx-light { fill: #4f2580; }
+.kx .vx-mote { fill: #a983d8; }
+.kx .kx-vx { transform-box: view-box; transform-origin: 50% 50%; }
+.kx-turn { animation: kx-turn 9s linear infinite; }
+.kx-pull { opacity: .35; animation: kx-pull 3.4s cubic-bezier(.5, 0, .9, .6) infinite; }
+.kx .kx-p1 { animation-delay: -1.7s; }
+.kx-eye { animation: kx-glow 3.4s ease-in-out infinite; }
+.kx-mote-in { opacity: 0; animation: kx-mote-in 2.8s cubic-bezier(.4, 0, .9, .5) infinite; }
+.kx .kx-m1 { animation-delay: -.7s; --a: 90deg; } .kx .kx-m2 { animation-delay: -1.4s; --a: 200deg; } .kx .kx-m3 { animation-delay: -2.1s; --a: 300deg; }
+@keyframes kx-turn { to { transform: rotate(360deg); } }
+@keyframes kx-pull { 0% { opacity: 0; transform: scale(1.15); } 30% { opacity: .5; } 100% { opacity: 0; transform: rotate(150deg) scale(.4); } }
+@keyframes kx-mote-in {
+  0% { opacity: 0; transform: rotate(var(--a, 0deg)) translateX(46px); } 20% { opacity: .9; }
+  100% { opacity: 0; transform: rotate(calc(var(--a, 0deg) + 330deg)) translateX(3px); }
+}
