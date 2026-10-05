@@ -1,4 +1,4 @@
-# Handoff — King Down Chess, 2026-10-03 (third session)
+# Handoff — King Down Chess, 2026-10-03 (third session); release branch updated 2026-10-05
 
 For the next agent session. Read `AGENTS.md`, then `TASKS.md` and `LESSONS.md` (project rules),
 then this file. `TASKS.md` stays the record of work and owner decisions; this file says where the
@@ -10,13 +10,24 @@ work stopped and what to do next.
 (`claude/wonderful-ritchie-4cgq32`, `claude/painted-motion`, `claude/perf-installable`,
 `claude/visual-design`) and #5 (`claude/merge-night`). Do not push to those branches. New work goes
 on its own `claude/<topic>` branch. Owner-approved branches are joined on one integration branch for
-one PR, as #5 was; the next one is `claude/integration-2026-10-05` (cards-all, one-beast, card-art,
-piece-icons with six-kings; see `TASKS.md`). The owner merges; never merge yourself. Merging into
-main does not deploy (`AGENTS.md`, Hosting).
+one PR, as #5 was; the next one is `claude/integration-2026-10-05`. The owner merges; never merge
+yourself. Merging into main does not deploy (`AGENTS.md`, Hosting).
+
+**Release, 2026-10-05.** `claude/integration-2026-10-05` is the release branch. It joins cards-all,
+one-beast, card-art, piece-icons (with six-kings), archer-over2 (with archer-far) and
+release-visuals (king-effects with power-motion). The owner approved it on 2026-10-05: "1. Pull
+request ... yes, do what is needed. 2. deploy 3. yes, what you recommend." That covers the PR, a
+deploy, the over-a-piece Archer (`docs/RULES.md` Decision 19), the six kings' effects, captures,
+title kings and resting pawns, the power animations with the Darkness king step, and the ivory
+Spirit's gold glow ("keep gold"). What it holds, its conflicts and its checks (all pass): `TASKS.md`,
+first section. Next, for the lead: review, open the PR, and after the owner merges, deploy `main`
+as `AGENTS.md` (Hosting) says. The deploy builds `main`, so it waits for the merge.
 
 **Kings' powers rules:** the official readings are `POWERS_BALANCED` in `src/rules/rules.ts`.
 Since round 11 two readings changed, both owner-adopted: Mercy M2 (2026-10-03) and the Darkness king
-step (2026-10-04, rounds 16–17); they reach main with `claude/integration-2026-10-05`. Report:
+step (2026-10-04, rounds 16–17); they reach main with `claude/integration-2026-10-05`. Since
+2026-10-05 the Archer shoots only over a piece (`archerShots: 'over2'`, `ARCHER_V` 83); the balance
+rounds above were played under the old Archer. Report:
 `docs/research/kings-powers-balance-2026-10-02.md`; rules text `docs/RULES.md` §4. The balance
 numbers below are from rounds 11–13, before those changes.
 
@@ -88,7 +99,7 @@ remains in the owner's account (harmless; delete only if the owner asks).
 
 ## How to run things
 
-- **Unit tests and types:** `npx tsc --noEmit`, `npx vitest run` (about 90 s; 559 tests on `claude/integration-2026-10-05`).
+- **Unit tests and types:** `npx tsc --noEmit`, `npx vitest run` (about 90 s; 570 tests on `claude/integration-2026-10-05`).
 - **Browser checks:** build and serve, then run a check (`PLAYABLE_BROWSER=chromium` in cloud
   containers, which lack the Chrome channel):
   ```sh
