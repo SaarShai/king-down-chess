@@ -38,7 +38,7 @@ King Down card-game names for the standard pieces: Pike = pawn, Steed = knight, 
 |---|---|---|---|
 | Pawn | 1 forward (2 from start rank) | 1 diagonal forward | promotes on last rank |
 | Knight, Bishop, Rook, Queen, King | standard | standard | — |
-| **Archer** | 1 square in any direction | **from a distance, without moving**: any enemy diagonally adjacent, exactly 2 squares away orthogonally, or on either forward diagonal at distance 2 — blockers are ignored (§6.16) | gives check the same way |
+| **Archer** | 1 square in any direction | **from a distance, without moving, only over a piece**: an enemy exactly 2 squares away straight (ahead, back or sideways) or on either forward diagonal, with a piece of either side on the square between (§6.19) | gives check the same way, so a piece that steps onto the square between gives check, and a side may not put one there in front of its own king |
 | **Paladin** | like a queen; **jumps over friendly pieces**, blocked by enemies | by moving onto the enemy | **cannot capture a king** (so never gives check); **removes itself** after capturing anything but a pawn (§6.15) |
 | **Guard** | 1 square any direction, empty squares only | **cannot capture** | **cannot be captured, except by a king**; blocks sliders like any piece |
 | **Maester** | 1 square any direction | onto an adjacent enemy | onto an adjacent friend = **swap places**; if maester and own king are both on their first rank they may **swap at any distance** as a move |
@@ -46,7 +46,7 @@ King Down card-game names for the standard pieces: Pike = pawn, Steed = knight, 
 | **Ogre** | 1 square in any direction | onto an adjacent enemy, except a Guard | may push an adjacent friend or enemy, never a king, one square straight away onto an empty square; the Ogre follows into the vacated square; a Guard can be pushed |
 
 Interactions decided in code (`canCapture`): a guard is taken only by a king; a king is never taken by a paladin; a guard captures nothing at all.
-The attacker set used for check = every piece's capture pattern, so an archer checks through blockers and a paladin never checks.
+The attacker set used for check = every piece's capture pattern, so an archer checks only over a piece and a paladin never checks.
 Design space by ability (arriving, shield, handicap, hopping, control, on-capture triggers) and by board zone (capital): `docs/MATRIX.md`.
 
 ## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)
@@ -114,7 +114,7 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
 ## 6. Decisions (2026-09-13, chosen for balance and fun)
 
 1. **Bishops on opposite colours: KEEP.** Same-colour bishops leave one colour complex undefended and dull; opposite colours give richer interactions (as in Chess960).
-2. **Archer may shoot the king (gives check): YES.** A sniper that threatens through blockers is the archer's whole identity and creates fresh tactics; it is slow (1-step) so it stays balanced.
+2. **Archer may shoot the king (gives check): YES.** A sniper that threatens through blockers is the archer's whole identity and creates fresh tactics; it is slow (1-step) so it stays balanced. (Since Decision 19, 2026-10-05, it shoots only over a piece.)
 3. **Beast first capture: any of the 7 non-forward adjacent squares** (per the rulebook diagram) — more options and more chain setups; straight ahead stays move-only as its one blind spot.
 4. **Draws: threefold repetition, 50-move rule and insufficient material are ON.** Needed because guards and paladins can create unwinnable endings.
 5. **Kings' powers (later): keep the rulebook's per-game use counts** (Freeze 2, Ice Wall 2, Strike 1, Haste 1, Flight 1, Sacrifice 1, March 3, Leap 3) as plain counters — the designer tuned them; only the card game's toll/action-point economy is dropped. Always-on powers stay always-on.
@@ -161,7 +161,8 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
     (`docs/research/sim-piece-balance-2026-09-17.md`). Three lab sets between it and `classic` wait for
     measurement (owner, 2026-10-04: "archer - test and measure first"): `plusDiagFwd2Clear` (a forward
     diagonal-2 shot needs the square between empty), `fwd2NoBack` (no shot 2 straight back) and
-    `fwd2NoSide` (no shots 2 to the side).
+    `fwd2NoSide` (no shots 2 to the side). **Replaced on 2026-10-05 by Decision 19**; games recorded
+    before it keep these shots (`ARCHER_BEFORE_OVER2`).
 17. **The beast's blind spot goes (designer, 2026-09-17).** `beastCaptureForward` defaults to `true`: the beast
     captures on **every** adjacent square (the "seven except straight ahead" rule cost more to remember than it
     earned). All three simplifications were measured at 1,600 games an arm, depth 4: removing the blind spot is the
@@ -178,6 +179,26 @@ Unit "has X" cards: Archer has Strike, Guard has Shield, Paladin has Leap, Maest
     `direct-campaign-phase-3-2026-09-22.md`. Selectively implemented on the accepted clay base:
     [adoption record](cursor-recovery/2026-09-24-0213b442/EXECUTED.md). The new 24-game traffic sketch
     does not establish a balance improvement or a precise first-move advantage.
+
+19. **The Archer shoots only over a piece (owner, 2026-10-05).** `archerShots` defaults to `'over2'`: the
+    Archer takes an enemy exactly 2 squares away straight (ahead, back or sideways) or on either
+    forward diagonal, mirrored for Black, and only when a piece of either side stands on the square
+    between. It no longer shoots its diagonal neighbours. Owner, 2026-10-04: "currently it is too
+    powerful in that it can take at a distance without putting itself in danger"; 2026-10-05, on this
+    recommendation: "yes, what you recommend". Measured on 9,000 games, the same armies for every
+    reading (one-Beast pool, seed 7001, depth 3; `docs/research/piece-balance-criteria-2026-10-03.md`,
+    The Archer readings): its captures fall from **2.08×** to **0.50×** the average piece's (criterion
+    2's line is 0.5–1.5×); the whole game draws **17.9%** against **18.9%**; its worth falls under
+    **2.15 pawns** against the Rook (criterion 1's floor is 2.5). The **Queen (1.61×) and the Beast
+    (1.62×) take more captures** instead and cross criterion 2's upper line; armies with a Maester
+    draw 5 points more. The readings that gave the Archer a fair capture share (`nearOver2`, `fwdNearOver2`)
+    drew 23–25%. `ARCHER_V` moves 505 → **83** with it: four Muller passes against the Knight, the
+    last two with the Knight army a pawn down, settle at **0.83 ± 0.25 pawns**
+    (`docs/research/piece-runs-2026-10-05-pv-A-over2.md`). Games recorded before it keep the
+    2026-09-17 Archer (`ARCHER_BEFORE_OVER2`): saves and run records hold their full rule set; a game
+    link names its Archer (`&archer=`), and a link without one opens under the old Archer; a
+    tournament spec without `archerShots` replays under it. `?rules=2017` and `?rules=2021` keep their
+    own Archers.
 
 ### First measured evidence (2026-09-13, provisional) — superseded by §6.8
 
