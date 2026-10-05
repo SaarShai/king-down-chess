@@ -1230,6 +1230,7 @@ const dialog = newGameDialog(s => {
   if (s.army === 'custom') {
     back = prompt(`Back rank (8 letters, one K; current draw pool ${POOL}):`, game.backRank)?.toUpperCase().trim();
     if (!back) return; // the dialog stays open
+    if (back.split('S').length > 2) { alert('One Beast per army.'); return; } // owner, 2026-10-04
   }
   setup = s;
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(s)); } catch { /* private mode: the choices last this visit */ }
