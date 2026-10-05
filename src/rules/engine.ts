@@ -200,6 +200,13 @@ const ARCHER_SHOT_SETS: Record<ArcherShots, readonly Delta[]> = {
   plusDiagFwd2Clear: [...ARCHER_SHOTS, [2, 2], [-2, 2]],
   fwd2NoBack: [...ARCHER_SHOTS.filter(([df, dr]) => !(df === 0 && dr === -2)), [2, 2], [-2, 2]],
   fwd2NoSide: [...ARCHER_SHOTS.filter(([df, dr]) => !(dr === 0 && Math.abs(df) === 2)), [2, 2], [-2, 2]],
+  // Two-square shots only (2026-10-04): no diagonal neighbour. `over2` needs a piece between (`shotRefused`).
+  far2: [[2, 0], [-2, 0], [0, 2], [0, -2], [2, 2], [-2, 2]],
+  over2: [[2, 0], [-2, 0], [0, 2], [0, -2], [2, 2], [-2, 2]],
+  // The diagonal neighbours and over2's shots (2026-10-04): it takes from afar only over a piece.
+  nearOver2: [[1, 1], [1, -1], [-1, 1], [-1, -1], [2, 0], [-2, 0], [0, 2], [0, -2], [2, 2], [-2, 2]],
+  // The two forward diagonal neighbours (a pawn's capture squares) and over2's shots (2026-10-05).
+  fwdNearOver2: [[1, 1], [-1, 1], [2, 0], [-2, 0], [0, 2], [0, -2], [2, 2], [-2, 2]],
 };
 /** Sets written from White's view; the Black reading mirrors the rank delta. */
 const FORWARD_SETS: Partial<Record<ArcherShots, readonly Delta[]>> = {
@@ -208,12 +215,22 @@ const FORWARD_SETS: Partial<Record<ArcherShots, readonly Delta[]>> = {
   plusDiagFwd2Clear: ARCHER_SHOT_SETS.plusDiagFwd2Clear,
   fwd2NoBack: ARCHER_SHOT_SETS.fwd2NoBack,
   fwd2NoSide: ARCHER_SHOT_SETS.fwd2NoSide,
+  far2: ARCHER_SHOT_SETS.far2,
+  over2: ARCHER_SHOT_SETS.over2,
+  nearOver2: ARCHER_SHOT_SETS.nearOver2,
+  fwdNearOver2: ARCHER_SHOT_SETS.fwdNearOver2,
 };
 /**
- * `plusDiagFwd2Clear`: a two-square diagonal shot (df, dr) needs the square between, (df/2, dr/2)
- * from the archer, empty. The only shot set with a blocker; move generation and `isAttacked` both test it.
+ * The two shot sets that look at the square between the archer and a two-square target, (df/2, dr/2)
+ * from the archer: `plusDiagFwd2Clear` refuses a diagonal-2 shot when it is occupied, `over2`,
+ * `nearOver2` and `fwdNearOver2` refuse every two-square shot when it is empty. Move generation and `isAttacked` both test it.
  */
-const clearsDiag2 = (): boolean => RULES.archerShots === 'plusDiagFwd2Clear';
+/** The shot sets that shoot two squares only over a piece. */
+export const overShots = (): boolean => RULES.archerShots === 'over2' || RULES.archerShots === 'nearOver2' || RULES.archerShots === 'fwdNearOver2';
+const shotBlock = (): 0 | 1 | 2 => (RULES.archerShots === 'plusDiagFwd2Clear' ? 1 : overShots() ? 2 : 0);
+/** Whether shot (df, dr) is refused, given the piece byte on the square between (0: empty). */
+const shotRefused = (block: 0 | 1 | 2, df: number, dr: number, between: number): boolean =>
+  block === 1 ? df * dr !== 0 && Math.abs(dr) === 2 && between !== 0 : block === 2 ? Math.max(Math.abs(df), Math.abs(dr)) === 2 && between === 0 : false;
 const mirrored = (set: readonly Delta[]): readonly Delta[] => set.map(([df, dr]) => [df, -dr] as Delta);
 /** An archer's shot deltas seen from the archer. `forward3` and `plusDiagFwd2` depend on colour. */
 const MIRRORED: Partial<Record<ArcherShots, readonly Delta[]>> = Object.fromEntries(
@@ -670,11 +687,11 @@ function genPieceRaw(board: Uint8Array, from: number, mode: GenMode, out: Move[]
       // only needs the shot table.
       const steps = RULES.archerMove === 'any' ? DIRS8 : RULES.archerMove === 'fwdBack' ? VERTICAL : ORTHO;
       if (mode === 'all') for (const [df, dr] of steps) { const to = step(from, df, dr); if (to >= 0 && !board[to]) out.push({ from, to, captures: [] }); }
-      const clear = clearsDiag2();
+      const block = shotBlock();
       for (const [df, dr] of archerShotsFor(c)) {
         const target = step(from, df, dr);
         if (target >= 0 && board[target] && colorOf(board[target]) !== c && canCapture(A, typeOf(board[target]))
-          && !(clear && df * dr !== 0 && Math.abs(dr) === 2 && board[step(from, df >> 1, dr >> 1)])) out.push({ from, to: from, captures: [target] });
+          && !(block && shotRefused(block, df, dr, board[step(from, df >> 1, dr >> 1)]))) out.push({ from, to: from, captures: [target] });
       }
       return;
     }
@@ -1126,12 +1143,12 @@ export function isAttacked(board: Uint8Array, target: number, by: Color): boolea
   // A piece in a Holy Light king's aura is out of every pawn's reach.
   if (shelter === 0 && !inLight(board, target, by ^ 1) && pawnTakes(board, target, by, victim)) return true;
   // Walk the shot deltas *negated*: an archer that shoots (df, dr) sits at (-df, -dr) from its
-  // target. The symmetric sets do not care; `forward3` does. Under `plusDiagFwd2Clear` a diagonal-2
-  // shot is blocked as in `case A`: the square between, (-df/2, -dr/2) from the target, must be empty.
-  const shots = archerShotsFor(by), clear = clearsDiag2();
+  // target. The symmetric sets do not care; `forward3` does. Under `plusDiagFwd2Clear` and the
+  // `overShots` sets a shot looks at the square between as in `case A`: (-df/2, -dr/2) from the target.
+  const shots = archerShotsFor(by), block = shotBlock();
   for (let i = 0; i < shots.length; i++) {
     const df = shots[i][0], dr = shots[i][1], s = step(target, -df, -dr);
-    if (s >= 0 && hits(board, s, A, by, victim) && !(clear && df * dr !== 0 && Math.abs(dr) === 2 && board[step(target, -df >> 1, -dr >> 1)])) return true;
+    if (s >= 0 && hits(board, s, A, by, victim) && !(block && shotRefused(block, df, dr, board[step(target, -df >> 1, -dr >> 1)]))) return true;
   }
   for (let i = 0; i < 8; i++) {
     const ray = RAY[target * 8 + i];

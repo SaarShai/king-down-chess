@@ -21,14 +21,17 @@ export type PromotionSet = 'anyNonKing' | 'standard' | 'anyNonKingNoFairy' | 'an
 /** Squares an archer may step to (move-only either way). `fwdBack` is the 2021 concept: 1 ahead or 1 back. */
 export type ArcherMove = 'ortho' | 'any' | 'fwdBack';
 /**
- * Archer shot set. `plusDiagFwd2` (2026-09-17) is the measured middle ground: classic plus the two
+ * Archer shot set. The official one is `over2` (2026-10-05, the default): the two-square shots
+ * below, only over a piece. `plusDiagFwd2` (2026-09-17 to 2026-10-05, `ARCHER_BEFORE_OVER2`): classic plus the two
  * **forward** two-square diagonals, so each side's widening faces the enemy. It is colour-dependent,
  * like `forward3` — see `archerShotsFor` in engine.ts. Three lab sets between it and `classic`
  * (2026-10-04): `plusDiagFwd2Clear` (the same shots, but a forward diagonal-2 shot needs the
  * square between empty), `fwd2NoBack` (without the shot 2 straight back) and `fwd2NoSide` (without
- * the two shots 2 to the side).
+ * the two shots 2 to the side). Two more (owner, 2026-10-04: "it can take at a distance without
+ * putting itself in danger"): `far2` (only today's two-square shots: 2 straight, 2 forward-diagonal)
+ * and `over2` (the same shots, only over a piece of either colour on the square between).
  */
-export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plusDiagFwd2' | 'plusDiagFwd2Clear' | 'fwd2NoBack' | 'fwd2NoSide';
+export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plusDiagFwd2' | 'plusDiagFwd2Clear' | 'fwd2NoBack' | 'fwd2NoSide' | 'far2' | 'over2' | 'nearOver2' | 'fwdNearOver2';
 /** What a guard may take by moving onto it. `any` turns it into a commoner that gives check. */
 export type GuardCaptures = 'none' | 'pawns' | 'any';
 /** Lab: the guard's double step from its home rank — none, through an empty square, or over anything. */
@@ -619,11 +622,13 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   pawnCapitalCapture: false,
   guardCaptureLimit: 0 as 0 | 1,
   archerMove: 'any' as ArcherMove,
-  // Adopted 2026-09-17 (owner call): the forward diagonal-2 squares on top of classic. Confirmed
-  // at depth 4 (decisive +8.8, draws -8.2, fairness clean) at the cost of the archer's value,
-  // 3.73 ± 0.42 -> > 4.66 pawns; ARCHER_V in src/ai/eval.ts is re-priced with it.
-  // docs/research/sim-piece-balance-2026-09-17.md
-  archerShots: 'plusDiagFwd2' as ArcherShots,
+  // Adopted 2026-10-05 (owner: "yes, what you recommend"; docs/RULES.md Decision 19): the Archer
+  // shoots only over a piece — 2 squares straight or 2 squares diagonally forward, with a piece of
+  // either side on the square between. Measured on 9,000 games: captures 0.50x the average piece's
+  // (today's 2.08x), whole-game draws 17.9% (18.9%), worth under 2.15 pawns; ARCHER_V in
+  // src/ai/eval.ts is re-priced with it. Games recorded before it keep `plusDiagFwd2`
+  // (`ARCHER_BEFORE_OVER2`). docs/research/piece-balance-criteria-2026-10-03.md
+  archerShots: 'over2' as ArcherShots,
   beastMove: 'any' as BeastMove,
   beastCapture: 'adjacent' as BeastCapture,
   // The blind spot goes (2026-09-17): "the 7 adjacent squares except straight ahead" cost more to
@@ -716,6 +721,14 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
 export const RULES: Rules = { ...DEFAULT_RULES };
 
 /**
+ * The Archer of every game recorded before 2026-10-05: the 2026-09-17 shots (Decision 16), blockers
+ * ignored. A record that does not name its Archer was made then, so it replays under this one: a game
+ * link without `&archer=` (src/main.ts) and a tournament spec whose rules lack `archerShots`
+ * (src/sim/tournament.ts). Saves and run stamps hold the full rule set and need nothing.
+ */
+export const ARCHER_BEFORE_OVER2: ArcherShots = 'plusDiagFwd2';
+
+/**
  * King Down Classic as the 2017 rulebook prints it: the game before the measured buffs. The guard
  * is unchanged from the defaults, so this preset is three fields plus the promotion set.
  */
@@ -789,7 +802,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   guardReserve: ['off', 'rank1', 'rank12'],
   guardCaptureLimit: [0, 1],
   archerMove: ['ortho', 'any', 'fwdBack'],
-  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide'],
+  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide', 'far2', 'over2', 'nearOver2', 'fwdNearOver2'],
   beastMove: ['forward', 'any', 'diagFwdBack'],
   beastCapture: ['adjacent', 'diagForward', 'diagonal'],
   maesterStep: [1, 2],

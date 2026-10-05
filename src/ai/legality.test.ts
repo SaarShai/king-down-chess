@@ -13,7 +13,7 @@ import { afterEach, expect, it } from 'vitest';
 import {
   A, B, BLACK, C, Color, G, K, L, M, Mark, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, inCheck, legalMoves, piece, pseudoMoves,
 } from '../rules/engine';
-import { CARD_ONLY, CardName, KINGS, KingChoice, KingName, PowerName, RULES, Rules, TIER1, USES_RULE, setRules } from '../rules/rules';
+import { CARD_ONLY, CardName, DEFAULT_RULES, KINGS, KingChoice, KingName, PowerName, RULES, Rules, TIER1, USES_RULE, setRules } from '../rules/rules';
 import { toFen, toLan } from '../rules/setup';
 import { searchLegal, setFastLegality } from './search';
 
@@ -201,10 +201,11 @@ it('the same under each archer shot set, the three middle lab sets included (202
   // two-square diagonal target. Moves that empty or fill it must stay exact.
   let seed = 1818;
   const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
-  const SETS: Rules['archerShots'][] = ['plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide'];
+  // `over2` shoots only over a piece there, so a move that fills it can open a shot (2026-10-04).
+  const SETS: Rules['archerShots'][] = ['plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide', 'far2', 'over2', 'nearOver2', 'fwdNearOver2'];
   let checked = 0, inCheckCount = 0;
   const changed: Record<string, number> = {};
-  for (let trial = 0; trial < 6000; trial++) {
+  for (let trial = 0; trial < 12000; trial++) {
     const board = randomBoard(rng);
     // More archers: each side gets one more on a random empty square.
     for (const c of [WHITE, BLACK]) { const s = Math.floor(rng() * 64); if (!board[s]) board[s] = piece(A, c); }
@@ -229,6 +230,6 @@ it('the same under each archer shot set, the three middle lab sets included (202
   }
   expect(checked).toBeGreaterThan(1000);
   expect(inCheckCount).toBeGreaterThan(50);
-  // Each lab set changes the legal moves against today's default on some boards.
-  for (const set of SETS.slice(1)) expect(changed[set] ?? 0, set).toBeGreaterThan(20);
+  // Each set but today's default (`over2` since 2026-10-05) changes the legal moves on some boards.
+  for (const set of SETS.filter(x => x !== DEFAULT_RULES.archerShots)) expect(changed[set] ?? 0, set).toBeGreaterThan(20);
 }, 120_000);

@@ -18,7 +18,7 @@ it('skills retain the chosen budget and opening policy without claiming ratings'
   }
 });
 it.each([
-  ['7k/8/8/2p5/8/2A5/8/4K3 w - - 0 1', 'Ac3*c5', 'archer'],
+  ['7k/8/8/2p5/2p5/2A5/8/4K3 w - - 0 1', 'Ac3*c5', 'archer'],
   ['8/8/4p3/8/4k3/8/4C3/7K w - - 0 1', 'Ce2*e6', 'catapult'],
   ['7k/8/8/8/8/8/8/MN5K w - - 0 1', 'Ma1<>b1', 'maester'],
   ['k7/8/8/8/8/8/3L2n1/K7 w - - 0 1', 'Ld2xg2', 'paladin'],

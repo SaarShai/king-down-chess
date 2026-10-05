@@ -29,9 +29,11 @@ describe('mate finding', () => {
     expect(res.score).toBeGreaterThanOrEqual(MATE - 1);
   });
 
-  it('mates in one with an archer, whose check cannot be blocked', () => {
-    const { res, after, lan } = best('7k/8/5N2/7A/8/8/8/K7 w - - 0 1');
-    expect([lan, status(after)]).toEqual(['Ah5-h6', 'checkmate']);
+  it('mates in one with an archer: the knight steps between, and the archer shoots over it', () => {
+    // The archer h6 shoots h8 only over a piece on h7 (2026-10-05). Nh7 fills it and the g6 pawn
+    // guards it; Nf7+ is not mate, because the e8 bishop takes it.
+    const { res, after, lan } = best('4b1rk/6n1/6PA/6N1/8/8/8/K7 w - - 0 1');
+    expect([lan, status(after)]).toEqual(['Ng5-h7', 'checkmate']);
     expect(res.score).toBeGreaterThanOrEqual(MATE - 1);
   });
 

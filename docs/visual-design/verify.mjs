@@ -202,7 +202,7 @@ try {
   ok('title lineup: twelve painted figures with names; Learn and Play stay on screen at 1280×900 and 390×844');
 
   // 8. Round 2 markers: shots, powers and the keyboard preview reach the painted board.
-  page = await open('?fen=' + encodeURIComponent('4k3/8/1p3r2/8/3A4/8/8/4K3 w - - 0 1'));
+  page = await open('?fen=' + encodeURIComponent('4k3/8/1p3r2/2P1P3/3A4/8/8/4K3 w - - 0 1')); // over the c5 and e5 pawns
   await ready(page);
   await tap(page, 27); // the archer on d4
   const shotMarks = await page.evaluate(() => ({ shots: window.view.marks.shots, captures: window.view.marks.captures }));

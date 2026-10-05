@@ -14,8 +14,8 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  CardCtx, Color, G, GenMode, K, Move, P, Position, RULES, TAG_POWER, WHITE, cardAt, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, freePass, genGuardDrops,
-  genHasteFollowUp, genPiece, genPowerMoves, handOf, heldCount, holdsTurn, isAttacked, isMarkTag, isStill, keepsLost, landed, lapsing, materialDraw, moverOf, piece,
+  A, CardCtx, Color, G, GenMode, K, Move, P, Position, RULES, TAG_POWER, WHITE, cardAt, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, freePass, genGuardDrops,
+  genHasteFollowUp, genPiece, genPowerMoves, handOf, heldCount, holdsTurn, isAttacked, isMarkTag, isStill, keepsLost, landed, lapsing, materialDraw, moverOf, overShots, piece,
   powerOf, powerUses, returnable, spend, tracksLast, typeOf,
 } from '../rules/engine';
 import { ALL_CARDS, type CardName, type PowerName } from '../rules/rules';
@@ -485,17 +485,20 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // move that empties it leaves a line through the king, so it is tested.
   // A `plusDiagFwd2Clear` archer shot two squares diagonally is blocked by the square between,
   // which is diagonally next to our king: a move that empties it leaves a line through the king, and
-  // one that fills it only blocks. The other archer shots ignore blockers and the leapers are never blocked,
+  // one that fills it only blocks. An `overShots` archer shoots only over a piece on the square between, which
+  // is next to our king: a move that fills it can open the shot, so, like a catapult's screen, a move
+  // arriving on a line through the king is tested while an enemy archer stands on the board. The other archer shots ignore blockers and the leapers are never blocked,
   // so nothing else can change an attack on the king — except a Curse, which moves an *enemy* piece
   // that may arrive attacking it, a FirewallB (a swap) that moves an enemy piece, and an Earth Quake,
   // which moves several pieces: those are always tested. A drop (a waiting guard, a Salvation) fills
-  // one square and empties none, so only the catapult's screen can make it expose the king. A
+  // one square and empties none, so only a catapult's screen or an `overShots` archer's square between
+  // can make it expose the king. A
   // Firewall, a Rescue and a Growth change no square. `setFastLegality(false)` turns this off for
   // the cross-check test.
   const k = board.indexOf(piece(K, c));
   const inChk = k < 0 || (inCheckKnown ?? attacked(c));
   const lines = k * 64;
-  const lob = board.includes(piece(13 /* C */, (c ^ 1) as Color));
+  const lob = board.includes(piece(13 /* C */, (c ^ 1) as Color)) || (overShots() && board.includes(piece(A, (c ^ 1) as Color)));
   let n = 0;
   for (let i = 0; i < out.length; i++) {
     const m = out[i];

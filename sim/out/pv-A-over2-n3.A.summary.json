@@ -1,0 +1,81 @@
+{
+  "spec": {
+    "id": "pv-A-over2-n3.A",
+    "games": 1000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1036,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "values": {
+      "A": 138
+    },
+    "asymmetric": [
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/1ppppppp/8/8/8/8/PPPPPPPP/RABQKBNR w - - 0 1",
+        "fenSwapped": "rabqkbnr/pppppppp/8/8/8/8/1PPPPPPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/p1pppppp/8/8/8/8/PPPPPPPP/RABQKBNR w - - 0 1",
+        "fenSwapped": "rabqkbnr/pppppppp/8/8/8/8/P1PPPPPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/pp1ppppp/8/8/8/8/PPPPPPPP/RABQKBNR w - - 0 1",
+        "fenSwapped": "rabqkbnr/pppppppp/8/8/8/8/PP1PPPPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/ppp1pppp/8/8/8/8/PPPPPPPP/RABQKBNR w - - 0 1",
+        "fenSwapped": "rabqkbnr/pppppppp/8/8/8/8/PPP1PPPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/pppp1ppp/8/8/8/8/PPPPPPPP/RABQKBNR w - - 0 1",
+        "fenSwapped": "rabqkbnr/pppppppp/8/8/8/8/PPPP1PPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/ppppp1pp/8/8/8/8/PPPPPPPP/RABQKBNR w - - 0 1",
+        "fenSwapped": "rabqkbnr/pppppppp/8/8/8/8/PPPPP1PP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/pppppp1p/8/8/8/8/PPPPPPPP/RABQKBNR w - - 0 1",
+        "fenSwapped": "rabqkbnr/pppppppp/8/8/8/8/PPPPPP1P/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/ppppppp1/8/8/8/8/PPPPPPPP/RABQKBNR w - - 0 1",
+        "fenSwapped": "rabqkbnr/pppppppp/8/8/8/8/PPPPPPP1/RNBQKBNR w - - 0 1"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 1000,
+  "seconds": 201.5,
+  "whiteScore": 0.5495,
+  "whiteWins": 500,
+  "draws": 99,
+  "blackWins": 401,
+  "meanPlies": 88.6,
+  "reasons": {
+    "adjudicatedResign": 895,
+    "adjudicatedDraw": 68,
+    "drawMaterial": 6,
+    "checkmate": 6,
+    "draw50": 8,
+    "drawRepetition": 17
+  }
+}

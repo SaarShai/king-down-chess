@@ -175,6 +175,81 @@ armies): its captures fall to 1.33× (PASS) and its draws line passes (+1.0), bu
 22.3% against 17.6% on the same armies (White 51.3 against 51.2, 107 against 101 plies). The Beast's
 armies then draw clearly less (FAIL). The Guard and Rook lines stay as they are.
 
+### The Archer readings (2026-10-04)
+
+Owner (2026-10-04): "archer - test and measure first", then "currently it is too powerful in that it
+can take at a distance without putting itself in danger. so i think we should test both" (only the
+two-square shots; only over a piece). Each reading: 9,000 ordinary games on the one-Beast pool
+(seed 7001, depth 3, the same armies for every reading), and its worth against the Rook (3.65) in
+1,000 games (seed 1034, pass-2 prices). Full outputs: `piece-runs-2026-10-04-pa-<id>.md` and
+`…-pv-A-<id>.md`.
+
+| reading | `archerShots` | captures × average (2: 0.5–1.5) | draws Δ, armies with it (6: ±3) | all games draw | worth (pawns) |
+|---|---|---|---|---|---|
+| today (`a14`) | `plusDiagFwd2` | **2.08** [2.06, 2.11] FAIL | −5.9 FAIL | 18.9% | 4.46 ± 0.29 |
+| diagonal shot needs a clear square (`abk`) | `plusDiagFwd2Clear` | 2.08 FAIL | −5.9 FAIL | 18.9% | 4.32 ± 0.29 |
+| no shot 2 back (`anb`) | `fwd2NoBack` | 2.07 FAIL | −5.8 FAIL | 19.0% | 4.34 ± 0.28 |
+| no shots 2 sideways (`ans`) | `fwd2NoSide` | 1.93 FAIL | −6.3 FAIL | 18.6% | 3.99 ± 0.28 |
+| only the two-square shots (`af2`) | `far2` | 1.54 [1.51, 1.56] FAIL (just) | −4.1 fail? | **20.3%** | 2.83 ± 0.28 |
+| only over a piece (`ao2`) | `over2` | 0.50 [0.49, 0.51] fail? (on the line) | −7.1 FAIL | 17.9% | < 2.15 |
+| near or over: diagonal neighbours, two-square shots only over a piece (`ano`) | `nearOver2` | 0.97 [0.95, 0.98] PASS | +1.5 pass? | **24.6%** | 2.39 ± 0.27 |
+| forward near or over: forward diagonal neighbours, two-square shots only over a piece (`afo`, 2026-10-05) | `fwdNearOver2` | 0.83 [0.81, 0.84] PASS | −0.0 pass? | **23.4%** | < 2.15 |
+
+The three middle readings change almost nothing. Only `far2` and `over2` move the Archer, in
+opposite ways: `far2` keeps it near its capture limit, costs about 1.6 pawns of worth (below the
+Bishop) and raises the whole game's draws by 1.4 points; `over2` makes it the least capturing piece
+of all (1.1× moves, worth under 2.15 pawns) and lowers the draws by 1.0. The other pieces' lines
+move with it, because the average piece's captures move: under `far2` the Bishop's 4b reaches the
+line (1.00, pass?); under `over2` the Queen (1.61×) and the Beast (1.62×) fail the capture limit
+instead, and the Maester's armies fail on draws. The three middle readings leave every other line
+as it is. The classic Archer (`pa-acl`, above) is on the two-Beast pool, so it is not in this table.
+
+**Near or over** (owner, 2026-10-04: "archer - do the test"; the M1, at 12fa84f): the Archer passes
+every line of its own, and the Rook (moved 86.7%) and the Bishop (4b 1.05) pass too. But the game
+draws: 24.6% against 18.9%, and 112.5 plies against 103.7. Games with an Archer now draw 24.9%,
+games without one 23.5% (the same in every run of this table); today's Archer brings them down to
+17.6%. The one-square diagonal shots are what raise the draws: the classic Archer, which has them,
+draws 4.7 points more than today's, and `over2` without them draws the least (with an Archer 16.3%).
+Its worth, 2.39 ± 0.27, is at the 2.5 line.
+
+**Forward near or over** (owner, 2026-10-05: "test one more Archer reading"; the M1, at ff52934):
+keeping only the two forward diagonal neighbours does not bring the draws back. The game draws 23.4%
+(109 plies); games with an Archer draw 23.4%, games without one 23.5%. Its captures pass (0.83×) and
+its worth falls under 2.15. So every reading with a fair capture share (`nearOver2`, `fwdNearOver2`)
+draws like an army without an Archer; only the strong readings (today, `far2`) and `over2` keep the
+draws down. `over2` does it with the weakest Archer: the Queen and the Beast take its captures.
+
+**Adopted (owner, 2026-10-05: "yes, what you recommend"):** `over2` is the official Archer
+(`docs/RULES.md` Decision 19). Re-priced for the computer by four Muller passes against the Knight
+(1,000 games each, depth 3): 1.94 ± 0.24 pawns at the old price 505, out of the band below at 194,
+then, with the Knight army a pawn down (`--odds`), 0.84 ± 0.26 at 138 and 0.83 ± 0.25 at 84, the
+fixed point: `ARCHER_V` 505 → 83 (`piece-runs-2026-10-05-pv-A-over2.md`). Criterion 1 (2.5–5.5
+pawns) fails, as the reading's bound already said.
+
+### The Guard readings (2026-10-04)
+
+Owner (2026-10-04): "guard - test both B and C", then "guard - do the testing" (a Guard that is
+dropped onto the board, not moved up from the first rank). B, C and C′ played the first 9,000 of
+`pa-r1`'s armies (two-Beast pool; the control is `pa-r1`); the two reserve readings played the
+one-Beast armies above (the control is `a14`). Worth: against the Knight, 1,000 games, pass-2
+prices. Outputs: `piece-runs-2026-10-04-pa-g*.md`, `…-pv-G-g*.md`.
+
+| reading | rule | moves × average (3: ≥ 0.5) | moved in the game (5: ≥ 85%) | best phase × average (4b: ≥ 1) | draws Δ (6: ±3) | worth vs Knight |
+|---|---|---|---|---|---|---|
+| today (`pa-r1`) | — | 0.56 | 70.2% FAIL | 0.41 FAIL | +3.2 | −190 ± 17 Elo |
+| today (`a14`, one Beast) | — | 0.54 | 72.4% FAIL | 0.38 FAIL | +2.9 | |
+| B: double first step (`gdf`) | `guardDoubleFirst=slide` | 0.73 | 77.8% FAIL | 0.53 FAIL | +4.4 | −197 ± 17 |
+| C: two-square step (`gs2`) | `guardStep=2` | 0.77 | 78.2% FAIL | 0.54 FAIL | +4.1 | −184 ± 17 |
+| C′: two squares from the centre (`gcs`) | `guardCapitalStep` | 0.56 | 70.4% FAIL | 0.41 FAIL | +3.2 | −212 ± 17 |
+| reserve, enters on rank 1 (`grs1`) | `guardReserve=rank1` | 0.64 | **89.6% PASS** | 0.38 FAIL | +2.9 | −186 ± 17 |
+| reserve, rank 1 or 2 (`grs12`) | `guardReserve=rank12` | 0.67 | **95.4% PASS** | 0.52 FAIL | +3.0 | −181 ± 18 |
+
+No reading changes the Guard's worth: every one is 180–210 Elo below a Knight, under 1.66 pawns.
+Only the reserve passes criterion 5, and partly by its rule: the entry (`G@b1`) counts as the
+Guard's first move. No reading passes 4b: the Guard is the least active piece in every phase. B and C
+make the games longer (+10.7%, +12.1%; the line is ±10%). Whole-game draws: B 18.2%, C 18.0%, C′
+17.6% (control 17.6%); reserve 18.9% both (control 18.9%).
+
 ## How to run
 
 Run from the repository root of a checkout with this branch (`claude/piece-activity`): the R and B

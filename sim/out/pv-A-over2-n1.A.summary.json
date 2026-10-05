@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "id": "pv-A-over2-n1.A",
+    "games": 1000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1036,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerShots": "over2"
+    },
+    "asymmetric": [
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 1000,
+  "seconds": 212.9,
+  "whiteScore": 0.5375,
+  "whiteWins": 467,
+  "draws": 141,
+  "blackWins": 392,
+  "meanPlies": 90.5,
+  "reasons": {
+    "drawRepetition": 27,
+    "adjudicatedResign": 859,
+    "adjudicatedDraw": 101,
+    "drawMaterial": 6,
+    "draw50": 3,
+    "plyCap": 4
+  }
+}

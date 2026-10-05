@@ -80,7 +80,7 @@ describe('Game.playLan (autosave restore)', () => {
 
   it.each([
     ['Ogre push and promotion', '7k/P7/8/8/3p4/3O4/8/4K3 w - - 0 1', ['Od3>d4-d5', 'Kh8-h7', 'a7-a8=Q', 'Kh7-g7', 'Ke1-e2']],
-    ['Archer shot', '7k/8/8/2p5/8/2A5/8/4K3 w - - 0 1', ['Ac3*c5', 'Kh8-h7', 'Ac3-c4']],
+    ['Archer shot', '7k/8/8/2p5/2p5/2A5/8/4K3 w - - 0 1', ['Ac3*c5', 'Kh8-h7', 'Ac3-d2']],
     ['Maester swap', '7k/8/8/8/8/8/8/MN5K w - - 0 1', ['Ma1<>b1', 'Kh8-h7', 'Na1-c2']],
     ['Beast chain', 'k7/8/8/4r3/3p4/4S3/8/4K3 w - - 0 1', ['Se3xd4xe5']],
     ['Catapult lob', '8/8/4p3/8/4k3/8/4C3/7K w - - 0 1', ['Ce2*e6']],
@@ -119,14 +119,14 @@ describe('Game.playLan (autosave restore)', () => {
   });
 
   it('replays fairy moves: an archer shot, a paladin that removes itself and a beast chain', () => {
-    const FEN = '3r3k/8/6p1/1p3p2/A3S3/8/8/K2L4 w - - 0 1';
-    const line = ['Ld1xd8', 'Kh8-h7', 'Aa4*b5', 'Kh7-h8', 'Se4xf5xg6'];
+    const FEN = '3r3k/8/p5p1/p4p2/A3S3/8/8/K2L4 w - - 0 1';
+    const line = ['Ld1xd8', 'Kh8-h7', 'Aa4*a6', 'Kh7-h8', 'Se4xf5xg6'];
     const g = new Game();
     g.load(fromFen(FEN));
     expect(g.playLan(line)).toBe(5);
     expect(g.pos.board[parseSq('d8')]).toBe(0); // paladin took the rook, then left the board
     expect(g.pos.board[parseSq('d1')]).toBe(0);
-    expect(g.pos.board[parseSq('b5')]).toBe(0); // shot from a distance; the archer never moved
+    expect(g.pos.board[parseSq('a6')]).toBe(0); // shot over the a5 pawn; the archer never moved
     expect(g.pos.board[parseSq('a4')]).not.toBe(0);
     expect(g.pos.board[parseSq('f5')]).toBe(0); // both chain victims gone, beast on the last square
     expect(g.pos.board[parseSq('g6')]).not.toBe(0);
