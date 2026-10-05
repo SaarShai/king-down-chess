@@ -35,6 +35,7 @@
 .pm .a { animation: none var(--pm-dur) ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
 .pm .c { transform-origin: 50% 50%; }
 .pm .l { transform-origin: 0 50%; }
+.pm .r { transform-origin: 100% 50%; }
 /* idle: the still frame */
 .power-choice button:not(:hover, :focus-visible, [aria-pressed='true']) .pm .a { animation-name: none; }
 
@@ -302,9 +303,9 @@
 }
 @keyframes pm-dt-aura { 0% { opacity: .8; transform: none; } 60% { opacity: .45; } 72% { opacity: 1; transform: scale(1.2); } 84% { opacity: .9; transform: none; } 100% { opacity: .8; } }
 
-/* ---- Darkness: a pawn steps diagonally; another takes only straight ahead ---- */
+/* ---- Darkness: a pawn steps diagonally; another takes only straight ahead; the king glides two squares ---- */
 .pm .wisp { stroke: rgba(176, 130, 236, .85); stroke-width: 1.6; }
-.pm .dk-ta { opacity: .65; }
+.pm .dk-ta, .pm .dk-tk { opacity: .65; }
 .pm .dk-tb, .pm .dk-sm { opacity: 0; }
 .pm-Darkness .dk-a { animation-name: pm-dk-a; }
 .pm-Darkness .dk-ta { animation-name: pm-dk-ta; }
@@ -312,6 +313,8 @@
 .pm-Darkness .dk-tb { animation-name: pm-dk-tb; }
 .pm-Darkness .dk-e { animation-name: pm-dk-e; }
 .pm-Darkness .dk-sm { animation-name: pm-dk-sm; }
+.pm-Darkness .dk-k { animation-name: pm-dk-k; }
+.pm-Darkness .dk-tk { animation-name: pm-dk-tk; }
 @keyframes pm-dk-a {
   0%, 46% { opacity: 1; transform: none; } 52% { opacity: 0; transform: none; } 53% { opacity: 0; transform: translate(-16px, 16px); }
   58%, 64% { opacity: 1; transform: translate(-16px, 16px); } 76%, 100% { opacity: 1; transform: none; }
@@ -324,6 +327,16 @@
 @keyframes pm-dk-tb { 0%, 10% { opacity: 0; } 18% { opacity: .9; } 40% { opacity: .3; } 52%, 100% { opacity: 0; } }
 @keyframes pm-dk-e { 0%, 17% { opacity: 1; transform: none; } 23% { opacity: 0; transform: translateY(-2px) scale(.8); } 52% { opacity: 0; transform: none; } 58%, 100% { opacity: 1; transform: none; } }
 @keyframes pm-dk-sm { 0%, 17% { opacity: 0; transform: scale(.4); } 22% { opacity: .9; transform: none; } 44%, 100% { opacity: 0; transform: translateY(-5px) scale(1.8); } }
+/* the king: gone from its square, back two squares off, then one glide over the empty square, dimming as it crosses */
+@keyframes pm-dk-k {
+  0%, 22% { opacity: 1; transform: none; } 26% { opacity: 0; transform: none; } 27% { opacity: 0; transform: translateX(32px); }
+  31%, 33% { opacity: 1; transform: translateX(32px); } 39% { opacity: .7; } 45%, 100% { opacity: 1; transform: none; }
+}
+/* its trail grows behind it, from the square it left */
+@keyframes pm-dk-tk {
+  0%, 22% { opacity: .65; transform: none; } 26% { opacity: 0; transform: none; } 27%, 33% { opacity: 0; transform: scaleX(0); }
+  38% { opacity: .95; } 45% { transform: none; } 52% { opacity: .95; } 100% { opacity: .65; transform: none; }
+}
 
 /* ---- the emblems: the chosen king's element, live ---- */
 button.emblem { position: relative; overflow: hidden; }

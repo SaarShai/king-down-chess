@@ -155,13 +155,15 @@ const SCENES: Record<PowerName, (g: string) => string> = {
     + '<path class="a dt-tendril tendril-glow" d="M29 21c3-5 7 4 11 0s8-5 12 0" pathLength="100"/><path class="a dt-tendril tendril" d="M29 21c3-5 7 4 11 0s8-5 12 0" pathLength="100"/>'
     + `<circle class="a c dt-s1" cx="53" cy="20" r="4" fill="url(#${g}s)"/><circle class="a c dt-s2" cx="58" cy="22" r="3.4" fill="url(#${g}s)"/><circle class="a c dt-s3" cx="56" cy="17" r="3" fill="url(#${g}s)"/>`,
 
-  // Darkness: a pawn steps diagonally; another takes only straight ahead.
+  // Darkness: a pawn steps diagonally; another takes only straight ahead; the king glides two squares
+  // in a straight line, over an empty square (the king step, official since 2026-10-04).
   Darkness: g => `<defs><radialGradient id="${g}d" cx=".5" cy=".5" r=".7"><stop offset=".35" stop-color="#140c1c" stop-opacity="0"/><stop offset="1" stop-color="#140c1c" stop-opacity=".7"/></radialGradient>${grad(g + 's', '#2a1838', .85)}</defs>`
     + `<rect width="80" height="48" fill="url(#${g}d)"/>`
-    + '<path class="a dk-ta wisp" d="M9 41Q11 31 23 26"/><path class="a dk-tb wisp" d="M56 29V14"/>'
+    + '<path class="a dk-ta wisp" d="M9 41Q11 31 23 26"/><path class="a dk-tb wisp" d="M56 29V14"/><path class="a r dk-tk wisp" d="M73 43Q59.5 39.5 46 42"/>'
     + piece('pawn', 'w', 1, 1, 'dk-a')
     + piece('pawn', 'b', 3, 0, 'dk-e')
     + piece('pawn', 'w', 3, 1, 'dk-b')
+    + piece('king', 'w', 2, 2, 'dk-k')
     + `<circle class="a c dk-sm" cx="56" cy="9" r="5" fill="url(#${g}s)"/>`,
 };
 
