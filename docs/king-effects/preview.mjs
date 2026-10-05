@@ -15,7 +15,7 @@ const INFO = {
   frost: ['Frost', 'Ice flakes drift down around and in front of him and melt on his square.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
   stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises, over rings of wind.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board.'],
   mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up.'],
-  spirit: ['Spirit', 'A soft glow round him, short rays above his crown and light on his square brighten and dim: white and gold for the ivory king, black for the charcoal king.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
+  spirit: ['Spirit', 'The ivory king: a white and gold glow round him, short rays of light above his crown and light on his square. The charcoal king: a black aura, black rays and a dark pool on his square. Both breathe slowly in and out.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
   shadow: ['Shadow', 'Skeletal hands (white for the ivory king, black for the charcoal one) reach up out of cracks round his feet; his smoke drifts and curls upward.', 'A crack opens under the piece; skeletal hands rise out of it, take hold of the piece and pull it down. Death Touch takes it without moving.'],
 };
 // Ivory on c4 (light) and d4 (dark), charcoal on e4 (light) and f4 (dark); canvas units (board + headroom).
@@ -115,7 +115,7 @@ for (const design of Object.keys(INFO)) {
   async function play(i) {
     const mine = ++token, c = list[i], move = setUpCapture(scene, c, design);
     for (const b of buttons.children) b.setAttribute('aria-pressed', String(b === buttons.children[i]));
-    await wait(450); if (mine !== token) return;
+    await wait(1200); if (mine !== token) return;
     await scene.play(move);
     if (mine !== token) return;
     await wait(700); if (mine !== token) return;

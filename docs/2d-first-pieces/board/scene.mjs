@@ -13,7 +13,7 @@ import * as court from '../court-motion.mjs';
 import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 import {BLOW,KING_BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt} from './gait.mjs';
-import {createKingEffects} from './king-effects.mjs';
+import {createKingEffects,phaseOffset} from './king-effects.mjs';
 import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath} from './king-captures.mjs';
 import * as pawnIdle from '../lance/idle.mjs';
@@ -358,11 +358,14 @@ function vortex(out,foot,phase,strength) {
   let k=unit.opacity;
   if(fallen?.sq===sq)k*=1-ease((time-fallen.start)/FALL);
   if(k<=.001)return null;
-  const a=animation&&!animation.done?animation:null,moving=a&&(a.move.from===sq||(a.move.swap&&a.move.to===sq));
-  const since=moving?null:kingSince.get(sq)??time;if(since!=null)nextSince.set(sq,since);
-  const g=moving?1-ease((time-a.start)/(200*a.speed)):ease((time-since)/900);
+  // (A finished move counts until the next position comes: its last frame shows him on his new square.)
+  const a=animation,moving=!!a&&(a.move.from===sq||(a.move.swap&&a.move.to===sq));
+  // When his effect started on this square; kept while he moves off it, so nothing jumps.
+  const since=kingSince.get(sq)??time;nextSince.set(sq,since);
+  // While he moves, what stands on his square fades from where it was (it may still have been growing in).
+  const grown=t=>ease((t-since)/900),g=moving?grown(a.start)*(1-ease((time-a.start)/(200*a.speed))):grown(time);
   // Each effect's loop starts again when he arrives on a square (so Mud's grass comes before his vines).
-  const s={design,side,pose:unit.pose,t:time-(since??kingSince.get(sq)??time)+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing};
+  const s={design,side,pose:unit.pose,t:time-since+phaseOffset(design,side),k,opacity:unit.opacity,g,facing:unit.pose.facing};
   s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
   return s;
  }
@@ -451,7 +454,10 @@ function vortex(out,foot,phase,strength) {
    const spec=blows[a.blow],T=a.timing,since=t-T.strike;
    actor.pose={...a.pose,foot:footAt(t,a.from.foot,a.stop,a.to.foot,T),rotation:tiltAt(t,spec.tilt,T)};
    if(victim&&since>=0){
-    if(a.theme){victim.fx={death:{theme:a.theme,side:colorOf(a.value),t:since,foot:a.victimFoot,top:a.victimShape.top,shape:a.victimShape.rows,hit:a.target,away:a.away,board:{left:PAD,right:PAD+8*TILE}}};if(since>=DEATHS[a.theme].end)victim.opacity=0;}
+    // king: where the capturing king stands now (his outline from his square, moved with him).
+    const kingNow=()=>{const kf=actor.pose.foot,ks=a.kingShape,kdy=kf.y-a.from.foot.y,kdx=kf.x-a.from.foot.x;
+     return {x:kf.x,foot:kf.y,top:ks.top+kdy,l:Math.min(...ks.rows.map(r=>r.l))+kdx,r:Math.max(...ks.rows.map(r=>r.r))+kdx};};
+    if(a.theme){const king=kingNow();victim.fx={death:{theme:a.theme,side:colorOf(a.value),t:since,foot:a.victimFoot,top:a.victimShape.top,shape:a.victimShape.rows,hit:a.target,away:a.away,king,board:{left:PAD,right:PAD+8*TILE}}};if(since>=DEATHS[a.theme].end)victim.opacity=0;}
     else if(spec.effect==='smash'){const k=ease(since/110);victim.pose={...victim.pose,sx:1+.28*k,sy:1-.5*k};victim.opacity=1-clamp((since-60)/260,0,1);effects.push(()=>smash(ctx,a.victimFoot,since/420));}
     else if(spec.effect==='topple'){const k=ease(since/380);victim.pose={...victim.pose,rotation:1.45*k*a.away*victim.pose.facing,foot:{x:victim.pose.foot.x+a.away*12*k,y:victim.pose.foot.y}};victim.opacity=1-clamp((since-220)/300,0,1);effects.push(()=>impact(ctx,a.target,since/320,1.6));}
     else victim.fx={frost:clamp(since/160,0,1),shatter:since>200?{point:a.target,t:clamp((since-200)/420,0,1)}:null};
@@ -557,8 +563,9 @@ function vortex(out,foot,phase,strength) {
   if(!animation)over(Math.floor((unit.pose.foot.y-40-PAD)/TILE)-1);
   const fx=typeOf(unit.value)===K?kingEffect(sq,unit,time):null;
   if(fx){kingFx.back(ctx,fx);fxDrawn.push(fx.design);}
+  // (above: a time, or a test of the death's own state: the piece is clear of the king or over his head.)
   const death=unit.fx?.death,above=death&&DEATHS[death.theme].above;
-  if(above!=null&&death.t>=above){
+  if(above!=null&&(typeof above==='function'?above({...death,size:SIZE,headroom}):death.t>=above)){
    drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...death,part:'back'}});
    late.push(()=>drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...death,part:'front'}}));
   }else drawPiece(ctx,unit.value,fx?.pose??unit.pose,unit.opacity,unit.extension,unit.fx);
@@ -658,7 +665,7 @@ function drawEncounter(a,t) {
    // Death Touch (the king stays on his square, to === from) strikes from where he stands.
    const name={[K]:'king'}[typeOf(value)],victimFoot=foot(victimSquare),design=kings[colorOf(value)];
    const theme=lively.captures&&THEMED.includes(design)?design:null,timing=theme?KING_BLOW:BLOW,touch=theme&&move.to===move.from;
-   Object.assign(base,{type:'blow',blow:name,theme,timing,duration:timing.duration,victimFoot,victimShape:theme?shapeOf(victim,victimSquare):null,stop:touch?from.foot:stopPoint(from.foot,victimFoot,blows[name].gap,sideFacing(value)),away:Math.sign(victimFoot.x-from.foot.x)||sideFacing(value),shakeAt:name==='rook'?BLOW.strike:null});from.facing=pose.facing;
+   Object.assign(base,{type:'blow',blow:name,theme,timing,duration:timing.duration,victimFoot,victimShape:theme?shapeOf(victim,victimSquare):null,kingShape:theme?shapeOf(value,move.from):null,stop:touch?from.foot:stopPoint(from.foot,victimFoot,blows[name].gap,sideFacing(value)),away:Math.sign(victimFoot.x-from.foot.x)||sideFacing(value),shakeAt:name==='rook'?BLOW.strike:null});from.facing=pose.facing;
   }else if(typeOf(value)===M){
    Object.assign(base,{type:'beam',duration:court.BEAM.duration,victimFoot:foot(victimSquare)});from.facing=pose.facing;
   }else if(!ART[typeOf(value)]){base.type='advance';base.duration=newMotions[typeOf(value)].DURATION;from.facing=pose.facing;}else{base.type='archer';base.duration=1000;base.closeup=pose.outside&&!!closeup;base.away=Math.sign(target.x-from.foot.x)||sideFacing(value);}

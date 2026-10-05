@@ -140,8 +140,9 @@ try {
     const shots = [], rows = [];
     for (let c = 0; c < list.length; c++) {
       const duration = await tab.evaluate(([key, design, c]) => {
+        // The king rests on his square for 1.2 s first (his effect grows in, as in a game), then takes.
         const { scene } = window.preview.scenes[key], move = window.preview.setUpCapture(scene, window.preview.capturesFor(design)[c], design);
-        window.rec.at(key, window.__now() + 16); scene.play(move); return 1660;
+        let t = window.__now() + 16; for (let i = 0; i <= 30; i++) window.rec.at(key, t += 40); scene.play(move); return 1660;
       }, [key, design, c]);
       clock = await tab.evaluate(() => window.__now());
       const start = clock, total = 360 + duration + 600, row = { label: list[c], frames: [], times: [] }, marks = design === 'stratus' ? [0, 800, 1120, 1280, 1400, 1520] : [0, 520, 800, 1040, 1280, 1520];

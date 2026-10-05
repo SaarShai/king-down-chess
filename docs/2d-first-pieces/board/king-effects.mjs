@@ -30,6 +30,11 @@ const rand=(i,j=0)=>frac(Math.sin(i*127.1+j*311.7+.5)*43758.5453);
 const L=288;
 const layer=()=>{const c=document.createElement('canvas');c.width=c.height=L;return c;};
 
+/**
+ * Where a king's loop starts when his effect starts (ms): the two armies a little apart, except Mud, whose
+ * loop must start at its beginning (the grass comes up before the vines).
+ */
+export function phaseOffset(design,side){return design==='mud'?0:side*1777;}
 /** Stratus: how far he floats above his square (board units) at time t; k fades it. */
 export function hoverAt(t,k=1){return k*(3+6*(1-Math.cos(TAU*t/PERIOD.stratus))/2);}
 
@@ -111,7 +116,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    // (--night #221d18, --ink #2b2621, and the title's #120f0c): an aura widened out from his body, so it
    // darkens even dark wood round him, and a close rim; no pale part at all.
    if(!side)return {gold:tinted(big,2,'#ffe7a6'),rim:blurAlpha(tinted(big,2,'#fff2cf'),5),halo:blurAlpha(tinted(big,4,'#ffe2a0'),10)};
-   return {gold:tinted(big,2,'#2b2621'),rim:blurAlpha(tinted(big,2,'#120f0c',4),5),halo:blurAlpha(tinted(big,4,'#120f0c',12),12)};
+   return {gold:tinted(big,2,'#2b2621'),rim:blurAlpha(tinted(big,2,'#120f0c',4),5),halo:blurAlpha(tinted(big,4,'#120f0c',5),9)};
   });
  }
  // Soft rays fanning up from his crown, drawn once and blurred (no hard edges): board units ×4,
@@ -121,11 +126,11 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  function raysDark(){
   if(darkRays)return darkRays;
   const k=4,c=document.createElement('canvas');c.width=80*k;c.height=44*k;const g=c.getContext('2d');
-  const o={x:40*k,y:42*k},fill=g.createRadialGradient(o.x,o.y,2*k,o.x,o.y,36*k);fill.addColorStop(0,'rgba(18,15,12,1)');fill.addColorStop(.45,'rgba(18,15,12,.6)');fill.addColorStop(1,'rgba(18,15,12,0)');
+  const o={x:40*k,y:42*k},fill=g.createRadialGradient(o.x,o.y,2*k,o.x,o.y,36*k);fill.addColorStop(0,'rgba(18,15,12,1)');fill.addColorStop(.5,'rgba(18,15,12,.7)');fill.addColorStop(1,'rgba(18,15,12,0)');
   g.fillStyle=fill;g.beginPath();
-  for(let i=0;i<9;i++){const a=-Math.PI/2+(i-4)*.25,w=.07+.03*rand(i,40),l=(27+9*rand(i,41))*k;g.moveTo(o.x,o.y);g.lineTo(o.x+Math.cos(a-w)*l,o.y+Math.sin(a-w)*l);g.lineTo(o.x+Math.cos(a+w)*l,o.y+Math.sin(a+w)*l);g.closePath();}
+  for(let i=0;i<9;i++){const a=-Math.PI/2+(i-4)*.25,w=.055+.025*rand(i,40),l=(27+9*rand(i,41))*k;g.moveTo(o.x,o.y);g.lineTo(o.x+Math.cos(a-w)*l,o.y+Math.sin(a-w)*l);g.lineTo(o.x+Math.cos(a+w)*l,o.y+Math.sin(a+w)*l);g.closePath();}
   g.fill();
-  return darkRays=blurAlpha(c,7);
+  return darkRays=blurAlpha(c,5);
  }
  function rays(){
   if(rayLayer)return rayLayer;
@@ -229,7 +234,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  // A full patch of tufts round his feet (an inner and an outer ring), dark at the root, fresh at the tip.
  const TUFTS=52,ROOT=GRASS_ROOT,TIP=GRASS_TIP;
  // 0 → 1 (sprout) → hold → 0 (sink back) over one period, each tuft a little apart.
- const grow=u=>u<.28?smooth(u/.28):u<.6?1:u<.86?1-smooth((u-.6)/.26):0;
+ const grow=u=>u<.26?smooth(u/.26):u<.66?1:u<.92?1-smooth((u-.66)/.26):0;
  // Blade fills in blade space (root at 0, tip at -1), made once per canvas.
  const bladeFills=new WeakMap();
  function fills(ctx){
@@ -319,18 +324,19 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  // A slow breath from dim to a white-gold peak (no flicker: one smooth cosine).
  const breath=t=>(1-Math.cos(TAU*t/PERIOD.spirit))/2;
  function holyBack(ctx,s){
-  // His crown, following the figure's lean (a strike tilts him about his feet): on screen he turns by
-  // -rotation × facing (checked against the drawn crown in the capture frames).
-  const b=breath(s.t),sp=spiritLayers(s.side),r=s.pose.rotation??0,lean=-r*s.pose.facing;
+  // His crown, following the figure's lean (a strike tilts him about his feet): the figure is drawn
+  // scale(facing) then rotate(rotation), so on screen he turns by rotation × facing (measured: the fan's
+  // anchor stays on the drawn crown through the capture, both armies; tools: drawImage transforms).
+  const b=breath(s.t),sp=spiritLayers(s.side),r=s.pose.rotation??0,lean=r*s.pose.facing;
   const head={x:s.pose.foot.x+118*(s.pose.sx??1)*Math.sin(lean),y:s.pose.foot.y-118*(s.pose.sy??1)*Math.cos(r)},turn=.05*Math.sin(TAU*s.t/PERIOD.spirit/2)+lean;
   ctx.save();
   if(s.side===1){
    // The charcoal king: black only, drawn over the board (no added light). Never fully gone at the dim point.
    const pool=ctx.createRadialGradient(0,0,0,0,0,1);pool.addColorStop(0,'rgba(18,15,12,.9)');pool.addColorStop(.6,'rgba(34,29,24,.55)');pool.addColorStop(1,'rgba(34,29,24,0)');
    ctx.save();ctx.globalAlpha=s.k*s.g*(.3+.7*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(52,18);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
-   // It breathes as the ivory glow does: from faint to deep (drawn twice at the peak, so it deepens dark wood).
-   ctx.save();ctx.globalAlpha=s.k*(.3+.7*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(raysDark(),-40,-42,80,44);if(b>.5){ctx.globalAlpha=s.k*(b-.5)*1.6;ctx.drawImage(raysDark(),-40,-42,80,44);}ctx.restore();
-   if(sp){ctx.globalAlpha=s.k*(.35+.65*b);inSpirit(ctx,s,sp.halo);if(b>.4){ctx.globalAlpha=s.k*(b-.4)*1.4;inSpirit(ctx,s,sp.halo);}ctx.globalAlpha=s.k*(.3+.6*b);inSpirit(ctx,s,sp.rim);}
+   // It breathes as the ivory glow does, from faint to deep; the halo reaches about as far as the ivory one.
+   ctx.save();ctx.globalAlpha=s.k*(.35+.65*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(raysDark(),-40,-42,80,44);ctx.restore();
+   if(sp){ctx.globalAlpha=s.k*(.4+.6*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(.45+.55*b);inSpirit(ctx,s,sp.rim);}
    ctx.restore();return;
   }
   ctx.globalCompositeOperation='lighter';
@@ -355,16 +361,18 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  const HANDS=[[-34,-.6,-.34,1,0],[32,-.75,.3,.95,.47],[-41,.5,-.3,1.15,.24],[39,.4,.36,1.1,.7],[-12,.95,-.12,.95,.86]];
  // Rise 0..1, then the fingers close (0 open .. 1 clutched) at the top, and the hand sinks back.
  const rise=u=>u<.24?1-(1-smooth(u/.24))**2:u<.56?1:u<.8?1-smooth((u-.56)/.24):0;
+ // The crack opens just before the hand comes up and closes only once it is all the way down.
+ const gap=u=>u<.05?smooth(u/.05):u<.82?1:u<.9?1-smooth((u-.82)/.08):0;
  const clutch=u=>u<.2?.1:u<.5?.1+.85*smooth((u-.2)/.3):.95;
  // Where each hand is now: its crack and its pose. spread: how far round his feet the hands come up (the
  // title screen sets it from the room between its kings); depth is kept, so a front hand stays in front.
  function handsNow(s){
   const u0=s.t/PERIOD.shadow,out=[];
   for(const [i,[hx,depth,lean,size,phase]] of HANDS.entries()){
-   const u=frac(u0-phase),r=rise(u)*s.g*s.k;if(r<.01)continue;
+   const u=frac(u0-phase),r=rise(u)*s.g*s.k,open=gap(u)*s.g*s.k;if(open<.02)continue;
    const x=s.ground.x+hx*s.facing*(s.spread??1),y=s.ground.y-4+depth*13,k=size*(.92+.08*depth),sway=.05*Math.sin(TAU*(u0*2+phase));
    // The crack is open before the hand comes through it.
-   out.push({i,x,y,k,r,front:depth>0,open:Math.min(1,r*4),hand:{side:s.side,size:k,flip:hx*s.facing<0,angle:(lean+sway)*s.facing*(r*.6+.4),rise:r,curl:clutch(u)}});
+   out.push({i,x,y,k,r,front:depth>0,open,hand:{side:s.side,size:k,flip:hx*s.facing<0,angle:(lean+sway)*s.facing*(r*.6+.4),rise:r,curl:clutch(u)}});
   }
   return out;
  }
@@ -372,7 +380,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  function cracks(ctx,s){for(const h of handsNow(s))h.edge=drawCrack(ctx,h.x,h.y,10.5*h.k,h.open*2.9*h.k,h.i+1);}
  function hands(ctx,s,front){
   for(const h of handsNow(s)){
-   if(h.front!==front)continue;
+   if(h.front!==front||h.r<.01)continue;
    // The hand shows above its crack's near lip only, so it comes up out of the dark gap.
    const lip=crackLip(h.x,h.y,10.5*h.k,h.open*2.9*h.k,h.i+1);
    drawHand(ctx,h.x,h.y,{...h.hand,lip});

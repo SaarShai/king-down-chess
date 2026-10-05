@@ -65,7 +65,9 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   if(near.length)k.spread=Math.max(.2,Math.min(.6,Math.min(...near)*.3/44));
   const c=k.canvas;
   c.style.left=`${bx0*u}px`;c.style.top=`${by0*u}px`;c.style.width=`${(bx1-bx0)*u}px`;c.style.height=`${(by1-by0)*u}px`;
-  c.width=Math.ceil((bx1-bx0)*u*dpr);c.height=Math.ceil((by1-by0)*u*dpr);
+  // A canvas is cleared when its size is set, so set it only when it changes, and draw him again at once.
+  const w=Math.ceil((bx1-bx0)*u*dpr),h=Math.ceil((by1-by0)*u*dpr);
+  if(c.width!==w||c.height!==h){c.width=w;c.height=h;if(k.shown)draw(k,performance.now());}
  }
  function draw(k,t){
   const {canvas:c,u,dpr,design}=k,g=c.getContext('2d'),image=sheets[design];

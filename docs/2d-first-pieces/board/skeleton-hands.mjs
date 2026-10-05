@@ -43,7 +43,8 @@ export function drawHand(ctx,x,y,h){
  const k=h.size??1,r=h.rise??1,bone=BONE[h.side??1],floor=h.floor??y,reach=(h.reach??60)*k;
  if(r<=.01)return;
  ctx.save();ctx.beginPath();
- if(h.lip?.length){const [x0]=h.lip[0],[x1]=h.lip.at(-1);ctx.moveTo(x0,floor-reach);ctx.lineTo(x1,floor-reach);for(let i=h.lip.length-1;i>=0;i--)ctx.lineTo(...h.lip[i]);ctx.closePath();}
+ // With a lip: the old box above, its bottom following the crack's near edge (fingers above it are never cut).
+ if(h.lip?.length){const L=x-40*k,R=x+40*k,[x0,y0]=h.lip[0],[x1,y1]=h.lip.at(-1);ctx.moveTo(L,floor-reach);ctx.lineTo(R,floor-reach);ctx.lineTo(R,y1);ctx.lineTo(x1,y1);for(let i=h.lip.length-1;i>=0;i--)ctx.lineTo(...h.lip[i]);ctx.lineTo(x0,y0);ctx.lineTo(L,y0);ctx.closePath();}
  else ctx.rect(x-40*k,floor-reach,80*k,reach);
  ctx.clip();
  ctx.translate(x,y+(1-r)*34*k);ctx.rotate(h.angle??0);ctx.scale(k*(h.flip?-1:1),k);ctx.lineCap='round';ctx.lineJoin='round';

@@ -163,13 +163,37 @@ try {
     assert.equal(await t.evaluate(() => document.querySelectorAll('.title-kings canvas').length), 0, 'title kings: removed when the title closes');
     assert.equal(await t.evaluate(() => window.titleKings.running), false);
     await t.close();
+    // With the king sheets arriving at different times, no king already shown ever goes blank (a canvas is
+    // cleared when its size is set; the check looks at every frame just before it paints).
+    const blink = await newPage({ viewport: { width: 1440, height: 900 } });
+    await blink.addInitScript(() => sessionStorage.removeItem('kingdown.title-seen'));
+    await blink.route(/\/assets\/king-[^/]*\.webp$/, async route => { await wait(150 + Math.floor(Math.random() * 6) * 250); route.continue(); });
+    await blink.addInitScript(() => {
+      window.__blank = 0; window.__looks = 0; let ro = null, el = null;
+      const check = () => {
+        window.__looks++;
+        for (const c of document.querySelectorAll('.title-kings canvas')) {
+          if (c.style.visibility !== 'visible') continue;
+          const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0;
+          for (let i = 3; i < d.length && n <= 3; i += 4 * 97) if (d[i] > 0) n++;
+          if (n <= 3) window.__blank++;
+        }
+      };
+      const frame = () => { el ??= document.querySelector('.title-kings'); if (el) { if (!ro) ro = new ResizeObserver(check); ro.unobserve(el); ro.observe(el); } requestAnimationFrame(frame); };
+      requestAnimationFrame(frame);
+    });
+    await blink.goto(title.href);
+    await blink.waitForFunction(() => window.titleKings?.started === 6, null, { timeout: 20000 }); await wait(600);
+    const blinks = await blink.evaluate(() => [window.__blank, window.__looks]);
+    assert.equal(blinks[0], 0, `title kings: a shown king went blank in ${blinks[0]} of ${blinks[1]} frames`);
+    await blink.close();
     const still = await newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
     await still.addInitScript(() => sessionStorage.removeItem('kingdown.title-seen'));
     await still.goto(title.href);
     await still.waitForFunction(() => document.getElementById('title-screen').open); await wait(1500);
     assert.equal(await still.evaluate(() => document.querySelectorAll('.title-kings canvas').length + (window.titleKings?.started ?? 0)), 0, 'title kings: none with reduced motion');
     await still.close();
-    console.log(`ok title kings: six effects at ${perSecond} fps (${titleMs.mean.toFixed(2)} ms mean, ${titleMs.max.toFixed(2)} ms max a frame, 1440×900), stopped while hidden, removed on close, none with reduced motion`);
+    console.log(`ok title kings: none blinks when they start at different times; six effects at ${perSecond} fps (${titleMs.mean.toFixed(2)} ms mean, ${titleMs.max.toFixed(2)} ms max a frame, 1440×900), stopped while hidden, removed on close, none with reduced motion`);
   }
 
   // 7. Frame cost: main-thread ms per frame of the start position (16 pawns), the still board redrawn each
