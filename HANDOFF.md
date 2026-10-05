@@ -8,7 +8,9 @@ work stopped and what to do next.
 
 **Pull requests:** all five are merged into main on 2026-10-03 (local time): #1–#4
 (`claude/wonderful-ritchie-4cgq32`, `claude/painted-motion`, `claude/perf-installable`,
-`claude/visual-design`) and #5 (`claude/merge-night`). Do not push to those branches. New work goes
+`claude/visual-design`) and #5 (`claude/merge-night`); #6 (`claude/release-2026-10-05`) on 2026-10-05,
+merged by the lead on the owner's instruction ("Pull request ... yes, do what is needed"). Do not push to
+those branches. New work goes
 on its own `claude/<topic>` branch. Owner-approved branches are joined on one integration branch for
 one PR, as #5 was. The owner merges; never merge yourself. Merging into main does not deploy
 (`AGENTS.md`, Hosting).
@@ -18,11 +20,11 @@ its Archer merge (45ec461: cards-all, one-beast, card-art, piece-icons with six-
 `claude/release-visuals` (king-effects with power-motion), `claude/piece-shadows` (the new contact
 shadows) and the reviews' fixes. The owner chose
 "option B": the over-a-piece Archer (`claude/archer-over2`) is held because it measured 0.83 pawns,
-so today's Archer stays (`docs/RULES.md` Decision 19); everything else is to be deployed. The next Archer
+so today's Archer stays (`docs/RULES.md` Decision 19); everything else is live. The next Archer
 step is a test on the M1 of an over-a-piece Archer with more reach (worth at least 2.5 pawns, few
-draws). `claude/integration-2026-10-05` (with the Archer) is not the release. What the release holds
-and its checks: `TASKS.md`, first section. Next, for the lead: the PR and the deploy (`AGENTS.md`,
-Hosting).
+draws). `claude/integration-2026-10-05` (with the Archer) is not the release. **It is live** (2026-10-05): PR #6
+merged into main (4480bf7), built and deployed to https://kingdown.dev and https://kingdown.vercel.app
+(`index-EZHQVFrx.js`). What the release holds, its checks and the live check: `TASKS.md`, first section.
 
 **Kings' powers rules:** the official readings are `POWERS_BALANCED` in `src/rules/rules.ts`.
 Since round 11 two readings changed, both owner-adopted: Mercy M2 (2026-10-03) and the Darkness king
