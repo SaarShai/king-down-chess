@@ -814,6 +814,15 @@ describe('rule toggles', () => {
     expect(inCheck(fromFen(screened))).toBe(true);
     expect(inCheck(fromFen('8/8/8/4k3/3A4/8/8/K7 b - - 0 1'))).toBe(true);
     expect(searchLegal(screen).some(m => m.from === parseSq('b5') && m.to === parseSq('d4'))).toBe(false);
+    // fwdNearOver2: only the two forward diagonal neighbours, and over2's shots.
+    setRules({ archerShots: 'fwdNearOver2' });
+    expect(shots(w, 'd4')).toEqual(['b6', 'c5', 'e5', 'f6']);
+    expect(shots(b, 'd5')).toEqual(['b3', 'c4', 'e4', 'f3']);
+    crossCheckAttacks(163, 300);
+    expect(inCheck(fromFen('8/8/8/4k3/3A4/8/8/K7 b - - 0 1'))).toBe(true);
+    expect(inCheck(fromFen('8/8/8/8/3A4/4k3/8/K7 b - - 0 1'))).toBe(false);
+    expect(inCheck(fromFen(screened))).toBe(true);
+    expect(searchLegal(screen).some(m => m.from === parseSq('b5') && m.to === parseSq('d4'))).toBe(false);
   });
 
   it('guardCaptures=pawns (lab): it clears pawns only, gives no check either way and still cannot mate', () => {
