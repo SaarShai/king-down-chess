@@ -15,6 +15,7 @@ import { mulberry32 } from './sim/rng';
 import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, usesAllowed, usesLeft } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
+import { archerParam, linkArcher } from './link';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -1074,7 +1075,7 @@ $('copy').onclick = () => {
 /** This page's URL without a game link's parameters. */
 function gameLinkless(): string {
   const url = new URL(location.href);
-  for (const k of ['army', 'fen', 'moves']) url.searchParams.delete(k);
+  for (const k of ['army', 'fen', 'moves', 'archer']) url.searchParams.delete(k);
   return url.href;
 }
 
@@ -1085,6 +1086,9 @@ function gameLink(): string {
   if (rules) url.searchParams.set('rules', rules);
   const k = kingsParam(GAME_RULES.kings);
   if (k) url.searchParams.set('kings', k);
+  // The Archer this game plays, so the friend's device replays it the same way (`linkArcher`).
+  const archer = archerParam(GAME_RULES, !!rules);
+  if (archer) url.searchParams.set('archer', archer);
   if (game.backRank) url.searchParams.set('army', game.backRank);
   else url.searchParams.set('fen', toFen(game.history[0]?.pos ?? game.pos));
   url.searchParams.set('moves', game.history.map(h => h.lan).join('_')); // '_' needs no escaping in a URL
@@ -1392,11 +1396,13 @@ const continues = !!saved && (params.get('army') ? saved.back === params.get('ar
 const openLink = link && (!saved?.moves.length || continues || confirm('Open the game from this link? It replaces your current game.'));
 if (link) history.replaceState(null, '', gameLinkless()); // a reload then resumes the autosave
 if (openLink) {
+  const pageRules: Rules = { ...GAME_RULES };
   try {
+    setRules({ ...pageRules, ...linkArcher(params, !!preset) }); // a link from before 2026-10-05 keeps the old Archer
     const army = params.get('army');
     if (army) game.newGame(army); else game.load(fromFen(params.get('fen')!));
     if (game.playLan(lans) < lans.length) alert('Part of this game link could not be read; the game stops before that move.');
-  } catch (e) { alert(`This game link could not be read: ${(e as Error).message}`); game.newGame(); }
+  } catch (e) { alert(`This game link could not be read: ${(e as Error).message}`); setRules(pageRules); game.newGame(); }
   sides[0] = sides[1] = 'human';
   linkSide = game.pos.turn;
 }
@@ -1406,7 +1412,9 @@ else if (saved) {
   if (typeof saved.daily === 'string') daily = saved.daily;
   const savedRules = saved.rules;
   const urlRules = preset || kings;
-  const rulesDiffer = !!urlRules && !!savedRules && JSON.stringify(savedRules) !== JSON.stringify({ ...GAME_RULES });
+  // The URL names a preset and kings, never the Archer: a saved game keeps the Archer it began with
+  // (one from before 2026-10-05, or from an older link, plays `ARCHER_BEFORE_OVER2`).
+  const rulesDiffer = !!urlRules && !!savedRules && JSON.stringify(savedRules) !== JSON.stringify({ ...GAME_RULES, archerShots: savedRules.archerShots });
   if (rulesDiffer) {
     // The URL names a rule set and the autosave played a different one. Replaying the moves would
     // reinterpret them, so keep the URL's fresh game and let the next save overwrite the old one.

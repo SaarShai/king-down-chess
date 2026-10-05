@@ -229,6 +229,9 @@ try {
     await page.click('#share');
     const sent = new URL(await page.evaluate(() => navigator.clipboard.readText()));
     assert.deepEqual([sent.searchParams.get('army'), sent.searchParams.get('moves')], ['RNBQKBNR', 'e2-e4_e7-e5']);
+    // The link named no Archer, so it was made before 2026-10-05: the game keeps that Archer, and says so.
+    assert.equal(sent.searchParams.get('archer'), 'plusDiagFwd2', 'an old link keeps its Archer');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules.archerShots), 'plusDiagFwd2');
     await page.reload(); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);
     assert.ok((await at(56)).y > (await at(0)).y, 'a reload keeps the side and the game');
     // The friend's device: its saved game is the start of the link, so it opens without a question.

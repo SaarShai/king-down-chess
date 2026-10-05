@@ -25,7 +25,7 @@ import { resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import type { Worker } from 'node:worker_threads';
-import { CardName, KINGS, KingChoice, KingName, PowerName, Rules, parseRule, ruleDiff, setRules } from '../rules/rules';
+import { ARCHER_BEFORE_OVER2, CardName, DEFAULT_RULES, KINGS, KingChoice, KingName, PowerName, Rules, parseRule, ruleDiff, setRules } from '../rules/rules';
 import { POOL, POOL_2BEASTS, randomBackRank } from '../rules/setup';
 import { mulberry32 } from './rng';
 import { OUT_DIR, RunSpec, parseFlags, parseRuleFlags } from './spec';
@@ -102,9 +102,15 @@ const clashes = (t: TournamentSpec, a: Entrant, b: Entrant): boolean => {
   const pb = basePower(b), held: readonly CardName[] = b.startsWith('card:') ? [b.slice(5) as CardName] : b.startsWith('cards') ? t.cardPool ?? CARD_POOL : pb === 'none' ? [] : [pb];
   return Object.keys(variantOf(t, a)).some(k => RULE_POWERS[k as keyof Rules]?.some(p => held.includes(p)));
 };
+/**
+ * The rules of every game of a round. A round names its Archer (`archerShots`, written since
+ * 2026-10-05); one that does not was recorded before, and replays under `ARCHER_BEFORE_OVER2`.
+ */
+export const roundRules = (t: TournamentSpec): Partial<Rules> => ({ archerShots: ARCHER_BEFORE_OVER2, ...t.rules });
+
 /** One game's rules: the tournament's, both sides' rule variants, and the two kings. */
 export function gameRules(t: TournamentSpec, white: Entrant, black: Entrant): Partial<Rules> {
-  return { ...t.rules, ...variantOf(t, white), ...variantOf(t, black), kings: [choice(basePower(white)), choice(basePower(black))] };
+  return { ...roundRules(t), ...variantOf(t, white), ...variantOf(t, black), kings: [choice(basePower(white)), choice(basePower(black))] };
 }
 
 export interface TournamentSpec {
@@ -131,7 +137,7 @@ export interface TournamentSpec {
   seed: number;
   /** The army pool (`POOL` when the round was made). Absent: a round recorded before 2026-10-04, `POOL_2BEASTS`. */
   pool?: string;
-  /** Rules for every game; `kings` is set per game. */
+  /** Rules for every game; `kings` is set per game. Without `archerShots`: a round recorded before 2026-10-05 (`roundRules`). */
   rules: Partial<Rules>;
   /** Named rule variants for `Power~v<name>` entrants (each sets rules of that power only). */
   variants?: Record<string, Partial<Rules>>;
@@ -179,7 +185,7 @@ export function pairDraw(seed: number, a: Entrant, b: Entrant, p: number, pool =
 
 /** The schedule: every unordered matchup (and mirrors if asked), `pairs` colour-swapped pairs each. */
 export function schedule(t: TournamentSpec): TJob[] {
-  setRules(t.rules);
+  setRules(roundRules(t));
   const rng = mulberry32(t.seed);
   // Shared across matchups unless `armies` is `perPair`: pair p of every matchup plays army p with opening seed p.
   const pool = t.pool ?? POOL_2BEASTS;
@@ -271,7 +277,7 @@ export async function runTournament(t: TournamentSpec, nWorkers: number, shard?:
   const done = new Set(recorded.map(r => r.gameId));
   const jobs = all.filter(j => !done.has(j.gameId));
   console.log(`[${t.id}] ${t.entrants.length} entrants, ${all.length} games (${done.size} done), depth ${t.depth}, armies ${t.armies ?? 'shared'}, ${nWorkers} workers`);
-  console.log(`[${t.id}] rules ${JSON.stringify(ruleDiff(t.rules))}${t.powerHold ? `, hold ${JSON.stringify(t.powerHold)}` : ''}${t.powerPlies !== undefined ? `, powerPlies ${t.powerPlies}` : ''}`);
+  console.log(`[${t.id}] rules ${JSON.stringify(ruleDiff(roundRules(t)))}${t.powerHold ? `, hold ${JSON.stringify(t.powerHold)}` : ''}${t.powerPlies !== undefined ? `, powerPlies ${t.powerPlies}` : ''}`);
   if (!jobs.length) return;
   const out = createWriteStream(f.jsonl, { flags: 'a' });
   const t0 = Date.now();
@@ -603,7 +609,7 @@ export function reportText(specs: readonly TournamentSpec[], rounds: readonly (r
   ratings.sort((x, y) => y.elo - x.elo);
   const lines: string[] = [];
   lines.push(`# Kings' powers tournament: ${ids.join(' + ')}`, '');
-  lines.push(`${recs.length} of ${scheduled} games, depth ${[...new Set(specs.map(s => s.depth))].join('/')}, ${entrants.length} entrants. Rules: \`${JSON.stringify(ruleDiff(specs[0].rules))}\`${specs[0].powerHold ? `, hold \`${JSON.stringify(specs[0].powerHold)}\`` : ''}.`, '');
+  lines.push(`${recs.length} of ${scheduled} games, depth ${[...new Set(specs.map(s => s.depth))].join('/')}, ${entrants.length} entrants. Rules: \`${JSON.stringify(ruleDiff(roundRules(specs[0])))}\`${specs[0].powerHold ? `, hold \`${JSON.stringify(specs[0].powerHold)}\`` : ''}.`, '');
   if (recs.length < scheduled) lines.push(`**Partial:** ${scheduled - recs.length} games still to play; every number below is provisional.`, '');
   const pools = new Set(specs.filter(sp => sp.entrants.some(e => e.startsWith('cards'))).map(sp => (sp.cardPool ?? CARD_POOL).join(',')));
   if (pools.size > 1) lines.push('**Different card pools:** these rounds deal `cards<k>` hands from different pools, but an entrant name pools them as one; report each pool on its own.', '');
@@ -866,7 +872,8 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
       ...(cardPool ? { cardPool } : {}),
       depth: num('depth', 3), seed: num('seed', 101),
       pool: POOL,
-      rules: parseRuleFlags(argv),
+      // The Archer is written out, so the round still replays under it after a later change (`roundRules`).
+      rules: { archerShots: DEFAULT_RULES.archerShots, ...parseRuleFlags(argv) },
       ...(variants ? { variants } : {}),
       ...(parseHold(f.hold) ? { powerHold: parseHold(f.hold) } : {}),
       ...(typeof f.powerPlies === 'string' ? { powerPlies: Number(f.powerPlies) } : {}),

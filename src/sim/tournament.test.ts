@@ -6,7 +6,9 @@ import {
   checkResume, compress, drawOf, gameSpec, halfWidth, handFor, pairDraw, poolRounds, reportText, resampleArmies, schedule, scoreVsPowers, tFromZ,
 } from './tournament';
 import type { GameRecord } from './game';
-import { POOL } from '../rules/setup';
+import { Game } from '../game';
+import { type Rules, setRules } from '../rules/rules';
+import { POOL, fromFen } from '../rules/setup';
 
 const spec = (over: Partial<TournamentSpec> = {}): TournamentSpec => ({
   id: 't', entrants: ['Freeze', 'Haste', 'Flight', 'none'], pairs: 3, depth: 1, seed: 2222, rules: {},
@@ -29,6 +31,19 @@ describe('tournament schedule', () => {
       'kp2-r10': '0eed788c332ac1d9', 'kp2-r11': '93855049006bb50a', 'kp2-r12': 'e312f6310f1b5da8',
     };
     for (const [id, h] of Object.entries(PLAYED)) expect([id, hash(schedule(recorded(id)))]).toEqual([id, h]);
+  });
+
+  it('a round recorded before 2026-10-05 replays under the old Archer; a new round names its own', () => {
+    const old = recorded('kp2-r12'), job = schedule(old)[0];
+    expect(old.rules.archerShots).toBeUndefined();
+    const rules = gameSpec(old, job).rules!;
+    expect(rules.archerShots).toBe('plusDiagFwd2');
+    // So its stored games replay: the archer d4 shoots its diagonal neighbour c5, as it could then.
+    const shot = (r: Partial<Rules>): number => { setRules(r); const g = new Game(); g.load(fromFen('7k/8/8/2p5/3A4/8/8/K7 w - - 0 1')); return g.playLan(['Ad4*c5']); };
+    expect(shot(rules)).toBe(1);
+    expect(shot(gameSpec({ ...old, rules: { ...old.rules, archerShots: 'over2' } }, job).rules!)).toBe(0);
+    setRules();
+    expect(reportText([old], [[]])).toMatch(/Rules: `{"archerShots":"plusDiagFwd2",/); // the report says which Archer it played
   });
 
   it('a round with today\'s pool draws one beast at most; one without a pool keeps the old pool', () => {
