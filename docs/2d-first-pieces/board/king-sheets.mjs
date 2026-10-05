@@ -1,0 +1,3 @@
+// One sheet per king design (court-motion.mjs KING_DESIGNS): the ivory army's figure left, charcoal right.
+// One literal URL per image: bundlers resolve and copy each file (a template string would not).
+export const KING_FILES={frost:new URL('../king-frost/king.webp',import.meta.url).href,flame:new URL('../king-flame/king.webp',import.meta.url).href,stratus:new URL('../king-stratus/king.webp',import.meta.url).href,mud:new URL('../king-mud/king.webp',import.meta.url).href,spirit:new URL('../king-spirit/king.webp',import.meta.url).href,shadow:new URL('../king-shadow/king.webp',import.meta.url).href};

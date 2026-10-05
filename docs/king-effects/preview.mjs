@@ -4,6 +4,10 @@
 import { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, parseSq, piece, genPiece } from '../2d-first-pieces/board/rules.mjs';
 import { createScene } from '../2d-first-pieces/board/scene.mjs';
 import { PERIOD } from '../2d-first-pieces/board/king-effects.mjs';
+import { startTitleKings } from '../2d-first-pieces/board/title-kings.mjs';
+// The title screen's art (public/ui/), one literal URL each so the one-file preview can inline it.
+const TITLE_ART = { mud: new URL('../../public/ui/kings/mud.webp',import.meta.url).href, flame: new URL('../../public/ui/kings/flame.webp',import.meta.url).href, spirit: new URL('../../public/ui/kings/spirit.webp',import.meta.url).href, shadow: new URL('../../public/ui/kings/shadow.webp',import.meta.url).href, frost: new URL('../../public/ui/kings/frost.webp',import.meta.url).href, stratus: new URL('../../public/ui/kings/stratus.webp',import.meta.url).href };
+const TITLE_FLOOR = new URL('../../public/ui/stone-board.webp',import.meta.url).href;
 
 const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName };
 const INFO = {
@@ -114,7 +118,23 @@ for (const design of Object.keys(INFO)) {
   scenes[`capture-${design}`].stop = () => { token++; };
 }
 
-// 3. A whole board: resting pawns and two kings.
+// 3. The title screen's arc of kings, at the game's sizes (stage and kings measured in the game:
+// 1440 × 900 window, and a 390 px phone).
+const titles = {};
+for (const [id, stage, kings, floor, phone] of [['title-desktop', [1440, 503], 312, 756, false], ['title-phone', [390, 419], 125, 374, true]]) {
+  const box = document.getElementById(id);
+  box.style.width = `${stage[0]}px`; box.style.height = `${stage[1]}px`;
+  box.innerHTML = `<img class="title-floor" src="${TITLE_FLOOR}" alt="" style="width:${floor}px"><div class="title-kings${phone ? ' phone' : ''}" style="height:${kings}px">${
+    [['tk-outer', 'mud'], ['tk-inner', 'flame'], ['tk-centre', 'spirit'], ['tk-centre tk-right', 'shadow'], ['tk-inner tk-right', 'frost'], ['tk-outer tk-right', 'stratus']]
+      .map(([c, d]) => `<img class="${c}" src="${TITLE_ART[d]}" alt="" data-king="${d}">`).join('')}</div>`;
+  titles[id] = box;
+}
+const titleKings = {};
+function startTitles() {
+  for (const [id, box] of Object.entries(titles)) { titleKings[id]?.stop(); titleKings[id] = startTitleKings(box.querySelector('.title-kings')); }
+}
+
+// 4. A whole board: resting pawns and two kings.
 const board = makeScene(['spirit', 'shadow'], START, true);
 scenes.board = board;
 const boardFrame = document.getElementById('board');
@@ -130,10 +150,12 @@ for (const input of document.querySelectorAll('input[name=size]')) input.addEven
 document.getElementById('animations').addEventListener('change', e => {
   animations = e.target.checked;
   for (const { scene } of Object.values(scenes)) scene.setLively({ kings: animations, pawns: animations });
+  if (animations) startTitles(); else for (const t of Object.values(titleKings)) t.stop();
 });
 addEventListener('resize', layout);
 layout();
 const ready = Promise.all(Object.values(scenes).map(({ scene }) => scene.load()));
+startTitles();
 // The recording tool drives the captures itself (?record).
 if (!new URLSearchParams(location.search).has('record')) ready.then(() => { for (const s of Object.values(scenes)) s.start?.(); });
-window.preview = { scenes, CROP, CAPTURES, capturesFor, setUpCapture, ready };
+window.preview = { scenes, CROP, CAPTURES, capturesFor, setUpCapture, ready, titleKings, titles };

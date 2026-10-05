@@ -138,6 +138,40 @@ try {
   await pace(page, 'normal');
   console.log(`ok king captures: normal ${Math.round(normal.ms)} ms, fast ${Math.round(fast.ms)} ms, off none`);
 
+  // 6b. The title screen's kings: their effects start after the title is up (it paints without them),
+  // about 30 frames a second; a hidden tab stops them; closing the title removes them; with reduced
+  // motion (Animations Off) none start.
+  {
+    const t = await newPage({ viewport: { width: 1440, height: 900 } });
+    await t.addInitScript(() => sessionStorage.removeItem('kingdown.title-seen'));
+    const title = new URL(url); title.searchParams.delete('army'); title.searchParams.delete('players');
+    await t.goto(title.href);
+    await t.waitForFunction(() => document.getElementById('title-screen').open);
+    await t.waitForFunction(() => window.titleKings?.started === 6, null, { timeout: 15000 });
+    const f0 = await t.evaluate(() => { window.__frameMs.length = 0; return window.titleKings.frames; }); await wait(1000);
+    const perSecond = await t.evaluate(() => window.titleKings.frames) - f0;
+    const titleMs = await t.evaluate(() => { const m = [...window.__frameMs].sort((a, b) => a - b); return { mean: m.reduce((a, b) => a + b, 0) / m.length, max: m.at(-1) }; });
+    assert.ok(perSecond >= 12 && perSecond <= 40, `title kings: ${perSecond} frames a second`);
+    assert.equal(await t.evaluate(() => document.querySelectorAll('.title-kings canvas').length), 6);
+    await t.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await wait(150); const h0 = await t.evaluate(() => window.titleKings.frames); await wait(1000);
+    assert.ok(await t.evaluate(() => window.titleKings.frames) - h0 <= 1, 'title kings: a hidden tab stops them');
+    await t.evaluate(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
+    await wait(500); assert.ok(await t.evaluate(() => window.titleKings.frames) > h0 + 5, 'title kings: visible again, they run');
+    await t.click('#title-play');
+    await t.waitForFunction(() => !document.getElementById('title-screen').open && !window.titleKings.running, null, { timeout: 3000 }); // 'close' fires a task later
+    assert.equal(await t.evaluate(() => document.querySelectorAll('.title-kings canvas').length), 0, 'title kings: removed when the title closes');
+    assert.equal(await t.evaluate(() => window.titleKings.running), false);
+    await t.close();
+    const still = await newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+    await still.addInitScript(() => sessionStorage.removeItem('kingdown.title-seen'));
+    await still.goto(title.href);
+    await still.waitForFunction(() => document.getElementById('title-screen').open); await wait(1500);
+    assert.equal(await still.evaluate(() => document.querySelectorAll('.title-kings canvas').length + (window.titleKings?.started ?? 0)), 0, 'title kings: none with reduced motion');
+    await still.close();
+    console.log(`ok title kings: six effects at ${perSecond} fps (${titleMs.mean.toFixed(2)} ms mean, ${titleMs.max.toFixed(2)} ms max a frame, 1440×900), stopped while hidden, removed on close, none with reduced motion`);
+  }
+
   // 7. Frame cost: main-thread ms per frame of the start position (16 pawns), the still board redrawn each
   // frame against each pair of kings with the resting pawns.
   // every: redraw every display frame (as during a move), so a frame that cost too much would show as lost frames.

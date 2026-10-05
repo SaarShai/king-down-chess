@@ -14,13 +14,13 @@ import {chargeAt,CHARGE_CONTACT,swapAt} from './motion.mjs';
 import {BLOW,KING_BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt} from './gait.mjs';
 import {createKingEffects} from './king-effects.mjs';
+import {KING_FILES} from './king-sheets.mjs';
 import {DEATHS,THEMED,drawDeath} from './king-captures.mjs';
 import * as pawnIdle from '../lance/idle.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 // One literal URL per image: bundlers resolve and copy each file (a template string would not).
 const ART_FILES={beast:new URL('../beast/beast.webp',import.meta.url).href,queen:new URL('../queen/queen.webp',import.meta.url).href,paladin:new URL('../paladin/paladin.webp',import.meta.url).href,maester:new URL('../maester/maester.webp',import.meta.url).href,pawn:new URL('../lance/pawn.webp',import.meta.url).href,archer:new URL('../wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../ogre/ogre.webp',import.meta.url).href,knight:new URL('../knight/knight.webp',import.meta.url).href,bishop:new URL('../bishop/bishop.webp',import.meta.url).href,rook:new URL('../rook/rook.webp',import.meta.url).href,guard:new URL('../guard/guard.webp',import.meta.url).href};
-// One sheet per king design (court.KING_DESIGNS); a side draws the king it plays (setKings).
-const KING_FILES={frost:new URL('../king-frost/king.webp',import.meta.url).href,flame:new URL('../king-flame/king.webp',import.meta.url).href,stratus:new URL('../king-stratus/king.webp',import.meta.url).href,mud:new URL('../king-mud/king.webp',import.meta.url).href,spirit:new URL('../king-spirit/king.webp',import.meta.url).href,shadow:new URL('../king-shadow/king.webp',import.meta.url).href};
+// One sheet per king design (king-sheets.mjs); a side draws the king it plays (setKings).
 // Painted stone board inspired by the original King Down board's capital (board-art/README.md).
 const BOARD_ART=new URL('../board-art/stone-board.webp',import.meta.url).href;
 /**
@@ -322,16 +322,19 @@ function vortex(out,foot,phase,strength) {
   for(const [x0,y0,x1,y1] of [[PAD,PAD,PAD,PAD+12],[PAD,PAD,PAD+12,PAD]]){const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,'rgba(24,16,6,.32)');g.addColorStop(1,'rgba(24,16,6,0)');ctx.fillStyle=g;ctx.fillRect(PAD,PAD,y1>y0?b:12,y1>y0?12:b);}
   ctx.restore();
  }
- // The y of a figure's highest painted point on `square` (from its still sprite, read once per piece).
- const tops=new Map();
- function topOf(value,square){
-  const spec=specs[typeOf(value)],pose=poseFor(value,square);
-  if(!tops.has(value)){
-   const c=document.createElement('canvas');c.width=c.height=144;const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(sprite(value),0,0,144,144);
-   const data=g.getImageData(0,0,144,144).data;let row=0;while(row<143&&![...Array(144).keys()].some(x=>data[(row*144+x)*4+3]>24))row++;
-   tops.set(value,row*8);
+ // A figure's outline on `square`, from its still sprite (read once per piece): its highest painted y and,
+ // every 8 sprite px of height, its left and right edge (board units), bottom row first.
+ const shapes=new Map();
+ function shapeOf(value,square){
+  const spec=specs[typeOf(value)],pose=poseFor(value,square),n=144;
+  if(!shapes.has(value)){
+   const c=document.createElement('canvas');c.width=c.height=n;const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(sprite(value),0,0,n,n);
+   const data=g.getImageData(0,0,n,n).data,rows=[];let top=n;
+   for(let y=n-1;y>=0;y--){let l=-1,r=-1;for(let x=0;x<n;x++)if(data[(y*n+x)*4+3]>24){if(l<0)l=x;r=x;}if(l>=0){rows.push([y,l,r]);top=y;}}
+   shapes.set(value,{top,rows});
   }
-  return pose.foot.y+(tops.get(value)-spec.anchor.y)*pose.scale;
+  const {top,rows}=shapes.get(value),k=1152/n,X=x=>pose.foot.x+(x*k-spec.anchor.x)*pose.scale*pose.facing,Y=y=>pose.foot.y+(y*k-spec.anchor.y)*pose.scale;
+  return {top:Y(top),rows:rows.map(([y,l,r])=>{const a=X(l),b=X(r+1);return {y:Y(y),l:Math.min(a,b),r:Math.max(a,b)};})};
  }
  function selectionTarget() {
   if(aimSquare===null)return null;
@@ -443,7 +446,7 @@ function vortex(out,foot,phase,strength) {
    const spec=blows[a.blow],T=a.timing,since=t-T.strike;
    actor.pose={...a.pose,foot:footAt(t,a.from.foot,a.stop,a.to.foot,T),rotation:tiltAt(t,spec.tilt,T)};
    if(victim&&since>=0){
-    if(a.theme){victim.fx={death:{theme:a.theme,side:colorOf(a.value),t:since,foot:a.victimFoot,top:a.victimTop,hit:a.target}};if(since>=DEATHS[a.theme].end)victim.opacity=0;}
+    if(a.theme){victim.fx={death:{theme:a.theme,side:colorOf(a.value),t:since,foot:a.victimFoot,top:a.victimShape.top,shape:a.victimShape.rows,hit:a.target}};if(since>=DEATHS[a.theme].end)victim.opacity=0;}
     else if(spec.effect==='smash'){const k=ease(since/110);victim.pose={...victim.pose,sx:1+.28*k,sy:1-.5*k};victim.opacity=1-clamp((since-60)/260,0,1);effects.push(()=>smash(ctx,a.victimFoot,since/420));}
     else if(spec.effect==='topple'){const k=ease(since/380);victim.pose={...victim.pose,rotation:1.45*k*a.away*victim.pose.facing,foot:{x:victim.pose.foot.x+a.away*12*k,y:victim.pose.foot.y}};victim.opacity=1-clamp((since-220)/300,0,1);effects.push(()=>impact(ctx,a.target,since/320,1.6));}
     else victim.fx={frost:clamp(since/160,0,1),shatter:since>200?{point:a.target,t:clamp((since-200)/420,0,1)}:null};
@@ -642,7 +645,7 @@ function drawEncounter(a,t) {
    // Death Touch (the king stays on his square, to === from) strikes from where he stands.
    const name={[K]:'king'}[typeOf(value)],victimFoot=foot(victimSquare),design=kings[colorOf(value)];
    const theme=lively.captures&&THEMED.includes(design)?design:null,timing=theme?KING_BLOW:BLOW,touch=theme&&move.to===move.from;
-   Object.assign(base,{type:'blow',blow:name,theme,timing,duration:timing.duration,victimFoot,victimTop:theme?topOf(victim,victimSquare):0,stop:touch?from.foot:stopPoint(from.foot,victimFoot,blows[name].gap,sideFacing(value)),away:Math.sign(victimFoot.x-from.foot.x)||sideFacing(value),shakeAt:name==='rook'?BLOW.strike:null});from.facing=pose.facing;
+   Object.assign(base,{type:'blow',blow:name,theme,timing,duration:timing.duration,victimFoot,victimShape:theme?shapeOf(victim,victimSquare):null,stop:touch?from.foot:stopPoint(from.foot,victimFoot,blows[name].gap,sideFacing(value)),away:Math.sign(victimFoot.x-from.foot.x)||sideFacing(value),shakeAt:name==='rook'?BLOW.strike:null});from.facing=pose.facing;
   }else if(typeOf(value)===M){
    Object.assign(base,{type:'beam',duration:court.BEAM.duration,victimFoot:foot(victimSquare)});from.facing=pose.facing;
   }else if(!ART[typeOf(value)]){base.type='advance';base.duration=newMotions[typeOf(value)].DURATION;from.facing=pose.facing;}else{base.type='archer';base.duration=1000;base.closeup=pose.outside&&!!closeup;base.away=Math.sign(target.x-from.foot.x)||sideFacing(value);}

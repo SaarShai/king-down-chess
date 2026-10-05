@@ -22,7 +22,7 @@ import { PERIOD } from '../docs/2d-first-pieces/board/king-effects.mjs';
 import { LOOP as PAWN_LOOP } from '../docs/2d-first-pieces/lance/idle.mjs';
 
 const out = resolve(process.argv[2] ?? 'kfx-shots'), quick = process.argv.includes('--quick'), pageOnly = process.argv.includes('--page');
-const docs = fileURLToPath(new URL('../docs/', import.meta.url));
+const docs = fileURLToPath(new URL('../docs/', import.meta.url)), repo = fileURLToPath(new URL('../', import.meta.url));
 await mkdir(out, { recursive: true });
 
 // 1. One file: bundle preview.mjs, inline every `new URL('<file>', import.meta.url)` asset as a data URL.
@@ -47,11 +47,11 @@ await writeFile(join(out, 'kfx-preview.html'), page);
 console.log(`kfx-preview.html ${(page.length / 1e6).toFixed(1)} MB`);
 if (pageOnly) process.exit(0);
 
-// 2. Recordings from the repo's own page, served from docs/.
+// 2. Recordings from the repo's own page, served from the repo (the title's art is in public/).
 const mime = ext => ({ '.html': 'text/html', '.mjs': 'text/javascript', '.js': 'text/javascript', '.webp': 'image/webp', '.png': 'image/png', '.json': 'application/json' })[ext] ?? 'application/octet-stream';
 const server = createServer(async (req, res) => {
-  const path = normalize(join(docs, decodeURIComponent(new URL(req.url, 'http://x').pathname)));
-  if (!path.startsWith(docs)) { res.writeHead(403).end(); return; }
+  const path = normalize(join(repo, decodeURIComponent(new URL(req.url, 'http://x').pathname)));
+  if (!path.startsWith(repo)) { res.writeHead(403).end(); return; }
   let body; try { body = await readFile(path); } catch { res.writeHead(404).end(); return; }
   res.writeHead(200, { 'content-type': mime(extname(path)) }).end(body);
 }).listen(0, '127.0.0.1');
@@ -70,13 +70,13 @@ try {
     window.__step = to => { T = to; const q = queue; queue = []; q.forEach(f => f(T)); };
     window.__now = () => T;
   });
-  await tab.goto(`http://127.0.0.1:${server.address().port}/king-effects/preview.html?record`);
+  await tab.goto(`http://127.0.0.1:${server.address().port}/docs/king-effects/preview.html?record`);
   await tab.evaluate(() => window.preview.ready);
   await tab.evaluate(() => {
     // Page-side helpers: only one scene draws at a time; each frame is asked for (the scene's own 30 fps
     // timer runs on the real clock), and grab() copies a crop of it.
     window.rec = {
-      only(key) { for (const [k, s] of Object.entries(window.preview.scenes)) s.scene.setLively({ kings: k === key, pawns: k === key }); const s = window.preview.scenes[key]; s.scene.setResolution(1.75); return true; },
+      only(key) { for (const [k, s] of Object.entries(window.preview.scenes)) s.scene.setLively({ kings: k === key, pawns: k === key }); window.preview.scenes[key]?.scene.setResolution(1.75); return true; },
       at(key, t) { window.preview.scenes[key].scene.redraw(); window.__step(t); },
       grab(key, crop, scale) {
         const { canvas } = window.preview.scenes[key], c = document.createElement('canvas'), k = canvas.width / 960;
@@ -161,7 +161,33 @@ try {
     console.log(`${design} captures: ${list.length}${quick ? '' : `, ${design}-capture.mp4, ${design}-capture.webp`}, ${design}-capture-sheet.png`);
   }
 
-  // 3. The whole board with resting pawns: one loop of the pawns' timetable.
+  // 3. The title screen's kings: 8 s at the desktop and the phone size, as the page shows them (screenshots
+  // of the stage: its background, floor and the kings' canvases), at 2 px per CSS px.
+  await tab.setViewportSize({ width: 1500, height: 1100 });
+  for (const id of ['title-desktop', 'title-phone']) {
+    await tab.evaluate(() => window.rec.only('none'));
+    await tab.waitForFunction(id => window.preview.titleKings[id]?.started === 6, id, { timeout: 20000 });
+    const el = tab.locator(`#${id}`); await el.scrollIntoViewIfNeeded();
+    // Around the kings and their effects (the desktop stage is wider than they need).
+    const clip = await tab.evaluate(id => {
+      const box = document.getElementById(id).getBoundingClientRect(), k = document.querySelector(`#${id} .title-kings`).getBoundingClientRect();
+      const x0 = Math.max(box.left, k.left - 40), x1 = Math.min(box.right, k.right + 40), y0 = Math.max(box.top, k.top - 70), y1 = Math.min(box.bottom, k.bottom + 40);
+      return { x: x0, y: y0, width: 2 * Math.round((x1 - x0) / 2), height: 2 * Math.round((y1 - y0) / 2) };
+    }, id);
+    const t0 = clock + 1200, count = quick ? 6 : 8 * FPS, shots = [];
+    for (let i = 0; i < count; i++) {
+      await tab.evaluate(([id, t]) => window.preview.titleKings[id].draw(t), [id, t0 + (quick ? i * 1333 : i * STEP)]);
+      shots.push(`data:image/png;base64,${(await tab.screenshot({ clip })).toString('base64')}`);
+    }
+    clock = t0 + count * STEP + 1000;
+    const pick = Array.from({ length: 6 }, (_, i) => Math.floor(i * shots.length / 6));
+    await sheet(`${id}-sheet.png`, [{ label: id === 'title-desktop' ? 'Desktop (1440 × 900 window)' : '390 px phone', frames: pick.map(i => shots[i]), times: pick.map(i => Math.round(quick ? i * 1333 : i * STEP)) }], 'The title screen\'s kings at rest');
+    if (!quick) await encode(id, shots, { loop: false, webpScale: id === 'title-desktop' ? .5 : 1 });
+    console.log(`${id}: ${shots.length} frames${quick ? '' : `, ${id}.mp4, ${id}.webp`}, ${id}-sheet.png`);
+  }
+  await tab.setViewportSize({ width: 1280, height: 900 });
+
+  // 4. The whole board with resting pawns: one loop of the pawns' timetable.
   {
     const key = 'board', full = { x: 0, y: 0, w: 960, h: 1024 };
     await tab.evaluate(key => window.rec.only(key), key);

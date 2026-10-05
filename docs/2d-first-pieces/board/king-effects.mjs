@@ -2,8 +2,9 @@
 //   flame   lava light flows through the cracks and seams of his armour (king-flame/lava-mask.webp, cut from the art)
 //   frost   ice flakes drift down around and in front of him and fade out on his square's floor
 //   stratus he hovers a few board units up and down; his shadow shrinks as he rises
-//   mud     roots spread over his square and grass sprouts round his feet, sways, and both sink back
-//   spirit  a holy light round him, rays behind him and light on his square brighten and dim
+//   mud     a thick patch of grass sprouts round his feet and leafy vines rise from the earth, arch over and
+//           root again; grass and vines sway and sink back
+//   spirit  a holy glow round him, short rays behind his head and light on his square brighten and dim
 //   shadow  skeletal hands (black for the charcoal army, bone white for the ivory) reach up out of cracks
 //           round his feet, clutch and sink back; his painted smoke drifts and curls upward
 //           (king-shadow/smoke-mask.webp, cut from the art: the figure is drawn without it, the smoke moves)
@@ -12,6 +13,7 @@
 // period recorded loops without a seam. Units are board units (the board is 960 wide).
 import {clamp} from '../painted-mesh.mjs';
 import * as court from '../court-motion.mjs';
+import {drawHand,drawCrack} from './skeleton-hands.mjs';
 
 export const PERIOD={flame:4800,frost:6000,stratus:4000,mud:8000,spirit:4000,shadow:6400};
 export const KING_EFFECTS=Object.keys(PERIOD);
@@ -44,12 +46,6 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   const big=document.createElement('canvas');big.width=big.height=1152;court.drawCourt(big,image,`king-${design}`,side,0);
   const c=layer(),g=c.getContext('2d');g.drawImage(big,0,0,L,L);return c;
  }
- // A soft copy of a layer: drawn down to 1/`step` and back up (no canvas filter needed).
- function soften(source,step){
-  const n=Math.max(4,Math.round(L/step)),small=document.createElement('canvas');small.width=small.height=n;
-  const s=small.getContext('2d');s.imageSmoothingQuality='high';s.drawImage(source,0,0,n,n);
-  const c=layer(),g=c.getContext('2d');g.imageSmoothingQuality='high';g.drawImage(small,0,0,L,L);return c;
- }
  function cached(key,make){if(!cache.has(key)){const v=make();if(!v)return null;cache.set(key,v);}return cache.get(key);}
  // Flame: the crack mask with a bloom, kept inside the figure; and the two flowing noise fields.
  function flameLayers(side){
@@ -78,16 +74,50 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   }
   return noise;
  }
+ // Spirit: his gold silhouette, a close rim and a wide halo, on layers with room round the sprite (PADL
+ // sprite px each side), so no glow is ever cut at the sprite's edge. The silhouette and the rim are at half
+ // the sprite's resolution (sharp enough for the title screen's large kings), the wide halo at a quarter.
+ // Blurred with the canvas filter where there is one (fast), else in script (three box passes, about the
+ // same Gaussian).
+ const PADL=160,SPAN=1152+2*PADL;
+ const canFilter=typeof document!=='undefined'&&typeof document.createElement('canvas').getContext('2d')?.filter==='string';
+ function blurAlpha(c,radius){
+  if(canFilter){const o=document.createElement('canvas');o.width=c.width;o.height=c.height;const x=o.getContext('2d');x.filter=`blur(${radius}px)`;x.drawImage(c,0,0);return o;}
+  const g=c.getContext('2d'),w=c.width,h=c.height,img=g.getImageData(0,0,w,h),a=new Float32Array(w*h),b=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++)a[i]=img.data[i*4+3];
+  const pass=(src,dst,n,stride,count,step)=>{for(let line=0;line<count;line++){const o=line*step;let sum=0;
+   for(let i=-radius;i<=radius;i++)sum+=src[o+Math.min(n-1,Math.max(0,i))*stride];
+   for(let i=0;i<n;i++){dst[o+i*stride]=sum/(2*radius+1);sum+=src[o+Math.min(n-1,i+radius+1)*stride]-src[o+Math.max(0,i-radius)*stride];}}};
+  for(let k=0;k<3;k++){pass(a,b,w,1,h,w);pass(b,a,h,w,w,1);}
+  for(let i=0;i<w*h;i++)img.data[i*4+3]=a[i];
+  g.putImageData(img,0,0);return c;
+ }
+ // The silhouette of `big` (a 1152 px sprite) in one colour, at 1/step of the sprite's resolution, padded.
+ function tinted(big,step,colour){
+  const n=Math.round(SPAN/step),c=document.createElement('canvas');c.width=c.height=n;const g=c.getContext('2d');
+  g.drawImage(big,PADL/step,PADL/step,1152/step,1152/step);g.globalCompositeOperation='source-in';g.fillStyle=colour;g.fillRect(0,0,n,n);return c;
+ }
  function spiritLayers(side){
   return cached(`spirit:${side}`,()=>{
-   const figure=silhouette('spirit',side);if(!figure)return null;
-   const gold=layer(),g=gold.getContext('2d');g.drawImage(figure,0,0);g.globalCompositeOperation='source-in';g.fillStyle='#ffe7a6';g.fillRect(0,0,L,L);
-   // A wide soft halo, a closer glow and a bright rim, added together.
-   const halo=layer(),h=halo.getContext('2d');h.globalCompositeOperation='lighter';
-   for(const [step,alpha] of [[26,1],[12,.9],[5,.8]]){h.globalAlpha=alpha;h.drawImage(soften(gold,step),0,0);}
-   return {halo,gold};
+   const image=sheet('spirit');if(!image)return null;
+   const big=document.createElement('canvas');big.width=big.height=1152;court.drawCourt(big,image,'king-spirit',side,0);
+   return {gold:tinted(big,2,'#ffe7a6'),rim:blurAlpha(tinted(big,2,'#fff2cf'),5),halo:blurAlpha(tinted(big,4,'#ffe2a0'),10)};
   });
  }
+ // Soft rays fanning up from his crown, drawn once and blurred (no hard edges): board units ×4,
+ // 80 × 44 units round the point they fan from (40, 42).
+ let rayLayer=null;
+ function rays(){
+  if(rayLayer)return rayLayer;
+  const k=4,c=document.createElement('canvas');c.width=80*k;c.height=44*k;const g=c.getContext('2d');
+  const o={x:40*k,y:42*k},fill=g.createRadialGradient(o.x,o.y,3*k,o.x,o.y,38*k);fill.addColorStop(0,'rgba(255,246,206,1)');fill.addColorStop(.45,'rgba(255,236,170,.45)');fill.addColorStop(1,'rgba(255,236,170,0)');
+  g.fillStyle=fill;g.beginPath();
+  for(let i=0;i<9;i++){const a=-Math.PI/2+(i-4)*.25,w=.055+.03*rand(i,40),l=(27+9*rand(i,41))*k;g.moveTo(o.x,o.y);g.lineTo(o.x+Math.cos(a-w)*l,o.y+Math.sin(a-w)*l);g.lineTo(o.x+Math.cos(a+w)*l,o.y+Math.sin(a+w)*l);g.closePath();}
+  g.fill();
+  return rayLayer=blurAlpha(c,7);
+ }
+ // A Spirit layer over the figure (padded layer → sprite px).
+ function inSpirit(ctx,s,image){inFigure(ctx,s.pose,()=>ctx.drawImage(image,-PADL,-PADL,SPAN,SPAN));}
  // Draws `image` (a layer) over the figure, with the scene's own figure transform (drawPiece).
  function inFigure(ctx,pose,draw){
   ctx.save();ctx.translate(pose.foot.x,pose.foot.y);ctx.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));ctx.rotate(pose.rotation??0);
@@ -177,7 +207,7 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
 
  // —— Mud ——
  // A full patch of tufts round his feet (an inner and an outer ring), dark at the root, fresh at the tip.
- const TUFTS=34,ROOT=['#2f4a17','#36531a','#3c5c1d'],TIP=['#8cc04a','#a2cc58','#b5d66a'];
+ const TUFTS=52,ROOT=['#2f4a17','#36531a','#3c5c1d'],TIP=['#8cc04a','#a2cc58','#b5d66a'];
  // 0 → 1 (sprout) → hold → 0 (sink back) over one period, each tuft a little apart.
  const grow=u=>u<.28?smooth(u/.28):u<.6?1:u<.86?1-smooth((u-.6)/.26):0;
  // Blade fills in blade space (root at 0, tip at -1), made once per canvas.
@@ -190,10 +220,10 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  function grass(ctx,s,front){
   const u0=s.t/PERIOD.mud,f=fills(ctx),m=ctx.getTransform();
   for(let i=0;i<TUFTS;i++){
-   const inner=i%2,angle=TAU*(i+.5*inner+rand(i,1)*.6)/TUFTS,depth=Math.sin(angle);if((depth>0)!==front)continue;
-   const ring=inner?.38+.3*rand(i,2):.7+.3*rand(i,2),bx=s.ground.x+Math.cos(angle)*48*ring,by=s.ground.y-4+depth*15*ring;
+   const ringNo=i%3,angle=TAU*(i+.37*ringNo+rand(i,1)*.6)/TUFTS,depth=Math.sin(angle);if((depth>0)!==front)continue;
+   const ring=[.32,.6,.86][ringNo]+.14*rand(i,2),bx=s.ground.x+Math.cos(angle)*50*ring,by=s.ground.y-4+depth*16*ring;
    const g=grow(frac(u0-rand(i,4)*.14))*s.g*s.k;if(g<.02)continue;
-   const out=Math.cos(angle)>0?1:-1,blades=4+Math.floor(rand(i,3)*4);
+   const out=Math.cos(angle)>0?1:-1,blades=5+Math.floor(rand(i,3)*5),inner=ringNo===0;
    for(let j=0;j<blades;j++){
     const q=j/(blades-1)-.5,h=(8+12*rand(i,10+j))*(1-.35*Math.abs(q))*(inner?.85:1)*g;if(h<.6)continue;
     const x=bx+q*5,y=by+rand(i,20+j)*1.5,w=1+.7*rand(i,30+j);
@@ -210,67 +240,70 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   const g=ctx.createRadialGradient(0,0,0,0,0,1);g.addColorStop(0,'rgba(66,44,20,.7)');g.addColorStop(.7,'rgba(66,44,20,.45)');g.addColorStop(1,'rgba(66,44,20,0)');
   ctx.save();ctx.globalAlpha=k;ctx.translate(s.ground.x,s.ground.y-4);ctx.scale(56,18);ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
  }
- // Roots: thin branching lines over the square from under his feet, as segments [x0,y0,x1,y1,t0,t1,width]
- // (board units from the floor point; t: when along the growth the segment starts and ends; a width class,
-// so each class is one stroke).
- // The square reaches 56 to each side, 96 behind his feet and 16 in front.
- const ROOTS=(()=>{
-  const out=[],inside=(x,y)=>Math.abs(x)<52&&y>-90&&y<12;
-  function grow(x,y,a,length,t0,span,width,seed,depth){
-   const steps=Math.round(length/5);let t=t0;
-   for(let i=0;i<steps;i++){
-    a+=(rand(seed,i)-.5)*.5;const nx=x+Math.cos(a)*5,ny=y+Math.sin(a)*5*.8;if(!inside(nx,ny))break;
-    const t1=t+span/steps,w=width*(1-.6*i/steps);out.push([x,y,nx,ny,t,t1,w>1.35?0:w>.95?1:2]);
-    if(depth<2&&i>=1&&rand(seed,i+50)<.32)grow(nx,ny,a+(rand(seed,i+70)<.5?-1:1)*(.55+.4*rand(seed,i+90)),length*.42,t1,span*.4,width*.6,seed*7+i,depth+1);
-    x=nx;y=ny;t=t1;
+ // Vines: each rises out of the earth at one point, arches over and roots again at another, growing along its
+ // length and then drawing back, with leaves opening along it. [x0, depth0, x1, depth1, height, phase, seed]
+ // (board units from his floor point; depth + in front of him).
+ const VINES=[[-46,-.3,-20,-.85,30,0,1],[18,-.9,46,-.25,27,.12,2],[-48,.25,-26,.85,24,.06,3],[22,.85,48,.3,25,.18,4],[-12,.98,12,.95,17,.24,5],[-30,-.98,6,-.95,22,.3,6]];
+ const N=26;
+ // A vine's centre line: an arch between its two feet, leaning and kinked a little, so no two look alike.
+ function vinePoint(v,f,s,sway){
+  const [x0,d0,x1,d1,h,,seed]=v,x=x0+(x1-x0)*f,d=d0+(d1-d0)*f,lean=(rand(seed,7)-.5)*.5;
+  const lift=Math.sin(Math.PI*f)**.75*h*(1+lean*(f-.5)),wob=Math.sin(TAU*f*1.5+seed)*2.2*Math.sin(Math.PI*f);
+  return {x:s.ground.x+(x+wob+sway*Math.sin(Math.PI*f))*s.facing,y:s.ground.y-4+d*15-lift};
+ }
+ const LEAF=['#4f8a2a','#62a034','#3f7424'];
+ // An ivy-like leaf of length l along +x: two lobes, a point, a pale midrib.
+ function leaf(ctx,l,colour){
+  ctx.fillStyle=colour;ctx.beginPath();ctx.moveTo(0,0);
+  ctx.bezierCurveTo(l*.15,-l*.55,l*.7,-l*.55,l,0);ctx.bezierCurveTo(l*.7,l*.55,l*.15,l*.55,0,0);ctx.fill();
+  ctx.strokeStyle='rgba(24,46,10,.8)';ctx.lineWidth=.55;ctx.stroke();
+  ctx.strokeStyle='rgba(190,220,140,.55)';ctx.lineWidth=.45;ctx.beginPath();ctx.moveTo(.8,0);ctx.lineTo(l*.85,0);ctx.stroke();
+ }
+ function vines(ctx,s,front){
+  const u0=s.t/PERIOD.mud;
+  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+  for(const v of VINES){
+   const [, d0,, d1,, phase,seed]=v;if(((d0+d1)/2>0)!==front)continue;
+   const g=grow(frac(u0-phase))*s.g*s.k;if(g<.02)continue;
+   const n=Math.max(2,Math.round(N*g)),sway=Math.sin(TAU*(u0*2+seed*.17))*1.4,pts=[];
+   for(let i=0;i<=n;i++)pts.push(vinePoint(v,i/N,s,sway));
+   // Stem: thick at the root, thin at the growing tip (outline, body, a lit edge).
+   for(const [colour,scale,dy] of [['#1c300d',1.45,0],['#3d6a1e',1,0],['#8cc055',.32,-.5]]){
+    ctx.strokeStyle=colour;
+    for(let i=1;i<pts.length;i++){const w=(1.1+2.4*(1-i/N))*scale;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(pts[i-1].x,pts[i-1].y+dy);ctx.lineTo(pts[i].x,pts[i].y+dy);ctx.stroke();}
    }
-  }
-  for(let i=0;i<9;i++){const a=TAU*(i+.3*rand(i,60))/9;grow(Math.cos(a)*7,Math.sin(a)*3,a,34+22*rand(i,61),0,.75,1.7,i+1,0);}
-  return out;
- })();
- function roots(ctx,s){
-  const u0=s.t/PERIOD.mud,g=grow(frac(u0+.03))*s.g*s.k;if(g<.02)return;
-  ctx.save();ctx.lineCap='round';ctx.translate(s.ground.x,s.ground.y-4);
-  for(const [colour,extra] of [['rgba(146,110,62,.5)',1.3],['#3a2412',0]]){
-   ctx.strokeStyle=colour;
-   for(const [cls,width] of [1.7,1.2,.8].entries()){
-    ctx.lineWidth=width+extra;ctx.beginPath();
-    for(const [x0,y0,x1,y1,t0,t1,c] of ROOTS){
-     if(t0>=g||c!==cls)continue;
-     const f=Math.min(1,(g-t0)/(t1-t0));ctx.moveTo(x0,y0);ctx.lineTo(x0+(x1-x0)*f,y0+(y1-y0)*f);
-    }
-    ctx.stroke();
+   // Leaves open behind the growing tip, on alternate sides, each a little different.
+   for(let i=3;i<pts.length-1;i+=3){
+    const p=pts[i],q=pts[i+1],side=(i/3)%2?1:-1,a=Math.atan2(q.y-p.y,q.x-p.x)+side*(.8+.5*rand(seed,i)),open=Math.min(1,(pts.length-1-i)/4)*g;if(open<.05)continue;
+    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(a);ctx.scale(open,open);leaf(ctx,4.5+2.5*rand(seed,i+20),LEAF[(seed+i)%3]);ctx.restore();
    }
+   // A curled tendril at the growing tip.
+   if(g<.98){const t=pts.at(-1),b=pts.at(-2),a=Math.atan2(t.y-b.y,t.x-b.x);ctx.strokeStyle='#5e9431';ctx.lineWidth=.8;ctx.beginPath();for(let k=0;k<=12;k++){const r=3.4*(1-k/14),th=a+k*.55*side0(seed);const x=t.x+Math.cos(th)*r-Math.cos(a)*3.4,y=t.y+Math.sin(th)*r-Math.sin(a)*3.4;k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();}
+   // The earth each end comes out of.
+   ctx.fillStyle='rgba(58,38,18,.85)';for(const e of [pts[0],...(g>.97?[vinePoint(v,1,s,sway)]:[])]){ctx.beginPath();ctx.ellipse(e.x,e.y+.6,4.2,1.7,0,0,TAU);ctx.fill();}
   }
   ctx.restore();
  }
+ const side0=seed=>seed%2?1:-1;
 
  // —— Spirit ——
  // A slow breath from dim to a white-gold peak (no flicker: one smooth cosine).
  const breath=t=>(1-Math.cos(TAU*t/PERIOD.spirit))/2;
- const RAYS=11;
  function holyBack(ctx,s){
-  const b=breath(s.t),sp=spiritLayers(s.side),c={x:s.pose.foot.x,y:s.pose.foot.y-84*(s.pose.sy??1)};
+  const b=breath(s.t),sp=spiritLayers(s.side),sy=s.pose.sy??1,head={x:s.pose.foot.x,y:s.pose.foot.y-118*sy};
   ctx.save();ctx.globalCompositeOperation='lighter';
-  // Light pooled on the square.
-  const pool=ctx.createRadialGradient(0,0,0,0,0,1);pool.addColorStop(0,'rgba(255,238,178,.9)');pool.addColorStop(.55,'rgba(255,232,160,.45)');pool.addColorStop(1,'rgba(255,232,160,0)');
-  ctx.save();ctx.globalAlpha=s.k*s.g*(.3+.6*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(58,20);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
-  // Soft rays fanning out behind him, swaying a little.
-  const rays=ctx.createRadialGradient(c.x,c.y,6,c.x,c.y,78);rays.addColorStop(0,'rgba(255,244,200,.75)');rays.addColorStop(.45,'rgba(255,236,170,.32)');rays.addColorStop(1,'rgba(255,236,170,0)');
-  const sway=.1*Math.sin(TAU*s.t/PERIOD.spirit);
-  ctx.globalAlpha=s.k*(.2+.65*b);ctx.fillStyle=rays;ctx.beginPath();
-  for(let i=0;i<RAYS;i++){
-   const a=-Math.PI/2+(i-(RAYS-1)/2)*.29+sway*(i%2?1:-1),w=.05+.03*rand(i,40),l=58+20*rand(i,41);
-   ctx.moveTo(c.x,c.y);ctx.lineTo(c.x+Math.cos(a-w)*l,c.y+Math.sin(a-w)*l);ctx.lineTo(c.x+Math.cos(a+w)*l,c.y+Math.sin(a+w)*l);ctx.closePath();
-  }
-  ctx.fill();
-  // The glow round his outline.
-  if(sp)inFigure(ctx,s.pose,()=>{ctx.globalAlpha=s.k*(.4+.6*b);ctx.drawImage(sp.halo,0,0,1152,1152);if(b>.5){ctx.globalAlpha=s.k*(b-.5)*1.2;ctx.drawImage(sp.halo,0,0,1152,1152);}});
+  // Light pooled on his square.
+  const pool=ctx.createRadialGradient(0,0,0,0,0,1);pool.addColorStop(0,'rgba(255,238,178,.85)');pool.addColorStop(.55,'rgba(255,232,160,.4)');pool.addColorStop(1,'rgba(255,232,160,0)');
+  ctx.save();ctx.globalAlpha=s.k*s.g*(.28+.55*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(48,16);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
+  // Short soft rays behind his crown, in a narrow fan that turns a little (about 36 units: not over the next square).
+  ctx.save();ctx.globalAlpha=s.k*(.18+.55*b);ctx.translate(head.x,head.y);ctx.rotate(.05*Math.sin(TAU*s.t/PERIOD.spirit/2));ctx.drawImage(rays(),-40,-42,80,44);ctx.restore();
+  // The glow round his outline: the wide halo, and the close rim brightening towards the peak.
+  if(sp){ctx.globalAlpha=s.k*(.4+.5*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(.3+.7*b);inSpirit(ctx,s,sp.rim);}
   ctx.restore();
  }
  function holyFront(ctx,s){
   const sp=spiritLayers(s.side);if(!sp)return;
-  inFigure(ctx,s.pose,()=>{ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*(s.side?.1+.42*breath(s.t):.05+.25*breath(s.t));ctx.drawImage(sp.gold,0,0,1152,1152);});
+  ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*(s.side?.1+.42*breath(s.t):.05+.25*breath(s.t));inSpirit(ctx,s,sp.gold);ctx.restore();
  }
 
  // —— Shadow ——
@@ -279,63 +312,14 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  // Rise 0..1, then the fingers close (0 open .. 1 clutched) at the top, and the hand sinks back.
  const rise=u=>u<.24?1-(1-smooth(u/.24))**2:u<.56?1:u<.8?1-smooth((u-.56)/.24):0;
  const clutch=u=>u<.2?.1:u<.5?.1+.85*smooth((u-.2)/.3):.95;
- // Bones of one hand, in hand space: the base on the floor at 0,0, up is -y, the palm turned to +x.
- function bones(curl){
-  // Radius and ulna: apart at the elbow (below the floor), close at the wrist, with the wrist's knob.
-  const lines=[[[-2.6,6],[-1.5,-14.8],2.4],[[2.6,6],[1.4,-15.2],2.4],[[-1.9,-15.6],[1.9,-16],2.8]];
-  const knuckles=[[-4.8,-24],[-1.6,-25.6],[1.6,-25.2],[4.4,-23.4]],spread=[-.38,-.13,.1,.34],length=[[5,3.6,2.8],[5.7,4,3],[5.4,3.8,2.9],[4.3,3.1,2.4]];
-  for(let f=0;f<4;f++){
-   lines.push([[(f-1.5)*1.4,-17.5],knuckles[f],1.8]);
-   let p=knuckles[f],a=-Math.PI/2+spread[f]*(1.25-curl*.6);
-   for(let j=0;j<3;j++){a+=curl*[.6,.85,.75][j];const q=[p[0]+Math.cos(a)*length[f][j],p[1]+Math.sin(a)*length[f][j]];lines.push([p,q,1.85-j*.2]);p=q;}
-  }
-  let p=[-2.8,-18],a=-Math.PI/2-1.05+curl*.3;const base=[-6.8,-21.4];
-  lines.push([p,base,1.8]);p=base;
-  for(let j=0;j<2;j++){a+=curl*.7;const q=[p[0]+Math.cos(a)*[4,3.1][j],p[1]+Math.sin(a)*[4,3.1][j]];lines.push([p,q,1.5]);p=q;}
-  return lines;
- }
- const PALM=[[-3.2,-16.6],[3,-16.8],[4.6,-23.2],[1.6,-25],[-1.6,-25.4],[-4.9,-23.6]];
- // Bone colours per army: black bones with a pale edge (charcoal), bone white with a dark outline (ivory).
- const BONE=[
-  {outline:'rgba(52,42,30,.92)',body:'#ede6d4',edge:'rgba(150,134,108,.85)',palm:'rgba(236,229,212,.4)'},
-  {outline:null,body:'#0b0910',edge:'rgba(176,170,180,.8)',palm:'rgba(11,9,16,.55)'},
- ];
- function stroke(ctx,lines,colour,scale,dx=0,dy=0,add=0){
-  ctx.strokeStyle=colour;
-  for(const width of [...new Set(lines.map(l=>l[2]))]){
-   ctx.lineWidth=width*scale+add;ctx.beginPath();
-   for(const [p,q,w] of lines)if(w===width){ctx.moveTo(p[0]+dx,p[1]+dy);ctx.lineTo(q[0]+dx,q[1]+dy);}
-   ctx.stroke();
-  }
- }
- // A jagged crack in the floor stone, along x from -1 to 1 (scaled by w, opened by h): dark inside,
- // a lit lip on its far edge, and hairline cracks running off its ends.
- function crack(ctx,x,y,w,h,seed){
-  if(h<.05)return;
-  const n=7,top=[],bottom=[];
-  for(let i=0;i<=n;i++){const u=i/n*2-1,open=(1-u*u)**.7;top.push([x+u*w+(rand(seed,i)-.5)*2.2,y-h*open*(.7+.6*rand(seed,i+10))]);bottom.push([x+u*w+(rand(seed,i+20)-.5)*2.2,y+h*open*(.5+.5*rand(seed,i+30))]);}
-  ctx.fillStyle='#050407';ctx.beginPath();top.forEach(([px,py],i)=>i?ctx.lineTo(px,py):ctx.moveTo(px,py));for(let i=n;i>=0;i--)ctx.lineTo(...bottom[i]);ctx.closePath();ctx.fill();
-  ctx.lineWidth=.9;ctx.strokeStyle='rgba(226,214,190,.45)';ctx.beginPath();top.forEach(([px,py],i)=>i?ctx.lineTo(px,py-.6):ctx.moveTo(px,py-.6));ctx.stroke();
-  ctx.lineWidth=.7;ctx.strokeStyle='rgba(8,6,10,.75)';ctx.beginPath();
-  for(const e of [-1,1]){let px=x+e*w,py=y;ctx.moveTo(px,py);for(let i=0;i<3;i++){px+=e*(2.5+2*rand(seed,40+i+e));py+=(rand(seed,50+i+e)-.5)*3;ctx.lineTo(px,py);}}
-  ctx.stroke();
- }
  function hands(ctx,s,front){
-  const u0=s.t/PERIOD.shadow,bone=BONE[s.side];
+  const u0=s.t/PERIOD.shadow;
   for(const [i,[hx,depth,lean,size,phase]] of HANDS.entries()){
    if((depth>0)!==front)continue;
    const u=frac(u0-phase),r=rise(u)*s.g*s.k;if(r<.01)continue;
-   const x=s.ground.x+hx*s.facing,y=s.ground.y-4+depth*13,k=size*(.92+.08*depth),c=clutch(u),sway=.05*Math.sin(TAU*(u0*2+phase));
-   crack(ctx,x,y,10.5*k,Math.min(1,r*1.6)*2.9*k,i+1);
-   ctx.save();ctx.beginPath();ctx.rect(x-34,y-60,68,60);ctx.clip();
-   ctx.translate(x,y+(1-r)*34*k);ctx.rotate((lean+sway)*s.facing*(r*.6+.4));ctx.scale(k*(hx*s.facing<0?-1:1),k);ctx.lineCap='round';ctx.lineJoin='round';
-   const lines=bones(c),joints=lines.slice(2).map(l=>l[0]);
-   ctx.fillStyle=bone.palm;ctx.beginPath();PALM.forEach(([px,py],i)=>i?ctx.lineTo(px,py):ctx.moveTo(px,py));ctx.closePath();ctx.fill();
-   if(bone.outline){stroke(ctx,lines,bone.outline,1,0,0,1.1);ctx.fillStyle=bone.outline;for(const p of joints){ctx.beginPath();ctx.arc(p[0],p[1],1.7,0,TAU);ctx.fill();}}
-   stroke(ctx,lines,bone.body,1);
-   ctx.fillStyle=bone.body;for(const p of joints){ctx.beginPath();ctx.arc(p[0],p[1],1.15,0,TAU);ctx.fill();}
-   stroke(ctx,lines,bone.edge,.3,s.side?-.55:.5,s.side?-.25:.25);
-   ctx.restore();
+   const x=s.ground.x+hx*s.facing,y=s.ground.y-4+depth*13,k=size*(.92+.08*depth),sway=.05*Math.sin(TAU*(u0*2+phase));
+   drawCrack(ctx,x,y,10.5*k,Math.min(1,r*1.6)*2.9*k,i+1);
+   drawHand(ctx,x,y,{side:s.side,size:k,flip:hx*s.facing<0,angle:(lean+sway)*s.facing*(r*.6+.4),rise:r,curl:clutch(u)});
   }
  }
  function abyss(ctx,s){
@@ -390,14 +374,14 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   back(ctx,s){
    if(s.design==='frost'){rime(ctx,s);flakes(ctx,s,false);}
    else if(s.design==='stratus')downdraft(ctx,s);
-   else if(s.design==='mud'){earth(ctx,s);roots(ctx,s);grass(ctx,s,false);}
+   else if(s.design==='mud'){earth(ctx,s);grass(ctx,s,false);vines(ctx,s,false);}
    else if(s.design==='spirit')holyBack(ctx,s);
    else if(s.design==='shadow'){abyss(ctx,s);hands(ctx,s,false);smoke(ctx,s);}
   },
   front(ctx,s){
    if(s.design==='flame')lava(ctx,s);
    else if(s.design==='frost')flakes(ctx,s,true);
-   else if(s.design==='mud')grass(ctx,s,true);
+   else if(s.design==='mud'){grass(ctx,s,true);vines(ctx,s,true);}
    else if(s.design==='spirit')holyFront(ctx,s);
    else if(s.design==='shadow')hands(ctx,s,true);
   },
