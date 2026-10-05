@@ -76,7 +76,8 @@ const TINTS = {
 // card: side of the big figure; figure: sheet, pose (the game's rig), height, inner edge in px, landing spring.
 export const PIECES = {
   archer: {
-    board: { d4: 'A', f4: 'n', c5: 'P', b4: 'P', e6: 'p', g5: 'r', g6: 'p', c2: 'P' },
+    // e4: the piece the bolt flies over (the Archer shoots only over a piece since 2026-10-05).
+    board: { d4: 'A', e4: 'P', f4: 'n', c5: 'P', b4: 'P', e6: 'p', g5: 'r', g6: 'p', c2: 'P' },
     hero: 'd4', moves: [{ from: 'd4', to: 'f4' }],
     // The bolt leaves on the beat (0.5 s) and freezes a hair short of the Knight; the resume is the hit.
     ramp: [[-0.5, 60], [0.4, 80], [0.5, 180], [0.56, 233], [0.64, 287], [0.76, 342], [0.92, 383], [1.12, 409], [1.32, 420], [1.5, 425]],
