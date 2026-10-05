@@ -105,7 +105,7 @@ function aimed(value,pose,target) {
 // sheet: a king's sheet drawn in place of his own (an effect's: the Shadow King without his smoke).
 // rest: a resting pawn's action (lance/idle.mjs), drawn from his still sprite.
 function sprite(value,angle=0,extension=0,sheet=null,rest=null) {
- const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null,key=design?`${type}:${side}:${design}${sheet?':effect':''}`:`${type}:${side}`;
+ const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null,key=spriteKey(value,sheet);
  if(!ART[type])return token(value);
  const image=design?sheet??kingImage(design).image:art[type];
  if(design&&!image)return blank;
@@ -128,7 +128,8 @@ const blank=document.createElement('canvas');blank.width=blank.height=1;
 const fxCanvas=document.createElement('canvas');fxCanvas.width=SIZE;fxCanvas.height=SIZE+headroom;
 // fx: {cut} splits along a slash; {frost, shatter} ices the figure then breaks it into wedges;
 // {scan, apart} tints it with a moving scan line, then takes it apart in horizontal strips.
-function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
+// shadow: false when its contact shadow is already on the floor (render() draws them all before any figure).
+function drawPiece(out,value,pose,opacity=1,extension=0,fx=null,shadow=true) {
  if(opacity<=0)return;
  if(fx?.death){
   // A king's capture (king-captures.mjs): the victim is drawn into the effect layer as the death needs.
@@ -186,21 +187,205 @@ function drawPiece(out,value,pose,opacity=1,extension=0,fx=null) {
   }
   return;
  }
- const spec=specs[typeOf(value)],ground=pose.ground??pose.foot,shadowScale=clamp(1-(pose.lift??0)/TILE*.4,.6,1)*(pose.shadow??1);
+ const spec=specs[typeOf(value)],ground=pose.ground??pose.foot;
  out.save();out.globalAlpha=opacity;
- if(lively.atmosphere)contactShadow(out,ground,230*pose.scale*shadowScale);
- else{out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*shadowScale,36*pose.scale*shadowScale,0,0,Math.PI*2);out.fill();}
+ if(lively.atmosphere){if(shadow)contactShadow(out,value,pose,opacity);}
+ else{const k=clamp(1-(pose.lift??0)/TILE*.4,.6,1)*(pose.shadow??1);out.fillStyle='#343a2229';out.beginPath();out.ellipse(ground.x,ground.y-2,210*pose.scale*k,36*pose.scale*k,0,0,Math.PI*2);out.fill();}
  out.translate(pose.foot.x,pose.foot.y);out.scale(pose.scale*pose.facing*(pose.sx??1),pose.scale*(pose.sy??1));out.rotate(pose.rotation??0);
  // A soft contrasting rim keeps each army readable on the painted board's light and dark zones.
  // (pose.rim: an effect may thin it, as the charcoal Spirit's black aura does.)
  out.shadowColor=colorOf(value)?`rgba(250,246,232,${.85*(pose.rim??1)})`:'rgba(28,24,16,.8)';out.shadowBlur=5*res; // shadows ignore the transform
  out.drawImage(sprite(value,pose.angle,extension,pose.sheet,pose.rest),-spec.anchor.x,-spec.anchor.y);out.restore();
 }
-// A soft contact shadow: dark where the feet touch the stone, fading out, nudged away from the warm light.
-function contactShadow(out,ground,r) {
- out.save();out.translate(ground.x+r*.06,ground.y-1);out.scale(1,.2);
- const g=out.createRadialGradient(0,0,0,0,0,r);g.addColorStop(0,'rgba(30,20,8,.5)');g.addColorStop(.35,'rgba(30,20,8,.3)');g.addColorStop(1,'rgba(30,20,8,0)');
- out.fillStyle=g;out.beginPath();out.arc(0,0,r,0,Math.PI*2);out.fill();out.restore();
+// Contact shadows (atmosphere on), made once per still sprite from its own outline and drawn with multiply, so
+// the shade keeps the floor's own colour (dark wood gets a deeper one than light stone, or it would not read):
+//   core  a dark band under what touches the floor (soles, a hem, a tower base, a spear butt);
+//   soft  a pool as wide as that contact, with the legs' short shadow cast down and to the right, away from the
+//         board's warm top-left light;
+//   oval  drawn each frame in its place as the figure leaves the floor, where it will land; and along the body of
+//         a figure lying on the floor.
+// The pose fields it reads: ground (the floor point), lift and pose.shadow (< 1: higher), rotation, sx, and
+// lit: this figure lights its own floor, 0–1 (the ivory Spirit's glow); his shadow fades by it.
+const SHADE={q:1.5,shear:.6,cast:.26,rgb:[40,30,24],core:[.62,1],soft:[.45,.78],air:[.64,.74],pool:.4};
+// Outlines by sprite key; stamps by sprite key and the side the figure faces (the light stays top left).
+const outlines=new Map(),stamps=new Map();
+// The key of a figure's still sprite: type:side[:design][:effect] (sprite() caches it under this key).
+function spriteKey(value,sheet=null){
+ const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null;
+ return design?`${type}:${side}:${design}${sheet?':effect':''}`:`${type}:${side}`;
+}
+// A figure's stamps, or null while they are not built: the missing ones are built when the browser is idle (within
+// half a second), so the first frame does not wait for them; until then a figure draws no contact shadow.
+const queued=new Map();let idleBuild=0;
+function shadowStamps(value,sheet,f){
+ const id=`${spriteKey(value,sheet)}:${f}`;
+ if(stamps.has(id))return stamps.get(id);
+ queued.set(id,[value,sheet,f]);
+ idleBuild||=globalThis.requestIdleCallback?requestIdleCallback(buildQueued,{timeout:500}):setTimeout(buildQueued,0);
+ return null;
+}
+// Reads every queued outline in one go, then builds stamps while the idle time lasts (and goes on in the next).
+function buildQueued(deadline){
+ idleBuild=0;const jobs=[...queued.values()];queued.clear();
+ readOutlines(jobs);let built=0;
+ for(const [value,sheet,f] of jobs){
+  const key=spriteKey(value,sheet),id=`${key}:${f}`,outline=outlines.get(key);
+  if(!outline||stamps.has(id))continue;
+  if(built&&deadline?.timeRemaining()<=0){shadowStamps(value,sheet,f);continue;}
+  stamps.set(id,buildStamps(outline,specs[typeOf(value)],f));built++;
+ }
+ if(built)wake();
+}
+// The alpha of still sprites not read yet, at q px per board unit: [[value, sheet]]. All of them are read back in
+// one go: each readback waits for the GPU, and one per figure would stall.
+function readOutlines(figures){
+ const todo=new Map();let x=0,y=0,row=0;
+ for(const [value,sheet] of figures){
+  const key=spriteKey(value,sheet);if(outlines.has(key)||todo.has(key))continue;
+  const canvas=sprite(value,0,0,sheet??null);if(canvas===blank)continue;
+  const n=Math.round(1152*specs[typeOf(value)].scale*SHADE.q);if(x&&x+n>2048){x=0;y+=row;row=0;}
+  todo.set(key,{canvas,n,x,y});x+=n;row=Math.max(row,n);
+ }
+ if(!todo.size)return;
+ const items=[...todo.values()],atlas=document.createElement('canvas');atlas.width=Math.max(...items.map(i=>i.x+i.n));atlas.height=y+row;
+ const g=atlas.getContext('2d');for(const i of items)g.drawImage(i.canvas,i.x,i.y,i.n,i.n);
+ const data=g.getImageData(0,0,atlas.width,atlas.height).data;
+ for(const [key,{n,x,y}] of todo){
+  const alpha=new Uint8Array(n*n);
+  for(let r=0;r<n;r++){const o=((y+r)*atlas.width+x)*4+3;for(let c=0;c<n;c++)alpha[r*n+c]=data[o+c*4];}
+  outlines.set(key,{alpha,n});
+ }
+}
+function buildStamps({alpha,n},spec,f){
+ // Board units round the ground point (spec.anchor): x across, mirrored for a figure facing left; d down the
+ // screen; h the height above the soles.
+ const {q,shear,cast}=SHADE,s=spec.scale,ax=spec.anchor.x*s*q,ay=spec.anchor.y*s*q,X=x=>f*(x-ax)/q;
+ let top=n;for(let i=0;i<alpha.length;i++)if(alpha[i]>24){top=Math.floor(i/n);break;}
+ const tall=Math.max(20,(ay-top)/q),castTop=tall*.38,y0=Math.max(0,Math.floor(ay-castTop*q));
+ // What touches the floor: each column's lowest solid point stands on it, further back the higher it is (a back
+ // foot, the far side of a hem): fully within 4 units of the lowest sole, not at all past 10.
+ const bottom=new Int16Array(n).fill(-1);
+ for(let x=0;x<n;x++)for(let y=n-1;y>=0;y--)if(alpha[y*n+x]>=128){bottom[x]=y;break;}
+ const sole=Math.max(...bottom);if(sole<0)return null;
+ const touch=Float32Array.from(bottom,b=>b<0?0:1-ease((sole-b-4*q)/(6*q)));
+ // How firmly each column stands there: its touch times how solid it is over its lowest 8 units (a foot, a hem or a
+ // tower base fully; a blade slanting down to the floor, a pointed toe little).
+ const firm=touch.map((t,x)=>{if(!t)return 0;let k=0;for(let y=Math.max(0,bottom[x]-8*q);y<=bottom[x];y++)k+=alpha[y*n+x]>=128;return t*k/(8*q+1);});
+ // The pool spans the middle 94% of the contact, weighed by touch × firmness, so a spear butt, a cape's tip or a
+ // sword does not pull it aside.
+ let total=0,sum=0,first=-1,last=-1;for(let x=0;x<n;x++)total+=firm[x]*touch[x];
+ for(let x=0;x<n;x++){sum+=firm[x]*touch[x];if(first<0&&sum>=total*.03)first=x;if(last<0&&sum>=total*.97)last=x;}
+ const span=Math.abs(X(last)-X(first)),cx=(X(first)+X(last))/2;
+ // The pool: an ellipse a little wider than the contact (but off the next square's feet), as deep as a disc seen at
+ // this angle, nudged away from the light, darkest under the body (each disc reaches a little past its axes: that
+ // is its soft rim).
+ const A0=Math.max(span/2+5,.16*tall+4),mid=cx+.75,pd=SHADE.pool,A=Math.min(A0*1.15,.4*TILE),B=clamp(.3*A0,5,11)*1.15;
+ // How far the short cast reaches.
+ let x0=0,x1=0,reach=0;
+ for(let y=y0;y<n;y++){const h=(ay-y)/q,dx=h<0?0:shear*cast*h,d=h<0?-h:cast*h;let l=-1,r=-1;
+  for(let x=0;x<n;x++)if(alpha[y*n+x]>=10){if(l<0)l=x;r=x;}
+  if(l<0)continue;
+  const pl=Math.min(X(l),X(r))+dx,pr=Math.max(X(l),X(r))+dx;if(pl<x0)x0=pl;if(pr>x1)x1=pr;if(d>reach)reach=d;
+ }
+ // Floor grid at q px per unit: x across, d down the screen (0 at the ground point).
+ const gx0=Math.min(x0,mid-A)-8,gx1=Math.max(x1,mid+A)+8,gd0=Math.min(-4,pd-B,(sole-ay)/q-13)-8,gd1=Math.max(reach,pd+B,(sole-ay)/q+4)+8;
+ const OX=Math.ceil(-gx0*q),OY=Math.ceil(-gd0*q),W=OX+Math.ceil(gx1*q)+1,H=OY+Math.ceil(gd1*q)+1;
+ const tight=new Float32Array(W*H),wide=new Float32Array(W*H),shade=new Float32Array(W*H);
+ const put=(buf,x,d,v)=>{const X=Math.round(x*q)+OX,Y=Math.round(d*q)+OY;if(X>=0&&X<W&&Y>=0&&Y<H){const i=Y*W+X;if(v>buf[i])buf[i]=v;}};
+ // The core: under each column that stands there a tight band from 2.2 units behind its lowest point to 2.2 in
+ // front, and a wider, softer one to 3.5 in front at half strength.
+ for(let x=0;x<n;x++){const t=firm[x];if(!t)continue;const d=(bottom[x]-ay)/q;
+  for(let k=-2.2*q;k<=3.5*q;k++){if(k<=2.2*q)put(tight,X(x),d+k/q,t);put(wide,X(x),d+k/q,t);}
+ }
+ // The short cast: what is below the anchor lies where it is drawn; above it, the lower legs fall down and right.
+ for(let y=y0;y<n;y++){const h=(ay-y)/q,fade=h<0?1:(1-h/castTop)**1.5;
+  for(let x=0;x<n;x++){const v=alpha[y*n+x]/255;if(v<.04)continue;
+   if(h<0)put(shade,X(x),-h,v);else put(shade,X(x)+shear*cast*h,cast*h,v*fade);
+  }
+ }
+ blur(tight,W,H,q,q);blur(wide,W,H,2.4*q,2.4*q);blur(shade,W,H,2.4*q,1.4*q);
+ const disc=(x,d)=>{const e=1-((x-mid)/A)**2-((d-pd)/B)**2;return e>0?e*Math.sqrt(e):0;};
+ for(let Y=0;Y<H;Y++){const d=(Y-OY)/q;for(let X=0;X<W;X++){const i=Y*W+X;
+  shade[i]=1-(1-Math.min(1,shade[i])*.55)*(1-disc((X-OX)/q,d)*.9);tight[i]=1-(1-Math.min(1,tight[i]))*(1-.5*Math.min(1,wide[i]));
+ }}
+ const stamp=buf=>{
+  // Cropped to what is not empty; x, y, w, h in board units round the ground point (at spec.scale).
+  let x0=W,y0=H,x1=-1,y1=-1;
+  for(let Y=0;Y<H;Y++)for(let X=0;X<W;X++)if(buf[Y*W+X]>.004){if(X<x0)x0=X;if(X>x1)x1=X;if(Y<y0)y0=Y;if(Y>y1)y1=Y;}
+  if(x1<0)return null;
+  const w=x1-x0+1,h=y1-y0+1,canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+  const cx=canvas.getContext('2d'),img=cx.createImageData(w,h),[r,g,b]=SHADE.rgb;
+  for(let Y=0;Y<h;Y++)for(let X=0;X<w;X++){const i=(Y*w+X)*4;img.data[i]=r;img.data[i+1]=g;img.data[i+2]=b;img.data[i+3]=Math.round(255*Math.min(1,buf[(Y+y0)*W+X+x0]));}
+  cx.putImageData(img,0,0);
+  return {canvas,x:(x0-OX)/q,y:(y0-OY)/q,w:w/q,h:h/q};
+ };
+ return {scale:s,tall,span,cx,pd,core:stamp(tight),soft:stamp(shade)};
+}
+// Gaussian blur in place (three box passes each way); sx, sy: standard deviations in px.
+function blur(buf,W,H,sx,sy){
+ const tmp=new Float32Array(Math.max(W,H));
+ const pass=(len,count,stride,step,r)=>{
+  if(r<1)return;
+  for(let line=0;line<count;line++){
+   const o=line*stride;
+   for(let p=0;p<3;p++){
+    let sum=0;for(let i=0;i<len;i++)tmp[i]=buf[o+i*step];
+    for(let i=0;i<=r&&i<len;i++)sum+=tmp[i];
+    for(let i=0;i<len;i++){buf[o+i*step]=sum/(2*r+1);if(i+r+1<len)sum+=tmp[i+r+1];if(i-r>=0)sum-=tmp[i-r];}
+   }
+  }
+ };
+ const radius=sigma=>Math.round(Math.sqrt(sigma*sigma+.25)-.5);
+ pass(W,H,W,1,radius(sx));pass(H,W,1,W,radius(sy));
+}
+// How dark the painted floor is at a point: 0 on the light stone, 1 on the dark wood. Read from the board art once
+// (96 x 96, calibrated by the mean of the light and the dark square centres), so it follows a flipped board.
+let floorMap=null;
+function groundDark(p){
+ const n=96;
+ if(!floorMap){
+  if(!boardArt.naturalWidth)return 0;
+  const c=document.createElement('canvas');c.width=c.height=n;const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(boardArt,0,0,n,n);
+  const d=g.getImageData(0,0,n,n).data,L=i=>.3*d[i*4]+.59*d[i*4+1]+.11*d[i*4+2],mean=[0,0];
+  for(let col=0;col<8;col++)for(let row=0;row<8;row++)mean[(col+row)%2]+=L(Math.floor((row+.5)*n/8)*n+Math.floor((col+.5)*n/8))/32;
+  floorMap=Float32Array.from({length:n*n},(_,i)=>clamp((mean[0]-L(i))/(mean[0]-mean[1]||1),0,1));
+ }
+ let u=(p.x-PAD)/(8*TILE)*n-.5,v=(p.y-PAD)/(8*TILE)*n-.5;
+ if(flipped){u=n-1-u;v=n-1-v;}
+ u=clamp(u,0,n-1.001);v=clamp(v,0,n-1.001);const i=Math.floor(u),j=Math.floor(v),fu=u-i,fv=v-j,at=(x,y)=>floorMap[y*n+x];
+ return (at(i,j)*(1-fu)+at(i+1,j)*fu)*(1-fv)+(at(i,j+1)*(1-fu)+at(i+1,j+1)*fu)*fv;
+}
+// A soft oval of shade at x, y (rx, ry): a plateau that softens (0..1) as the figure rises.
+function shadeOval(out,x,y,rx,ry,alpha,soft){
+ if(alpha<=.004)return;
+ out.save();out.globalAlpha=alpha;out.translate(x,y);out.scale(rx,ry);
+ const g=out.createRadialGradient(0,0,0,0,0,1),rgb=SHADE.rgb.join(',');
+ for(const [at,rest,lifted] of [[0,1,1],[.5,.92,.72],[.8,.45,.3],[1,0,0]])g.addColorStop(at,`rgba(${rgb},${rest+(lifted-rest)*soft})`);
+ out.fillStyle=g;out.beginPath();out.arc(0,0,1,0,Math.PI*2);out.fill();out.restore();
+}
+// The figure's contact shadow on the floor (pose.ground, or under its feet). As it rises the contact goes first,
+// then the pool shrinks, softens, lightens and slides a little away from the light, and hands over to an oval.
+function contactShadow(out,value,pose,opacity) {
+ const ground=pose.ground??pose.foot,s=clamp(pose.shadow??1,0,1);
+ // pose.shadow near 0 hides it (a king's capture draws its victim without one).
+ const shown=opacity*(1-(pose.lit??0))*clamp((s-.02)/.3,0,1);if(shown<=.004)return;
+ const sx=pose.sx??1,set=shadowStamps(value,pose.sheet,pose.facing*sx<0?-1:1);if(!set)return;
+ // h: how high it is (a hop, a leap, the idle breath, a hover); air: that, higher still for a smaller shadow.
+ const h=Math.max(pose.lift??0,ground.y-pose.foot.y,0),air=h+10*(1-s),up=1-Math.exp(-air/8);
+ // A toppling or lying figure loses its contact and keeps a fainter pool, plus a pool along its body.
+ const r=pose.rotation??0,upright=Math.max(0,Math.cos(r)),lean=.5+.5*upright,lying=Math.abs(Math.sin(r));
+ const dk=out===closeup?.ctx?0:groundDark(ground),pick=([light,dark])=>light+(dark-light)*dk;
+ const k=pose.scale/set.scale,wide=k*Math.max(1,Math.abs(sx)),shrink=1-.3*(1-Math.exp(-air/30));
+ out.save();out.globalCompositeOperation='multiply';
+ out.translate(ground.x+SHADE.shear*SHADE.cast*h*.6,ground.y+SHADE.cast*h*.4);
+ for(const [stamp,alpha] of [[set.soft,pick(SHADE.soft)*(1-up)*lean],[set.core,pick(SHADE.core)*Math.exp(-air/4)*upright]]){
+  if(!stamp||alpha*shown<=.004)continue;
+  out.globalAlpha=alpha*shown;out.drawImage(stamp.canvas,stamp.x*wide*shrink,stamp.y*k*shrink,stamp.w*wide*shrink,stamp.h*k*shrink);
+ }
+ const rx=Math.max(8,set.span/2+3)*(1-.3*air/(air+30));
+ shadeOval(out,set.cx*wide,set.pd*k,rx*wide,clamp(.3*rx,4.5,8)*k,pick(SHADE.air)*up*(1-.35*clamp(air/80,0,1))*lean*shown,clamp(air/40,0,1));
+ if(lying>.15)shadeOval(out,pose.foot.x-ground.x+pose.facing*Math.sign(sx)*Math.sin(r)*set.tall/2*k,0,(lying*set.tall/2+6)*k,6*k,pick(SHADE.soft)*lying*shown,0);
+ out.restore();
 }
 function bolt(out,start,end,t,scale=1) {
  if(t<0||t>1)return;
@@ -569,9 +754,15 @@ function vortex(out,foot,phase,strength) {
  // A piece thrown into the air (a king's capture whose death has an `above` time) is drawn in two parts once
  // it leaves the ground: what stays on the floor in its own place ('back'), the piece itself over every figure ('front').
  const late=[];
+ // Each figure's final pose first (a king's effect may change his: Stratus floats, Shadow has his own sheet, the
+ // ivory Spirit lights his floor), then every contact shadow on the floor before any figure: a shadow drawn after
+ // a figure would darken it. A figure with its own effect (unit.fx) still draws its shadow itself.
+ const kingFxOf=new Map();
+ for(const [sq,unit] of ordered)if(typeOf(unit.value)===K){const fx=kingEffect(sq,unit,time);if(fx)kingFxOf.set(sq,fx);}
+ if(lively.atmosphere)for(const [sq,unit] of ordered)if(!unit.fx)contactShadow(ctx,unit.value,kingFxOf.get(sq)?.pose??unit.pose,unit.opacity);
  for(const [sq,unit] of ordered){
   if(!animation)over(Math.floor((unit.pose.foot.y-40-PAD)/TILE)-1);
-  const fx=typeOf(unit.value)===K?kingEffect(sq,unit,time):null;
+  const fx=kingFxOf.get(sq);
   if(fx){kingFx.back(ctx,fx);fxDrawn.push(fx.design);}
   // (above: a time, or a test of the death's own state: the piece is clear of the king or over his head.)
   const death=unit.fx?.death,above=death&&DEATHS[death.theme].above;
@@ -580,7 +771,7 @@ function vortex(out,foot,phase,strength) {
    const up=typeof above==='function'?above({...death,size:SIZE,headroom}):death.t>=above,d2={...death,above:up};
    drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'back'}});
    late.push(()=>drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...d2,part:'front'}}));
-  }else drawPiece(ctx,unit.value,fx?.pose??unit.pose,unit.opacity,unit.extension,unit.fx);
+  }else drawPiece(ctx,unit.value,fx?.pose??unit.pose,unit.opacity,unit.extension,unit.fx,!!unit.fx);
   if(fx)kingFx.front(ctx,fx);
  }
  for(const draw of late)draw();
@@ -705,6 +896,7 @@ function drawEncounter(a,t) {
   setPosition(next){endMove();position=next;aimAngle=0;wake();},
   setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
   setAim(sq){aimSquare=sq;wake();},
+  // (The contact shadows are kept: no sprite depends on the side shown.)
   setFlipped(on){flipped=on;idle.clear();wake();},
   /** [white, black] king designs ('frost' … 'shadow'): each side's king figure. */
   setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;kings=[...next];for(const design of kings){kingImage(design).loaded.catch(()=>{});if(lively.kings)kingFx.has(design);}wake();},

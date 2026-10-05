@@ -469,6 +469,8 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
    if(s.design==='shadow'){const l=shadowLayers(s.side);return l?{...s.pose,sheet:l.body}:s.pose;}
    // The charcoal Spirit: his black aura takes the place of the army's pale readability rim.
    if(s.design==='spirit'&&s.side===1)return {...s.pose,rim:1-.85*s.k};
+   // lit: this figure lights its own floor, 0–1 (the scene fades his contact shadow by it): the ivory Spirit.
+   if(s.design==='spirit')return {...s.pose,lit:.65*s.k};
    if(s.design!=='stratus')return s.pose;
    const p=s.pose,lift=hoverAt(figureClock(s),s.k),ground=p.ground??p.foot;
    return {...p,ground,foot:{x:p.foot.x,y:p.foot.y-lift},lift:(p.lift??0)+lift,shadow:(p.shadow??1)*(1-.045*lift)};

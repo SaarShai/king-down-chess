@@ -1,5 +1,15 @@
 # Tasks
 
+## Contact shadows under the pieces — 2026-10-05 (waiting for the owner's approval)
+- Owner: "the shadow oval effect at the bottom of the pieces is not well implemented. please figure out the best-looking implementation and execute."
+- What was wrong: every piece had the same faint grey oval, sized by scale only (the pawn and the queen's dress got about the same), a little to the right of the feet, with no dark contact at the soles; on dark wood it was almost gone (8–25% darkening at the feet).
+- [x] Three designs were prototyped and judged (art, readability, engineering); the winner, with the best parts of the second grafted on, is on branch `claude/piece-shadows` (on `claude/king-effects`; not merged, not deployed). `scene.mjs` only, plus one line in `king-effects.mjs` (`lit` on the ivory Spirit's pose).
+  - Each figure's shadow is made once from its own outline: a dark band under what touches the floor (each foot, a hem, a tower base; a raised back foot too), a soft pool as wide as that contact, and a short cast down and to the right, away from the board's light. Drawn with multiply, deeper on dark wood (read from the board art, so it follows a flipped board).
+  - In the air (hop, leap, the Stratus hover) the contact goes first and a soft oval stays on the floor where the piece will land; a toppled or fallen figure keeps a pool along its body.
+  - All shadows are drawn on the floor before any figure, so a moving piece's shadow never darkens a figure in front of it. The ivory Spirit lights his own floor (no dark ring inside his glow).
+  - Measured at the feet (desktop board): dark squares 50–74% darkening (was 8–25%), light squares 35–57% (was 22–35%); nothing outside the occupied squares or on the frame. Cost: JavaScript +0.02–0.06 ms a frame, GPU and software raster within noise; the outlines are read once, in idle time after the first frame (about 50 ms on this Mac, 150 ms at 4× CPU throttle), and kept across a board flip. Atmosphere off is byte-identical.
+- [ ] Owner: approve, change or drop. Before/after: `sim/out/previews/shadow-compare.png` (main checkout).
+
 ## The six kings' own effects on the painted board — 2026-10-04 (waiting for the owner's approval)
 - Owner: "the kings themselves, on the board, should each have an effect: flame should have lava running between his cracks. frost should have ice flakes falling down. stratus should hover up and down. mud should have grass growing and retreating from it. spirit should have glowing light dimming and increasing. shadow should have black skeleton hands reaching up on the square he is on."
 - Owner (same day): "show me the animations before adding them. i want to approve." So the work stays on branch `claude/king-effects` (not merged, not deployed) until the owner approves.
