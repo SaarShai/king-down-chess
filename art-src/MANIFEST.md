@@ -224,6 +224,19 @@ The 15 polypainted ZBrush tools do **not** fit the budget: 1.6 GB for the set al
 The card **back** exists only as `final art/Cards/AI/back-template.ai` (16.5 MB) with no PDF export.
 It was not kept. The print packs were skipped by instruction.
 
+**Generated 2026-10-03** (`generated/`, 7 PNG, 1254×1254, opaque; each with its `.prompt.txt`): art for the cards with no 2014 illustration, in the style of `illus_03`, `illus_04`, `illus_08` and `illus_09`.
+
+| File | Source | Size | Why kept | Licence note |
+|---|---|---:|---|---|
+| `generated/freeze.png` | — (made 2026-10-03) | 2.2 MB | FREEZE: a war horse frozen in ice | generated with Codex image_gen on the owner's plan, from four 2014 illustrations as reference |
+| `generated/icewall.png` | — (made 2026-10-03) | 2.0 MB | ICE WALL: a wall of ice crystals stops arrows | generated with Codex image_gen on the owner's plan, from four 2014 illustrations as reference |
+| `generated/march.png` | — (made 2026-10-03) | 2.1 MB | MARCH: a war drum before a column of spears | generated with Codex image_gen on the owner's plan, from four 2014 illustrations as reference |
+| `generated/mimic.png` | — (made 2026-10-03) | 1.8 MB | MIMIC: a cloaked figure with a horse's shadow | generated with Codex image_gen on the owner's plan, from four 2014 illustrations as reference |
+| `generated/vault.png` | — (made 2026-10-03) | 2.1 MB | VAULT: a stag leaps a stone wall | generated with Codex image_gen on the owner's plan, from four 2014 illustrations as reference |
+| `generated/skylift.png` | — (made 2026-10-03) | 2.0 MB | SKY LIFT: a whirlwind swaps two towers | generated with Codex image_gen on the owner's plan, from four 2014 illustrations as reference |
+| `generated/back.png` | — (made 2026-10-03) | 2.1 MB | the card back: a gold crown on navy filigree (square; crop or extend for a portrait card) | generated with Codex image_gen on the owner's plan, from four 2014 illustrations as reference |
+
+The 2014 art covers Strike (`illus_08`), Haste (`illus_04`), Flight (`illus_03`), Curse (`illus_09`), Leap (`leap.jpg`) and Sacrifice (`sacrifice.jpg`).
 ## rules — 7 files, 221.4 MB
 
 | File | Source Drive path | Size | Why kept | Licence note |
