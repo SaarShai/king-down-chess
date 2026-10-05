@@ -147,6 +147,7 @@ const ARCHER_SHOT_TEXT: Record<string, string> = {
   over2: 'Shoots without moving: an enemy exactly 2 squares away orthogonally, or on either forward diagonal at distance 2, only over a piece on the square between.',
   nearOver2: 'Shoots without moving: an enemy diagonally adjacent, or exactly 2 squares away orthogonally or on either forward diagonal, only over a piece on the square between.',
   fwdNearOver2: 'Shoots without moving: an enemy on either forward diagonal next to it, or exactly 2 squares away orthogonally or on either forward diagonal, only over a piece on the square between.',
+  over23: 'Shoots without moving: an enemy 2 or 3 squares away orthogonally or on either forward diagonal, only over exactly one piece on the squares between.',
 };
 
 /** Chess pieces always; fairies in POOL or the fixed set A L G M S O. */

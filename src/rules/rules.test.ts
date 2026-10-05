@@ -825,6 +825,44 @@ describe('rule toggles', () => {
     expect(searchLegal(screen).some(m => m.from === parseSq('b5') && m.to === parseSq('d4'))).toBe(false);
   });
 
+  it('archerShots: over23, over2 at distance 2 or 3, over exactly one piece, for both colours (2026-10-05)', () => {
+    const shots = (pos: Position, from: string) => lan(pos, movesFrom(pos, from)).filter(x => x.includes('*')).map(x => x.slice(4)).sort();
+    // From d4: a4 over b4 alone, f4 over e4, d1 over d2 (d3 empty), a7 over c5 (b6 empty). Not g4 (two
+    // screens), d7 and g7 (none), d2 (nothing on d3).
+    const w = fromFen('7k/p2p2p1/8/2p5/pP1ANpp1/8/3p4/3n3K w - - 0 1');
+    const b = fromFen('3N3k/3P4/8/Pp1anPP1/2P5/8/P2P2P1/7K b - - 0 1'); // the same, mirrored for Black
+    setRules({ archerShots: 'over23' });
+    expect(shots(w, 'd4')).toEqual(['a4', 'a7', 'd1', 'f4']);
+    expect(shots(b, 'd5')).toEqual(['a2', 'a5', 'd8', 'f5']);
+    crossCheckAttacks(164, 300);
+    // Check at distance 3 needs exactly one screen of either colour, and only forward on the diagonals.
+    expect(inCheck(fromFen('8/8/8/8/3k4/8/8/K2A4 b - - 0 1'))).toBe(false);
+    expect(inCheck(fromFen('8/8/8/8/3k4/8/3p4/K2A4 b - - 0 1'))).toBe(true);
+    expect(inCheck(fromFen('8/8/8/8/3k4/3P4/8/K2A4 b - - 0 1'))).toBe(true);
+    expect(inCheck(fromFen('8/8/8/8/3k4/3p4/3p4/K2A4 b - - 0 1'))).toBe(false);
+    expect(inCheck(fromFen('8/8/8/8/3k4/2p5/8/A6K b - - 0 1'))).toBe(true);
+    expect(inCheck(fromFen('8/8/8/8/3k4/2p5/1p6/A6K b - - 0 1'))).toBe(false);
+    expect(inCheck(fromFen('8/8/8/8/6A1/5p2/8/3k3K b - - 0 1'))).toBe(false); // a backward diagonal
+    expect(inCheck(fromFen('3a4/3p4/8/3K4/8/8/8/7k w - - 0 1'))).toBe(true); // Black shoots down the board
+    expect(inCheck(fromFen('8/8/8/4k3/3A4/8/8/K7 b - - 0 1'))).toBe(false); // no shot next to it
+    // over2's two-square shots stay as they were.
+    expect(inCheck(fromFen('8/8/8/4k3/8/2A5/8/K7 b - - 0 1'))).toBe(false);
+    expect(inCheck(fromFen('8/8/8/4k3/3p4/2A5/8/K7 b - - 0 1'))).toBe(true);
+    // Two screens: either one leaving opens the shot, so the knight on d3 cannot move.
+    const pair = fromFen('8/8/8/8/3k4/3n4/3p4/K2A4 b - - 0 1');
+    expect(movesFrom(pair, 'd3')).toEqual([]);
+    expect(searchLegal(pair).some(m => m.from === parseSq('d3'))).toBe(false);
+    // No screen: a piece may not step in as the one screen.
+    const stepIn = fromFen('8/8/8/8/3k4/8/8/Kn1A4 b - - 0 1');
+    expect(movesFrom(stepIn, 'b1').some(m => m.to === parseSq('d2'))).toBe(false);
+    expect(searchLegal(stepIn).some(m => m.from === parseSq('b1') && m.to === parseSq('d2'))).toBe(false);
+    // Under over2 the same squares are out of reach.
+    setRules({ archerShots: 'over2' });
+    expect(shots(w, 'd4')).toEqual(['f4']);
+    expect(movesFrom(pair, 'd3')).toHaveLength(8);
+    expect(movesFrom(stepIn, 'b1').some(m => m.to === parseSq('d2'))).toBe(true);
+  });
+
   it('guardCaptures=pawns (lab): it clears pawns only, gives no check either way and still cannot mate', () => {
     const pos = fromFen('7k/8/8/8/3pn3/3G4/8/K7 w - - 0 1');
     expect(movesFrom(pos, 'd3').some(m => m.captures.length)).toBe(false); // the shipped wall

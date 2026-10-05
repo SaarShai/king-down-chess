@@ -378,9 +378,12 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // move that empties it leaves a line through the king, so it is tested.
   // A `plusDiagFwd2Clear` archer shot two squares diagonally is blocked by the square between,
   // which is diagonally next to our king: a move that empties it leaves a line through the king, and
-  // one that fills it only blocks. An `overShots` archer shoots only over a piece on the square between, which
-  // is next to our king: a move that fills it can open the shot, so, like a catapult's screen, a move
-  // arriving on a line through the king is tested while an enemy archer stands on the board. The other archer shots ignore blockers and the leapers are never blocked,
+  // one that fills it only blocks. An `overShots` archer shoots only over exactly one piece on the squares
+  // between, which lie on a line through our king: a move that fills one can open the shot, so, like a
+  // catapult's screen, a move arriving on a line through the king is tested while an enemy archer stands
+  // on the board. An `over23` shot over two pieces opens when one of them leaves or is taken: that empties
+  // a square on a line through the king (the mover's `from` or a capture), so it is tested already.
+  // The other archer shots ignore blockers and the leapers are never blocked,
   // so nothing else can change an attack on the king — except a Curse, which moves an *enemy* piece
   // that may arrive attacking it. `setFastLegality(false)` turns this off for the cross-check test.
   const k = board.indexOf(piece(K, c));
