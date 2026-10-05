@@ -4,7 +4,7 @@ Run after changing any sheet:  python3 docs/2d-first-pieces/web-art.py"""
 from pathlib import Path
 from PIL import Image
 here = Path(__file__).parent
-SHEETS = ['king/king', 'beast/beast', 'queen/queen', 'paladin/paladin', 'maester/maester', 'lance/pawn',
+SHEETS = ['king-frost/king', 'king-flame/king', 'king-stratus/king', 'king-mud/king', 'king-spirit/king', 'king-shadow/king', 'beast/beast', 'queen/queen', 'paladin/paladin', 'maester/maester', 'lance/pawn',
           'wrist-bow/archer', 'ogre/ogre', 'knight/knight', 'bishop/bishop', 'rook/rook', 'guard/guard']
 for name in SHEETS:
     Image.open(here / f'{name}.png').save(here / f'{name}.webp', 'WEBP', quality=82, method=6)

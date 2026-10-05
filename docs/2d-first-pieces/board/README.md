@@ -134,7 +134,7 @@ Verify: `node docs/2d-first-pieces/board/capture-strikes.mjs` (with the 5192 ser
 
 ## King and Beast — 2026-09-26
 
-The cast is now twelve per army. The King is the Frost King, the game's default king design; the Beast keeps his steel muzzle-mask, harness and crest. Both were made with Codex's built-in image generation from the original painted references, with the Knight as the style reference; prompts and provenance are in [../king/](../king/) and [../beast/](../beast/). The first Beast was rejected (snout crossed the army seam; orange mouth and brown straps overpowered the army colour); the second was accepted after a pixel-exact recentring of each figure in its cell.
+The cast is now twelve per army. The King has six sheets, one per king (`king-frost/` … `king-shadow/`); the game draws the king each side plays, Spirit (White) and Shadow (Black) when no king is chosen, and the trial and trailer draw the Frost King. The Beast keeps his steel muzzle-mask, harness and crest. Both were made with Codex's built-in image generation from the original painted references, with the Knight as the style reference; prompts and provenance are in [../king-frost/](../king-frost/) and [../beast/](../beast/). The first Beast was rejected (snout crossed the army seam; orange mouth and brown straps overpowered the army colour); the second was accepted after a pixel-exact recentring of each figure in its cell.
 
 - **King guard:** Ivory King c4 captures c5. Kings move and capture one square; no check or king powers in this trial.
 - **Beast chain:** select Ivory Beast d4. Each chain appears as its own action (for example *Chain d5 → e6 → f5*); the Beast bites each victim in order and stops on the last. Single bites work as before.

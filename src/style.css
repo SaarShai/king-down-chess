@@ -131,6 +131,7 @@ body:has(#board.king-in-check) #turn { color: var(--danger); }
 #status, #moment { margin-top: 2px; }
 #info { margin-top: 2px; max-width: 34ch; font-size: var(--fs-sm); line-height: 1.45; color: var(--ink); }
 #info b { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.04em; text-transform: capitalize; }
+#info b .pi { width: 22px; height: 22px; margin-right: 1px; vertical-align: -6px; }
 #asset-status:empty, #turn:empty, #status:empty, #moment:empty, #info:empty { display: none; }
 
 /* ---- right rail ---- */
@@ -150,6 +151,13 @@ section { display: flex; flex-direction: column; gap: var(--space-2); }
   width: 22px; height: 22px; flex: none;
   fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
 }
+/* Piece icons from the 2017 rulebook (src/piece-icons.ts): ring and glyph in currentColor, the disc in
+   --pi-disc (the rulebook's blue-grey when unset), the glyph in --pi-glyph when set. One per army:
+   White a pale disc in an ink ring; Black a charcoal disc and a pale glyph in a ring a little lighter
+   than the disc, so it reads as a ring at 16-32 px and not as a solid coin. */
+.pi { display: inline-block; width: 1.4em; height: 1.4em; flex: none; vertical-align: -0.35em; color: var(--ink); stroke: none; }
+.pi-w { --pi-disc: #fffcf4; }
+.pi-b { --pi-disc: #4a4850; --pi-ring: #6e6a74; --pi-glyph: var(--parchment); }
 
 /* ---- controls ---- */
 button, select, input { font: inherit; color: var(--ink); }
@@ -237,10 +245,15 @@ body.in-lesson #moment {
   padding: 10px 12px; background: var(--vellum); border: 1px solid var(--stone-300);
   border-left: 4px solid var(--accent); border-radius: var(--radius-sm); box-shadow: var(--shadow-card);
 }
-#lesson-progress { display: flex; gap: 6px; }
-#lesson-progress span { flex: 1; height: 7px; border-radius: 4px; background: var(--stone-300); }
-#lesson-progress .done { background: var(--accent); }
-#lesson-progress .now { background: var(--gold); box-shadow: 0 0 0 1px var(--gold-ink); }
+/* The six lessons as the icons of the pieces they teach, on one track: done in burgundy, the
+   current one ringed in gold, the rest in stone. */
+#lesson-progress { position: relative; display: flex; justify-content: space-between; align-items: center; }
+#lesson-progress::before { content: ''; position: absolute; left: 15px; right: 15px; top: calc(50% - 1px); height: 2px; background: var(--stone-300); }
+#lesson-progress span { position: relative; display: grid; border-radius: 50%; }
+#lesson-progress .pi { width: 30px; height: 30px; color: var(--stone-500); --pi-disc: var(--stone-100); --pi-glyph: var(--stone-500); }
+#lesson-progress .done .pi { color: var(--accent); --pi-disc: var(--vellum); --pi-glyph: var(--accent); }
+#lesson-progress .now .pi { color: var(--ink); --pi-disc: #bccac8; --pi-glyph: var(--ink); }
+#lesson-progress .now { box-shadow: 0 0 0 2px var(--parchment), 0 0 0 4px var(--gold); }
 #selection-actions button { min-height: var(--tap); }
 #info:not(:empty) {
   padding: 8px 10px; background: rgba(251, 247, 238, 0.7);
@@ -274,6 +287,9 @@ body.in-lesson #moment {
 .taken b { flex: none; width: 78px; color: var(--ink-soft); font-weight: 400; }
 .taken span { overflow-wrap: anywhere; }
 .taken span:empty::before { content: '—'; color: var(--stone-500); }
+.took { display: inline-flex; align-items: center; margin-right: 6px; white-space: nowrap; font-weight: 700; color: var(--ink-soft); }
+.took .pi { width: 22px; height: 22px; }
+.took .pi + span { margin-left: 1px; }
 
 /* ---- dialogs ---- */
 dialog {
@@ -472,6 +488,11 @@ label.army select { width: 100%; font-weight: 400; }
   box-shadow: inset 0 0 0 1px rgba(77, 69, 60, 0.35);
 }
 .pc-art img { display: block; max-width: 100%; max-height: 116px; width: auto; height: auto; object-fit: contain; }
+.piece-card h3 .pi { width: 28px; height: 28px; margin-right: 2px; vertical-align: -6px; }
+.pool-piece { display: inline-flex; align-items: center; margin-right: 6px; white-space: nowrap; font-weight: 700; vertical-align: -6px; }
+.pool-piece .pi { width: 22px; height: 22px; }
+.pool-piece:last-of-type { margin-right: 0; }
+.promo button .pi { width: 20px; height: 20px; vertical-align: -5px; }
 .pc-medallion {
   display: grid; place-items: center; width: 64px; height: 64px; margin-bottom: 26px; border-radius: 50%;
   font-family: var(--font-display); font-size: 30px; font-weight: 700; color: var(--vellum);
@@ -511,11 +532,15 @@ label.army select { width: 100%; font-weight: 400; }
   -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
   mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
 }
-.title-fig { position: absolute; bottom: 7%; left: 50%; height: 62%; width: auto; filter: drop-shadow(0 14px 12px rgba(0, 0, 0, 0.55)); }
-.fig-2 { transform: translateX(-104%); }
-.fig-3 { transform: translateX(4%) scaleX(-1); }
-.fig-1 { height: 44%; bottom: 15%; transform: translateX(-215%); filter: brightness(0.72) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
-.fig-4 { height: 44%; bottom: 15%; transform: translateX(118%) scaleX(-1); filter: brightness(0.72) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
+/* The six kings: the centre two largest and nearest, the outer ones smaller, set back (higher) and dimmed. */
+.title-kings {
+  position: absolute; left: 50%; bottom: 7%; translate: -50% 0; height: min(62%, 25vw); width: max-content;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.title-kings img { flex: none; height: 100%; width: auto; margin: 0 -1.2%; filter: drop-shadow(0 14px 12px rgba(0, 0, 0, 0.55)); }
+.title-kings .tk-right { transform: scaleX(-1); }
+.title-kings .tk-inner { position: relative; z-index: -1; height: 82%; margin-bottom: 4%; filter: brightness(0.86) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
+.title-kings .tk-outer { position: relative; z-index: -2; height: 66%; margin-bottom: 8%; filter: brightness(0.72) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
 .title-copy { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4) max(6vh, 28px); text-align: center; }
 .wordmark {
   display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 0 0.28em;
@@ -532,11 +557,6 @@ label.army select { width: 100%; font-weight: 400; }
   width: 0.62em; height: 0.62em; margin-right: -0.12em; align-self: flex-start;
   fill: rgba(233, 192, 113, 0.28); stroke: #e9c071; stroke-width: 1.6; stroke-linejoin: round;
   transform: translateY(-0.05em) rotate(-28deg);
-}
-.tagline { margin: 0; font-size: var(--fs-lg); color: var(--on-night-soft); }
-.title-first {
-  margin: 0; padding: 6px 14px; border: 1px solid rgba(233, 192, 113, 0.6); border-radius: 999px;
-  background: rgba(243, 234, 215, 0.08); color: var(--on-night);
 }
 .title-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
 .title-actions button { width: auto; min-width: 200px; min-height: 52px; justify-content: center; font-size: var(--fs-lg); padding: 10px 22px; }
@@ -566,15 +586,19 @@ label.army select { width: 100%; font-weight: 400; }
   transition: translate 220ms cubic-bezier(.2, .8, .2, 1), filter 220ms;
 }
 .title-lineup span {
+  display: inline-flex; align-items: center; gap: 4px;
   margin-top: 6px; font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--on-night-soft); white-space: nowrap; transition: color 220ms;
 }
+/* On the night stone: a pale ring and glyph on a dark disc, gold under the pointer like the name. */
+.title-lineup .pi { width: 15px; height: 15px; color: inherit; --pi-disc: #2b2520; --pi-glyph: var(--on-night); }
 .title-lineup li:hover img { translate: 0 -6px; filter: drop-shadow(0 10px 7px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 10px rgba(233, 192, 113, 0.45)); }
 .title-lineup li:hover span { color: #e9c071; }
 @media (prefers-reduced-motion: no-preference) {
   #title-screen[open] .title-lineup li { animation: rise 520ms cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(260ms + var(--i) * 45ms); }
-  #title-screen[open] .title-fig { animation: rise 700ms cubic-bezier(.2, .8, .2, 1) both; }
-  #title-screen[open] .fig-1, #title-screen[open] .fig-4 { animation-delay: 120ms; }
+  #title-screen[open] .title-kings img { animation: rise 700ms cubic-bezier(.2, .8, .2, 1) both; }
+  #title-screen[open] .title-kings .tk-inner { animation-delay: 80ms; }
+  #title-screen[open] .title-kings .tk-outer { animation-delay: 160ms; }
   #title-screen[open] .title-copy { animation: fade 600ms ease-out 200ms both; }
 }
 @keyframes rise { from { opacity: 0; translate: 0 24px; } }
@@ -621,20 +645,21 @@ label.army select { width: 100%; font-weight: 400; }
   .piece-card dl { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .piece-card dd { margin-bottom: 4px; }
   #title-screen[open] { grid-template-rows: minmax(0, 1fr) auto auto; }
-  .title-fig { height: min(52%, 58vw); bottom: 8%; }
+  /* All six inside a 390 px screen with its 16 px gutters: smaller, overlapping a little more. */
+  .title-kings { height: min(52%, 32vw); bottom: 8%; }
+  .title-kings img { margin: 0 -2.4%; }
   /* Two rows of six on a phone, each on its own ledge line. */
   .title-lineup { --fig: 64px; flex-wrap: wrap; gap: 4px 0; width: min(100%, 380px); padding: 0 var(--space-3); }
   .title-lineup li { flex: 0 0 calc(100% / 6); max-width: none; padding-bottom: 2px; }
   .title-lineup::before, .title-lineup::after { display: none; }
   .title-lineup li::before {
-    content: ''; position: absolute; z-index: -1; left: 4%; right: 4%; bottom: 14px; height: 10px; border-radius: 50%;
+    content: ''; position: absolute; z-index: -1; left: 4%; right: 4%; bottom: 32px; height: 10px; border-radius: 50%; /* under the feet, above icon and name */
     background: radial-gradient(closest-side, rgba(10, 7, 4, 0.75), rgba(10, 7, 4, 0));
   }
-  .title-lineup span { margin-top: 3px; font-size: 9.5px; letter-spacing: 0.04em; }
-  .fig-1, .fig-4 { display: none; }
+  .title-lineup span { flex-direction: column; gap: 2px; margin-top: 3px; font-size: 9.5px; letter-spacing: 0.04em; }
+  .title-lineup .pi { width: 16px; height: 16px; }
   .title-actions { flex-direction: column; align-items: stretch; width: min(100%, 340px); }
   .title-actions button { min-width: 0; }
-  .tagline { font-size: var(--fs-md); }
 }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

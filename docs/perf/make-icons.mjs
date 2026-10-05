@@ -1,8 +1,8 @@
-/** Draws the app icons from the painted ivory Frost King (docs/2d-first-pieces/king/king.webp).
+/** Draws the app icons from the painted ivory Frost King (docs/2d-first-pieces/king-frost/king.webp).
  *  PLAYABLE_BROWSER=chromium node docs/perf/make-icons.mjs  →  public/icons/*.png */
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'node:fs';
-const art = 'data:image/webp;base64,' + readFileSync(new URL('../2d-first-pieces/king/king.webp', import.meta.url)).toString('base64');
+const art = 'data:image/webp;base64,' + readFileSync(new URL('../2d-first-pieces/king-frost/king.webp', import.meta.url)).toString('base64');
 // Head, crown and shoulders of the left (ivory) figure, in source pixels; the maskable icon zooms out
 // so the crown stays inside the 80 % safe circle.
 const ICONS = [

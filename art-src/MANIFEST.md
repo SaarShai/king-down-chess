@@ -252,6 +252,20 @@ The 2014 art covers Strike (`illus_08`), Haste (`illus_04`), Flight (`illus_03`)
 None of these is duplicated in `docs/`; `docs/` holds no PDF. The editable `.ai` sources of the
 2015 books (1.9 GB) stay on the Drive.
 
+**Derived: the piece icons** (`public/ui/icons/*.svg`, 2026-10-04). Each piece paragraph of
+`King Down Classic (rules) .ai` has a round icon (black ring, blue-grey disc, black glyph), stored
+as vector paths. `tools/extract-piece-icons.py` copies those paths into one 48-unit SVG per piece,
+with no tracing; the glyph moves at most 1.4 units to centre it. The same icons, in speech bubbles,
+are in `Chess Expansion Concept.ai`; this book's are the source.
+
+| Icon | Page of `King Down Classic (rules) .ai` |
+|---|---|
+| pawn, knight | 2 |
+| bishop, rook, queen, archer | 3 |
+| paladin, guard, maester, beast | 4 |
+| king | 5 |
+| ogre | none: the book has no Ogre. Drawn by hand in the same format (2026-10-04): option B, the face, the owner's choice; the unused options are in `docs/visual-design/piece-icons/` |
+
 ## video — 1 file, 148.4 MB
 
 | File | Source Drive path | Size | Why kept | Licence note |

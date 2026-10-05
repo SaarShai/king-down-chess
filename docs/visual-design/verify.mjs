@@ -34,7 +34,8 @@ try {
   // 1. Title screen: a first visit leads with the lessons.
   let page = await open('', { skipTitle: false });
   assert.equal(await titleOpen(page), true, 'title on a first visit');
-  assert.equal(await page.locator('#title-first').isVisible(), true);
+  assert.equal(await page.locator('#title-learn').evaluate(b => b.classList.contains('primary') && !b.previousElementSibling), true, 'Learn leads, first, on a first visit');
+  assert.equal(await page.locator('.title-kings img').evaluateAll(imgs => imgs.filter(i => i.complete && i.naturalWidth && i.checkVisibility()).length), 6, 'the six kings on the title');
   assert.equal(await page.locator('#title-continue').isVisible(), false, 'no Continue without a saved game');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'title-learn', 'Learn has the focus on a first visit');
   await page.click('#title-learn');
@@ -50,7 +51,7 @@ try {
   page = await open('', { skipTitle: false, save });
   assert.equal(await page.locator('#title-continue').isVisible(), true);
   assert.match(await page.locator('#title-continue').innerText(), /Continue · move 2/);
-  assert.equal(await page.locator('#title-first').isVisible(), false);
+  assert.equal(await page.locator('#title-learn').evaluate(b => b.classList.contains('primary')), false, 'Learn does not lead for a returning player');
   await page.click('#title-continue');
   assert.equal(await titleOpen(page), false);
   assert.match(await page.locator('#moves').innerText(), /e2-e4/);

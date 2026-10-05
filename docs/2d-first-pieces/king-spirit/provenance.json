@@ -1,0 +1,13 @@
+{
+  "tool": "Codex built-in image_gen via codex exec",
+  "date": "2026-10-04",
+  "output": "king.png",
+  "sha256": "62a9af5223ab48a45d0103c525359375eca45ea36a7b39ddd5aa93d902665b98",
+  "generated_source": "/Users/za/.codex/generated_images/01a107cc-4bea-7311-a248-794120079630/exec-ebe023d7-54c2-491b-b201-12f92636dac8.png",
+  "original_source": "art-src/pieces/final-ivory/Spirit_king_color.png",
+  "style_reference": "../knight/knight.png",
+  "prompts": [
+    "prompt.txt"
+  ],
+  "treatment": "Unmodified generated PNG. Accepted on the first generation."
+}

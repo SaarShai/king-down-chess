@@ -1,5 +1,7 @@
 // Types for scene.mjs, so the game's TypeScript can import the shared painted scene.
 export const SIZE: number, PAD: number, TILE: number;
+/** A king sheet: docs/2d-first-pieces/king-<design>/. */
+export type KingDesign = 'frost' | 'flame' | 'stratus' | 'mud' | 'spirit' | 'shadow';
 export interface ScenePieces {
   P: number; N: number; B: number; R: number; Q: number; K: number; S: number; L: number; M: number; G: number; A: number; O: number;
   typeOf(piece: number): number;
@@ -21,6 +23,11 @@ export interface PaintedScene {
   setSelected(square: number | null): void;
   setAim(square: number | null): void;
   setFlipped(on: boolean): void;
+  /** [white, black]: the king design each side's King is drawn with; a sheet not yet loaded loads now. */
+  setKings(kings: readonly [KingDesign, KingDesign]): void;
+  readonly kings: KingDesign[];
+  /** The design each side's King was last drawn with (null: not drawn yet). */
+  readonly drawnKings: (KingDesign | null)[];
   setCoords(on: boolean, size?: number): void;
   setLabels(on: boolean): void;
   setReducedMotion(on: boolean): void;
@@ -33,7 +40,11 @@ export interface PaintedScene {
    * atmosphere: a stone frame, soft contact shadows and warm light on the board.
    */
   setLively(options: { moves?: boolean; idle?: boolean; atmosphere?: boolean }): void;
-  setDecorate(fn: ((ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over') => void) | null): void;
+  /**
+   * 'under': once, below every figure. 'over': once per screen row (0 = top) after that row's figures,
+   * so a figure in a lower row stands in front of the markers behind it.
+   */
+  setDecorate(fn: ((ctx: CanvasRenderingContext2D, scene: PaintedScene, layer: 'under' | 'over', row?: number) => void) | null): void;
   redraw(): void;
   /** Draw every frame for the next `ms` milliseconds (a decoration's own short animation). */
   keepAwake(ms: number): void;
@@ -50,4 +61,6 @@ export function createScene(options: {
   closeup?: { panel: HTMLElement; title: HTMLElement; ctx: CanvasRenderingContext2D } | null;
   onStatus?: (text: string) => void;
   headroom?: number;
+  /** [white, black] king designs to start with; default Frost for both (the trial and the trailer). */
+  kings?: readonly [KingDesign, KingDesign];
 }): PaintedScene;

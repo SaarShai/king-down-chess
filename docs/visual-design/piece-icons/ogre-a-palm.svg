@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="icon" viewBox="0 0 48 48">
+<!-- King Down piece icon: ogre. Drawn by hand for King Down Chess, 2026-10-04 (option A: an open palm that pushes, with the cuff); the rulebook had no Ogre icon. -->
+<circle cx="24" cy="24" r="21.5" style="fill:var(--pi-disc,#bccac8)"/>
+<circle cx="24" cy="24" r="21.49" fill="none" stroke-width="5.02" style="stroke:var(--pi-ring,currentColor)"/>
+<g fill-rule="evenodd" style="fill:var(--pi-glyph,currentColor)"><path d="M14.11 26.14L12.18 15.21A2.1 2.1 0 0 1 16.32 14.48L18.24 25.41Z"/><path d="M19.9 24.64L19.12 11.57A2.1 2.1 0 0 1 23.31 11.32L24.09 24.39Z"/><path d="M25.86 24.35L26.59 12.07A2.1 2.1 0 0 1 30.78 12.32L30.05 24.6Z"/><path d="M31.57 25.25L33.29 15.5A2.1 2.1 0 0 1 37.43 16.23L35.71 25.98Z"/><path d="M16.25 20.54H34.45L34.05 28.74C33.85 31.74 31.85 33.34 28.85 33.34H22.25C19.25 33.34 17.25 31.74 17.05 28.74Z"/><path d="M22 27.23L14 19.03A2.45 2.45 0 0 0 10.5 22.45L18.5 30.65Z"/><path d="M17.65 34.64H33.25A0.8 0.8 0 0 1 34.05 35.44V37.44A0.8 0.8 0 0 1 33.25 38.24H17.65A0.8 0.8 0 0 1 16.85 37.44V35.44A0.8 0.8 0 0 1 17.65 34.64Z"/></g>
+</svg>

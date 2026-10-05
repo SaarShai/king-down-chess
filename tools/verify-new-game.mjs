@@ -33,6 +33,10 @@ const checked = (page, name) => page.evaluate(n => document.querySelector(`#new-
 const pressed = (page, c) => page.evaluate(c => [...document.querySelectorAll(`#pick-${c} [aria-pressed="true"]`)].map(b => b.dataset.king ?? b.dataset.power), c);
 const powerLine = (page, c) => page.textContent(`#pick-${c} .power-text`);
 const shown = (page, id) => page.isVisible(`#${id}`);
+/** The painted board draws each side's King with that king's sheet: waits until both are drawn as `kings`. */
+const kingsDrawn = (page, kings) => page.waitForFunction(k => {
+  const v = window.view.kings; return v && [...v.set, ...v.drawn].join() === [...k, ...k].join();
+}, kings, { timeout: 10000 });
 const info = (page, re) => page.waitForFunction(r => new RegExp(r, 's').test(document.getElementById('info').textContent), re.source, { timeout: 10000 });
 
 try {
@@ -96,7 +100,8 @@ try {
   assert.deepEqual([s.white, s.black, s.skill, s.rules.kings], ['human', 'ai', 'club', [null, null]]);
   assert.match(s.back, /^[A-Z]{8}$/);
   assert.equal(await page.isHidden('#powers'), true, 'no power bar');
-  ok('Play the computer: White against the Club computer, kings without powers');
+  await kingsDrawn(page, ['spirit', 'shadow']);
+  ok('Play the computer: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
 
   // As Black against the beginner: the computer opens and the board turns round.
   await startGame(page, { mode: 'computer', level: 'beginner', side: 'black', army: 'classic' });
@@ -118,6 +123,7 @@ try {
   s = await saved(page);
   assert.deepEqual(s.rules.kings, [{ king: 'Mud', power: 'March' }, null]);
   await info(page, /White's king: March — .*Black's king: no power/);
+  await kingsDrawn(page, ['mud', 'shadow']); // a king with no power is drawn as the plain king
   ok("Kings' powers: Spirit Holy Light and Shadow Death Touch by default; Mud March against a king with no power");
 
   // 4. Two players: both sides on this device; the Kings' powers box adds the picker.
@@ -134,7 +140,8 @@ try {
   s = await saved(page);
   assert.deepEqual([s.white, s.black], ['human', 'human']);
   assert.deepEqual(s.rules.kings, [{ king: 'Flame', power: 'Haste' }, { king: 'Stratus', power: 'Flight' }]);
-  ok("Two players: two people; with the Kings' powers box, Flame Haste against Stratus Flight");
+  await kingsDrawn(page, ['flame', 'stratus']); // the chosen kings, each in its army's colour
+  ok("Two players: two people; with the Kings' powers box, Flame Haste against Stratus Flight, drawn as Flame and Stratus");
 
   // 5. The dialog remembers the last game's setup across a reload.
   await page.reload(); await page.waitForFunction(() => window.view?.ready);

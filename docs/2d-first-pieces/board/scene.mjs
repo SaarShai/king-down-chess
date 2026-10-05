@@ -15,7 +15,9 @@ import {BLOW,blows,tiltAt,footAt,stopPoint} from './blows.mjs';
 import {GAITS,GAIT_OF,idleAt} from './gait.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 // One literal URL per image: bundlers resolve and copy each file (a template string would not).
-const ART_FILES={king:new URL('../king/king.webp',import.meta.url).href,beast:new URL('../beast/beast.webp',import.meta.url).href,queen:new URL('../queen/queen.webp',import.meta.url).href,paladin:new URL('../paladin/paladin.webp',import.meta.url).href,maester:new URL('../maester/maester.webp',import.meta.url).href,pawn:new URL('../lance/pawn.webp',import.meta.url).href,archer:new URL('../wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../ogre/ogre.webp',import.meta.url).href,knight:new URL('../knight/knight.webp',import.meta.url).href,bishop:new URL('../bishop/bishop.webp',import.meta.url).href,rook:new URL('../rook/rook.webp',import.meta.url).href,guard:new URL('../guard/guard.webp',import.meta.url).href};
+const ART_FILES={beast:new URL('../beast/beast.webp',import.meta.url).href,queen:new URL('../queen/queen.webp',import.meta.url).href,paladin:new URL('../paladin/paladin.webp',import.meta.url).href,maester:new URL('../maester/maester.webp',import.meta.url).href,pawn:new URL('../lance/pawn.webp',import.meta.url).href,archer:new URL('../wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../ogre/ogre.webp',import.meta.url).href,knight:new URL('../knight/knight.webp',import.meta.url).href,bishop:new URL('../bishop/bishop.webp',import.meta.url).href,rook:new URL('../rook/rook.webp',import.meta.url).href,guard:new URL('../guard/guard.webp',import.meta.url).href};
+// One sheet per king design (court.KING_DESIGNS); a side draws the king it plays (setKings).
+const KING_FILES={frost:new URL('../king-frost/king.webp',import.meta.url).href,flame:new URL('../king-flame/king.webp',import.meta.url).href,stratus:new URL('../king-stratus/king.webp',import.meta.url).href,mud:new URL('../king-mud/king.webp',import.meta.url).href,spirit:new URL('../king-spirit/king.webp',import.meta.url).href,shadow:new URL('../king-shadow/king.webp',import.meta.url).href};
 // Painted stone board inspired by the original King Down board's capital (board-art/README.md).
 const BOARD_ART=new URL('../board-art/stone-board.webp',import.meta.url).href;
 /**
@@ -23,20 +25,35 @@ const BOARD_ART=new URL('../board-art/stone-board.webp',import.meta.url).href;
  * closeup: optional {panel,title,ctx} for steep Archer shots; without it the Archer shoots on the board.
  * onStatus: narration hook for contact moments.
  * headroom: extra canvas pixels above the board for tall back-rank figures (canvas height = SIZE+headroom).
- * setDecorate(fn): fn(ctx, scene, 'under'|'over') draws markers below and above the figures.
+ * setDecorate(fn): fn(ctx, scene, 'under') draws markers below the figures; fn(ctx, scene, 'over', row) is called
+ * for each screen row 0–7 (top to bottom), after that row's figures and before the rows in front.
+ * kings: [white, black] king designs (court.KING_DESIGNS); the trial and the trailer keep the Frost King.
  */
-export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0}) {
+export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost']}) {
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
  const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
  const ART={[K]:'king',[S]:'beast',[Q]:'queen',[L]:'paladin',[M]:'maester',[P]:'pawn',[A]:'archer',[O]:'ogre',[N]:'knight',[B]:'bishop',[R]:'rook',[G]:'guard'};
- const art=Object.fromEntries(Object.keys(ART).map(type=>[type,new Image()]));
+ const art=Object.fromEntries(Object.keys(ART).filter(type=>+type!==K).map(type=>[type,new Image()]));
+ // King sheets load on demand: the two in play before the scene is ready, others when a side picks them.
+ const kingArt={}, drawnKings=[null,null];
+ let kings=[...initialKings];
+ function kingImage(design){
+  let entry=kingArt[design];
+  if(!entry){
+   const image=new Image();
+   entry=kingArt[design]={image:null,loaded:new Promise((resolve,reject)=>{image.onload=()=>{entry.image=image;wake();resolve();};image.onerror=reject;})};
+   image.src=KING_FILES[design];
+  }
+  return entry;
+ }
  const boardArt=new Image();
- const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.106,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
+ const specs={ [P]:{anchor:{x:330,y:870},hit:{x:327,y:556},pivot:{x:430,y:521},scale:.132,min:pawn.MIN_ANGLE,max:pawn.MAX_ANGLE}, [A]:{anchor:{x:382,y:1066},hit:{x:344,y:424},scale:.1166,min:archer.MIN_ANGLE,max:archer.MAX_ANGLE} };
 specs[O]={anchor:ogre.ANCHOR,hit:ogre.HIT,scale:.155};
 specs[N]={anchor:knight.ANCHOR,hit:knight.HIT,scale:.125};
 const newMotions={ [B]:bishop,[R]:rook,[G]:guard };
-for(const [type,scale] of [[B,.13],[R,.155],[G,.12]])specs[type]={anchor:newMotions[type].ANCHOR,hit:newMotions[type].HIT,scale};
+// Owner 2026-10-04: the Guard and the Archer 10% larger on the board (.12 → .132, .106 → .1166).
+for(const [type,scale] of [[B,.13],[R,.155],[G,.132]])specs[type]={anchor:newMotions[type].ANCHOR,hit:newMotions[type].HIT,scale};
 const courtNames={[Q]:'queen',[L]:'paladin',[M]:'maester',[K]:'king',[S]:'beast'};
 for(const [type,name] of Object.entries(courtNames)){
  specs[type]={anchor:court.ANCHOR,hit:court.HIT,scale:court.figures[name].scale};
@@ -79,16 +96,21 @@ function aimed(value,pose,target) {
  return {...pose,angle:clamp(raw,spec.min,spec.max),outside:raw<spec.min-.01||raw>spec.max+.01};
 }
 function sprite(value,angle=0,extension=0) {
- const type=typeOf(value),side=colorOf(value),key=`${type}:${side}`;
+ const type=typeOf(value),side=colorOf(value),design=type===K?kings[side]:null,key=design?`${type}:${side}:${design}`:`${type}:${side}`;
  if(!ART[type])return token(value);
+ const image=design?kingImage(design).image:art[type];
+ if(design&&!image)return blank;
+ if(design)drawnKings[side]=design;
  const staticPose=Math.abs(angle)<.00001&&Math.abs(extension)<.0001;
  let canvas=staticPose?idle.get(key):work.get(type);
  if(canvas&&staticPose)return canvas;
  if(!canvas){canvas=document.createElement('canvas');canvas.width=1152;canvas.height=1152;(staticPose?idle:work).set(staticPose?key:type,canvas);}
- if(type===L&&angle)court.drawPaladinSwing(canvas,art[type],side,angle);else if(type===S&&angle)court.drawBeastBite(canvas,art[type],side,angle);else if(type===B&&angle)bishop.drawSlash(canvas,art[type],side,angle);else if(courtNames[type])court.drawCourt(canvas,art[type],courtNames[type],side,extension);else if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else if(type===N)knight.drawKnight(canvas,art[type],side,extension);else if(type===B)bishop.drawBishop(canvas,art[type],side,extension);else if(type===R&&angle)rook.drawRookPound(canvas,art[type],side,angle);else if(type===R)rook.drawRook(canvas,art[type],side,extension);else if(type===G)guard.drawGuard(canvas,art[type],side,extension);else pawn.drawPawn(canvas,art[type],side,angle,extension);
+ if(type===L&&angle)court.drawPaladinSwing(canvas,art[type],side,angle);else if(type===S&&angle)court.drawBeastBite(canvas,art[type],side,angle);else if(type===B&&angle)bishop.drawSlash(canvas,art[type],side,angle);else if(design)court.drawCourt(canvas,image,`king-${design}`,side,extension);else if(courtNames[type])court.drawCourt(canvas,art[type],courtNames[type],side,extension);else if(type===A)archer.drawArcher(canvas,art[type],side,angle);else if(type===O)ogre.drawOgre(canvas,art[type],side,extension);else if(type===N)knight.drawKnight(canvas,art[type],side,extension);else if(type===B)bishop.drawBishop(canvas,art[type],side,extension);else if(type===R&&angle)rook.drawRookPound(canvas,art[type],side,angle);else if(type===R)rook.drawRook(canvas,art[type],side,extension);else if(type===G)guard.drawGuard(canvas,art[type],side,extension);else pawn.drawPawn(canvas,art[type],side,angle,extension);
  return canvas;
 }
 // Covers the headroom too, so an effect never crops a back-rank figure's head. Sized by setResolution().
+// Drawn for a king whose sheet is still loading: nothing, and nothing cached.
+const blank=document.createElement('canvas');blank.width=blank.height=1;
 const fxCanvas=document.createElement('canvas');fxCanvas.width=SIZE;fxCanvas.height=SIZE+headroom;
 // fx: {cut} splits along a slash; {frost, shatter} ices the figure then breaks it into wedges;
 // {scan, apart} tints it with a moving scan line, then takes it apart in horizontal strips.
@@ -458,11 +480,18 @@ function vortex(out,foot,phase,strength) {
  }
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
- for(const [,unit] of ordered)drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,unit.fx);
+ // 'over' markers are drawn one screen row at a time, after that row's figures: a marker sits on its
+ // own square's figure, and a tall figure standing in front of it (a lower row) covers it.
+ let overRow=0;
+ const over=last=>{for(;overRow<=last;overRow++)decorate?.(ctx,api,'over',overRow);};
+ for(const [,unit] of ordered){
+  if(!animation)over(Math.floor((unit.pose.foot.y-40-PAD)/TILE)-1);
+  drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,unit.fx);
+ }
  for(const effect of effects)effect();
  if(shot)bolt(ctx,shot.start,shot.end,shot.t,shot.scale);
  if(hit)impact(ctx,hit.point,hit.t,hit.scale);
- decorate?.(ctx,api,'over');
+ over(7);
  ctx.restore();
 }
 function drawEncounter(a,t) {
@@ -565,12 +594,17 @@ function drawEncounter(a,t) {
   /** Board square under a point in canvas pixels, or null. */
   squareAt(x,y){y-=headroom;const col=Math.floor((x-PAD)/TILE),row=Math.floor((y-PAD)/TILE);if(col<0||col>7||row<0||row>7)return null;return flipped?row*8+(7-col):(7-row)*8+col;},
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
-  load(){const board=new Promise(resolve=>{boardArt.onload=boardArt.onerror=resolve;boardArt.src=BOARD_ART;});return Promise.all([board,...Object.entries(ART).map(([type,name])=>new Promise((resolve,reject)=>{art[type].onload=resolve;art[type].onerror=reject;art[type].src=ART_FILES[name];}))]).then(()=>{ready=true;wake();});},
+  load(){const board=new Promise(resolve=>{boardArt.onload=boardArt.onerror=resolve;boardArt.src=BOARD_ART;});return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
   /** New position: ends any finished or running animation. */
   setPosition(next){if(animation&&!animation.done)animation.resolve(false);animation=null;position=next;aimAngle=0;wake();},
   setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
   setAim(sq){aimSquare=sq;wake();},
   setFlipped(on){flipped=on;idle.clear();wake();},
+  /** [white, black] king designs ('frost' … 'shadow'): each side's king figure. */
+  setKings(next){if(next[0]===kings[0]&&next[1]===kings[1])return;kings=[...next];for(const design of kings)kingImage(design).loaded.catch(()=>{});wake();},
+  get kings(){return [...kings];},
+  /** The king design each side's figure was last drawn with (null: not yet drawn). */
+  get drawnKings(){return [...drawnKings];},
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
   setCoords(on,size=13){coords=on;coordSize=size;wake();},
   setLabels(on){labels=on;wake();},
