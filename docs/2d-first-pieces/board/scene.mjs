@@ -361,7 +361,8 @@ function vortex(out,foot,phase,strength) {
   const a=animation&&!animation.done?animation:null,moving=a&&(a.move.from===sq||(a.move.swap&&a.move.to===sq));
   const since=moving?null:kingSince.get(sq)??time;if(since!=null)nextSince.set(sq,since);
   const g=moving?1-ease((time-a.start)/(200*a.speed)):ease((time-since)/900);
-  const s={design,side,pose:unit.pose,t:time+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing};
+  // Each effect's loop starts again when he arrives on a square (so Mud's grass comes before his vines).
+  const s={design,side,pose:unit.pose,t:time-(since??kingSince.get(sq)??time)+side*1777,k,opacity:unit.opacity,g,facing:unit.pose.facing};
   s.pose=kingFx.pose(s);s.ground=s.pose.ground??s.pose.foot;
   return s;
  }
@@ -545,19 +546,25 @@ function vortex(out,foot,phase,strength) {
  }
  const ordered=[...poses].sort((a,b)=>a[1].pose.foot.y-b[1].pose.foot.y);
  if(animation){const i=ordered.findIndex(([sq])=>sq===animation.move.from);ordered.push(...ordered.splice(i,1));}
- // A piece thrown into the air (a king's capture whose death says `above`) flies over every figure.
- {const i=ordered.findIndex(([,u])=>u.fx?.death&&DEATHS[u.fx.death.theme].above&&u.fx.death.t>=0);if(i>=0)ordered.push(...ordered.splice(i,1));}
  // 'over' markers are drawn one screen row at a time, after that row's figures: a marker sits on its
  // own square's figure, and a tall figure standing in front of it (a lower row) covers it.
  let overRow=0;
  const over=last=>{for(;overRow<=last;overRow++)decorate?.(ctx,api,'over',overRow);};
+ // A piece thrown into the air (a king's capture whose death has an `above` time) is drawn in two parts once
+ // it leaves the ground: what stays on the floor in its own place ('back'), the piece itself over every figure ('front').
+ const late=[];
  for(const [sq,unit] of ordered){
   if(!animation)over(Math.floor((unit.pose.foot.y-40-PAD)/TILE)-1);
   const fx=typeOf(unit.value)===K?kingEffect(sq,unit,time):null;
   if(fx){kingFx.back(ctx,fx);fxDrawn.push(fx.design);}
-  drawPiece(ctx,unit.value,fx?.pose??unit.pose,unit.opacity,unit.extension,unit.fx);
+  const death=unit.fx?.death,above=death&&DEATHS[death.theme].above;
+  if(above!=null&&death.t>=above){
+   drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...death,part:'back'}});
+   late.push(()=>drawPiece(ctx,unit.value,unit.pose,unit.opacity,unit.extension,{death:{...death,part:'front'}}));
+  }else drawPiece(ctx,unit.value,fx?.pose??unit.pose,unit.opacity,unit.extension,unit.fx);
   if(fx)kingFx.front(ctx,fx);
  }
+ for(const draw of late)draw();
  kingSince=nextSince;
  for(const effect of effects)effect();
  if(shot)bolt(ctx,shot.start,shot.end,shot.t,shot.scale);

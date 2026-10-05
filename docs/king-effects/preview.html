@@ -26,7 +26,7 @@
   .whole h2 { font: 600 20px/1.2 Georgia, serif; margin: 0; }
   select { font: inherit; padding: 4px 6px; }
   /* The title screen's stage, as src/style.css draws it. */
-  .title-box { position: relative; overflow: hidden; max-width: 100%; border-radius: 8px; perspective: 900px;
+  .title-box { position: relative; overflow: hidden; border-radius: 8px; perspective: 900px; transform-origin: 0 0; flex: none;
     background: radial-gradient(60% 45% at 50% 40%, rgba(214, 160, 72, 0.28), transparent 70%), radial-gradient(120% 90% at 50% 30%, #4a3e31 0%, #1d1812 55%, #120f0c 100%); }
   .title-box .title-floor { position: absolute; left: 50%; bottom: -6%; height: auto; transform: translateX(-50%) rotateX(64deg); transform-origin: 50% 100%;
     filter: brightness(0.62) sepia(0.25); -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent 100%); mask-image: radial-gradient(closest-side, #000 55%, transparent 100%); }

@@ -140,7 +140,7 @@ try {
     const shots = [], rows = [];
     for (let c = 0; c < list.length; c++) {
       const duration = await tab.evaluate(([key, design, c]) => {
-        const { scene } = window.preview.scenes[key], move = window.preview.setUpCapture(scene, window.preview.capturesFor(design)[c]);
+        const { scene } = window.preview.scenes[key], move = window.preview.setUpCapture(scene, window.preview.capturesFor(design)[c], design);
         window.rec.at(key, window.__now() + 16); scene.play(move); return 1660;
       }, [key, design, c]);
       clock = await tab.evaluate(() => window.__now());

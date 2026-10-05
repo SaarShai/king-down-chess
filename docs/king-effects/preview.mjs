@@ -13,7 +13,7 @@ const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M,
 const INFO = {
   flame: ['Flame', 'Lava light flows through the cracks and seams of his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
   frost: ['Frost', 'Ice flakes drift down around and in front of him and melt on his square.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
-  stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises, over rings of wind.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the other pieces and off the board.'],
+  stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises, over rings of wind.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board.'],
   mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up.'],
   spirit: ['Spirit', 'A soft glow round him, short rays above his crown and light on his square brighten and dim: white and gold for the ivory king, black for the charcoal king.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
   shadow: ['Shadow', 'Skeletal hands (white for the ivory king, black for the charcoal one) reach up out of cracks round his feet; his smoke drifts and curls upward.', 'A crack opens under the piece; skeletal hands rise out of it, take hold of the piece and pull it down. Death Touch takes it without moving.'],
@@ -21,7 +21,8 @@ const INFO = {
 // Ivory on c4 (light) and d4 (dark), charcoal on e4 (light) and f4 (dark); canvas units (board + headroom).
 export const CROP = { x: PAD + 2 * TILE - 12, y: HEADROOM + PAD + 3 * TILE - 2, w: 4 * TILE + 24, h: 2 * TILE + 26 };
 // Stratus's capture throws the piece off the board: his card shows the whole width of rank 4 and its frame.
-export const WIDE = { x: 0, y: HEADROOM + PAD + 3 * TILE - 34, w: 960, h: 2 * TILE + 58 };
+// (Tall enough for the arc: the piece flies about two squares above its own.)
+export const WIDE = { x: 0, y: HEADROOM + PAD + TILE, w: 960, h: 4 * TILE + 26 };
 export const boxOf = key => key === 'capture-stratus' ? WIDE : CROP;
 // The game's board is 776 px wide in a 1440 × 900 window and 365 px on a 390 px phone.
 const SIZES = { desktop: 776 / 960, phone: 365 / 960, double: 1.6 };
@@ -65,6 +66,10 @@ function place(frame, box, scale) {
 function layout() {
   const scale = SIZES[size];
   for (const f of frames) { place(f.frame, f.box, Math.min(scale, (innerWidth - (f.box.w < 960 ? 56 : 32)) / f.box.w)); f.scene.setResolution(resolution(scale)); }
+  for (const box of Object.values(titles)) {
+    const w = parseFloat(box.style.width), h = parseFloat(box.style.height), k = Math.min(1, (innerWidth - 40) / w);
+    box.style.transform = k < 1 ? `scale(${k})` : ''; box.style.marginRight = `${-(1 - k) * w}px`; box.style.marginBottom = `${-(1 - k) * h}px`;
+  }
 }
 function card(parent, title, text, scene, canvas, box = CROP) {
   const section = document.createElement('section'), frame = document.createElement('div');
@@ -88,9 +93,10 @@ for (const design of Object.keys(INFO)) {
 
 // 2. Captures: each card plays its captures in turn; a button plays one now.
 /** Sets up capture `c` on a scene and returns its move (the scene shows the position before it). */
-export function setUpCapture(scene, c) {
+// design: Stratus's cards add a rook standing in the throw's way (it flies over it).
+export function setUpCapture(scene, c, design) {
   const [ksq, side] = c.king, [vsq, type] = c.victim;
-  const pos = position([[ksq, K, side], [vsq, type, 1 - side]]);
+  const pos = position([[ksq, K, side], [vsq, type, 1 - side], ...(design === 'stratus' && !c.touch ? [[side ? 'b4' : 'g4', R, 1 - side]] : [])]);
   scene.setSelected(null); scene.setPosition(pos);
   const moves = []; genPiece(pos.board, parseSq(ksq), 'all', moves);
   const take = moves.find(m => m.to === parseSq(vsq) && m.captures.length);
@@ -107,7 +113,7 @@ for (const design of Object.keys(INFO)) {
   const list = capturesFor(design);
   let next = 0, token = 0;
   async function play(i) {
-    const mine = ++token, c = list[i], move = setUpCapture(scene, c);
+    const mine = ++token, c = list[i], move = setUpCapture(scene, c, design);
     for (const b of buttons.children) b.setAttribute('aria-pressed', String(b === buttons.children[i]));
     await wait(450); if (mine !== token) return;
     await scene.play(move);
@@ -124,7 +130,8 @@ for (const design of Object.keys(INFO)) {
 // 3. The title screen's arc of kings, at the game's sizes (stage and kings measured in the game:
 // 1440 × 900 window, and a 390 px phone).
 const titles = {};
-for (const [id, stage, kings, floor, phone] of [['title-desktop', [1440, 503], 312, 756, false], ['title-phone', [390, 419], 125, 374, true]]) {
+// (The desktop stage is cut to 1040 px round the kings; it is scaled down to fit a narrower window.)
+for (const [id, stage, kings, floor, phone] of [['title-desktop', [1040, 503], 312, 756, false], ['title-phone', [390, 419], 125, 374, true]]) {
   const box = document.getElementById(id);
   box.style.width = `${stage[0]}px`; box.style.height = `${stage[1]}px`;
   box.innerHTML = `<img class="title-floor" src="${TITLE_FLOOR}" alt="" style="width:${floor}px"><div class="title-kings${phone ? ' phone' : ''}" style="height:${kings}px">${

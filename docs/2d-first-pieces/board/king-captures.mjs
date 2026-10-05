@@ -19,11 +19,12 @@ import {LEAF_GRADIENT,VINE} from './mud-palette.mjs';
 export const DEATHS={
  frost:{climb:380,sink:[450,850],end:1000},
  flame:{climb:420,sink:[470,880],end:1000},
- mud:{climb:430,sink:[560,880],end:1000},
+ mud:{climb:430,sink:[520,770],end:1000},
  shadow:{open:220,hands:[120,360],sink:[380,760],close:[760,960],end:980},
  spirit:{fill:260,implode:[380,640],flash:[600,900],end:900},
- // above: the scene draws the piece over every figure while this death plays (it is in the air).
- stratus:{gust:120,lift:[60,420],throw:[420,900],end:960,above:true},
+ // above: from this time (ms) the scene draws the piece over every figure (it is in the air); what stays on
+ // the floor still draws in its own place (d.part 'back', then 'front').
+ stratus:{gust:120,lift:[60,420],throw:[420,900],end:960,above:420},
 };
 export const THEMED=Object.keys(DEATHS);
 const TAU=Math.PI*2;
@@ -344,7 +345,7 @@ function mudDeath(out,d){
  // A tug (down and back) when they have hold of it, then the pull.
  // (Ease in and out: it is fully under at the end of the sink, never a tip left showing in the hole.)
  const tug=Math.sin(Math.PI*span(t,D.climb,D.sink[0]))*4,pull=ease(span(t,...D.sink)),dy=tug+pull*(height+16);
- const open=ease(t/260)*(1-ease(span(t,D.sink[1],D.end))),fade=1-span(t,D.end-100,D.end);
+ const open=ease(t/260)*(1-ease(span(t,D.sink[1],D.sink[1]+120))),fade=1-span(t,D.end-50,D.end);
  soilCracks(out,d,ease(t/300)*fade);
  earthHole(out,d,open,fade);
  if(t<D.sink[1]){
@@ -356,7 +357,7 @@ function mudDeath(out,d){
   holeLip(out,d,open,fade);
  }
  clods(out,d,t,fade);
- if(t>=D.sink[1])mound(out,d,span(t,D.sink[1],D.end),fade);
+ if(t>=D.sink[1])mound(out,d,span(t,D.sink[1],D.sink[1]+160),fade);
 }
 function soilCracks(out,d,k){
  if(k<=.01)return;
@@ -366,10 +367,11 @@ function soilCracks(out,d,k){
   let a=i/7*TAU+rand(i,70)*.6,x=d.foot.x+Math.cos(a)*18,y=d.foot.y-2+Math.sin(a)*6;const pts=[[x,y]],L=(20+18*rand(i,71))*k;
   for(let j=0;j<5;j++){a+=(j%2?1:-1)*(.5+.4*rand(i,72+j));x+=Math.cos(a)*L/5;y+=Math.sin(a)*L/5*.34;pts.push([x,y]);}
   const left=[],right=[];
-  pts.forEach(([px,py],j)=>{const q=pts[Math.min(j+1,pts.length-1)],p0=pts[Math.max(j-1,0)],ang=Math.atan2(q[1]-p0[1],q[0]-p0[0]),w=1.9*(1-j/(pts.length-1))+.15;left.push([px+Math.cos(ang+Math.PI/2)*w,py+Math.sin(ang+Math.PI/2)*w*.6]);right.push([px-Math.cos(ang+Math.PI/2)*w,py-Math.sin(ang+Math.PI/2)*w*.6]);});
+  pts.forEach(([px,py],j)=>{const q=pts[Math.min(j+1,pts.length-1)],p0=pts[Math.max(j-1,0)],ang=Math.atan2(q[1]-p0[1],q[0]-p0[0]),w=(1.9*(1-j/(pts.length-1))+.15)*k;left.push([px+Math.cos(ang+Math.PI/2)*w,py+Math.sin(ang+Math.PI/2)*w*.6]);right.push([px-Math.cos(ang+Math.PI/2)*w,py-Math.sin(ang+Math.PI/2)*w*.6]);});
   // The far lip catches the light; the gap is dark.
-  out.fillStyle='rgba(226,206,168,.6)';out.beginPath();left.forEach(([px,py],j)=>j?out.lineTo(px,py-1):out.moveTo(px,py-1));for(let j=right.length-1;j>=0;j--)out.lineTo(right[j][0],right[j][1]-1);out.closePath();out.fill();
-  out.fillStyle='rgba(30,18,8,.92)';out.beginPath();left.forEach(([px,py],j)=>j?out.lineTo(px,py):out.moveTo(px,py));for(let j=right.length-1;j>=0;j--)out.lineTo(...right[j]);out.closePath();out.fill();
+  // (A thin lit lip on the far side only: on dark wood a wide pale one read as a twig.)
+  out.fillStyle='rgba(226,206,168,.32)';out.beginPath();left.forEach(([px,py],j)=>j?out.lineTo(px,py-.7):out.moveTo(px,py-.7));for(let j=left.length-1;j>=0;j--)out.lineTo(left[j][0],left[j][1]+.2);out.closePath();out.fill();
+  out.fillStyle='rgba(12,7,3,.95)';out.beginPath();left.forEach(([px,py],j)=>j?out.lineTo(px,py):out.moveTo(px,py));for(let j=right.length-1;j>=0;j--)out.lineTo(...right[j]);out.closePath();out.fill();
  }
  out.restore();
 }
@@ -386,10 +388,14 @@ function holeLip(out,d,open,fade){
  if(open<=.01)return;
  const e=edges(d,d.foot.y-2),rx=Math.max(22,(e.r-e.l)/2+10)*open,ry=rx*.32,x=d.foot.x,y=d.foot.y-1;
  out.save();out.globalAlpha=fade;out.lineCap='round';
- // The near rim of earth, over the line where the piece goes in.
- out.strokeStyle='#5a3c1c';out.lineWidth=3.4;out.beginPath();out.ellipse(x,y,rx,ry,0,.08*Math.PI,.92*Math.PI);out.stroke();
- out.strokeStyle='rgba(150,112,66,.85)';out.lineWidth=1.2;out.beginPath();out.ellipse(x,y-1.4,rx,ry,0,.12*Math.PI,.88*Math.PI);out.stroke();
- out.fillStyle='#4a3016';for(let i=0;i<9;i++){const a=(.12+.76*i/8)*Math.PI;out.beginPath();out.arc(x+Math.cos(a)*rx,y+Math.sin(a)*ry-.6,1+1.2*rand(i,80),0,TAU);out.fill();}
+ // The near rim of earth over the line where the piece goes in: a soft heaped bank, uneven, lit on top.
+ out.beginPath();
+ for(let i=0;i<=20;i++){const a=(.04+.92*i/20)*Math.PI,j=1+.06*Math.sin(i*1.7+1);out.lineTo(x+Math.cos(a)*rx*j,y+Math.sin(a)*ry*j-1.6);}
+ for(let i=20;i>=0;i--){const a=(.04+.92*i/20)*Math.PI,j=1+.05*Math.sin(i*2.3);out.lineTo(x+Math.cos(a)*rx*j,y+Math.sin(a)*ry*j+1.8);}
+ out.closePath();
+ const g=out.createLinearGradient(0,y+ry-3,0,y+ry+3);g.addColorStop(0,'#7a5a34');g.addColorStop(1,'#4a3016');
+ out.fillStyle=g;out.fill();
+ out.strokeStyle='rgba(150,118,76,.6)';out.lineWidth=.9;out.beginPath();out.ellipse(x,y-1.6,rx*.98,ry*.98,0,.1*Math.PI,.9*Math.PI);out.stroke();
  out.restore();
 }
 function clods(out,d,t,fade){
@@ -404,15 +410,17 @@ function clods(out,d,t,fade){
 function mound(out,d,u,fade){
  out.save();out.globalAlpha=fade;
  const x=d.foot.x,y=d.foot.y-2,rx=26*(1-.3*u),ry=6;
+ // (u: 0 → 1 as the sprouts come up.)
  const g=out.createRadialGradient(x,y-2,0,x,y,rx);g.addColorStop(0,'#6a4824');g.addColorStop(.7,'#4a3016');g.addColorStop(1,'rgba(74,48,22,0)');
  out.fillStyle=g;out.beginPath();out.ellipse(x,y,rx,ry,0,0,TAU);out.fill();
  // Three sprouts come up out of the fresh earth: a stem and two leaves each, with an ink edge.
- const up=ease(u*2.2);
- for(const [dx,h,lean] of [[-7,9,-.25],[1,12,.05],[8,8,.3]]){
+ const up=ease(u);
+ for(const [dx,h,lean] of [[-9,14,-.25],[1,19,.05],[10,13,.3]]){
   const tx=x+dx+lean*h*up,ty=y-2-h*up;
-  out.strokeStyle=VINE.body;out.lineWidth=1.3;out.lineCap='round';out.beginPath();out.moveTo(x+dx,y-1);out.quadraticCurveTo(x+dx,ty+h*.3,tx,ty);out.stroke();
+  out.strokeStyle=VINE.outline;out.lineWidth=2.6;out.lineCap='round';out.beginPath();out.moveTo(x+dx,y-1);out.quadraticCurveTo(x+dx,ty+h*.3,tx,ty);out.stroke();
+  out.strokeStyle=LEAF_GRADIENT[1];out.lineWidth=1.4;out.beginPath();out.moveTo(x+dx,y-1);out.quadraticCurveTo(x+dx,ty+h*.3,tx,ty);out.stroke();
   for(const side of [-1,1]){out.save();out.translate(tx,ty);out.rotate(-Math.PI/2+side*.9+lean);out.scale(up,up);
-   out.fillStyle=LEAF_GRADIENT[1];out.strokeStyle='rgba(43,38,33,.85)';out.lineWidth=.6;out.beginPath();out.moveTo(0,0);out.quadraticCurveTo(3.4,-3,7.5,0);out.quadraticCurveTo(3.4,3,0,0);out.fill();out.stroke();out.restore();}
+   out.fillStyle=LEAF_GRADIENT[1];out.strokeStyle='rgba(43,38,33,.85)';out.lineWidth=.6;out.beginPath();out.moveTo(0,0);out.quadraticCurveTo(5,-4.4,11,0);out.quadraticCurveTo(5,4.4,0,0);out.fill();out.stroke();out.restore();}
  }
  out.restore();
 }
@@ -470,7 +478,8 @@ function gust(out,x,y,angle,len,bend,head,tail,alpha,curl=1){
  out.restore();
 }
 // A small whirlwind round the piece: broken rings at several heights, turning; front: the near halves.
-function whirl(out,cx,foot,height,w,t,alpha,front){
+// clear: {x, side} — leave out the near halves' parts past x on that side (where the king stands).
+function whirl(out,cx,foot,height,w,t,alpha,front,clear=null){
  if(alpha<=.01)return;
  out.save();out.lineCap='round';
  for(let i=0;i<4;i++){
@@ -480,7 +489,7 @@ function whirl(out,cx,foot,height,w,t,alpha,front){
    for(let j=0;j<2;j++){
     // Each ring is two arcs; keep the part on the asked side (screen y below the ring's centre is near).
     const s0=a0+j*Math.PI,s1=s0+1.5,n=12;out.beginPath();let on=false;
-    for(let m=0;m<=n;m++){const a=s0+(s1-s0)*m/n,near=Math.sin(a)>0;if(near!==front){on=false;continue;}const px=cx+Math.cos(a)*rx,py=y+Math.sin(a)*ry+dy;on?out.lineTo(px,py):out.moveTo(px,py);on=true;}
+    for(let m=0;m<=n;m++){const a=s0+(s1-s0)*m/n,near=Math.sin(a)>0,px=cx+Math.cos(a)*rx,py=y+Math.sin(a)*ry+dy;if(near!==front||clear&&(px-clear.x)*clear.side>0){on=false;continue;}on?out.lineTo(px,py):out.moveTo(px,py);on=true;}
     out.stroke();
    }
   }
@@ -488,51 +497,64 @@ function whirl(out,cx,foot,height,w,t,alpha,front){
  out.restore();
 }
 function throwOff(out,d){
- const D=DEATHS.stratus,t=d.t,away=d.away||1,height=d.foot.y-d.top;
+ const D=DEATHS.stratus,t=d.t,height=d.foot.y-d.top,back=d.part!=='front',front=d.part!=='back';
  // The throw speeds up from rest and keeps going (it does not slow down at the edge).
  const lift=ease(span(t,...D.lift)),fly=span(t,...D.throw),run0=fly*(.35+.65*fly);
- // Where it goes: up off its square, then over the board and out past its edge on the side away from the
- // king; it gets smaller as it goes (flying off, away from us) and fades out just past the edge, so the
- // canvas never cuts it.
- const board=d.board??{left:32,right:d.size-32},edge=(away>0?board.right:board.left)+away*26;
- const run=(edge-d.foot.x)*run0,up=-34*lift-56*Math.sin(Math.PI*Math.min(1,fly*1.15))*fly,q=1-.5*ease(fly);
- const dist=Math.abs(edge-d.foot.x),gone=Math.abs(run);
- // It fades over the last 80 units of its way: from just inside the board's edge to just past it.
- const spin=away*(.25*lift*Math.sin(t/60)*(1-fly)+2.2*fly*fly),opacity=1-ease(clamp((gone-(dist-80))/80,0,1));
+ // Where it goes: up off its square, then high over the board (over the heads of the pieces in its way) and
+ // out past the edge on the side away from the king; it gets smaller as it goes (flying off, away from us)
+ // and fades out over its last 80 units, so the canvas never cuts it. Near an edge (the a and h files) it
+ // is thrown the other way, over the king, so it always flies at least 2.5 squares.
+ const board=d.board??{left:32,right:d.size-32};
+ let away=d.away||1;const room=side=>side>0?board.right-d.foot.x:d.foot.x-board.left;
+ if(room(away)<280)away=-away;
+ const edge=(away>0?board.right:board.left)+away*26,dist=Math.abs(edge-d.foot.x);
+ // The arc: as high as clears a tall piece (130 units), less near the top of the canvas.
+ const peak=Math.max(30,Math.min(115,d.top+d.headroom-12-34));
+ const run=(edge-d.foot.x)*run0,up=-34*lift-peak*Math.sin(Math.PI*Math.min(1,fly*1.1)),q=1-.5*ease(fly);
+ const gone=Math.abs(run),opacity=1-ease(clamp((gone-(dist-80))/80,0,1));
+ const spin=away*(.25*lift*Math.sin(t/60)*(1-fly)+2.2*fly*fly);
  let half=16;for(const row of d.shape??[])half=Math.max(half,(row.r-row.l)/2);
  const px=d.foot.x+run,cx=d.hit.x+run,cy=d.hit.y+up,airborne=-up;
- // The floor: his downdraft's broken rings where it stood.
- const floorK=1-span(t,D.throw[0],D.throw[0]+260);
- for(let i=0;i<2;i++){const p=clamp((t-i*140)/520,0,1),rx=10+40*ease(p),a=(1-p)*floorK*.85;if(p<=0||p>=1)continue;
-  out.save();out.lineCap='round';
-  for(const [colour,lw,dy] of WIND){out.globalAlpha=a;out.strokeStyle=colour;out.lineWidth=lw*.7;for(let j=0;j<3;j++){const a0=(i?-1:1)*(.6+1.6*p)+j*TAU/3;out.beginPath();out.ellipse(d.foot.x,d.foot.y-3+dy,rx,rx*.3,0,a0,a0+1.2);out.stroke();}}
-  out.restore();}
- // Its shadow on the board while it is in the air: smaller and fainter the higher it is.
- if(t<D.end&&opacity>.01){
-  const k=clamp(1-airborne/170,.3,1),r=half*1.25*q*k;
-  const g=out.createRadialGradient(px,d.foot.y-2,0,px,d.foot.y-2,r);g.addColorStop(0,'rgba(30,20,8,.42)');g.addColorStop(1,'rgba(30,20,8,0)');
-  out.save();out.globalAlpha=opacity*k;out.translate(px,d.foot.y-2);out.scale(1,.3);out.translate(-px,-(d.foot.y-2));out.fillStyle=g;out.beginPath();out.arc(px,d.foot.y-2,r,0,TAU);out.fill();out.restore();
- }
- // The whirlwind that lifts it, and that stays with it, thinning, until it is gone.
  const whirlK=ease(t/D.gust)*(1-.55*ease(span(t,D.throw[0],D.throw[1])))*opacity;
  // (The piece is scaled by q about its middle: its feet are nearer its middle.)
- const footY=d.hit.y+(d.foot.y-d.hit.y)*q+up,wr=(half+7)*q;
- whirl(out,cx,footY,height*1.05*q,wr,t,whirlK,false);
- if(t<D.end&&opacity>.01){const c=d.clear();d.draw(c,{dx:run,dy:up,q,spin});c.globalCompositeOperation='destination-in';c.globalAlpha=opacity;c.fillStyle='#000';c.fillRect(-100,-200,d.size+200,d.size+400);c.globalCompositeOperation='source-over';c.globalAlpha=1;d.layer(Infinity);}
- whirl(out,cx,footY,height*1.05*q,wr,t,whirlK,true);
- // The gust that throws it: curled streaks from just behind it, racing ahead the way it goes, again and
- // again while it flies (each streak draws on and off along its length, like the emblem's).
- if(fly>0)for(let i=0;i<4;i++){
-  const ph=frac(fly*2.4+i*.27),yy=cy+(i-1.5)*height*.26*q,len=(52+24*rand(i,40))*q+20,x0=cx-away*(half*q+6);
-  const head=clamp(ph*1.7,0,1),tail=clamp(ph*1.7-.7,0,1);
-  gust(out,x0,yy,away>0?-.08+.16*rand(i,42):Math.PI+.08-.16*rand(i,42),len,(rand(i,43)-.5)*.5,head,tail,.9*opacity*ease(fly*6),i%2?1:-1);
+ const footY=d.hit.y+(d.foot.y-d.hit.y)*q+up,wr=(half+4)*q;
+ // The king stands beside it (on the side d.away points from): the rings' near halves stop short of him.
+ const kingSide=-(d.away||1),clear={x:d.foot.x+kingSide*(half*.55),side:kingSide};
+ if(back){
+  // The floor: his downdraft's broken rings where it stood.
+  const floorK=1-span(t,D.throw[0],D.throw[0]+260);
+  for(let i=0;i<2;i++){const p=clamp((t-i*140)/520,0,1),rx=10+40*ease(p),a=(1-p)*floorK*.85;if(p<=0||p>=1)continue;
+   out.save();out.lineCap='round';
+   for(const [colour,lw,dy] of WIND){out.globalAlpha=a;out.strokeStyle=colour;out.lineWidth=lw*.7;for(let j=0;j<3;j++){const a0=(i?-1:1)*(.6+1.6*p)+j*TAU/3;out.beginPath();out.ellipse(d.foot.x,d.foot.y-3+dy,rx,rx*.3,0,a0,a0+1.2);out.stroke();}}
+   out.restore();}
+  // Its shadow on the board while it is in the air: dark enough for the dark wood, smaller the higher it is.
+  if(t<D.end&&opacity>.01){
+   const k=clamp(1-airborne/220,.45,1),r=half*1.3*q*(.6+.4*k);
+   const g=out.createRadialGradient(px,d.foot.y-2,0,px,d.foot.y-2,r);g.addColorStop(0,'rgba(14,9,4,.7)');g.addColorStop(.6,'rgba(14,9,4,.35)');g.addColorStop(1,'rgba(14,9,4,0)');
+   out.save();out.globalAlpha=opacity*k;out.translate(px,d.foot.y-2);out.scale(1,.3);out.translate(-px,-(d.foot.y-2));out.fillStyle=g;out.beginPath();out.arc(px,d.foot.y-2,r,0,TAU);out.fill();out.restore();
+  }
+  // The back halves of the whirlwind's rings stay behind whoever stands in front.
+  whirl(out,cx,footY,height*1.05*q,wr,t,whirlK,false);
+ }
+ if(front){
+  // The gust that throws it: curled streaks from just behind it, racing ahead the way it goes, again and
+  // again while it flies, drawn behind the piece so it stays readable.
+  if(fly>0)for(let i=0;i<4;i++){
+   const ph=frac(fly*2.4+i*.27),yy=cy+(i-1.5)*height*.26*q,len=(52+24*rand(i,40))*q+20,x0=cx-away*(half*q+6);
+   const head=clamp(ph*1.7,0,1),tail=clamp(ph*1.7-.7,0,1);
+   gust(out,x0,yy,away>0?-.08+.16*rand(i,42):Math.PI+.08-.16*rand(i,42),len,(rand(i,43)-.5)*.5,head,tail,.9*opacity*ease(fly*6),i%2?1:-1);
+  }
+  if(t<D.end&&opacity>.01){const c=d.clear();d.draw(c,{dx:run,dy:up,q,spin});c.globalCompositeOperation='destination-in';c.globalAlpha=opacity;c.fillStyle='#000';c.fillRect(-100,-200,d.size+200,d.size+400);c.globalCompositeOperation='source-over';c.globalAlpha=1;d.layer(Infinity);}
+  // The front halves of the rings, thinning as it flies so the piece shows through.
+  whirl(out,cx,footY,height*1.05*q,wr,t,whirlK*(1-.6*fly),true,clear);
  }
 }
 
 // —— Spirit ——
 function implode(out,d){
  const D=DEATHS.spirit,t=d.t,fill=ease(t/D.fill),q=1-easeIn(span(t,...D.implode)),light=!d.side;
- const colour=light?'255,250,236':'10,8,14',glow=light?'255,226,150':'190,170,255';
+ // The charcoal king's: warm black (the palette's), with a dark soft glow round it, nothing pale.
+ const colour=light?'255,250,236':'18,15,12',glow=light?'255,226,150':'18,15,12';
  if(t<D.implode[1]){
   const c=d.clear();d.draw(c,{q});
   c.save();c.globalCompositeOperation='source-atop';c.fillStyle=`rgba(${colour},${fill})`;c.fillRect(d.hit.x-120,d.top-60,240,d.foot.y-d.top+120);c.restore();
@@ -540,7 +562,7 @@ function implode(out,d){
   const n=d.size/8;glowCanvas??=document.createElement('canvas');if(glowCanvas.width!==n){glowCanvas.width=n;glowCanvas.height=Math.round(n*(d.size+d.headroom)/d.size);}
   const g=glowCanvas.getContext('2d');g.clearRect(0,0,glowCanvas.width,glowCanvas.height);g.drawImage(c.canvas,0,0,glowCanvas.width,glowCanvas.height);
   g.globalCompositeOperation='source-in';g.fillStyle=`rgb(${glow})`;g.fillRect(0,0,glowCanvas.width,glowCanvas.height);g.globalCompositeOperation='source-over';
-  out.save();out.globalCompositeOperation='lighter';out.globalAlpha=fill*(light?.9:.75)*(.6+.4*q);
+  out.save();out.globalCompositeOperation=light?'lighter':'source-over';out.globalAlpha=fill*(light?.9:.55)*(.6+.4*q);
   // The layer covers the board and its headroom; drawn again a little larger about the piece's middle.
   for(const s of [1,1.12])out.drawImage(glowCanvas,d.hit.x-d.hit.x*s,d.hit.y-(d.hit.y+d.headroom)*s,d.size*s,(d.size+d.headroom)*s);
   out.restore();
@@ -549,9 +571,8 @@ function implode(out,d){
  // The flash where it vanished: a ring and short rays.
  const f=span(t,...D.flash);if(f<=0||f>=1)return;
  out.save();out.globalCompositeOperation=light?'lighter':'source-over';out.translate(d.hit.x,d.hit.y);
- out.globalAlpha=1-f;out.strokeStyle=light?'rgba(255,240,190,.95)':'rgba(30,20,50,.9)';out.lineWidth=2.4*(1-f)+.6;
+ out.globalAlpha=1-f;out.strokeStyle=light?'rgba(255,240,190,.95)':'rgba(18,15,12,.9)';out.lineWidth=2.4*(1-f)+.6;
  out.beginPath();out.arc(0,0,6+30*ease(f),0,TAU);out.stroke();
  out.beginPath();for(let i=0;i<8;i++){const a=i/8*TAU+.2,r0=4+14*f,r1=10+34*ease(f);out.moveTo(Math.cos(a)*r0,Math.sin(a)*r0);out.lineTo(Math.cos(a)*r1,Math.sin(a)*r1);}out.stroke();
- if(!light){out.globalCompositeOperation='lighter';out.globalAlpha=(1-f)*.6;out.strokeStyle='rgba(200,180,255,.7)';out.lineWidth=1;out.beginPath();out.arc(0,0,7+30*ease(f),0,TAU);out.stroke();}
  out.restore();
 }

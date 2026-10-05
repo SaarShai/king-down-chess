@@ -36,12 +36,16 @@ function stroke(ctx,lines,colour,scale,dx=0,dy=0,add=0){
 /**
  * One hand coming up out of the floor at x, y. h: {side (army colours), size, flip (palm to -x),
  * angle (radians, + leans right), rise (0 under the floor … 1 out), curl (0 open … 1 clutched),
- * floor (y below which nothing shows; default y), reach (units above the floor it may show; default 60)}.
+ * floor (y below which nothing shows; default y), reach (units above the floor it may show; default 60),
+ * lip (optional: points of a crack's near edge, crackLip(); the hand shows only above it)}.
  */
 export function drawHand(ctx,x,y,h){
- const k=h.size??1,r=h.rise??1,bone=BONE[h.side??1],floor=h.floor??y;
+ const k=h.size??1,r=h.rise??1,bone=BONE[h.side??1],floor=h.floor??y,reach=(h.reach??60)*k;
  if(r<=.01)return;
- ctx.save();ctx.beginPath();ctx.rect(x-40*k,floor-(h.reach??60)*k,80*k,(h.reach??60)*k);ctx.clip();
+ ctx.save();ctx.beginPath();
+ if(h.lip?.length){const [x0]=h.lip[0],[x1]=h.lip.at(-1);ctx.moveTo(x0,floor-reach);ctx.lineTo(x1,floor-reach);for(let i=h.lip.length-1;i>=0;i--)ctx.lineTo(...h.lip[i]);ctx.closePath();}
+ else ctx.rect(x-40*k,floor-reach,80*k,reach);
+ ctx.clip();
  ctx.translate(x,y+(1-r)*34*k);ctx.rotate(h.angle??0);ctx.scale(k*(h.flip?-1:1),k);ctx.lineCap='round';ctx.lineJoin='round';
  const lines=bones(h.curl??.1),joints=lines.slice(2).map(l=>l[0]);
  ctx.fillStyle=bone.palm;ctx.beginPath();PALM.forEach(([px,py],i)=>i?ctx.lineTo(px,py):ctx.moveTo(px,py));ctx.closePath();ctx.fill();
@@ -51,14 +55,21 @@ export function drawHand(ctx,x,y,h){
  stroke(ctx,lines,bone.edge,.3,h.side?-.55:.5,h.side?-.25:.25);
  ctx.restore();
 }
+// The crack's two edges (the same points drawCrack draws).
+function edgesOf(x,y,w,h,seed,n){
+ const top=[],bottom=[];
+ for(let i=0;i<=n;i++){const u=i/n*2-1,open=(1-u*u)**.7;top.push([x+u*w+(rand(seed,i)-.5)*2.2*w/10,y-h*open*(.7+.6*rand(seed,i+10))]);bottom.push([x+u*w+(rand(seed,i+20)-.5)*2.2*w/10,y+h*open*(.5+.5*rand(seed,i+30))]);}
+ return {top,bottom};
+}
+/** A crack's near (lower) edge, left to right, for drawHand's lip. */
+export function crackLip(x,y,w,h,seed,points=7){return h<.05?[[x-w,y],[x+w,y]]:edgesOf(x,y,w,h,seed,points).bottom;}
 /**
  * A jagged crack in the floor stone along x from x-w to x+w, opened h: dark inside, a lit lip on its far
  * edge, and hairline cracks running off its ends. Returns its outline's top edge points (for clipping).
  */
 export function drawCrack(ctx,x,y,w,h,seed,{points=7,branches=3,glow=null}={}){
  if(h<.05)return;
- const n=points,top=[],bottom=[];
- for(let i=0;i<=n;i++){const u=i/n*2-1,open=(1-u*u)**.7;top.push([x+u*w+(rand(seed,i)-.5)*2.2*w/10,y-h*open*(.7+.6*rand(seed,i+10))]);bottom.push([x+u*w+(rand(seed,i+20)-.5)*2.2*w/10,y+h*open*(.5+.5*rand(seed,i+30))]);}
+ const n=points,{top,bottom}=edgesOf(x,y,w,h,seed,n);
  if(glow){ctx.fillStyle=glow;ctx.beginPath();ctx.ellipse(x,y,w+6,h+5,0,0,TAU);ctx.fill();}
  ctx.fillStyle='#050407';ctx.beginPath();top.forEach(([px,py],i)=>i?ctx.lineTo(px,py):ctx.moveTo(px,py));for(let i=n;i>=0;i--)ctx.lineTo(...bottom[i]);ctx.closePath();ctx.fill();
  ctx.lineWidth=.9+w/60;ctx.strokeStyle='rgba(226,214,190,.45)';ctx.beginPath();top.forEach(([px,py],i)=>i?ctx.lineTo(px,py-.6):ctx.moveTo(px,py-.6));ctx.stroke();

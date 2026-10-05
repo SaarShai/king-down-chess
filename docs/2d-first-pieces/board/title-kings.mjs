@@ -60,6 +60,9 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   const bx0=Math.min(foot.x-REACH.left,img.offsetLeft/u),bx1=Math.max(foot.x+REACH.right,(img.offsetLeft+img.offsetWidth)/u);
   const by0=Math.min(foot.y-REACH.up,img.offsetTop/u),by1=Math.max(foot.y+REACH.down,(img.offsetTop+img.offsetHeight)/u);
   Object.assign(k,{u,dpr,foot,bx0,by0});
+  // The room to the nearest neighbour's feet (CSS px → his board units): his hands reach about a third of it.
+  const i=kings.indexOf(k),near=[kings[i-1],kings[i+1]].filter(n=>n?.foot).map(n=>Math.abs(n.foot.x*n.u-foot.x*u)/u);
+  if(near.length)k.spread=Math.max(.2,Math.min(.6,Math.min(...near)*.3/44));
   const c=k.canvas;
   c.style.left=`${bx0*u}px`;c.style.top=`${by0*u}px`;c.style.width=`${(bx1-bx0)*u}px`;c.style.height=`${(by1-by0)*u}px`;
   c.width=Math.ceil((bx1-bx0)*u*dpr);c.height=Math.ceil((by1-by0)*u*dpr);
@@ -69,7 +72,9 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,c.width,c.height);
   g.setTransform(dpr*u,0,0,dpr*u,-k.bx0*dpr*u,-k.by0*dpr*u);
   const kk=ease((t-k.since)/900),facing=k.mirror?-1:1;
-  const s={design,side:0,pose:{foot:k.foot,scale:SCALE,facing,angle:0},t:t+k.offset,k:kk,opacity:1,g:1,facing,spread:.5};
+  // The loop starts when his effect does (Mud's grass before his vines); spread keeps Shadow's hands and
+  // Frost's flakes in the room between him and his neighbours.
+  const s={design,side:0,pose:{foot:k.foot,scale:SCALE,facing,angle:0},t:t-k.since+k.offset,k:kk,opacity:1,g:1,facing,spread:k.spread??.5};
   s.pose=fx.pose(s);s.ground=s.pose.ground??s.pose.foot;
   fx.back(g,s);
   g.save();
@@ -104,7 +109,7 @@ export function startTitleKings(root,{enabled=()=>true}={}){
    const z=getComputedStyle(k.img).zIndex;
    Object.assign(c.style,{position:'absolute',pointerEvents:'none',visibility:'hidden',zIndex:z==='auto'?'auto':z,filter:k.filter.brightness!==1?`brightness(${k.filter.brightness})`:''});
    // Right after its own image, so the canvases stack in the arc's order whatever order the sheets load in.
-   k.img.after(c);place(k);resize.observe(root);
+   k.img.after(c);for(const n of kings)if(n.canvas)place(n);resize.observe(root);
    k.since=performance.now();started++;
    schedule();
   }).catch(()=>{});
