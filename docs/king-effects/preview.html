@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>King Effects Preview</title>
+<style>
+  :root { --bg: #efe9da; --ink: #2b2820; --muted: #6b6455; --card: #fbf8f0; --line: #d8cfba; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1d1b17; --ink: #ece6d6; --muted: #a39b88; --card: #27241f; --line: #3d382f; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; padding: 20px 16px 40px; }
+  header { max-width: 1240px; margin: 0 auto 16px; }
+  h1 { font: 600 24px/1.2 Georgia, serif; margin: 0 0 6px; }
+  header p { margin: 0 0 12px; color: var(--muted); max-width: 70ch; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+  .controls label { display: inline-flex; gap: 6px; align-items: center; min-height: 32px; cursor: pointer; }
+  #grid, #captures { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: 1240px; margin: 0 auto; }
+  .card:has(.wide) { flex-basis: 100%; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; max-width: 100%; }
+  .card h2 { font: 600 18px/1.2 Georgia, serif; margin: 0 0 8px; }
+  .card p { margin: 6px 0 0; color: var(--muted); font-size: 14px; max-width: 46ch; }
+  .period { white-space: nowrap; }
+  .frame { overflow: hidden; border-radius: 6px; max-width: 100%; }
+  .frame canvas { display: block; }
+  .labels { display: flex; justify-content: space-around; font-size: 13px; color: var(--muted); }
+  .whole { max-width: 1240px; margin: 28px auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .whole h2 { font: 600 20px/1.2 Georgia, serif; margin: 0; }
+  select { font: inherit; padding: 4px 6px; }
+  /* The title screen's stage, as src/style.css draws it. */
+  .title-box { position: relative; overflow: hidden; border-radius: 8px; perspective: 900px; transform-origin: 0 0; flex: none;
+    background: radial-gradient(60% 45% at 50% 40%, rgba(214, 160, 72, 0.28), transparent 70%), radial-gradient(120% 90% at 50% 30%, #4a3e31 0%, #1d1812 55%, #120f0c 100%); }
+  .title-box .title-floor { position: absolute; left: 50%; bottom: -6%; height: auto; transform: translateX(-50%) rotateX(64deg); transform-origin: 50% 100%;
+    filter: brightness(0.62) sepia(0.25); -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent 100%); mask-image: radial-gradient(closest-side, #000 55%, transparent 100%); }
+  .title-box .title-kings { position: absolute; left: 50%; bottom: 7%; translate: -50% 0; width: max-content; display: flex; align-items: flex-end; justify-content: center; }
+  .title-box .title-kings.phone { bottom: 8%; }
+  .title-kings img { flex: none; height: 100%; width: auto; margin: 0 -1.2%; filter: drop-shadow(0 14px 12px rgba(0, 0, 0, 0.55)); }
+  .title-kings.phone img { margin: 0 -2.4%; }
+  .title-kings .tk-right { transform: scaleX(-1); }
+  .title-kings .tk-inner { position: relative; z-index: -1; height: 82%; margin-bottom: 4%; filter: brightness(0.86) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
+  .title-kings .tk-outer { position: relative; z-index: -2; height: 66%; margin-bottom: 8%; filter: brightness(0.72) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
+  .titles { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-end; }
+  .titles figure { margin: 0; display: flex; flex-direction: column; gap: 6px; align-items: center; max-width: 100%; }
+  .titles figcaption { color: var(--muted); font-size: 13px; }
+  section.part { max-width: 1240px; margin: 32px auto 0; }
+  section.part > h2 { font: 600 20px/1.2 Georgia, serif; margin: 0 0 4px; text-align: center; }
+  section.part > p { margin: 0 auto 14px; color: var(--muted); max-width: 70ch; text-align: center; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; max-width: 46ch; }
+  .buttons button { font: inherit; font-size: 13px; min-height: 32px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+  .buttons button[aria-pressed="true"] { border-color: var(--ink); font-weight: 600; }
+</style>
+<header>
+  <h1>King effects: preview</h1>
+  <p>The game's own painted board and drawing code, at the size the game shows it. All of it is on the branch claude/king-effects, waiting for the owner's approval; none of it is in the live game yet. First each king at rest on a light and a dark square (ivory army left, charcoal right), then how each king takes a piece, then the title screen's kings, then a whole board with resting pawns.</p>
+  <div class="controls" role="group" aria-label="Preview options">
+    <span>Size:</span>
+    <label><input type="radio" name="size" value="desktop" checked> Desktop game</label>
+    <label><input type="radio" name="size" value="phone"> 390 px phone</label>
+    <label><input type="radio" name="size" value="double"> 2× close-up</label>
+    <label><input type="checkbox" id="animations" checked> Effects on</label>
+  </div>
+</header>
+<main>
+  <section class="part" aria-labelledby="effects-title">
+    <h2 id="effects-title">The kings at rest</h2>
+    <div id="grid"></div>
+  </section>
+  <section class="part" aria-labelledby="captures-title">
+    <h2 id="captures-title">How each king takes a piece</h2>
+    <p>Each card plays its captures in turn: ivory and charcoal, a pawn and a knight (Shadow also his Death Touch; Stratus also the back rank and an edge file). A button plays one now. After each capture the king stands on the square he took (or his own, after Death Touch), and his resting effect grows back there.</p>
+    <div id="captures"></div>
+  </section>
+  <section class="part" aria-labelledby="title-title">
+    <h2 id="title-title">The title screen</h2>
+    <p>The six kings on the opening screen show their resting effects once they have risen into place. The kings are the size the game shows them; the stage is cut to the kings, and it shrinks to fit a narrow window.</p>
+    <div class="titles">
+      <figure><div class="title-box" id="title-desktop"></div><figcaption>Desktop (1440 × 900 window)</figcaption></figure>
+      <figure><div class="title-box" id="title-phone"></div><figcaption>390 px phone</figcaption></figure>
+    </div>
+  </section>
+  <section class="whole">
+    <h2>A whole board: resting pawns and two kings</h2>
+    <p style="margin:0;color:var(--muted);max-width:70ch;text-align:center">Now and then a pawn shakes his spear, moves his helmet a little or hitches up his shield, each at his own time.</p>
+    <div class="controls">
+      <label>Ivory king <select id="white"></select></label>
+      <label>Charcoal king <select id="black"></select></label>
+    </div>
+    <div class="frame" id="board"></div>
+  </section>
+</main>
+<script type="module" src="./preview.mjs"></script>
+</html>

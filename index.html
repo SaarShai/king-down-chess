@@ -76,14 +76,15 @@
     <dialog id="title-screen" aria-labelledby="title-word">
       <div class="title-stage" aria-hidden="true">
         <img class="title-floor" src="./ui/stone-board.webp" alt="" width="640" height="640" />
-        <!-- The six kings in a shallow arc: Spirit and Shadow (the kings with no power) in the middle. -->
+        <!-- The six kings in a shallow arc: Spirit and Shadow (the kings with no power) in the middle.
+             Once risen, each shows his resting effect (board/title-kings.mjs, started by main.ts). -->
         <div class="title-kings">
-          <img class="tk-outer" src="./ui/kings/mud.webp" alt="" />
-          <img class="tk-inner" src="./ui/kings/flame.webp" alt="" />
-          <img class="tk-centre" src="./ui/kings/spirit.webp" alt="" />
-          <img class="tk-centre tk-right" src="./ui/kings/shadow.webp" alt="" />
-          <img class="tk-inner tk-right" src="./ui/kings/frost.webp" alt="" />
-          <img class="tk-outer tk-right" src="./ui/kings/stratus.webp" alt="" />
+          <img class="tk-outer" src="./ui/kings/mud.webp" alt="" data-king="mud" />
+          <img class="tk-inner" src="./ui/kings/flame.webp" alt="" data-king="flame" />
+          <img class="tk-centre" src="./ui/kings/spirit.webp" alt="" data-king="spirit" />
+          <img class="tk-centre tk-right" src="./ui/kings/shadow.webp" alt="" data-king="shadow" />
+          <img class="tk-inner tk-right" src="./ui/kings/frost.webp" alt="" data-king="frost" />
+          <img class="tk-outer tk-right" src="./ui/kings/stratus.webp" alt="" data-king="stratus" />
         </div>
       </div>
       <!-- Every piece in the game, alternating the two armies; sized as they stand on the board. -->

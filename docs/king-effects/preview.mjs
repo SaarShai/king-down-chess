@@ -1,0 +1,183 @@
+// Live preview of the kings' board effects (king-effects.mjs), their captures (king-captures.mjs) and the
+// resting pawns (lance/idle.mjs), with the game's own painted scene. tools/king-effects-preview.mjs turns
+// this page into one self-contained file and records each panel.
+import { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, parseSq, piece, genPiece } from '../2d-first-pieces/board/rules.mjs';
+import { createScene } from '../2d-first-pieces/board/scene.mjs';
+import { PERIOD } from '../2d-first-pieces/board/king-effects.mjs';
+import { startTitleKings } from '../2d-first-pieces/board/title-kings.mjs';
+// The title screen's art (public/ui/), one literal URL each so the one-file preview can inline it.
+const TITLE_ART = { mud: new URL('../../public/ui/kings/mud.webp',import.meta.url).href, flame: new URL('../../public/ui/kings/flame.webp',import.meta.url).href, spirit: new URL('../../public/ui/kings/spirit.webp',import.meta.url).href, shadow: new URL('../../public/ui/kings/shadow.webp',import.meta.url).href, frost: new URL('../../public/ui/kings/frost.webp',import.meta.url).href, stratus: new URL('../../public/ui/kings/stratus.webp',import.meta.url).href };
+const TITLE_FLOOR = new URL('../../public/ui/stone-board.webp',import.meta.url).href;
+
+const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName };
+const INFO = {
+  flame: ['Flame', 'Lava light flows through the cracks and seams of his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
+  frost: ['Frost', 'Ice flakes drift down around and in front of him and melt on his square.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
+  stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises, over rings of wind.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the rook in its way and off the board: on the back rank along the band above the board, from an edge file back over the king.'],
+  mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up. Then his own grass, and after it a vine, grow on his new square.'],
+  spirit: ['Spirit', 'The ivory king: a white and gold glow round him, short rays of light above his crown and light on his square. The charcoal king: a black aura, black rays and a dark pool on his square. Both breathe slowly in and out.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
+  shadow: ['Shadow', 'Skeletal hands (white for the ivory king, black for the charcoal one) reach up out of cracks round his feet; his smoke drifts and curls upward.', 'A crack opens under the piece; skeletal hands rise out of it, take hold of the piece and pull it down. Death Touch takes it without moving.'],
+};
+// Ivory on c4 (light) and d4 (dark), charcoal on e4 (light) and f4 (dark); canvas units (board + headroom).
+export const CROP = { x: PAD + 2 * TILE - 12, y: HEADROOM + PAD + 3 * TILE - 2, w: 4 * TILE + 24, h: 2 * TILE + 26 };
+// Stratus's capture throws the piece off the board: his card shows the whole width of rank 4 and its frame.
+// (Tall enough for the arc: the piece flies about two squares above its own.)
+// Rank 8 and the band above it to rank 4, for the back-rank throw too.
+export const WIDE = { x: 0, y: 0, w: 960, h: HEADROOM + PAD + 5 * TILE + 26 };
+export const boxOf = key => key === 'capture-stratus' ? WIDE : CROP;
+// The game's board is 776 px wide in a 1440 × 900 window and 365 px on a 390 px phone.
+const SIZES = { desktop: 776 / 960, phone: 365 / 960, double: 1.6 };
+const position = placements => {
+  const board = new Uint8Array(64);
+  for (const [sq, type, side] of placements) board[parseSq(sq)] = piece(type, side);
+  return { board, turn: 0, halfmove: 0, ply: 0 };
+};
+const KINGS_ROW = position([['c4', K, 0], ['d4', K, 0], ['e4', K, 1], ['f4', K, 1]]);
+const BACK = [R, N, B, Q, K, B, N, R];
+const START = position([...BACK.map((t, i) => [`${'abcdefgh'[i]}1`, t, 0]), ...BACK.map((t, i) => [`${'abcdefgh'[i]}8`, t, 1]),
+  ...[...'abcdefgh'].flatMap(f => [[`${f}2`, P, 0], [`${f}7`, P, 1]])]);
+// The captures each card plays: a king on d4 or e4 takes the piece beside him.
+export const CAPTURES = [
+  { label: 'Ivory takes a pawn', king: ['d4', 0], victim: ['e4', P] },
+  { label: 'Ivory takes a knight', king: ['d4', 0], victim: ['e4', N] },
+  { label: 'Charcoal takes a pawn', king: ['e4', 1], victim: ['d4', P] },
+  { label: 'Charcoal takes a knight', king: ['e4', 1], victim: ['d4', N] },
+  { label: 'Death Touch (ivory)', king: ['d4', 0], victim: ['e4', N], touch: true, only: 'shadow' },
+  { label: 'Death Touch (charcoal)', king: ['e4', 1], victim: ['d4', P], touch: true, only: 'shadow' },
+  // Stratus's other throws: along the band above the board on the back rank (over a rook on the rank), and
+  // back over the king from the edge file (over a rook on the way).
+  { label: 'Back rank (ivory)', king: ['d8', 0], victim: ['e8', N], by: [['g8', R, 1]], only: 'stratus' },
+  { label: 'Edge file (charcoal)', king: ['b4', 1], victim: ['a4', P], by: [['e4', R, 0]], only: 'stratus' },
+];
+export const capturesFor = design => CAPTURES.filter(c => !c.only || c.only === design);
+
+const scenes = {}, frames = [];
+let size = 'desktop', animations = true;
+const resolution = scale => Math.min(2, Math.max(1, Math.ceil(scale * 960 * devicePixelRatio / 960 * 4) / 4));
+function makeScene(kings, pos, coords) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 960; canvas.height = 960 + HEADROOM;
+  const scene = createScene({ canvas, pieces, headroom: HEADROOM, kings });
+  scene.setCoords(coords); scene.setPosition(pos);
+  scene.setLively({ moves: true, idle: true, atmosphere: true, kings: true, captures: true, pawns: true });
+  return { canvas, scene };
+}
+function place(frame, box, scale) {
+  frame.style.width = `${box.w * scale}px`; frame.style.height = `${box.h * scale}px`;
+  const c = frame.firstChild;
+  c.style.width = `${960 * scale}px`; c.style.height = `${(960 + HEADROOM) * scale}px`;
+  c.style.marginLeft = `${-box.x * scale}px`; c.style.marginTop = `${-box.y * scale}px`;
+}
+function layout() {
+  const scale = SIZES[size];
+  for (const f of frames) { place(f.frame, f.box, Math.min(scale, (innerWidth - (f.box.w < 960 ? 56 : 32)) / f.box.w)); f.scene.setResolution(resolution(scale)); }
+  for (const box of Object.values(titles)) {
+    const w = parseFloat(box.style.width), h = parseFloat(box.style.height), k = Math.min(1, (innerWidth - 40) / w);
+    box.style.transform = k < 1 ? `scale(${k})` : ''; box.style.marginRight = `${-(1 - k) * w}px`; box.style.marginBottom = `${-(1 - k) * h}px`;
+  }
+}
+function card(parent, title, text, scene, canvas, box = CROP) {
+  const section = document.createElement('section'), frame = document.createElement('div');
+  section.className = 'card'; frame.className = box.w >= 960 ? 'frame wide' : 'frame'; frame.appendChild(canvas);
+  section.innerHTML = `<h2>${title}</h2><p>${text}</p>`;
+  section.insertBefore(frame, section.children[1]);
+  const labels = document.createElement('div'); labels.className = 'labels'; labels.innerHTML = '<span>Ivory</span><span>Charcoal</span>';
+  section.insertBefore(labels, frame.nextSibling);
+  parent.appendChild(section);
+  frames.push({ frame, box, scene });
+  return section;
+}
+
+// 1. The idle effects.
+const grid = document.getElementById('grid');
+for (const design of Object.keys(INFO)) {
+  const { canvas, scene } = makeScene([design, design], KINGS_ROW, false);
+  scenes[design] = { scene, canvas };
+  card(grid, INFO[design][0], `${INFO[design][1]} <span class="period">Loop ${PERIOD[design] / 1000} s.</span>`, scene, canvas);
+}
+
+// 2. Captures: each card plays its captures in turn; a button plays one now.
+/** Sets up capture `c` on a scene and returns its move (the scene shows the position before it). */
+// design: Stratus's cards add a rook standing in the throw's way (it flies over it).
+const bystanders = (c, design) => c.by ?? (design === 'stratus' && !c.touch ? [[c.king[1] ? 'b4' : 'g4', R, 1 - c.king[1]]] : []);
+/** After capture c, as the game shows it: the king on the square he took (or still on his own after Death Touch). */
+export function afterCapture(scene, c, design) {
+  scene.setPosition(position([[c.touch ? c.king[0] : c.victim[0], K, c.king[1]], ...bystanders(c, design)]));
+}
+export function setUpCapture(scene, c, design) {
+  const [ksq, side] = c.king, [vsq, type] = c.victim;
+  const pos = position([[ksq, K, side], [vsq, type, 1 - side], ...bystanders(c, design)]);
+  scene.setSelected(null); scene.setPosition(pos);
+  const moves = []; genPiece(pos.board, parseSq(ksq), 'all', moves);
+  const take = moves.find(m => m.to === parseSq(vsq) && m.captures.length);
+  return c.touch ? { from: parseSq(ksq), to: parseSq(ksq), captures: [parseSq(vsq)] } : take;
+}
+const captureGrid = document.getElementById('captures');
+const wait = ms => new Promise(r => setTimeout(r, ms));
+for (const design of Object.keys(INFO)) {
+  const { canvas, scene } = makeScene([design, design], KINGS_ROW, false);
+  scenes[`capture-${design}`] = { scene, canvas };
+  const section = card(captureGrid, INFO[design][0], INFO[design][2], scene, canvas, boxOf(`capture-${design}`));
+  section.querySelector('.labels').remove();
+  const buttons = document.createElement('div'); buttons.className = 'buttons';
+  const list = capturesFor(design);
+  let next = 0, token = 0;
+  async function play(i) {
+    const mine = ++token, c = list[i], move = setUpCapture(scene, c, design);
+    for (const b of buttons.children) b.setAttribute('aria-pressed', String(b === buttons.children[i]));
+    await wait(1200); if (mine !== token) return;
+    await scene.play(move);
+    if (mine !== token) return;
+    // As the game does: the new position right after the move; then his effect grows back on his square.
+    afterCapture(scene, c, design);
+    await wait(3000); if (mine !== token) return;
+    next = (i + 1) % list.length; play(next);
+  }
+  list.forEach((c, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = c.label; b.addEventListener('click', () => play(i)); buttons.appendChild(b); });
+  section.appendChild(buttons);
+  scenes[`capture-${design}`].start = () => play(0);
+  scenes[`capture-${design}`].stop = () => { token++; };
+}
+
+// 3. The title screen's arc of kings, at the game's sizes (stage and kings measured in the game:
+// 1440 × 900 window, and a 390 px phone).
+const titles = {};
+// (The desktop stage is cut to 1040 px round the kings; it is scaled down to fit a narrower window.)
+for (const [id, stage, kings, floor, phone] of [['title-desktop', [1040, 503], 312, 756, false], ['title-phone', [390, 419], 125, 374, true]]) {
+  const box = document.getElementById(id);
+  box.style.width = `${stage[0]}px`; box.style.height = `${stage[1]}px`;
+  box.innerHTML = `<img class="title-floor" src="${TITLE_FLOOR}" alt="" style="width:${floor}px"><div class="title-kings${phone ? ' phone' : ''}" style="height:${kings}px">${
+    [['tk-outer', 'mud'], ['tk-inner', 'flame'], ['tk-centre', 'spirit'], ['tk-centre tk-right', 'shadow'], ['tk-inner tk-right', 'frost'], ['tk-outer tk-right', 'stratus']]
+      .map(([c, d]) => `<img class="${c}" src="${TITLE_ART[d]}" alt="" data-king="${d}">`).join('')}</div>`;
+  titles[id] = box;
+}
+const titleKings = {};
+function startTitles() {
+  for (const [id, box] of Object.entries(titles)) { titleKings[id]?.stop(); titleKings[id] = startTitleKings(box.querySelector('.title-kings')); }
+}
+
+// 4. A whole board: resting pawns and two kings.
+const board = makeScene(['spirit', 'shadow'], START, true);
+scenes.board = board;
+const boardFrame = document.getElementById('board');
+boardFrame.appendChild(board.canvas);
+frames.push({ frame: boardFrame, box: { x: 0, y: 0, w: 960, h: 960 + HEADROOM }, scene: board.scene });
+for (const [i, id] of ['white', 'black'].entries()) {
+  const select = document.getElementById(id);
+  select.innerHTML = Object.entries(INFO).map(([d, [name]]) => `<option value="${d}">${name}</option>`).join('');
+  select.value = board.scene.kings[i];
+  select.addEventListener('change', () => board.scene.setKings([document.getElementById('white').value, document.getElementById('black').value]));
+}
+for (const input of document.querySelectorAll('input[name=size]')) input.addEventListener('change', () => { size = input.value; layout(); });
+document.getElementById('animations').addEventListener('change', e => {
+  animations = e.target.checked;
+  for (const { scene } of Object.values(scenes)) scene.setLively({ kings: animations, pawns: animations });
+  if (animations) startTitles(); else for (const t of Object.values(titleKings)) t.stop();
+});
+addEventListener('resize', layout);
+layout();
+const ready = Promise.all(Object.values(scenes).map(({ scene }) => scene.load()));
+startTitles();
+// The recording tool drives the captures itself (?record).
+if (!new URLSearchParams(location.search).has('record')) ready.then(() => { for (const s of Object.values(scenes)) s.start?.(); });
+window.preview = { scenes, CROP, boxOf, CAPTURES, capturesFor, setUpCapture, afterCapture, ready, titleKings, titles };
