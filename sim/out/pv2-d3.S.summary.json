@@ -1,0 +1,43 @@
+{
+  "spec": {
+    "id": "pv2-d3.S",
+    "games": 1000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1013,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "values": {
+      "O": 293,
+      "R": 365,
+      "B": 299,
+      "M": 321,
+      "S": 414,
+      "A": 463
+    },
+    "asymmetric": [
+      {
+        "white": "RSBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 1000,
+  "seconds": 179.6,
+  "whiteScore": 0.5225,
+  "whiteWins": 470,
+  "draws": 105,
+  "blackWins": 425,
+  "meanPlies": 86.1,
+  "reasons": {
+    "adjudicatedResign": 893,
+    "draw50": 8,
+    "adjudicatedDraw": 74,
+    "drawRepetition": 18,
+    "drawMaterial": 4,
+    "checkmate": 2,
+    "plyCap": 1
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "spec": {
+    "id": "pv2-d3.pawn",
+    "games": 3000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1013,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "values": {
+      "O": 293,
+      "R": 365,
+      "B": 299,
+      "M": 321,
+      "S": 414,
+      "A": 463
+    },
+    "asymmetric": [
+      {
+        "white": "RNBQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/1PPPPPPP/RNBQKBNR w - - 0 1",
+        "fenSwapped": "rnbqkbnr/1ppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RNBQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/P1PPPPPP/RNBQKBNR w - - 0 1",
+        "fenSwapped": "rnbqkbnr/p1pppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RNBQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PP1PPPPP/RNBQKBNR w - - 0 1",
+        "fenSwapped": "rnbqkbnr/pp1ppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RNBQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPP1PPPP/RNBQKBNR w - - 0 1",
+        "fenSwapped": "rnbqkbnr/ppp1pppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RNBQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPP1PPP/RNBQKBNR w - - 0 1",
+        "fenSwapped": "rnbqkbnr/pppp1ppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RNBQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPP1PP/RNBQKBNR w - - 0 1",
+        "fenSwapped": "rnbqkbnr/ppppp1pp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RNBQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPP1P/RNBQKBNR w - - 0 1",
+        "fenSwapped": "rnbqkbnr/pppppp1p/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1"
+      },
+      {
+        "white": "RNBQKBNR",
+        "black": "RNBQKBNR",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPP1/RNBQKBNR w - - 0 1",
+        "fenSwapped": "rnbqkbnr/ppppppp1/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 3000,
+  "seconds": 492.8,
+  "whiteScore": 0.5405,
+  "whiteWins": 1432,
+  "draws": 379,
+  "blackWins": 1189,
+  "meanPlies": 86.9,
+  "reasons": {
+    "adjudicatedResign": 2612,
+    "adjudicatedDraw": 268,
+    "plyCap": 4,
+    "drawRepetition": 70,
+    "draw50": 12,
+    "drawMaterial": 25,
+    "checkmate": 9
+  }
+}

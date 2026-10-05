@@ -1,0 +1,18 @@
+{
+  "id": "pa-ans",
+  "entrants": [
+    "none"
+  ],
+  "pairs": 9000,
+  "armies": "perPair",
+  "mirrorOnly": true,
+  "depth": 3,
+  "seed": 7001,
+  "pool": "QORRBBNNAAGMMS",
+  "rules": {
+    "archerShots": "fwd2NoSide"
+  },
+  "mirror": true,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

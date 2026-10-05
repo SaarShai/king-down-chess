@@ -1,0 +1,17 @@
+{
+  "id": "pa-acl",
+  "entrants": [
+    "none"
+  ],
+  "pairs": 9000,
+  "armies": "perPair",
+  "mirrorOnly": true,
+  "depth": 3,
+  "seed": 7001,
+  "rules": {
+    "archerShots": "classic"
+  },
+  "mirror": true,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

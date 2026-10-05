@@ -1,0 +1,15 @@
+{
+  "id": "pa-d4",
+  "entrants": [
+    "none"
+  ],
+  "pairs": 1600,
+  "armies": "perPair",
+  "mirrorOnly": true,
+  "depth": 4,
+  "seed": 7001,
+  "rules": {},
+  "mirror": true,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

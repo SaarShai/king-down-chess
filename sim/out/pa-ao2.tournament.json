@@ -1,0 +1,18 @@
+{
+  "id": "pa-ao2",
+  "entrants": [
+    "none"
+  ],
+  "pairs": 9000,
+  "armies": "perPair",
+  "mirrorOnly": true,
+  "depth": 3,
+  "seed": 7001,
+  "pool": "QORRBBNNAAGMMS",
+  "rules": {
+    "archerShots": "over2"
+  },
+  "mirror": true,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

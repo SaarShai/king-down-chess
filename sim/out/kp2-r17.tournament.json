@@ -1,0 +1,57 @@
+{
+  "id": "kp2-r17",
+  "entrants": [
+    "Freeze",
+    "IceWall",
+    "Strike",
+    "Haste",
+    "Flight",
+    "Sacrifice",
+    "March",
+    "Leap",
+    "HolyLight",
+    "Mercy",
+    "DeathTouch",
+    "Darkness",
+    "Darkness~vks",
+    "Darkness~vkss",
+    "Darkness~vkst"
+  ],
+  "pairs": 40,
+  "armies": "perPair",
+  "depth": 3,
+  "seed": 1717,
+  "rules": {
+    "markFree": true,
+    "freezeUses": 1,
+    "hasteCaptures": false,
+    "strikeCaptures": false,
+    "strikePawns": false,
+    "mercyAura": true,
+    "marchUses": 0,
+    "holyLightTakesPawns": true,
+    "holyLightShelter": true,
+    "holyLightShelterOrtho": true,
+    "darknessMoves": true,
+    "deathTouchReach": true,
+    "deathTouchReachOrtho": true,
+    "mercyAuraPawnsTake": true,
+    "mercyTakesPawns": true
+  },
+  "variants": {
+    "ks": {
+      "darknessKingStep2": true
+    },
+    "kss": {
+      "darknessKingStep2": true,
+      "darknessKingStepSafe": true
+    },
+    "kst": {
+      "darknessKingStep2": true,
+      "darknessKingStepTakes": true
+    }
+  },
+  "mirror": false,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

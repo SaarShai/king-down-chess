@@ -1,0 +1,46 @@
+{
+  "spec": {
+    "id": "pv-A-ano.A",
+    "games": 1000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1034,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerShots": "nearOver2"
+    },
+    "values": {
+      "O": 293,
+      "R": 365,
+      "B": 299,
+      "M": 321,
+      "S": 414,
+      "A": 463
+    },
+    "asymmetric": [
+      {
+        "white": "ANBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 1000,
+  "seconds": 338.8,
+  "whiteScore": 0.4945,
+  "whiteWins": 430,
+  "draws": 129,
+  "blackWins": 441,
+  "meanPlies": 95,
+  "reasons": {
+    "adjudicatedResign": 867,
+    "adjudicatedDraw": 100,
+    "drawRepetition": 12,
+    "draw50": 7,
+    "drawMaterial": 9,
+    "checkmate": 4,
+    "plyCap": 1
+  }
+}

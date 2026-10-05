@@ -1,0 +1,18 @@
+{
+  "id": "pa-abk",
+  "entrants": [
+    "none"
+  ],
+  "pairs": 9000,
+  "armies": "perPair",
+  "mirrorOnly": true,
+  "depth": 3,
+  "seed": 7001,
+  "pool": "QORRBBNNAAGMMS",
+  "rules": {
+    "archerShots": "plusDiagFwd2Clear"
+  },
+  "mirror": true,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

@@ -1,0 +1,34 @@
+{
+  "id": "pa-acl",
+  "sha": "36d6f248af5435267798c2c10b8ae25bfc577131",
+  "shards": 3,
+  "args": [
+    "--powers",
+    "none",
+    "--mirrorOnly",
+    "--pairs",
+    "9000",
+    "--armies",
+    "perPair",
+    "--depth",
+    "3",
+    "--seed",
+    "7001",
+    "--rule",
+    "archerShots=classic"
+  ],
+  "kernels": [
+    {
+      "shard": 0,
+      "ref": "saarshai/kd-pa-acl-s0of3"
+    },
+    {
+      "shard": 1,
+      "ref": "saarshai/kd-pa-acl-s1of3"
+    },
+    {
+      "shard": 2,
+      "ref": "saarshai/kd-pa-acl-s2of3"
+    }
+  ]
+}

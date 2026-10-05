@@ -1,0 +1,46 @@
+{
+  "spec": {
+    "id": "pv-G-gcs.G",
+    "games": 1000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1023,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "guardCapitalStep": true
+    },
+    "values": {
+      "O": 293,
+      "R": 365,
+      "B": 299,
+      "M": 321,
+      "S": 414,
+      "A": 463
+    },
+    "asymmetric": [
+      {
+        "white": "RGBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 1000,
+  "seconds": 191.3,
+  "whiteScore": 0.4975,
+  "whiteWins": 465,
+  "draws": 65,
+  "blackWins": 470,
+  "meanPlies": 95.7,
+  "reasons": {
+    "adjudicatedResign": 932,
+    "adjudicatedDraw": 39,
+    "plyCap": 9,
+    "draw50": 5,
+    "drawRepetition": 7,
+    "checkmate": 3,
+    "drawMaterial": 5
+  }
+}

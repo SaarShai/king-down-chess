@@ -1,0 +1,30 @@
+{
+  "id": "pa-gcs",
+  "sha": "36d6f248af5435267798c2c10b8ae25bfc577131",
+  "shards": 2,
+  "args": [
+    "--powers",
+    "none",
+    "--mirrorOnly",
+    "--pairs",
+    "9000",
+    "--armies",
+    "perPair",
+    "--depth",
+    "3",
+    "--seed",
+    "7001",
+    "--rule",
+    "guardCapitalStep=true"
+  ],
+  "kernels": [
+    {
+      "shard": 0,
+      "ref": "saarshai/kd-pa-gcs-s0of2"
+    },
+    {
+      "shard": 1,
+      "ref": "saarshai/kd-pa-gcs-s1of2"
+    }
+  ]
+}

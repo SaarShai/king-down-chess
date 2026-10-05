@@ -1,0 +1,28 @@
+{
+  "id": "pa-d4",
+  "sha": "36d6f248af5435267798c2c10b8ae25bfc577131",
+  "shards": 2,
+  "args": [
+    "--powers",
+    "none",
+    "--mirrorOnly",
+    "--pairs",
+    "1600",
+    "--armies",
+    "perPair",
+    "--depth",
+    "4",
+    "--seed",
+    "7001"
+  ],
+  "kernels": [
+    {
+      "shard": 0,
+      "ref": "saarshai/kd-pa-d4-s0of2"
+    },
+    {
+      "shard": 1,
+      "ref": "saarshai/kd-pa-d4-s1of2"
+    }
+  ]
+}

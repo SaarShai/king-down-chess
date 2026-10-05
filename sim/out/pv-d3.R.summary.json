@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "id": "pv-d3.R",
+    "games": 1000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1003,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "asymmetric": [
+      {
+        "white": "RRBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 1000,
+  "seconds": 150.8,
+  "whiteScore": 0.5065,
+  "whiteWins": 444,
+  "draws": 125,
+  "blackWins": 431,
+  "meanPlies": 92.9,
+  "reasons": {
+    "adjudicatedResign": 874,
+    "drawRepetition": 21,
+    "adjudicatedDraw": 88,
+    "drawMaterial": 7,
+    "stalemate": 2,
+    "plyCap": 2,
+    "draw50": 5,
+    "checkmate": 1
+  }
+}

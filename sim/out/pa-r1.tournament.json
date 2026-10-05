@@ -1,0 +1,15 @@
+{
+  "id": "pa-r1",
+  "entrants": [
+    "none"
+  ],
+  "pairs": 12000,
+  "armies": "perPair",
+  "mirrorOnly": true,
+  "depth": 3,
+  "seed": 7001,
+  "rules": {},
+  "mirror": true,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

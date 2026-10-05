@@ -1,0 +1,23 @@
+{
+  "id": "cards-m5-mirror",
+  "entrants": [
+    "card:Freeze+Mirror",
+    "card:Mirror",
+    "card:Freeze"
+  ],
+  "pairs": 300,
+  "armies": "perPair",
+  "anchor": "card:Freeze",
+  "depth": 3,
+  "seed": 5858,
+  "pool": "QORRBBNNAAGMMS",
+  "rules": {
+    "markFree": true,
+    "hasteCaptures": false,
+    "strikeCaptures": false,
+    "strikePawns": false
+  },
+  "mirror": true,
+  "maxPlies": 300,
+  "openingRandomPlies": 4
+}

@@ -1,0 +1,46 @@
+{
+  "spec": {
+    "id": "pv-G-gs2.G",
+    "games": 1000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1023,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "guardStep": 2
+    },
+    "values": {
+      "O": 293,
+      "R": 365,
+      "B": 299,
+      "M": 321,
+      "S": 414,
+      "A": 463
+    },
+    "asymmetric": [
+      {
+        "white": "RGBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 1000,
+  "seconds": 199.9,
+  "whiteScore": 0.516,
+  "whiteWins": 466,
+  "draws": 100,
+  "blackWins": 434,
+  "meanPlies": 100.2,
+  "reasons": {
+    "adjudicatedResign": 897,
+    "adjudicatedDraw": 51,
+    "drawMaterial": 14,
+    "drawRepetition": 14,
+    "draw50": 13,
+    "checkmate": 3,
+    "plyCap": 8
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "spec": {
+    "id": "pv-G-grs12.G",
+    "games": 1000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1023,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "guardReserve": "rank12"
+    },
+    "values": {
+      "O": 293,
+      "R": 365,
+      "B": 299,
+      "M": 321,
+      "S": 414,
+      "A": 463
+    },
+    "asymmetric": [
+      {
+        "white": "RGBQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 1000,
+  "seconds": 161.6,
+  "whiteScore": 0.479,
+  "whiteWins": 427,
+  "draws": 104,
+  "blackWins": 469,
+  "meanPlies": 99.5,
+  "reasons": {
+    "adjudicatedResign": 896,
+    "adjudicatedDraw": 60,
+    "drawRepetition": 25,
+    "plyCap": 7,
+    "draw50": 7,
+    "drawMaterial": 5
+  }
+}
