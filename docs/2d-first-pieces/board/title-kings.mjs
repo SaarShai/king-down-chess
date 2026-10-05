@@ -69,7 +69,7 @@ export function startTitleKings(root,{enabled=()=>true}={}){
   g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,c.width,c.height);
   g.setTransform(dpr*u,0,0,dpr*u,-k.bx0*dpr*u,-k.by0*dpr*u);
   const kk=ease((t-k.since)/900),facing=k.mirror?-1:1;
-  const s={design,side:0,pose:{foot:k.foot,scale:SCALE,facing,angle:0},t:t+k.offset,k:kk,opacity:1,g:1,facing};
+  const s={design,side:0,pose:{foot:k.foot,scale:SCALE,facing,angle:0},t:t+k.offset,k:kk,opacity:1,g:1,facing,spread:.5};
   s.pose=fx.pose(s);s.ground=s.pose.ground??s.pose.foot;
   fx.back(g,s);
   g.save();
@@ -103,7 +103,8 @@ export function startTitleKings(root,{enabled=()=>true}={}){
    const c=k.canvas=document.createElement('canvas');c.setAttribute('aria-hidden','true');
    const z=getComputedStyle(k.img).zIndex;
    Object.assign(c.style,{position:'absolute',pointerEvents:'none',visibility:'hidden',zIndex:z==='auto'?'auto':z,filter:k.filter.brightness!==1?`brightness(${k.filter.brightness})`:''});
-   root.appendChild(c);place(k);resize.observe(root);
+   // Right after its own image, so the canvases stack in the arc's order whatever order the sheets load in.
+   k.img.after(c);place(k);resize.observe(root);
    k.since=performance.now();started++;
    schedule();
   }).catch(()=>{});

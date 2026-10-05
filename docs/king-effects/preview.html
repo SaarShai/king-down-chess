@@ -14,6 +14,7 @@
   .controls { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
   .controls label { display: inline-flex; gap: 6px; align-items: center; min-height: 32px; cursor: pointer; }
   #grid, #captures { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: 1240px; margin: 0 auto; }
+  .card:has(.wide) { flex-basis: 100%; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; max-width: 100%; }
   .card h2 { font: 600 18px/1.2 Georgia, serif; margin: 0 0 8px; }
   .card p { margin: 6px 0 0; color: var(--muted); font-size: 14px; max-width: 46ch; }
@@ -48,7 +49,7 @@
 </style>
 <header>
   <h1>King effects: preview</h1>
-  <p>The game's own painted board and drawing code, at the size the game shows it. Nothing here is in the game yet. First each king at rest on a light and a dark square (ivory army left, charcoal right), then how each king takes a piece, then the title screen's kings, then a whole board with resting pawns.</p>
+  <p>The game's own painted board and drawing code, at the size the game shows it. All of it is on the branch claude/king-effects, waiting for the owner's approval; none of it is in the live game yet. First each king at rest on a light and a dark square (ivory army left, charcoal right), then how each king takes a piece, then the title screen's kings, then a whole board with resting pawns.</p>
   <div class="controls" role="group" aria-label="Preview options">
     <span>Size:</span>
     <label><input type="radio" name="size" value="desktop" checked> Desktop game</label>
@@ -79,8 +80,8 @@
     <h2>A whole board: resting pawns and two kings</h2>
     <p style="margin:0;color:var(--muted);max-width:70ch;text-align:center">Now and then a pawn shakes his spear, moves his helmet a little or hitches up his shield, each at his own time.</p>
     <div class="controls">
-      <label>White king <select id="white"></select></label>
-      <label>Black king <select id="black"></select></label>
+      <label>Ivory king <select id="white"></select></label>
+      <label>Charcoal king <select id="black"></select></label>
     </div>
     <div class="frame" id="board"></div>
   </section>

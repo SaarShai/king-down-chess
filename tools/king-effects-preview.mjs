@@ -144,14 +144,16 @@ try {
         window.rec.at(key, window.__now() + 16); scene.play(move); return 1660;
       }, [key, design, c]);
       clock = await tab.evaluate(() => window.__now());
-      const start = clock, total = 360 + duration + 600, row = { label: list[c], frames: [], times: [] }, marks = [0, 520, 800, 1040, 1280, 1520];
+      const start = clock, total = 360 + duration + 600, row = { label: list[c], frames: [], times: [] }, marks = design === 'stratus' ? [0, 800, 1120, 1280, 1400, 1520] : [0, 520, 800, 1040, 1280, 1520];
       // play() started at `start`; frames from 360 ms before it would be a still, so the clip shows a pause first.
-      for (let i = 0; i < 9; i++) shots.push(await grab(key, CROP, SCALE));
+      const box = await tab.evaluate(key => window.preview.boxOf(key), key), scale = box.w > 900 ? 1 : SCALE;
+      for (let i = 0; i < 9; i++) shots.push(await grab(key, box, scale));
       for (let t = 0; t <= duration + 600; t += STEP) {
         await at(key, start + t);
-        if (!quick || marks.some(m => Math.abs(m - t) < STEP / 2)) shots.push(await grab(key, CROP, SCALE));
+        if (!quick || marks.some(m => Math.abs(m - t) < STEP / 2)) shots.push(await grab(key, box, scale));
         const m = marks.find(m => Math.abs(m - t) < STEP / 2);
-        if (m != null && (c === 1 || c === 2 || c >= 4)) { row.frames.push(shots.at(-1)); row.times.push(m); }
+        // The sheet: a knight taken by the ivory king, a pawn by the charcoal one, and Death Touch; Stratus all four.
+        if (m != null && (design === 'stratus' || c === 1 || c === 2 || c >= 4)) { row.frames.push(shots.at(-1)); row.times.push(m); }
       }
       if (row.frames.length) rows.push(row);
       clock = start + total;

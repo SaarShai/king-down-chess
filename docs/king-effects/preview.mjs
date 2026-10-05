@@ -13,13 +13,16 @@ const HEADROOM = 64, PAD = 32, TILE = 112, pieces = { P, N, B, R, Q, K, S, L, M,
 const INFO = {
   flame: ['Flame', 'Lava light flows through the cracks and seams of his armour.', 'A bubbling lava pool opens under the piece; lava climbs it, with a glowing crust, drips, sparks and smoke, and the pool pulls it under.'],
   frost: ['Frost', 'Ice flakes drift down around and in front of him and melt on his square.', 'Ice climbs up the piece and pulls it down into a frozen patch.'],
-  stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises, over rings of wind.', 'A whirlwind lifts the piece off its square, and a gust of curled wind throws it off the board.'],
-  mud: ['Mud', 'Muted grass grows thick round his feet, and brown leafy vines rise from the ground, arch over and root again; both sway and sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth.'],
+  stratus: ['Stratus', 'He hovers a little above his square; his shadow shrinks as he rises, over rings of wind.', 'A whirlwind lifts the piece off its square, and a gust of wind throws it over the other pieces and off the board.'],
+  mud: ['Mud', 'Grass grows thick round his feet, and brown vines rise from the ground, arch over and go back into the ground; then the vines and the grass sink back.', 'The soil cracks; brown thorny vines wind round the piece and pull it down into the earth; three sprouts come up.'],
   spirit: ['Spirit', 'A soft glow round him, short rays above his crown and light on his square brighten and dim: white and gold for the ivory king, black for the charcoal king.', 'The piece turns into a glowing silhouette of itself (white for the ivory king, black for the charcoal one) and implodes.'],
   shadow: ['Shadow', 'Skeletal hands (white for the ivory king, black for the charcoal one) reach up out of cracks round his feet; his smoke drifts and curls upward.', 'A crack opens under the piece; skeletal hands rise out of it, take hold of the piece and pull it down. Death Touch takes it without moving.'],
 };
 // Ivory on c4 (light) and d4 (dark), charcoal on e4 (light) and f4 (dark); canvas units (board + headroom).
 export const CROP = { x: PAD + 2 * TILE - 12, y: HEADROOM + PAD + 3 * TILE - 2, w: 4 * TILE + 24, h: 2 * TILE + 26 };
+// Stratus's capture throws the piece off the board: his card shows the whole width of rank 4 and its frame.
+export const WIDE = { x: 0, y: HEADROOM + PAD + 3 * TILE - 34, w: 960, h: 2 * TILE + 58 };
+export const boxOf = key => key === 'capture-stratus' ? WIDE : CROP;
 // The game's board is 776 px wide in a 1440 × 900 window and 365 px on a 390 px phone.
 const SIZES = { desktop: 776 / 960, phone: 365 / 960, double: 1.6 };
 const position = placements => {
@@ -61,17 +64,17 @@ function place(frame, box, scale) {
 }
 function layout() {
   const scale = SIZES[size];
-  for (const f of frames) { place(f.frame, f.box, f.box === CROP ? Math.min(scale, (innerWidth - 56) / CROP.w) : Math.min(scale, (innerWidth - 32) / 960)); f.scene.setResolution(resolution(scale)); }
+  for (const f of frames) { place(f.frame, f.box, Math.min(scale, (innerWidth - (f.box.w < 960 ? 56 : 32)) / f.box.w)); f.scene.setResolution(resolution(scale)); }
 }
-function card(parent, title, text, scene, canvas) {
+function card(parent, title, text, scene, canvas, box = CROP) {
   const section = document.createElement('section'), frame = document.createElement('div');
-  section.className = 'card'; frame.className = 'frame'; frame.appendChild(canvas);
+  section.className = 'card'; frame.className = box.w >= 960 ? 'frame wide' : 'frame'; frame.appendChild(canvas);
   section.innerHTML = `<h2>${title}</h2><p>${text}</p>`;
   section.insertBefore(frame, section.children[1]);
   const labels = document.createElement('div'); labels.className = 'labels'; labels.innerHTML = '<span>Ivory</span><span>Charcoal</span>';
   section.insertBefore(labels, frame.nextSibling);
   parent.appendChild(section);
-  frames.push({ frame, box: CROP, scene });
+  frames.push({ frame, box, scene });
   return section;
 }
 
@@ -98,7 +101,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 for (const design of Object.keys(INFO)) {
   const { canvas, scene } = makeScene([design, design], KINGS_ROW, false);
   scenes[`capture-${design}`] = { scene, canvas };
-  const section = card(captureGrid, INFO[design][0], INFO[design][2], scene, canvas);
+  const section = card(captureGrid, INFO[design][0], INFO[design][2], scene, canvas, boxOf(`capture-${design}`));
   section.querySelector('.labels').remove();
   const buttons = document.createElement('div'); buttons.className = 'buttons';
   const list = capturesFor(design);
@@ -158,4 +161,4 @@ const ready = Promise.all(Object.values(scenes).map(({ scene }) => scene.load())
 startTitles();
 // The recording tool drives the captures itself (?record).
 if (!new URLSearchParams(location.search).has('record')) ready.then(() => { for (const s of Object.values(scenes)) s.start?.(); });
-window.preview = { scenes, CROP, CAPTURES, capturesFor, setUpCapture, ready, titleKings, titles };
+window.preview = { scenes, CROP, boxOf, CAPTURES, capturesFor, setUpCapture, ready, titleKings, titles };

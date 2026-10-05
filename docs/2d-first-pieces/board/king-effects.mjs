@@ -2,10 +2,10 @@
 //   flame   lava light flows through the cracks and seams of his armour (king-flame/lava-mask.webp, cut from the art)
 //   frost   ice flakes drift down around and in front of him and fade out on his square's floor
 //   stratus he hovers a few board units up and down; his shadow shrinks as he rises
-//   mud     a thick patch of grass sprouts round his feet and brown leafy vines rise from the earth, arch over
-//           and root again; grass and vines sway and sink back (colours: mud-palette.mjs)
+//   mud     a thick patch of grass sprouts round his feet and brown vines rise from the earth, arch over
+//           and go back into it; grass and vines sway and sink back (colours: mud-palette.mjs)
 //   spirit  a holy glow round him, short rays behind his head and light on his square brighten and dim:
-//           white and gold for the ivory king, black (with a thin pale edge) for the charcoal king
+//           white and gold for the ivory king, warm black for the charcoal king
 //   shadow  skeletal hands (black for the charcoal army, bone white for the ivory) reach up out of cracks
 //           round his feet, clutch and sink back; his painted smoke drifts and curls upward
 //           (king-shadow/smoke-mask.webp, cut from the art: the figure is drawn without it, the smoke moves)
@@ -95,29 +95,37 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   g.putImageData(img,0,0);return c;
  }
  // The silhouette of `big` (a 1152 px sprite) in one colour, at 1/step of the sprite's resolution, padded.
- function tinted(big,step,colour){
+ // grow: widen the silhouette by this many layer px first (drawn round a circle), so a glow can reach out
+ // from the body with full strength before it softens.
+ function tinted(big,step,colour,grow=0){
   const n=Math.round(SPAN/step),c=document.createElement('canvas');c.width=c.height=n;const g=c.getContext('2d');
-  g.drawImage(big,PADL/step,PADL/step,1152/step,1152/step);g.globalCompositeOperation='source-in';g.fillStyle=colour;g.fillRect(0,0,n,n);return c;
+  const at=(dx,dy)=>g.drawImage(big,PADL/step+dx,PADL/step+dy,1152/step,1152/step);
+  at(0,0);if(grow)for(let i=0;i<12;i++)at(Math.cos(i*Math.PI/6)*grow,Math.sin(i*Math.PI/6)*grow);
+  g.globalCompositeOperation='source-in';g.fillStyle=colour;g.fillRect(0,0,n,n);return c;
  }
  function spiritLayers(side){
   return cached(`spirit:${side}`,()=>{
    const image=sheet('spirit');if(!image)return null;
    const big=document.createElement('canvas');big.width=big.height=1152;court.drawCourt(big,image,'king-spirit',side,0);
-   // The ivory king glows white and gold; the charcoal king glows black: a dark halo and sheen, with a thin
-   // pale edge round the dark (an eclipse's) so it still reads on a dark square.
+   // The ivory king glows white and gold. The charcoal king glows black, in the palette's warm blacks
+   // (--night #221d18, --ink #2b2621, and the title's #120f0c): an aura widened out from his body, so it
+   // darkens even dark wood round him, and a close rim; no pale part at all.
    if(!side)return {gold:tinted(big,2,'#ffe7a6'),rim:blurAlpha(tinted(big,2,'#fff2cf'),5),halo:blurAlpha(tinted(big,4,'#ffe2a0'),10)};
-   return {gold:tinted(big,2,'#17131c'),rim:blurAlpha(tinted(big,2,'#0c0a10'),5),halo:blurAlpha(tinted(big,4,'#0a080e'),10),edge:blurAlpha(tinted(big,2,'#d8d4e6'),9)};
+   return {gold:tinted(big,2,'#2b2621'),rim:blurAlpha(tinted(big,2,'#120f0c',3),4),halo:blurAlpha(tinted(big,4,'#120f0c',7),8)};
   });
  }
  // Soft rays fanning up from his crown, drawn once and blurred (no hard edges): board units ×4,
  // 80 × 44 units round the point they fan from (40, 42).
  let rayLayer=null,darkRays=null;
- // The same rays in black (the charcoal king's), and a pale copy a little larger for their edge.
+ // The charcoal king's rays: the same fan, broader and denser, in warm black, so they darken dark wood too.
  function raysDark(){
   if(darkRays)return darkRays;
-  const light=rays(),c=document.createElement('canvas');c.width=light.width;c.height=light.height;const g=c.getContext('2d');
-  g.drawImage(light,0,0);g.globalCompositeOperation='source-in';g.fillStyle='#0b0910';g.fillRect(0,0,c.width,c.height);
-  return darkRays=c;
+  const k=4,c=document.createElement('canvas');c.width=80*k;c.height=44*k;const g=c.getContext('2d');
+  const o={x:40*k,y:42*k},fill=g.createRadialGradient(o.x,o.y,2*k,o.x,o.y,36*k);fill.addColorStop(0,'rgba(18,15,12,1)');fill.addColorStop(.65,'rgba(18,15,12,.95)');fill.addColorStop(1,'rgba(18,15,12,0)');
+  g.fillStyle=fill;g.beginPath();
+  for(let i=0;i<9;i++){const a=-Math.PI/2+(i-4)*.25,w=.075+.025*rand(i,40),l=(26+8*rand(i,41))*k;g.moveTo(o.x,o.y);g.lineTo(o.x+Math.cos(a-w)*l,o.y+Math.sin(a-w)*l);g.lineTo(o.x+Math.cos(a+w)*l,o.y+Math.sin(a+w)*l);g.closePath();}
+  g.fill();
+  return darkRays=blurAlpha(c,3);
  }
  function rays(){
   if(rayLayer)return rayLayer;
@@ -255,11 +263,16 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  // Vines: each rises out of the earth at one point, arches over and roots again at another, growing along its
  // length and then drawing back, with leaves opening along it. [x0, depth0, x1, depth1, height, phase, seed]
  // (board units from his floor point; depth + in front of him).
- const VINES=[[-46,-.3,-20,-.85,30,0,1],[18,-.9,46,-.25,27,.12,2],[-48,.25,-26,.85,24,.06,3],[22,.85,48,.3,25,.18,4],[-12,.98,12,.95,17,.24,5],[-30,-.98,6,-.95,22,.3,6]];
+ const VINES=[[-46,-.3,-20,-.85,30,0,1],[18,-.9,46,-.25,27,.03,2],[-48,.25,-26,.85,24,.015,3],[22,.85,48,.3,25,.045,4],[-12,.98,12,.95,17,.06,5],[-30,-.98,6,-.95,22,.05,6]];
+ // A vine grows out of the ground along its length once the grass is well up (the grass: grow() with up
+ // to .14 of lag), holds, then sinks back as a whole (its arch lowers into the ground) and is gone while the
+ // grass still stands (by .72 with a vine's lag of at most .06; the first grass is gone at .86), so no bare
+ // stem is ever left on an empty floor. Returns [length 0..1, height 0..1].
+ const vineGrow=u=>u<.26?[0,0]:u<.42?[smooth((u-.26)/.16),1]:u<.54?[1,1]:u<.66?[1,1-smooth((u-.54)/.12)]:[0,0];
  const N=26;
  // A vine's centre line: an arch between its two feet, leaning and kinked a little, so no two look alike.
- function vinePoint(v,f,s,sway){
-  const [x0,d0,x1,d1,h,,seed]=v,x=x0+(x1-x0)*f,d=d0+(d1-d0)*f,lean=(rand(seed,7)-.5)*.5;
+ function vinePoint(v,f,s,sway,hk=1){
+  const [x0,d0,x1,d1,h0,,seed]=v,h=h0*hk,x=x0+(x1-x0)*f,d=d0+(d1-d0)*f,lean=(rand(seed,7)-.5)*.5;
   const lift=Math.sin(Math.PI*f)**.75*h*(1+lean*(f-.5)),wob=Math.sin(TAU*f*1.5+seed)*2.2*Math.sin(Math.PI*f);
   return {x:s.ground.x+(x+wob+sway*Math.sin(Math.PI*f))*s.facing,y:s.ground.y-4+d*15-lift};
  }
@@ -275,23 +288,25 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
   for(const v of VINES){
    const [, d0,, d1,, phase,seed]=v;if(((d0+d1)/2>0)!==front)continue;
-   const g=grow(frac(u0-phase))*s.g*s.k;if(g<.02)continue;
-   const n=Math.max(2,Math.round(N*g)),sway=Math.sin(TAU*(u0*2+seed*.17))*1.4,pts=[];
-   for(let i=0;i<=n;i++)pts.push(vinePoint(v,i/N,s,sway));
+   const [len,hk]=vineGrow(frac(u0-phase)),g=len*s.g*s.k;if(g<.02||hk<.02)continue;
+   const n=Math.max(2,Math.round(N*g)),sway=Math.sin(TAU*(u0*2+seed*.17))*1.4*hk,pts=[];
+   for(let i=0;i<=n;i++)pts.push(vinePoint(v,i/N,s,sway,hk));
+   ctx.globalAlpha=Math.min(1,hk*2.5);
    // Stem: thick at the root, thin at the growing tip (outline, body, a lit edge).
    for(const [colour,scale,dy] of [[VINE.outline,1.45,0],[VINE.body,1,0],[VINE.lit,.32,-.5]]){
     ctx.strokeStyle=colour;
     for(let i=1;i<pts.length;i++){const w=(1.1+2.4*(1-i/N))*scale;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(pts[i-1].x,pts[i-1].y+dy);ctx.lineTo(pts[i].x,pts[i].y+dy);ctx.stroke();}
    }
    // Leaves open behind the growing tip, on alternate sides, each a little different.
-   for(let i=3;i<pts.length-1;i+=3){
+   for(let i=4;i<pts.length-1;i+=5){
     const p=pts[i],q=pts[i+1],side=(i/3)%2?1:-1,a=Math.atan2(q.y-p.y,q.x-p.x)+side*(.8+.5*rand(seed,i)),open=Math.min(1,(pts.length-1-i)/4)*g;if(open<.05)continue;
-    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(a);ctx.scale(open,open);leaf(ctx,4.5+2.5*rand(seed,i+20),LEAF[(seed+i)%3]);ctx.restore();
+    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(a);ctx.scale(open,open);leaf(ctx,3.4+1.6*rand(seed,i+20),LEAF[(seed+i)%3]);ctx.restore();
    }
    // A curled tendril at the growing tip.
    if(g<.98){const t=pts.at(-1),b=pts.at(-2),a=Math.atan2(t.y-b.y,t.x-b.x);ctx.strokeStyle=VINE.tendril;ctx.lineWidth=.8;ctx.beginPath();for(let k=0;k<=12;k++){const r=3.4*(1-k/14),th=a+k*.55*side0(seed);const x=t.x+Math.cos(th)*r-Math.cos(a)*3.4,y=t.y+Math.sin(th)*r-Math.sin(a)*3.4;k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();}
    // The earth each end comes out of.
-   ctx.fillStyle='rgba(58,38,18,.85)';for(const e of [pts[0],...(g>.97?[vinePoint(v,1,s,sway)]:[])]){ctx.beginPath();ctx.ellipse(e.x,e.y+.6,4.2,1.7,0,0,TAU);ctx.fill();}
+   ctx.fillStyle='rgba(58,38,18,.85)';for(const e of [pts[0],...(g>.97?[vinePoint(v,1,s,sway,hk)]:[])]){ctx.beginPath();ctx.ellipse(e.x,e.y+.6,4.2,1.7,0,0,TAU);ctx.fill();}
+   ctx.globalAlpha=1;
   }
   ctx.restore();
  }
@@ -301,33 +316,32 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
  // A slow breath from dim to a white-gold peak (no flicker: one smooth cosine).
  const breath=t=>(1-Math.cos(TAU*t/PERIOD.spirit))/2;
  function holyBack(ctx,s){
-  const b=breath(s.t),sp=spiritLayers(s.side),sy=s.pose.sy??1,head={x:s.pose.foot.x,y:s.pose.foot.y-118*sy},dark=s.side===1;
+  const b=breath(s.t),sp=spiritLayers(s.side),sy=s.pose.sy??1,head={x:s.pose.foot.x,y:s.pose.foot.y-118*sy},turn=.05*Math.sin(TAU*s.t/PERIOD.spirit/2);
   ctx.save();
-  // Light pooled on his square (a pool of shadow for the charcoal king, with a faint pale ring round it).
-  const pool=ctx.createRadialGradient(0,0,0,0,0,1);
-  if(dark){pool.addColorStop(0,'rgba(8,6,12,.85)');pool.addColorStop(.55,'rgba(10,8,14,.5)');pool.addColorStop(.86,'rgba(10,8,14,.12)');pool.addColorStop(.93,'rgba(214,210,228,.22)');pool.addColorStop(1,'rgba(214,210,228,0)');}
-  else{pool.addColorStop(0,'rgba(255,238,178,.85)');pool.addColorStop(.55,'rgba(255,232,160,.4)');pool.addColorStop(1,'rgba(255,232,160,0)');}
-  ctx.globalCompositeOperation=dark?'source-over':'lighter';
-  ctx.save();ctx.globalAlpha=s.k*s.g*(dark?.4+.5*b:.28+.55*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(48,16);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
-  // Short soft rays behind his crown, in a narrow fan that turns a little (about 36 units: not over the next square).
-  const turn=.05*Math.sin(TAU*s.t/PERIOD.spirit/2);
-  if(dark){
-   ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*(.06+.1*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(rays(),-44,-46,88,48);ctx.restore();
-   ctx.save();ctx.globalAlpha=s.k*(.3+.55*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(raysDark(),-40,-42,80,44);ctx.restore();
-  }else{ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*(.18+.55*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(rays(),-40,-42,80,44);ctx.restore();}
-  // The glow round his outline: the wide halo, and the close rim towards the peak (dark: a pale edge
-  // outside the dark halo, so it shows on a dark square).
-  if(sp){
-   if(dark){ctx.globalCompositeOperation='lighter';ctx.globalAlpha=s.k*(.16+.26*b);inSpirit(ctx,s,sp.edge);ctx.globalCompositeOperation='source-over';}
-   else ctx.globalCompositeOperation='lighter';
-   ctx.globalAlpha=s.k*(dark?.55+.4*b:.4+.5*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(dark?.35+.6*b:.3+.7*b);inSpirit(ctx,s,sp.rim);
+  if(s.side===1){
+   // The charcoal king: black only, drawn over the board (no added light). Never fully gone at the dim point.
+   const pool=ctx.createRadialGradient(0,0,0,0,0,1);pool.addColorStop(0,'rgba(18,15,12,.9)');pool.addColorStop(.6,'rgba(34,29,24,.55)');pool.addColorStop(1,'rgba(34,29,24,0)');
+   ctx.save();ctx.globalAlpha=s.k*s.g*(.5+.45*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(50,17);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
+   // (Dense, so they darken the dark wood his head stands over when he is on a light square.)
+   ctx.save();ctx.globalAlpha=s.k*(.78+.22*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(raysDark(),-40,-42,80,44);ctx.restore();
+   if(sp){ctx.globalAlpha=s.k*(.6+.35*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(.45+.5*b);inSpirit(ctx,s,sp.rim);}
+   ctx.restore();return;
   }
+  ctx.globalCompositeOperation='lighter';
+  // Light pooled on his square.
+  const pool=ctx.createRadialGradient(0,0,0,0,0,1);pool.addColorStop(0,'rgba(255,238,178,.85)');pool.addColorStop(.55,'rgba(255,232,160,.4)');pool.addColorStop(1,'rgba(255,232,160,0)');
+  ctx.save();ctx.globalAlpha=s.k*s.g*(.28+.55*b);ctx.translate(s.ground.x,s.ground.y-3);ctx.scale(48,16);ctx.fillStyle=pool;ctx.beginPath();ctx.arc(0,0,1,0,TAU);ctx.fill();ctx.restore();
+  // Short soft rays behind his crown, in a narrow fan that turns a little (about 36 units: not over the next square).
+  ctx.save();ctx.globalAlpha=s.k*(.18+.55*b);ctx.translate(head.x,head.y);ctx.rotate(turn);ctx.drawImage(rays(),-40,-42,80,44);ctx.restore();
+  // The glow round his outline: the wide halo, and the close rim brightening towards the peak.
+  if(sp){ctx.globalAlpha=s.k*(.4+.5*b);inSpirit(ctx,s,sp.halo);ctx.globalAlpha=s.k*(.3+.7*b);inSpirit(ctx,s,sp.rim);}
   ctx.restore();
  }
  function holyFront(ctx,s){
   const sp=spiritLayers(s.side);if(!sp)return;
-  // A sheen on the figure: gold for the ivory king, a dark one (multiplied) for the charcoal king.
-  ctx.save();ctx.globalCompositeOperation=s.side?'multiply':'lighter';ctx.globalAlpha=s.k*(s.side?.12+.38*breath(s.t):.05+.25*breath(s.t));inSpirit(ctx,s,sp.gold);ctx.restore();
+  // A sheen on the figure: gold for the ivory king; for the charcoal king a light shade (multiplied), so he
+  // looks wrapped in darkness but keeps his own modelling.
+  ctx.save();ctx.globalCompositeOperation=s.side?'multiply':'lighter';ctx.globalAlpha=s.k*(s.side?.03+.07*breath(s.t):.05+.25*breath(s.t));inSpirit(ctx,s,sp.gold);ctx.restore();
  }
 
  // —— Shadow ——
@@ -341,8 +355,11 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   for(const [i,[hx,depth,lean,size,phase]] of HANDS.entries()){
    if((depth>0)!==front)continue;
    const u=frac(u0-phase),r=rise(u)*s.g*s.k;if(r<.01)continue;
-   const x=s.ground.x+hx*s.facing,y=s.ground.y-4+depth*13,k=size*(.92+.08*depth),sway=.05*Math.sin(TAU*(u0*2+phase));
-   drawCrack(ctx,x,y,10.5*k,Math.min(1,r*1.6)*2.9*k,i+1);
+   // spread: how far round his feet the hands come up (the title screen keeps them close: its kings stand
+   // close together).
+   const x=s.ground.x+hx*s.facing*(s.spread??1),y=s.ground.y-4+depth*13*(s.spread??1),k=size*(.92+.08*depth),sway=.05*Math.sin(TAU*(u0*2+phase));
+   // The crack is open before the hand comes through it.
+   drawCrack(ctx,x,y,10.5*k,Math.min(1,r*4)*2.9*k,i+1);
    drawHand(ctx,x,y,{side:s.side,size:k,flip:hx*s.facing<0,angle:(lean+sway)*s.facing*(r*.6+.4),rise:r,curl:clutch(u)});
   }
  }
@@ -393,7 +410,8 @@ export function createKingEffects({sheet,onLoad=()=>{}}){
   /**
    * s: {design, side, pose (the figure as drawn), ground (floor point under the feet), facing, t (ms),
    *  k (0..1 the whole effect: his opacity, and it fades as he falls), opacity (his opacity alone),
-   *  g (0..1 effects on his square, they leave while he moves)}.
+   *  g (0..1 effects on his square, they leave while he moves), spread (optional: how far Shadow's hands
+   *  reach round his feet, 1 on the board)}.
    */
   back(ctx,s){
    if(s.design==='frost'){rime(ctx,s);flakes(ctx,s,false);}
