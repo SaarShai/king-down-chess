@@ -46,20 +46,32 @@ describe('standard chess sanity', () => {
   });
 });
 
-describe('archer', () => {
-  const pos = fromFen('7k/8/8/2p5/2Pp4/2A5/8/K7 w - - 0 1');
-  it('steps 1 in any direction, shoots diagonal-adjacent and 2-away orthogonal targets through blockers', () => {
+describe('archer (official since 2026-10-05: only over a piece, docs/RULES.md Decision 19)', () => {
+  // c5 is 2 ahead over the own pawn on c4, e5 2 forward-diagonal over the enemy pawn on d4: both are
+  // shots. e3 and a5 are 2 away over an empty square, d4 is a neighbour and a1 is 2 *back* diagonally:
+  // none of them is.
+  const pos = fromFen('7k/8/8/p1p1p3/2Pp4/2A1p3/1P6/n6K w - - 0 1');
+  it('steps 1 in any direction; shoots 2 squares straight or diagonally forward, only over a piece', () => {
     expect(lan(pos, movesFrom(pos, 'c3')))
-      .toEqual(['Ac3*c5', 'Ac3*d4', 'Ac3-b2', 'Ac3-b3', 'Ac3-b4', 'Ac3-c2', 'Ac3-d2', 'Ac3-d3']);
+      .toEqual(['Ac3*c5', 'Ac3*e5', 'Ac3-b3', 'Ac3-b4', 'Ac3-c2', 'Ac3-d2', 'Ac3-d3']);
     const shot = movesFrom(pos, 'c3').find(m => m.to === m.from)!;
     const after = makeMove(pos, shot);
     expect(typeOf(at(after, 'c3'))).toBe(A);
     expect(at(after, sqName(shot.captures[0]))).toBe(0);
   });
-  it('gives check through blockers; king may not step onto a shot square', () => {
+  it('gives check over a piece; a king may step next to it', () => {
     const p2 = fromFen('8/8/8/4k3/4P3/4A3/8/K7 b - - 0 1');
     expect(inCheck(p2)).toBe(true);
-    expect(lan(p2, legalMoves(p2))).toEqual(['Ke5-d6', 'Ke5-e6', 'Ke5-f6', 'Ke5xe4']);
+    expect(lan(p2, legalMoves(p2))).toEqual(['Ke5-d4', 'Ke5-d6', 'Ke5-e6', 'Ke5-f4', 'Ke5-f6', 'Ke5xe4']);
+    expect(inCheck(fromFen('8/8/8/4k3/8/4A3/8/K7 b - - 0 1'))).toBe(false); // nothing between: no check
+  });
+  it('a piece that steps onto the square between opens the shot: it checks, or it may not go there', () => {
+    const white = fromFen('8/8/8/4k3/8/4A3/5N2/K7 w - - 0 1');
+    const ne4 = movesFrom(white, 'f2').find(m => toLan(white, m) === 'Nf2-e4')!;
+    expect(inCheck(makeMove(white, ne4))).toBe(true); // the knight does not attack e5; the archer does, over it
+    const black = fromFen('8/8/3n4/4k3/8/4A3/8/K7 b - - 0 1');
+    expect(lan(black, movesFrom(black, 'd6'))).not.toContain('Nd6-e4'); // it would put its own king in check
+    expect(genAt(black, 'd6')).toContain('Nd6-e4');
   });
 });
 
@@ -253,16 +265,17 @@ describe('draws', () => {
 });
 
 it('archer never captures by displacement: an orthogonally adjacent enemy king is neither in check nor capturable', () => {
-  // White archer e4, black king e5 (adjacent, orthogonal); black pawn d3 is diagonal-adjacent → shootable.
-  const pos = fromFen('8/8/8/4k3/4A3/3p4/8/4K3 w - - 0 1');
+  // White archer e4, black king e5 (adjacent, orthogonal); black pawn g4 is 2 to the side over the
+  // white knight on f4 → shootable.
+  const pos = fromFen('8/8/8/4k3/4ANp1/8/8/K7 w - - 0 1');
   const moves = legalMoves(pos);
-  const kingSq = 4 * 8 + 4, pawnSq = 2 * 8 + 3, archerSq = 3 * 8 + 4;
+  const kingSq = 4 * 8 + 4, pawnSq = 3 * 8 + 6, archerSq = 3 * 8 + 4;
   expect(moves.some(m => m.captures.includes(kingSq))).toBe(false);
   expect(moves.some(m => m.from === archerSq && m.to === kingSq)).toBe(false);
   expect(moves.some(m => m.from === archerSq && m.to === archerSq && m.captures.includes(pawnSq))).toBe(true);
   expect(isAttacked(pos.board, kingSq, 0)).toBe(false);
   // Black to move next to the archer: the king is not in check, so a quiet king move is legal.
-  const black = fromFen('8/8/8/4k3/4A3/3p4/8/4K3 b - - 0 1');
+  const black = fromFen('8/8/8/4k3/4ANp1/8/8/K7 b - - 0 1');
   expect(legalMoves(black).length).toBeGreaterThan(0);
 });
 
@@ -589,16 +602,16 @@ describe('rule toggles', () => {
 
   it('capitalSanctuary=true (lab): a capture whose victim stands in the capital is not generated', () => {
     // White rook a4 takes the d4 pawn (a capital square) and Rf3 takes the f2 pawn (not one); the
-    // archer on c3 shoots d4 (`to === from`), a capture the victim test must catch like any other.
-    const pos = fromFen('7k/8/8/8/R2p4/2A2R2/5p2/K7 w - - 0 1');
+    // archer on d2 shoots d4 over the d3 pawn (`to === from`), a capture the victim test must catch like any other.
+    const pos = fromFen('7k/8/8/8/R2p4/3P1R2/3A1p2/K7 w - - 0 1');
     const before = lan(pos, legalMoves(pos));
     expect(before).toContain('Ra4xd4');
     expect(before).toContain('Rf3xf2');
-    expect(before).toContain('Ac3*d4');
+    expect(before).toContain('Ad2*d4');
     setRules({ capitalSanctuary: true });
     const after = lan(pos, legalMoves(pos));
     expect(after).not.toContain('Ra4xd4'); // the d4 pawn is inside the capital
-    expect(after).not.toContain('Ac3*d4'); // …and a shot at it is a capture too
+    expect(after).not.toContain('Ad2*d4'); // …and a shot at it is a capture too
     expect(after).toContain('Rf3xf2');     // a victim outside the capital is untouched
     // Only captures are banned: moving onto an empty capital square stays legal.
     const open = fromFen('7k/8/8/8/8/8/8/K2R4 w - - 0 1');
@@ -708,9 +721,9 @@ describe('rule toggles', () => {
   it('archerMove=ortho (2017): the archer loses the diagonal step, and still never captures by displacement', () => {
     const pos = fromFen('7k/8/8/2p5/2Pp4/2A5/8/K7 w - - 0 1');
     expect(lan(pos, movesFrom(pos, 'c3')))
-      .toEqual(['Ac3*c5', 'Ac3*d4', 'Ac3-b2', 'Ac3-b3', 'Ac3-b4', 'Ac3-c2', 'Ac3-d2', 'Ac3-d3']);
+      .toEqual(['Ac3*c5', 'Ac3-b2', 'Ac3-b3', 'Ac3-b4', 'Ac3-c2', 'Ac3-d2', 'Ac3-d3']);
     setRules({ archerMove: 'ortho' });
-    expect(lan(pos, movesFrom(pos, 'c3'))).toEqual(['Ac3*c5', 'Ac3*d4', 'Ac3-b3', 'Ac3-c2', 'Ac3-d3']);
+    expect(lan(pos, movesFrom(pos, 'c3'))).toEqual(['Ac3*c5', 'Ac3-b3', 'Ac3-c2', 'Ac3-d3']);
     crossCheckAttacks(101);
   });
 
@@ -921,7 +934,7 @@ describe('rule toggles', () => {
   it('archerShots=forward3 (2021): the two forward diagonals and the square two ahead, per side', () => {
     const w = fromFen('k7/8/8/2p5/1p1p4/2A5/1p1p4/2p4K w - - 0 1');
     const shots = (pos: Position, from: string) => lan(pos, movesFrom(pos, from)).filter(x => x.includes('*'));
-    expect(shots(w, 'c3')).toEqual(['Ac3*b2', 'Ac3*b4', 'Ac3*c1', 'Ac3*c5', 'Ac3*d2', 'Ac3*d4']);
+    expect(shots(w, 'c3')).toEqual([]); // today's archer shoots only over a piece, and nothing stands between
     setRules({ archerShots: 'forward3' });
     expect(shots(w, 'c3')).toEqual(['Ac3*b4', 'Ac3*c5', 'Ac3*d4']);
     // "Forward" is the shooting side's own direction, so Black shoots the other way.

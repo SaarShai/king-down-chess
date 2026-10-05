@@ -67,8 +67,8 @@ describe('Haste readings (the official Haste: neither move captures)', () => {
     expect(second).not.toContain('Ra4-h4'); // check on the h-file
     expect(second).not.toContain('Ra4-a8'); // check on rank 8
     expect(second).toEqual(expect.arrayContaining(['Ra4-c4', 'Ra4-b4', '--']));
-    // An archer's shot is a capture too: from e5 it shoots two squares diagonally forward to g7.
-    const archer = lans(play(fromFen('7k/6n1/8/8/8/2A5/8/K7 w - - 0 1'), 'Ac3-d4!H'));
+    // An archer's shot is a capture too: from e5 it shoots two squares diagonally forward to g7, over f6.
+    const archer = lans(play(fromFen('7k/6n1/5p2/8/8/2A5/8/K7 w - - 0 1'), 'Ac3-d4!H'));
     expect(archer).not.toContain('Ad4-e5');
     expect(archer).toContain('Ad4-d3');
     // The capture rules include the shelters: a piece in a Mercy shelter is no target.
@@ -351,12 +351,12 @@ describe('Darkness readings, round 16: one sentence each (owner, 2026-10-03)', (
     expect(lans(rook).filter(far)).toEqual(['Kd4-b2', 'Kd4-b4', 'Kd4-f4']);
     expect(lans(rook).filter(l => !far(l))).toEqual(before.filter(l => !far(l))); // the one-square steps and Kd4xe3
     expect(before).toContain('Kd4xe3');
-    // A knight (e1 holds d3), a pawn (f5 holds e4) and an archer through a blocker (c6 shoots c4 over
-    // the pawn c5, and holds d5 and e4 as well): each takes away the steps over the squares it holds.
+    // A knight (e1 holds d3), a pawn (f5 holds e4) and an archer over a piece (c6 shoots c4 over the
+    // pawn c5): each takes away the steps over the squares it holds.
     const cases: [string, string, string[]][] = [
       ['7k/8/8/8/3K4/8/8/4n3 w - - 0 1', 'd3', ['Kd4-d2']],
       ['7k/8/8/5p2/3K4/8/8/8 w - - 0 1', 'e4', ['Kd4-f4']],
-      ['7k/8/2a5/2P5/3K4/8/8/8 w - - 0 1', 'c4', ['Kd4-b4', 'Kd4-d6', 'Kd4-f4']],
+      ['7k/8/2a5/2P5/3K4/8/8/8 w - - 0 1', 'c4', ['Kd4-b4']],
     ];
     for (const [fen, mid, gone] of cases) {
       const pos = fromFen(fen);
@@ -724,7 +724,7 @@ describe('random games under the Death Touch trims', () => {
         setFastLegality(true);
         for (const m of moves) {
           expect(touchObeys(pos, m), `${toFen(pos)} ${toLan(pos, m)}`).toBe('');
-          if (m.to === m.from && m.captures.length && Math.max(Math.abs(file(m.captures[0]) - file(m.from)), Math.abs(rank(m.captures[0]) - rank(m.from))) === 2) reachSeen++;
+          if (m.to === m.from && m.captures.length && typeOf(pos.board[m.from]) === K && Math.max(Math.abs(file(m.captures[0]) - file(m.from)), Math.abs(rank(m.captures[0]) - rank(m.from))) === 2) reachSeen++;
         }
         // Half the turns take something, so the board opens and the kings meet.
         const takes = moves.filter(x => x.captures.length);
@@ -736,9 +736,10 @@ describe('random games under the Death Touch trims', () => {
         pos = next;
       }
     }
-    // The games reach the trims (2026-10-03: 140 two-square shots offered, 37 moves the trims
-    // dropped), so the checks above are not vacuous.
-    expect(reachSeen).toBeGreaterThan(60);
+    // The games reach the trims (2026-10-05: 38 two-square shots by a Death Touch king offered, 21
+    // moves the trims dropped), so the checks above are not vacuous. Archer shots are not counted:
+    // until the over-a-piece Archer (2026-10-05) they made most of the 140 counted here before.
+    expect(reachSeen).toBeGreaterThan(25);
     expect(dropped).toBeGreaterThan(15);
   }, 120_000);
 });

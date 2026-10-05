@@ -36,7 +36,7 @@ try {
     if (look === 'painted') {
       // Under 2021 rules the straight Beast bites are impossible and the Paladin removes itself.
       // Lessons must use the current rules, then restore the match's older rules on return.
-      const steps = [[27, 36], [11, 12], [27, 28], [27, 35, 43], [27, 35], [3, 43]];
+      const steps = [[27, 29], [11, 12], [27, 28], [27, 35, 43], [27, 35], [3, 43]];
       for (const [i, squares] of steps.entries()) {
         for (const sq of squares) await tap(sq);
         if (await page.evaluate(() => document.getElementById('move-choice').open)) await page.click('#choose-push');

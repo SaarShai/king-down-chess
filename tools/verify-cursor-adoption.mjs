@@ -139,7 +139,7 @@ try {
   checks.push('promotion dialog cancels cleanly; underpromotion works; auto-queen respects promotion sets; old games retain their rules and new games use current defaults');
 
   for (const [query, archer, beast, promotionText] of [
-    ['', /forward diagonal at distance 2/, /any adjacent square/, /queen, rook, bishop, or knight/],
+    ['', /only over a piece/, /any adjacent square/, /queen, rook, bishop, or knight/],
     ['?rules=2017', /1 square orthogonally/, /straight ahead/, /any piece but a king/],
     ['?rules=2021', /ahead or back/, /either forward diagonal/, /any piece but a king/],
   ]) {
@@ -152,7 +152,7 @@ try {
   }
   checks.push('guide and promotion text follow current, 2017 and 2021 presets');
 
-  await seed('7k/8/8/2p5/8/2A5/8/4K3 w - - 0 1');
+  await seed('7k/8/8/2p5/2p5/2A5/8/4K3 w - - 0 1'); // the archer shoots c5 over the c4 pawn
   await click(18); await click(34); await played(1);
   assert.match(await page.locator('#moment').innerText(), /archer shot/);
   await page.reload(); await ready();

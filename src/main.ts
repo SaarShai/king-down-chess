@@ -144,7 +144,8 @@ const ARCHER_SHOT_TEXT: Record<string, string> = {
   fwd2NoBack: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or to the side, or either forward diagonal at distance 2, through blockers.',
   fwd2NoSide: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or behind, or either forward diagonal at distance 2, through blockers.',
   far2: 'Shoots without moving: an enemy exactly 2 squares away orthogonally, or on either forward diagonal at distance 2, through blockers.',
-  over2: 'Shoots without moving: an enemy exactly 2 squares away orthogonally, or on either forward diagonal at distance 2, only over a piece on the square between.',
+  // The official Archer since 2026-10-05 (docs/RULES.md Decision 19).
+  over2: 'Shoots without moving, only over a piece of either side on the square between: an enemy exactly 2 squares away orthogonally, or on either forward diagonal at distance 2.',
   nearOver2: 'Shoots without moving: an enemy diagonally adjacent, or exactly 2 squares away orthogonally or on either forward diagonal, only over a piece on the square between.',
   fwdNearOver2: 'Shoots without moving: an enemy on either forward diagonal next to it, or exactly 2 squares away orthogonally or on either forward diagonal, only over a piece on the square between.',
 };
