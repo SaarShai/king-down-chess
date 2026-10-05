@@ -10,7 +10,7 @@ import { afterEach, expect, it } from 'vitest';
 import {
   A, B, BLACK, C, Color, G, K, L, M, Mark, N, O, P, PieceType, Position, Q, R, S, T, V, WHITE, inCheck, legalMoves, piece,
 } from '../rules/engine';
-import { CARD_ONLY, CardName, KINGS, KingChoice, KingName, PowerName, Rules, TIER1, USES_RULE, setRules } from '../rules/rules';
+import { CARD_ONLY, CardName, DEFAULT_RULES, KINGS, KingChoice, KingName, PowerName, Rules, TIER1, USES_RULE, setRules } from '../rules/rules';
 import { toFen, toLan } from '../rules/setup';
 import { searchLegal, setFastLegality } from './search';
 
@@ -176,6 +176,6 @@ it('the same under each archer shot set, the three middle lab sets included (202
   }
   expect(checked).toBeGreaterThan(1000);
   expect(inCheckCount).toBeGreaterThan(50);
-  // Each lab set changes the legal moves against today's default on some boards.
-  for (const set of SETS.slice(1)) expect(changed[set] ?? 0, set).toBeGreaterThan(20);
+  // Each set but today's default (`over2` since 2026-10-05) changes the legal moves on some boards.
+  for (const set of SETS.filter(x => x !== DEFAULT_RULES.archerShots)) expect(changed[set] ?? 0, set).toBeGreaterThan(20);
 }, 120_000);
