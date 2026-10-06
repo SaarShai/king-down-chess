@@ -1,0 +1,40 @@
+{
+  "spec": {
+    "id": "pv-A-ao3na-n1.A",
+    "games": 1000,
+    "ai": {
+      "depth": 3
+    },
+    "seed": 1036,
+    "maxPlies": 300,
+    "openingRandomPlies": 4,
+    "rules": {
+      "archerShots": "over23"
+    },
+    "values": {
+      "A": 299
+    },
+    "adjudicate": false,
+    "asymmetric": [
+      {
+        "white": "RABQKBNR",
+        "black": "RNBQKBNR"
+      }
+    ],
+    "pairs": true
+  },
+  "games": 1000,
+  "seconds": 224.6,
+  "whiteScore": 0.537,
+  "whiteWins": 500,
+  "draws": 74,
+  "blackWins": 426,
+  "meanPlies": 110.2,
+  "reasons": {
+    "checkmate": 926,
+    "drawMaterial": 15,
+    "draw50": 9,
+    "drawRepetition": 49,
+    "plyCap": 1
+  }
+}

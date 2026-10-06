@@ -1,0 +1,5 @@
+2026-10-06 05:31:45 pv-A-ao3na-n1 start A=299 odds=0 noadjudicate at d664ec7
+2026-10-06 05:35:30 pv-A-ao3na-n1 exit 0: Elo -26 ± 21, worth 2.83 ± 0.27, next seed 283 -> next
+2026-10-06 05:35:30 pv-A-ao3na-n2 start A=283 odds=0 noadjudicate at d664ec7
+2026-10-06 05:39:18 pv-A-ao3na-n2 exit 0: Elo -36 ± 20, worth 2.70 ± 0.26, next seed 270; converged (moved 0.13 < 0.26) -> stop
+2026-10-06 05:39:18 done

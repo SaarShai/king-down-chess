@@ -1,0 +1,9 @@
+2026-10-05 12:41:25 start at d664ec7
+2026-10-05 12:41:25 over2any skipped: archerMove=any is already the default, so it equals over2 (pa-ao2, pv-A-over2-n1..n4)
+2026-10-05 12:41:25 pa-ao3 start (archerShots=over23) at d664ec7
+2026-10-05 13:19:03 pa-ao3 exit 0: [pa-ao3] 9000 games in 37.6 min
+2026-10-05 13:19:03 pv-A-ao3-n1 start A=505 odds=0 at d664ec7
+2026-10-05 13:22:19 pv-A-ao3-n1 exit 0: Elo +3 ± 20, worth 3.20 ± 0.26, next seed 320 -> next
+2026-10-05 13:22:19 pv-A-ao3-n2 start A=320 odds=0 at d664ec7
+2026-10-05 13:25:35 pv-A-ao3-n2 exit 0: Elo -13 ± 20, worth 2.99 ± 0.27, next seed 299; converged (moved 0.21 < 0.27) -> stop
+2026-10-05 13:25:35 done
