@@ -117,6 +117,8 @@ one of your captured pieces to an empty square of your back rank"; a pawn, a gua
 (2026-10-04, owner: "cards - let's add all") the 2014 cards **Rage**, **Mirror**, **Firewall**, **Earth Quake**,
 **Burn**, **Fire Starter**, **Control**, **Rescue** and **Growth**, with softer `B` readings of Rage, Mirror, Firewall,
 Earth Quake and Growth; their texts and readings are in that report ("The 2014 cards"). Not measured yet.
+**Rally** (2026-10-05, working name; card only): one of your pieces moves, then a different one may move; neither
+move captures (Haste's shape with two pieces). Not measured.
 
 ## 6. Decisions (2026-09-13, chosen for balance and fun)
 

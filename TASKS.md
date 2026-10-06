@@ -157,6 +157,14 @@
 - [x] The random pool is `QORRBBNNAAGMMS` (one Beast; `src/rules/setup.ts`, `docs/RULES.md`). Tournaments record their pool, so rounds drawn from the old pool still resume (`claude/archer-runs`, aedc7c6).
 - [x] Custom armies too: New game refuses a custom back rank with two Beasts ("One Beast per army."; `src/main.ts`, `claude/one-beast`, 4a000ca).
 
+## Power schema, the Rally card, "from move N" — 2026-10-05 (open)
+
+- Branch `claude/power-schema` (from `origin/main`).
+- [x] **Rally** (working name; the owner chooses the final name), card only, appended last to `CARD_ONLY` / `ALL_CARDS`: one own piece moves, then a different own piece may move (`--` skips it); neither move captures; the king may be either piece, as with Haste. Its pending second move is `Position.rage` 3 (FEN `hd4o`, Zobrist key appended), notation `!J`; text in `cardText`; search value 150 (Haste's, unmeasured); replay, move text, moment captions and the tournament turn count read it.
+- [x] `docs/MATRIX.md` §C: the schema of every power and card (source, type, uses, turn cost, captures, targets, duration, fromMove) and one row per power and card.
+- [ ] **`fromMove` not built**: the position keeps no reliable move number. `Position.ply` counts every ply, so a Haste, Rage or Rally first move, a free mark, a GrowthB and Black's double first turn add plies inside one turn; FEN writes `floor(ply / 2) + 1` and reads it back as `(n - 1) * 2 + side`, so a round trip changes `ply` after such a turn; the search keeps no game move number. Owner: choose a turn counter on `Position` (FEN field 6 written from it, hashed or not) before the rule is built.
+- Verified: `tsc`; vitest 567 (5 new in `src/rules/rally.test.ts`; the random card-hand legality cross-check now deals Rally and sets its pending move); 3 mutations of the Rally code each fail a test; `node --test` 42; `vite build`. Smoke `schema-smoke` (`card:Rally,none`, 16 games, depth 2, 2 workers, without `fromMove`; outputs deleted): Rally played in 7 of the 8 games that held it, on the side's turns 9–39; every use and every second move replays as legal, each second move by a different piece, no capture, no skip.
+
 ## Card mode: all the 2014 cards — 2026-10-04 (open)
 
 - **Owner (2026-10-04):** "cards - let's add all and test variations for whatever might not work in our version or might be overpowered." Branch `claude/cards-all` (from `claude/salvation`). Card mode stays a lab mode.

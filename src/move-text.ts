@@ -13,7 +13,7 @@ export function describeMove(pre: Position, m: Move): string {
   const the = (s: number): string => `${NAMES[typeOf(pre.board[s])]} on ${sqName(s)}`;
   const colour = (s: number): string => (colorOf(pre.board[s]) ? 'black' : 'white');
   // King powers that move nothing, or change a piece where it stands.
-  if (m.pass) return `${side} ends the turn without the Haste second move.`;
+  if (m.pass) return `${side} ends the turn without the ${pre.rage === 3 ? 'Rally' : 'Haste'} second move.`;
   if (m.power === 'freeze') return `${side} freezes the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'ward') return `${side} puts an Ice Wall on the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'sacrifice') return `${side} sacrifices the pawn on ${sqName(m.from)} and brings back a ${NAMES[m.promo!]} there.`;
@@ -28,6 +28,7 @@ export function describeMove(pre: Position, m: Move): string {
   if (m.selfRemove) text += `; the ${name} leaves the board`;
   if (m.power === 'strike') text += ' with Strike';
   if (m.power === 'haste') text += `, with Haste: the ${name} may move again`;
+  if (m.power === 'rally') text += ', with Rally: a different piece may move next';
   return `${text}.`;
 }
 

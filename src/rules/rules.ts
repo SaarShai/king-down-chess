@@ -87,7 +87,7 @@ export interface KingChoice { king: KingName; power: PowerName }
  */
 export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Salvation'
   | 'Rage' | 'RageB' | 'Mirror' | 'MirrorB' | 'Firewall' | 'FirewallB' | 'EarthQuake' | 'EarthQuakeB'
-  | 'Burn' | 'FireStarter' | 'Control' | 'Rescue' | 'Growth' | 'GrowthB';
+  | 'Burn' | 'FireStarter' | 'Control' | 'Rescue' | 'Growth' | 'GrowthB' | 'Rally';
 /**
  * The cards no king has (lab, 2026-10-03), each one use and the turn's move:
  * - **Mimic**: a piece (not king or pawn) moves, to an empty square only, the way one of the side's
@@ -117,10 +117,14 @@ export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Sa
  * - **Rescue**: the side's Freeze, Ice Wall or Firewall from its previous turn binds one more turn.
  * - **Growth** / **GrowthB**: draw the next card of the side's pile (`Rules.piles`), as the turn
  *   (Growth) or then make the move (GrowthB).
+ *
+ * **Rally** (working name, 2026-10-05): Haste's shape with two pieces — one own piece moves, then a
+ * different own piece may move (the second move may be skipped); neither move captures.
  */
 export const CARD_ONLY: readonly CardName[] = [
   'Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation',
   'Rage', 'RageB', 'Mirror', 'MirrorB', 'Firewall', 'FirewallB', 'EarthQuake', 'EarthQuakeB', 'Burn', 'FireStarter', 'Control', 'Rescue', 'Growth', 'GrowthB',
+  'Rally',
 ];
 
 /** Each king's two powers, A first (docs/RULES.md §4). */

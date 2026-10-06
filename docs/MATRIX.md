@@ -90,3 +90,62 @@ Each row is one kind of rule; each cell says whether it applies to that piece. A
 | C5 cannot be captured *by* a piece standing there | ? | ? | ? | ? | ? | ? | ? | ? | ◐ all | ? | ? | ? | ? | The mirror of C2 — a piece in the capital is a threat but not a hunter. **Built + measured 2026-09-17** (`capitalNoCapture`, off): **null** on outcomes (decisive −0.2 ± 3.0); structural: killer move +4.4, drama +2.0, maester survival 35% → 44% (`docs/research/sim-capital-c5-2026-09-17.md`) |
 
 Engine seam: `const CAPITAL = new Set([27, 28, 35, 36])` (d4 e4 d5 e5) and (C1) a filter on `to` in `legalMoves`, (C2/C5) a square-aware `canCaptureAt(att, vic, from, to)`, (C3/C4) a branch on `CAPITAL.has(from)` in the piece's `case`. Every rule here is measurable in the lab as a toggle, like the piece rules.
+
+## C. King powers and cards
+
+Kings' powers are a shipped game mode (●, with the official readings of `POWERS_BALANCED`); card mode is lab only
+(◐, `Rules.hands`). Sources: `src/rules/rules.ts`, `src/rules/engine.ts`, `cardText` in `src/powers-ui.ts`, `RULES.md` §4–§5.
+
+### C.1 Schema: the properties of every power or card
+
+| Property | Allowed values |
+|---|---|
+| Source | king power · card · both (a spendable king power is also dealt as a card) |
+| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) |
+| Uses | n per game (king power) · 1 (every card) · — (always-on) |
+| Turn cost | is the turn's move · then make the move (a free action, `markFree`) · extra move (the second move may be skipped) |
+| Captures | may · must · never |
+| Targets | own · enemy · either; which kings and pawns are excluded |
+| Duration | instant · opponent's next turn (◐ `markTurns: 2`: two turns) · always |
+| fromMove | none (default) · N: not before the side's own move N. **Not built**: the position keeps no reliable move number (`Position.ply` counts every ply of a turn that goes on). Every row below is none. |
+
+### C.2 Each power and card
+
+| Item | Source | Type | Uses (king) | Turn cost | Captures | Targets | Duration |
+|---|---|---|---|---|---|---|---|
+| Freeze | both ● / ◐ | mark | 1 (printed 2) | then make the move (printed: the turn's move) | never | an enemy piece or pawn, not the king | opponent's next turn |
+| Ice Wall | both ● / ◐ | mark | 2 | then make the move (printed: the turn's move) | never | an own piece or pawn, not the king | opponent's next turn |
+| Strike | both ● / ◐ | special move: as a queen | 1 | is the turn's move | never (printed: may) | an own piece, not the king or a pawn (printed: pawns too) | instant |
+| Haste | both ● / ◐ | extra move: the same piece | 1 | extra move | never (printed: may) | an own piece, the king included | instant |
+| Flight | both ● / ◐ | special move: to an empty square of the own half | 1 | is the turn's move | never | an own piece or pawn, not the king | instant |
+| Sacrifice | both ● / ◐ | arrival: a pawn becomes a lost piece | 1 | is the turn's move | never | an own pawn; the piece not a pawn, guard or king | instant |
+| March | both ● / ◐ | always-on (king) · special move (card): a pawn's double step from any rank | — (printed 3) | is the turn's move | never | own pawns | always (king) · instant (card) |
+| Leap | both ● / ◐ | special move: a slider passes its own pawns | 3 | is the turn's move | may, not a king | an own rook, bishop or queen | instant |
+| Holy Light | king power ● | always-on | — | — | the king may take pawns | own king: no enemy pawn takes it; own pieces beside, in front of or behind it cannot be taken | always |
+| Mercy | king power ● | always-on: the king steps 1–2 and jumps own pieces | — | — | the king takes only a pawn or a guard | own pieces next to the king cannot be taken, except by pawns | always |
+| Death Touch | king power ● | always-on | — | — | must: the king takes only without moving | an enemy next to the king, or 2 straight forward, back or sideways over an empty square | always |
+| Darkness | king power ● | always-on: pawns step straight or diagonally; the king may step 2 straight | — | — | pawns take only straight ahead; the king's step never | own pawns and king | always |
+| Mimic | card ◐ | special move: as another own type moves | — | is the turn's move | never | an own piece, not the king or a pawn; not as a king or pawn | instant |
+| Vault | card ◐ | special move: a slider passes one piece | — | is the turn's move | may, not a king | an own rook, bishop or queen; it passes a piece of either side, a king included | instant |
+| Curse | card ◐ | special move: an enemy steps 1 square | — | is the turn's move | never | an enemy piece or pawn, not the king | instant |
+| Sky Lift | card ◐ | special move: two own pieces trade squares | — | is the turn's move | never | own pieces, not the king or pawns, not of one type | instant |
+| Salvation | card ◐ | arrival: a lost piece to the own first rank | — | is the turn's move | never | an own lost piece, not a pawn, guard or king | instant |
+| Rage | card ◐ | extra move: the same piece | — | extra move | may, on either move | an own piece, the king included | instant |
+| RageB | card ◐ | extra move: the same piece | — | extra move | may on the first; the second must | an own piece, the king included | instant |
+| Mirror | card ◐ | copy: the opponent's last card | — | the copied card's | the copied card's | the copied card's | the copied card's |
+| MirrorB | card ◐ | copy: another card of the hand, which stays | — | the copied card's | the copied card's | the copied card's | the copied card's |
+| Firewall | card ◐ | mark: every own piece | — | then make the move | never | all own pieces | opponent's next turn |
+| FirewallB | card ◐ | special move: trade squares with an enemy next to it | — | is the turn's move | never | an own piece and an enemy piece, neither a king | instant |
+| Earth Quake | card ◐ | special move: push the pieces next to a square | — | is the turn's move | never | pieces and pawns of either side, not kings | instant |
+| Earth Quake B | card ◐ | special move: the same, a square next to an own piece | — | is the turn's move | never | pieces and pawns of either side, not kings | instant |
+| Burn | card ◐ | special move: take in the capital as a queen | — | is the turn's move | must | an own piece, not a pawn or the king; an enemy on d4 e4 d5 e5, not the king | instant |
+| Fire Starter | card ◐ | special move: the same on the enemy back rank | — | is the turn's move | must | as Burn, on the enemy back rank | instant |
+| Control | card ◐ | special move: as a friendly neighbour moves and takes | — | is the turn's move | may | an own piece, not a pawn or the king; the neighbour not a pawn or king, nor of its type | instant |
+| Rescue | card ◐ | mark: renews the own last mark | — | then make the move | never | the own Freeze, Ice Wall or Firewall | one more opponent turn |
+| Growth | card ◐ | draw | — | is the turn's move | never | the own pile | instant |
+| GrowthB | card ◐ | draw | — | then make the move | never | the own pile | instant |
+| Rally (working name) | card ◐ | extra move: a different own piece | — | extra move | never, on either move | own pieces, the king included | instant |
+
+Every card is one use; "Uses (king)" is the official count of a king power (`POWERS_BALANCED` over the rule defaults).
+"Then make the move" for the marks is `markFree`, official for the kings and used in every card measurement. Flight is
+a special move here: it moves a piece already on the board (A.1 lists it under 1b, arriving, by its zone).

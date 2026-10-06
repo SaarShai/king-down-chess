@@ -96,6 +96,8 @@ export interface Move {
    *   chosen square and `pushes`; `burn`, `firestarter`, `control`, one piece's move or capture;
    *   `rescue`, `from === to ===` the side's own mark, renewed; `growth` / `growthb`, `from === to
    *   ===` the own king's square, a card drawn. A Mirror card is the copied card's move (`via`).
+   * - `rally`: a quiet ordinary move, after which a *different* own piece may make a quiet move
+   *   (`Position.rage` 3), or the side ends the turn with a `pass`.
    * No power move ever captures a king, and none adds an attacked square.
    */
   power?: PowerTag;
@@ -116,7 +118,7 @@ export interface Move {
 
 /** The tag on a move that spends a king power (`Move.power`). */
 export type PowerTag = 'freeze' | 'ward' | 'strike' | 'haste' | 'flight' | 'sacrifice' | 'march' | 'leap' | 'mimic' | 'vault' | 'curse' | 'skylift' | 'salvation'
-  | 'rage' | 'rageb' | 'firewall' | 'firewallb' | 'quake' | 'quakeb' | 'burn' | 'firestarter' | 'control' | 'rescue' | 'growth' | 'growthb';
+  | 'rage' | 'rageb' | 'firewall' | 'firewallb' | 'quake' | 'quakeb' | 'burn' | 'firestarter' | 'control' | 'rescue' | 'growth' | 'growthb' | 'rally';
 
 export interface Position {
   board: Uint8Array;
@@ -147,8 +149,12 @@ export interface Position {
   free?: boolean;
   /** Haste: the square of the piece that may still make its optional second move this turn. */
   haste?: number;
-  /** That second move is a Rage card's (1: it may take) or a RageB card's (2: it must take); absent = a Haste's. FEN `hd4r` / `hd4t`. */
-  rage?: 1 | 2;
+  /**
+   * That second move is a Rage card's (1: it may take), a RageB card's (2: it must take) or a Rally
+   * card's (3: a different own piece moves, `haste` names the piece that may not, and nothing is
+   * taken); absent = a Haste's. FEN `hd4r` / `hd4t` / `hd4o`.
+   */
+  rage?: 1 | 2 | 3;
   /** Card mode, Mirror: the card each side played last (a Mirror records the card it played as). Kept while a hand holds a Mirror; FEN `yHaste.Freeze`. */
   last?: readonly [CardName | undefined, CardName | undefined];
   /** Card mode, Growth: the cards each side has drawn from its pile (`Rules.piles`). FEN `d1.0`. */
@@ -282,6 +288,7 @@ export const TAG_POWER: Readonly<Record<PowerTag, CardName>> = {
   mimic: 'Mimic', vault: 'Vault', curse: 'Curse', skylift: 'SkyLift', salvation: 'Salvation',
   rage: 'Rage', rageb: 'RageB', firewall: 'Firewall', firewallb: 'FirewallB', quake: 'EarthQuake', quakeb: 'EarthQuakeB',
   burn: 'Burn', firestarter: 'FireStarter', control: 'Control', rescue: 'Rescue', growth: 'Growth', growthb: 'GrowthB',
+  rally: 'Rally',
 };
 /** Card mode: may side `c` (cards played: the bits of `used`) still play a `power` card? */
 const holdsCard = (c: Color, used: number, power: CardName, drawn = 0): boolean => {
@@ -340,9 +347,9 @@ export const isMarkTag = (t: PowerTag | undefined): boolean => t === 'freeze' ||
 export const isStill = (m: Move): boolean => m.pass === true || isMarkTag(m.power) || m.power === 'growth' || m.power === 'growthb';
 /**
  * Does the turn go on after `m` (besides `secondPlayerDoubleFirstTurn`)? The first move of a Haste
- * or a Rage, a free mark (`markFree`), and a GrowthB card (draw, then move).
+ * a Rage or a Rally, a free mark (`markFree`), and a GrowthB card (draw, then move).
  */
-export const holdsTurn = (m: Move): boolean => m.power === 'haste' || m.power === 'rage' || m.power === 'rageb' || m.power === 'growthb' || (RULES.markFree && isMarkTag(m.power));
+export const holdsTurn = (m: Move): boolean => m.power === 'haste' || m.power === 'rage' || m.power === 'rageb' || m.power === 'rally' || m.power === 'growthb' || (RULES.markFree && isMarkTag(m.power));
 /** A game keeps the reserve (`Position.lost`) only while a side draws on it. */
 export const keepsLost = (): boolean => drawsOnLost(WHITE) || drawsOnLost(BLACK);
 /** May a lost piece of type `t` come back (Sacrifice, Salvation)? Never a pawn, a king or a guard. */
@@ -995,8 +1002,8 @@ export function makeMove(pos: Position, m: Move): Position {
   }
   if (m.power === 'growthb') next.free = true;
   if (marks[0] || marks[1]) next.marks = marks;
-  if (m.power === 'haste' || m.power === 'rage' || m.power === 'rageb') next.haste = m.to;
-  if (m.power === 'rage' || m.power === 'rageb') next.rage = m.power === 'rage' ? 1 : 2;
+  if (m.power === 'haste' || m.power === 'rage' || m.power === 'rageb' || m.power === 'rally') next.haste = m.to;
+  if (m.power === 'rage' || m.power === 'rageb' || m.power === 'rally') next.rage = m.power === 'rage' ? 1 : m.power === 'rageb' ? 2 : 3;
   if (m.power === 'growth' || m.power === 'growthb') { const d: [number, number] = [pos.drawn?.[0] ?? 0, pos.drawn?.[1] ?? 0]; d[c]++; next.drawn = d; }
   else if (pos.drawn) next.drawn = pos.drawn;
   // Mirror: the card each side played last, as the card it played as.
@@ -1455,6 +1462,12 @@ function genPowerMovesRaw(power: CardName | '', board: Uint8Array, c: Color, los
       for (let i = n0; i < n1; i++) if (!out[i].selfRemove) out.push({ ...out[i], power: tag });
       return;
     }
+    case 'Rally': {
+      // Haste's shape with two pieces: a quiet ordinary move (the king's too, as Haste allows), then
+      // a different own piece may make a quiet move (`genHasteFollowUp`, `rage` 3).
+      for (let i = n0; i < n1; i++) if (!out[i].captures.length) out.push({ ...out[i], power: 'rally' });
+      return;
+    }
     case 'Firewall': case 'Growth': case 'GrowthB': {
       // Firewall: a mark on every own piece, named by the own king's square; Growth: a card drawn,
       // while the pile has one and the hand has room (`HAND_MAX`).
@@ -1638,10 +1651,21 @@ export function filterHeld(c: Color, mark: number | undefined, ward: boolean | u
  * Haste's second move: only the hasted piece on `at` moves, and never onto a king (the first move
  * may have given check). `pass` ends the turn instead, so the side always has a move here. `rage`
  * (`Position.rage`): a Rage card's second move (1), which may take whatever the Haste rules say,
- * or a RageB's (2), which must take; the Haste readings' limits are Haste's only.
+ * or a RageB's (2), which must take; the Haste readings' limits are Haste's only. A Rally's (3): any
+ * own piece but the one on `at` makes a quiet move; no move of it may move that piece again (a swap
+ * or a shove of it), and no waiting guard enters.
  */
 export function genHasteFollowUp(board: Uint8Array, at: number, mode: GenMode, out: Move[], rage = 0): void {
   const n0 = out.length;
+  if (rage === 3) {
+    const c = colorOf(board[at]);
+    for (let s = 0; s < 64; s++) if (s !== at && board[s] && colorOf(board[s]) === c) genPiece(board, s, mode, out);
+    let n = n0;
+    for (let i = n0; i < out.length; i++) { const m = out[i]; if (!m.captures.length && !(m.swap && m.to === at) && m.shove?.from !== at) out[n++] = m; }
+    out.length = n;
+    if (mode === 'all') out.push({ from: at, to: at, captures: [], pass: true });
+    return;
+  }
   genPiece(board, at, mode, out);
   // `hasteSecond: 'quiet'` (balance lab): the second move captures nothing at all.
   const quiet = !rage && (RULES.hasteSecond === 'quiet' || !RULES.hasteCaptures);

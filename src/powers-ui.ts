@@ -91,6 +91,7 @@ export function cardText(card: CardName, r: Rules = RULES): string {
     case 'Rescue': return then('your Freeze, Ice Wall or Firewall from your previous turn lasts one more turn');
     case 'Growth': return 'as your move, draw the next card';
     case 'GrowthB': return 'draw the next card, then make your move';
+    case 'Rally': return 'move one of your pieces, then a different one (the second move is optional); neither move captures';
   }
   return card;
 }

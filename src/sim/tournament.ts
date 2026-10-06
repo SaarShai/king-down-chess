@@ -731,9 +731,9 @@ export function mirrorSection(recs: readonly TRecord[], entrants: readonly Entra
     return out;
   };
   // Length in turns: a free mark (Freeze, Ice Wall, Firewall, Rescue), a GrowthB and a Haste's or a
-  // Rage's first move are plies of a turn that goes on, a Mirror's copy of one too (`!Y`, `!Z`).
+  // Rage's or a Rally's first move are plies of a turn that goes on, a Mirror's copy of one too (`!Y`, `!Z`).
   // Every other card (`!X`, `!V`, `!C:`, `!K:`, `!R` included) is the whole turn.
-  const turns = (r: TRecord): number => r.plies - r.lans.filter(l => /^(!F:|!W:|!P|!D:|!G\+)|![HAB](!Y|!Z)?$/.test(l)).length;
+  const turns = (r: TRecord): number => r.plies - r.lans.filter(l => /^(!F:|!W:|!P|!D:|!G\+)|![HABJ](!Y|!Z)?$/.test(l)).length;
   const per = (rs: readonly TRecord[]) => ({
     white: rs.reduce((a, r) => a + r.result, 0) / rs.length,
     draws: rs.filter(r => r.result === 0.5).length / rs.length,

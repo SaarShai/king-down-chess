@@ -93,10 +93,10 @@ it('the same with card hands, the card-only cards included, and marks on the boa
       return { sq: Math.floor(rng() * 64), ...(r < 0.3 ? { ward: true } : r < 0.5 ? { ward: true, all: true } : {}), ...(rng() < 0.3 ? { left: 0 } : {}) };
     };
     pos.marks = [mark(), mark()];
-    // A Rage's (or RageB's) second move pending for a piece of the side to move.
+    // A Rage's (RageB's, Rally's) second move pending for a piece of the side to move.
     if (rng() < 0.15) {
       const own = [...board.keys()].filter(s => board[s] && (board[s] >> 4 & 1) === turn && (board[s] & 15) !== K);
-      if (own.length) { pos.haste = pick(own); pos.rage = rng() < 0.5 ? 1 : 2; }
+      if (own.length) { pos.haste = pick(own); pos.rage = (1 + Math.floor(rng() * 3)) as 1 | 2 | 3; }
     }
     if ([...hw, ...hb, ...pw, ...pb].some(h => h === 'Sacrifice' || h === 'Salvation')) { const lost = new Array<number>(32).fill(0); lost[pick(TYPES)] = 1; lost[16 + pick(TYPES)] = 1; pos.lost = lost; }
     if (inCheck(pos)) inCheckCount++;
@@ -116,7 +116,7 @@ it('the same with card hands, the card-only cards included, and marks on the boa
   expect(checked).toBeGreaterThan(1000);
   expect(inCheckCount).toBeGreaterThan(50);
   for (const tag of ['mimic', 'vault', 'curse', 'skylift', 'salvation', 'rage', 'rageb', 'firewall', 'firewallb', 'quake', 'quakeb', 'burn', 'firestarter',
-    'control', 'rescue', 'growth', 'growthb', 'mirror', 'mirrorb', 'rage1', 'rage2']) expect(played).toContain(tag);
+    'control', 'rescue', 'growth', 'growthb', 'mirror', 'mirrorb', 'rally', 'rage1', 'rage2', 'rage3']) expect(played).toContain(tag);
 }, 120_000);
 
 it('the same with guards waiting to enter, more catapults on the board, and Salvation cards', () => {

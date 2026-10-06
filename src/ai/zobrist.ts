@@ -120,8 +120,11 @@ export const lostIndex = (i: number, n: number): number => i * 4 + Math.min(n, 3
  * `Z_LEFTB`, drawn before and never used until now.
  */
 export const [Z_ALL_LO, Z_ALL_HI] = draw(2);
-export const [Z_RAGE_LO, Z_RAGE_HI] = draw(2);
+const [rageLo, rageHi] = draw(2);
 export const [Z_LAST_LO, Z_LAST_HI] = draw(2 * 32);
 export const [Z_DRAWN_LO, Z_DRAWN_HI] = draw(2 * 8);
 /** Slot of "side `c` has drawn `n` cards" (n ≥ 1, capped at 7). */
 export const drawnIndex = (c: number, n: number): number => c * 8 + Math.min(n, 7);
+/** A pending Rally second move (2026-10-05), appended: index 2 of `Z_RAGE`, after the Rage and RageB keys drawn above. */
+const [rallyLo, rallyHi] = draw(1);
+export const Z_RAGE_LO = Int32Array.of(...rageLo, ...rallyLo), Z_RAGE_HI = Int32Array.of(...rageHi, ...rallyHi);

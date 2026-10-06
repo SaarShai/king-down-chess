@@ -85,7 +85,7 @@ let hasteSq = -1;
 /** Freeze/Ice Wall marks, one slot per marking side (`Position.marks`): square (-1 = none), turns left (0: ended, for a Rescue), card-mode Ice Wall, Firewall. */
 const markSq = new Int32Array([-1, -1]), markLeft = new Int32Array([1, 1]), markWard = new Uint8Array(2), markAll = new Uint8Array(2);
 let free = false;
-/** The pending second move is a Rage's (1) or a RageB's (2), else 0 (`Position.rage`). */
+/** The pending second move is a Rage's (1), a RageB's (2) or a Rally's (3), else 0 (`Position.rage`). */
 let rageKind = 0;
 /** Card mode: the card each side played last (`Position.last`, kept while `trackLast`), and the cards each side has drawn (`Position.drawn`). */
 const lastName: (CardName | undefined)[] = [undefined, undefined];
@@ -135,6 +135,8 @@ const HOLD_DEFAULT: Readonly<Partial<Record<CardName, number>>> = Object.freeze(
   // holds what the card it would play holds (`powerTerm`), not a number of its own.
   Rage: 180, RageB: 150, Firewall: 60, FirewallB: 40, EarthQuake: 40, EarthQuakeB: 30,
   Burn: 30, FireStarter: 60, Control: 60, Rescue: 20, Growth: 30, GrowthB: 50,
+  // Rally (2026-10-05): Haste's value, unmeasured.
+  Rally: 150,
 });
 const hold: Partial<Record<CardName, number>> = { ...HOLD_DEFAULT };
 /** Share of the best returnable piece's gain (piece − pawn) an unspent Sacrifice is worth. */
@@ -352,9 +354,9 @@ function apply(m: Move, c: Color): number {
   if (m.power === 'rescue') setMark(c, mineSq, mineLeft === 0 ? 1 : mineLeft + 1, mineWard, mineAll);
   else if (isMark) setMark(c, m.to, RULES.markTurns, (m.power === 'ward' || m.power === 'firewall') && handAt[c].length > 0, m.power === 'firewall');
   setFree((isMark && RULES.markFree) || m.power === 'growthb');
-  const rage = m.power === 'rage' || m.power === 'rageb';
+  const rage = m.power === 'rage' || m.power === 'rageb' || m.power === 'rally';
   setHaste(m.power === 'haste' || rage ? m.to : -1);
-  setRage(m.power === 'rage' ? 1 : m.power === 'rageb' ? 2 : 0);
+  setRage(m.power === 'rage' ? 1 : m.power === 'rageb' ? 2 : m.power === 'rally' ? 3 : 0);
   fFlip[fsp] = holdTurn ? 0 : 1;
   if (!holdTurn) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
   fsp++;
