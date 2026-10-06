@@ -1,5 +1,5 @@
 /** Start positions, FEN-style serialisation and move notation. */
-import { BLACK, CardName, Color, G, LETTERS, Mark, Move, P, PieceType, Position, SPENT, V, WHITE, colorOf, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
+import { BLACK, CardName, Color, G, LETTERS, Mark, Move, P, PieceType, Position, SPENT, V, WHITE, colorOf, moveNumber, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
 import { ALL_CARDS, RULES } from './rules';
 
 /** King Down Classic pool: 7 of these join the king on the back rank. */
@@ -57,7 +57,7 @@ export function startPosition(backRank: string = randomBackRank()): Position {
     board[sq(f, 1)] = piece(P, WHITE);
     board[sq(f, 6)] = piece(P, BLACK);
   }
-  return waitGuards({ board, turn: WHITE, halfmove: 0, ply: 0 });
+  return waitGuards({ board, turn: WHITE, halfmove: 0, ply: 0, move: 1 });
 }
 
 /**
@@ -71,7 +71,7 @@ export function startPosition(backRank: string = randomBackRank()): Position {
  * uppercase white; an empty `l` still says the reserve is kept), `g1.0` guards waiting beside the
  * board [white.black] (`Rules.guardReserve`). Card mode: a mark's `i` is an Ice Wall, `a` a Firewall
  * (every piece), and turns left `0` a mark just ended that a Rescue may renew (`me5wi0`); `hd4r` /
- * `hd4t` a Rage's / a RageB's pending second move; `yHaste.Freeze` the card each side played last
+ * `hd4t` / `hd4o` a Rage's / a RageB's / a Rally's pending second move; `yHaste.Freeze` the card each side played last
  * (Mirror; empty for none); `d1.0` cards drawn (Growth). The pre-2026-10-02 field `w` / `b` / `wb`
  * (a spent Strike) still reads, as one use spent.
  */
@@ -90,7 +90,7 @@ export function toFen(pos: Position): string {
     rows.push(row);
   }
   const powers = powerField(pos);
-  return `${rows.join('/')} ${pos.turn === WHITE ? 'w' : 'b'} - - ${pos.halfmove} ${Math.floor(pos.ply / 2) + 1}${powers ? ' ' + powers : ''}`;
+  return `${rows.join('/')} ${pos.turn === WHITE ? 'w' : 'b'} - - ${pos.halfmove} ${moveNumber(pos)}${powers ? ' ' + powers : ''}`;
 }
 
 /** FEN field 7, or '' when the position carries no power state. */
@@ -100,7 +100,7 @@ function powerField(pos: Position): string {
   // One token per marking side: square, side, `i` for a card-mode Ice Wall, turns left above 1.
   pos.marks?.forEach((k, by) => { if (k) parts.push(`m${sqName(k.sq)}${by === BLACK ? 'b' : 'w'}${k.all ? 'a' : k.ward ? 'i' : ''}${(k.left ?? 1) !== 1 ? k.left : ''}`); });
   if (pos.free) parts.push('f');
-  if (pos.haste !== undefined) parts.push(`h${sqName(pos.haste)}${pos.rage === 1 ? 'r' : pos.rage === 2 ? 't' : ''}`);
+  if (pos.haste !== undefined) parts.push(`h${sqName(pos.haste)}${pos.rage ? ' rto'[pos.rage] : ''}`);
   if (pos.lost) {
     let l = '';
     for (let c = 0; c < 2; c++) for (let t = 1; t < 16; t++) {
@@ -131,7 +131,7 @@ function readPowerField(field: string, pos: Position): void {
       marks[by] = { sq: parseSq(rest.slice(0, 2)), ...(left ? { left: +left } : {}), ...(ward ? { ward: true } : {}), ...(all ? { all: true } : {}) };
       pos.marks = marks;
     } else if (kind === 'f') pos.free = true;
-    else if (kind === 'h') { pos.haste = parseSq(rest); if (rest[2] === 'r' || rest[2] === 't') pos.rage = rest[2] === 'r' ? 1 : 2; }
+    else if (kind === 'h') { pos.haste = parseSq(rest); const k = 'rto'.indexOf(rest[2]); if (rest[2] && k >= 0) pos.rage = (k + 1) as 1 | 2 | 3; }
     else if (kind === 'y') {
       const card = (n: string): CardName | undefined => { if (!n) return undefined; if (!ALL_CARDS.includes(n as CardName)) throw new Error(`bad card ${n} in ${field}`); return n as CardName; };
       const [w = '', b = ''] = rest.split('.');
@@ -167,7 +167,7 @@ export function fromFen(fen: string): Position {
     }
   });
   const color: Color = turn === 'w' ? WHITE : BLACK;
-  const pos: Position = { board, turn: color, halfmove: +halfmove, ply: (+fullmove - 1) * 2 + color };
+  const pos: Position = { board, turn: color, halfmove: +halfmove, ply: (+fullmove - 1) * 2 + color, move: +fullmove };
   readPowerField(powers, pos);
   return pos;
 }
@@ -176,9 +176,15 @@ export function fromFen(fen: string): Position {
  * Long algebraic: Nb1-c3, Bc4xf7, Ae4*d5 (shot or catapult lob), Ma1<>e1 (swap),
  * Sd4xe5xf6 (chain), Oe4>f5-f6 (the ogre on e4 shoves the piece on f5 to f6), e7-e8=Q, G@b1 (a
  * waiting guard enters on b1), N@b1!R (a Salvation card returns a knight to b1). The 2014 cards:
- * Ra1-a4!A and Ra1-a4!B (Rage, RageB; the second move is plain), !P (Firewall), !E:d4<>e5
+ * Ra1-a4!A and Ra1-a4!B (Rage, RageB; the second move is plain), Ra1-a4!J (Rally; so is the other piece's move), !P (Firewall), !E:d4<>e5
  * (FirewallB), !Q:d4 and !U:d4 (Earth Quake on d4, EarthQuakeB), Rd1xd4!N (Burn), Qd1xd8!T (Fire
- * Starter), Nb1-b4!O (Control), !D:e5 (Rescue of the mark on e5), !G and !G+ (Growth, GrowthB);
+ * Starter), Nb1-b4!O (Control), !D:e5 (Rescue of the mark on e5), !G and !G+ (Growth, GrowthB),
+ * !I:d1=Q and !I+:d1=R (Morph and MorphB: the piece on d1 becomes a queen, a rook), and the
+ * Spawn cards in the drop's shape: P@c2!S (Spawn), P@d2!SK (SpawnK), P@c2,f2!S2 (Spawn2) and
+ * P@d2,e2!SK2 (SpawnK2) — every capital letter already names a card, so these take the Spawn's
+ * name (`S` is otherwise Sacrifice's prefix `!S:`, never a suffix); the softer Morph cards in
+ * the Morph's family: !IP:e2=N (MorphP: the pawn on e2 becomes a knight) and !IS:b1<>f1 (MorphS:
+ * the pieces on b1 and f1 swap places);
  * a Mirror card writes the copied card's move then !Y (Mirror) or !Z (MirrorB): !F:d5!Y.
  *
  * A shove prints where the *shoved* piece went and not where the ogre ended up, because the ogre's
@@ -190,6 +196,9 @@ export function toLan(pos: Position, m: Move): string {
   return m.via === 'mirror' ? s + '!Y' : m.via === 'mirrorb' ? s + '!Z' : s;
 }
 
+/** The card a drop spends, by its notation: Salvation and the Spawn cards (a waiting guard spends none). */
+const DROP_TAG: Readonly<Record<string, string>> = { salvation: '!R', spawn: '!S', spawnk: '!SK', spawn2: '!S2', spawnk2: '!SK2' };
+
 function lanOf(pos: Position, m: Move): string {
   const t = typeOf(pos.board[m.from]);
   const letter = t === P ? '' : LETTERS[t];
@@ -197,10 +206,13 @@ function lanOf(pos: Position, m: Move): string {
   // Ice Wall (`W`), Sacrifice (`S`, the pawn's square and the returned piece) and Flight (`~`); and
   // the Curse card (`C`, an enemy piece's step) and SkyLift (`K`, before the maester swap it looks like).
   if (m.pass) return '--';
-  if (m.drop) return `${LETTERS[m.drop]}@${sqName(m.to)}${m.power === 'salvation' ? '!R' : ''}`;
+  if (m.drop) return `${LETTERS[m.drop]}@${sqName(m.to)}${m.drop2 !== undefined ? ',' + sqName(m.drop2) : ''}${DROP_TAG[m.power ?? ''] ?? ''}`;
   if (m.power === 'freeze') return `!F:${sqName(m.to)}`;
   if (m.power === 'ward') return `!W:${sqName(m.to)}`;
   if (m.power === 'sacrifice') return `!S:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;
+  if (m.power === 'morph' || m.power === 'morphb') return `!I${m.power === 'morphb' ? '+' : ''}:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;
+  if (m.power === 'morphp') return `!IP:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;
+  if (m.power === 'morphs') return `!IS:${sqName(m.from)}<>${sqName(m.to)}`;
   if (m.power === 'flight') return `${letter}${sqName(m.from)}~${sqName(m.to)}`;
   if (m.power === 'curse') return `!C:${sqName(m.from)}-${sqName(m.to)}`;
   if (m.power === 'skylift') return `!K:${sqName(m.from)}<>${sqName(m.to)}`;
@@ -232,6 +244,7 @@ function lanOf(pos: Position, m: Move): string {
   else if (m.power === 'vault') s += '!V';
   else if (m.power === 'rage') s += '!A';
   else if (m.power === 'rageb') s += '!B';
+  else if (m.power === 'rally') s += '!J';
   else if (m.power === 'burn') s += '!N';
   else if (m.power === 'firestarter') s += '!T';
   else if (m.power === 'control') s += '!O';

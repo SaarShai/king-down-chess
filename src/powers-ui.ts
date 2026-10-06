@@ -91,6 +91,15 @@ export function cardText(card: CardName, r: Rules = RULES): string {
     case 'Rescue': return then('your Freeze, Ice Wall or Firewall from your previous turn lasts one more turn');
     case 'Growth': return 'as your move, draw the next card';
     case 'GrowthB': return 'draw the next card, then make your move';
+    case 'Rally': return 'move one of your pieces, then a different one (the second move is optional); neither move captures';
+    case 'Morph': return 'one of your pieces (not a pawn or the king) becomes another kind of piece where it stands (not a pawn or a king, and never a second beast)';
+    case 'MorphB': return 'one of your pieces (not a pawn or the king) becomes another kind of piece where it stands (not a pawn, a king or a queen, and never a second beast)';
+    case 'Spawn': return 'as your move, a new pawn of yours appears on an empty square of your pawns\u2019 start rank';
+    case 'SpawnK': return 'as your move, a new pawn of yours appears on an empty square next to your king (not on the first or last rank)';
+    case 'Spawn2': return 'as your move, two new pawns of yours appear on two empty squares of your pawns\u2019 start rank';
+    case 'SpawnK2': return 'as your move, two new pawns of yours appear on two empty squares next to your king (not on the first or last rank)';
+    case 'MorphP': return 'one of your pawns becomes a knight or a bishop where it stands';
+    case 'MorphS': return 'two of your pieces (not pawns or the king, not of one kind) swap places';
   }
   return card;
 }

@@ -14,9 +14,9 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  CardCtx, Color, G, GenMode, K, Move, P, Position, RULES, TAG_POWER, WHITE, cardAt, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, freePass, genGuardDrops,
+  BLACK, CardCtx, Color, G, GenMode, K, Move, P, Position, RULES, TAG_POWER, WHITE, cardAt, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, freePass, genGuardDrops,
   genHasteFollowUp, genPiece, genPowerMoves, handOf, heldCount, holdsTurn, isAttacked, isMarkTag, isStill, keepsLost, landed, lapsing, materialDraw, moverOf, piece,
-  powerOf, powerUses, returnable, spend, tracksLast, typeOf,
+  moveNumber, powerOf, powerUses, returnable, spend, tracksLast, typeOf,
 } from '../rules/engine';
 import { ALL_CARDS, type CardName, type PowerName } from '../rules/rules';
 import { VALUES, evalBoard } from './eval';
@@ -25,7 +25,7 @@ import {
   Z_ALL_HI, Z_ALL_LO, Z_DRAWN_HI, Z_DRAWN_LO, Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LAST_HI, Z_LAST_LO, Z_LEFTB_HI, Z_LEFTB_LO, Z_LEFT_HI, Z_LEFT_LO,
   Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO, Z_RAGE_HI, Z_RAGE_LO,
   Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO, Z_WAIT_HI, Z_WAIT_LO, Z_WARD_HI, Z_WARD_LO,
-  combine, drawnIndex, hashBoard, lostIndex, usedIndex, waitIndex, zIndex,
+  combine, drawnIndex, hashBoard, lastIndex, lostIndex, usedIndex, waitIndex, zIndex,
 } from './zobrist';
 
 export { VALUES, evaluate, evaluatorName, setEvaluator } from './eval';
@@ -85,14 +85,16 @@ let hasteSq = -1;
 /** Freeze/Ice Wall marks, one slot per marking side (`Position.marks`): square (-1 = none), turns left (0: ended, for a Rescue), card-mode Ice Wall, Firewall. */
 const markSq = new Int32Array([-1, -1]), markLeft = new Int32Array([1, 1]), markWard = new Uint8Array(2), markAll = new Uint8Array(2);
 let free = false;
-/** The pending second move is a Rage's (1) or a RageB's (2), else 0 (`Position.rage`). */
+/** The pending second move is a Rage's (1), a RageB's (2) or a Rally's (3), else 0 (`Position.rage`). */
 let rageKind = 0;
 /** Card mode: the card each side played last (`Position.last`, kept while `trackLast`), and the cards each side has drawn (`Position.drawn`). */
 const lastName: (CardName | undefined)[] = [undefined, undefined];
 let trackLast = false, lapse = false;
 const drawnN = new Int32Array(2);
 /** The card state handed to `genPowerMoves`, one object reused. */
-const ctx: CardCtx = { drawn: 0, last: undefined, rescue: -1 };
+const ctx: CardCtx = { drawn: 0, last: undefined, rescue: -1, move: 1 };
+/** The full-move number (`Position.move`, for `Rules.fromMove`): one more after each of Black's whole turns. Not hashed, as in `positionKey`. */
+let moveNo = 1;
 /** Sacrifice reserve (`Position.lost`), kept only when `trackLost`. */
 const lost = new Int32Array(32);
 let trackLost = false;
@@ -109,7 +111,7 @@ const fBase = new Int32Array(FRAMES), fUsed0 = new Int32Array(FRAMES), fUsed1 = 
 const fMark = new Int32Array(FRAMES), fHaste = new Int32Array(FRAMES), fLostTop = new Int32Array(FRAMES), fFlip = new Uint8Array(FRAMES);
 const fMark1 = new Int32Array(FRAMES), fMarkLeft = new Uint8Array(FRAMES), fMarkLeft1 = new Uint8Array(FRAMES), fFree = new Uint8Array(FRAMES), fWard = new Uint8Array(FRAMES);
 const fWait0 = new Uint8Array(FRAMES), fWait1 = new Uint8Array(FRAMES);
-const fRage = new Uint8Array(FRAMES), fDrawn0 = new Uint8Array(FRAMES), fDrawn1 = new Uint8Array(FRAMES), fLast0 = new Int8Array(FRAMES), fLast1 = new Int8Array(FRAMES);
+const fMoveNo = new Int32Array(FRAMES), fRage = new Uint8Array(FRAMES), fDrawn0 = new Uint8Array(FRAMES), fDrawn1 = new Uint8Array(FRAMES), fLast0 = new Int8Array(FRAMES), fLast1 = new Int8Array(FRAMES);
 let fsp = 0;
 /**
  * Power moves are offered only at plies 0…`powerPlyMax` (root, reply, own next move by default);
@@ -135,6 +137,17 @@ const HOLD_DEFAULT: Readonly<Partial<Record<CardName, number>>> = Object.freeze(
   // holds what the card it would play holds (`powerTerm`), not a number of its own.
   Rage: 180, RageB: 150, Firewall: 60, FirewallB: 40, EarthQuake: 40, EarthQuakeB: 30,
   Burn: 30, FireStarter: 60, Control: 60, Rescue: 20, Growth: 30, GrowthB: 50,
+  // Rally (2026-10-05): Haste's value, unmeasured.
+  Rally: 150,
+  // Morph and MorphB (2026-10-06): starting guesses, unmeasured; MorphB lower (no queen).
+  Morph: 150, MorphB: 120,
+  // The Spawn cards (2026-10-06): starting guesses, all four unmeasured — about the pawn each adds, a
+  // little more next to the king (it may shield it or block a check), and less than two for the pairs.
+  Spawn: 100, SpawnK: 110, Spawn2: 180, SpawnK2: 200,
+  // MorphP and MorphS (2026-10-06): starting guesses, unmeasured. MorphP about half what a knight or
+  // bishop gains over the pawn (Sacrifice's share, `sacrificeHoldShare`); MorphS SkyLift's value
+  // (the same move).
+  MorphP: 110, MorphS: 60,
 });
 const hold: Partial<Record<CardName, number>> = { ...HOLD_DEFAULT };
 /** Share of the best returnable piece's gain (piece − pawn) an unspent Sacrifice is worth. */
@@ -188,8 +201,8 @@ function setRage(v: number): void {
 /** Set the card side `c` played last (Mirror), with its key. */
 function setLast(c: number, v: CardName | undefined): void {
   const old = lastName[c];
-  if (old) { const i = c * 32 + ALL_CARDS.indexOf(old); hLo ^= Z_LAST_LO[i]; hHi ^= Z_LAST_HI[i]; }
-  if (v) { const i = c * 32 + ALL_CARDS.indexOf(v); hLo ^= Z_LAST_LO[i]; hHi ^= Z_LAST_HI[i]; }
+  if (old) { const i = lastIndex(c, ALL_CARDS.indexOf(old)); hLo ^= Z_LAST_LO[i]; hHi ^= Z_LAST_HI[i]; }
+  if (v) { const i = lastIndex(c, ALL_CARDS.indexOf(v)); hLo ^= Z_LAST_LO[i]; hHi ^= Z_LAST_HI[i]; }
   lastName[c] = v;
 }
 /** Set the cards side `c` has drawn (Growth), with its key. */
@@ -317,7 +330,7 @@ function apply(m: Move, c: Color): number {
   fMarkLeft[fsp] = markLeft[0]; fMarkLeft1[fsp] = markLeft[1]; fFree[fsp] = free ? 1 : 0;
   fWard[fsp] = markWard[0] | markWard[1] << 1 | markAll[0] << 2 | markAll[1] << 3;
   fWait0[fsp] = waitN[0]; fWait1[fsp] = waitN[1];
-  fRage[fsp] = rageKind; fDrawn0[fsp] = drawnN[0]; fDrawn1[fsp] = drawnN[1];
+  fMoveNo[fsp] = moveNo; fRage[fsp] = rageKind; fDrawn0[fsp] = drawnN[0]; fDrawn1[fsp] = drawnN[1];
   fLast0[fsp] = lastName[0] ? ALL_CARDS.indexOf(lastName[0]) : -1; fLast1[fsp] = lastName[1] ? ALL_CARDS.indexOf(lastName[1]) : -1;
   const still = isStill(m);
   if (!still) {
@@ -335,6 +348,7 @@ function apply(m: Move, c: Color): number {
     else {
       write(m.from, m.swap ? other : 0);
       write(m.to, m.selfRemove ? 0 : landed(mover, m));
+      if (m.drop2 !== undefined) write(m.drop2, mover);
     }
   }
   if (m.power) setUsed(c, spend(c, usedPair[c], m.power, drawnN[c], m.via));
@@ -352,11 +366,11 @@ function apply(m: Move, c: Color): number {
   if (m.power === 'rescue') setMark(c, mineSq, mineLeft === 0 ? 1 : mineLeft + 1, mineWard, mineAll);
   else if (isMark) setMark(c, m.to, RULES.markTurns, (m.power === 'ward' || m.power === 'firewall') && handAt[c].length > 0, m.power === 'firewall');
   setFree((isMark && RULES.markFree) || m.power === 'growthb');
-  const rage = m.power === 'rage' || m.power === 'rageb';
+  const rage = m.power === 'rage' || m.power === 'rageb' || m.power === 'rally';
   setHaste(m.power === 'haste' || rage ? m.to : -1);
-  setRage(m.power === 'rage' ? 1 : m.power === 'rageb' ? 2 : 0);
+  setRage(m.power === 'rage' ? 1 : m.power === 'rageb' ? 2 : m.power === 'rally' ? 3 : 0);
   fFlip[fsp] = holdTurn ? 0 : 1;
-  if (!holdTurn) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
+  if (!holdTurn) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; if (c === BLACK) moveNo++; }
   fsp++;
   return base;
 }
@@ -364,6 +378,7 @@ function apply(m: Move, c: Color): number {
 function undo(base: number): void {
   fsp--;
   if (fFlip[fsp]) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
+  moveNo = fMoveNo[fsp];
   setHaste(fHaste[fsp]);
   setRage(fRage[fsp]);
   setFree(fFree[fsp] === 1);
@@ -420,6 +435,7 @@ function applyQuiet(m: Move, c: Color): number {
   board[m.from] = m.swap ? other : 0;
   undoSq[sp] = m.to; undoPc[sp] = board[m.to]; sp++;
   board[m.to] = m.selfRemove ? 0 : landed(mover, m);
+  if (m.drop2 !== undefined) { undoSq[sp] = m.drop2; undoPc[sp] = board[m.drop2]; sp++; board[m.drop2] = mover; }
   return base;
 }
 
@@ -467,7 +483,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
     if (mode === 'all' && waitN[c] > 0) genGuardDrops(board, c, out);
     if (free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(board, c)); }
     else if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) {
-      ctx.drawn = drawnN[c]; ctx.last = lastName[c ^ 1]; ctx.rescue = markSq[c];
+      ctx.drawn = drawnN[c]; ctx.last = lastName[c ^ 1]; ctx.rescue = markSq[c]; ctx.move = moveNo;
       genPowerMoves(board, c, usedPair[c], trackLost ? lost : undefined, out, 0, out.length, ctx);
     }
   }
@@ -477,7 +493,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   if (markSq[c] >= 0 && markLeft[c] > 0) filterHeld(c, markSq[c], markWard[c] === 1, out, board);
   // Legality is "make it, then look at our king" — but only a move that could expose the king needs
   // the look: we are in check; the king itself moves (Death Touch, Mercy and the Darkness step
-  // included); a swap or a shove moves a second piece (a SkyLift is a swap); the mover leaves a line
+  // included); a swap or a shove moves a second piece (a SkyLift or a MorphS is a swap); the mover leaves a line
   // through the king (a slider's ray opens); a capture removes a piece on such a line; or an enemy
   // catapult could use the arriving piece as its screen. The shelters and the Darkness pawn armour
   // change which pieces may be taken, never the king, so they add nothing here. The two-square
@@ -486,10 +502,11 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // A `plusDiagFwd2Clear` archer shot two squares diagonally is blocked by the square between,
   // which is diagonally next to our king: a move that empties it leaves a line through the king, and
   // one that fills it only blocks. The other archer shots ignore blockers and the leapers are never blocked,
-  // so nothing else can change an attack on the king — except a Curse, which moves an *enemy* piece
-  // that may arrive attacking it, a FirewallB (a swap) that moves an enemy piece, and an Earth Quake,
-  // which moves several pieces: those are always tested. A drop (a waiting guard, a Salvation) fills
-  // one square and empties none, so only the catapult's screen can make it expose the king. A
+  // and a Morph or a MorphP changes only the type of an own piece that stays on its square (it still
+  // blocks, and still screens a catapult), so nothing else can change an attack on the king — except a Curse,
+  // which moves an *enemy* piece that may arrive attacking it, a FirewallB (a swap) that moves an enemy piece, and an Earth Quake,
+  // which moves several pieces: those are always tested. A drop (a waiting guard, a Salvation, a
+  // Spawn's pawn, or a Spawn2's two) fills squares and empties none, so only the catapult's screen can make it expose the king. A
   // Firewall, a Rescue and a Growth change no square. `setFastLegality(false)` turns this off for
   // the cross-check test.
   const k = board.indexOf(piece(K, c));
@@ -502,7 +519,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
     let test: boolean;
     if (!fastLegality || inChk) test = true;
     else if (isStill(m)) test = false; // no square changes
-    else if (m.drop) test = lob && LINE[lines + m.to] === 1;
+    else if (m.drop) test = lob && (LINE[lines + m.to] === 1 || (m.drop2 !== undefined && LINE[lines + m.drop2] === 1));
     else {
       test = m.power === 'curse' || m.pushes !== undefined || m.from === k || m.swap === true || m.shove !== undefined || LINE[lines + m.from] === 1 || (lob && LINE[lines + m.to] === 1);
       for (let j = 0; !test && j < m.captures.length; j++) if (LINE[lines + m.captures[j]] === 1) test = true;
@@ -528,19 +545,24 @@ export function searchLegal(pos: Position): Move[] {
 // ---------------------------------------------------------------------------------------------
 // Ordering.
 
-/** Material won by a move: every victim, the promotion delta, minus the paladin's own life. */
+/** Material won by a move: every victim, the promotion delta (a pawn's, a Sacrifice's or a Morph's, MorphP's included), minus the paladin's own life. */
 function gain(m: Move): number {
   let g = 0;
   for (let i = 0; i < m.captures.length; i++) g += VALUES[typeOf(board[m.captures[i]])];
-  if (m.promo) g += VALUES[m.promo] - VALUES[P];
+  if (m.promo) g += VALUES[m.promo] - VALUES[typeOf(board[m.from])];
   if (m.power === 'salvation') g += VALUES[m.drop!];
   if (m.selfRemove) g -= VALUES[typeOf(board[m.from])];
   return g;
 }
 
-/** Compact move signature for TT / killer slots. Distinct chains can collide; ordering only. */
+/**
+ * Compact move signature for TT / killer slots. Distinct chains can collide; ordering only. A Spawn2's
+ * second square is bits 20…25 (never a1, so 0 is none). A MorphP is a promotion's signature (its
+ * square and the new type); a MorphS shares a SkyLift's or a maester swap's on the same two squares,
+ * which leave the same board.
+ */
 const encode = (m: Move): number =>
-  (m.from | (m.to << 6) | ((m.promo ?? m.drop ?? 0) << 12) | (Math.min(m.captures.length, 15) << 16)) + 1;
+  (m.from | (m.to << 6) | ((m.promo ?? m.drop ?? 0) << 12) | (Math.min(m.captures.length, 15) << 16) | ((m.drop2 ?? 0) << 20)) + 1;
 
 function score(moves: Move[], ply: number, ttEnc: number): Int32Array {
   if (orderBufs[ply].length < moves.length) orderBufs[ply] = new Int32Array(moves.length * 2);
@@ -548,6 +570,9 @@ function score(moves: Move[], ply: number, ttEnc: number): Int32Array {
   const k0 = killers[ply * 2], k1 = killers[ply * 2 + 1];
   for (let i = 0; i < moves.length; i++) {
     const m = moves[i], enc = encode(m);
+    // A Spawn is ordered as a quiet move (killers, history): its pawns about repay the card's hold, so
+    // it wins no material, and the capture tier tried its up to 28 pairs first for more nodes
+    // (2026-10-06: depth 4 on 12 positions, 172k nodes as quiet moves, 192k–199k as gains).
     if (enc === ttEnc) s[i] = 1 << 28;
     else if (m.captures.length || m.promo || m.power === 'salvation') s[i] = (1 << 24) + gain(m) * 16 - VALUES[m.drop ?? typeOf(board[m.from])];
     else if (enc === k0) s[i] = (1 << 23) + 1;
@@ -796,7 +821,7 @@ export function positionKey(pos: Position): number {
     const w = pos.waiting?.[c] ?? 0;
     if (w > 0) { const i = waitIndex(c, w); lo ^= Z_WAIT_LO[i]; hi ^= Z_WAIT_HI[i]; }
     const l = pos.last?.[c];
-    if (l && tracksLast()) { const i = c * 32 + ALL_CARDS.indexOf(l); lo ^= Z_LAST_LO[i]; hi ^= Z_LAST_HI[i]; }
+    if (l && tracksLast()) { const i = lastIndex(c, ALL_CARDS.indexOf(l)); lo ^= Z_LAST_LO[i]; hi ^= Z_LAST_HI[i]; }
     const d = pos.drawn?.[c] ?? 0;
     if (d > 0) { const i = drawnIndex(c, d); lo ^= Z_DRAWN_LO[i]; hi ^= Z_DRAWN_HI[i]; }
   }
@@ -838,6 +863,7 @@ function initPosition(pos: Position): void {
   free = !!pos.free;
   hasteSq = pos.haste ?? -1;
   rageKind = pos.rage ?? 0;
+  moveNo = moveNumber(pos);
   trackLast = tracksLast();
   lapse = lapsing();
   lastName[0] = trackLast ? pos.last?.[0] : undefined; lastName[1] = trackLast ? pos.last?.[1] : undefined;
@@ -868,14 +894,21 @@ export function leafPowers(pos: Position): { rows: [number, number]; term: numbe
   return { rows: [livePower(WHITE), livePower(1)], term: powerTerm(pos.turn) - powerTerm((pos.turn ^ 1) as Color) };
 }
 
-/** A move that resets the 50-move clock: a capture or a pawn move, a pushed pawn included (never a mark, a drawn card or a pass); `makeMove`'s own test. */
+/** A move that resets the 50-move clock: a capture or a pawn move, a pushed pawn included (never a spawn or another drop, a mark, a drawn card or a pass); `makeMove`'s own test. */
 const moveResets = (m: Move): boolean =>
-  m.captures.length > 0 || (!isStill(m) && (m.pushes ? m.pushes.some(p => typeOf(board[p.from]) === P) : typeOf(board[m.from]) === P));
+  m.captures.length > 0 || (!isStill(m) && (m.pushes ? m.pushes.some(p => typeOf(board[p.from]) === P) : !m.drop && typeOf(board[m.from]) === P));
 
 /**
  * Test probe: apply `m` to `pos` the way the search does and return the incremental key after it and
  * after the undo, to compare with `positionKey(makeMove(pos, m))` and `positionKey(pos)`.
  */
+/** Test probe: the search's own legal list after it applies `m` to `pos` (the state `apply` keeps, the move number included). */
+export function probeLegalAfter(pos: Position, m: Move): Move[] {
+  initPosition(pos);
+  apply(m, pos.turn);
+  return [...genLegal([], (holdsTurn(m) ? pos.turn : pos.turn ^ 1) as Color, 'all', 0)];
+}
+
 export function probeApply(pos: Position, m: Move): { after: number; back: number } {
   initPosition(pos);
   const base = apply(m, pos.turn);

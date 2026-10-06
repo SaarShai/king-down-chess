@@ -2,7 +2,7 @@
  * Plain-language helpers for the HUD that only read the engine: the screen-reader sentence for a
  * move, the threat markers, and move numbers that stay right when a Haste turn plays two plies.
  */
-import { Color, K, Move, NAMES, Position, colorOf, isAttacked, pseudoMoves, sqName, typeOf } from './rules/engine';
+import { Color, K, Move, NAMES, Position, colorOf, isAttacked, isSpawnTag, pseudoMoves, sqName, typeOf } from './rules/engine';
 
 const SIDE = ['White', 'Black'] as const;
 
@@ -13,10 +13,12 @@ export function describeMove(pre: Position, m: Move): string {
   const the = (s: number): string => `${NAMES[typeOf(pre.board[s])]} on ${sqName(s)}`;
   const colour = (s: number): string => (colorOf(pre.board[s]) ? 'black' : 'white');
   // King powers that move nothing, or change a piece where it stands.
-  if (m.pass) return `${side} ends the turn without the Haste second move.`;
+  if (m.pass) return `${side} ends the turn without the ${pre.rage === 3 ? 'Rally' : 'Haste'} second move.`;
   if (m.power === 'freeze') return `${side} freezes the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'ward') return `${side} puts an Ice Wall on the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'sacrifice') return `${side} sacrifices the pawn on ${sqName(m.from)} and brings back a ${NAMES[m.promo!]} there.`;
+  if (m.power === 'morph' || m.power === 'morphb' || m.power === 'morphp') return `${side} turns the ${the(m.from)} into a ${NAMES[m.promo!]}.`;
+  if (isSpawnTag(m.power)) return m.drop2 === undefined ? `${side} adds a pawn on ${sqName(m.to)}.` : `${side} adds pawns on ${sqName(m.to)} and ${sqName(m.drop2)}.`;
   let text = m.power === 'flight'
     ? `${side} ${name} flies from ${sqName(m.from)} to ${sqName(m.to)}`
     : m.shove
@@ -28,6 +30,7 @@ export function describeMove(pre: Position, m: Move): string {
   if (m.selfRemove) text += `; the ${name} leaves the board`;
   if (m.power === 'strike') text += ' with Strike';
   if (m.power === 'haste') text += `, with Haste: the ${name} may move again`;
+  if (m.power === 'rally') text += ', with Rally: a different piece may move next';
   return `${text}.`;
 }
 
