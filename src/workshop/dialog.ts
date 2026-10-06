@@ -9,7 +9,7 @@ import type { KingName } from '../rules/engine';
 import { snd } from '../render/sfx';
 import { pieceIcon } from '../piece-icons';
 import {
-  BLANK, BODIES, BODY_NAME, DIR, DIRS, MAX_RULES, PRESETS, canGive, designCode, empty, fromPreset, limit, lineOrbit, mix, orbit,
+  BLANK, BODIES, BODY_NAME, DIR, DIRS, MAX_RULES, PRESETS, canGive, designCode, empty, fromPreset, likeAlways, limit, lineOrbit, mix, orbit,
   parseDesign, presetOf, validName, type Body, type Dir, type Mark, type PaintOn, type PieceDesign, type Preset, type Rule, type When,
 } from './model';
 import { BLOCKS, GROUPS, MORE_WHENS, NEAR_BODY, TOP_WHENS, EVENT_WHENS, blockOf, takesAny, whenWords, type Block } from './vocab';
@@ -522,16 +522,19 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       const b = (e.target as HTMLElement).closest<HTMLElement>('.ws-cell');
       if (!b || e.button > 0) return;
       e.preventDefault();
+      // The board keeps the pointer, so a release anywhere (off the board too) ends the stroke.
+      try { board.setPointerCapture(e.pointerId); } catch { /* a pointer that is already gone */ }
       rove(b, false);
       drag = { result: undefined, seen: new Set([b]), changed: false };
       paint(b, true);
     };
     board.onpointermove = e => {
       if (!drag || brush === 'line') return;
+      if (e.pointerType === 'mouse' && !(e.buttons & 1)) { drag = null; return; } // released where no event reached the board
       const b = cellAt(e);
       if (b && board.contains(b) && !drag.seen.has(b)) { drag.seen.add(b); paint(b, false); }
     };
-    board.onpointerup = board.onpointercancel = () => { drag = null; };
+    board.onpointerup = board.onpointercancel = board.onlostpointercapture = () => { drag = null; };
     // The keyboard: Enter or Space click the focused square (detail 0); a pointer tap painted on pointerdown.
     board.onclick = e => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('.ws-cell');
@@ -624,6 +627,24 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     });
   }
 
+  /** A choice sheet commits a tap at once; the keyboard's arrows only move the choice, and Enter or Apply commits it. */
+  function choiceSheet(title: string, rows: string, r: Rule, apply: (inp: HTMLInputElement, body: HTMLElement) => void, wire?: (body: HTMLElement) => void): void {
+    sheet(title, `${rows}<div class="ws-sheet-actions ws-apply-row"><button type="button" class="primary ws-apply">Apply</button></div>`, (body, close) => {
+      let pointer = false;
+      body.addEventListener('pointerdown', () => { pointer = true; });
+      body.addEventListener('keydown', () => { pointer = false; }, true);
+      // The sheet acts on the rule it was opened for; if that rule changed meanwhile, it only closes.
+      const go = (inp: HTMLInputElement | null): void => { close(); if (inp && cur.rules.includes(r)) apply(inp, body); };
+      const checked = (): HTMLInputElement | null => q<HTMLInputElement>('input[type="radio"]:checked', body);
+      for (const inp of qa<HTMLInputElement>('input[type="radio"]', body)) {
+        inp.onchange = () => { if (pointer) go(inp); };
+        inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); go(inp.checked ? inp : checked()); } };
+      }
+      q<HTMLButtonElement>('.ws-apply', body).onclick = () => go(checked());
+      wire?.(body);
+    });
+  }
+
   function pillSheet(i: number, key: string): void {
     const r = cur.rules[i], b = blockOf(r.does.a);
     if (key === 'when') return whenSheet(i);
@@ -633,11 +654,9 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       const why = k === 'allButKing' && takesAny(cur) ? 'Only for a piece that takes nothing.' : k !== val && limit(next) ? limit(next) : null;
       return `<label class="ws-choice${why ? ' off' : ''}"><input type="radio" name="ws-pick" value="${k}"${k === val ? ' checked' : ''}${why ? ' disabled' : ''} /><span>${cap(text)}${why ? `<small>${why}</small>` : ''}</span></label>`;
     }).join('');
-    sheet(PILL_TITLE[key] ?? b.title, rows, (body, close) => {
-      for (const inp of qa<HTMLInputElement>('input', body)) inp.onchange = () => {
-        close();
-        change('change a choice', d => { (d.rules[i].does as unknown as Record<string, string>)[key] = inp.value; });
-      };
+    choiceSheet(PILL_TITLE[key] ?? b.title, rows, r, inp => {
+      const j = cur.rules.indexOf(r);
+      change('change a choice', d => { (d.rules[j].does as unknown as Record<string, string>)[key] = inp.value; });
     });
   }
 
@@ -647,7 +666,10 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const all = (b.event ? EVENT_WHENS : [...TOP_WHENS, ...MORE_WHENS]).filter(fits);
     const top = b.event ? all : all.filter(w => TOP_WHENS.includes(w));
     const label = (w: When): string => w.on === 'always' && like ? 'Always (adds it to Moves)' : w.on === 'zone' && w.zone === 'capital' ? 'On a center square (d4 e4 d5 e5)' : cap(whenWords(w));
-    const choice = (w: When): string => `<label class="ws-choice"><input type="radio" name="ws-when" value="${all.indexOf(w)}"${same(w, r.when) ? ' checked' : ''} /><span>${label(w)}${w.on === 'afterCard' ? '<small>Only in card games.</small>' : ''}</span></label>`;
+    // "Always" moves the squares into the Moves tab; where a shot would land on a square it also takes by moving, a square cannot hold both.
+    const merged = r.does.a === 'movesLike' ? likeAlways(cur, r.does.as) : null;
+    const off = (w: When): string | null => (like && w.on === 'always' && !merged ? 'Its shots and these moves meet on a square, and a square cannot hold both. Keep it as a rule.' : null);
+    const choice = (w: When): string => `<label class="ws-choice${off(w) ? ' off' : ''}"><input type="radio" name="ws-when" value="${all.indexOf(w)}"${same(w, r.when) ? ' checked' : ''}${off(w) ? ' disabled' : ''} /><span>${label(w)}${w.on === 'afterCard' ? '<small>Only in card games.</small>' : ''}${off(w) ? `<small>${off(w)}</small>` : ''}</span></label>`;
     const rest = all.filter(w => !top.includes(w));
     const nums = (on: 'fromMove' | 'beforeMove', words: string): string => {
       const ws = rest.filter(w => w.on === on);
@@ -660,29 +682,21 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
         + `<select class="ws-near" aria-label="Which piece">${bodies.map(w => `<option value="${w.who}"${w.who === cur1 ? ' selected' : ''}>${NEAR_BODY[w.who as Body]}</option>`).join('')}</select></span></label>` : '')
       + nums('fromMove', 'From move') + nums('beforeMove', 'Before move');
     const open = !top.some(w => same(w, r.when));
-    sheet(b.event ? 'When does it happen?' : 'When does it work?', top.map(choice).join('')
-      + (rest.length ? `<button type="button" class="quiet ws-more-w"${open ? ' hidden' : ''}>More choices</button><div class="ws-more-list"${open ? '' : ' hidden'}>${moreHtml}</div>` : ''), (body, close) => {
+    choiceSheet(b.event ? 'When does it happen?' : 'When does it work?', top.map(choice).join('')
+      + (rest.length ? `<button type="button" class="quiet ws-more-w"${open ? ' hidden' : ''}>More choices</button><div class="ws-more-list"${open ? '' : ' hidden'}>${moreHtml}</div>` : ''), r, (inp, body) => {
+      const w: When = inp.value === 'body' ? { on: 'near', who: q<HTMLSelectElement>('.ws-near', body).value as Body } : all[+inp.value];
+      const j = cur.rules.indexOf(r);
+      if (like && w.on === 'always' && r.does.a === 'movesLike') {
+        const as = r.does.as, m = likeAlways(cur, as);
+        if (!m) return;
+        change('add to Moves', d => { d.squares = m.squares; d.lines = m.lines; d.rules.splice(j, 1); });
+        toast(`Added to Moves: ${LIKE_ADDED[as]}.`);
+      } else change('change when', d => { d.rules[j].when = clone(w); });
+    }, body => {
       q<HTMLButtonElement>('.ws-more-w', body)?.addEventListener('click', e => { (e.currentTarget as HTMLElement).hidden = true; q('.ws-more-list', body).hidden = false; });
-      const apply = (w: When): void => {
-        close();
-        if (like && w.on === 'always' && r.does.a === 'movesLike') {
-          const as = r.does.as, add = presetOf(as === 'king' ? 'maester' : as);
-          change('add to Moves', d => {
-            for (const s of add.squares) {
-              const o = d.squares.find(t => t.x === s.x && t.y === s.y);
-              if (!o) d.squares.push({ ...s });
-              else o.mark = o.mark === 'shoot' || o.mark === 'moveShoot' ? 'moveShoot' : 'both';
-            }
-            d.lines = DIRS.filter(l => d.lines.includes(l) || add.lines.includes(l));
-            d.rules.splice(i, 1);
-          });
-          toast(`Added to Moves: ${LIKE_ADDED[as]}.`);
-        } else change('change when', d => { d.rules[i].when = clone(w); });
-      };
-      for (const inp of qa<HTMLInputElement>('input', body)) inp.onchange = () => {
-        apply(inp.value === 'body' ? { on: 'near', who: q<HTMLSelectElement>('.ws-near', body).value as Body } : all[+inp.value]);
-      };
-      q<HTMLSelectElement>('.ws-near', body)?.addEventListener('change', e => apply({ on: 'near', who: (e.target as HTMLSelectElement).value as Body }));
+      // Choosing a piece in the list picks its row; a tap on the list then commits like a tap on a row.
+      const near = q<HTMLSelectElement>('.ws-near', body);
+      near?.addEventListener('change', () => { const row = q<HTMLInputElement>('input[value="body"]', body); row.checked = true; row.dispatchEvent(new Event('change')); });
     });
   }
 
@@ -786,7 +800,8 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   /* ---- keys ---- */
 
   dlg.addEventListener('keydown', e => {
-    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && screen === 'editor' && !(e.target as HTMLElement).closest('input[type="text"]')) {
+    // Only the editor itself: a key pressed in a sheet acts on the sheet alone.
+    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && screen === 'editor' && !q('.ws-sheet[open]') && !(e.target as HTMLElement).closest('input[type="text"]')) {
       e.preventDefault();
       undo();
     }
