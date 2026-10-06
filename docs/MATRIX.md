@@ -211,7 +211,8 @@ next to the source: a tag team) and when (a condition, D.1).
 
 | Item | Spawns | Where | When | Status |
 |---|---|---|---|---|
-| **Spawn** (card) | a pawn | an empty square of the own pawn start rank | the card is played (the turn's move) | ○ to build and test |
-| **SpawnB** (card) | a pawn | an empty square of the own half, not the first rank | the card is played (the turn's move) | ○ to build and test |
+| **Spawn** (card, owner's pick) | a pawn | an empty square of the own pawn start rank | the card is played (the turn's move) | ○ to build and test |
+| **SpawnK** (card) | a pawn | an empty square next to the own king (not on a first rank, where no pawn may stand) | the card is played (the turn's move) | ○ to build and test: may also get the king out of trouble |
+| **Spawn2** / **SpawnK2** (cards) | two pawns | as Spawn / SpawnK | the card is played (the turn's move) | ○ to build and test, in case one pawn is too weak |
 | a piece that spawns | a pawn | an empty square next to it | its move, or a condition (a capture, a zone) | idea |
 
