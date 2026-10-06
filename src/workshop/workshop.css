@@ -11,7 +11,9 @@
 /* Lining figures: the small-caps headings and the counts read "0 of 3", not "o of 3". */
 #workshop { font-variant-numeric: lining-nums; }
 #workshop::backdrop { background: var(--night); }
+/* Under 360 px and in phone landscape, Back shows its arrow only (its word stays for screen readers), so the title fits. */
 @media (max-width: 359px) { #workshop { --gut: 12px; } #workshop .ws-bar h2 { font-size: var(--fs-md); } }
+@media (max-width: 359px) { #workshop .ws-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } #workshop .ws-bar .ws-back { min-width: var(--tap); justify-content: center; } }
 /* Still states only (§5.5: motion waits for the owner); Animations Off stops the house transitions too. */
 :root[data-pace='off'] #workshop, :root[data-pace='off'] #workshop * { transition: none !important; animation: none !important; }
 #workshop p { margin: 0; max-width: none; }
@@ -32,7 +34,7 @@
 #workshop .ws-bar .ws-back { padding: 6px 8px 6px 2px; gap: 0; border-color: transparent; font-weight: 700; }
 #workshop .ws-undo { padding: 6px 10px; }
 .ws-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-4) var(--gut) var(--space-6); }
-.ws-scroll > * { max-width: 760px; margin-left: auto; margin-right: auto; }
+#workshop .ws-scroll > * { max-width: 760px; margin-left: auto; margin-right: auto; }
 .ws-lead { margin-bottom: var(--space-4) !important; }
 .ws-note, .ws-small { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: var(--space-2) !important; }
 
@@ -126,7 +128,7 @@
   -webkit-mask-image: radial-gradient(closest-side, #000 62%, transparent 100%); mask-image: radial-gradient(closest-side, #000 62%, transparent 100%);
 }
 .ws-floor-svg .h { opacity: 0.45; }
-.ws-zone { position: absolute; top: 0; right: -6%; width: 30%; border: 1px solid rgba(233, 192, 113, 0.6); border-radius: 3px; opacity: 0.9; }
+.ws-zone { position: absolute; top: 0; right: 0; width: 30%; border: 1px solid rgba(233, 192, 113, 0.6); border-radius: 3px; opacity: 0.9; }
 .ws-partner { position: absolute; left: -14%; bottom: 16%; height: 40%; }
 .ws-partner img { height: 100%; width: auto; filter: grayscale(0.6) brightness(0.9); opacity: 0.85; }
 .ws-partner::after { content: ''; position: absolute; left: 70%; right: -40%; bottom: 20%; border-top: 2px dashed #e9c071; opacity: 0.8; }
@@ -385,7 +387,7 @@
 #workshop[data-h='land'] .ws-tabs .seg-row label { padding: 4px 8px; }
 #workshop[data-h='land'] .ws-tabs .seg-row label span { white-space: nowrap; }
 #workshop[data-h='land'] .ws-bar h2 { text-align: left; }
-#workshop[data-h='land'] .ws-back span { display: none; }
+#workshop[data-h='land'] .ws-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 #workshop[data-h='land'] .ws-back { min-width: var(--tap); justify-content: center; }
 #workshop[data-h='land'] .ws-like { display: none; }
 #workshop[data-h='land'] .ws-brushes { grid-template-columns: minmax(0, 1fr) auto; }
@@ -406,7 +408,7 @@
   .ws-gauge { margin-bottom: 14px; }
   .ws-more-row, .ws-brushes .ws-more-row { display: block; }
   #workshop .ws-more { display: none; }
-  #workshop .ws-sheet { margin: auto; height: auto; max-height: 85vh; border-radius: var(--radius-lg); }
+  #workshop .ws-sheet { margin: auto; height: fit-content; max-height: 85vh; border-radius: var(--radius-lg); }
 }
 @media (min-width: 1200px) {
   .ws-editor {
