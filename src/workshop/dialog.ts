@@ -25,7 +25,6 @@ type Screen = 'home' | 'start' | 'editor' | 'saved' | 'try';
 type Brush = 'both' | 'move' | 'take' | 'shoot' | 'line';
 const KINGS = Object.keys(GLOW) as KingName[];
 const BASE = import.meta.env.BASE_URL;
-const MORE_KEY = 'kingdown.workshop.more';
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 const rand = (n: number): number => Math.floor(Math.random() * n);
@@ -84,8 +83,6 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   let lastLabel: Label | '' = '', mixFirst: Preset | null = null;
   /** The design the last save refused, and why: the alert stays while it is the open design. */
   let unsaved: { id: string; why: Exclude<SaveResult, 'saved'> } | null = null;
-  let more = false;
-  try { more = localStorage.getItem(MORE_KEY) === '1'; } catch { /* private mode: closed */ }
 
   /* ---- small shared parts ---- */
 
@@ -123,7 +120,8 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const W = innerWidth, H = innerHeight, land = W <= 720 && H < 480 && W > H;
     const h = W > 720 ? 'wide' : land ? 'land' : H >= 780 ? 'tall' : H >= 620 ? 'mid' : 'short';
     const stage = h === 'tall' ? 192 : h === 'mid' ? 156 : h === 'short' ? 104 : 0, gut = W < 360 ? 12 : 16;
-    const cell = h === 'wide' ? 44 : land ? 32 : Math.max(32, Math.min(44, Math.floor(Math.min((W - 2 * gut - 8) / 7, (H - 48 - stage - 44 - 48 - 8) / 7))));
+    // The whole board stays on screen under the brush row and the mode line (104 px with the panel's padding); More scrolls in its own box.
+    const cell = h === 'wide' ? 44 : land ? 32 : Math.max(32, Math.min(44, Math.floor(Math.min((W - 2 * gut - 8) / 7, (H - 48 - stage - 44 - 104) / 7))));
     dlg.dataset.h = h;
     dlg.style.setProperty('--cell', `${cell}px`);
     dlg.style.setProperty('--stage', `${stage}px`);
@@ -452,26 +450,39 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     let cells = '';
     for (let y = 3; y >= -3; y--) for (let x = -3; x <= 3; x++) {
       cells += x || y ? `<button type="button" class="ws-cell${Math.max(Math.abs(x), Math.abs(y)) === 3 ? ' rim' : ''}" data-x="${x}" data-y="${y}" tabindex="-1"><i class="ws-arrow" aria-hidden="true"></i></button>`
-        : `<button type="button" class="ws-cell ws-me" data-x="0" data-y="0" tabindex="-1" aria-label="Your piece">${figureHtml({ body: cur.look.auto ? autoBody(cur) : cur.look.body, army: 0, letter: cur.letter }, 'ws-me-fig')}</button>`;
+        : '<button type="button" class="ws-cell ws-me" data-x="0" data-y="0" tabindex="-1" aria-label="Your piece"></button>';
     }
-    p.innerHTML = `<div class="ws-brushes${more ? ' more' : ''}"><fieldset class="seg"><legend class="sr-only">Brush</legend><div class="seg-row ws-brush-main">${radio('both')}${radio('line')}</div></fieldset>`
-      + `<button type="button" class="quiet ws-more" aria-expanded="${more}">More</button>`
+    // Phones: two brushes, More and "?" in one row; More and "?" open sheets, so the board never moves.
+    // Tablet and desktop: every brush, "Paint on" and the caption in the panel.
+    p.innerHTML = `<div class="ws-tools"><div class="ws-brushes"><fieldset class="seg"><legend class="sr-only">Brush</legend><div class="seg-row ws-brush-main">${radio('both')}${radio('line')}</div></fieldset>`
+      + '<button type="button" class="quiet ws-more" aria-haspopup="dialog">More</button><button type="button" class="quiet ws-cap-btn" aria-haspopup="dialog" aria-label="What it does">?</button>'
       + `<div class="ws-more-row"><fieldset class="seg"><legend class="sr-only">More brushes</legend><div class="seg-row">${radio('move')}${radio('take')}${radio('shoot')}</div></fieldset>`
-      + `<fieldset class="seg ws-paint"><legend>Paint on</legend><div class="seg-row">${PAINT.map(([k, t]) => `<label><input type="radio" name="ws-paint" value="${k}"${paintOn === k ? ' checked' : ''} /><span>${t}</span></label>`).join('')}</div></fieldset></div></div>`
-      + '<p class="ws-fwd" aria-hidden="true">forward ↑</p>'
+      + `<fieldset class="seg ws-paint"><legend>Paint on</legend><div class="seg-row">${PAINT.map(([k, t]) => `<label><input type="radio" name="ws-paint" value="${k}"${paintOn === k ? ' checked' : ''} /><span>${t}</span></label>`).join('')}</div></fieldset></div></div></div>`
+      // The brush and "Paint on" in use, always on screen: what the next tap does.
+      + '<p class="ws-mode"></p><p class="ws-fwd" aria-hidden="true">forward ↑</p>'
       + `<div class="ws-board" role="group" aria-label="Squares around the piece" aria-describedby="ws-fwd-say">${cells}</div><p id="ws-fwd-say" class="sr-only">Forward is up.</p>`
-      + '<div class="ws-cap-row"><p class="ws-caption"></p><button type="button" class="quiet ws-cap-btn" aria-label="What it does" aria-expanded="false">?</button></div>';
-    for (const r of qa<HTMLInputElement>('input[name="ws-brush"]', p)) r.onchange = () => { brush = r.value as Brush; };
-    for (const r of qa<HTMLInputElement>('input[name="ws-paint"]', p)) r.onchange = () => { paintOn = r.value as PaintOn; };
-    q<HTMLButtonElement>('.ws-more', p).onclick = e => {
-      more = !more;
-      try { localStorage.setItem(MORE_KEY, more ? '1' : '0'); } catch { /* private mode */ }
-      q('.ws-brushes', p).classList.toggle('more', more);
-      (e.currentTarget as HTMLElement).setAttribute('aria-expanded', String(more));
+      + '<p class="ws-caption"></p>';
+    const sync = (): void => {
+      for (const r of qa<HTMLInputElement>('input[name="ws-brush"]', p)) r.checked = r.value === brush;
+      for (const r of qa<HTMLInputElement>('input[name="ws-paint"]', p)) r.checked = r.value === paintOn;
+      q('.ws-mode', p).textContent = `${BRUSH[brush][0]}, ${PAINT.find(x => x[0] === paintOn)![1].toLowerCase()}. Tap to add or erase.`;
     };
-    q<HTMLButtonElement>('.ws-cap-btn', p).onclick = e => {
-      const open = q('.ws-cap-row', p).classList.toggle('open');
-      (e.currentTarget as HTMLElement).setAttribute('aria-expanded', String(open));
+    sync();
+    for (const r of qa<HTMLInputElement>('input[name="ws-brush"]', p)) r.onchange = () => { brush = r.value as Brush; sync(); };
+    for (const r of qa<HTMLInputElement>('input[name="ws-paint"]', p)) r.onchange = () => { paintOn = r.value as PaintOn; sync(); };
+    q<HTMLButtonElement>('.ws-more', p).onclick = () => {
+      const row = (name: string, v: string, title: string, small: string, on: boolean): string =>
+        `<label class="ws-choice"><input type="radio" name="${name}" value="${v}"${on ? ' checked' : ''} /><span>${title}<small>${small}</small></span></label>`;
+      sheet('Brushes', '<h3>Brush</h3>' + (['both', 'line', 'move', 'take', 'shoot'] as Brush[]).map(b => row('ws-brush-s', b, `<i class="br br-${b}" aria-hidden="true"></i> ${BRUSH[b][0]}`, BRUSH[b][1], brush === b)).join('')
+        + '<h3>Paint on</h3>' + PAINT.map(([k, t]) => row('ws-paint-s', k, t, k === 'all' ? 'The square and its 7 turns and mirror images.' : k === 'lr' ? 'The square and its mirror across the file.' : 'Only the square you tap.', paintOn === k)).join('')
+        + '<div class="ws-sheet-actions"><button type="button" class="primary ws-sheet-done">Done</button></div>', (body, close) => {
+        for (const r of qa<HTMLInputElement>('input', body)) r.onchange = () => { if (r.name === 'ws-brush-s') brush = r.value as Brush; else paintOn = r.value as PaintOn; sync(); };
+        q<HTMLButtonElement>('.ws-sheet-done', body).onclick = close;
+      });
+    };
+    q<HTMLButtonElement>('.ws-cap-btn', p).onclick = () => {
+      const d = describe(cur);
+      sheet('What it does', `<p><b>Moves</b> ${esc(d.moves)}</p><p><b>Takes</b> ${esc(d.takes)}</p>${d.special.map(t => `<p>${esc(t)}</p>`).join('')}`, () => {});
     };
     wireBoard(q('.ws-board', p));
     paintBoard();
@@ -487,6 +498,8 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       b.className = `ws-cell${(x + y) & 1 ? ' dk' : ''}${Math.max(Math.abs(x), Math.abs(y)) === 3 ? ' rim' : ''}${s ? ` c-${s.mark}` : ''}${line ? ` ln ln-${ray}${end ? ' ln-end' : ''}` : ''}`;
       b.setAttribute('aria-label', `${dirWords(x, y)}: ${[s ? MARK_WORDS[s.mark] : '', line ? 'line' : ''].filter(Boolean).join(', ') || 'empty'}`);
     }
+    // The figure as the Look tab sets it (its army, and an Auto body that follows the squares).
+    put(q('.ws-me', board), figureHtml({ body: cur.look.auto ? autoBody(cur) : cur.look.body, army: cur.look.army, letter: cur.letter }, 'ws-me-fig'));
     if (!qa('[tabindex="0"]', board).length) q<HTMLElement>('.ws-me', board).tabIndex = 0;
     const d = describe(cur);
     q('.ws-caption').textContent = `Moves ${d.moves} Takes ${d.takes}`;

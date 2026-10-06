@@ -191,11 +191,14 @@
 .g-end { flex: none; font-size: 11px; color: var(--on-night-soft); }
 
 /* ---- the Moves tab: brushes and the 7 × 7 board ---- */
-.ws-brushes { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; }
+.ws-brushes { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--space-2); align-items: center; }
 #workshop .ws-brushes .seg { margin: 0; }
-#workshop .ws-more { width: auto; padding: 6px 14px; }
+#workshop .ws-more { width: auto; padding: 6px 12px; }
+#workshop .ws-cap-btn { width: 44px; flex: none; justify-content: center; padding: 0; }
 .ws-more-row { display: none; grid-column: 1 / -1; }
-.ws-brushes.more .ws-more-row { display: block; }
+.ws-caption { display: none; }
+@media (max-width: 359px) { .ws-brush-main .br { display: none; } }
+.ws-sheet-body .br { vertical-align: -3px; }
 #workshop .ws-paint { margin-top: var(--space-2); }
 #workshop .ws-paint legend { margin: 0 0 4px; }
 .seg-row label span { display: inline-flex; align-items: center; gap: 6px; }
@@ -204,10 +207,14 @@
 .br-both::after, .br-take::after, .br-shoot::after { content: ''; position: absolute; inset: 0; border: 2px solid #b3261e; border-radius: 50%; }
 .br-shoot::after { border-style: dashed; }
 .br-line { background: linear-gradient(90deg, transparent 38%, #c99a3e 38% 62%, transparent 62%); }
-.ws-fwd { margin-top: var(--space-2) !important; text-align: center; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+/* Phones: the board never scrolls (a swipe on it paints); the tools above it are the scroll area, and the mode line stays. */
+.ws-panel[data-tab='moves'] { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 4px; }
+.ws-tools { flex: 0 1 auto; min-height: 44px; overflow-y: auto; overscroll-behavior: contain; }
+.ws-mode { flex: none; height: 18px; margin-top: 4px !important; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: center; font-size: var(--fs-xs); line-height: 18px; color: var(--ink); }
+.ws-fwd { flex: none; height: 14px; margin-top: 2px !important; text-align: center; font-size: var(--fs-xs); line-height: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
 .ws-board {
   display: grid; grid-template-columns: repeat(7, var(--cell)); grid-auto-rows: var(--cell); gap: 1px; padding: 1px;
-  width: max-content; margin: 2px auto 0; background: var(--stone-700); border-radius: 4px; touch-action: none; user-select: none; -webkit-user-select: none;
+  flex: none; width: max-content; margin: 2px auto 0; background: var(--stone-700); border-radius: 4px; touch-action: none; user-select: none; -webkit-user-select: none;
 }
 #workshop .ws-cell {
   position: relative; display: block; width: var(--cell); height: var(--cell); min-height: 0; padding: 0;
@@ -240,12 +247,6 @@
 }
 .ln-n .ws-arrow { rotate: 0deg; } .ln-ne .ws-arrow { rotate: 45deg; } .ln-e .ws-arrow { rotate: 90deg; } .ln-se .ws-arrow { rotate: 135deg; }
 .ln-s .ws-arrow { rotate: 180deg; } .ln-sw .ws-arrow { rotate: 225deg; } .ln-w .ws-arrow { rotate: 270deg; } .ln-nw .ws-arrow { rotate: 315deg; }
-.ws-cap-row { display: flex; align-items: flex-start; gap: var(--space-2); max-width: 420px; margin: var(--space-2) auto 0; }
-.ws-caption { flex: 1 1 auto; min-height: 40px; font-size: var(--fs-sm); color: var(--ink-soft); }
-#workshop .ws-cap-btn { display: none; width: 44px; flex: none; justify-content: center; }
-#workshop[data-h='short'] .ws-caption, #workshop[data-h='land'] .ws-caption { display: none; }
-#workshop[data-h='short'] .ws-cap-btn, #workshop[data-h='land'] .ws-cap-btn { display: flex; }
-#workshop[data-h='short'] .ws-cap-row.open .ws-caption, #workshop[data-h='land'] .ws-cap-row.open .ws-caption { display: block; }
 
 /* ---- the Rules tab ---- */
 .ws-count { margin-top: var(--space-2) !important; }
@@ -404,7 +405,23 @@
 #workshop[data-h='land'] .ws-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 #workshop[data-h='land'] .ws-back { min-width: var(--tap); justify-content: center; }
 #workshop[data-h='land'] .ws-like { display: none; }
-#workshop[data-h='land'] .ws-brushes { grid-template-columns: minmax(0, 1fr) auto; }
+/* The full board beside a narrow tools column that scrolls on its own; the mode line under the tools. */
+#workshop[data-h='land'] .ws-editor { grid-template-columns: 36% minmax(0, 1fr); }
+#workshop[data-h='land'] .ws-panel[data-tab='moves'] {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; gap: 0 8px;
+  grid-template-areas: 'fwd tools' 'board tools' 'board mode'; padding: 4px 8px;
+}
+#workshop[data-h='land'] .ws-fwd { grid-area: fwd; margin: 0 !important; }
+#workshop[data-h='land'] .ws-board { grid-area: board; align-self: start; margin: 2px 0 0; }
+#workshop[data-h='land'] .ws-tools { grid-area: tools; min-height: 0; }
+#workshop[data-h='land'] .ws-mode { grid-area: mode; height: auto; white-space: normal; text-align: left; line-height: 1.25; }
+#workshop[data-h='land'] .ws-brushes { grid-template-columns: minmax(0, 1fr) 44px; }
+#workshop[data-h='land'] .ws-brushes .seg { grid-column: 1 / -1; }
+#workshop[data-h='land'] .ws-tools .seg-row { flex-direction: column; }
+#workshop[data-h='land'] .ws-tools .seg-row label { border-left: 0; border-top: 1px solid var(--stone-300); border-radius: 0; }
+#workshop[data-h='land'] .ws-tools .seg-row label:first-child { border-top: 0; }
+#workshop[data-h='land'] .ws-tools .seg-row label span { font-size: var(--fs-sm); }
+#workshop[data-h='land'] .ws-more { width: 100%; padding: 6px 4px; }
 
 /* ---- tablet and small desktop: a sticky stage column, every brush ---- */
 @media (min-width: 721px) {
@@ -417,11 +434,15 @@
   #workshop { --model: 260px; }
   #workshop .ws-tabs { grid-area: tabs; }
   .ws-panel { grid-area: panel; }
+  .ws-panel[data-tab='moves'] { display: block; overflow-y: auto; padding-bottom: var(--space-6); }
+  .ws-tools { overflow: visible; }
   .ws-stats { display: block; }
   .g-mark { display: block; }
   .ws-gauge { margin-bottom: 14px; }
   .ws-more-row, .ws-brushes .ws-more-row { display: block; }
-  #workshop .ws-more { display: none; }
+  #workshop .ws-more, #workshop .ws-cap-btn { display: none; }
+  .ws-brushes { grid-template-columns: minmax(0, 1fr); }
+  .ws-caption { display: block; max-width: 420px; margin: var(--space-2) auto 0 !important; font-size: var(--fs-sm); color: var(--ink-soft); }
   #workshop .ws-sheet { margin: auto; height: fit-content; max-height: 85vh; border-radius: var(--radius-lg); }
 }
 @media (min-width: 1200px) {
