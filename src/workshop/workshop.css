@@ -1,6 +1,4 @@
-/* The Workshop (docs/WORKSHOP.md §2.3, §5): a full-screen dialog built like #title-screen. Only the panel
-   (or a screen's .ws-scroll) scrolls; the bar, the stage and the tabs stay in place. The layout reads the
-   visible height: dialog.ts sets data-h (tall, mid, short, land, wide), --stage and --cell. */
+/* The Workshop piece card. The header and Try it stay visible; the card and editor scroll independently. */
 #workshop {
   --gut: 16px;
   --model: 120px;
@@ -39,14 +37,13 @@
 .ws-note, .ws-small { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: var(--space-2) !important; }
 
 /* ---- HOME (W1) and START (W2) ---- */
-.ws-doors { display: grid; grid-template-columns: repeat(2, minmax(0, 164px)); justify-content: center; gap: var(--space-3); }
+.ws-doors { display: grid; grid-template-columns: minmax(0, 360px); justify-content: center; gap: var(--space-3); }
 #workshop .ws-door {
-  flex-direction: column; justify-content: flex-end; gap: 4px; height: 140px; padding: 8px; text-align: center;
+  flex-direction: column; justify-content: flex-end; gap: 4px; height: 180px; padding: 8px; text-align: center;
   font-family: var(--font-display); font-size: var(--fs-md);
 }
 .ws-door img { height: 84px; width: auto; filter: drop-shadow(0 3px 3px rgba(43, 38, 33, 0.3)); }
 .ws-door small { font-family: var(--font-body); font-weight: 400; font-size: var(--fs-xs); }
-.ws-card-outline { width: 46px; height: 64px; margin-bottom: 14px; fill: none; stroke: var(--stone-500); stroke-width: 2; }
 #workshop .ws-surprise { justify-content: center; max-width: 360px; margin-top: var(--space-4); }
 .ws-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: var(--space-2); }
 #workshop .ws-tile { flex-direction: column; justify-content: flex-end; gap: 2px; min-width: 0; padding: 6px 4px 8px; text-align: center; }
@@ -66,58 +63,73 @@
 #workshop .ws-mix { margin: 0 0 var(--space-3); }
 .ws-mix-note { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: var(--space-2) !important; }
 
-/* ---- the editor grid ---- */
-.ws-editor {
-  flex: 1 1 auto; min-height: 0; display: grid;
-  grid-template-columns: minmax(0, 1fr); grid-template-rows: 48px var(--stage) auto minmax(0, 1fr);
+/* ---- the piece card and its editor ---- */
+.ws-editor { display:flex; flex-direction:column; flex:1; min-height:0; }
+.ws-workspace { display:grid; grid-template-columns:minmax(300px,390px) minmax(320px,500px); justify-content:center; align-items:start; gap:48px; flex:1; min-height:0; overflow:auto; padding:28px 32px; }
+.ws-piece-card { background:var(--vellum); border:1px solid #ac9774; border-radius:10px; padding:7px; box-shadow:0 8px 24px #48392312; }
+.ws-card-border { border:1px solid #d1c3a8; border-radius:5px; padding:18px 22px 10px; }
+.ws-model-box { display:flex; justify-content:center; padding:8px 0 12px; --model:140px; }
+.ws-name-row { display:flex; justify-content:center; align-items:center; min-width:0; gap:4px; }
+#workshop .ws-name { width:auto; flex:0 1 auto; min-width:0; padding:0; gap:8px; border:0; box-shadow:none; background:none; font:600 26px/1.2 var(--font-display); color:var(--ink); white-space:nowrap; }
+.ws-name-t { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.ws-name .icon { width:16px; height:16px; flex:none; color:var(--ink-soft); }
+#workshop .ws-die { width:44px; padding:0; justify-content:center; border:0; box-shadow:none; }
+.ws-die .icon { width:18px; height:18px; }
+#workshop .ws-name-in { width:100%; min-height:44px; font:600 22px var(--font-display); }
+#workshop .ws-worth { text-align:center; color:var(--gold-ink); margin:8px 0 4px; font-size:18px; }
+.ws-gauge-box { max-width:220px; margin:0 auto 8px; }
+.ws-bottom { text-align:center; padding-bottom:14px; }
+.ws-learn { font-size:14px; color:var(--ink-soft); }
+#workshop .ws-chip { min-height:44px; padding:6px 10px; gap:8px; line-height:1.2; font-size:16px; color:var(--danger); border-color:var(--danger); text-align:left; }
+.ws-chip .icon { width:20px; height:20px; flex:none; }
+.ws-card-section { display:flex; flex-direction:row; align-items:start; gap:12px; padding:14px 0; border-top:1px solid var(--stone-300); }
+.ws-card-section>div { flex:1; min-width:0; }
+#workshop .ws-card-section h3 { margin:0 0 6px; font:700 19px var(--font-body); font-variant-numeric:lining-nums; letter-spacing:0; text-transform:none; color:var(--ink); }
+.ws-card-section h3 small { font-size:13px; color:var(--ink-soft); font-weight:400; margin-left:8px; }
+#workshop .ws-card-section p { font-size:17px; line-height:1.4; }
+#workshop .ws-card-section p+p { margin-top:6px; }
+#workshop .ws-card-edit { width:auto; flex:none; min-width:44px; padding:4px 0; border:0; box-shadow:none; color:var(--accent-deep); }
+.ws-card-actions { display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--stone-300); gap:8px; }
+#workshop .ws-card-add { width:auto; padding:4px 0; border:0; box-shadow:none; color:var(--accent-deep); }
+#workshop .ws-every { margin:0; color:var(--ink-soft); }
+.ws-footer { flex:none; display:flex; align-items:center; gap:20px; min-height:72px; padding:12px max(24px,calc((100vw - 980px) / 2)); border-top:1px solid var(--stone-300); background:#eee3ca; }
+#workshop .ws-footer button { width:auto; white-space:nowrap; }
+#workshop .ws-footer .ws-try { margin:0 0 0 auto; padding:10px 28px; min-width:140px; }
+.ws-footer>span { color:var(--ink-soft); font-size:15px; }
+.ws-save-state { font-size:14px; color:var(--ink-soft); }
+#workshop .ws-editor .ws-bar h2 { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+#workshop .ws-editor .ws-bar .ws-back { margin-right:auto; }
+.ws-panel { flex:1; min-height:0; overflow:auto; padding:20px; overscroll-behavior:contain; }
+#workshop dialog.ws-edit-sheet[data-inline='true'] { position:static; width:100%; max-width:none; height:auto; max-height:calc(100dvh - 184px); margin:0; border:0; border-radius:0; box-shadow:none; background:transparent; }
+#workshop dialog.ws-edit-sheet[data-inline='true'] .ws-sheet-bar { padding:0 20px 12px; }
+#workshop dialog.ws-edit-sheet[data-inline='true'] .ws-sheet-bar h2 { font-size:28px; }
+#workshop .ws-edit-done { width:auto; flex:none; }
+.ws-look-preview { display:flex; justify-content:center; --model:100px; margin-bottom:16px; }
+.ws-link-note { padding:24px; }
+.ws-link-note p { margin-bottom:16px!important; }
+.ws-share-actions { display:grid; gap:8px; padding-top:12px; }
+#workshop .ws-name:disabled { opacity:1; cursor:default; }
+@media(max-width:1000px) and (min-width:721px) { .ws-workspace { gap:20px; padding:20px; grid-template-columns:minmax(280px,340px) minmax(320px,1fr); } .ws-card-border { padding:14px; } .ws-panel { padding:16px 8px; } }
+@media(max-width:720px) {
+  .ws-workspace { display:block; padding:18px; }
+  .ws-piece-card { max-width:410px; margin:auto; }
+  .ws-card-border { padding:12px 18px 4px; }
+  .ws-model-box { --model:96px; padding:2px 0 8px; }
+  #workshop .ws-name { font-size:24px; }
+  #workshop .ws-worth { font-size:16px; margin-top:4px; }
+  .ws-bottom { padding-bottom:10px; }
+  .ws-card-section { padding:10px 0; }
+  #workshop .ws-card-section p { font-size:16px; }
+  #workshop .ws-card-section h3 { font-size:18px; }
+  .ws-gauge-box { margin-bottom:4px; }
+  .ws-footer { padding:10px 16px; gap:8px; }
+  .ws-footer>span { display:none; }
+  #workshop .ws-footer .ws-try { min-width:104px; padding:10px 20px; }
+  #workshop .ws-footer .ws-why { padding:6px 0; border:0; box-shadow:none; }
+  .ws-save-state { font-size:12px; max-width:82px; text-align:right; line-height:1.15; }
+  .ws-panel { padding:16px; }
+  #workshop dialog.ws-edit-sheet { width:calc(100vw - 24px); height:auto; max-height:calc(100dvh - 24px); min-height: min(480px,calc(100dvh - 24px)); margin:auto auto 12px; border-radius:10px; }
 }
-#workshop .ws-tabs { margin: 0; padding: 0 var(--gut); min-width: 0; background: var(--parchment); border-bottom: 1px solid var(--stone-300); }
-#workshop .seg-row label { min-height: var(--tap); align-items: center; }
-.ws-panel { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-2) var(--gut) var(--space-6); }
-.ws-side { display: none; }
-
-/* ---- the stage: the title's night palette ---- */
-.ws-stage {
-  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'model info';
-  gap: 0 10px; align-items: center; min-height: 0; padding: 4px var(--gut); overflow: hidden; color: var(--on-night);
-  background:
-    radial-gradient(55% 80% at 22% 70%, rgba(214, 160, 72, 0.24), transparent 70%),
-    radial-gradient(120% 120% at 30% 40%, #4a3e31 0%, var(--night) 60%, #120f0c 100%);
-}
-.ws-model-box { grid-area: model; display: flex; align-items: flex-end; justify-content: center; }
-.ws-info { grid-area: info; display: flex; flex-direction: column; justify-content: center; gap: 1px; min-width: 0; }
-.ws-name-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
-/* The name shrinks to fit (dialog.ts fitName), then ends in "…"; the pencil always shows. */
-#workshop .ws-name {
-  flex: 0 1 auto; width: auto; min-width: 0; margin: -4px 0; padding: 0 4px 0 0; gap: 6px;
-  font-family: var(--font-display); font-size: var(--fs-xl); color: var(--on-night); background: none; border: 0; box-shadow: none;
-  white-space: nowrap;
-}
-.ws-name-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.ws-name .icon { flex: none; }
-.ws-name .icon, .ws-die .icon { width: 18px; height: 18px; color: var(--on-night-soft); }
-#workshop .ws-die { width: 44px; flex: none; justify-content: center; margin: -4px 0; padding: 0; border-color: transparent; }
-#workshop .ws-name-in { width: 100%; min-height: 40px; font-family: var(--font-display); font-size: var(--fs-lg); padding: 2px 8px; border-radius: 6px; border: 1px solid #e9c071; background: var(--vellum); }
-.ws-worth { font-weight: 700; font-size: var(--fs-md); color: var(--on-night); }
-.ws-like { font-size: var(--fs-sm); color: var(--on-night-soft); }
-.ws-stats { display: none; font-size: var(--fs-xs); color: var(--on-night-soft); letter-spacing: 0.04em; }
-.ws-bottom { display: flex; align-items: center; gap: var(--space-2); margin-top: 2px; }
-.ws-learn { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); color: var(--on-night-soft); }
-#workshop .ws-why { width: auto; flex: none; margin: -4px 0; color: var(--on-night); border-color: rgba(214, 201, 173, 0.5); }
-#workshop .ws-chip { width: 100%; margin: -4px 0; gap: 6px; padding: 2px 10px; line-height: 1.15; text-align: left; color: var(--danger); background: var(--vellum); border-color: var(--danger); font-size: var(--fs-sm); }
-.ws-chip .icon { width: 18px; height: 18px; }
-#workshop[data-h='tall'] { --model: 150px; }
-#workshop[data-h='tall'] .ws-stats { display: block; }
-#workshop[data-h='mid'] { --model: 120px; }
-#workshop[data-h='mid'] .ws-name { font-size: 20px; }
-/* On phones, with the chip the like line gives way: the chip says more (and Why? says the like line). */
-#workshop:not([data-h='wide']) .ws-info:has(.ws-chip) .ws-like { display: none; }
-#workshop[data-h='short'] { --model: 96px; }
-#workshop[data-h='short'] .ws-name { font-size: var(--fs-lg); }
-#workshop[data-h='short'] .ws-like { display: none; }
-/* 104 px holds the name, the worth line and the chip (or Why?) at 44 px; the gauge gives way. */
-#workshop[data-h='short'] .ws-stage .ws-gauge-box { display: none; }
-#workshop[data-h='short'] .ws-worth { font-size: var(--fs-sm); }
 
 /* ---- the model, back to front (§5.1) ---- */
 .ws-model { position: relative; flex: none; height: var(--model); width: calc(var(--model) * 0.9); isolation: isolate; }
@@ -181,37 +193,25 @@
 
 /* ---- the gauge ---- */
 .ws-gauge { position: relative; display: flex; align-items: center; gap: 6px; height: 16px; margin: 1px 0; }
-.g-track { position: relative; flex: 1 1 auto; height: 8px; border-radius: 4px; background: rgba(243, 234, 215, 0.18); }
+.g-track { position: relative; flex: 1 1 auto; height: 8px; border-radius: 4px; background: #d1c3a8; }
 .g-band { position: absolute; top: 0; bottom: 0; background: rgba(233, 192, 113, 0.32); }
 .g-fuzz { position: absolute; top: -3px; bottom: -3px; border-radius: 7px; background: rgba(233, 192, 113, 0.3); }
 .g-gem { position: absolute; top: 50%; width: 12px; height: 12px; translate: -50% -50%; rotate: 45deg; border: 1px solid #9a6418; background: linear-gradient(135deg, #fff4cf, #f0bf52 50%, #9a6418); }
 .ws-gauge.out .g-gem { border-color: #5a1c14; background: linear-gradient(135deg, #ffb3a6, #b3261e 60%, #5a1c14); }
 .ws-gauge.out .g-fuzz { background: rgba(179, 38, 30, 0.35); }
 .g-mark { display: none; position: absolute; top: 13px; translate: -50% 0; font-size: 10px; font-weight: 700; color: var(--on-night-soft); }
-.g-end { flex: none; font-size: 11px; color: var(--on-night-soft); }
+.g-end { flex:none; font-size:11px; color:var(--ink-soft); }
 
 /* ---- the Moves tab: brushes and the 7 × 7 board ---- */
-.ws-brushes { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--space-2); align-items: center; }
-#workshop .ws-brushes .seg { margin: 0; }
-#workshop .ws-more { width: auto; padding: 6px 12px; }
-#workshop .ws-cap-btn { width: 44px; flex: none; justify-content: center; padding: 0; }
-.ws-more-row { display: none; grid-column: 1 / -1; }
-.ws-caption { display: none; }
-@media (max-width: 359px) { .ws-brush-main .br { display: none; } }
-.ws-sheet-body .br { vertical-align: -3px; }
-#workshop .ws-paint { margin-top: var(--space-2); }
-#workshop .ws-paint legend { margin: 0 0 4px; }
-.seg-row label span { display: inline-flex; align-items: center; gap: 6px; }
-.br { position: relative; display: inline-block; width: 16px; height: 16px; flex: none; }
-.br-both::before, .br-move::before { content: ''; position: absolute; inset: 4px; rotate: 45deg; background: linear-gradient(135deg, #fff4cf, #f0bf52 50%, #9a6418); }
-.br-both::after, .br-take::after, .br-shoot::after { content: ''; position: absolute; inset: 0; border: 2px solid #b3261e; border-radius: 50%; }
-.br-shoot::after { border-style: dashed; }
-.br-line { background: linear-gradient(90deg, transparent 38%, #c99a3e 38% 62%, transparent 62%); }
-/* Phones: the board never scrolls (a swipe on it paints); the tools above it are the scroll area, and the mode line stays. */
-.ws-panel[data-tab='moves'] { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 4px; }
-.ws-tools { flex: 0 1 auto; min-height: 44px; overflow-y: auto; overscroll-behavior: contain; }
-.ws-mode { flex: none; height: 18px; margin-top: 4px !important; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: center; font-size: var(--fs-xs); line-height: 18px; color: var(--ink); }
-.ws-fwd { flex: none; height: 14px; margin-top: 2px !important; text-align: center; font-size: var(--fs-xs); line-height: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+.ws-caption { display:none; }
+.ws-panel[data-tab='moves'] { display:flex; flex-direction:column; overflow:hidden; }
+.ws-tools { display:flex; gap:8px; align-items:end; flex:none; }
+.ws-tools label { display:block; flex:1; min-width:0; font-size:12px; font-weight:700; color:var(--ink-soft); }
+.ws-tools select { display:block; width:100%; min-height:44px; margin-top:4px; padding:8px; border:1px solid var(--stone-400); border-radius:4px; background:var(--vellum); color:var(--ink); font:16px var(--font-body); }
+#workshop .ws-tools .ws-undo { width:44px; flex:none; padding:8px; justify-content:center; }
+#workshop .ws-mode { font-size:15px; line-height:1.3; margin:12px 0; min-height:39px; }
+.ws-grid-wrap { flex:none; }
+.ws-fwd { text-align:center; font-size:11px; line-height:18px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-soft); }
 .ws-board {
   display: grid; grid-template-columns: repeat(7, var(--cell)); grid-auto-rows: var(--cell); gap: 1px; padding: 1px;
   flex: none; width: max-content; margin: 2px auto 0; background: var(--stone-700); border-radius: 4px; touch-action: none; user-select: none; -webkit-user-select: none;
@@ -266,7 +266,7 @@
 /* ---- the Look tab ---- */
 #workshop .ws-auto { width: auto; margin-bottom: var(--space-2); }
 .ws-auto[aria-pressed='true'] { color: var(--vellum); background: linear-gradient(#9c3a2d, var(--accent)); border-color: var(--accent-deep); }
-.ws-bodies { display: grid; grid-template-columns: repeat(6, minmax(44px, 52px)); gap: 4px; }
+.ws-bodies { display: grid; grid-template-columns: repeat(auto-fill, 48px); gap: 4px; }
 .ws-glows { display: grid; grid-template-columns: repeat(auto-fill, 44px); gap: 4px; }
 #workshop .ws-body, #workshop .ws-glow { position: relative; justify-content: center; width: 100%; aspect-ratio: 1; min-height: 44px; padding: 2px; border-color: var(--stone-300); }
 /* The chosen body and glow: a thick ring and a tick, so the choice reads at a glance. */
@@ -325,11 +325,7 @@
 .ws-sheet-actions { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
 .ws-sheet-actions button { justify-content: center; }
 
-/* ---- SAVED (W9) ---- */
-.ws-card { grid-template-columns: 120px minmax(0, 1fr) !important; }
-#workshop .ws-card-art { height: auto; padding: 8px 0 4px; background: radial-gradient(90% 90% at 50% 40%, #4a3e31, var(--night)); }
-.ws-card-art .ws-model { --model: 112px; }
-.ws-card-worth { margin-bottom: 6px !important; font-weight: 700; }
+/* ---- exact move diagrams ---- */
 .ws-pats { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 .ws-pat { margin: 0; width: 140px; }
 .ws-pat figcaption { font-size: var(--fs-xs); color: var(--ink-soft); }
@@ -340,11 +336,6 @@
 .ws-key { margin-bottom: var(--space-2); font-size: var(--fs-sm); color: var(--ink-soft); }
 .ws-key summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; }
 .ws-look-note { margin: var(--space-2) 0 0 !important; }
-.ws-scroll > .ws-chip { margin-top: var(--space-3) !important; }
-#workshop .ws-try { justify-content: center; margin-top: var(--space-4); }
-.ws-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-2); }
-.ws-actions button { justify-content: center; }
-
 /* ---- TRY IT (W10) ---- */
 /* The board as large as the screen allows (up to 56 px a square), and the page centred in the height left. */
 #workshop[data-screen='try'] .ws-scroll { display: flex; flex-direction: column; }
@@ -403,70 +394,30 @@
 }
 .ws-toast.on { opacity: 1; }
 
-/* ---- phone landscape (W15): the stage on the left, the tabs in the bar ---- */
-#workshop[data-h='land'] { --model: min(150px, calc(100dvh - 48px - 156px)); }
-#workshop[data-h='land'] .ws-editor { grid-template-columns: 40% minmax(0, 1fr); grid-template-rows: 48px minmax(0, 1fr); }
-#workshop[data-h='land'] .ws-editor > .ws-bar { grid-column: 1 / -1; }
-#workshop[data-h='land'] .ws-stage { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'model' 'info'; align-content: center; }
-#workshop[data-h='land'] .ws-tabs { flex: 0 1 auto; padding: 0; border: 0; background: none; }
-#workshop[data-h='land'] .ws-tabs .seg-row label { padding: 4px 8px; }
-#workshop[data-h='land'] .ws-tabs .seg-row label span { white-space: nowrap; }
-#workshop[data-h='land'] .ws-bar h2 { text-align: left; }
-#workshop[data-h='land'] .ws-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-#workshop[data-h='land'] .ws-back { min-width: var(--tap); justify-content: center; }
-#workshop[data-h='land'] .ws-like { display: none; }
-/* The full board beside a narrow tools column that scrolls on its own; the mode line under the tools. */
-#workshop[data-h='land'] .ws-editor { grid-template-columns: 36% minmax(0, 1fr); }
-#workshop[data-h='land'] .ws-panel[data-tab='moves'] {
-  display: grid; grid-template-columns: max-content minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; gap: 0 8px;
-  grid-template-areas: 'fwd tools' 'board tools' 'board mode'; padding: 4px 8px;
-}
-#workshop[data-h='land'] .ws-fwd { grid-area: fwd; margin: 0 !important; }
-#workshop[data-h='land'] .ws-board { grid-area: board; align-self: start; margin: 2px 0 0; }
-#workshop[data-h='land'] .ws-tools { grid-area: tools; min-height: 0; }
-#workshop[data-h='land'] .ws-mode { grid-area: mode; height: auto; white-space: normal; text-align: left; line-height: 1.25; }
-#workshop[data-h='land'] .ws-brushes { grid-template-columns: minmax(0, 1fr) 44px; }
-#workshop[data-h='land'] .ws-brushes .seg { grid-column: 1 / -1; }
-#workshop[data-h='land'] .ws-tools .seg-row { flex-direction: column; }
-#workshop[data-h='land'] .ws-tools .seg-row label { border-left: 0; border-top: 1px solid var(--stone-300); border-radius: 0; }
-#workshop[data-h='land'] .ws-tools .seg-row label:first-child { border-top: 0; }
-#workshop[data-h='land'] .ws-tools .seg-row label span { font-size: var(--fs-sm); }
-#workshop[data-h='land'] .ws-more { width: 100%; padding: 6px 4px; }
 
-/* ---- tablet and small desktop: a sticky stage column, every brush ---- */
-@media (min-width: 721px) {
-  .ws-editor {
-    grid-template-columns: 360px minmax(0, 560px); grid-template-rows: 48px auto minmax(0, 1fr); justify-content: center;
-    grid-template-areas: 'bar bar' 'stage tabs' 'stage panel';
-  }
-  .ws-editor > .ws-bar { grid-area: bar; }
-  .ws-stage { grid-area: stage; grid-template-columns: minmax(0, 1fr); grid-template-areas: 'model' 'info'; align-content: start; gap: var(--space-4); padding: var(--space-5) var(--space-4); }
-  #workshop { --model: 260px; }
-  #workshop .ws-tabs { grid-area: tabs; }
-  .ws-panel { grid-area: panel; }
-  .ws-panel[data-tab='moves'] { display: block; overflow-y: auto; padding-bottom: var(--space-6); }
-  .ws-tools { overflow: visible; }
-  .ws-stats { display: block; }
-  .g-mark { display: block; }
-  .ws-gauge { margin-bottom: 14px; }
-  .ws-more-row, .ws-brushes .ws-more-row { display: block; }
-  #workshop .ws-more, #workshop .ws-cap-btn { display: none; }
-  .ws-brushes { grid-template-columns: minmax(0, 1fr); }
-  .ws-caption { display: block; max-width: 420px; margin: var(--space-2) auto 0 !important; font-size: var(--fs-sm); color: var(--ink-soft); }
-  #workshop .ws-sheet { margin: auto; height: fit-content; max-height: 85vh; border-radius: var(--radius-lg); }
-}
-@media (min-width: 1200px) {
-  .ws-editor {
-    grid-template-columns: 420px 420px 320px; grid-template-areas: 'bar bar bar' 'tabs stage side' 'panel stage side';
-  }
-  #workshop { --model: 320px; }
-  .ws-side { display: block; grid-area: side; min-height: 0; overflow-y: auto; padding: var(--space-4); border-left: 1px solid var(--stone-300); background: var(--vellum); }
-  .ws-side .g-track { background: var(--stone-300); }
-  .ws-side .g-mark, .ws-side .g-end, .ws-side .ws-stats { color: var(--ink-soft); }
-  .ws-side-worth { margin: var(--space-2) 0 !important; font-weight: 700; }
-  .ws-side > p { margin-bottom: var(--space-2) !important; font-size: var(--fs-sm); }
-  .ws-stage .ws-why { display: none; }
-  /* The judge once, in its column: the stage keeps the figure, the name and the short verdict. */
-  .ws-stage .ws-gauge-box, .ws-stage .ws-like, .ws-stage .ws-stats { display: none !important; }
-  .ws-side:focus { outline: 3px solid var(--focus); outline-offset: -3px; }
-}
+/* Short landscape screens put the tools beside the complete board. */
+#workshop[data-h='land'] .ws-edit-sheet { width:calc(100vw - 16px); max-width:none; max-height:calc(100dvh - 8px); min-height:0; margin:auto; }
+#workshop[data-h='land'] .ws-panel[data-tab='moves'] { display:grid; grid-template-columns:minmax(180px,1fr) auto; grid-template-rows:auto 1fr; gap:8px 16px; padding:4px 12px 8px; }
+#workshop[data-h='land'] .ws-tools { grid-column:1; flex-wrap:wrap; }
+#workshop[data-h='land'] .ws-mode { grid-column:1; margin:0; }
+#workshop[data-h='land'] .ws-grid-wrap { grid-column:2; grid-row:1/3; }
+#workshop[data-h='land'] .ws-sheet-bar { min-height:48px; padding:0 12px; }
+@media(min-width:721px) { #workshop .ws-sheet:not(.ws-edit-sheet) { margin:auto; height:auto; max-height:85dvh; border-radius:10px; } }
+@media(max-width:359px) { .ws-workspace { padding:12px; } .ws-card-border { padding:10px 12px 4px; } #workshop .ws-name { font-size:21px; } }
+
+#workshop .ws-panel-undo { width:auto; margin:0 0 12px auto; }
+
+#workshop .ws-edit-why { width:auto; flex:none; min-width:70px; padding:4px 6px; display:block; font-size:15px; line-height:1.2; border:0; box-shadow:none; text-align:center; color:var(--gold-ink); }
+.ws-edit-why small { display:block; font-size:12px; }
+#workshop .ws-edit-why.warn { color:var(--danger); }
+#workshop dialog.ws-edit-sheet[data-inline='true'] .ws-edit-why { display:none; }
+
+#workshop .seg-row label { min-height:44px; align-items:center; }
+.ws-sheet-bar { flex:none; }
+#workshop[data-h='land'] .ws-panel[data-tab='moves'] { padding:4px 12px; }
+#workshop[data-h='land'] .ws-fwd { line-height:14px; }
+@media(max-height:290px) { #workshop[data-h='land'] .ws-fwd { display:none; } }
+
+#workshop[data-h='land'] .ws-board { margin-top:0; }
+
+#workshop h3 { font-variant-numeric:lining-nums; }

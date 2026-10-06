@@ -1,12 +1,21 @@
 # Tasks
 
+## Workshop piece-card implementation — 2026-10-06
+- Owner chose option C. Keep the card as the main view; use an edit sheet on phones and a side editor on desktop. Direct Try it and Share; keep undo across the edit/test loop.
+- [x] Replace the screen flow and layout. Preserve presets, mix, rules, look, judge, truthful saving, share/copy, imports, and the test board. Add approved Set A reactions with motion settings respected.
+- [x] Update the browser checks for the selected flow; keep the regression cases. Check phone, landscape, tablet and desktop layouts, keys, links, save failure and storage limits.
+- [x] Run type check, unit tests, build and the browser checks named in the handoff. Compare the UI with option C, record screenshots, update the spec, and ask whether the owner wants the independent review again.
+- Evidence: type check and production build pass; 665 unit tests in 36 files pass; Workshop production checks pass 25 groups across 12 sizes. Visual-design, new-game, powers, lesson-return, special-moves, king-effects, painted-game, playable-clay, and cursor-adoption browser checks pass. No sign-in/account check. Screens: `docs/visual-design/workshop/card-build-2026-10-06/`. Independent layout review offered; not yet run.
+- Art follow-up: the owner wants custom pieces to have artwork that differs from the existing cast. Proposed: 25 Workshop figures in five groups, with five style samples first and ivory/charcoal pairs. Current figures are placeholders; the new cast is not yet approved or generated.
+- Acceptance: every change is reflected in the card; every phone sheet can be closed from outside; full move grid and next action fit; editing and trying preserve undo; no change to engine, AI, rules or main-game saves; no merge into main or deploy.
+
 ## Workshop design study — 2026-10-06 (before implementation)
 - Worktree: `.claude/worktrees/agent-af146c2f91d80dc0b`, branch `claude/workshop`.
 - [x] Merge `main`. Resolve task-list and matrix conflicts; preserve both branches. Check: type check and production build pass; 665 tests pass in 36 files.
 - [x] Use the current build as a new player at phone and desktop sizes. `docs/visual-design/workshop/rework-2026-10-06/REVIEW.md` records the path, each screen's job, problems, and screenshots.
 - [x] Make three distinct static design options, each with phone and desktop views. Use the existing art. Keep changes in `docs/visual-design/workshop/rework-2026-10-06/`.
 - [x] Check text, layout, and the main action at narrow and wide sizes. Retain the existing contrast palette. `index.html` and `direction-a.jpg` through `direction-c.jpg` show the three options and reasons. Main checks at 320×568, 390×700 and 1280×900; C also has a phone move sheet. This is a static study, not an accessibility audit.
-- [ ] Owner selects a direction before app code or motion changes. Then create an implementation branch from `claude/workshop`.
+- [x] Owner selects **C, Piece card** (2026-10-06). Implementation branch: `codex/workshop-card`, from `claude/workshop`, in the same worktree.
 - Acceptance: the options differ in flow and layout, not only colour; the board and next action are clear; rules, look, value, save, share, and Try it remain available. No app implementation or deployment in this phase.
 
 ## Workshop build 1a, branch `claude/workshop` — 2026-10-06 (not merged, not deployed)

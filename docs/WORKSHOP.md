@@ -1,6 +1,6 @@
-# King Down Workshop: build spec (revision 2)
+# King Down Workshop: build spec (revision 3)
 
-- **Status:** the build spec. The owner answered the five questions of §9 on 2026-10-06 (all on the defaults). Build 1a is on branch `claude/workshop`.
+- **Status:** the owner chose direction C, Piece card, on 2026-10-06. The screen rework is on `codex/workshop-card`, from `claude/workshop`. The original rules and judge stay in use. Sections 2.2–2.3 and 12.4 define the current screen contract. Custom artwork is a follow-up: the current cast is a placeholder.
 - **Inputs:** three Workshop designs (minimal UX, RPG customisation, balance judge), three reports (UI architecture, art and motion, balance data), and one critic's review (24 fixes, §11).
 - **Repository:** read at `/Users/za/Documents/king down chess/.claude/worktrees/agent-a86f1633d0ed4db62`, branch `claude/power-schema`, HEAD `3d5f0e5`. All line numbers are at this HEAD.
 - **Tags:** **[A]** marks an assumption (§10). A **★** marks one of the owner questions (§9).
@@ -66,71 +66,44 @@ One shared event, "a card is played", joins all three.
   - While the Workshop is open, the title kings pause: the `enabled()` option of `startTitleKings` (`main.ts:1408-1410`) also returns false when `#workshop` is open.
   - `docs/visual-design/verify.mjs` must pass at all ten sizes, 568 × 320 included. ★4
 - **Guide.** Add a quiet button, **Make your own piece or card**, under `#learn` (`index.html:226`). The Workshop opens over the Guide.
-- **Link.** `?design=<code>` opens the SAVED screen of that design over the game. Add `!params.has('design')` to `showTitle` (`main.ts:1381`), so the title does not open under it.
-- **Not in the in-game menu.** `.btns.three` (`style.css:233`) would need 4 columns in the 272 px rail.
+- **Link.** `?design=<code>` opens a read-only piece card over the game. Add `!params.has('design')` to `showTitle` (`main.ts:1381`), so the title does not open under it.
+- **Game menu.** New game, Guide, Workshop, Settings. Workshop opens over the game.
 
 **Back and Esc.** "< Back" on HOME always closes the Workshop dialog. The player is then where they came from: the title, the Guide or the game. Esc closes the top sheet first, then the Workshop.
 
 ### 2.2 Flow
 
 ```text
-Title --[Workshop]------------+      (the Workshop opens over its caller;
-Guide --[Make your own]-------+       Back closes it and shows the caller)
-Link ?design=... --> SAVED (from a link) --[Keep a copy]--> HOME
-
-HOME --[New piece]--> START A PIECE --tap a piece-----------> PIECE EDITOR
-     |                     |--[Mix two] + 2 taps -----------> PIECE EDITOR
-     |                     +--[Surprise me]-----------------> PIECE EDITOR
-     |--[New card]---> START A CARD (build 1b) -------------> CARD EDITOR
-     |--[Surprise me]----------------------------------------> an editor
-     +--tap a saved design-----------------------------------> SAVED
-
-PIECE EDITOR: tabs Moves | Rules | Look. Sheets: rule book, a pill's choices, Why?
-CARD EDITOR (1b): tabs What it does | Look. Sheets: verb book, a pill's choices, Why?
-any editor --[Done]--> SAVED --[Try it]--> TRY IT (pieces) --[< Back]--> SAVED
-                             |--[Edit]--> the editor
-                             +--[Send link] [Copy as text] [Make a copy] [Delete]
+Title / Guide / game menu → Workshop
+Workshop → New piece → preset, Mix two, or Surprise me → piece card
+Workshop → saved design → piece card
+Link → read-only piece card → Keep a copy → editable piece card
+Piece card → Edit moves / Edit rules / Look & name
+Piece card → Share → Send link / Copy link / Copy as text / Make a copy / Delete
+Piece card → Try it → Back → same piece card, with Undo and edit state kept
 ```
 
-- In build 1a, the New card door shows "Cards come next." and is disabled.
-- **There is no Save button.** A design goes to the device on its first change, and again after every change.
-- If you leave a start screen with no change, the shelf gets nothing.
-- Undo covers mistakes, and Delete removes a design (one confirm sheet).
+- The home title is **Workshop**, with no lead text. It has one New piece door, Surprise me, and the local shelf. There is no disabled card door in build 1a.
+- There is no separate Saved screen. Each new piece is saved when created, then after each change. Starting a selection without picking a piece saves nothing.
+- A persistent status says Saved on this device, From a link, or Not saved. A refused save shows the cause, Retry or a full-shelf action, and Copy link. The alert remains visible inside a phone editor.
+- Undo covers up to 50 changes. Returning from Try it does not restart editing or clear Undo. Delete needs one confirmation.
+- Shared designs are read-only. Keep a copy makes a new local design and opens its editable card.
 
 ### 2.3 The frame and its layouts
 
-**The frame**
-- One full-screen `<dialog id="workshop">`, built like `#title-screen`: `100vw × 100dvh`, padding 0 (`src/style.css:517-527`).
-- The side gutters are 16 px (12 px under 360 px wide).
-- The stage (the model) uses the title's night palette (`--night`, `--on-night`). The panel uses parchment and the house controls: `.seg-row` for tabs and brushes, `button.emblem[aria-pressed]` for bodies and glows, `.primary` for Done and Try it.
-- Only the panel scrolls. The top bar, the stage and the tabs stay in place, so the model reacts in view. The page never scrolls sideways.
+- One full-screen dialog opens over the caller. Back returns to that caller.
+- The card is the main surface: painted figure, editable name, estimated worth and uncertainty gauge, warning, Moves & takes, Special (0–3), Edit actions, Look & name, and an Every square disclosure.
+- The card uses light parchment, two thin borders, Cinzel for the name, and burgundy for actions. Type sizes: 12–14 px labels, 16–18 px body, 18–19 px section labels, 24–28 px headings. Space uses 4, 8, 12, 16, 24 and 32 px steps.
+- The header holds Workshop, save status, and Share. The footer keeps Why this estimate? and Try it visible while the card scrolls.
+- **Phones, up to 720 px:** Edit opens a focused modal sheet. Done, Escape, or an outside tap returns to the card. The sheet header keeps the current estimate and warning visible, with a button to open Why. Look has its own live figure preview.
+- **Desktop, above 720 px:** the card sits beside one editor. Moves opens first. Done closes that editor; a card Edit action opens it again. Why is a separate sheet at every width.
+- Moves has native Action and Apply to selects plus Undo. All five actions remain available. The 7 × 7 board supports tap, drag, and arrow keys. Its cell size uses the actual panel width and the space left after the header, controls, help, and save alert. A board never requires a scroll through its rows.
+- In short phone landscape, tools sit beside the board. At 568 × 270 the visual Forward label is hidden to retain the complete grid; its accessible text remains.
+- Non-board controls are at least 44 px. Board cells are up to 44 px on phones and 56 px on desktop; the shortest landscape view uses 28 px cells.
+- Rule choices and Why stay in nested sheets. An outside tap closes only the top modal. Dragging from inside onto the backdrop does not close it.
+- Every string uses short, direct sentences. The player sees **Action** and **Apply to**, not geometry terms.
 
-**Layout rule (phones).** The layout reads the visible height `H = innerHeight` (what Safari shows with its toolbars), not the device size.
-
-| H | Stage | Shown on the stage |
-|---|---|---|
-| ≥ 780 | 192 px (model 150 px tall) | name, worth line, gauge, like line, stats dots, learn line or chip |
-| 620–779 (most phones in Safari: 375 × 812 and 390 × 844 show about 660–700) | **156 px** (model 120 px tall) | name, worth line, gauge, like line, learn line or chip. No stats dots. |
-| < 620 (375 × 667 in Safari shows about 553) | 104 px (model 80 × 96) | name, worth line, gauge, learn line or chip |
-
-- **Board cell** = clamp(32, min((width − 2·gutter − 8) / 7, (H − 48 − stage − 44 − 48 − 8) / 7), 44) px. The fixed parts are the top bar 48, the tabs 44 and the brush row 48.
-  - At H = 660 and 700 the cell is 44 px. At H = 553 it is 43 px.
-  - At 320 × 568 (H about 460) the cell is 32 px and the panel scrolls a little. The stage stays in place.
-- **Caption** under the board (40 px) shows only when it fits. Otherwise it sits behind a "?" button.
-- **Phone landscape** (H < 480, width > height; 568 × 320 shows about 270): the stage is on the left (40%, no stats). The tabs sit in the top bar. The brushes are a 44 px column beside the board. The cell is 32 px, and the panel scrolls.
-- **Gauge landmarks** (the P N R Q icons) show only on tablet and desktop.
-
-| Viewport | Layout |
-|---|---|
-| Tablet and small desktop (721–1199 wide) | Two columns: a sticky stage column of 360 px (model 260 px tall), and the editor column (max 560 px). All brushes show. |
-| Desktop (≥ 1200) | Three columns, the classic RPG screen: editor (420) · stage (420, model 320 px tall) · sheet (320). The sheet shows the gauge with landmarks, the stats, the flags, the fixes, and "Why?" always open. Max width 1240, centred. |
-
-**Copy rules**
-- Every string follows ASD-STE100: short sentences, active voice, present tense.
-- The player never meets these words: trigger, shackle, spawn, promotion, mark, arrival, leaper, rider, symmetry, orbit, atom, centipawn, Elo, fingerprint.
-- The paint control is **"Paint on"**, not "Mirror", because Mirror is a card.
-
-### 2.4 Wireframes at 375 px
+### 2.4 Original wireframes at 375 px (build 1a screens replaced by sections 2.2–2.3)
 
 Each frame is 47 columns (8 px a column). `[ ]` is a button or a pill, `( )` a radio, `(o)` the chosen radio. The figures and plinths are stand-ins for the art in §5.
 
@@ -1125,15 +1098,15 @@ The best look is gold, and the strong pool pieces already have it. A design gain
 
 ### 5.5 Motion sets (each needs the owner's approval)
 
-**Set A is built during build 1**, on a standalone preview page with the motions live, plus phone and desktop videos (the TASKS.md "power motion" precedent). The owner sees it before build 1 ships. If the owner approves, build 1 ships with Set A. If not, build 1 ships still, and Set A waits.
+**Set A was approved on 2026-10-06.** It is connected to the piece-card rework in `src/workshop/motion.ts`. Every reaction ends within 560 ms (280 ms at Fast), leaves the still state, and is cancelled on the next edit, navigation, close, or a switch to reduced motion / Animations Off. The preview remains at `docs/visual-design/workshop/motion-preview.html`.
 
 | # | Motion | Length | Moves |
 |---|---|---|---|
 | A1 | **Equip:** an in-place bob from the approved gait curves (`GAITS` and `GAIT_OF`, `docs/2d-first-pieces/board/gait.mjs:54-60`; `lift`, `sx`, `sy`, `tilt` only, no travel), plus a rim flash; also the 250 ms cross-fade of a body change | 420–480 ms | transform, opacity |
-| A2 | **Floor pop:** new marks pop in by distance; removed marks fade | 300 ms + 38 ms a ring | transform, opacity |
-| A3 | **Gauge ease:** the marker, the pill and the metal ease | 350 ms | transform, opacity |
-| A4 | **Overload:** on crossing the line, the cracks draw and the figure shakes 3 times, then a slow ember loop runs while over the line | 500 ms + a 1.6 s loop | stroke-dashoffset, transform, opacity |
-| A5 | **"When…" reveal:** chains break, the ghost cross-fades with a gold ring, the sleeper wakes, the partner's squares light | 500 ms | transform, opacity |
+| A2 | **Floor pop:** new marks pop in by distance; removed marks fade | 360 ms + 38 ms a ring | transform, opacity |
+| A3 | **Gauge ease:** the marker, the pill and the metal ease | 450 ms | transform, opacity |
+| A4 | **Overload:** on crossing the line, the cracks draw and the figure shakes 3 times, then rests | 560 ms | stroke-dashoffset, transform, opacity |
+| A5 | **"When…" reveal:** chains break, the ghost cross-fades with a gold ring, the sleeper wakes, the partner's squares light | 560 ms | transform, opacity |
 | A6 | **Card stamp (1b):** a seal stamps in, the Then tab slides out, a gem fills | 250 ms | transform, opacity |
 
 **Rules for every motion**
@@ -1663,16 +1636,16 @@ The count cannot see taste. The owner rejected Haste H3 as "too cumbersome" at 4
 
 **Checks**
 - No sideways scroll on the page or in the dialog (`scrollWidth ≤ clientWidth`).
-- At 375 × 660 and 390 × 700, the stage is 156 px and the board cell is 44 px.
-- Every control is at least 44 px, except board cells (≥ 32 px at H < 620 and in landscape).
+- The piece card, estimate, footer, and complete board fit their visible areas at every size. Test both board corners against the sheet and viewport bounds, including a visible save alert.
+- Every control is at least 44 px, except board cells (at least 28 px in the shortest landscape view).
 - It opens from the title, from the Guide and from a `?design=` link. Back returns to the caller: the title is still open after Back. Esc closes a sheet first, then the Workshop.
 - Esc, `z` and the arrow keys inside the Workshop do not change the game behind it (its selection stays).
 - Focus lands on the `h2`, and the board takes arrow keys with roving `tabindex`.
-- A first visit on a phone shows 2 brushes and More; More shows the rest.
+- A phone shows the card first. Edit moves opens the complete board with native Action and Apply to controls.
 - Knight → Rules → Add a rule → Takes again takes at most 6 actions. Then the gauge's `aria-valuenow` and the live line change.
 - Rook → Add Takes again shows "Possibly overpowered", the chip, and one spoken announcement. Undo restores the state.
 - Mix two › Knight + Guard shows the "Left out" toast, and the result has no immunity rule.
-- Reload keeps the design. A link opens SAVED with the same verdict.
+- Reload keeps the design. A link opens the read-only card with the same verdict. Edit → Try → Back → Undo restores the prior design on phone and desktop.
 - With reduced motion, and again with `data-pace=off`, `document.getAnimations().length === 0` after each tap.
 - Try it: the knight's 8 squares are marked; a chain asks "Take again / Finish".
 - No page errors and no console errors.
@@ -1681,7 +1654,7 @@ The count cannot see taste. The owner rejected Haste H3 as "too cumbersome" at 4
 
 **Accessibility**
 - **The board** is `role="group"`, `aria-label="Squares around the piece"`. It holds 49 buttons with labels such as "2 up, 1 right: move and take". Enter or Space paints.
-- **The brushes, "Paint on" and the tabs** are real radios (`.seg-row`).
+- **Action and Apply to** are native labelled select controls. Each card section has its own labelled Edit button.
 - **A pill** is a `<button aria-haspopup="dialog">` with a label such as "When: in the capital. Change."
 - **The gauge** is `role="meter"`, with `aria-valuetext` such as "about 4½ pawns, fair".
 - **The sheets** are nested dialogs, each with an `h2 tabindex=-1 autofocus`.
@@ -1823,4 +1796,12 @@ The owner tried build 1a on a phone. These changes fix what he found and what th
 
 ### 12.3 Design study before the screen rework (2026-10-06)
 
-The owner requested a new design from first principles, with static options before implementation. `main` is merged into `claude/workshop`. [The study](visual-design/workshop/rework-2026-10-06/REVIEW.md) records the current phone and desktop walkthroughs and the three proposed directions. [The static comparison](visual-design/workshop/rework-2026-10-06/index.html) shows each direction on phone and desktop, with Home, Try it and detail states. No direction is approved. This study does not replace the implemented behaviour in sections 12–12.2.
+The owner requested a new design from first principles, with static options before implementation. `main` is merged into `claude/workshop`. [The study](visual-design/workshop/rework-2026-10-06/REVIEW.md) records the current phone and desktop walkthroughs and the three proposed directions. [The static comparison](visual-design/workshop/rework-2026-10-06/index.html) shows each direction on phone and desktop, with Home, Try it and detail states. The owner chose **C, Piece card**. The new screen contract is in sections 2.2–2.3 and 12.4.
+
+### 12.4 Piece-card rework (2026-10-06)
+
+Direction C replaces the stage, tabs, and separate Saved screen with one piece card. Phone edits use a modal sheet; desktop edits sit beside the card. Try and Share are direct actions. The rules, judge, local store, and sandbox retain their existing data and behaviour. No engine, AI, or main-game save path is added.
+
+Initial presets now save at creation. Shared designs stay read-only until copied. A save failure stays visible even while a phone edit sheet is open. The Try return preserves the current edit section, brush, Apply to value, and Undo history. Approved Set A reactions are bounded and stop for the motion preferences.
+
+**Artwork follow-up:** the owner does not want new designs to reuse the existing piece artwork. A separate Workshop cast is proposed: 25 figures across five broad groups, with three suggestions based on the chosen rules and a full gallery. The proposed first step is five samples to check style and silhouette at board size, followed by ivory and charcoal pairs. Those figures and the selection design need the owner's approval; no new artwork has been generated. Existing figures in this layout build are placeholders.

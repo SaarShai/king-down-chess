@@ -1,6 +1,6 @@
 /**
  * The Workshop dialog (docs/WORKSHOP.md §2): HOME, START A PIECE, the piece editor (Moves, Rules,
- * Look), its sheets (the rule book, a pill's choices, Why?), SAVED and Try it. One full-screen
+ * Look), its sheets (the rule book, a pill's choices, Why?), sharing and Try it. One full-screen
  * `<dialog id="workshop">` that opens over its caller; Back closes it and the caller is still there.
  * Loaded on demand (main.ts `await import`), so none of it is in the main chunk.
  */
@@ -16,12 +16,13 @@ import { BLOCKS, GROUPS, MORE_WHENS, NEAR_BODY, TOP_WHENS, EVENT_WHENS, blockOf,
 import { BAND_WORD, LEARN_LINE, autoBody, badgeText, bandOf, judge, shelfOf, unmeasured, whyHead, whyTitle, worthOf, type Label, type Verdict } from './judge';
 import { GLOW, lookOf, lookWords } from './look';
 import { cropOf, figureHtml, gaugeHtml, modelHtml, patternSvg } from './art';
-import { MARK_WORDS, cap, describe, dirWords, esc, halves, pawns, ruleParts, ruleText, squareList } from './text';
+import { MARK_WORDS, cap, describe, dirWords, esc, pawns, ruleParts, ruleText, squareList } from './text';
 import { autoName, letterFollows, letterOf, nextLetter, rollName, saveName } from './names';
 import { MAX, deleteDesign, loadDesigns, loadShelf, saveDesign, type SaveResult } from './store';
 import { sandbox } from './sandbox';
+import { cancel, react } from './motion';
 
-type Screen = 'home' | 'start' | 'editor' | 'saved' | 'try';
+type Screen = 'home' | 'start' | 'editor' | 'try';
 type Brush = 'both' | 'move' | 'take' | 'shoot' | 'line';
 const KINGS = Object.keys(GLOW) as KingName[];
 const BASE = import.meta.env.BASE_URL;
@@ -77,6 +78,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   let screen: Screen = 'home';
   let cur: PieceDesign = fromPreset(BLANK), v: Verdict = judge(cur), fromLink = false, onShelf = false;
   let undos: { d: PieceDesign; label: string }[] = [], tab: 'moves' | 'rules' | 'look' = 'moves', brush: Brush = 'both', paintOn: PaintOn = 'all';
+  let lastLook = lookOf(cur, v);
   let lastLabel: Label | '' = '', mixFirst: Preset | null = null, mixNote = '';
   /** The design the last save refused, and why: the alert stays while it is the open design. */
   let unsaved: { id: string; why: Exclude<SaveResult, 'saved'> } | null = null;
@@ -111,36 +113,45 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     s.showModal();
   }
 
-  /* ---- layout (§2.3): the visible height decides the stage and the board cell ---- */
-
+  /* The same editor is beside the card on desktop, and a modal sheet on phones. */
   function fit(): void {
-    const W = innerWidth, H = innerHeight, land = W <= 720 && H < 480 && W > H;
-    const h = W > 720 ? 'wide' : land ? 'land' : H >= 780 ? 'tall' : H >= 620 ? 'mid' : 'short';
-    const stage = h === 'tall' ? 192 : h === 'mid' ? 156 : h === 'short' ? 104 : 0, gut = W < 360 ? 12 : 16;
-    // The whole board stays on screen under the brush row and the mode line (104 px with the panel's padding); More scrolls in its own box.
-    const cell = h === 'wide' ? 44 : land ? 32 : Math.max(32, Math.min(44, Math.floor(Math.min((W - 2 * gut - 8) / 7, (H - 48 - stage - 44 - 104) / 7))));
-    dlg.dataset.h = h;
-    dlg.style.setProperty('--cell', `${cell}px`);
-    dlg.style.setProperty('--stage', `${stage}px`);
-    // Phone landscape: the tabs sit in the top bar (W15).
-    const tabs = q('.ws-tabs'), barEl = q('.ws-editor .ws-bar');
-    if (tabs && barEl) {
-      if (land && tabs.parentElement !== barEl) barEl.insertBefore(tabs, q('.ws-undo'));
-      if (!land && tabs.parentElement === barEl) q('.ws-editor')!.insertBefore(tabs, q('.ws-panel'));
+    const wide = innerWidth > 720, land = !wide && innerHeight < 480 && innerWidth > innerHeight;
+    dlg.dataset.h = wide ? 'wide' : land ? 'land' : 'phone';
+    const editSheet = q<HTMLDialogElement>('.ws-edit-sheet');
+    if (editSheet && editSheet.dataset.inline !== String(wide)) {
+      const wasOpen = editSheet.open;
+      editSheet.close();
+      editSheet.dataset.inline = String(wide);
+      if (wide) editSheet.show();
+      else if (wasOpen && editSheet.dataset.requested === 'true') editSheet.showModal();
+    }
+    const p = q<HTMLElement>('.ws-panel');
+    if (p?.dataset.tab === 'moves' && editSheet?.open) {
+      const style = getComputedStyle(p), mode = q<HTMLElement>('.ws-mode'), ms = getComputedStyle(mode);
+      const px = (x: string): number => parseFloat(x) || 0;
+      const width = p.clientWidth - px(style.paddingLeft) - px(style.paddingRight) - 8;
+      const maximum = wide ? innerHeight - 184 : innerHeight - (land ? 8 : 24);
+      const reserved = 2 + q<HTMLElement>('.ws-edit-sheet .ws-sheet-bar').offsetHeight + px(style.paddingTop) + px(style.paddingBottom)
+        + q<HTMLElement>('.ws-fwd').offsetHeight + (land ? 8 : 10) + (alertEl.hidden ? 0 : alertEl.offsetHeight);
+      const tools = land ? 0 : q<HTMLElement>('.ws-tools').offsetHeight + mode.scrollHeight + px(ms.marginTop) + px(ms.marginBottom);
+      dlg.style.setProperty('--cell', `${Math.max(28, Math.min(wide ? 56 : 44, Math.floor(Math.min(width, maximum - reserved - tools) / 7)))}px`);
     }
     fitName();
   }
-  // While the name is typed, a phone keyboard shrinks the window: keep the layout, so nothing moves under the finger.
   addEventListener('resize', () => { if (dlg.open && !(document.activeElement as HTMLElement | null)?.matches('input[type="text"]')) fit(); });
 
   function show(s: Screen): void {
-    if (s !== 'editor') mixNote = '';
-    // A toast belongs to the screen it was made on.
+    if (s === 'home' || s === 'start') mixNote = '';
     clearTimeout(toastTimer);
     toastEl.classList.remove('on');
+    cancel(screenEl);
+    const previousEditor = q<HTMLElement>('.ws-edit-sheet');
+    if (previousEditor) cancel(previousEditor);
+    dlg.append(alertEl);
+    for (const modal of qa<HTMLDialogElement>('.ws-sheet')) { modal.close(); modal.remove(); }
     screen = s;
     dlg.dataset.screen = s;
-    ({ home, start, editor, saved, try: tryIt })[s]();
+    ({ home, start, editor, try: tryIt })[s]();
     fit();
     drawAlert();
     focusTitle();
@@ -160,6 +171,10 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function drawAlert(): void {
     const u = unsaved && unsaved.id === cur.id ? unsaved : null;
     alertEl.hidden = !u;
+    const editSheet = q<HTMLDialogElement>('.ws-edit-sheet');
+    (editSheet?.open && editSheet.dataset.inline === 'false' ? editSheet : dlg).append(alertEl);
+    const status = q('.ws-save-state');
+    if (status) status.textContent = fromLink ? 'From a link' : u ? 'Not saved' : onShelf ? 'Saved on this device' : 'New piece';
     if (!u) { alertEl.innerHTML = ''; delete alertEl.dataset.html; return; }
     const html = u.why === 'full'
       ? `<p>Not saved: your shelf is full (${MAX} designs). Delete one to keep this piece.</p><button type="button" class="ws-alert-del">Choose one to delete</button>`
@@ -201,18 +216,17 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     screenEl.innerHTML = bar('Back', 'Workshop') + '<div class="ws-scroll">'
       + '<div class="ws-doors">'
       + `<button type="button" class="ws-door" data-door="piece"><img src="${cropOf('N')}" alt="" /><b>New piece</b></button>`
-      + '<button type="button" class="ws-door" disabled><svg class="ws-card-outline" viewBox="0 0 40 56" aria-hidden="true" focusable="false"><rect x="2" y="2" width="36" height="52" rx="4"/><path d="M20 14l6 14-6 14-6-14z"/></svg><b>New card</b><small>Cards come next.</small></button>'
       + `</div><button type="button" class="ws-surprise">${DIE}<span>Surprise me</span></button>`
       + `<h3>Your designs (${list.length}), on this device</h3>`
       + (list.length ? `<div class="ws-shelf">${list.map((d, i) => { const jv = judge(d, false); return `<button type="button" class="ws-tile${jv.warn ? ' warn' : ''}" data-i="${i}">`
         + `<span class="ws-tile-art" aria-hidden="true">${modelHtml(lookOf(d, jv))}</span><b>${esc(d.name)}</b><small>${shelfOf(jv)}</small></button>`; }).join('')}</div>`
-        : '<p class="ws-empty">Nothing here yet. Your pieces and cards appear here, on this device.</p>')
+        : '<p class="ws-empty">Your pieces will appear here. They are saved on this device.</p>')
       + (bad ? `<p class="ws-note">${bad === 1 ? '1 saved entry' : `${bad} saved entries`} could not be read. ${bad === 1 ? 'It stays' : 'They stay'} on this device; the other designs work.</p>` : '')
       + '</div>';
     q<HTMLButtonElement>('.ws-back').onclick = () => dlg.close();
     q<HTMLButtonElement>('[data-door="piece"]').onclick = () => show('start');
     q<HTMLButtonElement>('.ws-surprise').onclick = surpriseMe;
-    for (const b of qa<HTMLButtonElement>('.ws-tile')) b.onclick = () => { cur = list[+b.dataset.i!]; fromLink = false; onShelf = true; show('saved'); };
+    for (const b of qa<HTMLButtonElement>('.ws-tile')) b.onclick = () => edit(list[+b.dataset.i!], { shelf: true });
   }
 
   /* ---- START A PIECE (W2) ---- */
@@ -318,30 +332,53 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     tab = 'moves'; brush = 'both'; paintOn = o.paintOn ?? presetOf(d.from[0] ?? 'blank').paintOn;
     lastLabel = '';
     show('editor');
+    if (!onShelf) store();
   }
 
   function editor(): void {
-    const radio = (name: string, value: string, text: string, checked: boolean, title = ''): string =>
-      `<label${title ? ` title="${title}"` : ''}><input type="radio" name="${name}" value="${value}"${checked ? ' checked' : ''} /><span>${text}</span></label>`;
     screenEl.innerHTML = '<div class="ws-editor">'
-      + bar('Workshop', onShelf ? 'Edit piece' : 'New piece',
-        `<button type="button" class="quiet ws-undo" aria-label="Undo" disabled>${UNDO}</button><button type="button" class="primary ws-done">Done</button>`)
-      + '<section class="ws-stage" aria-label="Your piece"><div class="ws-model-box" aria-hidden="true"></div>'
-      + '<div class="ws-info"><div class="ws-name-row"></div><p class="ws-worth"></p><div class="ws-gauge-box"></div><p class="ws-like"></p><p class="ws-stats"></p><div class="ws-bottom"></div></div>'
-      + '<p class="sr-only ws-summary"></p><p class="sr-only ws-live" role="status"></p></section>'
-      + `<fieldset class="seg ws-tabs"><legend class="sr-only">Edit</legend><div class="seg-row">${radio('ws-tab', 'moves', 'Moves', tab === 'moves')}`
-      + `${radio('ws-tab', 'rules', 'Rules', tab === 'rules')}${radio('ws-tab', 'look', 'Look', tab === 'look')}</div></fieldset>`
-      + '<div class="ws-panel"></div><aside class="ws-side" aria-label="The judge" tabindex="-1"></aside></div>';
+      + bar('Workshop', 'Piece card', '<span class="ws-save-state" role="status"></span><button type="button" class="ws-share">Share</button>')
+      + '<div class="ws-workspace"><article class="ws-piece-card" aria-label="Your piece"><div class="ws-card-border">'
+      + '<div class="ws-model-box" aria-hidden="true"></div><div class="ws-name-row"></div><p class="ws-worth"></p><div class="ws-gauge-box"></div><div class="ws-bottom"></div>'
+      + '<div class="ws-card-moves"></div><div class="ws-card-rules"></div><div class="ws-card-actions"></div>'
+      + '<details class="ws-every"><summary>Every square</summary><div class="ws-exact"></div></details>'
+      + '<p class="sr-only ws-summary"></p><p class="sr-only ws-live" role="status"></p></div></article>'
+      + (fromLink ? '<aside class="ws-link-note"><h3>A shared piece</h3><p>Keep a copy to change this piece.</p><button type="button" class="primary ws-keep-copy">Keep a copy</button></aside>'
+        : '<dialog class="ws-sheet ws-edit-sheet" aria-labelledby="ws-edit-h"><header class="ws-sheet-bar"><h2 id="ws-edit-h" tabindex="-1"></h2><button type="button" class="quiet ws-edit-why" aria-label="Why this estimate?"></button><button type="button" class="quiet ws-edit-done">Done</button></header><div class="ws-panel"></div></dialog>')
+      + '</div><footer class="ws-footer"><button type="button" class="quiet ws-why">Why this estimate?</button><span>Custom pieces can be tested here.</span><button type="button" class="primary ws-try">Try it</button></footer></div>';
     q<HTMLButtonElement>('.ws-back').onclick = () => show('home');
-    q<HTMLButtonElement>('.ws-undo').onclick = undo;
-    q<HTMLButtonElement>('.ws-done').onclick = () => {
+    q<HTMLButtonElement>('.ws-share').onclick = share;
+    q<HTMLButtonElement>('.ws-why').onclick = why;
+    q<HTMLButtonElement>('.ws-try').onclick = () => {
       if (empty(cur)) return toast('Paint at least one square or line.');
-      if (!onShelf) store();
-      show('saved');
+      if (!fromLink && !onShelf) store();
+      show('try');
     };
-    for (const r of qa<HTMLInputElement>('input[name="ws-tab"]')) r.onchange = () => { tab = r.value as typeof tab; panel(); };
-    panel();
+    q<HTMLButtonElement>('.ws-keep-copy')?.addEventListener('click', keepCopy);
+    const editSheet = q<HTMLDialogElement>('.ws-edit-sheet');
+    if (editSheet) {
+      q<HTMLButtonElement>('.ws-edit-done').onclick = () => editSheet.close();
+      editSheet.addEventListener('close', () => {
+        if (editSheet.open) return;
+        cancel(editSheet);
+        editSheet.dataset.requested = 'false';
+        drawAlert();
+        if (!q('.ws-name-in')) q<HTMLButtonElement>(`[data-editor="${tab}"]`)?.focus();
+      });
+      panel();
+    }
     update(true);
+  }
+
+  function openPart(part: typeof tab): void {
+    tab = part;
+    const editSheet = q<HTMLDialogElement>('.ws-edit-sheet');
+    panel();
+    editSheet.dataset.requested = 'true';
+    if (!editSheet.open) { if (innerWidth > 720) editSheet.show(); else editSheet.showModal(); }
+    drawAlert();
+    fit();
+    q<HTMLElement>('#ws-edit-h').focus();
   }
 
   /** One undo step: `f` changes the design; nothing happens when it changes nothing. */
@@ -365,7 +402,10 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
 
   /** The stage, the side column and the open tab, after a change. */
   function update(first: boolean, noise?: () => void): void {
-    const was = v;
+    const was = v, previousLook = lastLook;
+    cancel(screenEl);
+    const editSheet = q<HTMLElement>('.ws-edit-sheet');
+    if (editSheet) cancel(editSheet);
     v = judge(cur);
     const l = lookOf(cur, v), d = describe(cur), w = v.worth.point;
     put(q('.ws-model-box'), modelHtml(l));
@@ -378,30 +418,44 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       };
     }
     fitName();
-    // One line: with the chip, the chip names the label, so the line gives only the number.
-    q('.ws-worth').textContent = empty(cur) ? 'Paint a square or a line.' : v.warn && v.label !== 'fair' ? `About ${pawns(w)}` : `About ${pawns(w)} · ${bandOf(v)}`;
+    const estimate = q<HTMLButtonElement>('.ws-edit-why');
+    if (estimate) { estimate.innerHTML = `${pawns(w)}<small>${esc(v.warn ? chipText(v) : bandOf(v))}</small>`; estimate.classList.toggle('warn', v.warn); estimate.onclick = why; }
+    q('.ws-worth').textContent = empty(cur) ? 'Paint a square or a line.' : `Estimated worth · ${pawns(w)}`;
     q('.ws-gauge-box').innerHTML = gaugeHtml(v, true);
-    q('.ws-like').textContent = v.like;
-    const dots = (n: number): string => '●'.repeat(n) + '○'.repeat(5 - n);
-    q('.ws-stats').innerHTML = `<span aria-hidden="true">Moves ${dots(v.stats.moves)} · Takes ${dots(v.stats.takes)}</span><span class="sr-only">Moves ${v.stats.moves} of 5, takes ${v.stats.takes} of 5.</span>`;
     const bottom = q('.ws-bottom');
-    if (put(bottom, v.warn ? `<button type="button" class="ws-chip">${icon('M12 3l10 18H2zM12 10v5M12 18h.01')}<span>${esc(chipText(v))}. Why?</span></button>`
-      : `<span class="ws-learn">${LEARN_LINE[v.memory.level]}</span><button type="button" class="quiet ws-why">Why?</button>`)) q<HTMLButtonElement>('.ws-chip, .ws-why', bottom).onclick = why;
+    if (put(bottom, v.warn ? `<button type="button" class="ws-chip">${icon('M12 3l10 18H2zM12 10v5M12 18h.01')}<span>${esc(chipText(v))}. Why?</span></button>` : `<span class="ws-learn">${bandOf(v)} · ${LEARN_LINE[v.memory.level]}</span>`)) q<HTMLButtonElement>('.ws-chip', bottom)?.addEventListener('click', why);
+    const editButton = (part: typeof tab, text = 'Edit'): string => fromLink ? '' : `<button type="button" class="quiet ws-card-edit" data-editor="${part}" aria-label="Edit ${part}">${text}</button>`;
+    put(q('.ws-card-moves'), `<section class="ws-card-section"><div><h3>Moves &amp; takes</h3><p>${esc(cap(d.moves))}</p>${d.takes !== d.moves ? `<p><b>Takes:</b> ${esc(d.takes)}</p>` : ''}</div>${editButton('moves')}</section>`);
+    put(q('.ws-card-rules'), `<section class="ws-card-section"><div><h3>Special <small>${cur.rules.length} of ${MAX_RULES}</small></h3>${d.special.length ? d.special.map(t => `<p>${esc(t)}</p>`).join('') : '<p>No special rules.</p>'}</div>${editButton('rules')}</section>`);
+    put(q('.ws-card-actions'), fromLink ? '' : `<button type="button" class="quiet ws-card-add"${cur.rules.length >= MAX_RULES ? ' disabled' : ''}>Add a rule</button>${editButton('look', 'Look & name')}`);
+    for (const b of qa<HTMLButtonElement>('[data-editor]')) b.onclick = () => openPart(b.dataset.editor as typeof tab);
+    const add = q<HTMLButtonElement>('.ws-card-add');
+    if (add) add.onclick = () => { openPart('rules'); ruleBook(); };
+    put(q('.ws-exact'), `<div class="ws-pats">${pats(cur)}</div><ul>${squareList(cur).map(t => `<li>${esc(t)}</li>`).join('')}</ul>`);
     q('.ws-summary').textContent = `${lookWords(l)} ${d.summary} About ${pawns(w)}, ${bandOf(v).toLowerCase()}.`;
-    // The live line speaks only when the label changes (the guard of src/new-game.ts).
     const live = q('.ws-live'), say = `About ${pawns(w)}. ${bandOf(v)}.`;
     if (!first && v.label !== lastLabel && live.textContent !== say) live.textContent = say;
     lastLabel = v.label;
-    if (put(q('.ws-side'), `${gaugeHtml(v, true)}<p class="ws-side-worth">${esc(v.line)}</p>${q('.ws-stats').outerHTML}${whyHtml(v)}`)) wireWhy(q('.ws-side'));
-    const u = undos[undos.length - 1], ub = q<HTMLButtonElement>('.ws-undo');
-    ub.disabled = !u;
-    ub.title = u ? `Undo: ${u.label}` : 'Undo';
-    q('.ws-tabs label:nth-child(2) span').textContent = cur.rules.length ? `Rules ${cur.rules.length}` : 'Rules';
+    if (fromLink) {
+      q<HTMLButtonElement>('.ws-name').disabled = true;
+      q<HTMLButtonElement>('.ws-die').hidden = true;
+    }
     if (!first) {
       const op = (x: Label) => x === 'possiblyOP' || x === 'likelyOP' || x === 'untestedOP';
       sound(op(v.label) && !op(was.label) ? snd.check : noise ?? snd.move);
       if (tab !== 'moves') panel(); else paintBoard();
     }
+    for (const ub of qa<HTMLButtonElement>('.ws-undo')) {
+      const u = undos[undos.length - 1];
+      ub.disabled = !u; ub.title = u ? `Undo: ${u.label}` : 'Undo'; ub.onclick = undo;
+    }
+    lastLook = l;
+    if (!first) {
+      react(screenEl, previousLook, l, was, v);
+      if (editSheet?.matches('[open]') && tab === 'look') react(editSheet, previousLook, l, was, v);
+    }
+    drawAlert();
+    fit();
   }
   /** The name steps down in size until it fits beside the die; past the smallest size it ends in "…". */
   function fitName(): void {
@@ -445,8 +499,14 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   /** The open tab, drawn again; the focused control keeps its place. */
   function panel(): void {
     const p = q('.ws-panel'), ctl = (): HTMLElement[] => qa('button, input, select', p), at = ctl().indexOf(document.activeElement as HTMLElement);
+    if (!p) return;
     p.dataset.tab = tab;
+    q('#ws-edit-h').textContent = `Edit ${tab === 'look' ? 'look & name' : tab}`;
     ({ moves: movesTab, rules: rulesTab, look: lookTab })[tab](p);
+    if (tab !== 'moves') {
+      p.insertAdjacentHTML('afterbegin', `<button type="button" class="quiet ws-undo ws-panel-undo"${undos.length ? '' : ' disabled'}>${UNDO} Undo</button>`);
+      q<HTMLButtonElement>('.ws-undo', p).onclick = undo;
+    }
     if (at >= 0) (ctl()[at] ?? ctl()[ctl().length - 1])?.focus();
   }
 
@@ -454,44 +514,22 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   const H2B = 'Only a king can take this piece, so it cannot take. Remove that rule first.';
 
   function movesTab(p: HTMLElement): void {
-    const radio = (b: Brush): string => `<label title="${BRUSH[b][1]}"><input type="radio" name="ws-brush" value="${b}"${brush === b ? ' checked' : ''} /><span><i class="br br-${b}" aria-hidden="true"></i>${BRUSH[b][0]}</span></label>`;
     let cells = '';
     for (let y = 3; y >= -3; y--) for (let x = -3; x <= 3; x++) {
       cells += x || y ? `<button type="button" class="ws-cell${Math.max(Math.abs(x), Math.abs(y)) === 3 ? ' rim' : ''}" data-x="${x}" data-y="${y}" tabindex="-1"><i class="ws-arrow" aria-hidden="true"></i></button>`
         : '<button type="button" class="ws-cell ws-me" data-x="0" data-y="0" tabindex="-1" aria-label="Your piece"></button>';
     }
-    // Phones: two brushes, More and "?" in one row; More and "?" open sheets, so the board never moves.
-    // Tablet and desktop: every brush, "Paint on" and the caption in the panel.
-    p.innerHTML = `<div class="ws-tools"><div class="ws-brushes"><fieldset class="seg"><legend class="sr-only">Brush</legend><div class="seg-row ws-brush-main">${radio('both')}${radio('line')}</div></fieldset>`
-      + '<button type="button" class="quiet ws-more" aria-haspopup="dialog">More</button><button type="button" class="quiet ws-cap-btn" aria-haspopup="dialog" aria-label="What it does">?</button>'
-      + `<div class="ws-more-row"><fieldset class="seg"><legend class="sr-only">More brushes</legend><div class="seg-row">${radio('move')}${radio('take')}${radio('shoot')}</div></fieldset>`
-      + `<fieldset class="seg ws-paint"><legend>Paint on</legend><div class="seg-row">${PAINT.map(([k, t]) => `<label><input type="radio" name="ws-paint" value="${k}"${paintOn === k ? ' checked' : ''} /><span>${t}</span></label>`).join('')}</div></fieldset></div></div></div>`
-      // The brush and "Paint on" in use, always on screen: what the next tap does.
-      + '<p class="ws-mode"></p><p class="ws-fwd" aria-hidden="true">forward ↑</p>'
-      + `<div class="ws-board" role="group" aria-label="Squares around the piece" aria-describedby="ws-fwd-say">${cells}</div><p id="ws-fwd-say" class="sr-only">Forward is up.</p>`
+    p.innerHTML = `<div class="ws-tools"><label>Action<select name="ws-brush" aria-label="Action">${(['both','line','move','take','shoot'] as Brush[]).map(b => `<option value="${b}"${b === brush ? ' selected' : ''}>${BRUSH[b][0]}</option>`).join('')}</select></label>`
+      + `<label>Apply to<select name="ws-paint" aria-label="Apply to">${PAINT.map(([k,t]) => `<option value="${k}"${k === paintOn ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`
+      + `<button type="button" class="quiet ws-undo" aria-label="Undo"${undos.length ? '' : ' disabled'}>${UNDO}</button></div>`
+      + '<p class="ws-mode"></p><div class="ws-grid-wrap"><p class="ws-fwd" aria-hidden="true">forward ↑</p>'
+      + `<div class="ws-board" role="group" aria-label="Squares around the piece" aria-describedby="ws-fwd-say">${cells}</div><p id="ws-fwd-say" class="sr-only">Forward is up.</p></div>`
       + '<p class="ws-caption"></p>';
-    const sync = (): void => {
-      for (const r of qa<HTMLInputElement>('input[name="ws-brush"]', p)) r.checked = r.value === brush;
-      for (const r of qa<HTMLInputElement>('input[name="ws-paint"]', p)) r.checked = r.value === paintOn;
-      q('.ws-mode', p).textContent = `${BRUSH[brush][0]}, ${PAINT.find(x => x[0] === paintOn)![1].toLowerCase()}. Tap to add or erase.`;
-    };
+    const sync = (): void => { q('.ws-mode', p).textContent = `${BRUSH[brush][1]} Tap to add or erase.`; };
     sync();
-    for (const r of qa<HTMLInputElement>('input[name="ws-brush"]', p)) r.onchange = () => { brush = r.value as Brush; sync(); };
-    for (const r of qa<HTMLInputElement>('input[name="ws-paint"]', p)) r.onchange = () => { paintOn = r.value as PaintOn; sync(); };
-    q<HTMLButtonElement>('.ws-more', p).onclick = () => {
-      const row = (name: string, v: string, title: string, small: string, on: boolean): string =>
-        `<label class="ws-choice"><input type="radio" name="${name}" value="${v}"${on ? ' checked' : ''} /><span>${title}<small>${small}</small></span></label>`;
-      sheet('Brushes', '<h3>Brush</h3>' + (['both', 'line', 'move', 'take', 'shoot'] as Brush[]).map(b => row('ws-brush-s', b, `<i class="br br-${b}" aria-hidden="true"></i> ${BRUSH[b][0]}`, BRUSH[b][1], brush === b)).join('')
-        + '<h3>Paint on</h3>' + PAINT.map(([k, t]) => row('ws-paint-s', k, t, k === 'all' ? 'The square and its 7 turns and mirror images.' : k === 'lr' ? 'The square and its mirror across the file.' : 'Only the square you tap.', paintOn === k)).join('')
-        + '<div class="ws-sheet-actions"><button type="button" class="primary ws-sheet-done">Done</button></div>', (body, close) => {
-        for (const r of qa<HTMLInputElement>('input', body)) r.onchange = () => { if (r.name === 'ws-brush-s') brush = r.value as Brush; else paintOn = r.value as PaintOn; sync(); };
-        q<HTMLButtonElement>('.ws-sheet-done', body).onclick = close;
-      });
-    };
-    q<HTMLButtonElement>('.ws-cap-btn', p).onclick = () => {
-      const d = describe(cur);
-      sheet('What it does', `<p><b>Moves</b> ${esc(d.moves)}</p><p><b>Takes</b> ${esc(d.takes)}</p>${d.special.map(t => `<p>${esc(t)}</p>`).join('')}`, () => {});
-    };
+    q<HTMLSelectElement>('[name="ws-brush"]', p).onchange = e => { brush = (e.target as HTMLSelectElement).value as Brush; sync(); };
+    q<HTMLSelectElement>('[name="ws-paint"]', p).onchange = e => { paintOn = (e.target as HTMLSelectElement).value as PaintOn; sync(); };
+    q<HTMLButtonElement>('.ws-undo', p).onclick = undo;
     wireBoard(q('.ws-board', p));
     paintBoard();
   }
@@ -607,7 +645,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const L = cur.look, auto = autoBody(cur);
     const bodyBtn = (b: Body | 'token'): string => `<button type="button" class="emblem ws-body" data-body="${b}" aria-pressed="${!L.auto && L.body === b}" aria-label="${bodyName(b)}">`
       + (b === 'token' ? `<span class="pc-medallion ws-disc">${esc(cur.letter)}</span>` : `<img src="${cropOf(b)}" alt="" />`) + '</button>';
-    p.innerHTML = '<p class="ws-note ws-look-note">Body, glow and army change only how it looks, not what it does.</p><h3>Body</h3>'
+    p.innerHTML = `<div class="ws-look-preview" aria-hidden="true">${modelHtml(lookOf(cur, v))}</div><button type="button" class="ws-rename">Name: ${esc(cur.name)}</button>` + '<p class="ws-note ws-look-note">Body, glow and army change only how it looks, not what it does.</p><h3>Body</h3>'
       + (cur.from.length ? '' : `<button type="button" class="ws-auto" aria-pressed="${L.auto}">Auto: ${auto === 'token' ? 'a token' : `like ${/^[aeiou]/i.test(BODY_NAME[auto]) ? 'an' : 'a'} ${BODY_NAME[auto]}`}</button>`)
       + `<div class="ws-bodies">${[...BODIES, 'token' as const].map(bodyBtn).join('')}</div>`
       + '<h3>Glow</h3><div class="ws-glows">'
@@ -618,6 +656,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       + `</div></fieldset><div class="ws-letter-row"><h3>Letter</h3><button type="button" class="ws-letter-btn" aria-label="Letter ${cur.letter}. Change." aria-describedby="ws-letter-say">${cur.letter}</button>`
       + `<span id="ws-letter-say">The piece's own letter, on its plinth and its card, as N is the knight's. It follows the name until you tap it.</span></div>`
       + '<p class="ws-note">Try it plays it as White, drawn in ivory. Black’s moves are the mirror image.</p>';
+    q<HTMLButtonElement>('.ws-rename', p).onclick = () => { q<HTMLDialogElement>('.ws-edit-sheet').close(); rename(); };
     q<HTMLButtonElement>('.ws-auto', p)?.addEventListener('click', () => change('auto look', d => { d.look.auto = !d.look.auto; }));
     for (const b of qa<HTMLButtonElement>('.ws-body', p)) b.onclick = () => change('change the body', d => { d.look.body = b.dataset.body as Body; d.look.auto = false; });
     for (const b of qa<HTMLButtonElement>('.ws-glow', p)) b.onclick = () => change('change the glow', d => { d.look.glow = (b.dataset.glow || null) as KingName | null; });
@@ -721,7 +760,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     });
   }
 
-  /** Why? (W8): the head, the reasons, the fixes, the notes and the flags. Used by the sheet and the desktop column. */
+  /** Why? (W8): the head, the reasons, the fixes, the notes and the flags. Shown in a detail sheet. */
   function whyHtml(x: Verdict): string {
     const flags = x.flags.filter(f => f.line !== x.line);
     return `<p>${esc(whyHead(x))}</p>`
@@ -742,9 +781,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     };
   }
   function why(): void {
-    // Desktop: the judge's column already holds Why?; the button takes the player there.
-    const side = q<HTMLElement>('.ws-side');
-    if (side && getComputedStyle(side).display !== 'none') { side.scrollTop = 0; side.focus(); return; }
+    if (fromLink) return sheet(whyTitle(v), whyHtml(v).replace(/<div class="ws-fixes">[\s\S]*?<\/div>/, ''), () => {});
     sheet(whyTitle(v), whyHtml(v) + `<div class="ws-sheet-actions"><button type="button" class="ws-keep">Keep it</button><button type="button" class="quiet ws-undo-last"${undos.length ? '' : ' disabled'}>Undo last change</button></div>`, (body, close) => {
       wireWhy(body, close);
       q<HTMLButtonElement>('.ws-keep', body).onclick = close;
@@ -752,61 +789,48 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     });
   }
 
-  /* ---- SAVED (W9) ---- */
-
-  function saved(): void {
-    const jv = judge(cur), d = describe(cur), l = lookOf(cur, jv);
-    screenEl.innerHTML = bar('Workshop', cur.name, fromLink ? '' : '<button type="button" class="ws-edit">Edit</button>') + '<div class="ws-scroll">'
-      + `<p class="ws-lead">${fromLink ? 'A design from a link. Keep a copy to change it.' : onShelf ? '<span class="ws-saved-note">Saved on this device.</span>' : ''}`
-      + ' Try it and share it. Custom pieces cannot join games yet.</p>'
-      + `<article class="piece-card ws-card"><div class="pc-art ws-card-art" aria-hidden="true">${modelHtml(l)}</div><div>`
-      + `<h3><span class="pc-letter">${cur.letter}</span>${esc(cur.name)}</h3><p class="ws-card-worth">${empty(cur) ? esc(jv.line) : `About ${pawns(jv.worth.point)}. ${bandOf(jv)}.`}</p>`
-      + `<dl><dt>Moves</dt><dd>${esc(cap(d.moves))}</dd><dt>Takes</dt><dd>${esc(cap(d.takes))}</dd>${d.special.length ? `<dt>Special</dt><dd>${d.special.map(esc).join(' ')}</dd>` : ''}</dl>`
-      + `<div class="ws-pats">${pats(cur)}</div></div></article>`
-      + `<details class="ws-every"><summary>Every square</summary><ul>${squareList(cur).map(t => `<li>${esc(t)}</li>`).join('')}</ul></details>`
-      + (jv.warn ? `<button type="button" class="ws-chip">${icon('M12 3l10 18H2zM12 10v5M12 18h.01')}<span>${esc(chipText(jv))}. Why?</span></button>` : '')
-      + '<button type="button" class="primary ws-try">Try it</button><div class="ws-actions">'
-      + '<button type="button" class="ws-send">Send link</button><button type="button" class="ws-copy">Copy as text</button>'
-      + (fromLink ? '<button type="button" class="ws-keep-copy">Keep a copy</button>' : '<button type="button" class="ws-dup">Make a copy</button><button type="button" class="quiet ws-del">Delete</button>')
-      + '</div></div>';
-    v = jv;
-    q<HTMLButtonElement>('.ws-back').onclick = () => show('home');
-    q<HTMLButtonElement>('.ws-edit')?.addEventListener('click', () => edit(cur, { shelf: onShelf }));
-    q<HTMLButtonElement>('.ws-chip')?.addEventListener('click', () => sheet(whyTitle(jv), whyHtml(jv).replace(/<div class="ws-fixes">[\s\S]*?<\/div>/, ''), () => {}));
-    q<HTMLButtonElement>('.ws-try').onclick = () => show('try');
-    // Every design the editor makes fits a share code (a unit test); this guard says so if one ever does not.
-    const shareable = (): boolean => !!parseDesign(designCode(cur)) || (toast('This design cannot be shared: it breaks a limit.'), false);
-    q<HTMLButtonElement>('.ws-send').onclick = async () => {
-      if (!shareable()) return;
-      if (navigator.share) {
-        try { await navigator.share({ title: cur.name, text: `${cur.name}: a King Down piece.`, url: link(cur) }); return; } catch (e) { if ((e as Error).name === 'AbortError') return; }
-      }
-      await copyText(link(cur), 'Link copied.');
-    };
-    q<HTMLButtonElement>('.ws-copy').onclick = () => { if (shareable()) void copyText(asText(cur, jv, link(cur)), 'Copied as text.'); };
-    q<HTMLButtonElement>('.ws-dup')?.addEventListener('click', () => {
-      const c: PieceDesign = { ...clone(cur), id: fromPreset(BLANK).id, name: `${cur.name.slice(0, 12).trim()} copy`, named: true };
-      cur = c;
-      const ok = store();
-      edit(c, { shelf: ok });
-      if (ok) toast('A copy is on your shelf.');
-    });
-    q<HTMLButtonElement>('.ws-keep-copy')?.addEventListener('click', () => {
-      cur = { ...cur, id: fromPreset(BLANK).id };
-      fromLink = false;
-      if (!store()) return show('saved'); // the alert says why; the design stays open
-      show('home');
-      toast(`Kept: ${cur.name}.`);
-    });
-    q<HTMLButtonElement>('.ws-del')?.addEventListener('click', () => sheet(`Delete ${cur.name}?`, '<p>This cannot be undone.</p><div class="ws-sheet-actions"><button type="button" class="primary ws-yes">Delete</button><button type="button" class="ws-no">Keep</button></div>', (body, close) => {
-      q<HTMLButtonElement>('.ws-no', body).onclick = close;
-      q<HTMLButtonElement>('.ws-yes', body).onclick = () => {
-        close();
-        if (!deleteDesign(cur.id)) return toast('Could not delete: this device refused.');
-        onShelf = false;
-        show('home');
+  /* Sharing and shelf actions stay with the piece card. */
+  function keepCopy(): void {
+    const c = { ...clone(cur), id: fromPreset(BLANK).id };
+    edit(c);
+    store();
+    update(true);
+  }
+  function share(): void {
+    sheet('Share this piece', '<div class="ws-share-actions"><button type="button" class="ws-send">Send link</button><button type="button" class="ws-copy-link">Copy link</button><button type="button" class="ws-copy">Copy as text</button>'
+      + (fromLink ? '<button type="button" class="ws-keep-copy">Keep a copy</button>' : '<button type="button" class="ws-dup">Make a copy</button><button type="button" class="quiet ws-del">Delete</button>') + '</div>', (body, closeShare) => {
+      const jv = v;
+      q<HTMLButtonElement>('.ws-copy-link', body).onclick = () => { closeShare(); void copyText(link(cur), 'Link copied.'); };
+      // Every design the editor makes fits a share code (a unit test); this guard says so if one ever does not.
+      const shareable = (): boolean => !!parseDesign(designCode(cur)) || (toast('This design cannot be shared: it breaks a limit.'), false);
+      q<HTMLButtonElement>('.ws-send', body).onclick = async () => {
+        if (!shareable()) return;
+        closeShare();
+        if (navigator.share) {
+          try { await navigator.share({ title: cur.name, text: `${cur.name}: a King Down piece.`, url: link(cur) }); return; } catch (e) { if ((e as Error).name === 'AbortError') return; }
+        }
+        await copyText(link(cur), 'Link copied.');
       };
-    }));
+      q<HTMLButtonElement>('.ws-copy', body).onclick = () => { if (shareable()) { closeShare(); void copyText(asText(cur, jv, link(cur)), 'Copied as text.'); } };
+      q<HTMLButtonElement>('.ws-dup', body)?.addEventListener('click', () => {
+        closeShare();
+        const c: PieceDesign = { ...clone(cur), id: fromPreset(BLANK).id, name: `${cur.name.slice(0, 12).trim()} copy`, named: true };
+        cur = c;
+        const ok = store();
+        edit(c, { shelf: ok });
+        if (ok) toast('A copy is on your shelf.');
+      });
+      q<HTMLButtonElement>('.ws-keep-copy', body)?.addEventListener('click', () => { closeShare(); keepCopy(); });
+      q<HTMLButtonElement>('.ws-del', body)?.addEventListener('click', () => { closeShare(); sheet(`Delete ${cur.name}?`, '<p>This cannot be undone.</p><div class="ws-sheet-actions"><button type="button" class="primary ws-yes">Delete</button><button type="button" class="ws-no">Keep</button></div>', (body, close) => {
+        q<HTMLButtonElement>('.ws-no', body).onclick = close;
+        q<HTMLButtonElement>('.ws-yes', body).onclick = () => {
+          close();
+          if (!deleteDesign(cur.id)) return toast('Could not delete: this device refused.');
+          onShelf = false;
+          show('home');
+        };
+      }); });
+    });
   }
 
   /** The saved card's pictures: the base moves, and one for each rule that adds moves only some of the time. */
@@ -829,15 +853,17 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function tryIt(): void {
     screenEl.innerHTML = bar('Back', `Try ${cur.name}`, '<button type="button" class="quiet ws-reset">Reset</button>') + '<div class="ws-scroll"><div class="ws-try-host"></div></div>';
     const box = sandbox(q('.ws-try-host'), cur, cur.name);
-    q<HTMLButtonElement>('.ws-back').onclick = () => show('saved');
+    q<HTMLButtonElement>('.ws-back').onclick = () => show('editor');
     q<HTMLButtonElement>('.ws-reset').onclick = () => box.reset();
   }
+
+  dlg.addEventListener('close', e => { if (e.target === dlg) { cancel(screenEl); const p = q<HTMLElement>('.ws-edit-sheet'); if (p) { cancel(p); (p as HTMLDialogElement).close(); } } });
 
   /* ---- keys ---- */
 
   dlg.addEventListener('keydown', e => {
     // Only the editor itself: a key pressed in a sheet acts on the sheet alone.
-    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && screen === 'editor' && !q('.ws-sheet[open]') && !(e.target as HTMLElement).closest('input[type="text"]')) {
+    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && screen === 'editor' && !q('.ws-sheet:not(.ws-edit-sheet)[open]') && !fromLink && !(e.target as HTMLElement).closest('input[type="text"]')) {
       e.preventDefault();
       undo();
     }
@@ -853,7 +879,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       const d = parseDesign(code);
       unsaved = null;
       if (!d) { show('home'); toast('This design link could not be read.'); }
-      else { cur = d; fromLink = true; onShelf = false; show('saved'); }
+      else { cur = d; undos = []; fromLink = true; onShelf = false; show('editor'); }
       if (!dlg.open) dlg.showModal();
       focusTitle();
     },
