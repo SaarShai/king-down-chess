@@ -38,6 +38,8 @@ const LINES = {
   growth: ['A card was drawn.', 'Growth: draw the next card.'],
   growthb: ['A card was drawn.', 'Growth: draw the next card, then make your move.'],
   rally: ['A rally: another piece may move.', 'Rally: move this piece, then a different piece (or end the turn); neither move takes.'],
+  morph: ['A piece became another kind of piece.', 'Morph: this piece becomes another kind of piece where it stands.'],
+  morphb: ['A piece became another kind of piece.', 'Morph: this piece becomes another kind of piece (not a queen) where it stands.'],
   mirror: ['A card was copied from the opponent.', 'Mirror: play the card your opponent played last.'],
   mirrorb: ['A card was played twice.', 'Mirror: play this card and keep it.'],
   deathTouch: ['The king captured without moving.', 'Capture this piece without moving the king.'],

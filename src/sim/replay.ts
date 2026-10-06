@@ -9,7 +9,7 @@ import { fromFen, toLan } from '../rules/setup';
 import { parseLan } from './tune';
 import type { Events, GameRecord } from './game';
 
-const NO_SHOT: ReadonlySet<string> = new Set(['firewall', 'rescue', 'growth', 'growthb', 'quake', 'quakeb']);
+const NO_SHOT: ReadonlySet<string> = new Set(['firewall', 'rescue', 'growth', 'growthb', 'quake', 'quakeb', 'morph', 'morphb']);
 
 export function emptyEvents(): Events {
   return {

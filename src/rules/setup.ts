@@ -178,7 +178,8 @@ export function fromFen(fen: string): Position {
  * waiting guard enters on b1), N@b1!R (a Salvation card returns a knight to b1). The 2014 cards:
  * Ra1-a4!A and Ra1-a4!B (Rage, RageB; the second move is plain), Ra1-a4!J (Rally; so is the other piece's move), !P (Firewall), !E:d4<>e5
  * (FirewallB), !Q:d4 and !U:d4 (Earth Quake on d4, EarthQuakeB), Rd1xd4!N (Burn), Qd1xd8!T (Fire
- * Starter), Nb1-b4!O (Control), !D:e5 (Rescue of the mark on e5), !G and !G+ (Growth, GrowthB);
+ * Starter), Nb1-b4!O (Control), !D:e5 (Rescue of the mark on e5), !G and !G+ (Growth, GrowthB),
+ * !I:d1=Q and !I+:d1=R (Morph and MorphB: the piece on d1 becomes a queen, a rook);
  * a Mirror card writes the copied card's move then !Y (Mirror) or !Z (MirrorB): !F:d5!Y.
  *
  * A shove prints where the *shoved* piece went and not where the ogre ended up, because the ogre's
@@ -201,6 +202,7 @@ function lanOf(pos: Position, m: Move): string {
   if (m.power === 'freeze') return `!F:${sqName(m.to)}`;
   if (m.power === 'ward') return `!W:${sqName(m.to)}`;
   if (m.power === 'sacrifice') return `!S:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;
+  if (m.power === 'morph' || m.power === 'morphb') return `!I${m.power === 'morphb' ? '+' : ''}:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;
   if (m.power === 'flight') return `${letter}${sqName(m.from)}~${sqName(m.to)}`;
   if (m.power === 'curse') return `!C:${sqName(m.from)}-${sqName(m.to)}`;
   if (m.power === 'skylift') return `!K:${sqName(m.from)}<>${sqName(m.to)}`;

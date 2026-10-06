@@ -101,7 +101,7 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Property | Allowed values |
 |---|---|
 | Source | king power · card · both (a spendable king power is also dealt as a card) |
-| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ○ Morph) |
+| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ◐ Morph, MorphB) |
 | Uses | n per game (king power) · 1 (every card) · — (always-on) |
 | Turn cost | is the turn's move · then make the move (a free action, `markFree`) · extra move (the second move may be skipped) |
 | Captures | may · must · never |
@@ -149,7 +149,8 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Growth | card ◐ | draw | — | is the turn's move | never | the own pile | instant |
 | GrowthB | card ◐ | draw | — | then make the move | never | the own pile | instant |
 | Rally | card ◐ | extra move: a different own piece | — | extra move | never, on either move | own pieces, the king included | instant |
-| Morph (idea ○) | card | promotion: an own piece becomes another type | — | is the turn's move | never | an own piece, not the king or a pawn; the new type not a king or pawn, and never a second Beast (MorphB: not a queen either) | instant |
+| Morph | card ◐ | promotion: an own piece becomes another type, on its square | — | is the turn's move | never | an own piece, not the king or a pawn (a frozen one does not morph); the new type one the draw pool fields (`POOL`: queen, ogre, rook, bishop, knight, archer, guard, maester, beast), not its own, never a second Beast for the side (a second queen may come), a guard only where a guard may land | instant |
+| MorphB | card ◐ | promotion: the same | — | is the turn's move | never | as Morph, and the new type not a queen | instant |
 
 Every card is one use; "Uses (king)" is the official count of a king power (`POWERS_BALANCED` over the rule defaults).
 "Then make the move" for the marks is `markFree`, official for the kings and used in every card measurement. Flight is
@@ -192,7 +193,7 @@ The piece, power or card keeps its type but is weaker, or off, until the conditi
 |---|---|---|---|
 | Pawn | queen, rook, bishop or knight | reaches the last rank | ● (◐ wider sets: `promotionSet` `anyNonKing`, `anyNonKingNoGuard`, `anyNonKingNoFairy`) |
 | Sacrifice | an own pawn becomes one of the side's captured pieces | the power is used | ● (an arrival, C.2) |
-| **Morph** (card idea, owner 2026-10-06) | one of your pieces becomes another piece type | the card is played | ○ to test: readings in C.2 |
+| **Morph**, **MorphB** (cards, owner 2026-10-06) | one of your pieces (not the king or a pawn) becomes another type of the draw pool, on its square; never a second Beast; MorphB never a queen | the card is played | ◐ lab (`hands=Morph`; `!I:d1=Q`, `!I+:d1=R`); taken, it joins the reserve as its new type; readings in C.2; not measured (smoke: the search morphs the guard at once) |
 | Promoted piece taken | returns (Salvation) as what it was when taken | — | ◐ |
 
 ### D.4 Powers and cards with a condition
@@ -200,5 +201,5 @@ The piece, power or card keeps its type but is weaker, or off, until the conditi
 Zone: Flight (own half), Burn (capital), Fire Starter (enemy back rank). Tag team: Mercy, Holy Light, Death Touch
 (next to the king), Control, FirewallB, Earth Quake B (next to an own piece). Turn N: any item with `fromMove`.
 Capture: RageB. Opponent's card: Mirror. Own last mark: Rescue. Lost pieces: Sacrifice, Salvation.
-None is shackled today except through `fromMove`; none promotes except Sacrifice's pawn.
+None is shackled today except through `fromMove`; none promotes except Sacrifice's pawn and the Morph cards' piece.
 

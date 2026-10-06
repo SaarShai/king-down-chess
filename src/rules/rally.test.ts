@@ -74,8 +74,8 @@ describe('Rally', () => {
     expect(events.powers.rally).toEqual([1, 0]);
   });
 
-  it('is the last card (its hash slot), with its text and its flag', () => {
-    expect(CARD_ONLY.at(-1)).toBe('Rally');
+  it('keeps its hash slot (right after GrowthB; later cards are appended), with its text and its flag', () => {
+    expect(CARD_ONLY.indexOf('Rally')).toBe(CARD_ONLY.indexOf('GrowthB') + 1);
     expect(parseRule('hands=rally').hands![0]).toEqual(['Rally']);
     expect(cardText('Rally')).toBe('move one of your pieces, then a different one (the second move is optional); neither move captures');
   });

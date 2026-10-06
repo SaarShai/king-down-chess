@@ -87,7 +87,7 @@ export interface KingChoice { king: KingName; power: PowerName }
  */
 export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Salvation'
   | 'Rage' | 'RageB' | 'Mirror' | 'MirrorB' | 'Firewall' | 'FirewallB' | 'EarthQuake' | 'EarthQuakeB'
-  | 'Burn' | 'FireStarter' | 'Control' | 'Rescue' | 'Growth' | 'GrowthB' | 'Rally';
+  | 'Burn' | 'FireStarter' | 'Control' | 'Rescue' | 'Growth' | 'GrowthB' | 'Rally' | 'Morph' | 'MorphB';
 /**
  * The cards no king has (lab, 2026-10-03), each one use and the turn's move:
  * - **Mimic**: a piece (not king or pawn) moves, to an empty square only, the way one of the side's
@@ -120,11 +120,16 @@ export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Sa
  *
  * **Rally** (working name, 2026-10-05): Haste's shape with two pieces — one own piece moves, then a
  * different own piece may move (the second move may be skipped); neither move captures.
+ *
+ * **Morph** / **MorphB** (owner idea, 2026-10-06): one own piece (not the king or a pawn) becomes
+ * another type the draw pool fields (not a king or pawn, not its own type), on its square, as the
+ * turn; it takes nothing. Never a second Beast for the side (one Beast per army); a second queen may
+ * come. MorphB: never a queen either.
  */
 export const CARD_ONLY: readonly CardName[] = [
   'Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation',
   'Rage', 'RageB', 'Mirror', 'MirrorB', 'Firewall', 'FirewallB', 'EarthQuake', 'EarthQuakeB', 'Burn', 'FireStarter', 'Control', 'Rescue', 'Growth', 'GrowthB',
-  'Rally',
+  'Rally', 'Morph', 'MorphB',
 ];
 
 /** Each king's two powers, A first (docs/RULES.md §4). */

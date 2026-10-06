@@ -92,6 +92,8 @@ export function cardText(card: CardName, r: Rules = RULES): string {
     case 'Growth': return 'as your move, draw the next card';
     case 'GrowthB': return 'draw the next card, then make your move';
     case 'Rally': return 'move one of your pieces, then a different one (the second move is optional); neither move captures';
+    case 'Morph': return 'one of your pieces (not a pawn or the king) becomes another kind of piece where it stands (not a pawn or a king, and never a second beast)';
+    case 'MorphB': return 'one of your pieces (not a pawn or the king) becomes another kind of piece where it stands (not a pawn, a king or a queen, and never a second beast)';
   }
   return card;
 }

@@ -7,7 +7,8 @@
  * square next to the king it attacks), or guards waiting to enter (`guardReserve`; a drop fills a
  * square, which only a catapult's screen turns against the king). The card hands hold the 2014
  * cards too, with their state: piles and drawn cards, a last card to mirror, Firewall marks, ended
- * marks a Rescue may renew, and a Rage's pending second move.
+ * marks a Rescue may renew, and a Rage's pending second move. The Morph cards change a piece's type
+ * on its square, which the fast path never probes outside a check.
  */
 import { afterEach, expect, it } from 'vitest';
 import {
@@ -116,7 +117,7 @@ it('the same with card hands, the card-only cards included, and marks on the boa
   expect(checked).toBeGreaterThan(1000);
   expect(inCheckCount).toBeGreaterThan(50);
   for (const tag of ['mimic', 'vault', 'curse', 'skylift', 'salvation', 'rage', 'rageb', 'firewall', 'firewallb', 'quake', 'quakeb', 'burn', 'firestarter',
-    'control', 'rescue', 'growth', 'growthb', 'mirror', 'mirrorb', 'rally', 'rage1', 'rage2', 'rage3']) expect(played).toContain(tag);
+    'control', 'rescue', 'growth', 'growthb', 'mirror', 'mirrorb', 'rally', 'morph', 'morphb', 'rage1', 'rage2', 'rage3']) expect(played).toContain(tag);
 }, 120_000);
 
 it('the same with guards waiting to enter, more catapults on the board, and Salvation cards', () => {

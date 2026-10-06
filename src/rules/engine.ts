@@ -98,6 +98,8 @@ export interface Move {
    *   ===` the own king's square, a card drawn. A Mirror card is the copied card's move (`via`).
    * - `rally`: a quiet ordinary move, after which a *different* own piece may make a quiet move
    *   (`Position.rage` 3), or the side ends the turn with a `pass`.
+   * - `morph` / `morphb`: an own piece becomes another type on its square; `from === to`, `promo`
+   *   names the new type (Sacrifice's shape), and nothing is taken.
    * No power move ever captures a king, and none adds an attacked square.
    */
   power?: PowerTag;
@@ -118,7 +120,8 @@ export interface Move {
 
 /** The tag on a move that spends a king power (`Move.power`). */
 export type PowerTag = 'freeze' | 'ward' | 'strike' | 'haste' | 'flight' | 'sacrifice' | 'march' | 'leap' | 'mimic' | 'vault' | 'curse' | 'skylift' | 'salvation'
-  | 'rage' | 'rageb' | 'firewall' | 'firewallb' | 'quake' | 'quakeb' | 'burn' | 'firestarter' | 'control' | 'rescue' | 'growth' | 'growthb' | 'rally';
+  | 'rage' | 'rageb' | 'firewall' | 'firewallb' | 'quake' | 'quakeb' | 'burn' | 'firestarter' | 'control' | 'rescue' | 'growth' | 'growthb' | 'rally'
+  | 'morph' | 'morphb';
 
 export interface Position {
   board: Uint8Array;
@@ -300,7 +303,7 @@ export const TAG_POWER: Readonly<Record<PowerTag, CardName>> = {
   mimic: 'Mimic', vault: 'Vault', curse: 'Curse', skylift: 'SkyLift', salvation: 'Salvation',
   rage: 'Rage', rageb: 'RageB', firewall: 'Firewall', firewallb: 'FirewallB', quake: 'EarthQuake', quakeb: 'EarthQuakeB',
   burn: 'Burn', firestarter: 'FireStarter', control: 'Control', rescue: 'Rescue', growth: 'Growth', growthb: 'GrowthB',
-  rally: 'Rally',
+  rally: 'Rally', morph: 'Morph', morphb: 'MorphB',
 };
 /** Card mode: may side `c` (cards played: the bits of `used`) still play a `power` card? */
 const holdsCard = (c: Color, used: number, power: CardName, drawn = 0): boolean => {
@@ -1286,6 +1289,8 @@ function besideOwn(board: Uint8Array, s: number, c: Color): boolean {
   for (let d = 0; d < 8; d++) { const n = NEIGHBOUR[s * 8 + d]; if (n >= 0 && board[n] && colorOf(board[n]) === c) return true; }
   return false;
 }
+/** The types a Morph card may make: those the draw pool fields (`POOL` in ./setup.ts; morph.test.ts holds the two together). */
+const MORPH_TYPES: readonly PieceType[] = [Q, O, R, B, N, A, G, M, S];
 /** Burn's zone: the capital. Fire Starter's is the enemy back rank (`backRank`). */
 const backRank = (c: Color): readonly number[] => (c === WHITE ? [56, 57, 58, 59, 60, 61, 62, 63] : [0, 1, 2, 3, 4, 5, 6, 7]);
 
@@ -1588,6 +1593,22 @@ function genPowerMovesRaw(power: CardName | '', board: Uint8Array, c: Color, los
       }
       return;
     }
+    case 'Morph': case 'MorphB': {
+      // An own piece, not the king or a pawn, becomes another type of `MORPH_TYPES` on its square,
+      // as the turn; it takes nothing, and the new piece is fresh (`landed`: a spent guard's flag
+      // goes). Never a second Beast for the side; MorphB never a queen; a guard only where a guard
+      // may land. Legality is the caller's, as always.
+      const tag: PowerTag = power === 'Morph' ? 'morph' : 'morphb', beast = board.includes(piece(S, c));
+      for (let s = 0; s < 64; s++) {
+        const p = board[s];
+        if (!p || colorOf(p) !== c || typeOf(p) === K || typeOf(p) === P) continue;
+        for (const t of MORPH_TYPES) {
+          if (t === typeOf(p) || (t === S && beast) || (t === Q && power === 'MorphB') || !guardMayLand(piece(t, c), s)) continue;
+          out.push({ from: s, to: s, captures: [], promo: t, power: tag });
+        }
+      }
+      return;
+    }
     case 'SkyLift': {
       // Two own pieces trade squares at any distance, in the maester swap's shape: neither the king
       // nor a pawn, not two of one type, and each lands where a guard may land (Flight's limit).
@@ -1804,7 +1825,8 @@ export function insufficientMaterial(board: Uint8Array): boolean {
  * Material draw under the active rules; an unspent Strike can still change mating potential, and so
  * can a piece that may still enter: a Salvation card with a returnable piece in the reserve
  * (`lost`; conservative, whatever the piece), or a waiting guard (`waiting`) when guards mate
- * (`guardCaptures: 'any'`). A Strike or Salvation counts while a Mirror may copy it (the opponent
+ * (`guardCaptures: 'any'`), and so can a Morph or MorphB card while the side has a piece to morph
+ * (conservative: any piece but the king). A card counts while a Mirror may copy it (the opponent
  * played it last, `last`) or a Growth may still draw it from the pile (`drawn`). The other card-only
  * cards need no clause: like Flight, each moves or takes pieces but changes no type and adds no
  * attacked square, so the material that can mate stays what the board shows.
@@ -1814,14 +1836,15 @@ export function materialDraw(board: Uint8Array, used?: readonly [number, number]
   // The board first: it is the cheap test (a pawn or a rook ends it), and the search asks at every node.
   if (!RULES.insufficientMaterial || !insufficientMaterial(board)) return false;
   if (RULES.guardCaptures === 'any' && !!waiting && (waiting[0] > 0 || waiting[1] > 0)) return false;
-  return !liveCard(WHITE, used?.[0] ?? 0, drawn?.[0] ?? 0, lost, last?.[1]) && !liveCard(BLACK, used?.[1] ?? 0, drawn?.[1] ?? 0, lost, last?.[0]);
+  return !liveCard(board, WHITE, used?.[0] ?? 0, drawn?.[0] ?? 0, lost, last?.[1]) && !liveCard(board, BLACK, used?.[1] ?? 0, drawn?.[1] ?? 0, lost, last?.[0]);
 }
 
-/** May side `c` still change what can mate (`materialDraw`): a live Strike, or a Salvation with a piece to return. */
-function liveCard(c: Color, u: number, d: number, lost: ArrayLike<number> | undefined, theirLast: CardName | undefined): boolean {
+/** May side `c` still change what can mate (`materialDraw`): a live Strike, a Salvation with a piece to return, a Morph with a piece to morph. */
+function liveCard(board: Uint8Array, c: Color, u: number, d: number, lost: ArrayLike<number> | undefined, theirLast: CardName | undefined): boolean {
   if (!handOf(c).length) return powerOf(c) === 'Strike' && canSpend(c, u);
   if (mayPlay(c, u, d, theirLast, 'Strike')) return true;
   if (lost && mayPlay(c, u, d, theirLast, 'Salvation')) for (let t = 1; t < 16; t++) if (returnable(t) && lost[c * 16 + t] > 0) return true;
+  if (mayPlay(c, u, d, theirLast, 'Morph') || mayPlay(c, u, d, theirLast, 'MorphB')) for (let s = 0; s < 64; s++) if (board[s] && colorOf(board[s]) === c && typeOf(board[s]) !== K) return true;
   return false;
 }
 /**

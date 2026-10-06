@@ -119,6 +119,8 @@ one of your captured pieces to an empty square of your back rank"; a pawn, a gua
 Earth Quake and Growth; their texts and readings are in that report ("The 2014 cards"). Not measured yet.
 **Rally** (2026-10-05, working name; card only): one of your pieces moves, then a different one may move; neither
 move captures (Haste's shape with two pieces). Not measured.
+**Morph** (2026-10-06, owner idea; card only): as your move, one of your pieces (not a pawn or the king) becomes another kind of piece of the draw pool where it stands (not a pawn or a king, never a second Beast; a second queen may come). Not measured.
+**MorphB** (2026-10-06; card only): the same, but never a queen. Not measured.
 
 ## 6. Decisions (2026-09-13, chosen for balance and fun)
 

@@ -139,6 +139,8 @@ const HOLD_DEFAULT: Readonly<Partial<Record<CardName, number>>> = Object.freeze(
   Burn: 30, FireStarter: 60, Control: 60, Rescue: 20, Growth: 30, GrowthB: 50,
   // Rally (2026-10-05): Haste's value, unmeasured.
   Rally: 150,
+  // Morph and MorphB (2026-10-06): starting guesses, unmeasured; MorphB lower (no queen).
+  Morph: 150, MorphB: 120,
 });
 const hold: Partial<Record<CardName, number>> = { ...HOLD_DEFAULT };
 /** Share of the best returnable piece's gain (piece − pawn) an unspent Sacrifice is worth. */
@@ -491,8 +493,9 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // A `plusDiagFwd2Clear` archer shot two squares diagonally is blocked by the square between,
   // which is diagonally next to our king: a move that empties it leaves a line through the king, and
   // one that fills it only blocks. The other archer shots ignore blockers and the leapers are never blocked,
-  // so nothing else can change an attack on the king — except a Curse, which moves an *enemy* piece
-  // that may arrive attacking it, a FirewallB (a swap) that moves an enemy piece, and an Earth Quake,
+  // and a Morph changes only the type of an own piece that stays on its square (it still blocks, and
+  // still screens a catapult), so nothing else can change an attack on the king — except a Curse,
+  // which moves an *enemy* piece that may arrive attacking it, a FirewallB (a swap) that moves an enemy piece, and an Earth Quake,
   // which moves several pieces: those are always tested. A drop (a waiting guard, a Salvation) fills
   // one square and empties none, so only the catapult's screen can make it expose the king. A
   // Firewall, a Rescue and a Growth change no square. `setFastLegality(false)` turns this off for
@@ -533,11 +536,11 @@ export function searchLegal(pos: Position): Move[] {
 // ---------------------------------------------------------------------------------------------
 // Ordering.
 
-/** Material won by a move: every victim, the promotion delta, minus the paladin's own life. */
+/** Material won by a move: every victim, the promotion delta (a pawn's, a Sacrifice's or a Morph's), minus the paladin's own life. */
 function gain(m: Move): number {
   let g = 0;
   for (let i = 0; i < m.captures.length; i++) g += VALUES[typeOf(board[m.captures[i]])];
-  if (m.promo) g += VALUES[m.promo] - VALUES[P];
+  if (m.promo) g += VALUES[m.promo] - VALUES[typeOf(board[m.from])];
   if (m.power === 'salvation') g += VALUES[m.drop!];
   if (m.selfRemove) g -= VALUES[typeOf(board[m.from])];
   return g;
