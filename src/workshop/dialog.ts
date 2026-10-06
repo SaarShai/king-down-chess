@@ -16,8 +16,8 @@ import { BLOCKS, GROUPS, MORE_WHENS, NEAR_BODY, TOP_WHENS, EVENT_WHENS, blockOf,
 import { BAND_WORD, LEARN_LINE, autoBody, badgeText, bandOf, judge, shelfOf, unmeasured, whyHead, whyTitle, worthOf, type Label, type Verdict } from './judge';
 import { GLOW, lookOf, lookWords } from './look';
 import { cropOf, figureHtml, gaugeHtml, modelHtml, patternSvg } from './art';
-import { cap, describe, esc, halves, pawns, ruleParts, ruleText } from './text';
-import { autoName, letterOf, nextLetter, rollName, saveName } from './names';
+import { MARK_WORDS, cap, describe, dirWords, esc, halves, pawns, ruleParts, ruleText, squareList } from './text';
+import { autoName, letterFollows, letterOf, nextLetter, rollName, saveName } from './names';
 import { MAX, deleteDesign, loadDesigns, loadShelf, saveDesign, type SaveResult } from './store';
 import { sandbox } from './sandbox';
 
@@ -51,15 +51,12 @@ const BRUSH: Record<Brush, [string, string]> = {
   take: ['Take', 'It may take an enemy there, by moving onto it.'],
   shoot: ['Shoot', 'It takes an enemy there and stays where it is.'],
 };
-const MARK_WORDS: Record<Mark, string> = { both: 'move and take', move: 'move', take: 'take', shoot: 'shoot', moveShoot: 'move or shoot' };
 const PAINT: [PaintOn, string][] = [['all', 'All sides'], ['lr', 'Left and right'], ['one', 'One square']];
 const PILL_WORD: Record<string, string> = { when: 'When', as: 'Like', over: 'Over', by: 'Taken', then: 'Then', with: 'With', into: 'Becomes', what: 'What' };
 const PILL_TITLE: Record<string, string> = { as: 'Moves like which piece?', over: 'Passes over what?', by: 'Who cannot take it?', then: 'After the push', with: 'Swaps with whom?', into: 'Becomes what?', what: 'Which pieces?' };
 const LIKE_ADDED: Record<string, string> = { king: "the king's squares", knight: "the knight's squares", bishop: "the bishop's lines", rook: "the rook's lines", queen: "the queen's lines" };
 const DISCLAIMER = 'This is a guess from computer games with the pieces we know. A new mix can play stronger or weaker. You can keep it.';
 
-const dirWords = (x: number, y: number): string =>
-  [y > 0 ? `${y} up` : y < 0 ? `${-y} down` : '', x > 0 ? `${x} right` : x < 0 ? `${-x} left` : ''].filter(Boolean).join(', ');
 /** The ray from the piece through (x, y), or null when (x, y) is on none of the 8. */
 const rayOf = (x: number, y: number): Dir | null =>
   x && y && Math.abs(x) !== Math.abs(y) ? null : DIRS.find(d => DIR[d][0] === Math.sign(x) && DIR[d][1] === Math.sign(y)) ?? null;
@@ -80,7 +77,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   let screen: Screen = 'home';
   let cur: PieceDesign = fromPreset(BLANK), v: Verdict = judge(cur), fromLink = false, onShelf = false;
   let undos: { d: PieceDesign; label: string }[] = [], tab: 'moves' | 'rules' | 'look' = 'moves', brush: Brush = 'both', paintOn: PaintOn = 'all';
-  let lastLabel: Label | '' = '', mixFirst: Preset | null = null;
+  let lastLabel: Label | '' = '', mixFirst: Preset | null = null, mixNote = '';
   /** The design the last save refused, and why: the alert stays while it is the open design. */
   let unsaved: { id: string; why: Exclude<SaveResult, 'saved'> } | null = null;
 
@@ -137,6 +134,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   addEventListener('resize', () => { if (dlg.open && !(document.activeElement as HTMLElement | null)?.matches('input[type="text"]')) fit(); });
 
   function show(s: Screen): void {
+    if (s !== 'editor') mixNote = '';
     // A toast belongs to the screen it was made on.
     clearTimeout(toastTimer);
     toastEl.classList.remove('on');
@@ -224,11 +222,11 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const tiles = [...PRESETS, BLANK];
     screenEl.innerHTML = bar('Workshop', 'New piece') + '<div class="ws-scroll">'
       + '<p class="ws-lead">Start from a piece you know.</p>'
-      + '<label class="check ws-mix"><input type="checkbox" /><span>Mix two pieces<small>The first piece’s moves, and the second piece’s rules.</small></span></label>'
+      + '<label class="check ws-mix"><input type="checkbox" /><span>Mix two pieces<small>The first piece’s moves, and the second piece’s rules. A piece with no rules gives its moves, in the enemy half.</small></span></label>'
       + `<div class="ws-tiles">${tiles.map(p => `<button type="button" class="ws-ptile" data-key="${p.key}" aria-pressed="false">`
         + (p.body === 'token' ? '<span class="pc-medallion" aria-hidden="true">D</span>' : `<img src="${cropOf(p.body)}" alt="" />`)
-        + `<span>${p.name}</span><i class="ws-one" aria-hidden="true">1</i></button>`).join('')}</div>`
-      + '<p class="ws-mix-note" hidden>The Archer and Blank have no rules to give.</p>'
+        + `<span>${p.name}</span><span class="sr-only ws-gives"></span><i class="ws-one" aria-hidden="true">1</i></button>`).join('')}</div>`
+      + '<p class="ws-mix-note" hidden></p>'
       + `<button type="button" class="ws-surprise">${DIE}<span>Surprise me</span></button></div>`;
     q<HTMLButtonElement>('.ws-back').onclick = () => show('home');
     q<HTMLButtonElement>('.ws-surprise').onclick = surpriseMe;
@@ -238,9 +236,17 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
         const p = presetOf(b.dataset.key!);
         b.setAttribute('aria-pressed', String(mixFirst?.key === p.key));
         b.disabled = !!mixFirst && mixFirst.key !== p.key && !canGive(p);
-        b.title = b.disabled ? 'It has no rules to give.' : '';
+        // After the first choice, each piece says what it would give.
+        const gives = !mixFirst || mixFirst.key === p.key || b.disabled ? '' : (() => {
+          const { design, left } = mix(mixFirst, p);
+          return `Gives: ${design.rules.map(ruleText).join(' ') || 'nothing.'}${left.length ? ` Left out: ${left.join('; ')}.` : ''}`;
+        })();
+        b.title = b.disabled ? 'It has no rules to give.' : gives;
+        q('.ws-gives', b).textContent = gives;
       }
-      q('.ws-mix-note').hidden = !mixFirst;
+      const note = q('.ws-mix-note');
+      note.hidden = !mixFirst;
+      note.textContent = mixFirst ? `Now the second piece: it gives its rules to the ${mixFirst.name}’s moves. The Archer and Blank have no rules to give.` : '';
     };
     box.onchange = () => { mixFirst = null; paint(); };
     for (const b of qa<HTMLButtonElement>('.ws-ptile')) b.onclick = () => {
@@ -248,16 +254,17 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       if (!box.checked) return edit(named(fromPreset(p)), { paintOn: p.paintOn });
       if (!mixFirst) { mixFirst = p; return paint(); }
       if (mixFirst.key === p.key) { mixFirst = null; return paint(); }
-      const { design, left } = mix(mixFirst, p);
+      const { design, left } = mix(mixFirst, p), said = `Mixed: ${mixFirst.name} + ${p.name}.${left.length ? ` Left out: ${left.join('; ')}.` : ''}`;
       edit(named(design), { paintOn: mixFirst.paintOn });
-      toast(`Mixed: ${mixFirst.name} + ${p.name}.${left.length ? ` Left out: ${left.join('; ')}.` : ''}`);
+      mixNote = said; // it stays in the Rules tab until the player leaves the editor
+      toast(said);
     };
   }
 
   /** The name and letter follow the design until the player names it. */
   function named(d: PieceDesign): PieceDesign {
     if (!d.named) {
-      const old = d.name, follows = !old || d.letter === letterOf(old);
+      const follows = letterFollows(d);
       d.name = autoName(d, autoBody(d));
       if (follows) d.letter = letterOf(d.name);
     }
@@ -297,6 +304,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     d.name = rollName(d, autoBody(d));
     d.named = true;
     d.letter = letterOf(d.name);
+    d.ownLetter = false;
     const back = { ...clone(d), squares: base!.squares, lines: base!.lines, rules: base!.rules };
     edit(d, { paintOn: 'all', undo: same(back, d) ? undefined : { d: back, label: 'the surprise' } });
     toast(`A surprise: ${d.name}. Change anything.`);
@@ -323,7 +331,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       + '<p class="sr-only ws-summary"></p><p class="sr-only ws-live" role="status"></p></section>'
       + `<fieldset class="seg ws-tabs"><legend class="sr-only">Edit</legend><div class="seg-row">${radio('ws-tab', 'moves', 'Moves', tab === 'moves')}`
       + `${radio('ws-tab', 'rules', 'Rules', tab === 'rules')}${radio('ws-tab', 'look', 'Look', tab === 'look')}</div></fieldset>`
-      + '<div class="ws-panel"></div><aside class="ws-side" aria-label="The judge"></aside></div>';
+      + '<div class="ws-panel"></div><aside class="ws-side" aria-label="The judge" tabindex="-1"></aside></div>';
     q<HTMLButtonElement>('.ws-back').onclick = () => show('home');
     q<HTMLButtonElement>('.ws-undo').onclick = undo;
     q<HTMLButtonElement>('.ws-done').onclick = () => {
@@ -366,7 +374,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       + `<button type="button" class="quiet ws-die" aria-label="Roll a name" title="Roll a name">${DIE}</button>`)) {
       q<HTMLButtonElement>('.ws-name').onclick = rename;
       q<HTMLButtonElement>('.ws-die').onclick = () => {
-        for (let i = 0; i < 6 && !change('roll a name', x => { const follows = x.letter === letterOf(x.name); x.name = rollName(x, autoBody(x)); x.named = true; if (follows) x.letter = letterOf(x.name); }); i++);
+        for (let i = 0; i < 6 && !change('roll a name', x => { const follows = letterFollows(x); x.name = rollName(x, autoBody(x)); x.named = true; if (follows) x.letter = letterOf(x.name); }); i++);
       };
     }
     fitName();
@@ -418,7 +426,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       delete row.dataset.html; // so update() draws the name again, changed or not
       if (keep && s && s !== cur.name) {
         if (!validName(s)) toast("A name uses letters, digits, spaces, - and ', up to 18.");
-        else change('rename', x => { const follows = x.letter === letterOf(x.name); x.name = saveName(s); x.named = true; if (follows) x.letter = letterOf(x.name); });
+        else change('rename', x => { const follows = letterFollows(x); x.name = saveName(s); x.named = true; if (follows) x.letter = letterOf(x.name); });
       }
       update(true);
       q<HTMLButtonElement>('.ws-name').focus();
@@ -580,7 +588,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       }).join('')
       + `<button type="button" class="ws-add"${full ? ' disabled' : ''}>${full ? '<span>3 of 3 rules. Remove one to add another.</span>' : `${icon('M12 5v14M5 12h14')}<span>Add a rule</span>`}</button>`
       + '<p class="ws-note">Fewer rules are easier to remember.</p>'
-      + (from.length ? `<p class="ws-note">Started from: ${from.join(' + ')}</p>` : '')
+      + (mixNote ? `<p class="ws-note">${esc(mixNote)}</p>` : from.length ? `<p class="ws-note">Started from: ${from.join(' + ')}</p>` : '')
       + (cur.from[0] && presetOf(cur.from[0]).note ? `<p class="ws-note">${presetOf(cur.from[0]).note}</p>` : '');
     for (const b of qa<HTMLButtonElement>('.ws-remove', p)) b.onclick = () => {
       const i = +b.dataset.i!;
@@ -599,7 +607,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const L = cur.look, auto = autoBody(cur);
     const bodyBtn = (b: Body | 'token'): string => `<button type="button" class="emblem ws-body" data-body="${b}" aria-pressed="${!L.auto && L.body === b}" aria-label="${bodyName(b)}">`
       + (b === 'token' ? `<span class="pc-medallion ws-disc">${esc(cur.letter)}</span>` : `<img src="${cropOf(b)}" alt="" />`) + '</button>';
-    p.innerHTML = '<h3>Body</h3>'
+    p.innerHTML = '<p class="ws-note ws-look-note">Body, glow and army change only how it looks, not what it does.</p><h3>Body</h3>'
       + (cur.from.length ? '' : `<button type="button" class="ws-auto" aria-pressed="${L.auto}">Auto: ${auto === 'token' ? 'a token' : `like ${/^[aeiou]/i.test(BODY_NAME[auto]) ? 'an' : 'a'} ${BODY_NAME[auto]}`}</button>`)
       + `<div class="ws-bodies">${[...BODIES, 'token' as const].map(bodyBtn).join('')}</div>`
       + '<h3>Glow</h3><div class="ws-glows">'
@@ -609,12 +617,12 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       + ['Ivory', 'Charcoal'].map((t, i) => `<label><input type="radio" name="ws-army" value="${i}"${L.army === i ? ' checked' : ''} /><span>${t}</span></label>`).join('')
       + `</div></fieldset><div class="ws-letter-row"><h3>Letter</h3><button type="button" class="ws-letter-btn" aria-label="Letter ${cur.letter}. Change." aria-describedby="ws-letter-say">${cur.letter}</button>`
       + `<span id="ws-letter-say">The piece's own letter, on its plinth and its card, as N is the knight's. It follows the name until you tap it.</span></div>`
-      + '<p class="ws-note">Black’s moves are the mirror image.</p>';
+      + '<p class="ws-note">Try it plays it as White, drawn in ivory. Black’s moves are the mirror image.</p>';
     q<HTMLButtonElement>('.ws-auto', p)?.addEventListener('click', () => change('auto look', d => { d.look.auto = !d.look.auto; }));
     for (const b of qa<HTMLButtonElement>('.ws-body', p)) b.onclick = () => change('change the body', d => { d.look.body = b.dataset.body as Body; d.look.auto = false; });
     for (const b of qa<HTMLButtonElement>('.ws-glow', p)) b.onclick = () => change('change the glow', d => { d.look.glow = (b.dataset.glow || null) as KingName | null; });
     for (const r of qa<HTMLInputElement>('input[name="ws-army"]', p)) r.onchange = () => change('change the army', d => { d.look.army = +r.value as 0 | 1; });
-    q<HTMLButtonElement>('.ws-letter-btn', p).onclick = () => change('change the letter', d => { d.letter = nextLetter(d.letter); });
+    q<HTMLButtonElement>('.ws-letter-btn', p).onclick = () => change('change the letter', d => { d.letter = nextLetter(d.letter); d.ownLetter = true; });
   }
 
   /* ---- sheets: the rule book (W5), a pill's choices (W6), Why? (W8) ---- */
@@ -630,7 +638,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
         + `<span class="ws-book-badge" aria-label="${dv ? `${badgeText(dv.v)} pawn${dv.unsure ? `, a guess: ${NEVER}` : ''}` : 'cannot work'}">${dv ? `${badgeText(dv.v)}${dv.unsure ? '?' : ''}` : '--'}</span>`
         + `<span class="ws-seen" aria-hidden="true">${b.seenOn.map(x => pieceIcon(({ P: 1, N: 2, B: 3, R: 4, Q: 5, A: 7, L: 8, G: 9, M: 10, S: 11, O: 12 } as const)[x])).join('')}</span></button>`;
     };
-    sheet('Add a rule', `<p class="ws-key">The number is about how many pawns the rule adds to this piece. A rule that works only some of the time adds less. “?” marks a guess: ${NEVER}.</p>` + GROUPS.map(g => `<h3>${g}</h3>${BLOCKS.filter(b => b.group === g).map(row).join('')}`).join(''), (body, close) => {
+    sheet('Add a rule', `<details class="ws-key"><summary>+1: about 1 pawn more. “?”: a guess.</summary><p>The number is about how many pawns the rule adds to this piece. A rule that works only some of the time adds less. “?” marks a guess: ${NEVER}.</p></details>` + GROUPS.map(g => `<h3>${g}</h3>${BLOCKS.filter(b => b.group === g).map(row).join('')}`).join(''), (body, close) => {
       for (const b of qa<HTMLButtonElement>('.ws-book-row', body)) b.onclick = () => {
         const block = blockOf(b.dataset.a as Block['a']);
         close();
@@ -734,6 +742,9 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     };
   }
   function why(): void {
+    // Desktop: the judge's column already holds Why?; the button takes the player there.
+    const side = q<HTMLElement>('.ws-side');
+    if (side && getComputedStyle(side).display !== 'none') { side.scrollTop = 0; side.focus(); return; }
     sheet(whyTitle(v), whyHtml(v) + `<div class="ws-sheet-actions"><button type="button" class="ws-keep">Keep it</button><button type="button" class="quiet ws-undo-last"${undos.length ? '' : ' disabled'}>Undo last change</button></div>`, (body, close) => {
       wireWhy(body, close);
       q<HTMLButtonElement>('.ws-keep', body).onclick = close;
@@ -746,11 +757,13 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function saved(): void {
     const jv = judge(cur), d = describe(cur), l = lookOf(cur, jv);
     screenEl.innerHTML = bar('Workshop', cur.name, fromLink ? '' : '<button type="button" class="ws-edit">Edit</button>') + '<div class="ws-scroll">'
-      + (fromLink ? '<p class="ws-lead">A design from a link. Keep a copy to change it.</p>' : onShelf ? '<p class="ws-lead ws-saved-note">Saved on this device.</p>' : '')
+      + `<p class="ws-lead">${fromLink ? 'A design from a link. Keep a copy to change it.' : onShelf ? '<span class="ws-saved-note">Saved on this device.</span>' : ''}`
+      + ' Try it and share it. Custom pieces cannot join games yet.</p>'
       + `<article class="piece-card ws-card"><div class="pc-art ws-card-art" aria-hidden="true">${modelHtml(l)}</div><div>`
       + `<h3><span class="pc-letter">${cur.letter}</span>${esc(cur.name)}</h3><p class="ws-card-worth">${empty(cur) ? esc(jv.line) : `About ${pawns(jv.worth.point)}. ${bandOf(jv)}.`}</p>`
       + `<dl><dt>Moves</dt><dd>${esc(cap(d.moves))}</dd><dt>Takes</dt><dd>${esc(cap(d.takes))}</dd>${d.special.length ? `<dt>Special</dt><dd>${d.special.map(esc).join(' ')}</dd>` : ''}</dl>`
-      + `${patternSvg(cur)}</div></article>`
+      + `<div class="ws-pats">${pats(cur)}</div></div></article>`
+      + `<details class="ws-every"><summary>Every square</summary><ul>${squareList(cur).map(t => `<li>${esc(t)}</li>`).join('')}</ul></details>`
       + (jv.warn ? `<button type="button" class="ws-chip">${icon('M12 3l10 18H2zM12 10v5M12 18h.01')}<span>${esc(chipText(jv))}. Why?</span></button>` : '')
       + '<button type="button" class="primary ws-try">Try it</button><div class="ws-actions">'
       + '<button type="button" class="ws-send">Send link</button><button type="button" class="ws-copy">Copy as text</button>'
@@ -761,13 +774,16 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     q<HTMLButtonElement>('.ws-edit')?.addEventListener('click', () => edit(cur, { shelf: onShelf }));
     q<HTMLButtonElement>('.ws-chip')?.addEventListener('click', () => sheet(whyTitle(jv), whyHtml(jv).replace(/<div class="ws-fixes">[\s\S]*?<\/div>/, ''), () => {}));
     q<HTMLButtonElement>('.ws-try').onclick = () => show('try');
+    // Every design the editor makes fits a share code (a unit test); this guard says so if one ever does not.
+    const shareable = (): boolean => !!parseDesign(designCode(cur)) || (toast('This design cannot be shared: it breaks a limit.'), false);
     q<HTMLButtonElement>('.ws-send').onclick = async () => {
+      if (!shareable()) return;
       if (navigator.share) {
         try { await navigator.share({ title: cur.name, text: `${cur.name}: a King Down piece.`, url: link(cur) }); return; } catch (e) { if ((e as Error).name === 'AbortError') return; }
       }
       await copyText(link(cur), 'Link copied.');
     };
-    q<HTMLButtonElement>('.ws-copy').onclick = () => void copyText(asText(cur, jv, link(cur)), 'Copied as text.');
+    q<HTMLButtonElement>('.ws-copy').onclick = () => { if (shareable()) void copyText(asText(cur, jv, link(cur)), 'Copied as text.'); };
     q<HTMLButtonElement>('.ws-dup')?.addEventListener('click', () => {
       const c: PieceDesign = { ...clone(cur), id: fromPreset(BLANK).id, name: `${cur.name.slice(0, 12).trim()} copy`, named: true };
       cur = c;
@@ -791,6 +807,13 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
         show('home');
       };
     }));
+  }
+
+  /** The saved card's pictures: the base moves, and one for each rule that adds moves only some of the time. */
+  function pats(d: PieceDesign): string {
+    const fig = (svg: string, words: string): string => `<figure class="ws-pat">${svg}<figcaption>${esc(words)}</figcaption></figure>`;
+    return fig(patternSvg(d), 'Base moves') + d.rules.map(r => r.does.a === 'movesLike' ? fig(patternSvg(presetOf(r.does.as === 'king' ? 'maester' : r.does.as)), `${cap(whenWords(r.when))}: also like ${r.does.as === 'king' ? 'a king' : `a ${r.does.as}`}`)
+      : r.does.a === 'step2' ? fig(patternSvg({ squares: [{ x: 0, y: 2, mark: 'move' }], lines: [] }), `${cap(whenWords(r.when))}: also 2 straight ahead`) : '').join('');
   }
 
   /** Copy as text (§7.6): the sentences, a MATRIX-style row and the link. */

@@ -127,7 +127,7 @@ const rid = (): string => Math.random().toString(36).slice(2, 10) + Date.now().t
 export function fromPreset(p: Preset): PieceDesign {
   return {
     v: 1, kind: 'piece', id: rid(), name: '', named: false,
-    look: { body: p.body, auto: p.body === 'token', glow: null, army: 0 }, letter: '',
+    look: { body: p.body, auto: p.body === 'token', glow: null, army: 0 }, letter: '', ownLetter: false,
     squares: clone(p.squares), lines: [...p.lines], rules: clone(p.rules), from: p.key === 'blank' ? [] : [p.key], updated: Date.now(),
   };
 }

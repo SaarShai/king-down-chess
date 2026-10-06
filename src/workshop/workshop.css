@@ -234,7 +234,8 @@
 .c-both::after, .c-take::after, .c-shoot::after, .c-moveShoot::after { content: ''; position: absolute; inset: 13%; border: 3px solid #b3261e; border-radius: 50%; }
 .c-shoot::after, .c-moveShoot::after { border-style: dashed; }
 .c-shoot::before { content: ''; position: absolute; inset: 40%; border-radius: 50%; background: #b3261e; }
-#workshop .ln { background-image: linear-gradient(var(--ln), transparent 40%, rgba(201, 154, 62, 0.9) 40% 60%, transparent 60%); }
+/* A line: gold with a dark edge, so it reads on the pale squares. */
+#workshop .ln { background-image: linear-gradient(var(--ln), transparent 36%, #6b4a14 36% 40%, #d9a441 40% 60%, #6b4a14 60% 64%, transparent 64%); }
 .ln-n, .ln-s { --ln: 90deg; }
 .ln-e, .ln-w { --ln: 0deg; }
 .ln-ne, .ln-sw { --ln: 135deg; }
@@ -329,7 +330,16 @@
 #workshop .ws-card-art { height: auto; padding: 8px 0 4px; background: radial-gradient(90% 90% at 50% 40%, #4a3e31, var(--night)); }
 .ws-card-art .ws-model { --model: 112px; }
 .ws-card-worth { margin-bottom: 6px !important; font-weight: 700; }
-.ws-pattern { display: block; width: 140px; margin-top: var(--space-2); border-radius: 4px; }
+.ws-pats { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+.ws-pat { margin: 0; width: 140px; }
+.ws-pat figcaption { font-size: var(--fs-xs); color: var(--ink-soft); }
+.ws-pattern { display: block; width: 100%; border-radius: 4px; }
+.ws-every { margin-top: var(--space-3); font-size: var(--fs-sm); }
+.ws-every summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; font-weight: 700; }
+.ws-every ul { margin: 0; padding-left: 1.2em; columns: 2 12em; }
+.ws-key { margin-bottom: var(--space-2); font-size: var(--fs-sm); color: var(--ink-soft); }
+.ws-key summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; }
+.ws-look-note { margin: var(--space-2) 0 0 !important; }
 .ws-scroll > .ws-chip { margin-top: var(--space-3) !important; }
 #workshop .ws-try { justify-content: center; margin-top: var(--space-4); }
 .ws-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-2); }
@@ -456,4 +466,7 @@
   .ws-side-worth { margin: var(--space-2) 0 !important; font-weight: 700; }
   .ws-side > p { margin-bottom: var(--space-2) !important; font-size: var(--fs-sm); }
   .ws-stage .ws-why { display: none; }
+  /* The judge once, in its column: the stage keeps the figure, the name and the short verdict. */
+  .ws-stage .ws-gauge-box, .ws-stage .ws-like, .ws-stage .ws-stats { display: none !important; }
+  .ws-side:focus { outline: 3px solid var(--focus); outline-offset: -3px; }
 }

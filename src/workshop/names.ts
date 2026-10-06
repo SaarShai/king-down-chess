@@ -42,5 +42,8 @@ export function rollName(d: D, auto = d.look.body, rand = Math.random): string {
 export const saveName = (name: string): string => (TAKEN.some(t => t.toLowerCase() === name.trim().toLowerCase()) ? `${name.trim().slice(0, 10)} (yours)` : name.trim());
 /** The first free letter of the name, else the first free letter. */
 export const letterOf = (name: string): string => [...name.toUpperCase()].find(c => FREE_LETTERS.includes(c)) ?? FREE_LETTERS[0];
+/** The letter follows the name until the player taps it. A design saved before `ownLetter`: while it matches the name. */
+export const letterFollows = (d: Pick<PieceDesign, 'name' | 'letter' | 'ownLetter'>): boolean =>
+  !d.letter || (d.ownLetter === undefined ? d.letter === letterOf(d.name) : !d.ownLetter);
 /** A tap on the letter steps to the next free one. */
 export const nextLetter = (l: string): string => FREE_LETTERS[(FREE_LETTERS.indexOf(l) + 1) % FREE_LETTERS.length];

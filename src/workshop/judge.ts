@@ -310,7 +310,7 @@ export function judge(d: D, full = true): Verdict {
   const parts = !full ? [] : removals(d).map(f => ({ ...f, worth: worthOf(f.design) }));
   const why = [
     ...parts.map(f => ({ f, v: W - f.worth })).filter(x => Math.abs(x.v) >= 0.25).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 3)
-      .map(({ f }) => `Without “${f.part.charAt(0).toLowerCase()}${f.part.slice(1)}”: about ${pawns(f.worth)}.${f.rule && !blockOf(f.rule.does.a).event && share(f.rule.when) < 1 ? ` The estimate assumes it works ${whenWords(f.rule.when)} about ${Math.round(share(f.rule.when) * 100)}% of the time.` : ''}`),
+      .map(({ f }) => `Without “${f.part.charAt(0).toLowerCase()}${f.part.slice(1)}”${empty(f.design) ? ', it cannot move at all.' : `: about ${pawns(f.worth)}.`}${f.rule && !blockOf(f.rule.does.a).event && share(f.rule.when) < 1 ? ` The estimate assumes it works ${whenWords(f.rule.when)} about ${Math.round(share(f.rule.when) * 100)}% of the time.` : ''}`),
     ...(full ? hingeText(g) : []),
   ];
   const fixes = !full || blocked || inBand(W) ? [] : parts

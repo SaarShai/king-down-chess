@@ -65,10 +65,10 @@ export function lineWords(lines: readonly Dir[]): string {
   const diag = g.length === 4 ? 'diagonally' : g.length ? `diagonally ${[f.length ? `forward${one(f)}` : '', k.length ? `back${one(k)}` : ''].filter(Boolean).join(' and ')}` : '';
   return `slides ${[ortho, diag].filter(Boolean).join(' and ')}`;
 }
-/** "a, b or c"; more than 3 groups read "to 14 squares (see the picture)". */
+/** "a, b or c"; more than 3 groups read "to 14 squares" (SAVED lists every square). */
 function phrases(pts: readonly { x: number; y: number }[], extra: string[] = []): string {
   const gs = groupsOf(pts).map(g => groupPhrase(g.orbit, g.pts));
-  const all = gs.length > 3 ? [`to ${pts.length} squares (see the picture)`, ...extra] : [...gs, ...extra];
+  const all = gs.length > 3 ? [`to ${pts.length} squares`, ...extra] : [...gs, ...extra];
   return all.length < 2 ? all.join('') : `${all.slice(0, -1).join(', ')} or ${all[all.length - 1]}`;
 }
 const same = (pts: readonly { x: number; y: number }[], offs: readonly [number, number][]): boolean =>
@@ -77,6 +77,20 @@ const KING8: [number, number][] = [[0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1
 const KNIGHT8: [number, number][] = [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2]];
 const isLines = (lines: readonly Dir[], set: readonly Dir[]): boolean => lines.length === set.length && set.every(d => lines.includes(d));
 const jumps = (s: Square): boolean => Math.max(Math.abs(s.x), Math.abs(s.y)) > 1;
+
+/* ---- every square, exactly ---- */
+
+export const MARK_WORDS: Record<Square['mark'], string> = { both: 'move and take', move: 'move', take: 'take', shoot: 'shoot', moveShoot: 'move or shoot' };
+/** "2 up, 1 right": the editor's board labels (forward is up). */
+export const dirWords = (x: number, y: number): string =>
+  [y > 0 ? `${y} up` : y < 0 ? `${-y} down` : '', x > 0 ? `${x} right` : x < 0 ? `${-x} left` : ''].filter(Boolean).join(', ');
+/** Each painted square and the lines, in words: what the saved card's picture shows, for any reader. */
+export function squareList(d: Pick<PieceDesign, 'squares' | 'lines'>): string[] {
+  const at = (x: number, y: number): string =>
+    [y > 0 ? `${y} forward` : y < 0 ? `${-y} back` : '', x > 0 ? `${x} right` : x < 0 ? `${-x} left` : ''].filter(Boolean).join(', ');
+  return [...[...d.squares].sort((a, b) => b.y - a.y || a.x - b.x).map(s => `${at(s.x, s.y)}: ${MARK_WORDS[s.mark]}`),
+    ...(d.lines.length ? [cap(lineWords(DIRS.filter(l => d.lines.includes(l))))] : [])];
+}
 
 /* ---- rule sentences ---- */
 

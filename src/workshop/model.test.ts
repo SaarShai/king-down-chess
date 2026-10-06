@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { judge } from './judge';
 import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, designCode, empty, fromPreset, keyOf, likeAlways, limit, mix, parseDesign, presetOf, validName, type PieceDesign, type Rule } from './model';
-import { autoName, letterOf, saveName } from './names';
+import { autoName, letterFollows, letterOf, saveName } from './names';
+import { describe as words, squareList } from './text';
 import { BLOCKS, blockOf, validDoes, whenOk } from './vocab';
 
 const named = (d: PieceDesign, name = 'Test piece'): PieceDesign => ({ ...d, name, letter: letterOf(name) });
@@ -130,5 +131,21 @@ describe('validation (§8.4.8, §4.9)', () => {
     expect(letterOf('Hungry Rider')).toBe('H');
     expect(letterOf('Rook')).toBe('D');
     expect(autoName({ ...fromPreset(presetOf('knight')), rules: [{ when: { on: 'takes' }, does: { a: 'chain' } }] })).toBe('Hungry Rider');
+  });
+
+  it('the letter follows the name until the player chooses one, even a letter that matches the name', () => {
+    const d = named(fromPreset(presetOf('knight')), 'Hungry Rider');
+    expect(letterFollows(d)).toBe(true);
+    expect(letterFollows({ ...d, ownLetter: true })).toBe(false); // H is the name's letter, but the player chose it
+    // A design saved before the setting: the letter follows while it matches the name.
+    expect(letterFollows({ ...d, ownLetter: undefined })).toBe(true);
+    expect(letterFollows({ ...d, ownLetter: undefined, letter: 'Z' })).toBe(false);
+  });
+
+  it('lists every square exactly, for the saved card', () => {
+    const l = squareList({ squares: [{ x: 1, y: 2, mark: 'both' }, { x: -1, y: 2, mark: 'shoot' }], lines: ['n'] });
+    expect(l).toEqual(['2 forward, 1 left: shoot', '2 forward, 1 right: move and take', 'Slides straight ahead']);
+    const many = { squares: [...KING_STEP('both'), ...KNIGHT_JUMP().slice(0, 3), { x: 3, y: 3, mark: 'move' as const }, { x: 0, y: 2, mark: 'move' as const }], lines: [], rules: [] };
+    expect(words(many).moves).not.toMatch(/picture/);
   });
 });

@@ -147,7 +147,8 @@ export function patternSvg(d: Pick<PieceDesign, 'squares' | 'lines'>): string {
   }
   for (const l of d.lines) {
     const [dx, dy] = DIR[l], [ex, ey] = at(dx * 3.4, dy * 3.4);
-    marks += `<path d="M35 35L${ex} ${ey}" stroke="${MOVE}" stroke-width="2.4" stroke-linecap="round" opacity=".85"/>`;
+    // A dark edge under the gold, so the line reads on the pale board.
+    marks += `<path d="M35 35L${ex} ${ey}" stroke="#5a3a10" stroke-width="3.6" stroke-linecap="round"/><path d="M35 35L${ex} ${ey}" stroke="${MOVE}" stroke-width="2.4" stroke-linecap="round"/>`;
   }
   for (const s of d.squares) {
     const [cx, cy] = at(s.x, s.y);
