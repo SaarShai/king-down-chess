@@ -290,11 +290,12 @@ All at depth 3 with `--armies perPair`. The card runs use cards-m5's card rules 
 
 | id | where, code | entrants and flags | games | state |
 |---|---|---|---|---|
-| rage-q | Kaggle, 2 notebooks; df8c880 (`claude/rage-trim`) | `card:Rage,card:Haste,none --anchor none --mirror --pairs 300 --seed 5858 --rule rageSecond=quiet` | 1,800 | running |
-| rage-s | Kaggle, 2 notebooks; df8c880 | the same with `--rule rageSecond=stopOnTake` | 1,800 | running |
-| rally-r1 | M1, 8 workers; e2c009b (`claude/power-schema`), `~/projects/king-down-rally/m1-rally.sh` | `card:Rally,card:Haste,none --anchor none --mirror --pairs 300 --seed 5858` | 1,800 | played 2026-10-06, 56.6 min; report not read yet |
-| haste-from10 | M1, after rally-r1; 006de4f, `~/projects/king-down-r2/m1-r2.sh` | kp2-r18's powers, flags and armies (seed 1818, 40 pairs) with `--anchor Haste --rule fromMove=Haste:10` | 880 | running (started when rally-r1 ended) |
-| morph-a1 | Kaggle, 5 notebooks, after the Rage runs; ab14413 (`claude/morph-card`), watcher `kaggle-morph-queue.sh` in the session scratchpad | `card:Morph,card:MorphB,card:Haste,none --mirror --pairs 150 --seed 6161` (10 matchups) | 3,000 | queued |
+| rage-q | Kaggle, 2 notebooks; df8c880 (`claude/rage-trim`) | `card:Rage,card:Haste,none --anchor none --mirror --pairs 300 --seed 5858 --rule rageSecond=quiet` | 1,800 | done: +4.01 ± 0.51 pawns, draws 6.5% |
+| rage-s | Kaggle, 2 notebooks; df8c880 | the same with `--rule rageSecond=stopOnTake` | 1,800 | done: +4.47 ± 0.54, draws 6.0% |
+| rally-r1 | M1, 8 workers; e2c009b (`claude/power-schema`), `~/projects/king-down-rally/m1-rally.sh` | `card:Rally,card:Haste,none --anchor none --mirror --pairs 300 --seed 5858` | 1,800 | done: +2.60 ± 0.46 pawns, draws 9.8% |
+| haste-from10 | M1, after rally-r1; 006de4f, `~/projects/king-down-r2/m1-r2.sh` | kp2-r18's powers, flags and armies (seed 1818, 40 pairs) with `--anchor Haste --rule fromMove=Haste:10` | 880 | done: 58.4% ± 3.1 (58.3% without), no effect |
+| morph-a1 | Kaggle, 5 notebooks, after the Rage runs; ab14413 (`claude/morph-card`), watcher `kaggle-morph-queue.sh` in the session scratchpad | `card:Morph,card:MorphB,card:Haste,none --mirror --pairs 150 --seed 6161` (10 matchups) | 3,000 | running on Kaggle (5 notebooks, ab14413) |
+| spawn-r1 | M1; ed23ea1 (`claude/spawn-card`) | `card:Spawn,card:SpawnK,card:Spawn2,card:SpawnK2,none --mirror --pairs 300 --seed 5858` (the four Spawn cards against no card) | 3,000 | running on the M1 |
 
 Decides: rage-q, rage-s: whether a trim brings Rage (cards-m5: +4.06 pawns, about 1.7 Hastes) near the
 Haste card. rally-r1: Rally's worth against no card and beside the Haste card. haste-from10: whether

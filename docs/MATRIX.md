@@ -120,6 +120,7 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 |---|---|
 | Source | king power · card · both (a spendable king power is also dealt as a card) |
 | Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ○ Morph) · spawn (a new piece, not a captured one, comes onto the board, D.5: ○ Spawn) |
+| Rarity | common (default) · legendary: dealt rarely, with legendary graphic effects (owner, 2026-10-06; card mode, not built yet). Rage is legendary; every other row below is common. |
 | Uses | n per game (king power) · 1 (every card) · — (always-on) |
 | Turn cost | is the turn's move · then make the move (a free action, `markFree`) · extra move (the second move may be skipped) |
 | Captures | may · must · never |
@@ -152,7 +153,7 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Curse | card ◐ | special move: an enemy steps 1 square | — | is the turn's move | never | an enemy piece or pawn, not the king | instant |
 | Sky Lift | card ◐ | special move: two own pieces trade squares | — | is the turn's move | never | own pieces, not the king or pawns, not of one type | instant |
 | Salvation | card ◐ | arrival: a lost piece to the own first rank | — | is the turn's move | never | an own lost piece, not a pawn, guard or king | instant |
-| Rage | card ◐ | extra move: the same piece | — | extra move | may, on either move | an own piece, the king included | instant |
+| Rage | card ◐ **legendary** (dealt rarely; owner 2026-10-06, as built: +4.06 pawns, trims `quiet` +4.01 and `stopOnTake` +4.47 do not soften it) | extra move: the same piece | — | extra move | may, on either move | an own piece, the king included | instant |
 | RageB | card ◐ | extra move: the same piece | — | extra move | may on the first; the second must | an own piece, the king included | instant |
 | Mirror | card ◐ | copy: the opponent's last card | — | the copied card's | the copied card's | the copied card's | the copied card's |
 | MirrorB | card ◐ | copy: another card of the hand, which stays | — | the copied card's | the copied card's | the copied card's | the copied card's |
@@ -166,7 +167,7 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Rescue | card ◐ | mark: renews the own last mark | — | then make the move | never | the own Freeze, Ice Wall or Firewall | one more opponent turn |
 | Growth | card ◐ | draw | — | is the turn's move | never | the own pile | instant |
 | GrowthB | card ◐ | draw | — | then make the move | never | the own pile | instant |
-| Rally | card ◐ | extra move: a different own piece | — | extra move | never, on either move | own pieces, the king included | instant |
+| Rally | card ◐ (+2.60 ± 0.46 pawns, draws 9.8%; deal candidate) | extra move: a different own piece | — | extra move | never, on either move | own pieces, the king included | instant |
 | Morph (idea ○) | card | promotion: an own piece becomes another type | — | is the turn's move | never | an own piece, not the king or a pawn; the new type not a king or pawn, and never a second Beast (MorphB: not a queen either) | instant |
 
 Every card is one use; "Uses (king)" is the official count of a king power (`POWERS_BALANCED` over the rule defaults).
@@ -250,4 +251,6 @@ next to the source: a tag team) and when (a condition, D.1).
 | **SpawnK** (card) | a pawn | an empty square next to the own king (not on a first rank, where no pawn may stand) | the card is played (the turn's move) | ○ to build and test: may also get the king out of trouble |
 | **Spawn2** / **SpawnK2** (cards) | two pawns | as Spawn / SpawnK | the card is played (the turn's move) | ○ to build and test, in case one pawn is too weak |
 | a piece that spawns | a pawn | an empty square next to it | its move, or a condition (a capture, a zone) | idea |
+
+Owner (2026-10-06): a spawn does not reset the 50-move clock (ed23ea1, `claude/spawn-card`). SpawnK keeps rank 7 ("it is rare and also i LOVE combining rules for cool effects"). Test `spawn-r1` (3,000 games) runs on the M1.
 
