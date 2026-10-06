@@ -66,7 +66,7 @@ export const BLOCKS: readonly Block[] = [
     whens: w => w.on === 'always' || (w.on === 'zone' && ['startRank', 'ownHalf', 'enemyHalf'].includes(w.zone)),
     matrix: '4a Movement — special first move', seenOn: ['P'], tryIt: true, icon: 'M7 13l5-5 5 5M7 19l5-5 5 5',
     say: () => ['it may also step 2 squares straight ahead, over an empty square, to an empty square'], short: () => 'steps 2 straight ahead' },
-  { a: 'movesLike', group: 'Moving', title: 'Also moves like another piece', example: 'In the capital, it also moves like a queen.', event: false,
+  { a: 'movesLike', group: 'Moving', title: 'Also moves like another piece', example: 'On a center square, it also moves like a queen.', event: false,
     rule: { when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }, pill: { key: 'as', choices: LIKE },
     // "Always" is offered in its sheet, but it moves the piece's squares into the Moves tab (W6), so it is never stored.
     whens: w => !['always', 'takes', 'firstTake', 'reaches'].includes(w.on),
@@ -82,7 +82,7 @@ export const BLOCKS: readonly Block[] = [
     needs: d => (takesByMoving(d) ? null : 'It needs a square it takes on by moving.'),
     matrix: '6a Trigger on capture', seenOn: ['S'], tryIt: true, icon: 'M4 7l5 5m0-5l-5 5M14 12l5 5m0-5l-5 5',
     head: () => ['When it takes by moving'], say: () => ['it may take again from the new square (not a king)'], short: () => 'takes again' },
-  { a: 'cannotBeTaken', group: 'Safe', title: 'Cannot be taken', example: 'Pawns cannot take it.', event: false,
+  { a: 'cannotBeTaken', group: 'Safe', title: 'Some pieces cannot take it', example: 'For example, pawns cannot take it.', event: false,
     rule: { when: ALWAYS, does: { a: 'cannotBeTaken', by: 'pawns' } }, pill: { key: 'by', choices: [['pawns', 'by pawns'], ['allButKing', 'by anything but a king']] },
     whens: w => ['always', 'zone', 'near', 'beforeMove'].includes(w.on),
     matrix: '2 Shield — cannot be taken by X', seenOn: ['G'], tryIt: false, icon: 'M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z',
@@ -122,9 +122,9 @@ export const blockOf = (a: Ability['a']): Block => BLOCKS.find(b => b.a === a)!;
 
 /* ---- Whens (§4.3) ---- */
 
-export const ZONE_WORDS: Record<Zone, string> = { startRank: 'on its start rank', ownHalf: 'in your half', enemyHalf: 'in the enemy half', lastRank: 'on the last rank', capital: 'in the capital' };
+export const ZONE_WORDS: Record<Zone, string> = { startRank: 'on its start rank', ownHalf: 'in your half', enemyHalf: 'in the enemy half', lastRank: 'on the last rank', capital: 'on a center square' };
 export const NEAR_BODY: Record<Body, string> = { P: 'pawn', N: 'knight', B: 'bishop', R: 'rook', Q: 'queen', A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre' };
-/** The When as words: "in the capital", "next to your king", "always". */
+/** The When as words: "on a center square", "next to your king", "always". */
 export function whenWords(w: When): string {
   switch (w.on) {
     case 'always': return 'always';

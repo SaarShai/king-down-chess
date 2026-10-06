@@ -1,11 +1,11 @@
 /**
  * The Workshop's art as SVG and HTML strings (docs/WORKSHOP.md §5.1, §5.2, §5.4): the floor with
- * the design's marks, the plinth and its seals and cracks, the figure, the gauge and the still
+ * the design's marks, the plinth with its letter and cracks, the figure, the gauge and the still
  * pattern picture. No new art files: the figures are the UI crops, the rest is drawn here. An SVG
  * holds no text, every gradient id is unique, and the decoration is aria-hidden.
  */
 import { DIR, type Dir, type PieceDesign } from './model';
-import { type StageLook, type Seal } from './look';
+import { type StageLook } from './look';
 import { halves } from './text';
 import { BAND_WORD, presetWorths, type Verdict } from './judge';
 
@@ -85,32 +85,20 @@ export function zoneSvg(zone: StageLook['zone']): string {
   return `<svg class="ws-zone" viewBox="0 0 64 64" aria-hidden="true" focusable="false">${cells}</svg>`;
 }
 
-/* ---- seals, cracks, the plinth ---- */
+/* ---- cracks, the plinth ---- */
 
-const SEAL: Record<Seal, string> = {
-  chain: `<path d="M5 7l4 4m0-4l-4 4M13 7l4 4m0-4l-4 4" stroke="${TAKE}"/>`,
-  pawnShield: '<path d="M11 3l6 2.5v5c0 3.5-2.6 6-6 7.5-3.4-1.5-6-4-6-7.5v-5z"/><circle cx="11" cy="9" r="1.6"/>',
-  kingOnly: '<path d="M11 3l6 2.5v5c0 3.5-2.6 6-6 7.5-3.4-1.5-6-4-6-7.5v-5z"/><path d="M7.5 9l1.8 1.6L11 7.5l1.7 3.1 1.8-1.6-.9 4.5h-5.2z"/>',
-  noTake: `<path d="M6 16L16 6M8 6l8 8" /><path d="M4 4l14 14" stroke="${TAKE}"/>`,
-  sheathed: '<path d="M11 3v12M8 15h6M11 15v4M9 6h4"/>',
-  push: `<path d="M4 11h9M10 7l4 4-4 4M17 5v12" stroke="${SHOVE}"/>`,
-  swap: `<path d="M4 8h12l-3-3M18 14H6l3 3" stroke="${SWAP}"/>`,
-  becomes: '<path d="M11 18V9M8 12l3-3 3 3M5 6l2.5 1.6L11 4l3.5 3.6L17 6"/>',
-  doomed: '<path d="M6 6l10 10M16 6L6 16"/>',
-  pass: '<path d="M3 16c2.5-8 13.5-8 16 0M11 13v4"/>',
-  step2: '<path d="M6 12l5-5 5 5M6 17l5-5 5 5"/>',
-  like: '<path d="M4 11h12M12 7l4 4-4 4"/>',
-};
-export const sealSvg = (s: Seal): string =>
-  `<svg class="ws-seal-i" viewBox="0 0 22 22" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${SEAL[s]}</g></svg>`;
-
-/** Cracks over the plinth's band, in the ember colours; dashed for an untested shape. */
+/** Cracks in the plinth's band, clear of the letter in the middle: a dark split with an ember seam inside;
+ *  the seam is dashed for an untested shape. A hairline is one thin split. */
 export function cracksSvg(kind: StageLook['cracks']): string {
   if (kind === 'none') return '';
-  const paths = kind === 'hairline' ? ['M40 2l3 7-2 6 3 7'] : ['M30 2l4 6-3 5 5 9', 'M62 1l-3 7 4 4-2 9', ...(kind === 'wide' ? ['M14 3l5 6-4 6 3 7', 'M84 2l-4 6 3 5-3 9'] : [])];
-  const seam = kind === 'hairline' ? '#ffd060' : kind === 'wide' ? '#ff4a2a' : '#ff8a1c';
+  // Each crack runs down from the top edge and splits once; the strokes keep their width at every model size.
+  const left = 'M13 0l2.5 7-2 5 2.5 6-1 6M15 12l5 4', right = 'M87 0l-2 6 2.5 6-3 6 1 6M85 6l-5 3';
+  const paths = kind === 'hairline' ? [left.split('M').slice(0, 2).join('M')] : [left, right, ...(kind === 'wide' ? ['M27 0l-2 9 3 15', 'M73 0l2 10-3 14'] : [])];
+  const seam = kind === 'hairline' ? '' : kind === 'wide' ? '#ff4a2a' : '#ff8a1c';
+  const line = (d: string, color: string, w: number, extra = ''): string =>
+    `<path pathLength="1" d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"${extra}/>`;
   return `<svg class="ws-cracks ws-cracks-${kind}" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true" focusable="false">`
-    + paths.map(d => `<path pathLength="1" d="${d}" fill="none" stroke="${seam}" stroke-width="${kind === 'hairline' ? 0.8 : 1.6}"${kind === 'dashed' ? ' stroke-dasharray=".06 .05"' : ''}/>`).join('') + '</svg>';
+    + paths.map(d => line(d, '#3a2410', kind === 'hairline' ? 1 : 2.2) + (seam ? line(d, seam, 0.9, kind === 'dashed' ? ' class="seam" stroke-dasharray=".08 .06"' : ' class="seam"') : '')).join('') + '</svg>';
 }
 
 /** The figure: the body's crop, or the lettered token disc. */
@@ -121,7 +109,7 @@ export const figureHtml = (l: Pick<StageLook, 'body' | 'army' | 'letter'>, cls =
 /** The whole model, back to front (§5.1). The caller wraps it in an aria-hidden stage. */
 export function modelHtml(l: StageLook): string {
   const crop = l.body === 'token' ? '' : cropOf(l.body, l.army);
-  return `<div class="ws-model${l.dim ? ' dim' : ''}" style="--rim:${l.rim};--fig-scale:${l.scale}">`
+  return `<div class="ws-model${l.dim ? ' dim' : ''}${l.glow ? ' glow' : ''}" style="--rim:${l.rim};--fig-scale:${l.scale}">`
     + `<div class="ws-floor">${floorSvg(l)}</div>${zoneSvg(l.zone)}`
     + (l.partner ? `<span class="ws-partner">${l.partner === 'king' ? `<img src="${cropOf('K')}" alt="" />` : l.partner.length === 1 ? `<img src="${cropOf(l.partner)}" alt="" />` : ''}</span>` : '')
     + (l.ghost ? `<img class="ws-ghost" src="${cropOf(l.ghost, l.army)}" alt="" />` : '')
@@ -131,7 +119,7 @@ export function modelHtml(l: StageLook): string {
     + (l.afterImage && crop ? `<img class="ws-after" src="${crop}" alt="" />` : '')
     + figureHtml(l)
     + (l.shield ? `<span class="ws-shield ws-shield-${l.shield}"></span>` : '')
-    + `<div class="ws-plinth m-${l.metal}"><span class="ws-letter">${l.letter}</span><span class="ws-seals">${l.seals.map(sealSvg).join('')}</span>${cracksSvg(l.cracks)}</div>`
+    + `<div class="ws-plinth m-${l.metal}">${cracksSvg(l.cracks)}<span class="ws-letter">${l.letter}</span></div>`
     + '</div>';
 }
 

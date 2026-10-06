@@ -8,8 +8,10 @@
   border: 0; border-radius: 0; box-shadow: none; overflow: hidden; background: var(--parchment);
 }
 #workshop[open] { display: flex; flex-direction: column; }
+/* Lining figures: the small-caps headings and the counts read "0 of 3", not "o of 3". */
+#workshop { font-variant-numeric: lining-nums; }
 #workshop::backdrop { background: var(--night); }
-@media (max-width: 359px) { #workshop { --gut: 12px; } }
+@media (max-width: 359px) { #workshop { --gut: 12px; } #workshop .ws-bar h2 { font-size: var(--fs-md); } }
 /* Still states only (§5.5: motion waits for the owner); Animations Off stops the house transitions too. */
 :root[data-pace='off'] #workshop, :root[data-pace='off'] #workshop * { transition: none !important; animation: none !important; }
 #workshop p { margin: 0; max-width: none; }
@@ -83,11 +85,14 @@
 .ws-model-box { grid-area: model; display: flex; align-items: flex-end; justify-content: center; }
 .ws-info { grid-area: info; display: flex; flex-direction: column; justify-content: center; gap: 1px; min-width: 0; }
 .ws-name-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+/* The name shrinks to fit (dialog.ts fitName), then ends in "…"; the pencil always shows. */
 #workshop .ws-name {
   flex: 0 1 auto; width: auto; min-width: 0; margin: -4px 0; padding: 0 4px 0 0; gap: 6px;
   font-family: var(--font-display); font-size: var(--fs-xl); color: var(--on-night); background: none; border: 0; box-shadow: none;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
 }
+.ws-name-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ws-name .icon { flex: none; }
 .ws-name .icon, .ws-die .icon { width: 18px; height: 18px; color: var(--on-night-soft); }
 #workshop .ws-die { width: 44px; flex: none; justify-content: center; margin: -4px 0; padding: 0; border-color: transparent; }
 #workshop .ws-name-in { width: 100%; min-height: 40px; font-family: var(--font-display); font-size: var(--fs-lg); padding: 2px 8px; border-radius: 6px; border: 1px solid #e9c071; background: var(--vellum); }
@@ -97,17 +102,19 @@
 .ws-bottom { display: flex; align-items: center; gap: var(--space-2); margin-top: 2px; }
 .ws-learn { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); color: var(--on-night-soft); }
 #workshop .ws-why { width: auto; flex: none; margin: -4px 0; color: var(--on-night); border-color: rgba(214, 201, 173, 0.5); }
-#workshop .ws-chip { width: 100%; margin: -4px 0; gap: 6px; padding: 4px 10px; color: var(--danger); background: var(--vellum); border-color: var(--danger); font-size: var(--fs-sm); }
+#workshop .ws-chip { width: 100%; margin: -4px 0; gap: 6px; padding: 2px 10px; line-height: 1.15; text-align: left; color: var(--danger); background: var(--vellum); border-color: var(--danger); font-size: var(--fs-sm); }
 .ws-chip .icon { width: 18px; height: 18px; }
 #workshop[data-h='tall'] { --model: 150px; }
 #workshop[data-h='tall'] .ws-stats { display: block; }
 #workshop[data-h='mid'] { --model: 120px; }
 #workshop[data-h='mid'] .ws-name { font-size: 20px; }
-/* With the chip, the like line gives way: the chip says more, and the stage stays 156 px. */
-#workshop[data-h='mid'] .ws-info:has(.ws-chip) .ws-like { display: none; }
+/* On phones, with the chip the like line gives way: the chip says more (and Why? says the like line). */
+#workshop:not([data-h='wide']) .ws-info:has(.ws-chip) .ws-like { display: none; }
 #workshop[data-h='short'] { --model: 96px; }
 #workshop[data-h='short'] .ws-name { font-size: var(--fs-lg); }
 #workshop[data-h='short'] .ws-like { display: none; }
+/* 104 px holds the name, the worth line and the chip (or Why?) at 44 px; the gauge gives way. */
+#workshop[data-h='short'] .ws-stage .ws-gauge-box { display: none; }
 #workshop[data-h='short'] .ws-worth { font-size: var(--fs-sm); }
 
 /* ---- the model, back to front (§5.1) ---- */
@@ -132,6 +139,12 @@
   -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
   -webkit-mask-position: 50% 100%; mask-position: 50% 100%;
   background: var(--rim); filter: blur(5px); opacity: 0.35; transform: scale(calc(var(--fig-scale, 1) * 1.08)); z-index: -1;
+}
+/* A chosen glow (the Look tab) is a clear aura: a brighter rim and a halo on the floor behind the figure. */
+.ws-model.glow .ws-rim { opacity: 0.9; filter: blur(6px); transform: scale(calc(var(--fig-scale, 1) * 1.14)); }
+.ws-model.glow::before {
+  content: ''; position: absolute; left: -10%; right: -10%; bottom: 4%; height: 70%; z-index: -1; border-radius: 50%;
+  background: radial-gradient(closest-side, var(--rim), transparent); opacity: 0.55;
 }
 .ws-rim-disc { left: 22%; width: 56%; height: auto; aspect-ratio: 1; bottom: 22%; border-radius: 50%; }
 .ws-ghost { transform: scale(1.15); opacity: 0.25; filter: grayscale(1) drop-shadow(0 0 2px #e9b44c); z-index: -1; }
@@ -159,9 +172,9 @@
 .m-bronze { --m1: #c08a52; --m2: #7a4a22; }
 .m-silver { --m1: #e8e6e0; --m2: #8f949a; }
 .m-gold, .m-hairline, .m-cracked, .m-broken { --m1: #f0d48a; --m2: #c99a3e; }
-.ws-letter { font-family: var(--font-display); font-weight: 700; font-size: calc(var(--model) * 0.09); line-height: 1; }
-.ws-seals { display: flex; gap: 1px; }
-.ws-seal-i { width: calc(var(--model) * 0.09); height: calc(var(--model) * 0.09); }
+/* The piece's letter, cut into the band. */
+.ws-letter { position: relative; font-family: var(--font-display); font-weight: 700; font-size: calc(var(--model) * 0.12); line-height: 1; text-shadow: 0 1px 0 rgba(255, 244, 207, 0.5); }
+.m-stone .ws-letter { text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5); }
 .ws-cracks { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 /* ---- the gauge ---- */
@@ -251,7 +264,13 @@
 .ws-auto[aria-pressed='true'] { color: var(--vellum); background: linear-gradient(#9c3a2d, var(--accent)); border-color: var(--accent-deep); }
 .ws-bodies { display: grid; grid-template-columns: repeat(6, minmax(44px, 52px)); gap: 4px; }
 .ws-glows { display: grid; grid-template-columns: repeat(auto-fill, 44px); gap: 4px; }
-#workshop .ws-body, #workshop .ws-glow { justify-content: center; width: 100%; aspect-ratio: 1; min-height: 44px; padding: 2px; border-color: var(--stone-300); }
+#workshop .ws-body, #workshop .ws-glow { position: relative; justify-content: center; width: 100%; aspect-ratio: 1; min-height: 44px; padding: 2px; border-color: var(--stone-300); }
+/* The chosen body and glow: a thick ring and a tick, so the choice reads at a glance. */
+#workshop .ws-body[aria-pressed='true'], #workshop .ws-glow[aria-pressed='true'] { background: var(--vellum); border-color: var(--accent-deep); box-shadow: 0 0 0 3px var(--accent); }
+#workshop .ws-body[aria-pressed='true']::after, #workshop .ws-glow[aria-pressed='true']::after {
+  content: '✓'; position: absolute; top: 1px; right: 1px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%;
+  font-size: 12px; font-weight: 700; line-height: 1; color: var(--vellum); background: var(--accent-deep);
+}
 .ws-body img { width: 100%; height: 100%; object-fit: contain; max-width: none; }
 .ws-glow img { width: 100%; height: 100%; object-fit: contain; max-width: none; }
 .ws-disc { width: 80%; height: auto; aspect-ratio: 1; margin: 0; font-size: 18px; box-shadow: none; }
@@ -259,8 +278,10 @@
 #workshop .ws-army { margin-top: var(--space-4); max-width: 320px; }
 #workshop .ws-army legend { margin: 0 0 4px; }
 .ws-letter-row { display: flex; align-items: center; gap: var(--space-3); }
-.ws-letter-row h3 { margin: var(--space-4) 0 !important; }
-#workshop .ws-letter-btn { width: 52px; justify-content: center; font-family: var(--font-display); font-size: var(--fs-lg); }
+.ws-letter-row { margin-top: var(--space-3); }
+.ws-letter-row h3 { margin: 0 !important; }
+.ws-letter-row span { font-size: var(--fs-sm); color: var(--ink-soft); }
+#workshop .ws-letter-btn { width: 52px; flex: none; justify-content: center; font-family: var(--font-display); font-size: var(--fs-lg); }
 
 /* ---- sheets: nested modal dialogs that slide up over 85% of the height ---- */
 #workshop .ws-sheet {
@@ -312,8 +333,11 @@
 .ws-actions button { justify-content: center; }
 
 /* ---- TRY IT (W10) ---- */
+/* The board as large as the screen allows (up to 56 px a square), and the page centred in the height left. */
+#workshop[data-screen='try'] .ws-scroll { display: flex; flex-direction: column; }
+.ws-try-host { --tb: max(32px, min(56px, calc((100vw - 2 * var(--gut) - 4px) / 8), calc((100dvh - 240px) / 8))); width: 100%; margin: auto; }
 .tb-board {
-  display: grid; grid-template-columns: repeat(8, minmax(0, 42px)); justify-content: center; width: fit-content; max-width: 100%;
+  display: grid; grid-template-columns: repeat(8, var(--tb)); justify-content: center; width: fit-content; max-width: 100%;
   border: 2px solid var(--stone-700); border-radius: 4px; margin: 0 auto;
 }
 #workshop .tb-sq {
@@ -334,13 +358,13 @@
 .mk-push::after { inset: 8%; border: 3px solid #2f7f75; }
 .mk-swap::after { inset: 8%; border: 3px solid #7d5ba6; }
 .tb-shield { position: absolute; inset: 4%; border: 2px solid #fff2cf; border-radius: 50%; box-shadow: 0 0 0 1px var(--stone-700); }
-.tb-files { display: grid; grid-template-columns: repeat(8, minmax(0, 42px)); justify-content: center; margin: 2px auto 0; font-size: 10px; font-weight: 700; color: var(--ink-soft); text-align: center; }
-.tb-say { min-height: 1.4em; margin-top: var(--space-2) !important; font-weight: 700; text-align: center; }
+.tb-files { display: grid; grid-template-columns: repeat(8, var(--tb)); justify-content: center; margin: 2px auto 0; font-size: 10px; font-weight: 700; color: var(--ink-soft); text-align: center; }
+.tb-say { min-height: 2.9em; max-width: 480px; margin: var(--space-2) auto 0 !important; line-height: 1.45; text-align: center; }
 .tb-ask { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
 .tb-ask p { flex-basis: 100%; text-align: center; }
 .tb-ask button { width: auto; }
-.tb-help { margin-top: var(--space-2) !important; font-size: var(--fs-sm); color: var(--ink-soft); text-align: center; }
-.tb-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); }
+.tb-row { display: flex; align-items: center; gap: var(--space-2); max-width: calc(8 * var(--tb)); margin: var(--space-2) auto 0 !important; }
+.tb-count { margin-right: auto; }
 .tb-row button { width: auto; }
 .tb-count { font-weight: 700; }
 
@@ -359,6 +383,7 @@
 #workshop[data-h='land'] .ws-stage { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'model' 'info'; align-content: center; }
 #workshop[data-h='land'] .ws-tabs { flex: 0 1 auto; padding: 0; border: 0; background: none; }
 #workshop[data-h='land'] .ws-tabs .seg-row label { padding: 4px 8px; }
+#workshop[data-h='land'] .ws-tabs .seg-row label span { white-space: nowrap; }
 #workshop[data-h='land'] .ws-bar h2 { text-align: left; }
 #workshop[data-h='land'] .ws-back span { display: none; }
 #workshop[data-h='land'] .ws-back { min-width: var(--tap); justify-content: center; }

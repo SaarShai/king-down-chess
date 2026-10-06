@@ -13,7 +13,7 @@ import {
   parseDesign, presetOf, validName, type Body, type Dir, type Mark, type PaintOn, type PieceDesign, type Preset, type Rule, type When,
 } from './model';
 import { BLOCKS, GROUPS, MORE_WHENS, NEAR_BODY, TOP_WHENS, EVENT_WHENS, blockOf, takesAny, whenWords, type Block } from './vocab';
-import { BAND_WORD, LEARN_LINE, SHELF_WORD, autoBody, judge, unmeasured, whyHead, worthOf, type Label, type Verdict } from './judge';
+import { BAND_WORD, LEARN_LINE, SHELF_WORD, autoBody, badgeText, judge, unmeasured, whyHead, worthOf, type Label, type Verdict } from './judge';
 import { GLOW, lookOf, lookWords } from './look';
 import { cropOf, figureHtml, gaugeHtml, modelHtml, patternSvg } from './art';
 import { cap, describe, esc, halves, pawns, ruleParts, ruleText } from './text';
@@ -64,8 +64,8 @@ const dirWords = (x: number, y: number): string =>
 /** The ray from the piece through (x, y), or null when (x, y) is on none of the 8. */
 const rayOf = (x: number, y: number): Dir | null =>
   x && y && Math.abs(x) !== Math.abs(y) ? null : DIRS.find(d => DIR[d][0] === Math.sign(x) && DIR[d][1] === Math.sign(y)) ?? null;
-const signed = (v: number): string => (Math.abs(v) < 0.25 ? '+0' : `${v < 0 ? '−' : '+'}${halves(Math.abs(v))}`);
-const pawnWord = (v: number): string => `${signed(v)} ${Math.abs(v) < 0.25 || halves(Math.abs(v)) === '1' ? 'pawn' : 'pawns'}`;
+const pawnWord = (v: number): string => `${badgeText(v)} ${Math.abs(v) < 1.25 ? 'pawn' : 'pawns'}`;
+const NEVER = 'never tested in computer games';
 const bodyName = (b: Body | 'token'): string => (b === 'token' ? 'Token' : cap(BODY_NAME[b]));
 
 export function workshopDialog(): { open(): void; openDesign(code: string): void } {
@@ -110,7 +110,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const close = (): void => s.close();
     s.addEventListener('close', () => s.remove());
     q<HTMLButtonElement>('.ws-close', s).onclick = close;
-    s.addEventListener('click', e => { if (e.target === s) close(); }); // a tap on the backdrop
+    // A tap on the backdrop closes it: src/dialog-dismiss.ts, for every dialog.
     wire(q('.ws-sheet-body', s), close);
     s.showModal();
   }
@@ -131,8 +131,10 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       if (land && tabs.parentElement !== barEl) barEl.insertBefore(tabs, q('.ws-undo'));
       if (!land && tabs.parentElement === barEl) q('.ws-editor')!.insertBefore(tabs, q('.ws-panel'));
     }
+    fitName();
   }
-  addEventListener('resize', () => { if (dlg.open) fit(); });
+  // While the name is typed, a phone keyboard shrinks the window: keep the layout, so nothing moves under the finger.
+  addEventListener('resize', () => { if (dlg.open && !(document.activeElement as HTMLElement | null)?.matches('input[type="text"]')) fit(); });
 
   function show(s: Screen): void {
     screen = s;
@@ -147,7 +149,6 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function home(): void {
     const list = loadDesigns();
     screenEl.innerHTML = bar('Back', 'Workshop') + '<div class="ws-scroll">'
-      + '<p class="ws-lead">Make your own piece or card. Start from one you know, then change it.</p>'
       + '<div class="ws-doors">'
       + `<button type="button" class="ws-door" data-door="piece"><img src="${cropOf('N')}" alt="" /><b>New piece</b></button>`
       + '<button type="button" class="ws-door" disabled><svg class="ws-card-outline" viewBox="0 0 40 56" aria-hidden="true" focusable="false"><rect x="2" y="2" width="36" height="52" rx="4"/><path d="M20 14l6 14-6 14-6-14z"/></svg><b>New card</b><small>Cards come next.</small></button>'
@@ -314,14 +315,16 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const l = lookOf(cur, v), d = describe(cur), w = v.worth.point;
     put(q('.ws-model-box'), modelHtml(l));
     const nameRow = q('.ws-name-row');
-    if (!q('input', nameRow) && put(nameRow, `<button type="button" class="ws-name" aria-label="Name: ${esc(cur.name)}. Change.">${esc(cur.name)}${PEN}</button>`
+    if (!q('input', nameRow) && put(nameRow, `<button type="button" class="ws-name" aria-label="Name: ${esc(cur.name)}. Change."><span class="ws-name-t">${esc(cur.name)}</span>${PEN}</button>`
       + `<button type="button" class="quiet ws-die" aria-label="Roll a name" title="Roll a name">${DIE}</button>`)) {
       q<HTMLButtonElement>('.ws-name').onclick = rename;
       q<HTMLButtonElement>('.ws-die').onclick = () => {
-        for (let i = 0; i < 6 && !change('roll a name', x => { x.name = rollName(x, autoBody(x)); x.named = true; x.letter = letterOf(x.name); }); i++);
+        for (let i = 0; i < 6 && !change('roll a name', x => { const follows = x.letter === letterOf(x.name); x.name = rollName(x, autoBody(x)); x.named = true; if (follows) x.letter = letterOf(x.name); }); i++);
       };
     }
-    q('.ws-worth').textContent = empty(cur) ? v.line : `About ${pawns(w)} · ${BAND_WORD[v.label]}`;
+    fitName();
+    // One line: with the chip, the chip names the label, so the line gives only the number.
+    q('.ws-worth').textContent = empty(cur) ? 'Paint a square or a line.' : v.warn && v.label !== 'fair' ? `About ${pawns(w)}` : `About ${pawns(w)} · ${BAND_WORD[v.label]}`;
     q('.ws-gauge-box').innerHTML = gaugeHtml(v, true);
     q('.ws-like').textContent = v.like;
     const dots = (n: number): string => '●'.repeat(n) + '○'.repeat(5 - n);
@@ -345,6 +348,13 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       if (tab !== 'moves') panel(); else paintBoard();
     }
   }
+  /** The name steps down in size until it fits beside the die; past the smallest size it ends in "…". */
+  function fitName(): void {
+    const b = q<HTMLElement>('.ws-name'), t = b && q<HTMLElement>('.ws-name-t', b);
+    if (!t) return;
+    b.style.fontSize = '';
+    for (let px = parseFloat(getComputedStyle(b).fontSize) - 1; t.scrollWidth > t.clientWidth + 1 && px >= 14; px--) b.style.fontSize = `${px}px`;
+  }
   const chipText = (x: Verdict): string => (x.label !== 'fair' ? BAND_WORD[x.label]
     : x.flags.find(f => f.level === 'warn')?.line.replace(/:.*/, '').replace(/\.$/, '') ?? LEARN_LINE[3]);
 
@@ -358,6 +368,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       done = true;
       const s = inp.value.trim();
       row.innerHTML = '';
+      delete row.dataset.html; // so update() draws the name again, changed or not
       if (keep && s && s !== cur.name) {
         if (!validName(s)) toast("A name uses letters, digits, spaces, - and ', up to 18.");
         else change('rename', x => { const follows = x.letter === letterOf(x.name); x.name = saveName(s); x.named = true; if (follows) x.letter = letterOf(x.name); });
@@ -499,7 +510,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     p.innerHTML = `<h3 class="ws-count">Rules: ${cur.rules.length} of ${MAX_RULES}</h3>`
       + cur.rules.map((r, i) => {
         const dv = W - worthOf({ ...cur, rules: cur.rules.filter((_, j) => j !== i) });
-        return `<div class="ws-rule"><p class="ws-sentence">${partsHtml(r, i)}</p><div class="ws-rule-foot"><span class="ws-badge">${pawnWord(dv)}${unmeasured(r) ? '?' : ''}</span>`
+        return `<div class="ws-rule"><p class="ws-sentence">${partsHtml(r, i)}</p><div class="ws-rule-foot"><span class="ws-badge"${unmeasured(r) ? ` title="A guess: ${NEVER}."` : ''}>${pawnWord(dv)}${unmeasured(r) ? ', a guess' : ''}</span>`
           + `<button type="button" class="quiet ws-remove" data-i="${i}" aria-label="Remove: ${esc(blockOf(r.does.a).short(r))}">Remove</button></div></div>`;
       }).join('')
       + `<button type="button" class="ws-add"${full ? ' disabled' : ''}>${full ? '<span>3 of 3 rules. Remove one to add another.</span>' : `${icon('M12 5v14M5 12h14')}<span>Add a rule</span>`}</button>`
@@ -531,7 +542,8 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       + KINGS.map(k => `<button type="button" class="emblem ws-glow" data-glow="${k}" aria-pressed="${L.glow === k}" aria-label="${k} glow" title="${k}"><img src="${BASE}ui/emblems/${k.toLowerCase()}.webp" alt="" /></button>`).join('')
       + '</div><fieldset class="seg ws-army"><legend>Army</legend><div class="seg-row">'
       + ['Ivory', 'Charcoal'].map((t, i) => `<label><input type="radio" name="ws-army" value="${i}"${L.army === i ? ' checked' : ''} /><span>${t}</span></label>`).join('')
-      + `</div></fieldset><div class="ws-letter-row"><h3>Letter</h3><button type="button" class="ws-letter-btn" aria-label="Letter ${cur.letter}. Change.">${cur.letter}</button><span>Tap to change.</span></div>`
+      + `</div></fieldset><div class="ws-letter-row"><h3>Letter</h3><button type="button" class="ws-letter-btn" aria-label="Letter ${cur.letter}. Change." aria-describedby="ws-letter-say">${cur.letter}</button>`
+      + `<span id="ws-letter-say">The piece's own letter, on its plinth and its card, as N is the knight's. It follows the name until you tap it.</span></div>`
       + '<p class="ws-note">Black’s moves are the mirror image.</p>';
     q<HTMLButtonElement>('.ws-auto', p)?.addEventListener('click', () => change('auto look', d => { d.look.auto = !d.look.auto; }));
     for (const b of qa<HTMLButtonElement>('.ws-body', p)) b.onclick = () => change('change the body', d => { d.look.body = b.dataset.body as Body; d.look.auto = false; });
@@ -550,10 +562,10 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       return `<button type="button" class="ws-book-row" data-a="${b.a}"${why ? ' disabled' : ''}>`
         + `<svg class="icon ws-book-i" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${b.icon}"/></svg>`
         + `<span class="ws-book-t"><b>${b.title}</b><small>${why ?? b.example}</small></span>`
-        + `<span class="ws-book-badge" aria-label="${dv ? `${signed(dv.v)} pawn${dv.unsure ? ', never measured' : ''}` : 'cannot work'}">${dv ? `${signed(dv.v)}${dv.unsure ? '?' : ''}` : '--'}</span>`
+        + `<span class="ws-book-badge" aria-label="${dv ? `${badgeText(dv.v)} pawn${dv.unsure ? `, a guess: ${NEVER}` : ''}` : 'cannot work'}">${dv ? `${badgeText(dv.v)}${dv.unsure ? '?' : ''}` : '--'}</span>`
         + `<span class="ws-seen" aria-hidden="true">${b.seenOn.map(x => pieceIcon(({ P: 1, N: 2, B: 3, R: 4, Q: 5, A: 7, L: 8, G: 9, M: 10, S: 11, O: 12 } as const)[x])).join('')}</span></button>`;
     };
-    sheet('Add a rule', GROUPS.map(g => `<h3>${g}</h3>${BLOCKS.filter(b => b.group === g).map(row).join('')}`).join(''), (body, close) => {
+    sheet('Add a rule', `<p class="ws-key">The number is about how many pawns the rule adds to this piece. A rule that works only some of the time adds less. “?” marks a guess: ${NEVER}.</p>` + GROUPS.map(g => `<h3>${g}</h3>${BLOCKS.filter(b => b.group === g).map(row).join('')}`).join(''), (body, close) => {
       for (const b of qa<HTMLButtonElement>('.ws-book-row', body)) b.onclick = () => {
         const block = blockOf(b.dataset.a as Block['a']);
         close();
@@ -585,7 +597,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const fits = (w: When): boolean => b.whens(w) || (like && w.on === 'always');
     const all = (b.event ? EVENT_WHENS : [...TOP_WHENS, ...MORE_WHENS]).filter(fits);
     const top = b.event ? all : all.filter(w => TOP_WHENS.includes(w));
-    const label = (w: When): string => w.on === 'always' && like ? 'Always (adds it to Moves)' : w.on === 'zone' && w.zone === 'capital' ? 'In the capital (d4 e4 d5 e5)' : cap(whenWords(w));
+    const label = (w: When): string => w.on === 'always' && like ? 'Always (adds it to Moves)' : w.on === 'zone' && w.zone === 'capital' ? 'On a center square (d4 e4 d5 e5)' : cap(whenWords(w));
     const choice = (w: When): string => `<label class="ws-choice"><input type="radio" name="ws-when" value="${all.indexOf(w)}"${same(w, r.when) ? ' checked' : ''} /><span>${label(w)}${w.on === 'afterCard' ? '<small>Only in card games.</small>' : ''}</span></label>`;
     const rest = all.filter(w => !top.includes(w));
     const nums = (on: 'fromMove' | 'beforeMove', words: string): string => {
@@ -630,8 +642,8 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const flags = x.flags.filter(f => f.line !== x.line);
     return `<p>${esc(whyHead(x))}</p>`
       + (x.why.length ? `<ul class="ws-reasons">${x.why.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : '')
-      + (x.fixes.length ? `<div class="ws-fixes"><span>Try:</span>${x.fixes.map((f, i) => `<button type="button" class="ws-fix" data-fix="${i}">${esc(f.label)}: about ${halves(f.worth)}</button>`).join('')}</div>` : '')
-      + `<p class="ws-like-why">${esc(x.like)}</p>`
+      + (x.fixes.length ? `<div class="ws-fixes"><span>Try:</span>${x.fixes.map((f, i) => `<button type="button" class="ws-fix" data-fix="${i}">${esc(f.label)}: about ${pawns(f.worth)}</button>`).join('')}</div>` : '')
+      + (x.line.toLowerCase().includes(x.like.slice(0, -1).toLowerCase()) ? '' : `<p class="ws-like-why">${esc(x.like)}</p>`)
       + x.idle.map(t => `<p class="ws-idle">“${esc(t)}” changes little (less than 0.3 pawn). Simpler without it?</p>`).join('')
       + (flags.length ? `<ul class="ws-flags">${flags.map(f => `<li class="f-${f.level}">${esc(f.line)}</li>`).join('')}</ul>` : '')
       + `<p class="ws-small">${DISCLAIMER}</p>`

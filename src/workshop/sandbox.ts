@@ -30,7 +30,8 @@ export function sandbox(host: HTMLElement, design: PieceDesign, name: string): {
   let d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'> = design, became: PieceType | 0 = 0, gone = false;
   /** The moves at the start of this turn; a chain's next takes come from them. */
   let start: Move[] = [];
-  let chain: { caps: number[]; armed: boolean } | null = null, promo: Move[] | null = null;
+  /** A chain in progress: the pieces taken so far this move. Its next takes show at once; Finish ends it. */
+  let chain: { caps: number[] } | null = null, promo: Move[] | null = null;
 
   function reset(shuffle = false): void {
     board = new Uint8Array(64);
@@ -60,7 +61,7 @@ export function sandbox(host: HTMLElement, design: PieceDesign, name: string): {
     (m.shove ? snd.shove : m.swap ? snd.swap : chain ? snd.chain : m.captures.length && m.to === m.from ? snd.shot : m.captures.length ? snd.capture : snd.move)();
     const more = !m.selfRemove && !m.promo && m.captures.length > 0 && m.to !== m.from
       && start.some(x => x.captures.length > m.captures.length && prefix(m.captures, x.captures));
-    chain = more ? { caps: m.captures, armed: false } : null;
+    chain = more ? { caps: m.captures } : null;
     if (!chain) st.move++;
     render();
   }
@@ -68,7 +69,7 @@ export function sandbox(host: HTMLElement, design: PieceDesign, name: string): {
   function render(): void {
     if (!chain) start = gone ? [] : movesOf(d, board, pos, st);
     const list = !chain ? start.filter(m => m.captures.length <= 1)
-      : chain.armed ? start.filter(m => m.captures.length === chain!.caps.length + 1 && prefix(chain!.caps, m.captures)) : [];
+      : start.filter(m => m.captures.length === chain!.caps.length + 1 && prefix(chain!.caps, m.captures));
     const byTap = new Map<number, Move[]>();
     for (const m of list) { const s = chain ? m.to : tapOf(m); byTap.set(s, [...(byTap.get(s) ?? []), m]); }
     let cells = '';
@@ -85,11 +86,14 @@ export function sandbox(host: HTMLElement, design: PieceDesign, name: string): {
     host.querySelector('.tb-board')!.innerHTML = cells;
     host.querySelector('.tb-count')!.textContent = `Move ${st.move}`;
     const ask = host.querySelector<HTMLElement>('.tb-ask')!;
-    ask.hidden = !promo && !(chain && !chain.armed);
-    ask.innerHTML = promo ? `<p>It becomes:</p>${promo.map((m, i) => `<button type="button" data-promo="${i}">${pieceIcon(m.promo!)}<span>${INTO[m.promo!]}</span></button>`).join('')}`
-      : chain && !chain.armed ? '<p>It may take again.</p><button type="button" class="primary" data-again>Take again</button><button type="button" data-finish>Finish</button>' : '';
+    ask.hidden = !promo;
+    ask.innerHTML = promo ? promo.map((m, i) => `<button type="button" data-promo="${i}">${pieceIcon(m.promo!)}<span>${INTO[m.promo!]}</span></button>`).join('') : '';
+    host.querySelector<HTMLElement>('.tb-finish')!.hidden = !chain;
+    // One line of help at a time, in a box of fixed height, so the board and the buttons never move.
     host.querySelector('.tb-say')!.textContent = gone ? 'It took and is removed too. Tap Reset.'
-      : chain?.armed ? 'Tap a marked piece to take it.' : safe ? 'Enemies cannot take this piece.' : '';
+      : promo ? 'It becomes which piece?'
+      : chain ? 'It may take again: tap a marked piece, or tap Finish.'
+      : `The other side does not move.${safe ? ' Enemies cannot take this piece.' : ''} Tap a marked square.`;
     for (const b of host.querySelectorAll<HTMLButtonElement>('.tb-sq')) b.onclick = () => {
       const ms = byTap.get(+b.dataset.sq!);
       if (!ms?.length) return;
@@ -97,18 +101,16 @@ export function sandbox(host: HTMLElement, design: PieceDesign, name: string): {
       play(ms.find(m => !m.promo) ?? ms[0]);
     };
     for (const b of ask.querySelectorAll<HTMLButtonElement>('[data-promo]')) b.onclick = () => { const m = promo![+b.dataset.promo!]; promo = null; play(m); };
-    ask.querySelector<HTMLButtonElement>('[data-again]')?.addEventListener('click', () => { chain!.armed = true; render(); });
-    ask.querySelector<HTMLButtonElement>('[data-finish]')?.addEventListener('click', () => { chain = null; st.move++; render(); });
   }
 
   const time = some(r => r.when.on === 'fromMove' || r.when.on === 'beforeMove'), card = some(r => r.when.on === 'afterCard');
   host.innerHTML = '<div class="tb-board" role="group" aria-label="Try it board"></div><div class="tb-files" aria-hidden="true">'
     + [...'abcdefgh'].map(f => `<span>${f}</span>`).join('') + '</div>'
     + '<p class="tb-say" role="status"></p><div class="tb-ask" hidden></div>'
-    + '<p class="tb-help">The other side does not move. Tap your piece, then a marked square.</p>'
-    + `<div class="tb-row"><span class="tb-count"></span>${time ? '<button type="button" class="quiet tb-plus">+5 moves</button>' : ''}<button type="button" class="quiet tb-shuffle">Shuffle</button></div>`
+    + `<div class="tb-row"><span class="tb-count"></span><button type="button" class="primary tb-finish" hidden>Finish</button>${time ? '<button type="button" class="quiet tb-plus">+5 moves</button>' : ''}<button type="button" class="quiet tb-shuffle">Shuffle</button></div>`
     + (card ? '<label class="check tb-card"><input type="checkbox" /><span>Pretend your opponent played a card</span></label>' : '');
   host.querySelector<HTMLButtonElement>('.tb-shuffle')!.onclick = () => reset(true);
+  host.querySelector<HTMLButtonElement>('.tb-finish')!.onclick = () => { chain = null; st.move++; render(); };
   host.querySelector<HTMLButtonElement>('.tb-plus')?.addEventListener('click', () => { st.move += 5; render(); });
   host.querySelector<HTMLInputElement>('.tb-card input')?.addEventListener('change', e => { st.card = (e.target as HTMLInputElement).checked; if (!chain) render(); });
   reset();

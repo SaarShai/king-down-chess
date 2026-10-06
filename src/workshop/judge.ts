@@ -39,7 +39,7 @@ export interface Verdict {
   /** At most 2 removals that bring the point into the band, the smallest change first. */
   fixes: { label: string; design: D; worth: number }[];
   stats: { moves: number; takes: number };
-  /** Rule-book badges by ability: the change in worth, `unsure` when never measured; absent = the row cannot work. */
+  /** Rule-book badges by ability: the change in worth (shown by badgeText), `unsure` when never measured; absent = the row cannot work. */
   deltas: Partial<Record<Rule['does']['a'], { v: number; unsure: boolean }>>;
   /** The warning chip shows. */
   warn: boolean;
@@ -278,7 +278,6 @@ export function autoBody(d: D): Body | 'token' {
 
 /* ---- the judge ---- */
 
-const signed = (v: number): string => `${v < -0.24 ? '−' : '+'}${halves(Math.abs(v))}`;
 const withoutRule = (d: D, i: number): D => ({ ...d, rules: d.rules.filter((_, j) => j !== i) });
 const inBand = (w: number): boolean => w >= THRESHOLDS.weak && w <= THRESHOLDS.op;
 
@@ -296,19 +295,21 @@ export function judge(d: D, full = true): Verdict {
   // Each rule's own part: the worth without it.
   const ruleV = !full ? [] : d.rules.map((r, i) => { const x = estimate(withoutRule(d, i)); return { r, v: W - x.W, codes: x.codes }; });
   const idle = ruleV.filter(x => Math.abs(x.v) < THRESHOLDS.idle && [...x.codes].sort().join() === [...e.codes].sort().join()).map(x => cap(blockOf(x.r.does.a).short(x.r)));
-  const reasons: { v: number; text: string }[] = [
-    ...e.parts.filter(p => p.v > 0).map(p => ({ v: p.v, text: partText(p.key, g, d) })),
-    ...ruleV.map(({ r, v }) => ({ v, text: `${cap(blockOf(r.does.a).short(r))}: ${signed(v)}.${!blockOf(r.does.a).event && share(r.when) < 1 ? ` ${cap(whenWords(r.when))}, it counts about ${Math.round(share(r.when) * 100)}% of the time.` : ''}` })),
+  // Why? names each part of the design (a rule, a square group, a line set) and what it adds: the worth without it.
+  const parts = !full ? [] : removals(d).map(f => ({ ...f, worth: worthOf(f.design) }));
+  const why = [
+    ...parts.map(f => ({ f, v: W - f.worth })).filter(x => Math.abs(x.v) >= 0.25).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 3)
+      .map(({ f, v }) => `${f.part}: ${v > 0 ? 'adds' : 'takes away'} about ${pawns(Math.abs(v))}.${f.rule && !blockOf(f.rule.does.a).event && share(f.rule.when) < 1 ? ` It works only ${whenWords(f.rule.when)}, about ${Math.round(share(f.rule.when) * 100)}% of the time.` : ''}`),
+    ...(full ? hingeText(g) : []),
   ];
-  const why = reasons.filter(x => Math.abs(x.v) >= 0.25).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 3).map(x => x.text);
-  const fixes = !full || blocked || inBand(W) ? [] : removals(d).map(f => ({ ...f, worth: worthOf(f.design) }))
+  const fixes = !full || blocked || inBand(W) ? [] : parts
     .filter(f => inBand(f.worth) && !limit(f.design) && !empty(f.design)).sort((a, b) => Math.abs(a.worth - W) - Math.abs(b.worth - W)).slice(0, 2);
   const deltas: Verdict['deltas'] = {};
   if (full && !blocked) for (const b of BLOCKS) {
     if (d.rules.length >= 3 || d.rules.some(r => r.does.a === b.a) || b.needs?.(d)) continue;
     const next = { ...d, rules: [...d.rules, b.rule] };
     if (limit(next)) continue;
-    deltas[b.a] = { v: Math.round((worthOf(next) - W) * 2) / 2, unsure: unmeasured(b.rule) };
+    deltas[b.a] = { v: worthOf(next) - W, unsure: unmeasured(b.rule) };
   }
   const steps = (n: number): number => (n <= 0 ? 0 : n <= 2 ? 1 : n <= 5.5 ? 2 : n <= 9 ? 3 : n <= 15 ? 4 : 5);
   const warnFlag = flags.find(f => f.level === 'warn');
@@ -323,28 +324,33 @@ export function judge(d: D, full = true): Verdict {
   return v;
 }
 
-function partText(key: string, g: Features, d: D): string {
-  const n = (x: number) => Math.max(1, Math.round(x));
-  switch (key) {
-    case 'far': return d.lines.length ? `Its lines reach far: it can take on about ${n(g.Xfar)} squares; a rook, about 7.` : `It takes at a distance on about ${n(g.Xfar)} squares; a knight, about 5.`;
-    case 'shot': return `It shoots without moving on about ${n(g.Xshot)} squares.`;
-    case 'step': return `It takes next to it on about ${n(g.Xstep)} squares.`;
-    case 'hingeX': return 'Past 7 take squares, each one counts double. Only the queen stands there.';
-    default: return g.Q > THRESHOLDS.quietHinge ? `It moves to about ${n(g.Q)} squares. Past 8, each one counts much more.` : `It moves to about ${n(g.Q)} squares.`;
-  }
+/** Why the parts add so much together: the two hinges of the formula (§6.3), in plain words. */
+function hingeText(g: Features): string[] {
+  const n = (x: number) => Math.max(1, Math.round(x)), out: string[] = [];
+  if (g.Xopen > 7.5) out.push(`In all, it can take on about ${n(g.Xopen)} squares; a rook, about 7; a queen, about 12. Past 7, each one counts double.`);
+  if (g.Q > THRESHOLDS.quietHinge) out.push(`It can move to about ${n(g.Q)} empty squares; no piece we measured has more than 7. Past 8, each one counts much more.`);
+  return out;
 }
 
-/** Every single removal: a rule, a square group (one orbit, one mark), or a line set. */
-function removals(d: D): { label: string; design: D }[] {
-  const out = d.rules.map((r, i) => ({ label: `Remove “${cap(blockOf(r.does.a).short(r))}”`, design: withoutRule(d, i) }));
-  const KIND: Record<Square['mark'], string> = { both: 'squares', move: 'moves', take: 'takes', shoot: 'shots', moveShoot: 'move-or-shoot squares' };
+/** A change in worth for the rule book and the rule cards: halves, but a change of 0.1 to ¼ pawn shows as ¼, not 0. */
+export function badgeText(v: number): string {
+  const a = Math.abs(v), sign = v < 0 ? '−' : '+';
+  return a < 0.1 ? '+0' : a < 0.25 ? `${sign}¼` : `${sign}${halves(a)}`;
+}
+
+/** Every single removal: a rule, a square group (one orbit, one mark), or a line set; `part` names what goes. */
+function removals(d: D): { part: string; label: string; design: D; rule?: Rule }[] {
+  const out: { part: string; label: string; design: D; rule?: Rule }[] = [];
+  const add = (part: string, design: D, rule?: Rule) => out.push({ part, label: `Remove “${part}”`, design, rule });
+  d.rules.forEach((r, i) => add(cap(blockOf(r.does.a).short(r)), withoutRule(d, i), r));
+  const KIND: Record<Square['mark'], string> = { both: 'Moves and takes', move: 'Moves', take: 'Takes', shoot: 'Shoots', moveShoot: 'Moves or shoots' };
   for (const mark of Object.keys(KIND) as Square['mark'][]) for (const gr of groupsOf(d.squares.filter(s => s.mark === mark))) {
     const gone = (s: Square) => s.mark === mark && gr.pts.some(p => p.x === s.x && p.y === s.y);
-    out.push({ label: `Remove the ${KIND[mark]} ${groupPhrase(gr.orbit, gr.pts)}`, design: { ...d, squares: d.squares.filter(s => !gone(s)) } });
+    add(`${KIND[mark]} ${groupPhrase(gr.orbit, gr.pts)}`, { ...d, squares: d.squares.filter(s => !gone(s)) });
   }
   for (const set of [ORTHO, DIAG]) {
     const l = set.filter(x => d.lines.includes(x));
-    if (l.length) out.push({ label: `Remove “${cap(lineWords(l))}”`, design: { ...d, lines: d.lines.filter(x => !l.includes(x)) } });
+    if (l.length) add(cap(lineWords(l)), { ...d, lines: d.lines.filter(x => !l.includes(x)) });
   }
   return out;
 }

@@ -7,7 +7,6 @@ import { presetOf, type Body, type Dir, type Mark, type PieceDesign, type Zone }
 import { autoBody, type Metal, type Verdict } from './judge';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules' | 'look' | 'letter'>;
-export type Seal = 'chain' | 'pawnShield' | 'kingOnly' | 'noTake' | 'sheathed' | 'push' | 'swap' | 'becomes' | 'doomed' | 'pass' | 'step2' | 'like';
 export interface FloorMark { x: number; y: number; mark: Mark; hatched: boolean }
 export interface StageLook {
   body: Body | 'token'; army: 0 | 1; glow: KingName | null; letter: string;
@@ -22,7 +21,6 @@ export interface StageLook {
   ghost: Body | 'K' | null; partner: Body | 'king' | 'friend' | 'enemy' | null; zone: Zone | null; hourglass: number | null; cardBack: boolean;
   footprints: boolean; passOver: 'own' | 'any' | null; chain: boolean; shield: 'feet' | 'dome' | null; push: 'follow' | 'stay' | null;
   swap: boolean; noTake: 'king' | 'pawns' | 'any' | null; afterImage: boolean; sheathed: boolean;
-  seals: Seal[];
 }
 export const GLOW: Record<KingName, string> = { Frost: 'rgb(110,196,250)', Flame: 'rgb(255,130,30)', Stratus: 'rgb(130,180,230)', Mud: 'rgb(130,150,50)', Spirit: '#ffe7a6', Shadow: 'rgb(90,40,130)' };
 export const GOLD = '#e9b44c', CRIMSON = '#b3261e';
@@ -33,10 +31,6 @@ export function lookOf(d: D, v: Verdict): StageLook {
   const rule = <A extends string>(a: A) => d.rules.find(r => r.does.a === a);
   const like = rule('movesLike'), bec = rule('becomes'), shield = rule('cannotBeTaken'), no = rule('cannotTake'), lp = rule('linesPass'), pu = rule('push');
   const w = v.worth.point, chain = !!rule('chain'), sheathed = v.g.Xopen === 0;
-  const seals: Seal[] = [];
-  const SEAL: Record<string, Seal> = { chain: 'chain', push: 'push', swap: 'swap', becomes: 'becomes', removedAfter: 'doomed', linesPass: 'pass', step2: 'step2', movesLike: 'like', cannotTake: 'noTake' };
-  for (const r of d.rules) seals.push(r.does.a === 'cannotBeTaken' ? (r.does.by === 'pawns' ? 'pawnShield' : 'kingOnly') : SEAL[r.does.a]);
-  if (sheathed) seals.push('sheathed');
   const ghostBody = like?.does.a === 'movesLike' ? LIKE_BODY[like.does.as] : bec?.does.a === 'becomes' ? INTO_BODY[bec.does.into] : null;
   // The extra squares of "also moves like", hatched on the floor: the king step and the knight jump are squares, the rest lines.
   const extra = like?.does.a === 'movesLike' ? presetOf(like.does.as === 'king' ? 'maester' : like.does.as) : null;
@@ -59,7 +53,6 @@ export function lookOf(d: D, v: Verdict): StageLook {
     shield: shield?.does.a === 'cannotBeTaken' ? (shield.does.by === 'pawns' ? 'feet' : 'dome') : null,
     push: pu?.does.a === 'push' ? pu.does.then : null, swap: !!rule('swap'),
     noTake: no?.does.a === 'cannotTake' ? no.does.what : null, afterImage: !!rule('removedAfter'), sheathed,
-    seals,
   };
 }
 /** "Knight look, ivory, gold plinth." The start of the stage's hidden summary. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANCHOR_DESIGNS, anchorOf } from './anchors';
-import { BAND_WORD, THRESHOLDS, judge, memoryOf, worthOf, type Label } from './judge';
+import { BAND_WORD, THRESHOLDS, badgeText, judge, memoryOf, worthOf, type Label } from './judge';
 import { DIAG, DIRS, KING_STEP, KNIGHT_JUMP, ORTHO, PRESETS, empty, keyOf, limit, presetOf, type Dir, type Mark, type PieceDesign, type Rule, type Square, type When } from './model';
 import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS } from './vocab';
 
@@ -123,7 +123,7 @@ describe('the judge (§6)', () => {
   it('keeps the measured labels (§6.7)', () => {
     expect(anchorOf(p('paladin'))?.value).toBe(4.08);
     expect(judge(p('paladin')).worth.measured?.label).toBe('fair');
-    expect(judge(anchor('Templar')).line).toBe('May often wait: its rule works only in the capital.');
+    expect(judge(anchor('Templar')).line).toBe('May often wait: its rule works only on a center square.');
     expect(judge(p('ogre')).line).toBe('Fair: about 2½ pawns. About as strong as an ogre.');
     expect(judge(d(NN, [], chain)).like).toBe('About as strong as a beast.');
     expect(judge(d(NN, ORTHO)).like).toBe('About a queen.');
@@ -189,9 +189,26 @@ describe('the judge on random designs', () => {
       for (const b of BLOCKS) {
         const badge = v.deltas[b.a];
         if (!badge) continue;
-        expect(badge.v, `${keyOf(x)} ${b.a}`).toBe(Math.round((worthOf({ ...x, rules: [...x.rules, b.rule] }) - v.worth.point) * 2) / 2);
+        expect(badge.v, `${keyOf(x)} ${b.a}`).toBeCloseTo(worthOf({ ...x, rules: [...x.rules, b.rule] }) - v.worth.point, 2);
       }
     }
+  });
+
+  it('shows a badge in halves, and a change of 0.1 to ¼ pawn as ¼, not 0', () => {
+    expect([0.05, 0.1, 0.24, 0.25, 0.74, 1.59, -0.2, -1].map(badgeText)).toEqual(['+0', '+¼', '+¼', '+½', '+½', '+1½', '−¼', '−1']);
+    // The rook's "also moves like a queen on a center square": small, but not nothing.
+    expect(badgeText(judge(p('rook')).deltas.movesLike!.v)).toBe('+¼');
+  });
+
+  it('names what makes a design strong in Why?: its parts and what each adds', () => {
+    const v = judge(d(KING_STEP('both').filter(s => s.x && s.y), ORTHO, chain));
+    expect(v.label).toBe('likelyOP');
+    expect(v.why).toEqual([
+      'Slides straight: adds about 7 pawns.',
+      'Moves and takes 1 square diagonally: adds about 3 pawns.',
+      'Takes again: adds about 2½ pawns.',
+      'In all, it can take on about 10 squares; a rook, about 7; a queen, about 12. Past 7, each one counts double.',
+    ]);
   });
 
   it('keeps the line within 90 characters, and each fix is a removal that lands in the band (§8.4.7)', () => {

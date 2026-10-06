@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { cracksSvg, floorSvg, gaugeHtml, patternSvg, sealSvg, zoneSvg } from './art';
+import { cracksSvg, floorSvg, gaugeHtml, modelHtml, patternSvg, zoneSvg } from './art';
 import { judge, whyHead } from './judge';
-import { CRIMSON, lookOf, type Seal } from './look';
+import { CRIMSON, lookOf } from './look';
 import { BLANK, ORTHO, PRESETS, fromPreset, presetOf, type PieceDesign, type Rule, type When } from './model';
 import { KEY, MAX, deleteDesign, loadDesigns, saveDesign } from './store';
 import { describe as words, esc, ruleText } from './text';
@@ -31,7 +31,7 @@ describe('text (§8.4.9)', () => {
     expect(s('maester')).toBe('Moves 1 square any way, like a king. Takes the same squares. It may swap places with a friend next to it (not a king).');
     expect(s('beast')).toBe('Moves 1 square any way, like a king. Takes the same squares. When it takes by moving, it may take again from the new square (not a king).');
     expect(s('ogre')).toBe('Moves 1 square any way, like a king. Takes the same squares. It may push a piece next to it 1 square straight away, onto an empty square, and follow it. Never a king.');
-    expect(ruleText({ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } })).toBe('In the capital, it also moves and takes like a queen.');
+    expect(ruleText({ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } })).toBe('On a center square, it also moves and takes like a queen.');
   });
 
   it('uses no engineering word, ends each sentence with a period and keeps it to 120 characters', () => {
@@ -67,11 +67,10 @@ describe('vocab (§8.4.10)', () => {
 });
 
 describe('art (§8.4.11)', () => {
-  const SEALS: Seal[] = ['chain', 'pawnShield', 'kingOnly', 'noTake', 'sheathed', 'push', 'swap', 'becomes', 'doomed', 'pass', 'step2', 'like'];
   const ids = (s: string) => [...s.matchAll(/ id="([^"]+)"/g)].map(m => m[1]);
   const svgs = (): string[] => [
     floorSvg(look(rook(chain))), floorSvg(look({ ...fromPreset(presetOf('archer')), letter: 'D' })), patternSvg(presetOf('archer')),
-    zoneSvg('capital'), zoneSvg('enemyHalf'), ...SEALS.map(sealSvg), ...(['hairline', 'cracked', 'dashed', 'wide'] as const).map(cracksSvg),
+    zoneSvg('capital'), zoneSvg('enemyHalf'), ...(['hairline', 'cracked', 'dashed', 'wide'] as const).map(cracksSvg),
   ];
 
   it('holds no text, is aria-hidden and uses each gradient it defines', () => {
@@ -93,12 +92,16 @@ describe('art (§8.4.11)', () => {
 
   it('dresses the model from the verdict (lookOf)', () => {
     const r = look(rook());
-    expect([r.metal, r.cracks, r.seals]).toEqual(['gold', 'none', []]);
+    expect([r.metal, r.cracks]).toEqual(['gold', 'none']);
     const c = look(rook(chain));
-    expect([c.metal, c.cracks, c.rim, c.chain, c.seals]).toEqual(['cracked', 'cracked', CRIMSON, true, ['chain']]);
+    expect([c.metal, c.cracks, c.rim, c.chain]).toEqual(['cracked', 'cracked', CRIMSON, true]);
     const n = look(rook(chain, noKing));
-    expect([n.metal, n.noTake, n.seals]).toEqual(['hairline', 'king', ['chain', 'noTake']]);
-    expect(look({ ...fromPreset(presetOf('guard')), letter: 'D' }).seals).toEqual(['kingOnly', 'sheathed']);
+    expect([n.metal, n.noTake]).toEqual(['hairline', 'king']);
+    expect(look({ ...fromPreset(presetOf('guard')), letter: 'D' }).sheathed).toBe(true);
+    // The plinth holds only the letter and the cracks (no small rule marks), and a chosen glow marks the model.
+    const m = modelHtml(look({ ...rook(chain), look: { ...rook().look, glow: 'Flame' } }));
+    expect(m.match(/<div class="ws-plinth[^"]*">([\s\S]*?)<\/div>/)![1].replace(/<svg[\s\S]*?<\/svg>/g, '')).toBe('<span class="ws-letter">D</span>');
+    expect(m).toMatch(/^<div class="ws-model glow" style="--rim:rgb\(255,130,30\)/);
     const t = look({ ...fromPreset(BLANK), squares: presetOf('maester').squares, rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }], letter: 'D' });
     expect([t.body, t.ghost, t.zone, t.ghostLines.length]).toEqual(['M', 'Q', 'capital', 8]);
     expect(t.marks.every(m => !m.hatched)).toBe(true);
