@@ -13,7 +13,9 @@ The owner approved a future cast of 30 figures, then requested one sample of eac
 
 [Open the review page](index.html). It shows the large pair, small views and references from the current cast. Names are working labels, not new game rules. These artwork types can guide suggestions, but do not change a design's moves or abilities.
 
-The owner requested simpler, less human faces. [Open the revised face trial](faces.html) for all six edited pairs and before/after head views. The new files are `fast-minimal.png`, `strong-minimal.png`, `ranged-minimal.png`, `magic-minimal.png`, `support-minimal.png` and `mixed-minimal.png`. The first set remains unchanged. This trial still needs approval.
+The current review is [the original Archer face study](archer-faces.html). The five human pairs use facial shapes and shadow, with the archival Archer and Paladin shown as references. The original goat in `strong.png` stays unchanged, as requested. New human files are `fast-archer-face.png`, `ranged-archer-face.png`, `magic-archer-face.png`, `support-archer-face.png` and `mixed-archer-face.png`. These five revisions await approval.
+
+The earlier [blank-face trial](faces.html) is retained as a rejected direction. It removed too much facial form. Its `*-minimal.png` files must not be used as the production reference.
 
 ## Full-set plan, after approval
 
@@ -24,7 +26,7 @@ The owner requested simpler, less human faces. [Open the revised face trial](fac
 
 ## Production method
 
-Faces must be simple and less human in appearance: broad painted shapes, tiny eye marks and little or no mouth detail. Avoid realistic eyes, lips, wrinkles and portrait-like expressions. Keep the figure's identity in its outline, hair, headwear and equipment. This applies to all Workshop figures, including the ram.
+Human faces must follow the original Archer and Paladin artwork (`art-src/pieces/final-ivory/Archer_colored5.png` and `Paladin.colored2_no_shadow.png`, archived in the main checkout; the tracked original Archer design is `docs/research/drive-assets/concept-art/piece-cutout-archer.png`). Define the face through broad angular painted shapes and shadow, with a wedge-like nose and a small restrained mouth. The eye area is shadow under the brow, without drawn eyeballs, pupils, irises, whites or highlights. Keep recognizable facial form with little surface detail. Do not replace the face with a blank oval, dot/dash eyes, or a literal mask. Preserve each figure's own proportions and identity. The original goat/ram face in `strong.png` is approved; leave it as drawn.
 
 Only the built-in image tool is used. Each sample is one transparent paired sheet. The existing Knight and Maester sheets supply the camera, painted style and army palettes, not the character identity. Original outputs are copied without raster edits. Exact prompts and source-file hashes are saved with the samples.
 
@@ -43,3 +45,10 @@ Review checks: complete figures and equipment, transparent background, separate 
 - [Asset hashes, alpha checks and head windows](checks-faces.json). All six sheets are transparent RGBA at 1536×1024. Large and small views show the simple face treatment, complete bodies and equipment.
 - Exact built-in edit prompts: [Fast and Strong](prompts-faces-fast-strong.json), [Ranged and Magic](prompts-faces-ranged-magic.json), [Support and combined](prompts-faces-support-mixed.json).
 - The edits also redrew some outlines and shading. Fast and Strong are larger within their sheets. These are face style trials; they do not preserve every non-face pixel. No new artwork has entered the game.
+
+## Original Archer face study evidence
+
+- [Full comparison](archer-faces-overview.jpg) and [narrow view](archer-faces-narrow.jpg) show the five human revisions beside the original goat, with close face views and both archival references.
+- [Checks and hashes](checks-archer-faces.json): five transparent 1536×1024 RGBA sheets; `strong.png` matches the first sample commit byte for byte. Both reference files match the archived originals byte for byte.
+- Exact built-in image edit prompts: [Fast and Support](prompts-archer-faces-fast-support.json), [Ranged and Magic](prompts-archer-faces-ranged-magic.json), [Fast + Ranged](prompts-archer-faces-mixed.json). Each edit starts from the first sample, with the archival Archer supplied as a face-style reference. The Paladin was inspected to verify the owner's clarification and is displayed as a second reference.
+- All faces use brow/eye shadows instead of detailed eyes. Bodies and equipment remain complete. The edits have small outline, shading and position changes; Ranged grew slightly. These are style samples, not pixel-exact retouches. The remaining 24 figures and game integration still wait for approval.
