@@ -1,7 +1,8 @@
 # King Down — ability matrix (started 2026-09-14)
 
 Two grids: **pieces × abilities** and **board zones × rules**. Saar extends them; this is the first pass.
-Five proposed pieces that fill the empty cells: `PIECES-PROPOSED.md`.
+Five proposed pieces that fill the empty cells: `PIECES-PROPOSED.md`. Pieces outside the random pool, paused
+or set aside, with their status: A.3. The 2014 cards not built: C.3 (2026-10-06).
 
 Legend: **●** shipped (default rules) · **◐** lab toggle, off by default (`name` in `src/rules/rules.ts`) ·
 **○** designed but not built (kings' powers §4 / cards §5 of `RULES.md`) · **—** nothing · **?** to decide.
@@ -64,6 +65,23 @@ depth 4) and **Templar** (rejected) are **paused in the lab** (`docs/research/si
 | Control | `Move.swap` (maester) and, since 2026-09-14, `Move.shove: { from, to }` (ogre) — the shoved piece is written before the mover, so `ogreMode: 'push'` needs no second path. |
 | Arriving | Not present — see [1]. |
 | Zones | No zone helper yet; ranks are compared inline. See B. |
+
+### A.3 Pieces outside the random pool (status 2026-10-06)
+
+The random pool is `QORRBBNNAAGMMS` (one Beast, 2026-10-04). Paused: built once, kept out of the pool. Set
+aside: never built, for the reason given (`PIECES-PROPOSED.md`, "Set aside").
+
+| Piece | Letter | Status | Why | Record |
+|---|---|---|---|---|
+| Paladin | L | paused: left the pool 2026-09-24 (the Ogre took its slot); still legal in custom setups, FEN and historical promotion sets | evidence: with it in the army White scores about 6 points more, from its reach on an open board (Q5, the pool test 2026-09-17) | `RULES.md` decision 18; `sim-paladin-pool-2026-09-17.md` |
+| Catapult | C | paused, lab piece outside `POOL` | both readings below 1.66 pawns; it never fires in 38% of games | `sim-catapult-explore-2026-09-17.md` |
+| Reaver | V | paused, lab piece outside `POOL` | the full step is overpowered (rejected); the orthogonal step (4.04 ± 0.56 pawns) does not hold its gain at depth 4 | `sim-reaver-2026-09-17.md` |
+| Templar | T | paused, lab piece outside `POOL`; rejected on measurement | 4–8% of its moves come from a capital: a weak king-stepper, draws +5 | `sim-templar-2026-09-17.md` |
+| Squire | E | paused: built in the recovered Cursor checkout, archived, not in `src/` | a reserve that adds material; defects in the recovery assessment | `cursor-recovery/2026-09-24-0213b442/ASSESSMENT.md` |
+| Shieldbearer | — | set aside | immune to shots and shields its neighbours: immunity drags games (the guard study) | `PIECES-PROPOSED.md` |
+| Necromancer | — | set aside | returns a captured piece: material that comes back lengthens games | `PIECES-PROPOSED.md` |
+| Wraith | — | set aside | moves through pieces: the paladin-through-enemies test was degenerate | `PIECES-PROPOSED.md` |
+| Immobiliser | — | set aside | freezes adjacent enemies: fortresses and draws (Ultima) | `PIECES-PROPOSED.md` |
 
 ## B. Board
 
@@ -154,6 +172,23 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 Every card is one use; "Uses (king)" is the official count of a king power (`POWERS_BALANCED` over the rule defaults).
 "Then make the move" for the marks is `markFree`, official for the kings and used in every card measurement. Flight is
 a special move here: it moves a piece already on the board (A.1 lists it under 1b, arriving, by its zone).
+
+### C.3 Ideas: the 2014 cards not built (2026-10-06)
+
+The 2014 spell list has 21 spells and a blank (`Cards/AI/base/SPELLs`); the expansion packs add two cards
+(`docs/research/drive-final-art.md`, row 15; `RULES.md` §5). Seven have no card in the engine. Pawn, Siege,
+Skirmish, Spirit Guide and Shadow Cover are known by name only: the Drive art names them, and no record here
+gives their text.
+
+| Card | 2014 text, as recorded | Nearest built | Status |
+|---|---|---|---|
+| Frost Bite | freeze in range: enemies in range cannot move (`RULES.md` §5, `cards-2026-10-03.md`) | Freeze (one enemy, the opponent's next turn) | ○ idea |
+| Shield | harder to capture: taking your pieces costs +1 action (`drive-cards.md`) | Ice Wall (one own piece cannot be taken); Firewall (every own piece) | ○ idea |
+| Pawn | name only (base spell list) | — | ○ idea |
+| Siege | name only (base spell list) | — | ○ idea |
+| Skirmish | name only (base spell list) | — | ○ idea |
+| Spirit Guide | name only (expansion pack) | — | ○ idea |
+| Shadow Cover | name only (expansion pack) | — | ○ idea |
 
 ## D. Conditions, shackles and promotion (owner, 2026-10-06)
 
