@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { judge } from './judge';
-import { BLANK, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, designCode, empty, fromPreset, keyOf, limit, mix, parseDesign, presetOf, type PieceDesign, type Rule } from './model';
+import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, designCode, empty, fromPreset, keyOf, likeAlways, limit, mix, parseDesign, presetOf, validName, type PieceDesign, type Rule } from './model';
 import { autoName, letterOf, saveName } from './names';
 import { BLOCKS, blockOf, validDoes, whenOk } from './vocab';
 
@@ -32,6 +32,23 @@ describe('validation (§8.4.8, §4.9)', () => {
       expect(back, p.key).not.toBeNull();
       expect([keyOf(back), back.name, back.letter, back.look]).toEqual([keyOf(d), d.name, d.letter, d.look]);
     }
+  });
+
+  it('round-trips the largest design the editor can make', () => {
+    const rules: Rule[] = [
+      { when: { on: 'afterCard', card: 'any' }, does: { a: 'movesLike', as: 'bishop' } },
+      { when: { on: 'zone', zone: 'enemyHalf' }, does: { a: 'linesPass', over: 'any' } },
+      { when: { on: 'reaches', zone: 'lastRank' }, does: { a: 'becomes', into: 'choice' } },
+    ];
+    const squares = [];
+    for (let x = -3; x <= 3; x++) for (let y = -3; y <= 3; y++) if (x || y) squares.push({ x, y, mark: 'moveShoot' as const });
+    // 18 letters of 4 bytes each, the longest name in bytes.
+    const d: PieceDesign = { ...fromPreset(BLANK), name: '𝐀'.repeat(18), letter: 'Z', squares, lines: [...DIRS], rules, look: { body: 'token', auto: false, glow: 'Stratus', army: 1 } };
+    expect(validName(d.name)).toBe(true);
+    expect(limit(d)).toBeNull();
+    const c = designCode(d);
+    expect(c.length).toBeLessThanOrEqual(MAX_CODE);
+    expect(keyOf(parseDesign(c)!)).toBe(keyOf(d));
   });
 
   it('refuses bad values, kings, oversize codes, (0, 0) and blocked shapes', () => {
@@ -95,6 +112,16 @@ describe('validation (§8.4.8, §4.9)', () => {
     const nr = mix(presetOf('knight'), presetOf('rook')).design;
     expect(nr.rules).toEqual([{ when: { on: 'zone', zone: 'enemyHalf' }, does: { a: 'movesLike', as: 'rook' } }]);
     expect(nr.from).toEqual(['knight', 'rook']);
+  });
+
+  it('"Always" for "also moves like" keeps every move and take, or is not offered', () => {
+    const plain = { squares: [{ x: 0, y: 1, mark: 'move' as const }, { x: 1, y: 1, mark: 'take' as const }], lines: [], rules: [] };
+    expect(likeAlways(plain, 'king')!.squares.find(s => s.x === 1 && s.y === 1)!.mark).toBe('both');
+    expect(likeAlways(plain, 'rook')!.lines).toEqual([...ORTHO]);
+    // A shot on a king square cannot also take by moving there: the stored marks cannot say both, so no "Always".
+    expect(likeAlways(presetOf('archer'), 'king')).toBeNull();
+    expect(likeAlways({ ...plain, squares: [{ x: 1, y: 1, mark: 'moveShoot' }] }, 'king')).toBeNull();
+    expect(likeAlways(presetOf('archer'), 'rook')).not.toBeNull();
   });
 
   it('names: no pool name twice, and a free letter', () => {

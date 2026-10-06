@@ -86,6 +86,7 @@ export function movesOf(d: D, board: Uint8Array, from: number, st: TryState = ST
     if (!chain || typeOf(b[last]) === K || kill(caps)) return;
     const sc = new Uint8Array(b);
     sc[last] = 0;
+    sc[from] = 0; // the piece has left its square: a line may cross it
     const seen = new Set<number>();
     reach(sc, last, to => {
       if (seen.has(to) || typeOf(sc[to]) === K) return; // a chain may not continue onto a king

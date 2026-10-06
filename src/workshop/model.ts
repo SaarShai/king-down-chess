@@ -46,6 +46,8 @@ export interface PieceDesign {
   named: boolean;
   look: Look;
   letter: string;
+  /** True once the player chose the letter; until then it follows the name. Absent in designs saved before it. */
+  ownLetter?: boolean;
   squares: Square[];
   /** It slides that way until a piece stops it, and it may take that piece. */
   lines: Dir[];
@@ -67,7 +69,8 @@ export const DIAG: readonly Dir[] = ['ne', 'se', 'sw', 'nw'];
 /** Letters the engine does not use (src/rules/engine.ts LETTERS), and E (the Squire, MATRIX A.3). */
 export const FREE_LETTERS = 'DFHIJUWXYZ';
 export const MAX_RULES = 3;
-export const MAX_CODE = 2000;
+/** The longest share code: the largest design the editor can make is about 2,800 characters (a unit test). */
+export const MAX_CODE = 4000;
 
 /** The squares one tap paints. */
 export function orbit(x: number, y: number, on: PaintOn): [number, number][] {
@@ -178,6 +181,20 @@ export function mix(a: Preset, b: Preset): { design: PieceDesign; left: string[]
   }
   return { design: d, left };
 }
+/** "Always" for "also moves like": the piece's squares and lines with that piece's added, or null where a square
+ *  would need a shot and a take by moving at once, which a stored square cannot hold. */
+export function likeAlways(d: Pick<PieceDesign, 'squares' | 'lines'>, as: 'king' | 'knight' | 'bishop' | 'rook' | 'queen'): { squares: Square[]; lines: Dir[] } | null {
+  const add = presetOf(as === 'king' ? 'maester' : as), squares = clone(d.squares);
+  const can = (m: Mark) => ({ m: m !== 'take' && m !== 'shoot', t: m === 'both' || m === 'take', s: m === 'shoot' || m === 'moveShoot' });
+  for (const a of add.squares) {
+    const o = squares.find(t => t.x === a.x && t.y === a.y);
+    if (!o) { squares.push({ ...a }); continue; }
+    const x = can(o.mark), y = can(a.mark), m = x.m || y.m, t = x.t || y.t, sh = x.s || y.s;
+    if (t && sh) return null;
+    o.mark = sh ? (m ? 'moveShoot' : 'shoot') : m && t ? 'both' : m ? 'move' : 'take';
+  }
+  return { squares, lines: DIRS.filter(l => d.lines.includes(l) || add.lines.includes(l)) };
+}
 /** Archer and Blank have no rules to give. */
 export const canGive = (p: Preset): boolean => p.key !== 'archer' && p.key !== 'blank';
 
@@ -194,25 +211,37 @@ const KINGS: readonly string[] = ['Frost', 'Flame', 'Stratus', 'Mud', 'Spirit', 
 const int3 = (v: unknown): boolean => Number.isInteger(v) && Math.abs(v as number) <= 3;
 export const validName = (s: string): boolean => NAME_RE.test(s) && s.trim() === s;
 
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+/** The parts a share code and a stored design hold, checked key by key: the letter, the look, the squares, lines and rules. */
+function validParts(o: Record<string, unknown>): boolean {
+  const { squares, lines, rules, look, letter } = o;
+  if (typeof letter !== 'string' || letter.length !== 1 || !FREE_LETTERS.includes(letter)) return false;
+  if (!keysAre(look, ['body', 'auto', 'glow', 'army']) || !(BODIES as readonly unknown[]).concat('token').includes(look.body)
+    || typeof look.auto !== 'boolean' || !(look.glow === null || KINGS.includes(look.glow as string)) || (look.army !== 0 && look.army !== 1)) return false;
+  if (!Array.isArray(squares) || squares.length > 48 || !Array.isArray(lines) || !Array.isArray(rules) || rules.length > MAX_RULES) return false;
+  const marks = ['both', 'move', 'take', 'shoot', 'moveShoot'];
+  if (!squares.every(s => keysAre(s, ['x', 'y', 'mark']) && int3(s.x) && int3(s.y) && (s.x || s.y) && marks.includes(s.mark as string))) return false;
+  if (new Set(squares.map(s => `${s.x},${s.y}`)).size !== squares.length) return false;
+  if (!lines.every(l => DIRS.includes(l)) || new Set(lines).size !== lines.length) return false;
+  return rules.every(r => whenOk(r as Rule));
+}
+/** A whole design as the shelf stores it; the shelf skips any other entry. */
+export function validStored(o: unknown): o is PieceDesign {
+  return isObj(o) && o.v === 1 && o.kind === 'piece' && typeof o.id === 'string' && typeof o.name === 'string' && !!o.name
+    && typeof o.named === 'boolean' && (o.ownLetter === undefined || typeof o.ownLetter === 'boolean') && typeof o.updated === 'number'
+    && Array.isArray(o.from) && o.from.every(f => typeof f === 'string') && validParts(o);
+}
+
 /** A design from a share code, checked key by key (as `parseSetup` does); null when it is not one. */
 export function parseDesign(code: string): PieceDesign | null {
   if (code.length > MAX_CODE || !/^[\w-]+$/.test(code)) return null;
   let o: unknown;
   try { o = JSON.parse(unb64(code)); } catch { return null; }
   if (!keysAre(o, ['kind', 'squares', 'lines', 'rules', 'name', 'look', 'letter']) || o.kind !== 'piece') return null;
-  const { squares, lines, rules, name, look, letter } = o;
-  if (typeof name !== 'string' || !validName(name) || typeof letter !== 'string' || letter.length !== 1 || !FREE_LETTERS.includes(letter)) return null;
-  if (!keysAre(look, ['body', 'auto', 'glow', 'army']) || !(BODIES as readonly unknown[]).concat('token').includes(look.body)
-    || typeof look.auto !== 'boolean' || !(look.glow === null || KINGS.includes(look.glow as string)) || (look.army !== 0 && look.army !== 1)) return null;
-  if (!Array.isArray(squares) || squares.length > 48 || !Array.isArray(lines) || !Array.isArray(rules) || rules.length > MAX_RULES) return null;
-  const marks = ['both', 'move', 'take', 'shoot', 'moveShoot'];
-  if (!squares.every(s => keysAre(s, ['x', 'y', 'mark']) && int3(s.x) && int3(s.y) && (s.x || s.y) && marks.includes(s.mark as string))) return null;
-  if (new Set(squares.map(s => `${s.x},${s.y}`)).size !== squares.length) return null;
-  if (!lines.every(l => DIRS.includes(l)) || new Set(lines).size !== lines.length) return null;
-  if (!rules.every(r => whenOk(r as Rule))) return null;
+  if (typeof o.name !== 'string' || !validName(o.name) || !validParts(o)) return null;
   const d: PieceDesign = {
-    v: 1, kind: 'piece', id: rid(), name, named: true, look: look as unknown as Look, letter,
-    squares: squares as Square[], lines: lines as Dir[], rules: rules as unknown as Rule[], from: [], updated: Date.now(),
+    v: 1, kind: 'piece', id: rid(), name: o.name, named: true, look: o.look as unknown as Look, letter: o.letter as string, ownLetter: true,
+    squares: o.squares as Square[], lines: o.lines as Dir[], rules: o.rules as unknown as Rule[], from: [], updated: Date.now(),
   };
   return limit(d) || empty(d) ? null : d;
 }

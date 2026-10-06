@@ -18,7 +18,7 @@ import { GLOW, lookOf, lookWords } from './look';
 import { cropOf, figureHtml, gaugeHtml, modelHtml, patternSvg } from './art';
 import { cap, describe, esc, halves, pawns, ruleParts, ruleText } from './text';
 import { autoName, letterOf, nextLetter, rollName, saveName } from './names';
-import { deleteDesign, loadDesigns, saveDesign } from './store';
+import { MAX, deleteDesign, loadDesigns, loadShelf, saveDesign, type SaveResult } from './store';
 import { sandbox } from './sandbox';
 
 type Screen = 'home' | 'start' | 'editor' | 'saved' | 'try';
@@ -72,16 +72,18 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   const dlg = document.createElement('dialog');
   dlg.id = 'workshop';
   dlg.setAttribute('aria-labelledby', 'ws-h');
-  dlg.innerHTML = '<div class="ws-screen"></div><p class="ws-toast" role="status" aria-live="polite"></p>';
+  dlg.innerHTML = '<div class="ws-screen"></div><div class="ws-alert" role="alert" hidden></div><p class="ws-toast" role="status" aria-live="polite"></p>';
   document.body.append(dlg);
-  const screenEl = dlg.querySelector<HTMLElement>('.ws-screen')!, toastEl = dlg.querySelector<HTMLElement>('.ws-toast')!;
+  const screenEl = dlg.querySelector<HTMLElement>('.ws-screen')!, toastEl = dlg.querySelector<HTMLElement>('.ws-toast')!, alertEl = dlg.querySelector<HTMLElement>('.ws-alert')!;
   const q = <T extends Element = HTMLElement>(s: string, root: ParentNode = dlg): T => root.querySelector(s) as T;
   const qa = <T extends Element = HTMLElement>(s: string, root: ParentNode = dlg): T[] => [...root.querySelectorAll<T>(s)];
 
   let screen: Screen = 'home';
   let cur: PieceDesign = fromPreset(BLANK), v: Verdict = judge(cur), fromLink = false, onShelf = false;
   let undos: { d: PieceDesign; label: string }[] = [], tab: 'moves' | 'rules' | 'look' = 'moves', brush: Brush = 'both', paintOn: PaintOn = 'all';
-  let lastLabel: Label | '' = '', saveFailed = false, mixFirst: Preset | null = null;
+  let lastLabel: Label | '' = '', mixFirst: Preset | null = null;
+  /** The design the last save refused, and why: the alert stays while it is the open design. */
+  let unsaved: { id: string; why: Exclude<SaveResult, 'saved'> } | null = null;
   let more = false;
   try { more = localStorage.getItem(MORE_KEY) === '1'; } catch { /* private mode: closed */ }
 
@@ -137,17 +139,69 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   addEventListener('resize', () => { if (dlg.open && !(document.activeElement as HTMLElement | null)?.matches('input[type="text"]')) fit(); });
 
   function show(s: Screen): void {
+    // A toast belongs to the screen it was made on.
+    clearTimeout(toastTimer);
+    toastEl.classList.remove('on');
     screen = s;
     dlg.dataset.screen = s;
     ({ home, start, editor, saved, try: tryIt })[s]();
     fit();
+    drawAlert();
     focusTitle();
+  }
+
+  /* ---- saving (§2.2): every change; a refusal stays on screen until a save works ---- */
+
+  /** Saves the open design; true when the device kept it. */
+  function store(): boolean {
+    cur.updated = Date.now();
+    const r = saveDesign(cur);
+    onShelf = r === 'saved';
+    unsaved = r === 'saved' ? null : { id: cur.id, why: r };
+    drawAlert();
+    return onShelf;
+  }
+  function drawAlert(): void {
+    const u = unsaved && unsaved.id === cur.id ? unsaved : null;
+    alertEl.hidden = !u;
+    if (!u) { alertEl.innerHTML = ''; delete alertEl.dataset.html; return; }
+    const html = u.why === 'full'
+      ? `<p>Not saved: your shelf is full (${MAX} designs). Delete one to keep this piece.</p><button type="button" class="ws-alert-del">Choose one to delete</button>`
+      : '<p>Not saved: this device did not keep the design.</p><button type="button" class="ws-alert-retry">Try again</button>';
+    if (!put(alertEl, `${html}<button type="button" class="quiet ws-alert-copy">Copy link</button>`)) return;
+    q<HTMLButtonElement>('.ws-alert-retry', alertEl)?.addEventListener('click', () => { if (store()) toast('Saved on this device.'); });
+    q<HTMLButtonElement>('.ws-alert-del', alertEl)?.addEventListener('click', makeRoom);
+    q<HTMLButtonElement>('.ws-alert-copy', alertEl).onclick = () => void copyText(link(cur), 'Link copied.');
+  }
+  /** A full shelf: the player deletes one design, then the open one is saved. The open design stays as it is. */
+  function makeRoom(): void {
+    const list = loadDesigns();
+    sheet('Delete one design', `<p>Your shelf holds ${MAX} designs. Delete one, and ${esc(cur.name)} is saved in its place.</p>`
+      + list.map(d => `<div class="ws-room-row"><span>${esc(d.name)}</span><button type="button" class="ws-room-del" data-id="${esc(d.id)}" aria-label="Delete ${esc(d.name)}">Delete</button></div>`).join(''), (body, close) => {
+      for (const b of qa<HTMLButtonElement>('.ws-room-del', body)) b.onclick = () => {
+        const name = list.find(d => d.id === b.dataset.id)?.name ?? '';
+        if (!deleteDesign(b.dataset.id!)) return toast('Could not delete: this device refused.');
+        close();
+        toast(store() ? `Deleted ${name}. ${cur.name} is saved.` : `Deleted ${name}.`);
+      };
+    });
+  }
+  const link = (d: PieceDesign): string => `${location.origin}${location.pathname}?design=${designCode(d)}`;
+  /** Copies `text`; where the device refuses, a sheet shows it, selected, to copy by hand. */
+  async function copyText(text: string, done: string): Promise<void> {
+    try { await navigator.clipboard.writeText(text); toast(done); } catch {
+      sheet('Copy this', '<p>This device did not let the game copy. Select the text and copy it.</p><textarea class="ws-copy-box" readonly rows="5" aria-label="The text to copy"></textarea>', body => {
+        const t = q<HTMLTextAreaElement>('textarea', body);
+        t.value = text;
+        requestAnimationFrame(() => { t.focus(); t.select(); });
+      });
+    }
   }
 
   /* ---- HOME (W1) ---- */
 
   function home(): void {
-    const list = loadDesigns();
+    const { designs: list, bad } = loadShelf();
     screenEl.innerHTML = bar('Back', 'Workshop') + '<div class="ws-scroll">'
       + '<div class="ws-doors">'
       + `<button type="button" class="ws-door" data-door="piece"><img src="${cropOf('N')}" alt="" /><b>New piece</b></button>`
@@ -157,6 +211,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       + (list.length ? `<div class="ws-shelf">${list.map((d, i) => { const jv = judge(d, false); return `<button type="button" class="ws-tile${jv.warn ? ' warn' : ''}" data-i="${i}">`
         + `<span class="ws-tile-art" aria-hidden="true">${modelHtml(lookOf(d, jv))}</span><b>${esc(d.name)}</b><small>${SHELF_WORD[jv.label]}</small></button>`; }).join('')}</div>`
         : '<p class="ws-empty">Nothing here yet. Your pieces and cards appear here, on this device.</p>')
+      + (bad ? `<p class="ws-note">${bad === 1 ? '1 saved entry' : `${bad} saved entries`} could not be read. ${bad === 1 ? 'It stays' : 'They stay'} on this device; the other designs work.</p>` : '')
       + '</div>';
     q<HTMLButtonElement>('.ws-back').onclick = () => dlg.close();
     q<HTMLButtonElement>('[data-door="piece"]').onclick = () => show('start');
@@ -283,12 +338,6 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     update(true);
   }
 
-  /** Saves the design on the device (every change, §2.2). */
-  function store(): void {
-    cur.updated = Date.now();
-    onShelf = true;
-    if (!saveDesign(cur) && !saveFailed) { saveFailed = true; toast('Could not save on this device.'); }
-  }
   /** One undo step: `f` changes the design; nothing happens when it changes nothing. */
   function change(label: string, f: (d: PieceDesign) => void, o: { merge?: boolean; noise?: () => void } = {}): boolean {
     const before = clone(cur);
@@ -670,7 +719,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function saved(): void {
     const jv = judge(cur), d = describe(cur), l = lookOf(cur, jv);
     screenEl.innerHTML = bar('Workshop', cur.name, fromLink ? '' : '<button type="button" class="ws-edit">Edit</button>') + '<div class="ws-scroll">'
-      + (fromLink ? '<p class="ws-lead">A design from a link. Keep a copy to change it.</p>' : '')
+      + (fromLink ? '<p class="ws-lead">A design from a link. Keep a copy to change it.</p>' : onShelf ? '<p class="ws-lead ws-saved-note">Saved on this device.</p>' : '')
       + `<article class="piece-card ws-card"><div class="pc-art ws-card-art" aria-hidden="true">${modelHtml(l)}</div><div>`
       + `<h3><span class="pc-letter">${cur.letter}</span>${esc(cur.name)}</h3><p class="ws-card-worth">${empty(cur) ? esc(jv.line) : `About ${pawns(jv.worth.point)}. ${BAND_WORD[jv.label]}.`}</p>`
       + `<dl><dt>Moves</dt><dd>${esc(cap(d.moves))}</dd><dt>Takes</dt><dd>${esc(cap(d.takes))}</dd>${d.special.length ? `<dt>Special</dt><dd>${d.special.map(esc).join(' ')}</dd>` : ''}</dl>`
@@ -682,36 +731,38 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       + '</div></div>';
     v = jv;
     q<HTMLButtonElement>('.ws-back').onclick = () => show('home');
-    q<HTMLButtonElement>('.ws-edit')?.addEventListener('click', () => edit(cur, { shelf: true }));
+    q<HTMLButtonElement>('.ws-edit')?.addEventListener('click', () => edit(cur, { shelf: onShelf }));
     q<HTMLButtonElement>('.ws-chip')?.addEventListener('click', () => sheet(`Why “${BAND_WORD[jv.label].toLowerCase()}”?`, whyHtml(jv).replace(/<div class="ws-fixes">[\s\S]*?<\/div>/, ''), () => {}));
     q<HTMLButtonElement>('.ws-try').onclick = () => show('try');
-    const link = (): string => `${location.origin}${location.pathname}?design=${designCode(cur)}`;
     q<HTMLButtonElement>('.ws-send').onclick = async () => {
-      try {
-        if (navigator.share) await navigator.share({ title: cur.name, text: `${cur.name}: a King Down piece.`, url: link() });
-        else { await navigator.clipboard.writeText(link()); toast('Link copied.'); }
-      } catch (e) { if ((e as Error).name !== 'AbortError') toast('Could not copy the link.'); }
+      if (navigator.share) {
+        try { await navigator.share({ title: cur.name, text: `${cur.name}: a King Down piece.`, url: link(cur) }); return; } catch (e) { if ((e as Error).name === 'AbortError') return; }
+      }
+      await copyText(link(cur), 'Link copied.');
     };
-    q<HTMLButtonElement>('.ws-copy').onclick = async () => {
-      try { await navigator.clipboard.writeText(asText(cur, jv, link())); toast('Copied as text.'); } catch { toast('Could not copy.'); }
-    };
+    q<HTMLButtonElement>('.ws-copy').onclick = () => void copyText(asText(cur, jv, link(cur)), 'Copied as text.');
     q<HTMLButtonElement>('.ws-dup')?.addEventListener('click', () => {
       const c: PieceDesign = { ...clone(cur), id: fromPreset(BLANK).id, name: `${cur.name.slice(0, 12).trim()} copy`, named: true };
       cur = c;
-      store();
-      edit(c, { shelf: true });
-      toast('A copy is on your shelf.');
+      const ok = store();
+      edit(c, { shelf: ok });
+      if (ok) toast('A copy is on your shelf.');
     });
     q<HTMLButtonElement>('.ws-keep-copy')?.addEventListener('click', () => {
       cur = { ...cur, id: fromPreset(BLANK).id };
       fromLink = false;
-      store();
-      toast(`Kept: ${cur.name}.`);
+      if (!store()) return show('saved'); // the alert says why; the design stays open
       show('home');
+      toast(`Kept: ${cur.name}.`);
     });
     q<HTMLButtonElement>('.ws-del')?.addEventListener('click', () => sheet(`Delete ${cur.name}?`, '<p>This cannot be undone.</p><div class="ws-sheet-actions"><button type="button" class="primary ws-yes">Delete</button><button type="button" class="ws-no">Keep</button></div>', (body, close) => {
       q<HTMLButtonElement>('.ws-no', body).onclick = close;
-      q<HTMLButtonElement>('.ws-yes', body).onclick = () => { close(); deleteDesign(cur.id); onShelf = false; show('home'); };
+      q<HTMLButtonElement>('.ws-yes', body).onclick = () => {
+        close();
+        if (!deleteDesign(cur.id)) return toast('Could not delete: this device refused.');
+        onShelf = false;
+        show('home');
+      };
     }));
   }
 
@@ -749,6 +800,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     },
     openDesign(code: string): void {
       const d = parseDesign(code);
+      unsaved = null;
       if (!d) { show('home'); toast('This design link could not be read.'); }
       else { cur = d; fromLink = true; onShelf = false; show('saved'); }
       if (!dlg.open) dlg.showModal();

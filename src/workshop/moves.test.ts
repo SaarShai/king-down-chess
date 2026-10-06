@@ -37,3 +37,12 @@ describe('presets equal the engine (§8.4.1)', () => {
     }
   });
 });
+
+describe('Try it moves', () => {
+  it('a rook that takes again may cross the square it left', () => {
+    const b = new Uint8Array(64), d4 = sq(3, 3), d6 = sq(3, 5), d2 = sq(3, 1);
+    b[d4] = piece(4, WHITE); b[d6] = b[d2] = piece(1, BLACK);
+    const rook = { ...PRESETS.find(p => p.key === 'rook')!, rules: [{ when: { on: 'takes' as const }, does: { a: 'chain' as const } }] };
+    expect(movesOf(rook, b, d4).some(m => m.captures.join() === [d6, d2].join())).toBe(true);
+  });
+});

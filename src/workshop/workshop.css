@@ -370,6 +370,15 @@
 .tb-row button { width: auto; }
 .tb-count { font-weight: 700; }
 
+/* ---- a save the device refused: it stays until a save works ---- */
+.ws-alert { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--space-2); padding: 6px var(--gut); color: var(--danger); background: var(--vellum); border-top: 2px solid var(--danger); }
+.ws-alert[hidden] { display: none; }
+.ws-alert p { flex: 1 1 220px; font-size: var(--fs-sm); font-weight: 700; }
+#workshop .ws-alert button { width: auto; padding: 6px 12px; }
+.ws-room-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 2px 0; border-bottom: 1px solid var(--stone-300); }
+#workshop .ws-room-row button { width: auto; padding: 6px 14px; }
+.ws-copy-box { width: 100%; font: inherit; font-size: var(--fs-sm); }
+
 /* ---- toasts ---- */
 .ws-toast {
   position: fixed; left: 50%; bottom: 16px; z-index: 5; translate: -50% 0; width: max-content; max-width: min(92vw, 520px);

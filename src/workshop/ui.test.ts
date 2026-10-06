@@ -4,7 +4,7 @@ import { cracksSvg, floorSvg, gaugeHtml, modelHtml, patternSvg, zoneSvg } from '
 import { judge, whyHead } from './judge';
 import { CRIMSON, lookOf } from './look';
 import { BLANK, ORTHO, PRESETS, fromPreset, presetOf, type PieceDesign, type Rule, type When } from './model';
-import { KEY, MAX, deleteDesign, loadDesigns, saveDesign } from './store';
+import { KEY, MAX, deleteDesign, loadDesigns, loadShelf, saveDesign } from './store';
 import { describe as words, esc, ruleText } from './text';
 import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS } from './vocab';
 
@@ -111,12 +111,12 @@ describe('art (§8.4.11)', () => {
 
 describe('store (§8.4.12)', () => {
   const mem = () => { const m = new Map<string, string>(); return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), m }; };
-  const design = (n: number): PieceDesign => ({ ...fromPreset(presetOf('knight')), id: `d${n}`, name: `D${n}`, updated: 1000 + n });
+  const design = (n: number): PieceDesign => ({ ...fromPreset(presetOf('knight')), id: `d${n}`, name: `D${n}`, letter: 'D', updated: 1000 + n });
 
   it('works when storage throws or is missing', () => {
     const broken = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('full'); } };
     expect(loadDesigns(broken)).toEqual([]);
-    expect(saveDesign(design(1), broken)).toBe(false);
+    expect(saveDesign(design(1), broken)).toBe('failed');
     expect(deleteDesign('d1', broken)).toBe(false);
     expect(loadDesigns(null)).toEqual([]);
     const bad = mem();
@@ -124,17 +124,32 @@ describe('store (§8.4.12)', () => {
     expect(loadDesigns(bad)).toEqual([]);
   });
 
-  it('keeps the newest first and at most 50', () => {
+  it('keeps the newest first; a full shelf refuses a new design and drops nothing', () => {
     const s = mem();
-    for (let n = 1; n <= MAX + 5; n++) expect(saveDesign(design(n), s)).toBe(true);
+    for (let n = 1; n <= MAX; n++) expect(saveDesign(design(n), s)).toBe('saved');
+    expect(saveDesign(design(MAX + 1), s)).toBe('full');
     const list = loadDesigns(s);
     expect(list).toHaveLength(MAX);
-    expect(list[0].id).toBe(`d${MAX + 5}`);
-    expect(list.at(-1)!.id).toBe('d6');
-    saveDesign({ ...design(10), updated: 9999 }, s);
+    expect(list[0].id).toBe(`d${MAX}`);
+    expect(list.at(-1)!.id).toBe('d1');
+    // A design already on the shelf still saves, and moves to the front.
+    expect(saveDesign({ ...design(10), updated: 9999 }, s)).toBe('saved');
     expect(loadDesigns(s)[0].id).toBe('d10');
     expect(loadDesigns(s)).toHaveLength(MAX);
-    deleteDesign('d10', s);
+    expect(deleteDesign('d10', s)).toBe(true);
     expect(loadDesigns(s).some(d => d.id === 'd10')).toBe(false);
+    expect(saveDesign(design(MAX + 1), s)).toBe('saved');
+  });
+
+  it('skips a damaged entry, keeps it in storage, and the judge never sees it', () => {
+    const s = mem();
+    s.setItem(KEY, JSON.stringify({ v: 1, designs: [{ kind: 'piece', id: 'broken' }, { ...design(1), squares: [{ x: 9, y: 0, mark: 'both' }] }, design(2)] }));
+    expect(loadShelf(s)).toMatchObject({ bad: 2 });
+    expect(loadDesigns(s).map(d => d.id)).toEqual(['d2']);
+    for (const d of loadDesigns(s)) expect(() => judge(d)).not.toThrow();
+    expect(saveDesign(design(3), s)).toBe('saved');
+    expect(deleteDesign('d2', s)).toBe(true);
+    const raw = JSON.parse(s.m.get(KEY)!).designs as { id: string }[];
+    expect(raw.map(d => d.id)).toEqual(['d3', 'broken', 'd1']);
   });
 });
