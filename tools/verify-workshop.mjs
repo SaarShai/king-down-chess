@@ -209,16 +209,26 @@ try {
   assert.equal(await page.evaluate(() => window.__hl), 0, 'no key reached the game (no highlight redraw)');
   ok('the menu door; Esc closes the sheet, then the Workshop; z, arrows and Esc never reach the game; the board has 49 labelled buttons and roving tabindex');
 
-  // 3. The brushes on a first phone visit: 2 and More.
+  // 3. The brushes on a first phone visit: 2, More and "?"; More opens a sheet with every brush and Paint on, and the board stays.
   page = await open();
   await viaGuide(page);
   assert.equal(await page.locator('.ws-lead').count(), 0, 'HOME has the title only, no lead line');
   await editPreset(page, 'knight');
   const visibleRadios = () => page.evaluate(() => [...document.querySelectorAll('input[name="ws-brush"]')].filter(i => i.closest('label').getBoundingClientRect().width > 0).length);
+  const boardTop = () => page.evaluate(() => Math.round(document.querySelector('.ws-board').getBoundingClientRect().top));
   assert.equal(await visibleRadios(), 2, '2 brushes first');
+  assert.equal(await page.textContent('.ws-mode'), 'Move+take, all sides. Tap to add or erase.');
+  const top0 = await boardTop();
   await page.click('.ws-more');
-  assert.equal(await visibleRadios(), 5, 'More shows the rest');
-  ok('a first phone visit shows 2 brushes and More; More shows the rest');
+  await page.waitForSelector('.ws-sheet[open]');
+  assert.equal(await page.locator('.ws-sheet[open] input[name="ws-brush-s"]').count(), 5, 'More shows every brush');
+  await page.click('.ws-sheet[open] input[name="ws-brush-s"][value="shoot"] >> xpath=..');
+  await page.click('.ws-sheet[open] input[name="ws-paint-s"][value="one"] >> xpath=..');
+  await page.click('.ws-sheet[open] .ws-sheet-done');
+  assert.equal(await page.textContent('.ws-mode'), 'Shoot, one square. Tap to add or erase.', 'the mode line names a brush whose button More hides');
+  assert.equal(await boardTop(), top0, 'the board does not move');
+  await page.click('.ws-more'); await page.click('.ws-sheet[open] input[name="ws-brush-s"][value="both"] >> xpath=..'); await page.click('.ws-sheet[open] input[name="ws-paint-s"][value="all"] >> xpath=..'); await page.click('.ws-sheet[open] .ws-sheet-done');
+  ok('a first phone visit shows 2 brushes, More and "?"; More opens every brush and Paint on in a sheet; the mode line always says what a tap does; the board stays put');
 
   // 3b. One tap on a tab switches it, also while the name is being typed; the name comes back after.
   for (const n of [3, 2, 1, 3]) { await page.tap(`.ws-tabs label:nth-child(${n})`); assert.equal(await page.getAttribute('.ws-panel', 'data-tab'), ['moves', 'rules', 'look'][n - 1], `one tap on tab ${n}`); }
@@ -276,7 +286,8 @@ try {
   await page.click('.ws-cell[data-x="1"][data-y="1"]');
   await page.click('.ws-stage .ws-chip');
   await page.waitForSelector('.ws-sheet[open]');
-  assert.match(await page.textContent('.ws-sheet[open] .ws-reasons'), /Moves and takes 1 square diagonally: adds about 3 pawns\..*Takes again: adds about 2½ pawns\./s, 'Why? names the parts that make it strong');
+  assert.match(await page.textContent('.ws-sheet[open] .ws-reasons'), /Without “moves and takes 1 square diagonally”: about [\d½]+ pawns\..*Without “takes again”: about [\d½]+ pawns\./s, 'Why? compares the design with itself less each part');
+  assert.match(await page.textContent('.ws-sheet[open]'), /The parts overlap, so the differences do not add up\./, 'Why? says once that the parts do not add up');
   await shot(page, '375x660-why-diag');
   await page.click('.ws-sheet[open] .ws-undo-last');
   await page.click('.ws-stage .ws-chip');
@@ -389,6 +400,157 @@ try {
   await page.context().close();
   ok('Try it: the knight marks 8 squares; after a take the next targets show at once, Finish ends the chain, and nothing moves on the screen');
 
+  // 8b. The review's fixes (docs/visual-design/workshop/REVIEW-2026-10-06.md), each found failing first.
+  {
+    // A save the device refuses: no "saved" anywhere, an alert that stays, and no "A copy is on your shelf".
+    const refuse = () => { const o = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (k === 'kingdown.workshop') throw new Error('full'); return o.call(this, k, v); }; };
+    page = await open();
+    await page.context().addInitScript(refuse); await page.reload(); await page.waitForFunction(() => window.view?.ready);
+    await viaGuide(page);
+    await editPreset(page, 'knight');
+    await page.click('.ws-cell[data-x="1"][data-y="1"]');
+    assert.match(await page.textContent('.ws-alert'), /^Not saved: this device did not keep the design\./);
+    await page.click('.ws-done');
+    await page.waitForSelector('.ws-card');
+    assert.equal(await page.locator('.ws-saved-note').count(), 0, 'SAVED does not say saved');
+    assert.match(await page.textContent('.ws-lead'), /Custom pieces cannot join games yet\./);
+    await shot(page, '375x660-not-saved');
+    await page.click('.ws-dup');
+    await page.waitForSelector('.ws-editor');
+    assert.notEqual(await page.textContent('.ws-toast'), 'A copy is on your shelf.');
+    assert.equal(await page.isVisible('.ws-alert'), true, 'the alert stays');
+    await page.context().close();
+    ok('a save the device refuses says so and keeps saying so; nothing claims it was saved');
+
+    // A full shelf: nothing is dropped; the player deletes one, and the open design is saved.
+    page = await open();
+    await page.evaluate(() => {
+      const d = n => ({ v: 1, kind: 'piece', id: `s${n}`, name: `Seed ${n}`, named: true, look: { body: 'N', auto: false, glow: null, army: 0 }, letter: 'D', squares: [{ x: 1, y: 2, mark: 'both' }], lines: [], rules: [], from: [], updated: 1000 + n });
+      localStorage.setItem('kingdown.workshop', JSON.stringify({ v: 1, designs: [...Array.from({ length: 50 }, (_, i) => d(50 - i)), { kind: 'piece', id: 'broken' }] }));
+    });
+    await viaGuide(page);
+    assert.match(await page.textContent('.ws-scroll'), /1 saved entry could not be read\. It stays on this device/, 'HOME names the damaged entry and shows the rest');
+    assert.equal(await page.locator('.ws-tile').count(), 50);
+    await editPreset(page, 'knight');
+    await page.click('.ws-cell[data-x="1"][data-y="1"]');
+    const ids = () => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.workshop')).designs.map(d => d.id));
+    assert.match(await page.textContent('.ws-alert'), /your shelf is full \(50 designs\)/);
+    assert.ok((await ids()).includes('s1'), 'the oldest design stays');
+    await page.click('.ws-alert-del');
+    await page.click('.ws-sheet[open] .ws-room-del[data-id="s1"]');
+    const after = await ids();
+    assert.equal(after.filter(x => x.startsWith('s')).length, 49);
+    assert.equal(after.length, 51, '49 seeds, the new design and the damaged entry');
+    assert.equal(await page.isVisible('.ws-alert'), false);
+    await page.context().close();
+    ok('a full shelf drops nothing: the player deletes one in a sheet and the open design is saved; a damaged entry stays and is named');
+
+    // Copy where the device refuses: a sheet with the text, selected.
+    page = await open();
+    await page.evaluate(() => { navigator.clipboard.writeText = () => Promise.reject(new Error('denied')); });
+    await viaGuide(page);
+    await editPreset(page, 'knight');
+    await page.click('.ws-done');
+    await page.click('.ws-copy');
+    await page.waitForSelector('.ws-sheet[open] .ws-copy-box');
+    assert.match(await page.inputValue('.ws-sheet[open] .ws-copy-box'), /\?design=[\w-]+$/);
+    await page.keyboard.press('Escape');
+    // The exact list of squares, the pictures' labels.
+    await page.click('.ws-every summary');
+    assert.equal((await page.locator('.ws-every li').allTextContents()).length, 8);
+    assert.equal(await page.textContent('.ws-pat figcaption'), 'Base moves');
+    await shot(page, '375x660-saved-every');
+    await page.context().close();
+    ok('where the device cannot copy, a sheet shows the text to copy by hand; SAVED lists every square and labels its picture');
+
+    // Ctrl+Z in a sheet does nothing; the arrow keys move a choice and Enter commits it; the sheet acts on its own rule.
+    page = await open({ w: 1280, h: 900 });
+    await viaGuide(page);
+    await editPreset(page, 'knight');
+    await tab(page, 2);
+    await page.click('.ws-add');
+    await page.click('.ws-book-row[data-a="movesLike"]');
+    await page.click('.ws-pill[data-pill="when"]');
+    await page.waitForSelector('.ws-sheet[open]');
+    await page.keyboard.press('Control+z');
+    assert.equal(await page.locator('.ws-rule').count(), 1, 'the undo key does not reach the editor under a sheet');
+    await page.focus('.ws-sheet[open] input[type="radio"]:checked');
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await page.evaluate(() => !!document.querySelector('.ws-sheet[open]')), true, 'an arrow key only moves the choice');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(() => !!document.querySelector('.ws-sheet[open]')), false, 'Enter commits it');
+    assert.match(await page.textContent('.ws-rule'), /In the enemy half/);
+    // A stroke ends when the button is released off the board.
+    await tab(page, 1);
+    const cell = async (x, y) => { const b = await page.locator(`.ws-cell[data-x="${x}"][data-y="${y}"]`).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+    const labels = () => page.evaluate(() => [...document.querySelectorAll('.ws-cell')].map(b => b.getAttribute('aria-label')).join('|'));
+    await page.mouse.move(...await cell(1, 1)); await page.mouse.down(); await page.mouse.move(640, 890); await page.mouse.up();
+    const l0 = await labels();
+    await page.mouse.move(...await cell(3, 0)); await page.mouse.move(...await cell(-3, 3));
+    assert.equal(await labels(), l0, 'no painting after a release off the board');
+    await page.context().close();
+    ok('Ctrl+Z stays out of a sheet; arrows move a choice and Enter commits it; a stroke released off the board ends');
+
+    // A press on a dialog's padding that ends on the backdrop keeps it open.
+    page = await open({ w: 375, h: 812 });
+    await page.click('#settings-btn');
+    const b = await page.locator('#settings').boundingBox();
+    await page.mouse.move(b.x + 3, b.y + 3); await page.mouse.down(); await page.mouse.move(b.x + 3, Math.max(2, b.y - 10)); await page.mouse.up();
+    assert.equal(await page.evaluate(() => !!document.querySelector('#settings[open]')), true);
+    await page.context().close();
+    ok('a drag from a dialog\'s padding to the backdrop keeps it open');
+
+    // Try it: push or take asks; arrow keys, focus on the landing square, the move announced; a Safe rule in its own words.
+    page = await open();
+    await viaGuide(page);
+    await editPreset(page, 'ogre');
+    await page.click('.ws-done');
+    await page.click('.ws-try');
+    assert.equal(await page.locator('.tb-sq:not([tabindex="-1"])').count(), 1, 'one tab stop');
+    await page.focus('.tb-sq[tabindex="0"]');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.sq), '35', 'focus on the landing square');
+    assert.equal(await page.textContent('.tb-live'), 'Moved to d5.');
+    assert.match(await page.getAttribute('.tb-sq[data-sq="43"]', 'aria-label'), /take or push/);
+    await page.click('.tb-sq[data-sq="43"]');
+    assert.deepEqual(await page.locator('.tb-ask button').allTextContents(), ['Take', 'Push']);
+    await shot(page, '375x660-try-choice');
+    await page.click('.tb-ask button:text("Take")');
+    assert.equal(await page.textContent('.tb-live'), 'Took the enemy pawn on d6.');
+    assert.match(await page.getAttribute('.tb-sq[data-sq="43"]', 'aria-label'), /your piece/);
+    await page.click('.ws-back'); await page.click('.ws-back');
+    await editPreset(page, 'guard');
+    await page.click('.ws-done');
+    await page.click('.ws-try');
+    assert.equal(await page.textContent('.tb-safe'), 'It cannot be taken by anything but a king. That holds now. The other side never moves, so Try it cannot test this rule.');
+    await page.context().close();
+    ok('Try it: a square with push and take asks which one; one tab stop, arrows, focus on the landing square, each move announced; a Safe rule in its own words');
+
+    // A Pawn keeps its own words; a saved Paladin's warning opens "Why this warning?".
+    page = await open();
+    await viaGuide(page);
+    await editPreset(page, 'pawn');
+    assert.equal(await page.textContent('.ws-worth'), 'About 1 pawn · The unit of worth');
+    await page.click('.ws-back');
+    await editPreset(page, 'paladin');
+    await page.click('.ws-done');
+    await page.click('.ws-chip');
+    assert.equal(await page.textContent('.ws-sheet[open] h2'), 'Why this warning?');
+    await page.context().close();
+    ok('an unchanged Pawn keeps its own words; the Why? title follows the verdict on SAVED');
+
+    // Phone landscape: the whole board, the brushes beside it.
+    page = await open({ w: 568, h: 320 });
+    await viaGuide(page);
+    await editPreset(page, 'knight');
+    assert.equal(await page.evaluate(() => [...document.querySelectorAll('.ws-cell')].filter(c => { const r = c.getBoundingClientRect(); return r.top < 0 || r.bottom > innerHeight + 0.5 || r.right > innerWidth + 0.5; }).length), 0, 'every cell on screen at 568x320');
+    assert.equal(await page.isVisible('.ws-mode'), true);
+    await shot(page, '568x320-moves');
+    await page.context().close();
+    ok('at 568x320 the whole board shows, with the brushes and the mode line beside it');
+  }
+
   // 9. No animation after each tap with reduced motion, and with Animations Off.
   for (const o of [{ reducedMotion: 'reduce' }, { pace: 'off' }]) {
     page = await open(o);
@@ -417,8 +579,8 @@ try {
   await addRule(page, 'chain');
   await shot(page, '1280x900-rook-chain');
   await page.click('.ws-stage .ws-chip');
+  assert.equal(await page.evaluate(() => document.activeElement.classList.contains('ws-side')), true, 'Why? on desktop moves focus to the side panel, which already shows the reasons');
   await shot(page, '1280x900-why');
-  await page.keyboard.press('Escape');
   await page.click('.ws-done');
   await page.click('.ws-try');
   await shot(page, '1280x900-try');
