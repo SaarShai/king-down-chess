@@ -36,9 +36,10 @@
       <div id="asset-status" role="status" aria-live="polite">Loading pieces…</div>
     </header>
     <aside id="panel" aria-label="Game controls">
-      <nav class="btns three menu" aria-label="Menu">
+      <nav class="btns three four menu" aria-label="Menu">
         <button id="new-game-btn"><svg class="icon" aria-hidden="true"><use href="#i-new"/></svg><span class="label">New game</span></button>
         <button id="rules-btn" title="How each piece moves"><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg><span class="label">Guide</span></button>
+        <button id="workshop-btn" title="Make your own piece"><svg class="icon" aria-hidden="true"><use href="#i-workshop"/></svg><span class="label">Workshop</span></button>
         <button id="settings-btn"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Settings</span></button>
       </nav>
       <div id="lesson-progress" hidden aria-hidden="true"></div>
@@ -226,7 +227,6 @@
     <dialog id="rules" aria-labelledby="rules-title">
       <h2 id="rules-title" tabindex="-1" autofocus>King Down pieces</h2>
       <button id="learn" class="learn primary"><svg class="icon" aria-hidden="true"><use href="#i-learn"/></svg><span class="label">Learn the six King Down pieces by playing, one move each</span></button>
-      <button id="guide-workshop" class="learn quiet"><svg class="icon" aria-hidden="true"><use href="#i-workshop"/></svg><span class="label">Make your own piece or card</span></button>
       <p id="rules-lead"></p>
       <div id="rules-rows" class="piece-cards"></div>
       <p id="rules-letters"></p>

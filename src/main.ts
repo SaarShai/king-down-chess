@@ -16,6 +16,7 @@ import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-tex
 import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
+import './dialog-dismiss';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -655,7 +656,7 @@ function openWorkshop(code?: string): void {
   });
 }
 $('title-workshop').onclick = () => openWorkshop();
-$('guide-workshop').onclick = () => openWorkshop();
+$('workshop-btn').onclick = () => openWorkshop();
 $('return-game').onclick = () => {
   if (!lessonReturn) return;
   const s = cloudGame ? readSave() : null;
