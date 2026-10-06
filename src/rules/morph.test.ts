@@ -179,9 +179,9 @@ describe('Morph: the move', () => {
     expect(status(dead)).toBe('drawMaterial');
   });
 
-  it('is last in the card list (its hash slot), with its text and its flag', () => {
-    expect(CARD_ONLY.slice(-3)).toEqual(['Rally', 'Morph', 'MorphB']);
-    expect(ALL_CARDS.length).toBeLessThanOrEqual(32); // the Mirror's last-card keys: 32 slots a side
+  it('keeps its hash slot (right after Rally; later cards are appended), with its text and its flag', () => {
+    expect(CARD_ONLY.slice(CARD_ONLY.indexOf('Rally'), CARD_ONLY.indexOf('Rally') + 3)).toEqual(['Rally', 'Morph', 'MorphB']);
+    expect(ALL_CARDS.length).toBeLessThanOrEqual(64); // the Mirror's last-card keys: 64 slots a side (`lastIndex`)
     expect(parseRule('hands=morph+MORPHB').hands![0]).toEqual(['Morph', 'MorphB']);
     expect(cardText('Morph')).toBe('one of your pieces (not a pawn or the king) becomes another kind of piece where it stands (not a pawn or a king, and never a second beast)');
     expect(cardText('MorphB')).toBe('one of your pieces (not a pawn or the king) becomes another kind of piece where it stands (not a pawn, a king or a queen, and never a second beast)');

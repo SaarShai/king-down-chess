@@ -115,16 +115,24 @@ export const lostIndex = (i: number, n: number): number => i * 4 + Math.min(n, 3
 /*
  * The 2014 cards (2026-10-04), appended after every earlier draw: a Firewall mark per marking side,
  * a pending Rage (index 0) or RageB (index 1) second move, the card each side played last (Mirror;
- * 32 slots per side by `ALL_CARDS` order), and the cards each side has drawn at counts 1…7
+ * 32 slots per side by `ALL_CARDS` order, `lastIndex`), and the cards each side has drawn at counts 1…7
  * (Growth). A mark that has just ended (`left: 0`, for a Rescue) uses index 0 of `Z_LEFT` /
  * `Z_LEFTB`, drawn before and never used until now.
  */
 export const [Z_ALL_LO, Z_ALL_HI] = draw(2);
 const [rageLo, rageHi] = draw(2);
-export const [Z_LAST_LO, Z_LAST_HI] = draw(2 * 32);
+const [lastLo, lastHi] = draw(2 * 32);
 export const [Z_DRAWN_LO, Z_DRAWN_HI] = draw(2 * 8);
 /** Slot of "side `c` has drawn `n` cards" (n ≥ 1, capped at 7). */
 export const drawnIndex = (c: number, n: number): number => c * 8 + Math.min(n, 7);
 /** A pending Rally second move (2026-10-05), appended: index 2 of `Z_RAGE`, after the Rage and RageB keys drawn above. */
 const [rallyLo, rallyHi] = draw(1);
 export const Z_RAGE_LO = Int32Array.of(...rageLo, ...rallyLo), Z_RAGE_HI = Int32Array.of(...rageHi, ...rallyHi);
+/**
+ * Mirror's last-card keys for cards 32…63 of `ALL_CARDS` (the Spawn cards, 2026-10-06, took it past
+ * 32), appended: 32 more a side after the 32 a side drawn above, so no earlier card's key moves.
+ */
+const [lastLo2, lastHi2] = draw(2 * 32);
+export const Z_LAST_LO = Int32Array.of(...lastLo, ...lastLo2), Z_LAST_HI = Int32Array.of(...lastHi, ...lastHi2);
+/** Slot in `Z_LAST` of "side `c` played card `k` last" (`k`: the card's index in `ALL_CARDS`, below 64). */
+export const lastIndex = (c: number, k: number): number => (k < 32 ? c * 32 + k : 64 + c * 32 + (k - 32));

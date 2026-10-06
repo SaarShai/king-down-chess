@@ -179,7 +179,10 @@ export function fromFen(fen: string): Position {
  * Ra1-a4!A and Ra1-a4!B (Rage, RageB; the second move is plain), Ra1-a4!J (Rally; so is the other piece's move), !P (Firewall), !E:d4<>e5
  * (FirewallB), !Q:d4 and !U:d4 (Earth Quake on d4, EarthQuakeB), Rd1xd4!N (Burn), Qd1xd8!T (Fire
  * Starter), Nb1-b4!O (Control), !D:e5 (Rescue of the mark on e5), !G and !G+ (Growth, GrowthB),
- * !I:d1=Q and !I+:d1=R (Morph and MorphB: the piece on d1 becomes a queen, a rook);
+ * !I:d1=Q and !I+:d1=R (Morph and MorphB: the piece on d1 becomes a queen, a rook), and the
+ * Spawn cards in the drop's shape: P@c2!S (Spawn), P@d2!SK (SpawnK), P@c2,f2!S2 (Spawn2) and
+ * P@d2,e2!SK2 (SpawnK2) — every capital letter already names a card, so these take the Spawn's
+ * name (`S` is otherwise Sacrifice's prefix `!S:`, never a suffix);
  * a Mirror card writes the copied card's move then !Y (Mirror) or !Z (MirrorB): !F:d5!Y.
  *
  * A shove prints where the *shoved* piece went and not where the ogre ended up, because the ogre's
@@ -191,6 +194,9 @@ export function toLan(pos: Position, m: Move): string {
   return m.via === 'mirror' ? s + '!Y' : m.via === 'mirrorb' ? s + '!Z' : s;
 }
 
+/** The card a drop spends, by its notation: Salvation and the Spawn cards (a waiting guard spends none). */
+const DROP_TAG: Readonly<Record<string, string>> = { salvation: '!R', spawn: '!S', spawnk: '!SK', spawn2: '!S2', spawnk2: '!SK2' };
+
 function lanOf(pos: Position, m: Move): string {
   const t = typeOf(pos.board[m.from]);
   const letter = t === P ? '' : LETTERS[t];
@@ -198,7 +204,7 @@ function lanOf(pos: Position, m: Move): string {
   // Ice Wall (`W`), Sacrifice (`S`, the pawn's square and the returned piece) and Flight (`~`); and
   // the Curse card (`C`, an enemy piece's step) and SkyLift (`K`, before the maester swap it looks like).
   if (m.pass) return '--';
-  if (m.drop) return `${LETTERS[m.drop]}@${sqName(m.to)}${m.power === 'salvation' ? '!R' : ''}`;
+  if (m.drop) return `${LETTERS[m.drop]}@${sqName(m.to)}${m.drop2 !== undefined ? ',' + sqName(m.drop2) : ''}${DROP_TAG[m.power ?? ''] ?? ''}`;
   if (m.power === 'freeze') return `!F:${sqName(m.to)}`;
   if (m.power === 'ward') return `!W:${sqName(m.to)}`;
   if (m.power === 'sacrifice') return `!S:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;

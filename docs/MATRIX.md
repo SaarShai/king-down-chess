@@ -101,7 +101,7 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Property | Allowed values |
 |---|---|
 | Source | king power · card · both (a spendable king power is also dealt as a card) |
-| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ◐ Morph, MorphB) · spawn (a new piece, not a captured one, comes onto the board, D.5: ○ Spawn) |
+| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ◐ Morph, MorphB) · spawn (a new piece, not a captured one, comes onto the board, D.5: ◐ Spawn, SpawnK, Spawn2, SpawnK2) |
 | Uses | n per game (king power) · 1 (every card) · — (always-on) |
 | Turn cost | is the turn's move · then make the move (a free action, `markFree`) · extra move (the second move may be skipped) |
 | Captures | may · must · never |
@@ -151,6 +151,10 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Rally | card ◐ | extra move: a different own piece | — | extra move | never, on either move | own pieces, the king included | instant |
 | Morph | card ◐ | promotion: an own piece becomes another type, on its square | — | is the turn's move | never | an own piece, not the king or a pawn (a frozen one does not morph); the new type one the draw pool fields (`POOL`: queen, ogre, rook, bishop, knight, archer, guard, maester, beast), not its own, never a second Beast for the side (a second queen may come), a guard only where a guard may land | instant |
 | MorphB | card ◐ | promotion: the same | — | is the turn's move | never | as Morph, and the new type not a queen | instant |
+| Spawn | card ◐ | spawn: a new own pawn on an empty square of the own pawn start rank (rank 2 / 7) | — | is the turn's move | never | an empty square; the own king not in check after (it may block a check) | instant |
+| SpawnK | card ◐ | spawn: a new own pawn on an empty square next to the own king | — | is the turn's move | never | an empty square of the king's 8 neighbours, not on rank 1 or 8; the king not in check after | instant |
+| Spawn2 | card ◐ | spawn: two new own pawns, as Spawn | — | is the turn's move | never | two different empty squares of the start rank (at most 28 pairs); the king not in check after | instant |
+| SpawnK2 | card ◐ | spawn: two new own pawns, as SpawnK | — | is the turn's move | never | two different empty squares next to the king, not on rank 1 or 8; the king not in check after | instant |
 
 Every card is one use; "Uses (king)" is the official count of a king power (`POWERS_BALANCED` over the rule defaults).
 "Then make the move" for the marks is `markFree`, official for the kings and used in every card measurement. Flight is
@@ -200,7 +204,8 @@ The piece, power or card keeps its type but is weaker, or off, until the conditi
 
 Zone: Flight (own half), Burn (capital), Fire Starter (enemy back rank). Tag team: Mercy, Holy Light, Death Touch
 (next to the king), Control, FirewallB, Earth Quake B (next to an own piece). Turn N: any item with `fromMove`.
-Capture: RageB. Opponent's card: Mirror. Own last mark: Rescue. Lost pieces: Sacrifice, Salvation.
+Capture: RageB. Opponent's card: Mirror. Own last mark: Rescue. Lost pieces: Sacrifice, Salvation. Zone and tag team
+for a spawn: Spawn and Spawn2 (the own pawn start rank), SpawnK and SpawnK2 (next to the own king).
 None is shackled today except through `fromMove`; none promotes except Sacrifice's pawn and the Morph cards' piece.
 
 ### D.5 Spawn: a new piece comes onto the board (owner, 2026-10-06)
@@ -212,8 +217,8 @@ next to the source: a tag team) and when (a condition, D.1).
 
 | Item | Spawns | Where | When | Status |
 |---|---|---|---|---|
-| **Spawn** (card, owner's pick) | a pawn | an empty square of the own pawn start rank | the card is played (the turn's move) | ○ to build and test |
-| **SpawnK** (card) | a pawn | an empty square next to the own king (not on a first rank, where no pawn may stand) | the card is played (the turn's move) | ○ to build and test: may also get the king out of trouble |
-| **Spawn2** / **SpawnK2** (cards) | two pawns | as Spawn / SpawnK | the card is played (the turn's move) | ○ to build and test, in case one pawn is too weak |
+| **Spawn** (card, owner's pick) | a pawn | an empty square of the own pawn start rank | the card is played (the turn's move) | ◐ lab (`hands=Spawn`; `P@c2!S`); an ordinary pawn from then on (double step from its start rank); taken, it joins the reserve as a pawn, which nothing returns; not measured |
+| **SpawnK** (card) | a pawn | an empty square next to the own king (not on a first rank, where no pawn may stand) | the card is played (the turn's move) | ◐ lab (`P@d2!SK`); may block a check, so it can get the king out of a mate; not measured |
+| **Spawn2** / **SpawnK2** (cards) | two pawns | as Spawn / SpawnK, two different squares | the card is played (the turn's move) | ◐ lab (`P@c2,f2!S2`, `P@d2,e2!SK2`; `Move.drop2`); not measured |
 | a piece that spawns | a pawn | an empty square next to it | its move, or a condition (a capture, a zone) | idea |
 

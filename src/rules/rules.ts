@@ -87,7 +87,8 @@ export interface KingChoice { king: KingName; power: PowerName }
  */
 export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Salvation'
   | 'Rage' | 'RageB' | 'Mirror' | 'MirrorB' | 'Firewall' | 'FirewallB' | 'EarthQuake' | 'EarthQuakeB'
-  | 'Burn' | 'FireStarter' | 'Control' | 'Rescue' | 'Growth' | 'GrowthB' | 'Rally' | 'Morph' | 'MorphB';
+  | 'Burn' | 'FireStarter' | 'Control' | 'Rescue' | 'Growth' | 'GrowthB' | 'Rally' | 'Morph' | 'MorphB'
+  | 'Spawn' | 'SpawnK' | 'Spawn2' | 'SpawnK2';
 /**
  * The cards no king has (lab, 2026-10-03), each one use and the turn's move:
  * - **Mimic**: a piece (not king or pawn) moves, to an empty square only, the way one of the side's
@@ -125,11 +126,18 @@ export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Sa
  * another type the draw pool fields (not a king or pawn, not its own type), on its square, as the
  * turn; it takes nothing. Never a second Beast for the side (one Beast per army); a second queen may
  * come. MorphB: never a queen either.
+ *
+ * **Spawn** / **SpawnK** / **Spawn2** / **SpawnK2** (owner, 2026-10-06; docs/MATRIX.md D.5): as the
+ * turn, a new pawn of the side appears on an empty square, taking nothing: Spawn on the side's pawn
+ * start rank (rank 2 / rank 7), SpawnK next to its own king but never on rank 1 or 8. Spawn2 and
+ * SpawnK2: two new pawns, on two different such squares. The new pawn is an ordinary pawn from then
+ * on (on its start rank it may double-step), and the side may end with more than eight pawns.
  */
 export const CARD_ONLY: readonly CardName[] = [
   'Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation',
   'Rage', 'RageB', 'Mirror', 'MirrorB', 'Firewall', 'FirewallB', 'EarthQuake', 'EarthQuakeB', 'Burn', 'FireStarter', 'Control', 'Rescue', 'Growth', 'GrowthB',
   'Rally', 'Morph', 'MorphB',
+  'Spawn', 'SpawnK', 'Spawn2', 'SpawnK2',
 ];
 
 /** Each king's two powers, A first (docs/RULES.md §4). */

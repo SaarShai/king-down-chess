@@ -25,7 +25,7 @@ import {
   Z_ALL_HI, Z_ALL_LO, Z_DRAWN_HI, Z_DRAWN_LO, Z_FREE_HI, Z_FREE_LO, Z_HASTE_HI, Z_HASTE_LO, Z_HI, Z_LAST_HI, Z_LAST_LO, Z_LEFTB_HI, Z_LEFTB_LO, Z_LEFT_HI, Z_LEFT_LO,
   Z_LO, Z_LOST_HI, Z_LOST_LO, Z_MARK_HI, Z_MARK_LO, Z_RAGE_HI, Z_RAGE_LO,
   Z_TURN_HI, Z_TURN_LO, Z_USED_HI, Z_USED_LO, Z_WAIT_HI, Z_WAIT_LO, Z_WARD_HI, Z_WARD_LO,
-  combine, drawnIndex, hashBoard, lostIndex, usedIndex, waitIndex, zIndex,
+  combine, drawnIndex, hashBoard, lastIndex, lostIndex, usedIndex, waitIndex, zIndex,
 } from './zobrist';
 
 export { VALUES, evaluate, evaluatorName, setEvaluator } from './eval';
@@ -141,6 +141,9 @@ const HOLD_DEFAULT: Readonly<Partial<Record<CardName, number>>> = Object.freeze(
   Rally: 150,
   // Morph and MorphB (2026-10-06): starting guesses, unmeasured; MorphB lower (no queen).
   Morph: 150, MorphB: 120,
+  // The Spawn cards (2026-10-06): starting guesses, all four unmeasured — about the pawn each adds, a
+  // little more next to the king (it may shield it or block a check), and less than two for the pairs.
+  Spawn: 100, SpawnK: 110, Spawn2: 180, SpawnK2: 200,
 });
 const hold: Partial<Record<CardName, number>> = { ...HOLD_DEFAULT };
 /** Share of the best returnable piece's gain (piece − pawn) an unspent Sacrifice is worth. */
@@ -194,8 +197,8 @@ function setRage(v: number): void {
 /** Set the card side `c` played last (Mirror), with its key. */
 function setLast(c: number, v: CardName | undefined): void {
   const old = lastName[c];
-  if (old) { const i = c * 32 + ALL_CARDS.indexOf(old); hLo ^= Z_LAST_LO[i]; hHi ^= Z_LAST_HI[i]; }
-  if (v) { const i = c * 32 + ALL_CARDS.indexOf(v); hLo ^= Z_LAST_LO[i]; hHi ^= Z_LAST_HI[i]; }
+  if (old) { const i = lastIndex(c, ALL_CARDS.indexOf(old)); hLo ^= Z_LAST_LO[i]; hHi ^= Z_LAST_HI[i]; }
+  if (v) { const i = lastIndex(c, ALL_CARDS.indexOf(v)); hLo ^= Z_LAST_LO[i]; hHi ^= Z_LAST_HI[i]; }
   lastName[c] = v;
 }
 /** Set the cards side `c` has drawn (Growth), with its key. */
@@ -341,6 +344,7 @@ function apply(m: Move, c: Color): number {
     else {
       write(m.from, m.swap ? other : 0);
       write(m.to, m.selfRemove ? 0 : landed(mover, m));
+      if (m.drop2 !== undefined) write(m.drop2, mover);
     }
   }
   if (m.power) setUsed(c, spend(c, usedPair[c], m.power, drawnN[c], m.via));
@@ -427,6 +431,7 @@ function applyQuiet(m: Move, c: Color): number {
   board[m.from] = m.swap ? other : 0;
   undoSq[sp] = m.to; undoPc[sp] = board[m.to]; sp++;
   board[m.to] = m.selfRemove ? 0 : landed(mover, m);
+  if (m.drop2 !== undefined) { undoSq[sp] = m.drop2; undoPc[sp] = board[m.drop2]; sp++; board[m.drop2] = mover; }
   return base;
 }
 
@@ -496,8 +501,8 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // and a Morph changes only the type of an own piece that stays on its square (it still blocks, and
   // still screens a catapult), so nothing else can change an attack on the king — except a Curse,
   // which moves an *enemy* piece that may arrive attacking it, a FirewallB (a swap) that moves an enemy piece, and an Earth Quake,
-  // which moves several pieces: those are always tested. A drop (a waiting guard, a Salvation) fills
-  // one square and empties none, so only the catapult's screen can make it expose the king. A
+  // which moves several pieces: those are always tested. A drop (a waiting guard, a Salvation, a
+  // Spawn's pawn, or a Spawn2's two) fills squares and empties none, so only the catapult's screen can make it expose the king. A
   // Firewall, a Rescue and a Growth change no square. `setFastLegality(false)` turns this off for
   // the cross-check test.
   const k = board.indexOf(piece(K, c));
@@ -510,7 +515,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
     let test: boolean;
     if (!fastLegality || inChk) test = true;
     else if (isStill(m)) test = false; // no square changes
-    else if (m.drop) test = lob && LINE[lines + m.to] === 1;
+    else if (m.drop) test = lob && (LINE[lines + m.to] === 1 || (m.drop2 !== undefined && LINE[lines + m.drop2] === 1));
     else {
       test = m.power === 'curse' || m.pushes !== undefined || m.from === k || m.swap === true || m.shove !== undefined || LINE[lines + m.from] === 1 || (lob && LINE[lines + m.to] === 1);
       for (let j = 0; !test && j < m.captures.length; j++) if (LINE[lines + m.captures[j]] === 1) test = true;
@@ -546,9 +551,9 @@ function gain(m: Move): number {
   return g;
 }
 
-/** Compact move signature for TT / killer slots. Distinct chains can collide; ordering only. */
+/** Compact move signature for TT / killer slots. Distinct chains can collide; ordering only. A Spawn2's second square is bits 20…25 (never a1, so 0 is none). */
 const encode = (m: Move): number =>
-  (m.from | (m.to << 6) | ((m.promo ?? m.drop ?? 0) << 12) | (Math.min(m.captures.length, 15) << 16)) + 1;
+  (m.from | (m.to << 6) | ((m.promo ?? m.drop ?? 0) << 12) | (Math.min(m.captures.length, 15) << 16) | ((m.drop2 ?? 0) << 20)) + 1;
 
 function score(moves: Move[], ply: number, ttEnc: number): Int32Array {
   if (orderBufs[ply].length < moves.length) orderBufs[ply] = new Int32Array(moves.length * 2);
@@ -556,6 +561,9 @@ function score(moves: Move[], ply: number, ttEnc: number): Int32Array {
   const k0 = killers[ply * 2], k1 = killers[ply * 2 + 1];
   for (let i = 0; i < moves.length; i++) {
     const m = moves[i], enc = encode(m);
+    // A Spawn is ordered as a quiet move (killers, history): its pawns about repay the card's hold, so
+    // it wins no material, and the capture tier tried its up to 28 pairs first for more nodes
+    // (2026-10-06: depth 4 on 12 positions, 172k nodes as quiet moves, 192k–199k as gains).
     if (enc === ttEnc) s[i] = 1 << 28;
     else if (m.captures.length || m.promo || m.power === 'salvation') s[i] = (1 << 24) + gain(m) * 16 - VALUES[m.drop ?? typeOf(board[m.from])];
     else if (enc === k0) s[i] = (1 << 23) + 1;
@@ -804,7 +812,7 @@ export function positionKey(pos: Position): number {
     const w = pos.waiting?.[c] ?? 0;
     if (w > 0) { const i = waitIndex(c, w); lo ^= Z_WAIT_LO[i]; hi ^= Z_WAIT_HI[i]; }
     const l = pos.last?.[c];
-    if (l && tracksLast()) { const i = c * 32 + ALL_CARDS.indexOf(l); lo ^= Z_LAST_LO[i]; hi ^= Z_LAST_HI[i]; }
+    if (l && tracksLast()) { const i = lastIndex(c, ALL_CARDS.indexOf(l)); lo ^= Z_LAST_LO[i]; hi ^= Z_LAST_HI[i]; }
     const d = pos.drawn?.[c] ?? 0;
     if (d > 0) { const i = drawnIndex(c, d); lo ^= Z_DRAWN_LO[i]; hi ^= Z_DRAWN_HI[i]; }
   }
@@ -877,9 +885,9 @@ export function leafPowers(pos: Position): { rows: [number, number]; term: numbe
   return { rows: [livePower(WHITE), livePower(1)], term: powerTerm(pos.turn) - powerTerm((pos.turn ^ 1) as Color) };
 }
 
-/** A move that resets the 50-move clock: a capture or a pawn move, a pushed pawn included (never a mark, a drawn card or a pass); `makeMove`'s own test. */
+/** A move that resets the 50-move clock: a capture or a pawn move, a pushed or a spawned pawn included (never a mark, a drawn card or a pass); `makeMove`'s own test. */
 const moveResets = (m: Move): boolean =>
-  m.captures.length > 0 || (!isStill(m) && (m.pushes ? m.pushes.some(p => typeOf(board[p.from]) === P) : typeOf(board[m.from]) === P));
+  m.captures.length > 0 || (!isStill(m) && (m.pushes ? m.pushes.some(p => typeOf(board[p.from]) === P) : (m.drop ?? typeOf(board[m.from])) === P));
 
 /**
  * Test probe: apply `m` to `pos` the way the search does and return the incremental key after it and

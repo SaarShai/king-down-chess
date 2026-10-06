@@ -8,7 +8,8 @@
  * square, which only a catapult's screen turns against the king). The card hands hold the 2014
  * cards too, with their state: piles and drawn cards, a last card to mirror, Firewall marks, ended
  * marks a Rescue may renew, and a Rage's pending second move. The Morph cards change a piece's type
- * on its square, which the fast path never probes outside a check.
+ * on its square, which the fast path never probes outside a check; the Spawn cards drop one or two
+ * pawns, which only a catapult's screen turns against the king.
  */
 import { afterEach, expect, it } from 'vitest';
 import {
@@ -117,7 +118,7 @@ it('the same with card hands, the card-only cards included, and marks on the boa
   expect(checked).toBeGreaterThan(1000);
   expect(inCheckCount).toBeGreaterThan(50);
   for (const tag of ['mimic', 'vault', 'curse', 'skylift', 'salvation', 'rage', 'rageb', 'firewall', 'firewallb', 'quake', 'quakeb', 'burn', 'firestarter',
-    'control', 'rescue', 'growth', 'growthb', 'mirror', 'mirrorb', 'rally', 'morph', 'morphb', 'rage1', 'rage2', 'rage3']) expect(played).toContain(tag);
+    'control', 'rescue', 'growth', 'growthb', 'mirror', 'mirrorb', 'rally', 'morph', 'morphb', 'spawn', 'spawnk', 'spawn2', 'spawnk2', 'rage1', 'rage2', 'rage3']) expect(played).toContain(tag);
 }, 120_000);
 
 it('the same with guards waiting to enter, more catapults on the board, and Salvation cards', () => {
@@ -155,6 +156,43 @@ it('the same with guards waiting to enter, more catapults on the board, and Salv
   expect(inCheckCount).toBeGreaterThan(50);
   expect(drops).toBeGreaterThan(3000); // 2026-10-04: 4,950 drops
   expect(refused, String(refused)).toBeGreaterThan(3000); // drops that leave the king in check or do not answer one (2026-10-04: 6,735)
+}, 120_000);
+
+it('the same with the Spawn cards and more catapults on the board (a new pawn may become a screen)', () => {
+  let seed = 3131;
+  const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+  const SPAWNS: readonly CardName[] = ['Spawn', 'SpawnK', 'Spawn2', 'SpawnK2'];
+  let checked = 0, inCheckCount = 0, spawns = 0, refused = 0, screens = 0;
+  for (let trial = 0; trial < 3000; trial++) {
+    const board = randomBoard(rng);
+    for (const c of [WHITE, BLACK]) { const s = Math.floor(rng() * 64); if (!board[s] && rng() < 0.6) board[s] = piece(C, c); }
+    const turn = (rng() < 0.5 ? WHITE : BLACK) as Color;
+    const pos: Position = { board, turn, halfmove: 0, ply: 0 };
+    if (inCheck(pos, (turn ^ 1) as Color)) continue;
+    const hand = (): CardName[] => SPAWNS.filter(() => rng() < 0.5);
+    setRules({ hands: [hand(), hand()] });
+    const checked0 = inCheck(pos);
+    if (checked0) inCheckCount++;
+    const engineMoves = legalMoves(pos);
+    const out = pseudoMoves(pos).filter(m => m.drop).length - engineMoves.filter(m => m.drop).length;
+    spawns += engineMoves.filter(m => m.drop).length;
+    refused += out;
+    if (!checked0) screens += out; // not in check: only a catapult's new screen refuses a spawn
+    const engine = engineMoves.map(m => toLan(pos, m)).sort();
+    const fast = searchLegal(pos).map(m => toLan(pos, m)).sort();
+    setFastLegality(false);
+    const slow = searchLegal(pos).map(m => toLan(pos, m)).sort();
+    setFastLegality(true);
+    const where = `${toFen(pos)} hands ${JSON.stringify(RULES.hands)}`;
+    expect(fast, where).toEqual(slow);
+    expect(fast, where).toEqual(engine);
+    checked++;
+  }
+  expect(checked).toBeGreaterThan(1000);
+  expect(inCheckCount).toBeGreaterThan(50);
+  expect(spawns).toBeGreaterThan(5000); // 2026-10-06: 7,959 spawns
+  expect(refused).toBeGreaterThan(5000); // spawns that leave the king in check or do not answer one (10,310)
+  expect(screens).toBeGreaterThan(40); // of them, out of check: a new pawn screens a catapult (88)
 }, 120_000);
 
 it('the same under the Darkness and Mercy readings, the round-16 and round-17 ones included', () => {

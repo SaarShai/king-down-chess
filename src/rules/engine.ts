@@ -100,6 +100,8 @@ export interface Move {
    *   (`Position.rage` 3), or the side ends the turn with a `pass`.
    * - `morph` / `morphb`: an own piece becomes another type on its square; `from === to`, `promo`
    *   names the new type (Sacrifice's shape), and nothing is taken.
+   * - `spawn` / `spawnk`: a new own pawn enters on the empty square `from === to` (`drop: P`, as a
+   *   Salvation's piece enters); `spawn2` / `spawnk2`: a second one on `drop2` too. Nothing is taken.
    * No power move ever captures a king, and none adds an attacked square.
    */
   power?: PowerTag;
@@ -112,16 +114,18 @@ export interface Move {
   promo?: PieceType;
   /**
    * A piece of this type enters from beside the board onto the empty square `from === to`: a
-   * waiting guard (`Rules.guardReserve`, no power) or a Salvation card's returned piece. It empties
-   * no square, so it never opens a line; its colour is the mover's (`moverOf`).
+   * waiting guard (`Rules.guardReserve`, no power), a Salvation card's returned piece or a Spawn
+   * card's new pawn. It empties no square, so it never opens a line; its colour is the mover's (`moverOf`).
    */
   drop?: PieceType;
+  /** Spawn2 / SpawnK2: a second piece of `drop`'s type enters on this empty square, another than `to` (always above it). */
+  drop2?: number;
 }
 
 /** The tag on a move that spends a king power (`Move.power`). */
 export type PowerTag = 'freeze' | 'ward' | 'strike' | 'haste' | 'flight' | 'sacrifice' | 'march' | 'leap' | 'mimic' | 'vault' | 'curse' | 'skylift' | 'salvation'
   | 'rage' | 'rageb' | 'firewall' | 'firewallb' | 'quake' | 'quakeb' | 'burn' | 'firestarter' | 'control' | 'rescue' | 'growth' | 'growthb' | 'rally'
-  | 'morph' | 'morphb';
+  | 'morph' | 'morphb' | 'spawn' | 'spawnk' | 'spawn2' | 'spawnk2';
 
 export interface Position {
   board: Uint8Array;
@@ -303,8 +307,10 @@ export const TAG_POWER: Readonly<Record<PowerTag, CardName>> = {
   mimic: 'Mimic', vault: 'Vault', curse: 'Curse', skylift: 'SkyLift', salvation: 'Salvation',
   rage: 'Rage', rageb: 'RageB', firewall: 'Firewall', firewallb: 'FirewallB', quake: 'EarthQuake', quakeb: 'EarthQuakeB',
   burn: 'Burn', firestarter: 'FireStarter', control: 'Control', rescue: 'Rescue', growth: 'Growth', growthb: 'GrowthB',
-  rally: 'Rally', morph: 'Morph', morphb: 'MorphB',
+  rally: 'Rally', morph: 'Morph', morphb: 'MorphB', spawn: 'Spawn', spawnk: 'SpawnK', spawn2: 'Spawn2', spawnk2: 'SpawnK2',
 };
+/** The Spawn cards' tags: a new pawn (two for `spawn2` / `spawnk2`) enters as the turn. */
+export const isSpawnTag = (t: PowerTag | undefined): boolean => t === 'spawn' || t === 'spawnk' || t === 'spawn2' || t === 'spawnk2';
 /** Card mode: may side `c` (cards played: the bits of `used`) still play a `power` card? */
 const holdsCard = (c: Color, used: number, power: CardName, drawn = 0): boolean => {
   for (let k = 0, n = heldCount(c, drawn); k < n; k++) if (cardAt(c, k) === power && !(used >> k & 1)) return true;
@@ -975,9 +981,11 @@ export function makeMove(pos: Position, m: Move): Position {
     else {
       board[m.from] = m.swap ? other : 0;
       board[m.to] = m.selfRemove ? 0 : landed(mover, m);
+      if (m.drop2 !== undefined) board[m.drop2] = mover;
     }
   }
-  // A pushed pawn resets the clock, as a cursed one does (a pawn's step is the clock's measure).
+  // A pushed pawn resets the clock, as a cursed one does (a pawn's step is the clock's measure), and so
+  // does a spawned one (`mover` is the new pawn).
   const reset = !still && (m.captures.length > 0 || (m.pushes ? m.pushes.some(p => typeOf(pos.board[p.from]) === P) : typeOf(mover) === P));
   // The turn holds after Black's first move under `secondPlayerDoubleFirstTurn` (see the rule's
   // comment in ./rules.ts for why that is a ply check), after the first move of a Haste or a Rage,
@@ -1609,6 +1617,30 @@ function genPowerMovesRaw(power: CardName | '', board: Uint8Array, c: Color, los
       }
       return;
     }
+    case 'Spawn': case 'SpawnK': case 'Spawn2': case 'SpawnK2': {
+      // A new pawn of the side enters on an empty square, as the turn; it takes nothing (`drop: P`,
+      // the shape of a Salvation's entry). Spawn: the side's pawn start rank. SpawnK: a square next to
+      // its own king, never on rank 1 or 8 (no pawn stands there). Spawn2 / SpawnK2: two new pawns on
+      // two different such squares, each pair once (`to < drop2`; at most 28 pairs). A spawn may
+      // block a check; legality is the caller's, as always.
+      const near = power === 'SpawnK' || power === 'SpawnK2', two = power === 'Spawn2' || power === 'SpawnK2';
+      const tag: PowerTag = near ? (two ? 'spawnk2' : 'spawnk') : two ? 'spawn2' : 'spawn';
+      const at: number[] = []; // ascending, so each pair is written once
+      if (near) {
+        const k = findKing(board, c);
+        if (k < 0) return;
+        for (let dr = -1; dr <= 1; dr++) for (let df = -1; df <= 1; df++) {
+          const s = df || dr ? step(k, df, dr) : -1;
+          if (s >= 0 && !board[s] && rank(s) !== 0 && rank(s) !== 7) at.push(s);
+        }
+      } else {
+        const r0 = c === WHITE ? 8 : 48;
+        for (let s = r0; s < r0 + 8; s++) if (!board[s]) at.push(s);
+      }
+      if (!two) for (const s of at) out.push({ from: s, to: s, captures: [], drop: P, power: tag });
+      else for (let i = 0; i < at.length; i++) for (let j = i + 1; j < at.length; j++) out.push({ from: at[i], to: at[i], captures: [], drop: P, drop2: at[j], power: tag });
+      return;
+    }
     case 'SkyLift': {
       // Two own pieces trade squares at any distance, in the maester swap's shape: neither the king
       // nor a pawn, not two of one type, and each lands where a guard may land (Flight's limit).
@@ -1826,7 +1858,8 @@ export function insufficientMaterial(board: Uint8Array): boolean {
  * can a piece that may still enter: a Salvation card with a returnable piece in the reserve
  * (`lost`; conservative, whatever the piece), or a waiting guard (`waiting`) when guards mate
  * (`guardCaptures: 'any'`), and so can a Morph or MorphB card while the side has a piece to morph
- * (conservative: any piece but the king). A card counts while a Mirror may copy it (the opponent
+ * (conservative: any piece but the king), and an unplayed Spawn card of any reading (a new pawn can
+ * still promote; conservative: whether or not a square is free now). A card counts while a Mirror may copy it (the opponent
  * played it last, `last`) or a Growth may still draw it from the pile (`drawn`). The other card-only
  * cards need no clause: like Flight, each moves or takes pieces but changes no type and adds no
  * attacked square, so the material that can mate stays what the board shows.
@@ -1839,14 +1872,17 @@ export function materialDraw(board: Uint8Array, used?: readonly [number, number]
   return !liveCard(board, WHITE, used?.[0] ?? 0, drawn?.[0] ?? 0, lost, last?.[1]) && !liveCard(board, BLACK, used?.[1] ?? 0, drawn?.[1] ?? 0, lost, last?.[0]);
 }
 
-/** May side `c` still change what can mate (`materialDraw`): a live Strike, a Salvation with a piece to return, a Morph with a piece to morph. */
+/** May side `c` still change what can mate (`materialDraw`): a live Strike, a Salvation with a piece to return, a Morph with a piece to morph, a Spawn. */
 function liveCard(board: Uint8Array, c: Color, u: number, d: number, lost: ArrayLike<number> | undefined, theirLast: CardName | undefined): boolean {
   if (!handOf(c).length) return powerOf(c) === 'Strike' && canSpend(c, u);
   if (mayPlay(c, u, d, theirLast, 'Strike')) return true;
   if (lost && mayPlay(c, u, d, theirLast, 'Salvation')) for (let t = 1; t < 16; t++) if (returnable(t) && lost[c * 16 + t] > 0) return true;
   if (mayPlay(c, u, d, theirLast, 'Morph') || mayPlay(c, u, d, theirLast, 'MorphB')) for (let s = 0; s < 64; s++) if (board[s] && colorOf(board[s]) === c && typeOf(board[s]) !== K) return true;
+  for (const card of SPAWNS) if (mayPlay(c, u, d, theirLast, card)) return true;
   return false;
 }
+/** The Spawn cards (`liveCard`). */
+const SPAWNS: readonly CardName[] = ['Spawn', 'SpawnK', 'Spawn2', 'SpawnK2'];
 /**
  * A card side `c` may still play: an unplayed one, the one its Mirror would copy (`theirLast`, the
  * opponent's last card), or one its Growth may yet draw (conservative: any card left in its pile).
