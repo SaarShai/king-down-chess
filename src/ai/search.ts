@@ -144,6 +144,10 @@ const HOLD_DEFAULT: Readonly<Partial<Record<CardName, number>>> = Object.freeze(
   // The Spawn cards (2026-10-06): starting guesses, all four unmeasured — about the pawn each adds, a
   // little more next to the king (it may shield it or block a check), and less than two for the pairs.
   Spawn: 100, SpawnK: 110, Spawn2: 180, SpawnK2: 200,
+  // MorphP and MorphS (2026-10-06): starting guesses, unmeasured. MorphP about half what a knight or
+  // bishop gains over the pawn (Sacrifice's share, `sacrificeHoldShare`); MorphS SkyLift's value
+  // (the same move).
+  MorphP: 110, MorphS: 60,
 });
 const hold: Partial<Record<CardName, number>> = { ...HOLD_DEFAULT };
 /** Share of the best returnable piece's gain (piece − pawn) an unspent Sacrifice is worth. */
@@ -489,7 +493,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   if (markSq[c] >= 0 && markLeft[c] > 0) filterHeld(c, markSq[c], markWard[c] === 1, out, board);
   // Legality is "make it, then look at our king" — but only a move that could expose the king needs
   // the look: we are in check; the king itself moves (Death Touch, Mercy and the Darkness step
-  // included); a swap or a shove moves a second piece (a SkyLift is a swap); the mover leaves a line
+  // included); a swap or a shove moves a second piece (a SkyLift or a MorphS is a swap); the mover leaves a line
   // through the king (a slider's ray opens); a capture removes a piece on such a line; or an enemy
   // catapult could use the arriving piece as its screen. The shelters and the Darkness pawn armour
   // change which pieces may be taken, never the king, so they add nothing here. The two-square
@@ -498,8 +502,8 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
   // A `plusDiagFwd2Clear` archer shot two squares diagonally is blocked by the square between,
   // which is diagonally next to our king: a move that empties it leaves a line through the king, and
   // one that fills it only blocks. The other archer shots ignore blockers and the leapers are never blocked,
-  // and a Morph changes only the type of an own piece that stays on its square (it still blocks, and
-  // still screens a catapult), so nothing else can change an attack on the king — except a Curse,
+  // and a Morph or a MorphP changes only the type of an own piece that stays on its square (it still
+  // blocks, and still screens a catapult), so nothing else can change an attack on the king — except a Curse,
   // which moves an *enemy* piece that may arrive attacking it, a FirewallB (a swap) that moves an enemy piece, and an Earth Quake,
   // which moves several pieces: those are always tested. A drop (a waiting guard, a Salvation, a
   // Spawn's pawn, or a Spawn2's two) fills squares and empties none, so only the catapult's screen can make it expose the king. A
@@ -541,7 +545,7 @@ export function searchLegal(pos: Position): Move[] {
 // ---------------------------------------------------------------------------------------------
 // Ordering.
 
-/** Material won by a move: every victim, the promotion delta (a pawn's, a Sacrifice's or a Morph's), minus the paladin's own life. */
+/** Material won by a move: every victim, the promotion delta (a pawn's, a Sacrifice's or a Morph's, MorphP's included), minus the paladin's own life. */
 function gain(m: Move): number {
   let g = 0;
   for (let i = 0; i < m.captures.length; i++) g += VALUES[typeOf(board[m.captures[i]])];
@@ -551,7 +555,12 @@ function gain(m: Move): number {
   return g;
 }
 
-/** Compact move signature for TT / killer slots. Distinct chains can collide; ordering only. A Spawn2's second square is bits 20…25 (never a1, so 0 is none). */
+/**
+ * Compact move signature for TT / killer slots. Distinct chains can collide; ordering only. A Spawn2's
+ * second square is bits 20…25 (never a1, so 0 is none). A MorphP is a promotion's signature (its
+ * square and the new type); a MorphS shares a SkyLift's or a maester swap's on the same two squares,
+ * which leave the same board.
+ */
 const encode = (m: Move): number =>
   (m.from | (m.to << 6) | ((m.promo ?? m.drop ?? 0) << 12) | (Math.min(m.captures.length, 15) << 16) | ((m.drop2 ?? 0) << 20)) + 1;
 

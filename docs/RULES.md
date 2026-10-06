@@ -125,6 +125,8 @@ move captures (Haste's shape with two pieces). Not measured.
 **SpawnK** (2026-10-06; card only): the same, on an empty square next to your king, never on rank 1 or 8. Not measured.
 **Spawn2** (2026-10-06; card only): as Spawn, two new pawns on two different squares. Not measured.
 **SpawnK2** (2026-10-06; card only): as SpawnK, two new pawns on two different squares. Not measured.
+**MorphP** (2026-10-06, owner; card only): as your move, one of your pawns becomes a knight or a bishop where it stands. It is an ordinary knight or bishop from then on (taken, it counts as one). Not measured.
+**MorphS** (2026-10-06, owner; card only): as your move, two of your pieces (not pawns or the king, not of one kind) swap places. The same move as Sky Lift. Not measured.
 
 ## 6. Decisions (2026-09-13, chosen for balance and fun)
 

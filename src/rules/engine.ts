@@ -102,6 +102,8 @@ export interface Move {
    *   names the new type (Sacrifice's shape), and nothing is taken.
    * - `spawn` / `spawnk`: a new own pawn enters on the empty square `from === to` (`drop: P`, as a
    *   Salvation's piece enters); `spawn2` / `spawnk2`: a second one on `drop2` too. Nothing is taken.
+   * - `morphp`: an own pawn becomes a knight or a bishop on its square (Morph's shape: `from === to`,
+   *   `promo`); `morphs`: two own pieces swap places (SkyLift's shape, `swap`). Nothing is taken.
    * No power move ever captures a king, and none adds an attacked square.
    */
   power?: PowerTag;
@@ -125,7 +127,7 @@ export interface Move {
 /** The tag on a move that spends a king power (`Move.power`). */
 export type PowerTag = 'freeze' | 'ward' | 'strike' | 'haste' | 'flight' | 'sacrifice' | 'march' | 'leap' | 'mimic' | 'vault' | 'curse' | 'skylift' | 'salvation'
   | 'rage' | 'rageb' | 'firewall' | 'firewallb' | 'quake' | 'quakeb' | 'burn' | 'firestarter' | 'control' | 'rescue' | 'growth' | 'growthb' | 'rally'
-  | 'morph' | 'morphb' | 'spawn' | 'spawnk' | 'spawn2' | 'spawnk2';
+  | 'morph' | 'morphb' | 'spawn' | 'spawnk' | 'spawn2' | 'spawnk2' | 'morphp' | 'morphs';
 
 export interface Position {
   board: Uint8Array;
@@ -308,6 +310,7 @@ export const TAG_POWER: Readonly<Record<PowerTag, CardName>> = {
   rage: 'Rage', rageb: 'RageB', firewall: 'Firewall', firewallb: 'FirewallB', quake: 'EarthQuake', quakeb: 'EarthQuakeB',
   burn: 'Burn', firestarter: 'FireStarter', control: 'Control', rescue: 'Rescue', growth: 'Growth', growthb: 'GrowthB',
   rally: 'Rally', morph: 'Morph', morphb: 'MorphB', spawn: 'Spawn', spawnk: 'SpawnK', spawn2: 'Spawn2', spawnk2: 'SpawnK2',
+  morphp: 'MorphP', morphs: 'MorphS',
 };
 /** The Spawn cards' tags: a new pawn (two for `spawn2` / `spawnk2`) enters as the turn. */
 export const isSpawnTag = (t: PowerTag | undefined): boolean => t === 'spawn' || t === 'spawnk' || t === 'spawn2' || t === 'spawnk2';
@@ -1641,16 +1644,30 @@ function genPowerMovesRaw(power: CardName | '', board: Uint8Array, c: Color, los
       else for (let i = 0; i < at.length; i++) for (let j = i + 1; j < at.length; j++) out.push({ from: at[i], to: at[i], captures: [], drop: P, drop2: at[j], power: tag });
       return;
     }
-    case 'SkyLift': {
+    case 'MorphP': {
+      // An own pawn becomes a knight or a bishop on its square, as the turn, taking nothing (Morph's
+      // shape). Both types always, whether or not the army fields one. It stays on its square, so it
+      // still blocks and still screens a catapult; legality is the caller's, as always.
+      for (let s = 0; s < 64; s++) {
+        const p = board[s];
+        if (!p || colorOf(p) !== c || typeOf(p) !== P) continue;
+        out.push({ from: s, to: s, captures: [], promo: N, power: 'morphp' }, { from: s, to: s, captures: [], promo: B, power: 'morphp' });
+      }
+      return;
+    }
+    case 'SkyLift': case 'MorphS': {
       // Two own pieces trade squares at any distance, in the maester swap's shape: neither the king
       // nor a pawn, not two of one type, and each lands where a guard may land (Flight's limit).
+      // MorphS is the same move under its own name: two pieces "swap types" is two pieces swap
+      // places, each with its own flags (a spent guard stays spent).
+      const tag: PowerTag = power === 'MorphS' ? 'morphs' : 'skylift';
       for (let a = 0; a < 64; a++) {
         const p = board[a];
         if (!p || colorOf(p) !== c || typeOf(p) === K || typeOf(p) === P) continue;
         for (let b = a + 1; b < 64; b++) {
           const q = board[b];
           if (!q || colorOf(q) !== c || typeOf(q) === K || typeOf(q) === P || typeOf(q) === typeOf(p) || !guardMayLand(p, b) || !guardMayLand(q, a)) continue;
-          out.push({ from: a, to: b, captures: [], swap: true, power: 'skylift' });
+          out.push({ from: a, to: b, captures: [], swap: true, power: tag });
         }
       }
       return;
@@ -1668,7 +1685,7 @@ function unpush(m: Move, s: number): Move | null {
 /**
  * Drop the moves a Freeze or Ice Wall mark forbids the side to move `c` (from `out[n0]` on). A
  * frozen piece does not move by any hand: not itself, not by its own maester's swap or ogre's shove
- * or a SkyLift, nor by its own side's Earth Quake, which leaves it where it stands (it may still be
+ * or a SkyLift or MorphS (nor does a frozen piece or pawn morph), nor by its own side's Earth Quake, which leaves it where it stands (it may still be
  * warded); a piece dropped onto an emptied marked square is not it. A warded piece cannot be
  * captured, by a chain either — the chain's shorter prefixes stay — nor moved by a Curse or by a
  * FirewallB's swap (an Earth Quake still pushes it: a push takes nothing); a Firewall (`all`)
@@ -1862,7 +1879,8 @@ export function insufficientMaterial(board: Uint8Array): boolean {
  * still promote; conservative: whether or not a square is free now). A card counts while a Mirror may copy it (the opponent
  * played it last, `last`) or a Growth may still draw it from the pile (`drawn`). The other card-only
  * cards need no clause: like Flight, each moves or takes pieces but changes no type and adds no
- * attacked square, so the material that can mate stays what the board shows.
+ * attacked square, so the material that can mate stays what the board shows. MorphP changes a type
+ * but needs a pawn, and a pawn on the board already keeps the game open (`insufficientMaterial`).
  */
 export function materialDraw(board: Uint8Array, used?: readonly [number, number], lost?: ArrayLike<number>, waiting?: ArrayLike<number>,
   drawn?: ArrayLike<number>, last?: readonly (CardName | undefined)[]): boolean {

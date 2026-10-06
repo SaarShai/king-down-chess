@@ -88,7 +88,7 @@ export interface KingChoice { king: KingName; power: PowerName }
 export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Salvation'
   | 'Rage' | 'RageB' | 'Mirror' | 'MirrorB' | 'Firewall' | 'FirewallB' | 'EarthQuake' | 'EarthQuakeB'
   | 'Burn' | 'FireStarter' | 'Control' | 'Rescue' | 'Growth' | 'GrowthB' | 'Rally' | 'Morph' | 'MorphB'
-  | 'Spawn' | 'SpawnK' | 'Spawn2' | 'SpawnK2';
+  | 'Spawn' | 'SpawnK' | 'Spawn2' | 'SpawnK2' | 'MorphP' | 'MorphS';
 /**
  * The cards no king has (lab, 2026-10-03), each one use and the turn's move:
  * - **Mimic**: a piece (not king or pawn) moves, to an empty square only, the way one of the side's
@@ -132,12 +132,19 @@ export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Sa
  * start rank (rank 2 / rank 7), SpawnK next to its own king but never on rank 1 or 8. Spawn2 and
  * SpawnK2: two new pawns, on two different such squares. The new pawn is an ordinary pawn from then
  * on (on its start rank it may double-step), and the side may end with more than eight pawns.
+ *
+ * **MorphP** / **MorphS** (owner, 2026-10-06: the softer Morph cards), as the turn, taking nothing:
+ * MorphP, one own pawn becomes a knight or a bishop on its square (an ordinary piece from then on,
+ * as a promoted pawn is; either type, whether or not the army fields it). MorphS, two own pieces of
+ * different types, neither the king nor a pawn, swap places (the owner's "swap types": on the board
+ * the same thing; each piece keeps its own flags). MorphS plays SkyLift's moves under its own name.
  */
 export const CARD_ONLY: readonly CardName[] = [
   'Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation',
   'Rage', 'RageB', 'Mirror', 'MirrorB', 'Firewall', 'FirewallB', 'EarthQuake', 'EarthQuakeB', 'Burn', 'FireStarter', 'Control', 'Rescue', 'Growth', 'GrowthB',
   'Rally', 'Morph', 'MorphB',
   'Spawn', 'SpawnK', 'Spawn2', 'SpawnK2',
+  'MorphP', 'MorphS',
 ];
 
 /** Each king's two powers, A first (docs/RULES.md §4). */

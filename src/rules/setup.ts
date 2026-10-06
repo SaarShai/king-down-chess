@@ -182,7 +182,9 @@ export function fromFen(fen: string): Position {
  * !I:d1=Q and !I+:d1=R (Morph and MorphB: the piece on d1 becomes a queen, a rook), and the
  * Spawn cards in the drop's shape: P@c2!S (Spawn), P@d2!SK (SpawnK), P@c2,f2!S2 (Spawn2) and
  * P@d2,e2!SK2 (SpawnK2) — every capital letter already names a card, so these take the Spawn's
- * name (`S` is otherwise Sacrifice's prefix `!S:`, never a suffix);
+ * name (`S` is otherwise Sacrifice's prefix `!S:`, never a suffix); the softer Morph cards in
+ * the Morph's family: !IP:e2=N (MorphP: the pawn on e2 becomes a knight) and !IS:b1<>f1 (MorphS:
+ * the pieces on b1 and f1 swap places);
  * a Mirror card writes the copied card's move then !Y (Mirror) or !Z (MirrorB): !F:d5!Y.
  *
  * A shove prints where the *shoved* piece went and not where the ogre ended up, because the ogre's
@@ -209,6 +211,8 @@ function lanOf(pos: Position, m: Move): string {
   if (m.power === 'ward') return `!W:${sqName(m.to)}`;
   if (m.power === 'sacrifice') return `!S:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;
   if (m.power === 'morph' || m.power === 'morphb') return `!I${m.power === 'morphb' ? '+' : ''}:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;
+  if (m.power === 'morphp') return `!IP:${sqName(m.from)}=${LETTERS[m.promo ?? 0]}`;
+  if (m.power === 'morphs') return `!IS:${sqName(m.from)}<>${sqName(m.to)}`;
   if (m.power === 'flight') return `${letter}${sqName(m.from)}~${sqName(m.to)}`;
   if (m.power === 'curse') return `!C:${sqName(m.from)}-${sqName(m.to)}`;
   if (m.power === 'skylift') return `!K:${sqName(m.from)}<>${sqName(m.to)}`;

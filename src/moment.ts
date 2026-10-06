@@ -44,6 +44,8 @@ const LINES = {
   spawnk: ['A new pawn appeared next to its king.', 'Spawn: a new pawn appears on this square next to your king.'],
   spawn2: ['Two new pawns appeared on their start rank.', 'Spawn: two new pawns appear on these squares.'],
   spawnk2: ['Two new pawns appeared next to their king.', 'Spawn: two new pawns appear on these squares next to your king.'],
+  morphp: ['A pawn became a knight or a bishop.', 'Morph: this pawn becomes a knight or a bishop where it stands.'],
+  morphs: ['Two pieces swapped places.', 'Morph: these two pieces swap places.'],
   mirror: ['A card was copied from the opponent.', 'Mirror: play the card your opponent played last.'],
   mirrorb: ['A card was played twice.', 'Mirror: play this card and keep it.'],
   deathTouch: ['The king captured without moving.', 'Capture this piece without moving the king.'],

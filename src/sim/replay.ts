@@ -27,7 +27,7 @@ export function countMove(events: Events, pos: Position, move: Move, post: Posit
   // The 2014 cards that keep `to === from` name a square, not an archer's shot.
   if (mt === A && move.to === move.from && !NO_SHOT.has(move.power ?? '')) events.archerShots[c]++;
   if (mt === S && move.captures.length) events.beastChains[c].push(move.captures.length);
-  if (move.swap && move.power !== 'skylift' && move.power !== 'firewallb') { // SkyLift and FirewallB use the swap's shape, but no maester
+  if (move.swap && move.power !== 'skylift' && move.power !== 'firewallb' && move.power !== 'morphs') { // SkyLift, FirewallB and MorphS use the swap's shape, but no maester
     events.maesterSwaps[c]++;
     if (typeOf(pos.board[move.to]) === K) events.maesterLongSwaps[c]++;
   }

@@ -119,7 +119,7 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Property | Allowed values |
 |---|---|
 | Source | king power · card · both (a spendable king power is also dealt as a card) |
-| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ◐ Morph, MorphB) · spawn (a new piece, not a captured one, comes onto the board, D.5: ◐ Spawn, SpawnK, Spawn2, SpawnK2) |
+| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ◐ Morph, MorphB, MorphP) · spawn (a new piece, not a captured one, comes onto the board, D.5: ◐ Spawn, SpawnK, Spawn2, SpawnK2) |
 | Rarity | common (default) · legendary: dealt rarely, with legendary graphic effects (owner, 2026-10-06; card mode, not built yet). Rage is legendary; every other row below is common. |
 | Uses | n per game (king power) · 1 (every card) · — (always-on) |
 | Turn cost | is the turn's move · then make the move (a free action, `markFree`) · extra move (the second move may be skipped) |
@@ -174,6 +174,8 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | SpawnK | card ◐ (`spawn-r1` +0.80 ± 0.36 pawns, draws 15.7%, +0.3 ± 5.1; played in 73%, median ply 53; stays as built, owner) | spawn: a new own pawn on an empty square next to the own king | — | is the turn's move | never | an empty square of the king's 8 neighbours, not on rank 1 or 8; the king not in check after | instant |
 | Spawn2 | card ◐ **the start-rank Spawn card** (owner 2026-10-06; `spawn-r1` +0.50 ± 0.40 pawns, draws 16.2%, +0.8 ± 5.1; played in 99%, median ply 12; below the Workshop's fair-card floor of 0.7 pawns) | spawn: two new own pawns, as Spawn | — | is the turn's move | never | two different empty squares of the start rank (at most 28 pairs); the king not in check after | instant |
 | SpawnK2 | card ◐ (`spawn-r1` +1.55 ± 0.40 pawns, draws 13.8%, −1.5 ± 5.0; played in 78%, median ply 48; stays in the lab, owner 2026-10-06) | spawn: two new own pawns, as SpawnK | — | is the turn's move | never | two different empty squares next to the king, not on rank 1 or 8; the king not in check after | instant |
+| MorphP | card ◐ (a softer Morph, owner 2026-10-06; not measured, queued as `morph-b1`) | promotion: an own pawn becomes a knight or a bishop, on its square | — | is the turn's move | never | an own pawn (a frozen one does not morph); a knight or a bishop, whether or not the army fields one; never answers a check (the square stays filled) | instant |
+| MorphS | card ◐ (a softer Morph, owner 2026-10-06: "two of your pieces swap types", built as a swap of places, the same on the board; not measured, queued as `morph-b1`. Sky Lift's moves under its own name: Sky Lift measured +1.2 ± 0.4 pawns in `cards-a2`) | special move: two own pieces swap places | — | is the turn's move | never | two own pieces of different types, not the king or pawns (a frozen one does not swap; a guard only where a guard may land); each keeps its flags; the same squares stay filled, so it never answers a check and never exposes the king | instant |
 
 Every card is one use; "Uses (king)" is the official count of a king power (`POWERS_BALANCED` over the rule defaults).
 "Then make the move" for the marks is `markFree`, official for the kings and used in every card measurement. Flight is
@@ -234,6 +236,7 @@ The piece, power or card keeps its type but is weaker, or off, until the conditi
 | Pawn | queen, rook, bishop or knight | reaches the last rank | ● (◐ wider sets: `promotionSet` `anyNonKing`, `anyNonKingNoGuard`, `anyNonKingNoFairy`) |
 | Sacrifice | an own pawn becomes one of the side's captured pieces | the power is used | ● (an arrival, C.2) |
 | **Morph**, **MorphB** (cards, owner 2026-10-06) | one of your pieces (not the king or a pawn) becomes another type of the draw pool, on its square; never a second Beast; MorphB never a queen | the card is played | ◐ lab (`hands=Morph`; `!I:d1=Q`, `!I+:d1=R`); taken, it joins the reserve as its new type; readings in C.2; `morph-a1` measured: Morph against no card 98% (a free queen on move 3), MorphB 77% (+3.3 pawns, the Archer); the search morphs the guard at once; owner's choice open |
+| **MorphP** (card, owner 2026-10-06, a softer Morph) | one of your pawns becomes a knight or a bishop, on its square | the card is played | ◐ lab (`hands=MorphP`; `!IP:e2=N`); an ordinary piece from then on; taken, it joins the reserve as that piece; it resets the 50-move clock, as a promotion or a Sacrifice does; readings in C.2; not measured |
 | Promoted piece taken | returns (Salvation) as what it was when taken | — | ◐ |
 
 ### D.4 Powers and cards with a condition
@@ -242,7 +245,7 @@ Zone: Flight (own half), Burn (capital), Fire Starter (enemy back rank). Tag tea
 (next to the king), Control, FirewallB, Earth Quake B (next to an own piece). Turn N: any item with `fromMove`.
 Capture: RageB. Opponent's card: Mirror. Own last mark: Rescue. Lost pieces: Sacrifice, Salvation. Zone and tag team
 for a spawn: Spawn and Spawn2 (the own pawn start rank), SpawnK and SpawnK2 (next to the own king).
-None is shackled today except through `fromMove`; none promotes except Sacrifice's pawn and the Morph cards' piece.
+None is shackled today except through `fromMove`; none promotes except Sacrifice's pawn and the Morph cards' piece (MorphP's pawn).
 
 ### D.5 Spawn: a new piece comes onto the board (owner, 2026-10-06)
 

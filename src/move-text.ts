@@ -17,7 +17,7 @@ export function describeMove(pre: Position, m: Move): string {
   if (m.power === 'freeze') return `${side} freezes the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'ward') return `${side} puts an Ice Wall on the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'sacrifice') return `${side} sacrifices the pawn on ${sqName(m.from)} and brings back a ${NAMES[m.promo!]} there.`;
-  if (m.power === 'morph' || m.power === 'morphb') return `${side} turns the ${the(m.from)} into a ${NAMES[m.promo!]}.`;
+  if (m.power === 'morph' || m.power === 'morphb' || m.power === 'morphp') return `${side} turns the ${the(m.from)} into a ${NAMES[m.promo!]}.`;
   if (isSpawnTag(m.power)) return m.drop2 === undefined ? `${side} adds a pawn on ${sqName(m.to)}.` : `${side} adds pawns on ${sqName(m.to)} and ${sqName(m.drop2)}.`;
   let text = m.power === 'flight'
     ? `${side} ${name} flies from ${sqName(m.from)} to ${sqName(m.to)}`

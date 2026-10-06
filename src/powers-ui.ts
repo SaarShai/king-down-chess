@@ -98,6 +98,8 @@ export function cardText(card: CardName, r: Rules = RULES): string {
     case 'SpawnK': return 'as your move, a new pawn of yours appears on an empty square next to your king (not on the first or last rank)';
     case 'Spawn2': return 'as your move, two new pawns of yours appear on two empty squares of your pawns\u2019 start rank';
     case 'SpawnK2': return 'as your move, two new pawns of yours appear on two empty squares next to your king (not on the first or last rank)';
+    case 'MorphP': return 'one of your pawns becomes a knight or a bishop where it stands';
+    case 'MorphS': return 'two of your pieces (not pawns or the king, not of one kind) swap places';
   }
   return card;
 }
