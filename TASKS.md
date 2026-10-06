@@ -1,5 +1,15 @@
 # Tasks
 
+## Workshop build 1a, branch `claude/workshop` — 2026-10-06 (not merged, not deployed)
+- Spec: `docs/WORKSHOP.md` (revision 2, the owner's answers: all defaults). Scope §7.1: make a piece, judge it, save it, share it, try it.
+- [x] Pure modules in `src/workshop/` (model, vocab, anchors, judge, moves, names, text, look, art, store). The judge is the prototype `judge-v2.mjs`, ported: every prototype row is equal except King-step + "like a queen from move 5" (9.28, was 8.13), from the largest-worth union (§6.2).
+- [x] Screens in one lazy chunk (`src/workshop/dialog.ts`, `workshop.css`): HOME, START (Mix two, Surprise me), the editor (Moves, Rules, Look; the sheets), SAVED (Send link, Copy as text), Try it. Doors: the title's Workshop button, the Guide's "Make your own piece or card", a `?design=` link. No code path in the engine, the AI or the save.
+- [x] Set A motion (§5.5) for the owner, not in the Workshop: `docs/visual-design/workshop/motion-preview.html` (opens from the file), `motion-phone.webm`, `motion-desktop.webm`; the code is `docs/visual-design/workshop/motion-a.js`, made by `tools/workshop-motion.mts`.
+- [ ] Owner: approve or change Set A. If approved, `motion-a.js` moves to `src/workshop/motion.ts` and the editor calls it after each change.
+- Verified (production build, `vite preview`, Chrome, this Mac): `tsc` clean; vitest 588/588 (31 files; 26 new in `src/workshop/*.test.ts`); `tools/verify-workshop.mjs` 12/12 at 11 sizes; `docs/visual-design/verify.mjs` all ok; `verify-new-game`, `verify-powers`, `verify-lesson-return`, `verify-special-moves`, `verify-king-effects`, `verify-painted-game`, `verify-playable-clay`, `verify-cursor-adoption` pass (`verify-account` not run: no sign-in in these checks).
+- Size: the main chunk 334.55 → 333.28 kB (gzip 172.93 → 172.36), because the engine and the piece icons are now shared chunks. First load (`measure-load.mjs --runs 1`, painted): 2,908,679 → 2,909,718 bytes (+1.0 kB: the title button, the anvil icon, the door code). The Workshop chunk: 86.5 kB JS (gzip 31.2) + 24.0 kB CSS (gzip 5.9), loaded on the first open only.
+- `tools/measure-load.mjs` now skips the title screen (it covered the board's taps, so the tool timed out on main too).
+
 ## Release `claude/release-2026-10-05` — 2026-10-05 (live)
 - **Owner (2026-10-05): "option B".** The over-a-piece Archer (`archerShots: 'over2'`, `claude/archer-over2`) is held: re-pricing it measured its worth at 0.83 ± 0.25 pawns (`ARCHER_V` would fall 505 → 83; criterion 1 needs 2.5–5.5). Today's Archer stays official for this release: `archerShots: 'plusDiagFwd2'`, `ARCHER_V` 505, the old Archer lesson and Guide text (`docs/RULES.md` Decision 19). Everything else is live (2026-10-05).
 - **Owner (2026-10-05), still standing:** the six kings' board effects, captures, title-screen kings and resting pawns; the power animations with the Darkness king step; the ivory Spirit keeps his gold glow ("keep gold"); a deploy.

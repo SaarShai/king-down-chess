@@ -90,3 +90,12 @@ Each row is one kind of rule; each cell says whether it applies to that piece. A
 | C5 cannot be captured *by* a piece standing there | ? | ? | ? | ? | ? | ? | ? | ? | ◐ all | ? | ? | ? | ? | The mirror of C2 — a piece in the capital is a threat but not a hunter. **Built + measured 2026-09-17** (`capitalNoCapture`, off): **null** on outcomes (decisive −0.2 ± 3.0); structural: killer move +4.4, drama +2.0, maester survival 35% → 44% (`docs/research/sim-capital-c5-2026-09-17.md`) |
 
 Engine seam: `const CAPITAL = new Set([27, 28, 35, 36])` (d4 e4 d5 e5) and (C1) a filter on `to` in `legalMoves`, (C2/C5) a square-aware `canCaptureAt(att, vic, from, to)`, (C3/C4) a branch on `CAPITAL.has(from)` in the piece's `case`. Every rule here is measurable in the lab as a toggle, like the piece rules.
+
+## Workshop (build 1a, 2026-10-06)
+
+The Workshop's rule blocks live in one table, `src/workshop/vocab.ts`. Each block names its row in this file, and a unit test finds that row here (docs/WORKSHOP.md §3.3, §8.4). Two rows for sections D.1 and D.2 (on `claude/power-schema`, not on this line yet); move them there when it merges:
+
+| Section | Row | State |
+|---|---|---|
+| D.1 | Material behind (own side) | ◐ Sacrifice with `sacrificeBehind` |
+| D.2 | Any piece: off until move N (Workshop `cannotMove`, build 1b); it still attacks, like a frozen piece | idea |

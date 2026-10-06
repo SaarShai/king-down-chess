@@ -1766,3 +1766,21 @@ Era B numbers sit beside era A ones in the anchors. One drift is known: the ogre
 | 22 | Exit and Esc | **Applied** (§2.1, §8.2): the Workshop opens over its caller, so Back has a target; the Escape branch at `main.ts:1314` gets the guard. |
 | 23 | Build 1 too big | **Applied:** 1a pieces with 10 blocks; 1b cards and 5 blocks. |
 | 24 | Small accuracy points | **Applied all three:** Maester is not an anchor; Freeze uses m5's 1.39 only; the piece line is 5.0. |
+
+## 12. Build 1a: changes from this spec (2026-10-06)
+
+Where the spec was wrong or could not be built as written, the build took the smallest sound fix:
+
+1. **Union by worth** (§6.2): where layers overlap on a square, the square keeps its largest *worth*, not its largest weight, so no added square, line or ability lowers W (§8.4.4 holds on 1,000 designs and their one-edit neighbours). Only one prototype row changes: King-step + like a queen from move 5 shows 9.28 (was 8.13), still likely overpowered.
+2. **Flaws never raise W:** "is removed after it takes" applies only above the base (0.077 + 0.123·Q); W is never below 0.
+3. **Flags** follow the §6.10 rules in full. The §6.13 table leaves out some flags those rules give (F+ for any shot, F3 for the archer family, F9 for each unmeasured rule); the tests pin the rule output. A preset with its own line (Pawn, Queen) keeps only its good flags. F12 also fires for "becomes a queen on its first take".
+4. **"No pool piece warns except the Archer and the Guard"** (§8.4.5) is true of warning flags. The Paladin also shows the chip, from its memory score 5.5 ("hard", as §6.13 says).
+5. **The like line** compares worths rounded to 0.01, so Hungry Rider (4.48) reads "About as strong as a beast." as §6.13 says.
+6. **Free letters** exclude E (the Squire). **Names** may hold brackets, for "(yours)". "Always" for "also moves like" is never stored: it adds the piece's squares to Moves (W6).
+7. **The Maester** in Try it and in the tests never swaps with a king (H1). The engine's Maester also swaps with an adjacent king (part of its long swap), which the Workshop leaves out.
+8. **`workshopDialog().open()`** takes no `{ from }`: the Workshop opens over its caller, so Back only closes it.
+9. **`judge(d, false)`** skips Why?, the fixes and the badges, for the shelf tiles (0.08 ms against 0.67 ms).
+10. **Phone landscape:** code moves the tabs into the top bar. The tabs and every segment are 44 px tall.
+11. **Try it** puts a piece with a start-rank rule on d2, not d4. "After a card" offers only "any card".
+12. **MATRIX:** the line under the spec's HEAD (`3d5f0e5`) has sections C and D; this line does not, so the two §3.3 rows wait under a "Workshop" heading in `docs/MATRIX.md`.
+13. **Cards (1b):** the card parts of §8.4.3 and §8.4.5 wait for build 1b.
