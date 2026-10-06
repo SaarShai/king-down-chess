@@ -366,9 +366,7 @@ describe('the search keeps the power state exactly as positionKey does', () => {
         const next = makeMove(pos, m);
         expect(after, `${toFen(pos)} ${toLan(pos, m)}`).toBe(positionKey(next));
         expect(back).toBe(positionKey(pos));
-        // FEN keeps everything but the exact ply: after a Haste turn the side to move no longer
-        // follows the ply's parity, and FEN's move number cannot say so (nothing reads it but the
-        // lab's secondPlayerDoubleFirstTurn).
+        // FEN keeps everything but the exact ply (a Haste turn has two); the move number it keeps exactly.
         expect({ ...fromFen(toFen(next)), ply: 0 }, toFen(next)).toEqual({ ...normalised(next), ply: 0 });
         pos = next;
       }
@@ -378,7 +376,7 @@ describe('the search keeps the power state exactly as positionKey does', () => {
 
 /** `fromFen(toFen(p))` writes the reserve only when kept, and drops an all-zero use count. */
 function normalised(p: Position): Position {
-  const out: Position = { board: p.board, turn: p.turn, halfmove: p.halfmove, ply: p.ply };
+  const out: Position = { board: p.board, turn: p.turn, halfmove: p.halfmove, ply: p.ply, move: p.move };
   if (p.used && (p.used[0] || p.used[1])) out.used = p.used;
   if (p.marks) out.marks = p.marks;
   if (p.free) out.free = true;

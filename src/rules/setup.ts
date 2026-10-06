@@ -1,5 +1,5 @@
 /** Start positions, FEN-style serialisation and move notation. */
-import { BLACK, CardName, Color, G, LETTERS, Mark, Move, P, PieceType, Position, SPENT, V, WHITE, colorOf, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
+import { BLACK, CardName, Color, G, LETTERS, Mark, Move, P, PieceType, Position, SPENT, V, WHITE, colorOf, moveNumber, parseSq, piece, rank, sq, sqName, typeOf } from './engine';
 import { ALL_CARDS, RULES } from './rules';
 
 /** King Down Classic pool: 7 of these join the king on the back rank. */
@@ -57,7 +57,7 @@ export function startPosition(backRank: string = randomBackRank()): Position {
     board[sq(f, 1)] = piece(P, WHITE);
     board[sq(f, 6)] = piece(P, BLACK);
   }
-  return waitGuards({ board, turn: WHITE, halfmove: 0, ply: 0 });
+  return waitGuards({ board, turn: WHITE, halfmove: 0, ply: 0, move: 1 });
 }
 
 /**
@@ -90,7 +90,7 @@ export function toFen(pos: Position): string {
     rows.push(row);
   }
   const powers = powerField(pos);
-  return `${rows.join('/')} ${pos.turn === WHITE ? 'w' : 'b'} - - ${pos.halfmove} ${Math.floor(pos.ply / 2) + 1}${powers ? ' ' + powers : ''}`;
+  return `${rows.join('/')} ${pos.turn === WHITE ? 'w' : 'b'} - - ${pos.halfmove} ${moveNumber(pos)}${powers ? ' ' + powers : ''}`;
 }
 
 /** FEN field 7, or '' when the position carries no power state. */
@@ -167,7 +167,7 @@ export function fromFen(fen: string): Position {
     }
   });
   const color: Color = turn === 'w' ? WHITE : BLACK;
-  const pos: Position = { board, turn: color, halfmove: +halfmove, ply: (+fullmove - 1) * 2 + color };
+  const pos: Position = { board, turn: color, halfmove: +halfmove, ply: (+fullmove - 1) * 2 + color, move: +fullmove };
   readPowerField(powers, pos);
   return pos;
 }

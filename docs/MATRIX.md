@@ -107,7 +107,7 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Captures | may · must · never |
 | Targets | own · enemy · either; which kings and pawns are excluded |
 | Duration | instant · opponent's next turn (◐ `markTurns: 2`: two turns) · always |
-| fromMove | none (default) · N: not before the side's own move N. **Not built**: the position keeps no reliable move number (`Position.ply` counts every ply of a turn that goes on). Every row below is none. |
+| fromMove | none (default) · N: not before the side's own move N (◐ `fromMove=Haste:10+Rage:8`; `Position.move`, the full-move number). Spendable powers and cards only; refused for an always-on power. A Mirror may not copy a card before its move. Every row below is none. |
 
 ### C.2 Each power and card
 

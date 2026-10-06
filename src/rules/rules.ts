@@ -589,6 +589,13 @@ export interface Rules {
    * Empty (the default) = nothing to draw.
    */
   piles: readonly [readonly CardName[], readonly CardName[]];
+  /**
+   * Lab (2026-10-05): a spendable king power or a card named here with N may not be used before the
+   * side's own move N (`Position.move`, the full-move number: White's and Black's move N are both N).
+   * `fromMove=Haste:10+Rage:8`. Empty (the default) = no limit. A Mirror may not copy a card that is
+   * not yet available.
+   */
+  fromMove: Readonly<Partial<Record<CardName, number>>>;
   /** Setup: reject a back rank whose two bishops share a square colour (Chess960 spirit). */
   bishopsOppositeColours: boolean;
   /** Which pieces a pawn may become on the last rank. */
@@ -706,6 +713,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
   hands: [[], []] as readonly [readonly CardName[], readonly CardName[]],
   piles: [[], []] as readonly [readonly CardName[], readonly CardName[]],
+  fromMove: {} as Readonly<Partial<Record<CardName, number>>>,
   bishopsOppositeColours: true,
   // Reverted to the chess set on 2026-09-17 (designer guideline: do not keep a rule that adds
   // nothing measurable). Fairy promotions were 1.3% of all promotions and moved no outcome metric;
@@ -780,7 +788,10 @@ export function setRules(over?: Partial<Rules>): Rules {
     const p = RULES.kings[c]?.power, key = p && USES_RULE[p];
     const spendable = !!key && !((p === 'March' || p === 'Leap') && RULES[key] === 0);
     if (RULES.hands[c].length && spendable) throw new Error(`side ${c} has a hand and the king power ${p}: card mode plays kings without spendable powers`);
+    // ponytail: fromMove covers only what is spent (a power move or a card); an always-on power has no move to hold back.
+    if (p && p in RULES.fromMove && !spendable) throw new Error(`fromMove: ${p} is always on for side ${c}; only a spendable power or a card can wait for a move`);
   }
+  for (const k of Object.keys(RULES.fromMove)) if (!ALL_CARDS.includes(k as CardName)) throw new Error(`fromMove: ${k} is always on; only a spendable power or a card can wait for a move`);
   return RULES;
 }
 
@@ -834,6 +845,18 @@ export function parseRule(text: string): Partial<Rules> {
     });
     const [w, b = w] = value.split(',');
     return { [key]: [side(w), side(b)] } as Partial<Rules>;
+  }
+  // `fromMove=Haste:10+Rage:8`: each power or card, and the side's own move it may first be used on.
+  if (key === 'fromMove') {
+    const out: Partial<Record<CardName, number>> = {};
+    for (const part of value.split('+').filter(Boolean)) {
+      const [n = '', at = ''] = part.split(':');
+      const p = ALL_CARDS.find(x => x.toLowerCase() === n.toLowerCase());
+      if (!p) throw new Error(`fromMove: "${n}" is ${TIER1.some(x => x.toLowerCase() === n.toLowerCase()) ? 'always on' : 'not a one-use power or card'}; only a spendable power or a card can wait for a move (${ALL_CARDS.join(', ')})`);
+      if (!/^[1-9]\d*$/.test(at)) throw new Error(`fromMove: "${part}" needs a move number, e.g. ${p}:10`);
+      out[p] = +at;
+    }
+    return { fromMove: out };
   }
   const def = DEFAULT_RULES[key as keyof Rules];
   if (def === undefined) throw new Error(`unknown rule "${key}" (${Object.keys(DEFAULT_RULES).join(', ')}, kingWhite, kingBlack)`);

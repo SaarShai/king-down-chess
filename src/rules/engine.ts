@@ -125,7 +125,14 @@ export interface Position {
   turn: Color;
   /** Plies since the last capture or pawn move (50-move rule). */
   halfmove: number;
+  /** Plies played: every move, so a turn that goes on (a Haste's first move, a free mark) adds more than one. */
   ply: number;
+  /**
+   * The full-move number, as chess counts it: 1 at the start, one more after each of Black's whole
+   * turns, however many plies a turn has. FEN field 6. Absent = `floor(ply / 2) + 1` (`moveNumber`).
+   * Not part of the position's key, as in chess; `Rules.fromMove` reads it.
+   */
+  move?: number;
   /**
    * King powers: uses each side has spent of its spendable power (`Rules.freezeUses` and the rest),
    * `[white, black]`. Absent = none. Game state, not a rule: it travels with the position (FEN field
@@ -259,6 +266,11 @@ const chebyshev = (a: number, b: number): number => Math.max(Math.abs(file(a) - 
  * module state. The six tier-1 powers are stateless, so this is the *whole* of their state.
  */
 export const powerOf = (c: Color): PowerName | '' => RULES.kings[c]?.power ?? '';
+
+/** The full-move number of `pos` (`Position.move`). */
+export const moveNumber = (pos: Position): number => pos.move ?? (pos.ply >> 1) + 1;
+/** `Rules.fromMove`: may `card` (a power or a card) be used on full move `move`? */
+const ready = (card: CardName, move: number): boolean => !(move < (RULES.fromMove[card] ?? 0));
 
 /**
  * Uses side `c` may spend of its power: n > 0 counted, 0 unlimited, -1 when its power is not a
@@ -969,7 +981,7 @@ export function makeMove(pos: Position, m: Move): Position {
   // after a free mark and after a GrowthB.
   const isMark = isMarkTag(m.power);
   const hold = (RULES.secondPlayerDoubleFirstTurn && pos.ply === 1) || holdsTurn(m);
-  const next: Position = { board, turn: (hold ? c : c ^ 1) as Color, halfmove: reset ? 0 : pos.halfmove + 1, ply: pos.ply + 1 };
+  const next: Position = { board, turn: (hold ? c : c ^ 1) as Color, halfmove: reset ? 0 : pos.halfmove + 1, ply: pos.ply + 1, move: moveNumber(pos) + (!hold && c === BLACK ? 1 : 0) };
   let used = pos.used;
   const drawnBefore = pos.drawn?.[c] ?? 0;
   if (m.power) {
@@ -1200,22 +1212,22 @@ export function inCheck(pos: Position, c: Color = pos.turn): boolean {
  * drawn (`Position.drawn`); `last`: the card the opponent played last (`Position.last`), a Mirror's;
  * `rescue`: the square of the side's own mark, live or just ended (`Position.marks`), a Rescue's, or -1.
  */
-export interface CardCtx { drawn: number; last: CardName | undefined; rescue: number }
+export interface CardCtx { drawn: number; last: CardName | undefined; rescue: number; /** The full-move number (`Rules.fromMove`). */ move: number }
 /** The card state of side `c` in `pos` (`CardCtx`). */
-export const cardCtx = (pos: Position, c: Color): CardCtx => ({ drawn: pos.drawn?.[c] ?? 0, last: pos.last?.[c ^ 1], rescue: pos.marks?.[c]?.sq ?? -1 });
-const NO_CTX: CardCtx = { drawn: 0, last: undefined, rescue: -1 };
+export const cardCtx = (pos: Position, c: Color): CardCtx => ({ drawn: pos.drawn?.[c] ?? 0, last: pos.last?.[c ^ 1], rescue: pos.marks?.[c]?.sq ?? -1, move: moveNumber(pos) });
+const NO_CTX: CardCtx = { drawn: 0, last: undefined, rescue: -1, move: Infinity };
 
 export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number, ctx: CardCtx = NO_CTX): void {
   if (!canSpend(c, used, ctx.drawn)) return;
   const start = out.length;
   const hand = handOf(c);
-  if (!hand.length) genPowerMovesRaw(powerOf(c), board, c, lost, out, n0, n1, ctx);
+  if (!hand.length) { const p = powerOf(c); if (p && ready(p, ctx.move)) genPowerMovesRaw(p, board, c, lost, out, n0, n1, ctx); }
   // Card mode: each unplayed card's moves, once per power (a second copy offers the same moves).
   else {
     const n = heldCount(c, ctx.drawn);
     for (let k = 0; k < n; k++) {
       const p = cardAt(c, k);
-      if (used >> k & 1 || !firstCopy(c, used, k)) continue;
+      if (used >> k & 1 || !firstCopy(c, used, k) || !ready(p, ctx.move)) continue;
       // Mirror: the card the opponent played last (never a Mirror: it records what a Mirror played as).
       if (p === 'Mirror') { if (ctx.last) genCopy(ctx.last, 'mirror', board, c, lost, out, n0, n1, ctx); }
       // MirrorB: another unplayed card of the hand, once per card; that card stays. Not a Mirror.
@@ -1262,8 +1274,9 @@ function firstCopy(c: Color, used: number, k: number): boolean {
   for (let i = 0; i < k; i++) if (cardAt(c, i) === p && !(used >> i & 1)) return false;
   return true;
 }
-/** A Mirror card plays card `p`: `p`'s moves, tagged with its power, spending the Mirror (`via`). */
+/** A Mirror card plays card `p`: `p`'s moves, tagged with its power, spending the Mirror (`via`). Not before `p` may be used (`Rules.fromMove`). */
 function genCopy(p: CardName, via: Move['via'], board: Uint8Array, c: Color, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number, ctx: CardCtx): void {
+  if (!ready(p, ctx.move)) return;
   const s0 = out.length;
   genPowerMovesRaw(p, board, c, lost, out, n0, n1, ctx);
   for (let i = s0; i < out.length; i++) out[i].via = via;

@@ -14,9 +14,9 @@
  * Runs inside a Web Worker (worker.ts).
  */
 import {
-  CardCtx, Color, G, GenMode, K, Move, P, Position, RULES, TAG_POWER, WHITE, cardAt, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, freePass, genGuardDrops,
+  BLACK, CardCtx, Color, G, GenMode, K, Move, P, Position, RULES, TAG_POWER, WHITE, cardAt, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, freePass, genGuardDrops,
   genHasteFollowUp, genPiece, genPowerMoves, handOf, heldCount, holdsTurn, isAttacked, isMarkTag, isStill, keepsLost, landed, lapsing, materialDraw, moverOf, piece,
-  powerOf, powerUses, returnable, spend, tracksLast, typeOf,
+  moveNumber, powerOf, powerUses, returnable, spend, tracksLast, typeOf,
 } from '../rules/engine';
 import { ALL_CARDS, type CardName, type PowerName } from '../rules/rules';
 import { VALUES, evalBoard } from './eval';
@@ -92,7 +92,9 @@ const lastName: (CardName | undefined)[] = [undefined, undefined];
 let trackLast = false, lapse = false;
 const drawnN = new Int32Array(2);
 /** The card state handed to `genPowerMoves`, one object reused. */
-const ctx: CardCtx = { drawn: 0, last: undefined, rescue: -1 };
+const ctx: CardCtx = { drawn: 0, last: undefined, rescue: -1, move: 1 };
+/** The full-move number (`Position.move`, for `Rules.fromMove`): one more after each of Black's whole turns. Not hashed, as in `positionKey`. */
+let moveNo = 1;
 /** Sacrifice reserve (`Position.lost`), kept only when `trackLost`. */
 const lost = new Int32Array(32);
 let trackLost = false;
@@ -109,7 +111,7 @@ const fBase = new Int32Array(FRAMES), fUsed0 = new Int32Array(FRAMES), fUsed1 = 
 const fMark = new Int32Array(FRAMES), fHaste = new Int32Array(FRAMES), fLostTop = new Int32Array(FRAMES), fFlip = new Uint8Array(FRAMES);
 const fMark1 = new Int32Array(FRAMES), fMarkLeft = new Uint8Array(FRAMES), fMarkLeft1 = new Uint8Array(FRAMES), fFree = new Uint8Array(FRAMES), fWard = new Uint8Array(FRAMES);
 const fWait0 = new Uint8Array(FRAMES), fWait1 = new Uint8Array(FRAMES);
-const fRage = new Uint8Array(FRAMES), fDrawn0 = new Uint8Array(FRAMES), fDrawn1 = new Uint8Array(FRAMES), fLast0 = new Int8Array(FRAMES), fLast1 = new Int8Array(FRAMES);
+const fMoveNo = new Int32Array(FRAMES), fRage = new Uint8Array(FRAMES), fDrawn0 = new Uint8Array(FRAMES), fDrawn1 = new Uint8Array(FRAMES), fLast0 = new Int8Array(FRAMES), fLast1 = new Int8Array(FRAMES);
 let fsp = 0;
 /**
  * Power moves are offered only at plies 0…`powerPlyMax` (root, reply, own next move by default);
@@ -319,7 +321,7 @@ function apply(m: Move, c: Color): number {
   fMarkLeft[fsp] = markLeft[0]; fMarkLeft1[fsp] = markLeft[1]; fFree[fsp] = free ? 1 : 0;
   fWard[fsp] = markWard[0] | markWard[1] << 1 | markAll[0] << 2 | markAll[1] << 3;
   fWait0[fsp] = waitN[0]; fWait1[fsp] = waitN[1];
-  fRage[fsp] = rageKind; fDrawn0[fsp] = drawnN[0]; fDrawn1[fsp] = drawnN[1];
+  fMoveNo[fsp] = moveNo; fRage[fsp] = rageKind; fDrawn0[fsp] = drawnN[0]; fDrawn1[fsp] = drawnN[1];
   fLast0[fsp] = lastName[0] ? ALL_CARDS.indexOf(lastName[0]) : -1; fLast1[fsp] = lastName[1] ? ALL_CARDS.indexOf(lastName[1]) : -1;
   const still = isStill(m);
   if (!still) {
@@ -358,7 +360,7 @@ function apply(m: Move, c: Color): number {
   setHaste(m.power === 'haste' || rage ? m.to : -1);
   setRage(m.power === 'rage' ? 1 : m.power === 'rageb' ? 2 : m.power === 'rally' ? 3 : 0);
   fFlip[fsp] = holdTurn ? 0 : 1;
-  if (!holdTurn) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
+  if (!holdTurn) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; if (c === BLACK) moveNo++; }
   fsp++;
   return base;
 }
@@ -366,6 +368,7 @@ function apply(m: Move, c: Color): number {
 function undo(base: number): void {
   fsp--;
   if (fFlip[fsp]) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
+  moveNo = fMoveNo[fsp];
   setHaste(fHaste[fsp]);
   setRage(fRage[fsp]);
   setFree(fFree[fsp] === 1);
@@ -469,7 +472,7 @@ function genLegal(out: Move[], c: Color, mode: GenMode, ply: number, inCheckKnow
     if (mode === 'all' && waitN[c] > 0) genGuardDrops(board, c, out);
     if (free) { filterFree(c, true, out); if (mode === 'all') out.push(freePass(board, c)); }
     else if (mode === 'all' && ply <= powerPlyMax && usesMax[c] >= 0) {
-      ctx.drawn = drawnN[c]; ctx.last = lastName[c ^ 1]; ctx.rescue = markSq[c];
+      ctx.drawn = drawnN[c]; ctx.last = lastName[c ^ 1]; ctx.rescue = markSq[c]; ctx.move = moveNo;
       genPowerMoves(board, c, usedPair[c], trackLost ? lost : undefined, out, 0, out.length, ctx);
     }
   }
@@ -840,6 +843,7 @@ function initPosition(pos: Position): void {
   free = !!pos.free;
   hasteSq = pos.haste ?? -1;
   rageKind = pos.rage ?? 0;
+  moveNo = moveNumber(pos);
   trackLast = tracksLast();
   lapse = lapsing();
   lastName[0] = trackLast ? pos.last?.[0] : undefined; lastName[1] = trackLast ? pos.last?.[1] : undefined;
@@ -878,6 +882,13 @@ const moveResets = (m: Move): boolean =>
  * Test probe: apply `m` to `pos` the way the search does and return the incremental key after it and
  * after the undo, to compare with `positionKey(makeMove(pos, m))` and `positionKey(pos)`.
  */
+/** Test probe: the search's own legal list after it applies `m` to `pos` (the state `apply` keeps, the move number included). */
+export function probeLegalAfter(pos: Position, m: Move): Move[] {
+  initPosition(pos);
+  apply(m, pos.turn);
+  return [...genLegal([], (holdsTurn(m) ? pos.turn : pos.turn ^ 1) as Color, 'all', 0)];
+}
+
 export function probeApply(pos: Position, m: Move): { after: number; back: number } {
   initPosition(pos);
   const base = apply(m, pos.turn);
