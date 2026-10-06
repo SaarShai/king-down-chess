@@ -6,7 +6,7 @@ Start this **after the Workshop rework** (`docs/HANDOFF-2026-10-06.md` on `claud
 
 The skills come from https://github.com/mattpocock/skills (v1.3.1, MIT). Some of them are **user-invoked**: only you can start them, by typing the slash command. The agent cannot start them for you, and one user-invoked skill cannot start another one. So you type each step below.
 
-1. **Install** (once): `claude plugins install mattpocock-skills` in a terminal, or `/plugin install mattpocock-skills` in a session. Restart the session if the skills do not show. Install only one way. The plugin and `npx skills` together give every skill twice.
+1. **Install** (done 2026-10-06: version 1.3.1 from the author's store). The official store has only 1.2.3, which has no `retro` or `implement-spec`. To install again: `claude plugins marketplace add mattpocock/skills`, then `claude plugins install mattpocock-skills@mattpocock`. Do not also install it from `claude-plugins-official` or with `npx skills`, or every skill shows twice.
 2. **Paste the agent prompt below.** The agent reads this file, checks the skills, and gets the session records ready. Then it stops.
 3. `/setup-matt-pocock-skills` (once for this repo). It asks you three things:
    - **Issue tracker:** I suggest **local files**. This repo does not use GitHub issues; TASKS.md and docs/QUEUE.md are the trackers.

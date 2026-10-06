@@ -39,6 +39,34 @@
         "docs/2d-first-pieces"
       ],
       "port": 5192
+    },
+    {
+      "name": "previews",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5310",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "sim/out/previews"
+      ],
+      "port": 5310
+    },
+    {
+      "name": "workshop",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b",
+        "--port",
+        "5177",
+        "--strictPort",
+        "--host",
+        "127.0.0.1"
+      ],
+      "port": 5177
     }
   ]
 }
