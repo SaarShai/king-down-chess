@@ -128,25 +128,36 @@ for (const s of SCENES) {
     if (s.motion === 'overload' && s.states[i].op && !s.states[i ^ 1].op) overload(model);
     if (s.motion === 'reveal') reveal(model, before);
   };
-  card.querySelector('.play').onclick = go;
+  // A card's own Play stops Play all, so the viewer can look at that one.
+  card.querySelector('.play').onclick = () => { setLoop(false); go(); };
   play.push({ card, go });
 }
 // Play all: each card in turn, forward and back, with a pause to see the still picture after each motion.
 const loop = document.getElementById('loop');
-let looping = true;
-loop.onclick = () => { looping = !looping; loop.setAttribute('aria-pressed', String(looping)); loop.textContent = 'Play all: ' + (looping ? 'on' : 'off'); };
-(async () => {
+// Each start of Play all gets a new run number; a stop ends the running sequence at its next step.
+let looping = true, runNo = 0;
+function setLoop(on) {
+  if (on === looping) return;
+  looping = on; runNo++;
+  loop.setAttribute('aria-pressed', String(on)); loop.textContent = 'Play all: ' + (on ? 'on' : 'off');
+  if (on) playAll(runNo);
+  else for (const c of document.querySelectorAll('.card')) c.classList.remove('now');
+}
+loop.onclick = () => setLoop(!looping);
+async function playAll(me) {
+  const live = () => looping && me === runNo;
   await wait(600);
-  for (let k = 0; ; k = (k + 1) % play.length) {
-    while (!looping) await wait(200);
+  for (let k = 0; live(); k = (k + 1) % play.length) {
     const { card, go } = play[k], t = +root.dataset.slow || 1;
     for (const c of document.querySelectorAll('.card')) c.classList.toggle('now', c === card);
-    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    await wait(500);
-    go(); await wait(1400 * t + (card.id === 'A4' ? 1600 : 0));
+    // The page scrolls to the lit card only where motion is on (reduced motion or Off: it stays still).
+    if (!still()) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await wait(500); if (!live()) return;
+    go(); await wait(1400 * t + (card.id === 'A4' ? 1600 : 0)); if (!live()) return;
     go(); await wait(1200 * t);
   }
-})();
+}
+playAll(runNo);
 </script></body></html>
 `;
 writeFileSync(`${OUT}/motion-preview.html`, page);

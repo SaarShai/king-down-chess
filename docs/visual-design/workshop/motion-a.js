@@ -9,10 +9,11 @@
 
 const pace = () => document.documentElement.dataset.pace || 'normal';
 export const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches || pace() === 'off';
-/** One animation on `el`, after the element's running ones are cancelled. Null when motion is off. */
-function run(el, frames, o) {
+/** One animation on `el`, after the element's running ones are cancelled (`keep: true` adds it beside them,
+ *  for effects that run together on one element). Null when motion is off. */
+function run(el, frames, { keep = false, ...o }) {
   if (!el) return null;
-  el.getAnimations().forEach(a => a.cancel());
+  if (!keep) el.getAnimations().forEach(a => a.cancel());
   if (still()) return null;
   const k = (pace() === 'fast' ? 0.5 : 1) * (+document.documentElement.dataset.slow || 1);
   return el.animate(frames, { easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'none', ...o, duration: o.duration * k, delay: (o.delay ?? 0) * k });
@@ -36,7 +37,7 @@ export function equip(model, gait, before) {
     const copy = old.cloneNode();
     copy.style.zIndex = '1';
     fadeOut(copy, model);
-    run(fig, [{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: 'linear', composite: 'add' });
+    run(fig, [{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: 'linear', keep: true }); // beside the gait, not in its place
   }
 }
 
@@ -60,7 +61,13 @@ export function floorPop(model, before) {
     e.style.transformBox = 'fill-box'; e.style.transformOrigin = 'center';
     run(e, [{ opacity: 0, transform: 'scale(0)' }, { opacity: 1, transform: 'scale(1.6)', offset: 0.6 }, { opacity: 1, transform: 'scale(1)' }], { duration: 360, delay: 38 * (ring - 1) });
   }
-  for (const [k, { e }] of was) if (!now.has(k)) fadeOut(e.cloneNode(true), svg, 360);
+  // A removed mark fades on the new floor, so it takes the new floor's gradient (the old one left with its SVG).
+  const grad = svg.querySelector('linearGradient')?.id;
+  for (const [k, { e }] of was) if (!now.has(k)) {
+    const copy = e.cloneNode(true);
+    if (grad && copy.getAttribute('fill')?.startsWith('url(')) copy.setAttribute('fill', `url(#${grad})`);
+    fadeOut(copy, svg, 360);
+  }
 }
 
 /** A3 Gauge ease: the gem, the band pill and the metal ease from where they were; the gem swells on the way (450 ms). */
@@ -87,8 +94,11 @@ export function overload(model) {
   const cracks = model.querySelector('.ws-cracks'), fig = model.querySelector('.ws-fig');
   if (!cracks) return;
   for (const p of cracks.querySelectorAll('path')) {
+    // The draw needs a one-dash pattern for a while; after it, the path keeps its own (an untested shape's seam is dashed).
     p.style.strokeDasharray = '1';
-    run(p, [{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 560, easing: 'ease-out' });
+    const a = run(p, [{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 560, easing: 'ease-out' });
+    const restore = () => { p.style.strokeDasharray = ''; };
+    if (a) a.onfinish = a.oncancel = restore; else restore();
   }
   run(fig, [0, -7, 7, -7, 7, -4, 0].map(x => ({ transform: `translateX(${x}px)` })), { duration: 560, easing: 'linear' });
   const glow = run(cracks, [{ opacity: 1 }, { opacity: 0.4 }, { opacity: 1 }], { duration: 1600, delay: 560, iterations: Infinity, easing: 'ease-in-out' });
