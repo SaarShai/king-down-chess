@@ -885,9 +885,9 @@ export function leafPowers(pos: Position): { rows: [number, number]; term: numbe
   return { rows: [livePower(WHITE), livePower(1)], term: powerTerm(pos.turn) - powerTerm((pos.turn ^ 1) as Color) };
 }
 
-/** A move that resets the 50-move clock: a capture or a pawn move, a pushed or a spawned pawn included (never a mark, a drawn card or a pass); `makeMove`'s own test. */
+/** A move that resets the 50-move clock: a capture or a pawn move, a pushed pawn included (never a spawn or another drop, a mark, a drawn card or a pass); `makeMove`'s own test. */
 const moveResets = (m: Move): boolean =>
-  m.captures.length > 0 || (!isStill(m) && (m.pushes ? m.pushes.some(p => typeOf(board[p.from]) === P) : (m.drop ?? typeOf(board[m.from])) === P));
+  m.captures.length > 0 || (!isStill(m) && (m.pushes ? m.pushes.some(p => typeOf(board[p.from]) === P) : !m.drop && typeOf(board[m.from]) === P));
 
 /**
  * Test probe: apply `m` to `pos` the way the search does and return the incremental key after it and

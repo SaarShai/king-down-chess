@@ -984,9 +984,9 @@ export function makeMove(pos: Position, m: Move): Position {
       if (m.drop2 !== undefined) board[m.drop2] = mover;
     }
   }
-  // A pushed pawn resets the clock, as a cursed one does (a pawn's step is the clock's measure), and so
-  // does a spawned one (`mover` is the new pawn).
-  const reset = !still && (m.captures.length > 0 || (m.pushes ? m.pushes.some(p => typeOf(pos.board[p.from]) === P) : typeOf(mover) === P));
+  // A pushed pawn resets the clock, as a cursed one does (a pawn's step is the clock's measure). A spawn
+  // does not (owner, 2026-10-06): `mover` is then the new pawn, so a drop is left out by name.
+  const reset = !still && (m.captures.length > 0 || (m.pushes ? m.pushes.some(p => typeOf(pos.board[p.from]) === P) : !m.drop && typeOf(mover) === P));
   // The turn holds after Black's first move under `secondPlayerDoubleFirstTurn` (see the rule's
   // comment in ./rules.ts for why that is a ply check), after the first move of a Haste or a Rage,
   // after a free mark and after a GrowthB.

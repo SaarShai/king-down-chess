@@ -140,30 +140,31 @@ describe('Spawn: the king in check', () => {
 });
 
 describe('Spawn: the move', () => {
-  it('adds a pawn, takes nothing, resets the clock, spends the card and is the turn', () => {
+  it('adds a pawn, takes nothing, leaves the clock, spends the card and is the turn', () => {
     hands(['Spawn', 'Spawn2'], []);
     const pos = fromFen('4k3/8/8/8/8/8/8/4K3 w - - 7 12');
     const m = find(pos, 'P@c2!S');
     expect([m.from, m.to, m.captures, m.drop, m.drop2, m.power]).toEqual([parseSq('c2'), parseSq('c2'), [], P, undefined, 'spawn']);
     const next = makeMove(pos, m);
     for (let s = 0; s < 64; s++) expect(next.board[s], `square ${s}`).toBe(s === parseSq('c2') ? piece(P, WHITE) : pos.board[s]);
-    expect([next.turn, next.used, next.halfmove, next.lost]).toEqual([BLACK, [1, 0], 0, undefined]);
+    expect([next.turn, next.used, next.halfmove, next.lost]).toEqual([BLACK, [1, 0], 8, undefined]);
     expect(describeMove(pos, m)).toBe('White adds a pawn on c2.');
     const two = find(pos, 'P@c2,f2!S2');
     expect([two.to, two.drop2, two.power]).toEqual([parseSq('c2'), parseSq('f2'), 'spawn2']);
     const after = makeMove(pos, two);
-    expect(toFen(after)).toBe('4k3/8/8/8/8/8/2P2P2/4K3 b - - 0 12 u2.0');
+    expect(toFen(after)).toBe('4k3/8/8/8/8/8/2P2P2/4K3 b - - 8 12 u2.0');
     expect(describeMove(pos, two)).toBe('White adds pawns on c2 and f2.');
     // One use: the spent card offers nothing on White's next turn.
     expect(spawns(play(after, 'Ke8-d8')).filter(l => l.endsWith('!S2'))).toEqual([]);
   });
 
-  it('the search resets the 50-move clock on a spawn, as makeMove does', () => {
-    // Ply 99 without a capture or a pawn move: every other move draws; the spawn keeps the queen's win.
+  it('a spawn does not reset the 50-move clock, in makeMove or in the search (owner, 2026-10-06)', () => {
+    // Ply 99 without a capture or a pawn move: every move draws, the spawn too, so the search sees no
+    // win and makeMove's clock reaches 100.
     hands(['Spawn'], []);
     const pos = fromFen('4k3/8/8/8/8/8/8/Q3K3 w - - 99 80');
-    expect(makeMove(pos, find(pos, 'P@a2!S')).halfmove).toBe(0);
-    expect(toLan(pos, search(pos, { maxDepth: 2 }).move!)).toMatch(/^P@[a-h]2!S$/);
+    expect(makeMove(pos, find(pos, 'P@a2!S')).halfmove).toBe(100);
+    expect(Math.abs(search(pos, { maxDepth: 2 }).score)).toBe(0);
   });
 
   it('a spawned pawn is an ordinary pawn: on its start rank it may double-step', () => {
@@ -188,7 +189,7 @@ describe('Spawn: the move', () => {
     pos = play(pos, 'Ke8-d8');
     pos = play(pos, 'P@h2!S');
     expect(pawns(pos, WHITE)).toBe(11);
-    expect(toFen(pos)).toBe('3k4/pppppppp/8/8/8/PPPPPPPP/PP5P/4K3 b - - 0 2 u3.0');
+    expect(toFen(pos)).toBe('3k4/pppppppp/8/8/8/PPPPPPPP/PP5P/4K3 b - - 3 2 u3.0');
     expect(fromFen(toFen(pos))).toEqual(pos);
     expect(positionKey(fromFen(toFen(pos)))).toBe(positionKey(pos));
     expect(status(pos)).toBe('playing');
