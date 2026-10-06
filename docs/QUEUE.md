@@ -260,6 +260,57 @@ our version or might be overpowered"). Ran 2026-10-04.
   MirrorB +2.22; Mirror about 0. Rescue +0.40, nothing measurable. Raw games:
   `origin/claude/kp2-results` (4567479).
 
+## Ran 2026-10-05: K18, the released set on fresh armies
+
+- **K18 (`kp2-r18`, at 45ec461):** the twelve official powers as released (Mercy M2, the Darkness king
+  step), seed 1818, 40 pairs, `--armies perPair` (2,640 armies), depth 3; 66 matchups, 5,280 games on 5
+  Kaggle notebooks (97–165 min each). Spec: `sim/out/kp2-r18.kaggle.json`. Decides: whether the released
+  set holds 50 ± 4 on fresh armies.
+- **Results:** 10 of 12 inside 50 ± 4. Haste 58.3% ± 3.3 and Death Touch 55.1% ± 2.9 are off centre
+  with all twelve tested together; Flight 46.6 ± 3.1 is low on its own interval only. Flame king 54.9 ±
+  2.1; Spirit − Shadow −3.3 ± 3.2. Draws 14.0% (10.1% adjudicated). **Owner (2026-10-06): Haste stays
+  as it is.** Report, games and specs: `origin/claude/kp2-results` (101130c), `sim/out/kp2-r18.*`.
+
+## Ran 2026-10-05/06 on the M1: the Archer `over23` (branch `claude/archer-reach`, d664ec7)
+
+- **pa-ao3:** activity, 9,000 games (`--mirrorOnly`), seed 7001, the one-Beast pool,
+  `--rule archerShots=over23`; 37.6 min on 8 workers. **pv-A-ao3-n1, -n2:** worth against the Knight,
+  1,000 games a pass, seed 1036, 77 Elo a pawn, A = 505 then 320; about 3 min a pass. **pv-A-ao3na-n1, -n2:** the same played
+  to the end (`--noadjudicate`), A = 299 then 283; about 4 min a pass. Chains `m1-reach.sh`,
+  `m1-noadj.sh` in `~/projects/king-down-runs` on the M1.
+- **Results:** captures 1.30× the average piece, moved 96.3%, draws 17.0% (−8.3 points with an
+  Archer). Worth 3.0 ± 0.27 pawns with adjudication, 2.70 ± 0.26 without (both converged). **Owner
+  (2026-10-06): too cumbersome.** Games, specs, reports and the two chain logs: `origin/claude/kp2-results`
+  (f086c93).
+
+## Running and queued, 2026-10-06
+
+All at depth 3 with `--armies perPair`. The card runs use cards-m5's card rules (`--rule markFree=true
+--rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false`).
+
+| id | where, code | entrants and flags | games | state |
+|---|---|---|---|---|
+| rage-q | Kaggle, 2 notebooks; df8c880 (`claude/rage-trim`) | `card:Rage,card:Haste,none --anchor none --mirror --pairs 300 --seed 5858 --rule rageSecond=quiet` | 1,800 | done: +4.01 ± 0.51 pawns, draws 6.5% |
+| rage-s | Kaggle, 2 notebooks; df8c880 | the same with `--rule rageSecond=stopOnTake` | 1,800 | done: +4.47 ± 0.54, draws 6.0% |
+| rally-r1 | M1, 8 workers; e2c009b (`claude/power-schema`), `~/projects/king-down-rally/m1-rally.sh` | `card:Rally,card:Haste,none --anchor none --mirror --pairs 300 --seed 5858` | 1,800 | done: +2.60 ± 0.46 pawns, draws 9.8% |
+| haste-from10 | M1, after rally-r1; 006de4f, `~/projects/king-down-r2/m1-r2.sh` | kp2-r18's powers, flags and armies (seed 1818, 40 pairs) with `--anchor Haste --rule fromMove=Haste:10` | 880 | done: 58.4% ± 3.1 (58.3% without), no effect |
+| morph-a1 | Kaggle, 5 notebooks, after the Rage runs; ab14413 (`claude/morph-card`), watcher `kaggle-morph-queue.sh` in the session scratchpad | `card:Morph,card:MorphB,card:Haste,none --mirror --pairs 150 --seed 6161` (10 matchups) | 3,000 | done: Morph 86.2% ± 2.3 against the field (98% against no card: a free queen on move 3), MorphB +3.3 pawns (77%), the Haste card 70% against no card; draws 7.3–9.6% (no rise); report `.claude/worktrees/agent-a6a67079b28e16f6c/sim/out/morph-a1.report.md` (git-ignored, this Mac) |
+| spawn-r1 | M1; ed23ea1 (`claude/spawn-card`) | `card:Spawn,card:SpawnK,card:Spawn2,card:SpawnK2,none --mirror --pairs 300 --seed 5858` (the four Spawn cards against no card) | 3,000 | done: SpawnK2 +1.55 ± 0.40 pawns, SpawnK +0.80 ± 0.36, Spawn2 +0.50 ± 0.40, Spawn +0.36 ± 0.38; draws unchanged (mirror 15.3% ± 4.1; Δ −1.5 to +2.0, each ± 5); report `~/projects/king-down-spawn/sim/out/spawn-r1.report.md` on the M1 |
+| morph-b1 | Kaggle; 5a3c71a (`claude/morph-soft`) | `card:MorphP,card:MorphS,card:Haste,none --mirror --pairs 150 --depth 3 --seed 6262 --armies perPair --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false` (10 matchups, as `morph-a1`) | 3,000 | done: read 2026-10-06. MorphP 70% against no card (+2.3 pawns; 50% against the Haste card; first use median ply 5, used in 99.7% of games), MorphS 59% (+1.0 pawn; 43% against Haste; median ply 34), Haste 68% (+2.0); draws 13.7–15.3% (no rise); both inside the fair band 0.7–3; report `sim/out/morph-b1.report.md` (git-ignored; Kaggle commit 69a85c1) |
+
+Decides: rage-q, rage-s: whether a trim brings Rage (cards-m5: +4.06 pawns, about 1.7 Hastes) near the
+Haste card. rally-r1: Rally's worth against no card and beside the Haste card. haste-from10: whether
+"not before move 10" brings Haste (58.3% in K18) into 50 ± 4 on the same armies. morph-a1: each Morph
+card's worth and draws against no card and the Haste card; read 2026-10-06 (Morph is a free queen on move 3, MorphB +3.3 pawns; the owner has not chosen). spawn-r1: each Spawn card's worth and draws against no card; read 2026-10-06 (owner: Spawn2 is the start-rank card, Spawn set aside, SpawnK stays, SpawnK2 stays in the lab). morph-b1: the softer Morph cards' worth and draws against no card and the Haste card, as `morph-a1` (MorphS plays Sky Lift's moves: `cards-a2` measured Sky Lift at +1.2 ± 0.4 pawns on other armies).
+
+## Proposed, not approved: the far2 Archer played to the end
+
+- **pv-A-af2na-n1..n4** (M1, d664ec7): `m1-noadj.sh` with `--rule archerShots=far2`, starting at A = 283
+  (far2's next seed), at most 4 Muller passes of 1,000 games; about 4 min a pass. Decides: whether far2's
+  worth (2.83 ± 0.28, one pass against the Rook, `pv-A-af2`) stays at 2.5 pawns or more when no game is
+  adjudicated (`over23` lost 0.3 pawns that way). Owner (2026-10-06): leaning to far2; this check needs
+  the owner's go.
+
 ## Dropped
 
 - Warden extension pass (`sim/specs/warden/*` at 3 000 games): Saar rejected the two-square guard

@@ -96,6 +96,14 @@ export interface Move {
    *   chosen square and `pushes`; `burn`, `firestarter`, `control`, one piece's move or capture;
    *   `rescue`, `from === to ===` the side's own mark, renewed; `growth` / `growthb`, `from === to
    *   ===` the own king's square, a card drawn. A Mirror card is the copied card's move (`via`).
+   * - `rally`: a quiet ordinary move, after which a *different* own piece may make a quiet move
+   *   (`Position.rage` 3), or the side ends the turn with a `pass`.
+   * - `morph` / `morphb`: an own piece becomes another type on its square; `from === to`, `promo`
+   *   names the new type (Sacrifice's shape), and nothing is taken.
+   * - `spawn` / `spawnk`: a new own pawn enters on the empty square `from === to` (`drop: P`, as a
+   *   Salvation's piece enters); `spawn2` / `spawnk2`: a second one on `drop2` too. Nothing is taken.
+   * - `morphp`: an own pawn becomes a knight or a bishop on its square (Morph's shape: `from === to`,
+   *   `promo`); `morphs`: two own pieces swap places (SkyLift's shape, `swap`). Nothing is taken.
    * No power move ever captures a king, and none adds an attacked square.
    */
   power?: PowerTag;
@@ -108,22 +116,32 @@ export interface Move {
   promo?: PieceType;
   /**
    * A piece of this type enters from beside the board onto the empty square `from === to`: a
-   * waiting guard (`Rules.guardReserve`, no power) or a Salvation card's returned piece. It empties
-   * no square, so it never opens a line; its colour is the mover's (`moverOf`).
+   * waiting guard (`Rules.guardReserve`, no power), a Salvation card's returned piece or a Spawn
+   * card's new pawn. It empties no square, so it never opens a line; its colour is the mover's (`moverOf`).
    */
   drop?: PieceType;
+  /** Spawn2 / SpawnK2: a second piece of `drop`'s type enters on this empty square, another than `to` (always above it). */
+  drop2?: number;
 }
 
 /** The tag on a move that spends a king power (`Move.power`). */
 export type PowerTag = 'freeze' | 'ward' | 'strike' | 'haste' | 'flight' | 'sacrifice' | 'march' | 'leap' | 'mimic' | 'vault' | 'curse' | 'skylift' | 'salvation'
-  | 'rage' | 'rageb' | 'firewall' | 'firewallb' | 'quake' | 'quakeb' | 'burn' | 'firestarter' | 'control' | 'rescue' | 'growth' | 'growthb';
+  | 'rage' | 'rageb' | 'firewall' | 'firewallb' | 'quake' | 'quakeb' | 'burn' | 'firestarter' | 'control' | 'rescue' | 'growth' | 'growthb' | 'rally'
+  | 'morph' | 'morphb' | 'spawn' | 'spawnk' | 'spawn2' | 'spawnk2' | 'morphp' | 'morphs';
 
 export interface Position {
   board: Uint8Array;
   turn: Color;
   /** Plies since the last capture or pawn move (50-move rule). */
   halfmove: number;
+  /** Plies played: every move, so a turn that goes on (a Haste's first move, a free mark) adds more than one. */
   ply: number;
+  /**
+   * The full-move number, as chess counts it: 1 at the start, one more after each of Black's whole
+   * turns, however many plies a turn has. FEN field 6. Absent = `floor(ply / 2) + 1` (`moveNumber`).
+   * Not part of the position's key, as in chess; `Rules.fromMove` reads it.
+   */
+  move?: number;
   /**
    * King powers: uses each side has spent of its spendable power (`Rules.freezeUses` and the rest),
    * `[white, black]`. Absent = none. Game state, not a rule: it travels with the position (FEN field
@@ -147,8 +165,12 @@ export interface Position {
   free?: boolean;
   /** Haste: the square of the piece that may still make its optional second move this turn. */
   haste?: number;
-  /** That second move is a Rage card's (1: it may take) or a RageB card's (2: it must take); absent = a Haste's. FEN `hd4r` / `hd4t`. */
-  rage?: 1 | 2;
+  /**
+   * That second move is a Rage card's (1: it may take), a RageB card's (2: it must take) or a Rally
+   * card's (3: a different own piece moves, `haste` names the piece that may not, and nothing is
+   * taken); absent = a Haste's. FEN `hd4r` / `hd4t` / `hd4o`.
+   */
+  rage?: 1 | 2 | 3;
   /** Card mode, Mirror: the card each side played last (a Mirror records the card it played as). Kept while a hand holds a Mirror; FEN `yHaste.Freeze`. */
   last?: readonly [CardName | undefined, CardName | undefined];
   /** Card mode, Growth: the cards each side has drawn from its pile (`Rules.piles`). FEN `d1.0`. */
@@ -254,6 +276,11 @@ const chebyshev = (a: number, b: number): number => Math.max(Math.abs(file(a) - 
  */
 export const powerOf = (c: Color): PowerName | '' => RULES.kings[c]?.power ?? '';
 
+/** The full-move number of `pos` (`Position.move`). */
+export const moveNumber = (pos: Position): number => pos.move ?? (pos.ply >> 1) + 1;
+/** `Rules.fromMove`: may `card` (a power or a card) be used on full move `move`? */
+const ready = (card: CardName, move: number): boolean => !(move < (RULES.fromMove[card] ?? 0));
+
 /**
  * Uses side `c` may spend of its power: n > 0 counted, 0 unlimited, -1 when its power is not a
  * spendable one (or it has none). The counts are rules (`USES_RULE`), the spent ones game state.
@@ -282,7 +309,11 @@ export const TAG_POWER: Readonly<Record<PowerTag, CardName>> = {
   mimic: 'Mimic', vault: 'Vault', curse: 'Curse', skylift: 'SkyLift', salvation: 'Salvation',
   rage: 'Rage', rageb: 'RageB', firewall: 'Firewall', firewallb: 'FirewallB', quake: 'EarthQuake', quakeb: 'EarthQuakeB',
   burn: 'Burn', firestarter: 'FireStarter', control: 'Control', rescue: 'Rescue', growth: 'Growth', growthb: 'GrowthB',
+  rally: 'Rally', morph: 'Morph', morphb: 'MorphB', spawn: 'Spawn', spawnk: 'SpawnK', spawn2: 'Spawn2', spawnk2: 'SpawnK2',
+  morphp: 'MorphP', morphs: 'MorphS',
 };
+/** The Spawn cards' tags: a new pawn (two for `spawn2` / `spawnk2`) enters as the turn. */
+export const isSpawnTag = (t: PowerTag | undefined): boolean => t === 'spawn' || t === 'spawnk' || t === 'spawn2' || t === 'spawnk2';
 /** Card mode: may side `c` (cards played: the bits of `used`) still play a `power` card? */
 const holdsCard = (c: Color, used: number, power: CardName, drawn = 0): boolean => {
   for (let k = 0, n = heldCount(c, drawn); k < n; k++) if (cardAt(c, k) === power && !(used >> k & 1)) return true;
@@ -340,9 +371,9 @@ export const isMarkTag = (t: PowerTag | undefined): boolean => t === 'freeze' ||
 export const isStill = (m: Move): boolean => m.pass === true || isMarkTag(m.power) || m.power === 'growth' || m.power === 'growthb';
 /**
  * Does the turn go on after `m` (besides `secondPlayerDoubleFirstTurn`)? The first move of a Haste
- * or a Rage, a free mark (`markFree`), and a GrowthB card (draw, then move).
+ * a Rage or a Rally, a free mark (`markFree`), and a GrowthB card (draw, then move).
  */
-export const holdsTurn = (m: Move): boolean => m.power === 'haste' || m.power === 'rage' || m.power === 'rageb' || m.power === 'growthb' || (RULES.markFree && isMarkTag(m.power));
+export const holdsTurn = (m: Move): boolean => m.power === 'haste' || m.power === 'rage' || m.power === 'rageb' || m.power === 'rally' || m.power === 'growthb' || (RULES.markFree && isMarkTag(m.power));
 /** A game keeps the reserve (`Position.lost`) only while a side draws on it. */
 export const keepsLost = (): boolean => drawsOnLost(WHITE) || drawsOnLost(BLACK);
 /** May a lost piece of type `t` come back (Sacrifice, Salvation)? Never a pawn, a king or a guard. */
@@ -953,16 +984,18 @@ export function makeMove(pos: Position, m: Move): Position {
     else {
       board[m.from] = m.swap ? other : 0;
       board[m.to] = m.selfRemove ? 0 : landed(mover, m);
+      if (m.drop2 !== undefined) board[m.drop2] = mover;
     }
   }
-  // A pushed pawn resets the clock, as a cursed one does (a pawn's step is the clock's measure).
-  const reset = !still && (m.captures.length > 0 || (m.pushes ? m.pushes.some(p => typeOf(pos.board[p.from]) === P) : typeOf(mover) === P));
+  // A pushed pawn resets the clock, as a cursed one does (a pawn's step is the clock's measure). A spawn
+  // does not (owner, 2026-10-06): `mover` is then the new pawn, so a drop is left out by name.
+  const reset = !still && (m.captures.length > 0 || (m.pushes ? m.pushes.some(p => typeOf(pos.board[p.from]) === P) : !m.drop && typeOf(mover) === P));
   // The turn holds after Black's first move under `secondPlayerDoubleFirstTurn` (see the rule's
   // comment in ./rules.ts for why that is a ply check), after the first move of a Haste or a Rage,
   // after a free mark and after a GrowthB.
   const isMark = isMarkTag(m.power);
   const hold = (RULES.secondPlayerDoubleFirstTurn && pos.ply === 1) || holdsTurn(m);
-  const next: Position = { board, turn: (hold ? c : c ^ 1) as Color, halfmove: reset ? 0 : pos.halfmove + 1, ply: pos.ply + 1 };
+  const next: Position = { board, turn: (hold ? c : c ^ 1) as Color, halfmove: reset ? 0 : pos.halfmove + 1, ply: pos.ply + 1, move: moveNumber(pos) + (!hold && c === BLACK ? 1 : 0) };
   let used = pos.used;
   const drawnBefore = pos.drawn?.[c] ?? 0;
   if (m.power) {
@@ -995,8 +1028,8 @@ export function makeMove(pos: Position, m: Move): Position {
   }
   if (m.power === 'growthb') next.free = true;
   if (marks[0] || marks[1]) next.marks = marks;
-  if (m.power === 'haste' || m.power === 'rage' || m.power === 'rageb') next.haste = m.to;
-  if (m.power === 'rage' || m.power === 'rageb') next.rage = m.power === 'rage' ? 1 : 2;
+  if (m.power === 'haste' || m.power === 'rage' || m.power === 'rageb' || m.power === 'rally') next.haste = m.to;
+  if (m.power === 'rage' || m.power === 'rageb' || m.power === 'rally') next.rage = m.power === 'rage' ? 1 : m.power === 'rageb' ? 2 : 3;
   if (m.power === 'growth' || m.power === 'growthb') { const d: [number, number] = [pos.drawn?.[0] ?? 0, pos.drawn?.[1] ?? 0]; d[c]++; next.drawn = d; }
   else if (pos.drawn) next.drawn = pos.drawn;
   // Mirror: the card each side played last, as the card it played as.
@@ -1193,22 +1226,22 @@ export function inCheck(pos: Position, c: Color = pos.turn): boolean {
  * drawn (`Position.drawn`); `last`: the card the opponent played last (`Position.last`), a Mirror's;
  * `rescue`: the square of the side's own mark, live or just ended (`Position.marks`), a Rescue's, or -1.
  */
-export interface CardCtx { drawn: number; last: CardName | undefined; rescue: number }
+export interface CardCtx { drawn: number; last: CardName | undefined; rescue: number; /** The full-move number (`Rules.fromMove`). */ move: number }
 /** The card state of side `c` in `pos` (`CardCtx`). */
-export const cardCtx = (pos: Position, c: Color): CardCtx => ({ drawn: pos.drawn?.[c] ?? 0, last: pos.last?.[c ^ 1], rescue: pos.marks?.[c]?.sq ?? -1 });
-const NO_CTX: CardCtx = { drawn: 0, last: undefined, rescue: -1 };
+export const cardCtx = (pos: Position, c: Color): CardCtx => ({ drawn: pos.drawn?.[c] ?? 0, last: pos.last?.[c ^ 1], rescue: pos.marks?.[c]?.sq ?? -1, move: moveNumber(pos) });
+const NO_CTX: CardCtx = { drawn: 0, last: undefined, rescue: -1, move: Infinity };
 
 export function genPowerMoves(board: Uint8Array, c: Color, used: number, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number, ctx: CardCtx = NO_CTX): void {
   if (!canSpend(c, used, ctx.drawn)) return;
   const start = out.length;
   const hand = handOf(c);
-  if (!hand.length) genPowerMovesRaw(powerOf(c), board, c, lost, out, n0, n1, ctx);
+  if (!hand.length) { const p = powerOf(c); if (p && ready(p, ctx.move)) genPowerMovesRaw(p, board, c, lost, out, n0, n1, ctx); }
   // Card mode: each unplayed card's moves, once per power (a second copy offers the same moves).
   else {
     const n = heldCount(c, ctx.drawn);
     for (let k = 0; k < n; k++) {
       const p = cardAt(c, k);
-      if (used >> k & 1 || !firstCopy(c, used, k)) continue;
+      if (used >> k & 1 || !firstCopy(c, used, k) || !ready(p, ctx.move)) continue;
       // Mirror: the card the opponent played last (never a Mirror: it records what a Mirror played as).
       if (p === 'Mirror') { if (ctx.last) genCopy(ctx.last, 'mirror', board, c, lost, out, n0, n1, ctx); }
       // MirrorB: another unplayed card of the hand, once per card; that card stays. Not a Mirror.
@@ -1255,8 +1288,9 @@ function firstCopy(c: Color, used: number, k: number): boolean {
   for (let i = 0; i < k; i++) if (cardAt(c, i) === p && !(used >> i & 1)) return false;
   return true;
 }
-/** A Mirror card plays card `p`: `p`'s moves, tagged with its power, spending the Mirror (`via`). */
+/** A Mirror card plays card `p`: `p`'s moves, tagged with its power, spending the Mirror (`via`). Not before `p` may be used (`Rules.fromMove`). */
 function genCopy(p: CardName, via: Move['via'], board: Uint8Array, c: Color, lost: ArrayLike<number> | undefined, out: Move[], n0: number, n1: number, ctx: CardCtx): void {
+  if (!ready(p, ctx.move)) return;
   const s0 = out.length;
   genPowerMovesRaw(p, board, c, lost, out, n0, n1, ctx);
   for (let i = s0; i < out.length; i++) out[i].via = via;
@@ -1266,6 +1300,8 @@ function besideOwn(board: Uint8Array, s: number, c: Color): boolean {
   for (let d = 0; d < 8; d++) { const n = NEIGHBOUR[s * 8 + d]; if (n >= 0 && board[n] && colorOf(board[n]) === c) return true; }
   return false;
 }
+/** The types a Morph card may make: those the draw pool fields (`POOL` in ./setup.ts; morph.test.ts holds the two together). */
+const MORPH_TYPES: readonly PieceType[] = [Q, O, R, B, N, A, G, M, S];
 /** Burn's zone: the capital. Fire Starter's is the enemy back rank (`backRank`). */
 const backRank = (c: Color): readonly number[] => (c === WHITE ? [56, 57, 58, 59, 60, 61, 62, 63] : [0, 1, 2, 3, 4, 5, 6, 7]);
 
@@ -1455,6 +1491,12 @@ function genPowerMovesRaw(power: CardName | '', board: Uint8Array, c: Color, los
       for (let i = n0; i < n1; i++) if (!out[i].selfRemove) out.push({ ...out[i], power: tag });
       return;
     }
+    case 'Rally': {
+      // Haste's shape with two pieces: a quiet ordinary move (the king's too, as Haste allows), then
+      // a different own piece may make a quiet move (`genHasteFollowUp`, `rage` 3).
+      for (let i = n0; i < n1; i++) if (!out[i].captures.length) out.push({ ...out[i], power: 'rally' });
+      return;
+    }
     case 'Firewall': case 'Growth': case 'GrowthB': {
       // Firewall: a mark on every own piece, named by the own king's square; Growth: a card drawn,
       // while the pile has one and the hand has room (`HAND_MAX`).
@@ -1562,16 +1604,70 @@ function genPowerMovesRaw(power: CardName | '', board: Uint8Array, c: Color, los
       }
       return;
     }
-    case 'SkyLift': {
+    case 'Morph': case 'MorphB': {
+      // An own piece, not the king or a pawn, becomes another type of `MORPH_TYPES` on its square,
+      // as the turn; it takes nothing, and the new piece is fresh (`landed`: a spent guard's flag
+      // goes). Never a second Beast for the side; MorphB never a queen; a guard only where a guard
+      // may land. Legality is the caller's, as always.
+      const tag: PowerTag = power === 'Morph' ? 'morph' : 'morphb', beast = board.includes(piece(S, c));
+      for (let s = 0; s < 64; s++) {
+        const p = board[s];
+        if (!p || colorOf(p) !== c || typeOf(p) === K || typeOf(p) === P) continue;
+        for (const t of MORPH_TYPES) {
+          if (t === typeOf(p) || (t === S && beast) || (t === Q && power === 'MorphB') || !guardMayLand(piece(t, c), s)) continue;
+          out.push({ from: s, to: s, captures: [], promo: t, power: tag });
+        }
+      }
+      return;
+    }
+    case 'Spawn': case 'SpawnK': case 'Spawn2': case 'SpawnK2': {
+      // A new pawn of the side enters on an empty square, as the turn; it takes nothing (`drop: P`,
+      // the shape of a Salvation's entry). Spawn: the side's pawn start rank. SpawnK: a square next to
+      // its own king, never on rank 1 or 8 (no pawn stands there). Spawn2 / SpawnK2: two new pawns on
+      // two different such squares, each pair once (`to < drop2`; at most 28 pairs). A spawn may
+      // block a check; legality is the caller's, as always.
+      const near = power === 'SpawnK' || power === 'SpawnK2', two = power === 'Spawn2' || power === 'SpawnK2';
+      const tag: PowerTag = near ? (two ? 'spawnk2' : 'spawnk') : two ? 'spawn2' : 'spawn';
+      const at: number[] = []; // ascending, so each pair is written once
+      if (near) {
+        const k = findKing(board, c);
+        if (k < 0) return;
+        for (let dr = -1; dr <= 1; dr++) for (let df = -1; df <= 1; df++) {
+          const s = df || dr ? step(k, df, dr) : -1;
+          if (s >= 0 && !board[s] && rank(s) !== 0 && rank(s) !== 7) at.push(s);
+        }
+      } else {
+        const r0 = c === WHITE ? 8 : 48;
+        for (let s = r0; s < r0 + 8; s++) if (!board[s]) at.push(s);
+      }
+      if (!two) for (const s of at) out.push({ from: s, to: s, captures: [], drop: P, power: tag });
+      else for (let i = 0; i < at.length; i++) for (let j = i + 1; j < at.length; j++) out.push({ from: at[i], to: at[i], captures: [], drop: P, drop2: at[j], power: tag });
+      return;
+    }
+    case 'MorphP': {
+      // An own pawn becomes a knight or a bishop on its square, as the turn, taking nothing (Morph's
+      // shape). Both types always, whether or not the army fields one. It stays on its square, so it
+      // still blocks and still screens a catapult; legality is the caller's, as always.
+      for (let s = 0; s < 64; s++) {
+        const p = board[s];
+        if (!p || colorOf(p) !== c || typeOf(p) !== P) continue;
+        out.push({ from: s, to: s, captures: [], promo: N, power: 'morphp' }, { from: s, to: s, captures: [], promo: B, power: 'morphp' });
+      }
+      return;
+    }
+    case 'SkyLift': case 'MorphS': {
       // Two own pieces trade squares at any distance, in the maester swap's shape: neither the king
       // nor a pawn, not two of one type, and each lands where a guard may land (Flight's limit).
+      // MorphS is the same move under its own name: two pieces "swap types" is two pieces swap
+      // places, each with its own flags (a spent guard stays spent).
+      const tag: PowerTag = power === 'MorphS' ? 'morphs' : 'skylift';
       for (let a = 0; a < 64; a++) {
         const p = board[a];
         if (!p || colorOf(p) !== c || typeOf(p) === K || typeOf(p) === P) continue;
         for (let b = a + 1; b < 64; b++) {
           const q = board[b];
           if (!q || colorOf(q) !== c || typeOf(q) === K || typeOf(q) === P || typeOf(q) === typeOf(p) || !guardMayLand(p, b) || !guardMayLand(q, a)) continue;
-          out.push({ from: a, to: b, captures: [], swap: true, power: 'skylift' });
+          out.push({ from: a, to: b, captures: [], swap: true, power: tag });
         }
       }
       return;
@@ -1589,7 +1685,7 @@ function unpush(m: Move, s: number): Move | null {
 /**
  * Drop the moves a Freeze or Ice Wall mark forbids the side to move `c` (from `out[n0]` on). A
  * frozen piece does not move by any hand: not itself, not by its own maester's swap or ogre's shove
- * or a SkyLift, nor by its own side's Earth Quake, which leaves it where it stands (it may still be
+ * or a SkyLift or MorphS (nor does a frozen piece or pawn morph), nor by its own side's Earth Quake, which leaves it where it stands (it may still be
  * warded); a piece dropped onto an emptied marked square is not it. A warded piece cannot be
  * captured, by a chain either — the chain's shorter prefixes stay — nor moved by a Curse or by a
  * FirewallB's swap (an Earth Quake still pushes it: a push takes nothing); a Firewall (`all`)
@@ -1638,10 +1734,21 @@ export function filterHeld(c: Color, mark: number | undefined, ward: boolean | u
  * Haste's second move: only the hasted piece on `at` moves, and never onto a king (the first move
  * may have given check). `pass` ends the turn instead, so the side always has a move here. `rage`
  * (`Position.rage`): a Rage card's second move (1), which may take whatever the Haste rules say,
- * or a RageB's (2), which must take; the Haste readings' limits are Haste's only.
+ * or a RageB's (2), which must take; the Haste readings' limits are Haste's only. A Rally's (3): any
+ * own piece but the one on `at` makes a quiet move; no move of it may move that piece again (a swap
+ * or a shove of it), and no waiting guard enters.
  */
 export function genHasteFollowUp(board: Uint8Array, at: number, mode: GenMode, out: Move[], rage = 0): void {
   const n0 = out.length;
+  if (rage === 3) {
+    const c = colorOf(board[at]);
+    for (let s = 0; s < 64; s++) if (s !== at && board[s] && colorOf(board[s]) === c) genPiece(board, s, mode, out);
+    let n = n0;
+    for (let i = n0; i < out.length; i++) { const m = out[i]; if (!m.captures.length && !(m.swap && m.to === at) && m.shove?.from !== at) out[n++] = m; }
+    out.length = n;
+    if (mode === 'all') out.push({ from: at, to: at, captures: [], pass: true });
+    return;
+  }
   genPiece(board, at, mode, out);
   // `hasteSecond: 'quiet'` (balance lab): the second move captures nothing at all.
   const quiet = !rage && (RULES.hasteSecond === 'quiet' || !RULES.hasteCaptures);
@@ -1767,26 +1874,33 @@ export function insufficientMaterial(board: Uint8Array): boolean {
  * Material draw under the active rules; an unspent Strike can still change mating potential, and so
  * can a piece that may still enter: a Salvation card with a returnable piece in the reserve
  * (`lost`; conservative, whatever the piece), or a waiting guard (`waiting`) when guards mate
- * (`guardCaptures: 'any'`). A Strike or Salvation counts while a Mirror may copy it (the opponent
+ * (`guardCaptures: 'any'`), and so can a Morph or MorphB card while the side has a piece to morph
+ * (conservative: any piece but the king), and an unplayed Spawn card of any reading (a new pawn can
+ * still promote; conservative: whether or not a square is free now). A card counts while a Mirror may copy it (the opponent
  * played it last, `last`) or a Growth may still draw it from the pile (`drawn`). The other card-only
  * cards need no clause: like Flight, each moves or takes pieces but changes no type and adds no
- * attacked square, so the material that can mate stays what the board shows.
+ * attacked square, so the material that can mate stays what the board shows. MorphP changes a type
+ * but needs a pawn, and a pawn on the board already keeps the game open (`insufficientMaterial`).
  */
 export function materialDraw(board: Uint8Array, used?: readonly [number, number], lost?: ArrayLike<number>, waiting?: ArrayLike<number>,
   drawn?: ArrayLike<number>, last?: readonly (CardName | undefined)[]): boolean {
   // The board first: it is the cheap test (a pawn or a rook ends it), and the search asks at every node.
   if (!RULES.insufficientMaterial || !insufficientMaterial(board)) return false;
   if (RULES.guardCaptures === 'any' && !!waiting && (waiting[0] > 0 || waiting[1] > 0)) return false;
-  return !liveCard(WHITE, used?.[0] ?? 0, drawn?.[0] ?? 0, lost, last?.[1]) && !liveCard(BLACK, used?.[1] ?? 0, drawn?.[1] ?? 0, lost, last?.[0]);
+  return !liveCard(board, WHITE, used?.[0] ?? 0, drawn?.[0] ?? 0, lost, last?.[1]) && !liveCard(board, BLACK, used?.[1] ?? 0, drawn?.[1] ?? 0, lost, last?.[0]);
 }
 
-/** May side `c` still change what can mate (`materialDraw`): a live Strike, or a Salvation with a piece to return. */
-function liveCard(c: Color, u: number, d: number, lost: ArrayLike<number> | undefined, theirLast: CardName | undefined): boolean {
+/** May side `c` still change what can mate (`materialDraw`): a live Strike, a Salvation with a piece to return, a Morph with a piece to morph, a Spawn. */
+function liveCard(board: Uint8Array, c: Color, u: number, d: number, lost: ArrayLike<number> | undefined, theirLast: CardName | undefined): boolean {
   if (!handOf(c).length) return powerOf(c) === 'Strike' && canSpend(c, u);
   if (mayPlay(c, u, d, theirLast, 'Strike')) return true;
   if (lost && mayPlay(c, u, d, theirLast, 'Salvation')) for (let t = 1; t < 16; t++) if (returnable(t) && lost[c * 16 + t] > 0) return true;
+  if (mayPlay(c, u, d, theirLast, 'Morph') || mayPlay(c, u, d, theirLast, 'MorphB')) for (let s = 0; s < 64; s++) if (board[s] && colorOf(board[s]) === c && typeOf(board[s]) !== K) return true;
+  for (const card of SPAWNS) if (mayPlay(c, u, d, theirLast, card)) return true;
   return false;
 }
+/** The Spawn cards (`liveCard`). */
+const SPAWNS: readonly CardName[] = ['Spawn', 'SpawnK', 'Spawn2', 'SpawnK2'];
 /**
  * A card side `c` may still play: an unplayed one, the one its Mirror would copy (`theirLast`, the
  * opponent's last card), or one its Growth may yet draw (conservative: any card left in its pile).

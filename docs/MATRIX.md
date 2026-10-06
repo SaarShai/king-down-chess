@@ -1,7 +1,8 @@
 # King Down — ability matrix (started 2026-09-14)
 
 Two grids: **pieces × abilities** and **board zones × rules**. Saar extends them; this is the first pass.
-Five proposed pieces that fill the empty cells: `PIECES-PROPOSED.md`.
+Five proposed pieces that fill the empty cells: `PIECES-PROPOSED.md`. Pieces outside the random pool, paused
+or set aside, with their status: A.3. The 2014 cards not built: C.3 (2026-10-06).
 
 Legend: **●** shipped (default rules) · **◐** lab toggle, off by default (`name` in `src/rules/rules.ts`) ·
 **○** designed but not built (kings' powers §4 / cards §5 of `RULES.md`) · **—** nothing · **?** to decide.
@@ -65,6 +66,23 @@ depth 4) and **Templar** (rejected) are **paused in the lab** (`docs/research/si
 | Arriving | Not present — see [1]. |
 | Zones | No zone helper yet; ranks are compared inline. See B. |
 
+### A.3 Pieces outside the random pool (status 2026-10-06)
+
+The random pool is `QORRBBNNAAGMMS` (one Beast, 2026-10-04). Paused: built once, kept out of the pool. Set
+aside: never built, for the reason given (`PIECES-PROPOSED.md`, "Set aside").
+
+| Piece | Letter | Status | Why | Record |
+|---|---|---|---|---|
+| Paladin | L | paused: left the pool 2026-09-24 (the Ogre took its slot); still legal in custom setups, FEN and historical promotion sets | evidence: with it in the army White scores about 6 points more, from its reach on an open board (Q5, the pool test 2026-09-17) | `RULES.md` decision 18; `sim-paladin-pool-2026-09-17.md` |
+| Catapult | C | paused, lab piece outside `POOL` | both readings below 1.66 pawns; it never fires in 38% of games | `sim-catapult-explore-2026-09-17.md` |
+| Reaver | V | paused, lab piece outside `POOL` | the full step is overpowered (rejected); the orthogonal step (4.04 ± 0.56 pawns) does not hold its gain at depth 4 | `sim-reaver-2026-09-17.md` |
+| Templar | T | paused, lab piece outside `POOL`; rejected on measurement | 4–8% of its moves come from a capital: a weak king-stepper, draws +5 | `sim-templar-2026-09-17.md` |
+| Squire | E | paused: built in the recovered Cursor checkout, archived, not in `src/` | a reserve that adds material; defects in the recovery assessment | `cursor-recovery/2026-09-24-0213b442/ASSESSMENT.md` |
+| Shieldbearer | — | set aside | immune to shots and shields its neighbours: immunity drags games (the guard study) | `PIECES-PROPOSED.md` |
+| Necromancer | — | set aside | returns a captured piece: material that comes back lengthens games | `PIECES-PROPOSED.md` |
+| Wraith | — | set aside | moves through pieces: the paladin-through-enemies test was degenerate | `PIECES-PROPOSED.md` |
+| Immobiliser | — | set aside | freezes adjacent enemies: fortresses and draws (Ultima) | `PIECES-PROPOSED.md` |
+
 ## B. Board
 
 ### B.1 Zones × rules
@@ -90,3 +108,160 @@ Each row is one kind of rule; each cell says whether it applies to that piece. A
 | C5 cannot be captured *by* a piece standing there | ? | ? | ? | ? | ? | ? | ? | ? | ◐ all | ? | ? | ? | ? | The mirror of C2 — a piece in the capital is a threat but not a hunter. **Built + measured 2026-09-17** (`capitalNoCapture`, off): **null** on outcomes (decisive −0.2 ± 3.0); structural: killer move +4.4, drama +2.0, maester survival 35% → 44% (`docs/research/sim-capital-c5-2026-09-17.md`) |
 
 Engine seam: `const CAPITAL = new Set([27, 28, 35, 36])` (d4 e4 d5 e5) and (C1) a filter on `to` in `legalMoves`, (C2/C5) a square-aware `canCaptureAt(att, vic, from, to)`, (C3/C4) a branch on `CAPITAL.has(from)` in the piece's `case`. Every rule here is measurable in the lab as a toggle, like the piece rules.
+
+## C. King powers and cards
+
+Kings' powers are a shipped game mode (●, with the official readings of `POWERS_BALANCED`); card mode is lab only
+(◐, `Rules.hands`). Sources: `src/rules/rules.ts`, `src/rules/engine.ts`, `cardText` in `src/powers-ui.ts`, `RULES.md` §4–§5.
+
+### C.1 Schema: the properties of every power or card
+
+| Property | Allowed values |
+|---|---|
+| Source | king power · card · both (a spendable king power is also dealt as a card) |
+| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ◐ Morph, MorphB, MorphP) · spawn (a new piece, not a captured one, comes onto the board, D.5: ◐ Spawn, SpawnK, Spawn2, SpawnK2) |
+| Rarity | common (default) · legendary: dealt rarely, with legendary graphic effects (owner, 2026-10-06; card mode, not built yet). Rage is legendary; every other row below is common. |
+| Uses | n per game (king power) · 1 (every card) · — (always-on) |
+| Turn cost | is the turn's move · then make the move (a free action, `markFree`) · extra move (the second move may be skipped) |
+| Captures | may · must · never |
+| Targets | own · enemy · either; which kings and pawns are excluded |
+| Duration | instant · opponent's next turn (◐ `markTurns: 2`: two turns) · always |
+| Has a condition | none · a zone (a rank, half, the capital) · tag team (next to a given piece) · turn N (`fromMove`) · a capture · a card played — see D.1. Example: "not before move 10" |
+| Is a condition | no · yes: playing this card (or any card) triggers something else, for either side — see D.1. Example: Mirror answers the opponent's last card |
+| Shackled | no · yes: weaker or off until a condition (`fromMove` is "off until move N") — see D.2 |
+| Promotion | no · yes: a piece changes its type on a condition — see D.3 |
+| fromMove | none (default) · N: not before the side's own move N (◐ `fromMove=Haste:10+Rage:8`; `Position.move`, the full-move number). Spendable powers and cards only; refused for an always-on power. A Mirror may not copy a card before its move. Every row below is none. |
+
+### C.2 Each power and card
+
+| Item | Source | Type | Uses (king) | Turn cost | Captures | Targets | Duration |
+|---|---|---|---|---|---|---|---|
+| Freeze | both ● / ◐ | mark | 1 (printed 2) | then make the move (printed: the turn's move) | never | an enemy piece or pawn, not the king | opponent's next turn |
+| Ice Wall | both ● / ◐ | mark | 2 | then make the move (printed: the turn's move) | never | an own piece or pawn, not the king | opponent's next turn |
+| Strike | both ● / ◐ | special move: as a queen | 1 | is the turn's move | never (printed: may) | an own piece, not the king or a pawn (printed: pawns too) | instant |
+| Haste | both ● / ◐ | extra move: the same piece | 1 | extra move | never (printed: may) | an own piece, the king included | instant |
+| Flight | both ● / ◐ | special move: to an empty square of the own half | 1 | is the turn's move | never | an own piece or pawn, not the king | instant |
+| Sacrifice | both ● / ◐ | arrival: a pawn becomes a lost piece | 1 | is the turn's move | never | an own pawn; the piece not a pawn, guard or king | instant |
+| March | both ● / ◐ | always-on (king) · special move (card): a pawn's double step from any rank | — (printed 3) | is the turn's move | never | own pawns | always (king) · instant (card) |
+| Leap | both ● / ◐ | special move: a slider passes its own pawns | 3 | is the turn's move | may, not a king | an own rook, bishop or queen | instant |
+| Holy Light | king power ● | always-on | — | — | the king may take pawns | own king: no enemy pawn takes it; own pieces beside, in front of or behind it cannot be taken | always |
+| Mercy | king power ● | always-on: the king steps 1–2 and jumps own pieces | — | — | the king takes only a pawn or a guard | own pieces next to the king cannot be taken, except by pawns | always |
+| Death Touch | king power ● | always-on | — | — | must: the king takes only without moving | an enemy next to the king, or 2 straight forward, back or sideways over an empty square | always |
+| Darkness | king power ● | always-on: pawns step straight or diagonally; the king may step 2 straight | — | — | pawns take only straight ahead; the king's step never | own pawns and king | always |
+| Mimic | card ◐ | special move: as another own type moves | — | is the turn's move | never | an own piece, not the king or a pawn; not as a king or pawn | instant |
+| Vault | card ◐ | special move: a slider passes one piece | — | is the turn's move | may, not a king | an own rook, bishop or queen; it passes a piece of either side, a king included | instant |
+| Curse | card ◐ | special move: an enemy steps 1 square | — | is the turn's move | never | an enemy piece or pawn, not the king | instant |
+| Sky Lift | card ◐ | special move: two own pieces trade squares | — | is the turn's move | never | own pieces, not the king or pawns, not of one type | instant |
+| Salvation | card ◐ | arrival: a lost piece to the own first rank | — | is the turn's move | never | an own lost piece, not a pawn, guard or king | instant |
+| Rage | card ◐ **legendary** (dealt rarely; owner 2026-10-06, as built: +4.06 pawns, trims `quiet` +4.01 and `stopOnTake` +4.47 do not soften it) | extra move: the same piece | — | extra move | may, on either move | an own piece, the king included | instant |
+| RageB | card ◐ | extra move: the same piece | — | extra move | may on the first; the second must | an own piece, the king included | instant |
+| Mirror | card ◐ | copy: the opponent's last card | — | the copied card's | the copied card's | the copied card's | the copied card's |
+| MirrorB | card ◐ | copy: another card of the hand, which stays | — | the copied card's | the copied card's | the copied card's | the copied card's |
+| Firewall | card ◐ | mark: every own piece | — | then make the move | never | all own pieces | opponent's next turn |
+| FirewallB | card ◐ | special move: trade squares with an enemy next to it | — | is the turn's move | never | an own piece and an enemy piece, neither a king | instant |
+| Earth Quake | card ◐ | special move: push the pieces next to a square | — | is the turn's move | never | pieces and pawns of either side, not kings | instant |
+| Earth Quake B | card ◐ | special move: the same, a square next to an own piece | — | is the turn's move | never | pieces and pawns of either side, not kings | instant |
+| Burn | card ◐ | special move: take in the capital as a queen | — | is the turn's move | must | an own piece, not a pawn or the king; an enemy on d4 e4 d5 e5, not the king | instant |
+| Fire Starter | card ◐ | special move: the same on the enemy back rank | — | is the turn's move | must | as Burn, on the enemy back rank | instant |
+| Control | card ◐ | special move: as a friendly neighbour moves and takes | — | is the turn's move | may | an own piece, not a pawn or the king; the neighbour not a pawn or king, nor of its type | instant |
+| Rescue | card ◐ | mark: renews the own last mark | — | then make the move | never | the own Freeze, Ice Wall or Firewall | one more opponent turn |
+| Growth | card ◐ | draw | — | is the turn's move | never | the own pile | instant |
+| GrowthB | card ◐ | draw | — | then make the move | never | the own pile | instant |
+| Rally | card ◐ (+2.60 ± 0.46 pawns, draws 9.8%; deal candidate) | extra move: a different own piece | — | extra move | never, on either move | own pieces, the king included | instant |
+| Morph | card ◐ (`morph-a1`, Kaggle, 3,000 games, 150 pairs, seed 6161, depth 3, a fresh army per pair: against no card 98% (past the calibration: "more than a queen's worth" is the safe reading), against the Haste card 90%, against MorphB 71%; 86.2% ± 2.3 against the field (Elo +256); draws 7.3% (no rise); played in 97.9% of games, median first use ply 5 (move 3); it always picks the queen: Guard→Q 725, Knight→Q 470, Bishop→Q 144, Maester→Q 53, Ogre→Q 43, so it is a free queen on move 3, and leaving the Guard out does not fix it (Knight→queen is next); owner's choice open) | promotion: an own piece becomes another type, on its square | — | is the turn's move | never | an own piece, not the king or a pawn (a frozen one does not morph); the new type one the draw pool fields (`POOL`: queen, ogre, rook, bishop, knight, archer, guard, maester, beast), not its own, never a second Beast for the side (a second queen may come), a guard only where a guard may land | instant |
+| MorphB | card ◐ (`morph-a1`: against no card 77% (+210 Elo ≈ +3.3 pawns at 64 Elo a pawn; above the Workshop's fair-card ceiling of 3 pawns, fair band 0.7–3), against the Haste card 64%; 56.7% ± 3.2 against the field; draws 9.3% (no rise); played in 99.5% of games, median first use ply 5; no queen, so it almost always picks the Archer: Guard→A 729, Knight→A 236, Bishop→A 70, Maester→A 25; Guard→Rook 11; owner's choice open) | promotion: the same | — | is the turn's move | never | as Morph, and the new type not a queen | instant |
+| Spawn | card ◐ **set aside** (owner 2026-10-06: too weak to feel; `spawn-r1` +0.36 ± 0.38 pawns, draws 17.3%, +2.0 ± 5.1 against no card; played in 94% of games, median first use ply 21; below the Workshop's fair-card floor of 0.7 pawns; stays in the lab) | spawn: a new own pawn on an empty square of the own pawn start rank (rank 2 / 7) | — | is the turn's move | never | an empty square; the own king not in check after (it may block a check) | instant |
+| SpawnK | card ◐ (`spawn-r1` +0.80 ± 0.36 pawns, draws 15.7%, +0.3 ± 5.1; played in 73%, median ply 53; stays as built, owner) | spawn: a new own pawn on an empty square next to the own king | — | is the turn's move | never | an empty square of the king's 8 neighbours, not on rank 1 or 8; the king not in check after | instant |
+| Spawn2 | card ◐ **the start-rank Spawn card** (owner 2026-10-06; `spawn-r1` +0.50 ± 0.40 pawns, draws 16.2%, +0.8 ± 5.1; played in 99%, median ply 12; below the Workshop's fair-card floor of 0.7 pawns) | spawn: two new own pawns, as Spawn | — | is the turn's move | never | two different empty squares of the start rank (at most 28 pairs); the king not in check after | instant |
+| SpawnK2 | card ◐ (`spawn-r1` +1.55 ± 0.40 pawns, draws 13.8%, −1.5 ± 5.0; played in 78%, median ply 48; stays in the lab, owner 2026-10-06) | spawn: two new own pawns, as SpawnK | — | is the turn's move | never | two different empty squares next to the king, not on rank 1 or 8; the king not in check after | instant |
+| MorphP | card ◐ (a softer Morph, owner 2026-10-06; `morph-b1`, Kaggle, 3,000 games, 150 armies, depth 3, standard rules: against no card 70% (+147 Elo ≈ **+2.3 pawns** at 64 Elo a pawn; inside the fair band 0.7–3), against the Haste card 50% (equal), against MorphS 62%; 60.6% ± 2.9 against the field; draws 13.7% against 14.9% for no card (no rise); played in 99.7% of games, median first use ply 5) | promotion: an own pawn becomes a knight or a bishop, on its square | — | is the turn's move | never | an own pawn (a frozen one does not morph); a knight or a bishop, whether or not the army fields one; never answers a check (the square stays filled) | instant |
+| MorphS | card ◐ (a softer Morph, owner 2026-10-06: "two of your pieces swap types", built as a swap of places, the same on the board; `morph-b1`, Kaggle, 3,000 games, 150 armies, depth 3, standard rules: against no card 59% (≈ **+1.0 pawn**; inside the fair band 0.7–3), against the Haste card 43%, against MorphP 38%; 46.8% ± 3.1 against the field; draws 15.3% (no rise); played in 72.1% of games, median first use ply 34. Sky Lift's moves under its own name: Sky Lift measured +1.2 ± 0.4 pawns in `cards-a2`) | special move: two own pieces swap places | — | is the turn's move | never | two own pieces of different types, not the king or pawns (a frozen one does not swap; a guard only where a guard may land); each keeps its flags; the same squares stay filled, so it never answers a check and never exposes the king | instant |
+
+Every card is one use; "Uses (king)" is the official count of a king power (`POWERS_BALANCED` over the rule defaults).
+"Then make the move" for the marks is `markFree`, official for the kings and used in every card measurement. Flight is
+a special move here: it moves a piece already on the board (A.1 lists it under 1b, arriving, by its zone).
+
+### C.3 Ideas: the 2014 cards not built (2026-10-06)
+
+The 2014 spell list has 21 spells and a blank (`Cards/AI/base/SPELLs`); the expansion packs add two cards
+(`docs/research/drive-final-art.md`, row 15; `RULES.md` §5). Seven have no card in the engine. Pawn, Siege,
+Skirmish, Spirit Guide and Shadow Cover are known by name only: the Drive art names them, and no record here
+gives their text.
+
+| Card | 2014 text, as recorded | Nearest built | Status |
+|---|---|---|---|
+| Frost Bite | freeze in range: enemies in range cannot move (`RULES.md` §5, `cards-2026-10-03.md`) | Freeze (one enemy, the opponent's next turn) | ○ idea |
+| Shield | harder to capture: taking your pieces costs +1 action (`drive-cards.md`) | Ice Wall (one own piece cannot be taken); Firewall (every own piece) | ○ idea |
+| Pawn | name only (base spell list) | — | ○ idea |
+| Siege | name only (base spell list) | — | ○ idea |
+| Skirmish | name only (base spell list) | — | ○ idea |
+| Spirit Guide | name only (expansion pack) | — | ○ idea |
+| Shadow Cover | name only (expansion pack) | — | ○ idea |
+
+## D. Conditions, shackles and promotion (owner, 2026-10-06)
+
+Three properties that any piece, king power or card can carry. A **condition** (trigger) is an event in the
+game. It belongs to a piece ("when *this* pawn reaches the last rank") or to the game ("from turn N").
+
+### D.1 Conditions (triggers)
+
+| Condition | Scope | Today | Ideas |
+|---|---|---|---|
+| Reaches a zone (a rank, the own half, the capital) | piece | ● pawn on the last rank promotes · ● pawn double step from its start rank · ● Maester–king long swap, both on the home rank · ◐ guard double step from the home rank · ◐ capital rules C2–C5 (B.2) | stronger on the enemy half |
+| Tag team: next to a given piece | piece | ● Mercy and Holy Light: pieces next to (beside, in front of, behind) the king cannot be taken · ● Maester swaps with a friend next to it · ◐ Control (moves as a friendly neighbour) · ◐ FirewallB (trades with an enemy next to it) | Archer next to a Beast also shoots 3 squares away |
+| Turn N | game | ◐ `fromMove`: a spendable power or card not before the side's move N · ◐ Black's double first turn (`secondPlayerDoubleFirstTurn`) | a piece that wakes at turn N |
+| A capture | piece | ● Paladin dies after taking a non-pawn · ● Beast may take again (a chain) · ◐ RageB's second move must take · ◐ a guard spent after one capture (rejected) | a piece that grows after its first capture |
+| A piece lost | own side | ● Sacrifice and ◐ Salvation use the side's captured pieces | — |
+| A card is played: any card or a given one, by either side | game | ◐ Mirror plays the card the opponent played last · ◐ Rescue answers the side's own last mark card | when the opponent plays any card, your guard may step; when you play Freeze, your next card is free |
+| The own last mark | own side | ◐ Rescue renews the side's Freeze, Ice Wall or Firewall | — |
+
+A card or power can be on **both sides** of a condition: it **has** a condition (it may be played only
+when the condition holds: "not before move 10" is `fromMove`, "only in the capital" is Burn) and it **is** a
+condition (playing it triggers something else: the opponent's Mirror copies it; an idea, "when any card is
+played, …"). C.1 lists both as properties of every power and card.
+
+### D.2 Shackled: nerfed until a condition
+
+The piece, power or card keeps its type but is weaker, or off, until the condition happens.
+
+| Item | Shackle | Released by | Status |
+|---|---|---|---|
+| Any spendable power or card | off | turn N | ◐ `fromMove` (the button shows "from move N") |
+| Archer | shoots exactly 2 squares away | reaching the enemy back rank: also 3 squares away | idea |
+
+### D.3 Promotion: a new type on a condition
+
+| Piece / item | Becomes | Condition | Status |
+|---|---|---|---|
+| Pawn | queen, rook, bishop or knight | reaches the last rank | ● (◐ wider sets: `promotionSet` `anyNonKing`, `anyNonKingNoGuard`, `anyNonKingNoFairy`) |
+| Sacrifice | an own pawn becomes one of the side's captured pieces | the power is used | ● (an arrival, C.2) |
+| **Morph**, **MorphB** (cards, owner 2026-10-06) | one of your pieces (not the king or a pawn) becomes another type of the draw pool, on its square; never a second Beast; MorphB never a queen | the card is played | ◐ lab (`hands=Morph`; `!I:d1=Q`, `!I+:d1=R`); taken, it joins the reserve as its new type; readings in C.2; `morph-a1` measured: Morph against no card 98% (a free queen on move 3), MorphB 77% (+3.3 pawns, the Archer); the search morphs the guard at once; owner's choice open |
+| **MorphP** (card, owner 2026-10-06, a softer Morph) | one of your pawns becomes a knight or a bishop, on its square | the card is played | ◐ lab (`hands=MorphP`; `!IP:e2=N`); an ordinary piece from then on; taken, it joins the reserve as that piece; it resets the 50-move clock, as a promotion or a Sacrifice does; readings in C.2; `morph-b1` measured: MorphP against no card 70% (+2.3 pawns, the same as Haste's +2.0 in the same run; used in 99.7% of games, median ply 5; draws 13.7% against 14.9%, no rise); inside the fair band; the owner has not chosen it for card mode |
+| **MorphS** (card, owner 2026-10-06; Sky Lift's moves under its own name) | two of your pieces (not the king or pawns, of different types) swap places | the card is played | ◐ lab (`hands=MorphS`); each keeps its flags; the same squares stay filled; readings in C.2; `morph-b1` measured: against no card 59% (+1.0 pawn, the same as Sky Lift's +1.2 ± 0.4; used in 72.1% of games, median ply 34; draws 15.3%, no rise); inside the fair band; the owner has not chosen it for card mode |
+| Promoted piece taken | returns (Salvation) as what it was when taken | — | ◐ |
+
+### D.4 Powers and cards with a condition
+
+Zone: Flight (own half), Burn (capital), Fire Starter (enemy back rank). Tag team: Mercy, Holy Light, Death Touch
+(next to the king), Control, FirewallB, Earth Quake B (next to an own piece). Turn N: any item with `fromMove`.
+Capture: RageB. Opponent's card: Mirror. Own last mark: Rescue. Lost pieces: Sacrifice, Salvation. Zone and tag team
+for a spawn: Spawn and Spawn2 (the own pawn start rank), SpawnK and SpawnK2 (next to the own king).
+None is shackled today except through `fromMove`; none promotes except Sacrifice's pawn and the Morph cards' piece (MorphP's pawn).
+
+### D.5 Spawn: a new piece comes onto the board (owner, 2026-10-06)
+
+A piece, power or card **spawns** a new piece, typically a pawn. Unlike arrival (1a, 1b: Salvation and Sacrifice
+bring back a captured piece), the spawned piece is new: the side can end with more pieces than it started with.
+Spawn has a source (a piece, a power or a card), the new type (typically a pawn), where it appears (a zone, or
+next to the source: a tag team) and when (a condition, D.1).
+
+| Item | Spawns | Where | When | Status |
+|---|---|---|---|---|
+| **Spawn** (card, set aside: owner 2026-10-06) | a pawn | an empty square of the own pawn start rank | the card is played (the turn's move) | ◐ lab (`hands=Spawn`; `P@c2!S`); an ordinary pawn from then on (double step from its start rank); taken, it joins the reserve as a pawn, which nothing returns; `spawn-r1`: +0.36 ± 0.38 pawns, draws +2.0 ± 5.1 (17.3%), played in 94% of games, median first use ply 21; too weak to feel, so set aside |
+| **SpawnK** (card) | a pawn | an empty square next to the own king (not on a first rank, where no pawn may stand) | the card is played (the turn's move) | ◐ lab (`P@d2!SK`); may block a check, so it can get the king out of a mate; `spawn-r1`: +0.80 ± 0.36 pawns, draws +0.3 ± 5.1 (15.7%), played in 73%, median ply 53; stays as built (owner) |
+| **Spawn2** (card, owner's pick: the start-rank Spawn card, 2026-10-06) | two pawns | as Spawn, two different squares | the card is played (the turn's move) | ◐ lab (`P@c2,f2!S2`; `Move.drop2`); `spawn-r1`: +0.50 ± 0.40 pawns, draws +0.8 ± 5.1 (16.2%), played in 99%, median ply 12 |
+| **SpawnK2** (card, stays in the lab) | two pawns | as SpawnK, two different squares | the card is played (the turn's move) | ◐ lab (`P@d2,e2!SK2`; `Move.drop2`); `spawn-r1`: +1.55 ± 0.40 pawns, draws −1.5 ± 5.0 (13.8%), played in 78%, median ply 48; owner (2026-10-06): stays in the lab |
+| a piece that spawns | a pawn | an empty square next to it | its move, or a condition (a capture, a zone) | idea |
+
+Owner (2026-10-06): a spawn does not reset the 50-move clock (ed23ea1, `claude/spawn-card`). SpawnK keeps rank 7 ("it is rare and also i LOVE combining rules for cool effects"). Test `spawn-r1` (M1, ed23ea1, 3,000 games, 300 pairs, seed 5858, depth 3, a fresh army per pair; each card against no card, pawns at 64 Elo a pawn): Spawn +0.36 ± 0.38, Spawn2 +0.50 ± 0.40, SpawnK +0.80 ± 0.36, SpawnK2 +1.55 ± 0.40 pawns. No version changes draws (the mirror games with no card drew 15.3% ± 4.1). A pawn next to the king is worth about twice a pawn on the start rank. Spawn and Spawn2 are below the Workshop's fair-card floor of 0.7 pawns; for scale, Rally is +2.60 ± 0.46 and the Haste card +2.45. **Owner (2026-10-06, "do what you recommend"):** the start-rank Spawn card is **Spawn2** (two pawns); the one-pawn **Spawn** is set aside (too weak to feel); SpawnK stays as built; SpawnK2 stays in the lab. All four stay common (no rarity value). The report and the games stay on the M1: `~/projects/king-down-spawn/sim/out/spawn-r1.report.md` and `spawn-r1.jsonl`.
+

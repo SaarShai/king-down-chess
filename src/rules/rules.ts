@@ -87,7 +87,8 @@ export interface KingChoice { king: KingName; power: PowerName }
  */
 export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Salvation'
   | 'Rage' | 'RageB' | 'Mirror' | 'MirrorB' | 'Firewall' | 'FirewallB' | 'EarthQuake' | 'EarthQuakeB'
-  | 'Burn' | 'FireStarter' | 'Control' | 'Rescue' | 'Growth' | 'GrowthB';
+  | 'Burn' | 'FireStarter' | 'Control' | 'Rescue' | 'Growth' | 'GrowthB' | 'Rally' | 'Morph' | 'MorphB'
+  | 'Spawn' | 'SpawnK' | 'Spawn2' | 'SpawnK2' | 'MorphP' | 'MorphS';
 /**
  * The cards no king has (lab, 2026-10-03), each one use and the turn's move:
  * - **Mimic**: a piece (not king or pawn) moves, to an empty square only, the way one of the side's
@@ -117,10 +118,33 @@ export type CardName = PowerName | 'Mimic' | 'Vault' | 'Curse' | 'SkyLift' | 'Sa
  * - **Rescue**: the side's Freeze, Ice Wall or Firewall from its previous turn binds one more turn.
  * - **Growth** / **GrowthB**: draw the next card of the side's pile (`Rules.piles`), as the turn
  *   (Growth) or then make the move (GrowthB).
+ *
+ * **Rally** (working name, 2026-10-05): Haste's shape with two pieces — one own piece moves, then a
+ * different own piece may move (the second move may be skipped); neither move captures.
+ *
+ * **Morph** / **MorphB** (owner idea, 2026-10-06): one own piece (not the king or a pawn) becomes
+ * another type the draw pool fields (not a king or pawn, not its own type), on its square, as the
+ * turn; it takes nothing. Never a second Beast for the side (one Beast per army); a second queen may
+ * come. MorphB: never a queen either.
+ *
+ * **Spawn** / **SpawnK** / **Spawn2** / **SpawnK2** (owner, 2026-10-06; docs/MATRIX.md D.5): as the
+ * turn, a new pawn of the side appears on an empty square, taking nothing: Spawn on the side's pawn
+ * start rank (rank 2 / rank 7), SpawnK next to its own king but never on rank 1 or 8. Spawn2 and
+ * SpawnK2: two new pawns, on two different such squares. The new pawn is an ordinary pawn from then
+ * on (on its start rank it may double-step), and the side may end with more than eight pawns.
+ *
+ * **MorphP** / **MorphS** (owner, 2026-10-06: the softer Morph cards), as the turn, taking nothing:
+ * MorphP, one own pawn becomes a knight or a bishop on its square (an ordinary piece from then on,
+ * as a promoted pawn is; either type, whether or not the army fields it). MorphS, two own pieces of
+ * different types, neither the king nor a pawn, swap places (the owner's "swap types": on the board
+ * the same thing; each piece keeps its own flags). MorphS plays SkyLift's moves under its own name.
  */
 export const CARD_ONLY: readonly CardName[] = [
   'Mimic', 'Vault', 'Curse', 'SkyLift', 'Salvation',
   'Rage', 'RageB', 'Mirror', 'MirrorB', 'Firewall', 'FirewallB', 'EarthQuake', 'EarthQuakeB', 'Burn', 'FireStarter', 'Control', 'Rescue', 'Growth', 'GrowthB',
+  'Rally', 'Morph', 'MorphB',
+  'Spawn', 'SpawnK', 'Spawn2', 'SpawnK2',
+  'MorphP', 'MorphS',
 ];
 
 /** Each king's two powers, A first (docs/RULES.md §4). */
@@ -585,6 +609,13 @@ export interface Rules {
    * Empty (the default) = nothing to draw.
    */
   piles: readonly [readonly CardName[], readonly CardName[]];
+  /**
+   * Lab (2026-10-05): a spendable king power or a card named here with N may not be used before the
+   * side's own move N (`Position.move`, the full-move number: White's and Black's move N are both N).
+   * `fromMove=Haste:10+Rage:8`. Empty (the default) = no limit. A Mirror may not copy a card that is
+   * not yet available.
+   */
+  fromMove: Readonly<Partial<Record<CardName, number>>>;
   /** Setup: reject a back rank whose two bishops share a square colour (Chess960 spirit). */
   bishopsOppositeColours: boolean;
   /** Which pieces a pawn may become on the last rank. */
@@ -702,6 +733,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   kings: [null, null] as readonly [KingChoice | null, KingChoice | null],
   hands: [[], []] as readonly [readonly CardName[], readonly CardName[]],
   piles: [[], []] as readonly [readonly CardName[], readonly CardName[]],
+  fromMove: {} as Readonly<Partial<Record<CardName, number>>>,
   bishopsOppositeColours: true,
   // Reverted to the chess set on 2026-09-17 (designer guideline: do not keep a rule that adds
   // nothing measurable). Fairy promotions were 1.3% of all promotions and moved no outcome metric;
@@ -776,7 +808,10 @@ export function setRules(over?: Partial<Rules>): Rules {
     const p = RULES.kings[c]?.power, key = p && USES_RULE[p];
     const spendable = !!key && !((p === 'March' || p === 'Leap') && RULES[key] === 0);
     if (RULES.hands[c].length && spendable) throw new Error(`side ${c} has a hand and the king power ${p}: card mode plays kings without spendable powers`);
+    // ponytail: fromMove covers only what is spent (a power move or a card); an always-on power has no move to hold back.
+    if (p && p in RULES.fromMove && !spendable) throw new Error(`fromMove: ${p} is always on for side ${c}; only a spendable power or a card can wait for a move`);
   }
+  for (const k of Object.keys(RULES.fromMove)) if (!ALL_CARDS.includes(k as CardName)) throw new Error(`fromMove: ${k} is always on; only a spendable power or a card can wait for a move`);
   return RULES;
 }
 
@@ -830,6 +865,18 @@ export function parseRule(text: string): Partial<Rules> {
     });
     const [w, b = w] = value.split(',');
     return { [key]: [side(w), side(b)] } as Partial<Rules>;
+  }
+  // `fromMove=Haste:10+Rage:8`: each power or card, and the side's own move it may first be used on.
+  if (key === 'fromMove') {
+    const out: Partial<Record<CardName, number>> = {};
+    for (const part of value.split('+').filter(Boolean)) {
+      const [n = '', at = ''] = part.split(':');
+      const p = ALL_CARDS.find(x => x.toLowerCase() === n.toLowerCase());
+      if (!p) throw new Error(`fromMove: "${n}" is ${TIER1.some(x => x.toLowerCase() === n.toLowerCase()) ? 'always on' : 'not a one-use power or card'}; only a spendable power or a card can wait for a move (${ALL_CARDS.join(', ')})`);
+      if (!/^[1-9]\d*$/.test(at)) throw new Error(`fromMove: "${part}" needs a move number, e.g. ${p}:10`);
+      out[p] = +at;
+    }
+    return { fromMove: out };
   }
   const def = DEFAULT_RULES[key as keyof Rules];
   if (def === undefined) throw new Error(`unknown rule "${key}" (${Object.keys(DEFAULT_RULES).join(', ')}, kingWhite, kingBlack)`);

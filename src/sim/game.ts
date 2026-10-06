@@ -238,6 +238,7 @@ export function playGame(spec: RunSpec, job: Job): GameRecord {
     if (mt) bump(stats[c].moves, letter); // an Earth Quake's square may be empty
     touched[move.from] = 1;
     touched[move.to] = 1;
+    if (move.drop2 !== undefined) touched[move.drop2] = 1; // a Spawn2's second pawn
     if (move.captures.length) {
       if (firstCapturePly === null) firstCapturePly = moves.length + 1;
       bump(stats[c].captures, letter, move.captures.length);

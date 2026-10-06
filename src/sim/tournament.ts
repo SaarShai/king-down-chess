@@ -245,7 +245,7 @@ export function compress(job: TJob, rec: GameRecord): TRecord {
     // The side of ply i is not i % 2 after a Haste turn: `by` says who moved.
     const by = m.by ?? ((i & 1) as 0 | 1);
     // A power move's notation carries its tag (`!F:`, `!W:`, `!S:`, `!H`, `!M`, `!L`, a Strike's
-    // trailing `!`, a Flight's `~`, the cards `!X`, `!V`, `!C:`, `!K:`, `!R` and the 2014 cards'
+    // trailing `!`, a Flight's `~`, the cards `!X`, `!V`, `!C:`, `!K:`, `!R`, the Spawns' `!S…` and the 2014 cards'
     // letters, setup.ts `toLan`); a Haste pass (`--`) is not a use, nor a waiting guard's entry (`G@b1`).
     if (/![A-Z]|!$|~/.test(m.lan)) {
       uses[by]++;
@@ -731,9 +731,9 @@ export function mirrorSection(recs: readonly TRecord[], entrants: readonly Entra
     return out;
   };
   // Length in turns: a free mark (Freeze, Ice Wall, Firewall, Rescue), a GrowthB and a Haste's or a
-  // Rage's first move are plies of a turn that goes on, a Mirror's copy of one too (`!Y`, `!Z`).
-  // Every other card (`!X`, `!V`, `!C:`, `!K:`, `!R` included) is the whole turn.
-  const turns = (r: TRecord): number => r.plies - r.lans.filter(l => /^(!F:|!W:|!P|!D:|!G\+)|![HAB](!Y|!Z)?$/.test(l)).length;
+  // Rage's or a Rally's first move are plies of a turn that goes on, a Mirror's copy of one too (`!Y`, `!Z`).
+  // Every other card (`!X`, `!V`, `!C:`, `!K:`, `!R`, `!I:`, `!IP:`, `!IS:`, the Spawns' `!S…` included) is the whole turn.
+  const turns = (r: TRecord): number => r.plies - r.lans.filter(l => /^(!F:|!W:|!P|!D:|!G\+)|![HABJ](!Y|!Z)?$/.test(l)).length;
   const per = (rs: readonly TRecord[]) => ({
     white: rs.reduce((a, r) => a + r.result, 0) / rs.length,
     draws: rs.filter(r => r.result === 0.5).length / rs.length,
