@@ -6,6 +6,7 @@
 - [x] Generate Fast, Strong, Ranged, Magic, Support, and Fast + Ranged samples with the built-in image tool. Keep all requested parts inside each transparent sheet.
 - [x] Inspect large and small views, save the prompts and source files, and show a review page beside the existing cast. Evidence: `docs/visual-design/workshop/figure-samples-2026-10-06/`; six 1536×1024 RGBA sheets, original prompts, hashes, desktop and phone review screenshots. All images load; no horizontal overflow at 1280×720 or 390×844. Framing still needs production alignment after approval.
 - [ ] Owner approves or corrects the six samples before generation of the full 30.
+- [x] Face revision: six edited pairs and before/after head views at `docs/visual-design/workshop/figure-samples-2026-10-06/faces.html`. Faces use plain shapes and small eye marks. Full bodies, poses, equipment and army pairs remain; some outlines and shading changed, and Fast/Strong became larger within the frame. All six are transparent RGBA at 1536×1024; review images load without horizontal overflow at 1280×720 and 466×985. The revised style awaits owner approval before the other 24.
 - Acceptance: six distinct identities; clear differences from the existing cast; consistent ivory/charcoal pairs; readable at board size; complete figures and equipment; no game integration or full-set generation in this phase.
 
 ## Workshop piece-card implementation — 2026-10-06
