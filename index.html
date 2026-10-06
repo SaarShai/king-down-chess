@@ -26,6 +26,7 @@
       <symbol id="i-learn" viewBox="0 0 24 24"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2.5 9 2.5 12 0v-5M22 9v6"/></symbol>
       <symbol id="i-continue" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
       <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></symbol>
+      <symbol id="i-workshop" viewBox="0 0 24 24"><path d="M2 7h14c2 0 4.5-.6 6-1.6V7c0 2.4-2.6 4-6 4h-1v3l3 4v2H6v-2l3-4v-3H7.5C4.3 11 2 9.4 2 7z"/></symbol>
     </svg>
     <div id="board" tabindex="0" role="application" aria-roledescription="chess board" aria-label="Board. Arrow keys move the square cursor; Enter or Space selects and moves." aria-describedby="cursor-say"></div>
     <header id="top">
@@ -108,6 +109,7 @@
           <button id="title-continue" class="primary" hidden><svg class="icon" aria-hidden="true"><use href="#i-continue"/></svg><span class="label">Continue</span></button>
           <button id="title-learn"><svg class="icon" aria-hidden="true"><use href="#i-learn"/></svg><span class="label">Learn the pieces</span></button>
           <button id="title-play"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span class="label">Play</span></button>
+          <button id="title-workshop"><svg class="icon" aria-hidden="true"><use href="#i-workshop"/></svg><span class="label">Workshop</span></button>
         </div>
       </div>
     </dialog>
@@ -224,6 +226,7 @@
     <dialog id="rules" aria-labelledby="rules-title">
       <h2 id="rules-title" tabindex="-1" autofocus>King Down pieces</h2>
       <button id="learn" class="learn primary"><svg class="icon" aria-hidden="true"><use href="#i-learn"/></svg><span class="label">Learn the six King Down pieces by playing, one move each</span></button>
+      <button id="guide-workshop" class="learn quiet"><svg class="icon" aria-hidden="true"><use href="#i-workshop"/></svg><span class="label">Make your own piece or card</span></button>
       <p id="rules-lead"></p>
       <div id="rules-rows" class="piece-cards"></div>
       <p id="rules-letters"></p>

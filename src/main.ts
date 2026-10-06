@@ -644,6 +644,18 @@ function startLesson(i: number): void {
 }
 
 $('learn').onclick = () => startLesson(0);
+
+/** The Workshop (docs/WORKSHOP.md): its own chunk, loaded on the first tap. It opens over its caller, which stays open. */
+let workshop: Promise<ReturnType<typeof import('./workshop/dialog')['workshopDialog']>> | undefined;
+function openWorkshop(code?: string): void {
+  workshop ??= import('./workshop/dialog').then(m => m.workshopDialog());
+  workshop.then(w => (code ? w.openDesign(code) : w.open()), () => {
+    workshop = undefined;
+    alert('The Workshop could not load. Check the connection and try again.');
+  });
+}
+$('title-workshop').onclick = () => openWorkshop();
+$('guide-workshop').onclick = () => openWorkshop();
 $('return-game').onclick = () => {
   if (!lessonReturn) return;
   const s = cloudGame ? readSave() : null;
@@ -1310,9 +1322,10 @@ const coords = $<HTMLInputElement>('coords');
 coords.onchange = () => { view.setCoords(coords.checked); save(); };
 $('reset-view').onclick = () => view.resetView();
 addEventListener('keydown', e => {
+  if (document.querySelector('#workshop[open]')) return; // the Workshop keeps its own keys; Esc closes its top sheet, then it
   if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; armed = false; refresh(); return; }
   // Menus swallow shortcuts; an open move choice does not (Z there undoes, and that is tested).
-  if ((e.target as HTMLElement).closest('input,select,textarea') || document.querySelector('#new-game[open], #settings[open], #title-screen[open]')) return;
+  if ((e.target as HTMLElement).closest('input,select,textarea') || document.querySelector('#new-game[open], #settings[open], #title-screen[open], #rules[open]')) return;
   if (e.key === 'r') view.resetView();
   if (e.key === 'z') undo();
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -1377,7 +1390,7 @@ if (urlPlayers?.length === 2 && urlPlayers.every(isSide)) [sides[0], sides[1]] =
  */
 const TITLE_SEEN = 'kingdown.title-seen';
 const titleSeen = (): boolean => { try { return sessionStorage.getItem(TITLE_SEEN) === '1'; } catch { return false; } };
-const showTitle = !link && !params.has('fen') && !params.has('army') && params.get('title') !== '0' && !titleSeen();
+const showTitle = !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
 type TitleChoice = 'continue' | 'play' | 'learn';
 let titleChoice = 'continue' as TitleChoice;
 const titleClosed = new Promise<void>(resolve => {
@@ -1406,7 +1419,7 @@ const titleClosed = new Promise<void>(resolve => {
   // with Animations Off or reduced motion (the module checks reduced motion itself).
   if (pace.value !== 'off') void import('../docs/2d-first-pieces/board/title-kings.mjs').then(({ startTitleKings }) => {
     if (!dlg.open) return;
-    const kings = startTitleKings(dlg.querySelector('.title-kings')!, { enabled: () => pace.value !== 'off' });
+    const kings = startTitleKings(dlg.querySelector('.title-kings')!, { enabled: () => pace.value !== 'off' && !document.querySelector('#workshop[open]') });
     (window as unknown as { titleKings?: unknown }).titleKings = kings; // for the browser checks
     dlg.addEventListener('close', () => kings.stop(), { once: true });
   }).catch(() => { /* offline before it was cached: the still kings stay */ });
@@ -1459,6 +1472,13 @@ refresh();
 if (!fen) save(); // pin the random back rank so a reload keeps this game (and keep an opened link's game)
 void import('./account/account').then(m => { account = m; m.changed(); m.startAccount(fromAccount); })
   .catch(() => { /* offline on a first visit: play on without an account */ });
+const designLink = params.get('design');
+if (designLink) {
+  const url = new URL(location.href);
+  url.searchParams.delete('design');
+  history.replaceState(null, '', url); // a reload then shows the game
+  openWorkshop(designLink);
+}
 await titleClosed; // the computer waits for the player, and no dialog opens over the title
 if (titleChoice === 'learn') startLesson(0);
 else {
