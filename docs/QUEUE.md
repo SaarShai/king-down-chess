@@ -295,12 +295,12 @@ All at depth 3 with `--armies perPair`. The card runs use cards-m5's card rules 
 | rally-r1 | M1, 8 workers; e2c009b (`claude/power-schema`), `~/projects/king-down-rally/m1-rally.sh` | `card:Rally,card:Haste,none --anchor none --mirror --pairs 300 --seed 5858` | 1,800 | done: +2.60 ± 0.46 pawns, draws 9.8% |
 | haste-from10 | M1, after rally-r1; 006de4f, `~/projects/king-down-r2/m1-r2.sh` | kp2-r18's powers, flags and armies (seed 1818, 40 pairs) with `--anchor Haste --rule fromMove=Haste:10` | 880 | done: 58.4% ± 3.1 (58.3% without), no effect |
 | morph-a1 | Kaggle, 5 notebooks, after the Rage runs; ab14413 (`claude/morph-card`), watcher `kaggle-morph-queue.sh` in the session scratchpad | `card:Morph,card:MorphB,card:Haste,none --mirror --pairs 150 --seed 6161` (10 matchups) | 3,000 | running on Kaggle (5 notebooks, ab14413) |
-| spawn-r1 | M1; ed23ea1 (`claude/spawn-card`) | `card:Spawn,card:SpawnK,card:Spawn2,card:SpawnK2,none --mirror --pairs 300 --seed 5858` (the four Spawn cards against no card) | 3,000 | running on the M1 |
+| spawn-r1 | M1; ed23ea1 (`claude/spawn-card`) | `card:Spawn,card:SpawnK,card:Spawn2,card:SpawnK2,none --mirror --pairs 300 --seed 5858` (the four Spawn cards against no card) | 3,000 | done: SpawnK2 +1.55 ± 0.40 pawns, SpawnK +0.80 ± 0.36, Spawn2 +0.50 ± 0.40, Spawn +0.36 ± 0.38; draws unchanged (mirror 15.3% ± 4.1; Δ −1.5 to +2.0, each ± 5); report `~/projects/king-down-spawn/sim/out/spawn-r1.report.md` on the M1 |
 
 Decides: rage-q, rage-s: whether a trim brings Rage (cards-m5: +4.06 pawns, about 1.7 Hastes) near the
 Haste card. rally-r1: Rally's worth against no card and beside the Haste card. haste-from10: whether
 "not before move 10" brings Haste (58.3% in K18) into 50 ± 4 on the same armies. morph-a1: each Morph
-card's worth and draws against no card and the Haste card.
+card's worth and draws against no card and the Haste card. spawn-r1: each Spawn card's worth and draws against no card; read 2026-10-06 (owner: Spawn2 is the start-rank card, Spawn set aside, SpawnK stays, SpawnK2 stays in the lab).
 
 ## Proposed, not approved: the far2 Archer played to the end
 
