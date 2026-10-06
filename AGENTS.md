@@ -27,5 +27,6 @@ The game is public at https://kingdown.vercel.app and `kingdown.dev` (Vercel pro
 ## Owner guidelines (2026-09-21)
 - Value is one axis; report paralysis, conditions and interactions beside it.
 - Piece balance: judge each pool piece against the six criteria the owner adopted on 2026-10-03 ([docs/research/piece-balance-criteria-2026-10-03.md](docs/research/piece-balance-criteria-2026-10-03.md); worth with `run.ts --experiment values`, the rest with `tools/piece-activity.ts`).
+- Designing or changing a piece, king power, card or rule: start from [docs/MATRIX.md](docs/MATRIX.md) (ability types, the powers and cards schema, conditions, shackles, promotion) and add the new item there (owner, 2026-10-06: "a key resource for coming up with new pieces").
 - All things being equal or near equal, do not change or add rules. A rule that is hard to remember is not adopted on numbers alone.
 - Explain results in non-technical language when asked; answer the question before doing more work.

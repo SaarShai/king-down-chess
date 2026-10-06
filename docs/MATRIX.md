@@ -107,6 +107,9 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Captures | may · must · never |
 | Targets | own · enemy · either; which kings and pawns are excluded |
 | Duration | instant · opponent's next turn (◐ `markTurns: 2`: two turns) · always |
+| Condition | none · a zone (a rank, half, the capital) · tag team (next to a given piece) · turn N (`fromMove`) · a capture · the opponent's card — see D.1 |
+| Shackled | no · yes: weaker or off until a condition (`fromMove` is "off until move N") — see D.2 |
+| Promotion | no · yes: a piece changes its type on a condition — see D.3 |
 | fromMove | none (default) · N: not before the side's own move N (◐ `fromMove=Haste:10+Rage:8`; `Position.move`, the full-move number). Spendable powers and cards only; refused for an always-on power. A Mirror may not copy a card before its move. Every row below is none. |
 
 ### C.2 Each power and card
@@ -149,3 +152,45 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 Every card is one use; "Uses (king)" is the official count of a king power (`POWERS_BALANCED` over the rule defaults).
 "Then make the move" for the marks is `markFree`, official for the kings and used in every card measurement. Flight is
 a special move here: it moves a piece already on the board (A.1 lists it under 1b, arriving, by its zone).
+
+## D. Conditions, shackles and promotion (owner, 2026-10-06)
+
+Three properties that any piece, king power or card can carry. A **condition** (trigger) is an event in the
+game. It belongs to a piece ("when *this* pawn reaches the last rank") or to the game ("from turn N").
+
+### D.1 Conditions (triggers)
+
+| Condition | Scope | Today | Ideas |
+|---|---|---|---|
+| Reaches a zone (a rank, the own half, the capital) | piece | ● pawn on the last rank promotes · ● pawn double step from its start rank · ● Maester–king long swap, both on the home rank · ◐ guard double step from the home rank · ◐ capital rules C2–C5 (B.2) | stronger on the enemy half |
+| Tag team: next to a given piece | piece | ● Mercy and Holy Light: pieces next to (beside, in front of, behind) the king cannot be taken · ● Maester swaps with a friend next to it · ◐ Control (moves as a friendly neighbour) · ◐ FirewallB (trades with an enemy next to it) | Archer next to a Beast also shoots 3 squares away |
+| Turn N | game | ◐ `fromMove`: a spendable power or card not before the side's move N · ◐ Black's double first turn (`secondPlayerDoubleFirstTurn`) | a piece that wakes at turn N |
+| A capture | piece | ● Paladin dies after taking a non-pawn · ● Beast may take again (a chain) · ◐ RageB's second move must take · ◐ a guard spent after one capture (rejected) | a piece that grows after its first capture |
+| A piece lost | own side | ● Sacrifice and ◐ Salvation use the side's captured pieces | — |
+| The opponent's card | game | ◐ Mirror plays the card the opponent played last | — |
+| The own last mark | own side | ◐ Rescue renews the side's Freeze, Ice Wall or Firewall | — |
+
+### D.2 Shackled: nerfed until a condition
+
+The piece, power or card keeps its type but is weaker, or off, until the condition happens.
+
+| Item | Shackle | Released by | Status |
+|---|---|---|---|
+| Any spendable power or card | off | turn N | ◐ `fromMove` (the button shows "from move N") |
+| Archer | shoots exactly 2 squares away | reaching the enemy back rank: also 3 squares away | idea |
+
+### D.3 Promotion: a new type on a condition
+
+| Piece / item | Becomes | Condition | Status |
+|---|---|---|---|
+| Pawn | queen, rook, bishop or knight | reaches the last rank | ● (◐ wider sets: `promotionSet` `anyNonKing`, `anyNonKingNoGuard`, `anyNonKingNoFairy`) |
+| Sacrifice | an own pawn becomes one of the side's captured pieces | the power is used | ● (an arrival, C.2) |
+| Promoted piece taken | returns (Salvation) as what it was when taken | — | ◐ |
+
+### D.4 Powers and cards with a condition
+
+Zone: Flight (own half), Burn (capital), Fire Starter (enemy back rank). Tag team: Mercy, Holy Light, Death Touch
+(next to the king), Control, FirewallB, Earth Quake B (next to an own piece). Turn N: any item with `fromMove`.
+Capture: RageB. Opponent's card: Mirror. Own last mark: Rescue. Lost pieces: Sacrifice, Salvation.
+None is shackled today except through `fromMove`; none promotes except Sacrifice's pawn.
+
