@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANCHOR_DESIGNS, anchorOf } from './anchors';
-import { BAND_WORD, THRESHOLDS, badgeText, judge, memoryOf, worthOf, type Label } from './judge';
+import { BAND_WORD, THRESHOLDS, badgeText, bandOf, judge, memoryOf, shelfOf, whyTitle, worthOf, type Label } from './judge';
 import { DIAG, DIRS, KING_STEP, KNIGHT_JUMP, ORTHO, PRESETS, empty, keyOf, limit, presetOf, type Dir, type Mark, type PieceDesign, type Rule, type Square, type When } from './model';
 import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS } from './vocab';
 
@@ -123,11 +123,30 @@ describe('the judge (§6)', () => {
   it('keeps the measured labels (§6.7)', () => {
     expect(anchorOf(p('paladin'))?.value).toBe(4.08);
     expect(judge(p('paladin')).worth.measured?.label).toBe('fair');
-    expect(judge(anchor('Templar')).line).toBe('May often wait: its rule works only on a center square.');
+    expect(judge(anchor('Templar')).line).toBe('May often wait: “also moves like a queen” works only on a center square.');
     expect(judge(p('ogre')).line).toBe('Fair: about 2½ pawns. About as strong as an ogre.');
     expect(judge(d(NN, [], chain)).like).toBe('About as strong as a beast.');
     expect(judge(d(NN, ORTHO)).like).toBe('About a queen.');
     expect(BAND_WORD.likelyOP).toBe('Likely overpowered');
+  });
+
+  it('gives an unchanged Pawn and Queen their own words in every view, and Why? its title from the verdict', () => {
+    const pawn = judge(p('pawn')), queen = judge(p('queen'));
+    expect([bandOf(pawn), shelfOf(pawn), whyTitle(pawn), pawn.warn]).toEqual(['The unit of worth', 'Standard', 'Why this worth?', false]);
+    expect([bandOf(queen), shelfOf(queen), whyTitle(queen), queen.warn]).toEqual(['The queen’s worth', 'Standard', 'Why this worth?', false]);
+    const paladin = judge(p('paladin'));
+    expect([paladin.label, paladin.warn, whyTitle(paladin)]).toEqual(['fair', true, 'Why this warning?']);
+    expect(whyTitle(judge(d(NN, ORTHO)))).toBe('Why “likely overpowered”?');
+    expect(bandOf(judge(d(NN, ORTHO)))).toBe('Likely overpowered');
+  });
+
+  it('words assumptions as assumptions, names the waiting rule, and never names the project', () => {
+    const texts = [...ROWS.map(x => x[1]), ...PRESETS].flatMap(x => { const v = judge(x); return [v.line, ...v.why, ...v.flags.map(f => f.line)]; });
+    for (const t of texts) expect(t, t).not.toMatch(/\b(lab|owner)\b/);
+    const cond = judge(d(KING_STEP('both'), [], { when: { on: 'zone', zone: 'enemyHalf' }, does: { a: 'movesLike', as: 'rook' } }));
+    expect(cond.why.find(t => t.includes('%'))).toMatch(/The estimate assumes it works in the enemy half about 35% of the time\./);
+    expect(judge(d(KING_STEP('both'), [], { when: { on: 'afterCard', card: 'any' }, does: { a: 'movesLike', as: 'queen' } })).flags.find(f => f.code === 'F7')!.line)
+      .toBe('May often wait: “also moves like a queen” works only in card games.');
   });
 });
 
@@ -200,13 +219,13 @@ describe('the judge on random designs', () => {
     expect(badgeText(judge(p('rook')).deltas.movesLike!.v)).toBe('+¼');
   });
 
-  it('names what makes a design strong in Why?: its parts and what each adds', () => {
+  it('names what makes a design strong in Why?: the worth without each part, the largest change first', () => {
     const v = judge(d(KING_STEP('both').filter(s => s.x && s.y), ORTHO, chain));
     expect(v.label).toBe('likelyOP');
     expect(v.why).toEqual([
-      'Slides straight: adds about 7 pawns.',
-      'Moves and takes 1 square diagonally: adds about 3 pawns.',
-      'Takes again: adds about 2½ pawns.',
+      'Without “slides straight”: about 2 pawns.',
+      'Without “moves and takes 1 square diagonally”: about 5½ pawns.',
+      'Without “takes again”: about 6½ pawns.',
       'In all, it can take on about 10 squares; a rook, about 7; a queen, about 12. Past 7, each one counts double.',
     ]);
   });

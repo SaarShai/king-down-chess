@@ -13,7 +13,7 @@ import {
   parseDesign, presetOf, validName, type Body, type Dir, type Mark, type PaintOn, type PieceDesign, type Preset, type Rule, type When,
 } from './model';
 import { BLOCKS, GROUPS, MORE_WHENS, NEAR_BODY, TOP_WHENS, EVENT_WHENS, blockOf, takesAny, whenWords, type Block } from './vocab';
-import { BAND_WORD, LEARN_LINE, SHELF_WORD, autoBody, badgeText, judge, unmeasured, whyHead, worthOf, type Label, type Verdict } from './judge';
+import { BAND_WORD, LEARN_LINE, autoBody, badgeText, bandOf, judge, shelfOf, unmeasured, whyHead, whyTitle, worthOf, type Label, type Verdict } from './judge';
 import { GLOW, lookOf, lookWords } from './look';
 import { cropOf, figureHtml, gaugeHtml, modelHtml, patternSvg } from './art';
 import { cap, describe, esc, halves, pawns, ruleParts, ruleText } from './text';
@@ -207,7 +207,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       + `</div><button type="button" class="ws-surprise">${DIE}<span>Surprise me</span></button>`
       + `<h3>Your designs (${list.length}), on this device</h3>`
       + (list.length ? `<div class="ws-shelf">${list.map((d, i) => { const jv = judge(d, false); return `<button type="button" class="ws-tile${jv.warn ? ' warn' : ''}" data-i="${i}">`
-        + `<span class="ws-tile-art" aria-hidden="true">${modelHtml(lookOf(d, jv))}</span><b>${esc(d.name)}</b><small>${SHELF_WORD[jv.label]}</small></button>`; }).join('')}</div>`
+        + `<span class="ws-tile-art" aria-hidden="true">${modelHtml(lookOf(d, jv))}</span><b>${esc(d.name)}</b><small>${shelfOf(jv)}</small></button>`; }).join('')}</div>`
         : '<p class="ws-empty">Nothing here yet. Your pieces and cards appear here, on this device.</p>')
       + (bad ? `<p class="ws-note">${bad === 1 ? '1 saved entry' : `${bad} saved entries`} could not be read. ${bad === 1 ? 'It stays' : 'They stay'} on this device; the other designs work.</p>` : '')
       + '</div>';
@@ -371,7 +371,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     }
     fitName();
     // One line: with the chip, the chip names the label, so the line gives only the number.
-    q('.ws-worth').textContent = empty(cur) ? 'Paint a square or a line.' : v.warn && v.label !== 'fair' ? `About ${pawns(w)}` : `About ${pawns(w)} · ${BAND_WORD[v.label]}`;
+    q('.ws-worth').textContent = empty(cur) ? 'Paint a square or a line.' : v.warn && v.label !== 'fair' ? `About ${pawns(w)}` : `About ${pawns(w)} · ${bandOf(v)}`;
     q('.ws-gauge-box').innerHTML = gaugeHtml(v, true);
     q('.ws-like').textContent = v.like;
     const dots = (n: number): string => '●'.repeat(n) + '○'.repeat(5 - n);
@@ -379,9 +379,9 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const bottom = q('.ws-bottom');
     if (put(bottom, v.warn ? `<button type="button" class="ws-chip">${icon('M12 3l10 18H2zM12 10v5M12 18h.01')}<span>${esc(chipText(v))}. Why?</span></button>`
       : `<span class="ws-learn">${LEARN_LINE[v.memory.level]}</span><button type="button" class="quiet ws-why">Why?</button>`)) q<HTMLButtonElement>('.ws-chip, .ws-why', bottom).onclick = why;
-    q('.ws-summary').textContent = `${lookWords(l)} ${d.summary} About ${pawns(w)}, ${BAND_WORD[v.label].toLowerCase()}.`;
+    q('.ws-summary').textContent = `${lookWords(l)} ${d.summary} About ${pawns(w)}, ${bandOf(v).toLowerCase()}.`;
     // The live line speaks only when the label changes (the guard of src/new-game.ts).
-    const live = q('.ws-live'), say = `About ${pawns(w)}. ${BAND_WORD[v.label]}.`;
+    const live = q('.ws-live'), say = `About ${pawns(w)}. ${bandOf(v)}.`;
     if (!first && v.label !== lastLabel && live.textContent !== say) live.textContent = say;
     lastLabel = v.label;
     if (put(q('.ws-side'), `${gaugeHtml(v, true)}<p class="ws-side-worth">${esc(v.line)}</p>${q('.ws-stats').outerHTML}${whyHtml(v)}`)) wireWhy(q('.ws-side'));
@@ -718,12 +718,13 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const flags = x.flags.filter(f => f.line !== x.line);
     return `<p>${esc(whyHead(x))}</p>`
       + (x.why.length ? `<ul class="ws-reasons">${x.why.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : '')
+      + (x.why.filter(t => t.startsWith('Without')).length > 1 ? '<p class="ws-small">Each line is the worth without one part. The parts overlap, so the differences do not add up.</p>' : '')
       + (x.fixes.length ? `<div class="ws-fixes"><span>Try:</span>${x.fixes.map((f, i) => `<button type="button" class="ws-fix" data-fix="${i}">${esc(f.label)}: about ${pawns(f.worth)}</button>`).join('')}</div>` : '')
       + (x.line.toLowerCase().includes(x.like.slice(0, -1).toLowerCase()) ? '' : `<p class="ws-like-why">${esc(x.like)}</p>`)
       + x.idle.map(t => `<p class="ws-idle">“${esc(t)}” changes little (less than 0.3 pawn). Simpler without it?</p>`).join('')
       + (flags.length ? `<ul class="ws-flags">${flags.map(f => `<li class="f-${f.level}">${esc(f.line)}</li>`).join('')}</ul>` : '')
       + `<p class="ws-small">${DISCLAIMER}</p>`
-      + (x.note ? `<p class="ws-small">${esc(x.note)}${x.worth.measured ? ` (${BAND_WORD[x.worth.measured.label].toLowerCase()})` : ''}</p>` : '');
+      + (x.note ? `<p class="ws-small">${esc(x.note)}${x.worth.measured && !x.own ? ` (${BAND_WORD[x.worth.measured.label].toLowerCase()})` : ''}</p>` : '');
   }
   function wireWhy(root: HTMLElement, close?: () => void): void {
     for (const b of qa<HTMLButtonElement>('.ws-fix', root)) b.onclick = () => {
@@ -733,8 +734,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     };
   }
   function why(): void {
-    const head = v.label !== 'fair' ? `Why “${BAND_WORD[v.label].toLowerCase()}”?` : v.warn ? 'Why this warning?' : 'Why “fair”?';
-    sheet(head, whyHtml(v) + `<div class="ws-sheet-actions"><button type="button" class="ws-keep">Keep it</button><button type="button" class="quiet ws-undo-last"${undos.length ? '' : ' disabled'}>Undo last change</button></div>`, (body, close) => {
+    sheet(whyTitle(v), whyHtml(v) + `<div class="ws-sheet-actions"><button type="button" class="ws-keep">Keep it</button><button type="button" class="quiet ws-undo-last"${undos.length ? '' : ' disabled'}>Undo last change</button></div>`, (body, close) => {
       wireWhy(body, close);
       q<HTMLButtonElement>('.ws-keep', body).onclick = close;
       q<HTMLButtonElement>('.ws-undo-last', body).onclick = () => { close(); undo(); };
@@ -748,7 +748,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     screenEl.innerHTML = bar('Workshop', cur.name, fromLink ? '' : '<button type="button" class="ws-edit">Edit</button>') + '<div class="ws-scroll">'
       + (fromLink ? '<p class="ws-lead">A design from a link. Keep a copy to change it.</p>' : onShelf ? '<p class="ws-lead ws-saved-note">Saved on this device.</p>' : '')
       + `<article class="piece-card ws-card"><div class="pc-art ws-card-art" aria-hidden="true">${modelHtml(l)}</div><div>`
-      + `<h3><span class="pc-letter">${cur.letter}</span>${esc(cur.name)}</h3><p class="ws-card-worth">${empty(cur) ? esc(jv.line) : `About ${pawns(jv.worth.point)}. ${BAND_WORD[jv.label]}.`}</p>`
+      + `<h3><span class="pc-letter">${cur.letter}</span>${esc(cur.name)}</h3><p class="ws-card-worth">${empty(cur) ? esc(jv.line) : `About ${pawns(jv.worth.point)}. ${bandOf(jv)}.`}</p>`
       + `<dl><dt>Moves</dt><dd>${esc(cap(d.moves))}</dd><dt>Takes</dt><dd>${esc(cap(d.takes))}</dd>${d.special.length ? `<dt>Special</dt><dd>${d.special.map(esc).join(' ')}</dd>` : ''}</dl>`
       + `${patternSvg(cur)}</div></article>`
       + (jv.warn ? `<button type="button" class="ws-chip">${icon('M12 3l10 18H2zM12 10v5M12 18h.01')}<span>${esc(chipText(jv))}. Why?</span></button>` : '')
@@ -759,7 +759,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     v = jv;
     q<HTMLButtonElement>('.ws-back').onclick = () => show('home');
     q<HTMLButtonElement>('.ws-edit')?.addEventListener('click', () => edit(cur, { shelf: onShelf }));
-    q<HTMLButtonElement>('.ws-chip')?.addEventListener('click', () => sheet(`Why “${BAND_WORD[jv.label].toLowerCase()}”?`, whyHtml(jv).replace(/<div class="ws-fixes">[\s\S]*?<\/div>/, ''), () => {}));
+    q<HTMLButtonElement>('.ws-chip')?.addEventListener('click', () => sheet(whyTitle(jv), whyHtml(jv).replace(/<div class="ws-fixes">[\s\S]*?<\/div>/, ''), () => {}));
     q<HTMLButtonElement>('.ws-try').onclick = () => show('try');
     q<HTMLButtonElement>('.ws-send').onclick = async () => {
       if (navigator.share) {
@@ -795,9 +795,9 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
 
   /** Copy as text (§7.6): the sentences, a MATRIX-style row and the link. */
   function asText(d: PieceDesign, jv: Verdict, url: string): string {
-    const t = describe(d), band = BAND_WORD[jv.label].toLowerCase();
+    const t = describe(d), band = bandOf(jv).toLowerCase();
     const parts = [`squares: moves ${t.moves.replace(/\.$/, '')}; takes ${t.takes.replace(/\.$/, '')}`, ...d.rules.map(r => `${blockOf(r.does.a).matrix}: ${ruleText(r).replace(/\.$/, '')}`)];
-    return [d.name, `Moves: ${t.moves}`, `Takes: ${t.takes}`, ...t.special.map(s => `Special: ${s}`), `About ${pawns(jv.worth.point)}. ${BAND_WORD[jv.label]}.`, '',
+    return [d.name, `Moves: ${t.moves}`, `Takes: ${t.takes}`, ...t.special.map(s => `Special: ${s}`), `About ${pawns(jv.worth.point)}. ${bandOf(jv)}.`, '',
       `| ${d.name} | piece | ${parts.join(' · ')} | ${jv.worth.point.toFixed(2)} | ${band} |`, '', url].join('\n');
   }
 

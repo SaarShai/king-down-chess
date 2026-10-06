@@ -7,7 +7,7 @@
 import { DIR, type Dir, type PieceDesign } from './model';
 import { type StageLook } from './look';
 import { halves } from './text';
-import { BAND_WORD, presetWorths, type Verdict } from './judge';
+import { bandOf, presetWorths, type Verdict } from './judge';
 
 let uid = 0;
 const id = (s: string): string => `ws-${s}-${++uid}`;
@@ -126,10 +126,10 @@ export function modelHtml(l: StageLook): string {
 /* ---- the gauge (§2.4 W3): 0–10 pawns, the fair band shaded, a gem in a soft pill as wide as the band ---- */
 
 export function gaugeHtml(v: Verdict, landmarks: boolean): string {
-  const pc = (w: number): number => +(Math.min(10, Math.max(0, w)) * 10).toFixed(1), out = v.label !== 'fair' && v.label !== 'untestedOP' ? ' out' : '';
+  const pc = (w: number): number => +(Math.min(10, Math.max(0, w)) * 10).toFixed(1), out = !v.own && v.label !== 'fair' && v.label !== 'untestedOP' ? ' out' : '';
   const pw = presetWorths(), marks = landmarks ? (['pawn', 'knight', 'rook', 'queen'] as const).map((k, i) =>
     `<span class="g-mark" aria-hidden="true" style="left:${pc(pw[k])}%">${'PNRQ'[i]}</span>`).join('') : '';
-  const words = `about ${halves(v.worth.point)} pawns, ${BAND_WORD[v.label].toLowerCase()}`;
+  const words = `about ${halves(v.worth.point)} pawns, ${bandOf(v).toLowerCase()}`;
   return `<div class="ws-gauge${out}" role="meter" aria-label="Worth" aria-valuemin="0" aria-valuemax="10" aria-valuenow="${Math.min(10, +v.worth.point.toFixed(1))}" aria-valuetext="${words}">`
     + `<span class="g-track"><span class="g-band" style="left:25%;width:25%"></span>`
     + `<span class="g-fuzz" style="left:${pc(v.worth.lo)}%;width:${(pc(v.worth.hi) - pc(v.worth.lo)).toFixed(1)}%"></span>`

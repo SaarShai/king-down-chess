@@ -39,9 +39,10 @@ export function lookOf(d: D, v: Verdict): StageLook {
   return {
     body: d.look.auto ? autoBody(d) : d.look.body, army: d.look.army, glow: d.look.glow, letter: d.letter,
     metal: v.metal,
-    cracks: v.label === 'untestedOP' ? 'dashed' : v.metal === 'broken' ? 'wide' : v.metal === 'cracked' ? 'cracked' : v.metal === 'hairline' ? 'hairline' : 'none',
+    // An unchanged Pawn or Queen is the measure, not a fault: no cracks, no dimming.
+    cracks: v.own ? 'none' : v.label === 'untestedOP' ? 'dashed' : v.metal === 'broken' ? 'wide' : v.metal === 'cracked' ? 'cracked' : v.metal === 'hairline' ? 'hairline' : 'none',
     scale: +(0.94 + 0.14 * Math.min(1, Math.max(0, w) / 10)).toFixed(3),
-    dim: v.label === 'possiblyWeak' || v.label === 'likelyWeak',
+    dim: !v.own && (v.label === 'possiblyWeak' || v.label === 'likelyWeak'),
     rim: d.look.glow ? GLOW[d.look.glow] : chain || v.stats.takes > v.stats.moves ? CRIMSON : GOLD,
     marks: [...d.squares.map(s => ({ ...s, hatched: false })), ...(extra?.squares.filter(s => !own.has(`${s.x},${s.y}`)).map(s => ({ ...s, hatched: true })) ?? [])],
     lines: [...d.lines], ghostLines: extra ? extra.lines.filter(l => !d.lines.includes(l)) : [],

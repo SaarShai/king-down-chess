@@ -32,7 +32,7 @@ export interface Verdict {
   memory: { points: number; level: 0 | 1 | 2 | 3 };
   /** Rules that change the worth by less than 0.3 pawn: "Simpler without it?" */
   idle: string[];
-  /** At most 3 sentences, the largest term first. */
+  /** At most 3 removal comparisons ("Without “takes again”: about 4 pawns."), the largest change first, then the hinges. */
   why: string[];
   /** The note for a measured design (or the Maester's), else ''. */
   note: string;
@@ -45,6 +45,8 @@ export interface Verdict {
   warn: boolean;
   /** At most 90 characters. */
   line: string;
+  /** An unchanged Pawn or Queen: it keeps its own words in every view (bandOf, shelfOf, whyTitle). */
+  own: '' | 'pawn' | 'queen';
   /** A hard limit (§4.9) the design breaks, or ''. */
   blocked: string;
   g: Features;
@@ -177,6 +179,12 @@ export const metalOf = (w: number): Metal => w >= THRESHOLDS.queen ? 'broken' : 
 export const BAND_WORD: Record<Label, string> = { fair: 'Fair', possiblyOP: 'Possibly overpowered', likelyOP: 'Likely overpowered', untestedOP: 'Possibly overpowered', possiblyWeak: 'Possibly too weak', likelyWeak: 'Likely too weak' };
 /** The shelf's one word (W1). */
 export const SHELF_WORD: Record<Label, string> = { fair: 'Fair', possiblyOP: 'Strong?', likelyOP: 'Strong?', untestedOP: 'Strong?', possiblyWeak: 'Weak?', likelyWeak: 'Weak?' };
+/** The label in words, the same on the stage, the gauge, the card and in Why?; a Pawn and a Queen keep their own. */
+export const bandOf = (v: Pick<Verdict, 'own' | 'label'>): string => (v.own === 'pawn' ? 'The unit of worth' : v.own === 'queen' ? 'The queen’s worth' : BAND_WORD[v.label]);
+export const shelfOf = (v: Pick<Verdict, 'own' | 'label'>): string => (v.own ? 'Standard' : SHELF_WORD[v.label]);
+/** The title of the Why? sheet, from the editor and from SAVED alike. */
+export const whyTitle = (v: Pick<Verdict, 'own' | 'label' | 'warn'>): string => (v.own ? 'Why this worth?'
+  : v.label !== 'fair' ? `Why “${BAND_WORD[v.label].toLowerCase()}”?` : v.warn ? 'Why this warning?' : 'Why “fair”?');
 
 /** A rule counts as measured when a measured design has the same rule; "lines pass over" and "becomes" never do (§6.4). */
 const MEASURED = new Set(PRESETS.flatMap(p => p.rules).concat([{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }])
@@ -192,12 +200,13 @@ function flagsOf(d: D, e: Estimate): Flag[] {
   if (d.squares.some(s => (s.mark === 'shoot' || s.mark === 'moveShoot') && cheb(s.x, s.y) > 1)) out.push({ code: 'F3', level: 'info', line: 'Its shots pass over pieces, so a check cannot be blocked.', evidence: 'docs/RULES.md §3; fairy-values.md S15.' });
   const state = R.filter(r => !blockOf(r.does.a).event);
   const zone = state.length && state.length === R.length && state.every(r => share(r.when) <= 0.05);
-  if (codes.has('F7')) out.push({ code: 'F7', level: 'warn', line: 'May often wait: it works only in card games.', evidence: 'A side plays about 4.4 cards a game (cards m2).' });
-  else if (zone) out.push({ code: 'F7', level: 'warn', line: `May often wait: its rule works only ${whenWords(state[0].when)}.`, evidence: 'Burn was played in 50% of games, Fire Starter in 40% (cards-2026-10-03.md:379-380).' });
+  const named = (r: Rule): string => `“${blockOf(r.does.a).short(r)}”`, card = R.find(r => r.when.on === 'afterCard');
+  if (codes.has('F7') && card) out.push({ code: 'F7', level: 'warn', line: `May often wait: ${named(card)} works only in card games.`, evidence: 'A side plays about 4.4 cards a game (cards m2).' });
+  else if (zone) out.push({ code: 'F7', level: 'warn', line: `May often wait: ${named(state[0])} works only ${whenWords(state[0].when)}.`, evidence: 'Burn was played in 50% of games, Fire Starter in 40% (cards-2026-10-03.md:379-380).' });
   else if (g.M < 3) out.push({ code: 'F7', level: 'warn', line: 'May often wait: it has few squares to go to.', evidence: 'The guard moved in 70–80% of games (criterion 5).' });
-  if (codes.has('F8')) out.push({ code: 'F8', level: 'warn', line: 'The lab never found a fair price for this.', evidence: 'The paladin over enemies (sim-lm-buffs).' });
+  if (codes.has('F8')) out.push({ code: 'F8', level: 'warn', line: 'Hard to judge: we have no reliable estimate for lines that pass over any piece.', evidence: 'The paladin over enemies (sim-lm-buffs).' });
   if (R.some(unmeasured)) out.push({ code: 'F9', level: 'info', line: 'Never measured: play-test it.', evidence: 'docs/WORKSHOP.md §6.4, status column.' });
-  if (codes.has('F10')) out.push({ code: 'F10', level: 'warn', line: 'The owner set a piece like this aside: it moves through pieces.', evidence: 'MATRIX A.3, the Wraith.' });
+  if (codes.has('F10')) out.push({ code: 'F10', level: 'warn', line: 'Hard to stop: it moves through pieces, so no piece can block it.', evidence: 'MATRIX A.3, the Wraith.' });
   if (codes.has('F11')) out.push({ code: 'F11', level: 'warn', line: 'It moves to more squares than any piece we measured.', evidence: `About ${Math.round(g.Q)} quiet squares; no measured piece has more than 7.33.` });
   if (codes.has('F12')) out.push({ code: 'F12', level: 'warn', line: 'It can become a queen early in the game.', evidence: 'A pawn needs about 6 moves to promote; a knight, about 3.' });
   if (g.Xshot > 0 || R.some(r => r.does.a === 'chain')) out.push({ code: 'F+', level: 'good', line: 'May mean fewer draws.', evidence: 'Archer −6.2 draws, beast −3.1 (in 100 games).' });
@@ -288,18 +297,20 @@ export function judge(d: D, full = true): Verdict {
   const anchor = anchorOf(d), key = keyOf(d);
   const measuredLabel = anchor && (anchor.under ? 'likelyWeak' : labelOf(anchor.value, anchor.value - anchor.pm, anchor.value + anchor.pm, anchor.pm));
   const label = measuredLabel || labelOf(W, lo, hi, e.half);
-  const own = key === PAWN_KEY ? 'A pawn: the unit of worth.' : key === QUEEN_KEY ? 'The queen: the one piece above the band. Only the queen stands here.' : '';
+  const ownKey = key === PAWN_KEY ? 'pawn' : key === QUEEN_KEY ? 'queen' : '';
+  const own = ownKey === 'pawn' ? 'A pawn: the unit of worth.' : ownKey === 'queen' ? 'The queen: the one piece above the band. Only the queen stands here.' : '';
   const flags = own ? flagsOf(d, e).filter(f => f.level === 'good') : flagsOf(d, e);
   const memory = memoryOf(d);
   const like = likeLine(W, d);
   // Each rule's own part: the worth without it.
   const ruleV = !full ? [] : d.rules.map((r, i) => { const x = estimate(withoutRule(d, i)); return { r, v: W - x.W, codes: x.codes }; });
   const idle = ruleV.filter(x => Math.abs(x.v) < THRESHOLDS.idle && [...x.codes].sort().join() === [...e.codes].sort().join()).map(x => cap(blockOf(x.r.does.a).short(x.r)));
-  // Why? names each part of the design (a rule, a square group, a line set) and what it adds: the worth without it.
+  // Why? compares the design with itself less one part (a rule, a square group, a line set): the worth without it.
+  // The parts overlap, so these are not shares of the worth and do not add up (whyHtml says so once).
   const parts = !full ? [] : removals(d).map(f => ({ ...f, worth: worthOf(f.design) }));
   const why = [
     ...parts.map(f => ({ f, v: W - f.worth })).filter(x => Math.abs(x.v) >= 0.25).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 3)
-      .map(({ f, v }) => `${f.part}: ${v > 0 ? 'adds' : 'takes away'} about ${pawns(Math.abs(v))}.${f.rule && !blockOf(f.rule.does.a).event && share(f.rule.when) < 1 ? ` It works only ${whenWords(f.rule.when)}, about ${Math.round(share(f.rule.when) * 100)}% of the time.` : ''}`),
+      .map(({ f }) => `Without “${f.part.charAt(0).toLowerCase()}${f.part.slice(1)}”: about ${pawns(f.worth)}.${f.rule && !blockOf(f.rule.does.a).event && share(f.rule.when) < 1 ? ` The estimate assumes it works ${whenWords(f.rule.when)} about ${Math.round(share(f.rule.when) * 100)}% of the time.` : ''}`),
     ...(full ? hingeText(g) : []),
   ];
   const fixes = !full || blocked || inBand(W) ? [] : parts
@@ -318,7 +329,7 @@ export function judge(d: D, full = true): Verdict {
     worth: { point: W, lo, hi, half: e.half, ...(anchor ? { measured: { ...anchor, label: measuredLabel as Label } } : {}) },
     label, metal: metalOf(W), like, flags, memory: { points: memory.points, level: memory.level }, idle, why,
     note: anchor ? anchorNote(anchor) : key === keyOf(presetOf('maester')) ? MAESTER_NOTE : '',
-    fixes, stats: { moves: steps(g.M), takes: steps(g.T) }, deltas, warn, line: '', blocked, g,
+    fixes, stats: { moves: steps(g.M), takes: steps(g.T) }, deltas, warn, line: '', own: ownKey, blocked, g,
   };
   v.line = own || lineOf(v, d, memory, warnFlag);
   return v;
@@ -375,5 +386,5 @@ export function whyHead(v: Verdict): string {
   const { point, lo, hi } = v.worth;
   if (v.label === 'untestedOP') return `About ${pawns(point)}, but the judge is unsure: the guess runs from ${halves(lo)} to ${halves(hi)}. Nothing we measured looks like this. It may be overpowered.`;
   const range = `About ${pawns(point)} (${halves(lo)} to ${halves(hi)}).`;
-  return `${range} Most pieces are worth 2½ to 5 pawns. Only the queen is above.`;
+  return `${range} Most pieces are worth 2½ to 5 pawns, the shaded part of the gauge. Only the queen is above.`;
 }
