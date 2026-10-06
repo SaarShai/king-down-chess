@@ -188,7 +188,7 @@ The piece, power or card keeps its type but is weaker, or off, until the conditi
 
 | Item | Shackle | Released by | Status |
 |---|---|---|---|
-| Any spendable power or card | off | turn N | ◐ `fromMove` (the button shows "from move N") |
+| Any spendable power or card | off | turn N | ◐ `fromMove` (the button shows "from move N" and a countdown ring, `src/countdown.ts`) |
 | Archer | shoots exactly 2 squares away | reaching the enemy back rank: also 3 squares away | idea |
 
 ### D.3 Promotion: a new type on a condition

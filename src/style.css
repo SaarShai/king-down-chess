@@ -702,3 +702,19 @@ label.army select { width: 100%; font-weight: 400; }
 #powers { margin-top: var(--space-2); }
 #power-status { margin-top: var(--space-1); font-size: var(--fs-sm); line-height: var(--lh); color: var(--ink); }
 #power-btn.armed { outline: 3px solid var(--accent); outline-offset: 2px; } /* burgundy: 3:1 or more on parchment, unlike gold */
+
+/* Turn countdowns (src/countdown.ts): a thin ring that fills clockwise as the turn nears, the turns left inside.
+   Ink at low contrast, no glow, never a tap target. On the power button's corner, over a piece, and by the turn line. */
+.cd { position: relative; display: inline-grid; place-items: center; flex: none; width: 20px; height: 20px; color: var(--ink); pointer-events: none; }
+.cd svg { position: absolute; inset: 0; width: 100%; height: 100%; rotate: -90deg; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.cd-track { opacity: 0.18; }
+.cd-fill { opacity: 0.55; }
+.cd b::before { content: attr(data-n); font-size: 10.5px; font-weight: 700; line-height: 1; opacity: 0.7; font-variant-numeric: tabular-nums; }
+#power-btn { position: relative; }
+#power-btn .cd { position: absolute; top: -8px; right: -8px; background: var(--vellum); border-radius: 50%; }
+#board-marks .cd { position: absolute; display: grid; background: color-mix(in srgb, var(--vellum) 82%, transparent); border-radius: 50%; }
+#clocks { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; font-size: var(--fs-xs); color: var(--ink-soft); }
+#clocks:empty { display: none; }
+#clocks > span { display: inline-flex; align-items: center; gap: 5px; }
+#clocks .cd { color: var(--ink-soft); }
+@media (max-width: 720px) { #clocks { margin: 0 0 0 auto; } }
