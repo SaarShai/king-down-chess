@@ -101,7 +101,7 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Property | Allowed values |
 |---|---|
 | Source | king power · card · both (a spendable king power is also dealt as a card) |
-| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ◐ Morph, MorphB) |
+| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ◐ Morph, MorphB) · spawn (a new piece, not a captured one, comes onto the board, D.5: ○ Spawn) |
 | Uses | n per game (king power) · 1 (every card) · — (always-on) |
 | Turn cost | is the turn's move · then make the move (a free action, `markFree`) · extra move (the second move may be skipped) |
 | Captures | may · must · never |
@@ -202,4 +202,18 @@ Zone: Flight (own half), Burn (capital), Fire Starter (enemy back rank). Tag tea
 (next to the king), Control, FirewallB, Earth Quake B (next to an own piece). Turn N: any item with `fromMove`.
 Capture: RageB. Opponent's card: Mirror. Own last mark: Rescue. Lost pieces: Sacrifice, Salvation.
 None is shackled today except through `fromMove`; none promotes except Sacrifice's pawn and the Morph cards' piece.
+
+### D.5 Spawn: a new piece comes onto the board (owner, 2026-10-06)
+
+A piece, power or card **spawns** a new piece, typically a pawn. Unlike arrival (1a, 1b: Salvation and Sacrifice
+bring back a captured piece), the spawned piece is new: the side can end with more pieces than it started with.
+Spawn has a source (a piece, a power or a card), the new type (typically a pawn), where it appears (a zone, or
+next to the source: a tag team) and when (a condition, D.1).
+
+| Item | Spawns | Where | When | Status |
+|---|---|---|---|---|
+| **Spawn** (card, owner's pick) | a pawn | an empty square of the own pawn start rank | the card is played (the turn's move) | ○ to build and test |
+| **SpawnK** (card) | a pawn | an empty square next to the own king (not on a first rank, where no pawn may stand) | the card is played (the turn's move) | ○ to build and test: may also get the king out of trouble |
+| **Spawn2** / **SpawnK2** (cards) | two pawns | as Spawn / SpawnK | the card is played (the turn's move) | ○ to build and test, in case one pawn is too weak |
+| a piece that spawns | a pawn | an empty square next to it | its move, or a condition (a capture, a zone) | idea |
 
