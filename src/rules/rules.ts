@@ -69,6 +69,8 @@ export type CatapultCapture = 'stay' | 'land';
 export type StrikeMode = 'move' | 'capture';
 /** Haste's second move: anything (`any`) or a move that captures nothing (`quiet`). */
 export type HasteSecond = 'any' | 'quiet';
+/** Rage's second move: anything (`any`), a move that captures nothing (`quiet`), or none after a first move that took (`stopOnTake`). */
+export type RageSecond = 'any' | 'quiet' | 'stopOnTake';
 
 // -----------------------------------------------------------------------------------------------
 // Kings' powers (docs/RULES.md §4, docs/KINGS-POWERS-PLAN.md). Each army has a king; the player
@@ -398,6 +400,11 @@ export interface Rules {
    * move may not capture, so a Haste can take and escape, or set up, but never take twice.
    */
   hasteSecond: HasteSecond;
+  /**
+   * The Rage card's second move (balance lab, 2026-10-05): `any` (the card as written), `quiet` (it
+   * may not capture), or `stopOnTake` (a first move that takes ends the turn). RageB keeps its own.
+   */
+  rageSecond: RageSecond;
   /** A Haste turn may capture (the rulebook). Off (balance lab): neither of its two moves captures. */
   hasteCaptures: boolean;
   /**
@@ -653,6 +660,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   freezeUses: 2,
   iceWallUses: 2,
   hasteSecond: 'any' as HasteSecond,
+  rageSecond: 'any' as RageSecond,
   hasteCaptures: true,
   hasteApart: false,
   hasteNoThreat: false,
@@ -800,6 +808,7 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   freezeUses: [0, 1, 2, 3, 4, 5, 6],
   iceWallUses: [0, 1, 2, 3, 4, 5, 6],
   hasteSecond: ['any', 'quiet'],
+  rageSecond: ['any', 'quiet', 'stopOnTake'],
   markTurns: [1, 2],
   strikeUses: [0, 1, 2, 3, 4, 5, 6],
   hasteUses: [0, 1, 2, 3, 4, 5, 6],

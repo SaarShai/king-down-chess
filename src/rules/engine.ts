@@ -342,7 +342,10 @@ export const isStill = (m: Move): boolean => m.pass === true || isMarkTag(m.powe
  * Does the turn go on after `m` (besides `secondPlayerDoubleFirstTurn`)? The first move of a Haste
  * or a Rage, a free mark (`markFree`), and a GrowthB card (draw, then move).
  */
-export const holdsTurn = (m: Move): boolean => m.power === 'haste' || m.power === 'rage' || m.power === 'rageb' || m.power === 'growthb' || (RULES.markFree && isMarkTag(m.power));
+export const holdsTurn = (m: Move): boolean => hastes(m) || m.power === 'growthb' || (RULES.markFree && isMarkTag(m.power));
+/** A second move follows `m`: a Haste's or a Rage's first move, except a Rage's take under `rageSecond: 'stopOnTake'`. */
+export const hastes = (m: Move): boolean => m.power === 'haste' || m.power === 'rageb'
+  || (m.power === 'rage' && !(RULES.rageSecond === 'stopOnTake' && m.captures.length > 0));
 /** A game keeps the reserve (`Position.lost`) only while a side draws on it. */
 export const keepsLost = (): boolean => drawsOnLost(WHITE) || drawsOnLost(BLACK);
 /** May a lost piece of type `t` come back (Sacrifice, Salvation)? Never a pawn, a king or a guard. */
@@ -995,8 +998,8 @@ export function makeMove(pos: Position, m: Move): Position {
   }
   if (m.power === 'growthb') next.free = true;
   if (marks[0] || marks[1]) next.marks = marks;
-  if (m.power === 'haste' || m.power === 'rage' || m.power === 'rageb') next.haste = m.to;
-  if (m.power === 'rage' || m.power === 'rageb') next.rage = m.power === 'rage' ? 1 : 2;
+  if (hastes(m)) next.haste = m.to;
+  if (hastes(m) && m.power !== 'haste') next.rage = m.power === 'rage' ? 1 : 2;
   if (m.power === 'growth' || m.power === 'growthb') { const d: [number, number] = [pos.drawn?.[0] ?? 0, pos.drawn?.[1] ?? 0]; d[c]++; next.drawn = d; }
   else if (pos.drawn) next.drawn = pos.drawn;
   // Mirror: the card each side played last, as the card it played as.
@@ -1637,14 +1640,14 @@ export function filterHeld(c: Color, mark: number | undefined, ward: boolean | u
 /**
  * Haste's second move: only the hasted piece on `at` moves, and never onto a king (the first move
  * may have given check). `pass` ends the turn instead, so the side always has a move here. `rage`
- * (`Position.rage`): a Rage card's second move (1), which may take whatever the Haste rules say,
+ * (`Position.rage`): a Rage card's second move (1), which may take unless `rageSecond: 'quiet'`,
  * or a RageB's (2), which must take; the Haste readings' limits are Haste's only.
  */
 export function genHasteFollowUp(board: Uint8Array, at: number, mode: GenMode, out: Move[], rage = 0): void {
   const n0 = out.length;
   genPiece(board, at, mode, out);
-  // `hasteSecond: 'quiet'` (balance lab): the second move captures nothing at all.
-  const quiet = !rage && (RULES.hasteSecond === 'quiet' || !RULES.hasteCaptures);
+  // `hasteSecond: 'quiet'` / `rageSecond: 'quiet'` (balance lab): the second move captures nothing at all.
+  const quiet = rage ? rage === 1 && RULES.rageSecond === 'quiet' : RULES.hasteSecond === 'quiet' || !RULES.hasteCaptures;
   const limits = !rage && (RULES.hasteApart || RULES.hasteNoThreat || RULES.hasteNoForward || RULES.hasteNoCheck);
   const c = colorOf(board[at]);
   let n = n0;

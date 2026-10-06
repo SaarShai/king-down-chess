@@ -77,7 +77,9 @@ export function cardText(card: CardName, r: Rules = RULES): string {
     case 'Curse': return 'move an enemy piece or pawn (not the king) one square, to an empty square';
     case 'SkyLift': return 'two of your pieces (not pawns or the king, not of one kind) trade squares';
     case 'Salvation': return 'return one of your captured pieces to an empty square of your back rank';
-    case 'Rage': return 'one of your pieces moves twice this turn and may take on either move (the second move is optional)';
+    case 'Rage': return r.rageSecond === 'quiet' ? 'one of your pieces moves twice this turn and may take on the first move only (the second move is optional)'
+      : r.rageSecond === 'stopOnTake' ? 'one of your pieces moves twice this turn (the second move is optional); a first move that takes ends the turn'
+      : 'one of your pieces moves twice this turn and may take on either move (the second move is optional)';
     case 'RageB': return 'one of your pieces moves twice this turn; its second move, if it makes one, must take';
     case 'Mirror': return 'play the card your opponent played last, as if it were in your hand';
     case 'MirrorB': return 'play another card from your hand; it stays in your hand';

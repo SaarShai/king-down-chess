@@ -15,7 +15,7 @@
  */
 import {
   CardCtx, Color, G, GenMode, K, Move, P, Position, RULES, TAG_POWER, WHITE, cardAt, colorOf, drawsOnLost, filterFree, filterHeld, filterMarks, freePass, genGuardDrops,
-  genHasteFollowUp, genPiece, genPowerMoves, handOf, heldCount, holdsTurn, isAttacked, isMarkTag, isStill, keepsLost, landed, lapsing, materialDraw, moverOf, piece,
+  genHasteFollowUp, genPiece, genPowerMoves, handOf, hastes, heldCount, holdsTurn, isAttacked, isMarkTag, isStill, keepsLost, landed, lapsing, materialDraw, moverOf, piece,
   powerOf, powerUses, returnable, spend, tracksLast, typeOf,
 } from '../rules/engine';
 import { ALL_CARDS, type CardName, type PowerName } from '../rules/rules';
@@ -352,9 +352,9 @@ function apply(m: Move, c: Color): number {
   if (m.power === 'rescue') setMark(c, mineSq, mineLeft === 0 ? 1 : mineLeft + 1, mineWard, mineAll);
   else if (isMark) setMark(c, m.to, RULES.markTurns, (m.power === 'ward' || m.power === 'firewall') && handAt[c].length > 0, m.power === 'firewall');
   setFree((isMark && RULES.markFree) || m.power === 'growthb');
-  const rage = m.power === 'rage' || m.power === 'rageb';
-  setHaste(m.power === 'haste' || rage ? m.to : -1);
-  setRage(m.power === 'rage' ? 1 : m.power === 'rageb' ? 2 : 0);
+  const second = hastes(m);
+  setHaste(second ? m.to : -1);
+  setRage(!second ? 0 : m.power === 'rage' ? 1 : m.power === 'rageb' ? 2 : 0);
   fFlip[fsp] = holdTurn ? 0 : 1;
   if (!holdTurn) { hLo ^= Z_TURN_LO; hHi ^= Z_TURN_HI; }
   fsp++;

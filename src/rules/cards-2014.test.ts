@@ -80,6 +80,80 @@ describe('Rage and RageB', () => {
   });
 });
 
+describe('rageSecond (balance lab): the Rage card\'s second move', () => {
+  const FEN = '4k3/8/p7/8/8/8/8/R3K2n w - - 0 1';
+  it('any: today\'s moves; quiet: the second move takes nothing; stopOnTake: a first move that takes ends the turn', () => {
+    hands(['Rage'], []);
+    const first = lans(fromFen(FEN)), second = lans(play(fromFen(FEN), 'Ra1-a5!A'));
+    expect(second).toEqual(expect.arrayContaining(['Ra5xa6', '--']));
+    hands(['Rage'], [], { rageSecond: 'any' });
+    expect([lans(fromFen(FEN)), lans(play(fromFen(FEN), 'Ra1-a5!A'))]).toEqual([first, second]);
+    hands(['Rage'], [], { rageSecond: 'quiet' });
+    expect(lans(fromFen(FEN))).toEqual(first); // the first move may still take
+    const q = play(fromFen(FEN), 'Ra1-a5!A');
+    expect(lans(q)).toEqual(second.filter(l => !l.includes('x')));
+    legalSame(q);
+    const t = play(fromFen(FEN), 'Ra1xa6!A');
+    expect([t.turn, t.haste, t.rage]).toEqual([WHITE, parseSq('a6'), 1]);
+    expect(lans(t).some(l => l.includes('x'))).toBe(false);
+    hands(['Rage'], [], { rageSecond: 'stopOnTake' });
+    expect(lans(fromFen(FEN))).toEqual(first);
+    expect(lans(play(fromFen(FEN), 'Ra1-a5!A'))).toEqual(second); // no take yet: the second move may take
+    const pos = fromFen(FEN), m = legalMoves(pos).find(x => toLan(pos, x) === 'Ra1xa6!A')!;
+    const s = makeMove(pos, m);
+    expect([s.turn, s.haste, s.rage, s.used]).toEqual([BLACK, undefined, undefined, [1, 0]]);
+    expect(probeApply(pos, m).after).toBe(positionKey(s));
+    expect(toFen(replayRecord({ gameId: 0, startFen: FEN, moves: [{ lan: 'Ra1xa6!A' }, { lan: 'Ke8-d8' }] }).end)).toBe(toFen(makeMove(s, legalMoves(s).find(x => toLan(s, x) === 'Ke8-d8')!)));
+    // RageB keeps its own second move.
+    hands(['RageB'], [], { rageSecond: 'quiet' });
+    expect(lans(play(fromFen('4k3/8/p7/8/8/8/8/R3K3 w - - 0 1'), 'Ra1-a5!B'))).toEqual(['--', 'Ra5xa6']);
+    expect(parseRule('rageSecond=stopOnTake')).toEqual({ rageSecond: 'stopOnTake' });
+    expect(() => parseRule('rageSecond=never')).toThrow();
+    expect(cardText('Rage', { ...DEFAULT_RULES, rageSecond: 'quiet' })).toContain('first move only');
+  });
+
+  it('random games: each reading is today\'s moves minus the forbidden second moves', () => {
+    // Today's Rage follow-up is Haste's follow-up under the default Haste rules (the same position
+    // without `rage`); `any` must equal it, `quiet` must be it less its takes. A first move that
+    // takes under `stopOnTake` passes the turn; the search, FEN and replay follow.
+    let seed = 7, follow = 0, stops = 0;
+    const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
+    const startFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
+    for (let g = 0; g < 24; g++) {
+      const reading = (['any', 'quiet', 'stopOnTake'] as const)[g % 3];
+      const set = (r: string): void => hands(['Rage', 'Rage', 'Rage', 'RageB', 'Haste'], ['Rage', 'Rage', 'Haste'], { rageSecond: r });
+      set(reading);
+      let pos = fromFen(startFen);
+      const record: string[] = [];
+      for (let ply = 0; ply < 60; ply++) {
+        const moves = legalMoves(pos);
+        if (!moves.length) break;
+        if (pos.rage === 1) {
+          follow++;
+          setRules({ hands: [[], []], markFree: true });
+          const today = lans({ ...pos, rage: undefined });
+          set(reading);
+          expect(lans(pos), toFen(pos)).toEqual(reading === 'quiet' ? today.filter(l => !l.includes('x')) : today);
+        } else if (pos.haste === undefined) {
+          set('any'); const today = lans(pos); set(reading);
+          expect(lans(pos), toFen(pos)).toEqual(today); // the first moves never change
+        }
+        legalSame(pos);
+        const takes = moves.filter(m => m.power === 'rage' && m.captures.length), rage = takes.length ? takes : moves.filter(m => m.power === 'rage');
+        const m = rage.length && rng() < 0.5 ? rage[Math.floor(rng() * rage.length)] : moves[Math.floor(rng() * moves.length)];
+        const next = makeMove(pos, m);
+        if (m.power === 'rage' && m.captures.length && reading === 'stopOnTake') { stops++; expect([next.turn, next.haste], toFen(pos)).toEqual([pos.turn ^ 1, undefined]); }
+        expect(probeApply(pos, m).after, `${toFen(pos)} ${toLan(pos, m)}`).toBe(positionKey(next));
+        record.push(toLan(pos, m));
+        pos = next;
+      }
+      expect(toFen(replayRecord({ gameId: g, startFen, moves: record.map(lan => ({ lan })) }).end)).toBe(toFen(pos));
+    }
+    expect(follow).toBeGreaterThan(20);
+    expect(stops).toBeGreaterThan(0);
+  }, 60_000);
+});
+
 describe('Mirror and MirrorB', () => {
   it('Mirror: plays the card the opponent played last, and spends the Mirror', () => {
     hands(['Mirror'], ['Haste', 'Freeze']);
