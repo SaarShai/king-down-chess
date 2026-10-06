@@ -1,5 +1,14 @@
 # Tasks
 
+## Workshop design study — 2026-10-06 (before implementation)
+- Worktree: `.claude/worktrees/agent-af146c2f91d80dc0b`, branch `claude/workshop`.
+- [x] Merge `main`. Resolve task-list and matrix conflicts; preserve both branches. Check: type check and production build pass; 665 tests pass in 36 files.
+- [x] Use the current build as a new player at phone and desktop sizes. `docs/visual-design/workshop/rework-2026-10-06/REVIEW.md` records the path, each screen's job, problems, and screenshots.
+- [x] Make three distinct static design options, each with phone and desktop views. Use the existing art. Keep changes in `docs/visual-design/workshop/rework-2026-10-06/`.
+- [x] Check text, layout, and the main action at narrow and wide sizes. Retain the existing contrast palette. `index.html` and `direction-a.jpg` through `direction-c.jpg` show the three options and reasons. Main checks at 320×568, 390×700 and 1280×900; C also has a phone move sheet. This is a static study, not an accessibility audit.
+- [ ] Owner selects a direction before app code or motion changes. Then create an implementation branch from `claude/workshop`.
+- Acceptance: the options differ in flow and layout, not only colour; the board and next action are clear; rules, look, value, save, share, and Try it remain available. No app implementation or deployment in this phase.
+
 ## Workshop build 1a, branch `claude/workshop` — 2026-10-06 (not merged, not deployed)
 - Spec: `docs/WORKSHOP.md` (revision 2, the owner's answers: all defaults). Scope §7.1: make a piece, judge it, save it, share it, try it.
 - [x] Pure modules in `src/workshop/` (model, vocab, anchors, judge, moves, names, text, look, art, store). The judge is the prototype `judge-v2.mjs`, ported: every prototype row is equal except King-step + "like a queen from move 5" (9.28, was 8.13), from the largest-worth union (§6.2).

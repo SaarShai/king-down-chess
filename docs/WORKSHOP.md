@@ -1782,7 +1782,7 @@ Where the spec was wrong or could not be built as written, the build took the sm
 9. **`judge(d, false)`** skips Why?, the fixes and the badges, for the shelf tiles (0.08 ms against 0.67 ms).
 10. **Phone landscape:** code moves the tabs into the top bar. The tabs and every segment are 44 px tall.
 11. **Try it** puts a piece with a start-rank rule on d2, not d4. "After a card" offers only "any card".
-12. **MATRIX:** the line under the spec's HEAD (`3d5f0e5`) has sections C and D; this line does not, so the two §3.3 rows wait under a "Workshop" heading in `docs/MATRIX.md`.
+12. **MATRIX:** after merging `main` on 2026-10-06 (`84f9e42`), sections C and D are present. The two §3.3 rows now live in D.1 and D.2.
 13. **Cards (1b):** the card parts of §8.4.3 and §8.4.5 wait for build 1b.
 
 ### 12.1 Changes after the owner's first look (2026-10-06)
@@ -1820,3 +1820,7 @@ The owner tried build 1a on a phone. These changes fix what he found and what th
 37. **Desktop:** the stage shows the figure, name and short verdict; the full judge shows once, on the right; Why? moves focus there.
 38. **Diagrams:** movement lines have a dark edge.
 39. **Motion preview** (not in the shipped editor): no scrolling with reduced motion or Off; Play stops Play all; a body change runs the gait and the change together; fading floor marks keep their gradients; overload restores the seams' dash pattern.
+
+### 12.3 Design study before the screen rework (2026-10-06)
+
+The owner requested a new design from first principles, with static options before implementation. `main` is merged into `claude/workshop`. [The study](visual-design/workshop/rework-2026-10-06/REVIEW.md) records the current phone and desktop walkthroughs and the three proposed directions. [The static comparison](visual-design/workshop/rework-2026-10-06/index.html) shows each direction on phone and desktop, with Home, Try it and detail states. No direction is approved. This study does not replace the implemented behaviour in sections 12–12.2.
