@@ -67,8 +67,8 @@
   flex: 1 1 auto; min-height: 0; display: grid;
   grid-template-columns: minmax(0, 1fr); grid-template-rows: 48px var(--stage) auto minmax(0, 1fr);
 }
-#workshop .ws-tabs { margin: 0; padding: 4px var(--gut); min-width: 0; background: var(--parchment); border-bottom: 1px solid var(--stone-300); }
-.ws-tabs .seg-row label { min-height: 40px; }
+#workshop .ws-tabs { margin: 0; padding: 0 var(--gut); min-width: 0; background: var(--parchment); border-bottom: 1px solid var(--stone-300); }
+#workshop .seg-row label { min-height: var(--tap); align-items: center; }
 .ws-panel { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-2) var(--gut) var(--space-6); }
 .ws-side { display: none; }
 
@@ -103,6 +103,8 @@
 #workshop[data-h='tall'] .ws-stats { display: block; }
 #workshop[data-h='mid'] { --model: 120px; }
 #workshop[data-h='mid'] .ws-name { font-size: 20px; }
+/* With the chip, the like line gives way: the chip says more, and the stage stays 156 px. */
+#workshop[data-h='mid'] .ws-info:has(.ws-chip) .ws-like { display: none; }
 #workshop[data-h='short'] { --model: 96px; }
 #workshop[data-h='short'] .ws-name { font-size: var(--fs-lg); }
 #workshop[data-h='short'] .ws-like { display: none; }
@@ -234,6 +236,7 @@
 .ws-count { margin-top: var(--space-2) !important; }
 .ws-rule { margin-bottom: var(--space-2); padding: 6px 12px; background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius); box-shadow: var(--shadow-card); }
 .ws-sentence { font-size: var(--fs-lg); line-height: 52px; }
+.ws-sentence:not(:has(.ws-pill)) { line-height: 1.45; margin: var(--space-2) 0 !important; }
 #workshop .ws-pill {
   display: inline-flex; width: auto; vertical-align: middle; margin: 0 2px; padding: 4px 12px; line-height: 1.2;
   font-size: var(--fs-lg); border-radius: 22px; color: var(--accent-deep); border-color: var(--accent);
@@ -358,6 +361,7 @@
 #workshop[data-h='land'] .ws-tabs .seg-row label { padding: 4px 8px; }
 #workshop[data-h='land'] .ws-bar h2 { text-align: left; }
 #workshop[data-h='land'] .ws-back span { display: none; }
+#workshop[data-h='land'] .ws-back { min-width: var(--tap); justify-content: center; }
 #workshop[data-h='land'] .ws-like { display: none; }
 #workshop[data-h='land'] .ws-brushes { grid-template-columns: minmax(0, 1fr) auto; }
 
