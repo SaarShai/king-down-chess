@@ -1,0 +1,71 @@
+{
+  "id": "kp2-r18",
+  "sha": "45ec461cc39604e19e8bbe5863475e75dc735588",
+  "shards": 5,
+  "args": [
+    "--powers",
+    "Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness",
+    "--pairs",
+    "40",
+    "--depth",
+    "3",
+    "--seed",
+    "1818",
+    "--armies",
+    "perPair",
+    "--rule",
+    "markFree=true",
+    "--rule",
+    "freezeUses=1",
+    "--rule",
+    "hasteCaptures=false",
+    "--rule",
+    "strikeCaptures=false",
+    "--rule",
+    "strikePawns=false",
+    "--rule",
+    "mercyAura=true",
+    "--rule",
+    "marchUses=0",
+    "--rule",
+    "holyLightTakesPawns=true",
+    "--rule",
+    "holyLightShelter=true",
+    "--rule",
+    "holyLightShelterOrtho=true",
+    "--rule",
+    "darknessMoves=true",
+    "--rule",
+    "deathTouchReach=true",
+    "--rule",
+    "deathTouchReachOrtho=true",
+    "--rule",
+    "mercyAuraPawnsTake=true",
+    "--rule",
+    "mercyTakesPawns=true",
+    "--rule",
+    "darknessKingStep2=true"
+  ],
+  "kernels": [
+    {
+      "shard": 0,
+      "ref": "saarshai/kd-kp2-r18-s0of5"
+    },
+    {
+      "shard": 1,
+      "ref": "saarshai/kd-kp2-r18-s1of5"
+    },
+    {
+      "shard": 2,
+      "ref": "saarshai/kd-kp2-r18-s2of5"
+    },
+    {
+      "shard": 3,
+      "ref": "saarshai/kd-kp2-r18-s3of5"
+    },
+    {
+      "shard": 4,
+      "ref": "saarshai/kd-kp2-r18-s4of5"
+    }
+  ]
+}
