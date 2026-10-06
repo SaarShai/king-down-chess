@@ -119,14 +119,14 @@ one of your captured pieces to an empty square of your back rank"; a pawn, a gua
 Earth Quake and Growth; their texts and readings are in that report ("The 2014 cards"). Not measured yet.
 **Rally** (2026-10-05; card only): one of your pieces moves, then a different one may move; neither
 move captures (Haste's shape with two pieces). Not measured.
-**Morph** (2026-10-06, owner idea; card only): as your move, one of your pieces (not a pawn or the king) becomes another kind of piece of the draw pool where it stands (not a pawn or a king, never a second Beast; a second queen may come). Not measured.
-**MorphB** (2026-10-06; card only): the same, but never a queen. Not measured.
+**Morph** (2026-10-06, owner idea; card only): as your move, one of your pieces (not a pawn or the king) becomes another kind of piece of the draw pool where it stands (not a pawn or a king, never a second Beast; a second queen may come). Measured (`morph-a1`): 98% against no card, more than a queen's worth.
+**MorphB** (2026-10-06; card only): the same, but never a queen. Measured (`morph-a1`): 77% against no card, about +3.3 pawns.
 **Spawn** (2026-10-06, owner; card only): as your move, a new pawn of yours appears on an empty square of your pawns' start rank (rank 2 for White, 7 for Black). It is an ordinary pawn from then on (it may double-step from there); it may block a check. Not measured.
 **SpawnK** (2026-10-06; card only): the same, on an empty square next to your king, never on rank 1 or 8. Not measured.
 **Spawn2** (2026-10-06; card only): as Spawn, two new pawns on two different squares. Not measured.
 **SpawnK2** (2026-10-06; card only): as SpawnK, two new pawns on two different squares. Not measured.
-**MorphP** (2026-10-06, owner; card only): as your move, one of your pawns becomes a knight or a bishop where it stands. It is an ordinary knight or bishop from then on (taken, it counts as one). Not measured.
-**MorphS** (2026-10-06, owner; card only): as your move, two of your pieces (not pawns or the king, not of one kind) swap places. The same move as Sky Lift. Not measured.
+**MorphP** (2026-10-06, owner; card only): as your move, one of your pawns becomes a knight or a bishop where it stands. It is an ordinary knight or bishop from then on (taken, it counts as one). Measured (`morph-b1`): 70% against no card, about +2.3 pawns.
+**MorphS** (2026-10-06, owner; card only): as your move, two of your pieces (not pawns or the king, not of one kind) swap places. The same move as Sky Lift. Measured (`morph-b1`): 59% against no card, about +1.0 pawn.
 
 ## 6. Decisions (2026-09-13, chosen for balance and fun)
 
