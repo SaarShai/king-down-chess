@@ -1,0 +1,197 @@
+{
+  "date": "2026-10-06",
+  "purpose": "Six approval samples, no game integration",
+  "alphaThreshold": 8,
+  "assets": [
+    {
+      "file": "fast.png",
+      "sha256": "930a1766abbf00e08d6c10f6df41e5cbbd5dfd64b72690fdde8d6cfe3e06fcfc",
+      "bytes": 1915025,
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "visibleBoundsAlpha8": [
+        99,
+        120,
+        1472,
+        928
+      ],
+      "leftCellBounds": [
+        99,
+        120,
+        748,
+        928
+      ],
+      "rightCellBounds": [
+        57,
+        120,
+        704,
+        928
+      ],
+      "edgeAlphaMax": 0
+    },
+    {
+      "file": "strong.png",
+      "sha256": "73de8fe57bf07659a41c89bebb796e054cb482c2fec244d6476b2596e6108489",
+      "bytes": 1882400,
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "visibleBoundsAlpha8": [
+        140,
+        162,
+        1404,
+        888
+      ],
+      "leftCellBounds": [
+        140,
+        162,
+        702,
+        888
+      ],
+      "rightCellBounds": [
+        74,
+        162,
+        636,
+        888
+      ],
+      "edgeAlphaMax": 0
+    },
+    {
+      "file": "ranged.png",
+      "sha256": "136da0bbffde35e2ce4e9623cb6eea918e8c549c56f4cdceb088b6e42c6d2b92",
+      "bytes": 1908616,
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "visibleBoundsAlpha8": [
+        174,
+        78,
+        1435,
+        951
+      ],
+      "leftCellBounds": [
+        174,
+        78,
+        722,
+        951
+      ],
+      "rightCellBounds": [
+        110,
+        78,
+        667,
+        951
+      ],
+      "edgeAlphaMax": 0
+    },
+    {
+      "file": "magic.png",
+      "sha256": "5cc21d086e20c0c3349f1b341bd7ac3866dadee9631f078b1e3d242c080176ad",
+      "bytes": 1965594,
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "visibleBoundsAlpha8": [
+        106,
+        86,
+        1418,
+        943
+      ],
+      "leftCellBounds": [
+        106,
+        86,
+        711,
+        942
+      ],
+      "rightCellBounds": [
+        42,
+        86,
+        650,
+        943
+      ],
+      "edgeAlphaMax": 1
+    },
+    {
+      "file": "support.png",
+      "sha256": "daeb44933bb3d2de697fbb14e7e27bd033ae9824a71b66738f7183ed2e8cf3de",
+      "bytes": 1938448,
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "visibleBoundsAlpha8": [
+        183,
+        16,
+        1502,
+        993
+      ],
+      "leftCellBounds": [
+        183,
+        16,
+        733,
+        993
+      ],
+      "rightCellBounds": [
+        184,
+        16,
+        734,
+        993
+      ],
+      "edgeAlphaMax": 1
+    },
+    {
+      "file": "mixed.png",
+      "sha256": "610c5ef1c1d4ed2aa1c5c6b95b16dc68fc4d46404fdcc5cc091fffed0b1542ed",
+      "bytes": 2035664,
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "visibleBoundsAlpha8": [
+        23,
+        21,
+        1508,
+        986
+      ],
+      "leftCellBounds": [
+        23,
+        21,
+        740,
+        985
+      ],
+      "rightCellBounds": [
+        23,
+        21,
+        740,
+        986
+      ],
+      "edgeAlphaMax": 1
+    }
+  ],
+  "visualReview": "All six pairs inspected at full and small sizes. Full figures, feet and props are present. Transparent pairs render correctly in the review page. Framing varies; production scale and baseline are not normalized yet.",
+  "browserReview": {
+    "desktop": {
+      "width": 1280,
+      "height": 720,
+      "horizontalOverflow": false,
+      "allImagesLoaded": true
+    },
+    "narrow": {
+      "width": 390,
+      "height": 844,
+      "horizontalOverflow": false,
+      "allImagesLoaded": true
+    }
+  },
+  "remaining": "Owner approval before making the remaining 24 or integrating the artwork"
+}

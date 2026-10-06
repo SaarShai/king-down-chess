@@ -1,12 +1,20 @@
 # Tasks
 
+## Workshop figure samples — 2026-10-06
+- Owner approved 30 distinct figures; then asked to see one of each type before the full set. Current phase: six sample identities, including one combined type, with both army colours.
+- [x] Read the existing art prompts and inspect the current cast. Use the current camera, paint style and army palettes; give each sample a new shape and equipment.
+- [x] Generate Fast, Strong, Ranged, Magic, Support, and Fast + Ranged samples with the built-in image tool. Keep all requested parts inside each transparent sheet.
+- [x] Inspect large and small views, save the prompts and source files, and show a review page beside the existing cast. Evidence: `docs/visual-design/workshop/figure-samples-2026-10-06/`; six 1536×1024 RGBA sheets, original prompts, hashes, desktop and phone review screenshots. All images load; no horizontal overflow at 1280×720 or 390×844. Framing still needs production alignment after approval.
+- [ ] Owner approves or corrects the six samples before generation of the full 30.
+- Acceptance: six distinct identities; clear differences from the existing cast; consistent ivory/charcoal pairs; readable at board size; complete figures and equipment; no game integration or full-set generation in this phase.
+
 ## Workshop piece-card implementation — 2026-10-06
 - Owner chose option C. Keep the card as the main view; use an edit sheet on phones and a side editor on desktop. Direct Try it and Share; keep undo across the edit/test loop.
 - [x] Replace the screen flow and layout. Preserve presets, mix, rules, look, judge, truthful saving, share/copy, imports, and the test board. Add approved Set A reactions with motion settings respected.
 - [x] Update the browser checks for the selected flow; keep the regression cases. Check phone, landscape, tablet and desktop layouts, keys, links, save failure and storage limits.
 - [x] Run type check, unit tests, build and the browser checks named in the handoff. Compare the UI with option C, record screenshots, update the spec, and ask whether the owner wants the independent review again.
 - Evidence: type check and production build pass; 665 unit tests in 36 files pass; Workshop production checks pass 25 groups across 12 sizes. Visual-design, new-game, powers, lesson-return, special-moves, king-effects, painted-game, playable-clay, and cursor-adoption browser checks pass. No sign-in/account check. Screens: `docs/visual-design/workshop/card-build-2026-10-06/`. Independent layout review offered; not yet run.
-- Art follow-up: the owner wants custom pieces to have artwork that differs from the existing cast. Proposed: 25 Workshop figures in five groups, with five style samples first and ivory/charcoal pairs. Current figures are placeholders; the new cast is not yet approved or generated.
+- Art follow-up: the owner approved a separate cast of **30 figures**: five in each of Fast, Strong, Ranged, Magic and Support, plus five figures that each combine two properties. First show one sample of each type for approval. The review set has six identities, including Fast + Ranged, each in ivory and charcoal. Generate the rest only after the owner approves the samples. Current game figures remain placeholders.
 - Acceptance: every change is reflected in the card; every phone sheet can be closed from outside; full move grid and next action fit; editing and trying preserve undo; no change to engine, AI, rules or main-game saves; no merge into main or deploy.
 
 ## Workshop design study — 2026-10-06 (before implementation)
