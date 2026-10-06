@@ -1,7 +1,9 @@
 // Builds the Set A motion preview (docs/WORKSHOP.md §5.5) and records it: one standalone page with
 // the five motions live on the real model, and phone and desktop videos of it. The model, the gauge
-// and the styles come from this build (run `npx vite build` first); the art is inlined, so the page
-// opens from the file. Nothing here is in the game.
+// and the styles come from this build (run `npx vite build` first). The page holds everything it
+// needs: the art as data URIs (in the markup, so the still models show even where scripts do not
+// run), motion-a.js inline, and the phone video by a path next to it. It plays every motion in a
+// loop on open. Nothing here is in the game.
 //   npx tsx tools/workshop-motion.mts            → docs/visual-design/workshop/motion-preview.html
 //   npx tsx tools/workshop-motion.mts --videos   → also motion-phone.webm and motion-desktop.webm
 import { readFileSync, readdirSync, renameSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
@@ -33,7 +35,7 @@ function bob(body: Body) {
   const g = GAITS[GAIT_OF[ART[body]] ?? 'hop'];
   return Array.from({ length: 25 }, (_, i) => {
     const p = g.at(i / 24, 1);
-    return { transform: `translateY(${(-p.lift * 0.8).toFixed(2)}px) rotate(${p.tilt.toFixed(4)}rad) scale(${p.sx.toFixed(4)}, ${p.sy.toFixed(4)})` };
+    return { transform: `translateY(${(-p.lift * 1.8).toFixed(2)}px) rotate(${(p.tilt * 1.5).toFixed(4)}rad) scale(${p.sx.toFixed(4)}, ${p.sy.toFixed(4)})` };
   });
 }
 const kingStep = (d: PieceDesign) => { d.squares = KING_STEP('both'); d.look.body = 'M'; };
@@ -46,61 +48,77 @@ const SCENES = [
     states: [state(design('knight')), state(design('knight', d => { d.rules = [chain]; }))] },
   { id: 'A4', motion: 'overload', title: 'A4 Overload', say: 'The Rook takes again and crosses the line. The cracks draw, the figure shakes 3 times, the cracks glow while it stays over.',
     states: [state(design('rook')), state(design('rook', d => { d.rules = [chain]; }))] },
-  { id: 'A5', motion: 'reveal', title: 'A5 "When…" reveal: in the capital', say: 'In the capital, it also moves like a queen. The queen\'s ghost fades in with a gold ring; the capital and the extra lines light.',
+  { id: 'A5', motion: 'reveal', title: 'A5 "When…" reveal: on a center square', say: 'On a center square, it also moves like a queen. The queen\'s ghost fades in with a gold ring; the map of the center and the extra lines light.',
     states: [state(design('maester', d => { kingStep(d); d.rules = []; })), state(design('maester', d => { kingStep(d); d.rules = [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }]; }))] },
   { id: 'A5b', motion: 'reveal', title: 'A5 "When…" reveal: from move 10', say: 'From move 10, it also moves like a rook. The hourglass turns and wakes, the ghost fades in.',
     states: [state(design('maester', d => { kingStep(d); d.rules = []; })), state(design('maester', d => { kingStep(d); d.rules = [{ when: { on: 'fromMove', n: 10 }, does: { a: 'movesLike', as: 'rook' } }]; }))] },
-  { id: 'A5c', motion: 'reveal', title: 'A5 "When…" reveal: the chain breaks', say: 'Rules tab: Takes again comes off the Beast. Its chain seal breaks away.',
-    states: [state(design('beast')), state(design('beast', d => { d.rules = []; }))] },
+  { id: 'A5c', motion: 'reveal', title: 'A5 "When…" reveal: next to your king', say: 'Next to your king, it also moves like a knight. The king comes in beside it, and the knight\'s squares light.',
+    states: [state(design('maester', d => { kingStep(d); d.rules = []; })), state(design('maester', d => { kingStep(d); d.rules = [{ when: { on: 'near', who: 'king' }, does: { a: 'movesLike', as: 'knight' } }]; }))] },
 ];
 
 const css = readdirSync('dist/assets').filter(f => f.endsWith('.css')).map(f => readFileSync(`dist/assets/${f}`, 'utf8')).join('\n');
 const motion = readFileSync(`${OUT}/motion-a.js`, 'utf8').replace(/^export /gm, '');
 
+const INLINE = Object.fromEntries([...new Set(JSON.stringify(SCENES).match(/ui\/[\w/.-]+\.webp/g))].map(f => [f, dataUri(`public/${f}`)]));
+/** The first state of each card, drawn into the page with its art inlined: it shows without scripts. */
+const fixArt = (h: string): string => Object.entries(INLINE).reduce((t, [f, uri]) => t.replaceAll('./' + f, uri), h);
 const page = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Workshop motion, Set A</title>
 <style>${inline(css)}
 html, body { height: auto; overflow: auto; }
-body { margin: 0; background: var(--parchment); color: var(--ink); font-family: var(--font-body, 'Alegreya Sans', sans-serif); }
+body { margin: 0; background: var(--parchment); color: var(--ink); font-family: var(--font-body, 'Alegreya Sans', sans-serif); font-variant-numeric: lining-nums; }
 main { max-width: 1180px; margin: 0 auto; padding: 16px; }
 h1 { font-family: var(--font-display); margin: 8px 0 4px; } .lead { margin: 0 0 12px; max-width: 70ch; }
-.speed { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
-.speed button, .card button.play { width: auto; min-height: 44px; padding: 6px 16px; }
-.speed button[aria-pressed="true"] { color: var(--vellum); background: var(--accent); }
+.bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.bar button, .card button.play { width: auto; min-height: 44px; padding: 6px 16px; }
+.bar button[aria-pressed="true"] { color: var(--vellum); background: var(--accent); }
+.note { margin: 0 0 16px; padding: 10px 14px; border-radius: 8px; background: var(--vellum); border: 1px solid var(--stone-300); max-width: 70ch; }
+h2.rec { font-size: var(--fs-lg); margin: 24px 0 8px; }
+video { display: block; width: min(100%, 300px); margin: 0 0 16px; border-radius: 12px; border: 1px solid var(--stone-300); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
-.card { background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius-lg, 12px); overflow: hidden; box-shadow: var(--shadow-card); }
+.card { background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius-lg, 12px); overflow: hidden; box-shadow: var(--shadow-card); transition: box-shadow .2s; }
+.card.now { box-shadow: 0 0 0 3px var(--accent), var(--shadow-card); }
 .card .ws-stage { --model: 190px; --gut: 16px; grid-template-columns: minmax(0, 1fr); grid-template-areas: 'model' 'info'; padding: 20px 20px 16px; gap: 10px; }
 .card .ws-stats, .card .g-mark { display: block; }
 .card .ws-gauge { margin-bottom: 14px; }
 .card h2 { font-size: var(--fs-lg); margin: 12px 16px 4px; } .card p.say { margin: 0 16px 12px; font-size: var(--fs-sm); }
 .card button.play { margin: 0 16px 16px; min-height: 44px; }
 :root[data-pace='off'] * { transition: none !important; }
-.mo-ring { position: absolute; left: 50%; bottom: 34%; width: 70%; aspect-ratio: 1; border: 2px solid #e9c071; border-radius: 50%; pointer-events: none; box-shadow: 0 0 12px #e9c071; }
+.mo-ring { position: absolute; left: 50%; bottom: 34%; width: 70%; aspect-ratio: 1; border: 3px solid #e9c071; border-radius: 50%; pointer-events: none; box-shadow: 0 0 16px #e9c071; }
 </style></head><body><main>
 <h1>Workshop motion, Set A</h1>
-<p class="lead">The model reacts to each change. Tap Play on a card; tap it again to go back. Each motion lasts at most about 600 ms, then the still picture stays. With reduced motion, or Animations Off, nothing moves. Fast halves the times.</p>
-<div class="speed" role="group" aria-label="Animations"><b>Animations:</b> <button type="button" data-pace="normal" aria-pressed="true">Normal</button><button type="button" data-pace="fast" aria-pressed="false">Fast</button><button type="button" data-pace="off" aria-pressed="false">Off</button><span id="rm"></span></div>
-<div class="cards">${SCENES.map(s => `<div class="card" id="${s.id}"><section class="ws-stage"><div class="ws-model-box"></div><div class="ws-info"><p class="ws-worth"></p><div class="ws-gauge-box"></div></div></section><h2>${s.title}</h2><p class="say">${s.say}</p><button type="button" class="play">Play</button></div>`).join('')}</div>
+<p class="lead">The model reacts to each change. The page plays every motion in turn, again and again: the lit card is the one that moves. Tap Play on a card to play only that one. Each motion lasts at most 600 ms, then the still picture stays. Slow view stretches the time 4 times, only to look at it here; the game never runs slow.</p>
+<noscript><p class="note">This viewer runs no scripts, so nothing moves here. Open the file in Chrome or Safari, or watch the video below (motion-phone.webm, in the same folder).</p></noscript>
+<p class="note" id="rm" hidden>Your device asks for reduced motion, so nothing moves. Turn it off in the system settings to see the motion, or watch the video below.</p>
+<div class="bar" role="group" aria-label="Playback" hidden><button type="button" id="loop" aria-pressed="true">Play all: on</button><button type="button" id="slow" aria-pressed="false">Slow view: off</button>
+<b>Speed:</b> <button type="button" data-pace="normal" aria-pressed="true">Normal</button><button type="button" data-pace="fast" aria-pressed="false">Fast</button><button type="button" data-pace="off" aria-pressed="false">Off</button></div>
+<div class="cards">${SCENES.map(s => `<div class="card" id="${s.id}"><section class="ws-stage"><div class="ws-model-box">${fixArt(s.states[0].model)}</div><div class="ws-info"><p class="ws-worth">${s.states[0].worth}</p><div class="ws-gauge-box">${s.states[0].gauge}</div></div></section><h2>${s.title}</h2><p class="say">${s.say}</p><button type="button" class="play">Play</button></div>`).join('')}</div>
+<h2 class="rec">The recording (motion-phone.webm)</h2>
+<video src="motion-phone.webm" controls muted loop playsinline preload="metadata" aria-label="A recording of the motions on a phone"></video>
 </main>
 <script type="module">
 ${motion}
-const ART = ${JSON.stringify(Object.fromEntries([...new Set(JSON.stringify(SCENES).match(/ui\/[\w/.-]+\.webp/g))].map(f => [f, dataUri(`public/${f}`)])))};
+const ART = ${JSON.stringify(INLINE)};
 /** Each figure is inlined once: the markup names it by path. */
 const fix = h => Object.entries(ART).reduce((t, [f, uri]) => t.replaceAll('./' + f, uri), h);
 const SCENES = ${JSON.stringify(SCENES)};
-if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.getElementById('rm').textContent = 'Your device asks for reduced motion: nothing moves.';
-for (const b of document.querySelectorAll('.speed button')) b.onclick = () => {
-  document.documentElement.dataset.pace = b.dataset.pace;
+const root = document.documentElement, wait = ms => new Promise(r => setTimeout(r, ms));
+document.querySelector('.bar').hidden = false;
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.getElementById('rm').hidden = false;
+for (const b of document.querySelectorAll('[data-pace]')) b.onclick = () => {
+  root.dataset.pace = b.dataset.pace;
   if (still()) document.getAnimations().forEach(a => a.cancel()); // Off stops the ember loop too
-  for (const c of document.querySelectorAll('.speed button')) c.setAttribute('aria-pressed', String(c === b));
+  for (const c of document.querySelectorAll('[data-pace]')) c.setAttribute('aria-pressed', String(c === b));
 };
+const slow = document.getElementById('slow');
+slow.onclick = () => { const on = root.dataset.slow !== '4'; root.dataset.slow = on ? '4' : ''; slow.setAttribute('aria-pressed', String(on)); slow.textContent = 'Slow view: ' + (on ? 'on' : 'off'); };
+const play = [];
 for (const s of SCENES) {
   const card = document.getElementById(s.id), box = card.querySelector('.ws-model-box'), gaugeBox = card.querySelector('.ws-gauge-box');
   let i = 0;
   const draw = () => { box.innerHTML = fix(s.states[i].model); gaugeBox.innerHTML = s.states[i].gauge; card.querySelector('.ws-worth').textContent = s.states[i].worth; };
-  draw();
-  card.querySelector('.play').onclick = () => {
+  const go = () => {
     const before = box.querySelector('.ws-model').cloneNode(true), gaugeBefore = gaugeBox.querySelector('.ws-gauge').cloneNode(true);
     i ^= 1; draw();
     const model = box.querySelector('.ws-model'), gauge = gaugeBox.querySelector('.ws-gauge');
@@ -110,7 +128,25 @@ for (const s of SCENES) {
     if (s.motion === 'overload' && s.states[i].op && !s.states[i ^ 1].op) overload(model);
     if (s.motion === 'reveal') reveal(model, before);
   };
+  card.querySelector('.play').onclick = go;
+  play.push({ card, go });
 }
+// Play all: each card in turn, forward and back, with a pause to see the still picture after each motion.
+const loop = document.getElementById('loop');
+let looping = true;
+loop.onclick = () => { looping = !looping; loop.setAttribute('aria-pressed', String(looping)); loop.textContent = 'Play all: ' + (looping ? 'on' : 'off'); };
+(async () => {
+  await wait(600);
+  for (let k = 0; ; k = (k + 1) % play.length) {
+    while (!looping) await wait(200);
+    const { card, go } = play[k], t = +root.dataset.slow || 1;
+    for (const c of document.querySelectorAll('.card')) c.classList.toggle('now', c === card);
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await wait(500);
+    go(); await wait(1400 * t + (card.id === 'A4' ? 1600 : 0));
+    go(); await wait(1200 * t);
+  }
+})();
 </script></body></html>
 `;
 writeFileSync(`${OUT}/motion-preview.html`, page);
@@ -127,11 +163,8 @@ if (process.argv.includes('--videos')) {
     p.on('pageerror', e => errors.push(e.message));
     await p.goto(`file://${process.cwd()}/${OUT}/motion-preview.html`);
     await p.waitForTimeout(1200);
-    for (const s of SCENES) {
-      await p.locator(`#${s.id}`).scrollIntoViewIfNeeded();
-      await p.waitForTimeout(500);
-      for (let k = 0; k < (s.motion === 'overload' ? 1 : 2); k++) { await p.click(`#${s.id} .play`); await p.waitForTimeout(s.motion === 'overload' ? 3600 : 1100); }
-    }
+    // Play all runs on open: one full round of every card.
+    await p.waitForTimeout(600 + SCENES.length * 3100 + 1600 + 1500);
     await ctx.close();
     renameSync(`${dir}/${readdirSync(dir)[0]}`, `${OUT}/motion-${name}.webm`);
     rmSync(dir, { recursive: true });
