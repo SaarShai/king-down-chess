@@ -839,6 +839,17 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   catapultCapture: ['stay', 'land'],
 };
 
+/**
+ * Two rule patches, the later one winning (`--rule` flags, `?rule=`) — except for `kings`, whose two sides can arrive on two flags
+ * (`--rule kingWhite=Spirit:Mercy --rule kingBlack=Mud:March`). Each of those names one side and
+ * leaves the other `null`, so a plain spread would drop the side the earlier flag set.
+ */
+export const mergeRules = (a: Partial<Rules>, b: Partial<Rules>): Partial<Rules> => {
+  const out = { ...a, ...b };
+  if (a.kings && b.kings) out.kings = [b.kings[0] ?? a.kings[0], b.kings[1] ?? a.kings[1]];
+  return out;
+};
+
 /** `"beastChains=false"` or `"archerShots=ring2"` -> a one-key patch. Throws on a bad name or value. */
 export function parseRule(text: string): Partial<Rules> {
   const [key, value = 'true'] = text.split('=');

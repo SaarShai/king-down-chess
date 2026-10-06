@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { BLACK, RULES, WHITE, legalMoves, makeMove, setRules, type Position } from './rules/engine';
+import { BLACK, RULES, WHITE, legalMoves, makeMove, mergeRules, parseRule, setRules, type Position } from './rules/engine';
 import { fromFen, toFen, toLan } from './rules/setup';
 import { Game } from './game';
 import { SOURCES, countdowns, demoShackle, ring } from './countdown';
@@ -23,14 +23,14 @@ describe('countdowns', () => {
   it('counts each side\'s own turns, through both colours, to 0', () => {
     setRules({ ...haste });
     let p = fromFen(START);
-    expect(left(p)).toEqual([['item', WHITE, 'Haste', 3, 3], ['item', BLACK, 'Haste', 3, 3]]);
+    expect(left(p)).toEqual([['item', WHITE, 'Haste', 3, 4], ['item', BLACK, 'Haste', 3, 4]]);
     p = play(p, 'a2-a3');          // Black to move on move 1: White's next own move is 2
-    expect(left(p)).toEqual([['item', WHITE, 'Haste', 2, 3], ['item', BLACK, 'Haste', 3, 3]]);
-    expect(left(p, BLACK)).toEqual([['item', BLACK, 'Haste', 3, 3]]);
+    expect(left(p)).toEqual([['item', WHITE, 'Haste', 2, 4], ['item', BLACK, 'Haste', 3, 4]]);
+    expect(left(p, BLACK)).toEqual([['item', BLACK, 'Haste', 3, 4]]);
     p = play(p, 'a7-a6');
-    expect(left(p)).toEqual([['item', WHITE, 'Haste', 2, 3], ['item', BLACK, 'Haste', 2, 3]]);
+    expect(left(p)).toEqual([['item', WHITE, 'Haste', 2, 4], ['item', BLACK, 'Haste', 2, 4]]);
     p = play(play(play(p, 'Ra1-b1'), 'Ra8-b8'), 'Rb1-c1'); // White's move 3 played, Black on move 3
-    expect(left(p)).toEqual([['item', BLACK, 'Haste', 1, 3]]); // White's next move is 4: usable, no countdown
+    expect(left(p)).toEqual([['item', BLACK, 'Haste', 1, 4]]); // White's next move is 4: usable, no countdown
     p = play(p, 'Rb8-c8');
     expect(left(p)).toEqual([]);
     expect(legalMoves(p).some(m => m.power === 'haste')).toBe(true);
@@ -38,12 +38,12 @@ describe('countdowns', () => {
 
   it('a turn of two moves (Haste, Rage, Rally) counts once', () => {
     setRules({ ...haste, fromMove: { Haste: 2 } });
-    expect(left(play(fromFen(START), 'a2-a3'))).toEqual([['item', BLACK, 'Haste', 1, 1]]);
+    expect(left(play(fromFen(START), 'a2-a3'))).toEqual([['item', BLACK, 'Haste', 1, 2]]);
     setRules({ hands: [['Rage', 'Rally'], []], fromMove: { Rally: 5 } });
     const p = fromFen('r6k/p7/8/8/8/8/P7/R6K w - - 0 3');
     const rage = legalMoves(p).find(m => m.power === 'rage' && toLan(p, m).startsWith('Ra1'))!;
     const q = makeMove(p, rage); // the first of Rage's two moves: White still to move, still move 3
-    expect([q.turn, left(p), left(q)]).toEqual([WHITE, [['game', WHITE, 'Rally', 2, 4]], [['game', WHITE, 'Rally', 2, 4]]]);
+    expect([q.turn, left(p), left(q)]).toEqual([WHITE, [['game', WHITE, 'Rally', 2, 5]], [['game', WHITE, 'Rally', 2, 5]]]);
   });
 
   it('follows undo and a loaded game', () => {
@@ -51,20 +51,20 @@ describe('countdowns', () => {
     const g = new Game();
     g.load(fromFen(START));
     g.playLan(['a2-a3', 'a7-a6']);
-    expect(left(g.pos, WHITE)).toEqual([['item', WHITE, 'Haste', 2, 3]]);
+    expect(left(g.pos, WHITE)).toEqual([['item', WHITE, 'Haste', 2, 4]]);
     g.undo(); g.undo();
-    expect(left(g.pos, WHITE)).toEqual([['item', WHITE, 'Haste', 3, 3]]);
-    expect(left(fromFen('r6k/p7/8/8/8/8/P7/R6K b - - 0 3'))).toEqual([['item', BLACK, 'Haste', 1, 3]]);
+    expect(left(g.pos, WHITE)).toEqual([['item', WHITE, 'Haste', 3, 4]]);
+    expect(left(fromFen('r6k/p7/8/8/8/8/P7/R6K b - - 0 3'))).toEqual([['item', BLACK, 'Haste', 1, 4]]);
   });
 
   it('a spent power or a played card has none; several items, one each', () => {
     setRules({ ...haste });
-    expect(left({ ...fromFen(START), used: [1, 0] })).toEqual([['item', BLACK, 'Haste', 3, 3]]);
+    expect(left({ ...fromFen(START), used: [1, 0] })).toEqual([['item', BLACK, 'Haste', 3, 4]]);
     setRules({ hands: [['Rage', 'Rally', 'Rage'], ['Rally']], fromMove: { Rage: 3, Rally: 5 } });
     const p = fromFen(START);
-    expect(left(p)).toEqual([['game', WHITE, 'Rage', 2, 2], ['game', null, 'Rally', 4, 4]]); // both hold Rally: one for the game
-    expect(left({ ...p, used: [0b010, 0] })).toEqual([['game', WHITE, 'Rage', 2, 2], ['game', BLACK, 'Rally', 4, 4]]);
-    expect(left({ ...p, used: [0b101, 0] })).toEqual([['game', null, 'Rally', 4, 4]]);
+    expect(left(p)).toEqual([['game', WHITE, 'Rage', 2, 3], ['game', null, 'Rally', 4, 5]]); // both hold Rally: one for the game
+    expect(left({ ...p, used: [0b010, 0] })).toEqual([['game', WHITE, 'Rage', 2, 3], ['game', BLACK, 'Rally', 4, 5]]);
+    expect(left({ ...p, used: [0b101, 0] })).toEqual([['game', null, 'Rally', 4, 5]]);
   });
 
   it('labels in plain words', () => {
@@ -78,11 +78,32 @@ describe('countdowns', () => {
       .toEqual([['game', undefined, "White's Sky Lift usable in 3 turns"], ['piece', 0, 'Rook unshackled in 4 turns']]);
   });
 
+  it('a game ring for both sides counts the side to move, Black too', () => {
+    setRules({ hands: [['Rally'], ['Rally']], fromMove: { Rally: 5 } });
+    const p = play(fromFen(START), 'a2-a3'); // Black on move 1, White's next is 2
+    expect(left(p)).toEqual([['game', null, 'Rally', 4, 5]]);
+    expect(countdowns(p)[0].text).toBe('Rally in 4 turns');
+  });
+
+  it('a counted March has no button: its ring goes by the turn line', () => {
+    setRules({ kings: [{ king: 'Mud', power: 'March' }, null], marchUses: 3, fromMove: { March: 5 } });
+    const [m] = countdowns(fromFen(START));
+    expect([m.scope, m.side, m.text]).toEqual(['game', WHITE, "White's March in 4 turns"]);
+  });
+
+  it('two ?rule= king flags keep both kings, as the simulator does', () => {
+    const r = ['kingWhite=flame:haste', 'kingBlack=flame:haste'].map(parseRule).reduce(mergeRules, {});
+    expect(r.kings?.map(k => k?.power)).toEqual(['Haste', 'Haste']);
+  });
+
   it('the ring: label, number, and the filled part', () => {
     const html = ring({ turnsLeft: 1, total: 4, label: 'Haste usable in 1 turn' });
     expect(html).toContain('aria-label="Haste usable in 1 turn"');
     expect(html).toContain('data-n="1"');
     expect(html).toContain('stroke-dasharray="75 100"');
     expect(ring({ turnsLeft: 4, total: 4, label: 'x' })).not.toContain('cd-fill');
+    expect(html).toContain('role="img"');
+    const quiet = ring({ turnsLeft: 1, total: 4, label: 'x' }, { hidden: true, style: '--d:18px' });
+    expect([quiet.includes('aria-hidden="true"'), quiet.includes('role='), quiet.includes('style="--d:18px"')]).toEqual([true, false, true]);
   });
 });

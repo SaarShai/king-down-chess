@@ -53,7 +53,9 @@ try {
       await open(page, { kings: 'flame:haste,none', rule: 'fromMove=Haste:4', fen: fen(move) });
       const [r] = await rings(page, '#power-btn .cd');
       assert.equal(r?.label, `Haste usable in ${n} turn${n === 1 ? '' : 's'}`);
-      assert.equal(await page.textContent('#power-btn'), 'Use Haste (from move 4)', 'the ring adds no text to the button');
+      assert.equal(await page.textContent('#power-btn'), 'Use Haste', 'the ring carries the wait: no second number in the text');
+      assert.equal(await page.getAttribute('#power-btn', 'aria-label'), `Use Haste, usable in ${n} turn${n === 1 ? '' : 's'}`);
+      assert.equal(await page.getAttribute('#power-btn .cd', 'aria-hidden'), 'true');
       assert.ok(r.x + r.w <= vw && r.y >= 0, 'the ring is on screen');
       await noScroll(page);
       await shot(page, name(`power-${n}`), '#power-btn');
@@ -69,6 +71,7 @@ try {
     const c = await page.evaluate(s => window.view.screenOf(s), sq('a1')), b1 = await page.evaluate(s => window.view.screenOf(s), sq('b1'));
     const w = b1.x - c.x, mid = { x: p.x + p.w / 2, y: p.y + p.h / 2 };
     assert.ok(mid.x > c.x && mid.x < c.x + w && mid.y < c.y && mid.y > c.y - w, `the ring sits above a1, at its right (${JSON.stringify({ mid, c, w })})`);
+    assert.equal(await page.$eval('#board-marks .cd b', e => Math.abs(e.getBoundingClientRect().height - parseFloat(getComputedStyle(e).fontSize)) < 0.5), true, 'the digit box is one line high: centred');
     await noScroll(page);
     await shot(page, name('piece-3'), '#board-marks .cd');
 
@@ -76,9 +79,30 @@ try {
     await open(page, [['rule', 'hands=Rage'], ['rule', 'fromMove=Rage:10'], ['fen', fen(6)]]);
     const g = await rings(page, '#clocks .cd');
     assert.deepEqual(g.map(x => x.label), ['Rage usable in 4 turns']);
-    assert.match(await page.textContent('#clocks'), /^Rage$/);
+    assert.equal(await page.textContent('#clocks'), 'Rage in 4 turns');
     await noScroll(page);
     await shot(page, name('game-4'), '#clocks');
+    // The header keeps its height with rings in it (phone: out of the flow; desktop: on the turn line).
+    const topH = () => page.$eval('#top', e => e.getBoundingClientRect().height);
+    const without = async () => { await page.addStyleTag({ content: '#clocks { display: none !important }' }); const h = await topH(); await page.evaluate(() => document.querySelector('style:last-of-type').remove()); return h; };
+    const withRing = await topH(), plain = await without();
+    assert.ok(Math.abs(withRing - plain) <= 1, `the header does not grow (${plain} -> ${withRing})`);
+    // Two rings: on a phone only the rings show, and "thinking…" or a check line does not grow the header.
+    await open(page, [['rule', 'hands=SkyLift,Rage'], ['rule', 'fromMove=SkyLift:10+Rage:10'], ['fen', fen(6)]]);
+    assert.equal((await rings(page, '#clocks .cd')).length, 2);
+    const two = await topH(), plain2 = await without();
+    await page.evaluate(() => { document.getElementById('status').textContent = 'thinking…'; document.getElementById('turn').textContent = 'Black to move — CHECK'; });
+    if (tag === 'phone') assert.ok(Math.abs(await topH() - two) <= 1, 'a status line does not grow the header');
+    else assert.ok(await page.evaluate(() => { const t = document.getElementById('turn').getBoundingClientRect(), c = document.getElementById('clocks').getBoundingClientRect(); return c.top < t.bottom && c.bottom > t.top; }), 'desktop: the rings are on the turn line');
+    assert.ok(Math.abs(two - plain2) <= 1, `two rings keep the header height (${plain2} -> ${two})`);
+    const c2 = await page.$eval('#clocks', e => { const t = document.createRange(); t.selectNodeContents(document.querySelector('#top h1')); return { l: e.getBoundingClientRect().left, r: e.getBoundingClientRect().right, title: t.getBoundingClientRect().right }; });
+    assert.ok(c2.r <= vw && (tag === 'desktop' || c2.l >= c2.title + 4), `the rings stay on screen, clear of the title (${JSON.stringify(c2)})`);
+    await noScroll(page);
+    await shot(page, name('game-two'), '#clocks');
+    // A counted March has no button: its ring is by the turn line, named for its side.
+    await page.goto(url([['kings', 'mud:march,none'], ['rule', 'marchUses=3'], ['rule', 'fromMove=March:5'], ['fen', fen(2)]]));
+    await page.waitForFunction(() => window.view && document.querySelector('#board canvas'));
+    assert.equal(await page.textContent('#clocks'), "White's March in 3 turns");
     console.log(`ok ${tag} ${scheme}`);
     await page.close();
   }

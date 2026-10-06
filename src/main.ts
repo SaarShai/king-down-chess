@@ -7,7 +7,7 @@ import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, parseRule, SPENT, T, V, colorOf, file as fileOf, findKing, kingLabel, KingChoice, moveNumber, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, mergeRules, parseRule, SPENT, T, V, colorOf, file as fileOf, findKing, kingLabel, KingChoice, moveNumber, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
@@ -16,7 +16,7 @@ import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-tex
 import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
-import { SOURCES, countdowns, demoShackle, itemName, ring, type Countdown } from './countdown';
+import { SOURCES, countdowns, demoShackle, ring, type Countdown } from './countdown';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -30,9 +30,9 @@ const kings = params.get('kings');
 /** With any power in play, the balanced readings apply (an older `?rules=` preset still overrides them). */
 const withPowers = (k: Rules['kings']): Partial<Rules> => (k[0] || k[1] ? POWERS_BALANCED : {});
 /** `?rule=fromMove=Haste:10` (repeatable, lab): a rule as the simulator's `--rule` reads it, on top of every game's rules. */
-const labRules: Partial<Rules> = Object.assign({}, ...params.getAll('rule').flatMap(t => {
+const labRules: Partial<Rules> = params.getAll('rule').flatMap(t => {
   try { return [parseRule(t)]; } catch (e) { console.warn(`kingdown: ?rule=${t} ignored: ${(e as Error).message}`); return []; }
-}));
+}).reduce(mergeRules, {});
 const lab = Object.keys(labRules).length > 0;
 /** `setRules`, with the lab rules on top; without them when they do not fit the game (a hand beside a king power). */
 const setGameRules = (over: Partial<Rules>): void => {
@@ -504,7 +504,7 @@ function refresh(): void {
   drawMarks();
   // A game-wide countdown (or one whose item has no place on screen) goes by the turn line.
   $('clocks').innerHTML = liveCountdowns().filter(x => x.scope === 'game')
-    .map(x => `<span>${ring(x)}${x.side === null ? '' : `${x.side ? 'Black' : 'White'}'s `}${x.item ? itemName(x.item) : x.what}</span>`).join('');
+    .map(x => `<span>${ring(x, { hidden: true })}<span class="cd-t">${x.text}</span></span>`).join('');
 }
 
 /** The turn countdowns of the live game (none while reviewing, in a lesson or after the end). */
@@ -528,10 +528,12 @@ function refreshPowers(): void {
   const btn = $<HTMLButtonElement>('power-btn');
   btn.hidden = !spendable;
   btn.disabled = !canUse;
-  btn.textContent = !k ? '' : armed ? `Cancel ${POWER_NAME[k.power]}` : `Use ${POWER_NAME[k.power]}${early ? ` (from move ${from})` : left === null ? '' : ` (${left} left)`}`;
-  btn.classList.toggle('armed', armed);
+  // A countdown ring on the button carries the wait, so the text does not say it a second time.
   const cd = k && live ? liveCountdowns().find(x => x.scope === 'item' && x.side === c && x.item === k.power) : undefined;
-  if (cd) btn.insertAdjacentHTML('beforeend', ring(cd));
+  btn.textContent = !k ? '' : armed ? `Cancel ${POWER_NAME[k.power]}` : `Use ${POWER_NAME[k.power]}${cd ? '' : early ? ` (from move ${from})` : left === null ? '' : ` (${left} left)`}`;
+  btn.classList.toggle('armed', armed);
+  if (cd) { btn.insertAdjacentHTML('beforeend', ring(cd, { hidden: true })); btn.setAttribute('aria-label', `${btn.textContent}, usable ${cd.when}`); }
+  else btn.removeAttribute('aria-label');
   $('end-haste').hidden = !(live && myTurn() && !busy && midTurn);
   $('power-status').textContent = !k ? '' : armed
     ? (tag === 'freeze' ? 'Tap an enemy piece to freeze it for one turn.'
@@ -544,15 +546,16 @@ function refreshPowers(): void {
     : ''; // the info card already says what each king's power does
 }
 
-let marksFrame = 0;
+let marksFrame = 0, marksHtml = '';
 /** Threat markers (Settings → Show threats) and the keyboard cursor, placed with view.screenOf(). */
 function drawMarks(): void {
   cancelAnimationFrame(marksFrame);
   view.setPreview?.(cursor);
   const on = $<HTMLInputElement>('threats').checked && viewing == null && !busy && !finished() && myTurn();
   const t = on ? threatsIn(game.pos) : { pieces: [], squares: [] };
-  const clocks = busy ? [] : liveCountdowns().filter(x => x.scope === 'piece' && x.square != null);
-  if (!t.pieces.length && !t.squares.length && cursor == null && !clocks.length) { marksLayer.innerHTML = ''; return; }
+  // Kept through a move's animation too, so the rings do not blink on every move.
+  const clocks = liveCountdowns().filter(x => x.scope === 'piece' && x.square != null);
+  if (!t.pieces.length && !t.squares.length && cursor == null && !clocks.length) { marksLayer.innerHTML = marksHtml = ''; return; }
   const box = $('board').getBoundingClientRect(), items: string[] = [];
   const at = (s: number, cls: string): void => {
     const c = view.screenOf(s), n = view.screenOf(fileOf(s) < 7 ? s + 1 : s - 1);
@@ -562,13 +565,18 @@ function drawMarks(): void {
   for (const s of t.squares) at(s, 'mk-cover');
   for (const s of t.pieces) at(s, 'mk-threat');
   if (cursor != null) at(cursor, 'mk-cursor');
-  // A piece's countdown: a ring at the top right corner of its square, over the figure's shoulder.
+  // A piece's countdown: a ring at the top right corner of its square, over the figure's shoulder
+  // (centred above, it would hide a tall figure's face). Kept inside the board, which clips its marks.
   for (const x of clocks) {
     const c = view.screenOf(x.square!), n = view.screenOf(fileOf(x.square!) < 7 ? x.square! + 1 : x.square! - 1);
     const w = Math.hypot(c.x - n.x, c.y - n.y), d = Math.min(24, Math.max(16, w * 0.36));
-    items.push(ring(x, `left:${(c.x - box.left + w / 2 - d * 0.6).toFixed(1)}px;top:${(c.y - box.top - w / 2 - d * 0.5).toFixed(1)}px;width:${d.toFixed(1)}px;height:${d.toFixed(1)}px`));
+    const left = Math.min(box.width - d, Math.max(0, c.x - box.left + w / 2 - d * 0.6));
+    const top = Math.min(box.height - d, Math.max(0, c.y - box.top - w / 2 - d * 0.5));
+    items.push(ring(x, { style: `left:${left.toFixed(1)}px;top:${top.toFixed(1)}px;--d:${d.toFixed(1)}px` }));
   }
-  marksLayer.innerHTML = items.join('');
+  // The clay loop below calls this every frame: write the DOM only when a mark moved or changed.
+  const html = items.join('');
+  if (html !== marksHtml) marksLayer.innerHTML = marksHtml = html;
   // The clay camera can orbit and tween; follow it while marks are on screen.
   if (look === 'clay') marksFrame = requestAnimationFrame(drawMarks);
 }

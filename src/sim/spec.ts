@@ -1,7 +1,7 @@
 /** Run spec: what to play, how, and with which seed. JSON file and/or CLI flags. */
 import { readFileSync } from 'node:fs';
 import { LETTERS } from '../rules/engine';
-import { RULES, Rules, parseRule } from '../rules/rules';
+import { RULES, Rules, mergeRules, parseRule } from '../rules/rules';
 import { POOL, randomBackRank, shuffle } from '../rules/setup';
 import { mulberry32 } from './rng';
 
@@ -115,17 +115,6 @@ export interface Job {
   /** Explicit start position (asymmetric handicaps); overrides the back ranks. */
   fen?: string;
 }
-
-/**
- * Later flag wins — except for `kings`, whose two sides can arrive on two flags
- * (`--rule kingWhite=Spirit:Mercy --rule kingBlack=Mud:March`). Each of those names one side and
- * leaves the other `null`, so a plain spread would drop the side the earlier flag set.
- */
-const mergeRules = (a: Partial<Rules>, b: Partial<Rules>): Partial<Rules> => {
-  const out = { ...a, ...b };
-  if (a.kings && b.kings) out.kings = [b.kings[0] ?? a.kings[0], b.kings[1] ?? a.kings[1]];
-  return out;
-};
 
 /** Every `--rule name=value` (or `--baseRule …`) on the command line, merged left to right. */
 export function parseRuleFlags(argv: readonly string[], flag = '--rule'): Partial<Rules> {

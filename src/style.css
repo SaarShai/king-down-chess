@@ -704,17 +704,28 @@ label.army select { width: 100%; font-weight: 400; }
 #power-btn.armed { outline: 3px solid var(--accent); outline-offset: 2px; } /* burgundy: 3:1 or more on parchment, unlike gold */
 
 /* Turn countdowns (src/countdown.ts): a thin ring that fills clockwise as the turn nears, the turns left inside.
-   Ink at low contrast, no glow, never a tap target. On the power button's corner, over a piece, and by the turn line. */
-.cd { position: relative; display: inline-grid; place-items: center; flex: none; width: 20px; height: 20px; color: var(--ink); pointer-events: none; }
+   Ink at low contrast, no glow, no motion, never a tap target. On the power button's corner, over a piece, and by the turn line.
+   --d: the ring's size; the digit scales with it. */
+.cd { --d: 20px; position: relative; display: inline-grid; place-items: center; flex: none; width: var(--d); height: var(--d); color: var(--ink); pointer-events: none; }
 .cd svg { position: absolute; inset: 0; width: 100%; height: 100%; rotate: -90deg; fill: none; stroke: currentColor; stroke-width: 1.6; }
 .cd-track { opacity: 0.18; }
 .cd-fill { opacity: 0.55; }
-.cd b::before { content: attr(data-n); font-size: 10.5px; font-weight: 700; line-height: 1; opacity: 0.7; font-variant-numeric: tabular-nums; }
+.cd b { display: block; font-size: calc(var(--d) * 0.52); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.cd b::before { content: attr(data-n); opacity: 0.7; }
 #power-btn { position: relative; }
 #power-btn .cd { position: absolute; top: -8px; right: -8px; background: var(--vellum); border-radius: 50%; }
-#board-marks .cd { position: absolute; display: grid; background: color-mix(in srgb, var(--vellum) 82%, transparent); border-radius: 50%; }
-#clocks { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; font-size: var(--fs-xs); color: var(--ink-soft); }
+#board-marks .cd { position: absolute; background: color-mix(in srgb, var(--vellum) 70%, transparent); border-radius: 50%; }
+#board-marks .cd b::before { opacity: 0.85; }
+/* By the turn line: on its line on a desktop, so the header card does not grow over the board. */
+#turn { display: inline-block; }
+#clocks { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: -4px 0 -4px 10px; vertical-align: middle; font-size: var(--fs-xs); color: var(--ink-soft); }
 #clocks:empty { display: none; }
 #clocks > span { display: inline-flex; align-items: center; gap: 5px; }
 #clocks .cd { color: var(--ink-soft); }
-@media (max-width: 720px) { #clocks { margin: 0 0 0 auto; } }
+#clocks .cd b::before { opacity: 1; } /* small text: full ink-soft for 4.5:1 */
+/* A phone: at the right of the title row, out of the flow, so the header never grows. With two or more,
+   only the rings show; their lines stay for a screen reader. */
+@media (max-width: 720px) {
+  #clocks { position: absolute; top: 7px; right: 12px; height: 20px; margin: 0; flex-wrap: nowrap; }
+  #clocks:has(> span + span) .cd-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}

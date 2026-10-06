@@ -20,9 +20,11 @@ export interface Trigger {
   item?: CardName;
   /** What happens, in plain words: "Haste usable", "Rook unshackled". */
   what: string;
+  /** The shorter name a visible line uses: "Rage", "White's Rage". Default `what`. */
+  name?: string;
   /** The side's own move it happens on (`Position.move`, the full-move number). */
   at: number;
-  /** The move the wait began on: the ring's empty point. Default 1, the start of the game. */
+  /** The move before the wait began: the ring's empty point. Default 0, before the game's first move, so a wait's first turn already shows a sliver. */
   since?: number;
 }
 
@@ -33,6 +35,10 @@ export interface Countdown extends Trigger {
   total: number;
   /** "Haste usable in 3 turns": the ring's accessible name. */
   label: string;
+  /** "in 3 turns". */
+  when: string;
+  /** "Rage in 3 turns": the visible line by the turn line. */
+  text: string;
 }
 
 /** Items the game screen shows: a king power has its button; card mode has no screen yet (lab). Set `card` when it does. */
@@ -52,7 +58,8 @@ function held(pos: Position, r: Rules, c: Color): Map<CardName, boolean> {
   if (p && key) {
     const n = r[key] as number;
     const spendable = !((p === 'March' || p === 'Leap') && n === 0); // 0 uses: always on
-    if (spendable && (n === 0 || used < n)) out.set(p, SHOWN.power);
+    // March and Leap have no button even when counted (main.ts refreshPowers): their ring goes by the turn line.
+    if (spendable && (n === 0 || used < n)) out.set(p, SHOWN.power && p !== 'March' && p !== 'Leap');
   }
   const hand = r.hands[c], n = hand.length + (pos.drawn?.[c] ?? 0);
   for (let k = 0; k < n; k++) if (!(used >> k & 1)) out.set(k < hand.length ? hand[k] : r.piles[c][k - hand.length], SHOWN.card);
@@ -66,11 +73,11 @@ function held(pos: Position, r: Rules, c: Color): Map<CardName, boolean> {
 function fromMoveTriggers(pos: Position, r: Rules): Trigger[] {
   const sides = [held(pos, r, WHITE), held(pos, r, BLACK)];
   return (Object.entries(r.fromMove) as [CardName, number][]).flatMap(([item, at]) => {
-    const what = `${itemName(item)} usable`;
-    if (sides[0].get(item) === false && sides[1].get(item) === false) return [{ scope: 'game', side: null, item, what, at }];
+    const name = itemName(item), what = `${name} usable`;
+    if (sides[0].get(item) === false && sides[1].get(item) === false) return [{ scope: 'game', side: null, item, what, name, at }];
     return ([WHITE, BLACK] as const).flatMap((c): Trigger[] => {
       const shown = sides[c].get(item);
-      return shown === undefined ? [] : [shown ? { scope: 'item', side: c, item, what, at } : { scope: 'game', side: c, item, what: `${SIDE[c]}'s ${what}`, at }];
+      return shown === undefined ? [] : [shown ? { scope: 'item', side: c, item, what, at } : { scope: 'game', side: c, item, what: `${SIDE[c]}'s ${what}`, name: `${SIDE[c]}'s ${name}`, at }];
     });
   });
 }
@@ -99,7 +106,8 @@ export function countdowns(pos: Position, r: Rules = RULES, side?: Color, source
     if (side !== undefined && t.side !== null && t.side !== side) return [];
     const turnsLeft = t.at - (t.side === null ? moveNumber(pos) : nextOwn(pos, t.side));
     if (turnsLeft <= 0) return [];
-    return [{ ...t, turnsLeft, total: Math.max(turnsLeft, t.at - (t.since ?? 1)), label: `${t.what} in ${turnsLeft} turn${turnsLeft === 1 ? '' : 's'}` }];
+    const when = `in ${turnsLeft} turn${turnsLeft === 1 ? '' : 's'}`;
+    return [{ ...t, turnsLeft, total: Math.max(turnsLeft, t.at - (t.since ?? 0)), when, label: `${t.what} ${when}`, text: `${t.name ?? t.what} ${when}` }];
   });
 }
 
@@ -108,10 +116,11 @@ const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/"/g, '&quot
 /**
  * The clock ring: a thin circle that fills clockwise as the trigger nears, the turns left inside
  * (drawn by CSS from `data-n`, so it never joins a button's text). Style: `.cd` in style.css.
+ * `hidden`: a screen reader skips it, for a ring beside text that already says the count.
  */
-export function ring(cd: Pick<Countdown, 'turnsLeft' | 'total' | 'label'>, style = ''): string {
+export function ring(cd: Pick<Countdown, 'turnsLeft' | 'total' | 'label'>, { style = '', hidden = false } = {}): string {
   const done = Math.round(100 * (1 - cd.turnsLeft / cd.total));
-  return `<span class="cd" role="img" aria-label="${esc(cd.label)}" title="${esc(cd.label)}"${style ? ` style="${style}"` : ''}>`
+  return `<span class="cd" ${hidden ? 'aria-hidden="true"' : 'role="img"'} aria-label="${esc(cd.label)}"${style ? ` style="${style}"` : ''}>`
     + `<svg viewBox="0 0 20 20" aria-hidden="true"><circle class="cd-track" cx="10" cy="10" r="8.5"/>`
     + (done > 0 ? `<circle class="cd-fill" cx="10" cy="10" r="8.5" pathLength="100" stroke-dasharray="${done} 100"/>` : '')
     + `</svg><b data-n="${cd.turnsLeft}"></b></span>`;
