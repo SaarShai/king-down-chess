@@ -101,13 +101,14 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Property | Allowed values |
 |---|---|
 | Source | king power · card · both (a spendable king power is also dealt as a card) |
-| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) |
+| Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ○ Morph) |
 | Uses | n per game (king power) · 1 (every card) · — (always-on) |
 | Turn cost | is the turn's move · then make the move (a free action, `markFree`) · extra move (the second move may be skipped) |
 | Captures | may · must · never |
 | Targets | own · enemy · either; which kings and pawns are excluded |
 | Duration | instant · opponent's next turn (◐ `markTurns: 2`: two turns) · always |
-| Condition | none · a zone (a rank, half, the capital) · tag team (next to a given piece) · turn N (`fromMove`) · a capture · the opponent's card — see D.1 |
+| Has a condition | none · a zone (a rank, half, the capital) · tag team (next to a given piece) · turn N (`fromMove`) · a capture · a card played — see D.1. Example: "not before move 10" |
+| Is a condition | no · yes: playing this card (or any card) triggers something else, for either side — see D.1. Example: Mirror answers the opponent's last card |
 | Shackled | no · yes: weaker or off until a condition (`fromMove` is "off until move N") — see D.2 |
 | Promotion | no · yes: a piece changes its type on a condition — see D.3 |
 | fromMove | none (default) · N: not before the side's own move N (◐ `fromMove=Haste:10+Rage:8`; `Position.move`, the full-move number). Spendable powers and cards only; refused for an always-on power. A Mirror may not copy a card before its move. Every row below is none. |
@@ -147,7 +148,8 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Rescue | card ◐ | mark: renews the own last mark | — | then make the move | never | the own Freeze, Ice Wall or Firewall | one more opponent turn |
 | Growth | card ◐ | draw | — | is the turn's move | never | the own pile | instant |
 | GrowthB | card ◐ | draw | — | then make the move | never | the own pile | instant |
-| Rally (working name) | card ◐ | extra move: a different own piece | — | extra move | never, on either move | own pieces, the king included | instant |
+| Rally | card ◐ | extra move: a different own piece | — | extra move | never, on either move | own pieces, the king included | instant |
+| Morph (idea ○) | card | promotion: an own piece becomes another type | — | is the turn's move | never | an own piece, not the king or a pawn; the new type not a king or pawn, and never a second Beast (MorphB: not a queen either) | instant |
 
 Every card is one use; "Uses (king)" is the official count of a king power (`POWERS_BALANCED` over the rule defaults).
 "Then make the move" for the marks is `markFree`, official for the kings and used in every card measurement. Flight is
@@ -167,8 +169,13 @@ game. It belongs to a piece ("when *this* pawn reaches the last rank") or to the
 | Turn N | game | ◐ `fromMove`: a spendable power or card not before the side's move N · ◐ Black's double first turn (`secondPlayerDoubleFirstTurn`) | a piece that wakes at turn N |
 | A capture | piece | ● Paladin dies after taking a non-pawn · ● Beast may take again (a chain) · ◐ RageB's second move must take · ◐ a guard spent after one capture (rejected) | a piece that grows after its first capture |
 | A piece lost | own side | ● Sacrifice and ◐ Salvation use the side's captured pieces | — |
-| The opponent's card | game | ◐ Mirror plays the card the opponent played last | — |
+| A card is played: any card or a given one, by either side | game | ◐ Mirror plays the card the opponent played last · ◐ Rescue answers the side's own last mark card | when the opponent plays any card, your guard may step; when you play Freeze, your next card is free |
 | The own last mark | own side | ◐ Rescue renews the side's Freeze, Ice Wall or Firewall | — |
+
+A card or power can be on **both sides** of a condition: it **has** a condition (it may be played only
+when the condition holds: "not before move 10" is `fromMove`, "only in the capital" is Burn) and it **is** a
+condition (playing it triggers something else: the opponent's Mirror copies it; an idea, "when any card is
+played, …"). C.1 lists both as properties of every power and card.
 
 ### D.2 Shackled: nerfed until a condition
 
@@ -185,6 +192,7 @@ The piece, power or card keeps its type but is weaker, or off, until the conditi
 |---|---|---|---|
 | Pawn | queen, rook, bishop or knight | reaches the last rank | ● (◐ wider sets: `promotionSet` `anyNonKing`, `anyNonKingNoGuard`, `anyNonKingNoFairy`) |
 | Sacrifice | an own pawn becomes one of the side's captured pieces | the power is used | ● (an arrival, C.2) |
+| **Morph** (card idea, owner 2026-10-06) | one of your pieces becomes another piece type | the card is played | ○ to test: readings in C.2 |
 | Promoted piece taken | returns (Salvation) as what it was when taken | — | ◐ |
 
 ### D.4 Powers and cards with a condition
