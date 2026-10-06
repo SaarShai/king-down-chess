@@ -8,10 +8,7 @@ The skills come from https://github.com/mattpocock/skills (v1.3.1, MIT). Some of
 
 1. **Install** (done 2026-10-06: version 1.3.1 from the author's store). The official store has only 1.2.3, which has no `retro` or `implement-spec`. To install again: `claude plugins marketplace add mattpocock/skills`, then `claude plugins install mattpocock-skills@mattpocock`. Do not also install it from `claude-plugins-official` or with `npx skills`, or every skill shows twice.
 2. **Paste the agent prompt below.** The agent reads this file, checks the skills, and gets the session records ready. Then it stops.
-3. `/setup-matt-pocock-skills` (once for this repo). It asks you three things:
-   - **Issue tracker:** I suggest **local files**. This repo does not use GitHub issues; TASKS.md and docs/QUEUE.md are the trackers.
-   - **Triage labels:** keep the defaults.
-   - **Where docs go:** suggest `docs/specs/`.
+3. ~~`/setup-matt-pocock-skills`~~ **Done 2026-10-06** (written by hand from the skill's templates): local markdown tracker in `docs/specs/<feature>/`, the default triage labels, single-context domain docs. The settings are `docs/agents/*.md` and the "Agent skills" section of CLAUDE.md. Edit them directly to change them.
 4. `/retro`: the review. It reads the sessions and the Workshop work listed below, and gives its suggestions, the most severe first.
 5. `/grill-me`: the agent asks you about the suggestions you want to act on, until each decision is clear.
 6. **Specs.**
@@ -23,7 +20,7 @@ The skills come from https://github.com/mattpocock/skills (v1.3.1, MIT). Some of
 ## Agent prompt (paste at step 2)
 
 ```text
-Read AGENTS.md, TASKS.md, LESSONS.md and docs/HANDOFF-retro.md, and follow the handoff. The skills plugin mattpocock-skills is installed. Before I run the skills, do the "Preparation" section: read the SKILL.md of retro, grill-me, wayfinder, to-spec, implement-spec and setup-matt-pocock-skills; tell me in short plain sentences what each one will do in this repo, and anything in them that conflicts with AGENTS.md. Then list the session records and the Workshop work that /retro will review, and stop. Write to me in plain ASD-STE100 English.
+Read AGENTS.md, TASKS.md, LESSONS.md and docs/HANDOFF-retro.md, and follow the handoff. The skills plugin mattpocock-skills is installed. Before I run the skills, do the "Preparation" section: read the SKILL.md of retro, grill-me, wayfinder, to-spec and implement-spec, and docs/agents/*.md (the skills' settings for this repo); tell me in short plain sentences what each one will do in this repo, and anything in them that conflicts with AGENTS.md. Then list the session records and the Workshop work that /retro will review, and stop. Write to me in plain ASD-STE100 English.
 ```
 
 ## For the agent
