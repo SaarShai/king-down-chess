@@ -4,7 +4,7 @@
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The dialog's keydown listener handles Escape while a choices panel is open: the panel closes, the Workshop stays open, and focus is on the opener (the + tile, the pill or the When button).
 - [x] The `workshop` check presses Esc in each of the three panels and asserts the above; a second Esc then closes the Workshop.
