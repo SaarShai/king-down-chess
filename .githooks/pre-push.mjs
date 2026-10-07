@@ -5,6 +5,7 @@
 // The gate keeps them, and gets git's stdin lines.
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { changedFiles } from '../tools/lib/changed-files.mjs';
 
 const [remote = '', url = ''] = process.argv.slice(2);
 const stdin = readFileSync(0, 'utf8');
@@ -48,6 +49,29 @@ if (dirty) {
   refuse(`these tracked files differ from HEAD, so npm test would not run on the commit that goes out:
 ${dirty.split('\n').map(line => `    ${line}`).join('\n')}
   Commit or stash them, then push again.`);
+}
+
+// Decision 10: a direct push to main may change docs and trackers, but no file under a protected
+// path. Such a change goes through a branch and a pull request.
+const protectedPaths = ['src/', 'public/', 'index.html', 'package.json', 'package-lock.json', 'supabase/',
+  '.githooks/', '.claude/', 'tools/'];
+const isProtected = path => protectedPaths.some(p => p.endsWith('/') ? path.startsWith(p) : path === p);
+for (const { localSha, remoteRef, remoteSha } of updates) {
+  if (remoteRef !== 'refs/heads/main') continue;
+  if (zero.test(remoteSha) || git('cat-file', '-e', `${remoteSha}^{commit}`) === null) {
+    refuse(`fetch first: the head of main on ${remote} is not known here, so this hook cannot list the files
+  that the push changes. Fetch, merge or rebase, then push again:
+    git fetch ${remote}
+  If ${remote} has no main yet, push its first commit with --no-verify.`);
+  }
+  const hits = changedFiles(remoteSha, localSha).filter(isProtected);
+  if (hits.length) {
+    refuse(`a direct push to main may not change these protected files (decision 10):
+${hits.map(path => `    ${path}`).join('\n')}
+  Push a branch and open a pull request into main:
+    git switch -c <branch>
+    git push -u ${remote} <branch>`);
+  }
 }
 
 const noGit = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));

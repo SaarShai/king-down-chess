@@ -25,7 +25,14 @@ const commit = (repo: Repo, message = 'change') => {
   expect(result.status, result.stderr).toBe(0);
   return repo.git('rev-parse', 'HEAD').stdout.trim();
 };
-const change = (repo: Repo, path: string) => { repo.write(path, `${path} ${Math.random()}\n`); return commit(repo, `change ${path}`); };
+/** Changes one file and commits it. `git add -f` also takes the files that tempRepo() excludes (the hooks, the package file). */
+const change = (repo: Repo, path: string) => {
+  repo.write(path, path === 'package.json'
+    ? JSON.stringify({ ...JSON.parse(repo.read(path)), description: String(Math.random()) })
+    : `${path} ${Math.random()}\n`);
+  repo.git('add', '-f', path);
+  return commit(repo, `change ${path}`);
+};
 const calls = (repo: Repo): Call[] =>
   repo.exists('.fixture/calls.jsonl') ? repo.read('.fixture/calls.jsonl').trim().split('\n').map(line => JSON.parse(line)) : [];
 const remoteHead = (repo: Repo, branch: string) => repo.git('--git-dir', repo.remote, 'rev-parse', '-q', '--verify', `refs/heads/${branch}`).stdout.trim();
@@ -129,5 +136,85 @@ describe('pre-push', () => {
     repo.write('scratch.txt', 'untracked\n');
     const push = repo.git('push', 'origin', 'HEAD:refs/heads/feature');
     expect(push.status, push.stderr).toBe(0);
+  });
+
+  describe('story 4: a direct push to main', () => {
+    const protectedFiles = ['src/a.ts', 'public/a.txt', 'index.html', 'package.json', 'package-lock.json',
+      'supabase/migrations/a.sql', '.githooks/a.txt', '.claude/settings.json', 'tools/a.mjs'];
+
+    it.each(protectedFiles)('that changes %s is refused, and the output names the path and the fix', path => {
+      const repo = make();
+      const base = remoteHead(repo, 'main');
+      change(repo, 'docs/a.md');
+      change(repo, path);
+      const push = repo.git('push', 'origin', 'main');
+      expect(push.status).not.toBe(0);
+      expect(push.stderr).toContain(`    ${path}\n`);
+      expect(push.stderr).not.toContain('docs/a.md');
+      expect(push.stderr).toMatch(/git switch -c <branch>/);
+      expect(push.stderr).toMatch(/pull request into main/);
+      expect(calls(repo)).toEqual([]);
+      expect(remoteHead(repo, 'main')).toBe(base);
+    });
+
+    it('that renames a file out of src/ is refused', () => {
+      const repo = make();
+      change(repo, 'src/a.ts');
+      expect(repo.git('push', '-q', '--no-verify', 'origin', 'main').status).toBe(0);
+      expect(repo.git('mv', 'src/a.ts', 'a.ts').status).toBe(0);
+      commit(repo, 'move');
+      const push = repo.git('push', 'origin', 'main');
+      expect(push.status).not.toBe(0);
+      expect(push.stderr).toContain('    src/a.ts\n');
+    });
+
+    it('that changes only docs passes, after the test and the gate', () => {
+      const repo = make();
+      const head = change(repo, 'docs/a.md');
+      change(repo, 'TASKS.md');
+      const push = repo.git('push', 'origin', 'main');
+      expect(push.status, push.stderr).toBe(0);
+      expect(calls(repo).map(c => c.name)).toEqual(['test', 'gate']);
+      expect(remoteHead(repo, 'main')).not.toBe(head);
+      expect(remoteHead(repo, 'main')).toBe(repo.git('rev-parse', 'HEAD').stdout.trim());
+    });
+
+    it('a push of src/ to a branch passes, after the test', () => {
+      const repo = make();
+      change(repo, 'src/a.ts');
+      const push = repo.git('push', 'origin', 'HEAD:refs/heads/feature');
+      expect(push.status, push.stderr).toBe(0);
+      expect(calls(repo).map(c => c.name)).toEqual(['test', 'gate']);
+    });
+  });
+
+  it('story 5: a push to main with no known remote head is refused with "fetch first"', () => {
+    const repo = make();
+    const clone = `${repo.root}/clone`;
+    expect(repo.git('clone', '-q', repo.remote, clone).status).toBe(0);
+    const inClone = (...args: string[]) => repo.run('git', args, { cwd: clone });
+    inClone('config', 'user.name', 'Other');
+    inClone('config', 'user.email', 'other@example.invalid');
+    repo.run('sh', ['-c', 'echo other > other.md'], { cwd: clone });
+    inClone('add', 'other.md');
+    expect(inClone('commit', '-q', '-m', 'other').status).toBe(0);
+    expect(inClone('push', '-q', 'origin', 'main').status).toBe(0);
+
+    change(repo, 'docs/a.md');
+    const push = repo.git('push', 'origin', 'main');
+    expect(push.status).not.toBe(0);
+    expect(push.stderr).toContain('fetch first');
+    expect(push.stderr).toContain('git fetch origin');
+    expect(calls(repo)).toEqual([]);
+  });
+
+  it('story 5: a push to a main that the remote does not have is refused with "fetch first"', () => {
+    const repo = tempRepo();
+    repos.push(repo);
+    change(repo, 'docs/a.md');
+    const push = repo.git('push', 'origin', 'main');
+    expect(push.status).not.toBe(0);
+    expect(push.stderr).toContain('fetch first');
+    expect(remoteHead(repo, 'main')).toBe('');
   });
 });
