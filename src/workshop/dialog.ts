@@ -291,6 +291,14 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     host.innerHTML = `<header><h3 tabindex="-1">${esc(title)}</h3><button type="button" class="quiet ws-property-close" aria-label="Close choices">×</button></header><div class="ws-property-body">${html}</div>`;
     const close = () => { host.hidden = true; host.innerHTML = ''; q<HTMLButtonElement>('.ws-add')?.focus({ preventScroll: true }); };
     q<HTMLButtonElement>('.ws-property-close', host).onclick = close;
+    // The + picker and the keyboard: ArrowDown and ArrowUp move the focus along the rules that can be added; Enter adds one.
+    host.onkeydown = e => {
+      const step = ({ ArrowDown: 1, ArrowUp: -1 } as Record<string, number>)[e.key], rows = qa<HTMLButtonElement>('.ws-book-row:not([disabled])', host);
+      if (!step || !rows.length) return;
+      e.preventDefault();
+      const i = rows.indexOf(document.activeElement as HTMLButtonElement);
+      rows[i < 0 ? (step > 0 ? 0 : rows.length - 1) : (i + step + rows.length) % rows.length].focus();
+    };
     wire(q('.ws-property-body', host), close);
     q<HTMLElement>('h3', host).focus();
   }
