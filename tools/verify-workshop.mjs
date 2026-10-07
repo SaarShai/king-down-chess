@@ -16,6 +16,17 @@ const saved = p => p.evaluate(() => JSON.parse(localStorage.getItem('kingdown.wo
 const mark = async p => (await saved(p)).squares[0].mark;
 const cell = (p, mode, x = 1, y = 2) => p.locator(`.ws-board[data-action="${mode}"] .ws-cell[data-x="${x}"][data-y="${y}"]`);
 const openDialogs = p => p.locator('#workshop dialog[open]').count();
+/** Empties the clipboard, runs `action`, and waits until the page writes the clipboard (the write is async); returns the text. */
+async function copied(p, action) {
+  await p.evaluate(() => navigator.clipboard.writeText(''));
+  await action();
+  for (let i = 0; i < 50; i++) {
+    const text = await p.evaluate(() => navigator.clipboard.readText());
+    if (text) return text;
+    await p.waitForTimeout(100);
+  }
+  return '';
+}
 
 /** Waits until the game view is ready. */
 async function ready(p) {
@@ -128,8 +139,7 @@ async function keyboardAndRefusedSave(p) {
 async function shareTryReload(p) {
   const before = await saved(p);
   await p.click('.ws-share');
-  await p.click('.ws-copy-link');
-  const link = await p.evaluate(() => navigator.clipboard.readText());
+  const link = await copied(p, () => p.click('.ws-copy-link'));
   await p.click('.ws-try');
   await p.waitForSelector('.tb-me');
   await imageIs(p, '.tb-me', 'ui/workshop/clay-golem-w.webp');
@@ -173,13 +183,14 @@ const isOpen = (p, selector) => p.evaluate(s => !!document.querySelector(`${s}[o
 const gauge = p => p.getAttribute('.ws-piece-card .ws-gauge', 'aria-valuenow');
 const text = (p, selector) => p.locator(selector).first().innerText();
 
-/** A new page at a size, with the game ready. The title screen shows only when `title` is true. */
-async function open(browser, { width = 390, height = 844, title = false, query = '' } = {}) {
+/** A new page at a size, with the game ready. The title screen shows only when `title` is true; `init` runs before each load. */
+async function open(browser, { width = 390, height = 844, title = false, query = '', init = null } = {}) {
   const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: width < 721, permissions: ['clipboard-read', 'clipboard-write'] });
   const p = await ctx.newPage();
   p.setDefaultTimeout(10000);
   trapErrors(p);
   if (!title) await p.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
+  if (init) await p.addInitScript(init);
   await p.goto(base + query);
   await ready(p);
   return p;
@@ -405,7 +416,8 @@ async function judgeReacts(browser) {
 
 /** The shelf: open a design, edit it, make a copy, send the link, delete one after its confirm. */
 async function shelf(browser) {
-  const p = await open(browser);
+  // A device that cannot share: the browser's share sheet does not end in a headless browser.
+  const p = await open(browser, { init: () => { delete Navigator.prototype.share; } });
   await newPiece(p);
   await cell(p, 'move').click();
   await p.click('.ws-back');
@@ -417,8 +429,7 @@ async function shelf(browser) {
   await shareAction(p, 'dup');
   await p.waitForSelector('.ws-piece-card');
   assert.equal(await text(p, '.ws-name-t'), 'Shelf Test copy', 'Make a copy opens the copy');
-  await shareAction(p, 'send');
-  assert.match(await p.evaluate(() => navigator.clipboard.readText()), /\?design=[\w-]+$/, 'Send link copies the link where the device cannot share');
+  assert.match(await copied(p, () => shareAction(p, 'send')), /\?design=[\w-]+$/, 'Send link copies the link where the device cannot share');
   await shareAction(p, 'del');
   await p.waitForSelector(`${sheetOpen} .ws-yes`);
   assert.equal(await text(p, `${sheetOpen} h2`), 'Delete Shelf Test copy?', 'Delete asks first');
@@ -434,10 +445,9 @@ async function sharedLink(browser) {
   let p = await open(browser);
   await openLink(p, 'likelyOP', 'Rook Rider', true);
   const worth = await text(p, '.ws-worth');
-  await shareAction(p, 'copy');
-  const copied = await p.evaluate(() => navigator.clipboard.readText());
-  assert.match(copied, /\| Rook Rider \| piece \| .* \| \d+\.\d\d \| likely overpowered \|/, 'Copy as text gives a MATRIX row');
-  const link = copied.trim().split('\n').at(-1);
+  const asText = await copied(p, () => shareAction(p, 'copy'));
+  assert.match(asText, /\| Rook Rider \| piece \| .* \| \d+\.\d\d \| likely overpowered \|/, 'Copy as text gives a MATRIX row');
+  const link = asText.trim().split('\n').at(-1);
   assert.match(link, /\?design=[\w-]+$/, 'Copy as text ends with the link');
   await p.reload();
   await ready(p);
@@ -477,8 +487,7 @@ async function editStateKept(browser, width, height) {
     const before = await design(), worth = await text(p, '.ws-worth');
     await edit();
     assert.notDeepEqual(await design(), before, `${width} ${what}: the edit changes the design`);
-    await shareAction(p, 'copy-link');
-    assert.match(await p.evaluate(() => navigator.clipboard.readText()), /\?design=[\w-]+$/, `${width} ${what}: Copy link copies the link`);
+    assert.match(await copied(p, () => shareAction(p, 'copy-link')), /\?design=[\w-]+$/, `${width} ${what}: Copy link copies the link`);
     await p.click('.ws-try');
     await p.waitForSelector('.tb-board');
     await p.click('.ws-back');
