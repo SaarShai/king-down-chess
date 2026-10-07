@@ -1,5 +1,12 @@
 # Tasks
 
+## ChatGPT plugin feasibility and product direction — 2026-10-07
+- **Scope:** research and recommendations requested by the owner; no implementation, deployment, marketplace submission or game runs. Helpers use Sol 6.1.
+- [ ] Read the `project GPT` project and named `main` chat (`01a0fc0b-78ed-7160-bd47-c9496604b18d`), preserving the difference between demonstrated behavior and open gaps.
+- [ ] Check current official plugin requirements, existing chess offerings, and reusable King Down capabilities; compare a small teaching/play experience, review, workshop and full-game integration.
+- [ ] Save a cited recommendation in `docs/research/chatgpt-plugin-feasibility-2026-10-07.md`, with a concrete first experiment and acceptance checks.
+- **Verification:** current primary sources for platform/market claims; local artifact/code references for reuse claims; explicit shipped/lab and documented/tested distinctions; inspect the final documentation diff. No product change is authorized by this research request.
+
 ## Round 18, the Archer readings, the card tests — 2026-10-05/06
 - Trackers for this work: this branch (`claude/power-schema`). Raw games: `origin/claude/kp2-results` (101130c: round 18; f086c93: the Archer `over23` runs). Run entries: `docs/QUEUE.md`, "Ran 2026-10-05" and "Running and queued, 2026-10-06".
 - **Owner (2026-10-06):** helpers (subagents, workflows) are allowed again; `AGENTS.md`, Delegation (12dc499). Runs still need the owner's go.

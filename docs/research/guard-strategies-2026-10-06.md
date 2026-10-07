@@ -118,3 +118,14 @@ entrant) and `--fens file` (the start positions, one per pair).
 
 If several probes win, tune all the terms together by self-play (SPSA), so the engine
 finds the weights itself. That is level 2 of the strategy-search plan.
+
+## Results (2026-10-07)
+
+- March probes (gs-probe, Guard on b1; gs-probe-k, Guard next to the king): no plan helps the
+  engine at depth 3. The best is +0.19 ± 0.27 pawns (E3-30, Guard next to the king). Strong
+  bonuses lose: E1-80 −0.88 ± 0.34 (next to the king), E5-80 −0.63 ± 0.26.
+- King defence from random threats (kd-rand, 24,000 games): the Guard next to the king is worth
+  **+2.82 ± 0.19 pawns** against no Guard, +1.86 against the same Guard far away, +1.13 against a
+  pawn on its square. On the interpose square: +3.59 ± 0.40. The king lives 34 plies, not 18.
+- So the Guard's value is in defence, which the worth test (Guard on b1, quiet start) does not see.
+- kd-real: too few positions (38); the filter needs to be looser before it says anything.
