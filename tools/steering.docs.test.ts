@@ -111,3 +111,56 @@ describe('MATRIX.md guard', () => {
     expect(matrixFaults(read(MATRIX)).map(show)).toEqual([]);
   });
 });
+
+/** The cells of a table row. */
+const cells = (row: string) => row.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/).map(cell => cell.trim());
+
+/**
+ * Faults of QUEUE.md: in each table under a heading that starts with "Running", no run id occurs two times.
+ * The id column is the column named "id", else the first column. A cell with ids split by commas counts each id.
+ */
+function queueFaults(text: string, file = 'docs/QUEUE.md'): Fault[] {
+  const lines = markdownLines(text);
+  const tables: (typeof lines)[] = [];
+  lines.forEach((l, i) => {
+    if (!/^Running/.test(l.section) || !l.text.trim().startsWith('|')) return;
+    const previous = lines[i - 1];
+    if (previous?.text.trim().startsWith('|') && previous.section === l.section) tables.at(-1)!.push(l);
+    else tables.push([l]);
+  });
+  return tables.flatMap(([header, , ...rows]) => {
+    const column = Math.max(0, cells(header.text).findIndex(cell => cell.toLowerCase() === 'id'));
+    const seen = new Map<string, number[]>();
+    for (const row of rows)
+      for (const id of (cells(row.text)[column] ?? '').split(',').map(id => id.replaceAll('`', '').trim()).filter(Boolean))
+        seen.set(id, [...(seen.get(id) ?? []), row.line]);
+    return [...seen].filter(([, at]) => at.length > 1).map(([id, at]) => ({
+      file, section: header.section, where: `count ${at.length}, lines ${at.join(', ')}`,
+      what: `run id "${id}" occurs ${at.length} times in one table`,
+    }));
+  });
+}
+
+describe('QUEUE.md run tables', () => {
+  it('names the section, the line and the count of a run id that occurs two times in one table', () => {
+    const fixture = [
+      '## Ran 2026-10-05', '| id | state |', '|---|---|', '| k18 | done |', '| k18 | done |',
+      '## Running and queued, 2026-10-06', 'Text.', '',
+      '| id | where | state |', '|---|---|---|',
+      '| deal-d2 | Kaggle | running |',
+      '| pv-A, `pa-d4` | M1 | done |',
+      '| pa-d4 | M1 | queued |',
+      '| deal-d2 | M1 | queued |',
+      '', '| id | state |', '|---|---|', '| pv-A | other table |',
+      '## Dropped', '| id | state |', '|---|---|', '| deal-d2 | x |',
+    ].join('\n');
+    expect(queueFaults(fixture, 'fixture.md').map(show)).toEqual([
+      'fixture.md § Running and queued, 2026-10-06 (count 2, lines 11, 14): run id "deal-d2" occurs 2 times in one table',
+      'fixture.md § Running and queued, 2026-10-06 (count 2, lines 12, 13): run id "pa-d4" occurs 2 times in one table',
+    ]);
+  });
+
+  it('no run id occurs two times in a live run table of QUEUE.md', () => {
+    expect(queueFaults(read('docs/QUEUE.md')).map(show)).toEqual([]);
+  });
+});
