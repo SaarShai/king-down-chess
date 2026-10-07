@@ -4,7 +4,7 @@
 
 **Blocked by:** 03, 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/lib/removed-checks.mjs`, `tools/lib/removed-checks.test.ts`, the commit-msg Node script under `.githooks/`, `tools/git-hooks/commit-msg.test.ts`
 
