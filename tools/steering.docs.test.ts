@@ -50,3 +50,64 @@ describe('merge drivers', () => {
     expect(mergeFaults(root).map(show)).toEqual([]);
   });
 });
+
+const read = (path: string) => readFileSync(join(root, path), 'utf8');
+
+/** Each line of a markdown text with its line number and the heading of its section. Fenced code is left out. */
+function markdownLines(text: string): { line: number; section: string; text: string }[] {
+  const out: { line: number; section: string; text: string }[] = [];
+  let section = '(top)';
+  let fenced = false;
+  text.split('\n').forEach((line, i) => {
+    if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; return; }
+    if (fenced) return;
+    const heading = /^#{1,6}\s+(.*)$/.exec(line);
+    if (heading) section = heading[1].trim();
+    out.push({ line: i + 1, section, text: line });
+  });
+  return out;
+}
+
+/** The MATRIX.md lines that must occur one time each: a table row by its first cell, or a heading. */
+const MATRIX_ONCE = [
+  { name: 'the D.1 row "Material behind (own side)"', test: (line: string) => /^\|\s*Material behind \(own side\)\s*\|/.test(line) },
+  { name: 'the D.2 row "Any piece"', test: (line: string) => /^\|\s*Any piece\s*\|/.test(line) },
+  { name: 'the Workshop heading', test: (line: string) => /^#{1,6}\s+Workshop\b/.test(line) },
+];
+
+/** Faults of MATRIX.md: each guarded row or heading occurs one time, in its section. */
+function matrixFaults(text: string, file = MATRIX): Fault[] {
+  const lines = markdownLines(text);
+  return MATRIX_ONCE.flatMap(({ name, test }) => {
+    const hits = lines.filter(l => test(l.text));
+    if (hits.length === 1) return [];
+    return [{
+      file, section: [...new Set(hits.map(h => h.section))].join(', ') || '(none)',
+      where: `count ${hits.length}${hits.length ? `, lines ${hits.map(h => h.line).join(', ')}` : ''}`,
+      what: `${name} must occur one time`,
+    }];
+  });
+}
+
+describe('MATRIX.md guard', () => {
+  const fixture = [
+    '### D.1 Conditions (triggers)', '| Material behind (own side) | own side | x | — |',
+    '### D.2 Shackled', '| Any piece | off until move N | turn N | idea |',
+    '## Workshop (build 1a)', 'text',
+  ];
+
+  it('names the row, the section and the lines when a union merge copies a row', () => {
+    const merged = [...fixture.slice(0, 2), fixture[1], ...fixture.slice(2)].join('\n');
+    expect(matrixFaults(merged, 'fixture.md').map(show)).toEqual([
+      'fixture.md § D.1 Conditions (triggers) (count 2, lines 2, 3): the D.1 row "Material behind (own side)" must occur one time',
+    ]);
+    expect(matrixFaults(fixture.slice(0, 4).join('\n'), 'fixture.md').map(show)).toEqual([
+      'fixture.md § (none) (count 0): the Workshop heading must occur one time',
+    ]);
+    expect(matrixFaults(fixture.join('\n'), 'fixture.md')).toEqual([]);
+  });
+
+  it('MATRIX.md holds the D.1 row, the D.2 row and the Workshop heading one time each', () => {
+    expect(matrixFaults(read(MATRIX)).map(show)).toEqual([]);
+  });
+});
