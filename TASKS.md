@@ -5,10 +5,12 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 ## Open items
 
 - **Workshop finish** · `ready-for-agent` · Build the open tickets of the spec. · [spec](docs/specs/workshop-finish/spec.md)
-- **Card deal** · `needs-info` · Mirror or MirrorB? Drop Rescue? Which six cards make the deal (`cards-d1` and `deal-d1` are read)? · [2026-10](docs/tasks-archive/2026-10.md)
+- **Card deal** · `needs-info` · Mirror or MirrorB? Drop Rescue? Keep March (below the floor in `cards-d1`)? Which six cards make the deal (`cards-d1` and `deal-d1` are read)? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Card mode in the game** · `ready-for-agent` · After the deal: a card panel in the browser, MorphP in the deal, and a legendary look for Rage for the owner's yes. · [2026-10](docs/tasks-archive/2026-10.md)
 - **Morph and the Guard** · `needs-info` · Keep the Guard as a Morph piece? Allow a second Guard? Stop a second Beast through Morph and then Salvation or Sacrifice? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Guard drop** · `ready-for-agent` · A lab rule that drops the Guard on any empty square; its runs need the owner's go. · [2026-10](docs/tasks-archive/2026-10.md)
+- **Death Touch at 55.1%** · `needs-info` · Round 18 gives Death Touch 55.1% ± 2.9 with all twelve powers. Keep it or trim it? · [handoff](docs/tasks-archive/HANDOFF-2026-10-06.md)
+- **Turn countdown** · `needs-info` · Does the owner approve the screenshots of `claude/turn-countdown` (83f442f)? · [handoff](docs/tasks-archive/HANDOFF-2026-10-06.md)
 - **Archer reading** · `needs-info` · far2 (the owner leans to it) or today's `plusDiagFwd2`? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Criterion 4** · `needs-info` · Keep it as written (it cannot fail) or use 4b, "a phase at or above the average piece"? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Piece-letter icons** · `needs-info` · Should Settings → Piece letters draw icons on the figures? · [2026-10](docs/tasks-archive/2026-10.md)
@@ -16,6 +18,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 - **Accounts database** · `needs-info` · Did the owner run the accounts migration and the sign-in checks? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Clay king effects** · `ready-for-agent` · The six king effects in the clay look (about one day). · [2026-10](docs/tasks-archive/2026-10.md)
 - **Powers-mode computer player** · `ready-for-agent` · Move ordering and a bigger corpus; the runs need the owner's go. · [2026-10](docs/tasks-archive/2026-10.md)
+- **Browser checks in the cloud** · `needs-triage` · `verify-special-moves`, `verify-cursor-adoption`, `verify-playable-clay` and `qa` time out in a cloud container (slow software WebGL). · [handoff](docs/tasks-archive/HANDOFF-2026-10-03.md)
 - **Trailer decisions** · `needs-triage` · Music, loudness, wake readings, CTA, end card, hero poses, art rights. · [2026-09](docs/tasks-archive/2026-09.md)
 - **Market suggestions** · `needs-triage` · Which of the ten to build (#9 is now the kings' powers mode)? · [2026-09](docs/tasks-archive/2026-09.md)
 - **Maester beam** · `needs-triage` · The owner's review of the goggle beam capture. · [2026-09](docs/tasks-archive/2026-09.md)
