@@ -1,6 +1,6 @@
 # King Down takeover plan
 
-**Status: planned, not started.** Prepared September 14, 2026 from the [deep review](</Users/za/Documents/king down chess/docs/TAKEOVER-REVIEW-2026-09-14.md>), [reconciled task ledger](</Users/za/Documents/king down chess/docs/claude-recovery/review/TASK-LEDGER.md>) and current code. The user requested review and planning only. No phase below has been executed.
+**Status: planned, not started.** Prepared September 14, 2026 from the [deep review](</Users/za/Documents/king down chess/docs/TAKEOVER-REVIEW-2026-09-14.md>), reconciled task ledger (`dd34fa5:docs/claude-recovery/review/TASK-LEDGER.md`) and current code. The user requested review and planning only. No phase below has been executed.
 
 The objective is to take over the working v0.7 game and finish the interrupted development with trustworthy evidence. Preserve the selected B2 direction, one-guard Wall, current archer/beast and paladin rules. Keep the linear evaluator, powers off and the existing random pool until each candidate clears its own acceptance criteria. Do not reopen settled design decisions or rebuild the stack.
 

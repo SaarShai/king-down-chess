@@ -34,3 +34,12 @@ docs/trailer/assets/
 # Local preview pages (the `previews` launch entry)
 /sim/out/previews/
 /sim/nnue-powers/*.bin
+
+# Session transcripts: removed from the tree (secrets-and-public-gates/11); history keeps them.
+/docs/claude-recovery/
+/docs/cursor-recovery/
+# Workshop figure rounds stay on disk; git tracks only the figure samples folder.
+/docs/visual-design/workshop/figure-batch-*/
+/docs/visual-design/workshop/figure-final-run/
+/docs/visual-design/workshop/figure-swarms/
+/docs/visual-design/workshop/figures-*/

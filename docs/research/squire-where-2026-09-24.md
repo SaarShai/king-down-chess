@@ -1,6 +1,6 @@
 # Squire drop place and check — first look (2026-09-24)
 
-> Recovery status, 2026-09-24: Lab-only historical reserve experiment. The implementation and raw games are archived; its movement/attack, hash, material and evaluation limitations prevent adoption or a balance verdict. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Lab-only historical reserve experiment. The implementation and raw games are archived; its movement/attack, hash, material and evaluation limitations prevent adoption or a balance verdict. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Exploration only. Defaults and the pool stay as they are. Forty-eight games an arm, depth 3,
 twelve shared arrangements, seed 95, step Squire. A sample this size can show where the drop

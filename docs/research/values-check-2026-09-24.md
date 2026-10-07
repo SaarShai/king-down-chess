@@ -1,6 +1,6 @@
 # Values check — 2026-09-24
 
-> Recovery status, 2026-09-24: Point-in-time value audit. Ogre 318 is now adopted on the clay base; Catapult remains 400 in the product, distinct from the 156 exploration override. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Point-in-time value audit. Ogre 318 is now adopted on the clay base; Catapult remains 400 in the product, distinct from the 156 exploration override. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Compared adopted piece values in `docs/RULES.md` (decisions 15–18 and the value refresh under the adopted archer) to the constants in `src/ai/eval.ts`. Shipped pool is `QORRBBNNAAGMMSS` with ogre push; Paladin (`L`) remains legal but is not in the random pool.
 

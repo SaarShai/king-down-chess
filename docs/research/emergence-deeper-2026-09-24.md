@@ -1,6 +1,6 @@
 # Emergence, deeper notes (2026-09-24)
 
-> Recovery status, 2026-09-24: Design inspiration, with mixed source types. These examples do not establish that adding interactions improves this game. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Design inspiration, with mixed source types. These examples do not establish that adding interactions improves this game. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Goes past `docs/research/emergence-2026-09-24.md`. New primary pages only. This does not change pieces or rules.
 
