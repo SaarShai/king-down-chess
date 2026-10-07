@@ -53,6 +53,8 @@ deleted: the extension already answered it with the recorded old-paladin control
 
 ## Piece-balance queue (2026-09-17, new focus: fairy pieces only)
 
+Rules: a run of the twelve kings' powers as released passes every `POWERS_BALANCED` rule (`src/rules/rules.ts`) as `--rule`; the tournament's defaults are the unbalanced powers (dt-r0/t2/t3 lost a run to this, 2026-10-07).
+
 Rules: fresh control per experiment (the `ab` experiment's base arm is today's rules — `pb-ab-base24`
 is void as a baseline). Same seed for every variant so arrangements and opening seeds are shared.
 Adopt only on a depth-4 confirmation with no draw drag; depth-3-only differences are not results.
@@ -313,10 +315,10 @@ All at depth 3 with `--armies perPair`. The card runs use cards-m5's card rules 
 | kd-rand-d4 | Kaggle, after gs-probe-d4 | kd-rand's positions × 4 arms, `--mirrorOnly`, **depth 4**, seed 6565 (6,000 pairs = 1,500 positions) | 6,000 | done 2026-10-07: Guard next to the king **+2.86 ± 0.27 pawns** against none (depth 3: +2.82), +1.49 against far, +1.04 against a pawn; interpose +3.41 ± 0.58; the king lives 43 plies, not 21 |
 | guard-king-p-d4 | Kaggle, 5 notebooks; 466089d (owner 2026-10-07: "if m1 and kaggle finished - launch next run per your recommendation") | guard-king-p at **depth 4**: RNBQKGNR against RGBQKNNR, `none --mirror --fens`, 4 random opening plies, 2,000 pairs, seed 6367 | 4,000 | running |
 | deal-d3 | Kaggle, 5 notebooks, after guard-king-p-d4; main bc1bb04 (owner 2026-10-07: "set up a 6 hour run for kaggle, m1 and this mac to queue in when they finish") | the deal after the owner's card decisions: deal-d1's 27 cards plus MirrorB (Mirror, Rescue and Rage out), `cards6,none --mirrorOnly --mirror`, 7,000 pairs, depth 3, seed 7575, card rules | 14,000 | queued |
-| hand-size-d4 | M1, after dt-*; `~/projects/king-down-guard/m1-hs4.sh` (owner 2026-10-07: "set up a 6 hour run for kaggle, m1 and this mac to queue in when they finish") | hand-size at **depth 4**: cards2, cards3, cards4, cards6 and none, 600 pairs, seed 7474 | 3,000 | queued |
-| dt-r0-d4, dt-t2-d4, dt-t3-d4 | this Mac, 12 workers; worktree `.claude/worktrees/mac-runs` at bc1bb04, `mac-dt-d4.sh` (owner 2026-10-07: "set up a 6 hour run for kaggle, m1 and this mac to queue in when they finish") | dt-r0, dt-t2, dt-t3 at **depth 4**, 320 pairs (4 × the M1 runs), seed 1919 | 3 × 7,040 | running |
-| hand-size | M1, after guard-king; 87b42b7, `~/projects/king-down-guard/m1-next.sh` (owner 2026-10-07: "do what you recommend") | `cards2,cards3,cards4,cards6,none --mirrorOnly --mirror --cardPool` deal-d1's 27 cards, 1,500 pairs, depth 3, seed 7373, card rules | 15,000 | running |
-| dt-r0, dt-t2, dt-t3 | M1, after hand-size | the twelve powers `--anchor DeathTouch`, 80 pairs, seed 1919, depth 3: as released; `deathTouchReachForwardBack`; `deathTouchReachPieces` | 3 × 1,760 | queued |
+| hand-size-d4 | M1, after dt-*; `~/projects/king-down-guard/m1-after.sh` (owner 2026-10-07: "set up a 6 hour run for kaggle, m1 and this mac to queue in when they finish") | hand-size at **depth 4**: cards2, cards3, cards4, cards6 and none, 600 pairs, seed 7474 | 3,000 | queued |
+| dt-r0-d4, dt-t2-d4, dt-t3-d4 | this Mac, 12 workers; worktree `.claude/worktrees/mac-runs` at bc1bb04, `mac-dt-d4.sh` (owner 2026-10-07: "set up a 6 hour run for kaggle, m1 and this mac to queue in when they finish") | dt-r0, dt-t2, dt-t3 at **depth 4**, 200 pairs, seed 1919, the released rules (`released-rules.txt`, as kp2-r18) | 3 × 4,400 | running (restarted with the released rules) |
+| hand-size | M1, after guard-king; 87b42b7, `~/projects/king-down-guard/m1-next.sh` (owner 2026-10-07: "do what you recommend") | `cards2,cards3,cards4,cards6,none --mirrorOnly --mirror --cardPool` deal-d1's 27 cards, 1,500 pairs, depth 3, seed 7373, card rules | 7,500 | done 2026-10-07: draws against none (18.7%): **2 cards 13.8% (−4.9 ± 2.6), 3 cards 10.7% (−8.1), 4 cards 10.4% (−8.3), 6 cards 8.9% (−9.8 ± 2.4)**; White 51–54%, every Δ White inside ±3.4; games 5–14 turns shorter. 3–4 cards keep most of the cut |
+| dt-r0, dt-t2, dt-t3 | M1, after hand-size | the twelve powers `--anchor DeathTouch`, 80 pairs, seed 1919, depth 3: as released; `deathTouchReachForwardBack`; `deathTouchReachPieces` | 3 × 1,760 | first try void (2026-10-07): the scripts left out the released rules (`POWERS_BALANCED`), so Death Touch had no reach and the trims changed nothing (dt-r0 = dt-t2 to the digit). Rerun with the kp2-r18 rule list: running on the M1 (`m1-after.sh`) |
 
 Decides: rage-q, rage-s: whether a trim brings Rage (cards-m5: +4.06 pawns, about 1.7 Hastes) near the
 Haste card. rally-r1: Rally's worth against no card and beside the Haste card. haste-from10: whether
