@@ -200,7 +200,7 @@ describe('the judge on random designs', () => {
       }
     }
     expect(n).toBeGreaterThan(10000);
-  });
+  }, 30000); // More than 10,000 judge calls: about 4 s alone, over 5 s when the machine is busy.
 
   it('gives each rule-book badge the change that adding the rule then shows', () => {
     for (const x of POOL) {
