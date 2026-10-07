@@ -8,7 +8,8 @@
 import { BLACK, K, NAMES, T, WHITE, colorOf, piece, sq, sqName, typeOf, type Move, type PieceType } from '../rules/engine';
 import { pieceIcon } from '../piece-icons';
 import { snd } from '../render/sfx';
-import { presetOf, type PieceDesign } from './model';
+import { BODIES, presetOf, type PieceDesign } from './model';
+import { BODY } from './vocab';
 import { BODY_TYPE, CAPITAL, holds, movesOf, type TryState } from './moves';
 import { autoBody } from './judge';
 import { selectedFigure } from './figures';
@@ -17,7 +18,8 @@ import { cap, esc, ruleText } from './text';
 
 const ENEMIES: [PieceType, string][] = [[4, 'h8'], [2, 'f7'], [1, 'd6'], [3, 'b5'], [1, 'f5'], [1, 'g4']];
 const at = (n: string): number => sq(n.charCodeAt(0) - 97, +n[1] - 1);
-const INTO: Record<number, string> = { 5: 'queen', 4: 'rook', 3: 'bishop', 2: 'knight', 7: 'archer' };
+/** The word of a piece type a piece becomes: "queen". */
+const intoWord = (t: PieceType): string => BODY[BODIES.find(b => BODY[b].type === t)!].name;
 /** The square a move is chosen by: the victim of a shot, the piece pushed, else the landing square. */
 const tapOf = (m: Move): number => (m.shove ? m.shove.from : m.captures.length && m.to === m.from ? m.captures[0] : m.to);
 type Kind = 'move' | 'take' | 'shot' | 'push' | 'swap';
@@ -71,7 +73,7 @@ export function sandbox(host: HTMLElement, design: PieceDesign, name: string): {
     if (m.swap) { board[pos] = board[m.to]; board[m.to] = mover; pos = m.to; }
     else if (m.to !== m.from || chain) { board[pos] = 0; board[m.to] = mover; pos = m.to; }
     if (m.selfRemove) { board[pos] = 0; gone = true; }
-    if (m.promo) { board[pos] = piece(m.promo, WHITE); d = presetOf(INTO[m.promo]); became = m.promo; }
+    if (m.promo) { board[pos] = piece(m.promo, WHITE); d = presetOf(intoWord(m.promo)); became = m.promo; }
     if (m.captures.length) st.captured = true;
     (m.shove ? snd.shove : m.swap ? snd.swap : chain ? snd.chain : m.captures.length && m.to === m.from ? snd.shot : m.captures.length ? snd.capture : snd.move)();
     const more = !m.selfRemove && !m.promo && m.captures.length > 0 && m.to !== m.from
@@ -79,7 +81,7 @@ export function sandbox(host: HTMLElement, design: PieceDesign, name: string): {
     chain = more ? { caps: m.captures } : null;
     if (!chain) st.move++;
     cursor = gone ? cursor : pos;
-    live.textContent = `${said}${m.promo ? ` It became a ${INTO[m.promo]}.` : ''}${gone ? ' It is removed too.' : ''}${chain ? ' It may take again, or Finish.' : ''}`;
+    live.textContent = `${said}${m.promo ? ` It became a ${intoWord(m.promo)}.` : ''}${gone ? ' It is removed too.' : ''}${chain ? ' It may take again, or Finish.' : ''}`;
     render();
   }
   /** A tap on a marked square: its one action, or a choice when it has more than one. */
@@ -118,7 +120,7 @@ export function sandbox(host: HTMLElement, design: PieceDesign, name: string): {
     host.querySelector('.tb-count')!.textContent = `Move ${st.move}`;
     const ask = host.querySelector<HTMLElement>('.tb-ask')!;
     ask.hidden = !promo && !choice;
-    ask.innerHTML = promo ? promo.map((m, i) => `<button type="button" data-promo="${i}">${pieceIcon(m.promo!)}<span>${INTO[m.promo!]}</span></button>`).join('')
+    ask.innerHTML = promo ? promo.map((m, i) => `<button type="button" data-promo="${i}">${pieceIcon(m.promo!)}<span>${intoWord(m.promo!)}</span></button>`).join('')
       : choice ? choice.kinds.map(k => `<button type="button" data-kind="${k}">${cap(KIND_WORD[k])}</button>`).join('') : '';
     host.querySelector<HTMLElement>('.tb-finish')!.hidden = !chain;
     // One line of help at a time, in a box of fixed height, so the board and the buttons never move.

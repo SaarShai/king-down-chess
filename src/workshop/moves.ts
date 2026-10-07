@@ -5,17 +5,17 @@
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { BLACK, G, K, P, RULES, colorOf, file, rank, sq, typeOf, type Color, type Move, type PieceType } from '../rules/engine';
-import { DIR, presetOf, type Body, type Dir, type PieceDesign, type Rule, type Square, type When } from './model';
+import { BODIES, DIR, likeSquares, type Body, type Dir, type PieceDesign, type Rule, type Square, type When } from './model';
+import { BODY } from './vocab';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules'>;
 /** What Try it tracks: the move counter, a first capture, and "Pretend your opponent played a card". */
 export interface TryState { move: number; captured: boolean; card: boolean }
 export const START: TryState = { move: 1, captured: false, card: false };
 export const CAPITAL: readonly number[] = [27, 28, 35, 36];
-export const BODY_TYPE: Record<Body, PieceType> = { P: 1, N: 2, B: 3, R: 4, Q: 5, A: 7, L: 8, G: 9, M: 10, S: 11, O: 12 };
-const PROMO: Record<string, PieceType[]> = { choice: [5, 4, 3, 2], Q: [5], R: [4], B: [3], N: [2], A: [7] };
-const LIKE: Record<string, D> = { king: { squares: presetOf('maester').squares, lines: [], rules: [] },
-  knight: presetOf('knight'), bishop: presetOf('bishop'), rook: presetOf('rook'), queen: presetOf('queen') };
+export const BODY_TYPE = Object.fromEntries(BODIES.map(b => [b, BODY[b].type])) as Record<Body, PieceType>;
+/** The piece types a "becomes" rule offers: "choice" is the pawn's queen, rook, bishop or knight. */
+const promoOf = (into: Body | 'choice'): PieceType[] => (into === 'choice' ? (['Q', 'R', 'B', 'N'] as const) : [into]).map(b => BODY_TYPE[b]);
 
 const step = (s: number, df: number, dr: number): number => {
   const f = file(s) + df, r = rank(s) + dr;
@@ -52,7 +52,7 @@ export function movesOf(d: D, board: Uint8Array, from: number, st: TryState = ST
   // The union of the piece's own squares and lines and a "moves like" piece's.
   const can = new Map<string, Can & { x: number; y: number }>();
   const lines = new Set<Dir>(d.lines);
-  for (const src of like?.a === 'movesLike' ? [d, LIKE[like.as]] : [d]) {
+  for (const src of like?.a === 'movesLike' ? [d, { ...likeSquares(like.as), rules: [] }] : [d]) {
     for (const s of src.squares) {
       const k = `${s.x},${s.y}`, o = can.get(k) ?? { x: s.x, y: s.y, m: false, t: false, s: false }, n = CAN[s.mark];
       can.set(k, { ...o, m: o.m || n.m, t: o.t || n.t, s: o.s || n.s });
@@ -126,7 +126,7 @@ export function movesOf(d: D, board: Uint8Array, from: number, st: TryState = ST
     if (pu?.a === 'push' && beyond >= 0 && !board[beyond]) out.push({ from, to: pu.then === 'follow' ? n : from, captures: [], shove: { from: n, to: beyond } });
   }
   if (bec?.does.a !== 'becomes') return out;
-  const into = PROMO[bec.does.into], last = c === BLACK ? 0 : 7;
+  const into = promoOf(bec.does.into), last = c === BLACK ? 0 : 7;
   return out.flatMap(m => {
     const fires = !m.selfRemove && !m.swap && (bec.when.on === 'firstTake' ? m.captures.length > 0 && !st.captured : rank(m.to) === last && m.to !== from);
     return fires ? into.map(promo => ({ ...m, promo })) : [m];

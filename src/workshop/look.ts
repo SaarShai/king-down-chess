@@ -5,20 +5,20 @@
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { selectedFigure, figureById } from './figures';
-import type { Body, PieceDesign } from './model';
+import { presetOf, type Body, type PieceDesign } from './model';
 import { autoBody } from './judge';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules' | 'look' | 'letter'>;
 export interface StageLook { figure: string; body: Body | 'token'; army: 0 | 1; ghost: Body | 'K' | null }
-const LIKE_BODY: Record<string, Body | 'K'> = { king: 'K', knight: 'N', bishop: 'B', rook: 'R', queen: 'Q' };
-const INTO_BODY: Record<string, Body> = { choice: 'Q', Q: 'Q', R: 'R', B: 'B', N: 'N', A: 'A' };
 
 export function lookOf(d: D): StageLook {
   const rule = <A extends string>(a: A) => d.rules.find(r => r.does.a === a);
   const like = rule('movesLike'), bec = rule('becomes');
   return {
     figure: selectedFigure(d).id, body: d.look.auto ? autoBody(d) : d.look.body, army: d.look.army,
-    ghost: like?.does.a === 'movesLike' ? LIKE_BODY[like.does.as] : bec?.does.a === 'becomes' ? INTO_BODY[bec.does.into] : null,
+    // The ghost of "moves like" is that preset's body (the king's is K); of "becomes", the new body ("choice" shows the queen).
+    ghost: like?.does.a === 'movesLike' ? (like.does.as === 'king' ? 'K' : presetOf(like.does.as).body as Body)
+      : bec?.does.a === 'becomes' ? (bec.does.into === 'choice' ? 'Q' : bec.does.into) : null,
   };
 }
 /** "Knight look, ivory." The start of the stage's hidden summary: only what the card shows. */

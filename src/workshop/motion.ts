@@ -9,11 +9,13 @@
 import { figureHtml } from './art';
 import type { StageLook } from './look';
 import type { Verdict } from './judge';
+import { BODY } from './vocab';
 // @ts-expect-error The approved gait curves are shared browser JavaScript, without declarations.
 import { GAITS, GAIT_OF } from '../../docs/2d-first-pieces/board/gait.mjs';
 
 const active = new WeakMap<HTMLElement, () => void>();
-const ART: Record<StageLook['body'], string> = { P: 'pawn', N: 'knight', B: 'bishop', R: 'rook', Q: 'queen', A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre', token: 'pawn' };
+/** The gait of a body: its own, the pawn's for the token, else a hop. */
+const gaitOf = (b: StageLook['body']) => GAITS[GAIT_OF[b === 'token' ? 'pawn' : BODY[b].name] ?? 'hop'];
 const over = (v: Verdict): boolean => ['possiblyOP', 'likelyOP', 'untestedOP'].includes(v.label);
 
 /** Stops the reaction on `root`, also when the caller already replaced its elements. */
@@ -65,7 +67,7 @@ export function react(root: HTMLElement, previousLook: StageLook, nextLook: Stag
 
   // A1: the approved gait in place. The last frame of each gait is the rest pose, so it ends at the still transform.
   if (!crossed) {
-    const gait = GAITS[GAIT_OF[ART[nextLook.body]] ?? 'hop'];
+    const gait = gaitOf(nextLook.body);
     run(fig, Array.from({ length: 25 }, (_, i) => {
       const p = gait.at(i / 24, 1);
       return { transform: `translateY(${-p.lift * 1.8}px) rotate(${p.tilt * 1.5}rad) scale(${p.sx}, ${p.sy})`, easing: 'linear' };

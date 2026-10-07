@@ -3,8 +3,10 @@
  * sentence with pills and defaults, the Whens it allows, what it needs, its MATRIX row, the pieces
  * that have it today, and whether Try it shows it. When the owner adds a MATRIX row, the matching
  * entry is one more object here. Types only from model.ts, so the two modules load in any order.
+ * Here too: BODY, the one record of the pool bodies that the other body tables derive from.
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
+import type { PieceType } from '../rules/engine';
 import type { Ability, Body, PieceDesign, Rule, When, Zone } from './model';
 
 /** A piece of a sentence: fixed words, or a pill the player taps to change. */
@@ -124,13 +126,19 @@ export const blockOf = (a: Ability['a']): Block => BLOCKS.find(b => b.a === a)!;
 /* ---- Whens (§4.3) ---- */
 
 export const ZONE_WORDS: Record<Zone, string> = { startRank: 'on its start rank', ownHalf: 'in your half', enemyHalf: 'in the enemy half', lastRank: 'on the last rank', capital: 'on a center square' };
-export const NEAR_BODY: Record<Body, string> = { P: 'pawn', N: 'knight', B: 'bishop', R: 'rook', Q: 'queen', A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre' };
+/** Each pool body: its word (also its preset key), its article and its engine piece type (src/rules/engine.ts). */
+export const BODY: Readonly<Record<Body, { name: string; article: 'a' | 'an'; type: PieceType }>> = {
+  P: { name: 'pawn', article: 'a', type: 1 }, N: { name: 'knight', article: 'a', type: 2 }, B: { name: 'bishop', article: 'a', type: 3 },
+  R: { name: 'rook', article: 'a', type: 4 }, Q: { name: 'queen', article: 'a', type: 5 }, A: { name: 'archer', article: 'an', type: 7 },
+  L: { name: 'paladin', article: 'a', type: 8 }, G: { name: 'guard', article: 'a', type: 9 }, M: { name: 'maester', article: 'a', type: 10 },
+  S: { name: 'beast', article: 'a', type: 11 }, O: { name: 'ogre', article: 'an', type: 12 },
+};
 /** The When as words: "on a center square", "next to your king", "always". */
 export function whenWords(w: When): string {
   switch (w.on) {
     case 'always': return 'always';
     case 'zone': return ZONE_WORDS[w.zone];
-    case 'near': return w.who === 'king' ? 'next to your king' : w.who === 'friend' ? 'next to one of your pieces' : w.who === 'enemy' ? 'next to an enemy piece' : `next to your ${NEAR_BODY[w.who]}`;
+    case 'near': return w.who === 'king' ? 'next to your king' : w.who === 'friend' ? 'next to one of your pieces' : w.who === 'enemy' ? 'next to an enemy piece' : `next to your ${BODY[w.who].name}`;
     case 'fromMove': return `from move ${w.n}`;
     case 'beforeMove': return `before move ${w.n}`;
     case 'afterFirstCapture': return 'after its first capture';
@@ -140,7 +148,7 @@ export function whenWords(w: When): string {
     case 'reaches': return 'when it reaches the last rank';
   }
 }
-const BODY_KEYS = Object.keys(NEAR_BODY);
+const BODY_KEYS = Object.keys(BODY);
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 /** An object with exactly these keys. */
 export const keysAre = (o: unknown, k: readonly string[]): o is Record<string, unknown> =>

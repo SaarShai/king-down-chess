@@ -11,9 +11,9 @@
  * weights, so no edit that adds a square, a line or an ability ever lowers the number.
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
-import { DIAG, DIR, DIRS, ORTHO, PRESETS, empty, keyOf, limit, presetOf, ruleKey, type Body, type Dir, type PieceDesign, type Rule, type Square, type When } from './model';
+import { DIAG, DIR, DIRS, ORTHO, PRESETS, empty, keyOf, likeSquares, limit, presetOf, ruleKey, type Body, type Dir, type PieceDesign, type Rule, type Square, type When } from './model';
 import { anchorNote, anchorOf, MAESTER_NOTE, type Anchor } from './anchors';
-import { BLOCKS, blockOf, whenWords } from './vocab';
+import { BLOCKS, BODY, blockOf, whenWords } from './vocab';
 import { cap, groupPhrase, groupsOf, halves, lineWords, orbitOf, pawns } from './text';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules'>;
@@ -63,11 +63,6 @@ export const share = (w: When): number => w.on === 'always' ? 1 : w.on === 'zone
 const cheb = (x: number, y: number): number => Math.max(Math.abs(x), Math.abs(y));
 const knightish = (x: number, y: number): boolean => cheb(x, y) > 1 || Math.abs(x) + Math.abs(y) > 2;
 interface Layer { squares: readonly Square[]; lines: readonly Dir[]; wt: number }
-const KING_SQ: Square[] = DIRS.map(d => ({ x: DIR[d][0], y: DIR[d][1], mark: 'both' }));
-const LIKE: Record<string, Omit<Layer, 'wt'>> = {
-  king: { squares: KING_SQ, lines: [] }, knight: { squares: presetOf('knight').squares, lines: [] },
-  bishop: { squares: [], lines: DIAG }, rook: { squares: [], lines: ORTHO }, queen: { squares: [], lines: DIRS },
-};
 
 /** Averages over the 64 from-squares, White's view, every other square occupied with chance 0.4. */
 export function features(layers: readonly Layer[]): Features {
@@ -118,7 +113,7 @@ function estimate(d: D): Estimate {
   const layers: Layer[] = [{ squares: d.squares, lines: d.lines, wt: 1 }];
   let extraQ = 0;
   for (const { when, does } of R) {
-    if (does.a === 'movesLike') layers.push({ ...LIKE[does.as], wt: share(when) });
+    if (does.a === 'movesLike') layers.push({ ...likeSquares(does.as), wt: share(when) });
     if (does.a === 'step2') extraQ += 0.6 * share(when) * 0.875;
   }
   const g = features(layers);
@@ -146,7 +141,8 @@ function estimate(d: D): Estimate {
   }
   const bec = has('becomes');
   if (bec?.does.a === 'becomes') {
-    const into = bec.does.into === 'choice' || bec.does.into === 'Q' ? 9.33 : { R: 3.84, B: 3.17, N: 3.16, A: 4.29 }[bec.does.into];
+    // The measured worth of the piece it becomes (anchors.ts); "choice" is the queen.
+    const into = anchorOf(presetOf(BODY[bec.does.into === 'choice' ? 'Q' : bec.does.into].name))!.value;
     const f = forwardReach(d), p = bec.when.on === 'firstTake' ? 0.6 : Math.min(0.9, 0.05 * f ** 3);
     const v = Math.max(0, p * (into - W));
     T(v, Math.max(0.5, v));
@@ -248,7 +244,6 @@ export function memoryOf(d: D): { points: number; level: 0 | 1 | 2 | 3; rules: n
 
 /* ---- the like line and Auto look (§6.7) ---- */
 
-const ARTICLE: Record<string, string> = { pawn: 'a pawn', knight: 'a knight', bishop: 'a bishop', rook: 'a rook', queen: 'a queen', archer: 'an archer', paladin: 'a paladin', guard: 'a guard', maester: 'a maester', beast: 'a beast', ogre: 'an ogre' };
 /** The parts two designs can share: a rule counts 2, a square group or a line set 1. */
 function partsOf(d: D): Map<string, number> {
   const m = new Map<string, number>();
@@ -260,8 +255,10 @@ function partsOf(d: D): Map<string, number> {
   return m;
 }
 const shared = (a: Map<string, number>, b: Map<string, number>): number => [...a].reduce((s, [k, w]) => s + (b.has(k) ? w : 0), 0);
-let presetWorth: { key: string; name: string; w: number; parts: Map<string, number> }[] | undefined;
-const pool = () => (presetWorth ??= PRESETS.map(p => ({ key: p.key, name: p.key, w: worthOf(p), parts: partsOf(p) })));
+let presetWorth: { key: string; body: Body; w: number; parts: Map<string, number> }[] | undefined;
+const pool = () => (presetWorth ??= PRESETS.map(p => ({ key: p.key, body: p.body as Body, w: worthOf(p), parts: partsOf(p) })));
+/** "a knight", "an archer". */
+const aPiece = (p: { body: Body }): string => `${BODY[p.body].article} ${BODY[p.body].name}`;
 
 export function likeLine(w: number, d: D): string {
   if (w >= THRESHOLDS.queen) return 'About a queen.';
@@ -270,10 +267,10 @@ export function likeLine(w: number, d: D): string {
   const r2 = (x: number): number => Math.round(x * 100), mine = partsOf(d), near = pool().filter(p => Math.abs(r2(p.w) - r2(w)) <= 40);
   if (near.length) {
     const best = near.map(p => ({ p, s: shared(mine, p.parts) })).sort((a, b) => b.s - a.s || Math.abs(a.p.w - w) - Math.abs(b.p.w - w))[0].p;
-    return `About as strong as ${ARTICLE[best.key]}.`;
+    return `About as strong as ${aPiece(best)}.`;
   }
   const lo = pool().filter(p => p.w < w).sort((a, b) => b.w - a.w)[0], hi = pool().filter(p => p.w > w).sort((a, b) => a.w - b.w)[0];
-  return lo ? `Between ${ARTICLE[lo.key]} and ${ARTICLE[hi.key]}.` : 'Weaker than any pool piece.';
+  return lo ? `Between ${aPiece(lo)} and ${aPiece(hi)}.` : 'Weaker than any pool piece.';
 }
 /** Auto look (Blank only): the pool piece with the most shared parts; a tie goes to the knight; nothing shared, the token. */
 export function autoBody(d: D): Body | 'token' {

@@ -13,7 +13,7 @@ import {
   BLANK, DIR, DIRS, MAX_RULES, PRESETS, designCode, empty, fromPreset, likeAlways, limit, orbit, setMark,
   parseDesign, presetOf, validName, type Body, type Dir, type Mark, type PaintOn, type PieceDesign, type Rule, type When,
 } from './model';
-import { BLOCKS, GROUPS, MORE_WHENS, NEAR_BODY, TOP_WHENS, EVENT_WHENS, blockOf, takesAny, whenWords, type Block } from './vocab';
+import { BLOCKS, BODY, GROUPS, MORE_WHENS, TOP_WHENS, EVENT_WHENS, blockOf, takesAny, whenWords, type Block } from './vocab';
 import { BAND_WORD, autoBody, badgeText, bandOf, judge, shelfOf, whyHead, whyTitle, type Label, type Verdict } from './judge';
 import { lookOf, lookWords, type StageLook } from './look';
 import { figureHtml, gaugeHtml, modelHtml } from './art';
@@ -562,7 +562,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
         + `<svg class="icon ws-book-i" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="${b.icon}"/></svg>`
         + `<span class="ws-book-t"><b>${b.title}</b><small>${why ?? b.example}</small></span>`
         + `<span class="ws-book-badge" aria-label="${dv ? `${badgeText(dv.v)} pawn${dv.unsure ? `, a guess: ${NEVER}` : ''}` : 'cannot work'}">${dv ? `${badgeText(dv.v)}${dv.unsure ? '?' : ''}` : '--'}</span>`
-        + `<span class="ws-seen" aria-hidden="true">${b.seenOn.map(x => pieceIcon(({ P: 1, N: 2, B: 3, R: 4, Q: 5, A: 7, L: 8, G: 9, M: 10, S: 11, O: 12 } as const)[x])).join('')}</span></button>`;
+        + `<span class="ws-seen" aria-hidden="true">${b.seenOn.map(x => pieceIcon(BODY[x].type)).join('')}</span></button>`;
     };
     propertySheet('Add a property', `<details class="ws-key"><summary>+1: about 1 pawn more. “?”: a guess.</summary><p>The number is about how many pawns the rule adds to this piece. A rule that works only some of the time adds less. “?” marks a guess: ${NEVER}.</p></details>` + GROUPS.map(g => `<h3>${g}</h3>${BLOCKS.filter(b => b.group === g).map(row).join('')}`).join(''), (body, close) => {
       for (const b of qa<HTMLButtonElement>('.ws-book-row', body)) b.onclick = () => {
@@ -627,7 +627,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const cur1 = r.when.on === 'near' && r.when.who.length === 1 ? r.when.who : 'N';
     const moreHtml = rest.filter(w => !(w.on === 'fromMove' || w.on === 'beforeMove' || (w.on === 'near' && w.who.length === 1))).map(choice).join('')
       + (bodies.length ? `<label class="ws-choice"><input type="radio" name="ws-when" value="body"${r.when.on === 'near' && r.when.who.length === 1 ? ' checked' : ''} /><span>Next to your `
-        + `<select class="ws-near" aria-label="Which piece">${bodies.map(w => `<option value="${w.who}"${w.who === cur1 ? ' selected' : ''}>${NEAR_BODY[w.who as Body]}</option>`).join('')}</select></span></label>` : '')
+        + `<select class="ws-near" aria-label="Which piece">${bodies.map(w => `<option value="${w.who}"${w.who === cur1 ? ' selected' : ''}>${BODY[w.who as Body].name}</option>`).join('')}</select></span></label>` : '')
       + nums('fromMove', 'From move') + nums('beforeMove', 'Before move');
     const open = !top.some(w => same(w, r.when));
     choiceSheet(b.event ? 'When does it happen?' : 'When does it work?', top.map(choice).join('')

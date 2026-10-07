@@ -6,7 +6,7 @@
  */
 import { figureById } from './figures';
 import type { KingName } from '../rules/engine';
-import { BLOCKS, keysAre, takesAny, whenOk } from './vocab';
+import { BLOCKS, BODY, keysAre, takesAny, whenOk } from './vocab';
 
 export type Body = 'P' | 'N' | 'B' | 'R' | 'Q' | 'A' | 'L' | 'G' | 'M' | 'S' | 'O';
 export type Mark = 'both' | 'move' | 'take' | 'shoot' | 'moveShoot';
@@ -23,10 +23,12 @@ export type When =
   | { on: 'afterCard'; card: 'any' }
   | { on: 'takes' } | { on: 'firstTake' }
   | { on: 'reaches'; zone: 'lastRank' };
+/** The pieces that "also moves like" can name. */
+export type LikeAs = 'king' | 'knight' | 'bishop' | 'rook' | 'queen';
 /** The 10 rule blocks of build 1a (§4.2); vocab.ts has the sentence and the limits of each. */
 export type Ability =
   | { a: 'step2' }
-  | { a: 'movesLike'; as: 'king' | 'knight' | 'bishop' | 'rook' | 'queen' }
+  | { a: 'movesLike'; as: LikeAs }
   | { a: 'linesPass'; over: 'own' | 'any' }
   | { a: 'chain' }
   | { a: 'cannotBeTaken'; by: 'pawns' | 'allButKing' }
@@ -60,10 +62,7 @@ export interface PieceDesign {
 /** "Paint on": all 8 turns and reflections, across the file only, or one square. Editor state, never stored. */
 export type PaintOn = 'all' | 'lr' | 'one';
 
-export const BODIES: readonly Body[] = ['P', 'N', 'B', 'R', 'Q', 'A', 'L', 'G', 'M', 'S', 'O'];
-export const BODY_NAME: Record<Body | 'token', string> = {
-  P: 'pawn', N: 'knight', B: 'bishop', R: 'rook', Q: 'queen', A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre', token: 'token',
-};
+export const BODIES = Object.keys(BODY) as readonly Body[];
 export const DIRS: readonly Dir[] = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
 export const DIR: Record<Dir, readonly [number, number]> = { n: [0, 1], ne: [1, 1], e: [1, 0], se: [1, -1], s: [0, -1], sw: [-1, -1], w: [-1, 0], nw: [-1, 1] };
 export const ORTHO: readonly Dir[] = ['n', 'e', 's', 'w'];
@@ -164,10 +163,15 @@ export function limit(d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>): stri
 export const empty = (d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>): boolean =>
   !d.squares.length && !d.lines.length && !d.rules.some(r => r.does.a === 'movesLike' || r.does.a === 'step2');
 
+/** The squares and lines that "also moves like" adds: the preset's, and for the king the Maester's step. */
+export function likeSquares(as: LikeAs): { squares: readonly Square[]; lines: readonly Dir[] } {
+  const p = presetOf(as === 'king' ? 'maester' : as);
+  return { squares: p.squares, lines: p.lines };
+}
 /** "Always" for "also moves like": the piece's squares and lines with that piece's added, or null where a square
  *  would need a shot and a take by moving at once, which a stored square cannot hold. */
-export function likeAlways(d: Pick<PieceDesign, 'squares' | 'lines'>, as: 'king' | 'knight' | 'bishop' | 'rook' | 'queen'): { squares: Square[]; lines: Dir[] } | null {
-  const add = presetOf(as === 'king' ? 'maester' : as), squares = clone(d.squares);
+export function likeAlways(d: Pick<PieceDesign, 'squares' | 'lines'>, as: LikeAs): { squares: Square[]; lines: Dir[] } | null {
+  const add = likeSquares(as), squares = clone(d.squares);
   const can = (m: Mark) => ({ m: m !== 'take' && m !== 'shoot', t: m === 'both' || m === 'take', s: m === 'shoot' || m === 'moveShoot' });
   for (const a of add.squares) {
     const o = squares.find(t => t.x === a.x && t.y === a.y);
