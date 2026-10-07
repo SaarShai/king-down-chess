@@ -1,3 +1,5 @@
+// The section numbers (§) in this file cite revision 3 of the Workshop doc:
+// docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
 import { describe, expect, it } from 'vitest';
 import { judge } from './judge';
 import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, setMark, designCode, empty, fromPreset, keyOf, likeAlways, limit, mix, parseDesign, presetOf, validName, type PieceDesign, type Rule } from './model';

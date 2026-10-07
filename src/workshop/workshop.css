@@ -12,7 +12,7 @@
 /* Under 360 px, Back shows its arrow only (its word stays for screen readers), so the title fits. */
 @media (max-width: 359px) { #workshop { --gut: 12px; } #workshop .ws-bar h2 { font-size: var(--fs-md); } }
 @media (max-width: 359px) { #workshop .ws-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } #workshop .ws-bar .ws-back { min-width: var(--tap); justify-content: center; } }
-/* Still states only (§5.5: motion waits for the owner); Animations Off stops the house transitions too. */
+/* Animations Off stops the house transitions and animations too; motion.ts stops the Set A reactions. */
 :root[data-pace='off'] #workshop, :root[data-pace='off'] #workshop * { transition: none !important; animation: none !important; }
 #workshop p { margin: 0; max-width: none; }
 #workshop h3 { margin: var(--space-4) 0 var(--space-2); }

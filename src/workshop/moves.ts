@@ -1,7 +1,8 @@
 /**
- * The moves of a Workshop design on a board (docs/WORKSHOP.md §8.1): what Try it shows, and the
+ * The moves of a Workshop design on a board (revision 3 §8.1): what Try it shows, and the
  * oracle build 2 must match. It reads the engine's board bytes and never calls the engine's move
  * generator, so the engine, the AI and the save have no new code path (§7.1).
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { BLACK, G, K, P, RULES, colorOf, file, rank, sq, typeOf, type Color, type Move, type PieceType } from '../rules/engine';
 import { DIR, presetOf, type Body, type Dir, type PieceDesign, type Rule, type Square, type When } from './model';

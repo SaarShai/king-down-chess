@@ -1,3 +1,5 @@
+// The section numbers (§) in this file cite revision 3 of the Workshop doc:
+// docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { figureHtml, gaugeHtml, modelHtml } from './art';

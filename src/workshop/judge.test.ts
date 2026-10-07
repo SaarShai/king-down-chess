@@ -25,8 +25,9 @@ for (let x = -3; x <= 3; x++) for (let y = -3; y <= 3; y++) if (x || y) all48.pu
 const zone = (z: 'capital' | 'enemyHalf'): When => ({ on: 'zone', zone: z });
 
 /**
- * §6.13, from the prototype `judge-v2.mjs` (kq5: see docs/WORKSHOP.md §6.2, the largest-worth union).
+ * §6.13, from the prototype `judge-v2.mjs` (kq5: see revision 3 §6.2, the largest-worth union).
  * The flags follow the §6.10 rules in full: the table leaves out some F3, F9 and F+ that they give.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 const ROWS: [string, D, number, Label, string, string, number][] = [
   // name, design, W, label, metal, flags, memory

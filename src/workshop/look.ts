@@ -1,7 +1,8 @@
 /**
- * `lookOf(design, verdict)`: the stage as pure data (docs/WORKSHOP.md §5.1, §5.2, §5.4): the body,
+ * `lookOf(design, verdict)`: the stage as pure data (revision 3 §5.1, §5.2, §5.4): the body,
  * the metal, the cracks, the rim, the floor marks and the props. art.ts draws the figure; the motion module
  * and the tests read the rest.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { selectedFigure, figureById } from './figures';
 import type { KingName } from '../rules/engine';

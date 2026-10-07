@@ -1,8 +1,9 @@
 /**
- * The Workshop dialog (docs/WORKSHOP.md §2): HOME, START A PIECE, the piece editor (Moves, Rules,
+ * The Workshop dialog (revision 3 §2): HOME, START A PIECE, the piece editor (Moves, Rules,
  * Look), its sheets (the rule book, a pill's choices, Why?), sharing and Try it. One full-screen
  * `<dialog id="workshop">` that opens over its caller; Back closes it and the caller is still there.
  * Loaded on demand (main.ts `await import`), so none of it is in the main chunk.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import './workshop.css';
 import { FIGURES, FIGURE_TAGS, selectedFigure, suggestedFigures, figureUrl, type Figure } from './figures';

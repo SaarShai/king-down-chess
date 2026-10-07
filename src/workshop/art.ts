@@ -1,6 +1,7 @@
 /**
- * The Workshop's art as HTML strings (docs/WORKSHOP.md §5.1, §5.4): the bare figure from the approved
+ * The Workshop's art as HTML strings (revision 3 §5.1, §5.4): the bare figure from the approved
  * Workshop cast, and the thermometer. The decoration is aria-hidden.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { figureUrl } from './figures';
 import { type StageLook } from './look';
