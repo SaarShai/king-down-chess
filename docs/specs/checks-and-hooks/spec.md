@@ -40,7 +40,7 @@ Source: docs/specs/retro-2026-10-06/retro.md items 2, 4, 24
 - `env(name)` gives `PLAYABLE_URL` (default 127.0.0.1 port 5189); `PLAYABLE_OUT` (default the check's folder in the output root); `PLAYABLE_BROWSER` (`chromium` when `CLAUDE_CODE_REMOTE` is `true`, else `chrome`). `launch()` opens that channel.
 - `trapErrors(page, allow)` collects page and console errors; each allowed pattern has a reason. `assertNoErrors` fails on any other error.
 - Assertions: `noSidewaysScroll`, `insideViewport` (both axes), `noOverlap`, `textNotCut`, `minTarget` (takes a minimum size; default 44 px), `noRunningAnimations`, `imageIs` (compares the end of the resolved path). A failure names the selector, viewport and box. `shot(page, name)` writes into the out folder.
-- `tempRepo()` makes a test repository, a bare remote and the hooks, with no `GIT_` variables, empty global and system configs and a local identity. A hooks-off option, for the dev environment spec's tests, leaves out the hooks.
+- `tempRepo()` makes a test repository, a bare remote and the hooks, with no `GIT_` variable from the caller (only `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_NOSYSTEM`), empty global and system configs and a local identity. A hooks-off option, for the dev environment spec's tests, leaves out the hooks.
 
 **Check edits.** This spec owns the 11 other checks, visual design included. Each uses `env`, `launch`, `trapErrors` and `assertNoErrors`, and holds no port, channel or tracked output path. The QA script drops `QA_BASE`.
 
@@ -93,4 +93,4 @@ Source: docs/specs/retro-2026-10-06/retro.md items 2, 4, 24
 ## Further Notes
 
 - Build this spec first on the integration branch. The `noUnusedLocals` commit lands after the Workshop finish spec's removal commit. The hook folder, `prepare` and the stub `gate` land in one commit, so no commit refuses for a missing gate.
-- The last three protected paths extend decision 10, so that gate changes get review; ticket 10 asks the owner.
+- The last three protected paths extend decision 10, so that gate changes get review; the owner approved this extension on 2026-10-07 (ticket `retro-2026-10-06/10`).

@@ -1,7 +1,7 @@
 // npm run check:browser [name ...]: builds the app, serves the build and runs the named browser checks
 // one at a time (checks-and-hooks/06). `npm run check:browser -- --help` prints the names and the settings.
 // The checks are in tools/lib/registry.mjs. Exit codes: 0 all passed, 1 a check or the build failed,
-// 2 a usage fault (unknown name, output root inside the checkout), 130 interrupted.
+// 2 a usage fault (unknown name, output root inside the checkout), 130/143/129 on SIGINT/SIGTERM/SIGHUP.
 import { spawn } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';

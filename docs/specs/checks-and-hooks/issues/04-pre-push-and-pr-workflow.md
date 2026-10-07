@@ -28,7 +28,7 @@ Files: `.githooks/pre-push` (launcher), `.githooks/pre-push.mjs`, `tools/lib/cha
 Order in the hook: deletions only, then exit 0 (no test, no gate); each pushed commit must be HEAD (tags are peeled); `git diff --name-only HEAD` must be empty (untracked files do not count); for `refs/heads/main`, the remote head must be a local commit, else "fetch first"; protected files from `changedFiles(remote head, pushed commit)` refuse; then `npm run --silent test` without the `GIT_` variables; then `npm run --silent gate -- push <remote> <url>` with git's stdin and the `GIT_` variables. A missing `gate` script refuses, as in pre-commit.
 
 Choices for the owner to see:
-- "The Claude settings folder" is all of `.claude/` (settings, hooks, launch.json). Ticket 10 asks about the last three protected paths.
+- "The Claude settings folder" is all of `.claude/` (settings, hooks, launch.json). The owner approved the last three protected paths on 2026-10-07 (ticket `retro-2026-10-06/10`).
 - A remote with no main also gives "fetch first", with one more line: push the first commit with `--no-verify`.
 - A deletion of main on the remote is a deletion, so the hook lets it go (the ticket says "skips deletions"). Only a GitHub branch rule can stop it.
 - The workflow runs on pull requests, but GitHub stops a red merge only when the owner makes "Test" a required status check on main. That is a setting on GitHub, not in this repository.
@@ -43,3 +43,4 @@ Commands run:
 - Verify in a scratch clone (bare remote with this branch as main, `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci`, `core.hooksPath` was `.githooks` after it): a commit that changes `src/main.ts`, then `git push origin main`, was refused and named `src/main.ts` (exit 1, remote main unchanged). `git push -u origin verify-branch` ran the full `npm test` (828 + 42 passed) and the branch reached the remote. The scratch folder is deleted.
 
 Merge: merged into `claude/retro-2026-10-06`. One conflict in `tools/lib/temp-repo.mjs`: ticket 03 also added `hookModules`. The merged list holds both modules (`model-names.mjs`, `changed-files.mjs`) and one copy loop. `npm test` after the merge: type check clean, vitest 49 files and 868 tests passed, node tests 42 passed.
+- Review fix F2: this Comment and the spec name ticket `retro-2026-10-06/10` for the protected paths; the owner approved them on 2026-10-07.
