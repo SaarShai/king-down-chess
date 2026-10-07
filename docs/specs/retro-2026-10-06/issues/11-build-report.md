@@ -17,11 +17,12 @@ The build ran on 2026-10-07 under implement-spec. The branch starts at `f1b8e72`
 
 The review (code-review, Standards and Spec axes, fixed point `f1b8e72`) raised 92 findings; 3 refuters per finding kept 20. With 5 the aggregator added, one implementer fixed 25 in 14 commits (`265255c` to `954fe65`). Each owning ticket has a Comment line.
 
-## State of the branch at `954fe65`
+## State of the branch at `93402b5`
 
 - `npx tsc --noEmit -p .`: exit 0.
 - `npm test`: 1301 vitest tests and 42 node tests. Under a machine load of 25, two 5 s timeouts (`tools/gate.test.ts`, `tools/git-hooks/commit-msg.test.ts`); both files pass alone. The implementer's run under lower load passed in full.
 - `npm run check:browser`: 14 of 14 pass. `painted-game` can fail at random when a 60-ply computer game has no capture.
+- After the decisions: 5 more commits (`8e56f36` to `93402b5`). At `93402b5`, under a load of 25 to 35 from the owner's other apps, plain `npm test` hit ten 5 s timeouts; `vitest run --testTimeout=180000` gives 1301 of 1301, the node tests 42 of 42, tsc clean, and the `painted-game` and `workshop` checks pass.
 - Working tree clean. No model name in any commit, AGENTS.md or `docs/specs`. Every commit carries the neutral trailer.
 
 ## Before the merge into main
