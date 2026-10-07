@@ -69,7 +69,9 @@ export default defineConfig({
   // Relative URLs: the same build works at a site root, on a sub-path such as GitHub Pages'
   // /king-down-chess/, and in `vite preview`.
   base: './',
-  server: { port: +(process.env.PORT || 5173), strictPort: true },
+  // Both servers listen on 127.0.0.1, the address that the checks call; a `--host` flag overrides it.
+  server: { host: '127.0.0.1', port: +(process.env.PORT || 5173), strictPort: true },
+  preview: { host: '127.0.0.1' },
   worker: { format: 'es' },
   build: { copyPublicDir: false },
   plugins: [offlineBuild()],

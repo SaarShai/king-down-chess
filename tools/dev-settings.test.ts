@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import vite from '../vite.config';
 
 const root = join(import.meta.dirname, '..');
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
@@ -22,5 +23,18 @@ describe('project settings', () => {
       pr: '',
       sessionUrl: false,
     });
+  });
+});
+
+describe('Vite', () => {
+  // A check calls 127.0.0.1; a server on `localhost` can listen on ::1 only. A `--host` flag still wins.
+  it('the dev server and the preview server listen on 127.0.0.1', () => {
+    expect(vite.server?.host).toBe('127.0.0.1');
+    expect(vite.preview?.host).toBe('127.0.0.1');
+  });
+
+  it('the dev server keeps its port rule', () => {
+    expect(vite.server?.strictPort).toBe(true);
+    expect(vite.server?.port).toBe(+(process.env.PORT || 5173));
   });
 });
