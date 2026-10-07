@@ -32,8 +32,10 @@ function contentHash(path) {
 
 /** @param {string} dir a folder in the work tree; paths are relative to the top of the work tree */
 export function treeStatus(dir) {
+  // No GIT_ variable from the caller: inside a git hook, they would point git at another index.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
   const run = args => {
-    const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8', maxBuffer: 1 << 28 });
+    const r = spawnSync('git', args, { cwd: dir, env, encoding: 'utf8', maxBuffer: 1 << 28 });
     if (r.status !== 0) throw new Error(`treeStatus: git ${args.join(' ')} failed: ${r.stderr}`);
     return r.stdout;
   };
