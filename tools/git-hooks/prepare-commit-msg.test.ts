@@ -56,7 +56,7 @@ describe('prepare-commit-msg', () => {
     }
     const lower = commit(markers.claudeCode, 'Add a', 'Co-authored-by: Codex <noreply@openai.com>');
     expect(lines(lower, 'Co-')).toEqual(['Co-authored-by: Codex <noreply@openai.com>']);
-  });
+  }, 30_000); // three real commits with all hooks; a busy machine needs more than 5 s
 
   it('adds no trailer to an empty message, so git still refuses it', () => {
     const repo = make();

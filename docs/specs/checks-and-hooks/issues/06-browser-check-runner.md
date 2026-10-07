@@ -4,7 +4,7 @@
 
 **Blocked by:** 02, 05
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/check.mjs`, `tools/lib/registry.mjs`, `tools/lib/lock.mjs`, `tools/lib/lock.test.ts`, `tools/lib/tree-status.mjs`, `tools/lib/tree-status.test.ts`, `tools/check-selftest-dirty.mjs`, `package.json` (script `check:browser`), `tools/lib/checks.mjs` (the `tempRepo` re-export line only)
 
