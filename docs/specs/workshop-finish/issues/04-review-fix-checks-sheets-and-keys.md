@@ -4,7 +4,7 @@
 
 **Blocked by:** 01, 03
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The `workshop` check has one named group per fix, each naming its fix number: 2, 4, 20, 23, 27 and 29.
 - [x] Fix 2: with a full shelf, a new design asks "choose one to delete"; after the choice, the shelf holds the new design and every other design.
