@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `.githooks/commit-msg` and its Node script, `.githooks/prepare-commit-msg` and its Node script, `tools/lib/model-names.mjs`, `tools/lib/model-names.test.ts`, `tools/git-hooks/commit-msg.test.ts`, `tools/git-hooks/prepare-commit-msg.test.ts`
 
