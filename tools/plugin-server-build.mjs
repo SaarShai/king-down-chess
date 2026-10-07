@@ -19,6 +19,8 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     await promisify(execFile)(process.execPath, [resolve(root, 'tools/plugin-ui-build.mjs'), boardDir], { cwd: root, timeout: 60000, maxBuffer: 1_000_000 });
     await cp(resolve(boardDir, 'board.html'), resolve(functionDir, 'board.html'));
   } finally { await rm(boardDir, { recursive: true, force: true }); }
+  await cp(resolve(root, 'src/plugin/consent.html'), resolve(functionDir, 'consent.html'));
+  await build({ configFile: false, root, publicDir: false, logLevel: 'warn', build: { target: 'es2022', outDir: functionDir, emptyOutDir: false, minify: true, lib: { entry: resolve(root, 'src/plugin/consent.ts'), formats: ['es'], fileName: () => 'consent.mjs' }, rollupOptions: { output: { entryFileNames: 'consent.mjs', codeSplitting: false } } } });
   await buildRuntime(resolve(functionDir, 'runtime'));
   await build({
     configFile: false, root, publicDir: false, logLevel: 'warn', ssr: { noExternal: true },
@@ -38,6 +40,8 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     // Native function paths preserve metadata request targets without a catch-all rewrite.
     const discovery = resolve(output, 'functions/.well-known');
     await mkdir(resolve(discovery, 'oauth-protected-resource'), { recursive: true });
+    await symlink('mcp.func', resolve(output, 'functions/authorize.func'));
+    await symlink('mcp.func', resolve(output, 'functions/consent.mjs.func'));
     await symlink('../mcp.func', resolve(discovery, 'oauth-protected-resource.func'));
     await symlink('../../mcp.func', resolve(discovery, 'oauth-protected-resource/mcp.func'));
     await writeFile(resolve(output, 'config.json'), JSON.stringify({ version: 3 }) + '\n');

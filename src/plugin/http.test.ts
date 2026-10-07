@@ -15,7 +15,7 @@ beforeEach(async () => {
   const server = createServer(); servers.push(server); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   address = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   auth = createTokenVerifier({ supabaseUrl: 'https://project.supabase.co', publicOrigin: address }, createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'test', alg: 'ES256' }] }));
-  const handler = createPluginHandler({ service, auth, resourceHtml: '<html>board</html>', publicOrigin: address });
+  const handler = createPluginHandler({ service, auth, resourceHtml: '<html>board</html>', publicOrigin: address, consent: { html: '<html>consent</html>', script: 'console.log(1)', supabaseOrigin: 'https://project.supabase.co' } });
   server.on('request', (req, res) => { void handler(req, res).catch(() => { res.statusCode = 500; res.end(); }); });
 });
 afterEach(async () => {
@@ -30,6 +30,16 @@ async function post(body: unknown, bearer?: string, headers: Record<string, stri
 const list = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
 const get = { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'kingdown_get', arguments: { matchId } } };
 describe('stateless authenticated MCP HTTP', () => {
+  it('serves public consent assets with a restricted CSP before OAuth authentication', async () => {
+    const response = await fetch(`${address}/authorize?authorization_id=test`);
+    expect(response.status).toBe(200); expect(await response.text()).toBe('<html>consent</html>');
+    expect(response.headers.get('Content-Security-Policy')).toContain("script-src 'self'");
+    expect(response.headers.get('Content-Security-Policy')).toContain("frame-ancestors 'none'");
+    expect(response.headers.get('Content-Security-Policy')).toContain('connect-src https://project.supabase.co');
+    expect(response.headers.get('Referrer-Policy')).toBe('no-referrer');
+    const script = await fetch(`${address}/consent.mjs`); expect(script.status).toBe(200); expect(script.headers.get('Content-Type')).toContain('text/javascript');
+    expect(service.get).not.toHaveBeenCalled();
+  });
   it('advertises protected resource discovery and challenges missing or broad session tokens', async () => {
     for (const path of ['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp']) {
       const response = await fetch(address + path); expect(response.status).toBe(200); expect(await response.json()).toEqual(auth.metadata);
@@ -79,6 +89,22 @@ describe('stateless authenticated MCP HTTP', () => {
     expect(streamed).toBe(413);
     expect((await post('{broken', bearer)).status).toBe(400);
     expect(service.get).not.toHaveBeenCalled();
+  });
+  it('bounds active MCP requests per handler and admits retries after completion', async () => {
+    let release!: () => void, entered!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const ready = new Promise<void>(resolve => { entered = resolve; });
+    let count = 0;
+    vi.mocked(service.get).mockImplementation(async () => { if (++count === 4) entered(); await gate; return view; });
+    const bearer = await token();
+    const pending = Array.from({ length: 4 }, () => post(get, bearer));
+    try {
+      await ready;
+      const busy = await post(get, bearer); expect(busy.status).toBe(503); expect(busy.headers.get('Retry-After')).toBe('1');
+      expect(service.get).toHaveBeenCalledTimes(4);
+    } finally { release(); }
+    for (const response of await Promise.all(pending)) { expect(response.status).toBe(200); await response.json(); }
+    const retry = await post(get, bearer); expect(retry.status).toBe(200); await retry.json();
   });
   it('rejects local persona headers in OAuth mode and fails closed without production auth', async () => {
     expect((await post(list, undefined, { 'x-kingdown-dev-actor': alice })).status).toBe(401);

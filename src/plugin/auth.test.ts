@@ -2,10 +2,11 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 'jose';
 import { createTokenVerifier, pluginOrigin, type PluginAuth } from './auth';
 const actor = '11111111-1111-4111-8111-111111111111', publicOrigin = 'https://plugin.kingdown.example', supabaseUrl = 'https://project.supabase.co';
-let auth: PluginAuth, privateKey: CryptoKey;
+let auth: PluginAuth, privateKey: CryptoKey, keys: ReturnType<typeof createLocalJWKSet>;
 beforeAll(async () => {
   const pair = await generateKeyPair('ES256'); privateKey = pair.privateKey;
-  auth = createTokenVerifier({ supabaseUrl, publicOrigin }, createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'test', alg: 'ES256' }] }));
+  keys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'test', alg: 'ES256' }] });
+  auth = createTokenVerifier({ supabaseUrl, publicOrigin }, keys);
 });
 async function signed(overrides: JWTPayload = {}) {
   const now = Math.floor(Date.now() / 1000);
@@ -38,6 +39,11 @@ describe('resource-bound Supabase OAuth', () => {
   });
   it('accepts documented tokens without a scope claim but requires openid when provided', async () => {
     expect(await auth.verify(await signed({ scope: undefined }))).toBe(actor);
+  });
+  it('enforces an explicit OAuth client allowlist in production configuration', async () => {
+    const scoped = createTokenVerifier({ supabaseUrl, publicOrigin, clientIds: ['approved-client'] }, keys);
+    await expect(scoped.verify(await signed())).rejects.toThrow('OAuth access token');
+    expect(await scoped.verify(await signed({ client_id: 'approved-client' }))).toBe(actor);
   });
   it('rejects altered signatures, unknown keys and oversized tokens', async () => {
     const token = await signed();
