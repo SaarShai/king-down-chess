@@ -88,6 +88,16 @@ function push() {
     for (const k of ['--id', '--shard', '--workers']) if (runArgs.some(a => a === k || a.startsWith(`${k}=`))) fail(`${k} is set by this tool; leave it out of the run flags`);
     sha = git('rev-parse', `${opts.ref ?? 'HEAD'}^{commit}`);
     args = runArgs;
+    // `--evalParams` and `--fens` name files the notebook reads: they ship in its checkout of sim/probes/
+    // at this commit, so each must be there (committed) under that folder.
+    for (let i = 0; i < args.length; i++) {
+      const m = /^--(evalParams|fens)(?:=(.*))?$/.exec(args[i]);
+      if (!m) continue;
+      for (const file of (m[2] ?? args[i + 1] ?? '').split(',').filter(Boolean)) {
+        if (!file.startsWith('sim/probes/')) fail(`--${m[1]} ${file}: the notebook gets only sim/probes/; put the file there`);
+        if (spawnSync('git', ['cat-file', '-e', `${sha}:${file}`]).status !== 0) fail(`--${m[1]} ${file} is not committed at ${sha.slice(0, 9)}`);
+      }
+    }
     shards = Array.from({ length: n - first }, (_, k) => first + k);
   }
   const user = opts.user ?? process.env.KAGGLE_USERNAME
@@ -196,9 +206,10 @@ try:
     open('/tmp/node.tar.xz', 'wb').write(data)
     sh('mkdir -p /tmp/node && tar -xJf /tmp/node.tar.xz -C /tmp/node --strip-components=1')
     os.environ['PATH'] = '/tmp/node/bin:' + os.environ['PATH']
-    # The pinned commit: the package files and src/ only (the repository holds 370 MB of art).
+    # The pinned commit: the package files, src/ and sim/probes/ (the --evalParams and --fens
+    # files) only; the repository holds 370 MB of art.
     sh(f"git init -q {R} && git -C {R} remote add origin {CFG['repo']} && git -C {R} config core.sparseCheckout true")
-    open(f'{R}/.git/info/sparse-checkout', 'w').write('/package.json\\n/package-lock.json\\n/tsconfig.json\\n/src/\\n')
+    open(f'{R}/.git/info/sparse-checkout', 'w').write('/package.json\\n/package-lock.json\\n/tsconfig.json\\n/src/\\n/sim/probes/\\n')
     sh(f"git -C {R} fetch -q --depth 1 --filter=blob:none origin {CFG['sha']} && git -C {R} checkout -q FETCH_HEAD")
     sh('node --version && npm ci --no-audit --no-fund --loglevel=error', cwd=R)
     # Games, spec and log go straight into the notebook's output.

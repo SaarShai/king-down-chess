@@ -363,6 +363,137 @@ function shield(board: Uint8Array, k: number, c: Color): number {
 
 const cheb = (a: number, b: number): number => Math.max(Math.abs((a & 7) - (b & 7)), Math.abs((a >> 3) - (b >> 3)));
 
+// ---------------------------------------------------------------------------------------------
+// Guard-strategy probes (lab only, docs/research/guard-strategies-2026-10-06.md, Part 1).
+//
+// Six pattern terms E1–E6, each a weight in centipawns, and E7, a flag that flattens `PST[G]`.
+// Every weight is 0 and the flag is off in the shipped eval, and `evaluateBoard` then skips the
+// whole block, so the shipped eval and its search are unchanged (src/ai/guard-probes.test.ts).
+
+/** Bit per pattern in `guardPatterns` (E7's bit: the Guard stands beyond its own second rank). */
+export const GP = { E1: 1, E2: 2, E3: 4, E4: 8, E5: 16, E6: 32, E7: 64 } as const;
+export const GP_NAMES = ['E1', 'E2', 'E3', 'E4', 'E5', 'E6', 'E7'] as const;
+/** E1..E6 weights; 0 = off. */
+const GW = new Int32Array(6);
+let GUARD_ON = false;
+
+const isSlider = (t: PieceType): boolean => t === B || t === R || t === Q || t === L;
+/** Whether a slider of type `t` moves along direction index `d` of `DIRS` (0–3 straight, 4–7 diagonal). */
+const slidesOn = (t: PieceType, d: number): boolean => (t === B ? d >= 4 : t === R ? d < 4 : t === Q || t === L);
+const unit = (x: number): number => (x > 0 ? 1 : x < 0 ? -1 : 0);
+
+/** Own pawn is passed: no enemy pawn ahead of it on its file or the next files. */
+function passed(board: Uint8Array, s: number, c: Color): boolean {
+  const f = s & 7, r = s >> 3, dr = c === WHITE ? 1 : -1, enemyPawn = c === WHITE ? P | 16 : P;
+  for (let rr = r + dr; rr >= 0 && rr <= 7; rr += dr) {
+    for (let ff = Math.max(0, f - 1); ff <= Math.min(7, f + 1); ff++) if (board[(rr << 3) | ff] === enemyPawn) return false;
+  }
+  return true;
+}
+
+/**
+ * E3: the Guard on `g` is the only piece between `target` and an enemy slider that attacks along
+ * that line. Walks the ray from the target through the Guard to the first piece beyond it.
+ */
+function interposes(board: Uint8Array, g: number, target: number, c: Color): boolean {
+  if (target < 0 || g === target) return false;
+  const df = (g & 7) - (target & 7), dr = (g >> 3) - (target >> 3);
+  if (df !== 0 && dr !== 0 && Math.abs(df) !== Math.abs(dr)) return false;
+  const uf = unit(df), ur = unit(dr), d = DIRS.findIndex(([a, b]) => a === uf && b === ur);
+  let s = step(target, uf, ur);
+  for (; s >= 0 && s !== g; s = step(s, uf, ur)) if (board[s]) return false; // something else blocks first
+  for (s = step(g, uf, ur); s >= 0; s = step(s, uf, ur)) {
+    const p = board[s];
+    if (!p) continue;
+    return colorOf(p) !== c && isSlider(typeOf(p)) && slidesOn(typeOf(p), d);
+  }
+  return false;
+}
+
+/**
+ * E2: the square next to the queen on `q`, on the line to the nearest enemy slider that is aligned
+ * with the queen along one of its own move lines (other pieces ignored). -1 when there is none.
+ */
+function frontSquare(board: Uint8Array, q: number, c: Color): number {
+  let best = -1, bestD = 99;
+  for (let s = 0; s < 64; s++) {
+    const p = board[s];
+    if (!p || colorOf(p) === c || !isSlider(typeOf(p))) continue;
+    const df = (q & 7) - (s & 7), dr = (q >> 3) - (s >> 3);
+    if (df !== 0 && dr !== 0 && Math.abs(df) !== Math.abs(dr)) continue;
+    const d = DIRS.findIndex(([a, b]) => a === unit(df) && b === unit(dr));
+    if (!slidesOn(typeOf(p), d)) continue;
+    const dist = cheb(s, q);
+    if (dist < bestD) { bestD = dist; best = step(q, -unit(df), -unit(dr)); }
+  }
+  return best;
+}
+
+/**
+ * The patterns the Guard on `g` (colour `c`) makes, as `GP` bits, and the E1/E4 strength (1 = full
+ * weight, 0.5 = half). `q` is c's queen (-1 if none), `k` c's king, `ek` the enemy king.
+ */
+function guardPattern(board: Uint8Array, g: number, c: Color, q: number, k: number, ek: number, half: { e1: number; e4: number }): number {
+  let bits = 0;
+  half.e1 = half.e4 = 1;
+  const fwd = c === WHITE ? 8 : -8;
+  if (q >= 0 && cheb(g, q) === 1) {
+    bits |= GP.E1;
+    if (c === WHITE ? q >> 3 < 4 : q >> 3 > 3) half.e1 = 0.5; // queen still in its own half
+  }
+  if (q >= 0 && frontSquare(board, q, c) === g) bits |= GP.E2;
+  if (interposes(board, g, q, c) || interposes(board, g, k, c)) bits |= GP.E3;
+  const ahead = g + fwd; // an enemy pawn here walks towards our side and meets the Guard
+  if (ahead >= 0 && ahead < 64 && board[ahead] === (P | ((c ^ 1) << 4))) {
+    bits |= GP.E4;
+    if (!passed(board, ahead, (c ^ 1) as Color)) half.e4 = 0.5;
+  }
+  for (let d = 0; d < 8; d++) {
+    const s = step(g, DIRS[d][0], DIRS[d][1]);
+    if (s >= 0 && board[s] === (P | (c << 4)) && passed(board, s, c)) { bits |= GP.E5; break; }
+  }
+  if (ek >= 0 && cheb(g, ek) === 1) bits |= GP.E6;
+  if ((c === WHITE ? g >> 3 : 7 - (g >> 3)) >= 2) bits |= GP.E7;
+  return bits;
+}
+
+const HALF = { e1: 1, e4: 1 };
+
+/** OR of the patterns over `c`'s Guards on `board` (`GP` bits), for counting how often a probe fires. */
+export function guardPatterns(board: Uint8Array, c: Color): number {
+  let q = -1, k = -1, ek = -1, bits = 0;
+  for (let s = 0; s < 64; s++) {
+    const p = board[s];
+    if (!p) continue;
+    const t = typeOf(p);
+    if (t === K) { if (colorOf(p) === c) k = s; else ek = s; } else if (t === Q && colorOf(p) === c && q < 0) q = s;
+  }
+  for (let s = 0; s < 64; s++) if (board[s] && typeOf(board[s]) === G && colorOf(board[s]) === c) bits |= guardPattern(board, s, c, q, k, ek, HALF);
+  return bits;
+}
+
+/** The E1–E6 bonus for both sides' Guards, White's point of view. Only runs with a weight on. */
+function guardTerms(board: Uint8Array): number {
+  let v = 0;
+  const q = [-1, -1];
+  for (let s = 0; s < 64; s++) { const p = board[s]; if (p && typeOf(p) === Q && q[colorOf(p)] < 0) q[colorOf(p)] = s; }
+  for (let s = 0; s < 64; s++) {
+    const p = board[s];
+    if (!p || typeOf(p) !== G) continue;
+    const c = colorOf(p);
+    const bits = guardPattern(board, s, c, q[c], kingSq[c], kingSq[c ^ 1], HALF);
+    let b = 0;
+    if (bits & GP.E1) b += GW[0] * HALF.e1;
+    if (bits & GP.E2) b += GW[1];
+    if (bits & GP.E3) b += GW[2];
+    if (bits & GP.E4) b += GW[3] * HALF.e4;
+    if (bits & GP.E5) b += GW[4];
+    if (bits & GP.E6) b += GW[5];
+    v += c === WHITE ? b : -b;
+  }
+  return Math.round(v);
+}
+
 const kingSq = [-1, -1];
 const maesters: number[] = [];
 
@@ -399,6 +530,7 @@ export function evaluateBoard(board: Uint8Array, turn: Color): number {
     // Rounded per king, so the total is a whole number and a position and its mirror score alike.
     score += c === WHITE ? Math.round(v) : -Math.round(v);
   }
+  if (GUARD_ON) score += guardTerms(board);
   return Math.round(turn === WHITE ? score : -score) + TEMPO;
 }
 
@@ -503,6 +635,11 @@ export interface EvalParams {
    * existed keeps working.
    */
   net?: { b64: string; kind: NetKind };
+  /**
+   * Guard-strategy probes (lab): E1–E6 weights in centipawns and E7, a flat `PST[G]`. Absent or
+   * all zero = the shipped eval. See `guardPatterns` and docs/research/guard-strategies-2026-10-06.md.
+   */
+  guard?: { e1?: number; e2?: number; e3?: number; e4?: number; e5?: number; e6?: number; e7?: boolean };
 }
 
 /** The letters with a table of their own; the king has two, blended by phase. */
@@ -549,6 +686,10 @@ export function setEvalParams(p: EvalParams = SHIPPED): void {
   for (let i = 0; i < 3; i++) MAESTER_NEAR_KING[i] = p.maesterNearKing[i];
   TEMPO = p.tempo;
   PHASE_MAX = p.phaseMax;
+  const gp = p.guard ?? {};
+  [gp.e1, gp.e2, gp.e3, gp.e4, gp.e5, gp.e6].forEach((w, i) => { GW[i] = w ?? 0; });
+  GUARD_ON = GW.some(w => w !== 0);
+  if (gp.e7) PST[G].fill(0); // E7: no home-rank pull; the next load restores the table from `p.pst`
   // The blob is a string compare away from already loaded: swapping arms between plies must not
   // re-parse it each time.
   if (p.net && p.net.b64 !== loadedNetB64()) loadNet(p.net.b64, p.net.kind);

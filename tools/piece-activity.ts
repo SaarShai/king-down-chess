@@ -68,7 +68,7 @@ export function fromTournament(rec: TRecord, t: TournamentSpec, file: string): S
   const rules = gameSpec(t, rec).rules ?? {};
   setRules(rules); // the start position follows the rules (`guardReserve` takes the guards off)
   return {
-    key: `${basename(file)}#${rec.gameId}`, gameId: rec.gameId, startFen: toFen(startPosition(rec.backRank)), lans: rec.lans, rules,
+    key: `${basename(file)}#${rec.gameId}`, gameId: rec.gameId, startFen: rec.fen ?? toFen(startPosition(rec.backRank)), lans: rec.lans, rules,
     openingPlies: t.openingRandomPlies, result: rec.result, ordinary: ordinaryRules(rules),
   };
 }
@@ -374,13 +374,13 @@ export function reportText(tally: Tally, B = 500, head: string[] = []): string {
 // ---------------------------------------------------------------------------------------------
 // Reading files.
 
-async function* lines(file: string): AsyncGenerator<string> {
+export async function* lines(file: string): AsyncGenerator<string> {
   const rl = createInterface({ input: createReadStream(file), crlfDelay: Infinity });
   for await (const l of rl) if (l) yield l;
 }
 
 /** The files and the tournament spec (if any) behind one argument. */
-function sources(arg: string, dir: string): { files: string[]; spec?: TournamentSpec; summary?: string } {
+export function sources(arg: string, dir: string): { files: string[]; spec?: TournamentSpec; summary?: string } {
   const isFile = arg.endsWith('.jsonl');
   const d = isFile ? dirname(arg) : dir;
   const id = isFile ? basename(arg, '.jsonl').replace(/\.shard\d+of\d+$/, '') : arg;

@@ -16,6 +16,12 @@
  * `<id>.shard<i>of<n>.jsonl`, so one tournament can run on several machines; `report` reads the
  * main file and every shard file of an id.
  *
+ * `--evalParams a.json,,b.json` gives entrants of `--powers` (in order; empty = shipped) their own
+ * evaluation; such an entrant is named `<entrant>@<file name>`. `--fens file` starts pair p from
+ * line p mod n of the file; its second game swaps the sides (a mirror matchup: starts from the
+ * mirrored board). For the Guard probes and king defence
+ * (docs/research/guard-strategies-2026-10-06.md; report: `tools/guard-probes.ts`).
+ *
  * `--none` adds a plain king as a reference entrant. `run` resumes by game id; a changed rule,
  * entrant list, seed or depth must use a new id (the header line records them and is checked).
  */
@@ -46,11 +52,15 @@ export const choice = (p: PowerName | 'none'): KingChoice | null => (p === 'none
  * cards, `card:<Name>` a hand of that one card (e.g. `card:Mimic`, to measure one card against `none`),
  * and `card:<A>+<B>` a hand of those cards (`card:Freeze+Rescue`: a card that needs another).
  */
-export type Entrant = PowerName | 'none' | `${PowerName}~h${number}` | `${PowerName}~v${string}` | `cards${number}` | `card:${string}`;
+export type Entrant = PowerName | 'none' | `${PowerName}~h${number}` | `${PowerName}~v${string}` | `cards${number}` | `card:${string}`
+  /** Any of the above playing its own evaluation (`--evalParams`): `none@E1-30` plays sim/probes/E1-30.json. */
+  | `${string}@${string}`;
+/** The entrant without its `@<params>` tag: what it plays apart from its evaluation. */
+const bare = (e: Entrant): Entrant => e.split('@')[0] as Entrant;
 /** A card-mode entrant (`cards<k>`, `card:<Name>`): its powers are its hand. */
 const dealt = (e: Entrant): boolean => e.startsWith('card');
 /** A card-mode entrant plays a plain king, so it plays the armies `none` plays (`pairDraw`). */
-export const basePower = (e: Entrant): PowerName | 'none' => (dealt(e) ? 'none' : e.split('~')[0] as PowerName | 'none');
+export const basePower = (e: Entrant): PowerName | 'none' => (dealt(e) ? 'none' : bare(e).split('~')[0] as PowerName | 'none');
 /** The one-use powers card mode deals from, unless a spec names its own `cardPool`. */
 export const CARD_POOL: readonly CardName[] = ['Freeze', 'IceWall', 'Strike', 'Haste', 'Flight', 'Sacrifice', 'March', 'Leap'];
 /** The pool shuffled by the pair's own opening seed: the order cards are dealt and drawn in. */
@@ -66,6 +76,7 @@ function dealOrder(t: TournamentSpec, seed: number): CardName[] {
  * A `card:<Name>` entrant always holds that one card (`card:<A>+<B>`: those cards).
  */
 export function handFor(t: TournamentSpec, e: Entrant, seed: number): CardName[] {
+  e = bare(e);
   if (e.startsWith('card:')) return e.slice(5).split('+') as CardName[];
   if (!e.startsWith('cards')) return [];
   return dealOrder(t, seed).slice(0, Number(e.slice(5)));
@@ -79,7 +90,7 @@ export function pileFor(t: TournamentSpec, hand: readonly CardName[], seed: numb
   return dealOrder(t, seed).filter(x => { const i = left.indexOf(x); if (i < 0) return true; left.splice(i, 1); return false; });
 }
 const holdOf = (e: Entrant): Partial<Record<string, number>> | undefined => {
-  const m = /~h(\d+)$/.exec(e);
+  const m = /~h(\d+)$/.exec(bare(e));
   return m ? { [basePower(e)]: Number(m[1]) } : undefined;
 };
 
@@ -103,7 +114,7 @@ export const RULE_POWERS: Partial<Record<keyof Rules, readonly PowerName[]>> = {
   darknessKingStepSafe: ['Darkness'], darknessKingStepTakes: ['Darkness'],
 };
 const variantOf = (t: TournamentSpec, e: Entrant): Partial<Rules> => {
-  const m = /~v(.+)$/.exec(e);
+  const m = /~v(.+)$/.exec(bare(e));
   if (!m) return {};
   const v = t.variants?.[m[1]];
   if (!v) throw new Error(`[${t.id}] entrant ${e}: no variant "${m[1]}" (--variant ${m[1]}:rule=value)`);
@@ -112,6 +123,7 @@ const variantOf = (t: TournamentSpec, e: Entrant): Partial<Rules> => {
 /** Whether `a`'s rule variant would change `b`'s power in their game (then they do not meet). */
 const clashes = (t: TournamentSpec, a: Entrant, b: Entrant): boolean => {
   // A card entrant holds its cards' powers: a Haste variant's rule would bind its Haste card too.
+  b = bare(b);
   const pb = basePower(b), held: readonly CardName[] = b.startsWith('card:') ? b.slice(5).split('+') as CardName[] : b.startsWith('cards') ? t.cardPool ?? CARD_POOL : pb === 'none' ? [] : [pb];
   return Object.keys(variantOf(t, a)).some(k => RULE_POWERS[k as keyof Rules]?.some(p => held.includes(p)));
 };
@@ -154,10 +166,24 @@ export interface TournamentSpec {
   mirror: boolean;
   maxPlies: number;
   openingRandomPlies: number;
+  /**
+   * Entrant → `EvalParams` file (`--evalParams`): that entrant plays this evaluation, every other
+   * side the shipped one. Absent: every side plays the shipped evaluation.
+   */
+  evalParams?: Record<string, string>;
+  /**
+   * Start positions (`--fens`): a file of FEN lines, each optionally followed by a tab and a tag.
+   * Pair p of a matchup starts from line p mod n, and its second game swaps the entrants' sides of
+   * that board. In a mirror matchup (an entrant against itself) the second game starts from the
+   * mirrored board (ranks flipped, colours and side to move swapped) instead.
+   */
+  fens?: string;
 }
 
 export interface TJob {
   gameId: number; pairId: number; a: Entrant; b: Entrant; white: Entrant; black: Entrant; backRank: string; seed: number;
+  /** With `--fens`: the start position as played (mirrored in the pair's second game), and the line's tag. */
+  fen?: string; tag?: string;
 }
 
 /** What a tournament keeps of a game: enough to rate, to count the powers' use and to replay it. */
@@ -173,6 +199,8 @@ export interface TRecord {
   firstUse: [number | null, number | null];
   checks: [number, number];
   lans: string[];
+  /** With `--fens` only: the start position and its tag (`TJob`). */
+  fen?: string; tag?: string;
 }
 
 /**
@@ -200,6 +228,7 @@ export function schedule(t: TournamentSpec): TJob[] {
   const seeds = Array.from({ length: t.pairs }, (_, p) => (t.seed * 1_000_003 + p * 7919) >>> 0);
   const jobs: TJob[] = [];
   const e = t.entrants;
+  const fens = t.fens ? readFens(t.fens) : null;
   let pairs = 0;
   for (let i = 0; i < e.length; i++) {
     for (let j = t.mirror ? i : i + 1; j < e.length; j++) {
@@ -209,17 +238,53 @@ export function schedule(t: TournamentSpec): TJob[] {
       for (let p = 0; p < t.pairs; p++) {
         const pairId = pairs++;
         const draw = t.armies === 'perPair' ? pairDraw(t.seed, e[i], e[j], p, pool) : { backRank: armies[p], seed: seeds[p] };
+        // With start positions, pair p starts from line p mod n (the drawn army is then unused).
+        const start = fens?.[p % fens.length];
         // A mirror's colour swap replays the same game exactly, so a mirror-only round plays it once.
         for (const swap of t.mirrorOnly ? [false] : [false, true]) {
+          // From a start position, two entrants swap sides of the same board. An entrant against
+          // itself has no sides to swap: its second game starts from the mirrored board instead, so
+          // each side of the position is played by White once and by Black once.
+          const fen = start && (swap && i === j ? mirrorFen(start.fen) : start.fen);
           jobs.push({
             gameId: jobs.length, pairId, a: e[i], b: e[j],
             white: swap ? e[j] : e[i], black: swap ? e[i] : e[j], ...draw,
+            ...(start ? { fen: fen!, ...(start.tag ? { tag: start.tag } : {}) } : {}),
           });
         }
       }
     }
   }
   return jobs;
+}
+
+/** A `--fens` file: one FEN per line, optionally a tab and a tag; blank lines and `#` lines skipped. */
+const fenFiles = new Map<string, { fen: string; tag?: string }[]>();
+export function readFens(path: string): { fen: string; tag?: string }[] {
+  let hit = fenFiles.get(path);
+  if (!hit) {
+    hit = readFileSync(path, 'utf8').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).map(l => {
+      const [fen, tag] = l.split('\t');
+      return { fen: fen.trim(), ...(tag ? { tag: tag.trim() } : {}) };
+    });
+    if (!hit.length) throw new Error(`${path}: no positions`);
+    fenFiles.set(path, hit);
+  }
+  return hit;
+}
+
+/**
+ * The same position with the colours exchanged: ranks flipped, piece colours and the side to move
+ * swapped. Castling and en passant are written as `-` (no generated start position has either);
+ * the halfmove clock is kept, the move number restarts at 1, and the power field (7) is dropped:
+ * the positions of `--fens` carry no power state.
+ */
+export function mirrorFen(fen: string): string {
+  const [board, turn, , , half = '0', , powers] = fen.trim().split(/\s+/);
+  if (powers) throw new Error(`mirrorFen: ${fen} carries power state`);
+  const swap = (ch: string): string => (ch === ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase());
+  const rows = board.split('/').reverse().map(r => [...r].map(ch => (/\d/.test(ch) ? ch : swap(ch))).join(''));
+  return `${rows.join('/')} ${turn === 'w' ? 'b' : 'w'} - - ${half} 1`;
 }
 
 /** The RunSpec `playGame` wants for one tournament game. */
@@ -234,6 +299,8 @@ export function gameSpec(t: TournamentSpec, job: TJob): RunSpec {
     ...(t.powerHold ? { powerHold: t.powerHold } : {}),
     ...(sides[0] || sides[1] ? { powerHoldSides: sides } : {}),
     maxPlies: t.maxPlies, openingRandomPlies: t.openingRandomPlies,
+    ...(t.evalParams && (t.evalParams[job.white] || t.evalParams[job.black])
+      ? { evalParams: { white: t.evalParams[job.white], black: t.evalParams[job.black] } } : {}),
   };
 }
 
@@ -256,6 +323,7 @@ export function compress(job: TJob, rec: GameRecord): TRecord {
     gameId: job.gameId, pairId: job.pairId, a: job.a, b: job.b, white: job.white, black: job.black,
     backRank: job.backRank, seed: job.seed, result: rec.result, reason: rec.reason, plies: rec.plies, ms: rec.ms,
     uses, firstUse, checks: rec.events.checks, lans: rec.moves.map(m => m.lan),
+    ...(job.fen ? { fen: job.fen } : {}), ...(job.tag ? { tag: job.tag } : {}),
   };
 }
 
@@ -329,6 +397,7 @@ if (!isMainThread && (workerData as { role?: string } | null)?.role === 'tournam
     const rec = playGame(gameSpec(t, job), {
       gameId: job.gameId, pairId: job.pairId, colourSwapped: false, configId: job.backRank,
       seed: job.seed, backRankWhite: job.backRank, backRankBlack: job.backRank,
+      ...(job.fen ? { fen: job.fen } : {}),
     });
     parentPort!.postMessage(compress(job, rec));
   });
@@ -864,6 +933,22 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
     console.log(text);
   } else {
     const entrants = parseEntrants(f.powers, !!f.none);
+    // `--evalParams a.json,,b.json`: one file per entrant of `--powers` (in order; empty = the shipped
+    // evaluation). A tagged entrant is renamed `<entrant>@<file name>`, so two `none` can meet.
+    let evalParams: Record<string, string> | undefined;
+    if (typeof f.evalParams === 'string') {
+      const list = f.evalParams.split(',').map(s => s.trim());
+      if (list.length > entrants.length) throw new Error(`--evalParams names ${list.length} files for ${entrants.length} entrants`);
+      evalParams = {};
+      list.forEach((file, i) => {
+        if (!file) return;
+        if (!existsSync(file)) throw new Error(`--evalParams: ${file} not found`);
+        entrants[i] = `${entrants[i]}@${file.replace(/^.*\//, '').replace(/\.json$/, '')}` as Entrant;
+        evalParams![entrants[i]] = file;
+      });
+      if (new Set(entrants).size !== entrants.length) throw new Error(`entrants must differ: ${entrants.join(', ')}`);
+    }
+    if (typeof f.fens === 'string' && !existsSync(f.fens)) throw new Error(`--fens: ${f.fens} not found`);
     const variants = parseVariants(argv, entrants);
     if (f.armies !== undefined && f.armies !== 'perPair' && f.armies !== 'shared') throw new Error(`--armies ${f.armies}: perPair or shared`);
     if (typeof f.anchor === 'string' && !entrants.includes(parseEntrants(f.anchor, false)[0])) throw new Error(`--anchor ${f.anchor} is not an entrant`);
@@ -889,6 +974,9 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
       ...(parseHold(f.hold) ? { powerHold: parseHold(f.hold) } : {}),
       ...(typeof f.powerPlies === 'string' ? { powerPlies: Number(f.powerPlies) } : {}),
       mirror: !!f.mirror || !!f.mirrorOnly, maxPlies: num('maxPlies', 300), openingRandomPlies: num('openingRandomPlies', 4),
+      // Left out when absent, so every earlier round's spec still matches and resumes.
+      ...(evalParams && Object.keys(evalParams).length ? { evalParams } : {}),
+      ...(typeof f.fens === 'string' ? { fens: f.fens } : {}),
     };
     const shard = typeof f.shard === 'string' ? (([i, n]) => ({ i: +i, n: +n }))(f.shard.split('/')) : undefined;
     runTournament(t, num('workers', availableParallelism()), shard).catch(fail);
