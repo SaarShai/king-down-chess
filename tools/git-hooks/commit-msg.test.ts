@@ -122,4 +122,36 @@ describe('commit-msg: removed assertions need Removed-check trailers', { timeout
     expect(result.stderr).toContain(`"${name}"`);
     expect(result.stderr).toContain('removes 3 assertion lines');
   });
+
+  it('passes a merge of a branch that removed assertions with its trailers, with no trailer on the merge', () => {
+    const repo = withCheck();
+    repo.git('switch', '-q', '-c', 'side');
+    stageCheck(repo, kept);
+    expect(commit(repo, '-m', 'Cut the check', '-m', trailers(3)).status).toBe(0);
+    repo.git('switch', '-q', 'main');
+    repo.write('b.txt', 'b\n');
+    repo.git('add', 'b.txt');
+    expect(commit(repo, '-m', 'Add b').status).toBe(0);
+    const result = repo.run('git', ['merge', '--no-ff', '-m', 'Merge side', 'side'], { env: noMarker });
+    expect(result.status, result.stderr).toBe(0);
+    expect(repo.git('log', '-1', '--format=%s').stdout.trim()).toBe('Merge side');
+  });
+
+  it('refuses a merge that removes an assertion line that both parents hold', () => {
+    const repo = withCheck();
+    repo.git('switch', '-q', '-c', 'side');
+    repo.write('b.txt', 'b\n');
+    repo.git('add', 'b.txt');
+    expect(commit(repo, '-m', 'Add b').status).toBe(0);
+    repo.git('switch', '-q', 'main');
+    repo.write('c.txt', 'c\n');
+    repo.git('add', 'c.txt');
+    expect(commit(repo, '-m', 'Add c').status).toBe(0);
+    expect(repo.run('git', ['merge', '--no-ff', '--no-commit', 'side'], { env: noMarker }).status).toBe(0);
+    stageCheck(repo, steps.filter(step => step !== steps[3]));
+    const result = commit(repo, '-m', 'Merge side');
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('removes 1 assertion line');
+    expect(result.stderr).toContain(steps[3]);
+  });
 });

@@ -14,8 +14,8 @@
 //     starts with "assert", or whose parameters start with (page, selector). The counter reads
 //     the export lines of the module's text, so it needs no browser package.
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checks } from './registry.mjs';
 
@@ -87,17 +87,34 @@ export function removedAssertions(diff, { paths = registeredChecks(), names = as
  * The assertion lines that the staged change removes from the registered checks.
  * Git starts the commit-msg hook in the top folder of the work tree, with GIT_INDEX_FILE set
  * when the commit uses its own index (such as `git commit -a`), so the default env is right there.
+ * In a merge, a line counts only when the merge removes it from each parent: the merged commits
+ * named their own removals, and a merge that drops a line that both sides hold must name it.
  * @param {{ cwd?: string, env?: NodeJS.ProcessEnv }} [options]
  */
 export function stagedRemovedAssertions({ cwd, env } = {}) {
   const git = (/** @type {string[]} */ ...args) => {
-    const result = spawnSync('git', ['-c', 'core.quotePath=false', 'diff', '--cached', '--no-color', '--no-ext-diff', '--no-textconv', '--no-renames', ...args], { cwd, env, encoding: 'utf8', maxBuffer: 1 << 30 });
+    const result = spawnSync('git', args, { cwd, env, encoding: 'utf8', maxBuffer: 1 << 30 });
     if (result.error) throw result.error;
-    if (result.status !== 0) throw new Error(`removed-checks: git diff failed: ${result.stderr.trim()}`);
+    if (result.status !== 0) throw new Error(`removed-checks: git ${args[0]} failed: ${result.stderr.trim()}`);
     return result.stdout;
   };
+  const diff = (/** @type {string[]} */ ...args) => git('-c', 'core.quotePath=false', 'diff', '--cached', '--no-color', '--no-ext-diff', '--no-textconv', '--no-renames', ...args);
   const paths = registeredChecks();
-  const changed = git('--name-only', '-z').split('\0');
+  const changed = diff('--name-only', '-z').split('\0');
   if (!paths.some(path => changed.includes(path))) return [];
-  return removedAssertions(git('-U0', '--src-prefix=a/', '--dst-prefix=b/'), { paths });
+  /** @param {string[]} parent no item: HEAD (also before the first commit); one item: that commit */
+  const removedFrom = (...parent) => removedAssertions(diff('-U0', '--src-prefix=a/', '--dst-prefix=b/', ...parent), { paths });
+
+  const mergeHead = resolve(cwd ?? '.', git('rev-parse', '--git-path', 'MERGE_HEAD').trim());
+  const others = existsSync(mergeHead) ? readFileSync(mergeHead, 'utf8').split('\n').filter(Boolean) : [];
+  let removed = removedFrom();
+  for (const parent of others) {
+    const also = removedFrom(parent).map(r => `${r.file}\n${r.text}`);
+    removed = removed.filter(r => {
+      const i = also.indexOf(`${r.file}\n${r.text}`);
+      if (i >= 0) also.splice(i, 1);
+      return i >= 0;
+    });
+  }
+  return removed;
 }
