@@ -17,7 +17,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { findModelNames } from './lib/model-names.mjs';
+import { findModelNames, MODEL_NAMES } from './lib/model-names.mjs';
 
 const root = join(import.meta.dirname, '..');
 
@@ -271,11 +271,13 @@ function lessonFaults(text: string, file = 'LESSONS.md'): Fault[] {
 }
 
 describe('lesson headings', () => {
+  // The model name comes from the module, so this file holds no model name.
+  const model = MODEL_NAMES[0][0].toUpperCase() + MODEL_NAMES[0].slice(1);
   const fixture = [
     '# Lessons', 'Intro text.', '',
     '- A lesson with no heading. (2026-10-04)',
     '- Another one.', '',
-    '## 2026-09-13 \u2014 rate limit killed 8 parallel Opus agents', '- text',
+    `## 2026-09-13 \u2014 rate limit killed 8 parallel ${model} agents`, '- text',
     '## Clay facing \u2014 2026-09-22', '- text', '',
     '## A heading with no date', '- text',
     '## Clay facing \u2014 2026-09-22', '- text',
@@ -303,9 +305,9 @@ describe('lesson headings', () => {
 
   it('names each heading that holds a model name, and not a model name in the lesson text', () => {
     expect(lessonFaults(fixture, 'fixture.md').filter(f => f.what.includes('model name')).map(show)).toEqual([
-      'fixture.md \u00a7 2026-09-13 \u2014 rate limit killed 8 parallel Opus agents (line 7): a heading must not hold the model name "Opus"',
+      `fixture.md \u00a7 2026-09-13 \u2014 rate limit killed 8 parallel ${model} agents (line 7): a heading must not hold the model name "${model}"`,
     ]);
-    expect(lessonFaults('## 2026-09-13 \u2014 rate limit\n- Keep no more than ~6 Opus agents.', 'fixture.md')).toEqual([]);
+    expect(lessonFaults(`## 2026-09-13 \u2014 rate limit\n- Keep no more than ~6 ${model} agents.`, 'fixture.md')).toEqual([]);
   });
 
   it('LESSONS.md holds each lesson under one dated heading with no model name', () => {
