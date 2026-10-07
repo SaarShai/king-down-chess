@@ -4,7 +4,7 @@
 
 **Blocked by:** 04; checks-and-hooks/04 (the pre-push hook that calls `gate -- push <remote> <url>`)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/gate.mjs`, `tools/gate/`, `tools/gate.test.ts`
 
