@@ -46,8 +46,8 @@
 | Step 6: specs, read by the owner before step 7 | close: done; five specs, the owner's approval in retro ticket 10 (resolved) |
 | Step 7: `/implement-spec` on one integration branch; the owner chooses when to merge | close: the tickets are built on `claude/retro-2026-10-06`; the owner's merge into main closes the step. Each ticket that waits for the owner holds its question in the specs folder. |
 | Retro subject 1: the Workshop rework (result and process) | close: retro items 1 to 3 and 25 to 27; the Workshop finish spec; index line **Workshop finish** |
-| Retro subject 2: the recent sessions | close: retro items 5 to 13 and 18 to 23 |
-| Retro subject 3: the environment | close: retro items 4, 14 to 17, 24 and 28 to 30 |
+| Retro subject 2: the recent sessions | close: retro items 5 to 13, 18 and 21 to 23 |
+| Retro subject 3: the environment | close: retro items 4, 14 to 17, 19, 20, 24 and 28 to 30 |
 
 **Checks.** `npm run test:docs`: 4 files, 74 tests passed. `npm test` after the merge of the integration tip (5b84617, no new commits since the branch start): tsc clean; vitest 66 files, 1,284 tests passed; `node --test` 42 passed, 0 failed. One run before it failed only `src/workshop/judge.test.ts` (a random-design test, the 5 s limit, 5.5 s); this ticket changes no code that it runs, and the next run passed. `git ls-files docs/HANDOFF-retro.md` gives nothing.
 
