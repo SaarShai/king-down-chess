@@ -1,8 +1,9 @@
-// Repo gate test (secrets-and-public-gates/04 and 05): the size and private rules in `staged` and
-// `push` mode. Each commit case drives the real pre-commit hook through `git commit`, and each push
+// Repo gate test (secrets-and-public-gates/04, 05 and 06): the size, private and secret rules in
+// `staged` and `push` mode. Each commit case drives the real pre-commit hook through `git commit`, and each push
 // case drives the real pre-push hook through `git push`, in a temporary repository with a bare
 // remote. The package `gate` script starts the real gate.
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { tempRepo } from './lib/temp-repo.mjs';
@@ -13,10 +14,15 @@ type Repo = ReturnType<typeof tempRepo>;
 
 const repos: Repo[] = [];
 afterEach(() => { while (repos.length) repos.pop()!.cleanup(); });
-/** A temporary repository whose pre-commit hook starts the real gate. */
+/**
+ * A temporary repository whose pre-commit hook starts the real gate. The two secret sources point
+ * at missing files, so that no case reads the real secrets.
+ */
 const make = () => {
   const repo = tempRepo();
   repos.push(repo);
+  repo.env.GATE_SECRETS_DIR = join(repo.root, 'no-secrets');
+  repo.env.GATE_TYPESAFE_KEY = join(repo.root, 'no-key');
   const pkg = JSON.parse(repo.read('package.json'));
   pkg.scripts.gate = `node "${gatePath}"`;
   repo.write('package.json', JSON.stringify(pkg));
@@ -324,5 +330,163 @@ describe('push mode reads only what origin does not reach', () => {
     expect(result.status).toBe(2);
     expect(result.stderr.trim().split('\n')).toHaveLength(1);
     expect(result.stderr).toMatch(/^gate: fault: /);
+  });
+});
+
+// A push case runs the fixture hooks and git several times; under load this takes over 5 s.
+describe('secret rule', { timeout: 30_000 }, () => {
+  /** A fake secret value; each case makes new ones. */
+  const fake = () => `fake-${randomUUID()}`;
+  /**
+   * Writes fake secret sources and points the gate at them: `files` go into the secrets folder,
+   * `key` into the Typesafe key file.
+   */
+  const sources = (repo: Repo, files: Record<string, string>, key?: string) => {
+    const folder = join(repo.root, 'secrets');
+    mkdirSync(folder, { recursive: true });
+    for (const [name, text] of Object.entries(files)) writeFileSync(join(folder, name), text);
+    repo.env.GATE_SECRETS_DIR = folder;
+    if (key !== undefined) writeFileSync(join(repo.root, 'typesafe-key'), key);
+    repo.env.GATE_TYPESAFE_KEY = join(repo.root, 'typesafe-key');
+    return folder;
+  };
+  /** Asserts that no output holds a value. */
+  const silent = (result: { stdout: string, stderr: string }, ...values: string[]) => {
+    for (const value of values) {
+      expect(result.stdout.includes(value), 'stdout holds the value').toBe(false);
+      expect(result.stderr.includes(value), 'stderr holds the value').toBe(false);
+    }
+  };
+  const refused = (repo: Repo, result: { status: number | null, stdout: string, stderr: string }, expected: string[], ...values: string[]) => {
+    expect(result.status).not.toBe(0);
+    expect(lines(result.stderr, 'gate: ')).toEqual(expected.map(start => expect.stringMatching(new RegExp(`^${start.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`))));
+    expect(remoteHead(repo, 'feature')).toBe('');
+    silent(result, ...values);
+  };
+
+  it('push: a value in a text file, in a binary file and in a commit message each refuse the push', () => {
+    const repo = seeded();
+    const token = fake(), key = fake();
+    sources(repo, { kaggle_api_token: `${token}\n` }, `  ${key}\n`);
+    repo.write('notes.txt', `the token is ${token} here\n`);
+    const text = commitPast(repo, 'notes', 'notes.txt');
+    mkdirSync(join(repo.dir, 'media'));
+    writeFileSync(join(repo.dir, 'media/blob.bin'), Buffer.concat([Buffer.from([0, 0xff, 0xfe, 0x80]), Buffer.from(key), Buffer.from([0xc3, 0x28, 0])]));
+    const binary = commitPast(repo, 'binary', 'media/blob.bin');
+    repo.write('c.txt', 'c\n');
+    const message = commitPast(repo, `a message with ${token}`, 'c.txt');
+    const result = push(repo, 'HEAD:refs/heads/feature');
+    refused(repo, result, [
+      `gate: secret: ${short(text)}: notes.txt: .secrets/kaggle_api_token`,
+      `gate: secret: ${short(binary)}: media/blob.bin: typesafe key`,
+      `gate: secret: ${short(message)}: message: .secrets/kaggle_api_token`,
+    ], token, key);
+  });
+
+  it('push: a value that one commit adds and a later commit removes refuses the push; the fault names the first commit', () => {
+    const repo = seeded();
+    const token = fake();
+    sources(repo, { kaggle_api_token: token });
+    repo.write('notes.txt', `${token}\n`);
+    const added = commitPast(repo, 'add', 'notes.txt');
+    repo.write('notes.txt', 'clean\n');
+    const cleaned = commitPast(repo, 'clean', 'notes.txt');
+    const result = push(repo, 'HEAD:refs/heads/feature');
+    refused(repo, result, [`gate: secret: ${short(added)}: notes.txt: .secrets/kaggle_api_token`], token);
+    expect(result.stderr).not.toContain(short(cleaned));
+  });
+
+  it('push: a JSON value under a key such as username passes; values under secretapikey and token refuse', () => {
+    const repo = seeded();
+    const user = fake(), apikey = fake(), token = fake();
+    sources(repo, {
+      'porkbun_api.json': JSON.stringify({ username: user, secretapikey: apikey }),
+      'oauth.json': JSON.stringify({ app: { Token: token, url: 'https://example.invalid' }, retries: 3 }),
+    });
+    repo.write('public.txt', `${user}\n`);
+    commitPast(repo, 'public', 'public.txt');
+    const pass = push(repo, 'HEAD:refs/heads/feature');
+    expect(pass.status, pass.stderr).toBe(0);
+    expect(lines(pass.stderr, 'gate: ')).toEqual([]);
+    silent(pass, user);
+
+    repo.write('a.txt', `${apikey}\n`);
+    const a = commitPast(repo, 'a', 'a.txt');
+    repo.write('b.txt', `${token}\n`);
+    const b = commitPast(repo, 'b', 'b.txt');
+    const result = push(repo, 'HEAD:refs/heads/feature2');
+    expect(result.status).not.toBe(0);
+    expect(lines(result.stderr, 'gate: ')).toEqual([
+      expect.stringMatching(new RegExp(`^gate: secret: ${short(a)}: a\\.txt: \\.secrets/porkbun_api\\.json: `)),
+      expect.stringMatching(new RegExp(`^gate: secret: ${short(b)}: b\\.txt: \\.secrets/oauth\\.json: `)),
+    ]);
+    silent(result, user, apikey, token);
+  });
+
+  it('staged: a commit through the real pre-commit hook that stages a value fails', () => {
+    const repo = seeded();
+    const key = fake();
+    sources(repo, {}, key);
+    repo.write('src/config.ts', `export const key = '${key}';\n`);
+    const result = commit(repo, 'config', 'src/config.ts');
+    expect(result.status).not.toBe(0);
+    expect(lines(result.stderr, 'gate: ')).toEqual([expect.stringMatching(/^gate: secret: index: src\/config\.ts: typesafe key: /)]);
+    expect(repo.git('rev-list', '--count', 'HEAD').stdout.trim()).toBe('1');
+    silent(result, key);
+  });
+
+  it('takes the secrets folder of the main checkout, also in a linked worktree', () => {
+    const repo = seeded();
+    const token = fake();
+    delete repo.env.GATE_SECRETS_DIR;
+    mkdirSync(join(repo.dir, '.secrets'));
+    writeFileSync(join(repo.dir, '.secrets/kaggle_api_token'), token);
+    const linked = join(repo.root, 'linked');
+    expect(repo.git('worktree', 'add', '-q', '-b', 'linked', linked).status).toBe(0);
+    writeFileSync(join(linked, 'leak.txt'), token);
+    expect(repo.run('git', ['add', 'leak.txt'], { cwd: linked }).status).toBe(0);
+    const result = repo.run('node', [gatePath, 'staged'], { cwd: linked });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/^gate: secret: index: leak\.txt: \.secrets\/kaggle_api_token: /);
+    silent(result, token);
+  });
+
+  it('passes when both sources are missing', () => {
+    const repo = seeded();
+    repo.write('notes.txt', 'notes\n');
+    const result = commit(repo, 'notes', 'notes.txt');
+    expect(result.status, result.stderr).toBe(0);
+  });
+
+  it('a source folder or a key file with no read access gives exit 2', () => {
+    const repo = seeded();
+    const folder = sources(repo, { kaggle_api_token: fake() }, fake());
+    repo.write('notes.txt', 'notes\n');
+    repo.git('add', 'notes.txt');
+    const gate = () => repo.run('node', [gatePath, 'staged']);
+    chmodSync(folder, 0);
+    try {
+      const result = gate();
+      expect(result.status).toBe(2);
+      expect(result.stderr).toMatch(/^gate: fault: secrets: .*cannot read/);
+      expect(result.stderr.trim().split('\n')).toHaveLength(1);
+    } finally { chmodSync(folder, 0o700); }
+    chmodSync(join(repo.root, 'typesafe-key'), 0);
+    const result = gate();
+    expect(result.status).toBe(2);
+    expect(result.stderr).toMatch(/^gate: fault: secrets: typesafe key: cannot read/);
+    chmodSync(join(repo.root, 'typesafe-key'), 0o600);
+  });
+
+  it('a JSON file that does not parse gives exit 2, and the fault line does not quote it', () => {
+    const repo = seeded();
+    const token = fake();
+    sources(repo, { 'oauth.json': `{"token": "${token}"` });
+    repo.write('notes.txt', 'notes\n');
+    repo.git('add', 'notes.txt');
+    const result = repo.run('node', [gatePath, 'staged']);
+    expect(result.status).toBe(2);
+    expect(result.stderr.trim()).toBe('gate: fault: secrets: .secrets/oauth.json: cannot read (not valid JSON)');
+    silent(result, token);
   });
 });
