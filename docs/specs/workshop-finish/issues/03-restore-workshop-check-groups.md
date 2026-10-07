@@ -61,4 +61,4 @@ Out, as the ticket says: brushes, tabs, glows, Mix two, the Saved screen, the de
 | `editStateKept` | Try it clears the undo list | "390 square: Undo stays after Try it and Share" |
 | `tryIt` | a take never starts a chain | "the next take shows at once" 5 !== 1 |
 
-**Runs.** Against the integration tip `dde3684` (merged into this branch): `npm test` green, vitest 61 files and 1116 tests, node tests 42 of 42. `npm run check:browser workshop`: ok workshop 35.9 s, all 1 passed, `git status` clean after it. Before this ticket the check took 14.9 s; the limit is 240 s.
+**Runs.** After the merge of the integration tip `dde3684` (merge `83ea3e0`): `npm test` green, vitest 62 files and 1125 tests, node tests 42 of 42. `npm run check:browser workshop`: ok workshop 35.6 s, all 1 passed, `git status` clean after it. Before this ticket the check took 14.9 s; the limit is 240 s.
