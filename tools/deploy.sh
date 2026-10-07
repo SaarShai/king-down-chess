@@ -18,7 +18,7 @@
 set -eu
 
 # The pinned Vercel CLI: the last version that deployed the site (2026-10-03). npx gets its own --yes,
-# because .npmrc holds yes=false and so npx asks before an install.
+# because the dev-environment spec sets yes=false in .npmrc, and then npx asks before an install.
 vercel=vercel@62.2.0
 
 die() { echo "deploy: $*" >&2; exit 2; }
