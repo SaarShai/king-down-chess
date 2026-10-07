@@ -34,6 +34,26 @@
             "timeout": 600
           }
         ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-facts.mjs",
+            "timeout": 600
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-facts.mjs",
+            "timeout": 30
+          }
+        ]
       }
     ],
     "PreToolUse": [
