@@ -25,15 +25,17 @@ try {
   await page.goto(both.href);
   await page.waitForFunction(() => document.querySelector('#board canvas'));
   assert.deepEqual(await players(page), ['ai', 'ai']);
-  let last = -1, stalls = 0;
-  for (let i = 0; i < 90; i++) {
+  // The game runs to 60 plies and at least one capture (a random 60-ply game can have none), or to its end.
+  const captures = () => page.$$eval('#took-w span, #took-b span', s => s.length);
+  let last = -1, stalls = 0, taken = 0;
+  for (let i = 0; i < 120; i++) {
     await page.waitForTimeout(1500);
     const n = await plies(page), over = await page.evaluate(() => document.getElementById('over').open || /wins|draw|Draw|Stalemate/.test(document.getElementById('status').textContent));
-    if (over || n >= 60) { console.log(`ok computer game: ${n} plies${over ? ', finished' : ''}`); break; }
+    taken = await captures();
+    if (over || (n >= 60 && taken > 0)) { console.log(`ok computer game: ${n} plies${over ? ', finished' : ''}`); break; }
     stalls = n === last ? stalls + 1 : 0; last = n;
     assert.ok(stalls < 6, `no progress for 9 s at ply ${n}`);
   }
-  const taken = await page.$$eval('#took-w span, #took-b span', s => s.length);
   assert.ok(taken > 0, 'the game included captures');
   await shot(page, 'computer-game');
   console.log(`ok ${taken} captures animated`);
