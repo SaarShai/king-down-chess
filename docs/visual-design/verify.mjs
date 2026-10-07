@@ -1,13 +1,14 @@
 // Checks the visual design pass in a real browser: title screen, keyboard play, move announcements,
 // Show threats, refusal messages, piece cards, phone tap targets, the title's piece lineup and the move markers.
-// Needs a running build: PLAYABLE_URL=http://127.0.0.1:5189/ PLAYABLE_BROWSER=chromium node docs/visual-design/verify.mjs
+// Run: npm run check:browser visual-design (the result file checks.json goes to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { writeFileSync } from 'node:fs';
-import { chromium } from 'playwright';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { assertNoErrors, env, launch, trapErrors } from '../../tools/lib/checks.mjs';
 
-const base = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
-const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
-const errors = [], checks = [];
+const base = env('PLAYABLE_URL');
+const browser = await launch();
+const checks = [];
 const ok = msg => { checks.push(msg); console.log(`ok ${msg}`); };
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
 
@@ -18,8 +19,7 @@ async function open(query = '', { skipTitle = true, save = null, viewport = { wi
     if (s && !sessionStorage.getItem('seeded')) { localStorage.setItem('kingdown.save', JSON.stringify(s)); sessionStorage.setItem('seeded', '1'); }
   }, [skipTitle, save]);
   const page = await ctx.newPage();
-  page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  trapErrors(page);
   page.on('dialog', d => d.accept());
   await page.goto(base + query);
   await page.waitForFunction(() => window.view?.ready);
@@ -251,6 +251,8 @@ try {
   await page.context().close();
   ok('markers: Archer targets are sights; an armed Flight marks its squares as power moves');
 
-  assert.deepEqual(errors, []);
-  writeFileSync(new URL('./checks.json', import.meta.url), JSON.stringify({ url: base, checksPassed: checks.length, checks, errors }, null, 2) + '\n');
+  assertNoErrors();
+  const out = env('PLAYABLE_OUT');
+  mkdirSync(out, { recursive: true });
+  writeFileSync(join(out, 'checks.json'), JSON.stringify({ url: base, checksPassed: checks.length, checks, errors: [] }, null, 2) + '\n');
 } finally { await browser.close(); }
