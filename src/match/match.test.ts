@@ -1,5 +1,11 @@
 import { DEFAULT_RULES, POWERS_BALANCED, RULES_2017, parseKings } from '../rules/rules';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cp, appendFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createMatch, loadMatch, LocalMatch } from './index';
 const matches: LocalMatch[] = [];
 afterEach(async () => { await Promise.all(matches.splice(0).map(m => m.close())); });
@@ -32,6 +38,16 @@ describe('isolated local matches', () => {
     expect(await m.apply(command)).toEqual(played);
     const n = await restart(m); expect(await n.apply(command)).toEqual(played);
     expect(await n.exportSave()).toEqual(await m.exportSave());
+  });
+  it('deduplicates simultaneous retries and returns the latest state after later moves', async () => {
+    const m = await create(), command = { id: 'retry', expectedRevision: 0, lan: 'e2-e4' };
+    const results = await Promise.all([m.apply(command), m.apply(command)]);
+    expect(results[0]).toEqual(results[1]);
+    expect(results[0].revision).toBe(1);
+    const current = await move(m, 'e7-e5');
+    const resumed = await restart(m);
+    expect(await resumed.apply(command)).toEqual(current);
+    expect(JSON.parse(await resumed.exportSave()).commands).toHaveLength(2);
   });
   it('preserves repetition history over restart and blocks terminal moves', async () => {
     let m = await create();
@@ -90,18 +106,79 @@ describe('isolated local matches', () => {
     await expect(createMatch({ fen: '7k/8/8/8/8/8/8/K w - - 0 1' })).rejects.toThrow('FEN');
     await expect(createMatch({ kings: 'nonsense,none' })).rejects.toThrow('king');
   });
+  it('rejects tampered results and duplicate IDs even when the moves themselves are legal', async () => {
+    const m = await create(); await move(m, 'e2-e4'); await move(m, 'e7-e5');
+    const original = await m.exportSave(), saved = JSON.parse(original);
+    for (const patch of [
+      { fen: saved.initialFen }, { ply: 999 }, { status: 'checkmate' },
+      { expectedRevision: 0 }, { id: saved.commands[0].id },
+    ]) {
+      const altered = structuredClone(saved);
+      Object.assign(altered.commands[1], patch);
+      await expect(loadMatch(JSON.stringify(altered))).rejects.toThrow();
+    }
+    const partial = new LocalMatch(); matches.push(partial);
+    saved.commands[1].ply = 999;
+    await expect(partial.initialize(JSON.stringify(saved), true)).rejects.toThrow('Invalid replay');
+    await expect(partial.snapshot()).rejects.toThrow('initialization failed');
+    expect(await m.exportSave()).toBe(original);
+  });
   it('rejects pending calls when its worker exits unexpectedly', async () => {
     const m = await create();
-    const pending = m.snapshot();
-    // Kill the real thread to exercise the lifecycle boundary, without a test-only protocol.
     const worker = (m as unknown as { worker: import('node:worker_threads').Worker }).worker;
-    const result = pending.catch(e => e);
-    await worker.terminate();
-    await result;
-    await expect(m.snapshot()).rejects.toThrow();
+    // Drop delivery so a quick successful reply cannot conceal broken pending-call rejection.
+    const delivery = vi.spyOn(worker, 'postMessage').mockImplementation(() => {});
+    try {
+      const rejected = expect(m.snapshot()).rejects.toThrow('exited');
+      await worker.terminate(); await rejected;
+      await expect(m.snapshot()).rejects.toThrow('closed');
+    } finally { delivery.mockRestore(); }
+  });
+  it('times out an unresponsive worker, rejects all pending calls and closes the handle', async () => {
+    const m = await create();
+    const worker = (m as unknown as { worker: import('node:worker_threads').Worker }).worker;
+    const delivery = vi.spyOn(worker, 'postMessage').mockImplementation(() => {});
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const rejected = [expect(m.snapshot()).rejects.toThrow('timed out'), expect(m.exportSave()).rejects.toThrow('timed out')];
+      vi.advanceTimersByTime(15000);
+      await Promise.all(rejected);
+      await expect(m.snapshot()).rejects.toThrow('closed');
+    } finally { vi.useRealTimers(); delivery.mockRestore(); }
   });
   it('rejects pending and subsequent calls on close', async () => {
     const m = await create(); const pending = m.snapshot(); const assertion = expect(pending).rejects.toThrow('closed'); await m.close(); await assertion;
     await expect(m.snapshot()).rejects.toThrow('closed');
   });
+  it('accepts test-only edits but rejects saves after an actual runtime source change', async () => {
+    const root = fileURLToPath(new URL('../../', import.meta.url));
+    const copy = await mkdtemp(join(tmpdir(), 'kingdown-match-version-'));
+    try {
+      await mkdir(join(copy, 'src/sim'), { recursive: true });
+      await Promise.all([
+        ...['rules', 'ai', 'match'].map(dir => cp(join(root, 'src', dir), join(copy, 'src', dir), { recursive: true })),
+        ...['package.json', 'src/game.ts', 'src/sim/ts-worker.ts', 'src/sim/worker-boot.mjs'].map(file => cp(join(root, file), join(copy, file))),
+        symlink(join(root, 'node_modules'), join(copy, 'node_modules'), 'dir'),
+      ]);
+      await writeFile(join(copy, 'probe.mts'), `
+import { createMatch, loadMatch } from './src/match/index.ts';
+import { readFile, writeFile } from 'node:fs/promises';
+const creating = process.argv[2] === 'create';
+const match = creating ? await createMatch() : await loadMatch(await readFile('save.json', 'utf8'));
+try {
+  if (creating) { await match.apply({ id: 'first', expectedRevision: 0, lan: 'e2-e4' }); await writeFile('save.json', await match.exportSave()); }
+  console.log(JSON.stringify(await match.snapshot()));
+} finally { await match.close(); }
+`);
+      const run = (action: string) => promisify(execFile)(process.execPath, ['--import', 'tsx', 'probe.mts', action], { cwd: copy, timeout: 8000 });
+      const baseline = JSON.parse((await run('create')).stdout);
+      const originalEngine = JSON.parse(await readFile(join(copy, 'save.json'), 'utf8')).engine;
+      await writeFile(join(copy, 'src/rules/identity-probe.test.ts'), '// Test-only edit must not change compatibility.\n');
+      expect(JSON.parse((await run('load')).stdout)).toEqual(baseline);
+      await appendFile(join(copy, 'src/rules/setup.ts'), '\n// Runtime source changed in an isolated test copy.\n');
+      await expect(run('load')).rejects.toThrow('Incompatible save');
+      expect(JSON.parse((await run('create')).stdout)).toEqual(baseline);
+      expect(JSON.parse(await readFile(join(copy, 'save.json'), 'utf8')).engine).not.toBe(originalEngine);
+    } finally { await rm(copy, { recursive: true, force: true }); }
+  }, 40000);
 });

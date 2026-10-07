@@ -1,5 +1,10 @@
 # Tasks
 
+## Match failure-path verification — 2026-10-07
+- **Owner:** asks what testing should verify working features and help troubleshooting. Keep the pass focused on the completed local module; no tournaments or deployments.
+- [x] Exercised unresponsive/terminated workers, tampered legal replay, simultaneous duplicate retries and engine-source compatibility in temporary copies. Strengthened the exit test to require rejection of a definitely pending call. No runtime defect found; runtime sources unchanged.
+- [x] **21/21 focused tests passed in 6.47 seconds; typecheck passed.** Added error recovery and targeted test commands to `docs/match-foundation.md`. The earlier 649-test/42-artwork/build verification remains the surrounding-project baseline; this follow-up changes tests and documentation only.
+
 ## Shared match foundation — 2026-10-07 (complete locally)
 - **Owner:** "yes, do what you recommend"; helpers use Sol 6.1. Recommended packages 1–3 are complete on isolated branch `codex/match-foundation`, based on `7d4370f`; website integration and cloud work remain separate.
 - [x] Added `src/match/index.ts`, `worker.ts` and `match.test.ts`: create/load, snapshots, validated legal commands, revision checks, retry deduplication, isolated Node workers and versioned JSON replay. Reuses the current engine and dependencies; no engine, UI, art or account edits.

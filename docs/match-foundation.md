@@ -65,4 +65,17 @@ Operational bounds are 1,000 accepted commands per match, an 8,000,000-character
 
 Run `npx vitest run src/match/match.test.ts` for actual-worker tests; `npm test` and `npm run build` cover the surrounding project. Fixtures exercise illegal/stale/retried commands, rule isolation and website power parity, complete replay, terminal results, repetition, Archer shots, Beast chains, Ogre pushes, Maester swaps, promotion, Haste and worker shutdown.
 
+For a named failure with individual test results, run `npx vitest run src/match/match.test.ts --reporter=verbose -t "replay"` (replace `replay` with `worker`, `Haste` or `source change`). The 21 focused tests include dropped worker delivery, actual thread termination, tampered legal replay and a temporary source copy that verifies engine fingerprint changes. These are short fixture checks; no tournament is needed.
+
+| Symptom | Check and recovery |
+|---|---|
+| `Stale revision` | Read a new snapshot and choose a move against that revision. An identical retry of an already accepted command remains safe. |
+| `Command ID conflict` | Compare the original command's ID, LAN and expected revision. Preserve all three on retry; give a different command a new ID. |
+| `Illegal or ambiguous move` / `Match terminal` | Compare the command with the latest `legal` list, actual `turn` and `status`; pending power actions may keep the same side's turn. |
+| `Incompatible save` / `Incompatible setup or rules` | Compare schema, engine fingerprints and effective rules. Restore with the matching source version; editing the saved fingerprint does not repair compatibility. |
+| `Invalid replay` / `Malformed history` | Preserve the original save and inspect the first divergent command/result. Do not truncate history and treat partial replay as a successful restore. |
+| Worker timeout, exit or closed handle | Discard the handle and reload the last saved JSON into a new one. Record the error, command ID, expected revision and last confirmed snapshot when investigating. |
+
+A timeout does not prove a command was never applied. This local module has no durable storage: the caller must persist `exportSave()` output. Recovering acknowledged moves across server crashes requires the transactional storage milestone below.
+
 The next slice is transactional persistent match storage with player seats, access checks and two-client reconnect/race tests. Local worker serialization is not proof of database atomicity or authorization. Account integration, AI move selection, clocks, card mode, HTTP/MCP adapters and a ChatGPT board remain separate work. Keep the evolving website and plugin on the same engine, and rerun these checks against the latest main branch before integration.
