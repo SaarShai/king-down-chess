@@ -93,3 +93,4 @@ The COMPUTE.md entry failed on the eight recipe phrases ("## Recipes", "npx tsx 
 
 **Merge.** Merged into claude/retro-2026-10-06 as 8d8d442. In the integration worktree, three runs of `npm test` each failed one or two tests by the 5 s limit only (judge.test.ts, gate.test.ts, piece-activity.test.ts; a different test each run) while the load average was 20 to 33. Each of those files passes alone. `npx tsc --noEmit` and `npx vitest run --testTimeout=30000`: 1263 tests in 64 files passed. `node --test`: 42 of 42. `npm run test:docs`: 53 of 53.
 - Review fix F10: the index line "Browser checks in the cloud" has `ready-for-agent`: it comes from the 2026-10-03 handoff (an October item) and is an agent task, not an owner question.
+- Owner decision, 2026-10-07 ("use your best judgement for deciding these. complete what needs completing."): "Keep March" is the reading of the Card deal line.

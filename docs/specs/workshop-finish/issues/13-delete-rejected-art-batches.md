@@ -4,13 +4,15 @@
 
 **Blocked by:** 10, 11
 
-**Status:** needs-info
+**Status:** resolved
 
-- [ ] Before any move, this file holds a line `Owner-go: <date> "<the owner's words>"`. Without it, the ticket stops here.
-- [ ] Before the move, the 34 sha256 values of ticket 10 match the files in the art-source workshop folder again.
-- [ ] After the move, `git status --porcelain --untracked-files=all` in the Codex working copy lists no file under its Workshop visual-design folder.
-- [ ] `git status` in the Codex working copy shows no tracked file deleted or changed.
-- [ ] The list of moved folders and their total size is in Comments.
+Owner-go: 2026-10-07 "use your best judgement for deciding these. complete what needs completing."
+
+- [x] Before any move, this file holds a line `Owner-go: <date> "<the owner's words>"`. Without it, the ticket stops here.
+- [x] Before the move, the 34 sha256 values of ticket 10 match the files in the art-source workshop folder again.
+- [x] After the move, `git status --porcelain --untracked-files=all` in the Codex working copy lists no file under its Workshop visual-design folder.
+- [x] `git status` in the Codex working copy shows no tracked file deleted or changed.
+- [x] The list of moved folders and their total size is in Comments.
 
 **Verify:** `git -C "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b" status --porcelain --untracked-files=all docs/visual-design/workshop`
 
@@ -44,3 +46,5 @@ Builder, 2026-10-07: **stopped at the gate.** This file holds no `Owner-go:` lin
 **To finish after the yes:** add the line `Owner-go: <date> "<your words>"` above, recheck the 34 hashes, move each item with Finder's Trash (for example `osascript -e 'tell application "Finder" to delete POSIX file "<path>"'`), then run the Verify command (expect empty output) and `git -C "<Codex working copy>" status --porcelain` (expect no ` M` or ` D` line).
 
 **Tests.** No code changed. `git merge claude/retro-2026-10-06`: already up to date. `npm test`: the typecheck passes, vitest 61 files and 1108 tests pass, the node tests 42 pass.
+
+**Move, 2026-10-07.** The owner's go is the line above. Before the move the 34 sha256 values of ticket 10 matched `art-src/workshop/{id}.png` again (34 match, 0 mismatch) and the Codex working copy had 0 tracked changes. Finder moved 22 items to the Trash: the 7 folders of the table and the 15 untracked files of `figure-samples-2026-10-06/`, 93,735,504 bytes in all. After the move the Verify command gives no line, and `git status --porcelain` in the Codex working copy gives no ` M` or ` D` line. The owner empties the Trash.

@@ -15,7 +15,7 @@ issue-tracker.md "This repo" says: the specs folder holds specs and tickets; TAS
 
 **Blocked by:** 05 (shares the steering lint and AGENTS.md); checks-and-hooks/03 (the prepare-commit-msg trailer text and the model-name module); dev-environment/01 (the `wt` script), dev-environment/02 (the `worktree` launch entry), dev-environment/06 (the preview probe result that decides one of the three guidance lines)
 
-**Status:** ready-for-human
+**Status:** resolved
 
 - [x] Red first: before the rewrite, the new rules fail and name the missing headings, the sections over 120 words and the missing phrases. The output goes in this ticket.
 - [x] Rule: AGENTS.md holds the eleven `##` headings above, in this order, and no other `##` heading.
@@ -171,3 +171,4 @@ New rules with no old line: the neutral trailers, `git commit -a`, pull request 
 - Review fix F23: `docs/DELEGATION.md` line 3 links to `#helpers-and-machines` and `#runs-and-compute` and states the current rule: helpers and workflows are allowed again (owner, 2026-10-06); every simulation run needs the owner's recorded go.
 - Review fix F11: the steering-lint phrase for the pull-request rule is now "Code reaches main by pull request only". Probe: with that AGENTS.md line reworded, the lint fails and names the phrase (1 failed, 49 passed); with the line restored, 50 passed.
 - Review fix F19: `retro-2026-10-06/retro.md` (items 21 and 5 of the facts) and `retro-2026-10-06/issues/06-steering-facts.md` now say "a model-name trailer" and "a cheaper helper model"; a scan of `docs/specs` and AGENTS.md with the model-name module finds 0 names. AGENTS.md adds one clause to the no-model-name rule: the tasks archive keeps old text word for word and is exempt. The steering lint has one rule per file and no file list, so its scope stays as it is.
+- Owner decision, 2026-10-07 ("use your best judgement for deciding these. complete what needs completing."): the Jev section and the Light/Dark kings line stand. The preview guidance line stays as written until the owner's worktree probe (dev-environment/06) says otherwise.

@@ -38,18 +38,25 @@ The review (code-review, Standards and Spec axes, fixed point `f1b8e72`) raised 
 
 ## Decisions
 
-1. workshop-finish 13: 78 files (about 90 MB) of rejected art batches go to the Trash only after a recorded `Owner-go:` yes.
-2. secrets-and-public-gates 10: keep `vercel@62.2.0`, or move to 62.7.0? Two `npx` calls in `deploy.sh` acceptable?
-3. secrets-and-public-gates 11: the kept-records list and the pin at `dd34fa5` acceptable?
-4. checks-and-hooks 11: keep the `byName` lint as written?
-5. steering-cut 04: the 14 closes in the TASKS.md move and the label rule acceptable?
-6. steering-cut 06: the Jev section and the Light/Dark kings line in AGENTS.md acceptable?
-7. steering-cut 07: "Keep March" is the reading of the Card deal line; correct?
-8. steering-cut 09: the handoff is archived in the branch; revert `a0788c4` to keep it live?
-9. workshop-finish 08: the empty-card text in short landscape; approve the visual?
-10. workshop-finish 09: fixes 1, 8, 12 and 19 are checked in part; accept, or ask for a full check?
-11. workshop-finish 12: read the new 111-line WORKSHOP.md and say yes or no.
-12. Archer far2: when does it replace `plusDiagFwd2` on main?
-13. `painted-game`: give the check a fixed seed, or accept a rare random failure?
-14. `sim/nnue/policy.json`: refresh it with the next run, or leave it?
-15. Retro ticket 09: the Typesafe key rotation is still open.
+The owner (2026-10-07): "use your best judgement for deciding these. complete what needs completing." The agent took the decisions below and recorded each one in its ticket.
+
+1. workshop-finish 13: done. 22 items (93.7 MB) went to the Trash with Finder after a new hash check. The owner empties the Trash.
+2. secrets-and-public-gates 10: keep `vercel@62.2.0`; the two `npx` calls stay.
+3. secrets-and-public-gates 11: the kept-records list and the pin at `dd34fa5` stand.
+4. checks-and-hooks 11: the `byName` entries stay unlinted.
+5. steering-cut 04: the 14 closes and the label rule stand.
+6. steering-cut 06: the Jev section and the Light/Dark kings line stand; resolved.
+7. steering-cut 07: "Keep March" is the reading.
+8. steering-cut 09: the handoff stays archived; resolved.
+9. workshop-finish 08: the 568×320 build is approved; the empty-card text in short landscape is fixed.
+10. workshop-finish 09: fixes 1, 8, 12 and 19 get full checks.
+11. workshop-finish 12: WORKSHOP.md read in full; yes.
+12. Archer far2: the owner's own commit `4f30e2e` says adoption waits. Not a part of this branch; it stays with the owner.
+13. `painted-game`: the check now runs the computer game to 60 plies and at least one capture (or the end of the game) before it asserts a capture.
+14. `policy.json`: stays as it is; the next run with a go refreshes it.
+15. Retro ticket 09: only the owner can rotate the Typesafe key; open.
+
+## Still with the owner
+
+- The four desktop probes (dev-environment 06; secrets-and-public-gates 12 item 4) need a session that starts in a worktree of the branch. This session's folder moved to the worktree, but it still read the main checkout's settings and launch file.
+- The merge into main, `npm run prepare`, one `tools/deploy.sh --publish`, the Trash, the Typesafe key.

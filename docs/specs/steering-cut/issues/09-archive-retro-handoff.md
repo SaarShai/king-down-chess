@@ -4,7 +4,7 @@
 
 **Blocked by:** 08; the owner's merge of the integration branch into main
 
-**Status:** ready-for-human
+**Status:** resolved
 
 - [x] The retro handoff is in the tasks archive, and its old path holds no file.
 - [x] The archived-handoff rule of ticket 07 passes on it: the first line, no model name, no `Co-Authored-By:` line.
@@ -53,3 +53,4 @@
 
 
 **Merge.** Merged into `claude/retro-2026-10-06` as a0788c4, before the owner's merge into main. The Status stays `ready-for-human`: the owner reviews the order when the integration branch merges into main (revert a0788c4 to keep the handoff live until then). `npm test` after the merge: tsc clean; vitest 66 files, 1,284 passed; `node --test` 42 passed, 0 failed. `npm run test:docs`: 74 passed. `git ls-files docs/HANDOFF-retro.md` gives nothing.
+- Owner decision, 2026-10-07 ("use your best judgement for deciding these. complete what needs completing."): the handoff stays archived (a0788c4 stands). The build is done, so no agent needs the live handoff; the build report (retro ticket 11) is the live record.
