@@ -80,6 +80,12 @@ describe('art (§8.4.11)', () => {
     expect(g).not.toContain('g-gem');
   });
 
+  it('gives the thermometer the words of the summary', () => {
+    const said = (k: string) => gaugeHtml(judge(presetOf(k))).match(/aria-valuetext="([^"]*)"/)![1];
+    expect(said('pawn')).toBe('about 1 pawn, the unit of worth');
+    expect(said('knight')).toBe('about 3½ pawns, fair');
+  });
+
   it('dresses the model from the verdict (lookOf)', () => {
     const r = look(rook());
     expect([r.metal, r.cracks]).toEqual(['gold', 'none']);
