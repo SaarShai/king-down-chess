@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run typecheck && vitest run && node --test \"docs/2d-first-pieces/**/*.test.mjs\"",
     "test:docs": "vitest run --passWithNoTests .docs.test.ts",
+    "prepare": "git config core.hooksPath .githooks || true",
+    "gate": "node tools/gate.mjs",
     "sim": "tsx src/sim/run.ts",
     "sim:analyze": "tsx src/sim/analyze.ts",
     "tune": "tsx src/sim/tune.ts",
