@@ -7,6 +7,7 @@ try {
   await page.goto('http://127.0.0.1:5296');
   const capabilities = await (await page.request.get('http://127.0.0.1:5296/harness-mode')).json();
   const mode = capabilities.mode;
+  if (process.env.PLUGIN_EXPECT_MODE) assert.equal(mode, process.env.PLUGIN_EXPECT_MODE, 'Connected to the expected harness backend');
   const frame = page.frameLocator('iframe');
   await frame.locator('#status').filter({ hasText: /to move|Waiting|wins|Draw/ }).waitFor();
   await frame.locator('summary').click();

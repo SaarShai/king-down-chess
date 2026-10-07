@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { resolve } from 'node:path';
+import { cp, mkdtemp, rm } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import pg from 'pg';
 
@@ -11,12 +13,13 @@ const connectionString = process.env.PLUGIN_TEST_DATABASE_URL;
 if (!connectionString) throw new Error('Set PLUGIN_TEST_DATABASE_URL to a disposable loopback PostgreSQL database');
 const url = new URL(connectionString);
 if (!['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || !url.pathname.endsWith('_test')) throw new Error('This check requires a disposable loopback database ending in _test');
-const artifact = resolve(process.argv[2] || 'plugin-server-dist');
-const { configurePlugin } = await import(pathToFileURL(resolve(artifact, 'server.mjs')).href);
+const artifact = await mkdtemp(join(tmpdir(), 'kingdown-http-artifact-'));
 const pool = new pg.Pool({ connectionString });
 const actors = [randomUUID(), randomUUID()];
 const server = createServer(); let app, requestId = 0;
 try {
+  await cp(resolve(process.argv[2] || 'plugin-server-dist'), artifact, { recursive: true });
+  const { configurePlugin } = await import(pathToFileURL(resolve(artifact, 'server.mjs')).href);
   const identity = await pool.query('select current_database() as name,version() as version');
   assert(identity.rows[0].name.endsWith('_test')); assert(identity.rows[0].version.startsWith('PostgreSQL '));
   for (const actor of actors) await pool.query('insert into auth.users(id) values($1)', [actor]);
@@ -59,4 +62,5 @@ try {
   await app?.pool.end();
   for (const actor of actors) await pool.query('delete from auth.users where id=$1', [actor]);
   await pool.end();
+  await rm(artifact, { recursive: true, force: true });
 }

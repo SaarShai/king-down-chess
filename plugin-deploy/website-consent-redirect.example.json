@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/authorize",
+      "destination": "https://YOUR-PLUGIN-ORIGIN/authorize",
+      "permanent": false
+    }
+  ]
+}

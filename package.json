@@ -24,6 +24,7 @@
     "plugin:check:protocol": "tsx tools/plugin-protocol-check.ts",
     "plugin:check:ui": "node tools/plugin-ui-check.mjs",
     "plugin:check:oauth": "node tools/plugin-oauth-check.mjs",
+    "test:plugin:ci": "vitest run --maxWorkers=2 --testTimeout=30000 && node --test \"docs/2d-first-pieces/**/*.test.mjs\"",
     "plugin:db:init-test": "node tools/plugin-db/bootstrap-test.mjs",
     "plugin:db:migrate": "tsx tools/plugin-db/migrate.ts",
     "test:plugin:db": "vitest run src/match/service.db.test.ts",
