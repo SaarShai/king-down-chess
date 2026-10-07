@@ -4,6 +4,7 @@ import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, setMark,
 import { autoName, letterFollows, letterOf, saveName } from './names';
 import { describe as words, squareList } from './text';
 import { BLOCKS, blockOf, validDoes, whenOk } from './vocab';
+import { KEY, loadDesigns } from './store';
 
 const named = (d: PieceDesign, name = 'Test piece'): PieceDesign => ({ ...d, name, letter: letterOf(name) });
 const code = (o: unknown): string => btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -140,6 +141,13 @@ describe('validation (§8.4.8, §4.9)', () => {
     // A design saved before the setting: the letter follows while it matches the name.
     expect(letterFollows({ ...d, ownLetter: undefined })).toBe(true);
     expect(letterFollows({ ...d, ownLetter: undefined, letter: 'Z' })).toBe(false);
+  });
+
+  it('still loads a stored design and a share code that hold a glow (Surprise me no longer adds one)', () => {
+    const d = { ...named(fromPreset(presetOf('knight'))), id: 'g1', updated: 1, look: { ...fromPreset(presetOf('knight')).look, glow: 'Flame' as const } };
+    expect(parseDesign(code(raw(d)))?.look.glow).toBe('Flame');
+    const m = new Map([[KEY, JSON.stringify({ v: 1, designs: [d] })]]);
+    expect(loadDesigns({ getItem: k => m.get(k) ?? null, setItem: () => {} }).map(x => [x.id, x.look.glow])).toEqual([['g1', 'Flame']]);
   });
 
   it('lists every square exactly, for the saved card', () => {

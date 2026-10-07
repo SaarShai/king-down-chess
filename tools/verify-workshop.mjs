@@ -5,6 +5,7 @@
 // reactions, the shelf, a shared link, the edit state after Try it and Share, and Try it. The last groups
 // check the review fixes 2, 4, 5, 6, 9, 13, 20, 23, 27, 28 (the line edge) and 29 of 2026-10-06, one group
 // per fix, named by its number. The judge test checks the other part of fix 28 (Why? names the band).
+// The last two groups check two small faults of workshop-finish/06: Esc in a choices panel and the glow of Surprise me.
 // Run it with `npm run check:browser workshop`. It reads its server, channel and output folder from the
 // shared check module (tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
@@ -819,6 +820,44 @@ async function fix28LineEdge(browser) {
   await p.context().close();
 }
 
+/** Esc in a choices panel (the + picker, a pill, the When) closes only the panel and puts the focus on its opener; a second Esc closes the Workshop. */
+async function escInPanel(browser) {
+  const p = await open(browser, { width: 1280, height: 900 });
+  await newPiece(p);
+  await cell(p, 'move').click();
+  await addRule(p, 'movesLike');
+  const panelOpen = () => p.evaluate(() => !document.querySelector('.ws-property-options').hidden);
+  for (const [where, opener] of [['the + picker', '.ws-add'], ['a pill', '.ws-pill[data-pill="as"]'], ['the When', '.ws-pill[data-pill="when"]']]) {
+    await p.click(opener);
+    assert.equal(await panelOpen(), true, `Esc: ${where} opens`);
+    await p.keyboard.press('Escape');
+    assert.deepEqual([await panelOpen(), await isOpen(p, '#workshop')], [false, true], `Esc in ${where} closes the panel and keeps the Workshop`);
+    assert.equal(await p.evaluate(s => document.activeElement === document.querySelector(s), opener), true, `Esc in ${where} puts the focus on ${opener}`);
+    await p.keyboard.press('Escape');
+    assert.equal(await isOpen(p, '#workshop'), false, `after ${where}, a second Esc closes the Workshop`);
+    await viaMenu(p);
+    await p.click('.ws-tile');
+    await p.waitForSelector('.ws-add');
+  }
+  await p.context().close();
+}
+
+/** Surprise me adds no glow: five surprises, and no saved design holds one. */
+async function surpriseNoGlow(browser) {
+  const p = await open(browser);
+  await viaMenu(p);
+  for (let i = 0; i < 5; i++) {
+    await p.click('.ws-surprise');
+    await p.waitForSelector('.ws-piece-card');
+    await p.click('.ws-back');
+    await p.waitForSelector('#workshop[open] .ws-door');
+  }
+  const glows = (await designs(p)).map(d => d.look.glow);
+  assert.equal(glows.length, 5, 'Surprise me saves five designs');
+  assert.deepEqual(glows.filter(g => g !== null), [], 'no saved design holds a glow');
+  await p.context().close();
+}
+
 const browser = await launch();
 try {
   for (const [width, height] of viewports) {
@@ -863,6 +902,9 @@ try {
   await fix13SafeRule(browser);
   await fix28LineEdge(browser);
   console.log('ok the review fixes 2, 4, 5, 6, 9, 13, 20, 23, 27, 28 (the lines) and 29');
+  await escInPanel(browser);
+  await surpriseNoGlow(browser);
+  console.log('ok Esc in a choices panel, Surprise me adds no glow');
   assertNoErrors();
 } finally {
   await browser.close();

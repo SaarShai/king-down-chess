@@ -6,7 +6,6 @@
  */
 import './workshop.css';
 import { FIGURES, FIGURE_TAGS, selectedFigure, suggestedFigures, figureUrl, type Figure } from './figures';
-import type { KingName } from '../rules/engine';
 import { snd } from '../render/sfx';
 import { pieceIcon } from '../piece-icons';
 import {
@@ -15,7 +14,7 @@ import {
 } from './model';
 import { BLOCKS, GROUPS, MORE_WHENS, NEAR_BODY, TOP_WHENS, EVENT_WHENS, blockOf, takesAny, whenWords, type Block } from './vocab';
 import { BAND_WORD, autoBody, badgeText, bandOf, judge, shelfOf, whyHead, whyTitle, type Label, type Verdict } from './judge';
-import { GLOW, lookOf, lookWords } from './look';
+import { lookOf, lookWords } from './look';
 import { figureHtml, gaugeHtml, modelHtml } from './art';
 import { cap, describe, dirWords, esc, pawns, ruleParts, ruleText } from './text';
 import { autoName, letterFollows, letterOf, rollName, saveName } from './names';
@@ -24,7 +23,6 @@ import { sandbox } from './sandbox';
 import { cancel } from './motion';
 
 type Screen = 'home' | 'start' | 'editor' | 'try';
-const KINGS = Object.keys(GLOW) as KingName[];
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 const rand = (n: number): number => Math.floor(Math.random() * n);
@@ -243,7 +241,6 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       if (jv.label === 'fair' && !jv.flags.some(f => f.level === 'warn') && jv.memory.level <= 1) { d = x; base = b; }
     }
     if (!d) d = base = fromPreset(presetOf('knight')); // ponytail: 20 rolls almost always find one; the knight is the fallback
-    d.look.glow = pick(KINGS);
     d.name = rollName(d, autoBody(d));
     d.named = true;
     d.letter = letterOf(d.name);
@@ -285,11 +282,12 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     update(true);
   }
 
-  function propertySheet(title: string, html: string, wire: (body: HTMLElement, close: () => void) => void): void {
+  /** The choices panel; `opener` selects the button that opened it, and the focus goes back to it on close (Esc: the dialog's keydown). */
+  function propertySheet(title: string, html: string, wire: (body: HTMLElement, close: () => void) => void, opener = '.ws-add'): void {
     const host = q<HTMLElement>('.ws-property-options');
     host.hidden = false;
     host.innerHTML = `<header><h3 tabindex="-1">${esc(title)}</h3><button type="button" class="quiet ws-property-close" aria-label="Close choices">×</button></header><div class="ws-property-body">${html}</div>`;
-    const close = () => { host.hidden = true; host.innerHTML = ''; q<HTMLButtonElement>('.ws-add')?.focus({ preventScroll: true }); };
+    const close = () => { host.hidden = true; host.innerHTML = ''; (q<HTMLButtonElement>(opener) ?? q<HTMLButtonElement>('.ws-add'))?.focus({ preventScroll: true }); };
     q<HTMLButtonElement>('.ws-property-close', host).onclick = close;
     // The + picker and the keyboard: ArrowDown and ArrowUp move the focus along the rules that can be added; Enter adds one.
     host.onkeydown = e => {
@@ -558,7 +556,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   }
 
   /** A choice sheet commits a tap at once; the keyboard's arrows only move the choice, and Enter or Apply commits it. */
-  function choiceSheet(title: string, rows: string, r: Rule, apply: (inp: HTMLInputElement, body: HTMLElement) => void, wire?: (body: HTMLElement) => void): void {
+  function choiceSheet(title: string, rows: string, r: Rule, opener: string, apply: (inp: HTMLInputElement, body: HTMLElement) => void, wire?: (body: HTMLElement) => void): void {
     propertySheet(title, `${rows}<div class="ws-sheet-actions ws-apply-row"><button type="button" class="primary ws-apply">Apply</button></div>`, (body, close) => {
       let pointer = false;
       body.addEventListener('pointerdown', () => { pointer = true; });
@@ -572,8 +570,9 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       }
       q<HTMLButtonElement>('.ws-apply', body).onclick = () => go(checked());
       wire?.(body);
-    });
+    }, opener);
   }
+  const pillButton = (i: number, key: string): string => `.ws-pill[data-i="${i}"][data-pill="${key}"]`;
 
   function pillSheet(i: number, key: string): void {
     const r = cur.rules[i], b = blockOf(r.does.a);
@@ -584,7 +583,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       const why = k === 'allButKing' && takesAny(cur) ? 'Only for a piece that takes nothing.' : k !== val && limit(next) ? limit(next) : null;
       return `<label class="ws-choice${why ? ' off' : ''}"><input type="radio" name="ws-pick" value="${k}"${k === val ? ' checked' : ''}${why ? ' disabled' : ''} /><span>${cap(text)}${why ? `<small>${why}</small>` : ''}</span></label>`;
     }).join('');
-    choiceSheet(PILL_TITLE[key] ?? b.title, rows, r, inp => {
+    choiceSheet(PILL_TITLE[key] ?? b.title, rows, r, pillButton(i, key), inp => {
       const j = cur.rules.indexOf(r);
       change('change a choice', d => { (d.rules[j].does as unknown as Record<string, string>)[key] = inp.value; });
     });
@@ -613,7 +612,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       + nums('fromMove', 'From move') + nums('beforeMove', 'Before move');
     const open = !top.some(w => same(w, r.when));
     choiceSheet(b.event ? 'When does it happen?' : 'When does it work?', top.map(choice).join('')
-      + (rest.length ? `<button type="button" class="quiet ws-more-w"${open ? ' hidden' : ''}>More choices</button><div class="ws-more-list"${open ? '' : ' hidden'}>${moreHtml}</div>` : ''), r, (inp, body) => {
+      + (rest.length ? `<button type="button" class="quiet ws-more-w"${open ? ' hidden' : ''}>More choices</button><div class="ws-more-list"${open ? '' : ' hidden'}>${moreHtml}</div>` : ''), r, pillButton(i, 'when'), (inp, body) => {
       const w: When = inp.value === 'body' ? { on: 'near', who: q<HTMLSelectElement>('.ws-near', body).value as Body } : all[+inp.value];
       const j = cur.rules.indexOf(r);
       if (like && w.on === 'always' && r.does.a === 'movesLike') {
@@ -725,6 +724,12 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   /* ---- keys ---- */
 
   dlg.addEventListener('keydown', e => {
+    // Esc in a choices panel closes the panel only; the Workshop stays open (a sheet above it takes its own Esc).
+    if (e.key === 'Escape' && !q('.ws-sheet[open]') && q('.ws-property-options:not([hidden])')) {
+      e.preventDefault();
+      q<HTMLButtonElement>('.ws-property-close').click();
+      return;
+    }
     // Only the editor itself: a key pressed in a sheet acts on the sheet alone.
     if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && screen === 'editor' && !q('.ws-sheet[open]') && !q('.ws-property-options:not([hidden])') && !fromLink && !(e.target as HTMLElement).closest('input[type="text"]')) {
       e.preventDefault();
