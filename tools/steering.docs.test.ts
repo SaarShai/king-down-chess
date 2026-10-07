@@ -8,10 +8,16 @@
 //   - MATRIX.md holds the D.1 row, the D.2 row and the Workshop heading one time each (a guard);
 //   - no run id occurs two times in a table under a QUEUE.md heading that starts with "Running";
 //   - no live file holds a relative link to a file that does not exist.
+// Rules of steering-cut/02 (each lesson under one dated heading):
+//   - no `##` heading occurs two times in LESSONS.md;
+//   - no lesson bullet sits above the first `##` heading;
+//   - each `##` heading holds a date in the form YYYY-MM-DD;
+//   - no LESSONS.md heading holds a model name.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { findModelNames } from './lib/model-names.mjs';
 
 const root = join(import.meta.dirname, '..');
 
@@ -228,5 +234,81 @@ describe('relative links', () => {
 
   it('no live file holds a broken relative link', () => {
     expect(liveFiles().flatMap(file => linkFaults(file, read(file))).map(show)).toEqual([]);
+  });
+});
+
+/** The `##` headings of a markdown text, with their lines. Fenced code is left out. */
+const sectionHeadings = (text: string) =>
+  markdownLines(text).filter(l => /^##\s/.test(l.text)).map(l => ({ line: l.line, heading: l.section }));
+
+/**
+ * Faults of a lessons file (steering-cut/02): a `##` heading that occurs two times, a lesson
+ * bullet (a line that starts with "- ") above the first `##` heading, a `##` heading with no date in
+ * the form YYYY-MM-DD, and a heading of any level that holds a name from the model-name module.
+ */
+function lessonFaults(text: string, file = 'LESSONS.md'): Fault[] {
+  const headings = sectionHeadings(text);
+  const at = new Map<string, number[]>();
+  for (const { line, heading } of headings) at.set(heading, [...(at.get(heading) ?? []), line]);
+  const repeats: Fault[] = [...at].filter(([, lines]) => lines.length > 1).map(([heading, lines]) => ({
+    file, section: heading, where: `count ${lines.length}, lines ${lines.join(', ')}`,
+    what: 'a `##` heading must not occur two times',
+  }));
+  const first = headings[0]?.line ?? Infinity;
+  const loose = markdownLines(text).filter(l => l.line < first && /^- /.test(l.text));
+  const unheaded: Fault[] = loose.length ? [{
+    file, section: loose[0].section, where: `count ${loose.length}, lines ${loose.map(l => l.line).join(', ')}`,
+    what: 'a lesson bullet must not sit above the first `##` heading',
+  }] : [];
+  const undated: Fault[] = headings.filter(h => !/(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)/.test(h.heading)).map(h => ({
+    file, section: h.heading, where: `line ${h.line}`, what: 'a `##` heading must hold a date in the form YYYY-MM-DD',
+  }));
+  const named: Fault[] = markdownLines(text).filter(l => /^#{1,6}\s/.test(l.text)).flatMap(l =>
+    findModelNames(l.text).map(({ word }) => ({
+      file, section: l.section, where: `line ${l.line}`, what: `a heading must not hold the model name "${word}"`,
+    })));
+  return [...repeats, ...unheaded, ...undated, ...named];
+}
+
+describe('lesson headings', () => {
+  const fixture = [
+    '# Lessons', 'Intro text.', '',
+    '- A lesson with no heading. (2026-10-04)',
+    '- Another one.', '',
+    '## 2026-09-13 \u2014 rate limit killed 8 parallel Opus agents', '- text',
+    '## Clay facing \u2014 2026-09-22', '- text', '',
+    '## A heading with no date', '- text',
+    '## Clay facing \u2014 2026-09-22', '- text',
+    '```', '## 2026-09-13 \u2014 in fenced code, not a heading', '```',
+  ].join('\n');
+
+  it('names each heading that occurs two times, with its lines', () => {
+    expect(lessonFaults(fixture, 'fixture.md').filter(f => f.what.includes('two times')).map(show)).toEqual([
+      'fixture.md \u00a7 Clay facing \u2014 2026-09-22 (count 2, lines 9, 14): a `##` heading must not occur two times',
+    ]);
+  });
+
+  it('names the lesson bullets above the first `##` heading, with their lines', () => {
+    expect(lessonFaults(fixture, 'fixture.md').filter(f => f.what.includes('above')).map(show)).toEqual([
+      'fixture.md \u00a7 Lessons (count 2, lines 4, 5): a lesson bullet must not sit above the first `##` heading',
+    ]);
+  });
+
+  it('names each `##` heading with no date in the form YYYY-MM-DD', () => {
+    expect(lessonFaults(fixture, 'fixture.md').filter(f => f.what.includes('date')).map(show)).toEqual([
+      'fixture.md \u00a7 A heading with no date (line 12): a `##` heading must hold a date in the form YYYY-MM-DD',
+    ]);
+    expect(lessonFaults('## Lesson (2026-9-14)\n## Lesson of 14.09.2026', 'fixture.md').map(f => f.where)).toEqual(['line 1', 'line 2']);
+  });
+
+  it('names each heading that holds a model name, and not a model name in the lesson text', () => {
+    expect(lessonFaults(fixture, 'fixture.md').filter(f => f.what.includes('model name')).map(show)).toEqual([
+      'fixture.md \u00a7 2026-09-13 \u2014 rate limit killed 8 parallel Opus agents (line 7): a heading must not hold the model name "Opus"',
+    ]);
+    expect(lessonFaults('## 2026-09-13 \u2014 rate limit\n- Keep no more than ~6 Opus agents.', 'fixture.md')).toEqual([]);
+  });
+
+  it('LESSONS.md holds each lesson under one dated heading with no model name', () => {
+    expect(lessonFaults(read('LESSONS.md')).map(show)).toEqual([]);
   });
 });
