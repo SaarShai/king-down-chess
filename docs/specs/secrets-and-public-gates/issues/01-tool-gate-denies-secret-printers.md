@@ -6,7 +6,7 @@ The gate is one Node module: a pure decision function (command line, working fol
 
 **Blocked by:** checks-and-hooks/01 (vitest collects tests from the Claude hook folder)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `.claude/hooks/tool-gate.mjs`, `.claude/hooks/tool-gate.test.ts`, `.claude/settings.json` (only `hooks.PreToolUse` and `permissions`)
 
