@@ -73,5 +73,6 @@ export default defineConfig({
   worker: { format: 'es' },
   build: { copyPublicDir: false },
   plugins: [offlineBuild()],
-  test: { environment: 'node', include: ['src/**/*.test.ts'] }, // docs/2d-first-pieces uses node:test
+  // Vitest collects the source, tools and Claude hook tests. docs/2d-first-pieces uses node:test (npm test).
+  test: { environment: 'node', include: ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'] },
 });
