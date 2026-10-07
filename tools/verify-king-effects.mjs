@@ -1,19 +1,18 @@
 // The kings' idle effects in the game's painted look (docs/2d-first-pieces/board/king-effects.mjs).
-// Needs a running build: PLAYABLE_URL=http://127.0.0.1:5205/ PLAYABLE_BROWSER=chromium node tools/verify-king-effects.mjs
+// Run: npm run check:browser king-effects (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 // Checks: a default game shows Spirit's and Shadow's effects at about 30 frames a second and its 16 pawns
 // rest (now and then one acts); with Animations Off or reduced motion nothing extra is drawn and the
 // board stops redrawing; a hidden tab stops the loop and a visible one starts it again; the king that
 // falls (King Down) loses his effect; a king's capture plays his own death for the victim, half as long
 // at Fast, not at all at Off. Then it measures the main-thread time of a frame with the kings' effects
 // and the 16 resting pawns, at desktop size and on a 390 px phone.
-import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
+import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 
-const url = new URL(process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/');
+const url = new URL(env('PLAYABLE_URL'));
 url.searchParams.set('players', 'human,human');
 url.searchParams.set('army', 'RNBQKBNR'); // the chess army: 16 pawns
-const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
-const errors = [];
+const browser = await launch();
 const wait = ms => new Promise(r => setTimeout(r, ms));
 async function open(page, fen) {
   const u = new URL(url); if (fen) u.searchParams.set('fen', fen);
@@ -32,8 +31,7 @@ const pace = (page, value) => page.evaluate(v => { const s = document.getElement
 const framesIn = async (page, ms) => { const f = await frames(page); await wait(ms); return await frames(page) - f; };
 async function newPage(options) {
   const page = await browser.newPage(options);
-  page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  trapErrors(page);
   await page.addInitScript(() => {
     sessionStorage.setItem('kingdown.title-seen', '1');
     // Main-thread time of each animation frame (the board draws inside it).
@@ -273,5 +271,5 @@ try {
   }
   console.log(report.map(l => `  ${l}`).join('\n'));
 } finally { await browser.close(); }
-if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
+assertNoErrors();
 console.log('ok all king-effect checks');
