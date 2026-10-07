@@ -350,7 +350,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
         if (!box.hidden) lookTab(box);
       };
     }
-    q('.ws-worth').textContent = empty(cur) ? 'Add moves and takes below.' : `Estimated worth · ${pawns(w)}`;
+    q('.ws-worth').textContent = empty(cur) ? 'Add moves and takes on the boards.' : `Estimated worth · ${pawns(w)}`;
     q('.ws-gauge-box').innerHTML = gaugeHtml(v);
     put(q('.ws-bottom'), empty(cur) ? '' : `<span class="ws-learn">${bandOf(v)}</span>`);
     rulesTab(q('.ws-rules-panel'));

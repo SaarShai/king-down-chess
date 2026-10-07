@@ -4,7 +4,8 @@
 // one-screen card: the card layout, the game menu, a tap outside, the doors, the keys, the judge's
 // reactions, the shelf, a shared link, the edit state after Try it and Share, and Try it. The last groups
 // check the review fixes 2, 4, 5, 6, 9, 13, 20, 23, 27, 28 (the line edge) and 29 of 2026-10-06, one group
-// per fix, named by its number. The judge test checks the other part of fix 28 (Why? names the band).
+// per fix, named by its number, and the parts of fixes 1, 8, 12 and 19 that no unit test or other group
+// covers. The judge test checks the other part of fix 28 (Why? names the band).
 // Two groups check two small faults of workshop-finish/06: Esc in a choices panel and the glow of Surprise me.
 // The group motionSetA is the motion seam of workshop-finish/07: the approved Set A reactions on the
 // card (A1, A4, A5), measured from the animations that each edit starts and their end times.
@@ -43,7 +44,7 @@ async function ready(p) {
   await p.evaluate(() => window.view.ready());
 }
 
-/** New piece: one choice per cast figure; a new design is blank and shows two boards, one model and an upright meter
+/** New piece: one choice per cast figure; a new design is blank and shows two boards, one model, the empty-card text and an upright meter
  * (in short landscape, no meter: the worth line holds the number). */
 async function blankCast(p, width, height) {
   await p.goto(base);
@@ -58,6 +59,8 @@ async function blankCast(p, width, height) {
   assert.equal(await p.locator('.ws-board').count(), 2, 'two boards');
   assert.equal(await p.locator('#workshop').locator('.ws-edit-sheet,.ws-die,.ws-card-edit,.ws-plinth,.ws-floor,.ws-rim,input[type="range"]').count(), 0, 'no removed control');
   assert.equal(await p.locator('.ws-model img').count(), 1, 'one model picture');
+  // One text for all layouts: the boards are below the card, or beside it in short landscape.
+  assert.equal(await p.locator('.ws-worth').innerText(), 'Add moves and takes on the boards.', 'a blank card points to the boards');
   if (shortLandscape(width, height)) assert.equal(await p.locator('.ws-thermometer').isVisible(), false, 'short landscape: no thermometer');
   else {
     const meter = await p.locator('.ws-thermometer').boundingBox();
@@ -189,6 +192,10 @@ const PIECES = {
   guard: { squares: step('move'), lines: [], rules: [{ when: ALWAYS, does: { a: 'cannotBeTaken', by: 'allButKing' } }] },
   /** A Guard whose Safe rule works only in the enemy half: it does not hold on d4 and holds on d5. */
   halfGuard: { squares: step('move'), lines: [], rules: [{ when: { on: 'zone', zone: 'enemyHalf' }, does: { a: 'cannotBeTaken', by: 'pawns' } }] },
+  /** A piece that shoots and moves to b2 and also moves like a king in the enemy half: "Always" would need a shot and a take on b2. */
+  shotKing: { squares: [{ x: 1, y: 1, mark: 'moveShoot' }], lines: [], rules: [{ when: { on: 'zone', zone: 'enemyHalf' }, does: { a: 'movesLike', as: 'king' } }] },
+  /** The same rule on a piece with no shot: "Always" adds the king's step to Moves. */
+  stepKing: { squares: [{ x: 0, y: 1, mark: 'move' }], lines: [], rules: [{ when: { on: 'zone', zone: 'enemyHalf' }, does: { a: 'movesLike', as: 'king' } }] },
 };
 /** The query of a share link to a design of PIECES, made as the Share sheet makes it (src/workshop/model.ts designCode). */
 const linkTo = (key, name) => `?design=${Buffer.from(JSON.stringify({ kind: 'piece', ...PIECES[key], name, look: { body: 'token', auto: true, glow: null, army: 0, figure: 'antler-guardian' }, letter: 'D' })).toString('base64url')}`;
@@ -839,6 +846,85 @@ async function fix28LineEdge(browser) {
   await p.context().close();
 }
 
+/** Fix 1, the rest: under a refused save, Copy link in the alert copies a link to the unsaved design; a refused delete says so, and the design and the card stay. */
+async function fix1RefusedCopyAndDelete(browser) {
+  const p = await open(browser);
+  await newPiece(p);
+  await cell(p, 'move').click();
+  const kept = await designs(p);
+  await p.evaluate(() => {
+    window.originalSet = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) { if (k === 'kingdown.workshop') throw Error('full'); return window.originalSet.call(this, k, v); };
+  });
+  await cell(p, 'take').click();
+  await p.waitForSelector('.ws-alert:not([hidden]) .ws-alert-copy');
+  const link = await copied(p, () => p.click('.ws-alert-copy'));
+  assert.match(link, /\?design=[\w-]+$/, 'fix 1: Copy link in the alert copies the link');
+  const code = JSON.parse(Buffer.from(link.split('?design=')[1], 'base64url').toString());
+  assert.deepEqual([...new Set(code.squares.map(s => s.mark))], ['both'], 'fix 1: the copied link holds the edit that the device did not save');
+  await shareAction(p, 'del');
+  await p.click(`${sheetOpen} .ws-yes`);
+  const refused = 'Could not delete: this device refused.';
+  await p.waitForFunction(t => document.querySelector('#workshop .ws-toast.on')?.textContent === t, refused, { timeout: 3000 }).catch(() => {});
+  assert.equal(await p.locator('#workshop .ws-toast.on').count() && await text(p, '#workshop .ws-toast'), refused, 'fix 1: a refused delete says so');
+  assert.deepEqual(await designs(p), kept, 'fix 1: a refused delete keeps the design on the device');
+  assert.equal(await p.locator('.ws-piece-card').count(), 1, 'fix 1: a refused delete keeps the card open');
+  await p.context().close();
+}
+
+/** Fix 8, the reason: where "Always" for "also moves like" cannot keep every move and take, the When choices show it disabled with its reason; elsewhere it is open. */
+async function fix8AlwaysReason(browser) {
+  const p = await open(browser, { width: 1280, height: 900 });
+  const always = () => p.locator('.ws-property-options label.ws-choice').filter({ hasText: 'Always (adds it to Moves)' });
+  for (const [key, off] of [['shotKing', true], ['stepKing', false]]) {
+    await openLink(p, key, key === 'shotKing' ? 'Shot King' : 'Step King', true);
+    await p.click('.ws-pill[data-pill="when"]');
+    assert.equal(await always().locator('input').isDisabled(), off, `fix 8: ${key}: "Always" is ${off ? '' : 'not '}disabled`);
+    const reason = await always().locator('small').count() ? await always().locator('small').innerText() : null;
+    assert.equal(reason, off ? 'Its shots and these moves meet on a square, and a square cannot hold both. Keep it as a rule.' : null,
+      `fix 8: ${key}: ${off ? 'the disabled "Always" gives its reason' : 'an open "Always" gives no reason'}`);
+    await p.click('.ws-property-close');
+  }
+  await p.context().close();
+}
+
+/** Fix 12, the note: Why? with two or more "Without" lines says once that the parts overlap; Why? with one such line does not. */
+async function fix12OverlapNote(browser) {
+  const p = await open(browser);
+  const note = 'Each line is the worth without one part. The parts overlap, so the differences do not add up.';
+  for (const [key, lines] of [['likelyOP', 2], ['knight', 1]]) {
+    await openLink(p, key, `Why ${key}`);
+    await p.click('.ws-why');
+    await p.waitForSelector(sheetOpen);
+    const withouts = (await p.locator(`${sheetOpen} .ws-reasons li`).allTextContents()).filter(t => t.startsWith('Without'));
+    assert.equal(withouts.length, lines, `fix 12: ${key}: Why? has ${lines} "Without" line(s)`);
+    assert.equal(await p.locator(`${sheetOpen} p`).filter({ hasText: note }).count(), lines > 1 ? 1 : 0, `fix 12: ${key}: the overlap note shows ${lines > 1 ? 'once' : 'not at all'}`);
+    await p.click(`${sheetOpen} .ws-close`);
+  }
+  await p.context().close();
+}
+
+/** Fix 19, the HOME note: a damaged saved entry gives one note on the home; the good design shows and opens; the device keeps the damaged entry. */
+async function fix19DamagedNote(browser) {
+  const p = await open(browser);
+  await newPiece(p);
+  await cell(p, 'move').click();
+  const [good] = await designs(p), broken = { kind: 'piece', id: 'broken' };
+  for (const [bad, words] of [[[broken], '1 saved entry could not be read. It stays on this device; the other designs work.'],
+    [[broken, { ...good, id: 'bad-square', squares: [{ x: 9, y: 0, mark: 'both' }] }], '2 saved entries could not be read. They stay on this device; the other designs work.']]) {
+    await p.evaluate(all => localStorage.setItem('kingdown.workshop', JSON.stringify({ v: 1, designs: all })), [good, ...bad]);
+    await p.click('.ws-back');
+    await p.waitForSelector('#workshop[open] .ws-door');
+    assert.deepEqual(await p.locator('#workshop .ws-note').allInnerTexts(), [words], `fix 19: ${bad.length} damaged: the home gives one note`);
+    assert.deepEqual(await p.locator('.ws-tile b').allInnerTexts(), [good.name], `fix 19: ${bad.length} damaged: the good design shows`);
+    await p.click('.ws-tile');
+    await p.waitForSelector('.ws-piece-card');
+    await cell(p, 'take').click();
+    assert.deepEqual((await designs(p)).map(d => d.id), [good.id, ...bad.map(d => d.id)], `fix 19: ${bad.length} damaged: the good design opens and saves, and the device keeps the damaged entries`);
+  }
+  await p.context().close();
+}
+
 /** Esc in a choices panel (the + picker, a pill, the When) closes only the panel and puts the focus on its opener; a second Esc closes the Workshop. */
 async function escInPanel(browser) {
   const p = await open(browser, { width: 1280, height: 900 });
@@ -1101,7 +1187,11 @@ try {
   await fix9TryKeyboard(browser);
   await fix13SafeRule(browser);
   await fix28LineEdge(browser);
-  console.log('ok the review fixes 2, 4, 5, 6, 9, 13, 20, 23, 27, 28 (the lines) and 29');
+  await fix1RefusedCopyAndDelete(browser);
+  await fix8AlwaysReason(browser);
+  await fix12OverlapNote(browser);
+  await fix19DamagedNote(browser);
+  console.log('ok the review fixes 1 (Copy link and Delete under a refused save), 2, 4, 5, 6, 8 (the reason of "Always"), 9, 12 (the overlap note), 13, 19 (the home note), 20, 23, 27, 28 (the lines) and 29');
   await escInPanel(browser);
   await surpriseNoGlow(browser);
   console.log('ok Esc in a choices panel, Surprise me adds no glow');
