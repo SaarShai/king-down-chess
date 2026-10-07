@@ -307,4 +307,8 @@ describe('lesson headings', () => {
     ]);
     expect(lessonFaults('## 2026-09-13 \u2014 rate limit\n- Keep no more than ~6 Opus agents.', 'fixture.md')).toEqual([]);
   });
+
+  it('LESSONS.md holds each lesson under one dated heading with no model name', () => {
+    expect(lessonFaults(read('LESSONS.md')).map(show)).toEqual([]);
+  });
 });

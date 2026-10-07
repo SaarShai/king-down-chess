@@ -2,64 +2,137 @@
 
 Reusable corrections. Pattern → rule.
 
+## 2026-10-04 — check a vector from a PDF against the PDF's own render
 - The rook icon lost its two white bands in the SVG: the rulebook path holds them as two rectangles that open only under the even-odd rule (as MuPDF draws the page), while PyMuPDF reported nonzero; side-by-side thumbnails at 120 px looked right. → Check a vector taken from a PDF against the PDF's own render, pixel by pixel, with the overlapping images removed (`tools/extract-piece-icons.py` does it and stops at 0.5%), not by eye. (2026-10-04)
+
+## 2026-10-04 — measure an effect anchor through the figure's transform
 - An effect meant to follow a drawn figure's lean was "checked against the drawn crown" by eye and given the wrong sign; the next fix moved it the wrong way by 24 units, and a later fix keyed per-square state to `animation.done`, so the move's last frame (drawn before the next position arrives) flashed the effect back in. → Compute the anchor through the same transform the figure uses (`getTransform().transformPoint`) and measure it, and test a fix on the exact frames and case the report names (the frame before and after a switch, both armies, the edge files) before calling it done. (2026-10-04)
+
+## 2026-10-04 — record the painted scene with a fake frame clock
 - Recording the painted scene with a fake `requestAnimationFrame` clock gave the same frame over and over: the scene asks for its idle frames from a real 33 ms timer, which never fires inside one synchronous `page.evaluate` loop, and the lava mask (loaded on first draw) never arrived either. → Each recorded step asks for its frame (`scene.redraw()`, then step the clock), and the recording waits once on the real clock for an effect's own art before the first frame. (2026-10-04)
+
+## 2026-10-03 — one mark slot per side for two-sided powers
 - A position held one Freeze/Ice Wall mark, so the side it bound could play its own mark and erase it; under `markFree` (the official reading) it then made the forbidden move, and the search found the trick. It lived from the free-mark reading (2026-10-02) until a review of card mode (2026-10-03), because every test marked with one side only. → State that each side can set keeps one slot per side (`Position.marks`); test every two-sided power with both sides using it in turn, before measuring it. (2026-10-03)
+
+## 2026-10-03 — the hash's high half came from the same stream
 - The hash's high half was drawn from the same xorshift stream as the low half; xorshift is linear, so the high half was a fixed function of the low one and keys carried 32 bits, not the 52 the comment claimed. → Draw independent halves from independent generators, and test a claim about key width (distinct low halves with equal high halves must exist). (2026-10-03)
+
+## 2026-10-02 — a recolour re-encoded the untouched half of a sheet
 - Recolouring one army's half of a painted sheet and saving its lossy WebP re-encoded the untouched half too (mean change 0.6–0.7 of 255), and re-running the figure-cut script then rewrote the other army's title and Guide crops; the strike-sheet tool likewise rewrites all eleven sheets. → Check "untouched" on the PNG master (pixel-identical), restore derived files of the side that did not change, and keep only the regenerated files the change is about. (2026-10-02)
+
+## 2026-10-02 — helpers outside the engine after a new move kind
 - Two branches built at the same time met in review: the new screens asked the move generator "as if it were the other side's turn" by copying the whole position, so a pending Haste second move came along and the threat markers vanished; and the screen-reader line took the piece on `from` as the mover, which a Freeze (an enemy square) breaks. → After a new move kind or position field lands, check every helper outside the engine that reads `pseudoMoves`, `m.from` or `m.to` (`grep -n "pseudoMoves\|board\[m.from\]" src/*.ts`), and give power moves their own wording. (2026-10-02)
+
+## 2026-10-02 — the random-army pool switched the net off
 - The random-army pool gained the Ogre after the residual net was trained, and the evaluator's "lab piece → plain evaluation" fallback quietly switched the net off on about half of all browser games from 2026-09-25 (commit bda05fb) until today, unnoticed. → After any change to `POOL`, check which evaluator a random army actually gets (`evalBoard` vs `evaluateBoard` on a board with each pool piece), and retrain or extend the net. (2026-10-02)
+
+## 2026-10-02 — a `pgrep -f` wait loop matched its own shell
 - A wait loop `while pgrep -f "<pattern>"` never ended: `pgrep -f` matched the loop's own shell, whose command line contains the pattern. → Write the pattern so it cannot match itself (`pgrep -f "powers-net.ts [m]atch"`), or wait on the process's own output (a "done" line). (2026-10-02)
+
+## 2026-10-02 — random opening moves spent the kings' powers
 - A kings' powers tournament let its random opening moves include power moves. Flight alone adds about 200 moves to a position, so most powers were spent by chance in the first four plies and the run measured nothing. → Random opening moves come from the pieces' own moves only (`m.power` excluded); after any new move kind, check what the opening randomiser can pick. (2026-10-02)
+
+## 2026-10-02 — a short commit SHA fails as a session source
 - `create_session` with a short commit SHA as the source revision failed at start (`ref_not_found`). → Start compute sessions on a branch name and have the prompt check out the full 40-character SHA. (2026-10-02)
+
+## 2026-10-02 — closures in hot paths under tsx `keepNames`
 - tsx compiles with `keepNames`, which wraps every inner arrow function in a naming call; in the attack test's hot loop that cost more than the work. → Keep closures out of hot paths (module-level helpers, precomputed tables) and measure the search with node counts held equal. (2026-10-02)
+
+## 2026-10-02 — sim workers under Node 22 and a hung `npm test`
 - Sim workers stopped loading TypeScript under Node 22 (`new Worker(file.ts)` ignores the parent's tsx loader), and the runner waited forever for games a dead worker would never play; the end-to-end test's `execFileSync` blocked vitest's own timeout, so `npm test` hung too. → Start workers through `src/sim/worker-boot.mjs` (`tsWorker()`), and fail the run when a worker exits with games unplayed. A synchronous child process in a test needs its own `timeout`, below the test's. (2026-10-02)
+
+## 2026-10-02 — the cloud Chromium build for Playwright
 - Cloud sessions ship a Chromium build that Playwright 1.63 does not look for. → `.claude/hooks/cloud-setup.sh` links it (`tools/pw-cloud-link.mjs`); run browser tools with `PLAYABLE_BROWSER=chromium`. (2026-10-02)
+
+## 2026-10-02 — a timing check failed for reasons outside the code
 - A new timing check failed twice for reasons outside the code: its King-walk position (two bare kings) was an immediate draw, so no move could be played; and the Fast timing ran on into the computer's reply, which started the moment the timed move ended. → Test positions need material on both sides (or check the game is not over), and time only the animation you mean: `view.scene.playing` names it, so stop when it changes. Also: a background wait `while pgrep -f "tools/qa.mjs"` matched its own shell's command line and never ended; wait on the PID (`kill -0 $pid`). (2026-10-02)
+
+## 2026-10-02 — "byte-identical" means the same environment
 - The committed trial strike sheets differ byte for byte from a fresh run on unchanged `main` in a cloud session (another Chromium build). → "Byte-identical" means identical to the same tool's run on `main` in the same environment; save that run first, then compare. (2026-10-02)
+
+## 2026-10-02 — a service worker hid the load cost
 - A load measurement with a service worker looked 4× faster and showed 0.14 MB transferred: once `clients.claim()` took over, the page's files came through the worker, whose own fetches the CDP network emulation does not throttle or count. The worker had also started precaching on `load`, in parallel with the first visit's own downloads. → Register the worker only after the board is drawn, and cross-check every load measurement with one run under `serviceWorkers: 'block'`; the numbers must agree. Bound any wait on `navigator.serviceWorker.ready`: it never resolves on a page with no registration, which hung the first script for 28 min. (2026-10-02)
+
+## 2026-10-02 — build main beside a branch in a worktree
 - To build main beside a branch, `git checkout main -- .` overwrote the branch's tracked files in place (recovered with `git checkout HEAD -- .`). → Build another revision from `git worktree add <dir> main` (symlink `node_modules`), never by checking its files out over the working tree. (2026-10-02)
+
+## 2026-10-02 — take a tool baseline from a clean worktree
 - A baseline of the browser tools on main ran with tool files already edited for the new UI (Guide cards, title skip), so `verify-playable-clay.mjs` "failed on main" waiting for `.piece-card`, a selector main's build cannot have. Screenshot runs against the same preview server during that baseline also coincided with a clay figure's "Failed to fetch". → Take a baseline from a clean worktree of the base branch (`git worktree add /tmp/main-wt main`, symlink `node_modules`), and run nothing else against its server while it runs. Then edit tools. (2026-10-02)
 
+## 2026-09-29 — a lesson saved its position over the match
 - A lesson's `save()` guard did not protect the match: changing a player cleared lesson mode first, then saved the lesson position over the match. → Keep the live `Game` separate from the lesson `Game`, preserve its rules and player sides, and test lifecycle controls as well as lesson moves. Lessons must run under the rules their instructions teach. (2026-09-29)
 
+## 2026-09-27 — a moved control broke the selectors of two tools
 - Moving the lessons button into the Guide dialog broke two tools that closed the Guide with `#rules button` (strict mode: two buttons). Only the painted check was rerun after the move, so the break showed one batch later. → After adding or moving a control, grep the tools for selectors of that container (`grep -n "#rules button" tools/*.mjs`) and prefer specific selectors (`#rules form button`); rerun every tool after any UI move, not only the one that tests the feature. (2026-09-27)
 
+## 2026-09-27 — the trailer sound copied the picture's timing
 - The trailer's cue sheet and score copied the intros' timing (ramps, reveal starts). The copies drifted during the motion pass, so the name-reveal sounds played 50–160 ms after their hits, and the "within one frame" check passed because it measured the copies against themselves. → Shot modules export their timing and the sound imports it; never copy a timing value into a second file. A sync check compares against the picture's own values. (2026-09-27)
 
+## 2026-09-27 — motion blur opens the shutter on the frame time
 - The trailer's motion blur sampled a shutter centred on each frame time. Every hard cut then blended the last shot into the first frame of the next, and every hit peaked one frame late; shots began to shift their own events half a frame to compensate. → Open the shutter on the frame time (sub-frames at `t + s/N · shutter`), as a film camera does. Fix timing faults in the renderer, not in each shot. (2026-09-27)
+
+## 2026-09-27 — trailer mastering: one linear gain, then a limiter
 - Trailer mastering: two-pass `loudnorm` silently fell back to dynamic mode (it lifts quiet passages) because the mix's peak-to-loudness ratio was above what −14 LUFS at −1 dBTP allows; and raising the title hit's level did not make it the loudest, since every big hit reached the limiter. → Master as one linear gain, then a true-peak limiter, and fail when the target is missed. At a peak ceiling, rank hits by density (crest factor), not by level. (2026-09-27)
+
+## 2026-09-27 — parallel renders shared one Python server
 - Parallel headless renders shared one `python3 -m http.server` (listen backlog 5) and intermittently failed with "Failed to fetch dynamically imported module". → A render tool serves its own files on a free port (`node:http`, port 0). Build its root with `fileURLToPath(new URL(...))`: `URL.pathname` keeps `%20` for the spaces in this repo's path. (2026-09-27)
 
+## 2026-09-27 — a changed default broke `tools/qa.mjs`
 - Painted became the default look and three browser tools were pinned to clay, but `tools/qa.mjs` was missed: after the switch it failed 15 of 17 cases with `window.view.pieces is not iterable`, and its Ogre cases still expected rules and dialogs that had changed. → When a default changes (look, rule mode, UI flow), grep every tool for what depended on it (`grep -l "window.view" tools/*.mjs`) and run each one, not only those you remember. (2026-09-27)
+
+## 2026-09-27 — a fixed sleep for a camera tween
 - A browser check slept 450 ms for a 400 ms camera tween. The renderer clamps each frame step to 50 ms and headless WebGL draws ~21 fps, so animation time runs slower than wall time and the drag aimed at a moving camera. → Never wait a fixed time for an animation in a browser check; wait on its state (`window.view.tweens.list.length === 0`). (2026-09-27)
+
+## 2026-09-27 — the same trap, twice more: assert the state change
 - The same trap, twice more (2026-09-27): a clay skip check timed from tap to settled board read 667 ms (headless WebGL rebuilt the figure), though the skip itself was instant; and the painted phone screenshot waited only for the canvas size, so it showed "Loading pieces…". → Assert the state change itself (`view.moving` false right after the tap), and take screenshots only after `view.ready()`. Time a behaviour only against its own control in the same run (Normal vs Fast).
+
+## 2026-09-26 — a colour-only revision changed the framing
 - A colour-only generated revision can also change framing and clip equipment. → Recheck alpha gutters, complete weapon edges and source registration after every revision, even when the prompt locks geometry. The Paladin required a separate framing correction after recolouring. (2026-09-26)
+
+## 2026-09-26 — board feedback hidden below a tall board
 - Board feedback can exist in the DOM and still be invisible below a tall board. → Responsive verification must check the actual status rectangle after board interaction, not only horizontal overflow or successful clicks. In a board editor or static mockup, check the full grid against fixed headers and action bars at the actual viewport height; a width-only check can miss a hidden last row. Size the grid from the actual panel width and measured header, controls, help and save-alert heights, including the failure state. Zero-action selections must not instruct the player to choose a nonexistent marker. (2026-09-26)
+
+## 2026-09-21 — graphics animation export
 - Graphics animation export (2026-09-21): Blender's broad action export included the other character's compatible action and kept a nonzero start time. → Export only the selected rig's active action, shift its time to zero, and verify one clip per asset, duration, first/last pose and actual skinned foot contact. A convincing static preview does not establish correct animation playback or contour deformation.
 
+## 2026-09-21 — graphics feature correction
 - Graphics feature correction (2026-09-21): identifying colours belong to specific modeled parts (Guard shoulder plates, Archer hood), and broad smoothing can distort those parts. → Fit masks to each feature's actual orientation and outline, inspect neutral source geometry from multiple angles, preserve crease edges/corner normals, and use less smoothing on structural forms. The Archer's diagonal head needs a local-frame hood mask; passing render tests alone does not validate art placement.
 
+## 2026-09-21 — graphics cleanup correction
 - Graphics cleanup correction (2026-09-21): tidier detail means simplifying/smoothing selected sculpt features as well as cleaning colour boundaries. → Keep the approved pixel resolution fixed; reduce small surface clutter while protecting the forms that identify the character, and judge both actual play size and a close view.
 
+## 2026-09-21 — graphics detail correction
 - Graphics detail correction (2026-09-21): the owner's request for more pixels meant richer figures closer to the source art, not resolution alone. → Treat model/paint detail and rendering resolution as separate changes; increasing samples does not fulfill a request to recover character detail.
 
+## 2026-09-21 — graphics feedback: an authored low-resolution model
 - Graphics feedback (2026-09-21): preserving a detailed sculpt by merely changing its renderer can preserve the very detail density that makes it unreadable. → Compare an intentionally authored low-resolution model against the original, using the same recognizable design and judging at actual game size; do not assume higher fidelity is the preferred style.
 
+## 2026-09-16 — Google Drive `read_file_content` returns `{}`
 - Google Drive MCP `read_file_content` returned `{}` for every doc/sheet in this project. → Use `download_file_content` (base64) or, for link-shared files, `curl` the export URL (`/export?format=txt|xlsx`, `uc?export=download&id=`) and `gdown --folder` for folders.
+
+## 2026-09-16 — macOS `base64` takes no positional file
 - macOS `base64` has no positional file arg. → `base64 -D -i in -o out`.
+
+## 2026-09-16 — `gdown --folder` has no `--remaining-ok` flag
 - `gdown --folder` in the current release has no `--remaining-ok` flag. → Run it plain; check `find dir -type f | wc -l` for the 50-file cap.
+
+## 2026-09-16 — image-only PDFs come back as garbage text
 - Image-only PDFs come back as garbage text. → Rasterize with PyMuPDF (`page.get_pixmap(dpi=110)`) and read the PNGs.
+
+## 2026-09-16 — voxelized sculpts at 36 voxels
 - Voxelized sculpts at 14–20 voxels read as blobs; at 36 voxels with normals taken from the occupancy gradient (not face normals) they shade like the original sculpt and stay legible at pixel size 2. → `tools/voxelize.py --height 36` is the baseline; keep `VOXEL`/`TARGET_HEIGHT` in `src/render/voxels.ts` in step with the pixel size.
+
+## 2026-09-16 — the Artifact `files` list form
 - Artifact `files` list form needs `{path}` objects; a bare string array is rejected. → Use the map form `{"published/path": "source/path"}` with `root: "dist"`, and `null` to drop stale hashed bundles.
+
+## 2026-09-16 — `navigate` in `browser_batch` needs `tabId`
 - In `browser_batch`, `navigate` without `tabId` hits the fronted tab (it replaced the dev-server tab once). → Always pass `tabId`.
 
 ## 2026-09-13 — in-place edits with `|` in the text
 - **Mistake:** `perl -pi -e "s|…\|\|…|…|"` inside shell double quotes mangled every line of `src/render/sprites.ts` (the pattern collapsed to empty and matched each line start).
 - **Rule:** for edits whose text contains `|`, `$` or quotes, use the Edit tool or a Python snippet / quoted heredoc; never a perl/sed one-liner with a `|` delimiter. Run `npx tsc --noEmit` right after and `git`-less projects get a `cat -A | head` sanity check.
 
-## 2026-09-13 — session rate limit killed 8 parallel Opus agents
+## 2026-09-13 — session rate limit killed 8 parallel agents
 - **What happened:** ten agents in flight hit the account's session limit (HTTP 429); each stopped mid-task with partial files on disk.
 - **Rule:** before resuming, survey the disk (`ls`/`tsc`/`vitest`) to know what landed, then resume each agent with `SendMessage` (its transcript is kept) telling it to re-read its files first. Keep no more than ~6 Opus agents running at once when the limit window is close, and stagger research (cheap) after builds (expensive).
 
@@ -400,14 +473,6 @@ An Ogre can shove a pawn backward; a Maester can swap it. Pawn moves reset the f
 
 ## 2026-09-22 — test counterplay before the observed advantage forms
 The 24 strongest selected Paladin opening examples still scored White +505 to +1,215 at deeper searches from their late positions. That did not show an unavoidable opening flaw. Replaying from Black’s first reply, replacing the remaining random opening plies with 200/400 ms search for both players, avoided the original large advantage in all 24 short branches. Several exposed Paladins could simply be captured. Preserve the same selected cases, source prefix and finite horizon; distinguish late-position rescue from earlier counterplay. Do not weaken a rule from extreme examples created partly by random opening decisions, and never label short unfinished branches as draws or forced outcomes.
-
-## Playable clay picking and layout — 2026-09-22
-- Three.js raycasts invisible label sprites. A hidden letter chip above a king/queen intercepted the pawn square even after the sculpt fitted the square; skip invisible ray hits and test all eight initial pawn-square centres with real pointer input. Reducing the visible model alone did not repair the interaction.
-- A responsive canvas inside CSS grid needs an explicit `minmax(0, 1fr)` column and `min-width: 0`; otherwise resizing from a wide viewport can preserve an oversized intrinsic canvas column. Keep the mobile HUD above the board, and verify both resize and actual element bounds, not just document overflow.
-
-## Clay facing and fixed presentation — 2026-09-22
-- The accepted clay sculpts face local +Z. White advances toward world −Z, so its resting parent rotates by π; Black's stays at zero. Do not reuse the legacy voxel orientation. Movement/contact turns are relative to that parent and must reset after movement and undo. Check both armies visually as well as their transforms.
-- The owner selected handmade clay at the study's 0.5 px double-detail setting for the playable game, with no rendering choices. Remove obsolete UI and URL/save overrides instead of merely changing the default; keep experimental presentation controls in the separate graphics study. Verify actual render-target dimensions and material state, not just a preset label.
 
 ## 2026-10-03 — a balance round measures only the armies it drew
 - **What happened:** round 12 re-ran round 11's exact rules and engine with a new seed. Mercy went
