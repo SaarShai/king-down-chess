@@ -6,17 +6,21 @@
 // check the review fixes 2, 4, 5, 6, 9, 13, 20, 23, 27, 28 (the line edge) and 29 of 2026-10-06, one group
 // per fix, named by its number. The judge test checks the other part of fix 28 (Why? names the band).
 // Two groups check two small faults of workshop-finish/06: Esc in a choices panel and the glow of Surprise me.
-// The last group, motionSetA, is the motion seam of workshop-finish/07: the approved Set A reactions on the
+// The group motionSetA is the motion seam of workshop-finish/07: the approved Set A reactions on the
 // card (A1, A4, A5), measured from the animations that each edit starts and their end times.
+// The last groups check the landscape phone layout of workshop-finish/08 (review fix 11): both boards and
+// Try it in view at 568x320, each board whole after a scroll at the other sizes, and a refit on a turn.
 // Run it with `npm run check:browser workshop`. It reads its server, channel and output folder from the
 // shared check module (tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { assertNoErrors, env, imageIs, launch, minTarget, noOverlap, noRunningAnimations, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, imageIs, insideViewport, launch, minTarget, noOverlap, noRunningAnimations, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
 const cast = JSON.parse(readFileSync(new URL('../docs/visual-design/workshop/cast.json', import.meta.url), 'utf8'));
 const viewports = [[320, 568], [390, 844], [568, 320], [768, 1024], [1280, 900]];
+/** The short landscape layout (workshop.css): a landscape screen at most 500 px high. */
+const shortLandscape = (width, height) => width > height && height <= 500;
 const saved = p => p.evaluate(() => JSON.parse(localStorage.getItem('kingdown.workshop')).designs[0]);
 const mark = async p => (await saved(p)).squares[0].mark;
 const cell = (p, mode, x = 1, y = 2) => p.locator(`.ws-board[data-action="${mode}"] .ws-cell[data-x="${x}"][data-y="${y}"]`);
@@ -39,8 +43,9 @@ async function ready(p) {
   await p.evaluate(() => window.view.ready());
 }
 
-/** New piece: one choice per cast figure; a new design is blank and shows two boards, one model and an upright meter. */
-async function blankCast(p, width) {
+/** New piece: one choice per cast figure; a new design is blank and shows two boards, one model and an upright meter
+ * (in short landscape, no meter: the worth line holds the number). */
+async function blankCast(p, width, height) {
   await p.goto(base);
   await ready(p);
   await p.click('#workshop-btn');
@@ -53,8 +58,11 @@ async function blankCast(p, width) {
   assert.equal(await p.locator('.ws-board').count(), 2, 'two boards');
   assert.equal(await p.locator('#workshop').locator('.ws-edit-sheet,.ws-die,.ws-card-edit,.ws-plinth,.ws-floor,.ws-rim,input[type="range"]').count(), 0, 'no removed control');
   assert.equal(await p.locator('.ws-model img').count(), 1, 'one model picture');
-  const meter = await p.locator('.ws-thermometer').boundingBox();
-  assert.ok(meter.height > meter.width, 'the thermometer is upright');
+  if (shortLandscape(width, height)) assert.equal(await p.locator('.ws-thermometer').isVisible(), false, 'short landscape: no thermometer');
+  else {
+    const meter = await p.locator('.ws-thermometer').boundingBox();
+    assert.ok(meter.height > meter.width, 'the thermometer is upright');
+  }
   assert.equal(await p.getAttribute('.ws-thermometer', 'role'), 'meter', 'the thermometer is a meter');
 }
 
@@ -165,8 +173,6 @@ async function shareTryReload(p) {
 
 /* ---- The groups that come back from the old check (84f9e42, 8c91940) ---- */
 
-/** The sizes of the card layout group. The short landscape size (568x320) gets its own group with the landscape layout. */
-const tall = viewports.filter(([, height]) => height > 500);
 const ALWAYS = { on: 'always' };
 const step = mark => [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]].map(([x, y]) => ({ x, y, mark }));
 /** Pool pieces in Workshop words (src/workshop/model.ts PRESETS), and Rook mixed with Knight, a likely-overpowered design. */
@@ -241,13 +247,24 @@ async function shareAction(p, action) {
   await p.click(`${sheetOpen} .ws-${action}`);
 }
 
-/** No sideways scroll, 44 px controls, no overlap and no cut text on the open Workshop screen. */
+/** The smaller controls of the card in short landscape, as in the approved mockup: [selector, minimum px]. */
+const LANDSCAPE_SMALL = [['#workshop .ws-editor .ws-bar button', 36], ['#workshop .ws-name, #workshop .ws-eye, #workshop .ws-take-mode select', 28]];
+
+/** Controls of at least 44 px; in short landscape, the card's header buttons 36 px and its pen, eye and Take-by select 28 px. */
+async function targetsFit(p) {
+  const { width, height } = p.viewportSize();
+  if (!shortLandscape(width, height) || !await p.locator('.ws-piece-card').count()) return minTarget(p, '#workshop button:not(.ws-cell), #workshop select');
+  await minTarget(p, '#workshop button:not(.ws-cell, .ws-name, .ws-eye, .ws-editor .ws-bar button), #workshop select:not(.ws-take-mode select)');
+  for (const [selector, min] of LANDSCAPE_SMALL) await minTarget(p, selector, min);
+}
+
+/** No sideways scroll, large enough controls, no overlap and no cut text on the open Workshop screen. */
 async function screenFits(p, what) {
   await noSidewaysScroll(p);
   for (const area of await p.locator('#workshop .ws-scroll, #workshop .ws-workspace').all()) {
     assert.ok(await area.evaluate(e => e.scrollWidth <= e.clientWidth + 1), `${what}: no sideways scroll in the Workshop`);
   }
-  await minTarget(p, '#workshop button:not(.ws-cell), #workshop select');
+  await targetsFit(p);
   if (!await p.locator('.ws-piece-card').count()) return;
   for (const row of ['.ws-bar > *', '.ws-card-border > *', '.ws-portrait > *', '.ws-name-row > *', '.ws-footer > *']) await noOverlap(p, `#workshop ${row}`);
   for (const words of ['.ws-name-t', '.ws-worth', '.ws-bottom', '.ws-save-state', '.ws-bar button', '.ws-footer button']) await textNotCut(p, `#workshop ${words}`);
@@ -970,6 +987,77 @@ async function motionSetA(browser) {
   await p.context().close();
 }
 
+/* ---- The landscape phone layout (workshop-finish/08) ---- */
+
+/** The card and board boxes [x, y, width, height] of a new piece, with the scroll at the top, before the landscape
+ * layout (measured on build d63c763). The landscape layout must not move them. */
+const BEFORE = {
+  '320x568': { card: [16, 64, 288, 289], move: [16, 541, 288, 288], take: [16, 961, 288, 288] },
+  '390x844': { card: [16, 64, 358, 283], move: [37, 535, 316, 316], take: [37, 983, 316, 316] },
+  '768x1024': { card: [84, 68, 600, 283], move: [50, 539, 316, 316], take: [402, 539, 316, 316] },
+  '1280x900': { card: [112, 76, 320, 346], move: [479, 240, 316, 316], take: [841, 240, 316, 316] },
+};
+const BOARDS = { move: '#workshop .ws-board[data-action="move"]', take: '#workshop .ws-board[data-action="take"]' };
+const roundBox = (p, selector) => p.locator(selector).evaluate(e => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); });
+const cellWidths = p => p.locator('#workshop .ws-cell').evaluateAll(cells => [...new Set(cells.map(c => c.getBoundingClientRect().width))]);
+/** A new piece at a size, with the fonts and figures loaded and the scroll at the top. */
+async function newPieceAt(browser, width, height) {
+  const p = await open(browser, { width, height });
+  await newPiece(p);
+  await p.waitForLoadState('networkidle');
+  await p.evaluate(() => document.fonts.ready);
+  await p.locator('.ws-workspace').evaluate(e => { e.scrollTop = 0; });
+  return p;
+}
+
+/** Fix 11: at 568x320 every square of both boards and Try it are in view with no scroll; 27 px cells; no thermometer,
+ * mode line or forward line; the card's header buttons 36 px, its pen, eye and Take-by select 28 px, the rest 44 px. */
+async function fix11FullGridLandscape(browser) {
+  const p = await newPieceAt(browser, 568, 320);
+  for (const selector of [BOARDS.move, BOARDS.take, '#workshop .ws-try']) await insideViewport(p, selector);
+  assert.deepEqual(await cellWidths(p), [27], '568x320: every cell is 27 px');
+  for (const selector of ['.ws-thermometer', '.ws-pattern .ws-mode', '.ws-pattern .ws-fwd']) {
+    assert.equal(await p.locator(selector).filter({ visible: true }).count(), 0, `568x320: ${selector} is hidden`);
+  }
+  await screenFits(p, '568x320 card');
+  await shot(p, '568x320-landscape');
+  await p.context().close();
+}
+
+/** At a tall size: the card and boards keep their boxes; after a scroll to each board the whole board is in view;
+ * Try it is in view; no sideways scroll; cells of 24 px or more. */
+async function boardsInView(browser, width, height) {
+  const p = await newPieceAt(browser, width, height);
+  const before = BEFORE[`${width}x${height}`];
+  assert.deepEqual(await roundBox(p, '#workshop .ws-piece-card'), before.card, `${width}x${height}: the card box`);
+  for (const [mode, selector] of Object.entries(BOARDS)) assert.deepEqual(await roundBox(p, selector), before[mode], `${width}x${height}: the ${mode} board box`);
+  for (const selector of Object.values(BOARDS)) {
+    await p.locator(selector).scrollIntoViewIfNeeded();
+    await insideViewport(p, selector);
+  }
+  await insideViewport(p, '#workshop .ws-try');
+  await noSidewaysScroll(p);
+  await noSidewaysScroll(p, '#workshop .ws-workspace');
+  await minTarget(p, '#workshop .ws-cell', 24);
+  await p.context().close();
+}
+
+/** A turn from 320x568 to 568x320 and back refits the cells with no reload. */
+async function turnRefits(browser) {
+  const p = await newPieceAt(browser, 320, 568);
+  const cellsAre = async (px, what) => {
+    try { await p.waitForFunction(n => [...document.querySelectorAll('#workshop .ws-cell')].every(c => c.getBoundingClientRect().width === n), px, { timeout: 2000 }); }
+    catch { assert.fail(`${what}: the cells are ${(await cellWidths(p)).join(', ')} px, not ${px} px`); }
+  };
+  await cellsAre(40, '320x568');
+  await p.setViewportSize({ width: 568, height: 320 });
+  await cellsAre(27, 'a turn to 568x320');
+  await insideViewport(p, BOARDS.take);
+  await p.setViewportSize({ width: 320, height: 568 });
+  await cellsAre(40, 'a turn back to 320x568');
+  await p.context().close();
+}
+
 const browser = await launch();
 try {
   for (const [width, height] of viewports) {
@@ -978,7 +1066,7 @@ try {
     p.setDefaultTimeout(10000);
     const errors = trapErrors(p);
     await p.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
-    await blankCast(p, width);
+    await blankCast(p, width, height);
     await separateChannels(p, width);
     await inlineProperties(p);
     await nameAndAppearance(p);
@@ -990,8 +1078,8 @@ try {
     await ctx.close();
   }
   for (const [width, height] of viewports) await gameMenu(browser, width, height);
-  for (const [width, height] of tall) await cardLayout(browser, width, height);
-  console.log(`ok the game menu at ${viewports.length} sizes; the card layout at ${tall.length} sizes`);
+  for (const [width, height] of viewports) await cardLayout(browser, width, height);
+  console.log(`ok the game menu and the card layout at ${viewports.length} sizes`);
   await tapOutside(browser);
   await doors(browser);
   await keysStayInWorkshop(browser);
@@ -1019,6 +1107,10 @@ try {
   console.log('ok Esc in a choices panel, Surprise me adds no glow');
   await motionSetA(browser);
   console.log('ok motion Set A: one reaction per edit, Undo and rename; stops at the next edit, under reduced motion and Off; ends still by 600 ms (300 ms at Fast)');
+  await fix11FullGridLandscape(browser);
+  for (const [width, height] of viewports) if (!shortLandscape(width, height)) await boardsInView(browser, width, height);
+  await turnRefits(browser);
+  console.log('ok the landscape layout: fix 11 (the full grid at 568x320), each board in view at the other sizes, a refit on a turn');
   assertNoErrors();
 } finally {
   await browser.close();

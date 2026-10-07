@@ -9,7 +9,7 @@
 /* Lining figures: the small-caps headings and the counts read "0 of 3", not "o of 3". */
 #workshop { font-variant-numeric: lining-nums; }
 #workshop::backdrop { background: var(--night); }
-/* Under 360 px and in phone landscape, Back shows its arrow only (its word stays for screen readers), so the title fits. */
+/* Under 360 px, Back shows its arrow only (its word stays for screen readers), so the title fits. */
 @media (max-width: 359px) { #workshop { --gut: 12px; } #workshop .ws-bar h2 { font-size: var(--fs-md); } }
 @media (max-width: 359px) { #workshop .ws-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } #workshop .ws-bar .ws-back { min-width: var(--tap); justify-content: center; } }
 /* Still states only (§5.5: motion waits for the owner); Animations Off stops the house transitions too. */
@@ -105,6 +105,37 @@
 .ws-property-body { margin-top:12px; }
 @media(max-width:1000px) { .ws-workspace { display:block; padding:20px; } .ws-piece-card { max-width:600px; margin:0 auto 24px; } .ws-properties { max-width:680px; margin:auto; } .ws-model-box { --model:160px; } }
 @media(max-width:600px) { .ws-workspace { padding:16px; } .ws-dual-boards { grid-template-columns:1fr; gap:28px; } .ws-pattern { max-width:340px; width:100%; margin:auto; } .ws-symmetry { justify-content:flex-start; } .ws-name-t { font-size:21px; } .ws-property-cards { grid-template-columns:1fr; } .ws-footer { padding:8px 12px; gap:8px; } .ws-save-state { max-width:75px; font-size:11px; } .ws-directions { grid-template-columns:repeat(4,1fr); } }
+/* Short phone landscape (568 x 320): the card in a 120 px column, both boards side by side and Try it in view with no
+   scroll (the owner's mockup of 2026-10-07). The thermometer, the mode lines and the forward lines are hidden; the worth
+   line holds the number. The Apply-to select and the rest are below, in the scroll. fit() in dialog.ts sets the cell by
+   the height. The header buttons are 36 px and the pen, the eye and the Take-by select 28 px, as in the mockup. */
+@media (orientation: landscape) and (max-height: 500px) {
+  #workshop .ws-editor .ws-bar { height: 44px; }
+  #workshop .ws-editor .ws-bar button { min-height: 36px; padding: 4px 10px; }
+  #workshop .ws-footer { padding: 2px 12px; gap: 8px; }
+  #workshop .ws-footer .ws-try { min-width: 84px; }
+  #workshop .ws-save-state { max-width: 90px; font-size: 11px; line-height: 1.2; }
+  #workshop .ws-workspace { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px; padding: 6px 12px; align-items: start; }
+  #workshop .ws-piece-card { max-width: none; margin: 0; }
+  #workshop .ws-card-border { padding: 4px; }
+  #workshop .ws-portrait { flex-direction: column; gap: 2px; }
+  #workshop .ws-model-box { --model: 84px; }
+  #workshop .ws-gauge-box { display: none; }
+  #workshop .ws-name-row { flex-wrap: wrap; margin-top: 2px; gap: 0; }
+  #workshop .ws-name-t { flex-basis: 100%; font-size: 14px; line-height: 1.15; }
+  #workshop .ws-name, #workshop .ws-eye { width: 28px; height: 28px; padding: 5px; min-height: 0; }
+  #workshop .ws-worth { margin: 2px 0 0; font-size: 12px; line-height: 1.25; }
+  #workshop .ws-bottom { font-size: 11px; }
+  #workshop .ws-properties { max-width: none; margin: 0; }
+  #workshop .ws-patterns { display: flex; flex-direction: column; }
+  #workshop .ws-symmetry { order: 2; justify-content: flex-start; margin: 6px 0 0; font-size: 12px; }
+  #workshop .ws-dual-boards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  #workshop .ws-pattern { max-width: none; margin: 0; }
+  #workshop .ws-pattern h3 { font-size: 14px; line-height: 16px; margin: 0; }
+  #workshop .ws-pattern .ws-mode, #workshop .ws-pattern .ws-fwd { display: none; }
+  #workshop .ws-take-mode { font-size: 12px; margin-top: 4px; }
+  #workshop .ws-take-mode select { min-height: 28px; font-size: 12px; padding: 2px 4px; }
+}
 
 /* ---- bare character art ---- */
 .ws-model { position:relative; display:flex; justify-content:center; width:var(--model,140px); height:var(--model,140px); }

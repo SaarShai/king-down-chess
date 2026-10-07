@@ -95,11 +95,23 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     s.showModal();
   }
 
+  /** The board cell: up to 44 px, as wide as the board column allows, and 24 px or more. A board is 7 cells plus 8 px of
+   * lines. In short landscape (workshop.css) the whole board must also fit the height of the workspace. */
+  const shortLandscape = matchMedia('(orientation: landscape) and (max-height: 500px)');
   function fit(): void {
     const board = q<HTMLElement>('.ws-board');
-    if (board) dlg.style.setProperty('--cell', `${Math.min(44, Math.floor((board.parentElement!.clientWidth - 8) / 7))}px`);
+    if (!board) return;
+    let cell = Math.min(44, Math.floor((board.parentElement!.clientWidth - 8) / 7));
+    const area = board.closest<HTMLElement>('.ws-workspace');
+    if (shortLandscape.matches && area) {
+      const room = area.getBoundingClientRect().bottom - parseFloat(getComputedStyle(area).paddingBottom) - board.getBoundingClientRect().top - area.scrollTop;
+      cell = Math.min(cell, Math.floor((room - 8) / 7));
+    }
+    dlg.style.setProperty('--cell', `${Math.max(24, cell)}px`);
   }
   addEventListener('resize', () => { if (dlg.open && !(document.activeElement as HTMLElement | null)?.matches('input[type="text"]')) fit(); });
+  // A turn of the phone refits the boards, also while the name field has the focus.
+  matchMedia('(orientation: landscape)').addEventListener('change', () => { if (dlg.open) fit(); });
 
   function show(s: Screen): void {
     clearTimeout(toastTimer);
