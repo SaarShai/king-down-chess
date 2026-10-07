@@ -1,6 +1,7 @@
 /**
  * `lookOf(design, verdict)`: the stage as pure data (docs/WORKSHOP.md §5.1, §5.2, §5.4): the body,
- * the metal, the cracks, the rim, the floor marks and the props. art.ts draws it; the tests read it.
+ * the metal, the cracks, the rim, the floor marks and the props. art.ts draws the figure; the motion module
+ * and the tests read the rest.
  */
 import { selectedFigure, figureById } from './figures';
 import type { KingName } from '../rules/engine';
@@ -10,7 +11,7 @@ import { autoBody, type Metal, type Verdict } from './judge';
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules' | 'look' | 'letter'>;
 export interface FloorMark { x: number; y: number; mark: Mark; hatched: boolean }
 export interface StageLook {
-  figure?: string; body: Body | 'token'; army: 0 | 1; glow: KingName | null; letter: string;
+  figure: string; body: Body | 'token'; army: 0 | 1; glow: KingName | null; letter: string;
   metal: Metal; cracks: 'none' | 'hairline' | 'cracked' | 'dashed' | 'wide';
   /** 0.94 to 1.08 with the worth [A4]. */
   scale: number;
@@ -57,6 +58,6 @@ export function lookOf(d: D, v: Verdict): StageLook {
     noTake: no?.does.a === 'cannotTake' ? no.does.what : null, afterImage: !!rule('removedAfter'), sheathed,
   };
 }
-/** "Knight look, ivory, gold plinth." The start of the stage's hidden summary. */
+/** "Knight look, ivory." The start of the stage's hidden summary: only what the card shows. */
 export const lookWords = (l: StageLook): string =>
-  `${l.figure ? figureById(l.figure)?.name : l.body === 'token' ? 'Token' : { P: 'Pawn', N: 'Knight', B: 'Bishop', R: 'Rook', Q: 'Queen', A: 'Archer', L: 'Paladin', G: 'Guard', M: 'Maester', S: 'Beast', O: 'Ogre' }[l.body]} look, ${l.army ? 'charcoal' : 'ivory'}, ${l.metal === 'hairline' ? 'gold plinth with a hairline crack' : l.metal === 'cracked' || l.metal === 'broken' ? 'cracked gold plinth' : `${l.metal} plinth`}.`;
+  `${figureById(l.figure)?.name ?? 'Piece'} look, ${l.army ? 'charcoal' : 'ivory'}.`;

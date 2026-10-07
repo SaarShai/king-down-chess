@@ -14,10 +14,10 @@ import {
   parseDesign, presetOf, validName, type Body, type Dir, type Mark, type PaintOn, type PieceDesign, type Rule, type When,
 } from './model';
 import { BLOCKS, GROUPS, MORE_WHENS, NEAR_BODY, TOP_WHENS, EVENT_WHENS, blockOf, takesAny, whenWords, type Block } from './vocab';
-import { BAND_WORD, LEARN_LINE, autoBody, badgeText, bandOf, judge, shelfOf, whyHead, whyTitle, type Label, type Verdict } from './judge';
+import { BAND_WORD, autoBody, badgeText, bandOf, judge, shelfOf, whyHead, whyTitle, type Label, type Verdict } from './judge';
 import { GLOW, lookOf, lookWords } from './look';
-import { figureHtml, gaugeHtml, modelHtml, patternSvg } from './art';
-import { MARK_WORDS, cap, describe, dirWords, esc, pawns, ruleParts, ruleText, squareList } from './text';
+import { figureHtml, gaugeHtml, modelHtml } from './art';
+import { cap, describe, dirWords, esc, pawns, ruleParts, ruleText } from './text';
 import { autoName, letterFollows, letterOf, rollName, saveName } from './names';
 import { MAX, deleteDesign, loadDesigns, loadShelf, saveDesign, type SaveResult } from './store';
 import { sandbox } from './sandbox';
@@ -96,7 +96,6 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   }
 
   function fit(): void {
-    dlg.dataset.h = innerWidth > 720 ? 'wide' : 'phone';
     const board = q<HTMLElement>('.ws-board');
     if (board) dlg.style.setProperty('--cell', `${Math.min(44, Math.floor((board.parentElement!.clientWidth - 8) / 7))}px`);
   }
@@ -331,7 +330,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       };
     }
     q('.ws-worth').textContent = empty(cur) ? 'Add moves and takes below.' : `Estimated worth · ${pawns(w)}`;
-    q('.ws-gauge-box').innerHTML = gaugeHtml(v, true);
+    q('.ws-gauge-box').innerHTML = gaugeHtml(v);
     put(q('.ws-bottom'), empty(cur) ? '' : `<span class="ws-learn">${bandOf(v)}</span>`);
     rulesTab(q('.ws-rules-panel'));
     paintBoard();
@@ -406,7 +405,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       const mode = board.dataset.action;
       for (const b of qa<HTMLButtonElement>('.ws-cell', board)) {
         const x = +b.dataset.x!, y = +b.dataset.y!;
-        if (!x && !y) { put(b, figureHtml({ figure: selectedFigure(cur).id, body: cur.look.body, army: cur.look.army, letter: cur.letter }, 'ws-me-fig')); b.setAttribute('aria-label', 'Your piece'); continue; }
+        if (!x && !y) { put(b, figureHtml({ figure: selectedFigure(cur).id, army: cur.look.army }, 'ws-me-fig')); b.setAttribute('aria-label', 'Your piece'); continue; }
         const s = cur.squares.find(s => s.x === x && s.y === y), ray = rayOf(x, y), line = !!ray && cur.lines.includes(ray);
         const active = mode === 'move' ? s && ['move','both','moveShoot'].includes(s.mark) : s && ['take','both','shoot','moveShoot'].includes(s.mark);
         const shot = s && ['shoot','moveShoot'].includes(s.mark);
@@ -696,13 +695,6 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     });
   }
 
-  /** The saved card's pictures: the base moves, and one for each rule that adds moves only some of the time. */
-  function pats(d: PieceDesign): string {
-    const fig = (svg: string, words: string): string => `<figure class="ws-pat">${svg}<figcaption>${esc(words)}</figcaption></figure>`;
-    return fig(patternSvg(d), 'Base moves') + d.rules.map(r => r.does.a === 'movesLike' ? fig(patternSvg(presetOf(r.does.as === 'king' ? 'maester' : r.does.as)), `${cap(whenWords(r.when))}: also like ${r.does.as === 'king' ? 'a king' : `a ${r.does.as}`}`)
-      : r.does.a === 'step2' ? fig(patternSvg({ squares: [{ x: 0, y: 2, mark: 'move' }], lines: [] }), `${cap(whenWords(r.when))}: also 2 straight ahead`) : '').join('');
-  }
-
   /** Copy as text (§7.6): the sentences, a MATRIX-style row and the link. */
   function asText(d: PieceDesign, jv: Verdict, url: string): string {
     const t = describe(d), band = bandOf(jv).toLowerCase();
@@ -726,7 +718,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
 
   dlg.addEventListener('keydown', e => {
     // Only the editor itself: a key pressed in a sheet acts on the sheet alone.
-    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && screen === 'editor' && !q('.ws-sheet:not(.ws-edit-sheet)[open]') && !q('.ws-property-options:not([hidden])') && !fromLink && !(e.target as HTMLElement).closest('input[type="text"]')) {
+    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && screen === 'editor' && !q('.ws-sheet[open]') && !q('.ws-property-options:not([hidden])') && !fromLink && !(e.target as HTMLElement).closest('input[type="text"]')) {
       e.preventDefault();
       undo();
     }

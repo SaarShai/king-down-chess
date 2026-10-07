@@ -56,7 +56,7 @@ export function react(root: HTMLElement, previousLook: StageLook, nextLook: Stag
   };
   // Build the previous decoration from data, so snapshots cannot contain unfinished effects.
   const before = document.createElement('template');
-  before.innerHTML = modelHtml(previousLook) + gaugeHtml(previousVerdict, false);
+  before.innerHTML = modelHtml(previousLook) + gaugeHtml(previousVerdict);
   const old = before.content;
   const fig = model.querySelector<HTMLElement>('.ws-fig'), rim = model.querySelector<HTMLElement>('.ws-rim');
   const crossed = over(nextVerdict) && !over(previousVerdict);
