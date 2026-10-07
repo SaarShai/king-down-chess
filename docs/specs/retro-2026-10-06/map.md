@@ -26,6 +26,7 @@ Five approved specs under `docs/specs/`, each `ready-for-agent`, built on the br
 - [Landscape mockup](issues/07-landscape-mockup.md): approved 2026-10-07; side-by-side boards, 27 px cells, a 120 px card column, the thermometer hidden in landscape.
 - [Test seams](issues/08-test-seams.md): `npm test`, one browser-check runner, and a DOM test for motion only if `Element.animate` works in happy-dom.
 - [Approval](issues/10-approve-specs.md): the owner said yes to the five specs and their picks on 2026-10-07; the build starts.
+- [Build report](issues/11-build-report.md): 52 tickets built and 25 review findings fixed on the branch at 954fe65; tests, tsc and the 14 browser checks pass; 15 decisions wait for the owner before the merge.
 
 ## Not yet specified
 
