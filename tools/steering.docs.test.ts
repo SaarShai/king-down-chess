@@ -56,6 +56,11 @@
 //     citation of the form TASKS.md, LESSONS.md, QUEUE.md or HANDOFF*.md, then a colon and a line number;
 //   - the Workshop section of MATRIX.md names the revision 3 file and cites no section of WORKSHOP.md,
 //     and the revision 3 file exists.
+// Rules of steering-cut/09 (the retro handoff goes to the tasks archive after the integration merge):
+//   - the retro handoff is in the tasks archive, and its old path holds no file;
+//   - the handoff rules of steering-cut/07 apply to it as an archived handoff: the archive line first,
+//     no model name, no `Co-Authored-By:` line; the link rule of steering-cut/01 finds a live link to the
+//     old path.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -255,7 +260,7 @@ function linkFaults(file: string, text: string): Fault[] {
 describe('live files', () => {
   it('are the steering files outside the tasks archive that exist', () => {
     const files = liveFiles();
-    for (const want of ['AGENTS.md', 'TASKS.md', 'LESSONS.md', 'docs/QUEUE.md', 'docs/agents/issue-tracker.md', 'docs/agents/domain.md', 'docs/HANDOFF-retro.md'])
+    for (const want of ['AGENTS.md', 'TASKS.md', 'LESSONS.md', 'docs/QUEUE.md', 'docs/agents/issue-tracker.md', 'docs/agents/domain.md'])
       expect(files, want).toContain(want);
     expect(files.filter(file => file.startsWith('docs/tasks-archive/'))).toEqual([]);
   });
@@ -989,10 +994,14 @@ describe('AGENTS.md standing rules', () => {
   });
 });
 
-/** The two old handoffs: the old path and the path in the tasks archive (steering-cut/07). */
+/**
+ * The old handoffs: the old path and the path in the tasks archive. The first two moved in steering-cut/07,
+ * the retro handoff after the integration merge (steering-cut/09).
+ */
 const ARCHIVED_HANDOFFS = [
   { from: 'HANDOFF.md', to: 'docs/tasks-archive/HANDOFF-2026-10-03.md' },
   { from: 'docs/HANDOFF-2026-10-06.md', to: 'docs/tasks-archive/HANDOFF-2026-10-06.md' },
+  { from: 'docs/HANDOFF-retro.md', to: 'docs/tasks-archive/HANDOFF-retro.md' },
 ];
 
 /** The first line of an archived handoff. */
@@ -1052,8 +1061,8 @@ function handoffFaults(file: string, text: string, archived: boolean): Fault[] {
   return [...first, ...named, ...trailers];
 }
 
-/** The retro handoff: live until the integration merge, then in the archive (ticket 09). */
-const RETRO_HANDOFF = ['docs/HANDOFF-retro.md', 'docs/tasks-archive/HANDOFF-retro.md'];
+/** The retro handoff, in the tasks archive since the integration merge (steering-cut/09). */
+const RETRO_HANDOFF = ARCHIVED_HANDOFFS[2].to;
 
 /** The phrases the retro handoff must hold: the pointer to AGENTS.md and the new path of the Workshop handoff. */
 const RETRO_PHRASES = ['Follow AGENTS.md', ARCHIVED_HANDOFFS[1].to];
@@ -1094,7 +1103,7 @@ describe('handoffs', () => {
     expect(liveFiles().flatMap(file => markupFaults(file, read(file))).map(show)).toEqual([]);
   });
 
-  it('the two old handoffs are in the tasks archive, and their old paths hold no file', () => {
+  it('the old handoffs are in the tasks archive, and their old paths hold no file', () => {
     const faults = ARCHIVED_HANDOFFS.flatMap(({ from, to }) => [
       ...(existsSync(join(root, from)) ? [`${from}: the old path must hold no file`] : []),
       ...(existsSync(join(root, to)) ? [] : [`${to}: the archived handoff must exist`]),
@@ -1109,10 +1118,8 @@ describe('handoffs', () => {
   });
 
   it('the retro handoff defers to AGENTS.md and names the archived Workshop handoff by its path', () => {
-    const file = RETRO_HANDOFF.find(path => existsSync(join(root, path)));
-    expect(file, 'the retro handoff must exist').toBeDefined();
-    const text = read(file!).replace(/\s+/g, ' ');
-    expect(RETRO_PHRASES.filter(phrase => !text.includes(phrase)).map(phrase => `${file}: the file must hold "${phrase}"`)).toEqual([]);
+    const text = read(RETRO_HANDOFF).replace(/\s+/g, ' ');
+    expect(RETRO_PHRASES.filter(phrase => !text.includes(phrase)).map(phrase => `${RETRO_HANDOFF}: the file must hold "${phrase}"`)).toEqual([]);
   });
 });
 
