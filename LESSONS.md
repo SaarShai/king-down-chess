@@ -88,6 +88,11 @@ Reusable corrections. Pattern → rule.
   step of 2, an archer's diagonal step, a guard taken by a non-king. `tools/guard-study.ts
   --list` classifies every run this way and prints the pool it lands in. Cross-check with
   `report.json` → `degeneracy.guardCapturesPerGame` before pooling anything.
+- **Match adapters:** constructing "current" rules also requires the website's power overlay:
+  `POWERS_BALANCED` when a power is selected, then the historical preset, then explicit king choices.
+  Bare `DEFAULT_RULES` plus kings can restore obsolete power readings. Compare the complete effective
+  rule snapshot against website setup in adapter tests; a source fingerprint alone cannot catch the
+  wrong choice of rules within the same engine.
 
 ## A resumed control run silently mixes pools (2026-09-14)
 `pb-ab-base` was played 1 544 games under the two-guard pool, then resumed for 56 games under the one-guard pool: 79 arrangements, 384 two-guard games, and today's arms (`--seed 21 --sample 40`, one-guard pool) share only the 56 resumed games with it — the A/B was void and both buffs looked like miracles (capped 7.1% → 0.9%). The runner records the rule *diff* against the defaults of the day, so "all defaults" is not a fixed thing.
