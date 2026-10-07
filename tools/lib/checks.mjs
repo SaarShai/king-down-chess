@@ -172,3 +172,4 @@ export async function shot(page, name, options = {}) {
   await page.screenshot({ ...options, path });
   return path;
 }
+export { tempRepo } from './temp-repo.mjs';

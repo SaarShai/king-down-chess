@@ -12,6 +12,7 @@
     "test:docs": "vitest run --passWithNoTests .docs.test.ts",
     "prepare": "git config core.hooksPath .githooks || true",
     "gate": "node tools/gate.mjs",
+    "check:browser": "node tools/check.mjs",
     "sim": "tsx src/sim/run.ts",
     "sim:analyze": "tsx src/sim/analyze.ts",
     "tune": "tsx src/sim/tune.ts",
