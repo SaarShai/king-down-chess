@@ -4,7 +4,7 @@
 
 **Blocked by:** dev-environment/01 (`wt add <path>` on an existing detached worktree), checks-and-hooks/06 (the browser-check runner `npm run check:browser`)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/deploy.sh`, `tools/deploy.test.ts`
 
