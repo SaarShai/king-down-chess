@@ -4,11 +4,12 @@
 //   - `work/`: the work tree (`dir`), branch main, a local identity, remote `origin`;
 //   - `remote.git`: a bare repository (`remote`), branch main;
 //   - `gitconfig`: an empty file that git uses as the global config.
-// With hooks on (the default), it copies the tracked `.githooks/` folder and the fixture package
-// (`tools/git-hooks/fixtures/package/`: `typecheck`, `test` and `gate` scripts) into the work tree,
-// and the model-name module that commit-msg imports (`tools/lib/model-names.mjs`), makes an empty
-// `node_modules/`, and sets `core.hooksPath` to `.githooks`. These files are in
-// `.git/info/exclude`, so `git status` is clean and `git add -A` does not stage them (use `git add -f`).
+// With hooks on (the default), it copies the tracked `.githooks/` folder, the modules that the hooks
+// import (`hookModules`: the model-name module for commit-msg, the changed-files module for pre-push)
+// and the fixture package (`tools/git-hooks/fixtures/package/`: `typecheck`, `test` and `gate`
+// scripts) into the work tree, makes an empty `node_modules/`, and sets `core.hooksPath` to
+// `.githooks`. These files are in `.git/info/exclude`, so `git status` is clean and `git add -A`
+// does not stage them (use `git add -f`).
 // With `{ hooks: false }`, it copies nothing and sets no hooks path.
 //
 // Git gets no GIT_ variable from the caller (a test that runs inside a git hook would else
@@ -24,7 +25,8 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const hooksFolder = join(repoRoot, '.githooks');
 const fixturePackage = join(repoRoot, 'tools', 'git-hooks', 'fixtures', 'package');
-const hookModules = ['tools/lib/model-names.mjs'];
+// The modules outside `.githooks/` that a hook imports, as paths in the repository.
+const hookModules = ['tools/lib/model-names.mjs', 'tools/lib/changed-files.mjs'];
 const excluded = ['/.githooks/', '/node_modules/', '/package.json', '/fixture.mjs', '/.fixture/', ...hookModules.map(path => `/${path}`)];
 
 /**
