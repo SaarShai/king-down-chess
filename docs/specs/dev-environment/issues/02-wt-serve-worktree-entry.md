@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/wt.sh` (the `serve` command), `tools/wt.test.ts`, `.claude/launch.json`, `.gitignore` (the target file and previews folder lines only). Shared file: secrets-and-public-gates/11 edits other `.gitignore` lines and blocks on this ticket
 
