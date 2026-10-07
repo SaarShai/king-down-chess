@@ -256,7 +256,7 @@ export function suggestedFigures(d: Design): Figure[] {
   const has = (...abilities: string[]) => d.rules.some(r => abilities.includes(r.does.a));
   const scores: Record<FigureTag, number> = {
     Fast: Number(d.lines.length > 0 || d.squares.some(s => Math.max(Math.abs(s.x), Math.abs(s.y)) > 1) || has('step2', 'linesPass', 'chain')) * 2,
-    Strong: Number(has('push', 'cannotBeTaken', 'firstTake')) * 3,
+    Strong: Number(has('push', 'cannotBeTaken') || d.rules.some(r => r.when.on === 'firstTake')) * 3,
     Ranged: Number(d.squares.some(s => s.mark === 'shoot' || s.mark === 'moveShoot')) * 4,
     Magic: Number(has('becomes', 'removedAfter', 'movesLike') || d.rules.some(r => ['afterCard', 'fromMove', 'beforeMove'].includes(r.when.on))) * 2,
     Support: Number(has('swap', 'cannotTake')) * 3,

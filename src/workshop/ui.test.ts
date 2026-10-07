@@ -20,6 +20,12 @@ const ALL_RULES: Rule[] = BLOCKS.flatMap(b => [...TOP_WHENS, ...MORE_WHENS, ...E
   .flatMap(when => (b.pill ? b.pill.choices.map(([v]) => ({ ...b.rule.does, [b.pill!.key]: v })) : [b.rule.does]).map(does => ({ when, does } as Rule))));
 
 describe('text (§8.4.9)', () => {
+  it('says a piece that takes only by a "moves like" rule takes as its rules say, not nothing (review F12)', () => {
+    const d = { ...fromPreset(BLANK), rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } } as Rule] };
+    expect(words(d).takes).toBe('only as its rules say.');
+    expect(words(d).summary).toMatch(/^Moves only as its rules say\. Takes only as its rules say\. /);
+  });
+
   it('pins the preset sentences', () => {
     const s = (k: string) => words(presetOf(k)).summary;
     expect(s('pawn')).toBe('Moves like a pawn. Takes 1 square diagonally forward. On its start rank, it may also step 2 squares straight ahead, over an empty square, to an empty square. When it reaches the last rank, it becomes a piece you choose: queen, rook, bishop or knight.');

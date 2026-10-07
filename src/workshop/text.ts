@@ -116,7 +116,7 @@ export function describe(d: D): Described {
   else moves = `${phrases(M, L.length ? [lineWords(L)] : [])}.${M.some(jumps) ? ' It lands on a painted square, even past other pieces.' : ''}`;
   let takes: string;
   if ((d.squares.length || L.length) && d.squares.every(s => s.mark === 'both')) takes = 'the same squares.';
-  else if (!T.length && !S.length && !L.length) takes = 'nothing.';
+  else if (!T.length && !S.length && !L.length) takes = d.rules.some(r => r.does.a === 'movesLike') ? 'only as its rules say.' : 'nothing.';
   else takes = [T.length || L.length ? `${phrases(T, L.length ? [lineWords(L)] : [])}.` : '', S.length ? `Shoots without moving: ${phrases(S)}.` : ''].filter(Boolean).join(' ');
   if (d.rules.some(r => r.does.a === 'cannotBeTaken' && r.does.by === 'allButKing')) takes += ' Only a king can take it.';
   const special = d.rules.map(ruleText);

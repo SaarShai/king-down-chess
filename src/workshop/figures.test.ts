@@ -37,6 +37,10 @@ describe('Workshop cast', () => {
     d.squares = [];
     expect(selectedFigure(d).id).toBe('clay-golem');
   });
+  it('suggests strong art for a piece that becomes another on its first take (review F13)', () => {
+    const d = { squares: [{ x: 0, y: 1, mark: 'both' as const }], lines: [], rules: [{ when: { on: 'firstTake' as const }, does: { a: 'becomes' as const, into: 'Q' as const } }] };
+    expect(suggestedFigures(d).every(f => f.tags.includes('Strong'))).toBe(true);
+  });
   it('keeps every figure in saves and share links, renders the right army, and rejects unknown IDs', () => {
     const d = fromPreset(presetOf('knight'));
     d.name = 'New piece'; d.letter = 'D';
