@@ -9,8 +9,8 @@
 //   - no run id occurs two times in a table under a QUEUE.md heading that starts with "Running";
 //   - no live file holds a relative link to a file that does not exist.
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const root = join(import.meta.dirname, '..');
@@ -162,5 +162,71 @@ describe('QUEUE.md run tables', () => {
 
   it('no run id occurs two times in a live run table of QUEUE.md', () => {
     expect(queueFaults(read('docs/QUEUE.md')).map(show)).toEqual([]);
+  });
+});
+
+/**
+ * The live files: the steering files that exist outside the tasks archive. These are AGENTS.md,
+ * COMPUTE.md, HOSTING.md, TASKS.md, LESSONS.md, the topic files in the lessons folder, the handoffs,
+ * QUEUE.md, issue-tracker.md and domain.md. A file that a later ticket makes joins when it exists.
+ */
+function liveFiles(): string[] {
+  const inFolder = (folder: string, pattern: RegExp) =>
+    existsSync(join(root, folder)) ? readdirSync(join(root, folder)).filter(name => pattern.test(name)).sort().map(name => `${folder}/${name}`) : [];
+  return [
+    'AGENTS.md', 'docs/COMPUTE.md', 'docs/HOSTING.md', 'TASKS.md', 'LESSONS.md',
+    ...inFolder('docs/lessons', /\.md$/),
+    'HANDOFF.md', ...inFolder('docs', /^HANDOFF-.*\.md$/),
+    'docs/QUEUE.md', 'docs/agents/issue-tracker.md', 'docs/agents/domain.md',
+  ].filter(file => existsSync(join(root, file)));
+}
+
+/** A markdown link: `[text](target)` or `[text](<target>)`, with an optional title. */
+const LINK = /\[[^\]]*\]\((?:<([^>]+)>|([^)\s]+))(?:\s+"[^"]*")?\)/g;
+
+/**
+ * Faults of the relative links in one file: each link that names no file or folder. A link with a scheme,
+ * an anchor only or an absolute path is not relative. Fenced code and code spans are left out.
+ */
+function linkFaults(file: string, text: string): Fault[] {
+  return markdownLines(text).flatMap(({ line, section, text: content }) =>
+    [...content.replace(/`[^`]*`/g, '').matchAll(LINK)].flatMap(match => {
+      const target = match[1] ?? match[2];
+      if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith('#') || target.startsWith('/')) return [];
+      const path = decodeURI(target.replace(/[#?].*$/, ''));
+      if (existsSync(join(root, dirname(file), path))) return [];
+      return [{ file, section, where: `line ${line}`, what: `relative link "${target}" names no file` }];
+    }));
+}
+
+describe('live files', () => {
+  it('are the steering files outside the tasks archive that exist', () => {
+    const files = liveFiles();
+    for (const want of ['AGENTS.md', 'TASKS.md', 'LESSONS.md', 'docs/QUEUE.md', 'docs/agents/issue-tracker.md', 'docs/agents/domain.md', 'docs/HANDOFF-retro.md'])
+      expect(files, want).toContain(want);
+    expect(files.filter(file => file.startsWith('docs/tasks-archive/'))).toEqual([]);
+  });
+});
+
+describe('relative links', () => {
+  it('names the file, the section and the line of a link to a file that does not exist', () => {
+    const fixture = [
+      '# Fixture', 'See [the matrix](docs/MATRIX.md#d1) and [the web](https://example.com) and [here](#top).',
+      '## Notes', 'A [lost file](docs/no-such-file.md) and [a folder](<docs/agents/>).',
+      '```', '[in code](docs/also-missing.md)', '```', 'In a span: `[x](docs/missing-in-span.md)`.',
+    ].join('\n');
+    expect(linkFaults('AGENTS.md', fixture).map(show)).toEqual([
+      'AGENTS.md § Notes (line 4): relative link "docs/no-such-file.md" names no file',
+    ]);
+  });
+
+  it('resolves a link from the folder of its file', () => {
+    expect(linkFaults('docs/agents/fixture.md', '[ok](../MATRIX.md) [bad](MATRIX.md)').map(show)).toEqual([
+      'docs/agents/fixture.md § (top) (line 1): relative link "MATRIX.md" names no file',
+    ]);
+  });
+
+  it('no live file holds a broken relative link', () => {
+    expect(liveFiles().flatMap(file => linkFaults(file, read(file))).map(show)).toEqual([]);
   });
 });
