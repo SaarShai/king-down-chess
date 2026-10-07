@@ -4,7 +4,7 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The `workshop` check has one named group per fix, each naming its fix number: 5, 6, 9, 13 and 28.
 - [x] Fix 5: a pointer press on a cell, a move off the board and a release there end the stroke; the next move over the board paints nothing.
