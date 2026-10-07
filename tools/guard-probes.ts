@@ -14,13 +14,17 @@
  *       king defence: the defender's score per arm (gin, gout, pawn, none), length, the plies a lost
  *       king survives, and the paired differences gin − none, gin − gout, gin − pawn.
  *
+ *   npx tsx tools/guard-probes.ts gk --id guard-king
+ *       asymmetric starts (tagged `--fens` lines, `none` mirror round): army A's score per tag, and
+ *       each army's Guard activity.
+ *
  * Elo from a score s: 400·log10(s / (1 − s)); pawns at 64 Elo a pawn (the depth-3 calibration, itself
  * ±25%). Intervals: ±1.96 standard errors over colour-swapped pairs (probes) or over positions (kd).
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BLACK, Color, WHITE, setRules } from '../src/rules/engine';
+import { BLACK, Color, G, WHITE, setRules, typeOf } from '../src/rules/engine';
 import { fromFen } from '../src/rules/setup';
 import { GP, evalParams, guardPatterns, setEvalParams } from '../src/ai/eval';
 import { replayRecord } from '../src/sim/replay';
@@ -178,16 +182,67 @@ export function kdReport(ids: readonly string[]): string {
 
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Asymmetric starts (`--fens` lines with tags, `none` mirror round): per tag, the score of the army
+ * that is White on the line (Black in the mirrored game), folded over each colour-swapped pair, in
+ * Elo and pawns; and each army's Guard activity: share of games in which its Guard moves, and its
+ * Guard moves per game.
+ */
+export function gkReport(ids: readonly string[]): string {
+  const out = [`# Asymmetric starts: ${ids.join(' + ')}`, '',
+    `Score of army A (White on the start line) against army B, folded over colour-swapped pairs (the second game starts from the mirrored board). Pawns at ${ELO_PER_PAWN} Elo a pawn. Guard moves: share of games in which that army's Guard moves at least once (random opening plies included), and Guard moves per game.`, '',
+    '| run | tag | A | B | score A | ±95% | Elo | pawns | ±95% (pawns) | draws | plies | A Guard moved | A Guard moves/game | B Guard moved | B Guard moves/game | pairs |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|'];
+  for (const { t, recs } of load(ids)) {
+    const by = new Map<string, TRecord[]>();
+    for (const r of recs) if (r.fen) (by.get(r.tag ?? '-') ?? by.set(r.tag ?? '-', []).get(r.tag ?? '-')!).push(r);
+    for (const [tag, rs] of by) {
+      const byPair = new Map<number, number[]>();
+      const moved = [0, 0], moves = [0, 0];
+      let draws = 0, plies = 0, aRank = '', bRank = '';
+      for (const r of rs) {
+        // A pair's first game (even id) starts from the line itself; its second from the mirror.
+        const aWhite = r.gameId % 2 === 0;
+        const ranks = r.fen!.split(' ')[0].split('/');
+        if (aWhite) { aRank = ranks[7]; bRank = ranks[0].toUpperCase(); }
+        const a: Color = aWhite ? WHITE : BLACK;
+        (byPair.get(r.pairId) ?? byPair.set(r.pairId, []).get(r.pairId)!).push(a === WHITE ? r.result : 1 - r.result);
+        if (r.result === 0.5) draws++;
+        plies += r.plies;
+        const g = fromTournament(r, t, '');
+        setRules(g.rules);
+        const n = [0, 0];
+        replayRecord({ gameId: g.gameId, startFen: g.startFen, moves: g.lans.map(lan => ({ lan })) }, (pos, m) => {
+          if (typeOf(pos.board[m.from]) === G) n[pos.turn]++;
+        });
+        for (const side of [0, 1]) {
+          const army = side === a ? 0 : 1;
+          moves[army] += n[side];
+          if (n[side]) moved[army]++;
+        }
+      }
+      const pm = [...byPair.values()].map(mean), m = mean(pm), w = 1.96 * se(pm);
+      const pw = (elo(Math.min(0.999, m + w)) - elo(Math.max(0.001, m - w))) / 2 / ELO_PER_PAWN;
+      const k = rs.length || 1;
+      out.push(`| ${t.id} | ${tag} | ${aRank} | ${bRank} | ${pct(m)} | ${(100 * w).toFixed(1)} | ${sgn(elo(m))} | ${sgn(elo(m) / ELO_PER_PAWN, 2)} | ${pw.toFixed(2)} | ${pct(draws / k)} | ${(plies / k).toFixed(0)} | ${pct(moved[0] / k)} | ${(moves[0] / k).toFixed(1)} | ${pct(moved[1] / k)} | ${(moves[1] / k).toFixed(1)} | ${pm.length} |`);
+    }
+  }
+  setRules();
+  return out.join('\n') + '\n';
+}
+
+// ---------------------------------------------------------------------------------------------
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolvePath(process.argv[1])) {
   const [cmd, ...rest] = process.argv.slice(2);
   const ids = rest.flatMap((a, i) => (a === '--id' ? [rest[i + 1]] : []));
   if (cmd === 'make') console.log(make().join('\n'));
-  else if ((cmd === 'probes' || cmd === 'kd') && ids.length) {
-    const text = cmd === 'probes' ? probesReport(ids) : kdReport(ids);
+  else if ((cmd === 'probes' || cmd === 'kd' || cmd === 'gk') && ids.length) {
+    const text = cmd === 'probes' ? probesReport(ids) : cmd === 'kd' ? kdReport(ids) : gkReport(ids);
     writeFileSync(`${OUT_DIR}/${ids.join('+')}.${cmd}.report.md`, text);
     process.stdout.write(text);
   } else {
-    console.error('usage: guard-probes.ts make | probes --id <id> ... | kd --id <id> ...');
+    console.error('usage: guard-probes.ts make | probes --id <id> ... | kd --id <id> ... | gk --id <id> ...');
     process.exitCode = 1;
   }
 }

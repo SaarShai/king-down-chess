@@ -118,3 +118,25 @@ entrant) and `--fens file` (the start positions, one per pair).
 
 If several probes win, tune all the terms together by self-play (SPSA), so the engine
 finds the weights itself. That is level 2 of the strategy-search plan.
+
+## Results (2026-10-07)
+
+- March probes (gs-probe, Guard on b1; gs-probe-k, Guard next to the king): no plan helps the
+  engine at depth 3. The best is +0.19 ± 0.27 pawns (E3-30, Guard next to the king). Strong
+  bonuses lose: E1-80 −0.88 ± 0.34 (next to the king), E5-80 −0.63 ± 0.26.
+- King defence from random threats (kd-rand, 24,000 games): the Guard next to the king is worth
+  **+2.82 ± 0.19 pawns** against no Guard, +1.86 against the same Guard far away, +1.13 against a
+  pawn on its square. On the interpose square: +3.59 ± 0.40. The king lives 34 plies, not 18.
+- So the Guard's value is in defence, which the worth test (Guard on b1, quiet start) does not see.
+- kd-real: too few positions (38); the filter needs to be looser before it says anything.
+- kd-real2 (1,500 real-game positions, filter ply 20–80, 1+ attacker within 3 or 2+ within 4,
+  every candidate ply tried; 12,000 games): the Guard next to the king is worth **+1.05 ± 0.24
+  pawns** against no Guard, +0.37 ± 0.24 against the same Guard far away, +0.38 ± 0.24 against a
+  pawn on its square; on the interpose square +2.01 ± 0.80 (145 positions). Real threats are milder
+  than the random ones (defender 33–42%, not 12–28%), so the worth is about a third of kd-rand's.
+- guard-king (normal start, 4 random opening plies, 2,000 pairs an arm): the same army with the Guard
+  on f1 (RNBQKGNR) beats it with the Guard on b1 (RGBQKNNR) by **+0.53 ± 0.14 pawns** (54.9% ± 1.3).
+  But the Guard on f1 against a Knight on f1 loses **−2.52 ± 0.17 pawns** (28.3% ± 1.3; outside
+  Muller's linear band, so read it as "far below a Knight"). The f1 Guard moves in 88% of games,
+  3.3 times a game. So the placement helps, but the defensive worth does not make the Guard near a
+  Knight's value in normal games at depth 3.

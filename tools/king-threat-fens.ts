@@ -6,6 +6,7 @@
  *
  *   npx tsx tools/king-threat-fens.ts rand --n 3000 [--seed 1] --out sim/probes/kd-rand.fens
  *   npx tsx tools/king-threat-fens.ts real --n 1500 [--seed 1] --out sim/probes/kd-real.fens <id | file.jsonl> ... [--dir sim/out]
+ *       [--plies 30-60] [--attack 2@3[,1@3,...]] [--allPlies]
  *
  * Output: one line per arm, `FEN<TAB>p<i>:<arm>:<variant>`, the four arms of position i on lines
  * 4i..4i+3 in the order gin, gout, pawn, none. `tournament.ts run --fens <file> --powers none
@@ -20,6 +21,8 @@
  * `rand`: random positions as the design says. `real`: replays stored games (run.ts or tournament
  * records without king powers) to a ply in 30–60 where the side to move has 2+ pieces (not pawns,
  * not the king) within Chebyshev 3 of the other king, then sets the four arms on that position.
+ * The flags loosen this: `--plies 20-80`, `--attack 1@3,2@4` (n+ attackers within d; any rule),
+ * `--allPlies` (try every qualifying ply, in random order, not one random ply per game).
  * Real positions keep their own material (not made equal).
  *
  * Self-check (assert) on every emitted position: each arm parses back to itself, one king a side,
@@ -232,27 +235,43 @@ function randomPosition(rng: () => number): { arms: Record<Arm, Position>; varia
 // ---------------------------------------------------------------------------------------------
 // Positions from stored games.
 
-/** Non-pawn, non-king pieces of colour `by` within Chebyshev 3 of square `k`. */
-const attackers = (b: Uint8Array, k: number, by: Color): number => {
+/** Non-pawn, non-king pieces of colour `by` within Chebyshev `d` of square `k`. */
+const attackers = (b: Uint8Array, k: number, by: Color, d = 3): number => {
   let n = 0;
-  for (let s = 0; s < 64; s++) { const p = b[s]; if (p && colorOf(p) === by && typeOf(p) !== P && typeOf(p) !== K && cheb(s, k) <= 3) n++; }
+  for (let s = 0; s < 64; s++) { const p = b[s]; if (p && colorOf(p) === by && typeOf(p) !== P && typeOf(p) !== K && cheb(s, k) <= d) n++; }
   return n;
 };
 
-function realPosition(g: StoredGame, rng: () => number): { arms: Record<Arm, Position>; variant: string } | null {
+/**
+ * The `real` filter. A ply qualifies when any `attack` rule holds: `[n, d]` = n+ attackers within
+ * Chebyshev d. `allPlies`: try the qualifying plies in random order until one gives a position;
+ * otherwise one random qualifying ply per game. The defaults are the kd-real filter.
+ */
+export interface RealFilter { plyMin: number; plyMax: number; attack: [number, number][]; allPlies: boolean }
+export const REAL_DEFAULT: RealFilter = { plyMin: 30, plyMax: 60, attack: [[2, 3]], allPlies: false };
+
+function realPosition(g: StoredGame, rng: () => number, f: RealFilter = REAL_DEFAULT): { arms: Record<Arm, Position>; variant: string } | null {
   setRules(g.rules);
   const cands: Position[] = [];
   try {
     replayRecord({ gameId: g.gameId, startFen: g.startFen, moves: g.lans.map(lan => ({ lan })) }, (_pos, _m, next, i) => {
       const ply = i + 1;
-      if (ply < 30 || ply > 60) return;
+      if (ply < f.plyMin || ply > f.plyMax) return;
       const att = next.turn, def = (att ^ 1) as Color, k = findKing(next.board, def);
-      if (k >= 0 && attackers(next.board, k, att) >= 2) cands.push(next);
+      if (k >= 0 && f.attack.some(([n, d]) => attackers(next.board, k, att, d) >= n)) cands.push(next);
     });
   } catch { return null; }
   setRules();
-  if (!cands.length) return null;
-  const pos = cands[Math.floor(rng() * cands.length)];
+  if (!f.allPlies) return cands.length ? fromPly(cands[Math.floor(rng() * cands.length)], rng) : null;
+  while (cands.length) {
+    const r = fromPly(cands.splice(Math.floor(rng() * cands.length), 1)[0], rng);
+    if (r) return r;
+  }
+  return null;
+}
+
+/** The four arms on one stored position (the attacker to move), or null. */
+function fromPly(pos: Position, rng: () => number): { arms: Record<Arm, Position>; variant: string } | null {
   const def = (pos.turn ^ 1) as Color;
   const b = pos.board.slice();
   for (let s = 0; s < 64; s++) if (b[s] && typeOf(b[s]) === G && colorOf(b[s]) === def) b[s] = 0; // the arms place the Guard
@@ -285,6 +304,7 @@ async function* storedGames(args: readonly string[], dir: string): AsyncGenerato
 async function main(argv: readonly string[]): Promise<void> {
   const [mode, ...rest] = argv;
   let n = 100, seed = 1, out = '', dir = 'sim/out';
+  const filter: RealFilter = { ...REAL_DEFAULT };
   const ids: string[] = [];
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i];
@@ -292,6 +312,9 @@ async function main(argv: readonly string[]): Promise<void> {
     else if (a === '--seed') seed = Number(rest[++i]);
     else if (a === '--out') out = rest[++i];
     else if (a === '--dir') dir = rest[++i];
+    else if (a === '--plies') { const [lo, hi] = rest[++i].split('-').map(Number); filter.plyMin = lo; filter.plyMax = hi; }
+    else if (a === '--attack') filter.attack = rest[++i].split(',').map(x => x.split('@').map(Number) as [number, number]);
+    else if (a === '--allPlies') filter.allPlies = true;
     else if (a.startsWith('--')) throw new Error(`unknown flag ${a}`);
     else ids.push(a);
   }
@@ -301,7 +324,7 @@ async function main(argv: readonly string[]): Promise<void> {
   setRules();
   setEvalParams();
   const rng = mulberry32(seed);
-  const lines_: string[] = [`# king-threat-fens ${mode} --n ${n} --seed ${seed}${ids.length ? ` ${ids.join(' ')}` : ''}`];
+  const lines_: string[] = [`# king-threat-fens ${mode} --n ${n} --seed ${seed}${ids.length ? ` ${ids.join(' ')}` : ''}${mode === 'real' ? ` --plies ${filter.plyMin}-${filter.plyMax} --attack ${filter.attack.map(a => a.join('@')).join(',')}${filter.allPlies ? ' --allPlies' : ''}` : ''}`];
   const t0 = performance.now();
   let tried = 0, kept = 0;
   const emit = (r: { arms: Record<Arm, Position>; variant: string }): void => {
@@ -320,7 +343,7 @@ async function main(argv: readonly string[]): Promise<void> {
     for await (const g of storedGames(ids, dir)) {
       if (kept >= n) break;
       tried++;
-      const r = realPosition(g, rng);
+      const r = realPosition(g, rng, filter);
       if (r) emit(r);
     }
   }
