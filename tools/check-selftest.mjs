@@ -97,7 +97,8 @@ try {
   }
   // shot writes into the out folder and nowhere else.
   const out = env('PLAYABLE_OUT');
-  rmSync(out, { recursive: true, force: true });
+  const escaped = join(dirname(out), 'escape.png');
+  for (const old of [out, escaped]) rmSync(old, { recursive: true, force: true });
   await page.setContent(page_('<p>shot</p>'));
   const path = await shot(page, 'selftest');
   if (dirname(path) !== out || !existsSync(path)) faults.push(`shot: wrote ${path}, not a file in ${out}`);
@@ -105,7 +106,7 @@ try {
   for (const name of ['../escape', '/tmp/escape', 'a/../../escape']) {
     try { await shot(page, name); faults.push(`shot: wrote "${name}" outside the out folder`); } catch {}
   }
-  if (existsSync(join(dirname(out), 'escape.png'))) faults.push('shot: a file escaped the out folder');
+  if (existsSync(escaped)) faults.push('shot: a file escaped the out folder');
 } finally { await browser.close(); }
 
 if (faults.length) { for (const f of faults) console.error(`FAIL ${f}`); process.exit(1); }
