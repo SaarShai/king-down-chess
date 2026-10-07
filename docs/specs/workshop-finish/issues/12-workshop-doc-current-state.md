@@ -4,7 +4,7 @@
 
 **Blocked by:** 07, 08, 09, 11; checks-and-hooks/01 (the `test:docs` script that runs the doc-lint suffix)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The dated file holds revision 3 unchanged (`git diff --stat -M` shows a rename or a byte-equal copy), and its first line names its date and says it is history.
 - [x] The new doc has one section each for screens, layouts, model, judge, motion, art, accessibility and checks, and makes no claim the code does not meet (each claim checked against the code; the list is in Comments).
