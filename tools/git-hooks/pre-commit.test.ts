@@ -176,13 +176,14 @@ describe('prepare (story 2)', () => {
   });
 });
 
-describe('stub gate', () => {
+describe('gate interface', () => {
   const gatePath = join(import.meta.dirname, '..', 'gate.mjs');
 
-  it('exits 0 in both modes, and its header states the interface', () => {
+  it('exits 0 with nothing staged and for a push of a branch deletion, and its header states the interface', () => {
     const repo = make({ hooks: false });
     expect(repo.run('node', [gatePath, 'staged']).status).toBe(0);
-    expect(repo.run('node', [gatePath, 'push', 'origin', repo.remote], { input: 'refs/heads/a 1 refs/heads/a 0\n' }).status).toBe(0);
+    const deletion = `(delete) ${'0'.repeat(40)} refs/heads/a ${'0'.repeat(40)}\n`;
+    expect(repo.run('node', [gatePath, 'push', 'origin', repo.remote], { input: deletion }).status).toBe(0);
     const header = readFileSync(gatePath, 'utf8');
     for (const words of ['npm run gate -- staged', 'npm run gate -- push <remote> <url>', 'GIT_INDEX_FILE', 'Exit codes: 0 passes', 'stderr'])
       expect(header).toContain(words);

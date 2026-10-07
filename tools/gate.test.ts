@@ -1,6 +1,7 @@
-// Repo gate test (secrets-and-public-gates/04): the size rule in `staged` mode.
-// Each commit case drives the real pre-commit hook through `git commit` in a temporary repository,
-// with the package `gate` script pointed at the real gate.
+// Repo gate test (secrets-and-public-gates/04 and 05): the size and private rules in `staged` and
+// `push` mode. Each commit case drives the real pre-commit hook through `git commit`, and each push
+// case drives the real pre-push hook through `git push`, in a temporary repository with a bare
+// remote. The package `gate` script starts the real gate.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -145,5 +146,183 @@ describe('the size allowlist of this repository', () => {
       expect(existsSync(join(root, path)), `${path} is not in the tree`).toBe(true);
       expect(statSync(join(root, path)).size, path).toBeGreaterThan(2_000_000);
     }
+  });
+});
+
+/** Commits past the hooks, so that only the push meets the gate. `git add -f` also takes ignored files. */
+const commitPast = (repo: Repo, message: string, ...paths: string[]) => {
+  if (paths.length) expect(repo.git('add', '-f', ...paths).status).toBe(0);
+  const result = repo.git('commit', '-q', '--no-verify', '-m', message);
+  expect(result.status, result.stderr).toBe(0);
+  return repo.git('rev-parse', 'HEAD').stdout.trim();
+};
+/** Pushes through the real pre-push hook. GATE_TRACE collects the paths that the gate reads. */
+const push = (repo: Repo, ...refspecs: string[]) =>
+  repo.run('git', ['push', 'origin', ...refspecs], { env: { GATE_TRACE: join(repo.root, 'trace.txt') } });
+const traced = (repo: Repo) => {
+  const file = join(repo.root, 'trace.txt');
+  const paths = existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean) : [];
+  repo.run('rm', ['-f', file]);
+  return paths;
+};
+const remoteHead = (repo: Repo, branch: string) =>
+  repo.git('--git-dir', repo.remote, 'rev-parse', '-q', '--verify', `refs/heads/${branch}`).stdout.trim();
+/** The commit id as the gate prints it. */
+const short = (sha: string) => sha.slice(0, 12);
+/** A temporary repository whose main holds one commit on the remote. */
+const seeded = () => {
+  const repo = make();
+  repo.write('README.md', 'seed\n');
+  commitPast(repo, 'seed', 'README.md');
+  expect(repo.git('push', '-q', '--no-verify', 'origin', 'main').status).toBe(0);
+  return repo;
+};
+
+describe('push mode: the size rule through the real pre-push hook', () => {
+  it('refuses a push of a 3 MB file without an allowlist line', () => {
+    const repo = seeded();
+    repo.write('media/big.bin', 'x'.repeat(big));
+    const sha = commitPast(repo, 'add big', 'media/big.bin');
+    const result = push(repo, 'HEAD:refs/heads/feature');
+    expect(result.status).not.toBe(0);
+    const faults = lines(result.stderr, 'gate: ');
+    expect(faults).toHaveLength(1);
+    expect(faults[0]).toMatch(new RegExp(`^gate: size: ${short(sha)}: media/big\\.bin: `));
+    expect(remoteHead(repo, 'feature')).toBe('');
+  });
+
+  it('passes the same push when the pushed commit holds the allowlist line', () => {
+    const repo = seeded();
+    repo.write('media/big.bin', 'x'.repeat(big));
+    repo.write('tools/gate/size-allowlist.txt', 'media/big.bin  a test video, approved\n');
+    const sha = commitPast(repo, 'add big', 'media/big.bin', 'tools/gate/size-allowlist.txt');
+    const result = push(repo, 'HEAD:refs/heads/feature');
+    expect(result.status, result.stderr).toBe(0);
+    expect(lines(result.stderr, 'gate: ')).toEqual([]);
+    expect(remoteHead(repo, 'feature')).toBe(sha);
+  });
+});
+
+describe('private rule', () => {
+  it('push: a transcript that one commit adds and a later commit deletes refuses the push; the fault names the first commit', () => {
+    const repo = seeded();
+    repo.write('docs/claude-recovery/session.md', 'a transcript\n');
+    const added = commitPast(repo, 'add transcript', 'docs/claude-recovery/session.md');
+    expect(repo.git('rm', '-q', 'docs/claude-recovery/session.md').status).toBe(0);
+    const deleted = commitPast(repo, 'delete transcript');
+    const result = push(repo, 'HEAD:refs/heads/feature');
+    expect(result.status).not.toBe(0);
+    const faults = lines(result.stderr, 'gate: ');
+    expect(faults).toHaveLength(1);
+    expect(faults[0]).toMatch(new RegExp(`^gate: private: ${short(added)}: docs/claude-recovery/session\\.md: `));
+    expect(result.stderr).not.toContain(short(deleted));
+    expect(remoteHead(repo, 'feature')).toBe('');
+  });
+
+  /** A repository that ignores the art source folder except its manifest, as this repository does. */
+  const withIgnores = () => {
+    const repo = seeded();
+    repo.write('.gitignore', '/.secrets/\n/art-src/*\n!/art-src/MANIFEST.md\n');
+    repo.write('art-src/MANIFEST.md', '# Art sources\n');
+    commitPast(repo, 'ignore rules and manifest', '.gitignore', 'art-src/MANIFEST.md');
+    expect(repo.git('push', '-q', '--no-verify', 'origin', 'main').status).toBe(0);
+    repo.write('.secrets/kaggle.json', '{}\n');
+    repo.write('art-src/workshop/king.png', 'png\n');
+    return repo;
+  };
+
+  it('staged: a file in the secrets folder and a forced art source file each refuse the commit', () => {
+    const repo = withIgnores();
+    expect(repo.git('add', 'art-src/workshop/king.png').status).not.toBe(0);
+    for (const path of ['.secrets/kaggle.json', 'art-src/workshop/king.png']) {
+      expect(repo.git('add', '-f', path).status).toBe(0);
+      const result = repo.git('commit', '-q', '-m', `add ${path}`);
+      expect(result.status).not.toBe(0);
+      const faults = lines(result.stderr, 'gate: ');
+      expect(faults).toHaveLength(1);
+      expect(faults[0]).toContain(`gate: private: index: ${path}: `);
+      expect(repo.git('rm', '-q', '--cached', path).status).toBe(0);
+    }
+  });
+
+  it('push: a file in the secrets folder and a forced art source file refuse the push', () => {
+    const repo = withIgnores();
+    const secret = commitPast(repo, 'add secret', '.secrets/kaggle.json');
+    const art = commitPast(repo, 'add art', 'art-src/workshop/king.png');
+    const result = push(repo, 'HEAD:refs/heads/feature');
+    expect(result.status).not.toBe(0);
+    expect(lines(result.stderr, 'gate: ')).toEqual([
+      expect.stringContaining(`gate: private: ${short(secret)}: .secrets/kaggle.json: `),
+      expect.stringContaining(`gate: private: ${short(art)}: art-src/workshop/king.png: `),
+    ]);
+  });
+
+  it('passes an edit of the art manifest and a file in a research context-recovery folder, at commit and at push', () => {
+    const repo = withIgnores();
+    repo.write('art-src/MANIFEST.md', '# Art sources\n\nOne more line.\n');
+    repo.write('docs/research/m1-results/x-context-recovery/notes.md', 'notes\n');
+    const result = commit(repo, 'manifest and research', 'art-src/MANIFEST.md', 'docs/research/m1-results/x-context-recovery/notes.md');
+    expect(result.status, result.stderr).toBe(0);
+    const pushed = push(repo, 'HEAD:refs/heads/feature');
+    expect(pushed.status, pushed.stderr).toBe(0);
+    expect(remoteHead(repo, 'feature')).toBe(repo.git('rev-parse', 'HEAD').stdout.trim());
+  });
+
+  it('passes a commit and a push that delete transcript files', () => {
+    const repo = seeded();
+    repo.write('docs/claude-recovery/a.md', 'a\n');
+    repo.write('docs/cursor-recovery/b.md', 'b\n');
+    commitPast(repo, 'old transcripts', 'docs/claude-recovery/a.md', 'docs/cursor-recovery/b.md');
+    expect(repo.git('push', '-q', '--no-verify', 'origin', 'main').status).toBe(0);
+    expect(repo.git('rm', '-q', '-r', 'docs/claude-recovery', 'docs/cursor-recovery').status).toBe(0);
+    const result = repo.git('commit', '-q', '-m', 'transcripts leave the tree');
+    expect(result.status, result.stderr).toBe(0);
+    const pushed = push(repo, 'HEAD:refs/heads/feature');
+    expect(pushed.status, pushed.stderr).toBe(0);
+  });
+});
+
+describe('push mode reads only what origin does not reach', () => {
+  it('reads no file of a commit that origin already reaches, and passes a branch deletion in the same push', () => {
+    const repo = seeded();
+    repo.write('a.txt', 'a\n');
+    commitPast(repo, 'a', 'a.txt');
+    expect(push(repo, 'HEAD:refs/heads/feature').status).toBe(0);
+    expect(traced(repo)).toEqual(['a.txt']);
+
+    expect(push(repo, 'HEAD:refs/heads/copy').status).toBe(0);
+    expect(traced(repo)).toEqual([]);
+
+    repo.write('b.txt', 'b\n');
+    const head = commitPast(repo, 'b', 'b.txt');
+    const result = push(repo, 'HEAD:refs/heads/feature', ':refs/heads/copy');
+    expect(result.status, result.stderr).toBe(0);
+    expect(traced(repo)).toEqual(['b.txt']);
+    expect(remoteHead(repo, 'feature')).toBe(head);
+    expect(remoteHead(repo, 'copy')).toBe('');
+  });
+
+  it('reads no file that a merge takes from a branch that origin holds', () => {
+    const repo = seeded();
+    expect(repo.git('switch', '-q', '-c', 'side').status).toBe(0);
+    repo.write('c.txt', 'c\n');
+    commitPast(repo, 'c', 'c.txt');
+    expect(repo.git('push', '-q', '--no-verify', 'origin', 'side').status).toBe(0);
+    expect(repo.git('switch', '-q', 'main').status).toBe(0);
+    repo.write('d.txt', 'd\n');
+    commitPast(repo, 'd', 'd.txt');
+    expect(repo.git('merge', '-q', '--no-edit', '--no-verify', 'side').status).toBe(0);
+    const result = push(repo, 'HEAD:refs/heads/feature');
+    expect(result.status, result.stderr).toBe(0);
+    expect(traced(repo)).toEqual(['d.txt']);
+  });
+
+  it('a pushed object that git does not have gives exit 2 and one fault line', () => {
+    const repo = seeded();
+    const result = repo.run('node', [gatePath, 'push', 'origin', repo.remote],
+      { input: `refs/heads/main ${'ab'.repeat(20)} refs/heads/main ${'0'.repeat(40)}\n` });
+    expect(result.status).toBe(2);
+    expect(result.stderr.trim().split('\n')).toHaveLength(1);
+    expect(result.stderr).toMatch(/^gate: fault: /);
   });
 });

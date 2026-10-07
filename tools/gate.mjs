@@ -8,9 +8,14 @@
 //   npm run gate -- push <remote> <url>
 //     From pre-push. stdin holds git's pre-push lines:
 //     <local ref> <local object name> <remote ref> <remote object name>
-//     This mode applies no rule yet; secrets-and-public-gates/05 adds the rules.
+//     The gate checks each commit that a pushed object reaches and no ref of <remote> reaches
+//     (refs/remotes/<remote>/*, and each remote object name that git has). It reads the files that
+//     each commit adds or changes; a merge counts a file only when it differs from each parent.
+//     So a file in any pushed commit fails, also when a later commit deletes it. The size
+//     allowlist comes from the pushed commit, not from the work tree. A deletion line passes.
 //   Environment: the GIT_ variables that git sets for the hook stay. The current folder is the
-//   top folder of the work tree.
+//   top folder of the work tree. When GATE_TRACE names a file, the gate adds to it one line with
+//   the path of each blob that it reads (the tests count them).
 //   Exit codes: 0 passes. Any other exit refuses the commit or the push. A missing `gate` script
 //   in package.json also refuses. The hook shows the gate's stderr, so write each reason there.
 //   The gate gives 1 when a rule refuses and 2 for a gate fault (bad input, git cannot read an
@@ -18,12 +23,15 @@
 //     gate: <rule>: <short commit or "index">: <path>: <reason>
 //   Exit 0 gives no output.
 //
-// Rules (one module each in tools/gate/):
+// Rules (one module each in tools/gate/), in both modes:
+//   private: an added or changed path in a transcript folder, the secrets folder or the art source
+//            folder fails; the art manifest passes.
 //   size: a file over 2,000,000 bytes fails, unless tools/gate/size-allowlist.txt holds its path
 //         with a reason.
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { GateFault } from './gate/fault.mjs';
+import { privateFaults } from './gate/private.mjs';
 import { ALLOWLIST, readAllowlist, sizeFaults } from './gate/size.mjs';
 
 /** Runs git with the hook's environment and gives its stdout. A failure is a gate fault. */
@@ -34,28 +42,66 @@ const git = (/** @type {string[]} */ args, input = '') => {
   return result.stdout;
 };
 
-/** The added and changed files of the index, as { path, oid }. Submodule entries have no blob. */
+/** True when git exits 0. */
+const gitPasses = (/** @type {string[]} */ args) => spawnSync('git', args, { stdio: 'ignore' }).status === 0;
+const zero = /^0+$/;
+const gitlink = '160000';
+
+/** @typedef {{ where: string, path: string, oid: string }} File `where` is the short commit, or "index" */
+
+/** The added and changed files of the index. Submodule entries have no blob. */
 const stagedFiles = () => {
   const head = spawnSync('git', ['rev-parse', '--verify', '-q', 'HEAD^{commit}'], { encoding: 'utf8' });
   const base = head.status === 0 ? head.stdout.trim() : git(['hash-object', '-t', 'tree', '/dev/null']).trim();
   const fields = git(['diff-index', '--cached', '-z', '--no-renames', '--diff-filter=AMT', base]).split('\0');
+  /** @type {File[]} */
   const files = [];
   for (let i = 0; i + 1 < fields.length; i += 2) {
     const [, mode, , oid] = fields[i].split(' ');
-    if (mode !== '160000') files.push({ path: fields[i + 1], oid });
+    if (mode !== gitlink) files.push({ where: 'index', path: fields[i + 1], oid });
   }
   return files;
 };
 
-/** Gives the size of each blob, with the path. An object that git cannot read is a gate fault. */
-const withSizes = (/** @type {{ path: string, oid: string }[]} */ files, /** @type {string} */ where) => {
-  if (!files.length) return [];
-  const answers = git(['cat-file', '--batch-check'], files.map(f => f.oid).join('\n') + '\n').trim().split('\n');
-  return files.map((file, i) => {
-    const [oid, type, size] = answers[i]?.split(' ') ?? [];
-    if (oid !== file.oid || type !== 'blob') throw new GateFault(`${where}: ${file.path}: git cannot read object ${file.oid.slice(0, 12)}`);
-    return { ...file, size: Number(size) };
-  });
+/**
+ * The added and changed files of each commit. The combined diff (-c) of a merge lists a file only
+ * when it differs from each parent. A raw line starts with one ":" per parent, then the modes and
+ * the object names of the parents and of the commit; the commit's own come last.
+ */
+const commitFiles = (/** @type {string[]} */ commits) => {
+  const fields = git(['diff-tree', '--stdin', '-r', '-z', '--no-renames', '--root', '-c'], commits.join('\n') + '\n').split('\0');
+  /** @type {File[]} */
+  const files = [];
+  let where = '';
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i];
+    if (!field) continue;
+    if (!field.startsWith(':')) { where = field.slice(0, 12); continue; }
+    const parents = /** @type {RegExpMatchArray} */ (field.match(/^:+/))[0].length;
+    const words = field.slice(parents).split(' ');
+    const mode = words[parents], oid = words[2 * parents + 1], path = fields[++i];
+    if (!zero.test(oid) && mode !== gitlink) files.push({ where, path, oid });
+  }
+  return files;
+};
+
+/** Gives the size of each file. It reads each blob once. An object that git cannot read is a gate fault. */
+const withSizes = (/** @type {File[]} */ files) => {
+  /** @type {Map<string, File>} */
+  const first = new Map();
+  for (const file of files) if (!first.has(file.oid)) first.set(file.oid, file);
+  if (!first.size) return [];
+  const oids = [...first.keys()];
+  const trace = process.env.GATE_TRACE;
+  if (trace) appendFileSync(trace, oids.map(oid => `${first.get(oid)?.path}\n`).join(''));
+  const answers = git(['cat-file', '--batch-check'], oids.join('\n') + '\n').trim().split('\n');
+  const sizes = new Map(oids.map((oid, i) => {
+    const [got, type, size] = answers[i]?.split(' ') ?? [];
+    const file = /** @type {File} */ (first.get(oid));
+    if (got !== oid || type !== 'blob') throw new GateFault(`${file.where}: ${file.path}: git cannot read object ${oid.slice(0, 12)}`);
+    return [oid, Number(size)];
+  }));
+  return files.map(file => ({ ...file, size: /** @type {number} */ (sizes.get(file.oid)) }));
 };
 
 /** The text of a work tree file, or '' when it is absent. */
@@ -66,9 +112,37 @@ const readText = (/** @type {string} */ path) => {
   }
 };
 
-const staged = () => sizeFaults(withSizes(stagedFiles(), 'index'), readAllowlist(readText(ALLOWLIST)), 'index');
+/** The text of a file in a commit, or '' when the commit does not hold it. */
+const textAt = (/** @type {string} */ commit, /** @type {string} */ path) =>
+  gitPasses(['cat-file', '-e', `${commit}:${path}`]) ? git(['cat-file', 'blob', `${commit}:${path}`]) : '';
 
-const modes = { staged, push: () => [] };
+/** Applies each rule to the files; `allowlist` gives the size allowlist text. */
+const check = (/** @type {File[]} */ files, /** @type {() => string} */ allowlist) =>
+  [...privateFaults(files), ...sizeFaults(withSizes(files), readAllowlist(allowlist()))];
+
+const staged = () => check(stagedFiles(), () => readText(ALLOWLIST));
+
+const push = () => {
+  const remote = process.argv[3];
+  if (!remote) throw new GateFault('push mode needs the arguments <remote> <url>');
+  const updates = readFileSync(0, 'utf8').split('\n').filter(Boolean).map(line => {
+    const [, local = '', , remoteSha = ''] = line.split(' ');
+    if (!/^[0-9a-f]+$/.test(local) || !/^[0-9a-f]+$/.test(remoteSha)) throw new GateFault(`bad pre-push line from git: "${line}"`);
+    return { local, remoteSha };
+  });
+  const known = updates.map(u => u.remoteSha).filter(sha => !zero.test(sha) && gitPasses(['cat-file', '-e', `${sha}^{commit}`]));
+  /** @type {string[]} */
+  const done = [];
+  return updates.filter(u => !zero.test(u.local)).flatMap(({ local }) => {
+    const commits = git(['rev-list', '--reverse', '--topo-order', local, '--not', `--remotes=${remote}`, ...known, ...done])
+      .split('\n').filter(Boolean);
+    done.push(local);
+    const files = commits.length ? commitFiles(commits) : [];
+    return files.length ? check(files, () => textAt(local, ALLOWLIST)) : [];
+  });
+};
+
+const modes = { staged, push };
 
 const main = () => {
   const mode = process.argv[2];
