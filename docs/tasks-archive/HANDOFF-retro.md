@@ -1,6 +1,8 @@
+Archived; the rules are in AGENTS.md
+
 # Handoff: a retro of the recent sessions, then specs and their implementation
 
-Start this **after the Workshop rework** (the Workshop handoff, now [docs/tasks-archive/HANDOFF-2026-10-06.md](tasks-archive/HANDOFF-2026-10-06.md), given to a Codex agent) is finished. Use a fresh Claude Code session in the main checkout, `/Users/za/Documents/king down chess`.
+Start this **after the Workshop rework** (the Workshop handoff, now [docs/tasks-archive/HANDOFF-2026-10-06.md](HANDOFF-2026-10-06.md), given to a Codex agent) is finished. Use a fresh Claude Code session in the main checkout, `/Users/za/Documents/king down chess`.
 
 ## For the owner: what you type, in order
 
