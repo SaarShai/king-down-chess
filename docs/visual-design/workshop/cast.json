@@ -1,0 +1,280 @@
+[
+  {
+    "id": "blade-dancer",
+    "name": "Blade Dancer",
+    "tags": [
+      "Fast"
+    ],
+    "source": "docs/visual-design/workshop/figure-samples-2026-10-06/fast-fresh-guard.png"
+  },
+  {
+    "id": "ram-bastion",
+    "name": "Ram Bastion",
+    "tags": [
+      "Strong"
+    ],
+    "source": "docs/visual-design/workshop/figure-samples-2026-10-06/strong.png"
+  },
+  {
+    "id": "crossbow-warden",
+    "name": "Crossbow Warden",
+    "tags": [
+      "Ranged"
+    ],
+    "source": "docs/visual-design/workshop/figure-samples-2026-10-06/ranged-fresh.png"
+  },
+  {
+    "id": "lantern-witch",
+    "name": "Lantern Witch",
+    "tags": [
+      "Magic"
+    ],
+    "source": "docs/visual-design/workshop/figure-samples-2026-10-06/magic-fresh.png"
+  },
+  {
+    "id": "banner-keeper",
+    "name": "Banner Keeper",
+    "tags": [
+      "Support"
+    ],
+    "source": "docs/visual-design/workshop/figure-samples-2026-10-06/support-fresh-cape.png"
+  },
+  {
+    "id": "javelin-runner",
+    "name": "Javelin Runner",
+    "tags": [
+      "Fast",
+      "Ranged"
+    ],
+    "source": "docs/visual-design/workshop/figure-samples-2026-10-06/mixed-fresh.png"
+  },
+  {
+    "id": "wind-courier",
+    "name": "Wind Courier",
+    "tags": [
+      "Fast"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-02/07-wind-courier-v2.png"
+  },
+  {
+    "id": "iron-warden",
+    "name": "Iron Warden",
+    "tags": [
+      "Strong"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-02/08-iron-warden.png"
+  },
+  {
+    "id": "stone-slinger",
+    "name": "Stone Slinger",
+    "tags": [
+      "Ranged"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-02/09-stone-slinger.png"
+  },
+  {
+    "id": "mirror-seer",
+    "name": "Mirror Seer",
+    "tags": [
+      "Magic"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-02/10-mirror-seer.png"
+  },
+  {
+    "id": "field-mender",
+    "name": "Field Mender",
+    "tags": [
+      "Support"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-03/11-field-mender-v4.png"
+  },
+  {
+    "id": "antler-guardian",
+    "name": "Antler Guardian",
+    "tags": [
+      "Strong"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-03/12-antler-guardian-v2.png"
+  },
+  {
+    "id": "bell-sage",
+    "name": "Bell Sage",
+    "tags": [
+      "Magic",
+      "Support"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-03/15-bell-sage.png"
+  },
+  {
+    "id": "drum-marshal",
+    "name": "Drum Marshal",
+    "tags": [
+      "Support"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-03/16-drum-marshal.png"
+  },
+  {
+    "id": "rooftop-vaulter",
+    "name": "Rooftop Vaulter",
+    "tags": [
+      "Fast"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-04/17-rooftop-vaulter.png"
+  },
+  {
+    "id": "shell-bastion",
+    "name": "Shell Bastion",
+    "tags": [
+      "Strong"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-04/18-shell-bastion.png"
+  },
+  {
+    "id": "reed-hunter",
+    "name": "Reed Hunter",
+    "tags": [
+      "Ranged"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-04/19-reed-hunter.png"
+  },
+  {
+    "id": "hourglass-keeper",
+    "name": "Hourglass Keeper",
+    "tags": [
+      "Magic"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-04/20-hourglass-keeper.png"
+  },
+  {
+    "id": "forge-bearer",
+    "name": "Forge Bearer",
+    "tags": [
+      "Strong",
+      "Support"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-04/21-forge-bearer.png"
+  },
+  {
+    "id": "owl-archivist",
+    "name": "Owl Archivist",
+    "tags": [
+      "Support"
+    ],
+    "source": "docs/visual-design/workshop/figure-batch-05/25-owl-archivist.png"
+  },
+  {
+    "id": "hare-scout",
+    "name": "Hare Scout",
+    "tags": [
+      "Fast"
+    ],
+    "source": "docs/visual-design/workshop/figure-swarms/13-hare-scout-v5.png"
+  },
+  {
+    "id": "hornet-swarm",
+    "name": "Hornet Swarm",
+    "tags": [
+      "Fast",
+      "Ranged"
+    ],
+    "source": "docs/visual-design/workshop/figure-swarms/hornet-swarm-v2.png"
+  },
+  {
+    "id": "mechanical-spiders",
+    "name": "Mechanical Spiders",
+    "tags": [
+      "Fast",
+      "Strong"
+    ],
+    "source": "docs/visual-design/workshop/figure-swarms/mechanical-spider-swarm-v2.png"
+  },
+  {
+    "id": "dart-sentinel",
+    "name": "Dart Sentinel",
+    "tags": [
+      "Ranged"
+    ],
+    "source": "docs/visual-design/workshop/figure-final-run/dart-sentinel.png"
+  },
+  {
+    "id": "fox-pathfinder",
+    "name": "Fox Pathfinder",
+    "tags": [
+      "Fast"
+    ],
+    "source": "docs/visual-design/workshop/figure-final-run/fox-pathfinder.png"
+  },
+  {
+    "id": "eagle-keeper",
+    "name": "Eagle Keeper",
+    "tags": [
+      "Ranged"
+    ],
+    "source": "docs/visual-design/workshop/figures-machines-elements/eagle-keeper-v3.png"
+  },
+  {
+    "id": "tide-caller",
+    "name": "Tide Caller",
+    "tags": [
+      "Support"
+    ],
+    "source": "docs/visual-design/workshop/figures-machines-elements/tide-caller-shell-mask-v3.png"
+  },
+  {
+    "id": "wooden-catapult",
+    "name": "Wooden Catapult",
+    "tags": [
+      "Ranged"
+    ],
+    "source": "docs/visual-design/workshop/figures-machines-elements/wooden-catapult.png"
+  },
+  {
+    "id": "battering-ram",
+    "name": "Battering Ram",
+    "tags": [
+      "Strong"
+    ],
+    "source": "docs/visual-design/workshop/figures-machines-elements/battering-ram.png"
+  },
+  {
+    "id": "drill-crawler",
+    "name": "Drill Crawler",
+    "tags": [
+      "Strong"
+    ],
+    "source": "docs/visual-design/workshop/figures-machines-elements/drill-crawler.png"
+  },
+  {
+    "id": "water-deity",
+    "name": "Water Deity",
+    "tags": [
+      "Magic"
+    ],
+    "source": "docs/visual-design/workshop/figures-machines-elements/water-deity.png"
+  },
+  {
+    "id": "fire-spirit",
+    "name": "Fire Spirit",
+    "tags": [
+      "Magic"
+    ],
+    "source": "docs/visual-design/workshop/figures-machines-elements/fire-spirit.png"
+  },
+  {
+    "id": "clay-golem",
+    "name": "Clay Golem",
+    "tags": [
+      "Strong"
+    ],
+    "source": "docs/visual-design/workshop/figures-machines-elements/clay-golem.png"
+  },
+  {
+    "id": "storm-spirit",
+    "name": "Storm Spirit",
+    "tags": [
+      "Magic",
+      "Fast"
+    ],
+    "source": "docs/visual-design/workshop/figures-machines-elements/storm-spirit.png"
+  }
+]

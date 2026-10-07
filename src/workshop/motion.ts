@@ -73,7 +73,7 @@ export function react(root: HTMLElement, previousLook: StageLook, nextLook: Stag
     const { opacity, transform } = getComputedStyle(rim);
     run(rim, [{ opacity, transform }, { opacity: 1, transform: `${transform} scale(1.12)`, offset: 0.3 }, { opacity, transform }], 480);
   }
-  if (previousLook.body !== nextLook.body || previousLook.army !== nextLook.army || (nextLook.body === 'token' && previousLook.letter !== nextLook.letter)) {
+  if (previousLook.figure !== nextLook.figure || previousLook.body !== nextLook.body || previousLook.army !== nextLook.army || (nextLook.body === 'token' && previousLook.letter !== nextLook.letter)) {
     const copy = old.querySelector<HTMLElement>('.ws-fig');
     if (copy) { copy.style.zIndex = '1'; copy.style.transform = `scale(${previousLook.scale})`; fade(copy, model, 250); }
     run(fig, [{ opacity: 0 }, { opacity: 1 }], 300);

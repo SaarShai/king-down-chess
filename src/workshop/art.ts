@@ -1,9 +1,10 @@
 /**
  * The Workshop's art as SVG and HTML strings (docs/WORKSHOP.md §5.1, §5.2, §5.4): the floor with
  * the design's marks, the plinth with its letter and cracks, the figure, the gauge and the still
- * pattern picture. No new art files: the figures are the UI crops, the rest is drawn here. An SVG
+ * pattern picture. Figures use the approved Workshop cast; rule references use the existing game crops. An SVG
  * holds no text, every gradient id is unique, and the decoration is aria-hidden.
  */
+import { figureUrl } from './figures';
 import { DIR, type Dir, type PieceDesign } from './model';
 import { type StageLook } from './look';
 import { halves } from './text';
@@ -102,38 +103,20 @@ export function cracksSvg(kind: StageLook['cracks']): string {
 }
 
 /** The figure: the body's crop, or the lettered token disc. */
-export const figureHtml = (l: Pick<StageLook, 'body' | 'army' | 'letter'>, cls = 'ws-fig'): string =>
-  l.body === 'token' ? `<span class="${cls} ws-token pc-medallion">${l.letter || 'D'}</span>`
+export const figureHtml = (l: Pick<StageLook, 'body' | 'army' | 'letter' | 'figure'>, cls = 'ws-fig'): string =>
+  l.figure ? `<img class="${cls}" src="${figureUrl(l.figure, l.army)}" alt="" decoding="async" />` : l.body === 'token' ? `<span class="${cls} ws-token pc-medallion">${l.letter || 'D'}</span>`
     : `<img class="${cls}" src="${cropOf(l.body, l.army)}" alt="" decoding="async" />`;
 
 /** The whole model, back to front (§5.1). The caller wraps it in an aria-hidden stage. */
 export function modelHtml(l: StageLook): string {
-  const crop = l.body === 'token' ? '' : cropOf(l.body, l.army);
-  return `<div class="ws-model${l.dim ? ' dim' : ''}${l.glow ? ' glow' : ''}" style="--rim:${l.rim};--fig-scale:${l.scale}">`
-    + `<div class="ws-floor">${floorSvg(l)}</div>${zoneSvg(l.zone)}`
-    + (l.partner ? `<span class="ws-partner">${l.partner === 'king' ? `<img src="${cropOf('K')}" alt="" />` : l.partner.length === 1 ? `<img src="${cropOf(l.partner)}" alt="" />` : ''}</span>` : '')
-    + (l.ghost ? `<img class="ws-ghost" src="${cropOf(l.ghost, l.army)}" alt="" />` : '')
-    + (l.hourglass ? '<svg class="ws-hourglass" viewBox="0 0 16 22" aria-hidden="true" focusable="false"><path d="M3 2h10M3 20h10M4 2c0 6 8 6 8 11v7M12 2c0 6-8 6-8 11v7" fill="none" stroke="#e9c071" stroke-width="1.4"/></svg>' : '')
-    + (l.cardBack ? '<svg class="ws-cardback" viewBox="0 0 20 28" aria-hidden="true" focusable="false"><rect x="1" y="1" width="18" height="26" rx="2" fill="#5a1c14" stroke="#e9c071"/><path d="M10 7l3 7-3 7-3-7z" fill="#e9c071"/></svg>' : '')
-    + (crop ? `<div class="ws-rim" style="-webkit-mask-image:url(${crop});mask-image:url(${crop})"></div>` : '<div class="ws-rim ws-rim-disc"></div>')
-    + (l.afterImage && crop ? `<img class="ws-after" src="${crop}" alt="" />` : '')
-    + figureHtml(l)
-    + (l.shield ? `<span class="ws-shield ws-shield-${l.shield}"></span>` : '')
-    + `<div class="ws-plinth m-${l.metal}">${cracksSvg(l.cracks)}<span class="ws-letter">${l.letter}</span></div>`
-    + '</div>';
+  return `<div class="ws-model ws-bare">${figureHtml(l)}</div>`;
 }
 
 /* ---- the gauge (§2.4 W3): 0–10 pawns, the fair band shaded, a gem in a soft pill as wide as the band ---- */
 
-export function gaugeHtml(v: Verdict, landmarks: boolean): string {
-  const pc = (w: number): number => +(Math.min(10, Math.max(0, w)) * 10).toFixed(1), out = !v.own && v.label !== 'fair' && v.label !== 'untestedOP' ? ' out' : '';
-  const pw = presetWorths(), marks = landmarks ? (['pawn', 'knight', 'rook', 'queen'] as const).map((k, i) =>
-    `<span class="g-mark" aria-hidden="true" style="left:${pc(pw[k])}%">${'PNRQ'[i]}</span>`).join('') : '';
-  const words = `about ${halves(v.worth.point)} pawns, ${bandOf(v).toLowerCase()}`;
-  return `<div class="ws-gauge${out}" role="meter" aria-label="Worth" aria-valuemin="0" aria-valuemax="10" aria-valuenow="${Math.min(10, +v.worth.point.toFixed(1))}" aria-valuetext="${words}">`
-    + `<span class="g-track"><span class="g-band" style="left:25%;width:25%"></span>`
-    + `<span class="g-fuzz" style="left:${pc(v.worth.lo)}%;width:${(pc(v.worth.hi) - pc(v.worth.lo)).toFixed(1)}%"></span>`
-    + `<span class="g-gem" style="left:${pc(v.worth.point)}%"></span></span>${marks}<span class="g-end" aria-hidden="true">10+</span></div>`;
+export function gaugeHtml(v: Verdict, _landmarks: boolean): string {
+  const value = Math.min(10, Math.max(0, v.worth.point));
+  return `<div class="ws-gauge ws-thermometer" role="meter" aria-label="Estimated worth in pawns" aria-valuemin="0" aria-valuemax="10" aria-valuenow="${+value.toFixed(1)}" aria-valuetext="${halves(v.worth.point)} pawns, ${bandOf(v).toLowerCase()}"><span class="ws-temp-scale" aria-hidden="true"><span>10+</span><span>5</span><span>0</span></span><span class="ws-temp-tube" aria-hidden="true"><span class="ws-temp-fair"></span><span class="ws-temp-fill" style="height:${value * 10}%"></span></span><span class="ws-temp-bulb" aria-hidden="true"></span></div>`;
 }
 
 /* ---- the still pattern picture (SAVED, the shelf) ---- */

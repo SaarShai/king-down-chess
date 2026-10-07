@@ -5,27 +5,26 @@
  * Loaded on demand (main.ts `await import`), so none of it is in the main chunk.
  */
 import './workshop.css';
+import { FIGURES, FIGURE_TAGS, selectedFigure, suggestedFigures, figureUrl, type Figure } from './figures';
 import type { KingName } from '../rules/engine';
 import { snd } from '../render/sfx';
 import { pieceIcon } from '../piece-icons';
 import {
-  BLANK, BODIES, BODY_NAME, DIR, DIRS, MAX_RULES, PRESETS, canGive, designCode, empty, fromPreset, likeAlways, limit, lineOrbit, mix, orbit,
-  parseDesign, presetOf, validName, type Body, type Dir, type Mark, type PaintOn, type PieceDesign, type Preset, type Rule, type When,
+  BLANK, DIR, DIRS, MAX_RULES, PRESETS, designCode, empty, fromPreset, likeAlways, limit, orbit, setMark,
+  parseDesign, presetOf, validName, type Body, type Dir, type Mark, type PaintOn, type PieceDesign, type Rule, type When,
 } from './model';
 import { BLOCKS, GROUPS, MORE_WHENS, NEAR_BODY, TOP_WHENS, EVENT_WHENS, blockOf, takesAny, whenWords, type Block } from './vocab';
-import { BAND_WORD, LEARN_LINE, autoBody, badgeText, bandOf, judge, shelfOf, unmeasured, whyHead, whyTitle, worthOf, type Label, type Verdict } from './judge';
+import { BAND_WORD, LEARN_LINE, autoBody, badgeText, bandOf, judge, shelfOf, whyHead, whyTitle, type Label, type Verdict } from './judge';
 import { GLOW, lookOf, lookWords } from './look';
-import { cropOf, figureHtml, gaugeHtml, modelHtml, patternSvg } from './art';
+import { figureHtml, gaugeHtml, modelHtml, patternSvg } from './art';
 import { MARK_WORDS, cap, describe, dirWords, esc, pawns, ruleParts, ruleText, squareList } from './text';
-import { autoName, letterFollows, letterOf, nextLetter, rollName, saveName } from './names';
+import { autoName, letterFollows, letterOf, rollName, saveName } from './names';
 import { MAX, deleteDesign, loadDesigns, loadShelf, saveDesign, type SaveResult } from './store';
 import { sandbox } from './sandbox';
-import { cancel, react } from './motion';
+import { cancel } from './motion';
 
 type Screen = 'home' | 'start' | 'editor' | 'try';
-type Brush = 'both' | 'move' | 'take' | 'shoot' | 'line';
 const KINGS = Object.keys(GLOW) as KingName[];
-const BASE = import.meta.env.BASE_URL;
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 const rand = (n: number): number => Math.floor(Math.random() * n);
@@ -38,20 +37,6 @@ const BACK = (to: string): string => `<button type="button" class="quiet ws-back
 const bar = (back: string, title: string, end = ''): string =>
   `<header class="ws-bar">${BACK(back)}<h2 id="ws-h" tabindex="-1">${esc(title)}</h2>${end}</header>`;
 
-/** The tap table (W3): a brush and the square's mark before give the mark after (null: empty). */
-const TAP: Record<Exclude<Brush, 'line'>, Record<Mark | 'none', Mark | null>> = {
-  both: { none: 'both', move: 'both', take: 'both', both: null, shoot: 'both', moveShoot: 'both' },
-  move: { none: 'move', move: null, take: 'move', both: 'move', shoot: 'move', moveShoot: 'move' },
-  take: { none: 'take', move: 'take', take: null, both: 'take', shoot: 'take', moveShoot: 'take' },
-  shoot: { none: 'shoot', move: 'moveShoot', take: 'shoot', both: 'moveShoot', shoot: null, moveShoot: 'move' },
-};
-const BRUSH: Record<Brush, [string, string]> = {
-  both: ['Move+take', 'It may go there, or take an enemy there.'],
-  line: ['Line', 'It slides that way, square by square, until a piece stops it. It may take that piece.'],
-  move: ['Move', 'It may go there, only if the square is empty.'],
-  take: ['Take', 'It may take an enemy there, by moving onto it.'],
-  shoot: ['Shoot', 'It takes an enemy there and stays where it is.'],
-};
 const PAINT: [PaintOn, string][] = [['all', 'All sides'], ['lr', 'Left and right'], ['one', 'One square']];
 const PILL_WORD: Record<string, string> = { when: 'When', as: 'Like', over: 'Over', by: 'Taken', then: 'Then', with: 'With', into: 'Becomes', what: 'What' };
 const PILL_TITLE: Record<string, string> = { as: 'Moves like which piece?', over: 'Passes over what?', by: 'Who cannot take it?', then: 'After the push', with: 'Swaps with whom?', into: 'Becomes what?', what: 'Which pieces?' };
@@ -61,9 +46,7 @@ const DISCLAIMER = 'This is a guess from computer games with the pieces we know.
 /** The ray from the piece through (x, y), or null when (x, y) is on none of the 8. */
 const rayOf = (x: number, y: number): Dir | null =>
   x && y && Math.abs(x) !== Math.abs(y) ? null : DIRS.find(d => DIR[d][0] === Math.sign(x) && DIR[d][1] === Math.sign(y)) ?? null;
-const pawnWord = (v: number): string => `${badgeText(v)} ${Math.abs(v) < 1.25 ? 'pawn' : 'pawns'}`;
 const NEVER = 'never tested in computer games';
-const bodyName = (b: Body | 'token'): string => (b === 'token' ? 'Token' : cap(BODY_NAME[b]));
 
 export function workshopDialog(): { open(): void; openDesign(code: string): void } {
   const dlg = document.createElement('dialog');
@@ -77,9 +60,8 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
 
   let screen: Screen = 'home';
   let cur: PieceDesign = fromPreset(BLANK), v: Verdict = judge(cur), fromLink = false, onShelf = false;
-  let undos: { d: PieceDesign; label: string }[] = [], tab: 'moves' | 'rules' | 'look' = 'moves', brush: Brush = 'both', paintOn: PaintOn = 'all';
-  let lastLook = lookOf(cur, v);
-  let lastLabel: Label | '' = '', mixFirst: Preset | null = null, mixNote = '';
+  let undos: { d: PieceDesign; label: string }[] = [], paintOn: PaintOn = 'all', takeMethod: 'take' | 'shoot' = 'take';
+  let lastLabel: Label | '' = '';
   /** The design the last save refused, and why: the alert stays while it is the open design. */
   let unsaved: { id: string; why: Exclude<SaveResult, 'saved'> } | null = null;
 
@@ -113,40 +95,17 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     s.showModal();
   }
 
-  /* The same editor is beside the card on desktop, and a modal sheet on phones. */
   function fit(): void {
-    const wide = innerWidth > 720, land = !wide && innerHeight < 480 && innerWidth > innerHeight;
-    dlg.dataset.h = wide ? 'wide' : land ? 'land' : 'phone';
-    const editSheet = q<HTMLDialogElement>('.ws-edit-sheet');
-    if (editSheet && editSheet.dataset.inline !== String(wide)) {
-      const wasOpen = editSheet.open;
-      editSheet.close();
-      editSheet.dataset.inline = String(wide);
-      if (wide) editSheet.show();
-      else if (wasOpen && editSheet.dataset.requested === 'true') editSheet.showModal();
-    }
-    const p = q<HTMLElement>('.ws-panel');
-    if (p?.dataset.tab === 'moves' && editSheet?.open) {
-      const style = getComputedStyle(p), mode = q<HTMLElement>('.ws-mode'), ms = getComputedStyle(mode);
-      const px = (x: string): number => parseFloat(x) || 0;
-      const width = p.clientWidth - px(style.paddingLeft) - px(style.paddingRight) - 8;
-      const maximum = wide ? innerHeight - 184 : innerHeight - (land ? 8 : 24);
-      const reserved = 2 + q<HTMLElement>('.ws-edit-sheet .ws-sheet-bar').offsetHeight + px(style.paddingTop) + px(style.paddingBottom)
-        + q<HTMLElement>('.ws-fwd').offsetHeight + (land ? 8 : 10) + (alertEl.hidden ? 0 : alertEl.offsetHeight);
-      const tools = land ? 0 : q<HTMLElement>('.ws-tools').offsetHeight + mode.scrollHeight + px(ms.marginTop) + px(ms.marginBottom);
-      dlg.style.setProperty('--cell', `${Math.max(28, Math.min(wide ? 56 : 44, Math.floor(Math.min(width, maximum - reserved - tools) / 7)))}px`);
-    }
-    fitName();
+    dlg.dataset.h = innerWidth > 720 ? 'wide' : 'phone';
+    const board = q<HTMLElement>('.ws-board');
+    if (board) dlg.style.setProperty('--cell', `${Math.min(44, Math.floor((board.parentElement!.clientWidth - 8) / 7))}px`);
   }
   addEventListener('resize', () => { if (dlg.open && !(document.activeElement as HTMLElement | null)?.matches('input[type="text"]')) fit(); });
 
   function show(s: Screen): void {
-    if (s === 'home' || s === 'start') mixNote = '';
     clearTimeout(toastTimer);
     toastEl.classList.remove('on');
     cancel(screenEl);
-    const previousEditor = q<HTMLElement>('.ws-edit-sheet');
-    if (previousEditor) cancel(previousEditor);
     dlg.append(alertEl);
     for (const modal of qa<HTMLDialogElement>('.ws-sheet')) { modal.close(); modal.remove(); }
     screen = s;
@@ -171,8 +130,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function drawAlert(): void {
     const u = unsaved && unsaved.id === cur.id ? unsaved : null;
     alertEl.hidden = !u;
-    const editSheet = q<HTMLDialogElement>('.ws-edit-sheet');
-    (editSheet?.open && editSheet.dataset.inline === 'false' ? editSheet : dlg).append(alertEl);
+    dlg.append(alertEl);
     const status = q('.ws-save-state');
     if (status) status.textContent = fromLink ? 'From a link' : u ? 'Not saved' : onShelf ? 'Saved on this device' : 'New piece';
     if (!u) { alertEl.innerHTML = ''; delete alertEl.dataset.html; return; }
@@ -215,7 +173,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const { designs: list, bad } = loadShelf();
     screenEl.innerHTML = bar('Back', 'Workshop') + '<div class="ws-scroll">'
       + '<div class="ws-doors">'
-      + `<button type="button" class="ws-door" data-door="piece"><img src="${cropOf('N')}" alt="" /><b>New piece</b></button>`
+      + `<button type="button" class="ws-door" data-door="piece"><img src="${figureUrl('wind-courier')}" alt="" /><b>New piece</b></button>`
       + `</div><button type="button" class="ws-surprise">${DIE}<span>Surprise me</span></button>`
       + `<h3>Your designs (${list.length}), on this device</h3>`
       + (list.length ? `<div class="ws-shelf">${list.map((d, i) => { const jv = judge(d, false); return `<button type="button" class="ws-tile${jv.warn ? ' warn' : ''}" data-i="${i}">`
@@ -232,46 +190,18 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   /* ---- START A PIECE (W2) ---- */
 
   function start(): void {
-    mixFirst = null;
-    const tiles = [...PRESETS, BLANK];
     screenEl.innerHTML = bar('Workshop', 'New piece') + '<div class="ws-scroll">'
-      + '<p class="ws-lead">Start from a piece you know.</p>'
-      + '<label class="check ws-mix"><input type="checkbox" /><span>Mix two pieces<small>The first piece’s moves, and the second piece’s rules. A piece with no rules gives its moves, in the enemy half.</small></span></label>'
-      + `<div class="ws-tiles">${tiles.map(p => `<button type="button" class="ws-ptile" data-key="${p.key}" aria-pressed="false">`
-        + (p.body === 'token' ? '<span class="pc-medallion" aria-hidden="true">D</span>' : `<img src="${cropOf(p.body)}" alt="" />`)
-        + `<span>${p.name}</span><span class="sr-only ws-gives"></span><i class="ws-one" aria-hidden="true">1</i></button>`).join('')}</div>`
-      + '<p class="ws-mix-note" hidden></p>'
-      + `<button type="button" class="ws-surprise">${DIE}<span>Surprise me</span></button></div>`;
+      + '<p class="ws-lead">Choose a character. Then add its moves and rules.</p>'
+      + `<div class="ws-figure-grid ws-cast-start">${FIGURES.map(f => `<button type="button" class="ws-body ws-figure-choice" data-new-figure="${f.id}"><img src="${figureUrl(f.id)}" alt="" loading="lazy" /><b>${f.name}</b></button>`).join('')}</div></div>`;
     q<HTMLButtonElement>('.ws-back').onclick = () => show('home');
-    q<HTMLButtonElement>('.ws-surprise').onclick = surpriseMe;
-    const box = q<HTMLInputElement>('.ws-mix input');
-    const paint = (): void => {
-      for (const b of qa<HTMLButtonElement>('.ws-ptile')) {
-        const p = presetOf(b.dataset.key!);
-        b.setAttribute('aria-pressed', String(mixFirst?.key === p.key));
-        b.disabled = !!mixFirst && mixFirst.key !== p.key && !canGive(p);
-        // After the first choice, each piece says what it would give.
-        const gives = !mixFirst || mixFirst.key === p.key || b.disabled ? '' : (() => {
-          const { design, left } = mix(mixFirst, p);
-          return `Gives: ${design.rules.map(ruleText).join(' ') || 'nothing.'}${left.length ? ` Left out: ${left.join('; ')}.` : ''}`;
-        })();
-        b.title = b.disabled ? 'It has no rules to give.' : gives;
-        q('.ws-gives', b).textContent = gives;
-      }
-      const note = q('.ws-mix-note');
-      note.hidden = !mixFirst;
-      note.textContent = mixFirst ? `Now the second piece: it gives its rules to the ${mixFirst.name}’s moves. The Archer and Blank have no rules to give.` : '';
-    };
-    box.onchange = () => { mixFirst = null; paint(); };
-    for (const b of qa<HTMLButtonElement>('.ws-ptile')) b.onclick = () => {
-      const p = b.dataset.key === 'blank' ? BLANK : presetOf(b.dataset.key!);
-      if (!box.checked) return edit(named(fromPreset(p)), { paintOn: p.paintOn });
-      if (!mixFirst) { mixFirst = p; return paint(); }
-      if (mixFirst.key === p.key) { mixFirst = null; return paint(); }
-      const { design, left } = mix(mixFirst, p), said = `Mixed: ${mixFirst.name} + ${p.name}.${left.length ? ` Left out: ${left.join('; ')}.` : ''}`;
-      edit(named(design), { paintOn: mixFirst.paintOn });
-      mixNote = said; // it stays in the Rules tab until the player leaves the editor
-      toast(said);
+    for (const b of qa<HTMLButtonElement>('[data-new-figure]')) b.onclick = () => {
+      const f = FIGURES.find(f => f.id === b.dataset.newFigure)!;
+      const d = fromPreset(BLANK);
+      d.look.figure = f.id;
+      d.name = f.name;
+      d.named = true;
+      d.letter = letterOf(d.name);
+      edit(d);
     };
   }
 
@@ -329,56 +259,41 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function edit(d: PieceDesign, o: { paintOn?: PaintOn; shelf?: boolean; undo?: { d: PieceDesign; label: string } } = {}): void {
     cur = d; onShelf = !!o.shelf; fromLink = false;
     undos = o.undo ? [o.undo] : [];
-    tab = 'moves'; brush = 'both'; paintOn = o.paintOn ?? presetOf(d.from[0] ?? 'blank').paintOn;
+    takeMethod = 'take'; paintOn = o.paintOn ?? presetOf(d.from[0] ?? 'blank').paintOn;
     lastLabel = '';
     show('editor');
     if (!onShelf) store();
   }
 
   function editor(): void {
-    screenEl.innerHTML = '<div class="ws-editor">'
-      + bar('Workshop', 'Piece card', '<span class="ws-save-state" role="status"></span><button type="button" class="ws-share">Share</button>')
-      + '<div class="ws-workspace"><article class="ws-piece-card" aria-label="Your piece"><div class="ws-card-border">'
-      + '<div class="ws-model-box" aria-hidden="true"></div><div class="ws-name-row"></div><p class="ws-worth"></p><div class="ws-gauge-box"></div><div class="ws-bottom"></div>'
-      + '<div class="ws-card-moves"></div><div class="ws-card-rules"></div><div class="ws-card-actions"></div>'
-      + '<details class="ws-every"><summary>Every square</summary><div class="ws-exact"></div></details>'
+    screenEl.innerHTML = '<div class="ws-editor ws-dashboard">'
+      + bar('Workshop', 'Your piece', '<span class="ws-save-state" role="status"></span><button type="button" class="ws-share">Share</button>')
+      + '<div class="ws-workspace"><article class="ws-piece-card" aria-label="Your piece"><div class="ws-card-border"><div class="ws-portrait"><div class="ws-model-box" aria-hidden="true"></div><div class="ws-gauge-box"></div></div><div class="ws-name-row"></div><p class="ws-worth"></p><div class="ws-bottom"></div><div class="ws-appearance" hidden></div>'
+      + (fromLink ? '<button type="button" class="primary ws-keep-copy">Keep a copy</button>' : '')
       + '<p class="sr-only ws-summary"></p><p class="sr-only ws-live" role="status"></p></div></article>'
-      + (fromLink ? '<aside class="ws-link-note"><h3>A shared piece</h3><p>Keep a copy to change this piece.</p><button type="button" class="primary ws-keep-copy">Keep a copy</button></aside>'
-        : '<dialog class="ws-sheet ws-edit-sheet" aria-labelledby="ws-edit-h"><header class="ws-sheet-bar"><h2 id="ws-edit-h" tabindex="-1"></h2><button type="button" class="quiet ws-edit-why" aria-label="Why this estimate?"></button><button type="button" class="quiet ws-edit-done">Done</button></header><div class="ws-panel"></div></dialog>')
-      + '</div><footer class="ws-footer"><button type="button" class="quiet ws-why">Why this estimate?</button><span>Custom pieces can be tested here.</span><button type="button" class="primary ws-try">Try it</button></footer></div>';
+      + '<div class="ws-properties"><div class="ws-patterns"></div><section class="ws-rules-panel" aria-label="Properties"></section><section class="ws-property-options" hidden></section></div></div>'
+      + '<footer class="ws-footer"><button type="button" class="quiet ws-undo" aria-label="Undo">'+UNDO+'</button><button type="button" class="quiet ws-why">Why this estimate?</button><button type="button" class="primary ws-try">Try it</button></footer></div>';
     q<HTMLButtonElement>('.ws-back').onclick = () => show('home');
     q<HTMLButtonElement>('.ws-share').onclick = share;
     q<HTMLButtonElement>('.ws-why').onclick = why;
     q<HTMLButtonElement>('.ws-try').onclick = () => {
-      if (empty(cur)) return toast('Paint at least one square or line.');
+      if (empty(cur)) return toast('Add a move or a take first.');
       if (!fromLink && !onShelf) store();
       show('try');
     };
     q<HTMLButtonElement>('.ws-keep-copy')?.addEventListener('click', keepCopy);
-    const editSheet = q<HTMLDialogElement>('.ws-edit-sheet');
-    if (editSheet) {
-      q<HTMLButtonElement>('.ws-edit-done').onclick = () => editSheet.close();
-      editSheet.addEventListener('close', () => {
-        if (editSheet.open) return;
-        cancel(editSheet);
-        editSheet.dataset.requested = 'false';
-        drawAlert();
-        if (!q('.ws-name-in')) q<HTMLButtonElement>(`[data-editor="${tab}"]`)?.focus();
-      });
-      panel();
-    }
+    movesTab(q('.ws-patterns'));
     update(true);
   }
 
-  function openPart(part: typeof tab): void {
-    tab = part;
-    const editSheet = q<HTMLDialogElement>('.ws-edit-sheet');
-    panel();
-    editSheet.dataset.requested = 'true';
-    if (!editSheet.open) { if (innerWidth > 720) editSheet.show(); else editSheet.showModal(); }
-    drawAlert();
-    fit();
-    q<HTMLElement>('#ws-edit-h').focus();
+  function propertySheet(title: string, html: string, wire: (body: HTMLElement, close: () => void) => void): void {
+    const host = q<HTMLElement>('.ws-property-options');
+    host.hidden = false;
+    host.innerHTML = `<header><h3 tabindex="-1">${esc(title)}</h3><button type="button" class="quiet ws-property-close" aria-label="Close choices">×</button></header><div class="ws-property-body">${html}</div>`;
+    const close = () => { host.hidden = true; host.innerHTML = ''; q<HTMLButtonElement>('.ws-add')?.focus({ preventScroll: true }); };
+    q<HTMLButtonElement>('.ws-property-close', host).onclick = close;
+    wire(q('.ws-property-body', host), close);
+    q<HTMLElement>('h3', host).focus();
   }
 
   /** One undo step: `f` changes the design; nothing happens when it changes nothing. */
@@ -402,71 +317,37 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
 
   /** The stage, the side column and the open tab, after a change. */
   function update(first: boolean, noise?: () => void): void {
-    const was = v, previousLook = lastLook;
     cancel(screenEl);
-    const editSheet = q<HTMLElement>('.ws-edit-sheet');
-    if (editSheet) cancel(editSheet);
     v = judge(cur);
     const l = lookOf(cur, v), d = describe(cur), w = v.worth.point;
     put(q('.ws-model-box'), modelHtml(l));
     const nameRow = q('.ws-name-row');
-    if (!q('input', nameRow) && put(nameRow, `<button type="button" class="ws-name" aria-label="Name: ${esc(cur.name)}. Change."><span class="ws-name-t">${esc(cur.name)}</span>${PEN}</button>`
-      + `<button type="button" class="quiet ws-die" aria-label="Roll a name" title="Roll a name">${DIE}</button>`)) {
+    if (!q('input', nameRow) && put(nameRow, `<span class="ws-name-t">${esc(cur.name)}</span><button type="button" class="quiet ws-name" aria-label="Change name"${fromLink ? ' disabled' : ''}>${PEN}</button><button type="button" class="quiet ws-eye" aria-label="Choose appearance" aria-expanded="${!q<HTMLElement>('.ws-appearance').hidden}"${fromLink ? ' hidden' : ''}>${icon('M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0')}</button>`)) {
       q<HTMLButtonElement>('.ws-name').onclick = rename;
-      q<HTMLButtonElement>('.ws-die').onclick = () => {
-        for (let i = 0; i < 6 && !change('roll a name', x => { const follows = letterFollows(x); x.name = rollName(x, autoBody(x)); x.named = true; if (follows) x.letter = letterOf(x.name); }); i++);
+      q<HTMLButtonElement>('.ws-eye').onclick = () => {
+        const box = q<HTMLElement>('.ws-appearance'); box.hidden = !box.hidden;
+        q('.ws-eye').setAttribute('aria-expanded', String(!box.hidden));
+        if (!box.hidden) lookTab(box);
       };
     }
-    fitName();
-    const estimate = q<HTMLButtonElement>('.ws-edit-why');
-    if (estimate) { estimate.innerHTML = `${pawns(w)}<small>${esc(v.warn ? chipText(v) : bandOf(v))}</small>`; estimate.classList.toggle('warn', v.warn); estimate.onclick = why; }
-    q('.ws-worth').textContent = empty(cur) ? 'Paint a square or a line.' : `Estimated worth · ${pawns(w)}`;
+    q('.ws-worth').textContent = empty(cur) ? 'Add moves and takes below.' : `Estimated worth · ${pawns(w)}`;
     q('.ws-gauge-box').innerHTML = gaugeHtml(v, true);
-    const bottom = q('.ws-bottom');
-    if (put(bottom, v.warn ? `<button type="button" class="ws-chip">${icon('M12 3l10 18H2zM12 10v5M12 18h.01')}<span>${esc(chipText(v))}. Why?</span></button>` : `<span class="ws-learn">${bandOf(v)} · ${LEARN_LINE[v.memory.level]}</span>`)) q<HTMLButtonElement>('.ws-chip', bottom)?.addEventListener('click', why);
-    const editButton = (part: typeof tab, text = 'Edit'): string => fromLink ? '' : `<button type="button" class="quiet ws-card-edit" data-editor="${part}" aria-label="Edit ${part}">${text}</button>`;
-    put(q('.ws-card-moves'), `<section class="ws-card-section"><div><h3>Moves &amp; takes</h3><p>${esc(cap(d.moves))}</p>${d.takes !== d.moves ? `<p><b>Takes:</b> ${esc(d.takes)}</p>` : ''}</div>${editButton('moves')}</section>`);
-    put(q('.ws-card-rules'), `<section class="ws-card-section"><div><h3>Special <small>${cur.rules.length} of ${MAX_RULES}</small></h3>${d.special.length ? d.special.map(t => `<p>${esc(t)}</p>`).join('') : '<p>No special rules.</p>'}</div>${editButton('rules')}</section>`);
-    put(q('.ws-card-actions'), fromLink ? '' : `<button type="button" class="quiet ws-card-add"${cur.rules.length >= MAX_RULES ? ' disabled' : ''}>Add a rule</button>${editButton('look', 'Look & name')}`);
-    for (const b of qa<HTMLButtonElement>('[data-editor]')) b.onclick = () => openPart(b.dataset.editor as typeof tab);
-    const add = q<HTMLButtonElement>('.ws-card-add');
-    if (add) add.onclick = () => { openPart('rules'); ruleBook(); };
-    put(q('.ws-exact'), `<div class="ws-pats">${pats(cur)}</div><ul>${squareList(cur).map(t => `<li>${esc(t)}</li>`).join('')}</ul>`);
+    put(q('.ws-bottom'), empty(cur) ? '' : `<span class="ws-learn">${bandOf(v)}</span>`);
+    rulesTab(q('.ws-rules-panel'));
+    paintBoard();
+    const appearance = q<HTMLElement>('.ws-appearance');
+    if (!appearance.hidden) lookTab(appearance);
     q('.ws-summary').textContent = `${lookWords(l)} ${d.summary} About ${pawns(w)}, ${bandOf(v).toLowerCase()}.`;
     const live = q('.ws-live'), say = `About ${pawns(w)}. ${bandOf(v)}.`;
     if (!first && v.label !== lastLabel && live.textContent !== say) live.textContent = say;
     lastLabel = v.label;
-    if (fromLink) {
-      q<HTMLButtonElement>('.ws-name').disabled = true;
-      q<HTMLButtonElement>('.ws-die').hidden = true;
-    }
-    if (!first) {
-      const op = (x: Label) => x === 'possiblyOP' || x === 'likelyOP' || x === 'untestedOP';
-      sound(op(v.label) && !op(was.label) ? snd.check : noise ?? snd.move);
-      if (tab !== 'moves') panel(); else paintBoard();
-    }
+    if (!first) sound(noise ?? snd.move);
     for (const ub of qa<HTMLButtonElement>('.ws-undo')) {
-      const u = undos[undos.length - 1];
-      ub.disabled = !u; ub.title = u ? `Undo: ${u.label}` : 'Undo'; ub.onclick = undo;
-    }
-    lastLook = l;
-    if (!first) {
-      react(screenEl, previousLook, l, was, v);
-      if (editSheet?.matches('[open]') && tab === 'look') react(editSheet, previousLook, l, was, v);
+      ub.disabled = !undos.length || fromLink; ub.onclick = undo;
     }
     drawAlert();
     fit();
   }
-  /** The name steps down in size until it fits beside the die; past the smallest size it ends in "…". */
-  function fitName(): void {
-    const b = q<HTMLElement>('.ws-name'), t = b && q<HTMLElement>('.ws-name-t', b);
-    if (!t) return;
-    b.style.fontSize = '';
-    for (let px = parseFloat(getComputedStyle(b).fontSize) - 1; t.scrollWidth > t.clientWidth + 1 && px >= 14; px--) b.style.fontSize = `${px}px`;
-  }
-  const chipText = (x: Verdict): string => (x.label !== 'fair' ? BAND_WORD[x.label]
-    : x.flags.find(f => f.level === 'warn')?.line.replace(/:.*/, '').replace(/\.$/, '') ?? LEARN_LINE[3]);
-
   function rename(): void {
     const row = q('.ws-name-row');
     row.innerHTML = `<input class="ws-name-in" type="text" maxlength="18" aria-label="Name" value="${esc(cur.name)}" />`;
@@ -496,90 +377,75 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
 
   /* ---- the panel: Moves, Rules, Look ---- */
 
-  /** The open tab, drawn again; the focused control keeps its place. */
-  function panel(): void {
-    const p = q('.ws-panel'), ctl = (): HTMLElement[] => qa('button, input, select', p), at = ctl().indexOf(document.activeElement as HTMLElement);
-    if (!p) return;
-    p.dataset.tab = tab;
-    q('#ws-edit-h').textContent = `Edit ${tab === 'look' ? 'look & name' : tab}`;
-    ({ moves: movesTab, rules: rulesTab, look: lookTab })[tab](p);
-    if (tab !== 'moves') {
-      p.insertAdjacentHTML('afterbegin', `<button type="button" class="quiet ws-undo ws-panel-undo"${undos.length ? '' : ' disabled'}>${UNDO} Undo</button>`);
-      q<HTMLButtonElement>('.ws-undo', p).onclick = undo;
-    }
-    if (at >= 0) (ctl()[at] ?? ctl()[ctl().length - 1])?.focus();
-  }
-
   const guardType = (): boolean => cur.rules.some(r => r.does.a === 'cannotBeTaken' && r.does.by === 'allButKing');
   const H2B = 'Only a king can take this piece, so it cannot take. Remove that rule first.';
 
   function movesTab(p: HTMLElement): void {
-    let cells = '';
-    for (let y = 3; y >= -3; y--) for (let x = -3; x <= 3; x++) {
-      cells += x || y ? `<button type="button" class="ws-cell${Math.max(Math.abs(x), Math.abs(y)) === 3 ? ' rim' : ''}" data-x="${x}" data-y="${y}" tabindex="-1"><i class="ws-arrow" aria-hidden="true"></i></button>`
-        : '<button type="button" class="ws-cell ws-me" data-x="0" data-y="0" tabindex="-1" aria-label="Your piece"></button>';
-    }
-    p.innerHTML = `<div class="ws-tools"><label>Action<select name="ws-brush" aria-label="Action">${(['both','line','move','take','shoot'] as Brush[]).map(b => `<option value="${b}"${b === brush ? ' selected' : ''}>${BRUSH[b][0]}</option>`).join('')}</select></label>`
-      + `<label>Apply to<select name="ws-paint" aria-label="Apply to">${PAINT.map(([k,t]) => `<option value="${k}"${k === paintOn ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`
-      + `<button type="button" class="quiet ws-undo" aria-label="Undo"${undos.length ? '' : ' disabled'}>${UNDO}</button></div>`
-      + '<p class="ws-mode"></p><div class="ws-grid-wrap"><p class="ws-fwd" aria-hidden="true">forward ↑</p>'
-      + `<div class="ws-board" role="group" aria-label="Squares around the piece" aria-describedby="ws-fwd-say">${cells}</div><p id="ws-fwd-say" class="sr-only">Forward is up.</p></div>`
-      + '<p class="ws-caption"></p>';
-    const sync = (): void => { q('.ws-mode', p).textContent = `${BRUSH[brush][1]} Tap to add or erase.`; };
-    sync();
-    q<HTMLSelectElement>('[name="ws-brush"]', p).onchange = e => { brush = (e.target as HTMLSelectElement).value as Brush; sync(); };
-    q<HTMLSelectElement>('[name="ws-paint"]', p).onchange = e => { paintOn = (e.target as HTMLSelectElement).value as PaintOn; sync(); };
-    q<HTMLButtonElement>('.ws-undo', p).onclick = undo;
-    wireBoard(q('.ws-board', p));
-    paintBoard();
+    const grid = (mode: 'move' | 'take'): string => {
+      let cells = '';
+      for (let y = 3; y >= -3; y--) for (let x = -3; x <= 3; x++) cells += `<button type="button" class="ws-cell${x || y ? '' : ' ws-me'}" data-x="${x}" data-y="${y}" tabindex="${x || y ? -1 : 0}"${fromLink ? ' disabled' : ''}><i class="ws-arrow" aria-hidden="true"></i></button>`;
+      return `<section class="ws-pattern"><h3>${mode === 'move' ? 'Moves' : 'Takes'}</h3><p class="ws-mode">${mode === 'move' ? 'Tap empty squares it can move to.' : 'Tap squares where it can take an enemy.'}</p><p class="ws-fwd">forward ↑</p><div class="ws-board" data-action="${mode === 'take' ? takeMethod : mode}" role="group" aria-label="${mode === 'move' ? 'Moves' : 'Takes'}">${cells}</div><p class="ws-caption"></p>${mode === 'take' && !fromLink ? '<label class="ws-take-mode">Take by <select aria-label="Take method"><option value="take">Moving there</option><option value="shoot">Shooting</option></select></label>' : ''}</section>`;
+    };
+    p.innerHTML = (!fromLink ? `<label class="ws-symmetry">Apply to <select name="ws-paint" aria-label="Apply to">${PAINT.map(([k,t]) => `<option value="${k}"${k === paintOn ? ' selected' : ''}>${t}</option>`).join('')}</select></label>` : '')
+      + `<div class="ws-dual-boards">${grid('move')}${grid('take')}</div>`
+      + `<details class="ws-sliding"><summary>Sliding directions</summary><p>Slides continue until a piece stops them. They apply to both moves and takes.</p><div class="ws-directions">${DIRS.map(dir => `<button type="button" data-dir="${dir}" aria-label="Slide ${dir}"${fromLink ? ' disabled' : ''}>${({n:'↑',ne:'↗',e:'→',se:'↘',s:'↓',sw:'↙',w:'←',nw:'↖'})[dir]}</button>`).join('')}</div></details>`;
+    q<HTMLSelectElement>('[name="ws-paint"]', p)?.addEventListener('change', e => { paintOn = (e.target as HTMLSelectElement).value as PaintOn; });
+    q<HTMLSelectElement>('.ws-take-mode select', p)?.addEventListener('change', e => { q<HTMLElement>('.ws-board[data-action="take"], .ws-board[data-action="shoot"]', p).dataset.action = takeMethod = (e.target as HTMLSelectElement).value as 'take' | 'shoot'; paintBoard(); });
+    const method = q<HTMLSelectElement>('.ws-take-mode select', p); if (method) method.value = takeMethod;
+    for (const board of qa<HTMLElement>('.ws-board', p)) if (!fromLink) wireBoard(board);
+    for (const b of qa<HTMLButtonElement>('[data-dir]', p)) b.onclick = () => {
+      if (guardType()) return toast(H2B);
+      const dir = b.dataset.dir as Dir;
+      change('change sliding direction', d => { d.lines = d.lines.includes(dir) ? d.lines.filter(x => x !== dir) : DIRS.filter(x => d.lines.includes(x) || x === dir); });
+    };
   }
 
-  /** The board's marks, labels and the caption, from the design. */
   function paintBoard(): void {
-    const board = q('.ws-board');
-    if (!board) return;
-    for (const b of qa<HTMLButtonElement>('.ws-cell:not(.ws-me)', board)) {
-      const x = +b.dataset.x!, y = +b.dataset.y!, s = cur.squares.find(t => t.x === x && t.y === y), ray = rayOf(x, y);
-      const line = !!ray && cur.lines.includes(ray), end = line && Math.max(Math.abs(x), Math.abs(y)) === 3;
-      b.className = `ws-cell${(x + y) & 1 ? ' dk' : ''}${Math.max(Math.abs(x), Math.abs(y)) === 3 ? ' rim' : ''}${s ? ` c-${s.mark}` : ''}${line ? ` ln ln-${ray}${end ? ' ln-end' : ''}` : ''}`;
-      b.setAttribute('aria-label', `${dirWords(x, y)}: ${[s ? MARK_WORDS[s.mark] : '', line ? 'line' : ''].filter(Boolean).join(', ') || 'empty'}`);
+    const description = describe(cur);
+    for (const board of qa<HTMLElement>('.ws-board')) {
+      const mode = board.dataset.action;
+      for (const b of qa<HTMLButtonElement>('.ws-cell', board)) {
+        const x = +b.dataset.x!, y = +b.dataset.y!;
+        if (!x && !y) { put(b, figureHtml({ figure: selectedFigure(cur).id, body: cur.look.body, army: cur.look.army, letter: cur.letter }, 'ws-me-fig')); b.setAttribute('aria-label', 'Your piece'); continue; }
+        const s = cur.squares.find(s => s.x === x && s.y === y), ray = rayOf(x, y), line = !!ray && cur.lines.includes(ray);
+        const active = mode === 'move' ? s && ['move','both','moveShoot'].includes(s.mark) : s && ['take','both','shoot','moveShoot'].includes(s.mark);
+        const shot = s && ['shoot','moveShoot'].includes(s.mark);
+        b.className = `ws-cell${(x+y)&1 ? ' dk' : ''}${active ? mode === 'move' ? ' c-move' : shot ? ' c-shoot' : ' c-take' : ''}${line ? ` ln ln-${ray}${Math.max(Math.abs(x),Math.abs(y))===3 ? ' ln-end' : ''}` : ''}`;
+        b.setAttribute('aria-pressed', String(!!active || line));
+        b.setAttribute('aria-label', `${dirWords(x,y)}: ${active || line ? 'on' : 'off'}${line ? ', slide' : ''}`);
+      }
+      q('.ws-caption', board.parentElement!).textContent = cap(mode === 'move' ? description.moves : description.takes);
     }
-    // The figure as the Look tab sets it (its army, and an Auto body that follows the squares).
-    put(q('.ws-me', board), figureHtml({ body: cur.look.auto ? autoBody(cur) : cur.look.body, army: cur.look.army, letter: cur.letter }, 'ws-me-fig'));
-    if (!qa('[tabindex="0"]', board).length) q<HTMLElement>('.ws-me', board).tabIndex = 0;
-    const d = describe(cur);
-    q('.ws-caption').textContent = `Moves ${d.moves} Takes ${d.takes}`;
+    for (const b of qa<HTMLButtonElement>('[data-dir]')) b.setAttribute('aria-pressed', String(cur.lines.includes(b.dataset.dir as Dir)));
   }
 
   function wireBoard(board: HTMLElement): void {
-    let drag: { result: Mark | null | undefined; seen: Set<Element>; changed: boolean } | null = null;
+    let touch: { x: number; y: number; cell: HTMLElement } | null = null;
+    let drag: { result: boolean | undefined; seen: Set<Element>; changed: boolean } | null = null;
     const paint = (b: HTMLElement, first: boolean): void => {
       const x = +b.dataset.x!, y = +b.dataset.y!;
       if (!x && !y) return;
-      if (brush === 'line') {
-        if (!first) return;
-        const ray = rayOf(x, y);
-        if (!ray) return toast('Lines go straight or diagonally from the piece.');
-        if (guardType()) return toast(H2B);
-        const set = lineOrbit(ray, paintOn), on = cur.lines.includes(ray);
-        change(on ? 'remove a line' : 'add a line', dd => { dd.lines = DIRS.filter(l => on ? dd.lines.includes(l) && !set.includes(l) : dd.lines.includes(l) || set.includes(l)); });
-        return;
-      }
-      const beforeMark = cur.squares.find(s => s.x === x && s.y === y)?.mark ?? 'none';
-      if (drag!.result === undefined) drag!.result = TAP[brush][beforeMark];
-      const result = drag!.result;
-      if (guardType() && result && result !== 'move') return toast(H2B);
+      const channel = board.dataset.action as 'move' | 'take' | 'shoot';
+      const beforeMark = cur.squares.find(s => s.x === x && s.y === y)?.mark;
+      if (drag!.result === undefined) drag!.result = !(channel === 'move' ? beforeMark && ['move','both','moveShoot'].includes(beforeMark) : beforeMark && ['take','both','shoot','moveShoot'].includes(beforeMark));
+      const on = drag!.result;
+      if (guardType() && channel !== 'move' && on) return toast(H2B);
       const pts = orbit(x, y, paintOn);
-      const ok = change(result ? 'paint squares' : 'clear squares', dd => {
-        dd.squares = dd.squares.filter(s => !pts.some(([a, c]) => a === s.x && c === s.y));
-        if (result) dd.squares.push(...pts.map(([a, c]) => ({ x: a, y: c, mark: result })));
-      }, { merge: drag!.changed, noise: brush === 'take' ? snd.capture : brush === 'shoot' ? snd.shot : snd.move });
+      const ok = change('change '+channel+' squares', d => {
+        for (const [a,c] of pts) {
+          const old = d.squares.find(s => s.x === a && s.y === c);
+          const mark = setMark(old?.mark, channel, on);
+          d.squares = d.squares.filter(s => s.x !== a || s.y !== c);
+          if (mark) d.squares.push({x:a,y:c,mark});
+        }
+      }, { merge: drag!.changed, noise: channel === 'move' ? snd.move : channel === 'take' ? snd.capture : snd.shot });
       drag!.changed ||= ok;
     };
     const cellAt = (e: PointerEvent): HTMLElement | null => (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>('.ws-cell') ?? null;
     board.onpointerdown = e => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('.ws-cell');
       if (!b || e.button > 0) return;
+      if (e.pointerType === 'touch') { touch = { x: e.clientX, y: e.clientY, cell: b }; return; }
       e.preventDefault();
       // The board keeps the pointer, so a release anywhere (off the board too) ends the stroke.
       try { board.setPointerCapture(e.pointerId); } catch { /* a pointer that is already gone */ }
@@ -588,12 +454,19 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       paint(b, true);
     };
     board.onpointermove = e => {
-      if (!drag || brush === 'line') return;
+      if (!drag) return;
       if (e.pointerType === 'mouse' && !(e.buttons & 1)) { drag = null; return; } // released where no event reached the board
       const b = cellAt(e);
       if (b && board.contains(b) && !drag.seen.has(b)) { drag.seen.add(b); paint(b, false); }
     };
-    board.onpointerup = board.onpointercancel = board.onlostpointercapture = () => { drag = null; };
+    board.onpointerup = e => {
+      if (touch && Math.hypot(e.clientX - touch.x, e.clientY - touch.y) < 8) {
+        drag = { result: undefined, seen: new Set([touch.cell]), changed: false };
+        paint(touch.cell, true);
+      }
+      touch = null; drag = null;
+    };
+    board.onpointercancel = board.onlostpointercapture = () => { touch = null; drag = null; };
     // The keyboard: Enter or Space click the focused square (detail 0); a pointer tap painted on pointerdown.
     board.onclick = e => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('.ws-cell');
@@ -617,51 +490,41 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   }
 
   function rulesTab(p: HTMLElement): void {
-    const W = worthOf(cur), full = cur.rules.length >= MAX_RULES, from = cur.from.map(k => presetOf(k).name);
-    p.innerHTML = `<h3 class="ws-count">Rules: ${cur.rules.length} of ${MAX_RULES}</h3>`
-      + cur.rules.map((r, i) => {
-        const dv = W - worthOf({ ...cur, rules: cur.rules.filter((_, j) => j !== i) });
-        return `<div class="ws-rule"><p class="ws-sentence">${partsHtml(r, i)}</p><div class="ws-rule-foot"><span class="ws-badge"${unmeasured(r) ? ` title="A guess: ${NEVER}."` : ''}>${pawnWord(dv)}${unmeasured(r) ? ', a guess' : ''}</span>`
-          + `<button type="button" class="quiet ws-remove" data-i="${i}" aria-label="Remove: ${esc(blockOf(r.does.a).short(r))}">Remove</button></div></div>`;
-      }).join('')
-      + `<button type="button" class="ws-add"${full ? ' disabled' : ''}>${full ? '<span>3 of 3 rules. Remove one to add another.</span>' : `${icon('M12 5v14M5 12h14')}<span>Add a rule</span>`}</button>`
-      + '<p class="ws-note">Fewer rules are easier to remember.</p>'
-      + (mixNote ? `<p class="ws-note">${esc(mixNote)}</p>` : from.length ? `<p class="ws-note">Started from: ${from.join(' + ')}</p>` : '')
-      + (cur.from[0] && presetOf(cur.from[0]).note ? `<p class="ws-note">${presetOf(cur.from[0]).note}</p>` : '');
+    const full = cur.rules.length >= MAX_RULES;
+    p.innerHTML = `<header class="ws-properties-title"><h3>Properties</h3><span>${cur.rules.length} / ${MAX_RULES}</span></header><div class="ws-property-cards">`
+      + cur.rules.map((r,i) => `<article class="ws-rule"><header><span class="ws-property-icon" aria-hidden="true">${icon(blockOf(r.does.a).icon)}</span><b>${esc(blockOf(r.does.a).title)}</b>${fromLink ? '' : `<button type="button" class="quiet ws-remove" data-i="${i}" aria-label="Remove ${esc(blockOf(r.does.a).title)}">×</button>`}</header><p class="ws-sentence">${fromLink ? esc(ruleText(r)) : partsHtml(r,i)}</p></article>`).join('')
+      + (fromLink ? '' : `<button type="button" class="ws-add" aria-label="Add a property"${full ? ' disabled' : ''}>${icon('M12 5v14M5 12h14')}</button>`) + '</div>';
     for (const b of qa<HTMLButtonElement>('.ws-remove', p)) b.onclick = () => {
       const i = +b.dataset.i!;
       change('remove a rule', d => { d.rules.splice(i, 1); });
     };
-    q<HTMLButtonElement>('.ws-add', p).onclick = ruleBook;
+    q<HTMLButtonElement>('.ws-add', p)?.addEventListener('click', ruleBook);
     for (const b of qa<HTMLButtonElement>('.ws-pill', p)) b.onclick = () => pillSheet(+b.dataset.i!, b.dataset.pill!);
   }
   /** A rule's sentence: fixed words and pill buttons. */
   function partsHtml(r: Rule, i: number): string {
     return ruleParts(r, true).map(part => typeof part === 'string' ? esc(part)
-      : `<button type="button" class="ws-pill" data-i="${i}" data-pill="${part.pill}" aria-haspopup="dialog" aria-label="${PILL_WORD[part.pill] ?? 'Choice'}: ${esc(part.text.toLowerCase())}. Change.">${esc(part.text)}</button>`).join('');
+      : `<button type="button" class="ws-pill" data-i="${i}" data-pill="${part.pill}" aria-label="${PILL_WORD[part.pill] ?? 'Choice'}: ${esc(part.text.toLowerCase())}. Change.">${esc(part.text)}</button>`).join('');
   }
 
   function lookTab(p: HTMLElement): void {
-    const L = cur.look, auto = autoBody(cur);
-    const bodyBtn = (b: Body | 'token'): string => `<button type="button" class="emblem ws-body" data-body="${b}" aria-pressed="${!L.auto && L.body === b}" aria-label="${bodyName(b)}">`
-      + (b === 'token' ? `<span class="pc-medallion ws-disc">${esc(cur.letter)}</span>` : `<img src="${cropOf(b)}" alt="" />`) + '</button>';
-    p.innerHTML = `<div class="ws-look-preview" aria-hidden="true">${modelHtml(lookOf(cur, v))}</div><button type="button" class="ws-rename">Name: ${esc(cur.name)}</button>` + '<p class="ws-note ws-look-note">Body, glow and army change only how it looks, not what it does.</p><h3>Body</h3>'
-      + (cur.from.length ? '' : `<button type="button" class="ws-auto" aria-pressed="${L.auto}">Auto: ${auto === 'token' ? 'a token' : `like ${/^[aeiou]/i.test(BODY_NAME[auto]) ? 'an' : 'a'} ${BODY_NAME[auto]}`}</button>`)
-      + `<div class="ws-bodies">${[...BODIES, 'token' as const].map(bodyBtn).join('')}</div>`
-      + '<h3>Glow</h3><div class="ws-glows">'
-      + `<button type="button" class="emblem ws-glow" data-glow="" aria-pressed="${!L.glow}" aria-label="No glow"><span class="ws-glow-none"></span></button>`
-      + KINGS.map(k => `<button type="button" class="emblem ws-glow" data-glow="${k}" aria-pressed="${L.glow === k}" aria-label="${k} glow" title="${k}"><img src="${BASE}ui/emblems/${k.toLowerCase()}.webp" alt="" /></button>`).join('')
-      + '</div><fieldset class="seg ws-army"><legend>Army</legend><div class="seg-row">'
-      + ['Ivory', 'Charcoal'].map((t, i) => `<label><input type="radio" name="ws-army" value="${i}"${L.army === i ? ' checked' : ''} /><span>${t}</span></label>`).join('')
-      + `</div></fieldset><div class="ws-letter-row"><h3>Letter</h3><button type="button" class="ws-letter-btn" aria-label="Letter ${cur.letter}. Change." aria-describedby="ws-letter-say">${cur.letter}</button>`
-      + `<span id="ws-letter-say">The piece's own letter, on its plinth and its card, as N is the knight's. It follows the name until you tap it.</span></div>`
-      + '<p class="ws-note">Try it plays it as White, drawn in ivory. Black’s moves are the mirror image.</p>';
-    q<HTMLButtonElement>('.ws-rename', p).onclick = () => { q<HTMLDialogElement>('.ws-edit-sheet').close(); rename(); };
-    q<HTMLButtonElement>('.ws-auto', p)?.addEventListener('click', () => change('auto look', d => { d.look.auto = !d.look.auto; }));
-    for (const b of qa<HTMLButtonElement>('.ws-body', p)) b.onclick = () => change('change the body', d => { d.look.body = b.dataset.body as Body; d.look.auto = false; });
-    for (const b of qa<HTMLButtonElement>('.ws-glow', p)) b.onclick = () => change('change the glow', d => { d.look.glow = (b.dataset.glow || null) as KingName | null; });
+    const galleryOpen = q<HTMLDetailsElement>('.ws-gallery', p)?.open ?? false;
+    const filter = q<HTMLSelectElement>('.ws-figure-filter select', p)?.value ?? 'All';
+    const L = cur.look, chosen = selectedFigure(cur);
+    const figureButton = (f: Figure): string => `<button type="button" class="ws-body ws-figure-choice" data-figure="${f.id}" data-tags="${f.tags.join(' ')}" aria-pressed="${chosen.id === f.id}" aria-label="${f.name}"><img src="${figureUrl(f.id, L.army)}" alt="" loading="lazy" /><b>${f.name}</b><small>${f.tags.join(' + ')}</small></button>`;
+    p.innerHTML = '<h3>Appearance</h3><p class="ws-note">The artwork does not change the rules.</p>'
+      + `<div class="ws-figure-grid">${suggestedFigures(cur).map(figureButton).join('')}</div>`
+      + `<details class="ws-gallery"><summary>All ${FIGURES.length} figures</summary><label class="ws-figure-filter">Show <select aria-label="Figure type"><option>All</option>${FIGURE_TAGS.map(t => `<option>${t}</option>`).join('')}</select></label><div class="ws-figure-grid">${FIGURES.map(figureButton).join('')}</div></details>`
+      + `<fieldset class="seg ws-army"><legend>Army</legend><div class="seg-row">${['Ivory','Charcoal'].map((t,i) => `<label><input type="radio" name="ws-army" value="${i}"${L.army === i ? ' checked' : ''}/><span>${t}</span></label>`).join('')}</div></fieldset>`;
+    q<HTMLDetailsElement>('.ws-gallery', p).open = galleryOpen;
+    q<HTMLSelectElement>('.ws-figure-filter select', p).value = filter;
+    for (const b of qa<HTMLElement>('.ws-gallery [data-figure]', p)) b.hidden = filter !== 'All' && !b.dataset.tags!.split(' ').includes(filter);
+    for (const b of qa<HTMLButtonElement>('[data-figure]', p)) b.onclick = () => change('change the figure', d => { d.look.figure = b.dataset.figure!; });
+    q<HTMLSelectElement>('.ws-figure-filter select', p).onchange = e => {
+      const tag = (e.target as HTMLSelectElement).value;
+      for (const b of qa<HTMLElement>('.ws-gallery [data-figure]', p)) b.hidden = tag !== 'All' && !b.dataset.tags!.split(' ').includes(tag);
+    };
     for (const r of qa<HTMLInputElement>('input[name="ws-army"]', p)) r.onchange = () => change('change the army', d => { d.look.army = +r.value as 0 | 1; });
-    q<HTMLButtonElement>('.ws-letter-btn', p).onclick = () => change('change the letter', d => { d.letter = nextLetter(d.letter); d.ownLetter = true; });
   }
 
   /* ---- sheets: the rule book (W5), a pill's choices (W6), Why? (W8) ---- */
@@ -677,7 +540,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
         + `<span class="ws-book-badge" aria-label="${dv ? `${badgeText(dv.v)} pawn${dv.unsure ? `, a guess: ${NEVER}` : ''}` : 'cannot work'}">${dv ? `${badgeText(dv.v)}${dv.unsure ? '?' : ''}` : '--'}</span>`
         + `<span class="ws-seen" aria-hidden="true">${b.seenOn.map(x => pieceIcon(({ P: 1, N: 2, B: 3, R: 4, Q: 5, A: 7, L: 8, G: 9, M: 10, S: 11, O: 12 } as const)[x])).join('')}</span></button>`;
     };
-    sheet('Add a rule', `<details class="ws-key"><summary>+1: about 1 pawn more. “?”: a guess.</summary><p>The number is about how many pawns the rule adds to this piece. A rule that works only some of the time adds less. “?” marks a guess: ${NEVER}.</p></details>` + GROUPS.map(g => `<h3>${g}</h3>${BLOCKS.filter(b => b.group === g).map(row).join('')}`).join(''), (body, close) => {
+    propertySheet('Add a property', `<details class="ws-key"><summary>+1: about 1 pawn more. “?”: a guess.</summary><p>The number is about how many pawns the rule adds to this piece. A rule that works only some of the time adds less. “?” marks a guess: ${NEVER}.</p></details>` + GROUPS.map(g => `<h3>${g}</h3>${BLOCKS.filter(b => b.group === g).map(row).join('')}`).join(''), (body, close) => {
       for (const b of qa<HTMLButtonElement>('.ws-book-row', body)) b.onclick = () => {
         const block = blockOf(b.dataset.a as Block['a']);
         close();
@@ -689,7 +552,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
 
   /** A choice sheet commits a tap at once; the keyboard's arrows only move the choice, and Enter or Apply commits it. */
   function choiceSheet(title: string, rows: string, r: Rule, apply: (inp: HTMLInputElement, body: HTMLElement) => void, wire?: (body: HTMLElement) => void): void {
-    sheet(title, `${rows}<div class="ws-sheet-actions ws-apply-row"><button type="button" class="primary ws-apply">Apply</button></div>`, (body, close) => {
+    propertySheet(title, `${rows}<div class="ws-sheet-actions ws-apply-row"><button type="button" class="primary ws-apply">Apply</button></div>`, (body, close) => {
       let pointer = false;
       body.addEventListener('pointerdown', () => { pointer = true; });
       body.addEventListener('keydown', () => { pointer = false; }, true);
@@ -857,13 +720,13 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     q<HTMLButtonElement>('.ws-reset').onclick = () => box.reset();
   }
 
-  dlg.addEventListener('close', e => { if (e.target === dlg) { cancel(screenEl); const p = q<HTMLElement>('.ws-edit-sheet'); if (p) { cancel(p); (p as HTMLDialogElement).close(); } } });
+  dlg.addEventListener('close', e => { if (e.target === dlg) cancel(screenEl); });
 
   /* ---- keys ---- */
 
   dlg.addEventListener('keydown', e => {
     // Only the editor itself: a key pressed in a sheet acts on the sheet alone.
-    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && screen === 'editor' && !q('.ws-sheet:not(.ws-edit-sheet)[open]') && !fromLink && !(e.target as HTMLElement).closest('input[type="text"]')) {
+    if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && screen === 'editor' && !q('.ws-sheet:not(.ws-edit-sheet)[open]') && !q('.ws-property-options:not([hidden])') && !fromLink && !(e.target as HTMLElement).closest('input[type="text"]')) {
       e.preventDefault();
       undo();
     }

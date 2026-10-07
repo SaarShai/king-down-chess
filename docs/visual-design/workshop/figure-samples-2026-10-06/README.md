@@ -26,6 +26,10 @@ The earlier [blank-face trial](faces.html) is retained as a rejected direction. 
 
 ## Production method
 
+Generate each human figure from the start with the required face style in its creation prompt. Do not adapt an existing detailed Workshop face through local edits. Use the original Archer and Paladin as style references, not prior Workshop samples as edit targets. The simplified shapes must belong to the whole figure, including its face.
+
+Use face covers only when they suit the character's theme; do not force them. Explore distinctive head and face equipment, as with the original Maester's unusual goggles. Exposed faces use the original Archer and Paladin's dominant geometric brow, nose and cheek shapes and natural eye-socket shadows, with little surface detail. Simplify the whole figure to a few large masses, quiet surfaces and distinctive equipment; avoid many folds, straps, buckles and small ornaments. The Workshop Iron Warden is the closest current style reference.
+
 Human faces must follow the original Archer and Paladin artwork (`art-src/pieces/final-ivory/Archer_colored5.png` and `Paladin.colored2_no_shadow.png`, archived in the main checkout; the tracked original Archer design is `docs/research/drive-assets/concept-art/piece-cutout-archer.png`). Define the face through broad angular painted shapes and shadow, with a wedge-like nose and a small restrained mouth. The eye area is shadow under the brow, without drawn eyeballs, pupils, irises, whites or highlights. Keep recognizable facial form with little surface detail. Do not replace the face with a blank oval, dot/dash eyes, or a literal mask. Preserve each figure's own proportions and identity. The original goat/ram face in `strong.png` is approved; leave it as drawn.
 
 Only the built-in image tool is used. Each sample is one transparent paired sheet. The existing Knight and Maester sheets supply the camera, painted style and army palettes, not the character identity. Original outputs are copied without raster edits. Exact prompts and source-file hashes are saved with the samples.

@@ -81,7 +81,8 @@ describe('art (§8.4.11)', () => {
     }
     const g = gaugeHtml(judge(presetOf('rook')), true);
     expect(g).toMatch(/role="meter"[^>]*aria-valuenow="4"/);
-    expect([...g.matchAll(/class="g-mark" aria-hidden="true"/g)]).toHaveLength(4);
+    expect(g).toContain('ws-thermometer');
+    expect(g).not.toContain('g-gem');
   });
 
   it('gives each copy its own ids', () => {
@@ -98,10 +99,10 @@ describe('art (§8.4.11)', () => {
     const n = look(rook(chain, noKing));
     expect([n.metal, n.noTake]).toEqual(['hairline', 'king']);
     expect(look({ ...fromPreset(presetOf('guard')), letter: 'D' }).sheathed).toBe(true);
-    // The plinth holds only the letter and the cracks (no small rule marks), and a chosen glow marks the model.
+    // The artwork stands alone, even for a saved design with a glow.
     const m = modelHtml(look({ ...rook(chain), look: { ...rook().look, glow: 'Flame' } }));
-    expect(m.match(/<div class="ws-plinth[^"]*">([\s\S]*?)<\/div>/)![1].replace(/<svg[\s\S]*?<\/svg>/g, '')).toBe('<span class="ws-letter">D</span>');
-    expect(m).toMatch(/^<div class="ws-model glow" style="--rim:rgb\(255,130,30\)/);
+    expect(m).toContain('ws-bare');
+    expect(m).not.toMatch(/ws-plinth|ws-floor|ws-rim|ws-shield/);
     const t = look({ ...fromPreset(BLANK), squares: presetOf('maester').squares, rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }], letter: 'D' });
     expect([t.body, t.ghost, t.zone, t.ghostLines.length]).toEqual(['M', 'Q', 'capital', 8]);
     expect(t.marks.every(m => !m.hatched)).toBe(true);

@@ -3,6 +3,7 @@
  * rules. Here too: the presets (§4.7), "Paint on", Mix two (W2), the canonical key, the hard limits
  * (§4.9) and the share code. Pure, so the judge and the tests run it in Node.
  */
+import { figureById } from './figures';
 import type { KingName } from '../rules/engine';
 import { BLOCKS, blockOf, keysAre, takesAny, whenOk } from './vocab';
 
@@ -36,7 +37,7 @@ export type Ability =
 export interface Rule { when: When; does: Ability }
 /** x to the right, y forward, both in −3..3, never (0, 0). Black's pattern is the mirror image. */
 export interface Square { x: number; y: number; mark: Mark }
-export interface Look { body: Body | 'token'; auto: boolean; glow: KingName | null; army: 0 | 1 }
+export interface Look { figure?: string; body: Body | 'token'; auto: boolean; glow: KingName | null; army: 0 | 1 }
 export interface PieceDesign {
   v: 1; kind: 'piece';
   /** Random, on the device only; not in the share code. */
@@ -216,7 +217,8 @@ const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 
 function validParts(o: Record<string, unknown>): boolean {
   const { squares, lines, rules, look, letter } = o;
   if (typeof letter !== 'string' || letter.length !== 1 || !FREE_LETTERS.includes(letter)) return false;
-  if (!keysAre(look, ['body', 'auto', 'glow', 'army']) || !(BODIES as readonly unknown[]).concat('token').includes(look.body)
+  if (!(keysAre(look, ['body', 'auto', 'glow', 'army']) || keysAre(look, ['body', 'auto', 'glow', 'army', 'figure'])) || !(BODIES as readonly unknown[]).concat('token').includes(look.body)
+    || (look.figure !== undefined && (typeof look.figure !== 'string' || !figureById(look.figure)))
     || typeof look.auto !== 'boolean' || !(look.glow === null || KINGS.includes(look.glow as string)) || (look.army !== 0 && look.army !== 1)) return false;
   if (!Array.isArray(squares) || squares.length > 48 || !Array.isArray(lines) || !Array.isArray(rules) || rules.length > MAX_RULES) return false;
   const marks = ['both', 'move', 'take', 'shoot', 'moveShoot'];
@@ -244,4 +246,12 @@ export function parseDesign(code: string): PieceDesign | null {
     squares: o.squares as Square[], lines: o.lines as Dir[], rules: o.rules as unknown as Rule[], from: [], updated: Date.now(),
   };
   return limit(d) || empty(d) ? null : d;
+}
+
+/** Change one channel without erasing the other. A square takes by moving or by shooting. */
+export function setMark(mark: Mark | undefined, channel: 'move' | 'take' | 'shoot', on: boolean): Mark | null {
+  const moves = channel === 'move' ? on : mark === 'move' || mark === 'both' || mark === 'moveShoot';
+  const capture = channel === 'move' ? (mark === 'shoot' || mark === 'moveShoot' ? 'shoot' : mark === 'take' || mark === 'both' ? 'take' : null)
+    : on ? channel : null;
+  return capture === 'shoot' ? moves ? 'moveShoot' : 'shoot' : capture === 'take' ? moves ? 'both' : 'take' : moves ? 'move' : null;
 }

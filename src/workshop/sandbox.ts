@@ -10,6 +10,7 @@ import { snd } from '../render/sfx';
 import { presetOf, type PieceDesign } from './model';
 import { BODY_TYPE, CAPITAL, holds, movesOf, type TryState } from './moves';
 import { autoBody } from './judge';
+import { selectedFigure } from './figures';
 import { figureHtml } from './art';
 import { cap, esc, ruleText } from './text';
 
@@ -30,7 +31,7 @@ export function sandbox(host: HTMLElement, design: PieceDesign, name: string): {
   const near = design.rules.find(r => r.when.on === 'near')?.when;
   const capital = some(r => r.when.on === 'zone' && r.when.zone === 'capital');
   // The piece plays White here, so it is drawn ivory beside its white pawns (the army is only how it looks).
-  const look = { ...design.look, army: 0 as const, body: design.look.auto ? autoBody(design) : design.look.body, letter: design.letter };
+  const look = { ...design.look, figure: selectedFigure(design).id, army: 0 as const, body: design.look.auto ? autoBody(design) : design.look.body, letter: design.letter };
   let board = new Uint8Array(64), pos = home, st: TryState = { move: 1, captured: false, card: false };
   let d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'> = design, became: PieceType | 0 = 0, gone = false;
   /** The moves at the start of this turn; a chain's next takes come from them. */

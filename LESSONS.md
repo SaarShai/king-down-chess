@@ -316,7 +316,10 @@ rebuilds an experiment page from the JSONL without playing a game: `killerMove` 
 - Mobile piece guidance in an auto-sized header moved the board under an active touch. Put changing explanations in the scrolling panel and assert stable board bounds across a real touch gesture. Wait for the camera flip to finish before sampling automation coordinates.
 
 ## 2D artwork direction — 2026-09-25
-- Owner wants army colour dominant across each figure, with limited recognition-colour accents. Coloured bases alone do not satisfy that. Keep full feet, hems and equipment; no portrait-style bottom cutoff. Original King Down art is reference input for derived poses, variations and new pieces.
+- Swarms use the same slightly elevated three-quarter camera and facing direction as the standing pieces. Arrange members as one compact group with depth over a shared board footprint; avoid overhead specimen views, flat grids or vertically stacked individual views.
+- Draft approval rounds end after generation, one brief visual review, saving the original images and prompts, recording any new owner rule, and showing the result in chat. Skip technical transparency, dimensions, clipping and file-hash checks for drafts. Create HTML review pages, thumbnails or face close-ups only when the owner asks for them. Browser loading/layout checks and screenshots belong to requested web deliverables, not an image-only approval round. Once the draft is shown and saved, stop; production preparation waits for an approved production task.
+- Use face covers only when they suit the character's theme; do not force them. Explore distinctive head and face equipment, as with the original Maester's unusual goggles. Exposed faces use the original Archer and Paladin's dominant geometric brow, nose and cheek shapes and natural eye-socket shadows, with little surface detail. Simplify the whole figure to a few large masses, quiet surfaces and distinctive equipment; avoid many folds, straps, buckles and small ornaments. The Workshop Iron Warden is the closest current style reference.
+- Owner wants army colour dominant across each figure's clothing and armour, with limited recognition-colour accents. A human character's skin colour stays the same in every army version; never tint or darken skin to match the army. Coloured bases alone do not satisfy army identity. Keep full feet, hems and equipment; no portrait-style bottom cutoff. Original King Down art is reference input for derived poses, variations and new pieces.
 - Display sprite-sheet frames with preserved aspect ratio when both width and height are constrained. Check actual phone layout; a fixed-height portrait with a clamped width can silently squeeze the figure.
 
 ## Continuous 2D character motion — 2026-09-25
@@ -426,4 +429,3 @@ The 24 strongest selected Paladin opening examples still scored White +505 to +1
 - A pooled report grouped games by `pairId`, which restarts at 0 in every round, so rounds with
   different layouts would have merged unrelated pairs (found by review before round 13). → Key
   anything per round (`poolRounds`) before pooling rounds; test a pool of two different layouts.
-

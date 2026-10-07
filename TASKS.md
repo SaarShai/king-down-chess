@@ -1,17 +1,25 @@
 # Tasks
 
-## Workshop figure samples — 2026-10-06
-- Owner approved 30 distinct figures; then asked to see one of each type before the full set. Current phase: six sample identities, including one combined type, with both army colours.
-- [x] Read the existing art prompts and inspect the current cast. Use the current camera, paint style and army palettes; give each sample a new shape and equipment.
-- [x] Generate Fast, Strong, Ranged, Magic, Support, and Fast + Ranged samples with the built-in image tool. Keep all requested parts inside each transparent sheet.
-- [x] Inspect large and small views, save the prompts and source files, and show a review page beside the existing cast. Evidence: `docs/visual-design/workshop/figure-samples-2026-10-06/`; six 1536×1024 RGBA sheets, original prompts, hashes, desktop and phone review screenshots. All images load; no horizontal overflow at 1280×720 or 390×844. Framing still needs production alignment after approval.
-- [ ] Owner approves or corrects the six samples before generation of the full 30.
-- [x] Face revision: six edited pairs and before/after head views at `docs/visual-design/workshop/figure-samples-2026-10-06/faces.html`. Faces use plain shapes and small eye marks. Full bodies, poses, equipment and army pairs remain; some outlines and shading changed, and Fast/Strong became larger within the frame. All six are transparent RGBA at 1536×1024; review images load without horizontal overflow at 1280×720 and 466×985. Owner rejected the blank-face direction; the original Archer study below replaces it.
-- Owner correction: the first goat face was already good. Human faces should use the original Archer's angular, shadowed face treatment, not the blank faces with eye marks from the first trial.
-- [x] Locate and inspect the archival reference: `art-src/pieces/final-ivory/Archer_colored5.png` in the main checkout, traced by `art-src/MANIFEST.md`; a tracked original cutout is `docs/research/drive-assets/concept-art/piece-cutout-archer.png`.
-- [x] Edit the five original human sample pairs with the archival Archer as the face-style reference. Retain the original goat pair. Owner clarification: face shapes and shadows carry the form; the original Paladin also uses shadow in place of drawn eyes. Inspected both archival figures.
-- [x] Compare large face views and small figures with the references, save source prompts and checks, and show the revised set at `docs/visual-design/workshop/figure-samples-2026-10-06/archer-faces.html`. Five transparent 1536×1024 pairs; original goat unchanged byte for byte. All images load with no horizontal overflow at 1280×720 and 466×985. Minor redraw/scale drift is documented. The five revised human faces still await approval; do not make the other 24 before approval.
-- Acceptance: six distinct identities; clear differences from the existing cast; consistent ivory/charcoal pairs; readable at board size; complete figures and equipment; no game integration or full-set generation in this phase.
+## Workshop property dashboard
+- Plan: separate move and take grids on the same screen; show bare character art; pencil for name and eye for appearance; replace the slider-like gauge with a thermometer; show rule cards and an inline + picker.
+- Verify: independent move/take editing preserves the other channel; rule choices, undo, share, storage and Try it; responsive layouts and keyboard access.
+- [x] Implement and check the dashboard. Build/type check and 41 Workshop unit tests pass. Browser flows pass at five phone/tablet/desktop sizes, including touch taps, independent moves/takes, inline property conditions, name/appearance, keyboard edits, refused saving/retry, Undo, share, reload and Try it. All 34 cast choices and both armies pass. Evidence: `docs/visual-design/workshop/dashboard-2026-10-06/`; current design: WORKSHOP.md §12.5.
+
+## New piece entry
+- New piece opens only the 34-character Workshop gallery. Each choice starts with no moves, lines or rules. No original-cast presets, mix option or random design in this gallery.
+- [x] Verified: build/type check and 39 Workshop unit tests pass; updated Workshop browser checks pass at 12 sizes. Cast checks pass at phone and desktop sizes, including blank moves/lines/rules, name and art, reload, and subsequent editing. Gallery screenshots: `docs/visual-design/workshop/cast-build-2026-10-06/390-new-piece.png` and `1280-new-piece.png`.
+
+## Finish Workshop — approved cast integration
+- Plan: use the 34 approved identities (exclude Ring Thrower and rejected drafts); add three rule-based suggestions and the full gallery; preserve selections through save, share, undo and Try it. Prepare paired web assets without changing the approved art.
+- Verify: type check, unit tests, build, Workshop browser checks on phone and desktop, and main-game browser regression checks. Inspect the actual gallery and test board. No merge or deploy.
+- [x] Integrate approved cast and picker.
+- [x] Verify and record results. Type check and build pass; 668 tests in 37 files pass. Workshop checks: 25 groups across 12 sizes. Cast checks: all 34 choices, both armies, filters, undo, save/reload, share and Try it at 390 and 1280 px. Main visual, new-game, powers, lesson-return, special-moves, king-effects, painted-game, playable-clay and cursor-adoption checks pass. The clay check was rerun with the correct preview URL (5189). No sign-in check. Visual evidence: `docs/visual-design/workshop/cast-build-2026-10-06/`.
+
+## Workshop approved artwork — 2026-10-06
+- The owner approved 34 identities through the sample and batch reviews. `docs/visual-design/workshop/cast.json` is the selected-source list; the original images and prompts remain in the batch folders.
+- Latest selected shell woman: original pale mask, dark-grey hair for the black army. Latest eagle: oversized and angular, with black head/neck feathers for the black army. Latest rabbit: small cat-like claws, black tunic and wrist guards. Both swarm v2 sheets use the board camera.
+- Ring Thrower remains unapproved. Wind Cart, Moth Oracle, Tusk Bruiser, Vault Sentinel, Horn Herald and Prism Caster are excluded.
+- Future draft rounds follow `LESSONS.md`: generate, brief visual review, save, show, stop. Face covers are theme-led; human skin colours stay the same between armies.
 
 ## Workshop piece-card implementation — 2026-10-06
 - Owner chose option C. Keep the card as the main view; use an edit sheet on phones and a side editor on desktop. Direct Try it and Share; keep undo across the edit/test loop.
@@ -19,7 +27,7 @@
 - [x] Update the browser checks for the selected flow; keep the regression cases. Check phone, landscape, tablet and desktop layouts, keys, links, save failure and storage limits.
 - [x] Run type check, unit tests, build and the browser checks named in the handoff. Compare the UI with option C, record screenshots, update the spec, and ask whether the owner wants the independent review again.
 - Evidence: type check and production build pass; 665 unit tests in 36 files pass; Workshop production checks pass 25 groups across 12 sizes. Visual-design, new-game, powers, lesson-return, special-moves, king-effects, painted-game, playable-clay, and cursor-adoption browser checks pass. No sign-in/account check. Screens: `docs/visual-design/workshop/card-build-2026-10-06/`. Independent layout review offered; not yet run.
-- Art follow-up: the owner approved a separate cast of **30 figures**: five in each of Fast, Strong, Ranged, Magic and Support, plus five figures that each combine two properties. First show one sample of each type for approval. The review set has six identities, including Fast + Ranged, each in ivory and charcoal. Generate the rest only after the owner approves the samples. Current game figures remain placeholders.
+- Art follow-up: the 34 approved figures replace the original-cast placeholders; see the finish task above and `docs/visual-design/workshop/cast.json`.
 - Acceptance: every change is reflected in the card; every phone sheet can be closed from outside; full move grid and next action fit; editing and trying preserve undo; no change to engine, AI, rules or main-game saves; no merge into main or deploy.
 
 ## Workshop design study — 2026-10-06 (before implementation)
@@ -39,7 +47,7 @@
 - [x] Owner's first look (2026-10-06), fixed (docs/WORKSHOP.md §12.1): the stage fits its content at every size (the chip and Why? no longer clipped); the name shrinks and keeps its pencil; the plinth shows only the letter (explained on the Look tab) and real cracks; a glow shows at once, with a clear chosen tile; lining figures; plain words ("on a center square", "Some pieces cannot take it"); the rule-book key and "+¼"; Why? names the parts that make a piece strong; Try it shows a chain's next takes at once, with Finish, and the layout stays still; the motion preview is self-contained, plays all in a loop and has a slow view. Bug: the name vanished after the name field closed with no change. Owner requests: a tap outside any dialog or sheet closes it (`src/dialog-dismiss.ts`); HOME has no lead line; the game menu has its own Workshop button beside Guide.
 - [x] Owner: approve or change Set A. **Approved 2026-10-06.** Not wired into the editor: the rework below comes first; carry Set A's intent (a reaction to each change, at most 600 ms, off with reduced motion) into the new design.
 - [x] Owner (2026-10-06): one tap on the Look tab works on his phone.
-- [ ] **Owner (2026-10-06): "i'm not thrilled about the UX and graphic design of the workshop."** Next session: rework the Workshop from first principles, UX and graphic design best practice. Handoff: `docs/HANDOFF-2026-10-06.md`.
+- [x] Workshop reworked as direction C; see the piece-card implementation and approved cast above.
 - Verified (production build, `vite preview`, Chrome, this Mac): `tsc` clean; vitest 588/588 (31 files; 26 new in `src/workshop/*.test.ts`); `tools/verify-workshop.mjs` 12/12 at 11 sizes; `docs/visual-design/verify.mjs` all ok; `verify-new-game`, `verify-powers`, `verify-lesson-return`, `verify-special-moves`, `verify-king-effects`, `verify-painted-game`, `verify-playable-clay`, `verify-cursor-adoption` pass (`verify-account` not run: no sign-in in these checks).
 - Size: the main chunk 334.55 → 333.28 kB (gzip 172.93 → 172.36), because the engine and the piece icons are now shared chunks. First load (`measure-load.mjs --runs 1`, painted): 2,908,679 → 2,909,718 bytes (+1.0 kB: the title button, the anvil icon, the door code). The Workshop chunk: 86.5 kB JS (gzip 31.2) + 24.0 kB CSS (gzip 5.9), loaded on the first open only.
 - `tools/measure-load.mjs` now skips the title screen (it covered the board's taps, so the tool timed out on main too).

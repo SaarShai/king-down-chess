@@ -2,6 +2,7 @@
  * `lookOf(design, verdict)`: the stage as pure data (docs/WORKSHOP.md §5.1, §5.2, §5.4): the body,
  * the metal, the cracks, the rim, the floor marks and the props. art.ts draws it; the tests read it.
  */
+import { selectedFigure, figureById } from './figures';
 import type { KingName } from '../rules/engine';
 import { presetOf, type Body, type Dir, type Mark, type PieceDesign, type Zone } from './model';
 import { autoBody, type Metal, type Verdict } from './judge';
@@ -9,7 +10,7 @@ import { autoBody, type Metal, type Verdict } from './judge';
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules' | 'look' | 'letter'>;
 export interface FloorMark { x: number; y: number; mark: Mark; hatched: boolean }
 export interface StageLook {
-  body: Body | 'token'; army: 0 | 1; glow: KingName | null; letter: string;
+  figure?: string; body: Body | 'token'; army: 0 | 1; glow: KingName | null; letter: string;
   metal: Metal; cracks: 'none' | 'hairline' | 'cracked' | 'dashed' | 'wide';
   /** 0.94 to 1.08 with the worth [A4]. */
   scale: number;
@@ -37,7 +38,7 @@ export function lookOf(d: D, v: Verdict): StageLook {
   const own = new Set(d.squares.map(s => `${s.x},${s.y}`));
   const when = like?.when ?? d.rules.find(r => !['takes', 'firstTake', 'reaches', 'always'].includes(r.when.on))?.when;
   return {
-    body: d.look.auto ? autoBody(d) : d.look.body, army: d.look.army, glow: d.look.glow, letter: d.letter,
+    figure: selectedFigure(d).id, body: d.look.auto ? autoBody(d) : d.look.body, army: d.look.army, glow: d.look.glow, letter: d.letter,
     metal: v.metal,
     // An unchanged Pawn or Queen is the measure, not a fault: no cracks, no dimming.
     cracks: v.own ? 'none' : v.label === 'untestedOP' ? 'dashed' : v.metal === 'broken' ? 'wide' : v.metal === 'cracked' ? 'cracked' : v.metal === 'hairline' ? 'hairline' : 'none',
@@ -58,4 +59,4 @@ export function lookOf(d: D, v: Verdict): StageLook {
 }
 /** "Knight look, ivory, gold plinth." The start of the stage's hidden summary. */
 export const lookWords = (l: StageLook): string =>
-  `${l.body === 'token' ? 'Token' : { P: 'Pawn', N: 'Knight', B: 'Bishop', R: 'Rook', Q: 'Queen', A: 'Archer', L: 'Paladin', G: 'Guard', M: 'Maester', S: 'Beast', O: 'Ogre' }[l.body]} look, ${l.army ? 'charcoal' : 'ivory'}, ${l.metal === 'hairline' ? 'gold plinth with a hairline crack' : l.metal === 'cracked' || l.metal === 'broken' ? 'cracked gold plinth' : `${l.metal} plinth`}.`;
+  `${l.figure ? figureById(l.figure)?.name : l.body === 'token' ? 'Token' : { P: 'Pawn', N: 'Knight', B: 'Bishop', R: 'Rook', Q: 'Queen', A: 'Archer', L: 'Paladin', G: 'Guard', M: 'Maester', S: 'Beast', O: 'Ogre' }[l.body]} look, ${l.army ? 'charcoal' : 'ivory'}, ${l.metal === 'hairline' ? 'gold plinth with a hairline crack' : l.metal === 'cracked' || l.metal === 'broken' ? 'cracked gold plinth' : `${l.metal} plinth`}.`;

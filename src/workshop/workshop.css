@@ -53,154 +53,63 @@
 .ws-tile-art { display: flex; justify-content: center; width: 100%; padding: 4px 0; border-radius: 6px; background: radial-gradient(90% 90% at 50% 40%, #4a3e31, var(--night)); }
 .ws-tile-art .ws-model { --model: 72px; }
 .ws-empty { color: var(--ink-soft); }
-.ws-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; max-width: 380px !important; }
-#workshop .ws-ptile { position: relative; flex-direction: column; justify-content: flex-end; gap: 2px; height: 96px; min-width: 0; padding: 4px 2px 6px; text-align: center; font-size: var(--fs-sm); }
-.ws-ptile img { height: 60px; width: auto; max-width: 100%; object-fit: contain; }
-.ws-ptile .pc-medallion { width: 52px; height: 52px; margin: 0 0 6px; font-size: 24px; }
-.ws-ptile[aria-pressed='true'] { border-color: var(--accent-deep); box-shadow: 0 0 0 2px var(--accent), 0 2px 0 var(--accent-deep); }
-.ws-one { display: none; position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; place-items: center; font-style: normal; font-size: var(--fs-xs); color: var(--vellum); background: var(--accent); }
-.ws-ptile[aria-pressed='true'] .ws-one { display: grid; }
-#workshop .ws-mix { margin: 0 0 var(--space-3); }
-.ws-mix-note { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: var(--space-2) !important; }
-
-/* ---- the piece card and its editor ---- */
+/* ---- one-screen property dashboard ---- */
 .ws-editor { display:flex; flex-direction:column; flex:1; min-height:0; }
-.ws-workspace { display:grid; grid-template-columns:minmax(300px,390px) minmax(320px,500px); justify-content:center; align-items:start; gap:48px; flex:1; min-height:0; overflow:auto; padding:28px 32px; }
-.ws-piece-card { background:var(--vellum); border:1px solid #ac9774; border-radius:10px; padding:7px; box-shadow:0 8px 24px #48392312; }
-.ws-card-border { border:1px solid #d1c3a8; border-radius:5px; padding:18px 22px 10px; }
-.ws-model-box { display:flex; justify-content:center; padding:8px 0 12px; --model:140px; }
-.ws-name-row { display:flex; justify-content:center; align-items:center; min-width:0; gap:4px; }
-#workshop .ws-name { width:auto; flex:0 1 auto; min-width:0; padding:0; gap:8px; border:0; box-shadow:none; background:none; font:600 26px/1.2 var(--font-display); color:var(--ink); white-space:nowrap; }
-.ws-name-t { min-width:0; overflow:hidden; text-overflow:ellipsis; }
-.ws-name .icon { width:16px; height:16px; flex:none; color:var(--ink-soft); }
-#workshop .ws-die { width:44px; padding:0; justify-content:center; border:0; box-shadow:none; }
-.ws-die .icon { width:18px; height:18px; }
+.ws-workspace { display:grid; grid-template-columns:minmax(240px,320px) minmax(0,700px); justify-content:center; align-items:start; gap:36px; flex:1; min-height:0; overflow:auto; padding:28px; }
+.ws-piece-card { min-width:0; }
+.ws-card-border { padding:12px; }
+.ws-portrait { display:flex; align-items:center; justify-content:center; gap:24px; }
+.ws-model-box { display:flex; justify-content:center; --model:210px; }
+.ws-name-row { display:flex; align-items:center; gap:4px; margin-top:12px; }
+.ws-name-t { flex:1; min-width:0; font:600 24px/1.2 var(--font-display); overflow-wrap:anywhere; }
+#workshop .ws-name, #workshop .ws-eye { width:44px; height:44px; flex:none; padding:10px; border:0; box-shadow:none; background:transparent; }
 #workshop .ws-name-in { width:100%; min-height:44px; font:600 22px var(--font-display); }
-#workshop .ws-worth { text-align:center; color:var(--gold-ink); margin:8px 0 4px; font-size:18px; }
-.ws-gauge-box { max-width:220px; margin:0 auto 8px; }
-.ws-bottom { text-align:center; padding-bottom:14px; }
-.ws-learn { font-size:14px; color:var(--ink-soft); }
-#workshop .ws-chip { min-height:44px; padding:6px 10px; gap:8px; line-height:1.2; font-size:16px; color:var(--danger); border-color:var(--danger); text-align:left; }
-.ws-chip .icon { width:20px; height:20px; flex:none; }
-.ws-card-section { display:flex; flex-direction:row; align-items:start; gap:12px; padding:14px 0; border-top:1px solid var(--stone-300); }
-.ws-card-section>div { flex:1; min-width:0; }
-#workshop .ws-card-section h3 { margin:0 0 6px; font:700 19px var(--font-body); font-variant-numeric:lining-nums; letter-spacing:0; text-transform:none; color:var(--ink); }
-.ws-card-section h3 small { font-size:13px; color:var(--ink-soft); font-weight:400; margin-left:8px; }
-#workshop .ws-card-section p { font-size:17px; line-height:1.4; }
-#workshop .ws-card-section p+p { margin-top:6px; }
-#workshop .ws-card-edit { width:auto; flex:none; min-width:44px; padding:4px 0; border:0; box-shadow:none; color:var(--accent-deep); }
-.ws-card-actions { display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--stone-300); gap:8px; }
-#workshop .ws-card-add { width:auto; padding:4px 0; border:0; box-shadow:none; color:var(--accent-deep); }
-#workshop .ws-every { margin:0; color:var(--ink-soft); }
-.ws-footer { flex:none; display:flex; align-items:center; gap:20px; min-height:72px; padding:12px max(24px,calc((100vw - 980px) / 2)); border-top:1px solid var(--stone-300); background:#eee3ca; }
-#workshop .ws-footer button { width:auto; white-space:nowrap; }
-#workshop .ws-footer .ws-try { margin:0 0 0 auto; padding:10px 28px; min-width:140px; }
-.ws-footer>span { color:var(--ink-soft); font-size:15px; }
-.ws-save-state { font-size:14px; color:var(--ink-soft); }
+#workshop .ws-worth { margin:12px 0 6px; color:var(--gold-ink); font-size:17px; }
+.ws-bottom { font-size:14px; color:var(--ink-soft); }
+.ws-appearance { margin-top:24px; }
+.ws-save-state { font-size:13px; color:var(--ink-soft); }
 #workshop .ws-editor .ws-bar h2 { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
 #workshop .ws-editor .ws-bar .ws-back { margin-right:auto; }
-.ws-panel { flex:1; min-height:0; overflow:auto; padding:20px; overscroll-behavior:contain; }
-#workshop dialog.ws-edit-sheet[data-inline='true'] { position:static; width:100%; max-width:none; height:auto; max-height:calc(100dvh - 184px); margin:0; border:0; border-radius:0; box-shadow:none; background:transparent; }
-#workshop dialog.ws-edit-sheet[data-inline='true'] .ws-sheet-bar { padding:0 20px 12px; }
-#workshop dialog.ws-edit-sheet[data-inline='true'] .ws-sheet-bar h2 { font-size:28px; }
-#workshop .ws-edit-done { width:auto; flex:none; }
-.ws-look-preview { display:flex; justify-content:center; --model:100px; margin-bottom:16px; }
-.ws-link-note { padding:24px; }
-.ws-link-note p { margin-bottom:16px!important; }
-.ws-share-actions { display:grid; gap:8px; padding-top:12px; }
-#workshop .ws-name:disabled { opacity:1; cursor:default; }
-@media(max-width:1000px) and (min-width:721px) { .ws-workspace { gap:20px; padding:20px; grid-template-columns:minmax(280px,340px) minmax(320px,1fr); } .ws-card-border { padding:14px; } .ws-panel { padding:16px 8px; } }
-@media(max-width:720px) {
-  .ws-workspace { display:block; padding:18px; }
-  .ws-piece-card { max-width:410px; margin:auto; }
-  .ws-card-border { padding:12px 18px 4px; }
-  .ws-model-box { --model:96px; padding:2px 0 8px; }
-  #workshop .ws-name { font-size:24px; }
-  #workshop .ws-worth { font-size:16px; margin-top:4px; }
-  .ws-bottom { padding-bottom:10px; }
-  .ws-card-section { padding:10px 0; }
-  #workshop .ws-card-section p { font-size:16px; }
-  #workshop .ws-card-section h3 { font-size:18px; }
-  .ws-gauge-box { margin-bottom:4px; }
-  .ws-footer { padding:10px 16px; gap:8px; }
-  .ws-footer>span { display:none; }
-  #workshop .ws-footer .ws-try { min-width:104px; padding:10px 20px; }
-  #workshop .ws-footer .ws-why { padding:6px 0; border:0; box-shadow:none; }
-  .ws-save-state { font-size:12px; max-width:82px; text-align:right; line-height:1.15; }
-  .ws-panel { padding:16px; }
-  #workshop dialog.ws-edit-sheet { width:calc(100vw - 24px); height:auto; max-height:calc(100dvh - 24px); min-height: min(480px,calc(100dvh - 24px)); margin:auto auto 12px; border-radius:10px; }
-}
+.ws-footer { display:flex; flex:none; align-items:center; gap:12px; padding:10px 24px; background:var(--vellum); border-top:1px solid var(--stone-300); }
+#workshop .ws-footer button { width:auto; }
+#workshop .ws-footer .ws-try { margin-left:auto; min-width:100px; }
+.ws-share-actions { display:grid; gap:8px; }
+.ws-properties { min-width:0; }
+.ws-symmetry { display:flex; justify-content:flex-end; gap:8px; align-items:center; margin-bottom:16px; font-size:14px; }
+.ws-dual-boards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }
+.ws-pattern { min-width:0; }
+#workshop .ws-pattern h3 { font:600 22px var(--font-display); margin:0 0 8px; }
+.ws-pattern .ws-mode { min-height:0; margin:0 0 8px !important; font-size:14px; line-height:1.4; }
+.ws-pattern .ws-caption { font-size:14px; margin-top:12px; }
+.ws-take-mode { display:flex; gap:8px; align-items:center; font-size:14px; margin-top:12px; }
+.ws-sliding { margin-top:20px; border-top:1px solid var(--stone-300); padding-top:8px; }
+.ws-sliding summary { padding:12px 0; cursor:pointer; }
+.ws-sliding p { font-size:14px; }
+.ws-directions { display:grid; grid-template-columns:repeat(8,1fr); gap:4px; margin:12px 0; }
+#workshop .ws-directions button { padding:0; min-width:0; }
+#workshop .ws-directions button[aria-pressed='true'] { background:var(--accent); color:var(--vellum); }
+.ws-properties-title { display:flex; align-items:center; justify-content:space-between; padding:12px 0; }
+.ws-properties-title span { font-size:14px; color:var(--ink-soft); }
+.ws-property-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+#workshop .ws-property-cards .ws-rule { margin:0; padding:12px; border-radius:8px; box-shadow:none; }
+.ws-rule header { display:flex; align-items:center; gap:8px; }
+.ws-rule header b { flex:1; font-size:15px; }
+.ws-property-icon .icon { width:24px; height:24px; }
+#workshop .ws-property-cards .ws-remove { min-width:44px; width:44px; padding:0; border:0; box-shadow:none; font-size:24px; }
+#workshop .ws-property-cards .ws-sentence { font-size:15px; line-height:1.5; margin-top:8px; }
+#workshop .ws-property-cards .ws-pill { font-size:14px; min-height:44px; padding:4px 8px; margin:2px; border-radius:6px; }
+#workshop .ws-property-cards .ws-add { margin:0; min-height:100px; border:1px dashed var(--stone-500); box-shadow:none; border-radius:8px; background:transparent; justify-content:center; }
+.ws-property-options { padding:16px; margin-top:16px; background:var(--vellum); border:1px solid var(--stone-300); border-radius:8px; }
+.ws-property-options>header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+#workshop .ws-property-close { width:44px; padding:0; font-size:24px; }
+.ws-property-body { margin-top:12px; }
+@media(max-width:1000px) { .ws-workspace { display:block; padding:20px; } .ws-piece-card { max-width:600px; margin:0 auto 24px; } .ws-properties { max-width:680px; margin:auto; } .ws-model-box { --model:160px; } }
+@media(max-width:600px) { .ws-workspace { padding:16px; } .ws-dual-boards { grid-template-columns:1fr; gap:28px; } .ws-pattern { max-width:340px; width:100%; margin:auto; } .ws-symmetry { justify-content:flex-start; } .ws-name-t { font-size:21px; } .ws-property-cards { grid-template-columns:1fr; } .ws-footer { padding:8px 12px; gap:8px; } .ws-save-state { max-width:75px; font-size:11px; } .ws-directions { grid-template-columns:repeat(4,1fr); } }
 
-/* ---- the model, back to front (§5.1) ---- */
-.ws-model { position: relative; flex: none; height: var(--model); width: calc(var(--model) * 0.9); isolation: isolate; }
-.ws-model.dim .ws-fig { filter: brightness(0.9) drop-shadow(0 6px 5px rgba(0, 0, 0, 0.55)); }
-.ws-floor { position: absolute; left: -15%; right: -15%; bottom: -2%; perspective: 300px; z-index: -2; }
-.ws-floor-svg {
-  display: block; width: 100%; transform: rotateX(58deg); transform-origin: 50% 62%;
-  -webkit-mask-image: radial-gradient(closest-side, #000 62%, transparent 100%); mask-image: radial-gradient(closest-side, #000 62%, transparent 100%);
-}
-.ws-floor-svg .h { opacity: 0.45; }
-.ws-zone { position: absolute; top: 0; right: 0; width: 30%; border: 1px solid rgba(233, 192, 113, 0.6); border-radius: 3px; opacity: 0.9; }
-.ws-partner { position: absolute; left: -14%; bottom: 16%; height: 40%; }
-.ws-partner img { height: 100%; width: auto; filter: grayscale(0.6) brightness(0.9); opacity: 0.85; }
-.ws-partner::after { content: ''; position: absolute; left: 70%; right: -40%; bottom: 20%; border-top: 2px dashed #e9c071; opacity: 0.8; }
-.ws-fig, .ws-rim, .ws-ghost, .ws-after {
-  position: absolute; left: 0; bottom: 15%; width: 100%; height: 72%; object-fit: contain; object-position: 50% 100%;
-  transform: scale(var(--fig-scale, 1)); transform-origin: 50% 100%;
-}
-.ws-fig { filter: drop-shadow(0 6px 5px rgba(0, 0, 0, 0.55)); }
-.ws-rim {
-  -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
-  -webkit-mask-position: 50% 100%; mask-position: 50% 100%;
-  background: var(--rim); filter: blur(5px); opacity: 0.35; transform: scale(calc(var(--fig-scale, 1) * 1.08)); z-index: -1;
-}
-/* A chosen glow (the Look tab) is a clear aura: a brighter rim and a halo on the floor behind the figure. */
-.ws-model.glow .ws-rim { opacity: 0.9; filter: blur(6px); transform: scale(calc(var(--fig-scale, 1) * 1.14)); }
-.ws-model.glow::before {
-  content: ''; position: absolute; left: -10%; right: -10%; bottom: 4%; height: 70%; z-index: -1; border-radius: 50%;
-  background: radial-gradient(closest-side, var(--rim), transparent); opacity: 0.55;
-}
-.ws-rim-disc { left: 22%; width: 56%; height: auto; aspect-ratio: 1; bottom: 22%; border-radius: 50%; }
-.ws-ghost { transform: scale(1.15); opacity: 0.25; filter: grayscale(1) drop-shadow(0 0 2px #e9b44c); z-index: -1; }
-.ws-after { transform: translateY(-12%) scale(var(--fig-scale, 1)); opacity: 0.15; }
-.ws-model .ws-token {
-  position: absolute; left: 50%; bottom: 22%; width: 52%; height: auto; aspect-ratio: 1; margin: 0; translate: -50% 0;
-  font-size: calc(var(--model) * 0.24); box-shadow: 0 0 0 2px #e9c071, 0 6px 8px rgba(0, 0, 0, 0.5);
-}
-.ws-shield { position: absolute; pointer-events: none; }
-.ws-shield-feet { left: 16%; right: 16%; bottom: 13%; height: 11%; border: 2px solid #fff2cf; border-radius: 50%; opacity: 0.85; }
-.ws-shield-dome { left: 6%; right: 6%; bottom: 14%; height: 80%; border-radius: 50% 50% 14% 14%; border: 1px solid rgba(255, 242, 207, 0.65); background: radial-gradient(70% 60% at 40% 30%, rgba(255, 242, 207, 0.3), rgba(255, 242, 207, 0.06)); }
-.ws-hourglass { position: absolute; left: -2%; top: 4%; width: 12%; }
-.ws-cardback { position: absolute; left: -4%; top: 2%; width: 15%; }
-/* The plinth: a stone top behind the figure's feet, and a band in the metal of the worth (§5.4). */
-.ws-plinth {
-  position: absolute; left: 10%; right: 10%; bottom: 1%; height: 15%; display: flex; align-items: center; justify-content: center; gap: 1px;
-  border-radius: 0 0 46% 46% / 0 0 40% 40%; background: linear-gradient(var(--m1), var(--m2)); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
-  color: #3a2a14; overflow: visible;
-}
-.ws-plinth::before {
-  content: ''; position: absolute; left: 0; right: 0; top: -45%; height: 90%; border-radius: 50%; z-index: -1;
-  background: url('/ui/stone-board.webp') center / 300% auto, #6c6257; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 0 0 1px var(--m2);
-}
-.m-stone { --m1: #8a8072; --m2: #4d453c; color: var(--on-night); }
-.m-bronze { --m1: #c08a52; --m2: #7a4a22; }
-.m-silver { --m1: #e8e6e0; --m2: #8f949a; }
-.m-gold, .m-hairline, .m-cracked, .m-broken { --m1: #f0d48a; --m2: #c99a3e; }
-/* The piece's letter, cut into the band. */
-.ws-letter { position: relative; font-family: var(--font-display); font-weight: 700; font-size: calc(var(--model) * 0.12); line-height: 1; text-shadow: 0 1px 0 rgba(255, 244, 207, 0.5); }
-.m-stone .ws-letter { text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5); }
-.ws-cracks { position: absolute; inset: 0; width: 100%; height: 100%; }
-
-/* ---- the gauge ---- */
-.ws-gauge { position: relative; display: flex; align-items: center; gap: 6px; height: 16px; margin: 1px 0; }
-.g-track { position: relative; flex: 1 1 auto; height: 8px; border-radius: 4px; background: #d1c3a8; }
-.g-band { position: absolute; top: 0; bottom: 0; background: rgba(233, 192, 113, 0.32); }
-.g-fuzz { position: absolute; top: -3px; bottom: -3px; border-radius: 7px; background: rgba(233, 192, 113, 0.3); }
-.g-gem { position: absolute; top: 50%; width: 12px; height: 12px; translate: -50% -50%; rotate: 45deg; border: 1px solid #9a6418; background: linear-gradient(135deg, #fff4cf, #f0bf52 50%, #9a6418); }
-.ws-gauge.out .g-gem { border-color: #5a1c14; background: linear-gradient(135deg, #ffb3a6, #b3261e 60%, #5a1c14); }
-.ws-gauge.out .g-fuzz { background: rgba(179, 38, 30, 0.35); }
-.g-mark { display: none; position: absolute; top: 13px; translate: -50% 0; font-size: 10px; font-weight: 700; color: var(--on-night-soft); }
-.g-end { flex:none; font-size:11px; color:var(--ink-soft); }
+/* ---- bare character art ---- */
+.ws-model { display:flex; justify-content:center; width:var(--model,140px); height:var(--model,140px); }
+.ws-model .ws-fig { position:static; width:100%; height:100%; object-fit:contain; filter:none; transform:none; }
+.ws-tile-art { background:none; }
 
 /* ---- the Moves tab: brushes and the 7 × 7 board ---- */
 .ws-caption { display:none; }
@@ -214,7 +123,7 @@
 .ws-fwd { text-align:center; font-size:11px; line-height:18px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-soft); }
 .ws-board {
   display: grid; grid-template-columns: repeat(7, var(--cell)); grid-auto-rows: var(--cell); gap: 1px; padding: 1px;
-  flex: none; width: max-content; margin: 2px auto 0; background: var(--stone-700); border-radius: 4px; touch-action: none; user-select: none; -webkit-user-select: none;
+  flex: none; width: max-content; margin: 2px auto 0; background: var(--stone-700); border-radius: 4px; touch-action: pan-y; user-select: none; -webkit-user-select: none;
 }
 #workshop .ws-cell {
   position: relative; display: block; width: var(--cell); height: var(--cell); min-height: 0; padding: 0;
@@ -224,7 +133,7 @@
 #workshop .ws-cell.rim { filter: brightness(0.85); }
 #workshop .ws-cell:active { transform: none; }
 #workshop .ws-cell:focus-visible { z-index: 1; outline: 3px solid var(--focus); outline-offset: -3px; }
-#workshop .ws-me { background: radial-gradient(circle, #f6dc9a, #c99a3e); }
+#workshop .ws-me { background:#efe6d0; }
 .ws-me-fig { display: block; width: 100%; height: 100%; object-fit: contain; }
 .ws-me .ws-me-fig.ws-token { display: grid; place-items: center; width: 80%; height: 80%; margin: 10%; font-size: calc(var(--cell) * 0.4); }
 .c-both::before, .c-move::before, .c-moveShoot::before {
@@ -264,9 +173,6 @@
 #workshop .ws-add { justify-content: center; margin-top: var(--space-2); }
 
 /* ---- the Look tab ---- */
-#workshop .ws-auto { width: auto; margin-bottom: var(--space-2); }
-.ws-auto[aria-pressed='true'] { color: var(--vellum); background: linear-gradient(#9c3a2d, var(--accent)); border-color: var(--accent-deep); }
-.ws-bodies { display: grid; grid-template-columns: repeat(auto-fill, 48px); gap: 4px; }
 .ws-glows { display: grid; grid-template-columns: repeat(auto-fill, 44px); gap: 4px; }
 #workshop .ws-body, #workshop .ws-glow { position: relative; justify-content: center; width: 100%; aspect-ratio: 1; min-height: 44px; padding: 2px; border-color: var(--stone-300); }
 /* The chosen body and glow: a thick ring and a tick, so the choice reads at a glance. */
@@ -277,7 +183,6 @@
 }
 .ws-body img { width: 100%; height: 100%; object-fit: contain; max-width: none; }
 .ws-glow img { width: 100%; height: 100%; object-fit: contain; max-width: none; }
-.ws-disc { width: 80%; height: auto; aspect-ratio: 1; margin: 0; font-size: 18px; box-shadow: none; }
 .ws-glow-none { width: 70%; aspect-ratio: 1; border-radius: 50%; border: 2px solid var(--stone-500); }
 #workshop .ws-army { margin-top: var(--space-4); max-width: 320px; }
 #workshop .ws-army legend { margin: 0 0 4px; }
@@ -395,29 +300,30 @@
 .ws-toast.on { opacity: 1; }
 
 
-/* Short landscape screens put the tools beside the complete board. */
-#workshop[data-h='land'] .ws-edit-sheet { width:calc(100vw - 16px); max-width:none; max-height:calc(100dvh - 8px); min-height:0; margin:auto; }
-#workshop[data-h='land'] .ws-panel[data-tab='moves'] { display:grid; grid-template-columns:minmax(180px,1fr) auto; grid-template-rows:auto 1fr; gap:8px 16px; padding:4px 12px 8px; }
-#workshop[data-h='land'] .ws-tools { grid-column:1; flex-wrap:wrap; }
-#workshop[data-h='land'] .ws-mode { grid-column:1; margin:0; }
-#workshop[data-h='land'] .ws-grid-wrap { grid-column:2; grid-row:1/3; }
-#workshop[data-h='land'] .ws-sheet-bar { min-height:48px; padding:0 12px; }
-@media(min-width:721px) { #workshop .ws-sheet:not(.ws-edit-sheet) { margin:auto; height:auto; max-height:85dvh; border-radius:10px; } }
-@media(max-width:359px) { .ws-workspace { padding:12px; } .ws-card-border { padding:10px 12px 4px; } #workshop .ws-name { font-size:21px; } }
-
-#workshop .ws-panel-undo { width:auto; margin:0 0 12px auto; }
-
-#workshop .ws-edit-why { width:auto; flex:none; min-width:70px; padding:4px 6px; display:block; font-size:15px; line-height:1.2; border:0; box-shadow:none; text-align:center; color:var(--gold-ink); }
-.ws-edit-why small { display:block; font-size:12px; }
-#workshop .ws-edit-why.warn { color:var(--danger); }
-#workshop dialog.ws-edit-sheet[data-inline='true'] .ws-edit-why { display:none; }
-
+@media(min-width:721px) { #workshop .ws-sheet { margin:auto; height:auto; max-height:85dvh; border-radius:10px; } }
 #workshop .seg-row label { min-height:44px; align-items:center; }
 .ws-sheet-bar { flex:none; }
-#workshop[data-h='land'] .ws-panel[data-tab='moves'] { padding:4px 12px; }
-#workshop[data-h='land'] .ws-fwd { line-height:14px; }
-@media(max-height:290px) { #workshop[data-h='land'] .ws-fwd { display:none; } }
-
-#workshop[data-h='land'] .ws-board { margin-top:0; }
-
 #workshop h3 { font-variant-numeric:lining-nums; }
+
+/* Cast picker: three readable choices per row, with names and rule hints. */
+.ws-figure-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 3px; }
+#workshop .ws-figure-choice { display: flex; flex-direction: column; aspect-ratio: auto; padding: 8px 4px; min-width: 0; border-radius: 8px; background: var(--vellum); }
+#workshop .ws-figure-choice[hidden] { display: none; }
+#workshop .ws-figure-choice img { height: 96px; width: 100%; object-fit: contain; }
+.ws-figure-choice b { font-size: 12px; line-height: 1.3; white-space: normal; }
+.ws-figure-choice small { font-size: 10px; line-height: 1.3; }
+.ws-gallery { margin: 16px 0; }
+.ws-gallery summary { cursor: pointer; padding: 12px 0; font-weight: 700; }
+.ws-figure-filter { display: flex; align-items: center; gap: 8px; }
+.ws-figure-filter select { min-height: 44px; }
+
+.ws-cast-start { max-width: 900px !important; }
+@media (min-width: 721px) { .ws-cast-start { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+/* A fixed vertical thermometer, never an input or drag handle. */
+.ws-gauge.ws-thermometer { position:relative; display:block; width:64px; height:140px; margin:0; padding:0; flex:none; }
+.ws-temp-scale { position:absolute; left:0; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:space-between; font-size:11px; color:var(--ink-soft); }
+.ws-temp-tube { position:absolute; width:16px; height:116px; left:34px; top:0; overflow:hidden; border:2px solid #947c58; border-radius:12px 12px 0 0; background:#e1d6c1; }
+.ws-temp-fill { position:absolute; bottom:0; left:2px; right:2px; background:var(--accent); border-radius:6px 6px 0 0; }
+.ws-temp-fair { position:absolute; left:0; right:0; bottom:25%; height:25%; background:#9eb795; }
+.ws-temp-bulb { position:absolute; width:28px; height:28px; bottom:0; left:28px; background:var(--accent); border:3px solid #947c58; border-radius:50%; }

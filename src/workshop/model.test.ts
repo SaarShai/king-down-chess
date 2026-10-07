@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { judge } from './judge';
-import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, designCode, empty, fromPreset, keyOf, likeAlways, limit, mix, parseDesign, presetOf, validName, type PieceDesign, type Rule } from './model';
+import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, setMark, designCode, empty, fromPreset, keyOf, likeAlways, limit, mix, parseDesign, presetOf, validName, type PieceDesign, type Rule } from './model';
 import { autoName, letterFollows, letterOf, saveName } from './names';
 import { describe as words, squareList } from './text';
 import { BLOCKS, blockOf, validDoes, whenOk } from './vocab';
@@ -147,5 +147,22 @@ describe('validation (§8.4.8, §4.9)', () => {
     expect(l).toEqual(['2 forward, 1 left: shoot', '2 forward, 1 right: move and take', 'Slides straight ahead']);
     const many = { squares: [...KING_STEP('both'), ...KNIGHT_JUMP().slice(0, 3), { x: 3, y: 3, mark: 'move' as const }, { x: 0, y: 2, mark: 'move' as const }], lines: [], rules: [] };
     expect(words(many).moves).not.toMatch(/picture/);
+  });
+});
+
+describe('separate move and take channels', () => {
+  it('adds and removes moves without changing takes or shots', () => {
+    expect(setMark('take', 'move', true)).toBe('both');
+    expect(setMark('both', 'move', false)).toBe('take');
+    expect(setMark('shoot', 'move', true)).toBe('moveShoot');
+    expect(setMark('moveShoot', 'move', false)).toBe('shoot');
+  });
+  it('adds, removes and switches takes without changing movement', () => {
+    expect(setMark('move', 'take', true)).toBe('both');
+    expect(setMark('both', 'take', false)).toBe('move');
+    expect(setMark('both', 'shoot', true)).toBe('moveShoot');
+    expect(setMark('moveShoot', 'shoot', false)).toBe('move');
+    expect(setMark(undefined, 'take', true)).toBe('take');
+    expect(setMark('take', 'take', false)).toBeNull();
   });
 });
