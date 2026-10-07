@@ -1,0 +1,25 @@
+# Runs `npm test` on each pull request into main, because a merge on GitHub runs no local hook.
+# It has no push trigger: the pre-push hook (.githooks/pre-push) runs `npm test` on each push.
+# tools/workflow.lint.test.ts checks the triggers, the Node version, the install and the last step.
+name: Test
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - run: npm test
