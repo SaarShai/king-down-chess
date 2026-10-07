@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] At 320×568, 390×844, 768×1024 and 1280×900: `noSidewaysScroll`, `minTarget` (44 px), `noOverlap` and `textNotCut` pass on the card, a likely-overpowered design with its chip, and an 18-letter name.
 - [x] The game menu: New game, Guide, Workshop and Settings sit in one row, none cut or on top of another.
