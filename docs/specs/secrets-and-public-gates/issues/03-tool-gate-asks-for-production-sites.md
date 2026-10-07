@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `.claude/hooks/tool-gate.mjs`, `.claude/hooks/tool-gate.test.ts`, `.claude/settings.json` (only `hooks.PreToolUse`). Shared file: dev-environment/04 and dev-environment/05 also edit `.claude/settings.json` (other keys); they block on this ticket, so tickets 01 to 03 finish their settings edits first
 
