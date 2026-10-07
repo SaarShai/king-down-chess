@@ -291,6 +291,60 @@ are in `Chess Expansion Concept.ai`; this book's are the source.
 `ImperatorSmallCaps.ttf` is the card title face. All seven carry `fsType = 0`, but **no vendor,
 designer, URL or licence field**. They break up below about 24 px, so they do not suit a HUD.
 
+## workshop — 68 files, 62.7 MB
+
+The approved source of each Workshop figure, named by its id in `src/workshop/figures.ts`.
+Each PNG is one paired sheet with a transparent background: the ivory army on the left, the
+charcoal army on the right. The sheets are 1536×1024; `drill-crawler`, `mechanical-spiders` and
+`wooden-catapult` are 1774×887. They are the sources of the two shipped webp per figure in
+`public/ui/workshop/`.
+
+Beside each PNG, `{id}.prompt.txt` holds the recorded prompts that made it, in order. Each step
+names its record file and its image inputs. A figure with no record gets "prompt not recorded";
+at this time, each figure has a record.
+
+Each PNG is a byte copy of the chosen sheet in the Codex working copy, folder
+`docs/visual-design/workshop/` on branch `codex/workshop-card`. The Source column is relative to
+that folder. There, `figure-samples-2026-10-06/strong.png` is tracked and the other sheets are
+untracked. Made 2026-10-06, copied here 2026-10-07.
+
+| File | Source | Size | Why kept | Licence note |
+|---|---|---:|---|---|
+| `blade-dancer.png` | `figure-samples-2026-10-06/fast-fresh-guard.png` (made 2026-10-06) | 1.9 MB | Blade Dancer (Fast); source of `public/ui/workshop/blade-dancer-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `ram-bastion.png` | `figure-samples-2026-10-06/strong.png` (made 2026-10-06) | 1.9 MB | Ram Bastion (Strong); source of `public/ui/workshop/ram-bastion-w.webp` and `-b.webp`; prompt: 1 generation and 1 edit | generated with Codex image_gen on the owner's plan; each edit step had the step before as its input |
+| `crossbow-warden.png` | `figure-samples-2026-10-06/ranged-fresh.png` (made 2026-10-06) | 1.9 MB | Crossbow Warden (Ranged); source of `public/ui/workshop/crossbow-warden-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `lantern-witch.png` | `figure-samples-2026-10-06/magic-fresh.png` (made 2026-10-06) | 2.0 MB | Lantern Witch (Magic); source of `public/ui/workshop/lantern-witch-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `banner-keeper.png` | `figure-samples-2026-10-06/support-fresh-cape.png` (made 2026-10-06) | 1.9 MB | Banner Keeper (Support); source of `public/ui/workshop/banner-keeper-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `javelin-runner.png` | `figure-samples-2026-10-06/mixed-fresh.png` (made 2026-10-06) | 1.9 MB | Javelin Runner (Fast, Ranged); source of `public/ui/workshop/javelin-runner-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `wind-courier.png` | `figure-batch-02/07-wind-courier-v2.png` (made 2026-10-06) | 1.6 MB | Wind Courier (Fast); source of `public/ui/workshop/wind-courier-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `iron-warden.png` | `figure-batch-02/08-iron-warden.png` (made 2026-10-06) | 2.3 MB | Iron Warden (Strong); source of `public/ui/workshop/iron-warden-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `stone-slinger.png` | `figure-batch-02/09-stone-slinger.png` (made 2026-10-06) | 1.8 MB | Stone Slinger (Ranged); source of `public/ui/workshop/stone-slinger-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `mirror-seer.png` | `figure-batch-02/10-mirror-seer.png` (made 2026-10-06) | 1.9 MB | Mirror Seer (Magic); source of `public/ui/workshop/mirror-seer-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `field-mender.png` | `figure-batch-03/11-field-mender-v4.png` (made 2026-10-06) | 1.8 MB | Field Mender (Support); source of `public/ui/workshop/field-mender-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `antler-guardian.png` | `figure-batch-03/12-antler-guardian-v2.png` (made 2026-10-06) | 1.9 MB | Antler Guardian (Strong); source of `public/ui/workshop/antler-guardian-w.webp` and `-b.webp`; prompt: 1 generation and 1 edit | generated with Codex image_gen on the owner's plan; each edit step had the step before as its input |
+| `bell-sage.png` | `figure-batch-03/15-bell-sage.png` (made 2026-10-06) | 1.8 MB | Bell Sage (Magic, Support); source of `public/ui/workshop/bell-sage-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `drum-marshal.png` | `figure-batch-03/16-drum-marshal.png` (made 2026-10-06) | 1.8 MB | Drum Marshal (Support); source of `public/ui/workshop/drum-marshal-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `rooftop-vaulter.png` | `figure-batch-04/17-rooftop-vaulter.png` (made 2026-10-06) | 1.6 MB | Rooftop Vaulter (Fast); source of `public/ui/workshop/rooftop-vaulter-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `shell-bastion.png` | `figure-batch-04/18-shell-bastion.png` (made 2026-10-06) | 2.1 MB | Shell Bastion (Strong); source of `public/ui/workshop/shell-bastion-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `reed-hunter.png` | `figure-batch-04/19-reed-hunter.png` (made 2026-10-06) | 1.7 MB | Reed Hunter (Ranged); source of `public/ui/workshop/reed-hunter-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `hourglass-keeper.png` | `figure-batch-04/20-hourglass-keeper.png` (made 2026-10-06) | 1.7 MB | Hourglass Keeper (Magic); source of `public/ui/workshop/hourglass-keeper-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `forge-bearer.png` | `figure-batch-04/21-forge-bearer.png` (made 2026-10-06) | 1.9 MB | Forge Bearer (Strong, Support); source of `public/ui/workshop/forge-bearer-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `owl-archivist.png` | `figure-batch-05/25-owl-archivist.png` (made 2026-10-06) | 2.0 MB | Owl Archivist (Support); source of `public/ui/workshop/owl-archivist-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `hare-scout.png` | `figure-swarms/13-hare-scout-v5.png` (made 2026-10-06) | 2.1 MB | Hare Scout (Fast); source of `public/ui/workshop/hare-scout-w.webp` and `-b.webp`; prompt: 1 generation and 3 edits | generated with Codex image_gen on the owner's plan; each edit step had the step before as its input |
+| `hornet-swarm.png` | `figure-swarms/hornet-swarm-v2.png` (made 2026-10-06) | 2.0 MB | Hornet Swarm (Fast, Ranged); source of `public/ui/workshop/hornet-swarm-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `mechanical-spiders.png` | `figure-swarms/mechanical-spider-swarm-v2.png` (made 2026-10-06) | 1.2 MB | Mechanical Spiders (Fast, Strong); source of `public/ui/workshop/mechanical-spiders-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `dart-sentinel.png` | `figure-final-run/dart-sentinel.png` (made 2026-10-06) | 2.0 MB | Dart Sentinel (Ranged); source of `public/ui/workshop/dart-sentinel-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `fox-pathfinder.png` | `figure-final-run/fox-pathfinder.png` (made 2026-10-06) | 1.9 MB | Fox Pathfinder (Fast); source of `public/ui/workshop/fox-pathfinder-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `eagle-keeper.png` | `figures-machines-elements/eagle-keeper-v3.png` (made 2026-10-06) | 1.8 MB | Eagle Keeper (Ranged); source of `public/ui/workshop/eagle-keeper-w.webp` and `-b.webp`; prompt: 1 generation and 1 edit | generated with Codex image_gen on the owner's plan; each edit step had the step before as its input |
+| `tide-caller.png` | `figures-machines-elements/tide-caller-shell-mask-v3.png` (made 2026-10-06) | 1.7 MB | Tide Caller (Support); source of `public/ui/workshop/tide-caller-w.webp` and `-b.webp`; prompt: 1 generation and 2 edits | generated with Codex image_gen on the owner's plan; each edit step had the step before as its input |
+| `wooden-catapult.png` | `figures-machines-elements/wooden-catapult.png` (made 2026-10-06) | 1.3 MB | Wooden Catapult (Ranged); source of `public/ui/workshop/wooden-catapult-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `battering-ram.png` | `figures-machines-elements/battering-ram.png` (made 2026-10-06) | 1.9 MB | Battering Ram (Strong); source of `public/ui/workshop/battering-ram-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `drill-crawler.png` | `figures-machines-elements/drill-crawler.png` (made 2026-10-06) | 1.5 MB | Drill Crawler (Strong); source of `public/ui/workshop/drill-crawler-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `water-deity.png` | `figures-machines-elements/water-deity.png` (made 2026-10-06) | 1.9 MB | Water Deity (Magic); source of `public/ui/workshop/water-deity-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `fire-spirit.png` | `figures-machines-elements/fire-spirit.png` (made 2026-10-06) | 2.2 MB | Fire Spirit (Magic); source of `public/ui/workshop/fire-spirit-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `clay-golem.png` | `figures-machines-elements/clay-golem.png` (made 2026-10-06) | 2.4 MB | Clay Golem (Strong); source of `public/ui/workshop/clay-golem-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+| `storm-spirit.png` | `figures-machines-elements/storm-spirit.png` (made 2026-10-06) | 1.7 MB | Storm Spirit (Magic, Fast); source of `public/ui/workshop/storm-spirit-w.webp` and `-b.webp`; prompt: 1 generation | generated with Codex image_gen on the owner's plan |
+
 ---
 
 # Left on Drive
