@@ -16,6 +16,9 @@ The lessons on Jev (TypeSafe) judgments: what works, what failed its controls. [
   extraction, verification, detection (spam, fraud, urgency, PII, jailbreaks, tool-call errors),
   moderation, ML feature extraction, semantic linting in CI, corpus-scale annotation, and real-time
   UI or game decisions.
+- What failed and must not be retried without a new design: narrative labels, fairness or
+  game-breaking judgments, guide-text and doc triage (the 2026-09-16 and 2026-09-17 lessons in this
+  file).
 - Likely candidates in the takeover: classifying stored games whose replay is ambiguous (Phase 3),
   checking king-power wording against the owner's rules (Phase 5), sorting stale queue/docs entries
   into shipped/lab/rejected/deferred (Phase 6). Purely deterministic checks stay deterministic.
