@@ -1,8 +1,8 @@
-// Worktree script test (dev-environment/01). Each case runs the real tools/wt.sh in a temporary
+// Worktree script test (dev-environment/01, 03). Each case runs the real tools/wt.sh in a temporary
 // repository: the real .gitignore, a lock file, a fake package folder and a stub `npm` on PATH.
 // The stub writes its arguments to a log. For `ci` it deletes each entry of node_modules, as
 // real `npm ci` does, also through a link, and then writes its own package folder.
-import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -137,6 +137,96 @@ describe('wt add <path>', () => {
     expect(started.stdout).toBe(`${newPath}\tteam/new\tlinked\n`);
     expect(readlinkSync(join(newPath, 'node_modules'))).toBe(join(repo.dir, 'node_modules'));
     expect(repo.git('rev-parse', 'team/new').stdout).toBe(repo.git('rev-parse', 'old').stdout);
+  });
+});
+
+describe('wt prune', () => {
+  const guards = ['current', 'locked', 'changed', 'ignored', 'unmerged', 'recent'] as const;
+
+  /**
+   * One worktree per prune guard and one safe worktree, each made by `wt add` (so each has a
+   * package link), plus one worktree whose folder is gone. The index and HEAD of each worktree
+   * but `recent` are two days old.
+   */
+  function pruneSetup() {
+    const s = setup();
+    const { repo, wt, worktrees } = s;
+    repo.write('readme.txt', 'one\n');
+    repo.git('add', 'readme.txt');
+    repo.git('commit', '-q', '-m', 'readme');
+    const path: Record<string, string> = {};
+    for (const name of [...guards, 'safe', 'gone']) {
+      const result = wt(['add', `prune/${name}`]);
+      expect(result.status, result.stderr).toBe(0);
+      path[name] = join(worktrees, name);
+    }
+    repo.git('worktree', 'lock', path.locked);
+    writeFileSync(join(path.changed, 'readme.txt'), 'two\n');
+    mkdirSync(join(path.ignored, 'sim', 'out'), { recursive: true });
+    writeFileSync(join(path.ignored, 'sim', 'out', 'run.jsonl'), '{}\n');
+    writeFileSync(join(path.unmerged, 'readme.txt'), 'three\n');
+    expect(repo.run('git', ['commit', '-q', '-am', 'not on main'], { cwd: path.unmerged }).status).toBe(0);
+    // The ignored files that prune allows.
+    mkdirSync(join(path.safe, 'dist'));
+    writeFileSync(join(path.safe, 'dist', 'index.html'), '<p>\n');
+    writeFileSync(join(path.safe, '.DS_Store'), '');
+    rmSync(path.gone, { recursive: true, force: true });
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 3600 * 1000);
+    for (const name of [...guards, 'safe']) {
+      if (name === 'recent') continue;
+      const gitDir = join(repo.dir, '.git', 'worktrees', name);
+      for (const file of ['index', 'HEAD']) utimesSync(join(gitDir, file), twoDaysAgo, twoDaysAgo);
+    }
+    const prune = (args: string[] = []) => wt(['prune', ...args], path.current);
+    /** Each output line as path -> [verdict, reason]. */
+    const verdicts = (stdout: string) =>
+      Object.fromEntries(stdout.trim().split('\n').map(line => { const [p, verdict, reason] = line.split('\t'); return [p, [verdict, reason]]; }));
+    const listed = () => repo.git('worktree', 'list', '--porcelain').stdout;
+    const branches = () => repo.git('branch', '--list').stdout.replace(/^[*+ ] /gm, '').split('\n').sort();
+    return { ...s, path, prune, verdicts, listed, branches };
+  }
+
+  it('lists each worktree with a verdict and the reason, prunes the gone one, and removes nothing', () => {
+    const { repo, path, prune, verdicts, listed } = pruneSetup();
+    expect(listed()).toContain(path.gone);
+    const result = prune();
+    expect(result.status, result.stderr).toBe(0);
+    const v = verdicts(result.stdout);
+    expect(Object.keys(v).sort()).toEqual([repo.dir, ...guards.map(n => path[n]), path.safe].sort());
+    expect(v[repo.dir]).toEqual(['keep', 'main checkout']);
+    expect(v[path.current]).toEqual(['keep', 'current worktree']);
+    expect(v[path.locked]).toEqual(['keep', 'locked']);
+    expect(v[path.changed]).toEqual(['keep', 'changes: readme.txt']);
+    expect(v[path.ignored]).toEqual(['keep', 'ignored file: sim/out/run.jsonl']);
+    expect(v[path.unmerged]).toEqual(['keep', 'commits not on main']);
+    expect(v[path.recent]).toEqual(['keep', 'index or HEAD changed in the last 24 hours']);
+    expect(v[path.safe][0]).toBe('safe');
+    // git worktree prune forgot the gone worktree; nothing else changed.
+    expect(listed()).not.toContain(path.gone);
+    for (const name of [...guards, 'safe']) expect(existsSync(path[name]), name).toBe(true);
+    // A second dry run gives the same verdicts: the first one wrote no index.
+    expect(verdicts(prune().stdout)).toEqual(v);
+  });
+
+  it('with --apply removes only the safe worktree and its link, and keeps every branch and the main packages', () => {
+    const { repo, path, prune, verdicts, listed, branches, mainPackages } = pruneSetup();
+    const branchesBefore = branches();
+    const packagesBefore = mainPackages();
+    const result = prune(['--apply']);
+    expect(result.status, result.stderr).toBe(0);
+    const v = verdicts(result.stdout);
+    expect(v[path.safe][0]).toBe('removed');
+    for (const name of guards) expect(v[path[name]][0], name).toBe('keep');
+    expect(existsSync(path.safe)).toBe(false);
+    expect(listed()).not.toContain(path.safe);
+    for (const name of guards) {
+      expect(existsSync(path[name]), name).toBe(true);
+      expect(listed()).toContain(path[name]);
+    }
+    expect(branches()).toEqual(branchesBefore);
+    expect(branches()).toContain('prune/safe');
+    expect(mainPackages()).toEqual(packagesBefore);
+    expect(repo.git('status', '--porcelain').stdout).toBe('');
   });
 });
 
