@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Red first: before the move, the size rule fails on LESSONS.md (about 64,000 bytes) and names the size. The output goes in this ticket.
 - [x] Rule: LESSONS.md is under 30,000 bytes.
@@ -61,3 +61,4 @@
   - Before the merge of the integration tip (the move commit `cbbf0b5`): `npm test` exit 0; tsc clean; vitest 62 files, 1216 tests passed; node tests 42 passed, 0 failed. `npm run test:docs`: 2 files, 28 tests passed.
   - After the merge of the integration tip `e76a305` (merge commit `e36da49`; the merge touches no file of this ticket): `npm run test:docs` 2 files, 28 tests passed. `npm test` ran four times with load averages of 29 to 45 (other jobs on this Mac). Each run failed 1 to 3 tests, each with "Test timed out in 5000ms", and each run named other tests: `src/workshop/judge.test.ts` (random designs), `tools/gate.test.ts` (push mode, 2 tests), `tools/git-hooks/pre-push.test.ts` (story 4). This ticket changes none of these files or the code they test. `npx vitest run src/workshop/judge.test.ts tools/gate.test.ts` alone: 2 files, 44 tests passed. The merger must rerun `npm test` when the load is low.
 
+- Merger (merge commit `56f2908`, integration tip before the merge `2d7847c`; no conflicts; `package-lock.json` did not change): `npm run test:docs` 2 files, 28 tests passed. `npm test` ran two times with load averages of 27 to 59. Typecheck clean both times. Run 1: 1219 of 1222 passed; 3 tests in `tools/gate.test.ts` failed with "Test timed out in 5000ms". Run 2: 1221 of 1222 passed; 1 test in `src/sim/piece-activity.test.ts` failed with "Test timed out in 5000ms". The merge changes neither file. Alone, `tools/gate.test.ts` 31 passed and `src/sim/piece-activity.test.ts` 10 passed. Node tests 42 passed, 0 failed. Status: resolved.
