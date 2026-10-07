@@ -6,7 +6,7 @@ The gate takes the values from the main checkout's secrets folder, found through
 
 **Blocked by:** 05
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/gate.mjs`, `tools/gate/`, `tools/gate.test.ts`
 
