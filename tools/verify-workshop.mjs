@@ -2,7 +2,8 @@
 // the name, the appearance, the thermometer, Undo, the keyboard, a refused save, share, Try it and reload.
 // The groups after them come back from the old check (commits 84f9e42 and 8c91940), written for the
 // one-screen card: the card layout, the game menu, a tap outside, the doors, the keys, the judge's
-// reactions, the shelf, a shared link, the edit state after Try it and Share, and Try it.
+// reactions, the shelf, a shared link, the edit state after Try it and Share, and Try it. The last groups
+// check the review fixes 2, 4, 20, 23, 27 and 29 of 2026-10-06, one group per fix, named by its number.
 // Run it with `npm run check:browser workshop`. It reads its server, channel and output folder from the
 // shared check module (tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
