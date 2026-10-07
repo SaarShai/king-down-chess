@@ -10,6 +10,7 @@ import { tempRepo } from './lib/temp-repo.mjs';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const script = join(repoRoot, 'tools', 'wt.sh');
+const vitest = join(repoRoot, 'node_modules', '.bin', 'vitest');
 const packages = ['alpha', 'beta', '.bin'];
 
 type Repo = ReturnType<typeof tempRepo>;
@@ -136,5 +137,30 @@ describe('wt add <path>', () => {
     expect(started.stdout).toBe(`${newPath}\tteam/new\tlinked\n`);
     expect(readlinkSync(join(newPath, 'node_modules'))).toBe(join(repo.dir, 'node_modules'));
     expect(repo.git('rev-parse', 'team/new').stdout).toBe(repo.git('rev-parse', 'old').stdout);
+  });
+});
+
+describe('installation guard', () => {
+  /** Runs tools/install-guard.test.ts against `checkout` in a separate vitest. */
+  const guard = (repo: Repo, checkout: string) =>
+    repo.run(vitest, ['run', 'tools/install-guard.test.ts'], { cwd: repoRoot, env: { INSTALL_GUARD_CHECKOUT: checkout } });
+
+  it('fails in a linked worktree with a changed lock file and names wt add <path>', { timeout: 60_000 }, () => {
+    const { repo, wt, worktrees } = setup();
+    wt(['add', 'feature/three']);
+    const path = join(worktrees, 'three');
+    writeFileSync(join(path, 'package-lock.json'), '{ "lock": 4 }\n');
+    const result = guard(repo, path);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout + result.stderr).toContain(`wt add ${path}`);
+  });
+
+  it('passes in the main checkout and in a linked worktree with an equal lock file', { timeout: 60_000 }, () => {
+    const { repo, wt, worktrees } = setup();
+    wt(['add', 'feature/four']);
+    for (const checkout of [repo.dir, join(worktrees, 'four')]) {
+      const result = guard(repo, checkout);
+      expect(result.status, result.stdout + result.stderr).toBe(0);
+    }
   });
 });
