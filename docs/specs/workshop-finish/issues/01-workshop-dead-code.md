@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `npx tsc --noEmit --noUnusedLocals` reports no name in the Workshop folder.
 - [x] The dead SVG drawings and their tests are gone; the art test still asserts the model, the figure and the gauge that the card renders.
