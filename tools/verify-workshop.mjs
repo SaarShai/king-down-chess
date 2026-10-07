@@ -5,12 +5,14 @@
 // reactions, the shelf, a shared link, the edit state after Try it and Share, and Try it. The last groups
 // check the review fixes 2, 4, 5, 6, 9, 13, 20, 23, 27, 28 (the line edge) and 29 of 2026-10-06, one group
 // per fix, named by its number. The judge test checks the other part of fix 28 (Why? names the band).
-// The last two groups check two small faults of workshop-finish/06: Esc in a choices panel and the glow of Surprise me.
+// Two groups check two small faults of workshop-finish/06: Esc in a choices panel and the glow of Surprise me.
+// The last group, motionSetA, is the motion seam of workshop-finish/07: the approved Set A reactions on the
+// card (A1, A4, A5), measured from the animations that each edit starts and their end times.
 // Run it with `npm run check:browser workshop`. It reads its server, channel and output folder from the
 // shared check module (tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { assertNoErrors, env, imageIs, launch, minTarget, noOverlap, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
+import { assertNoErrors, env, imageIs, launch, minTarget, noOverlap, noRunningAnimations, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
 const cast = JSON.parse(readFileSync(new URL('../docs/visual-design/workshop/cast.json', import.meta.url), 'utf8'));
@@ -858,6 +860,116 @@ async function surpriseNoGlow(browser) {
   await p.context().close();
 }
 
+/* ---- Motion (workshop-finish/07): happy-dom has no document.getAnimations, so the browser is the seam ---- */
+
+/** Runs before each load: records each script animation in the Workshop, one list for each reaction (the animations that one task starts). */
+function recordReactions() {
+  const animate = Element.prototype.animate;
+  let open = false;
+  window.reactions = [];
+  Element.prototype.animate = function (frames, options) {
+    const a = animate.call(this, frames, options);
+    if (this.closest('#workshop')) {
+      if (!open) { open = true; window.reactions.push([]); queueMicrotask(() => { open = false; }); }
+      window.reactions.at(-1).push(a);
+    }
+    return a;
+  };
+}
+/** Each reaction so far: for each animation, its end time in ms, its play state, a shake flag, and false when it moves the figure and its last frame is not the still transform. */
+const reactions = p => p.evaluate(() => window.reactions.map(r => r.map(a => {
+  const frames = a.effect.getKeyframes(), end = frames.at(-1).transform;
+  const still = !a.effect.target.matches('.ws-fig') || !end || end === 'none' || new DOMMatrix(end).isIdentity;
+  return { end: a.effect.getComputedTiming().endTime, state: a.playState, shake: /translateX/.test(frames[0].transform ?? ''), still };
+})));
+/** Asserts that `action` starts exactly one reaction, that it runs, that each animation ends by `limit` ms, and the figure's at the still transform; returns the reaction. */
+async function oneReaction(p, what, action, limit = 600) {
+  const before = (await reactions(p)).length;
+  await action();
+  const all = await reactions(p), r = all.at(-1);
+  assert.equal(all.length, before + 1, `${what} starts one reaction`);
+  assert.ok(r.length && r.every(a => a.state !== 'idle'), `${what}: the reaction runs (nothing stops it at once)`);
+  for (const a of r) {
+    assert.ok(a.end <= limit, `${what}: an animation ends at ${a.end} ms, after ${limit} ms`);
+    assert.ok(a.still, `${what}: an animation of the figure does not end at the still transform`);
+  }
+  return r;
+}
+/** Waits until the reaction ends, then: no animation runs on the card, no fading copy stays, and the figure has its still transform. */
+async function endsStill(p, what) {
+  await p.waitForTimeout(650);
+  await noRunningAnimations(p, '#workshop .ws-model-box');
+  assert.equal(await p.locator('.ws-model-box .ws-fig-was, .ws-model-box .ws-ring').count(), 0, `${what}: no temporary element stays`);
+  assert.equal(await p.locator('.ws-model-box .ws-fig').evaluate(e => getComputedStyle(e).transform), 'none', `${what}: the figure ends at its still transform`);
+}
+/** True when each animation of the last reaction is stopped (idle), not finished. */
+const lastStopped = p => p.waitForFunction(() => window.reactions.at(-1).every(a => a.playState === 'idle' && !document.getAnimations().includes(a)), null, { timeout: 300 });
+const pace = (p, value) => p.evaluate(v => { document.documentElement.dataset.pace = v; }, value);
+
+/** Stories 1 to 3: one reaction per edit, Undo and rename, none on a first render; the next edit stops it; 600 ms (300 at Fast); still at the end; none under reduced motion or Animations Off. */
+async function motionSetA(browser) {
+  const p = await open(browser, { width: 1280, height: 900, init: recordReactions });
+  await newPiece(p);
+  assert.equal((await reactions(p)).length, 0, 'the first render of a design starts no reaction');
+  await oneReaction(p, 'an edit', () => cell(p, 'move').click());
+  await oneReaction(p, 'a second edit', () => cell(p, 'take').click());
+  assert.ok(await p.evaluate(() => window.reactions.at(-2).every(a => a.playState === 'idle' && !document.getAnimations().includes(a))), 'a second edit stops the first reaction, and none of its animations stays');
+  await endsStill(p, 'an edit');
+  await oneReaction(p, 'Undo', () => p.click('.ws-undo'));
+  await endsStill(p, 'Undo');
+  await oneReaction(p, 'a rename', () => rename(p, 'Motion Test'));
+  await endsStill(p, 'a rename');
+
+  // A1 cross-fade: the old figure fades out in a copy that lies over the model.
+  await p.click('.ws-eye');
+  await p.click('.ws-gallery summary');
+  await oneReaction(p, 'a new figure', () => p.click('.ws-gallery [data-figure="clay-golem"]'));
+  const [model, copy] = await p.evaluate(() => ['.ws-model-box .ws-model', '.ws-model-box .ws-fig-was'].map(s => { const r = document.querySelector(s)?.getBoundingClientRect(); return r && [r.x, r.y, r.width, r.height].map(Math.round); }));
+  assert.deepEqual(copy, model, 'the fading copy lies over the model');
+  await endsStill(p, 'a new figure');
+  await p.click('.ws-eye');
+
+  // A5: a new "moves like" gives a gold ring, anchored to the model.
+  await oneReaction(p, 'a new "moves like"', () => addRule(p, 'movesLike'));
+  assert.equal(await p.evaluate(() => document.querySelector('.ws-ring')?.offsetParent === document.querySelector('.ws-model-box .ws-model')), true, 'the gold ring anchors to the model');
+  await endsStill(p, 'a new "moves like"');
+
+  // A4: the Rook plus "Takes again" becomes possibly overpowered and shakes.
+  await openLink(p, 'rook', 'Test Rook', true);
+  const shake = await oneReaction(p, 'overpowered', () => addRule(p, 'chain'));
+  assert.ok(shake.some(a => a.shake), 'a design that becomes overpowered shakes');
+  await endsStill(p, 'overpowered');
+
+  // Fast halves each reaction.
+  await pace(p, 'fast');
+  await oneReaction(p, 'an edit at Fast', () => cell(p, 'move', 0, 1).click(), 300);
+  await endsStill(p, 'an edit at Fast');
+  await pace(p, 'normal');
+
+  // Reduced motion: no reaction; a switch to it stops a running one.
+  await p.emulateMedia({ reducedMotion: 'reduce' });
+  const count = (await reactions(p)).length;
+  await cell(p, 'move', 0, 1).click();
+  assert.equal((await reactions(p)).length, count, 'reduced motion: an edit starts no reaction');
+  await p.emulateMedia({ reducedMotion: 'no-preference' });
+  await oneReaction(p, 'an edit before reduced motion', () => cell(p, 'move', 0, 1).click());
+  await p.emulateMedia({ reducedMotion: 'reduce' });
+  await lastStopped(p);
+  await noRunningAnimations(p, '#workshop');
+  await p.emulateMedia({ reducedMotion: 'no-preference' });
+
+  // Animations Off: no reaction; a switch to it stops a running one.
+  await pace(p, 'off');
+  await cell(p, 'move', 0, 1).click();
+  assert.equal((await reactions(p)).length, count + 1, 'Animations Off: an edit starts no reaction');
+  await pace(p, 'normal');
+  await oneReaction(p, 'an edit before Animations Off', () => cell(p, 'move', 0, 1).click());
+  await pace(p, 'off');
+  await lastStopped(p);
+  await noRunningAnimations(p, '#workshop');
+  await p.context().close();
+}
+
 const browser = await launch();
 try {
   for (const [width, height] of viewports) {
@@ -905,6 +1017,8 @@ try {
   await escInPanel(browser);
   await surpriseNoGlow(browser);
   console.log('ok Esc in a choices panel, Surprise me adds no glow');
+  await motionSetA(browser);
+  console.log('ok motion Set A: one reaction per edit, Undo and rename; stops at the next edit, under reduced motion and Off; ends still by 600 ms (300 ms at Fast)');
   assertNoErrors();
 } finally {
   await browser.close();

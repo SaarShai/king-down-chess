@@ -14,13 +14,13 @@ import {
 } from './model';
 import { BLOCKS, GROUPS, MORE_WHENS, NEAR_BODY, TOP_WHENS, EVENT_WHENS, blockOf, takesAny, whenWords, type Block } from './vocab';
 import { BAND_WORD, autoBody, badgeText, bandOf, judge, shelfOf, whyHead, whyTitle, type Label, type Verdict } from './judge';
-import { lookOf, lookWords } from './look';
+import { lookOf, lookWords, type StageLook } from './look';
 import { figureHtml, gaugeHtml, modelHtml } from './art';
 import { cap, describe, dirWords, esc, pawns, ruleParts, ruleText } from './text';
 import { autoName, letterFollows, letterOf, rollName, saveName } from './names';
 import { MAX, deleteDesign, loadDesigns, loadShelf, saveDesign, type SaveResult } from './store';
 import { sandbox } from './sandbox';
-import { cancel } from './motion';
+import { cancel, react } from './motion';
 
 type Screen = 'home' | 'start' | 'editor' | 'try';
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -60,6 +60,8 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   let cur: PieceDesign = fromPreset(BLANK), v: Verdict = judge(cur), fromLink = false, onShelf = false;
   let undos: { d: PieceDesign; label: string }[] = [], paintOn: PaintOn = 'all', takeMethod: 'take' | 'shoot' = 'take';
   let lastLabel: Label | '' = '';
+  /** The look and verdict that the card shows: the start of the next reaction. */
+  let shown: { look: StageLook; verdict: Verdict } | null = null;
   /** The design the last save refused, and why: the alert stays while it is the open design. */
   let unsaved: { id: string; why: Exclude<SaveResult, 'saved'> } | null = null;
 
@@ -320,7 +322,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     update(false);
   }
 
-  /** The stage, the side column and the open tab, after a change. */
+  /** The stage, the side column and the open tab, after a change. The render ends with the Set A reaction, except on a first render. */
   function update(first: boolean, noise?: () => void): void {
     cancel(screenEl);
     v = judge(cur);
@@ -352,6 +354,8 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     }
     drawAlert();
     fit();
+    if (!first && shown) react(screenEl, shown.look, l, shown.verdict, v);
+    shown = { look: l, verdict: v };
   }
   function rename(): void {
     const row = q('.ws-name-row');
@@ -364,11 +368,13 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       const s = inp.value.trim();
       row.innerHTML = '';
       delete row.dataset.html; // so update() draws the name again, changed or not
+      let changed = false;
       if (keep && s && s !== cur.name) {
         if (!validName(s)) toast("A name uses letters, digits, spaces, - and ', up to 18.");
-        else change('rename', x => { const follows = letterFollows(x); x.name = saveName(s); x.named = true; if (follows) x.letter = letterOf(x.name); });
+        else changed = change('rename', x => { const follows = letterFollows(x); x.name = saveName(s); x.named = true; if (follows) x.letter = letterOf(x.name); });
       }
-      update(true);
+      // One render: the change renders the edit (and its reaction); else the name row needs the full render.
+      if (!changed) update(true);
       q<HTMLButtonElement>('.ws-name').focus();
     };
     inp.onkeydown = e => {

@@ -107,8 +107,11 @@
 @media(max-width:600px) { .ws-workspace { padding:16px; } .ws-dual-boards { grid-template-columns:1fr; gap:28px; } .ws-pattern { max-width:340px; width:100%; margin:auto; } .ws-symmetry { justify-content:flex-start; } .ws-name-t { font-size:21px; } .ws-property-cards { grid-template-columns:1fr; } .ws-footer { padding:8px 12px; gap:8px; } .ws-save-state { max-width:75px; font-size:11px; } .ws-directions { grid-template-columns:repeat(4,1fr); } }
 
 /* ---- bare character art ---- */
-.ws-model { display:flex; justify-content:center; width:var(--model,140px); height:var(--model,140px); }
+.ws-model { position:relative; display:flex; justify-content:center; width:var(--model,140px); height:var(--model,140px); }
 .ws-model .ws-fig { position:static; width:100%; height:100%; object-fit:contain; filter:none; transform:none; }
+/* The Set A reactions (motion.ts): the old picture fades out over the model; the A5 ring anchors to it. Both rest hidden. */
+.ws-model .ws-fig-was { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; opacity:0; pointer-events:none; }
+.ws-ring { position:absolute; left:50%; bottom:34%; width:70%; aspect-ratio:1; border:3px solid #e9c071; border-radius:50%; box-shadow:0 0 16px #e9c071; opacity:0; pointer-events:none; }
 
 /* ---- the 7 × 7 boards ---- */
 .ws-caption { display:none; }
