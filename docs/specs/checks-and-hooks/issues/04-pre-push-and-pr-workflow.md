@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `.githooks/pre-push` and its Node script, `tools/lib/changed-files.mjs`, `tools/lib/changed-files.test.ts`, `tools/git-hooks/pre-push.test.ts`, `.github/workflows/test.yml`, `tools/workflow.lint.test.ts`
 
@@ -41,3 +41,5 @@ Tests (all green):
 Commands run:
 - `npm test` in the worktree after the merge of `claude/retro-2026-10-06`: type check clean, vitest 46 files and 828 tests passed, node tests 42 passed.
 - Verify in a scratch clone (bare remote with this branch as main, `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci`, `core.hooksPath` was `.githooks` after it): a commit that changes `src/main.ts`, then `git push origin main`, was refused and named `src/main.ts` (exit 1, remote main unchanged). `git push -u origin verify-branch` ran the full `npm test` (828 + 42 passed) and the branch reached the remote. The scratch folder is deleted.
+
+Merge: merged into `claude/retro-2026-10-06`. One conflict in `tools/lib/temp-repo.mjs`: ticket 03 also added `hookModules`. The merged list holds both modules (`model-names.mjs`, `changed-files.mjs`) and one copy loop. `npm test` after the merge: type check clean, vitest 49 files and 868 tests passed, node tests 42 passed.
