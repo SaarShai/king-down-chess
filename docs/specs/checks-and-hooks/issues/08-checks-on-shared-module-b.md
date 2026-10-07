@@ -4,7 +4,7 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/verify-painted-game.mjs`, `tools/verify-playable-clay.mjs`, `tools/verify-powers.mjs`, `tools/verify-special-moves.mjs`, `docs/visual-design/verify.mjs`
 
