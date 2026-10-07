@@ -5,7 +5,8 @@
 //   - `remote.git`: a bare repository (`remote`), branch main;
 //   - `gitconfig`: an empty file that git uses as the global config.
 // With hooks on (the default), it copies the tracked `.githooks/` folder, the modules that the hooks
-// import (`hookModules`: the model-name module for commit-msg, the changed-files module for pre-push)
+// import (`hookModules`: for commit-msg the model-name module, the assertion counter, the runner's
+// registry and the shared check module that the counter reads; for pre-push the changed-files module)
 // and the fixture package (`tools/git-hooks/fixtures/package/`: `typecheck`, `test` and `gate`
 // scripts) into the work tree, makes an empty `node_modules/`, and sets `core.hooksPath` to
 // `.githooks`. These files are in `.git/info/exclude`, so `git status` is clean and `git add -A`
@@ -26,7 +27,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const hooksFolder = join(repoRoot, '.githooks');
 const fixturePackage = join(repoRoot, 'tools', 'git-hooks', 'fixtures', 'package');
 // The modules outside `.githooks/` that a hook imports, as paths in the repository.
-const hookModules = ['tools/lib/model-names.mjs', 'tools/lib/changed-files.mjs'];
+const hookModules = ['tools/lib/model-names.mjs', 'tools/lib/removed-checks.mjs', 'tools/lib/registry.mjs', 'tools/lib/checks.mjs', 'tools/lib/changed-files.mjs'];
 const excluded = ['/.githooks/', '/node_modules/', '/package.json', '/fixture.mjs', '/.fixture/', ...hookModules.map(path => `/${path}`)];
 
 /**
