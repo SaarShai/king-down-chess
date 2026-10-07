@@ -4,7 +4,7 @@
 
 **Blocked by:** 07 (shares the steering lint); workshop-finish/12 (revision 3 moved whole into its dated file, and the anchor table that cites a run id, not a task-list line)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Red first: before the fixes, the rule fails and names each citing file and line. On today's branch these are the Workshop anchor table, the Workshop doc and the 2026-09-21 takeover review; after the blockers land, only the takeover review remains. The output goes in this ticket.
 - [x] Rule: no tracked file outside the tasks archive, the specs folder and the revision 3 file holds a citation of the form `TASKS.md:<n>`, `LESSONS.md:<n>`, `QUEUE.md:<n>` or `HANDOFF*.md:<n>`.
