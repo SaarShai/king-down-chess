@@ -4,7 +4,7 @@
 
 **Blocked by:** 05, 07, 08; checks-and-hooks/01 (the `test:docs` script that runs the doc-lint suffix)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The fix table has a "Checked by" column, and each of the 29 rows has a value.
 - [x] Each value is a check group name that occurs in the `workshop` check, a test title that occurs in a Workshop test file, "superseded", or "not checked: <reason>".
