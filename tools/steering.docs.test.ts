@@ -20,6 +20,14 @@
 //     links to the file that holds it;
 //   - no name from the model-name module occurs in LESSONS.md;
 //   - the lessons folder holds the six topic files, and each holds its lessons under one dated heading.
+// Rules of steering-cut/04 (TASKS.md is an index of open items; the old sections are in the tasks archive):
+//   - TASKS.md is under 40,000 bytes, and its section Open items is under 5,000 bytes, so that the
+//     compaction hook can give the whole section;
+//   - TASKS.md holds the section Open items first; after it, only the links to the tasks archive and
+//     the specs folder;
+//   - each Open items line holds a bold title, one of the five labels and a link; no two lines hold
+//     the same title;
+//   - no name from the model-name module occurs in TASKS.md.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -451,5 +459,163 @@ describe('LESSONS.md index', () => {
   it('LESSONS.md is small, holds Always then Index, no model name, and indexes each topic-file heading', () => {
     const topicTexts = TOPIC_FILES.filter(file => existsSync(join(root, file))).map(file => ({ file, text: read(file) }));
     expect(lessonsIndexFaults(read('LESSONS.md'), topicTexts).map(show)).toEqual([]);
+  });
+});
+
+/** TASKS.md stays small: an agent reads its Open items at the start of each session. */
+const TASKS_LIMIT = 40_000;
+/** The compaction hook gives the whole first section of TASKS.md; this budget keeps it whole. */
+const OPEN_ITEMS_LIMIT = 5_000;
+/** The five triage labels (docs/agents/triage-labels.md). */
+const LABELS = ['needs-triage', 'needs-info', 'ready-for-agent', 'ready-for-human', 'wontfix'];
+/** The folders that TASKS.md links to after its Open items: the tasks archive and the specs folder. */
+const TASKS_LINKS = ['docs/tasks-archive/', 'docs/specs/'];
+
+/** An item line: a list item. Its title is its first bold text. */
+const ITEM_TITLE = /\*\*([^*]+)\*\*/;
+/** A link line after the Open items: a list item that starts with one link. */
+const LINK_LINE = /^- \[[^\]]+\]\(([^)\s]+)\)/;
+
+/**
+ * Faults of TASKS.md (steering-cut/04): the size of the file and of its Open items, the order of the
+ * sections, the lines after the Open items, each Open items line (a bold title, one label, a link, a
+ * title that no other line holds) and a model name in any line.
+ */
+function tasksFaults(text: string, file = 'TASKS.md'): Fault[] {
+  const size = Buffer.byteLength(text, 'utf8');
+  const tooBig: Fault[] = size < TASKS_LIMIT ? [] : [{
+    file, section: '(file)', where: `size ${size} bytes`, what: `TASKS.md must be under ${TASKS_LIMIT} bytes`,
+  }];
+  const lines = markdownLines(text);
+  const headings = sectionHeadings(text);
+  const first = headings[0];
+  if (first?.heading !== 'Open items') {
+    const order: Fault = {
+      file, section: first?.heading ?? '(none)', where: first ? `line ${first.line}` : 'count 0',
+      what: `the first \`##\` section must be Open items; found ${first ? `"${first.heading}"` : 'none'}`,
+    };
+    return [...tooBig, order, ...tasksModelFaults(text, file)];
+  }
+  const end = headings[1]?.line ?? Infinity;
+  const open = lines.filter(l => l.line >= first.line && l.line < end);
+  const openSize = Buffer.byteLength(open.map(l => l.text).join('\n'), 'utf8');
+  const openBig: Fault[] = openSize < OPEN_ITEMS_LIMIT ? [] : [{
+    file, section: 'Open items', where: `size ${openSize} bytes`, what: `the section Open items must be under ${OPEN_ITEMS_LIMIT} bytes`,
+  }];
+  const items = open.filter(l => l.line > first.line && l.text.trim());
+  const titles = new Map<string, number[]>();
+  const itemFaults: Fault[] = items.flatMap(({ line, text: item }) => {
+    const title = ITEM_TITLE.exec(item)?.[1].trim();
+    if (title) titles.set(title, [...(titles.get(title) ?? []), line]);
+    const labels = LABELS.filter(label => new RegExp(`(?<![\\w-])${label}(?![\\w-])`).test(item));
+    const missing = [
+      ...(item.startsWith('- ') ? [] : ['a list item']),
+      ...(title ? [] : ['a bold title']),
+      ...(labels.length === 1 ? [] : [`one label (found ${labels.length})`]),
+      ...(/\[[^\]]+\]\([^)\s]+\)/.test(item) ? [] : ['a link']),
+    ];
+    return missing.length ? [{ file, section: 'Open items', where: `line ${line}`, what: `the line must be ${missing.join(', ')}` }] : [];
+  });
+  const repeats: Fault[] = [...titles].filter(([, at]) => at.length > 1).map(([title, at]) => ({
+    file, section: 'Open items', where: `count ${at.length}, lines ${at.join(', ')}`, what: `the title "${title}" must occur one time`,
+  }));
+  // After the Open items: link lines only, under one `##` heading, to the archive and the specs folder.
+  const rest = lines.filter(l => l.line >= end && l.text.trim());
+  const extraSections = headings.slice(2);
+  const sections: Fault[] = extraSections.length ? [{
+    file, section: extraSections[0].heading, where: `count ${extraSections.length}, first line ${extraSections[0].line}`,
+    what: 'TASKS.md must hold no `##` section after the section of links',
+  }] : [];
+  const notLinks = rest.filter(l => !/^##\s/.test(l.text) && !LINK_LINE.test(l.text));
+  const prose: Fault[] = notLinks.length ? [{
+    file, section: notLinks[0].section, where: `count ${notLinks.length}, first line ${notLinks[0].line}`,
+    what: 'after the Open items, a line must be a link to the tasks archive or the specs folder',
+  }] : [];
+  const targets = rest.flatMap(l => LINK_LINE.exec(l.text)?.[1] ?? []);
+  const links: Fault[] = [
+    ...targets.filter(target => !TASKS_LINKS.includes(target)).map(target => ({
+      file, section: headings[1].heading, where: `count ${targets.length}`, what: `the link "${target}" is not to the tasks archive or the specs folder`,
+    })),
+    ...TASKS_LINKS.filter(target => !targets.includes(target)).map(target => ({
+      file, section: headings[1]?.heading ?? '(none)', where: 'count 0', what: `TASKS.md must link to ${target} after the Open items`,
+    })),
+  ];
+  return [...tooBig, ...openBig, ...itemFaults, ...repeats, ...sections, ...prose, ...links, ...tasksModelFaults(text, file)];
+}
+
+/** Each model name in TASKS.md, with its section and line. */
+function tasksModelFaults(text: string, file: string): Fault[] {
+  const lines = markdownLines(text);
+  return findModelNames(text).map(({ word, line }) => ({
+    file, section: lines.find(l => l.line === line)?.section ?? '(fenced code)', where: `line ${line}`,
+    what: `TASKS.md must not hold the model name "${word}"`,
+  }));
+}
+
+describe('TASKS.md index', () => {
+  const model = MODEL_NAMES[0][0].toUpperCase() + MODEL_NAMES[0].slice(1);
+  const good = [
+    '# Tasks', '', 'Each line: a bold title, a label, the next step, a link.', '',
+    '## Open items', '',
+    '- **Card deal** \u00b7 `needs-info` \u00b7 Which six cards? \u00b7 [2026-10](docs/tasks-archive/2026-10.md)',
+    '- **Workshop finish** \u00b7 `ready-for-agent` \u00b7 Build the tickets. \u00b7 [spec](docs/specs/workshop-finish/spec.md)',
+    '', '## Archive and specs', '',
+    '- [Tasks archive](docs/tasks-archive/): the old sections, one file per month.',
+    '- [Specs and tickets](docs/specs/): one folder per feature.',
+  ];
+
+  it('names the size of the file and the first section of a TASKS.md that holds no index', () => {
+    const old = ['# Tasks', '', '## Workshop property dashboard', '- [x] done', '', '## Phase 2 \u2014 Later', '- [ ] open', 'x'.repeat(TASKS_LIMIT)].join('\n');
+    expect(tasksFaults(old, 'fixture.md').map(show)).toEqual([
+      `fixture.md \u00a7 (file) (size ${Buffer.byteLength(old)} bytes): TASKS.md must be under 40000 bytes`,
+      'fixture.md \u00a7 Workshop property dashboard (line 3): the first `##` section must be Open items; found "Workshop property dashboard"',
+    ]);
+  });
+
+  it('names the size of an Open items section of 5,000 bytes or more', () => {
+    const many = Array.from({ length: 60 }, (_, i) => `- **Item ${i}** \u00b7 \`needs-triage\` \u00b7 A next step of some length here. \u00b7 [2026-09](docs/tasks-archive/2026-09.md)`);
+    const big = [...good.slice(0, 6), ...many, ...good.slice(8)].join('\n');
+    expect(tasksFaults(big, 'fixture.md').map(show)).toEqual([
+      `fixture.md \u00a7 Open items (size ${Buffer.byteLength(['## Open items', '', ...many, ''].join('\n'))} bytes): the section Open items must be under 5000 bytes`,
+    ]);
+  });
+
+  it('names each Open items line with no bold title, not one label or no link, and a repeated title', () => {
+    const bad = [...good.slice(0, 8),
+      '- Card deal \u00b7 `needs-info` \u00b7 no bold title \u00b7 [x](docs/specs/)',
+      '- **Two labels** \u00b7 `needs-info` `wontfix` \u00b7 no link',
+      '- **Card deal** \u00b7 `ready-for-human` \u00b7 again \u00b7 [x](docs/specs/)',
+      'A line of prose.',
+      ...good.slice(8)].join('\n');
+    expect(tasksFaults(bad, 'fixture.md').map(show)).toEqual([
+      'fixture.md \u00a7 Open items (line 9): the line must be a bold title',
+      'fixture.md \u00a7 Open items (line 10): the line must be one label (found 2), a link',
+      'fixture.md \u00a7 Open items (line 12): the line must be a list item, a bold title, one label (found 0), a link',
+      'fixture.md \u00a7 Open items (count 2, lines 7, 11): the title "Card deal" must occur one time',
+    ]);
+  });
+
+  it('names a line, a section or a link after the Open items that is not a link to the archive or the specs folder', () => {
+    const extra = [...good, 'Some prose.', '- [Matrix](docs/MATRIX.md)', '## Old section', '- [ ] an old item'].join('\n');
+    expect(tasksFaults(extra, 'fixture.md').map(show)).toEqual([
+      'fixture.md \u00a7 Old section (count 1, first line 16): TASKS.md must hold no `##` section after the section of links',
+      'fixture.md \u00a7 Archive and specs (count 2, first line 14): after the Open items, a line must be a link to the tasks archive or the specs folder',
+      'fixture.md \u00a7 Archive and specs (count 3): the link "docs/MATRIX.md" is not to the tasks archive or the specs folder',
+    ]);
+    expect(tasksFaults(good.slice(0, 12).join('\n'), 'fixture.md').map(show)).toEqual([
+      'fixture.md \u00a7 Archive and specs (count 0): TASKS.md must link to docs/specs/ after the Open items',
+    ]);
+    expect(tasksFaults(good.join('\n'), 'fixture.md')).toEqual([]);
+  });
+
+  it('names each model name in TASKS.md', () => {
+    const named = [...good.slice(0, 8), `- **Helpers** \u00b7 \`needs-triage\` \u00b7 Ask ${model} helpers. \u00b7 [x](docs/specs/)`, ...good.slice(8)].join('\n');
+    expect(tasksFaults(named, 'fixture.md').map(show)).toEqual([
+      `fixture.md \u00a7 Open items (line 9): TASKS.md must not hold the model name "${model}"`,
+    ]);
+  });
+
+  it('TASKS.md is small, holds Open items first, then the links, with no model name', () => {
+    expect(tasksFaults(read('TASKS.md')).map(show)).toEqual([]);
   });
 });
