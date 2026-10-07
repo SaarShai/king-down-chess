@@ -10,7 +10,7 @@
 
 - [ ] Preview probe: in a desktop worktree session on the integration branch, with no target file, the builder calls `preview_start` with `worktree`. A serve reason means the session read the worktree's launch file; the ticket then records that a worktree session may use `dev` for itself. "No such entry" means the main checkout's launch file; the ticket records that the guidance stays.
 - [ ] Packages probe: in that session, `node_modules` is a link to the main checkout's folder (`ls -l` output in the ticket).
-- [x] Trailer probe: one desktop commit in a scratch branch ends with `Co-Authored-By: Claude Code <noreply@anthropic.com>`. If a `Claude-Session:` line remains, the ticket records it, and the checks spec's prepare-commit-msg hook removes it on a second commit.
+- [ ] Trailer probe: one desktop commit in a scratch branch ends with `Co-Authored-By: Claude Code <noreply@anthropic.com>`. If a `Claude-Session:` line remains, the ticket records it, and the checks spec's prepare-commit-msg hook removes it on a second commit.
 - [x] The ticket names the steering-cut ticket that takes the preview result into its guidance lines (steering-cut/06, which blocks on this ticket).
 
 **Verify:** the three probes above in a desktop worktree session; `git log -1 --format=%B` for the trailer; `npm test` stays green
@@ -31,7 +31,7 @@ That list is the main checkout's launch file (it still has `workshop`; the integ
 
     lrwxr-xr-x  1 za  staff  83 Oct  7 04:49 node_modules -> /Users/za/Documents/king down chess/.claude/worktrees/retro-2026-10-06/node_modules
 
-**Trailer probe (done).** In the build worktree, on the scratch branch `probe/dev-environment-06-trailer` (deleted after the probe), this desktop session made two empty commits.
+**Trailer probe (box open again after review fix F5).** In the build worktree, on the scratch branch `probe/dev-environment-06-trailer` (deleted after the probe), this desktop session made two empty commits.
 
 1. Commit `1f3fa55`, hooks off: `git log -1 --format=%B` ends with `Co-Authored-By: Claude Code <noreply@anthropic.com>` and holds no `Claude-Session:` line. Note: the harness text of this main-checkout session still asks for a trailer that names a model, because the main checkout's settings have no `attribution` key yet. The builder followed the brief.
 2. Commit `2521fde`, with `git -c core.hooksPath=.githooks` and a `Claude-Session:` line in the message: the prepare-commit-msg hook removed the line and added the neutral trailer. `git log -1 --format=%B` gives the subject, a blank line and `Co-Authored-By: Claude Code <noreply@anthropic.com>` only.
@@ -47,6 +47,7 @@ Note: `core.hooksPath` is not set in this repository's git config, so the hooks 
 3. Ask the agent there: call `preview_start` with the name `worktree` and paste the result; run `ls -l node_modules` and paste the result.
 4. A reason such as `wt: no target file: ...` means the session read the worktree's launch file: steering-cut/06 then says a worktree session may use `dev` for itself. "No server named worktree" means the main checkout's file: the guidance stays.
 5. If `node_modules` is missing or is a folder, the desktop worktree option does not use `worktree.symlinkDirectories`; the startup session hook should then make the link (dev-environment/04). Record which one did it.
+6. Trailer: in the same session, ask the agent for one empty commit on a scratch branch with the hooks off (`git -c core.hooksPath=/dev/null commit --allow-empty -m probe`; the prepare-commit-msg hook also adds the trailer), and tell it to type no trailer. Run `git log -1 --format=%B`. The box is ticked only when `Co-Authored-By: Claude Code <noreply@anthropic.com>` is there and no `Claude-Session:` line is there, because then the `attribution.commit` setting wrote the trailer, not the agent. Delete the scratch branch.
 
 **Tests.** `npm test` in the build worktree: exit 0; vitest 64 files, 1235 tests passed; node tests 42 passed, 0 failed. After the merge of the integration tip (e040d59): exit 0; vitest 64 files, 1236 tests passed; node tests 42 passed, 0 failed. This ticket changes no code.
-
+- Review fix F5: the trailer box is open again. In the probe above the agent typed the trailer from its brief, so the probe could not fail when the `attribution.commit` setting is wrong. Owner step 6 holds the probe that tests the setting.
