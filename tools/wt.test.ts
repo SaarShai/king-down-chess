@@ -64,3 +64,37 @@ describe('wt add <branch>', () => {
     expect(npmCalls()).toEqual([]);
   });
 });
+
+describe('wt add with a changed lock file', () => {
+  it('installs with npm ci on a branch whose lock file differs, and the main package folder keeps every entry', () => {
+    const { repo, wt, npmCalls, mainPackages, worktrees } = setup();
+    const before = mainPackages();
+    repo.git('switch', '-q', '-c', 'deps');
+    repo.write('package-lock.json', '{ "lock": 2 }\n');
+    repo.git('commit', '-q', '-am', 'new dependency');
+    repo.git('switch', '-q', 'main');
+    const result = wt(['add', 'deps']);
+    expect(result.status, result.stderr).toBe(0);
+    const path = join(worktrees, 'deps');
+    expect(result.stdout).toBe(`${path}\tdeps\tinstalled\n`);
+    expect(npmCalls()).toEqual(['ci']);
+    expect(isLink(join(path, 'node_modules'))).toBe(false);
+    expect(existsSync(join(path, 'node_modules', 'installed'))).toBe(true);
+    expect(mainPackages()).toEqual(before);
+  });
+
+  it('removes the link before npm ci when the lock file of a linked worktree changes', () => {
+    const { repo, wt, npmCalls, mainPackages, worktrees } = setup();
+    const before = mainPackages();
+    expect(wt(['add', 'feature/two']).stdout).toContain('\tlinked\n');
+    const path = join(worktrees, 'two');
+    writeFileSync(join(path, 'package-lock.json'), '{ "lock": 3 }\n');
+    const result = wt(['add', path]);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe(`${path}\tfeature/two\tinstalled\n`);
+    expect(npmCalls()).toEqual(['ci']);
+    expect(isLink(join(path, 'node_modules'))).toBe(false);
+    expect(mainPackages()).toEqual(before);
+    expect(repo.git('status', '--porcelain').stdout).toBe('');
+  });
+});
