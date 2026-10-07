@@ -4,7 +4,7 @@
 
 **Blocked by:** 03, 07, 10, 11
 
-**Status:** ready-for-human
+**Status:** resolved
 
 **Owns:** this ticket file (results under `## Comments`)
 
@@ -13,7 +13,7 @@
 - [x] The history scan of origin ran; the ticket lists each secret file name with "found" or "not found". A "found" gets a line for the owner to rotate that key (as retro ticket 09).
 - [x] A push-mode run on the integration branch ran before its first push; the ticket lists each fault line, and the owner saw them before the push.
 - [x] A deploy rehearsal with no publish flag ran to the end; the ticket records each step's result and that the deploy worktree is gone.
-- [ ] In a session in `bypassPermissions` mode, a harmless ask form (for example `vercel --version`) was refused with "ask the owner in chat"; the ticket records the refusal text.
+- [x] In a session in `bypassPermissions` mode, a harmless ask form (for example `vercel --version`) was refused with "ask the owner in chat"; the ticket records the refusal text.
 - [x] Merge steps for the owner are in the ticket: save a copy of `sim/nnue/policy.bin` outside the checkout before the merge, restore it after, and confirm its hash equals the one in `sim/nnue/policy.json`.
 
 ## Comments
@@ -68,3 +68,9 @@ Ticket and spec disagree on the hash: the ticket says "its hash equals the one i
 **Bypass probe, second try, 2026-10-07.** A desktop session in `bypassPermissions` mode, whose folder moved to a worktree of the integration branch during the session, ran `vercel --version`: the shell gave "command not found" and no hook ran. That session reads the main checkout's `.claude/settings.json`, which has no tool gate (0 matches for `tool-gate`; the worktree's file has 2). So this probe says nothing about the gate. Item 4 stays open for a session that starts in a worktree of the branch, or for the main checkout after the merge.
 
 **Bypass probe, third try, 2026-10-07.** `claude -p ... --permission-mode bypassPermissions` in the worktree stopped again with "OAuth session expired and could not be refreshed". An app-managed worktree (`EnterWorktree`, made from main, then the integration tip checked out in it) ran `vercel --version` in bypass mode with no hook: the app loaded the worktree's settings when it made it, before the branch content came in. Item 4 stays for a session that starts in a worktree of the branch, or in the main checkout after the merge.
+
+**Bypass probe, done, 2026-10-07.** The owner started a desktop session ("Test") with the integration worktree as its folder, in `bypassPermissions` mode, and asked for `vercel --version`. The hook refused before the command ran, with:
+
+    PreToolUse:Bash hook error: Tool gate: vercel can change the production site, its domains or its environment. In bypassPermissions mode a hook ask can pass with no prompt, so the gate refuses it: ask the owner in chat.
+
+That is the text of item 4. The agent there did not go around the gate. The merge steps of item 5 are done as far as they can be before the merge (see retro ticket 11); the rest of this ticket is resolved.

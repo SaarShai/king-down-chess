@@ -62,7 +62,7 @@ The owner (2026-10-07): "use your best judgement for deciding these. complete wh
 - The stray untracked `docs/specs/retro-2026-10-06/retro.md` left the main checkout (a copy is in the session scratchpad). The main checkout now has no `docs/specs/`.
 - `sim/nnue/policy.bin` is saved as `~/policy.bin.saved` (6,881,280 bytes, SHA-256 `e99256c8…`). After the merge: `cp ~/policy.bin.saved sim/nnue/policy.bin`.
 - `core.hooksPath` is the relative `.githooks` in the shared config. The hooks run in each worktree that has the folder; in the main checkout they start with the merge. `npm run prepare` is no longer needed.
-- Desktop probes (dev-environment 06): the preview probe is done (a worktree session reads its own launch file; AGENTS.md says so). The trailer probe shows that the setting writes nothing by itself and the prepare-commit-msg hook adds the trailer. The packages probe and the bypass-mode gate probe (secrets 12 item 4) need a session that starts in a worktree of the branch, or the main checkout after the merge.
+- Desktop probes (dev-environment 06): the preview probe is done (a worktree session reads its own launch file; AGENTS.md says so). The trailer probe shows that the setting writes nothing by itself and the prepare-commit-msg hook adds the trailer. The bypass-mode gate probe (secrets 12 item 4) is done in the owner's "Test" session: the gate refused `vercel` with the expected text. The packages probe needs a worktree that the app makes from main after the merge.
 
 ## Still with the owner
 
