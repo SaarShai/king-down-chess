@@ -51,6 +51,11 @@
 //   - the two old handoffs are in the tasks archive, and their old paths hold no file;
 //   - the retro handoff holds "Follow AGENTS.md" and names the archived Workshop handoff by its path;
 //   - COMPUTE.md holds the run recipes of the 2026-10-03 handoff (fixed phrases in FACT_FILES).
+// Rules of steering-cut/08 (no tracker line citations; the Workshop note cites revision 3):
+//   - no tracked file outside the tasks archive, the specs folder and the revision 3 file holds a
+//     citation of the form TASKS.md, LESSONS.md, QUEUE.md or HANDOFF*.md, then a colon and a line number;
+//   - the Workshop section of MATRIX.md names the revision 3 file and cites no section of WORKSHOP.md,
+//     and the revision 3 file exists.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -1108,5 +1113,101 @@ describe('handoffs', () => {
     expect(file, 'the retro handoff must exist').toBeDefined();
     const text = read(file!).replace(/\s+/g, ' ');
     expect(RETRO_PHRASES.filter(phrase => !text.includes(phrase)).map(phrase => `${file}: the file must hold "${phrase}"`)).toEqual([]);
+  });
+});
+
+/** The revision 3 file of the Workshop doc (workshop-finish/12). It keeps its old citations as a record. */
+const REVISION_3 = 'docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md';
+
+/** The places that keep their old line citations as records: the tasks archive, the specs folder, revision 3. */
+const CITATION_RECORDS = ['docs/tasks-archive/', 'docs/specs/', REVISION_3];
+
+/**
+ * A citation of a tracker by a line number: TASKS.md, LESSONS.md, QUEUE.md or a HANDOFF file, then a colon
+ * and a digit. The cut moves the tracker lines, so such a citation names the wrong text.
+ */
+const LINE_CITATION = /(?:TASKS|LESSONS|QUEUE|HANDOFF[^\s:]*)\.md:\d+/g;
+const LINE_CITATION_GREP = '(TASKS|LESSONS|QUEUE|HANDOFF[^ :]*)\\.md:[0-9]';
+
+/** Faults of the tracker line citations in one file: each citation, with its section and its line. Fenced code too. */
+function citationFaults(file: string, text: string): Fault[] {
+  return rawLines(text).flatMap(l => [...l.text.matchAll(LINE_CITATION)].map(([cite]) => ({
+    file, section: l.section, where: `line ${l.line}`, what: `cites a tracker by a line number ("${cite}"); cite the heading`,
+  })));
+}
+
+/** The tracked files that hold a tracker line citation, from `git grep`, outside the records. */
+function citingFiles(cwd: string): string[] {
+  const result = spawnSync('git', ['grep', '-l', '-E', LINE_CITATION_GREP, '--', '.',
+    ...CITATION_RECORDS.map(path => `:!${path}`)], { cwd, encoding: 'utf8' });
+  if (result.error) throw result.error;
+  expect(result.status, result.stderr).toBeLessThan(2);
+  return result.stdout.split('\n').filter(Boolean);
+}
+
+/**
+ * Faults of the Workshop note in MATRIX.md: the `##` Workshop section must name the revision 3 file and
+ * must not cite docs/WORKSHOP.md by a section number, because WORKSHOP.md now tells only the current Workshop.
+ */
+function workshopNoteFaults(text: string, file = MATRIX): Fault[] {
+  const lines = markdownLines(text);
+  const start = lines.findIndex(l => /^##\s+Workshop\b/.test(l.text));
+  if (start < 0) return [{ file, section: '(none)', where: 'count 0', what: 'MATRIX.md must hold the Workshop heading' }];
+  const end = lines.findIndex((l, i) => i > start && /^#{1,2}\s/.test(l.text));
+  const note = lines.slice(start, end < 0 ? undefined : end);
+  const section = note[0].section;
+  const faults: Fault[] = note.filter(l => /WORKSHOP\.md\s*§/.test(l.text)).map(l => ({
+    file, section, where: `line ${l.line}`, what: 'the Workshop note cites docs/WORKSHOP.md by a section; cite the revision 3 file',
+  }));
+  if (!note.some(l => l.text.includes(REVISION_3.split('/').at(-1)!)))
+    faults.push({ file, section, where: `lines ${note[0].line}-${note.at(-1)!.line}`, what: `the Workshop note must name ${REVISION_3}` });
+  return faults;
+}
+
+describe('line citations', () => {
+  // The citations are built from parts, so that this file holds no tracker line citation.
+  const cite = (name: string, line: number) => `${name}.md${':'}${line}`;
+
+  it('names the file, the section and the line of each tracker line citation, in fenced code too', () => {
+    const fixture = [
+      '# Review', '## Guard', `See \`docs/${cite('QUEUE', 156)}\` and ${cite('TASKS', 9)}-10.`,
+      '```', `${cite('HANDOFF-retro', 3)}`, '```',
+      `Not a tracker: sim-balance.md${':'}30, ${'TASKS'}.md §Open items, ${cite('MATRIX', 4)}.`,
+      `## Lessons`, `(${cite('LESSONS', 27)})`,
+    ].join('\n');
+    expect(citationFaults('fixture.md', fixture).map(show)).toEqual([
+      `fixture.md § Guard (line 3): cites a tracker by a line number ("${cite('QUEUE', 156)}"); cite the heading`,
+      `fixture.md § Guard (line 3): cites a tracker by a line number ("${cite('TASKS', 9)}"); cite the heading`,
+      `fixture.md § Guard (line 5): cites a tracker by a line number ("${cite('HANDOFF-retro', 3)}"); cite the heading`,
+      `fixture.md § Lessons (line 9): cites a tracker by a line number ("${cite('LESSONS', 27)}"); cite the heading`,
+    ]);
+  });
+
+  it('the grep pattern and the line pattern find the same citations', () => {
+    const grep = new RegExp(LINE_CITATION_GREP);
+    for (const text of [cite('QUEUE', 1), `docs/${cite('HANDOFF-2026-10-03', 12)}`, 'TASKS.md §x', `a.md${':'}3`])
+      expect(grep.test(text), text).toBe(new RegExp(LINE_CITATION.source).test(text));
+  });
+
+  it('no tracked file outside the tasks archive, the specs folder and the revision 3 file cites a tracker by line', () => {
+    expect(citingFiles(root).flatMap(file => citationFaults(file, read(file))).map(show)).toEqual([]);
+  });
+});
+
+describe('MATRIX.md Workshop note', () => {
+  const fixture = (note: string) => ['## D.2', '| Any piece | x |', '', '## Workshop (build 1a)', '', note, '', '## Next', 'WORKSHOP.md §1'].join('\n');
+
+  it('names a note that cites WORKSHOP.md by a section and does not name the revision 3 file', () => {
+    expect(workshopNoteFaults(fixture('A test checks that row (docs/WORKSHOP.md §3.3, §8.4).'), 'fixture.md').map(show)).toEqual([
+      'fixture.md § Workshop (build 1a) (line 6): the Workshop note cites docs/WORKSHOP.md by a section; cite the revision 3 file',
+      `fixture.md § Workshop (build 1a) (lines 4-7): the Workshop note must name ${REVISION_3}`,
+    ]);
+    expect(workshopNoteFaults(fixture(`A test checks that row (revision 3 §3.3, §8.4: ${REVISION_3}).`), 'fixture.md')).toEqual([]);
+    expect(workshopNoteFaults('## D.2', 'fixture.md').map(f => f.what)).toEqual(['MATRIX.md must hold the Workshop heading']);
+  });
+
+  it('the Workshop note cites the revision 3 file, and that file exists', () => {
+    expect(workshopNoteFaults(read(MATRIX)).map(show)).toEqual([]);
+    expect(existsSync(join(root, REVISION_3)), `${REVISION_3} must exist`).toBe(true);
   });
 });
