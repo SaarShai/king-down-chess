@@ -4,7 +4,7 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/qa.mjs`, `tools/qa-known-red.json`, `tools/lib/known-red.mjs`, `tools/lib/known-red.test.ts`, `tools/qa-known-red.lint.test.ts`
 
@@ -33,3 +33,5 @@ Notes for the merger and the owner:
 
 - The runner's first-fault line (`tools/check.mjs`, ticket 06) takes the first log line with `FAIL`, `Error`, `failed`, `Timeout` or `timed out`. When a run fails by XPASS, an earlier XFAIL line with `Error` or `Timeout` in its detail can become the reported fault. With no XFAIL line, the reported fault is the summary line, which names the XPASS count. I did not change the runner, because this ticket does not own it.
 - The lint does not check that a listed case id still exists in `tools/qa.mjs`. A renamed case leaves its entry with no XPASS. A follow-up can add that check if the owner wants it.
+
+Merger, 2026-10-07: merged into `claude/retro-2026-10-06` with no conflicts. `npm test` on the merge: typecheck clean; vitest 57 files, 1040 tests passed; node tests 42 passed. The first run had one timeout in `src/sim/piece-activity.test.ts` (load average about 20 on this Mac); the file passed alone in 2 s, and the full rerun was green. The two open questions above go to the owner.
