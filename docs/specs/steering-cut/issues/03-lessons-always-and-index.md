@@ -57,3 +57,7 @@
   The one changed line is the heading that is now `###` in Always. The 106 new lines are 83 Index entries, the headings Always and Index, six `###` topic groups, the `###` Always heading, the new Jev heading, six topic-file titles, six topic-file intro lines and one intro line in LESSONS.md.
 - `git check-attr merge -- docs/lessons/*.md`: `union` for each of the six files (and for LESSONS.md).
 - Left for other tickets: AGENTS.md line 3 and `docs/agents/domain.md` still say "read LESSONS.md" whole (ticket 06); `docs/WORKSHOP.md` cites `LESSONS.md:27`, a line that the move changes (ticket 08).
+- Commands:
+  - Before the merge of the integration tip (the move commit `cbbf0b5`): `npm test` exit 0; tsc clean; vitest 62 files, 1216 tests passed; node tests 42 passed, 0 failed. `npm run test:docs`: 2 files, 28 tests passed.
+  - After the merge of the integration tip `e76a305` (merge commit `e36da49`; the merge touches no file of this ticket): `npm run test:docs` 2 files, 28 tests passed. `npm test` ran four times with load averages of 29 to 45 (other jobs on this Mac). Each run failed 1 to 3 tests, each with "Test timed out in 5000ms", and each run named other tests: `src/workshop/judge.test.ts` (random designs), `tools/gate.test.ts` (push mode, 2 tests), `tools/git-hooks/pre-push.test.ts` (story 4). This ticket changes none of these files or the code they test. `npx vitest run src/workshop/judge.test.ts tools/gate.test.ts` alone: 2 files, 44 tests passed. The merger must rerun `npm test` when the load is low.
+
