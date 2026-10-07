@@ -1,7 +1,7 @@
 // Self-test of the shared check module (checks-and-hooks/05): each assertion must fail on a bad page
 // and pass on a good page. It builds the pages with page.setContent and needs no server.
 // Run: node tools/check-selftest.mjs (exit 0 when all pass; exit 1 and the fault named when one fails).
-import { imageIs, insideViewport, launch, minTarget, noOverlap, noRunningAnimations, noSidewaysScroll, textNotCut } from './lib/checks.mjs';
+import { assertNoErrors, imageIs, insideViewport, launch, minTarget, noOverlap, noRunningAnimations, noSidewaysScroll, textNotCut, trapErrors } from './lib/checks.mjs';
 
 const viewport = { width: 390, height: 844 };
 const page_ = body => `<!doctype html><html><head><style>body{margin:0;font:16px sans-serif}</style></head><body>${body}</body></html>`;
@@ -47,6 +47,16 @@ const cases = [
     good: [img('http://127.0.0.1:9/app/', `./${golem}`), img('http://127.0.0.1:9/app/', `/${golem}`)] },
 ];
 
+/** Error cases: a trapped page runs `body`; `passes` says whether assertNoErrors must pass. */
+const allowFetch = [{ pattern: /Failed to fetch/, reason: 'the check runs with no network' }];
+const errorCases = [
+  { name: 'assertNoErrors (a thrown error)', body: "<script>throw new Error('boom')</script>", passes: false, names: 'boom' },
+  { name: 'assertNoErrors (a console error)', body: "<script>console.error('loud')</script>", passes: false, names: 'loud' },
+  { name: 'assertNoErrors (a page with no error)', body: '<p>quiet</p>', passes: true },
+  { name: 'assertNoErrors (an allowed error)', body: "<script>throw new Error('Failed to fetch')</script>", allow: allowFetch, passes: true },
+  { name: 'assertNoErrors (an allowed pattern does not hide another error)', body: "<script>console.error('Failed to fetch');throw new Error('boom')</script>", allow: allowFetch, passes: false, names: 'boom' },
+];
+
 const faults = [];
 const browser = await launch();
 try {
@@ -65,7 +75,25 @@ try {
       try { await c.run(page, c.selector); } catch (e) { faults.push(`${c.name}: a good page failed: ${e.message}`); }
     }
   }
+  for (const c of errorCases) {
+    const p = await context.newPage();
+    const errors = trapErrors(p, c.allow);
+    await p.setContent(page_(c.body));
+    await p.evaluate(() => 0); // the error events arrive before this answer
+    let message = null;
+    try { assertNoErrors(errors); } catch (e) { message = e.message; }
+    if (c.passes && message !== null) faults.push(`${c.name}: it failed: ${message}`);
+    if (!c.passes && message === null) faults.push(`${c.name}: it passed`);
+    if (!c.passes && message && !message.includes(c.names)) faults.push(`${c.name}: the failure message does not name "${c.names}": ${message}`);
+    await p.close();
+  }
+  // An allowed pattern must have a reason.
+  for (const allow of [[{ pattern: /x/ }], [{ pattern: /x/, reason: ' ' }]]) {
+    const p = await context.newPage();
+    try { trapErrors(p, allow); faults.push('trapErrors: an allowed pattern without a reason was accepted'); } catch {}
+    await p.close();
+  }
 } finally { await browser.close(); }
 
 if (faults.length) { for (const f of faults) console.error(`FAIL ${f}`); process.exit(1); }
-console.log(`ok ${cases.length} cases`);
+console.log(`ok ${cases.length + errorCases.length + 2} cases`);

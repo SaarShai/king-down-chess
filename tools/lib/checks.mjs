@@ -106,3 +106,22 @@ export async function imageIs(page, selector, name) {
     if (!path?.endsWith(end)) fail('imageIs', selector, m.viewport, b, `image ${path ?? 'none'} does not end with ${end}`);
   }
 }
+
+/** Every list that trapErrors made, so that assertNoErrors() with no argument checks all pages. */
+const trapped = [];
+
+/** Collects the page errors and console errors of `page` that no allowed pattern matches. */
+export function trapErrors(page, allow = []) {
+  for (const a of allow) if (!a.reason?.trim()) throw new Error(`trapErrors: the allowed pattern ${a.pattern} has no reason`);
+  const errors = [];
+  const add = (kind, text) => { if (!allow.some(a => new RegExp(a.pattern).test(text))) errors.push(`${kind}: ${text}`); };
+  page.on('pageerror', e => add('pageerror', e.message));
+  page.on('console', m => { if (m.type() === 'error') add('console.error', m.text()); });
+  trapped.push(errors);
+  return errors;
+}
+
+/** Fails when a trapped list (by default, all of them) holds an error. */
+export function assertNoErrors(errors = trapped.flat()) {
+  if (errors.length) throw new Error(`assertNoErrors: ${errors.length} unexpected error(s):\n  ${errors.join('\n  ')}`);
+}
