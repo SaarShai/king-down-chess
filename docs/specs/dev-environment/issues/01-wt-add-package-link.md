@@ -4,7 +4,7 @@
 
 **Blocked by:** checks-and-hooks/02 (`tempRepo()` with the hooks-off option), checks-and-hooks/01 (vitest that collects tests from the tools folder)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/wt.sh` (new), `tools/wt.test.ts` (new), `tools/install-guard.test.ts` (new), `.gitignore` (the `node_modules/` line only)
 
