@@ -6,8 +6,10 @@ import { Game } from '../game';
 import { RULES_2017, RULES_2021, POWERS_BALANCED, RULES, parseKings, setRules } from '../rules/rules';
 import { fromFen, toFen, toLan } from '../rules/setup';
 import { moveNumber, type Position } from '../rules/engine';
+import { positionKey, resetSearchState, search } from '../ai/search';
 import type { MatchSave, MatchSetup, MatchSnapshot, MoveCommand } from './index';
 
+declare const __KINGDOWN_COMPILED__: boolean;
 // Conservative development compatibility: every engine/search source change invalidates replay.
 const hash = createHash('sha256');
 function hashTree(url: URL): void {
@@ -17,9 +19,13 @@ function hashTree(url: URL): void {
     else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) { hash.update(fileURLToPath(child).split('/src/')[1]); hash.update(readFileSync(child)); }
   }
 }
-hash.update(readFileSync(new URL('../game.ts', import.meta.url)));
-hash.update(readFileSync(new URL('./worker.ts', import.meta.url)));
-hashTree(new URL('../rules/', import.meta.url)); hashTree(new URL('../ai/', import.meta.url));
+if (typeof __KINGDOWN_COMPILED__ !== 'undefined' && __KINGDOWN_COMPILED__) {
+  hash.update(readFileSync(new URL('./worker.mjs', import.meta.url)));
+} else {
+  hash.update(readFileSync(new URL('../game.ts', import.meta.url)));
+  hash.update(readFileSync(new URL('./worker.ts', import.meta.url)));
+  hashTree(new URL('../rules/', import.meta.url)); hashTree(new URL('../ai/', import.meta.url));
+}
 const engine = `sha256:${hash.digest('hex')}`;
 // Bounds keep every accepted match export within the JSON load limit.
 const MAX_COMMANDS = 1000, MAX_SAVE_LENGTH = 8_000_000;
@@ -55,7 +61,22 @@ function create(input: unknown): void {
 }
 function snapshot(): MatchSnapshot {
   if (!game || !initialized) throw new Error('Match not initialized');
-  return { revision: saved.revision, fen: toFen(game.pos), ply: game.pos.ply, turn: game.pos.turn, moveNumber: moveNumber(game.pos), status: game.status, inCheck: game.inCheck, legal: game.status === 'playing' ? game.legal.map(m => toLan(game!.pos, m)) : [], history: game.history.map(h => h.lan) };
+  const { hands: _hands, piles: _piles, ...rules } = RULES;
+  const moves = game.status === 'playing' ? game.legal.map(move => ({ lan: toLan(game!.pos, move), move })) : [];
+  return { rules: structuredClone(rules), moves: structuredClone(moves), revision: saved.revision, fen: toFen(game.pos), ply: game.pos.ply, turn: game.pos.turn, moveNumber: moveNumber(game.pos), status: game.status, inCheck: game.inCheck, legal: moves.map(m => m.lan), history: game.history.map(h => h.lan) };
+}
+function chooseMove(input: unknown): string {
+  if (!game || !initialized) throw new Error('Match not initialized');
+  if (game!.status !== 'playing') throw new Error('Match terminal');
+  const options = object(input, ['maxTimeMs', 'maxDepth']);
+  const timeMs = options.maxTimeMs === undefined ? 250 : options.maxTimeMs, maxDepth = options.maxDepth === undefined ? 4 : options.maxDepth;
+  if (!integer(timeMs) || timeMs < 1 || timeMs > 5000 || !integer(maxDepth) || maxDepth < 1 || maxDepth > 8) throw new Error('Malformed search bounds');
+  resetSearchState();
+  const result = search(game!.pos, { timeMs, maxDepth, history: game!.history.map(h => positionKey(h.pos)) });
+  if (!result.move) throw new Error('Search returned no move');
+  const lan = toLan(game!.pos, result.move);
+  if (game!.legal.filter(m => toLan(game!.pos, m) === lan).length !== 1) throw new Error('Search returned illegal or ambiguous move');
+  return lan;
 }
 function command(input: unknown): MoveCommand {
   const c = object(input, ['id', 'expectedRevision', 'lan']);
@@ -100,7 +121,7 @@ parentPort!.on('message', ({ id, op, input }) => {
     if (initializationFailed) throw new Error('Match initialization failed');
     if ((op === 'create' || op === 'load') && game) throw new Error('Already initialized');
     let value: unknown;
-    switch (op) { case 'create': create(input); break; case 'load': load(input); break; case 'snapshot': value = snapshot(); break; case 'apply': value = apply(input); break; case 'save': snapshot(); value = JSON.stringify(saved); break; default: throw new Error('Unknown operation'); }
+    switch (op) { case 'create': create(input); break; case 'load': load(input); break; case 'snapshot': value = snapshot(); break; case 'chooseMove': value = chooseMove(input); break; case 'apply': value = apply(input); break; case 'save': snapshot(); value = JSON.stringify(saved); break; default: throw new Error('Unknown operation'); }
     if (op === 'create' || op === 'load') initialized = true;
     parentPort!.postMessage({ id, value });
   } catch (e) { if ((op === 'create' || op === 'load') && !wasInitialized) { initializationFailed = true; initialized = false; game = undefined; } parentPort!.postMessage({ id, error: (e as Error).message }); }

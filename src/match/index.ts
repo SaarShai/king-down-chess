@@ -1,13 +1,19 @@
 /** Node-only local matches. Each live match owns one isolated engine worker. */
+import { Worker as NodeWorker } from 'node:worker_threads';
 import { tsWorker } from '../sim/ts-worker';
 import type { Rules } from '../rules/rules';
-import type { Status } from '../rules/engine';
+import type { Move, Status } from '../rules/engine';
 export interface MatchSetup { backRank?: string; fen?: string; preset?: 'current' | '2017' | '2021'; kings?: string }
 export interface MoveCommand { id: string; expectedRevision: number; lan: string }
-export interface MatchSnapshot { revision: number; fen: string; ply: number; turn: 0 | 1; moveNumber: number; status: Status; inCheck: boolean; legal: string[]; history: string[] }
+export type PublicMatchRules = Omit<Rules, 'hands' | 'piles' | 'cardPool'>;
+export interface ChooseMoveOptions { maxTimeMs?: number; maxDepth?: number }
+declare const __KINGDOWN_COMPILED__: boolean;
+export interface MatchSnapshot { rules: PublicMatchRules; moves: { lan: string; move: Move }[]; revision: number; fen: string; ply: number; turn: 0 | 1; moveNumber: number; status: Status; inCheck: boolean; legal: string[]; history: string[] }
 export interface MatchSave { schema: 'kingdown-local-match/1'; engine: string; setup: MatchSetup; initialFen: string; rules: Rules; revision: number; commands: (MoveCommand & { fen: string; ply: number; status: Status })[] }
 export class LocalMatch {
-  private worker = tsWorker(new URL('./worker.ts', import.meta.url));
+  private worker = typeof __KINGDOWN_COMPILED__ !== 'undefined' && __KINGDOWN_COMPILED__
+    ? new NodeWorker(new URL('./worker.mjs', import.meta.url))
+    : tsWorker(new URL('./worker.ts', import.meta.url));
   private next = 0;
   private closed = false;
   private pending = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
@@ -38,6 +44,7 @@ export class LocalMatch {
   async initialize(input: unknown, load = false): Promise<void> { await this.call(load ? 'load' : 'create', input); }
   snapshot(): Promise<MatchSnapshot> { return this.call('snapshot'); }
   apply(command: MoveCommand): Promise<MatchSnapshot> { return this.call('apply', command); }
+  chooseMove(options: ChooseMoveOptions = {}): Promise<string> { return this.call('chooseMove', options); }
   exportSave(): Promise<string> { return this.call('save'); }
   async close(): Promise<void> { this.fail(new Error('Match closed')); await this.worker.terminate(); }
 }

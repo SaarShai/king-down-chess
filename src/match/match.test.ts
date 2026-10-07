@@ -13,6 +13,44 @@ async function create(setup = {}) { const m = await createMatch(setup); matches.
 async function restart(m: LocalMatch) { const n = await loadMatch(await m.exportSave()); matches.push(n); return n; }
 async function move(m: LocalMatch, lan: string, id?: string) { const s = await m.snapshot(); return m.apply({ id: id ?? String(s.revision), expectedRevision: s.revision, lan }); }
 describe('isolated local matches', () => {
+  it('exposes detached public rules and legal engine moves without private card state', async () => {
+    const m = await create({ kings: 'Flame:Haste,none' }), before = await m.snapshot();
+    expect(before.rules).not.toHaveProperty('hands');
+    expect(before.rules).not.toHaveProperty('piles');
+    expect(before.rules).not.toHaveProperty('cardPool');
+    expect(before.moves.map(m => m.lan)).toEqual(before.legal);
+    before.moves[0].move.from = 99;
+    before.rules.kings = [null, null];
+    expect((await m.snapshot()).moves[0].move.from).not.toBe(99);
+    expect((await m.snapshot()).rules.kings).not.toEqual([null, null]);
+  });
+  it('selects bounded legal moves repeatedly without mutating or persisting search state', async () => {
+    const m = await create(), before = await m.snapshot(), save = await m.exportSave();
+    const selected = await m.chooseMove({ maxTimeMs: 1000, maxDepth: 1 });
+    expect(before.legal).toContain(selected);
+    expect(await m.chooseMove({ maxTimeMs: 1000, maxDepth: 1 })).toBe(selected);
+    expect(before.legal).toContain(await m.chooseMove({ maxTimeMs: 1, maxDepth: 8 }));
+    expect(await m.snapshot()).toEqual(before);
+    expect(await m.exportSave()).toBe(save);
+  });
+  it('uses the actual Haste continuation turn for AI selection', async () => {
+    const m = await create({ kings: 'Flame:Haste,none', fen: '7k/8/8/r3r3/8/8/8/R5K1 w - - 0 1' });
+    const pending = await move(m, 'Ra1-a2!H');
+    expect(pending.turn).toBe(0); expect(pending.ply).toBe(1);
+    const lan = await m.chooseMove({ maxTimeMs: 25, maxDepth: 2 });
+    expect(pending.legal).toContain(lan);
+    expect(await m.snapshot()).toEqual(pending);
+    expect((await move(m, lan)).turn).toBe(1);
+  });
+  it('rejects unbounded or malformed search options and terminal search', async () => {
+    const m = await create(), before = await m.snapshot();
+    for (const options of [{ maxTimeMs: 0 }, { maxTimeMs: 5001 }, { maxTimeMs: Infinity }, { maxTimeMs: 1.5 }, { maxDepth: 0 }, { maxDepth: 9 }, { maxDepth: NaN }, { maxTimeMs: null }, { unknown: 1 }]) {
+      await expect(m.chooseMove(options as any)).rejects.toThrow(/Malformed/);
+    }
+    expect(await m.snapshot()).toEqual(before);
+    const end = await create({ fen: '7k/8/8/8/8/8/8/K7 w - - 0 1' });
+    await expect(end.chooseMove()).rejects.toThrow('terminal');
+  });
   it('accepts only one of two concurrent commands at the same revision', async () => {
     const m = await create();
     const results = await Promise.allSettled([
@@ -140,7 +178,7 @@ describe('isolated local matches', () => {
     const delivery = vi.spyOn(worker, 'postMessage').mockImplementation(() => {});
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
-      const rejected = [expect(m.snapshot()).rejects.toThrow('timed out'), expect(m.exportSave()).rejects.toThrow('timed out')];
+      const rejected = [expect(m.snapshot()).rejects.toThrow('timed out'), expect(m.exportSave()).rejects.toThrow('timed out'), expect(m.chooseMove({ maxTimeMs: 1 })).rejects.toThrow('timed out')];
       vi.advanceTimersByTime(15000);
       await Promise.all(rejected);
       await expect(m.snapshot()).rejects.toThrow('closed');
