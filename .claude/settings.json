@@ -12,6 +12,15 @@
       "Bash(ps eww *)",
       "Read(//**/.secrets/**)",
       "Read(~/.config/typesafe/key)"
+    ],
+    "ask": [
+      "Bash(vercel *)",
+      "Bash(npx vercel *)",
+      "Bash(bunx vercel *)",
+      "Bash(pnpm dlx vercel *)",
+      "Bash(psql *)",
+      "Bash(supabase *)",
+      "Bash(gh workflow run *)"
     ]
   },
   "hooks": {
