@@ -48,3 +48,7 @@ Builder, 2026-10-07: **stopped at the gate.** This file holds no `Owner-go:` lin
 **Tests.** No code changed. `git merge claude/retro-2026-10-06`: already up to date. `npm test`: the typecheck passes, vitest 61 files and 1108 tests pass, the node tests 42 pass.
 
 **Move, 2026-10-07.** The owner's go is the line above. Before the move the 34 sha256 values of ticket 10 matched `art-src/workshop/{id}.png` again (34 match, 0 mismatch) and the Codex working copy had 0 tracked changes. Finder moved 22 items to the Trash: the 7 folders of the table and the 15 untracked files of `figure-samples-2026-10-06/`, 93,735,504 bytes in all. After the move the Verify command gives no line, and `git status --porcelain` in the Codex working copy gives no ` M` or ` D` line. The owner empties the Trash.
+
+**Contact sheet, 2026-10-07:** the 52 images of the 22 Trash items, for the owner's look before the Trash is emptied.
+
+![Trash contact sheet](13-trash-contact-sheet.jpg)
