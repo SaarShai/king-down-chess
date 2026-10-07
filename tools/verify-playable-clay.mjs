@@ -1,17 +1,17 @@
 /** End-to-end checks against the running built game; no simulated balance games. */
-import { chromium } from 'playwright';
+// Run: npm run check:browser playable-clay (screenshots and browser-checks.json go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
-const url = process.env.PLAYABLE_URL || 'http://127.0.0.1:5188/';
-const out = process.env.PLAYABLE_OUT || 'docs/playable-clay'; mkdirSync(out, { recursive: true });
-const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER });
+const url = env('PLAYABLE_URL');
+const out = env('PLAYABLE_OUT'); mkdirSync(out, { recursive: true });
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
 await page.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
-const errors = [], checks = [];
-page.on('pageerror', e => errors.push(e.message));
-page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+const errors = trapErrors(page), checks = [];
 /** Settings controls sit in a dialog: open it, act, close it if still open. New game: tools/new-game-ui.mjs. */
 async function ui(action, sel, ...args) {
   const id = await page.evaluate(sel => document.querySelector(sel).closest('dialog')?.id, sel);
@@ -170,19 +170,19 @@ try {
   assert.equal(await page.locator('#moves').innerText(),'');
   checks.push('new game during a walk prevents stale animation from changing the new board');
   await startGame(page, { army: 'SQBKRSML' }); await ready();
-  await page.screenshot({path:out+'/desktop.png'});
+  await shot(page, 'desktop');
   await page.setViewportSize({width:390,height:844}); await page.waitForTimeout(300);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   const panel=await page.locator('#panel').boundingBox();assert.ok(panel.width<=390 && panel.y>200 && panel.y<600);
   const header=await page.locator('#top').boundingBox(), board=await page.locator('#board').boundingBox();
   assert.ok(board.y>=header.y+header.height-1, 'mobile header must not cover the back rank');
   await fixedPresentation(); await facingOpponent();
-  await page.screenshot({path:out+'/mobile.png'});
+  await shot(page, 'mobile');
   checks.push('390px mobile board and scrollable controls fit without horizontal overflow');
-  assert.deepEqual(errors,[]);
-  writeFileSync(out+'/browser-checks.json',JSON.stringify({url,checksPassed:checks.length,checks,errors},null,2)+'\n');
+  assertNoErrors();
+  writeFileSync(join(out, 'browser-checks.json'),JSON.stringify({url,checksPassed:checks.length,checks,errors},null,2)+'\n');
   console.log(JSON.stringify({checksPassed:checks.length,checks,errors},null,2));
 } catch(e) {
-  await page.screenshot({path:out+'/failure.png'});
+  await shot(page, 'failure');
   console.error({completed:checks,errors});throw e;
 } finally { await browser.close(); }
