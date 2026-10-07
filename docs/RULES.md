@@ -26,6 +26,9 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 - Our extra constraint (Chess960 spirit): if both bishops are drawn they start on opposite colours.
   There is no "king between rooks" rule because there is no castling.
 - A setup is shared as its 8-letter back-rank string, e.g. `RSAKGQOB` (see letters below).
+- Arrange mode (New game → More options): the army gives both sides the same pieces; each side then orders its
+  own rank (the two orders may differ). The same checks hold: one king, two bishops on opposite colours.
+  Randomize uses the random setup's shuffle over the side's own pieces; the computer arranges with it.
 
 ## 3. Pieces
 

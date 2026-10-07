@@ -23,6 +23,8 @@ export interface Setup {
   picks: [Pick, Pick];
   /** 'random', 'daily', 'classic', 'custom', an example army's code, or 'ogre'. */
   army: string;
+  /** Arrange mode: each side orders its own back rank before the game. */
+  arrange: boolean;
 }
 
 export const LEVELS: readonly SkillName[] = ['beginner', 'casual', 'club', 'strong'];
@@ -33,7 +35,7 @@ const SIDE = ['White', 'Black'] as const;
 export const defaultSetup = (): Setup => ({
   mode: 'computer', level: 'club', side: 0, twoPowers: false,
   picks: [{ king: PLAIN_KINGS[0], power: null }, { king: PLAIN_KINGS[1], power: null }],
-  army: 'random',
+  army: 'random', arrange: false,
 });
 
 export const powersOn = (s: Setup): boolean => s.mode === 'powers' || (s.mode === 'two' && s.twoPowers);
@@ -81,7 +83,7 @@ export function parseSetup(v: unknown): Setup | null {
   if (!s || !['computer', 'powers', 'two'].includes(s.mode as string) || !isLevel(s.level) || (s.side !== 0 && s.side !== 1)
     || typeof s.twoPowers !== 'boolean' || typeof s.army !== 'string' || !Array.isArray(s.picks)) return null;
   const [w, b] = [pick(s.picks[0]), pick(s.picks[1])];
-  return w && b ? { mode: s.mode as Mode, level: s.level, side: s.side, twoPowers: s.twoPowers, picks: [w, b], army: s.army } : null;
+  return w && b ? { mode: s.mode as Mode, level: s.level, side: s.side, twoPowers: s.twoPowers, picks: [w, b], army: s.army, arrange: s.arrange === true } : null;
 }
 
 /* ---- the dialog ---- */
@@ -124,6 +126,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
   $<HTMLInputElement>('two-powers').onchange = e => { draft = withMode(draft, draft.mode, (e.target as HTMLInputElement).checked); render(); };
   const army = $<HTMLSelectElement>('army');
   army.onchange = () => { draft.army = army.value; };
+  $<HTMLInputElement>('arrange-on').onchange = e => { draft.arrange = (e.target as HTMLInputElement).checked; };
   $('start-game').onclick = () => start(copy(draft));
 
   function render(): void {
@@ -151,6 +154,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
       const text = chosen ? `${chosen.label} — ${chosen.title}.` : 'No power: a plain chess king.';
       if (line.textContent !== text) line.textContent = text; // a live region: say only a change
     }
+    $<HTMLInputElement>('arrange-on').checked = draft.arrange;
     army.value = draft.army;
     if (army.value !== draft.army) army.value = draft.army = 'random'; // an example army that is gone
   }

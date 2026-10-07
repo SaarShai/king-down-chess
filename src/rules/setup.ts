@@ -44,21 +44,34 @@ export function waitGuards(pos: Position): Position {
 
 /**
  * Both sides mirror the same back rank (as in King Down Classic / Chess960); pawns on ranks 2 and 7.
- * Under `guardReserve` the guards wait beside the board (`waitGuards`).
+ * Arrange mode gives Black its own rank (`black`). Under `guardReserve` the guards wait beside the board (`waitGuards`).
  */
-export function startPosition(backRank: string = randomBackRank()): Position {
-  if (!/^[A-Z]{8}$/.test(backRank) || backRank.split('K').length !== 2) throw new Error(`bad back rank ${backRank}`);
+export function startPosition(backRank: string = randomBackRank(), black: string = backRank): Position {
   const board = new Uint8Array(64);
-  for (let f = 0; f < 8; f++) {
-    const t = LETTERS.indexOf(backRank[f]) as PieceType;
-    if (t <= 0) throw new Error(`bad piece letter ${backRank[f]}`);
-    board[sq(f, 0)] = piece(t, WHITE);
-    board[sq(f, 7)] = piece(t, BLACK);
-    board[sq(f, 1)] = piece(P, WHITE);
-    board[sq(f, 6)] = piece(P, BLACK);
+  for (const [row, c] of [[backRank, WHITE], [black, BLACK]] as const) {
+    if (!/^[A-Z]{8}$/.test(row) || row.split('K').length !== 2) throw new Error(`bad back rank ${row}`);
+    for (let f = 0; f < 8; f++) {
+      const t = LETTERS.indexOf(row[f]) as PieceType;
+      if (t <= 0) throw new Error(`bad piece letter ${row[f]}`);
+      board[sq(f, c === WHITE ? 0 : 7)] = piece(t, c);
+      board[sq(f, c === WHITE ? 1 : 6)] = piece(P, c);
+    }
   }
   return waitGuards({ board, turn: WHITE, halfmove: 0, ply: 0, move: 1 });
 }
+
+/** Arrange mode: why `row` is not a legal order of `army`'s pieces, or null when it is. The checks of `randomBackRank`. */
+export function arrangementError(row: string, army: string): string | null {
+  if ([...row].sort().join('') !== [...army].sort().join('')) return 'Use the same pieces as the army.';
+  if (row.split('K').length !== 2) return 'Exactly one king.';
+  const bishops = [...row].flatMap((p, i) => (p === 'B' ? [i] : []));
+  if (RULES.bishopsOppositeColours && bishops.length === 2 && (bishops[0] + bishops[1]) % 2 === 0) return 'Bishops must stand on opposite colours.';
+  return null;
+}
+
+/** Arrange mode's Randomize: the army's own pieces in a random legal order (`randomBackRank` over them). */
+export const randomArrangement = (army: string, rng: () => number = Math.random): string =>
+  randomBackRank(rng, army.replace('K', ''));
 
 /**
  * FEN-shaped: `<board> <turn> - - <halfmove> <fullmove> [powers]` (castling/en-passant always "-").

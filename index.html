@@ -160,13 +160,24 @@
           </optgroup>
         </select></label>
         <small id="army-note">Example armies are hand-picked to explore. Catapult ones use an experimental piece.</small>
+        <label class="check"><input type="checkbox" id="arrange-on" /><span>Arrange your pieces <small>Before the game, each side orders its own back rank.</small></span></label>
       </details>
       <form method="dialog">
         <button value="cancel">Cancel</button>
         <button id="start-game" type="button" class="primary">Start game</button>
       </form>
     </dialog>
-    <dialog id="settings" aria-labelledby="settings-title">
+    <dialog id="arrange" aria-labelledby="arrange-title">
+      <h2 id="arrange-title" tabindex="-1" autofocus>Arrange your pieces</h2>
+      <p>Tap a piece, then another, to swap them. Press Ready when your rank is set.</p>
+      <div class="arrange-side" id="arrange-1"></div>
+      <div class="arrange-side" id="arrange-0"></div>
+      <form method="dialog">
+        <button value="cancel">Cancel</button>
+        <button id="arrange-start" type="button" class="primary" disabled>Start game</button>
+      </form>
+    </dialog>
+    <dialog id="settings"aria-labelledby="settings-title">
       <h2 id="settings-title" tabindex="-1" autofocus>Settings</h2>
       <fieldset class="fields group">
         <legend>Play</legend>
