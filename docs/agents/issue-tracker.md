@@ -31,6 +31,7 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 
 ## This repo
 
-- Specs and tickets are committed, so a cloud session and the next session see them.
-- `TASKS.md` stays the record of current work and owner decisions, and `docs/QUEUE.md` the queue of runs. A spec links to its TASKS.md entry; it does not replace it.
+- The specs folder, `docs/specs/`, holds the specs and the tickets. They are committed, so a cloud session and the next session see them.
+- `TASKS.md` is the index of open items; each line links to its spec, ticket or archive section. `docs/QUEUE.md` holds the runs.
+- The tracker files (`TASKS.md`, `LESSONS.md`, the topic files in `docs/lessons/`, `docs/QUEUE.md`) change only on main. A branch records its progress in its ticket.
 - A ticket that needs a run (a tournament) or a visual change waits for the owner's go (AGENTS.md).

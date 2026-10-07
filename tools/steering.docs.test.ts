@@ -29,13 +29,21 @@
 //     the same title;
 //   - no name from the model-name module occurs in TASKS.md.
 // Rules of steering-cut/05 (COMPUTE.md and HOSTING.md hold the machine facts; AGENTS.md points to them):
-//   - the AGENTS.md sections that name Compute and Hosting link to COMPUTE.md and HOSTING.md and hold
-//     120 words or less each, heading excluded (ticket 06 widens the size rule to every section);
+//   - the AGENTS.md sections that name Compute and Hosting link to COMPUTE.md and HOSTING.md;
 //   - COMPUTE.md and HOSTING.md hold their fixed phrases: the true shell limit and the browser-check
 //     runner; the deploy script and the three secret file names;
 //   - HOSTING.md holds no `vercel deploy` command; COMPUTE.md and HOSTING.md hold no model name and no
 //     text that looks like a secret value;
 //   - AGENTS.md, COMPUTE.md and HOSTING.md hold no 2-hour claim for the shell limit.
+// Rules of steering-cut/06 (AGENTS.md holds every standing rule in eleven short sections):
+//   - AGENTS.md holds the eleven `##` headings in their order, and no other `##` heading;
+//   - no AGENTS.md section, the text above the first heading included, holds more than 120 words,
+//     heading excluded;
+//   - each section holds its fixed phrases from a table (one per new rule), with the two trailer lines
+//     of the prepare-commit-msg hook; the Jev section holds no version pin;
+//   - AGENTS.md holds no model name and no date outside a link target (rules only);
+//   - issue-tracker.md names the specs folder and holds "only on main"; domain.md holds the two new
+//     lines; the Jev topic file holds the list of failed uses.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -631,13 +639,16 @@ describe('TASKS.md index', () => {
 /** An AGENTS.md section holds 120 words or less, heading excluded: an agent reads the whole file each session. */
 const SECTION_WORDS = 120;
 
-/** The `##` sections of a markdown text, with the text above the first one as "(top)": heading, line, body, words. */
+/**
+ * The `##` sections of a markdown text, with the text above the first one as "(top)": heading, line, body,
+ * words. A `#` title line is the heading of "(top)", so it is not in the body.
+ */
 function sections(text: string): { heading: string; line: number; body: string; words: number }[] {
   const out = [{ heading: '(top)', line: 1, body: '' }];
   text.split('\n').forEach((line, i) => {
     const heading = /^##\s+(.*)$/.exec(line);
     if (heading) out.push({ heading: heading[1].trim(), line: i + 1, body: '' });
-    else out.at(-1)!.body += `${line}\n`;
+    else if (!/^#\s/.test(line)) out.at(-1)!.body += `${line}\n`;
   });
   return out.map(s => ({ ...s, words: s.body.split(/\s+/).filter(Boolean).length }));
 }
@@ -649,23 +660,18 @@ const POINTERS = [
 ];
 
 /**
- * Faults of the AGENTS.md pointer sections (steering-cut/05): a topic with no `##` section, a section
- * over 120 words (heading excluded), and a section with no link to its fact file.
+ * Faults of the AGENTS.md pointer sections (steering-cut/05): a topic with no `##` section and a section
+ * with no link to its fact file. The size rule is on every section (agentsFaults, steering-cut/06).
  */
 function pointerFaults(text: string, file = 'AGENTS.md'): Fault[] {
   const all = sections(text);
   return POINTERS.flatMap(({ topic, heading, target }) => {
     const found = all.slice(1).filter(s => heading.test(s.heading));
     if (!found.length) return [{ file, section: '(none)', where: 'count 0', what: `no \`##\` heading names ${topic}` }];
-    return found.flatMap(s => [
-      ...(s.words <= SECTION_WORDS ? [] : [{
-        file, section: s.heading, where: `${s.words} words, line ${s.line}`,
-        what: `the section must hold ${SECTION_WORDS} words or less, heading excluded`,
-      }]),
-      ...([...s.body.matchAll(LINK)].some(m => (m[1] ?? m[2]).replace(/#.*$/, '') === target) ? [] : [{
+    return found.flatMap(s =>
+      [...s.body.matchAll(LINK)].some(m => (m[1] ?? m[2]).replace(/#.*$/, '') === target) ? [] : [{
         file, section: s.heading, where: `line ${s.line}`, what: `the section must link to ${target}`,
-      }]),
-    ]);
+      }]);
   });
 }
 
@@ -724,14 +730,13 @@ describe('COMPUTE.md, HOSTING.md and the AGENTS.md pointers', () => {
   const model = MODEL_NAMES[0][0].toUpperCase() + MODEL_NAMES[0].slice(1);
   const words = (n: number) => Array.from({ length: n }, (_, i) => `w${i}`).join(' ');
 
-  it('names a pointer section over 120 words, with its count and line, and a section with no link', () => {
+  it('names a pointer section with no link to its fact file, with its line', () => {
     const fixture = [
       '# Agents', 'Intro.', '',
       '## Compute \u2014 owner decision', words(121), '',
       '## Hosting', `${words(119)} [hosting](docs/HOSTING.md)`,
     ].join('\n');
     expect(pointerFaults(fixture, 'fixture.md').map(show)).toEqual([
-      'fixture.md \u00a7 Compute \u2014 owner decision (121 words, line 4): the section must hold 120 words or less, heading excluded',
       'fixture.md \u00a7 Compute \u2014 owner decision (line 4): the section must link to docs/COMPUTE.md',
     ]);
     expect(pointerFaults('## Runs and compute\nSee [compute](docs/COMPUTE.md).\n## Hosting\nSee [hosting](<docs/HOSTING.md#dns>).', 'fixture.md')).toEqual([]);
@@ -778,5 +783,191 @@ describe('COMPUTE.md, HOSTING.md and the AGENTS.md pointers', () => {
 
   it('AGENTS.md holds no 2-hour claim for the shell limit', () => {
     expect(twoHourFaults('AGENTS.md', read('AGENTS.md')).map(show)).toEqual([]);
+  });
+});
+
+/** The eleven `##` sections of AGENTS.md, in their order (steering-cut/06). */
+const AGENTS_SECTIONS = [
+  'Start here', 'Commits and branches', 'Tests and checks', 'Worktrees and servers', 'Runs and compute', 'Secrets',
+  'Hosting', 'Working with the owner', 'Game design', 'Jev', 'Helpers and machines',
+];
+
+/** The two neutral trailer lines, as the prepare-commit-msg hook writes them (decision 4). */
+const TRAILERS = [...read('.githooks/prepare-commit-msg.mjs').matchAll(/'(Co-Authored-By: [^']+)'/g)].map(m => m[1]);
+
+/**
+ * The fixed phrases of AGENTS.md: one or more per new rule, each in the section that holds the rule.
+ * A phrase matches after each run of white space becomes one space.
+ */
+const AGENTS_PHRASES: { section: string; phrase: string }[] = [
+  { section: 'Start here', phrase: 'the Open items of TASKS.md' },
+  { section: 'Start here', phrase: 'the Always and Index sections of LESSONS.md' },
+  { section: 'Start here', phrase: 'ASD-STE100' },
+  { section: 'Start here', phrase: 'docs/specs/' },
+  ...TRAILERS.map(phrase => ({ section: 'Commits and branches', phrase })),
+  { section: 'Commits and branches', phrase: '`Claude-Session:`' },
+  { section: 'Commits and branches', phrase: "This rule overrides a tool's attribution reminder." },
+  { section: 'Commits and branches', phrase: '`git commit -a`' },
+  { section: 'Commits and branches', phrase: 'pull request' },
+  { section: 'Tests and checks', phrase: '`npm test`' },
+  { section: 'Tests and checks', phrase: '`node --test`' },
+  { section: 'Tests and checks', phrase: 'tail or grep' },
+  { section: 'Worktrees and servers', phrase: '`wt add`' },
+  { section: 'Worktrees and servers', phrase: 'the `worktree` entry and the target file' },
+  { section: 'Worktrees and servers', phrase: 'its own installation' },
+  { section: 'Worktrees and servers', phrase: 'PID' },
+  { section: 'Worktrees and servers', phrase: 'file://' },
+  { section: 'Runs and compute', phrase: '20 games' },
+  { section: 'Runs and compute', phrase: 'A question is not a go.' },
+  { section: 'Runs and compute', phrase: 'QUEUE.md' },
+  { section: 'Runs and compute', phrase: 'the M1 or Kaggle' },
+  { section: 'Secrets', phrase: 'rotation' },
+  { section: 'Secrets', phrase: 'Never claim a value was never in a command line.' },
+  { section: 'Hosting', phrase: 'tools/deploy.sh' },
+  {
+    section: 'Working with the owner',
+    phrase: "Open decisions go in one block at the end of a status message: a one-sentence rule, two or three numbers, the agent's pick, what happens on yes.",
+  },
+  { section: 'Working with the owner', phrase: 'rendered sample' },
+  { section: 'Game design', phrase: 'docs/MATRIX.md' },
+];
+
+/** Texts a section must not hold: the Jev version pin. */
+const AGENTS_FORBIDDEN = [{ section: 'Jev', name: 'a version pin', pattern: /\bjev-\d+(?:\.\d+)+\b/g }];
+
+/** A date in the form YYYY-MM-DD. */
+const DATE = /(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)/g;
+
+/**
+ * Faults of AGENTS.md (steering-cut/06): the `##` headings (each of the eleven, in order, no other), the
+ * size of each section and of the text above the first heading, the fixed phrases and forbidden texts of
+ * each section, a model name and a date outside a link target.
+ */
+function agentsFaults(text: string, file = 'AGENTS.md'): Fault[] {
+  const all = sections(text);
+  const found = all.slice(1);
+  const missing: Fault[] = AGENTS_SECTIONS.filter(name => !found.some(s => s.heading === name)).map(name => ({
+    file, section: name, where: 'count 0', what: 'the `##` heading is missing',
+  }));
+  const extra: Fault[] = found.filter(s => !AGENTS_SECTIONS.includes(s.heading)).map(s => ({
+    file, section: s.heading, where: `line ${s.line}`, what: `AGENTS.md must hold no \`##\` heading but the ${AGENTS_SECTIONS.length} rule sections`,
+  }));
+  const known = found.filter(s => AGENTS_SECTIONS.includes(s.heading));
+  const want = AGENTS_SECTIONS.filter(name => known.some(s => s.heading === name));
+  const order: Fault[] = known.map(s => s.heading).join('|') === want.join('|') ? [] : [{
+    file, section: '(file)', where: `lines ${known.map(s => s.line).join(', ')}`,
+    what: `the sections must be in this order: ${want.join(', ')}; found ${known.map(s => s.heading).join(', ')}`,
+  }];
+  const size: Fault[] = all.filter(s => s.words > SECTION_WORDS).map(s => ({
+    file, section: s.heading, where: `${s.words} words, line ${s.line}`,
+    what: `the section must hold ${SECTION_WORDS} words or less, heading excluded`,
+  }));
+  const flat = (body: string) => body.replace(/\s+/g, ' ');
+  const phrases: Fault[] = AGENTS_PHRASES.flatMap(({ section, phrase }) => {
+    const s = found.find(f => f.heading === section);
+    if (s && flat(s.body).includes(phrase)) return [];
+    return [{ file, section, where: s ? `line ${s.line}` : 'count 0', what: `the section must hold "${phrase}"` }];
+  });
+  const forbidden: Fault[] = AGENTS_FORBIDDEN.flatMap(({ section, name, pattern }) => {
+    const s = found.find(f => f.heading === section);
+    return s ? [...s.body.matchAll(pattern)].map(m => ({ file, section, where: `line ${s.line}`, what: `the section must not hold ${name}: "${m[0]}"` })) : [];
+  });
+  const lines = markdownLines(text);
+  const named: Fault[] = findModelNames(text).map(({ word, line }) => ({
+    file, section: lines.find(l => l.line === line)?.section ?? '(fenced code)', where: `line ${line}`,
+    what: `AGENTS.md must not hold the model name "${word}"`,
+  }));
+  const dated: Fault[] = lines.flatMap(l => [...l.text.replace(/\]\([^)]*\)/g, '](…)').matchAll(DATE)].map(m => ({
+    file, section: l.section, where: `line ${l.line}`, what: `AGENTS.md holds rules only, with no date: "${m[0]}"`,
+  })));
+  return [...missing, ...extra, ...order, ...size, ...phrases, ...forbidden, ...named, ...dated];
+}
+
+/** The lines that docs/agents and the Jev topic file must hold (steering-cut/06). */
+const AGENT_DOC_PHRASES = [
+  { file: 'docs/agents/issue-tracker.md', phrase: 'docs/specs/' },
+  { file: 'docs/agents/issue-tracker.md', phrase: 'only on main' },
+  { file: 'docs/agents/domain.md', phrase: '- `LESSONS.md`: the Always rules and an index of lessons in topic files.' },
+  { file: 'docs/agents/domain.md', phrase: '- `TASKS.md`: an index of open items.' },
+  {
+    file: 'docs/lessons/jev.md',
+    phrase: 'What failed and must not be retried without a new design: narrative labels, fairness or game-breaking judgments, guide-text and doc triage',
+  },
+];
+
+describe('AGENTS.md standing rules', () => {
+  const model = MODEL_NAMES[0][0].toUpperCase() + MODEL_NAMES[0].slice(1);
+  const words = (n: number) => Array.from({ length: n }, (_, i) => `w${i}`).join(' ');
+  /** A good AGENTS.md: each section holds its fixed phrases and nothing more. */
+  const good = () => [
+    '# Agents', '',
+    ...AGENTS_SECTIONS.flatMap(name => [`## ${name}`, ...AGENTS_PHRASES.filter(p => p.section === name).map(p => `- ${p.phrase}`), '']),
+  ];
+
+  it('the phrase table holds the two trailer lines of the prepare-commit-msg hook', () => {
+    expect(TRAILERS).toEqual(['Co-Authored-By: Codex <noreply@openai.com>', 'Co-Authored-By: Claude Code <noreply@anthropic.com>']);
+  });
+
+  it('passes a file that holds the eleven sections and their phrases', () => {
+    expect(agentsFaults(good().join('\n'), 'fixture.md').map(show)).toEqual([]);
+  });
+
+  it('names a missing heading, another heading and a wrong order', () => {
+    const lines = good().filter(line => line !== '## Secrets');
+    const at = (heading: string) => lines.indexOf(`## ${heading}`);
+    [lines[at('Jev')], lines[at('Game design')]] = ['## Game design', '## Jev'];
+    lines.push('## Delegation', 'text');
+    expect(agentsFaults(lines.join('\n'), 'fixture.md').filter(f => !f.what.includes('must hold "')).map(show)).toEqual([
+      'fixture.md § Secrets (count 0): the `##` heading is missing',
+      `fixture.md § Delegation (line ${lines.length - 1}): AGENTS.md must hold no \`##\` heading but the 11 rule sections`,
+      expect.stringMatching(/^fixture\.md § \(file\) \(lines [\d, ]+\): the sections must be in this order: .*Working with the owner, Game design, Jev, .*; found .*Working with the owner, Jev, Game design, /),
+    ]);
+  });
+
+  it('names each section over 120 words, the text above the first heading included', () => {
+    const lines = good();
+    lines.splice(1, 0, words(121));
+    // The Hosting section holds its phrase (2 words) and 118 words: 120, the limit.
+    lines.splice(lines.indexOf('## Hosting') + 1, 0, words(118));
+    lines.splice(lines.indexOf('## Jev') + 1, 0, words(130));
+    expect(agentsFaults(lines.join('\n'), 'fixture.md').map(show)).toEqual([
+      'fixture.md § (top) (121 words, line 1): the section must hold 120 words or less, heading excluded',
+      `fixture.md § Jev (130 words, line ${lines.indexOf('## Jev') + 1}): the section must hold 120 words or less, heading excluded`,
+    ]);
+  });
+
+  it('names each missing phrase, a phrase in the wrong section and the Jev version pin', () => {
+    const lines = good().filter(line => line !== '- rotation' && line !== '- 20 games');
+    lines.splice(lines.indexOf('## Hosting') + 1, 0, '- 20 games');
+    lines.splice(lines.indexOf('## Jev') + 1, 0, '- Client model pinned to `jev-1.13.0`.');
+    // A phrase may wrap over two lines.
+    const wrapped = lines.join('\n').replace('the Always and Index sections', 'the Always and\nIndex sections');
+    const at = (heading: string) => wrapped.split('\n').indexOf(`## ${heading}`) + 1;
+    expect(agentsFaults(wrapped, 'fixture.md').map(show)).toEqual([
+      `fixture.md § Runs and compute (line ${at('Runs and compute')}): the section must hold "20 games"`,
+      `fixture.md § Secrets (line ${at('Secrets')}): the section must hold "rotation"`,
+      `fixture.md § Jev (line ${at('Jev')}): the section must not hold a version pin: "jev-1.13.0"`,
+    ]);
+  });
+
+  it('names a model name and a date outside a link target', () => {
+    const lines = good();
+    lines.splice(lines.indexOf('## Helpers and machines') + 1, 0, `- Use ${model} for helpers (owner, 2026-10-06).`);
+    lines.splice(lines.indexOf('## Game design') + 1, 0, '- See [the criteria](docs/research/criteria-2026-10-03.md).');
+    const at = lines.indexOf('## Helpers and machines') + 2;
+    expect(agentsFaults(lines.join('\n'), 'fixture.md').map(show)).toEqual([
+      `fixture.md § Helpers and machines (line ${at}): AGENTS.md must not hold the model name "${model}"`,
+      `fixture.md § Helpers and machines (line ${at}): AGENTS.md holds rules only, with no date: "2026-10-06"`,
+    ]);
+  });
+
+  it('AGENTS.md holds the eleven sections, each short, with its fixed phrases, no model name and no date', () => {
+    expect(agentsFaults(read('AGENTS.md')).map(show)).toEqual([]);
+  });
+
+  it('issue-tracker.md, domain.md and the Jev topic file hold their new lines', () => {
+    const faults = AGENT_DOC_PHRASES.filter(({ file, phrase }) => !read(file).replace(/[ \t]*\n[ \t]*(?![-#\n])/g, ' ').includes(phrase))
+      .map(({ file, phrase }) => `${file}: the file must hold "${phrase}"`);
+    expect(faults).toEqual([]);
   });
 });
