@@ -21,7 +21,7 @@ try {
   assert(await frame.locator('#choices button').count() > 0);
   await clickSquare(4, 3);
   assert(await frame.locator('#choices button').count() > 1, 'Haste and ordinary moves must stay distinct');
-  for (const code of ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN']) {
+  for (const code of ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'COMMAND_CONFLICT', 'MATCH_INCOMPATIBLE']) {
     await page.evaluate(code => { window.rejectNextMove = code; }, code);
     await frame.locator('#choices button[title="e2-e4"]').click();
     await frame.locator('#reload:not(:disabled)').waitFor();

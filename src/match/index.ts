@@ -7,6 +7,7 @@ export interface MatchSetup { backRank?: string; fen?: string; preset?: 'current
 export interface MoveCommand { id: string; expectedRevision: number; lan: string }
 export type PublicMatchRules = Omit<Rules, 'hands' | 'piles' | 'cardPool'>;
 export interface ChooseMoveOptions { maxTimeMs?: number; maxDepth?: number }
+export class MatchError extends Error { constructor(message: string, public code?: 'MATCH_INCOMPATIBLE') { super(message); } }
 declare const __KINGDOWN_COMPILED__: boolean;
 export interface MatchSnapshot { rules: PublicMatchRules; moves: { lan: string; move: Move }[]; revision: number; fen: string; ply: number; turn: 0 | 1; moveNumber: number; status: Status; inCheck: boolean; legal: string[]; history: string[] }
 export interface MatchSave { schema: 'kingdown-local-match/1'; engine: string; setup: MatchSetup; initialFen: string; rules: Rules; revision: number; commands: (MoveCommand & { fen: string; ply: number; status: Status })[] }
@@ -18,10 +19,10 @@ export class LocalMatch {
   private closed = false;
   private pending = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
   constructor() {
-    this.worker.on('message', ({ id, value, error }) => {
+    this.worker.on('message', ({ id, value, error, code }) => {
       const p = this.pending.get(id); if (!p) return;
       clearTimeout(p.timer); this.pending.delete(id);
-      if (error) p.reject(new Error(error)); else p.resolve(value);
+      if (error) p.reject(new MatchError(error, code)); else p.resolve(value);
     });
     this.worker.on('error', e => this.fail(e instanceof Error ? e : new Error(String(e))));
     this.worker.on('exit', code => this.fail(new Error(`Match worker exited (${code})`)));

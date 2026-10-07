@@ -40,7 +40,7 @@ async function call(name: string, args: Record<string, unknown>, retain = false)
   try {
     const result = await app.callServerTool({ name, arguments: args });
     if (result.isError) {
-      const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
+      const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); }
       throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     }

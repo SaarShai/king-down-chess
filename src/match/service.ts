@@ -1,6 +1,6 @@
 /** Authenticated server operations. Actor IDs come from verified identity, never tool input. */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { createMatch, loadMatch, type MatchSetup, type MatchSnapshot, type MoveCommand } from './index';
+import { createMatch, loadMatch, MatchError, type MatchSetup, type MatchSnapshot, type MoveCommand } from './index';
 import { MatchServiceError, PostgresMatchStore, seat, type StoredMatch, type MatchMode } from './store';
 export { MatchServiceError } from './store';
 export interface MatchView { matchId: string; playerColor: 0 | 1; mode: MatchMode; waiting: boolean; snapshot: MatchSnapshot }
@@ -35,7 +35,12 @@ export class MatchService {
   if (row.revision >= 1000) throw new MatchServiceError('MATCH_LIMIT',409,'Match history limit reached');
   if (row.mode === 'friend' && !row.black_id) throw new MatchServiceError('WAITING',409,'Waiting for the other player');
   if (computer ? row.mode !== 'solo' || color !== 0 || row.snapshot.turn !== 1 : row.snapshot.turn !== color) throw new MatchServiceError('WRONG_TURN',403,'This operation is not permitted on the current turn');
-  const match = await loadMatch(row.save);
+  let match;
+  try { match = await loadMatch(row.save); }
+  catch (error) {
+   if (error instanceof MatchError && error.code === 'MATCH_INCOMPATIBLE') throw new MatchServiceError('MATCH_INCOMPATIBLE',409,'This saved game uses a different game version. Start a new game to continue playing.');
+   throw error;
+  }
   try {
    const lan = computer ? await match.chooseMove({maxTimeMs:250,maxDepth:6}) : (input as MoveCommand).lan;
    let snapshot: MatchSnapshot;

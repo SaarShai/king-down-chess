@@ -43,6 +43,15 @@ suite('PostgreSQL authenticated matches (real connections and processes)', () =>
   const row = await pools[0].query('select revision,(select count(*)::int from public.plugin_match_commands where match_id=$1) as commands from public.plugin_matches where id=$1',[initial.matchId]);
   expect(row.rows[0]).toEqual({revision:1,commands:1});
  },30000);
+ it('reports incompatible saved versions without committing a retryable command',async () => {
+  const initial=await services[0].create(actors[0],{});
+  const row=await pools[0].query('select save from public.plugin_matches where id=$1',[initial.matchId]);
+  const save=JSON.parse(row.rows[0].save); save.engine='previous-build';
+  await pools[0].query('update public.plugin_matches set save=$2 where id=$1',[initial.matchId,JSON.stringify(save)]);
+  await expect(services[1].move(actors[0],initial.matchId,{id:'incompatible',expectedRevision:0,lan:initial.snapshot.legal[0]})).rejects.toMatchObject({code:'MATCH_INCOMPATIBLE',status:409});
+  expect((await services[1].get(actors[0],initial.matchId)).snapshot.revision).toBe(0);
+  expect((await pools[0].query('select count(*)::int as count from public.plugin_match_commands where match_id=$1',[initial.matchId])).rows[0].count).toBe(0);
+ },30000);
  it('allows exactly one writer across separate Node processes',async () => {
   const initial = await services[0].create(actors[0],{});
   const clients = [0,1].map(() => fork(fileURLToPath(new URL('../../tools/plugin-db/race-client.ts',import.meta.url)),[],{execArgv:['--import','tsx'],stdio:['ignore','ignore','pipe','ipc'],env:process.env}));

@@ -102,7 +102,7 @@ function apply(input: unknown): MatchSnapshot {
 function load(input: unknown): void {
   if (typeof input !== 'string' || input.length > MAX_SAVE_LENGTH) throw new Error('Malformed save');
   const s = object(JSON.parse(input), ['schema', 'engine', 'setup', 'initialFen', 'rules', 'revision', 'commands']);
-  if (s.schema !== 'kingdown-local-match/1' || s.engine !== engine) throw new Error('Incompatible save');
+  if (s.schema !== 'kingdown-local-match/1' || s.engine !== engine) throw Object.assign(new Error('Incompatible save'), { code: 'MATCH_INCOMPATIBLE' });
   if (!integer(s.revision) || !Array.isArray(s.commands) || s.commands.length > MAX_COMMANDS || s.commands.length !== s.revision) throw new Error('Malformed history');
   create(s.setup);
   if (s.initialFen !== saved.initialFen || JSON.stringify(s.rules) !== JSON.stringify(saved.rules)) throw new Error('Incompatible setup or rules');
@@ -124,5 +124,5 @@ parentPort!.on('message', ({ id, op, input }) => {
     switch (op) { case 'create': create(input); break; case 'load': load(input); break; case 'snapshot': value = snapshot(); break; case 'chooseMove': value = chooseMove(input); break; case 'apply': value = apply(input); break; case 'save': snapshot(); value = JSON.stringify(saved); break; default: throw new Error('Unknown operation'); }
     if (op === 'create' || op === 'load') initialized = true;
     parentPort!.postMessage({ id, value });
-  } catch (e) { if ((op === 'create' || op === 'load') && !wasInitialized) { initializationFailed = true; initialized = false; game = undefined; } parentPort!.postMessage({ id, error: (e as Error).message }); }
+  } catch (e) { if ((op === 'create' || op === 'load') && !wasInitialized) { initializationFailed = true; initialized = false; game = undefined; } parentPort!.postMessage({ id, error: (e as Error).message, code: (e as { code?: string }).code }); }
 });
