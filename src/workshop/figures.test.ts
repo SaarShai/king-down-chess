@@ -1,18 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync } from 'node:fs';
-import { FIGURES, selectedFigure, suggestedFigures } from './figures';
+import { readdirSync, readFileSync } from 'node:fs';
+import { FIGURES, selectedFigure, suggestedFigures, type Figure } from './figures';
 import { designCode, fromPreset, keyOf, parseDesign, presetOf, validStored } from './model';
 import { judge } from './judge';
 import { lookOf } from './look';
 import { modelHtml } from './art';
 
 describe('Workshop cast', () => {
-  it('ships both armies for every approved identity, with no rejected or pending figures', () => {
-    expect(FIGURES).toHaveLength(34);
-    expect(new Set(FIGURES.map(f => f.id)).size).toBe(34);
-    for (const f of FIGURES) for (const army of ['w', 'b'])
-      expect(existsSync(`public/ui/workshop/${f.id}-${army}.webp`), f.id).toBe(true);
-    expect(FIGURES.some(f => ['wind-cart', 'ring-thrower', 'moth-oracle'].includes(f.id))).toBe(false);
+  const ids = FIGURES.map(f => f.id);
+  it('keeps the cast list equal to the figure module', () => {
+    const cast = JSON.parse(readFileSync('docs/visual-design/workshop/cast.json', 'utf8')) as Figure[];
+    expect(cast.map(({ id, name, tags }) => ({ id, name, tags }))).toEqual(FIGURES);
+  });
+  it('ships only the two armies of each approved identity, with no rejected or pending figures', () => {
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(readdirSync('public/ui/workshop').sort()).toEqual(ids.flatMap(id => [`${id}-w.webp`, `${id}-b.webp`]).sort());
+    expect(ids.some(id => ['wind-cart', 'ring-thrower', 'moth-oracle'].includes(id))).toBe(false);
+  });
+  it('lists one source PNG per figure in the workshop section of the art manifest', () => {
+    const manifest = readFileSync('art-src/MANIFEST.md', 'utf8');
+    const start = manifest.search(/^## workshop — /m);
+    expect(start).toBeGreaterThan(-1);
+    const section = manifest.slice(start).split(/\n(?=#{1,2} )/)[0];
+    expect(Number(/^## workshop — (\d+) files, [\d.]+ MB$/m.exec(section)?.[1])).toBe(2 * ids.length);
+    const rows = [...section.matchAll(/^\| `([a-z0-9-]+)\.png` \|/gm)].map(m => m[1]);
+    expect(rows.sort()).toEqual([...ids].sort());
   });
   it('suggests ranged art for shots, but a chosen look stays fixed and does not change rules or worth', () => {
     const d = fromPreset(presetOf('archer'));
