@@ -12,13 +12,17 @@ const saved = extension?.widgetState;
 const app = new App({ name: 'King Down board', version: '1.0.0' }, {});
 const board = new PaintedView($('board'));
 board.setPace('off');
+let connected = false;
 let view: MatchView | undefined, pos: Position | undefined, selected: number | undefined, busy = false;
 let pending: Pending | undefined = saved?.pending;
 function saveState() { extension?.setWidgetState?.({ matchId: view?.matchId ?? saved?.matchId, pending }); }
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function show(value: unknown) {
   if (!value || typeof value !== 'object' || !('snapshot' in value)) return;
-  view = value as MatchView;
+  const next = value as MatchView;
+  if (view?.matchId !== next.matchId) $('invitation').textContent = '';
+  if (pending && pending.args.matchId !== next.matchId) { pending = undefined; $('retry').hidden = true; }
+  view = next;
   setRules(view.snapshot.rules); pos = fromFen(view.snapshot.fen);
   board.sync(pos); board.flip(view.playerColor === 1); selected = undefined; board.highlight({});
   $('status').textContent = view.waiting ? 'Waiting for your friend. Share an invitation.' : view.snapshot.status !== 'playing' ? ({ checkmate: `${view.snapshot.turn === 0 ? 'Black' : 'White'} wins · Checkmate`, stalemate: 'Draw · Stalemate', draw50: 'Draw · Fifty-move rule', drawRepetition: 'Draw · Repetition', drawMaterial: 'Draw · Insufficient material' } as Record<string, string>)[view.snapshot.status] : `${view.snapshot.turn === 0 ? 'White' : 'Black'} to move${view.snapshot.inCheck ? ' · Check' : ''} · Move ${view.snapshot.moveNumber} · You play ${view.playerColor === 0 ? 'White' : 'Black'}`;
@@ -35,7 +39,11 @@ async function call(name: string, args: Record<string, unknown>, retain = false)
   if (retain) { pending = { name, args }; saveState(); }
   try {
     const result = await app.callServerTool({ name, arguments: args });
-    if (result.isError) throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    if (result.isError) {
+      const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
+      if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); }
+      throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
+    }
     show(result.structuredContent);
     if (name === 'kingdown_invite') { const invitation = result.structuredContent as { token: string }; $('invitation').textContent = `Share this invitation: ${invitation.token}`; }
     // A reload preserves the command receipt; retry still uses its original ID.
@@ -81,4 +89,8 @@ $('expand').onclick = async () => { try { const mode = app.getHostContext()?.dis
 board.onLoadError = () => { $('error').textContent = 'The board artwork could not load. Reload the board.'; };
 app.ontoolresult = result => show(result.structuredContent);
 app.onhostcontextchanged = context => { $('expand').textContent = context.displayMode === 'fullscreen' ? 'Inline' : 'Fullscreen'; };
-void app.connect().then(() => { if (saved?.matchId && !view) return call('kingdown_get', { matchId: saved.matchId }); }).catch(error => { $('error').textContent = `Could not connect to the game: ${String(error)}`; });
+const refresh = setInterval(() => {
+  if (connected && !document.hidden && !busy && !pending && view?.mode === 'friend' && view.snapshot.status === 'playing' && (view.waiting || view.snapshot.turn !== view.playerColor)) void call('kingdown_get', { matchId: view.matchId });
+}, 3000);
+app.onclose = () => { connected = false; clearInterval(refresh); };
+void app.connect().then(() => { connected = true; if (saved?.matchId && !view) return call('kingdown_get', { matchId: saved.matchId }); }).catch(error => { $('error').textContent = `Could not connect to the game: ${String(error)}`; });
