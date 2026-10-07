@@ -34,6 +34,8 @@ const measure = (page, selector) => page.evaluate(sel => {
         i, x: r.x, y: r.y, w: r.width, h: r.height,
         scrollW: e.scrollWidth, clientW: e.clientWidth, scrollH: e.scrollHeight, clientH: e.clientHeight,
         within: els.flatMap((o, j) => (o !== e && o.contains(e) ? [j] : [])),
+        running: e.getAnimations({ subtree: true }).filter(a => a.playState === 'running').map(a => a.animationName || a.id || 'a script animation'),
+        src: e.currentSrc || e.src || getComputedStyle(e).backgroundImage.match(/url\("?(.*?)"?\)/)?.[1] || null,
       };
     }),
   };
@@ -85,5 +87,22 @@ export async function textNotCut(page, selector) {
   const m = await rendered('textNotCut', page, selector);
   for (const b of m.items) {
     if (b.scrollW > b.clientW + 1 || b.scrollH > b.clientH + 1) fail('textNotCut', selector, m.viewport, b, `content ${b.scrollW}x${b.scrollH} px does not fit in ${b.clientW}x${b.clientH} px`);
+  }
+}
+
+export async function noRunningAnimations(page, selector = 'html') {
+  const m = await measure(page, selector);
+  if (!m.items.length) fail('noRunningAnimations', selector, m.viewport, null, 'no element matches');
+  for (const b of m.items) if (b.running.length) fail('noRunningAnimations', selector, m.viewport, b, `running: ${b.running.join(', ')}`);
+}
+
+/** Passes when the resolved image path (an img source or a CSS background) ends with `name`, such as `ui/workshop/clay-golem-w.webp`. */
+export async function imageIs(page, selector, name) {
+  const m = await measure(page, selector);
+  if (!m.items.length) fail('imageIs', selector, m.viewport, null, 'no element matches');
+  const end = `/${name.replace(/^\.?\//, '')}`;
+  for (const b of m.items) {
+    const path = b.src ? decodeURIComponent(new URL(b.src).pathname) : null;
+    if (!path?.endsWith(end)) fail('imageIs', selector, m.viewport, b, `image ${path ?? 'none'} does not end with ${end}`);
   }
 }
