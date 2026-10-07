@@ -5,13 +5,14 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 ## Open items
 
 - **Workshop finish** · `ready-for-agent` · Build the open tickets of the spec. · [spec](docs/specs/workshop-finish/spec.md)
-- **Card deal** · `needs-info` · Mirror or MirrorB? Drop Rescue? Keep March (below the floor in `cards-d1`)? Which six cards make the deal (`cards-d1` and `deal-d1` are read)? · [2026-10](docs/tasks-archive/2026-10.md)
+- **Shared match foundation** · `ready-for-agent` · In a worktree from `7d4370f`: match commands, isolated engine runs, versioned save and replay; then verify and review it. · [2026-10](docs/tasks-archive/2026-10.md)
+- **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); `hand-size` measures hands of 2, 3, 4 and 6 cards. Keep March (below the floor in `cards-d1`)? Which six cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Card mode in the game** · `ready-for-agent` · After the deal: a card panel in the browser, MorphP in the deal, and a legendary look for Rage for the owner's yes. · [2026-10](docs/tasks-archive/2026-10.md)
 - **Morph and the Guard** · `needs-info` · Keep the Guard as a Morph piece? Allow a second Guard? Stop a second Beast through Morph and then Salvation or Sacrifice? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Guard drop** · `ready-for-agent` · A lab rule that drops the Guard on any empty square; its runs need the owner's go. · [2026-10](docs/tasks-archive/2026-10.md)
-- **Death Touch at 55.1%** · `needs-info` · Round 18 gives Death Touch 55.1% ± 2.9 with all twelve powers. Keep it or trim it? · [handoff](docs/tasks-archive/HANDOFF-2026-10-06.md)
+- **Death Touch at 55.1%** · `needs-info` · Round 18 gives Death Touch 55.1% ± 2.9 with all twelve powers; the runs `dt-r0`, `dt-t2` and `dt-t3` test two trims. Keep it or trim it? · [handoff](docs/tasks-archive/HANDOFF-2026-10-06.md)
 - **Turn countdown** · `needs-info` · Does the owner approve the screenshots of `claude/turn-countdown` (83f442f)? · [handoff](docs/tasks-archive/HANDOFF-2026-10-06.md)
-- **Archer reading** · `needs-info` · far2 (the owner leans to it) or today's `plusDiagFwd2`? · [2026-10](docs/tasks-archive/2026-10.md)
+- **Archer reading** · `needs-info` · The owner chose far2 (2026-10-07). When may it replace today's `plusDiagFwd2` on main (no merge yet)? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Criterion 4** · `needs-info` · Keep it as written (it cannot fail) or use 4b, "a phase at or above the average piece"? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Piece-letter icons** · `needs-info` · Should Settings → Piece letters draw icons on the figures? · [2026-10](docs/tasks-archive/2026-10.md)
 - **King with no power** · `needs-info` · Draw a king picked with No power as that king? · [2026-10](docs/tasks-archive/2026-10.md)
