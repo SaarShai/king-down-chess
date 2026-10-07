@@ -6,7 +6,7 @@ This ticket replaces the checks spec's stub `gate` with the real repo gate: one 
 
 **Blocked by:** checks-and-hooks/02 (the stub `gate` script, the pre-commit hook that calls `gate -- staged`, and the `tempRepo()` harness)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/gate.mjs` (the file the checks spec's `gate` script starts), `tools/gate/` (rule modules and `size-allowlist.txt`), `tools/gate.test.ts`
 
