@@ -76,4 +76,62 @@ describe('session hook, source compact', () => {
     expect(result.stdout).not.toContain('queued-dropped');
     expect(result.stdout).not.toContain('Decides');
   });
+
+  it('stops a long queue at a row boundary under 9,500 characters, and the last line names the file', () => {
+    const rows = Array.from({ length: 300 }, (_, i) => `| run-${i} | M1, a long place name for the row | ${i} | running |`);
+    const { repo, hook } = setup({ tasks: tasks('main-open-item'), queue: queue(rows.join('\n')) });
+    const result = hook('compact');
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout.length).toBeLessThan(LIMIT);
+    const lines = result.stdout.trimEnd().split('\n');
+    const last = lines.pop()!;
+    expect(last).toContain(join(repo.dir, 'docs/QUEUE.md'));
+    expect(last).not.toContain('|');
+    // Each line before the file line is a whole row of the fixture.
+    const shown = lines.filter(line => line.startsWith('| run-'));
+    expect(shown.length).toBeGreaterThan(50);
+    expect(shown).toEqual(rows.slice(0, shown.length));
+  });
+
+  it('gives one fact line that names a missing file, and exit 0', () => {
+    const { repo, hook } = setup({ queue: queue('| main-new | M1 | 20 | running |') });
+    const result = hook('compact');
+    expect(result.status, result.stderr).toBe(0);
+    const named = result.stdout.split('\n').filter(line => line.includes('TASKS.md'));
+    expect(named).toEqual([`Fact: ${join(repo.dir, 'TASKS.md')} is missing.`]);
+    expect(result.stdout).toContain('| main-new | M1 | 20 | running |');
+  });
+});
+
+describe('session hook, source startup', () => {
+  it('links node_modules in a worktree with no packages, then prints nothing when they are present', () => {
+    const { repo, worktree, hook } = setup({ tasks: tasks('main-open-item'), queue: queue('') });
+    repo.write('node_modules/alpha/index.js', '');
+    const first = hook('startup');
+    expect(first.status, first.stderr).toBe(0);
+    expect(lstatSync(join(worktree, 'node_modules')).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(join(worktree, 'node_modules'))).toBe(join(repo.dir, 'node_modules'));
+    expect(first.stdout).toContain(`${worktree}\tside\tlinked`);
+    const second = hook('startup');
+    expect(second.status, second.stderr).toBe(0);
+    expect(second.stdout).toBe('');
+  });
+
+  it('prints nothing in the main checkout and makes no link there', () => {
+    const { repo, hook } = setup({ tasks: tasks('main-open-item'), queue: queue('') });
+    const result = hook('startup', repo.dir);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe('');
+    expect(existsSync(join(repo.dir, 'node_modules'))).toBe(false);
+  });
+});
+
+describe('the real docs/QUEUE.md', () => {
+  it('has exactly one heading that starts with "Running", and its table has a state column', () => {
+    const lines = readFileSync(join(root, 'docs/QUEUE.md'), 'utf8').split('\n');
+    const running = lines.flatMap((line, i) => (/^#+\s+Running/.test(line) ? [i] : []));
+    expect(running).toHaveLength(1);
+    const table = lines.slice(running[0] + 1).find(line => line.startsWith('|') || /^#/.test(line)) ?? '';
+    expect(table.split('|').map(cell => cell.trim())).toContain('state');
+  });
 });

@@ -3,12 +3,16 @@
 // It reads the hook JSON on stdin and writes facts, never commands, on stdout. Claude Code adds
 // that text to the context. It always exits 0, so it never blocks a session.
 //
+// startup: in a linked worktree with no node_modules, it runs the package step of the worktree
+// script (`tools/wt.sh add <worktree>`) and prints its line. In the main checkout, or when
+// node_modules is present, it prints nothing.
+//
 // compact: the main checkout's open items (the first section of TASKS.md) and its live runs
 // (from each docs/QUEUE.md section whose heading starts with "Running": the table header and
 // each row whose state does not start with "done"). The text stays under 9,500 characters: longer
 // text stops at a row boundary, and one line names the file to read.
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const LIMIT = 9500;
@@ -28,6 +32,24 @@ function mainCheckout(cwd) {
   return common ? dirname(common) : process.env.CLAUDE_PROJECT_DIR || cwd;
 }
 
+/** The package step in a linked worktree with no node_modules; else nothing. */
+function startup(cwd) {
+  const top = git(cwd, 'rev-parse', '--show-toplevel');
+  if (!top) return '';
+  const main = mainCheckout(cwd);
+  if (realpathSync(top) === realpathSync(main) || existsSync(join(top, 'node_modules'))) return '';
+  // The worktree's own script first; a branch from before the script uses the main checkout's.
+  const script = [top, main].map(dir => join(dir, 'tools', 'wt.sh')).find(path => existsSync(path));
+  if (!script) return `Fact: ${top} has no node_modules, and neither it nor ${main} has tools/wt.sh.\n`;
+  try {
+    const line = execFileSync(script, ['add', top], { cwd: top, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 << 20 });
+    return `Fact: the package step of the worktree script ran: ${line}`;
+  } catch (error) {
+    const reason = String(error?.stderr || error?.message || error).trim().split('\n').pop();
+    return `Fact: the package step of the worktree script failed in ${top}: ${reason}\n`;
+  }
+}
+
 /** The lines of `path`, or undefined when the file is missing. */
 function readLines(path) {
   return existsSync(path) ? readFileSync(path, 'utf8').replace(/\n+$/, '').split('\n') : undefined;
@@ -36,7 +58,9 @@ function readLines(path) {
 /** The first section of the task index: from the start to the second "## " heading. */
 function firstSection(lines) {
   const headings = lines.flatMap((line, i) => (line.startsWith('## ') ? [i] : []));
-  return headings.length > 1 ? lines.slice(0, headings[1]) : lines;
+  const section = headings.length > 1 ? lines.slice(0, headings[1]) : lines;
+  while (section.length && !section[section.length - 1].trim()) section.pop();
+  return section;
 }
 
 /** The cells of a table row; a "\|" stays in its cell. */
@@ -120,6 +144,7 @@ async function main() {
     // Bad or empty input: use the defaults below.
   }
   const cwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : process.cwd();
+  if (input.source === 'startup') process.stdout.write(startup(cwd));
   if (input.source === 'compact') process.stdout.write(fit(compactFacts(cwd)));
 }
 
