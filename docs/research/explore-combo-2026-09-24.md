@@ -1,6 +1,6 @@
 # Arrangement exploration — catapult with the pieces it can actually use (2026-09-24)
 
-> Recovery status, 2026-09-24: Exploratory historical games: depth 2, Catapult value 156, five ply caps. Retained rows are optional examples, not a ranking; the adopted engine has later fixes. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Exploratory historical games: depth 2, Catapult value 156, five ply caps. Retained rows are optional examples, not a ranking; the adopted engine has later fixes. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Exploration only. The playable pool and the default rules were not changed. Ninety-six games,
 depth 2, sixteen games on each of six mirrored back ranks, the same opening seeds on every rank.
