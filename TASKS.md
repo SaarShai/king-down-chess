@@ -5,7 +5,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 ## Open items
 
 - **Workshop finish** · `ready-for-agent` · Build the open tickets of the spec. · [spec](docs/specs/workshop-finish/spec.md)
-- **Shared match foundation** · `ready-for-agent` · In a worktree from `7d4370f`: match commands, isolated engine runs, versioned save and replay; then verify and review it. · [2026-10](docs/tasks-archive/2026-10.md)
+- **Match foundation and ChatGPT plugin** · `needs-info` · Done locally on `codex/match-foundation` (e6773d3); the external gate waits: the owner signs into Supabase and sets the real OAuth before a host test. · [2026-10](docs/tasks-archive/2026-10.md)
 - **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); `hand-size` measures hands of 2, 3, 4 and 6 cards. Keep March (below the floor in `cards-d1`)? Which six cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Card mode in the game** · `ready-for-agent` · After the deal: a card panel in the browser, MorphP in the deal, and a legendary look for Rage for the owner's yes. · [2026-10](docs/tasks-archive/2026-10.md)
 - **Morph and the Guard** · `needs-info` · Keep the Guard as a Morph piece? Allow a second Guard? Stop a second Beast through Morph and then Salvation or Sacrifice? · [2026-10](docs/tasks-archive/2026-10.md)
