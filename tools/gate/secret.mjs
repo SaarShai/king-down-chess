@@ -64,19 +64,28 @@ const filesIn = (/** @type {string} */ folder) => {
 };
 
 /**
+ * Reads each secret file of the two sources, in name order, with the values that it gives. A file
+ * that gives no value is in the list too; a missing file is not.
+ * @param {string} mainCheckout the top folder of the main checkout
+ * @returns {{ name: string, values: Buffer[] }[]}
+ */
+export const readSources = mainCheckout => {
+  const folder = process.env.GATE_SECRETS_DIR || join(mainCheckout, '.secrets');
+  const files = filesIn(folder).sort().map(path => ({ path: join(folder, path), name: `.secrets/${path}` }));
+  files.push({ path: process.env.GATE_TYPESAFE_KEY || TYPESAFE_KEY, name: 'typesafe key' });
+  return files.flatMap(({ path, name }) => {
+    const text = readSource(path, name);
+    return text === undefined ? [] : [{ name, values: valuesOf(text, name).filter(Boolean).map(value => Buffer.from(value)) }];
+  });
+};
+
+/**
  * Reads the current secret values from the two sources.
  * @param {string} mainCheckout the top folder of the main checkout
  * @returns {Secret[]}
  */
-export const readSecrets = mainCheckout => {
-  const folder = process.env.GATE_SECRETS_DIR || join(mainCheckout, '.secrets');
-  const files = filesIn(folder).map(path => ({ path: join(folder, path), name: `.secrets/${path}` }));
-  files.push({ path: process.env.GATE_TYPESAFE_KEY || TYPESAFE_KEY, name: 'typesafe key' });
-  return files.flatMap(({ path, name }) => {
-    const text = readSource(path, name);
-    return text === undefined ? [] : valuesOf(text, name).filter(Boolean).map(value => ({ name, value: Buffer.from(value) }));
-  });
-};
+export const readSecrets = mainCheckout =>
+  readSources(mainCheckout).flatMap(({ name, values }) => values.map(value => ({ name, value })));
 
 /**
  * Gives one fault line for each text (a file or a commit message) and each secret that it holds.

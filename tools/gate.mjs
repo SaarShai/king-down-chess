@@ -13,6 +13,12 @@
 //     each commit adds or changes; a merge counts a file only when it differs from each parent.
 //     So a file in any pushed commit fails, also when a later commit deletes it. The size
 //     allowlist comes from the pushed commit, not from the work tree. A deletion line passes.
+//   npm run gate -- history
+//     The owner runs it by hand. The gate reads each blob and each commit message that any origin
+//     ref (refs/remotes/origin/*) reaches, and applies only the secret rule. It writes one line
+//     on stdout for each secret file: "<secret file>: found" or "<secret file>: not found". It
+//     writes no value and no path. Exit 1 means that public history holds a value of at least
+//     one secret file: rotate that secret. A repository with no origin ref is a gate fault.
 //   Environment: the GIT_ variables that git sets for the hook stay. The current folder is the
 //   top folder of the work tree. When GATE_TRACE names a file, the gate adds to it one line with
 //   the path of each blob that it reads (the tests count them).
@@ -21,7 +27,7 @@
 //   The gate gives 1 when a rule refuses and 2 for a gate fault (bad input, git cannot read an
 //   object, a bad allowlist line). Each fault is one line on stderr:
 //     gate: <rule>: <short commit or "index">: <path>: <reason>
-//   Exit 0 gives no output.
+//   In staged and push mode, exit 0 gives no output.
 //
 // Rules (one module each in tools/gate/), in both modes:
 //   private: an added or changed path in a transcript folder, the secrets folder or the art source
@@ -37,7 +43,7 @@ import { appendFileSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { GateFault } from './gate/fault.mjs';
 import { privateFaults } from './gate/private.mjs';
-import { readSecrets, secretFaults } from './gate/secret.mjs';
+import { readSecrets, readSources, secretFaults } from './gate/secret.mjs';
 import { ALLOWLIST, readAllowlist, sizeFaults } from './gate/size.mjs';
 
 /** Runs git with the hook's environment and gives its stdout as bytes. A failure is a gate fault. */
@@ -131,6 +137,12 @@ const contents = (/** @type {string[]} */ oids) => {
   return found;
 };
 
+/** The message of a commit object: the bytes after the first blank line. */
+const messageOf = (/** @type {Buffer} */ object) => {
+  const body = object.indexOf('\n\n');
+  return body < 0 ? Buffer.alloc(0) : object.subarray(body + 2);
+};
+
 /** The top folder of the main checkout: the parent of git's common folder, also from a linked worktree. */
 const mainCheckout = () => dirname(git(['rev-parse', '--path-format=absolute', '--git-common-dir']).trim());
 
@@ -146,11 +158,7 @@ const secretCheck = (/** @type {File[]} */ files, /** @type {string[]} */ commit
   const order = new Map(commits.map((commit, i) => [commit.slice(0, 12), i]));
   const texts = [
     ...files.map(({ where, path, oid }) => ({ where, path, content: /** @type {Buffer} */ (found.get(oid)) })),
-    ...commits.map(commit => {
-      const object = /** @type {Buffer} */ (found.get(commit));
-      const body = object.indexOf('\n\n');
-      return { where: commit.slice(0, 12), path: 'message', content: body < 0 ? Buffer.alloc(0) : object.subarray(body + 2) };
-    }),
+    ...commits.map(commit => ({ where: commit.slice(0, 12), path: 'message', content: messageOf(/** @type {Buffer} */ (found.get(commit))) })),
   ].map((text, i) => ({ text, i })).sort((a, b) => (order.get(a.text.where) ?? 0) - (order.get(b.text.where) ?? 0) || a.i - b.i);
   return secretFaults(texts.map(({ text }) => text), secrets);
 };
@@ -192,11 +200,51 @@ const push = () => {
   });
 };
 
+// History mode reads at most this many bytes of objects with one `git cat-file --batch`.
+const CHUNK = 64 << 20;
+
+/** Writes "found" or "not found" for each secret file; gives 1 when a value is found, else 0. */
+const history = () => {
+  const sources = readSources(process.env.GATE_SECRETS_DIR ? '' : mainCheckout());
+  if (!git(['for-each-ref', '--count=1', 'refs/remotes/origin/']).trim()) throw new GateFault('history: no origin ref; do git fetch origin, then try again');
+  const oids = git(['rev-list', '--objects', '--no-object-names', '--remotes=origin']).split('\n').filter(Boolean);
+  const answers = git(['cat-file', '--batch-check=%(objectname) %(objecttype) %(objectsize)'], oids.join('\n') + '\n').split('\n');
+  /** @type {{ oid: string, commit: boolean, size: number }[]} */
+  const objects = [];
+  oids.forEach((oid, i) => {
+    const [got, type, size] = answers[i]?.split(' ') ?? [];
+    if (got !== oid || size === undefined) throw new GateFault(`history: git cannot read object ${oid.slice(0, 12)}`);
+    if (type === 'blob' || type === 'commit') objects.push({ oid, commit: type === 'commit', size: Number(size) });
+  });
+  /** @type {Set<string>} */
+  const found = new Set();
+  const search = (/** @type {typeof objects} */ chunk) => {
+    const read = contents(chunk.map(object => object.oid));
+    for (const { oid, commit } of chunk) {
+      const object = /** @type {Buffer} */ (read.get(oid));
+      const content = commit ? messageOf(object) : object;
+      for (const { name, values } of sources) if (values.some(value => content.includes(value))) found.add(name);
+    }
+  };
+  if (sources.some(source => source.values.length)) {
+    let chunk = [], bytes = 0;
+    for (const object of objects) {
+      chunk.push(object);
+      bytes += object.size;
+      if (bytes >= CHUNK) { search(chunk); chunk = []; bytes = 0; }
+    }
+    if (chunk.length) search(chunk);
+  }
+  for (const { name } of sources) process.stdout.write(`${name}: ${found.has(name) ? 'found' : 'not found'}\n`);
+  return found.size ? 1 : 0;
+};
+
 const modes = { staged, push };
 
 const main = () => {
   const mode = process.argv[2];
-  if (!Object.hasOwn(modes, mode)) throw new GateFault(`unknown mode "${mode ?? ''}"; the modes are ${Object.keys(modes).join(' and ')}`);
+  if (mode === 'history') return history();
+  if (!Object.hasOwn(modes, mode)) throw new GateFault(`unknown mode "${mode ?? ''}"; the modes are staged, push and history`);
   const faults = modes[/** @type {keyof typeof modes} */ (mode)]();
   for (const line of faults) process.stderr.write(`gate: ${line}\n`);
   return faults.length ? 1 : 0;
