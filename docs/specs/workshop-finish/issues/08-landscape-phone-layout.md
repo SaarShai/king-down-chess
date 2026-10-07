@@ -4,7 +4,7 @@
 
 **Blocked by:** 07
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 Owner-approved: 2026-10-07 docs/specs/retro-2026-10-06/mockups/landscape-568x320-mockup.png (the thermometer hidden; 36 px header buttons and 28 px pen, eye and Take-by select, as in the mockup).
 
