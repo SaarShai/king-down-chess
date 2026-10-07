@@ -1,0 +1,29 @@
+@media (orientation: landscape) and (max-height: 500px) {
+  #workshop .ws-editor .ws-bar { height: 44px; }
+  #workshop .ws-editor .ws-bar button { min-height: 36px; padding: 4px 10px; }
+  #workshop .ws-footer { padding: 2px 12px; gap: 8px; }
+  #workshop .ws-footer .ws-try { min-width: 84px; }
+  #workshop .ws-save-state { max-width: 90px; font-size: 11px; line-height: 1.2; }
+  #workshop .ws-workspace { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px; padding: 6px 12px; align-items: start; }
+  #workshop .ws-piece-card { max-width: none; margin: 0; }
+  #workshop .ws-card-border { padding: 4px; }
+  #workshop .ws-portrait { flex-direction: column; gap: 2px; }
+  #workshop .ws-model-box { --model: 84px; }
+  #workshop .ws-gauge-box { display: none; }
+  #workshop .ws-name-row { flex-wrap: wrap; margin-top: 2px; gap: 0; }
+  #workshop .ws-name-t { flex-basis: 100%; font-size: 14px; line-height: 1.15; }
+  #workshop .ws-name, #workshop .ws-eye { width: 28px; height: 28px; padding: 5px; min-height: 0; }
+  #workshop .ws-worth { margin: 2px 0 0; font-size: 12px; line-height: 1.25; }
+  #workshop .ws-bottom { font-size: 11px; }
+  #workshop .ws-properties { max-width: none; margin: 0; }
+  #workshop .ws-patterns { display: flex; flex-direction: column; }
+  #workshop .ws-symmetry { order: 2; justify-content: flex-start; margin: 6px 0 0; font-size: 12px; }
+  #workshop .ws-dual-boards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  #workshop .ws-pattern { max-width: none; margin: 0; }
+  #workshop .ws-pattern h3 { font-size: 14px; line-height: 16px; margin: 0; }
+  #workshop .ws-pattern .ws-mode, #workshop .ws-pattern .ws-fwd { display: none; }
+  #workshop .ws-board { margin: 2px auto 0; }
+  #workshop .ws-take-mode { font-size: 12px; margin-top: 4px; }
+  #workshop .ws-take-mode select { min-height: 28px; font-size: 12px; padding: 2px 4px; }
+  #workshop { --cell: 27px !important; }
+}
