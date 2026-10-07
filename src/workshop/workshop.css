@@ -286,7 +286,7 @@
 .ws-gallery { margin: 16px 0; }
 .ws-gallery summary { cursor: pointer; padding: 12px 0; font-weight: 700; }
 .ws-figure-filter { display: flex; align-items: center; gap: 8px; }
-.ws-figure-filter select { min-height: 44px; }
+#workshop select { min-height: 44px; }
 
 .ws-cast-start { max-width: 900px !important; }
 @media (min-width: 721px) { .ws-cast-start { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
