@@ -7,6 +7,7 @@ import { closeSync, existsSync, mkdirSync, openSync, readFileSync, realpathSync,
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env, outRoot } from './lib/checks.mjs';
+import { firstFault as faultLine } from './lib/first-fault.mjs';
 import { lockPath, takeLock } from './lib/lock.mjs';
 import { checks } from './lib/registry.mjs';
 import { changedPaths, treeStatus } from './lib/tree-status.mjs';
@@ -106,12 +107,11 @@ function run(command, commandArgs, { log, limit, extraEnv = {} }) {
   });
 }
 
-/** The first fault line of a log: a line with FAIL, Error, failed, Timeout or "timed out", else its last line. */
+/** The first fault line of a log (tools/lib/first-fault.mjs), cut to 200 characters. */
 function firstFault(log, result) {
   if (result.timedOut) return `timed out at the ${result.limit} s limit`;
   if (result.error) return result.error.message;
-  const lines = (existsSync(log) ? readFileSync(log, 'utf8') : '').split('\n').map(l => l.trim()).filter(Boolean);
-  const line = lines.find(l => /\bFAIL\b|Error\b|\bfailed\b|\bTimeout\b|\btimed out\b/.test(l)) ?? lines.at(-1) ?? `exit code ${result.code}`;
+  const line = faultLine(existsSync(log) ? readFileSync(log, 'utf8') : '') ?? `exit code ${result.code}`;
   return line.length > 200 ? `${line.slice(0, 197)}...` : line;
 }
 
