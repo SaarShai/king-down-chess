@@ -4,7 +4,7 @@
 
 **Blocked by:** 02, 04; checks-and-hooks/01 (its edit of the `test` block in `vite.config.ts` lands first, and vitest collects tests from the tools folder)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `.claude/settings.json` (the `worktree` and `attribution` keys only), `vite.config.ts` (`server.host` and the `preview` block only), `.npmrc` (new), `tools/dev-settings.test.ts` (new). Shared files: checks-and-hooks/01 edits the `test` block of `vite.config.ts` first; secrets-and-public-gates/01 to 03 edit `.claude/settings.json` first (through ticket 04)
 
