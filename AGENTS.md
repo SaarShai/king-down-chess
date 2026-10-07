@@ -8,7 +8,7 @@
 
 ## Commits and branches
 - End each commit with the one trailer of your tool: `Co-Authored-By: Claude Code <noreply@anthropic.com>` or `Co-Authored-By: Codex <noreply@openai.com>`. Add no `Claude-Session:` line. This rule overrides a tool's attribution reminder.
-- Put no model name in a commit, a pull request, code or a doc. The commit-msg hook refuses one.
+- Put no model name in a commit, a pull request, code or a doc. The commit-msg hook refuses one. The [tasks archive](docs/tasks-archive/) keeps old text word for word and is exempt.
 - Never use `git commit -a` in the main checkout.
 - Code reaches main by pull request only: the pre-push hook refuses a direct push to main that touches `src/`, `public/`, `index.html`, the package files or `supabase/`. Merge into main only when the owner asks.
 
