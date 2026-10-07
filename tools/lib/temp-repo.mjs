@@ -6,7 +6,8 @@
 //   - `gitconfig`: an empty file that git uses as the global config.
 // With hooks on (the default), it copies the tracked `.githooks/` folder and the fixture package
 // (`tools/git-hooks/fixtures/package/`: `typecheck`, `test` and `gate` scripts) into the work tree,
-// makes an empty `node_modules/`, and sets `core.hooksPath` to `.githooks`. These files are in
+// and the model-name module that commit-msg imports (`tools/lib/model-names.mjs`), makes an empty
+// `node_modules/`, and sets `core.hooksPath` to `.githooks`. These files are in
 // `.git/info/exclude`, so `git status` is clean and `git add -A` does not stage them (use `git add -f`).
 // With `{ hooks: false }`, it copies nothing and sets no hooks path.
 //
@@ -23,7 +24,8 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const hooksFolder = join(repoRoot, '.githooks');
 const fixturePackage = join(repoRoot, 'tools', 'git-hooks', 'fixtures', 'package');
-const excluded = ['/.githooks/', '/node_modules/', '/package.json', '/fixture.mjs', '/.fixture/'];
+const hookModules = ['tools/lib/model-names.mjs'];
+const excluded = ['/.githooks/', '/node_modules/', '/package.json', '/fixture.mjs', '/.fixture/', ...hookModules.map(path => `/${path}`)];
 
 /**
  * @param {{ hooks?: boolean }} [options]
@@ -67,6 +69,7 @@ export function tempRepo({ hooks = true } = {}) {
   if (hooks) {
     cpSync(hooksFolder, join(dir, '.githooks'), { recursive: true });
     cpSync(fixturePackage, dir, { recursive: true });
+    for (const path of hookModules) cpSync(join(repoRoot, path), join(dir, path));
     mkdirSync(join(dir, 'node_modules'));
     writeFileSync(join(dir, '.git', 'info', 'exclude'), excluded.join('\n') + '\n', { flag: 'a' });
     must(git('config', 'core.hooksPath', '.githooks'));
