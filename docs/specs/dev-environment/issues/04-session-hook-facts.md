@@ -4,7 +4,7 @@
 
 **Blocked by:** 01; checks-and-hooks/02 (`tempRepo()` with the hooks-off option), checks-and-hooks/01 (vitest that collects tests from the Claude hook folder); secrets-and-public-gates/03 (the last tool-gate edit of `.claude/settings.json`, which this ticket also edits)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `.claude/hooks/session-facts.mjs` (new), `.claude/hooks/session-facts.test.ts` (new), `.claude/settings.json` (two new `SessionStart` entries only). Shared file: secrets-and-public-gates/01 to 03 edit `hooks.PreToolUse` and `permissions` first; this ticket blocks on secrets-and-public-gates/03
 
