@@ -319,7 +319,7 @@ describe('wt serve', () => {
     repo.write('.claude/preview-target', `${bare}\n`);
     const result = wt(['serve']);
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toBe(`wt: ${bare} has no node_modules; run: wt add ${bare}\n`);
+    expect(result.stderr).toBe(`wt: ${bare} has no node_modules; run: wt add "${bare}"\n`);
   });
 
   it('git ignores the target file and the previews folder', () => {

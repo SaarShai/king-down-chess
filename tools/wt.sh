@@ -89,7 +89,7 @@ serve() {
     /*) dir=$(worktree "$name") ;;
     *) dir=$(worktree "$main/.claude/worktrees/$name") ;;
   esac
-  [ -e "$dir/node_modules" ] || die "$dir has no node_modules; run: wt add $dir"
+  [ -e "$dir/node_modules" ] || die "$dir has no node_modules; run: wt add \"$dir\""
   cd "$dir"
   exec "$dir/node_modules/.bin/vite" "$dir" --host 127.0.0.1 --port "${PORT:-5177}" --strictPort
 }

@@ -41,3 +41,4 @@ Decisions to note:
 - `wt add <main checkout path>` stops with a reason: the main checkout keeps its own installation.
 - Output line: path, branch (`(detached)` for a detached HEAD) and `linked` or `installed`, with a tab between them, because paths in this repository hold spaces. `git worktree add` and `npm ci` output goes to stderr.
 - The script is `tools/wt.sh`; no `wt` command on PATH and no npm script. The guard message names `wt add <path>` and the script path.
+- Review fix F18: the "has no node_modules" hint quotes the path (`run: wt add "<dir>"`), so a path with spaces pastes as one argument; the wt test expects the quoted form. The tool gate hint `test -s "<path>"` is quoted too (secrets-and-public-gates/01).
