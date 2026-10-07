@@ -27,6 +27,10 @@ export class PostgresMatchStore {
  async create(row: StoredMatch): Promise<void> {
   await this.pool.query('insert into public.plugin_matches(id,white_id,black_id,mode,revision,save,snapshot) values($1,$2,$3,$4,$5,$6,$7)', [row.id,row.white_id,row.black_id,row.mode,row.revision,row.save,row.snapshot]);
  }
+ async latest(actor: string): Promise<StoredMatch | null> {
+  const result = await this.pool.query<StoredMatch>('select * from public.plugin_matches where white_id=$1 or black_id=$1 order by updated_at desc,created_at desc,id desc limit 1',[actor]);
+  return result.rows[0] ?? null;
+ }
  async dedupe(row: StoredMatch, actor: string, id: string, payload: object, client: Pool | PoolClient = this.pool): Promise<boolean> {
   const result = await client.query('select payload=$4::jsonb as same from public.plugin_match_commands where match_id=$1 and actor_id=$2 and command_id=$3', [row.id,actor,id,JSON.stringify(payload)]);
   if (!result.rows.length) return false;

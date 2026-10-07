@@ -22,6 +22,7 @@ export class MatchService {
   finally { await match?.close(); }
  }
  async get(actor: string, id: string): Promise<MatchView> { validId(actor); actor = actor.toLowerCase(); validId(id); return view(await this.store.read(id),actor); }
+ async resume(actor: string): Promise<MatchView | null> { validId(actor); actor = actor.toLowerCase(); const row = await this.store.latest(actor); return row ? view(row,actor) : null; }
  move(actor: string, id: string, input: MoveCommand): Promise<MatchView> { return this.apply(actor,id,input,false); }
  computer(actor: string, id: string, input: { id: string; expectedRevision: number }): Promise<MatchView> { return this.apply(actor,id,input,true); }
  private async apply(actor: string, id: string, input: MoveCommand | { id: string; expectedRevision: number }, computer: boolean): Promise<MatchView> {

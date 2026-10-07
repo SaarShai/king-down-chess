@@ -86,6 +86,17 @@ suite('PostgreSQL authenticated matches (real connections and processes)', () =>
    expect(result.rows[0].allowed).toBe(false);
   }
  });
+ it('resumes only the caller’s latest seated game after a service restart',async () => {
+  const actor=randomUUID(); actors.push(actor); await pools[0].query('insert into auth.users(id) values($1)',[actor]);
+  expect(await services[1].resume(actor)).toBeNull();
+  const game=await services[0].create(actor,{},'friend');
+  const invite=await services[0].invite(actor,game.matchId); await services[0].join(actors[2],invite.token);
+  expect((await services[1].resume(actor))?.matchId).toBe(game.matchId);
+  expect((await services[1].resume(actors[2]))?.playerColor).toBe(1);
+  const newer=await services[0].create(actor,{});
+  expect((await services[1].resume(actor))?.matchId).toBe(newer.matchId);
+  expect((await services[1].resume(actors[2]))?.matchId).toBe(game.matchId);
+ },30000);
  it('expires invitations and explicitly deletes account matches',async () => {
   const initial=await services[0].create(actors[0],{},'friend'); const invite=await services[0].invite(actors[0],initial.matchId);
   await pools[0].query("update public.plugin_match_invites set expires_at=now()-interval '1 second' where match_id=$1",[initial.matchId]);
