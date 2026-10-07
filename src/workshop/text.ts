@@ -1,7 +1,8 @@
 /**
- * The text generator (docs/WORKSHOP.md §4.10): the Moves, Takes and Special lines of a piece, the
+ * The text generator (revision 3 §4.10): the Moves, Takes and Special lines of a piece, the
  * sentence of each rule (with its pills, for the editor), the worth in words, and the escaper.
  * Pure, so the tests run it in Node.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { DIAG, DIRS, ORTHO, type Dir, type PieceDesign, type Rule, type Square } from './model';
 import { blockOf, whenWords, type Part } from './vocab';

@@ -1,4 +1,4 @@
-// Set A, the Workshop's motion for approval (docs/WORKSHOP.md §5.5): A1 equip, A2 floor pop, A3 gauge
+// Set A, the Workshop's motion for approval (revision 3 §5.5): A1 equip, A2 floor pop, A3 gauge
 // ease, A4 overload, A5 the "When…" reveal. Plain browser code; tools/workshop-motion.mts puts it in
 // the preview page. If the owner approves, it moves to src/workshop/motion.ts and dialog.ts calls
 // react() after each change. Only transform, opacity and one stroke draw move.
@@ -6,6 +6,7 @@
 // motion or Settings › Animations Off (el.animate() ignores the CSS rule); Fast halves the times.
 // Each one-shot lasts at most 600 ms (§5.5). `data-slow` on <html> stretches the times for the preview
 // page only, so a viewer can see each step; the game never sets it.
+// Revision 3 and its §5.5: docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md (history).
 
 const pace = () => document.documentElement.dataset.pace || 'normal';
 export const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches || pace() === 'off';

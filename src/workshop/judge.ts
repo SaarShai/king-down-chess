@@ -1,14 +1,15 @@
 /**
- * The judge (docs/WORKSHOP.md §6), ported from the prototype `judge-v2.mjs` (its memory score from
+ * The judge (revision 3 §6), ported from the prototype `judge-v2.mjs` (its memory score from
  * `judge-v1.mjs`): features over the 64 from-squares, the piece formula, the rule terms, the band,
  * the label and metal, the flags, the memory score, the like line, Why?, the fixes, the rule-book
  * badges and the stats. Pure and without options: the same design always gets the same verdict.
  *
- * One change from the prototype (docs/WORKSHOP.md §6.2 asks for "the largest value"): where layers
+ * One change from the prototype (revision 3 §6.2 asks for "the largest value"): where layers
  * overlap on a target square, the prototype kept the entry with the largest weight even when a
  * cheaper kind of take replaced a dearer one, so painting a square could lower the worth. Here each
  * target keeps its largest *worth*, and the take count and the chain count keep their own largest
  * weights, so no edit that adds a square, a line or an ability ever lowers the number.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { DIAG, DIR, DIRS, ORTHO, PRESETS, empty, keyOf, limit, presetOf, ruleKey, type Body, type Dir, type PieceDesign, type Rule, type Square, type When } from './model';
 import { anchorNote, anchorOf, MAESTER_NOTE, type Anchor } from './anchors';
@@ -205,7 +206,7 @@ function flagsOf(d: D, e: Estimate): Flag[] {
   else if (zone) out.push({ code: 'F7', level: 'warn', line: `May often wait: ${named(state[0])} works only ${whenWords(state[0].when)}.`, evidence: 'Burn was played in 50% of games, Fire Starter in 40% (cards-2026-10-03.md:379-380).' });
   else if (g.M < 3) out.push({ code: 'F7', level: 'warn', line: 'May often wait: it has few squares to go to.', evidence: 'The guard moved in 70–80% of games (criterion 5).' });
   if (codes.has('F8')) out.push({ code: 'F8', level: 'warn', line: 'Hard to judge: we have no reliable estimate for lines that pass over any piece.', evidence: 'The paladin over enemies (sim-lm-buffs).' });
-  if (R.some(unmeasured)) out.push({ code: 'F9', level: 'info', line: 'Never measured: play-test it.', evidence: 'docs/WORKSHOP.md §6.4, status column.' });
+  if (R.some(unmeasured)) out.push({ code: 'F9', level: 'info', line: 'Never measured: play-test it.', evidence: 'revision 3 §6.4, status column.' });
   if (codes.has('F10')) out.push({ code: 'F10', level: 'warn', line: 'Hard to stop: it moves through pieces, so no piece can block it.', evidence: 'MATRIX A.3, the Wraith.' });
   if (codes.has('F11')) out.push({ code: 'F11', level: 'warn', line: 'It moves to more squares than any piece we measured.', evidence: `About ${Math.round(g.Q)} quiet squares; no measured piece has more than 7.33.` });
   if (codes.has('F12')) out.push({ code: 'F12', level: 'warn', line: 'It can become a queen early in the game.', evidence: 'A pawn needs about 6 moves to promote; a knight, about 3.' });

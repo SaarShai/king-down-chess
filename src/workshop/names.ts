@@ -1,7 +1,8 @@
 /**
- * Names (docs/WORKSHOP.md §4.8): an adjective from the strongest trait and a noun from the body.
+ * Names (revision 3 §4.8): an adjective from the strongest trait and a noun from the body.
  * The name follows the design until the player types or rolls one. The letter is the first free
  * letter of the name.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { FREE_LETTERS, PRESETS, keyOf, type PieceDesign } from './model';
 

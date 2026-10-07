@@ -1,7 +1,8 @@
 /**
- * The measured designs (docs/WORKSHOP.md §6.7). A design whose canonical form equals one gets a
+ * The measured designs (revision 3 §6.7). A design whose canonical form equals one gets a
  * note ("Measured in computer games: 4.27 ± 0.29.") and its label from the measurement. The number
  * the player sees is always the formula, so these never change the worth.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { KING_STEP, keyOf, presetOf, type PieceDesign, type Rule, type Square } from './model';
 
@@ -29,7 +30,7 @@ const TABLE: [string, D, number, number, string, boolean?][] = [
   ['Beast', p('beast'), 4.27, 0.29, `${PV2}:35`],
   ['Guard', p('guard'), 1.66, 0, `${PV2}:33`, true],
   ['Archer', p('archer'), 4.29, 0.35, 'docs/research/piece-runs-2026-10-04-pv2-A-vsR-d3.md:24; claude/archer-reach'],
-  ['Archer far2', { squares: [...KING_STEP('move'), ...lr([[0, 2], [2, 0], [0, -2], [2, 2]], 'shoot')], lines: [], rules: [] }, 2.83, 0.28, 'TASKS.md:9'],
+  ['Archer far2', { squares: [...KING_STEP('move'), ...lr([[0, 2], [2, 0], [0, -2], [2, 2]], 'shoot')], lines: [], rules: [] }, 2.83, 0.28, 'pv-A-af2'],
   ['Archer fwd2NoSide', archer([[0, 2], [0, -2], [2, 2]]), 3.99, 0.28, 'claude/archer-reach'],
   ['Archer fwd2NoBack', archer([[0, 2], [2, 0], [2, 2]]), 4.34, 0.28, 'claude/archer-reach'],
   ['Archer classic', archer([[0, 2], [2, 0], [0, -2]]), 3.73, 0.42, 'era B'],

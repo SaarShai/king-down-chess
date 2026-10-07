@@ -1,4 +1,4 @@
-// Builds the Set A motion preview (docs/WORKSHOP.md §5.5) and records it: one standalone page with
+// Builds the Set A motion preview (revision 3 §5.5) and records it: one standalone page with
 // the five motions live on the real model, and phone and desktop videos of it. The model, the gauge
 // and the styles come from this build (run `npx vite build` first). The page holds everything it
 // needs: the art as data URIs (in the markup, so the still models show even where scripts do not
@@ -6,6 +6,7 @@
 // loop on open. Nothing here is in the game.
 //   npx tsx tools/workshop-motion.mts            → docs/visual-design/workshop/motion-preview.html
 //   npx tsx tools/workshop-motion.mts --videos   → also motion-phone.webm and motion-desktop.webm
+// Revision 3 and its §5.5: docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md (history).
 import { readFileSync, readdirSync, renameSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { gaugeHtml, modelHtml } from '../src/workshop/art';

@@ -1,8 +1,9 @@
 /**
- * The one table of rule blocks (docs/WORKSHOP.md §4.2, build 1a): for each block its group, its
+ * The one table of rule blocks (revision 3 §4.2, build 1a): for each block its group, its
  * sentence with pills and defaults, the Whens it allows, what it needs, its MATRIX row, the pieces
  * that have it today, and whether Try it shows it. When the owner adds a MATRIX row, the matching
  * entry is one more object here. Types only from model.ts, so the two modules load in any order.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import type { Ability, Body, PieceDesign, Rule, When, Zone } from './model';
 

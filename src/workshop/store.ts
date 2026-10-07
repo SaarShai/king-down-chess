@@ -1,7 +1,8 @@
 /**
- * The designs on this device (docs/WORKSHOP.md §3.4): localStorage `kingdown.workshop` =
+ * The designs on this device (revision 3 §3.4): localStorage `kingdown.workshop` =
  * `{ v: 1, designs }`, at most 50, newest first. Every read and write is in try/catch. An entry
  * that is not a whole design is skipped, never shown or judged, and kept in storage as it was.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { validStored, type PieceDesign } from './model';
 

@@ -1,7 +1,8 @@
 /**
- * The Workshop's stored form of a piece (docs/WORKSHOP.md §3): painted squares, lines and at most 3
+ * The Workshop's stored form of a piece (revision 3 §3): painted squares, lines and at most 3
  * rules. Here too: the presets (§4.7), "Paint on", Mix two (W2), the canonical key, the hard limits
  * (§4.9) and the share code. Pure, so the judge and the tests run it in Node.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { figureById } from './figures';
 import type { KingName } from '../rules/engine';

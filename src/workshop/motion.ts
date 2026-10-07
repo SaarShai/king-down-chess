@@ -1,9 +1,10 @@
 /**
- * The approved Set A reactions on the piece card (docs/WORKSHOP.md §5.5): A1 (gait and cross-fade),
+ * The approved Set A reactions on the piece card (revision 3 §5.5): A1 (gait and cross-fade),
  * A4 (shake into overpowered) and A5 (gold ring). The card renders its still state first, then reacts.
  * The reactions read only `.ws-model` and `.ws-fig`, which the card renders (art.ts). Each animation
  * ends at the still transform, by 560 ms (280 ms at Fast); the next edit, a screen change, a close,
  * reduced motion or Animations Off stops it.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { figureHtml } from './art';
 import type { StageLook } from './look';

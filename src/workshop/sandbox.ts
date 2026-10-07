@@ -1,8 +1,9 @@
 /**
- * Try it (docs/WORKSHOP.md W10): a DOM 8 × 8 board where the player moves the design among enemies
+ * Try it (revision 3, W10): a DOM 8 × 8 board where the player moves the design among enemies
  * that never move. The moves come from moves.ts, never from the engine. It is not a game. A square
  * with two actions (push or take) asks which one. The board takes arrow keys (one square in the Tab
  * order), focus follows the piece, and each move is announced.
+ * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { BLACK, K, NAMES, T, WHITE, colorOf, piece, sq, sqName, typeOf, type Move, type PieceType } from '../rules/engine';
 import { pieceIcon } from '../piece-icons';
