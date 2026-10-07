@@ -1,6 +1,6 @@
 # King Down: next preparation and ChatGPT environment research
 
-Checked October 7, 2026 against official documentation and the local foundation at `43941dd` on `codex/match-foundation`. This is a recommendation and experiment plan. No ChatGPT connection, account configuration, installation, cloud resource or deployment was changed. The [preparation architecture](chatgpt-plugin-preparation.md) remains the overall plan; the [market register](chatgpt-chess-market.md) remains the competitor record.
+Research baseline checked October 7, 2026 against official documentation and the local foundation at `43941dd`. The owner subsequently authorized the recommended preparation. Current implementation, runnable checks and remaining host/account gates are in [private plugin setup](../plugin-preparation.md) and [the beta/support packet](../plugin-beta-support.md). The [preparation architecture](chatgpt-plugin-preparation.md) remains the overall plan; the [market register](chatgpt-chess-market.md) remains the competitor record.
 
 ## Recommended next work
 
@@ -16,7 +16,7 @@ Checked October 7, 2026 against official documentation and the local foundation 
 
 Work 2 can begin before 3–4 are complete, using controlled disposable games. It must state its save/lifetime limits. Before inviting external testers or promising saved matches, finish account authorization and durable commits. Keep the game primary; optional explanation tools can follow ordinary play. PiP, ratings, public matchmaking, clocks, card purchases and new coaching infrastructure are not prerequisites.
 
-The next module work should stay concrete: a permitted public board view, server command handling, authoritative match/seat/command tables and one atomic commit operation. The current snapshot lacks some rule/setup data the renderer needs; add a public view deliberately instead of handing the browser an entire private save. Existing [account saves](../../src/account/client.ts) and [migration](../../supabase/migrations/0001_accounts.sql) are user-editable personal data, not shared authority. The local source-hash/tsx worker is not yet a deployable backend. Docker and Supabase CLI were not found on the inspected PATH; no live project configuration was verified.
+The next module work should stay concrete: a permitted public board view, server command handling, authoritative match/seat/command tables and one atomic commit operation. The implemented snapshot now includes public effective rules and structured legal moves, while excluding private hands/piles. Existing [account saves](../../src/account/client.ts) and [migration](../../supabase/migrations/0001_accounts.sql) are user-editable personal data, not shared authority. The source-free worker and HTTP server are now built and locally exercised against real PostgreSQL. Current account observations and remaining production configuration are recorded in the setup guide.
 
 ## Current documentation that affects our design
 
@@ -78,4 +78,4 @@ Track relevant [plugin changes](https://developers.openai.com/plugins/changelog)
 4. **Operating cost and latency:** representative full-game requests/searches, cold starts and recovery on the selected staging runtime. Size concurrency from measurements, not unlimited live local workers.
 5. **Hands-on competitor and player research:** compare launch-to-first-move, readability, resume and friend joining for accessible products in the existing market register; then observe a small invited group trying King Down. Record observed use, not inferred user counts or store claims. No user recruitment or product accounts were created.
 
-The recommended next authorized implementation is a **small private playable host experiment plus a validation-only CI gate**. Durable authenticated storage is the next service milestone and can be developed alongside it. This order reduces platform uncertainty while preserving the evolving website's engine and artwork.
+Local implementation and validation now cover the board, durable match authority, bounded AI and compiled server. The next external gate is a working private connection with provider OAuth, followed by the real-client experiment above.

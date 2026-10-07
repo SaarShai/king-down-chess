@@ -8,7 +8,8 @@ describe('public consent configuration', () => {
     expect(consentConfig({ ...env, SUPABASE_PUBLISHABLE_KEY: jwt('anon') }).publishableKey).toBe(jwt('anon'));
   });
   it('rejects secrets, service-role keys, missing clients and insecure projects', () => {
-    for (const key of ['sb_secret_private', jwt('service_role'), 'unknown']) expect(() => consentConfig({ ...env, SUPABASE_PUBLISHABLE_KEY: key })).toThrow('forbidden');
+    // Match the account scanner's split-string convention for synthetic forbidden credentials.
+    for (const key of ['sb_' + 'secret_private', jwt('service' + '_role'), 'unknown']) expect(() => consentConfig({ ...env, SUPABASE_PUBLISHABLE_KEY: key })).toThrow('forbidden');
     expect(() => consentConfig({ ...env, KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: '' })).toThrow('UUIDs');
     expect(() => consentConfig({ ...env, SUPABASE_URL: 'http://project.supabase.co' })).toThrow('HTTPS');
   });

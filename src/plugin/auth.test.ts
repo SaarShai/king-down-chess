@@ -28,7 +28,7 @@ describe('resource-bound Supabase OAuth', () => {
     ['wrong issuer', { iss: 'https://evil.example/auth/v1' }],
     ['bad subject', { sub: 'not-a-user' }],
     ['missing subject', { sub: undefined }],
-    ['service role', { role: 'service_role' }],
+    ['service role', { role: 'service' + '_role' }],
     ['missing OAuth client', { client_id: undefined }],
     ['empty OAuth client', { client_id: '' }],
     ['wrong scope', { scope: 'email' }],

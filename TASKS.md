@@ -1,5 +1,14 @@
 # Tasks
 
+## Plugin preparation implementation — 2026-10-07 (authorized)
+- **Owner:** "do everything you recommend in the best order. whatever you can do in parallel - do that." Sol 6.1 helpers; parallel writers use isolated worktrees.
+- [ ] Build a private playable MCP Apps board and local host/protocol harness using the existing renderer/engine, with direct moves, special moves and recoverable state.
+- [ ] Build durable authenticated match/seat/command storage with atomic revisions, idempotent retries, permission and real-database race tests; prepare account linking and friend joining.
+- [ ] Build a deployable worker with a generated engine identity, bounded AI and validation-only CI. Verify the emitted artifact and combined flows.
+- [ ] Integrate independent work against current main; run unit, database, protocol and browser checks. Prepare private-beta/review/support materials and inspect actual host/account availability; record any steps requiring external access or user action.
+- **Scope:** complete the recommended preparation. Local/private development and testing first; any production release, public marketplace submission, DNS or paid-resource action requires a concrete reviewed result and the applicable owner authorization. No tournaments/training runs.
+
+
 ## Next plugin preparation and environment research — 2026-10-07
 - **Owner:** asks what else to prepare/build and research about ChatGPT plugins, environment and support. Research/recommendation pass; no new backend, account or deployment changes.
 - [x] Checked current official host/UI, authentication, distribution and support documentation; account entitlement, worker/runtime behavior and client parity remain explicit real-host tests. Sign in with ChatGPT is currently a limited partner trial, not a prerequisite.

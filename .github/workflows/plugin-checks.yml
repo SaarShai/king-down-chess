@@ -1,0 +1,77 @@
+name: Validate game and private plugin
+
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kingdown_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: kingdown_plugin_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run plugin:db:init-test
+      - run: npm test
+      - run: npm run build
+      - run: npm run plugin:build
+      - run: npm run plugin:server:check
+      - run: npm run plugin:smoke
+      - run: npm run plugin:check:protocol
+      - run: npx playwright install --with-deps chromium
+      - run: npm run plugin:check:oauth
+      - name: Check playable board in Chromium
+        run: |
+          npx tsx tools/plugin-ui-harness.ts plugin-server-dist/board.html > /tmp/kingdown-ui.log 2>&1 &
+          harness=$!
+          trap 'kill "$harness" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl --silent --fail http://127.0.0.1:5296/ > /dev/null; then break; fi
+            sleep 0.5
+          done
+          npm run plugin:check:ui
+      - name: Check board through compiled HTTP server and PostgreSQL
+        run: |
+          psql "$PLUGIN_TEST_DATABASE_URL" -c "insert into auth.users(id) values ('11111111-1111-4111-8111-111111111111'),('22222222-2222-4222-8222-222222222222') on conflict do nothing"
+          KINGDOWN_PLUGIN_DATABASE_URL="$PLUGIN_TEST_DATABASE_URL" KINGDOWN_PLUGIN_ORIGIN=http://127.0.0.1:3100 npm run plugin:serve -- --local-dev > /tmp/kingdown-server.log 2>&1 &
+          server=$!
+          trap 'kill "$server" ${harness:-} 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl --silent --output /dev/null http://127.0.0.1:3100/mcp; then break; fi
+            sleep 0.5
+          done
+          PLUGIN_MCP_URL=http://127.0.0.1:3100/mcp PLUGIN_DEV_ACTOR=11111111-1111-4111-8111-111111111111 PLUGIN_FRIEND_ACTOR=22222222-2222-4222-8222-222222222222 npx tsx tools/plugin-ui-harness.ts > /tmp/kingdown-ui-durable.log 2>&1 &
+          harness=$!
+          for attempt in {1..60}; do
+            if curl --silent --fail http://127.0.0.1:5296/ > /dev/null; then break; fi
+            sleep 0.5
+          done
+          npm run plugin:check:ui

@@ -16,17 +16,36 @@
     "nnue": "tsx src/sim/gen.ts",
     "graphics:study": "vite --port 5190 --strictPort",
     "graphics:check": "node tools/graphics-prototype/verify.mjs",
-    "graphics:check:cast": "node tools/graphics-prototype/verify_cast.mjs"
+    "graphics:check:cast": "node tools/graphics-prototype/verify_cast.mjs",
+    "plugin:build:runtime": "node tools/plugin-runtime-build.mjs",
+    "plugin:build:ui": "node tools/plugin-ui-build.mjs",
+    "plugin:build": "node tools/plugin-server-build.mjs",
+    "plugin:smoke": "node tools/plugin-runtime-smoke.mjs",
+    "plugin:check:protocol": "tsx tools/plugin-protocol-check.ts",
+    "plugin:check:ui": "node tools/plugin-ui-check.mjs",
+    "plugin:check:oauth": "node tools/plugin-oauth-check.mjs",
+    "plugin:db:init-test": "node tools/plugin-db/bootstrap-test.mjs",
+    "plugin:db:migrate": "tsx tools/plugin-db/migrate.ts",
+    "test:plugin:db": "vitest run src/match/service.db.test.ts",
+    "plugin:server:check": "node tools/plugin-server-check.mjs",
+    "plugin:serve": "node plugin-server-dist/server.mjs",
+    "plugin:build:vercel": "node tools/plugin-server-build.mjs --vercel"
   },
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^2.0.3",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@supabase/supabase-js": "^2.117.2",
-    "three": "^0.186.0"
+    "jose": "^6.2.12",
+    "pg": "^8.23.1",
+    "three": "^0.186.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@gltf-transform/core": "4.5.0",
     "@gltf-transform/extensions": "4.5.0",
     "@gltf-transform/functions": "4.5.0",
     "@types/node": "^26.5.1",
+    "@types/pg": "^8.23.1",
     "@types/three": "^0.186.0",
     "meshoptimizer": "1.2.0",
     "playwright": "^1.63.0",
