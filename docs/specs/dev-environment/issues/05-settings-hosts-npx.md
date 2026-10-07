@@ -34,3 +34,4 @@
 - `npm config get yes` in the worktree gives `false`: npm reads the new file.
 - Verify: `npx vitest run tools/dev-settings.test.ts`: 13 passed.
 - `npm test` after the merge of the integration tip (56f2908): two plain runs failed only with "Test timed out in 5000ms" (10, then 5 tests in `gate`, `piece-activity`, `judge`, `search`, `power-fixes`, `commit-msg`), at a load average of 38 to 56 from parallel builders. The six files pass alone (115 tests). The same three parts with `--testTimeout=60000`: tsc clean, vitest 64 files and 1,235 tests passed, node tests 42 passed. None of the timed-out tests reads a file of this ticket.
+- Final: after the merge of the integration tip d7af90f, a plain `npm test` passed at a load average of 14: tsc clean, vitest 64 files and 1,235 tests, node tests 42.
