@@ -5,7 +5,7 @@
  * make/unmake, search key, FEN and replay round-trips of every card move.
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { B, BLACK, K, Move, N, P, Position, Q, R, WHITE, inCheck, legalMoves, makeMove, materialDraw, parseSq, typeOf } from './engine';
+import { B, BLACK, K, Move, N, P, Position, R, WHITE, inCheck, legalMoves, makeMove, materialDraw, parseSq, typeOf } from './engine';
 import { fromFen, toFen, toLan } from './setup';
 import { CardName, DEFAULT_RULES, parseRule, setRules } from './rules';
 import { positionKey, probeApply, resetSearchState, search, searchLegal } from '../ai/search';

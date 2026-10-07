@@ -4,7 +4,7 @@
  * the two cannot drift. Sampling and the Q6 audit both validate records with it: a move list that
  * replays to different events than the record stored is a record of a different game.
  */
-import { A, C, Color, G, K, Move, Position, S, colorOf, inCheck, legalMoves, makeMove, typeOf } from '../rules/engine';
+import { A, C, G, K, Move, Position, S, colorOf, inCheck, legalMoves, makeMove, typeOf } from '../rules/engine';
 import { fromFen, toLan } from '../rules/setup';
 import { parseLan } from './tune';
 import type { Events, GameRecord } from './game';
