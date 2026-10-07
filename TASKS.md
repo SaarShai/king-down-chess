@@ -747,8 +747,8 @@
 - [x] Play improvements and compact regression coverage: guide, skills, hints, promotion, sound, explanations, drag and selected lab animations; 267 tests in 10 files pass.
 - [x] Research/document reconciliation: 21 qualified reports, 9 specs, 25 compact outputs; all 36 test candidates have final dispositions. Raw evidence remains archived.
 - [x] Production verification and final handoff: TypeScript/build, 15 clay checks and 11 adoption browser scenarios pass without errors; desktop/mobile screenshots inspected. No publication.
-- Evidence and disposition: `docs/cursor-recovery/2026-09-24-0213b442/`.
-- Current product entry point: `docs/PLAYABLE-CLAY.md`; implementation and verification: `docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`. Local preview: `http://127.0.0.1:5189/`.
+- Evidence and disposition: `dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/`.
+- Current product entry point: `docs/PLAYABLE-CLAY.md`; implementation and verification: `dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`. Local preview: `http://127.0.0.1:5189/`.
 
 ## Piece proportions — 2026-09-22
 - Owner requests Maester 50% smaller, Paladin 30% bigger and every king 20% smaller. Apply uniform size factors after the existing board fit so the width limit cannot cancel the requested change; adjust labels and ground shadows with the figures.
@@ -1032,12 +1032,12 @@ Evidence for every item lands beside it. Detailed records: `docs/takeover/`.
 - [ ] Stronger AI (see research report), online play. Stronger AI partly done 2026-10-02: power-aware net, +89 Elo without powers / +68 with (`docs/research/ai-powers-2026-10-02.md`); online play not started
 
 ## Claude local-record recovery — 2026-09-14
-- [x] Locate project sessions, Desktop metadata, memory, and related backups. Evidence: `docs/claude-recovery/README.md`.
-- [x] Verify transcript parsing and create a source inventory with explicit gaps. All 88 project JSONL files parse; `docs/claude-recovery/inventory.json` records paths and hashes.
+- [x] Locate project sessions, Desktop metadata, memory, and related backups. Evidence: `dd34fa5:docs/claude-recovery/README.md`.
+- [x] Verify transcript parsing and create a source inventory with explicit gaps. All 88 project JSONL files parse; `dd34fa5:docs/claude-recovery/inventory.json` records paths and hashes.
 
 ## Takeover review and plan — 2026-09-14 (inspection only)
-- [x] Reconcile main sessions, all 85 background-agent transcripts/results, 331 scratchpad task outputs, and queues against current files. Evidence: `docs/claude-recovery/review/TASK-LEDGER.md`, `BACKGROUND-INDEX.md`, `SPEC-INDEX.md` and JSON inventories.
-- [x] Review latest source against recorded decisions; run bounded verification without changing the published build or ongoing jobs. TypeScript clean; 149 tests pass; two focused replay/FEN reproductions; 199 source/tool/build hashes unchanged. Evidence: `docs/claude-recovery/review/VERIFICATION.md`.
+- [x] Reconcile main sessions, all 85 background-agent transcripts/results, 331 scratchpad task outputs, and queues against current files. Evidence: `dd34fa5:docs/claude-recovery/review/TASK-LEDGER.md`, `BACKGROUND-INDEX.md`, `SPEC-INDEX.md` and JSON inventories.
+- [x] Review latest source against recorded decisions; run bounded verification without changing the published build or ongoing jobs. TypeScript clean; 149 tests pass; two focused replay/FEN reproductions; 199 source/tool/build hashes unchanged. Evidence: `dd34fa5:docs/claude-recovery/review/VERIFICATION.md`.
 - [x] Write evidence-backed completion ledger, review findings, and an ordered takeover plan. Review: `docs/TAKEOVER-REVIEW-2026-09-14.md`; plan: `docs/TAKEOVER-PLAN.md`. **Implementation plan NOT STARTED**, per the owner's instruction. The inherited Q6 process remains active; new-piece chain completed after Claude stopped.
 
 ## Jev (TypeSafe) balancing review — 2026-09-17

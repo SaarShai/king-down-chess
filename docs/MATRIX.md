@@ -77,7 +77,7 @@ aside: never built, for the reason given (`PIECES-PROPOSED.md`, "Set aside").
 | Catapult | C | paused, lab piece outside `POOL` | both readings below 1.66 pawns; it never fires in 38% of games | `sim-catapult-explore-2026-09-17.md` |
 | Reaver | V | paused, lab piece outside `POOL` | the full step is overpowered (rejected); the orthogonal step (4.04 ± 0.56 pawns) does not hold its gain at depth 4 | `sim-reaver-2026-09-17.md` |
 | Templar | T | paused, lab piece outside `POOL`; rejected on measurement | 4–8% of its moves come from a capital: a weak king-stepper, draws +5 | `sim-templar-2026-09-17.md` |
-| Squire | E | paused: built in the recovered Cursor checkout, archived, not in `src/` | a reserve that adds material; defects in the recovery assessment | `cursor-recovery/2026-09-24-0213b442/ASSESSMENT.md` |
+| Squire | E | paused: built in the recovered Cursor checkout, archived, not in `src/` | a reserve that adds material; defects in the recovery assessment | `dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/ASSESSMENT.md` |
 | Shieldbearer | — | set aside | immune to shots and shields its neighbours: immunity drags games (the guard study) | `PIECES-PROPOSED.md` |
 | Necromancer | — | set aside | returns a captured piece: material that comes back lengthens games | `PIECES-PROPOSED.md` |
 | Wraith | — | set aside | moves through pieces: the paladin-through-enemies test was degenerate | `PIECES-PROPOSED.md` |

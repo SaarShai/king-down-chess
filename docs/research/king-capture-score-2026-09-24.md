@@ -1,6 +1,6 @@
 # How search scores taking the king (2026-09-24)
 
-> Recovery status, 2026-09-24: Superseded: the adopted rules and search now score a missing king as a loss, including at the capture horizon; see src/ai/terminal.test.ts. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Superseded: the adopted rules and search now score a missing king as a loss, including at the capture horizon; see src/ai/terminal.test.ts. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Context: Taking the king is legal. `status()` returns `checkmate` when the
 side to move has no king. Search does not call `status()`. King material is
