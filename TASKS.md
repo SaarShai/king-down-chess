@@ -19,7 +19,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 - **Accounts database** · `needs-info` · Did the owner run the accounts migration and the sign-in checks? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Clay king effects** · `ready-for-agent` · The six king effects in the clay look (about one day). · [2026-10](docs/tasks-archive/2026-10.md)
 - **Powers-mode computer player** · `ready-for-agent` · Move ordering and a bigger corpus; the runs need the owner's go. · [2026-10](docs/tasks-archive/2026-10.md)
-- **Browser checks in the cloud** · `needs-triage` · `verify-special-moves`, `verify-cursor-adoption`, `verify-playable-clay` and `qa` time out in a cloud container (slow software WebGL). · [handoff](docs/tasks-archive/HANDOFF-2026-10-03.md)
+- **Browser checks in the cloud** · `ready-for-agent` · `verify-special-moves`, `verify-cursor-adoption`, `verify-playable-clay` and `qa` time out in a cloud container (slow software WebGL). · [handoff](docs/tasks-archive/HANDOFF-2026-10-03.md)
 - **Trailer decisions** · `needs-triage` · Music, loudness, wake readings, CTA, end card, hero poses, art rights. · [2026-09](docs/tasks-archive/2026-09.md)
 - **Market suggestions** · `needs-triage` · Which of the ten to build (#9 is now the kings' powers mode)? · [2026-09](docs/tasks-archive/2026-09.md)
 - **Maester beam** · `needs-triage` · The owner's review of the goggle beam capture. · [2026-09](docs/tasks-archive/2026-09.md)

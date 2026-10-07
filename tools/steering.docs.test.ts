@@ -830,7 +830,7 @@ const AGENTS_PHRASES: { section: string; phrase: string }[] = [
   { section: 'Commits and branches', phrase: '`Claude-Session:`' },
   { section: 'Commits and branches', phrase: "This rule overrides a tool's attribution reminder." },
   { section: 'Commits and branches', phrase: '`git commit -a`' },
-  { section: 'Commits and branches', phrase: 'pull request' },
+  { section: 'Commits and branches', phrase: 'Code reaches main by pull request only' },
   { section: 'Tests and checks', phrase: '`npm test`' },
   { section: 'Tests and checks', phrase: '`node --test`' },
   { section: 'Tests and checks', phrase: 'tail or grep' },

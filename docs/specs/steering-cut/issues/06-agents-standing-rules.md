@@ -169,3 +169,4 @@ New rules with no old line: the neutral trailers, `git commit -a`, pull request 
 
 **Merge.** Merged into claude/retro-2026-10-06 as fd04e3f. npm test in the integration worktree: exit 0, vitest 1257 tests in 64 files, node tests 42 of 42. The Status stays ready-for-human for the owner review in story 12.
 - Review fix F23: `docs/DELEGATION.md` line 3 links to `#helpers-and-machines` and `#runs-and-compute` and states the current rule: helpers and workflows are allowed again (owner, 2026-10-06); every simulation run needs the owner's recorded go.
+- Review fix F11: the steering-lint phrase for the pull-request rule is now "Code reaches main by pull request only". Probe: with that AGENTS.md line reworded, the lint fails and names the phrase (1 failed, 49 passed); with the line restored, 50 passed.
