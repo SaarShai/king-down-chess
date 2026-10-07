@@ -166,3 +166,5 @@ The text above the first heading of the old file holds 114 words without its tit
 New rules with no old line: the neutral trailers, `git commit -a`, pull request only, `npm test` only, the three worktree lines (dev-environment/06 kept the guidance: no desktop probe has run), stop by PID, no file:// page, the 20-game smoke allowance, "A question is not a go", the quote in the QUEUE.md row, the process-environment printers, rotation, decision 11 word for word, the rendered sample, the specs folder.
 
 **For the owner (story 12).** Please read the Jev section and the Game design line on the Light and Dark kings; both are short forms of the old text. `docs/DELEGATION.md` line 3 still links to an old AGENTS.md heading (`#delegation-policy--owner-decision-2026-09-22`) and says delegation is stopped; this ticket does not own that file, and the live-file link lint does not check anchors.
+
+**Merge.** Merged into claude/retro-2026-10-06 as fd04e3f. npm test in the integration worktree: exit 0, vitest 1257 tests in 64 files, node tests 42 of 42. The Status stays ready-for-human for the owner review in story 12.
