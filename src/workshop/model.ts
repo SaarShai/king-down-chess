@@ -1,12 +1,12 @@
 /**
  * The Workshop's stored form of a piece (revision 3 §3): painted squares, lines and at most 3
- * rules. Here too: the presets (§4.7), "Paint on", Mix two (W2), the canonical key, the hard limits
- * (§4.9) and the share code. Pure, so the judge and the tests run it in Node.
+ * rules. Here too: the presets (§4.7), "Paint on", the canonical key, the hard limits (§4.9) and the
+ * share code. Pure, so the judge and the tests run it in Node.
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
 import { figureById } from './figures';
 import type { KingName } from '../rules/engine';
-import { BLOCKS, blockOf, keysAre, takesAny, whenOk } from './vocab';
+import { BLOCKS, keysAre, takesAny, whenOk } from './vocab';
 
 export type Body = 'P' | 'N' | 'B' | 'R' | 'Q' | 'A' | 'L' | 'G' | 'M' | 'S' | 'O';
 export type Mark = 'both' | 'move' | 'take' | 'shoot' | 'moveShoot';
@@ -164,25 +164,6 @@ export function limit(d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>): stri
 export const empty = (d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>): boolean =>
   !d.squares.length && !d.lines.length && !d.rules.some(r => r.does.a === 'movesLike' || r.does.a === 'step2');
 
-/* ---- Mix two (W2): the first piece's moves, body and letter, plus the second piece's rules ---- */
-
-export function mix(a: Preset, b: Preset): { design: PieceDesign; left: string[] } {
-  const d = fromPreset(a);
-  d.from = [a.key, b.key];
-  const given = b.rules.length ? b.rules
-    : [rule({ on: 'zone', zone: 'enemyHalf' }, { a: 'movesLike', as: b.key as 'knight' })];
-  const left: string[] = [];
-  for (const r of given) {
-    const next = { ...d, rules: [...d.rules, clone(r)] }, block = blockOf(r.does.a);
-    const why = d.rules.some(x => x.does.a === r.does.a) ? 'already in this piece'
-      : d.rules.length >= MAX_RULES ? 'it has 3 rules'
-      : r.does.a === 'cannotBeTaken' && r.does.by === 'allButKing' && takesAny(d) ? 'a piece that takes cannot have it'
-      : block.needs?.(d)?.replace(/\.$/, '').toLowerCase() ?? null;
-    if (why) left.push(`${block.short(r)} (${why})`);
-    else d.rules = next.rules;
-  }
-  return { design: d, left };
-}
 /** "Always" for "also moves like": the piece's squares and lines with that piece's added, or null where a square
  *  would need a shot and a take by moving at once, which a stored square cannot hold. */
 export function likeAlways(d: Pick<PieceDesign, 'squares' | 'lines'>, as: 'king' | 'knight' | 'bishop' | 'rook' | 'queen'): { squares: Square[]; lines: Dir[] } | null {
@@ -197,8 +178,6 @@ export function likeAlways(d: Pick<PieceDesign, 'squares' | 'lines'>, as: 'king'
   }
   return { squares, lines: DIRS.filter(l => d.lines.includes(l) || add.lines.includes(l)) };
 }
-/** Archer and Blank have no rules to give. */
-export const canGive = (p: Preset): boolean => p.key !== 'archer' && p.key !== 'blank';
 
 /* ---- the share code (§3.4): base64url of the canonical form, the name, the look and the letter ---- */
 

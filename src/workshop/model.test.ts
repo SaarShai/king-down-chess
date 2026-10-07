@@ -2,9 +2,9 @@
 // docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
 import { describe, expect, it } from 'vitest';
 import { judge } from './judge';
-import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, setMark, designCode, empty, fromPreset, keyOf, likeAlways, limit, mix, parseDesign, presetOf, validName, type PieceDesign, type Rule } from './model';
+import { BLANK, DIRS, KING_STEP, KNIGHT_JUMP, MAX_CODE, ORTHO, PRESETS, setMark, designCode, empty, fromPreset, keyOf, likeAlways, limit, parseDesign, presetOf, validName, type PieceDesign, type Rule } from './model';
 import { autoName, letterFollows, letterOf, saveName } from './names';
-import { describe as words, squareList } from './text';
+import { describe as words } from './text';
 import { BLOCKS, blockOf, validDoes, whenOk } from './vocab';
 import { KEY, loadDesigns } from './store';
 
@@ -109,15 +109,6 @@ describe('validation (§8.4.8, §4.9)', () => {
     expect(bec.whens({ on: 'always' })).toBe(false);
   });
 
-  it('mixes two pieces: Knight + Guard leaves the immunity out (W2)', () => {
-    const { design, left } = mix(presetOf('knight'), presetOf('guard'));
-    expect(design.rules).toEqual([]);
-    expect(left).toEqual(['only a king can take it (a piece that takes cannot have it)']);
-    const nr = mix(presetOf('knight'), presetOf('rook')).design;
-    expect(nr.rules).toEqual([{ when: { on: 'zone', zone: 'enemyHalf' }, does: { a: 'movesLike', as: 'rook' } }]);
-    expect(nr.from).toEqual(['knight', 'rook']);
-  });
-
   it('"Always" for "also moves like" keeps every move and take, or is not offered', () => {
     const plain = { squares: [{ x: 0, y: 1, mark: 'move' as const }, { x: 1, y: 1, mark: 'take' as const }], lines: [], rules: [] };
     expect(likeAlways(plain, 'king')!.squares.find(s => s.x === 1 && s.y === 1)!.mark).toBe('both');
@@ -152,9 +143,7 @@ describe('validation (§8.4.8, §4.9)', () => {
     expect(loadDesigns({ getItem: k => m.get(k) ?? null, setItem: () => {} }).map(x => [x.id, x.look.glow])).toEqual([['g1', 'Flame']]);
   });
 
-  it('lists every square exactly, for the saved card', () => {
-    const l = squareList({ squares: [{ x: 1, y: 2, mark: 'both' }, { x: -1, y: 2, mark: 'shoot' }], lines: ['n'] });
-    expect(l).toEqual(['2 forward, 1 left: shoot', '2 forward, 1 right: move and take', 'Slides straight ahead']);
+  it('describes many squares in words, with no picture', () => {
     const many = { squares: [...KING_STEP('both'), ...KNIGHT_JUMP().slice(0, 3), { x: 3, y: 3, mark: 'move' as const }, { x: 0, y: 2, mark: 'move' as const }], lines: [], rules: [] };
     expect(words(many).moves).not.toMatch(/picture/);
   });

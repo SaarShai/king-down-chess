@@ -81,17 +81,9 @@ const jumps = (s: Square): boolean => Math.max(Math.abs(s.x), Math.abs(s.y)) > 1
 
 /* ---- every square, exactly ---- */
 
-export const MARK_WORDS: Record<Square['mark'], string> = { both: 'move and take', move: 'move', take: 'take', shoot: 'shoot', moveShoot: 'move or shoot' };
 /** "2 up, 1 right": the editor's board labels (forward is up). */
 export const dirWords = (x: number, y: number): string =>
   [y > 0 ? `${y} up` : y < 0 ? `${-y} down` : '', x > 0 ? `${x} right` : x < 0 ? `${-x} left` : ''].filter(Boolean).join(', ');
-/** Each painted square and the lines, in words: what the saved card's picture shows, for any reader. */
-export function squareList(d: Pick<PieceDesign, 'squares' | 'lines'>): string[] {
-  const at = (x: number, y: number): string =>
-    [y > 0 ? `${y} forward` : y < 0 ? `${-y} back` : '', x > 0 ? `${x} right` : x < 0 ? `${-x} left` : ''].filter(Boolean).join(', ');
-  return [...[...d.squares].sort((a, b) => b.y - a.y || a.x - b.x).map(s => `${at(s.x, s.y)}: ${MARK_WORDS[s.mark]}`),
-    ...(d.lines.length ? [cap(lineWords(DIRS.filter(l => d.lines.includes(l))))] : [])];
-}
 
 /* ---- rule sentences ---- */
 

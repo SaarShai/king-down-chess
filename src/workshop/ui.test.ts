@@ -3,10 +3,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { figureHtml, gaugeHtml, modelHtml } from './art';
-import { figureById } from './figures';
+import { figureById, selectedFigure } from './figures';
 import { judge, whyHead } from './judge';
-import { CRIMSON, lookOf, lookWords } from './look';
-import { BLANK, ORTHO, PRESETS, fromPreset, presetOf, type PieceDesign, type Rule, type When } from './model';
+import { lookOf, lookWords } from './look';
+import { BLANK, PRESETS, fromPreset, presetOf, type PieceDesign, type Rule, type When } from './model';
 import { KEY, MAX, deleteDesign, loadDesigns, loadShelf, saveDesign } from './store';
 import { describe as words, esc, ruleText } from './text';
 import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS } from './vocab';
@@ -14,7 +14,6 @@ import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS } from './vocab';
 const chain: Rule = { when: { on: 'takes' }, does: { a: 'chain' } };
 const noKing: Rule = { when: { on: 'always' }, does: { a: 'cannotTake', what: 'king' } };
 const rook = (...rules: Rule[]): PieceDesign => ({ ...fromPreset(presetOf('rook')), rules, letter: 'D' });
-const look = (d: PieceDesign) => lookOf(d, judge(d));
 
 /** Every rule of every block, with every pill value and every When it allows. */
 const ALL_RULES: Rule[] = BLOCKS.flatMap(b => [...TOP_WHENS, ...MORE_WHENS, ...EVENT_WHENS, { on: 'takes' } as When].filter(b.whens)
@@ -71,9 +70,9 @@ describe('vocab (§8.4.10)', () => {
 
 describe('art (§8.4.11)', () => {
   it('draws the card: the bare figure and the thermometer', () => {
-    const l = look(rook(chain));
+    const l = lookOf(rook(chain));
     // The artwork stands alone, even for a saved design with a glow.
-    const m = modelHtml(look({ ...rook(chain), look: { ...rook().look, glow: 'Flame' } }));
+    const m = modelHtml(lookOf({ ...rook(chain), look: { ...rook().look, glow: 'Flame' } }));
     expect(m).toBe(`<div class="ws-model ws-bare"><img class="ws-fig" src="/ui/workshop/${l.figure}-w.webp" alt="" decoding="async" /></div>`);
     expect(figureHtml({ figure: l.figure, army: 1 }, 'tb-me')).toBe(`<img class="tb-me" src="/ui/workshop/${l.figure}-b.webp" alt="" decoding="async" />`);
     const g = gaugeHtml(judge(presetOf('rook')));
@@ -88,24 +87,17 @@ describe('art (§8.4.11)', () => {
     expect(said('knight')).toBe('about 3½ pawns, fair');
   });
 
-  it('dresses the model from the verdict (lookOf)', () => {
-    const r = look(rook());
-    expect([r.metal, r.cracks]).toEqual(['gold', 'none']);
-    const c = look(rook(chain));
-    expect([c.metal, c.cracks, c.rim, c.chain]).toEqual(['cracked', 'cracked', CRIMSON, true]);
-    const n = look(rook(chain, noKing));
-    expect([n.metal, n.noTake]).toEqual(['hairline', 'king']);
-    expect(look({ ...fromPreset(presetOf('guard')), letter: 'D' }).sheathed).toBe(true);
-    const t = look({ ...fromPreset(BLANK), squares: presetOf('maester').squares, rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }], letter: 'D' });
-    expect([t.body, t.ghost, t.zone, t.ghostLines.length]).toEqual(['M', 'Q', 'capital', 8]);
-    expect(t.marks.every(m => !m.hatched)).toBe(true);
-    expect(look({ ...rook(), lines: [...ORTHO].slice(0, 2) }).lines).toEqual(['n', 'e']);
+  it('shows the bare figure on the card, whatever the verdict or the rules say', () => {
+    const guard = { ...fromPreset(presetOf('guard')), letter: 'D' };
+    const likeQueen = { ...fromPreset(BLANK), squares: presetOf('maester').squares, rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } } as Rule], letter: 'D' };
+    for (const d of [rook(), rook(chain), rook(chain, noKing), guard, likeQueen])
+      expect(modelHtml(lookOf(d))).toBe(`<div class="ws-model ws-bare"><img class="ws-fig" src="/ui/workshop/${selectedFigure(d).id}-w.webp" alt="" decoding="async" /></div>`);
   });
 
   it('names in the hidden summary only what the card shows', () => {
-    const l = look({ ...rook(chain), look: { ...rook().look, glow: 'Flame', army: 1 } });
+    const l = lookOf({ ...rook(chain), look: { ...rook().look, glow: 'Flame', army: 1 } });
     expect(lookWords(l)).toBe(`${figureById(l.figure)!.name} look, charcoal.`);
-    for (const d of [rook(), rook(chain), rook(chain, noKing)]) expect(lookWords(look(d))).not.toMatch(/plinth|floor|rim|glow|crack/i);
+    for (const d of [rook(), rook(chain), rook(chain, noKing)]) expect(lookWords(lookOf(d))).not.toMatch(/plinth|floor|rim|glow|crack/i);
   });
 });
 

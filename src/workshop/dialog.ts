@@ -189,7 +189,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
       + `</div><button type="button" class="ws-surprise">${DIE}<span>Surprise me</span></button>`
       + `<h3>Your designs (${list.length}), on this device</h3>`
       + (list.length ? `<div class="ws-shelf">${list.map((d, i) => { const jv = judge(d, false); return `<button type="button" class="ws-tile${jv.warn ? ' warn' : ''}" data-i="${i}">`
-        + `<span class="ws-tile-art" aria-hidden="true">${modelHtml(lookOf(d, jv))}</span><b>${esc(d.name)}</b><small>${shelfOf(jv)}</small></button>`; }).join('')}</div>`
+        + `<span class="ws-tile-art" aria-hidden="true">${modelHtml(lookOf(d))}</span><b>${esc(d.name)}</b><small>${shelfOf(jv)}</small></button>`; }).join('')}</div>`
         : '<p class="ws-empty">Your pieces will appear here. They are saved on this device.</p>')
       + (bad ? `<p class="ws-note">${bad === 1 ? '1 saved entry' : `${bad} saved entries`} could not be read. ${bad === 1 ? 'It stays' : 'They stay'} on this device; the other designs work.</p>` : '')
       + '</div>';
@@ -339,7 +339,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   function update(first: boolean, noise?: () => void): void {
     cancel(screenEl);
     v = judge(cur);
-    const l = lookOf(cur, v), d = describe(cur), w = v.worth.point;
+    const l = lookOf(cur), d = describe(cur), w = v.worth.point;
     put(q('.ws-model-box'), modelHtml(l));
     const nameRow = q('.ws-name-row');
     if (!q('input', nameRow) && put(nameRow, `<span class="ws-name-t">${esc(cur.name)}</span><button type="button" class="quiet ws-name" aria-label="Change name"${fromLink ? ' disabled' : ''}>${PEN}</button><button type="button" class="quiet ws-eye" aria-label="Choose appearance" aria-expanded="${!q<HTMLElement>('.ws-appearance').hidden}"${fromLink ? ' hidden' : ''}>${icon('M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0')}</button>`)) {

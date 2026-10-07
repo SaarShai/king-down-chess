@@ -245,7 +245,6 @@ export function memoryOf(d: D): { points: number; level: 0 | 1 | 2 | 3; rules: n
   }
   return { points: pts, level: pts <= 2 ? 0 : pts <= 3.5 ? 1 : pts <= 5 ? 2 : 3, rules: d.rules.length, exceptions };
 }
-export const LEARN_LINE = ['Easy to learn', 'One thing to learn', 'Needs a picture', 'Possibly hard to remember'] as const;
 
 /* ---- the like line and Auto look (§6.7) ---- */
 
@@ -263,8 +262,6 @@ function partsOf(d: D): Map<string, number> {
 const shared = (a: Map<string, number>, b: Map<string, number>): number => [...a].reduce((s, [k, w]) => s + (b.has(k) ? w : 0), 0);
 let presetWorth: { key: string; name: string; w: number; parts: Map<string, number> }[] | undefined;
 const pool = () => (presetWorth ??= PRESETS.map(p => ({ key: p.key, name: p.key, w: worthOf(p), parts: partsOf(p) })));
-/** The formula worth of each pool preset (the gauge landmarks and the like line). */
-export const presetWorths = (): Record<string, number> => Object.fromEntries(pool().map(p => [p.key, p.w]));
 
 export function likeLine(w: number, d: D): string {
   if (w >= THRESHOLDS.queen) return 'About a queen.';

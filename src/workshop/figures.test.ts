@@ -45,7 +45,7 @@ describe('Workshop cast', () => {
       expect(validStored(d)).toBe(true);
       const back = parseDesign(designCode(d))!;
       expect(back.look.figure).toBe(f.id);
-      expect(modelHtml(lookOf(back, judge(back)))).toContain(`/ui/workshop/${f.id}-b.webp`);
+      expect(modelHtml(lookOf(back))).toContain(`/ui/workshop/${f.id}-b.webp`);
     }
     d.look.figure = '../unknown';
     expect(validStored(d)).toBe(false);

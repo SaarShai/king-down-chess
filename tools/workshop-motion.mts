@@ -29,7 +29,7 @@ function dataUri(path: string): string {
 }
 const chain: Rule = { when: { on: 'takes' }, does: { a: 'chain' } };
 const design = (key: string, f: (d: PieceDesign) => void = () => {}): PieceDesign => { const d = fromPreset(presetOf(key)); d.letter = 'D'; f(d); return d; };
-const state = (d: PieceDesign) => { const v = judge(d); return { model: modelHtml(lookOf(d, v)), gauge: gaugeHtml(v, true), worth: `About ${pawns(v.worth.point)} · ${BAND_WORD[v.label]}`, op: /OP/.test(v.label) }; };
+const state = (d: PieceDesign) => { const v = judge(d); return { model: modelHtml(lookOf(d)), gauge: gaugeHtml(v, true), worth: `About ${pawns(v.worth.point)} · ${BAND_WORD[v.label]}`, op: /OP/.test(v.label) }; };
 const ART: Record<Body, string> = { P: 'pawn', N: 'knight', B: 'bishop', R: 'rook', Q: 'queen', A: 'archer', L: 'paladin', G: 'guard', M: 'maester', S: 'beast', O: 'ogre' };
 /** The figure's own gait as in-place keyframes: lift, squash and tilt about the feet, no travel. */
 function bob(body: Body) {

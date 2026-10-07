@@ -46,5 +46,3 @@ export const letterOf = (name: string): string => [...name.toUpperCase()].find(c
 /** The letter follows the name until the player taps it. A design saved before `ownLetter`: while it matches the name. */
 export const letterFollows = (d: Pick<PieceDesign, 'name' | 'letter' | 'ownLetter'>): boolean =>
   !d.letter || (d.ownLetter === undefined ? d.letter === letterOf(d.name) : !d.ownLetter);
-/** A tap on the letter steps to the next free one. */
-export const nextLetter = (l: string): string => FREE_LETTERS[(FREE_LETTERS.indexOf(l) + 1) % FREE_LETTERS.length];
