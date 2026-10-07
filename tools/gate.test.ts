@@ -1,9 +1,9 @@
-// Repo gate test (secrets-and-public-gates/04, 05 and 06): the size, private and secret rules in
-// `staged` and `push` mode. Each commit case drives the real pre-commit hook through `git commit`, and each push
-// case drives the real pre-push hook through `git push`, in a temporary repository with a bare
-// remote. The package `gate` script starts the real gate.
+// Repo gate test (secrets-and-public-gates/04 to 07): the size, private and secret rules in
+// `staged` and `push` mode, and the secret scan of `history` mode. Each commit case drives the
+// real pre-commit hook through `git commit`, and each push case drives the real pre-push hook
+// through `git push`, in a temporary repository with a bare remote. The package `gate` script starts the real gate.
 import { randomUUID } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { tempRepo } from './lib/temp-repo.mjs';
@@ -488,5 +488,72 @@ describe('secret rule', { timeout: 30_000 }, () => {
     expect(result.status).toBe(2);
     expect(result.stderr.trim()).toBe('gate: fault: secrets: .secrets/oauth.json: cannot read (not valid JSON)');
     silent(result, token);
+  });
+
+  describe('history mode', () => {
+    const history = (repo: Repo) => repo.run('node', [gatePath, 'history']);
+    const reported = (result: { stdout: string }) => result.stdout.split('\n').filter(Boolean);
+    /** Makes a branch from main with the commits of `steps`, then goes back to main. */
+    const branch = (repo: Repo, name: string, steps: [message: string, path: string, text: string][]) => {
+      expect(repo.git('switch', '-q', '-c', name).status).toBe(0);
+      for (const [message, path, text] of steps) { repo.write(path, text); commitPast(repo, message, path); }
+      expect(repo.git('switch', '-q', 'main').status).toBe(0);
+    };
+
+    it('finds a value in an old commit and in a message on a remote branch that is not main: exit 1, one line per secret file', () => {
+      const repo = seeded();
+      const token = fake(), client = fake(), key = fake();
+      sources(repo, {
+        kaggle_api_token: `${token}\n`,
+        'oauth.json': JSON.stringify({ client_secret: client }),
+        'porkbun_api.json': JSON.stringify({ username: 'not a secret' }),
+      }, key);
+      branch(repo, 'side', [['add', 'old.txt', `${token}\n`], ['clean', 'old.txt', 'clean\n'], [`a message with ${key}`, 'c.txt', 'c\n']]);
+      expect(repo.git('push', '-q', '--no-verify', 'origin', 'side').status).toBe(0);
+      expect(repo.git('branch', '-q', '-D', 'side').status).toBe(0);
+      const result = history(repo);
+      expect(result.status, result.stderr).toBe(1);
+      expect(reported(result)).toEqual([
+        '.secrets/kaggle_api_token: found',
+        '.secrets/oauth.json: not found',
+        '.secrets/porkbun_api.json: not found',
+        'typesafe key: found',
+      ]);
+      expect(result.stderr).toBe('');
+      silent(result, token, client, key, 'old.txt', 'c.txt');
+    });
+
+    it('a value only in a local branch that no origin ref reaches gives "not found" and exit 0', () => {
+      const repo = seeded();
+      const token = fake(), key = fake();
+      sources(repo, { kaggle_api_token: token }, key);
+      branch(repo, 'local', [['add', 'leak.txt', token], [`a message with ${key}`, 'c.txt', 'c\n']]);
+      const result = history(repo);
+      expect(result.status, result.stderr).toBe(0);
+      expect(reported(result)).toEqual(['.secrets/kaggle_api_token: not found', 'typesafe key: not found']);
+      expect(result.stderr).toBe('');
+      silent(result, token, key);
+    });
+
+    it('a corrupt repository input gives exit 2 and one fault line: an object that origin reaches is missing, or no origin ref', () => {
+      const repo = seeded();
+      const token = fake();
+      sources(repo, { kaggle_api_token: token });
+      repo.write('data.txt', 'data\n');
+      commitPast(repo, 'data', 'data.txt');
+      expect(repo.git('push', '-q', '--no-verify', 'origin', 'main').status).toBe(0);
+      const blob = repo.git('rev-parse', 'HEAD:data.txt').stdout.trim();
+      rmSync(join(repo.dir, '.git', 'objects', blob.slice(0, 2), blob.slice(2)));
+      const empty = make();
+      sources(empty, { kaggle_api_token: token });
+      for (const result of [history(repo), history(empty)]) {
+        expect(result.status).toBe(2);
+        expect(result.stdout).toBe('');
+        expect(result.stderr.trim().split('\n')).toHaveLength(1);
+        expect(result.stderr).toMatch(/^gate: fault: /);
+        silent(result, token);
+      }
+      expect(history(empty).stderr).toContain('origin');
+    });
   });
 });
