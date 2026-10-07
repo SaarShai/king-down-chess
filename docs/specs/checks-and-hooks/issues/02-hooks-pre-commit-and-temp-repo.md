@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `.githooks/pre-commit` and its Node script, `tools/gate.mjs` (the stub), `package.json` (scripts `prepare` and `gate`), `tools/lib/temp-repo.mjs`, `tools/git-hooks/pre-commit.test.ts`, `tools/git-hooks/fixtures/**`
 
