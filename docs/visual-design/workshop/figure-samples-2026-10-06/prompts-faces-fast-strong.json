@@ -1,0 +1,186 @@
+{
+  "tool": "built-in image_gen.imagegen",
+  "user_request": "try with less defined/human faces. more minimalist faces.",
+  "source_files_untouched": true,
+  "final_copies_owned_by": "root agent",
+  "checks_method": "Visual inspection of source and generated images. Read-only PIL metadata and alpha histogram checks; no scripted raster edits.",
+  "assets": [
+    {
+      "name": "fast",
+      "original": "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/fast.png",
+      "selected_output": "/Users/za/.codex/generated_images/01a11115-193e-73a0-aaf9-8a0a2fe5e731/exec-a4f509f2-bd21-40fe-99ae-1dc5051add24.png",
+      "ivory_head_rect_original": [
+        272,
+        116,
+        281,
+        205
+      ],
+      "ivory_head_rect_final": [
+        258,
+        76,
+        298,
+        229
+      ],
+      "visual_result": "Broad smooth skin-colored face, tiny vertical dark eye marks, no detailed portrait features or mouth. Hair/army palettes, twin swords and body design remain recognizable. Both complete figures and all four weapons visible.",
+      "material_unintended_changes": "Whole figures enlarged/re-registered modestly: ivory hair top moved from about y=122 to y=83; left sword tip from x=102 to x=70. Face silhouette is smoother/flatter than original. Other details are similar but not pixel-identical.",
+      "attempts": [
+        {
+          "attempt": 1,
+          "prompt": "Use case: precise-object-edit.\nEdit target: the supplied Fast chess-piece paired sheet.\nChange ONLY the faces of both matching figures to be much less defined and much less human: abstract painted miniature/token faces, smooth broad skin-colored painted areas, just two tiny dark dash eye marks, a nose barely suggested by the outer facial contour, and no visible mouth or lips. Remove the realistic portrait anatomy, expressive brows, pupils, irises, eyelashes, nostril detail, defined lips and facial microshading. These should read as restrained miniature board-game faces at small size, not as portraits. Keep the face as a simple unmasked face in the existing skin color. No new mask or helmet, no large cartoon eyes, no smile.\nPreserve the original hair silhouette, ponytails, ribbons, head size and direction, ears and skin palette. Preserve every body, pose, hand, costume, armor, fabric, weapon, outline, highlight, ivory-left/charcoal-right army coloration and placement exactly. Do not simplify any other part of the art. Keep all four swords completely visible. Same 1536 by 1024 landscape paired sheet and exact original composition, two complete separate full-body figures, no crop. Genuinely transparent RGBA background with no painted backdrop or glow.",
+          "input": "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/fast.png",
+          "output": "/Users/za/.codex/generated_images/01a11115-193e-73a0-aaf9-8a0a2fe5e731/exec-a4f509f2-bd21-40fe-99ae-1dc5051add24.png",
+          "selected": true,
+          "metadata": {
+            "size": [
+              1536,
+              1024
+            ],
+            "mode": "RGBA",
+            "alpha_extrema": [
+              0,
+              254
+            ],
+            "alpha_bbox": [
+              41,
+              57,
+              1513,
+              984
+            ],
+            "fully_transparent_pixels": 1091699
+          }
+        },
+        {
+          "attempt": 2,
+          "prompt": "Use case: precise-object-edit.\nEdit target: the supplied original Fast chess-piece paired sheet.\nLOCAL FACE EDIT ONLY. On both figures replace realistic facial features with restrained abstract miniature faces. Use the existing skin color in broad smooth painted areas. Each eye is a very tiny short dark horizontal dash, without eye whites, pupil, iris, eyelashes, distinct expressive eyebrows or eyelid detail. Remove defined lips and mouth lines, wrinkles and facial microshading. The nose is barely suggested only by the EXISTING outer face contour and a very soft broad plane. Preserve the original natural head/face silhouette; do NOT lengthen the face, flatten it into a mask, add a mask or cover it, or use large cartoon eyes. It should look like a painted miniature person with deliberately minimal facial marks.\nKeep exact original geometry and framing: every pixel outside the two facial areas should remain as close to unchanged as possible. Lock head size and direction, hair and ponytail silhouettes, ears, all ribbons and colors, figure size and locations. Preserve exact body, pose, hands, clothing, armor, belts, highlights, outlines, boots and every sword. Do not regenerate or enlarge the figures. The ivory hair top stays near y=120, left boots near y=920, and the leftmost blade tip near x=102; charcoal figure stays in its original matching location. Ivory army left, charcoal army right. Identical 1536 by 1024 landscape paired sheet, both complete full-body figures and all four complete swords, same margins. Genuinely transparent RGBA background. No crop, no new object, no backdrop.",
+          "input": "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/fast.png",
+          "output": "/Users/za/.codex/generated_images/01a11115-193e-73a0-aaf9-8a0a2fe5e731/exec-6a68c2e6-4971-42b2-b5db-9f39781ec7ca.png",
+          "selected": false,
+          "reason": "More scale/framing drift than attempt 1.",
+          "ivory_head_rect": [
+            244,
+            48,
+            318,
+            240
+          ],
+          "metadata": {
+            "size": [
+              1536,
+              1024
+            ],
+            "mode": "RGBA",
+            "alpha_extrema": [
+              0,
+              254
+            ],
+            "alpha_bbox": [
+              51,
+              19,
+              1536,
+              998
+            ],
+            "fully_transparent_pixels": 1037419,
+            "edge_alpha_max": [
+              0,
+              0,
+              0,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "strong",
+      "original": "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/strong.png",
+      "selected_output": "/Users/za/.codex/generated_images/01a11115-193e-73a0-aaf9-8a0a2fe5e731/exec-614471fa-b5fd-42bc-a9ba-0693f7728db2.png",
+      "ivory_head_rect_original": [
+        291,
+        157,
+        275,
+        204
+      ],
+      "ivory_head_rect_final": [
+        243,
+        109,
+        322,
+        236
+      ],
+      "visual_result": "Ram faces reduced to smooth broad planes and single small dark eye dashes; muzzle, horns and animal identity preserved. Ivory/charcoal armor palette and red studs retained. All figure edges visible.",
+      "material_unintended_changes": "Transparent second attempt enlarged both figures substantially relative to original; horns start near y=117 versus original y=166, hooves near y=945 versus original y=885. All still complete with transparent gutters. Slight changes to shoulder/body details and finish.",
+      "attempts": [
+        {
+          "attempt": 1,
+          "prompt": "Use case: precise-object-edit.\nEdit target: the supplied Strong chess-piece paired sheet with two armored rams.\nChange ONLY facial rendering inside the ram face on each figure. Make both ram faces more minimalist and abstract, like a painted board-game miniature: smooth broad ivory or charcoal painted facial areas, each visible eye just one tiny dark horizontal dash with no iris, pupil, white, eyelid or expression. Simplify the nose and mouth into minimal soft contour suggestions without anatomical detail or textured cheek fur. Keep the distinctly ram-shaped projecting muzzle, ears, and curled horns unchanged. This is still a ram, never a human face or a mask.\nLock all geometry and framing to the supplied image: preserve exact horn/head silhouettes, size, direction, locations and palette. Preserve body, pose, hands, hooves, armor, gloves, belts, red studs, outlines, surface texture and highlights everywhere outside the facial areas. Ivory army figure on left and charcoal army figure on right; same two complete separate full-body figures with all edges visible. The heads, hooves and hands must remain at the same pixel positions and scale. Same 1536 by 1024 transparent RGBA landscape sheet, identical composition. No crop, no text, no additions, no backdrop or glow.",
+          "input": "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/strong.png",
+          "output": "/Users/za/.codex/generated_images/01a11115-193e-73a0-aaf9-8a0a2fe5e731/exec-4bee0ef0-dade-4a44-a018-83d9bc9f8247.png",
+          "selected": false,
+          "reason": "Excellent geometry preservation and face edit, but failed full transparency: all pixels retained some alpha.",
+          "ivory_head_rect": [
+            291,
+            157,
+            275,
+            204
+          ],
+          "metadata": {
+            "size": [
+              1536,
+              1024
+            ],
+            "mode": "RGBA",
+            "alpha_extrema": [
+              1,
+              253
+            ],
+            "alpha_bbox": [
+              0,
+              0,
+              1536,
+              1024
+            ],
+            "fully_transparent_pixels": 0,
+            "edge_alpha_max": [
+              136,
+              166,
+              76,
+              117
+            ]
+          }
+        },
+        {
+          "attempt": 2,
+          "prompt": "Use case: background-extraction.\nEdit target: the supplied paired Strong armored-ram sheet, whose minimalist faces are already approved for this edit.\nRemove ONLY the entire background. Preserve both existing complete figures exactly, including the simple tiny dash eyes, smooth miniature faces, ram muzzles, curled horns, heads, armor, fists, bodies, belts, hooves, outlines, colors, highlights and all geometry. Keep exact scale and pixel placement. Ivory figure left and charcoal figure right.\nThe space outside each character silhouette MUST be fully transparent (alpha 0), including the space between their legs and around their arms. Remove every part of the black/brown/gray background, halo, glow, vignette and shadow outside the silhouettes. Do not paint any replacement background. No fake checkerboard, no opaque or semitransparent backdrop, no ground shadow. The final image is a clean genuine transparent RGBA cutout sheet, 1536 by 1024, with both unchanged full figures at identical positions and enough transparent gutters. Do not redesign or re-render the figures.",
+          "input": "/Users/za/.codex/generated_images/01a11115-193e-73a0-aaf9-8a0a2fe5e731/exec-4bee0ef0-dade-4a44-a018-83d9bc9f8247.png",
+          "output": "/Users/za/.codex/generated_images/01a11115-193e-73a0-aaf9-8a0a2fe5e731/exec-614471fa-b5fd-42bc-a9ba-0693f7728db2.png",
+          "selected": true,
+          "metadata": {
+            "size": [
+              1536,
+              1024
+            ],
+            "mode": "RGBA",
+            "alpha_extrema": [
+              0,
+              254
+            ],
+            "alpha_bbox": [
+              41,
+              65,
+              1457,
+              992
+            ],
+            "fully_transparent_pixels": 928303,
+            "edge_alpha_max": [
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "blockers": [
+    "Exact original composition not preserved by built-in edits; per task's two-attempt cap no further attempts made."
+  ]
+}

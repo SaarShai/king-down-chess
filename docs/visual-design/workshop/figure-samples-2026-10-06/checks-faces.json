@@ -1,0 +1,202 @@
+{
+  "assets": [
+    {
+      "file": "fast-minimal.png",
+      "sha256": "2d1fb68e03b645283f1e25466628a7fb286a0f5dd2b4b9347b25dcb00b882350",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "fullyTransparentPixels": 1091699,
+      "visibleBoundsAlpha8": [
+        67,
+        80,
+        1511,
+        944
+      ]
+    },
+    {
+      "file": "strong-minimal.png",
+      "sha256": "02c77730147ab2b9e77055db84914ec44cddc113bf397dc95013f17e3ea9e709",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "fullyTransparentPixels": 928303,
+      "visibleBoundsAlpha8": [
+        70,
+        113,
+        1455,
+        950
+      ]
+    },
+    {
+      "file": "ranged-minimal.png",
+      "sha256": "7735c9ba01f12c3b7f3fe0b47323a699bb5877dcdaa47a4c23019c3acf469140",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "fullyTransparentPixels": 1083255,
+      "visibleBoundsAlpha8": [
+        174,
+        76,
+        1437,
+        953
+      ]
+    },
+    {
+      "file": "magic-minimal.png",
+      "sha256": "8a0079860851d1f9eb343bbf83f158336af9b95f399b4ec5bcbb41e745f20d03",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "fullyTransparentPixels": 1009086,
+      "visibleBoundsAlpha8": [
+        106,
+        84,
+        1418,
+        944
+      ]
+    },
+    {
+      "file": "support-minimal.png",
+      "sha256": "e02a3763d2be66a7e3e73cdffc6220ae7d52f16b1e874311b1a60cb2ea0b912a",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "fullyTransparentPixels": 1058197,
+      "visibleBoundsAlpha8": [
+        183,
+        16,
+        1504,
+        994
+      ]
+    },
+    {
+      "file": "mixed-minimal.png",
+      "sha256": "64da5867a654bef5833d63cb85dcf9b9182d325f496f194c2956543471802702",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "fullyTransparentPixels": 1014761,
+      "visibleBoundsAlpha8": [
+        23,
+        21,
+        1510,
+        987
+      ]
+    }
+  ],
+  "method": "Built-in image_gen edits only, originals retained, no raster postprocessing",
+  "review": "Six paired figure sheets visually inspected. Faces simplified; full figures and equipment remain. Fast and Strong are larger in the frame; other edits also have minor redraw differences. These are style trials, not pixel-identical local retouches.",
+  "headWindows": {
+    "ranged": [
+      [
+        330,
+        145,
+        185,
+        165
+      ],
+      [
+        330,
+        145,
+        185,
+        165
+      ]
+    ],
+    "magic": [
+      [
+        315,
+        205,
+        195,
+        160
+      ],
+      [
+        315,
+        205,
+        195,
+        160
+      ]
+    ],
+    "support": [
+      [
+        320,
+        285,
+        215,
+        190
+      ],
+      [
+        320,
+        285,
+        215,
+        190
+      ]
+    ],
+    "mixed": [
+      [
+        375,
+        95,
+        235,
+        190
+      ],
+      [
+        375,
+        95,
+        235,
+        190
+      ]
+    ],
+    "fast": [
+      [
+        272,
+        116,
+        281,
+        205
+      ],
+      [
+        258,
+        76,
+        298,
+        229
+      ]
+    ],
+    "strong": [
+      [
+        291,
+        157,
+        275,
+        204
+      ],
+      [
+        243,
+        109,
+        322,
+        236
+      ]
+    ]
+  },
+  "browserReview": {
+    "desktop": {
+      "width": 1280,
+      "height": 720,
+      "horizontalOverflow": false,
+      "allImagesLoaded": true
+    },
+    "narrow": {
+      "width": 466,
+      "height": 985,
+      "horizontalOverflow": false,
+      "allImagesLoaded": true
+    }
+  }
+}

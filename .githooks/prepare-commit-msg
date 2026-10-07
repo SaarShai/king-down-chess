@@ -1,0 +1,5 @@
+#!/bin/sh
+# Git starts this launcher. It adds the Homebrew node folders to PATH, then starts the Node script.
+PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
+export PATH
+exec node "$(dirname "$0")/prepare-commit-msg.mjs" "$@"

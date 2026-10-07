@@ -1,20 +1,17 @@
 // Lessons must never replace the live match, including its rules and link-side restriction.
-// PLAYABLE_URL=http://127.0.0.1:5189/ node tools/verify-lesson-return.mjs
-import { chromium } from 'playwright';
+// Run: npm run check:browser lesson-return (it builds and serves the app; the settings are in tools/lib/checks.mjs).
+// Output in PLAYABLE_OUT: lesson-return-desktop.png and lesson-return-phone.png.
 import assert from 'node:assert/strict';
-import { mkdirSync } from 'node:fs';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 
-const base = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
-const out = process.env.PLAYABLE_OUT || 'docs/painted-game';
-mkdirSync(out, { recursive: true });
-const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
-const errors = [];
+const base = env('PLAYABLE_URL');
+const browser = await launch();
 try {
   for (const look of ['painted', 'clay']) for (const phone of [false, true]) {
     const page = await browser.newPage({ viewport: phone ? { width: 390, height: 844 } : { width: 1280, height: 900 }, hasTouch: phone });
     await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
-    page.on('pageerror', e => errors.push(e.message));
+    trapErrors(page);
     const url = new URL(base);
     url.search = new URLSearchParams({ look, rules: '2021', army: 'RNBQKBNR', moves: 'e2-e4_e7-e5' });
     await page.goto(url.href);
@@ -48,7 +45,7 @@ try {
       const bounds = await page.locator('#return-game').boundingBox();
       assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= page.viewportSize().height);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no horizontal overflow');
-      await page.screenshot({ path: `${out}/lesson-return-${phone ? 'phone' : 'desktop'}.png` });
+      await shot(page, `lesson-return-${phone ? 'phone' : 'desktop'}`);
     }
     await page.click('#return-game');
     assert.equal(await saved(), before, 'return restores moves, rules, players and link side');
@@ -78,5 +75,5 @@ try {
     console.log(`ok ${look} ${phone ? 'phone' : 'desktop'}: lesson save protection, return, rules, new game`);
     await page.close();
   }
-  assert.deepEqual(errors, []);
+  assertNoErrors();
 } finally { await browser.close(); }

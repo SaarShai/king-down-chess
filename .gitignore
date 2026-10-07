@@ -1,7 +1,7 @@
 # Local secrets (the Kaggle token): never commit.
 /.secrets/
 
-node_modules/
+/node_modules
 dist/
 .DS_Store
 
@@ -28,6 +28,18 @@ dist/
 # Original King Down art for the trailer; card illustration rights unconfirmed (docs/trailer/PLAN.md)
 docs/trailer/assets/
 
-# Local agent worktrees
+# Local agent worktrees, and the file that names the worktree that `tools/wt.sh serve` previews
 /.claude/worktrees/
+/.claude/preview-target
+# Local preview pages (the `previews` launch entry)
+/sim/out/previews/
 /sim/nnue-powers/*.bin
+
+# Session transcripts: removed from the tree (secrets-and-public-gates/11); history keeps them.
+/docs/claude-recovery/
+/docs/cursor-recovery/
+# Workshop figure rounds stay on disk; git tracks only the figure samples folder.
+/docs/visual-design/workshop/figure-batch-*/
+/docs/visual-design/workshop/figure-final-run/
+/docs/visual-design/workshop/figure-swarms/
+/docs/visual-design/workshop/figures-*/

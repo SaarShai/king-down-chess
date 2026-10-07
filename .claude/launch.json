@@ -55,16 +55,11 @@
       "port": 5310
     },
     {
-      "name": "workshop",
-      "runtimeExecutable": "npx",
+      "name": "worktree",
+      "runtimeExecutable": "bash",
       "runtimeArgs": [
-        "vite",
-        "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b",
-        "--port",
-        "5177",
-        "--strictPort",
-        "--host",
-        "127.0.0.1"
+        "tools/wt.sh",
+        "serve"
       ],
       "port": 5177
     }

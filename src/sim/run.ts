@@ -1,5 +1,5 @@
 /** Monte Carlo runner: a worker per core, one JSON line per game, resumable. */
-import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, readFileSync, writeFileSync } from 'node:fs';
+import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';

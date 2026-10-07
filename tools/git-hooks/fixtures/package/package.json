@@ -1,0 +1,9 @@
+{
+  "name": "hook-fixture",
+  "private": true,
+  "scripts": {
+    "typecheck": "node fixture.mjs typecheck",
+    "test": "node fixture.mjs test",
+    "gate": "node fixture.mjs gate"
+  }
+}

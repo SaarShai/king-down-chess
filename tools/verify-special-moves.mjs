@@ -1,18 +1,21 @@
-import { chromium } from 'playwright';
+// The special moves through the real board, with a mouse and by touch: the Ogre's capture or push,
+// the Guard push, the Beast's capture chain and the Maester's swaps.
+// Run: npm run check:browser special-moves (screenshots and browser-checks.json go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
-const out = 'docs/special-moves';
+import { join } from 'node:path';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+const out = env('PLAYABLE_OUT');
 mkdirSync(out, { recursive: true });
-const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
-const errors = [], checks = [];
+const browser = await launch();
+const checks = [];
 try {
   for (const mobile of [false, true]) {
     const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, hasTouch: mobile });
     await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
     await page.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
-    page.on('pageerror', e => errors.push(e.message));
-    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-    const url = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
+    trapErrors(page);
+    const url = env('PLAYABLE_URL');
     await page.goto(url);
     async function seed(fen) {
       await page.evaluate(fen => localStorage.setItem('kingdown.save', JSON.stringify({ fen, back: '', moves: [], white: 'human', black: 'human', sound: false })), fen);
@@ -34,7 +37,7 @@ try {
     await tap(34); await page.locator('#move-choice').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#moves').innerText(), '');
     assert.match(await page.locator('#move-choice-detail').innerText(), /c5.*c6/);
-    await page.screenshot({ path: `${out}/${mobile ? 'mobile' : 'desktop'}-choice.png` });
+    await shot(page, `${mobile ? 'mobile' : 'desktop'}-choice`);
     await button('#cancel-choice'); await played(0);
     assert.equal(await page.locator('#move-choice').isVisible(), false);
     await tap(26); await tap(34); await button('#choose-push'); await played(1);
@@ -88,7 +91,7 @@ try {
     }
     await page.close();
   }
-  assert.deepEqual(errors, []);
-  writeFileSync(`${out}/browser-checks.json`, JSON.stringify({ checksPassed: checks.length, checks, errors }, null, 2) + '\n');
-  console.log(JSON.stringify({ checksPassed: checks.length, checks, errors }, null, 2));
+  assertNoErrors();
+  writeFileSync(join(out, 'browser-checks.json'), JSON.stringify({ checksPassed: checks.length, checks, errors: [] }, null, 2) + '\n');
+  console.log(JSON.stringify({ checksPassed: checks.length, checks, errors: [] }, null, 2));
 } finally { await browser.close(); }

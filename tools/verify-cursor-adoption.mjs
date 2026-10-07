@@ -1,19 +1,20 @@
 /** Production UI acceptance checks for the adopted Cursor work. Uses an isolated browser profile. */
-import { chromium } from 'playwright';
+// Run: npm run check:browser cursor-adoption (it builds and serves the app; the settings are in tools/lib/checks.mjs).
+// Output in PLAYABLE_OUT: touch-mobile.png and adoption-browser.json, or adoption-failure.png when a check fails.
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 
-const url = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
-const out = process.env.PLAYABLE_OUT || 'docs/cursor-recovery/2026-09-24-0213b442/validation';
+const url = env('PLAYABLE_URL');
+const out = env('PLAYABLE_OUT');
 mkdirSync(out, { recursive: true });
-const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER });
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, hasTouch: true });
 await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
 await page.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
-const errors = [], checks = [];
-page.on('pageerror', e => errors.push(e.message));
-page.on('console', m => { if (m.type() === 'error') errors.push(`${m.text()} ${m.location().url}`); });
+const errors = trapErrors(page), checks = [];
 await page.addInitScript(() => {
   window.audioContexts = 0;
   const Audio = window.AudioContext;
@@ -209,12 +210,12 @@ try {
   assert.match(await page.locator('#moves').innerText(), /e2-e4/);
   assert.deepEqual(await page.locator('#board').boundingBox(), boardBounds, 'piece guidance must not move the board under a touch gesture');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && window.view.controls.enabled));
-  await page.screenshot({ path: out + '/touch-mobile.png' });
+  await shot(page, 'touch-mobile');
   checks.push('real touch events drag a pawn on the mobile layout without horizontal overflow');
-  assert.deepEqual(errors, []);
-  writeFileSync(out + '/adoption-browser.json', JSON.stringify({ url, checksPassed: checks.length, checks, errors }, null, 2) + '\n');
+  assertNoErrors();
+  writeFileSync(join(out, 'adoption-browser.json'), JSON.stringify({ url, checksPassed: checks.length, checks, errors }, null, 2) + '\n');
   console.log(JSON.stringify({ checksPassed: checks.length, checks, errors }, null, 2));
 } catch (error) {
-  await page.screenshot({ path: out + '/adoption-failure.png' });
+  await shot(page, 'adoption-failure');
   console.error({ completed: checks, errors }); throw error;
 } finally { await browser.close(); }

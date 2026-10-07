@@ -1,22 +1,32 @@
 #!/usr/bin/env node
 /**
- * Browser QA for the takeover changes. Runs against a dev server (`npm run dev`), not a build, so
- * the source under test is what the eye sees.
+ * Browser QA for the takeover changes. The runner builds the app, serves the build and runs this check:
  *
- *   npx vite --port 5173 --strictPort &     # or: QA_BASE=http://localhost:4173/ for a preview build
- *   node tools/qa.mjs
+ *   npm run check:browser qa                 # QA_ONLY=<part of a case id> runs the matching cases only
+ *
+ * The settings (PLAYABLE_URL, PLAYABLE_BROWSER) come from the shared module tools/lib/checks.mjs.
  *
  * Cases: the paladin rule through the UI (default / 2017), the lab pieces' selection, shove and lob
  * targeting, animation state, undo, save/restore of the active rules, and an AI reply in a lab
  * position. Real mouse clicks; the hover probe works around the camera angle (LESSONS.md 2026-09-14).
+ *
+ * Verdicts: PASS, FAIL, XFAIL (a known-red case fails) and XPASS (a known-red case passes). FAIL and
+ * XPASS fail the run; the last line counts each verdict.
+ *
+ * To add a known-red case: open a ticket in docs/specs/<feature>/issues/ that names the case and its
+ * fault, then add "<case id>": "<ticket path>" to tools/qa-known-red.json. When the fault is fixed, the
+ * case gives XPASS: remove the entry and resolve the ticket. The ticket lint in npm test fails on an
+ * entry whose ticket file is missing, resolved or wontfix.
  */
-import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { startGame } from './new-game-ui.mjs';
-const require = createRequire(import.meta.url);
-const { chromium } = require('playwright');
+import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
+import { classify, verdict } from './lib/known-red.mjs';
 
-const BASE = process.env.QA_BASE ?? 'http://localhost:5173/';
-/** `QA_ONLY=substring node tools/qa.mjs` runs the matching cases only (quick regression checks). */
+const BASE = env('PLAYABLE_URL');
+/** The known-red list: a case id to the path of its open ticket. */
+const KNOWN_RED = JSON.parse(readFileSync(new URL('./qa-known-red.json', import.meta.url), 'utf8'));
+/** `QA_ONLY=substring` runs the matching cases only (quick regression checks). */
 const ONLY = process.env.QA_ONLY;
 const PAWN_FEN = '7k/7p/8/3p4/3L4/8/8/K6R w - - 0 1';
 const OGRE_FRIEND_FEN = '7k/8/8/8/3PO3/8/8/7K w - - 0 1';   // Ogre e4, own pawn d4
@@ -25,19 +35,21 @@ const CATAPULT_FEN = '7k/8/2n5/8/2p5/8/8/2C4K w - - 0 1';  // C c1, screen p c4,
 
 const sqOf = n => (('abcdefgh'.indexOf(n[0])) | ((+n[1] - 1) << 3));
 const results = [];
-const pass = (id, ok, detail) => { results.push({ id, ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'} ${id} — ${detail}`); };
+const pass = (id, ok, detail) => {
+  results.push({ id, ok, detail });
+  const ticket = KNOWN_RED[id];
+  console.log(`${verdict(ok, ticket)} ${id} — ${detail}${ticket ? ` (known-red: ${ticket})` : ''}`);
+};
 const CODE = { L: 8, l: 24, p: 17, n: 18, O: 12, C: 13, k: 22, P: 1, N: 2, Q: 5, A: 7 }; // type | colour<<4
 
-const browser = await chromium.launch();
+const browser = await launch();
 
 async function newPage() {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await ctx.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
   await ctx.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
   const page = await ctx.newPage();
-  const errors = [];
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  const errors = trapErrors(page);
   return { ctx, page, errors };
 }
 
@@ -79,8 +91,9 @@ async function caseFn(id, query, fn, opts = {}) {
   try {
     await boot(page, query, opts);
     const out = await fn(page, errors);
-    if (out && typeof out === 'object' && 'ok' in out) pass(id, out.ok, out.detail ?? '');
-    else pass(id, !out || out === true, typeof out === 'string' ? out : 'ok');
+    const ok = out && typeof out === 'object' && 'ok' in out ? out.ok : !out || out === true;
+    if (ok) assertNoErrors(errors); // a page error that the case did not check fails it too
+    pass(id, ok, out && typeof out === 'object' ? out.detail ?? '' : typeof out === 'string' ? out : 'ok');
   } catch (e) {
     pass(id, false, (e && e.message) || String(e));
   } finally { await ctx.close(); }
@@ -341,5 +354,7 @@ await caseFn('strike: an armed knight moves as a queen once (flame:strike)', `?k
 });
 
 await browser.close();
-console.log('\n' + results.map(r => `${r.ok ? 'PASS' : 'FAIL'} ${r.id}`).join('\n'));
-process.exit(results.every(r => r.ok) ? 0 : 1);
+const run = classify(results, KNOWN_RED);
+console.log('\n' + run.cases.map(c => `${c.verdict} ${c.id}${c.ticket ? ` (${c.ticket})` : ''}`).join('\n'));
+console.log(run.summary);
+process.exit(run.ok ? 0 : 1);

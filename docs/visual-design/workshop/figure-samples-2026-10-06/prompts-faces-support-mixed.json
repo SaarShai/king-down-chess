@@ -1,0 +1,92 @@
+{
+  "task": "Minimalist Banner Keeper and Runner faces",
+  "route": "built-in image_gen only",
+  "edits": [
+    {
+      "asset": "support",
+      "name": "Banner Keeper",
+      "input": "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/support.png",
+      "attempts": [
+        {
+          "prompt": "Use case: precise-object-edit.\nEdit target: the attached existing Banner Keeper paired game figure sheet. The user wants less defined, less human, more minimalist faces.\nChange ONLY the facial rendering of BOTH figures, ivory on the left and charcoal on the right. Replace the human doll portrait faces with understated abstract painted miniature/token faces: broad smooth skin-colored painted areas, tiny short dark dash marks for eyes, a barely suggested nose through the existing outer contour, and no drawn mouth. Remove the present smile, lips, realistic cheek detail, blush, eye whites, iris, pupils, lashes, and expressive eyebrows. Reduce anatomical modeling of the face to simple broad tonal planes. Keep the actual skin hue and the exact head size, direction, ears, face outline, and braided hair silhouette. The new face should read clearly as a minimalist game miniature, not a human portrait and not a large-eyed cartoon. Do not add a mask, helmet, visor, or new accessory.\nEverything outside the exposed face must remain visually unchanged: exact pose, body, hand shapes and fingers, ivory/charcoal army colors, hair, clothing and its folds and trim, boots, banners, banner symbols and poles, materials and existing illustration style. Preserve both complete figures, full banners and finials, all silhouettes and spacing. Same original paired composition and framing, 1536 × 1024 landscape PNG with a genuinely transparent alpha background. No background scenery, no lettering, no cropped edges, no watermark.",
+          "output": "/Users/za/.codex/generated_images/01a11115-72dd-7c03-a27d-61c0a65111ec/exec-f4bf6318-fec8-4d8b-bc24-e4873b39837d.png",
+          "selected": false,
+          "check": "Human smile and features removed, but vertical dark eyes were too tall and cartoon-like."
+        },
+        {
+          "prompt": "Use case: precise-object-edit.\nEdit target: the attached original Banner Keeper paired game figure sheet. Make the faces less defined and less human, with a restrained minimalist game-token appearance.\nChange ONLY the facial rendering of BOTH figures, ivory left and charcoal right. Simplify the exposed faces to broad smooth skin-colored painted planes. Each visible eye is just a very tiny, thin, short HORIZONTAL dark-brown dash, about 5 pixels wide and 2 pixels tall on this 1536-pixel-wide sheet, subtle and partly lost in the paint. No tall eye marks, large black dots, oval eyes, or cartoon eyes. Remove the smile and mouth completely, remove lips, eye whites, pupils, irises, lashes, expressive eyebrows, blush, realistic cheeks and anatomical facial shading. Keep a very slight nose indication ONLY in the existing silhouette/outer contour. No new mask, helmet, visor or accessory. It should look like the simple carved/painted face of a small game miniature.\nPreserve the exact original skin hue, face silhouette, head size and direction, ears, neck and braided hair silhouette. Keep everything outside the face visually unchanged: poses and body shapes, hands and fingers, hair, ivory/charcoal colors, clothing folds and trim, boots, banners with gold circular symbols and complete poles/finials, overall original illustration style. Preserve both complete figures and banners, their exact sizes, framing and spacing. Same paired composition, 1536 × 1024 landscape PNG, genuinely transparent alpha background. No scenery, no lettering, no crop or watermark.",
+          "output": "/Users/za/.codex/generated_images/01a11115-72dd-7c03-a27d-61c0a65111ec/exec-c24782c7-bdb2-499d-ada2-9b9654493d71.png",
+          "selected": true,
+          "check": "Both faces are smooth simple skin-toned planes, tiny horizontal brown dash eyes, no mouth, iris, lashes, detailed cheeks or expression. Hair, flags, clothing, hands, full figures and framing retained."
+        }
+      ],
+      "ivory_head_rect_original": [
+        320,
+        285,
+        215,
+        190
+      ],
+      "ivory_head_rect_final": [
+        320,
+        285,
+        215,
+        190
+      ],
+      "validation": {
+        "width": 1536,
+        "height": 1024,
+        "mode": "RGBA",
+        "alpha_minmax": [
+          0,
+          254
+        ],
+        "transparent_pixels": 1058197,
+        "partial_alpha_pixels": 514667,
+        "complete_figures": true,
+        "complete_weapons": true
+      },
+      "unintended_changes": "Minor rendering drift: outlines/highlights are slightly stronger across the sheet, small hand/cloth redraw differences. The simplified face removes nearly all of the nose indication and is smoother around the cheek/jaw; no new accessory or mask. No material composition or equipment change."
+    },
+    {
+      "asset": "mixed",
+      "name": "Runner",
+      "input": "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/mixed.png",
+      "attempts": [
+        {
+          "prompt": "Use case: precise-object-edit.\nEdit target: the attached existing Runner paired game figure sheet. The user wants less defined, less human, more minimalist faces.\nChange ONLY the facial rendering of BOTH figures, ivory on the left and charcoal on the right. Replace the human hero portrait features with an understated abstract painted miniature/token face: broad smooth skin-colored painted areas, one tiny short horizontal dark dash for each visible eye, a barely suggested nose through the existing outer contour, and no drawn mouth or lips. Remove the defined heroic brow, human eyeball and white, iris/pupil, realistic cheekbones and nasolabial detail, nostril lines and lip shading. Reduce anatomical modeling of the face to a few simple broad tonal planes. The single visible eye should be much smaller and simpler than the source. Keep the exact face outline with its subtle pointed nose in profile, head size/direction, skin hue, pointed ear and swept-back hair silhouette. It must clearly read as a minimalist game miniature, not a human portrait or large-eyed cartoon. Do not add a mask, helmet, visor or accessory.\nEverything outside the facial area must stay visually unchanged: body, pose, hand shapes and fingers, hair and ears, ivory/charcoal army colors, clothing folds and trim, straps, boots, the spear held horizontally and three spears on the back, materials and original illustration style. Preserve both complete figures, full weapons, all silhouettes and exact spacing. Same original paired composition and framing, 1536 × 1024 landscape PNG with a genuinely transparent alpha background. No background scenery, lettering, cropped edges or watermark.",
+          "output": "/Users/za/.codex/generated_images/01a11115-72dd-7c03-a27d-61c0a65111ec/exec-39a8f870-92f2-4a3e-a318-dedf27b49c26.png",
+          "selected": true,
+          "check": "Both faces have a single small horizontal dash eye, broad smooth skin area, no lip, nostril, iris, eyebrow or realistic cheekbone rendering. Small profile nose is retained. Hair, pointed ears, body pose and all weapons remain."
+        }
+      ],
+      "ivory_head_rect_original": [
+        375,
+        95,
+        235,
+        190
+      ],
+      "ivory_head_rect_final": [
+        375,
+        95,
+        235,
+        190
+      ],
+      "validation": {
+        "width": 1536,
+        "height": 1024,
+        "mode": "RGBA",
+        "alpha_minmax": [
+          0,
+          254
+        ],
+        "transparent_pixels": 1014761,
+        "partial_alpha_pixels": 558103,
+        "complete_figures": true,
+        "complete_weapons": true
+      },
+      "unintended_changes": "Minor rendering drift: bolder contour lines and small hand/cloth shading changes. Face silhouette is cleaner and slightly flatter, consistent with requested abstraction. No material composition or equipment change."
+    }
+  ],
+  "verification": "Each original was inspected with view_image before editing. All generated outputs were visually inspected inline. Final dimensions and real alpha verified read-only with Pillow; no raster edits were performed. Original inputs were already RGBA with alpha range 0–254; outputs preserve that alpha characteristic. No repository file written; root copies selected generated files.",
+  "blockers": []
+}

@@ -1,0 +1,334 @@
+/* The Workshop piece card. The header and Try it stay visible; the card and editor scroll independently. */
+#workshop {
+  --gut: 16px;
+  --model: 120px;
+  width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0;
+  border: 0; border-radius: 0; box-shadow: none; overflow: hidden; background: var(--parchment);
+}
+#workshop[open] { display: flex; flex-direction: column; }
+/* Lining figures: the small-caps headings and the counts read "0 of 3", not "o of 3". */
+#workshop { font-variant-numeric: lining-nums; }
+#workshop::backdrop { background: var(--night); }
+/* Under 360 px, Back shows its arrow only (its word stays for screen readers), so the title fits. */
+@media (max-width: 359px) { #workshop { --gut: 12px; } #workshop .ws-bar h2 { font-size: var(--fs-md); } }
+@media (max-width: 359px) { #workshop .ws-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } #workshop .ws-bar .ws-back { min-width: var(--tap); justify-content: center; } }
+/* Animations Off stops the house transitions and animations too; motion.ts stops the Set A reactions. */
+:root[data-pace='off'] #workshop, :root[data-pace='off'] #workshop * { transition: none !important; animation: none !important; }
+#workshop p { margin: 0; max-width: none; }
+#workshop h3 { margin: var(--space-4) 0 var(--space-2); }
+#workshop button { min-height: var(--tap); }
+.ws-screen { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+/* ---- the top bar ---- */
+#workshop .ws-bar {
+  display: flex; align-items: center; gap: 6px; height: 48px; flex: none; padding: 0 var(--gut) 0 calc(var(--gut) - 8px);
+  background: var(--vellum); border-bottom: 1px solid var(--stone-300);
+}
+#workshop .ws-bar h2 {
+  flex: 1 1 0; min-width: 0; margin: 0; padding: 0; background: none; font-size: var(--fs-lg);
+  text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#workshop .ws-bar button { width: auto; flex: none; padding: 6px 12px; }
+#workshop .ws-bar .ws-back { padding: 6px 8px 6px 2px; gap: 0; border-color: transparent; font-weight: 700; }
+#workshop .ws-undo { padding: 6px 10px; }
+.ws-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-4) var(--gut) var(--space-6); }
+#workshop .ws-scroll > * { max-width: 760px; margin-left: auto; margin-right: auto; }
+.ws-lead { margin-bottom: var(--space-4) !important; }
+.ws-note, .ws-small { font-size: var(--fs-sm); color: var(--ink-soft); margin-top: var(--space-2) !important; }
+
+/* ---- HOME (W1) and START (W2) ---- */
+.ws-doors { display: grid; grid-template-columns: minmax(0, 360px); justify-content: center; gap: var(--space-3); }
+#workshop .ws-door {
+  flex-direction: column; justify-content: flex-end; gap: 4px; height: 180px; padding: 8px; text-align: center;
+  font-family: var(--font-display); font-size: var(--fs-md);
+}
+.ws-door img { height: 84px; width: auto; filter: drop-shadow(0 3px 3px rgba(43, 38, 33, 0.3)); }
+.ws-door small { font-family: var(--font-body); font-weight: 400; font-size: var(--fs-xs); }
+#workshop .ws-surprise { justify-content: center; max-width: 360px; margin-top: var(--space-4); }
+.ws-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: var(--space-2); }
+#workshop .ws-tile { flex-direction: column; justify-content: flex-end; gap: 2px; min-width: 0; padding: 6px 4px 8px; text-align: center; }
+.ws-tile b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); }
+.ws-tile small { font-size: var(--fs-xs); font-weight: 400; color: var(--ink-soft); }
+.ws-tile.warn small { color: var(--danger); font-weight: 700; }
+.ws-tile-art { display: flex; justify-content: center; width: 100%; padding: 4px 0; border-radius: 6px; }
+.ws-tile-art .ws-model { --model: 72px; }
+.ws-empty { color: var(--ink-soft); }
+/* ---- one-screen property dashboard ---- */
+.ws-editor { display:flex; flex-direction:column; flex:1; min-height:0; }
+.ws-workspace { display:grid; grid-template-columns:minmax(240px,320px) minmax(0,700px); justify-content:center; align-items:start; gap:36px; flex:1; min-height:0; overflow:auto; padding:28px; }
+.ws-piece-card { min-width:0; }
+.ws-card-border { padding:12px; }
+.ws-portrait { display:flex; align-items:center; justify-content:center; gap:24px; }
+.ws-model-box { display:flex; justify-content:center; --model:210px; }
+.ws-name-row { display:flex; align-items:center; gap:4px; margin-top:12px; }
+.ws-name-t { flex:1; min-width:0; font:600 24px/1.2 var(--font-display); overflow-wrap:anywhere; }
+#workshop .ws-name, #workshop .ws-eye { width:44px; height:44px; flex:none; padding:10px; border:0; box-shadow:none; background:transparent; }
+#workshop .ws-name-in { width:100%; min-height:44px; font:600 22px var(--font-display); }
+#workshop .ws-worth { margin:12px 0 6px; color:var(--gold-ink); font-size:17px; }
+.ws-bottom { font-size:14px; color:var(--ink-soft); }
+.ws-appearance { margin-top:24px; }
+.ws-save-state { font-size:13px; color:var(--ink-soft); }
+#workshop .ws-editor .ws-bar h2 { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+#workshop .ws-editor .ws-bar .ws-back { margin-right:auto; }
+.ws-footer { display:flex; flex:none; align-items:center; gap:12px; padding:10px 24px; background:var(--vellum); border-top:1px solid var(--stone-300); }
+#workshop .ws-footer button { width:auto; }
+#workshop .ws-footer .ws-try { margin-left:auto; min-width:100px; }
+.ws-share-actions { display:grid; gap:8px; }
+.ws-properties { min-width:0; }
+.ws-symmetry { display:flex; justify-content:flex-end; gap:8px; align-items:center; margin-bottom:16px; font-size:14px; }
+.ws-dual-boards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }
+.ws-pattern { display:block; width:100%; min-width:0; }
+#workshop .ws-pattern h3 { font:600 22px var(--font-display); margin:0 0 8px; }
+.ws-pattern .ws-mode { min-height:0; margin:0 0 8px !important; font-size:14px; line-height:1.4; }
+.ws-pattern .ws-caption { font-size:14px; margin-top:12px; }
+.ws-take-mode { display:flex; gap:8px; align-items:center; font-size:14px; margin-top:12px; }
+.ws-sliding { margin-top:20px; border-top:1px solid var(--stone-300); padding-top:8px; }
+.ws-sliding summary { padding:12px 0; cursor:pointer; }
+.ws-sliding p { font-size:14px; }
+.ws-directions { display:grid; grid-template-columns:repeat(8,1fr); gap:4px; margin:12px 0; }
+#workshop .ws-directions button { padding:0; min-width:0; }
+#workshop .ws-directions button[aria-pressed='true'] { background:var(--accent); color:var(--vellum); }
+.ws-properties-title { display:flex; align-items:center; justify-content:space-between; padding:12px 0; }
+.ws-properties-title span { font-size:14px; color:var(--ink-soft); }
+.ws-property-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+#workshop .ws-property-cards .ws-rule { margin:0; padding:12px; border-radius:8px; box-shadow:none; }
+.ws-rule header { display:flex; align-items:center; gap:8px; }
+.ws-rule header b { flex:1; font-size:15px; }
+.ws-property-icon .icon { width:24px; height:24px; }
+#workshop .ws-property-cards .ws-remove { min-width:44px; width:44px; padding:0; border:0; box-shadow:none; font-size:24px; }
+#workshop .ws-property-cards .ws-sentence { font-size:15px; line-height:1.5; margin-top:8px; }
+#workshop .ws-property-cards .ws-pill { font-size:14px; min-height:44px; padding:4px 8px; margin:2px; border-radius:6px; }
+#workshop .ws-property-cards .ws-add { margin:0; min-height:100px; border:1px dashed var(--stone-500); box-shadow:none; border-radius:8px; background:transparent; justify-content:center; }
+.ws-property-options { padding:16px; margin-top:16px; background:var(--vellum); border:1px solid var(--stone-300); border-radius:8px; }
+.ws-property-options>header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+#workshop .ws-property-close { width:44px; padding:0; font-size:24px; }
+.ws-property-body { margin-top:12px; }
+@media(max-width:1000px) { .ws-workspace { display:block; padding:20px; } .ws-piece-card { max-width:600px; margin:0 auto 24px; } .ws-properties { max-width:680px; margin:auto; } .ws-model-box { --model:160px; } }
+@media(max-width:600px) { .ws-workspace { padding:16px; } .ws-dual-boards { grid-template-columns:1fr; gap:28px; } .ws-pattern { max-width:340px; width:100%; margin:auto; } .ws-symmetry { justify-content:flex-start; } .ws-name-t { font-size:21px; } .ws-property-cards { grid-template-columns:1fr; } .ws-footer { padding:8px 12px; gap:8px; } .ws-save-state { max-width:75px; font-size:11px; } .ws-directions { grid-template-columns:repeat(4,1fr); } }
+/* Short phone landscape (568 x 320): the card in a 120 px column, both boards side by side and Try it in view with no
+   scroll (the owner's mockup of 2026-10-07). The thermometer, the mode lines and the forward lines are hidden; the worth
+   line holds the number. The Apply-to select and the rest are below, in the scroll. fit() in dialog.ts sets the cell by
+   the height. The header buttons are 36 px and the pen, the eye and the Take-by select 28 px, as in the mockup. */
+@media (orientation: landscape) and (max-height: 500px) {
+  #workshop .ws-editor .ws-bar { height: 44px; }
+  #workshop .ws-editor .ws-bar button { min-height: 36px; padding: 4px 10px; }
+  #workshop .ws-footer { padding: 2px 12px; gap: 8px; }
+  #workshop .ws-footer .ws-try { min-width: 84px; }
+  #workshop .ws-save-state { max-width: 90px; font-size: 11px; line-height: 1.2; }
+  #workshop .ws-workspace { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 8px; padding: 6px 12px; align-items: start; }
+  #workshop .ws-piece-card { max-width: none; margin: 0; }
+  #workshop .ws-card-border { padding: 4px; }
+  #workshop .ws-portrait { flex-direction: column; gap: 2px; }
+  #workshop .ws-model-box { --model: 84px; }
+  #workshop .ws-gauge-box { display: none; }
+  #workshop .ws-name-row { flex-wrap: wrap; margin-top: 2px; gap: 0; }
+  #workshop .ws-name-t { flex-basis: 100%; font-size: 14px; line-height: 1.15; }
+  #workshop .ws-name, #workshop .ws-eye { width: 28px; height: 28px; padding: 5px; min-height: 0; }
+  #workshop .ws-worth { margin: 2px 0 0; font-size: 12px; line-height: 1.25; }
+  #workshop .ws-bottom { font-size: 11px; }
+  #workshop .ws-properties { max-width: none; margin: 0; }
+  #workshop .ws-patterns { display: flex; flex-direction: column; }
+  #workshop .ws-symmetry { order: 2; justify-content: flex-start; margin: 6px 0 0; font-size: 12px; }
+  #workshop .ws-dual-boards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  #workshop .ws-pattern { max-width: none; margin: 0; }
+  #workshop .ws-pattern h3 { font-size: 14px; line-height: 16px; margin: 0; }
+  #workshop .ws-pattern .ws-mode, #workshop .ws-pattern .ws-fwd { display: none; }
+  #workshop .ws-take-mode { font-size: 12px; margin-top: 4px; }
+  #workshop .ws-take-mode select { min-height: 28px; font-size: 12px; padding: 2px 4px; }
+}
+
+/* ---- bare character art ---- */
+.ws-model { position:relative; display:flex; justify-content:center; width:var(--model,140px); height:var(--model,140px); }
+.ws-model .ws-fig { position:static; width:100%; height:100%; object-fit:contain; filter:none; transform:none; }
+/* The Set A reactions (motion.ts): the old picture fades out over the model; the A5 ring anchors to it. Both rest hidden. */
+.ws-model .ws-fig-was { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; opacity:0; pointer-events:none; }
+.ws-ring { position:absolute; left:50%; bottom:34%; width:70%; aspect-ratio:1; border:3px solid #e9c071; border-radius:50%; box-shadow:0 0 16px #e9c071; opacity:0; pointer-events:none; }
+
+/* ---- the 7 × 7 boards ---- */
+.ws-caption { display:none; }
+#workshop .ws-mode { font-size:15px; line-height:1.3; margin:12px 0; min-height:39px; }
+.ws-fwd { text-align:center; font-size:11px; line-height:18px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-soft); }
+.ws-board {
+  display: grid; grid-template-columns: repeat(7, var(--cell)); grid-auto-rows: var(--cell); gap: 1px; padding: 1px;
+  flex: none; width: max-content; margin: 2px auto 0; background: var(--stone-700); border-radius: 4px; touch-action: pan-y; user-select: none; -webkit-user-select: none;
+}
+#workshop .ws-cell {
+  position: relative; display: block; width: var(--cell); height: var(--cell); min-height: 0; padding: 0;
+  border: 0; border-radius: 0; box-shadow: none; background-color: #efe6d0; transition: none;
+}
+#workshop .ws-cell.dk { background-color: #ddd0b4; }
+#workshop .ws-cell:active { transform: none; }
+#workshop .ws-cell:focus-visible { z-index: 1; outline: 3px solid var(--focus); outline-offset: -3px; }
+#workshop .ws-me { background:#efe6d0; }
+.ws-me-fig { display: block; width: 100%; height: 100%; object-fit: contain; }
+.c-move::before {
+  content: ''; position: absolute; left: 33%; top: 33%; width: 34%; height: 34%; rotate: 45deg;
+  border: 1px solid #9a6418; background: linear-gradient(135deg, #fff4cf, #f0bf52 50%, #9a6418);
+}
+.c-take::after, .c-shoot::after { content: ''; position: absolute; inset: 13%; border: 3px solid #b3261e; border-radius: 50%; }
+.c-shoot::after { border-style: dashed; }
+.c-shoot::before { content: ''; position: absolute; inset: 40%; border-radius: 50%; background: #b3261e; }
+/* A line: gold with a dark edge, so it reads on the pale squares. */
+#workshop .ln { background-image: linear-gradient(var(--ln), transparent 36%, #6b4a14 36% 40%, #d9a441 40% 60%, #6b4a14 60% 64%, transparent 64%); }
+.ln-n, .ln-s { --ln: 90deg; }
+.ln-e, .ln-w { --ln: 0deg; }
+.ln-ne, .ln-sw { --ln: 135deg; }
+.ln-nw, .ln-se { --ln: 45deg; }
+.ws-arrow { display: none; position: absolute; inset: 0; }
+.ln-end .ws-arrow { display: block; }
+.ln-end .ws-arrow::before {
+  content: ''; position: absolute; left: 50%; top: 4%; width: 0; height: 0; translate: -50% 0;
+  border: 7px solid transparent; border-bottom: 10px solid #9a6418; border-top: 0;
+}
+.ln-n .ws-arrow { rotate: 0deg; } .ln-ne .ws-arrow { rotate: 45deg; } .ln-e .ws-arrow { rotate: 90deg; } .ln-se .ws-arrow { rotate: 135deg; }
+.ln-s .ws-arrow { rotate: 180deg; } .ln-sw .ws-arrow { rotate: 225deg; } .ln-w .ws-arrow { rotate: 270deg; } .ln-nw .ws-arrow { rotate: 315deg; }
+
+/* ---- the rule cards ---- */
+.ws-rule { margin-bottom: var(--space-2); padding: 6px 12px; background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius); box-shadow: var(--shadow-card); }
+.ws-sentence { font-size: var(--fs-lg); line-height: 52px; }
+.ws-sentence:not(:has(.ws-pill)) { line-height: 1.45; margin: var(--space-2) 0 !important; }
+#workshop .ws-pill {
+  display: inline-flex; width: auto; vertical-align: middle; margin: 0 2px; padding: 4px 12px; line-height: 1.2;
+  font-size: var(--fs-lg); border-radius: 22px; color: var(--accent-deep); border-color: var(--accent);
+}
+#workshop .ws-remove { width: auto; padding: 6px 14px; }
+#workshop .ws-add { justify-content: center; margin-top: var(--space-2); }
+
+/* ---- the figure choices ---- */
+#workshop .ws-body { position: relative; justify-content: center; width: 100%; aspect-ratio: 1; min-height: 44px; padding: 2px; border-color: var(--stone-300); }
+/* The chosen figure: a thick ring and a tick, so the choice reads at a glance. */
+#workshop .ws-body[aria-pressed='true'] { background: var(--vellum); border-color: var(--accent-deep); box-shadow: 0 0 0 3px var(--accent); }
+#workshop .ws-body[aria-pressed='true']::after {
+  content: '✓'; position: absolute; top: 1px; right: 1px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%;
+  font-size: 12px; font-weight: 700; line-height: 1; color: var(--vellum); background: var(--accent-deep);
+}
+.ws-body img { width: 100%; height: 100%; object-fit: contain; max-width: none; }
+#workshop .ws-army { margin-top: var(--space-4); max-width: 320px; }
+#workshop .ws-army legend { margin: 0 0 4px; }
+
+/* ---- sheets: nested modal dialogs that slide up over 85% of the height ---- */
+#workshop .ws-sheet {
+  width: 100vw; max-width: 560px; height: 85vh; height: 85dvh; max-height: none; margin: auto auto 0; padding: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0; overflow: hidden;
+}
+#workshop .ws-sheet[open] { display: flex; flex-direction: column; }
+.ws-sheet-bar { display: flex; align-items: center; gap: var(--space-3); padding: 4px var(--space-4); border-bottom: 1px solid var(--stone-300); }
+#workshop .ws-sheet-bar h2 { flex: 1 1 auto; min-width: 0; margin: 0; padding: 8px 0; background: none; font-size: var(--fs-lg); }
+#workshop .ws-close { width: auto; flex: none; }
+.ws-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-2) var(--space-4) var(--space-6); }
+.ws-sheet-body > p, .ws-sheet-body > ul { margin-bottom: var(--space-3) !important; }
+.ws-sheet-body h3:first-child { margin-top: var(--space-2); }
+#workshop .ws-book-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto; gap: 10px; min-height: 56px; margin-bottom: 4px; padding: 6px 10px; font-weight: 400; }
+.ws-book-i { width: 28px; height: 28px; }
+.ws-book-t b { display: block; }
+.ws-book-t small { display: block; font-size: var(--fs-sm); color: var(--ink-soft); }
+.ws-book-badge { font-weight: 700; color: var(--gold-ink); min-width: 32px; text-align: right; }
+.ws-seen { display: flex; gap: 2px; }
+.ws-seen .pi { width: 20px; height: 20px; }
+#workshop .ws-choice { justify-content: flex-start; gap: var(--space-3); min-height: 48px; padding: 4px 6px; border-bottom: 1px solid var(--stone-300); cursor: pointer; }
+.ws-choice input[type='radio'] { width: 20px; height: 20px; flex: none; accent-color: var(--accent); }
+.ws-choice small { display: block; font-size: var(--fs-xs); color: var(--ink-soft); }
+.ws-choice.off { color: var(--ink-soft); cursor: default; }
+.ws-choice select { margin-left: 4px; }
+.ws-nums { flex-wrap: wrap; }
+.ws-nums .seg-row { flex: 1 1 auto; max-width: 260px; }
+.ws-nums input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+#workshop .ws-more-w { margin-top: var(--space-3); justify-content: center; }
+.ws-reasons, .ws-flags { margin: 0; padding-left: 1.2em; font-size: var(--fs-sm); }
+.ws-flags { margin-top: var(--space-3); }
+.ws-flags .f-warn { color: var(--danger); }
+.ws-fixes { display: flex; flex-direction: column; gap: 6px; margin: var(--space-3) 0; }
+.ws-fixes span { font-weight: 700; }
+#workshop .ws-fix { justify-content: flex-start; }
+.ws-like-why, .ws-idle { margin-top: var(--space-2) !important; font-size: var(--fs-sm); }
+.ws-sheet-actions { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
+.ws-sheet-actions button { justify-content: center; }
+
+/* ---- the rule book key ---- */
+.ws-key { margin-bottom: var(--space-2); font-size: var(--fs-sm); color: var(--ink-soft); }
+.ws-key summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; }
+/* ---- TRY IT (W10) ---- */
+/* The board as large as the screen allows (up to 56 px a square), and the page centred in the height left. */
+#workshop[data-screen='try'] .ws-scroll { display: flex; flex-direction: column; }
+.ws-try-host { --tb: max(32px, min(56px, calc((100vw - 2 * var(--gut) - 4px) / 8), calc((100dvh - 240px) / 8))); width: 100%; margin: auto; }
+.tb-board {
+  display: grid; grid-template-columns: repeat(8, var(--tb)); justify-content: center; width: fit-content; max-width: 100%;
+  border: 2px solid var(--stone-700); border-radius: 4px; margin: 0 auto;
+}
+#workshop .tb-sq {
+  position: relative; display: grid; place-items: center; width: auto; aspect-ratio: 1; min-height: 0; padding: 0;
+  border: 0; border-radius: 0; box-shadow: none; background: #c9b48f; transition: none;
+}
+#workshop .tb-sq.lt { background: #ece0c4; }
+#workshop .tb-sq.cap { box-shadow: inset 0 0 0 100px rgba(233, 192, 113, 0.35); }
+#workshop .tb-sq:active { transform: none; }
+.tb-sq[data-r]::before { content: attr(data-r); position: absolute; left: 2px; top: 0; font-size: 9px; font-weight: 700; color: var(--stone-700); }
+.tb-sq .pi { width: 78%; height: 78%; }
+.tb-sq .tb-me { width: 92%; height: 92%; object-fit: contain; }
+.tb-sq.mk::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; }
+.mk-move::after { inset: 36%; background: #e9b44c; box-shadow: 0 0 0 1px #9a6418; }
+.mk-take::after { inset: 8%; border: 3px solid #b3261e; }
+.mk-shot::after { inset: 8%; border: 3px dashed #b3261e; }
+.mk-push::after { inset: 8%; border: 3px solid #2f7f75; }
+.mk-swap::after { inset: 8%; border: 3px solid #7d5ba6; }
+/* Two actions on one square (push or take): both colours, and the player picks one. */
+.mk-many::after { inset: 8%; border: 3px solid #b3261e; border-top-color: #2f7f75; border-left-color: #2f7f75; }
+#workshop .tb-sq.picked { box-shadow: inset 0 0 0 3px var(--focus); }
+#workshop .tb-sq:focus-visible { z-index: 1; outline: 3px solid var(--focus); outline-offset: -3px; }
+.tb-safe { max-width: calc(8 * var(--tb)); margin: var(--space-2) auto 0 !important; font-size: var(--fs-sm); color: var(--ink-soft); }
+.tb-shield { position: absolute; inset: 4%; border: 2px solid #fff2cf; border-radius: 50%; box-shadow: 0 0 0 1px var(--stone-700); }
+.tb-files { display: grid; grid-template-columns: repeat(8, var(--tb)); justify-content: center; margin: 2px auto 0; font-size: 10px; font-weight: 700; color: var(--ink-soft); text-align: center; }
+.tb-say { min-height: 2.9em; max-width: 480px; margin: var(--space-2) auto 0 !important; line-height: 1.45; text-align: center; }
+.tb-ask { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-2); margin-top: var(--space-2); }
+.tb-ask p { flex-basis: 100%; text-align: center; }
+.tb-ask button { width: auto; }
+.tb-row { display: flex; align-items: center; gap: var(--space-2); max-width: calc(8 * var(--tb)); margin: var(--space-2) auto 0 !important; }
+.tb-count { margin-right: auto; }
+.tb-row button { width: auto; }
+.tb-count { font-weight: 700; }
+
+/* ---- a save the device refused: it stays until a save works ---- */
+.ws-alert { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--space-2); padding: 6px var(--gut); color: var(--danger); background: var(--vellum); border-top: 2px solid var(--danger); }
+.ws-alert[hidden] { display: none; }
+.ws-alert p { flex: 1 1 220px; font-size: var(--fs-sm); font-weight: 700; }
+#workshop .ws-alert button { width: auto; padding: 6px 12px; }
+.ws-room-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: 2px 0; border-bottom: 1px solid var(--stone-300); }
+#workshop .ws-room-row button { width: auto; padding: 6px 14px; }
+.ws-copy-box { width: 100%; font: inherit; font-size: var(--fs-sm); }
+
+/* ---- toasts ---- */
+.ws-toast {
+  position: fixed; left: 50%; bottom: 16px; z-index: 5; translate: -50% 0; width: max-content; max-width: min(92vw, 520px);
+  padding: 10px 14px; border-radius: var(--radius); font-size: var(--fs-sm); color: var(--on-night); background: var(--stone-900);
+  box-shadow: var(--shadow-float); opacity: 0; pointer-events: none; transition: opacity 160ms;
+}
+.ws-toast.on { opacity: 1; }
+
+
+@media(min-width:721px) { #workshop .ws-sheet { margin:auto; height:auto; max-height:85dvh; border-radius:10px; } }
+#workshop .seg-row label { min-height:44px; align-items:center; }
+.ws-sheet-bar { flex:none; }
+#workshop h3 { font-variant-numeric:lining-nums; }
+
+/* Cast picker: three readable choices per row, with names and rule hints. */
+.ws-figure-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 3px; }
+#workshop .ws-figure-choice { display: flex; flex-direction: column; aspect-ratio: auto; padding: 8px 4px; min-width: 0; border-radius: 8px; background: var(--vellum); }
+#workshop .ws-figure-choice[hidden] { display: none; }
+#workshop .ws-figure-choice img { height: 96px; width: 100%; object-fit: contain; }
+.ws-figure-choice b { font-size: 12px; line-height: 1.3; white-space: normal; }
+.ws-figure-choice small { font-size: 10px; line-height: 1.3; }
+.ws-gallery { margin: 16px 0; }
+.ws-gallery summary { cursor: pointer; padding: 12px 0; font-weight: 700; }
+.ws-figure-filter { display: flex; align-items: center; gap: 8px; }
+#workshop select { min-height: 44px; }
+
+.ws-cast-start { max-width: 900px !important; }
+@media (min-width: 721px) { .ws-cast-start { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+/* A fixed vertical thermometer, never an input or drag handle. */
+.ws-gauge.ws-thermometer { position:relative; display:block; width:64px; height:140px; margin:0; padding:0; flex:none; }
+.ws-temp-scale { position:absolute; left:0; top:0; bottom:22px; display:flex; flex-direction:column; justify-content:space-between; font-size:11px; color:var(--ink-soft); }
+.ws-temp-tube { position:absolute; width:16px; height:116px; left:34px; top:0; overflow:hidden; border:2px solid #947c58; border-radius:12px 12px 0 0; background:#e1d6c1; }
+.ws-temp-fill { position:absolute; bottom:0; left:2px; right:2px; background:var(--accent); border-radius:6px 6px 0 0; }
+.ws-temp-fair { position:absolute; left:0; right:0; bottom:25%; height:25%; background:#9eb795; }
+.ws-temp-bulb { position:absolute; width:28px; height:28px; bottom:0; left:28px; background:var(--accent); border:3px solid #947c58; border-radius:50%; }

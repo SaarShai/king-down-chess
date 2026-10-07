@@ -1,16 +1,15 @@
 // The kings' powers through the real HUD: arm a power, spend it with clicks, end a Haste turn, and
-// pick powers in New game. Needs a running build:
-//   PLAYABLE_URL=http://127.0.0.1:5189/ node tools/verify-powers.mjs   (PLAYABLE_BROWSER=chromium in cloud sessions)
-import { chromium } from 'playwright';
+// pick powers in New game.
+// Run: npm run check:browser powers (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { mkdirSync } from 'node:fs';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 
-const base = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
-const out = 'docs/kings-powers';
-mkdirSync(out, { recursive: true });
-const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
-const errors = [];
+const base = env('PLAYABLE_URL');
+const browser = await launch();
+// The check's own navigation (page.goto while the page still loads its art) cuts off requests,
+// and a cut-off request shows as "Failed to fetch". This error also shows on main.
+const allow = [{ pattern: /Failed to fetch/, reason: 'a request that the check\'s own navigation cuts off' }];
 const sq = name => (name.charCodeAt(1) - 49) * 8 + (name.charCodeAt(0) - 97);
 const moves = page => page.$eval('#moves', e => e.textContent);
 
@@ -34,9 +33,7 @@ const waitText = (page, re, timeout = 10000) =>
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
-  // "Failed to fetch" is a request cut off by the test's own navigation (it also shows on main).
-  page.on('pageerror', e => { if (!/Failed to fetch/.test(e.message)) errors.push(e.message); });
-  page.on('console', m => { if (m.type() === 'error' && !/Failed to fetch/.test(m.text())) errors.push(m.text()); });
+  trapErrors(page, allow);
 
   // Freeze (balanced: once a game, then the ordinary move): the button arms it, a tap on the enemy
   // knight spends it, White still moves, and the computer cannot move the knight.
@@ -123,20 +120,20 @@ try {
   await startGame(page, { mode: 'powers', kings: ['Mud:March', 'Frost:IceWall'], army: 'classic' });
   await page.waitForFunction(() => /White's king: March — /.test(document.getElementById('info').textContent)
     && /Black's king: Ice Wall, 2 left/.test(document.getElementById('info').textContent));
-  await page.screenshot({ path: `${out}/new-game-powers.png` });
+  await shot(page, 'new-game-powers');
   console.log('ok new game with powers');
 
   // Phone width: the power bar fits and stays usable.
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
   await phone.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
-  phone.on('pageerror', e => { if (!/Failed to fetch/.test(e.message)) errors.push(e.message); });
+  trapErrors(phone, allow);
   await open(phone, 'frost:freeze,flame:haste', '4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1');
   const box = await phone.$eval('#power-btn', b => { const r = b.getBoundingClientRect(); return { right: r.right, w: innerWidth }; });
   assert.ok(box.right <= box.w, 'the power button fits the phone width');
-  await phone.screenshot({ path: `${out}/phone-powers.png` });
+  await shot(phone, 'phone-powers');
   console.log('ok phone layout');
 
-  assert.deepEqual(errors, [], `page errors: ${errors.join(' | ')}`);
+  assertNoErrors();
   console.log('ok no page errors');
 } finally {
   await browser.close();

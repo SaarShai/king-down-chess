@@ -1,0 +1,123 @@
+{
+  "main": [
+    {
+      "v": "A",
+      "size": [
+        390,
+        700
+      ],
+      "board": {
+        "bottom": 590.9921875,
+        "shown": true,
+        "top": 282.9921875,
+        "width": 308
+      },
+      "brokenImages": 0,
+      "footerTop": 628,
+      "overflow": false
+    },
+    {
+      "v": "A",
+      "size": [
+        1280,
+        900
+      ],
+      "board": {
+        "bottom": 772.3828125,
+        "shown": true,
+        "top": 352.3828125,
+        "width": 420
+      },
+      "brokenImages": 0,
+      "footerTop": 824,
+      "overflow": false
+    },
+    {
+      "v": "B",
+      "size": [
+        390,
+        700
+      ],
+      "board": {
+        "bottom": 521.9453125,
+        "shown": true,
+        "top": 227.9453125,
+        "width": 294
+      },
+      "brokenImages": 0,
+      "footerTop": 600,
+      "overflow": false
+    },
+    {
+      "v": "B",
+      "size": [
+        1280,
+        900
+      ],
+      "board": {
+        "bottom": 742.1328125,
+        "shown": true,
+        "top": 272.1328125,
+        "width": 470
+      },
+      "brokenImages": 0,
+      "footerTop": 824,
+      "overflow": false
+    },
+    {
+      "v": "C",
+      "size": [
+        390,
+        700
+      ],
+      "board": {
+        "bottom": 0,
+        "shown": false,
+        "top": 0,
+        "width": 0
+      },
+      "brokenImages": 0,
+      "footerTop": 628,
+      "overflow": false
+    },
+    {
+      "v": "C",
+      "size": [
+        1280,
+        900
+      ],
+      "board": {
+        "bottom": 766.578125,
+        "shown": true,
+        "top": 336.578125,
+        "width": 430
+      },
+      "brokenImages": 0,
+      "footerTop": 824,
+      "overflow": false
+    }
+  ],
+  "small": [
+    {
+      "v": "A",
+      "boardBottom": 452.3984375,
+      "boardWidth": 224,
+      "footerTop": 496,
+      "overflow": false
+    },
+    {
+      "v": "B",
+      "boardBottom": 392.546875,
+      "boardWidth": 224,
+      "footerTop": 468,
+      "overflow": false
+    },
+    {
+      "v": "C",
+      "boardBottom": 0,
+      "boardWidth": 0,
+      "footerTop": 496,
+      "overflow": false
+    }
+  ]
+}
