@@ -24,7 +24,7 @@
 
 Evidence:
 - `npx vitest run tools/wt.test.ts`: 1 file, 12 tests pass (5 new in `wt serve`).
-- `npm test` on the integration tip b2906b8 (no merge needed): tsc clean; vitest 58 files, 1060 tests pass; node test 42 pass.
+- `npm test` after the merge of the integration tip 4cd8e14: tsc clean; vitest 58 files, 1060 tests pass; node test 42 pass.
 - Worktree script test, `describe('wt serve')` (`tempRepo({ hooks: false })`, a stub Vite in the main package folder that logs its folder and arguments):
   - `stops with a reason when the target file is missing`: `wt: no target file: <main>/.claude/preview-target`.
   - `runs the named worktree's own Vite on 127.0.0.1, by name and by absolute path, on PORT`: by name with `PORT` empty gives port 5177; by an absolute path that holds a space, with space at the two ends of the line, and `PORT=5199`. The stub runs in the worktree folder and gets `<root> --host 127.0.0.1 --port <port> --strictPort`.
