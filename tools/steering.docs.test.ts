@@ -13,6 +13,13 @@
 //   - no lesson bullet sits above the first `##` heading;
 //   - each `##` heading holds a date in the form YYYY-MM-DD;
 //   - no LESSONS.md heading holds a model name.
+// Rules of steering-cut/03 (LESSONS.md is the section Always and an index; six topic files hold the lessons):
+//   - LESSONS.md is under 30,000 bytes;
+//   - LESSONS.md holds the section Always, then the section Index, and no other `##` section;
+//   - the Index entries equal the `##` headings of the six topic files, with no repeat, and each entry
+//     links to the file that holds it;
+//   - no name from the model-name module occurs in LESSONS.md;
+//   - the lessons folder holds the six topic files, and each holds its lessons under one dated heading.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -25,8 +32,12 @@ const root = join(import.meta.dirname, '..');
 type Fault = { file: string; section: string; where: string; what: string };
 const show = (f: Fault) => `${f.file} § ${f.section} (${f.where}): ${f.what}`;
 
-/** The tracker files: git merges them with the union driver. A probe path stands for the topic files. */
-const TRACKERS = ['TASKS.md', 'LESSONS.md', 'docs/lessons/topic.md', 'docs/QUEUE.md'];
+/** The six topic files of the lessons folder (steering-cut/03). Each holds the lessons of one topic. */
+const TOPIC_FILES = ['engine-and-tests', 'runs', 'jev', 'art-and-motion', 'browser-checks-and-ui', 'agents-and-tools']
+  .map(name => `docs/lessons/${name}.md`);
+
+/** The tracker files: git merges them with the union driver. */
+const TRACKERS = ['TASKS.md', 'LESSONS.md', ...TOPIC_FILES, 'docs/QUEUE.md'];
 const MATRIX = 'docs/MATRIX.md';
 
 /** The merge attribute of each path, from `git check-attr merge`. */
@@ -310,7 +321,135 @@ describe('lesson headings', () => {
     expect(lessonFaults(`## 2026-09-13 \u2014 rate limit\n- Keep no more than ~6 ${model} agents.`, 'fixture.md')).toEqual([]);
   });
 
-  it('LESSONS.md holds each lesson under one dated heading with no model name', () => {
-    expect(lessonFaults(read('LESSONS.md')).map(show)).toEqual([]);
+  it('each topic file holds its lessons under one dated heading with no model name in a heading', () => {
+    expect(TOPIC_FILES.flatMap(file => existsSync(join(root, file)) ? lessonFaults(read(file), file) : []).map(show)).toEqual([]);
+  });
+});
+
+/** LESSONS.md stays small: an agent reads it whole at the start of each session. */
+const LESSONS_LIMIT = 30_000;
+
+/** An Index entry: a list item that is one link, `- [heading](file)`. */
+const INDEX_ENTRY = /^\s*- \[(.*)\]\(([^)\s]+)\)\s*$/;
+
+/**
+ * Faults of LESSONS.md (steering-cut/03): the size, the `##` sections (Always, then Index, no other),
+ * a model name in any line, and the Index entries against the `##` headings of the topic files. An
+ * entry must name a topic-file heading one time and link to the file that holds that heading.
+ */
+function lessonsIndexFaults(text: string, topics: { file: string; text: string }[], file = 'LESSONS.md'): Fault[] {
+  const size = Buffer.byteLength(text, 'utf8');
+  const tooBig: Fault[] = size < LESSONS_LIMIT ? [] : [{
+    file, section: '(file)', where: `size ${size} bytes`, what: `LESSONS.md must be under ${LESSONS_LIMIT} bytes`,
+  }];
+  const headings = sectionHeadings(text);
+  const names = headings.map(h => h.heading);
+  const order: Fault[] = names.slice(0, 2).join('|') === 'Always|Index' ? [] : [{
+    file, section: '(top)', where: `count ${Math.min(names.filter(n => n === 'Always' || n === 'Index').length, 2)} of 2`,
+    what: `the first \`##\` sections must be Always, then Index; found ${names.slice(0, 2).map(n => `"${n}"`).join(', ') || 'none'}`,
+  }];
+  const others = headings.filter(h => h.heading !== 'Always' && h.heading !== 'Index');
+  const extra: Fault[] = others.length ? [{
+    file, section: others[0].heading, where: `count ${others.length}, first line ${others[0].line}`,
+    what: 'LESSONS.md must hold no `##` section but Always and Index',
+  }] : [];
+  const named: Fault[] = findModelNames(text).map(({ word, line }) => ({
+    file, section: markdownLines(text).find(l => l.line === line)?.section ?? '(fenced code)', where: `line ${line}`,
+    what: `LESSONS.md must not hold the model name "${word}"`,
+  }));
+  // Each topic-file heading, with the files that hold it.
+  const holders = new Map<string, string[]>();
+  for (const topic of topics)
+    for (const { heading } of sectionHeadings(topic.text)) holders.set(heading, [...(holders.get(heading) ?? []), topic.file]);
+  // The lines of the `##` section Index, down to the next `##` heading; `###` groups stay inside it.
+  const indexStart = headings.find(h => h.heading === 'Index')?.line ?? Infinity;
+  const indexEnd = headings.find(h => h.line > indexStart)?.line ?? Infinity;
+  const entries = markdownLines(text).filter(l => l.line > indexStart && l.line < indexEnd && INDEX_ENTRY.test(l.text)).map(l => {
+    const [, heading, target] = INDEX_ENTRY.exec(l.text)!;
+    return { line: l.line, heading, target: target.replace(/#.*$/, '') };
+  });
+  const seen = new Map<string, number[]>();
+  for (const e of entries) seen.set(e.heading, [...(seen.get(e.heading) ?? []), e.line]);
+  const index: Fault[] = [
+    ...[...holders].filter(([, files]) => files.length > 1).map(([heading, files]) => ({
+      file: files.join(', '), section: heading, where: `count ${files.length}`,
+      what: 'a lesson heading must occur in one topic file only',
+    })),
+    ...[...seen].filter(([, lines]) => lines.length > 1).map(([heading, lines]) => ({
+      file, section: 'Index', where: `count ${lines.length}, lines ${lines.join(', ')}`,
+      what: `the entry "${heading}" must occur one time`,
+    })),
+    ...entries.flatMap(e => {
+      const files = holders.get(e.heading);
+      if (!files) return [{ file, section: 'Index', where: `line ${e.line}`, what: `the entry "${e.heading}" names no topic-file heading` }];
+      if (files.includes(e.target)) return [];
+      return [{ file, section: 'Index', where: `line ${e.line}`, what: `the entry "${e.heading}" links to ${e.target}, not to ${files.join(', ')}` }];
+    }),
+    ...[...holders].filter(([heading]) => !seen.has(heading)).map(([heading, files]) => ({
+      file, section: 'Index', where: `count 0`, what: `the heading "${heading}" of ${files.join(', ')} has no entry`,
+    })),
+  ];
+  return [...tooBig, ...order, ...extra, ...named, ...index];
+}
+
+describe('LESSONS.md index', () => {
+  const model = MODEL_NAMES[0][0].toUpperCase() + MODEL_NAMES[0].slice(1);
+  const topics = [
+    { file: 'docs/lessons/a.md', text: '# A\n\n## 2026-01-01 \u2014 x\n- text\n\n## 2026-01-02 \u2014 y\n- text' },
+    { file: 'docs/lessons/b.md', text: '# B\n\n## 2026-01-03 \u2014 z\n- text\n## 2026-01-01 \u2014 x\n- text' },
+  ];
+  const good = [
+    '# Lessons', '', '## Always', '- Never print a process environment.', '',
+    '## Index', '', '### A', '- [2026-01-01 \u2014 x](docs/lessons/a.md)', '- [2026-01-02 \u2014 y](docs/lessons/a.md#2026-01-02)',
+    '### B', '- [2026-01-03 \u2014 z](docs/lessons/b.md)',
+  ];
+
+  it('names the size of a LESSONS.md of 30,000 bytes or more', () => {
+    const big = [...good, '', 'x'.repeat(LESSONS_LIMIT)].join('\n');
+    expect(lessonsIndexFaults(big, topics.slice(0, 1), 'fixture.md').filter(f => f.what.includes('bytes')).map(show)).toEqual([
+      `fixture.md \u00a7 (file) (size ${Buffer.byteLength(big)} bytes): LESSONS.md must be under 30000 bytes`,
+    ]);
+  });
+
+  it('names the sections when Always and Index are out of order or another `##` section exists', () => {
+    const swapped = ['# Lessons', '## Index', '## Always', '## 2026-01-04 \u2014 a lesson', '- text'].join('\n');
+    expect(lessonsIndexFaults(swapped, [], 'fixture.md').map(show)).toEqual([
+      'fixture.md \u00a7 (top) (count 2 of 2): the first `##` sections must be Always, then Index; found "Index", "Always"',
+      'fixture.md \u00a7 2026-01-04 \u2014 a lesson (count 1, first line 4): LESSONS.md must hold no `##` section but Always and Index',
+    ]);
+  });
+
+  it('names each model name in LESSONS.md, in the text and in a heading', () => {
+    const named = ['# Lessons', '## Always', `- Keep no more than ~6 ${model} agents.`, '## Index'].join('\n');
+    expect(lessonsIndexFaults(named, [], 'fixture.md').map(show)).toEqual([
+      `fixture.md \u00a7 Always (line 3): LESSONS.md must not hold the model name "${model}"`,
+    ]);
+  });
+
+  it('names a repeated entry, a wrong link, an entry with no heading, a missing heading and a heading in two files', () => {
+    const index = [
+      '# Lessons', '## Always', '## Index',
+      '- [2026-01-01 \u2014 x](docs/lessons/a.md)', '- [2026-01-01 \u2014 x](docs/lessons/a.md)',
+      '- [2026-01-03 \u2014 z](docs/lessons/a.md)', '- [2026-01-05 \u2014 w](docs/lessons/b.md)',
+    ].join('\n');
+    expect(lessonsIndexFaults(index, topics, 'fixture.md').map(show)).toEqual([
+      'docs/lessons/a.md, docs/lessons/b.md \u00a7 2026-01-01 \u2014 x (count 2): a lesson heading must occur in one topic file only',
+      'fixture.md \u00a7 Index (count 2, lines 4, 5): the entry "2026-01-01 \u2014 x" must occur one time',
+      'fixture.md \u00a7 Index (line 6): the entry "2026-01-03 \u2014 z" links to docs/lessons/a.md, not to docs/lessons/b.md',
+      'fixture.md \u00a7 Index (line 7): the entry "2026-01-05 \u2014 w" names no topic-file heading',
+      'fixture.md \u00a7 Index (count 0): the heading "2026-01-02 \u2014 y" of docs/lessons/a.md has no entry',
+    ]);
+    expect(lessonsIndexFaults(good.join('\n'), [topics[0], { file: 'docs/lessons/b.md', text: '## 2026-01-03 \u2014 z' }], 'fixture.md')).toEqual([]);
+  });
+
+  it('the lessons folder holds the six topic files', () => {
+    const folder = join(root, 'docs/lessons');
+    const found = existsSync(folder) ? readdirSync(folder).filter(name => name.endsWith('.md')).sort().map(name => `docs/lessons/${name}`) : [];
+    expect(found).toEqual([...TOPIC_FILES].sort());
+  });
+
+  it('LESSONS.md is small, holds Always then Index, no model name, and indexes each topic-file heading', () => {
+    const topicTexts = TOPIC_FILES.filter(file => existsSync(join(root, file))).map(file => ({ file, text: read(file) }));
+    expect(lessonsIndexFaults(read('LESSONS.md'), topicTexts).map(show)).toEqual([]);
   });
 });
