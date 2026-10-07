@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Tool gate: a Claude Code PreToolUse hook on Bash.
+// Tool gate: a Claude Code PreToolUse hook on Bash and on the browser tools.
 // It refuses commands that print the environment, process command lines or a secret file.
 // It also refuses an npm install into a linked node_modules folder.
 // It asks before production, DNS and pages actions and before a git hook bypass.
+// It asks before a browser tool opens a production or dashboard site.
 // In bypassPermissions and dontAsk mode an ask can pass with no prompt, so there an ask becomes a deny.
 // It stops mistakes, not an adversary. A fault or bad input gives "ask", never a pass.
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
@@ -393,6 +394,61 @@ export function decide({ command, cwd, mode }) {
   return forMode(decideLine(command, cwd, 0), mode);
 }
 
+// ---------------------------------------------------------------- browser sites
+
+// Production and dashboard sites, each with its sub-domains. The gate matches the host, not the URL text.
+const SITES = [
+  /(^|\.)kingdown\.dev$/, /(^|\.)kingdown[^.]*\.vercel\.app$/, /(^|\.)vercel\.com$/,
+  /(^|\.)supabase\.com$/, /(^|\.)supabase\.co$/, /(^|\.)porkbun\.com$/,
+];
+// Schemes with no "//". Other text with no scheme is a host, because the browser tools add https://.
+const NO_SLASH_SCHEMES = /^(about|blob|data|file|javascript|mailto|view-source):/i;
+
+/** The host that a browser tool opens for `url`. It throws on a URL that does not parse. */
+function hostOf(url) {
+  if (typeof url !== 'string') throw new TypeError(`url is ${url === null ? 'null' : typeof url}, not a string`);
+  const parsed = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(url) || NO_SLASH_SCHEMES.test(url) ? url : `https://${url}`);
+  if (parsed.protocol === 'view-source:') return hostOf(url.slice('view-source:'.length));
+  return parsed.hostname.replace(/\.$/, '');
+}
+
+/** A JSON text becomes its value, because a model can send a list as text. */
+function fromJson(value) {
+  if (typeof value !== 'string' || !/^\s*[[{]/.test(value)) return value;
+  try { return JSON.parse(value); } catch { return value; }
+}
+
+/** Each url value in the tool input, also in the steps of a batch. */
+function urlsIn(value, depth = 0, found = []) {
+  if (depth > MAX_DEPTH) throw new Error('the tool input nests too deep');
+  value = fromJson(value);
+  if (Array.isArray(value)) for (const item of value) urlsIn(item, depth + 1, found);
+  else if (value && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      if (key === 'url') found.push(item);
+      else urlsIn(item, depth + 1, found);
+    }
+  }
+  return found;
+}
+
+/**
+ * The pure decision for a browser tool. In: the tool name, its input and the permission mode.
+ * Out: { decision, reason } or null for a pass.
+ */
+export function decideBrowser({ tool, input, mode }) {
+  if (tool.endsWith('__browser_batch') && !Array.isArray(fromJson(input.actions))) {
+    throw new Error('the batch has no actions list');
+  }
+  for (const url of urlsIn(input)) {
+    const host = hostOf(url);
+    if (SITES.some(site => site.test(host))) {
+      return forMode(ask(`${host} is a production or dashboard site. A browser there can act with the owner's sign-in, so it opens only on the owner's yes.`), mode);
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------- hook wrapper
 
 const output = (decision, reason, mode) => {
@@ -412,12 +468,14 @@ export function hook(stdin) {
   if (!input || typeof input.tool_input !== 'object' || input.tool_input === null) {
     return output('ask', 'Tool gate fault: the hook input has no tool_input.', mode);
   }
-  if (input.tool_name !== 'Bash') return '';
+  const bash = input.tool_name === 'Bash';
   try {
-    const result = decide({ command: input.tool_input.command, cwd: input.cwd ?? process.cwd(), mode });
+    const result = bash
+      ? decide({ command: input.tool_input.command, cwd: input.cwd ?? process.cwd(), mode })
+      : decideBrowser({ tool: String(input.tool_name ?? ''), input: input.tool_input, mode });
     return result ? output(result.decision, `Tool gate: ${result.reason}`) : '';
   } catch (error) {
-    return output('ask', `Tool gate fault: ${error.message}. Check the command by hand.`, mode);
+    return output('ask', `Tool gate fault: ${error.message}. Check the ${bash ? 'command' : 'URL'} by hand.`, mode);
   }
 }
 

@@ -46,6 +46,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "mcp__Claude_Browser__navigate|mcp__Claude_Browser__preview_start|mcp__Claude_Browser__browser_batch|mcp__remote-devices__Claude_Browser__navigate|mcp__remote-devices__Claude_Browser__preview_start|mcp__remote-devices__Claude_Browser__browser_batch|mcp__claude-in-chrome__navigate|mcp__claude-in-chrome__tabs_create_mcp|mcp__claude-in-chrome__browser_batch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tool-gate.mjs",
+            "timeout": 10
+          }
+        ]
       }
     ]
   }
