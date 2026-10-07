@@ -1324,7 +1324,7 @@ const coords = $<HTMLInputElement>('coords');
 coords.onchange = () => { view.setCoords(coords.checked); save(); };
 $('reset-view').onclick = () => view.resetView();
 addEventListener('keydown', e => {
-  if (document.querySelector('#workshop[open]')) return; // the Workshop keeps its own keys; Esc closes its top sheet, then it
+  if (document.querySelector('#workshop[open]')) return; // the Workshop keeps its own keys: Esc closes its top sheet, else an open choices panel, else the Workshop
   if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; armed = false; refresh(); return; }
   // Menus swallow shortcuts; an open move choice does not (Z there undoes, and that is tested).
   if ((e.target as HTMLElement).closest('input,select,textarea') || document.querySelector('#new-game[open], #settings[open], #title-screen[open], #rules[open]')) return;

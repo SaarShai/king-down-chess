@@ -1,6 +1,6 @@
 # M1 and DeepSeek: measured capabilities and prompting
 
-Current policy is in [AGENTS.md](../AGENTS.md#delegation-policy--owner-decision-2026-09-22): work directly; delegation stopped by the owner on 2026-09-22 because of overhead and monitoring. The recipes below are for a future explicit authorization, not an active queue. The delegation heartbeat is paused and task-owned workers/server are stopped. Incomplete studies remain incomplete.
+Current policy is in [AGENTS.md](../AGENTS.md#helpers-and-machines): helpers and workflows are allowed again (owner, 2026-10-06), and every simulation run needs the owner's recorded go ([AGENTS.md](../AGENTS.md#runs-and-compute)). Incomplete studies remain incomplete.
 
 ## What was worth outsourcing
 

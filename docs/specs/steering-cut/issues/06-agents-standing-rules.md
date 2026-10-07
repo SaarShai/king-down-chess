@@ -168,3 +168,4 @@ New rules with no old line: the neutral trailers, `git commit -a`, pull request 
 **For the owner (story 12).** Please read the Jev section and the Game design line on the Light and Dark kings; both are short forms of the old text. `docs/DELEGATION.md` line 3 still links to an old AGENTS.md heading (`#delegation-policy--owner-decision-2026-09-22`) and says delegation is stopped; this ticket does not own that file, and the live-file link lint does not check anchors.
 
 **Merge.** Merged into claude/retro-2026-10-06 as fd04e3f. npm test in the integration worktree: exit 0, vitest 1257 tests in 64 files, node tests 42 of 42. The Status stays ready-for-human for the owner review in story 12.
+- Review fix F23: `docs/DELEGATION.md` line 3 links to `#helpers-and-machines` and `#runs-and-compute` and states the current rule: helpers and workflows are allowed again (owner, 2026-10-06); every simulation run needs the owner's recorded go.

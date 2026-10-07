@@ -39,3 +39,4 @@ Notes:
 - The target file can also name the main checkout by its absolute path; the spec does not forbid it, and `wt serve` accepts it.
 - Vite keeps its dependency cache in `node_modules/.vite`. In a linked worktree, that is the main checkout's folder, so two worktrees served in turn rebuild the shared cache ("Re-optimizing dependencies because vite config has changed"). It works, but it is slow when two serve at once. A per-worktree `cacheDir` would fix it; the Vite config belongs to the checks spec and ticket 05.
 - Ticket 01 code, seen in the smoke run: in a clone with no local `main` (only `origin/main`), `wt add smoke/view` made the worktree on a new local `main`, not on `smoke/view`. A second call made the right branch. The real main checkout has a local `main`, so this does not occur there.
+- Review fix F6: the header of `tools/wt.test.ts` names tickets 01, 02 and 03 (it also holds the `wt serve` tests of this ticket).

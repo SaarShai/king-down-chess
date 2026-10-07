@@ -46,3 +46,4 @@ Verify, after the merge of the integration tip (f9f6603; already up to date):
 - `npm test`: vitest 66 files, 1284 tests passed; node --test 42 passed. Two earlier runs had one or three tests over the 5 s limit (`judge.test.ts` random designs, `piece-activity.test.ts`, `gate.test.ts` push mode) at that load; each passes alone, and the third full run passed with no failure.
 - `npm run test:docs`: 4 files, 74 tests passed.
 - `git grep -n -E "(TASKS|LESSONS|QUEUE|HANDOFF[^ :]*)\.md:[0-9]" -- . ':!docs/tasks-archive' ':!docs/specs' ':!docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md'`: no output (exit 1).
+- Review fix F21: no change needed; the Workshop note of `docs/MATRIX.md` cites revision 3 §3.3, §8.4 with a link to `WORKSHOP-revision-3-2026-10-07.md`, and `git grep "WORKSHOP.md §" docs/MATRIX.md` finds nothing.

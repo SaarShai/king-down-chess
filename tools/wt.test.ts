@@ -1,4 +1,4 @@
-// Worktree script test (dev-environment/01, 03). Each case runs the real tools/wt.sh in a temporary
+// Worktree script test (dev-environment/01, 02, 03). Each case runs the real tools/wt.sh in a temporary
 // repository: the real .gitignore, a lock file, a fake package folder and a stub `npm` on PATH.
 // The stub writes its arguments to a log. For `ci` it deletes each entry of node_modules, as
 // real `npm ci` does, also through a link, and then writes its own package folder.
