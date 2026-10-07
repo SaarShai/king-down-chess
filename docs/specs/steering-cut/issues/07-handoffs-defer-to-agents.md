@@ -4,7 +4,7 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Red first: before the edit, the new rules fail and name the stray `</content>` and `</invoke>` lines, the trailer lines and the model names in each handoff. The output goes in this ticket.
 - [x] Rule: no live file holds tool-call markup (a line that is only a closing or opening tool tag).
@@ -90,3 +90,5 @@ The COMPUTE.md entry failed on the eight recipe phrases ("## Recipes", "npx tsx 
 **Checks.** `npm run test:docs`: 2 files, 53 tests passed. `npm test` after the merge of `claude/retro-2026-10-06` (d63c763): 64 files, 1,263 tests passed; `node --test` 42 passed, 0 failed. The last run after the ticket commit passed the same counts. Two runs before it failed only in `tools/gate.test.ts` (temporary-repo git tests, the 5 s limit) while the machine load average was about 25; this ticket changes no code that those tests run.
 
 **Left.** Ticket 09 moves the retro handoff after the integration merge; the retro check of this ticket reads it at either path. The March reading of "Rescue and March" is the builder's: the owner can correct the Card deal line.
+
+**Merge.** Merged into claude/retro-2026-10-06 as 8d8d442. In the integration worktree, three runs of `npm test` each failed one or two tests by the 5 s limit only (judge.test.ts, gate.test.ts, piece-activity.test.ts; a different test each run) while the load average was 20 to 33. Each of those files passes alone. `npx tsc --noEmit` and `npx vitest run --testTimeout=30000`: 1263 tests in 64 files passed. `node --test`: 42 of 42. `npm run test:docs`: 53 of 53.
