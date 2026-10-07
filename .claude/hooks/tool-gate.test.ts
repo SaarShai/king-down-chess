@@ -1,5 +1,5 @@
 // The tool gate, tested at its seam: hook JSON on stdin to the exact command in the settings.
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -35,8 +35,21 @@ function runGate(stdin: string) {
   return { status: run.status, stdout: run.stdout, stderr: run.stderr, out };
 }
 
-const bash = (command: unknown, cwd = root) => JSON.stringify({
-  session_id: 'test', cwd, permission_mode: 'default', hook_event_name: 'PreToolUse',
+/** The same as runGate, but it does not block, so rows can run in parallel. */
+function runGateAsync(stdin: string): Promise<{ status: number | null; stderr: string; out: any }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('/bin/sh', ['-c', gateCommand], { env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
+    let stdout = '', stderr = '';
+    child.stdout.on('data', d => { stdout += d; });
+    child.stderr.on('data', d => { stderr += d; });
+    child.on('error', reject);
+    child.on('close', status => resolve({ status, stderr, out: stdout.trim() ? JSON.parse(stdout).hookSpecificOutput : undefined }));
+    child.stdin.end(stdin);
+  });
+}
+
+const bash = (command: unknown, cwd = root, mode = 'default') => JSON.stringify({
+  session_id: 'test', cwd, permission_mode: mode, hook_event_name: 'PreToolUse',
   tool_name: 'Bash', tool_input: { command },
 });
 
@@ -146,7 +159,104 @@ describe('tool gate guards a linked node_modules', () => {
   });
 });
 
+// [command, a word that the reason names]
+const askRows: [string, string][] = [
+  ['vercel', 'vercel'],
+  ['vercel deploy --prod', 'vercel'],
+  ['/usr/local/bin/vercel env pull', 'vercel'],
+  ['npx vercel deploy', 'vercel'],
+  ['npx -y vercel@39.1.0 deploy --prod', 'vercel'],
+  ['npx --yes --package vercel vercel ls', 'vercel'],
+  ['bunx vercel deploy', 'vercel'],
+  ['bunx --bun vercel deploy', 'vercel'],
+  ['pnpm dlx vercel deploy', 'vercel'],
+  ['pnpm --silent dlx vercel deploy', 'vercel'],
+  ['pnpm dlx --silent vercel deploy', 'vercel'],
+  ['psql "$DATABASE_URL" -c "select 1"', 'psql'],
+  ['PGPASSWORD=x psql -h db.example.supabase.co', 'psql'],
+  ['supabase db push', 'supabase'],
+  ['npx supabase db reset', 'supabase'],
+  ['tools/deploy.sh --publish', '--publish'],
+  ['./tools/deploy.sh --publish', '--publish'],
+  ['bash tools/deploy.sh --publish', '--publish'],
+  ['curl -X POST https://api.porkbun.com/api/json/v3/dns/retrieve/kingdown.dev', 'Porkbun'],
+  ['curl https://porkbun.com/api/json/v3/ping', 'Porkbun'],
+  ['gh workflow run pages.yml', 'gh workflow run'],
+  ['gh workflow run deploy --ref main', 'gh workflow run'],
+  ['git commit --no-verify -m "x"', 'git hooks'],
+  ['git push --no-verify origin x', 'git hooks'],
+  ['git commit -n -m "x"', 'git hooks'],
+  ['git commit -nm "x"', 'git hooks'],
+  ['git -C /repo commit -am "x" -n', 'git hooks'],
+  ['git config core.hooksPath /dev/null', 'core.hooksPath'],
+  ['git config --unset core.hooksPath', 'core.hooksPath'],
+  ['git config set core.hooksPath .x', 'core.hooksPath'],
+  ['git config --global core.hooksPath ~/hooks', 'core.hooksPath'],
+  ['git -c core.hooksPath=/dev/null commit -m "x"', 'core.hooksPath'],
+  ['GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m x', 'core.hooksPath'],
+];
+
+// Each ask form inside ssh, sh -c, bash -lc, a pipe, &&, $(...) and wrappers.
+const nestedAskRows: [string, string][] = [
+  ["ssh m1 'vercel deploy'", 'vercel'],
+  ["sh -c 'psql -c \"drop table x\"'", 'psql'],
+  ['bash -lc "supabase db push"', 'supabase'],
+  ['echo y | vercel deploy --prod', 'vercel'],
+  ['npm test && git push --no-verify', 'git hooks'],
+  ['sudo -u deploy tools/deploy.sh --publish', '--publish'],
+  ['time gh workflow run pages.yml', 'gh workflow run'],
+  ['env FOO=1 npx vercel deploy', 'vercel'],
+  ['X=$(curl -s https://api.porkbun.com/api/json/v3/ping)', 'Porkbun'],
+  ["ssh m1 'git -C /repo commit -n -m x'", 'git hooks'],
+  ['nohup git config core.hooksPath /tmp/none &', 'core.hooksPath'],
+];
+
+describe('tool gate asks before production actions and hook bypasses', () => {
+  it.each([...askRows, ...nestedAskRows])('asks for %s', (command, action) => {
+    const { out } = verdict(command);
+    expect(out?.hookEventName).toBe('PreToolUse');
+    expect(out?.permissionDecision).toBe('ask');
+    expect(out?.permissionDecisionReason).toContain(action);
+  });
+});
+
+const NO_PROMPT_MODES = ['bypassPermissions', 'dontAsk'];
+const PROMPT_MODES = ['default', 'acceptEdits', 'plan', 'auto'];
+
+describe('tool gate turns an ask into a deny where no prompt shows', () => {
+  it.each([...askRows, ...nestedAskRows])('%s: deny in bypassPermissions and dontAsk, ask in the other modes', async (command, action) => {
+    const runs = await Promise.all([...NO_PROMPT_MODES, ...PROMPT_MODES].map(mode => runGateAsync(bash(command, root, mode))));
+    runs.forEach((run, k) => {
+      expect(run.status).toBe(0);
+      expect(run.stderr).toBe('');
+      expect(run.out?.permissionDecisionReason).toContain(action);
+      if (k < NO_PROMPT_MODES.length) {
+        expect(run.out?.permissionDecision).toBe('deny');
+        expect(run.out?.permissionDecisionReason).toContain('ask the owner in chat');
+      } else {
+        expect(run.out?.permissionDecision).toBe('ask');
+      }
+    });
+  });
+  it.each(["printenv", "ssh m1 'ps aux'", 'vercel deploy && printenv', `cat ${secretFile}`])('%s stays deny in every mode', async command => {
+    const runs = await Promise.all([...NO_PROMPT_MODES, ...PROMPT_MODES].map(mode => runGateAsync(bash(command, root, mode))));
+    for (const run of runs) {
+      expect(run.status).toBe(0);
+      expect(run.out?.permissionDecision).toBe('deny');
+      expect(run.out?.permissionDecisionReason).not.toContain('ask the owner in chat');
+    }
+  });
+  it('gives deny for a fault in bypassPermissions mode', async () => {
+    const run = await runGateAsync(JSON.stringify({ cwd: root, tool_name: 'Bash', permission_mode: 'bypassPermissions' }));
+    expect(run.out?.permissionDecision).toBe('deny');
+    expect(run.out?.permissionDecisionReason).toMatch(/no tool_input.*ask the owner in chat/);
+  });
+});
+
 const passRows = [
+  'grep vercel AGENTS.md', 'echo supabase', 'git commit -m "x"', 'git config user.name', 'tools/deploy.sh',
+  'git config core.hooksPath', 'git config --get core.hooksPath', 'git commit -m "-n"', 'git commit -mn',
+  'git push -n origin x', 'cat vercel.json', 'echo porkbun.com', 'gh workflow list', 'npm run build',
   'grep printenv notes.md', 'echo env', 'set -euo pipefail', 'export PATH=/x:$PATH', 'ps -o pid,stat',
   'ps -o pid,stat,etime -p 123', 'pgrep -x node', 'pgrep -f kaggle-tournament', 'cat README.md', 'git log',
   `ls ${join(tmp, '.secrets')}`, `test -s ${secretFile}`, 'echo printenv | wc -c', 'declare -x FOO=1',
@@ -184,5 +294,11 @@ describe('tool gate permission rules', () => {
     'Read(//**/.secrets/**)', 'Read(~/.config/typesafe/key)',
   ])('permissions.deny holds %s', rule => {
     expect(settings.permissions?.deny).toContain(rule);
+  });
+  it.each([
+    'Bash(vercel *)', 'Bash(npx vercel *)', 'Bash(bunx vercel *)', 'Bash(pnpm dlx vercel *)',
+    'Bash(psql *)', 'Bash(supabase *)', 'Bash(gh workflow run *)',
+  ])('permissions.ask holds %s', rule => {
+    expect(settings.permissions?.ask).toContain(rule);
   });
 });
