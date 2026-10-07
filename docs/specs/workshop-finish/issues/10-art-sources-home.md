@@ -30,7 +30,7 @@ Builder, 2026-10-07, branch `build/workshop-finish-10`.
 - The five fresh sample sheets equal their `fresh-sources.json` outputs by sha256: `fast-fresh-guard.png` is the `fast` job of `prompts-fresh-covers.json`; `support-fresh-cape.png` is `prompt-fresh-cape-framing.json`; the others are jobs of `prompts-fresh.json`.
 - Inference, not proven by a hash: `tide-caller-shell-mask-v3.png` is the edit of `prompt-shell-hair-revision.json` (its `source` is `tide-caller-shell-mask.png`; `approved.json` describes the result). No record names the v3 file.
 
-**Proof of the sources.** The packing steps of `tools/prepare-workshop-art.mjs`, run in a scratch folder on the 34 copied PNGs, made 68 webp. All 68 are byte-identical to the tracked `public/ui/workshop/` files (sha256). Ticket 11 repeats this with the script itself.
+**Proof of the sources.** The packing steps of `tools/prepare-workshop-art.mjs`, run with `sharp` 0.35.4 in a scratch folder on the 34 copied PNGs, made 68 webp. All 68 are byte-identical to the tracked `public/ui/workshop/` files (sha256). Ticket 11 repeats this with the script itself.
 
 **Commands run.**
 - `ls "<main checkout>/art-src/workshop" | wc -l` gives 68: 34 `.png`, 34 `.prompt.txt`, no other file.
@@ -38,7 +38,7 @@ Builder, 2026-10-07, branch `build/workshop-finish-10`.
 - `git -C "<main checkout>" status --porcelain art-src` is empty.
 - `npx vitest run src/workshop/figures.test.ts`: red first (no workshop section), then 5 passed. New or changed tests: "keeps the cast list equal to the figure module", "ships only the two armies of each approved identity, with no rejected or pending figures", "lists one source PNG per figure in the workshop section of the art manifest". The test holds no literal cast size; the heading count must equal two files per figure.
 - `npx tsc --noEmit -p .`: 0 errors. `node --test "docs/2d-first-pieces/**/*.test.mjs"`: 42 passed.
-- `npm test`: 674 passed, 1 failed, two runs. The failure is "never lowers W for an added square, line or ability" in `src/workshop/judge.test.ts`: "Test timed out in 5000ms" under full load. It fails the same way on the integration tip before this change, and `npx vitest run src/workshop/judge.test.ts` alone passes 13 of 13. Ticket 05 owns that file and gives the case a 30 s limit. So the box "`npm test` passes" stays open until ticket 05 merges.
+- `npm test`: the type check passes; vitest 674 passed, 1 failed; three runs, the last after the merge of the integration tip `6080758`. The node tests do not run after the vitest failure. The failure is "never lowers W for an added square, line or ability" in `src/workshop/judge.test.ts`: "Test timed out in 5000ms" under full load. It fails the same way on the integration tip before this change, and `npx vitest run src/workshop/judge.test.ts` alone passes 13 of 13. Ticket 05 owns that file and gives the case a 30 s limit. So the box "`npm test` passes" stays open until ticket 05 merges.
 
 **Note for the tracker.** The workflow named this ticket `10-art-sources-and-manifest.md` ("Art sources and the manifest"). That file does not exist; this file is ticket 10.
 
