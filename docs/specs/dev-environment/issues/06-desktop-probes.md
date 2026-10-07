@@ -48,5 +48,5 @@ Note: `core.hooksPath` is not set in this repository's git config, so the hooks 
 4. A reason such as `wt: no target file: ...` means the session read the worktree's launch file: steering-cut/06 then says a worktree session may use `dev` for itself. "No server named worktree" means the main checkout's file: the guidance stays.
 5. If `node_modules` is missing or is a folder, the desktop worktree option does not use `worktree.symlinkDirectories`; the startup session hook should then make the link (dev-environment/04). Record which one did it.
 
-**Tests.** `npm test` in the build worktree: exit 0; vitest 64 files, 1235 tests passed; node tests 42 passed, 0 failed. This ticket changes no code.
+**Tests.** `npm test` in the build worktree: exit 0; vitest 64 files, 1235 tests passed; node tests 42 passed, 0 failed. After the merge of the integration tip (e040d59): exit 0; vitest 64 files, 1236 tests passed; node tests 42 passed, 0 failed. This ticket changes no code.
 
