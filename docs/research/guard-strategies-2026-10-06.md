@@ -1,0 +1,120 @@
+# Guard strategies: probes for hidden value (design, 2026-10-06)
+
+Status: design. Nothing is built or run. Runs need the owner's go.
+
+## Why
+
+The worth runs measure the Guard as our engine plays it: depth 3, and an eval that keeps
+the Guard on its home ranks (`PST[G]`) and rewards it only in the king shield
+(`shield()`, `src/ai/eval.ts`). A plan that the eval does not reward is invisible to the
+engine. So the Guard's measured worth (about 1 pawn) is a lower bound.
+
+The test for one plan: give one side a lab eval bonus for the plan, and play it against
+the same engine without the bonus. Both sides have the same army and the same depth.
+If the bonus side scores better, the plan has real value, and we measure the Guard's
+worth again with the bonus on. The engine already plays a different eval on each side
+(`evalParams.white/black`, `src/sim/game.ts`), and games can start from a FEN.
+
+Guard facts that the plans use: it moves 1 square to an empty square, it never
+captures, only a king can capture it, and it blocks sliders. So a Guard is a
+permanent wall: the enemy can remove it only with the king.
+
+## Part 1: march strategies (eval probes)
+
+Each probe is one new eval term with a weight. The weight is 0 in the shipped eval.
+
+| Id | Plan | The term rewards |
+|---|---|---|
+| E1 | Queen escort | A Guard next to its own queen, more when the queen is in the enemy half. |
+| E2 | Front shield | A Guard on the square between its queen and the nearest enemy slider line to the queen. |
+| E3 | Interpose | A Guard on a line between an enemy slider and its own queen or king (any distance). |
+| E4 | Blockade | A Guard directly in front of an enemy pawn, more for a passed pawn. Only their king can clear it. |
+| E5 | Pawn escort | A Guard next to its own passed pawn, the pair advancing together. |
+| E6 | King net | A Guard next to the enemy king (it takes escape squares, and only that king can take it). |
+| E7 | Free Guard | Remove the home-rank pull: `PST[G]` flat. This tests whether the shipped table holds the Guard back. |
+
+E1 is the owner's queen-and-Guard march. E2 and E3 are stricter forms of it. E4 to E6 use
+the same fact (the Guard is a wall only a king removes) in other places.
+
+Weights: 30 and 80 centipawns for each term (a small and a large push).
+
+Run per probe and weight (A/B, mirrored pairs, armies with a Guard on each side, Guard
+on b1 as in the worth runs, and also next to the king):
+- 400 pairs (800 games) at depth 3. The noise is about ±25 Elo, so it detects a plan
+  worth about 0.4 pawns.
+- Output: the bonus side's score and Elo, draws, length, and how often the plan's
+  pattern appears (a probe that never fires measures nothing).
+
+A probe that wins goes to step 2: the worth run (`run.ts --experiment values`) with
+the bonus on both sides, at depth 3 and depth 4.
+
+## Part 2: king protection (start from a threat)
+
+The owner's idea: start the games later, with the king under attack, and the Guard next
+to the king. Random other pieces. Then compare the same position with and without the
+Guard.
+
+Position generator (`tools/king-threat-fens.ts`, new):
+1. The defender's king on one of g1, c1, e1, or a random square of ranks 1–2.
+2. The Guard on a random square next to the king (variants below).
+3. Attack: the enemy queen plus 1–2 random pieces from {Rook, Bishop, Knight, Archer},
+   each placed within 3 squares of the defender's king, not giving check, not
+   en prise for free.
+4. Defence: 1–3 random defender pieces from the same set, and 2–4 pawns in front
+   of the king.
+5. The rest: random pawns for both sides, then random extra pieces until the material
+   is equal by the shipped values, not counting the Guard.
+6. Keep a position only when it is legal, no side is in check, and the defender's
+   depth-3 eval is between −3 and +1 pawns (a real threat, not lost already).
+
+Each position plays in four arms. The Guard square changes only:
+- G-in: the Guard next to the king.
+- G-out: the Guard on a far home-rank square (the same piece, not defending).
+- Pawn: the Guard replaced by a pawn on the same square.
+- None: the Guard removed.
+
+Guard variants for G-in: in front of the king, beside the king, on the line of the
+nearest enemy slider (the interpose square).
+
+Each position plays twice with colours swapped (the attacker is White, then Black, and
+the board is mirrored), and with the attacker to move. 3,000 positions × 4 arms × 2 =
+24,000 games at depth 3, max 120 plies.
+
+Measured: the defender's score in each arm, and how many moves the king survives.
+- G-in − None is the Guard's defensive worth.
+- G-in − G-out tells how much of it comes from the square.
+- G-in − Pawn compares the Guard with the cheapest blocker.
+Convert to pawns at 64 Elo a pawn, as the other worth runs.
+
+A second set uses real games: replay pa-r1 and far2 records to ply 30–60, keep
+positions where the enemy has 2 or more pieces within 3 squares of the king, and
+then run the same four arms. This checks that the random positions do not mislead.
+
+## Part 3: where the runs go
+
+| Run | Machine | Size | Time (estimate) |
+|---|---|---|---|
+| gs-probe: E1–E7 × 2 weights, Guard on b1 | Kaggle, 5 notebooks | 14 × 800 = 11,200 games | 4–5 h |
+| gs-probe-k: E1, E3, E6 × 2 weights, Guard next to the king | M1 | 6 × 800 = 4,800 games | 5–6 h |
+| kd-rand: king defence, random positions | Kaggle, 5 notebooks | 24,000 games, short | 5–6 h |
+| kd-real: king defence, positions from real games | M1 | 1,500 positions × 4 × 2 = 12,000 games | 6–8 h |
+| gs-worth: worth runs for each winning probe | M1 or Kaggle | about 600 games each | after the above |
+
+Kaggle runs tournaments only. To send the probes and the king-defence positions to
+Kaggle, the tournament takes two new flags: `--evalParams a.json,b.json` (one eval per
+entrant) and `--fens file` (the start positions, one per pair).
+
+## What to build (about one day)
+
+1. Eval terms E1–E7 as `EvalParams` fields, weight 0 by default, with a test that the
+   shipped eval is unchanged (the eval hash test).
+2. Probe parameter files: one JSON per probe and weight.
+3. `tools/king-threat-fens.ts`, the generator, with a self-check (legal, no check,
+   equal material) and the four arms.
+4. The two tournament flags and the Kaggle wrapper pass-through.
+5. A report: score per arm and per probe, with the pattern rate.
+
+## Later (not in this round)
+
+If several probes win, tune all the terms together by self-play (SPSA), so the engine
+finds the weights itself. That is level 2 of the strategy-search plan.
