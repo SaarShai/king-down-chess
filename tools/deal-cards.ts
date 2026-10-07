@@ -2,9 +2,10 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { handFor } from '../src/sim/tournament.ts';
 const dir = 'sim/out';
-const spec = JSON.parse(readFileSync(`${dir}/deal-d1.tournament.json`, 'utf8'));
+const id = process.argv[2] ?? 'deal-d1';
+const spec = JSON.parse(readFileSync(`${dir}/${id}.tournament.json`, 'utf8'));
 const t = spec.spec ?? spec;
-const recs = readdirSync(dir).filter(f => /^deal-d1\.shard\d+of25\.jsonl$/.test(f))
+const recs = readdirSync(dir).filter(f => f.startsWith(`${id}.shard`) && f.endsWith('.jsonl'))
   .flatMap(f => readFileSync(`${dir}/${f}`, 'utf8').trim().split('\n').map(l => JSON.parse(l)));
 const by = new Map<string, any>();
 for (const r of recs) { const k = `${r.backRank}|${r.seed}`; const p = by.get(k) ?? {}; p[r.white] = r; by.set(k, p); }
