@@ -4,7 +4,7 @@
 
 **Blocked by:** 09
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/deploy.sh`, `tools/deploy-live-check.mjs`, `tools/deploy.test.ts`
 
