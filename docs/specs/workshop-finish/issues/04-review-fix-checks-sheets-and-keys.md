@@ -51,3 +51,5 @@ Builder, 2026-10-07, branch `build/workshop-finish-04`.
 **Runs.** Before the merge: `npm test` green (vitest 62 files, 1202 tests; node tests 42 of 42); `npm run check:browser workshop`: ok 39.6 s, all 1 passed, no changed tracked file. After the merge of the integration tip `743d3cd` (merge `7ce8ff2`): `npm run check:browser workshop` ok 43.0 s, all 1 passed; `npm test` green on the second run (vitest 62 files, 1210 tests; node tests 42 of 42). The first run after the merge failed only the known judge time-out ("keeps the line within 90 characters", 5 s) at a load average near 28.
 
 **For ticket 06.** Esc in the + picker still closes the Workshop; the fix 4 and fix 23 groups close a panel with its × button, not Esc.
+
+**Second merge of the integration tip** (`ec5fd73`, merge `bae8d96`; it touches the steering test only). `npm test` green on the second run: vitest 62 files and 1210 tests, node tests 42 of 42. The first run failed only the same judge time-out at a load average near 30; `judge.test.ts` alone passes 13 of 13.
