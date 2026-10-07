@@ -87,6 +87,13 @@ const denyRows: [string, string][] = [
   ['ps eww', PROC_SAFE],
   ['ps -o command', PROC_SAFE],
   ['ps -o pid,args', PROC_SAFE],
+  ['ps -o pid=,command=', PROC_SAFE],
+  ['ps -o pid=,command= -p 123,456', PROC_SAFE],
+  ['ps -A -o pid=,command= -p 123', PROC_SAFE],
+  ['ps -p 123 -p 456 -o command=', PROC_SAFE],
+  ['ps -eo pid=,command= -p 123', PROC_SAFE],
+  ['ps -o pid=,command= -p 123 ax', PROC_SAFE],
+  ['ps axo pid,command -p 123', PROC_SAFE],
   ['ps -p 123', PROC_SAFE],
   ['cat /proc/123/environ', PROC_SAFE],
   ["tr '\\0' '\\n' < /proc/self/environ", PROC_SAFE],
@@ -141,6 +148,9 @@ describe('tool gate denies secret printers', () => {
     expect(out?.hookEventName).toBe('PreToolUse');
     expect(out?.permissionDecision).toBe('deny');
     expect(out?.permissionDecisionReason).toContain(safeForm);
+  });
+  it('quotes the secret path in its hint, so a path with spaces pastes as one word', () => {
+    expect(verdict(`cat ${secretFile}`).out?.permissionDecisionReason).toMatch(/`test -s "[^"`]*fake_token"`/);
   });
 });
 
@@ -258,7 +268,7 @@ const passRows = [
   'git config core.hooksPath', 'git config --get core.hooksPath', 'git commit -m "-n"', 'git commit -mn',
   'git push -n origin x', 'cat vercel.json', 'echo porkbun.com', 'gh workflow list', 'npm run build',
   'grep printenv notes.md', 'echo env', 'set -euo pipefail', 'export PATH=/x:$PATH', 'ps -o pid,stat',
-  'ps -o pid,stat,etime -p 123', 'pgrep -x node', 'pgrep -f kaggle-tournament', 'cat README.md', 'git log',
+  'ps -o pid,stat,etime -p 123', 'ps -o pid=,command= -p 123', 'ps -p 123 -o pid=,command=', 'ps -o pid=,command= -p123', 'pgrep -x node', 'pgrep -f kaggle-tournament', 'cat README.md', 'git log',
   `ls ${join(tmp, '.secrets')}`, `test -s ${secretFile}`, 'echo printenv | wc -c', 'declare -x FOO=1',
   'node tools/kaggle-tournament.mjs status',
   "git commit -m \"$(cat <<'EOF'\nThe env (it's set) is fine.\nenv\nprintenv\nEOF\n)\"",
@@ -267,6 +277,11 @@ const passRows = [
 describe('tool gate passes other commands', () => {
   it.each(passRows)('passes %s', command => {
     expect(verdict(command).stdout).toBe('');
+  });
+  it('passes the process lookup that AGENTS.md prescribes, so the rule and the hook agree', () => {
+    const form = /`(ps -o [^`]*-p <pid>)`/.exec(readFileSync(join(root, 'AGENTS.md'), 'utf8'))?.[1];
+    expect(form).toBeTruthy();
+    expect(verdict(form!.replace('<pid>', '123')).stdout).toBe('');
   });
   it('passes a tool other than Bash', () => {
     const run = runGate(JSON.stringify({ cwd: root, tool_name: 'Read', tool_input: { file_path: '/x' } }));

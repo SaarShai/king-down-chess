@@ -167,7 +167,7 @@ const RUNNER_SUBCOMMANDS = { pnpm: new Set(['dlx', 'exec']), yarn: new Set(['dlx
 const RUNNER_VALUE_OPTIONS = new Set(['-C', '--dir', '-F', '--filter', '-w', '--workspace', '-p', '--package']);
 const SSH_VALUE_OPTIONS = new Set('BbcDEeFIiJLlmOoPpQRSWw'.split('').map(c => `-${c}`));
 
-const SAFE_PROCESS = 'Use `pgrep -x <name>` for a PID, or `ps -o pid,stat -p <pid>` for its state.';
+const SAFE_PROCESS = 'Use `pgrep -x <name>` for a PID, `ps -o pid,stat -p <pid>` for its state, or `ps -o pid=,command= -p <pid>` for the command line of that one process.';
 const SAFE_ENV = 'To test one variable, use `echo "${VAR:+set}"`.';
 const deny = reason => ({ decision: 'deny', reason });
 const ask = reason => ({ decision: 'ask', reason });
@@ -225,12 +225,13 @@ const operands = args => args.filter(a => !a.startsWith('-') && !a.startsWith('+
 
 function psRule(args) {
   // ps shows a command line unless every column comes from -o lists without a command column.
-  const columns = [];
-  let formatFlags = false;
+  // One exception (AGENTS.md, Secrets): a command column for one process that `-p <pid>` selects.
+  const columns = [], pids = [];
+  let formatFlags = false, otherSelect = false;
   for (let k = 0; k < args.length; k++) {
     const a = args[k];
     const bsd = k === 0 && !a.startsWith('-');
-    if (!a.startsWith('-') && !bsd) continue;
+    if (!a.startsWith('-') && !bsd) { otherSelect = true; continue; } // a bare word: BSD flags or a pid list
     if (a === '--format' || a === '-o' || a === 'o') { columns.push(args[++k] ?? ''); continue; }
     if (a.startsWith('--format=')) { columns.push(a.slice(9)); continue; }
     if (a.startsWith('--')) continue;
@@ -238,14 +239,22 @@ function psRule(args) {
     const o = flags.indexOf('o');
     if (o >= 0) {
       if (/[fFljuvOsX]/.test(flags.slice(0, o))) formatFlags = true;
+      if (/[aAexUGgtqp]/.test(flags.slice(0, o))) otherSelect = true;
       columns.push(o + 1 < flags.length ? flags.slice(o + 1) : (args[++k] ?? ''));
       continue;
     }
     if (/[fFljuvOsX]/.test(flags)) formatFlags = true;
-    if (/^[pUGgtq]$/.test(flags)) k++; // a selection value, such as -p 123
+    if (!bsd && /^p\d/.test(flags)) { pids.push(flags.slice(1)); continue; }
+    if (/^[pUGgtq]$/.test(flags)) { // a selection value, such as -p 123
+      const value = args[++k] ?? '';
+      if (flags === 'p') pids.push(value); else otherSelect = true;
+      continue;
+    }
+    if (/[aAexUGgtqp]/.test(flags)) otherSelect = true;
   }
   const names = columns.join(',').split(/[,\s]+/).map(c => c.replace(/=.*$/, '').toLowerCase());
-  if (formatFlags || !columns.length || names.some(c => ['command', 'args', 'cmd'].includes(c))) {
+  const oneProcess = pids.length === 1 && /^\d+$/.test(pids[0]) && !otherSelect;
+  if (formatFlags || !columns.length || (names.some(c => ['command', 'args', 'cmd'].includes(c)) && !oneProcess)) {
     return deny(`ps here shows process command lines, which can hold secrets. ${SAFE_PROCESS}`);
   }
   return null;
@@ -314,7 +323,7 @@ function checkCommand({ words, redirects }, cwd, depth) {
   if (proc) return deny(`${proc} holds a process environment or command line. ${SAFE_PROCESS}`);
   const input = redirects.find(r => r.op === '<' && SECRET_PATH.test(r.target));
   if (input) {
-    return deny(`This sends the secret file ${input.target} into a command. Let the tool read the file itself, or test it with \`test -s ${input.target}\`.`);
+    return deny(`This sends the secret file ${input.target} into a command. Let the tool read the file itself, or test it with \`test -s "${input.target}"\`.`);
   }
 
   const porkbun = [...words, ...redirects.map(r => r.target)].some(w => PORKBUN_API.test(w));
@@ -356,7 +365,7 @@ function checkCommand({ words, redirects }, cwd, depth) {
   if (READERS.has(name)) {
     const secret = args.find(a => SECRET_PATH.test(a));
     if (secret) {
-      return deny(`${name} would send the secret file ${secret} to the transcript. Let the tool read the file itself, or test it with \`test -s ${secret}\`.`);
+      return deny(`${name} would send the secret file ${secret} to the transcript. Let the tool read the file itself, or test it with \`test -s "${secret}"\`.`);
     }
   }
   return porkbunAsk ?? askRule(name, rest, words);
