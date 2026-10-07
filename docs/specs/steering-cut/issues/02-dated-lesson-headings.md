@@ -4,7 +4,7 @@
 
 **Blocked by:** 01; checks-and-hooks/03 (the model-name module that the commit-msg hook uses); secrets-and-public-gates/11 (its link edits in `LESSONS.md` land first)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Red first: before the edit, the new rules fail and name the duplicated pair, the bullets with no heading and the rate-limit heading. The output goes in this ticket.
 - [x] Rule: no `##` heading occurs two times in LESSONS.md.
