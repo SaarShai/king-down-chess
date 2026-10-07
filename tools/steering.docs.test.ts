@@ -44,6 +44,13 @@
 //   - AGENTS.md holds no model name and no date outside a link target (rules only);
 //   - issue-tracker.md names the specs folder and holds "only on main"; domain.md holds the two new
 //     lines; the Jev topic file holds the list of failed uses.
+// Rules of steering-cut/07 (handoffs hold no rules; the two old handoffs are in the tasks archive):
+//   - no live file holds tool-call markup: a line that is only an opening or a closing tool tag;
+//   - no handoff, live or archived, holds a model name or a `Co-Authored-By:` line;
+//   - the first line of each archived handoff is "Archived; the rules are in AGENTS.md";
+//   - the two old handoffs are in the tasks archive, and their old paths hold no file;
+//   - the retro handoff holds "Follow AGENTS.md" and names the archived Workshop handoff by its path;
+//   - COMPUTE.md holds the run recipes of the 2026-10-03 handoff (fixed phrases in FACT_FILES).
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -685,7 +692,12 @@ const SECRET_LIKE = /\b(?:pk1_|sk1_|KGAT_)[\w-]+|[A-Za-z0-9_+/=-]{32,}/g;
 const FACT_FILES = [
   {
     file: 'docs/COMPUTE.md',
-    must: ['kaggle-tournament.mjs', 'M1', 'pmset -g batt', 'npm run check:browser', "the shell's own timeout", 'the session end', 'detached'],
+    must: [
+      'kaggle-tournament.mjs', 'M1', 'pmset -g batt', 'npm run check:browser', "the shell's own timeout", 'the session end', 'detached',
+      // The run recipes of the 2026-10-03 handoff (steering-cut/07).
+      '## Recipes', 'npx tsx src/sim/tournament.ts run --id', '--mirrorOnly', 'report --id <id>', 'push --id <id> --shards <n>',
+      'the linear evaluation', 'claude/kp2-results', 'zsh does not split',
+    ],
     mustNot: [] as { name: string; pattern: RegExp }[],
   },
   {
@@ -969,5 +981,132 @@ describe('AGENTS.md standing rules', () => {
     const faults = AGENT_DOC_PHRASES.filter(({ file, phrase }) => !read(file).replace(/[ \t]*\n[ \t]*(?![-#\n])/g, ' ').includes(phrase))
       .map(({ file, phrase }) => `${file}: the file must hold "${phrase}"`);
     expect(faults).toEqual([]);
+  });
+});
+
+/** The two old handoffs: the old path and the path in the tasks archive (steering-cut/07). */
+const ARCHIVED_HANDOFFS = [
+  { from: 'HANDOFF.md', to: 'docs/tasks-archive/HANDOFF-2026-10-03.md' },
+  { from: 'docs/HANDOFF-2026-10-06.md', to: 'docs/tasks-archive/HANDOFF-2026-10-06.md' },
+];
+
+/** The first line of an archived handoff. */
+const ARCHIVED_FIRST_LINE = 'Archived; the rules are in AGENTS.md';
+
+/** The handoffs: the live ones outside the archive and the archived ones in it. */
+function handoffFiles(): { file: string; archived: boolean }[] {
+  const archive = 'docs/tasks-archive';
+  const archived = existsSync(join(root, archive))
+    ? readdirSync(join(root, archive)).filter(name => /^HANDOFF.*\.md$/.test(name)).sort().map(name => `${archive}/${name}`) : [];
+  return [
+    ...liveFiles().filter(file => /(^|\/)HANDOFF[^/]*\.md$/.test(file)).map(file => ({ file, archived: false })),
+    ...archived.map(file => ({ file, archived: true })),
+  ];
+}
+
+/**
+ * A line that is only an opening or a closing tool tag, as a tool call writes it: an optional namespace,
+ * then one of the tool-call tag names. Other HTML tags are not tool-call markup.
+ */
+const TOOL_TAG = /^\s*<\/?(?:[a-z]+:)?(?:invoke|parameter|content|function_calls|function_results|tool_use|tool_result)\b[^>]*>\s*$/i;
+
+/** Each line of a text with the heading of its section. Unlike markdownLines, fenced code is kept. */
+function rawLines(text: string): { line: number; section: string; text: string }[] {
+  let section = '(top)';
+  let fenced = false;
+  return text.split('\n').map((line, i) => {
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    const heading = fenced ? null : /^#{1,6}\s+(.*)$/.exec(line);
+    if (heading) section = heading[1].trim();
+    return { line: i + 1, section, text: line };
+  });
+}
+
+/** Faults of tool-call markup in one file: each line that is only a tool tag, in fenced code too. */
+function markupFaults(file: string, text: string): Fault[] {
+  return rawLines(text).filter(l => TOOL_TAG.test(l.text)).map(l => ({
+    file, section: l.section, where: `line ${l.line}`, what: `the line is tool-call markup: "${l.text.trim()}"`,
+  }));
+}
+
+/**
+ * Faults of one handoff (steering-cut/07): a model name, a `Co-Authored-By:` line and, in an archived
+ * handoff, a first line that is not the archive line.
+ */
+function handoffFaults(file: string, text: string, archived: boolean): Fault[] {
+  const lines = rawLines(text);
+  const first: Fault[] = archived && lines[0].text.trim() !== ARCHIVED_FIRST_LINE ? [{
+    file, section: '(top)', where: 'line 1', what: `the first line of an archived handoff must be "${ARCHIVED_FIRST_LINE}"`,
+  }] : [];
+  const named: Fault[] = findModelNames(text).map(({ word, line }) => ({
+    file, section: lines[line - 1].section, where: `line ${line}`, what: `a handoff must not hold the model name "${word}"`,
+  }));
+  const trailers: Fault[] = lines.filter(l => /Co-Authored-By:/i.test(l.text)).map(l => ({
+    file, section: l.section, where: `line ${l.line}`, what: 'a handoff must not hold a `Co-Authored-By:` line',
+  }));
+  return [...first, ...named, ...trailers];
+}
+
+/** The retro handoff: live until the integration merge, then in the archive (ticket 09). */
+const RETRO_HANDOFF = ['docs/HANDOFF-retro.md', 'docs/tasks-archive/HANDOFF-retro.md'];
+
+/** The phrases the retro handoff must hold: the pointer to AGENTS.md and the new path of the Workshop handoff. */
+const RETRO_PHRASES = ['Follow AGENTS.md', ARCHIVED_HANDOFFS[1].to];
+
+describe('handoffs', () => {
+  const model = MODEL_NAMES[0][0].toUpperCase() + MODEL_NAMES[0].slice(1);
+  // The tags are built from parts, so that this file holds no line of tool-call markup.
+  const close = (name: string) => `<${'/'}${name}>`;
+
+  it('names each line that is only a tool tag, in fenced code too, and not other HTML', () => {
+    const fixture = [
+      '# Handoff', '## Rules', '- text', close('content'), `  ${close('invoke')}`,
+      '```text', `<${'antml:'}invoke name="Bash">`, '```',
+      '<details>', close('details'), `Inline ${close('content')} in a sentence.`,
+    ].join('\n');
+    expect(markupFaults('fixture.md', fixture).map(show)).toEqual([
+      `fixture.md § Rules (line 4): the line is tool-call markup: "${close('content')}"`,
+      `fixture.md § Rules (line 5): the line is tool-call markup: "${close('invoke')}"`,
+      `fixture.md § Rules (line 7): the line is tool-call markup: "<${'antml:'}invoke name="Bash">"`,
+    ]);
+  });
+
+  it('names a model name, a trailer line and a wrong first line of an archived handoff', () => {
+    const fixture = [
+      '# Handoff', '## Standing rules', `- Use ${model} for helpers.`, '- End each commit with `Co-Authored-By: Someone <x@y>`.',
+    ].join('\n');
+    expect(handoffFaults('fixture.md', fixture, true).map(show)).toEqual([
+      `fixture.md § (top) (line 1): the first line of an archived handoff must be "${ARCHIVED_FIRST_LINE}"`,
+      `fixture.md § Standing rules (line 3): a handoff must not hold the model name "${model}"`,
+      'fixture.md § Standing rules (line 4): a handoff must not hold a `Co-Authored-By:` line',
+    ]);
+    expect(handoffFaults('fixture.md', fixture, false).map(f => f.what)).not.toContain(
+      `the first line of an archived handoff must be "${ARCHIVED_FIRST_LINE}"`);
+    expect(handoffFaults('fixture.md', `${ARCHIVED_FIRST_LINE}\n\n# Handoff\n- text`, true)).toEqual([]);
+  });
+
+  it('no live file holds tool-call markup', () => {
+    expect(liveFiles().flatMap(file => markupFaults(file, read(file))).map(show)).toEqual([]);
+  });
+
+  it('the two old handoffs are in the tasks archive, and their old paths hold no file', () => {
+    const faults = ARCHIVED_HANDOFFS.flatMap(({ from, to }) => [
+      ...(existsSync(join(root, from)) ? [`${from}: the old path must hold no file`] : []),
+      ...(existsSync(join(root, to)) ? [] : [`${to}: the archived handoff must exist`]),
+    ]);
+    expect(faults).toEqual([]);
+  });
+
+  it('no handoff holds a model name or a trailer line, and each archived handoff opens with the archive line', () => {
+    const files = handoffFiles();
+    expect(files.flatMap(({ file, archived }) => handoffFaults(file, read(file), archived)).map(show)).toEqual([]);
+    expect(files.filter(f => f.archived).map(f => f.file)).toEqual(expect.arrayContaining(ARCHIVED_HANDOFFS.map(h => h.to)));
+  });
+
+  it('the retro handoff defers to AGENTS.md and names the archived Workshop handoff by its path', () => {
+    const file = RETRO_HANDOFF.find(path => existsSync(join(root, path)));
+    expect(file, 'the retro handoff must exist').toBeDefined();
+    const text = read(file!).replace(/\s+/g, ' ');
+    expect(RETRO_PHRASES.filter(phrase => !text.includes(phrase)).map(phrase => `${file}: the file must hold "${phrase}"`)).toEqual([]);
   });
 });
