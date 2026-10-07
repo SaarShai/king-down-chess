@@ -9,7 +9,7 @@ the measured default at ~4.0 pawns, +7.1 decisive, neutral balance) and the **Te
 plays as a weak king-stepper and drags draws) remain lab pieces, outside the pool and standard promotions.
 **Squire was built experimentally in the recovered Cursor checkout; it is archived, not adopted.**
 That reserve experiment adds material and differs from the original replacement proposal below;
-its defects and research limits are recorded in [the recovery assessment](cursor-recovery/2026-09-24-0213b442/ASSESSMENT.md).
+its defects and research limits are recorded in the recovery assessment (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/ASSESSMENT.md`).
 Each piece below names the matrix cells it fills, what it is for, what to expect, what to watch, and
 how to measure it.
 

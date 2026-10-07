@@ -1,6 +1,6 @@
 # White’s first-move edge (2026-09-24)
 
-> Recovery status, 2026-09-24: Historical studies use different pools, source versions and comparisons. Their scores cannot establish a precise first-move advantage for the adopted engine. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Historical studies use different pools, source versions and comparisons. Their scores cannot establish a precise first-move advantage for the adopted engine. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Question: in the shipped game, how big is White’s first-move advantage, and is it large enough to worry?
 

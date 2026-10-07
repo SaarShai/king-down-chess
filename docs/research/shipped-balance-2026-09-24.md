@@ -1,6 +1,6 @@
 # Shipped traffic: what a player sees (2026-09-24)
 
-> Recovery status, 2026-09-24: Historical 24-game traffic sketch, all endings adjudicated. It does not establish the balance of the adopted engine; see the catalog for chain and draw/cap corrections. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Historical 24-game traffic sketch, all endings adjudicated. It does not establish the balance of the adopted engine; see the catalog for chain and draw/cap corrections. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Pool `QORRBBNNAAGMMSS`, `ogreMode` `push`, no squire, no catapult in the pool
 (`docs/RULES.md` Decision 18). This note answers how often five events show up. It does

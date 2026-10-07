@@ -1,6 +1,6 @@
 # Does static eval need a shot or shove bonus? (2026-09-24)
 
-> Recovery status, 2026-09-24: Source-time explanation. Search can see special-move material, but this is not a completeness or strength result. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Source-time explanation. Search can see special-move material, but this is not a completeness or strength result. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Context: Archer static eval is material **505** plus a piece-square table, with
 no shot-target term. Ogre static eval is material **318** and a zero

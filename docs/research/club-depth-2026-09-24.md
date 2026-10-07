@@ -1,6 +1,6 @@
 # Club depth is a time budget, not one ply
 
-> Recovery status, 2026-09-24: Policy explanation retained: Club caps thinking at 800 ms and equals Strong at the default budget. The labels are not calibrated ratings. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Policy explanation retained: Club caps thinking at 800 ms and equals Strong at the default budget. The labels are not calibrated ratings. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 2026-09-24. From `src/ai/skill.ts` and how `src/main.ts` calls the engine.
 

@@ -1,6 +1,6 @@
 # Undo retest — 2026-09-24
 
-> Recovery status, 2026-09-24: Historical retest using board callbacks. Fresh production pointer/touch, save and cancellation checks are in the adoption record. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Historical retest using board callbacks. Fresh production pointer/touch, save and cancellation checks are in the adoption record. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Browser check of the restored `undo()` in `src/main.ts` at `http://localhost:5199/` (Vite). No source changes. Rules, pool, squire, search, and eval not touched.
 
