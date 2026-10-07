@@ -6,7 +6,7 @@ An open item is an unchecked box, a heading marked open, or an open owner questi
 
 **Blocked by:** 03 (shares the steering lint); secrets-and-public-gates/11 (the commit that removes the transcripts and fixes the links into them, TASKS.md included)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Red first: before the move, the size rules fail and name TASKS.md (about 290,000 bytes) and its first section. The output goes in this ticket.
 - [x] Rule: TASKS.md is under 40,000 bytes, and its Open items section is under 5,000 bytes.
