@@ -4,6 +4,8 @@ Prepared October 7, 2026. **Packages 1–3 are implemented locally on `codex/mat
 
 ## Recommended shape
 
+The next-step [environment research and experiment plan](chatgpt-plugin-environment.md) now recommends a small private playable host experiment and validation-only CI, with durable authenticated storage developed alongside it. Resolve actual account, renderer, worker and recovery behavior before making full multiplayer a prerequisite. The research separates documented support from host behavior we have not tested.
+
 Keep **one game implementation**, with the website and ChatGPT as two ways to play. Game rules, legal moves, results and computer search stay in the existing engine. A small match module owns validated commands, saved match state and revisions. HTTP and MCP adapters expose that same module to the two clients. Teaching and model interaction are optional. The diagram is the eventual shared architecture; the first preparation slice is local and does not change the working website or provision multiplayer storage/Realtime.
 
 ```mermaid

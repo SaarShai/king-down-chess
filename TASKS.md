@@ -1,5 +1,12 @@
 # Tasks
 
+## Next plugin preparation and environment research — 2026-10-07
+- **Owner:** asks what else to prepare/build and research about ChatGPT plugins, environment and support. Research/recommendation pass; no new backend, account or deployment changes.
+- [x] Checked current official host/UI, authentication, distribution and support documentation; account entitlement, worker/runtime behavior and client parity remain explicit real-host tests. Sign in with ChatGPT is currently a limited partner trial, not a prerequisite.
+- [x] Compared with the completed local match module and existing website infrastructure. Recommend a private playable host experiment plus validation-only CI, alongside durable authenticated match storage; then deployable worker/AI and private beta/release preparation.
+- [x] Saved `docs/research/chatgpt-plugin-environment.md` with an ordered build plan, P0/P1/P2 experiment matrix, support questions and citations; linked it from the preparation/feasibility reports. Independent Sol 6.1 host and release reviews checked facts/uncertainty; incorporated typography and public-release/reviewer-access corrections. Local links/whitespace verified. Research only; no new integration or host test was run.
+
+
 ## Match failure-path verification — 2026-10-07
 - **Owner:** asks what testing should verify working features and help troubleshooting. Keep the pass focused on the completed local module; no tournaments or deployments.
 - [x] Exercised unresponsive/terminated workers, tampered legal replay, simultaneous duplicate retries and engine-source compatibility in temporary copies. Strengthened the exit test to require rejection of a definitely pending call. No runtime defect found; runtime sources unchanged.
