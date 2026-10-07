@@ -4,7 +4,7 @@
 
 **Blocked by:** checks-and-hooks/01 (vitest collects tests from the tools folder), checks-and-hooks/02 (`tempRepo()` with the hooks-off option)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/save-secret.sh`, `tools/save-secret.test.ts`
 
