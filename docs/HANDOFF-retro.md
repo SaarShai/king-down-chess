@@ -1,6 +1,6 @@
 # Handoff: a retro of the recent sessions, then specs and their implementation
 
-Start this **after the Workshop rework** (`docs/HANDOFF-2026-10-06.md` on `claude/workshop`, given to a Codex agent on gpt-6-astra) is finished. Use a fresh Claude Code session in the main checkout, `/Users/za/Documents/king down chess`.
+Start this **after the Workshop rework** (the Workshop handoff, now [docs/tasks-archive/HANDOFF-2026-10-06.md](tasks-archive/HANDOFF-2026-10-06.md), given to a Codex agent) is finished. Use a fresh Claude Code session in the main checkout, `/Users/za/Documents/king down chess`.
 
 ## For the owner: what you type, in order
 
@@ -30,19 +30,19 @@ Read AGENTS.md, TASKS.md, LESSONS.md and docs/HANDOFF-retro.md, and follow the h
 - **Read each skill's SKILL.md** in the installed plugin, and tell the owner what it will write and where. These skills are code from the internet, so read them before they run.
 - **Conflicts with this repo:** AGENTS.md and the owner's rules come first. Report each conflict to the owner, and do not change AGENTS.md to fit a skill without the owner's go. Possible conflicts:
   - `setup-matt-pocock-skills` and `domain-modeling` write `GLOSSARY.md` and ADRs. This repo already has its own records: AGENTS.md, LESSONS.md, TASKS.md, docs/MATRIX.md and docs/RULES.md. A glossary can point to them; it must not copy them.
-  - The skills prefer a PR. Here, a PR is opened only when the owner asks.
+  - The skills prefer a PR. Here, follow AGENTS.md (Commits and branches).
 - **Find the material for the retro:**
   - **Claude Code sessions:** `~/.claude/projects/-Users-za-Documents-king-down-chess/*.jsonl`, the most recent first. One of them is the session of 2026-10-06 (`1c5adfa2-c747-4b20-ac72-5d45fc6131ab`). It covered:
     - the Workshop build 1a and its two fix rounds;
     - the Spawn, Morph, MorphP and MorphS cards, with the M1 and Kaggle runs;
     - an independent review by Codex.
-    These files are large. Read them with a script or with helpers (Sonnet for search and summary), not whole into the context.
-  - **Codex sessions:** `~/.codex/sessions/<year>/<month>/<day>/*.jsonl`. These include the Workshop rework on gpt-6-astra and the review of 2026-10-06.
+    These files are large. Read them with a script or with helpers, not whole into the context.
+  - **Codex sessions:** `~/.codex/sessions/<year>/<month>/<day>/*.jsonl`. These include the Workshop rework and the review of 2026-10-06.
   - **Subagent transcripts:** they are under each Claude session's folder.
 
 ### What `/retro` must cover
 
-1. **The Workshop rework by the Codex agent on gpt-6-astra.** This is the first item. Find its work:
+1. **The Workshop rework by the Codex agent.** This is the first item. Find its work:
    - **the branch:** `claude/workshop`, or the branch it made from it; read `git log` from `efd260e` (the handoff commit);
    - **the docs:** its changes to `docs/WORKSHOP.md`;
    - **the visuals:** its mockups and screenshots in `docs/visual-design/workshop/`.
@@ -67,10 +67,4 @@ Read AGENTS.md, TASKS.md, LESSONS.md and docs/HANDOFF-retro.md, and follow the h
 - **The owner approves each spec before `/implement-spec`.** A spec that changes rules, pieces or cards starts from docs/MATRIX.md. A spec that changes visuals or motion needs the owner's approval of the visuals before it enters the game.
 - **Prefer a deterministic check** (a test, a lint rule, a browser check, a hook) to a new line of prose in AGENTS.md. When you add a rule, merge it into the existing rule; do not append a dated note.
 - **Never merge into main or deploy** unless the owner asks. Runs (tournaments) need the owner's go. Compute goes to the M1 or Kaggle, not this Mac.
-- **Commits:**
-  - Put no model names in commits, PRs, code or AGENTS.md.
-  - End each commit with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- **Secrets:** never print or commit them. That includes `.secrets/`, the Kaggle token, and the OAuth and Porkbun keys.
-- **Language:** write to the owner in plain ASD-STE100 English. Answer his question before you do more work.
-</content>
-</invoke>
+- **Commits, secrets and language:** Follow AGENTS.md.
