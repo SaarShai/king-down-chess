@@ -19,7 +19,7 @@
 
 ## Worktrees and servers
 - Set up a worktree with `wt add` (`tools/wt.sh add <branch>`).
-- Preview any worktree but the main checkout with the `worktree` entry and the target file (`.claude/preview-target`).
+- Preview any worktree but the main checkout with the `worktree` entry and the target file (`.claude/preview-target`). A session that runs in a worktree reads that worktree's launch file, so it may use `dev` for itself.
 - Change dependencies only in a worktree with its own installation, never through a linked `node_modules`.
 - Stop a process by its PID, never by a name pattern. Open no file:// page; serve it.
 

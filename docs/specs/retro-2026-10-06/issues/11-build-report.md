@@ -57,7 +57,15 @@ The owner (2026-10-07): "use your best judgement for deciding these. complete wh
 14. `policy.json`: stays as it is; the next run with a go refreshes it.
 15. Retro ticket 09: only the owner can rotate the Typesafe key; open.
 
+## Done after the decisions (2026-10-07)
+
+- The stray untracked `docs/specs/retro-2026-10-06/retro.md` left the main checkout (a copy is in the session scratchpad). The main checkout now has no `docs/specs/`.
+- `sim/nnue/policy.bin` is saved as `~/policy.bin.saved` (6,881,280 bytes, SHA-256 `e99256c8…`). After the merge: `cp ~/policy.bin.saved sim/nnue/policy.bin`.
+- `core.hooksPath` is the relative `.githooks` in the shared config. The hooks run in each worktree that has the folder; in the main checkout they start with the merge. `npm run prepare` is no longer needed.
+- Desktop probes (dev-environment 06): the preview probe is done (a worktree session reads its own launch file; AGENTS.md says so). The trailer probe shows that the setting writes nothing by itself and the prepare-commit-msg hook adds the trailer. The packages probe and the bypass-mode gate probe (secrets 12 item 4) need a session that starts in a worktree of the branch, or the main checkout after the merge.
+
 ## Still with the owner
 
-- The four desktop probes (dev-environment 06; secrets-and-public-gates 12 item 4) need a session that starts in a worktree of the branch. This session's folder moved to the worktree, but it still read the main checkout's settings and launch file.
-- The merge into main, `npm run prepare`, one `tools/deploy.sh --publish`, the Trash, the Typesafe key.
+- The merge into main. Two other sessions work in the main checkout now (a game mode in Claude, the ChatGPT plugin in Codex): the checkout has an uncommitted TASKS.md change and four untracked research files. Merge after that TASKS.md change is committed, take this branch's TASKS.md in the union merge, and run the move of steering-cut 04 again against the new main commits.
+- After the merge: restore `policy.bin`, then `tools/deploy.sh --publish` once (it needs the push of main too).
+- Empty the Trash (the 22 art items). Rotate the Typesafe key (retro ticket 09).
