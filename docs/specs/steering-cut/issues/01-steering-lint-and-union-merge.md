@@ -4,7 +4,7 @@
 
 **Blocked by:** checks-and-hooks/01 (the doc-lint suffix, the `test:docs` script, and vitest that collects tests from the tools folder); secrets-and-public-gates/11 (the transcript removal and its link fix, so the broken-link rule passes on the real files)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The attributes file gives git's union merge driver to TASKS.md, LESSONS.md, the topic files in the lessons folder and QUEUE.md. It gives no merge driver to MATRIX.md.
 - [x] The steering lint is one vitest module with the doc-lint suffix. `npm test` and `npm run test:docs` both run it.
