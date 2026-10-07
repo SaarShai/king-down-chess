@@ -28,19 +28,27 @@
 //            folder fails; the art manifest passes.
 //   size: a file over 2,000,000 bytes fails, unless tools/gate/size-allowlist.txt holds its path
 //         with a reason.
+//   secret: a file, or in push mode a commit message, that holds the exact value of a current secret
+//           fails. The fault line names the secret file ("message" in place of the path), never
+//           the value. GATE_SECRETS_DIR and GATE_TYPESAFE_KEY replace the two sources (for tests);
+//           tools/gate/secret.mjs states the sources.
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { GateFault } from './gate/fault.mjs';
 import { privateFaults } from './gate/private.mjs';
+import { readSecrets, secretFaults } from './gate/secret.mjs';
 import { ALLOWLIST, readAllowlist, sizeFaults } from './gate/size.mjs';
 
-/** Runs git with the hook's environment and gives its stdout. A failure is a gate fault. */
-const git = (/** @type {string[]} */ args, input = '') => {
-  const result = spawnSync('git', args, { input, encoding: 'utf8', maxBuffer: 1 << 30 });
+/** Runs git with the hook's environment and gives its stdout as bytes. A failure is a gate fault. */
+const gitBytes = (/** @type {string[]} */ args, input = '') => {
+  const result = spawnSync('git', args, { input, maxBuffer: 1 << 30 });
   if (result.error) throw new GateFault(`cannot start git: ${result.error.message}`);
-  if (result.status !== 0) throw new GateFault(`git ${args[0]} failed: ${result.stderr.trim().split('\n')[0]}`);
+  if (result.status !== 0) throw new GateFault(`git ${args[0]} failed: ${result.stderr.toString().trim().split('\n')[0]}`);
   return result.stdout;
 };
+/** Runs git and gives its stdout as text. */
+const git = (/** @type {string[]} */ args, input = '') => gitBytes(args, input).toString('utf8');
 
 /** True when git exits 0. */
 const gitPasses = (/** @type {string[]} */ args) => spawnSync('git', args, { stdio: 'ignore' }).status === 0;
@@ -104,6 +112,49 @@ const withSizes = (/** @type {File[]} */ files) => {
   return files.map(file => ({ ...file, size: /** @type {number} */ (sizes.get(file.oid)) }));
 };
 
+/**
+ * The content of each object. Each line of `git cat-file --batch` output is "<id> <type> <size>",
+ * then the content and a newline. An object that git cannot read is a gate fault.
+ */
+const contents = (/** @type {string[]} */ oids) => {
+  const out = gitBytes(['cat-file', '--batch'], oids.join('\n') + '\n');
+  /** @type {Map<string, Buffer>} */
+  const found = new Map();
+  let at = 0;
+  for (const oid of oids) {
+    const end = out.indexOf(10, at);
+    const [got, , size] = out.subarray(at, end).toString('utf8').split(' ');
+    if (got !== oid || size === undefined) throw new GateFault(`git cannot read object ${oid.slice(0, 12)}`);
+    at = end + 1 + Number(size) + 1;
+    found.set(oid, out.subarray(end + 1, end + 1 + Number(size)));
+  }
+  return found;
+};
+
+/** The top folder of the main checkout: the parent of git's common folder, also from a linked worktree. */
+const mainCheckout = () => dirname(git(['rev-parse', '--path-format=absolute', '--git-common-dir']).trim());
+
+/**
+ * Applies the secret rule to the files and to the message of each commit. It reads no content
+ * when no source gives a value.
+ */
+const secretCheck = (/** @type {File[]} */ files, /** @type {string[]} */ commits) => {
+  if (!files.length && !commits.length) return [];
+  const secrets = readSecrets(process.env.GATE_SECRETS_DIR ? '' : mainCheckout());
+  if (!secrets.length) return [];
+  const found = contents([...new Set([...files.map(file => file.oid), ...commits])]);
+  const order = new Map(commits.map((commit, i) => [commit.slice(0, 12), i]));
+  const texts = [
+    ...files.map(({ where, path, oid }) => ({ where, path, content: /** @type {Buffer} */ (found.get(oid)) })),
+    ...commits.map(commit => {
+      const object = /** @type {Buffer} */ (found.get(commit));
+      const body = object.indexOf('\n\n');
+      return { where: commit.slice(0, 12), path: 'message', content: body < 0 ? Buffer.alloc(0) : object.subarray(body + 2) };
+    }),
+  ].map((text, i) => ({ text, i })).sort((a, b) => (order.get(a.text.where) ?? 0) - (order.get(b.text.where) ?? 0) || a.i - b.i);
+  return secretFaults(texts.map(({ text }) => text), secrets);
+};
+
 /** The text of a work tree file, or '' when it is absent. */
 const readText = (/** @type {string} */ path) => {
   try { return readFileSync(path, 'utf8'); } catch (error) {
@@ -116,9 +167,9 @@ const readText = (/** @type {string} */ path) => {
 const textAt = (/** @type {string} */ commit, /** @type {string} */ path) =>
   gitPasses(['cat-file', '-e', `${commit}:${path}`]) ? git(['cat-file', 'blob', `${commit}:${path}`]) : '';
 
-/** Applies each rule to the files; `allowlist` gives the size allowlist text. */
-const check = (/** @type {File[]} */ files, /** @type {() => string} */ allowlist) =>
-  [...privateFaults(files), ...sizeFaults(withSizes(files), readAllowlist(allowlist()))];
+/** Applies each rule to the files and the commits; `allowlist` gives the size allowlist text. */
+const check = (/** @type {File[]} */ files, /** @type {() => string} */ allowlist, /** @type {string[]} */ commits = []) =>
+  [...privateFaults(files), ...sizeFaults(withSizes(files), readAllowlist(allowlist())), ...secretCheck(files, commits)];
 
 const staged = () => check(stagedFiles(), () => readText(ALLOWLIST));
 
@@ -137,8 +188,7 @@ const push = () => {
     const commits = git(['rev-list', '--reverse', '--topo-order', local, '--not', `--remotes=${remote}`, ...known, ...done])
       .split('\n').filter(Boolean);
     done.push(local);
-    const files = commits.length ? commitFiles(commits) : [];
-    return files.length ? check(files, () => textAt(local, ALLOWLIST)) : [];
+    return commits.length ? check(commitFiles(commits), () => textAt(local, ALLOWLIST), commits) : [];
   });
 };
 
