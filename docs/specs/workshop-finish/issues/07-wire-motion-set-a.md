@@ -6,7 +6,7 @@ The builder first probes happy-dom for `Element.animate` and `document.getAnimat
 
 **Blocked by:** 06; checks-and-hooks/01 (the package file and its dev dependencies, so that the happy-dom line can join them when the probe passes)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The probe result (pass or fail, with the happy-dom version) is in Comments, and the test sits at the matching seam.
 - [x] An edit, an Undo and a rename each start one reaction; the first render of a design starts none.
