@@ -2,7 +2,8 @@
 // the name, the appearance, the thermometer, Undo, the keyboard, a refused save, share, Try it and reload.
 // The groups after them come back from the old check (commits 84f9e42 and 8c91940), written for the
 // one-screen card: the card layout, the game menu, a tap outside, the doors, the keys, the judge's
-// reactions, the shelf, a shared link, the edit state after Try it and Share, and Try it.
+// reactions, the shelf, a shared link, the edit state after Try it and Share, and Try it. The last groups
+// check the review fixes 2, 4, 20, 23, 27 and 29 of 2026-10-06, one group per fix, named by its number.
 // Run it with `npm run check:browser workshop`. It reads its server, channel and output folder from the
 // shared check module (tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
@@ -537,6 +538,171 @@ async function tryIt(browser) {
   await p.context().close();
 }
 
+/* ---- The review fixes of 2026-10-06: the fix table of docs/visual-design/workshop/rework-2026-10-06/REVIEW.md ---- */
+
+/** Fix 2: a full shelf drops nothing. The player chooses one design to delete, and the new design takes its place. */
+async function fix2FullShelf(browser) {
+  const p = await open(browser);
+  await newPiece(p);
+  // 50 designs: copies of the saved new design, oldest last.
+  await p.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem('kingdown.workshop')).designs[0];
+    const seeds = Array.from({ length: 50 }, (_, i) => ({ ...d, id: `seed-${50 - i}`, name: `Seed ${50 - i}`, updated: 1050 - i }));
+    localStorage.setItem('kingdown.workshop', JSON.stringify({ v: 1, designs: seeds }));
+  });
+  const ids = async () => (await designs(p)).map(d => d.id);
+  const seeds = await ids();
+  await p.click('.ws-back');
+  await p.click('[data-door="piece"]');
+  await p.click('[data-new-figure="clay-golem"]');
+  await p.waitForSelector('.ws-alert:not([hidden]) .ws-alert-del');
+  assert.match(await text(p, '.ws-alert p'), /your shelf is full \(50 designs\)/, 'fix 2: a full shelf says so');
+  assert.equal(await text(p, '.ws-alert-del'), 'Choose one to delete', 'fix 2: the alert asks "Choose one to delete"');
+  assert.deepEqual(await ids(), seeds, 'fix 2: a full shelf drops nothing');
+  await p.click('.ws-alert-del');
+  await p.waitForSelector(`${sheetOpen} .ws-room-del`);
+  assert.equal(await p.locator(`${sheetOpen} .ws-room-del`).count(), 50, 'fix 2: the sheet lists each design');
+  await p.click(`${sheetOpen} .ws-room-del[data-id="seed-7"]`);
+  const after = await designs(p), mine = after.filter(d => !seeds.includes(d.id));
+  assert.deepEqual(mine.map(d => d.name), ['Clay Golem'], 'fix 2: the new design is saved');
+  assert.deepEqual(after.filter(d => seeds.includes(d.id)).map(d => d.id), seeds.filter(id => id !== 'seed-7'), 'fix 2: every other design stays');
+  assert.equal(await p.isVisible('.ws-alert'), false, 'fix 2: the alert goes');
+  assert.equal(await text(p, '.ws-save-state'), 'Saved on this device', 'fix 2: the card says saved');
+  await p.context().close();
+}
+
+/** Fix 4: Ctrl+Z and Cmd+Z do nothing under a sheet or a choices panel; with none open, they undo. */
+async function fix4UndoKeysUnderSheet(browser) {
+  const p = await open(browser, { width: 1280, height: 900 });
+  await newPiece(p);
+  await cell(p, 'move').click();
+  await addRule(p, 'movesLike');
+  const before = await saved(p);
+  const close = () => p.click(`${sheetOpen} .ws-close`), closePanel = () => p.click('.ws-property-close');
+  const opens = [
+    ['the Share sheet', () => p.click('.ws-share'), close],
+    ['the Why? sheet', () => p.click('.ws-why'), close],
+    ['the + picker', () => p.click('.ws-add'), closePanel],
+    ['the When choices', () => p.click('.ws-pill[data-pill="when"]'), closePanel],
+  ];
+  for (const [where, show, hide] of opens) {
+    await show();
+    for (const key of ['Control+z', 'Meta+z']) {
+      await p.keyboard.press(key);
+      assert.deepEqual(await saved(p), before, `fix 4: ${key} under ${where} leaves the saved design`);
+    }
+    await hide();
+  }
+  await p.focus('.ws-why');
+  await p.keyboard.press('Control+z');
+  assert.equal((await saved(p)).rules.length, 0, 'fix 4: with no sheet, Ctrl+Z undoes the last change');
+  await p.keyboard.press('Meta+z');
+  assert.equal((await saved(p)).squares.length, 0, 'fix 4: with no sheet, Cmd+Z undoes the change before');
+  await p.context().close();
+}
+
+/** Fix 20: where the device refuses the clipboard, Copy opens a sheet that holds the text, selected, to copy by hand. */
+async function fix20CopyByHand(browser) {
+  const p = await open(browser, { init: () => { Clipboard.prototype.writeText = () => Promise.reject(new DOMException('denied', 'NotAllowedError')); delete Navigator.prototype.share; } });
+  await newPiece(p);
+  await cell(p, 'move').click();
+  for (const [action, ends] of [['copy-link', 'is the link'], ['copy', 'ends with the link'], ['send', 'is the link (Send link, no share function)']]) {
+    await shareAction(p, action);
+    await p.waitForSelector(`${sheetOpen} .ws-copy-box`);
+    assert.equal(await text(p, `${sheetOpen} h2`), 'Copy this', `fix 20: ${action} opens "Copy this"`);
+    await p.waitForFunction(s => { const t = document.querySelector(s); return document.activeElement === t && t.selectionStart === 0 && t.selectionEnd === t.value.length && t.value.length > 0; }, `${sheetOpen} .ws-copy-box`);
+    const value = await p.inputValue(`${sheetOpen} .ws-copy-box`);
+    assert.match(action === 'copy' ? value.trim().split('\n').at(-1) : value, /^http:\/\/[^?]+\?design=[\w-]+$/, `fix 20: the text ${ends}`);
+    await p.click(`${sheetOpen} .ws-close`);
+  }
+  await p.context().close();
+}
+
+/** Fix 23: in the + picker, a pill's choices and the When choices, ArrowDown moves the choice and Enter commits it, with no mouse. */
+async function fix23KeyboardChoices(browser) {
+  const p = await open(browser, { width: 1280, height: 900 });
+  await newPiece(p);
+  await cell(p, 'move').click();
+  const panelOpen = () => p.evaluate(() => !document.querySelector('.ws-property-options').hidden);
+  // The + picker: Enter opens it, ArrowDown goes to the first row, ArrowDown again to the next, Enter adds that rule.
+  await p.focus('.ws-add');
+  await p.keyboard.press('Enter');
+  const rows = await p.locator('.ws-property-options .ws-book-row:not([disabled])').evaluateAll(bs => bs.map(b => b.dataset.a));
+  await p.keyboard.press('ArrowDown');
+  assert.equal(await p.evaluate(() => document.activeElement.dataset.a), rows[0], 'fix 23: ArrowDown goes to the first rule of the + picker');
+  await p.keyboard.press('ArrowDown');
+  assert.equal(await p.evaluate(() => document.activeElement.dataset.a), rows[1], 'fix 23: ArrowDown moves to the next rule');
+  await p.keyboard.press('Enter');
+  assert.deepEqual((await saved(p)).rules.map(r => r.does.a), [rows[1]], 'fix 23: Enter adds the rule of the + picker');
+  assert.equal(await panelOpen(), false, 'fix 23: the + picker closes');
+  await p.click('.ws-remove');
+  await addRule(p, 'movesLike');
+  // A radio choice panel: the focus starts on the chosen row, ArrowDown moves the choice only, and Enter commits it.
+  const viaKeys = async (pill, name) => {
+    await p.focus(`.ws-pill[data-pill="${pill}"]`);
+    await p.keyboard.press('Enter');
+    await p.focus(`.ws-property-options input[name="${name}"]:checked`);
+    return p.evaluate(n => {
+      const all = [...document.querySelectorAll(`.ws-property-options input[name="${n}"]`)].filter(i => !i.disabled && i.checkVisibility());
+      return all[(all.findIndex(i => i.checked) + 1) % all.length].value;
+    }, name);
+  };
+  for (const [pill, name, what] of [['as', 'ws-pick', 'a pill choice'], ['when', 'ws-when', 'a When choice']]) {
+    const before = await saved(p), next = await viaKeys(pill, name);
+    await p.keyboard.press('ArrowDown');
+    assert.equal(await panelOpen(), true, `fix 23: ${what}: ArrowDown keeps the panel open`);
+    assert.deepEqual(await saved(p), before, `fix 23: ${what}: ArrowDown only moves the choice`);
+    await p.keyboard.press('Enter');
+    assert.equal(await panelOpen(), false, `fix 23: ${what}: Enter closes the panel`);
+    assert.notDeepEqual(await saved(p), before, `fix 23: ${what}: Enter commits the choice`);
+    await viaKeys(pill, name);
+    assert.equal(await p.inputValue(`.ws-property-options input[name="${name}"]:checked`), next, `fix 23: ${what}: Enter commits the next choice`);
+    await p.click('.ws-property-close');
+  }
+  await p.context().close();
+}
+
+/** Fix 27: a press on a dialog's own box (its padding or edge) that ends on the backdrop keeps the dialog open. */
+async function fix27PressOnPadding(browser) {
+  const p = await open(browser, { width: 390, height: 844 });
+  /** The first point inside the dialog's box where a press lands on the dialog itself, not on its content. */
+  const ownPoint = dialog => p.evaluate(s => {
+    const d = document.querySelector(s), r = d.getBoundingClientRect();
+    for (let y = Math.ceil(r.top); y < r.bottom; y++) for (let x = Math.ceil(r.left); x < r.right; x++) if (document.elementFromPoint(x, y) === d) return [x, y];
+    return null;
+  }, dialog);
+  const pressOut = async (dialog, what) => {
+    const at = await ownPoint(dialog), box = await p.locator(dialog).boundingBox();
+    assert.ok(at, `fix 27: ${what} has a point where a press lands on the dialog itself`);
+    await p.mouse.move(...at);
+    await p.mouse.down();
+    await p.mouse.move(box.x + box.width / 2, Math.max(2, box.y - 12), { steps: 4 });
+    await p.mouse.up();
+    assert.equal(await isOpen(p, dialog), true, `fix 27: a press on ${what}'s padding released on the backdrop keeps it open`);
+  };
+  await p.click('#settings-btn');
+  await p.waitForSelector('#settings[open]');
+  await pressOut('#settings', 'Settings');
+  await p.keyboard.press('Escape');
+  await newPiece(p);
+  await p.click('.ws-share');
+  await p.waitForSelector(sheetOpen);
+  await pressOut('#workshop .ws-sheet', 'the Share sheet');
+  await p.context().close();
+}
+
+/** Fix 29: a toast shown on the editor is gone after Back to home. */
+async function fix29ToastsClear(browser) {
+  const p = await open(browser);
+  await newPiece(p);
+  await copied(p, () => shareAction(p, 'copy-link'));
+  assert.deepEqual([await text(p, '.ws-toast'), await p.locator('.ws-toast.on').count()], ['Link copied.', 1], 'fix 29: the editor shows the toast');
+  await p.click('.ws-back');
+  await p.waitForSelector('.ws-door');
+  assert.equal(await p.locator('.ws-toast.on').count(), 0, 'fix 29: Back to home clears the toast');
+  await p.context().close();
+}
+
 const browser = await launch();
 try {
   for (const [width, height] of viewports) {
@@ -569,6 +735,13 @@ try {
   for (const [width, height] of [[390, 844], [1280, 900]]) await editStateKept(browser, width, height);
   await tryIt(browser);
   console.log('ok the judge reacts, the shelf, a shared link, the edit state after Try it and Share, Try it');
+  await fix2FullShelf(browser);
+  await fix4UndoKeysUnderSheet(browser);
+  await fix20CopyByHand(browser);
+  await fix23KeyboardChoices(browser);
+  await fix27PressOnPadding(browser);
+  await fix29ToastsClear(browser);
+  console.log('ok the review fixes 2, 4, 20, 23, 27 and 29');
   assertNoErrors();
 } finally {
   await browser.close();
