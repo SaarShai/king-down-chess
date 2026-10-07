@@ -4,7 +4,7 @@
 
 **Blocked by:** checks-and-hooks/05 (shared check module: `env`, `launch`, `trapErrors`, `assertNoErrors`, `shot`, `imageIs`); checks-and-hooks/06 (browser-check runner with `workshop` and `workshop-cast` in its registry)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Both checks use `env`, `launch`, `trapErrors`, `assertNoErrors` and `shot`; the cast check uses `imageIs`. The check lint of checks-and-hooks passes for both.
 - [x] Neither check holds a port, a channel, a temp path or the number 34.
