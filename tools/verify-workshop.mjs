@@ -44,7 +44,7 @@ async function ready(p) {
   await p.evaluate(() => window.view.ready());
 }
 
-/** New piece: one choice per cast figure; a new design is blank and shows two boards, one model and an upright meter
+/** New piece: one choice per cast figure; a new design is blank and shows two boards, one model, the empty-card text and an upright meter
  * (in short landscape, no meter: the worth line holds the number). */
 async function blankCast(p, width, height) {
   await p.goto(base);
@@ -59,6 +59,8 @@ async function blankCast(p, width, height) {
   assert.equal(await p.locator('.ws-board').count(), 2, 'two boards');
   assert.equal(await p.locator('#workshop').locator('.ws-edit-sheet,.ws-die,.ws-card-edit,.ws-plinth,.ws-floor,.ws-rim,input[type="range"]').count(), 0, 'no removed control');
   assert.equal(await p.locator('.ws-model img').count(), 1, 'one model picture');
+  // One text for all layouts: the boards are below the card, or beside it in short landscape.
+  assert.equal(await p.locator('.ws-worth').innerText(), 'Add moves and takes on the boards.', 'a blank card points to the boards');
   if (shortLandscape(width, height)) assert.equal(await p.locator('.ws-thermometer').isVisible(), false, 'short landscape: no thermometer');
   else {
     const meter = await p.locator('.ws-thermometer').boundingBox();
