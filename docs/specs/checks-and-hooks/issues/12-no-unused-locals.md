@@ -4,7 +4,7 @@
 
 **Blocked by:** 01, 02, workshop-finish/01 (removal of the five unused Workshop names)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tsconfig.json`
 
