@@ -79,3 +79,10 @@ describe('changedPaths(before, after)', () => {
     expect(changedPaths(before, treeStatus(r.dir))).toEqual([]);
   });
 });
+
+describe('the shared check module', () => {
+  it('gives tempRepo(), so that check authors import one module', async () => {
+    const checks = await import('./checks.mjs');
+    expect(checks.tempRepo).toBe(tempRepo);
+  });
+});
