@@ -4,7 +4,7 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/gate.mjs`, `tools/gate/`, `tools/gate.test.ts`
 
