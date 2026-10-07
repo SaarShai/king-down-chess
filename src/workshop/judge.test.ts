@@ -261,5 +261,5 @@ describe('the judge on random designs', () => {
         expect(f.worth).toBeLessThanOrEqual(THRESHOLDS.op);
       }
     }
-  });
+  }, 30000); // Every design and its fixes: about 3 s alone, over 5 s when the machine is busy.
 });
