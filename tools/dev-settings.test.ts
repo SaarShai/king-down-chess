@@ -3,13 +3,17 @@
 // It holds each key, entry, host and ignore line of the dev-environment spec, so that a later edit
 // cannot remove one in silence.
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import vite from '../vite.config';
 
 const root = join(import.meta.dirname, '..');
 const read = (path: string) => readFileSync(join(root, path), 'utf8');
 const settings = JSON.parse(read('.claude/settings.json'));
+/** The lines of a config file, trimmed, with no blank line and no comment. */
+const lines = (path: string) => existsSync(join(root, path))
+  ? read(path).split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#') && !l.startsWith(';'))
+  : [];
 
 describe('project settings', () => {
   it('each worktree links the main checkout packages', () => {
@@ -36,5 +40,12 @@ describe('Vite', () => {
   it('the dev server keeps its port rule', () => {
     expect(vite.server?.strictPort).toBe(true);
     expect(vite.server?.port).toBe(+(process.env.PORT || 5173));
+  });
+});
+
+describe('npm', () => {
+  // With no person to answer the prompt, `npx` stops on a missing package. A `--yes` flag still wins.
+  it('npx installs no missing package from the registry', () => {
+    expect(lines('.npmrc')).toContain('yes=false');
   });
 });
