@@ -563,7 +563,7 @@ async function tryIt(browser) {
   await p.context().close();
 }
 
-/* ---- The review fixes of 2026-10-06: the fix table of docs/visual-design/workshop/rework-2026-10-06/REVIEW.md ---- */
+/* ---- The review fixes of 2026-10-06: the fix table of docs/visual-design/workshop/REVIEW-2026-10-06.md ---- */
 
 /** Fix 2: a full shelf drops nothing. The player chooses one design to delete, and the new design takes its place. */
 async function fix2FullShelf(browser) {
