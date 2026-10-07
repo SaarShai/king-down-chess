@@ -4,7 +4,7 @@
 
 **Blocked by:** 02, 10; checks-and-hooks/02 (the `tempRepo()` harness); checks-and-hooks/01 (`sharp` 0.35.4 as a dev dependency)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The cast list has no source field; the figures test still passes.
 - [x] The art-script test starts from `tempRepo()`, adds a linked worktree and a fixture PNG with its prompt in the main folder's art-source workshop folder, runs the script in the worktree, and asserts the two webp in the worktree.
@@ -35,3 +35,4 @@ Builder, 2026-10-07, branch `build/workshop-finish-11`.
 - `npm test` after the merge of `9d141fb`: the type check passes, vitest 51 files and 882 tests pass, the node tests 42 pass. Before the merge: 47 files, 844 tests, 42.
 
 **Left for other tickets.** `docs/WORKSHOP.md` (line 1811: "cast.json records the selected sources") and `TASKS.md` (line 19: "the selected-source list") still describe the old source field. Ticket 12 and steering-cut own those files. The ticket names ticket 02 as a blocker; it is not merged, and this change does not touch the two check files.
+- Merger: merged at 2b504ff after checks-and-hooks/06 landed. `npm run check:browser workshop-cast` on the integration branch: "ok workshop-cast 8.6 s", "all 1 passed". `npm test` green: vitest 55 files and 904 tests, node 42.
