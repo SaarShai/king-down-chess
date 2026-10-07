@@ -1,17 +1,15 @@
 // The New game dialog in a real browser: its defaults, the game each of the three modes starts
 // (players, computer level, kings and powers), the king picker's power texts, Cancel, memory, an
-// older save, a custom army, the keyboard, the phone layout, and the picker's motion art. Screenshots: docs/visual-design/new-game/.
-// Needs a running build: PLAYABLE_URL=http://127.0.0.1:5189/ node tools/verify-new-game.mjs
-import { chromium } from 'playwright';
+// older save, a custom army, the keyboard, the phone layout, and the picker's motion art.
+// Screenshots in PLAYABLE_OUT: desktop-computer.jpg, desktop-powers.jpg, phone-computer.jpg, phone-powers.jpg.
+// Run: npm run check:browser new-game (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { mkdirSync } from 'node:fs';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 
-const base = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
-const out = 'docs/visual-design/new-game';
-mkdirSync(out, { recursive: true });
-const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
-const errors = [];
+const base = env('PLAYABLE_URL');
+const browser = await launch();
+const jpeg = { type: 'jpeg', quality: 86 };
 const ok = msg => console.log(`ok ${msg}`);
 
 async function open({ viewport = { width: 1280, height: 900 }, touch = false, save = null, query = '', reducedMotion = 'no-preference' } = {}) {
@@ -21,8 +19,7 @@ async function open({ viewport = { width: 1280, height: 900 }, touch = false, sa
     if (s && !sessionStorage.getItem('seeded')) { localStorage.setItem('kingdown.save', JSON.stringify(s)); sessionStorage.setItem('seeded', '1'); }
   }, save);
   const page = await ctx.newPage();
-  page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  trapErrors(page);
   await page.goto(base + query);
   await page.waitForFunction(() => window.view?.ready);
   await page.evaluate(() => window.view.ready());
@@ -56,7 +53,7 @@ try {
   assert.equal(await shown(page, 'king-picker'), false, 'no king picker without powers');
   assert.equal(await page.locator('#modes input[type="radio"]').count(), 3);
   assert.equal(await page.getByRole('radio', { name: /Play the computer/ }).isChecked(), true);
-  await page.screenshot({ path: `${out}/desktop-computer.jpg`, type: 'jpeg', quality: 86 });
+  await shot(page, 'desktop-computer.jpg', jpeg);
   ok('defaults: Play the computer, Club, you play White, Random King Down army, no picker');
 
   // Kings' powers: each side's six emblems in the KINGS order, Spirit and Shadow chosen, first powers.
@@ -73,7 +70,7 @@ try {
   assert.equal(await powerLine(page, 1), 'Death Touch (always on) — your king takes an enemy next to it, or two squares away straight forward, back or sideways over an empty square, without moving — it can only take this way.');
   assert.match(await page.textContent('#pick-0 h3'), /you/);
   assert.match(await page.textContent('#pick-1 h3'), /computer/);
-  await page.screenshot({ path: `${out}/desktop-powers.jpg`, type: 'jpeg', quality: 86 });
+  await shot(page, 'desktop-powers.jpg', jpeg);
   // Every king's two powers, with the official count and line; No power names a plain king.
   const lines = [];
   for (const king of ['Frost', 'Flame', 'Stratus', 'Mud', 'Spirit', 'Shadow']) {
@@ -237,13 +234,13 @@ try {
   // 10. Phone 390×844: no sideways scroll in any mode, More options open; screenshots.
   page = await open({ viewport: { width: 390, height: 844 }, touch: true });
   await page.click('#new-game-btn');
-  await page.screenshot({ path: `${out}/phone-computer.jpg`, type: 'jpeg', quality: 86 });
+  await shot(page, 'phone-computer.jpg', jpeg);
   await page.click('#more-options summary');
   for (const mode of ['computer', 'powers', 'two']) {
     await page.click(`label:has(#mode-${mode})`);
     if (mode === 'two') await page.check('#two-powers');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.getElementById('new-game').scrollWidth <= document.getElementById('new-game').clientWidth), mode);
-    if (mode === 'powers') await page.screenshot({ path: `${out}/phone-powers.jpg`, type: 'jpeg', quality: 86 });
+    if (mode === 'powers') await shot(page, 'phone-powers.jpg', jpeg);
   }
   // The power buttons with their pictures: 44 px targets or more, labels whole and at 14 px.
   for (const b of await page.$$eval('#king-picker .power-choice button', bs => bs.map(b => {
@@ -275,6 +272,6 @@ try {
   await page.context().close();
   ok('Animations Off: no animation in the picker (chosen power, hovered power, live emblem); the still frames show the powers');
 
-  assert.deepEqual(errors, []);
-  ok('no page errors');
+  assertNoErrors();
+  ok('no page or console errors');
 } finally { await browser.close(); }

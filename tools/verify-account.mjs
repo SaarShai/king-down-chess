@@ -3,13 +3,13 @@
 // the return from it, the cloud save (newer copy comes down, a move goes up after 2 s), sign-out,
 // account deletion, a newer game arriving during a lesson or under the title, a newer game another
 // device sent while this one was behind, a server that cannot be reached, and signing out offline.
-// PLAYABLE_URL=http://127.0.0.1:5198/ PLAYABLE_BROWSER=chromium node tools/verify-account.mjs
+// Run: npm run check:browser account (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright';
+import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 
-const base = process.env.PLAYABLE_URL || 'http://127.0.0.1:5198/';
+const base = env('PLAYABLE_URL');
 const SUPABASE = 'https://utqzovjmclfyojedmwok.supabase.co';
-const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
+const browser = await launch();
 const ok = msg => console.log(`ok ${msg}`);
 const UID = '0a7c1d2e-3f40-4b5c-8d6e-7f8091a2b3c4';
 const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -24,6 +24,11 @@ const session = () => ({
   },
 });
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+/** The errors that a page with `down` expects; each other page or console error fails the check. */
+const offline = [{
+  pattern: /^Failed to load resource: net::ERR_INTERNET_DISCONNECTED$/,
+  reason: 'the fake server refuses each request on purpose (down), and the browser logs each refused request',
+}];
 
 /** A page with the fake server. `row` is the player's user_data row; `down` makes every request fail. */
 async function open({ query = '', stored = null, row = null, down = false, phone = false, verifier = false, delay = 0, title = false } = {}) {
@@ -35,7 +40,7 @@ async function open({ query = '', stored = null, row = null, down = false, phone
     if (s) localStorage.setItem('kingdown.auth', JSON.stringify(s));
     if (v) localStorage.setItem('kingdown.auth-code-verifier', JSON.stringify('the-verifier'));
   }, [stored, verifier, title]);
-  const server = { row, requests: [], errors: [], scripts: [], phone };
+  const server = { row, requests: [], errors: null, scripts: [], phone };
   await ctx.route('https://avatars.example/**', r => r.fulfill({ contentType: 'image/png', body: PNG }));
   await ctx.route(`${SUPABASE}/**`, async r => {
     const req = r.request(), url = new URL(req.url());
@@ -62,7 +67,7 @@ async function open({ query = '', stored = null, row = null, down = false, phone
   });
   const page = await ctx.newPage();
   await page.clock.install();
-  page.on('pageerror', e => server.errors.push(e.message));
+  server.errors = trapErrors(page, down ? offline : []);
   page.on('request', r => { if (/assets\/client-/.test(r.url())) server.scripts.push(r.url()); });
   page.on('dialog', d => d.accept());
   await page.goto(base + query);
@@ -304,4 +309,6 @@ try {
     await close();
   }
   ok('signing out offline with a session that ran out signs out on this device, and a reload stays signed out');
+  assertNoErrors();
+  ok('no unexpected page or console error on any page');
 } finally { await browser.close(); }
