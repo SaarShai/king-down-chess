@@ -1,7 +1,8 @@
 // Shared module for the browser checks (checks-and-hooks/05).
 import { chromium } from 'playwright';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 
 /** The runner's output root: one fixed system temp folder, outside every checkout. */
 export const outRoot = join(tmpdir(), 'kingdown-checks');
@@ -124,4 +125,15 @@ export function trapErrors(page, allow = []) {
 /** Fails when a trapped list (by default, all of them) holds an error. */
 export function assertNoErrors(errors = trapped.flat()) {
   if (errors.length) throw new Error(`assertNoErrors: ${errors.length} unexpected error(s):\n  ${errors.join('\n  ')}`);
+}
+
+/** Writes a screenshot of `page` as `<name>.png` (or the extension that `name` gives) in PLAYABLE_OUT; refuses a path outside it. */
+export async function shot(page, name, options = {}) {
+  const out = env('PLAYABLE_OUT');
+  const path = join(out, /\.(png|jpe?g)$/.test(name) ? name : `${name}.png`);
+  const rel = relative(out, path);
+  if (isAbsolute(name) || !rel || rel.startsWith('..') || isAbsolute(rel)) throw new Error(`shot: "${name}" is outside the out folder ${out}`);
+  mkdirSync(dirname(path), { recursive: true });
+  await page.screenshot({ ...options, path });
+  return path;
 }

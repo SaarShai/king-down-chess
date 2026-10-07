@@ -1,7 +1,9 @@
 // Self-test of the shared check module (checks-and-hooks/05): each assertion must fail on a bad page
 // and pass on a good page. It builds the pages with page.setContent and needs no server.
 // Run: node tools/check-selftest.mjs (exit 0 when all pass; exit 1 and the fault named when one fails).
-import { assertNoErrors, imageIs, insideViewport, launch, minTarget, noOverlap, noRunningAnimations, noSidewaysScroll, textNotCut, trapErrors } from './lib/checks.mjs';
+import { existsSync, readdirSync, rmSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { assertNoErrors, env, imageIs, insideViewport, launch, minTarget, noOverlap, noRunningAnimations, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
 
 const viewport = { width: 390, height: 844 };
 const page_ = body => `<!doctype html><html><head><style>body{margin:0;font:16px sans-serif}</style></head><body>${body}</body></html>`;
@@ -93,7 +95,18 @@ try {
     try { trapErrors(p, allow); faults.push('trapErrors: an allowed pattern without a reason was accepted'); } catch {}
     await p.close();
   }
+  // shot writes into the out folder and nowhere else.
+  const out = env('PLAYABLE_OUT');
+  rmSync(out, { recursive: true, force: true });
+  await page.setContent(page_('<p>shot</p>'));
+  const path = await shot(page, 'selftest');
+  if (dirname(path) !== out || !existsSync(path)) faults.push(`shot: wrote ${path}, not a file in ${out}`);
+  if (readdirSync(out).join() !== 'selftest.png') faults.push(`shot: the out folder holds ${readdirSync(out).join(', ')}`);
+  for (const name of ['../escape', '/tmp/escape', 'a/../../escape']) {
+    try { await shot(page, name); faults.push(`shot: wrote "${name}" outside the out folder`); } catch {}
+  }
+  if (existsSync(join(dirname(out), 'escape.png'))) faults.push('shot: a file escaped the out folder');
 } finally { await browser.close(); }
 
 if (faults.length) { for (const f of faults) console.error(`FAIL ${f}`); process.exit(1); }
-console.log(`ok ${cases.length + errorCases.length + 2} cases`);
+console.log(`ok ${cases.length + errorCases.length + 3} cases`);
