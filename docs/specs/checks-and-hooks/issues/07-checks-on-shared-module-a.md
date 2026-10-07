@@ -4,7 +4,7 @@
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/verify-account.mjs`, `tools/verify-cursor-adoption.mjs`, `tools/verify-king-effects.mjs`, `tools/verify-lesson-return.mjs`, `tools/verify-new-game.mjs`, `tools/new-game-ui.mjs` (tickets 08 and 09 do not edit it)
 
