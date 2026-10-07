@@ -98,3 +98,43 @@ describe('wt add with a changed lock file', () => {
     expect(repo.git('status', '--porcelain').stdout).toBe('');
   });
 });
+
+describe('wt add <path>', () => {
+  it('sets up the packages of an existing worktree and of a detached worktree', () => {
+    const { repo, wt, npmCalls } = setup();
+    const plain = join(repo.root, 'plain');
+    const detached = join(repo.root, 'detached');
+    repo.git('worktree', 'add', '-q', '-b', 'plain', plain);
+    repo.git('worktree', 'add', '-q', '--detach', detached);
+    const first = wt(['add', plain]);
+    expect(first.status, first.stderr).toBe(0);
+    expect(first.stdout).toBe(`${plain}\tplain\tlinked\n`);
+    const second = wt(['add', detached]);
+    expect(second.status, second.stderr).toBe(0);
+    expect(second.stdout).toBe(`${detached}\t(detached)\tlinked\n`);
+    for (const path of [plain, detached]) {
+      expect(isLink(join(path, 'node_modules'))).toBe(true);
+      expect(repo.run('git', ['status', '--porcelain'], { cwd: path }).stdout).toBe('');
+    }
+    expect(npmCalls()).toEqual([]);
+  });
+
+  it('uses an existing branch, starts a new one from <start>, and finds the main checkout from a worktree', () => {
+    const { repo, wt, worktrees } = setup();
+    repo.git('branch', 'old');
+    repo.write('a.txt', 'a\n');
+    repo.git('add', 'a.txt');
+    repo.git('commit', '-q', '-m', 'a');
+    const old = wt(['add', 'old']);
+    expect(old.status, old.stderr).toBe(0);
+    const oldPath = join(worktrees, 'old');
+    expect(existsSync(join(oldPath, 'a.txt'))).toBe(false);
+    // From inside a worktree: the new one goes to the main checkout's folder and links its packages.
+    const started = wt(['add', 'team/new', 'old'], oldPath);
+    expect(started.status, started.stderr).toBe(0);
+    const newPath = join(worktrees, 'new');
+    expect(started.stdout).toBe(`${newPath}\tteam/new\tlinked\n`);
+    expect(readlinkSync(join(newPath, 'node_modules'))).toBe(join(repo.dir, 'node_modules'));
+    expect(repo.git('rev-parse', 'team/new').stdout).toBe(repo.git('rev-parse', 'old').stdout);
+  });
+});
