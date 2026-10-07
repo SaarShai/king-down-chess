@@ -3,7 +3,8 @@
 // The groups after them come back from the old check (commits 84f9e42 and 8c91940), written for the
 // one-screen card: the card layout, the game menu, a tap outside, the doors, the keys, the judge's
 // reactions, the shelf, a shared link, the edit state after Try it and Share, and Try it. The last groups
-// check the review fixes 2, 4, 20, 23, 27 and 29 of 2026-10-06, one group per fix, named by its number.
+// check the review fixes 2, 4, 5, 6, 9, 13, 20, 23, 27, 28 (the line edge) and 29 of 2026-10-06, one group
+// per fix, named by its number. The judge test checks the other part of fix 28 (Why? names the band).
 // Run it with `npm run check:browser workshop`. It reads its server, channel and output folder from the
 // shared check module (tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
@@ -175,6 +176,10 @@ const PIECES = {
     rules: [{ when: ALWAYS, does: { a: 'linesPass', over: 'own' } }, { when: { on: 'takes' }, does: { a: 'removedAfter', what: 'piece' } }, { when: ALWAYS, does: { a: 'cannotTake', what: 'king' } }] },
   beast: { squares: step('both'), lines: [], rules: [{ when: { on: 'takes' }, does: { a: 'chain' } }] },
   likelyOP: { squares: [], lines: ['n', 'e', 's', 'w'], rules: [{ when: { on: 'zone', zone: 'enemyHalf' }, does: { a: 'movesLike', as: 'knight' } }] },
+  ogre: { squares: step('both'), lines: [], rules: [{ when: ALWAYS, does: { a: 'push', then: 'follow' } }] },
+  guard: { squares: step('move'), lines: [], rules: [{ when: ALWAYS, does: { a: 'cannotBeTaken', by: 'allButKing' } }] },
+  /** A Guard whose Safe rule works only in the enemy half: it does not hold on d4 and holds on d5. */
+  halfGuard: { squares: step('move'), lines: [], rules: [{ when: { on: 'zone', zone: 'enemyHalf' }, does: { a: 'cannotBeTaken', by: 'pawns' } }] },
 };
 /** The query of a share link to a design of PIECES, made as the Share sheet makes it (src/workshop/model.ts designCode). */
 const linkTo = (key, name) => `?design=${Buffer.from(JSON.stringify({ kind: 'piece', ...PIECES[key], name, look: { body: 'token', auto: true, glow: null, army: 0, figure: 'antler-guardian' }, letter: 'D' })).toString('base64url')}`;
@@ -703,6 +708,117 @@ async function fix29ToastsClear(browser) {
   await p.context().close();
 }
 
+/** Fix 5: a stroke ends when the player releases the button off the board; the next move over the board paints nothing. */
+async function fix5StrokeEndsOffBoard(browser) {
+  const p = await open(browser, { width: 1280, height: 900 });
+  await newPiece(p);
+  const centre = async (x, y) => { const b = await cell(p, 'move', x, y).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+  const box = await p.locator('.ws-board[data-action="move"]').boundingBox();
+  const off = [box.x + box.width / 2, box.y + box.height + 12];
+  assert.equal(await p.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('.ws-board'), off), false, 'fix 5: the release point is off the boards');
+  await p.mouse.move(...await centre(1, 1));
+  await p.mouse.down();
+  await p.mouse.move(...off);
+  await p.mouse.up();
+  const after = (await saved(p)).squares;
+  assert.ok(after.some(s => s.x === 1 && s.y === 1), 'fix 5: the press paints its square');
+  for (const [x, y] of [[2, 2], [-2, 2], [0, 3], [-1, -1]]) await p.mouse.move(...await centre(x, y), { steps: 3 });
+  assert.deepEqual((await saved(p)).squares, after, 'fix 5: after a release off the board, the next move over the board paints nothing');
+  assert.equal(await isOpen(p, '#workshop'), true, 'fix 5: the Workshop stays open');
+  await p.context().close();
+}
+
+/** Opens Try it on a design of PIECES from its share link (nothing is saved). */
+async function tryLink(p, key, name) {
+  await openLink(p, key, name);
+  await p.click('.ws-try');
+  await p.waitForSelector('.tb-board .tb-sq');
+}
+const sqLabel = (p, s) => p.getAttribute(`.tb-sq[data-sq="${s}"]`, 'aria-label');
+
+/** Fix 6: in Try it, a square with two actions (take or push) asks which one, and each choice gives its own result. */
+async function fix6TwoActionChoice(browser) {
+  const p = await open(browser);
+  await tryLink(p, 'ogre', 'Try Ogre');
+  const result = async kind => {
+    await p.click('.tb-sq[data-sq="35"]'); // d4 to d5: the pawn on d6 is next to it
+    assert.match(await sqLabel(p, 43), /take or push/, 'fix 6: the pawn on d6 says "take or push"');
+    await p.click('.tb-sq[data-sq="43"]');
+    assert.equal(await p.isVisible('.tb-ask'), true, 'fix 6: a square with two actions asks which one');
+    assert.deepEqual(await p.locator('.tb-ask button').allTextContents(), ['Take', 'Push'], 'fix 6: the choice is Take or Push');
+    assert.equal(await text(p, '.tb-say'), 'On d6 it can take or push. Which one?', 'fix 6: the help line asks which one');
+    await p.click(`.tb-ask [data-kind="${kind}"]`);
+    const out = { said: await text(p, '.tb-live'), d6: await sqLabel(p, 43), d7: await sqLabel(p, 51), asks: await p.isVisible('.tb-ask') };
+    await p.click('.ws-reset');
+    return out;
+  };
+  assert.deepEqual(await result('take'), { said: 'Took the enemy pawn on d6.', d6: 'd6, your piece, Try Ogre', d7: 'd7, empty: move here', asks: false }, 'fix 6: Take takes the pawn');
+  assert.deepEqual(await result('push'), { said: 'Pushed the enemy pawn from d6 to d7.', d6: 'd6, your piece, Try Ogre', d7: 'd7, enemy pawn: take or push', asks: false }, 'fix 6: Push pushes the pawn');
+  await p.context().close();
+}
+
+/** Fix 9: in Try it, the arrow keys move the focus, Enter moves the piece, focus lands on the landing square, and the move is announced. */
+async function fix9TryKeyboard(browser) {
+  const p = await open(browser, { width: 1280, height: 900 });
+  await tryLink(p, 'ogre', 'Key Ogre');
+  const focused = () => p.evaluate(() => document.activeElement?.dataset.sq);
+  const stops = () => p.locator('.tb-sq:not([tabindex="-1"])').count();
+  assert.equal(await stops(), 1, 'fix 9: the board is one tab stop');
+  await p.focus('.tb-sq[tabindex="0"]');
+  assert.equal(await focused(), '27', 'fix 9: the tab stop is the piece on d4');
+  for (const [key, sq] of [['ArrowUp', '35'], ['ArrowRight', '36'], ['ArrowLeft', '35']]) {
+    await p.keyboard.press(key);
+    assert.equal(await focused(), sq, `fix 9: ${key} moves the focus`);
+  }
+  assert.equal(await text(p, '.tb-count'), 'Move 1', 'fix 9: the arrow keys move no piece');
+  await p.keyboard.press('Enter');
+  assert.equal(await focused(), '35', 'fix 9: Enter moves the piece and the focus lands on the landing square');
+  assert.match(await sqLabel(p, 35), /your piece/, 'fix 9: the piece is on d5');
+  assert.equal(await text(p, '.tb-live'), 'Moved to d5.', 'fix 9: the live region announces the move');
+  assert.equal(await stops(), 1, 'fix 9: still one tab stop after the move');
+  // A take by keys: the choice gets the focus, then the landing square.
+  await p.keyboard.press('ArrowUp');
+  await p.keyboard.press('Enter');
+  assert.equal(await p.evaluate(() => document.activeElement?.closest('.tb-ask') !== null), true, 'fix 9: the focus goes to the choice');
+  await p.keyboard.press('Enter');
+  assert.equal(await focused(), '43', 'fix 9: after the choice, the focus lands on the landing square');
+  assert.equal(await text(p, '.tb-live'), 'Took the enemy pawn on d6.', 'fix 9: the live region announces the take');
+  await p.context().close();
+}
+
+/** Fix 13: Try it shows a Safe rule in its exact words, says whether it holds now, and says that Try it cannot test it. */
+async function fix13SafeRule(browser) {
+  const p = await open(browser);
+  const untested = 'The other side never moves, so Try it cannot test this rule.';
+  await tryLink(p, 'guard', 'Try Guard');
+  assert.equal(await text(p, '.tb-safe'), `It cannot be taken by anything but a king. That holds now. ${untested}`, 'fix 13: an Always Safe rule: its words, "holds", "cannot test"');
+  assert.equal(await p.locator('.tb-shield').count(), 1, 'fix 13: the piece shows the shield while the rule holds');
+  await tryLink(p, 'halfGuard', 'Half Guard');
+  assert.equal(await text(p, '.tb-safe'), `In the enemy half, it cannot be taken by pawns. That does not hold now. ${untested}`, 'fix 13: on d4 the enemy-half rule does not hold');
+  assert.equal(await p.locator('.tb-shield').count(), 0, 'fix 13: no shield while the rule does not hold');
+  await p.click('.tb-sq[data-sq="35"]');
+  assert.equal(await text(p, '.tb-safe'), `In the enemy half, it cannot be taken by pawns. That holds now. ${untested}`, 'fix 13: on d5 the enemy-half rule holds');
+  assert.equal(await p.locator('.tb-shield').count(), 1, 'fix 13: the shield shows when the rule holds');
+  await p.context().close();
+}
+
+/** Fix 28, the lines: a slide line on the board is gold with a dark edge, so it reads on the pale squares. */
+async function fix28LineEdge(browser) {
+  const p = await open(browser);
+  await openLink(p, 'rook', 'Line Rook');
+  for (const mode of ['move', 'take']) {
+    const lines = p.locator(`.ws-board[data-action="${mode}"] .ws-cell.ln`);
+    assert.equal(await lines.count(), 12, `fix 28: the ${mode} board draws 4 lines of 3 squares`);
+    for (const image of await lines.evaluateAll(cs => cs.map(c => getComputedStyle(c).backgroundImage))) {
+      // The colours that show: "transparent" computes as rgba(0, 0, 0, 0), which is not an edge.
+      const colours = [...image.matchAll(/rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/g)].filter(m => m[4] !== '0').map(m => m.slice(1, 4).map(Number));
+      const light = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      assert.ok(colours.some(c => light(c) < 90) && colours.some(c => light(c) > 140), `fix 28: a ${mode} board line has a gold middle and a dark edge: ${image}`);
+    }
+  }
+  await p.context().close();
+}
+
 const browser = await launch();
 try {
   for (const [width, height] of viewports) {
@@ -741,7 +857,12 @@ try {
   await fix23KeyboardChoices(browser);
   await fix27PressOnPadding(browser);
   await fix29ToastsClear(browser);
-  console.log('ok the review fixes 2, 4, 20, 23, 27 and 29');
+  await fix5StrokeEndsOffBoard(browser);
+  await fix6TwoActionChoice(browser);
+  await fix9TryKeyboard(browser);
+  await fix13SafeRule(browser);
+  await fix28LineEdge(browser);
+  console.log('ok the review fixes 2, 4, 5, 6, 9, 13, 20, 23, 27, 28 (the lines) and 29');
   assertNoErrors();
 } finally {
   await browser.close();

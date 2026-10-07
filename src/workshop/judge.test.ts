@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ANCHOR_DESIGNS, anchorOf } from './anchors';
-import { BAND_WORD, THRESHOLDS, badgeText, bandOf, judge, memoryOf, shelfOf, whyTitle, worthOf, type Label } from './judge';
+import { BAND_WORD, THRESHOLDS, badgeText, bandOf, judge, memoryOf, shelfOf, whyHead, whyTitle, worthOf, type Label } from './judge';
+import { halves } from './text';
 import { DIAG, DIRS, KING_STEP, KNIGHT_JUMP, ORTHO, PRESETS, empty, keyOf, limit, presetOf, type Dir, type Mark, type PieceDesign, type Rule, type Square, type When } from './model';
 import { BLOCKS, EVENT_WHENS, MORE_WHENS, TOP_WHENS } from './vocab';
 
@@ -228,6 +229,22 @@ describe('the judge on random designs', () => {
       'Without “takes again”: about 6½ pawns.',
       'In all, it can take on about 10 squares; a rook, about 7; a queen, about 12. Past 7, each one counts double.',
     ]);
+  });
+
+  it('names the band in Why? (review fix 28): the title gives the verdict\'s band, the head the shaded fair band', () => {
+    const fair = `Most pieces are worth ${halves(THRESHOLDS.weak)} to ${halves(THRESHOLDS.op)} pawns, the shaded part of the gauge.`;
+    expect(fair).toBe('Most pieces are worth 2½ to 5 pawns, the shaded part of the gauge.');
+    const seen = new Set<Label>();
+    // The pool and each tenth design: every band shows, at a tenth of the time of the full list.
+    for (const x of [...POOL, ...DESIGNS.filter((_, i) => i % 10 === 0)]) {
+      const v = judge(x);
+      if (v.own) continue; // an unchanged Pawn or Queen keeps its own words
+      seen.add(v.label);
+      if (v.label !== 'fair' || !v.warn) expect(whyTitle(v), keyOf(x)).toBe(`Why “${BAND_WORD[v.label].toLowerCase()}”?`);
+      if (v.label === 'untestedOP') expect(whyHead(v), keyOf(x)).toMatch(/It may be overpowered\.$/);
+      else expect(whyHead(v), keyOf(x)).toContain(fair);
+    }
+    expect([...seen].sort()).toEqual(expect.arrayContaining(['fair', 'likelyOP', 'possiblyOP']));
   });
 
   it('keeps the line within 90 characters, and each fix is a removal that lands in the band (§8.4.7)', () => {
