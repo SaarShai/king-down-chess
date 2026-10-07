@@ -2,6 +2,8 @@
 // Tool gate: a Claude Code PreToolUse hook on Bash.
 // It refuses commands that print the environment, process command lines or a secret file.
 // It also refuses an npm install into a linked node_modules folder.
+// It asks before production, DNS and pages actions and before a git hook bypass.
+// In bypassPermissions and dontAsk mode an ask can pass with no prompt, so there an ask becomes a deny.
 // It stops mistakes, not an adversary. A fault or bad input gives "ask", never a pass.
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -148,6 +150,8 @@ const WRAPPER_VALUE_OPTIONS = {
   sudo: new Set(['-u', '-g', '-h', '-p', '-C', '-D', '-r', '-t', '-U']),
   doas: new Set(['-u', '-C']),
   npx: new Set(['-p', '--package', '-c', '--call']),
+  bunx: new Set(['-p', '--package']),
+  pnpx: new Set(['-p', '--package']),
   env: new Set(['-u', '--unset', '-C', '--chdir', '-S', '--split-string', '-P']),
   nice: new Set(['-n', '--adjustment']),
   timeout: new Set(['-s', '--signal', '-k', '--kill-after']),
@@ -156,12 +160,23 @@ const WRAPPER_VALUE_OPTIONS = {
 };
 // Shell words that can stand before a command.
 const KEYWORDS = new Set(['{', '!', 'if', 'then', 'else', 'elif', 'do', 'while', 'until']);
-const PLAIN_WRAPPERS = new Set(['time', 'nohup', 'command', 'builtin', 'exec', 'nice', 'xargs', 'sudo', 'doas', 'npx', 'timeout', 'env', 'caffeinate', 'stdbuf']);
+const PLAIN_WRAPPERS = new Set(['time', 'nohup', 'command', 'builtin', 'exec', 'nice', 'xargs', 'sudo', 'doas', 'npx', 'bunx', 'pnpx', 'timeout', 'env', 'caffeinate', 'stdbuf']);
+// Package managers that run a package through a sub-command, such as `pnpm dlx vercel`.
+const RUNNER_SUBCOMMANDS = { pnpm: new Set(['dlx', 'exec']), yarn: new Set(['dlx', 'exec']), npm: new Set(['exec', 'x']) };
+const RUNNER_VALUE_OPTIONS = new Set(['-C', '--dir', '-F', '--filter', '-w', '--workspace', '-p', '--package']);
 const SSH_VALUE_OPTIONS = new Set('BbcDEeFIiJLlmOoPpQRSWw'.split('').map(c => `-${c}`));
 
 const SAFE_PROCESS = 'Use `pgrep -x <name>` for a PID, or `ps -o pid,stat -p <pid>` for its state.';
 const SAFE_ENV = 'To test one variable, use `echo "${VAR:+set}"`.';
 const deny = reason => ({ decision: 'deny', reason });
+const ask = reason => ({ decision: 'ask', reason });
+const NO_PROMPT_MODES = new Set(['bypassPermissions', 'dontAsk']);
+const PORKBUN_API = /\bapi\.porkbun\.com\b|\bporkbun\.com\/api\b/i;
+const HOOKS_PATH = /^core\.hookspath$/i;
+// Global git options that take a value as the next word.
+const GIT_VALUE_OPTIONS = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--super-prefix']);
+// git commit short options that take a value.
+const COMMIT_VALUE_FLAGS = 'mFcCt';
 
 /** Removes leading VAR=value words and wrappers such as sudo, npx, env and time. */
 function unwrap(words) {
@@ -169,6 +184,13 @@ function unwrap(words) {
   for (;;) {
     while (rest.length && (KEYWORDS.has(rest[0]) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(rest[0]))) rest = rest.slice(1);
     const name = rest.length ? basename(rest[0]) : '';
+    if (RUNNER_SUBCOMMANDS[name]) {
+      let k = 1;
+      while (k < rest.length && rest[k].startsWith('-')) k += RUNNER_VALUE_OPTIONS.has(rest[k]) ? 2 : 1;
+      if (!RUNNER_SUBCOMMANDS[name].has(rest[k])) return rest;
+      rest = ['npx', ...rest.slice(k + 1)]; // the same shape as npx, so the npx loop below strips it
+      continue;
+    }
     if (!PLAIN_WRAPPERS.has(name)) return rest;
     const valueOptions = WRAPPER_VALUE_OPTIONS[name] ?? new Set();
     let k = 1;
@@ -228,6 +250,64 @@ function psRule(args) {
   return null;
 }
 
+/** A git hook bypass or a core.hooksPath change, else null. */
+function gitRule(args) {
+  let k = 0;
+  for (; k < args.length && args[k].startsWith('-'); k++) {
+    if ((args[k] === '-c' || args[k] === '--config-env') && HOOKS_PATH.test((args[k + 1] ?? '').replace(/=.*$/, ''))) {
+      return ask(`\`git ${args[k]} ${args[k + 1]}\` changes core.hooksPath, so the git hooks do not run.`);
+    }
+    if (GIT_VALUE_OPTIONS.has(args[k])) k++;
+  }
+  const sub = args[k];
+  const subArgs = args.slice(k + 1);
+  if (subArgs.includes('--no-verify')) return ask(`\`git ${sub} --no-verify\` skips the git hooks.`);
+  if (sub === 'commit') {
+    for (let j = 0; j < subArgs.length; j++) {
+      const a = subArgs[j];
+      if (a === '--') break;
+      if (!/^-[^-]/.test(a)) continue;
+      for (let c = 1; c < a.length; c++) {
+        if (a[c] === 'n') return ask('`git commit -n` skips the git hooks.');
+        if (COMMIT_VALUE_FLAGS.includes(a[c])) { if (c === a.length - 1) j++; break; }
+      }
+    }
+  }
+  if (sub === 'config') {
+    const key = subArgs.findIndex(a => HOOKS_PATH.test(a));
+    if (key < 0) return null;
+    const read = subArgs.some(a => ['--get', '--get-all', '--get-regexp', 'get', '--list', '-l', 'list'].includes(a))
+      || (key === subArgs.length - 1 && !subArgs.some(a => ['--unset', '--unset-all', 'unset', 'set', '--add', '--replace-all'].includes(a)));
+    if (!read) return ask('This changes core.hooksPath, so the git hooks can stop running.');
+  }
+  return null;
+}
+
+/** Commands that change production, DNS or the pages site, or skip the git hooks. Else null. */
+function askRule(name, rest, words) {
+  const all = rest.slice(1);
+  if (/^vercel(@.*)?$/.test(name)) return ask('vercel can change the production site, its domains or its environment.');
+  if (name === 'psql') return ask('psql can change the production database.');
+  if (/^supabase(@.*)?$/.test(name)) return ask('supabase can change the production database or project.');
+  if (rest.some(w => /^deploy(\.sh)?$/.test(basename(w))) && all.some(a => a === '--publish' || a.startsWith('--publish='))) {
+    return ask('The deploy script with --publish puts a build on the live site.');
+  }
+  if (name === 'gh') {
+    const w = all.indexOf('workflow');
+    if (w >= 0 && all.slice(w + 1).find(a => !a.startsWith('-')) === 'run') {
+      return ask('gh workflow run starts a GitHub workflow, such as the pages deploy.');
+    }
+  }
+  if (name === 'git') {
+    const result = gitRule(all);
+    if (result) return result;
+  }
+  if (words.some(w => /^GIT_CONFIG_(KEY_\d+|PARAMETERS)=/.test(w) && /core\.hookspath/i.test(w))) {
+    return ask('A GIT_CONFIG variable changes core.hooksPath, so the git hooks can stop running.');
+  }
+  return null;
+}
+
 function checkCommand({ words, redirects }, cwd, depth) {
   const proc = [...words, ...redirects.map(r => r.target)].find(w => PROC_FILE.test(w));
   if (proc) return deny(`${proc} holds a process environment or command line. ${SAFE_PROCESS}`);
@@ -236,13 +316,16 @@ function checkCommand({ words, redirects }, cwd, depth) {
     return deny(`This sends the secret file ${input.target} into a command. Let the tool read the file itself, or test it with \`test -s ${input.target}\`.`);
   }
 
+  const porkbun = [...words, ...redirects.map(r => r.target)].some(w => PORKBUN_API.test(w));
+  const porkbunAsk = porkbun ? ask('This calls the Porkbun API, which can change DNS for the domain.') : null;
+
   const rest = unwrap(words);
-  if (!rest.length) return null;
+  if (!rest.length) return porkbunAsk ?? askRule('', rest, words);
   const name = basename(rest[0]);
   const args = rest.slice(1);
 
   const inner = innerLine(name, args);
-  if (inner !== null) return decideLine(inner, cwd, depth + 1);
+  if (inner !== null) return strongest(decideLine(inner, cwd, depth + 1), porkbunAsk);
 
   switch (name) {
     case 'printenv':
@@ -266,7 +349,7 @@ function checkCommand({ words, redirects }, cwd, depth) {
       if (sub && NPM_INSTALL.has(sub) && isLink(join(cwd, 'node_modules'))) {
         return deny(`node_modules in ${cwd} is a link to a shared folder; \`npm ${sub}\` changes or empties it for every worktree. Use \`wt add <path>\` to give a worktree its own packages.`);
       }
-      return null;
+      break;
     }
   }
   if (READERS.has(name)) {
@@ -275,19 +358,29 @@ function checkCommand({ words, redirects }, cwd, depth) {
       return deny(`${name} would send the secret file ${secret} to the transcript. Let the tool read the file itself, or test it with \`test -s ${secret}\`.`);
     }
   }
-  return null;
+  return porkbunAsk ?? askRule(name, rest, words);
 }
+
+/** deny is stronger than ask, and ask is stronger than a pass (null). */
+const strongest = (a, b) => (a?.decision === 'deny' ? a : b?.decision === 'deny' ? b : a ?? b);
 
 function isLink(path) {
   try { return lstatSync(path).isSymbolicLink(); } catch { return false; }
 }
 
 function decideLine(line, cwd, depth) {
+  let result = null;
   for (const command of parse(line, depth)) {
-    const result = checkCommand(command, cwd, depth);
-    if (result) return result;
+    result = strongest(result, checkCommand(command, cwd, depth));
+    if (result?.decision === 'deny') return result;
   }
-  return null;
+  return result;
+}
+
+/** In a mode with no prompt, an ask becomes a deny that tells the agent to ask the owner. */
+function forMode(result, mode) {
+  if (result?.decision !== 'ask' || !NO_PROMPT_MODES.has(mode)) return result;
+  return deny(`${result.reason} In ${mode} mode a hook ask can pass with no prompt, so the gate refuses it: ask the owner in chat.`);
 }
 
 /**
@@ -297,15 +390,17 @@ function decideLine(line, cwd, depth) {
 export function decide({ command, cwd, mode }) {
   if (typeof command !== 'string') throw new TypeError(`command is ${typeof command}, not a string`);
   if (typeof cwd !== 'string') throw new TypeError(`cwd is ${typeof cwd}, not a string`);
-  void mode; // ticket 02 uses the mode.
-  return decideLine(command, cwd, 0);
+  return forMode(decideLine(command, cwd, 0), mode);
 }
 
 // ---------------------------------------------------------------- hook wrapper
 
-const output = (decision, reason) => JSON.stringify({
-  hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason },
-});
+const output = (decision, reason, mode) => {
+  const result = forMode({ decision, reason }, mode);
+  return JSON.stringify({
+    hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: result.decision, permissionDecisionReason: result.reason },
+  });
+};
 
 /** Hook JSON text in; PreToolUse JSON text out, or '' for a pass. */
 export function hook(stdin) {
@@ -313,15 +408,16 @@ export function hook(stdin) {
   try { input = JSON.parse(stdin); } catch (error) {
     return output('ask', `Tool gate fault: the hook input is not JSON (${error.message}).`);
   }
+  const mode = input?.permission_mode;
   if (!input || typeof input.tool_input !== 'object' || input.tool_input === null) {
-    return output('ask', 'Tool gate fault: the hook input has no tool_input.');
+    return output('ask', 'Tool gate fault: the hook input has no tool_input.', mode);
   }
   if (input.tool_name !== 'Bash') return '';
   try {
-    const result = decide({ command: input.tool_input.command, cwd: input.cwd ?? process.cwd(), mode: input.permission_mode });
+    const result = decide({ command: input.tool_input.command, cwd: input.cwd ?? process.cwd(), mode });
     return result ? output(result.decision, `Tool gate: ${result.reason}`) : '';
   } catch (error) {
-    return output('ask', `Tool gate fault: ${error.message}. Check the command by hand.`);
+    return output('ask', `Tool gate fault: ${error.message}. Check the command by hand.`, mode);
   }
 }
 
