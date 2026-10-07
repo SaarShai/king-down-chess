@@ -59,7 +59,7 @@ Builder, 2026-10-07, branch `build/workshop-finish-02`.
 | 47 | figure `clay-golem` saved | nameAndAppearance |
 | 49 | no sideways scroll in the workspace | layoutFits |
 | 50 | each board fits the width | layoutFits |
-| 54 | 1280: arrows and Enter mark (1,0) | keyboardAndRefusedSave |
+| 55 | 1280: arrows and Enter mark (1,0) | keyboardAndRefusedSave |
 | 55 | 1280: Control+Z (no assertion, as before) | keyboardAndRefusedSave |
 | 57 | 1280: refused save shows the alert | keyboardAndRefusedSave |
 | 58 | 1280: Retry hides the alert | keyboardAndRefusedSave |
