@@ -1,7 +1,7 @@
 # Local secrets (the Kaggle token): never commit.
 /.secrets/
 
-node_modules/
+/node_modules
 dist/
 .DS_Store
 
