@@ -4,7 +4,7 @@
 
 **Blocked by:** 04 (shares the steering lint); checks-and-hooks/06 (the browser-check runner `npm run check:browser`); secrets-and-public-gates/10 (the deploy script with its publish step)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Red first: before the edit, the section-size rule fails and names the AGENTS.md Compute section (322 words) and the Hosting section (140 words). The output goes in this ticket.
 - [x] Rule: the two AGENTS.md sections that point to COMPUTE.md and HOSTING.md hold 120 words or less each, heading excluded. Ticket 06 widens this rule to every section.
