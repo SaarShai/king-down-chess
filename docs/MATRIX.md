@@ -270,4 +270,4 @@ Owner (2026-10-06): a spawn does not reset the 50-move clock (ed23ea1, `claude/s
 
 ## Workshop (build 1a, 2026-10-06)
 
-The Workshop rule blocks live in `src/workshop/vocab.ts`. Each block names a row in this file, and a unit test checks that row (docs/WORKSHOP.md §3.3, §8.4). The conditions and limits are in D.1 and D.2.
+The Workshop rule blocks live in `src/workshop/vocab.ts`. Each block names a row in this file, and a unit test checks that row (revision 3 §3.3, §8.4: [visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md](visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md)). The conditions and limits are in D.1 and D.2.
