@@ -9,7 +9,7 @@ import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
 import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, file as fileOf, findKing, kingLabel, KingChoice, moveNumber, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, startPosition, toFen, toLan } from './rules/setup';
-import { arrangeDialog } from './arrange';
+import { arrangeMode } from './arrange';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { mulberry32 } from './sim/rng';
@@ -74,6 +74,7 @@ $<HTMLSelectElement>('look').onchange = () => {
 };
 $('reset-view').hidden = look !== 'clay';
 view.onLoadError = () => { $('asset-status').textContent = 'A piece model could not load. Reload this page to retry.'; };
+const arrange = arrangeMode(view); // Arrange mode borrows the board until Start game or Cancel
 (window as unknown as Record<string, unknown>).view = view; // tools/styleboard2.mjs aims its crops with view.screenOf()
 /** Threat markers and the keyboard cursor, drawn over the board (pointer events pass through). */
 const marksLayer = document.createElement('div');
@@ -786,6 +787,7 @@ $('end-haste').onclick = () => {
 
 /** Drag arm: select without the click toggle so a second onSquareClick can still play the move. */
 view.onDragSelect = (sq) => {
+  if (arrange.active) return arrange.pick(sq);
   if (busy || viewing != null || finished() || !myTurn()) return;
   if (game.pos.board[sq] === 0 || colorOf(game.pos.board[sq]) !== game.pos.turn) return;
   hintSquares = [];
@@ -800,6 +802,7 @@ view.onDragSelect = (sq) => {
 const refuse = (why: string): void => { notice = why; refresh(); };
 
 view.onSquareClick = (sq, shift = false) => {
+  if (arrange.active) return arrange.click(sq);
   if (busy) { if (thinking) refuse('The computer is thinking. Wait for its move.'); view.skip(); return; } // a tap during an animation skips it
   if (viewing != null) { void showPly(game.history.length, false); return; }
   if (finished()) return refuse(lesson != null ? '' : 'The game is over. Start a new game, or Undo to take back a move.');
@@ -1269,9 +1272,12 @@ const dialog = newGameDialog(s => {
     const d = today(), army = back ?? (s.army === 'daily' ? randomBackRank(mulberry32(+d.replace(/-/g, '')))
       : s.army === 'classic' ? CLASSIC_CHESS : s.army === 'random' ? randomBackRank() : s.army);
     $<HTMLDialogElement>('new-game').close();
-    arrange.open(army, playersOf(s), (w, b) => {
+    const players = playersOf(s);
+    reset(); selected = null; pending = []; armed = false; hintSquares = []; view.skip();
+    view.flip(players[0] === 'ai' && players[1] === 'human');
+    arrange.open(army, players, (w, b) => {
       try { if (w === b) newGame(w); else newGame(undefined, toFen(startPosition(w, b))); } catch (e) { alert((e as Error).message); }
-    });
+    }, () => { view.sync(game.pos); orient(); refresh(); openNewGame(); }); // Cancel: the old game again, and New game
   } else if (s.army === 'daily') { const d = today(); newGame(randomBackRank(mulberry32(+d.replace(/-/g, ''))), null, false, d); }
   else if (s.army === 'classic') newGame(CLASSIC_CHESS);
   else if (s.army === 'ogre') newGame(undefined, OGRE_PRACTICE, false, null, ['human', 'human']);
@@ -1283,8 +1289,6 @@ const dialog = newGameDialog(s => {
   } else newGame(randomBackRank());
 }, preset);
 const openNewGame = (): void => dialog.open(setup);
-const arrange = arrangeDialog();
-$('arrange').addEventListener('close', () => { if ($<HTMLDialogElement>('arrange').returnValue !== 'start') openNewGame(); }); // Cancel: back to New game
 
 $('new-game-btn').onclick = openNewGame;
 $('settings-btn').onclick = () => $<HTMLDialogElement>('settings').showModal();
@@ -1322,9 +1326,10 @@ const coords = $<HTMLInputElement>('coords');
 coords.onchange = () => { view.setCoords(coords.checked); save(); };
 $('reset-view').onclick = () => view.resetView();
 addEventListener('keydown', e => {
+  if (e.key === 'Escape' && arrange.active) return;
   if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; armed = false; refresh(); return; }
   // Menus swallow shortcuts; an open move choice does not (Z there undoes, and that is tested).
-  if ((e.target as HTMLElement).closest('input,select,textarea') || document.querySelector('#new-game[open], #arrange[open], #settings[open], #title-screen[open]')) return;
+  if ((e.target as HTMLElement).closest('input,select,textarea') || document.querySelector('#new-game[open], #settings[open], #title-screen[open], #panel.arranging')) return;
   if (e.key === 'r') view.resetView();
   if (e.key === 'z') undo();
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {

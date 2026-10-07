@@ -35,6 +35,17 @@
       <div id="asset-status" role="status" aria-live="polite">Loading pieces…</div>
     </header>
     <aside id="panel" aria-label="Game controls">
+      <section id="arrange" hidden aria-labelledby="arrange-title">
+        <h2 id="arrange-title">Arrange your pieces</h2>
+        <p class="arrange-help" role="status" aria-live="polite"></p>
+        <div class="arrange-side" data-c="1"><h3>Black<span class="who"></span></h3>
+          <div class="btns"><button type="button" class="randomize">Randomize</button><button type="button" class="ready" aria-pressed="false">Ready</button></div>
+          <p class="arrange-error" aria-live="polite"></p></div>
+        <div class="arrange-side" data-c="0"><h3>White<span class="who"></span></h3>
+          <div class="btns"><button type="button" class="randomize">Randomize</button><button type="button" class="ready" aria-pressed="false">Ready</button></div>
+          <p class="arrange-error" aria-live="polite"></p></div>
+        <div class="btns"><button type="button" class="arrange-cancel">Cancel</button><button type="button" class="arrange-start primary" disabled>Start game</button></div>
+      </section>
       <nav class="btns three menu" aria-label="Menu">
         <button id="new-game-btn"><svg class="icon" aria-hidden="true"><use href="#i-new"/></svg><span class="label">New game</span></button>
         <button id="rules-btn" title="How each piece moves"><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg><span class="label">Guide</span></button>
@@ -167,17 +178,7 @@
         <button id="start-game" type="button" class="primary">Start game</button>
       </form>
     </dialog>
-    <dialog id="arrange" aria-labelledby="arrange-title">
-      <h2 id="arrange-title" tabindex="-1" autofocus>Arrange your pieces</h2>
-      <p>Tap a piece, then another, to swap them. Press Ready when your rank is set.</p>
-      <div class="arrange-side" id="arrange-1"></div>
-      <div class="arrange-side" id="arrange-0"></div>
-      <form method="dialog">
-        <button value="cancel">Cancel</button>
-        <button id="arrange-start" type="button" class="primary" disabled>Start game</button>
-      </form>
-    </dialog>
-    <dialog id="settings"aria-labelledby="settings-title">
+    <dialog id="settings" aria-labelledby="settings-title">
       <h2 id="settings-title" tabindex="-1" autofocus>Settings</h2>
       <fieldset class="fields group">
         <legend>Play</legend>
