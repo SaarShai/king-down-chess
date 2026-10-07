@@ -27,8 +27,8 @@ symlinkSync(join(tmp, 'shared-node-modules'), join(linked, 'node_modules'));
 mkdirSync(join(real, 'node_modules'));
 
 /** Runs the hook command from the settings with `stdin` as its input. */
-function runGate(stdin: string) {
-  const run = spawnSync('/bin/sh', ['-c', gateCommand], {
+function runGate(stdin: string, command = gateCommand) {
+  const run = spawnSync('/bin/sh', ['-c', command], {
     input: stdin, encoding: 'utf8', env: { ...process.env, CLAUDE_PROJECT_DIR: root },
   });
   const out = run.stdout.trim() ? JSON.parse(run.stdout).hookSpecificOutput : undefined;
@@ -36,9 +36,9 @@ function runGate(stdin: string) {
 }
 
 /** The same as runGate, but it does not block, so rows can run in parallel. */
-function runGateAsync(stdin: string): Promise<{ status: number | null; stderr: string; out: any }> {
+function runGateAsync(stdin: string, command = gateCommand): Promise<{ status: number | null; stderr: string; out: any }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('/bin/sh', ['-c', gateCommand], { env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
+    const child = spawn('/bin/sh', ['-c', command], { env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
     let stdout = '', stderr = '';
     child.stdout.on('data', d => { stdout += d; });
     child.stderr.on('data', d => { stderr += d; });
@@ -300,5 +300,165 @@ describe('tool gate permission rules', () => {
     'Bash(psql *)', 'Bash(supabase *)', 'Bash(gh workflow run *)',
   ])('permissions.ask holds %s', rule => {
     expect(settings.permissions?.ask).toContain(rule);
+  });
+});
+
+// ---------------------------------------------------------------- browser sites
+
+const PANE_PREFIXES = ['mcp__Claude_Browser__', 'mcp__remote-devices__Claude_Browser__'];
+const CHROME = 'mcp__claude-in-chrome__';
+// Tools that take one URL. The Chrome new-tab tool opens an empty tab today; the gate reads a url if it has one.
+const URL_TOOLS = [...PANE_PREFIXES.flatMap(p => [`${p}navigate`, `${p}preview_start`]), `${CHROME}navigate`, `${CHROME}tabs_create_mcp`];
+const BATCH_TOOLS = [...PANE_PREFIXES.map(p => `${p}browser_batch`), `${CHROME}browser_batch`];
+const BROWSER_TOOLS = [...URL_TOOLS, ...BATCH_TOOLS];
+const browserEntries = (settings.hooks?.PreToolUse ?? []).filter((e: { matcher?: string }) => e.matcher !== 'Bash');
+const browserCommand: string = browserEntries[0]?.hooks?.[0]?.command ?? '';
+
+const toolCall = (tool: string, toolInput: unknown, mode = 'default') => JSON.stringify({
+  session_id: 'test', cwd: root, permission_mode: mode, hook_event_name: 'PreToolUse',
+  tool_name: tool, tool_input: toolInput,
+});
+// A batch with the URL in one navigate step among other steps.
+const batchOf = (url: string) => ({
+  actions: [
+    { name: 'computer', input: { action: 'screenshot' } },
+    { name: 'navigate', input: { url, tabId: 1 } },
+    { name: 'find', input: { query: 'Sign in' } },
+  ],
+});
+/** The input that sends `url` through `tool`. */
+const inputFor = (tool: string, url: unknown) => (tool.endsWith('browser_batch') ? batchOf(url as string) : { url });
+/** Runs `url` through each browser tool in parallel, in one mode. */
+const eachTool = (url: unknown, mode = 'default') =>
+  Promise.all(BROWSER_TOOLS.map(tool => runGateAsync(toolCall(tool, inputFor(tool, url), mode), browserCommand)));
+
+describe('browser gate settings', () => {
+  it('runs one browser PreToolUse entry with the tool gate, and its matcher lists each browser tool by exact name', () => {
+    expect(browserEntries).toHaveLength(1);
+    expect(browserEntries[0].hooks).toHaveLength(1);
+    expect(browserCommand).toBe('"$CLAUDE_PROJECT_DIR"/.claude/hooks/tool-gate.mjs');
+    // Only letters, digits, "_", "-" and "|": Claude Code reads the matcher as a list of exact names, not a regex.
+    expect(browserEntries[0].matcher).toMatch(/^[A-Za-z0-9_|-]+$/);
+  });
+  it.each(BROWSER_TOOLS)('the matcher holds %s', tool => {
+    expect(browserEntries[0].matcher.split('|')).toContain(tool);
+  });
+});
+
+// [url, the host that the reason names]
+const siteRows: [string, string][] = [
+  ['https://kingdown.dev/', 'kingdown.dev'],
+  ['https://www.kingdown.dev/play', 'www.kingdown.dev'],
+  ['kingdown.dev', 'kingdown.dev'],
+  ['HTTPS://WWW.KingDown.DEV./', 'www.kingdown.dev'],
+  ['https://kingdown.vercel.app/', 'kingdown.vercel.app'],
+  ['https://kingdown-git-x.vercel.app/', 'kingdown-git-x.vercel.app'],
+  ['https://a.kingdown-chess.vercel.app/', 'a.kingdown-chess.vercel.app'],
+  ['https://vercel.com/dashboard', 'vercel.com'],
+  ['https://x.vercel.com:443/team', 'x.vercel.com'],
+  ['https://supabase.com/dashboard/project/abc', 'supabase.com'],
+  ['https://app.supabase.com/', 'app.supabase.com'],
+  ['https://abc.supabase.co/rest/v1/', 'abc.supabase.co'],
+  ['https://porkbun.com/account/domainsSpeedy', 'porkbun.com'],
+  ['https://www.porkbun.com/', 'www.porkbun.com'],
+  ['https://someone@app.supabase.com/', 'app.supabase.com'],
+  ['view-source:https://kingdown.dev/', 'kingdown.dev'],
+];
+
+describe('browser gate asks before a production or dashboard site', () => {
+  it.each(siteRows)('asks for %s in each browser tool', async (url, host) => {
+    const runs = await eachTool(url);
+    runs.forEach((run, k) => {
+      expect(run.status, BROWSER_TOOLS[k]).toBe(0);
+      expect(run.stderr).toBe('');
+      expect(run.out?.hookEventName).toBe('PreToolUse');
+      expect(run.out?.permissionDecision, BROWSER_TOOLS[k]).toBe('ask');
+      expect(run.out?.permissionDecisionReason).toContain(host);
+    });
+  });
+  it.each(siteRows)('%s: deny in bypassPermissions and dontAsk, ask in the other modes', async (url, host) => {
+    for (const mode of [...NO_PROMPT_MODES, ...PROMPT_MODES]) {
+      const runs = await eachTool(url, mode);
+      runs.forEach((run, k) => {
+        expect(run.status).toBe(0);
+        expect(run.out?.permissionDecisionReason).toContain(host);
+        if (NO_PROMPT_MODES.includes(mode)) {
+          expect(run.out?.permissionDecision, `${BROWSER_TOOLS[k]} ${mode}`).toBe('deny');
+          expect(run.out?.permissionDecisionReason).toContain('ask the owner in chat');
+        } else {
+          expect(run.out?.permissionDecision, `${BROWSER_TOOLS[k]} ${mode}`).toBe('ask');
+        }
+      });
+    }
+  });
+  it.each(BATCH_TOOLS)('%s asks when one step of many opens a production site', async tool => {
+    const actions = [
+      { name: 'navigate', input: { url: 'http://127.0.0.1:5189/' } },
+      { name: 'computer', input: { action: 'screenshot' } },
+      { name: 'navigate', input: { url: 'https://vercel.com/' } },
+      { name: 'navigate', input: { url: 'https://example.com/' } },
+    ];
+    const run = await runGateAsync(toolCall(tool, { actions }), browserCommand);
+    expect(run.out?.permissionDecision).toBe('ask');
+    expect(run.out?.permissionDecisionReason).toContain('vercel.com');
+  });
+  it.each(BATCH_TOOLS)('%s reads a batch whose actions list comes as JSON text', async tool => {
+    const run = await runGateAsync(toolCall(tool, { actions: JSON.stringify(batchOf('https://kingdown.dev/').actions) }), browserCommand);
+    expect(run.out?.permissionDecision).toBe('ask');
+  });
+});
+
+const sitePassRows = [
+  'http://127.0.0.1:5189/', 'http://localhost:5173/', 'https://example.com/?q=kingdown.dev',
+  'https://notkingdown.dev/', 'https://vercel.com.example.org/', 'https://notkingdown.vercel.app/',
+  'https://vercel.app/', 'https://myvercel.com/', 'https://supabase.com.example.org/', 'http://[::1]:5173/',
+  'https://www.google.com/search?q=vercel.com+supabase.co', 'about:blank', 'back', 'forward', 'localhost:5173',
+];
+
+describe('browser gate passes other sites', () => {
+  it.each(sitePassRows)('passes %s in each browser tool', async url => {
+    const runs = await eachTool(url);
+    runs.forEach((run, k) => {
+      expect(run.status).toBe(0);
+      expect(run.stderr).toBe('');
+      expect(run.out, BROWSER_TOOLS[k]).toBeUndefined();
+    });
+  });
+  it.each(BATCH_TOOLS)('%s passes a batch with no production step', async tool => {
+    const actions = [
+      { name: 'navigate', input: { url: 'http://127.0.0.1:5189/' } },
+      { name: 'find', input: { query: 'vercel.com' } },
+      { name: 'computer', input: { action: 'type', text: 'https://kingdown.dev' } },
+    ];
+    const run = await runGateAsync(toolCall(tool, { actions }), browserCommand);
+    expect(run.out).toBeUndefined();
+  });
+  it('passes preview_start by launch name, and an empty new tab', async () => {
+    const runs = await Promise.all([
+      ...PANE_PREFIXES.map(p => runGateAsync(toolCall(`${p}preview_start`, { name: 'vite' }), browserCommand)),
+      runGateAsync(toolCall(`${CHROME}tabs_create_mcp`, {}), browserCommand),
+    ]);
+    for (const run of runs) expect(run.out).toBeUndefined();
+  });
+});
+
+describe('browser gate asks on a URL it cannot read', () => {
+  it.each(['https://exa mple.com/', 'http://[::1', 'https://', ''])('asks for %j in each browser tool, and denies it in bypassPermissions', async url => {
+    for (const [mode, decision] of [['default', 'ask'], ['bypassPermissions', 'deny']]) {
+      const runs = await eachTool(url, mode);
+      runs.forEach((run, k) => {
+        expect(run.status).toBe(0);
+        expect(run.out?.permissionDecision, `${BROWSER_TOOLS[k]} ${mode}`).toBe(decision);
+        expect(run.out?.permissionDecisionReason).toMatch(/Tool gate fault/);
+      });
+    }
+  });
+  it.each([[42], [null], [['https://kingdown.dev']]])('asks for the url value %j', async url => {
+    const runs = await eachTool(url);
+    for (const run of runs) expect(run.out?.permissionDecision).toBe('ask');
+  });
+  it.each(BATCH_TOOLS)('%s asks when the batch has no actions list', async tool => {
+    const run = await runGateAsync(toolCall(tool, { actions: 'navigate to kingdown.dev' }), browserCommand);
+    expect(run.out?.permissionDecision).toBe('ask');
   });
 });
