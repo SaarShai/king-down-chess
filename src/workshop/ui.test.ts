@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { cracksSvg, floorSvg, gaugeHtml, modelHtml, patternSvg, zoneSvg } from './art';
+import { figureHtml, gaugeHtml, modelHtml } from './art';
+import { figureById } from './figures';
 import { judge, whyHead } from './judge';
-import { CRIMSON, lookOf } from './look';
+import { CRIMSON, lookOf, lookWords } from './look';
 import { BLANK, ORTHO, PRESETS, fromPreset, presetOf, type PieceDesign, type Rule, type When } from './model';
 import { KEY, MAX, deleteDesign, loadDesigns, loadShelf, saveDesign } from './store';
 import { describe as words, esc, ruleText } from './text';
@@ -67,28 +68,16 @@ describe('vocab (§8.4.10)', () => {
 });
 
 describe('art (§8.4.11)', () => {
-  const ids = (s: string) => [...s.matchAll(/ id="([^"]+)"/g)].map(m => m[1]);
-  const svgs = (): string[] => [
-    floorSvg(look(rook(chain))), floorSvg(look({ ...fromPreset(presetOf('archer')), letter: 'D' })), patternSvg(presetOf('archer')),
-    zoneSvg('capital'), zoneSvg('enemyHalf'), ...(['hairline', 'cracked', 'dashed', 'wide'] as const).map(cracksSvg),
-  ];
-
-  it('holds no text, is aria-hidden and uses each gradient it defines', () => {
-    for (const s of svgs()) {
-      expect(s).toMatch(/^<svg [^>]*aria-hidden="true"/);
-      expect(s.match(/>[^<]+</g), s.slice(0, 60)).toBeNull();
-      for (const id of ids(s)) expect(s).toContain(`url(#${id})`);
-    }
-    const g = gaugeHtml(judge(presetOf('rook')), true);
+  it('draws the card: the bare figure and the thermometer', () => {
+    const l = look(rook(chain));
+    // The artwork stands alone, even for a saved design with a glow.
+    const m = modelHtml(look({ ...rook(chain), look: { ...rook().look, glow: 'Flame' } }));
+    expect(m).toBe(`<div class="ws-model ws-bare"><img class="ws-fig" src="/ui/workshop/${l.figure}-w.webp" alt="" decoding="async" /></div>`);
+    expect(figureHtml({ figure: l.figure, army: 1 }, 'tb-me')).toBe(`<img class="tb-me" src="/ui/workshop/${l.figure}-b.webp" alt="" decoding="async" />`);
+    const g = gaugeHtml(judge(presetOf('rook')));
     expect(g).toMatch(/role="meter"[^>]*aria-valuenow="4"/);
     expect(g).toContain('ws-thermometer');
     expect(g).not.toContain('g-gem');
-  });
-
-  it('gives each copy its own ids', () => {
-    const a = svgs().flatMap(ids), b = svgs().flatMap(ids);
-    expect(a.length).toBeGreaterThan(0);
-    expect(new Set([...a, ...b]).size).toBe(a.length + b.length);
   });
 
   it('dresses the model from the verdict (lookOf)', () => {
@@ -99,14 +88,16 @@ describe('art (§8.4.11)', () => {
     const n = look(rook(chain, noKing));
     expect([n.metal, n.noTake]).toEqual(['hairline', 'king']);
     expect(look({ ...fromPreset(presetOf('guard')), letter: 'D' }).sheathed).toBe(true);
-    // The artwork stands alone, even for a saved design with a glow.
-    const m = modelHtml(look({ ...rook(chain), look: { ...rook().look, glow: 'Flame' } }));
-    expect(m).toContain('ws-bare');
-    expect(m).not.toMatch(/ws-plinth|ws-floor|ws-rim|ws-shield/);
     const t = look({ ...fromPreset(BLANK), squares: presetOf('maester').squares, rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }], letter: 'D' });
     expect([t.body, t.ghost, t.zone, t.ghostLines.length]).toEqual(['M', 'Q', 'capital', 8]);
     expect(t.marks.every(m => !m.hatched)).toBe(true);
     expect(look({ ...rook(), lines: [...ORTHO].slice(0, 2) }).lines).toEqual(['n', 'e']);
+  });
+
+  it('names in the hidden summary only what the card shows', () => {
+    const l = look({ ...rook(chain), look: { ...rook().look, glow: 'Flame', army: 1 } });
+    expect(lookWords(l)).toBe(`${figureById(l.figure)!.name} look, charcoal.`);
+    for (const d of [rook(), rook(chain), rook(chain, noKing)]) expect(lookWords(look(d))).not.toMatch(/plinth|floor|rim|glow|crack/i);
   });
 });
 
