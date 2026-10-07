@@ -1,4 +1,39 @@
-// Shared module for the browser checks (checks-and-hooks/05).
+// Shared module for the browser checks (checks-and-hooks/05). This header is the reference for check authors.
+// Self-test: node tools/check-selftest.mjs (needs no server). Unit test of env: tools/lib/checks.test.ts.
+//
+// Settings
+//   env(name)                 One of the three settings. A set environment variable wins; else the default:
+//                               PLAYABLE_URL      http://127.0.0.1:5189/
+//                               PLAYABLE_OUT      <outRoot>/<check>, <check> is the script name without "verify-"
+//                               PLAYABLE_BROWSER  chromium when CLAUDE_CODE_REMOTE is "true", else chrome
+//                             An unknown name throws.
+//   outRoot                   The runner's output root: <system temp folder>/kingdown-checks, never in a checkout.
+//   launch(options = {})      Opens the PLAYABLE_BROWSER channel; `options` go to Playwright's chromium.launch.
+//
+// Errors
+//   trapErrors(page, allow = [])
+//                             Collects the page errors and console errors of `page`. Each `allow` item is
+//                             { pattern, reason }: a message that `pattern` (RegExp or string) matches is allowed.
+//                             An item with no reason throws. Returns the list of other errors for that page.
+//   assertNoErrors(errors = <all trapped pages>)
+//                             Throws and lists the errors when the list is not empty.
+//
+// Assertions. Each one is async, takes (page, selector, ...) and checks every element that the selector matches.
+// A failure throws an Error that names the assertion, the selector, the viewport (WxH) and the box (x y w h).
+// A selector that matches no element (no rendered element, for the layout assertions) fails.
+//   noSidewaysScroll(page, selector = 'html')     The content is not wider than the element (1 px tolerance).
+//   insideViewport(page, selector)                The box is inside the viewport on both axes (1 px tolerance).
+//   noOverlap(page, selector)                     No two matches overlap by more than 1 px; a match inside another is not counted.
+//   textNotCut(page, selector)                    The content fits the element: no cut and no ellipsis.
+//   minTarget(page, selector, min = 44)           The box is at least `min` px wide and `min` px high.
+//   noRunningAnimations(page, selector = 'html')  No animation runs on the element or inside it. A paused animation is not running.
+//   imageIs(page, selector, name)                 The resolved image path (img source or CSS background) ends with `name`,
+//                                                 such as 'ui/workshop/clay-golem-w.webp'. It passes under a relative and an absolute base.
+//
+// Files
+//   shot(page, name, options = {})
+//                             Writes a screenshot to PLAYABLE_OUT/<name>.png (or the .jpg or .png name you give) and
+//                             returns the path. A name that goes outside PLAYABLE_OUT throws. `options` go to page.screenshot.
 import { chromium } from 'playwright';
 import { tmpdir } from 'node:os';
 import { mkdirSync } from 'node:fs';
