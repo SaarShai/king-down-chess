@@ -24,8 +24,8 @@ afterEach(async () => {
 async function token(actor = alice, aud = auth.resource) {
   return new SignJWT({ role: 'authenticated', client_id: 'oauth-client', scope: 'openid' }).setProtectedHeader({ alg: 'ES256', kid: 'test' }).setIssuer(auth.issuer).setAudience(aud).setSubject(actor).setExpirationTime('5m').sign(privateKey);
 }
-async function post(body: unknown, bearer?: string, headers: Record<string, string> = {}) {
-  return fetch(`${address}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'MCP-Protocol-Version': '2025-11-25', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+async function post(body: unknown, bearer?: string, headers: Record<string, string> = {}, signal?: AbortSignal) {
+  return fetch(`${address}/mcp`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'MCP-Protocol-Version': '2025-11-25', ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}), ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) });
 }
 const list = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
 const get = { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'kingdown_get', arguments: { matchId } } };
@@ -89,6 +89,34 @@ describe('stateless authenticated MCP HTTP', () => {
     expect(streamed).toBe(413);
     expect((await post('{broken', bearer)).status).toBe(400);
     expect(service.get).not.toHaveBeenCalled();
+  });
+  it('rejects JSON-RPC batches before a single request can fan out service work', async () => {
+    const batch = Array.from({ length: 20 }, (_, id) => ({ jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'kingdown_create', arguments: { mode: 'solo' } } }));
+    expect(Buffer.byteLength(JSON.stringify(batch))).toBeLessThan(MAX_MCP_BODY);
+    const response = await post(batch, await token()); expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'JSON-RPC batches are not supported' });
+    expect(service.create).not.toHaveBeenCalled();
+    const single = await post(list, await token()); expect(single.status).toBe(200); await single.json();
+  });
+  it('retains abandoned work slots and admits new requests after that work settles', async () => {
+    let release!: () => void, entered!: () => void, running = 0, peak = 0, count = 0;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const ready = new Promise<void>(resolve => { entered = resolve; });
+    vi.mocked(service.get).mockImplementation(async () => {
+      running++; peak = Math.max(peak, running); if (++count === 4) entered();
+      try { await gate; return view; } finally { running--; }
+    });
+    const bearer = await token(), controllers = Array.from({ length: 4 }, () => new AbortController());
+    const abandoned = controllers.map(controller => post(get, bearer, {}, controller.signal).catch(() => undefined));
+    try {
+      await ready; controllers.forEach(controller => controller.abort()); await Promise.all(abandoned);
+      expect(running).toBe(4);
+      const busy = await post(get, bearer, {}, AbortSignal.timeout(1000)); expect(busy.status).toBe(503); await busy.json();
+      expect(service.get).toHaveBeenCalledTimes(4);
+    } finally { release(); }
+    await new Promise(resolve => setImmediate(resolve));
+    expect(running).toBe(0);
+    const fresh = await post(get, bearer); expect(fresh.status).toBe(200); await fresh.json(); expect(peak).toBe(4);
   });
   it('bounds active MCP requests per handler and admits retries after completion', async () => {
     let release!: () => void, entered!: () => void;

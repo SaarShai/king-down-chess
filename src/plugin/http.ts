@@ -19,6 +19,21 @@ function respond(res: ServerResponse, status: number, value: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(value));
 }
+/** Pre-parse once so a JSON-RPC batch cannot fan out workers behind one admission slot. */
+async function requestBody(req: IncomingMessage, res: ServerResponse): Promise<{ value: unknown } | undefined> {
+  const tooLarge = () => { res.setHeader('Connection', 'close'); respond(res, 413, { error: 'Request body too large' }); req.resume(); };
+  if (Number(req.headers['content-length']) > MAX_MCP_BODY) { tooLarge(); return; }
+  const chunks: Buffer[] = []; let bytes = 0;
+  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+    bytes += chunk.length; if (bytes > MAX_MCP_BODY) { tooLarge(); return; }
+    chunks.push(chunk);
+  }
+  try {
+    const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if (Array.isArray(value)) { respond(res, 400, { error: 'JSON-RPC batches are not supported' }); return; }
+    return { value };
+  } catch { respond(res, 400, { error: 'Malformed JSON' }); return; }
+}
 export function createPluginHandler(options: PluginHttpOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
   const origin = pluginOrigin(options.publicOrigin), expectedHost = new URL(origin).host;
   if (options.localDev) {
@@ -75,14 +90,31 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
         if (options.auth) res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${metadataUrl}", scope="openid"`);
         respond(res, 401, { error: 'Authentication required' }); return;
       }
-      const server = createPluginServer({ service: options.service, actorId, resourceHtml: options.resourceHtml, publicOrigin: origin });
+      const body = await requestBody(req, res); if (!body || res.destroyed) return;
+      const work = new Set<Promise<unknown>>();
+      // Keep the admission slot until service work settles, even after the client disconnects.
+      const service = new Proxy(options.service, { get(target, key) {
+        const method = Reflect.get(target, key); if (typeof method !== 'function') return method;
+        return (...args: unknown[]) => {
+          const task = Promise.resolve().then(() => Reflect.apply(method, target, args)); work.add(task);
+          void task.finally(() => work.delete(task)).catch(() => {}); return task;
+        };
+      } });
+      const server = createPluginServer({ service, actorId, resourceHtml: options.resourceHtml, publicOrigin: origin });
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true, maxRequestBodySize: MAX_MCP_BODY });
       let closed = false;
       const close = async () => { if (!closed) { closed = true; await server.close(); } };
-      res.once('close', () => { void close().catch(() => {}); });
-      try { await server.connect(transport); await transport.handleRequest(req, res); }
+      let disconnected!: () => void;
+      const responseClosed = new Promise<void>(resolve => { disconnected = resolve; });
+      res.once('close', () => { disconnected(); void close().catch(() => {}); });
+      try { await server.connect(transport); await Promise.race([transport.handleRequest(req, res, body.value), responseClosed]); }
       catch { if (!res.headersSent) respond(res, 500, { error: 'Request failed' }); else res.destroy(); }
-      finally { if (res.writableEnded || res.destroyed) await close(); }
+      finally {
+        try { await close(); } finally {
+          // kingdown_open can call resume and then create; drain sequential follow-on work too.
+          while (work.size) await Promise.allSettled([...work]);
+        }
+      }
     } finally { active--; }
   };
 }
