@@ -24,10 +24,9 @@ export const readAllowlist = (/** @type {string} */ text) => {
 
 /**
  * Gives one fault line for each file over the limit that the allowlist does not hold.
- * @param {{ path: string, size: number }[]} files
+ * @param {{ where: string, path: string, size: number }[]} files `where` is the short commit, or "index"
  * @param {Set<string>} allowlist
- * @param {string} where the short commit, or "index"
  */
-export const sizeFaults = (files, allowlist, where) => files
+export const sizeFaults = (files, allowlist) => files
   .filter(file => file.size > LIMIT && !allowlist.has(file.path))
-  .map(file => `size: ${where}: ${file.path}: ${file.size} bytes is over ${LIMIT}; add the path and a reason to ${ALLOWLIST}`);
+  .map(file => `size: ${file.where}: ${file.path}: ${file.size} bytes is over ${LIMIT}; add the path and a reason to ${ALLOWLIST}`);
