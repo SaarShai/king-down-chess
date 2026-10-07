@@ -51,3 +51,5 @@
 
 **Checks.** `npm run test:docs`: 4 files, 74 tests passed. `npm test` after the merge of the integration tip (5b84617, no new commits since the branch start): tsc clean; vitest 66 files, 1,284 tests passed; `node --test` 42 passed, 0 failed. One run before it failed only `src/workshop/judge.test.ts` (a random-design test, the 5 s limit, 5.5 s); this ticket changes no code that it runs, and the next run passed. `git ls-files docs/HANDOFF-retro.md` gives nothing.
 
+
+**Merge.** Merged into `claude/retro-2026-10-06` as a0788c4, before the owner's merge into main. The Status stays `ready-for-human`: the owner reviews the order when the integration branch merges into main (revert a0788c4 to keep the handoff live until then). `npm test` after the merge: tsc clean; vitest 66 files, 1,284 passed; `node --test` 42 passed, 0 failed. `npm run test:docs`: 74 passed. `git ls-files docs/HANDOFF-retro.md` gives nothing.
