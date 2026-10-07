@@ -3,7 +3,7 @@ import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@model
 import { z } from 'zod';
 import { MatchServiceError, type MatchService } from '../match/service';
 
-const DEFAULT_SETUP = { backRank: 'RAGQKMSL', kings: 'Flame:Haste,Frost:Freeze' } as const;
+const DEFAULT_SETUP = { backRank: 'RAGQKMSO', kings: 'Flame:Haste,Frost:Freeze' } as const;
 export const BOARD_RESOURCE = 'ui://kingdown/board-v1.html';
 /** Authentication belongs to the HTTP boundary; actorId is never accepted from tool input. */
 type Service = Pick<MatchService, 'create' | 'get' | 'move' | 'computer' | 'invite' | 'join'> & { resume(actorId: string): Promise<Awaited<ReturnType<MatchService['get']>> | null> };

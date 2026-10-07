@@ -4,6 +4,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createPluginServer, BOARD_RESOURCE } from '../src/plugin/server';
 import { fixtureService } from './plugin-protocol-fixture';
 import type { MatchView } from '../src/plugin/view';
+import { POOL } from '../src/rules/setup';
 const service = fixtureService();
 const server = createPluginServer({ service, actorId: 'alice', resourceHtml: '<html>board</html>', publicOrigin: 'https://kingdown.example' });
 const client = new Client({ name: 'protocol-check', version: '1' });
@@ -18,6 +19,10 @@ try {
   assert.equal(resource.contents[0].mimeType, 'text/html;profile=mcp-app');
   const opened = await client.callTool({ name: 'kingdown_open', arguments: {} });
   const view = opened.structuredContent as unknown as MatchView;
+  const army = view.snapshot.fen.split(' ')[0].split('/').at(-1)!;
+  assert.equal([...army].filter(piece => piece === 'K').length, 1);
+  const available = POOL.split('');
+  for (const piece of army.replace('K', '')) { const index = available.indexOf(piece); assert(index >= 0, `${piece} is outside the current army pool`); available.splice(index, 1); }
   const command = { matchId: view.matchId, id: 'one', expectedRevision: 0, lan: 'e2-e4' };
   const moved = await client.callTool({ name: 'kingdown_move', arguments: command });
   assert.equal((moved.structuredContent as any).snapshot.revision, 1);
