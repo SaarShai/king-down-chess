@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The main checkout's art-source workshop folder holds 34 PNG files and 34 prompt files, one pair per figure id, and nothing else.
 - [x] Each PNG has the same sha256 as its chosen source in the Codex working copy; the list of 34 pairs of hashes is in Comments.
@@ -12,7 +12,7 @@
 - [x] The art manifest has a workshop section with a count and size in its heading and one row per figure: file, source, size, why kept, licence note.
 - [x] The figures test asserts: the cast list's ids, names and tags equal the figure module; the manifest has a row for each figure id; the shipped art folder holds exactly `{id}-w.webp` and `{id}-b.webp` for each id. It holds no literal cast size.
 - [x] `git status` in this branch shows no tracked change outside the manifest and the figures test.
-- [ ] `npm test` passes.
+- [x] `npm test` passes.
 
 **Verify:** `npm test`; `ls "<main checkout>/art-src/workshop" | wc -l` gives 68; `shasum -a 256` on each pair
 
@@ -80,3 +80,5 @@ Builder, 2026-10-07, branch `build/workshop-finish-10`.
 | fire-spirit | `figures-machines-elements/fire-spirit.png` | `eca7b96c189004dfb394d40fe9c2d0eb0972450627199963cffa2941f9d6c992` | `eca7b96c189004dfb394d40fe9c2d0eb0972450627199963cffa2941f9d6c992` |
 | clay-golem | `figures-machines-elements/clay-golem.png` | `88bf7882f85aa3cd2b9724eceaeaf4a1fe780cc7c4c8b344d0562c326c95f87e` | `88bf7882f85aa3cd2b9724eceaeaf4a1fe780cc7c4c8b344d0562c326c95f87e` |
 | storm-spirit | `figures-machines-elements/storm-spirit.png` | `f67cf856b7ad705ec4a93a0371f82f8e4c0c137b5aa6177247d746928b376577` | `f67cf856b7ad705ec4a93a0371f82f8e4c0c137b5aa6177247d746928b376577` |
+
+Merger, 2026-10-07: merged into `claude/retro-2026-10-06` as 2a5a187. `npm test` in the integration worktree passes: the typecheck passes, vitest 38 files and 675 tests pass, the node tests 42 pass. The judge timeout ("never lowers W") did not occur in this run; it is intermittent and ticket workshop-finish/05 owns it. Open for the owner: the tide-caller v3 step (no hash proof) and the total line at the top of `art-src/MANIFEST.md`.
