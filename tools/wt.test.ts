@@ -164,3 +164,78 @@ describe('installation guard', () => {
     }
   });
 });
+
+describe('wt serve', () => {
+  const target = (repo: Repo) => join(repo.dir, '.claude', 'preview-target');
+
+  it('stops with a reason when the target file is missing', () => {
+    const { repo, wt } = setup();
+    const result = wt(['serve']);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toBe(`wt: no target file: ${target(repo)}\n`);
+  });
+
+  /** A stub Vite in the main package folder (so in each linked worktree) that logs its folder and arguments. */
+  function stubVite(repo: Repo) {
+    const log = join(repo.root, 'vite.log');
+    const vite = join(repo.dir, 'node_modules', '.bin', 'vite');
+    writeFileSync(vite, `#!/bin/sh\necho "$(pwd -P) $*" >> "${log}"\n`);
+    chmodSync(vite, 0o755);
+    return () => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : []);
+  }
+
+  it('runs the named worktree\'s own Vite on 127.0.0.1, by name and by absolute path, on PORT', () => {
+    const { repo, wt, worktrees } = setup();
+    const viteCalls = stubVite(repo);
+    wt(['add', 'feature/five']);
+    const path = join(worktrees, 'five');
+    repo.write('.claude/preview-target', 'five\n');
+    const byName = repo.run(script, ['serve'], { env: { PATH: `${join(repo.root, 'bin')}:${repo.env.PATH}`, PORT: '' } });
+    expect(byName.status, byName.stderr).toBe(0);
+    // Paths in this repository hold spaces.
+    const spaced = join(repo.root, 'a worktree');
+    repo.git('worktree', 'add', '-q', '-b', 'spaced', spaced);
+    wt(['add', spaced]);
+    writeFileSync(target(repo), `  ${spaced}  \n`);
+    const byPath = repo.run(script, ['serve'], { env: { PATH: `${join(repo.root, 'bin')}:${repo.env.PATH}`, PORT: '5199' } });
+    expect(byPath.status, byPath.stderr).toBe(0);
+    expect(viteCalls()).toEqual([
+      `${path} ${path} --host 127.0.0.1 --port 5177 --strictPort`,
+      `${spaced} ${spaced} --host 127.0.0.1 --port 5199 --strictPort`,
+    ]);
+  });
+
+  it('stops with a reason when the target names no worktree of this repository', () => {
+    const { repo, wt, worktrees } = setup();
+    const other = tempRepo({ hooks: false });
+    repos.push(other);
+    const cases: [string, string][] = [
+      ['ghost', `${join(worktrees, 'ghost')} is not a folder`],
+      [join(repo.root, 'bin'), `${join(repo.root, 'bin')} is not the top of a worktree`],
+      [other.dir, `${other.dir} is a worktree of another repository`],
+    ];
+    for (const [name, reason] of cases) {
+      repo.write('.claude/preview-target', `${name}\n`);
+      const result = wt(['serve']);
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toBe(`wt: ${reason}\n`);
+    }
+  });
+
+  it('stops with a reason when the named worktree has no node_modules', () => {
+    const { repo, wt } = setup();
+    const bare = join(repo.root, 'bare');
+    repo.git('worktree', 'add', '-q', '-b', 'bare', bare);
+    repo.write('.claude/preview-target', `${bare}\n`);
+    const result = wt(['serve']);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toBe(`wt: ${bare} has no node_modules; run: wt add ${bare}\n`);
+  });
+
+  it('git ignores the target file and the previews folder', () => {
+    const { repo } = setup();
+    repo.write('.claude/preview-target', 'five\n');
+    repo.write('sim/out/previews/index.html', '<p>preview</p>\n');
+    expect(repo.git('status', '--porcelain').stdout).toBe('');
+  });
+});

@@ -28,6 +28,9 @@ dist/
 # Original King Down art for the trailer; card illustration rights unconfirmed (docs/trailer/PLAN.md)
 docs/trailer/assets/
 
-# Local agent worktrees
+# Local agent worktrees, and the file that names the worktree that `tools/wt.sh serve` previews
 /.claude/worktrees/
+/.claude/preview-target
+# Local preview pages (the `previews` launch entry)
+/sim/out/previews/
 /sim/nnue-powers/*.bin
