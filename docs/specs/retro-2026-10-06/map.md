@@ -23,6 +23,10 @@ Five approved specs under `docs/specs/`, each `ready-for-agent`, built on the br
 - [Workshop facts](issues/05-workshop-facts.md): `react()` is unwired and would throw on the thermometer; only 3 of its 19 selectors render; `fit()` is width-only; 33 of 34 figure sources are untracked in the Codex worktree.
 - [Steering facts](issues/06-steering-facts.md): a 2026-10-05 cut of TASKS.md keeps about 52 KB; LESSONS.md has one duplicated pair; the neutral trailer and the run gate are in memory only; 77 transcripts and the rules PDF are public on main.
 
+- [Landscape mockup](issues/07-landscape-mockup.md): approved 2026-10-07; side-by-side boards, 27 px cells, a 120 px card column, the thermometer hidden in landscape.
+- [Test seams](issues/08-test-seams.md): `npm test`, one browser-check runner, and a DOM test for motion only if `Element.animate` works in happy-dom.
+- [Approval](issues/10-approve-specs.md): the owner said yes to the five specs and their picks on 2026-10-07; the build starts.
+
 ## Not yet specified
 
 - Which of the 29 review fixes need a browser check and which a vitest (facts in; the Workshop finish spec lists them).

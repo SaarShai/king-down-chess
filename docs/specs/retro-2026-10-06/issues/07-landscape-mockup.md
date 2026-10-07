@@ -1,7 +1,7 @@
 # Landscape phone layout mockup (568×320)
 
 Type: prototype
-Status: ready-for-human
+Status: resolved
 Blocked by: 05
 
 ## Question
@@ -18,3 +18,5 @@ Made 2026-10-07 with the dev server and an injected stylesheet; no source change
 - `mockups/landscape.css`: the stylesheet of the mockup (a prototype; the build takes its numbers, not its text).
 
 Waits for the owner's yes. Open choice: the thermometer is hidden in landscape (the worth line carries the number); the owner may prefer a 150 px card with a small thermometer and 25 px cells.
+
+Owner-approved: 2026-10-07 mockups/landscape-568x320-mockup.png (owner: "yes" to the five specs and their picks).
