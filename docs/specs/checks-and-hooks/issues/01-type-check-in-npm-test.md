@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `package.json` (scripts `typecheck`, `test`, `test:docs`; devDependencies), `package-lock.json`, `vite.config.ts` (the `test` block only), `tools/happy-dom-probe.test.ts` (kept only when the probe passes), the source files outside `src/workshop/` that hold the eight unused names (among them `src/main.ts` and `src/ai/search.ts`). Shared files: dev-environment/05 edits the `server` and `preview` parts of `vite.config.ts`, and workshop-finish/07 adds the `happy-dom` line to `package.json` and `package-lock.json` only if this ticket removed it; both block on this ticket
 
