@@ -1,0 +1,116 @@
+{
+  "assets": [
+    {
+      "file": "fast-archer-face.png",
+      "sha256": "902a93a2116f35e75b853fe2f2089e0f3d9d2806273fb8a64e0e9ed5b2881c42",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "fullyTransparentPixels": 1162218,
+      "visibleBoundsAlpha8": [
+        97,
+        119,
+        1474,
+        930
+      ]
+    },
+    {
+      "file": "ranged-archer-face.png",
+      "sha256": "2aa5aaa1e4d1d1fde56b39b5a024fe3e87b3c74df89a13ef87c49439c445222b",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "fullyTransparentPixels": 1016557,
+      "visibleBoundsAlpha8": [
+        142,
+        46,
+        1505,
+        976
+      ]
+    },
+    {
+      "file": "magic-archer-face.png",
+      "sha256": "bd502d574d83d9161421a20f16b19cdeb360a9b1444e290336629a350ec8f5aa",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "fullyTransparentPixels": 1010978,
+      "visibleBoundsAlpha8": [
+        106,
+        86,
+        1419,
+        944
+      ]
+    },
+    {
+      "file": "support-archer-face.png",
+      "sha256": "1436534cbba810205e4b31a801b3fe8115784f9429e94e8c85bba5d75c9b87b9",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "fullyTransparentPixels": 1059078,
+      "visibleBoundsAlpha8": [
+        182,
+        16,
+        1470,
+        993
+      ]
+    },
+    {
+      "file": "mixed-archer-face.png",
+      "sha256": "bf0c75834a1292e231ec8f0f91612224e011036b66ca695b002f30da664ba170",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "fullyTransparentPixels": 1015482,
+      "visibleBoundsAlpha8": [
+        22,
+        21,
+        1509,
+        986
+      ]
+    }
+  ],
+  "references": {
+    "archer": {
+      "file": "archer-original-reference.png",
+      "source": "/Users/za/Documents/king down chess/art-src/pieces/final-ivory/Archer_colored5.png",
+      "sha256": "456cff4b3d9c63f4b903449b5bd37d05e72349ce291af314835cd4388430846a"
+    },
+    "paladin": {
+      "file": "paladin-original-reference.png",
+      "source": "/Users/za/Documents/king down chess/art-src/pieces/final-ivory/Paladin.colored2_no_shadow.png",
+      "sha256": "58347989fbfb484dddcfba45deafebcc1be99057d7b328dab3e65b9c26317e03"
+    }
+  },
+  "goat": {
+    "file": "strong.png",
+    "unchangedFromCommit": "327735c",
+    "sha256": "73de8fe57bf07659a41c89bebb796e054cb482c2fec244d6476b2596e6108489"
+  },
+  "visualReview": "Five edited human pairs inspected full size and in a browser. Facial form defined by angular planes and brow/eye shadows; no drawn eyeballs or eye highlights. Full props and feet remain. Some outline/shading/position drift; ranged grows slightly. Magic retains its old profile. Original goat unchanged. No game integration.",
+  "browserReview": {
+    "desktop": {
+      "width": 1280,
+      "height": 720,
+      "horizontalOverflow": false,
+      "allImagesLoaded": true
+    },
+    "narrow": {
+      "width": 466,
+      "height": 985,
+      "horizontalOverflow": false,
+      "allImagesLoaded": true
+    }
+  }
+}

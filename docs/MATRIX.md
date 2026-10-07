@@ -213,6 +213,7 @@ game. It belongs to a piece ("when *this* pawn reaches the last rank") or to the
 | A capture | piece | ● Paladin dies after taking a non-pawn · ● Beast may take again (a chain) · ◐ RageB's second move must take · ◐ a guard spent after one capture (rejected) | a piece that grows after its first capture |
 | A piece lost | own side | ● Sacrifice and ◐ Salvation use the side's captured pieces | — |
 | A card is played: any card or a given one, by either side | game | ◐ Mirror plays the card the opponent played last · ◐ Rescue answers the side's own last mark card | when the opponent plays any card, your guard may step; when you play Freeze, your next card is free |
+| Material behind (own side) | own side | ◐ Sacrifice with `sacrificeBehind` | — |
 | The own last mark | own side | ◐ Rescue renews the side's Freeze, Ice Wall or Firewall | — |
 
 A card or power can be on **both sides** of a condition: it **has** a condition (it may be played only
@@ -227,6 +228,7 @@ The piece, power or card keeps its type but is weaker, or off, until the conditi
 | Item | Shackle | Released by | Status |
 |---|---|---|---|
 | Any spendable power or card | off | turn N | ◐ `fromMove` (the button shows "from move N") |
+| Any piece | off until move N (Workshop `cannotMove`, build 1b); it still attacks, like a frozen piece | turn N | idea |
 | Archer | shoots exactly 2 squares away | reaching the enemy back rank: also 3 squares away | idea |
 
 ### D.3 Promotion: a new type on a condition
@@ -265,3 +267,7 @@ next to the source: a tag team) and when (a condition, D.1).
 
 Owner (2026-10-06): a spawn does not reset the 50-move clock (ed23ea1, `claude/spawn-card`). SpawnK keeps rank 7 ("it is rare and also i LOVE combining rules for cool effects"). Test `spawn-r1` (M1, ed23ea1, 3,000 games, 300 pairs, seed 5858, depth 3, a fresh army per pair; each card against no card, pawns at 64 Elo a pawn): Spawn +0.36 ± 0.38, Spawn2 +0.50 ± 0.40, SpawnK +0.80 ± 0.36, SpawnK2 +1.55 ± 0.40 pawns. No version changes draws (the mirror games with no card drew 15.3% ± 4.1). A pawn next to the king is worth about twice a pawn on the start rank. Spawn and Spawn2 are below the Workshop's fair-card floor of 0.7 pawns; for scale, Rally is +2.60 ± 0.46 and the Haste card +2.45. **Owner (2026-10-06, "do what you recommend"):** the start-rank Spawn card is **Spawn2** (two pawns); the one-pawn **Spawn** is set aside (too weak to feel); SpawnK stays as built; SpawnK2 stays in the lab. All four stay common (no rarity value). The report and the games stay on the M1: `~/projects/king-down-spawn/sim/out/spawn-r1.report.md` and `spawn-r1.jsonl`.
 
+
+## Workshop (build 1a, 2026-10-06)
+
+The Workshop rule blocks live in `src/workshop/vocab.ts`. Each block names a row in this file, and a unit test checks that row (docs/WORKSHOP.md §3.3, §8.4). The conditions and limits are in D.1 and D.2.

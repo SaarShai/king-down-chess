@@ -1,5 +1,57 @@
 # Tasks
 
+## Workshop property dashboard
+- Plan: separate move and take grids on the same screen; show bare character art; pencil for name and eye for appearance; replace the slider-like gauge with a thermometer; show rule cards and an inline + picker.
+- Verify: independent move/take editing preserves the other channel; rule choices, undo, share, storage and Try it; responsive layouts and keyboard access.
+- [x] Implement and check the dashboard. Build/type check and 41 Workshop unit tests pass. Browser flows pass at five phone/tablet/desktop sizes, including touch taps, independent moves/takes, inline property conditions, name/appearance, keyboard edits, refused saving/retry, Undo, share, reload and Try it. All 34 cast choices and both armies pass. Evidence: `docs/visual-design/workshop/dashboard-2026-10-06/`; current design: WORKSHOP.md §12.5.
+
+## New piece entry
+- New piece opens only the 34-character Workshop gallery. Each choice starts with no moves, lines or rules. No original-cast presets, mix option or random design in this gallery.
+- [x] Verified: build/type check and 39 Workshop unit tests pass; updated Workshop browser checks pass at 12 sizes. Cast checks pass at phone and desktop sizes, including blank moves/lines/rules, name and art, reload, and subsequent editing. Gallery screenshots: `docs/visual-design/workshop/cast-build-2026-10-06/390-new-piece.png` and `1280-new-piece.png`.
+
+## Finish Workshop — approved cast integration
+- Plan: use the 34 approved identities (exclude Ring Thrower and rejected drafts); add three rule-based suggestions and the full gallery; preserve selections through save, share, undo and Try it. Prepare paired web assets without changing the approved art.
+- Verify: type check, unit tests, build, Workshop browser checks on phone and desktop, and main-game browser regression checks. Inspect the actual gallery and test board. No merge or deploy.
+- [x] Integrate approved cast and picker.
+- [x] Verify and record results. Type check and build pass; 668 tests in 37 files pass. Workshop checks: 25 groups across 12 sizes. Cast checks: all 34 choices, both armies, filters, undo, save/reload, share and Try it at 390 and 1280 px. Main visual, new-game, powers, lesson-return, special-moves, king-effects, painted-game, playable-clay and cursor-adoption checks pass. The clay check was rerun with the correct preview URL (5189). No sign-in check. Visual evidence: `docs/visual-design/workshop/cast-build-2026-10-06/`.
+
+## Workshop approved artwork — 2026-10-06
+- The owner approved 34 identities through the sample and batch reviews. `docs/visual-design/workshop/cast.json` is the selected-source list; the original images and prompts remain in the batch folders.
+- Latest selected shell woman: original pale mask, dark-grey hair for the black army. Latest eagle: oversized and angular, with black head/neck feathers for the black army. Latest rabbit: small cat-like claws, black tunic and wrist guards. Both swarm v2 sheets use the board camera.
+- Ring Thrower remains unapproved. Wind Cart, Moth Oracle, Tusk Bruiser, Vault Sentinel, Horn Herald and Prism Caster are excluded.
+- Future draft rounds follow `LESSONS.md`: generate, brief visual review, save, show, stop. Face covers are theme-led; human skin colours stay the same between armies.
+
+## Workshop piece-card implementation — 2026-10-06
+- Owner chose option C. Keep the card as the main view; use an edit sheet on phones and a side editor on desktop. Direct Try it and Share; keep undo across the edit/test loop.
+- [x] Replace the screen flow and layout. Preserve presets, mix, rules, look, judge, truthful saving, share/copy, imports, and the test board. Add approved Set A reactions with motion settings respected.
+- [x] Update the browser checks for the selected flow; keep the regression cases. Check phone, landscape, tablet and desktop layouts, keys, links, save failure and storage limits.
+- [x] Run type check, unit tests, build and the browser checks named in the handoff. Compare the UI with option C, record screenshots, update the spec, and ask whether the owner wants the independent review again.
+- Evidence: type check and production build pass; 665 unit tests in 36 files pass; Workshop production checks pass 25 groups across 12 sizes. Visual-design, new-game, powers, lesson-return, special-moves, king-effects, painted-game, playable-clay, and cursor-adoption browser checks pass. No sign-in/account check. Screens: `docs/visual-design/workshop/card-build-2026-10-06/`. Independent layout review offered; not yet run.
+- Art follow-up: the 34 approved figures replace the original-cast placeholders; see the finish task above and `docs/visual-design/workshop/cast.json`.
+- Acceptance: every change is reflected in the card; every phone sheet can be closed from outside; full move grid and next action fit; editing and trying preserve undo; no change to engine, AI, rules or main-game saves; no merge into main or deploy.
+
+## Workshop design study — 2026-10-06 (before implementation)
+- Worktree: `.claude/worktrees/agent-af146c2f91d80dc0b`, branch `claude/workshop`.
+- [x] Merge `main`. Resolve task-list and matrix conflicts; preserve both branches. Check: type check and production build pass; 665 tests pass in 36 files.
+- [x] Use the current build as a new player at phone and desktop sizes. `docs/visual-design/workshop/rework-2026-10-06/REVIEW.md` records the path, each screen's job, problems, and screenshots.
+- [x] Make three distinct static design options, each with phone and desktop views. Use the existing art. Keep changes in `docs/visual-design/workshop/rework-2026-10-06/`.
+- [x] Check text, layout, and the main action at narrow and wide sizes. Retain the existing contrast palette. `index.html` and `direction-a.jpg` through `direction-c.jpg` show the three options and reasons. Main checks at 320×568, 390×700 and 1280×900; C also has a phone move sheet. This is a static study, not an accessibility audit.
+- [x] Owner selects **C, Piece card** (2026-10-06). Implementation branch: `codex/workshop-card`, from `claude/workshop`, in the same worktree.
+- Acceptance: the options differ in flow and layout, not only colour; the board and next action are clear; rules, look, value, save, share, and Try it remain available. No app implementation or deployment in this phase.
+
+## Workshop build 1a, branch `claude/workshop` — 2026-10-06 (not merged, not deployed)
+- Spec: `docs/WORKSHOP.md` (revision 2, the owner's answers: all defaults). Scope §7.1: make a piece, judge it, save it, share it, try it.
+- [x] Pure modules in `src/workshop/` (model, vocab, anchors, judge, moves, names, text, look, art, store). The judge is the prototype `judge-v2.mjs`, ported: every prototype row is equal except King-step + "like a queen from move 5" (9.28, was 8.13), from the largest-worth union (§6.2).
+- [x] Screens in one lazy chunk (`src/workshop/dialog.ts`, `workshop.css`): HOME, START (Mix two, Surprise me), the editor (Moves, Rules, Look; the sheets), SAVED (Send link, Copy as text), Try it. Doors: the title's Workshop button, the Guide's "Make your own piece or card", a `?design=` link. No code path in the engine, the AI or the save.
+- [x] Set A motion (§5.5) for the owner, not in the Workshop: `docs/visual-design/workshop/motion-preview.html` (opens from the file), `motion-phone.webm`, `motion-desktop.webm`; the code is `docs/visual-design/workshop/motion-a.js`, made by `tools/workshop-motion.mts`.
+- [x] Owner's first look (2026-10-06), fixed (docs/WORKSHOP.md §12.1): the stage fits its content at every size (the chip and Why? no longer clipped); the name shrinks and keeps its pencil; the plinth shows only the letter (explained on the Look tab) and real cracks; a glow shows at once, with a clear chosen tile; lining figures; plain words ("on a center square", "Some pieces cannot take it"); the rule-book key and "+¼"; Why? names the parts that make a piece strong; Try it shows a chain's next takes at once, with Finish, and the layout stays still; the motion preview is self-contained, plays all in a loop and has a slow view. Bug: the name vanished after the name field closed with no change. Owner requests: a tap outside any dialog or sheet closes it (`src/dialog-dismiss.ts`); HOME has no lead line; the game menu has its own Workshop button beside Guide.
+- [x] Owner: approve or change Set A. **Approved 2026-10-06.** Not wired into the editor: the rework below comes first; carry Set A's intent (a reaction to each change, at most 600 ms, off with reduced motion) into the new design.
+- [x] Owner (2026-10-06): one tap on the Look tab works on his phone.
+- [x] Workshop reworked as direction C; see the piece-card implementation and approved cast above.
+- Verified (production build, `vite preview`, Chrome, this Mac): `tsc` clean; vitest 588/588 (31 files; 26 new in `src/workshop/*.test.ts`); `tools/verify-workshop.mjs` 12/12 at 11 sizes; `docs/visual-design/verify.mjs` all ok; `verify-new-game`, `verify-powers`, `verify-lesson-return`, `verify-special-moves`, `verify-king-effects`, `verify-painted-game`, `verify-playable-clay`, `verify-cursor-adoption` pass (`verify-account` not run: no sign-in in these checks).
+- Size: the main chunk 334.55 → 333.28 kB (gzip 172.93 → 172.36), because the engine and the piece icons are now shared chunks. First load (`measure-load.mjs --runs 1`, painted): 2,908,679 → 2,909,718 bytes (+1.0 kB: the title button, the anvil icon, the door code). The Workshop chunk: 86.5 kB JS (gzip 31.2) + 24.0 kB CSS (gzip 5.9), loaded on the first open only.
+- `tools/measure-load.mjs` now skips the title screen (it covered the board's taps, so the tool timed out on main too).
+
 ## Round 18, the Archer readings, the card tests — 2026-10-05/06
 - Trackers for this work: this branch (`claude/power-schema`). Raw games: `origin/claude/kp2-results` (101130c: round 18; f086c93: the Archer `over23` runs). Run entries: `docs/QUEUE.md`, "Ran 2026-10-05" and "Running and queued, 2026-10-06".
 - **Owner (2026-10-06):** helpers (subagents, workflows) are allowed again; `AGENTS.md`, Delegation (12dc499). Runs still need the owner's go.

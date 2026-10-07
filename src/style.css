@@ -232,6 +232,9 @@ input[type='checkbox']:checked { background: var(--accent) var(--tick) no-repeat
 /* Three-up rows (menu, Hint/Undo/Resign): an icon over its label. */
 .btns.three { grid-template-columns: repeat(3, 1fr); }
 .btns.three button { flex-direction: column; gap: 2px; min-height: 58px; padding: 7px 4px 6px; font-size: var(--fs-sm); }
+/* The menu: New game, Guide, Workshop, Settings in one row of four. */
+.btns.three.four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.btns.four button { padding-left: 2px; padding-right: 2px; font-size: var(--fs-xs); }
 #share .icon, #learn .icon { width: 20px; height: 20px; }
 
 /* ---- help, lesson and moment lines ---- */

@@ -1,0 +1,35 @@
+{
+  "task": "Javelin Runner paired sheet: archival Archer face simplification",
+  "final_path": "/Users/za/.codex/generated_images/01a1112b-1fb8-79e2-8e7c-540bbdc332db/exec-80c329c8-943d-4a07-b5dd-4ea845d36ac9.png",
+  "tool": "built-in image_gen",
+  "input_paths": [
+    "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/mixed.png",
+    "/Users/za/Documents/king down chess/art-src/pieces/final-ivory/Archer_colored5.png"
+  ],
+  "exact_prompt": "Use case: precise-object-edit.\nEdit target: IMAGE 1, the original paired Javelin Runner sample sheet with an ivory-costumed male elf on the left and charcoal-costumed version on the right. IMAGE 2 is ONLY the reference for facial simplification: the archival original King Down Archer, especially her angular, shadowed adult facial planes. Do not copy the Archer character, hood, braid, costume, pose, or body rendering.\n\nChange ONLY the human facial rendering on both male elf heads, applying the original Archer's degree and kind of simplification. Preserve each elf's adult male identity, distinctive head profile, pointed ear, long dark hair, face direction and serious expression. Build the face from readable angular sculptural PAINTED planes: broad brow and eye socket as a deep contiguous shadow, narrow implied eyes without detailed irises or visible whites, a simple straight wedge-shaped nose, a small restrained shaped mouth, and clear faceted cheek and jaw. Keep adult facial form and recognizable character. Reduce tiny portrait details without removing the face. The shadowed brow, planar nose and shaped mouth should do the work.\n\nStrict invariants: retain the exact original 1536x1024 paired-sheet framing and placements as closely as possible, both complete figures, head position/direction/size, figure silhouette, hair, pointed ears, clothing, palettes, skin tones, body poses, anatomy, hands, feet, foot baseline and margins. Each figure keeps all FOUR complete javelins: three in the back quiver and one horizontally in his hand. Preserve all spear tips and shafts fully inside the image; no cropping or shifting props. Preserve the existing painted 2D illustration body style and brush texture. Do not re-render the bodies into 3D. Keep everything outside the small facial regions visually unchanged.\nBackground: genuine transparent alpha; no new background, backdrop, ground, shadow, border, or text.\n\nAvoid blank oval faces, dot or dash glyph eyes, faceless masks, cute dolls, anime faces, realistic portraits, new facial hair, new accessories, copied Archer costume, body redesign, lost or clipped javelins.",
+  "transparent_background": true,
+  "attempts": 1,
+  "dimensions": [
+    1536,
+    1024
+  ],
+  "ivory_head_xywh": [
+    375,
+    96,
+    231,
+    181
+  ],
+  "ivory_face_xywh": [
+    486,
+    154,
+    96,
+    117
+  ],
+  "qa": {
+    "face": "Both faces now use broad angular painted adult planes, a strong contiguous eye-socket/brow shadow without irises or whites, a straight nose and restrained mouth. Male elf profile, pointed ear, hair and direction remain.",
+    "props": "Four javelins visible per figure: three carried on back and one horizontal in hand. All tips remain inside image.",
+    "preservation": "Head positions, paired composition, clothing, body poses, palettes, hands, feet, margin and baseline visually retained closely.",
+    "transparency": "Pillow inspection: RGBA; alpha extrema (0, 254). Genuine non-opaque pixels present; image generation requested transparent background.",
+    "limitations": "Image generation can introduce small redraw drift. Broad dark brow shape may read as nearly closed/shadowed eyes at this scale; the nose/mouth/jaw remain formed, not a blank or glyph face. No raster postprocessing performed."
+  }
+}

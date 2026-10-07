@@ -1,0 +1,53 @@
+{
+  "task": "Original Archer facial simplification: ranged and magic only",
+  "method": "Built-in image_gen only. No API/CLI and no image postprocessing.",
+  "reference": "/Users/za/Documents/king down chess/art-src/pieces/final-ivory/Archer_colored5.png",
+  "finals": [
+    {
+      "category": "ranged",
+      "input": "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/ranged.png",
+      "path": "/Users/za/.codex/generated_images/01a1112a-759e-7f70-b193-8ac95c451f95/exec-f6294d33-6fab-4d03-bffe-6b2edf9e9c06.png",
+      "prompt": "Use case: precise-object-edit.\nImage 1 is the EDIT TARGET: a 1536×1024 sheet of the same bearded crossbowman in ivory and charcoal costumes. Image 2 is REFERENCE ONLY: the original archival King Down Archer. The Archer supplies ONLY the degree of facial simplification.\n\nRevise ONLY the two human faces in image 1, including simplification of the beard's internal shading. Match the original Archer's readable angular sculptural painted facial planes: a deep connected brow/eye-socket shadow with narrow implied eyes and no visible iris or eye-white detail, a simple straight wedge nose, restrained small shaped mouth, and faceted cheek and jaw planes. Keep this crossbowman's adult broad male head and strong beard: simplify beard detail into a few larger painted masses without changing its outline. Preserve his individual proportions and identity. The result still has a fully modeled adult face, not a blank face or cartoon facial glyphs.\n\nKeep ALL non-face content and overall painted illustrated style as close to image 1 as possible: both hats and helmet straps, hair outlines, beard silhouette, neck/collars, armor, clothing, hands, full crossbows, bolts, legs and feet; the exact poses and head angles, positions and sizes; left ivory and right charcoal palettes. Do not copy the Archer's hood, hair, costume, head proportions, or 3D-looking body rendering. Avoid big bright eyes, detailed irises, eyelashes, realistic skin pores, small wrinkles, dot/dash glyph eyes, a faceless mask, anime, cute doll faces, or realistic portrait detail.\n\nComposition must stay 1536×1024 landscape with both COMPLETE figures at the original scale and foot baseline. Preserve the original generous top/bottom/outer margins and gap. No enlargement, repositioning, clipping of either crossbow, or crop. Background must be genuinely transparent, no painted backdrop, no gradient, no glow, no checkerboard. No new objects or text.",
+      "attempts": 1,
+      "ivoryHead": [
+        310,
+        45,
+        211,
+        250
+      ],
+      "ivoryFace": [
+        395,
+        161,
+        108,
+        115
+      ],
+      "qa": "Pass: angular broad face planes, deep contiguous socket shadows without detailed whites/irises, beard simplified into masses, male identity preserved; full crossbows/bolts/hats/feet intact. 1536x1024 RGBA, alpha range 0-254, 1,016,557 fully transparent pixels. Modest generated scale drift: top hat y~49 versus original ~80; feet y~973 versus ~949. No clipping; original framing not pixel-exact."
+    },
+    {
+      "category": "magic",
+      "input": "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/magic.png",
+      "path": "/Users/za/.codex/generated_images/01a1112a-759e-7f70-b193-8ac95c451f95/exec-25025d8f-8cf1-45a0-920d-da621e07cb76.png",
+      "prompt": "Use case: precise-object-edit.\nDo an extremely local facial repaint of image 1. Image 1, the original 1536×1024 ivory/charcoal witch sheet, is the EDIT TARGET; retain its original composition. Image 2, the original King Down Archer artwork, is ONLY a guide for simple facial painting.\n\nCHANGE ONLY INSIDE THE TWO EXISTING FACE SHAPES. Keep the original witch's unmistakably OLD facial proportions and original face silhouette: her long hooked/conspicuously curved nose tip, her projecting chin and thin mouth, sunken cheek, heavy aged brow, her original head size and direction. Do not replace her facial silhouette with the Archer's straight young profile; do not make her youthful or generically elegant. Use the Archer's simplification only for how those existing planes are painted: brow and eye socket in one dark angular shadow mass, the eye a narrow implied shape with no white or iris detail, broad lit nose plane along her EXISTING hooked nose shape, a small shaped mouth, angular cheek and jaw planes. Erase fine wrinkles and tiny facial detail, while preserving age in the original large bony forms. Her original white hair, bun, loose lock, hat and neck remain exact.\n\nABSOLUTELY PRESERVE THE REST OF IMAGE 1: all bodies, costumes, hands, book, hats, staff, lanterns, boots and poses. Maintain the original painted illustration medium, ivory and charcoal colors. Do not copy the reference Archer's hood, braid, head shape, straight nose outline, costume or body.\n\nExact canvas 1536×1024. CRITICAL: do not enlarge any figure or reduce the margins. Keep the staff tips around y=87, the feet around y=939, leftmost garment around x=108, and rightmost lantern around x=1417 exactly as in original image 1. Preserve the original large outer margins and spacing. Both complete staffs/lanterns/hats/feet must remain comfortably inside the canvas. No reframing or zoom. Genuinely transparent background, preserve alpha; no new background, gradient, glow, checkerboard, objects or text. Avoid blank masks, dot/dash eyes, cute faces, detailed eye whites or irises, realistic portrait rendering, and 3D bodies.",
+      "attempts": 2,
+      "ivoryHead": [
+        293,
+        220,
+        220,
+        142
+      ],
+      "ivoryFace": [
+        425,
+        229,
+        84,
+        103
+      ],
+      "qa": "Pass: original older hooked nose/chin profile preserved with simplified shadowed brow and eye, broad cheek/nose planes and a restrained mouth. Full staff, lantern, hats, book, garments and feet intact. Second attempt restores the original framing near-exactly: staff tips ~87 and feet ~942. 1536x1024 RGBA, alpha range 0-254, 1,010,978 fully transparent pixels. No clipping. Some age cues softened by simplification.",
+      "discardedAttempt": {
+        "path": "/Users/za/.codex/generated_images/01a1112a-759e-7f70-b193-8ac95c451f95/exec-d71d810f-d706-43a4-93c2-4b5c4c29d644.png",
+        "prompt": "Use case: precise-object-edit.\nImage 1 is the EDIT TARGET: a 1536×1024 sheet of the same older witch with a hooked wooden staff and turquoise lantern, in ivory and charcoal costumes. Image 2 is REFERENCE ONLY: the original archival King Down Archer. Use the Archer ONLY as the reference for angular simplified facial painting.\n\nRevise ONLY the two human faces in image 1. Give them the original Archer's readable angular sculptural painted facial planes: the brow and eye socket joined as a deep shadow mass, narrow implied eyes without visible detailed irises or whites, a simplified wedge-like nose, a small restrained shaped mouth, faceted cheek and jaw. Preserve this witch's own older female head shape, long nose profile, projecting chin, head direction and expression. Keep her age through bony facial proportions and broad shadow planes, not realistic wrinkles or tiny surface details. Do not turn her into a young Archer or give her the Archer's exact nose or head proportions. Maintain a fully modeled adult face with clear sculptural form, not a blank oval, mask, or dot/dash facial glyphs.\n\nKeep ALL non-face elements and the painted illustration style as close to image 1 as possible: exact broad-brimmed hats, white hair and bun and loose lock, outfit and folds, hands, book, belts and pouches, hooked wooden staff and fully visible turquoise lantern, complete feet, silhouettes, poses and proportions. Keep both original head positions and sizes. Left figure stays ivory and right figure charcoal. Do not copy the Archer's hood, braid, costume, weapon, or body-rendering style.\n\nComposition stays 1536×1024 landscape, identical original figure scale, positions, foot baseline, wide gap and clear margins, without enlargement, repositioning, cropping, or clipping of the hat, staff or lantern. Background must be genuinely transparent; no painted backdrop, gradient, glow, or checkerboard. Avoid realistic portrait detail, tiny wrinkles, bright eye whites, detailed irises, eyelashes, cute doll or anime faces, and 3D body rendering. No new objects, text, or labels.",
+        "reason": "Profile became too youthful/Archer-like; figure enlarged with staff tip 8px from top. Retried from the original, not this output."
+      }
+    }
+  ],
+  "limitations": "Generated edits are not pixel-locked. Ranged has modest scale drift. Alpha is genuine, with maximum 254 rather than 255 as in originals; no raster postprocessing performed. Root should copy selected outputs into workspace."
+}

@@ -200,14 +200,14 @@ try {
     await page.waitForFunction(() => [...document.querySelectorAll('.title-lineup img')].every(i => i.complete && i.naturalWidth > 0));
     const names = await page.locator('.title-lineup span').allInnerTexts();
     assert.equal(new Set(names.map(n => n.toLowerCase())).size, 12, 'twelve different names');
-    for (const id of ['#title-learn', '#title-play']) {
+    for (const id of ['#title-learn', '#title-play', '#title-workshop']) {
       const r = await page.locator(id).boundingBox();
       assert.ok(r && r.y >= 0 && r.y + r.height <= viewport.height, `${id} on screen (${kind})`);
     }
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `no sideways scroll (${kind})`);
     await page.context().close();
   }
-  ok('title lineup: twelve painted figures with names; Learn and Play stay on screen at 1280×900 and 390×844');
+  ok('title lineup: twelve painted figures with names; Learn, Play and Workshop stay on screen at 1280×900 and 390×844');
 
   // 7b. The title from a small phone to a desktop: the lineup inside the screen, no name into the next one,
   // and the lineup, kings, wordmark and buttons centred (a tablet's lineup once widened the whole title);
