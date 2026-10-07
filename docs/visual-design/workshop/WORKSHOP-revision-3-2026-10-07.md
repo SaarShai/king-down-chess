@@ -1,3 +1,5 @@
+History, 2026-10-07: revision 3 of the Workshop doc, moved here word for word from docs/WORKSHOP.md. It does not tell the current Workshop; [docs/WORKSHOP.md](../../WORKSHOP.md) does. The paths and links below are as they were in docs/.
+
 # King Down Workshop: build spec (revision 3)
 
 - **Status:** the owner chose direction C, Piece card, on 2026-10-06. The screen rework is on `codex/workshop-card`, from `claude/workshop`. The original rules and judge stay in use. Sections 2.2–2.3 and 12.4 define the current screen contract. Custom artwork is a follow-up: the current cast is a placeholder.
