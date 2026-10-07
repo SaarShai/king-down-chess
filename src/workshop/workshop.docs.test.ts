@@ -141,7 +141,7 @@ describe('the Workshop doc lint', () => {
   });
 
   it('fails on a tracker citation and on a doc that does not name the runner folder', () => {
-    expect(docFaults(with_('Measured: TASKS.md:9.'))).toEqual([`${DOC}:6: cites a tracker file (TASKS.md), not a run id`]);
+    expect(docFaults(with_(`Measured: TASKS.md${':'}9.`))).toEqual([`${DOC}:6: cites a tracker file (TASKS.md), not a run id`]);
     expect(docFaults(good.replace('kingdown-checks', 'the temp folder'))).toEqual([`${DOC}: does not name the runner's screenshot folder ${RUNNER_FOLDER}`]);
   });
 

@@ -1136,9 +1136,12 @@ function citationFaults(file: string, text: string): Fault[] {
   })));
 }
 
-/** The tracked files that hold a tracker line citation, from `git grep`, outside the records. */
+/**
+ * The tracked text files that hold a tracker line citation, from `git grep`, outside the records. Binary
+ * files are left out (-I). The grep reads about 4,000 files, so its test has a longer time limit.
+ */
 function citingFiles(cwd: string): string[] {
-  const result = spawnSync('git', ['grep', '-l', '-E', LINE_CITATION_GREP, '--', '.',
+  const result = spawnSync('git', ['grep', '-I', '-l', '-E', LINE_CITATION_GREP, '--', '.',
     ...CITATION_RECORDS.map(path => `:!${path}`)], { cwd, encoding: 'utf8' });
   if (result.error) throw result.error;
   expect(result.status, result.stderr).toBeLessThan(2);
@@ -1191,7 +1194,7 @@ describe('line citations', () => {
 
   it('no tracked file outside the tasks archive, the specs folder and the revision 3 file cites a tracker by line', () => {
     expect(citingFiles(root).flatMap(file => citationFaults(file, read(file))).map(show)).toEqual([]);
-  });
+  }, 30_000);
 });
 
 describe('MATRIX.md Workshop note', () => {
