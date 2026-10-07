@@ -28,6 +28,14 @@
 //   - each Open items line holds a bold title, one of the five labels and a link; no two lines hold
 //     the same title;
 //   - no name from the model-name module occurs in TASKS.md.
+// Rules of steering-cut/05 (COMPUTE.md and HOSTING.md hold the machine facts; AGENTS.md points to them):
+//   - the AGENTS.md sections that name Compute and Hosting link to COMPUTE.md and HOSTING.md and hold
+//     120 words or less each, heading excluded (ticket 06 widens the size rule to every section);
+//   - COMPUTE.md and HOSTING.md hold their fixed phrases: the true shell limit and the browser-check
+//     runner; the deploy script and the three secret file names;
+//   - HOSTING.md holds no `vercel deploy` command; COMPUTE.md and HOSTING.md hold no model name and no
+//     text that looks like a secret value;
+//   - AGENTS.md, COMPUTE.md and HOSTING.md hold no 2-hour claim for the shell limit.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -617,5 +625,158 @@ describe('TASKS.md index', () => {
 
   it('TASKS.md is small, holds Open items first, then the links, with no model name', () => {
     expect(tasksFaults(read('TASKS.md')).map(show)).toEqual([]);
+  });
+});
+
+/** An AGENTS.md section holds 120 words or less, heading excluded: an agent reads the whole file each session. */
+const SECTION_WORDS = 120;
+
+/** The `##` sections of a markdown text, with the text above the first one as "(top)": heading, line, body, words. */
+function sections(text: string): { heading: string; line: number; body: string; words: number }[] {
+  const out = [{ heading: '(top)', line: 1, body: '' }];
+  text.split('\n').forEach((line, i) => {
+    const heading = /^##\s+(.*)$/.exec(line);
+    if (heading) out.push({ heading: heading[1].trim(), line: i + 1, body: '' });
+    else out.at(-1)!.body += `${line}\n`;
+  });
+  return out.map(s => ({ ...s, words: s.body.split(/\s+/).filter(Boolean).length }));
+}
+
+/** The AGENTS.md sections that point to a fact file: a heading that names the topic, a link to the file. */
+const POINTERS = [
+  { topic: 'Compute', heading: /compute/i, target: 'docs/COMPUTE.md' },
+  { topic: 'Hosting', heading: /hosting/i, target: 'docs/HOSTING.md' },
+];
+
+/**
+ * Faults of the AGENTS.md pointer sections (steering-cut/05): a topic with no `##` section, a section
+ * over 120 words (heading excluded), and a section with no link to its fact file.
+ */
+function pointerFaults(text: string, file = 'AGENTS.md'): Fault[] {
+  const all = sections(text);
+  return POINTERS.flatMap(({ topic, heading, target }) => {
+    const found = all.slice(1).filter(s => heading.test(s.heading));
+    if (!found.length) return [{ file, section: '(none)', where: 'count 0', what: `no \`##\` heading names ${topic}` }];
+    return found.flatMap(s => [
+      ...(s.words <= SECTION_WORDS ? [] : [{
+        file, section: s.heading, where: `${s.words} words, line ${s.line}`,
+        what: `the section must hold ${SECTION_WORDS} words or less, heading excluded`,
+      }]),
+      ...([...s.body.matchAll(LINK)].some(m => (m[1] ?? m[2]).replace(/#.*$/, '') === target) ? [] : [{
+        file, section: s.heading, where: `line ${s.line}`, what: `the section must link to ${target}`,
+      }]),
+    ]);
+  });
+}
+
+/** A 2-hour claim for the shell limit: "2 hours", "2-hour", "two hours". */
+const TWO_HOURS = /(?<![\w.])(?:2|two)[ -]hours?\b/gi;
+
+/** A text that looks like a secret value: a known key prefix, or one run of 32 or more key characters. */
+const SECRET_LIKE = /\b(?:pk1_|sk1_|KGAT_)[\w-]+|[A-Za-z0-9_+/=-]{32,}/g;
+
+/** The fixed phrases of each fact file, and the texts it must not hold. */
+const FACT_FILES = [
+  {
+    file: 'docs/COMPUTE.md',
+    must: ['kaggle-tournament.mjs', 'M1', 'pmset -g batt', 'npm run check:browser', "the shell's own timeout", 'the session end', 'detached'],
+    mustNot: [] as { name: string; pattern: RegExp }[],
+  },
+  {
+    file: 'docs/HOSTING.md',
+    must: ['tools/deploy.sh', 'kaggle_api_token', 'oauth.json', 'porkbun_api.json', 'kingdown.dev'],
+    mustNot: [{ name: 'a `vercel deploy` command', pattern: /vercel(?:@[\w.]+)?\s+deploy/gi }],
+  },
+];
+
+/**
+ * Faults of a fact file (steering-cut/05): a missing fixed phrase, a forbidden text, a model name, a text
+ * that looks like a secret value and a 2-hour claim. Each fault names the section and the line.
+ */
+function factFaults(file: string, text: string | undefined): Fault[] {
+  const spec = FACT_FILES.find(f => f.file === file)!;
+  if (text === undefined) return [{ file, section: '(file)', where: 'count 0', what: 'the file must exist' }];
+  const lines = markdownLines(text);
+  const at = (pattern: RegExp, what: (word: string) => string): Fault[] => lines.flatMap(l =>
+    [...l.text.matchAll(pattern)].map(m => ({ file, section: l.section, where: `line ${l.line}`, what: what(m[0]) })));
+  return [
+    ...spec.must.filter(phrase => !text.includes(phrase)).map(phrase => ({
+      file, section: '(file)', where: 'count 0', what: `the file must hold "${phrase}"`,
+    })),
+    ...spec.mustNot.flatMap(({ name, pattern }) => at(pattern, word => `the file must not hold ${name}: "${word}"`)),
+    ...findModelNames(text).map(({ word, line }) => ({
+      file, section: lines.find(l => l.line === line)?.section ?? '(fenced code)', where: `line ${line}`,
+      what: `the file must not hold the model name "${word}"`,
+    })),
+    ...at(SECRET_LIKE, word => `the file must not hold a text that looks like a secret value (${word.length} characters)`),
+    ...twoHourFaults(file, text),
+  ];
+}
+
+/** Each 2-hour claim in a file, with its section and line. */
+function twoHourFaults(file: string, text: string): Fault[] {
+  return markdownLines(text).flatMap(l => [...l.text.matchAll(TWO_HOURS)].map(m => ({
+    file, section: l.section, where: `line ${l.line}`, what: `the file must not hold the 2-hour shell claim "${m[0]}"`,
+  })));
+}
+
+describe('COMPUTE.md, HOSTING.md and the AGENTS.md pointers', () => {
+  const model = MODEL_NAMES[0][0].toUpperCase() + MODEL_NAMES[0].slice(1);
+  const words = (n: number) => Array.from({ length: n }, (_, i) => `w${i}`).join(' ');
+
+  it('names a pointer section over 120 words, with its count and line, and a section with no link', () => {
+    const fixture = [
+      '# Agents', 'Intro.', '',
+      '## Compute \u2014 owner decision', words(121), '',
+      '## Hosting', `${words(119)} [hosting](docs/HOSTING.md)`,
+    ].join('\n');
+    expect(pointerFaults(fixture, 'fixture.md').map(show)).toEqual([
+      'fixture.md \u00a7 Compute \u2014 owner decision (121 words, line 4): the section must hold 120 words or less, heading excluded',
+      'fixture.md \u00a7 Compute \u2014 owner decision (line 4): the section must link to docs/COMPUTE.md',
+    ]);
+    expect(pointerFaults('## Runs and compute\nSee [compute](docs/COMPUTE.md).\n## Hosting\nSee [hosting](<docs/HOSTING.md#dns>).', 'fixture.md')).toEqual([]);
+    expect(pointerFaults('# Agents\nCompute and hosting are in the text only.', 'fixture.md').map(show)).toEqual([
+      'fixture.md \u00a7 (none) (count 0): no `##` heading names Compute',
+      'fixture.md \u00a7 (none) (count 0): no `##` heading names Hosting',
+    ]);
+  });
+
+  it('names a missing phrase, a deploy command, a model name, a secret-like value and a 2-hour claim', () => {
+    const fixture = [
+      '# Hosting', '## Deploy', 'Run `npx vercel@latest deploy --prod --yes` there.',
+      '## Secrets', `Ask ${model} for the key. Key: sk1_${'a'.repeat(10)}.`,
+      '## Shell', 'A background shell stops after at most 2 hours.',
+    ].join('\n');
+    expect(factFaults('docs/HOSTING.md', fixture).map(show)).toEqual([
+      'docs/HOSTING.md \u00a7 (file) (count 0): the file must hold "tools/deploy.sh"',
+      'docs/HOSTING.md \u00a7 (file) (count 0): the file must hold "kaggle_api_token"',
+      'docs/HOSTING.md \u00a7 (file) (count 0): the file must hold "oauth.json"',
+      'docs/HOSTING.md \u00a7 (file) (count 0): the file must hold "porkbun_api.json"',
+      'docs/HOSTING.md \u00a7 (file) (count 0): the file must hold "kingdown.dev"',
+      'docs/HOSTING.md \u00a7 Deploy (line 3): the file must not hold a `vercel deploy` command: "vercel@latest deploy"',
+      `docs/HOSTING.md \u00a7 Secrets (line 5): the file must not hold the model name "${model}"`,
+      'docs/HOSTING.md \u00a7 Secrets (line 5): the file must not hold a text that looks like a secret value (14 characters)',
+      'docs/HOSTING.md \u00a7 Shell (line 7): the file must not hold the 2-hour shell claim "2 hours"',
+    ]);
+    expect(factFaults('docs/COMPUTE.md', undefined).map(show)).toEqual([
+      'docs/COMPUTE.md \u00a7 (file) (count 0): the file must exist',
+    ]);
+    expect(twoHourFaults('fixture.md', 'a 2-hour limit; two hours; 12 hours; 1.2 hours').map(f => f.what)).toEqual([
+      'the file must not hold the 2-hour shell claim "2-hour"',
+      'the file must not hold the 2-hour shell claim "two hours"',
+    ]);
+  });
+
+  it('the AGENTS.md Compute and Hosting sections are short pointers to COMPUTE.md and HOSTING.md', () => {
+    expect(pointerFaults(read('AGENTS.md')).map(show)).toEqual([]);
+  });
+
+  it('COMPUTE.md and HOSTING.md hold their facts, no deploy command, no model name and no secret value', () => {
+    const faults = FACT_FILES.flatMap(({ file }) => factFaults(file, existsSync(join(root, file)) ? read(file) : undefined));
+    expect(faults.map(show)).toEqual([]);
+  });
+
+  it('AGENTS.md holds no 2-hour claim for the shell limit', () => {
+    expect(twoHourFaults('AGENTS.md', read('AGENTS.md')).map(show)).toEqual([]);
   });
 });
