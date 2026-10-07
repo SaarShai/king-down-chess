@@ -4,7 +4,7 @@
 
 **Blocked by:** 07, 08, 09, workshop-finish/02 (the Workshop and Workshop cast checks use `env`, `launch`, `trapErrors` and `assertNoErrors`)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/checks.lint.test.ts`
 
