@@ -8,7 +8,7 @@
  * to `setRules` the defaults apply, which is exactly the game the browser plays today.
  */
 
-import { ALL_CARDS, ArcherShots, CardName, PowerName, RULES, Rules, USES_RULE } from './rules';
+import { ArcherShots, CardName, PowerName, RULES, Rules, USES_RULE } from './rules';
 export type { ArcherMove, ArcherShots, BeastCapture, BeastMove, CardName, CatapultCapture, GuardCaptures, GuardReserve, KingChoice, KingName, OgreMode, OgreShoveFriends, PaladinKamikaze, PowerName, PromotionSet, Rules, StrikeMode } from './rules';
 export { ALL_CARDS, BUILT, CARD_ONLY, DEFAULT_RULES, KINGS, PLAIN_KINGS, POWERS_BALANCED, RULES, RULES_2017, RULES_2021, TIER1, USES_RULE, kingLabel, parseKing, parseKings, parseRule, ruleDiff, setRules } from './rules';
 

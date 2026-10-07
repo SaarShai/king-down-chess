@@ -45,7 +45,6 @@ const DELTA = 120;
 // per node except the Move objects that genPiece itself creates.
 
 const board = new Uint8Array(64);
-let rootTurn: Color = WHITE;
 let hLo = 0, hHi = 0;
 const hashOut = new Int32Array(2);
 
@@ -844,7 +843,6 @@ export function positionKey(pos: Position): number {
 
 function initPosition(pos: Position): void {
   board.set(pos.board);
-  rootTurn = pos.turn;
   sideAt[0] = pos.turn;
   positionKey(pos); // fills hashOut, including the power state
   hLo = hashOut[0];
