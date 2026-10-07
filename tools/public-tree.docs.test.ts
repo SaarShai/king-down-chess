@@ -90,7 +90,10 @@ describe('link lint: no path into the transcript folders', () => {
     expect(faults.map(f => `${f.path}:${f.line}: ${f.link}`)).toEqual([]);
   });
 
-  it('each pinned path names a commit that holds it', () => {
+  it('each pinned path names a commit that holds it', ctx => {
+    // A shallow clone (CI, a cloud session) has no old commits, so this one lint cannot run there.
+    const shallow = git(root, 'rev-parse', '--is-shallow-repository').stdout.trim() === 'true';
+    ctx.skip(shallow, 'shallow clone: the pinned commits are not in the object store; run `git fetch --unshallow` to check them');
     const refs = [...new Set(mentions().flatMap(path => pinnedLinks(readFileSync(join(root, path), 'utf8'))))];
     const result = spawnSync('git', ['cat-file', '--batch-check'], { cwd: root, input: refs.join('\n') + '\n', encoding: 'utf8' });
     expect(result.status, result.stderr).toBe(0);
