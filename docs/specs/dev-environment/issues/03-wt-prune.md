@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 **Owns:** `tools/wt.sh` (the `prune` command), `tools/wt.test.ts`
 
