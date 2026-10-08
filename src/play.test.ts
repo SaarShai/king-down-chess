@@ -6,12 +6,14 @@ import { momentText } from './moment';
 import { TRY_THESE } from './try-these';
 
 beforeEach(() => setRules()); afterEach(() => setRules());
-it('skills retain the chosen budget and opening policy without claiming ratings', () => {
-  expect(skillPlan('club', 2000, 10)).toMatchObject({ timeMs: 800, temperature: 0, blunder: 0 });
-  expect(skillPlan('strong', 2000, 10)).toMatchObject({ timeMs: 2000, temperature: 0, blunder: 0 });
-  expect(skillPlan('club', 800, 0)).toEqual(skillPlan('strong', 800, 0));
+it('each level is a different opponent; a tool time stays under the caps', () => {
+  expect(skillPlan('strong', 10)).toMatchObject({ timeMs: 2500, temperature: 0, blunder: 0 });
+  expect(skillPlan('club', 10)).toMatchObject({ timeMs: 800, temperature: 0, blunder: 0 });
+  expect(skillPlan('club', 0)).not.toEqual(skillPlan('strong', 0));
+  expect(skillPlan('strong', 10, 200).timeMs).toBe(200);
   for (const level of ['beginner', 'casual'] as const) {
-    const plan = skillPlan(level, 200, 10);
+    expect(skillPlan(level, 10).timeMs).toBeLessThanOrEqual(800);
+    const plan = skillPlan(level, 10, 200);
     expect(plan.timeMs).toBeLessThanOrEqual(200);
     expect(plan.temperature).toBeGreaterThan(0);
     expect(plan.blunder).toBeGreaterThan(0);

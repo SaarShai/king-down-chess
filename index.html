@@ -128,7 +128,7 @@
           <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /><img class="face-left" src="./ui/kings/shadow-b.webp" alt="" /></span>
           <span class="mode-text"><b>Two players</b><small>Share one device, or send the game link after each move.</small></span></label>
       </fieldset>
-      <fieldset class="seg" id="level" title="Beginner and Casual vary their choices. Club caps thinking at 800 ms; Strong uses the full thinking time in Settings. These are not ratings.">
+      <fieldset class="seg" id="level" title="Beginner and Casual vary their choices. Club thinks up to 0.8 s a move; Strong thinks 2.5 s. These are not ratings.">
         <legend>Computer level</legend>
         <div class="seg-row">
           <label><input type="radio" name="level" value="beginner" id="level-beginner" /><span>Beginner</span></label>
@@ -185,7 +185,6 @@
         <label>Look <select id="look"><option value="painted">Painted 2D</option><option value="clay">Clay 3D</option></select></label>
         <label>Piece letters <input id="labels" type="checkbox" /></label>
         <label>Coordinates <input id="coords" type="checkbox" checked /></label>
-        <label title="How long the Strong computer may think. Club caps at 800 ms.">Thinking time <input id="think" type="range" min="200" max="4000" step="100" value="800" /></label>
         <button id="reset-view">Reset view (R)</button>
       </fieldset>
       <h3>This game</h3>

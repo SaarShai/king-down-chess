@@ -693,12 +693,15 @@ $('next-lesson').onclick = () => {
   else openNewGame();
 };
 
+/** `?think=<ms>`: a shorter thinking time for the browser checks, under each level's cap (ai/skill.ts). */
+const thinkMs = Number(params.get('think')) || undefined;
+
 async function maybeAi(): Promise<void> {
   if (busy || finished() || sides[game.pos.turn] !== 'ai') return;
   busy = thinking = true;
   refresh();
   const g = gen;
-  const plan = skillPlan(skill, +$<HTMLInputElement>('think').value, game.history.length);
+  const plan = skillPlan(skill, game.history.length, thinkMs);
   const res = await engine.think(game.pos, { timeMs: plan.timeMs, temperature: plan.temperature, history: game.history.map(h => positionKey(h.pos)) });
   if (g !== gen) return;
   thinking = false;
@@ -1164,7 +1167,7 @@ async function copyAndSay(button: HTMLElement, text: string, done: string): Prom
  * a new setting only when it is not at its default. Then an old save keeps its JSON. If not, the first
  * save after an update counts as a settings change, and it wins over newer settings in the account.
  */
-interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean; labels?: true }
+interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean; labels?: true }
 const SAVE_KEY = 'kingdown.save';
 /** Settings → Account and the cloud save, loaded after the board is drawn (null until then, or offline). */
 let account: typeof import('./account/account') | null = null;
@@ -1173,7 +1176,6 @@ let cloudGame = false;
 
 /** The save's settings fields (account/sync.ts SETTINGS). */
 const settingsNow = () => ({
-  think: +$<HTMLInputElement>('think').value,
   skill,
   coords: coords.checked,
   sound: $<HTMLInputElement>('sound').checked,
@@ -1207,7 +1209,6 @@ function save(): void {
 
 /** A save's settings onto the controls (at start-up, or newer ones from the account). */
 function applySettings(s: Save): void {
-  if (s.think) $<HTMLInputElement>('think').value = String(s.think);
   if (typeof s.sound === 'boolean') $<HTMLInputElement>('sound').checked = s.sound;
   if (typeof s.queen === 'boolean') $<HTMLInputElement>('queen').checked = s.queen;
   if (typeof s.threats === 'boolean') $<HTMLInputElement>('threats').checked = s.threats;
@@ -1331,7 +1332,6 @@ $('share-result').onclick = () => {
   const text = `King Down daily ${daily} (${game.backRank}): ${outcome} in ${n} move${n === 1 ? '' : 's'}${vs}. ${location.origin}${location.pathname}`;
   void copyAndSay($('share-result'), text, 'Result copied');
 };
-$('think').onchange = save;
 $('sound').onchange = () => { setSound($<HTMLInputElement>('sound').checked); save(); };
 $('queen').onchange = save;
 $('threats').onchange = () => { drawMarks(); save(); };

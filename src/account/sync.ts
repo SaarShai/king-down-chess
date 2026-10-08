@@ -18,11 +18,14 @@ type Stamps = Partial<Record<Section, { at: number; json: string }>>;
 
 const SAVE = 'kingdown.save', LESSONS = 'kingdown.lessons', STAMPS = 'kingdown.sync';
 /** main.ts `Save` fields: these are settings; the rest is the saved game. The look stays per device. */
-const SETTINGS = ['think', 'skill', 'coords', 'sound', 'queen', 'pace', 'threats', 'labels'];
+const SETTINGS = ['skill', 'coords', 'sound', 'queen', 'pace', 'threats', 'labels'];
 const GAME = ['back', 'fen', 'moves', 'white', 'black', 'link', 'daily', 'resigned', 'rules'];
 
 const parse = (raw: string | null): any => { try { return raw ? JSON.parse(raw) : null; } catch { return null; } };
 const pick = (o: Record<string, unknown>, keys: string[]) => Object.fromEntries(keys.filter(k => k in o).map(k => [k, o[k]]));
+/** A section's copy cut to the fields this version keeps, so a field it dropped (the old `think`) is no change. */
+const own = (s: Section, v: unknown): unknown =>
+  s === 'lessons' || !v || typeof v !== 'object' ? v : pick(v as Record<string, unknown>, s === 'settings' ? SETTINGS : GAME);
 /** JSON with sorted keys: the database reorders the keys of what it keeps. */
 const canon = (v: unknown): string => JSON.stringify(v, (_k, x) =>
   x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : 1))) : x);
@@ -52,14 +55,17 @@ function writeLocal(store: Store, s: Section, v: unknown): void {
  * Notes the time of each section's change since the last call. A change is always newer than the
  * copy it changed, even when another device's clock runs ahead. Data that was here before the first
  * call ever gets 0, older than any cloud copy: the first device signed in sets the account's copy.
+ * A copy that differs only by a field this version dropped is the same copy: it keeps its time.
  */
 export function stamp(store: Store, now = Date.now()): Stamps {
   const raw = store.getItem(STAMPS), stamps: Stamps = parse(raw) ?? {}, local = readLocal(store);
   let changed = false;
   for (const s of SECTIONS) {
     if (local[s] == null) continue;
-    const json = canon(local[s]);
-    if (stamps[s]?.json !== json) { stamps[s] = { at: raw == null ? 0 : Math.max(now, (stamps[s]?.at ?? -1) + 1), json }; changed = true; }
+    const json = canon(local[s]), was = stamps[s];
+    if (was?.json === json) continue;
+    stamps[s] = { at: was && canon(own(s, parse(was.json))) === json ? was.at : raw == null ? 0 : Math.max(now, (was?.at ?? -1) + 1), json };
+    changed = true;
   }
   if (changed) store.setItem(STAMPS, JSON.stringify(stamps));
   return stamps;
@@ -74,7 +80,7 @@ export function merge(local: Stamps, cloud: Row | null): { up: Section[]; down: 
   const up: Section[] = [], down: Section[] = [];
   for (const s of SECTIONS) {
     const l = local[s], c = cloud?.[s];
-    if (c && typeof c.at === 'number' && usable(s, c.v) && (!l || c.at > l.at || (c.at === 0 && l.at === 0 && canon(c.v) !== l.json))) down.push(s);
+    if (c && typeof c.at === 'number' && usable(s, c.v) && (!l || c.at > l.at || (c.at === 0 && l.at === 0 && canon(own(s, c.v)) !== l.json))) down.push(s);
     else if (l && (!c || l.at > c.at)) up.push(s);
   }
   return { up, down };
