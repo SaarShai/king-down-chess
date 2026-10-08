@@ -16,7 +16,7 @@ The server uses a separate database login with the [reviewed grants](../../../pl
 
 ## Current ticket
 
-[01 — Check the real account and ChatGPT host](issues/01-external-host-check.md) holds the approved setup and release evidence. The private service, OAuth client and website consent route are live. The test accounts pass a full computer game, two-player moves, seat isolation, automatic updates, host disconnect/reconnect and normal selected-game reopening. [06 — Complete the live checks](issues/06-live-acceptance.md) records passing consent denial and controlled live lost-result retry. It tracks recovery after the released provider revocation fix, immediate full-page reload timing and the remaining real-client checks. The owner defers the actual phone check until desktop checks finish.
+[01 — Check the real account and ChatGPT host](issues/01-external-host-check.md) holds the approved setup and release evidence. The private service, OAuth client and website consent route are live. [06 — Complete the live checks](issues/06-live-acceptance.md) records passing desktop solo and two-player play, seats, consent denial, refresh, reconnect, immediate reopening, controlled lost-result recovery and unexpired-token revocation. The owner tests the iPhone app. [11 — Repair phone board controls](issues/11-phone-controls.md) releases direct ordinary destination taps, stable background refresh and removal of the plugin Fullscreen control; the real iPhone retest remains open.
 
 ## Checks
 

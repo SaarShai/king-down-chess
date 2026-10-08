@@ -19,3 +19,9 @@ Friend polling uses the same busy flag as user commands and disables every butto
 Fixture and compiled HTTP/PostgreSQL browser checks pass with touch input at 390px, a held background read, a game change during that read, move ambiguity, retries and immediate reopening. Log: `/tmp/kingdown-phone-green.log`. The real iPhone retest remains open.
 
 The first full run passes 1,395 tests and 42 artwork checks. After the owner's move-button confirmation, the destination policy changes to prefer the single ordinary move. Both browser checks pass again with direct ordinary touch movement and explicit Haste followed by its extra touch move. The push gate verifies this final code with the full suite. The review keeps the existing move IDs, server authority, power costs and pending-command recovery unchanged.
+
+## Release
+
+PR 21 merges as `13ba48b814bc8448ea511c72db3c92e7160738b3` after the full push gate and all hosted jobs pass. The approved release script repeats 1,395 tests, 42 artwork checks, HTTP/database, worker, protocol and all three browser checks. Deployment `dpl_HE4fST7syxDZ6hiUC98xEYseLF5Y` is live and passes unsigned checks. Log: `/tmp/kingdown-phone-release.log`. Keep this ticket open for the owner's real iPhone retest.
+
+A fresh ChatGPT request resumes the owner's existing Alicia solo match `7744fcbb-fd7f-4177-8525-9f5aa7ea3e3c`, revision 1 after e2-e4, with Black to move. No move is made. The initial fresh response reuses a preloaded old resource with Fullscreen despite Refresh tools. Full chat reload loads the new resource: no Fullscreen button, correct saved position, no error, and Computer move available. For the iPhone retest, fully close/reopen the app and use the latest response; confirm the missing Fullscreen button before testing.
