@@ -2,6 +2,7 @@
 import { createMatch, type LocalMatch, type MatchSetup } from '../src/match';
 import type { MatchView } from '../src/plugin/view';
 export function fixtureService() {
+  const boards = new Map<string,{actor: string; matchId: string}>();
   const matches = new Map<string, { match: LocalMatch; mode: 'solo' | 'friend'; players: string[] }>();
   async function get(actor: string, id: string): Promise<MatchView> {
     const entry = matches.get(id); if (!entry || !entry.players.includes(actor)) throw new Error('Match unavailable');
@@ -10,6 +11,9 @@ export function fixtureService() {
   }
   return {
     get,
+    async openBoard(actor: string, matchId: string) { const value = await get(actor,matchId), boardId = crypto.randomUUID(); boards.set(boardId,{actor,matchId}); return {...value,boardId}; },
+    async getBoard(actor: string, boardId: string) { const row = boards.get(boardId); if (!row || row.actor !== actor) throw new Error('Board unavailable'); return {...await get(actor,row.matchId),boardId}; },
+    async selectBoard(actor: string, boardId: string, matchId: string) { const row = boards.get(boardId); if (!row || row.actor !== actor) throw new Error('Board unavailable'); const value = await get(actor,matchId); row.matchId = matchId; return {...value,boardId}; },
     async resume(actor: string) { const latest = [...matches.entries()].reverse().find(([, entry]) => entry.players.includes(actor)); return latest ? get(actor, latest[0]) : null; },
     async create(actor: string, setup: MatchSetup, mode: 'solo' | 'friend') { const id = crypto.randomUUID(); matches.set(id, { match: await createMatch(setup.fen ? setup : { backRank: 'RNBQKBNR', ...setup }), mode, players: [actor] }); return get(actor, id); },
     async move(actor: string, id: string, command: { id: string; expectedRevision: number; lan: string }) { await get(actor, id); await matches.get(id)!.match.apply(command); return get(actor, id); },

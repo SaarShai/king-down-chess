@@ -22,6 +22,21 @@ suite('PostgreSQL authenticated matches (real connections and processes)', () =>
   for (const actor of actors) await pools[0].query('insert into auth.users(id) values($1)',[actor]);
  });
  afterAll(async () => { for (const actor of actors) await pools[0].query('delete from auth.users where id=$1',[actor]); await Promise.all(pools.map(pool => pool.end())); });
+ it('keeps durable selections separate per board and actor across service instances',async () => {
+  const first = await services[0].create(actors[0],{}), second = await services[0].create(actors[0],{});
+  const a = await services[0].openBoard(actors[0],first.matchId), b = await services[0].openBoard(actors[0],first.matchId);
+  expect(a.boardId).not.toBe(b.boardId);
+  await services[0].selectBoard(actors[0],a.boardId!,second.matchId);
+  expect((await services[1].getBoard(actors[0],a.boardId!)).matchId).toBe(second.matchId);
+  expect((await services[1].getBoard(actors[0],b.boardId!)).matchId).toBe(first.matchId);
+  await expect(services[1].getBoard(actors[1],a.boardId!)).rejects.toMatchObject({code:'FORBIDDEN'});
+  const other = await services[1].create(actors[1],{});
+  await expect(services[1].selectBoard(actors[1],a.boardId!,other.matchId)).rejects.toMatchObject({code:'FORBIDDEN'});
+  await expect(services[0].selectBoard(actors[0],a.boardId!,other.matchId)).rejects.toMatchObject({code:'FORBIDDEN'});
+  expect((await services[1].getBoard(actors[0],a.boardId!)).matchId).toBe(second.matchId);
+  await services[0].deleteAccountMatches(actors[0]);
+  await expect(services[1].getBoard(actors[0],a.boardId!)).rejects.toMatchObject({code:'FORBIDDEN'});
+ },30000);
  it('enforces seats, actual turns, persistent retries and full-payload conflicts',async () => {
   const initial = await services[0].create(actors[0],{});
   await expect(services[1].get(actors[1],initial.matchId)).rejects.toMatchObject({code:'FORBIDDEN'});
@@ -114,6 +129,9 @@ suite('PostgreSQL authenticated matches (real connections and processes)', () =>
    } finally { await pools[0].query('delete from kingdown_oauth.client_resources where client_id=$1',[clientId]); }
    const service = new MatchService(new PostgresMatchStore(runtime));
    const game = await service.create(actors[0],{},'friend');
+   const board = await service.openBoard(actors[0],game.matchId);
+   expect((await service.getBoard(actors[0],board.boardId!)).matchId).toBe(game.matchId);
+   expect((await service.selectBoard(actors[0],board.boardId!,game.matchId)).matchId).toBe(game.matchId);
    const oldInvite = await service.invite(actors[0],game.matchId);
    const invite = await service.invite(actors[0],game.matchId);
    await expect(service.join(actors[1],oldInvite.token)).rejects.toMatchObject({code:'INVITE_UNAVAILABLE'});
@@ -132,7 +150,7 @@ suite('PostgreSQL authenticated matches (real connections and processes)', () =>
     "select public.kingdown_access_token_hook('{}'::jsonb)",
    ]) await expect(runtime.query(statement)).rejects.toMatchObject({code:'42501'});
    await service.deleteAccountMatches(actors[0]);
-   for (const table of ['plugin_matches','plugin_match_commands','plugin_match_invites']) {
+   for (const table of ['plugin_matches','plugin_match_commands','plugin_match_invites','plugin_boards']) {
     const rows = await runtime.query(`select count(*)::int as count from public.${table} where ${table==='plugin_matches'?'id':'match_id'}=$1`,[game.matchId]);
     expect(rows.rows[0].count).toBe(0);
    }
@@ -142,7 +160,7 @@ suite('PostgreSQL authenticated matches (real connections and processes)', () =>
   }
  },30000);
  it('grants no browser access to shared authority',async () => {
-  for (const role of ['anon','authenticated']) for (const table of ['plugin_matches','plugin_match_commands','plugin_match_invites']) {
+  for (const role of ['anon','authenticated']) for (const table of ['plugin_matches','plugin_match_commands','plugin_match_invites','plugin_boards']) {
    const result=await pools[0].query('select has_table_privilege($1,$2,$3) as allowed',[role,`public.${table}`,'SELECT,INSERT,UPDATE,DELETE']);
    expect(result.rows[0].allowed).toBe(false);
   }
@@ -169,7 +187,7 @@ suite('PostgreSQL authenticated matches (real connections and processes)', () =>
   const initial=await services[0].create(actor,{},'friend'); const invite=await services[0].invite(actor,initial.matchId); await services[1].join(actors[1],invite.token);
   await services[0].move(actor,initial.matchId,{id:'cleanup',expectedRevision:0,lan:initial.snapshot.legal[0]});
   await pools[0].query('delete from auth.users where id=$1',[actor]);
-  for (const table of ['plugin_matches','plugin_match_commands','plugin_match_invites']) {
+  for (const table of ['plugin_matches','plugin_match_commands','plugin_match_invites','plugin_boards']) {
    const result=await pools[0].query(`select count(*)::int as count from public.${table} where ${table==='plugin_matches'?'id':'match_id'}=$1`,[initial.matchId]); expect(result.rows[0].count).toBe(0);
   }
  },30000);

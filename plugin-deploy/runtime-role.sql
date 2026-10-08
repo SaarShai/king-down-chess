@@ -1,4 +1,4 @@
--- Run once through the admin connection, after 0002 and the audience hook.
+-- Run once through the admin connection, after 0002, 0003 and the audience hook.
 -- Set the password with psql's interactive \password prompt, never in this file.
 begin;
 create role kingdown_plugin_runtime login noinherit nosuperuser nocreatedb
@@ -24,4 +24,13 @@ create policy kingdown_plugin_runtime on public.plugin_match_invites
   for all to kingdown_plugin_runtime using (true) with check (true);
 create policy kingdown_plugin_runtime on kingdown_oauth.client_resources
   for select to kingdown_plugin_runtime using (true);
+commit;
+
+-- Apply after migration 0003 to the existing restricted runtime role.
+begin;
+grant select on public.plugin_boards to kingdown_plugin_runtime;
+grant insert (id,actor_id,match_id), update (match_id) on public.plugin_boards to kingdown_plugin_runtime;
+drop policy if exists kingdown_plugin_runtime on public.plugin_boards;
+create policy kingdown_plugin_runtime on public.plugin_boards
+ for all to kingdown_plugin_runtime using (true) with check (true);
 commit;

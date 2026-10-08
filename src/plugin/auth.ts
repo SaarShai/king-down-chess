@@ -39,6 +39,8 @@ export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds, publ
           headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
           signal: AbortSignal.timeout(5000), redirect: 'error',
         });
+        // VERIFY-revocation: temporary evidence for the dedicated second test account only.
+        if (payload.sub === 'e0d952a0-147a-42c1-8382-153692908d6d') console.info('VERIFY-revocation', { jwtValid: true, remainingSeconds: payload.exp! - Math.floor(Date.now()/1000), providerStatus: response.status });
         if (!response.ok) throw new AuthenticationError();
         const user = await response.json();
         if (typeof user?.id !== 'string' || user.id.toLowerCase() !== payload.sub.toLowerCase()) throw new AuthenticationError();

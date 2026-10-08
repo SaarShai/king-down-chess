@@ -10,6 +10,7 @@ type Pending = { name: string; args: Record<string, unknown> };
 const extension = (window as Window & { openai?: { widgetState?: { matchId?: string; pending?: Pending }; setWidgetState?: (state: unknown) => void } }).openai;
 const saved = extension?.widgetState;
 let hostMatchId = saved?.matchId;
+let boardId: string | undefined;
 let awaitingInitialResult = true;
 const app = new App({ name: 'King Down board', version: '1.0.0' }, {});
 const board = new PaintedView($('board'));
@@ -41,7 +42,7 @@ async function call(name: string, args: Record<string, unknown>, retain = false)
   busy = true; buttons().forEach(b => b.disabled = true); $('error').textContent = '';
   if (retain) { pending = { name, args }; saveState(); }
   try {
-    const result = await app.callServerTool({ name, arguments: args });
+    const result = await app.callServerTool({ name, arguments: boardId && ['kingdown_get','kingdown_create','kingdown_join','kingdown_resume'].includes(name) ? {...args,boardId} : args });
     if (result.isError) {
       const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); }
@@ -94,6 +95,7 @@ app.ontoolresult = result => {
   const value = result.structuredContent;
   if (!value || typeof value !== 'object' || !('snapshot' in value) || !('matchId' in value) || typeof value.matchId !== 'string') return;
   // The first result is a replay; widget state can name a game selected since then.
+  boardId = 'boardId' in value && typeof value.boardId === 'string' ? value.boardId : undefined;
   hostMatchId = awaitingInitialResult ? saved?.matchId ?? value.matchId : value.matchId;
   awaitingInitialResult = false;
   if (connected) void call('kingdown_get', { matchId: hostMatchId });
@@ -103,4 +105,4 @@ const refresh = setInterval(() => {
   if (connected && !document.hidden && !busy && !pending && view?.mode === 'friend' && view.snapshot.status === 'playing' && (view.waiting || view.snapshot.turn !== view.playerColor)) void call('kingdown_get', { matchId: view.matchId });
 }, 3000);
 app.onclose = () => { connected = false; clearInterval(refresh); };
-void app.connect().then(() => { connected = true; if (hostMatchId) return call('kingdown_get', { matchId: hostMatchId }); }).catch(error => { $('error').textContent = `Could not connect to the game: ${String(error)}`; });
+void app.connect().then(() => { connected = true; if (hostMatchId && !awaitingInitialResult) return call('kingdown_get', { matchId: hostMatchId }); }).catch(error => { $('error').textContent = `Could not connect to the game: ${String(error)}`; });
