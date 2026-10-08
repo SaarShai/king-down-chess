@@ -30,6 +30,9 @@ const save = (moves: string[], sound = true) => ({
   back: 'RNBQKBNR', fen: 'x', moves, white: 'human', black: 'ai', link: null, daily: null, resigned: null, rules: { a: 1, b: 2 },
   think: 800, skill: 'club', coords: true, sound, queen: false, pace: 'normal', threats: false,
 });
+/** A settings stamp from a version that kept `think` in the settings. */
+const oldSettings = (sound = true) => JSON.stringify(Object.fromEntries(Object.entries({ ...readLocal(store({ 'kingdown.save': save([], sound) })).settings as object, think: 800 })
+  .sort(([a], [b]) => (a < b ? -1 : 1))));
 const device = (s: Record<string, unknown>, c: ReturnType<typeof cloud>) => {
   const st = store(s), applied: Section[][] = [];
   return { st, applied, sync: new Sync(st, c.remote, d => applied.push(d)) };
@@ -64,6 +67,13 @@ describe('stamp', () => {
     expect((l.saved_game as { moves: string[] }).moves).toEqual(['e2-e4']);
     expect(l.lessons).toBeNull();
   });
+  it('a field this version dropped is no change: settings stamped with the old `think` keep their time', () => {
+    const st = store({ 'kingdown.save': save([]), 'kingdown.sync': { settings: { at: 5, json: oldSettings() } } });
+    vi.setSystemTime(2_000_000);
+    expect(stamp(st).settings?.at).toBe(5);
+    st.setItem('kingdown.save', JSON.stringify(save([], false)));
+    expect(stamp(st).settings?.at).toBe(2_000_000); // a real change
+  });
 });
 
 describe('merge', () => {
@@ -74,8 +84,9 @@ describe('merge', () => {
     expect(merge({ settings: l(0, {}) }, null)).toEqual({ down: [], up: ['settings'] });
   });
   it('copies of the same time are the same copy, except two copies from before syncing: the cloud wins', () => {
-    expect(merge({ settings: l(0, { a: 1 }) }, { settings: { at: 0, v: { a: 2 } } })).toEqual({ down: ['settings'], up: [] });
-    expect(merge({ settings: l(0, { a: 1, b: 2 }) }, { settings: { at: 0, v: { b: 2, a: 1 } } })).toEqual({ down: [], up: [] });
+    expect(merge({ settings: l(0, { sound: true }) }, { settings: { at: 0, v: { sound: false } } })).toEqual({ down: ['settings'], up: [] });
+    expect(merge({ settings: l(0, { coords: true, sound: false }) }, { settings: { at: 0, v: { sound: false, coords: true } } })).toEqual({ down: [], up: [] });
+    expect(merge({ settings: l(0, { sound: true }) }, { settings: { at: 0, v: { sound: true, think: 800 } } })).toEqual({ down: [], up: [] }); // a dropped field
     expect(merge({ settings: l(3, { a: 1 }) }, { settings: { at: 3, v: { a: 1, new: 1 } } })).toEqual({ down: [], up: [] });
   });
   it('ignores a cloud section it cannot use', () => {
@@ -131,6 +142,17 @@ describe('Sync with a fake server', () => {
     await d.sync.pull();
     expect(c.pushes).toBe(pushes);
     expect(d.applied).toEqual([['settings']]);
+  });
+
+  it('settings stamped by a version that kept `think` stay as old as they were: a newer cloud copy comes down', async () => {
+    const newer = { ...readLocal(store({ 'kingdown.save': save([]) })).settings as object, sound: false };
+    const c = cloud({ settings: { at: 2000, v: newer } });
+    const d = device({ 'kingdown.save': save([]), 'kingdown.sync': { settings: { at: 1000, json: oldSettings() } } }, c);
+    d.sync.changed(); // main.ts at start-up
+    await d.sync.pull();
+    expect(d.applied).toEqual([['settings']]);
+    expect(readLocal(d.st).settings).toMatchObject({ sound: false });
+    expect(c.row?.settings).toMatchObject({ at: 2000, v: { sound: false } });
   });
 
   it('a cloud copy with a field this version does not know comes down once, not on every pull', async () => {
