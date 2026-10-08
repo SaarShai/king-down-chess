@@ -1,5 +1,6 @@
 // D-9: each copy action says "copied" only after the copy succeeds, says so when the copy fails, and
-// Copy moves gives feedback too. The page's Clipboard API is a stub, so each outcome is certain.
+// Copy moves gives feedback too. The page's Clipboard API is a stub, so each outcome is certain. The
+// fallback copy keeps the keyboard focus on the button.
 import assert from 'node:assert/strict';
 
 const GAME = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' };
@@ -36,11 +37,26 @@ async function outcomes(page, sel, done, holds, before = () => {}) {
   }
 }
 
+/** The fallback copy from the keyboard: Enter on the focused button says `done`, and the focus stays on the button. */
+async function keepsFocus(page, sel, done, before = () => {}) {
+  await before();
+  await clipboard(page, 'fallback');
+  await page.focus(sel);
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(300);
+  assert.match((await page.locator(sel).innerText()).trim(), done, `${sel} from the keyboard, the fallback path`);
+  assert.equal(await page.evaluate(() => `#${document.activeElement?.id}`), sel, `${sel}: the focus stays on the button after the fallback copy`);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(2600);
+}
+
 export default async function ({ open }) {
   const game = await open({ save: GAME, pace: null });
   await game.page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await outcomes(game.page, '#share', /^Link copied/, /moves=e2-e4/);
   await outcomes(game.page, '#copy', /^Moves copied$/, /^1\. e2-e4$/, () => game.page.click('#settings-btn'));
+  await keepsFocus(game.page, '#share', /^Link copied/);
+  await keepsFocus(game.page, '#copy', /^Moves copied$/, () => game.page.click('#settings-btn'));
   await game.close();
 
   const daily = await open({ save: { ...GAME, black: 'ai', daily: '2026-10-08', resigned: 0 }, pace: null });
@@ -48,5 +64,6 @@ export default async function ({ open }) {
   await daily.page.waitForSelector('#over[open] #share-result:not([hidden])');
   const reopen = () => daily.page.evaluate(() => { const over = document.getElementById('over'); if (!over.open) over.showModal(); });
   await outcomes(daily.page, '#share-result', /^Result copied$/, /^King Down daily 2026-10-08 /, reopen);
+  await keepsFocus(daily.page, '#share-result', /^Result copied$/, reopen);
   await daily.close();
 }

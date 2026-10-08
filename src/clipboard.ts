@@ -12,10 +12,12 @@ export async function copyText(text: string, clipboard: Pick<Clipboard, 'writeTe
 /**
  * execCommand on a selected throwaway textarea. Its answer alone is not the truth: under a modal
  * dialog Chrome answers true and copies nothing (the textarea is inert). So the textarea goes in the
- * open dialog, and a copy listener puts the text in and tells whether a copy happened.
+ * open dialog, and a copy listener puts the text in and tells whether a copy happened. The select
+ * takes the focus, so the focus goes back to where it was (the copy button, for a keyboard user).
  */
 function copyByCommand(text: string): boolean {
   let copied = false;
+  const back = document.activeElement;
   const put = (e: ClipboardEvent): void => {
     if (e.clipboardData) { e.clipboardData.setData('text/plain', text); e.preventDefault(); }
     copied = true;
@@ -26,5 +28,11 @@ function copyByCommand(text: string): boolean {
   (document.querySelector('dialog[open]') ?? document.body).appendChild(ta);
   ta.select();
   document.addEventListener('copy', put);
-  try { return document.execCommand('copy') && copied; } catch { return false; } finally { document.removeEventListener('copy', put); ta.remove(); }
+  try { return document.execCommand('copy') && copied; }
+  catch { return false; }
+  finally {
+    document.removeEventListener('copy', put);
+    ta.remove();
+    if (back instanceof HTMLElement) back.focus({ preventScroll: true });
+  }
 }
