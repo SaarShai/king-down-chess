@@ -144,3 +144,5 @@ finds the weights itself. That is level 2 of the strategy-search plan.
   Muller's linear band, so read it as "far below a Knight"). The f1 Guard moves in 88% of games,
   3.3 times a game. So the placement helps, but the defensive worth does not make the Guard near a
   Knight's value in normal games at depth 3.
+- guard-king-p at depth 4 (M1, 1,000 pairs): the Guard on f1 beats the Guard on b1 by **+0.54 ± 0.19 pawns**
+  (55.0% ± 1.7), the same as at depth 3 (+0.53). The f1 Guard moves in 88% of games, 5.6 times a game.
