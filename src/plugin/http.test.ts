@@ -3,6 +3,7 @@ import { createServer, request, type Server } from 'node:http';
 import { once } from 'node:events';
 import { createLocalJWKSet, decodeJwt, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { createTokenVerifier, type PluginAuth } from './auth';
+import { MatchServiceError } from '../match/service';
 import { createPluginHandler, MAX_MCP_BODY, type PluginHttpOptions } from './http';
 const alice = '11111111-1111-4111-8111-111111111111', bob = '22222222-2222-4222-8222-222222222222';
 const matchId = '33333333-3333-4333-8333-333333333333';
@@ -39,6 +40,24 @@ describe('stateless authenticated MCP HTTP', () => {
     provider.mockResolvedValue(new Response('{}', { status: 401 }));
     const revoked = await post(get, bearer); expect(revoked.status).toBe(401);
     expect(service.get).toHaveBeenCalledTimes(1);
+  });
+  it('returns retryable provider failure without an OAuth challenge or service access', async () => {
+    provider.mockResolvedValueOnce(new Response('{}', {status:503}));
+    const result = await post(get, await token());
+    expect(result.status).toBe(503); expect(result.headers.has('WWW-Authenticate')).toBe(false); expect(result.headers.get('Retry-After')).toBe('5');
+    expect(service.get).not.toHaveBeenCalled();
+    expect((await post(get, await token())).status).toBe(200);
+  });
+  it.each(['kingdown_create','kingdown_resume','kingdown_join'])('recovers a deleted selection for %s but rejects another actor board', async name => {
+    const args = name === 'kingdown_create' ? {mode:'solo'} : name === 'kingdown_join' ? {token:'invitation'} : {};
+    const request = {...get,params:{name,arguments:{...args,boardId:matchId}}};
+    vi.mocked(service.getBoard).mockRejectedValueOnce(new MatchServiceError('MATCH_REMOVED',404,'Deleted'));
+    expect((await (await post(request,await token())).json()).result.isError).not.toBe(true);
+    expect(service.selectBoard).toHaveBeenCalledWith(alice,matchId,matchId);
+    vi.mocked(service.selectBoard).mockClear(); vi.mocked(service.create).mockClear(); vi.mocked(service.join).mockClear(); vi.mocked(service.resume).mockClear();
+    vi.mocked(service.getBoard).mockRejectedValueOnce(new MatchServiceError('FORBIDDEN',403,'Foreign board'));
+    expect((await (await post(request,await token())).json()).result._meta.code).toBe('FORBIDDEN');
+    expect(service.selectBoard).not.toHaveBeenCalled(); expect(service.create).not.toHaveBeenCalled(); expect(service.join).not.toHaveBeenCalled(); expect(service.resume).not.toHaveBeenCalled();
   });
   it('serves public consent assets with a restricted CSP before OAuth authentication', async () => {
     const response = await fetch(`${address}/authorize?authorization_id=test`);

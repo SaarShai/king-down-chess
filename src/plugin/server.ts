@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { diagnostic } from './diagnostics';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/server';
 import { z } from 'zod';
@@ -17,11 +19,11 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   function register<T extends z.ZodRawShape>(name: string, description: string, shape: T, run: (args: z.infer<z.ZodObject<T>>) => Promise<unknown>, readOnly = false, launch = false, idempotent = true) {
     registerAppTool(server, name, { description, inputSchema: z.object(shape).strict(), annotations: { readOnlyHint: readOnly, destructiveHint: false, idempotentHint: idempotent, openWorldHint: false }, _meta: { ui: { resourceUri: BOARD_RESOURCE, visibility: launch ? ['model', 'app'] : ['app'] } } }, async (args: z.infer<z.ZodObject<T>>) => {
       try { const value = await run(args); return { content: [{ type: 'text' as const, text: 'King Down updated.' }], structuredContent: value as Record<string, unknown> }; }
-      catch (error) { const known = error instanceof MatchServiceError; if (!known) console.error('King Down tool failed', { tool: name, code: 'INTERNAL_ERROR' }); return { isError: true, content: [{ type: 'text' as const, text: known ? error.message : 'Could not update the game. Retry or reload.' }], _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
+      catch (error) { const known = error instanceof MatchServiceError; if (!known || error.status >= 500) console.error('King Down tool failed', { tool: name, requestId: randomUUID(), ...diagnostic(error) }); return { isError: true, content: [{ type: 'text' as const, text: known ? error.message : 'Could not update the game. Retry or reload.' }], _meta: { code: known ? error.code : 'INTERNAL_ERROR' } }; }
     });
   }
   async function select(id: string | undefined, action: () => Promise<Awaited<ReturnType<Service['get']>>>) {
-    if (id) await service.getBoard(actorId,id);
+    if (id) { try { await service.getBoard(actorId,id); } catch (error) { if (!(error instanceof MatchServiceError) || error.code !== 'MATCH_REMOVED') throw error; } }
     const result = await action();
     return id ? service.selectBoard(actorId,id,result.matchId) : result;
   }

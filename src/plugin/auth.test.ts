@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 'jose';
-import { createTokenVerifier, pluginOrigin, type PluginAuth } from './auth';
+import { createTokenVerifier, pluginOrigin, AuthenticationUnavailable, type PluginAuth } from './auth';
 const actor = '11111111-1111-4111-8111-111111111111', publicOrigin = 'https://plugin.kingdown.example', supabaseUrl = 'https://project.supabase.co';
 const provider = vi.fn<typeof fetch>();
 const publishableKey = 'sb_publishable_test';
@@ -20,13 +20,19 @@ describe('resource-bound Supabase OAuth', () => {
     provider.mockResolvedValue(new Response('{}', { status: 401 }));
     await expect(auth.verify(await signed())).rejects.toThrow('OAuth access token');
   });
-  it('fails closed for a missing or different provider user and provider failures', async () => {
+  it('rejects a missing or different provider user', async () => {
     for (const body of [{}, { id: '22222222-2222-4222-8222-222222222222' }]) {
       provider.mockResolvedValueOnce(Response.json(body));
       await expect(auth.verify(await signed())).rejects.toThrow('OAuth access token');
     }
-    provider.mockRejectedValueOnce(new Error('network failure'));
-    await expect(auth.verify(await signed())).rejects.toThrow('OAuth access token');
+
+  });
+  it('fails closed with a temporary error for provider outages and rate limits', async () => {
+    for (const status of [429, 500, 503]) { provider.mockResolvedValueOnce(new Response('{}', {status})); await expect(auth.verify(await signed())).rejects.toBeInstanceOf(AuthenticationUnavailable); }
+    provider.mockRejectedValueOnce(new Error('private network failure'));
+    await expect(auth.verify(await signed())).rejects.toThrow('temporarily unavailable');
+    provider.mockResolvedValueOnce(new Response('invalid json'));
+    await expect(auth.verify(await signed())).rejects.toBeInstanceOf(AuthenticationUnavailable);
   });
   it('verifies the issuer signature and binds canonical actors to the MCP resource', async () => {
     expect(await auth.verify(await signed({ sub: actor.toUpperCase() }))).toBe(actor);

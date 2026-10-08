@@ -48,7 +48,7 @@ try {
   // Vite sets NODE_ENV during the build; the servers below are local test processes.
   process.env.NODE_ENV = 'test';
   if (mode !== 'oauth') {
-    let endpoint;
+    let endpoint, seedPosition, deleteMatch;
     if (mode === 'http') {
       pool = new pg.Pool({ connectionString, max: 1 });
       await pool.query('insert into auth.users(id) select unnest($1::uuid[])', [actors]);
@@ -58,10 +58,18 @@ try {
       const { configurePlugin } = await import(pathToFileURL(join(build, 'server.mjs')).href);
       app = await configurePlugin({ ...process.env, NODE_ENV: 'test', KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString }, { localDev: true });
       endpoint = new URL('/mcp', origin);
+      const {createMatch} = await import(pathToFileURL(join(build,'runtime/index.mjs')).href);
+      seedPosition = async (setup,black) => {
+        const match=await createMatch(setup), id=randomUUID();
+        try { const snapshot=await match.snapshot(); await pool.query('insert into public.plugin_matches(id,white_id,black_id,mode,revision,save,snapshot) values($1,$2,$3,$4,0,$5,$6)',[id,black?actors[1]:actors[0],black?actors[0]:null,black?'friend':'solo',await match.exportSave(),snapshot]); return id; }
+        finally {await match.close();}
+      };
+      deleteMatch = async id => { await pool.query('delete from public.plugin_matches where id=$1 and (white_id=any($2::uuid[]) or black_id=any($2::uuid[]))',[id,actors]); };
+
     }
     unregister = register();
     const { startHarness } = await import('./plugin-ui-harness.ts');
-    harness = await startHarness({ boardPath: join(build, 'board.html'), endpoint, actor: actors[0], friendActor: actors[1] });
+    harness = await startHarness({ boardPath: join(build, 'board.html'), endpoint, actor: actors[0], friendActor: actors[1], seedPosition, deleteMatch });
   }
   child = spawn(process.execPath, [mode === 'oauth' ? 'tools/plugin-oauth-check.mjs' : 'tools/plugin-ui-check.mjs', build], {
     stdio: 'inherit', env: { ...process.env, ...(harness ? { PLAYABLE_URL: harness.url, PLUGIN_EXPECT_MODE: mode } : {}) },

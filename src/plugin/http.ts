@@ -1,7 +1,7 @@
 /** Stateless, authenticated Streamable HTTP: one actor closure and transport per request. */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { ACTOR_UUID, AuthenticationError, isLoopback, pluginOrigin, type PluginAuth } from './auth';
+import { ACTOR_UUID, AuthenticationError, AuthenticationUnavailable, isLoopback, pluginOrigin, type PluginAuth } from './auth';
 import { createPluginServer } from './server';
 
 export const MAX_MCP_BODY = 128 * 1024;
@@ -86,7 +86,8 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
           if (!match) throw new AuthenticationError();
           actorId = await options.auth!.verify(match[1]);
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof AuthenticationUnavailable) { res.setHeader('Retry-After', '5'); respond(res, 503, { error: error.message }); return; }
         if (options.auth) res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${metadataUrl}", scope="openid"`);
         respond(res, 401, { error: 'Authentication required' }); return;
       }

@@ -1,6 +1,6 @@
 # Prevent unintended same-square board actions
 
-Status: open
+Status: claimed
 
 ## Source
 

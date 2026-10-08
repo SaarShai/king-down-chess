@@ -54,6 +54,13 @@ try {
   const invite = (await tool(actors[0], 'kingdown_invite', { matchId: waiting.matchId })).structuredContent;
   const joined = (await tool(actors[1], 'kingdown_join', { token: invite.token })).structuredContent;
   assert.equal(joined.playerColor, 1); assert.equal(joined.waiting, false);
+  const recoveryBoard = (await tool(actors[1], 'kingdown_open', {matchId:waiting.matchId})).structuredContent;
+  await pool.query('delete from public.plugin_matches where id=$1',[waiting.matchId]);
+  assert.equal((await tool(actors[1], 'kingdown_get', {matchId:waiting.matchId,boardId:recoveryBoard.boardId}))._meta.code, 'MATCH_REMOVED');
+  const recovered = await tool(actors[1], 'kingdown_create', {mode:'solo',boardId:recoveryBoard.boardId});
+  assert(!recovered.isError); assert.equal(recovered.structuredContent.boardId,recoveryBoard.boardId);
+  assert.equal((await tool(actors[1], 'kingdown_get', {matchId:waiting.matchId,boardId:recoveryBoard.boardId})).structuredContent.matchId,recovered.structuredContent.matchId);
+  assert.equal((await tool(actors[0], 'kingdown_create', {mode:'solo',boardId:recoveryBoard.boardId}))._meta.code,'FORBIDDEN');
   const resource = await rpc(actors[0], 'resources/read', { uri: 'ui://kingdown/board-v1.html' });
   assert(resource.result.contents[0].text.includes('<html')); assert(resource.bytes < 4_400_000);
   await assert.rejects(configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: 'https://plugin.example', KINGDOWN_PLUGIN_DATABASE_URL: connectionString, SUPABASE_URL: 'https://project.supabase.co', KINGDOWN_PLUGIN_OAUTH_READY: '0' }), /Enable Supabase OAuth/);

@@ -1,4 +1,4 @@
--- Run once through the admin connection, after 0002, 0003 and the audience hook.
+-- Run once through the admin connection, after 0002–0004 and the audience hook.
 -- Set the password with psql's interactive \password prompt, never in this file.
 begin;
 create role kingdown_plugin_runtime login noinherit nosuperuser nocreatedb

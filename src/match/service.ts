@@ -9,7 +9,7 @@ function validId(id: string): void { if (typeof id !== 'string' || !uuid.test(id
 function view(row: StoredMatch, actor: string): MatchView { return { matchId: row.id, playerColor: seat(row,actor), mode: row.mode, waiting: row.mode === 'friend' && !row.black_id, snapshot: row.snapshot }; }
 function hash(token: string): string { return createHash('sha256').update(token).digest('hex'); }
 function command(input: { id: string; expectedRevision: number; lan?: string }, computer: boolean): void {
- if (!input || typeof input.id !== 'string' || input.id.length < 1 || input.id.length > 200 || !Number.isInteger(input.expectedRevision) || input.expectedRevision < 0 || input.expectedRevision > 1000 || (!computer && (typeof input.lan !== 'string' || input.lan.length > 200))) throw new MatchServiceError('INVALID_INPUT',400,'Invalid command');
+ if (!input || typeof input.id !== 'string' || input.id.length < 1 || input.id.length > 200 || /[\u0000-\u001f\u007f]/.test(input.id) || !Number.isInteger(input.expectedRevision) || input.expectedRevision < 0 || input.expectedRevision > 1000 || (!computer && (typeof input.lan !== 'string' || !input.lan.length || input.lan.length > 200 || /[\u0000-\u001f\u007f]/.test(input.lan)))) throw new MatchServiceError('INVALID_INPUT',400,'Invalid command');
  const keys = Object.keys(input); if (keys.some(key => !['id','expectedRevision',...(computer ? [] : ['lan'])].includes(key))) throw new MatchServiceError('INVALID_INPUT',400,'Unexpected command field');
 }
 export class MatchService {
@@ -18,7 +18,7 @@ export class MatchService {
   validId(actor); actor = actor.toLowerCase(); if (!['solo','friend'].includes(mode)) throw new MatchServiceError('INVALID_INPUT',400,'Invalid mode');
   let match;
   try { match = await createMatch(setup); const snapshot = await match.snapshot(); const row: StoredMatch = { id: randomUUID(),white_id: actor,black_id: null,mode,revision: snapshot.revision,save: await match.exportSave(),snapshot }; await this.store.create(row); return view(row,actor); }
-  catch (error) { if (error instanceof MatchServiceError) throw error; if (!match) throw new MatchServiceError('INVALID_INPUT',400,(error as Error).message); throw error; }
+  catch (error) { if (error instanceof MatchServiceError) throw error; if (!match) { if (error instanceof MatchError && /^(Malformed |Noncanonical FEN|Unsupported or malformed power state|Private card data unsupported)/.test(error.message)) throw new MatchServiceError('INVALID_INPUT',400,'Invalid game setup'); throw new MatchServiceError('UNAVAILABLE',503,'The game worker is unavailable. Retry.'); } throw error; }
   finally { await match?.close(); }
  }
  async get(actor: string, id: string): Promise<MatchView> { validId(actor); actor = actor.toLowerCase(); validId(id); return view(await this.store.read(id),actor); }
@@ -31,6 +31,7 @@ export class MatchService {
   validId(actor); validId(boardId);
   const result = await this.store.pool.query('select match_id from public.plugin_boards where id=$1 and actor_id=$2',[boardId,actor.toLowerCase()]);
   if (!result.rows[0]) throw new MatchServiceError('FORBIDDEN',403,'Board unavailable for this account');
+  if (!result.rows[0].match_id) throw new MatchServiceError('MATCH_REMOVED',404,'This game was deleted. Start, resume or join another game.');
   return {...await this.get(actor,result.rows[0].match_id),boardId};
  }
  async selectBoard(actor: string, boardId: string, matchId: string): Promise<MatchView> {
@@ -62,7 +63,7 @@ export class MatchService {
    const lan = computer ? await match.chooseMove({maxTimeMs:250,maxDepth:6}) : (input as MoveCommand).lan;
    let snapshot: MatchSnapshot;
    try { snapshot = await match.apply({id:hash(`${actor}:${input.id}`),expectedRevision:input.expectedRevision,lan}); }
-   catch (error) { throw new MatchServiceError('INVALID_MOVE',400,(error as Error).message); }
+   catch (error) { if (error instanceof MatchError && ['Illegal or ambiguous move','Match terminal','Match history limit reached','Stale revision','Command ID conflict','Malformed command'].includes(error.message)) throw new MatchServiceError('INVALID_MOVE',400,'This move is no longer available. Reload and choose a move.'); throw new MatchServiceError('UNAVAILABLE',503,'The game worker is unavailable. Retry.'); }
    const candidate = { ...row,snapshot,revision:snapshot.revision,save:await match.exportSave() };
    return view(await this.store.commit(actor,input.id,payload,candidate),actor);
   } finally { await match.close(); }
