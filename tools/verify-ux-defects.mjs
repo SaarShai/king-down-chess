@@ -15,7 +15,7 @@ if (!probes.length) throw new Error('ux-defects: no probe in tools/ux-defects/')
 
 const browser = await launch();
 try {
-  const ctx = { browser, base, open: opener(browser, base, trapErrors), trapErrors, shot };
+  const ctx = { browser, base, open: opener(browser, base, page => trapErrors(page)), trapErrors, shot };
   for (const name of probes) {
     const { default: probe } = await import(new URL(name, dir).href);
     await probe(ctx);
