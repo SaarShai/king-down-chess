@@ -36,7 +36,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
   });
   await writeFile(resolve(functionDir, 'package.json'), JSON.stringify({ private: true, type: 'module', engines: { node: '>=20' } }) + '\n');
   if (vercel) {
-    await writeFile(resolve(functionDir, '.vc-config.json'), JSON.stringify({ runtime: 'nodejs22.x', handler: 'server.mjs', launcherType: 'Nodejs', maxDuration: 30, shouldAddHelpers: false }) + '\n');
+    await writeFile(resolve(functionDir, '.vc-config.json'), JSON.stringify({ runtime: 'nodejs24.x', handler: 'server.mjs', launcherType: 'Nodejs', maxDuration: 30, shouldAddHelpers: false }) + '\n');
     // Native function paths preserve metadata request targets without a catch-all rewrite.
     const discovery = resolve(output, 'functions/.well-known');
     await mkdir(resolve(discovery, 'oauth-protected-resource'), { recursive: true });

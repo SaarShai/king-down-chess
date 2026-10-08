@@ -15,6 +15,9 @@ import { tempRepo } from './lib/temp-repo.mjs';
 
 const script = fileURLToPath(new URL('./deploy.sh', import.meta.url));
 const liveCheck = fileURLToPath(new URL('./deploy-live-check.mjs', import.meta.url));
+const pluginLiveCheck = fileURLToPath(new URL('./deploy-plugin-live-check.mjs', import.meta.url));
+const consentRoute = JSON.stringify({ redirects: [{ source: '/authorize', destination: 'https://kingdown-plugin.vercel.app/authorize', permanent: false }] });
+const pluginProject = { projectId: 'prj_2H4LcrzOXCQbFuKbq0z0G7lCFFC6', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna', projectName: 'kingdown-plugin' };
 
 type Repo = ReturnType<typeof tempRepo>;
 const repos: Repo[] = [];
@@ -37,6 +40,8 @@ function setup() {
   mkdirSync(join(repo.dir, 'tools'));
   stub(join(repo.dir, 'tools', 'wt.sh'), [record]);
   cpSync(liveCheck, join(repo.dir, 'tools', 'deploy-live-check.mjs'));
+  cpSync(pluginLiveCheck, join(repo.dir, 'tools', 'deploy-plugin-live-check.mjs'));
+  repo.write('vercel.json', consentRoute);
   repo.write('app.txt', 'one\n');
   repo.git('add', '.');
   repo.git('commit', '-q', '-m', 'one');
@@ -50,9 +55,19 @@ function setup() {
     `if ${holds('STUB_HANG')}; then touch "${started}"; sleep 30; fi`,
     `if ${holds('STUB_FAIL')}; then exit 1; fi`,
   ];
-  stub(join(bin, 'npm'), [...behave, 'if [ "$1 $2" = "run check:browser" ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi']);
-  stub(join(bin, 'npx'), behave);
-  const env = { PATH: `${bin}:${repo.env.PATH}`, STUB_FAIL: '', STUB_HANG: '', STUB_DIST: '', DEPLOY_LIVE_URL: 'http://127.0.0.1:9', DEPLOY_LIVE_TIMEOUT_MS: '1500' };
+  stub(join(bin, 'npm'), [...behave,
+    'if [ "$1 $2" = "run check:browser" ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi',
+    'if [ "$1 $2" = "run plugin:build:vercel" ]; then mkdir -p plugin-deploy/.vercel/output/functions/mcp.func; printf "consent-v1" > plugin-deploy/.vercel/output/functions/mcp.func/consent.mjs; fi',
+  ]);
+  stub(join(bin, 'node'), [
+    `case "$1" in */deploy-plugin-live-check.mjs) ${record}; exec "${process.execPath}" "$1" "$2" "$STUB_PLUGIN_ORIGIN" ;; esac`,
+    `exec "${process.execPath}" "$@"`,
+  ]);
+  stub(join(bin, 'npx'), [...behave,
+    'case " $* " in *" link --project kingdown-plugin "*) mkdir -p .vercel; printf "%s\\n" "$STUB_PROJECT" > .vercel/project.json ;; esac',
+    'case " $* " in *" env add "*) cat > "$STUB_ENV_DIR/$5" ;; esac',
+  ]);
+  const env = { PATH: `${bin}:${repo.env.PATH}`, STUB_FAIL: '', STUB_HANG: '', STUB_DIST: '', STUB_PROJECT: JSON.stringify(pluginProject), PLUGIN_TEST_DATABASE_URL: '', DEPLOY_LIVE_URL: 'http://127.0.0.1:9', DEPLOY_LIVE_TIMEOUT_MS: '1500' };
   const deploy = (args: string[] = [], extra: Record<string, string> = {}) => repo.run(script, args, { env: { ...env, ...extra } });
   const deployAsync = (args: string[] = [], extra: Record<string, string> = {}) => runAsync(script, args, { cwd: repo.dir, env: { ...repo.env, ...env, ...extra } });
   const calls = () => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : []);
@@ -71,6 +86,102 @@ function expectGone(repo: Repo, path: string | undefined) {
 }
 
 describe('deploy.sh', () => {
+  it('links only the approved plugin project in setup mode and publishes nothing', () => {
+    const { repo, deploy, calls } = setup();
+    const before = repo.git('worktree', 'list', '--porcelain').stdout;
+    const result = deploy(['--setup-plugin']);
+    expect(result.status, result.stderr).toBe(0);
+    expect(calls().map(line => line.replace(/ @ .*/, ''))).toEqual([
+      'npx --yes vercel@62.2.0 link --project kingdown-plugin --scope saars-projects-2c777ec5 --yes',
+      'npx --yes vercel@62.2.0 project inspect kingdown-plugin --scope saars-projects-2c777ec5',
+    ]);
+    expect(result.stdout).toContain('published nothing');
+    expect(repo.git('worktree', 'list', '--porcelain').stdout).toBe(before);
+  });
+
+  it('refuses a link to the wrong team or project', () => {
+    const { deploy } = setup();
+    for (const change of [{ orgId: 'team_wrong' }, { projectName: 'kingdown' }, { projectId: 'invalid' }]) {
+      const result = deploy(['--setup-plugin'], { STUB_PROJECT: JSON.stringify({ ...pluginProject, ...change }) });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('FAIL at verify plugin project');
+      expect(result.stdout).not.toContain('inspect plugin project');
+    }
+  });
+
+  it('requires a plugin test database before it makes a worktree', () => {
+    const { deploy, calls } = setup();
+    for (const url of ['', 'postgresql://localhost/plugin_test?host=remote.example', 'postgresql://remote.example/plugin_test', 'postgresql://localhost/production']) {
+      const result = deploy(['--target', 'plugin'], { PLUGIN_TEST_DATABASE_URL: url });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('database');
+      expect(calls()).toEqual([]);
+      expect(result.stdout).not.toContain('worktree');
+    }
+  });
+
+  it('sets only the six plugin values through stdin and prints none of their values', () => {
+    const { repo, deploy, calls } = setup();
+    const values = {
+      KINGDOWN_PLUGIN_ORIGIN: 'https://kingdown-plugin.vercel.app',
+      SUPABASE_URL: 'https://utqzovjmclfyojedmwok.supabase.co',
+      SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
+      KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: 'a6478e14-9e9a-43a7-a4b7-b888aed30791',
+      KINGDOWN_PLUGIN_DATABASE_URL: 'postgresql://kingdown_plugin_runtime.utqzovjmclfyojedmwok:fake-test-password@aws-0-us-east-2.pooler.supabase.com:6543/postgres?sslmode=require',
+      KINGDOWN_PLUGIN_OAUTH_READY: '0',
+    };
+    const file = join(repo.root, 'plugin.env');
+    const inputDir = join(repo.root, 'env-input'); mkdirSync(inputDir);
+    writeFileSync(file, Object.entries(values).map(([key, value]) => `${key}=${value}`).join('\n'), { mode: 0o600 });
+    const result = deploy(['--configure-plugin', file], { STUB_ENV_DIR: inputDir });
+    expect(result.status, result.stderr).toBe(0);
+    for (const [key, value] of Object.entries(values)) expect(readFileSync(join(inputDir, key), 'utf8')).toBe(value);
+    const writes = calls().filter(line => line.includes(' env add '));
+    expect(writes).toHaveLength(6);
+    expect(writes.every(line => line.includes('production --force --sensitive --yes --scope saars-projects-2c777ec5'))).toBe(true);
+    expect(result.stdout + result.stderr + calls().join('\n')).not.toContain('fake-test-password');
+    expect(calls().some(line => line.startsWith('npm ') || line.includes(' deploy '))).toBe(false);
+
+    const before = calls().length;
+    const valid = readFileSync(file, 'utf8');
+    for (const data of [valid + '\nUNEXPECTED=value', valid.replace('kingdown_plugin_runtime.', 'postgres.'), valid.replace('?sslmode=require', '?user=postgres&host=wrong.example'), valid.replace('?sslmode=require', '')]) {
+      writeFileSync(file, data);
+      const invalid = deploy(['--configure-plugin', file], { STUB_ENV_DIR: inputDir });
+      expect(invalid.status).not.toBe(0);
+      expect(invalid.stdout + invalid.stderr).not.toContain('fake-test-password');
+      expect(calls()).toHaveLength(before);
+    }
+    chmodSync(file, 0o644);
+    const publicFile = deploy(['--configure-plugin', file], { STUB_ENV_DIR: inputDir });
+    expect(publicFile.status).not.toBe(0);
+    expect(publicFile.stderr).toContain('mode 600');
+    expect(calls()).toHaveLength(before);
+  });
+
+  it('runs every plugin gate without a Vercel call by default', () => {
+    const { repo, deploy, calls } = setup();
+    const result = deploy(['--target', 'plugin'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test' });
+    expect(result.status, result.stderr).toBe(0);
+    const path = worktreeOf(result.stdout);
+    expect(calls().map(line => line.replace(/ @ .*/, ''))).toEqual([
+      `wt.sh add ${path}`, 'npm run plugin:db:init-test', 'npm test',
+      'npm run plugin:build:vercel',
+      'npm run plugin:server:check -- plugin-deploy/.vercel/output/functions/mcp.func',
+      'npm run plugin:smoke', 'npm run plugin:check:protocol',
+      'npm run check:browser plugin-oauth plugin-ui plugin-ui-http',
+    ]);
+    expect(result.stdout).toContain('published nothing');
+    expectGone(repo, path);
+  });
+
+  it.each(['plugin:db:init-test', 'test', 'plugin:build:vercel', 'plugin:server:check', 'plugin:smoke', 'plugin:check:protocol', 'plugin-ui'])('stops the failed plugin gate %s before publication', fail => {
+    const { repo, deploy, calls } = setup();
+    const result = deploy(['--target', 'plugin', '--publish'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_FAIL: fail });
+    expect(result.status, fail).not.toBe(0);
+    expect(calls().some(line => line.startsWith('npx '))).toBe(false);
+    expectGone(repo, worktreeOf(result.stdout));
+  });
+
   it('tests a fresh origin/main: not a local commit, and a remote commit that the local ref does not know yet', () => {
     const { repo, deploy, calls } = setup();
     const known = head(repo, 'HEAD');
@@ -106,15 +217,14 @@ describe('deploy.sh', () => {
     const { deploy, calls } = setup();
     const result = deploy();
     expect(result.status, result.stderr).toBe(0);
-    expect(calls().join('\n')).not.toContain('vercel');
     expect(calls().some(line => line.startsWith('npx '))).toBe(false);
     expect(result.stdout).toMatch(/published nothing/);
   });
 
-  it('refuses any argument other than --publish before it makes a worktree', () => {
+  it('refuses unknown and repeated arguments before it makes a worktree', () => {
     const { repo, deploy, calls } = setup();
     const before = repo.git('worktree', 'list', '--porcelain').stdout;
-    for (const args of [['main'], ['--ref', 'main'], ['-p'], ['--publish', 'extra'], ['--publish=yes'], ['']]) {
+    for (const args of [['main'], ['--ref', 'main'], ['-p'], ['--publish', 'extra'], ['--publish=yes'], [''], ['--publish', '--publish'], ['--target'], ['--target', 'other'], ['--target', 'website', '--target', 'website'], ['--setup-plugin', '--publish']]) {
       const result = deploy(args);
       expect(result.status, args.join(' ')).not.toBe(0);
       expect(result.stderr).toContain('usage');
@@ -200,6 +310,10 @@ async function site(files: () => Record<string, string>) {
     const path = (req.url ?? '/').split('?')[0];
     requests.push({ path, cookie: req.headers.cookie });
     if (req.headers.cookie !== undefined) { res.writeHead(400).end('cookie sent'); return; }
+    if (path === '/authorize' && files()['vercel.json']) {
+      const destination = JSON.parse(files()['vercel.json']).redirects[0].destination;
+      res.writeHead(307, { location: destination + (req.url?.slice(path.length) ?? '') }).end(); return;
+    }
     const body = files()[path === '/' ? 'index.html' : path.slice(1)];
     if (body === undefined) { res.writeHead(404).end('not found'); return; }
     res.writeHead(200, { 'content-type': 'text/html', 'set-cookie': 'visit=1; Path=/' }).end(body);
@@ -226,6 +340,16 @@ const check = (folder: string, url: string, timeoutMs = 1500) =>
   runAsync(process.execPath, [liveCheck, folder], { env: { ...process.env, DEPLOY_LIVE_URL: url, DEPLOY_LIVE_TIMEOUT_MS: String(timeoutMs) } });
 
 describe('deploy-live-check.mjs', { timeout: 20_000 }, () => {
+  it('checks that the website consent redirect keeps the authorization query', async () => {
+    const files = { ...pages(), 'vercel.json': consentRoute };
+    const live = await site(() => files);
+    const pass = await check(buildFolder(files), live.url);
+    expect(pass.status, pass.stderr).toBe(0);
+    const wrong = JSON.stringify({ redirects: [{ source: '/authorize', destination: 'https://wrong.example/authorize' }] });
+    const fail = await check(buildFolder({ ...files, 'vercel.json': wrong }), live.url, 250);
+    expect(fail.status).toBe(1);
+    expect(fail.stderr).toContain('/authorize: consent redirect or query differs');
+  });
   it('passes when the live site serves the build, and sends no cookie', async () => {
     const files = pages();
     const live = await site(() => files);
@@ -265,6 +389,74 @@ describe('deploy-live-check.mjs', { timeout: 20_000 }, () => {
   });
 });
 
+async function pluginSite(fault = '') {
+  const requests: { path: string; cookie?: string; authorization?: string }[] = [];
+  let url = '';
+  const server = createServer((req, res) => {
+    const path = req.url ?? '/';
+    requests.push({ path, cookie: req.headers.cookie, authorization: req.headers.authorization });
+    res.setHeader('set-cookie', 'visit=1; Path=/');
+    if (path === '/.well-known/oauth-protected-resource/mcp') {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ resource: `${url}/mcp`, authorization_servers: [fault === 'issuer' ? 'https://wrong.example/auth/v1' : 'https://utqzovjmclfyojedmwok.supabase.co/auth/v1'], scopes_supported: ['openid'] }));
+    } else if (path === '/mcp') {
+      res.writeHead(fault === 'challenge' ? 200 : 401, { 'www-authenticate': `Bearer resource_metadata="${url}/.well-known/oauth-protected-resource/mcp", scope="openid"` }).end('{}');
+    } else if (path === '/authorize') {
+      res.setHeader('content-type', 'text/html');
+      res.end('<script type="application/json" id="kingdown-consent-config">{"supabaseUrl":"https://utqzovjmclfyojedmwok.supabase.co"}</script><script type="module" src="/consent.mjs"></script>');
+    } else if (path === '/consent.mjs') res.end(fault === 'script' ? 'old-consent' : 'consent-v1');
+    else res.writeHead(404).end();
+  });
+  await new Promise<void>(done => server.listen(0, '127.0.0.1', done));
+  servers.push(server);
+  url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  return { url, requests };
+}
+
+describe('deploy-plugin-live-check.mjs', () => {
+  it('checks discovery, an unsigned challenge and the built consent script without account credentials', async () => {
+    const live = await pluginSite();
+    const result = await runAsync(process.execPath, [pluginLiveCheck, buildFolder({ 'consent.mjs': 'consent-v1' }), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '1500' } });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain('plugin-live-check: pass');
+    expect(live.requests.map(request => request.path).sort()).toEqual(['/.well-known/oauth-protected-resource/mcp', '/authorize', '/consent.mjs', '/mcp']);
+    expect(live.requests.every(request => !request.cookie && !request.authorization)).toBe(true);
+  });
+
+  it('rejects the wrong issuer, unsigned access and a stale script', async () => {
+    for (const fault of ['issuer', 'challenge', 'script']) {
+      const live = await pluginSite(fault);
+      const result = await runAsync(process.execPath, [pluginLiveCheck, buildFolder({ 'consent.mjs': 'consent-v1' }), live.url], { env: { ...process.env, DEPLOY_LIVE_TIMEOUT_MS: '250' } });
+      expect(result.status, fault).toBe(1);
+      expect(result.stderr).toContain('plugin-live-check: FAIL');
+      expect(result.seconds).toBeLessThan(5);
+    }
+  });
+});
+
+describe('deploy.sh --target plugin --publish', () => {
+  it('publishes only the tested artifact to the approved project and checks it without a player session', async () => {
+    const { repo, deployAsync, calls } = setup();
+    const live = await pluginSite();
+    const result = await deployAsync(['--target', 'plugin', '--publish'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_PLUGIN_ORIGIN: live.url });
+    expect(result.status, result.stderr).toBe(0);
+    expect(calls().filter(line => line.startsWith('npx ')).map(line => line.replace(/ @ .*/, ''))).toEqual([
+      'npx --yes vercel@62.2.0 link --project kingdown-plugin --scope saars-projects-2c777ec5 --yes',
+      'npx --yes vercel@62.2.0 deploy --prebuilt --prod --scope saars-projects-2c777ec5 --yes',
+    ]);
+    expect(result.stdout).toContain('plugin-live-check: pass');
+    expectGone(repo, worktreeOf(result.stdout));
+  });
+
+  it('rejects a different linked project before the production command', () => {
+    const { deploy, calls } = setup();
+    const result = deploy(['--target', 'plugin', '--publish'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_PROJECT: JSON.stringify({ projectId: 'prj_Wrong', projectName: 'kingdown-plugin', orgId: 'team_mIlANWWDRbX1NT4jgJn9jAna' }) });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('FAIL at verify plugin project');
+    expect(calls().some(line => line.includes(' deploy --prebuilt'))).toBe(false);
+  });
+});
+
 // The publish step (secrets-and-public-gates/10): the stub npx stands in for the Vercel CLI, and a
 // local site that serves the stub build stands in for the live site.
 describe('deploy.sh --publish', { timeout: 20_000 }, () => {
@@ -273,7 +465,7 @@ describe('deploy.sh --publish', { timeout: 20_000 }, () => {
 
   it('after the checks, publishes the tested build with the pinned Vercel CLI and confirms the live site', async () => {
     const { repo, deployAsync, calls } = setup();
-    const files = pages();
+    const files = { ...pages(), 'vercel.json': consentRoute };
     const live = await site(() => files);
     const result = await deployAsync(['--publish'], { STUB_DIST: buildFolder(files), DEPLOY_LIVE_URL: live.url });
     expect(result.status, result.stderr).toBe(0);
@@ -288,7 +480,7 @@ describe('deploy.sh --publish', { timeout: 20_000 }, () => {
     expect(npx.map(words)).toEqual([`npx --yes vercel@${version} link --project kingdown --yes`, `npx --yes vercel@${version} deploy --prod --yes`]);
     expect(log.indexOf(words(npx[0]))).toBeGreaterThan(runner);
     // It runs in a folder named kingdown that holds the tested build (the runner wrote dist/ there).
-    expect(npx[1]).toMatch(/\/kingdown with delete-data\.html index\.html privacy\.html terms\.html ?$/);
+    expect(npx[1]).toMatch(/\/kingdown with delete-data\.html index\.html privacy\.html terms\.html vercel\.json ?$/);
     expect(result.stdout).toMatch(/live-check: pass/);
     expect(live.requests.filter(r => r.cookie !== undefined)).toEqual([]);
     expect(live.requests.length).toBeGreaterThan(0);

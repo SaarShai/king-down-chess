@@ -1,12 +1,16 @@
 # Check the real account and ChatGPT host
 
-Status: needs-info
+Status: claimed
 
 ## Scope
 
 Continue the local match and plugin work at e6773d3. Check the real Supabase account, prepare the exact access settings, then test the private service in ChatGPT. The local setup is in [the setup guide](../../../plugin-preparation.md).
 
 ## Plan and checks
+
+The owner replies "approved." on October 7, 2026, to the required pull request merges and this live setup. This includes the separate `kingdown-plugin` service, one ChatGPT OAuth client, two test users, and the website consent redirect. The release script must still test fresh `origin/main` before each publication.
+
+Release-path work: add an explicit plugin target and a setup-only project link; keep the website test gates and no-publish default. Check the exact Vercel team and project before a prebuilt production release. Use the local disposable database for unit, compiled HTTP, worker, protocol and three named browser checks. Check unsigned live discovery, challenge and consent after publication. Tests must reject wrong targets and failed checks. The live host cases remain open until tested.
 
 1. Merge approved main into the plugin branch. Use main's tracker files and archive. Run `npm test` against local PostgreSQL.
 2. Add named plugin browser checks to the shared runner. Use one plugin setup script to build into a temporary folder, start servers at free ports, and stop them on exit. Keep consent, fixture, and real HTTP/database coverage. Remove alternate unit-test commands. Pass `npm test` and all three named plugin checks.
@@ -30,18 +34,18 @@ Continue the local match and plugin work at e6773d3. Check the real Supabase acc
 
 ## Verified local result
 
-- `npm test` with local PostgreSQL: type check, 72 test files, 1,371 unit tests and 42 artwork tests pass. The new role test logs in with the exact reviewed grants, plays and resumes a friend game, checks retries and cleanup, and rejects the extra SQL operations.
-- All three named browser checks pass: consent (3.2 s), fixture board (9.7 s), HTTP/database board (9.8 s). The runner reports no checkout changes.
-- Compiled HTTP check, worker smoke and MCP protocol check pass. The compiled resource is 4,291,913 JSON bytes. The Vercel build artifact is ready locally.
+- `npm test` with local PostgreSQL: type check, 72 test files, 1,388 unit tests and 42 artwork tests pass. The role test logs in with the exact reviewed grants, plays and resumes a friend game, checks retries and cleanup, and rejects the extra SQL operations. Release tests cover all failed gates, project checks, unsigned live checks, secret input through standard input, rejected database query overrides and required production TLS.
+- All three named browser checks pass: consent, fixture board and HTTP/database board. The runner reports no checkout changes.
+- Compiled HTTP check, worker smoke and MCP protocol check pass. The compiled resource is 4,291,913 JSON bytes. The Vercel artifact uses `nodejs24.x`, matching the live project. The actual artifact also passes the HTTP/database check under local Node 24.
 - `git diff main --check` passes. Game rules and public art match main. The live host and account flows remain untested.
 
-## Proposed live setup
+## Approved live setup
 
 Rule: keep the test service separate from the game website. Use one service, one registered ChatGPT client, and two test users.
 
-The recommended service is a new Vercel project named `kingdown-plugin` in Saar's projects. Use the stable HTTPS address Vercel assigns to that project. Pin that exact origin before any OAuth client registration. This is an OAuth-protected endpoint on the public internet, with a private ChatGPT connection.
+The service is Vercel project `kingdown-plugin` (`prj_2H4LcrzOXCQbFuKbq0z0G7lCFFC6`) in Saar's projects (`team_mIlANWWDRbX1NT4jgJn9jAna`, slug `saars-projects-2c777ec5`). Its assigned production origin is `https://kingdown-plugin.vercel.app`. `tools/deploy.sh --setup-plugin` creates and checks this project without a deployment. This is an OAuth-protected endpoint on the public internet, with a private ChatGPT connection.
 
-The approved game remains in project `kingdown`. Add only the consent redirect `/authorize` to the new service's `/authorize`, with its query preserved. Keep the Supabase Site URL. Use the existing redirect template. Extend `tools/deploy.sh` with a named plugin target; retain its current website path and its test gates. The current deploy script cannot publish the plugin artifact. This release step needs the owner's approval before its build and use.
+The approved game remains in project `kingdown`. [The website configuration](../../../../vercel.json) adds the consent redirect `/authorize` to the new service's `/authorize`, with its query preserved. Keep the Supabase Site URL. The release script has a named plugin target and retains the website path and its test gates. Both release targets test fresh `origin/main` and publish only with `--publish`.
 
 In Supabase project `utqzovjmclfyojedmwok`:
 
@@ -52,12 +56,22 @@ In Supabase project `utqzovjmclfyojedmwok`:
 5. Allow the new consent return URL, including its authorization query. Verify discovery and the client audience before setting readiness on.
 6. Connect the private plugin in ChatGPT. Check allow, deny, play, retry, resume, friend join, account change, refresh and revoked access with two test users.
 
-No DNS change, plan upgrade, public marketplace submission or match run is part of this setup. Existing plan usage can accrue. A public release and new security-sensitive access need the owner's specific approval. The runtime-role template has no password; do not paste a password into the chat, a tracked file or a command argument.
+The owner's approval covers the required merges, website route release, separate service and access setup. No DNS change, plan upgrade, public marketplace submission or match run is part of this setup. Existing plan usage can accrue. The runtime-role template has no password; do not paste a password into the chat, a tracked file or a command argument.
+
+## Live setup evidence
+
+- Supabase OAuth Server is enabled with `/authorize`; dynamic registration is off. Discovery returns HTTP 200 with issuer `https://utqzovjmclfyojedmwok.supabase.co/auth/v1` and supports a public client.
+- One public PKCE client is registered: `a6478e14-9e9a-43a7-a4b7-b888aed30791`, named `King Down private ChatGPT`. The callback comes from the live ChatGPT form: `https://chatgpt.com/connector/oauth/pIxNJ_2exXM-`.
+- The match migration, audience-hook schema and runtime-role SQL are applied in one transaction. The runtime role has no superuser, create-database, create-role, inheritance or row-security-bypass rights. It has no role memberships, can read only the four reviewed application tables, cannot create in `public`, and cannot execute the token hook.
+- The client-resource row maps that client to `https://kingdown-plugin.vercel.app/mcp`. Hook checks pass for the plugin audience, unchanged website audience and denied metadata spoof. The Auth Hooks page shows `public.kingdown_access_token_hook` enabled. These checks do not prove a real provider-issued token yet.
+- The allowed return URLs now include `https://kingdown-plugin.vercel.app/authorize?authorization_id=*`. The Site URL stays `https://kingdown.dev`; its four prior allowed URLs stay in place. The real provider return still needs a check.
+- An unsigned provider authorization request uses the actual client, exact ChatGPT callback, S256 challenge, `openid offline_access` scopes and MCP resource. It returns HTTP 302 to `https://kingdown.dev/authorize` with an `authorization_id` and no error. It does not sign in a user or issue tokens.
+- The assigned plugin domain has no deployment yet. The runtime role has no password yet. Service environment values, publication and real host cases still need completion.
 
 ## Acceptance
 
 - `npm test` passes with the disposable local PostgreSQL database.
 - `npm run check:browser plugin-oauth plugin-ui plugin-ui-http` passes.
 - The compiled HTTP check, worker smoke and MCP protocol check pass.
-- A draft pull request holds the reviewed local change. No merge into main or deploy occurs before approval.
-- The actual host cases remain open until the live setup is approved and complete. Local provider mocks do not prove them.
+- The approved pull requests must pass review and checks before merge. Each release uses the tested fresh `origin/main` through `tools/deploy.sh`.
+- The actual host cases remain open until tested. Local provider mocks do not prove them.
