@@ -1,0 +1,45 @@
+/* The demo viewer of kit/frame.js: a thin bar, then the demo in a frame (full width, or a 390 x 844 phone). */
+:root { --frame-h: 52px; }
+body.kdf {
+  display: grid; grid-template-rows: var(--frame-h) 1fr; height: 100dvh; min-height: 0; overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 0%, #2e2721, var(--night));
+}
+.kdf-bar {
+  display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3) 0 var(--space-1);
+  color: var(--on-night); background: rgba(20, 16, 12, 0.92); border-bottom: 1px solid rgba(233, 192, 113, 0.25);
+}
+.kdf-bar .btn { color: var(--on-night); border-color: transparent; background: transparent; box-shadow: none; font-weight: 600; font-size: var(--fs-sm); padding: 6px 10px; }
+@media (hover: hover) { .kdf-bar .btn:hover { background: rgba(255, 255, 255, 0.08); } }
+.kdf-bar .btn[aria-pressed='true'] { color: var(--night); background: var(--gold-bright); }
+.kdf-title { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex: 1; }
+.kdf-title h1 {
+  margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 700; letter-spacing: 0.06em;
+}
+.kdf-group { color: var(--on-night-soft); background: transparent; border-color: rgba(233, 192, 113, 0.35); text-transform: uppercase; letter-spacing: 0.08em; }
+.kdf-actions { display: flex; align-items: center; gap: 2px; }
+.kdf-seg { display: flex; padding: 0 6px 0 0; margin-right: 4px; border-right: 1px solid rgba(233, 192, 113, 0.2); }
+/* On a narrow screen: icons only, and the page is already phone sized. */
+@media (max-width: 860px) {
+  .kdf-actions .btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .kdf-actions .btn { padding: 0; width: var(--tap); }
+}
+@media (max-width: 560px) { .kdf-seg, .kdf-group { display: none; } }
+
+.kdf-stage { position: relative; min-height: 0; display: grid; place-items: center; overflow: hidden; }
+.kdf-device { width: 100%; height: 100%; transform-origin: 50% 50%; }
+.kdf-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--parchment); }
+body[data-view='phone'] .kdf-device {
+  width: 414px; height: 868px; flex: none; padding: 12px; border-radius: 52px;
+  background: linear-gradient(145deg, #3a332c, #15110d); box-shadow: 0 0 0 1px rgba(233, 192, 113, 0.25), 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+body[data-view='phone'] .kdf-frame { width: 390px; height: 844px; border-radius: 40px; }
+
+.kdf-sheet .sheet-body section { margin-top: var(--space-4); }
+.kdf-sheet h3 { margin: 0 0 var(--space-1); font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: 0.05em; }
+.kdf-sheet p { margin: 0 0 var(--space-2); }
+.kdf-sheet ul { margin: 0; padding-left: 1.2em; }
+.kdf-sheet li { margin: 4px 0; }
+.kdf-lede { font-size: var(--fs-lg); }
+.kdf-opt { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.kdf-sheet ul:has(.kdf-opt) { list-style: none; padding: 0; }

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kit proof</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<style>
+  html, body { height: 100%; }
+  body { overflow: hidden; }
+  .app {
+    height: 100dvh; max-width: 560px; margin: 0 auto;
+    display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto;
+    padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-3) max(var(--space-2), env(safe-area-inset-bottom));
+  }
+  .top { display: flex; align-items: center; gap: var(--space-2); min-height: var(--tap); }
+  .top h1 { margin: 0; font-size: var(--fs-lg); flex: 1; }
+  .board { min-height: 0; margin: var(--space-1) 0; }
+
+  /* The move feed: the last moves as short sentences with the piece's icon, newest first. */
+  .feed { min-height: 0; overflow: hidden; padding: var(--space-2) 0; border-top: 1px solid var(--stone-300); }
+  .feed-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-1); }
+  .turn { margin: 0; font-weight: 700; }
+  .turn.is-thinking::after { content: ''; display: inline-block; width: 1.2em; text-align: left; animation: dots 1.2s steps(4) infinite; }
+  @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+  :root[data-motion='reduce'] .turn.is-thinking::after { animation: none; content: '...'; }
+  @media (prefers-reduced-motion: reduce) { :root:not([data-motion='full']) .turn.is-thinking::after { animation: none; content: '...'; } }
+  .feed ol, .all ol { list-style: none; margin: 0; padding: 0; }
+  .feed li, .all li { display: flex; gap: var(--space-2); align-items: flex-start; padding: 3px 0; }
+  /* Older moves step back in colour, not in contrast: --ink-soft is 6.6:1 on parchment. */
+  .feed li + li { color: var(--ink-soft); }
+  .feed li + li .pi { opacity: .7; }
+  .feed .pi, .all .pi { margin-top: 2px; }
+  .feed p, .all p { margin: 0; line-height: 1.3; }
+  .feed small, .all small { display: block; color: var(--gold-ink); font-weight: 600; }
+  .feed .empty { color: var(--ink-soft); }
+  .num { min-width: 2.2em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+  .bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2); padding-top: var(--space-2); }
+  .bar .btn { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: var(--fs-sm); }
+
+  /* Desktop: the board on the left, the feed and the actions on the right. */
+  @media (min-width: 900px) {
+    .app { max-width: 1180px; grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: auto minmax(0, 1fr) auto; column-gap: var(--space-6); padding: var(--space-5) var(--space-6); }
+    .top { grid-column: 1 / -1; }
+    .board { grid-row: 2 / 4; margin: 0; }
+    .feed { grid-column: 2; grid-row: 2; align-self: start; border: 1px solid var(--stone-300); border-radius: var(--radius-lg); background: var(--vellum); padding: var(--space-4); }
+    .bar { grid-column: 2; grid-row: 3; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1 class="display">King Down</h1>
+    <span class="pill">Beginner</span>
+    <button type="button" class="btn btn-icon" id="sound" aria-pressed="true" aria-label="Sound"></button>
+  </header>
+  <div class="board" id="board"></div>
+  <section class="feed" aria-labelledby="turn">
+    <div class="feed-head"><p class="turn" id="turn" aria-live="polite">Your move</p></div>
+    <ol id="feed"></ol>
+  </section>
+  <nav class="bar" aria-label="Game">
+    <button type="button" class="btn btn-quiet" id="new"></button>
+    <button type="button" class="btn btn-quiet" id="undo"></button>
+    <button type="button" class="btn btn-quiet" id="moves"></button>
+    <button type="button" class="btn btn-quiet" id="flip"></button>
+  </nav>
+</div>
+
+<dialog class="sheet" id="moves-sheet" aria-labelledby="moves-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="moves-title">Moves</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body all"><ol id="all"></ol></div>
+</dialog>
+
+<script type="module">
+import { createBoard, KD } from '../../kit/board.js';
+import { icon, pieceIcon } from '../../kit/icons.js';
+import { $, toast, sfx, openSheet, animate, wait } from '../../kit/ui.js';
+
+// The sample game of the docs: back rank ONAQKBSM. Ply 11 is the Archer's shot.
+const ARMY = 'ONAQKBSM';
+const SAMPLE = ['e2-e4', 'e7-e5', 'Nb1-c3', 'Nb8-c6', 'd2-d3', 'Bf8-c5', 'Ac1-d2', 'd7-d6', 'Ad2-e3', 'Qd8-h4', 'Ae3*c5'];
+const fresh = (army = ARMY) => KD.newGame({ army });
+const playLans = (s, lans) => lans.reduce((st, lan) => KD.play(st, lan), s);
+
+// ---- the controls ----
+const label = (el, name, text) => { el.innerHTML = `${icon(name)}<span>${text}</span>`; };
+label($('#new'), 'plus', 'New game');
+label($('#undo'), 'undo', 'Undo');
+label($('#moves'), 'moves', 'Moves');
+label($('#flip'), 'flip', 'Flip');
+$('#moves-sheet [data-close]').innerHTML = icon('close');
+const soundIcon = () => { $('#sound').innerHTML = icon(sfx.muted ? 'sound-off' : 'sound-on'); $('#sound').setAttribute('aria-pressed', String(!sfx.muted)); };
+soundIcon();
+$('#sound').addEventListener('click', () => { sfx.toggle(); soundIcon(); });
+
+// ---- the move feed ----
+let stories = [];
+const SIDE = { w: 'White', b: 'Black' };
+const line = st => `<li>${pieceIcon(st.piece, st.side)}<div><p>${st.text}</p>${st.moment ? `<small>${st.moment}</small>` : ''}</div></li>`;
+function storiesOf(state) {
+  const chain = [state];
+  while (chain[0].history.length) chain.unshift(KD.undo(chain[0]));
+  return state.history.map((h, i) => KD.describe(chain[i], h.lan));
+}
+function renderFeed({ fresh = false } = {}) {
+  const last = stories.slice(-3).reverse();
+  $('#feed').innerHTML = last.length ? last.map(line).join('') : '<li class="empty"><p>Tap a piece to see its moves.</p></li>';
+  if (fresh && last.length) animate($('#feed li'), [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  $('#all').innerHTML = stories.map((st, i) => `<li><span class="num">${Math.floor(i / 2) + 1}${i % 2 ? '...' : '.'}</span>${pieceIcon(st.piece, st.side)}<div><p>${st.text}</p>${st.moment ? `<small>${st.moment}</small>` : ''}</div></li>`).join('') || '<li><p class="muted">No moves yet.</p></li>';
+  $('#undo').disabled = !board.state?.history.length;
+}
+function renderTurn() {
+  const s = board.state, el = $('#turn');
+  if (!s) return;
+  const st = KD.status(s);
+  const thinking = !st.over && !board.isHuman(st.turn);
+  el.classList.toggle('is-thinking', thinking);
+  el.textContent = st.over ? st.text : thinking ? 'The computer thinks' : board.play.human === 'both' ? `${SIDE[st.turn]} to move` : `Your move${st.check ? ': you are in check' : ''}`;
+}
+
+// ---- the board ----
+const board = createBoard($('#board'), {
+  play: { level: 'beginner', human: 'w' },
+  label: 'King Down board against the computer. Arrow keys move, Enter or Space chooses, Escape cancels, I shows a piece.',
+  onMove(story) { stories.push(story); renderFeed({ fresh: true }); renderTurn(); },
+  onInspect(sq, cell) {
+    const power = cell.type === 'king' && cell.design ? `, the ${cell.design} king` : '';
+    toast(`${SIDE[cell.color]} ${cell.type} on ${sq}${power}`);
+  },
+});
+function show(state, { human = 'w' } = {}) {
+  board.play.human = human;
+  board.setState(state);
+  stories = storiesOf(state);
+  renderFeed(); renderTurn();
+}
+
+$('#new').addEventListener('click', () => { show(KD.newGame({ army: 'random' })); toast('New game: a new random army'); });
+$('#undo').addEventListener('click', () => {
+  const s = board.state;
+  if (!s?.history.length) return;
+  const st = KD.status(s);
+  const plies = board.isHuman(st.turn) && board.play.human !== 'both' ? 2 : 1;
+  let back = s;
+  for (let i = 0; i < plies && back.history.length; i++) back = KD.undo(back);
+  show(back, { human: board.play.human });
+});
+$('#moves').addEventListener('click', () => openSheet('moves-sheet'));
+$('#flip').addEventListener('click', () => board.flip());
+
+show(fresh());
+
+// ---- the demo contract (README): state(name), play(), reset() ----
+let run = 0;
+window.demo = {
+  async state(name) {
+    run++;
+    switch (name) {
+      case 'start': show(fresh(), { human: 'both' }); break;
+      case 'selected': show(playLans(fresh(), SAMPLE.slice(0, 10)), { human: 'both' }); board.selectSquare('e3'); break;
+      case 'after-move': {
+        show(fresh(), { human: 'both' });
+        await board.playMove('e2-e4');
+        await board.playMove('e7-e5');
+        break;
+      }
+      case 'capture': {
+        show(playLans(fresh(), SAMPLE.slice(0, 10)), { human: 'both' });
+        await board.playMove('Ae3*c5');
+        break;
+      }
+      default: throw new Error(`demo.state: no state "${name}"`);
+    }
+    renderTurn();
+  },
+  // The sample game's last moves, then the Archer's shot; then the computer plays on.
+  async play() {
+    const me = ++run;
+    show(playLans(fresh(), SAMPLE.slice(0, 8)), { human: 'both' });
+    await wait(500, { instant: true });
+    for (const lan of SAMPLE.slice(8, 10)) {
+      if (me !== run) return;
+      await board.playMove(lan);
+      await wait(350, { instant: true });
+    }
+    if (me !== run) return;
+    board.selectSquare('e3');
+    await wait(900, { instant: true });
+    if (me !== run) return;
+    await board.playMove('Ae3*c5');
+    board.play.human = 'w';
+    renderTurn();
+    await board.maybeAi();   // resolves when the computer's answer has landed
+  },
+  async reset() { run++; show(fresh()); },
+};
+</script>
+</body>
+</html>

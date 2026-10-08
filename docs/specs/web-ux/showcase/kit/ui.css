@@ -1,0 +1,213 @@
+/* King Down showcase components, close to today's app (src/style.css). Link after tokens.css.
+   Components: .btn (.btn-primary, .btn-quiet, .btn-icon), dialog.sheet, .chip, .toggle, .row,
+   .toast, .card, .pill, .dot-new, .icon, .pi; helpers .stack, .cluster, .display, .night, .sr-only. */
+
+/* ---- base ---- */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100dvh;
+  font-family: var(--font-body); font-size: var(--fs-body); line-height: var(--lh);
+  color: var(--ink); background: var(--parchment);
+  -webkit-tap-highlight-color: transparent;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+img { max-width: 100%; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.night :focus-visible { outline-color: var(--gold-bright); }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.display { font-family: var(--font-display); font-weight: 700; letter-spacing: var(--track-display); line-height: var(--lh-tight); }
+.stack { display: flex; flex-direction: column; gap: var(--space-3); }
+.cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.muted { color: var(--ink-soft); }
+
+/* ---- icons ---- */
+.icon {
+  width: 22px; height: 22px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+/* The rulebook piece icons (icons.js pieceIcon): ring and glyph in currentColor, disc in --pi-disc. */
+.pi { display: inline-block; width: 1.4em; height: 1.4em; flex: none; vertical-align: -0.35em; color: var(--ink); stroke: none; }
+.pi-w { --pi-disc: #fffcf4; }
+.pi-b { --pi-disc: #4a4850; --pi-ring: #6e6a74; --pi-glyph: var(--parchment); }
+
+/* ---- buttons: primary (crimson, one per view), plain, quiet, icon ---- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: var(--tap); min-width: var(--tap); padding: 10px 16px;
+  font-weight: 700; line-height: 1.2; text-align: center; text-decoration: none; color: var(--ink);
+  background: linear-gradient(var(--vellum), #efe4cc);
+  border: 1px solid var(--stone-700); border-radius: var(--radius);
+  box-shadow: var(--lift), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  cursor: pointer; user-select: none;
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out), background-color var(--dur-1);
+}
+@media (hover: hover) { .btn:hover { background: linear-gradient(#fffdf6, #f5ebd5); } }
+.btn:active { transform: translateY(2px); box-shadow: 0 0 0 var(--stone-700), inset 0 1px 0 rgba(255, 255, 255, 0.8); }
+.btn-primary {
+  color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent));
+  border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
+}
+@media (hover: hover) { .btn-primary:hover { background: linear-gradient(#a8422f, #8f3124); } }
+.btn-primary:active { box-shadow: 0 0 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35); }
+.btn-quiet { background: transparent; box-shadow: none; border-color: var(--stone-500); font-weight: 600; }
+@media (hover: hover) { .btn-quiet:hover { background: rgba(255, 255, 255, 0.5); } }
+.btn-quiet:active { box-shadow: none; }
+.btn-icon { width: var(--tap); height: var(--tap); padding: 0; background: transparent; border-color: transparent; box-shadow: none; border-radius: 50%; }
+@media (hover: hover) { .btn-icon:hover { background: rgba(43, 38, 33, 0.07); } }
+.btn-icon:active { box-shadow: none; background: rgba(43, 38, 33, 0.12); }
+.btn-wide { width: 100%; }
+.btn:disabled, .btn[aria-disabled='true'] {
+  cursor: default; color: var(--ink-soft); background: var(--stone-100);
+  border-color: var(--stone-300); box-shadow: none; transform: none;
+}
+.btn:disabled .icon { opacity: 0.55; }
+/* On the dark stone */
+.night .btn:not(.btn-primary) { color: var(--on-night); background: rgba(255, 255, 255, 0.06); border-color: rgba(233, 192, 113, 0.45); box-shadow: none; }
+.night .btn-icon:not(.btn-primary) { border-color: transparent; background: transparent; }
+@media (hover: hover) { .night .btn:not(.btn-primary):hover { background: rgba(255, 255, 255, 0.12); } }
+.night .btn-primary { border-color: var(--gold-bright); box-shadow: 0 2px 0 var(--accent-deep), 0 0 0 1px rgba(233, 192, 113, 0.5); }
+
+/* ---- chips: a filter or a choice; aria-pressed="true" when on ---- */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: var(--tap); padding: 6px 14px;
+  font-weight: 600; font-size: var(--fs-sm); color: var(--ink);
+  background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius-pill);
+  cursor: pointer; transition: background-color var(--dur-1), border-color var(--dur-1), color var(--dur-1);
+}
+@media (hover: hover) { .chip:hover { border-color: var(--stone-500); } }
+.chip[aria-pressed='true'], .chip[aria-selected='true'] { color: var(--vellum); background: var(--accent); border-color: var(--accent-deep); }
+.chip .icon { width: 18px; height: 18px; }
+
+/* ---- toggle: <label class="row"><span>Sound</span><input type="checkbox" class="toggle"></label> ---- */
+.toggle {
+  position: relative; flex: none; width: 46px; height: 28px; margin: 0;
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+  background: var(--stone-300); border: 1px solid var(--stone-500); border-radius: var(--radius-pill);
+  transition: background-color var(--dur-2) var(--ease-out), border-color var(--dur-2);
+}
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--vellum); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform var(--dur-2) var(--ease-spring);
+}
+.toggle:checked { background: var(--accent); border-color: var(--accent-deep); }
+.toggle:checked::after { transform: translateX(18px); }
+/* Shape too, not only colour: a tick on the thumb when on. */
+.toggle:checked::before {
+  content: ''; position: absolute; z-index: 1; top: 9px; left: 26px; width: 8px; height: 5px;
+  border: solid var(--accent); border-width: 0 0 2px 2px; transform: rotate(-45deg);
+}
+
+/* ---- row: a line in a list or a settings sheet; a <label class="row"> is one 44 px target ---- */
+.row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  min-height: var(--tap); padding: var(--space-2) var(--space-1);
+}
+label.row { cursor: pointer; }
+.row + .row { border-top: 1px solid var(--stone-300); }
+.row > :first-child { min-width: 0; }
+.row small { display: block; color: var(--ink-soft); font-size: var(--fs-sm); }
+
+/* ---- card ---- */
+.card {
+  padding: var(--space-4); background: var(--vellum);
+  border: 1px solid var(--stone-300); border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+}
+.card h2, .card h3 { margin: 0 0 var(--space-2); font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: 0.04em; }
+
+/* ---- pill: a small label, not a control ---- */
+.pill {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px;
+  font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.02em; line-height: 1.5; color: var(--ink-soft);
+  background: var(--stone-100); border: 1px solid var(--stone-300); border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.pill-gold { color: var(--gold-ink); background: #fff6dc; border-color: #e3cc8f; }
+.pill-crimson { color: var(--vellum); background: var(--accent); border-color: var(--accent-deep); }
+
+/* ---- dot-new: a tease on a control that hides something new. Put it in a position: relative parent. ---- */
+.dot-new {
+  position: absolute; top: 6px; right: 6px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--gold); box-shadow: 0 0 0 2px var(--vellum);
+  pointer-events: none;
+}
+/* Two soft pulses when it appears, then still: a tease, not a nag. */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduce']) .dot-new { animation: kd-dot 1.2s var(--ease-out) 600ms 2; }
+}
+@keyframes kd-dot {
+  0% { box-shadow: 0 0 0 2px var(--vellum), 0 0 0 2px rgba(201, 154, 62, 0.6); }
+  100% { box-shadow: 0 0 0 2px var(--vellum), 0 0 0 10px rgba(201, 154, 62, 0); }
+}
+
+/* ---- toast (ui.js toast) ---- */
+.toast {
+  position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 1000;
+  max-width: min(92vw, 480px); padding: 10px 18px;
+  font-weight: 600; color: var(--on-night); background: rgba(34, 29, 24, 0.94);
+  border: 1px solid rgba(233, 192, 113, 0.35); border-radius: var(--radius-pill); box-shadow: var(--shadow-float);
+  opacity: 0; transform: translate(-50%, 12px); pointer-events: none;
+  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-3) var(--ease-out);
+}
+.toast.is-shown { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---- sheet: <dialog class="sheet">. A bottom sheet on a phone, a side panel from 760 px. ---- */
+dialog.sheet {
+  position: fixed; inset: auto 0 0 0; margin: 0; padding: 0;
+  width: 100%; max-width: 100%; max-height: min(86dvh, 760px);
+  color: var(--ink); background: var(--parchment);
+  border: 0; border-top: 1px solid var(--stone-500); border-radius: 18px 18px 0 0; box-shadow: var(--shadow-sheet);
+  overflow: auto; overscroll-behavior: contain;
+}
+dialog.sheet::backdrop { background: rgba(20, 14, 8, 0.45); }
+.sheet-grip { width: 40px; height: 4px; margin: 8px auto 0; border-radius: 2px; background: var(--stone-300); }
+.sheet-head {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4); background: var(--parchment);
+}
+.sheet-head h2 { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: 0.06em; }
+.sheet-body { padding: var(--space-1) var(--space-4) max(var(--space-5), env(safe-area-inset-bottom)); }
+@media (min-width: 760px) {
+  dialog.sheet {
+    inset: 0 0 0 auto; width: 400px; height: 100dvh; max-height: 100dvh;
+    border-top: 0; border-left: 1px solid var(--stone-500); border-radius: 18px 0 0 18px;
+  }
+  .sheet-grip { display: none; }
+}
+dialog.sheet[open] { animation: kd-sheet-up var(--dur-3) var(--ease-out); }
+dialog.sheet[open]::backdrop { animation: kd-fade-in var(--dur-3) ease-out; }
+dialog.sheet.is-closing { animation: kd-sheet-down var(--dur-2) var(--ease-in) forwards; }
+dialog.sheet.is-closing::backdrop { animation: kd-fade-out var(--dur-2) ease-in forwards; }
+@media (min-width: 760px) {
+  dialog.sheet[open] { animation-name: kd-sheet-left; }
+  dialog.sheet.is-closing { animation-name: kd-sheet-right; }
+}
+@keyframes kd-sheet-up { from { transform: translateY(100%); } }
+@keyframes kd-sheet-down { to { transform: translateY(100%); } }
+@keyframes kd-sheet-left { from { transform: translateX(100%); } }
+@keyframes kd-sheet-right { to { transform: translateX(100%); } }
+@keyframes kd-fade-in { from { opacity: 0; } }
+@keyframes kd-fade-out { to { opacity: 0; } }
+
+/* ---- night: the dark stone surface of the title screen ---- */
+.night { color: var(--on-night); background: var(--night); }
+.night .muted { color: var(--on-night-soft); }
+.night .pi { --pi-disc: #2b2520; --pi-glyph: var(--on-night); color: var(--on-night); }
+.night .card { color: var(--on-night); background: var(--night-raised); border-color: rgba(233, 192, 113, 0.25); box-shadow: none; }
+
+/* ---- reduced motion: no transitions or animations from this file ---- */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .btn, :root:not([data-motion='full']) .chip,
+  :root:not([data-motion='full']) .toggle, :root:not([data-motion='full']) .toggle::after,
+  :root:not([data-motion='full']) .toast { transition: none; }
+  :root:not([data-motion='full']) dialog.sheet, :root:not([data-motion='full']) dialog.sheet::backdrop { animation: none !important; }
+}
+:root[data-motion='reduce'] .btn, :root[data-motion='reduce'] .chip, :root[data-motion='reduce'] .toggle,
+:root[data-motion='reduce'] .toggle::after, :root[data-motion='reduce'] .toast { transition: none; }
+:root[data-motion='reduce'] dialog.sheet, :root[data-motion='reduce'] dialog.sheet::backdrop { animation: none !important; }

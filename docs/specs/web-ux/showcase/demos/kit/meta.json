@@ -1,0 +1,28 @@
+{
+  "id": "kit",
+  "title": "Kit proof",
+  "group": "feature",
+  "feature": "Demo kit",
+  "summary": "The real board, the real rules and the real computer player in one small page. Every demo starts from this kit.",
+  "problem": "A mockup that does not use the real art and the real rules can promise what the game cannot do.",
+  "idea": "One shared kit: the painted board in DOM and CSS, the King Down engine, the app's colours and type, and a capture tool that checks each demo.",
+  "borrows": [
+    { "from": "Design systems", "what": "One set of parts that every screen uses, so the demos look like one product." }
+  ],
+  "options": [
+    { "key": "A", "name": "Start", "state": "start", "summary": "The sample army before the first move." },
+    { "key": "B", "name": "A piece is selected", "state": "selected", "summary": "The Archer shows its moves and its two shots." },
+    { "key": "C", "name": "After two moves", "state": "after-move", "summary": "The move feed shows each move as a short sentence with the piece's icon." },
+    { "key": "D", "name": "The Archer shoots", "state": "capture", "summary": "The shot flies, the Bishop falls, and the feed tells why." }
+  ],
+  "recommendation": "Build every demo on this kit. Link it from the demo page; do not copy or change it.",
+  "joy": 3,
+  "ease": 4,
+  "effort": "S",
+  "states": ["start", "selected", "after-move", "capture"],
+  "notes": [
+    "Play White against the Beginner computer player. Tap or drag a piece. Long press, hover or the I key shows what a piece is.",
+    "New game gives a random army. Undo takes back your move and the computer's answer.",
+    "The engine is the app's own code (src/rules, src/ai), built into kit/kd-engine.js."
+  ]
+}
