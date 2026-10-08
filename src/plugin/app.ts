@@ -9,7 +9,6 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 type Pending = { name: string; args: Record<string, unknown> };
 const extension = (window as Window & { openai?: { widgetState?: { matchId?: string; pending?: Pending }; setWidgetState?: (state: unknown) => void } }).openai;
 const saved = extension?.widgetState;
-console.warn('[DEBUG-selected-game] boot', JSON.stringify({ api: !!extension, setter: typeof extension?.setWidgetState, savedMatch: !!saved?.matchId }));
 let hostMatchId = saved?.matchId;
 let awaitingInitialResult = true;
 const app = new App({ name: 'King Down board', version: '1.0.0' }, {});
@@ -18,12 +17,7 @@ board.setPace('off');
 let connected = false;
 let view: MatchView | undefined, pos: Position | undefined, selected: number | undefined, busy = false;
 let pending: Pending | undefined = saved?.pending;
-let diagnosticFirstSave = true;
-function saveState() {
-  if (diagnosticFirstSave) { console.warn('[DEBUG-selected-game] save', JSON.stringify({ apiNow: !!(window as Window & { openai?: unknown }).openai, setter: typeof extension?.setWidgetState, match: !!(view?.matchId ?? hostMatchId), pending: !!pending })); diagnosticFirstSave = false; }
-  extension?.setWidgetState?.({ matchId: view?.matchId ?? hostMatchId, pending });
-}
-window.addEventListener('openai:set_globals', event => { const globals = (event as CustomEvent).detail?.globals; console.warn('[DEBUG-selected-game] globals', JSON.stringify({ savedMatch: !!globals?.widgetState?.matchId, hasState: !!globals && 'widgetState' in globals })); });
+function saveState() { extension?.setWidgetState?.({ matchId: view?.matchId ?? hostMatchId, revision: view?.snapshot.revision, pending }); }
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function show(value: unknown) {
   if (!value || typeof value !== 'object' || !('snapshot' in value)) return;
@@ -39,7 +33,8 @@ function show(value: unknown) {
   $('choices').replaceChildren();
   // The identifier is presentation state; every board reload still reads server authority.
   saveState();
-  void app.updateModelContext({ structuredContent: { matchId: view.matchId, revision: view.snapshot.revision } }).catch(() => {});
+  // Widget state also supplies model context; a second writer would replace it.
+  if (!extension?.setWidgetState) void app.updateModelContext({ structuredContent: { matchId: view.matchId, revision: view.snapshot.revision } }).catch(() => {});
 }
 async function call(name: string, args: Record<string, unknown>, retain = false) {
   if (busy) return;
@@ -98,7 +93,6 @@ board.onLoadError = () => { $('error').textContent = 'The board artwork could no
 app.ontoolresult = result => {
   const value = result.structuredContent;
   if (!value || typeof value !== 'object' || !('snapshot' in value) || !('matchId' in value) || typeof value.matchId !== 'string') return;
-  console.warn('[DEBUG-selected-game] tool result', JSON.stringify({ initial: awaitingInitialResult, savedMatch: !!saved?.matchId, sameSavedMatch: saved?.matchId === value.matchId }));
   // The first result is a replay; widget state can name a game selected since then.
   hostMatchId = awaitingInitialResult ? saved?.matchId ?? value.matchId : value.matchId;
   awaitingInitialResult = false;

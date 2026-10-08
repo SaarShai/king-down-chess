@@ -29,3 +29,9 @@ The live check still fails after this release. Create a solo board with the seco
 ## Focused diagnosis
 
 Use that three-step live loop as the pass/fail signal. Next distinguish an absent or late widget-state API from a later state overwrite. Temporary `[DEBUG-selected-game]` console records contain only booleans and a method type: API availability, saved-match presence, first-result status and whether a result matches the saved ID. They contain no identifiers, credentials or game data. Remove them after the live cause is known.
+
+PR 15 adds the diagnostic and merges as `7c91f0f43578b28e33a50901b88a693f78f30ea9`. All checks pass and deployment `dpl_BkjdqtxZCvHKius7eCrnFnNhSS7L` is live. Old chat responses retain their board resource after Refresh tools; a fresh tool response loads the diagnostic.
+
+The repeatable live check reports `Black, move 4` before reload and `White, move 1` after reload. The trace reports an available widget API and setter, then a state event with the saved match present, then a state event with it absent. On reopen the saved match is absent. The two writes in `show` conflict: `setWidgetState` saves the selected game, then the asynchronous `updateModelContext` replaces that snapshot. The host test must model that replacement. Use the widget-state writer when available and the standard model-context writer on hosts without it; do not send both.
+
+The host test with that replacement fails before the repair: remount never reaches the saved move number. After the repair, both fixture and real HTTP/PostgreSQL browser checks pass. Saved widget state also carries the revision that the model context previously supplied. The temporary diagnostic code is removed. The browser check also exercises a host without the optional widget-state API and verifies its standard model context.
