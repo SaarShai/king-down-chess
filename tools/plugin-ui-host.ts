@@ -6,7 +6,6 @@ let initialResult: any;
 const invoke = async (name: string, args: Record<string, unknown>) => {
   const response = await fetch('/fixture-tool', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, arguments: args }) });
   const result = await response.json();
-  if (name === 'kingdown_create') initialResult = result;
   if (result.structuredContent?.matchId) { matchId = result.structuredContent.matchId; (window as any).harnessMatchId = matchId; (window as any).harnessView = result.structuredContent; }
   return result;
 };

@@ -32,6 +32,9 @@ try {
   await page.evaluate(() => { window.dropNextMoveReply = true; });
   await frame.locator('#choices button[title="e2-e4"]').click();
   await frame.locator('#retry').waitFor();
+  await page.locator('#remount').click();
+  await frame.locator('#retry').waitFor();
+  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 1, 'Remount must restore the selected game and its pending command');
   await frame.locator('#reload').click();
   await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
   assert(await frame.locator('#retry').isVisible(), 'Reload must preserve the pending command');
@@ -90,6 +93,16 @@ try {
     assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 2);
     await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
     assert.equal(await frame.locator('#invitation').innerText(), '');
+    const invitation = await (await page.request.post(new URL('/fixture-friend-invite', base).href)).json();
+    assert(!invitation.isError);
+    await frame.locator('#token').fill(invitation.structuredContent.token); await frame.locator('#join').click();
+    await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor();
+    const joinedView = await page.evaluate(() => window.harnessView);
+    await page.locator('#remount').click();
+    await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor();
+    assert.equal(await page.evaluate(() => window.harnessMatchId), joinedView.matchId, 'Remount must keep the joined game instead of the original solo game');
+    await frame.locator('summary').click();
+    await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
   }
   // A host notification can switch games independently of a pending submission.
   await clickSquare(4, 1); await clickSquare(4, 3);
