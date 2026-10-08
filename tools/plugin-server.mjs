@@ -4,6 +4,7 @@ import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
+import { pluginDatabaseConfig } from './plugin-db-config.mjs';
 import { createTokenVerifier, isLoopback, pluginOrigin } from '../src/plugin/auth.ts';
 import { consentConfig, renderConsent } from '../src/plugin/consent-config.ts';
 import { createPluginHandler } from '../src/plugin/http.ts';
@@ -35,7 +36,7 @@ export async function configurePlugin(env = process.env, { localDev = false } = 
   }
   if (config) consent = { html: renderConsent(await readFile(new URL('./consent.html', import.meta.url), 'utf8'), config), script: await readFile(new URL('./consent.mjs', import.meta.url), 'utf8'), supabaseOrigin: config.supabaseUrl };
   const resourceHtml = await readFile(new URL('./board.html', import.meta.url), 'utf8');
-  const pool = new Pool({ connectionString, max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 });
+  const pool = new Pool({ ...pluginDatabaseConfig(db, { localDev }), max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 });
   pool.on('error', () => { console.error('King Down database connection failed'); });
   if (config) {
     try {
