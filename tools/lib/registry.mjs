@@ -2,7 +2,7 @@
 // Each entry: name (the short name on the command line), script (from the checkout root), limit (seconds
 // before the runner stops the check), and optional: channel (sets PLAYABLE_BROWSER unless the caller set it),
 // args (for the script), byName (true: the entry runs only when you name it, never in a run of all).
-// The 13 checks and the self-test run in a run of all. The selftest-* entries after them are planned
+// The 14 checks and the self-test run in a run of all. The selftest-* entries after them are planned
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends.
 export const checks = [
@@ -15,6 +15,7 @@ export const checks = [
   { name: 'playable-clay', script: 'tools/verify-playable-clay.mjs', limit: 240, channel: 'chromium' },
   { name: 'powers', script: 'tools/verify-powers.mjs', limit: 180 },
   { name: 'special-moves', script: 'tools/verify-special-moves.mjs', limit: 240 },
+  { name: 'ux-defects', script: 'tools/verify-ux-defects.mjs', limit: 300 },
   { name: 'visual-design', script: 'docs/visual-design/verify.mjs', limit: 240 },
   { name: 'workshop', script: 'tools/verify-workshop.mjs', limit: 240 },
   { name: 'workshop-cast', script: 'tools/verify-workshop-cast.mjs', limit: 180 },
