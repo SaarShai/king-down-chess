@@ -1,6 +1,6 @@
 # Complete the live private-plugin checks
 
-Status: claimed
+Status: resolved
 
 ## Scope and plan
 
@@ -75,9 +75,9 @@ A fresh tool call after reconnection opens the same friend match at move 3 with 
 
 ## Handoff
 
-Desktop acceptance passes. Tickets 09 and 10 are resolved. A fresh board joins the friend game and restores its Black seat after an immediate full chat reload. Provider revocation rejects a signed token with 1,109 seconds still left before expiry. Alicia reconnects through the same approved account and scopes. The clean release removes the temporary controls. Both accounts open fresh boards at revision 7 / move 4 with their correct seats and no error. No move is made in these final checks. The phone check is the only remaining live acceptance item. The owner now tests it; see the phone result below.
+Desktop acceptance passes. Tickets 09 and 10 are resolved. A fresh board joins the friend game and restores its Black seat after an immediate full chat reload. Provider revocation rejects a signed token with 1,109 seconds still left before expiry. Alicia reconnects through the same approved account and scopes. The clean release removes the temporary controls. Both accounts open fresh boards at revision 7 / move 4 with their correct seats and no error. No move is made in these final checks. The owner completes the phone check; see the iPhone result below.
 
-The fixture and compiled HTTP/PostgreSQL board checks drop a reply after a saved move, remount the board and retry the same command ID. The saved revision remains 1. This passes locally. The controlled lost-result check above now also passes in the real ChatGPT host; the completed live reload-during-request check is separate. The actual phone check stays deferred at the owner's request.
+The fixture and compiled HTTP/PostgreSQL board checks drop a reply after a saved move, remount the board and retry the same command ID. The saved revision remains 1. This passes locally. The controlled lost-result check above now also passes in the real ChatGPT host; the completed live reload-during-request check is separate.
 
 Use the existing test chat, Start King Down game (`https://chatgpt.com/c/6ac75478-8988-83eb-81a1-96d5040d8320`), and private plugin `plugin_asdk_app_6ac737b6924c8191b0c77b5f5a2981a4`. The first test account is still the primary connection. Restart an expired authorization request from Connect another account; do not reuse an expired consent URL.
 
@@ -85,4 +85,8 @@ PR 20 merges as `4247835f54782bd59b4f24f9f74e8f984838445f` after all hosted chec
 
 ## iPhone result
 
-The owner uses the ChatGPT app on iPhone. The saved friend position, layout and selected-game reopening pass. The owner reports repeated button disabling and a destination tap that does not move a selected pawn; the named move button does save it. The screenshot shows ordinary and Haste choices. Ticket 11 fixes the input policy and background refresh, and removes the plugin Fullscreen control at the owner's request. Its released build passes touch and database checks. Actual iPhone confirmation remains open.
+The owner uses the ChatGPT app on iPhone. The saved friend position, layout and selected-game reopening pass. The owner reports repeated button disabling and a destination tap that does not move a selected pawn; the named move button does save it. The screenshot shows ordinary and Haste choices. Ticket 11 fixes the input policy and background refresh, and removes the plugin Fullscreen control at the owner's request. Its released build passes touch and database checks. On October 8, 2026, the owner reports that destination taps work, then confirms Computer move with "that worked". This is confirmation from the real iPhone app, separate from the browser touch checks. The owner notes a slight delay before the saved move appears. No latency measurement or further latency change is part of this result.
+
+## Answer
+
+The private-plugin acceptance work is complete. Desktop solo play, two-player play, account checks and recovery pass as recorded above. The owner confirms the repaired iPhone interaction. Ticket 11 holds the final release and phone evidence. No live acceptance item remains open. Public plugin submission is outside this task.
