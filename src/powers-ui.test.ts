@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { LESSONS } from './lessons';
+import { Q, legalMoves, makeMove, parseKings } from './rules/engine';
 import { POWERS_BALANCED, RULES_2017, setRules } from './rules/rules';
-import { powerOptions, powerText } from './powers-ui';
+import { fromFen, toLan } from './rules/setup';
+import { autoQueen, hintMoves, needsArming, powerOptions, powerText } from './powers-ui';
 
 afterEach(() => setRules());
 
@@ -42,5 +45,50 @@ describe('the power picker', () => {
     const opts = powerOptions(RULES_2017).flatMap(g => g.options);
     expect(opts.find(o => o.value === 'Frost:Freeze')!.label).toBe('Freeze (2 per game)');
     expect(opts.find(o => o.value === 'Spirit:Mercy')!.title).toBe('your king steps 1–2 squares and jumps your pieces, but takes only a guard');
+  });
+});
+
+describe('the moves Hint may suggest', () => {
+  it('in a lesson, only its goal moves: in lesson 3 the Maester swap, not a king move', () => {
+    for (const l of LESSONS) {
+      const pos = fromFen(l.fen), moves = hintMoves(legalMoves(pos), null, m => l.goal(pos, m));
+      expect(moves.length, l.name).toBeGreaterThan(0);
+      expect(moves.every(m => l.goal(pos, m)), l.name).toBe(true);
+    }
+    const pos = fromFen(LESSONS[2].fen);
+    expect(hintMoves(legalMoves(pos), null, m => LESSONS[2].goal(pos, m)).map(m => toLan(pos, m))).toEqual(['Md4<>e4']);
+  });
+
+  it('with the power not armed, no move that needs it; with the power armed, only its moves', () => {
+    setRules({ ...POWERS_BALANCED, kings: parseKings('flame:strike,none') });
+    const pos = fromFen('2b4k/2P3pp/2R5/8/8/8/8/K7 w - - 0 1'), legal = legalMoves(pos);
+    const plain = hintMoves(legal, null), strike = hintMoves(legal, 'strike');
+    expect(plain.length).toBeGreaterThan(0);
+    expect(plain.some(needsArming)).toBe(false);
+    expect(strike.every(m => m.power === 'strike')).toBe(true);
+    expect(plain.length + strike.length).toBe(legal.length);
+    expect(strike.map(m => toLan(pos, m))).toContain('Rc6-e8!'); // the Strike that mates, which an unarmed Hint showed
+  });
+
+  it('keeps the pass in a Haste turn, which End turn plays', () => {
+    setRules({ ...POWERS_BALANCED, kings: parseKings('flame:haste,none') });
+    const pos = fromFen('7k/8/8/1p6/8/8/P7/K7 w - - 0 1');
+    const after = makeMove(pos, hintMoves(legalMoves(pos), 'haste').find(m => toLan(pos, m) === 'a2-a3!H')!);
+    expect(hintMoves(legalMoves(after), null).map(m => toLan(after, m))).toEqual(['a3-a4', '--']); // a3-a4 loses the pawn to b5xa4
+  });
+
+  it('with Always promote to queen, no promotion that the board changes to the queen', () => {
+    const pos = fromFen('8/2q1P1k1/8/8/8/8/8/7K w - - 0 1'), legal = legalMoves(pos);
+    const promos = (queen: boolean) => hintMoves(legal, null, undefined, queen).filter(m => m.promo).map(m => toLan(pos, m));
+    expect(promos(false)).toEqual(['e7-e8=Q', 'e7-e8=R', 'e7-e8=B', 'e7-e8=N']);
+    expect(promos(true)).toEqual(['e7-e8=Q']); // not e7-e8=N, the fork that the search likes
+    expect(autoQueen(legal.filter(m => m.promo))?.promo).toBe(Q);
+    expect(autoQueen(legal.filter(m => !m.promo))).toBeUndefined();
+  });
+
+  it('keeps every Sacrifice with Always promote to queen: its picker always asks', () => {
+    setRules({ ...POWERS_BALANCED, kings: parseKings('stratus:sacrifice,none') });
+    const pos = fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1 lQN');
+    expect(hintMoves(legalMoves(pos), 'sacrifice', undefined, true).map(m => toLan(pos, m)).sort()).toEqual(['!S:a2=N', '!S:a2=Q']);
   });
 });

@@ -13,7 +13,7 @@ import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { mulberry32 } from './sim/rng';
 import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
-import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
+import { POWER_NAME, POWER_TAG, autoQueen, hintMoves, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
 import './dialog-dismiss';
@@ -99,7 +99,7 @@ let gen = 0;
 /** Closes an open promotion picker (resolving it with null). Set only while one is on screen. */
 let closePromo: (() => void) | null = null;
 let closeMoveChoice: (() => void) | null = null;
-/** Squares lit by Hint. Cleared when the player moves or selects something else. */
+/** Squares lit by Hint. Cleared by a move, another selection, the power button and Esc. */
 let hintSquares: number[] = [];
 const seenMoments = new Set<string>();
 /** The date (YYYY-MM-DD) when this game is that day's army, for the shareable result. */
@@ -503,9 +503,9 @@ function refreshPowers(): void {
   const spendable = !!tag && tag !== 'march' && tag !== 'leap';
   const midTurn = game.pos.haste !== undefined || !!game.pos.free; // a Haste or a free mark awaits its next move
   const from = k ? GAME_RULES.fromMove[k.power] : undefined, early = from !== undefined && moveNumber(game.pos) < from; // `Rules.fromMove`
-  const canUse = live && myTurn() && !busy && spendable && left !== 0 && !midTurn
-    && game.legal.some(m => m.power === tag);
-  if (!canUse) armed = false;
+  const usable = live && myTurn() && spendable && left !== 0 && !midTurn && game.legal.some(m => m.power === tag);
+  if (!usable) armed = false; // not when only busy: the power stays armed through Hint's search
+  const canUse = usable && !busy;
   $('powers').hidden = !live;
   const btn = $<HTMLButtonElement>('power-btn');
   btn.hidden = !spendable;
@@ -722,11 +722,7 @@ function pickPromotion(options: Move[]): Promise<Move | null> {
 }
 
 async function choose(moves: Move[]): Promise<void> {
-  const queen = $<HTMLInputElement>('queen').checked
-    && moves.every(m => m.promo)
-    && moves.every(m => m.promo === Q || m.promo === R || m.promo === B || m.promo === N)
-    ? moves.find(m => m.promo === Q)
-    : undefined;
+  const queen = $<HTMLInputElement>('queen').checked ? autoQueen(moves) : undefined;
   if (queen) return commit(queen);
   if (moves.length === 1 || !moves.every(m => m.promo)) return commit(moves[0]);
   const generation = gen;
@@ -792,7 +788,7 @@ async function choosePower(moves: Move[]): Promise<void> {
   armed = false; refresh();
 }
 
-$('power-btn').onclick = () => { armed = !armed; selected = null; pending = []; refresh(); };
+$('power-btn').onclick = () => { armed = !armed; selected = null; pending = []; hintSquares = []; refresh(); };
 $('end-haste').onclick = () => {
   const pass = game.legal.find(m => m.pass);
   if (pass && myTurn() && !busy) void commit(pass);
@@ -886,13 +882,20 @@ $('stop-chain').onclick = () => { const m = candidates().find(m => clickPath(m).
 
 $('hint').onclick = async () => {
   if (busy || finished() || !myTurn()) return;
+  const tag = armedTag(), l = lesson == null ? null : LESSONS[lesson], pos = game.pos;
+  const rootMoves = hintMoves(game.legal, tag, l ? m => l.goal(pos, m) : undefined, $<HTMLInputElement>('queen').checked);
+  if (!rootMoves.length) return refuse('Hint finds no move to play now.');
   busy = true;
   refresh();
   const g = gen;
-  const res = await engine.think(game.pos, { timeMs: 400, maxDepth: 3, history: game.history.map(h => positionKey(h.pos)) });
+  const res = await engine.think(pos, { timeMs: 400, maxDepth: 3, history: game.history.map(h => positionKey(h.pos)), rootMoves });
   if (g !== gen) return;
   busy = false;
-  hintSquares = res.move ? [res.move.from, ...clickPath(res.move)] : [];
+  // Esc during the search disarms the power, and the board then refuses the move found for it.
+  if (res.move && armedTag() === tag) {
+    if (res.move.pass) notice = 'Hint: end the turn.';
+    else { selected = null; pending = []; hintSquares = [res.move.from, ...clickPath(res.move)]; } // the first hinted tap selects the piece
+  }
   refresh();
 };
 
@@ -1334,7 +1337,7 @@ addEventListener('keydown', e => {
   // No game key acts under a dialog: there Esc only closes the dialog (the Workshop's Esc closes its top sheet,
   // else an open choices panel, else the Workshop).
   if (document.querySelector('dialog[open]')) return;
-  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; armed = false; refresh(); return; }
+  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; armed = false; hintSquares = []; refresh(); return; }
   // Nor in a field that takes typing.
   const field = e.target as HTMLElement;
   if (field.closest('input,select,textarea') || field.isContentEditable) return;

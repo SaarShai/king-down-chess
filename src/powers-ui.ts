@@ -3,7 +3,7 @@
  * power moves the player must arm first. The engine decides what is legal; this module only says
  * how a person reaches it.
  */
-import { CardName, Color, KINGS, KingChoice, KingName, Move, PowerName, POWERS_BALANCED, PowerTag, Position, RULES, type Rules, USES_RULE } from './rules/engine';
+import { B, CardName, Color, KINGS, KingChoice, KingName, Move, N, PowerName, POWERS_BALANCED, PowerTag, Position, Q, R, RULES, type Rules, USES_RULE } from './rules/engine';
 
 export const POWER_NAME: Record<PowerName, string> = {
   Freeze: 'Freeze', IceWall: 'Ice Wall', Strike: 'Strike', Haste: 'Haste', Flight: 'Flight', Sacrifice: 'Sacrifice',
@@ -119,6 +119,27 @@ const ARMED: ReadonlySet<PowerTag> = new Set(['freeze', 'ward', 'strike', 'haste
 export const needsArming = (m: Move): boolean => m.pass === true || (m.power !== undefined && ARMED.has(m.power));
 /** Whether a click can reach `m`: while a power is armed only its moves, otherwise none that need arming. */
 export const offered = (m: Move, armedTag: string | null): boolean => (armedTag ? m.power === armedTag : !needsArming(m));
+/**
+ * Settings → Always promote to queen: when one tap leaves a choice of only queen, rook, bishop and
+ * knight promotions, the board plays the queen one. Returns that move, else undefined.
+ */
+export const autoQueen = (moves: readonly Move[]): Move | undefined =>
+  moves.every(m => m.promo === Q || m.promo === R || m.promo === B || m.promo === N) ? moves.find(m => m.promo === Q) : undefined;
+/**
+ * The moves Hint may suggest: the moves a click can reach now (`offered`), the pass that End turn
+ * plays, and, in a lesson, only its goal moves. With `queen` (Always promote to queen) a promotion
+ * that `autoQueen` replaces is out. The board uses the same rules, so it never refuses a hint.
+ */
+export function hintMoves(legal: readonly Move[], armedTag: string | null, goal?: (m: Move) => boolean, queen = false): Move[] {
+  const reach = legal.filter(m => offered(m, armedTag) || m.pass);
+  // A Sacrifice asks in its own picker, which never promotes to a queen without asking.
+  const played = (m: Move): boolean => {
+    if (!queen || !m.promo || m.power === 'sacrifice') return true;
+    const q = autoQueen(reach.filter(o => o.from === m.from && o.to === m.to));
+    return !q || q === m;
+  };
+  return reach.filter(m => played(m) && (!goal || goal(m)));
+}
 
 /** Uses allowed by the rules (0 = unlimited), or null for an always-on power. */
 export function usesAllowed(power: PowerName, r: Rules = RULES): number | null {
