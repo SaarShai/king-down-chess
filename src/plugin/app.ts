@@ -17,11 +17,6 @@ board.setPace('off');
 let connected = false;
 let view: MatchView | undefined, pos: Position | undefined, selected: number | undefined, busy = false;
 let pending: Pending | undefined = saved?.pending;
-// VERIFY-live: discard one successful move reply only in the dedicated test match.
-let discardTestReply = false;
-const testReply = document.createElement('button'); testReply.textContent = 'Test: discard next move reply'; testReply.hidden = true;
-testReply.onclick = () => { discardTestReply = true; testReply.textContent = 'Test: next move reply will be discarded'; };
-$('reload').parentElement!.append(testReply);
 function saveState() { extension?.setWidgetState?.({ matchId: view?.matchId ?? hostMatchId, revision: view?.snapshot.revision, pending }); }
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function show(value: unknown) {
@@ -30,7 +25,6 @@ function show(value: unknown) {
   if (view?.matchId !== next.matchId) $('invitation').textContent = '';
   if (pending && pending.args.matchId !== next.matchId) { pending = undefined; $('retry').hidden = true; }
   view = next;
-  testReply.hidden = view.matchId !== '9aa166ad-f978-487d-b80f-c9a3963b2457' || view.mode !== 'solo';
   setRules(view.snapshot.rules); pos = fromFen(view.snapshot.fen);
   board.sync(pos); board.flip(view.playerColor === 1); selected = undefined; board.highlight({});
   $('status').textContent = view.waiting ? 'Waiting for your friend. Share an invitation.' : view.snapshot.status !== 'playing' ? ({ checkmate: `${view.snapshot.turn === 0 ? 'Black' : 'White'} wins · Checkmate`, stalemate: 'Draw · Stalemate', draw50: 'Draw · Fifty-move rule', drawRepetition: 'Draw · Repetition', drawMaterial: 'Draw · Insufficient material' } as Record<string, string>)[view.snapshot.status] : `${view.snapshot.turn === 0 ? 'White' : 'Black'} to move${view.snapshot.inCheck ? ' · Check' : ''} · Move ${view.snapshot.moveNumber} · You play ${view.playerColor === 0 ? 'White' : 'Black'}`;
@@ -48,10 +42,6 @@ async function call(name: string, args: Record<string, unknown>, retain = false)
   if (retain) { pending = { name, args }; saveState(); }
   try {
     const result = await app.callServerTool({ name, arguments: args });
-    if (discardTestReply && name === 'kingdown_move' && args.matchId === '9aa166ad-f978-487d-b80f-c9a3963b2457' && !result.isError) {
-      discardTestReply = false; testReply.textContent = 'Test: discard next move reply';
-      throw new Error('Verification: the server saved this move; its reply was deliberately discarded. Retry the same move.');
-    }
     if (result.isError) {
       const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); }

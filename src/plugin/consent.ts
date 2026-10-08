@@ -36,28 +36,6 @@ async function main(): Promise<void> {
   };
   document.getElementById('signed-in-account')!.textContent = session.data.session.user.email || 'Your signed-in account';
   accountChoice.hidden = false; say('Choose the account to connect.');
-  // VERIFY-live: temporary, user-scoped provider revocation for the live acceptance check.
-  if (new URL(location.href).searchParams.get('verification') === 'live-acceptance' && session.data.session.user.id === 'e0d952a0-147a-42c1-8382-153692908d6d') {
-    const clientId = 'a6478e14-9e9a-43a7-a4b7-b888aed30791';
-    if (!config.clientIds.includes(clientId)) throw new Error('Verification client is not enabled');
-    document.getElementById('continue')!.hidden = true;
-    const revoke = document.createElement('button'); revoke.textContent = 'Revoke this test account’s ChatGPT grant';
-    accountChoice.append(revoke);
-    revoke.onclick = async () => {
-      revoke.disabled = true;
-      try {
-        const current = await sb.auth.getUser();
-        if (current.error || current.data.user.id !== 'e0d952a0-147a-42c1-8382-153692908d6d') throw new Error('Verification account mismatch');
-        const result = await sb.auth.oauth.revokeGrant({ clientId });
-        if (result.error) throw result.error;
-        const grants = await sb.auth.oauth.listGrants();
-        if (grants.error) throw grants.error;
-        if (grants.data.some(grant => grant.client.id === clientId)) throw new Error('Grant still present');
-        say('Verification: ChatGPT grant revoked. The grant list confirms it is absent.');
-      } catch { say('Verification: revocation failed. No pass recorded.'); revoke.disabled = false; }
-    };
-    return;
-  }
   // Existing grants can redirect at the details request, before the consent controls appear.
   await new Promise<void>(resolve => { document.getElementById('continue')!.onclick = () => resolve(); });
   accountChoice.hidden = true; say('Checking this authorization request…');

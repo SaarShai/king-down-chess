@@ -15,7 +15,8 @@ export interface PluginAuth {
   metadata: { resource: string; authorization_servers: string[]; scopes_supported: string[]; bearer_methods_supported: string[]; resource_name: string };
   verify(token: string): Promise<string>;
 }
-export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds }: { supabaseUrl: string; publicOrigin: string; clientIds?: string[] }, keys?: JWTVerifyGetKey): PluginAuth {
+export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds, publishableKey }: { supabaseUrl: string; publicOrigin: string; clientIds?: string[]; publishableKey: string }, keys?: JWTVerifyGetKey, request: typeof fetch = fetch): PluginAuth {
+  if (!publishableKey) throw new Error('Supabase publishable key is required');
   const base = new URL(supabaseUrl);
   if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash || base.pathname !== '/') throw new Error('Expected a fixed HTTPS Supabase origin');
   const issuer = `${base.origin}/auth/v1`, resource = `${pluginOrigin(publicOrigin)}/mcp`;
@@ -33,6 +34,14 @@ export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds }: { 
         if (clientIds && !clientIds.includes(payload.client_id)) throw new AuthenticationError();
         // Supabase supports standard scopes only; older token examples omit the scope claim.
         if (payload.scope !== undefined && (typeof payload.scope !== 'string' || !payload.scope.split(/\s+/).includes('openid'))) throw new AuthenticationError();
+        // A valid signature does not prove that the provider session still exists.
+        const response = await request(`${issuer}/user`, {
+          headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(5000), redirect: 'error',
+        });
+        if (!response.ok) throw new AuthenticationError();
+        const user = await response.json();
+        if (typeof user?.id !== 'string' || user.id.toLowerCase() !== payload.sub.toLowerCase()) throw new AuthenticationError();
         return payload.sub.toLowerCase();
       } catch { throw new AuthenticationError(); }
     },

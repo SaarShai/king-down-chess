@@ -1,20 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServer, request, type Server } from 'node:http';
 import { once } from 'node:events';
-import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
+import { createLocalJWKSet, decodeJwt, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { createTokenVerifier, type PluginAuth } from './auth';
 import { createPluginHandler, MAX_MCP_BODY, type PluginHttpOptions } from './http';
 const alice = '11111111-1111-4111-8111-111111111111', bob = '22222222-2222-4222-8222-222222222222';
 const matchId = '33333333-3333-4333-8333-333333333333';
 const view = { matchId, playerColor: 0 as const, mode: 'solo' as const, waiting: false, snapshot: {} as any };
 const servers: Server[] = [];
+const provider = vi.fn<typeof fetch>();
 let service: PluginHttpOptions['service'], auth: PluginAuth, address: string, privateKey: CryptoKey;
 beforeEach(async () => {
+  provider.mockReset();
+  provider.mockImplementation(async (_url, options) => Response.json({ id: decodeJwt(new Headers(options?.headers).get('Authorization')!.slice(7)).sub }));
   service = { resume: vi.fn(async () => null), create: vi.fn(async () => view), get: vi.fn(async () => view), move: vi.fn(async () => view), computer: vi.fn(async () => view), invite: vi.fn(async () => ({ token: 'test', expiresAt: '2030-01-01' })), join: vi.fn(async () => view) };
   const pair = await generateKeyPair('ES256'); privateKey = pair.privateKey;
   const server = createServer(); servers.push(server); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   address = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-  auth = createTokenVerifier({ supabaseUrl: 'https://project.supabase.co', publicOrigin: address }, createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'test', alg: 'ES256' }] }));
+  auth = createTokenVerifier({ supabaseUrl: 'https://project.supabase.co', publicOrigin: address, publishableKey: 'sb_publishable_test' }, createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'test', alg: 'ES256' }] }), provider);
   const handler = createPluginHandler({ service, auth, resourceHtml: '<html>board</html>', publicOrigin: address, consent: { html: '<html>consent</html>', script: 'console.log(1)', supabaseOrigin: 'https://project.supabase.co' } });
   server.on('request', (req, res) => { void handler(req, res).catch(() => { res.statusCode = 500; res.end(); }); });
 });
@@ -30,6 +33,13 @@ async function post(body: unknown, bearer?: string, headers: Record<string, stri
 const list = { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} };
 const get = { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'kingdown_get', arguments: { matchId } } };
 describe('stateless authenticated MCP HTTP', () => {
+  it('rejects the same signed token after provider revocation before service access', async () => {
+    const bearer = await token();
+    const first = await post(get, bearer); expect(first.status).toBe(200); await first.json();
+    provider.mockResolvedValue(new Response('{}', { status: 401 }));
+    const revoked = await post(get, bearer); expect(revoked.status).toBe(401);
+    expect(service.get).toHaveBeenCalledTimes(1);
+  });
   it('serves public consent assets with a restricted CSP before OAuth authentication', async () => {
     const response = await fetch(`${address}/authorize?authorization_id=test`);
     expect(response.status).toBe(200); expect(await response.text()).toBe('<html>consent</html>');
