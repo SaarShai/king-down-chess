@@ -20,6 +20,10 @@ export const checks = [
   { name: 'workshop-cast', script: 'tools/verify-workshop-cast.mjs', limit: 180 },
   { name: 'qa', script: 'tools/qa.mjs', limit: 900, channel: 'chromium' },
   { name: 'selftest', script: 'tools/check-selftest.mjs', limit: 120 },
+  // Plugin checks build their own artifact; OAuth and HTTP checks need local PostgreSQL.
+  { name: 'plugin-oauth', script: 'tools/plugin-browser-check.mjs', args: ['oauth'], limit: 240, channel: 'chromium', byName: true },
+  { name: 'plugin-ui', script: 'tools/plugin-browser-check.mjs', args: ['fixture'], limit: 240, channel: 'chromium', byName: true },
+  { name: 'plugin-ui-http', script: 'tools/plugin-browser-check.mjs', args: ['http'], limit: 240, channel: 'chromium', byName: true },
   { name: 'selftest-dirty', script: 'tools/check-selftest-dirty.mjs', limit: 30, byName: true },
   { name: 'selftest-fail', script: 'tools/check-selftest-dirty.mjs', args: ['fail'], limit: 30, byName: true },
   { name: 'selftest-hang', script: 'tools/check-selftest-dirty.mjs', args: ['hang'], limit: 5, byName: true },

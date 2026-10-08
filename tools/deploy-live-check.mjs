@@ -32,6 +32,8 @@ for (const name of ['index.html', ...legalPages]) if (!existsSync(join(folder, n
 const bundle = bundleOf(readFileSync(join(folder, 'index.html'), 'utf8'));
 if (!bundle) fault(`the build's index.html has no module script in ${folder}`);
 const built = Object.fromEntries(legalPages.map(name => [name, readFileSync(join(folder, name))]));
+const configFile = join(folder, 'vercel.json');
+const consentRoute = existsSync(configFile) ? JSON.parse(readFileSync(configFile, 'utf8')).redirects?.find(route => route.source === '/authorize') : undefined;
 
 const base = (process.env.DEPLOY_LIVE_URL || 'https://kingdown.dev').replace(/\/+$/, '');
 const limit = Number(process.env.DEPLOY_LIVE_TIMEOUT_MS || 120_000);
@@ -63,6 +65,16 @@ async function differences() {
     if (error) found.push(error);
     else if (!bytes.equals(built[name])) found.push(`${name}: the live page differs from the build (live ${bytes.length} bytes, build ${built[name].length} bytes)`);
   });
+  if (consentRoute) {
+    try {
+      const query = '?authorization_id=deploy-check%2Bquery&state=keep%20me';
+      const response = await fetch(`${base}/authorize${query}`, { credentials: 'omit', redirect: 'manual', headers: { 'cache-control': 'no-cache' }, signal: AbortSignal.timeout(15_000) });
+      const location = response.headers.get('location');
+      const expected = new URL(consentRoute.destination + query);
+      const actual = location ? new URL(location, base) : null;
+      if (![307, 308].includes(response.status) || !actual || actual.origin !== expected.origin || actual.pathname !== expected.pathname || actual.searchParams.toString() !== expected.searchParams.toString()) found.push('/authorize: consent redirect or query differs from the build');
+    } catch { found.push('/authorize: consent redirect request failed'); }
+  }
   return found;
 }
 

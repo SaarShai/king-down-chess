@@ -3,6 +3,10 @@
 
 /node_modules
 dist/
+plugin-dist/
+dist-plugin-ui/
+plugin-server-dist/
+.vercel/
 .DS_Store
 
 # Generated simulation data. Bulk files stay on disk and are recorded by tools/hash-baseline.mjs;

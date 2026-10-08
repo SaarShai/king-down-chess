@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/authorize",
+      "destination": "https://kingdown-plugin.vercel.app/authorize",
+      "permanent": false
+    }
+  ]
+}

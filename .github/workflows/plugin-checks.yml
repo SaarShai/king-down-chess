@@ -1,0 +1,49 @@
+name: Validate game and private plugin
+
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: kingdown_test
+          POSTGRES_PASSWORD: local_test_only
+          POSTGRES_DB: kingdown_plugin_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PLUGIN_TEST_DATABASE_URL: postgresql://kingdown_test:local_test_only@127.0.0.1:5432/kingdown_plugin_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run plugin:db:init-test
+      - run: npm test
+      - run: npm run plugin:build
+      - run: npm run plugin:server:check
+      - run: npm run plugin:smoke
+      - run: npm run plugin:check:protocol
+      - run: npx playwright install --with-deps chromium
+      - run: npm run check:browser plugin-oauth plugin-ui plugin-ui-http

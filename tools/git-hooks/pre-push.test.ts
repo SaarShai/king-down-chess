@@ -70,7 +70,7 @@ describe('pre-push', () => {
       `HEAD ${head} refs/heads/feature ${'0'.repeat(40)}`,
       `HEAD ${head} refs/heads/main ${base}`,
     ]);
-    expect(gate.git).toEqual(expect.arrayContaining(['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM']));
+    expect(gate.git).toEqual(expect.arrayContaining(['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_SYSTEM']));
   });
 
   it('story 9: a gate that exits 1 refuses the push, and its stderr shows', () => {
