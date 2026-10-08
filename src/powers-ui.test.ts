@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { LESSONS } from './lessons';
-import { legalMoves, makeMove, parseKings } from './rules/engine';
+import { Q, legalMoves, makeMove, parseKings } from './rules/engine';
 import { POWERS_BALANCED, RULES_2017, setRules } from './rules/rules';
 import { fromFen, toLan } from './rules/setup';
-import { hintMoves, needsArming, powerOptions, powerText } from './powers-ui';
+import { autoQueen, hintMoves, needsArming, powerOptions, powerText } from './powers-ui';
 
 afterEach(() => setRules());
 
@@ -70,11 +70,25 @@ describe('the moves Hint may suggest', () => {
     expect(strike.map(m => toLan(pos, m))).toContain('Rc6-e8!'); // the Strike that mates, which an unarmed Hint showed
   });
 
-  it('has none when only End turn is left', () => {
+  it('keeps the pass in a Haste turn, which End turn plays', () => {
     setRules({ ...POWERS_BALANCED, kings: parseKings('flame:haste,none') });
-    const pos = fromFen('7k/8/8/8/p7/8/P7/K7 w - - 0 1');
+    const pos = fromFen('7k/8/8/1p6/8/8/P7/K7 w - - 0 1');
     const after = makeMove(pos, hintMoves(legalMoves(pos), 'haste').find(m => toLan(pos, m) === 'a2-a3!H')!);
-    expect(legalMoves(after).map(m => toLan(after, m))).toEqual(['--']);
-    expect(hintMoves(legalMoves(after), null)).toEqual([]);
+    expect(hintMoves(legalMoves(after), null).map(m => toLan(after, m))).toEqual(['a3-a4', '--']); // a3-a4 loses the pawn to b5xa4
+  });
+
+  it('with Always promote to queen, no promotion that the board changes to the queen', () => {
+    const pos = fromFen('8/2q1P1k1/8/8/8/8/8/7K w - - 0 1'), legal = legalMoves(pos);
+    const promos = (queen: boolean) => hintMoves(legal, null, undefined, queen).filter(m => m.promo).map(m => toLan(pos, m));
+    expect(promos(false)).toEqual(['e7-e8=Q', 'e7-e8=R', 'e7-e8=B', 'e7-e8=N']);
+    expect(promos(true)).toEqual(['e7-e8=Q']); // not e7-e8=N, the fork that the search likes
+    expect(autoQueen(legal.filter(m => m.promo))?.promo).toBe(Q);
+    expect(autoQueen(legal.filter(m => !m.promo))).toBeUndefined();
+  });
+
+  it('keeps every Sacrifice with Always promote to queen: its picker always asks', () => {
+    setRules({ ...POWERS_BALANCED, kings: parseKings('stratus:sacrifice,none') });
+    const pos = fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1 lQN');
+    expect(hintMoves(legalMoves(pos), 'sacrifice', undefined, true).map(m => toLan(pos, m)).sort()).toEqual(['!S:a2=N', '!S:a2=Q']);
   });
 });
