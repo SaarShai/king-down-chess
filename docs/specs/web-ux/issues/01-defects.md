@@ -1,6 +1,6 @@
 # Fix the web app defects D-1 to D-10
 
-Status: ready-for-agent
+Status: ready-for-human (the pull request waits for the owner)
 
 Owner, 2026-10-08: "yes, do both." (the defect fixes and the rendered sample of the game screen, under the picks of the [review](../review.md)).
 
@@ -27,16 +27,16 @@ Each group adds a unit test where the logic is pure and a probe in `tools/ux-def
 ## Verification
 
 - [x] D-1: Resign is off while the computer thinks. Against the computer, Resign always resigns your side.
-- [ ] D-2: Hint suggests only moves that the game takes now: the goal move in a lesson, no unarmed power move.
+- [x] D-2: Hint suggests only moves that the game takes now: the goal move in a lesson, no unarmed power move.
 - [x] D-3: In review, the piece card, the keyboard cursor and the captured rows show the viewed move.
 - [x] D-4: Start game over an unfinished game asks first; Cancel keeps the game.
-- [ ] D-5: Strong and Club play with different time (2.5 s and 0.8 s); `play.test.ts` asserts that they differ.
+- [x] D-5: Strong and Club play with different time (2.5 s and 0.8 s); `play.test.ts` asserts that they differ.
 - [x] D-6: No game key acts while a dialog is open.
-- [ ] D-7: A finger tap that moves up to 12 px selects the piece; a mouse keeps the 6 px limit.
-- [ ] D-8: Piece letters stay on after a reload and a look change.
-- [ ] D-9: "Copied" shows only after the copy succeeds; a failure says so; Copy moves gives feedback.
+- [x] D-7: A finger tap that moves up to 12 px selects the piece; a mouse keeps the 6 px limit.
+- [x] D-8: Piece letters stay on after a reload and a look change.
+- [x] D-9: "Copied" shows only after the copy succeeds; a failure says so; Copy moves gives feedback.
 - [x] D-10: A tap on an enemy piece shows its card; a capture still works.
-- [ ] `npm test` passes; `npm run check:browser` passes (all checks, `ux-defects` included).
+- [x] `npm test` passes; `npm run check:browser` passes (all checks, `ux-defects` included).
 
 ## Comments
 
@@ -55,3 +55,11 @@ Group C (D-3, D-10), branch `claude/web-ux-fix-viewed`, 2026-10-08:
 - `src/render/PaintedView.ts` and `src/render/marks.ts` do not change, so the plugin page does not change.
 - `tools/verify-ux-defects.mjs` calls `trapErrors`, as the check lint asks. The other groups have the same line, so the merge is clean.
 - Repair after the check, 2026-10-08: the first fix also removed the refusals for a selected piece, against pick D10, and the cursor speech kept the reviewed board after Enter or Escape. Both are fixed as above.
+
+Groups B, D and E, and the merge, 2026-10-08:
+
+- D-2 (`claude/web-ux-fix-hint`): `hintMoves()` in `src/powers-ui.ts` gives the moves the board takes now: no unarmed power move, only the armed power's moves when one is armed, a lesson's goal moves only, and no promotion that Always promote to queen replaces. The search takes them as `rootMoves`. The power stays armed during the Hint search. Unit tests in `powers-ui.test.ts` and `search.test.ts`; probe `d2-hint`.
+- D-5 and D-7 (`claude/web-ux-fix-level-touch`): Strong thinks 2.5 s; Club, Casual and Beginner keep their caps; the Thinking time slider and the `think` setting go, and an old `think` in the account is no settings change. `?think=` stays for the checks. A tap is past 6 px for a mouse and past 12 px for a finger or a pen (`src/render/tap.ts`), and it acts on the square under the press, in the painted and the clay boards. The plugin page gets the same touch limit. Probes `d5-level-time` and `d7-touch-tap`; `plugin-ui` passes.
+- D-8 and D-9 (`claude/web-ux-fix-letters-copy`): Piece letters are a saved setting, written only when on, and the account keeps them with the other settings. `copyText()` in `src/clipboard.ts` says "copied" only after a copy succeeds, says so when it fails, and gives the focus back. Copy moves says "Moves copied". Probes `d8-letters-stay` and `d9-copy-feedback`.
+- The merge into `claude/web-ux-defects`: the key handler takes group A's dialog test and group B's hint reset; the Hint "no move" line sets the help line directly; `think` leaves the settings and `labels` joins them. `npm test`: 1,399 tests pass, 13 skipped, 42 artwork checks pass. `npm run check:browser`: all 15 checks pass, `ux-defects` included; `plugin-ui` passes.
+
