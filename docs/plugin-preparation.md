@@ -16,10 +16,8 @@ npm run plugin:build
 npm run plugin:smoke
 npm run plugin:server:check
 npm run plugin:check:protocol
-npm run plugin:check:oauth
+npm run check:browser plugin-oauth plugin-ui plugin-ui-http
 ```
-
-On a busy development machine or small CI runner, `npm run test:plugin:ci` runs the same complete test set with two Vitest workers and a 30-second default test timeout. It does not change engine budgets or worker watchdogs.
 
 `plugin:db:init-test` accepts only a loopback database whose name ends in `_test`. It makes a minimal stand-in for Supabase identity and applies the match migration twice. The database tests use independent connections and separate Node processes, check transaction rollback, test seat access and invite races, and remove their generated accounts afterward. The HTTP check copies the artifact outside the checkout, then opens, moves, plays the computer, retries, restarts the service, resumes, and joins a friend through that source-free copy.
 
@@ -31,36 +29,31 @@ The [validation workflow](../.github/workflows/plugin-checks.yml) supplies Postg
 
 The standard SDK harness is a development host for the real board. It is not the ChatGPT host.
 
-```sh
-npm run plugin:build:ui
-npx tsx tools/plugin-ui-harness.ts dist-plugin-ui/board.html
-```
-
-Open `http://127.0.0.1:5296` while that command is running. In another terminal, `npm run plugin:check:ui` exercises move choices, Haste, recovery, computer play, a terminal board, remounting, display mode, and a 390-pixel viewport. This fixture keeps disposable matches in memory; stopping it loses those fixture games.
-
-For the durable path, use two disposable identities in the test database:
+Run the named browser checks through the shared runner:
 
 ```sh
-psql "$PLUGIN_TEST_DATABASE_URL" -c "insert into auth.users(id) values ('11111111-1111-4111-8111-111111111111'),('22222222-2222-4222-8222-222222222222') on conflict do nothing"
-KINGDOWN_PLUGIN_DATABASE_URL="$PLUGIN_TEST_DATABASE_URL" \
-KINGDOWN_PLUGIN_ORIGIN=http://127.0.0.1:3100 \
-npm run plugin:serve -- --local-dev
+npm run check:browser plugin-ui
+npm run check:browser plugin-oauth plugin-ui-http
 ```
 
-Then run the harness in another terminal:
+Each check builds the plugin in a temporary folder. The fixture and HTTP checks start their own harness on a free loopback port. The HTTP check also starts the compiled server on a free port and makes two disposable users in `PLUGIN_TEST_DATABASE_URL`. Each check closes its servers and browser, removes its temporary build, and deletes the HTTP test users and their games. Logs and screenshots use the shared runner's output folder. No hand-started server is needed.
+
+`plugin-ui` checks move choices, Haste, recovery, computer play, a terminal board, remounting, display mode, friend replies, and a 390-pixel viewport. `plugin-ui-http` checks the board through the compiled HTTP server and real PostgreSQL. `plugin-oauth` checks consent, PKCE and the audience hook. The last two need the disposable database from the local setup above. These checks run only by name; the normal website checks need no plugin database.
+
+To play the fixture by hand, build the plugin and start the harness:
 
 ```sh
-PLUGIN_MCP_URL=http://127.0.0.1:3100/mcp \
-PLUGIN_DEV_ACTOR=11111111-1111-4111-8111-111111111111 \
-PLUGIN_FRIEND_ACTOR=22222222-2222-4222-8222-222222222222 \
-npx tsx tools/plugin-ui-harness.ts
+npm run plugin:build
+npx tsx tools/plugin-ui-harness.ts plugin-server-dist/board.html
 ```
 
-`npm run plugin:check:ui` now drives the compiled HTTP server and real PostgreSQL. The second SDK client joins and replies as the friend. Only the local Node harness holds persona headers; the iframe receives public board data. Local personas require an explicit development flag, loopback peer, loopback origin and loopback database. The production function never enables them. Do not connect this persona mode to a public tunnel.
+Open the loopback address that the harness prints. Stopping it removes its in-memory games. Only the local Node harness holds persona headers; the iframe receives public board data. Local personas require an explicit development flag, loopback peer, loopback origin and loopback database. The production function never enables them. Do not connect persona mode to a public tunnel.
 
 ## Service and deployment contract
 
-The [match guide](match-foundation.md) documents the worker. The server owns matches, seats, accepted commands and hashed invitation tokens in [migration 0002](../supabase/migrations/0002_matches.sql). Browser roles have no access to these tables. The runtime needs a server-only PostgreSQL connection with the required table access; the website's publishable key cannot substitute for it.
+The [match guide](match-foundation.md) documents the worker. The server owns matches, seats, accepted commands and hashed invitation tokens in [migration 0002](../supabase/migrations/0002_matches.sql). Browser roles have no access to these tables. The runtime uses a separate PostgreSQL login with the reviewed [runtime grants](../plugin-deploy/runtime-role.sql). Apply this one-time file after the match migration and audience hook, through the admin connection. Set its password with the interactive `psql` command `\password kingdown_plugin_runtime`. Put only this role's URL in `KINGDOWN_PLUGIN_DATABASE_URL`; keep the admin URL separate for migrations. The website's publishable key cannot substitute for it.
+
+The runtime role has no administrator rights and does not bypass row security. It can read and write match data and read the OAuth client allowlist. The service checks each player's seat and turn. Supabase may grant other access through `PUBLIC`, so inspect the live role's effective access before release. Do not remove shared `PUBLIC` grants to fix a single role. Through the shared pooler, use `kingdown_plugin_runtime.PROJECT_REF` as the username and copy the host from the Connect dialog. [Supabase connections](https://supabase.com/docs/guides/database/connecting-to-postgres), [shared grants](https://supabase.com/docs/guides/troubleshooting/custom-role-inherits-privileges-that-were-not-explicitly-granted-ddaa1c)
 
 Each move checks the authenticated seat, actual engine turn and revision. It computes outside the database lock, then atomically commits the command receipt and new save under a row lock. Retry IDs are scoped to the actor; identical retries return current authority. Haste and free power actions may keep the same player to move. Friend boards refresh every three seconds while visible and waiting; hidden, disconnected, busy and own-turn boards do not poll.
 
@@ -82,7 +75,7 @@ The consent page is included at `/authorize`, with Google and GitHub sign-in usi
 4. Apply [the match migration](../supabase/migrations/0002_matches.sql) with the migration command and appropriate server credentials. Set `KINGDOWN_PLUGIN_OAUTH_READY=1` only after the real discovery endpoint works and provider settings are complete. Startup checks discovery and that the SQL audience allowlist matches the configured clients and resource; failed startup can recover on a later request.
 5. Connect the private MCP URL in ChatGPT and run the real-account cases in the beta packet, including sign-in, deny, refresh, account switch, two-player play and revoked access. Record actual host behavior separately from the local harness.
 
-The owner's ChatGPT web account exposed **Add custom MCP server**, including the **Tunnel** connection option on October 7, 2026. The Platform tunnel settings page failed to load a JavaScript module during this check, so no usable tunnel or workspace association was established. The existing Supabase project's canonical OAuth discovery endpoint returned HTTP 404; its dashboard required sign-in. The GitHub sign-in route requested a new Supabase authorization to read account email addresses, so it was left for the owner without granting access. OAuth readiness remains unverified. The signed-in Vercel CLI found `kingdown`, Node 24, and a Pro team, superseding the older Hobby observation for this account. No cloud configuration was changed.
+The owner's account exposes **Add custom MCP server**, including OAuth and the Tunnel option. The Platform tunnel settings page now loads. No King Down tunnel exists. The signed-in Supabase dashboard confirms Google and GitHub sign-in are enabled, OAuth Server is off, and no OAuth apps or Auth hooks exist. Its Site URL is `https://kingdown.dev`. The project already uses an ES256 signing key; no signing-key change is needed. The signed-in Vercel dashboard confirms the existing `kingdown` project under Saar's projects on Pro. No live setting has changed. The proposed release is in [the external-host ticket](specs/match-foundation/issues/01-external-host-check.md).
 
 Use a configured private staging server with OAuth for a real host test. A Secure MCP Tunnel needs its own tunnel ID, runtime credential and correct Platform/ChatGPT associations; the presence of the connection tab alone is insufficient. Keep server and database authority private. [Connection guide](https://developers.openai.com/plugins/deploy/connect-chatgpt), [tunnel setup](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
 

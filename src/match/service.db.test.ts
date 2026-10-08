@@ -1,4 +1,5 @@
 /** Opt-in integration tests; PLUGIN_TEST_DATABASE_URL must name a disposable real PostgreSQL database. */
+import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -7,6 +8,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MatchService } from './service';
 import { PostgresMatchStore } from './store';
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
+if (url) {
+ const target = new URL(url);
+ if (!['localhost', '127.0.0.1', '[::1]'].includes(target.hostname) || !target.pathname.endsWith('_test')) throw new Error('Database tests require a disposable loopback database ending in _test');
+}
 const suite = url ? describe : describe.skip;
 suite('PostgreSQL authenticated matches (real connections and processes)', () => {
  const pools = [new pg.Pool({connectionString:url,max:1}),new pg.Pool({connectionString:url,max:1})];
@@ -88,6 +93,53 @@ suite('PostgreSQL authenticated matches (real connections and processes)', () =>
   const white=await services[0].move(actors[0],initial.matchId,{id:'shared-id',expectedRevision:0,lan:initial.snapshot.legal[0]});
   expect((await services[1].move(joinedActor,initial.matchId,{id:'shared-id',expectedRevision:1,lan:white.snapshot.legal[0]})).snapshot.revision).toBe(2);
   const tokenRow=await pools[0].query('select token_hash from public.plugin_match_invites where match_id=$1',[initial.matchId]); expect(tokenRow.rows[0].token_hash).not.toBe(invite.token);
+ },30000);
+ it('runs the full friend flow with the reviewed runtime role and rejects extra access',async () => {
+  const role = `plugin_test_${randomUUID().replaceAll('-', '')}`;
+  const password = randomUUID();
+  const runtimeUrl = new URL(url!); runtimeUrl.username = role; runtimeUrl.password = password;
+  const runtime = new pg.Pool({ connectionString: runtimeUrl.href, max: 1 });
+  const sql = (await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role);
+  await pools[0].query(sql);
+  try {
+   await pools[0].query(`alter role ${role} password '${password}'`);
+   const identity = await runtime.query('select current_user as name,rolsuper,rolbypassrls from pg_roles where rolname=current_user');
+   expect(identity.rows[0]).toEqual({ name: role, rolsuper: false, rolbypassrls: false });
+   expect((await runtime.query('select 1 from pg_auth_members where member=(select oid from pg_roles where rolname=current_user)')).rowCount).toBe(0);
+   const clientId = randomUUID(), resource = 'https://plugin.example/mcp';
+   await pools[0].query('insert into kingdown_oauth.client_resources(client_id,resource) values($1,$2)',[clientId,resource]);
+   try {
+    const allowed = await runtime.query('select client_id::text from kingdown_oauth.client_resources where client_id=any($1::uuid[]) and resource=$2',[[clientId],resource]);
+    expect(allowed.rows).toEqual([{ client_id: clientId }]);
+   } finally { await pools[0].query('delete from kingdown_oauth.client_resources where client_id=$1',[clientId]); }
+   const service = new MatchService(new PostgresMatchStore(runtime));
+   const game = await service.create(actors[0],{},'friend');
+   const oldInvite = await service.invite(actors[0],game.matchId);
+   const invite = await service.invite(actors[0],game.matchId);
+   await expect(service.join(actors[1],oldInvite.token)).rejects.toMatchObject({code:'INVITE_UNAVAILABLE'});
+   await service.join(actors[1],invite.token);
+   const command = {id:'runtime-move',expectedRevision:0,lan:game.snapshot.legal[0]};
+   expect((await service.move(actors[0],game.matchId,command)).snapshot.revision).toBe(1);
+   expect((await service.move(actors[0],game.matchId,command)).snapshot.revision).toBe(1);
+   expect((await service.resume(actors[1]))?.matchId).toBe(game.matchId);
+   for (const statement of [
+    'select * from auth.users',
+    'delete from kingdown_oauth.client_resources',
+    "update public.plugin_match_commands set payload='{}'",
+    'delete from public.plugin_match_commands',
+    'update public.plugin_matches set white_id=white_id',
+    'truncate public.plugin_matches',
+    "select public.kingdown_access_token_hook('{}'::jsonb)",
+   ]) await expect(runtime.query(statement)).rejects.toMatchObject({code:'42501'});
+   await service.deleteAccountMatches(actors[0]);
+   for (const table of ['plugin_matches','plugin_match_commands','plugin_match_invites']) {
+    const rows = await runtime.query(`select count(*)::int as count from public.${table} where ${table==='plugin_matches'?'id':'match_id'}=$1`,[game.matchId]);
+    expect(rows.rows[0].count).toBe(0);
+   }
+  } finally {
+   await runtime.end();
+   await pools[0].query(`drop owned by ${role}; drop role ${role}`);
+  }
  },30000);
  it('grants no browser access to shared authority',async () => {
   for (const role of ['anon','authenticated']) for (const table of ['plugin_matches','plugin_match_commands','plugin_match_invites']) {

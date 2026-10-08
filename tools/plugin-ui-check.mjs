@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright';
-const browser = await chromium.launch({ headless: true });
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+const base = env('PLAYABLE_URL');
+const browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1000 } });
-const errors = []; page.on('pageerror', error => errors.push(error.message));
+trapErrors(page);
 try {
-  await page.goto('http://127.0.0.1:5296');
-  const capabilities = await (await page.request.get('http://127.0.0.1:5296/harness-mode')).json();
+  await page.goto(base);
+  const capabilities = await (await page.request.get(new URL('/harness-mode', base).href)).json();
   const mode = capabilities.mode;
   if (process.env.PLUGIN_EXPECT_MODE) assert.equal(mode, process.env.PLUGIN_EXPECT_MODE, 'Connected to the expected harness backend');
   const frame = page.frameLocator('iframe');
@@ -58,20 +59,20 @@ try {
   await page.waitForTimeout(100);
   assert.equal(await frame.locator('body').evaluate(el => el.scrollWidth > window.innerWidth), false);
   const canvas = await frame.locator('canvas').boundingBox(); assert(canvas && canvas.width > 250 && canvas.width <= 390);
-  await page.screenshot({ path: '/tmp/kingdown-plugin-ui-mobile.png' });
+  await shot(page, 'mobile');
   if (capabilities.friend) {
     await frame.locator('summary').click();
     await frame.locator('#friend').click(); await frame.locator('#reload:not(:disabled)').waitFor();
     await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
     await frame.locator('#invite').click(); await frame.locator('#reload:not(:disabled)').waitFor();
     const token = (await frame.locator('#invitation').innerText()).replace('Share this invitation: ', '');
-    const joined = await (await page.request.post('http://127.0.0.1:5296/fixture-friend-join', { data: { token } })).json();
+    const joined = await (await page.request.post(new URL('/fixture-friend-join', base).href, { data: { token } })).json();
     assert(!joined.isError);
     await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
     await clickSquare(4, 1); await clickSquare(4, 3); await frame.locator('#choices button[title="e2-e4"]').click();
     await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
     const friend = await page.evaluate(() => window.harnessView);
-    const replied = await (await page.request.post('http://127.0.0.1:5296/fixture-friend-move', { data: { matchId: friend.matchId, id: 'friend-reply', expectedRevision: friend.snapshot.revision, lan: 'e7-e5' } })).json();
+    const replied = await (await page.request.post(new URL('/fixture-friend-move', base).href, { data: { matchId: friend.matchId, id: 'friend-reply', expectedRevision: friend.snapshot.revision, lan: 'e7-e5' } })).json();
     assert(!replied.isError);
     await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
     assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 2);
@@ -82,17 +83,17 @@ try {
   await clickSquare(4, 1); await clickSquare(4, 3);
   await page.evaluate(() => { window.dropNextMoveReply = true; });
   await frame.locator('#choices button[title="e2-e4"]').click(); await frame.locator('#retry').waitFor();
-  const switched = await (await page.request.post('http://127.0.0.1:5296/fixture-tool', { data: { name: 'kingdown_create', arguments: { mode: 'solo' } } })).json();
+  const switched = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_create', arguments: { mode: 'solo' } } })).json();
   await page.evaluate(async result => { await window.harnessShow(result); }, switched);
   await frame.locator('#retry').waitFor({ state: 'hidden' });
   await clickSquare(4, 1); assert(await frame.locator('#choices button').count() > 0);
   if (mode === 'fixture') {
-  await page.goto('http://127.0.0.1:5296/?terminal=1');
+  await page.goto(new URL('/?terminal=1', base).href);
   await frame.locator('#status').filter({ hasText: 'Checkmate' }).waitFor();
   assert.equal(await frame.locator('#computer').isVisible(), false);
   assert.equal(await frame.locator('#choices button').count(), 0);
   }
-  assert.deepEqual(errors, []);
+  assertNoErrors();
   console.log(`Harness mode: ${mode}`);
   console.log(`PASS: SDK AppBridge initialization, painted board move, iframe remount with identical FEN/revision, Haste ambiguity, lost-reply same-ID retry committed once, bounded computer turn, definitive rejection recovery, match switch recovery, ${capabilities.friend ? 'friend join/reply polling, ' : ''}display mode, 390px layout, no page errors${mode === 'fixture' ? ', terminal fixture' : ', real HTTP MCP and PostgreSQL'}`);
 } finally { await browser.close(); }

@@ -3,7 +3,7 @@
  * Jev session player — deliberate games where Jev steers the plan and the engine enforces legality
  * and tactics.
  *
- * Design (TASKS.md "Jev balancing review", validated before trusting):
+ * Design (docs/tasks-archive/2026-09.md, "Jev (TypeSafe) balancing review", validated before trusting):
  *   - The engine's own search plays every move unless a *plan* is available: at each turn the tool
  *     computes the engine's best move and up to three alternatives whose static evaluation is close
  *     and whose strategic theme differs. Jev chooses among **themes described in code**, never among

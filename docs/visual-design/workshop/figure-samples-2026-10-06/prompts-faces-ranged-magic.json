@@ -1,0 +1,105 @@
+{
+  "tool": "built-in image_gen",
+  "request": "try with less defined/human faces. more minimalist faces.",
+  "repoFilesWritten": false,
+  "imageEditing": "Built-in image_gen only; Python used read-only for image metadata and alpha verification.",
+  "sheets": [
+    {
+      "name": "ranged",
+      "input": "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/ranged.png",
+      "attempts": [
+        {
+          "prompt": "Use case: precise-object-edit.\nEdit target: the provided 1536 × 1024 paired crossbowman figure sheet. Make the faces substantially more minimalist and less human/portrait-like. CHANGE ONLY FACIAL RENDERING on both the ivory figure at left and charcoal figure at right.\nReplace each detailed realistic face with broad smooth painted miniature/token shapes in the same warm skin palette. Use a single tiny dark dash for each visible eye, a barely suggested nose in the profile contour, no detailed lips, pupils, irises, eye whites, lashes, wrinkles, cheek anatomy or angry expression. Keep a calm neutral abstract face, without turning it into a new literal mask or helmet. Keep the same head size, direction and position. Retain the exact existing dark beard and moustache outer silhouette but paint them as a few plain dark masses without individual hairs or portrait expression. No large cartoon eyes.\nPreserve exactly the original full-body pose, all anatomy outside the faces, hands, tall hat, beard silhouette, padded clothes, leather straps, buckles, belt, quiver and bolts, complete crossbow with all its limbs and string, boots, outlines, painterly material texture, lighting, and ivory-left / charcoal-right color scheme. Keep the exact paired composition, figure scale, placement, margins, and canvas aspect ratio, with both complete figures and every weapon fully inside the image. Do not add labels, extra objects, new decoration, or new background.\nOutput the same 1536 × 1024 transparent RGBA sheet with real alpha transparency. Retain the existing character artwork. Make the two simplified faces consistent with each other.",
+          "output": "/Users/za/.codex/generated_images/01a11115-449d-7791-86ae-99c0c0e69dce/exec-7c455326-c630-45bd-842e-6a493c4c082e.png",
+          "selected": false,
+          "check": "Faces simplified successfully, but composition enlarged figures and moved heads upward. Replaced by attempt 2."
+        },
+        {
+          "prompt": "Use case: precise-object-edit.\nEdit target: the provided original 1536 × 1024 paired crossbowman sheet. Apply a tiny LOCAL repaint ONLY to the face of each man, including facial marks and the texture inside his existing beard. Do not regenerate, zoom or scale the figures.\nFACIAL CHANGE: make both faces clearly less human/portrait-like, like a simple painted chess miniature. Use broad smooth areas of the existing warm skin color, one tiny subtle horizontal dark dash for the visible eye, no realistic eye white, pupils/iris, eyelids or lashes, no angry eyebrows, nostrils, lip lines, wrinkles or realistic cheek anatomy. The nose is suggested only by the existing outline. Keep a neutral abstract face with a small understated eye mark, not a black oval cartoon eye. Keep the exact dark beard and moustache outline, using a few plain dark painted masses instead of detailed hair strands. Do not create a literal mask or add a helmet.\nLAYOUT LOCK: the entire original composition must stay unchanged. Original ivory hat top is near (425,80), ivory face near (466,216), ivory boots run roughly x179–669 and end near y948. Original charcoal hat top is near (1127,81), charcoal boots run roughly x881–1374 and end near y948. Ivory crossbow extends to about x720, charcoal crossbow to about x1432. Keep these placements and the exact original figure scale; preserve the generous existing top/bottom margins. Return the original 1536 × 1024 landscape frame.\nOutside the small facial regions, preserve the input: full body poses, hands, hat, head size and direction, clothes, straps, buckles, quiver and bolts, complete crossbows with bow limbs and strings, boots, silhouettes, black outlines, painterly material textures, lighting, and ivory-left / charcoal-right color scheme. Both figures and all weapons remain whole in frame. No added objects, text, decoration, new glow or background.\nPreserve the existing real alpha transparency. Output a 1536 × 1024 transparent RGBA paired sheet.",
+          "output": "/Users/za/.codex/generated_images/01a11115-449d-7791-86ae-99c0c0e69dce/exec-dc880d21-c4a4-48ef-a33b-4fe67abfd257.png",
+          "selected": true,
+          "check": "Smooth skin areas and short horizontal eye marks replace portrait faces. Beard silhouette, pose, clothing and crossbows retained. Framing very close to original. Both complete figures and weapons visible."
+        }
+      ],
+      "final": "/Users/za/.codex/generated_images/01a11115-449d-7791-86ae-99c0c0e69dce/exec-dc880d21-c4a4-48ef-a33b-4fe67abfd257.png",
+      "checks": {
+        "size": [
+          1536,
+          1024
+        ],
+        "mode": "RGBA",
+        "alphaRange": [
+          0,
+          254
+        ],
+        "transparentPixels": 1083255,
+        "alphaNonzeroBBox": [
+          0,
+          20,
+          1504,
+          989
+        ],
+        "visual": "Pass for approval trial. Minimal dash eyes on both army halves; no realistic facial expression; existing beard outline retained.",
+        "materialUnintendedChanges": "No material visual changes observed outside faces in selected attempt; tiny redraw and alpha-edge differences remain."
+      },
+      "ivoryHeadRectOriginal": [
+        330,
+        145,
+        185,
+        165
+      ],
+      "ivoryHeadRectFinal": [
+        330,
+        145,
+        185,
+        165
+      ]
+    },
+    {
+      "name": "magic",
+      "input": "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/magic.png",
+      "attempts": [
+        {
+          "prompt": "Use case: precise-object-edit.\nEdit target: the supplied 1536 × 1024 paired witch figure sheet. Edit ONLY THE TWO SMALL FACIAL REGIONS to make the faces less defined and less human/portrait-like. This is a local face repaint, not a redraw of the whole image.\nReplace each wrinkled elderly portrait face with a smooth abstract painted miniature/token face in the existing skin tone. A single tiny dark dash indicates the visible eye. The nose is only barely suggested by a simplified outer profile contour. Remove realistic eye whites, pupil/iris, eyebrow expression, nostril anatomy, lip lines, smile/frown, wrinkles, cheek and chin modeling. Face should be a calm, minimal icon formed by a few broad painted areas. Do not create a new literal mask or helmet. No large cartoon eyes.\nKeep the exact head size, orientation, position, and gray hair/bun/curl silhouette. Preserve the broad brim hat, lantern, crooked staff, book, hands, robes, belts, pouches, shoes, full pose, ivory-left / charcoal-right palette, painterly texture and black outlines. Keep the witch recognizable by the unchanged hat, hair, book, and lantern.\nABSOLUTE LAYOUT LOCK: retain the exact original 1536 × 1024 canvas and original full figure positions and scale. Ivory hat brim spans roughly x180–619, y169–338; ivory feet end near y940. Charcoal counterpart stays exactly where it is. Do not zoom, rescale, recenter, reposition, crop, or reshape the figures or equipment. Keep both complete figures and staffs inside the original margins. Outside the face patches, copy the input as closely as possible. No new text, objects, decoration, glow or background.\nPreserve genuine alpha transparency and return a transparent RGBA 1536 × 1024 paired sheet.",
+          "output": "/Users/za/.codex/generated_images/01a11115-449d-7791-86ae-99c0c0e69dce/exec-3013cf4c-990c-409e-9533-808654adbdb8.png",
+          "selected": true,
+          "check": "Elderly portrait detail removed on both faces. Flat warm painted areas with tiny vertical eye marks and profile contour. Hat, hair silhouette, lantern, staff, book, clothes and overall layout retained."
+        }
+      ],
+      "final": "/Users/za/.codex/generated_images/01a11115-449d-7791-86ae-99c0c0e69dce/exec-3013cf4c-990c-409e-9533-808654adbdb8.png",
+      "checks": {
+        "size": [
+          1536,
+          1024
+        ],
+        "mode": "RGBA",
+        "alphaRange": [
+          0,
+          254
+        ],
+        "transparentPixels": 1009086,
+        "alphaNonzeroBBox": [
+          23,
+          36,
+          1484,
+          1002
+        ],
+        "visual": "Pass for approval trial. Both witch faces are distinctly minimal. Full figures, staff and lanterns visible.",
+        "materialUnintendedChanges": "Face contour is simplified and chin slightly squarer as part of the requested abstraction. No material visual change to body or equipment; tiny redraw and alpha-edge differences remain."
+      },
+      "ivoryHeadRectOriginal": [
+        315,
+        205,
+        195,
+        160
+      ],
+      "ivoryHeadRectFinal": [
+        315,
+        205,
+        195,
+        160
+      ]
+    }
+  ],
+  "blockers": []
+}

@@ -1,0 +1,91 @@
+{
+  "tool": "built-in image_gen",
+  "reference": "/Users/za/Documents/king down chess/art-src/pieces/final-ivory/Archer_colored5.png",
+  "scope": "Human faces only in the original fast and support samples; no goat or full-set generation; no raster postprocessing; root copies selected outputs into the project.",
+  "items": [
+    {
+      "name": "fast",
+      "inputPaths": [
+        "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/fast.png",
+        "/Users/za/Documents/king down chess/art-src/pieces/final-ivory/Archer_colored5.png"
+      ],
+      "outputPath": "/Users/za/.codex/generated_images/01a11129-7c9e-75c2-beea-36911e54d73e/exec-bcd5c9fc-ff80-4d67-b42e-36e4ea65a15a.png",
+      "prompt": "Use case: precise-object-edit.\nInput image 1 is the edit target: the ORIGINAL 1536x1024 two-color fast fighter sample sheet, ivory on left and charcoal on right. Input image 2 is a STYLE REFERENCE FOR FACE SIMPLIFICATION ONLY: the archival original King Down Archer.\nEdit ONLY the facial skin features on both versions of the fighter in image 1. Translate the Archer reference's simplified adult sculptural face into the target's existing hand-painted figure medium: readable angular planar brow, contiguous deep eye-socket shadow under the brow, narrow implied eyes with no visible detailed iris or eye whites, simple straight wedge nose, small restrained shaped mouth, and faceted cheek and jaw planes. Retain the fast fighter's own adult feminine identity and narrow face proportions; preserve her existing gaze, head direction and expression of focus. Reduce facial rendering detail decisively so the face reads with broad painted planes and shadows like the original Archer. Do not make it a realistic or cute/anime portrait, a blank oval, a faceless mask, or dot/dash glyph eyes.\nEvery non-face element must remain unchanged: same precise head size and position, unchanged hair/ponytail/ribbon, neck, body proportions and pose, costume, linework, ivory and charcoal palettes, twin curved swords, hands, feet and silhouette. Do not copy the Archer's hood, braid, clothing or face identity. Do not turn the bodies into a 3D render.\nUse the original sheet's exact 1536x1024 canvas and registration: do not enlarge, zoom, crop, recenter or reposition either character. Preserve all source margins and foot baseline; retain fully visible sword tips. Output the complete paired sample sheet, on genuine transparent background, with no backdrop, glow, checkerboard, caption or added element.",
+      "attempts": 1,
+      "ivoryHeadXYWH": [
+        277,
+        118,
+        263,
+        202
+      ],
+      "ivoryFaceCloseupXYWH": [
+        390,
+        178,
+        146,
+        142
+      ],
+      "qa": {
+        "size": [
+          1536,
+          1024
+        ],
+        "mode": "RGBA",
+        "alphaExtrema": [
+          0,
+          254
+        ],
+        "transparentPixels": 1162218,
+        "alphaBBox": [
+          69,
+          21,
+          1488,
+          1000
+        ],
+        "visual": "Both faces have broad angular cheek/jaw planes, deep contiguous brow/eye shadows, wedge nose and restrained mouth; no detailed iris or whites. Original adult narrow face character retained. Twin swords, ponytail, costume, hands, feet and full composition remain visibly intact. No props clip.",
+        "limitations": "Small generative redraw/registration differences remain; not a pixel-exact inpaint. No retry because facial goal and visible margins passed."
+      }
+    },
+    {
+      "name": "support",
+      "inputPaths": [
+        "/Users/za/Documents/king down chess/.claude/worktrees/agent-af146c2f91d80dc0b/docs/visual-design/workshop/figure-samples-2026-10-06/support.png",
+        "/Users/za/Documents/king down chess/art-src/pieces/final-ivory/Archer_colored5.png"
+      ],
+      "outputPath": "/Users/za/.codex/generated_images/01a11129-7c9e-75c2-beea-36911e54d73e/exec-e6c7f07d-8026-40ff-84dd-f72d2eca9587.png",
+      "prompt": "Use case: precise-object-edit.\nInput image 1 is the edit target: the ORIGINAL 1536x1024 two-color support standard-bearer sample sheet, ivory on left and charcoal on right. Input image 2 is a STYLE REFERENCE FOR FACE SIMPLIFICATION ONLY: the archival original King Down Archer.\nEdit ONLY the facial skin features on both versions of the standard-bearer in image 1. Translate the Archer reference's simplified adult sculptural face into the target's existing hand-painted figure medium: readable angular planar brow, deep contiguous eye-socket shadow below the brow, narrow implied eyes with no visible detailed iris or eye whites, simple straight wedge nose, small restrained shaped mouth, faceted cheek and jaw planes. Preserve this support woman's own mature broad/round head outline, full face proportions, age, head direction and identity. Keep a calm benevolent expression, through a small restrained mouth and relaxed broad planes, rather than a doll smile. Simplify the face decisively: remove the detailed shiny eyes, bubbly cheeks, dainty nose and cute doll portrait rendering, replacing them with broad sculptural painted planes and shadows comparable to the original Archer. She remains this sturdy friendly standard bearer, not the Archer with a different costume. Do not make a blank oval, faceless mask, dot/dash glyph eyes, realistic portrait or anime face.\nEvery non-face element must remain unchanged: same precise head size and position, unchanged braided bun and loose hair, neck, broad body proportions, body pose, costume, linework, ivory and charcoal palettes, banner and staff, open hand, feet and silhouette. Do not copy the Archer's hood, braid, clothing, narrow head shape or face identity. Do not turn the bodies into a 3D render.\nUse the original sheet's exact 1536x1024 canvas and registration: do not enlarge, zoom, crop, recenter or reposition either character. Preserve source margins and foot baseline, the banner's complete spear finial and cloth edges, full staff and open hand. Output the complete paired sample sheet on genuine transparent background, with no backdrop, glow, checkerboard, caption or added element.",
+      "attempts": 1,
+      "ivoryHeadXYWH": [
+        326,
+        291,
+        201,
+        179
+      ],
+      "ivoryFaceCloseupXYWH": [
+        376,
+        312,
+        141,
+        157
+      ],
+      "qa": {
+        "size": [
+          1536,
+          1024
+        ],
+        "mode": "RGBA",
+        "alphaExtrema": [
+          0,
+          254
+        ],
+        "transparentPixels": 1059078,
+        "alphaBBox": [
+          0,
+          4,
+          1504,
+          995
+        ],
+        "visual": "Both faces use broad planar adult forms, deep eye-socket/brow shadow, simple long wedge nose and small restrained mouth. Detailed doll eyes and bubbly cheek rendering removed; braided bun, broad body, calm expression and own character remain. Both banner finials, flag edges, staffs, open hands and boots are visibly complete.",
+        "limitations": "Small redraw/registration drift remains, most apparent in charcoal support shifting slightly left. The face reads leaner than the original bubbly rendering while retaining the broad outline. Faint nonzero alpha reaches the left image boundary, as in the source; this does not cut a visible prop. No retry because face styling passed and no material clipping was observed."
+      }
+    }
+  ]
+}

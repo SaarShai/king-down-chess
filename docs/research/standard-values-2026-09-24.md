@@ -1,6 +1,6 @@
 # Standard piece values — 2026-09-24
 
-> Recovery status, 2026-09-24: Point-in-time value audit, retained as evidence. Current values are consolidated in docs/PLAYABLE-CLAY.md; no new fit was performed. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Point-in-time value audit, retained as evidence. Current values are consolidated in docs/PLAYABLE-CLAY.md; no new fit was performed. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Compared the six standard chess material constants in `src/ai/eval.ts` to written decisions in `docs/RULES.md`. Fairy values (Archer 505, Ogre 318, Guard 96, Maester 318, Beast 434, Paladin 408) were out of scope for this pass and left alone.
 

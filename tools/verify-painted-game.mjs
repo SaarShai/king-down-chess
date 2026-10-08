@@ -1,19 +1,11 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
-// Needs a running build: PLAYABLE_URL=http://127.0.0.1:5189/ node tools/verify-painted-game.mjs
-import { chromium } from 'playwright';
+// Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { mkdirSync } from 'node:fs';
+import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
-const url = new URL(process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/');
+const url = new URL(env('PLAYABLE_URL'));
 url.searchParams.set('look', 'painted'); // also the default; the phone check below uses the bare URL
-const out = 'docs/painted-game';
-mkdirSync(out, { recursive: true });
-const browser = await chromium.launch({ headless: true, channel: process.env.PLAYABLE_BROWSER || 'chrome' });
-const errors = [];
-const watch = page => {
-  page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-};
+const browser = await launch();
 /** The saved game's players, [White, Black]. */
 const players = page => page.evaluate(() => { const s = JSON.parse(localStorage.getItem('kingdown.save')); return [s.white, s.black]; });
 const plies = page => page.$$eval('#moves li', li => li.map(l => l.textContent.trim().split(/\s+/).slice(1)).flat().length);
@@ -21,7 +13,7 @@ try {
   // 1. Computer vs computer: every capture animation must finish and hand the move on.
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
-  watch(page);
+  trapErrors(page);
   await page.goto(url.href);
   await page.evaluate(() => localStorage.removeItem('kingdown.save'));
   await page.goto(url.href);
@@ -33,17 +25,19 @@ try {
   await page.goto(both.href);
   await page.waitForFunction(() => document.querySelector('#board canvas'));
   assert.deepEqual(await players(page), ['ai', 'ai']);
-  let last = -1, stalls = 0;
-  for (let i = 0; i < 90; i++) {
+  // The game runs to 60 plies and at least one capture (a random 60-ply game can have none), or to its end.
+  const captures = () => page.$$eval('#took-w span, #took-b span', s => s.length);
+  let last = -1, stalls = 0, taken = 0;
+  for (let i = 0; i < 120; i++) {
     await page.waitForTimeout(1500);
     const n = await plies(page), over = await page.evaluate(() => document.getElementById('over').open || /wins|draw|Draw|Stalemate/.test(document.getElementById('status').textContent));
-    if (over || n >= 60) { console.log(`ok computer game: ${n} plies${over ? ', finished' : ''}`); break; }
+    taken = await captures();
+    if (over || (n >= 60 && taken > 0)) { console.log(`ok computer game: ${n} plies${over ? ', finished' : ''}`); break; }
     stalls = n === last ? stalls + 1 : 0; last = n;
     assert.ok(stalls < 6, `no progress for 9 s at ply ${n}`);
   }
-  const taken = await page.$$eval('#took-w span, #took-b span', s => s.length);
   assert.ok(taken > 0, 'the game included captures');
-  await page.screenshot({ path: `${out}/computer-game.png` });
+  await shot(page, 'computer-game');
   console.log(`ok ${taken} captures animated`);
   // A game that finished before 60 plies leaves the result dialog open over the board; close it so
   // the next case's clicks reach the panel.
@@ -285,13 +279,13 @@ try {
   // 3. Phone width: the board fits without horizontal scrolling.
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
   await phone.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
-  watch(phone);
+  trapErrors(phone);
   await phone.goto(url.origin + url.pathname); // no parameter: painted must be the default
   await phone.waitForFunction(() => document.getElementById('board').classList.contains('painted') && document.querySelector('#board canvas')?.clientWidth > 300);
   await phone.evaluate(() => window.view.ready()); // the art, so the screenshot shows the board
   const fit = await phone.evaluate(() => ({ doc: document.documentElement.scrollWidth, board: document.querySelector('#board canvas').getBoundingClientRect().width }));
   assert.ok(fit.doc <= 390 && fit.board >= 340, JSON.stringify(fit));
-  await phone.screenshot({ path: `${out}/phone.png` });
+  await shot(phone, 'phone');
   console.log(`ok phone: board ${Math.round(fit.board)} px`);
-  assert.deepEqual(errors, []);
+  assertNoErrors();
 } finally { await browser.close(); }

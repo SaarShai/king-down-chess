@@ -196,7 +196,7 @@ move captures (Haste's shape with two pieces). Not measured.
     are unchanged. Earlier evidence: `docs/research/sim-paladin-pool-2026-09-17.md`,
     `direct-campaign-phase-2-2026-09-22.md`, `sim-ogre-movement-2026-09-17.md`,
     `direct-campaign-phase-3-2026-09-22.md`. Selectively implemented on the accepted clay base:
-    [adoption record](cursor-recovery/2026-09-24-0213b442/EXECUTED.md). The new 24-game traffic sketch
+    adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`). The new 24-game traffic sketch
     does not establish a balance improvement or a precise first-move advantage.
 19. **The over-a-piece Archer is held; today's Archer stays (owner, 2026-10-05: "option B").** The owner
     first approved `archerShots: 'over2'` (the Archer takes an enemy exactly 2 squares away straight or on

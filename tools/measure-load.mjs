@@ -60,6 +60,7 @@ async function freshPage(look, serviceWorkers = 'allow') {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: false, serviceWorkers });
   await context.addInitScript(look => {
     try { if (!localStorage.getItem('kingdown.look')) localStorage.setItem('kingdown.look', look); } catch { /* storage blocked */ }
+    try { sessionStorage.setItem('kingdown.title-seen', '1'); } catch { /* the title screen would cover the board's taps */ }
   }, look);
   const page = await context.newPage();
   const cdp = await context.newCDPSession(page);

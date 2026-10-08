@@ -1,6 +1,6 @@
 # Quiet pieces: guard captures and beast chains (2026-09-24)
 
-> Recovery status, 2026-09-24: Historical traffic definitions; zero Guard captures follows its rule. Activity counts alone do not justify evaluation bonuses. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Historical traffic definitions; zero Guard captures follows its rule. Activity counts alone do not justify evaluation bonuses. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Context only: the 24-game depth-2 sketch in
 `docs/research/shipped-balance-2026-09-24.md` saw **0 guard captures** and

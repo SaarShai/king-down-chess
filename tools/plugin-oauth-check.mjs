@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
-import { chromium } from 'playwright';
+import { assertNoErrors, launch, trapErrors } from './lib/checks.mjs';
 import pg from 'pg';
 const root = resolve(process.argv[2] || 'plugin-server-dist');
 const clientId = '11111111-1111-4111-8111-111111111111', actor = '22222222-2222-4222-8222-222222222222', authorizationId = '33333333-3333-4333-8333-333333333333';
@@ -18,8 +18,8 @@ server.listen(0, '127.0.0.1'); await once(server, 'listening');
 const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
-  const signin = await browser.newPage();
+  browser = await launch();
+  const signin = await browser.newPage(); trapErrors(signin);
   let signInUrl, exchange;
   await signin.route('https://project.supabase.co/**', async route => {
     const url = new URL(route.request().url());
@@ -43,7 +43,7 @@ try {
   assert.equal(new URL(signin.url()).searchParams.get('authorization_id'), authorizationId);
   await signin.close();
   for (const action of ['approve', 'deny', 'unlisted']) {
-    const page = await browser.newPage(); let decision;
+    const page = await browser.newPage(); trapErrors(page); let decision;
     const now = Math.floor(Date.now() / 1000);
     const session = { access_token: `header.${Buffer.from(JSON.stringify({ exp: now + 3600, sub: actor })).toString('base64url')}.signature`, refresh_token: 'mock-refresh', expires_at: now + 3600, expires_in: 3600, token_type: 'bearer', user: { id: actor, email: 'player@example.test', is_anonymous: false, app_metadata: {}, user_metadata: {} } };
     await page.addInitScript(({ session }) => localStorage.setItem('kingdown-plugin-consent', JSON.stringify(session)), { session });
@@ -60,7 +60,8 @@ try {
     else { await page.getByRole('button', { name: action === 'approve' ? 'Allow connection' : 'Deny', exact: true }).click(); await page.waitForURL('https://client.example/**'); assert.equal(decision.action, action); assert(new URL(page.url()).searchParams.has(action === 'approve' ? 'code' : 'error')); }
     await page.close();
   }
-  const missing = await browser.newPage(); await missing.goto(`${origin}/authorize`); await missing.getByText('This authorization request is unavailable or expired.', { exact: false }).waitFor(); assert(await missing.getByRole('button', { name: 'Allow connection' }).isHidden()); await missing.close();
+  const missing = await browser.newPage(); trapErrors(missing); await missing.goto(`${origin}/authorize`); await missing.getByText('This authorization request is unavailable or expired.', { exact: false }).waitFor(); assert(await missing.getByRole('button', { name: 'Allow connection' }).isHidden()); await missing.close();
+  assertNoErrors();
   console.log('Consent browser: PKCE social return/code exchange preserves authorization_id, SDK approve/deny, unlisted client blocked, escaped client name, and missing request passed');
 } finally { await browser?.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 

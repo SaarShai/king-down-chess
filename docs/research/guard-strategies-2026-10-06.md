@@ -128,7 +128,11 @@ finds the weights itself. That is level 2 of the strategy-search plan.
   **+2.82 ± 0.19 pawns** against no Guard, +1.86 against the same Guard far away, +1.13 against a
   pawn on its square. On the interpose square: +3.59 ± 0.40. The king lives 34 plies, not 18.
 - So the Guard's value is in defence, which the worth test (Guard on b1, quiet start) does not see.
-- kd-real: too few positions (38); the filter needs to be looser before it says anything.
+- kd-real2 (1,500 positions from real games, looser filter): the Guard next to the king is worth +1.05 ± 0.24
+  pawns against no Guard. The attacks are milder than the random ones, so the worth is smaller.
+- guard-king (normal start): the Guard on f1 is +0.53 ± 0.14 pawns better than on b1, but in quiet games it
+  is far below a Knight (−2.52 pawns). Recommendation: start the Guard next to the king.
+- Depth 4 (Kaggle): the results hold. No march plan helps (best E3-30 +0.24 ± 0.25); king defence +2.86 ± 0.27.
 - kd-real2 (1,500 real-game positions, filter ply 20–80, 1+ attacker within 3 or 2+ within 4,
   every candidate ply tried; 12,000 games): the Guard next to the king is worth **+1.05 ± 0.24
   pawns** against no Guard, +0.37 ± 0.24 against the same Guard far away, +0.38 ± 0.24 against a

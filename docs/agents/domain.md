@@ -57,5 +57,5 @@ Single-context. No `GLOSSARY.md` or `docs/adr/` exists yet; the skills create th
 - `AGENTS.md`: the standing rules and the owner's decisions.
 - `docs/RULES.md`: the game rules, the pieces, the kings' powers and the cards.
 - `docs/MATRIX.md`: the ability types, conditions and the powers/cards schema (start here for any new piece, power, card or rule).
-- `LESSONS.md`: rules learned from past work.
-- `TASKS.md`: current work and open owner decisions.
+- `LESSONS.md`: the Always rules and an index of lessons in topic files.
+- `TASKS.md`: an index of open items.

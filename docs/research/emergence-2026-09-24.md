@@ -1,6 +1,6 @@
 # Games where behavior emerges (2026-09-24)
 
-> Recovery status, 2026-09-24: Design inspiration, with mixed source types. Examples and player anecdotes do not establish general enjoyment. [Catalog and qualifications](../cursor-recovery/2026-09-24-0213b442/RESEARCH.md) · [Adoption record](../cursor-recovery/2026-09-24-0213b442/EXECUTED.md).
+> Recovery status, 2026-09-24: Design inspiration, with mixed source types. Examples and player anecdotes do not establish general enjoyment. Catalog and qualifications (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/RESEARCH.md`) · Adoption record (`dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/EXECUTED.md`).
 
 Notes for King Down. Primary accounts only. This does not change the rules.
 

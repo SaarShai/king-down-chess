@@ -69,9 +69,12 @@ export default defineConfig({
   // Relative URLs: the same build works at a site root, on a sub-path such as GitHub Pages'
   // /king-down-chess/, and in `vite preview`.
   base: './',
-  server: { port: +(process.env.PORT || 5173), strictPort: true },
+  // Both servers listen on 127.0.0.1, the address that the checks call; a `--host` flag overrides it.
+  server: { host: '127.0.0.1', port: +(process.env.PORT || 5173), strictPort: true },
+  preview: { host: '127.0.0.1' },
   worker: { format: 'es' },
   build: { copyPublicDir: false },
   plugins: [offlineBuild()],
-  test: { environment: 'node', include: ['src/**/*.test.ts'] }, // docs/2d-first-pieces uses node:test
+  // Vitest collects the source, tools and Claude hook tests. docs/2d-first-pieces uses node:test (npm test).
+  test: { environment: 'node', include: ['src/**/*.test.ts', 'tools/**/*.test.ts', '.claude/hooks/**/*.test.ts'] },
 });

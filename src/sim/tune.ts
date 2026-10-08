@@ -25,7 +25,7 @@ import {
   A, B, Color, G, K, L, LETTERS, M, Move, N, P, PieceType, Position, Q, R, S, WHITE,
   canCapture, colorOf, inCheck, makeMove, typeOf,
 } from '../rules/engine';
-import { RULES, Rules, setRules } from '../rules/rules';
+import { RULES, setRules } from '../rules/rules';
 import { fromFen, toLan } from '../rules/setup';
 import { EvalParams, PST_LETTERS, evalParams, evaluate } from '../ai/eval';
 import { quiesceScore, resetSearchState } from '../ai/search';

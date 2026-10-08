@@ -1,0 +1,7 @@
+# Tracker files: git's union merge driver keeps the lines of both sides and gives no conflict.
+# MATRIX.md gets no driver: a union merge copies table rows two times.
+# tools/steering.docs.test.ts checks these lines.
+/TASKS.md merge=union
+/LESSONS.md merge=union
+/docs/lessons/*.md merge=union
+/docs/QUEUE.md merge=union
