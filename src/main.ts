@@ -1276,6 +1276,9 @@ const dialog = newGameDialog(s => {
     if (!back) return; // the dialog stays open
     if (back.split('S').length > 2) { alert('One Beast per army.'); return; } // owner, 2026-10-04
   }
+  // Like a game link (below), Start game asks before it replaces an unfinished game with a move (a lesson
+  // is not one). Cancel keeps the game, its save and the dialog.
+  if (!finished() && game.history.length && lesson == null && !confirm('Start a new game? It replaces your current game.')) return;
   setup = s;
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(s)); } catch { /* private mode: the choices last this visit */ }
   if (s.army === 'daily') { const d = today(); newGame(randomBackRank(mulberry32(+d.replace(/-/g, ''))), null, false, d); }
