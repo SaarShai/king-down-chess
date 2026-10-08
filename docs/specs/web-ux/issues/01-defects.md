@@ -26,14 +26,23 @@ Each group adds a unit test where the logic is pure and a probe in `tools/ux-def
 
 ## Verification
 
-- [ ] D-1: Resign is off while the computer thinks. Against the computer, Resign always resigns your side.
+- [x] D-1: Resign is off while the computer thinks. Against the computer, Resign always resigns your side.
 - [ ] D-2: Hint suggests only moves that the game takes now: the goal move in a lesson, no unarmed power move.
 - [ ] D-3: In review, the piece card, the keyboard cursor and the captured rows show the viewed move.
-- [ ] D-4: Start game over an unfinished game asks first; Cancel keeps the game.
+- [x] D-4: Start game over an unfinished game asks first; Cancel keeps the game.
 - [ ] D-5: Strong and Club play with different time (2.5 s and 0.8 s); `play.test.ts` asserts that they differ.
-- [ ] D-6: No game key acts while a dialog is open.
+- [x] D-6: No game key acts while a dialog is open.
 - [ ] D-7: A finger tap that moves up to 12 px selects the piece; a mouse keeps the 6 px limit.
 - [ ] D-8: Piece letters stay on after a reload and a look change.
 - [ ] D-9: "Copied" shows only after the copy succeeds; a failure says so; Copy moves gives feedback.
 - [ ] D-10: A tap on an enemy piece shows its card; a capture still works.
 - [ ] `npm test` passes; `npm run check:browser` passes (all checks, `ux-defects` included).
+
+## Comments
+
+Group A (D-1, D-4, D-6), branch `claude/web-ux-fix-guards`, 2026-10-08:
+
+- The probes `d1-resign-side`, `d4-start-asks` and `d6-keys-under-dialogs` fail on the old code and pass on the fix. `game.test.ts` tests `resigningSide`. `special-moves` now checks that Z does nothing under an open move choice (before, Z undid there).
+- `tools/new-game-ui.mjs` `startGame` answers OK when Start game asks, so the checks that start a game over an unfinished game work as before.
+- Follow-up, WCAG 2.1.4 (character key shortcuts): Z and R are single-key shortcuts, and nothing turns them off. They now act only with no dialog open and no text field in focus. A later change adds a way to turn them off, or limits them to board focus. No setting is added now.
+- Follow-up, D-4: Start game in a lesson asks no question, because the lesson is not a game. But it also replaces the game that Return to game keeps. The owner decides whether that game gets the question too.
