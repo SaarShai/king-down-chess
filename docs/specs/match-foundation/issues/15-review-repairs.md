@@ -1,6 +1,6 @@
 # Repair the confirmed independent-review findings
 
-Status: claimed
+Status: resolved
 
 ## Authorization and scope
 
@@ -38,4 +38,4 @@ Worker faults return a fixed, retryable error. Known invalid moves remain defini
 
 The approved release script publishes deployment `dpl_8NgLfpapmpEEEVJshcxdJ9NCeRwc` at `https://kingdown-plugin.vercel.app`. It passes 1,410 tests, 42 artwork checks, compiled HTTP/database, worker and protocol checks, and all three browser checks (4.4 s, 17.6 s and 17.0 s). Unsigned live checks pass. The deployment dashboard shows zero error or fatal log entries in the first live-check window; the API log connector denies access, so the dashboard supplies this evidence.
 
-The actual ChatGPT check detects cached old controls, even after a full chat reload. [Ticket 16](16-board-resource-cache.md) owns the cache repair and final live verification. This repair stays open until that check passes. The phone-width browser check is not a new native iPhone result. Broader beta scenarios and speculative capacity changes remain outside this repair.
+The actual ChatGPT check detects cached old controls, even after a full chat reload. [Ticket 16](16-board-resource-cache.md) owns the cache repair and final live verification. That check now passes after PR 23, tool refresh and a fresh ChatGPT conversation. The final release and live results are in ticket 16. All confirmed repair items in this ticket are resolved. The phone-width browser check is not a new native iPhone result. Broader beta scenarios and speculative capacity changes remain outside this repair.

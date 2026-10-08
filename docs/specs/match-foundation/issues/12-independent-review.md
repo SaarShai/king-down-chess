@@ -16,7 +16,7 @@ Check each reported defect against the target source. Record the trigger, file a
 
 ## Progress
 
-The owner signs in through the subscription. Two separate tracked-text snapshots hold the fixed target, diff and commit list. Reviewers have read-only file tools and no live service access. Both requested reviewers start after the required CLI update. The response metadata confirms each requested model. Review results remain pending.
+The owner signs in through the subscription. Two separate tracked-text snapshots hold the fixed target, diff and commit list. Reviewers have read-only file tools and no live service access. Both requested reviewers start after the required CLI update. The response metadata confirms each requested model. The completed results and validation follow below.
 
 ## Answer
 
@@ -58,4 +58,4 @@ The reports are source reviews. Neither reviewer runs tests or visits the live h
 
 ## Follow-up
 
-The review is complete; the new defects are not repaired. Tickets 13 and 14 record the two medium gameplay/recovery findings. The confirmed error-handling, keyboard, validation, documentation and operation gaps above also remain open. The prior test and phone acceptance records remain historical evidence, not proof that these newly found cases pass.
+The confirmed defects and operation gaps are repaired and released in [ticket 15](15-review-repairs.md). Tickets 13 and 14 record the gameplay and recovery checks. [Ticket 16](16-board-resource-cache.md) fixes the stale host resource found during release verification and records the passing fresh ChatGPT check. The suggestions and unverified concerns above keep their narrower labels. The original reports and prior phone results remain historical records.
