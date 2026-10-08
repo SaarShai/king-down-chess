@@ -1149,7 +1149,7 @@ function copyFallback(text: string): void {
 
 /* ---- autosave ---- */
 /** account/sync.ts splits these fields into settings and the saved game: name a new one there too. */
-interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean }
+interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean; labels?: boolean }
 const SAVE_KEY = 'kingdown.save';
 /** Settings → Account and the cloud save, loaded after the board is drawn (null until then, or offline). */
 let account: typeof import('./account/account') | null = null;
@@ -1171,6 +1171,7 @@ function save(): void {
       queen: $<HTMLInputElement>('queen').checked,
       pace: pace.value as Pace,
       threats: $<HTMLInputElement>('threats').checked,
+      labels: labels.checked,
       link: linkSide,
       daily,
       resigned,
@@ -1192,6 +1193,7 @@ function applySettings(s: Save): void {
   // Old saves with no skill field stay Strong so a resumed game does not suddenly get easier.
   skill = isLevel(s.skill) ? s.skill : 'strong';
   if (typeof s.coords === 'boolean') coords.checked = s.coords;
+  if (typeof s.labels === 'boolean') labels.checked = s.labels;
 }
 
 /** A save's rules, army and moves onto `game`; a save it cannot read starts a new game. */
@@ -1210,7 +1212,7 @@ function fromAccount(down: string[]): void {
   if (!s) return;
   if (down.includes('settings')) {
     applySettings(s);
-    setSound($<HTMLInputElement>('sound').checked); applyPace(); view.setCoords(coords.checked);
+    setSound($<HTMLInputElement>('sound').checked); applyPace(); view.setCoords(coords.checked); view.setLabels(labels.checked);
     refresh();
   }
   if (down.includes('saved_game')) { if (lesson != null) cloudGame = true; else if (!fen) openSaved(s); }
@@ -1317,9 +1319,7 @@ function applyPace(): void {
 }
 pace.onchange = () => { applyPace(); save(); };
 const labels = $<HTMLInputElement>('labels');
-labels.checked = params.get('labels') === '1';
-labels.onchange = () => view.setLabels(labels.checked);
-view.setLabels(labels.checked);
+labels.onchange = () => { view.setLabels(labels.checked); save(); };
 const coords = $<HTMLInputElement>('coords');
 coords.onchange = () => { view.setCoords(coords.checked); save(); };
 $('reset-view').onclick = () => view.resetView();
@@ -1430,6 +1430,8 @@ const titleClosed = new Promise<void>(resolve => {
 
 // The playable game has one art direction; study controls stay in the study.
 view.applyStyle(STYLES.clay);
+if (params.get('labels') === '1') labels.checked = true; // `?labels=1` turns the letters on over the saved choice
+view.setLabels(labels.checked);
 view.setCoords(coords.checked);
 applyPace();
 const fen = link ? null : params.get('fen');
