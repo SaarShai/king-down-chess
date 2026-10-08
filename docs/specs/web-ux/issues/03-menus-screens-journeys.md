@@ -26,6 +26,10 @@ Every screen, menu, sheet and dialog of the web app, and the journeys through th
 4. Rendered sample: each screen and sheet at phone and desktop sizes, the game screen at the five sizes, a storyboard for each journey, and motion prototypes (video and frame strips) for the moves section, the sheets and the result.
 5. Critique and polish.
 
+## Progress
+
+- 2026-10-08, steps 1 to 3: the [inventory and journeys](../screens/sources/inventory.md), the [guidelines](../screens/sources/guidelines.md), three proposals (new player, chess player, declutter) and the merged [spec](../screens/spec.md). The spec defines the four sample groups (game, start, setup, motion) for step 4 and holds the owner decisions W13 to W21.
+
 ## Verification
 
 - [ ] The inventory lists every control of `index.html` and the screens that `src/main.ts` builds, each with its home.
