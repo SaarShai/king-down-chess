@@ -9,13 +9,14 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 type Pending = { name: string; args: Record<string, unknown> };
 const extension = (window as Window & { openai?: { widgetState?: { matchId?: string; pending?: Pending }; setWidgetState?: (state: unknown) => void } }).openai;
 const saved = extension?.widgetState;
+let hostMatchId = saved?.matchId;
 const app = new App({ name: 'King Down board', version: '1.0.0' }, {});
 const board = new PaintedView($('board'));
 board.setPace('off');
 let connected = false;
 let view: MatchView | undefined, pos: Position | undefined, selected: number | undefined, busy = false;
 let pending: Pending | undefined = saved?.pending;
-function saveState() { extension?.setWidgetState?.({ matchId: view?.matchId ?? saved?.matchId, pending }); }
+function saveState() { extension?.setWidgetState?.({ matchId: view?.matchId ?? hostMatchId, pending }); }
 const buttons = () => document.querySelectorAll<HTMLButtonElement>('button');
 function show(value: unknown) {
   if (!value || typeof value !== 'object' || !('snapshot' in value)) return;
@@ -77,7 +78,7 @@ $('board').onkeydown = event => {
   if (delta) { event.preventDefault(); cursor = Math.max(0, Math.min(63, cursor + delta * (view?.playerColor === 1 ? -1 : 1))); board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
   else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
 };
-$('reload').onclick = () => { if (view) void call('kingdown_get', { matchId: view.matchId }); };
+$('reload').onclick = () => { const matchId = view?.matchId ?? hostMatchId; if (matchId) void call('kingdown_get', { matchId }); };
 $('retry').onclick = () => { if (pending) void call(pending.name, pending.args, true); };
 $('computer').onclick = () => { if (view) void call('kingdown_computer', { matchId: view.matchId, id: crypto.randomUUID(), expectedRevision: view.snapshot.revision }, true); };
 $('invite').onclick = () => { if (view) void call('kingdown_invite', { matchId: view.matchId }); };
@@ -87,10 +88,16 @@ $('resume').onclick = () => void call('kingdown_resume', {});
 $('join').onclick = () => void call('kingdown_join', { token: $<HTMLInputElement>('token').value.trim() });
 $('expand').onclick = async () => { try { const mode = app.getHostContext()?.displayMode === 'fullscreen' ? 'inline' : 'fullscreen'; await app.requestDisplayMode({ mode }); } catch (error) { $('error').textContent = String(error); } };
 board.onLoadError = () => { $('error').textContent = 'The board artwork could not load. Reload the board.'; };
-app.ontoolresult = result => show(result.structuredContent);
+app.ontoolresult = result => {
+  const value = result.structuredContent;
+  if (!value || typeof value !== 'object' || !('snapshot' in value) || !('matchId' in value) || typeof value.matchId !== 'string') return;
+  // Hosts can replay an old tool result when they reopen the board.
+  hostMatchId = value.matchId;
+  if (connected) void call('kingdown_get', { matchId: hostMatchId });
+};
 app.onhostcontextchanged = context => { $('expand').textContent = context.displayMode === 'fullscreen' ? 'Inline' : 'Fullscreen'; };
 const refresh = setInterval(() => {
   if (connected && !document.hidden && !busy && !pending && view?.mode === 'friend' && view.snapshot.status === 'playing' && (view.waiting || view.snapshot.turn !== view.playerColor)) void call('kingdown_get', { matchId: view.matchId });
 }, 3000);
 app.onclose = () => { connected = false; clearInterval(refresh); };
-void app.connect().then(() => { connected = true; if (saved?.matchId && !view) return call('kingdown_get', { matchId: saved.matchId }); }).catch(error => { $('error').textContent = `Could not connect to the game: ${String(error)}`; });
+void app.connect().then(() => { connected = true; if (hostMatchId) return call('kingdown_get', { matchId: hostMatchId }); }).catch(error => { $('error').textContent = `Could not connect to the game: ${String(error)}`; });
