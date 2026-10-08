@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#e6e1cf" />
   <title>King Down Chess · game screen sample</title>
   <!-- A rendered sample for the owner's decision (docs/specs/web-ux/issues/02-game-screen-sample.md), not the build.
-       ?state=idle|selected|review|powers picks the state; the keys 1 to 4 do the same. -->
+       ?state= picks the state; the keys 1 to 7 do the same. -->
   <link rel="preload" href="../../../../public/fonts/alegreya-sans-regular-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="../../../../public/fonts/alegreya-sans-bold-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="../../../../public/fonts/cinzel-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="sample.css" />
   <script>
     // Before the first paint: the state, so no other state shows for a frame.
-    const STATES = ['idle', 'selected', 'review', 'powers'];
+    const STATES = ['idle', 'hint', 'selected', 'review', 'resign', 'powers', 'armed'];
     const asked = new URLSearchParams(location.search).get('state');
     document.documentElement.dataset.state = STATES.includes(asked) ? asked : 'idle';
   </script>
@@ -30,26 +30,23 @@
   </svg>
 
   <main class="game">
-    <!-- Desktop, laptop and tablet: the rare actions as quiet text links (decision W2 C). -->
+    <!-- Desktop, laptop and tablet: the rare actions as quiet text links, Resign last (decision W2 C, review item 2). -->
     <nav class="toolbar" aria-label="Menu">
       <button class="quiet" type="button">New game</button>
       <button class="quiet" type="button">Guide</button>
       <button class="quiet" type="button">Workshop</button>
       <button class="quiet" type="button">Settings</button>
+      <button class="quiet resign" type="button" aria-label="Resign" title="Resign" data-on="resign"><svg class="icon" aria-hidden="true"><use href="#i-resign"/></svg><span class="word">Resign</span></button>
     </nav>
 
     <section class="strip opp" aria-label="Your opponent">
       <span class="avatar" style="--art: url('../../../../public/ui/kings/shadow-b.webp'); --at: 47% 2%"></span>
       <span class="who">
-        <b>Computer</b>
-        <span class="sub" data-show="idle selected review">Casual</span>
-        <span class="sub" data-show="powers">Casual · Shadow</span>
+        <span class="name"><b>Computer</b></span>
+        <span class="sub"><span class="t">Casual<span data-show="powers armed"> · Shadow</span></span><span class="took" data-show="powers armed" role="img" aria-label="took a pawn">&nbsp;· took <svg class="pi pi-w" aria-hidden="true"><use href="../../../../public/ui/icons/pawn.svg#icon"/></svg></span></span>
       </span>
-      <span class="took" data-show="powers" aria-label="The computer took: pawn">
-        <svg class="pi pi-w" aria-hidden="true"><use href="../../../../public/ui/icons/pawn.svg#icon"/></svg>
-      </span>
-      <!-- A passive power is a state, not an action: "Always on". Its card is open (chosen). -->
-      <button class="secondary" type="button" data-show="powers" aria-pressed="true">
+      <!-- A passive power is a state, not an action: quiet, "Always on". A tap opens its card; the open card underlines the name. -->
+      <button class="quiet power" type="button" data-show="powers armed" aria-controls="context" data-on="powers">
         <img src="../../../../public/ui/emblems/shadow.webp" alt="" width="28" height="28" />
         <span><b>Death Touch</b><small>Always on</small></span>
       </button>
@@ -61,94 +58,137 @@
       <img class="board" width="1440" height="1482" alt="The painted board" />
     </picture>
 
+    <div class="panel">
+      <!-- Hint and Undo stay here in every state (0 px move); the context area is under them (review item 1). -->
+      <div class="head">
+        <div class="status" role="status">
+          <span data-show="idle hint selected resign powers armed">Your move</span>
+          <span data-show="review">Reviewing move 6</span>
+        </div>
+        <div class="actions">
+          <button class="secondary" type="button" id="hint" data-off="review"><svg class="icon" aria-hidden="true"><use href="#i-hint"/></svg>Hint</button>
+          <button class="secondary" type="button" id="undo" data-off="review"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg>Undo</button>
+          <span class="steps">
+            <button class="icon-btn" type="button" aria-label="Back one move" title="Back one move"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></button>
+            <button class="icon-btn" type="button" aria-label="Forward one move" title="Forward one move" data-off="idle hint selected resign powers armed"><svg class="icon" aria-hidden="true"><use href="#i-forward"/></svg></button>
+          </span>
+        </div>
+      </div>
+
+      <!-- The one context area: a note, a card, a power step or a question. It grows down, never up. -->
+      <div class="context" id="context" aria-live="polite">
+        <div class="note" data-show="idle">
+          <p>The computer moved its queen from h6 to e6.</p>
+          <p class="soft">Choose a piece to see its moves.</p>
+        </div>
+        <div class="note" data-show="hint">
+          <p><b>Hint:</b> your archer on g5 shoots the maester on g7. Tap g7 to play it.</p>
+        </div>
+        <div class="card" data-show="selected">
+          <h2><svg class="pi pi-w" aria-hidden="true"><use href="../../../../public/ui/icons/maester.svg#icon"/></svg>Maester</h2>
+          <p><b class="lead">Maester. </b>Steps 1 square in any direction and takes an enemy next to it. It steps onto one of your pieces to swap places with it. With your king on the back rank, it swaps at any distance.</p>
+        </div>
+        <div class="note split" data-show="review">
+          <p><b class="lead">Move 6. </b>Your archer on e3 shot the bishop on c5.</p>
+          <button class="primary" type="button">Back to game</button>
+        </div>
+        <!-- Resign asks in the context area, not in a browser box (review item 2). -->
+        <div class="note ask" data-show="resign">
+          <p>Resign this game? The computer wins.</p>
+          <span class="buttons"><button class="primary" type="button">Resign</button><button class="secondary" type="button">Keep playing</button></span>
+        </div>
+        <div class="card" data-show="powers">
+          <h2><img src="../../../../public/ui/emblems/shadow.webp" alt="" width="32" height="32" />Death Touch <small>Always on</small></h2>
+          <p><b class="lead">Death Touch, always on. </b>The computer’s king takes an enemy next to it, or two squares away straight forward, back or sideways over an empty square, without moving. It can only take this way.</p>
+        </div>
+        <!-- Your own power: its card holds the power step (review item 1). -->
+        <div class="card" data-show="armed">
+          <h2><img src="../../../../public/ui/emblems/frost.webp" alt="" width="32" height="32" />Freeze <small>1 left</small></h2>
+          <p><b class="lead">Freeze. </b>Tap an enemy piece (not the king). It cannot move on its next turn. Then make your move. To cancel, tap Freeze again.</p>
+        </div>
+      </div>
+
+      <div class="movebox">
+        <ol class="moves" aria-label="Moves" data-show="idle hint selected review resign">
+          <li><span class="n">1.</span><button class="quiet" type="button">e2-e4</button><button class="quiet" type="button">e7-e5</button></li>
+          <li><span class="n">2.</span><button class="quiet" type="button">Nb1-c3</button><button class="quiet" type="button">Nb8-c6</button></li>
+          <li><span class="n">3.</span><button class="quiet" type="button">d2-d3</button><button class="quiet" type="button">Bf8-c5</button></li>
+          <li><span class="n">4.</span><button class="quiet" type="button">Ac1-d2</button><button class="quiet" type="button">d7-d6</button></li>
+          <li><span class="n">5.</span><button class="quiet" type="button">Ad2-e3</button><button class="quiet" type="button">Qd8-h4</button></li>
+          <li><span class="n">6.</span><button class="quiet" type="button" data-viewed>Ae3*c5</button><button class="quiet later" type="button">Qh4-h6</button></li>
+          <li><span class="n">7.</span><button class="quiet later" type="button">Qd1-d2</button><button class="quiet later" type="button">Ke8-f8</button></li>
+          <li><span class="n">8.</span><button class="quiet later" type="button">Ae3*e5</button><button class="quiet later" type="button">Ac8-b8</button></li>
+          <li><span class="n">9.</span><button class="quiet later" type="button">Ae3-f4</button><button class="quiet later" type="button">Qh6-g6</button></li>
+          <li><span class="n">10.</span><button class="quiet later" type="button">h2-h3</button><button class="quiet later" type="button">Mh8&lt;&gt;g7</button></li>
+          <li><span class="n">11.</span><button class="quiet later" type="button">Af4-g4</button><button class="quiet later" type="button">Qg6-h6</button></li>
+          <li><span class="n">12.</span><button class="quiet later" type="button">Ag4-g5</button><button class="quiet later" type="button">Qh6-e6</button></li>
+        </ol>
+        <ol class="moves" aria-label="Moves" data-show="powers armed">
+          <li><span class="n">1.</span><button class="quiet" type="button">d2-d4</button><button class="quiet" type="button">d7-d5</button></li>
+          <li><span class="n">2.</span><button class="quiet" type="button">Nb1-c3</button><button class="quiet" type="button">Nb8-c6</button></li>
+          <li><span class="n">3.</span><button class="quiet" type="button">e2-e4</button><button class="quiet" type="button">d5xe4</button></li>
+          <li><span class="n">4.</span><button class="quiet" type="button">Nc3xe4</button><button class="quiet" type="button">e7-e5</button></li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- After the panel in the page order, so the keyboard reaches it last; the grid places it. -->
     <section class="strip you turn" aria-label="You">
-      <span class="avatar" data-show="idle selected review" style="--art: url('../../../../public/ui/kings/spirit.webp'); --at: 56% 0"></span>
-      <span class="avatar" data-show="powers" style="--art: url('../../../../public/ui/kings/frost.webp'); --at: 61% 1%"></span>
+      <span class="avatar" data-show="idle hint selected review resign" style="--art: url('../../../../public/ui/kings/spirit.webp'); --at: 56% 0"></span>
+      <span class="avatar" data-show="powers armed" style="--art: url('../../../../public/ui/kings/frost.webp'); --at: 61% 1%"></span>
       <span class="who">
-        <b>You</b>
-        <span class="sub" data-show="idle selected review">White</span>
-        <span class="sub" data-show="powers">White · Frost</span>
+        <!-- Phones have no status line: the side to move says it next to its name. -->
+        <span class="name"><b>You</b><span class="turn" data-show="idle hint selected resign powers armed">&nbsp;· Your move</span><span class="turn" data-show="review">&nbsp;· Reviewing move 6</span></span>
+        <span class="sub"><span class="t">White<span data-show="powers armed"> · Frost</span></span><span class="took" data-show="powers armed" role="img" aria-label="took a pawn">&nbsp;· took <svg class="pi pi-b" aria-hidden="true"><use href="../../../../public/ui/icons/pawn.svg#icon"/></svg></span></span>
       </span>
-      <span class="took" data-show="powers" aria-label="You took: pawn">
-        <svg class="pi pi-b" aria-hidden="true"><use href="../../../../public/ui/icons/pawn.svg#icon"/></svg>
-      </span>
-      <!-- Your power, next to your turn (review item 17). -->
-      <button class="secondary" type="button" data-show="powers">
+      <!-- Your power, next to your turn (review item 17). A tap arms it and opens its card; armed, it gets the gold ring. -->
+      <button class="secondary power" type="button" data-show="powers armed" aria-controls="context" data-pressed="armed">
         <img src="../../../../public/ui/emblems/frost.webp" alt="" width="28" height="28" />
         <span><b>Freeze</b><small>1 left</small></span>
       </button>
     </section>
-
-    <div class="panel">
-      <div class="status">
-        <span data-show="idle selected powers">Your move</span>
-        <span data-show="review">Reviewing move 3</span>
-      </div>
-
-      <!-- The one context area: fixed height, so nothing under it moves (review item 1). -->
-      <div class="context" role="status" aria-live="polite">
-        <div class="note" data-show="idle">
-          <p><b class="lead">Your move.</b> The computer moved its queen from d8 to h4.</p>
-          <p class="soft">Choose a piece to see its moves.</p>
-        </div>
-        <div class="card" data-show="selected">
-          <h2><svg class="pi pi-w" aria-hidden="true"><use href="../../../../public/ui/icons/archer.svg#icon"/></svg>Archer</h2>
-          <p>Shoots the marked enemies without moving, over any piece. Steps 1 square.</p>
-        </div>
-        <div class="note review" data-show="review">
-          <p><b class="lead">Move 3.</b> The computer’s bishop moved from f8 to c5.</p>
-          <button class="primary" type="button">Back to game</button>
-        </div>
-        <div class="card" data-show="powers">
-          <h2><img src="../../../../public/ui/emblems/shadow.webp" alt="" width="32" height="32" />Death Touch <small>Always on</small></h2>
-          <p>The computer’s king takes a piece next to it, or two squares straight away, without moving.</p>
-        </div>
-      </div>
-
-      <!-- Hint and Undo stay here in every state (0 px move); Resign is a quiet flag (review items 1 and 2). -->
-      <div class="actions">
-        <button class="secondary" type="button" id="hint" data-off="review"><svg class="icon" aria-hidden="true"><use href="#i-hint"/></svg>Hint</button>
-        <button class="secondary" type="button" id="undo" data-off="review"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg>Undo</button>
-        <span class="steps">
-          <button class="icon-btn" type="button" aria-label="Back one move"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></button>
-          <button class="icon-btn" type="button" aria-label="Forward one move" data-off="idle selected powers"><svg class="icon" aria-hidden="true"><use href="#i-forward"/></svg></button>
-        </span>
-        <button class="icon-btn flag" type="button" aria-label="Resign" title="Resign"><svg class="icon" aria-hidden="true"><use href="#i-resign"/></svg></button>
-      </div>
-
-      <ol class="moves" aria-label="Moves" data-show="idle selected review">
-        <li><span class="n">1.</span><button class="quiet" type="button">e2-e4</button><button class="quiet" type="button">e7-e5</button></li>
-        <li><span class="n">2.</span><button class="quiet" type="button">Nb1-c3</button><button class="quiet" type="button">Nb8-c6</button></li>
-        <li><span class="n">3.</span><button class="quiet" type="button">d2-d3</button><button class="quiet viewed" type="button">Bf8-c5</button></li>
-        <li class="later"><span class="n">4.</span><button class="quiet" type="button">Ac1-d2</button><button class="quiet" type="button">d7-d6</button></li>
-        <li class="later"><span class="n">5.</span><button class="quiet" type="button">Ad2-e3</button><button class="quiet" type="button">Qd8-h4</button></li>
-      </ol>
-      <ol class="moves" aria-label="Moves" data-show="powers">
-        <li><span class="n">1.</span><button class="quiet" type="button">d2-d4</button><button class="quiet" type="button">d7-d5</button></li>
-        <li><span class="n">2.</span><button class="quiet" type="button">Nb1-c3</button><button class="quiet" type="button">Nb8-c6</button></li>
-        <li><span class="n">3.</span><button class="quiet" type="button">e2-e4</button><button class="quiet" type="button">d5xe4</button></li>
-        <li><span class="n">4.</span><button class="quiet" type="button">Nc3xe4</button><button class="quiet" type="button">e7-e5</button></li>
-      </ol>
-    </div>
 
     <!-- Phone portrait and landscape: one bar of five (decision W2 C). Menu holds New game, Guide, Workshop, Settings, Resign. -->
     <nav class="bar" aria-label="Game">
       <button class="icon-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>Menu</button>
       <button class="icon-btn" type="button" data-off="review"><svg class="icon" aria-hidden="true"><use href="#i-hint"/></svg>Hint</button>
       <button class="icon-btn" type="button" data-off="review"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg>Undo</button>
-      <button class="icon-btn" type="button" aria-label="Back one move"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg>Back</button>
-      <button class="icon-btn" type="button" aria-label="Forward one move" data-off="idle selected powers"><svg class="icon" aria-hidden="true"><use href="#i-forward"/></svg>Forward</button>
+      <button class="icon-btn step" type="button" aria-label="Back one move"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg>Previous</button>
+      <button class="icon-btn" type="button" aria-label="Forward one move" data-off="idle hint selected resign powers armed"><svg class="icon" aria-hidden="true"><use href="#i-forward"/></svg>Next</button>
     </nav>
   </main>
 
   <script>
-    const show = state => {
-      document.documentElement.dataset.state = state;
-      document.querySelector('.stage source').srcset = `boards/${state}-small.webp`;
-      document.querySelector('.board').src = `boards/${state}.webp`;
-      for (const b of document.querySelectorAll('[data-off]')) b.disabled = b.dataset.off.split(' ').includes(state);
+    const root = document.documentElement;
+    // The board image of each state; the resign question shows over the idle board.
+    const BOARD = { resign: 'idle' };
+    /** Show the moves list at the newest move, or at the viewed move in review. */
+    const settle = () => {
+      for (const list of document.querySelectorAll('.moves')) {
+        if (!list.offsetParent) continue;
+        const viewed = list.querySelector('[aria-current]');
+        if (!viewed) { list.scrollTo({ top: list.scrollHeight, left: list.scrollWidth }); continue; }
+        const l = list.getBoundingClientRect(), t = viewed.getBoundingClientRect();
+        list.scrollTo({ top: list.scrollTop + t.top + t.height / 2 - l.top - l.height / 2, left: list.scrollLeft + t.left + t.width / 2 - l.left - l.width / 2 });
+      }
     };
-    show(document.documentElement.dataset.state);
+    const show = state => {
+      root.dataset.state = state;
+      // A powers game; and the states whose context needs the move strip's room on a short phone.
+      root.toggleAttribute('data-powers', ['powers', 'armed'].includes(state));
+      root.toggleAttribute('data-card', ['selected', 'resign', 'powers', 'armed'].includes(state));
+      const board = BOARD[state] ?? state;
+      document.querySelector('.stage source').srcset = `boards/${board}-small.webp`;
+      document.querySelector('.board').src = `boards/${board}.webp`;
+      for (const b of document.querySelectorAll('[data-off]')) b.disabled = b.dataset.off.split(' ').includes(state);
+      for (const b of document.querySelectorAll('[data-on]')) b.setAttribute('aria-expanded', b.dataset.on === state);
+      for (const b of document.querySelectorAll('[data-pressed]')) b.setAttribute('aria-pressed', b.dataset.pressed === state);
+      for (const b of document.querySelectorAll('[data-viewed]')) if (state === 'review') b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
+      settle();
+    };
+    show(root.dataset.state);
+    addEventListener('resize', settle);
+    document.fonts.ready.then(settle);
     addEventListener('keydown', e => { const s = STATES[+e.key - 1]; if (s) { show(s); history.replaceState(null, '', `?state=${s}`); } });
   </script>
 </body>
