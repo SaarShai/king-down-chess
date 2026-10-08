@@ -28,10 +28,20 @@ try {
   assert.equal((moved.structuredContent as any).snapshot.revision, 1);
   const replay = await client.callTool({ name: 'kingdown_move', arguments: command });
   assert.deepEqual(replay.structuredContent, moved.structuredContent);
+  const resumed = await client.callTool({ name: 'kingdown_open', arguments: {} });
+  assert.deepEqual(resumed.structuredContent, moved.structuredContent);
+  const friend = await client.callTool({ name: 'kingdown_open', arguments: { mode: 'friend' } });
+  const friendView = friend.structuredContent as unknown as MatchView;
+  assert.notEqual(friendView.matchId, view.matchId); assert.equal(friendView.mode, 'friend'); assert.equal(friendView.waiting, true);
+  assert.deepEqual((await client.callTool({ name: 'kingdown_open', arguments: {} })).structuredContent, friend.structuredContent);
+  const solo = await client.callTool({ name: 'kingdown_open', arguments: { mode: 'solo' } });
+  const soloView = solo.structuredContent as unknown as MatchView;
+  assert.notEqual(soloView.matchId, view.matchId); assert.notEqual(soloView.matchId, friendView.matchId); assert.equal(soloView.mode, 'solo');
+  assert.deepEqual((await client.callTool({ name: 'kingdown_open', arguments: { matchId: view.matchId, mode: 'friend' } })).structuredContent, moved.structuredContent);
   assert.equal((await client.callTool({ name: 'kingdown_get', arguments: { matchId: view.matchId, actorId: 'mallory' } })).isError, true);
   assert.equal((await client.callTool({ name: 'kingdown_move', arguments: { ...command, id: 'two' } })).isError, true);
   service.get = async () => { throw new Error('database password=never-share'); };
   const failed = await client.callTool({ name: 'kingdown_get', arguments: { matchId: view.matchId } });
   assert.equal(failed.isError, true); assert(!JSON.stringify(failed).includes('never-share'));
-  console.log('PASS: SDK tools/resource, app visibility, real engine move, duplicate command, stale revision, actor injection rejection, sanitized internal errors');
+  console.log('PASS: SDK tools/resource, app visibility, explicit new solo/friend games, latest/exact saved game, real engine move, duplicate command, stale revision, actor injection rejection, sanitized internal errors');
 } finally { await client.close(); await server.close(); await service.close(); }
