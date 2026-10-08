@@ -1,6 +1,6 @@
 # King Down private plugin setup
 
-The private plugin shares the website's engine and painted board, with a Node worker per operation and PostgreSQL as match authority. Players can play the computer, create a friend invitation, join as Black, and resume their latest game. Moves go directly through MCP Apps without a model turn. The private service is live and a test account completes a computer game in ChatGPT. Account recovery, two-player play and actual phone checks remain in [the live acceptance ticket](specs/match-foundation/issues/06-live-acceptance.md).
+The private plugin shares the website's engine and painted board, with a Node worker per operation and PostgreSQL as match authority. Players can play the computer, create a friend invitation, join as Black, and resume their latest game. Moves go directly through MCP Apps without a model turn. The private service is live. Test accounts pass a full computer game, two-player moves, seat isolation, automatic updates, host disconnect/reconnect and normal selected-game reopening in ChatGPT. Immediate full-page reload timing, provider consent and revocation, controlled live lost-response retry, and actual phone checks remain in [the live acceptance ticket](specs/match-foundation/issues/06-live-acceptance.md).
 
 ## Local checks
 

@@ -35,3 +35,17 @@ PR 15 adds the diagnostic and merges as `7c91f0f43578b28e33a50901b88a693f78f30ea
 The repeatable live check reports `Black, move 4` before reload and `White, move 1` after reload. The trace reports an available widget API and setter, then a state event with the saved match present, then a state event with it absent. On reopen the saved match is absent. The two writes in `show` conflict: `setWidgetState` saves the selected game, then the asynchronous `updateModelContext` replaces that snapshot. The host test must model that replacement. Use the widget-state writer when available and the standard model-context writer on hosts without it; do not send both.
 
 The host test with that replacement fails before the repair: remount never reaches the saved move number. After the repair, both fixture and real HTTP/PostgreSQL browser checks pass. Saved widget state also carries the revision that the model context previously supplied. The temporary diagnostic code is removed. The browser check also exercises a host without the optional widget-state API and verifies its standard model context.
+
+## Final repair release
+
+PR 16 merges as `72163dd29d4c8698eaf3119041cf36d1a2a18b51`. The push gate passes all 1,391 tests and 42 artwork checks. Both hosted verification jobs and the hosted test job pass. The approved release script tests fresh main, including the compiled HTTP/PostgreSQL path, worker, protocol and all three browser checks. Deployment `dpl_6tkacvfzYGBNub6732YdfwsHt6bm` is live and passes the unsigned live checks. Log: `/tmp/kingdown-state-writer-release.log`.
+
+The fresh live board has no diagnostic code. The immediate Join/reload loop still fails: Black at move 4 becomes White at move 1. One measured reload starts 72 ms after the new status appears. Waiting until Join is enabled also fails when reload follows immediately. After a fullscreen change and a separate read/reload of the first account, the second account does restore Black at move 4.
+
+A second check keeps the board inline. Join completes, then a full chat reload starts 25,867 ms later. The same board restores Black at move 4. No fullscreen change occurs. This confirms normal inline reopening after the repair and rules out a required presentation-mode change. The first account also restores White at move 4, and its completed solo boards still show checkmate.
+
+## Remaining timing boundary
+
+Keep this ticket open for the immediate full-page reload case. The documented widget-state setter is synchronous and has no save acknowledgement. Its state is scoped to the rendered UI; [OpenAI's state guide](https://developers.openai.com/plugins/build/chatgpt-ui#manage-state) requires server storage for durable cross-session state. The measured tests show eventual selection persistence, not an immediate durability guarantee. Do not add an arbitrary delay or mark the instant-reload case passed. The server's game state remains saved, and reopening the match by ID restores the correct seat and position.
+
+A strict guarantee for a selection made just before page exit needs either a supported host save acknowledgement or a server-owned board selection with a stable per-board identity. That is a distinct storage contract from the current widget-scoped selection. Review that contract before a further implementation; do not replace each board's choice with an account-wide latest-game pointer.

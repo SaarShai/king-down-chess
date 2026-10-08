@@ -27,7 +27,7 @@ Continue the existing test-account game in Chrome on macOS, in the real ChatGPT 
 - Recovery: reload the full chat immediately after requesting Black's move 14. All boards restore White in check at move 15 with one reply saved. This covers a reload during a request, not a controlled lost-response retry.
 - Terminal: select the king after checkmate; no move choices appear and no computer button remains. Reload the full chat; all three views still report Black wins by checkmate.
 
-The owner has a second test account available and wants mobile testing later, after desktop checks. The second account has not yet signed in. The current account is the previously confirmed dedicated test account.
+The owner has a second test account available and wants mobile testing later, after desktop checks. The second account is now connected. Use only the two dedicated test connections.
 
 ## Account checks
 
@@ -39,8 +39,26 @@ The board's Games menu creates a friend game and shows "Waiting for your friend.
 
 Both fixes are released and checked in the real ChatGPT host. The fixed launch tool creates a new friend game from an explicit chat request. Its board remains at the starting position after a full chat reload, waiting for the second player. No invitation is issued before the second account is ready.
 
+The authorization page left open for the owner reports an unavailable or expired request. A fresh request from ChatGPT works and shows the second account. ChatGPT then lists both test connections. The consent page completes before the attempted Deny click, so this is not a denial pass. The second account opens a separate solo game in the chat Show Playable Board (`https://chatgpt.com/c/6ac76ff9-d468-83eb-864c-1b8410fef2b2`).
+
+## Two-player evidence
+
+The second account cannot open friend match `0c6d9cdd-ae43-4c66-a343-420656581959` before joining. King Down returns "You do not have a seat in this match". After it accepts the invitation through the board, it plays Black. Its board has Black at the bottom. The first account keeps White, and its waiting board updates automatically when Black joins.
+
+White plays e2-e4 and Black plays e7-e5. Both boards update without Reload. White then plays d2-d4 with Haste. Both boards retain White's turn for the extra action. White passes that action, then Black plays e5-d4 and captures the pawn. Both boards show White to move at move 3. Selecting Black's pawn during White's turn offers no moves.
+
+Reloading the second chat returns its board to the original solo game. The friend game is intact. Ticket 09 owns the selected-game recovery fix and release check.
+
+PR 16 releases the saved-state writer repair. A fresh inline board restores the joined Black seat at move 4 after a normal chat reload; the White account also restores move 4. The temporary diagnostics are removed. An immediate full-page reload, within a fraction of a second after Join, can still precede the host's selection save. Ticket 09 keeps this timing boundary open; it does not lose server moves.
+
+Disconnecting the second account in ChatGPT removes its connection and blocks a read from its existing board with "MCP Resource not found". A fresh connection restores the same second account without another provider sign-in. The existing provider consent grant is still present, so this tests host disconnect/reconnect, not provider grant revocation or denied consent.
+
+A fresh tool call after reconnection opens the same friend match at move 3 with the second account still in Black's seat. White plays e4-e5 and the reconnected Black account replies c7-c6. Both boards reach White to move at move 4.
+
 ## Handoff
 
-The owner has not yet completed the second-account sign-in. Chrome has an Authorize King Down tab at the sign-in screen. Sign in with the second test account and stop at the account choice before Continue; the next check denies consent, then reconnects. Continue with account access, friend joining and both players' moves, then disconnect/reconnect and revoked access. Keep a controlled lost-response retry separate from the completed reload-during-request check. The actual phone check stays deferred at the owner's request.
+Both test accounts are connected, play after reconnection passes, and normal selected-game reopening passes on the released board. The immediate full-page reload boundary remains in ticket 09. Provider grant revocation and denied consent still need a provider flow that exposes those controls. The Supabase user and OAuth app screens have no scoped grant-revoke control. Do not use account deletion, a ban or a password reset to stand in for this check.
+
+The fixture and compiled HTTP/PostgreSQL board checks drop a reply after a saved move, remount the board and retry the same command ID. The saved revision remains 1. This passes locally. A controlled lost response in the real ChatGPT host remains untested; the completed live reload-during-request check is separate. The actual phone check stays deferred at the owner's request.
 
 Use the existing test chat, Start King Down game (`https://chatgpt.com/c/6ac75478-8988-83eb-81a1-96d5040d8320`), and private plugin `plugin_asdk_app_6ac737b6924c8191b0c77b5f5a2981a4`. The first test account is still the primary connection. Restart an expired authorization request from Connect another account; do not reuse an expired consent URL.
