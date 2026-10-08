@@ -51,7 +51,7 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
       else if (req.url === '/fixture-terminal' && service) { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ content: [], structuredContent: await service.create('alice', { fen: '7k/6Q1/6K1/8/8/8/8/8 b - - 0 1' }, 'solo') })); }
       else if (req.url === '/board-resource') {
         res.setHeader('Content-Type', 'text/html');
-        res.end(resourceHtml.replace('<head>', '<head><script>window.openai = parent.harnessWithoutWidgetState ? undefined : {widgetState: parent.harnessWidgetState, setWidgetState(state) {parent.harnessWidgetState = structuredClone(state);}};</script>'));
+        res.end(resourceHtml.replace('<head>', '<head><script>window.openai = parent.harnessWithoutWidgetState ? undefined : {widgetState: parent.harnessWidgetState, setWidgetState(state) {if (!parent.harnessDropWidgetWrites) parent.harnessWidgetState = structuredClone(state);}};</script>'));
       }
       else if (req.url === '/fixture-tool' && req.method === 'POST') {
         try { const chunks = []; for await (const chunk of req) chunks.push(chunk); const params = JSON.parse(Buffer.concat(chunks).toString()); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(await client.callTool(params))); }

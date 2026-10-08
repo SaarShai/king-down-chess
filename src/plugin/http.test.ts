@@ -13,7 +13,7 @@ let service: PluginHttpOptions['service'], auth: PluginAuth, address: string, pr
 beforeEach(async () => {
   provider.mockReset();
   provider.mockImplementation(async (_url, options) => Response.json({ id: decodeJwt(new Headers(options?.headers).get('Authorization')!.slice(7)).sub }));
-  service = { resume: vi.fn(async () => null), create: vi.fn(async () => view), get: vi.fn(async () => view), move: vi.fn(async () => view), computer: vi.fn(async () => view), invite: vi.fn(async () => ({ token: 'test', expiresAt: '2030-01-01' })), join: vi.fn(async () => view) };
+  service = { openBoard: vi.fn(async () => ({...view,boardId: matchId})), getBoard: vi.fn(async () => ({...view,boardId: matchId})), selectBoard: vi.fn(async () => ({...view,boardId: matchId})), resume: vi.fn(async () => null), create: vi.fn(async () => view), get: vi.fn(async () => view), move: vi.fn(async () => view), computer: vi.fn(async () => view), invite: vi.fn(async () => ({ token: 'test', expiresAt: '2030-01-01' })), join: vi.fn(async () => view) };
   const pair = await generateKeyPair('ES256'); privateKey = pair.privateKey;
   const server = createServer(); servers.push(server); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   address = `http://127.0.0.1:${(server.address() as { port: number }).port}`;

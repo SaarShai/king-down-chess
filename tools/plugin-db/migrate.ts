@@ -4,5 +4,5 @@ import pg from 'pg';
 const connectionString = process.env.PLUGIN_DATABASE_URL;
 if (!connectionString) throw new Error('PLUGIN_DATABASE_URL is required');
 const pool = new pg.Pool({connectionString,max:1});
-try { await pool.query(await readFile(new URL('../../supabase/migrations/0002_matches.sql',import.meta.url),'utf8')); console.log('Server match migration applied'); }
+try { for (const name of ['0002_matches.sql','0003_plugin_boards.sql']) await pool.query(await readFile(new URL(`../../supabase/migrations/${name}`,import.meta.url),'utf8')); console.log('Server match migration applied'); }
 finally { await pool.end(); }

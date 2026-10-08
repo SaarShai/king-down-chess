@@ -95,12 +95,17 @@ try {
     assert.equal(await frame.locator('#invitation').innerText(), '');
     const invitation = await (await page.request.post(new URL('/fixture-friend-invite', base).href)).json();
     assert(!invitation.isError);
+    await page.evaluate(() => { window.harnessDropWidgetWrites = true; });
     await frame.locator('#token').fill(invitation.structuredContent.token); await frame.locator('#join').click();
-    await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor();
+    await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor({ timeout: 5000 });
     const joinedView = await page.evaluate(() => window.harnessView);
+    const readsBeforeJoinRemount = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_get').length);
+
     await page.locator('#remount').click();
-    await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor();
+    await page.waitForFunction(count => window.harnessCalls.filter(call => call.name === 'kingdown_get').length > count, readsBeforeJoinRemount);
+    await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor({ timeout: 5000 });
     assert.equal(await page.evaluate(() => window.harnessMatchId), joinedView.matchId, 'Remount must keep the joined game instead of the original solo game');
+    await page.evaluate(() => { window.harnessDropWidgetWrites = false; });
     await frame.locator('summary').click();
     await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
   }

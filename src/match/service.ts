@@ -3,7 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createMatch, loadMatch, MatchError, type MatchSetup, type MatchSnapshot, type MoveCommand } from './index';
 import { MatchServiceError, PostgresMatchStore, seat, type StoredMatch, type MatchMode } from './store';
 export { MatchServiceError } from './store';
-export interface MatchView { matchId: string; playerColor: 0 | 1; mode: MatchMode; waiting: boolean; snapshot: MatchSnapshot }
+export interface MatchView { boardId?: string; matchId: string; playerColor: 0 | 1; mode: MatchMode; waiting: boolean; snapshot: MatchSnapshot }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function validId(id: string): void { if (typeof id !== 'string' || !uuid.test(id)) throw new MatchServiceError('INVALID_INPUT',400,'Expected a UUID'); }
 function view(row: StoredMatch, actor: string): MatchView { return { matchId: row.id, playerColor: seat(row,actor), mode: row.mode, waiting: row.mode === 'friend' && !row.black_id, snapshot: row.snapshot }; }
@@ -22,6 +22,23 @@ export class MatchService {
   finally { await match?.close(); }
  }
  async get(actor: string, id: string): Promise<MatchView> { validId(actor); actor = actor.toLowerCase(); validId(id); return view(await this.store.read(id),actor); }
+ async openBoard(actor: string, matchId: string): Promise<MatchView> {
+  const result = await this.get(actor,matchId), boardId = randomUUID();
+  await this.store.pool.query('insert into public.plugin_boards(id,actor_id,match_id) values($1,$2,$3)',[boardId,actor.toLowerCase(),result.matchId]);
+  return {...result,boardId};
+ }
+ async getBoard(actor: string, boardId: string): Promise<MatchView> {
+  validId(actor); validId(boardId);
+  const result = await this.store.pool.query('select match_id from public.plugin_boards where id=$1 and actor_id=$2',[boardId,actor.toLowerCase()]);
+  if (!result.rows[0]) throw new MatchServiceError('FORBIDDEN',403,'Board unavailable for this account');
+  return {...await this.get(actor,result.rows[0].match_id),boardId};
+ }
+ async selectBoard(actor: string, boardId: string, matchId: string): Promise<MatchView> {
+  validId(boardId); const result = await this.get(actor,matchId);
+  const updated = await this.store.pool.query('update public.plugin_boards set match_id=$3 where id=$1 and actor_id=$2',[boardId,actor.toLowerCase(),result.matchId]);
+  if (!updated.rowCount) throw new MatchServiceError('FORBIDDEN',403,'Board unavailable for this account');
+  return {...result,boardId};
+ }
  async resume(actor: string): Promise<MatchView | null> { validId(actor); actor = actor.toLowerCase(); const row = await this.store.latest(actor); return row ? view(row,actor) : null; }
  move(actor: string, id: string, input: MoveCommand): Promise<MatchView> { return this.apply(actor,id,input,false); }
  computer(actor: string, id: string, input: { id: string; expectedRevision: number }): Promise<MatchView> { return this.apply(actor,id,input,true); }

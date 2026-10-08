@@ -35,3 +35,7 @@ The second-account chat finishes with `We couldn’t connect your account. Pleas
 ## Account recovery
 
 The owner reports that Alicia is reconnected. A fresh request in the existing second-account ChatGPT chat uses only `alicia@wanderland.london` and opens solo match `9aa166ad-f978-487d-b80f-c9a3963b2457`. The real board shows White to move, move 2, with no error and no temporary test control. The tool reports revision 2. No game is created and no move is made. Account recovery now passes. The separate immediate fresh-token live revoke cycle remains open; this successful reconnect does not prove that cycle.
+
+## Fresh-token live verification plan
+
+The owner asks to finish the desktop checks. Restore the temporary provider grant control for the same dedicated second account and approved client. Add one temporary server log after JWT validation, scoped to that user: remaining token seconds and provider HTTP status only. No bearer, key, user profile or response body is logged. First obtain a successful board read and positive remaining lifetime, revoke through the supported provider API, then read immediately and require a positive remaining lifetime with provider rejection. Reconnect the same account and check its saved game. Remove both controls in the clean release.
