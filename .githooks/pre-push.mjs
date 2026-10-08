@@ -54,7 +54,7 @@ ${dirty.split('\n').map(line => `    ${line}`).join('\n')}
 // Decision 10: a direct push to main may change docs and trackers, but no file under a protected
 // path. Such a change goes through a branch and a pull request.
 const protectedPaths = ['src/', 'public/', 'index.html', 'package.json', 'package-lock.json', 'supabase/',
-  '.githooks/', '.claude/', 'tools/'];
+  '.githooks/', '.claude/', 'tools/', 'plugin-deploy/', 'vercel.json'];
 const isProtected = path => protectedPaths.some(p => p.endsWith('/') ? path.startsWith(p) : path === p);
 for (const { localSha, remoteRef, remoteSha } of updates) {
   if (remoteRef !== 'refs/heads/main') continue;

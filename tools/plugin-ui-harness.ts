@@ -6,8 +6,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createPluginServer } from '../src/plugin/server';
+import type { MatchSetup } from '../src/match';
 import { fixtureService } from './plugin-protocol-fixture';
-export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor }: { boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string } = {}) {
+export async function startHarness({ boardPath = 'plugin-server-dist/board.html', endpoint, actor, friendActor, seedPosition, deleteMatch }: { boardPath?: string; endpoint?: URL; actor?: string; friendActor?: string; seedPosition?: (setup: MatchSetup, black: boolean) => Promise<string>; deleteMatch?: (id: string) => Promise<void> } = {}) {
   if (endpoint && (endpoint.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname) || endpoint.username || endpoint.password)) throw new Error('The HTTP harness accepts only a loopback development endpoint');
   let buddy: Client | undefined;
   const client = new Client({ name: 'local-browser-host', version: '1' });
@@ -47,6 +48,20 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
         const game = buddy ? (await buddy.callTool({ name: 'kingdown_create', arguments: { mode: 'friend' } })).structuredContent as { matchId: string } : await service!.create('bob', {}, 'friend');
         const result = buddy ? await buddy.callTool({ name: 'kingdown_invite', arguments: { matchId: game.matchId } }) : { structuredContent: await service!.invite('bob', game.matchId), content: [] };
         res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(result));
+      }
+      else if (req.url?.startsWith('/fixture-position?') && req.method === 'POST') {
+        const black = new URL(req.url,'http://localhost').searchParams.get('case') === 'freeze';
+        const setup = black ? {fen:'7k/8/8/8/4P3/8/8/K7 b - - 0 1',kings:'none,Frost:Freeze'} : {fen:'7k/8/8/2p5/8/2A5/8/K7 w - - 0 1',kings:'none,none'};
+        let matchId;
+        if (seedPosition) matchId = await seedPosition(setup,black);
+        else { const created = await service!.create(black?'bob':'alice',setup,black?'friend':'solo'); if (black) await service!.join('alice',created.matchId); matchId=created.matchId; }
+        const result = await client.callTool({name:'kingdown_open',arguments:{matchId}});
+        res.setHeader('Content-Type','application/json'); res.end(JSON.stringify(result));
+      }
+      else if (req.url === '/fixture-delete-match' && req.method === 'POST') {
+        const chunks=[]; for await (const chunk of req) chunks.push(chunk); const {matchId}=JSON.parse(Buffer.concat(chunks).toString());
+        if (deleteMatch) await deleteMatch(matchId); else await service!.deleteMatch(matchId);
+        res.end('{}');
       }
       else if (req.url === '/fixture-terminal' && service) { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ content: [], structuredContent: await service.create('alice', { fen: '7k/6Q1/6K1/8/8/8/8/8 b - - 0 1' }, 'solo') })); }
       else if (req.url === '/board-resource') {

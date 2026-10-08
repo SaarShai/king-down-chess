@@ -1,8 +1,13 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { consentConfig, renderConsent } from './consent-config';
 const env = { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_example', KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS: '11111111-1111-4111-8111-111111111111' };
 const jwt = (role: string) => `header.${Buffer.from(JSON.stringify({ role })).toString('base64url')}.signature`;
 describe('public consent configuration', () => {
+  it('offers only the approved Google and GitHub providers', () => {
+    const html=readFileSync(new URL('./consent.html',import.meta.url),'utf8');
+    expect([...html.matchAll(/data-provider="([^"]+)"/g)].map(m=>m[1])).toEqual(['google','github']);
+  });
   it('exports only the public project key and approved client IDs', () => {
     expect(consentConfig({ ...env, DATABASE_URL: 'private' })).toEqual({ supabaseUrl: env.SUPABASE_URL, publishableKey: env.SUPABASE_PUBLISHABLE_KEY, clientIds: [env.KINGDOWN_PLUGIN_OAUTH_CLIENT_IDS] });
     expect(consentConfig({ ...env, SUPABASE_PUBLISHABLE_KEY: jwt('anon') }).publishableKey).toBe(jwt('anon'));

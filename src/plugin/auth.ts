@@ -9,6 +9,7 @@ export function pluginOrigin(value: string): string {
   return url.origin;
 }
 export class AuthenticationError extends Error { constructor() { super('A valid King Down OAuth access token is required'); } }
+export class AuthenticationUnavailable extends Error { constructor() { super('Sign-in verification is temporarily unavailable. Retry.'); } }
 export interface PluginAuth {
   issuer: string;
   resource: string;
@@ -35,15 +36,17 @@ export function createTokenVerifier({ supabaseUrl, publicOrigin, clientIds, publ
         // Supabase supports standard scopes only; older token examples omit the scope claim.
         if (payload.scope !== undefined && (typeof payload.scope !== 'string' || !payload.scope.split(/\s+/).includes('openid'))) throw new AuthenticationError();
         // A valid signature does not prove that the provider session still exists.
-        const response = await request(`${issuer}/user`, {
+        let response: Response;
+        try { response = await request(`${issuer}/user`, {
           headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
           signal: AbortSignal.timeout(5000), redirect: 'error',
-        });
-        if (!response.ok) throw new AuthenticationError();
-        const user = await response.json();
+        }); } catch { throw new AuthenticationUnavailable(); }
+        if (response.status === 401 || response.status === 403) throw new AuthenticationError();
+        if (!response.ok) throw new AuthenticationUnavailable();
+        let user; try { user = await response.json(); } catch { throw new AuthenticationUnavailable(); }
         if (typeof user?.id !== 'string' || user.id.toLowerCase() !== payload.sub.toLowerCase()) throw new AuthenticationError();
         return payload.sub.toLowerCase();
-      } catch { throw new AuthenticationError(); }
+      } catch (error) { if (error instanceof AuthenticationUnavailable) throw error; throw new AuthenticationError(); }
     },
   };
 }

@@ -19,6 +19,8 @@ try {
   const boards = await readFile(new URL('../../supabase/migrations/0003_plugin_boards.sql', import.meta.url), 'utf8');
   await pool.query(boards);
   await pool.query(boards);
+  const recovery = await readFile(new URL('../../supabase/migrations/0004_plugin_board_recovery.sql', import.meta.url), 'utf8');
+  await pool.query(recovery); await pool.query(recovery);
   await pool.query("do $$ begin if not exists(select from pg_roles where rolname='supabase_auth_admin') then create role supabase_auth_admin nologin; end if; end $$;");
   await pool.query(await readFile(new URL('../../plugin-deploy/oauth-audience-hook.sql', import.meta.url), 'utf8'));
   console.log('Disposable PostgreSQL match schema ready; migration is repeatable');

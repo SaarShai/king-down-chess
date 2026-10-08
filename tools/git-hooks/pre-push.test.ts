@@ -140,7 +140,7 @@ describe('pre-push', () => {
 
   describe('story 4: a direct push to main', () => {
     const protectedFiles = ['src/a.ts', 'public/a.txt', 'index.html', 'package.json', 'package-lock.json',
-      'supabase/migrations/a.sql', '.githooks/a.txt', '.claude/settings.json', 'tools/a.mjs'];
+      'supabase/migrations/a.sql', '.githooks/a.txt', '.claude/settings.json', 'tools/a.mjs', 'plugin-deploy/runtime-role.sql', 'vercel.json'];
 
     it.each(protectedFiles)('that changes %s is refused, and the output names the path and the fix', path => {
       const repo = make();

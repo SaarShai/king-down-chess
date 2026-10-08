@@ -64,9 +64,9 @@ Operational bounds are 1,000 accepted commands per match, an 8,000,000-character
 
 ## Verification and durable integration
 
-Run `npx vitest run src/match/match.test.ts` for actual-worker tests; `npm test` and `npm run build` cover the surrounding project. Fixtures exercise illegal/stale/retried commands, rule isolation and website power parity, complete replay, terminal results, repetition, Archer shots, Beast chains, Ogre pushes, Maester swaps, promotion, Haste and worker shutdown.
+Run `npm test` for the actual-worker tests and the surrounding project. Use `npm run build` to check the website build. Fixtures exercise illegal/stale/retried commands, rule isolation and website power parity, complete replay, terminal results, repetition, Archer shots, Beast chains, Ogre pushes, Maester swaps, promotion, Haste and worker shutdown.
 
-For a named failure with individual test results, run `npx vitest run src/match/match.test.ts --reporter=verbose -t "replay"` (replace `replay` with `worker`, `Haste` or `source change`). The focused tests include dropped worker delivery, actual thread termination, tampered legal replay and a temporary source copy that verifies engine fingerprint changes. These are short fixture checks; no tournament is needed.
+The worker tests cover dropped delivery, thread termination, altered replay and engine-version changes. Find the named result in the `npm test` output. These are short fixture checks; no tournament is needed.
 
 | Symptom | Check and recovery |
 |---|---|

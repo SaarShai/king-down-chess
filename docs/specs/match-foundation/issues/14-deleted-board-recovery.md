@@ -1,6 +1,6 @@
 # Recover an existing board after its selected match is deleted
 
-Status: open
+Status: claimed
 
 ## Source
 

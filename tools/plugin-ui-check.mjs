@@ -89,11 +89,57 @@ try {
   await frame.locator('#reload:not(:disabled)').waitFor();
   assert.match(await frame.locator('#status').innerText(), /White to move/, 'Explicit Haste keeps the extra move');
   assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 1);
+  await tapSquare(4, 3); await tapSquare(4, 3);
+  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 1, 'Second tap must not pass Haste');
+  assert.equal(await frame.locator('#choices button').count(),0,'Second tap deselects');
+  async function dragOwnSquare(file,rank,black=false) {
+    const box=await frame.locator('canvas').boundingBox(); assert(box);
+    const x=box.x+(32+((black?7-file:file)+.5)*112)*box.width/960;
+    const y=box.y+(96+((black?rank:7-rank)+.5)*112)*box.width/960;
+    await page.mouse.move(x,y); await page.mouse.down(); await page.mouse.move(x+10,y); await page.mouse.up();
+  }
+  await tapSquare(4,3); await dragOwnSquare(4,3);
+  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision),1,'Drag start must not pass Haste');
   await tapSquare(4, 3); await tapSquare(4, 4);
   await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
   assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 2, 'Touch finishes the explicit Haste action');
   await frame.locator('summary').click();
   await shot(page, 'mobile');
+  for (const scenario of ['archer','freeze']) {
+    const seeded=await (await page.request.post(new URL(`/fixture-position?case=${scenario}`,base).href)).json(); assert(!seeded.isError);
+    const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
+    await page.evaluate(result=>window.harnessShow(result),seeded);
+    await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,reads);
+    await frame.locator('#reload:not(:disabled)').waitFor();
+    const black=scenario==='freeze';
+    async function tap(file,rank) { const box=await frame.locator('canvas').boundingBox(); await page.touchscreen.tap(box.x+(32+((black?7-file:file)+.5)*112)*box.width/960,box.y+(96+((black?rank:7-rank)+.5)*112)*box.width/960); }
+    const file=black?4:2, rank=black?3:2;
+    await tap(file,rank); await tap(file,rank);
+    assert.equal(await frame.locator('#choices button').count(),0,`${scenario}: second tap deselects without submitting`);
+    assert.equal(await page.evaluate(()=>window.harnessView.snapshot.revision),0);
+    await tap(file,rank);
+    if (!black) { await dragOwnSquare(file,rank); assert.equal(await page.evaluate(()=>window.harnessView.snapshot.revision),0,'Drag must not shoot'); await tap(2,2); await tap(2,4); }
+    else { await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
+    await page.waitForFunction(()=>window.harnessView.snapshot.revision===1);
+    await frame.locator('#reload:not(:disabled)').waitFor();
+    await frame.locator('#board').focus();
+    for (let i=0;i<9;i++) await page.keyboard.press('ArrowRight');
+    assert.match(await frame.locator('#board').getAttribute('aria-label'),black?/a[1-8]/:/h[1-8]/);
+    for (let i=0;i<9;i++) await page.keyboard.press('ArrowUp');
+    assert.match(await frame.locator('#board').getAttribute('aria-label'),black?/a1/:/h8/);
+  }
+  await frame.locator('summary').click();
+  await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+  const deleted=await page.evaluate(()=>window.harnessView);
+  await page.request.post(new URL('/fixture-delete-match',base).href,{data:{matchId:deleted.matchId}});
+  await frame.locator('#reload').click(); await frame.locator('#error').filter({hasText:'deleted'}).waitFor();
+  await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+  const replacement=await page.evaluate(()=>window.harnessView.matchId); assert.notEqual(replacement,deleted.matchId);
+  const recoveryReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
+  await page.locator('#remount').click();
+  await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,recoveryReads);
+  await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
+  assert.equal(await page.evaluate(()=>window.harnessView.matchId),replacement,'Deleted-game recovery survives immediate remount');
   if (capabilities.friend) {
     await frame.locator('summary').click();
     await frame.locator('#friend').click(); await frame.locator('#reload:not(:disabled)').waitFor();

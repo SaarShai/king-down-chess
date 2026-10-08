@@ -35,7 +35,11 @@ suite('PostgreSQL authenticated matches (real connections and processes)', () =>
   await expect(services[0].selectBoard(actors[0],a.boardId!,other.matchId)).rejects.toMatchObject({code:'FORBIDDEN'});
   expect((await services[1].getBoard(actors[0],a.boardId!)).matchId).toBe(second.matchId);
   await services[0].deleteAccountMatches(actors[0]);
-  await expect(services[1].getBoard(actors[0],a.boardId!)).rejects.toMatchObject({code:'FORBIDDEN'});
+  await expect(services[1].getBoard(actors[0],a.boardId!)).rejects.toMatchObject({code:'MATCH_REMOVED'});
+  const replacement = await services[0].create(actors[0],{});
+  await services[0].selectBoard(actors[0],a.boardId!,replacement.matchId);
+  expect((await services[1].getBoard(actors[0],a.boardId!)).matchId).toBe(replacement.matchId);
+  await expect(services[1].selectBoard(actors[1],a.boardId!,other.matchId)).rejects.toMatchObject({code:'FORBIDDEN'});
  },30000);
  it('enforces seats, actual turns, persistent retries and full-payload conflicts',async () => {
   const initial = await services[0].create(actors[0],{});

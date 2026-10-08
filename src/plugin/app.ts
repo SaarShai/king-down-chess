@@ -2,6 +2,7 @@ import { App } from '@modelcontextprotocol/ext-apps';
 import { PaintedView } from '../render/PaintedView';
 import { fromFen } from '../rules/setup';
 import { setRules, sqName, type Position } from '../rules/engine';
+import { needsArming } from '../powers-ui';
 import { describeMove } from '../move-text';
 import type { MatchView } from './view';
 import './app.css';
@@ -47,7 +48,7 @@ async function call(name: string, args: Record<string, unknown>, retain = false,
     const result = await app.callServerTool({ name, arguments: boardId && ['kingdown_get','kingdown_create','kingdown_join','kingdown_resume'].includes(name) ? {...args,boardId} : args });
     if (background && (busy || view !== before)) return;
     if (result.isError) {
-      const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
+      const definitive = ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'INVALID_INPUT', 'FORBIDDEN', 'WAITING', 'MATCH_TERMINAL', 'MATCH_LIMIT', 'MATCH_INCOMPATIBLE', 'MATCH_REMOVED', 'COMMAND_CONFLICT', 'NOT_FOUND', 'INVITE_UNAVAILABLE'];
       if (definitive.includes(String(result._meta?.code))) { pending = undefined; saveState(); }
       throw new Error(result.content.filter(c => c.type === 'text').map(c => c.text).join(' '));
     }
@@ -65,28 +66,30 @@ function choose(lan: string) {
   if (!view || busy || pending) return;
   void call('kingdown_move', { matchId: view.matchId, id: crypto.randomUUID(), expectedRevision: view.snapshot.revision, lan }, true);
 }
-function select(square: number) {
+function select(square: number, submit = true) {
   if (!view || !pos || busy || pending || view.waiting || view.snapshot.turn !== view.playerColor || view.snapshot.status !== 'playing') return;
-  const options = selected === undefined ? [] : view.snapshot.moves.filter(({ move }) => move.from === selected && (move.to === square || move.captures.includes(square) || move.shove?.from === square));
+  if (submit && selected === square) { selected = undefined; board.highlight({}); choices([]); return; }
+  const options = !submit || selected === undefined ? [] : view.snapshot.moves.filter(({ move }) => move.from === selected && !needsArming(move) && ((move.to !== move.from && move.to === square) || move.captures.includes(square) || move.shove?.from === square));
   const ordinary = options.filter(({ move }) => !move.power);
   if (ordinary.length === 1) return choose(ordinary[0].lan);
   if (options.length === 1) return choose(options[0].lan);
   if (options.length > 1) { choices(options); $('move-hint').textContent = 'Choose one of the moves below.'; $('move-hint').scrollIntoView({ block: 'nearest' }); return; }
   selected = square;
   const moves = view.snapshot.moves.filter(({ move }) => move.from === square);
-  board.highlight({ selected: square, moves: [...new Set(moves.map(({ move }) => move.to))], captures: [...new Set(moves.flatMap(({ move }) => move.captures))] });
+  const clickable = moves.filter(({move}) => !needsArming(move));
+  board.highlight({ selected: square, moves: [...new Set(clickable.filter(({move}) => move.from !== move.to).map(({ move }) => move.to))], captures: [...new Set(clickable.flatMap(({ move }) => move.captures))] });
   choices(moves);
 }
 function choices(moves: MatchView['snapshot']['moves']) {
-  $('move-hint').textContent = moves.length ? 'Tap a marked square to move, or choose a move below.' : '';
+  $('move-hint').textContent = !moves.length ? '' : moves.every(({move}) => needsArming(move)) ? 'Choose a move below.' : 'Tap a marked square to move, or choose a move below.';
   $('choices').replaceChildren(...moves.map(({ lan }) => { const button = document.createElement('button'); button.textContent = pos ? describeMove(pos, moves.find(option => option.lan === lan)!.move) : lan; button.title = lan; button.onclick = () => choose(lan); return button; }));
 }
-board.onSquareClick = select; board.onDragSelect = select;
+board.onSquareClick = square => select(square); board.onDragSelect = square => select(square, false);
 let cursor = 0;
 $('board').tabIndex = 0;
 $('board').onkeydown = event => {
-  const delta = ({ ArrowLeft: -1, ArrowRight: 1, ArrowUp: 8, ArrowDown: -8 } as Record<string, number>)[event.key];
-  if (delta) { event.preventDefault(); cursor = Math.max(0, Math.min(63, cursor + delta * (view?.playerColor === 1 ? -1 : 1))); board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
+  const delta = ({ ArrowLeft: [-1,0], ArrowRight: [1,0], ArrowUp: [0,1], ArrowDown: [0,-1] } as Record<string, number[]>)[event.key];
+  if (delta) { event.preventDefault(); const direction = view?.playerColor === 1 ? -1 : 1; cursor = Math.max(0, Math.min(7, (cursor % 8) + delta[0] * direction)) + 8 * Math.max(0, Math.min(7, Math.floor(cursor / 8) + delta[1] * direction)); board.setPreview(cursor); $('board').setAttribute('aria-label', `Chess board, ${sqName(cursor)}. Enter selects a square.`); }
   else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(cursor); }
 };
 $('reload').onclick = () => { const matchId = view?.matchId ?? hostMatchId; if (matchId) void call('kingdown_get', { matchId }); };
