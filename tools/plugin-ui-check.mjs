@@ -112,6 +112,11 @@ try {
   await page.evaluate(async result => { await window.harnessShow(result); }, switched);
   await frame.locator('#retry').waitFor({ state: 'hidden' });
   await clickSquare(4, 1); assert(await frame.locator('#choices button').count() > 0);
+  await page.evaluate(() => { window.harnessWithoutWidgetState = true; window.harnessWidgetState = undefined; });
+  await page.locator('#remount').click();
+  await page.waitForFunction(() => window.harnessWidgetState?.modelContent?.matchId === window.harnessMatchId);
+  await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+  assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.revision), 0, 'Hosts without widget state still receive standard model context');
   if (mode === 'fixture') {
   await page.goto(new URL('/?terminal=1', base).href);
   await frame.locator('#status').filter({ hasText: 'Checkmate' }).waitFor();

@@ -20,7 +20,8 @@ frame.onload = async () => {
     if ((window as any).dropNextMoveReply && params.name === 'kingdown_move') { (window as any).dropNextMoveReply = false; throw new Error('Harness lost reply after commit'); }
     return result;
   };
-  bridge.onupdatemodelcontext = async () => ({});
+  // ChatGPT's standard context write replaces its widget-state snapshot.
+  bridge.onupdatemodelcontext = async params => { (window as any).harnessWidgetState = { modelContent: params.structuredContent }; return {}; };
   bridge.onrequestdisplaymode = async ({ mode }) => { bridge!.setHostContext({ displayMode: mode }); return { mode }; };
   bridge.oninitialized = async () => {
     const result = initialResult ?? (new URLSearchParams(location.search).has('terminal') ? await (await fetch('/fixture-terminal')).json() : await invoke('kingdown_open', matchId ? { matchId } : {}));
