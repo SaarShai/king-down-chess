@@ -29,7 +29,10 @@ export async function startHarness({ boardPath = 'plugin-server-dist/board.html'
     if (!actor || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actor)) throw new Error('Set PLUGIN_DEV_ACTOR to the disposable development actor UUID');
     if (friendActor) { if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(friendActor) || friendActor === actor) throw new Error('PLUGIN_FRIEND_ACTOR must be a different development actor UUID'); buddy = new Client({ name: 'local-browser-friend', version: '1' }); await buddy.connect(new StreamableHTTPClientTransport(endpoint, { requestInit: { headers: { 'X-Kingdown-Dev-Actor': friendActor }, redirect: 'error' } })); }
     await client.connect(new StreamableHTTPClientTransport(endpoint, { requestInit: { headers: { 'X-Kingdown-Dev-Actor': actor }, redirect: 'error' } }));
-    const result = await client.readResource({ uri: 'ui://kingdown/board-v1.html' });
+    const tools = (await client.listTools()).tools;
+    const uri = (tools.find(tool => tool.name === 'kingdown_open')?._meta?.ui as {resourceUri?: string})?.resourceUri;
+    if (!uri) throw new Error('The HTTP MCP server did not advertise the board resource');
+    const result = await client.readResource({ uri });
     const resource = result.contents.find(content => content.mimeType === 'text/html;profile=mcp-app' && 'text' in content);
     if (!resource || !('text' in resource)) throw new Error('The HTTP MCP server did not return the board HTML');
     resourceHtml = resource.text;

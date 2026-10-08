@@ -32,4 +32,10 @@ Worker faults return a fixed, retryable error. Known invalid moves remain defini
 - The full suite passes: 1,410 tests and 42 artwork checks, with type checking and PostgreSQL cases enabled. The repair uses a separate disposable database, `kingdown_plugin_review_test`. The original local test database keeps its old-main schema until main receives this repair.
 - Source review checks that recovery preserves ownership, action selection uses the existing `needsArming` rule, and diagnostics cannot print raw error messages or connection URLs. No new dependency is needed.
 
-The pull request, production migration and release remain pending. The phone-width browser check is not a new native iPhone result. Broader beta scenarios and speculative capacity changes remain outside this repair.
+## First release and host check
+
+[PR 22](https://github.com/SaarShai/king-down-chess/pull/22) merges at `9807be01166f88596cec9293f58745682c361e89` after all three hosted checks pass. Production migration 0004 returns `preserves_board_owner = true`. The current compiled server passes production startup with the restricted login, TLS checks, board schema and exact OAuth audience.
+
+The approved release script publishes deployment `dpl_8NgLfpapmpEEEVJshcxdJ9NCeRwc` at `https://kingdown-plugin.vercel.app`. It passes 1,410 tests, 42 artwork checks, compiled HTTP/database, worker and protocol checks, and all three browser checks (4.4 s, 17.6 s and 17.0 s). Unsigned live checks pass. The deployment dashboard shows zero error or fatal log entries in the first live-check window; the API log connector denies access, so the dashboard supplies this evidence.
+
+The actual ChatGPT check detects cached old controls, even after a full chat reload. [Ticket 16](16-board-resource-cache.md) owns the cache repair and final live verification. This repair stays open until that check passes. The phone-width browser check is not a new native iPhone result. Broader beta scenarios and speculative capacity changes remain outside this repair.
