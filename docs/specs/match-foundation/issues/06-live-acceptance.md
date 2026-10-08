@@ -16,6 +16,12 @@ On October 8, 2026 the owner asks: "do these. for solo testing - you play agains
 
 Use visible UI state for real host results. A full game ends only when the board reports a terminal result. A repeated or failed move must not create an extra saved move. Do not substitute local mocks for real account or device results. Run the doc checks for record edits and the required code checks for any fixes.
 
+## Remaining live verification plan
+
+The owner explicitly asks to verify consent denial, provider revocation and controlled lost-response recovery on October 8. Add temporary controls, tagged `VERIFY-live`, for the second test account and its unused solo match only. The consent control calls the supported Supabase grant API for the approved ChatGPT client; it must check the signed-in user's ID before any revocation. Confirm the grant is absent, check the existing ChatGPT connection, then start a new connection and deny consent. Restore the same account after the denial check.
+
+For the lost-response case, arm one deliberate result discard in the real ChatGPT board for solo match `9aa166ad-f978-487d-b80f-c9a3963b2457`. Let the real server save a move, discard its successful reply at the board boundary, then reload and retry the saved command. Compare the saved revision and command receipt before and after retry. This tests the real host with an injected lost result; it does not claim a physical network interruption. Remove all temporary controls after the checks and release the clean build.
+
 ## Solo evidence
 
 Continue the existing test-account game in Chrome on macOS, in the real ChatGPT host, from White's fifth move. The assistant plays every player move through the visible board and requests each computer action. The game ends after Black's 23rd move with "Black wins · Checkmate".
