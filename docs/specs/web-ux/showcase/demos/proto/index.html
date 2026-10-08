@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The recommended app</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="proto.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- 1. Title: the first visit -->
+  <section id="v-title" class="view night title" aria-labelledby="title-word" hidden>
+    <div class="t-stage" aria-hidden="true">
+      <img class="t-floor" src="../../assets/stone-board.webp" alt="">
+      <div class="t-kings">
+        <img class="tk-outer" src="../../assets/kings/mud.webp" alt="">
+        <img class="tk-inner" src="../../assets/kings/flame.webp" alt="">
+        <img class="tk-centre" src="../../assets/kings/spirit.webp" alt="">
+        <img class="tk-centre tk-right" src="../../assets/kings/shadow.webp" alt="">
+        <img class="tk-inner tk-right" src="../../assets/kings/frost.webp" alt="">
+        <img class="tk-outer tk-right" src="../../assets/kings/stratus.webp" alt="">
+      </div>
+    </div>
+    <ul class="t-lineup" id="lineup" aria-label="The twelve pieces"></ul>
+    <div class="t-copy">
+      <h1 id="title-word" class="wordmark"><span class="wm-king">King</span> <span class="wm-down">Down</span></h1>
+      <p class="t-tag">Chess with six new pieces</p>
+      <div class="t-actions">
+        <button type="button" class="btn btn-primary t-main" id="t-shot"></button>
+        <button type="button" class="btn t-play" id="t-play"></button>
+      </div>
+      <button type="button" class="linkish" id="t-workshop">Make your own piece</button>
+    </div>
+  </section>
+
+  <!-- The first shot: a one-move Archer lesson -->
+  <section id="v-lesson" class="view lesson" aria-labelledby="lesson-title" hidden>
+    <header class="topbar">
+      <button type="button" class="btn btn-icon" id="lesson-back" aria-label="Back"></button>
+      <h1 id="lesson-title" class="display">Your first shot</h1>
+      <span class="topbar-gap" aria-hidden="true"></span>
+    </header>
+    <div class="lesson-board"><div id="lesson-board"></div></div>
+    <div class="lesson-foot">
+      <p class="context lesson-line" id="lesson-line" aria-live="polite"></p>
+      <div class="lesson-actions" id="lesson-actions" hidden>
+        <button type="button" class="btn btn-primary btn-wide" id="lesson-play">Play your first game</button>
+        <button type="button" class="btn btn-quiet btn-wide" id="lesson-again">Shoot again</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Home: a returning player -->
+  <section id="v-home" class="view home" aria-labelledby="home-title" hidden>
+    <header class="topbar">
+      <span class="topbar-gap" aria-hidden="true"></span>
+      <h1 id="home-title" class="wordmark wordmark-sm"><span class="wm-king">King</span> <span class="wm-down">Down</span></h1>
+      <button type="button" class="btn btn-icon" id="home-menu" aria-label="Menu"></button>
+    </header>
+    <div class="home-body">
+      <div class="home-table">
+        <div class="home-board" id="home-board"></div>
+        <div class="home-continue">
+          <button type="button" class="btn btn-primary" id="home-continue"></button>
+          <p class="home-sub" id="home-sub"></p>
+        </div>
+      </div>
+      <article class="card today" aria-labelledby="today-title">
+        <div class="today-head">
+          <h2 id="today-title">Today's army</h2>
+          <span class="muted" id="today-date"></span>
+        </div>
+        <ul class="today-row" id="today-row" aria-label="Today's back rank"></ul>
+        <p class="muted today-line">The same army for every player today.</p>
+        <button type="button" class="btn btn-quiet btn-wide" id="today-play">Play today's army</button>
+      </article>
+      <button type="button" class="linkish home-new" id="home-new"></button>
+    </div>
+  </section>
+
+  <!-- 5. The game -->
+  <section id="v-game" class="view game" aria-label="Game" hidden>
+    <div class="g-board" id="g-board-host"><div id="board"></div></div>
+    <div class="g-side">
+      <div class="strip strip-them" id="strip-them"></div>
+      <div class="g-mid">
+        <div class="context" id="context" aria-live="polite"></div>
+        <button type="button" class="movesline" id="movesline" aria-expanded="false" aria-controls="story-inline"></button>
+        <div class="story-inline" id="story-inline" hidden></div>
+        <section class="result" id="result" aria-labelledby="result-title" hidden></section>
+        <aside class="hold-card" id="hold-card" aria-live="polite" hidden></aside>
+      </div>
+      <div class="strip strip-me" id="strip-me"></div>
+      <nav class="bar" id="bar" aria-label="Game actions">
+        <button type="button" class="barbtn" id="b-hint"></button>
+        <button type="button" class="barbtn" id="b-undo"></button>
+        <button type="button" class="barbtn" id="b-menu"></button>
+      </nav>
+      <nav class="bar bar-review" id="bar-review" aria-label="Review" hidden>
+        <button type="button" class="barbtn" id="r-prev"></button>
+        <button type="button" class="barbtn barbtn-main" id="r-back"></button>
+        <button type="button" class="barbtn" id="r-next"></button>
+      </nav>
+    </div>
+  </section>
+</div>
+
+<!-- 3. New game -->
+<dialog class="sheet sheet-new" id="sheet-new" aria-labelledby="new-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="new-title" tabindex="-1" autofocus>New game</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body new-body">
+    <fieldset class="modes">
+      <legend class="sr-only">Choose a game</legend>
+      <label class="mode"><input type="radio" name="mode" value="computer">
+        <span class="mode-art" aria-hidden="true"><img src="../../assets/kings/spirit.webp" alt=""></span>
+        <span class="mode-text"><b>Play the computer</b><small>Just the new pieces. No powers.</small></span></label>
+      <label class="mode"><input type="radio" name="mode" value="powers">
+        <span class="mode-art fan" aria-hidden="true"><img src="../../assets/emblems/frost.webp" alt=""><img src="../../assets/emblems/flame.webp" alt=""><img src="../../assets/emblems/stratus.webp" alt=""></span>
+        <span class="mode-text"><b>Kings' powers</b><small>Your king brings one power.</small></span></label>
+      <label class="mode"><input type="radio" name="mode" value="two">
+        <span class="mode-art two" aria-hidden="true"><img src="../../assets/kings/spirit.webp" alt=""><img src="../../assets/kings/shadow-b.webp" alt=""></span>
+        <span class="mode-text"><b>Two players</b><small>Take turns on this device.</small></span></label>
+    </fieldset>
+
+    <div class="field" id="f-king" hidden>
+      <h3 class="field-h" id="king-h">Your king</h3>
+      <div class="kings" role="radiogroup" aria-labelledby="king-h" id="king-pick"></div>
+      <div class="powers" role="radiogroup" aria-label="Power" id="power-pick"></div>
+      <p class="muted small">The computer takes a different king.</p>
+    </div>
+
+    <div class="field" id="f-level">
+      <h3 class="field-h" id="level-h">Level</h3>
+      <div class="chips" role="radiogroup" aria-labelledby="level-h" id="level-pick"></div>
+    </div>
+
+    <div class="field">
+      <button type="button" class="summary" id="more-toggle" aria-expanded="false" aria-controls="more">
+        <span><b>Side and army</b><small id="more-sum"></small></span><span class="chev" aria-hidden="true"></span>
+      </button>
+      <div class="more" id="more" hidden>
+        <h3 class="field-h" id="side-h">You play</h3>
+        <div class="chips" role="radiogroup" aria-labelledby="side-h" id="side-pick"></div>
+        <h3 class="field-h" id="army-h">Army</h3>
+        <div class="chips" role="radiogroup" aria-labelledby="army-h" id="army-pick"></div>
+      </div>
+    </div>
+  </div>
+  <div class="sheet-foot">
+    <p class="foot-note" id="new-note" hidden>This ends the game in play.</p>
+    <button type="button" class="btn btn-primary btn-wide" id="new-start">Start</button>
+  </div>
+</dialog>
+
+<!-- 6. Menu -->
+<dialog class="sheet" id="sheet-menu" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title" tabindex="-1" autofocus>Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body">
+    <div id="menu-main">
+      <ul class="menu-list">
+        <li><button type="button" class="mrow" id="m-new"></button></li>
+        <li><button type="button" class="mrow" id="m-guide"></button></li>
+        <li><button type="button" class="mrow" id="m-sound"></button></li>
+        <li><button type="button" class="mrow" id="m-extra"></button></li>
+        <li><button type="button" class="mrow" id="m-home"></button></li>
+      </ul>
+      <div class="menu-apart" id="menu-apart">
+        <button type="button" class="mrow mrow-resign" id="m-resign"></button>
+      </div>
+    </div>
+    <div class="resign" id="menu-resign" hidden>
+      <img class="resign-king" id="resign-king" src="../../assets/kings/spirit.webp" alt="">
+      <h3 class="resign-q" id="resign-q" tabindex="-1">Lay your king down?</h3>
+      <p class="muted">The game ends. The computer wins.</p>
+      <div class="stack">
+        <button type="button" class="btn btn-primary btn-wide" id="resign-yes">Lay it down</button>
+        <button type="button" class="btn btn-quiet btn-wide" id="resign-no">Keep playing</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Extra -->
+<dialog class="sheet" id="sheet-extra" aria-labelledby="extra-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head">
+    <button type="button" class="btn btn-icon" id="extra-back" aria-label="Back to Menu"></button>
+    <h2 id="extra-title" tabindex="-1" autofocus class="grow">Extra</h2>
+    <button type="button" class="btn btn-icon" data-close aria-label="Close"></button>
+  </div>
+  <div class="sheet-body"><ul class="extra-list" id="extra-list"></ul></div>
+</dialog>
+
+<!-- Guide -->
+<dialog class="sheet" id="sheet-guide" aria-labelledby="guide-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head">
+    <button type="button" class="btn btn-icon" data-back aria-label="Back to Menu"></button>
+    <h2 id="guide-title" tabindex="-1" autofocus class="grow">Guide</h2>
+    <button type="button" class="btn btn-icon" data-close aria-label="Close"></button>
+  </div>
+  <div class="sheet-body">
+    <p class="muted">Six new pieces join chess. Tap any piece in a game to read it.</p>
+    <ul class="guide-list" id="guide-list"></ul>
+    <p class="note"><b>In the full app:</b> a short lesson for each piece, and the twelve powers.</p>
+  </div>
+</dialog>
+
+<!-- Sound and motion -->
+<dialog class="sheet" id="sheet-sound" aria-labelledby="sound-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head">
+    <button type="button" class="btn btn-icon" data-back aria-label="Back to Menu"></button>
+    <h2 id="sound-title" tabindex="-1" autofocus class="grow">Sound and motion</h2>
+    <button type="button" class="btn btn-icon" data-close aria-label="Close"></button>
+  </div>
+  <div class="sheet-body">
+    <label class="row"><span>Sound<small>One short sound for each move.</small></span><input type="checkbox" class="toggle" id="t-sound"></label>
+    <label class="row"><span>Reduce motion<small>Moves jump to the end. Nothing slides.</small></span><input type="checkbox" class="toggle" id="t-motion"></label>
+  </div>
+</dialog>
+
+<!-- Moves: the story (phone) -->
+<dialog class="sheet" id="sheet-moves" aria-labelledby="moves-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="moves-title" tabindex="-1" autofocus>Moves</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body" id="story-sheet"></div>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

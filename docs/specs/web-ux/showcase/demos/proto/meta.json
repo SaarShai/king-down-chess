@@ -1,0 +1,69 @@
+{
+  "id": "proto",
+  "title": "The recommended app",
+  "group": "direction",
+  "feature": "whole app",
+  "summary": "One playable prototype of the whole app: the title, a first Archer shot, New game, the muster, a real game against the computer, the Menu and the result.",
+  "problem": "Today the game screen shows 7 tiles, a long move list and 9 text areas. The fun of King Down (shots, bites, shoves, powers) hides in menus and in code-like move text, and a new player meets a full setup form before the first move.",
+  "idea": "A quiet table on parchment: the board, two slim player strips, one context line, one closed Moves line and three actions. Every rule shows on the board at the moment it matters. Everything else folds into the Menu and Extra.",
+  "borrows": [
+    {
+      "from": "Lichess Zen mode",
+      "what": "A calm table with nothing but the game; the parchment floor keeps the King Down look."
+    },
+    {
+      "from": "Hearthstone",
+      "what": "The hero power as a tile by your king, and the reveal on the opponent's portrait when they use theirs."
+    },
+    {
+      "from": "Into the Breach",
+      "what": "The cause line: a thin line from the piece that shoots or checks, so a take without contact is never a mystery."
+    },
+    {
+      "from": "Root and Wingspan logs",
+      "what": "Moves as a short story with icons and true verbs, folded until the player asks."
+    },
+    {
+      "from": "World 1-1 (Super Mario Bros.)",
+      "what": "The first tap in the app is an Archer shot over a row of pawns: the novelty is the first memory."
+    },
+    {
+      "from": "Really Bad Chess and Wordle",
+      "what": "The muster: the twin back ranks land file by file, so the mirror rule needs no words."
+    }
+  ],
+  "options": [],
+  "recommendation": "Build this blend: the Quiet Table at rest, Warm joy on the moments that matter, the Coach's tags and refusals for the first three games, and the Arena's power tile and reveal in Kings' powers. It keeps the board still and front and center, and it shows every special rule where it happens.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "L",
+  "states": [
+    "title",
+    "lesson-shot",
+    "home",
+    "new-game",
+    "new-game-powers",
+    "muster",
+    "game-rest",
+    "game-read",
+    "game-select",
+    "game-powers-armed",
+    "moves-open",
+    "menu",
+    "extra",
+    "check",
+    "result"
+  ],
+  "notes": [
+    "Try first: on the title, tap Take your first shot, then Play your first game. Play a few moves against Beginner.",
+    "Tap any piece, yours or theirs, to read it. Hold a piece (or rest the mouse on it, or press I) for its card. Reading never moves a piece.",
+    "Select your Beast next to two enemies: the numbers show the chain. After the first bite, Stop here ends it.",
+    "With a piece selected, tap an enemy Guard: the refusal teaches the rule.",
+    "Hint shows the piece and a ghost of the move once. Undo plays your move and the reply backward.",
+    "Tap the Moves line to open the story. Tap a row to see that position, then Back to game.",
+    "New game › Kings' powers: pick Frost and Freeze. In the game, tap the Freeze tile, tap an enemy piece, then make your move.",
+    "Menu › Resign asks: Lay your king down? Your own king topples.",
+    "Reload the page after a game: Home shows the last board with Continue on it, and today's army.",
+    "Limits: Moves to look at again picks the mate and the biggest takes; the app finds key moments with its engine. Two players has no Kings' powers here. Guide, Workshop, Tricks, Board help and Account show an In the full app note. Sounds are short tones from the kit, not the app's sounds."
+  ]
+}
