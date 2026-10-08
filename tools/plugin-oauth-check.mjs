@@ -13,9 +13,7 @@ const clientId = '11111111-1111-4111-8111-111111111111', actor = '22222222-2222-
 const config = { supabaseUrl: 'https://project.supabase.co', publishableKey: 'sb_publishable_browsercheck', clientIds: [clientId] };
 const html = (await readFile(resolve(root, 'consent.html'), 'utf8')).replace('__KINGDOWN_CONSENT_CONFIG__', JSON.stringify(config));
 const script = await readFile(resolve(root, 'consent.mjs'));
-// VERIFY-live: exercise the temporary control with its exact public client ID.
-const verificationClient = 'a6478e14-9e9a-43a7-a4b7-b888aed30791';
-const server = createServer((req, res) => { res.setHeader('Content-Type', req.url.startsWith('/consent.mjs') ? 'text/javascript' : 'text/html'); res.end(req.url.startsWith('/consent.mjs') ? script : req.url.includes('verification=live-acceptance') ? html.replace(clientId, verificationClient) : html); });
+const server = createServer((req, res) => { res.setHeader('Content-Type', req.url.startsWith('/consent.mjs') ? 'text/javascript' : 'text/html'); res.end(req.url.startsWith('/consent.mjs') ? script : html); });
 server.listen(0, '127.0.0.1'); await once(server, 'listening');
 const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
@@ -94,27 +92,6 @@ try {
     await page.close();
   }
   const missing = await browser.newPage(); trapErrors(missing); await missing.goto(`${origin}/authorize`); await missing.getByText('This authorization request is unavailable or expired.', { exact: false }).waitFor(); assert(await missing.getByRole('button', { name: 'Allow connection' }).isHidden()); await missing.close();
-  // VERIFY-live: other accounts have no control; a changed authenticated user cannot revoke.
-  for (const scenario of ['allowed', 'other-account', 'changed-user']) {
-    const page = await browser.newPage(); trapErrors(page); let revoked = false;
-    const testActor = 'e0d952a0-147a-42c1-8382-153692908d6d';
-    const user = { id: scenario === 'other-account' ? actor : testActor, email: 'test@example.test', is_anonymous: false, app_metadata: {}, user_metadata: {} };
-    const now = Math.floor(Date.now() / 1000);
-    const session = { access_token: `header.${Buffer.from(JSON.stringify({ exp: now + 3600, sub: user.id })).toString('base64url')}.signature`, refresh_token: 'mock-refresh', expires_at: now + 3600, expires_in: 3600, token_type: 'bearer', user };
-    await page.addInitScript(session => localStorage.setItem('kingdown-plugin-consent', JSON.stringify(session)), session);
-    await page.route('https://project.supabase.co/**', async route => {
-      const request = route.request(), url = new URL(request.url());
-      if (url.pathname.endsWith('/user')) await route.fulfill({ json: { ...user, id: scenario === 'changed-user' ? actor : user.id } });
-      else if (request.method() === 'DELETE') { assert.equal(url.searchParams.get('client_id'), verificationClient); revoked = true; await route.fulfill({ status: 204 }); }
-      else await route.fulfill({ json: [] });
-    });
-    await page.goto(`${origin}/authorize?authorization_id=${authorizationId}&verification=live-acceptance`);
-    await page.getByText('test@example.test', { exact: true }).waitFor();
-    const revoke = page.getByRole('button', { name: 'Revoke this test account’s ChatGPT grant', exact: true });
-    if (scenario === 'other-account') assert(await revoke.isHidden());
-    else { await revoke.click(); await page.getByText(scenario === 'allowed' ? 'Verification: ChatGPT grant revoked. The grant list confirms it is absent.' : 'Verification: revocation failed. No pass recorded.', { exact: true }).waitFor(); }
-    assert.equal(revoked, scenario === 'allowed'); await page.close();
-  }
   assertNoErrors();
   console.log('Consent browser: PKCE social return, account choice before existing-grant redirect, local account switch, SDK approve/deny, sign-out failure preserves blocked client, escaped client name, and missing request passed');
 } finally { await browser?.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
