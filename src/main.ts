@@ -88,7 +88,7 @@ let setup: Setup = defaultSetup();
 let selected: number | null = null;
 let pending: number[] = []; // beast chain squares clicked so far
 let hovered: number | null = null;
-/** An enemy piece that a tap (or Enter) chose to read: its card shows while no piece is selected or under the pointer. */
+/** A piece that a tap (or Enter) chose to read: an enemy piece, or any piece while the player cannot move. Its card shows while no piece is selected or under the pointer. */
 let inspected: number | null = null;
 /** The player to move has armed their king's power: the next click spends it. */
 let armed = false;
@@ -554,16 +554,17 @@ function drawMarks(): void {
 }
 new ResizeObserver(() => drawMarks()).observe($('board'));
 
-/** Why a tap on the empty square `to` did not play a move for the piece on `from` (only exported engine functions). */
+/** Why a tap on `to` did not play a move for the piece on `from` (only exported engine functions). */
 function whyNot(from: number, to: number): string {
-  const pos = game.pos, name = NAMES[typeOf(pos.board[from])];
+  const pos = game.pos, mover = pos.board[from], name = NAMES[typeOf(mover)], target = pos.board[to];
   // Only the moves a click can reach (candidates()): an unarmed power move is not "a move into check".
   const tag = armedTag();
   if (pseudoMoves(pos).some(m => m.from === from && offered(m, tag) && clickPath(m)[0] === to)) {
     return game.inCheck ? `Your king is in check, and that ${name} move does not stop it.` : `Not allowed: that ${name} move would leave your king in check.`;
   }
+  if (target && typeOf(target) === G && colorOf(target) !== pos.turn && typeOf(mover) !== K) return 'Not allowed: a guard can only be taken by a king.';
   const can = game.legal.some(m => m.from === from && offered(m, tag)) ? ' The marked squares show where it can go.' : '';
-  return `Not allowed: the ${name} cannot reach ${sqName(to)}.${can}`;
+  return `Not allowed: the ${name} cannot ${target ? `take the ${NAMES[typeOf(target)]} on` : 'reach'} ${sqName(to)}.${can}`;
 }
 
 /** The keyboard cursor's square and piece, for the screen reader. */
@@ -572,7 +573,7 @@ function sayCursor(): void {
   const p = shownPos().board[cursor];
   const what = p ? `${colorOf(p) ? 'black' : 'white'} ${NAMES[typeOf(p)]}` : 'empty';
   const target = selected != null && candidates().some(m => clickPath(m)[pending.length] === cursor);
-  const card = cursor === inspected ? `. ${pieceText(typeOf(p))}` : ''; // an enemy piece chosen with Enter: its card
+  const card = cursor === inspected ? `. ${pieceText(typeOf(p))}` : ''; // a piece chosen with Enter to read: its card
   $('cursor-say').textContent = `${sqName(cursor)}, ${what}${cursor === selected ? ', selected' : target ? ', can go here' : card}`;
 }
 
@@ -817,16 +818,16 @@ view.onDragSelect = (sq) => {
   $('panel').scrollTop = 0;
 };
 
-/** Show why a tap did nothing, in the help line (a live region). */
-const refuse = (why: string): void => { notice = why; refresh(); };
+/** Show why a tap on `sq` did nothing, in the help line (a live region). A piece on `sq` shows its card. */
+const refuse = (why: string, sq: number): void => { inspected = game.pos.board[sq] ? sq : null; notice = why; refresh(); };
 
 view.onSquareClick = (sq, shift = false) => {
-  if (busy) { if (thinking) refuse('The computer is thinking. Wait for its move.'); view.skip(); return; } // a tap during an animation skips it
+  if (busy) { if (thinking) refuse('The computer is thinking. Wait for its move.', sq); view.skip(); return; } // a tap during an animation skips it
   if (viewing != null) { void showPly(game.history.length, false); return; }
-  if (finished()) return refuse(lesson != null ? '' : 'The game is over. Start a new game, or Undo to take back a move.');
+  if (finished()) return refuse(lesson != null ? '' : 'The game is over. Start a new game, or Undo to take back a move.', sq);
   if (!myTurn()) {
     return refuse(lessonDone ? 'Lesson done. Choose the next lesson below.'
-      : sides[game.pos.turn] === 'ai' ? "It is the computer's move." : '');
+      : sides[game.pos.turn] === 'ai' ? "It is the computer's move." : '', sq);
   }
   hintSquares = [];
   notice = '';
@@ -842,9 +843,9 @@ view.onSquareClick = (sq, shift = false) => {
   const next = candidates().filter(m => clickPath(m)[pending.length] === sq);
   if (selected == null || next.length === 0) {
     const turn = game.pos.turn ? 'Black' : 'White';
-    if (p && !own) inspected = sq; // an enemy piece that is no target: its card, and no refusal
-    else if (selected != null && !own && sq !== selected) notice = pending.length ? 'That square is not marked, so the capture chain was cancelled.' : whyNot(selected, sq);
+    if (selected != null && !own && sq !== selected) notice = pending.length ? 'That square is not marked, so the capture chain was cancelled.' : whyNot(selected, sq);
     else if (selected == null && !p) notice = `Choose one of ${turn}'s pieces first.`;
+    if (p && !own) inspected = sq; // an enemy piece that is no target: its card; with a piece selected, the help line still says why
     selected = own && sq !== selected ? sq : null;
     pending = [];
     if (selected != null && !game.legal.some(m => m.from === selected)) {
@@ -919,6 +920,7 @@ async function showPly(n: number, replay = true): Promise<void> {
   viewing = n === len ? null : n;
   selected = null; pending = []; hintSquares = []; reviewNote = ''; inspected = null;
   refresh();
+  sayCursor(); // the keyboard cursor reads the board now shown
   if (replay && n === from + 1) {
     view.sync(at(from));
     busy = replaying = true; // the board is locked like any move animation; a tap skips it
@@ -1367,7 +1369,7 @@ boardEl.addEventListener('keydown', e => {
     if (selected === cursor) {
       const to = [...new Set(candidates().map(m => clickPath(m)[pending.length]))].map(sqName);
       $('cursor-say').textContent = to.length ? `${sqName(cursor)} selected. It can go to ${to.join(', ')}.` : '';
-    } else if (inspected === cursor) sayCursor(); // an enemy piece: its card, said as a tap shows it
+    } else if (inspected === cursor) sayCursor(); // a piece to read: its card, said as a tap shows it
     drawMarks();
     return;
   } else {

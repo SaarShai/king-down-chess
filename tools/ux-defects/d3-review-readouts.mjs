@@ -38,8 +38,20 @@ export default async function ({ open }) {
       assert.match(await say(), /^d5, black pawn/, 'review: the cursor reads the viewed board on d5');
       await page.keyboard.press('Enter'); // a board action ends the review
       await turn(page, /^White to move/);
+      assert.match(await say(), /^d5, white pawn/, 'live: the end of the review makes the cursor read the live board');
       await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowUp');
       assert.match(await say(), /^d5, white pawn/, 'live: the cursor reads the live board again');
+      // Escape ends a review too: the cursor reads the live board at once, with no arrow key.
+      await page.locator('#moves [data-ply="2"]').click(); // the click takes the focus from the board, and the cursor goes
+      await turn(page, /^Reviewing after 1… d7-d5/);
+      await page.mouse.move(board.x / 2, board.y + board.height / 2);
+      await page.focus('#new-game-btn');
+      await page.keyboard.press('Shift+Tab');
+      for (const key of ['ArrowUp', 'ArrowUp', 'ArrowLeft', 'ArrowUp']) await page.keyboard.press(key);
+      assert.match(await say(), /^d5, black pawn/, 'review: the cursor reads the viewed board on d5');
+      await page.keyboard.press('Escape');
+      await turn(page, /^White to move/);
+      assert.match(await say(), /^d5, white pawn/, 'live: Escape ends the review, and the cursor reads the live board');
       assert.match(await card(D5), /White pawn/, 'live: the card of d5 reads the live board again');
       assert.doesNotMatch(await card(E4), /pawn/, 'live: e4 is empty again');
     } else {
