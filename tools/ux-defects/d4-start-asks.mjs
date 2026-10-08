@@ -1,6 +1,9 @@
 // D-4: Start game over an unfinished game asks first, and Cancel keeps the game and its save.
-// A finished game, a game with no move and a lesson need no question.
+// In a lesson, that game is the one Return to game keeps. A finished game and a game with no move need no question.
 import assert from 'node:assert/strict';
+
+/** You play White against the computer, two moves in. */
+const UNFINISHED = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', skill: 'club', sound: false };
 
 const saved = page => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
 const plies = page => page.locator('#moves [data-ply]').count();
@@ -17,7 +20,7 @@ async function start(page, accept) {
 
 export default async function ({ open }) {
   {
-    const { page, tap, close } = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', skill: 'club', sound: false } });
+    const { page, tap, close } = await open({ save: UNFINISHED });
     // An unfinished game: Start game asks. Cancel keeps the game, its save and the open dialog.
     assert.equal(await start(page, false), 'Start a new game? It replaces your current game.', 'an unfinished game asks first');
     assert.deepEqual((await saved(page)).moves, ['e2-e4', 'e7-e5'], 'Cancel keeps the save');
@@ -30,7 +33,7 @@ export default async function ({ open }) {
     // A game with no move needs no question.
     assert.equal(await start(page, false), null, 'no question before the first move');
     await page.waitForFunction(() => !document.getElementById('new-game').open);
-    // A lesson needs no question, also after its goal move.
+    // A lesson over a game with no move needs no question, also after its goal move.
     await page.click('#rules-btn'); await page.click('#learn');
     await tap(27); await tap(36); // lesson 1: the Archer shoots
     await page.waitForFunction(() => document.getElementById('moment').textContent.startsWith('Well done.'));
@@ -40,9 +43,21 @@ export default async function ({ open }) {
     assert.doesNotMatch(await page.textContent('#turn'), /Lesson/, 'the new game ends the lesson');
     await close();
   }
+  // In a lesson, Start game asks about the game that Return to game keeps. Cancel keeps that game and its save.
+  {
+    const { page, close } = await open({ save: UNFINISHED });
+    await page.click('#rules-btn'); await page.click('#learn');
+    assert.equal(await start(page, false), 'Start a new game? It replaces your current game.', 'a lesson over an unfinished game asks first');
+    assert.deepEqual((await saved(page)).moves, ['e2-e4', 'e7-e5'], 'Cancel keeps the save');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.getElementById('new-game').open);
+    await page.click('#return-game');
+    assert.equal(await plies(page), 2, 'Return to game opens the kept game');
+    await close();
+  }
   // A finished game needs no question. The save opens with its result dialog, so the pace comes from the save.
   {
-    const { page, close } = await open({ pace: null, save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', skill: 'club', sound: false, pace: 'off', resigned: 0 } });
+    const { page, close } = await open({ pace: null, save: { ...UNFINISHED, pace: 'off', resigned: 0 } });
     await page.waitForFunction(() => document.getElementById('over').open);
     await page.click('#over button[value="close"]');
     assert.equal(await start(page, false), null, 'no question after the game is over');
