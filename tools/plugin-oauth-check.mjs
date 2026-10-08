@@ -37,32 +37,63 @@ try {
   const callback = new URL(signInUrl.searchParams.get('redirect_to')); assert.equal(callback.origin, origin); assert.equal(callback.pathname, '/authorize'); assert.equal(callback.searchParams.get('authorization_id'), authorizationId);
   assert(signInUrl.searchParams.get('code_challenge')); assert.equal(signInUrl.searchParams.get('code_challenge_method'), 's256');
   await signin.goto(`${callback.href}&code=mock-social-code`);
+  await signin.getByRole('button', { name: 'Continue', exact: true }).click();
   await signin.getByRole('button', { name: 'Allow connection' }).waitFor();
   assert.equal(exchange.auth_code, 'mock-social-code'); assert(exchange.code_verifier);
   assert.equal(createHash('sha256').update(exchange.code_verifier).digest('base64url'), signInUrl.searchParams.get('code_challenge'));
   assert.equal(new URL(signin.url()).searchParams.get('authorization_id'), authorizationId);
   await signin.close();
   for (const action of ['approve', 'deny', 'unlisted']) {
-    const page = await browser.newPage(); trapErrors(page); let decision;
+    const page = await browser.newPage(); trapErrors(page, action === 'unlisted' ? [{ pattern: /^Failed to load resource: the server responded with a status of 503 \(Service Unavailable\)$/, reason: 'The sign-out failure case returns 503 on purpose.' }] : []); let decision;
     const now = Math.floor(Date.now() / 1000);
     const session = { access_token: `header.${Buffer.from(JSON.stringify({ exp: now + 3600, sub: actor })).toString('base64url')}.signature`, refresh_token: 'mock-refresh', expires_at: now + 3600, expires_in: 3600, token_type: 'bearer', user: { id: actor, email: 'player@example.test', is_anonymous: false, app_metadata: {}, user_metadata: {} } };
     await page.addInitScript(({ session }) => localStorage.setItem('kingdown-plugin-consent', JSON.stringify(session)), { session });
     await page.route('https://project.supabase.co/**', async route => {
       const request = route.request();
-      if (request.url().endsWith('/consent')) { decision = request.postDataJSON(); await route.fulfill({ json: { redirect_url: `https://client.example/callback?${action === 'approve' ? 'code=mock-code' : 'error=access_denied'}&state=preserved` } }); }
+      if (new URL(request.url()).pathname.endsWith('/logout')) await route.fulfill({ status: 503, json: { message: 'Temporary sign-out failure' } });
+      else if (request.url().endsWith('/consent')) { decision = request.postDataJSON(); await route.fulfill({ json: { redirect_url: `https://client.example/callback?${action === 'approve' ? 'code=mock-code' : 'error=access_denied'}&state=preserved` } }); }
       else await route.fulfill({ json: { authorization_id: authorizationId, redirect_uri: 'https://client.example/callback', client: { id: action === 'unlisted' ? randomUUID() : clientId, name: '<script>Untrusted client</script>', uri: 'https://client.example', logo_uri: '' }, user: { id: actor, email: 'player@example.test' }, scope: 'openid email' } });
     });
     await page.route('https://client.example/**', route => route.fulfill({ contentType: 'text/html', body: 'OAuth callback' }));
     await page.goto(`${origin}/authorize?authorization_id=${authorizationId}`);
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByText('<script>Untrusted client</script>', { exact: true }).waitFor();
     assert.equal(await page.locator('script:not([src]):not([type="application/json"])').count(), 0);
-    if (action === 'unlisted') { assert(await page.getByRole('button', { name: 'Allow connection' }).isDisabled()); assert.equal(decision, undefined); }
+    if (action === 'unlisted') {
+      assert(await page.getByRole('button', { name: 'Allow connection' }).isDisabled()); assert.equal(decision, undefined);
+      await page.getByRole('button', { name: 'Use another account', exact: true }).click();
+      await page.getByText('Could not sign out. Try again.', { exact: true }).waitFor();
+      assert(await page.getByRole('button', { name: 'Allow connection' }).isDisabled());
+      assert(await page.getByRole('button', { name: 'Deny', exact: true }).isEnabled());
+    }
     else { await page.getByRole('button', { name: action === 'approve' ? 'Allow connection' : 'Deny', exact: true }).click(); await page.waitForURL('https://client.example/**'); assert.equal(decision.action, action); assert(new URL(page.url()).searchParams.has(action === 'approve' ? 'code' : 'error')); }
+    await page.close();
+  }
+  for (const action of ['continue', 'switch']) {
+    const page = await browser.newPage(); trapErrors(page); let details = 0, signedOut = false;
+    const now = Math.floor(Date.now() / 1000);
+    const session = { access_token: `header.${Buffer.from(JSON.stringify({ exp: now + 3600, sub: actor })).toString('base64url')}.signature`, refresh_token: 'mock-refresh', expires_at: now + 3600, expires_in: 3600, token_type: 'bearer', user: { id: actor, email: 'first@example.test', is_anonymous: false, app_metadata: {}, user_metadata: {} } };
+    await page.addInitScript(({ session }) => {
+      if (sessionStorage.getItem('seeded')) return;
+      sessionStorage.setItem('seeded', '1'); localStorage.setItem('kingdown-plugin-consent', JSON.stringify(session));
+    }, { session });
+    await page.route('https://project.supabase.co/**', async route => {
+      const url = new URL(route.request().url());
+      if (url.pathname.endsWith('/logout')) { signedOut = true; assert.equal(url.searchParams.get('scope'), 'local'); await route.fulfill({ status: 204 }); }
+      else { details++; await route.fulfill({ json: { redirect_url: 'https://client.example/callback?code=existing-grant&state=preserved' } }); }
+    });
+    await page.route('https://client.example/**', route => route.fulfill({ contentType: 'text/html', body: 'Existing grant callback' }));
+    await page.goto(`${origin}/authorize?authorization_id=${authorizationId}`);
+    await page.getByText('first@example.test', { exact: true }).waitFor();
+    assert.equal(details, 0);
+    await page.getByRole('button', { name: action === 'continue' ? 'Continue' : 'Use another account', exact: true }).click();
+    if (action === 'continue') { await page.waitForURL('https://client.example/**'); assert.equal(details, 1); assert.equal(signedOut, false); }
+    else { await page.getByRole('button', { name: 'Continue with Google' }).waitFor(); assert.equal(signedOut, true); assert.equal(details, 0); assert.equal(new URL(page.url()).searchParams.get('authorization_id'), authorizationId); }
     await page.close();
   }
   const missing = await browser.newPage(); trapErrors(missing); await missing.goto(`${origin}/authorize`); await missing.getByText('This authorization request is unavailable or expired.', { exact: false }).waitFor(); assert(await missing.getByRole('button', { name: 'Allow connection' }).isHidden()); await missing.close();
   assertNoErrors();
-  console.log('Consent browser: PKCE social return/code exchange preserves authorization_id, SDK approve/deny, unlisted client blocked, escaped client name, and missing request passed');
+  console.log('Consent browser: PKCE social return, account choice before existing-grant redirect, local account switch, SDK approve/deny, sign-out failure preserves blocked client, escaped client name, and missing request passed');
 } finally { await browser?.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 
 // Retry a failed OAuth-discovery configuration without contacting a real Auth server.

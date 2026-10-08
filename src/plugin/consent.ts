@@ -4,6 +4,7 @@ import type { ConsentConfig } from './consent-config';
 const config: ConsentConfig = JSON.parse(document.getElementById('kingdown-consent-config')!.textContent!);
 const authorizationId = new URL(location.href).searchParams.get('authorization_id');
 const status = document.getElementById('status')!, signin = document.getElementById('signin')!, consent = document.getElementById('consent')!;
+const accountChoice = document.getElementById('choose-account')!;
 const buttons = [...document.querySelectorAll<HTMLButtonElement>('button')];
 function busy(on: boolean): void { buttons.forEach(button => { button.disabled = on; }); }
 function say(message: string): void { status.textContent = message; }
@@ -28,6 +29,16 @@ async function main(): Promise<void> {
     };
     return;
   }
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-signout]')) button.onclick = async () => {
+    const disabled = buttons.map(button => button.disabled);
+    busy(true); const { error } = await sb.auth.signOut({ scope: 'local' });
+    if (error) { buttons.forEach((button, index) => { button.disabled = disabled[index]; }); say('Could not sign out. Try again.'); } else location.reload();
+  };
+  document.getElementById('signed-in-account')!.textContent = session.data.session.user.email || 'Your signed-in account';
+  accountChoice.hidden = false; say('Choose the account to connect.');
+  // Existing grants can redirect at the details request, before the consent controls appear.
+  await new Promise<void>(resolve => { document.getElementById('continue')!.onclick = () => resolve(); });
+  accountChoice.hidden = true; say('Checking this authorization request…');
   const { data, error } = await sb.auth.oauth.getAuthorizationDetails(authorizationId);
   if (error || !data) throw error ?? new Error('Authorization request unavailable');
   if ('redirect_url' in data) { redirect(data.redirect_url); return; }
@@ -50,9 +61,5 @@ async function main(): Promise<void> {
   }
   approve.onclick = () => { if (enabled) void decide(true); };
   document.getElementById('deny')!.onclick = () => { void decide(false); };
-  document.getElementById('signout')!.onclick = async () => {
-    busy(true); const { error } = await sb.auth.signOut({ scope: 'local' });
-    if (error) { busy(false); approve.disabled = !enabled; say('Could not sign out. Try again.'); } else location.reload();
-  };
 }
-void main().catch(() => { signin.hidden = true; consent.hidden = true; say('This authorization request is unavailable or expired. Restart the connection from your application.'); });
+void main().catch(() => { signin.hidden = true; consent.hidden = true; accountChoice.hidden = true; say('This authorization request is unavailable or expired. Restart the connection from your application.'); });
