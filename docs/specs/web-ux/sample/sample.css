@@ -1,0 +1,202 @@
+/* The proposed game screen (review §4, claude-review §5–6). Responsive by CSS alone: four layouts by the
+   screen's shape, one markup. The tokens are the game's own (src/style.css) plus the roles the review adds. */
+
+@font-face { font-family: 'Cinzel'; src: url('../../../../public/fonts/cinzel-latin.woff2') format('woff2'); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: 'Alegreya Sans'; src: url('../../../../public/fonts/alegreya-sans-regular-latin.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Alegreya Sans'; src: url('../../../../public/fonts/alegreya-sans-bold-latin.woff2') format('woff2'); font-weight: 600 800; font-display: swap; }
+
+:root {
+  --floor: #e6e1cf;        /* the painted scene's floor: the board has no edge on it */
+  --parchment: #f3ead7;
+  --vellum: #fbf7ee;
+  --ink: #2b2621;
+  --ink-soft: #5b5045;
+  --stone-300: #c9bfac;
+  --stone-500: #8a8072;
+  --accent: #842c21;       /* the one main action of a view */
+  --accent-hover: #a8422f;
+  --accent-deep: #5a1c14;
+  --chosen: #7a5712;       /* gold ink: the ring of a chosen thing, the side to move */
+  --chosen-tint: #f6e9c8;
+  --focus: #1c5bb0;
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-body: 'Alegreya Sans', system-ui, sans-serif;
+  --tap: 40px;             /* a fine pointer; 44 px on touch */
+  --rail: 352px;
+  --strip: 64px;
+  --context: 96px;         /* fixed: a note, a card or a power step never moves the actions under it */
+}
+@media (pointer: coarse) { :root { --tap: 44px; } }
+
+/* One state at a time (?state=). */
+:root[data-state='idle'] [data-show]:not([data-show~='idle']),
+:root[data-state='selected'] [data-show]:not([data-show~='selected']),
+:root[data-state='review'] [data-show]:not([data-show~='review']),
+:root[data-state='powers'] [data-show]:not([data-show~='powers']) { display: none !important; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--floor); }
+body { font: 16px/1.5 var(--font-body); color: var(--ink); -webkit-text-size-adjust: 100%; }
+p { margin: 0; }
+svg[hidden] { display: none; }
+
+/* ---- buttons: primary, secondary, quiet, and the icon button ---- */
+button {
+  font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background-color 120ms, transform 80ms;
+}
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.icon { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.primary, .secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--tap); padding: 0 16px; border-radius: 8px; font-weight: 700; white-space: nowrap;
+}
+.primary { color: var(--vellum); background: var(--accent); border: 1px solid var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep); }
+.secondary { background: var(--vellum); border: 1px solid var(--stone-500); box-shadow: 0 1px 0 var(--stone-300); }
+.quiet { min-height: var(--tap); padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); }
+.icon-btn { display: inline-grid; place-items: center; width: var(--tap); height: var(--tap); padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ink); }
+.primary:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+@media (hover: hover) {
+  .primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .secondary:hover:not(:disabled) { background: #fffdf6; }
+  .quiet:hover, .icon-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.5); color: var(--ink); }
+}
+/* A chosen option: the gold-ink ring and its tint. */
+.secondary[aria-pressed='true'] { background: var(--chosen-tint); border-color: var(--chosen); box-shadow: inset 0 0 0 1px var(--chosen); }
+
+/* ---- wide screens (desktop, laptop): the board at full height, the rail beside it ---- */
+.game {
+  --board: min(calc((100svh - 16px) * 960 / 988), calc(100vw - var(--rail) - 80px));
+  height: 100svh; display: grid; justify-content: center; column-gap: 32px;
+  grid-template-columns: var(--board) var(--rail);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: 'stage toolbar' 'stage opp' 'stage panel' 'stage you';
+  padding: 8px max(24px, env(safe-area-inset-right)) 8px max(24px, env(safe-area-inset-left));
+}
+.stage { display: block; grid-area: stage; align-self: center; width: var(--board); }
+.board { display: block; width: 100%; height: auto; }
+/* Quiet links; their 12 px padding hangs outside the column, so the words line up with everything under them. */
+.toolbar { grid-area: toolbar; display: flex; margin: 0 -12px; padding-bottom: 8px; background: linear-gradient(var(--stone-300), var(--stone-300)) 12px 100% / calc(100% - 24px) 1px no-repeat; }
+.bar { display: none; }
+
+/* ---- the two players ---- */
+.strip { display: flex; align-items: center; gap: 12px; height: var(--strip); }
+.opp { grid-area: opp; }
+.you { grid-area: you; border-top: 1px solid var(--stone-300); }
+/* The king this player plays: the painted figure's head. The side to move gets the gold-ink ring. */
+.avatar {
+  flex: none; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--parchment) var(--art) no-repeat var(--at) / 300% auto;
+  box-shadow: inset 0 0 0 1px var(--stone-300);
+}
+.turn .avatar { box-shadow: inset 0 0 0 1px var(--stone-300), 0 0 0 2px var(--floor), 0 0 0 4px var(--chosen); }
+.who { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.3; }
+.who .sub { font-size: 14px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.took { display: flex; gap: 2px; }
+.pi { width: 24px; height: 24px; flex: none; color: var(--ink); }
+.pi-w { --pi-disc: #fffcf4; }
+.pi-b { --pi-disc: #4a4850; --pi-ring: #6e6a74; --pi-glyph: var(--parchment); }
+/* A power: its emblem, its name, and its state ("1 left", "Always on"). */
+.strip .secondary { gap: 8px; padding: 0 12px 0 6px; text-align: left; }
+.strip .secondary img { width: 28px; height: 28px; }
+.strip .secondary span { display: flex; flex-direction: column; line-height: 1.15; }
+.strip .secondary small { font-size: 14px; font-weight: 400; color: var(--ink-soft); }
+
+/* ---- the panel: the status line, the context area, the actions, the moves ---- */
+.panel { grid-area: panel; display: flex; flex-direction: column; min-height: 0; padding-top: 16px; }
+.status { font-size: 18px; font-weight: 700; line-height: 28px; }
+.context { height: var(--context); overflow: hidden; }
+.context .lead { display: none; }
+.soft { color: var(--ink-soft); }
+.card h2 {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 4px;
+  font-family: var(--font-display); font-size: 18px; font-weight: 700; letter-spacing: 0.03em; line-height: 32px;
+}
+.card h2 .pi, .card h2 img { width: 28px; height: 28px; }
+.card h2 small { font-family: var(--font-body); font-size: 14px; font-weight: 700; letter-spacing: 0; color: var(--chosen); }
+.note.review { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.steps { display: flex; margin-left: auto; }
+.flag { color: var(--ink-soft); }
+
+.moves {
+  flex: 1 1 0; min-height: 0; overflow: auto; margin: 16px 0 0; padding: 8px 0 0; list-style: none;
+  border-top: 1px solid var(--stone-300); font-variant-numeric: tabular-nums;
+}
+.moves li { display: grid; grid-template-columns: 32px 104px 104px; align-items: center; }
+.moves .n { color: var(--ink-soft); }
+.moves .quiet { justify-self: start; min-height: 32px; padding: 0 8px; margin-left: -8px; border-radius: 6px; color: var(--ink); text-align: left; }
+@media (pointer: coarse) { .moves .quiet { min-height: 44px; } }
+:root[data-state='review'] .moves .viewed { background: var(--chosen-tint); box-shadow: inset 0 0 0 2px var(--chosen); }
+/* In review, the moves after the one on the board are the future: lighter. */
+:root[data-state='review'] .moves .later .quiet { color: var(--stone-500); }
+
+/* ---- tablet portrait: the board across the width, the panel under it in two columns ---- */
+@media (orientation: portrait) and (min-width: 601px) {
+  :root { --strip: 56px; --context: 88px; }
+  .game {
+    --board: min(calc(100vw - 48px), calc((100svh - 392px) * 960 / 988));
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto minmax(0, 1fr);
+    grid-template-areas: 'toolbar' 'opp' 'stage' 'you' 'panel';
+    padding: env(safe-area-inset-top) max(24px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  }
+  .stage { justify-self: center; }
+  .toolbar { padding: 4px 0; }
+  .panel {
+    display: grid; grid-template-columns: minmax(0, 1fr) 352px; grid-template-rows: auto auto auto minmax(0, 1fr); column-gap: 32px;
+    grid-template-areas: 'status moves' 'context moves' 'actions moves' '. moves'; padding-top: 8px;
+  }
+  .status { grid-area: status; }
+  .context { grid-area: context; }
+  .actions { grid-area: actions; }
+  .note.review { flex-direction: row; align-items: center; gap: 16px; }
+  .note.review p { flex: 1; }
+  /* No height of its own: a longer list never stretches the rows of the actions. */
+  .moves { grid-area: moves; contain: size; margin: 8px 0 0; padding: 0 0 0 24px; border-top: 0; border-left: 1px solid var(--stone-300); }
+}
+
+/* ---- phones: the opponent above the board; you, the context, the moves and the bar of five below ---- */
+@media (orientation: portrait) and (max-width: 600px) {
+  .game {
+    --board: min(100vw, calc((100svh - 312px) * 960 / 988));
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas: 'opp' 'stage' 'you' 'panel' 'bar';
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  }
+  .stage { justify-self: center; }
+}
+/* ---- phones held sideways: the board at full height on the left ---- */
+@media (orientation: landscape) and (max-height: 500px) {
+  .game {
+    --board: min(calc(100svh * 960 / 988), 56vw);
+    grid-template-columns: var(--board) minmax(0, 1fr); column-gap: 8px; justify-content: stretch;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: 'stage opp' 'stage panel' 'stage you' 'stage bar';
+    padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  }
+}
+@media (orientation: portrait) and (max-width: 600px), (orientation: landscape) and (max-height: 500px) {
+  :root { --strip: 56px; --context: 88px; }
+  .toolbar, .status, .actions { display: none; }
+  .strip { padding: 0 16px; }
+  .avatar { width: 36px; height: 36px; }
+  .panel { padding: 8px 16px 0; }
+  .context .lead { display: inline; }
+  .note.review { flex-direction: row; align-items: center; gap: 12px; }
+  .note.review p { flex: 1; }
+  .moves { margin-top: 8px; padding-top: 0; border-top: 0; }
+  .bar {
+    grid-area: bar; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 0 8px env(safe-area-inset-bottom); border-top: 1px solid var(--stone-300); background: var(--parchment);
+  }
+  .bar .icon-btn { display: flex; flex-direction: column; gap: 2px; width: auto; height: 60px; font-size: 14px; font-weight: 700; }
+}
+/* Phones and the tablet: the moves in as many columns as fit, two moves to a turn. */
+@media (orientation: portrait), (max-height: 500px) {
+  .moves { display: grid; grid-template-columns: repeat(auto-fill, minmax(152px, 1fr)); align-content: start; column-gap: 16px; }
+  .moves li { grid-template-columns: 28px 1fr 1fr; }
+  .moves .quiet { margin-left: -8px; }
+}

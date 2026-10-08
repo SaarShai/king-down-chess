@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#e6e1cf" />
+  <title>King Down Chess · game screen sample</title>
+  <!-- A rendered sample for the owner's decision (docs/specs/web-ux/issues/02-game-screen-sample.md), not the build.
+       ?state=idle|selected|review|powers picks the state; the keys 1 to 4 do the same. -->
+  <link rel="preload" href="../../../../public/fonts/alegreya-sans-regular-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../../../public/fonts/alegreya-sans-bold-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="../../../../public/fonts/cinzel-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="sample.css" />
+  <script>
+    // Before the first paint: the state, so no other state shows for a frame.
+    const STATES = ['idle', 'selected', 'review', 'powers'];
+    const asked = new URLSearchParams(location.search).get('state');
+    document.documentElement.dataset.state = STATES.includes(asked) ? asked : 'idle';
+  </script>
+</head>
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" hidden>
+    <!-- The game's own icons (index.html), plus Menu and the two review arrows: 24 px, one 1.9 stroke. -->
+    <symbol id="i-hint" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H10"/></symbol>
+    <symbol id="i-resign" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2.5 4.5L17 13H5"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-forward" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  </svg>
+
+  <main class="game">
+    <!-- Desktop, laptop and tablet: the rare actions as quiet text links (decision W2 C). -->
+    <nav class="toolbar" aria-label="Menu">
+      <button class="quiet" type="button">New game</button>
+      <button class="quiet" type="button">Guide</button>
+      <button class="quiet" type="button">Workshop</button>
+      <button class="quiet" type="button">Settings</button>
+    </nav>
+
+    <section class="strip opp" aria-label="Your opponent">
+      <span class="avatar" style="--art: url('../../../../public/ui/kings/shadow-b.webp'); --at: 47% 2%"></span>
+      <span class="who">
+        <b>Computer</b>
+        <span class="sub" data-show="idle selected review">Casual</span>
+        <span class="sub" data-show="powers">Casual · Shadow</span>
+      </span>
+      <span class="took" data-show="powers" aria-label="The computer took: pawn">
+        <svg class="pi pi-w" aria-hidden="true"><use href="../../../../public/ui/icons/pawn.svg#icon"/></svg>
+      </span>
+      <!-- A passive power is a state, not an action: "Always on". Its card is open (chosen). -->
+      <button class="secondary" type="button" data-show="powers" aria-pressed="true">
+        <img src="../../../../public/ui/emblems/shadow.webp" alt="" width="28" height="28" />
+        <span><b>Death Touch</b><small>Always on</small></span>
+      </button>
+    </section>
+
+    <!-- The game's real board, captured by boards.mjs. A phone's board (under 700 px) has larger markers. -->
+    <picture class="stage">
+      <source media="(orientation: portrait) and (max-width: 600px), (orientation: landscape) and (max-height: 500px)" width="1170" height="1204" />
+      <img class="board" width="1440" height="1482" alt="The painted board" />
+    </picture>
+
+    <section class="strip you turn" aria-label="You">
+      <span class="avatar" data-show="idle selected review" style="--art: url('../../../../public/ui/kings/spirit.webp'); --at: 56% 0"></span>
+      <span class="avatar" data-show="powers" style="--art: url('../../../../public/ui/kings/frost.webp'); --at: 61% 1%"></span>
+      <span class="who">
+        <b>You</b>
+        <span class="sub" data-show="idle selected review">White</span>
+        <span class="sub" data-show="powers">White · Frost</span>
+      </span>
+      <span class="took" data-show="powers" aria-label="You took: pawn">
+        <svg class="pi pi-b" aria-hidden="true"><use href="../../../../public/ui/icons/pawn.svg#icon"/></svg>
+      </span>
+      <!-- Your power, next to your turn (review item 17). -->
+      <button class="secondary" type="button" data-show="powers">
+        <img src="../../../../public/ui/emblems/frost.webp" alt="" width="28" height="28" />
+        <span><b>Freeze</b><small>1 left</small></span>
+      </button>
+    </section>
+
+    <div class="panel">
+      <div class="status">
+        <span data-show="idle selected powers">Your move</span>
+        <span data-show="review">Reviewing move 3</span>
+      </div>
+
+      <!-- The one context area: fixed height, so nothing under it moves (review item 1). -->
+      <div class="context" role="status" aria-live="polite">
+        <div class="note" data-show="idle">
+          <p><b class="lead">Your move.</b> The computer moved its queen from d8 to h4.</p>
+          <p class="soft">Choose a piece to see its moves.</p>
+        </div>
+        <div class="card" data-show="selected">
+          <h2><svg class="pi pi-w" aria-hidden="true"><use href="../../../../public/ui/icons/archer.svg#icon"/></svg>Archer</h2>
+          <p>Shoots the marked enemies without moving, over any piece. Steps 1 square.</p>
+        </div>
+        <div class="note review" data-show="review">
+          <p><b class="lead">Move 3.</b> The computer’s bishop moved from f8 to c5.</p>
+          <button class="primary" type="button">Back to game</button>
+        </div>
+        <div class="card" data-show="powers">
+          <h2><img src="../../../../public/ui/emblems/shadow.webp" alt="" width="32" height="32" />Death Touch <small>Always on</small></h2>
+          <p>The computer’s king takes a piece next to it, or two squares straight away, without moving.</p>
+        </div>
+      </div>
+
+      <!-- Hint and Undo stay here in every state (0 px move); Resign is a quiet flag (review items 1 and 2). -->
+      <div class="actions">
+        <button class="secondary" type="button" id="hint" data-off="review"><svg class="icon" aria-hidden="true"><use href="#i-hint"/></svg>Hint</button>
+        <button class="secondary" type="button" id="undo" data-off="review"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg>Undo</button>
+        <span class="steps">
+          <button class="icon-btn" type="button" aria-label="Back one move"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></button>
+          <button class="icon-btn" type="button" aria-label="Forward one move" data-off="idle selected powers"><svg class="icon" aria-hidden="true"><use href="#i-forward"/></svg></button>
+        </span>
+        <button class="icon-btn flag" type="button" aria-label="Resign" title="Resign"><svg class="icon" aria-hidden="true"><use href="#i-resign"/></svg></button>
+      </div>
+
+      <ol class="moves" aria-label="Moves" data-show="idle selected review">
+        <li><span class="n">1.</span><button class="quiet" type="button">e2-e4</button><button class="quiet" type="button">e7-e5</button></li>
+        <li><span class="n">2.</span><button class="quiet" type="button">Nb1-c3</button><button class="quiet" type="button">Nb8-c6</button></li>
+        <li><span class="n">3.</span><button class="quiet" type="button">d2-d3</button><button class="quiet viewed" type="button">Bf8-c5</button></li>
+        <li class="later"><span class="n">4.</span><button class="quiet" type="button">Ac1-d2</button><button class="quiet" type="button">d7-d6</button></li>
+        <li class="later"><span class="n">5.</span><button class="quiet" type="button">Ad2-e3</button><button class="quiet" type="button">Qd8-h4</button></li>
+      </ol>
+      <ol class="moves" aria-label="Moves" data-show="powers">
+        <li><span class="n">1.</span><button class="quiet" type="button">d2-d4</button><button class="quiet" type="button">d7-d5</button></li>
+        <li><span class="n">2.</span><button class="quiet" type="button">Nb1-c3</button><button class="quiet" type="button">Nb8-c6</button></li>
+        <li><span class="n">3.</span><button class="quiet" type="button">e2-e4</button><button class="quiet" type="button">d5xe4</button></li>
+        <li><span class="n">4.</span><button class="quiet" type="button">Nc3xe4</button><button class="quiet" type="button">e7-e5</button></li>
+      </ol>
+    </div>
+
+    <!-- Phone portrait and landscape: one bar of five (decision W2 C). Menu holds New game, Guide, Workshop, Settings, Resign. -->
+    <nav class="bar" aria-label="Game">
+      <button class="icon-btn" type="button"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>Menu</button>
+      <button class="icon-btn" type="button" data-off="review"><svg class="icon" aria-hidden="true"><use href="#i-hint"/></svg>Hint</button>
+      <button class="icon-btn" type="button" data-off="review"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg>Undo</button>
+      <button class="icon-btn" type="button" aria-label="Back one move"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg>Back</button>
+      <button class="icon-btn" type="button" aria-label="Forward one move" data-off="idle selected powers"><svg class="icon" aria-hidden="true"><use href="#i-forward"/></svg>Forward</button>
+    </nav>
+  </main>
+
+  <script>
+    const show = state => {
+      document.documentElement.dataset.state = state;
+      document.querySelector('.stage source').srcset = `boards/${state}-small.webp`;
+      document.querySelector('.board').src = `boards/${state}.webp`;
+      for (const b of document.querySelectorAll('[data-off]')) b.disabled = b.dataset.off.split(' ').includes(state);
+    };
+    show(document.documentElement.dataset.state);
+    addEventListener('keydown', e => { const s = STATES[+e.key - 1]; if (s) { show(s); history.replaceState(null, '', `?state=${s}`); } });
+  </script>
+</body>
+</html>
