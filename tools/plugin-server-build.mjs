@@ -20,6 +20,7 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     await cp(resolve(boardDir, 'board.html'), resolve(functionDir, 'board.html'));
   } finally { await rm(boardDir, { recursive: true, force: true }); }
   await cp(resolve(root, 'src/plugin/consent.html'), resolve(functionDir, 'consent.html'));
+  await cp(resolve(root, 'tools/supabase-ca.crt'), resolve(functionDir, 'supabase-ca.crt'));
   await build({ configFile: false, root, publicDir: false, logLevel: 'warn', build: { target: 'es2022', outDir: functionDir, emptyOutDir: false, minify: true, lib: { entry: resolve(root, 'src/plugin/consent.ts'), formats: ['es'], fileName: () => 'consent.mjs' }, rollupOptions: { output: { entryFileNames: 'consent.mjs', codeSplitting: false } } } });
   await buildRuntime(resolve(functionDir, 'runtime'));
   await build({

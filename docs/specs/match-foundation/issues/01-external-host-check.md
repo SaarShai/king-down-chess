@@ -66,7 +66,8 @@ The owner's approval covers the required merges, website route release, separate
 - The client-resource row maps that client to `https://kingdown-plugin.vercel.app/mcp`. Hook checks pass for the plugin audience, unchanged website audience and denied metadata spoof. The Auth Hooks page shows `public.kingdown_access_token_hook` enabled. These checks do not prove a real provider-issued token yet.
 - The allowed return URLs now include `https://kingdown-plugin.vercel.app/authorize?authorization_id=*`. The Site URL stays `https://kingdown.dev`; its four prior allowed URLs stay in place. The real provider return still needs a check.
 - An unsigned provider authorization request uses the actual client, exact ChatGPT callback, S256 challenge, `openid offline_access` scopes and MCP resource. It returns HTTP 302 to `https://kingdown.dev/authorize` with an `authorization_id` and no error. It does not sign in a user or issue tokens.
-- The assigned plugin domain has no deployment yet. The runtime role has no password yet. Service environment values, publication and real host cases still need completion.
+- PR #9 is merged at `0ac32e0`. The owner saves the restricted role URL through the hidden setup prompt. The official Supabase CA fixes the initial TLS trust failure. The restricted login and compiled production startup pass with certificate and host checks, real OAuth discovery and the exact client-resource row. The six production settings are installed through `tools/deploy.sh --configure-plugin`.
+- The assigned plugin domain has no deployment yet. Publication and real host cases still need completion. The owner needs two test accounts. Use Google or GitHub accounts with different email addresses; these accounts need no Supabase dashboard access. Keep the owner account out of the site tests.
 
 ## Acceptance
 

@@ -1,9 +1,9 @@
 /** Opt-in end-to-end check of a built artifact against a disposable local PostgreSQL DB. */
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, X509Certificate } from 'node:crypto';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { cp, mkdtemp, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
@@ -19,6 +19,8 @@ const actors = [randomUUID(), randomUUID()];
 const server = createServer(); let app, requestId = 0;
 try {
   await cp(resolve(process.argv[2] || 'plugin-server-dist'), artifact, { recursive: true });
+  const ca = new X509Certificate(await readFile(resolve(artifact, 'supabase-ca.crt')));
+  assert.equal(ca.fingerprint256.replaceAll(':', ''), '807025AD50D4ED219D2C9C7D299C004F824EB00CF7F65AFEF607D07B72E6CAFA');
   const { configurePlugin } = await import(pathToFileURL(resolve(artifact, 'server.mjs')).href);
   const identity = await pool.query('select current_database() as name,version() as version');
   assert(identity.rows[0].name.endsWith('_test')); assert(identity.rows[0].version.startsWith('PostgreSQL '));
