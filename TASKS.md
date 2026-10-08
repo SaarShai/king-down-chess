@@ -5,7 +5,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 ## Open items
 
 - **Workshop finish** · `ready-for-agent` · Build the open tickets of the spec. · [spec](docs/specs/workshop-finish/spec.md)
-- **Match foundation and ChatGPT plugin** · `claimed` · The private service is live. Solo play and saved-position recovery pass in ChatGPT. Finish account recovery and two-player checks; the owner has a second test account and defers the phone check. · [live checks](docs/specs/match-foundation/issues/06-live-acceptance.md)
+- **Match foundation and ChatGPT plugin** · `ready-for-agent` · The private service is live. Solo play and saved-position recovery pass in ChatGPT. Finish account recovery and two-player checks; the owner has a second test account and defers the phone check. · [live checks](docs/specs/match-foundation/issues/06-live-acceptance.md)
 - **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); `hand-size` measures hands of 2, 3, 4 and 6 cards. Keep March (below the floor in `cards-d1`)? Which six cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Card mode in the game** · `ready-for-agent` · After the deal: a card panel in the browser, MorphP in the deal, and a legendary look for Rage for the owner's yes. · [2026-10](docs/tasks-archive/2026-10.md)
 - **Morph and the Guard** · `needs-info` · Keep the Guard as a Morph piece? Allow a second Guard? Stop a second Beast through Morph and then Salvation or Sacrifice? · [2026-10](docs/tasks-archive/2026-10.md)
