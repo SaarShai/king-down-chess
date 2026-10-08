@@ -43,7 +43,7 @@ const usesText = (p: PowerName, r: Rules = GAME_RULES): string => {
 const powerLabel = (c: Color): string => {
   const k = GAME_RULES.kings[c];
   if (!k) return 'no power';
-  const left = usesLeft(game.pos, c);
+  const left = usesLeft(shownPos(), c);
   return `${POWER_NAME[k.power]}${left === null ? '' : `, ${left} left`} — ${powerText(k.power)}`;
 };
 
@@ -113,6 +113,8 @@ let lessonReturn: { game: Game; sides: [Side, Side]; rules: Rules; resigned: Col
 let linkSide: Color | null = null;
 /** Plies shown on the board while reviewing earlier moves; null = the live game. */
 let viewing: number | null = null;
+/** The position on the board: in review the move shown, else the live game. The readouts read it. */
+const shownPos = (): Position => (viewing == null ? game.pos : game.history[viewing].pos);
 /** Bumped by every review step, so a superseded step's animation does not sync the board. */
 let navGen = 0;
 /** A review step is replaying a move; `busy` is set too, so the board treats it as an animation. */
@@ -334,7 +336,7 @@ function fillPieceGuide(): void {
 }
 
 function showInfo(sq: number | null): void {
-  const code = sq == null ? 0 : game.pos.board[sq];
+  const code = sq == null ? 0 : shownPos().board[sq];
   const t = code ? typeOf(code) : 0;
   const g = t ? pieceGuide(t) : null;
   const blurb = g ? [g.moves, g.captures, g.special].filter(Boolean).join(' ') : '';
@@ -454,7 +456,7 @@ function refresh(): void {
   else moves.querySelector('.viewing')?.scrollIntoView({ block: 'nearest' });
   // Captured pieces: a piece the mover removed counts for the mover; a paladin that removes itself is its own side's loss.
   const taken: [number[], number[]] = [[], []];
-  for (const h of game.history) {
+  for (const h of game.history.slice(0, viewing ?? game.history.length)) { // in review, the moves up to the one shown
     const mover = h.pos.turn; // not the piece on `from`: a Freeze names an enemy square
     for (const c of h.move.captures) taken[mover].push(h.pos.board[c]);
     if (h.move.selfRemove) taken[1 - mover].push(h.pos.board[h.move.from]);
@@ -561,7 +563,7 @@ function whyNot(from: number, to: number): string {
 /** The keyboard cursor's square and piece, for the screen reader. */
 function sayCursor(): void {
   if (cursor == null) return;
-  const p = game.pos.board[cursor];
+  const p = shownPos().board[cursor];
   const what = p ? `${colorOf(p) ? 'black' : 'white'} ${NAMES[typeOf(p)]}` : 'empty';
   const target = selected != null && candidates().some(m => clickPath(m)[pending.length] === cursor);
   $('cursor-say').textContent = `${sqName(cursor)}, ${what}${cursor === selected ? ', selected' : target ? ', can go here' : ''}`;
