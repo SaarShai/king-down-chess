@@ -28,7 +28,7 @@ const cloud = (row: Row | null = null) => {
 };
 const save = (moves: string[], sound = true) => ({
   back: 'RNBQKBNR', fen: 'x', moves, white: 'human', black: 'ai', link: null, daily: null, resigned: null, rules: { a: 1, b: 2 },
-  think: 800, skill: 'club', coords: true, sound, queen: false, pace: 'normal', threats: false,
+  think: 800, skill: 'club', coords: true, sound, queen: false, pace: 'normal', threats: false, labels: true,
 });
 const device = (s: Record<string, unknown>, c: ReturnType<typeof cloud>) => {
   const st = store(s), applied: Section[][] = [];
@@ -60,7 +60,7 @@ describe('stamp', () => {
   });
   it('splits the save into settings and the saved game', () => {
     const l = readLocal(store({ 'kingdown.save': save(['e2-e4']) }));
-    expect(Object.keys(l.settings as object).sort()).toEqual(['coords', 'pace', 'queen', 'skill', 'sound', 'think', 'threats']);
+    expect(Object.keys(l.settings as object).sort()).toEqual(['coords', 'labels', 'pace', 'queen', 'skill', 'sound', 'think', 'threats']);
     expect((l.saved_game as { moves: string[] }).moves).toEqual(['e2-e4']);
     expect(l.lessons).toBeNull();
   });

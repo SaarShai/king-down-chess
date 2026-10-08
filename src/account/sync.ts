@@ -18,7 +18,7 @@ type Stamps = Partial<Record<Section, { at: number; json: string }>>;
 
 const SAVE = 'kingdown.save', LESSONS = 'kingdown.lessons', STAMPS = 'kingdown.sync';
 /** main.ts `Save` fields: these are settings; the rest is the saved game. The look stays per device. */
-const SETTINGS = ['think', 'skill', 'coords', 'sound', 'queen', 'pace', 'threats'];
+const SETTINGS = ['think', 'skill', 'coords', 'sound', 'queen', 'pace', 'threats', 'labels'];
 const GAME = ['back', 'fen', 'moves', 'white', 'black', 'link', 'daily', 'resigned', 'rules'];
 
 const parse = (raw: string | null): any => { try { return raw ? JSON.parse(raw) : null; } catch { return null; } };
