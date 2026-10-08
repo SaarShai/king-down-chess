@@ -43,7 +43,7 @@ const usesText = (p: PowerName, r: Rules = GAME_RULES): string => {
 const powerLabel = (c: Color): string => {
   const k = GAME_RULES.kings[c];
   if (!k) return 'no power';
-  const left = usesLeft(game.pos, c);
+  const left = usesLeft(shownPos(), c);
   return `${POWER_NAME[k.power]}${left === null ? '' : `, ${left} left`} — ${powerText(k.power)}`;
 };
 
@@ -88,6 +88,8 @@ let setup: Setup = defaultSetup();
 let selected: number | null = null;
 let pending: number[] = []; // beast chain squares clicked so far
 let hovered: number | null = null;
+/** A piece that a tap (or Enter) chose to read: an enemy piece, or any piece while the player cannot move. Its card shows while no piece is selected or under the pointer. */
+let inspected: number | null = null;
 /** The player to move has armed their king's power: the next click spends it. */
 let armed = false;
 let resigned: Color | null = null;
@@ -113,6 +115,8 @@ let lessonReturn: { game: Game; sides: [Side, Side]; rules: Rules; resigned: Col
 let linkSide: Color | null = null;
 /** Plies shown on the board while reviewing earlier moves; null = the live game. */
 let viewing: number | null = null;
+/** The position on the board: in review the move shown, else the live game. The readouts read it. */
+const shownPos = (): Position => (viewing == null ? game.pos : game.history[viewing].pos);
 /** Bumped by every review step, so a superseded step's animation does not sync the board. */
 let navGen = 0;
 /** A review step is replaying a move; `busy` is set too, so the board treats it as an animation. */
@@ -121,7 +125,7 @@ let replaying = false;
 let marked: (KeyMoment & { text: string })[] = [];
 /** Replaces the review help line while a key moment is on the board. */
 let reviewNote = '';
-/** Why the last tap did nothing ("That is Black's piece…"); shown in the help line until the next action. */
+/** Why the last tap did nothing ("Not allowed: the rook cannot reach b2."); shown in the help line until the next action. */
 let notice = '';
 /** The board is seen from Black's side (orient()). */
 let flipped = false;
@@ -335,11 +339,16 @@ function fillPieceGuide(): void {
     `The random draw pool is ${pool}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
 }
 
+/** A piece's rules in one line, for its card and the screen reader. */
+const pieceText = (t: PieceType): string => {
+  const g = pieceGuide(t);
+  return [g.moves, g.captures, g.special].filter(Boolean).join(' ');
+};
+
 function showInfo(sq: number | null): void {
-  const code = sq == null ? 0 : game.pos.board[sq];
+  const code = sq == null ? 0 : shownPos().board[sq];
   const t = code ? typeOf(code) : 0;
-  const g = t ? pieceGuide(t) : null;
-  const blurb = g ? [g.moves, g.captures, g.special].filter(Boolean).join(' ') : '';
+  const blurb = t ? pieceText(t) : '';
   $('info').innerHTML = (code
     ? `<b>${pieceIcon(typeOf(code), colorOf(code))} ${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${blurb}`
       // Lab only (docs/RULES.md §6.9): the shipped guard never captures, so it can never be spent.
@@ -456,7 +465,7 @@ function refresh(): void {
   else moves.querySelector('.viewing')?.scrollIntoView({ block: 'nearest' });
   // Captured pieces: a piece the mover removed counts for the mover; a paladin that removes itself is its own side's loss.
   const taken: [number[], number[]] = [[], []];
-  for (const h of game.history) {
+  for (const h of game.history.slice(0, viewing ?? game.history.length)) { // in review, the moves up to the one shown
     const mover = h.pos.turn; // not the piece on `from`: a Freeze names an enemy square
     for (const c of h.move.captures) taken[mover].push(h.pos.board[c]);
     if (h.move.selfRemove) taken[1 - mover].push(h.pos.board[h.move.from]);
@@ -473,7 +482,7 @@ function refresh(): void {
   };
   $('took-w').innerHTML = names(taken[0]);
   $('took-b').innerHTML = names(taken[1]);
-  showInfo(selected ?? hovered);
+  showInfo(selected ?? hovered ?? inspected);
   $<HTMLButtonElement>('undo').disabled = game.history.length === 0;
   $<HTMLButtonElement>('resign').disabled = resigner() == null;
   $<HTMLButtonElement>('copy').disabled = game.history.length === 0;
@@ -563,10 +572,11 @@ function whyNot(from: number, to: number): string {
 /** The keyboard cursor's square and piece, for the screen reader. */
 function sayCursor(): void {
   if (cursor == null) return;
-  const p = game.pos.board[cursor];
+  const p = shownPos().board[cursor];
   const what = p ? `${colorOf(p) ? 'black' : 'white'} ${NAMES[typeOf(p)]}` : 'empty';
   const target = selected != null && candidates().some(m => clickPath(m)[pending.length] === cursor);
-  $('cursor-say').textContent = `${sqName(cursor)}, ${what}${cursor === selected ? ', selected' : target ? ', can go here' : ''}`;
+  const card = cursor === inspected ? `. ${pieceText(typeOf(p))}` : ''; // a piece chosen with Enter to read: its card
+  $('cursor-say').textContent = `${sqName(cursor)}, ${what}${cursor === selected ? ', selected' : target ? ', can go here' : card}`;
 }
 
 async function commit(m: Move): Promise<void> {
@@ -590,7 +600,7 @@ async function commit(m: Move): Promise<void> {
   else if (kind === 'swap' || kind === 'swapKing') snd.swap();
   else if (!hit) snd.move();
   if (game.inCheck) snd.check();
-  selected = null; pending = []; armed = false;
+  selected = null; pending = []; armed = false; inspected = null;
   refresh();
   let struck = false;
   const strike = (): void => { if (!struck && g === gen) { struck = true; hit?.(); } };
@@ -806,19 +816,20 @@ view.onDragSelect = (sq) => {
   $('panel').scrollTop = 0;
 };
 
-/** Show why a tap did nothing, in the help line (a live region). */
-const refuse = (why: string): void => { notice = why; refresh(); };
+/** Show why a tap on `sq` did nothing, in the help line (a live region). A piece on `sq` shows its card. */
+const refuse = (why: string, sq: number): void => { inspected = game.pos.board[sq] ? sq : null; notice = why; refresh(); };
 
 view.onSquareClick = (sq, shift = false) => {
-  if (busy) { if (thinking) refuse('The computer is thinking. Wait for its move.'); view.skip(); return; } // a tap during an animation skips it
+  if (busy) { if (thinking) refuse('The computer is thinking. Wait for its move.', sq); view.skip(); return; } // a tap during an animation skips it
   if (viewing != null) { void showPly(game.history.length, false); return; }
-  if (finished()) return refuse(lesson != null ? '' : 'The game is over. Start a new game, or Undo to take back a move.');
+  if (finished()) return refuse(lesson != null ? '' : 'The game is over. Start a new game, or Undo to take back a move.', sq);
   if (!myTurn()) {
     return refuse(lessonDone ? 'Lesson done. Choose the next lesson below.'
-      : sides[game.pos.turn] === 'ai' ? "It is the computer's move." : '');
+      : sides[game.pos.turn] === 'ai' ? "It is the computer's move." : '', sq);
   }
   hintSquares = [];
   notice = '';
+  inspected = null;
   const targets = markTargets();
   if (targets.length) { // armed Freeze / Ice Wall / Sacrifice: tap the piece itself
     const here = targets.filter(m => m.to === sq);
@@ -831,8 +842,8 @@ view.onSquareClick = (sq, shift = false) => {
   if (selected == null || next.length === 0) {
     const turn = game.pos.turn ? 'Black' : 'White';
     if (selected != null && !own && sq !== selected) notice = pending.length ? 'That square is not marked, so the capture chain was cancelled.' : whyNot(selected, sq);
-    else if (selected == null && p && !own) notice = `That is ${turn === 'White' ? 'Black' : 'White'}'s ${NAMES[typeOf(p)]}. ${turn} to move: choose one of your own pieces.`;
     else if (selected == null && !p) notice = `Choose one of ${turn}'s pieces first.`;
+    if (p && !own) inspected = sq; // an enemy piece that is no target: its card; with a piece selected, the help line still says why
     selected = own && sq !== selected ? sq : null;
     pending = [];
     if (selected != null && !game.legal.some(m => m.from === selected)) {
@@ -862,7 +873,7 @@ let said = '';
 view.onSquareHover = sq => {
   hovered = sq;
   $('hover').textContent = sq == null ? '' : sqName(sq);
-  showInfo(selected ?? hovered);
+  showInfo(selected ?? hovered ?? inspected);
   const next = sq == null ? [] : candidates().filter(m => clickPath(m)[pending.length] === sq);
   const ready = next.filter(m => clickPath(m).length === pending.length + 1);
   const preview = ready.length === 1 ? momentText(game.pos, ready[0], seenMoments, true) : null;
@@ -884,7 +895,7 @@ $('hint').onclick = async () => {
   if (busy || finished() || !myTurn()) return;
   const tag = armedTag(), l = lesson == null ? null : LESSONS[lesson], pos = game.pos;
   const rootMoves = hintMoves(game.legal, tag, l ? m => l.goal(pos, m) : undefined, $<HTMLInputElement>('queen').checked);
-  if (!rootMoves.length) return refuse('Hint finds no move to play now.');
+  if (!rootMoves.length) { notice = 'Hint finds no move to play now.'; return refresh(); }
   busy = true;
   refresh();
   const g = gen;
@@ -912,8 +923,9 @@ async function showPly(n: number, replay = true): Promise<void> {
   view.skip(); // a step during a replay ends it; its continuation sees the new navGen
   busy = replaying = false;
   viewing = n === len ? null : n;
-  selected = null; pending = []; hintSquares = []; reviewNote = '';
+  selected = null; pending = []; hintSquares = []; reviewNote = ''; inspected = null;
   refresh();
+  sayCursor(); // the keyboard cursor reads the board now shown
   if (replay && n === from + 1) {
     view.sync(at(from));
     busy = replaying = true; // the board is locked like any move animation; a tap skips it
@@ -942,7 +954,7 @@ function reset(): void {
   closeMoveChoice?.();
   closePromo?.(); // drop an open promotion picker instead of leaving its promise hanging
   busy = false;
-  selected = null; pending = []; armed = false;
+  selected = null; pending = []; armed = false; inspected = null;
   notice = '';
 }
 
@@ -1370,7 +1382,7 @@ boardEl.addEventListener('keydown', e => {
     if (selected === cursor) {
       const to = [...new Set(candidates().map(m => clickPath(m)[pending.length]))].map(sqName);
       $('cursor-say').textContent = to.length ? `${sqName(cursor)} selected. It can go to ${to.join(', ')}.` : '';
-    }
+    } else if (inspected === cursor) sayCursor(); // a piece to read: its card, said as a tap shows it
     drawMarks();
     return;
   } else {
