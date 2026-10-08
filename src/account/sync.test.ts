@@ -60,7 +60,7 @@ describe('stamp', () => {
   });
   it('splits the save into settings and the saved game', () => {
     const l = readLocal(store({ 'kingdown.save': save(['e2-e4']) }));
-    expect(Object.keys(l.settings as object).sort()).toEqual(['coords', 'pace', 'queen', 'skill', 'sound', 'think', 'threats']);
+    expect(Object.keys(l.settings as object).sort()).toEqual(['coords', 'pace', 'queen', 'skill', 'sound', 'threats']);
     expect((l.saved_game as { moves: string[] }).moves).toEqual(['e2-e4']);
     expect(l.lessons).toBeNull();
   });

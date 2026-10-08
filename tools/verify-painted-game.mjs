@@ -18,10 +18,9 @@ try {
   await page.evaluate(() => localStorage.removeItem('kingdown.save'));
   await page.goto(url.href);
   await page.waitForFunction(() => document.getElementById('board').classList.contains('painted') && document.querySelector('#board canvas'));
-  // A beginner game with 200 ms to think, reopened with the computer on both sides (`?players=`).
+  // A beginner game, reopened with the computer on both sides (`?players=`) and 200 ms to think (`?think=`).
   await startGame(page, { mode: 'computer', level: 'beginner' });
-  await page.evaluate(() => { const t = document.getElementById('think'); t.value = '200'; t.dispatchEvent(new Event('change')); });
-  const both = new URL(url); both.searchParams.set('players', 'ai,ai');
+  const both = new URL(url); both.searchParams.set('players', 'ai,ai'); both.searchParams.set('think', '200');
   await page.goto(both.href);
   await page.waitForFunction(() => document.querySelector('#board canvas'));
   assert.deepEqual(await players(page), ['ai', 'ai']);

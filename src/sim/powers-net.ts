@@ -394,7 +394,7 @@ function skillGame(sp: SkillSpec, job: SkillJob): Record<string, unknown> {
   while (game.status === 'playing' && game.history.length < 240) {
     const c = game.pos.turn;
     const level: SkillName = (c === WHITE) === job.levelWhite ? job.level : 'club';
-    const plan = skillPlan(level, sp.thinkMs, game.history.length);
+    const plan = skillPlan(level, game.history.length, sp.thinkMs);
     keys.push(positionKey(game.pos));
     const r = search(game.pos, { timeMs: plan.timeMs, temperature: plan.temperature, rng, history: keys });
     const legal = game.legal;

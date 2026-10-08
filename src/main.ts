@@ -680,12 +680,15 @@ $('next-lesson').onclick = () => {
   else openNewGame();
 };
 
+/** `?think=<ms>`: a shorter thinking time for the browser checks, under each level's cap (ai/skill.ts). */
+const thinkMs = Number(params.get('think')) || undefined;
+
 async function maybeAi(): Promise<void> {
   if (busy || finished() || sides[game.pos.turn] !== 'ai') return;
   busy = thinking = true;
   refresh();
   const g = gen;
-  const plan = skillPlan(skill, +$<HTMLInputElement>('think').value, game.history.length);
+  const plan = skillPlan(skill, game.history.length, thinkMs);
   const res = await engine.think(game.pos, { timeMs: plan.timeMs, temperature: plan.temperature, history: game.history.map(h => positionKey(h.pos)) });
   if (g !== gen) return;
   thinking = false;
@@ -1149,7 +1152,7 @@ function copyFallback(text: string): void {
 
 /* ---- autosave ---- */
 /** account/sync.ts splits these fields into settings and the saved game: name a new one there too. */
-interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean }
+interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean }
 const SAVE_KEY = 'kingdown.save';
 /** Settings → Account and the cloud save, loaded after the board is drawn (null until then, or offline). */
 let account: typeof import('./account/account') | null = null;
@@ -1164,7 +1167,6 @@ function save(): void {
       fen: toFen(game.history[0]?.pos ?? game.pos), // the position the game started from
       moves: game.history.map(h => h.lan),
       white: sides[0], black: sides[1],
-      think: +$<HTMLInputElement>('think').value,
       skill,
       coords: coords.checked,
       sound: $<HTMLInputElement>('sound').checked,
@@ -1184,7 +1186,6 @@ function save(): void {
 
 /** A save's settings onto the controls (at start-up, or newer ones from the account). */
 function applySettings(s: Save): void {
-  if (s.think) $<HTMLInputElement>('think').value = String(s.think);
   if (typeof s.sound === 'boolean') $<HTMLInputElement>('sound').checked = s.sound;
   if (typeof s.queen === 'boolean') $<HTMLInputElement>('queen').checked = s.queen;
   if (typeof s.threats === 'boolean') $<HTMLInputElement>('threats').checked = s.threats;
@@ -1303,7 +1304,6 @@ $('share-result').onclick = () => {
   navigator.clipboard?.writeText(text).catch(() => copyFallback(text)) ?? copyFallback(text);
   $('share-result').textContent = 'Result copied';
 };
-$('think').onchange = save;
 $('sound').onchange = () => { setSound($<HTMLInputElement>('sound').checked); save(); };
 $('queen').onchange = save;
 $('threats').onchange = () => { drawMarks(); save(); };
