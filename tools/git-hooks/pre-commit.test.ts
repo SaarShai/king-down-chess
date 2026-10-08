@@ -22,15 +22,19 @@ describe('tempRepo()', () => {
   });
 
   it('keeps the caller GIT_ variables from git, and the global and system configs are empty', () => {
-    const leak = { GIT_DIR: '/nowhere', GIT_INDEX_FILE: '/nowhere/index', GIT_WORK_TREE: '/nowhere', GIT_AUTHOR_NAME: 'Leak' };
+    const leak = { GIT_DIR: '/nowhere', GIT_INDEX_FILE: '/nowhere/index', GIT_WORK_TREE: '/nowhere', GIT_AUTHOR_NAME: 'Leak', GIT_CONFIG_SYSTEM: '/nowhere/system' };
     const saved = { ...process.env };
     Object.assign(process.env, leak);
     try {
       const repo = make();
-      // Only the two config-isolation variables of the harness; none of the caller's.
-      expect(Object.keys(repo.env).filter(k => k.startsWith('GIT_')).sort()).toEqual(['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM']);
-      expect(repo.git('config', '--global', '--list').stdout).toBe('');
-      expect(repo.git('config', '--system', '--list').stdout).toBe('');
+      // Only the three config-isolation variables of the harness; none of the caller's.
+      expect(Object.keys(repo.env).filter(k => k.startsWith('GIT_')).sort()).toEqual(['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_SYSTEM']);
+      expect(repo.env.GIT_CONFIG_SYSTEM).toBe(repo.env.GIT_CONFIG_GLOBAL);
+      for (const scope of ['--global', '--system']) {
+        const config = repo.git('config', scope, '--list');
+        expect(config.status, config.stderr).toBe(0);
+        expect(config.stdout).toBe('');
+      }
       const scopes = repo.git('config', '--list', '--show-scope').stdout.trim().split('\n').map(line => line.split('\t')[0]);
       expect(new Set(scopes)).toEqual(new Set(['local']));
       repo.write('a.txt', 'a\n');
@@ -109,8 +113,8 @@ describe('pre-commit', () => {
     expect(typecheck.git).toEqual([]);
     expect(gate.args).toEqual(['staged']);
     expect(gate.stdin).toBe('');
-    // Git sets GIT_INDEX_FILE for the pre-commit hook; the harness sets the two config variables.
-    expect(gate.git).toEqual(expect.arrayContaining(['GIT_INDEX_FILE', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM']));
+    // Git sets GIT_INDEX_FILE for the pre-commit hook; the harness sets the three config variables.
+    expect(gate.git).toEqual(expect.arrayContaining(['GIT_INDEX_FILE', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_SYSTEM']));
   });
 
   it('story 5: with no node_modules, pre-commit refuses and names the worktree script and its add command', () => {

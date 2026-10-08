@@ -3,7 +3,7 @@
 // It makes, in one new system temp folder (`root`):
 //   - `work/`: the work tree (`dir`), branch main, a local identity, remote `origin`;
 //   - `remote.git`: a bare repository (`remote`), branch main;
-//   - `gitconfig`: an empty file that git uses as the global config.
+//   - `gitconfig`: an empty file that git uses as the global and system config.
 // With hooks on (the default), it copies the tracked `.githooks/` folder, the modules that the hooks
 // import (`hookModules`: for commit-msg the model-name module, the assertion counter, the runner's
 // registry and the shared check module that the counter reads; for pre-push the changed-files module)
@@ -14,9 +14,9 @@
 // With `{ hooks: false }`, it copies nothing and sets no hooks path.
 //
 // Git gets no GIT_ variable from the caller (a test that runs inside a git hook would else
-// point git at the outer repository). The harness sets only GIT_CONFIG_GLOBAL (the empty file)
-// and GIT_CONFIG_NOSYSTEM, because only these make the global and system configs empty: Apple's
-// git reads a system file with a credential helper, also when /etc/gitconfig is absent.
+// point git at the outer repository). GIT_CONFIG_GLOBAL and GIT_CONFIG_SYSTEM select the empty
+// file, including for an explicit `git config --system` read. GIT_CONFIG_NOSYSTEM also blocks
+// Apple's extra system file, which can hold a credential helper.
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -44,6 +44,7 @@ export function tempRepo({ hooks = true } = {}) {
   const env = {};
   for (const [key, value] of Object.entries(process.env)) if (value !== undefined && !key.startsWith('GIT_')) env[key] = value;
   env.GIT_CONFIG_GLOBAL = globalConfig;
+  env.GIT_CONFIG_SYSTEM = globalConfig;
   env.GIT_CONFIG_NOSYSTEM = '1';
 
   /**

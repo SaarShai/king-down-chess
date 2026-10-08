@@ -24,6 +24,7 @@ Continue the local match and plugin work at e6773d3. Check the real Supabase acc
 - The branch integrates main at `243d4f2`, including Workshop finish merge `93402b5`. The game engine, search, Workshop and public art match that main revision.
 - The integrated check runner passes all three plugin browser checks. It builds into a temporary folder, uses free ports and cleans up its test users and servers.
 - The first hosted check finds a merge mismatch: main pins `sharp` to `0.35.4`, but the merged lock retains `0.35.5`. Regenerate the lock from the approved pin. Check a clean install and hosted CI before handoff.
+- The next hosted check finds a test-harness gap. An explicit system Git config read uses the runner's settings. Point that read at the harness's empty file, keep Apple's system-config guard, and check the command status. This also catches the false local pass from empty stdout on a failed read.
 - Vercel confirms Saar's projects is on Pro, with `kingdown` but no plugin test service. The OpenAI tunnel page works. A tunnel does not serve the browser consent page.
 - Supabase has no OAuth apps or Auth hooks. Its Site URL is `https://kingdown.dev`; Google and GitHub are enabled. No live setting changes. No server database credential is available for the plugin.
 
