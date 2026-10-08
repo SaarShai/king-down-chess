@@ -16,6 +16,7 @@ import { applyLookLighting } from './prototype/ClayLook';
 import { PieceContourPass } from './prototype/PieceContourPass';
 import type { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import type { Pace } from './PaintedView';
+import { pastTap } from './tap';
 
 export const tileCenter = (sq: number): THREE.Vector3 => new THREE.Vector3(file(sq) - 3.5, 0, 3.5 - rank(sq));
 /** The king a king piece shows: its side's king with a power, else Spirit or Shadow; undefined for other pieces. */
@@ -869,8 +870,7 @@ export class BoardRenderer {
 
   private onMove(e: PointerEvent): void {
     const d = this.tap;
-    if (d && this.dragFrom != null && !this.dragArmed
-      && Math.hypot(e.clientX - d.clientX, e.clientY - d.clientY) > 6) {
+    if (d && this.dragFrom != null && !this.dragArmed && pastTap(d, e)) {
       this.dragArmed = true;
       this.onDragSelect(this.dragFrom);
     }
@@ -878,10 +878,10 @@ export class BoardRenderer {
   }
 
   /**
-   * Click (≤6 px): onSquareClick as before.
+   * Tap (see pastTap: 6 px for a mouse, 12 px for a finger or a pen): onSquareClick as before.
    * Drag from an own piece: onDragSelect already ran; onSquareClick on the release square
    * (or the from-square if released off-board) so move / clear share the click path.
-   * Anything past 6 px that did not start on an own piece is OrbitControls.
+   * Anything past a tap that did not start on an own piece is OrbitControls.
    */
   private onUp(e: PointerEvent): void {
     const d = this.tap;
@@ -889,8 +889,7 @@ export class BoardRenderer {
     const armed = this.dragArmed;
     this.clearPointer();
     if (e.button !== 0 || d?.pointerId !== e.pointerId) return;
-    const moved = Math.hypot(e.clientX - d.clientX, e.clientY - d.clientY) > 6;
-    if (!moved) {
+    if (!pastTap(d, e)) {
       const sq = this.pick(e);
       if (sq != null) this.onSquareClick(sq, e.shiftKey);
       return;
