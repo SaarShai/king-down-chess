@@ -1,6 +1,6 @@
 # Reject revoked provider sessions
 
-Status: claimed
+Status: resolved
 
 ## Failure and scope
 
@@ -43,3 +43,7 @@ The owner asks to finish the desktop checks. Restore the temporary provider gran
 The fresh-token live cycle passes on `dpl_4YxZrPzn9kZySdsKGwpkkpWMudVS`. A valid signed token returns provider 200 with 1,112 seconds remaining, then provider 403 with 1,109 seconds remaining after the supported grant revoke. The grant list confirms the approved client is absent. King Down rejects the request; ChatGPT shows its generic internal-server error. This proves rejection before expiry, unlike the prior stale-connection check. The scoped solo receipt remains byte-identical at revision 2 and two commands. Evidence: `/tmp/kingdown-fresh-token-revoked.jsonl`, `/tmp/kingdown-live-match-fresh-revoke.json`. The temporary provider control and lifetime/status log are removed after capturing this result.
 
 ChatGPT's enabled Reconnect action restores Alicia through the same client, callback and scopes. A fresh tool call opens the existing solo game at revision 2. Its board then joins and immediately reopens the existing friend game as Black at move 4. No owner account is used. Live revocation and recovery both pass.
+
+## Clean release
+
+PR 20 merges as `4247835f54782bd59b4f24f9f74e8f984838445f` after all hosted checks pass. The approved release script repeats all 1,395 tests, 42 artwork checks, HTTP/database, worker, protocol and three browser checks. It publishes `dpl_HCumPAuwuXWB7K4tKRxSRjDmLBpz`; unsigned live checks pass. Log: `/tmp/kingdown-desktop-final-release.log`. Fresh boards on both dedicated accounts show the same friend match at revision 7 / move 4, with White and Black seats correct and no error. The live consent page has no temporary revoke button, and the released source has no temporary lifetime/status log.

@@ -1,6 +1,6 @@
 # Keep the selected game when a chat reopens
 
-Status: claimed
+Status: resolved
 
 ## Reproduction
 
@@ -65,3 +65,7 @@ PR 19 merges as `624db33b7faec08b60330ad0ae3b777b801c41b8` after all three hoste
 The first live Join/reload attempt returns to the solo board and does not change the new server selection. After remount, the loaded script contains the released board-ID logic. A second Join changes the scoped server row to the friend match. A controlled repeat then resumes the solo game, joins the friend game and invokes full chat reload 1 ms after observing the Black seat. The reopened board restores White to move, move 4, You play Black. This confirms immediate recovery on that current board. A fresh-board repeat after account recovery checks the initial-launch path before closing the ticket.
 
 The browser contains a zero-size preload iframe with the same title as the real boards. The original frame selector includes it; do not use that ambiguous attempt as current-board evidence. Select frames with nonzero dimensions, then use the newest visible response. After reconnect, a fresh tool call creates a separate board row for the saved solo game. Its first Join followed by an immediate full reload (0 ms between status observation and reload invocation) restores Black at move 4. The scoped server rows for both new boards point to the friend match. No move is made. Fresh launch, immediate reopening and reconnect now pass.
+
+## Clean release
+
+PR 20 merges as `4247835f54782bd59b4f24f9f74e8f984838445f` after all hosted checks pass. The approved release script repeats all 1,395 tests, 42 artwork checks, HTTP/database, worker, protocol and three browser checks. It publishes `dpl_HCumPAuwuXWB7K4tKRxSRjDmLBpz`; unsigned live checks pass. Log: `/tmp/kingdown-desktop-final-release.log`. Fresh boards on both dedicated accounts show the same friend match at revision 7 / move 4, with White and Black seats correct and no error. The live consent page has no temporary revoke button, and the released source has no temporary lifetime/status log.
