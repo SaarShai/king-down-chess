@@ -226,6 +226,7 @@ export class BoardRenderer {
   private shadowGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   private proc: Record<string, THREE.Texture> = {};
   private tap: PointerEvent | null = null; // pointerdown that may still turn into a click
+  private tapSq: number | null = null; // the square under that press: a click acts on it
   private dragFrom: number | null = null;
   private dragArmed = false;
   private hovered: number | null = null;
@@ -850,6 +851,7 @@ export class BoardRenderer {
     const el = this.renderer.domElement;
     if (this.tap && el.hasPointerCapture(this.tap.pointerId)) el.releasePointerCapture(this.tap.pointerId);
     this.tap = null;
+    this.tapSq = null;
     this.dragFrom = null;
     this.dragArmed = false;
     this.controls.enabled = true;
@@ -861,7 +863,7 @@ export class BoardRenderer {
     this.dragFrom = null;
     this.dragArmed = false;
     if (e.button !== 0) return;
-    const sq = this.pick(e);
+    const sq = this.tapSq = this.pick(e);
     if (sq == null || !this.ownPieceAt(sq)) return;
     this.dragFrom = sq;
     this.renderer.domElement.setPointerCapture(e.pointerId);
@@ -878,19 +880,20 @@ export class BoardRenderer {
   }
 
   /**
-   * Tap (see pastTap: 6 px for a mouse, 12 px for a finger or a pen): onSquareClick as before.
+   * Tap (see pastTap: 6 px for a mouse, 12 px for a finger or a pen): onSquareClick on the pressed square,
+   * also when the finger slips onto the next square or the camera turns during the tap.
    * Drag from an own piece: onDragSelect already ran; onSquareClick on the release square
    * (or the from-square if released off-board) so move / clear share the click path.
    * Anything past a tap that did not start on an own piece is OrbitControls.
    */
   private onUp(e: PointerEvent): void {
     const d = this.tap;
+    const sq = this.tapSq;
     const from = this.dragFrom;
     const armed = this.dragArmed;
     this.clearPointer();
     if (e.button !== 0 || d?.pointerId !== e.pointerId) return;
     if (!pastTap(d, e)) {
-      const sq = this.pick(e);
       if (sq != null) this.onSquareClick(sq, e.shiftKey);
       return;
     }
