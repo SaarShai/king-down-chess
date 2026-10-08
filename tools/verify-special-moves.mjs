@@ -87,10 +87,12 @@ try {
       await page.keyboard.press('z'); // no game key acts under a dialog
       assert.equal(await page.locator('#move-choice').isVisible(), true);
       assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length), 1);
-      await page.keyboard.press('Escape'); await played(1);
+      checks.push('Z under an open choice does nothing');
+      // Undo's handler runs reset() under the open choice, as a newer save from the account does.
+      await page.evaluate(() => document.getElementById('undo').onclick()); await played(0);
       assert.equal(await page.locator('#move-choice').isVisible(), false);
-      assert.ok(await page.evaluate(() => window.view.pieces.has(34) && window.view.pieces.has(43)), 'Escape cancels the choice and moves nothing');
-      checks.push('Z under an open choice does nothing; Escape cancels it');
+      assert.ok(await page.evaluate(() => window.view.pieces.has(26) && window.view.pieces.has(43)));
+      checks.push('reset invalidates an open choice without committing a stale move');
     }
     await page.close();
   }
