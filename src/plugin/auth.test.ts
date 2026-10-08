@@ -1,20 +1,36 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 'jose';
 import { createTokenVerifier, pluginOrigin, type PluginAuth } from './auth';
 const actor = '11111111-1111-4111-8111-111111111111', publicOrigin = 'https://plugin.kingdown.example', supabaseUrl = 'https://project.supabase.co';
+const provider = vi.fn<typeof fetch>();
+const publishableKey = 'sb_publishable_test';
+beforeEach(() => { provider.mockReset(); provider.mockImplementation(async () => Response.json({ id: actor })); });
 let auth: PluginAuth, privateKey: CryptoKey, keys: ReturnType<typeof createLocalJWKSet>;
 beforeAll(async () => {
   const pair = await generateKeyPair('ES256'); privateKey = pair.privateKey;
   keys = createLocalJWKSet({ keys: [{ ...await exportJWK(pair.publicKey), kid: 'test', alg: 'ES256' }] });
-  auth = createTokenVerifier({ supabaseUrl, publicOrigin }, keys);
+  auth = createTokenVerifier({ supabaseUrl, publicOrigin, publishableKey }, keys, provider);
 });
 async function signed(overrides: JWTPayload = {}) {
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({ iss: auth.issuer, aud: auth.resource, sub: actor, exp: now + 300, iat: now, role: 'authenticated', client_id: 'oauth-client', scope: 'openid email', ...overrides }).setProtectedHeader({ alg: 'ES256', kid: 'test' }).sign(privateKey);
 }
 describe('resource-bound Supabase OAuth', () => {
+  it('rejects an unexpired signed token after its provider session is revoked', async () => {
+    provider.mockResolvedValue(new Response('{}', { status: 401 }));
+    await expect(auth.verify(await signed())).rejects.toThrow('OAuth access token');
+  });
+  it('fails closed for a missing or different provider user and provider failures', async () => {
+    for (const body of [{}, { id: '22222222-2222-4222-8222-222222222222' }]) {
+      provider.mockResolvedValueOnce(Response.json(body));
+      await expect(auth.verify(await signed())).rejects.toThrow('OAuth access token');
+    }
+    provider.mockRejectedValueOnce(new Error('network failure'));
+    await expect(auth.verify(await signed())).rejects.toThrow('OAuth access token');
+  });
   it('verifies the issuer signature and binds canonical actors to the MCP resource', async () => {
     expect(await auth.verify(await signed({ sub: actor.toUpperCase() }))).toBe(actor);
+    expect(provider).toHaveBeenCalledWith('https://project.supabase.co/auth/v1/user', expect.objectContaining({ redirect: 'error', signal: expect.any(AbortSignal), headers: { apikey: publishableKey, Authorization: expect.stringMatching(/^Bearer /) } }));
     expect(auth.metadata.authorization_servers).toEqual(['https://project.supabase.co/auth/v1']);
     expect(auth.metadata.resource).toBe(`${publicOrigin}/mcp`);
     expect(auth.metadata.scopes_supported).toEqual(['openid']);
@@ -36,12 +52,13 @@ describe('resource-bound Supabase OAuth', () => {
     ['not yet valid', { nbf: Math.floor(Date.now() / 1000) + 3600 }],
   ])('rejects %s access tokens', async (_name, claims) => {
     await expect(auth.verify(await signed(claims))).rejects.toThrow('OAuth access token');
+    expect(provider).not.toHaveBeenCalled();
   });
   it('accepts documented tokens without a scope claim but requires openid when provided', async () => {
     expect(await auth.verify(await signed({ scope: undefined }))).toBe(actor);
   });
   it('enforces an explicit OAuth client allowlist in production configuration', async () => {
-    const scoped = createTokenVerifier({ supabaseUrl, publicOrigin, clientIds: ['approved-client'] }, keys);
+    const scoped = createTokenVerifier({ supabaseUrl, publicOrigin, publishableKey, clientIds: ['approved-client'] }, keys, provider);
     await expect(scoped.verify(await signed())).rejects.toThrow('OAuth access token');
     expect(await scoped.verify(await signed({ client_id: 'approved-client' }))).toBe(actor);
   });
@@ -57,6 +74,6 @@ describe('resource-bound Supabase OAuth', () => {
   it('rejects credentials, paths and insecure production configuration', () => {
     for (const origin of ['http://public.example', 'https://user:pass@public.example', 'https://public.example/mcp', 'https://public.example?secret=x']) expect(() => pluginOrigin(origin)).toThrow();
     expect(pluginOrigin('http://127.0.0.1:3999')).toBe('http://127.0.0.1:3999');
-    expect(() => createTokenVerifier({ supabaseUrl: 'http://project.supabase.co', publicOrigin })).toThrow();
+    expect(() => createTokenVerifier({ supabaseUrl: 'http://project.supabase.co', publicOrigin, publishableKey })).toThrow();
   });
 });

@@ -26,7 +26,7 @@ export async function configurePlugin(env = process.env, { localDev = false } = 
     if (new URL(publicOrigin).protocol !== 'https:') throw new Error('Production OAuth requires an HTTPS origin');
     if (env.KINGDOWN_PLUGIN_OAUTH_READY !== '1' || !env.SUPABASE_URL) throw new Error('Enable Supabase OAuth, consent/client registration and its resource audience hook before setting KINGDOWN_PLUGIN_OAUTH_READY=1');
     config = consentConfig(env);
-    auth = createTokenVerifier({ supabaseUrl: env.SUPABASE_URL, publicOrigin, clientIds: config.clientIds });
+    auth = createTokenVerifier({ supabaseUrl: env.SUPABASE_URL, publicOrigin, clientIds: config.clientIds, publishableKey: config.publishableKey });
     // RFC 8414 path insertion for an issuer containing /auth/v1; published by Supabase MCP docs.
     const discovery = new URL(`/.well-known/oauth-authorization-server/auth/v1`, auth.issuer);
     const response = await fetch(discovery, { signal: AbortSignal.timeout(5000), redirect: 'error' });

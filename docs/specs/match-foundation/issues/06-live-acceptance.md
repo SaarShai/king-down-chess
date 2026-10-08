@@ -22,6 +22,18 @@ The owner explicitly asks to verify consent denial, provider revocation and cont
 
 For the lost-response case, arm one deliberate result discard in the real ChatGPT board for solo match `9aa166ad-f978-487d-b80f-c9a3963b2457`. Let the real server save a move, discard its successful reply at the board boundary, then reload and retry the saved command. Compare the saved revision and command receipt before and after retry. This tests the real host with an injected lost result; it does not claim a physical network interruption. Remove all temporary controls after the checks and release the clean build.
 
+PR 17 adds the scoped controls and merges as `f80cca6adf8b4749c49e20852cb3a2a210e4aed4`. All 1,391 tests, 42 artwork checks, hosted jobs and three browser checks pass. Two release attempts stop on five-second Git-hook test timeouts while other desktop work uses substantial CPU. The third runs the same checks with the supported `VITEST_MAX_WORKERS=2` setting; all checks pass without changing assertions or time limits. Deployment `dpl_5ULGVYtByYCe8Zi2mMXtEGDuoedn` is live. Log: `/tmp/kingdown-live-verification-release-limited.log`.
+
+The live solo-match baseline is revision 0 with no command receipts. Read-only database checks use only the restricted runtime role and filter by both that match and the second test user's ID. They print the revision, FEN, receipt count and a receipt digest, never credentials.
+
+The fresh ChatGPT board arms the one-result discard and plays ordinary e2-e4. It reports the deliberate lost result and offers Retry, while its visible position remains White to move at move 1. A separate read-only database check shows revision 1, one receipt and the pawn on e4 with Black to move. The receipt digest is `635204b367fe39fd891e8abf89d95b98ab653500ba895c6a1a132aaa14d82216` before retry.
+
+After full chat reload, the board restores Black to move at move 1 and retains Retry. Retry clears the pending command. The read-only receipt after retry is byte-identical to the committed receipt: revision 1, one command and the same digest. Controlled lost-result recovery passes in the real ChatGPT host.
+
+The provider revoke control succeeds and the grant list confirms the approved client is absent. The existing ChatGPT connection still reloads and makes a computer move. A read-only check proves revision 2 and two commands. This is a failure, owned by [ticket 10](10-revoked-provider-session.md). Keep that revoked connection in place for the repaired-server check.
+
+A fresh Connect another account flow then presents real consent for the second test account, the approved client and `openid email offline_access`. Deny returns to ChatGPT with `access_denied - User denied the request`. No new connection is approved. Consent denial passes.
+
 ## Solo evidence
 
 Continue the existing test-account game in Chrome on macOS, in the real ChatGPT host, from White's fifth move. The assistant plays every player move through the visible board and requests each computer action. The game ends after Black's 23rd move with "Black wins · Checkmate".
@@ -63,8 +75,8 @@ A fresh tool call after reconnection opens the same friend match at move 3 with 
 
 ## Handoff
 
-Both test accounts are connected, play after reconnection passes, and normal selected-game reopening passes on the released board. The immediate full-page reload boundary remains in ticket 09. Provider grant revocation and denied consent still need a provider flow that exposes those controls. The Supabase user and OAuth app screens have no scoped grant-revoke control. Do not use account deletion, a ban or a password reset to stand in for this check.
+Both test accounts are connected, play after reconnection passes, and normal selected-game reopening passes on the released board. The immediate full-page reload boundary remains in ticket 09. Consent denial now passes. The supported scoped grant API exposes a server enforcement defect; ticket 10 owns the fix and live retest. Do not use account deletion, a ban or a password reset to stand in for this check.
 
-The fixture and compiled HTTP/PostgreSQL board checks drop a reply after a saved move, remount the board and retry the same command ID. The saved revision remains 1. This passes locally. A controlled lost response in the real ChatGPT host remains untested; the completed live reload-during-request check is separate. The actual phone check stays deferred at the owner's request.
+The fixture and compiled HTTP/PostgreSQL board checks drop a reply after a saved move, remount the board and retry the same command ID. The saved revision remains 1. This passes locally. The controlled lost-result check above now also passes in the real ChatGPT host; the completed live reload-during-request check is separate. The actual phone check stays deferred at the owner's request.
 
 Use the existing test chat, Start King Down game (`https://chatgpt.com/c/6ac75478-8988-83eb-81a1-96d5040d8320`), and private plugin `plugin_asdk_app_6ac737b6924c8191b0c77b5f5a2981a4`. The first test account is still the primary connection. Restart an expired authorization request from Connect another account; do not reuse an expired consent URL.

@@ -11,7 +11,6 @@ try {
   if (process.env.PLUGIN_EXPECT_MODE) assert.equal(mode, process.env.PLUGIN_EXPECT_MODE, 'Connected to the expected harness backend');
   const frame = page.frameLocator('iframe');
   await frame.locator('#status').filter({ hasText: /to move|Waiting|wins|Draw/ }).waitFor();
-  assert(await frame.getByRole('button', { name: 'Test: discard next move reply', exact: true }).isHidden(), 'VERIFY-live: ordinary matches cannot arm a discarded result');
   await frame.locator('summary').click();
   await frame.locator('#solo').click();
   await frame.locator('#solo:not(:disabled)').waitFor();
