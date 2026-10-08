@@ -23,6 +23,7 @@ Continue the local match and plugin work at e6773d3. Check the real Supabase acc
 - The owner reports that "retro workshop" is complete and committed, and the build is approved. This removes the wait for Workshop approval. It does not identify a release commit or request a merge or deployment.
 - The branch integrates main at `243d4f2`, including Workshop finish merge `93402b5`. The game engine, search, Workshop and public art match that main revision.
 - The integrated check runner passes all three plugin browser checks. It builds into a temporary folder, uses free ports and cleans up its test users and servers.
+- The first hosted check finds a merge mismatch: main pins `sharp` to `0.35.4`, but the merged lock retains `0.35.5`. Regenerate the lock from the approved pin. Check a clean install and hosted CI before handoff.
 - Vercel confirms Saar's projects is on Pro, with `kingdown` but no plugin test service. The OpenAI tunnel page works. A tunnel does not serve the browser consent page.
 - Supabase has no OAuth apps or Auth hooks. Its Site URL is `https://kingdown.dev`; Google and GitHub are enabled. No live setting changes. No server database credential is available for the plugin.
 
