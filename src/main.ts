@@ -13,7 +13,7 @@ import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { mulberry32 } from './sim/rng';
 import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
-import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
+import { POWER_NAME, POWER_TAG, hintMoves, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
 import './dialog-dismiss';
@@ -99,7 +99,7 @@ let gen = 0;
 /** Closes an open promotion picker (resolving it with null). Set only while one is on screen. */
 let closePromo: (() => void) | null = null;
 let closeMoveChoice: (() => void) | null = null;
-/** Squares lit by Hint. Cleared when the player moves or selects something else. */
+/** Squares lit by Hint. Cleared by a move, another selection, the power button and Esc. */
 let hintSquares: number[] = [];
 const seenMoments = new Set<string>();
 /** The date (YYYY-MM-DD) when this game is that day's army, for the shareable result. */
@@ -790,7 +790,7 @@ async function choosePower(moves: Move[]): Promise<void> {
   armed = false; refresh();
 }
 
-$('power-btn').onclick = () => { armed = !armed; selected = null; pending = []; refresh(); };
+$('power-btn').onclick = () => { armed = !armed; selected = null; pending = []; hintSquares = []; refresh(); };
 $('end-haste').onclick = () => {
   const pass = game.legal.find(m => m.pass);
   if (pass && myTurn() && !busy) void commit(pass);
@@ -884,12 +884,16 @@ $('stop-chain').onclick = () => { const m = candidates().find(m => clickPath(m).
 
 $('hint').onclick = async () => {
   if (busy || finished() || !myTurn()) return;
+  const tag = armedTag(), l = lesson == null ? null : LESSONS[lesson], pos = game.pos;
+  const rootMoves = hintMoves(game.legal, tag, l ? m => l.goal(pos, m) : undefined);
+  if (!rootMoves.length) return refuse('Hint finds no move to play now.');
   busy = true;
-  refresh();
+  refresh(); // the power button is off while busy, and that disarms it: arm it again below
   const g = gen;
-  const res = await engine.think(game.pos, { timeMs: 400, maxDepth: 3, history: game.history.map(h => positionKey(h.pos)) });
+  const res = await engine.think(pos, { timeMs: 400, maxDepth: 3, history: game.history.map(h => positionKey(h.pos)), rootMoves });
   if (g !== gen) return;
   busy = false;
+  armed = tag != null;
   hintSquares = res.move ? [res.move.from, ...clickPath(res.move)] : [];
   refresh();
 };
@@ -1325,7 +1329,7 @@ coords.onchange = () => { view.setCoords(coords.checked); save(); };
 $('reset-view').onclick = () => view.resetView();
 addEventListener('keydown', e => {
   if (document.querySelector('#workshop[open]')) return; // the Workshop keeps its own keys: Esc closes its top sheet, else an open choices panel, else the Workshop
-  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; armed = false; refresh(); return; }
+  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; armed = false; hintSquares = []; refresh(); return; }
   // Menus swallow shortcuts; an open move choice does not (Z there undoes, and that is tested).
   if ((e.target as HTMLElement).closest('input,select,textarea') || document.querySelector('#new-game[open], #settings[open], #title-screen[open], #rules[open]')) return;
   if (e.key === 'r') view.resetView();

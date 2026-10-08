@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BLACK, Color, Move, Position, Q, WHITE, colorOf, isAttacked, legalMoves, makeMove, parseSq, piece, setRules, status, typeOf,
+  BLACK, Color, Move, POWERS_BALANCED, Position, Q, WHITE, colorOf, isAttacked, legalMoves, makeMove, parseKings, parseSq, piece, setRules, status, typeOf,
 } from '../rules/engine';
 import { fromFen, randomBackRank, startPosition, toLan } from '../rules/setup';
 import { MATE, evaluate, positionKey, resetSearchState, search } from './search';
@@ -187,6 +187,19 @@ describe('ogre and catapult', () => {
     expect(lan).toBe('Od4>e4-f4');
     expect(res.score).toBeGreaterThan(300);
     } finally { setRules(); resetSearchState(); }
+  });
+});
+
+describe('root moves', () => {
+  it('searches only the given root moves', () => {
+    setRules({ ...POWERS_BALANCED, kings: parseKings('flame:strike,none') });
+    try {
+      const pos = fromFen('2b4k/2P3pp/2R5/8/8/8/8/K7 w - - 0 1');
+      expect(toLan(pos, search(pos, { maxDepth: 2 }).move!)).toBe('Rc6-e8!'); // the Strike mates
+      const plain = legalMoves(pos).filter(m => !m.power);
+      const res = search(pos, { maxDepth: 2, rootMoves: plain });
+      expect(plain.some(m => same(m, res.move!))).toBe(true);
+    } finally { setRules(); }
   });
 });
 
