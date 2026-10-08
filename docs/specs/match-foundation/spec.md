@@ -1,6 +1,6 @@
 # Match service and private ChatGPT test
 
-Status: local preparation complete; live setup needs approval
+Status: private service live; desktop acceptance in progress
 
 ## Purpose
 
@@ -16,7 +16,7 @@ The server uses a separate database login with the [reviewed grants](../../../pl
 
 ## Current ticket
 
-[01 — Check the real account and ChatGPT host](issues/01-external-host-check.md) holds the plan, evidence and exact live proposal. The local code is ready for review. The new test service, OAuth access and website consent route need the owner's approval before release work starts.
+[01 — Check the real account and ChatGPT host](issues/01-external-host-check.md) holds the approved setup and release evidence. The private service, OAuth client and website consent route are live. The first test account connects and completes a computer game in ChatGPT. [06 — Complete the live checks](issues/06-live-acceptance.md) tracks account recovery and two-player checks. The owner defers the actual phone check until desktop checks finish.
 
 ## Checks
 

@@ -1,6 +1,6 @@
 # Check the real account and ChatGPT host
 
-Status: claimed
+Status: resolved
 
 ## Scope
 
@@ -81,3 +81,7 @@ The owner's approval covers the required merges, website route release, separate
 - The compiled HTTP check, worker smoke and MCP protocol check pass.
 - The approved pull requests must pass review and checks before merge. Each release uses the tested fresh `origin/main` through `tools/deploy.sh`.
 - The actual host cases remain open until tested. Local provider mocks do not prove them.
+
+## Answer
+
+The approved service and consent route are live. The owner signs in with a dedicated test account. Adding the exact consent origin to the Supabase allowed URLs fixes the first consent failure. ChatGPT connects to that account and the assistant plays a complete computer game through the real board. PR #11 fixes saved-position recovery when ChatGPT reopens a board; all three views restore checkmate after a full chat reload. The later release and host evidence are in the reload-fix ticket. [The live acceptance ticket](06-live-acceptance.md) owns the remaining account, friend and phone cases. These cases remain open; setup completion does not imply that they pass.
