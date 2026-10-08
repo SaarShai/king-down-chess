@@ -6,7 +6,6 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 
 - **Private plugin review follow-up** · `ready-for-agent` · Two independent reviews are complete. Repair unintended board actions, recovery after match deletion, and the confirmed error-handling and record gaps. · [review](docs/specs/match-foundation/issues/12-independent-review.md)
 
-- **Web app UI and UX** · `needs-info` · Three reviews and a motion review are merged: 10 defects to fix first, 19 agreed changes, 12 owner decisions (W1–W12). Next: the defect fixes, then a rendered sample of the new game screen. · [review](docs/specs/web-ux/review.md)
 - **Workshop finish** · `ready-for-agent` · Build the open tickets of the spec. · [spec](docs/specs/workshop-finish/spec.md)
 - **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); `hand-size` measures hands of 2, 3, 4 and 6 cards. Keep March (below the floor in `cards-d1`)? Which six cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Card mode in the game** · `ready-for-agent` · After the deal: a card panel in the browser, MorphP in the deal, and a legendary look for Rage for the owner's yes. · [2026-10](docs/tasks-archive/2026-10.md)
