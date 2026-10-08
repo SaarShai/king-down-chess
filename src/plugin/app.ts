@@ -10,6 +10,7 @@ type Pending = { name: string; args: Record<string, unknown> };
 const extension = (window as Window & { openai?: { widgetState?: { matchId?: string; pending?: Pending }; setWidgetState?: (state: unknown) => void } }).openai;
 const saved = extension?.widgetState;
 let hostMatchId = saved?.matchId;
+let awaitingInitialResult = true;
 const app = new App({ name: 'King Down board', version: '1.0.0' }, {});
 const board = new PaintedView($('board'));
 board.setPace('off');
@@ -91,8 +92,9 @@ board.onLoadError = () => { $('error').textContent = 'The board artwork could no
 app.ontoolresult = result => {
   const value = result.structuredContent;
   if (!value || typeof value !== 'object' || !('snapshot' in value) || !('matchId' in value) || typeof value.matchId !== 'string') return;
-  // Hosts can replay an old tool result when they reopen the board.
-  hostMatchId = value.matchId;
+  // The first result is a replay; widget state can name a game selected since then.
+  hostMatchId = awaitingInitialResult ? saved?.matchId ?? value.matchId : value.matchId;
+  awaitingInitialResult = false;
   if (connected) void call('kingdown_get', { matchId: hostMatchId });
 };
 app.onhostcontextchanged = context => { $('expand').textContent = context.displayMode === 'fullscreen' ? 'Inline' : 'Fullscreen'; };
