@@ -1142,30 +1142,41 @@ async function copyAndSay(button: HTMLElement, text: string, done: string): Prom
 }
 
 /* ---- autosave ---- */
-/** account/sync.ts splits these fields into settings and the saved game: name a new one there too. */
-interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean; labels?: boolean }
+/**
+ * account/sync.ts splits these fields into settings and the saved game: name a new one there too. Write
+ * a new setting only when it is not at its default. Then an old save keeps its JSON. If not, the first
+ * save after an update counts as a settings change, and it wins over newer settings in the account.
+ */
+interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; think: number; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean; labels?: true }
 const SAVE_KEY = 'kingdown.save';
 /** Settings → Account and the cloud save, loaded after the board is drawn (null until then, or offline). */
 let account: typeof import('./account/account') | null = null;
 /** A newer saved game came from the account during a lesson: Return to game opens it. */
 let cloudGame = false;
 
+/** The save's settings fields (account/sync.ts SETTINGS). */
+const settingsNow = () => ({
+  think: +$<HTMLInputElement>('think').value,
+  skill,
+  coords: coords.checked,
+  sound: $<HTMLInputElement>('sound').checked,
+  queen: $<HTMLInputElement>('queen').checked,
+  pace: pace.value as Pace,
+  threats: $<HTMLInputElement>('threats').checked,
+  labels: labels.checked || undefined, // a new setting: written only when on
+});
+
 function save(): void {
-  if (lesson != null) return; // a lesson never replaces the saved game
+  // A lesson never replaces the saved game: it changes only the settings in the save.
+  const kept = lesson == null ? null : readSave();
+  if (lesson != null && !kept) return;
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({
+    localStorage.setItem(SAVE_KEY, JSON.stringify(kept ? { ...kept, ...settingsNow() } : {
       back: game.backRank,
       fen: toFen(game.history[0]?.pos ?? game.pos), // the position the game started from
       moves: game.history.map(h => h.lan),
       white: sides[0], black: sides[1],
-      think: +$<HTMLInputElement>('think').value,
-      skill,
-      coords: coords.checked,
-      sound: $<HTMLInputElement>('sound').checked,
-      queen: $<HTMLInputElement>('queen').checked,
-      pace: pace.value as Pace,
-      threats: $<HTMLInputElement>('threats').checked,
-      labels: labels.checked,
+      ...settingsNow(),
       link: linkSide,
       daily,
       resigned,
@@ -1187,7 +1198,7 @@ function applySettings(s: Save): void {
   // Old saves with no skill field stay Strong so a resumed game does not suddenly get easier.
   skill = isLevel(s.skill) ? s.skill : 'strong';
   if (typeof s.coords === 'boolean') coords.checked = s.coords;
-  if (typeof s.labels === 'boolean') labels.checked = s.labels;
+  labels.checked = s.labels === true; // no field: off (an old save, or the account's settings with the letters off)
 }
 
 /** A save's rules, army and moves onto `game`; a save it cannot read starts a new game. */
