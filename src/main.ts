@@ -1,6 +1,6 @@
 import './style.css';
 import { SkillName, skillPlan } from './ai/skill';
-import { Engine, Game, Side } from './game';
+import { Engine, Game, Side, resigningSide } from './game';
 import { setEvaluator } from './ai/eval';
 import { positionKey, type SearchResult } from './ai/search';
 import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
@@ -132,6 +132,8 @@ let cursor: number | null = null;
 const finished = (): boolean => resigned != null || game.status !== 'playing';
 /** This device may move now: a person's turn, and in a link game only its own side. */
 const myTurn = (): boolean => sides[game.pos.turn] === 'human' && (linkSide == null || game.pos.turn === linkSide) && !lessonDone;
+/** The side Resign gives up now (`resigningSide`), or null while it is off: the game is over, a lesson, or the computer thinks. */
+const resigner = (): Color | null => (finished() || lesson != null || thinking ? null : resigningSide(sides, game.pos.turn, linkSide));
 
 /** Player-facing columns for one piece under the live `GAME_RULES` (and `POOL`). */
 type GuideRow = { moves: string; captures: string; special: string };
@@ -473,7 +475,7 @@ function refresh(): void {
   $('took-b').innerHTML = names(taken[1]);
   showInfo(selected ?? hovered);
   $<HTMLButtonElement>('undo').disabled = game.history.length === 0;
-  $<HTMLButtonElement>('resign').disabled = finished() || lesson != null;
+  $<HTMLButtonElement>('resign').disabled = resigner() == null;
   $<HTMLButtonElement>('copy').disabled = game.history.length === 0;
   $('share').hidden = sides[0] !== 'human' || sides[1] !== 'human' || game.history.length === 0 || lesson != null;
   $('next-lesson').hidden = lesson == null || !lessonDone;
@@ -1090,10 +1092,10 @@ $<HTMLDialogElement>('over').onclose = () => {
 
 $('undo').onclick = undo;
 $('resign').onclick = () => {
-  if (finished() || lesson != null) return;
-  if (!confirm(`Resign as ${game.pos.turn ? 'Black' : 'White'}?`)) return;
+  const side = resigner();
+  if (side == null || !confirm(`Resign as ${side ? 'Black' : 'White'}?`)) return;
   reset();
-  resigned = game.pos.turn;
+  resigned = side;
   refresh();
   save();
   showOver();
