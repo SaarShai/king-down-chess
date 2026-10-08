@@ -88,6 +88,8 @@ let setup: Setup = defaultSetup();
 let selected: number | null = null;
 let pending: number[] = []; // beast chain squares clicked so far
 let hovered: number | null = null;
+/** An enemy piece that a tap (or Enter) chose to read: its card shows while no piece is selected or under the pointer. */
+let inspected: number | null = null;
 /** The player to move has armed their king's power: the next click spends it. */
 let armed = false;
 let resigned: Color | null = null;
@@ -123,7 +125,7 @@ let replaying = false;
 let marked: (KeyMoment & { text: string })[] = [];
 /** Replaces the review help line while a key moment is on the board. */
 let reviewNote = '';
-/** Why the last tap did nothing ("That is Black's piece…"); shown in the help line until the next action. */
+/** Why the last tap did nothing ("Not allowed: the rook cannot reach b2."); shown in the help line until the next action. */
 let notice = '';
 /** The board is seen from Black's side (orient()). */
 let flipped = false;
@@ -335,11 +337,16 @@ function fillPieceGuide(): void {
     `The random draw pool is ${pool}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
 }
 
+/** A piece's rules in one line, for its card and the screen reader. */
+const pieceText = (t: PieceType): string => {
+  const g = pieceGuide(t);
+  return [g.moves, g.captures, g.special].filter(Boolean).join(' ');
+};
+
 function showInfo(sq: number | null): void {
   const code = sq == null ? 0 : shownPos().board[sq];
   const t = code ? typeOf(code) : 0;
-  const g = t ? pieceGuide(t) : null;
-  const blurb = g ? [g.moves, g.captures, g.special].filter(Boolean).join(' ') : '';
+  const blurb = t ? pieceText(t) : '';
   $('info').innerHTML = (code
     ? `<b>${pieceIcon(typeOf(code), colorOf(code))} ${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${blurb}`
       // Lab only (docs/RULES.md §6.9): the shipped guard never captures, so it can never be spent.
@@ -473,7 +480,7 @@ function refresh(): void {
   };
   $('took-w').innerHTML = names(taken[0]);
   $('took-b').innerHTML = names(taken[1]);
-  showInfo(selected ?? hovered);
+  showInfo(selected ?? hovered ?? inspected);
   $<HTMLButtonElement>('undo').disabled = game.history.length === 0;
   $<HTMLButtonElement>('resign').disabled = finished() || lesson != null;
   $<HTMLButtonElement>('copy').disabled = game.history.length === 0;
@@ -547,17 +554,16 @@ function drawMarks(): void {
 }
 new ResizeObserver(() => drawMarks()).observe($('board'));
 
-/** Why a tap on `to` did not play a move for the piece on `from` (only exported engine functions). */
+/** Why a tap on the empty square `to` did not play a move for the piece on `from` (only exported engine functions). */
 function whyNot(from: number, to: number): string {
-  const pos = game.pos, mover = pos.board[from], name = NAMES[typeOf(mover)], target = pos.board[to];
+  const pos = game.pos, name = NAMES[typeOf(pos.board[from])];
   // Only the moves a click can reach (candidates()): an unarmed power move is not "a move into check".
   const tag = armedTag();
   if (pseudoMoves(pos).some(m => m.from === from && offered(m, tag) && clickPath(m)[0] === to)) {
     return game.inCheck ? `Your king is in check, and that ${name} move does not stop it.` : `Not allowed: that ${name} move would leave your king in check.`;
   }
-  if (target && typeOf(target) === G && colorOf(target) !== pos.turn && typeOf(mover) !== K) return 'Not allowed: a guard can only be taken by a king.';
   const can = game.legal.some(m => m.from === from && offered(m, tag)) ? ' The marked squares show where it can go.' : '';
-  return `Not allowed: the ${name} cannot ${target ? `take the ${NAMES[typeOf(target)]} on` : 'reach'} ${sqName(to)}.${can}`;
+  return `Not allowed: the ${name} cannot reach ${sqName(to)}.${can}`;
 }
 
 /** The keyboard cursor's square and piece, for the screen reader. */
@@ -566,7 +572,8 @@ function sayCursor(): void {
   const p = shownPos().board[cursor];
   const what = p ? `${colorOf(p) ? 'black' : 'white'} ${NAMES[typeOf(p)]}` : 'empty';
   const target = selected != null && candidates().some(m => clickPath(m)[pending.length] === cursor);
-  $('cursor-say').textContent = `${sqName(cursor)}, ${what}${cursor === selected ? ', selected' : target ? ', can go here' : ''}`;
+  const card = cursor === inspected ? `. ${pieceText(typeOf(p))}` : ''; // an enemy piece chosen with Enter: its card
+  $('cursor-say').textContent = `${sqName(cursor)}, ${what}${cursor === selected ? ', selected' : target ? ', can go here' : card}`;
 }
 
 async function commit(m: Move): Promise<void> {
@@ -590,7 +597,7 @@ async function commit(m: Move): Promise<void> {
   else if (kind === 'swap' || kind === 'swapKing') snd.swap();
   else if (!hit) snd.move();
   if (game.inCheck) snd.check();
-  selected = null; pending = []; armed = false;
+  selected = null; pending = []; armed = false; inspected = null;
   refresh();
   let struck = false;
   const strike = (): void => { if (!struck && g === gen) { struck = true; hit?.(); } };
@@ -823,6 +830,7 @@ view.onSquareClick = (sq, shift = false) => {
   }
   hintSquares = [];
   notice = '';
+  inspected = null;
   const targets = markTargets();
   if (targets.length) { // armed Freeze / Ice Wall / Sacrifice: tap the piece itself
     const here = targets.filter(m => m.to === sq);
@@ -834,8 +842,8 @@ view.onSquareClick = (sq, shift = false) => {
   const next = candidates().filter(m => clickPath(m)[pending.length] === sq);
   if (selected == null || next.length === 0) {
     const turn = game.pos.turn ? 'Black' : 'White';
-    if (selected != null && !own && sq !== selected) notice = pending.length ? 'That square is not marked, so the capture chain was cancelled.' : whyNot(selected, sq);
-    else if (selected == null && p && !own) notice = `That is ${turn === 'White' ? 'Black' : 'White'}'s ${NAMES[typeOf(p)]}. ${turn} to move: choose one of your own pieces.`;
+    if (p && !own) inspected = sq; // an enemy piece that is no target: its card, and no refusal
+    else if (selected != null && !own && sq !== selected) notice = pending.length ? 'That square is not marked, so the capture chain was cancelled.' : whyNot(selected, sq);
     else if (selected == null && !p) notice = `Choose one of ${turn}'s pieces first.`;
     selected = own && sq !== selected ? sq : null;
     pending = [];
@@ -866,7 +874,7 @@ let said = '';
 view.onSquareHover = sq => {
   hovered = sq;
   $('hover').textContent = sq == null ? '' : sqName(sq);
-  showInfo(selected ?? hovered);
+  showInfo(selected ?? hovered ?? inspected);
   const next = sq == null ? [] : candidates().filter(m => clickPath(m)[pending.length] === sq);
   const ready = next.filter(m => clickPath(m).length === pending.length + 1);
   const preview = ready.length === 1 ? momentText(game.pos, ready[0], seenMoments, true) : null;
@@ -909,7 +917,7 @@ async function showPly(n: number, replay = true): Promise<void> {
   view.skip(); // a step during a replay ends it; its continuation sees the new navGen
   busy = replaying = false;
   viewing = n === len ? null : n;
-  selected = null; pending = []; hintSquares = []; reviewNote = '';
+  selected = null; pending = []; hintSquares = []; reviewNote = ''; inspected = null;
   refresh();
   if (replay && n === from + 1) {
     view.sync(at(from));
@@ -939,7 +947,7 @@ function reset(): void {
   closeMoveChoice?.();
   closePromo?.(); // drop an open promotion picker instead of leaving its promise hanging
   busy = false;
-  selected = null; pending = []; armed = false;
+  selected = null; pending = []; armed = false; inspected = null;
   notice = '';
 }
 
@@ -1359,7 +1367,7 @@ boardEl.addEventListener('keydown', e => {
     if (selected === cursor) {
       const to = [...new Set(candidates().map(m => clickPath(m)[pending.length]))].map(sqName);
       $('cursor-say').textContent = to.length ? `${sqName(cursor)} selected. It can go to ${to.join(', ')}.` : '';
-    }
+    } else if (inspected === cursor) sayCursor(); // an enemy piece: its card, said as a tap shows it
     drawMarks();
     return;
   } else {

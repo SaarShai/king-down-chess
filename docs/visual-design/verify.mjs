@@ -118,18 +118,18 @@ try {
   ok('Show threats: off by default; marks the attacked knight and 15 covered squares; saved');
   await page.context().close();
 
-  // 4. Refusals say why.
+  // 4. Refusals say why. A tap on an enemy piece is no refusal: it shows the piece's card.
   page = await open('?fen=' + encodeURIComponent('4k3/4r3/8/8/8/8/4B3/4K3 w - - 0 1'));
   await ready(page);
-  await tap(page, 52); assert.match(await help(page), /That is Black's rook\. White to move/);
+  await tap(page, 52); assert.equal(await help(page), ''); assert.match(await page.textContent('#info'), /Black rook/);
   await tap(page, 12); assert.match(await help(page), /This bishop has no legal move/);
   await tap(page, 19); assert.match(await help(page), /that bishop move would leave your king in check/);
   await page.context().close();
   page = await open('?fen=' + encodeURIComponent('4k3/8/8/g7/8/8/8/R3K3 w - - 0 1'));
   await ready(page);
-  await tap(page, 0); await tap(page, 32); assert.match(await help(page), /a guard can only be taken by a king/);
+  await tap(page, 0); await tap(page, 32); assert.equal(await help(page), ''); assert.match(await page.textContent('#info'), /Black guard[\s\S]*except by a king/);
   await tap(page, 0); await tap(page, 9); assert.match(await help(page), /the rook cannot reach b2/);
-  ok('refusals: enemy piece, no legal move, pinned, guard, unreachable square');
+  ok('refusals: no legal move, pinned, unreachable square; an enemy piece or a guard shows its card');
   await page.context().close();
 
   // 5. Guide cards carry painted art; promotion shows figures.
