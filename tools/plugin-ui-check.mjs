@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL');
 const browser = await launch();
-const page = await browser.newPage({ viewport: { width: 1000, height: 1000 } });
+const page = await browser.newPage({ viewport: { width: 1000, height: 1000 }, hasTouch: true });
 trapErrors(page);
 try {
   await page.goto(base);
@@ -21,7 +21,6 @@ try {
   }
   await clickSquare(4, 1);
   assert(await frame.locator('#choices button').count() > 0);
-  await clickSquare(4, 3);
   assert(await frame.locator('#choices button').count() > 1, 'Haste and ordinary moves must stay distinct');
   for (const code of ['STALE_REVISION', 'INVALID_MOVE', 'WRONG_TURN', 'COMMAND_CONFLICT', 'MATCH_INCOMPATIBLE']) {
     await page.evaluate(code => { window.rejectNextMove = code; }, code);
@@ -68,15 +67,47 @@ try {
   await frame.locator('#reload').click();
   await frame.locator('#status').filter({ hasText: `Move ${snapshot.moveNumber}` }).waitFor();
   await frame.locator('#reload:not(:disabled)').waitFor();
-  await frame.locator('#expand').click();
-  await frame.locator('#expand').filter({ hasText: 'Inline' }).waitFor();
+  assert.equal(await frame.getByRole('button', { name: 'Fullscreen', exact: true }).count(), 0);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(100);
   assert.equal(await frame.locator('body').evaluate(el => el.scrollWidth > window.innerWidth), false);
   const canvas = await frame.locator('canvas').boundingBox(); assert(canvas && canvas.width > 250 && canvas.width <= 390);
+  await frame.locator('summary').click();
+  await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+  async function tapSquare(file, rank) {
+    const box = await frame.locator('canvas').boundingBox(); assert(box);
+    await page.touchscreen.tap(box.x + (32 + (file + .5) * 112) * box.width / 960, box.y + (64 + 32 + (7 - rank + .5) * 112) * box.width / 960);
+  }
+  await tapSquare(4, 1);
+  assert.equal(await frame.locator('#move-hint').innerText(), 'Tap a marked square to move, or choose a move below.');
+  await tapSquare(4, 3);
+  await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
+  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 1, 'Touch destination commits the ordinary move once');
+  await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+  await tapSquare(4, 1);
+  await frame.locator('#choices button').filter({ hasText: 'e2 to e4, with Haste' }).tap();
+  await frame.locator('#reload:not(:disabled)').waitFor();
+  assert.match(await frame.locator('#status').innerText(), /White to move/, 'Explicit Haste keeps the extra move');
+  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 1);
+  await tapSquare(4, 3); await tapSquare(4, 4);
+  await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
+  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 2, 'Touch finishes the explicit Haste action');
+  await frame.locator('summary').click();
   await shot(page, 'mobile');
   if (capabilities.friend) {
     await frame.locator('summary').click();
+    await frame.locator('#friend').click(); await frame.locator('#reload:not(:disabled)').waitFor();
+    await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
+    await page.evaluate(() => { window.holdNextGet = true; });
+    await page.waitForFunction(() => typeof window.releaseHeldGet === 'function');
+    assert(await frame.locator('#solo').isEnabled(), 'Background polling must not disable game controls');
+    await frame.locator('#solo').click();
+    await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
+    await frame.locator('#reload:not(:disabled)').waitFor();
+    await page.evaluate(() => { window.releaseHeldGet(); });
+    await page.waitForFunction(() => window.heldGetReturned);
+    await frame.locator('#status').evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    assert.match(await frame.locator('#status').innerText(), /White to move/, 'An old friend read must not replace the newly selected solo game');
     await frame.locator('#friend').click(); await frame.locator('#reload:not(:disabled)').waitFor();
     await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
     await frame.locator('#invite').click(); await frame.locator('#reload:not(:disabled)').waitFor();
@@ -84,7 +115,7 @@ try {
     const joined = await (await page.request.post(new URL('/fixture-friend-join', base).href, { data: { token } })).json();
     assert(!joined.isError);
     await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
-    await clickSquare(4, 1); await clickSquare(4, 3); await frame.locator('#choices button[title="e2-e4"]').click();
+    await clickSquare(4, 1); await clickSquare(4, 3);
     await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
     const friend = await page.evaluate(() => window.harnessView);
     const replied = await (await page.request.post(new URL('/fixture-friend-move', base).href, { data: { matchId: friend.matchId, id: 'friend-reply', expectedRevision: friend.snapshot.revision, lan: 'e7-e5' } })).json();
@@ -110,7 +141,7 @@ try {
     await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
   }
   // A host notification can switch games independently of a pending submission.
-  await clickSquare(4, 1); await clickSquare(4, 3);
+  await clickSquare(4, 1);
   await page.evaluate(() => { window.dropNextMoveReply = true; });
   await frame.locator('#choices button[title="e2-e4"]').click(); await frame.locator('#retry').waitFor();
   const switched = await (await page.request.post(new URL('/fixture-tool', base).href, { data: { name: 'kingdown_create', arguments: { mode: 'solo' } } })).json();
@@ -130,5 +161,5 @@ try {
   }
   assertNoErrors();
   console.log(`Harness mode: ${mode}`);
-  console.log(`PASS: SDK AppBridge initialization, painted board move, iframe remount with identical FEN/revision, Haste ambiguity, lost-reply same-ID retry committed once, bounded computer turn, definitive rejection recovery, match switch recovery, ${capabilities.friend ? 'friend join/reply polling, ' : ''}display mode, 390px layout, no page errors${mode === 'fixture' ? ', terminal fixture' : ', real HTTP MCP and PostgreSQL'}`);
+  console.log(`PASS: SDK AppBridge initialization, painted board move, iframe remount with identical FEN/revision, Haste ambiguity, lost-reply same-ID retry committed once, bounded computer turn, definitive rejection recovery, match switch recovery, ${capabilities.friend ? 'friend join/reply polling, ' : ''}no fullscreen control, 390px touch moves, no page errors${mode === 'fixture' ? ', terminal fixture' : ', real HTTP MCP and PostgreSQL'}`);
 } finally { await browser.close(); }
