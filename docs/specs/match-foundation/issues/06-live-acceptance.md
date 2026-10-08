@@ -32,3 +32,7 @@ The owner has a second test account available and wants mobile testing later, af
 ## Account checks
 
 Connect another account reuses the first consent login and returns "This account is already connected" twice. The consent page follows Supabase's existing-grant redirect before it shows the account switch. [Ticket 07](07-consent-account-choice.md) fixes this cause and owns its release check. Two-player testing waits for the second sign-in through that path.
+
+Supabase audit logs show `token_refreshed` for the dedicated test user at `2026-10-08T09:11:12.961015549Z`, with user agent `openai-connectors-oauth/1.0`. The computer game continues to its terminal result after this event. This is real ChatGPT session-refresh evidence. The paired `token_revoked` event occurs in the same refresh request; it is not evidence of the separate revoked-access case. A browser-session refresh appears at 09:16:59 UTC and is kept separate from the ChatGPT event.
+
+The board's Games menu creates a friend game and shows "Waiting for your friend. Share an invitation." A chat request for that new friend game first reopens the completed solo game. [Ticket 08](08-explicit-new-game.md) fixes the launch-tool cause.
