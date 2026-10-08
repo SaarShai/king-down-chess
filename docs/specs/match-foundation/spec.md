@@ -1,6 +1,6 @@
 # Match service and private ChatGPT test
 
-Status: complete; private service live
+Status: private service live; independent review follow-up open
 
 ## Purpose
 
@@ -16,7 +16,7 @@ The server uses a separate database login with the [reviewed grants](../../../pl
 
 ## Acceptance
 
-[01 — Check the real account and ChatGPT host](issues/01-external-host-check.md) holds the approved setup and release evidence. The private service, OAuth client and website consent route are live. [06 — Complete the live checks](issues/06-live-acceptance.md) records passing desktop solo and two-player play, seats, consent denial, refresh, reconnect, immediate reopening, controlled lost-result recovery and unexpired-token revocation. [11 — Repair phone board controls](issues/11-phone-controls.md) records direct ordinary destination taps, stable background refresh and removal of the plugin Fullscreen control. On October 8, 2026, the owner confirms the repaired board and Computer move work in the iPhone ChatGPT app. Layout and selected-game reopening also pass. All acceptance tickets are resolved. The private release is complete; public submission remains outside this task.
+[01 — Check the real account and ChatGPT host](issues/01-external-host-check.md) holds the approved setup and release evidence. The private service, OAuth client and website consent route are live. [06 — Complete the live checks](issues/06-live-acceptance.md) records passing desktop solo and two-player play, seats, consent denial, refresh, reconnect, immediate reopening, controlled lost-result recovery and unexpired-token revocation. [11 — Repair phone board controls](issues/11-phone-controls.md) records direct ordinary destination taps, stable background refresh and removal of the plugin Fullscreen control. On October 8, 2026, the owner confirms the repaired board and Computer move work in the iPhone ChatGPT app. Layout and selected-game reopening also pass. The original acceptance tickets are resolved. The later [independent review](issues/12-independent-review.md) identifies new repair work, including unintended board actions and recovery after match deletion. These cases remain open. Public submission remains outside this task.
 
 ## Checks
 
