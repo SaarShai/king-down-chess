@@ -16,6 +16,7 @@ import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-tex
 import { POWER_NAME, POWER_TAG, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
+import { copyText } from './clipboard';
 import './dialog-dismiss';
 
 const params = new URLSearchParams(location.search);
@@ -1100,7 +1101,7 @@ $('resign').onclick = () => {
 };
 $('copy').onclick = () => {
   const text = game.history.map((h, i) => (i % 2 === 0 ? `${i / 2 + 1}. ${h.lan}` : h.lan)).join(' ');
-  navigator.clipboard?.writeText(text).catch(() => copyFallback(text)) ?? copyFallback(text);
+  void copyAndSay($('copy'), text, 'Moves copied');
 };
 
 /** This page's URL without a game link's parameters. */
@@ -1130,21 +1131,14 @@ $('share').onclick = async () => {
     try { await navigator.share({ title: 'King Down Chess', text: `King Down Chess: ${game.pos.turn ? 'Black' : 'White'} to move`, url }); return; }
     catch (e) { if ((e as Error).name === 'AbortError') return; }
   }
-  navigator.clipboard?.writeText(url).catch(() => copyFallback(url)) ?? copyFallback(url);
-  const label = button.querySelector('.label') ?? button;
-  label.textContent = 'Link copied. Paste it to your friend.';
-  setTimeout(() => { label.textContent = 'Send the game link'; }, 2500);
+  await copyAndSay(button, url, 'Link copied. Paste it to your friend.');
 };
 
-/** No clipboard API (or permission denied): a throwaway textarea + execCommand still works everywhere. */
-function copyFallback(text: string): void {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.cssText = 'position:fixed;opacity:0';
-  document.body.appendChild(ta);
-  ta.select();
-  try { document.execCommand('copy'); } catch { /* nothing else to try */ }
-  ta.remove();
+/** Copies `text`, then says on `button` (its label) for 2.5 s what happened: `done` only after the copy succeeds. */
+async function copyAndSay(button: HTMLElement, text: string, done: string): Promise<void> {
+  const label = button.querySelector<HTMLElement>('.label') ?? button, idle = label.dataset.idle ??= label.textContent ?? '';
+  label.textContent = await copyText(text) ? done : 'Could not copy';
+  setTimeout(() => { label.textContent = idle; }, 2500);
 }
 
 /* ---- autosave ---- */
@@ -1302,8 +1296,7 @@ $('share-result').onclick = () => {
   const outcome = people !== 1 ? result().toLowerCase() : winner < 0 ? 'drew' : winner === me ? 'won' : 'lost';
   const vs = people === 1 ? ` against the ${skill} computer` : '';
   const text = `King Down daily ${daily} (${game.backRank}): ${outcome} in ${n} move${n === 1 ? '' : 's'}${vs}. ${location.origin}${location.pathname}`;
-  navigator.clipboard?.writeText(text).catch(() => copyFallback(text)) ?? copyFallback(text);
-  $('share-result').textContent = 'Result copied';
+  void copyAndSay($('share-result'), text, 'Result copied');
 };
 $('think').onchange = save;
 $('sound').onchange = () => { setSound($<HTMLInputElement>('sound').checked); save(); };
