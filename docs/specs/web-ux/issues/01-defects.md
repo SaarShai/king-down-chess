@@ -42,7 +42,7 @@ Each group adds a unit test where the logic is pure and a probe in `tools/ux-def
 
 Group A (D-1, D-4, D-6), branch `claude/web-ux-fix-guards`, 2026-10-08:
 
-- The probes `d1-resign-side`, `d4-start-asks` and `d6-keys-under-dialogs` fail on the old code and pass on the fix. `game.test.ts` tests `resigningSide`. `special-moves` now checks that Z does nothing under an open move choice (before, Z undid there).
+- The probes `d1-resign-side`, `d4-start-asks` and `d6-keys-under-dialogs` fail on the old code and pass on the fix. `game.test.ts` tests `resigningSide`. `special-moves` now checks that Z does nothing under an open move choice (before, Z undid there). It still checks that `reset()` closes an open choice and commits no stale move: it calls Undo's handler, because an account pull also runs `reset()` there.
+- D-4 in a lesson: Start game replaces the game that Return to game keeps, so it asks about that game. Follow-up: when the account brings a newer game during the lesson, Return to game opens that newer save, but the question still looks at the kept game. A later change can read the save there.
 - `tools/new-game-ui.mjs` `startGame` answers OK when Start game asks, so the checks that start a game over an unfinished game work as before.
 - Follow-up, WCAG 2.1.4 (character key shortcuts): Z and R are single-key shortcuts, and nothing turns them off. They now act only with no dialog open and no text field in focus. A later change adds a way to turn them off, or limits them to board focus. No setting is added now.
-- Follow-up, D-4: Start game in a lesson asks no question, because the lesson is not a game. But it also replaces the game that Return to game keeps. The owner decides whether that game gets the question too.
