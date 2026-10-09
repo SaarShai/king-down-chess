@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardHelp, contextText, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
+import { startLesson, boardHelp, contextText, titleStart, arriveContinue, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from '../../tools/lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -33,41 +33,50 @@ const titleOpen = page => page.evaluate(() => !!document.querySelector('#title-s
 const help = page => contextText(page);
 
 try {
-  // 1. Title screen: a first visit leads with the lessons.
+  // 1. A first visit shows one Start and deals seed 83.
   let page = await open('', { skipTitle: false });
   assert.equal(await titleOpen(page), true, 'title on a first visit');
-  assert.equal(await page.locator('#title-learn').evaluate(b => b.classList.contains('primary') && !b.previousElementSibling), true, 'Learn leads, first, on a first visit');
+  assert.equal(await page.locator('.title-actions button:visible').count(), 1, 'one Start on a first visit');
   assert.equal(await page.locator('.title-kings img').evaluateAll(imgs => imgs.filter(i => i.complete && i.naturalWidth && i.checkVisibility()).length), 6, 'the six kings on the title');
   assert.equal(await page.locator('#title-continue').isVisible(), false, 'no Continue without a saved game');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'title-learn', 'Learn has the focus on a first visit');
-  await page.click('#title-learn');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'title-start', 'Start has the focus on a first visit');
+  await page.reload(); await ready(page);
+  assert.equal(await page.locator('#title-start').isVisible(), true, 'reload before Start keeps the first visit');
+  await titleStart(page).click();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save') || '{}').back === 'QRNAKBBS');
+  const firstDeal = await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
+  assert.deepEqual([firstDeal.back, firstDeal.white, firstDeal.black, firstDeal.skill, firstDeal.rules.kings], ['QRNAKBBS', 'human', 'ai', 'beginner', [null, null]], 'Start deals seed 83 against Beginner as White, without powers');
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.new-game')).level), 'beginner', 'the next New game keeps Beginner');
+  assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.first-deal')), '1', 'Start stores the first-deal key');
+  await startLesson(page);
   await page.waitForFunction(() => /Lesson 1 of 6/.test(document.getElementById('turn').textContent));
   assert.equal(await page.locator('#lesson-progress span').count(), 6);
   await page.reload(); await ready(page);
   assert.equal(await titleOpen(page), false, 'once per tab: a reload goes straight to the game');
-  ok('title: first visit points to the lessons, Learn starts lesson 1, a reload skips the title');
+  ok('title: one Start deals QRNAKBBS, then Guide opens lessons; a reload skips the title');
   await page.context().close();
 
-  // Returning player: Continue resumes the saved game; Play opens New game.
+  // Returning player: Home keeps the saved board; New game opens the sheet.
   const save = { back: 'RNBQKBNR', fen: START, moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', sound: false };
   page = await open('', { skipTitle: false, save });
-  assert.equal(await page.locator('#title-continue').isVisible(), true);
-  assert.match(await page.locator('#title-continue').innerText(), /Continue · move 2/);
-  assert.equal(await page.locator('#title-learn').evaluate(b => b.classList.contains('primary')), false, 'Learn does not lead for a returning player');
-  await page.click('#title-continue');
+  assert.equal(await arriveContinue(page).isVisible(), true);
+  assert.match(await arriveContinue(page).innerText(), /Continue/);
+  assert.equal(await page.locator('#home-progress').innerText(), 'Move 2', 'Home shows the saved move');
+  await arriveContinue(page).click();
   assert.equal(await titleOpen(page), false);
   assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   await page.context().close();
-  // Play with the computer to move: it waits while New game is open, and moves once it is closed.
+  // The computer waits on Home and behind New game. Continue starts it.
   page = await open('', { skipTitle: false, save: { ...save, moves: ['e2-e4'], skill: 'beginner', think: 200 } });
-  await page.click('#title-play');
+  await titleStart(page).click();
   await page.waitForFunction(() => document.getElementById('new-game').open);
   await page.waitForTimeout(2500); // the beginner computer answers in well under a second
   assert.equal((await lanMoves(page)).length, 1, 'the computer does not move behind New game');
   await page.keyboard.press('Escape');
+  await arriveContinue(page).click();
   await waitForUi(page, ui => ui.lan.length === 2, null, { timeout: 15000 });
   await page.context().close();
-  ok('title: Continue resumes the saved game, Play opens New game and the computer waits for it');
+  ok('Home: Continue resumes the saved game; New game opens the sheet; the computer waits for Continue');
 
   for (const q of ['?fen=' + encodeURIComponent(START), '?army=RNBQKBNR&moves=e2-e4', '?title=0']) {
     page = await open(q, { skipTitle: false });
@@ -200,21 +209,28 @@ try {
   await page.context().close();
 
   // 7. Round 2: the title's lineup shows all twelve pieces and leaves the buttons on screen.
-  for (const [kind, viewport, touch] of [['desktop', { width: 1280, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
+  for (const [kind, viewport, touch] of [['desktop', { width: 1440, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
     page = await open('', { skipTitle: false, viewport, touch });
     const figs = page.locator('.title-lineup img');
     assert.equal(await figs.count(), 12, 'twelve figures');
     await page.waitForFunction(() => [...document.querySelectorAll('.title-lineup img')].every(i => i.complete && i.naturalWidth > 0));
     const names = await page.locator('.title-lineup span').allInnerTexts();
     assert.equal(new Set(names.map(n => n.toLowerCase())).size, 12, 'twelve different names');
-    for (const id of ['#title-learn', '#title-play', '#title-workshop']) {
+    for (const id of ['#title-start']) {
       const r = await page.locator(id).boundingBox();
       assert.ok(r && r.y >= 0 && r.y + r.height <= viewport.height, `${id} on screen (${kind})`);
     }
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `no sideways scroll (${kind})`);
+    if (process.env.SAMPLE === 'W8') {
+      const out = env('PLAYABLE_OUT'); mkdirSync(out, { recursive: true });
+      await page.screenshot({ path: join(out, `w8-first-${kind}.png`), animations: 'disabled' });
+      await titleStart(page).click(); await ready(page);
+      await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save') || '{}').back === 'QRNAKBBS');
+      await page.screenshot({ path: join(out, `w8-deal-${kind}.png`), animations: 'disabled' });
+    }
     await page.context().close();
   }
-  ok('title lineup: twelve painted figures with names; Learn, Play and Workshop stay on screen at 1280×900 and 390×844');
+  ok('title lineup: twelve painted figures with names; Start stays on screen at 1440×900 and 390×844');
 
   // 7b. The title from a small phone to a desktop: the lineup inside the screen, no name into the next one,
   // and the lineup, kings, wordmark and buttons centred (a tablet's lineup once widened the whole title);

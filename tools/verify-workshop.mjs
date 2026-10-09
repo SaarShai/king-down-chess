@@ -215,6 +215,7 @@ async function open(browser, { width = 390, height = 844, title = false, query =
   p.setDefaultTimeout(10000);
   trapErrors(p);
   if (!title) await p.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1'));
+  else await p.addInitScript(() => localStorage.setItem('kingdown.first-deal', '1')); // returning title door
   if (init) await p.addInitScript(init);
   await p.goto(base + query);
   await ready(p);

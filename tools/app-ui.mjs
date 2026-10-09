@@ -9,6 +9,24 @@ export function menuItem(page, name) {
   return page.locator(MENU[name]);
 }
 
+/** The first visit has one Start. A returning game opens Home. */
+export function titleStart(page) {
+  return page.locator('#title-start:visible, #title-play:visible, #home-new:visible').first();
+}
+
+/** Learn opens from Guide after the first deal; a returning title still has Learn. */
+export function arriveContinue(page) {
+  return page.locator('#home-main:visible, #title-continue:visible').first();
+}
+
+export async function learnFromTitle(page, { tap = false } = {}) {
+  const learn = page.locator('#title-learn');
+  if (await learn.isVisible()) { await (tap ? learn.tap() : learn.click()); return; }
+  if (!await page.locator('#home-head').isVisible()) await (tap ? titleStart(page).tap() : titleStart(page).click());
+  await page.waitForFunction(() => !document.getElementById('title-screen').open);
+  await startLesson(page, 'Archer', { tap });
+}
+
 export async function openMenu(page, options = {}) {
   const { tap = false, ...press } = options;
   if (await page.evaluate(() => document.getElementById('menu-sheet').open)) await page.locator('#menu-close').click(press);
@@ -28,9 +46,10 @@ export async function pressMenu(page, name, { tap = false, ...press } = {}) {
 }
 
 /** A named figure starts the same lesson even when another figure is Next. */
-export async function startLesson(page, name = 'Archer') {
-  await pressMenu(page, 'Guide');
-  await page.locator(`#lesson-shelf .shelf-piece[data-piece="${name.toLowerCase()}"]`).click();
+export async function startLesson(page, name = 'Archer', { tap = false } = {}) {
+  await pressMenu(page, 'Guide', { tap });
+  const figure = page.locator(`#lesson-shelf .shelf-piece[data-piece="${name.toLowerCase()}"]`);
+  await (tap ? figure.tap() : figure.click());
 }
 
 export async function openExtra(page) {

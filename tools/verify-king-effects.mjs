@@ -8,6 +8,7 @@ import { endTurn } from './app-ui.mjs';
 // at Fast, not at all at Off. Then it measures the main-thread time of a frame with the kings' effects
 // and the 16 resting pawns, at desktop size and on a 390 px phone.
 import assert from 'node:assert/strict';
+import { titleStart } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 
 const url = new URL(env('PLAYABLE_URL'));
@@ -174,7 +175,7 @@ try {
     assert.ok(await t.evaluate(() => window.titleKings.frames) - h0 <= 1, 'title kings: a hidden tab stops them');
     await t.evaluate(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
     await wait(500); assert.ok(await t.evaluate(() => window.titleKings.frames) > h0 + 5, 'title kings: visible again, they run');
-    await t.click('#title-play');
+    await titleStart(t).click();
     await t.waitForFunction(() => !document.getElementById('title-screen').open && !window.titleKings.running, null, { timeout: 3000 }); // 'close' fires a task later
     assert.equal(await t.evaluate(() => document.querySelectorAll('.title-kings canvas').length), 0, 'title kings: removed when the title closes');
     assert.equal(await t.evaluate(() => window.titleKings.running), false);

@@ -32,6 +32,11 @@
     <main id="game-table" aria-label="Game">
       <div id="board" tabindex="0" role="application" aria-roledescription="chess board" aria-label="Board. Arrow keys move the square cursor; Enter or Space selects and moves." aria-describedby="cursor-say"></div>
       <div class="table-side">
+        <header id="home-head" data-home-part hidden><h1 class="wordmark"><span class="wm-king">King</span> <span class="wm-down">Down</span></h1></header>
+        <div id="home-meta" data-home-part hidden><b id="home-opponent"></b><span id="home-progress"></span><span id="home-result" hidden></span></div>
+        <div id="home-actions" data-home-part hidden><button id="home-main" class="primary"><span class="label">Continue</span><span id="home-detail"></span></button><button id="home-new">New game</button></div>
+        <div id="home-space" data-home-part hidden><button id="home-review" hidden>Review last game</button></div>
+        <button id="home-today" data-home-part hidden><span id="home-date"></span><span id="home-army" aria-hidden="true"></span><span class="chevron" aria-hidden="true">›</span></button>
         <div id="strip-them" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span><div id="lesson-progress" hidden aria-hidden="true"></div></div>
         <div class="table-space"></div>
         <div id="strip-me" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span>
@@ -97,6 +102,7 @@
       <div class="title-copy">
         <h1 id="title-word" class="wordmark"><svg class="wordmark-crown" aria-hidden="true"><use href="#i-crown"/></svg><span class="wm-king">King</span> <span class="wm-down">Down</span><span class="wm-chess">Chess</span></h1>
         <div class="title-actions">
+          <button id="title-start" class="primary" hidden>Start</button>
           <button id="title-continue" class="primary" hidden><svg class="icon" aria-hidden="true"><use href="#i-continue"/></svg><span class="label">Continue</span></button>
           <button id="title-learn"><svg class="icon" aria-hidden="true"><use href="#i-learn"/></svg><span class="label">Learn the pieces</span></button>
           <button id="title-play"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span class="label">Play</span></button>
