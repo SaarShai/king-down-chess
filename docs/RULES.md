@@ -20,17 +20,18 @@ Classic chess on 8×8 (check, checkmate, stalemate) with these deltas:
 
 - Rank 2 / 7: 8 pawns each.
 - Rank 1 / 8: the king plus **7 pieces drawn at random** from the pool
-  `1 queen, 1 ogre, 2 rooks, 2 bishops, 2 knights, 2 archers, **1 guard**, 2 maesters, **1 beast**` (14 letters,
-  `QORRBBNNAAGMMS`),
+  `1 queen, 1 ogre, 1 paladin, 2 rooks, 2 bishops, 2 knights, 2 archers, **1 guard**, 2 maesters, **1 beast**` (15 letters,
+  `QOLRRBBNNAAGMMS`),
   in a random order that is **identical for both players**.
 - Our extra constraint (Chess960 spirit): if both bishops are drawn they start on opposite colours.
+- A drawn guard starts **next to its king**, wherever the king stands (`guardNextToKing`, §6 decision 21).
   There is no "king between rooks" rule because there is no castling.
 - A setup is shared as its 8-letter back-rank string, e.g. `RSAKGQOB` (see letters below).
 
 ## 3. Pieces
 
 Letters (FEN-style, uppercase = white): `P N B R Q K` standard, `A` archer, `L` paladin, `G` guard, `M` maester, `S` beast, `O` ogre.
-Paladin remains available in custom setups and historical promotion sets, outside the current random pool. Catapult (`C`), Reaver (`V`) and Templar (`T`) remain lab pieces. The archived Squire/reserve experiment is not part of this engine.
+The Paladin is back in the random pool (§6 decision 23). Catapult (`C`), Reaver (`V`) and Templar (`T`) remain lab pieces. The archived Squire/reserve experiment is not part of this engine.
 Lab only: under `guardCaptures` + `guardCaptureLimit` (§6.9, never in a shipped game) a guard that has spent its one capture is written `H` (white) / `h` (black), so a position keeps that state through a FEN round-trip. Under `guardReserve` (§6.9) a guard waiting beside the board is FEN field 7 `g1.0` ([white.black]) and enters as `G@b1`.
 King Down card-game names for the standard pieces: Pike = pawn, Steed = knight, Cross = bishop, Rock = rook, Thorn = queen.
 
@@ -38,7 +39,7 @@ King Down card-game names for the standard pieces: Pike = pawn, Steed = knight, 
 |---|---|---|---|
 | Pawn | 1 forward (2 from start rank) | 1 diagonal forward | promotes on last rank |
 | Knight, Bishop, Rook, Queen, King | standard | standard | — |
-| **Archer** | 1 square in any direction | **from a distance, without moving**: any enemy diagonally adjacent, exactly 2 squares away orthogonally, or on either forward diagonal at distance 2 — blockers are ignored (§6.16) | gives check the same way |
+| **Archer** | 1 square in any direction | **from a distance, without moving**: any enemy exactly 2 squares away orthogonally, or on either forward diagonal at distance 2 — blockers are ignored; never a neighbour (§6 decision 20) | gives check the same way |
 | **Paladin** | like a queen; **jumps over friendly pieces**, blocked by enemies | by moving onto the enemy | **cannot capture a king** (so never gives check); **removes itself** after capturing anything but a pawn (§6.15) |
 | **Guard** | 1 square any direction, empty squares only | **cannot capture** | **cannot be captured, except by a king**; blocks sliders like any piece |
 | **Maester** | 1 square any direction | onto an adjacent enemy | onto an adjacent friend = **swap places**; if maester and own king are both on their first rank they may **swap at any distance** as a move |
@@ -74,7 +75,7 @@ rule defaults, `?rules=2017` and the lab keep the rulebook as printed. Every rea
 | Mud | **Leap** (3 uses) | own pieces may jump over own pawns when moving several squares | as printed |
 | Spirit | **Holy Light** (always on) | king cannot be captured by enemy pawns and cannot capture pawns | the king may take pawns, and **no piece beside, in front of or behind the Holy Light king can be captured** (`holyLightTakesPawns`, `holyLightShelter`, `holyLightShelterOrtho`) |
 | Spirit | **Mercy** (always on) | king moves 1 or 2 squares in any direction, cannot capture, jumps friendly pieces | as printed, but the king may take pawns; and **no piece next to the Mercy king can be captured, except by a pawn** (`mercyAura`, `mercyAuraPawnsTake`, `mercyTakesPawns`: reading M2, owner 2026-10-03) |
-| Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward, back or sideways, over an empty square** (`deathTouchReach`, `deathTouchReachOrtho`) |
+| Shadow | **Death Touch** (always on) | king captures adjacent enemies without moving | as printed, and **it also reaches two squares straight forward or back (never sideways), over an empty square** (`deathTouchReach`, `deathTouchReachForwardBack`; §6 decision 24) |
 | Shadow | **Darkness** (always on) | own pawns move 1 diagonally and capture 1 straight forward; no double first move | pawns also keep their straight steps (double from the start); they still capture only straight ahead (`darknessMoves`); **the king may also step two squares in a straight line, over an empty square** (`darknessKingStep2`, owner 2026-10-04) |
 
 Holy Light's shelter was added after round 6 (owner asked for Mercy and Holy Light variations to be
@@ -207,6 +208,33 @@ move captures (Haste's shape with two pieces). Not measured.
     far under criterion 1's 2.5–5.5 pawns. So this release keeps Decision 16: `archerShots`
     `'plusDiagFwd2'`, `ARCHER_V` 505, the Archer lesson and the Guide text unchanged. Next: on the M1, an
     over-a-piece Archer with more reach, aiming at a worth of at least 2.5 pawns with few draws.
+20. **The far2 Archer replaces Decision 16 (owner, 2026-10-09: "merge far2").** `archerShots` defaults to
+    `'far2'`: the Archer takes, without moving, an enemy exactly 2 squares away straight, or on either forward
+    diagonal at distance 2, through blockers. It no longer takes its diagonal neighbours. `plusDiagFwd2` and the
+    other readings stay lab readings. One depth-3 Muller pass put its worth at **2.83 ± 0.28 pawns**
+    (`docs/research/piece-runs-2026-10-04-pv-A-af2.md`); `ARCHER_V` stays 505 until a full re-pricing. Re-priced 2026-10-09 (owner: "re-price the archer at far2"): `ARCHER_V` 505 → 339, the converged odds match played to the end (pv-A-af2na, 3.39 ± 0.27 pawns).
+21. **The guard starts next to its king (owner, 2026-10-09: "approve start next to a king, wherever the king is
+    positioned in the randomized arrangement").** `guardNextToKing` (default on): when the drawn back rank holds a
+    guard that is not next to the king, it swaps with a neighbour of the king; when both neighbours exist, the
+    shuffle picks one. Both sides mirror one back rank, so both guards stand on the same side. The bishops
+    stay on opposite colours. The 2017 preset turns it off, and tournaments recorded before this date keep
+    their old draws.
+22. **Guard drop anywhere, lab only (owner, 2026-10-09: "queue guard drop for testing anyway - i want the
+    data").** `guardReserve: 'any'`: the guard starts beside the board and, as a move, enters on any empty
+    square. Default off; its A/B against Decision 21 waits for a run go.
+23. **The Paladin returns to the random pool (owner, 2026-10-09: "paladin - add the approved version to the
+    random pool. we might tweak its rules later to reduce white's advantage.").** `POOL` is
+    `QOLRRBBNNAAGMMS` (15 letters, 7 drawn); the Ogre stays. The Paladin keeps `paladinKamikaze: 'nonPawn'`
+    (Decision 15). Morph may make a Paladin too. Decision 18's White-edge evidence still stands.
+24. **Death Touch reaches forward and back only (owner, 2026-10-09: "go with T2 for death touch").**
+    `POWERS_BALANCED` adds `deathTouchReachForwardBack`: the two-square touch goes straight forward or back,
+    never sideways; the touch next to the king is unchanged. Measured: **49.3%** at depth 3 and **51.1%** at
+    depth 4 (round 18 had 55.1% ± 2.9).
+25. **Morph and the Guard (owner, 2026-10-09).** "morph can definitely make a guard. second guard - not yet." A
+    Morph card may turn a piece into a Guard, but an army has at most one Guard (a spent guard counts). On a
+    second Beast the owner said "allow it": the one-Beast rule applies to the starting army only, so a second
+    Beast that comes from cards (Morph into a Beast, then Salvation or Sacrifice returns a taken Beast) is
+    allowed. Morph itself still makes no Beast while the side has one.
 
 ### First measured evidence (2026-09-13, provisional) — superseded by §6.8
 

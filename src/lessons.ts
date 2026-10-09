@@ -14,7 +14,7 @@ export interface Lesson {
 export const LESSONS: readonly Lesson[] = [
   {
     name: 'Archer',
-    fen: '7k/8/8/4p3/3A4/8/8/K7 w - - 0 1',
+    fen: '7k/8/5p2/8/3A4/8/8/K7 w - - 0 1',
     task: 'Tap your archer. Tap the marked enemy pawn. She shoots it without moving.',
     goal: (_, m) => m.to === m.from && m.captures.length > 0,
     done: 'An archer never captures by moving onto a piece: she shoots from where she stands, also over other pieces.',

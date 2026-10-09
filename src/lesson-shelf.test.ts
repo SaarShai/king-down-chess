@@ -10,7 +10,7 @@ describe('lesson shelf', () => {
       ['Maester', 2, ''],
       ['Ogre', 4, ''],
       ['Guard', 1, ''],
-      ['Paladin', 5, 'Bonus'],
+      ['Paladin', 5, ''],
     ]);
     expect(shelf.next?.name).toBe('Archer');
   });
@@ -23,15 +23,15 @@ describe('lesson shelf', () => {
     const shelf = lessonShelf(store);
     expect(shelf.pieces.map(p => [p.name, p.status])).toEqual([
       ['Archer', 'Learned'], ['Beast', 'Next'], ['Maester', 'Learned'],
-      ['Ogre', 'Learned'], ['Guard', ''], ['Paladin', 'Bonus'],
+      ['Ogre', 'Learned'], ['Guard', ''], ['Paladin', ''],
     ]);
     expect(shelf.next?.lesson).toBe(3);
     expect(store).toEqual({ done: ['Archer', 'Maester', 'Ogre', 'Archer', 'Old lesson'], tricks: ['wall'] });
   });
 
-  it('offers the Paladin last and keeps its Bonus mark', () => {
+  it('offers the Paladin last as the next lesson', () => {
     const shelf = lessonShelf({ done: ['Guard', 'Ogre', 'Maester', 'Beast', 'Archer'] });
-    expect(shelf.next).toMatchObject({ name: 'Paladin', lesson: 5, status: 'Bonus' });
+    expect(shelf.next).toMatchObject({ name: 'Paladin', lesson: 5, status: 'Next' });
   });
 
   it('offers play after all six lessons are learned', () => {
@@ -40,7 +40,7 @@ describe('lesson shelf', () => {
     expect(shelf.pieces.map(p => p.status)).toEqual(['Learned', 'Learned', 'Learned', 'Learned', 'Learned', 'Learned']);
   });
 
-  it('keeps an early gap as Next when the bonus is already learned', () => {
+  it('keeps an early gap as Next when the Paladin is already learned', () => {
     const shelf = lessonShelf({ done: ['Paladin'] });
     expect(shelf.next?.name).toBe('Archer');
     expect(shelf.pieces[5].status).toBe('Learned');

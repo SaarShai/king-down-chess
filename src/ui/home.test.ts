@@ -78,7 +78,7 @@ it('opens Home once for a save and keeps position links clear', () => {
 
 it('shows the local day and the real Today army', () => {
   expect(todayDeal(new Date(2026, 9, 9, 12))).toEqual({
-    date: '2026-10-09', label: "Today's army · Fri 9 Oct", army: 'BKOGANAS',
+    date: '2026-10-09', label: "Today's army · Fri 9 Oct", army: 'AROGKANM',
   });
 });
 

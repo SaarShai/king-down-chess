@@ -114,7 +114,7 @@ describe('validation (§8.4.8, §4.9)', () => {
     expect(likeAlways(plain, 'king')!.squares.find(s => s.x === 1 && s.y === 1)!.mark).toBe('both');
     expect(likeAlways(plain, 'rook')!.lines).toEqual([...ORTHO]);
     // A shot on a king square cannot also take by moving there: the stored marks cannot say both, so no "Always".
-    expect(likeAlways(presetOf('archer'), 'king')).toBeNull();
+    expect(likeAlways({ ...plain, squares: [{ x: 1, y: 1, mark: 'shoot' }] }, 'king')).toBeNull();
     expect(likeAlways({ ...plain, squares: [{ x: 1, y: 1, mark: 'moveShoot' }] }, 'king')).toBeNull();
     expect(likeAlways(presetOf('archer'), 'rook')).not.toBeNull();
   });

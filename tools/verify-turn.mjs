@@ -142,8 +142,8 @@ try {
     assert.equal(await page.isHidden('#undo'), true);
     await page.click('#show-me');
     await page.waitForFunction(() => window.view.marks.hint.length > 0 && !document.getElementById('show-me').disabled);
-    assert.deepEqual(await page.evaluate(() => window.view.marks.hint), [27, 36]);
-    await move('d4', 'e5'); await waitForUi(page, ui => !!ui.lessonLearned);
+    assert.deepEqual(await page.evaluate(() => window.view.marks.hint), [27, 45]);
+    await move('d4', 'f6'); await waitForUi(page, ui => !!ui.lessonLearned);
     console.log('ok Show me marks the lesson goal');
   } else {
     // An opened link plays Black. Stub only the browser share/copy boundary.

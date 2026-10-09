@@ -1,4 +1,4 @@
-import { A, B, C, G, K, L, M, N, NAMES, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, type Color, typeOf, type PieceType, type Position } from './rules/engine';
+import { A, B, C, G, K, L, M, N, NAMES, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, type ArcherShots, type Color, typeOf, type PieceType, type Position } from './rules/engine';
 import { needsArming, offered } from './powers-ui';
 import { POOL } from './rules/setup';
 
@@ -30,7 +30,7 @@ export function reachOf(pos: Position, sq: number): Reach {
 /** Player-facing columns for one piece under the live `GAME_RULES` (and `POOL`). */
 type GuideRow = { moves: string; captures: string; special: string };
 
-const ARCHER_SHOT_TEXT: Record<string, string> = {
+const ARCHER_SHOT_TEXT: Record<ArcherShots, string> = {
   classic: 'Shoots without moving: an enemy diagonally adjacent, or exactly 2 squares away orthogonally, through blockers.',
   plusDiag2: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2) plus any enemy exactly 2 squares away diagonally, through blockers.',
   ring2: 'Shoots without moving: any enemy on a diagonally adjacent square or anywhere on the ring 2 squares away, through blockers.',
@@ -39,6 +39,10 @@ const ARCHER_SHOT_TEXT: Record<string, string> = {
   plusDiagFwd2Clear: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2, through blockers) plus either forward diagonal at distance 2, over an empty square.',
   fwd2NoBack: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or to the side, or either forward diagonal at distance 2, through blockers.',
   fwd2NoSide: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or behind, or either forward diagonal at distance 2, through blockers.',
+  far2: 'Shoots without moving: an enemy exactly 2 squares away orthogonally, or on either forward diagonal at distance 2, through blockers.',
+  over2: 'Shoots without moving: an enemy exactly 2 squares away orthogonally, or on either forward diagonal at distance 2, only over a piece on the square between.',
+  nearOver2: 'Shoots without moving: an enemy diagonally adjacent, or exactly 2 squares away orthogonally or on either forward diagonal, only over a piece on the square between.',
+  fwdNearOver2: 'Shoots without moving: an enemy on either forward diagonal next to it, or exactly 2 squares away orthogonally or on either forward diagonal, only over a piece on the square between.',
 };
 
 /** One guide for both the dialog table and the hover card — reads live rules and POOL. */
@@ -71,7 +75,7 @@ export function pieceGuide(t: PieceType): GuideRow {
         : 'Moves 1 square in any direction.';
       return {
         moves: step,
-        captures: ARCHER_SHOT_TEXT[r.archerShots] ?? ARCHER_SHOT_TEXT.classic,
+        captures: ARCHER_SHOT_TEXT[r.archerShots],
         special: 'Never captures by moving onto a piece. ' + (r.archerChecks ? 'Gives check the same way it shoots.' : 'Cannot capture a king or give check.'),
       };
     }

@@ -107,9 +107,9 @@ export const PRESETS: readonly Preset[] = [
   { key: 'bishop', name: 'Bishop', body: 'B', paintOn: 'all', squares: [], lines: [...DIAG], rules: [] },
   { key: 'rook', name: 'Rook', body: 'R', paintOn: 'all', squares: [], lines: [...ORTHO], rules: [] },
   { key: 'queen', name: 'Queen', body: 'Q', paintOn: 'all', squares: [], lines: [...DIRS], rules: [] },
-  // Today's Archer (`plusDiagFwd2`): steps 1 any way, shoots the diagonal neighbours, 2 straight and 2 diagonally forward.
+  // Today's Archer (`far2`, owner 2026-10-09): steps 1 any way, shoots only 2 straight and 2 diagonally forward.
   { key: 'archer', name: 'Archer', body: 'A', paintOn: 'lr', lines: [], rules: [],
-    squares: [...sq([[0, 1]], 'move'), ...sq([[1, 1]], 'moveShoot'), ...sq([[0, 2], [2, 0], [0, -2], [2, 2]], 'shoot', 'lr')] },
+    squares: [...sq([[0, 1]], 'move'), ...sq([[1, 1]], 'move'), ...sq([[0, 2], [2, 0], [0, -2], [2, 2]], 'shoot', 'lr')] },
   { key: 'paladin', name: 'Paladin', body: 'L', paintOn: 'all', squares: [], lines: [...DIRS],
     rules: [rule(ALWAYS, { a: 'linesPass', over: 'own' }), rule({ on: 'takes' }, { a: 'removedAfter', what: 'piece' }), rule(ALWAYS, { a: 'cannotTake', what: 'king' })] },
   { key: 'guard', name: 'Guard', body: 'G', paintOn: 'all', squares: KING_STEP('move'), lines: [], rules: [rule(ALWAYS, { a: 'cannotBeTaken', by: 'allButKing' })] },

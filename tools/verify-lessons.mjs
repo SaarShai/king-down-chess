@@ -29,7 +29,7 @@ try {
     assert.deepEqual(await page.locator('.shelf-name').allTextContents(), ['Archer', 'Beast', 'Maester', 'Ogre', 'Guard', 'Paladin']);
     assert.equal(await page.locator('#learn').innerText(), 'Learn the Archer');
     assert.equal(await page.locator('[data-piece="archer"] .shelf-status').innerText(), 'Next');
-    assert.equal(await page.locator('[data-piece="paladin"] .shelf-status').innerText(), 'Bonus');
+    assert.equal(await page.locator('[data-piece="paladin"] .shelf-status').innerText(), '');
     await minTarget(page, '.shelf-piece, #learn'); await noSidewaysScroll(page);
     assert.equal(await page.evaluate(() => {
       const safe = document.querySelector('.shelf-safe').getBoundingClientRect();

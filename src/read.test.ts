@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
-import { DEFAULT_RULES, parseSq, setRules } from './rules/engine';
+import { A, DEFAULT_RULES, parseSq, setRules } from './rules/engine';
 import { fromFen } from './rules/setup';
-import { guideTypes, reachOf, readText, readTap, unmarkedTap, whyNot } from './read';
+import { pieceGuide, guideTypes, reachOf, readText, readTap, unmarkedTap, whyNot } from './read';
 
 const at = parseSq;
 afterEach(() => setRules(DEFAULT_RULES));
@@ -176,4 +176,11 @@ it('names no legal move and an unmarked empty destination', () => {
 it('lists the lab pieces in the position that the Guide reads', () => {
   const shown = fromFen('7k/8/8/8/8/8/8/KCVT4 w - - 0 1');
   expect(guideTypes(shown)).toEqual(expect.arrayContaining([13, 14, 15]));
+});
+
+it('describes the released far2 shots and marks their legal squares', () => {
+  setRules({ archerShots: 'far2' });
+  const pos = fromFen('7k/8/1p1p1p2/4p3/1p1A1p2/8/3p4/K7 w - - 0 1');
+  expect(pieceGuide(A).captures).toBe('Shoots without moving: an enemy exactly 2 squares away orthogonally, or on either forward diagonal at distance 2, through blockers.');
+  expect([...reachOf(pos, at('d4')).shot].sort()).toEqual(['b4', 'f4', 'd2', 'd6', 'b6', 'f6'].map(at).sort());
 });

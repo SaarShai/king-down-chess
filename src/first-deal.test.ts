@@ -1,14 +1,12 @@
 import { afterEach, expect, it } from 'vitest';
 import { setRules } from './rules/engine';
-import { randomBackRank, startPosition, toFen } from './rules/setup';
-import { mulberry32 } from './sim/rng';
+import { startPosition, toFen } from './rules/setup';
 import { FIRST_DEAL, isFirstVisit } from './first-deal';
 
 afterEach(() => setRules());
 
-it('starts with the seed-83 draw, one Archer and one Beast', () => {
+it('starts with the approved first deal, one Archer and one Beast', () => {
   setRules();
-  expect(FIRST_DEAL).toBe(randomBackRank(mulberry32(83)));
   expect(FIRST_DEAL).toBe('QRNAKBBS');
   expect(toFen(startPosition(FIRST_DEAL))).toBe('qrnakbbs/pppppppp/8/8/8/8/PPPPPPPP/QRNAKBBS w - - 0 1');
   expect(FIRST_DEAL.match(/A/g)).toHaveLength(1);

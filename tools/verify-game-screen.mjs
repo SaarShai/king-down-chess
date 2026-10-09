@@ -51,7 +51,7 @@ try {
     console.log(`ok game-screen ${width}×${height}: fixed board and bar, targets, Moves, check, no sideways scroll`);
     await startLesson(page);
     await visibleWords(page, 'marked enemy pawn');
-    await tap(27); await tap(36);
+    await tap(27); await tap(45);
     await page.waitForFunction(() => document.getElementById('context-text').textContent.includes('Archer learned.'));
     await visibleWords(page, 'Archer learned.');
     await minTarget(page, '#next-lesson, #return-game');
