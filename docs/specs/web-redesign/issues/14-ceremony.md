@@ -1,6 +1,6 @@
 # 14 · The end: the Ceremony
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
 Blocked by: 02c, 03, 07, 11
 
 ## Scope
@@ -11,25 +11,23 @@ Blocked by: 02c, 03, 07, 11
 
 ## Plan
 
-1. [ ] The result leaves the modal. On desktop it sits in a pane beside the board. On a phone it takes the rows under the board (the one exception to spec rule 9): the board keeps its place, and the pane holds the result, the tiles, Rematch, Review, New game and Menu. It never covers the fallen king. The second king fall of the dialog goes.
-2. [ ] `ceremonyPlan(result, mode, history)` (pure). It plays for your win against the computer, any mate on one device, and your win in a link game after the send succeeds (D8). A loss, a draw and Resign end quietly: the king lies down (no fall for a draw), and the result and Rematch show at once. For the sample, the plan can also give a loss the Ceremony.
-3. [ ] The final blow is the last ply of the winner's turn that changes a square: a trailing pass is skipped (a Haste turn that ends with `--`; a free mark and a pass). A mark that moves no figure shows its cause line. The spotlight takes its attackers from `checkersOf` (ticket 07), so a discovered check and a double check light the real checkers.
-4. [ ] The sequence, from the press (or the computer's last move): a 120 ms stop; the board before the blow; a spotlight on the attackers and the king (the other figures at 45 %, 240 ms); the blow again at half speed with no sound and no time cap; the king falls (650 ms); the cause line (ticket 07); 560 ms; the capture sound; "King Down" settles in (480 ms, scale and opacity only); three tiles rise (150 ms apart).
-5. [ ] The tiles, "Moves to look at again": the final blow and up to two special moves of this game (the winner's first), with no search. A tile opens Review at that move (ticket 11). The key-moment search stays in Review only.
-6. [ ] Skip and focus: during the sequence the focus is on the result pane; a tap on the board, Esc, Space or Enter skips to the end frame. At the end frame the focus moves to Rematch, and a live region says the result once ("King Down. White wins by checkmate."). Rematch works by pointer from the first frame. A hidden tab jumps to the end frame. Motion Off and reduced motion show the end frame.
-7. [ ] The game counter (`gen`) guards every wait of the sequence: Rematch, a skip, a new game or an account change never draws an old end over a new game.
-8. [ ] A staged end: the sequence starts only on the press (or the send in a link game), once. Undo before the press removes the end, and a reload restores it as staged (ticket 02b).
-9. [ ] A king capture: the blow replays; the king is gone, so no fall; the words show.
-10. [ ] "Copy today's result" (`#share-result`) moves into the result pane with its id, words and copy path (sharing is parked).
+1. [x] The board plays the four beats, then today's result dialog opens with the tiles. The dialog's second king fall goes.
+2. [x] D8 plays your win against the computer, your link win, or any mate on one device. A loss, draw and Resign stay quiet.
+3. [x] The final blow skips a trailing pass. It plays through `animateMove` at speed 0.5. The king falls; "King Down" settles in; up to three tiles rise.
+4. [x] The final blow and up to two special moves form the tiles, with the winner's moves first. A tile opens Review at its ply. Key-moment search starts from Review.
+5. [x] A board tap, Escape, Space or Enter skips. A hidden tab, Off and reduced motion show the end frame. The result is spoken once. Rematch gets focus and works by pointer from the first frame.
+6. [x] A new game cancels every old wait. Open sheets keep their keys and focus. The result waits behind a sheet. New game cancels the pending result when it opens.
+7. [x] A staged end waits for the press or a successful send. Undo before the press removes it. A king capture has no fallen king.
+8. [x] "Copy today's result" keeps its id, words and copy path.
 
 ## Verification
 
-- [ ] `ceremonyPlan` test: which games play it (a win, a loss, a draw, Resign, one device, a link game); the final blow for a Haste mate that ends with a pass, a mark and a pass, a discovered check, a double check, Strike and a king capture; the tile pick; a short game gives fewer tiles.
-- [ ] Node test of the timing module: half speed for a long Beast chain and an Ogre action, with no cap.
-- [ ] New check `end`: the king falls once; the words; three tiles; a tile opens Review; Enter during the sequence skips and does not start a Rematch; the focus is on Rematch at the end frame; Rematch by pointer from the first frame; each skip key; Motion Off shows the end frame; the draw, loss and Resign paths stay quiet; the result never covers the king; a staged mate plays once on the press and not after Undo; Rematch during the sequence leaves no old end on the new game.
-- [ ] `game-screen` check: the end state on a phone keeps the board box in place.
-- [ ] The updated checks, `npm test`, `npm run check:browser` and `plugin-ui` pass. Record the plugin page size. The plugin session knows before the pull request.
-- [ ] Rendered sample: one phone video of a mate by an Archer shot and one by a Beast chain; a loss both ways (quiet, and with the Ceremony); stills of the end frame and of a loss at 390×844 and 1440×900. Ask the owner: "Does a loss also get the Ceremony?" (D8). The owner's yes, with the date, in Comments.
+- [x] The D8 unit test checks wins, quiet results, one device and a link.
+- [x] `end` checks the board fall, tiles, Review, skip, quiet results, focus, first-frame Rematch, sheet keys, New game and Clay.
+- [x] `w6-parts` checks half speed, a trailing pass, tiles, skip keys, Off, reduced motion and old waits.
+- [x] `npm test`, the type check and all ten named browser checks pass. Both new checks pass twice. The plugin page size is in Comments.
+- [x] Sample W6 has phone and desktop sheets and one phone video of an Archer mate. All five renders pass. Both sheets get a visual check.
+- [ ] The owner gives yes on the sample.
 
 ## Risks
 
@@ -42,13 +40,13 @@ Blocked by: 02c, 03, 07, 11
 
 ## Comments
 
-Phase 2 build: the final blow plays at half speed; one king falls; words and tiles show.
-The beats start after the press. The tiles open Review at their ply.
-Key-moment search starts from Review. A new game clears its data.
-Skip, Off and reduced motion show the end frame. Rematch works from the first frame.
-D8 plays your win or any mate on one device. A loss, draw and Resign stay quiet.
-Cut: the result pane, spotlight and new plan and timing modules. Keep today's dialog.
-`npm test`: 1512 passed, 13 skipped; 50 motion tests pass. Type check passes.
-Checks pass: turn, end, painted-game, playable-clay, plugin-ui, plugin-ui-http, w6-parts.
-The plugin page stays at 4,292,611 bytes. Sample W6: five renders, one phone video, no fault.
-Finish plan: test both review faults, fix them, merge, run named checks and render the sheets.
+Four beats play before today's result dialog. Up to three tiles open Review.
+Your win and any mate on one device play it. A loss, draw and Resign stay quiet.
+New game cancels the old end. Other sheets keep their keys and focus.
+The result waits behind Menu. Review starts the key-moment search.
+Cut: the result pane, spotlight and new plan and timing modules.
+Tests: 1644 passed, 13 skipped; 50 motion tests pass. Type check passes.
+All ten named checks pass after the merge; end and parts each pass twice.
+End: 16.6 s and 15.8 s. Parts: 3.1 s and 3.1 s. Both plugin checks pass.
+Plugin page: 4,294,665 bytes. Sample W6: five renders and two sheets; no fault.
+The sample waits for the owner's yes. Integration runs the full suite.

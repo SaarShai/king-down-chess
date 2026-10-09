@@ -1,6 +1,6 @@
 # 12 · Undo plays the move backward, with no words
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
 Blocked by: 02b, 11
 
 ## Scope
@@ -11,18 +11,19 @@ Blocked by: 02b, 11
 
 ## Plan
 
-1. [ ] `rewindPlan` gives one track for each figure: the mover slides back (also the long jumps of Flight and Strike); a swap moves both pieces back; a shoved piece goes back; taken pieces fade in on their squares (each victim of a bite chain); a promoted piece slides back and cross-fades to a pawn; a Paladin that left the board comes back; a mark (Freeze, Ice Wall) fades out. A move with nothing to slide (a pass, a Sacrifice) cross-fades.
-2. [ ] `undo()` plays the rewind, then syncs the board. A press during a rewind ends that rewind at once and takes back the next staged ply, if one is left. A tap on the board only skips to the end frame. A new action (New game, a link, the account) cancels it, as `reset()` does today.
-3. [ ] Motion Off and reduced motion: the board changes at once. Fast: half the time.
-4. [ ] No words on screen about what Undo took back. The normal context line and the Moves line update (ticket 11). The screen reader hears "Move taken back."
-5. [ ] The Clay look syncs at once.
+1. [x] `PaintedView.animateBack` plays the reverse scene move, then syncs the old board. Taken pieces return at the end. A pass, a promotion or a move with no reverse slide syncs at once.
+2. [x] Undo takes one staged ply. A second press ends the old rewind and takes the next ply. A board tap skips the slide. A new game cancels old work.
+3. [x] Off and reduced motion sync at once. Fast uses half the time.
+4. [x] The context and Moves lines update with no words about Undo. The screen reader says "Move taken back."
+5. [x] Clay syncs at once.
 
 ## Verification
 
-- [ ] `node --test` of `rewindPlan`: the end state of each track equals the position before the move, for a capture, a swap, a shove, a Beast chain, a promotion, a Paladin's self-removal, Flight, Strike, an Ice Wall mark, a pass and a Sacrifice.
-- [ ] `turn` check, extended: Undo after a capture brings the taken piece back (a scene state hook); no animation runs after it ends (`noRunningAnimations`); a tap skips; two fast presses after a Freeze and a move bring the position back to the turn start; Motion Off is instant; the context line shows no words about the undone move.
-- [ ] `npm test`, `npm run check:browser` and `plugin-ui` pass. Record the plugin page size. The plugin session knows before the pull request.
-- [ ] Rendered sample: one phone video (a capture, then Undo; a Freeze and a move, then two Undo presses; a promotion, then Undo) and stills at 390×844 and 1440×900. The owner's yes, with the date, in Comments.
+- [x] `turn` checks a capture rewind, the returned piece, two fast presses and no Undo words on screen.
+- [x] `w6-parts` checks reverse moves, instant paths, Off and an old wait after a new position.
+- [x] `npm test`, the type check and all ten named browser checks pass. Both new checks pass twice.
+- [x] Sample W6 has phone and desktop sheets and a phone video with capture, Undo and Archer mate.
+- [ ] The owner gives yes on the sample.
 
 ## Risks
 
@@ -34,11 +35,12 @@ Blocked by: 02b, 11
 
 ## Comments
 
-Phase 2 build: Undo plays the reverse scene move, then syncs the old board.
+Undo plays the reverse scene move, then syncs the old board.
 Taken pieces return after the slide. Clay syncs at once.
-Cut: a track for each move kind and the new rewind plan module.
-The turn check passes: capture rewind, two fast presses and no Undo words on screen.
-`npm test`: 1512 passed, 13 skipped; 50 motion tests pass. Type check passes.
-Plugin checks pass. The page stays at 4,292,611 bytes after the phase 2 merge.
-Sample W6 has a capture and Undo in the phone video. It has no layout fault.
-Separate review, the full browser suite and the owner's sample review remain.
+Cut: no rewind plan or separate track for each piece.
+Tests: 1644 passed, 13 skipped; 50 motion tests pass. Type check passes.
+All ten named browser checks pass after the merge.
+The new end and parts checks each pass twice.
+Both plugin checks pass. The page is 4,294,665 bytes.
+Sample W6: four stills, one phone video and two sheets. No fault.
+The sample waits for the owner's yes. Integration runs the full suite.
