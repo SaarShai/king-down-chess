@@ -23,6 +23,7 @@ import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, t
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from './turn-controls';
 import './ui/table.css';
 import { initMenu } from './ui/menu';
+import { awardTurnSeals } from './ui/tricks';
 import { initTable, readPiece, refreshTable } from './ui/table';
 import { clearCoinRead, initCoins, refreshCoins } from './ui/powers';
 import { reviewStep } from './review';
@@ -150,7 +151,7 @@ connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
   game: () => game, turn: currentTurn, mode: turnMode, linkSide: () => linkSide,
   ended, blocked: () => busy || viewing != null || lesson != null, generation: () => gen,
   lock: value => { busy = sending = value; }, commit,
-  handOver: () => { turnStart = handOver(game); selected = null; pending = []; },
+  handOver: () => { awardTurnSeals(game, turnStart, sides, linkSide); turnStart = handOver(game); selected = null; pending = []; },
   refresh, save, next: () => { if (ended()) showOver(); else void maybeAi(); },
   link: gameLink, notice: line => { notice = line; },
   focusBoard: () => { cursor = homeSquare(); sayCursor(); drawMarks(); },

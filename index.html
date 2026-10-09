@@ -52,7 +52,7 @@
           <button id="return-game" hidden>Return to game</button>
           <button id="show-me" hidden>Show me</button>
           <button id="next-lesson" hidden></button>
-          <button id="menu-btn" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Menu</span></button>
+          <button id="menu-btn" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span id="menu-seal-dot" aria-hidden="true" hidden></span><span class="label">Menu</span></button>
         </nav>
       </div>
       <div id="table-sources" hidden><div id="turn"></div><div id="status"></div><div id="asset-status">Loading pieces…</div><div id="move-help"></div><div id="moment"></div><div id="hover"></div></div>
@@ -199,6 +199,7 @@
       </section>
       <section data-menu-page="extra" hidden>
         <h3>Play and make</h3>
+        <button id="tricks-row" class="menu-row" data-go="tricks" hidden>Tricks<span>The tricks you find get seals.</span><i>›</i></button>
         <button id="today-army" class="menu-row">Today's army<i>›</i></button>
         <button id="workshop-btn" class="menu-row"><img class="menu-fox" src="./ui/workshop/fox-pathfinder-w.webp" alt="" />Workshop<span>Make your own piece.</span><i>›</i></button>
         <h3>Board and game</h3>
@@ -208,6 +209,7 @@
         <button id="reset-view">Reset view (R)</button>
         <h3>Coming</h3><p class="coming-row"><b>Card mode</b><br>A hand of power cards.</p>
       </section>
+      <section data-menu-page="tricks" hidden><p>Each trick you find gets a seal.</p><ul id="tricks-list"></ul></section>
       <section data-menu-page="game" hidden><div class="row">Army <code id="setup"></code></div><button id="copy" title="Copy the move list as LAN">Copy moves</button></section>
       <section data-menu-page="account" hidden><section id="account" aria-labelledby="account-title" hidden><h3 id="account-title">Account</h3><div id="account-body" class="fields"></div><p id="account-note" role="status" aria-live="polite"></p></section></section>
       <section data-menu-page="resign" hidden><h3>Lay your king down?</h3><p id="resign-detail"></p><button id="resign-confirm" class="primary">Resign</button><button data-go="menu">Keep playing</button></section>

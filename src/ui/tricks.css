@@ -1,0 +1,17 @@
+#menu-btn { position: relative; }
+#menu-seal-dot { position: absolute; top: 9px; left: calc(50% + 7px); width: 11px; height: 11px; border-radius: 50%; background: var(--gold); border: 1.5px solid var(--gold-ink); }
+#tricks-list { list-style: none; margin: 0; padding: 0; }
+#tricks-list > li { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 12px; padding: 12px 4px; }
+#tricks-list > li + li { border-top: 1px solid var(--line); }
+#tricks-list .trick-figure { position: relative; width: 72px; height: 80px; display: flex; align-items: flex-end; justify-content: center; }
+#tricks-list .trick-figure img { height: 78px; width: auto; max-width: 84px; object-fit: contain; object-position: bottom; }
+#tricks-list .riddle img { filter: brightness(0); opacity: .34; }
+#tricks-list .trick-kind { display: block; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-ink); }
+#tricks-list .found-row .trick-kind { color: var(--accent); }
+#tricks-list b { display: block; font-size: 18px; }
+#tricks-list p { margin: 4px 0 0; line-height: 1.35; font-size: 15px; color: var(--ink-soft); }
+.trick-seal { position: absolute; right: -4px; bottom: -2px; display: grid; place-items: center; width: 34px; height: 34px; transform: rotate(-8deg); }
+.trick-seal .wax { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1.5px 1.5px rgb(60 20 10 / 35%)); }
+.trick-seal .wax path { fill: var(--accent); }
+.trick-seal .wax circle { fill: none; stroke: rgb(255 214 190 / 38%); stroke-width: 1.4; }
+.trick-seal .pi { position: relative; width: 62%; height: 62%; --pi-disc: transparent; --pi-ring: transparent; --pi-glyph: #fbe3d2; color: #fbe3d2; }
