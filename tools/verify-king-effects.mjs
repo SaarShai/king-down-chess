@@ -1,3 +1,4 @@
+import { endTurn } from './app-ui.mjs';
 // The kings' idle effects in the game's painted look (docs/2d-first-pieces/board/king-effects.mjs).
 // Run: npm run check:browser king-effects (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 // Checks: a default game shows Spirit's and Shadow's effects at about 30 frames a second and its 16 pawns
@@ -101,6 +102,7 @@ try {
   assert.deepEqual(await effects(page), ['shadow', 'spirit']);
   const rook = await page.evaluate(() => window.view.screenOf(0)), mate = await page.evaluate(() => window.view.screenOf(56));
   await page.mouse.click(rook.x, rook.y); await page.mouse.click(mate.x, mate.y);
+  await endTurn(page);
   await page.waitForFunction(() => document.getElementById('over').open, null, { timeout: 10000 });
   await wait(900);
   assert.deepEqual(await effects(page), ['spirit'], 'the fallen king has no effect');
@@ -114,6 +116,7 @@ try {
   url.searchParams.delete('kings');
   assert.deepEqual(await effects(page), ['flame', 'frost']);
   await page.mouse.click(rook.x, rook.y); await page.mouse.click(mate.x, mate.y);
+  await endTurn(page);
   await page.waitForFunction(() => document.getElementById('over').open, null, { timeout: 10000 });
   assert.deepEqual(await overKings(page), ['kings/frost.webp', 'kings/flame-b.webp']);
   await page.click('#over button[value="close"]');

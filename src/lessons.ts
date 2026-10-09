@@ -15,7 +15,7 @@ export const LESSONS: readonly Lesson[] = [
   {
     name: 'Archer',
     fen: '7k/8/8/4p3/3A4/8/8/K7 w - - 0 1',
-    task: 'Tap your archer, then the marked enemy pawn. She shoots it without moving.',
+    task: 'Tap your archer. Tap the marked enemy pawn. She shoots it without moving.',
     goal: (_, m) => m.to === m.from && m.captures.length > 0,
     done: 'An archer never captures by moving onto a piece: she shoots from where she stands, also over other pieces.',
   },
@@ -36,21 +36,21 @@ export const LESSONS: readonly Lesson[] = [
   {
     name: 'Beast',
     fen: '7k/8/3n4/3n4/3S4/8/8/K7 w - - 0 1',
-    task: 'Tap your beast, then the knight on d5, then the knight on d6: two captures in one move.',
+    task: 'Tap your beast, then d5, then d6. Take both knights in one move.',
     goal: (_, m) => m.captures.length >= 2,
     done: 'After each bite the beast may bite again from its new square. A chain never continues onto a king.',
   },
   {
     name: 'Ogre',
     fen: '7k/8/8/3n4/3O4/8/8/K7 w - - 0 1',
-    task: 'Tap your ogre, then the enemy knight, and choose Push.',
+    task: 'Tap your ogre, then the marked knight. Choose Push.',
     goal: (_, m) => !!m.shove,
     done: 'The ogre shoves a neighbour one square away and steps into its place. A shove is not a capture; kings are never shoved.',
   },
   {
     name: 'Paladin',
     fen: '7k/8/3p4/8/8/3N4/3P4/K2L4 w - - 0 1',
-    task: 'Your paladin moves like a queen and jumps over its own pieces. Take the pawn on d6.',
+    task: 'Your paladin takes the pawn on d6. Move like a queen; jump over your pieces.',
     goal: (_, m) => m.captures.length > 0,
     done: 'Taking a pawn is safe. Taking any other piece also removes the paladin.',
   },

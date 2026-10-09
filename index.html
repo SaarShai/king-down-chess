@@ -20,7 +20,6 @@
       <symbol id="i-new" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
       <symbol id="i-guide" viewBox="0 0 24 24"><path d="M3 5.5C3 4.7 3.7 4 4.5 4H11v16H4.5C3.7 20 3 19.3 3 18.5zM21 5.5c0-.8-.7-1.5-1.5-1.5H13v16h6.5c.8 0 1.5-.7 1.5-1.5z"/></symbol>
       <symbol id="i-settings" viewBox="0 0 24 24"><path d="M3 6h10M17 6h4M3 12h3M10 12h11M3 18h12M19 18h2"/><circle cx="15" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
-      <symbol id="i-hint" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/></symbol>
       <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H10"/></symbol>
       <symbol id="i-resign" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2.5 4.5L17 13H5"/></symbol>
       <symbol id="i-share" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
@@ -30,50 +29,39 @@
       <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></symbol>
       <symbol id="i-workshop" viewBox="0 0 24 24"><path d="M2 7h14c2 0 4.5-.6 6-1.6V7c0 2.4-2.6 4-6 4h-1v3l3 4v2H6v-2l3-4v-3H7.5C4.3 11 2 9.4 2 7z"/></symbol>
     </svg>
-    <div id="board" tabindex="0" role="application" aria-roledescription="chess board" aria-label="Board. Arrow keys move the square cursor; Enter or Space selects and moves." aria-describedby="cursor-say"></div>
-    <header id="top">
-      <h1>KING DOWN CHESS</h1>
-      <div id="turn"></div>
-      <div id="status"></div>
-      <div id="asset-status" role="status" aria-live="polite">Loading pieces…</div>
-    </header>
-    <aside id="panel" aria-label="Game controls">
-      <nav class="btns three four menu" aria-label="Menu">
-        <button id="new-game-btn"><svg class="icon" aria-hidden="true"><use href="#i-new"/></svg><span class="label">New game</span></button>
-        <button id="rules-btn" title="How each piece moves"><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg><span class="label">Guide</span></button>
-        <button id="workshop-btn" title="Make your own piece"><svg class="icon" aria-hidden="true"><use href="#i-workshop"/></svg><span class="label">Workshop</span></button>
-        <button id="settings-btn"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Settings</span></button>
-      </nav>
-      <div id="lesson-progress" hidden aria-hidden="true"></div>
-      <div id="move-help" role="status" aria-live="polite"></div>
-      <div id="selection-actions" class="btns" hidden>
-        <button id="stop-chain" hidden>Finish chain</button>
-        <button id="cancel-selection">Cancel selection</button>
-      </div>
-      <div id="moment" role="status" aria-live="polite"></div>
-      <button id="next-lesson" class="primary" hidden></button>
-      <button id="return-game" hidden>Return to game</button>
-      <div id="info"></div>
-      <div class="btns three actions">
-        <button id="hint" type="button" title="Show one move the computer likes"><svg class="icon" aria-hidden="true"><use href="#i-hint"/></svg><span class="label">Hint</span></button>
-        <button id="undo" title="Take back the last move (Z)"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
-        <button id="resign" title="Resign the game"><svg class="icon" aria-hidden="true"><use href="#i-resign"/></svg><span class="label">Resign</span></button>
-      </div>
-      <div id="powers" hidden>
-        <div class="btns">
-          <button id="power-btn" type="button" title="Spend your king's power on your next move"></button>
-          <button id="end-haste" type="button" hidden title="End the turn without the Haste piece's second move">End turn</button>
+    <main id="game-table" aria-label="Game">
+      <div id="board" tabindex="0" role="application" aria-roledescription="chess board" aria-label="Board. Arrow keys move the square cursor; Enter or Space selects and moves." aria-describedby="cursor-say"></div>
+      <div class="table-side">
+        <div id="strip-them" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span><div id="lesson-progress" hidden aria-hidden="true"></div></div>
+        <div class="table-space"></div>
+        <div id="strip-me" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span>
+          <div id="powers" hidden><div class="btns"><button id="power-btn" type="button"></button></div></div>
         </div>
-        <div id="power-status" role="status" aria-live="polite"></div>
+        <div id="context-line">
+          <div id="context-text" role="status" aria-live="polite" aria-atomic="true"></div>
+          <div id="context-actions">
+            <button id="back-to-game" hidden>Back to game</button>
+            <div id="selection-actions" hidden><button id="stop-chain" hidden>Stop here</button></div>
+          </div>
+        </div>
+        <button id="moves-line" aria-controls="sheet-moves" aria-expanded="false"><span id="last-move">No moves yet.</span><span class="moves-label">Moves <span aria-hidden="true">⌄</span></span></button>
+        <nav id="table-bar" aria-label="Game controls">
+          <button id="undo" title="Take back the last move (Z)"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
+          <button id="end-turn" type="button" aria-disabled="true">End turn</button>
+          <button id="return-game" hidden>Return to game</button>
+          <button id="show-me" hidden>Show me</button>
+          <button id="next-lesson" hidden></button>
+          <button id="menu-btn" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Menu</span></button>
+        </nav>
       </div>
-      <button id="share" hidden title="A link that holds this game, for a friend to open and answer"><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg><span class="label">Send the game link</span></button>
-      <section class="sheet" aria-label="Moves and captured pieces">
-        <ol id="moves" aria-label="Moves. Each move opens the board after it."></ol>
-        <div class="taken"><b>White took</b><span id="took-w"></span></div>
-        <div class="taken"><b>Black took</b><span id="took-b"></span></div>
-        <div id="hover" hidden></div><!-- square under the pointer; tools/qa.mjs aims clay clicks with it -->
-      </section>
-    </aside>
+      <div id="table-sources" hidden><div id="turn"></div><div id="status"></div><div id="asset-status">Loading pieces…</div><div id="move-help"></div><div id="moment"></div><div id="power-status"></div><div id="hover"></div></div>
+    </main>
+    <dialog id="sheet-moves" aria-labelledby="moves-title">
+      <header class="sheet-head"><h2 id="moves-title">Moves</h2><form method="dialog"><button aria-label="Close Moves">×</button></form></header>
+      <ol id="moves" aria-label="Moves. Each move opens the board after it."></ol>
+      <div class="taken"><b>White took</b><span id="took-w"></span></div>
+      <div class="taken"><b>Black took</b><span id="took-b"></span></div>
+    </dialog>
     <!-- Screen readers: every move by either side, and the keyboard cursor's square. -->
     <div id="announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <div id="cursor-say" class="sr-only" aria-live="polite" aria-atomic="true"></div>
@@ -118,90 +106,111 @@
       </div>
     </dialog>
     <dialog id="new-game" aria-labelledby="new-game-title">
-      <h2 id="new-game-title" tabindex="-1" autofocus>New game</h2>
-      <fieldset class="modes" id="modes">
-        <legend class="sr-only">Choose a game</legend>
-        <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" />
-          <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /></span>
-          <span class="mode-text"><b>Play the computer</b><small>You against the computer, with no powers.</small></span></label>
-        <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" />
-          <span class="mode-art emblem-fan" aria-hidden="true"><img src="./ui/emblems/frost.webp" alt="" /><img src="./ui/emblems/flame.webp" alt="" /><img src="./ui/emblems/stratus.webp" alt="" /></span>
-          <span class="mode-text"><b>Kings' powers</b><small>Against the computer. Each king brings one power.</small></span></label>
-        <label class="mode"><input type="radio" name="mode" value="two" id="mode-two" />
-          <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /><img class="face-left" src="./ui/kings/shadow-b.webp" alt="" /></span>
-          <span class="mode-text"><b>Two players</b><small>Share one device, or send the game link after each move.</small></span></label>
-      </fieldset>
-      <fieldset class="seg" id="level" title="Beginner and Casual vary their choices. Club thinks up to 0.8 s a move; Strong thinks 2.5 s. These are not ratings.">
-        <legend>Computer level</legend>
-        <div class="seg-row">
-          <label><input type="radio" name="level" value="beginner" id="level-beginner" /><span>Beginner</span></label>
-          <label><input type="radio" name="level" value="casual" id="level-casual" /><span>Casual</span></label>
-          <label><input type="radio" name="level" value="club" id="level-club" /><span>Club</span></label>
-          <label><input type="radio" name="level" value="strong" id="level-strong" /><span>Strong</span></label>
-        </div>
-      </fieldset>
-      <label class="check" id="two-powers-row" hidden><input type="checkbox" id="two-powers" /><span>Kings' powers <small>Each king brings one power.</small></span></label>
-      <div id="king-picker" hidden>
-        <div class="king-pick" id="pick-0"></div>
-        <div class="king-pick" id="pick-1"></div>
-      </div>
-      <details id="more-options">
-        <summary>More options</summary>
-        <fieldset class="seg" id="side-choice">
-          <legend>You play</legend>
+      <header class="new-game-head">
+        <h2 id="new-game-title" tabindex="-1" autofocus>New game</h2>
+        <form method="dialog"><button value="cancel" aria-label="Close New game">×</button></form>
+      </header>
+      <div class="new-game-body">
+        <fieldset class="modes" id="modes">
+          <legend class="sr-only">Choose a game</legend>
+          <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" aria-label="Play the computer" />
+            <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /></span>
+            <span class="mode-text"><b>Computer</b></span></label>
+          <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" />
+            <span class="mode-art emblem-fan" aria-hidden="true"><img src="./ui/emblems/frost.webp" alt="" /><img src="./ui/emblems/flame.webp" alt="" /><img src="./ui/emblems/stratus.webp" alt="" /></span>
+            <span class="mode-text"><b>Kings' powers</b></span></label>
+          <label class="mode"><input type="radio" name="mode" value="two" id="mode-two" />
+            <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /><img class="face-left" src="./ui/kings/shadow-b.webp" alt="" /></span>
+            <span class="mode-text"><b>Two players</b></span></label>
+        </fieldset>
+        <fieldset class="seg" id="level" aria-describedby="level-line">
+          <legend>Computer level</legend>
           <div class="seg-row">
-            <label><input type="radio" name="side" value="0" id="side-white" /><span>White</span></label>
-            <label><input type="radio" name="side" value="1" id="side-black" /><span>Black</span></label>
+            <label><input type="radio" name="level" value="beginner" id="level-beginner" /><span>Beginner</span></label>
+            <label><input type="radio" name="level" value="casual" id="level-casual" /><span>Casual</span></label>
+            <label><input type="radio" name="level" value="club" id="level-club" /><span>Club</span></label>
+            <label><input type="radio" name="level" value="strong" id="level-strong" /><span>Strong</span></label>
           </div>
         </fieldset>
-        <label class="army">Army <select id="army" aria-describedby="army-note">
-          <option value="random">Random King Down army</option>
-          <option value="daily" title="Every player gets the same army today">Today's army, the same for everyone</option>
-          <option value="classic">Chess starting army</option>
-          <option value="custom">Custom army…</option>
-          <optgroup label="Example armies" id="army-examples">
-            <option value="MMSSNBNK">MMSSNBNK</option><option value="KGBMSSMB">KGBMSSMB</option>
-            <option value="NKBBMGQS">NKBBMGQS</option><option value="QNKMNRSG">QNKMNRSG</option>
-            <option value="SQBKRSML">SQBKRSML</option><option value="ogre">Ogre practice</option>
-          </optgroup>
-        </select></label>
-        <small id="army-note">Example armies are hand-picked to explore. Catapult ones use an experimental piece.</small>
-      </details>
-      <form method="dialog">
-        <button value="cancel">Cancel</button>
-        <button id="start-game" type="button" class="primary">Start game</button>
-      </form>
-    </dialog>
-    <dialog id="settings" aria-labelledby="settings-title">
-      <h2 id="settings-title" tabindex="-1" autofocus>Settings</h2>
-      <fieldset class="fields group">
-        <legend>Play</legend>
-        <label>Sound <input id="sound" type="checkbox" checked /></label>
-        <label title="Promote to a queen without asking, when a queen, rook, bishop, or knight is the choice.">Always promote to queen <input id="queen" type="checkbox" /></label>
-        <label title="Mark the squares the other side attacks while you choose a move.">Show threats <input id="threats" type="checkbox" aria-describedby="threats-note" /></label>
-        <small id="threats-note">Marks your pieces the other side can take (a red ring) and the empty squares it covers (a red dot).</small>
-        <label title="Tap the board during an animation to skip it.">Animations <select id="pace"><option value="normal">Normal</option><option value="fast">Fast</option><option value="off">Off</option></select></label>
-        <small id="pace-note">Tap the board to skip an animation.</small>
-      </fieldset>
-      <fieldset class="fields group">
-        <legend>Board</legend>
-        <label>Look <select id="look"><option value="painted">Painted 2D</option><option value="clay">Clay 3D</option></select></label>
-        <label>Piece letters <input id="labels" type="checkbox" /></label>
-        <label>Coordinates <input id="coords" type="checkbox" checked /></label>
-        <button id="reset-view">Reset view (R)</button>
-      </fieldset>
-      <h3>This game</h3>
-      <div class="fields">
-        <div class="row">Setup <code id="setup"></code></div>
-        <button id="copy" title="Copy the move list as LAN">Copy moves</button>
+        <p id="level-line"></p>
+        <label class="check" id="two-powers-row" hidden><input type="checkbox" id="two-powers" /><span>Kings' powers <small>Each king brings one power.</small></span></label>
+        <div id="king-picker" hidden>
+          <div class="king-pick" id="pick-0"></div>
+          <div class="king-pick" id="pick-1"></div>
+        </div>
+        <details id="more-options">
+          <summary><span id="side-army-label">Side and army</span><small id="side-army-value"></small></summary>
+          <fieldset class="seg" id="side-choice">
+            <legend>You play</legend>
+            <div class="seg-row">
+              <label><input type="radio" name="side" value="0" id="side-white" /><span>White</span></label>
+              <label><input type="radio" name="side" value="1" id="side-black" /><span>Black</span></label>
+            </div>
+          </fieldset>
+          <fieldset class="seg" id="army-choice">
+            <legend>Army</legend>
+            <div class="seg-row">
+              <label><input type="radio" name="army" value="random" /><span>Random</span></label>
+              <label><input type="radio" name="army" value="daily" /><span>Today's</span></label>
+              <label><input type="radio" name="army" value="classic" /><span>Chess</span></label>
+            </div>
+          </fieldset>
+          <div id="army-strip" aria-hidden="true"></div>
+          <p id="army-line"></p>
+          <details id="other-armies">
+            <summary>More…</summary>
+            <label class="army">Army <select id="army" aria-describedby="army-note">
+              <option value="random">Random King Down army</option>
+              <option value="daily" title="Every player gets the same army today">Today's army, the same for everyone</option>
+              <option value="classic">Chess starting army</option>
+              <option value="custom">Custom army…</option>
+              <optgroup label="Example armies" id="army-examples">
+                <option value="MMSSNBNK">MMSSNBNK</option><option value="KGBMSSMB">KGBMSSMB</option>
+                <option value="NKBBMGQS">NKBBMGQS</option><option value="QNKMNRSG">QNKMNRSG</option>
+                <option value="SQBKRSML">SQBKRSML</option><option value="ogre">Ogre practice</option>
+              </optgroup>
+            </select></label>
+            <small id="army-note">Try an example army. Catapult is experimental.</small>
+          </details>
+        </details>
       </div>
-      <!-- Filled by src/account/account.ts once the board is drawn. -->
-      <section id="account" aria-labelledby="account-title" hidden>
-        <h3 id="account-title">Account</h3>
-        <div id="account-body" class="fields"></div>
-        <p id="account-note" role="status" aria-live="polite"></p>
+      <footer class="new-game-foot">
+        <p id="new-game-warn" hidden></p>
+        <button id="start-game" type="button" class="primary">Start game</button>
+      </footer>
+    </dialog>
+    <dialog id="menu-sheet" aria-labelledby="menu-title">
+      <header class="sheet-head"><button id="menu-back" aria-label="Back to Menu" hidden>‹</button><h2 id="menu-title" tabindex="-1">Menu</h2><button id="menu-close" aria-label="Close Menu">×</button></header>
+      <section data-menu-page="menu">
+        <button class="menu-row" data-go="new">New game <span>Play again, or change setup.</span><i>›</i></button>
+        <button id="rules-btn" class="menu-row">Guide <span>Pieces, powers and lessons.</span><i>›</i></button>
+        <button class="menu-row" data-go="help">Board help<i>›</i></button>
+        <fieldset class="fields group"><legend>Feel</legend><label>Sound <input id="sound" type="checkbox" checked /></label><label>Motion <select id="pace"><option value="normal">Normal</option><option value="fast">Fast</option><option value="off">Off</option></select></label><small id="pace-note">Tap the board to skip an animation.</small></fieldset>
+        <button class="menu-row" data-go="extra">Extra <span>Play and make. Board and game.</span><i>›</i></button>
+        <button id="share" hidden>Send the game link</button>
+        <button id="resign" class="menu-row resign-row" data-go="resign" aria-disabled="false">Resign <span>Lay your king down.</span><i>›</i></button>
       </section>
-      <form method="dialog"><button>Close</button></form>
+      <section data-menu-page="new" hidden><p>A new game ends this game.</p><button id="play-again" class="menu-row">Play again<span>The same setup. A new army.</span></button><button id="new-game-btn" class="menu-row">Change setup<i>›</i></button></section>
+      <section data-menu-page="help" class="fields" hidden>
+        <label>Show threats <input id="threats" type="checkbox" /></label>
+        <label>Coordinates <input id="coords" type="checkbox" checked /></label>
+        <label>Piece letters <input id="labels" type="checkbox" /></label>
+        <label>Always promote to a queen <input id="queen" type="checkbox" /></label>
+      </section>
+      <section data-menu-page="extra" hidden>
+        <h3>Play and make</h3>
+        <button id="today-army" class="menu-row">Today's army<i>›</i></button>
+        <button id="workshop-btn" class="menu-row"><img class="menu-fox" src="./ui/workshop/fox-pathfinder-w.webp" alt="" />Workshop<span>Make your own piece.</span><i>›</i></button>
+        <h3>Board and game</h3>
+        <button class="menu-row" data-go="game">This game<i>›</i></button>
+        <button class="menu-row" data-go="account">Account<i>›</i></button>
+        <label>Look <select id="look"><option value="painted">Painted</option><option value="clay">Clay</option></select></label>
+        <button id="reset-view">Reset view (R)</button>
+        <h3>Coming</h3><p class="coming-row"><b>Card mode</b><br>A hand of power cards.</p>
+      </section>
+      <section data-menu-page="game" hidden><div class="row">Army <code id="setup"></code></div><button id="copy" title="Copy the move list as LAN">Copy moves</button></section>
+      <section data-menu-page="account" hidden><section id="account" aria-labelledby="account-title" hidden><h3 id="account-title">Account</h3><div id="account-body" class="fields"></div><p id="account-note" role="status" aria-live="polite"></p></section></section>
+      <section data-menu-page="resign" hidden><h3>Lay your king down?</h3><p id="resign-detail"></p><button id="resign-confirm" class="primary">Resign</button><button data-go="menu">Keep playing</button></section>
     </dialog>
     <dialog id="delete-account" aria-labelledby="delete-account-title" aria-describedby="delete-account-detail">
       <h2 id="delete-account-title" tabindex="-1" autofocus>Delete your account?</h2>
