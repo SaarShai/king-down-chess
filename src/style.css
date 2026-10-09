@@ -757,3 +757,10 @@ label.army select { width: 100%; font-weight: 400; }
 #powers { margin-top: var(--space-2); }
 #power-status { margin-top: var(--space-1); font-size: var(--fs-sm); line-height: var(--lh); color: var(--ink); }
 #power-btn.armed { outline: 3px solid var(--accent); outline-offset: 2px; } /* burgundy: 3:1 or more on parchment, unlike gold */
+
+/* Off turn controls keep keyboard focus. */
+button[aria-disabled="true"], button[aria-disabled="true"]:hover {
+  color: var(--ink-soft);
+  opacity: 0.75;
+  cursor: default;
+}

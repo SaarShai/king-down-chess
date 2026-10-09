@@ -2,7 +2,7 @@
 // pick powers in New game.
 // Run: npm run check:browser powers (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { lanMoves, lanTurns, waitForUi } from './app-ui.mjs';
+import { endTurn, lanMoves, lanTurns, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 
@@ -46,9 +46,10 @@ try {
   assert.match(await page.textContent('#power-status'), /Tap an enemy piece/);
   await click(page, 'd5');
   await waitText(page, /!F:d5/);
-  await page.waitForFunction(() => /Now make your move/.test(document.getElementById('power-status').textContent));
+  await page.waitForFunction(() => /Now make your move/.test(document.getElementById('move-help').textContent));
   await click(page, 'a2'); await click(page, 'a3');
   await waitText(page, /a2-a3/);
+  await endTurn(page);
   await waitForUi(page, ui => ui.lan.length >= 3, null, { timeout: 15000 });
   assert.doesNotMatch(await moves(page), /Nd5-/, 'the frozen knight did not move');
   assert.match(await page.textContent('#power-btn'), /0 left/);
@@ -59,10 +60,11 @@ try {
   await page.click('#power-btn');
   await click(page, 'a1'); await click(page, 'a4');
   await waitText(page, /Ra1-a4!H/);
-  await page.waitForFunction(() => !document.getElementById('end-haste').hidden);
-  assert.match(await page.textContent('#power-status'), /move the same piece again/);
+  await page.waitForFunction(() => document.getElementById('end-turn').getAttribute('aria-disabled') === 'false');
+  assert.match(await page.textContent('#move-help'), /Move it again/);
   await click(page, 'e4');                      // the hasted rook is already selected
   await waitText(page, /Ra4-e4/);
+  await endTurn(page);
   const line = (await lanTurns(page))[0];
   assert.deepEqual(line.slice(0, 2), ['Ra1-a4!H', 'Ra4-e4'], 'one turn, two plies, one line');
   console.log(`ok haste: ${line}`);
@@ -71,8 +73,8 @@ try {
   await open(page, 'flame:haste,none', '7k/p7/8/8/8/8/8/R5K1 w - - 0 1');
   await page.click('#power-btn');
   await click(page, 'a1'); await click(page, 'a4');
-  await page.waitForFunction(() => !document.getElementById('end-haste').hidden);
-  await page.click('#end-haste');
+  await page.waitForFunction(() => document.getElementById('end-turn').getAttribute('aria-disabled') === 'false');
+  await endTurn(page);
   await waitText(page, /--/);
   console.log('ok haste ended early');
 

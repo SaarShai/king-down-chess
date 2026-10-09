@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { lanMoves, pressMenu, setPace, waitForUi } from './app-ui.mjs';
+import { endTurn, lanMoves, pressMenu, setPace, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = env('PLAYABLE_URL');
@@ -91,11 +91,13 @@ try {
   await page.goto(url+'?style=voxel&px=6'); await ready(); await fixedPresentation();
   assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   checks.push('legacy saved styles and URL style/pixel overrides cannot change the fixed presentation');
-  await page.click('#undo'); await settled(12,1);
-  assert.deepEqual(await lanMoves(page), []);
-  checks.push('save/reload and undo restore the position');
+  await clickSquare(52); await clickSquare(36); await settled(36, 17);
+  await page.click('#undo'); await settled(52,17);
+  assert.deepEqual(await lanMoves(page), ['e2-e4']);
+  checks.push('reload hands over; Undo restores the next staged move');
   await startGame(page, { mode: 'computer', side: 'white', army: 'classic' }); await ready();
   await clickSquare(12); await clickSquare(28);
+  await endTurn(page);
   await waitForUi(page, ui => ui.lan.length >= 2 && document.querySelector('#turn').textContent.includes('White'));
   await waitForUi(page, ui => !ui.thinking && !ui.result); // the reply is in, and the game goes on
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length >= 2);

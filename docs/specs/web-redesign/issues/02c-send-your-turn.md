@@ -1,6 +1,6 @@
 # 02c · Send your turn: the press sends a link game
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: built (the separate W1 review and the owner's sample review wait)
 Blocked by: 02b
 
 ## Scope
@@ -38,3 +38,11 @@ Blocked by: 02b
 - No Previously (21), no live play, no invite before the first move.
 
 ## Comments
+
+W1 build: Send your turn sends one fixed link. Only success hands the turn over.
+Keep the busy and game-counter guards. Send again uses the handed-over moves.
+Cuts: the first send stays after End turn; no resignation link or Send the result.
+Tests cover the candidate moves. Link-game checks cancel, success, double press and the Haste pass.
+Checks: link-game passes twice on the final code; all 17 full-suite checks pass.
+Samples: Send your turn and Send again render at phone and desktop sizes, with no fault.
+The separate W1 review and the owner's sample review wait.

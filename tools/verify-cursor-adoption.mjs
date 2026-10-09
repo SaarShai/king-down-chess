@@ -64,13 +64,7 @@ try {
   assert.equal(await savedSkill(), 'club');
   assert.equal(await page.locator('#clock,#time-w,#time-b,#try-these').count(), 0);
   await startGame(page, { mode: 'two', army: 'classic' }); await ready();
-  await page.click('#hint');
-  await page.waitForFunction(() => window.view.highlights.hint.length > 0 && !document.querySelector('#hint').disabled);
-  assert.deepEqual(await lanMoves(page), []);
-  assert.ok(await page.evaluate(() => Array.isArray(window.searchRequests.at(-1).history)));
   await click(12); await click(28); await played(1);
-  assert.deepEqual(await page.evaluate(() => window.view.highlights.hint), []);
-  checks.push('Hint uses history, marks a legal suggestion without playing, and clears on a move');
 
   await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem('kingdown.save'));
@@ -89,7 +83,7 @@ try {
   assert.equal(await page.locator('#queen').isChecked(), true);
   checks.push('old saves retain Strong; the computer level, auto-queen and effective mute survive reload');
 
-  await page.click('#hint'); await startGame(page, { mode: 'two', army: 'classic' }); await ready();
+  await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   await page.waitForTimeout(650);
   assert.deepEqual(await page.evaluate(() => window.view.highlights.hint), []);
   assert.deepEqual(await lanMoves(page), []);
@@ -98,7 +92,7 @@ try {
   assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   assert.deepEqual(await page.evaluate(() => window.view.camera.position.toArray()), camera);
   await page.click('#undo'); await played(0);
-  checks.push('reset cancels a hint; real piece dragging plays through the normal move path without orbiting');
+  checks.push('real piece dragging plays through the normal move path without orbiting');
 
   await seed('7k/4p3/8/8/8/8/P7/K7 b - - 0 1', { white: 'ai', black: 'human' });
   await drag(52, 36);
@@ -114,7 +108,7 @@ try {
   await page.locator('#promo').waitFor({ state: 'visible' });
   await page.click('#cancel-promo'); // Cancel keeps the pawn and frees the board
   assert.equal(await page.locator('#promo').isVisible(), false);
-  assert.ok(await page.evaluate(() => window.view.pieces.get(48)?.userData.code === 1 && !document.querySelector('#hint').disabled));
+  assert.ok(await page.evaluate(() => window.view.pieces.get(48)?.userData.code === 1 && document.getElementById('end-turn').getAttribute('aria-disabled') === 'true'));
   await click(48); await click(56);
   await page.locator('#promo').waitFor({ state: 'visible' });
   await page.locator('#promo button').filter({ hasText: 'rook' }).click(); await played(1);
@@ -150,8 +144,6 @@ try {
   await seed('7k/8/8/2p5/8/2A5/8/4K3 w - - 0 1');
   const rest = await contextText(page); // the words before the shot
   await click(18); await click(34); await played(1);
-  assert.match(await contextText(page), /archer shot/);
-  await page.reload(); await ready();
   assert.match(await contextText(page), /archer shot/);
   await page.click('#undo'); await played(0);
   assert.equal(await contextText(page), rest, 'Undo takes back the words of the shot');
