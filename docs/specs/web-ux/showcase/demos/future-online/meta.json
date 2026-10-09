@@ -1,0 +1,37 @@
+{
+  "id": "future-online",
+  "title": "Play with friends",
+  "group": "future",
+  "feature": "Online play",
+  "summary": "A game with a friend opens on their last move, plays it once and says it in one line. Four words, a mute and a calm connection state keep it human, with no chat.",
+  "problem": "Today a link game opens on the new position with no word about what changed, so the player must find the friend's move. Nothing says who you play, what rules apply, or whether the game is live or by link.",
+  "idea": "Each game with a friend shows its rules before the first move. When you come back, the friend's move plays once, with one line and the cause on the board. The connection sits beside the name it belongs to: a link game never says Online. Live play later adds the waiting table, Away and Reconnecting.",
+  "borrows": [
+    { "from": "Board Game Arena", "what": "Turn-based play at your own pace, with a catch-up from the log. King Down link games are turn-based already." },
+    { "from": "TV series", "what": "The \"Previously on\" recap: one short replay before the new scene, so a player returns to the game in seconds." },
+    { "from": "Hearthstone", "what": "A few fixed emotes and a mute that the other player never learns of. Kind words with no chat to moderate." },
+    { "from": "Clash Royale", "what": "Rejoin a battle after a lost connection." },
+    { "from": "Messages", "what": "A link preview that shows what the link opens before you tap Play." }
+  ],
+  "options": [
+    { "key": "A", "name": "Previously", "state": "previously", "summary": "The friend's move plays once on the board, with one line, your move above it and See again." },
+    { "key": "B", "name": "Still line", "state": "still", "summary": "The board opens on the new position with one line. Nothing plays again." },
+    { "key": "C", "name": "Move story first", "state": "story", "summary": "The game opens on a short list of the moves since your turn. To the board closes it." }
+  ],
+  "recommendation": "Pick A. The move and its cause show in about one second, and See again plays it once more. With Animations Off, A shows the still frame of B. Build A with the next link-game work, with the invite preview. The four words, the waiting table, Away and Reconnecting are not options: they come with live play.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": ["invite", "previously", "still", "story", "waiting", "words", "away", "reconnecting", "result"],
+  "notes": [
+    "Look at the place of the connection: \"By link\" or \"Online\" sits beside Sam's name, and Reconnecting beside yours. A link game never says Online.",
+    "Try it: Sam's Strike plays once. The archer's shot gives check over your pawn, and a sight on your king shows it. Answer the check (four legal moves), then Send your turn. The computer plays Sam's next move as a stand-in friend.",
+    "Play on the invite opens the start position of the invite's army. You move first, then you send.",
+    "Tap your king portrait for the four words. One word every 4 s. The mute for Sam's words shows on Sam's plate after his first word, and it is in Menu.",
+    "Away has one quiet action: Finish by link changes the live game into today's link game.",
+    "Owner question 1: are the four words on or off by default? A. On, with the mute (this demo). B. Off until a player turns them on. Pick: A. On yes: the words show from the first game with a friend; the mute and the Menu switch stay.",
+    "Owner question 2: how long does a live game wait for a player who is away? A. No limit; either player can use Finish by link (this demo). B. A set time, then the other player can claim the game. Pick: A for now. On yes: a live game shows no timer.",
+    "The position is P1 of the idea bank; the result uses P2 (the archer mates from f6). The engine checks every move.",
+    "Limits: there is no server. Send your turn copies a link to this demo, and the recorded play shows the copy path with no real copy. Away, Reconnecting and the waiting table are still pictures of a later service. The invite army RABOGMKS is a back rank made to match the pieces of P1. In P2 the engine still counts Strike as unused; the plate shows \"used\" from the demo's own data."
+  ]
+}

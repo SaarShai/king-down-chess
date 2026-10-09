@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Read any piece</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="read.css">
+</head>
+<body>
+<div class="screen" id="screen">
+<div class="app" id="app" data-option="ab">
+  <header class="strip opp" aria-label="Opponent">
+    <span class="crest"><img src="../../assets/emblems/flame.webp" alt=""></span>
+    <p class="who"><b>Computer</b><small>Flame king · Casual</small></p>
+    <span class="power" id="opp-power"></span>
+  </header>
+
+  <div class="board" id="board"></div>
+
+  <div class="strip you" aria-label="You">
+    <span class="crest"><img src="../../assets/emblems/frost.webp" alt=""></span>
+    <p class="who"><b>You</b><small>Frost king</small></p>
+    <span class="power" id="my-power"></span>
+  </div>
+
+  <section class="dock" id="dock" aria-label="Game">
+    <div class="ctx" id="ctx" aria-live="polite"></div>
+    <nav class="bar" id="bar" aria-label="Game actions">
+      <button type="button" class="btn btn-quiet" id="menu"></button>
+      <button type="button" class="btn btn-quiet" id="hint"></button>
+      <button type="button" class="btn btn-quiet" id="undo"></button>
+      <button type="button" class="btn btn-quiet lens-btn" id="lens" aria-pressed="false"></button>
+    </nav>
+    <div class="peek" id="peek" hidden aria-live="polite"></div>
+  </section>
+</div>
+</div>
+<p class="preview-cap" id="preview-cap" hidden>A phone with its browser bars: 390 × 700 px.</p>
+
+<dialog class="sheet" id="guide" aria-labelledby="guide-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="guide-title" tabindex="-1" autofocus>Guide</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body" id="guide-body"></div>
+</dialog>
+
+<script type="module" src="read.js"></script>
+</body>
+</html>

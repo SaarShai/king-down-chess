@@ -1,0 +1,73 @@
+{
+  "id": "dir-quiet-table",
+  "title": "Quiet Table",
+  "group": "direction",
+  "summary": "A calm table: the stone board, two text strips, one voice line, the moves (folded on a phone) and a hairline row of Hint, Undo and Menu. Help shows only under a finger, and the game has one strong moment: the king lies down.",
+  "problem": "Today the game screen shows many controls, panels and a long move list at once. The painted figures and the special moves must compete with chrome for the eye.",
+  "idea": "Take everything off the table that a turn does not need. The board is the stage; one line of plain words speaks for the game; a hold reads a piece and shows its reach; Moves, settings and Extra fold away.",
+  "borrows": [
+    {
+      "from": "Lichess Zen mode",
+      "what": "Only the board and the clocks. King Down keeps the same calm, but its new pieces still explain themselves on a hold."
+    },
+    {
+      "from": "Monument Valley",
+      "what": "A quiet frame with one focal point. Here the focal point is the painted board."
+    },
+    {
+      "from": "Into the Breach",
+      "what": "The cause line: a thin line from the piece that acts to the square it hits, so a shot over pieces is never a surprise."
+    },
+    {
+      "from": "Hearthstone and Marvel Snap card zoom",
+      "what": "Hold to read. The piece's line goes in the voice line, not in a card frame over the board."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "Light floor",
+      "state": "rest",
+      "summary": "The board on a warm parchment table, lit from above. The advisors' Still Table and Open Table."
+    },
+    {
+      "key": "B",
+      "name": "Dark stage",
+      "state": "dark-rest",
+      "summary": "The board on the warm dark stage of the title screen. The board glows like a lamp-lit table."
+    }
+  ],
+  "recommendation": "Use A, the light floor, as the default: it reads best in daylight, and both advisors pick it. Let the floor follow the device's dark mode, so B costs almost nothing. Owner check: offer Light and Dark in the Menu?",
+  "joy": 3,
+  "ease": 5,
+  "effort": "M",
+  "states": [
+    "rest",
+    "read",
+    "read-own",
+    "select",
+    "played",
+    "check",
+    "end",
+    "review",
+    "moves",
+    "menu",
+    "dark-rest",
+    "dark-read",
+    "dark-check",
+    "dark-end"
+  ],
+  "notes": [
+    "Look at the rest state first: nothing on the table but the game. Then press Replay: hold, shot, check with its cause line, and the king lies down.",
+    "Hold any piece (long press, mouse rest, or the I key) to see where it can take; the voice line gives its rule. A hold never plays a move. The read-own state holds your Archer on a3.",
+    "Coordinates show only while you hold or drag a piece, or while the keyboard is on the board. Freeze is the one power control, in your strip.",
+    "On a phone the Moves line is folded. On a desktop the list stays open in soft ink, with the newest move at the bottom. The board never moves.",
+    "On a phone the board gets smaller only when the screen is short (a phone browser with its toolbars), so the words under it always have room.",
+    "At the end the king lies down in its own square, on a soft pool of warm light. On a phone, Review folds the result to one line and gives the moves the space. On a desktop the list is already open, so the end shows only Rematch.",
+    "The demo plays the real rules and the Casual computer from P1. New game in Menu deals a random army with the same two kings. Rematch starts the same army (RABOGMKS, a back rank that fits P1) from move 1.",
+    "The Light and Dark choice in Menu is an addition to the direction. It waits for the owner's check.",
+    "P2 cannot come after the scripted line (pawns are back on f2 and a5), so the video says \"Another game, near the end.\"",
+    "Limits: Guide and the Extra pages are not built here. The sounds are the kit's tones, not the stone sounds of the direction.",
+    "With the focus on the page, the left and right arrow keys step through the states."
+  ]
+}

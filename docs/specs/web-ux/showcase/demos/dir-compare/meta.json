@@ -1,0 +1,67 @@
+{
+  "id": "dir-compare",
+  "title": "Five directions",
+  "group": "direction",
+  "feature": "All five directions",
+  "summary": "The five direction demos play live side by side, at the same moment of the same game. One picker moves all five from rest to the end.",
+  "problem": "Five directions on five pages are hard to judge. A person remembers the last one and forgets how the first one looked at the same moment.",
+  "idea": "Put the five live demos in one view and drive them with one moment picker: rest, read, select, played, check, end. Show what each direction does at that moment in one line under its frame.",
+  "borrows": [
+    {
+      "from": "Camera and phone reviews",
+      "what": "The same photo from each phone side by side: one scene, so only the style changes."
+    },
+    {
+      "from": "Figma prototype compare",
+      "what": "Two frames at one step of a flow, to choose between two designs."
+    },
+    {
+      "from": "Fighting game character select",
+      "what": "Each choice shows at once in the same pose, so a person can compare by eye."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "Five phones",
+      "state": "rest",
+      "summary": "All five directions as phones in one row. Best for a first look at the range."
+    },
+    {
+      "key": "B",
+      "name": "Five desktops",
+      "state": "desktop",
+      "summary": "The same five at desktop size, three over two."
+    },
+    {
+      "key": "C",
+      "name": "Two side by side",
+      "state": "two",
+      "summary": "Pick any two directions. Best for the last choice between two."
+    }
+  ],
+  "recommendation": "Start with five phones and step through the six moments. Then pick the two best in Two and compare them at check and at the end, where the directions differ most.",
+  "joy": 3,
+  "ease": 5,
+  "effort": "S",
+  "states": [
+    "rest",
+    "read",
+    "select",
+    "played",
+    "check",
+    "end",
+    "desktop",
+    "two",
+    "two-desktop"
+  ],
+  "notes": [
+    "Each frame is the real direction demo, live. Tap or click in a frame to play it there.",
+    "The picker or the left and right arrow keys move all five frames to one moment. Play all plays each direction's own story at the same time.",
+    "The line under each frame says only what the frame shows, and names the piece. The arrow button opens the direction on its own page, at the same moment.",
+    "In Two, the name under a frame is a list: pick any two directions. Two desktops also show a short summary of each direction.",
+    "At Read, four directions read their Archer, but Coach reads their Guard. At Select, each direction shows a different piece or power. At these two moments, compare the help, not the piece.",
+    "For the lead: the frames do not agree on some facts yet. They show different computer levels (Beginner, Casual, Club). At End, Pocket shows Strike ready, but Strike was used at move 12. Some write 'archer' and some 'Archer'. The Read and Select scripts of the five demos should use the same pieces.",
+    "Limits: the frames are scaled down, so small text is hard to read in five desktops. Use Two to read detail. Each frame loads its own engine when it first shows, so the first view takes a few seconds."
+  ]
+}

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Menu and Extra</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="menu.css">
+</head>
+<body>
+<main class="app">
+  <div class="plate them">
+    <span class="portrait"><img src="../../assets/kings/flame-b.webp" alt=""></span>
+    <span class="who"><b>Computer</b><span>Club · Flame king</span></span>
+  </div>
+  <div class="board" id="board"></div>
+  <div class="plate you">
+    <span class="portrait"><img src="../../assets/kings/frost.webp" alt=""></span>
+    <span class="who"><b>You</b><span>Frost king</span></span>
+    <span class="turn" id="turn" aria-live="polite">Your move</span>
+  </div>
+  <div class="line" id="line">
+    <span id="line-icon"></span>
+    <p id="line-text"></p>
+    <span class="found" id="found" hidden aria-hidden="true"><span class="seal-slot" id="seal-slot"></span><span>Trick found</span></span>
+  </div>
+  <p class="sr-only" id="announce" aria-live="polite"></p>
+  <nav class="bar" aria-label="Game">
+    <button type="button" class="btn btn-quiet" id="hint"></button>
+    <button type="button" class="btn btn-quiet" id="undo"></button>
+    <button type="button" class="btn btn-quiet" id="menu" aria-haspopup="dialog"></button>
+  </nav>
+</main>
+
+<dialog class="sheet" id="sheet" aria-labelledby="sheet-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head">
+    <div class="title">
+      <button type="button" class="btn btn-icon back" id="back" hidden></button>
+      <h2 id="sheet-title" tabindex="-1">Menu</h2>
+    </div>
+    <button type="button" class="btn btn-icon" data-close id="close"></button>
+  </div>
+  <div class="sheet-body" id="page"></div>
+</dialog>
+
+<script type="module" src="menu.js"></script>
+</body>
+</html>

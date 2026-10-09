@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Play with friends</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="online.css">
+</head>
+<body>
+
+<!-- The game screen: Sam's plate, the board, your plate, one context area, the bar. -->
+<main class="app" id="app" data-mode="link" aria-label="Game with Sam">
+  <section class="plate plate-them" id="them" aria-label="Sam">
+    <span class="portrait"><img src="../../assets/kings/flame-b.webp" alt=""></span>
+    <div class="who">
+      <b class="name">Sam</b>
+      <span class="sub" id="them-sub">Flame · Strike</span>
+      <span class="bubble" id="them-bubble" role="status" hidden></span>
+    </div>
+    <span class="presence" id="them-presence"></span>
+    <button type="button" class="btn btn-icon mute" id="mute" aria-pressed="false" aria-label="Mute Sam's words" hidden></button>
+  </section>
+
+  <div class="board" id="board"></div>
+
+  <section class="plate plate-you" id="you" aria-label="You">
+    <button type="button" class="portrait portrait-btn" id="say" aria-expanded="false" aria-controls="words" aria-label="Say a word to Sam">
+      <img src="../../assets/kings/frost.webp" alt="">
+    </button>
+    <div class="who">
+      <b class="name">You</b>
+      <span class="sub" id="you-sub">Frost · Freeze</span>
+      <span class="bubble" id="you-bubble" role="status" hidden></span>
+    </div>
+    <span class="presence" id="you-presence"></span>
+  </section>
+
+  <section class="context" id="context" aria-live="polite">
+    <div class="ctx-msg" id="ctx-msg">
+      <div class="ctx-head">
+        <p class="eyebrow" id="ctx-eyebrow"></p>
+        <button type="button" class="btn btn-quiet ctx-action" id="ctx-action" hidden></button>
+      </div>
+      <p class="before" id="ctx-before"></p>
+      <p class="line" id="ctx-line"></p>
+    </div>
+    <div class="words" id="words" role="group" aria-label="Say a word to Sam" hidden>
+      <button type="button" class="chip word">Hello</button>
+      <button type="button" class="chip word">Well played</button>
+      <button type="button" class="chip word">Wow</button>
+      <button type="button" class="chip word">Oops</button>
+    </div>
+  </section>
+
+  <nav class="bar" aria-label="Game">
+    <button type="button" class="btn btn-quiet" id="undo"></button>
+    <button type="button" class="btn btn-primary" id="send"></button>
+    <button type="button" class="btn btn-quiet" id="moves" hidden></button>
+    <button type="button" class="btn btn-quiet" id="menu"></button>
+  </nav>
+
+  <!-- The result: one card for both players, in the place of your plate, the context and the bar. -->
+  <section class="result" id="result" aria-labelledby="result-title" hidden>
+    <h2 class="display result-title" id="result-title">King Down</h2>
+    <div class="result-kings">
+      <figure class="rk rk-you">
+        <img src="../../assets/kings/frost.webp" alt="">
+        <figcaption><b>You</b><span>Win</span></figcaption>
+      </figure>
+      <figure class="rk rk-them">
+        <span class="bubble bubble-up" id="result-bubble">“Well played”</span>
+        <img src="../../assets/kings/flame-b.webp" alt="" id="result-fallen">
+        <figcaption><b>Sam</b><span>King down</span></figcaption>
+      </figure>
+    </div>
+    <p class="result-line">Your archer steps to f6. Checkmate.</p>
+    <p class="result-saved"><span id="saved-icon"></span>Sam sees the same result.</p>
+    <div class="result-actions">
+      <button type="button" class="btn btn-primary" id="rematch">Rematch</button>
+      <button type="button" class="btn btn-quiet" id="review">Review</button>
+    </div>
+  </section>
+</main>
+
+<!-- The stage: the invite preview, and the waiting table of a live game. -->
+<section class="stage night" id="stage" hidden>
+  <div class="stage-inner">
+    <p class="mode-tag" id="stage-tag"></p>
+    <div class="faceoff" aria-hidden="true">
+      <figure class="fk fk-them" id="fk-them"><img src="../../assets/kings/flame-b.webp" alt=""><figcaption>Sam</figcaption></figure>
+      <span class="vs">vs</span>
+      <figure class="fk fk-you"><img src="../../assets/kings/frost.webp" alt=""><figcaption>You</figcaption></figure>
+    </div>
+    <h1 class="display stage-title" id="stage-title"></h1>
+
+    <!-- Invite: what the link opens. -->
+    <div class="invite" id="invite" hidden>
+      <dl class="terms">
+        <div><dt>Mode</dt><dd>Kings' powers</dd></div>
+        <div><dt>Army</dt><dd><div class="army" id="army"></div><small>And a rook and a bishop. Same army for both sides.</small></dd></div>
+        <div><dt>Powers</dt><dd class="powers"><span><img src="../../assets/emblems/flame.webp" alt="">Sam: Strike</span><span><img src="../../assets/emblems/frost.webp" alt="">You: Freeze</span></dd></div>
+        <div><dt>First</dt><dd>You play White. You move first.</dd></div>
+        <div><dt>How</dt><dd>By link. Send the link after each move.</dd></div>
+      </dl>
+      <div class="stage-actions">
+        <button type="button" class="btn btn-primary btn-wide" id="accept">Play</button>
+        <button type="button" class="btn btn-quiet btn-wide" id="decline">Not now</button>
+      </div>
+    </div>
+
+    <!-- Waiting: two kings face each other, one true fact, Cancel. -->
+    <div class="waiting" id="waiting" hidden>
+      <p class="wait-sub" id="wait-sub">Sam has your invite.</p>
+      <div class="fact">
+        <div class="fact-art" aria-hidden="true">
+          <img src="../../assets/pieces/ogre-w.webp" alt="">
+          <span class="fact-arrow"></span>
+          <img src="../../assets/pieces/guard-b.webp" alt="">
+        </div>
+        <div><p class="fact-kicker">Did you know?</p><p class="fact-text">An ogre can shove a guard.</p></div>
+      </div>
+      <p class="wait-rules">Kings' powers · Random army · You move first</p>
+      <div class="stage-actions">
+        <button type="button" class="btn btn-quiet btn-wide" id="cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- The move story: option C opens the game on it; Moves opens it in a live game. -->
+<dialog class="sheet" id="story-sheet" aria-labelledby="story-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="story-title">Since your last turn</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body">
+    <ol class="story-list" id="story-list"></ol>
+    <button type="button" class="btn btn-primary btn-wide" id="story-go" autofocus>To the board</button>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="menu-sheet" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title">Game with Sam</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body">
+    <label class="row"><span>Show Sam's words<small>Sam does not see this.</small></span><input type="checkbox" class="toggle" id="words-on" checked></label>
+    <button type="button" class="row menu-row" data-todo>Copy the game link</button>
+    <button type="button" class="row menu-row" data-todo>Leave game</button>
+    <button type="button" class="row menu-row" data-todo>Block or report Sam</button>
+  </div>
+</dialog>
+
+<script type="module" src="online.js"></script>
+</body>
+</html>

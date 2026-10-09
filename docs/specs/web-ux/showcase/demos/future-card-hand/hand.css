@@ -1,0 +1,283 @@
+/* Card mode: the hand. Three homes for six cards, one reading card, one reveal. */
+
+html, body { height: 100%; }
+body { overflow: hidden; }
+
+.app {
+  --strip: 48px;
+  height: 100dvh; max-width: 560px; margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas: 'them' 'board' 'you' 'hand' 'ctx' 'bar';
+  padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-3) max(var(--space-2), env(safe-area-inset-bottom));
+}
+.table, .side { display: contents; }
+.head { display: none; }
+.strip-them { grid-area: them; }
+.board-host { grid-area: board; min-height: 0; margin: 2px 0; }
+.strip-you { grid-area: you; }
+.hand { grid-area: hand; min-width: 0; }
+.ctx { grid-area: ctx; }
+.bar { grid-area: bar; }
+
+/* Option B: the fan rests at the bottom edge, under the context area. */
+.app[data-opt='b'] { grid-template-rows: auto auto auto minmax(0, 1fr) auto auto; grid-template-areas: 'them' 'board' 'you' 'ctx' 'hand' 'bar'; }
+/* Option C: no hand row; the coins sit in your strip. */
+.app[data-opt='c'] { grid-template-rows: auto auto auto 0 minmax(0, 1fr) auto; }
+
+/* ---- the two strips: a small king, a name, played cards, the count ---- */
+.strip {
+  display: flex; align-items: center; gap: var(--space-2);
+  min-height: var(--strip); min-width: 0;
+}
+.portrait {
+  width: 36px; height: 36px; flex: none; border-radius: 50%;
+  object-fit: cover; object-position: 50% 12%;
+  background: radial-gradient(circle at 50% 35%, #fffaf0, var(--parchment-deep));
+  border: 1.5px solid var(--stone-500);
+}
+.strip-them .portrait { background: radial-gradient(circle at 50% 35%, #6b625a, var(--stone-900)); border-color: var(--stone-700); }
+.who { min-width: 0; line-height: 1.15; }
+.who b { display: block; font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: 0.05em; }
+.who small { display: block; font-size: var(--fs-xs); color: var(--ink-soft); white-space: nowrap; }
+.strip .grow { flex: 1; }
+.turn-dot {
+  width: 9px; height: 9px; flex: none; border-radius: 50%;
+  background: transparent; border: 1.5px solid transparent;
+}
+.strip.is-turn .turn-dot { background: var(--gold); border-color: var(--gold-ink); }
+
+/* Played cards: a short row of small chips. A played card stays readable. */
+.played { display: flex; gap: 4px; min-width: 0; overflow: hidden; }
+.pchip {
+  display: inline-flex; align-items: center; gap: 3px; height: 26px; padding: 0 8px 0 3px;
+  font-size: var(--fs-xs); font-weight: 700; color: var(--ink-soft); white-space: nowrap;
+  background: var(--stone-100); border: 1px solid var(--stone-300); border-radius: var(--radius-pill);
+}
+.pchip img, .pchip .icon { width: 20px; height: 20px; filter: grayscale(0.55); }
+.pchip .icon { width: 16px; height: 16px; margin: 0 2px; }
+
+/* Their hand: a count only. Hands are private. */
+.count {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px 0 6px;
+  font-weight: 700; font-size: var(--fs-sm); color: var(--ink); white-space: nowrap;
+  background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius-pill);
+}
+.cback {
+  width: 14px; height: 19px; flex: none; border-radius: 3px;
+  background: repeating-linear-gradient(45deg, var(--accent) 0 3px, var(--accent-deep) 3px 6px);
+  border: 1.5px solid var(--gold); box-shadow: 3px -2px 0 -0.5px var(--vellum), 3px -2px 0 0.5px var(--stone-500);
+}
+.count.is-face { padding-left: 3px; border-color: var(--gold); background: #fff6dc; color: var(--gold-ink); }
+.count.is-face img { width: 24px; height: 24px; }
+
+/* ---- option A: the folded hand ---- */
+.hand-toggle {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%;
+  min-height: var(--tap); padding: 0 var(--space-3);
+  font-weight: 700; text-align: left; color: var(--ink); cursor: pointer;
+  background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius);
+  transition: border-color var(--dur-1), background-color var(--dur-1);
+}
+@media (hover: hover) { .hand-toggle:hover { border-color: var(--stone-500); } }
+.hand-toggle .icon { color: var(--accent); }
+.hand-toggle .lbl { flex: 1; display: flex; align-items: baseline; gap: 6px; }
+.hand-toggle .num { display: inline-block; min-width: 0.6em; font-variant-numeric: tabular-nums; }
+.hand-toggle .pill { font-weight: 600; }
+.hand-toggle .chev { color: var(--ink-soft); transition: transform var(--dur-2) var(--ease-out); }
+.hand-toggle[aria-expanded='true'] .chev { transform: rotate(180deg); }
+.hand-toggle[aria-expanded='true'] { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+
+.hand-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px;
+  padding: 5px; background: var(--parchment-deep);
+  border: 1px solid var(--stone-300); border-top: 0; border-radius: 0 0 var(--radius) var(--radius);
+}
+.hand-grid[hidden] { display: none; }
+.htab {
+  position: relative; display: flex; align-items: center; gap: 6px; min-width: 0;
+  min-height: 46px; padding: 3px 4px 3px 3px; text-align: left; cursor: pointer;
+  background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius);
+  box-shadow: 0 1px 0 rgba(43, 38, 33, 0.12);
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-1), box-shadow var(--dur-1);
+}
+.htab:active { transform: translateY(1px); }
+.htab[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1.5px var(--accent) inset, 0 2px 6px rgba(132, 44, 33, 0.18); }
+.htab .art { width: 30px; height: 30px; flex: none; display: grid; place-items: center; }
+.htab .art img { width: 30px; height: 30px; object-fit: contain; }
+.htab .medal { width: 27px; height: 27px; }
+.htab .medal .icon { width: 15px; height: 15px; }
+.htab .txt { min-width: 0; line-height: 1.1; }
+.htab b { display: flex; align-items: center; gap: 3px; font-family: var(--font-display); font-size: 13px; letter-spacing: 0.04em; white-space: nowrap; }
+.htab small { display: flex; align-items: center; gap: 3px; margin-top: 3px; font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
+.htab small .icon, .fcard small .icon { width: 11px; height: 11px; stroke-width: 2.4; flex: none; }
+.htab.is-locked .art img, .htab.is-locked .art .medal { filter: grayscale(0.85) opacity(0.7); }
+.htab.is-locked small { color: var(--ink-soft); }
+/* A rare card: a gold edge and a star, never colour alone. */
+.htab.is-rare, .fcard.is-rare { border-color: var(--gold); box-shadow: 0 0 0 1px #f1dca6 inset, 0 1px 0 rgba(43, 38, 33, 0.12); }
+.htab.is-rare[aria-pressed='true'] { border-color: var(--accent); }
+.star { width: 12px; height: 12px; color: var(--gold-ink); stroke-width: 2.2; }
+
+/* A card with no king art: a struck medal with a line icon. */
+.medal {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  color: var(--vellum); background: radial-gradient(circle at 40% 35%, #a8503f, var(--accent-deep));
+  border: 1.5px solid var(--gold); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.medal .icon { width: 17px; height: 17px; stroke-width: 2; }
+.medal.is-rare { background: radial-gradient(circle at 40% 35%, #f3d68c, #9b7420); color: var(--stone-900); border-color: #fff1c4; }
+
+/* ---- the context area: one place for every line and every reading card ---- */
+.ctx { min-height: 0; overflow: hidden; padding: var(--space-2) 0 4px; display: flex; flex-direction: column; }
+.status { margin: 0; }
+.status .turn { margin: 0; font-weight: 700; font-size: var(--fs-lg); display: flex; align-items: center; gap: var(--space-2); }
+.status .sub { margin: 2px 0 0; color: var(--ink-soft); }
+.status .sub b { color: var(--ink); }
+.status.is-check .turn { color: var(--accent); }
+.status.is-check .turn::before {
+  content: ''; width: 18px; height: 18px; flex: none; border-radius: 50%;
+  border: 2.5px solid var(--accent); box-shadow: 0 0 0 2px rgba(214, 52, 40, 0.15);
+}
+
+/* the reading card: the same for a piece and a card */
+.rc {
+  position: relative; display: grid; grid-template-columns: 60px minmax(0, 1fr); column-gap: var(--space-3); row-gap: 2px;
+  padding: var(--space-3); background: var(--vellum);
+  border: 1px solid var(--stone-300); border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+  transform-origin: 50% 0;
+}
+.rc.is-rare { border-color: var(--gold); }
+.rc-art { grid-row: 1 / 3; width: 60px; height: 60px; display: grid; place-items: center; align-self: start; }
+.rc-art img { width: 60px; height: 60px; object-fit: contain; }
+.rc[data-kind='piece'] .rc-art { background: radial-gradient(circle at 50% 60%, var(--parchment-deep), transparent 70%); border-radius: 50%; }
+.rc[data-kind='piece'] .rc-art img { height: 64px; object-position: 50% 100%; }
+.rc-art .medal { width: 52px; height: 52px; }
+.rc-art .medal .icon { width: 28px; height: 28px; }
+.rc-kicker { margin: 0; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold-ink); display: flex; align-items: center; gap: 6px; }
+.rc-name { margin: 0; font-family: var(--font-display); font-size: var(--fs-xl); letter-spacing: 0.05em; line-height: 1.1; }
+.rc-line { grid-column: 2; margin: 2px 0 0; line-height: 1.3; }
+.rc-foot { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); flex-wrap: wrap; }
+.rc-timing { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-sm); font-weight: 700; color: var(--ink-soft); }
+.rc-timing .icon { width: 15px; height: 15px; }
+.rc-why { font-size: var(--fs-sm); color: var(--ink-soft); display: inline-flex; align-items: center; gap: 5px; }
+.rc .btn { padding: 8px 16px; }
+.rc-sheen { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; overflow: hidden; }
+.rc-sheen i {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 45%; opacity: 0;
+  background: linear-gradient(100deg, transparent, rgba(233, 192, 113, 0.6), transparent);
+}
+.ctx .is-theirs + .status { margin-top: var(--space-2); }
+.rc-kicker .sq { text-transform: none; letter-spacing: 0.02em; }
+
+@media (max-width: 899px) {
+  .rc { grid-template-columns: 48px minmax(0, 1fr); column-gap: var(--space-3); padding: 10px 12px; }
+  .rc-art, .rc-art img { width: 48px; height: 48px; }
+  .rc[data-kind='piece'] .rc-art img { height: 54px; }
+  .rc-art .medal { width: 42px; height: 42px; }
+  .rc-name { font-size: 20px; }
+  .rc-line { font-size: 15px; }
+  .rc-foot { margin-top: 4px; }
+  .rc-line { line-height: 1.25; }
+  .app[data-open='true'] .rc-kicker { display: none; }
+  .app[data-open='true'] .rc-art { grid-row: 1 / 3; }
+}
+
+/* armed and the second beat of a turn */
+.armed {
+  display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  background: #eef4ff; border: 1px solid #a9c4ec; border-radius: var(--radius-lg);
+}
+.armed .art { width: 36px; height: 36px; flex: none; display: grid; place-items: center; }
+.armed .art img { width: 36px; height: 36px; object-fit: contain; }
+.armed p { flex: 1; margin: 0; line-height: 1.25; }
+.armed p b { font-family: var(--font-display); letter-spacing: 0.04em; }
+.pips { display: inline-flex; gap: 4px; align-items: center; }
+.pips i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--ink-soft); }
+.pips i.on { background: var(--ink); border-color: var(--ink); }
+.ctx .after { margin: var(--space-2) 0 0; display: flex; align-items: center; gap: var(--space-2); font-weight: 700; }
+.ctx .after .btn { margin-left: auto; padding: 6px 14px; }
+.ctx .note { margin: var(--space-2) 0 0; color: var(--ink-soft); font-size: var(--fs-sm); }
+
+/* ---- option B: card tops at the edge that fan up on your turn ---- */
+.fan {
+  position: relative; display: flex; justify-content: center; align-items: flex-end;
+  height: 128px; padding: 20px 0 10px; overflow: hidden;
+}
+.fan[hidden] { display: none; }
+.fcard {
+  --r: 0deg; --y: 0px;
+  position: relative; flex: none; width: 58px; height: 82px; margin: 0 -1px;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px;
+  padding: 6px 2px 4px; cursor: pointer;
+  background: linear-gradient(var(--vellum), #f1e6cd); border: 1px solid var(--stone-500); border-radius: 7px;
+  box-shadow: 0 3px 8px rgba(43, 38, 33, 0.18);
+  /* --r and --y (inline) place a card in the fan; --rest and --raise (rules) move it from there. */
+  transform: translateY(calc(var(--y) + var(--rest, 0px) + var(--raise, 0px))) rotate(calc(var(--r) * var(--tilt, 1))); transform-origin: 50% 120%;
+  transition: transform var(--dur-3) var(--ease-out), box-shadow var(--dur-2);
+}
+.fcard img { width: 34px; height: 34px; object-fit: contain; }
+.fcard .medal { width: 30px; height: 30px; margin: 2px 0; }
+.fcard b { font-family: var(--font-display); font-size: 11px; letter-spacing: 0.02em; line-height: 1.1; }
+.fcard small { display: flex; color: var(--ink-soft); }
+.fcard[aria-pressed='true'] { --raise: -12px; --tilt: 0; z-index: 2; border-color: var(--accent); box-shadow: 0 0 0 1.5px var(--accent) inset, 0 8px 16px rgba(43, 38, 33, 0.25); }
+/* On their turn the cards sink: only the art at the top of each card shows. The fan's height stays, so nothing else moves. */
+.fan.is-resting { --rest: 54px; }
+
+/* ---- option C: cards as coins by the king ---- */
+.coins { display: flex; gap: 1px; margin-left: auto; }
+.app[data-opt='c'] .strip-you .who small, .app[data-opt='c'] .strip-you .turn-dot, .app[data-opt='c'] .strip-you .grow { display: none; }
+.coins[hidden] { display: none; }
+.coin {
+  position: relative; width: var(--tap); height: var(--tap); padding: 0; flex: none; cursor: pointer;
+  display: grid; place-items: center; border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #fffaf0, var(--parchment-deep));
+  border: 1.5px solid var(--gold); box-shadow: 0 1px 0 var(--stone-500);
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-1);
+}
+.coin img { width: 32px; height: 32px; object-fit: contain; }
+.coin .medal { width: 30px; height: 30px; border: 0; }
+.coin[aria-pressed='true'] { box-shadow: 0 0 0 2.5px var(--accent), 0 2px 6px rgba(43, 38, 33, 0.25); transform: translateY(-2px); }
+.coin.is-rare { border-color: var(--gold-ink); border-width: 2.5px; }
+
+/* ---- the bar: Hint, Undo, Menu ---- */
+.bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); padding-top: var(--space-2); }
+.bar .btn { gap: 6px; padding: 6px 4px; font-size: var(--fs-sm); }
+
+/* the ice ring on a frozen piece: a crystal ring (a shape, not only a colour) */
+.ice { position: absolute; width: 12.5%; height: 12.5%; z-index: 4; pointer-events: none; }
+.ice svg { width: 100%; height: 100%; overflow: visible; }
+.ice-badge { position: absolute; z-index: 100; width: 5.2%; height: 5.2%; margin: 0.4% 0 0 7%; pointer-events: none; }
+.ice-badge svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 1px rgba(15, 34, 68, 0.5)); }
+
+/* ---- desktop: the board on the left. In the column: their strip, the one context area, then you, the hand and the bar.
+   You and the hand toggle never move: the hand keeps the room of the open grid. ---- */
+@media (min-width: 900px) {
+  .app {
+    --strip: 60px;
+    max-width: 1320px; padding: var(--space-5) var(--space-6);
+    grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: 'table side'; column-gap: var(--space-6);
+  }
+  .app[data-opt] { grid-template-rows: minmax(0, 1fr); grid-template-areas: 'table side'; }
+  .table { display: flex; grid-area: table; min-height: 0; }
+  .board-host { flex: 1; margin: 0; }
+  .side { display: flex; flex-direction: column; grid-area: side; min-height: 0; gap: var(--space-2); }
+  .side > * { order: 2; }
+  .side > .head, .side > .strip-them, .side > .ctx { order: 1; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding-bottom: var(--space-3); border-bottom: 1px solid var(--stone-300); }
+  .head h1 { margin: 0; font-size: var(--fs-xl); }
+  .strip { padding: 0 var(--space-1); }
+  .portrait { width: 46px; height: 46px; }
+  .ctx { flex: 1; padding: var(--space-3) var(--space-1) 0; border-top: 1px solid var(--stone-300); }
+  .htab { min-height: 56px; }
+  .hand-grid { padding: 8px; gap: 8px; }
+  /* the toggle and the room of the open grid (two rows of 56 px, two gaps and the padding of 8 px, one border) */
+  .app[data-opt='a'] .hand { flex: none; height: calc(var(--tap) + 137px); }
+  .fan { height: 132px; }
+  .fcard { width: 60px; height: 86px; margin: 0 -1px; }
+  .fcard img { width: 38px; height: 38px; }
+}
+
+
+/* reduced motion: the kit tokens are 0 ms; nothing here loops */

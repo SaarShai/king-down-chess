@@ -1,0 +1,316 @@
+/* Arena: two kings meet across the board. A warm dark floor, a faint ember glow on Flame's side
+   and a faint frost glow on yours. Cards only for pieces and powers; navigation stays plain. */
+
+:root {
+  --frost: #8fbcff;          /* Frost's rim */
+  --frost-deep: #2f5ea8;
+  --flame: #e0703a;          /* Flame's rim */
+  --flame-deep: #8a2a12;
+  --plate-line: rgba(233, 192, 113, 0.22);
+  --tile-bg: #2c2520;
+  --portrait: 48px;
+}
+html, body { height: 100%; }
+body {
+  overflow: hidden;
+  color: var(--on-night);
+  background:
+    radial-gradient(120% 40% at 50% -6%, rgba(196, 82, 38, 0.20), rgba(196, 82, 38, 0) 70%),
+    radial-gradient(120% 40% at 50% 106%, rgba(96, 150, 230, 0.16), rgba(96, 150, 230, 0) 70%),
+    var(--night);
+}
+
+/* ---- the frame of the screen ---- */
+.app.night { background: transparent; }
+/* An armed power fades your own figures, so the enemy targets stand out. They keep their light tone: yours stay yours. */
+#board.is-arming .kdb-fig[data-piece^='w '] img { opacity: 0.55; filter: saturate(0.5) brightness(0.85); }
+#board.is-arming .kdb-fig[data-piece='b king'] img { filter: brightness(0.6) saturate(0.6); }
+.app {
+  height: 100dvh; max-width: 460px; margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  /* The top row has a fixed height, so nothing below the board (a card, the result) can move the board. */
+  grid-template-rows: clamp(8px, 8dvh, 72px) auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas: '.' 'them' 'board' 'me' 'ctx' 'bar';
+  padding: max(6px, env(safe-area-inset-top)) 8px max(6px, env(safe-area-inset-bottom));
+}
+.plate-them { grid-area: them; }
+.board { grid-area: board; margin: 4px 0; }
+.plate-me { grid-area: me; }
+.side { display: contents; }
+.ctx, .tray { grid-area: ctx; min-height: 0; }
+.bar { grid-area: bar; }
+
+/* ---- nameplates: no frame, a portrait, a name, a line, and the power coin ---- */
+.plate {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 60px; padding: 4px 4px;
+}
+.portrait {
+  position: relative; flex: none;
+  width: max(var(--tap), calc(var(--portrait) + 8px)); height: max(var(--tap), calc(var(--portrait) + 8px));
+  display: grid; place-items: center;
+  padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; color: inherit;
+}
+.portrait-face {
+  position: relative; display: block; overflow: hidden;
+  width: var(--portrait); height: var(--portrait); border-radius: 50%;
+  border: 2px solid var(--rim); box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35), 0 0 14px -2px var(--rim);
+  background: radial-gradient(circle at 50% 30%, #4a3f36, #1a1511);
+  transition: box-shadow var(--dur-2) var(--ease-out), filter var(--dur-3) var(--ease-out);
+}
+.portrait-face img { position: absolute; max-width: none; width: 190%; left: var(--px, -45%); top: var(--py, -4%); }
+.plate-me { --rim: var(--frost); }
+.plate-them { --rim: var(--flame); }
+.plate-me .portrait-face img { --px: -50%; --py: -2%; }
+.plate-them .portrait-face img { --px: -45%; --py: -3%; width: 200%; }
+/* The turn token: a gold disc with a crown on the portrait of the side to move. */
+.token {
+  position: absolute; right: -2px; bottom: -2px; width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; color: #3a2408;
+  background: radial-gradient(circle at 35% 30%, #fff1c4, var(--gold-bright) 45%, #a8771f);
+  box-shadow: 0 0 0 2px var(--night), 0 2px 6px rgba(0, 0, 0, 0.5);
+  opacity: 0; transform: scale(0.4);
+  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-spring);
+}
+.token .icon { width: 14px; height: 14px; stroke-width: 2.2; }
+.plate.is-turn .token { opacity: 1; transform: none; }
+.who { min-width: 0; flex: 1; }
+.who-name { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-lg); letter-spacing: 0.06em; line-height: 1.15; }
+.who-line { margin: 1px 0 0; font-size: var(--fs-sm); color: var(--on-night-soft); line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.plate.is-turn .who-line { color: var(--on-night); font-weight: 700; }
+.plate.is-check .portrait-face { border-color: #ff7a6b; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35), 0 0 0 5px rgba(224, 40, 40, 0.55); }
+.check-tag {
+  display: none; margin-left: 6px; padding: 0 7px; border-radius: var(--radius-pill);
+  font-family: var(--font-body); font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.04em; vertical-align: 2px;
+  color: #fff4ef; background: #a3231a; border: 1px solid #ff8e80;
+}
+.plate.is-check .check-tag { display: inline-block; }
+.plate.is-out .portrait-face { filter: grayscale(0.9) brightness(0.7); }
+
+/* ---- the power coin ---- */
+.power {
+  display: flex; align-items: center; gap: 8px; flex: none;
+  min-height: var(--tap); padding: 0 10px 0 0; margin: 0;
+  background: none; border: 0; border-radius: var(--radius-pill); color: inherit; cursor: pointer; text-align: left;
+  perspective: 400px;
+}
+.coin {
+  position: relative; flex: none; width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 40%, #3b322a, #17120e 75%);
+  border: 2px solid rgba(233, 192, 113, 0.75);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), border-color var(--dur-2), filter var(--dur-3);
+  transform-style: preserve-3d;
+}
+.coin img { width: 34px; height: 34px; object-fit: contain; }
+/* One notch for each use: a small gold pip under the coin. */
+.coin::after {
+  content: ''; position: absolute; bottom: -5px; left: 50%; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%;
+  background: var(--gold-bright); box-shadow: 0 0 0 2px var(--night);
+}
+.power-text { display: grid; line-height: 1.2; }
+.power-name { font-weight: 800; font-size: var(--fs-md); }
+.power-uses { font-size: var(--fs-xs); color: var(--on-night-soft); font-weight: 600; letter-spacing: 0.02em; }
+@media (hover: hover) { .power:hover .coin { transform: translateY(-2px); } }
+.power[aria-pressed='true'] .coin {
+  transform: translateY(-3px) scale(1.06); border-color: #cfe3ff;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.45), 0 0 0 4px rgba(96, 160, 255, 0.45), 0 0 18px rgba(96, 160, 255, 0.6);
+}
+.power.is-used .coin { filter: grayscale(1) brightness(0.62); border-color: var(--stone-500); }
+.power.is-used .coin::after { background: transparent; box-shadow: 0 0 0 2px var(--night), inset 0 0 0 1.5px var(--stone-500); }
+.power.is-revealed .coin { border-color: #ffc59c; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.45), 0 0 0 4px rgba(224, 112, 58, 0.45), 0 0 22px rgba(224, 112, 58, 0.7); }
+.power.is-revealed .power-name { color: #ffd2b5; }
+.power:disabled { cursor: default; }
+
+/* ---- the context area: the tray at rest; a card, a prompt or the result when needed ---- */
+.ctx { display: none; position: relative; z-index: 2; }
+.app[data-ctx]:not([data-ctx='']) .ctx { display: block; }
+.app[data-ctx]:not([data-ctx='']) .tray { visibility: hidden; }
+
+.tray { padding: 10px 2px 0; }
+.tray-head { display: flex; align-items: center; gap: 8px; margin: -6px 0 4px 2px; }
+.tray-head h2 { margin: 0; font-family: var(--font-display); font-size: var(--fs-xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--on-night-soft); font-weight: 700; }
+.tray-last { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-sm); color: var(--on-night-soft); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tray-fold {
+  flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap); margin-left: auto; padding: 0;
+  border: 0; border-radius: 50%; background: none; color: var(--on-night-soft); cursor: pointer;
+}
+@media (hover: hover) { .tray-fold:hover { color: var(--on-night); background: rgba(255, 255, 255, 0.05); } }
+.tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.tile {
+  position: relative; width: 100%; height: 92px; padding: 0; overflow: hidden; cursor: pointer;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch;
+  color: var(--on-night); background: linear-gradient(#3a3029, var(--tile-bg) 70%);
+  border: 1px solid rgba(233, 192, 113, 0.28); border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-1);
+}
+.tile[data-side='me'] { border-color: rgba(143, 188, 255, 0.55); }
+.tile[data-side='them'] { border-color: rgba(224, 112, 58, 0.5); }
+.tile-art { position: absolute; inset: 4px 6px 22px; display: grid; place-items: start center; overflow: hidden; }
+.tile-art img { width: 100%; height: 150%; object-fit: cover; object-position: 50% 4%; }
+.tile-emblem { position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8)); }
+.tile-foot {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 3px;
+  height: 22px; font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.03em;
+  background: rgba(16, 12, 9, 0.88); border-top: 1px solid rgba(233, 192, 113, 0.2);
+}
+.tile-foot .icon { width: 13px; height: 13px; stroke-width: 2.4; }
+.tile.is-power { border-color: #ffb07e; box-shadow: 0 0 0 1px rgba(224, 112, 58, 0.5), 0 0 14px rgba(224, 112, 58, 0.4); }
+.tile.is-power .tile-foot { background: linear-gradient(90deg, #5c1d0d, #2a120a); }
+.tile.is-new { border-width: 2px; }
+.tile .tile-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (hover: hover) { .tile:hover { transform: translateY(-2px); } }
+
+/* Option B: the tray folds into one chip. */
+.tray-chip {
+  display: none; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 6px 14px 6px 6px;
+  color: var(--on-night); background: rgba(255, 255, 255, 0.04); text-align: left; cursor: pointer;
+  border: 1px solid var(--plate-line); border-radius: var(--radius-pill);
+}
+.tray-chip img { width: 36px; height: 36px; object-fit: cover; object-position: 50% 6%; border-radius: 50%; background: var(--tile-bg); }
+.tray-chip span { flex: 1; min-width: 0; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tray-chip b { color: var(--on-night-soft); font-size: var(--fs-xs); letter-spacing: 0.08em; text-transform: uppercase; }
+.app.is-folded .tray-chip { display: flex; }
+.app.is-folded .tiles, .app.is-folded .tray-head { display: none; }
+/* Option B also makes the kings small. */
+.app.is-small { --portrait: 32px; }
+.app.is-small .plate { min-height: 48px; }
+.app.is-small .token { width: 16px; height: 16px; right: 0; bottom: 0; }
+.app.is-small .token .icon { width: 10px; height: 10px; }
+
+/* ---- cards: a piece card, a power card ---- */
+.kcard {
+  position: relative; display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 14px; align-items: start;
+  margin-top: 10px; padding: 12px 12px 12px 12px;
+  color: var(--ink); background: linear-gradient(#fbf6ea, #efe3c8);
+  border: 1px solid #b89a5e; border-radius: 14px;
+  box-shadow: inset 0 0 0 3px rgba(251, 246, 234, 0.9), inset 0 0 0 4px rgba(184, 154, 94, 0.5), 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.kcard-art {
+  position: relative; height: 104px; border-radius: 9px; overflow: hidden; display: grid; place-items: end center;
+  background: radial-gradient(circle at 50% 40%, #5b4b3d, #231c16);
+  border: 1px solid #7b6440;
+}
+.kcard-art img { height: 98%; width: auto; max-width: 120%; object-fit: contain; }
+.kcard.is-power .kcard-art { background: radial-gradient(circle at 50% 45%, #a8481c, #3a130a 75%); border-color: #b8552a; place-items: center; }
+.kcard.is-power .kcard-art img { height: 82%; }
+.kcard-kicker { margin: 0; font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-ink); }
+.kcard.is-power .kcard-kicker { color: #8a2a12; }
+.kcard h2 { margin: 0 0 4px; font-family: var(--font-display); font-size: var(--fs-xl); letter-spacing: 0.05em; line-height: 1.1; padding-right: 36px; }
+.kcard p { margin: 0; line-height: 1.32; }
+.kcard .kcard-rule { font-weight: 700; }
+.kcard .kcard-more { margin-top: 4px; color: var(--ink-soft); font-size: var(--fs-sm); }
+.app .kcard .btn.close { position: absolute; top: 2px; right: 2px; color: var(--ink); }
+
+/* ---- a prompt: the armed power, or the next step ---- */
+.prompt {
+  display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 10px 10px 10px 14px;
+  border: 1px solid rgba(143, 188, 255, 0.5); border-radius: 14px; background: rgba(47, 94, 168, 0.18);
+}
+.prompt-rune { flex: none; width: 38px; height: 38px; }
+.prompt p { margin: 0; flex: 1; font-weight: 700; line-height: 1.3; }
+.prompt p small { display: block; font-weight: 400; color: var(--on-night-soft); font-size: var(--fs-sm); }
+.prompt .btn { flex: none; }
+
+/* ---- the result ---- */
+.result { margin-top: 8px; text-align: center; }
+.result h2 { margin: 0; font-family: var(--font-display); font-size: var(--fs-2xl); letter-spacing: 0.1em; color: var(--gold-bright); line-height: 1.1; }
+.result-line { margin: 2px 0 10px; color: var(--on-night); font-weight: 700; }
+.moments { list-style: none; margin: 0 0 12px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+/* A key moment: the full figure and a caption of two words or fewer. Not a button: it only tells. */
+.moment {
+  position: relative; display: flex; align-items: center; gap: 6px; height: 56px; padding: 0 8px 0 4px; overflow: hidden;
+  background: linear-gradient(#3a3029, var(--tile-bg) 70%); border: 1px solid rgba(233, 192, 113, 0.28); border-radius: 10px;
+  text-align: left;
+}
+.moment[data-side='me'] { border-color: rgba(143, 188, 255, 0.55); }
+.moment[data-side='them'] { border-color: rgba(224, 112, 58, 0.5); }
+.moment.is-power { border-color: #ffb07e; background: linear-gradient(90deg, #5c1d0d, #2a120a); }
+.moment-art { flex: none; width: 36px; height: 50px; object-fit: contain; object-position: 50% 100%; }
+.moment-emblem { position: absolute; left: 26px; bottom: 3px; width: 18px; height: 18px; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8)); }
+.moment-cap { min-width: 0; font-size: var(--fs-sm); font-weight: 800; line-height: 1.15; }
+.result-actions { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
+.app.is-over .power { opacity: 0.7; }
+
+
+/* ---- the bar: plain, no frames ---- */
+.bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding-top: 4px; border-top: 1px solid var(--plate-line); }
+.nav {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 52px; padding: 4px; border: 0; border-radius: 10px; background: none; cursor: pointer;
+  color: var(--on-night-soft); font-size: var(--fs-sm); font-weight: 600;
+  transition: color var(--dur-1), background-color var(--dur-1);
+}
+@media (hover: hover) { .nav:hover { color: var(--on-night); background: rgba(255, 255, 255, 0.05); } }
+.nav:disabled { opacity: 0.45; cursor: default; }
+
+/* A king that falls on the g or h file tips to the left, onto the board, not past its edge (the kit tips it right). */
+#board .kdb-fig.is-fallen.fall-left img { rotate: -78deg; translate: 0 6%; }
+
+/* ---- board overlays: the trail of a power move, the cause line ---- */
+.arena-fx { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 100; }
+.ice-badge {
+  position: absolute; width: 12.5%; height: 12.5%; pointer-events: none; z-index: 60;
+  display: grid; place-items: start center;
+}
+.ice-badge span {
+  margin-top: 2%; padding: 0 5px; border-radius: 6px; font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.02em; line-height: 1.3;
+  color: #0f2244; background: #dcebff; border: 1px solid #2f5ea8;
+}
+
+/* ---- desktop: the board in the middle, the plates on it, the context and tray beside it ---- */
+:root[data-layout='desktop'] { --portrait: 52px; }
+:root[data-layout='desktop'] .app {
+  max-width: none; height: 100dvh;
+  --bw: min(calc((100dvh - 196px) / 1.024), 760px);
+  grid-template-columns: var(--bw) 340px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'them side' 'board side' 'me side';
+  justify-content: center; column-gap: 48px;
+  padding: 20px 40px;
+}
+:root[data-layout='desktop'] .board { margin: 6px 0; }
+:root[data-layout='desktop'] .side {
+  grid-area: side; display: flex; flex-direction: column; min-height: 0;
+  padding: 64px 0 10px;
+}
+:root[data-layout='desktop'] .ctx { flex: none; order: 1; }
+:root[data-layout='desktop'] .tray { order: 2; padding: 4px 0 0; }
+:root[data-layout='desktop'] .app[data-ctx]:not([data-ctx='']) .tray { visibility: visible; }
+:root[data-layout='desktop'] .app[data-ctx='result'] .tray { display: none; }
+:root[data-layout='desktop'] .ctx .kcard, :root[data-layout='desktop'] .ctx .prompt, :root[data-layout='desktop'] .ctx .result { margin: 0 0 22px; }
+:root[data-layout='desktop'] .bar { order: 3; border-top: 0; }
+:root[data-layout='desktop'] .tray-head { margin-bottom: 10px; }
+:root[data-layout='desktop'] .tray-last { display: none; }
+/* Beside the board the tray is a column of tiles, newest on top, each with its short line. */
+:root[data-layout='desktop'] .tiles { grid-template-columns: 1fr; gap: 8px; }
+:root[data-layout='desktop'] .tray .tile {
+  height: 58px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; padding: 0 12px 0 0;
+}
+:root[data-layout='desktop'] .tray .tile-art { position: relative; inset: auto; flex: none; width: 52px; height: 56px; border-right: 1px solid rgba(233, 192, 113, 0.18); }
+:root[data-layout='desktop'] .tray .tile-art img { height: 160%; }
+:root[data-layout='desktop'] .tray .tile-foot { order: 3; height: auto; margin-left: auto; padding: 3px 8px; border: 0; border-radius: 6px; }
+:root[data-layout='desktop'] .tray .tile-line { display: block; }
+:root[data-layout='desktop'] .tray .tile-emblem { top: 34px; left: 32px; }
+.tile-line { display: none; flex: 1; min-width: 0; font-size: var(--fs-md); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Beside the board the key moments stand in a column, like the tray. */
+:root[data-layout='desktop'] .moments { grid-template-columns: 1fr; }
+:root[data-layout='desktop'] .moment { height: 58px; gap: 12px; }
+:root[data-layout='desktop'] .moment-cap { font-size: var(--fs-md); }
+:root[data-layout='desktop'] .kcard { grid-template-columns: 96px minmax(0, 1fr); padding: 14px; }
+:root[data-layout='desktop'] .kcard-art { height: 128px; }
+:root[data-layout='desktop'] .nav { flex-direction: row; gap: 8px; min-height: 48px; font-size: var(--fs-md); }
+:root[data-layout='desktop'] .who-name { font-size: var(--fs-xl); }
+:root[data-layout='desktop'] .who-line { font-size: var(--fs-md); }
+:root[data-layout='desktop'] .plate { min-height: 68px; }
+
+/* ---- reduced motion: every end frame at once ---- */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .token, :root:not([data-motion='full']) .coin, :root:not([data-motion='full']) .tile,
+  :root:not([data-motion='full']) .portrait-face { transition: none; }
+}
+:root[data-motion='reduce'] .token, :root[data-motion='reduce'] .coin, :root[data-motion='reduce'] .tile,
+:root[data-motion='reduce'] .portrait-face { transition: none; }

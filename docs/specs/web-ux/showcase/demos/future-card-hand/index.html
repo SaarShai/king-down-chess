@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Card mode: the hand</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="hand.css">
+</head>
+<body>
+<div class="app" id="app" data-opt="a">
+  <div class="table">
+    <div class="board-host" id="board"></div>
+  </div>
+
+  <div class="side">
+    <header class="head">
+      <h1 class="display">King Down</h1>
+      <span class="pill pill-gold">Card mode · lab</span>
+    </header>
+
+    <section class="strip strip-them" id="them" aria-label="Your opponent">
+      <img class="portrait" src="../../assets/kings/shadow-b.webp" alt="">
+      <div class="who"><b>Computer</b><small>Casual · Black</small></div>
+      <span class="turn-dot" aria-hidden="true"></span>
+      <span class="grow"></span>
+      <div class="played" id="them-played"></div>
+      <div class="count" id="them-count"></div>
+    </section>
+
+    <section class="strip strip-you" id="you" aria-label="You">
+      <img class="portrait" src="../../assets/kings/spirit.webp" alt="">
+      <div class="who"><b>You</b><small>White</small></div>
+      <span class="turn-dot" aria-hidden="true"></span>
+      <span class="grow"></span>
+      <div class="played" id="you-played"></div>
+      <div class="coins" id="coins" role="group" aria-label="Your cards" hidden></div>
+    </section>
+
+    <section class="hand" id="hand" aria-label="Your cards">
+      <button type="button" class="hand-toggle" id="hand-toggle" aria-expanded="false" aria-controls="hand-grid"></button>
+      <div class="hand-grid" id="hand-grid" hidden></div>
+      <div class="fan" id="fan" role="group" aria-label="Your cards" hidden></div>
+    </section>
+
+    <section class="ctx" id="ctx" aria-live="polite"></section>
+
+    <nav class="bar" aria-label="Game">
+      <button type="button" class="btn btn-quiet" id="hint"></button>
+      <button type="button" class="btn btn-quiet" id="undo"></button>
+      <button type="button" class="btn btn-quiet" id="menu"></button>
+    </nav>
+  </div>
+</div>
+
+<dialog class="sheet" id="menu-sheet" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title">Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body stack">
+    <p class="muted" style="margin:0">Card mode is in the lab. The deal of six cards is not set. This hand is a proposal.</p>
+    <button type="button" class="btn btn-primary btn-wide" id="new-game">New game with cards</button>
+    <div class="row"><span>Where the hand lives</span></div>
+    <div class="cluster" role="group" aria-label="Where the hand lives">
+      <button type="button" class="chip" data-opt="a" aria-pressed="true">Folded</button>
+      <button type="button" class="chip" data-opt="b" aria-pressed="false">At the edge</button>
+      <button type="button" class="chip" data-opt="c" aria-pressed="false">Coins</button>
+    </div>
+  </div>
+</dialog>
+
+<script type="module" src="hand.js"></script>
+</body>
+</html>

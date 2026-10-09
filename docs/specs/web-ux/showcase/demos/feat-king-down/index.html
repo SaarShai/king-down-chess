@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>King Down: the end</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="end.css">
+</head>
+<body>
+<div class="app" id="app" data-phase="play" data-ending="quiet">
+  <header class="top">
+    <div class="plate them">
+      <img class="emblem" src="../../assets/emblems/flame.webp" alt="">
+      <p><b>Flame</b> <span>Computer · Club</span></p>
+    </div>
+    <span class="demo-tag pill pill-gold" id="demo-tag" hidden></span>
+    <button type="button" class="btn btn-icon" id="menu-btn" aria-label="Menu" aria-haspopup="dialog"></button>
+  </header>
+
+  <div class="board-wrap"><div class="board" id="board"></div></div>
+
+  <div class="plate you">
+    <img class="emblem" src="../../assets/emblems/frost.webp" alt="">
+    <p><b>Frost</b> <span>You</span></p>
+  </div>
+
+  <section class="ctx" id="ctx" aria-label="Game">
+    <!-- During play: the turn line, Hint and Undo -->
+    <div class="pane pane-play">
+      <div class="say">
+        <p class="say-title" id="play-title" aria-live="polite">Your move</p>
+        <p class="say-sub" id="play-sub">Mate in one. Find it.</p>
+      </div>
+      <div class="bar">
+        <button type="button" class="btn btn-quiet" id="hint"></button>
+        <button type="button" class="btn btn-quiet" id="undo"></button>
+      </div>
+    </div>
+
+    <!-- The end of the game: outcome first, then one tap to play again -->
+    <div class="pane pane-end" id="pane-end">
+      <div class="end-head">
+        <p class="eyebrow" id="end-eyebrow">Checkmate · Move 24</p>
+        <h2 class="end-title display" id="end-title" tabindex="-1">You win</h2>
+        <p class="cause" id="end-cause"></p>
+      </div>
+      <div class="moments" id="moments"></div>
+      <div class="end-actions">
+        <button type="button" class="btn btn-wide retry" id="retry" hidden></button>
+        <button type="button" class="btn btn-primary btn-wide rematch" id="rematch"><span>Rematch</span><small id="rematch-sub">Same army · Club</small></button>
+        <div class="end-row">
+          <button type="button" class="btn btn-quiet" id="review"></button>
+          <button type="button" class="btn btn-quiet" id="new"></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resign: the Menu asks, and your king leans while you choose -->
+    <div class="pane pane-ask" id="pane-ask" role="group" aria-labelledby="ask-title">
+      <div class="ask-body">
+        <img class="ask-king" src="../../assets/kings/frost.webp" alt="">
+        <div>
+          <h2 class="ask-title display" id="ask-title" tabindex="-1">Lay your king down?</h2>
+          <p class="ask-sub">The computer wins this game.</p>
+        </div>
+      </div>
+      <div class="ask-actions">
+        <button type="button" class="btn" id="ask-keep">Keep playing</button>
+        <button type="button" class="btn btn-primary" id="ask-yes">Lay it down</button>
+      </div>
+    </div>
+
+    <!-- Retry from the costly move: the board went back, a ghost shows a better move -->
+    <div class="pane pane-retry" id="pane-retry">
+      <div class="say">
+        <p class="eyebrow" id="retry-eyebrow">Retry · Move 22</p>
+        <p class="say-title" id="retry-title" tabindex="-1">Your move, again</p>
+        <p class="say-sub" id="retry-sub">Find a move that stops the mate.</p>
+        <div class="km km-last" id="retry-last"></div>
+      </div>
+      <div class="bar">
+        <button type="button" class="btn btn-quiet" id="ghost-again"></button>
+        <button type="button" class="btn btn-quiet" id="back-result"></button>
+      </div>
+    </div>
+
+    <!-- Review of one key moment, from a tile -->
+    <div class="pane pane-moment" id="pane-moment">
+      <div class="say">
+        <p class="eyebrow" id="moment-eyebrow">Move 12</p>
+        <p class="say-title" id="moment-title" tabindex="-1"></p>
+        <p class="say-sub" id="moment-sub"></p>
+      </div>
+      <div class="bar bar-one">
+        <button type="button" class="btn btn-quiet" id="moment-back"></button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<dialog class="sheet" id="menu-sheet" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title">Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body menu-body">
+    <button type="button" class="row menu-row" data-soon>New game</button>
+    <button type="button" class="row menu-row" data-soon>Guide</button>
+    <label class="row"><span>Sound</span><input type="checkbox" class="toggle" id="sound"></label>
+    <button type="button" class="row menu-row" data-soon>Extra</button>
+    <button type="button" class="row menu-row resign-row" id="resign-row"><span class="resign-label"><img src="../../assets/kings/frost.webp" alt="">Lay your king down</span></button>
+    <div class="demo-box" role="group" aria-labelledby="demo-label">
+      <p class="demo-label" id="demo-label">Demo only: the ending style</p>
+      <div class="cluster">
+        <button type="button" class="chip" data-ending="quiet" aria-pressed="true">A · Quiet</button>
+        <button type="button" class="chip" data-ending="ceremony" aria-pressed="false">B · Ceremony</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<script type="module" src="end.js"></script>
+</body>
+</html>

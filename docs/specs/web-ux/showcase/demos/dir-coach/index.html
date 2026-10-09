@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Coach</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="coach.css">
+</head>
+<body>
+<div class="app" id="app">
+  <header class="strip strip-them" aria-label="Opponent">
+    <span class="crest" aria-hidden="true"><img src="../../assets/emblems/flame.webp" alt=""></span>
+    <div class="who">
+      <b>Flame</b>
+      <span class="sub" id="them-sub">Computer · Beginner</span>
+    </div>
+    <button type="button" class="power" id="their-power" aria-describedby="them-sub">
+      <span class="power-icon" aria-hidden="true"></span><span class="power-name">Strike</span><span class="power-uses" id="their-uses">1</span>
+    </button>
+  </header>
+
+  <div class="board" id="board"></div>
+
+  <div class="strip strip-you" aria-label="You">
+    <span class="crest" aria-hidden="true"><img src="../../assets/emblems/frost.webp" alt=""></span>
+    <div class="who">
+      <b>Frost</b>
+      <span class="sub" id="you-sub">You · White</span>
+    </div>
+    <button type="button" class="power power-mine" id="my-power" aria-pressed="false">
+      <span class="power-icon" aria-hidden="true"></span><span class="power-name">Freeze</span><span class="power-uses" id="my-uses">1</span>
+    </button>
+  </div>
+
+  <section class="coach" id="coach" aria-live="polite" aria-atomic="true"></section>
+
+  <button type="button" class="moves-line" id="moves-line" aria-haspopup="dialog">
+    <span class="moves-icon" id="moves-icon"></span>
+    <span class="moves-text" id="moves-text">No moves yet.</span>
+    <span class="moves-open" id="moves-open"></span>
+  </button>
+
+  <nav class="bar" id="bar" aria-label="Game"></nav>
+</div>
+
+<dialog class="sheet" id="menu-sheet" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title">Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close" id="menu-close"></button></div>
+  <div class="sheet-body">
+    <fieldset class="help-pick">
+      <legend>Board help</legend>
+      <label class="row help-row">
+        <span><b>Full help</b><small>Tags, peek, ways out of check, Retry. The default at Beginner and Casual.</small></span>
+        <input type="radio" name="help" value="full" checked>
+      </label>
+      <label class="row help-row">
+        <span><b>Quiet help</b><small>Hold to read, refusals and cause lines. The default at Club and Strong.</small></span>
+        <input type="radio" name="help" value="quiet">
+      </label>
+    </fieldset>
+    <div class="menu-rows">
+      <button type="button" class="btn btn-quiet btn-wide" id="restart"></button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="moves-sheet" aria-labelledby="moves-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="moves-title">Moves</h2><button type="button" class="btn btn-icon" data-close aria-label="Close" id="moves-close"></button></div>
+  <div class="sheet-body"><ol class="story" id="story"></ol></div>
+</dialog>
+
+<script type="module" src="coach.js"></script>
+</body>
+</html>

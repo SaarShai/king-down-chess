@@ -1,0 +1,63 @@
+{
+  "id": "feat-first-minute",
+  "title": "The first minute",
+  "group": "feature",
+  "feature": "First launch and the first minute",
+  "summary": "On the first visit, the title leads to the first real move in under 30 seconds. The first tap of the app is an Archer shot over a pawn; then the board grows into a full game.",
+  "problem": "Today the title shows three buttons: Learn the pieces, Play and Workshop. A new player must choose a path before the game shows what makes it new.",
+  "idea": "One button on the real title: Take your first shot. The player shoots once on a close view of the real board, and the view pulls back into a full game against the Beginner computer. No account, no tour, no setup.",
+  "borrows": [
+    {
+      "from": "Super Mario Bros., World 1-1",
+      "what": "The first action teaches the rule. The words only point to it."
+    },
+    {
+      "from": "Marvel Snap",
+      "what": "The first match starts at once, with a deal chosen for a new player."
+    },
+    {
+      "from": "Monument Valley",
+      "what": "One clear action on a calm scene, then the camera pulls back to show the whole world."
+    },
+    {
+      "from": "Duolingo",
+      "what": "Option B: a short task first, then a free choice of what comes next."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "Take your first shot",
+      "state": "title",
+      "summary": "One button on the first visit. The Archer shoots over her own pawn, then the same board grows into a full game."
+    },
+    {
+      "key": "B",
+      "name": "Learn the new pieces",
+      "state": "learn-title",
+      "summary": "The advisors' title: Learn first, Play second. One Archer lesson, then Play a game or Next: the Beast."
+    }
+  ],
+  "recommendation": "A. The first tap shows the new game, and the player is in a real game with no choice to make. Play stays one quiet tap away, and the lessons stay in the Guide.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "S",
+  "states": [
+    "title",
+    "shot-board",
+    "shot",
+    "grow",
+    "first-move",
+    "learn-title",
+    "learn-done"
+  ],
+  "notes": [
+    "First visit only. Later visits open on Continue or Play (see feat-home).",
+    "Try it: Take your first shot, tap the Archer, tap the pawn. A tap or a key ends the short pause. That tap does not play in the new game.",
+    "The shot leaves a thin gold trail over the pawn and a ring under the Archer. So a still frame shows that she shoots over pieces and does not move. Both go when the board grows.",
+    "The first deal is deal 83 (QRNAKBBS): one Archer, one Beast and chess pieces only. These are the two starter pieces in docs/PROGRESSION.md. The shot board is White's real home ranks of this deal, so the Archer starts the game on the square where she shot.",
+    "The pull-back is the one strong moment (640 ms). The board's letters and numbers come back during it. Reduced motion shows the full board at once.",
+    "Play on the title and Skip both start the same game at once, with no setup.",
+    "Limits: Menu, Workshop and Next: the Beast show a short message only. The chosen deal needs the owner's yes."
+  ]
+}

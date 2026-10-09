@@ -1,0 +1,138 @@
+/* feat-help: Hint, second look and rewind. The game screen at rest has three buttons: Hint, Undo, Menu.
+   One context area holds the help; the board and the bar never move. */
+
+html, body { height: 100%; }
+body { overflow: hidden; }
+
+.app {
+  height: 100dvh; max-width: 520px; margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(132px, 1fr) auto;
+  grid-template-areas: "opp" "board" "you" "ctx" "bar";
+  row-gap: 2px;
+  padding: max(6px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+}
+.opp { grid-area: opp; }
+.board { grid-area: board; min-width: 0; }
+.you { grid-area: you; }
+.ctx { grid-area: ctx; }
+.bar { grid-area: bar; }
+
+/* ---- nameplates: a small king portrait, a name, and the turn ---- */
+.plate { display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 0 4px; }
+.portrait {
+  position: relative; width: 38px; height: 38px; flex: none; overflow: hidden; border-radius: 50%;
+  background: radial-gradient(circle at 50% 30%, #5a5046, var(--night));
+  box-shadow: 0 0 0 1px var(--stone-500), 0 1px 3px rgba(43, 38, 33, .25);
+}
+.portrait img { position: absolute; left: -32%; top: -6%; width: 164%; max-width: none; }
+.who { display: flex; flex-direction: column; line-height: 1.15; }
+.who b { font-weight: 700; }
+.who small { color: var(--ink-soft); font-size: var(--fs-sm); }
+.turn {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 7px;
+  font-size: var(--fs-sm); font-weight: 700; color: var(--ink-soft); white-space: nowrap;
+}
+.turn:empty { display: none; }
+/* Your turn: a gold diamond and the words. The shape and the words carry it, not the colour. */
+.turn.is-you { color: var(--ink); }
+.turn.is-you::before {
+  content: ''; width: 9px; height: 9px; transform: rotate(45deg);
+  background: var(--gold); box-shadow: 0 0 0 1px var(--gold-ink);
+}
+/* The computer waits behind the second look: words in ink, no alarm. */
+.turn.is-waiting { color: var(--ink); }
+
+/* ---- the context area: one task at a time ---- */
+.ctx {
+  min-height: 0; overflow: hidden;
+  padding: 12px 4px 6px; border-top: 1px solid var(--stone-300);
+}
+.line { display: flex; gap: 12px; align-items: flex-start; margin: 0; }
+.line + .line { margin-top: 8px; }
+.line .pi { margin-top: 1px; }
+.line p { margin: 0; }
+.quiet { color: var(--ink-soft); }
+.lead { font-weight: 700; font-size: var(--fs-lg); line-height: 1.25; }
+.sub { color: var(--ink-soft); margin-top: 3px !important; line-height: 1.3; }
+.badge {
+  width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 50%;
+  color: var(--gold-ink); background: #fff6dc; box-shadow: inset 0 0 0 1px #e3cc8f;
+}
+.badge .icon { width: 20px; height: 20px; }
+.badge.back { color: var(--ink); background: var(--stone-100); box-shadow: inset 0 0 0 1px var(--stone-300); }
+.ctx-do { margin: 10px 0 0 46px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ctx-do .btn { padding: 8px 14px; }
+.tapnote { margin: 8px 0 0 46px; color: var(--ink-soft); font-size: var(--fs-sm); }
+
+/* The hint ladder: three steps. A filled diamond is a step you took, a hollow one a step to come. */
+.rungs { display: flex; align-items: center; gap: 6px; margin: 0 0 6px 46px; color: var(--gold-ink); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.rungs i { width: 9px; height: 9px; transform: rotate(45deg); box-shadow: inset 0 0 0 1.5px var(--gold-ink); }
+.rungs i.on { background: var(--gold-ink); }
+.rungs span { margin-left: 4px; }
+
+/* The second look: plain text and two buttons, like every other help state. The red line on the board shows the cause. */
+.look .ctx-do .btn { min-width: 128px; }
+.look.is-in { animation: fh-rise var(--dur-3) var(--ease-out); }
+@keyframes fh-rise { from { opacity: 0; transform: translateY(8px); } }
+
+/* ---- the bar: Hint, Undo, Menu. Undo says what it undoes. ---- */
+.bar { display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 8px; padding-top: 8px; }
+.bar .btn { flex-direction: column; gap: 1px; min-height: 62px; padding: 6px 4px; font-size: var(--fs-md); }
+.bar .btn .icon { margin-bottom: 2px; }
+.bar .scope { display: block; font-size: var(--fs-xs); font-weight: 600; color: var(--ink-soft); line-height: 1.15; }
+.bar .btn:disabled .scope { color: var(--ink-soft); }
+.bar .btn[aria-pressed='true'] { background: #fff6dc; border-color: var(--gold-ink); color: var(--gold-ink); }
+.bar .btn.is-pressing { transform: translateY(2px); background: rgba(43, 38, 33, .08); }
+
+/* ---- overlays on the board (board.layer, one square = 100 units) ---- */
+.fh-fx { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 100; }
+.fh-ghost { pointer-events: none; opacity: .55; }
+.fh-ghost img { filter: saturate(.55) brightness(1.08); }
+.fh-ghost::before { opacity: .5; }
+
+/* ---- the menu sheet ---- */
+.menu-group h3 { margin: 0 0 4px; font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: .06em; }
+.style-row { border-top: 0; padding-bottom: 0; }
+.style-chips { padding: 0 4px 10px; }
+.menu-group .row:last-child { border-top: 1px solid var(--stone-300); }
+
+/* ---- desktop: the board on the left, a quiet column on the right ---- */
+@media (min-width: 900px) {
+  .app {
+    max-width: 1340px; height: 100dvh;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    /* The help sits just above its buttons: the answer shows where the player pressed. */
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas: "board opp" "board ." "board ctx" "board you" "board bar";
+    column-gap: 44px; row-gap: 10px; padding: 28px 40px;
+  }
+  .board { min-height: 0; }
+  .ctx { padding: 16px 4px 14px; border-bottom: 1px solid var(--stone-300); }
+  .opp { border-bottom: 0; }
+  .bar { padding-top: 4px; }
+}
+
+/* Reduced motion: each end frame at once. */
+:root[data-motion='reduce'] .look.is-in { animation: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion='full']) .look.is-in { animation: none; } }
+
+/* The rule behind the hint (step 3 of the ladder): the piece's icon and one line. */
+.rule { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 0 46px; line-height: 1.3; }
+.rule .pi { margin-top: 1px; }
+
+@media (min-width: 900px) {
+  .lead { font-size: var(--fs-xl); }
+  .sub, .rule { font-size: var(--fs-lg); }
+  .tapnote { font-size: var(--fs-md); }
+  .who b { font-size: var(--fs-lg); }
+  .who small, .turn { font-size: var(--fs-md); }
+  .portrait { width: 48px; height: 48px; }
+  .plate { min-height: 60px; }
+  .badge { width: 40px; height: 40px; }
+  .ctx-do, .tapnote, .rungs, .rule { margin-left: 52px; }
+  .rungs { font-size: var(--fs-sm); }
+  .bar .btn { min-height: 76px; font-size: var(--fs-body); }
+  .bar .scope { font-size: var(--fs-sm); }
+}

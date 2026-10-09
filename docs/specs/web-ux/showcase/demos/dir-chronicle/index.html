@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chronicle</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="chronicle.css">
+</head>
+<body>
+<main class="app" id="app" data-layout="phone">
+  <div class="board" id="board"></div>
+
+  <div class="side">
+    <header class="head"><p class="chapter" id="head">Move 12</p><p class="sub"><span>Frost</span> against <span>Flame</span> · Kings' powers</p></header>
+
+    <section class="plate them" id="them" aria-label="Your opponent">
+      <img class="emblem" src="../../assets/emblems/flame.webp" alt="">
+      <div class="who"><b>Flame</b><small>Computer · Club</small></div>
+      <span class="power" id="them-power"></span>
+    </section>
+
+    <section class="tale" id="tale" aria-label="The story">
+      <ol class="tail" id="tail" aria-hidden="true"></ol>
+      <button type="button" class="line-btn" id="line" aria-controls="story-sheet" aria-expanded="false">
+        <span class="now" id="now"></span>
+        <span class="kick"><span class="what" id="kick"></span><span id="gold"></span><span class="open-cue" id="cue"></span></span>
+      </button>
+      <div class="story-side" id="story-side">
+        <div class="story-top">
+          <h2>The story</h2>
+          <button type="button" class="btn fold" id="fold">Fold</button>
+        </div>
+        <div class="story-scroll"><ol class="story" id="story-side-list"></ol></div>
+      </div>
+      <div class="read" id="read" hidden></div>
+    </section>
+
+    <section class="plate you" id="you" aria-label="You">
+      <img class="emblem" src="../../assets/emblems/frost.webp" alt="">
+      <div class="who"><b>Frost</b><small>You</small></div>
+      <button type="button" class="power" id="you-power" aria-pressed="false"></button>
+    </section>
+
+    <nav class="bar" aria-label="Game">
+      <button type="button" class="btn" id="hint"></button>
+      <button type="button" class="btn" id="undo"></button>
+      <button type="button" class="btn" id="menu"></button>
+    </nav>
+  </div>
+</main>
+
+<dialog class="sheet" id="story-sheet" aria-labelledby="story-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="story-title" tabindex="-1" autofocus>The story</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body"><ol class="story" id="story-sheet-list"></ol></div>
+</dialog>
+
+<dialog class="sheet" id="menu-sheet" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title">Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body">
+    <ul class="menu-list">
+      <li><button type="button" class="btn" id="m-story"></button></li>
+      <li><button type="button" class="btn" id="m-new"></button></li>
+    </ul>
+  </div>
+</dialog>
+
+<dialog class="sheet recap" id="recap" aria-labelledby="recap-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><span></span><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body">
+    <div class="title">
+      <p class="tag" id="recap-tag">The Archer's game</p>
+      <h2 id="recap-title">King Down</h2>
+      <p id="recap-sub">You win on move 24.</p>
+    </div>
+    <div class="panels" id="panels"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="rematch" autofocus>Rematch</button>
+      <button type="button" class="btn btn-quiet" id="r-story"></button>
+      <button type="button" class="btn btn-quiet" id="r-new"></button>
+    </div>
+  </div>
+</dialog>
+
+<script type="module" src="chronicle.js"></script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Verb marks</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="your-move.css">
+</head>
+<body>
+<div class="app">
+  <header class="plate plate-them" aria-label="Opponent">
+    <span class="plate-king"><img src="../../assets/kings/shadow-b.webp" alt=""></span>
+    <span class="plate-name"><b>Computer</b><span class="plate-sub">Beginner</span></span>
+    <span class="plate-turn" id="their-turn" hidden>Thinking</span>
+  </header>
+
+  <div class="board-wrap"><div class="board" id="board"></div></div>
+
+  <div class="plate plate-you" aria-label="You">
+    <span class="plate-king plate-king-w"><img src="../../assets/kings/spirit.webp" alt=""></span>
+    <span class="plate-name"><b>You</b><span class="plate-sub">White</span></span>
+  </div>
+
+  <section class="ctx" id="ctx" aria-label="Your move">
+    <div class="ctx-main">
+      <span class="ctx-art" id="ctx-art" aria-hidden="true"></span>
+      <div class="ctx-text">
+        <h2 class="ctx-title" id="ctx-title">Your move</h2>
+        <p class="ctx-line" id="ctx-line" aria-live="polite">Tap a piece to see what it does.</p>
+      </div>
+      <button type="button" class="btn btn-primary ctx-act" id="ctx-act" hidden>Stop here</button>
+    </div>
+    <ul class="ctx-keys" id="ctx-keys" aria-label="Marks on the board"></ul>
+  </section>
+
+  <nav class="bar" aria-label="Game">
+    <button type="button" class="btn btn-quiet" id="hint"></button>
+    <button type="button" class="btn btn-quiet" id="undo"></button>
+    <button type="button" class="btn btn-quiet" id="menu"></button>
+  </nav>
+</div>
+
+<dialog class="sheet" id="menu-sheet" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title">Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body stack">
+    <fieldset class="marks-pick">
+      <legend>Marks on the board</legend>
+      <label class="row"><span>Show what each move does<small>Arrows, numbers and a shield.</small></span><input type="radio" name="marks" value="verbs" checked></label>
+      <label class="row"><span>Plain dots<small>A dot or a ring on each square.</small></span><input type="radio" name="marks" value="dots"></label>
+    </fieldset>
+    <button type="button" class="btn btn-wide" id="again">Start this game again</button>
+  </div>
+</dialog>
+
+<script type="module" src="your-move.js"></script>
+</body>
+</html>

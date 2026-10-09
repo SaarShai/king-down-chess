@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en" data-floor="light" data-layout="phone">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quiet Table</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="table.css">
+</head>
+<body>
+<div class="floor" aria-hidden="true"></div>
+<main class="app" id="app">
+  <header class="strip them" id="them">
+    <p class="who"><span class="turn-dot" aria-hidden="true"></span><span class="name">Flame <span>· Computer</span></span><span class="thinking" id="thinking">thinking</span></p>
+    <button type="button" class="power read-only" id="their-power" aria-describedby="their-power-help"></button>
+    <span class="sr-only" id="their-power-help">Shows what their power does.</span>
+  </header>
+
+  <div class="board" id="board"></div>
+
+  <section class="ctx" id="ctx" aria-label="Game">
+    <div class="strip you" id="you">
+      <p class="who"><span class="turn-dot" aria-hidden="true"></span><span class="name">Frost <span>· You</span></span></p>
+      <button type="button" class="power" id="my-power" aria-pressed="false"></button>
+    </div>
+    <div class="voice" id="voice" aria-live="polite">
+      <p class="say" id="say">Your move.</p>
+      <p class="sub" id="sub"></p>
+      <div class="result" id="result">
+        <h2 id="result-title">King Down</h2>
+        <p id="result-text">You win by checkmate.</p>
+        <div class="cluster">
+          <button type="button" class="btn btn-primary" id="rematch">Rematch</button>
+          <button type="button" class="btn btn-quiet" id="review">Review</button>
+        </div>
+      </div>
+    </div>
+    <button type="button" class="moves-line" id="moves-line" aria-expanded="false" aria-controls="story">
+      <span class="ml-icon" id="ml-icon"></span><span class="ml-text" id="ml-text">No moves yet.</span><span class="ml-chev"></span>
+    </button>
+    <ol class="story" id="story" aria-label="All moves" hidden></ol>
+  </section>
+
+  <nav class="bar" aria-label="Game actions">
+    <button type="button" id="hint"></button>
+    <button type="button" id="undo"></button>
+    <button type="button" id="menu-btn" aria-haspopup="dialog" aria-expanded="false"></button>
+  </nav>
+</main>
+
+<dialog class="sheet" id="menu" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head">
+    <button type="button" class="btn btn-icon" id="menu-back" aria-label="Back" hidden></button>
+    <h2 id="menu-title">Menu</h2>
+    <button type="button" class="btn btn-icon" data-close aria-label="Close"></button>
+  </div>
+  <div class="sheet-body menu-body" id="menu-main">
+    <button type="button" class="menu-row" id="m-new"><span>New game<small>A new army. The same two kings.</small></span></button>
+    <button type="button" class="menu-row" id="m-guide"><span>Guide<small>The pieces and the powers.</small></span></button>
+    <button type="button" class="menu-row" id="m-resign"><span>Resign<small>Your king lies down.</small></span></button>
+    <h3>Feel</h3>
+    <label class="row"><span>Sound</span><input type="checkbox" class="toggle" id="m-sound"></label>
+    <label class="row"><span>Animations</span><input type="checkbox" class="toggle" id="m-anim" checked></label>
+    <h3 id="floor-h">Table</h3>
+    <div class="floors" role="group" aria-labelledby="floor-h">
+      <button type="button" class="floor-pick" data-floor="light" aria-pressed="true"><span class="swatch" aria-hidden="true"></span>Light</button>
+      <button type="button" class="floor-pick" data-floor="dark" aria-pressed="false"><span class="swatch" aria-hidden="true"></span>Dark</button>
+    </div>
+    <h3>More</h3>
+    <button type="button" class="menu-row" id="m-extra"><span>Extra<small>Today's army, Workshop, Tricks and more.</small></span><span class="chev"></span></button>
+  </div>
+  <div class="sheet-body menu-body" id="menu-extra" hidden>
+    <button type="button" class="menu-row"><span>Today's army<small>The same army for every player today.</small></span></button>
+    <button type="button" class="menu-row"><span>Workshop<small>Make your own piece.</small></span></button>
+    <button type="button" class="menu-row"><span>Tricks<small>The special moves you found.</small></span></button>
+    <button type="button" class="menu-row"><span>Board help<small>Threats, coordinates, piece letters.</small></span></button>
+    <button type="button" class="menu-row"><span>This game<small>Army code. Copy the moves.</small></span></button>
+    <button type="button" class="menu-row"><span>Account<small>Keep your games on all devices.</small></span></button>
+  </div>
+</dialog>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

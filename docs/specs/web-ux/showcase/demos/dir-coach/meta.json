@@ -1,0 +1,33 @@
+{
+  "id": "dir-coach",
+  "title": "Coach",
+  "group": "direction",
+  "summary": "The board explains each King Down rule at the moment it matters, with quiet marks and one line under the board. The help fades by level: full at Beginner, quiet at Club.",
+  "problem": "Every King Down player is new: six new pieces, twelve powers, shots over pieces. A chess player loses to rules that are hard to see, and today the help lives in menus and lessons, far from the move.",
+  "idea": "Teach on the board, inside a real game. A badge on a new piece, hold to read, peek with ghosts and danger rings, a refusal that names its rule, the ways out of check, and Retry from the move that lost the game.",
+  "borrows": [
+    { "from": "Into the Breach", "what": "Show every threat before you commit, so a loss is your own choice. Peek and the danger rings come from its telegraphs." },
+    { "from": "Lara Croft GO", "what": "No hidden rule: a refusal shows its cause on the board, with one plain line." },
+    { "from": "Hearthstone", "what": "Keyword help at the point of need: the Guard's shield and one line, only when you touch it." },
+    { "from": "Dr. Wolf and puzzle games", "what": "A second try: after a loss, Retry from the move that turned the game, not from the start." },
+    { "from": "Super Mario Bros. (World 1-1)", "what": "Teach at first meeting, in play, then step back. The help fades by level and by use." }
+  ],
+  "options": [
+    { "key": "A", "name": "Full help (Beginner, Casual)", "state": "check", "summary": "A badge on a new piece, peek with ghosts and danger rings, refusal lines, the ways out of check as chips, Retry after a loss." },
+    { "key": "B", "name": "Quiet help (Club, Strong)", "state": "club", "summary": "Only hold to read, refusals and cause lines. Check shows its cause line and one sentence. No chips, no badge, no peek, no Retry." }
+  ],
+  "recommendation": "Use Coach for a player's first ten games, then let it fade into Quiet help. Keep one Board help switch so a player can choose: it changes the marks, never the computer's level. Peek shows the rules only, never the computer's plan.",
+  "joy": 3,
+  "ease": 5,
+  "effort": "M",
+  "states": ["rest", "read", "select", "played", "check", "end", "refusal", "retry", "retried", "club"],
+  "notes": [
+    "Look at refusal and check: the rule names itself at the cause, and the ways out are real engine moves.",
+    "Look at retry, then retried: Retry goes back to move 17, selects your beast and shows the shot that took it.",
+    "The shared states come from P1, the scripted line and P2. Open ?state=check&frame=phone to show one state in one layout.",
+    "Retry uses a real lost game from P1: the Beginner computer plays White, the Club computer plays Black. The turn is your last move before they took a piece that is not a pawn.",
+    "Play it: hold a piece to read it. Select a piece, then rest the mouse on a marked square or hold it with a finger to peek. A lift after a peek plays nothing; a tap plays. Tap the pawn on d3, then the Guard. Menu holds the Board help switch.",
+    "Limits: the Archer's empty shot squares do not show (the kit gives legal moves only). Peek looks one reply ahead, not deeper. Sounds are the kit's tones.",
+    "The goals line and Second look are not in this demo."
+  ]
+}

@@ -1,0 +1,340 @@
+/* Home for a returning player: three homes (the table, the six kings, a Today card) and the game screen
+   that the table becomes. Kit tokens only; the art comes from showcase/assets. */
+
+html, body { height: 100%; }
+body { overflow: hidden; background: var(--parchment); }
+.app { height: 100dvh; }
+.home { height: 100%; }
+
+/* ---- shared parts ---- */
+.top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: 52px; }
+.wordmark {
+  margin: 0; font-family: var(--font-display); font-weight: 700; letter-spacing: var(--track-display);
+  font-size: 20px; line-height: 1; color: var(--ink); white-space: nowrap;
+}
+.wordmark .gold { color: var(--gold-ink); }
+.link-quiet {
+  align-self: center; min-height: var(--tap); min-width: var(--tap); padding: 0 var(--space-4);
+  font-weight: 700; color: var(--ink); background: none; border: 0; border-radius: var(--radius); cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--stone-500); text-decoration-thickness: 1px; text-underline-offset: 4px;
+}
+@media (hover: hover) { .link-quiet:hover { text-decoration-color: currentColor; } }
+.btn-main { min-height: 54px; flex-direction: column; gap: 1px; padding: 8px 16px; font-size: var(--fs-lg); }
+.btn-main small { font-size: var(--fs-sm); font-weight: 600; opacity: 0.92; letter-spacing: 0.01em; }
+.mini { position: relative; flex: none; }
+
+/* ================================================================================================
+   A. The table
+   ================================================================================================ */
+.home-table {
+  display: grid; max-width: 560px; margin: 0 auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-areas: 'top' 'eyebrow' 'board' 'side';
+  padding: max(var(--space-1), env(safe-area-inset-top)) var(--space-4) max(var(--space-3), env(safe-area-inset-bottom));
+}
+.home-table .top { grid-area: top; }
+.t-back { gap: 4px; padding: 6px 12px 6px 6px; border-color: transparent; }
+.eyebrow { grid-area: eyebrow; display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); margin: 2px 2px 4px; }
+.t-opp { margin: 0; font-size: var(--fs-md); font-weight: 700; color: var(--ink); }
+.t-move { margin: 0; font-size: var(--fs-sm); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.t-board { grid-area: board; position: relative; }
+.t-cover { position: absolute; inset: 0; z-index: 20; cursor: pointer; }
+[data-mode='game'] .t-cover { display: none; }
+.side { grid-area: side; position: relative; min-height: 0; display: flex; flex-direction: column; padding-top: var(--space-3); }
+.t-home, .t-game { flex: 1 1 auto; display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-3); }
+/* Phone: the actions sit low, in thumb reach; the board and its last move stay on top. */
+.t-home .t-actions, .t-game .g-bar { margin-top: auto; }
+.t-line { display: flex; align-items: center; gap: var(--space-2); min-height: 30px; margin: 0; font-weight: 700; }
+.t-line .pi { font-size: 18px; }
+.t-line .icon { color: var(--gold-ink); }
+.t-sub { margin: 0; padding-left: 34px; color: var(--ink-soft); font-size: var(--fs-md); }
+.t-actions { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-1); }
+.t-actions .link-quiet { margin-top: -2px; }
+
+/* The Today line: one quiet row, today's eight figures as rulebook icons. */
+.today-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-1) var(--space-3);
+  width: 100%; min-height: 60px; margin-top: var(--space-1); padding: var(--space-2) var(--space-1) var(--space-2) var(--space-2);
+  text-align: left; color: var(--ink); background: none; cursor: pointer;
+  border: 0; border-top: 1px solid var(--stone-300); border-radius: 0;
+}
+@media (hover: hover) { .today-row:hover { background: rgba(255, 255, 255, 0.4); } }
+.today-row b { display: block; font-size: var(--fs-md); }
+.today-row b span { font-weight: 400; color: var(--ink-soft); }
+.today-row .icons { display: flex; gap: 3px; margin-top: 4px; }
+.today-row .icons .pi { font-size: 18px; }
+.today-row > .icon { grid-row: 1 / span 2; grid-column: 2; color: var(--ink-soft); }
+
+/* The game screen: the same board, a status line and the bar (decision W2 C). */
+.g-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-3); min-height: var(--tap); }
+.g-status { flex: 1 1 auto; margin: 0; min-height: 30px; font-weight: 700; display: flex; align-items: center; gap: var(--space-2); }
+.g-power { gap: var(--space-2); min-height: var(--tap); padding: 0 var(--space-3); }
+.g-power[aria-pressed='true'] { background: rgba(233, 192, 113, 0.22); border-color: var(--gold-ink); box-shadow: inset 0 0 0 1px var(--gold-ink); }
+.g-live { margin-right: calc(-1 * var(--space-4)); }
+/* Phone: one bar of five, no frames. A hairline sets Previous and Next apart from Undo. */
+.g-bar {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 0 calc(-1 * var(--space-4)) calc(-1 * var(--space-2)); padding: 0 var(--space-2);
+  border-top: 1px solid var(--stone-300);
+}
+.bar-btn {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: var(--tap); min-height: 52px; padding: 4px 2px; border: 0; border-radius: var(--radius);
+  background: transparent; color: var(--ink); font: inherit; font-size: var(--fs-sm); font-weight: 700; line-height: 16px; cursor: pointer;
+}
+.bar-btn:disabled { color: var(--ink-soft); opacity: 0.5; cursor: default; }
+@media (hover: hover) { .bar-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.5); } }
+.g-step::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; border-left: 1px solid var(--stone-300); }
+
+/* Continue folds the home part away and brings the bar: the board does not move. */
+.t-home.is-leaving, .t-game.is-leaving { animation: home-out var(--dur-1) var(--ease-in) forwards; }
+.t-home.is-coming, .t-game.is-coming { animation: home-in var(--dur-3) var(--ease-out) both; }
+@keyframes home-out { to { opacity: 0; transform: translateY(4px); } }
+@keyframes home-in { from { opacity: 0; transform: translateY(8px); } }
+.t-line.is-new { animation: line-in var(--dur-3) var(--ease-out) both; }
+@keyframes line-in { from { opacity: 0; transform: translateX(-6px); } }
+
+@media (min-width: 900px) {
+  .home-table {
+    max-width: 1240px; column-gap: 64px;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-rows: auto minmax(0, 1fr) auto auto minmax(0, 1fr);
+    grid-template-areas: 'top top' 'board .' 'board eyebrow' 'board side' 'board .';
+    padding: var(--space-4) var(--space-7) var(--space-6);
+  }
+  .home-table .top { min-height: 64px; margin-bottom: var(--space-3); }
+  .home-table .wordmark { font-size: 24px; }
+  .t-board { height: calc(100dvh - 136px); min-height: 0; }
+  .eyebrow { flex-direction: column; align-items: flex-start; gap: 2px; margin: 0 0 var(--space-2); }
+  .t-opp { font-size: var(--fs-xl); }
+  .t-move { font-size: var(--fs-md); }
+  /* One height for every state (the finished table is the tallest), so the eyebrow and the move line do not move
+     when Continue swaps the controls under them. */
+  .side { padding-top: 0; min-height: 344px; }
+  .t-home, .t-game { flex: none; padding-top: var(--space-4); }
+  .t-home .t-actions, .t-game .g-bar { margin-top: 0; }
+  .btn-main { min-height: 64px; font-size: var(--fs-xl); }
+  .btn-main small { font-size: var(--fs-md); }
+  .today-row { margin-top: var(--space-4); }
+  .today-row .icons { gap: 4px; margin-top: 6px; }
+  .today-row .icons .pi { font-size: 23px; }
+  /* Wide screens: a quiet text toolbar under a hairline. Previous and Next keep their names for screen readers. */
+  .g-bar { display: flex; margin: var(--space-2) -10px 0; padding: var(--space-2) 0 0; border-top: 0; background: linear-gradient(var(--stone-300), var(--stone-300)) 10px 0 / calc(100% - 20px) 1px no-repeat; }
+  .bar-btn { flex-direction: row; gap: 6px; min-height: var(--tap); padding: 0 10px; font-size: var(--fs-md); font-weight: 600; }
+  .g-step { margin-left: auto; }
+  .g-step::before { display: none; }
+  .bar-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .g-live { margin-right: -12px; }
+}
+
+/* ================================================================================================
+   B. The six kings
+   ================================================================================================ */
+.home-kings {
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto auto; justify-items: center;
+  padding: max(var(--space-1), env(safe-area-inset-top)) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
+  background: radial-gradient(120% 70% at 50% 40%, #3b3128 0%, #2a231d 45%, var(--night) 80%);
+  overflow: hidden;
+}
+.home-kings .top { width: 100%; max-width: 1100px; }
+.top-spacer { width: var(--tap); }
+.k-wordmark { font-size: 26px; color: var(--on-night); text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5); }
+.k-wordmark .gold { color: var(--gold-bright); }
+.stage { position: relative; width: 100%; max-width: 1120px; min-height: 0; container-type: size; }
+.stage-floor {
+  position: absolute; left: 50%; bottom: 0; width: min(190%, 1100px); aspect-ratio: 1;
+  transform: translateX(-50%) perspective(900px) rotateX(60deg); transform-origin: 50% 100%;
+  background: url('../../assets/stone-board.webp') center / cover;
+  -webkit-mask-image: radial-gradient(closest-side, #000 30%, transparent 92%); mask-image: radial-gradient(closest-side, #000 30%, transparent 92%);
+  opacity: 0.5; pointer-events: none;
+}
+.stage-kings { position: absolute; inset: 0; }
+.king {
+  /* Phone: two rows of three (the back row smaller). Desktop: one arc, the two plain kings in front.
+     --fw is the figure's width. The button (the tap area) is only the middle half of the figure: the figure's
+     art hangs out of it on both sides and takes no taps, so two kings never share a point. */
+  --fw: min(42%, 30cqh);
+  --sc: var(--ps);
+  position: absolute; left: calc(var(--px) * 1%); bottom: calc(var(--py) * 1%); z-index: var(--pz);
+  width: calc(var(--fw) * 0.5); aspect-ratio: 115 / 320; padding: 0;
+  transform: translateX(-50%) scale(var(--sc)); transform-origin: 50% 100%;
+  background: none; border: 0; border-radius: var(--radius-lg); cursor: pointer; color: var(--on-night-soft);
+  transition: transform var(--dur-2) var(--ease-out), opacity var(--dur-2) var(--ease-out), filter var(--dur-2);
+}
+.king::before {
+  content: ''; position: absolute; left: -30%; right: -30%; bottom: 1%; height: 9%; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+}
+.king img {
+  position: absolute; left: 50%; bottom: 0; width: 200%; max-width: none; height: 100%; translate: -50% 0;
+  object-fit: contain; object-position: 50% 100%; pointer-events: none;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35)); transition: filter var(--dur-2);
+}
+.king-name {
+  position: absolute; left: 50%; top: 100%; transform: translate(-50%, 2px) scale(calc(1 / var(--sc)));
+  font-size: var(--fs-sm); font-weight: 700; letter-spacing: 0.03em; white-space: nowrap; transform-origin: 50% 0;
+}
+@media (hover: hover) {
+  .king:hover { transform: translateX(-50%) translateY(-4px) scale(var(--sc)); }
+  .king:hover img { filter: drop-shadow(0 0 14px rgba(233, 192, 113, 0.45)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35)); }
+}
+.king:focus-visible { outline-offset: 4px; }
+.king[aria-expanded='true'] { transform: translateX(-50%) translateY(-6px) scale(var(--sc)); color: var(--gold-bright); }
+@media (min-width: 700px) {
+  .king { --fw: min(25%, 56cqh); --sc: var(--s); left: calc(var(--x) * 1%); bottom: calc(var(--y) * 1%); z-index: var(--z); }
+}
+.king[aria-expanded='true'] img { filter: drop-shadow(0 0 16px rgba(233, 192, 113, 0.65)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35)); }
+.stage.has-pick .king:not([aria-expanded='true']) { opacity: 0.45; filter: saturate(0.6); }
+.stage-hint { margin: var(--space-3) 0 var(--space-4); color: var(--on-night-soft); font-size: var(--fs-md); text-align: center; }
+.k-continue {
+  display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: var(--space-4);
+  width: 100%; max-width: 440px;
+}
+.k-continue .mini { width: 96px; }
+.k-cont-text { display: flex; flex-direction: column; gap: var(--space-2); }
+.k-meta { margin: 0; color: var(--on-night-soft); font-size: var(--fs-md); }
+.home-kings .link-quiet { color: var(--on-night); text-decoration-color: rgba(233, 192, 113, 0.6); margin-top: var(--space-2); }
+@media (min-width: 700px) {
+  .stage-floor { width: min(130%, 1100px); bottom: 2%; transform: translateX(-50%) perspective(900px) rotateX(66deg); }
+}
+@media (min-width: 900px) {
+  .home-kings { padding: var(--space-4) var(--space-7) var(--space-6); }
+  .k-wordmark { font-size: 40px; }
+  .home-kings .top { min-height: 84px; }
+  .stage-hint { margin: var(--space-5) 0 var(--space-5); }
+  .k-continue { max-width: 520px; grid-template-columns: 124px minmax(0, 1fr); }
+  .k-continue .mini { width: 124px; }
+}
+
+/* The king sheet: its power plays on a small part of the real board. */
+.king-sheet::backdrop { background: rgba(20, 14, 8, 0.3); }
+.ks-head { display: flex; align-items: center; gap: var(--space-2); }
+.ks-emblem { width: 40px; height: 40px; object-fit: contain; }
+#ks-title:focus { outline: none; }
+.ks-body { display: flex; flex-direction: column; gap: var(--space-2); }
+.ks-fig { margin: 0 0 var(--space-1); }
+.vig {
+  /* Four files by three ranks, under a dark edge of 0.4 of a square (EDGE in home.js) for the tall figures. */
+  position: relative; overflow: hidden; width: min(100%, 300px); margin: 0 auto; aspect-ratio: 4 / 3.4;
+  border-radius: var(--radius-lg); background: #3a3528; box-shadow: 0 2px 10px rgba(43, 38, 33, 0.25);
+}
+.vig::after {
+  content: ''; position: absolute; inset: 0; z-index: 600; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(20, 14, 6, 0.5), inset 0 0 22px 4px rgba(24, 16, 8, 0.45);
+}
+.vig-host { position: absolute; left: 0; top: 0; width: calc(100% * (8 + 52 / 112) / 4); }
+/* In the board's own layer: over the stone, under the figures. It covers the ranks above the window. */
+.vig-edge {
+  position: absolute; left: 0; top: 0; width: 100%; z-index: 5; pointer-events: none;
+  background: linear-gradient(to bottom, #2c2720 70%, #3a3528); box-shadow: 0 1px 0 rgba(236, 224, 196, 0.22);
+}
+.vig .is-frozen img { filter: saturate(0.35) brightness(1.12) drop-shadow(0 0 5px rgba(96, 160, 255, 0.95)) drop-shadow(0 0 2px rgba(200, 225, 255, 0.9)); }
+.vig-again { position: absolute; right: 4px; bottom: 4px; z-index: 700; color: var(--on-night); background: rgba(34, 29, 24, 0.55); }
+@media (hover: hover) { .vig-again:hover { background: rgba(34, 29, 24, 0.75); } }
+.ks-cap { min-height: 1.45em; margin: var(--space-2) auto 0; max-width: 300px; text-align: center; color: var(--gold-ink); font-weight: 600; font-size: var(--fs-md); }
+.ks-power { display: flex; align-items: center; gap: var(--space-2); }
+.ks-power h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: 0.04em; }
+.ks-line { margin: 0 0 var(--space-2); }
+.ks-other { margin: 0; color: var(--ink-soft); font-size: var(--fs-md); text-align: center; }
+/* One quiet line under a start button that would end the saved game. */
+.warn-line { margin: calc(-1 * var(--space-1)) 0 0; color: var(--ink-soft); font-size: var(--fs-md); text-align: center; }
+@media (min-width: 760px) { .vig { width: 100%; } .ks-cap { max-width: none; } }
+
+/* ================================================================================================
+   C. The Today card
+   ================================================================================================ */
+.home-today {
+  display: flex; flex-direction: column; gap: var(--space-4); max-width: 560px; margin: 0 auto;
+  padding: max(var(--space-1), env(safe-area-inset-top)) var(--space-4) max(var(--space-3), env(safe-area-inset-bottom));
+}
+.c-continue { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: var(--space-4); }
+.c-continue .mini { width: 96px; }
+.c-cont-text { display: flex; flex-direction: column; gap: var(--space-2); }
+.c-meta { display: flex; flex-direction: column; margin: 0; line-height: 1.3; }
+.c-meta span { color: var(--ink-soft); font-size: var(--fs-md); }
+.home-today .link-quiet { margin-top: -4px; }
+@media (min-width: 900px) {
+  .home-today { max-width: 900px; gap: var(--space-5); padding: var(--space-4) var(--space-6) var(--space-6); justify-content: center; }
+  .home-today .top { position: absolute; left: var(--space-7); right: var(--space-7); top: var(--space-4); min-height: 64px; }
+  .home-today .wordmark { font-size: 24px; }
+  .c-continue { grid-template-columns: 120px minmax(0, 1fr) 240px; }
+  .c-continue .mini { width: 120px; }
+  .c-cont-text { display: contents; }
+  .c-meta { font-size: var(--fs-xl); }
+  .c-meta span { font-size: var(--fs-md); }
+  #c-main { min-height: 56px; font-size: var(--fs-lg); }
+}
+
+/* The Today card (in C, and in the sheet behind the Today line of A). */
+.today-card { padding: var(--space-4) 0 var(--space-4); overflow: hidden; }
+.tc-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); padding: 0 var(--space-4); }
+.tc-head h2 { margin: 0; }
+.tc-date { margin: 0; color: var(--ink-soft); font-size: var(--fs-sm); }
+.rank {
+  /* Phone: the rank in two halves (a to d, e to h), so each figure is large; desktop: one rank of eight. */
+  display: grid; grid-template-columns: repeat(4, 1fr); row-gap: 40px; margin: var(--space-3) var(--space-4) 0;
+  padding-top: 36px; /* room for the tall figures above their squares */
+}
+.rank-sq {
+  position: relative; aspect-ratio: 1; padding: 0; border: 0; border-radius: 0; cursor: pointer;
+  background-image: url('../../assets/stone-board-hd.webp'); background-size: 800% 800%;
+  background-position: calc(var(--i) * 100% / 7) 100%;
+  box-shadow: 0 0 0 1px #3a3528;
+}
+.rank-sq:nth-child(4n + 1) { border-radius: 4px 0 0 4px; }
+.rank-sq:nth-child(4n) { border-radius: 0 4px 4px 0; }
+@media (min-width: 900px) {
+  .rank-sq:nth-child(n) { border-radius: 0; }
+  .rank-sq:first-child { border-radius: 4px 0 0 4px; }
+  .rank-sq:last-child { border-radius: 0 4px 4px 0; }
+}
+.rank-sq::before {
+  content: ''; position: absolute; left: 21%; width: 58%; top: 78%; height: 14%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(28, 20, 8, 0.42), rgba(28, 20, 8, 0));
+}
+.rank-sq img { position: absolute; max-width: none; pointer-events: none; transform-origin: 50% 90%; transition: translate var(--dur-2) var(--ease-out), filter var(--dur-2); }
+.rank-sq img.mirror { scale: -1 1; }
+.rank-sq[aria-pressed='true'] img { translate: 0 -4%; filter: drop-shadow(0 0 6px rgba(255, 214, 128, 0.85)); }
+.rank-sq[aria-pressed='true']::after {
+  content: ''; position: absolute; left: 12%; right: 12%; top: 72%; height: 24%; border-radius: 50%;
+  border: 2px solid #e9c071; box-shadow: 0 0 0 1px rgba(43, 38, 33, 0.6);
+}
+.rank-sq:focus-visible { outline-offset: -3px; z-index: 2; }
+.tc-new { display: flex; gap: var(--space-2); flex-wrap: wrap; margin: var(--space-2) var(--space-4) 0; }
+.tc-read { display: flex; align-items: flex-start; gap: var(--space-2); min-height: 2.7em; margin: var(--space-3) var(--space-4) 0; line-height: 1.35; }
+.tc-read .pi { margin-top: 1px; }
+.tc-read b { white-space: nowrap; }
+.tc-read.is-hint { color: var(--ink-soft); }
+.tc-foot { display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-3) var(--space-4) 0; }
+.tc-foot p { margin: 0; color: var(--ink-soft); font-size: var(--fs-md); }
+.tc-play { display: flex; flex-direction: column; gap: var(--space-2); }
+.today-sheet-body .today-card { border: 0; box-shadow: none; background: none; padding-top: 0; }
+.today-sheet-body .tc-head { display: none; }
+@media (min-width: 900px) {
+  .today-card { padding: var(--space-5) 0 var(--space-6); }
+  .tc-head { padding: 0 var(--space-6); }
+  .tc-head h2 { font-size: var(--fs-xl); }
+  .tc-date { font-size: var(--fs-md); }
+  .tc-read, .tc-foot { margin-left: var(--space-6); margin-right: var(--space-6); font-size: var(--fs-lg); }
+  .tc-foot p { font-size: var(--fs-md); }
+  .rank { grid-template-columns: repeat(8, 1fr); row-gap: 0; padding-top: 48px; margin: var(--space-4) var(--space-6) 0; }
+  .tc-foot { flex-direction: row; align-items: center; justify-content: space-between; }
+  .tc-foot .btn { width: auto; }
+  .tc-play { align-items: center; flex: none; }
+  .tc-foot .tc-play .warn-line { font-size: var(--fs-sm); }
+}
+
+/* ---- the menu sheet ---- */
+.menu-rows { display: flex; flex-direction: column; }
+.menu-rows .row { width: 100%; justify-content: flex-start; gap: var(--space-3); background: none; border: 0; border-radius: 0; cursor: pointer; text-align: left; font-weight: 600; }
+.menu-rows .row + .row { border-top: 1px solid var(--stone-300); }
+@media (hover: hover) { .menu-rows .row:hover { background: rgba(255, 255, 255, 0.45); } }
+
+/* ---- reduced motion: the end frame at once ---- */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .king, :root:not([data-motion='full']) .king img, :root:not([data-motion='full']) .rank-sq img { transition: none; }
+  :root:not([data-motion='full']) .t-home, :root:not([data-motion='full']) .t-game, :root:not([data-motion='full']) .t-line { animation: none !important; }
+}
+:root[data-motion='reduce'] .king, :root[data-motion='reduce'] .king img, :root[data-motion='reduce'] .rank-sq img { transition: none; }
+:root[data-motion='reduce'] .t-home, :root[data-motion='reduce'] .t-game, :root[data-motion='reduce'] .t-line { animation: none !important; }

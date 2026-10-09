@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Unlocks with crowns</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="crowns.css">
+</head>
+<body>
+<div class="app" id="app" data-view="turn">
+  <header class="top">
+    <div class="who" id="who"></div>
+    <span class="tag-proposal" title="The crown numbers come from docs/PROGRESSION.md. They are a proposal, not a release promise."><span class="long">Proposal: 2, 5, 9 crowns</span><span class="short">Proposal</span></span>
+    <button type="button" class="btn btn-icon" id="menu-btn" data-act="menu" aria-label="Menu"></button>
+  </header>
+
+  <div class="board" id="board"></div>
+
+  <section class="panel" id="panel" aria-labelledby="panel-title">
+    <h2 class="sr-only" id="panel-title">Game</h2>
+
+    <div class="view v-turn" id="v-turn">
+      <p class="turn-line" id="turn-text" aria-live="polite">Your move</p>
+      <p class="turn-sub" id="turn-sub">Find the mate in one.</p>
+      <div class="bar">
+        <button type="button" class="btn btn-quiet" data-act="hint" id="hint-btn"></button>
+        <button type="button" class="btn btn-quiet" data-act="undo" id="undo-btn"></button>
+      </div>
+    </div>
+
+    <div class="view v-result" id="v-result" hidden>
+      <div class="res-head">
+        <p class="res-title display" id="res-title" aria-live="polite">You win</p>
+        <p class="res-sub" id="res-sub">Checkmate on move 24 · Casual</p>
+      </div>
+      <div class="crowns" id="crowns"></div>
+      <div class="actions" id="res-actions"></div>
+    </div>
+
+    <div class="view v-lesson" id="v-lesson" hidden>
+      <div class="ls-head">
+        <span id="ls-fig"></span>
+        <div>
+          <p class="eyebrow">Lesson · about 1 minute</p>
+          <p class="ls-title display" id="ls-title">Maester</p>
+          <p class="ls-line" id="ls-line"></p>
+        </div>
+      </div>
+      <div class="ls-body">
+        <p class="task" id="ls-task" tabindex="-1" aria-live="polite"></p>
+        <p class="ls-more" id="ls-more" hidden></p>
+      </div>
+      <div class="actions" id="ls-actions"></div>
+    </div>
+    <p class="sr-only" id="say" role="status"></p>
+  </section>
+</div>
+
+<dialog class="sheet" id="menu-sheet" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title" tabindex="-1" autofocus>Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body">
+    <button type="button" class="row row-btn" data-act="new-game"><span>New game<small>Level and army</small></span><span class="chev"></span></button>
+    <h3 class="menu-h" id="extra-h">Extra</h3>
+    <div role="group" aria-labelledby="extra-h">
+      <button type="button" class="row row-btn" data-act="shelf"><span>Pieces<small>Your army and the next piece</small></span><span class="chev"></span></button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="play-sheet" aria-labelledby="play-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="play-title" tabindex="-1" autofocus>New game</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body play-body">
+    <section aria-labelledby="lvl-h">
+      <h3 class="field-h" id="lvl-h">Level</h3>
+      <div class="levels" id="levels" role="group" aria-labelledby="lvl-h"></div>
+      <p class="rule" id="lvl-rule"></p>
+    </section>
+    <section aria-labelledby="army-h">
+      <h3 class="field-h" id="army-h">Random army</h3>
+      <p class="field-sub">Your army draws from these pieces.</p>
+      <ul class="pool" id="pool"></ul>
+    </section>
+    <div class="next-row" id="next-row"></div>
+    <button type="button" class="btn btn-primary btn-wide" data-act="start">Play</button>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="pieces-sheet" aria-labelledby="pieces-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="pieces-title" tabindex="-1" autofocus>Pieces</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body">
+    <p class="sum" id="shelf-sum"></p>
+    <div class="shelf" id="shelf" role="group" aria-label="The six new pieces"></div>
+    <div class="detail" id="detail" aria-live="polite"></div>
+    <p class="foot">Lessons and custom armies use every piece. The Paladin plays only in custom armies.</p>
+  </div>
+</dialog>
+
+<script type="module" src="crowns.js"></script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+/* Menu and Extra: the game screen at rest, the Menu sheet, Extra (index or cabinet), Board help and Tricks. */
+
+html, body { height: 100%; }
+body { overflow: hidden; }
+
+/* ---- the game screen ---- */
+.app {
+  height: 100dvh; max-width: 560px; margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(4px, 1fr) auto auto auto auto minmax(4px, 1fr) auto;
+  grid-template-areas: "." "them" "board" "you" "line" "." "bar";
+  padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-3) max(var(--space-3), env(safe-area-inset-bottom));
+}
+.plate { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; padding: var(--space-1) var(--space-1); }
+.plate.them { grid-area: them; }
+.plate.you { grid-area: you; }
+.plate .who { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.plate .who b { font-size: var(--fs-md); }
+.plate .who span { font-size: var(--fs-sm); color: var(--ink-soft); }
+.plate .turn { margin-left: auto; font-weight: 700; font-size: var(--fs-sm); color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }
+.plate .turn::before { content: ''; width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--ink); }
+.plate .turn.is-yours::before { background: var(--ink); }
+.portrait {
+  position: relative; flex: none; width: 40px; height: 40px; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 35%, var(--vellum), var(--parchment-deep));
+  border: 1.5px solid var(--stone-500);
+}
+.portrait img { position: absolute; left: 50%; top: 2px; width: 64px; max-width: none; transform: translateX(-50%); }
+
+.board { grid-area: board; min-height: 0; margin: var(--space-1) 0; }
+
+/* The context line: the last move in a short sentence. A found trick stamps its seal here. */
+.line {
+  grid-area: line; position: relative; display: flex; align-items: center; gap: var(--space-2);
+  min-height: 48px; padding: var(--space-2) var(--space-1);
+  border-top: 1px solid var(--stone-300); border-bottom: 1px solid var(--stone-300);
+}
+.line p { margin: 0; flex: 1; min-width: 0; line-height: 1.3; }
+.line .found {
+  display: inline-flex; align-items: center; gap: var(--space-2); margin-left: auto;
+  font-size: var(--fs-sm); font-weight: 700; color: var(--accent); white-space: nowrap;
+}
+.line .found[hidden] { display: none; }
+
+.bar { grid-area: bar; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); padding-top: var(--space-3); }
+.bar .btn { position: relative; flex-direction: column; gap: 2px; padding: 6px 4px; font-size: var(--fs-sm); min-height: 56px; }
+.bar .btn.is-pressed { transform: translateY(2px); box-shadow: 0 0 0 var(--stone-700); background: linear-gradient(#efe4cc, #e7d8b8); }
+/* The one gold dot sits on the menu glyph, not in the far corner. The gold-ink ring keeps it at 3:1 or more
+   on parchment; the kit's vellum halo and its two pulses stay. */
+#menu .dot-new { top: 3px; left: calc(50% + 5px); right: auto; width: 11px; height: 11px; border: 1.5px solid var(--gold-ink); }
+
+@media (min-width: 900px) {
+  .app {
+    max-width: 1240px; height: 100dvh;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas: "board them" "board ." "board line" "board you" "board bar";
+    column-gap: var(--space-7); padding: var(--space-6) var(--space-6);
+  }
+  .board { margin: 0; }
+  .plate.them { padding-top: var(--space-2); }
+  .line { margin-bottom: var(--space-2); }
+}
+
+/* ---- the wax seal: a crimson disc with the piece's rulebook icon pressed into it ---- */
+.seal { position: relative; display: inline-grid; place-items: center; flex: none; width: var(--s, 40px); height: var(--s, 40px); }
+.seal svg.wax { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 1.5px 1.5px rgba(60, 20, 10, .35)); }
+.seal svg.wax path { fill: #8f2f23; }
+.seal svg.wax circle { fill: none; stroke: rgba(255, 214, 190, .38); stroke-width: 1.4; }
+.seal .pi { position: relative; width: 62%; height: 62%; --pi-disc: transparent; --pi-ring: rgba(255, 222, 200, .0); --pi-glyph: #fbe3d2; color: #fbe3d2; }
+.seal.tilt { transform: rotate(-8deg); }
+.seal-fly { position: fixed; z-index: 2000; pointer-events: none; margin: 0; }
+
+/* ---- the sheet: Menu and its pages ---- */
+#sheet { overflow-x: hidden; }
+#sheet .sheet-head { min-height: 56px; }
+#sheet .sheet-head .title { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+#sheet .sheet-head h2 { outline: none; }
+#sheet .back[hidden] { display: none; }
+@media (min-width: 760px) {
+  /* The board stays in view beside the panel: a lighter dim, so a Board help switch shows on the real board too. */
+  #sheet::backdrop { background: rgba(20, 14, 8, .14); }
+}
+@media (min-width: 900px) {
+  /* Desktop: the panel takes the place of the quiet column, so it never covers the board. */
+  dialog#sheet {
+    inset: 20px max(20px, calc((100vw - 1240px) / 2 + 20px)) auto auto;
+    width: 380px; height: auto; max-height: calc(100dvh - 40px);
+    border: 1px solid var(--stone-500); border-radius: 18px; box-shadow: var(--shadow-float);
+  }
+  dialog#sheet[open] { animation: menu-in var(--dur-3) var(--ease-out); }
+  dialog#sheet.is-closing { animation: menu-out var(--dur-2) var(--ease-in) forwards; }
+}
+@keyframes menu-in { from { opacity: 0; transform: translateY(10px); } }
+@keyframes menu-out { to { opacity: 0; transform: translateY(10px); } }
+.page { padding-bottom: var(--space-4); }
+.page.enter-fwd { animation: page-in-fwd var(--dur-2) var(--ease-out); }
+.page.enter-back { animation: page-in-back var(--dur-2) var(--ease-out); }
+@keyframes page-in-fwd { from { opacity: 0; transform: translateX(24px); } }
+@keyframes page-in-back { from { opacity: 0; transform: translateX(-24px); } }
+.page .lead { margin: 0 0 var(--space-3); color: var(--ink-soft); }
+
+/* A navigation row: an icon (or a small figure), a name with one line, and a chevron. No frame. */
+.nav { list-style: none; margin: 0; padding: 0; }
+.nav > li + li { border-top: 1px solid var(--stone-300); }
+.navrow {
+  position: relative; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: var(--space-3);
+  width: 100%; min-height: 60px; padding: var(--space-2) var(--space-1); margin: 0;
+  text-align: left; color: var(--ink); background: transparent; border: 0; border-radius: var(--radius); cursor: pointer;
+  transition: background-color var(--dur-1);
+}
+@media (hover: hover) { .navrow:hover { background: rgba(43, 38, 33, .05); } }
+.navrow:active, .navrow.is-pressed { background: rgba(43, 38, 33, .09); }
+.navrow .lead-art { display: grid; place-items: center; width: 44px; height: 44px; color: var(--ink); }
+.navrow .txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.navrow .txt b { font-size: var(--fs-md); display: inline-flex; align-items: center; gap: var(--space-2); }
+.navrow .txt small { color: var(--ink-soft); font-size: var(--fs-sm); }
+.navrow .trail { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--ink-soft); }
+.navrow.is-static { cursor: default; }
+.navrow.is-static .txt b, .navrow.is-static .lead-art { color: var(--ink-soft); }
+@media (hover: hover) { .navrow.is-static:hover { background: transparent; } }
+.navrow .dot { position: static; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 2px var(--vellum); }
+
+/* The Workshop row carries one real figure. */
+.navrow .lead-art.figure { position: relative; align-self: end; height: 56px; margin-bottom: -4px; }
+.navrow .lead-art.figure::before { content: ''; position: absolute; left: 8px; right: 8px; bottom: 3px; height: 7px; border-radius: 50%; background: radial-gradient(closest-side, rgba(28, 20, 8, .28), rgba(28, 20, 8, 0)); }
+.navrow .lead-art.figure img { position: relative; height: 56px; width: auto; max-width: none; }
+
+.group-h {
+  margin: var(--space-4) var(--space-1) 0; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-ink);
+}
+.group-h:first-child { margin-top: var(--space-1); }
+
+/* The Feel row: the name with the Sound chip on the right, then Motion with its visible name. */
+.feel { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: var(--space-3); min-height: 60px; padding: var(--space-2) var(--space-1); }
+.feel .lead-art { display: grid; place-items: center; width: 44px; height: 44px; align-self: start; }
+.feel .ctl { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.feel .feel-name { flex: 1; font-size: var(--fs-md); }
+.feel .motion { flex-basis: 100%; display: flex; align-items: center; gap: var(--space-2); }
+.feel .motion-name { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-soft); }
+.seg { display: inline-flex; padding: 0; border: 1px solid var(--stone-300); border-radius: var(--radius-pill); background: var(--vellum); }
+.seg button {
+  min-height: 44px; min-width: 52px; padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: transparent;
+  font-size: var(--fs-sm); font-weight: 600; color: var(--ink); cursor: pointer;
+  transition: background-color var(--dur-1), color var(--dur-1);
+}
+.seg button[aria-checked='true'] { color: var(--vellum); background: var(--stone-700); }
+.feel .chip[aria-pressed='true'] { color: var(--vellum); background: var(--stone-700); border-color: var(--stone-900); }
+.feel .chip[aria-pressed='false'] { color: var(--ink); background: var(--vellum); }
+.seg-wrap { display: inline-flex; }
+.feel .chip { min-height: 44px; }
+
+.resign-gap { height: var(--space-5); border-bottom: 1px solid var(--stone-300); }
+.navrow.danger .txt b, .navrow.danger .lead-art { color: var(--accent); }
+
+/* ---- Extra as a cabinet (option B): small illustrated tiles ---- */
+.cabinet { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); margin-top: var(--space-1); }
+.tile {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  min-height: 128px; padding: 0 var(--space-3) var(--space-3); text-align: left;
+  color: var(--ink); background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card); cursor: pointer; overflow: hidden;
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-1);
+}
+@media (hover: hover) { .tile:hover { border-color: var(--stone-500); } }
+.tile:active, .tile.is-pressed { transform: translateY(1px); }
+.tile .art { position: relative; align-self: stretch; height: 70px; margin: 0 calc(-1 * var(--space-3)) var(--space-2); display: flex; align-items: flex-end; justify-content: center; gap: 0; background: linear-gradient(var(--parchment-deep), rgba(231, 216, 184, .2)); }
+.tile .art img { height: 64px; width: auto; max-width: none; }
+.tile .art img + img { margin-left: -18px; }
+.tile .art.stone { background: #5b5248 url('../../assets/stone-board.webp') 30% 60% / 260% auto; color: var(--gold-bright); align-items: center; }
+.tile .art.stone .icon { width: 34px; height: 34px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.tile .art.icons { align-items: center; gap: 4px; }
+.tile .art.icons .pi { width: 28px; height: 28px; }
+.tile .art.plain { align-items: center; color: var(--ink-soft); }
+.tile .art.plain .icon { width: 34px; height: 34px; }
+.tile b { font-size: var(--fs-md); display: inline-flex; align-items: center; gap: var(--space-2); }
+.tile small { color: var(--ink-soft); font-size: var(--fs-sm); line-height: 1.25; }
+.tile.is-static { cursor: default; box-shadow: none; background: transparent; border-style: dashed; border-color: var(--stone-500); }
+.tile.is-static .art { background: transparent; }
+.tile .pill { position: absolute; top: var(--space-2); right: var(--space-2); }
+
+/* ---- Board help: each switch with a live mini preview of the real board ---- */
+.bh { list-style: none; margin: 0; padding: 0; }
+.bh > li + li { border-top: 1px solid var(--stone-300); }
+.bh label { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-1); cursor: pointer; border-radius: var(--radius); }
+@media (hover: hover) { .bh label:hover { background: rgba(43, 38, 33, .04); } }
+.bh .txt { display: flex; flex-direction: column; line-height: 1.25; }
+.bh .txt b { font-size: var(--fs-md); }
+.bh .txt small { color: var(--ink-soft); font-size: var(--fs-sm); }
+.bh .txt .state { margin-top: 3px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+.bh input:checked ~ .txt .state { color: var(--accent); }
+.mini {
+  position: relative; width: 96px; height: 96px; overflow: hidden; border-radius: 12px;
+  background: var(--parchment-deep); border: 1px solid var(--stone-500); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .4);
+}
+.mini .mini-host { position: absolute; }
+.mini.is-changing { animation: mini-blink var(--dur-2) var(--ease-out); }
+@keyframes mini-blink { from { filter: brightness(1.25) saturate(.8); } }
+.mini.letters { display: grid; place-items: center; background: var(--vellum); }
+.mini.letters .say { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; font-size: var(--fs-sm); font-weight: 700; text-align: center; line-height: 1.15; padding: 0 6px; }
+.mini.letters .say .pi { width: 26px; height: 26px; }
+.mini.letters .say code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 15px; font-weight: 600; letter-spacing: .02em; }
+
+/* The piece icon on each figure (Board help: Piece icons). */
+.mx-pi { position: absolute; left: 3%; top: 60%; width: 36%; height: 36%; z-index: 5; pointer-events: none; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .45)); }
+.mx-pi .pi { width: 100%; height: 100%; display: block; }
+.mx-pi.pop { animation: mx-pop var(--dur-2) var(--ease-spring) both; }
+@keyframes mx-pop { from { transform: scale(.2); opacity: 0; } }
+
+/* ---- Tricks (option C): found tricks in paint with a seal, the rest as silhouettes with a riddle ---- */
+.tricks { list-style: none; margin: 0; padding: 0; }
+.tricks > li { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-1); }
+.tricks > li + li { border-top: 1px solid var(--stone-300); }
+.tricks .fig { position: relative; width: 72px; height: 80px; display: flex; align-items: flex-end; justify-content: center; }
+.tricks .fig::before { content: ''; position: absolute; left: 12px; right: 12px; bottom: 2px; height: 8px; border-radius: 50%; background: radial-gradient(closest-side, rgba(28, 20, 8, .25), rgba(28, 20, 8, 0)); }
+.tricks .fig img { position: relative; height: 78px; width: auto; max-width: 84px; object-fit: contain; object-position: bottom; }
+.tricks .riddle .fig img { filter: brightness(0); opacity: .34; }
+.tricks .riddle .fig::before { opacity: .5; }
+.tricks .fig .seal { position: absolute; right: -4px; bottom: -2px; --s: 34px; }
+.tricks .kind { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-ink); display: inline-flex; align-items: center; gap: var(--space-2); }
+.tricks .found-row .kind { color: var(--accent); }
+.tricks b { display: block; font-size: var(--fs-md); line-height: 1.25; }
+.tricks p { margin: 2px 0 0; color: var(--ink-soft); font-size: var(--fs-sm); line-height: 1.3; }
+.tricks .riddle p { font-style: italic; color: var(--ink); font-size: var(--fs-md); }
+.tricks .seal.stamp { animation: seal-stamp 260ms var(--ease-in) both; }
+
+@keyframes seal-stamp {
+  0% { transform: scale(1.7) rotate(-20deg); opacity: 0; }
+  70% { transform: scale(.92) rotate(-6deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-8deg); opacity: 1; }
+}
+
+/* ---- Resign: lay your king down ---- */
+.resign { display: grid; justify-items: center; text-align: center; gap: var(--space-3); padding: var(--space-4) 0; }
+.resign .king { height: 132px; width: auto; }
+.resign h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-xl); letter-spacing: .04em; }
+.resign p { margin: 0; color: var(--ink-soft); }
+.resign .acts { display: grid; gap: var(--space-2); width: 100%; margin-top: var(--space-2); }
+
+/* ---- reduced motion: the end frame at once ---- */
+@media (prefers-reduced-motion: reduce) {
+  .page, .seal, .mini, .mx-pi { animation: none !important; }
+}
+:root[data-motion='reduce'] .page, :root[data-motion='reduce'] .seal, :root[data-motion='reduce'] .mini, :root[data-motion='reduce'] .mx-pi { animation: none !important; }

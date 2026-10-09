@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Starting a game</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- The game screen. The New game sheet opens over it, and the muster plays on its board. -->
+<div class="app" id="app">
+  <header class="top">
+    <button type="button" class="btn btn-icon" id="go-home" aria-label="Home"></button>
+    <p class="wordmark display">King Down</p>
+    <span class="spacer" aria-hidden="true"></span>
+  </header>
+  <main class="table">
+    <div class="table-inner">
+      <div class="plate" id="plate-them">
+        <span class="face" id="them-face"></span>
+        <div><p class="who" id="them-who">Computer</p><p class="sub" id="them-sub">Beginner</p></div>
+      </div>
+      <div class="board" id="board"></div>
+      <div class="plate" id="plate-you">
+        <span class="face" id="you-face"></span>
+        <div><p class="who" id="you-who">You</p><p class="sub" id="you-sub">White</p></div>
+        <p class="status" id="status" aria-live="polite"><b>Your move</b></p>
+      </div>
+    </div>
+  </main>
+  <nav class="bar" aria-label="Game">
+    <button type="button" class="btn btn-quiet" id="hint"></button>
+    <button type="button" class="btn btn-quiet" id="undo"></button>
+    <button type="button" class="btn btn-quiet" id="new"></button>
+  </nav>
+</div>
+
+<!-- Option B: one Play that names the setup. Change opens the sheet. -->
+<section class="home night" id="home" aria-labelledby="home-title" hidden>
+  <div class="home-inner">
+    <div class="lineup" aria-hidden="true">
+      <img src="../../assets/pieces/archer-w.webp" alt="">
+      <img src="../../assets/pieces/ogre-b.webp" alt="" class="near">
+      <img src="../../assets/kings/frost.webp" alt="" class="mid">
+      <img src="../../assets/pieces/beast-b.webp" alt="" class="near">
+      <img src="../../assets/pieces/maester-w.webp" alt="">
+    </div>
+    <h1 class="display" id="home-title">King Down</h1>
+    <p class="tag">Chess with six new pieces.</p>
+    <div class="play-wrap">
+      <button type="button" class="btn btn-primary play" id="quick-play"><span class="play-main">Play</span><span class="play-sub" id="quick-sub">Beginner · White · Random army</span></button>
+      <button type="button" class="btn change" id="quick-change"></button>
+    </div>
+    <nav class="home-links" aria-label="More">
+      <button type="button" class="btn" data-soon>Learn the new pieces</button>
+      <button type="button" class="btn" data-soon>Workshop</button>
+    </nav>
+  </div>
+</section>
+
+<!-- Option A: one short sheet. -->
+<dialog class="sheet ng" id="ng" aria-labelledby="ng-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head">
+    <h2 id="ng-title" tabindex="-1" autofocus>New game</h2>
+    <button type="button" class="btn btn-icon" data-close aria-label="Close" id="ng-close"></button>
+  </div>
+  <div class="ng-body" id="ng-body">
+    <fieldset class="seg modes" aria-label="Mode">
+      <label><input type="radio" name="mode" value="computer" checked><span data-icon="swords"></span><span>Computer</span></label>
+      <label><input type="radio" name="mode" value="powers"><span data-icon="crown"></span><span>Kings' powers</span></label>
+      <label><input type="radio" name="mode" value="two"><span data-icon="users"></span><span>Two players</span></label>
+    </fieldset>
+
+    <section class="grp" id="grp-level" aria-labelledby="level-h">
+      <h3 id="level-h">Level</h3>
+      <fieldset class="seg" id="level-words" aria-labelledby="level-h"></fieldset>
+      <fieldset class="faces" id="level-faces" aria-labelledby="level-h" hidden></fieldset>
+      <p class="line" id="level-line"></p>
+    </section>
+
+    <section class="grp" id="grp-two" aria-labelledby="two-h" hidden>
+      <h3 id="two-h">Where</h3>
+      <fieldset class="seg" aria-labelledby="two-h">
+        <label><input type="radio" name="device" value="here" checked><span>On this device</span></label>
+        <label><input type="radio" name="device" value="link"><span>By link</span></label>
+      </fieldset>
+      <p class="line" id="two-line"></p>
+      <label class="row toggle-row"><span><b>Kings' powers</b><small>Each side picks a king.</small></span><input type="checkbox" class="toggle" id="two-powers"></label>
+    </section>
+
+    <section class="grp kings" id="grp-kings" hidden>
+      <div class="king-slot" data-who="you"></div>
+      <div class="king-slot" data-who="them"></div>
+    </section>
+
+    <section class="fold" id="fold">
+      <button type="button" class="fold-row" id="fold-row" aria-expanded="false" aria-controls="fold-body">
+        <span class="txt"><span class="lbl">Side and army</span><span class="val" id="fold-val">White · Random army</span></span>
+        <span class="chg">Change<span data-icon="chevron-down"></span></span>
+      </button>
+      <div class="fold-body" id="fold-body" hidden>
+        <div class="sub-row" id="side-row">
+          <span class="lbl" id="side-h">You play</span>
+          <fieldset class="seg" aria-labelledby="side-h">
+            <label><input type="radio" name="side" value="w" checked><span data-piece="king w"></span><span>White</span></label>
+            <label><input type="radio" name="side" value="b"><span data-piece="king b"></span><span>Black</span></label>
+          </fieldset>
+        </div>
+        <div class="sub-row">
+          <span class="lbl" id="army-h">Army</span>
+          <fieldset class="seg" aria-labelledby="army-h">
+            <label><input type="radio" name="army" value="random" checked><span>Random</span></label>
+            <label><input type="radio" name="army" value="today"><span>Today's</span></label>
+            <label><input type="radio" name="army" value="chess"><span>Chess</span></label>
+          </fieldset>
+          <div class="army-strip" id="army-strip"></div>
+          <p class="line" id="army-line"></p>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="ng-foot">
+    <p class="warn" id="ng-warn" hidden></p>
+    <button type="button" class="btn btn-primary btn-wide" id="start">Start game</button>
+  </div>
+</dialog>
+
+<!-- The king picker: one at a time. It moves into the slot of the side that is open. -->
+<template id="tpl-picker">
+  <div class="picker grp">
+    <div class="grp-head"><h3 class="pick-h">Your king</h3></div>
+    <fieldset class="emb-row"></fieldset>
+    <div class="king-detail">
+      <div class="king-fig"><img alt=""></div>
+      <div><p class="king-name"></p><fieldset class="powers"></fieldset></div>
+    </div>
+  </div>
+</template>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

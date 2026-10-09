@@ -1,0 +1,315 @@
+/* Pocket: one thumb, one hand. The board sits low over a thumb bar; the reading parts sit just above it.
+   Three layouts from one markup: portrait (phone), landscape (phone on its side) and desk (the foundation:
+   board left, side column right). pocket.js sets data-layout on .app. */
+
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--parchment); }
+
+.app {
+  --app-h: 100dvh;
+  --spring: cubic-bezier(0.34, 1.22, 0.64, 1);
+  position: relative; height: var(--app-h); display: grid; min-width: 0; overflow: clip;
+  background: radial-gradient(140% 70% at 50% 78%, #f7f0e1 0%, var(--parchment) 62%);
+}
+
+/* ---------- portrait: the phone in one hand ---------- */
+/* The opponent, the headline and the ribbon form one group just over the board. The free space sits at
+   the very top, and a short screen (a phone browser with its bars) loses it first. */
+.app[data-layout='portrait'] {
+  max-width: 480px; margin: 0 auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto auto;
+  grid-template-areas: 'opp' 'head' 'ribbon' 'board' 'bar';
+  align-content: end;
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+.opp { grid-area: opp; }
+.head { grid-area: head; }
+.ribbon { grid-area: ribbon; }
+.board { grid-area: board; min-width: 0; min-height: 0; }
+.bar { grid-area: bar; }
+
+/* ---------- the opponent: reading only ---------- */
+.opp { display: flex; align-items: center; gap: var(--space-3); min-height: 56px; padding: var(--space-1) var(--space-4); }
+.avatar {
+  position: relative; flex: none; width: 46px; height: 46px; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 35%, #5b3a2a, #241a14 75%);
+  box-shadow: 0 0 0 2px var(--vellum), 0 0 0 3.5px #9c3a2d;
+}
+.avatar img { position: absolute; width: 150%; max-width: none; left: -25%; top: -2%; }
+.avatar.is-thinking::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(233, 192, 113, 0) 0 70%, rgba(233, 192, 113, .95) 100%);
+  -webkit-mask: radial-gradient(circle, transparent 19px, #000 20px); mask: radial-gradient(circle, transparent 19px, #000 20px);
+  animation: think 1.4s linear infinite;
+}
+@keyframes think { to { transform: rotate(1turn); } }
+:root[data-motion='reduce'] .avatar.is-thinking::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion='full']) .avatar.is-thinking::after { animation: none; } }
+.opp-text { min-width: 0; }
+.opp-text p { margin: 0; line-height: 1.25; }
+.opp-name { font-weight: 700; display: flex; align-items: center; gap: var(--space-2); }
+.opp-power { display: flex; align-items: center; gap: 5px; color: var(--ink-soft); font-size: var(--fs-sm); }
+.opp-power .emb { width: 18px; height: 18px; }
+.opp-power.is-used .emb { filter: grayscale(1) opacity(.55); }
+
+/* ---------- the headline: the one line to read at arm's length ---------- */
+.head { text-align: center; padding: var(--space-2) var(--space-5) var(--space-4); }
+.head-title {
+  margin: 0; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-xl);
+  letter-spacing: 0.06em; line-height: var(--lh-tight); color: var(--ink);
+}
+.head-title.is-check { color: var(--accent); }
+.head-title.is-check::before { content: ''; display: inline-block; width: 0.62em; height: 0.62em; margin-right: 0.35em; vertical-align: 0.04em; border-radius: 50%; border: 3px solid currentColor; }
+.head-sub { margin: 4px 0 0; color: var(--ink-soft); }
+.head.is-fresh .head-title, .head.is-fresh .head-sub { animation: rise var(--dur-2) var(--ease-out) both; }
+.head.is-fresh .head-sub { animation-delay: 40ms; }
+@keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+
+/* ---------- the ribbon: the last move, one line; swipe it to step through the game ---------- */
+.ribbon {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 2px;
+  min-height: 54px; margin: 0 var(--space-2) 6px; padding: 0 2px;
+  border-top: 1px solid var(--stone-300); border-bottom: 1px solid var(--stone-300);
+}
+.rib-step .icon { width: 20px; height: 20px; }
+.rib-step:disabled { background: transparent; border-color: transparent; opacity: .35; }
+.rib-track {
+  position: relative; display: flex; align-items: center; min-height: 52px; min-width: 0; overflow: hidden;
+  cursor: pointer; touch-action: pan-y; border-radius: var(--radius); -webkit-user-select: none; user-select: none;
+}
+.rib-track:focus-visible { outline-offset: -2px; }
+.rib-line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; width: 100%; padding: 0 var(--space-1); }
+.rib-line .pi { width: 26px; height: 26px; vertical-align: 0; }
+.rib-text { min-width: 0; line-height: 1.25; }
+.rib-text small { display: block; font-size: var(--fs-xs); color: var(--ink-soft); font-weight: 600; letter-spacing: .02em; }
+.ribbon.is-prompt { grid-template-columns: minmax(0, 1fr); padding-left: var(--space-2); }
+.ribbon.is-prompt .rib-step { display: none; }
+.ribbon.is-prompt .rib-text { font-weight: 700; }
+.ribbon.is-prompt .rib-track { cursor: default; }
+
+/* ---------- the thumb bar: play, a chain that waits, a look back, the end ---------- */
+.bar {
+  position: relative; z-index: 20; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px;
+  padding: 6px var(--space-2) max(14px, env(safe-area-inset-bottom));
+  background: linear-gradient(#efe4cb, var(--parchment-deep)); border-top: 1px solid var(--stone-300);
+}
+.tb {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 56px; min-width: var(--tap); padding: 4px 2px; border: 0; border-radius: var(--radius);
+  background: transparent; color: var(--ink); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .02em;
+  cursor: pointer; transition: background-color var(--dur-1), transform var(--dur-1) var(--ease-out);
+}
+.tb[hidden] { display: none; }
+/* Every bar icon sits in the same 30 px slot, so all the labels line up. */
+.slot { display: grid; place-items: center; width: 30px; height: 30px; flex: none; }
+.slot .icon { width: 24px; height: 24px; }
+@media (hover: hover) { .tb:hover { background: rgba(43, 38, 33, .06); } }
+.tb:active { background: rgba(43, 38, 33, .1); transform: scale(.96); }
+.tb:disabled { color: var(--ink-soft); cursor: default; }
+.tb:disabled .slot .icon { opacity: .45; }
+.tb:disabled:active { transform: none; background: transparent; }
+.coin { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle, #f4f8ff 40%, #d7e4f6); box-shadow: 0 0 0 1.5px #3f7fd0; }
+.coin img { width: 26px; height: 26px; }
+/* One notch on the rim for each use left. */
+.notches { position: absolute; top: -3px; left: 50%; display: flex; gap: 3px; transform: translateX(-50%); }
+.notches i { display: block; width: 8px; height: 4px; border-radius: 2px; background: #2f5ea8; box-shadow: 0 0 0 1.5px var(--vellum); }
+.tb-power[aria-pressed='true'] { background: #dfe9f7; box-shadow: inset 0 0 0 2px #3f7fd0; }
+.tb-power[aria-pressed='true'] .coin { box-shadow: 0 0 0 2.5px #2f5ea8, 0 0 12px rgba(63, 127, 208, .6); }
+.tb-power.is-used .coin { filter: grayscale(1); opacity: .6; box-shadow: 0 0 0 1.5px var(--stone-500); }
+.app[data-layout='portrait'] .bar { grid-auto-rows: 56px; }   /* one height in every mode: the board never moves */
+.tb-wide { grid-column: span 3; flex-direction: row; gap: var(--space-2); margin: 3px 0; min-height: 50px; font-size: var(--fs-md); }
+#b-stop { background: var(--vellum); box-shadow: inset 0 0 0 1.5px var(--ink); }
+#b-now, .tb-primary { color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent)); box-shadow: 0 2px 0 var(--accent-deep); }
+.tb-primary { gap: 1px; margin: 3px 0; min-height: 50px; padding: 0 2px; }
+@media (hover: hover) { #b-now:hover, .tb-primary:hover { background: linear-gradient(#a8422f, #8f3124); } }
+.app.is-review .board { filter: saturate(.75) brightness(.97); }
+
+/* ---------- the pane: the piece card and the game story ---------- */
+/* On a phone it opens at peek, the height of the thumb bar, in the bar's place: the board stays in view.
+   A pull (or the chevron) makes it taller. */
+.pane {
+  --pane-h: 78px;
+  position: fixed; left: 0; right: 0; bottom: -28px; z-index: 40; max-width: 480px; margin: 0 auto;
+  height: calc(var(--pane-h) + 28px); padding-bottom: 28px; display: flex; flex-direction: column;
+  background: var(--parchment); border-top: 1px solid var(--stone-500); border-radius: 16px 16px 0 0;
+  box-shadow: 0 -6px 18px rgba(46, 32, 14, .16);
+  transition: height var(--dur-3) var(--spring);
+}
+.pane.is-dragging { transition: none; }
+.pane-grab { position: relative; flex: none; touch-action: none; cursor: grab; }
+.grip { position: absolute; top: 5px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--stone-300); }
+.pane-head { display: flex; align-items: center; gap: 2px; min-height: 72px; padding: 10px 4px 0 var(--space-3); }
+.pane-peek { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-3); }
+.pane-peek h2 { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: .06em; line-height: 1.2; }
+.pane-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 var(--space-4) var(--space-4); }
+.app[data-layout='portrait'] .pane[data-h='peek'] .pane-body { visibility: hidden; }
+
+/* the piece card: the art, the name and one line at peek; the verbs, the marks and the full rule below */
+.pk-art { position: relative; flex: none; width: 46px; height: 58px; border-radius: 10px; overflow: hidden; background: radial-gradient(circle at 50% 70%, #fff9ea, #e8dcc2); }
+.pk-art img { position: absolute; left: 50%; bottom: -3px; height: 68px; max-width: none; transform: translateX(-50%); }
+.pk-text { min-width: 0; }
+.pane-peek .pk-text h2 { font-size: var(--fs-md); letter-spacing: .05em; }
+.pk-line { margin: 2px 0 0; font-size: var(--fs-sm); line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cr-verbs { margin: var(--space-2) 0 0; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gold-ink); }
+.cr-more { margin: var(--space-3) 0 0; }
+.cr-key { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: var(--space-2) 0 0; padding: 0; list-style: none; color: var(--ink-soft); font-size: var(--fs-sm); }
+.cr-key li { display: flex; align-items: center; gap: 6px; }
+.key-shot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #c0281c; position: relative; }
+.key-shot::before, .key-shot::after { content: ''; position: absolute; background: #c0281c; }
+.key-shot::before { left: 5px; top: -4px; width: 2px; height: 20px; }
+.key-shot::after { top: 5px; left: -4px; width: 20px; height: 2px; }
+.key-step { width: 11px; height: 15px; background: linear-gradient(135deg, #fff4cf, #f0bf52 50%, #9a6418); clip-path: polygon(50% 0, 100% 45%, 50% 100%, 0 45%); }
+.key-take { width: 15px; height: 15px; border: 2px solid #c0281c; border-radius: 3px; }
+
+/* the game story: a strip of tiles at peek, the list of sentences when taller */
+.strip { display: none; }
+.app[data-layout='portrait'] .pane[data-h='peek'] .strip {
+  display: flex; gap: 4px; min-width: 0; margin: 0; padding: 0 2px; list-style: none; overflow-x: auto; scrollbar-width: none;
+}
+.strip::-webkit-scrollbar { display: none; }
+.strip li { flex: none; }
+.app[data-layout='portrait'] .pane[data-h='peek'][data-kind='story'] .pane-peek h2 {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.tile {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  width: 52px; min-height: 58px; padding: 4px 0 2px; border: 0; border-radius: 10px; background: transparent; cursor: pointer;
+  color: var(--ink); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .02em;
+}
+.tile .pi { width: 28px; height: 28px; vertical-align: 0; }
+@media (hover: hover) { .tile:hover { background: rgba(43, 38, 33, .05); } }
+.tile[aria-current='true'] { background: #fff6dc; box-shadow: inset 0 -3px 0 var(--gold); }
+.tile-mark { position: absolute; top: 3px; right: 6px; font-style: normal; font-size: 11px; line-height: 1; color: var(--gold-ink); }
+.story { list-style: none; margin: 0; padding: 0; }
+.st-btn {
+  display: grid; grid-template-columns: 3.1em 28px minmax(0, 1fr); align-items: center; gap: var(--space-2); width: 100%;
+  min-height: 48px; padding: 6px var(--space-2); text-align: left; background: transparent; border: 0; border-radius: var(--radius); cursor: pointer;
+}
+.st-btn .pi { width: 26px; height: 26px; }
+@media (hover: hover) { .st-btn:hover { background: rgba(43, 38, 33, .05); } }
+.story li + li .st-btn { border-top: 1px solid rgba(201, 191, 172, .6); border-radius: 0; }
+.st-num { color: var(--ink-soft); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); }
+.st-text { line-height: 1.3; }
+.st-text small { display: block; color: var(--gold-ink); font-weight: 600; font-size: var(--fs-sm); }
+.st-text small::before { content: '✦ '; }
+.st-btn[aria-current='true'] { background: #fff6dc; box-shadow: inset 3px 0 0 var(--gold); }
+.story-note { margin: var(--space-3) var(--space-2) 0; color: var(--ink-soft); font-size: var(--fs-sm); }
+
+/* ---------- the loupe: the lifted figure, larger, above the thumb ---------- */
+.loupe {
+  position: fixed; left: 0; top: 0; z-index: 60; width: 120px; height: 120px; border-radius: 50%; overflow: hidden; pointer-events: none;
+  background: #3b352c; box-shadow: 0 0 0 3px var(--vellum), 0 0 0 4.5px rgba(43, 38, 33, .6), 0 14px 30px rgba(20, 14, 8, .45);
+}
+.loupe-in { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.loupe-in .kdb-sq { position: absolute !important; }
+.loupe-tag {
+  position: absolute; left: 50%; bottom: 9px; transform: translateX(-50%); padding: 1px 9px; border-radius: var(--radius-pill);
+  font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; color: var(--on-night); background: rgba(34, 29, 24, .9);
+}
+.touch {
+  position: fixed; left: 0; top: 0; z-index: 59; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, .55), rgba(255, 255, 255, .18) 60%, rgba(255, 255, 255, 0) 72%);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, .75), 0 2px 10px rgba(0, 0, 0, .25);
+}
+
+/* overlays on the board: bite numbers and the cause line */
+.ovl { position: absolute; inset: 0; z-index: 600; pointer-events: none; }
+.bite { position: absolute; width: 12.5%; height: 12.5%; }
+.bite b {
+  position: absolute; left: 4%; bottom: 4%; display: grid; place-items: center; width: 42%; height: 42%; min-width: 18px; min-height: 18px;
+  border-radius: 50%; font-size: max(11px, calc(var(--tile, 46px) * .26)); line-height: 1; color: var(--ink); background: var(--vellum);
+  border: 2px solid var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+}
+.cause { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+/* The fallen king lies down inside its own square: tilted and smaller, with no slide onto a neighbour. */
+/* A thin light rim keeps a dark king readable on a dark square. */
+.kdb-fig.is-fallen.fall-in img {
+  rotate: 80deg; scale: .76; translate: -42% -8%;
+  filter: drop-shadow(0 0 1px rgba(251, 247, 238, .95)) drop-shadow(0 0 3px rgba(251, 247, 238, .6));
+  transition: rotate 520ms cubic-bezier(.5,0,.75,0), translate 520ms, scale 520ms;
+}
+.kdb-fig.is-fallen.fall-in img.mirror { scale: -.76 .76; }
+
+/* ---------- landscape: the phone on its side ---------- */
+.app[data-layout='landscape'] {
+  --bw: calc((var(--app-h) - 16px) / 1.0236);
+  grid-template-columns: var(--bw) minmax(0, 1fr) 78px; column-gap: var(--space-3);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-areas: 'board opp bar' 'board head bar' 'board ribbon bar' 'board pane bar';
+  padding: 8px max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left));
+}
+.app[data-layout='landscape'] .board { height: 100%; }
+.app[data-layout='landscape'] .opp { padding: 2px 0; min-height: 50px; }
+.app[data-layout='landscape'] .head { text-align: left; padding: 8px 0 8px; align-self: start; }
+.app[data-layout='landscape'] .story-note { display: none; }
+.app[data-layout='landscape'] .head-title { font-size: var(--fs-lg); }
+.app[data-layout='landscape'] .ribbon { margin: 0; }
+.app[data-layout='landscape'] .ribbon:not(.is-prompt) { display: none; }   /* the story is open: no second copy of the last move */
+.app[data-layout='landscape'] .bar {
+  grid-auto-flow: row; grid-auto-rows: minmax(0, 1fr); grid-auto-columns: auto; padding: 6px 4px; margin: -8px -8px -8px 0;
+  border-top: 0; border-left: 1px solid var(--stone-300); background: linear-gradient(90deg, #efe4cb, var(--parchment-deep));
+}
+.app[data-layout='landscape'] .tb-wide { grid-column: auto; grid-row: span 3; flex-direction: column; margin: 0 2px; font-size: var(--fs-sm); }
+.app[data-layout='landscape'] .tb-primary { margin: 2px; }
+
+/* ---------- desk: the foundation layout ---------- */
+.app[data-layout='desk'] {
+  max-width: 1280px; margin: 0 auto; padding: var(--space-6) var(--space-7);
+  grid-template-columns: minmax(0, 1fr) 380px; column-gap: var(--space-7);
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  grid-template-areas: 'board opp' 'board head' 'board ribbon' 'board bar' 'board pane';
+}
+.app[data-layout='desk'] .board { height: 100%; }
+.app[data-layout='desk'] .opp { padding: 0; }
+.app[data-layout='desk'] .head { text-align: left; padding: var(--space-5) 0 var(--space-4); align-self: start; }
+.app[data-layout='desk'] .head-title { font-size: var(--fs-2xl); }
+.app[data-layout='desk'] .ribbon { margin: 0; }
+/* The actions: a quiet row of words under the ribbon, with no frame. */
+.app[data-layout='desk'] .bar {
+  grid-auto-columns: max-content; justify-content: start; gap: 2px; margin: 0 0 var(--space-4) -6px; padding: 6px 0 0;
+  background: none; border: 0;
+}
+.app[data-layout='desk'] .tb { flex-direction: row; gap: 5px; min-height: 44px; padding: 0 6px; font-size: var(--fs-sm); }
+.app[data-layout='desk'] .tb-wide { grid-column: auto; margin: 0; min-height: 44px; padding: 0 16px; font-size: var(--fs-sm); }
+.app[data-layout='desk'] .tb-primary { margin: 0 0 0 4px; min-height: 44px; padding: 0 10px; }
+.app[data-layout='desk'] .slot { width: 26px; height: 26px; }
+.app[data-layout='desk'] .slot .icon { width: 20px; height: 20px; }
+.app[data-layout='desk'] .coin { width: 24px; height: 24px; }
+.app[data-layout='desk'] .coin img { width: 21px; height: 21px; }
+/* The ribbon is the folded story: open, the story takes its place. */
+.app[data-layout='desk'][data-pane='story'] .ribbon { display: none; }
+
+/* In the side column the pane is part of the page: no grip, no heights, no shadow. */
+.app:is([data-layout='desk'], [data-layout='landscape']) .pane {
+  position: static; grid-area: pane; align-self: start; height: auto; max-height: 100%; min-height: 0; max-width: none; margin: 0; padding: 0;
+  border: 1px solid var(--stone-300); border-radius: var(--radius-lg); background: var(--vellum); box-shadow: none; transition: none;
+}
+.app:is([data-layout='desk'], [data-layout='landscape']) .grip,
+.app:is([data-layout='desk'], [data-layout='landscape']) #pane-size { display: none; }
+.app:is([data-layout='desk'], [data-layout='landscape']) .pane-grab { cursor: default; }
+.app:is([data-layout='desk'], [data-layout='landscape']) .pane-head { min-height: 0; padding: var(--space-3) 4px var(--space-1) var(--space-4); }
+.app:is([data-layout='desk'], [data-layout='landscape']) .pane.is-default #pane-close { display: none; }
+.app[data-layout='desk'] .pane[data-kind='story'] {
+  grid-area: ribbon; max-height: 52vh; border-width: 1px 0; border-radius: 0; background: transparent;
+}
+.app[data-layout='desk'] .pane[data-kind='story'] .pane-head { padding-left: var(--space-2); }
+.app[data-layout='desk'] .pane[data-kind='story'] .pane-body { padding: 0 0 var(--space-3); }
+.app[data-layout='landscape'] .pane { margin: 6px 0 0; }
+.app[data-layout='landscape'] .pane-peek h2 { font-size: var(--fs-md); }
+.app[data-layout='landscape'] .st-btn { min-height: 44px; padding: 2px var(--space-2); }
+
+/* ---------- the landscape preview inside a portrait or desktop window ---------- */
+.app[data-preview] { --app-h: 390px; position: absolute; width: 844px; height: 390px; max-width: none; margin: 0; }
+.app[data-preview='turned'] { transform-origin: 0 0; transform: rotate(90deg); }
+.app[data-preview='framed'] { transform-origin: 0 0; }
+.app[data-preview='framed'] { border-radius: 34px; box-shadow: 0 0 0 10px #15110d, 0 0 0 11px #4a4037, 0 30px 80px rgba(0, 0, 0, .55); overflow: hidden; }
+body.is-previewing { background: var(--night); }
+.preview-cap { position: fixed; left: 0; right: 0; margin: 0; text-align: center; color: var(--on-night-soft); font-size: var(--fs-md); }
+
+/* ---------- menu rows ---------- */
+.mrow { width: 100%; background: transparent; border: 0; border-radius: 0; text-align: left; cursor: pointer; font-weight: 600; }
+.mrow-l { display: flex; align-items: center; gap: var(--space-3); }
+@media (hover: hover) { .mrow:hover { background: rgba(43, 38, 33, .05); } }
+.menu-body .row { padding-left: var(--space-2); padding-right: var(--space-2); }

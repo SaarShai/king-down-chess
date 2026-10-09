@@ -1,0 +1,38 @@
+{
+  "id": "dir-pocket",
+  "title": "Pocket",
+  "group": "direction",
+  "summary": "The whole game fits one thumb: the board sits low over a thumb bar, with the opponent, the headline and the last move just above it. Drag shows a loupe above the thumb, a swipe on the move line steps through the game, and every gesture has a button twin.",
+  "problem": "On a phone today, the board sits at the top, out of reach of the thumb. A selection pushes Hint and Undo down, off the screen of a phone browser, and the move list takes the lower half. A finger also hides the square it drags to.",
+  "idea": "Put every action in the arc of the thumb and keep the reading parts just over the board. The piece card and the game story open in the thumb bar's place, so the board never moves and stays in view; a pull makes them taller. Drag with a loupe, swipe to look back, and keep a button for each gesture.",
+  "borrows": [
+    { "from": "Clash Royale", "what": "All play in the lower half of the screen, in reach of one thumb." },
+    { "from": "Map apps (Apple Maps, Google Maps)", "what": "One bottom sheet with peek, half and full heights that follows the finger and settles." },
+    { "from": "The iOS text loupe", "what": "A lens above the finger shows what the finger covers, so a drag never lands blind on a 46 px square." },
+    { "from": "Hearthstone", "what": "The history bar: at peek, the game story is a strip of piece tiles; a tile shows the board after that move." },
+    { "from": "Lara Croft GO", "what": "A swipe moves through the story; the move line turns like a page." },
+    { "from": "Royal Match", "what": "Never slow the player down: each motion ends at once on the next tap." }
+  ],
+  "options": [
+    { "key": "A", "name": "Portrait, thumb bar", "state": "rest", "summary": "The board low over a 56 px bar: Menu, Undo, Hint and the Freeze coin. The card and the story open in the bar's place." },
+    { "key": "B", "name": "Landscape, thumb rail", "state": "landscape", "summary": "The board at full height on the left; the story in the middle; the actions on a rail under the right thumb." },
+    { "key": "C", "name": "Drag with a loupe", "state": "select", "summary": "The lifted Beast shows 1.5 times larger above the thumb. After bite 1 it stands on d5, and Stop here waits in the bar. A tap still works." }
+  ],
+  "recommendation": "Take Pocket as the phone layout of the app, whatever the style: the thumb bar, the card and the story in the bar's place, and the loupe. Keep the landscape rail for the phone on its side, and the foundation layout on desktop, with the story folded into the move line.",
+  "joy": 3,
+  "ease": 5,
+  "effort": "M",
+  "states": ["rest", "read", "select", "played", "check", "end", "story", "back", "landscape"],
+  "notes": [
+    "Look at the thumb: on the phone every action sits in the bottom bar. The reading parts sit together just over the board; the free space at the top goes first on a shorter screen.",
+    "read: hold (or tap) their Archer on b6. Its card takes the bar's place, so all its shot squares stay in view. Reading never plays a move; a legal target tap still plays.",
+    "select and Replay: drag the Beast to bite d5. The Beast then stands on d5, the Ogre fades with a 1, and Stop here waits in the bar. Drag on (or tap) to bite e6.",
+    "played and check: a thin ink line shows the cause of the last move: the Archer's shot, or the piece that gives check.",
+    "end: the king lies down in its own square, and the bar turns into Review, New game and Rematch.",
+    "back: a swipe right on the move line steps back one move; Back to now waits under the thumb. The arrows and the story tiles are the twins.",
+    "Desktop: the move line is the folded story. A click opens the story in its place, and the actions are a quiet row of words.",
+    "For option B in the presentation, show landscape-desktop.png (the phone on its side in a frame, with its caption). landscape-phone.png shows the same screen turned 90 degrees.",
+    "Haptics (one tap for a move, two pulses for check) do not show in a picture or a desktop browser.",
+    "Limits: the game starts at move 11 (P1), so the story is short. In the Replay the computer's answer is real, not scripted."
+  ]
+}

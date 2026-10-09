@@ -1,0 +1,68 @@
+{
+  "id": "feat-menu-extra",
+  "title": "Menu and Extra",
+  "group": "feature",
+  "feature": "Menu, Extra, Board help and Tricks",
+  "summary": "The game screen keeps three buttons, and one Menu sheet holds the rest in two short levels. A first trick stamps a wax seal on the move line, the seal flies into Menu, and one quiet gold dot leads the player to it.",
+  "problem": "Today the game screen shows many tiles and options at the same time. The fun features (Workshop, Today's army, the tricks of the new pieces) hide among settings, and nothing tells a player that they exist.",
+  "idea": "Fold everything that a turn does not need into one sheet: Menu first, Extra second. Each row has a plain name and one line. A trick that the player finds earns a seal and one gold dot, once; the Tricks page keeps a riddle for each trick still hidden.",
+  "borrows": [
+    {
+      "from": "Apple Settings and a museum guide",
+      "what": "A plain index of named rows with one line each: fast to scan, nothing to decode."
+    },
+    {
+      "from": "Hearthstone's Modes door",
+      "what": "One real figure on the Workshop row gives the door a face without a banner."
+    },
+    {
+      "from": "Lara Croft GO's relics",
+      "what": "A found trick is a keepsake, and the hidden ones wait as quiet riddles, not as a count."
+    },
+    {
+      "from": "iOS Text Size setting",
+      "what": "The slider shows the new size at once on sample text. Each Board help switch shows its effect live, on a small window of the real board."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "Index",
+      "state": "extra-index",
+      "summary": "Named rows in three groups; one real figure for Workshop; Card mode waits under Coming."
+    },
+    {
+      "key": "B",
+      "name": "Cabinet",
+      "state": "extra-cabinet",
+      "summary": "Small illustrated tiles with real art. More charm, but slower to scan and taller."
+    },
+    {
+      "key": "C",
+      "name": "Index and Tricks",
+      "state": "tricks",
+      "summary": "The index, plus a Tricks page: a seal for each trick you find, a riddle for the rest. The Tricks row shows after the first trick."
+    }
+  ],
+  "recommendation": "Pick A, and add C's Tricks page. The index is the fastest to read, and both advisors pick it. The Tricks row appears only after the first found trick, so it adds no noise before the player has earned it.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": [
+    "menu",
+    "extra-index",
+    "extra-cabinet",
+    "tricks",
+    "board-help",
+    "seal",
+    "dot"
+  ],
+  "notes": [
+    "Menu: New game (Play again, or Change setup), Guide, the Feel row (Sound; Motion: Normal, Fast or Off), Extra, and Resign apart at the end. Resign asks 'Lay your king down?'.",
+    "Play the replay: the Beast bites twice. The seal stamps on the move line and flies into Menu. The gold dot leads to Extra, where the Tricks row is new, then to Tricks.",
+    "Dot: look at the Menu button. The dot goes away when the Menu opens. Inside, one line and a dot lead to Tricks for that visit only.",
+    "Board help: each switch changes its small preview and, on a desktop, the real board beside the panel.",
+    "Live: play White against the Club computer. Your first bite chain, shot over a piece, guard shove, far swap, or king that takes a guard gets its seal.",
+    "Limits: Guide, Change setup, Today's army, Workshop, This game and Account show a short note, not their pages. The seal is a CSS shape with the rulebook icon, not new art."
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "id": "dir-chronicle",
+  "title": "Chronicle",
+  "group": "direction",
+  "feature": "The whole app: the game as a short tale",
+  "summary": "One story line under the board tells each move with a piece icon, a verb mark and eight words or fewer. The full story stays folded behind that line, a return opens with 'Previously', and the end turns into a recap of three panels.",
+  "problem": "Today the move list is a dominant column of code text (Nf3, Ae3*c5). It does not say what happened, it does not show the new verbs of King Down, and it gives a returning player no way to remember the game.",
+  "idea": "The app tells the game in plain words. Each move is one short sentence with a verb (shoots, bites, shoves, swaps) that the engine already knows. The line names a move before you play it, writes itself when the piece lands, and the end of the game becomes a small keepsake.",
+  "borrows": [
+    {
+      "from": "Root and Wingspan logs, Board Game Arena",
+      "what": "A game log in sentences: each turn reads as an event, not as notation."
+    },
+    {
+      "from": "Balatro",
+      "what": "The hand is named while you choose it: here the line names the move while you hold a target."
+    },
+    {
+      "from": "TV series",
+      "what": "'Previously': a returning player sees the last two moves in one breath before the game goes on."
+    },
+    {
+      "from": "Comic strips and Mini Metro's end map",
+      "what": "The recap: three small panels with an arrow and one line each, so a game becomes a story worth keeping."
+    },
+    {
+      "from": "Both advisors",
+      "what": "Squares are named on the selected row only; other rows stay plain words, so the story reads like a tale and stays exact on demand."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "One line, story folded",
+      "state": "rest",
+      "summary": "At rest, the last move as one sentence under the board, with two older lines above it. A tap opens the story."
+    },
+    {
+      "key": "B",
+      "name": "Story open",
+      "state": "story",
+      "summary": "The whole story as plain rows; the selected row names its squares and shows a small board."
+    }
+  ],
+  "recommendation": "Take Chronicle for the move story, the return to a game and the end of a game: one line folded at rest, the full story one tap away, 'Previously' on return, the recap at the end. Keep the live line to eight words, and keep the Book of old games in Extra.",
+  "joy": 4,
+  "ease": 4,
+  "effort": "M",
+  "states": [
+    "rest",
+    "read",
+    "select",
+    "played",
+    "check",
+    "end",
+    "story",
+    "previously"
+  ],
+  "notes": [
+    "Look at the line under the board: it names a move while you hold a target (select), writes itself when the piece lands (played), and points at the cause of check with a thin ink line (check). The ink goes under the figures, so it never covers a piece.",
+    "The preview names the move only. It never says check or mate before you play: the result shows after the move.",
+    "Hold any piece, yours or theirs, to read it (on a desktop, rest the mouse on it). The card takes the place of the line, so the board never moves. Reading never plays a move, and a resting mouse never drops the piece you hold. A tap on a marked square still plays the move.",
+    "At rest, a phone and a desktop show the same thing: the last move and two older lines. The full story opens only on a tap (option B).",
+    "Squares named or not (an option in the idea bank): the live line and the selected story row name squares, because then you look at the board. The other rows stay plain words, so the story reads as a tale and not as notation.",
+    "The words come from the engine's own move data (KD.describe). A small word table turns each move into 'Your Archer shoots a5. It stays on a3.' A threat says 'can shoot', so 'shoots' always means a take.",
+    "The lead-in of twelve moves to P1 is real and legal (checked with the engine). The end (P2) is a later position of the same armies; the story shows the moves between as a gap.",
+    "Limits: the gold 'First shot' mark assumes a player who has used the other verbs in earlier games. The recap does not save a picture yet. The Book of old games is not in this demo. To see 'Previously' and the recap, use the states bar ('previously', 'end')."
+  ]
+}

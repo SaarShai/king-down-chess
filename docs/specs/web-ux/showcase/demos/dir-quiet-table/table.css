@@ -1,0 +1,259 @@
+/* Quiet Table: nothing on the table but the game.
+   Two floors: light parchment (data-floor="light", the default) and the dark stage of the title (data-floor="dark").
+   Two layouts: phone (one column) and desktop (the board, then a 340 px column). app.js sets data-layout. */
+
+:root {
+  --fg: var(--ink);
+  --fg-soft: var(--ink-soft);
+  --line: rgba(43, 38, 33, 0.16);
+  --wash: rgba(43, 38, 33, 0.06);
+  --floor: radial-gradient(90% 75% at 50% 40%, #faf5ea 0%, #f2e9d6 55%, #e6d7b9 100%);
+  --cause: 110, 78, 45;        /* the cause line of a shot: ink brown */
+  --cause-check: 179, 38, 30;  /* the cause line of a check: crimson */
+  --fall: 650ms;
+}
+:root[data-floor='dark'] {
+  --fg: var(--on-night);
+  --fg-soft: var(--on-night-soft);
+  --line: rgba(233, 192, 113, 0.2);
+  --wash: rgba(255, 255, 255, 0.07);
+  --floor: radial-gradient(110% 85% at 50% 38%, #4a3e31 0%, #221d18 58%, #120f0c 100%);
+}
+:root[data-floor='dark'] :focus-visible { outline-color: var(--gold-bright); }
+
+html, body { height: 100%; }
+/* The body carries the floor's middle colour too, so contrast checks read the true background. */
+body { overflow: hidden; color: var(--fg); background: #f2e9d6; }
+:root[data-floor='dark'] body { background: var(--night); }
+.floor {
+  position: fixed; inset: 0; z-index: -1; background: var(--floor);
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+
+/* ---- phone: their strip, the board, your strip and the voice, the folded moves, the hairline row ---- */
+.app {
+  /* The top gap shrinks on a short screen (a phone browser with its toolbars is about 664 px high). */
+  --top: max(clamp(12px, calc((100dvh - 640px) * 0.4), 80px), env(safe-area-inset-top));
+  /* Under and over the board the game needs: their strip 44, your strip 44, the voice 76, the Moves line 48, the row 56, 8 spare. */
+  --reserve: 276px;
+  height: 100dvh; max-width: 560px; margin: 0 auto;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: 'them' 'board' 'ctx' 'bar';
+  padding: var(--top) var(--space-3) max(var(--space-1), env(safe-area-inset-bottom));
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+.app.is-cut { opacity: 0; }
+
+.strip {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  min-height: var(--tap); padding: 0 var(--space-1);
+}
+.them { grid-area: them; }
+.who { display: flex; align-items: center; gap: 10px; min-width: 0; margin: 0; white-space: nowrap; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg); }
+.who .name span { color: var(--fg-soft); font-weight: 600; }
+/* The side to move: a filled stone before its name. Shape and words, not colour alone. */
+.turn-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; border: 1.5px solid var(--fg-soft); background: transparent; transition: background-color var(--dur-2), border-color var(--dur-2); }
+.is-turn .turn-dot { background: var(--fg); border-color: var(--fg); }
+.thinking { display: none; font-size: var(--fs-sm); font-weight: 400; letter-spacing: 0.02em; text-transform: none; color: var(--fg-soft); }
+.thinking.is-on { display: inline; animation: qt-in var(--dur-2) var(--ease-out); }
+
+/* The one power: a quiet text control with a hairline. Read-only for the other side. */
+.power {
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 14px;
+  font-size: var(--fs-sm); font-weight: 600; color: var(--fg);
+  background: transparent; border: 1px solid var(--line); border-radius: var(--radius-pill); cursor: pointer;
+  transition: background-color var(--dur-1), border-color var(--dur-1), color var(--dur-1);
+}
+.power .icon { width: 17px; height: 17px; }
+.power small { font-size: var(--fs-sm); font-weight: 400; color: var(--fg-soft); }
+@media (hover: hover) { .power:hover { background: var(--wash); } }
+.power[aria-pressed='true'] { color: var(--vellum); background: #2f5ea8; border-color: #1d3f75; }
+.power[aria-pressed='true'] small { color: #dbe8fb; }
+.power:disabled { cursor: default; color: var(--fg-soft); border-style: dashed; }
+.power.read-only { border-color: transparent; }
+
+.board { grid-area: board; position: relative; width: 100%; }
+/* On a phone the board takes the full width, but never so much height that the words under it lose their room. */
+:root:not([data-layout='desktop']) .board { width: min(100%, calc((100dvh - var(--top) - var(--reserve)) / 1.0237)); justify-self: center; }
+/* The board sits on the table: a soft cast shadow under its frame. */
+.board::before {
+  content: ''; position: absolute; left: 4%; right: 4%; bottom: -2.5%; height: 16%;
+  background: radial-gradient(closest-side, rgba(40, 26, 10, 0.32), rgba(40, 26, 10, 0));
+  filter: blur(10px); pointer-events: none;
+}
+:root[data-floor='dark'] .board::before { background: radial-gradient(closest-side, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0)); }
+/* Coordinates only while a finger is down, a piece is read, or the keyboard is on the board. */
+.board .kdb-coord { opacity: 0; transition: opacity var(--dur-2) var(--ease-out); }
+.app.coords-on .board .kdb-coord, .board .kdb:focus-visible .kdb-coord { opacity: 1; }
+/* The king lies down slowly: the one strong moment of a game. Its head falls toward the middle of the board,
+   and the whole figure stays in its own square (app.js fallKing sets --fall-r and --fall-t from the figure's box). */
+.board .kdb-fig.is-fallen img {
+  rotate: var(--fall-r, 78deg); translate: var(--fall-t, 0 0); transform: scale(0.8); filter: none;
+  transition: rotate var(--fall) var(--ease-in), translate var(--fall) var(--ease-in), transform var(--fall) var(--ease-in);
+}
+/* A soft pool of warm light under the fallen king, so a dark king on a dark square still reads. One still frame. */
+.board .kdb-fig.is-fallen::after {
+  content: ''; position: absolute; left: -12%; right: -12%; top: 18%; bottom: -2%; z-index: -1; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 226, 170, 0.8), rgba(255, 214, 140, 0.42) 55%, rgba(255, 214, 140, 0));
+  animation: qt-in var(--fall) var(--ease-out) both;
+}
+:root[data-motion='reduce'] { --fall: 0ms; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion='full']) { --fall: 0ms; } }
+
+/* The cause line: from the piece that acts to the square it hits, drawn on the stone. */
+.cause { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 5; }
+.cause .halo { stroke: rgba(251, 246, 232, 0.75); stroke-width: 6; fill: none; stroke-linecap: round; }
+.cause .ink { stroke: rgb(var(--c)); stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-dasharray: 9 7; }
+.cause .end { fill: rgb(var(--c)); stroke: rgba(251, 246, 232, 0.85); stroke-width: 2; }
+
+/* ---- the context area: fixed place, the board never moves ---- */
+.ctx { grid-area: ctx; display: flex; flex-direction: column; min-height: 0; }
+.ctx > .you { order: 1; }
+.voice { order: 2; }
+.moves-line { order: 3; }
+.story { order: 4; }
+
+.voice { min-height: 76px; padding: var(--space-2) var(--space-1) var(--space-3); }
+.say { margin: 0; font-size: var(--fs-lg); font-weight: 700; line-height: 1.3; color: var(--fg); }
+.sub { margin: 2px 0 0; font-size: var(--fs-body); line-height: 1.35; color: var(--fg-soft); }
+.sub:empty { display: none; }
+.sub b { color: var(--fg); font-weight: 700; }
+
+/* The result: the only Cinzel on the table, and the only crimson. */
+.result { display: none; }
+.voice.is-end .say, .voice.is-end .sub { display: none; }
+.voice.is-end .result { display: block; }
+.result h2 {
+  margin: 0; font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 700;
+  letter-spacing: var(--track-display); line-height: 1.1; color: var(--fg);
+}
+:root[data-floor='dark'] .result h2 { color: var(--gold-bright); }
+.result p { margin: 2px 0 var(--space-2); color: var(--fg-soft); }
+.result .cluster { gap: var(--space-2); }
+.result .btn { min-width: 132px; }
+.result .btn-quiet { color: var(--fg); border-color: var(--line); }
+:root[data-floor='dark'] .result .btn-quiet { background: transparent; }
+
+/* Review: the result folds to one line, and the moves take the whole space under the board. */
+.voice.is-review { min-height: 0; padding: var(--space-2) var(--space-1); }
+.voice.is-review .result { display: flex; align-items: center; gap: var(--space-2); }
+.voice.is-review .result h2 { font-size: var(--fs-lg); white-space: nowrap; }
+.voice.is-review .result p { flex: 1; min-width: 0; margin: 0; white-space: nowrap; }
+.voice.is-review .result p::before { content: '· '; }
+.voice.is-review .result .btn { min-width: 0; }
+.ctx.is-review .moves-line { display: none; }
+:root:not([data-layout='desktop']) .ctx.is-review > .you { display: none; }
+/* On a phone the end needs the room under the board: the Moves line steps back until Review. */
+:root:not([data-layout='desktop']) .ctx.is-ended:not(.is-review) .moves-line { display: none; }
+:root:not([data-layout='desktop']) .voice.is-end:not(.is-review) { padding-bottom: var(--space-2); }
+/* A short phone with the moves open: the list takes the voice's place, so it keeps room for a few moves. */
+@media (max-height: 760px) { :root:not([data-layout='desktop']) .ctx.is-open:not(.is-review) .voice { display: none; } }
+
+/* The folded moves: one sentence. A tap opens the story below it, in its own scroll area. */
+.moves-line {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0 var(--space-1);
+  text-align: left; color: var(--fg-soft); background: transparent; border: 0; border-top: 1px solid var(--line); cursor: pointer;
+}
+@media (hover: hover) { .moves-line:hover { color: var(--fg); } }
+.moves-line .ml-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); }
+.moves-line .icon { transition: transform var(--dur-2) var(--ease-out); }
+.moves-line[aria-expanded='true'] .icon { transform: rotate(180deg); }
+.moves-line .pi, .story .pi { width: 22px; height: 22px; }
+:root[data-floor='dark'] .pi { --pi-disc: #2b2520; --pi-glyph: var(--on-night); color: var(--on-night); }
+:root[data-floor='dark'] .pi-w { --pi-disc: #f3ead7; --pi-glyph: #2b2621; color: #2b2621; }
+
+.story { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; margin: 0; padding: 0 var(--space-1) var(--space-2); list-style: none; }
+.story li { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; }
+.story li + li { border-top: 1px solid var(--line); }
+.story .n { min-width: 2.4em; padding-top: 2px; font-size: var(--fs-sm); color: var(--fg-soft); font-variant-numeric: tabular-nums; }
+.story p { margin: 0; line-height: 1.35; }
+.story small { display: block; font-size: var(--fs-sm); color: var(--gold-ink); font-weight: 600; }
+:root[data-floor='dark'] .story small { color: var(--gold-bright); }
+.story li.is-new { animation: qt-in var(--dur-2) var(--ease-out); }
+@keyframes qt-in { from { opacity: 0; } }
+
+/* ---- the hairline row: Hint, Undo, Menu in soft ink until a touch ---- */
+.bar { grid-area: bar; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); }
+.bar button {
+  display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 56px;
+  font-size: var(--fs-sm); font-weight: 600; letter-spacing: 0.02em; color: var(--fg-soft);
+  background: transparent; border: 0; border-radius: var(--radius); cursor: pointer;
+  transition: color var(--dur-1), background-color var(--dur-1);
+}
+@media (hover: hover) { .bar button:hover:not(:disabled) { color: var(--fg); background: var(--wash); } }
+.bar button:active:not(:disabled), .bar button[aria-expanded='true'] { color: var(--fg); }
+.bar button:disabled { cursor: default; opacity: 0.45; }
+
+/* ---- desktop: the board on the left, one quiet column on the right ---- */
+:root[data-layout='desktop'] .app {
+  --bh: min(calc(100dvh - 72px), 880px);
+  max-width: none; height: 100dvh;
+  grid-template-columns: auto 340px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'board them' 'board ctx' 'board bar';
+  justify-content: center; column-gap: 64px;
+  padding: 36px 48px;
+}
+:root[data-layout='desktop'] .board { height: var(--bh); width: calc(var(--bh) / 1.0237); }
+:root[data-layout='desktop'] .them { margin-top: calc(var(--bh) * 0.022); border-bottom: 1px solid var(--line); padding-bottom: var(--space-2); min-height: 56px; }
+/* In the column the story fills the free space under their name; your side sits by your edge of the board. */
+:root[data-layout='desktop'] .story { order: 1; padding-top: var(--space-2); }
+:root[data-layout='desktop'] .ctx::before { content: ''; order: 2; flex: 1; }
+:root[data-layout='desktop'] .ctx.is-open::before { flex: 0; }
+:root[data-layout='desktop'] .moves-line { order: 3; }
+:root[data-layout='desktop'] .voice { order: 4; min-height: 96px; padding-top: var(--space-3); }
+:root[data-layout='desktop'] .ctx > .you { order: 5; border-top: 1px solid var(--line); }
+:root[data-layout='desktop'] .say { font-size: var(--fs-xl); }
+:root[data-layout='desktop'] .who { font-size: var(--fs-sm); }
+:root[data-layout='desktop'] .power, :root[data-layout='desktop'] .power small { font-size: var(--fs-md); }
+:root[data-layout='desktop'] .sub { font-size: var(--fs-lg); }
+:root[data-layout='desktop'] .moves-line .ml-text { font-size: var(--fs-body); white-space: normal; padding: 10px 0; }
+:root[data-layout='desktop'] .bar button { font-size: var(--fs-md); }
+:root[data-layout='desktop'] .story p { font-size: var(--fs-md); color: var(--fg-soft); }
+:root[data-layout='desktop'] .story li:last-child p { color: var(--fg); }
+:root[data-layout='desktop'] .result h2 { font-size: var(--fs-3xl); }
+:root[data-layout='desktop'] .voice.is-review .result h2 { font-size: var(--fs-xl); }
+:root[data-layout='desktop'] .voice.is-review { min-height: 0; }
+/* On a desktop the open list already is the review: Review shows only when the list is folded. */
+:root[data-layout='desktop'] .ctx.is-open #review { display: none; }
+:root[data-layout='desktop'] .bar { margin-bottom: calc(var(--bh) * 0.01); }
+
+/* ---- the menu sheet: plain rows; deeper levels replace the rows in the same sheet ---- */
+.menu-body { padding-top: 0; }
+/* Cinzel stays for "King Down" only. */
+#menu .sheet-head { padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4); }
+#menu .sheet-head h2 { flex: 1; font-family: var(--font-body); font-size: var(--fs-lg); font-weight: 700; letter-spacing: 0; }
+.menu-body h3 { margin: var(--space-4) 0 var(--space-1); font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
+.menu-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); width: 100%;
+  min-height: 52px; padding: var(--space-2) var(--space-1);
+  font-size: var(--fs-body); font-weight: 600; text-align: left; color: var(--ink);
+  background: transparent; border: 0; border-top: 1px solid var(--stone-300); cursor: pointer;
+}
+.menu-row:first-of-type { border-top: 0; }
+.menu-row small { display: block; font-weight: 400; color: var(--ink-soft); font-size: var(--fs-sm); }
+.menu-row .icon { color: var(--ink-soft); }
+@media (hover: hover) { .menu-row:hover { background: rgba(43, 38, 33, 0.05); } }
+.menu-body .row { padding-left: var(--space-1); padding-right: var(--space-1); }
+.floors { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.floor-pick {
+  display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 12px;
+  font-weight: 600; color: var(--ink); background: var(--vellum);
+  border: 1px solid var(--stone-300); border-radius: var(--radius); cursor: pointer;
+}
+.floor-pick .swatch { width: 28px; height: 28px; flex: none; border-radius: 50%; border: 1px solid var(--stone-500); }
+.floor-pick[data-floor='light'] .swatch { background: radial-gradient(circle at 40% 35%, #faf5ea, #e6d7b9); }
+.floor-pick[data-floor='dark'] .swatch { background: radial-gradient(circle at 40% 35%, #4a3e31, #120f0c); }
+.floor-pick[aria-pressed='true'] { border: 2px solid var(--ink); padding: 7px 11px; }
+.floor-pick[aria-pressed='true']::after { content: ''; margin-left: auto; width: 12px; height: 7px; border: solid var(--ink); border-width: 0 0 2.5px 2.5px; transform: rotate(-45deg) translateY(-2px); }
+
+/* ---- reduced motion: every end frame at once ---- */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .app, :root:not([data-motion='full']) .floor, :root:not([data-motion='full']) .thinking,
+  :root:not([data-motion='full']) .board .kdb-coord, :root:not([data-motion='full']) .moves-line .icon { transition: none; }
+  :root:not([data-motion='full']) .story li.is-new { animation: none; }
+}
+:root[data-motion='reduce'] .app, :root[data-motion='reduce'] .floor, :root[data-motion='reduce'] .thinking,
+:root[data-motion='reduce'] .board .kdb-coord, :root[data-motion='reduce'] .moves-line .icon { transition: none; }
+:root[data-motion='reduce'] .story li.is-new { animation: none; }

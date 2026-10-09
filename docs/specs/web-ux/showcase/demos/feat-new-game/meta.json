@@ -1,0 +1,36 @@
+{
+  "id": "feat-new-game",
+  "title": "Starting a game",
+  "group": "feature",
+  "feature": "New game",
+  "summary": "One short sheet starts every game: three modes, the level in view, Side and Army in one folded row, and Start always at the foot. When you press Start, the sheet goes and the new army flips in on the board, file by file.",
+  "problem": "Today the New game sheet starts on Club and shows each choice at once. Lab armies sit with the real ones, and Custom army opens a browser box. A new player must read about 140 words before the first move.",
+  "idea": "Show the main choice now and fold the rare ones into a row that names its values. In Kings' powers, you pick your king from the six real emblems and read one short line for each power, with its limit. Start ends in the muster of feat-muster, so a new army is news.",
+  "borrows": [
+    { "from": "Hearthstone", "what": "The ready deck and clear mode choices: one look tells you what you start." },
+    { "from": "Native form sheets", "what": "Grouped choices, a fixed footer and a summary row for folded values." },
+    { "from": "Clash Royale and Royal Match", "what": "One Battle or Play button that starts at once with the last setup (option B)." },
+    { "from": "Fighting games", "what": "The character select: each level as a face from the real cast (option C)." },
+    { "from": "Wordle", "what": "The reveal in order: the army lands file by file, the same look every game (the feat-muster flip)." }
+  ],
+  "options": [
+    { "key": "A", "name": "One short sheet", "state": "sheet", "summary": "Three modes, the level in view, Side and Army in one row, Start in a fixed footer." },
+    { "key": "B", "name": "One Play that names the setup", "state": "quick", "summary": "\"Play\" with \"Beginner · White · Random army\" under it; Change opens sheet A. In Kings' powers it names the king and the power." },
+    { "key": "C", "name": "Opponents as faces", "state": "faces", "summary": "Each level is a figure from the Workshop cast with a name. The look changes, not the computer." }
+  ],
+  "recommendation": "Build A as the one setup surface. Add B on Home for a returning player: it is A folded to one button, and Change opens A. Keep C as an owner check: it adds joy, but the names must not promise a different computer.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": ["sheet", "side-army", "powers", "quick", "faces", "muster", "start"],
+  "notes": [
+    "Look at the fold row: it names its values when closed (White · Random army), so nothing hides. Their king uses the same row.",
+    "New game during a game: the sheet says \"This ends your game at move 5.\" and the button reads \"Start new game\".",
+    "Kings' powers: your picker is open; the computer's king is one row with Change. One picker is open at a time. Each power line keeps its limit (for example \"not the king\"). The uses tag comes from the engine.",
+    "Start ends in the feat-muster moment (Flip in): the kings and pawns stand, and each piece flips in with its match on the other side, file by file, in about 700 ms. Then \"Same army for both sides.\" The \"muster\" state stops it mid-way.",
+    "A tap or a key jumps the muster to its end. It follows the Motion setting of feat-muster: Fast is one flip, Off and reduced motion show the army at once. In this demo, ?speed=fast or ?speed=off sets it.",
+    "The demo plays a real game after Start: the real rules, the chosen level, side, army and powers. You use a power in play with the power coin of feat-king-powers; it is not in this demo.",
+    "Today's army uses the date seed 2026-10-08. Learn and Workshop on the Home screen do nothing here.",
+    "Option C uses Workshop figures (Hare Scout, Owl Archivist, Fox Pathfinder, Antler Guardian). The owner picks the figures and names."
+  ]
+}

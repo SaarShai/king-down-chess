@@ -1,0 +1,37 @@
+{
+  "id": "feat-muster",
+  "title": "The muster",
+  "group": "feature",
+  "feature": "New game: the army and first sight",
+  "summary": "A new army lands file by file, each piece with its twin, then tags name the new pieces and fold into dots.",
+  "problem": "Each game draws a new army, but today the pieces are simply there. A player does not see that both sides got the same army, and does not know the names of the new pieces or that a hold reads them.",
+  "idea": "Make the deal of the army the one strong moment of a new game: about 700 ms, the twins of each file together, and a tap skips it. Then teach at first sight: one quiet tag for each new piece type, which folds into a dot after your first move and clears when you read or move that piece.",
+  "borrows": [
+    { "from": "Wordle", "what": "The tile flip that reveals a row in order. Here the figures flip in file by file; the planned card deal uses the same flip, so every random reveal in King Down has one look." },
+    { "from": "Really Bad Chess", "what": "A new random army each game. King Down keeps the mirror, and the muster shows it with no words." },
+    { "from": "Marvel Snap", "what": "A reveal in steps. The army is shown in a short sequence, not all at once, so the eye can follow it." },
+    { "from": "iOS home screen", "what": "The small dot beside a new app until its first launch. Here a dot stays on a new piece until you read it or move it." },
+    { "from": "Monument Valley", "what": "For option B: the world rises out of the ground." }
+  ],
+  "options": [
+    { "key": "A", "name": "Flip in", "state": "muster", "summary": "Each figure turns to face you as it drops onto its square, file by file, about 700 ms. The same flip can deal the cards later." },
+    { "key": "B", "name": "Rise up", "state": "rise", "summary": "Each figure rises out of the stone through the foot of its square, file by file, about 700 ms. More physical, but it does not say \"drawn at random\"." }
+  ],
+  "recommendation": "Pick A. The flip reads as a card turned face up, so it says \"random\" and \"the same for both\" in one move, and it gives the future card deal its look. Its speed follows the Animations setting (Normal, Fast, Off), which the app has today, and a tap always skips.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": ["bare", "muster", "mustered", "first-sight", "read", "folded", "rise"],
+  "notes": [
+    "The muster and rise stills stop each file at its own point, so one frame shows the wave. In motion, each file starts 62 ms after the one before it.",
+    "To see B move: in Notes, press Show by Rise up, then press Replay. The video plays A.",
+    "Both styles follow the Animations setting. Fast lands the whole army at once, in 240 ms. Off and reduced motion show the army with no motion. To try Fast, set it in the demo's Menu, then press Replay.",
+    "A tap or a key at any time skips to the end. A tap on a piece also selects it.",
+    "The tags are buttons: a tap on a tag reads that piece, as a hold or the I key on the board does. Reading never plays a move.",
+    "One dot for each new piece type, not for each copy, and only for a tag the player saw. A first move before the tags show gives no dots; the tags show in the next game.",
+    "A dot follows its figure when it moves. It clears when you read that type on either side, or when you move a piece of that type: you have met the piece.",
+    "Rematch keeps the army, so it has no muster, and it keeps the dots. Tags show only for types you have not read or moved on this visit; the app would remember them for the first three games.",
+    "The finger circle in the video is for the demo only. The army is seed 24 of the real engine; New game in the Menu draws a new one.",
+    "Limits: the kings stand from the start and do not take part in the muster. Sounds are the kit's short ticks, not the app's sounds."
+  ]
+}

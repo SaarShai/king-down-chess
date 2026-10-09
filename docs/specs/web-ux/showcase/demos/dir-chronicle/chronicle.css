@@ -1,0 +1,255 @@
+/* Chronicle: the game as a short tale. Parchment and ink, one story line, the board first. */
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--parchment); }
+
+:root {
+  --rule: rgba(77, 69, 60, 0.28);
+  --ink-line: #2b2621;
+  --tale-h: 160px;
+}
+
+.app {
+  height: 100dvh; margin: 0 auto; display: grid;
+  padding: max(var(--space-2), env(safe-area-inset-top)) 0 max(var(--space-2), env(safe-area-inset-bottom));
+}
+
+/* ---- phone: running head, their plate, board, your plate, the tale, the bar ---- */
+.app[data-layout='phone'] {
+  max-width: 560px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, auto) auto var(--tale-h) auto;
+  grid-template-areas: 'head' 'them' 'board' 'you' 'tale' 'bar';
+}
+.app[data-layout='phone'] .head { align-self: center; }
+.app[data-layout='phone'] .board { overflow-x: clip; }
+.app[data-layout='phone'] .plate,
+.app[data-layout='phone'] .tale,
+.app[data-layout='phone'] .bar { padding-inline: var(--space-4); }
+.app[data-layout='phone'] .board { padding-inline: 2px; }
+.app[data-layout='phone'] .side { display: contents; }
+
+/* ---- desktop: the board on the left; one quiet column on the right, centred on the board ----
+   The column holds the same two older lines as the phone. The full story (option B) unfolds it. */
+.app[data-layout='desktop'] {
+  max-width: 1260px; padding: var(--space-5) var(--space-6);
+  grid-template-columns: minmax(0, 1fr) 384px; column-gap: var(--space-7);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: 'board side';
+}
+.app[data-layout='desktop'] .side {
+  grid-area: side; min-height: 0; min-width: 0; max-height: 100%; display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto auto;
+  grid-template-areas: 'head' 'them' 'tale' 'you' 'bar';
+  align-self: center;
+}
+.app[data-layout='desktop'] .tale { min-height: 184px; }
+.app[data-layout='desktop'] .tale.is-open { height: min(52dvh, 520px); }
+.app[data-layout='desktop'] .board { align-self: center; }
+
+.head { grid-area: head; text-align: center; padding: var(--space-2) var(--space-4) var(--space-1); }
+.head .chapter { margin: 0; font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 700; letter-spacing: 0.08em; color: var(--ink); }
+.head .sub {
+  margin: 2px 0 0; font-family: var(--font-display); font-size: var(--fs-xs); letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-soft);
+}
+.head .sub span { color: var(--gold-ink); }
+.app[data-layout='desktop'] .head { text-align: left; padding: 0 0 var(--space-3); }
+
+.board { grid-area: board; min-height: 0; min-width: 0; position: relative; }
+
+/* ---- the two players: a strip of text, no frame ---- */
+.plate {
+  grid-area: them; display: flex; align-items: center; gap: var(--space-4);
+  min-height: 52px; padding-block: var(--space-1);
+}
+.plate.you { grid-area: you; }
+.plate img.emblem { width: 34px; height: 34px; border-radius: 50%; flex: none; object-fit: cover; box-shadow: 0 0 0 1px var(--rule); }
+.plate .who { flex: 1; min-width: 0; line-height: 1.2; }
+.plate .who b { position: relative; display: block; font-size: var(--fs-md); }
+.plate .who small { color: var(--ink-soft); font-size: var(--fs-sm); }
+/* The side to move: a diamond in the gutter before the name (a shape, not colour only). The names stay aligned. */
+.plate .who b::before {
+  content: ''; position: absolute; left: -12px; top: 50%; width: 6px; height: 6px; margin-top: -4.5px;
+  transform: rotate(45deg); border: 1.5px solid var(--ink); background: transparent;
+  opacity: 0; transition: opacity var(--dur-2) var(--ease-out);
+}
+.plate[data-turn='true'] .who b::before { opacity: 1; background: var(--ink); }
+.power {
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 var(--space-3);
+  font-size: var(--fs-sm); font-weight: 700; color: var(--ink); background: transparent;
+  border: 1px solid transparent; border-radius: var(--radius-pill); white-space: nowrap;
+}
+.power .icon { width: 18px; height: 18px; }
+.power small { font-weight: 600; color: var(--ink-soft); }
+button.power { cursor: pointer; border-color: var(--rule); }
+@media (hover: hover) { button.power:hover { background: rgba(255, 255, 255, 0.5); } }
+button.power[aria-pressed='true'] { color: var(--vellum); background: var(--accent); border-color: var(--accent-deep); }
+button.power[aria-pressed='true'] small { color: var(--vellum); }
+.power[data-spent='true'] { color: var(--ink-soft); font-weight: 600; }
+.power[data-spent='true'] .icon { opacity: 0.55; }
+
+/* ---- the tale: the story line under the board ---- */
+.tale { grid-area: tale; position: relative; min-height: 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; }
+.tale::before {
+  /* one hairline with a small gold diamond: the page rule of a chronicle */
+  content: ''; position: absolute; left: var(--space-4); right: var(--space-4); top: 0; height: 1px; background: var(--rule);
+}
+.app[data-layout='desktop'] .tale::before { left: 0; right: 0; }
+.tale::after {
+  content: ''; position: absolute; left: 50%; top: -3px; width: 7px; height: 7px; margin-left: -3.5px;
+  transform: rotate(45deg); background: var(--parchment); border: 1px solid var(--gold);
+}
+.app[data-layout='desktop'] .tale { border-bottom: 1px solid var(--rule); }
+
+.line-btn {
+  flex: none; min-width: 0; width: 100%; display: flex; flex-direction: column;
+  padding: 0 0 var(--space-2); margin: 0; text-align: left; cursor: pointer;
+  background: none; border: 0; border-radius: var(--radius); color: inherit; overflow: hidden;
+}
+@media (hover: hover) { .line-btn:hover .open-cue { color: var(--ink); } }
+
+/* Two older lines step back: smaller type in soft ink (6.5:1 on parchment), no fade, so they stay readable. */
+.tail {
+  list-style: none; margin: 0; padding: var(--space-3) 0 0; display: flex; flex-direction: column; justify-content: flex-end;
+  min-height: 0; min-width: 0; overflow: hidden; cursor: pointer;
+}
+.tail li { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.35; padding: 2px 0; }
+.tail li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tail li .pi { flex: none; width: 1.25em; height: 1.25em; }
+.app[data-layout='desktop'] .tail li { font-size: var(--fs-md); padding: 4px 0; }
+
+.now { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0 0; font-size: 19px; line-height: 1.3; color: var(--ink); }
+.app[data-layout='desktop'] .now { font-size: 22px; margin-top: 10px; }
+.now .pi { width: 1.45em; height: 1.45em; margin-top: -1px; }
+.now .txt { flex: 1; min-width: 0; text-wrap: balance; }
+.now.is-preview .txt { font-style: italic; text-decoration: underline dashed var(--stone-500); text-underline-offset: 5px; text-decoration-thickness: 1px; }
+.now.is-check .txt { font-weight: 700; }
+.verb {
+  display: inline-grid; place-items: center; flex: none; width: 1.45em; height: 1.45em; margin-top: -1px;
+  color: var(--gold-ink); border: 1.5px solid currentColor; border-radius: 50%;
+}
+.verb .icon { width: 64%; height: 64%; stroke-width: 2.2; }
+.verb[data-verb='check'] { color: var(--accent); }
+
+.kick {
+  display: flex; align-items: center; gap: var(--space-2); min-height: 26px; margin-top: 4px;
+  font-size: var(--fs-xs); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: var(--ink-soft);
+}
+.kick .what { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kick .pill { text-transform: none; letter-spacing: 0.02em; font-size: var(--fs-xs); }
+.kick .pill .icon { width: 14px; height: 14px; }
+.open-cue { display: inline-flex; align-items: center; gap: 2px; color: var(--ink-soft); white-space: nowrap; }
+.open-cue .icon { width: 16px; height: 16px; }
+.tail li.prev-li { display: block; margin-top: 6px; font-family: var(--font-display); font-size: var(--fs-sm); letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold-ink); }
+
+/* The read card takes the place of the line: the same area, so nothing moves. */
+.read {
+  position: absolute; inset: 1px 0 0; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--space-3);
+  align-items: center; padding: var(--space-2) var(--space-4); background: var(--parchment);
+}
+.app[data-layout='desktop'] .read { padding: var(--space-3) 0; }
+.read img { width: 64px; height: 76px; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 3px 4px rgba(43, 38, 33, 0.25)); }
+.read h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: 0.06em; }
+.read h3 small { font-family: var(--font-body); letter-spacing: 0; color: var(--ink-soft); font-weight: 600; margin-left: 4px; }
+.read p { margin: 2px 0 0; font-size: var(--fs-md); line-height: 1.35; }
+.read .meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 6px; font-size: var(--fs-sm); color: var(--ink-soft); }
+.read .meta .icon { width: 16px; height: 16px; vertical-align: -3px; }
+
+/* ---- the story, open: on the desktop in place of the tail; on a phone in a sheet ---- */
+.story-side { display: none; min-height: 0; flex-direction: column; }
+.app[data-layout='desktop'] .tale.is-open .line-btn,
+.app[data-layout='desktop'] .tale.is-open .tail { display: none; }
+.app[data-layout='desktop'] .tale.is-open .story-side { display: flex; flex: 1; }
+.story-top { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0 var(--space-1); }
+.fold { min-height: var(--tap); background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-soft); font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: 0.08em; }
+@media (hover: hover) { .fold:hover { color: var(--ink); background: rgba(255, 255, 255, 0.5); } }
+.story-top h2 { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: 0.08em; }
+.story-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding-bottom: var(--space-3); }
+
+.story { list-style: none; margin: 0; padding: 0; }
+.story li + li { border-top: 1px solid rgba(77, 69, 60, 0.14); }
+.srow {
+  display: grid; grid-template-columns: 2.2em auto minmax(0, 1fr); gap: 8px; align-items: start; width: 100%;
+  min-height: var(--tap); padding: 10px 6px; margin: 0; text-align: left; font-size: var(--fs-md); line-height: 1.35;
+  color: var(--ink); background: none; border: 0; border-radius: var(--radius-sm); cursor: pointer;
+}
+@media (hover: hover) { .srow:hover { background: rgba(255, 255, 255, 0.45); } }
+.srow .n { color: var(--ink-soft); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); padding-top: 2px; }
+.srow .marks { display: inline-flex; gap: 4px; }
+.srow .pi { width: 1.3em; height: 1.3em; }
+.srow .verb { width: 1.3em; height: 1.3em; }
+.srow .gold { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-size: var(--fs-xs); font-weight: 700; color: var(--gold-ink); white-space: nowrap; }
+.srow .gold .icon { width: 14px; height: 14px; }
+.srow .sub { display: block; font-size: var(--fs-sm); font-weight: 700; color: var(--accent); }
+.story li.is-sel .srow { background: var(--vellum); box-shadow: inset 3px 0 0 var(--gold); }
+.detail { display: none; grid-template-columns: 120px minmax(0, 1fr); gap: var(--space-3); align-items: center; padding: 4px 6px 12px calc(2.2em + 14px); background: var(--vellum); }
+.story li.is-sel .detail { display: grid; }
+.detail .where { font-size: var(--fs-md); font-weight: 700; font-variant-numeric: tabular-nums; }
+.detail .where small { display: block; font-weight: 400; color: var(--ink-soft); font-size: var(--fs-sm); margin-top: 2px; }
+.detail .mini { width: 120px; overflow: hidden; }
+.panel .mini { overflow: hidden; }
+.gap-row { padding: 10px 6px 10px calc(2.2em + 14px); font-size: var(--fs-sm); color: var(--ink-soft); font-style: italic; }
+
+/* ---- the bar: Hint, Undo, Menu. No frames. ---- */
+.bar { grid-area: bar; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); padding-top: var(--space-1); }
+.bar .btn {
+  flex-direction: column; gap: 1px; min-height: 52px; padding: 4px; font-size: var(--fs-sm); font-weight: 600;
+  background: transparent; border-color: transparent; box-shadow: none; color: var(--ink);
+}
+@media (hover: hover) { .bar .btn:hover { background: rgba(255, 255, 255, 0.5); } }
+.bar .btn:active { transform: none; background: rgba(43, 38, 33, 0.08); }
+.app[data-layout='desktop'] .bar { padding-top: var(--space-3); }
+
+/* ---- ink on the board: the cause line, the trail, the arrows of the recap ---- */
+/* z-index 5: over the squares and the board's marks (2 to 4), under every figure (10 and up). */
+.ink { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: visible; }
+.ink .halo { stroke: rgba(251, 247, 238, 0.85); fill: none; stroke-linecap: round; }
+.ink .stroke { stroke: var(--ink-line); fill: none; stroke-linecap: round; }
+.ink .dot { fill: var(--ink-line); }
+.ink .ring { stroke: var(--ink-line); fill: none; }
+.ink .head { fill: var(--ink-line); }
+
+/* ---- sheets ---- */
+.sheet .sheet-body { padding-top: 0; }
+#story-sheet .story { margin-bottom: var(--space-3); }
+
+/* ---- the recap: three panels, then Rematch ---- */
+dialog.recap { max-height: min(94dvh, 780px); background: var(--parchment); }
+@media (min-width: 760px) { dialog.recap { max-height: 100dvh; } .recap .sheet-body { padding-top: var(--space-5); } }
+/* A fallen king tilts inside its own square, so the player still sees where it stands and what is beside it. */
+.board .kdb-fig.is-fallen img, .mini .kdb-fig.is-fallen img {
+  rotate: -30deg; scale: 0.85; translate: 0 0;
+  transition: rotate 520ms cubic-bezier(.5, 0, .75, 0), scale 520ms cubic-bezier(.5, 0, .75, 0);
+}
+.board .kdb-fig.is-fallen img.mirror, .mini .kdb-fig.is-fallen img.mirror { scale: -0.85 0.85; }
+.sheet h2:focus { outline: none; }
+.recap .sheet-body { padding-top: var(--space-2); }
+.recap .title { text-align: center; margin: var(--space-2) 0 var(--space-4); }
+.recap .title .tag { margin: 0; font-family: var(--font-display); font-size: var(--fs-xs); letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold-ink); }
+.recap .title h2 { margin: 4px 0 2px; font-family: var(--font-display); font-size: var(--fs-2xl); letter-spacing: 0.1em; color: var(--accent); }
+.recap .title p { margin: 0; color: var(--ink-soft); }
+.panels { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); margin: 0 0 var(--space-4); }
+/* Each panel is a row: a mini board big enough to read its ink, and its line beside it. */
+.panel { margin: 0; display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: var(--space-4); align-items: center; }
+.panel .mini { width: 100%; }
+.panel figcaption { margin: 0; font-size: var(--fs-md); line-height: 1.3; }
+.panel figcaption b { display: block; font-size: var(--fs-xs); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+.recap .actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.recap .actions .btn-primary { grid-column: 1 / -1; min-height: 52px; font-size: var(--fs-lg); }
+@media (min-width: 760px) {
+  dialog.recap { width: 440px; }
+  .recap .panels { gap: var(--space-4); }
+  .recap .panel { grid-template-columns: 150px minmax(0, 1fr); }
+}
+/* The recap turns in like a page: the one strong moment of the game. */
+dialog.recap[open] { animation: chron-page var(--dur-4) var(--ease-out); transform-origin: 50% 100%; }
+@media (min-width: 760px) { dialog.recap[open] { animation-name: chron-page-side; transform-origin: 100% 50%; } }
+@keyframes chron-page { from { transform: perspective(1400px) rotateX(-28deg) translateY(40%); opacity: 0; } }
+@keyframes chron-page-side { from { transform: perspective(1400px) rotateY(-32deg) translateX(30%); opacity: 0; } }
+:root[data-motion='reduce'] dialog.recap[open] { animation: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion='full']) dialog.recap[open] { animation: none; } }
+
+.menu-list { list-style: none; margin: 0; padding: 0; }
+.menu-list .btn { width: 100%; justify-content: flex-start; background: transparent; box-shadow: none; border-color: transparent; min-height: 52px; }
+.menu-list li + li { border-top: 1px solid var(--stone-300); }

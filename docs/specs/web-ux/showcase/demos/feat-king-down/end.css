@@ -1,0 +1,223 @@
+/* King Down: the end. The game screen at its last move: the board stays, the result sits beside it. */
+html, body { height: 100%; }
+body { overflow: hidden; background: var(--parchment); }
+
+.app {
+  height: 100dvh; max-width: 560px; margin: 0 auto;
+  display: grid; grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-areas: 'top' 'board' 'you' 'ctx';
+  padding: max(var(--space-1), env(safe-area-inset-top)) var(--space-3) max(var(--space-3), env(safe-area-inset-bottom));
+}
+.top { grid-area: top; display: flex; align-items: center; gap: var(--space-2); min-height: 52px; }
+.board-wrap { grid-area: board; min-height: 0; position: relative; }
+.board { width: 100%; }
+.plate.you { grid-area: you; }
+.ctx { grid-area: ctx; min-height: 0; position: relative; }
+
+/* ---- the two nameplates: emblem, king and who plays it ---- */
+.plate { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex: 1; }
+.plate .emblem { width: 30px; height: 30px; flex: none; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(43, 38, 33, .25)); }
+.plate p { margin: 0; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plate b { font-weight: 700; }
+.plate span { color: var(--ink-soft); }
+.plate.you { min-height: 40px; padding-top: 2px; }
+.demo-tag { flex: none; }
+
+/* ---- the context area: one pane at a time, by phase ---- */
+.pane { display: none; height: 100%; flex-direction: column; }
+.app[data-phase='play'] .pane-play,
+.app[data-phase='end'] .pane-end,
+.app[data-phase='ask'] .pane-ask,
+.app[data-phase='retry'] .pane-retry,
+.app[data-phase='moment'] .pane-moment { display: flex; }
+.pane { padding-top: var(--space-3); border-top: 1px solid var(--stone-300); }
+
+.say { flex: 1; min-height: 0; }
+.say-title { margin: 0; font-weight: 700; font-size: var(--fs-lg); line-height: 1.3; }
+.say-sub { margin: 2px 0 0; color: var(--ink-soft); }
+.say-title:focus { outline: none; }
+.bar { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); padding-top: var(--space-3); }
+.bar-one, .pane-retry .bar { grid-template-columns: 1fr; }
+.btn.is-pressed { transform: translateY(2px); background: rgba(255, 255, 255, .6); }
+
+/* Phone: the words of each pane sit right on top of their buttons, as one group, low for the thumb.
+   The free space stays quietly under the nameplate. (margin-top: auto, so a short screen can still scroll.) */
+@media (max-width: 899.98px) {
+  .pane-end > :first-child, .pane-ask > :first-child, .pane-retry > :first-child { margin-top: auto; }
+  .pane-end .moments, .pane-retry .say { flex: none; }
+}
+
+.eyebrow {
+  margin: 0; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--gold-ink);
+}
+
+/* ---- the result ---- */
+.end-head { flex: none; }
+.end-title { margin: 2px 0 0; font-size: var(--fs-2xl); color: var(--ink); }
+.end-title:focus { outline: none; }
+.end-title.is-long { font-size: var(--fs-xl); }
+.cause { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-1) 0 0; color: var(--ink-soft); }
+.cause .pi { width: 1.5em; height: 1.5em; }
+.moments { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: var(--space-3) 0; }
+.end-actions { flex: none; display: flex; flex-direction: column; gap: var(--space-2); }
+.end-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.rematch { flex-direction: column; gap: 0; min-height: 54px; padding: 6px 16px; }
+.rematch span { font-size: var(--fs-lg); }
+.rematch small { font-size: var(--fs-xs); font-weight: 600; opacity: .9; }
+.retry { border-color: var(--gold-ink); }
+.retry .icon { color: var(--gold-ink); }
+
+/* A (quiet): the key moments fold into one row. */
+.fold-row {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--tap);
+  padding: var(--space-2) var(--space-1); background: none; border: 0; border-block: 1px solid var(--stone-300);
+  text-align: left; font-weight: 600; color: var(--ink); cursor: pointer;
+}
+.fold-row .icon { color: var(--ink-soft); }
+.fold-row .icon:last-child { margin-left: auto; transition: transform var(--dur-2) var(--ease-out); }
+.fold-row[aria-expanded='true'] .icon:last-child { transform: rotate(90deg); }
+@media (hover: hover) { .fold-row:hover { background: rgba(255, 255, 255, .45); } }
+.fold-row small { display: block; font-weight: 400; color: var(--ink-soft); font-size: var(--fs-sm); }
+
+/* B (ceremony) and an open fold: three key-moment tiles. Your moves have a gold top edge, theirs an ink one; the text says whose. */
+.tiles-wrap { position: relative; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.tiles > [role='listitem'] { display: grid; min-width: 0; }
+.tiles-head { margin: 0 0 var(--space-2); font-size: var(--fs-sm); font-weight: 700; color: var(--ink-soft); }
+.tile {
+  position: relative; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 6px;
+  width: 100%; min-height: 64px; padding: 8px 8px 8px 4px; text-align: left; cursor: pointer;
+  background: var(--vellum); border: 1px solid var(--stone-300); border-top: 3px solid var(--gold); border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+.tile.theirs { border-top-color: var(--stone-700); }
+.tile .tile-pic { width: 34px; height: 34px; object-fit: contain; justify-self: center; }
+.tile svg.tile-pic { width: 30px; height: 30px; }
+/* The final blow: the fallen king, lying down. */
+.tile .tile-pic.tile-fallen { height: 48px; rotate: -80deg; scale: .64; }
+.tile b { display: block; font-size: var(--fs-xs); letter-spacing: .04em; color: var(--gold-ink); text-transform: uppercase; }
+.tile.theirs b { color: var(--ink-soft); }
+.tile span { display: block; font-size: var(--fs-sm); line-height: 1.2; color: var(--ink); }
+@media (hover: hover) { .tile:hover { border-color: var(--stone-500); border-top-color: var(--gold); } .tile.theirs:hover { border-top-color: var(--stone-700); } }
+.tile.is-in { animation: tile-rise var(--dur-3) var(--ease-out) both; animation-delay: calc(var(--i) * 150ms); }
+@keyframes tile-rise { from { opacity: 0; transform: translateY(10px); } }
+/* B before the tiles rise: the slots are invisible spacers, so nothing shifts. The replay caption sits in their place. */
+.moments.is-waiting .tiles, .moments.is-waiting .tiles-head { visibility: hidden; }
+.replay-cap { display: none; }
+.moments.is-waiting .replay-cap:not([hidden]) {
+  position: absolute; inset: 0; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; color: var(--ink);
+}
+.replay-cap b { font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: .04em; }
+.replay-cap span { color: var(--ink-soft); font-size: var(--fs-sm); }
+
+/* The key moment of a loss: one plain row with the better move. */
+.km {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: var(--space-2); align-items: center;
+  padding: var(--space-2) 0; border-block: 1px solid var(--stone-300);
+}
+.km-last { margin-top: var(--space-4); }
+.km img { width: 34px; height: 46px; object-fit: contain; object-position: 50% 100%; }
+.km p { margin: 0; line-height: 1.3; }
+.km small { display: block; color: var(--ink-soft); font-size: var(--fs-sm); }
+
+/* ---- resign: the question with your king ---- */
+.ask-body { flex: none; display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
+.ask-king { width: 64px; height: 96px; object-fit: contain; object-position: 50% 100%; transform-origin: 50% 92%; rotate: -8deg; filter: drop-shadow(0 4px 6px rgba(43, 38, 33, .25)); }
+.ask-title { margin: 0; font-size: var(--fs-xl); text-wrap: balance; }
+.ask-title:focus { outline: none; }
+.ask-sub { margin: var(--space-1) 0 0; color: var(--ink-soft); }
+.ask-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+
+/* While "Lay your king down?" is open, the board only shows the game (end.js onTap stops the keys). */
+.app[data-phase='ask'] .board { pointer-events: none; }
+
+/* ---- on the board: the veil, the cause line, the words, the ghost ---- */
+.kd-veil { position: absolute; inset: 0; z-index: 100; pointer-events: none; opacity: 0;
+  background: radial-gradient(120% 90% at 50% 40%, rgba(22, 15, 8, .42), rgba(22, 15, 8, .62)); }
+.kd-veil.is-on { opacity: 1; }
+.kd-line { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 140; pointer-events: none; overflow: visible; }
+.kd-words {
+  position: absolute; left: 0; right: 0; top: 46%; z-index: 160; pointer-events: none; text-align: center;
+  padding: calc(var(--tile) * .14) 0 calc(var(--tile) * .16);
+  font-family: var(--font-display); font-weight: 700; font-size: calc(var(--tile) * .66); line-height: 1;
+  letter-spacing: .14em; color: var(--gold-bright); text-shadow: 0 2px 0 rgba(20, 14, 8, .6);
+  /* A soft dark oval behind the words: the gold keeps 3:1 or more on every square under it. */
+  background: radial-gradient(closest-side, rgba(20, 14, 8, .76) 58%, rgba(20, 14, 8, 0));
+}
+.kd-words::after { content: ''; display: block; width: 36%; height: 2px; margin: calc(var(--tile) * .14) auto 0;
+  background: linear-gradient(90deg, transparent, var(--gold-bright), transparent); }
+.kd-lit { z-index: 150 !important; }
+.kd-ghost { opacity: .5; filter: saturate(.6) brightness(1.15); }
+.kd-ghost img { filter: drop-shadow(0 0 calc(var(--u) * 8) rgba(255, 236, 190, .9)); }
+
+/* A still frame: figures take their end pose at once. */
+.app.is-still .kdb-fig img { transition: none !important; }
+/* The fall: slower and heavier than a slide, the one strong moment of the game. */
+.app .kdb-fig.is-fallen img { transition: rotate 650ms cubic-bezier(.55, 0, .85, .25), translate 650ms cubic-bezier(.55, 0, .85, .25), scale 650ms cubic-bezier(.55, 0, .85, .25), filter 650ms; }
+/* A king at the edge, or with a piece on its right, lies down to the left. */
+.app .kdb-fig.is-fallen.fall-left img { rotate: -78deg; translate: -18% 6%; }
+/* No empty square beside it: the king lies down inside its own square, a little smaller, head toward the board. */
+/* A faint light rim keeps a dark king readable on a dark square. */
+.app .kdb-fig.is-fallen.fall-in-place img { rotate: 80deg; scale: .7; translate: calc(var(--tile) * -.34) calc(var(--tile) * -.08);
+  filter: brightness(1.08) drop-shadow(0 0 calc(var(--u) * 2.5) rgba(255, 240, 210, .6)); }
+.app .kdb-fig.is-fallen.fall-in-place img.mirror { scale: -.7 .7; }
+.app .kdb-fig.is-fallen.fall-in-place.fall-left img { rotate: -80deg; translate: calc(var(--tile) * .34) calc(var(--tile) * -.08); }
+/* Your king leans while the Menu asks "Lay your king down?". */
+.app .kdb-fig.is-leaning img { rotate: -16deg; transition: rotate var(--dur-3) var(--ease-out); }
+
+/* ---- desktop: the board on the left, the plates and the result in a column on the right ---- */
+@media (min-width: 900px) {
+  .app {
+    max-width: 1280px; height: 100dvh;
+    grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'board top' 'board ctx' 'board you';
+    column-gap: var(--space-7); padding: var(--space-6) var(--space-7);
+  }
+  .board-wrap { height: 100%; }
+  .board { height: 100%; }
+  .top { min-height: 56px; }
+  .plate .emblem { width: 40px; height: 40px; }
+  .plate { font-size: var(--fs-lg); }
+  .plate.you { min-height: 56px; }
+  .pane { border-top: 0; padding: var(--space-6) 0; justify-content: center; }
+  .pane-end { justify-content: center; }
+  .moments { flex: none; padding: var(--space-5) 0; }
+  .say { flex: none; }
+  .bar { padding-top: var(--space-5); }
+  .end-title { font-size: var(--fs-3xl); }
+  .end-title.is-long { font-size: var(--fs-2xl); }
+  .eyebrow { font-size: var(--fs-sm); }
+  .cause, .say-sub { font-size: var(--fs-lg); }
+  .say-title { font-size: var(--fs-xl); }
+  .rematch { min-height: 60px; }
+  .ask-title { font-size: var(--fs-2xl); }
+  .ask-body { flex: none; flex-direction: column; align-items: flex-start; gap: var(--space-4); margin-bottom: var(--space-5); }
+  .ask-king { width: 88px; height: 132px; }
+  .tile { grid-template-columns: 1fr; justify-items: center; text-align: center; min-height: 128px; padding: 10px 8px; }
+  .tile .tile-pic { width: 44px; height: 44px; }
+  .tile svg.tile-pic { width: 40px; height: 40px; }
+  .tile .tile-pic.tile-fallen { height: 60px; }
+}
+
+/* ---- the Menu sheet ---- */
+.menu-body { display: flex; flex-direction: column; }
+.menu-row { width: 100%; background: none; border: 0; border-radius: 0; text-align: left; font-weight: 600; cursor: pointer; }
+.menu-row + .row, .row + .menu-row { border-top: 1px solid var(--stone-300); }
+@media (hover: hover) { .menu-row:hover { background: rgba(255, 255, 255, .45); } }
+.resign-row { margin-top: var(--space-5); border: 1px solid var(--stone-300) !important; border-radius: var(--radius); color: var(--accent); }
+.resign-label { display: flex; align-items: center; gap: var(--space-2); }
+.resign-label img { width: 22px; height: 32px; object-fit: contain; }
+.demo-box { margin-top: var(--space-6); padding: var(--space-3); border: 1px dashed var(--stone-500); border-radius: var(--radius); }
+.demo-label { margin: 0 0 var(--space-2); font-size: var(--fs-sm); color: var(--ink-soft); }
+
+/* ---- reduced motion: every end frame at once ---- */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .app .kdb-fig img { transition: none !important; }
+  :root:not([data-motion='full']) .tile.is-in { animation: none; }
+  :root:not([data-motion='full']) .fold-row .icon { transition: none; }
+}
+:root[data-motion='reduce'] .app .kdb-fig img { transition: none !important; }
+:root[data-motion='reduce'] .tile.is-in { animation: none; }
+:root[data-motion='reduce'] .fold-row .icon { transition: none; }

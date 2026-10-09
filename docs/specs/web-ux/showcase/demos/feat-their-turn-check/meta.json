@@ -1,0 +1,59 @@
+{
+  "id": "feat-their-turn-check",
+  "title": "Their turn and check",
+  "group": "feature",
+  "feature": "The computer's turn and check",
+  "summary": "The computer's turn has no spinner: their portrait breathes once, and a thin ring shows after 1 s. Just before their piece moves, it lifts, and a check shows its cause: a line from the checking piece and an ember ring on your king.",
+  "problem": "Today the wait shows only words, and a move can land before the eye finds it. A check by an Archer shoots over a piece, so a chess player often does not see where the check comes from.",
+  "idea": "Make the wait calm and the cause clear. Their piece lifts about 3 px (on a phone) just before it travels, so the eye is there in time. In check, a line draws from the checking piece to your king, then an ember ring blooms on the king with one low note. Nothing flashes red.",
+  "borrows": [
+    {
+      "from": "Disney animation (anticipation)",
+      "what": "A small lift before a big move tells the eye where to look. The tell adds 240 ms to a wait of almost one second."
+    },
+    {
+      "from": "Into the Breach",
+      "what": "Every threat shows its cause on the board. King Down's Archer and Strike make checks that a chess player cannot see, so the line from the cause matters most here."
+    },
+    {
+      "from": "Hearthstone",
+      "what": "The opponent's hero portrait carries their state (thinking, a used power), not a spinner over the table."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "Tell on",
+      "state": "tell",
+      "summary": "Watch b6: their Archer lifts about 3 px, with a faint light on its square, just before it moves. The eye is there before it travels."
+    },
+    {
+      "key": "B",
+      "name": "Tell off",
+      "state": "tell-off",
+      "summary": "No lift. The first frame the eye can catch is their Archer already in flight from b6."
+    }
+  ],
+  "recommendation": "Ship A, the tell on, with no setting in the first version: it is quiet and it adds less than a quarter second. Keep the cause line, the ember ring and the low note for every check; they teach the Archer's shot over pieces without words.",
+  "joy": 3,
+  "ease": 5,
+  "effort": "S",
+  "states": [
+    "thinking",
+    "tell",
+    "check",
+    "their-move",
+    "tell-off"
+  ],
+  "notes": [
+    "A still cannot show the breath or the tell. Watch the video from about 3 s: the breath at 3.4 s, the ring at 4 s, the tell on b6 at 4.8 s and the check at 5.4 s. Or switch A and B in the live demo (Menu, Demo only).",
+    "Look at check: the line arcs over the head of the pawn on f2 and lands on your king, clear of the pawn on g2. The arc says that f2 does not block the shot; a straight line would say that it does.",
+    "One check has three marks: the line, the ember ring on the king and the ember rim on your portrait. The word \"Check\" leads the status line, so colour is never the only sign.",
+    "Their turn has no fixed ring on their portrait. It breathes once, and the thin ring draws once after 1 s and stays. It is not a progress ring, so it never shows a false percent.",
+    "their-move: your Beast steps to d4, away from their Ogre, and their Archer shoots it from b6. The line from b6 stays until you move, so a take with no contact always shows its cause.",
+    "The moves are real. P1 is the shared middle game, and Flame's Strike to e3 is the scripted line of the idea bank. Their Archer's shot in their-move is the reply that the real computer picks at Club. Every other reply, in play() and in the live demo, comes from the real computer at Club.",
+    "Try it live: answer the check, and the real computer plays on with the breath, the ring and the tell. A hold or a tap on any piece reads it during their turn; it never plays a move.",
+    "The Sound and buzz switch in Menu turns off the low note, the two short buzzes in check and the buzz on a take. The low note needs one tap first, because the browser allows sound only after a tap.",
+    "Changed from the idea bank plan: the king's flinch became a still ember rim on your portrait, because motion on the king covers the cause of the check. Haptics are one switch with sound, not an option. The landed and ways-out (Coach only) states are not in this demo."
+  ]
+}

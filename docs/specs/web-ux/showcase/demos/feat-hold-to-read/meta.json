@@ -1,0 +1,73 @@
+{
+  "id": "feat-hold-to-read",
+  "title": "Read any piece",
+  "group": "feature",
+  "feature": "Reading a piece",
+  "summary": "Tap any piece, yours or theirs, and its card shows under the board while its reach shows on the board. Hold a piece for a quick look, and let go to close it.",
+  "problem": "Today a tap on an enemy piece gives a refusal. A touch player cannot read an enemy piece. A player cannot see how an enemy piece moves, why the Archer gives check from far away, or why a Guard cannot be taken.",
+  "idea": "One card for every piece, in a fixed place under the board: figure, name, one line, what it can do now and a small rule example. The engine draws the reach on the board in shapes of their own, so a reading never looks like your move. On a short phone the card folds to one row, and Rules opens the full page.",
+  "borrows": [
+    {
+      "from": "Into the Breach",
+      "what": "Every enemy attack shows before it happens, so a loss is never a surprise. Here: their Archer's shots over your pieces."
+    },
+    {
+      "from": "Hearthstone and Marvel Snap",
+      "what": "Press and hold a card to see it large. Here: the figure lifts and its card rises, then goes when you let go."
+    },
+    {
+      "from": "Onitama",
+      "what": "Each piece carries a tiny move diagram. Here: a 5 x 5 rule example that the engine works out."
+    },
+    {
+      "from": "Wingspan's help",
+      "what": "A '?' mode that turns every tap into a question. Here: option C, the lens."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "Tap to read",
+      "state": "tap",
+      "summary": "A tap reads any piece in the fixed context area. Close, Escape or the next tap ends it."
+    },
+    {
+      "key": "B",
+      "name": "Hold to read",
+      "state": "hold",
+      "summary": "Hold a figure: it lifts, its reach shows and a card rises over the context area. Let go and it all goes. The action bar stays clear."
+    },
+    {
+      "key": "C",
+      "name": "The ? lens",
+      "state": "lens",
+      "summary": "A Read button turns on a mode: names on the King Down pieces, and every tap reads. No move plays."
+    }
+  ],
+  "recommendation": "A and B together. A tap is easy to find and works with the keyboard; a hold is the fast path, and it can read a marked enemy without a move. Keep C out: it adds a mode that a player must leave.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": [
+    "rest",
+    "tap",
+    "hold",
+    "lens",
+    "frozen",
+    "hold-target",
+    "keyboard",
+    "guide",
+    "short-tap",
+    "short-hold"
+  ],
+  "notes": [
+    "Look at 'rest' first: the fixed context area before a read. The quiet tip shows until the first read, then goes.",
+    "Look at 'tap': you are in check from far away. Their Archer's card says why, and the arcs show the shot over your pawn on f2.",
+    "Look at 'hold-target': your Beast is selected, and a hold reads their Ogre, a marked target. Nothing plays. A tap on the same square bites. The live demo and the video do this with real taps.",
+    "'frozen': you froze their Archer. It cannot move or shoot next turn, but it still gives check. Thin ice sights show the squares where it still gives check.",
+    "'short-tap' and 'short-hold': a phone with its browser bars (390 x 700). The card folds to one row. Rules opens the rule example. The hold card never covers the action bar.",
+    "Every reach, every ice sight and every rule example comes from the engine (KD.legal), for your pieces and for theirs. The demo writes no rule.",
+    "Live: play White against the Casual computer. Tap reads, hold reads, I on the keyboard reads. A tap, a drag or Enter on a marked target plays the move.",
+    "Limits: no hover reading with a mouse (a click, a 400 ms hold or the I key reads). The lesson button and Menu only show a message. In the app, the tip shows in three games at most. A phone held sideways is not part of this demo."
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "id": "future-card-hand",
+  "title": "Card mode: the hand",
+  "group": "future",
+  "feature": "Card mode",
+  "summary": "Six one-use cards live under your strip, folded to one line, and open in two rows of three when you want them. When the other side plays a card, it turns face up once, then its effect plays on the board.",
+  "problem": "Card mode adds a hand of six cards to a full chess board. A hand that is always open takes room from the board and makes small text hard to read. A hand that hides its cards hides the main part of the mode.",
+  "idea": "Fold the hand to one line, 'Cards · 6', under your strip. A tap opens two rows of three named cards. A card reads like a piece: the same reading card. Use marks its targets on the board. Their card turns face up once, before its effect, so the cause is always clear.",
+  "borrows": [
+    {
+      "from": "Marvel Snap",
+      "what": "The reveal: a card turns face up, then its effect plays. In King Down the cause shows before the effect on the board."
+    },
+    {
+      "from": "Hearthstone",
+      "what": "The hand at the edge that fans up on your turn (option B), and the readable card focus."
+    },
+    {
+      "from": "Hearthstone hero power",
+      "what": "A coin by the king for each card (option C)."
+    },
+    {
+      "from": "Into the Breach",
+      "what": "The rule is in view before you act: each card says if it uses your turn or comes before your move."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "Folded hand",
+      "state": "folded",
+      "summary": "One line, 'Cards · 6', under your strip. A tap opens two rows of three named cards."
+    },
+    {
+      "key": "B",
+      "name": "Hand at the edge",
+      "state": "edge",
+      "summary": "Card tops rest at the lower edge on their turn and fan up on your turn, as in Hearthstone and Marvel Snap. The card text is small."
+    },
+    {
+      "key": "C",
+      "name": "Coins by the king",
+      "state": "coins",
+      "summary": "Each card is a round coin beside your king. It uses no extra row, but the names hide."
+    }
+  ],
+  "recommendation": "Pick A. The board keeps its full size, every card shows its name and its state in words when open, and a player who wants only to move never sees more than one line.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": [
+    "folded",
+    "hand",
+    "read",
+    "armed",
+    "played",
+    "locked",
+    "their-card",
+    "edge-rest",
+    "edge",
+    "coins"
+  ],
+  "notes": [
+    "Proposed hand only. The deal of six cards is an open owner question (TASKS.md, Card deal). These six are a sample. The lab deals the same random six to both sides.",
+    "The cards are real engine cards: Freeze, Strike, Haste, Flight, Rally and Rage. The engine checks every target. Rage has a quiet gold edge and the word Rare. Its legendary look waits for the owner.",
+    "One strong moment: their card. In 'their-card', the count in their strip turns to the card's face, the card shows over the turn line, and then the Archer moves. So the check has a visible cause. A tap or a key skips to the end of the reveal.",
+    "Your own card stays quiet: a chip lands in your strip, and the turn line shows the second step ('played': two dots and 'Now make your move.').",
+    "One card a turn: in 'locked', the other five cards say 'Next turn' in words, and the reading card says why.",
+    "Hold a piece (or press I) to read it: the same reading card as a card. Reading never plays a move. A tap on a marked square plays.",
+    "On desktop, one context area sits under their strip. You, the hand toggle and the bar stay in one place when the hand opens.",
+    "B and C play too. The renders show A in full.",
+    "Not shown: the deal moment and the countdown ring (owner question).",
+    "Limits: no art exists for cards. Power cards use the king emblems. Rally and Rage use a line icon. Card mode is a lab mode. The computer plays its cards at Casual."
+  ]
+}

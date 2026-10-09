@@ -1,0 +1,71 @@
+{
+  "id": "feat-king-powers",
+  "title": "King powers",
+  "group": "feature",
+  "feature": "King powers",
+  "summary": "Your power is a tile with words beside your king: arm it, cast it in three beats, then make your move.",
+  "problem": "Today the power button sits under a rule paragraph, and a powers game on a phone shows about 83 words. Freeze keeps the turn, but no step on the screen says 'now make your move'. Today the board shows no motion when a power is used, but the New game screen shows one (review items 17 and F2).",
+  "idea": "One small control beside your king carries the power's name, its uses and its state. A tap arms it: the targets ripple out from your king. A tap on a target casts it in three beats (the other targets step back, a line of frost runs from your king, ice climbs the piece). Two steps then show 'Then make your move'. The used tile turns to stone and keeps its record: 'Used on move 12'. Their power flips to its face and names itself before their piece moves.",
+  "borrows": [
+    {
+      "from": "Hearthstone",
+      "what": "The hero power: one button beside the hero that turns grey after use. King Down's kings are the heroes, and each spent power is one button."
+    },
+    {
+      "from": "Marvel Snap",
+      "what": "The reveal: a card shows its face before its effect. Their Strike names itself before the piece flies, so the move never looks like a broken rule."
+    },
+    {
+      "from": "Into the Breach",
+      "what": "The preview: a hold on a target shows the result before you commit. Faint ice shows on the piece; only a tap casts."
+    },
+    {
+      "from": "Apple Wallet",
+      "what": "A spent pass keeps its details. The used tile says when you used it, so it stays useful after the power is gone."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "Power tile with words",
+      "state": "ready",
+      "summary": "A tile in your strip: the emblem, 'Freeze' and '1 left'. It says its state in words: Armed, Used on move 12, Always on."
+    },
+    {
+      "key": "B",
+      "name": "Coin by the portrait",
+      "state": "coin",
+      "summary": "A round emblem coin beside your king, with one notch for each use. It is small, but it shows no name: a new player must learn the emblem."
+    },
+    {
+      "key": "C",
+      "name": "The portrait is the button",
+      "state": "portrait",
+      "summary": "Your king's portrait arms the power; a ring and a count show the uses. The cleanest strip, but nothing says that the king is a button."
+    }
+  ],
+  "recommendation": "Pick A, the tile with words. A new player reads 'Freeze · 1 left' with no lesson, and the same tile reads 'Used on move 12' after the cast. Keep the three-beat cast, the two steps after Freeze and the reveal of their power for all options.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": [
+    "ready",
+    "armed",
+    "preview",
+    "cast",
+    "spent",
+    "always-on",
+    "their-reveal",
+    "coin",
+    "portrait"
+  ],
+  "notes": [
+    "Look at the order: ready, armed (the targets ripple from your king), preview, cast, then two steps: 'Then make your move'. To preview, hold a marked piece, rest the mouse on it, or press I. To freeze it, tap it.",
+    "The cast is the one strong moment: about 0.8 s in three beats. The board never moves, and no effect covers the piece that acts.",
+    "A frozen piece has no move on its turn. A frozen archer cannot shoot either. It still gives check. It keeps a snowflake badge and ice until it thaws after their turn.",
+    "In spent it is their turn. Tap the board, or wait a few seconds: the computer takes your beast, and the ice thaws.",
+    "their-reveal is the other line: you keep Freeze, and their archer strikes b6 to e3 with check. The Freeze in cast stops this: after it, no Strike gives check.",
+    "Always-on uses Spirit's Holy Light: a tap on the tile shows the shielded squares and three short rules. It has no count and no arming.",
+    "Limits: only Freeze, Strike and Holy Light have their own words; the other powers need their own steps (Haste, Flight). The replay shows the Freeze line only, not their reveal. After any state or Replay you can play on against the Casual computer."
+  ]
+}

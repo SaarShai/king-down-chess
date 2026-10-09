@@ -1,0 +1,39 @@
+{
+  "id": "feat-joy-dial",
+  "title": "The joy dial",
+  "group": "feature",
+  "feature": "Feel: motion and sound",
+  "summary": "One dial sets how much the game celebrates a move: Calm, Warm or Bold. The same four moments of one game play at each setting, so the owner can compare them.",
+  "problem": "Today the feel of the game is a set of separate switches: Animations (Normal, Fast, Off) and Sound. A player who wants only chess and a player who wants a show get the same table, and nobody designs the mix as one set.",
+  "idea": "One Joy dial in Menu › Feel with three stops. Each stop is one set of motion, marks and sound, designed as a whole. Warm is the default; Calm and Bold are one turn away. Sound and Reduce motion stay as two separate switches under the dial.",
+  "borrows": [
+    { "from": "Alto's Odyssey (Zen mode)", "what": "One switch that removes the score and the noise but keeps the game. Calm does the same for King Down, and it keeps the facts: the check line stays." },
+    { "from": "Hearthstone and Marvel Snap", "what": "The power reveal: the coin turns over and names the power before its effect, then turns to stone. Bold uses it for the kings' powers." },
+    { "from": "Into the Breach", "what": "The cause line: every effect points back at its cause. It is an arc, because a shot flies over pieces. At Warm and Bold the arc is the shot itself." },
+    { "from": "Dots and Balatro", "what": "Rising pitch for a combo. Bold makes each Beast bite one step higher." },
+    { "from": "Sports replays", "what": "The winning move plays again at half speed as a see-through figure over the true board, before the king falls (Bold)." }
+  ],
+  "options": [
+    { "key": "A", "name": "Warm", "state": "warm-end", "summary": "Marks for each shot, bite and power. The cause line. One sound for each event. The king shakes in check. A short King Down band that leaves after 1.2 s." },
+    { "key": "B", "name": "Calm", "state": "calm-end", "summary": "Only the pieces move. Text and the check line fade in over 160 ms. No sound. The king lies down; the last move stays marked." },
+    { "key": "C", "name": "Bold", "state": "bold-end", "summary": "Warm, plus the coin that turns over, rising bites, a slow replay of the winning move, and a dimmed board under a large King Down." }
+  ],
+  "recommendation": "Ship the dial with Warm as the default. Warm explains every special move and adds one sound for each event, and it never slows a player. Calm and Bold are one turn of the dial away.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": ["warm-end", "calm-end", "bold-end", "warm", "calm", "bold", "warm-shot", "warm-chain", "bold-chain"],
+  "notes": [
+    "The first row shows the end of the game at each stop: Warm, Calm, Bold. The second row shows the check at each stop. Then the shot and the chain.",
+    "Turn the dial (tap a stop, tap the side of the knob, or drag it): the moment on the board plays again at the new setting. Tap Shot, Check, Chain or Mate to change the moment. Play all four plays the four moments in order.",
+    "A tap on the board (or Escape) skips any motion to its end frame. The end frame keeps every fact.",
+    "Replay plays the four moments at Calm, then Bold, then Warm: too little, too much, just right.",
+    "Look at the check: Calm shows the ring on the king and the line from the Archer, with no motion and no sound. Warm draws the line, adds the bolt mark and shakes the king. Bold also turns Flame's coin over to name Strike for about 0.6 s; then the coin turns to stone. In a still, Bold's check looks like Warm's: the difference is in the motion.",
+    "The fallen king lies down inside its own square. It never covers the next figure.",
+    "Animations Off becomes Reduce motion. Fast goes away: every stop keeps piece moves short, and a tap skips any motion to its end frame.",
+    "Sound and Reduce motion are separate switches under the dial. Sound off silences every stop. Reduce motion shows the end frame of each moment at once, at every stop.",
+    "The Sound line beside Moments says what each setting plays, because a still picture has no sound.",
+    "Owner check: does the player see 'Joy' or 'Feel' as the dial's name? This demo uses 'Joy'.",
+    "Limits: the board plays scripted moments and does not take moves here. The sounds are short tones made in code, not the app's sounds. Haptics work only where the device has them."
+  ]
+}

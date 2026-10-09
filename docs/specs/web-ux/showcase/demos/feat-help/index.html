@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hint, second look, rewind</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="help.css">
+</head>
+<body>
+<div class="app">
+  <header class="plate opp" aria-label="Opponent">
+    <span class="portrait"><img id="opp-art" alt=""></span>
+    <span class="who"><b>Computer</b><small>Beginner</small></span>
+    <span class="turn" id="opp-turn"></span>
+  </header>
+
+  <div class="board" id="board"></div>
+
+  <div class="plate you" aria-label="You">
+    <span class="portrait"><img id="you-art" alt=""></span>
+    <span class="who"><b>You</b><small>White</small></span>
+    <span class="turn" id="you-turn"></span>
+  </div>
+
+  <section class="ctx" id="ctx" aria-live="polite" aria-label="Help and status"></section>
+
+  <nav class="bar" aria-label="Game">
+    <button type="button" class="btn btn-quiet" id="hint" aria-pressed="false"></button>
+    <button type="button" class="btn btn-quiet" id="undo"></button>
+    <button type="button" class="btn btn-quiet" id="menu"></button>
+  </nav>
+</div>
+
+<dialog class="sheet" id="menu-sheet" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title">Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body stack">
+    <section class="menu-group" aria-labelledby="help-title">
+      <h3 id="help-title">Help</h3>
+      <div class="row style-row">
+        <span>Hint<small>How much one tap shows.</small></span>
+      </div>
+      <div class="cluster style-chips" role="group" aria-label="Hint style">
+        <button type="button" class="chip" data-style="direct" aria-pressed="true">The move at once</button>
+        <button type="button" class="chip" data-style="ladder" aria-pressed="false">Step by step</button>
+      </div>
+      <label class="row">
+        <span>Second look<small>After a large mistake, the computer waits. Beginner only.</small></span>
+        <input type="checkbox" class="toggle" id="look-toggle" checked>
+      </label>
+    </section>
+    <button type="button" class="btn btn-wide" id="restart"></button>
+  </div>
+</dialog>
+
+<script type="module" src="help.js"></script>
+</body>
+</html>

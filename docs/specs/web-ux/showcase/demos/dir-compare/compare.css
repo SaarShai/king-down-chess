@@ -1,0 +1,189 @@
+/* The five directions side by side. A dark stone stage, the five live demos in device frames,
+   one moment picker for all. Kit tokens only; no new colours but see-through gold for hairlines. */
+:root { --line: rgba(233, 192, 113, 0.22); --line-strong: rgba(233, 192, 113, 0.45); }
+html, body { height: 100%; }
+body.night {
+  overflow: hidden;
+  background: radial-gradient(130% 80% at 50% 0%, #2e2721 0%, var(--night) 62%, #17130f 100%);
+}
+
+/* ---- the page grid ---- */
+.cmp {
+  height: 100dvh; display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-areas: 'title moments tools' 'note note note' 'stage stage stage';
+  column-gap: var(--space-5);
+}
+.title { grid-area: title; align-self: center; padding: var(--space-3) 0 0 var(--space-6); min-width: 0; }
+.moments { grid-area: moments; align-self: center; margin-top: var(--space-3); }
+.tools { grid-area: tools; align-self: center; justify-self: end; padding: var(--space-3) var(--space-6) 0 0; display: flex; gap: var(--space-2); align-items: center; }
+.note { grid-area: note; }
+.stage { grid-area: stage; }
+
+.title h1 { margin: 0; font-size: var(--fs-xl); color: var(--on-night); white-space: nowrap; }
+.title .sub { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--on-night-soft); }
+
+/* ---- the moment picker: one gold thumb that slides to the chosen moment ---- */
+.moments {
+  position: relative; display: inline-flex; padding: 3px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.04);
+}
+.thumb {
+  position: absolute; top: 3px; bottom: 3px; left: 0; width: 0; border-radius: var(--radius-pill);
+  background: var(--gold-bright); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: transform var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out);
+}
+.moments.is-idle .thumb { opacity: 0; }
+.thumb { transition-property: transform, width, opacity; }
+.stage.is-playing .cap-at { visibility: hidden; }
+.moment {
+  position: relative; z-index: 1; min-height: var(--tap); padding: 0 18px;
+  font: inherit; font-weight: 700; font-size: var(--fs-md); letter-spacing: 0.01em; color: var(--on-night);
+  background: none; border: 0; border-radius: var(--radius-pill); cursor: pointer;
+  transition: color var(--dur-2) var(--ease-out);
+}
+.moment[aria-checked='true'] { color: var(--night); }
+@media (hover: hover) { .moment[aria-checked='false']:hover { color: var(--gold-bright); } }
+.moment:focus-visible { outline: 2px solid var(--on-night); outline-offset: 1px; }
+
+/* ---- frame, count, play all ---- */
+.seg { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: var(--radius-pill); }
+.seg-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 40px; min-width: 44px; padding: 0 12px;
+  font: inherit; font-weight: 600; font-size: var(--fs-sm); color: var(--on-night-soft);
+  background: none; border: 0; border-radius: var(--radius-pill); cursor: pointer;
+  transition: background-color var(--dur-1), color var(--dur-1);
+}
+.seg .seg-btn { min-height: 44px; }
+.seg-btn .icon { width: 18px; height: 18px; }
+.seg-btn[aria-pressed='true'] { color: var(--on-night); background: rgba(255, 255, 255, 0.13); box-shadow: inset 0 0 0 1px var(--line-strong); }
+@media (hover: hover) { .seg-btn:hover { color: var(--on-night); } }
+.play-all { min-height: 44px; border: 1px solid var(--line-strong); padding: 0 14px 0 10px; color: var(--on-night); white-space: nowrap; }
+.play-all.is-on { color: var(--night); background: var(--gold-bright); }
+
+/* ---- the note: what the moment is, and what to look for ---- */
+.note {
+  margin: 0; padding: var(--space-2) var(--space-6) 0; text-align: center;
+  font-size: var(--fs-md); color: var(--on-night); min-height: 2.2em;
+}
+.note b { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.05em; color: var(--gold-bright); margin-right: 2px; }
+.note .look { color: var(--on-night-soft); font-style: italic; margin-left: 6px; }
+
+/* ---- the stage and the slots ---- */
+.stage {
+  --gap-x: 20px; --gap-y: 18px;
+  position: relative; min-height: 0; overflow: hidden;
+  display: flex; flex-wrap: wrap; justify-content: center; align-content: center;
+  gap: var(--gap-y) var(--gap-x); padding: var(--space-3) var(--space-5) var(--space-5);
+}
+.stage[data-count='2'] { --gap-x: 56px; }
+.slot.is-off { position: absolute; left: -400vw; top: 0; visibility: hidden; pointer-events: none; }
+.slot { margin: 0; min-width: 0; display: flex; flex-direction: column; align-items: center; row-gap: 10px; }
+.stage[data-view='phone'][data-count='5'] .slot { flex: 0 0 calc((100% - 4 * var(--gap-x)) / 5); }
+.stage[data-view='phone'][data-count='2'] .slot { flex: 0 0 min(400px, calc((100% - var(--gap-x)) / 2)); }
+.stage[data-view='desktop'][data-count='5'] .slot { flex: 0 0 calc((100% - 2 * var(--gap-x)) / 3); }
+.stage[data-view='desktop'][data-count='2'] .slot { flex: 0 0 calc((100% - var(--gap-x)) / 2); }
+
+.device {
+  --b: 7px;
+  padding: var(--b); border-radius: calc(40px * var(--k, 0.5) + var(--b));
+  background: linear-gradient(145deg, #3d352d, #15110d);
+  box-shadow: 0 0 0 1px rgba(233, 192, 113, 0.28), 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+.stage[data-view='desktop'] .device { --b: 5px; border-radius: 10px; }
+.screen { position: relative; overflow: hidden; border-radius: calc(40px * var(--k, 0.5)); background: #2a241f; }
+.stage[data-view='desktop'] .screen { border-radius: 5px; }
+.screen iframe { position: absolute; top: 0; left: 0; display: block; border: 0; transform-origin: 0 0; background: transparent; }
+.wait {
+  position: absolute; inset: 0; margin: 0; display: grid; place-items: center; padding: var(--space-3);
+  font-family: var(--font-display); font-size: var(--fs-sm); letter-spacing: 0.08em; text-align: center; color: var(--on-night-soft);
+}
+.slot[data-status='missing'] .wait, .slot[data-status='error'] .wait { z-index: 2; background: #2a241f; }
+
+/* the caption under each frame: its name, then what it does at this moment */
+.cap { display: grid; justify-items: center; gap: 2px; max-width: 100%; text-align: center; }
+.cap-head { display: flex; align-items: center; justify-content: center; min-height: var(--tap); max-width: 100%; }
+/* The open link sits out of the flow, just right of the name (or the list): the name centres on the frame. */
+.cap-title { position: relative; display: flex; align-items: center; min-width: 0; }
+.cap-name { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 700; letter-spacing: 0.06em; color: var(--on-night); white-space: nowrap; }
+.open { position: absolute; left: 100%; top: 50%; margin: -22px 0 0 -6px; color: var(--on-night-soft); }
+.open .icon { width: 18px; height: 18px; }
+@media (hover: hover) { .open:hover { color: var(--on-night); background: rgba(255, 255, 255, 0.08); } }
+.cap-motto { margin: 0 0 4px; font-size: var(--fs-sm); line-height: 1.3; font-style: italic; color: var(--on-night-soft); }
+.cap-at { margin: 0; font-size: var(--fs-md); line-height: 1.35; color: var(--on-night); text-wrap: balance; }
+.cap-more { display: none; margin: 6px 0 0; max-width: 560px; font-size: var(--fs-sm); line-height: 1.45; color: var(--on-night-soft); text-wrap: pretty; }
+:root[data-wide='1'] .stage[data-view='desktop'][data-count='2'] .cap-more { display: block; }
+:root[data-wide='1'] .stage[data-view='desktop'][data-count='2'] { --gap-x: 32px; }
+.cap-at::before { content: '◆'; content: '◆' / ''; display: inline-block; margin-right: 6px; font-size: 0.6em; vertical-align: 0.2em; color: var(--gold); }
+
+/* In Two, the name is a list: pick any direction for each side. */
+.cap-pick { display: none; }
+.stage[data-count='2'] .cap-name { display: none; }
+.stage[data-count='5'][data-view='desktop'] .cap-motto { display: none; }
+.stage[data-count='2'] .cap-pick { display: block; }
+.cap-pick select {
+  min-height: var(--tap); padding: 0 34px 0 14px; cursor: pointer;
+  font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 700; letter-spacing: 0.06em; color: var(--on-night);
+  appearance: none; -webkit-appearance: none; border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.05) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e9c071' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 16px;
+}
+.cap-pick select option { color: var(--ink); background: var(--vellum); font-family: var(--font-body); }
+
+/* ---- tablet and small laptop: the picker takes its own row under the title and the tools ---- */
+@media (min-width: 900px) and (max-width: 1279px) {
+  .cmp {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    grid-template-areas: 'title tools' 'moments moments' 'note note' 'stage stage';
+  }
+  .moments { justify-self: center; }
+  .stage[data-view='phone'][data-count='5'] .cap-motto { display: none; }
+  .stage[data-count='5'] .cap-name { font-size: var(--fs-md); }
+}
+/* Below 1360 px the frame buttons show only their icons (each has a name for screen readers and a tooltip). */
+@media (max-width: 1359px) {
+  [data-view] .long { display: none; }
+}
+
+/* ---- narrow screens: the frames fit the width and the stage scrolls; the layout tools sit in thumb reach ---- */
+@media (max-width: 899px) {
+  .cmp {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas: 'title' 'moments' 'note' 'stage' 'tools';
+    column-gap: 0;
+  }
+  .title { padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-3) 0; text-align: center; }
+  .title h1 { font-size: var(--fs-lg); }
+  .title .sub { display: none; }
+  .moments { justify-self: stretch; margin: var(--space-2) var(--space-3) 0; display: flex; }
+  .moment { flex: 1 1 0; padding: 0 2px; font-size: var(--fs-sm); }
+  .note { padding: var(--space-2) var(--space-4) var(--space-1); font-size: var(--fs-sm); min-height: 0; }
+  .note .look { display: block; margin: 0; }
+  .stage {
+    --gap-x: 12px; --gap-y: 20px;
+    overflow-y: auto; align-content: start; padding: var(--space-3) var(--space-3) var(--space-5);
+    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  }
+  .stage[data-count='2'] { --gap-x: 12px; }
+  .stage[data-view='phone'] .slot { flex: 0 0 calc((100% - var(--gap-x)) / 2) !important; }
+  .stage[data-view='desktop'] .slot { flex: 0 0 100% !important; }
+  .cap-name { font-size: var(--fs-md); }
+  .cap-at { font-size: var(--fs-sm); }
+  .stage[data-count='5'] .cap-motto { display: none; }
+  .cap-pick select { font-size: var(--fs-md); padding: 0 28px 0 10px; background-position: right 6px center; max-width: 100%; }
+  .tools {
+    justify-self: stretch; justify-content: center; gap: var(--space-2);
+    padding: var(--space-2) var(--space-3) max(var(--space-2), env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line); background: rgba(20, 16, 12, 0.7);
+  }
+  .tools .seg-btn { padding: 0 10px; }
+}
+@media (min-width: 640px) and (max-width: 899px) {
+  .stage[data-view='phone'] .slot { flex-basis: calc((100% - 2 * var(--gap-x)) / 3) !important; }
+}
+@media (max-width: 899px) {
+  .stage[data-view='phone'][data-count='2'] .open { display: none; }
+}

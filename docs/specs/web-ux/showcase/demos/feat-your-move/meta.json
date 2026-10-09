@@ -1,0 +1,34 @@
+{
+  "id": "feat-your-move",
+  "title": "Verb marks and choices",
+  "group": "feature",
+  "feature": "Your turn",
+  "summary": "Each target shows what the move does before you play it.",
+  "problem": "Today the shove shows its direction but not where the piece lands. The Beast shows no order of bites. A refused tap explains itself only in the line under the board, away from the Guard. Take or shove opens a dialog.",
+  "idea": "Give each verb one mark with its own shape, made from the engine's legal moves. A shove puts an arrow on the square where the piece lands. The Beast's bites have numbers. A refused tap shows a shield at the Guard and one line. A choice opens as two pictures of the result beside the square.",
+  "borrows": [
+    { "from": "Into the Breach", "what": "Push arrows and attack previews on the tile itself, so you see each result before you commit." },
+    { "from": "Legends of Runeterra", "what": "The Oracle's Eye: you see what an action does before you play it." },
+    { "from": "Hearthstone", "what": "Discover: you choose from pictures, not words." },
+    { "from": "Inscryption", "what": "Sigils: one small mark for each ability, the same mark everywhere it shows." },
+    { "from": "Lara Croft GO", "what": "Few, clear behaviours and no hidden rule: the shield at the Guard shows why the game refuses a move." }
+  ],
+  "options": [
+    { "key": "A", "name": "Verb marks", "state": "ogre", "summary": "Each target shows its verb by shape: an arrow where a shoved piece lands, a number for each bite, a swap ring, a sight, a ring. A short key under the board names the marks." },
+    { "key": "B", "name": "Plain dots", "state": "dots", "summary": "The chess-app default: a solid dot on an empty square, a ring on a piece. Quiet, but a shove looks like a take." }
+  ],
+  "recommendation": "A, verb marks. King Down's new rules live in the verbs, and plain dots teach a false rule: the ring on the enemy Guard says 'take' when the move is a shove. Keep the refusal line and the choice at the square in both options.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": ["ogre", "beast", "bite-again", "beast-end", "maester", "refusal", "choice", "dots"],
+  "notes": [
+    "Every mark comes from the engine's legal moves in the shared position P1; the demo writes no rule. After Replay or a reset you play White against the Beginner computer, and the marks work for any piece.",
+    "The Ogre: a teal ring under each piece that it can shove, and an arrow on the square where that piece lands. A tap on the ring or on the arrow plays the shove. A hover, the keyboard cursor or a long press shows a see-through copy where the piece lands.",
+    "The Beast: before the first bite, a solid 1 and a dashed 2 show the order (state beast). After bite 1 the Beast waits (bite-again). A tap off the marks does not cancel: the Beast leans toward the tap, and the line says 'Tap the 2, or stop here.' Escape or Undo puts the Beast back. Two bites end with one ×2 stamp (beast-end).",
+    "The Maester: one swap ring under each friend. The two-way arrow shows only for the target under the pointer, the cursor or a long press.",
+    "The choice state is a later moment of the same game (the Ogre on d4). Each picture shows the two squares after the move. The arrow keys move between them; Escape cancels.",
+    "Limits: on a phone, the sentence for a target shows only on a long press, not on a plain tap. The demo has no marks for king powers (Freeze, Strike).",
+    "For the lead: the demo reads board fields that the kit README does not list (cells, targets, selected, tile, cursor, flipped, colRow) and uses handleTap for its scripted taps. Please document them, or add a tap(sq) method."
+  ]
+}

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Share a game</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="share.css">
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <h1 class="display">King Down</h1>
+    <span class="pill pill-gold" id="tag-top">Today's army</span>
+  </header>
+  <div class="board" id="board"></div>
+
+  <section class="result" id="result" aria-labelledby="result-title">
+    <div class="result-head">
+      <div>
+        <h2 id="result-title">You win!</h2>
+        <p class="result-line" id="result-line"></p>
+        <p class="daily-tag" id="daily-tag"></p>
+      </div>
+      <div class="kings" id="kings" aria-hidden="true"></div>
+    </div>
+    <div class="stack" style="gap: 6px">
+      <p class="label" id="marks-label">Your special moves, in order</p>
+      <ul class="marks" id="marks" aria-hidden="true"></ul>
+      <p class="marks-cap" id="marks-cap"></p>
+    </div>
+    <div class="result-foot">
+      <button type="button" class="btn btn-wide share-btn" id="open-share"></button>
+      <div class="result-actions">
+        <button type="button" class="btn btn-primary" id="rematch">Rematch</button>
+        <button type="button" class="btn btn-quiet" id="review">Review</button>
+        <button type="button" class="btn btn-quiet" id="new-game">New game…</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<dialog class="sheet" id="share" aria-labelledby="share-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="share-title">Share today's result</h2><button type="button" class="btn btn-icon" data-close aria-label="Close" id="share-close"></button></div>
+  <div class="sheet-body">
+    <div class="seg" role="tablist" aria-label="What to share">
+      <button type="button" role="tab" id="tab-line" aria-controls="panel-line" aria-selected="true">Line</button>
+      <button type="button" role="tab" id="tab-picture" aria-controls="panel-picture" aria-selected="false" tabindex="-1">Picture</button>
+      <button type="button" role="tab" id="tab-move" aria-controls="panel-move" aria-selected="false" tabindex="-1">A move</button>
+    </div>
+
+    <section class="panel" id="panel-line" role="tabpanel" aria-labelledby="tab-line">
+      <p class="label" id="line-label">What your friend gets</p>
+      <div class="chat" aria-labelledby="line-label">
+        <p class="bubble" id="bubble"></p>
+        <span class="chat-meta">From you</span>
+      </div>
+      <label class="row opt-row">
+        <span>Plain words<small>Words in place of the marks</small></span>
+        <input type="checkbox" class="toggle" id="plain">
+      </label>
+      <textarea class="manual" id="manual-line" readonly hidden aria-label="Text to copy"></textarea>
+      <button type="button" class="btn btn-primary btn-wide go" id="copy-line"></button>
+      <p class="go-note" id="note-line" aria-live="polite"></p>
+    </section>
+
+    <section class="panel" id="panel-picture" role="tabpanel" aria-labelledby="tab-picture" hidden>
+      <div class="poster-wrap"><canvas class="poster" id="poster" role="img" aria-label=""></canvas></div>
+      <button type="button" class="btn btn-primary btn-wide go" id="save-picture"></button>
+      <p class="go-note" id="note-picture" aria-live="polite"></p>
+    </section>
+
+    <section class="panel" id="panel-move" role="tabpanel" aria-labelledby="tab-move" hidden>
+      <p class="label">What your friend gets</p>
+      <article class="moment-card" aria-labelledby="mc-quote">
+        <canvas id="moment-pic" role="img" aria-label=""></canvas>
+        <div class="mc-body">
+          <p class="mc-quote" id="mc-quote"></p>
+          <p class="mc-sub" id="mc-sub"></p>
+        </div>
+      </article>
+      <div class="picker">
+        <button type="button" class="btn btn-icon" id="prev-moment" aria-label="Previous move"></button>
+        <p id="moment-count" aria-live="polite"></p>
+        <button type="button" class="btn btn-icon" id="next-moment" aria-label="Next move"></button>
+      </div>
+      <textarea class="manual" id="manual-move" readonly hidden aria-label="Link to copy"></textarea>
+      <button type="button" class="btn btn-primary btn-wide go" id="copy-move"></button>
+      <button type="button" class="btn btn-quiet btn-wide" id="see-move"></button>
+      <p class="go-note" id="note-move" aria-live="polite"></p>
+    </section>
+  </div>
+</dialog>
+
+<!-- The friend's screen: the shared move opens on the board and plays once. -->
+<div class="friend" id="friend" hidden>
+  <div class="friend-in">
+    <header class="top">
+      <button type="button" class="btn btn-icon" id="friend-back" aria-label="Back to sharing" hidden></button>
+      <h1 class="display">King Down</h1>
+      <span class="pill" id="friend-tag"></span>
+    </header>
+    <div class="friend-board" id="friend-board"></div>
+    <div class="friend-side">
+      <p class="friend-note" id="friend-note"></p>
+      <div class="friend-line" id="friend-line" aria-live="polite"></div>
+      <div class="friend-card" id="friend-card"></div>
+      <div class="friend-actions">
+        <button type="button" class="btn btn-primary" id="friend-play">Play today's game</button>
+        <button type="button" class="btn" id="friend-replay"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>

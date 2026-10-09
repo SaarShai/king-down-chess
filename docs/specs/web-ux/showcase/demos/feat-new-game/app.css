@@ -1,0 +1,201 @@
+/* Starting a game: the game screen, the New game sheet (A), the Play button (B) and the faces (C). */
+
+html, body { height: 100%; }
+body { overflow: hidden; }
+
+/* ---- the game screen behind the sheet ---- */
+.app {
+  --bw: min(100%, calc((100dvh - 236px) / 1.03));
+  height: 100dvh; max-width: 760px; margin: 0 auto;
+  display: flex; flex-direction: column;
+  padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-3) max(var(--space-3), env(safe-area-inset-bottom));
+}
+.top { display: flex; align-items: center; gap: var(--space-2); min-height: var(--tap); }
+.top .wordmark { flex: 1; margin: 0; text-align: center; font-size: var(--fs-lg); }
+.top .spacer { width: var(--tap); }
+/* All spare height goes above the top plate: the board and its plates sit on the thumb bar. */
+.table { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; }
+.table-inner { width: var(--bw); margin: 0 auto; }
+.board { width: 100%; }
+
+.plate { display: flex; align-items: center; gap: var(--space-3); min-height: 52px; padding: var(--space-1) var(--space-1); }
+.plate .face {
+  position: relative; width: 40px; height: 40px; flex: none; border-radius: 50%; overflow: hidden;
+  background: var(--parchment-deep); border: 1px solid var(--stone-300);
+}
+.plate .face img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.plate .face img.fig { object-position: 50% 6%; transform: scale(1.5); transform-origin: 50% 12%; }
+.plate .face img.emb { object-fit: contain; padding: 5px; }
+.plate .who { margin: 0; font-weight: 700; line-height: 1.2; }
+.plate .sub { margin: 0; font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.25; }
+.plate .status { margin: 0 0 0 auto; text-align: right; line-height: 1.25; }
+.plate .status b { display: block; }
+.plate .status span { display: block; font-size: var(--fs-sm); color: var(--ink-soft); }
+.plate .status.is-new span { color: var(--gold-ink); font-weight: 600; }
+
+.bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); width: var(--bw); max-width: 420px; margin: var(--space-2) auto 0; }
+.bar .btn { gap: 6px; padding: 8px 6px; font-size: var(--fs-sm); }
+
+/* ---- the New game sheet (option A) ---- */
+dialog.ng { display: none; flex-direction: column; overflow: hidden; height: auto; max-height: calc(100dvh - 12px); }
+dialog.ng[open] { display: flex; }
+dialog.ng .sheet-head { flex: none; padding-top: var(--space-1); }
+dialog.ng .sheet-head h2:focus { outline: none; }
+.ng-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--space-4) var(--space-3); display: flex; flex-direction: column; gap: var(--space-3); }
+.ng-foot { flex: none; padding: var(--space-3) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom)); border-top: 1px solid var(--stone-300); background: var(--parchment); }
+.ng-foot .btn { min-height: 52px; font-size: var(--fs-lg); letter-spacing: 0.02em; }
+.ng-foot .warn { margin: 0 0 var(--space-2); font-size: var(--fs-sm); color: var(--ink-soft); text-align: center; }
+
+.grp { display: flex; flex-direction: column; gap: var(--space-2); }
+.grp-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0; }
+.grp h3, .lbl { margin: 0; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+.line { margin: 0; min-height: 1.45em; color: var(--ink-soft); }
+.line b { color: var(--ink); }
+
+/* One frame for each choice: a segmented track, not a card around each control. */
+.seg { display: grid; grid-auto-columns: 1fr; grid-auto-flow: column; gap: 3px; padding: 3px; margin: 0; border: 0; background: var(--parchment-deep); border-radius: 11px; box-shadow: inset 0 1px 2px rgba(43, 38, 33, 0.12); }
+.seg label {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: var(--tap); padding: 6px 4px; border-radius: 8px; border: 1px solid transparent;
+  font-weight: 600; font-size: var(--fs-sm); text-align: center; line-height: 1.15; color: var(--ink-soft); cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1), box-shadow var(--dur-1);
+}
+.seg label:has(input:checked) { color: var(--ink); font-weight: 700; background: var(--vellum); border-color: var(--stone-500); box-shadow: 0 1px 0 var(--stone-500), 0 2px 6px rgba(43, 38, 33, 0.12); }
+.seg label:has(input:focus-visible), .emb-row label:has(input:focus-visible), .faces label:has(input:focus-visible), .powers label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 1px; }
+.seg input, .emb-row input, .faces input, .powers input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+.seg .icon { width: 19px; height: 19px; }
+.seg.modes label { flex-direction: column; gap: 2px; min-height: 54px; }
+.seg.modes .icon { width: 22px; height: 22px; }
+.seg.modes label:has(input:checked) .icon { color: var(--accent); }
+
+/* Option C: the levels as faces from the Workshop cast (look only). */
+.faces { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2); margin: 0; padding: 0; border: 0; }
+.faces label { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 2px 6px; border-radius: 12px; cursor: pointer; text-align: center; }
+.faces .por {
+  position: relative; width: 64px; height: 64px; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 35%, var(--vellum), var(--parchment-deep));
+  border: 1px solid var(--stone-300); box-shadow: 0 0 0 0 var(--accent);
+  transition: box-shadow var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-spring);
+}
+.faces .por img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 4%; transform: scale(1.55); transform-origin: 50% 10%; }
+.faces .nm { width: min-content; font-weight: 700; font-size: var(--fs-sm); line-height: 1.1; color: var(--ink); }
+.faces .lv { font-size: var(--fs-xs); line-height: 1.1; color: var(--ink-soft); }
+.faces label:has(input:checked) .por { box-shadow: 0 0 0 3px var(--parchment), 0 0 0 5px var(--accent); transform: translateY(-2px); }
+.faces .tick { position: absolute; right: calc(50% - 38px); top: 46px; width: 22px; height: 22px; border-radius: 50%; display: none; place-items: center; color: var(--vellum); background: var(--accent); border: 2px solid var(--parchment); }
+.faces .tick .icon { width: 14px; height: 14px; stroke-width: 2.6; }
+.faces label:has(input:checked) .tick { display: grid; }
+
+/* The fold: Side and Army in one summary row. */
+.fold { border-top: 1px solid var(--stone-300); }   /* the footer's line closes it */
+.fold-row {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 52px; padding: 6px 0;
+  background: none; border: 0; text-align: left; cursor: pointer; color: var(--ink);
+}
+.fold-row .txt { flex: 1; min-width: 0; }
+.fold-row .lbl { display: block; }
+.fold-row .val { display: block; font-weight: 700; }
+.fold-row .chg { display: inline-flex; align-items: center; gap: 2px; color: var(--accent); font-weight: 700; font-size: var(--fs-sm); }
+.fold-row .chg .icon { width: 18px; height: 18px; transition: transform var(--dur-2) var(--ease-out); }
+.fold-row[aria-expanded='true'] .chg .icon { transform: rotate(180deg); }
+.fold-body { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-1) 0 var(--space-4); }
+.army-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-height: 34px; }
+.army-strip .pi { width: 30px; height: 30px; vertical-align: 0; }
+.sub-row { display: grid; gap: var(--space-2); }
+
+/* The king picker: six real emblems, then the chosen king with one plain line for each power. */
+.emb-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-1); margin: 0; padding: 0; border: 0; }
+.emb-row label { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 58px; padding: 4px 0; border-radius: 10px; cursor: pointer; }
+.emb-row .disc {
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 40%, #fffaf0, var(--parchment-deep)); border: 1px solid var(--stone-300);
+  transition: box-shadow var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-spring);
+}
+.emb-row .disc img { width: 34px; height: 34px; object-fit: contain; }
+.emb-row .nm { font-size: var(--fs-xs); font-weight: 600; color: var(--ink-soft); line-height: 1.1; }
+.emb-row label:has(input:checked) .disc { box-shadow: 0 0 0 2px var(--parchment), 0 0 0 4px var(--gold-ink); transform: translateY(-2px); }
+.emb-row label:has(input:checked) .nm { color: var(--ink); font-weight: 800; }
+
+.king-detail { display: grid; grid-template-columns: 72px 1fr; gap: var(--space-3); align-items: start; padding: var(--space-2) var(--space-3) var(--space-1) var(--space-2); background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius-lg); }
+.king-fig { position: relative; margin-top: var(--space-2); height: 100px; display: flex; align-items: flex-end; justify-content: center; }
+.king-fig img { max-height: 100px; width: auto; filter: drop-shadow(0 6px 6px rgba(43, 38, 33, 0.25)); }
+.king-fig::after { content: ''; position: absolute; left: 12%; right: 12%; bottom: -4px; height: 10px; border-radius: 50%; background: radial-gradient(rgba(43, 38, 33, 0.22), transparent 70%); z-index: -1; }
+.king-name { margin: 0 0 2px; font-family: var(--font-display); font-weight: 700; letter-spacing: 0.06em; font-size: var(--fs-lg); }
+.powers { display: flex; flex-direction: column; margin: 0; padding: 0; border: 0; }
+.powers label { position: relative; display: grid; grid-template-columns: 22px 1fr; gap: 2px 8px; align-items: start; min-height: var(--tap); padding: 4px 4px; border-radius: 8px; cursor: pointer; }
+.powers label + label { border-top: 1px solid var(--stone-100); }
+.powers .rd { grid-row: 1 / 3; margin-top: 2px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--stone-500); display: grid; place-items: center; background: var(--vellum); }
+.powers .rd::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); transform: scale(0); transition: transform var(--dur-2) var(--ease-spring); }
+.powers label:has(input:checked) .rd { border-color: var(--accent); }
+.powers label:has(input:checked) .rd::after { transform: scale(1); }
+.powers .pn { font-weight: 700; line-height: 1.25; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.powers .pn .pill { font-weight: 700; }
+.powers .pl { font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.3; }
+
+/* The other side's king: the same summary row as Side and army, a button for the whole row. */
+.krow { min-height: 50px; padding-block: 2px; }
+.krow .disc { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #fffaf0, var(--parchment-deep)); border: 1px solid var(--stone-300); }
+.krow .disc img { width: 30px; height: 30px; object-fit: contain; }
+.krow .lbl { display: block; }
+.krow .val { display: block; font-weight: 700; }
+.kings { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.toggle-row { padding: var(--space-1) 0; }
+.reveal { animation: ng-reveal var(--dur-2) var(--ease-out); }
+@keyframes ng-reveal { from { opacity: 0; transform: translateY(4px); } }
+
+/* Desktop and tablet: a centred 560 px dialog that fades and rises 12 px. */
+@media (min-width: 760px) {
+  .lineup { height: 170px; }
+  .lineup img { height: 112px; }
+  .lineup img.near { height: 136px; }
+  .lineup img.mid { height: 168px; }
+  dialog.ng {
+    inset: 0; margin: auto; width: 560px; max-width: calc(100vw - 48px); height: fit-content; max-height: min(94dvh, 860px);
+    border: 1px solid var(--stone-500); border-radius: 18px;
+  }
+  dialog.ng[open] { animation: ng-rise 240ms var(--ease-out); }
+  dialog.ng.is-closing { animation: ng-fall var(--dur-2) var(--ease-in) forwards; }
+  .ng-body { padding: var(--space-1) var(--space-5) var(--space-4); }
+  .ng-foot { padding: var(--space-3) var(--space-5) var(--space-4); }
+  .sheet-head { padding-left: var(--space-5) !important; }
+  .bar { max-width: 460px; }
+}
+@keyframes ng-rise { from { opacity: 0; transform: translateY(12px); } }
+@keyframes ng-fall { to { opacity: 0; transform: translateY(8px); } }
+
+/* ---- option B: the home screen with one Play that names the setup ---- */
+.home { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--space-5) var(--space-4) max(var(--space-6), env(safe-area-inset-bottom)); overflow: hidden; }
+.home::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 70% 45% at 50% 34%, rgba(233, 192, 113, 0.16), transparent 70%); pointer-events: none; }
+.home-inner { position: relative; width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.lineup { position: relative; display: flex; align-items: flex-end; justify-content: center; height: 140px; margin-bottom: var(--space-4); }
+.lineup img { height: 92px; width: auto; margin: 0 -10px; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45)); }
+.lineup img.mid { height: 138px; position: relative; z-index: 2; margin: 0 -4px; }
+.lineup img.near { height: 112px; z-index: 1; position: relative; }
+.lineup::after { content: ''; position: absolute; left: 6%; right: 6%; bottom: -10px; height: 22px; border-radius: 50%; background: radial-gradient(rgba(0, 0, 0, 0.5), transparent 70%); z-index: -1; }
+.home h1 { margin: 0; font-size: var(--fs-3xl); color: var(--on-night); }
+.home .tag { margin: var(--space-1) 0 var(--space-6); color: var(--on-night-soft); }
+.play-wrap { width: 100%; display: flex; flex-direction: column; gap: var(--space-2); }
+.btn.play { flex-direction: column; gap: 2px; min-height: 68px; width: 100%; padding: 10px 16px; }
+.btn.play .play-main { font-family: var(--font-display); font-size: var(--fs-xl); letter-spacing: 0.1em; line-height: 1.1; }
+.btn.play .play-sub { font-size: var(--fs-sm); font-weight: 600; opacity: 0.94; }
+.home .btn.change { align-self: center; min-width: 140px; }
+.home-links { display: flex; flex-direction: column; align-items: center; gap: 0; margin-top: var(--space-5); }
+.home-links .btn.btn { border: 0; background: none; color: var(--on-night-soft); font-weight: 600; min-height: var(--tap); }
+
+/* ---- the muster (feat-muster): a soft gold on the ground where a piece lands; in board.layer, one square is 12.5 % ---- */
+.ng-land { position: absolute; width: 12.5%; height: 12.5%; z-index: 5; opacity: 0; pointer-events: none; }
+.ng-land::after {
+  content: ''; position: absolute; left: 4%; right: 4%; top: 66%; height: 32%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 214, 128, 0.9), rgba(255, 214, 128, 0.35) 55%, rgba(255, 214, 128, 0));
+}
+/* Only in the scripted play: where a finger taps. */
+.tap-ring { position: fixed; z-index: 2000; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 3px solid rgba(28, 91, 176, 0.85); background: rgba(28, 91, 176, 0.14); pointer-events: none; }
+
+/* ---- reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .reveal { animation: none; }
+  :root:not([data-motion='full']) dialog.ng { animation: none !important; }
+}
+:root[data-motion='reduce'] .reveal { animation: none; }
+:root[data-motion='reduce'] dialog.ng { animation: none !important; }
+fieldset { min-width: 0; }

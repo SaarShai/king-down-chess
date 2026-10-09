@@ -1,0 +1,64 @@
+{
+  "id": "future-workshop-share",
+  "title": "Workshop pieces that travel",
+  "group": "future",
+  "feature": "Workshop sharing",
+  "summary": "A Workshop piece travels as a card: its figure, its name, a move diagram and its worth as one word. A friend opens it read only, tries it on a small test board and keeps a copy.",
+  "problem": "Today a shared piece is a long link or a block of text. The link has no preview, so a friend sees no picture of the piece in the chat. The Workshop home shows only New piece and Surprise me, so a new player sees no piece until they choose.",
+  "idea": "Make the piece itself the object that travels: one card that reads the same in a chat, on the friend's screen and in Your designs. The Workshop starts from a working sample, and each edit says in one line what changed.",
+  "borrows": [
+    {
+      "from": "Hearthstone and Marvel Snap",
+      "what": "A card face that holds art, name, rules and cost in one look. A King Down piece has the same four parts: figure, name, reach and worth."
+    },
+    {
+      "from": "Marvel Snap deck codes",
+      "what": "A design is a short code in a link. The receiver gets the whole thing and decides to keep it."
+    },
+    {
+      "from": "GarageBand",
+      "what": "A playable instrument first, a blank page second. The Workshop opens on a piece that works."
+    },
+    {
+      "from": "Baba Is You",
+      "what": "Change one rule and see the result at once: the changed square keeps a gold frame, and one line says what changed."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "Card",
+      "state": "card",
+      "summary": "Figure, name, move diagram and worth word on one card. The same card is the chat preview, the read-only view and the tile in Your designs."
+    },
+    {
+      "key": "B",
+      "name": "Poster",
+      "state": "poster",
+      "summary": "A 4:5 picture of the piece on the stone board, cropped to whole squares, with its moves marked. It is big in a chat, but its words name only one rule."
+    }
+  ],
+  "recommendation": "Pick A, the card. It shows every rule of the piece in one small object, and one design serves the chat preview, the friend's view and Your designs. Start the Workshop from a working sample with Change one thing.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": [
+    "entry",
+    "changed",
+    "card",
+    "share",
+    "received",
+    "try-it",
+    "kept",
+    "poster"
+  ],
+  "notes": [
+    "Look at the play run: the figure leaps onto its square, its marks and rule lines come in, then it shoots the pawn on d6. That is the one strong moment. On a phone the leap starts at the small portrait at the top of Try it; on a wide screen it starts at the card beside the board.",
+    "The worth, the band word and the share link come from the Workshop's own code (src/workshop/), so every number is real. Edit the boards: the card and the line What changed follow.",
+    "The card says what Try it does: a shot goes over the pieces between, and a square 2 or more away is a leap.",
+    "A design does not play in a game. The card and the friend's view say so: it plays on the test board only.",
+    "Keep a copy gives one signal: the line under the card changes to Saved on this device, in Your designs. These are the app's own words.",
+    "The chat preview is a picture that a server must draw from the link. That server does not exist yet.",
+    "Limits: the editor here has no slide lines and no properties. Surprise me picks from three set pieces. Send link only shows the friend's view. The tap dot and the caption On your friend's phone are for the video only."
+  ]
+}

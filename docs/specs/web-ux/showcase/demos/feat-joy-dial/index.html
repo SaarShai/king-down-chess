@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The joy dial</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="joy.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <span class="brand display">King Down</span>
+  </header>
+
+  <main class="game" aria-label="Game">
+    <div class="plate" id="plate-b">
+      <img class="emblem" src="../../assets/emblems/flame.webp" alt="">
+      <div class="who"><b>Flame</b><span>Computer</span></div>
+      <span class="coin" id="coin-b"></span>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="plate" id="plate-w">
+      <img class="emblem" src="../../assets/emblems/frost.webp" alt="">
+      <div class="who"><b>Frost</b><span>You</span></div>
+      <span class="coin" id="coin-w"></span>
+    </div>
+    <div class="line" id="line" aria-live="polite">
+      <span class="glyph" id="glyph" aria-hidden="true"></span>
+      <div class="words"><p class="main" id="line-main"></p><p class="sub" id="line-sub"></p></div>
+    </div>
+  </main>
+
+  <aside class="feel" aria-labelledby="joy-title">
+    <div class="feel-head">
+      <h2 id="joy-title" class="display">Joy</h2>
+      <span class="where">Menu › Feel</span>
+    </div>
+
+    <div class="dial-row">
+      <fieldset class="dial" id="dial">
+        <legend class="sr-only">Joy: how much the game celebrates each move</legend>
+        <svg class="track" id="track" aria-hidden="true"></svg>
+        <div class="knob" id="knob" aria-hidden="true"></div>
+        <label class="stop" data-level="calm"><input type="radio" name="joy" value="calm"><span>Calm</span></label>
+        <label class="stop" data-level="warm"><input type="radio" name="joy" value="warm" checked><span>Warm</span></label>
+        <label class="stop" data-level="bold"><input type="radio" name="joy" value="bold"><span>Bold</span></label>
+      </fieldset>
+      <div class="desc" id="desc" aria-live="polite"></div>
+    </div>
+
+    <div class="switches">
+      <label class="row"><span>Sound</span><input type="checkbox" class="toggle" id="sw-sound" checked></label>
+      <label class="row"><span>Reduce motion</span><input type="checkbox" class="toggle" id="sw-motion"></label>
+    </div>
+
+    <div class="moments">
+      <div class="moments-head">
+        <span class="label" id="moments-label">Moments</span>
+        <p class="hear" id="hear"></p>
+      </div>
+      <div class="chips" role="group" aria-labelledby="moments-label">
+        <button type="button" class="chip" data-moment="shot" aria-pressed="false">Shot</button>
+        <button type="button" class="chip" data-moment="check" aria-pressed="true">Check</button>
+        <button type="button" class="chip" data-moment="chain" aria-pressed="false">Chain</button>
+        <button type="button" class="chip" data-moment="mate" aria-pressed="false">Mate</button>
+        <button type="button" class="btn btn-quiet play-all" id="play-all" aria-label="Play all four moments"></button>
+      </div>
+    </div>
+
+  </aside>
+</div>
+<script type="module" src="joy.js"></script>
+</body>
+</html>

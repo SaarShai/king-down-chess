@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Move story</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="story.css">
+</head>
+<body>
+<div class="app" id="app">
+  <div class="plate them" id="plate-b">
+    <span class="por"><img id="por-b" alt=""></span>
+    <div class="who"><b>Casual computer</b><small>Black</small></div>
+    <span class="took" id="took-b"></span>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="plate you" id="plate-w">
+    <span class="por"><img id="por-w" alt=""></span>
+    <div class="who"><b>You</b><small>White</small></div>
+    <span class="took" id="took-w"></span>
+    <p class="turn" id="turn" aria-live="polite">Your move</p>
+  </div>
+
+  <section class="story" id="story" aria-label="Move story">
+    <!-- At rest: one of three folds (A line, B chips, C count). -->
+    <div class="rest" id="rest"></div>
+
+    <!-- Open: the story, one row a move. -->
+    <div class="panel" id="panel" hidden>
+      <div class="panel-head">
+        <h2 id="story-title">Story</h2>
+        <span class="muted" id="story-count"></span>
+        <button type="button" class="btn btn-quiet btn-review" id="to-review"></button>
+        <button type="button" class="btn btn-icon" id="close-story" aria-label="Fold the story"></button>
+      </div>
+      <ol class="list" id="list" aria-labelledby="story-title"></ol>
+    </div>
+
+    <!-- Review: the scrubber. -->
+    <div class="review" id="review" hidden>
+      <div class="rv-line" id="rv-line" aria-live="polite"></div>
+      <div class="rv-track">
+        <div class="ticks" id="ticks" aria-hidden="true"></div>
+        <input type="range" id="scrub" min="0" max="1" step="1" value="0" aria-label="Move to show">
+      </div>
+      <div class="rv-bar">
+        <button type="button" class="btn btn-icon" id="rv-prev" aria-label="Previous move"></button>
+        <button type="button" class="btn btn-icon" id="rv-next" aria-label="Next move"></button>
+        <span class="rv-pos muted" id="rv-pos"></span>
+        <button type="button" class="btn btn-primary" id="rv-back">Back to game</button>
+      </div>
+    </div>
+    <p class="sr-only" id="say" aria-live="polite"></p>
+  </section>
+
+  <nav class="bar" aria-label="Game">
+    <button type="button" class="btn btn-quiet" id="hint"></button>
+    <button type="button" class="btn btn-quiet" id="undo"></button>
+    <button type="button" class="btn btn-quiet" id="menu"></button>
+  </nav>
+</div>
+
+<dialog class="sheet" id="menu-sheet" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title">Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body stack">
+    <div>
+      <h3 class="sheet-sub" id="rest-label">Show the last move as</h3>
+      <div class="cluster" role="group" aria-labelledby="rest-label" id="rest-pick">
+        <button type="button" class="chip" data-rest="line" aria-pressed="true">One line</button>
+        <button type="button" class="chip" data-rest="chips" aria-pressed="false">Five chips</button>
+        <button type="button" class="chip" data-rest="pill" aria-pressed="false">Count only</button>
+      </div>
+    </div>
+    <div>
+      <h3 class="sheet-sub" id="beside-label">Beside each move</h3>
+      <div class="cluster" role="group" aria-labelledby="beside-label" id="beside-pick">
+        <button type="button" class="chip" data-beside="none" aria-pressed="false">Nothing</button>
+        <button type="button" class="chip" data-beside="square" aria-pressed="true">Square</button>
+        <button type="button" class="chip" data-beside="letters" aria-pressed="false">Letters</button>
+      </div>
+      <p class="sheet-note muted">Square: the square shows only when the words do not name it. Letters: the move shows as "Af6*d4".</p>
+    </div>
+  </div>
+</dialog>
+
+<script type="module" src="story.js"></script>
+</body>
+</html>

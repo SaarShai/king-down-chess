@@ -1,0 +1,36 @@
+{
+  "id": "feat-help",
+  "title": "Hint, second look, rewind",
+  "group": "feature",
+  "feature": "Hints, undo and help",
+  "summary": "Hint shows a ghost of the best move with one true reason, and Undo plays the moves backward and names what it takes back.",
+  "problem": "Today Hint only lights two squares and gives no reason, and Undo jumps without a word about what it takes back. A player who loses a queen to a shot over pieces does not see why.",
+  "idea": "Help in the place where the player looks: the board. The real computer finds the hint; the board shows it as a ghost and one true line. Undo is a short rewind with a named scope. A second press or a tap on the board ends the rewind at once.",
+  "borrows": [
+    { "from": "Braid", "what": "Time runs backward, and you see each thing go back. Here Undo plays the moves backward: a shot flies back, and a taken piece rises again." },
+    { "from": "Into the Breach", "what": "One clear take-back that says what it does. Here the Undo button names its scope." },
+    { "from": "Racing games' ghost car", "what": "A see-through car drives the best line once. Here a ghost of your piece plays the hinted move once, and no move is played." },
+    { "from": "Dr. Wolf (chess coach app)", "what": "A second try after a mistake: the computer waits and offers Take it back." },
+    { "from": "Adventure-game hint books", "what": "The three-step ladder: the piece, then the move, then the reason." }
+  ],
+  "options": [
+    { "key": "A", "name": "Hint at once", "state": "hint", "summary": "One tap selects the piece, plays a ghost of the move once, and gives one line why. Undo rewinds." },
+    { "key": "B", "name": "Hint in three steps", "state": "ladder-1", "summary": "Tap 1 shows the piece, tap 2 the move, tap 3 the reason and the rule. Undo rewinds. Best for lessons." }
+  ],
+  "recommendation": "Pick A for live games and B for lessons. Add the rewind Undo to every game. Owner check, the second look. The rule: at Beginner, after a move that loses 3 pawns or more, the computer waits and offers Take it back or Keep it. Options: yes or no. Our pick: yes, at Beginner only, with a switch in Menu. The reason for Beginner only: from Casual up, the key moments after the game show large mistakes, and play does not stop. On yes, each Beginner move gets the check, but it runs while the computer thinks, so a move with no mistake does not wait longer.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": ["hint", "ladder-1", "ladder-3", "second-look", "rewind-mid", "rewind"],
+  "notes": [
+    "Look at the Undo button: it says its scope (your move and the reply, or your move while the computer waits).",
+    "The rewind is the one strong moment. The still 'rewind-mid' stops it half-way: the shot flies back to f5, and the queen rises again on d3. Play the video to see all of it.",
+    "Undo again while the rewind plays, or a tap on the board, ends it at once. More presses in a row show each end frame at once.",
+    "The hint and the mistake check use the real computer player (Club strength). The lines use only engine facts, never a guess at a plan.",
+    "The cost of the second look: one short Club search after your move, and a second one when the computer's best answer takes a piece. The demo runs them in the computer's pause, beside its own think. Measured in live play (12 moves each way, from your move to the reply on the board): 1.2 s with the look on and 1.2 s with it off; one move with the look on took 0.4 s more. In the app, the computer's own score gives the check at no cost.",
+    "In the app, Undo counts turns, not single moves: a Freeze or an Ice Wall and the move after it are one turn, and so are the two moves of a Haste turn. In a game for two players, Undo names the side: \"White's move\".",
+    "Play it: tap Hint, then the marked square. Or move the queen to d3 and see the second look. When the board or the bar has focus, H gives a hint and U undoes.",
+    "Menu holds the two help switches: the hint style and the second look.",
+    "Limits: the mistake check counts material two moves ahead; the app would use the engine's score, as key moments do today. A piece that is already open to capture before your move can also start the look. No power hints (this game has no kings' powers)."
+  ]
+}

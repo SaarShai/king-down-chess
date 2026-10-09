@@ -1,0 +1,133 @@
+/* The muster: the quiet game screen, the tag rail under the board and the hold card in the context area. */
+html, body { height: 100%; }
+body { overflow: hidden; }
+
+.app {
+  height: 100dvh; max-width: 560px; margin: 0 auto;
+  display: grid;
+  /* The free height of a tall phone: one part over the table, two parts under it; the bar stays in thumb reach. */
+  grid-template-rows: minmax(0, 1fr) auto auto auto minmax(0, 2fr) auto;
+  grid-template-areas: '.' 'foe' 'stage' 'ctx' '.' 'bar';
+  padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-2) max(var(--space-4), env(safe-area-inset-bottom));
+}
+
+/* ---- the two players: a small king portrait, a name ---- */
+.portrait {
+  flex: none; width: 36px; height: 36px; border-radius: 50%;
+  background: var(--parchment-deep) no-repeat 50% 6% / 150% auto;
+  box-shadow: 0 0 0 1.5px var(--stone-500), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+.foe { grid-area: foe; display: flex; align-items: center; gap: var(--space-3); min-height: 48px; padding: 0 var(--space-2); }
+.foe p { margin: 0; display: flex; align-items: center; gap: var(--space-2); }
+
+/* ---- the board and the tag rail under it ---- */
+.stage { grid-area: stage; position: relative; padding-bottom: 38px; }
+.board { width: 100%; }
+.rail { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+/* While the tags show, the file letters under the board step aside (they come back after the fold). */
+.kdb-frame > .kdb-coord:nth-child(-n+8) { transition: opacity var(--dur-2); }
+.stage.has-tags .kdb-frame > .kdb-coord:nth-child(-n+8) { opacity: 0; }
+
+/* A tag: a 44 px target that hangs from the board's lower edge, with a small pill under its figure. */
+.tag {
+  position: absolute; top: 0; left: 0; height: 44px; min-width: 44px; margin: 0; padding: 0;
+  display: flex; justify-content: center; align-items: flex-start;
+  background: none; border: 0; cursor: pointer; pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.tag:focus-visible { outline: none; }
+.tag:focus-visible .tag-pill { outline: 3px solid var(--focus); outline-offset: 2px; }
+.tag-pill {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px 4px 7px; white-space: nowrap;
+  font-size: var(--fs-sm); font-weight: 700; line-height: 1.2; color: var(--ink);
+  background: var(--vellum); border: 1px solid #d6b968; border-radius: 7px;
+  box-shadow: 0 2px 7px rgba(30, 20, 8, 0.32);
+}
+@media (hover: hover) { .tag:hover .tag-pill { background: #fffdf6; } }
+.tag-notch {
+  position: absolute; top: -4.5px; left: var(--nx, 50%); width: 8px; height: 8px; margin-left: -4px;
+  background: var(--vellum); border: solid #d6b968; border-width: 1px 0 0 1px; transform: rotate(45deg);
+}
+/* The tag's own dot: the same dot it folds into after the first move. */
+.tag-dot, .mu-dot::after {
+  border-radius: 50%; background: var(--gold);
+  box-shadow: 0 0 0 2px var(--vellum), 0 0 0 3px rgba(43, 38, 33, 0.45);
+}
+.tag-dot { flex: none; width: 7px; height: 7px; margin-left: 1px; box-shadow: none; }
+
+/* ---- marks of this demo on the board (in board.layer: one square is 12.5 %) ---- */
+.mu-dot, .mu-land, .mu-touch { position: absolute; width: 12.5%; height: 12.5%; pointer-events: none; }
+.mu-dot { z-index: 120; }
+.mu-dot::after {
+  content: ''; position: absolute; left: 80%; top: 80%;
+  width: clamp(8px, calc(var(--tile) * 0.13), 12px); aspect-ratio: 1; translate: -50% -50%;
+}
+.mu-land { z-index: 5; opacity: 0; }
+.mu-land::after {
+  content: ''; position: absolute; left: 4%; right: 4%; top: 66%; height: 32%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 214, 128, 0.9), rgba(255, 214, 128, 0.35) 55%, rgba(255, 214, 128, 0));
+}
+/* Only in the scripted play: where a finger holds. */
+.mu-touch { z-index: 130; }
+.mu-touch::after {
+  content: ''; position: absolute; left: 50%; top: 52%; width: 92%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* ---- the context area: one place of fixed height for the turn, a line and the hold card ---- */
+.ctx { grid-area: ctx; position: relative; height: 104px; padding: 0 var(--space-2); }
+.lines {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr); column-gap: var(--space-3); row-gap: 2px; align-items: center;
+}
+.lines .portrait { grid-row: 1; }
+.title { margin: 0; font-size: var(--fs-lg); font-weight: 700; line-height: var(--lh-tight); }
+.sub { grid-column: 2; margin: 0; min-height: 1.45em; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
+.sub .icon { width: 18px; height: 18px; color: var(--gold-ink); }
+.sub b { color: var(--ink); }
+.ctx.is-reading .lines { visibility: hidden; }
+
+.read {
+  position: absolute; inset: 0 var(--space-2) auto; display: grid; grid-template-columns: 64px minmax(0, 1fr) auto;
+  column-gap: var(--space-3); align-items: center;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  background: var(--vellum); border: 1px solid #e3cc8f; border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+}
+.read-art { width: 64px; height: 80px; object-fit: contain; object-position: 50% 100%; }
+.read-text p { margin: 0; }
+.read-name { display: flex; align-items: center; gap: var(--space-2); }
+.read-name > span:first-child { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-lg); letter-spacing: 0.05em; }
+.read-line { margin-top: 2px !important; line-height: 1.3; }
+
+/* ---- the bar: three actions in thumb reach ---- */
+.bar { grid-area: bar; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.bar .btn { gap: 6px; padding: 10px 8px; }
+
+/* ---- the menu ---- */
+.seg { gap: 6px; flex-wrap: nowrap; }
+.seg .chip { padding: 6px 12px; }
+#menu .sheet-body { gap: var(--space-2); }
+#menu .row { padding-inline: 0; }
+
+/* ---- desktop: the board on the left, a quiet column on the right ---- */
+@media (min-width: 900px) {
+  .app {
+    max-width: 1240px; column-gap: var(--space-7);
+    grid-template-columns: minmax(0, 1fr) 340px;
+    /* The column's three blocks sit together in the middle, level with the middle of the board. */
+    grid-template-rows: minmax(0, 1fr) auto auto auto minmax(0, 1fr);
+    grid-template-areas: 'stage .' 'stage foe' 'stage ctx' 'stage bar' 'stage .';
+    padding: var(--space-6) var(--space-6) var(--space-5);
+  }
+  .stage { display: flex; flex-direction: column; min-height: 0; padding-bottom: 44px; }
+  .board { flex: 1; min-height: 0; }
+  .foe { padding: var(--space-2) 0 var(--space-4); border-bottom: 1px solid var(--stone-300); }
+  /* You under the foe: the turn, the line, the card. */
+  .ctx { height: 124px; padding: 0; margin: var(--space-5) 0 var(--space-4); }
+  .title { font-size: var(--fs-xl); }
+  .sub { font-size: var(--fs-lg); }
+  .read { inset: 0 0 auto; }
+  .tag-pill { font-size: var(--fs-md); padding: 4px 11px 5px 9px; }
+  .tag-dot { width: 8px; height: 8px; }
+  .bar { grid-template-columns: repeat(3, 1fr); }
+}

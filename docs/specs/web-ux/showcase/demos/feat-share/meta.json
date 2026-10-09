@@ -1,0 +1,67 @@
+{
+  "id": "feat-share",
+  "title": "Share a game",
+  "group": "feature",
+  "feature": "Sharing",
+  "summary": "After today's game, Share shows the exact thing your friend gets: a short line with one mark for each special move, a board picture, or one move.",
+  "problem": "Today the daily result copies one long sentence with the army code and a link. The button says 'Result copied' before it knows that the copy worked. Nothing in the text shows what makes King Down different.",
+  "idea": "Share the shape of the game, not the moves: the date, the result and a row of marks (a paw for each Beast bite, an ogre face for each Ogre shove, a bolt for Strike) in the order you played them. The result card shows the same marks. A friend asks: 'Four bites in one turn?'",
+  "borrows": [
+    {
+      "from": "Wordle",
+      "what": "The share grid: the same game for all, the shape of your game, no answer. It makes people ask."
+    },
+    {
+      "from": "Mini Metro",
+      "what": "The end map you can save: the final board as a picture worth keeping."
+    },
+    {
+      "from": "Chat link previews",
+      "what": "The sender sees the exact card the friend gets before it goes."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "The daily line",
+      "state": "line",
+      "summary": "Four short lines: date, result, the marks, the link. A Plain words switch writes '5 bites (4 in one turn), 1 Strike, 1 shove'."
+    },
+    {
+      "key": "B",
+      "name": "The board poster",
+      "state": "poster",
+      "summary": "A 4:5 picture: the final board with the fallen king, the last move as an ink trail, both kings' emblems, 'Won in 53' and the link."
+    },
+    {
+      "key": "C",
+      "name": "A move",
+      "state": "moment",
+      "summary": "One special move as a link card: 'My Beast bit four times in one turn.' The link opens that move on the board."
+    }
+  ],
+  "recommendation": "Ship A first, with B as the second tab of the same sheet: both are small, and A works in every chat with no picture and no server. Add C with link games or online play, when a link can open as a view and not as an invite.",
+  "joy": 5,
+  "ease": 5,
+  "effort": "M",
+  "states": [
+    "result",
+    "line",
+    "copied",
+    "plain",
+    "poster",
+    "saved",
+    "moment",
+    "received"
+  ],
+  "notes": [
+    "The game is real: today's army for 8 Oct (the app's daily seed), Kings' powers, you play Black against the Strong computer. The computer player also chose Black's moves, as a stand-in for a person. The kit's engine replays every move, and the marks, counts, poster and shared move come from it.",
+    "The renders show all three tabs. The first release has Line and Picture only.",
+    "Look at the line state: the chat bubble is the exact text that Copy puts on the clipboard. Marks count only your special moves, in order. Normal takes get no mark. The marks are old emoji (🐾 ⚡ 👹), so every phone shows them.",
+    "Copy is real in the live demo: 'Copied' shows only when the browser confirms it. When it fails, the text shows selected so you can copy it by hand. The scripted play does not write to your clipboard.",
+    "On a phone with a share sheet, the buttons say Share, Share picture and Share link, and open the system share sheet. 'Shared' shows only when the share goes. A desktop copies the text and saves the picture as a PNG.",
+    "The poster and the move picture are drawn on a canvas from the real art.",
+    "Limits: the /daily link and the view=move link option are new and need small app changes. A link preview picture for each move needs a small image server; without it, the move shares as a picture plus a link. Rematch, Review, New game and Play today's game do nothing in this demo.",
+    "Decision: what the copied line shows by default. (A) Emoji marks: they work in every chat and make people ask. (B) Plain words: '5 bites (4 in one turn), 1 Strike, 1 shove'. Pick A, with B as a switch. On yes: one Plain words switch in the sheet, off by default."
+  ]
+}

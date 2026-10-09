@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Home for a returning player</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="home.css">
+</head>
+<body>
+<div class="app" id="app" data-home="table" data-mode="home">
+
+  <!-- A. The table: the last board, with Continue under it. The game screen is the same board. -->
+  <section class="home home-table" id="v-table" aria-labelledby="t-title">
+    <header class="top">
+      <p class="wordmark t-wordmark"><span>King</span> <span class="gold">Down</span></p>
+      <button type="button" class="btn btn-quiet t-back" id="t-back" hidden></button>
+      <button type="button" class="btn btn-icon t-menu" id="t-menu" aria-label="Menu"></button>
+    </header>
+    <div class="eyebrow" id="t-eyebrow">
+      <h1 class="t-opp" id="t-title">vs Computer · Casual</h1>
+      <p class="t-move" id="t-move">Move 18</p>
+    </div>
+    <div class="t-board" id="t-board">
+      <div class="t-cover" id="t-cover" aria-hidden="true"></div>
+    </div>
+    <div class="side">
+      <p class="t-line" id="t-line"></p>
+      <p class="t-sub" id="t-sub" hidden></p>
+      <div class="t-home" id="t-home">
+        <div class="t-actions">
+          <button type="button" class="btn btn-primary btn-wide btn-main" id="t-main"></button>
+          <button type="button" class="btn btn-quiet btn-wide" id="t-second" hidden></button>
+          <button type="button" class="link-quiet" id="t-new">New game</button>
+        </div>
+        <button type="button" class="today-row" id="t-today" aria-haspopup="dialog"></button>
+      </div>
+      <div class="t-game" id="t-game" hidden>
+        <div class="g-head">
+          <p class="g-status" id="g-status" aria-live="polite">Your move</p>
+          <button type="button" class="btn btn-quiet g-power" id="g-power" aria-pressed="false" hidden></button>
+          <button type="button" class="link-quiet g-live" id="g-live" hidden>Back to game</button>
+        </div>
+        <!-- Decision W2 C: on a phone, one bar of five with no frames; on a wide screen, a quiet text toolbar. -->
+        <nav class="g-bar" aria-label="Game">
+          <button type="button" class="bar-btn" id="g-menu"></button>
+          <button type="button" class="bar-btn" id="g-hint"></button>
+          <button type="button" class="bar-btn" id="g-undo"></button>
+          <button type="button" class="bar-btn g-step" id="g-prev" title="Previous move"></button>
+          <button type="button" class="bar-btn g-step-next" id="g-next" title="Next move"></button>
+        </nav>
+      </div>
+    </div>
+  </section>
+
+  <!-- B. The six kings on their stage, with Continue under them. -->
+  <section class="home home-kings night" id="v-kings" aria-labelledby="k-title" hidden>
+    <header class="top">
+      <span class="top-spacer" aria-hidden="true"></span>
+      <h1 class="wordmark k-wordmark" id="k-title"><span>King</span> <span class="gold">Down</span></h1>
+      <button type="button" class="btn btn-icon k-menu" id="k-menu" aria-label="Menu"></button>
+    </header>
+    <div class="stage" id="stage">
+      <div class="stage-floor" aria-hidden="true"></div>
+      <div class="stage-kings" id="stage-kings" role="group" aria-label="The six kings"></div>
+    </div>
+    <p class="stage-hint" id="stage-hint">Tap a king to see its power.</p>
+    <div class="k-continue" id="k-continue">
+      <div class="mini" id="k-mini" aria-hidden="true"></div>
+      <div class="k-cont-text">
+        <button type="button" class="btn btn-primary btn-wide btn-main" id="k-main"></button>
+        <p class="k-meta" id="k-meta"></p>
+      </div>
+    </div>
+    <button type="button" class="link-quiet" id="k-new">New game</button>
+  </section>
+
+  <!-- C. A Today card: today's eight figures, with Continue above it. -->
+  <section class="home home-today" id="v-today" aria-labelledby="c-title" hidden>
+    <header class="top">
+      <p class="wordmark"><span>King</span> <span class="gold">Down</span></p>
+      <button type="button" class="btn btn-icon" id="c-menu" aria-label="Menu"></button>
+    </header>
+    <h1 class="sr-only" id="c-title">Home</h1>
+    <div class="c-continue" id="c-continue">
+      <div class="mini" id="c-mini" aria-hidden="true"></div>
+      <div class="c-cont-text">
+        <p class="c-meta"><b id="c-opp">vs Computer · Casual</b><span id="c-move">Move 18 · Your move</span></p>
+        <button type="button" class="btn btn-primary btn-wide" id="c-main">Continue</button>
+      </div>
+    </div>
+    <section class="card today-card" id="c-card" aria-labelledby="c-today-title"></section>
+    <button type="button" class="link-quiet" id="c-new">New game</button>
+  </section>
+</div>
+
+<dialog class="sheet king-sheet" id="king-sheet" aria-labelledby="ks-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head">
+    <div class="ks-head"><img class="ks-emblem" id="ks-emblem" alt=""><h2 id="ks-title" tabindex="-1" autofocus>Frost</h2></div>
+    <button type="button" class="btn btn-icon" data-close aria-label="Close"></button>
+  </div>
+  <div class="sheet-body ks-body">
+    <figure class="ks-fig">
+      <div class="vig" id="vig">
+        <div class="vig-host" id="vig-host"></div>
+        <button type="button" class="btn btn-icon vig-again" id="vig-again" aria-label="Play it again"></button>
+      </div>
+      <figcaption class="ks-cap" id="ks-cap" aria-live="polite"></figcaption>
+    </figure>
+    <div class="ks-power"><h3 id="ks-power">Freeze</h3><span class="pill pill-gold" id="ks-uses">Once a game</span></div>
+    <p class="ks-line" id="ks-line"></p>
+    <button type="button" class="btn btn-wide" id="ks-play" aria-describedby="ks-warn">Play with Frost</button>
+    <p class="warn-line" id="ks-warn" hidden></p>
+    <p class="ks-other" id="ks-other"></p>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="today-sheet" aria-labelledby="ts-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="ts-title">Today's army</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body today-sheet-body" id="ts-body"></div>
+</dialog>
+
+<dialog class="sheet" id="menu-sheet" aria-labelledby="ms-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="ms-title">Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body" id="ms-body"></div>
+</dialog>
+
+<script type="module" src="home.js"></script>
+</body>
+</html>

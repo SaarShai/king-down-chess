@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lessons</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="lessons.css">
+</head>
+<body>
+<div class="app" id="app" data-view="shelf">
+
+  <!-- Option A: the piece shelf -->
+  <section class="screen shelf-screen" id="shelf" aria-labelledby="shelf-title">
+    <header class="top">
+      <button type="button" class="btn btn-icon" data-act="home" aria-label="Home"></button>
+      <h1 class="top-title display" id="shelf-title">Learn</h1>
+      <button type="button" class="btn btn-quiet play-btn" data-act="play"></button>
+    </header>
+    <div class="shelf-body">
+      <div class="shelf-intro">
+        <h2 class="display">Six new pieces</h2>
+        <p class="muted">About a minute each, in any order.</p>
+      </div>
+      <ul class="shelf" id="shelf-list" role="list"></ul>
+      <div class="shelf-foot">
+        <button type="button" class="btn btn-primary btn-wide" id="shelf-next"></button>
+        <p class="safe muted" id="shelf-safe"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Option B: the short path -->
+  <section class="screen path-screen" id="path" aria-labelledby="path-title">
+    <header class="top">
+      <button type="button" class="btn btn-icon" data-act="home" aria-label="Home"></button>
+      <h1 class="top-title display" id="path-title">Learn</h1>
+      <button type="button" class="btn btn-quiet play-btn" data-act="play"></button>
+    </header>
+    <div class="path-body">
+      <div class="path-intro">
+        <h2 class="display">Your next piece</h2>
+        <p class="muted">One at a time. About a minute each.</p>
+      </div>
+      <ol class="trail" id="trail"></ol>
+    </div>
+  </section>
+
+  <!-- The lesson: four boards for one piece -->
+  <section class="screen lesson-screen" id="lesson" aria-label="Guard lesson">
+    <header class="top">
+      <button type="button" class="btn btn-icon" data-act="back" aria-label="All pieces"></button>
+      <h1 class="top-title" id="lesson-title"><span class="lesson-pi"></span><span class="display">Guard</span></h1>
+      <button type="button" class="btn btn-quiet play-btn" data-act="play"></button>
+    </header>
+
+    <div class="lesson-head">
+      <img class="lesson-fig" alt="" id="lesson-fig">
+      <div>
+        <p class="lesson-name display">Guard</p>
+        <p class="muted">Four small boards. About a minute.</p>
+      </div>
+    </div>
+
+    <ol class="track" id="track" aria-label="Lesson steps"></ol>
+
+    <div class="board-wrap" id="board-wrap"><div class="board" id="board"></div></div>
+
+    <div class="coach" id="coach">
+      <div class="coach-play" id="coach-play">
+        <p class="task" id="task"></p>
+        <p class="note" id="note" aria-live="polite"></p>
+        <div class="coach-act"><button type="button" class="btn btn-wide" id="act"></button></div>
+      </div>
+      <div class="learned" id="learned" hidden>
+        <div class="seal" aria-hidden="true"><img alt="" id="seal-fig"><span class="seal-check"></span></div>
+        <h2 class="display" id="learned-title" tabindex="-1">Guard learned</h2>
+        <ul class="rules" role="list">
+          <li><span class="rule-ic"></span>Steps one square. Never takes.</li>
+          <li><span class="rule-ic"></span>Blocks lines like any piece.</li>
+          <li><span class="rule-ic"></span>Only a king can take it.</li>
+        </ul>
+        <div class="learned-act">
+          <button type="button" class="btn btn-primary" data-act="play-game">Play a game</button>
+          <button type="button" class="btn" data-act="next-piece">Next: Paladin</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script type="module" src="lessons.js"></script>
+</body>
+</html>

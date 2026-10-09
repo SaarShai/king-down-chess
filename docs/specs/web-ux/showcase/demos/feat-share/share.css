@@ -1,0 +1,176 @@
+/* feat-share: the daily result, the share sheet (line, picture, move) and the friend's view. */
+html, body { height: 100%; }
+body { overflow: hidden; }
+
+/* ---- the game screen: board first, the result card under it (phone) or in the rail (desktop) ---- */
+.app {
+  height: 100dvh; max-width: 560px; margin: 0 auto;
+  display: grid; grid-template-rows: auto auto minmax(0, 1fr);
+  padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-3) max(var(--space-2), env(safe-area-inset-bottom));
+}
+.top { display: flex; align-items: center; gap: var(--space-2); min-height: var(--tap); }
+.top h1 { margin: 0; font-size: var(--fs-lg); flex: 1; }
+.board { min-height: 0; margin: var(--space-1) 0 var(--space-2); }
+
+/* The result card (spec 4.11): outcome, one line, today's marks, then the next actions. */
+.result {
+  min-height: 0; display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-3) var(--space-1) 0; border-top: 1px solid var(--stone-300);
+}
+.result-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.result h2 { margin: 0; font-family: var(--font-display); font-size: var(--fs-2xl); letter-spacing: 0.04em; line-height: 1.1; }
+.result-line { margin: 2px 0 0; color: var(--ink-soft); }
+.daily-tag { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 0; }
+/* The two kings (spec 4.11): yours stands, theirs is already down. */
+.kings { position: relative; flex: none; width: 140px; height: 84px; margin-top: 4px; }
+.kings img { position: absolute; bottom: 0; height: 80px; width: auto; }
+.kings .k-me { left: 0; }
+/* The kit's fallen king: 78 degrees about the feet. */
+.kings .k-them { left: 40px; bottom: 2px; transform-origin: 50% 90%; transform: rotate(78deg); filter: grayscale(.25) brightness(.92); }
+
+/* Today's marks: one mark for each special move, in the order you played them. */
+.marks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.marks li { display: inline-flex; align-items: center; }
+.marks .pi { width: 32px; height: 32px; vertical-align: 0; }
+.marks .em { width: 34px; height: 34px; object-fit: contain; }
+/* A power's mark: a kit icon in the same charcoal disc and ring as the rulebook piece icons. */
+.mk-disc { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--pi-disc); box-shadow: inset 0 0 0 3.3px var(--pi-ring); color: var(--pi-glyph); }
+.mk-disc .icon { width: 17px; height: 17px; fill: currentColor; stroke-width: 1.2; }
+.marks .gap { width: 6px; }
+.marks-cap { margin: 0; font-size: var(--fs-sm); color: var(--ink-soft); }
+
+.result-foot { display: flex; flex-direction: column; gap: var(--space-2); margin-top: auto; }
+.result-actions { display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-2); }
+.result-actions .btn { padding-inline: 14px; white-space: nowrap; }
+.share-btn .icon { width: 20px; height: 20px; }
+
+/* ---- the share sheet ---- */
+#share .sheet-body { display: flex; flex-direction: column; gap: var(--space-3); }
+.seg {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px;
+  background: var(--parchment-deep); border: 1px solid var(--stone-300); border-radius: var(--radius-pill);
+}
+.seg button {
+  min-height: var(--tap); padding: 0 var(--space-2); border: 0; border-radius: var(--radius-pill);
+  font-weight: 700; font-size: var(--fs-sm); color: var(--ink-soft); background: transparent; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background-color var(--dur-2) var(--ease-out), color var(--dur-2), box-shadow var(--dur-2);
+}
+.seg button .icon { width: 18px; height: 18px; }
+.seg button[aria-selected='true'] { color: var(--ink); background: var(--vellum); box-shadow: 0 1px 3px rgba(43, 38, 33, 0.18), inset 0 0 0 1px var(--stone-300); }
+.panel { display: flex; flex-direction: column; gap: var(--space-3); }
+.panel[hidden] { display: none; }
+.panel.is-in { animation: kd-panel-in var(--dur-2) var(--ease-out); }
+@keyframes kd-panel-in { from { opacity: 0; transform: translateY(6px); } }
+
+.label { margin: 0; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* What your friend gets: the text exactly as a chat app shows it (system font, real emoji). */
+.chat {
+  padding: var(--space-4) var(--space-3) var(--space-3); border-radius: var(--radius-lg);
+  background: #e9e3d6; border: 1px solid var(--stone-300);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+}
+/* The friend's side of the chat: an incoming message, as most chat apps draw it. */
+.bubble {
+  max-width: 92%; margin: 0; padding: 10px 14px; border-radius: 18px 18px 18px 4px;
+  font: 400 16px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: #1c1c1e; background: #fff; box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.bubble .link { color: #0b57d0; text-decoration: underline; text-underline-offset: 2px; }
+.bubble .mk { font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; font-size: 18px; }
+.chat-meta { padding-left: 6px; }
+.chat-meta { font: 12px/1.2 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #5b5045; }
+.opt-row { padding: var(--space-1) var(--space-1); border-top: 1px solid var(--stone-300); border-bottom: 1px solid var(--stone-300); }
+.opt-row small { font-size: var(--fs-sm); }
+
+/* The main action and its real done state: the label changes only after the copy or save succeeds. */
+.go { position: relative; min-height: 52px; font-size: var(--fs-lg); }
+.go .done-check { display: none; }
+.go.is-done { color: var(--ink); background: linear-gradient(#f6f1e2, #ece2c8); border-color: var(--stone-700); box-shadow: var(--lift); }
+.go.is-done .done-check { display: block; width: 24px; height: 24px; color: #2f6b34; stroke-width: 2.6; }
+.go.is-done .done-check path { stroke-dasharray: 22; stroke-dashoffset: 0; animation: kd-draw var(--dur-2) var(--ease-out) both; }
+@keyframes kd-draw { from { stroke-dashoffset: 22; } }
+.go-note { margin: -4px 0 0; min-height: 1.45em; font-size: var(--fs-sm); color: var(--ink-soft); text-align: center; }
+.manual { width: 100%; min-height: 112px; padding: var(--space-2); font: 14px/1.4 ui-monospace, Menlo, monospace; border: 1px solid var(--stone-500); border-radius: var(--radius); background: var(--vellum); resize: none; }
+
+/* The poster: a 4:5 picture drawn on a canvas. */
+.poster-wrap { display: grid; place-items: center; }
+.poster {
+  display: block; width: min(100%, 300px); aspect-ratio: 4 / 5; height: auto;
+  border-radius: 10px; box-shadow: 0 10px 28px rgba(20, 14, 8, 0.35), 0 0 0 1px rgba(20, 14, 8, 0.25);
+  background: var(--night);
+}
+.poster.is-in { animation: kd-poster-in var(--dur-3) var(--ease-out); }
+@keyframes kd-poster-in { from { opacity: 0; transform: scale(0.97); } }
+
+/* The move: a link preview card, as a chat app shows it. */
+.moment-card {
+  width: min(100%, 320px); align-self: center; overflow: hidden; border-radius: var(--radius-lg);
+  background: var(--vellum); border: 1px solid var(--stone-300); box-shadow: var(--shadow-card);
+}
+.moment-card canvas { display: block; width: 100%; aspect-ratio: 1.91 / 1; height: auto; background: var(--night); }
+.moment-card .mc-body { padding: var(--space-2) var(--space-3) var(--space-3); }
+.moment-card .mc-quote { margin: 0; font-weight: 700; font-size: var(--fs-lg); line-height: 1.25; }
+.moment-card .mc-sub { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--ink-soft); }
+.picker { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.picker p { margin: 0; flex: 1; text-align: center; font-size: var(--fs-sm); color: var(--ink-soft); }
+.picker .btn-icon { border: 1px solid var(--stone-300); }
+
+/* ---- the friend's view: a shared move opens on the board and plays once ---- */
+.friend { position: fixed; inset: 0; z-index: 50; overflow: auto; background: var(--parchment); }
+.friend-in {
+  min-height: 100%; max-width: 560px; margin: 0 auto; display: grid; align-content: start;
+  padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-3) max(var(--space-3), env(safe-area-inset-bottom));
+}
+.friend-in > .top { order: -2; }
+.friend-note { order: -1; margin: 0 0 var(--space-2); font-size: var(--fs-sm); color: var(--ink-soft); display: flex; gap: 6px; align-items: center; }
+.friend-board { margin: 0 0 var(--space-2); }
+.friend-line { margin: 0; min-height: 3.2em; display: flex; gap: var(--space-2); align-items: flex-start; }
+.friend-line p { margin: 0; font-size: var(--fs-lg); font-weight: 700; line-height: 1.3; }
+.friend-line small { display: block; font-weight: 600; font-size: var(--fs-sm); color: var(--gold-ink); }
+.friend-line .pi { width: 32px; height: 32px; margin-top: 0; }
+.friend-line.is-in { animation: kd-panel-in var(--dur-2) var(--ease-out); }
+.friend-card {
+  display: grid; grid-template-columns: 64px 1fr; gap: 2px var(--space-3); align-items: center;
+  padding: var(--space-3) 0; border-top: 1px solid var(--stone-300); align-self: start;
+}
+.friend-card img { grid-row: 1 / span 2; width: 64px; height: 72px; object-fit: contain; }
+.friend-card h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: 0.04em; }
+.friend-card p { margin: 0; color: var(--ink-soft); line-height: 1.35; }
+.friend-card .about { grid-column: 1 / -1; margin-top: var(--space-2); color: var(--ink); }
+.friend-actions { display: grid; grid-template-columns: 1fr auto; gap: var(--space-2); margin-top: var(--space-2); }
+
+/* ---- desktop: the board on the left, the result card in the rail ---- */
+@media (min-width: 900px) {
+  .app {
+    max-width: 1240px; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto minmax(0, 1fr);
+    column-gap: var(--space-6); padding: var(--space-5) var(--space-6);
+  }
+  .top { grid-column: 1 / -1; }
+  .board { grid-row: 2; margin: 0; }
+  .result {
+    grid-column: 2; grid-row: 2; align-self: center; border: 1px solid var(--stone-300); border-radius: var(--radius-lg);
+    background: var(--vellum); padding: var(--space-5); gap: var(--space-4); box-shadow: var(--shadow-card);
+  }
+  .result-foot { margin-top: var(--space-2); }
+  /* The share panel takes the rail's place: the board stays in view, the result card waits behind it. */
+  .app.is-sharing .result { visibility: hidden; }
+  .poster { width: 100%; }
+  .friend-in { max-width: 1240px; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto minmax(0, 1fr); align-content: stretch; column-gap: var(--space-6); padding: var(--space-5) var(--space-6); }
+  .friend-in > .top { grid-column: 1 / -1; }
+  .friend-board { grid-row: 2; margin: 0; }
+  .friend-side { grid-column: 2; grid-row: 2; align-self: center; display: flex; flex-direction: column; gap: var(--space-4); }
+  .friend-side > * { align-self: stretch; }
+  .friend-side .friend-note { margin: 0; }
+  .friend-actions { grid-template-columns: 1fr; }
+}
+@media (max-width: 899px) { .friend-side { display: contents; } }
+
+/* ---- reduced motion: every end frame at once ---- */
+:root[data-motion='reduce'] .panel.is-in, :root[data-motion='reduce'] .poster.is-in, :root[data-motion='reduce'] .friend-line.is-in,
+:root[data-motion='reduce'] .go.is-done .done-check path, :root[data-motion='reduce'] .seg button { animation: none; transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .panel.is-in, :root:not([data-motion='full']) .poster.is-in, :root:not([data-motion='full']) .friend-line.is-in,
+  :root:not([data-motion='full']) .go.is-done .done-check path, :root:not([data-motion='full']) .seg button { animation: none; transition: none; }
+}

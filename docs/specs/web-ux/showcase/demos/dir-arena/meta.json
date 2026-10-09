@@ -1,0 +1,35 @@
+{
+  "id": "dir-arena",
+  "title": "Arena",
+  "group": "direction",
+  "summary": "Two kings face each other across the board: Frost below, Flame above. Every power is a reveal that you can see and read.",
+  "problem": "Kings' powers hide in panels today, so the most special part of King Down feels like a setting.",
+  "idea": "Card-battler grammar at a whisper: two nameplates with the real king portraits, a turn token, your power coin, and a tray of the last moves that folds into one chip. When Flame uses Strike, its coin flips and its card turns over before the Archer moves.",
+  "borrows": [
+    { "from": "Hearthstone", "what": "The hero power by the portrait, and the history tray of small tiles. King Down already has kings with powers." },
+    { "from": "Marvel Snap", "what": "The reveal: a card turns over and names itself before its effect plays." },
+    { "from": "Legends of Runeterra", "what": "The turn token that sits with the side to move." },
+    { "from": "Into the Breach", "what": "The cause line: the check draws from the Archer over f2 to your king." }
+  ],
+  "options": [
+    { "key": "A", "name": "Open tray, 48 px kings", "state": "open-tray", "summary": "The last five moves as painted tiles under the board (phone) or beside it (desktop). The desktop default." },
+    { "key": "B", "name": "Folded tray, 32 px kings", "state": "whisper", "summary": "The tray folds into one chip with the last move; a tap opens it. Small portraits. The phone default." }
+  ],
+  "recommendation": "Take Arena for powers and card mode: A on desktop, B on a phone. On a phone the board and the next action come first, and the move tray waits in one chip. The reveal is the one strong beat; everything else stays still.",
+  "joy": 5,
+  "ease": 4,
+  "effort": "M",
+  "states": ["rest", "read", "select", "played", "check", "end", "open-tray", "whisper"],
+  "notes": [
+    "The phone renders use B and the desktop renders use A, as recommended. The open-tray and whisper states show each option on both sizes.",
+    "Look at the check state and the Replay: Flame's coin flips, the Strike card turns over, the Archer travels on an ember trail, and a line shows the check over f2.",
+    "Tap or hold any enemy piece to read it. The card shows; nothing moves. Red marks only the squares where the piece can take. A tap on a marked square of your selected piece still plays the move.",
+    "Tap the Freeze coin: your own figures fade and the targets come as a wave from your king. Cancel, Escape or a tap on your own piece disarms.",
+    "The board never moves: not when a card, a prompt or the result shows.",
+    "After Reset you play White against the real Club computer. If it uses Strike, the same reveal plays.",
+    "Future: card mode. Cards fan out from under your nameplate and use the same reveal.",
+    "Limits: one power pair (Frost Freeze, Flame Strike). The five tray tiles before move 12 come from a scripted opening. No board flip.",
+    "Limits: the three end tiles are a simple pick (the last two takes or powers, then the final move), not the key-moment check. In the end state the first two come from the script.",
+    "For the lead: the kit tips every fallen king to the right, so a king on the h file falls past the board. This demo tips it left on the g and h files. The kit can do the same for all demos."
+  ]
+}

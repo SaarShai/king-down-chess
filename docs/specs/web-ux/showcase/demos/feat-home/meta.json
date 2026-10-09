@@ -1,0 +1,36 @@
+{
+  "id": "feat-home",
+  "title": "Home for a returning player",
+  "group": "feature",
+  "feature": "Returning home",
+  "summary": "A returning player sees the last board with Continue under it, and Continue opens the game on that same board.",
+  "problem": "Today a returning player sees the title art, a crimson \"Continue · move 18\" and three more buttons. The player cannot see the game before they continue. Today's army hides in More options, and the kings' powers hide in New game.",
+  "idea": "Home is the table: the last board, its last move in words, and one crimson action (Continue, Rematch or Play). The last move plays once when the table opens. Continue does not change the screen: the home part folds away, and the game goes on with the same board.",
+  "borrows": [
+    { "from": "Reading apps (Kindle, Apple Books)", "what": "The book opens on the page you left. King Down opens on the board you left, so the player knows the game at a look." },
+    { "from": "TV series recaps", "what": "\"Previously\": the last move plays once, with one line, so the player remembers whose move it is and why." },
+    { "from": "Fighting games and Hearthstone", "what": "The hero select: a tap on a king plays its power. The kings and their powers are the cast of King Down." },
+    { "from": "Wordle", "what": "One shared daily start: today's eight figures, the same for everyone, with a date and no count." }
+  ],
+  "options": [
+    { "key": "A", "name": "The table", "state": "table", "summary": "The last board fills the home. Continue, a quiet New game line and one Today line sit under it." },
+    { "key": "B", "name": "The six kings", "state": "kings", "summary": "The kings stand on their stage. A tap plays the king's power on a small board. Continue sits under them." },
+    { "key": "C", "name": "Today card", "state": "today", "summary": "A small Continue row, then today's eight figures on a stone rank. A tap on a figure reads it." }
+  ],
+  "recommendation": "A, the table, with C folded into one Today line. A returning player needs one next action and a picture of their game; B is a strong first-visit or Extra page, not a home for every return.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": ["table", "continued", "table-finished", "table-empty", "kings", "king-tap", "today"],
+  "notes": [
+    "Compare table and continued: the board stays in the same place. Only the controls under it change, to the game bar of decision W2 C (Menu, Hint, Undo, Previous, Next).",
+    "One crimson action in each home: Continue, Rematch, or Play today's army. New game is always a quiet line.",
+    "The saved game is real: the kit's computer played it, and its end is an Ogre shove that mates. After Continue you play the real Casual computer.",
+    "Each king scene is a legal position on the real board, played by the engine. Play with a king starts a real Kings' powers game.",
+    "Play with a king and Play today's army start a new game in place of the saved game. While a game is in play, one quiet line under the button says so: \"This ends your game at move 18.\"",
+    "Home goes back to the home that started the game: A, B or C.",
+    "The renders show the finished and no-game states only for A. B and C handle them in the live demo.",
+    "There is no first-visit state here. The feat-first-minute demo shows the first visit.",
+    "Limits: New game, Review and the Menu items show a short message only. The date of today's army is fixed to 8 October 2026."
+  ]
+}

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The muster</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="muster.css">
+</head>
+<body>
+<div class="app">
+  <header class="foe">
+    <span class="portrait" data-king="shadow-b" aria-hidden="true"></span>
+    <p><b>Computer</b> <span class="pill">Beginner</span></p>
+  </header>
+
+  <div class="stage" id="stage">
+    <div class="board" id="board"></div>
+    <div class="rail" id="rail" role="group" aria-label="New pieces in this army"></div>
+  </div>
+
+  <section class="ctx" id="ctx" aria-label="Game">
+    <div class="lines" id="lines" aria-live="polite">
+      <span class="portrait me" data-king="spirit" aria-hidden="true"></span>
+      <p class="title" id="title">Your move</p>
+      <p class="sub" id="sub"></p>
+    </div>
+    <div class="read" id="read" hidden>
+      <img class="read-art" id="read-art" alt="">
+      <div class="read-text">
+        <p class="read-name"><span id="read-name">Archer</span> <span class="pill" id="read-side">Yours</span></p>
+        <p class="read-line" id="read-line"></p>
+      </div>
+      <button type="button" class="btn btn-icon read-close" id="read-close" aria-label="Close"></button>
+    </div>
+    <p class="sr-only" id="sr-new" role="status"></p>
+  </section>
+
+  <nav class="bar" aria-label="Game actions">
+    <button type="button" class="btn btn-quiet" id="hint"></button>
+    <button type="button" class="btn btn-quiet" id="undo"></button>
+    <button type="button" class="btn btn-quiet" id="menu-btn"></button>
+  </nav>
+</div>
+
+<dialog class="sheet" id="menu" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title">Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body stack">
+    <button type="button" class="btn btn-primary btn-wide" id="new">New game · new army</button>
+    <button type="button" class="btn btn-wide" id="rematch">Rematch · same army</button>
+    <div class="row">
+      <span>Animations</span>
+      <div class="cluster seg" role="group" aria-label="Animations">
+        <button type="button" class="chip" data-speed="normal" aria-pressed="true">Normal</button>
+        <button type="button" class="chip" data-speed="fast" aria-pressed="false">Fast</button>
+        <button type="button" class="chip" data-speed="off" aria-pressed="false">Off</button>
+      </div>
+    </div>
+    <label class="row"><span>Sound</span><input type="checkbox" class="toggle" id="sound"></label>
+  </div>
+</dialog>
+
+<script type="module" src="muster.js"></script>
+</body>
+</html>

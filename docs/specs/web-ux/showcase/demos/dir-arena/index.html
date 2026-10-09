@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Arena</title>
+<script src="../../kit/frame.js"></script>
+<script>
+  // ?frame=phone|desktop sets the layout (the compare page uses it); else the width decides.
+  (function () {
+    var f = new URLSearchParams(location.search).get('frame');
+    var set = function () { document.documentElement.dataset.layout = f === 'phone' || f === 'desktop' ? f : (innerWidth >= 900 ? 'desktop' : 'phone'); };
+    set(); addEventListener('resize', set);
+  })();
+</script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="arena.css">
+</head>
+<body>
+<div class="app night" id="app" data-ctx="">
+  <section class="plate plate-them" id="them" aria-label="Your opponent">
+    <button type="button" class="portrait" id="them-portrait" aria-label="Flame king. Read his power.">
+      <span class="portrait-face"><img alt="" src="../../assets/kings/flame-b.webp"></span>
+      <span class="token" aria-hidden="true"></span>
+    </button>
+    <div class="who">
+      <p class="who-name">Flame</p>
+      <p class="who-line" id="them-line" aria-live="polite">Computer · Club</p>
+    </div>
+    <button type="button" class="power" id="them-power">
+      <span class="coin"><img alt="" src="../../assets/emblems/flame.webp"></span>
+      <span class="power-text"><span class="power-name">Strike</span><span class="power-uses" id="them-uses">1 use</span></span>
+    </button>
+  </section>
+
+  <div class="board" id="board"></div>
+
+  <section class="plate plate-me" id="me" aria-label="You">
+    <button type="button" class="portrait" id="me-portrait" aria-label="Frost king. Read your power.">
+      <span class="portrait-face"><img alt="" src="../../assets/kings/frost.webp"></span>
+      <span class="token" aria-hidden="true"></span>
+    </button>
+    <div class="who">
+      <p class="who-name">Frost<span class="check-tag">Check</span></p>
+      <p class="who-line" id="me-line" aria-live="polite">You · Your move</p>
+    </div>
+    <button type="button" class="power" id="me-power" aria-pressed="false">
+      <span class="coin"><img alt="" src="../../assets/emblems/frost.webp"></span>
+      <span class="power-text"><span class="power-name">Freeze</span><span class="power-uses" id="me-uses">1 use</span></span>
+    </button>
+  </section>
+
+  <aside class="side">
+    <section class="ctx" id="ctx" aria-live="polite"></section>
+    <section class="tray" id="tray" aria-labelledby="tray-title">
+      <div class="tray-head"><h2 id="tray-title">Last moves</h2><p class="tray-last" id="tray-last"></p>
+        <button type="button" class="tray-fold" id="tray-fold" aria-label="Fold the last moves" aria-expanded="true" aria-controls="tiles"></button></div>
+      <ol class="tiles" id="tiles"></ol>
+      <button type="button" class="tray-chip" id="tray-chip" aria-expanded="false" aria-controls="tiles"></button>
+    </section>
+    <nav class="bar" aria-label="Game">
+      <button type="button" class="nav" id="hint"></button>
+      <button type="button" class="nav" id="undo"></button>
+      <button type="button" class="nav" id="menu"></button>
+    </nav>
+  </aside>
+</div>
+
+<dialog class="sheet" id="menu-sheet" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title">Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body">
+    <div class="stack">
+      <button type="button" class="btn btn-primary btn-wide" id="new-game">New game</button>
+      <button type="button" class="btn btn-wide" id="all-moves">All moves</button>
+      <label class="row"><span>Sound</span><input type="checkbox" class="toggle" id="sound"></label>
+    </div>
+  </div>
+</dialog>
+<dialog class="sheet" id="moves-sheet" aria-labelledby="moves-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="moves-title">All moves</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body"><ol class="moves-list" id="moves-list"></ol></div>
+</dialog>
+<style>
+  .moves-list { list-style: none; margin: 0; padding: 0; }
+  .moves-list li { display: flex; gap: var(--space-2); align-items: flex-start; padding: 5px 0; border-top: 1px solid var(--stone-300); }
+  .moves-list .n { min-width: 2.6em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .moves-list .pi { margin-top: 2px; }
+</style>
+<script type="module" src="arena.js"></script>
+</body>
+</html>

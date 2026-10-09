@@ -1,0 +1,68 @@
+{
+  "id": "future-crowns",
+  "title": "Unlocks with crowns",
+  "group": "future",
+  "feature": "Piece unlocks with crowns (docs/PROGRESSION.md, a proposal)",
+  "summary": "A win at Casual or higher puts a crown on the result card, and at 2, 5 and 9 crowns paint fills the next piece's figure and Try its move opens its own lesson.",
+  "problem": "PROGRESSION.md plans to start players with the Archer and the Beast and to earn the Maester, the Ogre and the Guard, but nothing shows the player the next piece, how to earn it, or the moment it arrives. A loud reward system can also make a calm game feel like work.",
+  "idea": "One next piece and one plain rule, in three places only: the result card, New game and Extra › Pieces. The next piece shows its real figure: a silhouette when it is locked, grey when you met it in today's army. The unlock is one quiet ritual with no claim step: the piece is yours when the paint fills.",
+  "borrows": [
+    {
+      "from": "Balatro",
+      "what": "A locked thing in place, with its goal in plain words. Here the goal is a number of wins, never a price."
+    },
+    {
+      "from": "Marvel Snap and Clash Royale",
+      "what": "New cards in a set order, a few at a time. King Down teaches one new piece at a time."
+    },
+    {
+      "from": "Pokemon TCG Pocket",
+      "what": "One short reveal ritual for each new card. Here the paint fills from the base to the head in 600 ms."
+    },
+    {
+      "from": "Duolingo",
+      "what": "Visible progress toward the next unit. Here two to four crown pips, never a streak."
+    },
+    {
+      "from": "Hearthstone's collection",
+      "what": "A shelf with three states, each with one look on every screen: yours in full paint, met in grey, locked as a silhouette. It lives in Extra, not on Home."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "One next piece, fixed order",
+      "state": "unlock",
+      "summary": "Maester, then Ogre, then Guard. The result card always names the next piece and the crowns to go."
+    },
+    {
+      "key": "B",
+      "name": "Choose your next piece",
+      "state": "choose",
+      "summary": "At 2 crowns the player picks one of three pieces. The other two come at 5 and 9 crowns. Until the player picks, the choice stays open on the result card and in Pieces."
+    }
+  ],
+  "recommendation": "Pick A. One named piece and one rule are easy to read, and the order keeps the Guard (the piece that bends chess most) last, as PROGRESSION.md asks. B gives more choice but breaks the teaching order and adds a decision to a calm moment.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": [
+    "crown",
+    "unlock",
+    "try-it",
+    "new-game",
+    "shelf",
+    "loss",
+    "choose"
+  ],
+  "notes": [
+    "Look at the unlock: the paint fills the Maester in 600 ms, then Try its move and Later. A tap, Space, Enter or Escape skips to the end. Later keeps the piece.",
+    "Crowns show only on the result card, in New game and in Extra › Pieces. Live play shows no crowns, no dot and no timer.",
+    "One look for each state on every screen: yours in full paint, met in grey with an eye, locked as a silhouette with a lock.",
+    "The first random game after an unlock always holds the new piece (PROGRESSION.md: the next random army includes it).",
+    "The numbers (2, 5 and 9 crowns, Casual or higher) and the Ogre as 'met' in today's army are the proposal of docs/PROGRESSION.md, not settled rules.",
+    "Lessons and custom armies keep every piece open. Crowns only change what the random army can draw (one Beast at most, RULES.md §2).",
+    "Try it live: Reset gives you the board with 1 crown. Play the Archer's mate in one, and the Maester unlocks. The lesson is the app's own Maester lesson, and Back returns to the card.",
+    "Limits: the crowns live only on the page; Review shows a short message only; the draw rule for new pieces is a sketch of PROGRESSION.md."
+  ]
+}

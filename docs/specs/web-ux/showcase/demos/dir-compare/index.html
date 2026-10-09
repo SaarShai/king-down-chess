@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Five directions</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="compare.css">
+</head>
+<body class="night">
+<div class="cmp">
+  <div class="title">
+    <h1 class="display">Five directions</h1>
+    <p class="sub">One game. The same moment in each style.</p>
+  </div>
+
+  <div class="moments" role="radiogroup" aria-label="Moment of the game" id="moments">
+    <span class="thumb" aria-hidden="true"></span>
+  </div>
+
+  <div class="tools" role="group" aria-label="Layout">
+    <div class="seg" role="group" aria-label="Frame">
+      <button type="button" class="seg-btn" data-view="phone" aria-pressed="true"></button>
+      <button type="button" class="seg-btn" data-view="desktop" aria-pressed="false"></button>
+    </div>
+    <div class="seg" role="group" aria-label="How many">
+      <button type="button" class="seg-btn" data-count="5" aria-pressed="true">Five</button>
+      <button type="button" class="seg-btn" data-count="2" aria-pressed="false">Two</button>
+    </div>
+    <button type="button" class="seg-btn play-all" id="play-all"></button>
+  </div>
+
+  <p class="note" id="note" aria-live="polite"></p>
+
+  <main class="stage" id="stage" aria-label="The five directions"></main>
+</div>
+
+<script type="module" src="compare.js"></script>
+</body>
+</html>

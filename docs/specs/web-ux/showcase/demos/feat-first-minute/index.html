@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The first minute</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="./fm.css">
+</head>
+<body>
+<div class="app" id="app" data-phase="title" data-variant="a">
+
+  <!-- The title: the real title art (six kings on the stone floor, the twelve-piece lineup, the wordmark). -->
+  <section class="title night" id="title" aria-labelledby="wordmark">
+    <div class="t-stage" aria-hidden="true">
+      <img class="t-floor" src="../../assets/stone-board.webp" alt="">
+      <div class="t-kings">
+        <img class="tk-outer" src="../../assets/kings/mud.webp" alt="">
+        <img class="tk-inner" src="../../assets/kings/flame.webp" alt="">
+        <img class="tk-centre" src="../../assets/kings/spirit.webp" alt="">
+        <img class="tk-centre tk-right" src="../../assets/kings/shadow.webp" alt="">
+        <img class="tk-inner tk-right" src="../../assets/kings/frost.webp" alt="">
+        <img class="tk-outer tk-right" src="../../assets/kings/stratus.webp" alt="">
+      </div>
+    </div>
+    <ul class="t-lineup" id="lineup" aria-label="The twelve pieces"></ul>
+    <div class="t-copy">
+      <h1 class="wordmark" id="wordmark">
+        <svg class="wm-crown" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16M4 18 3 8l5 4 4-6 4 6 5-4-1 10z"/></svg><span class="wm-king">King</span> <span class="wm-down">Down</span> <span class="wm-chess">Chess</span>
+      </h1>
+      <p class="t-tag" data-only="b">Chess with six new pieces.</p>
+      <div class="t-actions">
+        <button type="button" class="btn btn-primary t-hero" id="go-first"></button>
+        <button type="button" class="btn t-second" id="go-play"></button>
+      </div>
+      <a class="t-foot" href="#workshop" id="go-workshop">Workshop <span aria-hidden="true">·</span> make your own piece</a>
+    </div>
+  </section>
+
+  <!-- The table: the game screen. In the first shot it shows a close view of the board; then the board grows. -->
+  <main class="table" id="table" aria-label="Game">
+    <header class="strip strip-top">
+      <button type="button" class="btn btn-icon" id="back" aria-label="Back to the title" data-in="shot done"></button>
+      <p class="lesson-name" data-in="shot done" data-only="b"><span id="lesson-icon"></span>Archer</p>
+      <div class="who who-them" data-in="game">
+        <img src="../../assets/kings/shadow-b.webp" alt="">
+        <span class="who-name">Computer</span><span class="pill">Beginner</span>
+      </div>
+    </header>
+    <div class="stage" id="stage">
+      <div class="zoom" id="zoom"><div class="board" id="board"></div></div>
+    </div>
+    <div class="strip strip-you" data-in="game">
+      <div class="who"><img src="../../assets/kings/spirit.webp" alt=""><span class="who-name">You</span><span class="who-side">White</span></div>
+    </div>
+    <section class="coach" id="coach" aria-live="polite">
+      <div class="coach-line" id="coach-line">
+        <span class="coach-icon" id="coach-icon"></span>
+        <div><p class="coach-main" id="coach-main"></p><p class="coach-sub" id="coach-sub"></p></div>
+      </div>
+    </section>
+    <nav class="bar" aria-label="Game actions">
+      <div class="bar-set" data-in="shot" data-only="a">
+        <button type="button" class="btn btn-quiet bar-skip" id="skip">Skip to the game</button>
+      </div>
+      <div class="bar-set bar-two" data-in="done">
+        <button type="button" class="btn" id="next-piece"></button>
+        <button type="button" class="btn btn-primary" id="done-play"></button>
+      </div>
+      <div class="bar-set bar-three" data-in="game">
+        <button type="button" class="btn btn-quiet" id="hint"></button>
+        <button type="button" class="btn btn-quiet" id="undo"></button>
+        <button type="button" class="btn btn-quiet" id="menu"></button>
+      </div>
+    </nav>
+  </main>
+</div>
+<script type="module" src="./fm.js"></script>
+</body>
+</html>

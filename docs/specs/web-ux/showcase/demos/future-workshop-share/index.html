@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Workshop pieces that travel</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="demo.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- Workshop home: a working sample first -->
+  <section class="view" id="v-home" aria-labelledby="home-title">
+    <header class="ws-head">
+      <button type="button" class="btn btn-quiet head-back" data-act="close"></button>
+      <h1 class="display" id="home-title" tabindex="-1">Workshop</h1>
+      <div class="head-end"></div>
+    </header>
+    <div class="ws-body">
+      <div class="entry">
+        <div class="entry-text">
+          <h2>Make your own piece</h2>
+          <p>Start from this one.</p>
+        </div>
+        <div class="entry-card" id="home-card"></div>
+        <div class="entry-actions">
+          <button type="button" class="btn btn-primary" data-act="change">Change one thing</button>
+          <button type="button" class="btn" data-act="try">Try it</button>
+          <button type="button" class="btn" data-act="surprise"></button>
+        </div>
+        <div class="quiet-row"><button type="button" class="link-btn" data-act="blank">Start blank</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- The editor after one change -->
+  <section class="view" id="v-edit" aria-labelledby="edit-title" hidden>
+    <header class="ws-head">
+      <button type="button" class="btn btn-quiet head-back" data-act="edit-back"></button>
+      <h1 class="display" id="edit-title" tabindex="-1">Your piece</h1>
+      <div class="head-end"><span class="pill pill-gold" id="edit-save">Saved</span></div>
+    </header>
+    <div class="ws-body">
+      <div class="edit">
+        <div class="card-slot" id="edit-card"></div>
+        <div class="mini" id="edit-mini"></div>
+        <div class="changed is-hint" id="changed" role="status" aria-live="polite"></div>
+        <div class="tabs" role="group" aria-label="Which board">
+          <button type="button" class="chip" data-tab="move" aria-pressed="false">Moves</button>
+          <button type="button" class="chip" data-tab="take" aria-pressed="true">Takes</button>
+        </div>
+        <div class="tools">
+          <label class="tool">Apply to
+            <select id="apply-to"><option value="all">All sides</option><option value="lr">Left and right</option><option value="one">One square</option></select>
+          </label>
+        </div>
+        <!-- Take by acts on the Takes board only, so it sits under the Takes heading. -->
+        <div class="boards">
+          <div class="board-pane is-off" id="pane-move"><h3>Moves</h3><div class="pane-grid"><span class="fwd">Forward ↑</span><div class="grid7" data-ch="move" role="group" aria-label="Moves board. Arrow keys move, Enter changes a square."></div></div></div>
+          <div class="board-pane" id="pane-take"><h3>Takes</h3>
+            <label class="tool take-by">Take by
+              <select id="take-by"><option value="take">Moving there</option><option value="shoot">Shooting</option></select>
+            </label>
+            <div class="pane-grid"><span class="fwd">Forward ↑</span><div class="grid7" data-ch="take" role="group" aria-label="Takes board. Arrow keys move, Enter changes a square."></div></div></div>
+        </div>
+        <div class="edit-actions">
+          <button type="button" class="btn" data-act="share"></button>
+          <button type="button" class="btn btn-primary" data-act="try">Try it</button>
+        </div>
+      </div>
+    </div>
+    <footer class="ws-foot">
+      <button type="button" class="btn" data-act="share"></button>
+      <button type="button" class="btn btn-primary" data-act="try">Try it</button>
+    </footer>
+  </section>
+
+  <!-- The piece: its card, and Try it (beside the card on a wide screen) -->
+  <section class="view" id="v-piece" data-mode="card" aria-labelledby="piece-title" hidden>
+    <header class="ws-head">
+      <button type="button" class="btn btn-quiet head-back" data-act="piece-back"></button>
+      <h1 class="display" id="piece-title" tabindex="-1">Your piece</h1>
+      <div class="head-end" id="piece-end"></div>
+    </header>
+    <div class="ws-body">
+      <div class="piece">
+        <div class="card-col">
+          <div id="piece-card"></div>
+          <p class="note" id="piece-note"></p>
+          <div class="card-quiet" id="card-quiet"></div>
+          <div class="card-actions" id="card-actions"></div>
+        </div>
+        <div class="try-col">
+          <div class="try-head"><h2>Try it</h2><span class="status">Test board</span></div>
+          <div class="try-top" id="try-top"></div>
+          <div class="try-board" id="try-board"></div>
+          <p class="try-say" id="try-say" aria-live="polite"></p>
+          <div class="try-row"><button type="button" class="btn btn-quiet" data-act="reset"></button></div>
+        </div>
+      </div>
+    </div>
+    <footer class="ws-foot foot-card" id="foot-card"></footer>
+    <footer class="ws-foot foot-try" id="foot-try"></footer>
+  </section>
+</div>
+
+<dialog class="sheet" id="share" aria-labelledby="share-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="share-title" tabindex="-1" autofocus>Share this piece</h2><button type="button" class="btn btn-icon" data-close aria-label="Close"></button></div>
+  <div class="sheet-body share-body">
+    <p class="note" id="share-note">Your friend sees this card. It opens read only.</p>
+    <div class="bubble">
+      <div class="bubble-img" id="share-img" role="img"></div>
+      <div class="bubble-meta"><b id="share-name">Javelin Runner</b><span>A King Down Workshop piece. Try it on the test board.</span><small id="share-url"></small></div>
+    </div>
+    <div class="share-actions">
+      <button type="button" class="btn btn-primary" data-act="send"></button>
+      <button type="button" class="btn" data-act="copy-link">Copy link</button>
+      <button type="button" class="btn" data-act="copy-text">Copy as text</button>
+    </div>
+  </div>
+</dialog>
+
+<script type="module" src="demo.js"></script>
+</body>
+</html>

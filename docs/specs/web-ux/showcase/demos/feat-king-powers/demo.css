@@ -1,0 +1,220 @@
+/* King powers demo: the power tile, the coin, the portrait button, the cast and the reveal. */
+:root {
+  --frost: #3f74b0;        /* the Frost ring and the ice line: 4.9:1 on vellum */
+  --frost-ink: #2c5a8f;
+  --flame: #b24425;
+  --spirit: #9a7a2c;
+}
+html, body { height: 100%; }
+body { overflow: hidden; }
+
+.app {
+  height: 100dvh; max-width: 560px; margin: 0 auto;
+  display: flex; flex-direction: column;
+  padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-3) max(var(--space-2), env(safe-area-inset-bottom));
+}
+.board { position: relative; flex: none; margin: 2px 0; }
+/* The free space goes above their strip: the board, your strip and the task sit low, near the thumb. */
+.them { margin-top: auto; }
+
+/* ---- the player strips ---- */
+.strip { display: flex; align-items: center; gap: var(--space-3); min-height: 52px; padding: 4px 2px; position: relative; }
+.strip .who { flex: 1; min-width: 0; line-height: 1.2; }
+.strip .who b { display: block; font-size: var(--fs-md); }
+.strip .who span { display: block; font-size: var(--fs-sm); color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.strip .who .turn-tag {
+  display: inline-block; margin-left: 6px; padding: 0 7px; font-size: var(--fs-xs); font-weight: 700; line-height: 1.6;
+  color: var(--ink); background: #fff6dc; border: 1px solid #e3cc8f; border-radius: var(--radius-pill); vertical-align: 1px;
+}
+/* The side to move: a gold rule under the strip (and the words "Your move" in the tag). */
+.strip::after { content: ''; position: absolute; left: 2px; right: 2px; bottom: -1px; height: 2px; border-radius: 1px; background: transparent; transition: background-color var(--dur-2); }
+.strip.is-turn::after { background: linear-gradient(90deg, var(--gold), rgba(201, 154, 62, 0)); }
+
+/* The king's portrait: a crop of the king's real figure in a ring of the king's colour. */
+.portrait {
+  --ring: var(--stone-500);
+  position: relative; display: block; flex: none; width: 46px; height: 46px; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #fffaf0, #e2d3b2 75%);
+  box-shadow: 0 0 0 2px var(--ring), 0 0 0 3.5px var(--vellum), 0 2px 6px rgba(43, 38, 33, 0.25);
+}
+.them .portrait { width: 40px; height: 40px; }
+.portrait img { position: absolute; left: -38%; top: -6%; width: 176%; max-width: none; height: auto; }
+.portrait[data-king='flame'] img { left: -48%; }
+.portrait[data-king='spirit'] img { left: -36%; }
+
+/* ---- Option A: the power tile, with words ---- */
+.ptile {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  min-height: 48px; min-width: 132px; padding: 4px 14px 4px 6px;
+  text-align: left; line-height: 1.15; color: var(--ink); cursor: pointer;
+  background: linear-gradient(var(--vellum), #efe4cc);
+  border: 1px solid var(--stone-700); border-radius: 12px;
+  box-shadow: var(--lift), inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 0 0 3px rgba(63, 116, 176, 0.12);
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), background-color var(--dur-2), border-color var(--dur-2);
+}
+.ptile:active { transform: translateY(2px); box-shadow: 0 0 0 var(--stone-700); }
+.ptile img { width: 38px; height: 38px; flex: none; filter: drop-shadow(0 1px 1px rgba(30, 40, 60, 0.35)); transition: filter var(--dur-2), opacity var(--dur-2); }
+.ptile .pt-name { display: block; font-weight: 800; font-size: var(--fs-md); }
+.ptile .pt-sub { display: block; font-size: var(--fs-sm); color: var(--ink-soft); font-weight: 600; white-space: nowrap; }
+.ptile .pt-sub.is-left { color: var(--frost-ink); }
+.ptile[data-state='armed'] {
+  border-color: var(--gold-ink); background: linear-gradient(#fffaf0, #f6ead0);
+  box-shadow: 0 0 0 3px var(--gold-bright), 0 0 18px rgba(233, 192, 113, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.ptile[data-state='armed'] .pt-sub { color: var(--gold-ink); }
+/* Spent: grey stone that stays readable. */
+.ptile[data-state='used'] {
+  cursor: help; background: linear-gradient(#e9e4d9, #ddd5c5); border-color: var(--stone-500);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(77, 69, 60, 0.15);
+}
+.ptile[data-state='used'] img { filter: grayscale(1) contrast(0.9); opacity: 0.55; }
+.ptile[data-state='used'] .pt-name { color: var(--stone-700); }
+.ptile[data-state='used'] .pt-sub { color: var(--ink-soft); }
+/* Always on: no count and no arming; a tap reads it. */
+.ptile[data-state='always'] { background: transparent; box-shadow: none; border-color: var(--stone-500); cursor: help; }
+.ptile[data-state='always'][aria-expanded='true'] { background: var(--vellum); border-color: var(--spirit); box-shadow: 0 0 0 2px rgba(201, 154, 62, 0.45); }
+/* The opponent's power: the same words, quieter and smaller. */
+.them .ptile { min-height: 44px; min-width: 0; padding-right: 12px; background: transparent; box-shadow: none; border-color: var(--stone-300); }
+.them .ptile img { width: 30px; height: 30px; }
+.them .ptile .pt-name { font-size: var(--fs-sm); }
+.them .ptile .pt-sub { font-size: var(--fs-xs); }
+.them .ptile[data-state='revealed'] { background: #fff4ec; border-color: var(--flame); box-shadow: 0 0 0 2px rgba(178, 68, 37, 0.35), 0 0 16px rgba(224, 110, 60, 0.35); }
+.them .ptile[data-state='revealed'] .pt-sub { color: var(--flame); }
+.them .ptile[data-state='used'] { background: transparent; }
+
+/* ---- Option B: a coin by the portrait ---- */
+.coin {
+  position: relative; flex: none; width: 48px; height: 48px; padding: 0; border-radius: 50%; cursor: pointer;
+  background: radial-gradient(circle at 40% 30%, #fbf7ee, #d9ccb0 70%, #b9aa8a);
+  border: 1px solid var(--stone-700); box-shadow: var(--lift), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+  transition: box-shadow var(--dur-2), filter var(--dur-2);
+}
+.coin img { position: absolute; inset: 5px; width: 36px; height: 36px; }
+.coin .notches { position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); display: flex; gap: 3px; }
+.coin .notch { width: 9px; height: 9px; transform: rotate(45deg); background: #7fb2ff; border: 1.5px solid var(--frost-ink); }
+.coin .notch.is-spent { background: var(--stone-300); border-color: var(--stone-500); }
+.coin[data-state='armed'] { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 18px rgba(233, 192, 113, 0.75); }
+.coin[data-state='used'] { filter: grayscale(1); opacity: 0.7; }
+.them .coin { width: 44px; height: 44px; }
+.them .coin img { inset: 5px; width: 32px; height: 32px; }
+.them .coin .notch { background: #f08a5d; border-color: var(--flame); }
+.with-coin { position: relative; display: flex; align-items: center; gap: 6px; }
+
+/* ---- Option C: the portrait is the button ---- */
+.pbtn { position: relative; flex: none; margin-left: 6px; padding: 0; border: 0; background: none; border-radius: 50%; cursor: pointer; }
+.pbtn .portrait { width: 52px; height: 52px; box-shadow: 0 0 0 3px var(--ring), 0 0 0 5px var(--vellum), 0 0 0 6.5px var(--ring), 0 2px 6px rgba(43, 38, 33, 0.25); }
+.them .pbtn .portrait { width: 44px; height: 44px; }
+.pbtn .gem { position: absolute; right: -5px; top: -5px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--vellum); border: 1.5px solid var(--ring); font: 800 13px/1 var(--font-body); color: var(--ink); }
+.pbtn[data-state='armed'] .portrait { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 5px var(--vellum), 0 0 0 6.5px var(--gold-ink), 0 0 20px rgba(233, 192, 113, 0.8); }
+.pbtn[data-state='used'] .portrait { filter: grayscale(0.9); }
+
+/* ---- the context area: one task at a time, fixed height ----
+   The height holds the longest task (a line and four rule rows), so a new task never moves the board. */
+.ctx { display: flex; align-items: flex-start; gap: var(--space-2); min-height: 150px; padding: var(--space-3) 2px var(--space-2); }
+.ctx-main { flex: 1; min-width: 0; }
+.ctx-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+.ctx-head .ctx-line { padding-top: 2px; }
+.ctx-line { margin: 0; font-weight: 800; font-size: var(--fs-lg); line-height: 1.25; }
+.ctx-sub { margin-top: 4px; color: var(--ink-soft); line-height: 1.3; }
+.ctx-sub p { margin: 0; }
+.ctx-sub .ctx-how { margin-bottom: 4px; color: var(--ink); font-weight: 600; }
+.ctx-sub .pi { margin-right: 6px; }
+.ctx-sub .icon { width: 18px; height: 18px; vertical-align: -3px; margin-right: 4px; }
+.ctx-cancel { flex: none; min-width: 84px; min-height: 44px; margin: -6px 0 -8px; padding: 6px 14px; }
+.ctx.is-armed .ctx-line { color: var(--ink); }
+.ctx .rule { display: flex; gap: 8px; align-items: flex-start; margin-top: 2px; }
+.ctx .rule + .rule { margin-top: 4px; }
+.ctx .rule svg { flex: none; margin-top: 2px; }
+.fresh { animation: kp-in var(--dur-2) var(--ease-out); }
+@keyframes kp-in { from { opacity: 0; transform: translateY(4px); } }
+
+/* The folded moves line: the last move, one tap to open the story. */
+.moves-line {
+  display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; margin-top: 2px; padding: 0 2px;
+  font-size: var(--fs-md); color: var(--ink-soft); text-align: left; background: none; border: 0; border-top: 1px solid var(--stone-300); cursor: pointer;
+}
+.moves-line span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.moves-line .icon { width: 18px; height: 18px; flex: none; }
+
+/* Two steps in one turn: the free Freeze, then the move. Shape and words, not colour alone. */
+.steps { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.step { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px 2px 4px; font-size: var(--fs-sm); font-weight: 700; border-radius: var(--radius-pill); border: 1px solid var(--stone-300); color: var(--ink-soft); background: var(--stone-100); }
+.step .dot { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: var(--vellum); background: var(--stone-500); }
+.step .dot svg { width: 14px; height: 14px; stroke-width: 3; }
+.step.is-done { color: var(--frost-ink); border-color: #b7cde6; background: #eef4fb; }
+.step.is-done .dot { background: var(--frost); }
+.step.is-now { color: var(--ink); border-color: var(--gold-ink); background: #fff6dc; box-shadow: 0 0 0 2px rgba(233, 192, 113, 0.5); }
+.step.is-now .dot { background: var(--accent); }
+.steps .join { width: 14px; height: 2px; background: var(--stone-300); border-radius: 1px; }
+
+/* ---- the action bar ---- */
+.bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); margin-top: var(--space-3); }
+.bar .btn { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: var(--fs-sm); }
+
+/* ---- on the board ---- */
+/* The armed veil: the stone dims a little, the figures and the targets stay bright. */
+.kp-veil { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: rgba(18, 22, 40, 0.24); opacity: 0; transition: opacity var(--dur-3) var(--ease-out); }
+.kp-veil.is-on { opacity: 1; }
+/* Ice on a frozen figure: the real figure, washed with frost through its own outline. */
+.kp-ice {
+  position: absolute; pointer-events: none;
+  -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  background: linear-gradient(to top, rgba(232, 245, 255, 0.95) 0%, rgba(150, 196, 240, 0.8) 42%, rgba(205, 230, 252, 0.7) 75%, rgba(250, 253, 255, 0.85) 100%);
+  opacity: var(--ice, 0.6);
+}
+.kdb-fig.is-frozen img { filter: drop-shadow(0 0 2px rgba(220, 240, 255, 0.95)) drop-shadow(0 0 6px rgba(120, 180, 240, 0.6)); }
+.kdb-fig.is-preview .kp-ice { outline: none; }
+.kp-ground, .kp-flake, .kp-shield { position: absolute; width: 12.5%; height: 12.5%; pointer-events: none; }
+.kp-ground svg, .kp-shield svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.kp-flake { width: 4.6%; height: 4.6%; min-width: 16px; min-height: 16px; z-index: 120; }
+.kp-flake svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 1px rgba(20, 30, 50, 0.4)); }
+.kp-flake.is-ghost { opacity: 0.85; }
+/* Holy Light: a soft light behind the king, kept inside its square and the frame. */
+.kp-aura { position: absolute; width: 18.75%; height: 16.25%; pointer-events: none; z-index: 4; margin: -3.125% 0 0 -3.125%;
+  background: radial-gradient(closest-side, rgba(255, 244, 210, 0.95), rgba(255, 226, 150, 0.6) 50%, rgba(255, 226, 150, 0)); }
+.kp-badge { position: absolute; z-index: 120; pointer-events: none; transform: translate(-50%, -100%); padding: 1px 8px; font-size: 12.5px; font-weight: 800; color: var(--frost-ink); background: var(--vellum); border: 1px solid #9fbde0; border-radius: var(--radius-pill); white-space: nowrap; box-shadow: 0 2px 6px rgba(20, 30, 50, 0.25); }
+
+/* ---- desktop: board left; the duel column right (them on top, you below, the task under you) ---- */
+/* Options B and C on a phone: room under the coin and the ring, so they clear the turn rule. */
+@media (max-width: 899px) {
+  .app[data-option='B'] .strip { padding-bottom: 12px; }
+  .app[data-option='C'] .you { padding-bottom: 8px; }
+}
+
+@media (min-width: 900px) {
+  .app {
+    max-width: 1260px; display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: minmax(0, 1fr) auto auto minmax(188px, auto) auto minmax(0, 1fr);
+    column-gap: var(--space-7); padding: var(--space-5) var(--space-6);
+  }
+  .board { grid-column: 1; grid-row: 1 / -1; margin: 0; min-height: 0; height: 100%; }
+  .them { grid-column: 2; grid-row: 2; margin: 0; padding-bottom: var(--space-4); border-bottom: 1px solid var(--stone-300); }
+  .you { grid-column: 2; grid-row: 3; padding-top: var(--space-4); }
+  /* The row keeps room for the longest task; the card grows into it, so nothing above or below moves. */
+  .ctx { grid-column: 2; grid-row: 4; align-self: start; min-height: 132px; padding: var(--space-4); margin-top: var(--space-3); background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius-lg); }
+  .bar { grid-column: 2; grid-row: 5; margin-top: var(--space-4); }
+  .strip { min-height: 64px; }
+  /* The side to move: the rule on the outer edge of its strip (top of theirs, bottom of yours). */
+  .them.is-turn::after { top: 0; bottom: auto; }
+  .ptile .pt-name { font-size: var(--fs-lg); }
+  .ptile .pt-sub { font-size: var(--fs-md); }
+  .them .ptile .pt-name { font-size: var(--fs-md); }
+  .them .ptile .pt-sub { font-size: var(--fs-sm); }
+  .them .ptile img { width: 36px; height: 36px; }
+  .ctx-line { font-size: var(--fs-xl); }
+  .ctx-sub { font-size: var(--fs-lg); }
+  .portrait { width: 58px; height: 58px; }
+  .them .portrait { width: 52px; height: 52px; }
+  .strip .who b { font-size: var(--fs-lg); }
+  .ptile { min-width: 150px; min-height: 54px; }
+  .ptile img { width: 42px; height: 42px; }
+  .pbtn .portrait { width: 62px; height: 62px; }
+  .pbtn .gem { width: 24px; height: 24px; font-size: 14px; }
+}
+
+/* ---- reduced motion: every end frame at once ---- */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .fresh { animation: none; }
+  :root:not([data-motion='full']) .kp-veil, :root:not([data-motion='full']) .ptile { transition: none; }
+}
+:root[data-motion='reduce'] .fresh { animation: none; }
+:root[data-motion='reduce'] .kp-veil, :root[data-motion='reduce'] .ptile { transition: none; }

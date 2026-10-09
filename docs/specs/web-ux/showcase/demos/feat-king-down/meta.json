@@ -1,0 +1,68 @@
+{
+  "id": "feat-king-down",
+  "title": "King Down: the end",
+  "group": "feature",
+  "feature": "End of game, result, rematch and resign",
+  "summary": "The last move of a game stays on the board, the losing king lies down, and the result sits beside it with Rematch ready at once. After a loss, Retry from move N takes you back to the costly move, and resign becomes 'Lay your king down'.",
+  "problem": "Today the result card covers the board, so the player cannot see the move that won or lost. The king falls under the card, and then falls a second time on it. The card uses 29 words and an army code. A loss gives no way forward except a new game.",
+  "idea": "Make the end the one big moment of the game, and keep it short. The board shows the cause: the winning piece, a dashed line to the king, and the king that lies down. The result never covers the board, and Rematch works from the first frame.",
+  "borrows": [
+    {
+      "from": "Sports replays",
+      "what": "B replays the final blow once at half speed. A King Down mate can come from a new verb (a shot, a bite), so the replay shows how it happened."
+    },
+    {
+      "from": "Marvel Snap",
+      "what": "A short match end that never blocks the next match: Rematch is live while the ceremony plays."
+    },
+    {
+      "from": "Lara Croft GO and Wordle",
+      "what": "A calm completion state: the final board stays visible, and the result is a few words beside it."
+    },
+    {
+      "from": "Into the Breach",
+      "what": "After a loss, go back to the costly turn and try again. You try first. The better move shows as a ghost only when you ask."
+    },
+    {
+      "from": "Chess custom",
+      "what": "A player resigns by laying the king down. King Down is the name of the game, so resign uses that gesture."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "Quiet",
+      "state": "quiet",
+      "summary": "The board stays clear. The king lies down where it stands: toward an empty square beside it, or inside its own square when there is none. The result and Rematch are beside the board at once; the key moments fold into one row."
+    },
+    {
+      "key": "B",
+      "name": "Ceremony",
+      "state": "ceremony",
+      "summary": "A 120 ms stop, the final blow again at half speed under a veil, the king falls, 'King Down' settles in, and three key-moment tiles rise. The replay caption sits in the empty tile slots, not on the board. A tap skips."
+    }
+  ],
+  "recommendation": "Pick A for every game. The fall of the king is the one strong moment, the board stays readable, and Rematch is the first thing a thumb finds. Keep B's half-speed replay one tap away, on the 'final blow' tile. Add Retry after a loss and 'Lay your king down' for resign in both options.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": [
+    "quiet",
+    "ceremony",
+    "final-blow",
+    "loss",
+    "retry",
+    "resign",
+    "laid-down"
+  ],
+  "notes": [
+    "Try it: you play White in P2. Move the Archer from e5 to f6 to mate. Menu › 'Demo only' switches the ending between A and B.",
+    "The mate is true to the rules: the Archer steps to f6, and her shot reaches h8 two squares away on a forward diagonal. The dashed line shows that reach; it is not an arrow in flight.",
+    "The red sight is the Archer's shot mark on the board. It shows only when an Archer's shot reaches the king. Every other mate gets the board's own check mark, as in the loss.",
+    "The king on h8 has the edge on one side and a rook on the other, so it lies down inside its own square.",
+    "The loss is a real game from P1 against the Club computer. Move 22, Guard d2 to c2, lets the Bishop mate from a6. The Club computer's King d3 to e2 allows no mate in one; the demo checks this with the engine.",
+    "Retry rewinds to move 22. You try first; 'Show a better move' plays the ghost of King d3 to e2. Play goes on against the real computer. In a live loss the demo finds the costly move and the better move with the engine. The app would use its own key-moment analysis.",
+    "Future: in online play, Rematch becomes an offer to the other player, and 'Lay your king down' is the resign for both players. Retry stays a practice against the computer, and a win after Retry earns no crown (a proposal; PROGRESSION.md gives a crown for each win at Casual or stronger). In card mode, a key-moment tile can show the card that was played.",
+    "Limits: the win's key moments come from the shared P1 and P2 positions, not from one recorded game, so the shot on move 12 takes a pawn that stands on a5 in P2. Review shows one move, not the full review. A loss and a draw always end quietly."
+  ]
+}

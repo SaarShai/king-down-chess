@@ -1,0 +1,69 @@
+{
+  "id": "feat-move-story",
+  "title": "Move story",
+  "group": "feature",
+  "feature": "Move list",
+  "summary": "The move list folds into one line under the board, and opens into a short story with piece icons and verb marks. A tap on a move plays it again as a ghost on the board.",
+  "problem": "Today the move list is a column of code text (Af6*d4) that takes much space and tells no story. The special moves of King Down (a shot, a chain of bites, a shove) look like any other move.",
+  "idea": "Fold the list into one sentence about the last move. Open it, and each move is a row with the piece icon, a verb mark and eight words or fewer. Special moves read like events, with a small picture. A tap replays a move as a see-through ghost over the live board. A scrubber walks back through the game, with a gold mark on each key moment.",
+  "borrows": [
+    {
+      "from": "Hearthstone",
+      "what": "The history bar: each play as a small icon with its effect. It fits because King Down moves are events, not only squares."
+    },
+    {
+      "from": "Root and Wingspan logs",
+      "what": "A game log in short sentences with the piece's picture. The engine already writes one sentence for each move."
+    },
+    {
+      "from": "Video players and sports replays",
+      "what": "A scrubber with a tick for each move and a mark on the big moments, for review after the game."
+    },
+    {
+      "from": "Apple Messages",
+      "what": "Calm rows that read top to bottom, newest at the bottom, and a new row that slides in by a few pixels."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "One line",
+      "state": "line",
+      "summary": "The last move as one sentence with its icon and verb mark. A tap opens the story."
+    },
+    {
+      "key": "B",
+      "name": "Five chips",
+      "state": "chips",
+      "summary": "The last five moves as icon chips. Yours are filled, theirs dashed. A tap on a chip replays it."
+    },
+    {
+      "key": "C",
+      "name": "Count only",
+      "state": "pill",
+      "summary": "A quiet '14 moves' pill. Nothing more until the player asks."
+    }
+  ],
+  "recommendation": "A, one line. It answers the one question a player has at rest (what did they just do?) in eight words, and it needs no learning. A replaces the idea bank's pick (B, the chips), because one sentence needs no learning and five icons do. B stays as a choice in Menu for players who like the history in view. All three use the same rows, ghost and scrubber.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": [
+    "line",
+    "chips",
+    "pill",
+    "story",
+    "ghost",
+    "scrub"
+  ],
+  "notes": [
+    "The game is real: the computer player played both sides (Club as White, Casual as Black), army SKMGAOBN, mate on move 34. It has a Beast chain of three bites, Archer shots, Ogre shoves and Maester swaps.",
+    "story: the open story. Each move is one row. Special rows (shot, bites, shove, swap) are in full ink with a small picture. Plain moves stay quiet. The square shows at the right only when the words do not name it.",
+    "ghost: a tap on the Beast's row plays its old chain again over the live board, with bite numbers 1, 2, 3. The ghost has a dashed ring. Pieces that came later are dim, and the pieces that stood near the path then show faintly. The live board does not move.",
+    "scrub: review after the game. Each move has a tick, a special move has a taller tick, and only the key moment has a mark (the gold diamond). At the key moment a dashed arrow with 'Better' shows the move that Black did not play.",
+    "Replay (play): Black's Archer shoots your Beast, and the line holds that sentence. The story opens, and the Beast's old chain plays again as a ghost. Then the story folds, and you play White against the Casual computer.",
+    "Key moment: at the app's normal depth this game has no key moment. A deeper search finds one: Black's g7-g5, about 3 pawns (better: c6-c5). The rule is the app's own (a move that gives away 2 pawns or more). It shows only after the game, as in the app.",
+    "Menu holds the three rest styles and 'Beside each move' (Nothing, Square or Letters), so you can compare them live. In every state you play White against the Casual computer.",
+    "Limits: no Paladin trade row in this game (the Paladin is not in random armies); the row text exists in the code. The story uses 'your' and 'their' only against the computer."
+  ]
+}

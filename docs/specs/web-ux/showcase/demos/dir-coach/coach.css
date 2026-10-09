@@ -1,0 +1,189 @@
+/* Coach: the board explains each rule when it matters. The foundation's game screen plus quiet marks. */
+html, body { height: 100%; }
+body {
+  overflow: hidden;
+  background: radial-gradient(120% 70% at 50% 28%, #f8f1e2 0%, var(--parchment) 55%, #ebdfc4 100%) fixed, var(--parchment);
+}
+
+/* ---- layout: a phone column; from 900 px (or ?frame=desktop) the board left and a quiet column right ---- */
+.app {
+  height: 100dvh; max-width: 480px; margin: 0 auto; overflow-x: clip;
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  /* The slack of a tall phone goes above the opponent and under the coach line; the bar stays under the thumb. */
+  grid-template-rows: minmax(0, 1fr) auto auto auto minmax(150px, auto) minmax(0, 1fr) auto auto;
+  padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-3) max(var(--space-2), env(safe-area-inset-bottom));
+}
+.strip-them { grid-row: 2; }
+.board { grid-row: 3; min-height: 0; margin: var(--space-1) 0; }
+.strip-you { grid-row: 4; }
+.coach { grid-row: 5; }
+/* A short phone: a smaller coach row and tighter spacing, so the board stays large and keeps one size in every state. */
+@media (max-height: 700px) {
+  :root:not(.is-wide) .app { grid-template-rows: minmax(0, 1fr) auto auto auto minmax(112px, auto) minmax(0, 1fr) auto auto; }
+  :root:not(.is-wide) .coach { padding-top: var(--space-1); padding-bottom: 0; }
+  :root:not(.is-wide) .coach .ways { margin-top: var(--space-2); }
+  :root:not(.is-wide) .coach .key { margin-top: var(--space-1); padding-top: var(--space-1); }
+}
+.moves-line { grid-row: 7; }
+.bar { grid-row: 8; }
+
+:root.is-wide .app {
+  max-width: 1320px;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  /* The coach line sits at eye level beside the board: opponent at the top, you and the bar at the bottom. */
+  grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1.3fr) auto auto auto;
+  column-gap: 56px; padding: 36px 48px;
+}
+:root.is-wide .board { grid-column: 1; grid-row: 1 / -1; margin: 0; }
+:root.is-wide .strip-them { grid-column: 2; grid-row: 1; }
+:root.is-wide .coach { grid-column: 2; grid-row: 3; min-height: 170px; padding: var(--space-4) 0; }
+:root.is-wide .moves-line { grid-column: 2; grid-row: 5; }
+:root.is-wide .strip-you { grid-column: 2; grid-row: 6; margin-top: var(--space-2); }
+:root.is-wide .bar { grid-column: 2; grid-row: 7; }
+:root.is-wide .strip { min-height: 56px; gap: 14px; }
+:root.is-wide .crest { width: 48px; height: 48px; }
+:root.is-wide .who b { font-size: var(--fs-lg); }
+:root.is-wide .who .sub { font-size: var(--fs-md); }
+:root.is-wide .power { font-size: var(--fs-md); padding: 0 8px 0 14px; }
+:root.is-wide .coach { grid-template-columns: 44px minmax(0, 1fr); column-gap: 16px; }
+:root.is-wide .coach .glyph { width: 44px; height: 44px; }
+:root.is-wide .coach .glyph .icon { width: 24px; height: 24px; }
+:root.is-wide .coach .glyph .pi { width: 38px; height: 38px; }
+:root.is-wide .coach .main { font-size: var(--fs-xl); margin-top: 6px; }
+:root.is-wide .coach .sub { font-size: var(--fs-lg); }
+:root.is-wide .coach.is-card { grid-template-columns: 72px minmax(0, 1fr); }
+:root.is-wide .coach .figure { width: 72px; height: 94px; }
+:root.is-wide .coach .name { font-size: var(--fs-xl); }
+:root.is-wide .coach .rule { font-size: var(--fs-lg); }
+:root.is-wide .coach .ways { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+:root.is-wide .coach .ways .chip { font-size: var(--fs-md); }
+:root.is-wide .coach .key p { font-size: var(--fs-lg); }
+:root.is-wide .coach .key .pi { width: 32px; height: 32px; }
+:root.is-wide .moves-line { font-size: var(--fs-body); }
+:root.is-wide .bar .btn { min-height: 60px; font-size: var(--fs-md); padding: 8px 4px; }
+
+/* ---- the two strips: a crest, a name, the king's power ---- */
+.strip { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.crest {
+  flex: none; width: 38px; height: 38px; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 40%, #3a3028, var(--night)); box-shadow: 0 0 0 1.5px var(--gold), 0 1px 3px rgba(40, 28, 10, .35);
+}
+.crest img { width: 74%; height: 74%; object-fit: contain; }
+.who { min-width: 0; flex: 1; display: flex; flex-direction: column; line-height: 1.2; }
+.who b { font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: .05em; }
+.who .sub { font-size: var(--fs-sm); color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.who .sub.is-thinking::after { content: ''; display: inline-block; width: 1.1em; text-align: left; animation: coach-dots 1.2s steps(4) infinite; }
+@keyframes coach-dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+:root[data-motion='reduce'] .who .sub.is-thinking::after { animation: none; content: '...'; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-motion='full']) .who .sub.is-thinking::after { animation: none; content: '...'; } }
+
+/* A power: a quiet pill that reads its rule on a tap. Uses as a number in a ring (shape and text, not colour). */
+.power {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); padding: 0 6px 0 10px;
+  font-weight: 700; font-size: var(--fs-sm); color: var(--ink); background: transparent;
+  border: 1px solid var(--stone-300); border-radius: var(--radius-pill); cursor: pointer;
+  transition: background-color var(--dur-1), border-color var(--dur-1);
+}
+@media (hover: hover) { .power:hover { background: rgba(255, 255, 255, .55); border-color: var(--stone-500); } }
+.power .icon { width: 18px; height: 18px; }
+.power-uses {
+  display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px;
+  font-size: var(--fs-xs); font-variant-numeric: tabular-nums; border: 1.5px solid currentColor;
+}
+.power[data-used='true'] { color: var(--ink-soft); border-style: dashed; }
+.power[data-used='true'] .power-uses { border: 0; padding: 0 2px; font-weight: 600; }
+.power-mine[aria-pressed='true'] { color: var(--vellum); background: #2f5ea8; border-color: #1f3f74; }
+.power-mine[aria-pressed='true'] .power-uses { border-color: var(--vellum); }
+
+/* ---- the coach line: one fixed area under the board; the board never moves ---- */
+.coach {
+  min-height: 92px; padding: var(--space-3) var(--space-1) var(--space-2);
+  display: grid; grid-template-columns: 34px minmax(0, 1fr); column-gap: 12px; row-gap: 2px; align-content: start;
+}
+.coach > * { grid-column: 2; }
+.coach .glyph {
+  grid-column: 1; grid-row: 1 / span 2; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  color: var(--ink); background: var(--vellum); border: 1px solid var(--stone-300);
+}
+.coach .glyph .icon { width: 19px; height: 19px; }
+.coach .glyph .pi { width: 30px; height: 30px; vertical-align: 0; }
+.coach .glyph.is-danger { color: var(--accent); border-color: #d9a79c; background: #fbefe9; }
+.coach .glyph.is-gold { color: var(--gold-ink); border-color: #e3cc8f; background: #fff6dc; }
+.coach .main { margin: 4px 0 0; font-weight: 700; font-size: var(--fs-lg); line-height: 1.25; }
+.coach .sub { margin: 2px 0 0; color: var(--ink-soft); line-height: 1.35; }
+.coach .sub .pi { width: 1.25em; height: 1.25em; vertical-align: -0.28em; }
+.coach .ways { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: var(--space-3); }
+.coach .ways .chip { justify-content: center; padding: 6px 8px; gap: 5px; }
+.coach .ways .chip .pi { width: 22px; height: 22px; vertical-align: 0; }
+.coach .ways .chip[aria-pressed='true'] .pi { --pi-disc: #fffcf4; }
+.coach .key { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--stone-300); }
+.coach .key .pi { width: 26px; height: 26px; }
+.coach .key p { margin: 0; line-height: 1.3; }
+.coach .key small { display: block; color: var(--gold-ink); font-weight: 700; font-size: var(--fs-xs); letter-spacing: .04em; text-transform: uppercase; }
+
+/* The piece card: the figure, its name, the rule. It lives in the coach area, never over the board. */
+.coach.is-card { grid-template-columns: 52px minmax(0, 1fr); }
+.coach .figure { grid-column: 1; grid-row: 1 / span 3; width: 52px; height: 68px; object-fit: contain; object-position: 50% 100%; filter: drop-shadow(0 2px 2px rgba(40, 28, 10, .3)); }
+.coach .name { margin: 2px 0 0; font-family: var(--font-display); font-weight: 700; font-size: var(--fs-lg); letter-spacing: .06em; }
+.coach .name small { font-family: var(--font-body); font-weight: 600; letter-spacing: 0; font-size: var(--fs-sm); color: var(--ink-soft); }
+.coach .rule { margin: 2px 0 0; display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.coach .rule .icon { width: 18px; height: 18px; color: var(--ink); }
+.coach .rule + .sub { margin-top: 0; }
+.coach .legend { margin: 4px 0 0; display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--ink-soft); }
+.coach .legend i { width: 12px; height: 12px; border-radius: 50%; border: 1.6px dashed var(--ink); background: rgba(251, 247, 238, .8); }
+
+/* ---- the folded Moves line ---- */
+.moves-line {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--tap); padding: 0 var(--space-1);
+  font-size: var(--fs-md); color: var(--ink-soft); text-align: left;
+  background: transparent; border: 0; border-top: 1px solid var(--stone-300); cursor: pointer;
+}
+.moves-line .moves-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.moves-line .moves-open { display: inline-flex; align-items: center; gap: 2px; font-weight: 700; color: var(--ink); font-size: var(--fs-sm); }
+.moves-line .moves-open .icon { width: 18px; height: 18px; }
+.moves-line .pi { width: 22px; height: 22px; vertical-align: 0; }
+@media (hover: hover) { .moves-line:hover { color: var(--ink); } }
+
+/* ---- the bar: Hint, Undo, Menu; after the game, the result's actions in the same place ---- */
+.bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); padding-top: var(--space-2); }
+.bar .btn { flex-direction: column; gap: 2px; min-height: 56px; padding: 6px 4px; font-size: var(--fs-sm); }
+.bar.is-end { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) var(--tap); }
+.bar.is-end .btn { flex-direction: row; font-size: var(--fs-md); }
+.bar.is-end .btn-icon { width: var(--tap); }
+.btn .hint-step { font-size: var(--fs-xs); color: var(--ink-soft); }
+
+/* ---- the menu sheet ---- */
+.help-pick { margin: 0 0 var(--space-4); padding: 0; border: 0; }
+.help-pick legend { padding: 0; margin-bottom: var(--space-1); font-weight: 700; color: var(--ink-soft); font-size: var(--fs-sm); letter-spacing: .04em; text-transform: uppercase; }
+.help-row input { width: 22px; height: 22px; margin: 0 4px; accent-color: var(--accent); flex: none; }
+.help-row small { margin-top: 2px; }
+.menu-rows { display: grid; gap: var(--space-2); }
+
+/* ---- the moves sheet ---- */
+.story { list-style: none; margin: 0; padding: 0; }
+.story li { display: flex; gap: var(--space-2); align-items: flex-start; padding: 6px 0; }
+.story li + li { border-top: 1px solid var(--stone-100); }
+.story .num { min-width: 2.6em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.story p { margin: 0; line-height: 1.3; }
+.story small { display: block; color: var(--gold-ink); font-weight: 600; }
+
+/* ---- marks the coach adds on the board (one layer over the figures; no input) ---- */
+.cx { position: absolute; inset: 0; z-index: 100; pointer-events: none; }
+.cx > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+/* The Guard's shield: a badge on the figure (first sight, read), with one glint when the rule refuses a move. */
+.cx-shield {
+  position: absolute; width: 6.2%; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
+  color: var(--ink); background: var(--vellum); border: 1.5px solid var(--ink); box-shadow: 0 1px 4px rgba(40, 28, 10, .35);
+  transform: translate(-50%, -50%);
+}
+.cx-shield .icon { width: 64%; height: 64%; stroke-width: 2.2; }
+.cx-shield .icon path { fill: rgba(201, 154, 62, .35); }
+
+/* Peek: see-through ghosts where the pieces would stand; what the move takes or shoves fades; the other move marks dim. */
+.kdb-fig.cx-ghost { opacity: .6; }
+.kdb-fig.cx-gone { opacity: .15; }
+.board.is-peek .kdb-m:is(.kdb-m-move, .kdb-m-capture, .kdb-m-shot, .kdb-m-swap, .kdb-m-shove, .kdb-m-power) { opacity: .35; }
+
+/* The kit's fallen king falls to the right. On the g and h files it falls inward, so it stays on the board. */
+.kdb-fig.is-fallen.fall-in img { rotate: -78deg; translate: -18% 6%; }

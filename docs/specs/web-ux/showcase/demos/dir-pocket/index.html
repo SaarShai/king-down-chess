@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pocket</title>
+<script src="../../kit/frame.js"></script>
+<link rel="stylesheet" href="../../kit/tokens.css">
+<link rel="stylesheet" href="../../kit/ui.css">
+<link rel="stylesheet" href="pocket.css">
+</head>
+<body>
+<div class="app" id="app" data-layout="portrait">
+  <header class="opp" id="opp">
+    <span class="avatar" id="avatar" aria-hidden="true"><img src="../../assets/kings/flame-b.webp" alt=""></span>
+    <div class="opp-text">
+      <p class="opp-name">Computer <span class="pill">Casual</span></p>
+      <p class="opp-power" id="opp-power-row"><img class="emb" id="opp-emb" src="../../assets/emblems/flame.webp" alt=""><span id="opp-power">Strike ready</span></p>
+    </div>
+  </header>
+
+  <div class="head" id="head" aria-live="polite">
+    <h1 class="head-title" id="head-title">Your move</h1>
+    <p class="head-sub" id="head-sub">Drag or tap a piece.</p>
+  </div>
+
+  <section class="ribbon" id="ribbon" aria-label="Last move">
+    <button type="button" class="btn btn-icon rib-step" id="rib-back" aria-label="Step back one move"></button>
+    <div class="rib-track" id="rib-track" role="button" tabindex="0" aria-label="Last move. Open the game story. Left and right arrows step through the game.">
+      <span class="rib-line" id="rib-line"></span>
+    </div>
+    <button type="button" class="btn btn-icon rib-step" id="rib-fwd" aria-label="Step forward one move"></button>
+  </section>
+
+  <div class="board" id="board"></div>
+
+  <section class="pane" id="pane" aria-labelledby="pane-title" hidden>
+    <div class="pane-grab" id="pane-grab">
+      <div class="grip" aria-hidden="true"></div>
+      <div class="pane-head">
+        <div class="pane-peek" id="pane-peek"></div>
+        <button type="button" class="btn btn-icon" id="pane-size" aria-label="Taller"></button>
+        <button type="button" class="btn btn-icon" id="pane-close" aria-label="Close"></button>
+      </div>
+    </div>
+    <div class="pane-body" id="pane-body"></div>
+  </section>
+
+  <nav class="bar" id="bar" aria-label="Game actions" data-mode="play">
+    <button type="button" class="tb" id="b-menu"></button>
+    <button type="button" class="tb" id="b-undo"></button>
+    <button type="button" class="tb" id="b-hint"></button>
+    <button type="button" class="tb tb-power" id="b-power" aria-pressed="false">
+      <span class="slot" aria-hidden="true"><span class="coin"><img src="../../assets/emblems/frost.webp" alt=""><span class="notches" id="b-power-notches"></span></span></span>
+      <span id="b-power-label">Freeze</span>
+    </button>
+    <button type="button" class="tb tb-wide" id="b-stop" hidden></button>
+    <button type="button" class="tb tb-wide" id="b-now" hidden></button>
+    <button type="button" class="tb" id="b-review" hidden></button>
+    <button type="button" class="tb" id="b-new" hidden></button>
+    <button type="button" class="tb tb-primary" id="b-rematch" hidden></button>
+  </nav>
+</div>
+
+<div class="loupe" id="loupe" hidden aria-hidden="true"><div class="loupe-in" id="loupe-in"></div><span class="loupe-tag" id="loupe-tag"></span></div>
+<div class="touch" id="touch" hidden aria-hidden="true"></div>
+<p class="preview-cap" id="preview-cap" hidden>The phone on its side: the board at full height, the actions under the right thumb.</p>
+
+<dialog class="sheet" id="menu" aria-labelledby="menu-title">
+  <div class="sheet-grip"></div>
+  <div class="sheet-head"><h2 id="menu-title">Menu</h2><button type="button" class="btn btn-icon" data-close aria-label="Close" id="menu-close"></button></div>
+  <div class="sheet-body menu-body">
+    <button type="button" class="row mrow" data-act="new"><span class="mrow-l" data-icon="plus">New game</span></button>
+    <button type="button" class="row mrow" data-act="story"><span class="mrow-l" data-icon="moves">The game story</span></button>
+    <button type="button" class="row mrow" data-act="guide"><span class="mrow-l" data-icon="book">Guide</span></button>
+    <label class="row"><span>Sound</span><input type="checkbox" class="toggle" id="t-sound"></label>
+    <label class="row"><span>Haptics<small>A short tap when a move lands</small></span><input type="checkbox" class="toggle" id="t-haptic" checked></label>
+    <button type="button" class="row mrow" data-act="extra"><span class="mrow-l" data-icon="sparkle">Extra</span></button>
+    <button type="button" class="row mrow" data-act="resign"><span class="mrow-l" data-icon="flag">Lay your king down</span></button>
+  </div>
+</dialog>
+
+<script type="module" src="pocket.js"></script>
+</body>
+</html>

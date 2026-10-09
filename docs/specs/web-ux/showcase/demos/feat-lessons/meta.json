@@ -1,0 +1,67 @@
+{
+  "id": "feat-lessons",
+  "title": "Lessons",
+  "group": "feature",
+  "feature": "Lessons",
+  "summary": "A player picks a new piece from a shelf of the real figures and learns it in four small boards. The Guard lesson shows the arc: move, block, the king's exception, choose, then a calm \"Guard learned\" with Play a game and Next.",
+  "problem": "Today each lesson is one board and one long sentence. It shows the main move once, but not the exception that surprises players, and it does not ask the player to use the rule.",
+  "idea": "Teach one piece in four small boards: introduce the move, develop it, twist it, then let the player choose. The Guard's twist: your pawn cannot take their Guard, but your king can.",
+  "borrows": [
+    {
+      "from": "Super Mario 3D World",
+      "what": "Each level has four beats: introduce, develop, twist, conclude. Each board adds one idea, and the player learns by doing."
+    },
+    {
+      "from": "Into the Breach",
+      "what": "A refused move shows its cause on the board: the shield on the Guard and one line of rule."
+    },
+    {
+      "from": "Duolingo's targeted practice, without streaks or hearts",
+      "what": "Short lessons that the player picks from a shelf, in any order."
+    },
+    {
+      "from": "Marvel Snap's order of unlocks",
+      "what": "A suggested order (Archer, Beast, Maester, Ogre, Guard) that starts with the easy verbs."
+    }
+  ],
+  "options": [
+    {
+      "key": "A",
+      "name": "Piece shelf",
+      "state": "shelf",
+      "summary": "The six real figures on a stone shelf, in the suggested order, with the Paladin as a bonus. Here four are learned and the Guard is Next. Any figure opens its lesson."
+    },
+    {
+      "key": "B",
+      "name": "Short path",
+      "state": "path",
+      "summary": "One next lesson, large, with its rule and Start. The other pieces stay on a quiet path below it."
+    }
+  ],
+  "recommendation": "Pick A, the shelf. Random armies give the player a specific question ('what does this Ogre do?'), and the shelf answers it in one tap; the Next mark still suggests an order.",
+  "joy": 4,
+  "ease": 5,
+  "effort": "M",
+  "states": [
+    "shelf",
+    "introduce",
+    "develop",
+    "twist",
+    "conclude",
+    "learned",
+    "path"
+  ],
+  "notes": [
+    "Look at board 3: the pawn tries to take the Guard, the shield answers with the rule, and the king takes it.",
+    "Try the knight on board 4: the queen takes it, then the board resets.",
+    "Every board is the real engine. A wrong move goes back.",
+    "The shelf starts with four pieces learned, so the Guard is Next. Any figure opens its lesson, in any order.",
+    "Board 2 uses the queen, not the rook: the rook art can look like the Ogre.",
+    "Play is in the top bar. A lesson has its own board, so it never changes the saved game.",
+    "Home, Play and Play a game show only a message.",
+    "Only the Guard has four boards. The other five pieces open the app's one-board lessons with short new lines.",
+    "The Ogre's choice sheet says Capture. The lesson lines say take.",
+    "Hold a piece (or press I) to read it. Reading never plays a move.",
+    "Owner check: should 'Play a game' after a lesson deal an army with that piece in it?"
+  ]
+}

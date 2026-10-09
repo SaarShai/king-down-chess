@@ -1,0 +1,235 @@
+/* Read any piece: the game screen with a fixed context area, the hold card and the "?" lens. */
+html, body { height: 100%; }
+body { overflow: hidden; background: var(--parchment); }
+
+/* The screen is a size container: the layout follows the space that the game gets, not the device name. */
+.screen { height: 100dvh; container: screen / size; }
+.app {
+  --bar-h: 52px;
+  height: 100%; max-width: 560px; margin: 0 auto;
+  display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); row-gap: 6px;
+  padding: max(6px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
+}
+
+/* ---- the two player strips ---- */
+.strip { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.crest { flex: none; width: 34px; height: 34px; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: var(--night); box-shadow: 0 0 0 1px var(--stone-500), 0 0 0 3px var(--vellum); }
+.crest img { width: 30px; height: 30px; object-fit: contain; }
+.who { margin: 0; flex: 1; min-width: 0; line-height: 1.15; }
+.who b { display: block; font-size: var(--fs-md); }
+.who small { color: var(--ink-soft); font-size: var(--fs-xs); font-weight: 600; letter-spacing: .02em; }
+.power { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; font-size: var(--fs-xs); font-weight: 700;
+  color: var(--gold-ink); background: #fff6dc; border: 1px solid #e3cc8f; border-radius: var(--radius-pill); white-space: nowrap; }
+.power .icon { width: 15px; height: 15px; }
+.power.is-used { color: var(--ink-soft); background: var(--stone-100); border-color: var(--stone-300); }
+
+.board { position: relative; }
+
+/* ---- the dock: the fixed context area and the action bar ---- */
+.dock { position: relative; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; row-gap: 8px; padding-top: 4px; }
+.ctx { min-height: 0; overflow: hidden; }
+.bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.bar .btn { flex-direction: column; gap: 1px; padding: 5px 4px; font-size: var(--fs-sm); min-height: var(--bar-h); }
+.lens-btn { display: none !important; }
+.app[data-option='c'] .bar { grid-template-columns: repeat(4, 1fr); }
+.app[data-option='c'] .lens-btn { display: inline-flex !important; }
+.lens-btn[aria-pressed='true'] { color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent)); border-color: var(--accent-deep); }
+
+/* At rest: the turn, the last move and, until the first read, one quiet line about reading. */
+.rest { padding: 6px 2px 0; }
+.rest .turn { margin: 0 0 4px; font-weight: 700; font-size: var(--fs-lg); }
+.rest .turn.is-check { color: var(--danger); }
+.rest .turn.is-check::before { content: '!'; display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 6px; border-radius: 50%;
+  font-size: 13px; color: var(--vellum); background: var(--danger); vertical-align: 2px; }
+.rest .last { margin: 0; display: flex; gap: 8px; align-items: center; color: var(--ink-soft); }
+.rest .tip { margin: 14px 0 0; display: flex; gap: 8px; align-items: center; font-size: var(--fs-sm); color: var(--ink-soft); }
+.rest .tip .icon { width: 18px; height: 18px; color: var(--gold-ink); }
+
+/* ---- the reading card (A: in the context area; B: the hold card) ---- */
+.read {
+  position: relative; display: grid; grid-template-columns: 74px minmax(0, 1fr); column-gap: 12px; row-gap: 10px; align-items: start;
+  padding: 12px 12px 10px; background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.niche { width: 74px; height: 92px; border-radius: 37px 37px 10px 10px; overflow: hidden; position: relative;
+  background: radial-gradient(70% 55% at 50% 80%, #fffaf0, rgba(255, 250, 240, 0) 70%), linear-gradient(#efe3c8, #e2d1ae);
+  box-shadow: inset 0 0 0 1px rgba(77, 69, 60, .35), inset 0 -6px 12px rgba(77, 69, 60, .12); }
+.niche img { position: absolute; left: 50%; bottom: 2px; height: 94%; width: auto; max-width: none; transform: translateX(-50%); }
+.niche img.mirror { transform: translateX(-50%) scaleX(-1); }
+.niche.is-frozen img { filter: saturate(.45) brightness(1.08) drop-shadow(0 0 4px rgba(120, 180, 255, .9)); }
+.head { min-width: 0; }
+.read .side { padding-right: 40px; }
+.side { margin: 0; display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+.disc { flex: none; width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--ink); }
+.disc.w { background: #fffcf4; }
+.disc.b { background: #3b3a40; }
+.read h3 { margin: 1px 0 4px; font-family: var(--font-display); font-size: var(--fs-xl); letter-spacing: .05em; line-height: 1.1; }
+.line { margin: 0; font-size: var(--fs-body); line-height: 1.3; text-wrap: pretty; }
+.state { margin: 6px 0 0; display: flex; gap: 6px; align-items: flex-start; font-size: var(--fs-sm); font-weight: 700; line-height: 1.3; color: var(--ink-soft); text-wrap: pretty; }
+.state + .state { margin-top: 3px; }
+.state .icon { flex: none; width: 17px; height: 17px; margin-top: 1px; }
+.state.danger { color: var(--danger); }
+.state.frost { color: #1f4f8f; }
+.state.gold { color: var(--gold-ink); }
+.x { position: absolute; top: 4px; right: 4px; }
+.foot { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding-top: 10px; border-top: 1px solid var(--stone-300); }
+.foot .cap { flex: 1; margin: 0; font-size: var(--fs-xs); line-height: 1.35; color: var(--ink-soft); }
+.foot .cap b { display: block; font-size: var(--fs-sm); color: var(--ink); }
+.rules-btn { padding: 8px 12px; font-size: var(--fs-sm); }
+.keys { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 3px; }
+kbd { font: 700 11px/1 var(--font-body); padding: 3px 6px; border: 1px solid var(--stone-500); border-bottom-width: 2px; border-radius: 4px; background: #fff; color: var(--ink); }
+
+/* The rule example: a 5 x 5 diagram, worked out by the engine. */
+.glyph { flex: none; display: grid; grid-template-columns: repeat(5, var(--gc, 14px)); grid-auto-rows: var(--gc, 14px);
+  border: 1px solid var(--stone-500); border-radius: 3px; overflow: hidden; }
+.glyph i { position: relative; background: #efe5cf; }
+.glyph i.d { background: #ddcfb0; }
+.glyph svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.glyph .pi { position: absolute; left: 6%; top: 6%; width: 88%; height: 88%; vertical-align: 0; }
+
+/* Option B: the hold card rises over the context area, never over the board or the action bar. */
+.peek { position: absolute; z-index: 20; top: 4px; left: 0; right: 0; bottom: calc(var(--bar-h) + 8px);
+  display: flex; flex-direction: column; pointer-events: none; }
+.peek .read { max-height: 100%; overflow: hidden; grid-template-columns: 96px minmax(0, 1fr); box-shadow: var(--shadow-float); border-color: var(--stone-500);
+  background: linear-gradient(var(--vellum), #f6eedc); }
+.is-big .niche { width: 96px; height: 122px; border-radius: 48px 48px 12px 12px; }
+.is-big h3 { font-size: var(--fs-2xl); }
+.is-big .line { font-size: var(--fs-lg); }
+.is-big .state { font-size: var(--fs-md); }
+.read.is-big .side { padding-right: 0; }
+.let-go { grid-column: 1 / -1; margin: 0; display: flex; gap: 8px; align-items: center; font-size: var(--fs-sm); font-weight: 700; line-height: 1.2; color: var(--ink); }
+.let-go::before { content: ''; flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--gold-ink); box-shadow: inset 0 0 0 3px #fff6dc, inset 0 0 0 9px var(--gold-ink); }
+
+/* ---- marks on the board (their own shapes, so a reading never looks like your move marks) ---- */
+.htr-layer { position: absolute; inset: 0; pointer-events: none; }
+.htr-layer svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.htr-under { z-index: 5; }
+.htr-over { z-index: 280; }   /* over the lifted figure (260), so a hold never hides a mark behind it */
+.htr-tags { z-index: 290; }
+.htr-pop { transform-box: fill-box; transform-origin: center; animation: htr-pop var(--dur-2) var(--ease-spring) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.htr-fade { animation: htr-fade var(--dur-3) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 60ms); }
+@keyframes htr-pop { from { transform: scale(.4); opacity: 0; } }
+@keyframes htr-fade { from { opacity: 0; } }
+
+/* The held figure lifts; its ground shadow stays and softens. */
+.kdb-fig.htr-lift { z-index: 260 !important; }
+.kdb-fig.htr-lift img { translate: 0 -16%; filter: drop-shadow(0 12px 6px rgba(28, 18, 6, .4)) drop-shadow(0 0 8px rgba(255, 214, 128, .95));
+  transition: translate var(--dur-2) var(--ease-spring), filter var(--dur-2); }
+.kdb-fig.htr-lift::before { transform: scale(.7); opacity: .55; transition: transform var(--dur-2), opacity var(--dur-2); }
+/* A frozen figure: cold colour and a snowflake badge (shape, not only colour). */
+.kdb-fig.htr-frozen img { filter: saturate(.4) brightness(1.1) drop-shadow(0 0 5px rgba(120, 180, 255, .95)); }
+.is-peeking .kdb-m-move, .is-peeking .kdb-m-capture, .is-peeking .kdb-m-shot, .is-peeking .kdb-m-swap,
+.is-peeking .kdb-m-shove, .is-peeking .kdb-m-selected { opacity: .28; transition: opacity var(--dur-1); }
+
+/* Option C: name tags on the King Down pieces while the lens is on, inside the foot of each square. */
+.tag { position: absolute; transform: translate(-50%, -100%); padding: 0 5px; font: 700 10.5px/15px var(--font-body); letter-spacing: .01em;
+  color: var(--ink); background: rgba(251, 247, 238, .94); border: 1px solid var(--stone-500); border-radius: var(--radius-pill); white-space: nowrap; }
+.tag.b { color: var(--vellum); background: rgba(43, 38, 33, .92); border-color: #000; }
+.app.is-lens .board .kdb-frame { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 5px var(--accent), 0 6px 18px rgba(46, 32, 14, .38); }
+.lens-note { padding: 6px 2px 0; }
+.lens-note p { margin: 0; }
+.lens-note .turn { font-weight: 700; font-size: var(--fs-lg); display: flex; gap: 8px; align-items: center; }
+.lens-note .turn .icon { color: var(--accent); }
+.lens-note .muted { margin-top: 4px; }
+
+/* The demo's finger: where the script taps or holds (the video and the hold stills). */
+.finger { position: absolute; z-index: 600; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%; pointer-events: none;
+  background: rgba(43, 38, 33, .22); border: 2px solid rgba(251, 247, 238, .95); box-shadow: 0 2px 8px rgba(20, 14, 8, .35); }
+.finger.is-hold::after { content: ''; position: absolute; inset: -9px; border-radius: 50%; border: 3px solid var(--gold-bright);
+  animation: htr-ring 300ms linear both; }
+@keyframes htr-ring { from { transform: scale(.6); opacity: 0; } }
+
+/* Guide page (the card grown: "Rules") */
+.guide-top { display: grid; grid-template-columns: 110px 1fr; gap: 16px; align-items: end; margin-bottom: 14px; }
+.guide-top .niche { width: 110px; height: 140px; border-radius: 55px 55px 12px 12px; }
+.guide-top h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-2xl); letter-spacing: .05em; }
+.guide-top .line { margin-top: 6px; }
+.rules { margin: 0 0 16px; padding-left: 20px; }
+.rules li { margin-bottom: 6px; }
+.howto { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; padding: 14px; background: var(--vellum); border: 1px solid var(--stone-300); border-radius: var(--radius-lg); margin-bottom: 16px; }
+.howto h4 { margin: 0 0 6px; font-family: var(--font-display); font-size: var(--fs-md); letter-spacing: .05em; }
+.legend { list-style: none; margin: 0; padding: 0; font-size: var(--fs-sm); }
+.legend li { display: flex; gap: 8px; align-items: center; min-height: 26px; }
+.legend svg { width: 20px; height: 20px; flex: none; }
+#guide-title:focus { outline: none; }
+
+/* ---- a short phone (browser bars take the height): a compact card, the rule example behind Rules ---- */
+@container screen (max-height: 780px) and (max-width: 899px) {
+  .app { --bar-h: 46px; row-gap: 4px; }
+  .strip { min-height: 40px; }
+  .dock { padding-top: 2px; }
+  .peek { top: 2px; }
+  .rest .tip { margin-top: 8px; }
+  .read { grid-template-columns: 56px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 6px; padding: 8px 6px 8px 8px; }
+  .peek .read { grid-template-columns: 56px minmax(0, 1fr); padding: 8px 10px 10px; }
+  .niche, .is-big .niche { width: 56px; height: 72px; border-radius: 28px 28px 8px 8px; }
+  .head { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+  .read .side, .read.is-big .side { padding-right: 0; }
+  .read h3, .is-big h3 { order: -1; margin: 0 0 2px; font-size: var(--fs-lg); }
+  .head .line, .head .state { flex-basis: 100%; }
+  .line, .is-big .line { font-size: var(--fs-sm); line-height: 1.25; }
+  .state, .is-big .state { margin-top: 3px; font-size: var(--fs-sm); }
+  .read:not(.is-big) .niche { grid-column: 1; grid-row: 1 / span 2; }
+  .read:not(.is-big) .head { grid-column: 2; grid-row: 1 / span 2; }
+  .x { position: static; grid-column: 3; grid-row: 1; }
+  .foot { display: contents; }
+  .foot .glyph, .foot .cap { display: none; }
+  .rules-btn { grid-column: 3; grid-row: 2; align-self: end; min-height: 44px; padding: 0 8px; }
+}
+
+/* The shortest phones: a card with two state lines (a frozen piece) folds its general line; Rules keeps it. */
+@container screen (max-height: 660px) and (max-width: 899px) {
+  .head:has(.state + .state) .line { display: none; }
+}
+
+/* ---- desktop: the board on the left, the dock on the right; the card sits on the action bar ---- */
+@container screen (min-width: 900px) {
+  .app {
+    max-width: none; justify-content: center; column-gap: 40px; row-gap: 8px;
+    grid-template-columns: minmax(0, calc((100cqh - 156px) / 1.024)) 420px;
+    grid-template-rows: auto minmax(0, 1fr) auto; padding: 22px 40px;
+  }
+  .strip.opp { grid-column: 1; grid-row: 1; }
+  .board { grid-column: 1; grid-row: 2; min-height: 0; }
+  .strip.you { grid-column: 1; grid-row: 3; }
+  .dock { grid-column: 2; grid-row: 1 / 4; padding: 52px 0 0; row-gap: 12px; }
+  .ctx { display: flex; flex-direction: column; justify-content: flex-end; }
+  .peek { top: 52px; bottom: calc(var(--bar-h) + 12px); justify-content: flex-end; }
+  .read { grid-template-columns: 104px minmax(0, 1fr); column-gap: 16px; padding: 18px 18px 14px; }
+  .niche { width: 104px; height: 132px; border-radius: 52px 52px 14px 14px; }
+  .read h3 { font-size: var(--fs-2xl); }
+  .line { font-size: var(--fs-lg); }
+  .state { font-size: var(--fs-md); }
+  .peek .read { grid-template-columns: 120px minmax(0, 1fr); column-gap: 20px; row-gap: 14px; padding: 20px 22px 16px; }
+  .is-big .niche { width: 120px; height: 154px; border-radius: 60px 60px 16px 16px; }
+  .is-big h3 { font-size: 36px; }
+  .is-big .line { font-size: var(--fs-lg); line-height: 1.3; }
+  .let-go { font-size: var(--fs-md); }
+  .glyph { --gc: 18px; }
+  .foot .cap { font-size: var(--fs-sm); }
+  .foot .cap b { font-size: var(--fs-md); }
+  .strip .who b { font-size: var(--fs-lg); }
+  .strip .who small { font-size: var(--fs-sm); }
+  .crest { width: 40px; height: 40px; }
+  .crest img { width: 36px; height: 36px; }
+  .power { font-size: var(--fs-sm); padding: 4px 12px 4px 10px; }
+  .rest { padding: 18px 4px 4px; }
+  .rest .turn { font-size: var(--fs-xl); }
+  .tag { font-size: 12px; line-height: 18px; padding: 0 7px; }
+}
+
+/* ---- the short-phone preview (the states short-tap and short-hold) ---- */
+.screen.is-preview { height: 700px; border-bottom: 2px dashed var(--stone-500); }
+.preview-cap { margin: 12px 16px 0; text-align: center; font-size: var(--fs-sm); color: var(--ink-soft); }
+@media (min-width: 700px) {
+  body.is-preview { display: grid; align-content: center; justify-content: center; }
+  .screen.is-preview { width: 390px; border: 1px solid var(--stone-500); border-radius: 18px; overflow: hidden; box-shadow: var(--shadow-card); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .htr-pop, :root:not([data-motion='full']) .htr-fade, :root:not([data-motion='full']) .finger::after { animation: none; }
+  :root:not([data-motion='full']) .kdb-fig.htr-lift img, :root:not([data-motion='full']) .kdb-fig.htr-lift::before { transition: none; }
+}
+:root[data-motion='reduce'] .htr-pop, :root[data-motion='reduce'] .htr-fade, :root[data-motion='reduce'] .finger::after { animation: none; }
+:root[data-motion='reduce'] .kdb-fig.htr-lift img, :root[data-motion='reduce'] .kdb-fig.htr-lift::before { transition: none; }
