@@ -106,3 +106,5 @@ All nine required browser checks pass. Typecheck and the doc checks pass.
 Items 1 and 12: decided by delegation (2026-10-09). The short phone clamps the whole context to three lines. Its 57 px row fits the Archer rule and lesson words. All rules uses a labelled icon there. The clay coordinate size is out of scope: this repair uses the flat web ink; clay labels use a camera and world scale. A clay label repair needs its own sample. The painted desktop check ring keeps at least 3 scene units.
 
 Item 1 pixel check: decided by delegation (2026-10-09). The first final3 image finds a button rule that overrides the icon font size. The short-phone selector now wins. The browser checks its 44 px width and icon style.
+
+Item 14: decided by delegation (2026-10-09). PaintedView has no body-font read. Lining digits remove the need for that read. The plugin keeps its old default. The spec lists board-ink and powers-ui, with renderer and read as types only. Both plugin browser checks pass. The page changes from 4,296,117 to 4,296,042 bytes.

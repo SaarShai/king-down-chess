@@ -130,3 +130,57 @@ Decision: decided by delegation (2026-10-09). Items 1 to 15 in the repair brief 
 Pass criteria: items 1 to 15 have ticket notes; all tests/checks pass; each sample report has 0 faults; every required pixel check passes; push succeeds.
 
 Item 14: decided by delegation (2026-10-09). PaintedView no longer reads the body font. The bite digits use lining type, so that read is not needed. The plugin keeps its former font. The plugin module list includes board-ink and powers-ui; renderer and read supply types only. Plugin checks and the final page size follow in the final check record.
+
+## Repair check record
+
+Items 1 to 15: decided by delegation (2026-10-09). All report claims match
+the code and final2 pixels. No claim needs a correction. Each item has a
+note in its ticket. Ticket 14 corrects the old h-file note: 7bf311a already
+repairs the web fall. The parked paths have no change from 3d7d46f.
+
+The final typecheck and build pass. `npm test` reports 95 passed and
+1 skipped test files; 1702 passed and 13 skipped tests. The scene tests
+report 50 pass and 0 fail. The full browser suite reports
+`check: all 25 passed`. The separate plugin run reports plugin-ui 14.6 s,
+plugin-ui-http 15.2 s and `check: all 2 passed`. Its test database uses
+loopback only and stops by PID after the checks.
+
+The plugin page is 4,296,117 bytes before and 4,296,042 bytes after
+(-75 bytes). Both builds stay below the page limit. The plugin defaults
+stay the same.
+
+The final3 reports have these counts:
+
+| Unit | Renders | Faults |
+| --- | ---: | ---: |
+| W1 | 14 | 0 |
+| W2 | 68 | 0 |
+| W3 | 27 | 0 |
+| W4 | 48 | 0 |
+| W5 | 14 | 0 |
+| W6 | 16 | 0 |
+| W7 | 24 | 0 |
+| W8 | 10 | 0 |
+| W9 | 8 | 0 |
+| W10 | 8 | 0 |
+| W11 | 12 | 0 |
+| W12 | 24 | 0 |
+| Total | 273 | 0 |
+
+The two W6 videos produce 31 frames at 2 per second. Visual inspection
+covers all required 167 stills and all 31 frames. It also covers eight
+W7 stills for the example numbers and Catapult words, and a separate
+375 px four-bite image. Text and controls fit. The read and armed rings
+stay inside the strip. The final-blow caption stays below the board.
+The preview stops by PID after the captures.
+
+The test and check logs are `/private/tmp/b3-fix2-full-tests-final.log`,
+`/private/tmp/b3-fix2-full-browser-final4.log` and
+`/private/tmp/b3-fix2-plugin-final4.log`. The sample reports and frames
+are in the build scratchpad under `samples/final3/`. The separate repair
+report is in the same scratchpad as `b3-fix2.md`.
+
+The repair uses existing text helpers, stored lesson names and drawing
+options. It adds no new state format or plugin default. The board-ready
+helper waits for fitted canvas bounds before input; a delayed resize
+check covers the fault. The integration push runs the required test hook.
