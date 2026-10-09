@@ -45,6 +45,9 @@ try {
   assert.notEqual(await powerCoin(page, 'w').evaluate(b => getComputedStyle(b).outlineStyle), 'none');
   await openPowerRules(page);
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.power), 'Freeze');
+  assert.equal(await page.locator('#rules-title').innerText(), 'Guide');
+  assert.equal(await page.locator('#rules button[aria-label="Close Guide"]').count(), 1);
+  assert.equal(await page.evaluate(() => getComputedStyle(document.activeElement).outlineWidth), '2px', 'the Guide marks the named power');
   await page.keyboard.press('Escape');
   console.log('ok a tap reads and does not arm; rules focus the named power');
 
@@ -73,7 +76,7 @@ try {
   assert.equal(await powerCoin(page, 'b').getAttribute('aria-disabled'), null);
   assert.equal(await page.isHidden('#power-use'), true, 'the next coin waits for the turn press');
   await readPower(page, 'w');
-  assert.match(await contextText(page), /Tap End turn first\./);
+  assert.match(await contextText(page), /Undo your move to use it\./);
   await endTurn(page);
   await tap(page, 'd5');
   assert.deepEqual(await lanMoves(page), ['!F:d5', 'a2-a3'], 'the frozen knight cannot move');

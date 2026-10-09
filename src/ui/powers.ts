@@ -76,7 +76,7 @@ interface CoinReadState {
 export function coinReadNote(coin: PowerCoin, s: CoinReadState): string {
   const owner = s.mode === 'device' ? s.activeSide : s.viewer;
   if (s.reading !== owner) return s.mode === 'device' ? `${s.reading ? 'Black' : 'White'}'s power.` : 'Their power.';
-  if (s.waiting) return 'Tap End turn first.';
+  if (s.waiting) return 'Undo your move to use it.';
   if (coin.state === 'always' || coin.state === 'used' || moveNumber(s.pos) < coin.fromMove) return '';
   if (s.pos.turn !== s.reading) return 'Not your turn.';
   if (s.pos.free || s.pos.haste !== undefined) return 'Make your move.';

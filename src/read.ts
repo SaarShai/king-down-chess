@@ -47,17 +47,17 @@ const ARCHER_SHOT_TEXT: Record<ArcherShots, string> = {
 
 const ARCHER_READ: Record<ArcherShots, string> = {
   classic: 'Shoots near diagonals or 2 squares straight.',
-  plusDiag2: 'Shoots also on distant backward diagonals.',
-  ring2: 'Shoots anywhere on the second ring.',
-  forward3: 'Shoots only ahead, without moving.',
-  plusDiagFwd2: 'Shoots also on distant forward diagonals.',
-  plusDiagFwd2Clear: 'Far forward diagonal shots need an empty middle.',
-  fwd2NoBack: 'Shoots forward diagonals, never straight back.',
-  fwd2NoSide: 'Shoots forward diagonals, never sideways.',
+  plusDiag2: 'Shoots near diagonals, 2 straight or 2 diagonally.',
+  ring2: 'Shoots near diagonals or anywhere 2 squares away.',
+  forward3: 'Shoots diagonally forward nearby, or 2 squares ahead.',
+  plusDiagFwd2: 'Shoots near diagonals, 2 straight or diagonally ahead.',
+  plusDiagFwd2Clear: 'Shoots near diagonals or 2 straight. Far forward diagonals need an empty middle.',
+  fwd2NoBack: 'Shoots near diagonals; 2 ahead, sideways, diagonally forward.',
+  fwd2NoSide: 'Shoots near diagonals; 2 ahead, behind, diagonally forward.',
   far2: 'Shoots 2 squares straight or diagonally forward.',
-  over2: 'Shoots distant enemies only over a piece.',
-  nearOver2: 'Shoots near diagonals; distant shots need a piece.',
-  fwdNearOver2: 'Shoots forward diagonals; far shots need a piece.',
+  over2: 'Shoots 2 straight or diagonally forward, over pieces.',
+  nearOver2: 'Shoots near diagonals; 2 straight or diagonally forward over pieces.',
+  fwdNearOver2: 'Shoots nearby diagonally forward; 2 straight or diagonally forward over pieces.',
 };
 
 /** One guide for both the dialog table and the hover card — reads live rules and POOL. */
@@ -189,7 +189,7 @@ export function readText(pos: Position, sq: number): string {
     [A]: ARCHER_READ[r.archerShots],
     [L]: r.paladinJumpsFriends ? 'Jumps over its own pieces.' : 'Moves like a queen.',
     [G]: r.guardImmune ? 'Only a king can take it.' : pieceGuide(G).captures,
-    [M]: 'Swaps places with your own piece.',
+    [M]: 'Swaps places with a friendly piece.',
     [S]: r.beastChains ? 'Can bite again after a bite.' : 'One bite per turn.',
     [O]: 'Can shove a neighbour.',
     [C]: 'Takes beyond an enemy piece.',

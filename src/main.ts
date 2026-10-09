@@ -248,7 +248,7 @@ function fillPieceGuide(): void {
   // else the official readings, which an older `?rules=` preset overrides (as the New game picker shows them).
   const pr: Rules = GAME_RULES.kings[0] || GAME_RULES.kings[1] ? GAME_RULES : powersRules(preset);
   $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
-    `<li><b>${king} king</b>: ${powers.map(p => `<span data-power="${p}"><b>${POWER_NAME[p]}</b> (${usesText(p, pr)}) — ${powerText(p, pr)}</span>`).join('; ')}.</li>`).join('');
+    `<li><b>${king} king</b>: ${powers.map(p => `<span data-power="${p}"><b>${POWER_NAME[p]}</b> (${usesText(p, pr)}) — ${powerText(p, pr, true)}</span>`).join('; ')}.</li>`).join('');
   // Each piece once, as its icon and how many the pool holds ("×2"); its name for a pointer and a screen reader.
   const pool = [...new Set(POOL)].map(ch => {
     const t = LETTERS.indexOf(ch) as PieceType, n = POOL.split(ch).length - 1, icon = pieceIcon(t);
@@ -857,7 +857,7 @@ function result(): string {
   if (resigned != null) return `${resigned ? 'Black' : 'White'} resigns — ${resigned ? 'White' : 'Black'} wins.`;
   return {
     playing: '',
-    checkmate: `${game.pos.turn ? 'White' : 'Black'} wins ${findKing(game.pos.board, game.pos.turn) < 0 ? 'by king capture' : 'by checkmate'}.`,
+    checkmate: `${game.pos.turn ? 'White' : 'Black'} wins ${findKing(game.pos.board, game.pos.turn) < 0 ? 'by taking the king' : 'by checkmate'}.`,
     stalemate: 'Draw by stalemate.',
     draw50: 'Draw by the 50-move rule.',
     drawRepetition: 'Draw by repetition.',
@@ -875,9 +875,9 @@ function showOver(): void {
   const last = game.history.at(-1);
   // Ending reason wins over a prior moment caption (`said`); last-move text stays above.
   const why =
-    (game.status === 'checkmate' ? (findKing(game.pos.board, game.pos.turn) < 0 ? 'The king was captured.' : 'The king is in check and no legal move escapes it.') : '')
+    (game.status === 'checkmate' ? (findKing(game.pos.board, game.pos.turn) < 0 ? 'The king was taken.' : 'The king is in check and no legal move escapes it.') : '')
     || (game.status === 'stalemate' ? 'No legal move, and the king is not in check.' : '')
-    || (game.status === 'draw50' ? 'Fifty moves with no capture and no pawn move.' : '')
+    || (game.status === 'draw50' ? 'Fifty moves with no take and no pawn move.' : '')
     || (game.status === 'drawRepetition' ? 'The same position came up three times.' : '')
     || (game.status === 'drawMaterial' ? 'Neither side has enough material to mate.' : '')
     || (resigned != null ? 'That side gave up.' : '')

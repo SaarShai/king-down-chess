@@ -200,3 +200,12 @@ describe('the moves Hint may suggest', () => {
     expect(hintMoves(legalMoves(pos), 'sacrifice', undefined, true).map(m => toLan(pos, m)).sort()).toEqual(['!S:a2=N', '!S:a2=Q']);
   });
 });
+
+it('uses take words only when the web Guide asks', () => {
+  const r = powersRules();
+  for (const power of ['Freeze', 'IceWall', 'Haste', 'Sacrifice'] as const) {
+    expect(powerText(power, r, true)).not.toMatch(/captur/);
+  }
+  expect(powerText('IceWall', r)).toContain('captured');
+  expect(powerText('Haste', r)).toContain('captures');
+});

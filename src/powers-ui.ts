@@ -14,7 +14,8 @@ export const POWER_NAME: Record<PowerName, string> = {
  * One line per power, as a player reads it, under the rules in force (the balance-lab readings of
  * docs/research/kings-powers-balance-2026-10-02.md change several). Use counts come from the rules.
  */
-export function powerText(power: PowerName, r: Rules = RULES): string {
+export function powerText(power: PowerName, r: Rules = RULES, webWords = false): string {
+  if (webWords) return powerText(power, r).replace(/captured/g, 'taken').replace(/captures/g, 'takes').replace(/capture/g, 'take');
   const turns = r.markTurns > 1 ? `its next ${r.markTurns} turns` : 'its next turn';
   switch (power) {
     case 'Freeze': return r.markFree

@@ -2,6 +2,7 @@
 import { isDeepStrictEqual } from 'node:util';
 
 /** The menu items and the button of each one today. */
+/** Guide is the sheet name; All rules is the read action. */
 const MENU = { 'New game': '#new-game-btn', Guide: '#rules-btn', Workshop: '#workshop-btn', Settings: '[data-go="help"]' };
 
 export function menuItem(page, name) {

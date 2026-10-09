@@ -19,6 +19,6 @@ it('names the coin colour on one device', () => {
 it('says Not your turn only for your own coin during their move', () => {
   expect(coinReadNote(coin(0), { ...state, pos: { ...pos, turn: 1 }, reading: 0, activeSide: 1 })).toBe('Not your turn.');
 });
-it('asks for the turn press when your staged turn waits', () => {
-  expect(coinReadNote(coin(0), { ...state, pos: { ...pos, turn: 1 }, reading: 0, waiting: true })).toBe('Tap End turn first.');
+it('asks for Undo when your staged turn waits', () => {
+  expect(coinReadNote(coin(0), { ...state, pos: { ...pos, turn: 1 }, reading: 0, waiting: true })).toBe('Undo your move to use it.');
 });

@@ -87,3 +87,11 @@ The chosen piece card has a focus outline. Menu Guide starts at the shelf.
 Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
 Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
 All nine required browser checks pass. Typecheck and the doc checks pass.
+
+## Batch 3 repair 2 words
+
+Items 7 and 8: decided by delegation (2026-10-09).
+Maester reads a friendly piece for either side. Lab Archer words name their shot sets.
+The reach tests check near, far, forward and clear-middle shots against the engine.
+Guide stays the sheet name and close label; All rules stays the read action.
+Piece and power targets share the focus outline. Read tests and browser checks pass.

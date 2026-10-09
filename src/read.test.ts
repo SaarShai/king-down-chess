@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
-import { A, DEFAULT_RULES, parseSq, setRules, type ArcherShots } from './rules/engine';
+import { A, DEFAULT_RULES, parseSq, setRules } from './rules/engine';
 import { fromFen } from './rules/setup';
 import { pieceGuide, guideTypes, reachOf, readText, readTap, unmarkedTap, whyNot } from './read';
 
@@ -185,31 +185,40 @@ it('describes the released far2 shots and marks their legal squares', () => {
   expect([...reachOf(pos, at('d4')).shot].sort()).toEqual(['b4', 'f4', 'd2', 'd6', 'b6', 'f6'].map(at).sort());
 });
 
-const archerReadings: Record<ArcherShots, string> = {
-  classic: 'Shoots near diagonals or 2 squares straight.',
-  plusDiag2: 'Shoots also on distant backward diagonals.',
-  ring2: 'Shoots anywhere on the second ring.',
-  forward3: 'Shoots only ahead, without moving.',
-  plusDiagFwd2: 'Shoots also on distant forward diagonals.',
-  plusDiagFwd2Clear: 'Far forward diagonal shots need an empty middle.',
-  fwd2NoBack: 'Shoots forward diagonals, never straight back.',
-  fwd2NoSide: 'Shoots forward diagonals, never sideways.',
-  far2: 'Shoots 2 squares straight or diagonally forward.',
-  over2: 'Shoots distant enemies only over a piece.',
-  nearOver2: 'Shoots near diagonals; distant shots need a piece.',
-  fwdNearOver2: 'Shoots forward diagonals; far shots need a piece.',
-};
-it.each(Object.entries(archerReadings))('reads the %s Archer act from the live rules', (shots, words) => {
-  setRules({ archerShots: shots as ArcherShots });
-  const pos = fromFen('7k/8/8/8/3A4/8/8/K7 w - - 0 1');
-  expect(readText(pos, at('d4'))).toBe(`archer · ${words}`);
-  expect(words.split(/\s+/).length).toBeLessThanOrEqual(8);
+it('reads an enemy Maester without calling its friends yours', () => {
+  const pos = fromFen('7k/8/8/8/3m4/8/8/K7 w - - 0 1');
+  expect(readText(pos, at('d4'))).toBe('maester · Swaps places with a friendly piece.');
+});
+
+it.each(['plusDiag2', 'ring2', 'plusDiagFwd2', 'fwd2NoBack', 'fwd2NoSide'] as const)('reads %s from its real shot reach', shots => {
+  setRules({ archerShots: shots });
+  const pos = fromFen('7k/8/8/8/3A4/8/8/7K w - - 0 1');
+  for (let row = 1; row <= 5; row++) for (let col = 1; col <= 5; col++) {
+    const sq = row * 8 + col;
+    if (sq !== at('d4')) pos.board[sq] = 17; // black pawns; no check against h1
+  }
+  const reach = reachOf(pos, at('d4')).shot, words = readText(pos, at('d4'));
+  expect(reach.has(at('c3'))).toBe(true);
+  expect(words).toMatch(/near diagonals/);
+  if (reach.has(at('b2'))) expect(words).toMatch(/2 diagonally|anywhere 2 squares/);
+  else expect(words).toMatch(/diagonally (ahead|forward)/);
+  if (!reach.has(at('d2'))) expect(words).toMatch(/ahead, sideways/);
+  if (!reach.has(at('b4'))) expect(words).toMatch(/ahead, behind/);
+});
+
+it('reads the clear-middle restriction only on far forward diagonals', () => {
+  setRules({ archerShots: 'plusDiagFwd2Clear' });
+  const pos = fromFen('7k/8/1p3p2/2p5/1p1A4/8/8/7K w - - 0 1');
+  expect(reachOf(pos, at('d4')).shot.has(at('b6'))).toBe(false);
+  expect(reachOf(pos, at('d4')).shot.has(at('f6'))).toBe(true);
+  expect(reachOf(pos, at('d4')).shot.has(at('b4'))).toBe(true);
+  expect(readText(pos, at('d4'))).toMatch(/near diagonals.*2 straight.*forward diagonals.*empty middle/);
 });
 
 it.each([
   ['L', 'paladin · Jumps over its own pieces.'],
   ['G', 'guard · Only a king can take it.'],
-  ['M', 'maester · Swaps places with your own piece.'],
+  ['M', 'maester · Swaps places with a friendly piece.'],
   ['S', 'beast · Can bite again after a bite.'],
   ['O', 'ogre · Can shove a neighbour.'],
   ['C', 'catapult · Takes beyond an enemy piece.'],

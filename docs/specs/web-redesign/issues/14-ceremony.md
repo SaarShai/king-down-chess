@@ -81,3 +81,8 @@ End turn stays off during the Ceremony. Rematch starts from the result.
 The result uses move words, a full stop and a move count. The replay has a skip caption.
 Tests: 1,667 pass, 13 skip; all 50 board tests pass. All ten browser checks pass.
 W6: 10 renders, zero faults. Skip the h-file fall repair: it needs shared board work.
+
+## Batch 3 repair 2 words
+
+Item 7: decided by delegation (2026-10-09).
+Result and draw words use take and taken. No capture word stays in the end text.
