@@ -50,3 +50,13 @@ Blocked by: none
 - The M1 launcher routes to this Mac. All 12 named browser checks pass. The new lessons check passes twice.
 - Sample W9: phone and desktop shelf; two renders, no capture fault. Both contact sheets pass the review.
 - The integration merge keeps the check cause text and learned line. The sample waits for the owner's yes.
+
+## Integration
+
+Plan: merge W9 without a fast-forward, check the tree, then push the integration branch.
+Checks: no lost changes, no conflicts, and a passing pre-push test and gate.
+The owner asks for this merge and push. The starting branch is clean.
+The start is `80860c174b4dbf930a63ca1976aaa1866378e528`, an ancestor of W9.
+Merge `7d9b4bc77ea40ac11855b6d34e9bae26147696fc` has no conflicts.
+Its tree is the same as W9. The builder's full run above stands under the owner's rule.
+The push hook must pass before the branch goes to origin.
