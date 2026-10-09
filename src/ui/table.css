@@ -1,7 +1,7 @@
 /* The table grid follows the chosen prototype. Its rows stay fixed during play. */
 #game-table {
   --strip-height: 56px;
-  --context-height: 64px;
+  --context-height: 77px; /* Three 20 px lines, padding and the top border. */
   height: 100vh; height: 100dvh;
   display: grid; grid-template-columns: minmax(0, 1fr);
   grid-template-rows: var(--strip-height) minmax(0, max-content) var(--strip-height) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
@@ -11,8 +11,7 @@
 #game-table .table-side { display: contents; }
 #game-table #board {
   grid-area: board; position: relative; inset: auto; min-width: 0; min-height: 0;
-  width: min(calc(100% - 8px), calc((100vh - 284px) * 960 / 1024));
-  width: min(calc(100% - 8px), calc((100dvh - 284px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 960 / 1024));
+  width: calc(100% - 8px); height: 100%;
   aspect-ratio: 960 / 1024; margin: auto; padding: 0;
 }
 #game-table .player-strip { display: flex; align-items: center; gap: 12px; padding: 4px 12px; min-width: 0; min-height: var(--strip-height); }
@@ -88,7 +87,6 @@
 /* The note borrows the free row. The board and bar keep their fixed rows. */
 #context-line { flex-wrap: wrap; }
 #context-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-#context-actions:has(> button:not([hidden])) { flex-basis: 100%; }
 #table-bar #end-turn.quiet { border: 2px solid var(--ink-soft); color: var(--ink); }
 #lesson-progress .done::after { content: '✓'; position: absolute; right: -2px; bottom: -4px; font-size: 14px; font-weight: 700; color: var(--ink); background: var(--vellum); border-radius: 50%; }
 #lesson-progress .now::after { content: ''; position: absolute; left: 10px; bottom: -7px; border-inline: 5px solid transparent; border-bottom: 5px solid var(--ink); }

@@ -72,3 +72,14 @@ Review uses the Moves numbers. Motion Off hides its note.
 Landscape squares are 41.77 px. W2 adds computer rest and thinking states.
 `npm test`: 83 files pass; 1514 tests pass, 13 skip; 50 scene tests pass.
 All eight required browser checks pass. W2 has 68 inspected renders and no faults.
+
+## Short screen strip fix
+
+Decision: decided by delegation (2026-10-09).
+Cause: the fault starts after `80860c1`. The board keeps the old 284 px row budget.
+The new bar and wrapped note need more height. The board exceeds its grid row.
+The board now fits its row. A 77 px note row holds three lines. Back stays beside the note.
+The overlap check fails before the fix. It passes in rest, Review and lesson-done at all four sizes.
+At 320×568 the board is 263 px high. The rows stay fixed. Landscape squares stay at 41.77 px.
+`npm test`: 83 files pass; 1514 tests pass, 13 skip; 50 scene tests pass. All eight browser checks pass.
+W1, W2 and W7 have 92 renders and no faults. All 34 smallPhone and landscape renders are inspected.

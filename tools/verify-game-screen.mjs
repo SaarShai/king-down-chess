@@ -16,6 +16,16 @@ try {
     await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
     const boxes = () => page.evaluate(() => ['board', 'undo', 'menu-btn', 'end-turn'].filter(id => document.getElementById(id)).map(id => ({ id, ...document.getElementById(id).getBoundingClientRect().toJSON() })));
     const rest = await boxes();
+    const fixedRows = () => page.evaluate(() => ['strip-them', 'strip-me', 'context-line', 'moves-line', 'table-bar'].map(id => ({ id, ...document.getElementById(id).getBoundingClientRect().toJSON() })));
+    const restRows = await fixedRows();
+    const stripsClear = async state => {
+      const layout = await page.evaluate(() => {
+        const box = id => document.getElementById(id).getBoundingClientRect().toJSON();
+        return { board: box('board'), strips: ['strip-them', 'strip-me'].map(box) };
+      });
+      assert.ok(layout.strips.every(strip => strip.right <= layout.board.left || strip.left >= layout.board.right || strip.bottom <= layout.board.top || strip.top >= layout.board.bottom), `${width}×${height}: both player strips clear the board at ${state}: ${JSON.stringify(layout)}`);
+    };
+    await stripsClear('rest');
     const same = async state => assert.deepEqual(await boxes(), rest, `${width}×${height}: the table stays fixed at ${state}`);
     const tap = async square => { const p = await page.evaluate(s => window.view.screenOf(s), square); await (touch ? page.touchscreen.tap(p.x, p.y) : page.mouse.click(p.x, p.y)); };
     if (width === 390) {
@@ -33,6 +43,7 @@ try {
     await page.locator('#moves [data-ply="1"]').click();
     assert.equal(await page.locator('#back-to-game').isVisible(), true, 'the last row stays in Review');
     assert.equal(await page.locator('#context-text > span').first().innerText(), 'Review. Move 1, White.', 'Review uses the Moves list number and side');
+    await same('review'); await stripsClear('review');
     await page.click('#back-to-game');
     await endTurn(page); await tap(52); await tap(36); await endTurn(page);
     await openMoves(page); await page.locator('#moves [data-ply="1"]').click();
@@ -60,6 +71,9 @@ try {
     await visibleWords(page, 'Well done.');
     await visibleWords(page, 'An archer never captures');
     await visibleWords(page, 'also over other pieces.');
+    await stripsClear('lesson done');
+    assert.deepEqual(await fixedRows(), restRows, `${width}×${height}: strips, context, Moves and bar stay fixed with the lesson words`);
+    if (width === 320) assert.equal(await page.locator('#context-text').evaluate(el => el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)), 3, 'the short-screen overlap check includes three drawn context lines');
     assert.equal(await page.locator('#lesson-progress .done').first().getAttribute('aria-label'), 'Lesson 1 of 6 done', 'lesson progress names its done state');
     assert.ok(await page.evaluate(() => document.getElementById('context-text').getBoundingClientRect().bottom <= document.getElementById('moves-line').getBoundingClientRect().top), 'the lesson words do not cover Moves');
     if (width === 844) {
