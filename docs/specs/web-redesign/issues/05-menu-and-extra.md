@@ -57,3 +57,13 @@ Close uses a framed 44 px button. Back names the parent sheet.
 Coming names power coins by the king. Motion Off hides the pace note.
 All eight required browser checks pass. `npm test`: 1514 tests and 50 scene tests pass.
 W2 has 68 inspected renders and no faults. Landscape includes every Menu sheet.
+
+## Batch 3 sheet fixes
+
+Decision: decided by delegation (2026-10-09).
+Menu keeps one height across its pages. Close stays in place.
+Phone Menu rests at the bottom. Board help stays on one heading line.
+The Resign question uses the heading size and ink colour.
+Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
+Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
+All nine required browser checks pass. Typecheck and the doc checks pass.

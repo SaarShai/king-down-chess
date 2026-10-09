@@ -66,3 +66,13 @@ The supplied M1 launcher selects this Mac. All 22 named browser checks pass: lin
 The lesson-return check takes its first board snapshot during Previously. Wait for the link replay to finish before that snapshot. The repaired check passes for both looks at phone and desktop sizes. The account check detects that check edit during its run; its clean rerun passes. No timeout needs confirmation. The plugin HTTP check uses the documented disposable local database.
 
 The sample still waits for the owner's yes.
+
+## Batch 3 sheet fixes
+
+Decision: decided by delegation (2026-10-09).
+Both turn lines name every ply, joined with Then. Five expectations change.
+The friend line comes first. You follows. Long turns scroll without a clamp.
+W11 adds See again with Motion Normal and a long Haste turn at 320 px.
+Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
+Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
+All nine required browser checks pass. Typecheck and the doc checks pass.

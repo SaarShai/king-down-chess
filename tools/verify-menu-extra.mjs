@@ -72,9 +72,11 @@ try {
       assert.equal(await page.locator('#menu-sheet .sheet-body').evaluate(el => el.scrollTop > 0), true, 'the Menu body scrolls to Resign');
     }
     for (const words of ['New game', 'Guide', 'Board help', 'Feel', 'Extra', 'Resign']) assert.ok((await page.locator('[data-menu-page="menu"]').textContent()).includes(words), words);
+    const menuClose = await page.locator('#menu-close').boundingBox();
     for (const route of ['new', 'help', 'extra', 'resign']) {
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();
       assert.equal(await page.locator(`[data-menu-page="${route}"]`).isVisible(), true);
+      assert.equal((await page.locator('#menu-close').boundingBox()).y, menuClose.y, 'Menu Close stays in place across pages');
       await page.locator('#menu-back').click(); assert.equal(await page.locator('[data-menu-page="menu"]').isVisible(), true);
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();
       await page.keyboard.press('Escape'); assert.equal(await page.locator('[data-menu-page="menu"]').isVisible(), true);

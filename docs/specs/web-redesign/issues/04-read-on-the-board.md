@@ -77,3 +77,13 @@ The sample still waits for the owner's yes.
 - Plan: check the claims, test the logic first, run the named checks, then render and inspect W3, W4, W5 and W9.
 - Checks: npm test passes (1,695 tests; 13 skipped). Typecheck and all ten required browser checks pass. Three extra checks pass.
 - Sample W4: 28 renders, 0 faults. Both contact sheets are inspected.
+
+## Batch 3 sheet fixes
+
+Decision: decided by delegation (2026-10-09).
+The Guide head stays outside the scroll body. Close is framed at 44 px.
+The close glyph is 24 px. All rules scrolls only the body.
+The chosen piece card has a focus outline. Menu Guide starts at the shelf.
+Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
+Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
+All nine required browser checks pass. Typecheck and the doc checks pass.

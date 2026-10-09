@@ -30,8 +30,10 @@ function openRules(selector: string): void {
   $('rules-btn').click();
   const row = document.querySelector<HTMLElement>(selector);
   row?.setAttribute('tabindex', '-1');
-  row?.focus();
-  row?.scrollIntoView({ block: 'center' });
+  row?.focus({ preventScroll: true });
+  const body = row?.closest<HTMLElement>('.lesson-guide-body');
+  if (row && body) body.scrollTop += row.getBoundingClientRect().top - body.getBoundingClientRect().top
+    - Math.max(4, (body.clientHeight - row.offsetHeight) / 2);
 }
 
 export function initTable(back: () => void): void {
@@ -122,13 +124,20 @@ export function refreshTable(s: TableState): void {
   }
   $('all-rules').hidden ||= !!s.pending.length || s.armed;
   const line = contextLine(state);
-  $('context-text').replaceChildren(...[line.before ?? '', line.line, line.note].filter(Boolean).map((words, i) => {
+  $('context-text').replaceChildren(...[line.line, line.before ?? '', line.note].filter(Boolean).map((words, i) => {
     const row = document.createElement('span');
-    if (line.before && i === 0) row.id = 'previously-before';
+    if (line.before && i === 1) row.id = 'previously-before';
     row.textContent = words;
     return row;
   }));
   $('context-text').dataset.rank = line.rank;
+  if (line.rank === 'previously') {
+    $('context-text').tabIndex = 0;
+    $('last-move').hidden = true;
+  } else {
+    $('context-text').removeAttribute('tabindex');
+    $('last-move').hidden = false;
+  }
   const again = $('see-again');
   again.hidden = !line.actions.includes('see-again');
   again.setAttribute('aria-disabled', String(!!s.previously?.playing));

@@ -7,7 +7,7 @@ export function renderLessonShelf(container: HTMLElement, store: LessonStore): v
   const { pieces, next } = lessonShelf(store);
   container.innerHTML = `<section class="lesson-shelf" aria-label="Lessons">
     <h3>Six new pieces</h3>
-    <p class="shelf-intro">About a minute each, in any order.</p>
+    <p class="shelf-intro">About a minute each. Tap a piece to learn.</p>
     <ul class="shelf-list" role="list">${pieces.map(p => {
       const piece = p.name.toLowerCase(), line = p.line;
       return `<li><button type="button" class="shelf-piece" data-piece="${piece}" data-lesson="${p.lesson}" data-status="${p.status}"
@@ -17,7 +17,7 @@ export function renderLessonShelf(container: HTMLElement, store: LessonStore): v
         <span class="shelf-status">${p.status === 'Learned' ? '<span aria-hidden="true">✓ </span>' : ''}${p.status}</span>
       </button></li>`;
     }).join('')}</ul>
-    <button id="learn" type="button" class="shelf-next primary" ${next ? `data-lesson="${next.lesson}"` : 'data-play-game'}>${next ? `Learn the ${next.name}` : 'Play a game'}</button>
+    <button id="learn" type="button" class="shelf-next primary" ${next ? `data-lesson="${next.lesson}"` : 'data-play-game'}>${next ? `Learn the ${next.name}` : 'Return to game'}</button>
     <p class="shelf-safe">Lessons never change your saved game.</p>
   </section>`;
 }

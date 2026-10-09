@@ -6,7 +6,7 @@
 // The sample of a web redesign step (spec rule 3 in docs/specs/web-redesign/spec.md):
 //   SAMPLE=<NN> node docs/specs/web-ux/capture.mjs <base-url> [out-dir]
 // It reads the state table docs/specs/web-redesign/samples/<NN>.mjs (the format is in samples/README.md),
-// renders each state at the table's sizes with Motion Off, and checks each render: the app keeps every move
+// renders each state at the table's sizes with Motion Off (or the state's Motion Normal option), and checks each render: the app keeps every move
 // of the seeded save, no sideways scroll, the state's controls inside the screen, and 44 px targets on a touch
 // size. A state with `video: true` also gets one phone video of its steps, with Motion Normal. It writes
 // <state>-<size>.png, <state>-phone.webm and report.json in the out folder (default <system temp
@@ -57,21 +57,21 @@ async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
   console.log(`capture: sample ${nn}: ${report.length} renders, ${failed} with a fault; out folder ${out}`);
   process.exit(failed ? 1 : 0);
 
-  /** One still of `state` at `size` with Motion Off, or (video) one video of its steps with Motion Normal. */
+  /** One still at the state's motion setting, or one video with Motion Normal. */
   async function render(state, size, video) {
     const { width, height, ...touch } = sizes[size];
     const ctx = await browser.newContext({
       viewport: { width, height }, deviceScaleFactor: size === 'phone' ? 2 : 1, ...touch,
-      reducedMotion: video ? 'no-preference' : 'reduce', colorScheme: state.scheme ?? 'light',
+      reducedMotion: video || state.motion === 'normal' ? 'no-preference' : 'reduce', colorScheme: state.scheme ?? 'light',
       ...(video ? { recordVideo: { dir: join(out, '.video'), size: { width, height } } } : {}),
     });
-    // A still has Motion Off: the seeded save says so, and with no save the app takes Off from reduced motion.
+    // Stills use Motion Off unless the state asks for Motion Normal.
     await ctx.addInitScript(([save, title, pace]) => {
       if (!title) sessionStorage.setItem('kingdown.title-seen', '1');
       if (sessionStorage.getItem('sample.seeded')) return; // a reload in the steps keeps the game it made
       sessionStorage.setItem('sample.seeded', '1');
       if (save) localStorage.setItem('kingdown.save', JSON.stringify({ ...save, pace }));
-    }, [state.save ?? null, state.title ?? false, video ? 'normal' : 'off']);
+    }, [state.save ?? null, state.title ?? false, video || state.motion === 'normal' ? 'normal' : 'off']);
     const page = await ctx.newPage();
     const errors = trapErrors(page);
     page.on('dialog', d => d.accept());

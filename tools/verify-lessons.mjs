@@ -1,6 +1,6 @@
 // W9: the shelf opens, a figure opens its lesson, and Learned follows the store.
 import assert from 'node:assert/strict';
-import { contextText, pressMenu, startLesson, waitForUi } from './app-ui.mjs';
+import { contextText, openPieceRules, pressMenu, startLesson, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, trapErrors } from './lib/checks.mjs';
 
 const browser = await launch();
@@ -36,6 +36,19 @@ try {
       const sheet = document.getElementById('rules').getBoundingClientRect();
       return safe.bottom <= sheet.bottom && safe.bottom <= innerHeight;
     }), true, 'the saved-game line stays in view');
+    assert.equal(await page.evaluate(() => {
+      const close = document.querySelector('.lesson-guide-head button'), box = close.getBoundingClientRect();
+      const lead = document.getElementById('rules-lead').getBoundingClientRect();
+      const body = document.querySelector('.lesson-guide-body').getBoundingClientRect();
+      const safe = document.querySelector('.shelf-safe').getBoundingClientRect();
+      const learn = document.getElementById('learn').getBoundingClientRect();
+      return box.width === 44 && box.height === 44 && parseFloat(getComputedStyle(close).fontSize) === 24
+        && lead.top + 20 < body.bottom && Math.abs((safe.left + safe.right - learn.left - learn.right) / 2) < 1;
+    }), true, 'Guide shows Close, the first rule line and the centred save note');
+    const guideHead = await page.locator('.lesson-guide-head').boundingBox();
+    await page.locator('.lesson-guide-body').evaluate(el => { el.scrollTop = el.scrollHeight; });
+    assert.deepEqual(await page.locator('.lesson-guide-head').boundingBox(), guideHead, 'Guide head stays in place when rules scroll');
+    await page.locator('.lesson-guide-body').evaluate(el => { el.scrollTop = 0; });
     console.log(`ok lessons ${width}: the shelf opens with six figures`);
 
     await page.locator('.shelf-piece[data-piece="beast"]').click();
@@ -66,7 +79,7 @@ try {
     await page.keyboard.press('Escape');
     await page.evaluate(() => { const p = JSON.parse(localStorage.getItem('kingdown.lessons')); p.done.push('Paladin'); localStorage.setItem('kingdown.lessons', JSON.stringify(p)); });
     await pressMenu(page, 'Guide');
-    assert.equal(await page.locator('#learn').innerText(), 'Play a game');
+    assert.equal(await page.locator('#learn').innerText(), 'Return to game');
     await page.click('#learn');
     assert.equal(await saved(), before, 'Play restores the kept game');
     assert.deepEqual(await board(), position);
@@ -81,6 +94,17 @@ try {
     await page.click('#return-game');
     assert.equal(await saved(), before, 'Next lesson keeps the saved game');
     console.log(`ok lessons ${width}: Archer leads to the shelf next lesson, Beast`);
+
+    await tap(28); await openPieceRules(page);
+    assert.equal(await page.evaluate(() => {
+      const sheet = document.getElementById('rules').getBoundingClientRect();
+      const head = document.querySelector('.lesson-guide-head').getBoundingClientRect();
+      const focus = document.activeElement;
+      return head.top >= sheet.top && head.bottom <= sheet.bottom && focus.matches('.piece-card')
+        && getComputedStyle(focus).outlineStyle === 'solid';
+    }), true, 'All rules keeps the full Guide head and outlines the card');
+    await page.keyboard.press('Escape'); await pressMenu(page, 'Guide');
+    assert.equal(await page.locator('.lesson-guide-body').evaluate(el => el.scrollTop), 0, 'Menu Guide returns to the shelf after All rules');
     await context.close();
   }
   assertNoErrors();

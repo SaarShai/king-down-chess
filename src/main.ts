@@ -1174,6 +1174,7 @@ $('rules-btn').onclick = () => {
   refreshLessonShelf();
   fillPieceGuide();
   $<HTMLDialogElement>('rules').showModal();
+  document.querySelector<HTMLElement>('.lesson-guide-body')!.scrollTop = 0;
 };
 $('share-result').onclick = () => {
   const n = movesPlayed(), people = sides.filter(s => s === 'human').length;

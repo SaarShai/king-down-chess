@@ -92,3 +92,13 @@ The 320×568 canvas is at least 290 px wide. Both strips clear the board.
 Labels draw at 12 CSS px. File letters clear the frame.
 The board and bar stay fixed at all four check sizes.
 W2: 68 inspected renders, 0 faults. Tests and all required checks pass.
+
+## Batch 3 sheet fixes
+
+Decision: decided by delegation (2026-10-09).
+Previously names the friend first at 16 px. You follows at 14 px.
+The full turn scrolls. The board stays fixed. Moves does not repeat it.
+See again and Stop here use the framed secondary button.
+Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
+Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
+All nine required browser checks pass. Typecheck and the doc checks pass.
