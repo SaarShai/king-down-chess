@@ -39,13 +39,7 @@ Blocked by: 02a (Show me), 05
 
 ## Comments
 
-### W9 phase 1
-- Plan: test the pure shelf model for order, Learned, Next, Bonus, and all lessons done.
-- Done: the pure model, its test, the shelf DOM, and stone shelf styles. The live Guide stays as it is.
-- Keep one board per piece. Cut board lists, four Guard boards, and the new lesson screen.
-- `KINGDOWN_TEST_FILE='src/*lesson*.test.ts' VITEST_MAX_WORKERS=2 npm test`: 2 files, 12 tests pass; 50 scene tests pass. `npm run typecheck` passes.
-- The test config adds `KINGDOWN_TEST_FILE` for a single file or glob. The default suite stays the same.
-- Two full test runs hit unrelated timeouts during parallel test runs. Stop each by its PID; check the full suite in phase 2.
-- Phase 2: add the shelf to W2's Guide; bind figures and the main action; read the lesson store on each open.
-- Phase 2: keep other store fields in `noteLesson`, use shove in Ogre text, and add the learned line. Keep W1's Show me controls; hide Undo and End turn in lessons.
-- Phase 2: update check helpers, run lesson and account checks and the full suites, and render the phone and desktop shelf samples.
+- Phase 1 builds and tests the shelf model and DOM.
+- Phase 2 plan: test the lesson store and the learned context line; mount the shelf in Guide and bind its controls.
+- Keep one board per piece and W1's lesson controls. Cut board lists, four Guard boards, and the new lesson screen.
+- Verify: local unit tests; named browser checks through the M1 launcher; the new lessons check twice; phone and desktop shelf samples.

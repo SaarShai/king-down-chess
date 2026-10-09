@@ -3,6 +3,9 @@ import { LESSONS } from './lessons';
 import { contextLine, type ContextState } from './context-line';
 
 describe('contextLine', () => {
+  it('names the learned piece instead of the lesson task', () => {
+    expect(contextLine({ voice: 'you', lesson: 'Lesson 1 of 6: Archer', lessonNote: 'Well done. A rule.', lessonLearned: 'Archer', waiting: true, check: true })).toMatchObject({ rank: 'lesson', line: 'Archer learned.', note: '' });
+  });
   it('at rest speaks to the player, or names the side on one device', () => {
     expect(contextLine({ voice: 'you' })).toMatchObject({ rank: 'your-move', line: 'Your move.', actions: [] });
     expect(contextLine({ voice: 'White' }).line).toBe('White to move.');

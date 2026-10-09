@@ -1,11 +1,14 @@
 /* The chosen demo's stone shelf, scoped to the Guide. */
+.lesson-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: var(--space-3); }
+.lesson-guide-head h2, .lesson-guide-head form { margin: 0; }
+.lesson-guide-head button { width: 44px; min-width: 44px; min-height: 44px; padding: 0; justify-content: center; background: transparent; border: 0; box-shadow: none; }
 .lesson-shelf { width: 100%; margin-bottom: var(--space-5); }
 .lesson-shelf h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-xl); }
 .lesson-shelf .shelf-intro { margin: var(--space-1) 0 0; color: var(--ink-soft); }
 .lesson-shelf .shelf-list {
-  --sq: 92px; --fig-h: 132px;
+  --sq: 82px; --fig-h: 116px;
   list-style: none; margin: var(--space-4) 0; padding: 0;
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--space-4);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--space-3);
 }
 .lesson-shelf .shelf-list li { position: relative; display: flex; min-width: 0; }
 .lesson-shelf .shelf-list li::after {

@@ -458,7 +458,6 @@ label.army select { width: 100%; font-weight: 400; }
 
 /* ---- Guide: painted piece cards ---- */
 #rules { width: min(940px, calc(100vw - 32px)); max-width: none; }
-#rules .learn { margin-bottom: var(--space-4); }
 .piece-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: var(--space-3); margin: 0 0 var(--space-4); }
 .piece-card {
   display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-3);

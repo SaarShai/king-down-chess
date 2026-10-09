@@ -235,8 +235,8 @@
       <button id="cancel-promo" class="quiet">Cancel</button>
     </dialog>
     <dialog id="rules" aria-labelledby="rules-title">
-      <h2 id="rules-title" tabindex="-1" autofocus>King Down pieces</h2>
-      <button id="learn" class="learn primary"><svg class="icon" aria-hidden="true"><use href="#i-learn"/></svg><span class="label">Learn the six King Down pieces by playing, one move each</span></button>
+      <header class="lesson-guide-head"><h2 id="rules-title" tabindex="-1" autofocus>Guide</h2><form method="dialog"><button aria-label="Close Guide">×</button></form></header>
+      <div id="lesson-shelf"></div>
       <p id="rules-lead"></p>
       <div id="rules-rows" class="piece-cards"></div>
       <p id="rules-letters"></p>
@@ -245,7 +245,6 @@
       <p id="powers-guide">In <b>New game</b>, choose <b>Kings' powers</b>: each king brings one power. Spend a power with the
         <b>Use</b> button under the board: it lights the pieces or squares the power can reach.</p>
       <ul id="powers-list"></ul>
-      <form method="dialog"><button>Close</button></form>
     </dialog>
     <dialog id="over" aria-labelledby="over-title" aria-describedby="over-detail">
       <!-- The kings that played (main.ts showOver); Spirit and Shadow, the kings without powers, until then. -->

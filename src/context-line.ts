@@ -8,7 +8,7 @@ export interface ContextState {
   armed?: PowerName; chain?: boolean; canStop?: boolean;
   read?: string; readNote?: string; midWay?: boolean; free?: boolean;
   selected?: string; stagedEnd?: string; waiting?: boolean; check?: boolean;
-  computer?: boolean; lesson?: string; lessonNote?: string; asset?: string;
+  computer?: boolean; lesson?: string; lessonNote?: string; lessonLearned?: string; asset?: string;
   turnLine?: string;
 }
 export interface ContextLine { rank: string; line: string; note: string; actions: string[] }
@@ -38,6 +38,7 @@ export function contextLine(s: ContextState): ContextLine {
   if (!s.lesson && s.check) return line('check', s.voice === 'you' ? 'Check! Your move.' : `Check! ${s.voice} to move.`);
   if (!s.lesson && s.computer) return line('computer', 'Their move.');
   if (s.lesson) {
+    if (s.lessonLearned) return line('lesson', `${s.lessonLearned} learned.`);
     const task = s.lessonNote || s.lesson, end = task.indexOf('. ');
     return line('lesson', end < 0 ? task : task.slice(0, end + 1), end < 0 ? '' : task.slice(end + 2));
   }
