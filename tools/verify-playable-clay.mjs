@@ -111,7 +111,7 @@ try {
   await fixedPresentation(); await facingOpponent();
   checks.push('optional mirrored setup keeps the fixed handmade material and opponent-facing armies');
   await pressMenu(page, 'Guide');
-  assert.match(await page.locator('#rules-rows .piece-card[data-piece="archer"]').textContent(), /forward diagonal at distance 2/);
+  assert.match(await page.locator('#rules-rows .piece-card[data-piece="archer"]').textContent(), /2 squares away on a forward diagonal/);
   assert.match(await page.locator('#rules-rows .piece-card[data-piece="beast"]').textContent(), /Takes on any adjacent square/);
   await page.locator('#rules form button').click();
   checks.push('piece guide describes the current Archer and Beast rules');

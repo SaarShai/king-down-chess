@@ -128,7 +128,7 @@ try {
   checks.push('promotion dialog cancels cleanly; underpromotion works; auto-queen respects promotion sets; old games retain their rules and new games use current defaults');
 
   for (const [query, archer, beast, promotionText] of [
-    ['', /forward diagonal at distance 2/, /any adjacent square/, /queen, rook, bishop, or knight/],
+    ['', /2 squares away on a forward diagonal/, /any adjacent square/, /queen, rook, bishop, or knight/],
     ['?rules=2017', /1 square orthogonally/, /straight ahead/, /any piece but a king/],
     ['?rules=2021', /ahead or back/, /either forward diagonal/, /any piece but a king/],
   ]) {
