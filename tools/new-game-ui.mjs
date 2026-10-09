@@ -1,4 +1,4 @@
-import { pressMenu } from './app-ui.mjs';
+import { pressMenu, startNewGame } from './app-ui.mjs';
 
 /**
  * Drives the New game dialog (index.html #new-game, src/new-game.ts) the way a player does. Every
@@ -26,14 +26,16 @@ export async function setUpGame(page, { mode, level, side, powers, kings, army =
   if (side || army) {
     if (!await page.evaluate(() => document.getElementById('more-options').open)) await page.click('#more-options summary');
     if (side) await page.click(`#new-game label:has(#side-${side})`);
-    await page.selectOption('#army', army);
+    if (['random', 'daily', 'classic'].includes(army)) await page.click(`#new-game label:has(input[name="army"][value="${army}"])`);
+    else if (army) {
+      if (!await page.evaluate(() => document.getElementById('other-armies').open)) await page.click('#other-armies summary');
+      await page.selectOption('#army', army);
+    }
   }
 }
 
-/** Sets up the game as `setUpGame` does, then presses Start game. It answers OK when Start game asks to replace an unfinished game. */
+/** Sets up the sheet, then presses Start. The warn line says when this ends the current game. */
 export async function startGame(page, options = {}) {
   await setUpGame(page, options);
-  const replace = d => { if (d.message().startsWith('Start a new game?')) d.accept().catch(() => {}); }; // a check's own listener may answer first
-  page.on('dialog', replace);
-  try { await page.click('#start-game'); } finally { page.off('dialog', replace); }
+  await startNewGame(page);
 }

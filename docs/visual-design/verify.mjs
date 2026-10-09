@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardHelp, contextText, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
+import { boardHelp, contextText, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from '../../tools/lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -90,6 +90,10 @@ try {
   await page.keyboard.press('Enter');
   await waitForUi(page, ui => /e2-e4/.test(ui.lan.join(' ')));
   assert.match(await page.locator('#announce').textContent(), /^White pawn e2 to e4\./);
+  await page.waitForFunction(() => document.activeElement.id === 'end-turn');
+  await endTurn(page, { keyboard: true });
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'board');
+  assert.equal(await page.locator('#board-marks .mk-cursor').count(), 1);
   await page.waitForFunction(() => /^Black /.test(document.getElementById('announce').textContent), null, { timeout: 20000 });
   ok(`keyboard: Tab, arrows and Enter play e2-e4; announced "White pawn e2 to e4." then "${await page.locator('#announce').textContent()}"`);
   // The move list is a row of buttons: Tab reaches them, Enter opens the review.
@@ -124,7 +128,7 @@ try {
   // 4. Refusals say why. A tap on an enemy piece with no piece selected is no refusal: it shows the piece's card.
   page = await open('?fen=' + encodeURIComponent('4k3/4r3/8/8/8/8/4B3/4K3 w - - 0 1'));
   await ready(page);
-  await tap(page, 52); assert.equal(await refusalText(page), ''); assert.match(await page.textContent('#info'), /Black rook/);
+  await tap(page, 52); assert.equal(await refusalText(page), ''); assert.match(await contextText(page), /Black rook/);
   await tap(page, 12); assert.match(await help(page), /This bishop has no legal move/);
   await tap(page, 19); assert.match(await help(page), /That leaves your king in check/);
   await page.context().close();
@@ -178,8 +182,8 @@ try {
     .map(e => ({ id: e.id || e.textContent.trim().slice(0, 24), r: e.getBoundingClientRect() }))
     .filter(({ r }) => r.height < 44 || r.width < 44)
     .map(({ id, r }) => `${id} ${Math.round(r.width)}×${Math.round(r.height)}`));
-  assert.deepEqual(await small('#panel'), []);
-  for (const [item, dlg] of [['New game', '#new-game'], ['Settings', '#settings'], ['Guide', '#rules']]) {
+  assert.deepEqual(await small('#game-table'), []);
+  for (const [item, dlg] of [['New game', '#new-game'], ['Settings', '#menu-sheet'], ['Guide', '#rules']]) {
     await pressMenu(page, item); assert.deepEqual(await small(dlg), [], dlg); await page.keyboard.press('Escape');
   }
   // New game in each of its three modes, with More options open: the king picker's emblems and powers too.
