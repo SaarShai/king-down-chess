@@ -86,6 +86,7 @@ try {
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();
       assert.equal(await page.locator(`[data-menu-page="${route}"]`).isVisible(), true);
       assert.equal((await page.locator('#menu-close').boundingBox()).y, menuClose.y, 'Menu Close stays in place across pages');
+      if (['help', 'resign'].includes(route)) assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => body.clientHeight <= body.querySelector(':scope > section:not([hidden])').offsetHeight + 28), 'short pages have no large empty area below their content');
       await page.locator('#menu-back').click(); assert.equal(await page.locator('[data-menu-page="menu"]').isVisible(), true);
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();
       await page.keyboard.press('Escape'); assert.equal(await page.locator('[data-menu-page="menu"]').isVisible(), true);

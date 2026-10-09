@@ -33,7 +33,11 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
     (from ?? title).focus({ preventScroll: true });
   }
   const close = (): void => sheet.close();
-  button.onclick = () => { refreshTricks(); go('menu'); sheet.showModal(); title.focus(); };
+  button.onclick = () => {
+    refreshTricks(); sheet.classList.remove('is-placed'); go('menu'); sheet.showModal();
+    sheet.style.setProperty('--menu-top', `${sheet.getBoundingClientRect().top}px`);
+    sheet.classList.add('is-placed'); title.focus();
+  };
   back.onclick = () => go(PAGES[page].parent!);
   document.getElementById('menu-close')!.onclick = close;
   // Page Back handles Esc before the native dialog: repeated cancel events can be non-cancelable.

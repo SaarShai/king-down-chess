@@ -123,7 +123,8 @@
   #moves-line { height: 44px; min-height: 44px; }
 }
 
-#menu-sheet { height: min(660px, calc(100dvh - 24px)); }
+#menu-sheet { height: auto; }
+#menu-sheet.is-placed { top: var(--menu-top); bottom: auto; margin-block: 0; max-height: calc(100dvh - var(--menu-top) - 12px); }
 @media (max-width: 899px) {
   #menu-sheet { margin-bottom: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
   #menu-sheet .sheet-head h2 { white-space: nowrap; }
