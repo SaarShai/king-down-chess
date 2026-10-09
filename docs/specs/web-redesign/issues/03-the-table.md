@@ -52,3 +52,13 @@ The fix commit records the seven missing check trailers.
 All 19 named checks pass. `game-screen` and `menu-extra` pass twice after the merge. The M1 script selects its local fallback.
 The plugin page stays at 4,291,968 bytes. Both plugin checks pass.
 Cut: interim power action, desktop fold and extra layout sizes. W2 gives 45 clean renders and four inspected sheets outside Git.
+
+## Integration
+
+Plan: merge W2 without a fast-forward, check the tree, then push the integration branch.
+Checks: no lost changes, no conflicts, and a passing pre-push test and gate.
+The owner asks for this merge and push. The starting branch is clean.
+The start is `a251ccbdb2f6f6118745f9e7d953f9cb04d7af88`, an ancestor of W2.
+Merge `050315c9eff7665f76ce61f5f948b812eeb44676` has no conflicts.
+Its tree is the same as W2. The builder's full run above stands under the owner's rule.
+The push hook must pass before the branch goes to origin.
