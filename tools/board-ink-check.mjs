@@ -7,8 +7,8 @@ export async function recordBoardText(page) {
       if (this.canvas.parentElement?.id === 'board') {
         const scale = this.canvas.getBoundingClientRect().width / this.canvas.width;
         const font = Number(this.font.match(/([\d.]+)px/)?.[1] ?? 0);
-        const transform = this.getTransform();
-        window.boardText[text] = { font: this.font, size: font * transform.a * scale, bottom: ((y + this.measureText(text).actualBoundingBoxDescent) * transform.d + transform.f) * scale, height: this.canvas.getBoundingClientRect().height };
+        const transform = this.getTransform(), glyph = this.measureText(text);
+        window.boardText[text] = { font: this.font, glyphHeight: (glyph.actualBoundingBoxAscent + glyph.actualBoundingBoxDescent) * transform.d * scale, size: font * transform.a * scale, bottom: ((y + this.measureText(text).actualBoundingBoxDescent) * transform.d + transform.f) * scale, height: this.canvas.getBoundingClientRect().height };
       }
       return fill.call(this, text, x, y, ...rest);
     };

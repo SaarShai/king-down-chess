@@ -128,3 +128,5 @@ Decision: decided by delegation (2026-10-09). Items 1 to 15 in the repair brief 
 5. Build W1 to W12 into final3, extract every video at 2 fps, inspect all required stills and frames, and push with the test hook.
 
 Pass criteria: items 1 to 15 have ticket notes; all tests/checks pass; each sample report has 0 faults; every required pixel check passes; push succeeds.
+
+Item 14: decided by delegation (2026-10-09). PaintedView reads the body font only with webInk. The plugin module list includes board-ink and powers-ui; renderer and read supply types only. Plugin checks and the final page size follow in the final check record.

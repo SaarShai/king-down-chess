@@ -20,7 +20,7 @@ try {
   assert.deepEqual((await marks()).bites, [26, 35]);
   await page.waitForFunction(() => window.boardText['2']?.font.includes('bold'));
   const badge = await boardText(page, '2');
-  assert.ok(badge.size >= 11.99, 'bite digits draw at 12 CSS px');
+  assert.ok(badge.glyphHeight >= 8.5, `bite digit has at least 8.5 CSS px of ink: ${badge.glyphHeight}`);
   assert.match(badge.font, /Alegreya Sans/, 'bite digits use the body font');
   assert.deepEqual(await lanMoves(page), [], 'chosen bites do not write a ply');
   await tap(8);
@@ -40,6 +40,6 @@ try {
   await tap(27); await tap(26); await tap(35); await tap(36); await tap(45);
   assert.deepEqual((await marks()).bites, [26, 35, 36, 45], 'four bites fit a 375 px phone');
   await page.waitForFunction(() => window.boardText['4']?.font.includes('bold'));
-  assert.ok((await boardText(page, '4')).size >= 11.99, 'the fourth bite stays readable');
+  for (const digit of ['1', '2', '3', '4']) assert.ok((await boardText(page, digit)).glyphHeight >= 8.5, `bite ${digit} stays readable at 375 px`);
   console.log('verb-marks: Ogre, Beast, Maester and Archer pass; landing tap passes');
 } finally { try { assertNoErrors(errors); } finally { await close(); } }

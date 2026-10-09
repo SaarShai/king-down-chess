@@ -93,8 +93,8 @@ try {
     await minTarget(page, '#next-lesson, #return-game');
     await context.close();
   }
-  const opened = async (save, query = '') => {
-    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  const opened = async (save, query = '', width = 390, height = 844) => {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
     await context.addInitScript(save => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.save', JSON.stringify({ sound: false, pace: 'off', white: 'human', black: 'human', ...save })); }, save);
     const page = await context.newPage(); trapErrors(page);
     await recordBoardText(page);
@@ -115,6 +115,41 @@ try {
     assert.equal(await page.locator('#moves [data-ply="1"] .pi-b').count(), 1, 'the Freeze row names the black knight');
     await endTurn(page);
     assert.equal(await page.locator('#last-move').innerText(), 'White ends the turn after the mark.');
+    await context.close();
+  }
+  {
+    const { page, context } = await opened({ back: '', fen: '7k/8/2a5/8/2P5/8/8/K7 w - - 0 1', moves: [] }, '', 320, 568);
+    const p = await page.evaluate(() => window.view.screenOf(42)); await page.mouse.click(p.x, p.y);
+    assert.equal(await page.locator('#context-text > span').nth(1).innerText(), 'Shoots 2 squares straight or diagonally forward.');
+    assert.ok(await page.locator('#context-text').evaluate(el => {
+      const area = document.getElementById('context-line').getBoundingClientRect();
+      return el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1
+        && [...el.children].every(row => {
+          const range = document.createRange(); range.selectNodeContents(row);
+          return row.scrollHeight <= row.clientHeight + 1 && row.scrollWidth <= row.clientWidth + 1
+            && [...range.getClientRects()].every(r => r.bottom <= area.bottom && r.top >= area.top);
+        });
+    }), 'the Archer rule is whole at 320x568, with no ellipsis or cut glyphs');
+    await context.close();
+  }
+  {
+    const { page, context } = await opened({ back: '', fen: '4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', moves: [] }, '?kings=frost:freeze,none', 320, 568);
+    const ringClear = async () => {
+      const spill = await page.locator('#power-w').evaluate(coin => {
+        const style = getComputedStyle(coin), box = coin.getBoundingClientRect();
+        let ring = style.outlineStyle === 'none' ? 0 : Math.max(0, parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset));
+        for (const shadow of style.boxShadow.match(/(?:inset\s+)?rgba?\([^)]*\)\s+[^,]+/g) ?? []) {
+          if (shadow.includes('inset')) continue;
+          const [x, y, blur = 0, spread = 0] = shadow.replace(/rgba?\([^)]*\)/, '').trim().split(/\s+/).map(parseFloat);
+          ring = Math.max(ring, Math.abs(x) + blur + spread, Math.abs(y) + blur + spread);
+        }
+        const board = document.getElementById('board').getBoundingClientRect(), strip = coin.closest('.player-strip').getBoundingClientRect();
+        return { ring, top: box.top - ring, bottom: box.bottom + ring, board: board.bottom, stripTop: strip.top, stripBottom: strip.bottom };
+      });
+      assert.ok(spill.top >= spill.board && spill.top >= spill.stripTop && spill.bottom <= spill.stripBottom, `320x568: the coin grown by its ring clears the board and stays in its strip: ${JSON.stringify(spill)}`);
+    };
+    await usePower(page); await ringClear();
+    await page.click('#power-cancel'); await page.click('#power-w'); await ringClear();
     await context.close();
   }
   assertNoErrors();

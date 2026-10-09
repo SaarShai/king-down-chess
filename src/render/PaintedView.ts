@@ -81,7 +81,7 @@ export class PaintedView implements BoardView {
    */
   constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean } = {}) {
     container.classList.add('painted');
-    this.bodyFont = getComputedStyle(container).fontFamily;
+    this.bodyFont = options.webInk ? getComputedStyle(container).fontFamily : '';
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
     this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(0), kingDesign(1)], floor: options.floor });
@@ -228,7 +228,7 @@ export class PaintedView implements BoardView {
         ctx.beginPath(); ctx.ellipse(f.x, f.y - 2, 44, 15, 0, 0, Math.PI * 2); ctx.fill();
         if (this.options.webInk && m.checkers !== undefined) {
           ctx.strokeStyle = '#fbf6e8'; ctx.lineWidth = boardInk(this.width).causeHalo; ctx.stroke();
-          ctx.strokeStyle = '#c4501f'; ctx.lineWidth = boardInk(this.width).causeCore; ctx.stroke();
+          ctx.strokeStyle = '#c4501f'; ctx.lineWidth = boardInk(this.width).checkRing; ctx.stroke();
         } else ctx.stroke();
       }
       ctx.restore();

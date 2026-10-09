@@ -105,8 +105,8 @@
 /* Short phones give the board the height that the fixed rows leave. */
 @media (max-height: 640px) and (max-width: 899px) and (orientation: portrait) {
   #game-table {
-    --strip-height: 44px; --context-height: 52px;
-    grid-template-rows: 44px minmax(0, max-content) 44px 52px 44px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
+    --strip-height: 44px; --context-height: 57px;
+    grid-template-rows: 44px minmax(0, max-content) 44px 57px 44px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
   }
   #game-table .player-strip { padding-block: 0; }
   #game-table .portrait { width: 36px; height: 36px; }
@@ -114,8 +114,8 @@
   #game-table .player-name small { margin-left: 4px; }
   #game-table .coin { width: 44px; height: 44px; }
   #game-table .coin img { width: 32px; height: 32px; }
-  #context-line { height: 52px; padding-block: 3px; flex-wrap: nowrap; }
-  #context-text { -webkit-line-clamp: 2; overflow: hidden; }
+  #context-line { height: 57px; padding-block: 0; flex-wrap: nowrap; }
+  #context-text { -webkit-line-clamp: 3; line-height: 1.25; overflow: hidden; }
   #context-text[data-rank='previously'] { overflow: visible; }
   #context-text #previously-before { display: none; }
   #all-rules { font-size: 0; width: 44px; padding: 4px; }

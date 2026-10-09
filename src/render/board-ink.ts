@@ -3,8 +3,9 @@ export function boardInk(width: number) {
   const scale = 960 / Math.max(1, width);
   return {
     coord: Math.max(13, 12 * scale),
-    biteFont: Math.max(16, 12 * scale),
-    biteRadius: Math.max(11, 9 * scale),
+    biteFont: Math.max(16, 18 * scale),
+    biteRadius: Math.max(11, 11 * scale),
+    checkRing: Math.max(3, 1.5 * scale),
     causeCore: Math.max(2.2, 1.5 * scale),
     causeHalo: Math.max(5.5, 3.5 * scale),
   };
