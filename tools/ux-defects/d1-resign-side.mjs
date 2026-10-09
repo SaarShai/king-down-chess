@@ -17,7 +17,7 @@ export default async function ({ open }) {
     const { page, tap, close } = await open({ save: { back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'ai', skill: 'club', sound: false } });
     await tap(12); await tap(28); // e2-e4; the computer then thinks for Black
     const during = await (await waitForUi(page, ui => {
-      if (!/^thinking…$/m.test(ui.context)) return false;
+      if (!ui.thinking) return false;
       const button = document.getElementById('resign'), asked = [], ask = window.confirm;
       window.confirm = m => { asked.push(m); return false; };
       try { button.onclick?.(new MouseEvent('click')); } finally { window.confirm = ask; }

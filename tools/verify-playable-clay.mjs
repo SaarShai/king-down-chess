@@ -48,7 +48,7 @@ async function clickSquare(sq, shift = false) {
 async function settled(sq, code) {
   await waitForUi(page, (ui, {sq,code}) => {
     const g = window.view.pieces.get(sq);
-    return g?.userData.code === code && Math.abs(g.position.x - (sq % 8 - 3.5)) < .001 && Math.abs(g.position.z - (3.5 - Math.floor(sq / 8))) < .001 && !ui.context.includes('thinking');
+    return g?.userData.code === code && Math.abs(g.position.x - (sq % 8 - 3.5)) < .001 && Math.abs(g.position.z - (3.5 - Math.floor(sq / 8))) < .001 && !ui.thinking;
   }, {sq,code});
   await page.waitForFunction(() => [...window.view.pieces.values()].every(g => {
     const f=g.userData.figure;return !f || f.model.rotation.y === 0;
@@ -97,7 +97,7 @@ try {
   await startGame(page, { mode: 'computer', side: 'white', army: 'classic' }); await ready();
   await clickSquare(12); await clickSquare(28);
   await waitForUi(page, ui => ui.lan.length >= 2 && document.querySelector('#turn').textContent.includes('White'));
-  await waitForUi(page, ui => !/^thinking…$/m.test(ui.context));
+  await waitForUi(page, ui => !ui.thinking && !ui.result); // the reply is in, and the game goes on
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length >= 2);
   checks.push('human move receives a legal worker-AI reply');
   await startGame(page, { mode: 'two', army: 'SQBKRSML' }); await ready();

@@ -3,7 +3,7 @@
 // loads, and ?labels=1 still turns the letters on. With the letters off, an old save keeps its
 // settings as they were, so the account sync sees no change at start-up.
 import assert from 'node:assert/strict';
-import { lanMoves, menuItem, openExtra, openMenu, pressMenu } from '../app-ui.mjs';
+import { boardHelp, lanMoves, openExtra, pressMenu } from '../app-ui.mjs';
 
 /** Records each view.setLabels() value in window.letters (main.ts sets window.view before its first setLabels). */
 const recordLetters = () => {
@@ -23,7 +23,7 @@ const probe = async ({ page, ready }) => {
   const state = async () => ({ ...await page.evaluate(() => ({ box: document.getElementById('labels').checked, view: window.letters })), moves: (await lanMoves(page)).join(' ') });
   const letters = () => state().then(s => [s.box, s.view]);
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
-  const settings = async act => { await pressMenu(page, 'Settings'); await act(); await page.keyboard.press('Escape'); };
+  const settings = act => boardHelp(page, act);
   const reload = async () => { await page.reload(); await ready(); };
   const changeLook = async look => {
     await openExtra(page);
@@ -79,9 +79,7 @@ export default async function ({ open }) {
   await first.page.locator('#title-learn').tap();
   await first.ready();
   await first.page.waitForFunction(() => /^Lesson 1 /.test(document.getElementById('turn').textContent));
-  await openMenu(first.page); await menuItem(first.page, 'Settings').tap();
-  await first.page.locator('#labels').tap();
-  await first.page.keyboard.press('Escape');
+  await boardHelp(first.page, () => first.page.locator('#labels').tap(), { tap: true });
   await f.reload();
   assert.deepEqual(await f.letters(), [true, true], 'first visit, phone: letters ticked in the first lesson stay on after a reload');
   await first.close();

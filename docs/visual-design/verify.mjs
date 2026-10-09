@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { contextText, lanMoves, moveRow, openMoves, pressMenu, waitForUi } from '../../tools/app-ui.mjs';
+import { boardHelp, contextText, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from '../../tools/lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -30,8 +30,6 @@ const ready = page => page.waitForFunction(() => window.view?.ready).then(() => 
 const tap = async (page, sq) => { const p = await page.evaluate(s => window.view.screenOf(s), sq); await page.mouse.click(p.x, p.y); };
 const titleOpen = page => page.evaluate(() => !!document.querySelector('#title-screen[open]'));
 const help = page => contextText(page);
-/** The first words of each refusal line (src/main.ts whyNot and onSquare). */
-const refusal = /^(Not allowed|Your king is in check|Choose one|This \w+ has no legal move|That )/m;
 
 try {
   // 1. Title screen: a first visit leads with the lessons.
@@ -113,7 +111,7 @@ try {
   page = await open('?fen=' + encodeURIComponent('4k3/8/8/3r4/8/8/3N4/4K3 w - - 0 1'));
   await ready(page);
   assert.equal(await page.locator('#board-marks i').count(), 0, 'off by default');
-  await pressMenu(page, 'Settings'); await page.check('#threats'); await page.keyboard.press('Escape');
+  await boardHelp(page, () => page.check('#threats'));
   assert.equal(await page.locator('#board-marks .mk-threat').count(), 1);
   assert.equal(await page.locator('#board-marks .mk-cover').count(), 15);
   const ring = await page.locator('#board-marks .mk-threat').boundingBox(), d2 = await page.evaluate(() => window.view.screenOf(11));
@@ -125,7 +123,7 @@ try {
   // 4. Refusals say why. A tap on an enemy piece with no piece selected is no refusal: it shows the piece's card.
   page = await open('?fen=' + encodeURIComponent('4k3/4r3/8/8/8/8/4B3/4K3 w - - 0 1'));
   await ready(page);
-  await tap(page, 52); assert.doesNotMatch(await help(page), refusal); assert.match(await page.textContent('#info'), /Black rook/);
+  await tap(page, 52); assert.equal(await refusalText(page), ''); assert.match(await page.textContent('#info'), /Black rook/);
   await tap(page, 12); assert.match(await help(page), /This bishop has no legal move/);
   await tap(page, 19); assert.match(await help(page), /that bishop move would leave your king in check/);
   await page.context().close();

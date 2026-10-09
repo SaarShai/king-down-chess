@@ -4,14 +4,12 @@
 // Enter on the keyboard cursor does the same; a drag onto an enemy piece keeps the reason. While the player cannot move (the computer thinks, the game is
 // over, a game link waits for the friend), a tap on a piece shows its card too, beside the reason.
 import assert from 'node:assert/strict';
-import { contextText, menuItem, openMenu, waitForUi } from '../app-ui.mjs';
+import { contextText, focusBoard, leaveBoard, refusalText, waitForUi } from '../app-ui.mjs';
 
 // White: king e1, pawn e4. Black: king e8, knight a6, pawn d5. The pawn can take d5, not the knight.
 const save = { back: '', fen: '4k3/8/n7/3p4/4P3/8/8/4K3 w - - 0 1', moves: [], white: 'human', black: 'ai', sound: false, skill: 'club' };
 const E2 = 12, E4 = 28, E5 = 36, D5 = 35, A6 = 40, E7 = 52, F7 = 53, B8 = 57;
 const cannot = /^Not allowed: the pawn cannot take the knight on a6\./m;
-/** The first words of each refusal line (src/main.ts whyNot and onSquare). */
-const refusal = /^(Not allowed|Your king is in check|Choose one|This \w+ has no legal move|That )/m;
 
 export default async function ({ open }) {
   for (const size of ['desktop', 'phone']) {
@@ -21,7 +19,7 @@ export default async function ({ open }) {
 
     await tap(A6);
     assert.match(await text('#info'), /Black knight/, `${size}: a tap on an enemy piece shows its card`);
-    assert.doesNotMatch(await contextText(page), refusal, `${size}: with no piece selected, a tap on an enemy piece gives no refusal`);
+    assert.equal(await refusalText(page), '', `${size}: with no piece selected, a tap on an enemy piece gives no refusal`);
 
     await tap(E4);
     assert.match(await text('#info'), /White pawn/);
@@ -36,14 +34,13 @@ export default async function ({ open }) {
       await tap(E4); await tap(E4); // select the pawn, then clear it: no piece selected, no card chosen
       const board = await page.locator('#board canvas').boundingBox();
       await page.mouse.move(board.x / 2, board.y + board.height / 2); // the pointer leaves the board, to its left
-      await openMenu(page); await menuItem(page, 'New game').focus();
-      await page.keyboard.press('Shift+Tab'); // the board: the cursor starts on e2
+      await focusBoard(page); // the cursor starts on e2
       const keys = async (...list) => { for (const key of list) await page.keyboard.press(key); };
       await keys('ArrowLeft', 'ArrowLeft', 'ArrowLeft', 'ArrowLeft', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp');
       assert.match(await text('#cursor-say'), /^a6, black knight$/);
       await page.keyboard.press('Enter');
       assert.match(await text('#info'), /Black knight/, 'keyboard: Enter on an enemy piece shows its card');
-      assert.doesNotMatch(await contextText(page), refusal, 'keyboard: with no piece selected, no refusal');
+      assert.equal(await refusalText(page), '', 'keyboard: with no piece selected, no refusal');
       assert.match(await text('#cursor-say'), /^a6, black knight\. Moves in an L/, 'keyboard: the card is said');
       await keys('ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowDown', 'Enter'); // select the pawn on e4
       assert.match(await text('#cursor-say'), /^e4 selected\./);
@@ -52,7 +49,7 @@ export default async function ({ open }) {
       assert.match(await contextText(page), cannot, 'keyboard: the reason stays');
       assert.equal(await selecting(), false, 'keyboard: Enter clears the selection');
       assert.match(await text('#cursor-say'), /^a6, black knight\. Moves in an L/);
-      await openMenu(page); await menuItem(page, 'New game').focus(); // the board loses the focus, and the cursor goes
+      await leaveBoard(page); // the cursor goes
     }
 
     await tap(E4); await tap(D5);
@@ -80,7 +77,7 @@ export default async function ({ open }) {
     // The computer thinks: Strong with a long thinking time, so the tap comes during the search.
     let { page, tap, close } = await open({ size, save: { back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'ai', sound: false, skill: 'strong', think: 4000 } });
     await tap(E2); await tap(E4);
-    await waitForUi(page, ui => /^thinking…$/m.test(ui.context));
+    await waitForUi(page, ui => ui.thinking);
     await tap(B8);
     assert.match(await page.textContent('#info'), /Black knight/, `${size}: a tap while the computer thinks shows the card`);
     assert.match(await contextText(page), /^The computer is thinking\. Wait for its move\.$/m);

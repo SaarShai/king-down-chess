@@ -1,7 +1,7 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { contextText, lanMoves, menuItem, moveRow, openMenu, openMoves, pressMenu, waitForUi } from './app-ui.mjs';
+import { contextText, lanMoves, moveRow, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = new URL(env('PLAYABLE_URL'));
@@ -30,7 +30,7 @@ try {
   let last = -1, stalls = 0, taken = 0;
   for (let i = 0; i < 120; i++) {
     await page.waitForTimeout(1500);
-    const n = await plies(page), over = await page.evaluate(() => document.getElementById('over').open) || /wins|draw|Draw|Stalemate/.test(await contextText(page));
+    const n = await plies(page), over = await page.evaluate(() => document.getElementById('over').open) || (await resultText(page)) !== '';
     taken = await captures();
     if (over || (n >= 60 && taken > 0)) { console.log(`ok computer game: ${n} plies${over ? ', finished' : ''}`); break; }
     stalls = n === last ? stalls + 1 : 0; last = n;
@@ -50,9 +50,9 @@ try {
   const rook = await page.evaluate(() => window.view.screenOf(0)), mate = await page.evaluate(() => window.view.screenOf(56));
   await page.mouse.click(rook.x, rook.y); await page.mouse.click(mate.x, mate.y); // Ra1-a8 mates
   await page.waitForFunction(() => document.getElementById('over').open, null, { timeout: 10000 });
-  await assert.rejects(menuItem(page, 'New game').click({ timeout: 1000 }), 'the open result window covers the panel');
+  await assert.rejects(pressMenu(page, 'New game', { timeout: 1000 }), 'the open result window covers the panel');
   await page.click('#over button[value="close"]');
-  await openMenu(page); await menuItem(page, 'New game').click({ timeout: 2000 });
+  await pressMenu(page, 'New game', { timeout: 2000 });
   assert.ok(await page.evaluate(() => document.getElementById('new-game').open), 'the panel works after the result window closes');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.getElementById('new-game').open);

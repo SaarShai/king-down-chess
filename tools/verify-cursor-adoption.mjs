@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { contextText, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
+import { boardHelp, contextText, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 
@@ -26,13 +26,6 @@ await page.addInitScript(() => {
     postMessage(message, ...rest) { window.searchRequests.push(message.opts); return super.postMessage(message, ...rest); }
   };
 });
-/** Settings controls sit in a dialog: open it, act, close it if still open. New game: tools/new-game-ui.mjs. */
-async function ui(action, sel, ...args) {
-  const id = await page.evaluate(sel => document.querySelector(sel).closest('dialog')?.id, sel);
-  if (id) await pressMenu(page, id === 'new-game' ? 'New game' : 'Settings');
-  await page[action](sel, ...args);
-  if (id && await page.evaluate(id => document.getElementById(id).open, id)) await page.keyboard.press('Escape');
-}
 async function ready() {
   await page.waitForFunction(() => window.view?.pieces.size > 0);
   await page.evaluate(() => window.view.ready());
@@ -89,7 +82,7 @@ try {
   assert.equal(await page.locator('#sound').isChecked(), false);
   await click(52); await click(36); await played(2);
   assert.equal(await page.evaluate(() => window.audioContexts), 0, 'muted reload must not create an audio context');
-  await startGame(page, { mode: 'computer', level: 'casual', army: 'classic' }); await ready(); await ui('check', '#queen');
+  await startGame(page, { mode: 'computer', level: 'casual', army: 'classic' }); await ready(); await boardHelp(page, () => page.check('#queen'));
   await page.reload(); await ready();
   assert.equal(await savedSkill(), 'casual');
   assert.equal(await dialogLevel(), 'casual', 'New game remembers the level');
@@ -155,12 +148,13 @@ try {
   checks.push('guide and promotion text follow current, 2017 and 2021 presets');
 
   await seed('7k/8/8/2p5/8/2A5/8/4K3 w - - 0 1');
+  const rest = await contextText(page); // the words before the shot
   await click(18); await click(34); await played(1);
   assert.match(await contextText(page), /archer shot/);
   await page.reload(); await ready();
   assert.match(await contextText(page), /archer shot/);
   await page.click('#undo'); await played(0);
-  assert.doesNotMatch(await contextText(page), /archer shot/);
+  assert.equal(await contextText(page), rest, 'Undo takes back the words of the shot');
   await click(18); await click(34); await played(1);
   assert.match(await contextText(page), /archer shot/);
   checks.push('move explanations reconstruct from saved history and return after undo/replay');

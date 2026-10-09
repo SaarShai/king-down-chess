@@ -1,7 +1,7 @@
 // D-3: in review, the piece card, the keyboard cursor and the captured rows read the viewed move;
 // back at the live move they read the live game again.
 import assert from 'node:assert/strict';
-import { menuItem, moveRow, openMenu, openMoves, waitForUi } from '../app-ui.mjs';
+import { focusBoard, moveRow, openMoves, waitForUi } from '../app-ui.mjs';
 
 // White takes on d5 at ply 3. Review at ply 2 shows the white pawn on e4 and the black pawn on d5.
 const save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'd7-d5', 'e4xd5', 'Ng8-f6'], white: 'human', black: 'ai', sound: false, skill: 'club' };
@@ -29,9 +29,7 @@ export default async function ({ open }) {
       assert.match(await card(E4), /White pawn/, 'review: the card of e4 reads the viewed board');
       const board = await page.locator('#board canvas').boundingBox();
       await page.mouse.move(board.x / 2, board.y + board.height / 2); // the pointer leaves the board, to its left
-      // Shift+Tab from the first menu button moves the keyboard focus to the board: the cursor shows on e2.
-      await openMenu(page); await menuItem(page, 'New game').focus();
-      await page.keyboard.press('Shift+Tab');
+      await focusBoard(page); // the keyboard focus on the board: the cursor shows on e2
       assert.match(await say(), /^e2, empty/);
       await page.keyboard.press('ArrowUp'); await page.keyboard.press('ArrowUp');
       assert.match(await say(), /^e4, white pawn/, 'review: the cursor reads the viewed board on e4');
@@ -46,8 +44,7 @@ export default async function ({ open }) {
       await openMoves(page); await moveRow(page, 2).click(); // the click takes the focus from the board, and the cursor goes
       await turn(page, /^Reviewing after 1… d7-d5/);
       await page.mouse.move(board.x / 2, board.y + board.height / 2);
-      await openMenu(page); await menuItem(page, 'New game').focus();
-      await page.keyboard.press('Shift+Tab');
+      await focusBoard(page);
       for (const key of ['ArrowUp', 'ArrowUp', 'ArrowLeft', 'ArrowUp']) await page.keyboard.press(key);
       assert.match(await say(), /^d5, black pawn/, 'review: the cursor reads the viewed board on d5');
       await page.keyboard.press('Escape');

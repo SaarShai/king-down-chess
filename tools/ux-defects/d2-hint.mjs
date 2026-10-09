@@ -4,7 +4,7 @@
 // is best, Hint says so. Esc during the search keeps the power off. With Always promote to queen, Hint does
 // not suggest an underpromotion, because the board plays the queen there.
 import assert from 'node:assert/strict';
-import { contextText, lanMoves, pressMenu, waitForUi } from '../app-ui.mjs';
+import { boardHelp, contextText, lanMoves, pressMenu, waitForUi } from '../app-ui.mjs';
 
 const STRIKE = '?kings=flame:strike,none&fen=' + encodeURIComponent('2b4k/2P3pp/2R5/8/8/8/8/K7 w - - 0 1'); // Strike Rc6-e8 mates
 const HASTE = '?kings=flame:haste,none&fen=';
@@ -112,7 +112,7 @@ export default async function ({ open }) {
   {
     const { page, tap, close } = await open({ query: QUEEN });
     assert.deepEqual(await hint(page), [52, 60], 'promotion: Hint does not mark the e7-e8 fork'); // e7-e8=N, and the picker offers the knight
-    await pressMenu(page, 'Settings'); await page.check('#queen'); await page.keyboard.press('Escape');
+    await boardHelp(page, () => page.check('#queen'));
     const squares = await hint(page);
     assert.notEqual(squares[0], 52, `Always promote to queen: Hint marks [${squares}], and the board plays e7-e8=Q there`);
     await follow(page, tap, squares, /^[^=]+$/, 'Always promote to queen');
