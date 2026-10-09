@@ -10,6 +10,7 @@ export const checks = [
   { name: 'link-game', script: 'tools/verify-turn.mjs', args: ['link'], limit: 180 },
   { name: 'game-screen', script: 'tools/verify-game-screen.mjs', limit: 240 },
   { name: 'menu-extra', script: 'tools/verify-menu-extra.mjs', limit: 240 },
+  { name: 'home', script: 'tools/verify-home.mjs', limit: 180 },
   { name: 'account', script: 'tools/verify-account.mjs', limit: 180 },
   { name: 'cursor-adoption', script: 'tools/verify-cursor-adoption.mjs', limit: 240, channel: 'chromium' },
   { name: 'king-effects', script: 'tools/verify-king-effects.mjs', limit: 240 },

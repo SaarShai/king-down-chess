@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardHelp, contextText, titleStart, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
+import { boardHelp, contextText, titleStart, arriveContinue, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from '../../tools/lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -56,26 +56,27 @@ try {
   ok('title: one Start deals QRNAKBBS, then Guide opens lessons; a reload skips the title');
   await page.context().close();
 
-  // Returning player: Continue resumes the saved game; Play opens New game.
+  // Returning player: Home keeps the saved board; New game opens the sheet.
   const save = { back: 'RNBQKBNR', fen: START, moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', sound: false };
   page = await open('', { skipTitle: false, save });
-  assert.equal(await page.locator('#title-continue').isVisible(), true);
-  assert.match(await page.locator('#title-continue').innerText(), /Continue · move 2/);
-  assert.equal(await page.locator('#title-learn').evaluate(b => b.classList.contains('primary')), false, 'Learn does not lead for a returning player');
-  await page.click('#title-continue');
+  assert.equal(await arriveContinue(page).isVisible(), true);
+  assert.match(await arriveContinue(page).innerText(), /Continue/);
+  assert.equal(await page.locator('#home-progress').innerText(), 'Move 2', 'Home shows the saved move');
+  await arriveContinue(page).click();
   assert.equal(await titleOpen(page), false);
   assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   await page.context().close();
-  // Play with the computer to move: it waits while New game is open, and moves once it is closed.
+  // The computer waits on Home and behind New game. Continue starts it.
   page = await open('', { skipTitle: false, save: { ...save, moves: ['e2-e4'], skill: 'beginner', think: 200 } });
-  await page.click('#title-play');
+  await titleStart(page).click();
   await page.waitForFunction(() => document.getElementById('new-game').open);
   await page.waitForTimeout(2500); // the beginner computer answers in well under a second
   assert.equal((await lanMoves(page)).length, 1, 'the computer does not move behind New game');
   await page.keyboard.press('Escape');
+  await arriveContinue(page).click();
   await waitForUi(page, ui => ui.lan.length === 2, null, { timeout: 15000 });
   await page.context().close();
-  ok('title: Continue resumes the saved game, Play opens New game and the computer waits for it');
+  ok('Home: Continue resumes the saved game; New game opens the sheet; the computer waits for Continue');
 
   for (const q of ['?fen=' + encodeURIComponent(START), '?army=RNBQKBNR&moves=e2-e4', '?title=0']) {
     page = await open(q, { skipTitle: false });

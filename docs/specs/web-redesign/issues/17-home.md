@@ -41,3 +41,4 @@ Blocked by: 03, 05, 06 (the warn line), 11 (`storyLine`)
 - Phase 1 passes: `npm test` with the first-deal, Home and move-text files: 3 files, 15 tests. Typecheck passes. The temporary test script is restored.
 - Home reads the live game: Continue, staged turns, Rematch, review, player side, move number and the `describeMove` line. Links skip Home.
 - Phase 2 adds the Home view, Continue and board taps, Today, the W7 warn line, account refresh, the `home` check and samples. No replay or fold motion.
+- Phase 2 plan: add Home in the fixed table rows; reuse the live game, Menu and New game sheet. Verify five Home cases, affected title checks and six sample renders.

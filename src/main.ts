@@ -25,6 +25,8 @@ import './ui/table.css';
 import { initMenu } from './ui/menu';
 import { initTable, readPiece, refreshTable } from './ui/table';
 import { reviewStep } from './review';
+import { shouldShowHome } from './ui/home';
+import { initHome } from './ui/home-view';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -52,6 +54,7 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 // The adopted Q6 residual net: stronger play at the same time budget, validated before adoption.
 setEvaluator('residual');
 let game = new Game();
+let home: ReturnType<typeof initHome> | null = null;
 const engine = new Engine();
 /** `?look=painted|clay`, else the saved choice. Painted 2D is the default (owner, 2026-09-27). */
 const LOOK_KEY = 'kingdown.look';
@@ -518,6 +521,7 @@ function refresh(): void {
   refreshPowers();
   drawMarks();
   refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode() });
+  home?.refresh();
 }
 
 /** The power control arms the side to move's power. */
@@ -656,6 +660,7 @@ function noteLesson(name: string): void {
 
 /** A lesson: its position, both sides moved from this device, and nothing saved (the autosave keeps the real game). */
 function startLesson(i: number): void {
+  home?.close();
   $<HTMLDialogElement>('rules').close();
   if (lesson == null) {
     lessonReturn = { game, sides: [...sides], rules: { ...GAME_RULES }, resigned, linkSide, turnStart };
@@ -714,7 +719,7 @@ $('next-lesson').onclick = () => {
 const thinkMs = Number(params.get('think')) || undefined;
 
 async function maybeAi(): Promise<void> {
-  if (busy || finished() || currentTurn().staged > 0 || sides[game.pos.turn] !== 'ai') return;
+  if (home?.visible || busy || finished() || currentTurn().staged > 0 || sides[game.pos.turn] !== 'ai') return;
   busy = thinking = true;
   refresh();
   const g = gen;
@@ -837,6 +842,7 @@ view.onDragSelect = (sq) => {
 const refuse = (why: string, sq: number): void => { inspected = shownPos().board[sq] ? sq : null; notice = why; refresh(); };
 
 view.onSquareClick = (sq, shift = false) => {
+  if (home?.visible) home.resume();
   if (busy) { if (thinking) refuse('The computer is thinking. Wait for its move.', sq); view.skip(); return; } // a tap during an animation skips it
   if (viewing != null) { refuse('', sq); return; }
   if (ended()) return refuse(lesson != null ? '' : 'The game is over. Start a new game.', sq);
@@ -928,6 +934,7 @@ $('show-me').onclick = async () => {
  * `replay` is false; null returns to the live game. Not while a move or the computer is in progress.
  */
 async function showPly(n: number | null, replay = true): Promise<void> {
+  if (n != null) home?.close();
   const len = game.history.length, from = viewing ?? len, step = reviewStep(n, len);
   if ((busy && !replaying) || step.viewing === viewing) return;
   n = step.ply;
@@ -982,6 +989,7 @@ const orient = (): void => {
  * `players` overrides who plays (Ogre practice is for two people).
  */
 function newGame(backRank?: string, fen?: string | null, rematch = false, dailyDate: string | null = null, players?: [Side, Side]): void {
+  home?.close();
   $<HTMLDialogElement>('new-game').close(); // every army choice in the dialog starts here
   reset();
   if (!rematch) {
@@ -1332,6 +1340,15 @@ const openNewGame = (): void => dialog.open(setup, newGameWarning(
 $('new-game-btn').onclick = openNewGame;
 initMenu({ playAgain: () => newGame(randomBackRank()), today: () => dialog.open({ ...setup, army: 'daily' }), resignSide: resigner });
 initTable(() => { void showPly(null, false); });
+home = initHome({
+  read: () => ({ game, sides, level: skill, linkSide, staged: currentTurn().staged > 0, result: result() }),
+  continue: () => { refresh(); void maybeAi(); },
+  rematch: () => newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true),
+  review: () => void showPly(game.history.length, false),
+  newGame: openNewGame,
+  today: () => dialog.open({ ...setup, army: 'daily' }, newGameWarning(lessonReturn?.game ?? game, lessonReturn?.turnStart ?? turnStart, ended(lessonReturn ?? undefined))),
+});
+(window as unknown as Record<string, unknown>).home = home; // Samples read the live game, including a staged turn.
 $('rules-btn').onclick = () => {
   fillPieceGuide();
   $<HTMLDialogElement>('rules').showModal();
@@ -1364,7 +1381,7 @@ $('reset-view').onclick = () => view.resetView();
 addEventListener('keydown', e => {
   // No game key acts under a dialog: there Esc only closes the dialog (the Workshop's Esc closes its top sheet,
   // else an open choices panel, else the Workshop).
-  if (document.querySelector('dialog[open]')) return;
+  if (home?.visible || document.querySelector('dialog[open]')) return;
   if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; armed = false; hintSquares = []; refresh(); return; }
   // Nor in a field that takes typing.
   const field = e.target as HTMLElement;
@@ -1433,7 +1450,8 @@ if (urlPlayers?.length === 2 && urlPlayers.every(isSide)) [sides[0], sides[1]] =
  */
 const TITLE_SEEN = 'kingdown.title-seen';
 const titleSeen = (): boolean => { try { return sessionStorage.getItem(TITLE_SEEN) === '1'; } catch { return false; } };
-const showTitle = !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
+const showHome = !link && shouldShowHome(params, { hasSave: !!saved, titleSeen: titleSeen(), firstVisit: firstVisit(saved?.moves.length ?? 0) });
+const showTitle = !showHome && !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
 const titleClosed = showTitle ? openTitle(firstVisit(saved?.moves.length ?? 0), !!saved?.moves.length, () => pace.value) : Promise.resolve('continue' as const);
 
 // The playable game has one art direction; study controls stay in the study.
@@ -1483,6 +1501,7 @@ fillPieceGuide(); // after every setRules path (URL preset / save restore)
 setSound($<HTMLInputElement>('sound').checked);
 restoreMoments();
 refresh();
+if (showHome) home.open();
 if (!fen) save(); // pin the random back rank so a reload keeps this game (and keep an opened link's game)
 void import('./account/account').then(m => { account = m; m.changed(); m.startAccount(fromAccount); })
   .catch(() => { /* offline on a first visit: play on without an account */ });
@@ -1504,7 +1523,7 @@ else {
     openNewGame();
   }
   else {
-    if (ended()) showOver();
+    if (!home.visible && ended()) showOver();
     void maybeAi();
   }
 }

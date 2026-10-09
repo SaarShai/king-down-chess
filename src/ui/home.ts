@@ -2,6 +2,8 @@ import type { SkillName } from '../ai/skill';
 import type { Game, Side } from '../game';
 import { describeMove, nextMoveNumber } from '../move-text';
 import type { Color } from '../rules/engine';
+import { randomBackRank } from '../rules/setup';
+import { mulberry32 } from '../sim/rng';
 
 export interface HomeInput {
   game: Pick<Game, 'pos' | 'history' | 'status'>;
@@ -40,4 +42,11 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
 export function shouldShowHome(params: URLSearchParams, gate: { hasSave: boolean; titleSeen: boolean; firstVisit: boolean }): boolean {
   return gate.hasSave && !gate.titleSeen && !gate.firstVisit && params.get('title') !== '0'
     && !['army', 'fen', 'design'].some(key => params.has(key));
+}
+
+/** Today uses the local date and the same draw as New game. */
+export function todayDeal(day: Date) {
+  const date = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+  const words = day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
+  return { date, label: `Today's army · ${words}`, army: randomBackRank(mulberry32(+date.replace(/-/g, ''))) };
 }

@@ -9,16 +9,20 @@ export function menuItem(page, name) {
   return page.locator(MENU[name]);
 }
 
-/** The first visit has one Start. Later visits keep Play until Home joins the table. */
+/** The first visit has one Start. A returning game opens Home. */
 export function titleStart(page) {
-  return page.locator('#title-start:visible, #title-play:visible').first();
+  return page.locator('#title-start:visible, #title-play:visible, #home-new:visible').first();
 }
 
 /** Learn opens from Guide after the first deal; a returning title still has Learn. */
+export function arriveContinue(page) {
+  return page.locator('#home-main:visible, #title-continue:visible').first();
+}
+
 export async function learnFromTitle(page, { tap = false } = {}) {
   const learn = page.locator('#title-learn');
   if (await learn.isVisible()) { await (tap ? learn.tap() : learn.click()); return; }
-  await (tap ? titleStart(page).tap() : titleStart(page).click());
+  if (!await page.locator('#home-head').isVisible()) await (tap ? titleStart(page).tap() : titleStart(page).click());
   await page.waitForFunction(() => !document.getElementById('title-screen').open);
   await pressMenu(page, 'Guide', { tap });
   await (tap ? page.locator('#learn').tap() : page.locator('#learn').click());

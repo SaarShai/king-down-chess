@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { Game } from '../game';
 import { setRules } from '../rules/engine';
-import { homeState, shouldShowHome, type HomeInput } from './home';
+import { homeState, shouldShowHome, todayDeal, type HomeInput } from './home';
 
 afterEach(() => setRules());
 const state = (game: Game, changes: Partial<HomeInput> = {}) => homeState({
@@ -73,4 +73,10 @@ it('opens Home once for a save and keeps position links clear', () => {
   for (const query of ['title=0', 'army=QRNAKBBS', 'army=QRNAKBBS&moves=e2-e4', 'fen=position', 'design=piece']) {
     expect(shouldShowHome(new URLSearchParams(query), gate), query).toBe(false);
   }
+});
+
+it('shows the local day and the real Today army', () => {
+  expect(todayDeal(new Date(2026, 9, 9, 12))).toEqual({
+    date: '2026-10-09', label: "Today's army · Fri 9 Oct", army: 'BKOGANAS',
+  });
 });
