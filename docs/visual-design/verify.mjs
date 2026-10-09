@@ -1,5 +1,6 @@
 // Checks the visual design pass in a real browser: title screen, keyboard play, move announcements,
-// Show threats, refusal messages, piece cards, phone tap targets, the title's piece lineup and the move markers.
+// Show threats, refusal messages, piece cards, phone tap targets, the title's piece lineup, the move markers and
+// the Quiet Table floor (light only, also in device dark mode).
 // Run: npm run check:browser visual-design (the result file checks.json goes to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -13,8 +14,8 @@ const checks = [];
 const ok = msg => { checks.push(msg); console.log(`ok ${msg}`); };
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
 
-async function open(query = '', { skipTitle = true, save = null, viewport = { width: 1280, height: 900 }, touch = false } = {}) {
-  const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch });
+async function open(query = '', { skipTitle = true, save = null, viewport = { width: 1280, height: 900 }, touch = false, scheme = 'light' } = {}) {
+  const ctx = await browser.newContext({ viewport, hasTouch: touch, isMobile: touch, colorScheme: scheme });
   await ctx.addInitScript(([skip, s]) => {
     if (skip) sessionStorage.setItem('kingdown.title-seen', '1');
     if (s && !sessionStorage.getItem('seeded')) { localStorage.setItem('kingdown.save', JSON.stringify(s)); sessionStorage.setItem('seeded', '1'); }
@@ -252,6 +253,46 @@ try {
   assert.ok(flight.powers > 0 && flight.powers === flight.moves, `Flight's squares are power marks (${flight.powers}/${flight.moves})`);
   await page.context().close();
   ok('markers: Archer targets are sights; an armed Flight marks its squares as power moves');
+
+  // 9. The Quiet Table (web redesign ticket 01): the page is light only. With the device in dark mode, the
+  // page, the first-visit title and the Workshop surround show the same parchment floor as in light mode, and
+  // the painted board's canvas is clear round its frame, so the floor shows there.
+  const background = (p, selector, pseudo = null) => p.evaluate(([s, ps]) => {
+    const c = getComputedStyle(document.querySelector(s), ps);
+    return `${c.backgroundColor} ${c.backgroundImage}`;
+  }, [selector, pseudo]);
+  const looks = {};
+  for (const scheme of ['light', 'dark']) {
+    page = await open('', { skipTitle: false, scheme });
+    assert.equal(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches), scheme === 'dark', `the device is in ${scheme} mode`);
+    assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), 'light only', `${scheme}: the computed color-scheme`);
+    assert.equal(await titleOpen(page), true, `${scheme}: the title on a first visit`);
+    const look = { body: await background(page, 'body'), title: await background(page, '#title-screen'), titleBackdrop: await background(page, '#title-screen', '::backdrop') };
+    await page.context().close();
+    page = await open('', { scheme });
+    await ready(page);
+    // A point inside the canvas, outside the board's frame: the top right corner, above the back rank.
+    const corner = await page.evaluate(() => {
+      const c = document.querySelector('#board canvas'), r = c.getBoundingClientRect(), x = Math.floor(r.right) - 4, y = Math.ceil(r.top) + 4;
+      const alpha = c.getContext('2d').getImageData(Math.floor((x - r.left) * c.width / r.width), Math.floor((y - r.top) * c.height / r.height), 1, 1).data[3];
+      return { x, y, alpha, board: getComputedStyle(document.getElementById('board')).backgroundColor };
+    });
+    assert.equal(corner.alpha, 0, `${scheme}: the canvas is clear outside the board's frame`);
+    assert.equal(corner.board, 'rgba(0, 0, 0, 0)', `${scheme}: the board area has no colour of its own`);
+    const pixel = () => page.screenshot({ clip: { x: corner.x, y: corner.y, width: 1, height: 1 } });
+    const shown = await pixel();
+    await page.evaluate(() => { document.querySelector('#board canvas').style.visibility = 'hidden'; });
+    assert.ok(shown.equals(await pixel()), `${scheme}: outside the frame the screen shows the floor under the canvas`);
+    await page.evaluate(() => { document.querySelector('#board canvas').style.visibility = ''; });
+    await pressMenu(page, 'Workshop');
+    await page.locator('#workshop').waitFor();
+    look.workshopBackdrop = await background(page, '#workshop', '::backdrop');
+    looks[scheme] = look;
+    await page.context().close();
+  }
+  for (const [part, value] of Object.entries(looks.light)) assert.match(value, /^rgb\(242, 233, 214\) radial-gradient\(/, `${part}: the parchment floor`);
+  assert.deepEqual(looks.dark, looks.light, 'dark mode: the same floor under the page, the title and the Workshop');
+  ok('Quiet Table: color-scheme "light only"; in light and dark mode the page, the title, its backdrop and the Workshop backdrop show the parchment floor; the canvas is clear outside the board frame');
 
   assertNoErrors();
   const out = env('PLAYABLE_OUT');
