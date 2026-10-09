@@ -24,11 +24,47 @@ The owner gives the UI and UX redesign to the agents for seven hours (2026-10-08
 
 Published: https://claude.ai/artifact/TyrdpKYCGGuf4dHfhv7Ki3 (private). Rebuild with `node docs/specs/web-ux/showcase/build.mjs`, then publish `dist/` with `index.html` as the page; one version holds at most 511 files, so `build.mjs` keeps only the stills that the deck shows.
 
+## Owner choices
+
+The owner's choices, 2026-10-08, to register only ("don't start yet, just register"):
+
+- **Reading a piece (`f-read`): A, Tap to read.** Our pick was A and B together, so Hold to read (B) is out.
+- **Your move (`f-verbs`): A, Verb marks.** The same as our pick.
+- **Their turn (`f-their-turn`): A, The tell.** The same as our pick.
+- **King powers (`f-powers`): B, A coin by the portrait.** Our pick and the pick of both advisors was A, the tile with words. The coin shows no name. Proposal: a tap on the coin reads the power and its state ("Freeze · 1 left") in the tap-to-read line.
+
+- **The move history at rest: A, One line.** The same as our pick.
+- **Undo: rewind, with no words.** The owner chose "Undo plays the moves backward but doesn't say what it takes back." A player can undo only before the other player takes their turn; after that, the move stays. Against the computer, this means Undo works only until the computer's reply starts.
+- **No Hint.** The Hint button goes from the game screen.
+- **The end of a game: B, Ceremony.** Our pick was A, quiet.
+- **The first minute: a plain Start button.** The owner first chose A, Take your first shot, then removed it. No first-shot lesson; the first visit shows one Start button.
+
+- **Home (`f-home`): A, The table.** The same as our pick.
+- **Starting a game (`f-new`): A, One short sheet.** The same as our pick.
+- **Menu and Extra (`f-menu`): C, Index and Tricks.** The same as our pick.
+- **Lessons (`f-lessons`): A, Piece shelf.** The same as our pick.
+- **Sharing (`f-share`): parked.** No work on sharing for now. This parks the decision "Sharing words" and the idea "Try this turn" too.
+
+- **Card mode (`u-cards`): C, Coins by the king.** Our pick was A, the folded hand. In a game with kings' powers and cards, the first coin is the power, and it is bound to the king's icon in the drawing. This agrees with the coin by the portrait for powers.
+- **Unlocks (`u-crowns`): parked.** The owner works on unlocks separately; how they work is not decided.
+- **Online play (`u-online`): A, Previously.** The same as our pick.
+- **Workshop sharing (`u-workshop`): A, Card.** The same as our pick. Custom pieces travel as cards. This stays in, outside the sharing park.
+
+- **Where to build: the real app**, in steps, one pull request per step.
+- **The base look: the Quiet Table only.** No dark stage, also when the device is in dark mode.
+- **Undo and the turn button.** A button plays (submits) the turn and gives the other player their turn. Undo works only before the player presses it. It applies in all modes: the computer, two players on one device, and online.
+- **The ceremony: our pick** (`feat-king-down` B, "Ceremony"): the final blow again at half speed, the king falls, "King Down" settles in, three tiles rise.
+
+- **The first deal: B, a chosen seed.** The first game draws a chosen army with an Archer and a Beast.
+- **The other picks: ours, for now** (the owner can change them later): levels in words, with no faces; the second look as an opt-in practice aid; Warm joy, with no dial.
+
+When the work starts: the decisions "Reading a piece" and "The power control" take these answers, and the path step "The power tile in words" becomes "The coin by the portrait", "Hint, Undo, Menu" becomes "Undo, Menu", and the prototype's whole-turn Undo changes to the owner's rule. The deck shows them on its next publish.
+
 ## Next round (from the advisors)
 
 - The prototype's Home from `feat-home` A; Retry and Tricks in the prototype.
 - One set of marks in the kit (step, take, shot, shove, swap); Check stays in view while a player reads or selects.
-- Shorter power effects (250 to 350 ms), no tell delay, no king shake.
+- Shorter power effects (250 to 350 ms) and no king shake. The tell stays (the owner's choice), inside the normal move time.
 - A Review state for old moves.
 - Proof screens: every power's full turn, promotion, draws, two players on one phone, link-game safety, a keyboard and screen-reader journey.
 - Rule text still to fix: Mercy, Holy Light and the Beast's chain limit in the prototype; Darkness, Mercy and Haste in `feat-new-game`; the spent Strike in `dir-pocket` `end` and `future-online` `result`; the `feat-king-down` recap from one real game.

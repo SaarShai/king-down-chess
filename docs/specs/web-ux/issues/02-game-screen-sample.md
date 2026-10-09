@@ -1,6 +1,6 @@
 # Rendered sample of the new game screen
 
-Status: ready-for-agent
+Status: wontfix. The owner's showcase choices of 2026-10-08 replace this static sample; the build follows docs/specs/web-redesign/spec.md on main.
 
 Owner, 2026-10-08: "yes, do both." The sample follows the picks of the [review](../review.md): the agreed changes 1–3, 9, 10, 16 and 17, the [proposed game screen](../review.md#4-the-proposed-game-screen), W2 C (phone bar, desktop quiet toolbar), W10 B (type and buttons) and W11 B (last move).
 
