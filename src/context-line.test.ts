@@ -77,3 +77,9 @@ describe('contextLine', () => {
     expect(contextLine({ voice: 'you', lesson: 'Lesson 1: Archer.', lessonNote: 'Well done.', waiting: true, check: true, turnLine: 'Tap End turn.' })).toMatchObject({ rank: 'lesson', line: 'Well done.', note: '' });
   });
 });
+
+it('keeps the chain status below the next bite', () => {
+  expect(contextLine({ voice: 'you', chain: true, canStop: true, readNote: 'Steps to empty squares beside it.' })).toMatchObject({
+    rank: 'chain', line: 'Bite again, or stop here.', note: 'Nothing moves until you stop.', actions: ['stop-chain'],
+  });
+});

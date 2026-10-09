@@ -22,7 +22,7 @@ export function renderLessonShelf(container: HTMLElement, store: LessonStore): v
   </section>`;
 }
 
-function progress(): LessonProgress {
+export function progress(): LessonProgress {
   try { return readLessonStore(localStorage.getItem('kingdown.lessons')); }
   catch { return {}; }
 }

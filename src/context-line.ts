@@ -31,7 +31,7 @@ export function contextLine(s: ContextState): ContextLine {
     const [instruction, cause] = words[s.armed] ?? ['Choose a piece, then a marked square.', ''];
     return line('armed', s.armedLine || instruction, s.armedLine ? instruction : cause, ['power-cancel']);
   }
-  if (s.chain) return line('chain', s.canStop ? 'Bite again, or stop here.' : 'Bite again.', s.readNote, s.canStop ? ['stop-chain'] : []);
+  if (s.chain) return line('chain', s.canStop ? 'Bite again, or stop here.' : 'Bite again.', 'Nothing moves until you stop.', s.canStop ? ['stop-chain'] : []);
   if (s.read) return line('read', s.read, s.readNote, s.powerUse ? ['power-use'] : []);
   if (!s.lesson && s.midWay) return line('mid-way', s.turnLine || (s.free ? 'Make your move, or tap End turn.' : 'Move it again, or tap End turn.'));
   if (s.selected) return line('selected', s.selected, s.readNote);

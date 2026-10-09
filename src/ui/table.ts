@@ -18,18 +18,20 @@ let thinkingAt = 0, thinkTimer: ReturnType<typeof setTimeout> | undefined;
 export function readPiece(pos: Position, sq: number | null, inspecting: boolean): void {
   const code = sq == null ? 0 : pos.board[sq];
   const [line = '', states = ''] = sq == null ? [] : readText(pos, sq).split('\n');
-  read = code ? `${colorOf(code) ? 'Black' : 'White'} ${NAMES[typeOf(code)]}.${states ? ` ${states}` : ''}` : '';
+  read = code ? `${colorOf(code) ? 'Black' : 'White'} ${NAMES[typeOf(code)]}.${states ? ` ${states}.` : ''}` : '';
   readNote = line.split(' · ')[1] ?? '';
   reading = inspecting;
   const button = $('all-rules');
   button.hidden = !code;
-  button.onclick = () => {
-    $('rules-btn').click();
-    const card = document.querySelector<HTMLElement>(`#rules-rows .piece-card[data-piece="${NAMES[typeOf(code)]}"]`);
-    card?.setAttribute('tabindex', '-1');
-    card?.focus();
-    card?.scrollIntoView({ block: 'center' });
-  };
+  button.onclick = () => openRules(`#rules-rows .piece-card[data-piece="${NAMES[typeOf(code)]}"]`);
+}
+
+function openRules(selector: string): void {
+  $('rules-btn').click();
+  const row = document.querySelector<HTMLElement>(selector);
+  row?.setAttribute('tabindex', '-1');
+  row?.focus();
+  row?.scrollIntoView({ block: 'center' });
 }
 
 export function initTable(back: () => void): void {
@@ -105,7 +107,7 @@ export function refreshTable(s: TableState): void {
     free: !!s.game.pos.free,
     selected: s.selected == null ? '' : read,
     waiting: s.turn.waits, check: s.game.inCheck, computer: s.sides[s.game.pos.turn] === 'ai',
-    checkCause: s.game.inCheck && !s.turn.staged ? checkCause(s.game.pos, history.at(-1)?.move) : '',
+    checkCause: s.game.inCheck && !s.turn.staged ? checkCause(s.game.pos, history.at(-1)?.move, s.mode) : '',
     turnLine: turnLine(s.game, s.turn, s.mode),
     stagedEnd: s.turn.staged && s.game.status !== 'playing' ? s.game.status === 'checkmate' ? 'Checkmate.' : 'Draw.' : '',
     lesson: s.lesson == null ? '' : text('turn'), lessonNote: s.lesson == null ? '' : text('moment'),
@@ -114,7 +116,11 @@ export function refreshTable(s: TableState): void {
     asset: text('asset-status'),
     previously: s.previously?.line, previouslyBefore: s.previously?.before ?? '', seeAgain: s.previously?.seeAgain,
   };
-  $('all-rules').hidden ||= !!s.pending.length;
+  if (s.power?.power && !s.armed) {
+    $('all-rules').hidden = false;
+    $('all-rules').onclick = () => openRules(`#powers-list [data-power="${s.power!.power}"]`);
+  }
+  $('all-rules').hidden ||= !!s.pending.length || s.armed;
   const line = contextLine(state);
   $('context-text').replaceChildren(...[line.before ?? '', line.line, line.note].filter(Boolean).map((words, i) => {
     const row = document.createElement('span');

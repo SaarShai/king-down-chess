@@ -39,10 +39,25 @@ const ARCHER_SHOT_TEXT: Record<ArcherShots, string> = {
   plusDiagFwd2Clear: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2, through blockers) plus either forward diagonal at distance 2, over an empty square.',
   fwd2NoBack: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or to the side, or either forward diagonal at distance 2, through blockers.',
   fwd2NoSide: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or behind, or either forward diagonal at distance 2, through blockers.',
-  far2: 'Shoots without moving: an enemy exactly 2 squares away orthogonally, or on either forward diagonal at distance 2, through blockers.',
+  far2: 'Shoots without moving. It takes an enemy 2 squares away in a straight line, or 2 squares away on a forward diagonal. The shot goes over pieces.',
   over2: 'Shoots without moving: an enemy exactly 2 squares away orthogonally, or on either forward diagonal at distance 2, only over a piece on the square between.',
   nearOver2: 'Shoots without moving: an enemy diagonally adjacent, or exactly 2 squares away orthogonally or on either forward diagonal, only over a piece on the square between.',
   fwdNearOver2: 'Shoots without moving: an enemy on either forward diagonal next to it, or exactly 2 squares away orthogonally or on either forward diagonal, only over a piece on the square between.',
+};
+
+const ARCHER_READ: Record<ArcherShots, string> = {
+  classic: 'Shoots near diagonals or 2 squares straight.',
+  plusDiag2: 'Shoots also on distant backward diagonals.',
+  ring2: 'Shoots anywhere on the second ring.',
+  forward3: 'Shoots only ahead, without moving.',
+  plusDiagFwd2: 'Shoots also on distant forward diagonals.',
+  plusDiagFwd2Clear: 'Far forward diagonal shots need an empty middle.',
+  fwd2NoBack: 'Shoots forward diagonals, never straight back.',
+  fwd2NoSide: 'Shoots forward diagonals, never sideways.',
+  far2: 'Shoots 2 squares straight or diagonally forward.',
+  over2: 'Shoots distant enemies only over a piece.',
+  nearOver2: 'Shoots near diagonals; distant shots need a piece.',
+  fwdNearOver2: 'Shoots forward diagonals; far shots need a piece.',
 };
 
 /** One guide for both the dialog table and the hover card — reads live rules and POOL. */
@@ -76,24 +91,24 @@ export function pieceGuide(t: PieceType): GuideRow {
       return {
         moves: step,
         captures: ARCHER_SHOT_TEXT[r.archerShots],
-        special: 'Never captures by moving onto a piece. ' + (r.archerChecks ? 'Gives check the same way it shoots.' : 'Cannot capture a king or give check.'),
+        special: 'Never takes by moving onto a piece. ' + (r.archerChecks ? 'Gives check the same way it shoots.' : 'Cannot take a king or give check.'),
       };
     }
     case L: {
-      const die = r.paladinKamikaze === 'always' ? 'Removed after capturing anything.'
-        : r.paladinKamikaze === 'never' ? 'Survives its own captures.'
-        : 'Removed after capturing anything but a pawn.';
+      const die = r.paladinKamikaze === 'always' ? 'Leaves the board after each take.'
+        : r.paladinKamikaze === 'never' ? 'Stays on the board after each take.'
+        : 'Leaves the board after a take, except a pawn.';
       const check = r.paladinChecks
-        ? 'May capture a king (gives check).'
-        : 'Cannot capture a king (never gives check).';
+        ? 'Can take a king (gives check).'
+        : 'Cannot take a king (never gives check).';
       const promo = r.promotionSet === 'anyNonKing' || r.promotionSet === 'anyNonKingNoGuard';
       const draw = POOL.includes('L')
-        ? 'In the random draw.'
+        ? 'It is in the random draw.'
         : promo
           ? 'Not in the random draw. Custom setup, FEN, and promotion can still use it.'
           : 'Not in the random draw. Custom setup and FEN can still place it. A pawn does not promote to it.';
       return {
-        moves: 'Moves like a queen, jumping own pieces.',
+        moves: 'Moves like a queen. Jumps over its own pieces.',
         captures: 'Takes by moving onto the enemy.',
         special: `${check} ${die} ${draw}`,
       };
@@ -101,18 +116,18 @@ export function pieceGuide(t: PieceType): GuideRow {
     case G:
       return {
         moves: 'Steps to empty squares beside it.',
-        captures: 'Cannot capture.',
-        special: 'Immortal wall: cannot be captured, except by a king.',
+        captures: 'Cannot take.',
+        special: 'Only a king can take it.',
       };
     case M: {
       const long = r.maesterLongSwap
-        ? ' Maester + own king both on their home rank: swap at any distance.'
+        ? ' It can swap with your king at any distance when both are on their first rank.'
         : '';
       const any = r.maesterSwapAny ? ' Swaps with any friendly piece anywhere.' : '';
       return {
         moves: 'Moves 1 square in any direction.',
         captures: 'Takes an adjacent enemy.',
-        special: `Onto an own piece = swap places.${long}${any}`,
+        special: `Move onto your own piece to swap places.${long}${any}`,
       };
     }
     case S: {
@@ -128,17 +143,17 @@ export function pieceGuide(t: PieceType): GuideRow {
       return {
         moves: step,
         captures: take,
-        special: r.beastChains ? 'May keep capturing from each new square (never a king as a continuation). Click victims in order; "Stop here" ends early.' : 'One capture per turn.',
+        special: r.beastChains ? 'After a bite, it can bite again from its new square. A chain cannot continue onto a king. Tap each piece to bite. Tap "Stop here" to end the chain.' : 'One bite per turn.',
       };
     }
     case O: {
       const shove = r.ogreMode === 'push'
-        ? 'Shove: the ogre steps into the square the neighbour left.'
-        : 'Repel: the neighbour moves away and the ogre stays.';
+        ? 'The Ogre steps into its place.'
+        : 'The Ogre stays in place.';
       return {
         moves: 'Moves 1 square in any direction.',
-        captures: 'Takes by moving onto the enemy (a guard excepted).',
-        special: `Instead it may shove an adjacent piece 1 square away. Tap the neighbour; choose Capture or Shove when both are legal. Shift-click is a shove shortcut. ${shove} Kings are never shoved. Guards can be shoved. A shove is not a capture.`,
+        captures: 'Takes an enemy beside it, except a Guard.',
+        special: `It can shove a neighbour 1 square away. ${shove} It can shove a Guard, but not a king. A shove takes no piece.`,
       };
     }
     case C:
@@ -149,13 +164,13 @@ export function pieceGuide(t: PieceType): GuideRow {
       };
     case V:
       return {
-        moves: 'Moves like a knight. After a capture it may step one square onto an empty square as part of the same move.',
-        captures: 'Takes like a knight; the step after never captures.',
-        special: 'Click the victim, then the landing square.',
+        moves: 'Moves like a knight. After a take it can step one square onto an empty square as part of the same move.',
+        captures: 'Takes like a knight; the step after never takes.',
+        special: 'Tap the enemy piece, then the landing square.',
       };
     case T:
       return {
-        moves: 'Moves 1 square in any direction. On a capital square (d4 e4 d5 e5) it moves and captures like a queen.',
+        moves: 'Moves 1 square in any direction. On a capital square (d4 e4 d5 e5) it moves and takes like a queen.',
         captures: 'Takes by moving onto the enemy.',
         special: '',
       };
@@ -165,11 +180,23 @@ export function pieceGuide(t: PieceType): GuideRow {
 }
 
 
-/** The first guide sentence, for the fixed read line. */
+/** A short rule sentence for the fixed read line. */
 export function readText(pos: Position, sq: number): string {
   const code = pos.board[sq];
   if (!code) return '';
-  const t = typeOf(code), first = pieceGuide(t).moves.split(/(?<=[.!?])\s/)[0];
+  const t = typeOf(code), r = GAME_RULES;
+  const special: Partial<Record<PieceType, string>> = {
+    [A]: ARCHER_READ[r.archerShots],
+    [L]: r.paladinJumpsFriends ? 'Jumps over its own pieces.' : 'Moves like a queen.',
+    [G]: r.guardImmune ? 'Only a king can take it.' : pieceGuide(G).captures,
+    [M]: 'Swaps places with your own piece.',
+    [S]: r.beastChains ? 'Can bite again after a bite.' : 'One bite per turn.',
+    [O]: 'Can shove a neighbour.',
+    [C]: 'Takes beyond an enemy piece.',
+    [V]: 'Can step after a take.',
+    [T]: 'Moves like a queen on capital squares.',
+  };
+  const first = special[t] ?? pieceGuide(t).moves.split(/(?<=[.!?])\s/)[0];
   const states = pieceStates(pos, sq);
   return `${NAMES[t]} · ${first}` + (states.length ? `\n${states.join(' · ')}` : '');
 }

@@ -47,3 +47,12 @@ Blocked by: 04, 05 (`src/haptic.ts`), 08, 10
 - Plugin page: 4,291,869 bytes before phase 1; 4,293,703 bytes now. Optional fields keep the default view.
 - `SAMPLE=W4`: 14 renders, 0 faults. Both contact sheets are inspected.
 - The sample waits for the owner's yes.
+
+## Batch 3 words
+
+- decided by delegation (2026-10-09).
+- The title is “Take or shove?” The actions are “Take on X” and “Shove to Y”. Only Take is primary.
+- Guide text uses Tap. The mouse shortcut still works but has no touch instruction.
+- The W4 sample now shows the choice dialog. Its browser check keeps both outcomes, Cancel and Undo.
+- Checks: npm test passes (1,695 tests; 13 skipped). Typecheck and all ten required browser checks pass. Three extra checks pass.
+- Sample W4: 28 renders, 0 faults. Both contact sheets are inspected.

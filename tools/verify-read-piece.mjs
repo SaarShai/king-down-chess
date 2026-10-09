@@ -31,7 +31,9 @@ try {
   assert.equal(await page.evaluate(() => window.view.marks.read.step.has(36)), true, 'I outside the board leaves the read in place');
   assert.deepEqual(await lanMoves(page), []);
   await seed('7k/8/2a5/8/2P5/8/8/K7 w - - 0 1');
-  await tap(42); await openPieceRules(page);
+  await tap(42);
+  assert.match(await contextText(page), /Shoots 2 squares straight or diagonally forward\./);
+  await openPieceRules(page);
   assert.equal(await page.evaluate(() => document.activeElement?.closest('.piece-card')?.dataset.piece), 'archer', 'All rules focuses the rule card when the piece also has a lesson');
   await insideViewport(page, '#rules-rows .piece-card[data-piece="archer"]');
   console.log('read-piece: 3 cases pass; I, toggle and All rules pass');

@@ -12,7 +12,7 @@ Needs: 03 (met)
 ## Plan
 
 1. [x] Read the shown power in `coinState`: ready, armed, used, always on, waiting, no target or no power. Read uses and the full move number from the shown position and history.
-2. [x] Put a coin by each portrait. Show the emblem, diamond notches, armed gold and used grey. Keep each off coin in the Tab order with `aria-disabled`. A side with no power has no coin.
+2. [x] Put a coin by each portrait. Show the emblem, diamond notches, armed gold and used grey. Keep each coin in the Tab order. It always reads. Its accessible label names its state. A side with no power has no coin.
 3. [x] A tap reads. Legal Use arms. Cancel, Esc or a second tap disarms. A power with no legal action says why. Keep Use off in Review and before the turn press.
 4. [x] March and Leap only read. Their moves stay among the ordinary moves. The shown use count sets the notches. Undo restores a use.
 5. [x] Cut the cast motion and its timing module, as the fast plan says.
@@ -57,3 +57,13 @@ The supplied M1 launcher uses this Mac. All 18 named browser checks pass: powers
 The first plugin-ui-http attempt cannot start because its test database variable is absent. The documented disposable local database is available. After schema setup and setting that variable, the check passes in 15.5 s. No timeout needs confirmation. No further source fix is required.
 
 The sample still waits for the owner's yes.
+
+## Batch 3 words
+
+- decided by delegation (2026-10-09).
+- All rules opens at the power row. The read coin has aria-current and a thin ink outline.
+- The other coin names its owner. Your staged turn says “Tap End turn first.”
+- Every coin reads. Its label keeps the state; it has no aria-disabled attribute. The plan above agrees.
+- Shared lane edits: one outline rule in `src/style.css`; the read action in `src/ui/table.ts`.
+- Checks: npm test passes (1,695 tests; 13 skipped). Typecheck and all ten required browser checks pass. Three extra checks pass.
+- Sample W3: 16 renders, 0 faults. Both contact sheets are inspected.

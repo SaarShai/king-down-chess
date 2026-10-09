@@ -1,6 +1,6 @@
 // W9: the shelf opens, a figure opens its lesson, and Learned follows the store.
 import assert from 'node:assert/strict';
-import { contextText, pressMenu, waitForUi } from './app-ui.mjs';
+import { contextText, pressMenu, startLesson, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, trapErrors } from './lib/checks.mjs';
 
 const browser = await launch();
@@ -71,6 +71,16 @@ try {
     assert.equal(await saved(), before, 'Play restores the kept game');
     assert.deepEqual(await board(), position);
     console.log(`ok lessons ${width}: Learned follows the store and keeps other fields`);
+    await page.evaluate(() => localStorage.removeItem('kingdown.lessons'));
+    await startLesson(page, 'Archer');
+    await tap(27); await tap(45);
+    await waitForUi(page, ui => ui.lessonLearned === 'Archer');
+    assert.equal(await page.locator('#next-lesson').innerText(), 'Next lesson: Beast');
+    await page.click('#next-lesson');
+    assert.match(await page.locator('#turn').innerText(), /Beast/);
+    await page.click('#return-game');
+    assert.equal(await saved(), before, 'Next lesson keeps the saved game');
+    console.log(`ok lessons ${width}: Archer leads to the shelf next lesson, Beast`);
     await context.close();
   }
   assertNoErrors();

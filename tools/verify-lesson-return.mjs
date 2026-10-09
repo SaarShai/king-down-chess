@@ -2,7 +2,7 @@
 // Run: npm run check:browser lesson-return (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 // Output in PLAYABLE_OUT: lesson-return-desktop.png and lesson-return-phone.png.
 import assert from 'node:assert/strict';
-import { startLesson, setPace, waitForLinkReplay, waitForUi } from './app-ui.mjs';
+import { lessonPath, startLesson, setPace, waitForLinkReplay, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 
@@ -35,8 +35,8 @@ try {
     if (look === 'painted') {
       // Under 2021 rules the straight Beast bites are impossible and the Paladin removes itself.
       // Lessons must use the current rules, then restore the match's older rules on return.
-      const steps = [[27, 45], [11, 12], [27, 28], [27, 35, 43], [27, 35], [3, 43]];
-      for (const [i, squares] of steps.entries()) {
+      const steps = lessonPath();
+      for (const [i, squares] of steps) {
         for (const sq of squares) await tap(sq);
         if (await page.evaluate(() => document.getElementById('move-choice').open)) await page.click('#choose-push');
         await waitForUi(page, ui => !!ui.lessonLearned);

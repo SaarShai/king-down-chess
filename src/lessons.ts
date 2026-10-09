@@ -17,21 +17,21 @@ export const LESSONS: readonly Lesson[] = [
     fen: '7k/8/5p2/8/3A4/8/8/K7 w - - 0 1',
     task: 'Tap your archer. Tap the marked enemy pawn. She shoots it without moving.',
     goal: (_, m) => m.to === m.from && m.captures.length > 0,
-    done: 'An archer never captures by moving onto a piece: she shoots from where she stands, also over other pieces.',
+    done: 'An archer shoots without moving. The shot goes over pieces.',
   },
   {
     name: 'Guard',
     fen: 'k3r3/8/8/8/8/8/3G4/4K3 w - - 0 1',
     task: 'The rook gives check. Block it with your guard.',
     goal: (pre, m) => typeOf(pre.board[m.from]) === G,
-    done: 'Only a king can capture a guard, so the rook cannot break this wall. A guard never captures.',
+    done: 'Only a king can take a guard. A guard cannot take.',
   },
   {
     name: 'Maester',
     fen: '7k/8/8/8/3MN3/8/8/K7 w - - 0 1',
     task: 'Tap your maester, then your own knight. They trade places.',
     goal: (_, m) => !!m.swap,
-    done: 'A maester swaps with a friendly neighbour, and captures an adjacent enemy.',
+    done: 'A maester swaps with a friendly neighbour, and takes an adjacent enemy.',
   },
   {
     name: 'Beast',
@@ -45,7 +45,7 @@ export const LESSONS: readonly Lesson[] = [
     fen: '7k/8/8/3n4/3O4/8/8/K7 w - - 0 1',
     task: 'Tap your ogre, then the marked knight. Choose Shove.',
     goal: (_, m) => !!m.shove,
-    done: 'The ogre shoves a neighbour one square away and steps into its place. A shove is not a capture; kings are never shoved.',
+    done: 'The ogre shoves a neighbour one square away and steps into its place. A shove takes no piece. It cannot shove a king.',
   },
   {
     name: 'Paladin',

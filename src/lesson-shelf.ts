@@ -21,7 +21,7 @@ const LINES: Record<typeof ORDER[number], string> = {
   Maester: 'Swaps with a friend',
   Ogre: 'Shoves a neighbour',
   Guard: DEFAULT_RULES.guardImmune ? 'Only a king takes it' : 'Blocks the enemy',
-  Paladin: DEFAULT_RULES.paladinJumpsFriends ? 'Jumps its own pieces' : 'Moves like a queen',
+  Paladin: DEFAULT_RULES.paladinJumpsFriends ? 'Jumps over its own pieces' : 'Moves like a queen',
 };
 
 /** Saved lesson names set the shelf state; the lesson boards keep their own order. */

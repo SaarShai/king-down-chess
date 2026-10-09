@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
-import { A, DEFAULT_RULES, parseSq, setRules } from './rules/engine';
+import { A, DEFAULT_RULES, parseSq, setRules, type ArcherShots } from './rules/engine';
 import { fromFen } from './rules/setup';
 import { pieceGuide, guideTypes, reachOf, readText, readTap, unmarkedTap, whyNot } from './read';
 
@@ -27,11 +27,11 @@ it('reads Frozen and Ice Wall from both live mark slots', () => {
   expect(readText(pos, at('e5'))).not.toMatch(/Frozen|Ice Wall/);
 });
 
-it('keeps every first guide sentence within eight words with its name', () => {
+it('keeps every short read sentence within eight words', () => {
   for (let t = 1; t <= 15; t++) {
     const pos = fromFen('7k/8/8/8/8/8/8/K7 w - - 0 1');
     pos.board[at('d4')] = t;
-    expect(readText(pos, at('d4')).replace(' · ', ' ').split(/\s+/).length, String(t)).toBeLessThanOrEqual(8);
+    expect(readText(pos, at('d4')).split(' · ')[1].split(/\s+/).length, String(t)).toBeLessThanOrEqual(8);
   }
 });
 
@@ -181,6 +181,41 @@ it('lists the lab pieces in the position that the Guide reads', () => {
 it('describes the released far2 shots and marks their legal squares', () => {
   setRules({ archerShots: 'far2' });
   const pos = fromFen('7k/8/1p1p1p2/4p3/1p1A1p2/8/3p4/K7 w - - 0 1');
-  expect(pieceGuide(A).captures).toBe('Shoots without moving: an enemy exactly 2 squares away orthogonally, or on either forward diagonal at distance 2, through blockers.');
+  expect(pieceGuide(A).captures).toBe('Shoots without moving. It takes an enemy 2 squares away in a straight line, or 2 squares away on a forward diagonal. The shot goes over pieces.');
   expect([...reachOf(pos, at('d4')).shot].sort()).toEqual(['b4', 'f4', 'd2', 'd6', 'b6', 'f6'].map(at).sort());
+});
+
+const archerReadings: Record<ArcherShots, string> = {
+  classic: 'Shoots near diagonals or 2 squares straight.',
+  plusDiag2: 'Shoots also on distant backward diagonals.',
+  ring2: 'Shoots anywhere on the second ring.',
+  forward3: 'Shoots only ahead, without moving.',
+  plusDiagFwd2: 'Shoots also on distant forward diagonals.',
+  plusDiagFwd2Clear: 'Far forward diagonal shots need an empty middle.',
+  fwd2NoBack: 'Shoots forward diagonals, never straight back.',
+  fwd2NoSide: 'Shoots forward diagonals, never sideways.',
+  far2: 'Shoots 2 squares straight or diagonally forward.',
+  over2: 'Shoots distant enemies only over a piece.',
+  nearOver2: 'Shoots near diagonals; distant shots need a piece.',
+  fwdNearOver2: 'Shoots forward diagonals; far shots need a piece.',
+};
+it.each(Object.entries(archerReadings))('reads the %s Archer act from the live rules', (shots, words) => {
+  setRules({ archerShots: shots as ArcherShots });
+  const pos = fromFen('7k/8/8/8/3A4/8/8/K7 w - - 0 1');
+  expect(readText(pos, at('d4'))).toBe(`archer · ${words}`);
+  expect(words.split(/\s+/).length).toBeLessThanOrEqual(8);
+});
+
+it.each([
+  ['L', 'paladin · Jumps over its own pieces.'],
+  ['G', 'guard · Only a king can take it.'],
+  ['M', 'maester · Swaps places with your own piece.'],
+  ['S', 'beast · Can bite again after a bite.'],
+  ['O', 'ogre · Can shove a neighbour.'],
+  ['C', 'catapult · Takes beyond an enemy piece.'],
+  ['V', 'reaver · Can step after a take.'],
+  ['T', 'templar · Moves like a queen on capital squares.'],
+])('reads the %s special act', (letter, words) => {
+  const pos = fromFen(`7k/8/8/8/3${letter}4/8/8/K7 w - - 0 1`);
+  expect(readText(pos, at('d4'))).toBe(words);
 });

@@ -190,3 +190,21 @@ describe('which power moves a click can reach', () => {
     expect(offered(step, 'flight')).toBe(false);
   });
 });
+
+it('names both colours in a check on one device', () => {
+  expect(checkCause(fromFen('7k/8/8/8/8/8/8/4K2r w - - 0 1'), undefined, 'device'))
+    .toBe('The black rook attacks the white king.');
+  expect(checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, 'device'))
+    .toBe("Black archer shoots White's king over e2.");
+});
+it.each(['computer', 'link'] as const)('names the king and states the Archer fact in %s play', mode => {
+  expect(checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, mode))
+    .toBe('Their archer shoots your king over e2.');
+  expect(checkCause(fromFen('7k/8/8/8/8/4a3/8/4K3 w - - 0 1'), undefined, mode))
+    .toBe('Their archer shoots your king.');
+});
+
+it('keeps the web Archer cause within eight words on one device', () => {
+  const words = checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, 'device');
+  expect(words.split(/\s+/).length).toBeLessThanOrEqual(8);
+});

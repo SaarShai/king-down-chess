@@ -2,7 +2,7 @@ import type { Color, Position } from '../rules/engine';
 import { coinWords, type PowerCoin } from '../powers-ui';
 
 /** The portrait binds the first coin. Card coins can append to this row. */
-export function coinRow(portrait: HTMLElement, side: Color, power: PowerCoin | null, pos: Position): HTMLDivElement {
+export function coinRow(portrait: HTMLElement, side: Color, power: PowerCoin | null, pos: Position, reading = false): HTMLDivElement {
   const row = document.createElement('div');
   row.className = 'coin-row';
   row.dataset.side = side === 0 ? 'w' : 'b';
@@ -15,7 +15,7 @@ export function coinRow(portrait: HTMLElement, side: Color, power: PowerCoin | n
   coin.id = `power-${row.dataset.side}`;
   coin.dataset.state = power.state;
   coin.setAttribute('aria-label', coinWords(power, pos).replace(' · ', ', '));
-  coin.setAttribute('aria-disabled', String(power.state !== 'ready' && power.state !== 'armed'));
+  if (reading) coin.setAttribute('aria-current', 'true');
   if (power.state !== 'always') coin.setAttribute('aria-pressed', String(power.state === 'armed'));
 
   const emblem = document.createElement('img');

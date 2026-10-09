@@ -50,3 +50,12 @@ Blocked by: 04, 10
 - Plugin page: 4,291,869 bytes before phase 1; 4,293,703 bytes now. Optional fields keep the default view.
 - `SAMPLE=W4`: 14 renders, 0 faults. Both contact sheets are inspected.
 - The sample waits for the owner's yes.
+
+## Batch 3 words
+
+- decided by delegation (2026-10-09).
+- The chain note is “Nothing moves until you stop.” It does not repeat the read note.
+- Stop here counts bites. The play text uses Take, Shove, bite and Tap.
+- Pure tests and browser checks cover the chain note and bite count.
+- Checks: npm test passes (1,695 tests; 13 skipped). Typecheck and all ten required browser checks pass. Three extra checks pass.
+- Sample W4: 28 renders, 0 faults. Both contact sheets are inspected.

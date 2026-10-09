@@ -506,6 +506,7 @@ label.army select { width: 100%; font-weight: 400; }
 .coin .notches { position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); display: flex; gap: 3px; }
 .coin .notch { width: 9px; height: 9px; transform: rotate(45deg); background: #7fb2ff; border: 1.5px solid var(--frost-ink); }
 .coin .notch.is-spent { background: var(--stone-300); border-color: var(--stone-500); }
+.coin[aria-current='true'] { outline: 1px solid var(--ink); outline-offset: 3px; }
 .coin[data-state='armed'] { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 18px rgba(233, 192, 113, 0.75); }
 .coin[data-state='used'] { filter: grayscale(1); opacity: 0.7; }
 .coin-row { --frost-ink: #2c5a8f; position: relative; display: flex; align-items: center; gap: 6px; }
