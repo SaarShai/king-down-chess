@@ -872,7 +872,7 @@ function showOver(): void {
   const n = movesPlayed();
   const dlg = $<HTMLDialogElement>('over');
   $('over-title').textContent = result();
-  const last = game.history.at(-1);
+  const last = [...game.history].reverse().find(h => !h.move.pass);
   // Ending reason wins over a prior moment caption (`said`); last-move text stays above.
   const why =
     (game.status === 'checkmate' ? (findKing(game.pos.board, game.pos.turn) < 0 ? 'The king was taken.' : 'The king is in check and no legal move escapes it.') : '')

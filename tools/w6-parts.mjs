@@ -7,4 +7,4 @@ const board = document.getElementById('board');
 const view = new PaintedView(board, { floor: null, webInk: true });
 await view.ready();
 view.scene.setLively({ idle: false, kings: false, pawns: false });
-window.parts = { startCeremony, view, fromFen, makeMove, parseSq, board, moments: document.getElementById('moments') };
+window.parts = { startCeremony, view, fromFen, makeMove, parseSq, board, captionHost: document.getElementById('context-line'), moments: document.getElementById('moments') };

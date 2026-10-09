@@ -8,9 +8,10 @@ import { ceremonyMoveLabel } from './ceremony-game';
 type History = Game['history'];
 
 /** Phase 2 supplies the live game guard and opens the result after `done`. */
-export function startCeremony({ view, board, moments, history, final, king, showPly, motion, live }: {
+export function startCeremony({ view, board, captionHost, moments, history, final, king, showPly, motion, live }: {
   view: BoardView;
   board: HTMLElement;
+  captionHost: HTMLElement;
   moments: HTMLElement;
   history: History;
   final: Position;
@@ -30,7 +31,7 @@ export function startCeremony({ view, board, moments, history, final, king, show
   caption.className = 'ceremony-caption';
   caption.textContent = 'The final blow · Tap to skip';
   caption.hidden = !motion;
-  board.append(caption);
+  captionHost.append(caption);
   moments.replaceChildren();
   let blow = history.length - 1;
   while (blow >= 0 && history[blow].move.pass) blow--;

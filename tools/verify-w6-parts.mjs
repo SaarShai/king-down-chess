@@ -137,7 +137,7 @@ try {
 
   // The final blow skips a trailing pass; no search makes these three review tiles.
   await page.evaluate(() => {
-    const { view, fromFen, makeMove, parseSq, startCeremony, board, moments } = window.parts;
+    const { view, fromFen, makeMove, parseSq, startCeremony, board, captionHost, moments } = window.parts;
     let pos = fromFen('7k/6pp/8/8/8/r7/8/R5MK w - - 0 1');
     const sq = parseSq, history = [];
     const moves = [
@@ -149,7 +149,7 @@ try {
       { from: 0, to: 0, captures: [], pass: true },
     ];
     for (const move of moves) { history.push({ pos, move, lan: 'test' }); pos = makeMove(pos, move); }
-    window.parts.fixture = { view, board, moments, history, final: pos, king: sq('h8'), showPly: ply => { window.reviewPly = ply; }, motion: true, live: () => true };
+    window.parts.fixture = { view, board, captionHost, moments, history, final: pos, king: sq('h8'), showPly: ply => { window.reviewPly = ply; }, motion: true, live: () => true };
     view.scene.setLively({ moves: false, atmosphere: false, kings: false, pawns: false, idle: false });
     view.sync(pos);
     window.wordsShownAt = null;
@@ -209,7 +209,7 @@ try {
     const frozen = { ...f.history[0], move: { from: window.parts.parseSq('a3'), to: window.parts.parseSq('a3'), captures: [], power: 'freeze' } };
     window.control = window.parts.startCeremony({ ...f, history: [frozen, f.history[4]], motion: false });
   });
-  assert.equal(await page.locator('.ceremony-tile').nth(0).locator('span').textContent(), 'Freezes the black rook on a3.', 'Freeze names the acting power');
+  assert.equal(await page.locator('.ceremony-tile').nth(0).locator('span').textContent(), 'Freeze on rook', 'Freeze names the acting power');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.evaluate(() => { window.control.cancel(); window.control = window.parts.startCeremony(window.parts.fixture); });
   assert.equal(await page.evaluate(() => window.control.done), true, 'reduced motion shows the end frame at once');

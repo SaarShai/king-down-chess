@@ -75,7 +75,7 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
     }
     c.lock(true); c.refresh();
     refresh();
-    control = startCeremony({ view, board, moments: tiles, history: game.history, final, king, live, motion: c.motion(),
+    control = startCeremony({ view, board, captionHost: document.getElementById('context-line')!, moments: tiles, history: game.history, final, king, live, motion: c.motion(),
       showPly: ply => { dialog.close(); clear(); void c.showPly(ply, false); },
     });
     const done = await control.done;

@@ -1,6 +1,6 @@
 // W6: the handed-over end, board Ceremony and result review tiles.
 import assert from 'node:assert/strict';
-import { ceremonyTile, ceremonyWords, endTurn, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
+import { ceremonyTile, ceremonyWords, endTurn, usePower, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const faults = [];
@@ -27,10 +27,10 @@ const tap = async sq => {
   const p = await page.evaluate(s => window.view.screenOf(s), sq);
   await page.mouse.click(p.x, p.y);
 };
-const open = async (fen, moves = [], pace = 'off', sides = ['human', 'human'], look = 'painted') => {
+const open = async (fen, moves = [], pace = 'off', sides = ['human', 'human'], look = 'painted', query = '') => {
   await page.goto(base);
   await page.evaluate(seed => sessionStorage.setItem('w6.seed', JSON.stringify(seed)), { back: '', fen, moves, white: sides[0], black: sides[1], pace, sound: false, skill: 'club' });
-  await page.goto(new URL(`?think=50&look=${look}`, base).href);
+  await page.goto(new URL(`?think=50&look=${look}${query}`, base).href);
   await page.waitForFunction(() => window.view?.pos || window.view?.pieces?.size);
   await page.evaluate(() => window.view.ready());
 };
@@ -63,8 +63,16 @@ try {
   assert.equal(await page.locator('.kd-words').count(), 0, 'Review clears the end words');
   console.log('ok Ceremony tiles open their review ply');
 
+  await open('7k/6pp/8/8/8/R7/8/6MK w - - 0 1', [], 'off', ['human', 'human'], 'painted', '&kings=flame:haste,none');
+  await usePower(page); await tap(16); await tap(56); await endTurn(page);
+  await page.locator('#over').waitFor({ state: 'visible' });
+  assert.doesNotMatch(await page.locator('#over-detail').innerText(), /ends the turn/, 'the result skips the trailing pass');
+  assert.match(await page.locator('#over-detail').innerText(), /with Haste/, 'the result names the final power move');
+  assert.equal(await page.locator('#over .ceremony-tile span').last().innerText(), 'Rook moves with Haste');
+
   await stageMate('normal'); await endTurn(page);
   await page.locator('.kd-words').waitFor({ state: 'attached' });
+  assert.equal(await page.locator('.ceremony-caption').evaluate(el => el.closest('#board') === null && el.closest('#context-line') !== null), true, 'the replay caption sits outside the squares');
   assert.equal(await page.locator('#end-turn').innerText(), 'End turn', 'the Ceremony keeps the turn label');
   assert.equal(await page.locator('#end-turn').getAttribute('aria-disabled'), 'true', 'the bar stays off during the Ceremony');
   await page.locator('#end-turn').focus();
