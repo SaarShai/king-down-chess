@@ -33,3 +33,10 @@ Blocked by: 02b, 11
 - No Undo after the press. No words on screen.
 
 ## Comments
+
+Phase 1 build: `PaintedView.animateBack` plays the reverse move, then syncs the old board.
+Check: a capture, swap, shove and instant fallback end on the old board.
+Phase 2: wire Undo to the turn boundary from W1; add the turn check and sample.
+Phase 1 passes: `w6-parts` (3.0 s); type check; 1452 unit tests and 50 motion tests.
+The plugin checks pass: `plugin-ui` (15.7 s), `plugin-ui-http` (15.8 s).
+The plugin page is 4,292,512 bytes, up 643 bytes. The full browser suite waits for phase 2.

@@ -81,7 +81,7 @@ for(const [type,name] of Object.entries(courtNames)){
  // Lab pieces without painted art: a token that slides in, no body motion.
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
- let position={board:new Uint8Array(64)}, selected=null, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
+ let position={board:new Uint8Array(64)}, selected=null, lifted=null, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
  let fallen=null, res=1, frame=0, previousTime=0, ready=false, flipped=false, coords=true, coordSize=13, labels=false, reducedMotion=false, decorate=null;
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
@@ -598,6 +598,11 @@ function vortex(out,foot,phase,strength) {
  for(let sq=0;sq<64;sq++)if(position.board[sq])poses.set(sq,{value:position.board[sq],pose:poseFor(position.board[sq],sq),opacity:1,extension:0});
  if(selected!==null&&poses.has(selected))Object.assign(poses.get(selected).pose,{angle:aimAngle,facing:aimFacing});
  if(idling()){const p=poses.get(selected).pose,i=idleAt(time-selectedAt);Object.assign(p,{ground:p.foot,foot:{x:p.foot.x,y:p.foot.y-i.lift},sx:i.sx,sy:i.sy,shadow:i.shadow});}
+ // The tell: a fixed lift; the contact shadow stays on the board.
+ if(lifted!==null&&!reducedMotion&&!animation&&poses.has(lifted)){
+  const p=poses.get(lifted).pose,lift=3*SIZE/(canvas.getBoundingClientRect().width||SIZE);
+  Object.assign(p,{ground:p.ground??p.foot,foot:{x:p.foot.x,y:p.foot.y-lift},lift});
+ }
  // King Down: the beaten king topples backwards onto the board.
  if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq);u.pose={...u.pose,rotation:-1.5*ease((time-fallen.start)/FALL)};}
  let shot=null,hit=null;const effects=[];
@@ -919,8 +924,11 @@ function drawEncounter(a,t) {
   // Resolves once the figures and the board are drawable; a missing board falls back to plain squares.
   load(){const board=new Promise(resolve=>{boardArt.onload=boardArt.onerror=resolve;boardArt.src=BOARD_ART;});return Promise.all([board,...kings.map(design=>kingImage(design).loaded),...Object.entries(art).map(([type,image])=>new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=ART_FILES[ART[type]];}))]).then(()=>{ready=true;wake();});},
   /** New position: ends any finished or running animation. */
-  setPosition(next){endMove();position=next;aimAngle=0;wake();},
+  setPosition(next){endMove();lifted=null;position=next;aimAngle=0;wake();},
   setSelected(sq){if(sq!==selected){selected=sq;selectedAt=performance.now();aimAngle=0;aimFacing=sq===null||!position.board[sq]?1:sideFacing(position.board[sq]);}wake();},
+  /** Opt-in tell; null returns the figure to rest. A new position or move clears it. */
+  setLifted(sq){lifted=sq;wake();},
+  get lifted(){return lifted;},
   setAim(sq){aimSquare=sq;wake();},
   // (The contact shadows are kept: no sprite depends on the side shown.)
   setFlipped(on){flipped=on;idle.clear();wake();},
@@ -957,6 +965,7 @@ function drawEncounter(a,t) {
   ghost(out,value,square,opacity=.4){if(ready&&value)drawPiece(out,value,poseFor(value,square),opacity);},
   /** Animate a move on the current position. Resolves true at the final frame, false if cancelled. */
   play(move,{speed=1,onContact=null,gait=null}={}){
+   lifted=null;
    if(animation&&!animation.done)animation.resolve(false);
    const {base,verb}=plan(move,speed,gait);
    return new Promise(resolve=>{animation={...base,resolve,onContact};onStatus(verb);wake();});

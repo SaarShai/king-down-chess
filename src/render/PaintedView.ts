@@ -15,13 +15,16 @@ export interface BoardView {
   onSquareHover: (sq: number | null) => void;
   onLoadError?: (error: unknown) => void;
   sync(pos: Position): void;
-  /** `onContact` fires when a capture or shove lands; it may fire more than once, or not at all. */
-  animateMove(pos: Position, m: Move, onContact?: () => void): Promise<void>;
+  /** `onContact` can fire more than once, or not at all. Optional playback speed: 0.5 is half speed. */
+  animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void>;
+  /** Rewind one ply; other looks may sync at once. */
+  animateBack?(pre: Position, m: Move, post: Position): Promise<void>;
+  setLifted?(sq: number | null): void;
   setPace(pace: Pace): void;
   /** End the running move animation now; its animateMove() resolves. No-op when nothing plays. */
   skip(): void;
   /** The beaten king on `sq` topples; it stays down while the board shows this position. */
-  setFallen(sq: number | null): void;
+  setFallen(sq: number | null, animate?: boolean): void;
   highlight(h: Highlights): void;
   flip(black: boolean): void;
   setLabels(on: boolean): void;
@@ -111,19 +114,33 @@ export class PaintedView implements BoardView {
     this.scene.setFallen(this.fallen?.pos === pos ? this.fallen.sq : null, false);
   }
 
-  setFallen(sq: number | null): void {
+  setFallen(sq: number | null, animate = true): void {
     this.fallen = sq == null || !this.pos ? null : { pos: this.pos, sq };
-    this.scene.setFallen(sq);
+    this.scene.setFallen(sq, animate && this.motion());
   }
 
-  async animateMove(pos: Position, m: Move, onContact?: () => void): Promise<void> {
+  async animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void> {
     if (this.pos !== pos) this.sync(pos);
     if (this.pace === 'off') return;
     // King powers that move nothing (Freeze, Ice Wall, a Haste pass) or change a piece in place
     // (Sacrifice): there is no motion to play, and main.ts syncs the new board right after.
     if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice') return;
-    await this.scene.play(m, { onContact, speed: this.pace === 'fast' ? 0.5 : 1 });
+    // The scene scales duration; the caller gives playback speed.
+    await this.scene.play(m, { onContact, speed: speed == null ? (this.pace === 'fast' ? 0.5 : 1) : 1 / speed });
   }
+
+  async animateBack(pre: Position, m: Move, post: Position): Promise<void> {
+    this.sync(post);
+    // A shot has no travel. A removed or changed figure has no reverse scene move.
+    if (this.motion() && !m.pass && !m.promo && !m.selfRemove && m.from !== m.to
+      && post.board[m.to] === pre.board[m.from]) {
+      await this.scene.play({ from: m.to, to: m.from, captures: [], swap: m.swap }, { speed: this.pace === 'fast' ? 0.5 : 1 });
+    }
+    // A new position cancels the old rewind; never draw it over that position.
+    if (this.pos === post) this.sync(pre);
+  }
+
+  setLifted(sq: number | null): void { this.scene.setLifted(this.motion() ? sq : null); }
 
   setPace(pace: Pace): void { this.pace = pace; this.applyLively(); }
   skip(): void { if (this.scene.animating) this.scene.cancel(); }
@@ -136,6 +153,7 @@ export class PaintedView implements BoardView {
    */
   private applyLively(): void {
     const motion = this.pace !== 'off' && !this.motionQuery.matches, shown = motion && !document.hidden;
+    if (!motion) this.scene.setLifted(null);
     this.scene.setLively({ moves: true, atmosphere: true, captures: true, idle: motion, kings: shown, pawns: shown });
   }
 

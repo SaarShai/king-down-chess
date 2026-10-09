@@ -41,3 +41,12 @@ Blocked by: 02c, 03, 07, 11
 - No Retry (ticket 23), no new sharing, no crowns.
 
 ## Comments
+
+Phase 1 build: D8 has a test; one module plays the replay, fall, words and review tiles.
+Check: D8 win and quiet paths; half-speed replay, trailing pass, tiles and skip.
+Phase 2: wire the handed-over end from W1 and review from W2; run the end check and sample.
+The review finds two faults. The fix guards stale cancellation and names powers on tiles.
+Phase 2 also adds Clay support for replay speed and the skip end frame.
+Phase 1 passes: `w6-parts` (3.0 s); type check; 1452 unit tests and 50 motion tests.
+The check covers the replay, tiles, skip keys, Off, reduced motion and a new game.
+The phone and desktop stills are parts samples. The real game sample waits for phase 2.
