@@ -35,12 +35,14 @@ function checkPath(board: Uint8Array, from: number, king: number): Checker['path
 }
 
 /** One sentence for a screen reader: who moved what, and what it did. */
-export function describeMove(pre: Position, m: Move): string {
+export function describeMove(pre: Position, m: Move, freePass = false): string {
   // The side is the one to move, not the piece on `from`: a Freeze names an enemy piece.
   const side = SIDE[pre.turn], piece = pre.board[m.from], name = NAMES[typeOf(piece)];
   const the = (s: number): string => `${NAMES[typeOf(pre.board[s])]} on ${sqName(s)}`;
   const colour = (s: number): string => (colorOf(pre.board[s]) ? 'black' : 'white');
   // King powers that move nothing, or change a piece where it stands.
+  // The pass of a free mark (or a GrowthB draw) ends a turn that had no second move to skip.
+  if (freePass && m.pass && pre.free) return `${side} ends the turn after the ${pre.marks?.[pre.turn] ? 'mark' : 'draw'}.`;
   if (m.pass) return `${side} ends the turn without the ${pre.rage === 3 ? 'Rally' : 'Haste'} second move.`;
   if (m.power === 'freeze') return `${side} freezes the ${colour(m.to)} ${the(m.to)}.`;
   if (m.power === 'ward') return `${side} puts an Ice Wall on the ${colour(m.to)} ${the(m.to)}.`;

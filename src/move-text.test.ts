@@ -112,6 +112,11 @@ describe('screen-reader lines for king powers', () => {
     const held = makeMove(pos, find(pos, 'Ra1xa5!H'));
     expect(say(held, '--')).toBe('White ends the turn without the Haste second move.');
 
+    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] }); // a free Freeze: mark, then move or pass
+    const marked = makeMove(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'), find(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'), '!F:d5'));
+    expect(describeMove(marked, find(marked, '--'), true)).toBe('White ends the turn after the mark.');
+    expect(say(marked, '--')).toBe('White ends the turn without the Haste second move.');
+
     powers('Flight');
     expect(say(fromFen('4k3/8/8/8/8/8/1P6/RN2K3 w - - 0 1 l'), 'Nb1~d3')).toBe('White knight flies from b1 to d3.');
   });
