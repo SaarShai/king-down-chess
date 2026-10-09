@@ -4,7 +4,7 @@
 // Enter on the keyboard cursor does the same; a drag onto an enemy piece keeps the reason. While the player cannot move (the computer thinks, the game is
 // over, a game link waits for the friend), a tap on a piece shows its card too, beside the reason.
 import assert from 'node:assert/strict';
-import { contextText, focusBoard, leaveBoard, refusalText, waitForUi } from '../app-ui.mjs';
+import { endTurn, contextWordsInView, contextText, focusBoard, leaveBoard, refusalText, waitForUi } from '../app-ui.mjs';
 
 // White: king e1, pawn e4. Black: king e8, knight a6, pawn d5. The pawn can take d5, not the knight.
 const save = { back: '', fen: '4k3/8/n7/3p4/4P3/8/8/4K3 w - - 0 1', moves: [], white: 'human', black: 'ai', sound: false, skill: 'club' };
@@ -14,8 +14,8 @@ const cannot = /^Not allowed: the pawn cannot take the knight on a6\./m;
 export default async function ({ open }) {
   for (const size of ['desktop', 'phone']) {
     const { page, tap, close } = await open({ size, save });
-    const text = id => page.textContent(id);
-    const selecting = () => page.locator('#selection-actions').isVisible();
+    const text = id => id === '#info' ? contextText(page) : page.textContent(id);
+    const selecting = () => page.evaluate(() => window.view.marks.selected != null);
 
     await tap(A6);
     assert.match(await text('#info'), /Black knight/, `${size}: a tap on an enemy piece shows its card`);
@@ -77,20 +77,24 @@ export default async function ({ open }) {
     // The computer thinks: Strong with a long thinking time, so the tap comes during the search.
     let { page, tap, close } = await open({ size, save: { back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'ai', sound: false, skill: 'strong', think: 4000 } });
     await tap(E2); await tap(E4);
+    await endTurn(page);
     await waitForUi(page, ui => ui.thinking);
     await tap(B8);
-    assert.match(await page.textContent('#info'), /Black knight/, `${size}: a tap while the computer thinks shows the card`);
+    assert.match(await contextText(page), /Black knight/, `${size}: a tap while the computer thinks shows the card`);
+    assert.ok(await contextWordsInView(page, 'Moves in an L'), 'the read keeps knight rules during search');
     assert.match(await contextText(page), /^The computer is thinking\. Wait for its move\.$/m);
     await close();
 
     // The game is over: Ra1-a8 mates.
     ({ page, tap, close } = await open({ size, save: { back: '', fen: '6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1', moves: [], white: 'human', black: 'ai', sound: false, skill: 'club' } }));
     await tap(0); await tap(56);
+    await endTurn(page);
     await page.waitForFunction(() => document.getElementById('over').open);
     await page.click('#over button[value="close"]');
     await tap(F7);
-    assert.match(await page.textContent('#info'), /Black pawn/, `${size}: a tap after the game ends shows the card`);
-    assert.match(await contextText(page), /^The game is over\./m);
+    assert.match(await contextText(page), /Black pawn/, `${size}: a tap after the game ends shows the card`);
+    assert.ok(await contextWordsInView(page, 'Moves 1 square forward'), 'the read keeps pawn rules after the end');
+    assert.match(await contextText(page), /wins|Checkmate/i);
     await close();
 
     // A game link: this device plays Black and waits for the friend's move.
@@ -98,8 +102,10 @@ export default async function ({ open }) {
     await tap(E7); await tap(E5);
     await waitForUi(page, ui => /e7-e5/.test(ui.lan.join(' ')));
     await tap(E4);
-    assert.match(await page.textContent('#info'), /White pawn/, `${size}: a tap while a game link waits for the friend shows the card`);
-    assert.match(await contextText(page), /^Your move is played\. Send the game link/m);
+    assert.match(await contextText(page), /White pawn/, `${size}: a tap while a game link waits for the friend shows the card`);
+    assert.ok(await contextWordsInView(page, 'Moves 1 square forward'), 'the read keeps pawn rules while the link waits');
+    assert.equal(await page.textContent('#end-turn'), 'Send your turn');
+    assert.equal(await page.locator('#end-turn').getAttribute('aria-disabled'), 'false');
     await close();
   }
 }

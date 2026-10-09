@@ -47,9 +47,14 @@
 .ws-door small { font-family: var(--font-body); font-weight: 400; font-size: var(--fs-xs); }
 #workshop .ws-surprise { justify-content: center; max-width: 360px; margin-top: var(--space-4); }
 .ws-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: var(--space-2); }
-#workshop .ws-tile { flex-direction: column; justify-content: flex-end; gap: 2px; min-width: 0; padding: 6px 4px 8px; text-align: center; }
-.ws-tile b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); }
-.ws-tile small { font-size: var(--fs-xs); font-weight: 400; color: var(--ink-soft); }
+/* A tile is a mini card (ticket 22): the frame of the card, the figure, the name and the band word of the card. */
+#workshop .ws-tile {
+  position: relative; flex-direction: column; justify-content: flex-end; gap: 2px; min-width: 0; padding: 6px 6px 10px; text-align: center;
+  background: var(--vellum); border-color: #d6c49c; border-radius: 12px;
+}
+#workshop .ws-tile::after { content: ''; position: absolute; inset: 3px; border: 1px solid rgba(201, 154, 62, 0.55); border-radius: 9px; pointer-events: none; }
+.ws-tile b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-size: var(--fs-sm); }
+.ws-tile small { display: block; max-width: 100%; font-size: var(--fs-xs); font-weight: 700; line-height: 1.2; color: var(--gold-ink); }
 .ws-tile.warn small { color: var(--danger); font-weight: 700; }
 .ws-tile-art { display: flex; justify-content: center; width: 100%; padding: 4px 0; border-radius: 6px; }
 .ws-tile-art .ws-model { --model: 72px; }
@@ -74,7 +79,10 @@
 .ws-footer { display:flex; flex:none; align-items:center; gap:12px; padding:10px 24px; background:var(--vellum); border-top:1px solid var(--stone-300); }
 #workshop .ws-footer button { width:auto; }
 #workshop .ws-footer .ws-try { margin-left:auto; min-width:100px; }
-.ws-share-actions { display:grid; gap:8px; }
+.ws-share-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:16px; }
+#workshop .ws-share-actions button { justify-content:center; text-align:center; }
+#workshop .ws-share-actions .ws-send { grid-column:1 / -1; }
+#workshop .ws-share-note { text-align:center; }
 .ws-properties { min-width:0; }
 .ws-symmetry { display:flex; justify-content:flex-end; gap:8px; align-items:center; margin-bottom:16px; font-size:14px; }
 .ws-dual-boards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }
@@ -333,3 +341,42 @@
 .ws-temp-fill { position:absolute; bottom:0; left:2px; right:2px; background:var(--accent); border-radius:6px 6px 0 0; }
 .ws-temp-fair { position:absolute; left:0; right:0; bottom:25%; height:25%; background:#9eb795; }
 .ws-temp-bulb { position:absolute; width:28px; height:28px; bottom:0; left:28px; background:var(--accent); border:3px solid #947c58; border-radius:50%; }
+
+/* ---- the read-only card (ticket 22): a design from a link and the Share sheet. The editor's card (the figure, the name,
+   the move and take grids, the worth) in a frame, with no control; the marks and lines are the boards' own (above). ---- */
+#workshop .ws-read {
+  position: relative; width: min(100%, 380px); max-width: 380px; margin: 0 auto; padding: 7px;
+  background: var(--vellum); border: 1px solid #d6c49c; border-radius: 16px;
+  box-shadow: inset 0 1px 0 #fff, 0 2px 5px rgba(43, 38, 33, 0.12), 0 14px 34px rgba(43, 38, 33, 0.16);
+}
+#workshop .ws-read::after { content: ''; position: absolute; inset: 4px; border: 1px solid rgba(201, 154, 62, 0.55); border-radius: 13px; pointer-events: none; }
+#workshop .ws-read .ws-card-border { padding: 8px 12px 12px; }
+#workshop .ws-read .ws-portrait { flex-direction: row; }
+#workshop .ws-read .ws-model-box { --model: 150px; }
+#workshop .ws-sheet .ws-read { max-width: 330px; }
+#workshop .ws-sheet .ws-read .ws-model-box { --model: 96px; }
+#workshop .ws-read .ws-name-row { justify-content: center; margin-top: 4px; }
+#workshop .ws-read .ws-name-t { flex: 0 1 auto; font-size: 22px; text-align: center; }
+#workshop .ws-read .ws-fwd { margin-top: 6px; }
+.ws-grids { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+#workshop .ws-grid-h { margin-bottom: 2px; text-align: center; font: 600 15px/1.3 var(--font-display); }
+.ws-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; padding: 1px; background: var(--stone-700); border-radius: 3px; }
+.ws-grid-cell { position: relative; display: block; aspect-ratio: 1; background-color: #efe6d0; }
+.ws-grid-cell.dk { background-color: #ddd0b4; }
+.ws-grid-me .ws-me-fig { position: absolute; inset: 0; }
+.ws-grid .c-take::after, .ws-grid .c-shoot::after { border-width: 2px; }
+.ws-grid .ln-end .ws-arrow::before { border-width: 0 4px 6px; }
+.ws-read-rules { margin: 10px 0 0; padding-left: 1.1em; font-size: var(--fs-sm); line-height: 1.35; }
+#workshop .ws-read .ws-bottom {
+  margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--stone-300); text-align: center; text-wrap: balance;
+  font: 700 22px/1.2 var(--font-display); letter-spacing: 0.04em; color: var(--gold-ink);
+}
+#workshop .ws-read .ws-worth { margin: 2px 0 0; text-align: center; font-size: var(--fs-sm); color: var(--ink-soft); }
+#workshop .ws-read-note { max-width: 330px; text-align: center; }
+#workshop .ws-read-view .ws-why { width: auto; margin-top: var(--space-3); }
+
+#workshop .ws-read .ws-caption { display: block; margin-top: 4px; font-size: 13px; line-height: 1.3; }
+@media (max-width: 359px) {
+  #workshop .ws-read .ws-model-box { --model: 72px; }
+  #workshop .ws-read .ws-bottom { font-size: 20px; letter-spacing: 0; }
+}
