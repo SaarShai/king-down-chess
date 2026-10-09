@@ -40,12 +40,9 @@ Blocked by: 03, 05 (W2, for phase 2)
 
 ## Comments
 
-W5 phase 1 complete. Phase 2 waits for W2.
-- Test `checkersOf` at the seam named in the fast plan. Compare it with `inCheck` in seeded legal games under powers rules.
-- Add still ember marks as an option. Keep the plugin default. Draw cause lines above figures after landing.
-- Move the low check note to landing. Add no vibration.
-- Verify with `npm test`, typecheck, `plugin-ui` and the plugin page size. Leave context words, W2 wiring and `their-turn` for phase 2.
-- Phase 1: checkers, still ember marks in both views, and the low note at landing. Cut timing, shot lines, vibration and the other sound changes.
-- Tests: `VITEST_MAX_WORKERS=2 npm test`: 80 files pass, 1 skips; 1,448 tests pass, 13 skip; 50 scene tests pass. Typecheck and build pass.
-- Samples: `SAMPLE=07` gives six renders with no fault in `/tmp/wr-w5-samples`. Phase 2 adds the context words and staged checks, runs `their-turn` twice and the full browser suite, then updates the samples for W2.
-- Plugin: default stays; page size 4,291,869 → 4,292,443 bytes. `plugin-ui` passes (15.8 s); `plugin-ui-http` passes (15.5 s) with a disposable local PostgreSQL 17 database ([setup](../../../plugin-preparation.md)).
+W5 phase 2: build the cause words in W2's context line.
+- Keep staged-turn words above the cause. Test Archer, knight, double check and Strike at the pure seam.
+- Add `their-turn`: marks after landing, staged words, Undo clears marks. Run it twice at the end.
+- Merge the latest integration work. Run `npm test`, touched browser checks and the plugin checks; record the page size.
+- Render three stills at phone and desktop. Inspect both contact sheets.
+- Cut shot lines, bloom, timing, vibration, other sound changes and video.

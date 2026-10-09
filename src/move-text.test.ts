@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Move, Position, POWERS_BALANCED, inCheck, legalMoves, makeMove, parseSq, setRules } from './rules/engine';
 import { KingChoice, PowerName } from './rules/rules';
 import { fromFen, randomBackRank, startPosition, toLan } from './rules/setup';
-import { checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
+import { checkCause, checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { offered } from './powers-ui';
 import { mulberry32 } from './sim/rng';
 
@@ -20,6 +20,31 @@ const say = (pos: Position, lan: string): string => describeMove(pos, find(pos, 
 afterEach(() => setRules());
 
 describe('check causes', () => {
+  it('names the Archer screen, a clear shot, a knight and both checkers', () => {
+    expect(checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'))).toBe('Their archer can shoot over e2.');
+    expect(checkCause(fromFen('7k/8/8/8/8/4a3/8/4K3 w - - 0 1'))).toBe('Their archer can shoot your king.');
+    expect(checkCause(fromFen('7k/p7/8/8/8/5n2/8/4K3 w - - 0 1'))).toBe('Their knight attacks your king.');
+    expect(checkCause(fromFen('4k3/8/8/8/8/5n2/8/4K2r w - - 0 1'))).toBe('Their rook and knight attack your king.');
+  });
+
+  it('names Strike only when it moves the checker', () => {
+    setRules({ ...POWERS_BALANCED, kings: [null, { king: 'Flame', power: 'Strike' }] });
+    const pre = fromFen('7k/8/8/8/8/a7/4P3/4K3 b - - 0 1');
+    const strike = legalMoves(pre).find(m => m.power === 'strike' && m.from === parseSq('a3') && m.to === parseSq('e3'))!;
+    expect(strike).toBeDefined();
+    const pos = makeMove(pre, strike);
+    expect(checkCause(pos, strike)).toBe('Strike lets their archer shoot over e2.');
+    expect(checkCause(pos, { ...strike, to: parseSq('a3') })).toBe('Their archer can shoot over e2.');
+  });
+
+  it('has no cause when the rules prevent check', () => {
+    const archer = fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1');
+    setRules({ archerChecks: false });
+    expect(checkCause(archer)).toBe('');
+    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Spirit', power: 'HolyLight' }, null], holyLightKnights: true });
+    expect(checkCause(fromFen('7k/p7/8/8/8/5n2/8/4K3 w - - 0 1'))).toBe('');
+  });
+
   it('names both checkers and their paths in a double check', () => {
     const pos = fromFen('4k3/8/8/8/8/5n2/8/4K2r w - - 0 1');
     expect(checkersOf(pos)).toEqual([

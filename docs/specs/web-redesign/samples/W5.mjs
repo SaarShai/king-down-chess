@@ -1,10 +1,10 @@
-// W5: still check causes. Run with SAMPLE=07 and the sample tool.
+// W5: still check causes. Run with SAMPLE=W5 and the sample tool.
 const checked = (name, fen) => ({
   name,
   query: `?fen=${encodeURIComponent(fen)}&players=human,human`,
-  controls: '#undo',
+  controls: '#undo, #end-turn, #menu-btn',
   steps: async ({ page }) => page.waitForFunction(() =>
-    document.querySelector('.king-in-check') && !document.querySelector('dialog[open]')),
+    document.querySelector('.king-in-check') && document.querySelector('#context-text').dataset.rank === 'check' && !document.querySelector('dialog[open]')),
 });
 
 export default {
