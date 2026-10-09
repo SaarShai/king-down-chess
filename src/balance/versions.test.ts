@@ -7,6 +7,8 @@ it('retains branch values and flags unmapped historical dimensions', () => {
   const points = measuredVersions([row, { ...row, id: 'other', run: 'repeat' }]);
   expect(points).toHaveLength(1);
   expect(points[0].runs).toEqual(['r', 'repeat']);
-  expect(points[0].findings).toHaveLength(4);
+  expect(points[0].findings).toHaveLength(3);
+  expect(points[0].findings.some(f => f.includes('archerShots'))).toBe(false);
+  expect(points[0].version).toBe('far2');
   expect(measuredVersions([{ ...row, validity: 'void' }])).toEqual([]);
 });

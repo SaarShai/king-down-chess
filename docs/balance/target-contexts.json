@@ -1,4 +1,4 @@
 {
-  "reason": "No available stamped context implements all five declared target choices. Add a context only after source and full flags are checked against those choices. A run name or a partial rule diff is not proof.",
+  "reason": "No complete measured context proves all five declared target choices. Add a context only after source and full flags are checked against those choices. A run name or a partial rule diff is not proof.",
   "contexts": []
 }

@@ -29,7 +29,7 @@ interface Evidence {
   sources: Source[]; criteria: Criterion[]; measurements: ReportMeasurement[];
   conflicts: { id: string; text: string; sourceIds: string[] }[];
   pendingRuns: { id: string }[];
-  nextRuns: { id: string; rank: number; machine: string; games: number; command: string; notebookMinutes: number; estimate: string; preconditions: string; decision: string }[];
+  nextRuns: { id: string; rank: number; machine: string; games: number; command: string; notebookMinutes: number; estimate: string; preconditions: string; decision: string; proposedSourceCommit?: string }[];
 }
 
 const escape = (s: unknown) => String(s ?? 'unknown').replace(/\|/g, '\\|').replace(/\n/g, ' ');
@@ -139,7 +139,7 @@ export function buildFramework(root: string, dataset: BalanceDataset, workbook: 
   const text = [
     '# Balance and rules framework', '',
     'This framework reads and checks. It does not change the game or choose a rule. The source snapshot is 2026-10-09.', '',
-    'The declared target is far2, a Guard next to its king, the Paladin beside the Ogre in the pool, Death Touch T2, and four cards. The request sets this target. The workbook records the first four approvals. Its hand-size cell still says six. The shipped checkout and rule text retain older choices. No cited run measures the complete target together.', '',
+    'The declared target is far2, a Guard next to its king, the Paladin beside the Ogre in the pool, Death Touch T2, and four cards. The request sets this target. The workbook records the first four approvals. Its hand-size cell still says six. The reviewed main source now implements the piece and power choices, with an Archer price of 3.39 pawns. QUEUE records the four-card choice; card mode stays in the lab. No cited run measures the complete target together.', '',
     '## Rebuild and check', '',
     'Run `npm run balance:build`. The command reads local output, the available Drive backup, the workbook, the approved documents, and the cited reports. It writes this report, `measurements.json`, `coverage.md`, `workbook.json`, and `status.json`. Use repeated `--source <folder>` arguments to select a fixed source set. It performs analysis only. It starts no games and contacts no remote machine.', '',
     'Run `npm run balance:check` for a strict schema and document check. Known source gaps make it fail on this snapshot. `npm run balance:check -- --report` prints the audit without a failing exit status. A source change still requires review. `npm test` tests the parsers, context boundaries, criteria, workbook reader, and drift detection.', '',
@@ -159,7 +159,7 @@ export function buildFramework(root: string, dataset: BalanceDataset, workbook: 
     ...evidence.criteria.map(c => `| ${c.id} | ${c.scope} | ${escape(JSON.stringify(c.target))} | ${c.status} | ${c.sourceIds.map(sourceLink).join(', ')} |`), '',
     'Criterion 4 is a weighted-mean identity. It cannot reject a piece. Criterion 4b stays open. The Queen is exempt from the piece worth band. The Guard cannot capture and is flagged on capture share. Rage is legendary and stays outside the common-card band. Global White equivalence and Light–Dark equality have no approved numeric margin. The draw gate comes before other outcome gates.', '',
     '## Element status', '',
-    'Each row links to the cited evidence in this report and to the same row ID in `measurements.json`. “Evidence check” applies the criterion in the named historical version. “Full target” needs matching rule and setup evidence. Cards marked testing are included so the whole candidate deal remains visible. The checked context list in `target-contexts.json` is empty because this source does not implement the full target. Register an immutable sourceHash and specKey only after source review. The next build then joins complete matching rows. Do not infer a match from a run name.', '',
+    'Each row links to the cited evidence in this report and to the same row ID in `measurements.json`. “Evidence check” applies the criterion in the named historical version. “Full target” needs matching rule and setup evidence. Cards marked testing are included so the whole candidate deal remains visible. The checked context list in `target-contexts.json` is empty because no complete measured context proves the full target. Register an immutable sourceHash and specKey only after source review. The next build then joins complete matching rows. Do not infer a match from a run name.', '',
     '| Element | Evidence version | Criterion | Evidence check | Full target | Evidence rows |', '|---|---|---|---|---|---|',
   ];
   const statuses: Record<string, unknown>[] = [];
@@ -209,12 +209,12 @@ export function buildFramework(root: string, dataset: BalanceDataset, workbook: 
     text.push(`| ${p.id} | ${run?.status ?? 'pending'} | ${run?.status === 'valid' ? 'See completed rows in measurements.json; review their context.' : 'none'} | ${p.id === 'deal-c4k' ? 'Four-card deal and card interactions.' : p.id === 'deal-d4k' ? 'Six-card deal precision; does not substitute for four cards.' : p.id === 'deal-nosalv2' ? 'Salvation removal on a second seed.' : 'Guard drop anywhere against the king-adjacent start.'} |`);
   }
   text.push('', '## Ranked run proposals', '', 'These rows use QUEUE format. They are proposals only. The main queue is unchanged. Reconcile the pending files first. Pin an engine that implements the target before any launch. Each notebook estimate stays below nine hours. The recorded throughput is an estimate, not a guarantee. A matching completed pending run removes its proposed duplicate.', '', '| id | machine / commit | command | games | result / decision rule |', '|---|---|---|---:|---|');
-  for (const r of evidence.nextRuns) text.push(`| ${r.rank}. ${r.id} | ${escape(r.machine)}; target commit not yet pinned | \`${escape(r.command)}\` | ${r.games} | proposed; ${r.notebookMinutes} min/notebook. ${escape(r.decision)} |`);
+  for (const r of evidence.nextRuns) text.push(`| ${r.rank}. ${r.id} | ${escape(r.machine)}; proposed source ${r.proposedSourceCommit?.slice(0, 7) ?? 'not pinned'} | \`${escape(r.command)}\` | ${r.games} | proposed; ${r.notebookMinutes} min/notebook. ${escape(r.decision)} |`);
   for (const r of evidence.nextRuns) text.push('', `**${r.id}:** ${r.estimate} ${r.preconditions}`);
   text.push('', '## Open owner choices and proposed changes', '',
     '1. Keep criterion 4 as the current rule, or approve 4b. The present test cannot fail. Pick: 4b for review; retain 4 until approval.',
     '2. Confirm the common-card band and numeric equality margins. The current band is 0.7–3 pawns. Light–Dark and global White equality have no numeric margin. Pick: approve margins before a formal adoption verdict.',
-    '3. Reconcile the target documents with the recorded 9 October choices. Pick: update the rules and matrix in the separate game-change work, with this audit as the checklist.',
+    '3. Reconcile the matrix gaps and the stale six-card workbook cell. Main now has the 9 October piece and power choices. Pick: use this audit to update the design records; do not change game behavior.',
     '4. Resolve the final deal and Salvation after pending evidence arrives. Pick: keep all pending results unset. The four-card deal must supply its own data.',
     '5. Keep the approved rule choices while the target checks are incomplete. far2 capture share and old Haste strength remain measured concerns. Pick: request the ranked target checks before another balance change.', '',
     '## Source conflicts and stale evidence', '', ...evidence.conflicts.map(c => `- **${c.id}:** ${c.text} ${c.sourceIds.map(sourceLink).join(', ')}`), '',
@@ -228,6 +228,6 @@ export function buildFramework(root: string, dataset: BalanceDataset, workbook: 
     text.push(`<a id="${id.replace(/[^a-z0-9-]/gi, '-').toLowerCase()}"></a>`, `**${id}** — ${r.element}, ${r.version}. ${r.metric}: ${r.bound ? `${r.bound.operator} ${r.bound.value}` : number(r.value)} ${r.unit}. Interval: ${r.interval ? `${number(r.interval.low)} to ${number(r.interval.high)} (${r.interval.level * 100}%)` : 'unknown'}. Sample: ${r.n ?? 'unknown'}. Depth: ${r.depth ?? 'unknown'}. Run: ${r.runIds.join(', ')}. ${r.context} ${r.sourceIds.map(sourceLink).join(', ')}`, '');
   }
   writeFileSync(join(output, 'workbook.json'), JSON.stringify(workbook, null, 2) + '\n');
-  writeFileSync(join(output, 'status.json'), JSON.stringify({ sourceDate: '2026-10-09', statuses, findings, versions, testedVersions, models, newDesigns: designs }, null, 2) + '\n');
-  writeFileSync(join(output, 'FRAMEWORK.md'), text.join('\n') + '\n');
+  writeFileSync(join(output, 'status.json'), JSON.stringify({ sourceDate: '2026-10-09', statuses, findings, versions, testedVersions, models, newDesigns: designs }) + '\n');
+  writeFileSync(join(output, 'FRAMEWORK.md'), text.join('\n').trimEnd() + '\n');
 }

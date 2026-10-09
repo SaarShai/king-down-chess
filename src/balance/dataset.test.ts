@@ -31,6 +31,7 @@ describe('all-history dataset', () => {
     expect(data.sources.find(s => s.source === 'backup/study.jsonl.gz')).toMatchObject({ status: 'duplicate', duplicates: 2, accepted: 0 });
     expect(data.sources.filter(s => s.kind !== 'missing')).toHaveLength(5);
     expect(data.sources.find(s => s.source.endsWith('note.bin'))?.status).toBe('unsupported');
+    expect(await buildDataset({ root, sources: [out, copy] })).toEqual(data);
   });
   it('joins global shard IDs under the indexed run and deduplicates a merged copy', async () => {
     const { root, out } = await fixture();
@@ -171,6 +172,14 @@ describe('all-history dataset', () => {
     await raw(out, 'dt-r0', [game(0)], { rules: { deathTouchReach: true, markFree: true } });
     const data = await buildDataset({ root, sources: [out] });
     expect(data.measurements.filter(m => m.run === 'dt-r0').every(m => m.validity === 'unverified')).toBe(true);
+  });
+  it('keeps equal report values from different run IDs as separate evidence', async () => {
+    const { root, out } = await fixture();
+    const report = '# Piece values\nDepth 3, 200 games per arm.\n## Implied values\n| piece | implied value (pawns) |\n|---|---|\n| A | 3.4 ± 0.2 |\n';
+    await writeFile(join(out, 'first.experiment.md'), report);
+    await writeFile(join(out, 'second.experiment.md'), report);
+    const data = await buildDataset({ root, sources: [out] });
+    expect(data.measurements.filter(m => m.element === 'A').map(m => m.run).sort()).toEqual(['first', 'second']);
   });
   it('imports report bounds and measured scale without an invented error', async () => {
     const { root, out } = await fixture('| absent-run | M1 | test | 20 | done |');

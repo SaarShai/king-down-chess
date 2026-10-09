@@ -379,7 +379,7 @@ function importReports(reports: Map<string, { file: File; data: Json | string }>
     if (mixedDepth && validity === 'valid') { validity = 'unverified'; reasons.push('Report pools search depths; a single depth is not proved.'); }
     if (target === null && validity === 'valid') { validity = 'unverified'; reasons.push('Report has no proved completion target.'); }
     if (c.machine === null) c = { ...c, machine: /(?:^|\/)m1\//.test(file.id) ? 'M1' : /mac-runs\//.test(file.id) ? 'Mac' : null };
-    const copyKey = stable({ hash: file.entry.sha256, context: { ...c, machine: null }, validity });
+    const copyKey = stable({ run: file.run, hash: file.entry.sha256, context: { ...c, machine: null }, validity });
     const original = identicalReports.get(copyKey);
     if (original) {
       file.entry.status = 'duplicate'; file.entry.reasons.push(`Byte-identical report and context are already covered by ${original}.`);
