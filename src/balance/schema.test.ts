@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ALL_CARDS, BUILT, DEFAULT_RULES } from '../rules/rules';
+import { ALL_CARDS, BUILT, DEFAULT_RULES, POWERS_BALANCED } from '../rules/rules';
 import { auditDesign, mapWorkbookVersions, parseWorkbook, SHIPPED_ELEMENTS, sourceContract } from './design';
 import type { AuditInput, Workbook } from './design';
 import { DIMENSIONS, RULE_DIMENSIONS, validateElement } from './schema';
@@ -24,6 +24,18 @@ describe('design schema', () => {
     expect(SHIPPED_ELEMENTS.filter(e => e.kind === 'kingPower').map(e => e.name).sort()).toEqual([...BUILT].sort());
     expect(SHIPPED_ELEMENTS.filter(e => e.kind === 'card').map(e => e.name).sort()).toEqual([...ALL_CARDS].sort());
     expect(SHIPPED_ELEMENTS.flatMap(validateElement)).toEqual([]);
+  });
+  it('keeps the Oct9 defaults and Morph limits in the typed records', () => {
+    expect(RULE_DIMENSIONS.guardNextToKing.default).toBe(true);
+    expect(RULE_DIMENSIONS.archerShots.default).toBe('far2');
+    expect(RULE_DIMENSIONS.archerShots.allowed).toEqual(sourceContract(baseline.rulesSource).choices.archerShots);
+    expect(RULE_DIMENSIONS.guardReserve.allowed).toContain('any');
+    expect(POWERS_BALANCED.deathTouchReachForwardBack).toBe(true);
+    expect(SHIPPED_ELEMENTS.find(e => e.name === 'Paladin')?.shipped).toBe(true);
+    const morph = SHIPPED_ELEMENTS.find(e => e.kind === 'card' && e.name === 'Morph')!;
+    if (morph.kind !== 'card') throw new Error('missing Morph');
+    expect(morph.dimensions.resultTypes).toContain('L');
+    expect(morph.dimensions.excludedResults).toContain('secondGuard');
   });
   it('rejects unknown values, dimensions and incomplete records', () => {
     const e = piece();
@@ -93,7 +105,7 @@ describe('document and source drift', () => {
     const actual = sourceContract(baseline.rulesSource);
     expect(Object.keys(actual.types).sort()).toEqual(Object.keys(DEFAULT_RULES).sort());
     expect(actual.types.guardReserve).toBe('GuardReserve');
-    expect(actual.choices.guardReserve).toEqual(['off', 'rank1', 'rank12']);
+    expect(actual.choices.guardReserve).toEqual(['off', 'rank1', 'rank12', 'any']);
     const removed = baseline.rulesSource.replace('  archerChecks: boolean;', '  // archerChecks: boolean;');
     expect(sourceContract(removed).types.archerChecks).toBeUndefined();
   });
@@ -104,17 +116,17 @@ describe('recorded versions', () => {
     expect(() => parseWorkbook({ source: 'file.xlsx', sha256: 'a'.repeat(64), sheets: [{ name: 'Pieces', cells: [{ cell: 'A0', value: {} }] }] })).toThrow();
     expect(parseWorkbook({ source: 'file.xlsx', sha256: 'a'.repeat(64), sheets: [] }).source).toBe('file.xlsx');
   });
-  it('keeps approved targets separate from what ships', () => {
+  it('maps the approved far2 target to the current default', () => {
     const w = workbook('Pieces', { A1: 'Name', A8: 'Archer', C8: 'Far2', D8: 'Approved', E8: 'Farther shots', F8: '3.39 ± 0.27 pawns', W8: 'owner choice' });
     const versions = mapWorkbookVersions(w);
     expect(versions).toHaveLength(1);
     const element = versions[0].element!;
     expect(element.approval).toBe('approved');
-    expect(element.shipped).toBe(false);
+    expect(element.shipped).toBe(true);
     expect(element.tested).toBe(true);
     expect(element.sources).toContain('workbook:Pieces!C8');
     expect(validateElement(element)).toEqual([]);
-    expect(codes({ ...baseline, workbook: w })).toContain('VERSION_ABSENT_FROM_MATRIX');
+    expect(codes({ ...baseline, workbook: w })).not.toContain('VERSION_ABSENT_FROM_MATRIX');
   });
   it('splits combined tested versions with a separate patch for each', () => {
     const w = workbook('Pieces', { A1: 'Name', A8: 'Archer', G8: 'PlusDiagFwd2Clear, fwd2NoBack, fwd2NoSide', H8: 'Testing', I8: 'Three shot sets' });
@@ -130,9 +142,29 @@ describe('recorded versions', () => {
     expect(t2.kind).toBe('kingPower');
     if (!('rules' in t2) || !('rules' in released)) throw new Error('missing power rules');
     expect(t2.rules.deathTouchReachForwardBack).toBe(true);
-    expect(t2.shipped).toBe(false);
+    expect(t2.shipped).toBe(true);
     expect(released.approval).toBe('dropped');
-    expect(released.rules.deathTouchReachForwardBack).not.toBe(true);
+    expect(released.rules.deathTouchReachForwardBack).toBe(false);
+  });
+  it('maps the Guard start flag and keeps the reserve reading in the lab', () => {
+    const w = workbook('Pieces', { A9: 'Guard', G9: 'Starts next to the king', H9: 'Approved', O9: 'Drop on any empty square', P9: 'Testing' });
+    const [start, reserve] = mapWorkbookVersions(w).map(v => v.element!);
+    expect(start).toMatchObject({ kind: 'rule', flag: 'guardNextToKing', dimensions: { value: true }, shipped: true });
+    expect(reserve).toMatchObject({ kind: 'rule', flag: 'guardReserve', dimensions: { value: 'any' }, shipped: false });
+    expect(codes({ ...baseline, workbook: w })).not.toContain('DECLARED_TARGET_NOT_SHIPPED');
+    expect(codes({ ...baseline, workbook: w })).not.toContain('WORKBOOK_HAND_SIZE_CONFLICT');
+    expect(auditDesign(baseline).some(f => f.code === 'RULE_ABSENT_FROM_MATRIX' && f.source.includes('guardNextToKing'))).toBe(true);
+  });
+  it('keeps old Archer and Death Touch readings separate from new defaults', () => {
+    const archer = mapWorkbookVersions(workbook('Pieces', { A8: 'Archer', K8: 'PlusDiagFwd2', L8: 'Rejected' }))[0].element!;
+    expect(archer.shipped).toBe(false);
+    expect(archer).toMatchObject({ dimensions: { shotPattern: 'plusDiagFwd2' }, rules: { archerShots: 'plusDiagFwd2' } });
+    const variants = ['Never backward', 'Never backward + takes pieces only', 'T3 (reach takes pieces only)', 'Next to it only (T5)', 'Next to it + takes by moving (T5m)', 'Diagonal reach'];
+    for (const version of variants) {
+      const e = mapWorkbookVersions(workbook('King powers', { B12: 'Death Touch', D12: version, E12: 'Rejected' }))[0].element!;
+      expect(e).toMatchObject({ shipped: false, rules: { deathTouchReachForwardBack: false } });
+      expect(validateElement(e)).toEqual([]);
+    }
   });
   it('reports a missing mapping and leaves unknown status unresolved', () => {
     const w = workbook('Pieces', { A17: 'Squire', C17: 'Base', D17: 'Unknown', E17: 'No source movement text' });
