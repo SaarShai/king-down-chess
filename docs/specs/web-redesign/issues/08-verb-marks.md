@@ -68,4 +68,4 @@ The shove arrow stays inside its landing square. Its phone stroke is thicker.
 Optional W4 9 waits: a read sign must stay distinct from selection.
 W4: 30 inspected renders, 0 faults. Tests and all nine required checks pass.
 
-Item 5: decided by delegation (2026-10-09). Bite digits use 18 CSS px type and 11 CSS px badges. The browser measures the actual visible glyph through measureText and the canvas scale. All four digits pass 8.5 CSS px at 375 px.
+Item 5: decided by delegation (2026-10-09). Bite digits use 14 CSS px lining type and 7 CSS px badge radii. The browser measures the actual visible glyph through measureText and the canvas scale. All four digits pass 8.5 CSS px at 375 px. The first final3 images show that larger circles cover the figures. The smaller circles sit at the cell corner and keep clear of the figures.

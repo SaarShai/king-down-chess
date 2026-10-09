@@ -129,4 +129,4 @@ Decision: decided by delegation (2026-10-09). Items 1 to 15 in the repair brief 
 
 Pass criteria: items 1 to 15 have ticket notes; all tests/checks pass; each sample report has 0 faults; every required pixel check passes; push succeeds.
 
-Item 14: decided by delegation (2026-10-09). PaintedView reads the body font only with webInk. The plugin module list includes board-ink and powers-ui; renderer and read supply types only. Plugin checks and the final page size follow in the final check record.
+Item 14: decided by delegation (2026-10-09). PaintedView no longer reads the body font. The bite digits use lining type, so that read is not needed. The plugin keeps its former font. The plugin module list includes board-ink and powers-ui; renderer and read supply types only. Plugin checks and the final page size follow in the final check record.

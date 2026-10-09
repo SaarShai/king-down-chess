@@ -21,7 +21,7 @@ try {
   await page.waitForFunction(() => window.boardText['2']?.font.includes('bold'));
   const badge = await boardText(page, '2');
   assert.ok(badge.glyphHeight >= 8.5, `bite digit has at least 8.5 CSS px of ink: ${badge.glyphHeight}`);
-  assert.match(badge.font, /Alegreya Sans/, 'bite digits use the body font');
+  assert.match(badge.font, /sans-serif/, 'bite digits use lining figures');
   assert.deepEqual(await lanMoves(page), [], 'chosen bites do not write a ply');
   await tap(8);
   assert.deepEqual((await marks()).bites, [26, 35], 'off-mark taps keep the chain');

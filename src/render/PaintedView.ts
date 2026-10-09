@@ -66,7 +66,6 @@ export class PaintedView implements BoardView {
   private mark = 1;
   private coords = true;
   private width = 960;
-  private bodyFont: string;
   private fallen: { pos: Position; sq: number } | null = null;
   private motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
   /** Keyboard cursor square, previewed like the hovered square. */
@@ -81,7 +80,6 @@ export class PaintedView implements BoardView {
    */
   constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean } = {}) {
     container.classList.add('painted');
-    this.bodyFont = options.webInk ? getComputedStyle(container).fontFamily : '';
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
     this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(0), kingDesign(1)], floor: options.floor });
@@ -237,7 +235,7 @@ export class PaintedView implements BoardView {
     const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
     drawMarks(ctx, scene, layer, {
       marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, motion: this.motion(), since: this.marksSince,
-      ink: this.options.webInk ? boardInk(this.width) : undefined, bodyFont: this.bodyFont,
+      ink: this.options.webInk ? boardInk(this.width) : undefined,
     }, row);
     // Row 7 runs after all figures, so the cause stays visible across the board.
     if (layer === 'over' && row === 7 && m.check != null) {
