@@ -4,7 +4,7 @@
 // Screenshots in PLAYABLE_OUT: desktop-computer.jpg, desktop-powers.jpg, phone-computer.jpg, phone-powers.jpg.
 // Run: npm run check:browser new-game (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { startLesson, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
+import { powersHidden, startLesson, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 
@@ -131,7 +131,7 @@ try {
   let s = await saved(page);
   assert.deepEqual([s.white, s.black, s.skill, s.rules.kings], ['human', 'ai', 'club', [null, null]]);
   assert.match(s.back, /^[A-Z]{8}$/);
-  assert.equal(await page.isHidden('#powers'), true, 'no power bar');
+  assert.equal(await powersHidden(page), true, 'no power bar');
   await kingsDrawn(page, ['spirit', 'shadow']);
   ok('Play the computer: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
 

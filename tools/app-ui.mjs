@@ -121,6 +121,21 @@ export async function endTurn(page, { keyboard = false } = {}) {
   else await page.click('#end-turn');
 }
 
+export const powerCoin = (page, side) => page.locator(side ? `#power-${side}` : '.player-strip.is-turn .coin');
+/** An off coin still reads. Use is a separate control. */
+export const readPower = (page, side) => powerCoin(page, side).click({ force: true });
+export async function usePower(page) {
+  await readPower(page);
+  await page.locator('#power-use').click();
+}
+export const powerButtonText = page => powerCoin(page).getAttribute('aria-label');
+export const powersHidden = async page => await page.locator('.coin').count() === 0;
+/** The board's arrow keys move its cursor. Review arrows start outside the board. */
+export async function previousReview(page) {
+  await page.locator('#back-to-game').focus();
+  await page.keyboard.press('ArrowLeft');
+}
+
 /**
  * What the readouts show, read in the page. Playwright sends the source of this function to the page,
  * so it uses nothing from this module.

@@ -1,5 +1,5 @@
 // W2: three layout sizes, the five table states and the four Menu pages.
-import { startLesson, endTurn, openExtra, openMenu, openMoves } from '../../../../tools/app-ui.mjs';
+import { usePower, startLesson, endTurn, openExtra, openMenu, openMoves } from '../../../../tools/app-ui.mjs';
 const save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', sound: false };
 const frost = { ...save, back: '', fen: '4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', moves: [] };
 const lesson = async page => { await startLesson(page); };
@@ -19,8 +19,8 @@ export default {
     { name: 'review', save, controls: '#back-to-game', steps: async ({ page }) => { await openMoves(page); await page.locator('#moves [data-ply="2"]').click(); } },
     { name: 'lesson-task', save, controls: '#return-game, #show-me, #menu-btn', steps: ({ page }) => lesson(page) },
     { name: 'lesson-done', save, controls: '#return-game, #next-lesson, #menu-btn', steps: async ({ page, tap }) => { await lesson(page); await tap(27); await tap(36); } },
-    { name: 'freeze-armed', save: frost, query: '?kings=frost:freeze,none', controls, steps: ({ page }) => page.click('#power-btn') },
-    { name: 'freeze-mark', save: frost, query: '?kings=frost:freeze,none', controls, steps: async ({ page, tap }) => { await page.click('#power-btn'); await tap(35); } },
-    { name: 'free-pass', save: frost, query: '?kings=frost:freeze,none', controls, steps: async ({ page, tap }) => { await page.click('#power-btn'); await tap(35); await endTurn(page); } },
+    { name: 'freeze-armed', save: frost, query: '?kings=frost:freeze,none', controls, steps: ({ page }) => usePower(page) },
+    { name: 'freeze-mark', save: frost, query: '?kings=frost:freeze,none', controls, steps: async ({ page, tap }) => { await usePower(page); await tap(35); } },
+    { name: 'free-pass', save: frost, query: '?kings=frost:freeze,none', controls, steps: async ({ page, tap }) => { await usePower(page); await tap(35); await endTurn(page); } },
   ],
 };

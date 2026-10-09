@@ -7,6 +7,7 @@ import { type Color, type PieceType, type Rules, type Position, NAMES, colorOf, 
 import { readText } from '../read';
 import type { SkillName } from '../ai/skill';
 import { turnLine, type Mode, type Turn } from '../turn';
+import type { CoinContext } from './powers';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 const text = (id: string): string => $(id).textContent?.trim() ?? '';
@@ -45,6 +46,7 @@ export interface TableState {
   notice: string; armed: boolean; selected: number | null; pending: readonly number[];
   linkSide: Color | null; reviewNote: string;
   turn: Turn; mode: Mode;
+  power?: CoinContext;
 }
 
 export function refreshTable(s: TableState): void {
@@ -82,11 +84,12 @@ export function refreshTable(s: TableState): void {
   const status = text('status');
   const state: ContextState = {
     voice: s.sides.includes('ai') || s.linkSide != null ? 'you' : liveSide ? 'Black' : 'White',
-    review: s.viewing != null ? `Review. ${read || (s.viewing === 0 ? 'The start.' : `Move ${s.viewing}.`)}` : '',
+    review: s.viewing != null ? `Review. ${s.power?.read || read || (s.viewing === 0 ? 'The start.' : `Move ${s.viewing}.`)}` : '',
     result: status && status !== 'thinking…' ? status : '', refusal: s.notice,
     armed: s.armed ? s.rules.kings[s.game.pos.turn]?.power : undefined, chain: !!s.pending.length, canStop: !$('stop-chain').hidden,
-    read: reading || s.selected == null ? read : '',
-    readNote: s.viewing != null && !read ? s.reviewNote : readNote,
+    read: s.power?.read || (reading || s.selected == null ? read : ''),
+    readNote: s.power?.read ? s.power.note : s.viewing != null && !read ? s.reviewNote : readNote,
+    armedLine: s.power?.armedLine, powerUse: s.power?.use,
     midWay: s.game.pos.haste !== undefined || !!s.game.pos.free,
     free: !!s.game.pos.free,
     selected: s.selected == null ? '' : read,
@@ -108,6 +111,9 @@ export function refreshTable(s: TableState): void {
   }));
   $('context-text').dataset.rank = line.rank;
   $('back-to-game').hidden = s.viewing == null;
+  $('power-use').hidden = !line.actions.includes('power-use');
+  $('power-use').setAttribute('aria-disabled', String(!s.power?.use));
+  $('power-cancel').hidden = !line.actions.includes('power-cancel');
   const resign = $<HTMLButtonElement>('resign');
   resign.setAttribute('aria-disabled', String(resign.disabled));
   resign.disabled = false;

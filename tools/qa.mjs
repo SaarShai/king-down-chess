@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { endTurn } from './app-ui.mjs';
+import { powerButtonText, usePower, endTurn } from './app-ui.mjs';
 /**
  * Browser QA for the takeover changes. The runner builds the app, serves the build and runs this check:
  *
@@ -337,12 +337,12 @@ await caseFn('mobile layout has no horizontal overflow', '', async (page, errors
 // d2 reaches d8 only through the power: the arming, the click path, the LAN suffix and the live rule
 // all have to line up.
 await caseFn('strike: an armed knight moves as a queen once (flame:strike)', `?kings=flame:strike&fen=${encodeURIComponent('4k3/8/8/8/7p/8/3N4/4K3 w - - 0 1')}`, async (page, errors) => {
-  const info = await page.textContent('#power-btn');
+  const info = await powerButtonText(page);
   await clickSq(page, 'd2');
   await clickSq(page, 'd8'); // unarmed: not a knight's move, so nothing happens
   await page.waitForTimeout(400);
   const unarmed = (await snap(page)).moves;
-  await page.click('#power-btn');
+  await usePower(page);
   await clickSq(page, 'd2');
   await clickSq(page, 'd8');
   await waitPly(page, 1);

@@ -7,14 +7,14 @@ import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, V, colorOf, file as fileOf, findKing, moveNumber, PowerName, parseKings, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, V, colorOf, file as fileOf, findKing, PowerName, parseKings, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { initLessonShelf, recordLesson, refreshLessonShelf } from './lesson-shelf-ui';
 import { mulberry32 } from './sim/rng';
 import { checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
-import { POWER_NAME, POWER_TAG, autoQueen, hintMoves, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
+import { POWER_NAME, POWER_TAG, autoQueen, hintMoves, kingsParam, offered, powerText, powersRules, usesAllowed } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, newGameWarning, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
@@ -29,6 +29,7 @@ import { awardTurnSeals } from './ui/tricks';
 import { initTable, readPiece, refreshTable } from './ui/table';
 import { clickPath, landingMoves, marksModel } from './marks-model';
 import { connectReadKey } from './ui/read';
+import { clearCoinRead, initCoins, refreshCoins } from './ui/powers';
 import { reviewStep } from './review';
 import { shouldShowHome } from './ui/home';
 import { initHome } from './ui/home-view';
@@ -365,37 +366,11 @@ function refresh(): void {
     const taught = (name: string) => NAMES.indexOf(name.toLowerCase() as typeof NAMES[number]) as PieceType;
     progress.innerHTML = LESSONS.map((l, i) => `<span class="${i < lesson! || (i === lesson && lessonDone) ? 'done' : i === lesson ? 'now' : ''}" title="${l.name}">${pieceIcon(taught(l.name))}</span>`).join('');
   }
-  refreshPowers();
+  const coins = refreshCoins({ pos: shownPos(), history: game.history, rules: GAME_RULES, legal: viewing == null ? game.legal : undefined, activeSide: currentTurn().activeSide, armed, canPlay: !finished() && viewing == null && lesson == null && myTurn(), busy, flipped, lesson, selection: selected != null || inspected != null || !!notice });
+  armed = coins.armed;
   drawMarks();
-  refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode() });
+  refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode(), power: coins.context });
   home?.refresh();
-}
-
-/** The power control arms the side to move's power. */
-function refreshPowers(): void {
-  const c = currentTurn().activeSide, k = GAME_RULES.kings[c];
-  const live = !!k && viewing == null && !finished() && lesson == null;
-  const tag = k ? POWER_TAG[k.power] : undefined;
-  const left = usesLeft(game.pos, c);
-  const spendable = !!tag && tag !== 'march' && tag !== 'leap';
-  const midTurn = game.pos.haste !== undefined || !!game.pos.free; // a Haste or a free mark awaits its next move
-  const from = k ? GAME_RULES.fromMove[k.power] : undefined, early = from !== undefined && moveNumber(game.pos) < from; // `Rules.fromMove`
-  const usable = live && myTurn() && spendable && left !== 0 && !midTurn && game.legal.some(m => m.power === tag);
-  if (!usable) armed = false; // not when only busy: the power stays armed through Hint's search
-  const canUse = usable && !busy;
-  $('powers').hidden = !live;
-  const btn = $<HTMLButtonElement>('power-btn');
-  btn.hidden = !spendable;
-  btn.disabled = !canUse;
-  btn.textContent = !k ? '' : armed ? `Cancel ${POWER_NAME[k.power]}` : `Use ${POWER_NAME[k.power]}${early ? ` (from move ${from})` : left === null ? '' : ` (${left} left)`}`;
-  btn.classList.toggle('armed', armed);
-  $('power-status').textContent = !k ? '' : armed
-    ? (tag === 'freeze' ? 'Tap an enemy piece to freeze it for one turn.'
-      : tag === 'ward' ? 'Tap one of your pieces to wall it for one turn.'
-      : tag === 'sacrifice' ? 'Tap one of your pawns to bring back a lost piece there.'
-      : tag === 'haste' ? 'Move a piece; it may then move again.'
-      : `Choose a piece, then a marked square (${POWER_NAME[k.power]}).`)
-    : ''; // The table shows these words for an armed power.
 }
 
 let marksFrame = 0;
@@ -656,7 +631,7 @@ async function choosePower(moves: Move[]): Promise<void> {
   armed = false; refresh();
 }
 
-$('power-btn').onclick = () => { armed = !armed; selected = null; inspected = null; pending = []; hintSquares = []; refresh(); };
+initCoins(value => { armed = value; selected = inspected = null; pending = []; hintSquares = []; notice = ''; refresh(); });
 
 
 /** Drag arm: select without the click toggle so a second onSquareClick can still play the move. */
@@ -676,6 +651,7 @@ const refuse = (why: string, sq: number): void => { ({ inspected } = readTap(sho
 
 view.onSquareClick = (sq, shift = false) => {
   if (home?.visible) home.resume();
+  clearCoinRead();
   if (busy) { if (thinking) refuse('The computer is thinking. Wait for its move.', sq); view.skip(); return; } // a tap during an animation skips it
   if (viewing != null) { refuse('', sq); return; }
   if (ended()) return refuse(lesson != null ? '' : 'The game is over. Start a new game.', sq);
@@ -788,6 +764,7 @@ $('moves').onclick = e => {
 
 /** Stop any AI search in flight and drop the per-game UI state. */
 function reset(): void {
+  clearCoinRead();
   gen++;
   navGen++;
   replaying = thinking = false;
@@ -1207,7 +1184,7 @@ addEventListener('keydown', e => {
   // No game key acts under a dialog: there Esc only closes the dialog (the Workshop's Esc closes its top sheet,
   // else an open choices panel, else the Workshop).
   if (home?.visible || document.querySelector('dialog[open]')) return;
-  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; inspected = null; armed = false; hintSquares = []; refresh(); return; }
+  if (e.key === 'Escape') { clearCoinRead(); view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; inspected = null; armed = false; hintSquares = []; refresh(); return; }
   // Nor in a field that takes typing.
   const field = e.target as HTMLElement;
   if (field.closest('input,select,textarea') || field.isContentEditable) return;

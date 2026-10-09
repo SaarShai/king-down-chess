@@ -1,6 +1,6 @@
 // The fixed table at the three W2 sizes, through real board input.
 import assert from 'node:assert/strict';
-import { startLesson, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
+import { usePower, startLesson, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 const visibleWords = async (page, words) => assert.ok(await contextWordsInView(page, words), `the drawn context shows ${words}`);
@@ -71,7 +71,7 @@ try {
   }
   {
     const { page, context } = await opened({ back: '', fen: '4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', moves: [] }, '?kings=frost:freeze,none');
-    await page.click('#power-btn');
+    await usePower(page);
     assert.ok((await page.locator('#context-text > span').first().innerText()).split(/\s+/).length <= 8, 'the armed power instruction has at most eight words');
     const p = await page.evaluate(() => window.view.screenOf(35)); await page.mouse.click(p.x, p.y);
     assert.equal(await page.locator('#last-move .pi-b').count(), 1, 'Freeze names the black knight');
