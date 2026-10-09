@@ -12,6 +12,18 @@ describe('contextLine', () => {
     expect(contextLine({ ...state, check: true }).rank).toBe('previously');
     expect(contextLine({ ...state, result: 'White wins.' }).rank).toBe('result');
   });
+  it('shows the cause below an active check', () => {
+    expect(contextLine({ voice: 'you', check: true, checkCause: 'Their knight attacks your king.' }))
+      .toMatchObject({ rank: 'check', line: 'Check! Your move.', note: 'Their knight attacks your king.' });
+    expect(contextLine({ voice: 'White', check: true, checkCause: 'Their archer can shoot over e2.' }).note)
+      .toBe('Their archer can shoot over e2.');
+  });
+
+  it('keeps a check cause out of a staged turn, read or selection', () => {
+    for (const state of [{ waiting: true }, { stagedEnd: 'Checkmate.' }, { read: 'Black knight.' }, { selected: 'White king.' }]) {
+      expect(contextLine({ voice: 'you', check: true, checkCause: 'Their knight attacks your king.', ...state }).note).not.toContain('Their knight');
+    }
+  });
   it('at rest speaks to the player, or names the side on one device', () => {
     expect(contextLine({ voice: 'you' })).toMatchObject({ rank: 'your-move', line: 'Your move.', actions: [] });
     expect(contextLine({ voice: 'White' }).line).toBe('White to move.');
