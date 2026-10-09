@@ -36,6 +36,13 @@ describe('the power coin', () => {
     if (phase === 'haste move') pos.haste = 0;
     expect(coinState(pos, 0, rules, [], true)).toMatchObject({ state: 'waiting', left: 1 });
   });
+  it('waits for the turn press before the next side can arm', () => {
+    const rules = powersRules({ kings: parseKings('none,flame:haste') });
+    const pos = fromFen('7k/8/8/8/8/8/P7/K7 b - - 0 1');
+    expect(coinState(pos, 1, rules, [], true, undefined, 0)).toMatchObject({ state: 'waiting', left: 1 });
+    expect(coinState(pos, 1, rules, [], true, undefined, null)).toMatchObject({ state: 'waiting', left: 1 });
+    expect(coinState(pos, 1, rules, [], true, undefined, 1)).toMatchObject({ state: 'armed', left: 1 });
+  });
   it('has no target when the engine offers no power move', () => {
     const rules = powersRules({ kings: parseKings('frost:freeze,none') });
     setRules(rules);

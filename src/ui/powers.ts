@@ -36,7 +36,7 @@ interface CoinsState {
 export function refreshCoins(s: CoinsState): { armed: boolean; context: CoinContext } {
   if (s.pos !== lastPos || s.selection) clearCoinRead();
   lastPos = s.pos; activeSide = s.activeSide;
-  const coins = ([0, 1] as const).map(c => s.lesson == null ? coinState(s.pos, c, s.rules, s.history, s.armed && c === activeSide, s.legal) : null);
+  const coins = ([0, 1] as const).map(c => s.lesson == null ? coinState(s.pos, c, s.rules, s.history, s.armed && c === activeSide, s.legal, s.canPlay ? activeSide : null) : null);
   const active = coins[activeSide], tag = active && POWER_TAG[active.power];
   const eligible = !!active && !!tag && tag !== 'march' && tag !== 'leap'
     && (active.state === 'ready' || active.state === 'armed') && s.canPlay;

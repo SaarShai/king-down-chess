@@ -162,7 +162,7 @@ export interface PowerCoin {
 export function coinState(
   pos: Position, side: Color, rules: Rules,
   history: readonly { pos: Position; move: Move }[], armed: boolean,
-  legal?: readonly Move[],
+  legal?: readonly Move[], activeSide: Color | null = pos.turn,
 ): PowerCoin | null {
   const choice = rules.kings[side];
   if (!choice) return null;
@@ -174,7 +174,7 @@ export function coinState(
   const last = always ? undefined : history.filter(h => h.pos.ply < pos.ply && h.pos.turn === side && h.move.power === POWER_TAG[choice.power]).at(-1);
   return {
     ...choice, state: always ? 'always' : left === 0 ? 'used'
-      : moveNumber(pos) < fromMove || pos.turn !== side || pos.free || pos.haste !== undefined ? 'waiting'
+      : moveNumber(pos) < fromMove || pos.turn !== side || activeSide !== side || pos.free || pos.haste !== undefined ? 'waiting'
       : legal && !legal.some(m => m.power === POWER_TAG[choice.power]) ? 'no-target'
       : armed ? 'armed' : 'ready',
     total: always ? null : total, spent, left,

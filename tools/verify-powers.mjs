@@ -55,10 +55,16 @@ try {
   console.log('ok Use arms and each cancel path disarms');
 
   // 3. Freeze is a free mark. End turn still hands the turn over.
+  await open(page, 'frost:freeze,flame:haste');
   await usePower(page); await tap(page, 'd5'); await marked(page);
   assert.deepEqual(await lanMoves(page), ['!F:d5']);
   assert.equal(await page.locator('#power-w .notch.is-spent').count(), 1);
-  await tap(page, 'a2'); await tap(page, 'a3'); await endTurn(page);
+  await tap(page, 'a2'); await tap(page, 'a3');
+  await readPower(page, 'b');
+  assert.match(await contextText(page), /Not your turn\./);
+  assert.equal(await powerCoin(page, 'b').getAttribute('aria-disabled'), 'true');
+  assert.equal(await page.isHidden('#power-use'), true, 'the next coin waits for the turn press');
+  await endTurn(page);
   await tap(page, 'd5');
   assert.deepEqual(await lanMoves(page), ['!F:d5', 'a2-a3'], 'the frozen knight cannot move');
   await shot(page, 'freeze');
