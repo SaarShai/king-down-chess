@@ -59,8 +59,8 @@ export const SOUNDS: Record<'move' | 'capture' | 'check' | 'shove' | 'shot' | 'c
   move: (c, o, t) => { noise(c, o, t, 0.05, 1, 'bandpass', 1700, 1700, 2.5); tone(c, o, t, 0.07, 0.3, 210, 170); },
   // A heavier blow: low thump, dull crunch, and the knock.
   capture: (c, o, t) => { tone(c, o, t, 0.22, 0.55, 150, 55); noise(c, o, t, 0.16, 0.35, 'lowpass', 1200, 300); noise(c, o, t, 0.04, 0.3, 'bandpass', 1500, 1500, 2); },
-  // Two soft bell partials, the second a fifth above.
-  check: (c, o, t) => { tone(c, o, t, 0.45, 0.12, 880); tone(c, o, t + 0.07, 0.4, 0.09, 1320); },
+  // One low note: a falling triangle with a quiet upper partial.
+  check: (c, o, t) => { tone(c, o, t, 0.7, 0.32, 110, 98, 'triangle'); tone(c, o, t, 0.7, 0.08, 220); },
   // Stone dragged across stone, over a low push.
   shove: (c, o, t) => { noise(c, o, t, 0.26, 0.4, 'bandpass', 320, 220, 1.2); tone(c, o, t, 0.18, 0.35, 95, 60); },
   // A bowstring: a plucked, falling tone and a thin whistle of air.
