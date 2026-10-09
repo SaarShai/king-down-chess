@@ -5,7 +5,7 @@ const rest = page => page.waitForFunction(() => !window.view.scene.animating && 
 export default {
   sizes: ['phone', 'desktop'],
   states: [
-    { name: 'flight-tile', query: '?kings=stratus:flight,none', save: { ...base, fen: '7k/6pp/p7/8/8/R7/8/7K w - - 0 1', moves: ['Kh1~h3', 'a6-a5'] }, controls: '#over button',
+    { name: 'flight-tile', query: '?kings=stratus:flight,none', save: { ...base, fen: '7k/6pp/p7/8/8/R7/8/2N4K w - - 0 1', moves: ['Nc1~c3', 'a6-a5'] }, controls: '#over button',
       steps: async ({ page, tap }) => { await tap(16); await tap(56); await rest(page); await endTurn(page); await page.locator('#over').waitFor({ state: 'visible' }); } },
     { name: 'haste-final-pass', query: '?kings=flame:haste,none', save: { ...base, fen: '7k/6pp/8/8/8/R7/8/7K w - - 0 1', moves: [] }, controls: '#over button',
       steps: async ({ page, tap }) => { await usePower(page); await tap(16); await tap(56); await rest(page); await endTurn(page); await page.locator('#over').waitFor({ state: 'visible' }); } },
