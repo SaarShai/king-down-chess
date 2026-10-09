@@ -1,6 +1,6 @@
 import { contextLine, type ContextState } from '../context-line';
 import { type Game, type Side } from '../game';
-import { describeMove } from '../move-text';
+import { checkCause, describeMove } from '../move-text';
 import { pieceIcon } from '../piece-icons';
 import { type Color, type PieceType, type Rules, type Position, NAMES, colorOf, typeOf } from '../rules/engine';
 import { readText } from '../read';
@@ -90,6 +90,7 @@ export function refreshTable(s: TableState): void {
     free: !!s.game.pos.free,
     selected: s.selected == null ? '' : read,
     waiting: s.turn.waits, check: s.game.inCheck, computer: s.sides[s.game.pos.turn] === 'ai',
+    checkCause: s.game.inCheck && !s.turn.staged ? checkCause(s.game.pos, history.at(-1)?.move) : '',
     turnLine: turnLine(s.game, s.turn, s.mode),
     stagedEnd: s.turn.staged && s.game.status !== 'playing' ? s.game.status === 'checkmate' ? 'Checkmate.' : 'Draw.' : '',
     lesson: s.lesson == null ? '' : text('turn'), lessonNote: s.lesson == null ? '' : text('moment'),

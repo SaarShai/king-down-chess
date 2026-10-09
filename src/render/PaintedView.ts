@@ -189,9 +189,10 @@ export class PaintedView implements BoardView {
       ctx.save();
       // The last move: a warm wash, strong enough for both stone colours (Hint keeps the outline).
       for (const sq of m.last ?? []) { const b = box(sq); ctx.fillStyle = '#e6b84a6e'; ctx.fillRect(b.x, b.y, TILE, TILE); }
-      if (m.check != null) {
+      if (m.check != null && (m.checkers === undefined || !scene.animating)) {
         const f = scene.foot(m.check);
-        ctx.fillStyle = '#c0392b55'; ctx.strokeStyle = '#b3261e'; ctx.lineWidth = 3;
+        ctx.fillStyle = m.checkers === undefined ? '#c0392b55' : '#c4501f33';
+        ctx.strokeStyle = m.checkers === undefined ? '#b3261e' : '#c4501f'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.ellipse(f.x, f.y - 2, 44, 15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
       ctx.restore();
@@ -201,6 +202,24 @@ export class PaintedView implements BoardView {
     drawMarks(ctx, scene, layer, {
       marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, motion: this.motion(), since: this.marksSince,
     }, row);
+    // Row 7 runs after all figures, so the cause stays visible across the board.
+    if (layer === 'over' && row === 7 && m.check != null) {
+      ctx.save(); ctx.lineCap = 'round';
+      for (const ch of m.checkers ?? []) {
+        const a = scene.foot(ch.sq), b = scene.foot(ch.king);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y - 24);
+        if (ch.path === 'arc') {
+          // A shot along a file bows to the side, as in the demo.
+          const alongFile = Math.abs(a.x - b.x) < 1;
+          const cx = (a.x + b.x) / 2 + (alongFile ? Math.abs(a.y - b.y) * 0.45 : 0);
+          const cy = alongFile ? (a.y + b.y) / 2 - 24 : Math.min(a.y, b.y) - TILE * 0.65;
+          ctx.quadraticCurveTo(cx, cy, b.x, b.y - 24);
+        } else ctx.lineTo(b.x, b.y - 24);
+        ctx.strokeStyle = '#fbf6e8dd'; ctx.lineWidth = 5.5; ctx.stroke();
+        ctx.strokeStyle = '#c4501f'; ctx.lineWidth = 2.2; ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   private pick(e: PointerEvent): number | null {
