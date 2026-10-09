@@ -138,14 +138,14 @@
     {
       "id": "defaults",
       "path": "src/rules/setup.ts",
-      "line": 7,
+      "line": 9,
       "section": "export const POOL =",
       "note": null
     },
     {
       "id": "released-powers",
       "path": "src/rules/rules.ts",
-      "line": 784,
+      "line": 799,
       "section": "export const POWERS_BALANCED:",
       "note": null
     },
@@ -239,6 +239,55 @@
       "line": 41,
       "section": "Against none",
       "note": "Local main-checkout report. Git ignores raw output. Source commit8902567 in QUEUE.28 measured candidates;27-card deal drops MorphS alias."
+    },
+    {
+      "id": "rule-far2",
+      "path": "docs/RULES.md",
+      "line": 211,
+      "section": "20. **The far2 Archer",
+      "note": "Current main source at 7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
+    },
+    {
+      "id": "rule-guard-next",
+      "path": "docs/RULES.md",
+      "line": 216,
+      "section": "21. **The guard starts",
+      "note": "Current main source at 7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
+    },
+    {
+      "id": "rule-paladin-return",
+      "path": "docs/RULES.md",
+      "line": 225,
+      "section": "23. **The Paladin returns",
+      "note": "Current main source at 7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
+    },
+    {
+      "id": "rule-t2",
+      "path": "docs/RULES.md",
+      "line": 229,
+      "section": "24. **Death Touch reaches",
+      "note": "Current main source at 7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
+    },
+    {
+      "id": "queue-four-card-approval",
+      "path": "docs/QUEUE.md",
+      "line": 333,
+      "section": "| deal-c4k |",
+      "note": "Current main source at 7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
+    },
+    {
+      "id": "owner-build-ticket",
+      "path": "docs/specs/owner-decisions-2026-10-09/issues/01-build-the-decisions.md",
+      "line": 1,
+      "section": "# Build the owner decisions",
+      "note": "Current main source at 7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
+    },
+    {
+      "id": "current-eval",
+      "path": "src/ai/eval.ts",
+      "line": 69,
+      "section": "export const ARCHER_V = 339",
+      "note": "Current main source at 7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     }
   ],
   "criteria": [
@@ -489,68 +538,105 @@
   "currentTargets": [
     {
       "id": "target-far2",
-      "state": "owner approved Oct9; declared current target",
+      "state": "owner approved Oct9; implemented on main7035b5e",
       "sourceIds": [
         "workbook",
-        "owner-prompt"
+        "owner-prompt",
+        "rule-far2",
+        "current-eval",
+        "owner-build-ticket"
       ],
       "cells": [
         "Pieces!F8",
         "Pieces!V8"
       ],
-      "fullTargetMeasured": false
+      "fullTargetMeasured": false,
+      "approvalSourceIds": [
+        "rule-far2",
+        "current-eval",
+        "owner-build-ticket"
+      ],
+      "implementationCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     },
     {
       "id": "target-guard-near-king",
-      "state": "owner approved Oct9; declared current target",
+      "state": "owner approved Oct9; implemented on main7035b5e",
       "sourceIds": [
         "workbook",
-        "owner-prompt"
+        "owner-prompt",
+        "rule-guard-next",
+        "owner-build-ticket"
       ],
       "cells": [
         "Pieces!J9",
         "Rules!D20"
       ],
-      "fullTargetMeasured": false
+      "fullTargetMeasured": false,
+      "approvalSourceIds": [
+        "rule-guard-next",
+        "owner-build-ticket"
+      ],
+      "implementationCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     },
     {
       "id": "target-paladin",
-      "state": "owner approved Oct9; declared current target",
+      "state": "owner approved Oct9; implemented on main7035b5e",
       "sourceIds": [
         "workbook",
-        "owner-prompt"
+        "owner-prompt",
+        "rule-paladin-return",
+        "owner-build-ticket"
       ],
       "cells": [
         "Pieces!F13",
         "Rules!D2"
       ],
-      "fullTargetMeasured": false
+      "fullTargetMeasured": false,
+      "approvalSourceIds": [
+        "rule-paladin-return",
+        "owner-build-ticket"
+      ],
+      "implementationCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     },
     {
       "id": "target-t2",
-      "state": "owner approved Oct9; declared current target",
+      "state": "owner approved Oct9; implemented on main7035b5e",
       "sourceIds": [
         "workbook",
-        "owner-prompt"
+        "owner-prompt",
+        "rule-t2",
+        "released-powers",
+        "owner-build-ticket"
       ],
       "cells": [
         "King powers!G12",
         "King powers!AI12",
         "Card matrix!M10"
       ],
-      "fullTargetMeasured": false
+      "fullTargetMeasured": false,
+      "approvalSourceIds": [
+        "rule-t2",
+        "released-powers",
+        "owner-build-ticket"
+      ],
+      "implementationCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     },
     {
       "id": "target-four-cards",
-      "state": "declared current target in request; hand-size question closed",
+      "state": "owner approved Oct9: yes.4 cards.; lab deal target, not enabled in the playable game",
       "sourceIds": [
         "owner-prompt",
-        "workbook"
+        "workbook",
+        "queue-four-card-approval"
       ],
       "cells": [
         "Rules!D18"
       ],
-      "fullTargetMeasured": false
+      "fullTargetMeasured": false,
+      "approvalSourceIds": [
+        "queue-four-card-approval"
+      ],
+      "implementationCommit": null
     }
   ],
   "measurements": [
@@ -5921,20 +6007,27 @@
     {
       "id": "target-vs-shipped",
       "sourceIds": [
-        "owner-prompt",
-        "workbook",
         "rules",
+        "defaults",
         "released-powers",
-        "defaults"
+        "current-eval",
+        "queue-four-card-approval",
+        "owner-build-ticket"
       ],
-      "text": "Owner target is far2, king-adjacent Guard, Paladin alongside Ogre, T2, four cards. Shipped files here keep plusDiagFwd2, random Guard square, no Paladin, sideways DeathTouch and no card game. No selected report measures the full target combination."
+      "text": "Main7035b5e implements far2 with ARCHER_V339, king-adjacent Guard, Paladin alongside Ogre in QOLRRBBNNAAGMMS, and official T2. QUEUE records the approved four-card hand. Card mode remains lab-only. No selected report measures the full current target combination.",
+      "status": "resolved for current main; measurement gap remains"
     },
     {
       "id": "workbook-residue",
       "sourceIds": [
-        "workbook"
+        "workbook",
+        "rule-far2",
+        "rule-guard-next",
+        "rule-paladin-return",
+        "rule-t2",
+        "queue-four-card-approval"
       ],
-      "text": "Dated Oct9 approval wins over earlier residue in same cells: Pieces F8/V8 (far2), J9 (Guard), F13 (Paladin); King powers G12/AI12 (T2). Rules D18 closes hand-size question but does not choose four; current prompt declares four."
+      "text": "Dated Oct9 approval wins over earlier residue in the same workbook cells: Pieces F8/V8 (far2), J9 (Guard), F13 (Paladin); King powers G12/AI12 (T2). Current RULES decisions20,21,23,24 and code implement these choices. Workbook Rules D18 closes the hand-size question; QUEUE deal-c4k supplies the later owner quote: yes.4 cards."
     },
     {
       "id": "pool-version",
@@ -5944,7 +6037,7 @@
         "rules",
         "defaults"
       ],
-      "text": "Criteria/pa-r1 describe15-letter two-Beast pool. Current code/rules have14-letter one-Beast pool. pa-r1 has no pool stamp. New target also adds Paladin. Do not certify NEW with pa-r1."
+      "text": "Criteria/pa-r1 describe the historical15-letter two-Beast poolQORRBBNNAAGMMSS. Current main7035b5e uses15-letter one-Beast poolQOLRRBBNNAAGMMS with Paladin beside Ogre. The intermediate14-letter poolQORRBBNNAAGMMS has no Paladin. pa-r1 has no pool stamp. Do not certify the current target with pa-r1."
     },
     {
       "id": "obsolete-prices",
@@ -5952,9 +6045,10 @@
         "value-method",
         "values-d3",
         "values-a3",
-        "workshop"
+        "workshop",
+        "current-eval"
       ],
-      "text": "SIM-PLAN seeds and early5.05 Archer worth are historical. Pass2 uses lower Rook anchor. Workshop labels Fair through5.0; pool criterion1 allows5.5. These are distinct products, not one threshold."
+      "text": "SIM-PLAN seeds and early5.05 Archer worth are historical. Pass2 uses a lower Rook anchor. Current main7035b5e prices far2 at339cp from the converged3.39-pawn match; that engine seed is not new full-target evidence. Workshop labels Fair through5.0; pool criterion1 allows5.5. These are distinct thresholds."
     },
     {
       "id": "card-calibration",
@@ -6017,50 +6111,65 @@
       "rank": 1,
       "machine": "Kaggle:20 shards,5 notebooks a wave,4 workers each",
       "games": 12000,
-      "flags": "--powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2",
-      "command": "node tools/kaggle-tournament.mjs push --id balance-target-activity-d3 --shards 20 --first 0 -- --powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2",
+      "flags": "--powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2 --rule guardNextToKing=true",
+      "command": "node tools/kaggle-tournament.mjs push --ref 7035b5e56c8de435d2e63dc02d47d7002bd54a6e --id balance-target-activity-d3 --shards 20 --first 0 -- --powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2 --rule guardNextToKing=true",
       "notebookMinutes": 94,
       "estimate": "600 games/shard at6.4 games/min=94min; conservative reference K18 slowest shard5280/5 games in165min. Ordinary target differs; time first shard. Use --first 0 for first push; --only is only for later recorded waves.",
       "sourceIds": [
         "queue-k18",
         "criteria",
-        "activity"
+        "activity",
+        "defaults",
+        "rule-guard-next",
+        "current-eval",
+        "queue-four-card-approval"
       ],
-      "preconditions": "First reconcile pending runs. Use a pinned, tested engine with the intended Paladin/Ogre pool and Guard start next to its king. This evidence checkout does not implement those changes. Read the effective rules/pool stamp before launch. Time one representative shard before scheduling all notebooks; reduce its games if measured time exceeds9h. Never launch from this proposal.",
-      "decision": "Read all six criteria for target pool. Keep criterion4/4b distinct. Mark exact full-target ordinary measurements."
+      "preconditions": "First reconcile pending runs. Main7035b5e implements the intended Paladin/Ogre poolQOLRRBBNNAAGMMS, far2 at339cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine; read its effective rules and pool stamp before launch. Historical data do not certify this context. Time one representative shard before scheduling all notebooks; reduce its games if measured time exceeds9h. These are proposals only; this task starts no run.",
+      "decision": "Read all six criteria for target pool. Keep criterion4/4b distinct. Mark exact full-target ordinary measurements.",
+      "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     },
     {
       "id": "balance-target-powers-d3",
       "rank": 2,
       "machine": "Kaggle:5 shards,5 notebooks,4 workers each",
       "games": 5280,
-      "flags": "--powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true",
-      "command": "node tools/kaggle-tournament.mjs push --id balance-target-powers-d3 --shards 5 -- --powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true",
+      "flags": "--powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true --rule guardNextToKing=true",
+      "command": "node tools/kaggle-tournament.mjs push --ref 7035b5e56c8de435d2e63dc02d47d7002bd54a6e --id balance-target-powers-d3 --shards 5 -- --powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true --rule guardNextToKing=true",
       "notebookMinutes": 165,
       "estimate": "1056 games/shard at6.4 games/min=165min, from K18 slowest like power shard. Target pool/Guard may change time; time first shard.",
       "sourceIds": [
         "queue-k18",
         "released-powers",
-        "t2-raw"
+        "t2-raw",
+        "defaults",
+        "rule-guard-next",
+        "current-eval",
+        "queue-four-card-approval"
       ],
-      "preconditions": "First reconcile pending runs. Use a pinned, tested engine with the intended Paladin/Ogre pool and Guard start next to its king. This evidence checkout does not implement those changes. Read the effective rules/pool stamp before launch. Time one representative shard before scheduling all notebooks; reduce its games if measured time exceeds9h. Never launch from this proposal.",
-      "decision": "Full round robin, not DeathTouch anchor. Test powers together with army intervals; report Spirit minus Shadow with interval. Haste is approved despite its known high score."
+      "preconditions": "First reconcile pending runs. Main7035b5e implements the intended Paladin/Ogre poolQOLRRBBNNAAGMMS, far2 at339cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine; read its effective rules and pool stamp before launch. Historical data do not certify this context. Time one representative shard before scheduling all notebooks; reduce its games if measured time exceeds9h. These are proposals only; this task starts no run.",
+      "decision": "Full round robin, not DeathTouch anchor. Test powers together with army intervals; report Spirit minus Shadow with interval. Haste is approved despite its known high score.",
+      "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     },
     {
       "id": "balance-target-four-d3",
       "rank": 3,
       "machine": "Kaggle:10 shards,5 notebooks per wave,4 workers each",
       "games": 6000,
-      "flags": "--powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false",
-      "command": "node tools/kaggle-tournament.mjs push --id balance-target-four-d3 --shards 10 --first 0 -- --powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false",
+      "flags": "--powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false --rule guardNextToKing=true",
+      "command": "node tools/kaggle-tournament.mjs push --ref 7035b5e56c8de435d2e63dc02d47d7002bd54a6e --id balance-target-four-d3 --shards 10 --first 0 -- --powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false --rule guardNextToKing=true",
       "notebookMinutes": 240,
       "estimate": "600 games/shard at2.5 games/min=240min; deal-d2 measured six-card d3 throughput. Four-card target differs; time first shard.",
       "sourceIds": [
         "queue-latest",
-        "hand3"
+        "hand3",
+        "defaults",
+        "rule-guard-next",
+        "current-eval",
+        "queue-four-card-approval"
       ],
-      "preconditions": "First reconcile pending runs. Use a pinned, tested engine with the intended Paladin/Ogre pool and Guard start next to its king. This evidence checkout does not implement those changes. Read the effective rules/pool stamp before launch. Time one representative shard before scheduling all notebooks; reduce its games if measured time exceeds9h. Never launch from this proposal. Skip if deal-c4k already supplies this target. The explicit28-card pool is workbook tested deal (deal-d1+MirrorB), not an adoption of Salvation. Replace it only after root records final pool choice.",
-      "decision": "Selected four-card hand vs none on same armies; no hand-size sweep. Report draw/White/turn differences and per-card association limits."
+      "preconditions": "First reconcile pending runs. Main7035b5e implements the intended Paladin/Ogre poolQOLRRBBNNAAGMMS, far2 at339cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine; read its effective rules and pool stamp before launch. Historical data do not certify this context. Time one representative shard before scheduling all notebooks; reduce its games if measured time exceeds9h. These are proposals only; this task starts no run. Skip if deal-c4k already supplies this exact target. The explicit28-card pool is the tested deal(deal-d1+MirrorB), not an adoption of Salvation. Root records the final pool choice before launch.",
+      "decision": "Selected four-card hand vs none on same armies; no hand-size sweep. Report draw/White/turn differences and per-card association limits.",
+      "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     }
   ],
   "currentTargetGaps": [
@@ -6137,5 +6246,18 @@
       "MorphS"
     ],
     "reason": "SkyLift and MorphS have identical games; report Measurement6 explicitly drops alias. Tested28-card later deal is dealD1+MirrorB."
+  },
+  "sourceSnapshot": {
+    "mainCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e",
+    "mainShortCommit": "7035b5e",
+    "reviewedDate": "2026-10-09",
+    "pool": "QOLRRBBNNAAGMMS",
+    "archerShots": "far2",
+    "archerEnginePriceCp": 339,
+    "guardNextToKing": true,
+    "deathTouchReachForwardBack": true,
+    "approvedCardHandSize": 4,
+    "cardModeAvailability": "lab only; not enabled in the playable game",
+    "fullTargetMeasured": false
   }
 }

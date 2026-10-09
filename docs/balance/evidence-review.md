@@ -2,24 +2,27 @@
 
 The owner target is far2 Archer, a Guard next to its king, Paladin beside Ogre in the pool,
 Death Touch T2, and four cards. The workbook records the first four approvals on 2026-10-09.
-The current request declares the four-card hand. The selected reports do not measure this full set.
+The queue records the four-card approval: “yes. 4 cards.” The selected reports do not measure this full set.
 
 ## Target and source status
 
 | Item | Owner source | Evidence limit |
 |---|---|---|
-| far2 | Workbook Pieces F8/V8: “merge far2” | Worth passes. Depth-4 capture ratio 1.55 [1.51,1.60] still fails the 1.5 cap. |
-| Guard next to king | Workbook Pieces J9; Rules D20 | f1 beats b1 by 0.53–0.58 pawns. No report tests every random neighbour start. |
-| Paladin in pool | Workbook Pieces F13; Rules D2 | Old pool test raises White score. No full target pool test is found. |
-| Death Touch T2 | Workbook King powers G12/AI12: “go with T2 for death touch” | Anchor scores are 49.3±2.1 at depth 3 and 51.1±1.3 at depth 4. Other field rows have less exposure. |
-| Four-card hand | Current request; workbook Rules D18 closes hand-size work | Existing four-card tests use older pools and card sets. Do not run another hand-size sweep. |
+| far2 | Workbook Pieces F8/V8; RULES decision 20: “merge far2” | Worth passes. Depth-4 capture ratio 1.55 [1.51,1.60] still fails the 1.5 cap. |
+| Guard next to king | Workbook Pieces J9; RULES decision 21 | f1 beats b1 by 0.53–0.58 pawns. No report tests every random neighbour start. |
+| Paladin in pool | Workbook Pieces F13; RULES decision 23 | Old pool test raises White score. No full target pool test is found. |
+| Death Touch T2 | Workbook King powers G12/AI12; RULES decision 24 | Anchor scores are 49.3±2.1 at depth 3 and 51.1±1.3 at depth 4. Other field rows have less exposure. |
+| Four-card hand | QUEUE deal-c4k: “yes. 4 cards.” | Existing four-card tests use older pools and card sets. Do not run another hand-size sweep. |
 
 The source workbook is `docs/status/king-down-status-2026-10-09.xlsx`.
 Its SHA256 is `7b7b998c7f0bb0ff15704533ea484b419eb997927f7f4ff58c1b7c3eb6d75445`.
 The framework saves its cell text in `workbook.json`. Some cells keep older “not merged” or
 “not decided” text beside the dated approval. Use the dated approval for the target.
-The shipped files in this checkout still use plusDiagFwd2, a random Guard square, no Paladin,
-and sideways Death Touch. They do not prove that an approved change has shipped.
+Main `7035b5e` now implements far2 at 339 cp, `guardNextToKing=true`, pool `QOLRRBBNNAAGMMS`
+with Paladin beside Ogre, and official Death Touch T2. [RULES](../RULES.md) decisions 20,21,23,24,
+[MATRIX](../MATRIX.md), and the [build ticket](../specs/owner-decisions-2026-10-09/issues/01-build-the-decisions.md)
+record these choices. The [queue](../QUEUE.md) records the approved four-card hand. Card mode
+stays lab-only; it is not enabled in the playable game. No selected run measures the full target.
 
 ## Criteria
 
@@ -95,16 +98,16 @@ No job is launched. No remote job is changed. The M1 hostname does not resolve i
 inventory check. Remote-only raw files remain a coverage gap.
 
 The rows below are conditional proposals. Skip a row if the pending data supply the exact target.
-First pin and test an engine that implements the intended pool and Guard placement. The flags
-below use accepted runner syntax. The default pool/start must match that pinned target; this
-checkout does not meet that condition. Keep each notebook below 9 h. Time a representative shard
+Main `7035b5e` now supplies the intended pool and Guard placement. The commands pin that
+source and set `guardNextToKing=true`. Check the effective rule and pool stamp. Historical data
+do not certify this source. Keep each notebook below 9 h. Time a representative shard
 before a wave, because these new contexts can change throughput.
 
 | rank / id | machine | command flags | games | estimate and decision |
 |---|---|---|---|---|
-| 1 / `balance-target-activity-d3` | Kaggle:20 shards,5 notebooks a wave,4 workers each | `--powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2` | 12000 | 94 min per notebook; Read all six criteria for target pool. Keep criterion4/4b distinct. Mark exact full-target ordinary measurements. |
-| 2 / `balance-target-powers-d3` | Kaggle:5 shards,5 notebooks,4 workers each | `--powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true` | 5280 | 165 min per notebook; Full round robin, not DeathTouch anchor. Test powers together with army intervals; report Spirit minus Shadow with interval. Haste is approved despite its known high score. |
-| 3 / `balance-target-four-d3` | Kaggle:10 shards,5 notebooks per wave,4 workers each | `--powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false` | 6000 | 240 min per notebook; Selected four-card hand vs none on same armies; no hand-size sweep. Report draw/White/turn differences and per-card association limits. |
+| 1 / `balance-target-activity-d3` | Kaggle:20 shards,5 notebooks a wave,4 workers each | `--powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2 --rule guardNextToKing=true` | 12000 | 94 min per notebook; Read all six criteria for target pool. Keep criterion4/4b distinct. Mark exact full-target ordinary measurements. |
+| 2 / `balance-target-powers-d3` | Kaggle:5 shards,5 notebooks,4 workers each | `--powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true --rule guardNextToKing=true` | 5280 | 165 min per notebook; Full round robin, not DeathTouch anchor. Test powers together with army intervals; report Spirit minus Shadow with interval. Haste is approved despite its known high score. |
+| 3 / `balance-target-four-d3` | Kaggle:10 shards,5 notebooks per wave,4 workers each | `--powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false --rule guardNextToKing=true` | 6000 | 240 min per notebook; Selected four-card hand vs none on same armies; no hand-size sweep. Report draw/White/turn differences and per-card association limits. |
 
 For row 1,600 games/shard at K18's slowest observed 6.4 games/min is 94 min.
 For row 2,1056 at that rate is 165 min. For row 3,600 at deal-d 2's 2.5 games/min is 240 min.
@@ -118,7 +121,8 @@ That gives 7.60 games/min on that machine/context. It is not a Kaggle rate.
 
 ## Verification
 
-`evidence.json` stores 74 selected measurements with stable IDs, source references, intervals,
+`evidence.json` stores 138 selected measurements with stable IDs, source references, intervals,
 counts, depths, run IDs, flags, and explicit nulls when a field is not known. It is a report audit,
-not the raw-corpus manifest. JSON parsing, unique-ID checks, source-ID checks and whitespace pass.
+not the raw-corpus manifest. JSON parsing, unique-ID checks, source-ID checks and whitespace pass. The main merge updates
+the source facts; the 138 numeric measurement rows stay unchanged.
 No simulation, remote action, tracker edit or game edit is part of this work.
