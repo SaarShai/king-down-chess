@@ -33,5 +33,6 @@ export default {
 
 - Sizes (spec rule 3): `phone` 390×844 (touch, DPR 2) and `desktop` 1440×900 for every visual step. A layout step adds `laptop` 1280×720, `tablet` 820×1180 (touch) and `landscape` 844×390 (touch).
 - Each render has Motion Off: the seeded save gets `pace: 'off'`, and the browser asks for reduced motion.
-- The steps reach the app through `tools/app-ui.mjs` (for example `pressMenu`, `endTurn`), so a table keeps working when a later step moves a control.
+- The steps reach the app through `tools/app-ui.mjs` (for example `pressMenu`, `endTurn`), so a table keeps working when a later step moves a control. Import it in the table: `import { pressMenu } from '../../../../tools/app-ui.mjs';` (see `00.mjs`).
+- A seeded save keeps only its legal moves: the app drops a move that is not legal for the army, and the moves after it. Check the move list in the render.
 - The checks: no sideways scroll; each `controls` match inside the screen; on a touch size, each `targets` match in the open dialog (or in the page) is 44 px or more. A page error is a fault too. The tool exits 1 when a render has a fault.
