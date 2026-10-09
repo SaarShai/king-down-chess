@@ -271,6 +271,8 @@ try {
     await page.context().close();
     page = await open('', { scheme });
     await ready(page);
+    // The art can be in before the first frame: wait until the scene draws, so the canvas read sees its floor.
+    await page.waitForFunction(() => window.view.scene.frames > 0);
     // A point inside the canvas, outside the board's frame: the top right corner, above the back rank.
     const corner = await page.evaluate(() => {
       const c = document.querySelector('#board canvas'), r = c.getBoundingClientRect(), x = Math.floor(r.right) - 4, y = Math.ceil(r.top) + 4;
@@ -280,10 +282,13 @@ try {
     assert.equal(corner.alpha, 0, `${scheme}: the canvas is clear outside the board's frame`);
     assert.equal(corner.board, 'rgba(0, 0, 0, 0)', `${scheme}: the board area has no colour of its own`);
     const pixel = () => page.screenshot({ clip: { x: corner.x, y: corner.y, width: 1, height: 1 } });
+    // Hide every layer over the body (the board, its canvas and the panels): the pixel must not change, so the
+    // screen shows the body's floor there, with no colour or image of the board area or of a layer between.
+    const layers = visible => page.evaluate(v => { for (const el of document.body.children) el.style.visibility = v; }, visible ? '' : 'hidden');
     const shown = await pixel();
-    await page.evaluate(() => { document.querySelector('#board canvas').style.visibility = 'hidden'; });
+    await layers(false);
     assert.ok(shown.equals(await pixel()), `${scheme}: outside the frame the screen shows the floor under the canvas`);
-    await page.evaluate(() => { document.querySelector('#board canvas').style.visibility = ''; });
+    await layers(true);
     await pressMenu(page, 'Workshop');
     await page.locator('#workshop').waitFor();
     look.workshopBackdrop = await background(page, '#workshop', '::backdrop');

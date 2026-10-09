@@ -21,6 +21,8 @@ import {SHADE,shadowField,shadowWeights,fxFade} from './contact-shadow.mjs';
 export const SIZE=960, PAD=32, TILE=112;
 /** The floor round the board, by default: the trial, the trailer and the plugin page draw it. */
 export const FLOOR='#e6e1cf';
+/** The floor that createScene draws: FLOOR when the caller names none (the plugin page and the trial), else the caller's colour or null. */
+export const floorOf=floor=>floor===undefined?FLOOR:floor;
 /**
  * Clears the whole canvas (board units, the headroom above the board included) and fills it with `floor`.
  * A floor of null only clears it, so the page under the canvas shows round the board (the game's parchment floor).
@@ -42,9 +44,10 @@ const BOARD_ART=new URL('../board-art/stone-board.webp',import.meta.url).href;
  * setDecorate(fn): fn(ctx, scene, 'under') draws markers below the figures; fn(ctx, scene, 'over', row) is called
  * for each screen row 0–7 (top to bottom), after that row's figures and before the rows in front.
  * kings: [white, black] king designs (court.KING_DESIGNS); the trial and the trailer keep the Frost King.
- * floor: the colour round the board (paintFloor); null leaves the canvas clear there.
+ * floor: the colour round the board (floorOf: FLOOR when none is named; paintFloor); null leaves the canvas clear there.
  */
-export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor=FLOOR}) {
+export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor:floorOption}) {
+ const floor=floorOf(floorOption);
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
  const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};

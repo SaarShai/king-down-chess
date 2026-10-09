@@ -2,6 +2,8 @@
 export const SIZE: number, PAD: number, TILE: number;
 /** The floor round the board, by default ('#e6e1cf'). */
 export const FLOOR: string;
+/** The floor that createScene draws: FLOOR when `floor` is undefined, else `floor` (a colour, or null for none). */
+export function floorOf(floor: string | null | undefined): string | null;
 /** Clears the canvas (the headroom included) and fills it with `floor`; null only clears it. */
 export function paintFloor(ctx: Pick<CanvasRenderingContext2D, 'clearRect' | 'fillRect' | 'fillStyle'>, floor: string | null, headroom: number): void;
 /** A king sheet: docs/2d-first-pieces/king-<design>/. */
