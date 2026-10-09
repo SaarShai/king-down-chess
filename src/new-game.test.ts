@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSetup, newGameWarning, kingsOf, parseSetup, playersOf, powersOn, setupOfGame, withKing, withMode } from './new-game';
+import { defaultSetup, newGamePowerLine, newGameWarning, kingsOf, parseSetup, playersOf, powersOn, setupOfGame, withKing, withMode } from './new-game';
 import { powerOptions } from './powers-ui';
 import { Game } from './game';
 import { CLASSIC_CHESS, toLan } from './rules/setup';
@@ -102,4 +102,11 @@ describe('New game warn line', () => {
 
 it('keeps a remembered example army for More', () => {
   expect(parseSetup({ ...defaultSetup(), army: 'MMSSNBNK' })?.army).toBe('MMSSNBNK');
+});
+
+it('the sheet splits power rules into sentences without changing their conditions', () => {
+  expect(newGamePowerLine('Holy Light (always on)', 'enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken'))
+    .toBe('Holy Light (always on). Enemy pawns cannot take your king. Your pieces beside, in front of or behind it cannot be taken.');
+  expect(newGamePowerLine('Freeze (1 use)', 'freeze an enemy piece (not the king), then make your move: the frozen piece cannot move on its next turn'))
+    .toBe('Freeze (1 use). Freeze an enemy piece (not the king). Then make your move. The frozen piece cannot move on its next turn.');
 });

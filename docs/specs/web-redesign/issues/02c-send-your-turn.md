@@ -39,8 +39,15 @@ Blocked by: 02b
 
 ## Comments
 
+
 Send your turn sends one fixed link. Only success hands the turn over; Send again keeps that link.
 Cuts: the first send stays after End turn; no resignation link or Send the result.
 Tests cover the candidate moves. M1 checks cancel, success, double press and the Haste pass.
 All 14 named M1 checks pass. Turn and link-game each pass twice after the merge.
 Sample W1 shows both link states at phone and desktop sizes, with no fault. The owner's yes waits.
+
+Batch 2: decided by delegation (2026-10-09).
+A pointer press on Send your turn keeps board focus without a cursor mark.
+Send again has bold ink and an outline. The outline contrast is 6.56:1.
+The turn and link-game checks pass. All eight required browser checks pass.
+`npm test`: 1514 tests and 50 scene tests pass. W1 has 14 inspected renders and no faults.

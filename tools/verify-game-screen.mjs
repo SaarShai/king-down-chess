@@ -1,4 +1,4 @@
-// The fixed table at the three W2 sizes, through real board input.
+// The fixed table at the four W2 sizes, through real board input.
 import assert from 'node:assert/strict';
 import { usePower, startLesson, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
@@ -6,7 +6,7 @@ const browser = await launch();
 const visibleWords = async (page, words) => assert.ok(await contextWordsInView(page, words), `the drawn context shows ${words}`);
 const FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
 try {
-  for (const [width, height, touch] of [[390, 844, true], [844, 390, true], [1440, 900, false]]) {
+  for (const [width, height, touch] of [[320, 568, true], [390, 844, true], [844, 390, true], [1440, 900, false]]) {
     const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce' });
     await context.addInitScript(fen => {
       sessionStorage.setItem('kingdown.title-seen', '1');
@@ -16,6 +16,16 @@ try {
     await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
     const boxes = () => page.evaluate(() => ['board', 'undo', 'menu-btn', 'end-turn'].filter(id => document.getElementById(id)).map(id => ({ id, ...document.getElementById(id).getBoundingClientRect().toJSON() })));
     const rest = await boxes();
+    const fixedRows = () => page.evaluate(() => ['strip-them', 'strip-me', 'context-line', 'moves-line', 'table-bar'].map(id => ({ id, ...document.getElementById(id).getBoundingClientRect().toJSON() })));
+    const restRows = await fixedRows();
+    const stripsClear = async state => {
+      const layout = await page.evaluate(() => {
+        const box = id => document.getElementById(id).getBoundingClientRect().toJSON();
+        return { board: box('board'), strips: ['strip-them', 'strip-me'].map(box) };
+      });
+      assert.ok(layout.strips.every(strip => strip.right <= layout.board.left || strip.left >= layout.board.right || strip.bottom <= layout.board.top || strip.top >= layout.board.bottom), `${width}×${height}: both player strips clear the board at ${state}: ${JSON.stringify(layout)}`);
+    };
+    await stripsClear('rest');
     const same = async state => assert.deepEqual(await boxes(), rest, `${width}×${height}: the table stays fixed at ${state}`);
     const tap = async square => { const p = await page.evaluate(s => window.view.screenOf(s), square); await (touch ? page.touchscreen.tap(p.x, p.y) : page.mouse.click(p.x, p.y)); };
     if (width === 390) {
@@ -32,6 +42,8 @@ try {
     assert.equal(await page.locator('#moves [data-ply] .pi').count(), 1);
     await page.locator('#moves [data-ply="1"]').click();
     assert.equal(await page.locator('#back-to-game').isVisible(), true, 'the last row stays in Review');
+    assert.equal(await page.locator('#context-text > span').first().innerText(), 'Review. Move 1, White.', 'Review uses the Moves list number and side');
+    await same('review'); await stripsClear('review');
     await page.click('#back-to-game');
     await endTurn(page); await tap(52); await tap(36); await endTurn(page);
     await openMoves(page); await page.locator('#moves [data-ply="1"]').click();
@@ -51,9 +63,21 @@ try {
     console.log(`ok game-screen ${width}×${height}: fixed board and bar, targets, Moves, check, no sideways scroll`);
     await startLesson(page);
     await visibleWords(page, 'marked enemy pawn');
+    assert.ok((await page.locator('#context-text > span').first().innerText()).split(/\s+/).length <= 8, 'the first lesson sentence has at most eight words');
+    assert.equal(await page.locator('#lesson-progress .now').first().getAttribute('aria-label'), 'Lesson 1 of 6 current', 'lesson progress names its current state');
+    assert.ok(await page.evaluate(() => [...document.querySelectorAll('#context-text > span')].every(row => row.scrollHeight <= row.clientHeight + 1)), 'the whole lesson task fits');
     await tap(27); await tap(45);
     await page.waitForFunction(() => document.getElementById('context-text').textContent.includes('Archer learned.'));
     await visibleWords(page, 'Archer learned.');
+    await stripsClear('lesson done');
+    assert.deepEqual(await fixedRows(), restRows, `${width}×${height}: strips, context, Moves and bar stay fixed with the lesson words`);
+    assert.equal(await page.locator('#lesson-progress .done').first().getAttribute('aria-label'), 'Lesson 1 of 6 done', 'lesson progress names its done state');
+    assert.ok(await page.evaluate(() => document.getElementById('context-text').getBoundingClientRect().bottom <= document.getElementById('moves-line').getBoundingClientRect().top), 'the lesson words do not cover Moves');
+    if (width === 844) {
+      const tile = await page.evaluate(() => window.view.screenOf(1).x - window.view.screenOf(0).x);
+      assert.ok(tile >= 40, `landscape squares: ${tile.toFixed(2)} px`);
+      console.log(`ok landscape square ${tile.toFixed(2)} px`);
+    }
     await minTarget(page, '#next-lesson, #return-game');
     await context.close();
   }

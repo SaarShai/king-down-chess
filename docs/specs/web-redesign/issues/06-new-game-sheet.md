@@ -37,6 +37,7 @@ Status: done on claude/web-redesign-int (waits for the owner's yes on the sample
 
 ## Comments
 
+
 - The sheet has three modes, level words, a Side and army fold, and a fixed Start footer. Close keeps the game.
 - The warn line reads W1's `ended()` and the move at the turn start. A staged mate stays live, also in a lesson's kept game.
 - Keep both current king pickers. The fast plan cuts the new picker layout. No muster, faces, or By link row.
@@ -44,3 +45,10 @@ Status: done on claude/web-redesign-int (waits for the owner's yes on the sample
 - `npm test`: 80 files pass, 1 skips; 1487 tests pass, 13 skip; all 50 motion tests pass. `npm run typecheck` passes.
 - M1: `new-game`, `ux-defects`, `turn`, `link-game`, `lesson-return`, `visual-design`, `workshop`: all 7 pass. A second `new-game` run passes.
 - `SAMPLE=W7`: 10 renders, 0 with a fault. Both contact sheets pass the review. The owner's sample review stays open.
+
+Batch 2: decided by delegation (2026-10-09).
+Each selected control has the same 2 px border and ink. Border contrast exceeds 3:1.
+Focus uses the shared colour. The switch says "Play with kings' powers".
+Power words use short sentences. The plugin keeps its text and rules.
+All eight required browser checks pass. `npm test`: 1514 tests and 50 scene tests pass.
+W7 has 10 inspected renders and no faults.

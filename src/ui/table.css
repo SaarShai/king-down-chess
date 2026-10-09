@@ -1,18 +1,17 @@
 /* The table grid follows the chosen prototype. Its rows stay fixed during play. */
 #game-table {
   --strip-height: 56px;
-  --context-height: 64px;
+  --context-height: 77px; /* Three 20 px lines, padding and the top border. */
   height: 100vh; height: 100dvh;
   display: grid; grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: var(--strip-height) minmax(0, max-content) var(--strip-height) var(--context-height) 48px minmax(0, 1fr) calc(60px + env(safe-area-inset-bottom));
+  grid-template-rows: var(--strip-height) minmax(0, max-content) var(--strip-height) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
   grid-template-areas: 'them' 'board' 'me' 'context' 'moves' 'space' 'bar';
   max-width: 760px; margin: auto; padding-top: env(safe-area-inset-top);
 }
 #game-table .table-side { display: contents; }
 #game-table #board {
   grid-area: board; position: relative; inset: auto; min-width: 0; min-height: 0;
-  width: min(calc(100% - 8px), calc((100vh - 284px) * 960 / 1024));
-  width: min(calc(100% - 8px), calc((100dvh - 284px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 960 / 1024));
+  width: calc(100% - 8px); height: 100%;
   aspect-ratio: 960 / 1024; margin: auto; padding: 0;
 }
 #game-table .player-strip { display: flex; align-items: center; gap: 12px; padding: 4px 12px; min-width: 0; min-height: var(--strip-height); }
@@ -25,27 +24,29 @@
 #game-table .portrait { position: relative; flex: none; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #fffaf0, #e2d2b1); box-shadow: 0 0 0 1px var(--stone-300); }
 #game-table .portrait img { position: absolute; left: -32%; top: -4%; width: 164%; max-width: none; }
 #game-table .player-strip.is-turn .portrait { box-shadow: 0 0 0 2.5px var(--gold), 0 0 0 5px rgb(201 154 62 / 22%); }
-#context-line { grid-area: context; display: flex; align-items: center; gap: 8px; height: var(--context-height); margin: 0 12px; border-top: 1px solid var(--line); min-width: 0; }
-#context-text { flex: 1; min-width: 0; font-size: 16px; line-height: 1.25; white-space: pre-line; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+#context-line { grid-area: context; display: flex; align-items: center; gap: 8px; min-height: var(--context-height); align-self: start; margin: 0 12px; padding-block: 8px; border-top: 1px solid var(--line); min-width: 0; }
+#context-text { flex: 1; min-width: 0; font-size: 16px; line-height: 1.25; white-space: normal; }
 #context-actions { display: flex; gap: 4px; flex-shrink: 0; }
 #context-actions button { width: auto; min-width: 44px; white-space: nowrap; min-height: 44px; padding: 4px 8px; font-size: 14px; }
 #context-actions #stop-chain { background: transparent; color: var(--ink); border-color: var(--stone-300); box-shadow: none; }
 #moves-line { grid-area: moves; width: calc(100% - 24px); margin: 0 12px; height: 48px; min-height: 48px; display: flex; gap: 8px; border: 0; border-block: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; padding: 0; text-align: left; color: var(--ink-soft); }
 #last-move { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
-#last-move span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#last-move span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal; line-height: 1.2; font-size: 14px; }
 #last-move .pi { width: 26px; height: 26px; flex: none; }
 #game-table .moves-label { flex: none; font-size: 14px; font-weight: 700; }
 #game-table .table-space { grid-area: space; }
-#table-bar { grid-area: bar; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 0 8px env(safe-area-inset-bottom); }
-#table-bar > button { min-height: 60px; display: flex; flex-direction: column; gap: 2px; align-items: center; justify-content: center; border: 0; box-shadow: none; background: transparent; color: var(--ink-soft); font-size: 14px; padding: 4px; }
+#table-bar { grid-area: bar; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 0 8px max(8px, env(safe-area-inset-bottom)); }
+#table-bar > button { min-height: 60px; display: flex; flex-direction: column; gap: 2px; align-items: center; justify-content: center; border: 0; box-shadow: none; background: transparent; color: var(--ink); font-size: 14px; font-weight: 700; padding: 4px; }
 #table-bar > button[aria-disabled='true'] { color: rgb(91 80 69 / 75%); opacity: 1; cursor: default; }
 #table-bar #end-turn.primary { background: var(--accent); color: var(--vellum); }
 #game-table #lesson-progress { position: relative; flex: none; width: 180px; pointer-events: none; }
-#sheet-moves, #menu-sheet { width: min(480px, calc(100% - 16px)); max-height: calc(100dvh - 16px); padding: 16px; }
-:is(#menu-sheet, #sheet-moves) .sheet-head { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
-:is(#menu-sheet, #sheet-moves) .sheet-head h2 { flex: 1; margin: 0; }
+#sheet-moves, #menu-sheet { width: min(560px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 0; overflow: hidden; }
+:is(#menu-sheet, #sheet-moves)[open] { display: flex; flex-direction: column; }
+.sheet-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 16px; }
+:is(#menu-sheet, #sheet-moves) .sheet-head { display: flex; gap: 8px; align-items: center; padding: 12px 16px; flex: none; }
+:is(#menu-sheet, #sheet-moves) .sheet-head h2 { flex: 1; min-width: 0; margin: 0; }
 :is(#menu-sheet, #sheet-moves) .sheet-head button { min-width: 44px; min-height: 44px; }
-#sheet-moves #moves { max-height: 60dvh; margin-bottom: 12px; }
+#sheet-moves #moves { max-height: none; overflow: visible; margin-bottom: 12px; }
 #sheet-moves #moves [data-ply] { min-height: 44px; min-width: 44px; gap: 6px; }
 #sheet-moves #moves .pi { width: 22px; height: 22px; }
 #menu-sheet section { gap: 4px; }
@@ -62,19 +63,38 @@
 @media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
   #game-table { --strip-height: 64px; --context-height: 72px; max-width: 1360px; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: minmax(0, 1fr); grid-template-areas: 'board side'; gap: 24px; padding: 24px; }
   #game-table #board { width: 100%; height: 100%; aspect-ratio: auto; }
-  #game-table .table-side { grid-area: side; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--strip-height) minmax(0, 1fr) var(--strip-height) var(--context-height) 48px 60px; grid-template-areas: 'them' 'space' 'me' 'context' 'moves' 'bar'; }
+  #game-table .table-side { grid-area: side; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--strip-height) var(--strip-height) minmax(var(--context-height), max-content) 48px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom))); grid-template-areas: 'them' 'me' 'context' 'moves' 'space' 'bar'; }
   #context-line, #moves-line { margin-inline: 0; width: 100%; }
   #table-bar { padding-inline: 0; border-top: 1px solid var(--line); }
   #game-table .player-strip { padding-inline: 4px; }
 }
 /* The sheet controls keep touch size in landscape too. */
 #menu-sheet button, #menu-sheet select { min-height: 44px; }
-#menu-sheet .sheet-head button, #sheet-moves .sheet-head button { flex: none; width: 44px; min-width: 44px; padding: 0; justify-content: center; background: transparent; border: 0; box-shadow: none; }
+#menu-sheet .sheet-head button, #sheet-moves .sheet-head button { flex: none; width: auto; padding: 0 8px; justify-content: center; }
+:is(#menu-close, #sheet-moves .sheet-head button) { width: 44px; height: 44px; font-size: 24px; }
+#menu-back { font-size: 14px; }
+#menu-back .back-mark { font-size: 24px; line-height: 1; }
 #sheet-moves .sheet-head form { margin: 0; flex: none; }
 
 /* Each context row keeps room for its rule words. */
-#context-text > span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#context-text > span { display: block; white-space: normal; }
 #context-text > span + span { font-size: 14px; }
+#context-text[data-rank="lesson"] > span { display: inline; font-size: 14px; }
+#context-text[data-rank="lesson"] > span + span::before { content: " "; }
+/* The note borrows the free row. The board and bar keep their fixed rows. */
+#context-line { flex-wrap: wrap; }
+#context-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+#table-bar #end-turn.quiet { border: 2px solid var(--ink-soft); color: var(--ink); }
+#lesson-progress .done::after { content: '✓'; position: absolute; right: -2px; bottom: -4px; font-size: 14px; font-weight: 700; color: var(--ink); background: var(--vellum); border-radius: 50%; }
+#lesson-progress .now::after { content: ''; position: absolute; left: 10px; bottom: -7px; border-inline: 5px solid transparent; border-bottom: 5px solid var(--ink); }
+:root[data-pace='off'] #pace-note { display: none; }
+@media (min-width: 900px), (orientation: landscape) and (max-height: 500px) {
+  #context-text { -webkit-line-clamp: 2; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  #game-table { grid-template-columns: minmax(0, 1fr) 340px; gap: 8px; padding: 4px 8px; --strip-height: 56px; }
+}
+
 #context-text[data-rank='previously'] { -webkit-line-clamp: 3; }
 #context-text #previously-before { font-size: 12px; color: var(--ink-soft); }
 #context-actions #see-again { background: transparent; color: var(--ink); border-color: var(--stone-300); box-shadow: none; }

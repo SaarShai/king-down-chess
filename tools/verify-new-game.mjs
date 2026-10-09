@@ -49,6 +49,7 @@ try {
   await pressMenu(page, 'New game');
   assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['computer', 'club', '0']);
   assert.equal(await page.inputValue('#army'), 'random');
+  assert.deepEqual(await page.locator('#new-game label:has(input:checked)').evaluateAll(labels => labels.map(el => [getComputedStyle(el).borderTopWidth, getComputedStyle(el).borderTopColor, getComputedStyle(el).color])), Array(4).fill(['2px', 'rgb(77, 69, 60)', 'rgb(43, 38, 33)']), 'mode, level and side use the same selected border and ink');
   assert.equal(await page.evaluate(() => document.getElementById('more-options').open), false, 'More options starts folded');
   assert.equal(await shown(page, 'king-picker'), false, 'no king picker without powers');
   assert.equal(await page.locator('#modes input[type="radio"]').count(), 3);
@@ -65,9 +66,10 @@ try {
   }
   assert.deepEqual(await pressed(page, 0), ['Spirit', 'HolyLight']);
   assert.deepEqual(await pressed(page, 1), ['Shadow', 'DeathTouch']);
+  assert.equal(await page.locator('#pick-0 .power-choice [aria-pressed="true"]').evaluate(el => getComputedStyle(el).borderTopColor), 'rgb(77, 69, 60)', 'the power selection uses the segment border');
   assert.equal(await page.getByRole('group', { name: "White's king" }).getByRole('button', { name: 'Spirit', pressed: true }).count(), 1);
-  assert.equal(await powerLine(page, 0), 'Holy Light (always on) — enemy pawns cannot take your king; your pieces beside, in front of or behind it cannot be taken.');
-  assert.equal(await powerLine(page, 1), 'Death Touch (always on) — your king takes an enemy next to it, or two squares away straight forward, back or sideways over an empty square, without moving — it can only take this way.');
+  assert.equal(await powerLine(page, 0), 'Holy Light (always on). Enemy pawns cannot take your king. Your pieces beside, in front of or behind it cannot be taken.');
+  assert.equal(await powerLine(page, 1), 'Death Touch (always on). Your king takes an enemy next to it, or two squares away straight forward or back over an empty square, without moving. It can only take this way.');
   assert.match(await page.textContent('#pick-0 h3'), /you/);
   assert.match(await page.textContent('#pick-1 h3'), /computer/);
   await shot(page, 'desktop-powers.jpg', jpeg);
@@ -82,10 +84,10 @@ try {
     lines.push(await powerLine(page, 0));
   }
   assert.equal(new Set(lines).size, 12, 'twelve different power lines');
-  assert.ok(lines.every(l => /^[A-Z][a-zA-Z ]+ \((\d per game|always on)\) — [a-z].+\.$/.test(l)), lines.join('\n'));
-  assert.equal(lines[0], 'Freeze (1 per game) — freeze an enemy piece (not the king), then make your move: the frozen piece cannot move on its next turn.');
-  assert.equal(lines[9], 'Mercy (always on) — your king steps 1–2 squares and jumps your pieces, but takes only a pawn or a guard; your pieces next to it cannot be taken except by pawns.');
-  assert.ok(lines.includes('Darkness (always on) — your pawns may also step diagonally, and take only straight ahead; your king may also step two squares in a straight line, over an empty square.'), lines.join('\n'));
+  assert.ok(lines.every(l => /^[A-Z][a-zA-Z ]+ \((\d per game|always on)\)\. [A-Z].+\.$/.test(l)), lines.join('\n'));
+  assert.equal(lines[0], 'Freeze (1 per game). Freeze an enemy piece (not the king). Then make your move. The frozen piece cannot move on its next turn.');
+  assert.equal(lines[9], 'Mercy (always on). Your king steps 1–2 squares and jumps your pieces, but takes only a pawn or a guard. Your pieces next to it cannot be taken except by pawns.');
+  assert.ok(lines.includes('Darkness (always on). Your pawns may also step diagonally, and take only straight ahead. Your king may also step two squares in a straight line, over an empty square.'), lines.join('\n'));
   await page.click('#pick-0 .power-choice button[data-power=""]');
   assert.deepEqual(await pressed(page, 0), ['Shadow', '']);
   assert.equal(await powerLine(page, 0), 'No power: a plain chess king.');
@@ -218,12 +220,12 @@ try {
   // sets them), so the picker shows them so, and the game it starts plays the line the picker showed.
   page = await open({ query: '?rules=2017' });
   await setUpGame(page, { mode: 'powers', kings: ['Frost:Freeze', 'Spirit:Mercy'] });
-  const freeze2017 = 'Freeze (2 per game) — as your move, freeze an enemy piece (not the king): it cannot move on its next turn.';
+  const freeze2017 = 'Freeze (2 per game). As your move, freeze an enemy piece (not the king). It cannot move on its next turn.';
   assert.equal(await powerLine(page, 0), freeze2017);
-  assert.equal(await powerLine(page, 1), 'Mercy (always on) — your king steps 1–2 squares and jumps your pieces, but takes only a guard.');
+  assert.equal(await powerLine(page, 1), 'Mercy (always on). Your king steps 1–2 squares and jumps your pieces, but takes only a guard.');
   await page.click('#pick-1 .emblem[data-king="Shadow"]');
   await page.click('#pick-1 .power-choice button[data-power="Darkness"]');
-  assert.equal(await powerLine(page, 1), 'Darkness (always on) — your pawns step diagonally and take straight ahead, with no double step.');
+  assert.equal(await powerLine(page, 1), 'Darkness (always on). Your pawns step diagonally and take straight ahead, with no double step.');
   await startGame(page, { army: 'classic' });
   await page.context().close();
   ok('?rules=2017: the picker shows the printed powers (Freeze twice, Mercy, Darkness), and the game plays them');

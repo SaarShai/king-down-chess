@@ -1,7 +1,7 @@
 import { contextLine, type ContextState } from '../context-line';
 import { LESSONS } from '../lessons';
 import { type Game, type Side } from '../game';
-import { checkCause, describeMove } from '../move-text';
+import { checkCause, describeMove, moveNumbers } from '../move-text';
 import { pieceIcon } from '../piece-icons';
 import { type Color, type PieceType, type Rules, type Position, NAMES, colorOf, typeOf } from '../rules/engine';
 import { readText } from '../read';
@@ -52,6 +52,14 @@ export interface TableState {
 }
 
 export function refreshTable(s: TableState): void {
+  const progress = $('lesson-progress');
+  progress.hidden = s.lesson == null;
+  document.body.classList.toggle('in-lesson', s.lesson != null);
+  if (s.lesson != null) progress.innerHTML = LESSONS.map((lesson, i) => {
+    const state = i < s.lesson! || (i === s.lesson && s.lessonDone) ? 'done' : i === s.lesson ? 'current' : 'next';
+    const piece = NAMES.indexOf(lesson.name.toLowerCase() as typeof NAMES[number]) as PieceType;
+    return `<span class="${state === 'current' ? 'now' : state}" role="img" aria-label="Lesson ${i + 1} of ${LESSONS.length} ${state}" title="${lesson.name}">${pieceIcon(piece)}</span>`;
+  }).join('');
   const me = (s.flipped ? 1 : 0) as Color;
   const liveSide = s.turn.activeSide;
   const now = s.thinking ? performance.now() : 0;
@@ -80,13 +88,14 @@ export function refreshTable(s: TableState): void {
   $('moves').querySelectorAll<HTMLElement>('[data-ply]').forEach(row => {
     const h = history[Number(row.dataset.ply) - 1];
     row.dataset.lan = h.lan;
+    row.setAttribute('aria-label', `${describeMove(h.pos, h.move, true)}${row.title ? ` ${row.title}` : ''}`);
     row.dataset.mark = row.textContent?.match(/\?*$/)?.[0] ?? '';
     if (!h.move.pass) row.insertAdjacentHTML('afterbegin', pieceIcon(typeOf(h.pos.board[h.move.from]) as PieceType, colorOf(h.pos.board[h.move.from])));
   });
   const status = text('status');
   const state: ContextState = {
     voice: s.sides.includes('ai') || s.linkSide != null ? 'you' : liveSide ? 'Black' : 'White',
-    review: s.viewing != null && !s.previously?.playing ? `Review. ${s.power?.read || read || (s.viewing === 0 ? 'The start.' : `Move ${s.viewing}.`)}` : '',
+    review: s.viewing != null && !s.previously?.playing ? `Review. ${s.power?.read || read || (s.viewing === 0 ? 'The start.' : `Move ${moveNumbers(history.map(h => h.pos.turn))[s.viewing - 1]}, ${shown!.pos.turn ? 'Black' : 'White'}.`)}` : '',
     result: status && status !== 'thinking…' ? status : '', refusal: s.notice,
     armed: s.armed ? s.rules.kings[s.game.pos.turn]?.power : undefined, chain: !!s.pending.length, canStop: !$('stop-chain').hidden,
     read: s.power?.read || (reading || s.selected == null ? read : ''),

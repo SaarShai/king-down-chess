@@ -21,12 +21,13 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
     sheet.querySelectorAll<HTMLElement>('[data-menu-page]').forEach(p => { p.hidden = p.dataset.menuPage !== page; });
     title.textContent = PAGES[page].title;
     back.hidden = !PAGES[page].parent;
+    back.innerHTML = `<span class="back-mark" aria-hidden="true">‹</span> ${PAGES[PAGES[page].parent ?? 'menu'].title}`;
     back.setAttribute('aria-label', `Back to ${PAGES[PAGES[page].parent ?? 'menu'].title}`);
     if (page === 'resign') {
       const side = actions.resignSide();
       document.getElementById('resign-detail')!.textContent = `${side === 0 ? 'Black' : 'White'} wins this game.`;
     }
-    sheet.scrollTop = 0;
+    sheet.querySelector('.sheet-body')!.scrollTop = 0;
     const from = sheet.querySelector<HTMLElement>(`[data-menu-page="${page}"] [data-go="${previous}"]`);
     (from ?? title).focus({ preventScroll: true });
   }
