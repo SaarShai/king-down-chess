@@ -37,10 +37,10 @@ Blocked by: 03, 05, 06 (the warn line), 11 (`storyLine`)
 - No six-kings Home (B), no Today sheet, no Home button in the game bar.
 
 ## Comments
-- Home reads the live save in the fixed table rows. Continue and a board tap keep the board in place; the tap selects your piece.
+- Home reads the live game in the fixed table rows. Continue and a board tap keep the board in place; the tap selects your piece.
 - The computer waits. Staged turns keep Continue and Undo. Ended games offer Rematch and Review. Account updates refresh Home; links skip it.
 - Home reuses Menu, the New game warn line and Today's army. The last move uses the app's `describeMove` words, including a free mark.
-- The fast plan cuts replay, fold motion and three sizes. Five check cases and three sample states remain. No Home button or Today sheet is added.
+- The fast plan cuts replay, fold motion and three sizes. Five check cases and three sample states remain. The game bar has no Home button. Today uses New game.
 - `npm test`: 87 files pass, 1 skips; 1,542 tests pass, 13 skip; all 50 art tests pass. Typecheck passes.
 - `home` passes twice (10.2 s, 7.6 s); `visual-design` 19.9 s, `account` 53.6 s, `king-effects` 99.5 s, `workshop` 64.4 s, `ux-defects` 69.1 s, `new-game` 13.1 s.
 - The supplied M1 launcher uses this Mac. The full test run uses two workers and 30 s deadlines; the test script returns to its original text.

@@ -39,7 +39,7 @@ Blocked by: 01, 06
 ## Comments
 - One Start deals `QRNAKBBS`, Beginner, White, no powers. The seed test uses the real draw at seed 83.
 - Saved return visits use Home. The first-visit gate, setup store and link rules stay in place.
-- The fast plan cuts the light-and-dark sample. No first-shot lesson or tour is added.
+- The fast plan cuts the light-and-dark sample. The first visit has no lesson or tour.
 - `npm test`: 87 files pass, 1 skips; 1,542 tests pass, 13 skip; all 50 art tests pass. Typecheck passes.
 - `home` passes twice (10.2 s, 7.6 s); `visual-design` 19.9 s, `account` 53.6 s, `king-effects` 99.5 s, `workshop` 64.4 s, `ux-defects` 69.1 s, `new-game` 13.1 s.
 - The supplied M1 launcher uses this Mac. The full test run uses two workers and 30 s deadlines; the test script returns to its original text.
