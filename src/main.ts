@@ -762,6 +762,7 @@ function pickPromotion(options: Move[]): Promise<Move | null> {
     }
     $('cancel-promo').onclick = () => done(null);
     dlg.oncancel = e => { e.preventDefault(); done(null); };
+    refresh();
     dlg.showModal();
   });
 }
@@ -772,7 +773,6 @@ async function choose(moves: Move[]): Promise<void> {
   if (moves.length === 1 || !moves.every(m => m.promo)) return commit(moves[0]);
   const generation = gen;
   busy = true; // the picker is modal: without this the board stays live and a second move slips in
-  refresh();
   const m = await pickPromotion(moves);
   if (generation !== gen) return; // reset() closed it and cleared busy
   busy = false;
@@ -784,7 +784,6 @@ async function choose(moves: Move[]): Promise<void> {
 async function choosePushOrCapture(capture: Move, push: Move): Promise<void> {
   const generation = gen;
   busy = true;
-  refresh();
   const dlg = $<HTMLDialogElement>('move-choice');
   const target = sqName(push.shove!.from), destination = sqName(push.shove!.to);
   $('move-choice-detail').textContent = `Capture removes the enemy on ${target}. Push moves it to ${destination}${push.to === push.from ? ' and leaves your Ogre in place' : ` and moves your Ogre to ${target}`}.`;
@@ -797,6 +796,7 @@ async function choosePushOrCapture(capture: Move, push: Move): Promise<void> {
     $('choose-push').onclick = () => done(push);
     $('cancel-choice').onclick = () => done(null);
     dlg.oncancel = e => { e.preventDefault(); done(null); };
+    refresh();
     dlg.showModal();
   });
   if (generation !== gen) return;
@@ -810,7 +810,6 @@ async function choosePower(moves: Move[]): Promise<void> {
   if (moves.length === 1) return commit(moves[0]);
   const generation = gen;
   busy = true;
-  refresh();
   const dlg = $<HTMLDialogElement>('promo'), box = $('promo-choices');
   $('promo-title').textContent = `Sacrifice the pawn on ${sqName(moves[0].from)}: which piece returns?`;
   box.innerHTML = '';
@@ -825,6 +824,7 @@ async function choosePower(moves: Move[]): Promise<void> {
     }
     $('cancel-promo').onclick = () => done(null);
     dlg.oncancel = e => { e.preventDefault(); done(null); };
+    refresh();
     dlg.showModal();
   });
   if (generation !== gen) return;

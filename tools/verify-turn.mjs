@@ -18,7 +18,7 @@ const tap = async name => {
 };
 const open = async (fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', query = '', moves = [], computer = false) => {
   await page.goto(base);
-  await page.evaluate(({ fen, moves, computer }) => sessionStorage.setItem('w1.seed', JSON.stringify({ back: '', fen, moves, white: 'human', black: computer ? 'ai' : 'human', resigned: null, pace: 'off', sound: false, skill: 'beginner' })), { fen, moves, computer });
+  await page.evaluate(({ fen, moves, computer }) => sessionStorage.setItem('w1.seed', JSON.stringify({ back: '', fen, moves, white: 'human', black: computer ? 'ai' : 'human', resigned: null, pace: 'off', sound: false, queen: false, skill: 'beginner' })), { fen, moves, computer });
   await page.goto(new URL(query || '?think=50', base).href);
   await page.waitForFunction(() => window.view?.pos);
   await page.evaluate(() => window.view.ready());
@@ -62,6 +62,23 @@ try {
     assert.deepEqual(await lanMoves(page), ['!F:d5', 'a2-a3']);
     assert.equal(await undoOff(), 'true');
     console.log('ok free Freeze, move, one-ply Undo and press');
+
+    for (const [fen, from, to, dialog, cancel] of [
+      ['4k3/P7/8/3n4/8/8/8/4K3 w - - 0 1', 'a7', 'a8', '#promo', '#cancel-promo'],
+      ['4k3/8/8/2pn4/2O5/8/8/4K3 w - - 0 1', 'c4', 'c5', '#move-choice', '#cancel-choice'],
+    ]) {
+      await open(fen, '?kings=frost:freeze,none');
+      await page.click('#power-btn'); await tap('d5');
+      assert.equal(await undoOff(), 'false');
+      await move(from, to); await page.locator(dialog).waitFor({ state: 'visible' });
+      assert.equal(await undoOff(), 'true', 'Undo is off during the choice');
+      assert.equal(await page.getAttribute('#end-turn', 'aria-disabled'), 'true');
+      await page.click(cancel);
+      assert.equal(await undoOff(), 'false', 'Cancel keeps Undo for the mark');
+      assert.deepEqual(await lanMoves(page), ['!F:d5']);
+      await undo(); assert.deepEqual(await lanMoves(page), []);
+    }
+    console.log('ok free-mark choices turn Undo off; Cancel restores it');
 
     await open('6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1');
     await move('a1', 'a8');

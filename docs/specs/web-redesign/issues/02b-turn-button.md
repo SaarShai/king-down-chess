@@ -53,6 +53,10 @@ Blocked by: 01, 02a
 
 ## Comments
 
+Finish plan: check Undo during a free-mark choice, then fix the refresh order.
+Check real turn lines, merge the integration branch, and pass the local tests and named M1 checks.
+Render the seven W1 states at both sizes. Record the results and commit.
+
 W1 build: one press hands over the turn. Undo takes back one staged ply.
 Keep the turn state and candidate link moves in `src/turn.ts`; connect the press in `src/turn-controls.ts`.
 Cuts: no staged save field, ready pulse, four-second line, auto mode or search before the press.
