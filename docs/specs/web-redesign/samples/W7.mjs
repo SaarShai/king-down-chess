@@ -6,6 +6,10 @@ const controls = '#start-game, #new-game .new-game-head button';
 export default {
   sizes: ['phone', 'desktop'],
   states: [
+    ...[0, 1, 2].map(i => ({ name: `catapult-example-${i + 1}`, save, controls, steps: async ({ page }) => {
+      const codes = await page.locator('#army-examples option').evaluateAll(options => options.filter(o => o.value.includes('C')).map(o => o.value));
+      await setUpGame(page, { mode: 'computer', army: codes[i] });
+    } })),
     ...['computer', 'powers', 'two'].map(mode => ({
       name: mode, save, controls,
       steps: ({ page }) => setUpGame(page, { mode, army: null }),
