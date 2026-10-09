@@ -381,3 +381,9 @@
   #workshop .ws-read .ws-model-box, #workshop .ws-sheet .ws-read .ws-model-box { --model: 72px; }
   #workshop .ws-read .ws-bottom { font-size: 20px; letter-spacing: 0; }
 }
+
+@media (max-width: 600px) and (max-height: 640px) {
+  #workshop .ws-share-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px 12px max(8px, env(safe-area-inset-bottom)); }
+  #workshop .ws-share-actions button { padding: 6px 4px; font-size: 14px; min-height: 44px; }
+  #workshop .ws-share-actions .ws-send, #workshop .ws-share-actions .ws-copy-link[hidden] + .ws-copy { grid-column: auto; }
+}

@@ -12,7 +12,7 @@ Blocked by: none
 
 ## Plan
 
-1. [x] Build a pure shelf model. Read Learned and Next from the lesson store. Use this order: Archer, Beast, Maester, Ogre, Guard, Paladin. Keep Bonus on the Paladin.
+1. [x] Build a pure shelf model. Read Learned and Next from the lesson store. Use this order: Archer, Beast, Maester, Ogre, Guard, Paladin. Read Bonus from the pool.
 2. [x] Put six figures on a stone shelf. Show each name, rule line and state. Any figure opens its lesson. The main button opens the next lesson, or returns to the game when all are learned.
 3. [x] Keep Show me and the current lesson controls. Show “<Piece> learned.” in the context line on success. Lessons have no Undo or End turn.
 4. [x] Keep every other field of `kingdown.lessons` when a lesson is learned. Keep the account's done list.
@@ -33,7 +33,7 @@ Blocked by: none
 ## Risks
 
 - The saved game and a newer account game must stay safe during a lesson. The return and account checks cover both cases.
-- The Paladin stays outside the draw pool. Its Bonus mark reads the pool.
+- The Paladin is in the draw pool. All pool pieces share one shelf.
 
 ## Does not do
 
@@ -63,3 +63,13 @@ The push hook must pass before the branch goes to origin.
 The first push stops on three five-second test timeouts: one piece-activity case and two gate cases.
 All 1,528 other tests pass. This Mac has a high load.
 Retry the push with `VITEST_MAX_WORKERS=1`. Keep the assertions and time limits.
+
+## Batch 3 sheet fixes
+
+Decision: decided by delegation (2026-10-09).
+The first rule line shows under the phone shelf. The save note is centred.
+The heading is smaller. The Paladin shares the shelf with all pool pieces.
+Figures have hover and press states. The kept-game action says Return to game.
+Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
+Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
+All nine required browser checks pass. Typecheck and the doc checks pass.

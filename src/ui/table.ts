@@ -27,8 +27,10 @@ export function readPiece(pos: Position, sq: number | null, inspecting: boolean)
     $('rules-btn').click();
     const card = document.querySelector<HTMLElement>(`#rules-rows .piece-card[data-piece="${NAMES[typeOf(code)]}"]`);
     card?.setAttribute('tabindex', '-1');
-    card?.focus();
-    card?.scrollIntoView({ block: 'center' });
+    card?.focus({ preventScroll: true });
+    const body = card?.closest<HTMLElement>('.lesson-guide-body');
+    if (card && body) body.scrollTop += card.getBoundingClientRect().top - body.getBoundingClientRect().top
+      - Math.max(4, (body.clientHeight - card.offsetHeight) / 2);
   };
 }
 
@@ -116,13 +118,20 @@ export function refreshTable(s: TableState): void {
   };
   $('all-rules').hidden ||= !!s.pending.length;
   const line = contextLine(state);
-  $('context-text').replaceChildren(...[line.before ?? '', line.line, line.note].filter(Boolean).map((words, i) => {
+  $('context-text').replaceChildren(...[line.line, line.before ?? '', line.note].filter(Boolean).map((words, i) => {
     const row = document.createElement('span');
-    if (line.before && i === 0) row.id = 'previously-before';
+    if (line.before && i === 1) row.id = 'previously-before';
     row.textContent = words;
     return row;
   }));
   $('context-text').dataset.rank = line.rank;
+  if (line.rank === 'previously') {
+    $('context-text').tabIndex = 0;
+    $('last-move').hidden = true;
+  } else {
+    $('context-text').removeAttribute('tabindex');
+    $('last-move').hidden = false;
+  }
   const again = $('see-again');
   again.hidden = !line.actions.includes('see-again');
   again.setAttribute('aria-disabled', String(!!s.previously?.playing));

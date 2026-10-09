@@ -15,11 +15,14 @@ export function previouslyTurn(history: Readonly<Game['history']>, side: Color):
   if (!last || last.pos.turn === side) return null;
   let from = history.length - 1;
   while (from > 0 && history[from - 1].pos.turn !== side) from--;
-  const before = history[from - 1];
+  let beforeFrom = from;
+  while (beforeFrom > 0 && history[beforeFrom - 1].pos.turn === side) beforeFrom--;
+  const words = (start: number, end: number): string => history.slice(start, end)
+    .map(ply => describeMove(ply.pos, ply.move, true)).join(' Then ');
   return {
     from, to: history.length,
-    line: describeMove(last.pos, last.move, true),
-    before: before ? describeMove(before.pos, before.move, true) : null,
+    line: words(from, history.length),
+    before: beforeFrom < from ? words(beforeFrom, from) : null,
   };
 }
 

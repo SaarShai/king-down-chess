@@ -67,3 +67,13 @@ Both imports stay. The Home keyboard guard stays. Escape also clears the piece r
 The supplied M1 launcher uses this Mac. All 10 named browser checks pass: `read-piece`, `verb-marks`, `home`, `visual-design`, `account`, `king-effects`, `workshop`, `ux-defects`, `new-game`, and `special-moves`. No timeout needs confirmation.
 
 The sample still waits for the owner's yes.
+
+## Batch 3 sheet fixes
+
+Decision: decided by delegation (2026-10-09).
+The Guide head stays outside the scroll body. Close is framed at 44 px.
+The close glyph is 24 px. All rules scrolls only the body.
+The chosen piece card has a focus outline. Menu Guide starts at the shelf.
+Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
+Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
+All nine required browser checks pass. Typecheck and the doc checks pass.

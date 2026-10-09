@@ -83,3 +83,13 @@ The overlap check fails before the fix. It passes in rest, Review and lesson-don
 At 320×568 the board is 263 px high. The rows stay fixed. Landscape squares stay at 41.77 px.
 `npm test`: 83 files pass; 1514 tests pass, 13 skip; 50 scene tests pass. All eight browser checks pass.
 W1, W2 and W7 have 92 renders and no faults. All 34 smallPhone and landscape renders are inspected.
+
+## Batch 3 sheet fixes
+
+Decision: decided by delegation (2026-10-09).
+Previously names the friend first at 16 px. You follows at 14 px.
+The full turn scrolls. The board stays fixed. Moves does not repeat it.
+See again and Stop here use the framed secondary button.
+Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
+Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
+All nine required browser checks pass. Typecheck and the doc checks pass.

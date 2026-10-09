@@ -31,6 +31,7 @@ export default {
       steps: async ({ page, tap, size }) => {}, // optional; tap(sq) taps square sq (0 = a1)
       controls: '#undo, #end-turn', // optional; each match must be inside the screen
       targets: 'button, select',    // optional; the 44 px targets on a touch size (default: button, select, summary, label)
+      motion: 'normal',          // optional; a still with Motion Normal, for replay controls
       video: true,               // optional; also one phone video of the steps: <name>-phone.webm
       scheme: 'dark',            // optional; the device's colour scheme, 'light' (the default) or 'dark'
     },
@@ -39,7 +40,7 @@ export default {
 ```
 
 - Sizes (spec rule 3): `phone` 390×844 (touch, DPR 2) and `desktop` 1440×900 for every visual step. A layout step adds `laptop` 1280×720, `tablet` 820×1180 (touch) and `landscape` 844×390 (touch).
-- Each still has Motion Off: the seeded save gets `pace: 'off'`, and the browser asks for reduced motion.
+- A still with `motion: 'normal'` uses Motion Normal and asks for full motion. Its steps must wait for the state to settle. All other stills have Motion Off: the seeded save gets `pace: 'off'`, and the browser asks for reduced motion.
 - A motion step gives the moving state `video: true` (spec rule 3: one phone video). The video has Motion Normal: the seeded save gets `pace: 'normal'`, and the browser does not ask for reduced motion. It records the steps and 2 s after them.
 - The steps reach the app through `tools/app-ui.mjs` (for example `pressMenu`, `endTurn`), so a table keeps working when a later step moves a control. Import it in the table: `import { pressMenu } from '../../../../tools/app-ui.mjs';` (see `00.mjs`).
 - The checks: the app keeps every move of the seeded save (it drops a move that is not legal for the army, and the moves after it); no sideways scroll; each `controls` match inside the screen; on a touch size, each `targets` match in the open dialog (or in the page) is 44 px or more. A page error is a fault too. The tool exits 1 when a render has a fault.

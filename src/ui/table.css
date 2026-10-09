@@ -28,7 +28,6 @@
 #context-text { flex: 1; min-width: 0; font-size: 16px; line-height: 1.25; white-space: normal; }
 #context-actions { display: flex; gap: 4px; flex-shrink: 0; }
 #context-actions button { width: auto; min-width: 44px; white-space: nowrap; min-height: 44px; padding: 4px 8px; font-size: 14px; }
-#context-actions #stop-chain { background: transparent; color: var(--ink); border-color: var(--stone-300); box-shadow: none; }
 #moves-line { grid-area: moves; width: calc(100% - 24px); margin: 0 12px; height: 48px; min-height: 48px; display: flex; gap: 8px; border: 0; border-block: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; padding: 0; text-align: left; color: var(--ink-soft); }
 #last-move { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
 #last-move span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; white-space: normal; line-height: 1.2; font-size: 14px; }
@@ -95,11 +94,17 @@
   #game-table { grid-template-columns: minmax(0, 1fr) 340px; gap: 8px; padding: 4px 8px; --strip-height: 56px; }
 }
 
-#context-text[data-rank='previously'] { -webkit-line-clamp: 3; }
-#context-text #previously-before { font-size: 12px; color: var(--ink-soft); }
-#context-actions #see-again { background: transparent; color: var(--ink); border-color: var(--stone-300); box-shadow: none; }
+#context-text[data-rank='previously'] { display: block; max-height: calc(var(--context-height) - 17px); overflow-y: auto; scrollbar-gutter: stable; overscroll-behavior: contain; }
+#context-text #previously-before { font-size: 14px; color: var(--ink-soft); }
 #context-actions #see-again[aria-disabled='true'] { opacity: .65; cursor: default; }
 
 #table-bar > :is(#undo, #return-game) { grid-column: 1; grid-row: 1; }
 #table-bar > :is(#end-turn, #show-me, #next-lesson) { grid-column: 2; grid-row: 1; }
 #table-bar > #menu-btn { grid-column: 3; grid-row: 1; }
+
+#menu-sheet { height: min(660px, calc(100dvh - 24px)); }
+@media (max-width: 899px) {
+  #menu-sheet { margin-bottom: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+  #menu-sheet .sheet-head h2 { white-space: nowrap; }
+}
+#menu-sheet [data-menu-page='resign'] h3 { font-family: var(--font-display); font-size: var(--fs-lg); color: var(--ink); text-transform: none; letter-spacing: normal; }

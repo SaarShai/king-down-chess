@@ -180,11 +180,11 @@ button > span { min-width: 0; }
 /* Touch screens keep :hover after a tap, which left a tapped button dark. */
 @media (hover: hover) { button:hover { background: linear-gradient(#fffdf6, #f5ebd5); } }
 button:active { transform: translateY(2px); box-shadow: 0 0 0 var(--stone-700), inset 0 1px 0 rgba(255, 255, 255, 0.8); }
-button.primary, #stop-chain {
+button.primary {
   color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent));
   border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
 }
-@media (hover: hover) { button.primary:hover, #stop-chain:hover { background: linear-gradient(#a8422f, #8f3124); } }
+@media (hover: hover) { button.primary:hover { background: linear-gradient(#a8422f, #8f3124); } }
 button.quiet { background: transparent; box-shadow: none; border-color: var(--stone-500); font-weight: 400; }
 @media (hover: hover) { button.quiet:hover { background: rgba(255, 255, 255, 0.5); } }
 button:disabled, button:disabled:hover {
