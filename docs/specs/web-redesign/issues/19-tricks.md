@@ -1,36 +1,49 @@
 # 19 · Tricks and seals
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
-Blocked by: 02c (the press and the send), 05, 18 (`noteLesson` keeps other fields)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
+Needs: W1 and W2 (merged)
 
 ## Scope
 
-- Owner choice: Menu and Extra C, the Tricks part: a wax seal for each trick a player finds, a riddle for the rest, the Tricks row only after the first trick, one gold dot once.
-- Demo: `feat-menu-extra` (`TRICKS` 15–34, `trickOf` 36–58, `awardSeal` 470–505).
-- Files: new `src/tricks.ts` and test; `src/main.ts` (the press handler; call lines only); `src/ui/menu.ts`; `src/account/sync.ts` and test; `src/style.css`; `tools/verify-menu-extra.mjs`.
+- Owner choice: Menu and Extra C, the Tricks part.
+- Keep wax seals, riddles and one gold dot.
+- Show Tricks in Extra after the first find.
+- Use the Menu demo's six detectors and wax rim.
+- The fast plan cuts seal motion and account sync.
 
 ## Plan
 
-1. [ ] Six tricks: a bite chain (a Beast with 2 or more captures); a shot over a piece (an Archer shot with a piece between the Archer and its target, under the Archer reading in force); shove a guard (an Ogre shoves a Guard); a far swap (a Maester swaps with its king at a distance of more than 1); a king takes a guard; a second life (the Sacrifice power). Each detector reads the position before and the move, and the rules in force (spec rule 11).
-2. [ ] Give a seal at the press, for the plies this device's player hands over: against the computer, your side; on one device, both sides; in a link game, your side, and only after the send succeeds. Never for the computer, in a lesson, in a replay, a link load or review. Undo before the press never leaves a seal.
-3. [ ] Store found tricks in `kingdown.lessons` as `tricks`, and an unseen mark. Always write `done` too (`done: []` when no lesson is learned): the account takes a lessons copy only when it has a `done` list. The account merges `tricks` as a union, as it merges `done`.
-4. [ ] On a find: the seal stamps on the Moves line, flies to the Menu button, and one gold dot stays there until the Menu opens. In the Menu, the Extra row and the Tricks row carry one dot and the line "New seal: <name>." for that visit. Motion Off: no flight; the dot still shows.
-5. [ ] The Tricks page: found rows (figure, the seal with the piece icon, the name, where it was found) and riddle rows (a grey shape, the riddle). The row shows in Extra only after the first trick.
+1. [x] Copy six detectors. Read the position before each legal move. Test a find and a near miss for each detector.
+2. [x] Give seals at W1's press. Count this device's human plies since the turn start. In a link game, count only this side after a send succeeds. Lessons, replay, link loads, review and computer turns give no seal.
+3. [x] Store seals and the unseen mark in `kingdown.tricks`. Keep them on this device. Leave the lesson store and account sync as they are.
+4. [x] Show one gold dot on Menu. Clear it when Menu opens. Add no stamp or flight motion.
+5. [x] Show found figures, piece seals, names and find text. Show grey shapes and riddles for the rest. Put found rows first.
 
 ## Verification
 
-- [ ] `src/tricks.test.ts`: each detector is true for one built move and false for its near miss (an Archer shot with no piece between; a swap beside the king; a shove of a piece that is not a Guard; a king that takes a piece that is not a Guard; a Beast move with one capture); the shot detector under each Archer reading.
-- [ ] `src/account/sync.test.ts`: `done` and `tricks` merge as unions; a store with only `tricks` writes `done: []` and comes down to another device; `noteLesson()` keeps `tricks`.
-- [ ] `menu-extra` check, extended: a scripted bite chain and a press give a seal, the gold dot, the Tricks row and one found row; the dot goes when the Menu opens; a reload keeps the seal; an Undo before the press gives none; a cancelled link send gives none.
-- [ ] `npm test` and `npm run check:browser` pass.
-- [ ] Rendered sample, 390×844 and 1440×900: the stamp, the dot, the Tricks page. The owner's yes, with the date, in Comments.
+- [x] Detector and turn tests pass. Test the Archer reading in force. The fast plan cuts tests for other readings.
+- [x] Store tests pass. Check reload, seen marks, duplicate finds and blocked storage. Account sync tests are cut.
+- [x] Add two `menu-extra` cases: press gives a seal and dot; Undo before the press gives none. Check Menu, Back and reload too.
+- [x] Final `npm test` and named browser checks pass.
+- [x] Render the dot and Tricks at 390×844 and 1440×900. Inspect both contact sheets.
+- [ ] The owner says yes to the sample.
 
 ## Risks
 
-- A false find hurts trust; the near-miss tests guard it.
+- A false find hurts trust. Near-miss tests guard each detector.
 
 ## Does not do
 
-- No crowns, no unlocks, no sharing of a trick ("Try this turn" is parked).
+- No crowns, unlocks, trick sharing, account sync or seal motion.
 
 ## Comments
+
+- Six detectors, a device store, turn awards and the Tricks page are complete.
+- W1 gives seals at the press, only after a link send succeeds. Find text uses present tense.
+- The 22 focused tests and type check pass.
+- `VITEST_MAX_WORKERS=1 npm test`: 85 files pass, 1 skips; 1,535 tests pass, 13 skip; all 50 board tests pass.
+- `menu-extra` passes twice after the merge: 11.4 s and 8.4 s. `turn` passes in 5.8 s; `link-game` passes in 2.1 s.
+- The M1 launcher runs the checks on this Mac after its cutoff.
+- Four sample renders pass. Both contact sheets show no visual faults.
+- The fast plan cuts account sync, stamp and flight motion, and other Archer readings.
+- The sample waits for the owner's yes.
