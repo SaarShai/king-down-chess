@@ -1,7 +1,7 @@
 # 19 · Tricks and seals
 
 Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
-Blocked by: 02c (the press and the send), 05, 18 (`noteLesson` keeps other fields)
+Blocked by: 02c (the press and the send), 05
 
 ## Scope
 
@@ -34,3 +34,13 @@ Blocked by: 02c (the press and the send), 05, 18 (`noteLesson` keeps other field
 - No crowns, no unlocks, no sharing of a trick ("Try this turn" is parked).
 
 ## Comments
+
+- W10 phase 1 is complete: six detectors and a seal store in `kingdown.tricks`.
+- Test seams: `trickOf(position, move)` and the seal store. Use legal moves and one near miss per detector.
+- Plan: add each test before its code; check types; run `npm test`; commit the phase.
+- Checks: all six finds pass; near misses give no seal; saved seals and the unseen mark survive a load.
+- Phase 2: add the press calls, Menu dot, Tricks page, browser cases and rendered samples after W1 and W2.
+- Cut: account sync and seal motion.
+- Result: the type check and all 19 W10 tests pass.
+- Full suite: 81 files pass, 1 skips; 1,459 tests pass, 13 skip; all 50 board tests pass. One worker and a 30 s test limit pass on the loaded Mac; normal limits give timeouts.
+- Browser checks and samples wait for phase 2. The temporary test runner is removed.
