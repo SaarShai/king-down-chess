@@ -55,6 +55,7 @@ deleted: the extension already answered it with the recorded old-paladin control
 
 Rules: a run of the twelve kings' powers as released passes every `POWERS_BALANCED` rule (`src/rules/rules.ts`) as `--rule`; the tournament's defaults are the unbalanced powers (dt-r0/t2/t3 lost a run to this, 2026-10-07).
 Kaggle size: a notebook stops at 12 hours and keeps no output. Before a push, time the games a minute from a like run's shard log and keep each notebook under 9 hours (guard-king-p-d4 and deal-d3 were lost to this, 2026-10-08).
+Raw data: each run's `<id>.jsonl` (one line a game) and `<id>.tournament.json` stay in `sim/out/` (git-ignored). When a run ends, copy M1 output to `sim/out/m1/` (`rsync -a M1:projects/<checkout>/sim/out/ sim/out/m1/<checkout>/`), pull Kaggle runs, then run `tools/backup-sim-out.sh` (gzipped copy to Google Drive, `My Drive/king-down-sim-out`; owner 2026-10-09).
 
 Rules: fresh control per experiment (the `ab` experiment's base arm is today's rules — `pb-ab-base24`
 is void as a baseline). Same seed for every variant so arrangements and opening seeds are shared.
