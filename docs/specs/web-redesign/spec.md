@@ -340,6 +340,19 @@ The owner accepted every pick on 2026-10-09 ("picks, go ahead"). The text keeps 
 
 **D16. A resignation travels in a link.** Options: 1, the link gets a field `resign`, and after Resign the button reads "Send the result"; 2, the friend does not learn of it. Pick: 1 (today the friend opens a game that can still be played). On yes: ticket 02c.
 
+## 8. The fast plan (2026-10-09)
+
+The owner found the first build too slow and asked for an independent review with the Ponytail rules (the owner, 2026-10-09). [fast-plan.md](fast-plan.md) is that review. Where it and this spec differ, fast-plan.md wins.
+
+- **Scope.** The cuts, merges and simpler forms of fast-plan.md §2 apply. Tickets 09, 15 and 23 are cut, and ticket 20 is deferred.
+- **Y1, the second look:** deferred. The owner said "go with what you think" for this pick.
+- **Y2, a reload:** a reload hands a staged turn over, as today. This is stricter than the Undo rule, never looser.
+- **Work units.** Units W0 to W12 of fast-plan.md §5.1 replace the 27 steps of §5.
+- **One integration branch.** All units go on `claude/web-redesign-int`, which has one draft pull request to main. Each unit is a branch from the integration tip, in its own worktree, built test-first. It merges the integration tip into itself before it is done, and then merges into the integration branch. Units that do not block each other run at the same time.
+- **Checks.** A unit runs its named checks while it builds. It runs `npm test` and the full `npm run check:browser` once at the end, and each new browser check two times. One code review covers the integration branch at the end. W1, W2 and W6 also get one review each.
+- **Samples.** The builder renders `SAMPLE=<unit>` at phone and desktop size; W2 also renders 844×390. W6 has one phone video. The owner sees three batches (fast-plan.md §5.3). The integration branch merges to main after the owner's yes on its samples (AGENTS.md).
+- **Ticket notes.** At most 10 lines for each unit: what changed, what was cut, the check results, the owner's yes.
+
 ## Review record
 
 Five reviews read the first draft: three critics and two outside advisors. This revision checks each finding against the owner's words (§1.1) and the code at 7dee704. It accepts a finding only when the finding is true and its fix keeps to the owner's choices.

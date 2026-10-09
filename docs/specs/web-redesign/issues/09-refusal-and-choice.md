@@ -1,6 +1,6 @@
 # 09 · The refusal that teaches, and Take or Shove in the context line
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: wontfix (cut by the fast plan, fast-plan.md §2; the owner can bring it back)
 Blocked by: 04, 05 (`src/haptic.ts`), 08, 10
 
 ## Scope
