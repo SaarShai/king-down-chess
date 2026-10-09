@@ -64,3 +64,5 @@ Today says Play. Its arrow is larger. Menu uses ink.
 Keep the first-paint focus ring. Removing it needs safe input tracking.
 Tests: 1,667 pass, 13 skip; all 50 board tests pass. All ten browser checks pass.
 W8: 10 renders, zero faults. Both sheets get a visual check.
+
+Item 9: decided by delegation (2026-10-09). Review last game uses the quiet class, like the result Review action. The browser checks its class and clear background.

@@ -45,6 +45,8 @@ try {
     assert.ok(Math.abs(review.x - moves.x) < 1, 'Review shares the row edge');
     assert.ok(review.y - (moves.y + moves.height) <= 12, 'Review sits below Moves');
     assert.notEqual(await ended.page.locator('#home-review').evaluate(b => getComputedStyle(b).borderStyle), 'none', 'Review has a button edge');
+    assert.equal(await ended.page.locator('#home-review').evaluate(b => b.classList.contains('quiet')), true, 'Home Review uses the same quiet class as result Review');
+    assert.equal(await ended.page.locator('#home-review').evaluate(b => getComputedStyle(b).backgroundColor), 'rgba(0, 0, 0, 0)', 'Home Review has a quiet background');
     await ended.page.click('#home-review');
     assert.equal(await ended.page.locator('#back-to-game').isVisible(), true, 'Review opens the saved game');
     await ended.context.close();
