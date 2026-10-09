@@ -8,7 +8,8 @@
 #workshop[open] { display: flex; flex-direction: column; }
 /* Lining figures: the small-caps headings and the counts read "0 of 3", not "o of 3". */
 #workshop { font-variant-numeric: lining-nums; }
-#workshop::backdrop { background: var(--night); }
+/* The floor of the game under the Workshop (the fallbacks: a ::backdrop that does not inherit custom properties). */
+#workshop::backdrop { background-color: var(--floor-base, #f2e9d6); background-image: var(--floor, none); }
 /* Under 360 px, Back shows its arrow only (its word stays for screen readers), so the title fits. */
 @media (max-width: 359px) { #workshop { --gut: 12px; } #workshop .ws-bar h2 { font-size: var(--fs-md); } }
 @media (max-width: 359px) { #workshop .ws-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } #workshop .ws-bar .ws-back { min-width: var(--tap); justify-content: center; } }
@@ -142,7 +143,7 @@
 .ws-model .ws-fig { position:static; width:100%; height:100%; object-fit:contain; filter:none; transform:none; }
 /* The Set A reactions (motion.ts): the old picture fades out over the model; the A5 ring anchors to it. Both rest hidden. */
 .ws-model .ws-fig-was { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; opacity:0; pointer-events:none; }
-.ws-ring { position:absolute; left:50%; bottom:34%; width:70%; aspect-ratio:1; border:3px solid #e9c071; border-radius:50%; box-shadow:0 0 16px #e9c071; opacity:0; pointer-events:none; }
+.ws-ring { position:absolute; left:50%; bottom:34%; width:70%; aspect-ratio:1; border:3px solid var(--gold-bright); border-radius:50%; box-shadow:0 0 16px var(--gold-bright); opacity:0; pointer-events:none; }
 
 /* ---- the 7 × 7 boards ---- */
 .ws-caption { display:none; }

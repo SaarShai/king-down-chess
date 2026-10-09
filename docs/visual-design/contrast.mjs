@@ -14,6 +14,8 @@ const lum = hex => {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 };
 const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+/** The colour of `fg` drawn at opacity `a` over `bg`. */
+const mix = (fg, bg, a) => '#' + [1, 3, 5].map(i => Math.round(parseInt(fg.slice(i, i + 2), 16) * a + parseInt(bg.slice(i, i + 2), 16) * (1 - a)).toString(16).padStart(2, '0')).join('');
 
 // [text, surface, where it appears, minimum]: 4.5 for text, 3 for large text (≥ 24 px, or 18.7 px bold) and UI parts.
 const T = 4.5, LARGE = 3, UI = 3;
@@ -32,20 +34,33 @@ const pairs = [
   ['vellum', 'stone-700', 'piece-letter badges', T],
   ['vellum', 'ink', 'the move shown in review', T],
   ['danger', 'parchment', 'turn line in check', T],
-  ['on-night', 'night', 'title buttons on the title', T],
-  ['on-night-soft', 'night', 'the wordmark\'s "Chess" line', T],
+  ['on-night', 'stone-900', 'the Workshop note on dark stone', T],
+  // The Quiet Table floor: from its middle colour (floor-base) to its darkest edge (floor-edge).
+  ['ink', 'floor-base', 'text on the floor: the title\'s wordmark', T],
+  ['ink', 'floor-edge', 'text on the floor, at its edge', T],
+  ['ink-soft', 'floor-base', 'secondary text on the floor: the wordmark\'s "Chess" line, the lineup names', T],
+  ['ink-soft', 'floor-edge', 'secondary text on the floor, at its edge', T],
+  ['gold-ink', 'floor-base', '"Down" in the wordmark; gold text on the floor', T],
+  ['gold-ink', 'floor-edge', 'gold text on the floor, at its edge', T],
+  ['danger', 'floor-base', 'danger text on the floor', T],
+  ['danger', 'floor-edge', 'danger text on the floor, at its edge', T],
+  ['focus', 'floor-base', 'focus ring on the floor (the title)', UI],
+  ['focus', 'floor-edge', 'focus ring on the floor, at its edge', UI],
   ['focus', 'parchment', 'focus ring on the panel', UI],
   ['focus', 'vellum', 'focus ring in dialogs', UI],
   ['stone-700', 'parchment', 'button and field borders', UI],
   ['stone-500', 'vellum', 'move list border, quiet buttons', UI],
   ['accent', 'vellum', 'checked boxes, slider thumb', UI],
 ];
+// An off control's label (web redesign spec §4.1): ink-soft at 75 % opacity, 3:1 or more.
+const off = surface => mix(token('ink-soft'), token(surface), 0.75);
 const extra = [
-  ['#e9c071', token('night'), '"Down" in the wordmark (large)', LARGE],
   [token('ink'), '#fff6dc', 'help line', T],
-  ['#8cc0ff', token('night'), 'focus ring on the title screen', UI],
   [token('ink'), '#efe4cc', 'button label at the bottom of its gradient', T],
-  [token('ink'), '#e6e1cf', 'board surround (coordinates are drawn by the scene)', T],
+  [token('ink'), '#e6e1cf', 'the scene\'s own floor round the board (the plugin page and the trial)', T],
+  [off('floor-base'), token('floor-base'), 'an off label (ink-soft at 75 %) on the floor', UI],
+  [off('floor-edge'), token('floor-edge'), 'an off label (ink-soft at 75 %) on the floor, at its edge', UI],
+  [off('stone-100'), token('stone-100'), 'an off label (ink-soft at 75 %) on a disabled button', UI],
 ];
 const rows = [
   ...pairs.map(([a, b, where, min]) => ({ text: `--${a} ${token(a)}`, surface: `--${b} ${token(b)}`, where, ratio: ratio(token(a), token(b)), min })),

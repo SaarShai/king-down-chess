@@ -61,7 +61,7 @@ async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
     const { width, height, ...touch } = sizes[size];
     const ctx = await browser.newContext({
       viewport: { width, height }, deviceScaleFactor: size === 'phone' ? 2 : 1, ...touch,
-      reducedMotion: video ? 'no-preference' : 'reduce',
+      reducedMotion: video ? 'no-preference' : 'reduce', colorScheme: state.scheme ?? 'light',
       ...(video ? { recordVideo: { dir: join(out, '.video'), size: { width, height } } } : {}),
     });
     // A still has Motion Off: the seeded save says so, and with no save the app takes Off from reduced motion.

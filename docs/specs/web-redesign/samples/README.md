@@ -29,6 +29,7 @@ export default {
       controls: '#undo, #end-turn', // optional; each match must be inside the screen
       targets: 'button, select',    // optional; the 44 px targets on a touch size (default: button, select, summary, label)
       video: true,               // optional; also one phone video of the steps: <name>-phone.webm
+      scheme: 'dark',            // optional; the device's colour scheme, 'light' (the default) or 'dark'
     },
   ],
 };

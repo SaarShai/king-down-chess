@@ -65,7 +65,8 @@ const engine = new Engine();
 const LOOK_KEY = 'kingdown.look';
 const look = params.get('look') ?? (() => { try { return localStorage.getItem(LOOK_KEY); } catch { return null; } })() ?? 'painted';
 // Clay (three.js) is a separate chunk, fetched only for that look; painted needs none of it.
-const view: BoardView = look === 'clay' ? await (await import('./render/clay')).createClayView($('board')) : new PaintedView($('board'));
+// The painted board stands on the page's parchment floor: the scene draws no floor of its own.
+const view: BoardView = look === 'clay' ? await (await import('./render/clay')).createClayView($('board')) : new PaintedView($('board'), { floor: null });
 $<HTMLSelectElement>('look').value = look === 'clay' ? 'clay' : 'painted';
 $<HTMLSelectElement>('look').onchange = () => {
   try { localStorage.setItem(LOOK_KEY, $<HTMLSelectElement>('look').value); } catch { /* private mode: the URL still switches */ }

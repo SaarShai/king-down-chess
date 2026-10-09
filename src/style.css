@@ -34,14 +34,31 @@
   --stone-900: #1d1915;
   --accent: #842c21;       /* primary buttons: vellum text 8.3:1 */
   --accent-deep: #5a1c14;
+  --accent-bright: #9c3a2d; /* the lit top of a crimson control */
   --gold: #c99a3e;         /* ornament on dark stone */
+  --gold-bright: #e9c071;  /* the lit gold edge: ornament, never text on parchment */
   --gold-ink: #7a5712;     /* gold as text on parchment: 5.5:1 */
   --danger: #b0251b;
   --focus: #1c5bb0;        /* focus ring: 5.5:1 on parchment */
   --check: #e02828;        /* matches renderer CHECK_RING on the king square */
-  --night: #221d18;        /* title screen */
+  --night: #221d18;        /* dark stone (no screen stands on it: the base look is light only) */
   --on-night: #f3ead7;
   --on-night-soft: #d6c9ad;
+  /* marks on the board (src/render/marks.ts), as "r g b": each kind also has its own shape */
+  --mark-move: 255 214 128;     /* gold gem */
+  --mark-capture: 214 52 40;    /* crimson ring and brackets */
+  --mark-swap: 160 120 220;     /* violet: the Maester's trade */
+  --mark-shove: 64 190 176;     /* teal: the Ogre's push */
+  --mark-power: 96 160 255;     /* blue rune: a king's power */
+
+  /* The Quiet Table: one parchment floor under every screen, also when the device is in dark mode. */
+  --floor-base: #f2e9d6;   /* the floor's middle colour, and the page colour under it */
+  --floor-edge: #e6d7b9;   /* the floor at the far edge: the darkest surface that text stands on */
+  --floor: radial-gradient(90% 75% at 50% 40%, #faf5ea 0%, var(--floor-base) 55%, var(--floor-edge) 100%);
+  --fg: var(--ink);
+  --fg-soft: var(--ink-soft);
+  --line: rgba(43, 38, 33, 0.16); /* a hairline on the floor */
+  --wash: rgba(43, 38, 33, 0.06); /* a quiet hover or a pressed state on the floor */
 
   /* type */
   --font-display: 'Cinzel', 'Trajan Pro', Georgia, 'Times New Roman', serif;
@@ -49,10 +66,14 @@
   --fs-xs: 12.5px;
   --fs-sm: 14px;
   --fs-md: 15.5px;
+  --fs-body: 16px;         /* body text on a phone */
   --fs-lg: 18px;
   --fs-xl: 23px;
   --fs-2xl: 30px;
+  --fs-3xl: 40px;
   --lh: 1.45;
+  --lh-tight: 1.2;
+  --track-display: 0.08em; /* Cinzel letter spacing */
 
   /* spacing, radii, depth */
   --space-1: 4px;
@@ -61,28 +82,47 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
+  --space-7: 48px;
   --radius-sm: 5px;
   --radius: 8px;
   --radius-lg: 14px;
+  --radius-pill: 999px;
   --tap: 44px;              /* minimum touch target on phones */
   --lift: 0 2px 0 var(--stone-700);
   --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 2px 8px rgba(43, 38, 33, 0.1);
   --shadow-float: 0 18px 50px rgba(20, 14, 8, 0.45);
+  --shadow-sheet: 0 -8px 40px rgba(20, 14, 8, 0.35);
+
+  /* motion: most UI motion is 120 to 400 ms; each animation shows a change, a cause or a place */
+  --dur-1: 120ms;          /* press, hover, small state */
+  --dur-2: 200ms;          /* a mark appears, a chip toggles */
+  --dur-3: 320ms;          /* a sheet, a panel, a figure's slide */
+  --dur-4: 480ms;          /* one strong moment: a win, a reveal */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1); /* a gentle overshoot */
 
   --rail: 272px;
   --caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%232b2621' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M3 7.5l2.8 2.8L11 4.5' fill='none' stroke='%23fbf7ee' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
+  /* Light only: the browser keeps its light controls and does not darken the page in dark mode. */
+  color-scheme: only light;
   font-family: var(--font-body);
   font-size: var(--fs-md);
   line-height: var(--lh);
   color: var(--ink);
-  background: var(--parchment);
+  background: var(--floor-base);
   -webkit-text-size-adjust: 100%;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { margin: 0; height: 100%; background: var(--parchment); overflow: hidden; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+/* The floor: lit in the middle, a little deeper at the edges. */
+body { background-color: var(--floor-base); background-image: var(--floor); }
+/* Desktop: the rail on the right has its own parchment, so the floor fills only the board area, with its light under the board. */
+@media (min-width: 721px) { body { background-size: calc(100% - var(--rail)) 100%; background-repeat: no-repeat; } }
 .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
@@ -176,7 +216,7 @@ button > span { min-width: 0; }
 @media (hover: hover) { button:hover { background: linear-gradient(#fffdf6, #f5ebd5); } }
 button:active { transform: translateY(2px); box-shadow: 0 0 0 var(--stone-700), inset 0 1px 0 rgba(255, 255, 255, 0.8); }
 button.primary, #stop-chain {
-  color: var(--vellum); background: linear-gradient(#9c3a2d, var(--accent));
+  color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent));
   border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
 }
 @media (hover: hover) { button.primary:hover, #stop-chain:hover { background: linear-gradient(#a8422f, #8f3124); } }
@@ -371,7 +411,7 @@ label.mode:has(input:focus-visible), .seg-row label:has(input:focus-visible) { o
 .seg-row label:first-child { border-left: 0; border-radius: var(--radius) 0 0 var(--radius); }
 .seg-row label:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
 @media (hover: hover) { .seg-row label:hover { background: #fffdf6; } }
-.seg-row label:has(input:checked) { color: var(--vellum); background: linear-gradient(#9c3a2d, var(--accent)); }
+.seg-row label:has(input:checked) { color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent)); }
 .seg-row label:has(input:focus-visible) { outline-offset: -3px; outline-color: #8cc0ff; }
 
 label.check {
@@ -406,7 +446,7 @@ button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3
 .power-choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
 .power-choice button { justify-content: center; padding: 6px 4px; text-align: center; font-size: var(--fs-sm); }
 .power-choice button[aria-pressed='true'] {
-  color: var(--vellum); background: linear-gradient(#9c3a2d, var(--accent));
+  color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent));
   border-color: var(--accent-deep); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35);
 }
 .power-text { min-height: 2.9em; margin: var(--space-2) 0 0; font-size: var(--fs-sm); line-height: 1.45; }
@@ -520,65 +560,77 @@ label.army select { width: 100%; font-weight: 400; }
 #title-screen {
   width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0;
   border: 0; border-radius: 0; box-shadow: none; overflow: hidden;
-  color: var(--on-night);
-  background:
-    radial-gradient(60% 45% at 50% 40%, rgba(214, 160, 72, 0.28), transparent 70%),
-    radial-gradient(120% 90% at 50% 30%, #4a3e31 0%, var(--night) 55%, #120f0c 100%);
+  color: var(--ink);
+  background-color: var(--floor-base); background-image: var(--floor); /* the Quiet Table floor, as under the game */
+  /* A thin ink edge round each figure: pale art (Spirit, Stratus, the Ogre) keeps its outline on the pale floor. */
+  --rim: drop-shadow(0 0 0.75px rgba(43, 38, 33, 0.7));
 }
 /* One column the width of the screen: no content (the lineup's names) can widen the title and push it off centre. */
 #title-screen[open] { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; }
-#title-screen::backdrop { background: var(--night); }
+/* The fallbacks serve a browser whose ::backdrop does not inherit the custom properties. */
+#title-screen::backdrop { background-color: var(--floor-base, #f2e9d6); background-image: var(--floor, none); }
 .title-stage { position: relative; min-height: 0; perspective: 900px; }
-.title-floor {
-  position: absolute; left: 50%; bottom: -6%; width: min(84vh, 96vw); height: auto;
+/* The stone board under the kings, in two layers. The board (the image) fades out round the kings' feet; under it a
+   light copy (::before) fades into the floor further out. So the dark squares end in light stone, not in a grey haze. */
+.title-floor, .title-stage::before {
+  position: absolute; left: 50%; bottom: -6%; width: min(84vh, 96vw); height: auto; aspect-ratio: 1;
   transform: translateX(-50%) rotateX(64deg); transform-origin: 50% 100%;
-  filter: brightness(0.62) sepia(0.25);
+}
+.title-floor {
+  filter: brightness(0.9) sepia(0.2);
+  -webkit-mask-image: radial-gradient(closest-side, #000 38%, transparent 72%);
+  mask-image: radial-gradient(closest-side, #000 38%, transparent 72%);
+}
+.title-stage::before {
+  content: ''; background: url('/ui/stone-board.webp') center / 100% 100%;
+  filter: contrast(0.3) brightness(1.3) sepia(0.7) saturate(1.2);
   -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
   mask-image: radial-gradient(closest-side, #000 55%, transparent 100%);
 }
-/* The six kings: the centre two largest and nearest, the outer ones smaller, set back (higher) and dimmed. */
+/* The six kings: the centre two largest and nearest, the outer ones smaller, set back (higher) and a little dimmed.
+   Each filter is one brightness and drop shadows (the rim, then the cast shadow): title-kings.mjs draws them on its canvas. */
 .title-kings {
   position: absolute; left: 50%; bottom: 7%; translate: -50% 0; height: min(62%, 25vw); width: max-content;
   display: flex; align-items: flex-end; justify-content: center;
 }
-.title-kings img { flex: none; height: 100%; width: auto; margin: 0 -1.2%; filter: drop-shadow(0 14px 12px rgba(0, 0, 0, 0.55)); }
+.title-kings img { flex: none; height: 100%; width: auto; margin: 0 -1.2%; filter: var(--rim) drop-shadow(0 14px 12px rgba(43, 38, 33, 0.42)); }
 .title-kings .tk-right { transform: scaleX(-1); }
-.title-kings .tk-inner { position: relative; z-index: -1; height: 82%; margin-bottom: 4%; filter: brightness(0.86) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
-.title-kings .tk-outer { position: relative; z-index: -2; height: 66%; margin-bottom: 8%; filter: brightness(0.72) drop-shadow(0 12px 10px rgba(0, 0, 0, 0.5)); }
+.title-kings .tk-inner { position: relative; z-index: -1; height: 82%; margin-bottom: 4%; filter: brightness(0.94) var(--rim) drop-shadow(0 12px 10px rgba(43, 38, 33, 0.36)); }
+.title-kings .tk-outer { position: relative; z-index: -2; height: 66%; margin-bottom: 8%; filter: brightness(0.86) var(--rim) drop-shadow(0 12px 10px rgba(43, 38, 33, 0.32)); }
 .title-copy { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4) max(6vh, 28px); text-align: center; }
 .wordmark {
   display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 0 0.28em;
   margin: 0; font-family: var(--font-display); font-weight: 900; font-size: clamp(46px, 8.4vw, 96px);
-  line-height: 0.95; letter-spacing: 0.05em; color: var(--on-night);
-  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.55), 0 0 28px rgba(214, 160, 72, 0.35);
+  line-height: 0.95; letter-spacing: 0.05em; color: var(--ink);
+  text-shadow: 0 2px 0 rgba(251, 247, 238, 0.9), 0 0 28px rgba(201, 154, 62, 0.3);
 }
-.wm-down { color: #e9c071; }
+.wm-down { color: var(--gold-ink); }
 .wm-chess {
   flex-basis: 100%; margin-top: 0.5em; font-size: 0.24em; font-weight: 700; letter-spacing: 0.7em; text-indent: 0.7em;
-  color: var(--on-night-soft); text-shadow: none;
+  color: var(--ink-soft); text-shadow: none;
 }
 .wordmark-crown {
   width: 0.62em; height: 0.62em; margin-right: -0.12em; align-self: flex-start;
-  fill: rgba(233, 192, 113, 0.28); stroke: #e9c071; stroke-width: 1.6; stroke-linejoin: round;
+  fill: rgba(201, 154, 62, 0.3); stroke: var(--gold-ink); stroke-width: 1.6; stroke-linejoin: round;
   transform: translateY(-0.05em) rotate(-28deg);
 }
 .title-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
 .title-actions button { width: auto; min-width: 200px; min-height: 52px; justify-content: center; font-size: var(--fs-lg); padding: 10px 22px; }
-.title-actions button.primary { border-color: #e9c071; box-shadow: 0 2px 0 var(--accent-deep), 0 0 0 1px rgba(233, 192, 113, 0.5); }
+.title-actions button.primary { border-color: var(--gold-bright); box-shadow: 0 2px 0 var(--accent-deep), 0 0 0 1px rgba(233, 192, 113, 0.5); }
 /* The lineup: every piece on a stone ledge, alternating armies, sized as they stand on the board. */
 .title-lineup {
   --fig: 112px; /* the tallest figure (the Ogre); the others scale by --h */
   position: relative; display: flex; justify-content: center; align-items: flex-end; gap: 0 2px;
   width: min(100%, 1040px); margin: 0 auto; padding: 0 var(--space-4) 0; list-style: none;
 }
-/* The ledge: a strip of dark stone with a lit gold edge, under the figures' feet. */
+/* The ledge: a soft shadow on the floor with a hairline edge, under the figures' feet. */
 .title-lineup::before {
   content: ''; position: absolute; left: 6%; right: 6%; bottom: 17px; height: 16px; border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(10, 7, 4, 0.75), rgba(10, 7, 4, 0));
+  background: radial-gradient(closest-side, rgba(43, 38, 33, 0.3), rgba(43, 38, 33, 0));
 }
 .title-lineup::after {
   content: ''; position: absolute; left: 10%; right: 10%; bottom: 20px; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(233, 192, 113, 0.55) 20%, rgba(233, 192, 113, 0.55) 80%, transparent);
+  background: linear-gradient(90deg, transparent, var(--line) 20%, var(--line) 80%, transparent);
 }
 .title-lineup li {
   position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
@@ -586,18 +638,18 @@ label.army select { width: 100%; font-weight: 400; }
 }
 .title-lineup img {
   height: calc(var(--fig) * var(--h)); width: auto; max-width: 118%; object-fit: contain; object-position: bottom;
-  filter: drop-shadow(0 6px 5px rgba(0, 0, 0, 0.6));
+  filter: var(--rim) drop-shadow(0 6px 5px rgba(43, 38, 33, 0.45));
   transition: translate 220ms cubic-bezier(.2, .8, .2, 1), filter 220ms;
 }
 .title-lineup span {
   display: inline-flex; align-items: center; gap: 4px;
   margin-top: 6px; font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
-  text-transform: uppercase; color: var(--on-night-soft); white-space: nowrap; transition: color 220ms;
+  text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; transition: color 220ms;
 }
-/* On the night stone: a pale ring and glyph on a dark disc, gold under the pointer like the name. */
-.title-lineup .pi { width: 15px; height: 15px; color: inherit; --pi-disc: #2b2520; --pi-glyph: var(--on-night); }
-.title-lineup li:hover img { translate: 0 -6px; filter: drop-shadow(0 10px 7px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 10px rgba(233, 192, 113, 0.45)); }
-.title-lineup li:hover span { color: #e9c071; }
+/* On the floor: the ring and glyph in the name's colour on a pale disc, gold under the pointer like the name. */
+.title-lineup .pi { width: 15px; height: 15px; color: inherit; --pi-disc: var(--vellum); }
+.title-lineup li:hover img { translate: 0 -6px; filter: var(--rim) drop-shadow(0 10px 7px rgba(43, 38, 33, 0.4)) drop-shadow(0 0 10px rgba(201, 154, 62, 0.5)); }
+.title-lineup li:hover span { color: var(--gold-ink); }
 /* The one-time entrance: none with reduced motion or Settings → Animations Off (main.ts sets data-pace before the title opens). */
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-pace='off']) #title-screen[open] .title-lineup li { animation: rise 520ms cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(260ms + var(--i) * 45ms); }
@@ -620,7 +672,6 @@ label.army select { width: 100%; font-weight: 400; }
 /* ---- focus & motion ---- */
 :focus { outline: none; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-#title-screen :focus-visible { outline-color: #8cc0ff; }
 #moves [data-ply]:focus-visible { outline: 3px solid var(--focus); outline-offset: 0; }
 
 /* ---- phones ---- */
@@ -667,7 +718,7 @@ label.army select { width: 100%; font-weight: 400; }
   .title-lineup::before, .title-lineup::after { display: none; }
   .title-lineup li::before {
     content: ''; position: absolute; z-index: -1; left: 4%; right: 4%; bottom: 32px; height: 10px; border-radius: 50%; /* under the feet, above icon and name */
-    background: radial-gradient(closest-side, rgba(10, 7, 4, 0.75), rgba(10, 7, 4, 0));
+    background: radial-gradient(closest-side, rgba(43, 38, 33, 0.3), rgba(43, 38, 33, 0));
   }
   .title-lineup span { flex-direction: column; gap: 2px; margin-top: 3px; font-size: 9.5px; letter-spacing: 0.04em; }
   .title-lineup .pi { width: 16px; height: 16px; }
@@ -692,10 +743,11 @@ label.army select { width: 100%; font-weight: 400; }
   * { transition: none !important; animation: none !important; }
 }
 
-/* Painted 2D look: one square canvas, centred in the board area, on a lit stone floor. */
+/* Painted 2D look: one square canvas, centred in the board area. The canvas is clear round the board's
+   frame (main.ts asks the scene for no floor), so the board stands on the page's parchment floor. */
 #board.painted {
   display: flex; align-items: center; justify-content: center;
-  background: #e6e1cf; /* the painted scene's own floor colour, so the canvas has no visible edge */
+  background: transparent;
 }
 /* Desktop: keep the board below the floating title card. */
 @media (min-width: 721px) { #board.painted { padding: 64px 16px 8px; box-sizing: border-box; } }
