@@ -1,6 +1,6 @@
 /** Historic measurements keep their own rules. An empty diff never names current rules. */
 export type Validity = 'valid' | 'pending' | 'incomplete' | 'void' | 'conflict' | 'unverified';
-export type Measure = 'whiteScore' | 'score' | 'drawRate' | 'meanPlies' | 'meanTurns' | 'pawnWorth' | 'elo' | 'activity';
+export type Measure = 'whiteScore' | 'score' | 'drawRate' | 'meanPlies' | 'meanTurns' | 'relativeLengthChange' | 'pawnWorth' | 'elo' | 'activity';
 export interface MeasurementContext {
   flags: Record<string, unknown> | null;
   flagsKind: 'full' | 'diff' | 'unknown';
