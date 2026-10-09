@@ -1,6 +1,6 @@
 # 04 · Tap to read: the words and the reach of a piece
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
 Blocked by: 03
 
 ## Scope
@@ -11,28 +11,30 @@ Blocked by: 03
 
 ## Plan
 
-1. [ ] `src/read-text.ts` (pure): one line for each piece type, 8 words or fewer, made from the rules in force (`RULES` and the engine): for example the Archer's line follows `RULES.archerShots`, and the Ogre's line follows its shove rule (it steps in, or it does not). A fallback for Workshop pieces. State lines with their time: "Frozen: no move on its next turn.", "Ice Wall: nothing can take it now.", "It never takes.", "It checks your king." The piece's name always shows.
-2. [ ] `reachOf(pos, sq)` (pure): the moves that play offers for the piece, from its own side, with Haste and free marks cleared. It keeps the counted March and Leap moves that show among ordinary moves, and drops the moves that need arming, the pass and drops. It gives steps, takes, shots, pushes and swaps. For a frozen piece it gives the squares it still attacks (it still gives check).
-3. [ ] An optional `Highlights.read`; the plugin page passes none and does not change.
-4. [ ] Reading shapes in `marks.ts`, outlines only, so they never look like your move marks: a ring for a step; a crimson ring for a take; a dashed arc and a sight for a shot; a teal arrow for a push; a dashed violet ring for a swap; thin ice sights for a frozen piece. Shape, not colour alone.
-5. [ ] The taps of spec §4.10: an enemy piece shows its words and its reach outlines; your own piece, when you can move it, shows its words and only its legal verb marks (a pin can stop a reach move). Any piece shows the reach outlines while you cannot move (the computer plays, the turn waits, after the end). In review, a tap reads the piece in the shown position. A read never changes a kept selection; with a piece selected, a tap on an enemy piece it cannot take reads that piece and says why (the D-10 rule).
-6. [ ] "All rules" in the line opens the Guide at that piece. The same piece again, or a tap on an empty square, closes the read.
-7. [ ] The I key reads the cursor square while the board has the focus. Enter and Space keep their move role.
-8. [ ] A tip "Tap any piece to read it." shows in the context line until the first read (stored on the device in `try`/`catch`).
-9. [ ] The Clay look ignores the field.
+1. [x] Reuse the first sentence from `pieceGuide`. Show the name, Frozen and Ice Wall. No new word module.
+2. [x] `reachOf` uses real legal moves from the piece's side. It clears Haste and free marks. It skips armed powers, pass and drops. Frozen attack probes are cut.
+3. [x] Add optional `Highlights.read`. The plugin keeps its default.
+4. [x] Draw outline rings and the existing shot sight. The other reading shapes are cut.
+5. [x] Wire own, enemy, waiting and review taps. An enemy read keeps the selected piece. Review uses the shown position.
+6. [x] All rules opens the Guide at the piece. A second tap or an empty tap closes the read.
+7. [x] I reads the cursor square with board focus. Enter and Space keep their move role.
+8. [ ] Cut: the first-read tip and its stored flag.
+9. [x] The Clay look ignores the read field.
 
 ## Verification
 
-- [ ] `src/read-text.test.ts`: every pool piece and the king have a line of 8 words or fewer; the Archer line for each Archer reading in use; the Ogre line for its shove rules; the state lines.
-- [ ] `src/read.test.ts`: the reach of each piece type; March and Leap moves (counted and unlimited); Darkness pawns; an Ogre under each shove rule; a pinned piece; a frozen piece gives its attack squares; a frozen checker; a Guard has no takes; Ice Wall, Holy Light's shelter and Mercy's aura remove the takes they forbid; marks of both sides; no armed power, pass or drop move; the Archer reach for each Archer reading.
-- [ ] New check `read-piece`: for fixed positions, `view.highlights.read` has the expected squares; your own selected piece shows only legal marks; the I key reads only with the board focused; the tip shows once; a read of an enemy piece does not change the selection; a read while the turn waits and in review.
-- [ ] The D-10 probes and `visual-design` pass, with `Removed-check:` trailers for the lines that read the old card.
-- [ ] `npm test`, `npm run check:browser` and `plugin-ui` pass. Record the plugin page size. The plugin session knows before the pull request.
-- [ ] Rendered sample, 390×844 and 1440×900: an enemy Archer (shot reach), an enemy Ogre (push), a frozen enemy piece, your Maester (legal marks and words), a read in review. The owner's yes, with the date, in Comments.
+- [x] `src/read.test.ts` checks piece words, states, reach and refusals under the rules in force.
+- [x] Pure tests check taps, kept selection, an off-mark chain tap and Guide types from the shown position.
+- [x] `read-piece` checks enemy reach, own legal marks and kept selection. It also checks I and All rules.
+- [x] D-10 and `visual-design` pass. Changed assertions have `Removed-check:` trailers.
+- [x] `npm test` and all 13 named browser checks pass. Each new check passes twice.
+- [x] The plugin page is 4,293,703 bytes. Both plugin browser checks pass.
+- [x] Render and inspect the three reads at 390×844 and 1440×900.
+- [ ] The owner's yes on the sample is pending.
 
 ## Risks
 
-- The reach is not the legal moves (a pin or check can stop a move). The read line says "can", never "will".
+- The read uses legal moves from the piece's side. A waiting turn can still stop play.
 - `marks.ts` also draws in the plugin page.
 - A rule preset can make a demo sentence false; the tests per rule guard it.
 
@@ -42,10 +44,11 @@ Blocked by: 03
 
 ## Comments
 
-### W4 build
-
-- Plan: merge W2; test read taps and shove landings; wire the table; run named checks; render and inspect the sample.
-- Seams: readTap, reachOf, readText, whyNot and marksModel use the real rules.
-- Keep: a read keeps selection; I reads; All rules opens the Guide; arrows and chosen bite numbers show.
-- Cut: frozen probes, the tip, new word modules, chain motion, hover words, Leap marks and refusal motion.
-- Verify: type check, unit tests, read-piece and verb-marks; run each new check twice, then inspect both sheets.
+- W4 wires read taps, I and All rules into W2's context line.
+- Legal reach, shove arrows and chosen bite numbers use pure models.
+- The fast plan cuts frozen probes, the tip, chain motion, Leap coins, the key line, hover words and refusal motion. The choice dialog stays.
+- `VITEST_MAX_WORKERS=1 npm test`: 87 files pass, 1 skips; 1,580 tests pass, 13 skip. All 50 scene tests pass. Type check passes.
+- All 13 named browser checks pass. `read-piece` and `verb-marks` each pass twice. The M1 script uses its local fallback.
+- Plugin page: 4,291,869 bytes before phase 1; 4,293,703 bytes now. Optional fields keep the default view.
+- `SAMPLE=W4`: 14 renders, 0 faults. Both contact sheets are inspected.
+- The sample waits for the owner's yes.
