@@ -1,6 +1,7 @@
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, RULES, S, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { drawMarks, POP_MS, RIPPLE_MS } from './marks';
+import { boardInk } from './board-ink';
 import { pastTap } from './tap';
 import type { Highlights } from './renderer';
 import type { Style } from './styles';
@@ -64,6 +65,8 @@ export class PaintedView implements BoardView {
   /** Marker size factor: >1 on boards under 700 px, so a phone's markers stay visible. */
   private mark = 1;
   private coords = true;
+  private width = 960;
+  private bodyFont: string;
   private fallen: { pos: Position; sq: number } | null = null;
   private motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
   /** Keyboard cursor square, previewed like the hovered square. */
@@ -76,8 +79,9 @@ export class PaintedView implements BoardView {
    * options.floor: the colour round the board (default: the scene's own floor, as the plugin page draws it);
    * null leaves the canvas clear there, so the page's floor shows (the game).
    */
-  constructor(private container: HTMLElement, options: { floor?: string | null } = {}) {
+  constructor(private container: HTMLElement, private options: { floor?: string | null; webInk?: boolean } = {}) {
     container.classList.add('painted');
+    this.bodyFont = getComputedStyle(container).fontFamily;
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
     this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(0), kingDesign(1)], floor: options.floor });
@@ -95,6 +99,7 @@ export class PaintedView implements BoardView {
       const width = Math.floor(Math.min(box.width, box.height * 960 / (960 + HEADROOM)));
       this.canvas.style.width = `${width}px`;
       this.canvas.style.height = `${width * (960 + HEADROOM) / 960}px`;
+      this.width = width;
       this.mark = Math.max(1, 700 / width);
       this.setCoords(this.coords);
       // Enough backing pixels for this size on this screen, in quarter steps, at most 2×.
@@ -182,7 +187,11 @@ export class PaintedView implements BoardView {
 
   flip(black: boolean): void { this.scene.setFlipped(black); }
   setLabels(on: boolean): void { this.scene.setLabels(on); }
-  setCoords(on: boolean): void { this.coords = on; this.scene.setCoords(on, 13 * this.mark); }
+  setCoords(on: boolean): void {
+    this.coords = on;
+    const size = this.options.webInk ? boardInk(this.width).coord : 13 * this.mark;
+    this.scene.setCoords(on, size, this.options.webInk ? Math.max(14, size / 2 + 4) : 14);
+  }
   resetView(): void {}
   applyStyle(): void {}
   ready(): Promise<void> { return this.loaded; }
@@ -211,7 +220,11 @@ export class PaintedView implements BoardView {
         const f = scene.foot(m.check);
         ctx.fillStyle = m.checkers === undefined ? '#c0392b55' : '#c4501f33';
         ctx.strokeStyle = m.checkers === undefined ? '#b3261e' : '#c4501f'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.ellipse(f.x, f.y - 2, 44, 15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(f.x, f.y - 2, 44, 15, 0, 0, Math.PI * 2); ctx.fill();
+        if (this.options.webInk && m.checkers !== undefined) {
+          ctx.strokeStyle = '#fbf6e8'; ctx.lineWidth = boardInk(this.width).causeHalo; ctx.stroke();
+          ctx.strokeStyle = '#c4501f'; ctx.lineWidth = boardInk(this.width).causeCore; ctx.stroke();
+        } else ctx.stroke();
       }
       ctx.restore();
     }
@@ -219,6 +232,7 @@ export class PaintedView implements BoardView {
     const piece = m.selected != null ? this.pos?.board[m.selected] ?? 0 : 0;
     drawMarks(ctx, scene, layer, {
       marks: m, piece, preview: this.hovered ?? this.cursor, k: this.mark, motion: this.motion(), since: this.marksSince,
+      ink: this.options.webInk ? boardInk(this.width) : undefined, bodyFont: this.bodyFont,
     }, row);
     // Row 7 runs after all figures, so the cause stays visible across the board.
     if (layer === 'over' && row === 7 && m.check != null) {
@@ -233,8 +247,8 @@ export class PaintedView implements BoardView {
           const cy = alongFile ? (a.y + b.y) / 2 - 24 : Math.min(a.y, b.y) - TILE * 0.65;
           ctx.quadraticCurveTo(cx, cy, b.x, b.y - 24);
         } else ctx.lineTo(b.x, b.y - 24);
-        ctx.strokeStyle = '#fbf6e8dd'; ctx.lineWidth = 5.5; ctx.stroke();
-        ctx.strokeStyle = '#c4501f'; ctx.lineWidth = 2.2; ctx.stroke();
+        ctx.strokeStyle = '#fbf6e8dd'; ctx.lineWidth = this.options.webInk ? boardInk(this.width).causeHalo : 5.5; ctx.stroke();
+        ctx.strokeStyle = '#c4501f'; ctx.lineWidth = this.options.webInk ? boardInk(this.width).causeCore : 2.2; ctx.stroke();
       }
       ctx.restore();
     }

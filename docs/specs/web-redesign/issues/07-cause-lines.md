@@ -68,3 +68,11 @@ The push hook must pass before the branch goes to origin.
 - The plugin keeps its default words. Its page is 4,295,044 bytes before and after.
 - Checks: npm test passes (1,695 tests; 13 skipped). Typecheck and all ten required browser checks pass. Three extra checks pass.
 - Sample W5: 6 renders, 0 faults. Both contact sheets are inspected.
+## Board review fixes
+
+Decision: decided by delegation (2026-10-09).
+Both check rings have a light halo. Edge contrast: painted 4.31:1; 3D 3.41:1.
+Phone cause lines use a 1.5 CSS px core and a 3.5 CSS px halo.
+The 3D halo draws after the board. A pixel check guards this order.
+Plugin defaults stay. Page size: 4,295,044 → 4,295,953 bytes.
+W5: 10 inspected renders, 0 faults. Tests and both plugin checks pass.

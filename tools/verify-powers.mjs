@@ -11,10 +11,10 @@ const tap = async (page, name) => {
   const p = await page.evaluate(s => window.view.screenOf(s), sq(name));
   await page.mouse.click(p.x, p.y);
 };
-async function open(page, kings = 'frost:freeze,none', fen = FEN) {
+async function open(page, kings = 'frost:freeze,none', fen = FEN, players = 'human,human') {
   await page.goto(base);
   await page.evaluate(fen => localStorage.setItem('kingdown.save', JSON.stringify({ back: '', fen, moves: [], white: 'human', black: 'human', sound: false, pace: 'off' })), fen);
-  const url = new URL(base); url.searchParams.set('kings', kings); url.searchParams.set('fen', fen); url.searchParams.set('players', 'human,human');
+  const url = new URL(base); url.searchParams.set('kings', kings); url.searchParams.set('fen', fen); url.searchParams.set('players', players);
   await page.goto(url.href);
   await page.waitForFunction(() => window.view?.ready);
   await page.evaluate(() => window.view.ready());
@@ -114,5 +114,14 @@ try {
   await minTarget(phone, '.coin'); await noSidewaysScroll(phone);
   await shot(phone, 'always-on-phone');
   console.log('ok an always-on coin only reads');
+  await open(phone, 'frost:freeze,flame:haste');
+  await usePower(phone);
+  const ring = await powerCoin(phone, 'w').evaluate(el => getComputedStyle(el).boxShadow);
+  assert.match(ring, /rgb\(43, 38, 33\).*5px/, 'armed coin has a dark outer ring');
+  for (const flipped of [false, true]) {
+    await open(phone, 'frost:freeze,flame:haste', FEN.replace(' w ', ' b '), flipped ? 'ai,human' : 'human,human');
+    const coins = await phone.evaluate(() => ['strip-them', 'strip-me'].map(id => document.querySelector(`#${id} .coin`).getBoundingClientRect().width));
+    assert.deepEqual(coins, [44, 48], 'coin size follows its strip on both board sides');
+  }
   assertNoErrors();
 } finally { await browser.close(); }

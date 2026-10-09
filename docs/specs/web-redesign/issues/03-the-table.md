@@ -83,3 +83,12 @@ The overlap check fails before the fix. It passes in rest, Review and lesson-don
 At 320×568 the board is 263 px high. The rows stay fixed. Landscape squares stay at 41.77 px.
 `npm test`: 83 files pass; 1514 tests pass, 13 skip; 50 scene tests pass. All eight browser checks pass.
 W1, W2 and W7 have 92 renders and no faults. All 34 smallPhone and landscape renders are inspected.
+
+## Board review fixes
+
+Decision: decided by delegation (2026-10-09).
+Short phones use 44 px strips, a 52 px context row and a 44 px Moves row.
+The 320×568 canvas is at least 290 px wide. Both strips clear the board.
+Labels draw at 12 CSS px. File letters clear the frame.
+The board and bar stay fixed at all four check sizes.
+W2: 68 inspected renders, 0 faults. Tests and all required checks pass.

@@ -59,3 +59,11 @@ Blocked by: 04, 10
 - Pure tests and browser checks cover the chain note and bite count.
 - Checks: npm test passes (1,695 tests; 13 skipped). Typecheck and all ten required browser checks pass. Three extra checks pass.
 - Sample W4: 28 renders, 0 faults. Both contact sheets are inspected.
+## Board review fixes
+
+Decision: decided by delegation (2026-10-09).
+Bite digits use the body font at 12 CSS px, in the bottom-right corner.
+Four chosen bites stay readable at 375 px. The browser checks the drawn digits.
+The shove arrow stays inside its landing square. Its phone stroke is thicker.
+Optional W4 9 waits: a read sign must stay distinct from selection.
+W4: 30 inspected renders, 0 faults. Tests and all nine required checks pass.

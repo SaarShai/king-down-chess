@@ -67,3 +67,10 @@ The sample still waits for the owner's yes.
 - Shared lane edits: one outline rule in `src/style.css`; the read action in `src/ui/table.ts`.
 - Checks: npm test passes (1,695 tests; 13 skipped). Typecheck and all ten required browser checks pass. Three extra checks pass.
 - Sample W3: 16 renders, 0 faults. Both contact sheets are inspected.
+## Board review fixes
+
+Decision: decided by delegation (2026-10-09).
+Coin size follows the strip: their coin is 44 px; your coin is 48 px.
+Both coins use 44 px on short phones. The armed coin has a dark outer ring.
+The powers check covers both board sides and the armed ring.
+W3: 15 inspected renders, 0 faults. Tests and all required checks pass.
