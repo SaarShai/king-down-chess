@@ -168,6 +168,7 @@ async function review(out, only) {
   const step = async (label, fn) => { try { await fn(); } catch (e) { errors.push(`${label}: ${e.message.split('\n')[0]}`); } };
 
   for (const kind of Object.keys(sizes)) {
+    if (kind === 'smallPhone') continue; // W12 adds this size to samples; the review keeps its five sizes.
     if (only && !only.includes(kind)) continue;
     await step(`${kind} title-first`, async () => {
       const page = await open(kind, { title: true, save: null });
