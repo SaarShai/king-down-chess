@@ -49,3 +49,13 @@ W5 is complete. The sample waits for review.
 - Plugin default stays. Phase 1: 4,291,869 → 4,292,443 bytes. After W2: 4,292,542 → 4,292,542 bytes.
 - `SAMPLE=W5`: six renders, no faults. Both contact sheets are clear. No video.
 - The review finds no work from the fast plan's cut list. W2 merges with both units' tests.
+
+## Integration
+
+Plan: merge W5 without a fast-forward, check the tree, then push the integration branch.
+Checks: no lost changes, no conflicts, and a passing pre-push test and gate.
+The owner asks for this merge and push. The starting branch is clean.
+The start is `dd3d7f67f53dadae04ff55331d39e4c7e817e95c`, an ancestor of W5.
+Merge `e71df1f2aee23972cab2bc5977bea050a8f51a52` has no conflicts.
+Its tree is the same as W5. The builder's full run above stands under the owner's rule.
+The push hook must pass before the branch goes to origin.
