@@ -3,7 +3,7 @@
 // loads, and ?labels=1 still turns the letters on. With the letters off, an old save keeps its
 // settings as they were, so the account sync sees no change at start-up.
 import assert from 'node:assert/strict';
-import { boardHelp, lanMoves, openExtra, pressMenu } from '../app-ui.mjs';
+import { boardHelp, learnFromTitle, lanMoves, openExtra, pressMenu } from '../app-ui.mjs';
 
 /** Records each view.setLabels() value in window.letters (main.ts sets window.view before its first setLabels). */
 const recordLetters = () => {
@@ -73,10 +73,10 @@ export default async function ({ open }) {
   assert.deepEqual(game(await l.saved()), before, 'after the lessons, the saved game is as it was');
   await lesson.close();
 
-  // A first visit on a phone: the title leads to Learn; letters ticked in the lesson stay on.
+  // A first visit on a phone: Start, then Guide leads to Learn; letters ticked in the lesson stay on.
   const first = await open({ size: 'phone', title: true });
   const f = await probe(first);
-  await first.page.locator('#title-learn').tap();
+  await learnFromTitle(first.page, { tap: true });
   await first.ready();
   await first.page.waitForFunction(() => /^Lesson 1 /.test(document.getElementById('turn').textContent));
   await boardHelp(first.page, () => first.page.locator('#labels').tap(), { tap: true });

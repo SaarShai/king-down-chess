@@ -52,6 +52,21 @@ export function menuItem(page, name) {
   return page.locator(MENU[name]);
 }
 
+/** The first visit has one Start. Later visits keep Play until Home joins the table. */
+export function titleStart(page) {
+  return page.locator('#title-start:visible, #title-play:visible').first();
+}
+
+/** Learn opens from Guide after the first deal; a returning title still has Learn. */
+export async function learnFromTitle(page, { tap = false } = {}) {
+  const learn = page.locator('#title-learn');
+  if (await learn.isVisible()) { await (tap ? learn.tap() : learn.click()); return; }
+  await (tap ? titleStart(page).tap() : titleStart(page).click());
+  await page.waitForFunction(() => !document.getElementById('title-screen').open);
+  await pressMenu(page, 'Guide', { tap });
+  await (tap ? page.locator('#learn').tap() : page.locator('#learn').click());
+}
+
 export async function openMenu(page, options = {}) {
   void [page, options]; // today the four items are always on the screen
 }

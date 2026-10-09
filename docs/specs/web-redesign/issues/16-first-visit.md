@@ -11,17 +11,17 @@ Blocked by: 01, 06
 
 ## Plan
 
-1. [ ] `FIRST_DEAL = 'QRNAKBBS'`: the back rank that seed 83 of the real draw gives (one Archer, one Beast, chess pieces for the rest). The draw rule does not change.
-2. [ ] The first visit: no key `kingdown.first-deal` on the device, and no saved game with moves. (Start-up saves a new game before the title closes, so "no save" alone is not a first visit.) The title keeps the six kings, the lineup and the wordmark on the floor. Its actions become one button, "Start" (`#title-start`), with the focus. Learn, Play and Workshop leave the first-visit title; the lessons are in Menu › Guide and the Workshop in Menu › Extra.
-3. [ ] Start closes the title, sets the key `kingdown.first-deal` (in `try`/`catch`) and starts the first game at once: `FIRST_DEAL`, Beginner, you play White, no powers. It also stores that setup, so the next New game opens on Beginner.
-4. [ ] Returning visits keep today's title until ticket 17. `?title=0`, a game link, `?fen=`, `?army=` and `?design=` skip the title and the first deal, as today, so the browser checks do not change their first game.
-5. [ ] The game uses neutral words; nothing says "unlocked".
+1. [x] `FIRST_DEAL = 'QRNAKBBS'`: the back rank that seed 83 of the real draw gives (one Archer, one Beast, chess pieces for the rest). The draw rule does not change.
+2. [x] The first visit: no key `kingdown.first-deal` on the device, and no saved game with moves. (Start-up saves a new game before the title closes, so "no save" alone is not a first visit.) The title keeps the six kings, the lineup and the wordmark on the floor. Its actions become one button, "Start" (`#title-start`), with the focus. Learn, Play and Workshop leave the first-visit title; the lessons are in Menu › Guide and the Workshop in Menu › Extra.
+3. [x] Start closes the title, sets the key `kingdown.first-deal` (in `try`/`catch`) and starts the first game at once: `FIRST_DEAL`, Beginner, you play White, no powers. It also stores that setup, so the next New game opens on Beginner.
+4. [x] Returning visits keep today's title until ticket 17. `?title=0`, a game link, `?fen=`, `?army=` and `?design=` skip the title and the first deal, as today, so the browser checks do not change their first game.
+5. [x] The game uses neutral words; nothing says "unlocked".
 
 ## Verification
 
-- [ ] `src/first-deal.test.ts`: `FIRST_DEAL` equals `randomBackRank(mulberry32(83))`; it has one `A` and one `S` and the rest from Q, R, B, N, K; the start position accepts it; its bishops stand on squares of two colours.
-- [ ] `visual-design`: a first visit shows one Start button with the focus; Start shows the back rank `QRNAKBBS`, White, against Beginner; a reload before Start still shows the first visit; a reload after Start skips it; no title for `?title=0` or a game link.
-- [ ] `king-effects`: the title kings run, and Start stops and removes them.
+- [x] `src/first-deal.test.ts`: `FIRST_DEAL` equals `randomBackRank(mulberry32(83))`; it has one `A` and one `S` and the rest from Q, R, B, N, K; the start position accepts it; its bishops stand on squares of two colours.
+- [x] `visual-design`: a first visit shows one Start button with the focus; Start shows the back rank `QRNAKBBS`, White, against Beginner; a reload before Start still shows the first visit; a reload after Start skips it; no title for `?title=0` or a game link.
+- [x] `king-effects`: the title kings run, and Start stops and removes them.
 - [ ] `npm test` and `npm run check:browser` pass.
 - [ ] Rendered sample, 390×844 and 1440×900, with the device in light and in dark mode: the first-visit title; the first game at rest. The owner's yes, with the date, in Comments.
 
@@ -36,3 +36,8 @@ Blocked by: 01, 06
 - No first-shot lesson, no tour, no Learn button on the first-visit title.
 
 ## Comments
+- W8 phase 1: build the seed-83 deal and one Start. Keep the current returning title until phase 2.
+- Check: test the real draw and first-visit gate; run typecheck and the named title checks. Do not run the full browser suite.
+- Phase 1 passes: one Start deals `QRNAKBBS`, Beginner, White, no powers; it stores the next setup.
+- Checks pass: `visual-design`, `king-effects`, `workshop`, `ux-defects`. Phone and desktop samples are checked in `/tmp/kingdown-w8-phase1/kingdown-checks/visual-design/`.
+- Phase 2 adds Home to the W2 table and W7 sheet, then runs the full suites and Home samples.

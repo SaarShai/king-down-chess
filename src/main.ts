@@ -18,6 +18,7 @@ import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, s
 import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
 import './dialog-dismiss';
+import { firstVisit, openTitle, startFirstDeal } from './ui/title';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -1423,40 +1424,7 @@ if (urlPlayers?.length === 2 && urlPlayers.every(isSide)) [sides[0], sides[1]] =
 const TITLE_SEEN = 'kingdown.title-seen';
 const titleSeen = (): boolean => { try { return sessionStorage.getItem(TITLE_SEEN) === '1'; } catch { return false; } };
 const showTitle = !link && !params.has('fen') && !params.has('army') && !params.has('design') && params.get('title') !== '0' && !titleSeen();
-type TitleChoice = 'continue' | 'play' | 'learn';
-let titleChoice = 'continue' as TitleChoice;
-const titleClosed = new Promise<void>(resolve => {
-  if (!showTitle) return resolve();
-  const dlg = $<HTMLDialogElement>('title-screen');
-  const resumable = !!saved && saved.moves.length > 0;
-  const firstVisit = !saved;
-  $('title-continue').hidden = !resumable;
-  // A first visit leads with the lessons; otherwise Play (or Continue) leads.
-  $('title-learn').classList.toggle('primary', firstVisit);
-  $('title-play').classList.toggle('primary', !firstVisit && !resumable);
-  if (firstVisit) $('title-learn').parentElement!.prepend($('title-learn'));
-  const pick = (c: TitleChoice) => () => { titleChoice = c; dlg.close(); };
-  $('title-continue').onclick = pick('continue');
-  $('title-play').onclick = pick('play');
-  $('title-learn').onclick = pick('learn');
-  dlg.addEventListener('close', () => {
-    try { sessionStorage.setItem(TITLE_SEEN, '1'); } catch { /* private mode: it shows again next time */ }
-    document.body.classList.remove('title-up');
-    resolve();
-  }, { once: true });
-  document.body.classList.add('title-up');
-  document.documentElement.dataset.pace = pace.value; // before it opens: Animations Off skips the entrance (style.css)
-  dlg.showModal();
-  // The six kings' resting effects: loaded after the title is up, so its first paint never waits; none
-  // with Animations Off or reduced motion (the module checks reduced motion itself).
-  if (pace.value !== 'off') void import('../docs/2d-first-pieces/board/title-kings.mjs').then(({ startTitleKings }) => {
-    if (!dlg.open) return;
-    const kings = startTitleKings(dlg.querySelector('.title-kings')!, { enabled: () => pace.value !== 'off' && !document.querySelector('#workshop[open]') });
-    (window as unknown as { titleKings?: unknown }).titleKings = kings; // for the browser checks
-    dlg.addEventListener('close', () => kings.stop(), { once: true });
-  }).catch(() => { /* offline before it was cached: the still kings stay */ });
-  ($(firstVisit ? 'title-learn' : resumable ? 'title-continue' : 'title-play')).focus();
-});
+const titleClosed = showTitle ? openTitle(firstVisit(saved?.moves.length ?? 0), !!saved?.moves.length, () => pace.value) : Promise.resolve('continue' as const);
 
 // The playable game has one art direction; study controls stay in the study.
 view.applyStyle(STYLES.clay);
@@ -1513,8 +1481,9 @@ if (designLink) {
   history.replaceState(null, '', url); // a reload then shows the game
   openWorkshop(designLink);
 }
-await titleClosed; // the computer waits for the player, and no dialog opens over the title
-if (titleChoice === 'learn') startLesson(0);
+const titleChoice = await titleClosed; // the computer waits for the player, and no dialog opens over the title
+if (titleChoice === 'start') startFirstDeal(SETUP_KEY, (s, army) => { setup = s; newGame(army); });
+else if (titleChoice === 'learn') startLesson(0);
 else {
   if (titleChoice === 'play') {
     // The saved game's computer waits behind the dialog: it may move only once New game is closed

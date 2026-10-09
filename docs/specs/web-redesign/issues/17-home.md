@@ -36,3 +36,8 @@ Blocked by: 03, 05, 06 (the warn line), 11 (`storyLine`)
 - No six-kings Home (B), no Today sheet, no Home button in the game bar.
 
 ## Comments
+- W8 phase 1: test and build the pure Home state and last-move line. Use `describeMove`.
+- Check: saves, no moves, finished games, staged turns and links. Phase 2 adds W2 and W7 calls, the Home check and samples.
+- Phase 1 passes: `npm test` with the first-deal, Home and move-text files: 3 files, 15 tests. Typecheck passes. The temporary test script is restored.
+- Home reads the live game: Continue, staged turns, Rematch, review, player side, move number and the `describeMove` line. Links skip Home.
+- Phase 2 adds the Home view, Continue and board taps, Today, the W7 warn line, account refresh, the `home` check and samples. No replay or fold motion.
