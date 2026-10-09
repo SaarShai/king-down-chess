@@ -2,6 +2,7 @@
 // Copy moves gives feedback too. The page's Clipboard API is a stub, so each outcome is certain. The
 // fallback copy keeps the keyboard focus on the button.
 import assert from 'node:assert/strict';
+import { openExtra } from '../app-ui.mjs';
 
 const GAME = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' };
 
@@ -54,9 +55,9 @@ export default async function ({ open }) {
   const game = await open({ save: GAME, pace: null });
   await game.page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await outcomes(game.page, '#share', /^Link copied/, /moves=e2-e4/);
-  await outcomes(game.page, '#copy', /^Moves copied$/, /^1\. e2-e4$/, () => game.page.click('#settings-btn'));
+  await outcomes(game.page, '#copy', /^Moves copied$/, /^1\. e2-e4$/, () => openExtra(game.page));
   await keepsFocus(game.page, '#share', /^Link copied/);
-  await keepsFocus(game.page, '#copy', /^Moves copied$/, () => game.page.click('#settings-btn'));
+  await keepsFocus(game.page, '#copy', /^Moves copied$/, () => openExtra(game.page));
   await game.close();
 
   const daily = await open({ save: { ...GAME, black: 'ai', daily: '2026-10-08', resigned: 0 }, pace: null });

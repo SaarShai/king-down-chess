@@ -1,3 +1,5 @@
+import { pressMenu } from './app-ui.mjs';
+
 /**
  * Drives the New game dialog (index.html #new-game, src/new-game.ts) the way a player does. Every
  * browser check that starts a game uses it, so a change to the dialog is one edit here.
@@ -11,7 +13,7 @@
  * 'classic', 'custom', an example army's code or 'ogre'. Options left out keep the dialog's choice.
  */
 export async function setUpGame(page, { mode, level, side, powers, kings, army = 'random' } = {}) {
-  if (!await page.evaluate(() => document.getElementById('new-game').open)) await page.click('#new-game-btn');
+  if (!await page.evaluate(() => document.getElementById('new-game').open)) await pressMenu(page, 'New game');
   if (mode) await page.click(`#new-game label:has(#mode-${mode})`);
   if (level) await page.click(`#new-game label:has(#level-${level})`);
   if (powers !== undefined) await page.setChecked('#two-powers', powers);

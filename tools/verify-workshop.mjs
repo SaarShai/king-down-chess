@@ -15,6 +15,7 @@
 // shared check module (tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { pressMenu } from './app-ui.mjs';
 import { assertNoErrors, env, imageIs, insideViewport, launch, minTarget, noOverlap, noRunningAnimations, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -49,7 +50,7 @@ async function ready(p) {
 async function blankCast(p, width, height) {
   await p.goto(base);
   await ready(p);
-  await p.click('#workshop-btn');
+  await pressMenu(p, 'Workshop');
   await p.click('[data-door="piece"]');
   assert.equal(await p.locator('[data-new-figure]').count(), cast.length, 'one New piece choice per cast figure');
   await p.click('[data-new-figure="antler-guardian"]');
@@ -169,7 +170,7 @@ async function shareTryReload(p) {
   assert.equal((await saved(p)).name, before.name, 'Keep a copy saves the design');
   await p.reload();
   await ready(p);
-  await p.click('#workshop-btn');
+  await pressMenu(p, 'Workshop');
   await p.locator('.ws-tile').first().click();
   assert.equal((await saved(p)).look.figure, 'clay-golem', 'a reload keeps the figure');
 }
@@ -219,7 +220,7 @@ async function open(browser, { width = 390, height = 844, title = false, query =
 }
 /** Opens the Workshop from the game menu. */
 async function viaMenu(p) {
-  await p.click('#workshop-btn');
+  await pressMenu(p, 'Workshop');
   await p.waitForSelector('#workshop[open] .ws-door');
 }
 /** A new piece from the cast: the Workshop home, New piece, then a figure. */
@@ -309,7 +310,7 @@ async function gameMenu(browser, width, height) {
   const tops = await p.locator(menu).evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().top)));
   assert.equal(new Set(tops).size, 1, `the menu is one row: tops ${tops}`);
   await shot(p, `${width}x${height}-menu`);
-  await p.click('#rules-btn');
+  await pressMenu(p, 'Guide');
   await p.waitForSelector('#rules[open]');
   assert.equal(await p.locator('#rules [id*="workshop"], #rules :text("Make your own")').count(), 0, 'the Guide holds no Workshop door');
   await p.context().close();
@@ -319,8 +320,8 @@ async function gameMenu(browser, width, height) {
 async function tapOutside(browser) {
   const p = await open(browser, { width: 390, height: 844 });
   const drag = async (from, to) => { await p.mouse.move(...from); await p.mouse.down(); await p.mouse.move(...to, { steps: 4 }); await p.mouse.up(); };
-  for (const [button, dialog] of [['#settings-btn', '#settings'], ['#rules-btn', '#rules'], ['#new-game-btn', '#new-game']]) {
-    await p.click(button);
+  for (const [item, dialog] of [['Settings', '#settings'], ['Guide', '#rules'], ['New game', '#new-game']]) {
+    await pressMenu(p, item);
     await p.waitForSelector(`${dialog}[open]`);
     const box = await p.locator(dialog).boundingBox();
     await drag([box.x + 30, box.y + 30], [box.x + 30, 4]);
@@ -712,7 +713,7 @@ async function fix27PressOnPadding(browser) {
     await p.mouse.up();
     assert.equal(await isOpen(p, dialog), true, `fix 27: a press on ${what}'s padding released on the backdrop keeps it open`);
   };
-  await p.click('#settings-btn');
+  await pressMenu(p, 'Settings');
   await p.waitForSelector('#settings[open]');
   await pressOut('#settings', 'Settings');
   await p.keyboard.press('Escape');

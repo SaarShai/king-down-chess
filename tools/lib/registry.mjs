@@ -29,3 +29,8 @@ export const checks = [
   { name: 'selftest-fail', script: 'tools/check-selftest-dirty.mjs', args: ['fail'], limit: 30, byName: true },
   { name: 'selftest-hang', script: 'tools/check-selftest-dirty.mjs', args: ['hang'], limit: 5, byName: true },
 ];
+
+// The probe files that a check runs as parts of itself: ux-defects (tools/verify-ux-defects.mjs) runs each
+// tools/ux-defects/d<N>-<slug>.mjs. The commit-msg counter counts their assertion lines as it counts the
+// lines of a registered check (web redesign spec, rule 7).
+export const probeFiles = /^tools\/ux-defects\/d\d+-[\w-]+\.mjs$/;

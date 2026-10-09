@@ -1,6 +1,7 @@
 // commit-msg: refuses a message that holds a model name (decision 4), and a commit that removes
-// assertion lines from the registered browser checks with fewer `Removed-check:` trailers than
-// removed lines (story 8; the counter is tools/lib/removed-checks.mjs). The hook does not judge the
+// assertion lines from the registered browser checks (and from the probe files that they run) with
+// fewer `Removed-check:` trailers than removed lines (story 8; the counter is
+// tools/lib/removed-checks.mjs). The hook does not judge the
 // reasons in the trailers; a reviewer does. Git gives the path of the message file as the first
 // argument. The hook reads no comment line and nothing below the scissors line of `git commit -v`,
 // because git removes these parts before it records the commit.

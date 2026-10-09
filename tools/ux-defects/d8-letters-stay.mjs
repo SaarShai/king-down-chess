@@ -3,6 +3,7 @@
 // loads, and ?labels=1 still turns the letters on. With the letters off, an old save keeps its
 // settings as they were, so the account sync sees no change at start-up.
 import assert from 'node:assert/strict';
+import { boardHelp, lanMoves, openExtra, pressMenu } from '../app-ui.mjs';
 
 /** Records each view.setLabels() value in window.letters (main.ts sets window.view before its first setLabels). */
 const recordLetters = () => {
@@ -19,17 +20,17 @@ const OLD_SAVE = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', 
 /** The page's letters (box and board), its saved game and its settings. */
 const probe = async ({ page, ready }) => {
   await page.context().addInitScript(recordLetters);
-  const state = () => page.evaluate(() => ({ box: document.getElementById('labels').checked, view: window.letters, moves: document.getElementById('moves').textContent }));
+  const state = async () => ({ ...await page.evaluate(() => ({ box: document.getElementById('labels').checked, view: window.letters })), moves: (await lanMoves(page)).join(' ') });
   const letters = () => state().then(s => [s.box, s.view]);
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
-  const settings = async act => { await page.click('#settings-btn'); await act(); await page.keyboard.press('Escape'); };
+  const settings = act => boardHelp(page, act);
   const reload = async () => { await page.reload(); await ready(); };
   const changeLook = async look => {
-    await page.click('#settings-btn');
+    await openExtra(page);
     await Promise.all([page.waitForURL(u => u.searchParams.get('look') === look), page.selectOption('#look', look)]);
     await ready();
   };
-  const learn = async () => { await page.click('#rules-btn'); await page.click('#learn'); await page.waitForFunction(() => /^Lesson 1 /.test(document.getElementById('turn').textContent)); };
+  const learn = async () => { await pressMenu(page, 'Guide'); await page.click('#learn'); await page.waitForFunction(() => /^Lesson 1 /.test(document.getElementById('turn').textContent)); };
   return { state, letters, saved, settings, reload, changeLook, learn };
 };
 
@@ -78,9 +79,7 @@ export default async function ({ open }) {
   await first.page.locator('#title-learn').tap();
   await first.ready();
   await first.page.waitForFunction(() => /^Lesson 1 /.test(document.getElementById('turn').textContent));
-  await first.page.locator('#settings-btn').tap();
-  await first.page.locator('#labels').tap();
-  await first.page.keyboard.press('Escape');
+  await boardHelp(first.page, () => first.page.locator('#labels').tap(), { tap: true });
   await f.reload();
   assert.deepEqual(await f.letters(), [true, true], 'first visit, phone: letters ticked in the first lesson stay on after a reload');
   await first.close();

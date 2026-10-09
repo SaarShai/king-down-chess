@@ -14,6 +14,7 @@
  */
 import { chromium } from 'playwright';
 import { writeFileSync } from 'node:fs';
+import { waitForUi } from './app-ui.mjs';
 
 const url = process.env.PLAYABLE_URL || 'http://127.0.0.1:5189/';
 const argv = process.argv.slice(2);
@@ -46,7 +47,7 @@ async function measureVisit(page, net, look) {
   // retry while the page is still too busy to take the taps.
   for (let attempt = 0; ; attempt++) {
     await page.mouse.click(e2.x, e2.y); await page.waitForTimeout(300); await page.mouse.click(e4.x, e4.y);
-    try { await page.waitForFunction(() => /e2-e4/.test(document.getElementById('moves')?.textContent ?? ''), null, { timeout: 5000, polling: 50 }); break; }
+    try { await waitForUi(page, ui => /e2-e4/.test(ui.lan.join(' ')), null, { timeout: 5000, polling: 50 }); break; }
     catch (e) { log(look, 'move retry', attempt); if (attempt >= 10) throw e; }
   }
   const moveAt = await page.evaluate(() => performance.now());

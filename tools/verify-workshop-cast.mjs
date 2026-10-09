@@ -4,6 +4,7 @@
 // Image paths are compared with imageIs, so the check passes on the dev server and on the preview server.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { pressMenu } from './app-ui.mjs';
 import { assertNoErrors, env, imageIs, launch, shot, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -27,13 +28,13 @@ async function open(page, url) {
 
 /** Opens the Workshop and its first saved design. */
 async function openFirstDesign(page) {
-  await page.click('#workshop-btn');
+  await pressMenu(page, 'Workshop');
   await page.click('.ws-tile');
 }
 
 /** New piece: one choice per cast figure, and no preset, Mix or Surprise control. */
 async function newPieceScreen(page, width) {
-  await page.click('#workshop-btn');
+  await pressMenu(page, 'Workshop');
   await page.click('[data-door="piece"]');
   assert.equal(await page.locator('[data-new-figure]').count(), cast.length, 'one New piece choice per cast figure');
   assert.equal(await page.locator('[data-key], .ws-mix, .ws-surprise').count(), 0, 'no preset, Mix or Surprise in New piece');

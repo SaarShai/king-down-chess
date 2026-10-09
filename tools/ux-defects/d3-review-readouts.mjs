@@ -1,6 +1,7 @@
 // D-3: in review, the piece card, the keyboard cursor and the captured rows read the viewed move;
 // back at the live move they read the live game again.
 import assert from 'node:assert/strict';
+import { focusBoard, moveRow, openMoves, waitForUi } from '../app-ui.mjs';
 
 // White takes on d5 at ply 3. Review at ply 2 shows the white pawn on e4 and the black pawn on d5.
 const save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'd7-d5', 'e4xd5', 'Ng8-f6'], white: 'human', black: 'ai', sound: false, skill: 'club' };
@@ -19,7 +20,7 @@ export default async function ({ open }) {
     const say = () => page.textContent('#cursor-say');
 
     assert.equal(await took(), 1, `${size}: the live game shows the one captured pawn`);
-    await page.locator('#moves [data-ply="2"]').click();
+    await openMoves(page); await moveRow(page, 2).click();
     await turn(page, /^Reviewing after 1… d7-d5/);
     assert.equal(await took(), 0, `${size}: review before the capture shows no captured piece`);
 
@@ -28,9 +29,7 @@ export default async function ({ open }) {
       assert.match(await card(E4), /White pawn/, 'review: the card of e4 reads the viewed board');
       const board = await page.locator('#board canvas').boundingBox();
       await page.mouse.move(board.x / 2, board.y + board.height / 2); // the pointer leaves the board, to its left
-      // Shift+Tab from the first menu button moves the keyboard focus to the board: the cursor shows on e2.
-      await page.focus('#new-game-btn');
-      await page.keyboard.press('Shift+Tab');
+      await focusBoard(page); // the keyboard focus on the board: the cursor shows on e2
       assert.match(await say(), /^e2, empty/);
       await page.keyboard.press('ArrowUp'); await page.keyboard.press('ArrowUp');
       assert.match(await say(), /^e4, white pawn/, 'review: the cursor reads the viewed board on e4');
@@ -42,11 +41,10 @@ export default async function ({ open }) {
       await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowUp');
       assert.match(await say(), /^d5, white pawn/, 'live: the cursor reads the live board again');
       // Escape ends a review too: the cursor reads the live board at once, with no arrow key.
-      await page.locator('#moves [data-ply="2"]').click(); // the click takes the focus from the board, and the cursor goes
+      await openMoves(page); await moveRow(page, 2).click(); // the click takes the focus from the board, and the cursor goes
       await turn(page, /^Reviewing after 1… d7-d5/);
       await page.mouse.move(board.x / 2, board.y + board.height / 2);
-      await page.focus('#new-game-btn');
-      await page.keyboard.press('Shift+Tab');
+      await focusBoard(page);
       for (const key of ['ArrowUp', 'ArrowUp', 'ArrowLeft', 'ArrowUp']) await page.keyboard.press(key);
       assert.match(await say(), /^d5, black pawn/, 'review: the cursor reads the viewed board on d5');
       await page.keyboard.press('Escape');
@@ -65,7 +63,7 @@ export default async function ({ open }) {
   // The card's kings' line counts the power uses at the viewed move too.
   const { page, tap, close } = await open({ query: '?kings=frost:freeze,none&fen=' + encodeURIComponent('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1') });
   await page.click('#power-btn'); await tap(D5);
-  await page.waitForFunction(() => /!F:d5/.test(document.getElementById('moves').textContent));
+  await waitForUi(page, ui => /!F:d5/.test(ui.lan.join(' ')));
   assert.match(await page.textContent('#info'), /White's king: Freeze, 0 left/, 'live: the Freeze is spent');
   await page.keyboard.press('ArrowLeft');
   await turn(page, /^Reviewing the start/);

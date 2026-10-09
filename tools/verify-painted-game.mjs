@@ -1,6 +1,7 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
+import { contextText, lanMoves, moveRow, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = new URL(env('PLAYABLE_URL'));
@@ -8,7 +9,7 @@ url.searchParams.set('look', 'painted'); // also the default; the phone check be
 const browser = await launch();
 /** The saved game's players, [White, Black]. */
 const players = page => page.evaluate(() => { const s = JSON.parse(localStorage.getItem('kingdown.save')); return [s.white, s.black]; });
-const plies = page => page.$$eval('#moves li', li => li.map(l => l.textContent.trim().split(/\s+/).slice(1)).flat().length);
+const plies = async page => (await lanMoves(page)).length;
 try {
   // 1. Computer vs computer: every capture animation must finish and hand the move on.
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -29,7 +30,7 @@ try {
   let last = -1, stalls = 0, taken = 0;
   for (let i = 0; i < 120; i++) {
     await page.waitForTimeout(1500);
-    const n = await plies(page), over = await page.evaluate(() => document.getElementById('over').open || /wins|draw|Draw|Stalemate/.test(document.getElementById('status').textContent));
+    const n = await plies(page), over = await page.evaluate(() => document.getElementById('over').open) || (await resultText(page)) !== '';
     taken = await captures();
     if (over || (n >= 60 && taken > 0)) { console.log(`ok computer game: ${n} plies${over ? ', finished' : ''}`); break; }
     stalls = n === last ? stalls + 1 : 0; last = n;
@@ -49,9 +50,9 @@ try {
   const rook = await page.evaluate(() => window.view.screenOf(0)), mate = await page.evaluate(() => window.view.screenOf(56));
   await page.mouse.click(rook.x, rook.y); await page.mouse.click(mate.x, mate.y); // Ra1-a8 mates
   await page.waitForFunction(() => document.getElementById('over').open, null, { timeout: 10000 });
-  await assert.rejects(page.click('#new-game-btn', { timeout: 1000 }), 'the open result window covers the panel');
+  await assert.rejects(pressMenu(page, 'New game', { timeout: 1000 }), 'the open result window covers the panel');
   await page.click('#over button[value="close"]');
-  await page.click('#new-game-btn', { timeout: 2000 });
+  await pressMenu(page, 'New game', { timeout: 2000 });
   assert.ok(await page.evaluate(() => document.getElementById('new-game').open), 'the panel works after the result window closes');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.getElementById('new-game').open);
@@ -63,18 +64,18 @@ try {
   const at = sq => page.evaluate(sq => window.view.screenOf(sq), sq);
   const e2 = await at(12), e4 = await at(28);
   await page.mouse.move(e2.x, e2.y); await page.mouse.down(); await page.mouse.move(e4.x, e4.y, { steps: 8 }); await page.mouse.up();
-  await page.waitForFunction(() => /e2-e4/.test(document.getElementById('moves').textContent), null, { timeout: 5000 });
-  await page.waitForFunction(() => document.querySelectorAll('#moves li')[0]?.textContent.trim().split(/\s+/).length >= 3, null, { timeout: 15000 });
+  await waitForUi(page, ui => /e2-e4/.test(ui.lan.join(' ')), null, { timeout: 5000 });
+  await waitForUi(page, ui => ui.turns[0]?.length >= 2, null, { timeout: 15000 });
   await page.waitForTimeout(2500); // the reply's animation keeps the board busy
   const d2 = await at(11), d3 = await at(19);
   await page.mouse.click(d2.x, d2.y); await page.mouse.click(d3.x, d3.y);
-  await page.waitForFunction(() => /d2-d3/.test(document.getElementById('moves').textContent), null, { timeout: 5000 });
+  await waitForUi(page, ui => /d2-d3/.test(ui.lan.join(' ')), null, { timeout: 5000 });
   console.log('ok human drag and click-click moves');
 
   // 2. Human as Black: the board turns round, and Undo during the computer's animation is clean.
   await startGame(page, { mode: 'computer', side: 'black', level: 'beginner' });
   assert.deepEqual(await players(page), ['ai', 'human']);
-  await page.waitForFunction(() => document.querySelectorAll('#moves li').length > 0, null, { timeout: 15000 });
+  await waitForUi(page, ui => ui.lan.length > 0, null, { timeout: 15000 });
   const a8 = await page.evaluate(() => window.view.screenOf(56)), a1 = await page.evaluate(() => window.view.screenOf(0));
   assert.ok(a8.y > a1.y, 'Black at the bottom when the human plays Black');
   await page.click('#undo');
@@ -87,7 +88,7 @@ try {
     await page.goto(u.href);
     await page.waitForFunction(sq => window.view?.pos?.board[sq] > 0, to); // the FEN position has loaded
     for (const sq of [from, to]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
-    await page.waitForFunction(m => document.getElementById('moves').textContent.includes(m), move, { timeout: 5000 });
+    await waitForUi(page, (ui, m) => ui.lan.join(' ').includes(m), move, { timeout: 5000 });
     await page.waitForFunction(() => !window.view.scene.animating, null, { timeout: 5000 });
   }
   console.log('ok Maester beam and Catapult token captures');
@@ -137,7 +138,7 @@ try {
     if (tapAfter != null) { await page.waitForTimeout(tapAfter); const p = await at(56); await page.mouse.click(p.x, p.y); }
     const r = await timing;
     await page.waitForFunction(([from, to]) => window.view.pos.board[from] === 0 && window.view.pos.board[to] > 0, [from, to], { timeout: 5000 }).catch(async e => {
-      console.log(r, await page.evaluate(() => ({ moves: document.getElementById('moves').textContent, status: document.getElementById('status').textContent, dialogs: [...document.querySelectorAll('dialog[open]')].map(d => d.id + ':' + d.textContent.slice(0, 120)), save: localStorage.getItem('kingdown.save'), board: [...window.view.pos.board].map((v, i) => v ? i : -1).filter(i => i >= 0) })));
+      console.log(r, { moves: await lanMoves(page), context: await contextText(page) }, await page.evaluate(() => ({ dialogs: [...document.querySelectorAll('dialog[open]')].map(d => d.id + ':' + d.textContent.slice(0, 120)), save: localStorage.getItem('kingdown.save'), board: [...window.view.pos.board].map((v, i) => v ? i : -1).filter(i => i >= 0) })));
       throw e;
     });
     return r;
@@ -161,24 +162,24 @@ try {
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[35] > 0);
     for (const sq of [28, 35, 63, 62]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); }
-    await page.waitForFunction(() => /Kh8-g8/.test(document.getElementById('moves').textContent));
+    await waitForUi(page, ui => /Kh8-g8/.test(ui.lan.join(' ')));
     const board = () => page.evaluate(() => [28, 35, 62, 63].map(sq => window.view.pos.board[sq] > 0 ? 1 : 0).join(''));
     assert.equal(await board(), '0110', 'live: pawn on d5, king on g8');
-    await page.click('#moves [data-ply="1"]');
+    await openMoves(page); await moveRow(page, 1).click();
     assert.equal(await board(), '0101', 'after move 1: pawn on d5, king still on h8');
     assert.equal(await page.textContent('#turn'), 'Reviewing after 1. e4xd5');
     const pawn = await at(35); await page.mouse.click(pawn.x, pawn.y); // leaves the review, selects nothing
     assert.equal(await board(), '0110', 'a tap on the board returns to the game');
-    await page.click('#moves [data-ply="1"]'); await page.keyboard.press('ArrowLeft');
+    await openMoves(page); await moveRow(page, 1).click(); await page.keyboard.press('ArrowLeft');
     assert.equal(await board(), '1101', 'the start: both pawns, king on h8');
     await page.keyboard.press('ArrowRight');
     assert.ok(await page.evaluate(() => window.view.scene.animating), '→ replays the capture');
     await page.waitForFunction(() => !window.view.scene.animating);
     assert.equal(await board(), '0101');
-    assert.equal(await page.evaluate(() => document.querySelector('#moves .viewing')?.dataset.ply), '1');
+    assert.equal(await moveRow(page, 1).getAttribute('aria-current'), 'true');
     await page.keyboard.press('Escape');
     assert.equal(await board(), '0110');
-    assert.equal(await page.evaluate(() => document.querySelectorAll('#moves [data-ply]').length), 2, 'review changes no move');
+    assert.equal((await lanMoves(page)).length, 2, 'review changes no move');
     console.log('ok review: list, arrows, replay, return');
   }
 
@@ -191,8 +192,9 @@ try {
     for (const sq of [0, 48, 60, 4]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); }
     await page.waitForFunction(() => document.getElementById('over').open && document.querySelector('#over-moments button'), null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), 6, 'the mated king on g1 topples');
-    await page.waitForFunction(() => /Ra1-a7\?\?/.test(document.getElementById('moves').textContent));
-    assert.match(await page.getAttribute('#moves [data-ply="1"]', 'title'), /allowed a forced mate/, 'the move list marks the blunder');
+    await waitForUi(page, ui => ui.lan[0] === 'Ra1-a7' && ui.marks[0] === '??');
+    await openMoves(page);
+    assert.match(await moveRow(page, 1).getAttribute('title'), /allowed a forced mate/, 'the move list marks the blunder');
     const text = await page.textContent('#over-moments button');
     assert.match(text, /^1\. Ra1-a7: White allowed a forced mate\. Better: /, text);
     await page.click('#over-moments button');
@@ -214,8 +216,8 @@ try {
     assert.deepEqual(await players(page), ['human', 'human']);
     assert.ok((await at(56)).y > (await at(0)).y, 'Black, to move, plays from the bottom');
     for (const sq of [52, 36]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
-    await page.waitForFunction(() => /e7-e5/.test(document.getElementById('moves').textContent) && !window.view.scene.animating);
-    assert.match(await page.textContent('#move-help'), /Send the game link/);
+    await waitForUi(page, ui => /e7-e5/.test(ui.lan.join(' ')) && !window.view.scene.animating);
+    assert.match(await contextText(page), /Send the game link/);
     const d2 = await at(11); await page.mouse.click(d2.x, d2.y);
     assert.equal(await page.evaluate(() => window.view.marks.selected), null, "the friend's pieces do not move here");
     assert.ok(await page.evaluate(() => document.getElementById('hint').disabled), "no Hint on the friend's turn");
@@ -237,21 +239,23 @@ try {
   // taken back; the saved game stays as it was.
   {
     const before = await page.evaluate(() => localStorage.getItem('kingdown.save'));
-    await page.click('#rules-btn'); await page.click('#learn');
+    await pressMenu(page, 'Guide'); await page.click('#learn');
+    /** The lesson's verdict line in the words beside the board, or ''. */
+    const verdict = text => text.split('\n').find(t => /^(Well done|Not quite)/.test(t)) ?? '';
     const play = async squares => {
-      const prev = await page.textContent('#moment');
+      const prev = verdict(await contextText(page));
       for (const sq of squares) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
       if (await page.evaluate(() => document.getElementById('move-choice').open)) await page.click('#choose-push');
-      await page.waitForFunction(prev => { const t = document.getElementById('moment').textContent; return t !== prev && /^(Well done|Not quite)/.test(t) && !window.view.scene.animating; }, prev);
+      await waitForUi(page, (ui, prev) => { const t = ui.context.split('\n').find(t => /^(Well done|Not quite)/.test(t)) ?? ''; return t && t !== prev && !window.view.scene.animating; }, prev);
     };
     await play([27, 35]); // the Archer steps instead of shooting
-    assert.match(await page.textContent('#moment'), /^Not quite/);
+    assert.match(await contextText(page), /^Not quite/m);
     assert.equal(await page.evaluate(() => window.view.pos.board[27] > 0 && !window.view.pos.board[35]), true, 'the wrong move is taken back');
     const steps = [[27, 36], [11, 12], [27, 28], [27, 35, 43], [27, 35], [3, 43]];
     for (const [i, squares] of steps.entries()) {
       assert.match(await page.textContent('#turn'), new RegExp(`Lesson ${i + 1} of 6`));
       await play(squares);
-      assert.match(await page.textContent('#moment'), /^Well done/, `lesson ${i + 1}`);
+      assert.match(await contextText(page), /^Well done/m, `lesson ${i + 1}`);
       assert.equal(await page.isVisible('#next-lesson'), true);
       if (i < 5) await page.click('#next-lesson');
     }

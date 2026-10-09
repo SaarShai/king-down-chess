@@ -4,6 +4,7 @@
 // is best, Hint says so. Esc during the search keeps the power off. With Always promote to queen, Hint does
 // not suggest an underpromotion, because the board plays the queen there.
 import assert from 'node:assert/strict';
+import { boardHelp, contextText, lanMoves, pressMenu, waitForUi } from '../app-ui.mjs';
 
 const STRIKE = '?kings=flame:strike,none&fen=' + encodeURIComponent('2b4k/2P3pp/2R5/8/8/8/8/K7 w - - 0 1'); // Strike Rc6-e8 mates
 const HASTE = '?kings=flame:haste,none&fen=';
@@ -18,27 +19,27 @@ async function hint(page) {
   return page.evaluate(() => window.view.marks.hint);
 }
 
-/** Whether `fn` becomes true within 5 s. */
-const soon = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 5000 }).then(() => true, () => false);
-const played = page => page.evaluate(() => document.querySelectorAll('#moves button').length);
+/** Whether `test(ui, arg)` becomes true within 5 s (waitForUi in tools/app-ui.mjs). */
+const soon = (page, test, arg) => waitForUi(page, test, arg, { timeout: 5000 }).then(() => true, () => false);
+const played = async page => (await lanMoves(page)).length;
 
 /** Tap the hinted squares; the board must play a move that `re` matches. */
 async function follow(page, tap, squares, re, what) {
-  assert.ok(squares.length, `${what}: Hint marks nothing (${await page.textContent('#move-help')})`);
+  assert.ok(squares.length, `${what}: Hint marks nothing (${await contextText(page)})`);
   const n = await played(page);
   for (const sq of squares) await tap(sq);
-  const ok = await soon(page, k => document.querySelectorAll('#moves button').length > k, n);
-  assert.ok(ok, `${what}: the board refused the hinted squares ${squares} (${await page.textContent('#move-help')})`);
-  assert.match(await page.textContent(`#moves button[data-ply="${n + 1}"]`), re, `${what}: the hint is not the expected move`);
+  const ok = await soon(page, (ui, k) => ui.lan.length > k, n);
+  assert.ok(ok, `${what}: the board refused the hinted squares ${squares} (${await contextText(page)})`);
+  assert.match((await lanMoves(page))[n], re, `${what}: the hint is not the expected move`);
 }
 
 /** Open lesson 3 (the Maester): the lessons before it are one move each. */
 async function lesson3(open) {
   const { page, tap, close } = await open();
-  await page.click('#rules-btn'); await page.click('#learn');
+  await pressMenu(page, 'Guide'); await page.click('#learn');
   for (const squares of [[27, 36], [11, 12]]) { // lessons 1 and 2: the Archer's shot, the Guard's block
     for (const sq of squares) await tap(sq);
-    await page.waitForFunction(() => document.getElementById('moment').textContent.startsWith('Well done.'));
+    await waitForUi(page, ui => /^Well done\./m.test(ui.context));
     await page.click('#next-lesson');
   }
   assert.match(await page.textContent('#turn'), /Lesson 3 of 6: Maester/);
@@ -58,8 +59,8 @@ export default async function ({ open }) {
     for (const sq of first) await tap(sq);
     const squares = await hint(page);
     for (const sq of squares) await tap(sq);
-    const done = await soon(page, () => document.getElementById('moment').textContent.startsWith('Well done.'));
-    assert.ok(done, `lesson 3, selected [${first}]: the hint ${squares} does not play the Maester swap (${await page.textContent('#moment')})`);
+    const done = await soon(page, ui => /^Well done\./m.test(ui.context));
+    assert.ok(done, `lesson 3, selected [${first}]: the hint ${squares} does not play the Maester swap (${await contextText(page)})`);
     await close();
   }
   {
@@ -98,8 +99,8 @@ export default async function ({ open }) {
   {
     const { page, tap, close } = await open({ query: PASS });
     await haste(page, tap, 8, 16); // a2-a3 with Haste
-    const marks = await hint(page), help = await page.textContent('#move-help');
-    assert.ok(help === 'Hint: end the turn.' && !marks.length, `Haste with End turn best: Hint marks [${marks}] and says "${help}"`);
+    const marks = await hint(page), help = await contextText(page);
+    assert.ok(/^Hint: end the turn\.$/m.test(help) && !marks.length, `Haste with End turn best: Hint marks [${marks}] and says "${help}"`);
     await close();
   }
   {
@@ -111,7 +112,7 @@ export default async function ({ open }) {
   {
     const { page, tap, close } = await open({ query: QUEEN });
     assert.deepEqual(await hint(page), [52, 60], 'promotion: Hint does not mark the e7-e8 fork'); // e7-e8=N, and the picker offers the knight
-    await page.click('#settings-btn'); await page.check('#queen'); await page.keyboard.press('Escape');
+    await boardHelp(page, () => page.check('#queen'));
     const squares = await hint(page);
     assert.notEqual(squares[0], 52, `Always promote to queen: Hint marks [${squares}], and the board plays e7-e8=Q there`);
     await follow(page, tap, squares, /^[^=]+$/, 'Always promote to queen');
