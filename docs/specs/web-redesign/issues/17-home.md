@@ -45,3 +45,14 @@ Blocked by: 03, 05, 06 (the warn line), 11 (`storyLine`)
 - `home` passes twice (10.2 s, 7.6 s); `visual-design` 19.9 s, `account` 53.6 s, `king-effects` 99.5 s, `workshop` 64.4 s, `ux-defects` 69.1 s, `new-game` 13.1 s.
 - The supplied M1 launcher uses this Mac. The full test run uses two workers and 30 s deadlines; the test script returns to its original text.
 - `samples/W8.mjs` makes six renders with no fault. The review checks both contact sheets in the requested sample folder. The sample waits for the owner's yes.
+
+## Integration
+
+Plan: merge W8 without a fast-forward, run the required checks, then push the integration branch.
+Pass criteria: `npm test`, `home`, `visual-design`, and the pre-push tests pass. The worktree is clean after the push.
+
+The merge has no conflicts. The starting head is `86a396ede59bf2fdc6a7305f9f51671baba20692`. It is not an ancestor of W8, so fresh checks are required.
+
+`npm test` passes: 89 files pass, 1 skips; 1,564 tests pass, 13 skip; all 50 art tests pass. Typecheck passes.
+
+The supplied M1 launcher runs on this Mac. `home` passes in 7.6 s and `visual-design` passes in 18.5 s. No code fix is required. The sample still waits for the owner's yes.
