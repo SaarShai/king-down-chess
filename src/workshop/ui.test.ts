@@ -139,6 +139,12 @@ describe('the read-only card (web redesign ticket 22)', () => {
     }
   });
 
+  it('marks a warning card, but keeps a fair card and an empty card clear', () => {
+    const warning = rook(chain), fair = fromPreset(presetOf('knight')), blank = fromPreset(BLANK);
+    expect(cardHtml(warning, judge(warning))).toContain('class="ws-piece-card ws-read warn"');
+    for (const d of [fair, blank]) expect(cardHtml(d, judge(d))).not.toContain('ws-read warn');
+  });
+
   it('reads the move and take patterns beside the grids', () => {
     const d = design({ lines: ['n', 'e', 's', 'w'] });
     const html = cardHtml(d, judge(d));

@@ -17,7 +17,7 @@
 // shared check module (tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { keepWorkshopCopy, openMenu, pressMenu, workshopCardText } from './app-ui.mjs';
+import { keepWorkshopCopy, workshopCopyLink, openMenu, pressMenu, workshopCardText } from './app-ui.mjs';
 import { assertNoErrors, env, imageIs, insideViewport, launch, minTarget, noOverlap, noRunningAnimations, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -158,7 +158,7 @@ async function keyboardAndRefusedSave(p) {
 async function shareTryReload(p) {
   const before = await saved(p);
   await p.click('.ws-share');
-  const link = await copied(p, () => p.click('.ws-copy-link'));
+  const link = await copied(p, () => workshopCopyLink(p).click());
   await p.click('.ws-try');
   await p.waitForSelector('.tb-me');
   await imageIs(p, '.tb-me', 'ui/workshop/clay-golem-w.webp');
@@ -255,7 +255,8 @@ async function rename(p, name) {
 /** Opens the Share sheet and taps one of its actions. */
 async function shareAction(p, action) {
   await p.click('.ws-share');
-  await p.click(`${sheetOpen} .ws-${action}`);
+  if (action === 'copy-link') await workshopCopyLink(p).click();
+  else await p.click(`${sheetOpen} .ws-${action}`);
 }
 
 /** The smaller controls of the card in short landscape, as in the approved mockup: [selector, minimum px]. */
@@ -580,7 +581,9 @@ async function tryIt(browser) {
 /** A design link opens its card read only, with Keep a copy and Try it; the Share sheet shows the card above Send link;
  * the shelf shows mini cards. The band word is not cut at 320x568, 390x844 and 1440x900. */
 async function workshopCard(browser, width, height) {
-  const p = await open(browser, { width, height });
+  const p = await open(browser, { width, height, init: () => {
+    Object.defineProperty(navigator, 'share', { value: async () => {}, configurable: true });
+  } });
   const card = '#workshop .ws-read', size = `${width}x${height}`;
   await openLink(p, 'likelyOP', 'Rook Rider');
   assert.equal(await p.locator(`${card} :is(button, input, select)`).count(), 0, `${size}: the card of a link has no control`);
@@ -591,6 +594,10 @@ async function workshopCard(browser, width, height) {
   assert.equal(await p.locator('#workshop .primary').count(), 1, `${size}: one main action`);
   await screenFits(p, `${size}: the card of a link`);
   await textNotCut(p, `${card} .ws-bottom`);
+  if (width > 720) {
+    const footer = await p.locator('#workshop .ws-footer').boundingBox(), cardBox = await p.locator(card).boundingBox();
+    assert.deepEqual([footer.x, footer.width], [cardBox.x, cardBox.width], `${size}: the footer sits under the card at its width`);
+  }
   await shot(p, `${size}-card-link`);
 
   await keepWorkshopCopy(p).click();
@@ -601,6 +608,7 @@ async function workshopCard(browser, width, height) {
   assert.equal(await text(p, `${sheetOpen} .ws-read .ws-name-t`), 'Rook Rider', `${size}: the Share sheet shows the card`);
   assert.deepEqual(await p.locator(`${sheetOpen} .ws-share-actions button`).allInnerTexts(), ['Send link', 'Copy link', 'Copy as text', 'Make a copy', 'Delete'], `${size}: the Share actions, Send link first`);
   assert.equal(await p.locator(`${sheetOpen} .primary.ws-send`).count(), 1, `${size}: Send link is the main action`);
+  await insideViewport(p, `${sheetOpen} .ws-share-actions button:not([hidden])`);
   await noSidewaysScroll(p, `${sheetOpen} .ws-sheet-body`);
   await textNotCut(p, `${sheetOpen} .ws-bottom`);
   await targetsFit(p);
@@ -613,6 +621,48 @@ async function workshopCard(browser, width, height) {
   await textNotCut(p, '.ws-tile small');
   await screenFits(p, `${size}: the shelf`);
   await shot(p, `${size}-card-shelf`);
+  await p.context().close();
+}
+
+/** The Share sheet names the action that the device can do. */
+async function shareWithoutDeviceShare(browser) {
+  const p = await open(browser, { width: 320, height: 568, init: () => {
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+  } });
+  await openLink(p, 'likelyOP', 'North Tower Knight', true);
+  await p.click('.ws-share');
+  assert.equal(await p.locator(`${sheetOpen} .ws-send`).innerText(), 'Copy link', 'without device share, the main action says Copy link');
+  assert.equal(await p.locator(`${sheetOpen} .ws-copy-link`).isVisible(), false, 'without device share, the second Copy link stays hidden');
+  await insideViewport(p, `${sheetOpen} .ws-share-actions button:not([hidden])`);
+  assert.equal(await p.locator(`${sheetOpen} .ws-close`).getAttribute('aria-label'), 'Close', 'the sheet has one named Close form');
+  const closeBox = await p.locator(`${sheetOpen} .ws-close`).boundingBox();
+  assert.deepEqual([closeBox.width, closeBox.height], [44, 44], 'Close has a framed 44 px target');
+  assert.equal(await p.locator(`${sheetOpen} .ws-model-box`).evaluate(e => getComputedStyle(e).getPropertyValue('--model').trim()), '72px', 'the small phone sheet uses a 72 px figure');
+  assert.ok(await p.locator(`${sheetOpen} .ws-fwd`).evaluate(e => parseFloat(getComputedStyle(e).fontSize) >= 12.5), 'Forward is at least 12.5 px');
+  const actions = p.locator(`${sheetOpen} .ws-share-actions`), before = await actions.boundingBox();
+  await p.locator(`${sheetOpen} .ws-sheet-body`).evaluate(e => { e.scrollTop = e.scrollHeight; });
+  assert.deepEqual(await actions.boundingBox(), before, 'Share actions stay in place when the card scrolls');
+  const bandColour = await p.locator(`${sheetOpen} .ws-bottom`).evaluate(e => getComputedStyle(e).color);
+  assert.equal(await p.locator(`${sheetOpen} .ws-learn`).evaluate(e => getComputedStyle(e, '::before').content), '"⚠︎ "', 'the warning card has a warning mark');
+  const link = await copied(p, () => p.click(`${sheetOpen} .ws-send`));
+  assert.ok(new URL(link).searchParams.has('design'), 'the main Copy link copies a design link');
+  await p.evaluate(() => Object.defineProperty(navigator, 'share', { value: async data => { window.sentDesign = data; }, configurable: true }));
+  await p.click('.ws-share');
+  assert.equal(await p.locator(`${sheetOpen} .ws-send`).innerText(), 'Send link', 'with device share, the main action says Send link');
+  assert.equal(await p.locator(`${sheetOpen} .ws-copy-link`).isVisible(), true, 'with device share, Copy link stays available');
+  await p.click(`${sheetOpen} .ws-send`);
+  assert.equal(await p.evaluate(() => window.sentDesign.url), link, 'Send link gives the design link to device share');
+  await p.click('.ws-share');
+  await p.click(`${sheetOpen} .ws-dup`);
+  assert.ok(await p.locator('.ws-save-state').evaluate(e => parseFloat(getComputedStyle(e).fontSize) >= 12.5), 'the save state is at least 12.5 px');
+  await p.click('.ws-back');
+  assert.deepEqual((await p.locator('.ws-tile b').allInnerTexts()).sort(), ['North Tower Knight', 'North Tower copy'], 'the 18-character name and its copy have distinct names');
+  await textNotCut(p, '.ws-tile b');
+  assert.deepEqual(await p.locator('.ws-tile small').evaluateAll(es => es.map(e => getComputedStyle(e).color)), [bandColour, bandColour], 'the shelf and card use one band colour');
+  assert.deepEqual(await p.locator('.ws-tile small').evaluateAll(es => es.map(e => getComputedStyle(e, '::before').content)), ['"⚠︎ "', '"⚠︎ "'], 'the shelf has the same warning mark as the card');
+  const shelfBox = await p.locator('.ws-shelf').boundingBox(), doorBox = await p.locator('.ws-doors').boundingBox();
+  assert.deepEqual([shelfBox.x, shelfBox.width], [doorBox.x, doorBox.width], 'the shelf and New piece share one column');
+  for (const tile of await p.locator('.ws-tile').all()) assert.ok((await tile.boundingBox()).width >= 120, 'a shelf column is at least 120 px');
   await p.context().close();
 }
 
@@ -1192,6 +1242,7 @@ async function turnRefits(browser) {
 
 const browser = await launch();
 try {
+  await shareWithoutDeviceShare(browser);
   for (const [width, height] of viewports) {
     const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: width < 721, permissions: ['clipboard-read', 'clipboard-write'] });
     const p = await ctx.newPage();

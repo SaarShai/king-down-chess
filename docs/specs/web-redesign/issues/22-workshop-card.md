@@ -1,6 +1,6 @@
 # 22 · The Workshop card
 
-Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
+Status: done on claude/wr-b2ux-ws; batch 2 fixes decided by delegation (2026-10-09)
 Blocked by: none (the Workshop finish tickets 01–13 are resolved on main)
 
 ## Scope
@@ -44,3 +44,14 @@ Browser checks: all 15 pass. Workshop and cast each pass two repeat runs.
 Sample W12: 12 renders, no faults. All three contact sheets pass the visual review.
 The capture tool adds W12 and 320 px; the old review keeps its five sizes.
 The sample waits for the owner’s yes. The working sample and “What changed” questions stay.
+
+Batch 2 fixes: decided by delegation (2026-10-09).
+Shelf names use two lines; copy names stay distinct.
+The shelf and New piece share a column; tiles are at least 120 px wide.
+Share actions stay in a fixed footer; Close has a framed 44 px target.
+Small figures are 72 px; Forward and save text are at least 12.5 px.
+Band colours and warning marks match; devices without Share show one Copy link.
+Read-only actions stay under the card on wide screens.
+Tests: 1,514 pass, 13 skip. Scene tests: 50 pass. Typecheck and build pass.
+Browser checks: workshop, workshop-cast and visual-design pass.
+W12: 24 renders, zero faults; each render passes the visual check.
