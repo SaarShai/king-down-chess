@@ -2,7 +2,7 @@
 // Run: npm run check:browser lesson-return (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 // Output in PLAYABLE_OUT: lesson-return-desktop.png and lesson-return-phone.png.
 import assert from 'node:assert/strict';
-import { startLesson, setPace, waitForUi } from './app-ui.mjs';
+import { startLesson, setPace, waitForLinkReplay, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 
@@ -19,6 +19,7 @@ try {
     await page.waitForFunction(() => window.view);
     await page.evaluate(() => window.view.ready());
     await setPace(page, 'off');
+    await waitForLinkReplay(page);
     const saved = () => page.evaluate(() => localStorage.getItem('kingdown.save'));
     const board = () => page.evaluate(() => Array.from((window.view.pos ?? window.view.lastPos).board));
     const before = await saved(), position = await board();

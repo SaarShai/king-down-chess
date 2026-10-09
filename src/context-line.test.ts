@@ -14,6 +14,15 @@ describe('contextLine', () => {
       rank: 'armed', line: 'Freeze · 1 left', note: 'Tap an enemy piece.', actions: ['power-cancel'],
     });
   });
+  it('shows Previously after the higher ranks, with its replay action', () => {
+    const state = { voice: 'you' as const, previously: 'Black pawn e7 to e5.', previouslyBefore: 'White pawn e2 to e4.', seeAgain: true };
+    expect(contextLine(state)).toEqual({ rank: 'previously', line: 'Previously', note: 'Black pawn e7 to e5.', before: 'White pawn e2 to e4.', actions: ['see-again'] });
+    expect(contextLine({ ...state, seeAgain: false }).actions).toEqual([]);
+    expect(contextLine({ ...state, read: 'Black knight.' }).rank).toBe('read');
+    expect(contextLine({ ...state, waiting: true }).rank).toBe('waiting');
+    expect(contextLine({ ...state, check: true }).rank).toBe('previously');
+    expect(contextLine({ ...state, result: 'White wins.' }).rank).toBe('result');
+  });
   it('names the learned piece instead of the lesson task', () => {
     expect(contextLine({ voice: 'you', lesson: 'Lesson 1 of 6: Archer', lessonNote: 'Well done. A rule.', lessonLearned: 'Archer', waiting: true, check: true, checkCause: 'Their rook attacks your king.' })).toMatchObject({ rank: 'lesson', line: 'Archer learned.', note: '' });
   });

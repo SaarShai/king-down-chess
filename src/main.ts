@@ -34,6 +34,7 @@ import { reviewStep } from './review';
 import { shouldShowHome } from './ui/home';
 import { initHome } from './ui/home-view';
 
+import { connectPreviously } from './ui/previously';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -164,6 +165,12 @@ connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
   refresh, save, next: () => { if (ended()) showOver(); else void maybeAi(); },
   link: gameLink, notice: line => { notice = line; },
   focusBoard: () => { cursor = homeSquare(); sayCursor(); drawMarks(); },
+});
+const previously = connectPreviously($<HTMLButtonElement>('see-again'), {
+  game: () => game, view, generation: () => gen, navigation: () => navGen,
+  motion: () => pace.value !== 'off', blocked: () => busy || viewing != null || lesson != null,
+  show: (ply, playing) => { viewing = ply; busy = replaying = playing; selected = inspected = null; pending = []; },
+  refresh,
 });
 
 
@@ -369,7 +376,7 @@ function refresh(): void {
   const coins = refreshCoins({ pos: shownPos(), history: game.history, rules: GAME_RULES, legal: viewing == null ? game.legal : undefined, activeSide: currentTurn().activeSide, armed, canPlay: !finished() && viewing == null && lesson == null && myTurn(), busy, flipped, lesson, selection: selected != null || inspected != null || !!notice });
   armed = coins.armed;
   drawMarks();
-  refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode(), power: coins.context });
+  refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode(), power: coins.context, previously: previously.state() });
   home?.refresh();
 }
 
@@ -735,6 +742,7 @@ $('show-me').onclick = async () => {
  */
 async function showPly(n: number | null, replay = true): Promise<void> {
   if (n != null) home?.close();
+  previously.cancel();
   const len = game.history.length, from = viewing ?? len, step = reviewStep(n, len);
   if ((busy && !replaying) || step.viewing === viewing) return;
   n = step.ply;
@@ -765,6 +773,7 @@ $('moves').onclick = e => {
 /** Stop any AI search in flight and drop the per-game UI state. */
 function reset(): void {
   clearCoinRead();
+  previously.clear();
   gen++;
   navGen++;
   replaying = thinking = false;
@@ -1270,13 +1279,8 @@ const continues = !!saved && (params.get('army') ? saved.back === params.get('ar
 const openLink = link && (!saved?.moves.length || continues || confirm('Open the game from this link? It replaces your current game.'));
 if (link) history.replaceState(null, '', gameLinkless()); // a reload then resumes the autosave
 if (openLink) {
-  try {
-    const army = params.get('army');
-    if (army) game.newGame(army); else game.load(fromFen(params.get('fen')!));
-    if (game.playLan(lans) < lans.length) alert('Part of this game link could not be read; the game stops before that move.');
-  } catch (e) { alert(`This game link could not be read: ${(e as Error).message}`); game.newGame(); }
+  previously.load(params, continues ? saved!.moves.length : 0);
   sides[0] = sides[1] = 'human';
-  finishLinkedTurn(game);
   linkSide = game.pos.turn;
 }
 else if (fen) { try { game.load(fromFen(fen)); } catch (e) { alert(`Bad fen: ${(e as Error).message}`); } }
@@ -1297,7 +1301,7 @@ turnStart = handOver(game);
 // Haste turn is two plies by one side, so the number comes from the replayed game, not the save).
 if (showTitle) labelContinue();
 orient();
-view.sync(game.pos);
+view.sync(previously.position());
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 fillPieceGuide(); // after every setRules path (URL preset / save restore)
@@ -1316,6 +1320,7 @@ if (designLink) {
   openWorkshop(designLink);
 }
 const titleChoice = await titleClosed; // the computer waits for the player, and no dialog opens over the title
+await previously.start();
 if (titleChoice === 'start') startFirstDeal(SETUP_KEY, (s, army) => { setup = s; newGame(army); });
 else if (titleChoice === 'learn') startLesson(0);
 else {

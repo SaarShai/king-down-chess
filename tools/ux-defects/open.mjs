@@ -7,7 +7,7 @@
 //   pace   the Settings → Animations value; default 'off', so a check waits for no motion.
 // tap(sq) taps (phone) or clicks (desktop) the centre of square sq (0 = a1 ... 63 = h8).
 // The probes reach the app's controls and readouts through tools/app-ui.mjs.
-import { setPace } from '../app-ui.mjs';
+import { setPace, waitForLinkReplay } from '../app-ui.mjs';
 
 export const SIZES = {
   desktop: { viewport: { width: 1280, height: 900 } },
@@ -32,6 +32,7 @@ export const opener = (browser, base, trapErrors) => async ({ size = 'desktop', 
   if (!title) {
     await ready();
     if (pace) await setPace(page, pace);
+    await waitForLinkReplay(page);
   }
   const tap = async sq => {
     const p = await page.evaluate(s => window.view.screenOf(s), sq);

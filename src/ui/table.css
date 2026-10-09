@@ -75,6 +75,10 @@
 /* Each context row keeps room for its rule words. */
 #context-text > span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #context-text > span + span { font-size: 14px; }
+#context-text[data-rank='previously'] { -webkit-line-clamp: 3; }
+#context-text #previously-before { font-size: 12px; color: var(--ink-soft); }
+#context-actions #see-again { background: transparent; color: var(--ink); border-color: var(--stone-300); box-shadow: none; }
+#context-actions #see-again[aria-disabled='true'] { opacity: .65; cursor: default; }
 
 #table-bar > :is(#undo, #return-game) { grid-column: 1; grid-row: 1; }
 #table-bar > :is(#end-turn, #show-me, #next-lesson) { grid-column: 2; grid-row: 1; }

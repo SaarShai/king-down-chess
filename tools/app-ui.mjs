@@ -135,6 +135,10 @@ export async function previousReview(page) {
   await page.locator('#back-to-game').focus();
   await page.keyboard.press('ArrowLeft');
 }
+export const seeAgain = page => page.locator('#see-again[aria-disabled="false"]').click();
+
+/** An opened link finishes its replay before the check taps the board. */
+export const waitForLinkReplay = page => page.waitForFunction(() => document.getElementById('see-again').getAttribute('aria-disabled') === 'false');
 
 /**
  * What the readouts show, read in the page. Playwright sends the source of this function to the page,
