@@ -12,6 +12,12 @@ import { pieceIcon } from './piece-icons';
 import { CLASSIC_CHESS, POOL, randomBackRank } from './rules/setup';
 import { mulberry32 } from './sim/rng';
 
+/** Power words in the New game sheet. */
+export function newGamePowerLine(label: string, title: string): string {
+  const sentences = title.replace(/; |: | — /g, '. ').replace(/, then /g, '. Then ').split('. ');
+  return `${label}. ${sentences.map(line => line[0].toUpperCase() + line.slice(1)).join('. ')}.`;
+}
+
 /** Play the computer (no powers), Kings' powers against the computer, or two people. */
 export type Mode = 'computer' | 'powers' | 'two';
 /** One side's king in the picker; `power: null` is "No power". */
@@ -158,7 +164,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
         b.setAttribute('aria-pressed', String(p === power));
       }
       const chosen = power ? opts[KINGS[king].indexOf(power)] : null, line = box.querySelector('.power-text')!;
-      const text = chosen ? `${chosen.label} — ${chosen.title}.` : 'No power: a plain chess king.';
+      const text = chosen ? newGamePowerLine(chosen.label, chosen.title) : 'No power: a plain chess king.';
       if (line.textContent !== text) line.textContent = text; // a live region: say only a change
     }
     army.value = draft.army;

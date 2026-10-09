@@ -4,7 +4,7 @@ import { openAccount, openExtra, openMenu, pressMenu } from './app-ui.mjs';
 import { assertNoErrors, env, launch, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 try {
-  for (const [width, height] of [[390, 844], [1440, 900]]) {
+  for (const [width, height] of [[390, 844], [844, 390], [1440, 900]]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
     await context.addInitScript(() => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', pace: 'off', sound: false })); });
     const page = await context.newPage(); trapErrors(page);
@@ -14,6 +14,13 @@ try {
     assert.equal(await page.locator('#menu-sheet').isVisible(), false, 'a tap outside closes Menu');
     assert.equal(await page.evaluate(() => document.activeElement.id), 'menu-btn');
     await openMenu(page);
+    assert.equal(await page.locator('#pace-note').isVisible(), false, 'Motion Off hides the skip note');
+    if (width === 844) {
+      await page.locator('#resign').scrollIntoViewIfNeeded();
+      const close = await page.locator('#menu-close').boundingBox();
+      assert.ok(close.y >= 0 && close.y + close.height <= height, 'Close stays in view after the body scrolls');
+      assert.equal(await page.locator('#menu-sheet .sheet-body').evaluate(el => el.scrollTop > 0), true, 'the Menu body scrolls to Resign');
+    }
     for (const words of ['New game', 'Guide', 'Board help', 'Feel', 'Extra', 'Resign']) assert.ok((await page.locator('[data-menu-page="menu"]').textContent()).includes(words), words);
     for (const route of ['new', 'help', 'extra', 'resign']) {
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();

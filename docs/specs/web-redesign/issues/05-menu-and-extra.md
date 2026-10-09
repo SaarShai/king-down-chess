@@ -42,6 +42,7 @@ The fast plan, §2, sets this build scope.
 
 ## Comments
 
+
 W2 builds this ticket with 03 under the fast plan, §2.
 The native sheet keeps its pages and setting nodes. Resign asks in the sheet.
 Feel checks prove that Sound and Motion save each change.
@@ -49,3 +50,10 @@ Cut: live previews, Vibration and the haptic module.
 `npm test`: 1499 tests and 50 scene tests pass. All 19 named checks pass.
 `menu-extra` passes twice after the merge. The supplied M1 script uses its local fallback.
 W2 has 45 clean renders. All three size sheets and the phone pair are inspected.
+
+Batch 2: decided by delegation (2026-10-09).
+Menu and Moves keep their headers in view. One body scrolls to every row.
+Close uses a framed 44 px button. Back names the parent sheet.
+Coming names power coins by the king. Motion Off hides the pace note.
+All eight required browser checks pass. `npm test`: 1514 tests and 50 scene tests pass.
+W2 has 68 inspected renders and no faults. Landscape includes every Menu sheet.

@@ -49,6 +49,16 @@ try {
     assert.equal(await undoOff(), 'true');
     console.log('ok one device; next side waits and Undo takes one ply');
 
+    await open(); await move('e2', 'e4'); await endTurn(page);
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'board', 'a pointer press keeps board focus');
+    assert.equal(await page.locator('.mk-cursor').count(), 0, 'a pointer turn press shows no keyboard cursor');
+    await move('e7', 'e5'); await page.locator('#end-turn').focus(); await endTurn(page, { keyboard: true });
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'board', 'a keyboard press returns board focus');
+    assert.equal(await page.locator('.mk-cursor').count(), 1, 'a keyboard turn press shows the square cursor');
+    assert.match(await page.locator('#cursor-say').innerText(), /e2/, 'the keyboard cursor reads its square');
+    console.log('ok turn press: pointer has no cursor; keyboard has a cursor and square text');
+
+
     await open('7k/p7/8/8/8/8/8/R5K1 w - - 0 1', '?kings=flame:haste,none');
     await page.click('#power-btn'); await move('a1', 'a4'); await endTurn(page);
     assert.deepEqual(await lanMoves(page), ['Ra1-a4!H', '--']);
@@ -113,6 +123,9 @@ try {
     });
     await move('e7', 'e5'); await endTurn(page);
     assert.equal(await page.textContent('#end-turn'), 'Send again');
+    assert.equal(await page.locator('.mk-cursor').count(), 0, 'a pointer send shows no keyboard cursor');
+    assert.equal(await page.locator('#end-turn').evaluate(b => getComputedStyle(b).fontWeight), '700', 'Send again has live ink');
+    assert.equal(await page.locator('#end-turn').evaluate(b => getComputedStyle(b).borderBottomWidth), '2px', 'Send again has an outline');
     assert.equal(await undoOff(), 'true');
     assert.equal(new URL(await page.evaluate(() => window.sent[0])).searchParams.get('moves'), 'e2-e4_e7-e5');
     await endTurn(page);

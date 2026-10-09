@@ -62,3 +62,13 @@ The start is `a251ccbdb2f6f6118745f9e7d953f9cb04d7af88`, an ancestor of W2.
 Merge `050315c9eff7665f76ce61f5f948b812eeb44676` has no conflicts.
 Its tree is the same as W2. The builder's full run above stands under the owner's rule.
 The push hook must pass before the branch goes to origin.
+
+## Batch 2 UX fixes
+
+Decision: decided by delegation (2026-10-09).
+Task and success words fit all four sizes. Moves wrap. The board and bar stay fixed.
+Live buttons have icons and bold ink. Lesson marks have shapes and text.
+Review uses the Moves numbers. Motion Off hides its note.
+Landscape squares are 41.77 px. W2 adds computer rest and thinking states.
+`npm test`: 83 files pass; 1514 tests pass, 13 skip; 50 scene tests pass.
+All eight required browser checks pass. W2 has 68 inspected renders and no faults.

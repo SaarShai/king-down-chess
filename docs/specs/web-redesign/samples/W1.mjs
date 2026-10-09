@@ -1,6 +1,6 @@
 // W1: turn states, lesson Show me and the two link labels.
 import { endTurn, pressMenu } from '../../../../tools/app-ui.mjs';
-const controls = '#panel .actions button:not([hidden])';
+const controls = '#table-bar > button:not([hidden])';
 const save = { back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', sound: false, skill: 'club' };
 const ready = page => page.waitForFunction(() => document.getElementById('end-turn').getAttribute('aria-disabled') === 'false');
 export default {

@@ -51,6 +51,7 @@ Blocked by: 01, 02a
 
 ## Comments
 
+
 One press hands over the turn. Undo takes back one staged ply and stops at the press.
 Fix both review findings: choice handlers precede the control refresh; the word test reads real turn lines.
 Cuts: no staged save field, pulse, four-second line, auto mode, new key scope or search before the press.
@@ -59,3 +60,9 @@ M1: all 14 named checks pass; turn and link-game pass twice; plugin-ui passes. N
 Plugin page: 4,291,968 bytes (base 4,291,869; +99). The default words stay.
 Sample W1: 14 renders, no fault; phone sheet 2240 px, desktop sheet 2380 px. Both sheets are checked.
 The owner's yes on the sample waits. Renders stay in the build scratch folder, outside Git.
+
+Batch 2: decided by delegation (2026-10-09).
+Pointer turns keep board focus without a cursor mark. Keyboard turns show the mark.
+The bar has at least 8 px of space below its buttons.
+The turn check tests both inputs. All eight required browser checks pass.
+`npm test`: 1514 tests and 50 scene tests pass. W1 has 14 inspected renders and no faults.

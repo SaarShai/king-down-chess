@@ -1,4 +1,4 @@
-// The fixed table at the three W2 sizes, through real board input.
+// The fixed table at the four W2 sizes, through real board input.
 import assert from 'node:assert/strict';
 import { contextWordsInView, endTurn, openMoves, pressMenu } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
@@ -6,7 +6,7 @@ const browser = await launch();
 const visibleWords = async (page, words) => assert.ok(await contextWordsInView(page, words), `the drawn context shows ${words}`);
 const FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1';
 try {
-  for (const [width, height, touch] of [[390, 844, true], [844, 390, true], [1440, 900, false]]) {
+  for (const [width, height, touch] of [[320, 568, true], [390, 844, true], [844, 390, true], [1440, 900, false]]) {
     const context = await browser.newContext({ viewport: { width, height }, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce' });
     await context.addInitScript(fen => {
       sessionStorage.setItem('kingdown.title-seen', '1');
@@ -32,6 +32,7 @@ try {
     assert.equal(await page.locator('#moves [data-ply] .pi').count(), 1);
     await page.locator('#moves [data-ply="1"]').click();
     assert.equal(await page.locator('#back-to-game').isVisible(), true, 'the last row stays in Review');
+    assert.equal(await page.locator('#context-text > span').first().innerText(), 'Review. Move 1, White.', 'Review uses the Moves list number and side');
     await page.click('#back-to-game');
     await endTurn(page); await tap(52); await tap(36); await endTurn(page);
     await openMoves(page); await page.locator('#moves [data-ply="1"]').click();
@@ -51,10 +52,21 @@ try {
     console.log(`ok game-screen ${width}×${height}: fixed board and bar, targets, Moves, check, no sideways scroll`);
     await pressMenu(page, 'Guide'); await page.click('#learn');
     await visibleWords(page, 'marked enemy pawn');
+    assert.ok((await page.locator('#context-text > span').first().innerText()).split(/\s+/).length <= 8, 'the first lesson sentence has at most eight words');
+    assert.equal(await page.locator('#lesson-progress .now').first().getAttribute('aria-label'), 'Lesson 1 of 6 current', 'lesson progress names its current state');
+    assert.ok(await page.evaluate(() => [...document.querySelectorAll('#context-text > span')].every(row => row.scrollHeight <= row.clientHeight + 1)), 'the whole lesson task fits');
     await tap(27); await tap(36);
     await page.waitForFunction(() => document.getElementById('context-text').textContent.includes('Well done.'));
     await visibleWords(page, 'Well done.');
     await visibleWords(page, 'An archer never captures');
+    await visibleWords(page, 'also over other pieces.');
+    assert.equal(await page.locator('#lesson-progress .done').first().getAttribute('aria-label'), 'Lesson 1 of 6 done', 'lesson progress names its done state');
+    assert.ok(await page.evaluate(() => document.getElementById('context-text').getBoundingClientRect().bottom <= document.getElementById('moves-line').getBoundingClientRect().top), 'the lesson words do not cover Moves');
+    if (width === 844) {
+      const tile = await page.evaluate(() => window.view.screenOf(1).x - window.view.screenOf(0).x);
+      assert.ok(tile >= 40, `landscape squares: ${tile.toFixed(2)} px`);
+      console.log(`ok landscape square ${tile.toFixed(2)} px`);
+    }
     await minTarget(page, '#next-lesson, #return-game');
     await context.close();
   }

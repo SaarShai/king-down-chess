@@ -20,11 +20,11 @@ interface Controls {
   next(): void;
   link(lans: string[]): string;
   notice(line: string): void;
-  focusBoard(): void;
+  focusBoard(keyboard: boolean): void;
 }
 
 export function connectTurnPress(button: HTMLButtonElement, board: HTMLElement, c: Controls): void {
-  button.onclick = async () => {
+  button.onclick = async event => {
     const game = c.game(), turn = c.turn(), mode = c.mode();
     if (!turnButton(game, turn, mode, { linkSide: c.linkSide(), over: c.ended(), open: c.blocked() }).on || c.blocked()) return;
     const generation = c.generation(), pass = pressPass(game, turn);
@@ -58,7 +58,7 @@ export function connectTurnPress(button: HTMLButtonElement, board: HTMLElement, 
     c.save();
     c.refresh();
     board.focus({ preventScroll: true });
-    c.focusBoard();
+    c.focusBoard(event.detail === 0);
     c.next();
   };
 }

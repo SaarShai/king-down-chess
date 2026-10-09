@@ -151,7 +151,7 @@ connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
   handOver: () => { turnStart = handOver(game); selected = null; pending = []; },
   refresh, save, next: () => { if (ended()) showOver(); else void maybeAi(); },
   link: gameLink, notice: line => { notice = line; },
-  focusBoard: () => { cursor = homeSquare(); sayCursor(); drawMarks(); },
+  focusBoard: keyboard => { cursor = keyboard ? homeSquare() : null; sayCursor(); drawMarks(); },
 });
 
 /** Player-facing columns for one piece under the live `GAME_RULES` (and `POOL`). */
@@ -504,20 +504,12 @@ function refresh(): void {
   $('share').hidden = sides[0] !== 'human' || sides[1] !== 'human' || game.history.length === 0 || lesson != null || linkSide != null || currentTurn().staged > 0;
   $('next-lesson').hidden = lesson == null || !lessonDone;
   $('return-game').hidden = lesson == null;
-  $('next-lesson').textContent = lesson != null && lesson + 1 < LESSONS.length ? `Next lesson: ${LESSONS[lesson + 1].name}` : 'Start a game';
+  $('next-lesson').querySelector('.label')!.textContent = lesson != null && lesson + 1 < LESSONS.length ? `Next lesson: ${LESSONS[lesson + 1].name}` : 'Start a game';
   $('show-me').hidden = lesson == null || lessonDone;
-  $<HTMLButtonElement>('show-me').disabled = finished() || busy || viewing != null || !myTurn();
-  const progress = $('lesson-progress');
-  progress.hidden = lesson == null;
-  document.body.classList.toggle('in-lesson', lesson != null);
-  if (lesson != null) {
-    // Each lesson as the icon of the piece it teaches (a lesson is named after its piece).
-    const taught = (name: string) => NAMES.indexOf(name.toLowerCase() as typeof NAMES[number]) as PieceType;
-    progress.innerHTML = LESSONS.map((l, i) => `<span class="${i < lesson! || (i === lesson && lessonDone) ? 'done' : i === lesson ? 'now' : ''}" title="${l.name}">${pieceIcon(taught(l.name))}</span>`).join('');
-  }
+  $('show-me').setAttribute('aria-disabled', String(finished() || busy || viewing != null || !myTurn()));
   refreshPowers();
   drawMarks();
-  refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode() });
+  refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode() });
 }
 
 /** The power control arms the side to move's power. */
@@ -905,7 +897,7 @@ function restoreMoments(): void {
 $('stop-chain').onclick = () => { const m = candidates().find(m => clickPath(m).length === pending.length); if (m) void commit(m); };
 
 $('show-me').onclick = async () => {
-  if (lesson == null || busy || finished() || !myTurn()) return;
+  if (lesson == null || busy || viewing != null || finished() || !myTurn()) return;
   const tag = armedTag(), l = lesson == null ? null : LESSONS[lesson], pos = game.pos;
   const rootMoves = hintMoves(game.legal, tag, l ? m => l.goal(pos, m) : undefined, $<HTMLInputElement>('queen').checked);
   if (!rootMoves.length) { notice = 'No goal move is available.'; return refresh(); }

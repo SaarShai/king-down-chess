@@ -32,7 +32,7 @@
     <main id="game-table" aria-label="Game">
       <div id="board" tabindex="0" role="application" aria-roledescription="chess board" aria-label="Board. Arrow keys move the square cursor; Enter or Space selects and moves." aria-describedby="cursor-say"></div>
       <div class="table-side">
-        <div id="strip-them" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span><div id="lesson-progress" hidden aria-hidden="true"></div></div>
+        <div id="strip-them" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span><div id="lesson-progress" hidden role="group" aria-label="Lesson progress"></div></div>
         <div class="table-space"></div>
         <div id="strip-me" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span>
           <div id="powers" hidden><div class="btns"><button id="power-btn" type="button"></button></div></div>
@@ -48,19 +48,19 @@
         <nav id="table-bar" aria-label="Game controls">
           <button id="undo" title="Take back the last move (Z)"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
           <button id="end-turn" type="button" aria-disabled="true">End turn</button>
-          <button id="return-game" hidden>Return to game</button>
-          <button id="show-me" hidden>Show me</button>
-          <button id="next-lesson" hidden></button>
+          <button id="return-game" hidden><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Return to game</span></button>
+          <button id="show-me" hidden><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg><span class="label">Show me</span></button>
+          <button id="next-lesson" hidden><svg class="icon" aria-hidden="true"><use href="#i-continue"/></svg><span class="label"></span></button>
           <button id="menu-btn" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Menu</span></button>
         </nav>
       </div>
       <div id="table-sources" hidden><div id="turn"></div><div id="status"></div><div id="asset-status">Loading pieces…</div><div id="move-help"></div><div id="moment"></div><div id="power-status"></div><div id="hover"></div></div>
     </main>
     <dialog id="sheet-moves" aria-labelledby="moves-title">
-      <header class="sheet-head"><h2 id="moves-title">Moves</h2><form method="dialog"><button aria-label="Close Moves">×</button></form></header>
-      <ol id="moves" aria-label="Moves. Each move opens the board after it."></ol>
+      <header class="sheet-head"><h2 id="moves-title">Moves</h2><form method="dialog"><button aria-label="Close">×</button></form></header>
+      <div class="sheet-body"><ol id="moves" aria-label="Moves. Each move opens the board after it."></ol>
       <div class="taken"><b>White took</b><span id="took-w"></span></div>
-      <div class="taken"><b>Black took</b><span id="took-b"></span></div>
+      <div class="taken"><b>Black took</b><span id="took-b"></span></div></div>
     </dialog>
     <!-- Screen readers: every move by either side, and the keyboard cursor's square. -->
     <div id="announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
@@ -107,7 +107,7 @@
     <dialog id="new-game" aria-labelledby="new-game-title">
       <header class="new-game-head">
         <h2 id="new-game-title" tabindex="-1" autofocus>New game</h2>
-        <form method="dialog"><button value="cancel" aria-label="Close New game">×</button></form>
+        <form method="dialog"><button value="cancel" aria-label="Close">×</button></form>
       </header>
       <div class="new-game-body">
         <fieldset class="modes" id="modes">
@@ -132,7 +132,7 @@
           </div>
         </fieldset>
         <p id="level-line"></p>
-        <label class="check" id="two-powers-row" hidden><input type="checkbox" id="two-powers" /><span>Kings' powers <small>Each king brings one power.</small></span></label>
+        <label class="check" id="two-powers-row" hidden><input type="checkbox" id="two-powers" /><span>Play with kings' powers <small>Each king brings one power.</small></span></label>
         <div id="king-picker" hidden>
           <div class="king-pick" id="pick-0"></div>
           <div class="king-pick" id="pick-1"></div>
@@ -179,7 +179,8 @@
       </footer>
     </dialog>
     <dialog id="menu-sheet" aria-labelledby="menu-title">
-      <header class="sheet-head"><button id="menu-back" aria-label="Back to Menu" hidden>‹</button><h2 id="menu-title" tabindex="-1">Menu</h2><button id="menu-close" aria-label="Close Menu">×</button></header>
+      <header class="sheet-head"><button id="menu-back" aria-label="Back to Menu" hidden>‹ Menu</button><h2 id="menu-title" tabindex="-1">Menu</h2><button id="menu-close" aria-label="Close">×</button></header>
+      <div class="sheet-body">
       <section data-menu-page="menu">
         <button class="menu-row" data-go="new">New game <span>Play again, or change setup.</span><i>›</i></button>
         <button id="rules-btn" class="menu-row">Guide <span>Pieces, powers and lessons.</span><i>›</i></button>
@@ -205,11 +206,12 @@
         <button class="menu-row" data-go="account">Account<i>›</i></button>
         <label>Look <select id="look"><option value="painted">Painted</option><option value="clay">Clay</option></select></label>
         <button id="reset-view">Reset view (R)</button>
-        <h3>Coming</h3><p class="coming-row"><b>Card mode</b><br>A hand of power cards.</p>
+        <h3>Coming</h3><p class="coming-row">Card mode: power coins by the king.</p>
       </section>
       <section data-menu-page="game" hidden><div class="row">Army <code id="setup"></code></div><button id="copy" title="Copy the move list as LAN">Copy moves</button></section>
       <section data-menu-page="account" hidden><section id="account" aria-labelledby="account-title" hidden><h3 id="account-title">Account</h3><div id="account-body" class="fields"></div><p id="account-note" role="status" aria-live="polite"></p></section></section>
       <section data-menu-page="resign" hidden><h3>Lay your king down?</h3><p id="resign-detail"></p><button id="resign-confirm" class="primary">Resign</button><button data-go="menu">Keep playing</button></section>
+      </div>
     </dialog>
     <dialog id="delete-account" aria-labelledby="delete-account-title" aria-describedby="delete-account-detail">
       <h2 id="delete-account-title" tabindex="-1" autofocus>Delete your account?</h2>
