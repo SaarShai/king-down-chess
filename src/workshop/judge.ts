@@ -46,7 +46,7 @@ export interface Verdict {
   warn: boolean;
   /** At most 90 characters. */
   line: string;
-  /** An unchanged Pawn or Queen: it keeps its own words in every view (bandOf, shelfOf, whyTitle). */
+  /** An unchanged Pawn or Queen: it keeps its own words in every view (bandOf, whyTitle). */
   own: '' | 'pawn' | 'queen';
   /** A hard limit (§4.9) the design breaks, or ''. */
   blocked: string;
@@ -174,11 +174,8 @@ export function labelOf(point: number, lo: number, hi: number, half: number): La
 export const metalOf = (w: number): Metal => w >= THRESHOLDS.queen ? 'broken' : w > THRESHOLDS.op ? 'cracked' : w > THRESHOLDS.hairline ? 'hairline'
   : w >= THRESHOLDS.gold ? 'gold' : w >= THRESHOLDS.silver ? 'silver' : w >= THRESHOLDS.weak ? 'bronze' : 'stone';
 export const BAND_WORD: Record<Label, string> = { fair: 'Fair', possiblyOP: 'Possibly overpowered', likelyOP: 'Likely overpowered', untestedOP: 'Possibly overpowered', possiblyWeak: 'Possibly too weak', likelyWeak: 'Likely too weak' };
-/** The shelf's one word (W1). */
-export const SHELF_WORD: Record<Label, string> = { fair: 'Fair', possiblyOP: 'Strong?', likelyOP: 'Strong?', untestedOP: 'Strong?', possiblyWeak: 'Weak?', likelyWeak: 'Weak?' };
-/** The label in words, the same on the stage, the gauge, the card and in Why?; a Pawn and a Queen keep their own. */
+/** The label in words, the same on the stage, the gauge, the card, the shelf and in Why?; a Pawn and a Queen keep their own. */
 export const bandOf = (v: Pick<Verdict, 'own' | 'label'>): string => (v.own === 'pawn' ? 'The unit of worth' : v.own === 'queen' ? 'The queen’s worth' : BAND_WORD[v.label]);
-export const shelfOf = (v: Pick<Verdict, 'own' | 'label'>): string => (v.own ? 'Standard' : SHELF_WORD[v.label]);
 /** The title of the Why? sheet, from the editor and from SAVED alike. */
 export const whyTitle = (v: Pick<Verdict, 'own' | 'label' | 'warn'>): string => (v.own ? 'Why this worth?'
   : v.label !== 'fair' ? `Why “${BAND_WORD[v.label].toLowerCase()}”?` : v.warn ? 'Why this warning?' : 'Why “fair”?');
