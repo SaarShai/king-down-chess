@@ -1,44 +1,49 @@
 # 21 · Link games: Previously
 
-Status: in-progress (phase 2 build)
-Blocked by: 02c, 11 (`storyLine`), 14 (the end)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
+Blocked by: none
 
 ## Scope
 
-- Owner choice: Online play A, Previously: the friend's move plays once, with one line and See again. Part 1 (the press sends the link) is in ticket 02c.
-- Demo: `future-online` option A (`online.js` 255–302; renders `previously-*`). Advisors: show calm, separate states.
-- Files: `src/main.ts` (the link open, start-up order, `showPly`, the open-link question; call lines only); a pure helper for the friend's last turn and its test; `src/move-text.ts` (`storyLine` from ticket 11); `index.html`; `src/style.css`; new `tools/verify-link-game.mjs`; `tools/verify-painted-game.mjs` (the link flow); `tools/ux-defects/d9-copy-feedback.mjs`.
+- Owner choice: Online play A, Previously. The friend's move plays once, with one line and See again.
+- Follow [the fast plan](../fast-plan.md#21--previously--simplify-w11). Use `describeMove` for both move lines.
+- Keep the link question and error alerts. W1 holds the send words; W2 holds the context line.
 
 ## Plan
 
-1. [ ] A pure helper finds the friend's last turn in an opened link: the plies at the end by the side that is not this device's side (a Haste, a free mark and a move, Rage and Rally play whole).
-2. [ ] When a link brings new plies: draw the board before the friend's turn; after any open-link question and when the board is ready, wait 300 ms, then play those plies once with their sounds, under the same guards as review.
-3. [ ] The context line (rank 14 of spec §4.9): "Previously" with the friend's turn in one sentence ("Their archer shot your knight."), your last move above it in a quiet line, and See again (plays the turn once more; the board takes no move during it).
-4. [ ] Motion Off and reduced motion: no replay, the same line, no See again. The first link (no move of yours yet): only the friend's line. A link that cannot be read in full: no replay; the error line in the context line, in place of `alert()`.
-5. [ ] A link that ends the game: the friend's last turn plays once (Previously), then the end of ticket 14 (a loss ends quietly, D8). A link with a resignation (D16) opens as ended, with the line "Your friend laid their king down."
-6. [ ] The open-link sheet replaces the browser `confirm()` when a link would replace a different saved game. It names both games and asks once.
-7. [ ] The states of a link turn use the words of [spec §4.9](../spec.md#49-the-context-line): ready, sent, copied, and a failed send. Add no other state words.
-8. [ ] A reload after the open does not replay (the link leaves the address, as today).
+1. [x] Find the friend's last turn from the side before each ply. Keep Haste, a free mark and move, Rage, and Rally whole.
+2. [x] Draw the board before the friend's turn. After the link question and board load, wait 300 ms and play the turn once with its sounds. Stop on a game or review change.
+3. [x] Show Previously with the friend's move line, your last move above it, and See again. During replay, the board takes no move.
+4. [x] With Motion Off or reduced motion, show the same line without replay or See again. A first link has no prior move line. An incomplete link does not replay.
+8. [x] A reload does not replay; the link leaves the address.
 
 ## Verification
 
-- [ ] Unit test of the helper: a plain move; a Haste turn; a free mark and a move; Rage; Rally; the first link.
-- [ ] New check `link-game`: open a friend's link: the turn plays once, the line shows, See again replays, Undo cannot take back the friend's ply; with Motion Off the line shows with no replay; a link that ends the game plays the final turn once, then the quiet end; a resignation link opens as ended; a link over a different saved game asks in the sheet, with no `confirm()`.
-- [ ] `painted-game`, `ux-defects`, `npm test` and `npm run check:browser` pass.
-- [ ] Rendered sample: one phone video of an opened link; stills at 390×844 and 1440×900 of Previously, of a final link and of the open-link sheet. The owner's yes, with the date, in Comments.
+- [x] Pure tests cover a plain move, Haste, a free mark and move, a free pass, Rage, Rally, the first link, and motion rules.
+- [x] Context tests cover rank, both lines, and the replay action.
+- [x] The three `link-game` cases cover play once, See again, and the Undo limit. They also check Motion Off, refresh, and reload. The W1 link checks still run.
+- [x] Typecheck, the full unit tests, and the named browser checks pass. The new check passes twice.
+- [x] One Previously still is captured at phone 390×844 and desktop 1440×900. Both contact sheets pass the review.
+- [ ] The owner's yes on the sample.
 
 ## Risks
 
-- The account can replace the game during the replay; the replay stops on any game change.
-- Two devices on different app versions: the link carries the preset and the kings, not the full rules.
+- A game change can stop the replay. Replay reads history and does not change it.
+- A link carries the army and kings, not the full rules.
 
 ## Does not do
 
-- No live play, no Online, Away or Reconnecting states, no four words, no invite before the first move, no chat preview picture.
+- No open-link sheet, resignation line, alert change, new send words, or video.
+- No live play, chat, or invite before the first move.
 
 ## Comments
 
-Phase 2 plan: wire the link open and the context line; add See again.
-Checks: pure context tests, then the three link cases on the M1.
-Finish: merge the next integration head, run unit and named checks, then inspect both sample sheets.
-Keep `describeMove`, whole-turn replay, Motion Off, and the current link question.
+Previously uses the real move animation and sounds; See again keeps the same history.
+The fast plan cuts the sheet, resignation line, alert change, send words, and video.
+Typecheck passes. Unit tests: 1545 pass; 13 skip. Motion tests: 50 pass.
+Browser checks pass: link-game, painted-game, ux-defects, game-screen, their-turn.
+The new link-game check passes twice; existing W1 link checks remain.
+The defect check waits for replay to end before board input.
+The supplied M1 script selects this Mac after its M1 window closes.
+Both sample sheets are inspected; the sample waits for the owner's yes.
+Merge d9ede53 keeps conflict notes after its credit line; history stays intact.
