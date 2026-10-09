@@ -35,6 +35,9 @@ interface Evidence {
 const escape = (s: unknown) => String(s ?? 'unknown').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 const number = (n: number | null) => n === null ? 'unknown' : Number(n.toFixed(4)).toString();
 const evidenceId = (id: string) => `evidence:${id}`;
+// Tracker lines move. Cite their reviewed heading instead of a line number.
+const isTracker = (path: string) => /(?:^|\/)(?:TASKS|LESSONS|QUEUE|HANDOFF[^/]*)\.md$/.test(path);
+const sourceLocation = (s: Source) => s.path ? `${s.path}${isTracker(s.path) ? s.section ? ` § ${s.section.replace(/^#+\s*/, '')}` : '' : s.line ? `:${s.line}` : ''}` : s.id;
 
 function canonicalMeasurement(row: ReportMeasurement, sources: Source[]): Measurement {
   const percent = /percent|points/.test(row.unit);
@@ -49,7 +52,7 @@ function canonicalMeasurement(row: ReportMeasurement, sources: Source[]): Measur
     error, errorKind: interval ? `source ${interval.level * 100}% interval; asymmetric limits remain in evidence.json; calibration error may be separate` : null,
     sample: row.n, sampleUnit: /games/.test(row.nUnit ?? '') ? 'games' : /pairs/.test(row.nUnit ?? '') ? 'pairs' : 'unknown', unit: percent ? (/points/.test(row.unit) ? 'fraction difference' : 'fraction') : row.unit,
     validity: 'unverified', reasons: ['Report evidence has a stated context. It does not certify the full target rules.', row.context],
-    sources: row.sourceIds.map(id => { const s = sources.find(s => s.id === id); return s?.path ? `${s.path}${s.line ? `:${s.line}` : ''}` : id; }),
+    sources: row.sourceIds.map(id => { const s = sources.find(s => s.id === id); return s ? sourceLocation(s) : id; }),
     method: `cited report: ${row.metric}; an alternative view of this run, never an independent sample`,
     ...(row.bound ? { bound: row.bound.operator === '<' ? 'lessThan' as const : 'greaterThan' as const } : {}),
     ...(row.calibration ? { calibration: { eloPerPawn: row.calibration.eloPerPawn, relativeError: row.calibration.relativeError } } : {}),
@@ -133,7 +136,8 @@ export function buildFramework(root: string, dataset: BalanceDataset, workbook: 
   const testedVersions = measuredVersions(dataset.measurements);
   const sourceLink = (id: string) => {
     const s = evidence.sources.find(s => s.id === id);
-    return s?.path ? `[${id}](${s.path.startsWith('docs/') ? '../' + s.path.slice(5) : '../../' + s.path}${s.line ? `#L${s.line}` : ''})` : escape(id);
+    const anchor = s?.path && isTracker(s.path) ? s.section ? '#' + s.section.replace(/^#+\s*/, '').toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-') : '' : s?.line ? `#L${s.line}` : '';
+    return s?.path ? `[${id}](${s.path.startsWith('docs/') ? '../' + s.path.slice(5) : '../../' + s.path}${anchor})` : escape(id);
   };
   const resultLink = (id: string) => `[${escape(id)}](#${id.replace(/[^a-z0-9-]/gi, '-').toLowerCase()})`;
   const text = [

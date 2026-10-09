@@ -110,22 +110,19 @@
     {
       "id": "queue",
       "path": "docs/QUEUE.md",
-      "line": 54,
-      "section": "## Piece-balance queue",
+      "section": "Piece-balance queue (2026-09-17, new focus: fairy pieces only)",
       "note": null
     },
     {
       "id": "queue-k18",
       "path": "docs/QUEUE.md",
-      "line": 267,
-      "section": "## Ran 2026-10-05: K18",
+      "section": "Ran 2026-10-05: K18, the released set on fresh armies",
       "note": null
     },
     {
       "id": "queue-latest",
       "path": "docs/QUEUE.md",
-      "line": 300,
-      "section": "| haste-from10 |",
+      "section": "Running and queued, 2026-10-06",
       "note": null
     },
     {
@@ -271,8 +268,7 @@
     {
       "id": "queue-four-card-approval",
       "path": "docs/QUEUE.md",
-      "line": 333,
-      "section": "| deal-c4k |",
+      "section": "Running and queued, 2026-10-06",
       "note": "Current main source at 7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     },
     {

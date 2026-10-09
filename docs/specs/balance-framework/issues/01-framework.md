@@ -34,7 +34,7 @@ Later waves have at most five notebooks. No simulation, notebook, or remote job 
 
 - The full build command completes on the current source. A second full rebuild gives the same
   bytes for all five output files. The measurement file SHA256 is
-  `d33f0d66beb5e7ed7cf53cdd3b1ad87a24aa461fd8a765f78e9cff2523350886`.
+  `378df8237a0dac09bd88788749b364530290de6b676c6cb34a6e16828baa1ec6`.
 - Two CLI rebuilds of the same fixed fixture give the same bytes for all five output files.
 - Parser tests also repeat the raw build. Report tests check repeated writes and evidence IDs.
 - `npm run typecheck` passes. `npm run test:docs` passes all 74 tests.
@@ -51,3 +51,6 @@ The review keeps historical contexts separate, preserves reported error limits, 
 false claims about rules that now ship. The launch proposals use one first shard because the
 launcher interprets `--first` as a suffix of the shard list. A test guards the wave limit.
 The framework uses the existing dependencies. It does not fit one regression across mixed runs.
+
+The tracked-file check rejects tracker line citations. The generator now cites their reviewed
+headings. A regression assertion checks the generated queue source reference.

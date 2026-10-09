@@ -22,6 +22,7 @@ it('builds the real source report without mixing versions or treating a blank de
     expect(status.statuses.some((s: Record<string, string>) => s.element === 'MorphP' && s.criterion === 'card-worth')).toBe(true);
     expect(dataset.measurements.find(m => m.id === 'evidence:cards-d1-Rally-worth')).toMatchObject({ sample: 600, sampleUnit: 'games', calibration: { relativeError: 0.25 } });
     expect(readFileSync(join(output, 'FRAMEWORK.md'), 'utf8')).toContain('queue-four-card-approval');
+    expect(dataset.measurements.find(m => m.id === 'evidence:far2-noadj-worth')?.sources).toContain('docs/QUEUE.md § Running and queued, 2026-10-06');
     const files = ['FRAMEWORK.md', 'status.json', 'workbook.json'];
     const before = files.map(file => readFileSync(join(output, file), 'utf8'));
     const ids = dataset.measurements.map(row => row.id);
