@@ -1,6 +1,6 @@
 # 17 · Home is the table
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
 Blocked by: 03, 05, 06 (the warn line), 11 (`storyLine`)
 
 ## Scope
@@ -11,20 +11,21 @@ Blocked by: 03, 05, 06 (the warn line), 11 (`storyLine`)
 
 ## Plan
 
-1. [ ] When a save exists and the title would show (once for each tab, with the same `kingdown.title-seen` key and `?title=0`), Home shows on the game screen in place of the title.
-2. [ ] Home: a top bar (the wordmark, the Menu icon); a line "vs Computer · Club" ("White vs Black" on one device; "vs your friend" in a link game) and "Move N" or "Finished"; the real board with the saved position; the last move in one sentence (`storyLine`, ticket 11); one crimson button; a quiet "New game"; one Today line ("Today's army · Thu 8 Oct", eight piece icons, a chevron).
-3. [ ] The crimson button: Continue, with "Your move", "Their move" or "Your turn is ready". A staged end is not finished (`ended()` is false): Continue with "Your turn is ready". For an ended game: the result, Rematch with a line that says what it keeps ("Same army. You play Black."), and a second button "Review last game". For a game with no moves: Continue with "A new game. You play White."
-4. [ ] On open, the last turn plays once (the whole turn for a Haste, Rage or Rally turn). A tap skips it. Motion Off shows the still board.
-5. [ ] A tap on the board equals Continue (and selects a tapped piece of yours). Continue folds the Home parts away in about 120 ms and the game bar comes in; the board does not move. The computer waits for Continue, as it waits behind the title today.
-6. [ ] "New game" opens the New game sheet with its warn line. The Today line opens the sheet with Today's army chosen.
-7. [ ] A newer save from the account while Home shows refreshes Home. A finished save opens no result dialog at start-up.
-8. [ ] A game link, `?fen=`, `?army=` and `?design=` never show Home.
+1. [x] When a save exists and the title would show (once for each tab, with the same `kingdown.title-seen` key and `?title=0`), Home shows on the game screen in place of the title.
+2. [x] Home: a top bar (the wordmark, the Menu icon); a line "vs Computer · Club" ("White vs Black" on one device; "vs your friend" in a link game) and "Move N" or "Finished"; the real board with the saved position; the last move in one sentence (`describeMove`); one crimson button; a quiet "New game"; one Today line ("Today's army · Thu 8 Oct", eight piece icons, a chevron).
+3. [x] The crimson button: Continue, with "Your move", "Their move" or "Your turn is ready". A staged end is not finished (`ended()` is false): Continue with "Your turn is ready". For an ended game: the result, Rematch with a line that says what it keeps ("Same army. You play Black."), and a second button "Review last game". For a game with no moves: Continue with "A new game. You play White."
+4. Cut by the fast plan: no last-turn replay on open.
+5. [x] A tap on the board equals Continue (and selects a tapped piece of yours). Continue hides the Home parts at once and shows the game bar; the board does not move. The computer waits for Continue, as it waits behind the title today.
+6. [x] "New game" opens the New game sheet with its warn line. The Today line opens the sheet with Today's army chosen.
+7. [x] A newer save from the account while Home shows refreshes Home. A finished save opens no result dialog at start-up.
+8. [x] A game link, `?fen=`, `?army=` and `?design=` never show Home.
 
 ## Verification
 
-- [ ] New check `home`: with a save, Home shows the board, "Move N", the last-move line and Continue; the computer does not move before Continue; Continue keeps the board in place (0 px); a staged turn and a staged end show "Your turn is ready", and Continue keeps the staged plies and Undo; New game opens the sheet with the warn line; the Today line opens the sheet with Today's army; an ended save shows Rematch and no result dialog; a game link never shows Home.
-- [ ] The updated checks, `npm test` and `npm run check:browser` pass.
-- [ ] Rendered sample at the five layout sizes: Home with a game; Home with a staged turn; Home with a finished game; Home with no moves; after Continue. The owner's yes, with the date, in Comments.
+- [x] New check `home` (five cases): with a save, Home shows the board, "Move N", the last-move line and Continue; the computer does not move before Continue; Continue keeps the board in place (0 px); a staged turn and a staged end show "Your turn is ready", and Continue keeps the staged plies and Undo; New game opens the sheet with the warn line; the Today line opens the sheet with Today's army; an ended save shows Rematch and no result dialog; a game link never shows Home.
+- [x] The affected browser checks and `npm test` pass.
+- [x] The fast-plan sample has three states at 390×844 and 1440×900: a saved game, a staged turn and a finished game. Both contact sheets pass the review.
+- [ ] The owner says yes to the sample.
 
 ## Risks
 
@@ -36,9 +37,11 @@ Blocked by: 03, 05, 06 (the warn line), 11 (`storyLine`)
 - No six-kings Home (B), no Today sheet, no Home button in the game bar.
 
 ## Comments
-- W8 phase 1: test and build the pure Home state and last-move line. Use `describeMove`.
-- Check: saves, no moves, finished games, staged turns and links. Phase 2 adds W2 and W7 calls, the Home check and samples.
-- Phase 1 passes: `npm test` with the first-deal, Home and move-text files: 3 files, 15 tests. Typecheck passes. The temporary test script is restored.
-- Home reads the live game: Continue, staged turns, Rematch, review, player side, move number and the `describeMove` line. Links skip Home.
-- Phase 2 adds the Home view, Continue and board taps, Today, the W7 warn line, account refresh, the `home` check and samples. No replay or fold motion.
-- Phase 2 plan: add Home in the fixed table rows; reuse the live game, Menu and New game sheet. Verify five Home cases, affected title checks and six sample renders.
+- Home reads the live save in the fixed table rows. Continue and a board tap keep the board in place; the tap selects your piece.
+- The computer waits. Staged turns keep Continue and Undo. Ended games offer Rematch and Review. Account updates refresh Home; links skip it.
+- Home reuses Menu, the New game warn line and Today's army. The last move uses the app's `describeMove` words, including a free mark.
+- The fast plan cuts replay, fold motion and three sizes. Five check cases and three sample states remain. No Home button or Today sheet is added.
+- `npm test`: 87 files pass, 1 skips; 1,542 tests pass, 13 skip; all 50 art tests pass. Typecheck passes.
+- `home` passes twice (10.2 s, 7.6 s); `visual-design` 19.9 s, `account` 53.6 s, `king-effects` 99.5 s, `workshop` 64.4 s, `ux-defects` 69.1 s, `new-game` 13.1 s.
+- The supplied M1 launcher uses this Mac. The full test run uses two workers and 30 s deadlines; the test script returns to its original text.
+- `samples/W8.mjs` makes six renders with no fault. The review checks both contact sheets in the requested sample folder. The sample waits for the owner's yes.
