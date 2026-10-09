@@ -240,6 +240,26 @@ try {
   });
   assert.equal(skippedReset, false, 'a new game after a skip does not open the old result');
   console.log('ok Ceremony: each skip key, cancellation, stale game and Off');
+  const edgeFalls = await page.evaluate(() => {
+    const { view, fromFen, parseSq } = window.parts;
+    view.sync(fromFen('k6k/8/8/8/8/8/8/R6K w - - 0 1'));
+    view.scene.setLively({ moves: false, atmosphere: false, kings: false, pawns: false, idle: false });
+    return [false, true].map(flipped => {
+      view.flip(flipped);
+      const sq = parseSq(flipped ? 'a8' : 'h8');
+      view.setFallen(sq, false); window.step(16);
+      const web = view.canvas.toDataURL();
+      view.scene.setFallen(sq, false, 1.5); window.step(16);
+      const inward = view.canvas.toDataURL();
+      view.scene.setFallen(sq, false); window.step(16);
+      return { web, inward, legacy: view.canvas.toDataURL() };
+    });
+  });
+  for (const fall of edgeFalls) {
+    assert.equal(fall.web, fall.inward, 'the web king falls inward at the right edge in both orientations');
+    assert.notEqual(fall.web, fall.legacy, 'the default scene keeps its former fall direction');
+  }
+
   assertNoErrors();
 } catch (error) {
   if (page) assertNoErrors();

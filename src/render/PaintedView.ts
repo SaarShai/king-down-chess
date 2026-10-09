@@ -116,12 +116,17 @@ export class PaintedView implements BoardView {
     this.pos = pos;
     this.scene.setKings([kingDesign(0), kingDesign(1)]);
     this.scene.setPosition(pos);
-    this.scene.setFallen(this.fallen?.pos === pos ? this.fallen.sq : null, false);
+    const sq = this.fallen?.pos === pos ? this.fallen.sq : null;
+    this.scene.setFallen(sq, false, this.fallRotation(sq));
   }
 
   setFallen(sq: number | null, animate = true): void {
     this.fallen = sq == null || !this.pos ? null : { pos: this.pos, sq };
-    this.scene.setFallen(sq, animate && this.motion());
+    this.scene.setFallen(sq, animate && this.motion(), this.fallRotation(sq));
+  }
+
+  private fallRotation(sq: number | null): number {
+    return this.options.webInk && sq != null && this.scene.cell(sq).col === 7 ? 1.5 : -1.5;
   }
 
   async animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void> {

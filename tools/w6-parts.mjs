@@ -4,7 +4,7 @@ import { PaintedView } from '../src/render/PaintedView';
 import { fromFen } from '../src/rules/setup';
 import { makeMove, parseSq } from '../src/rules/engine';
 const board = document.getElementById('board');
-const view = new PaintedView(board, { floor: null });
+const view = new PaintedView(board, { floor: null, webInk: true });
 await view.ready();
 view.scene.setLively({ idle: false, kings: false, pawns: false });
 window.parts = { startCeremony, view, fromFen, makeMove, parseSq, board, moments: document.getElementById('moments') };

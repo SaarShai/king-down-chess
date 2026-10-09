@@ -610,7 +610,7 @@ function vortex(out,foot,phase,strength) {
   Object.assign(p,{ground:p.ground??p.foot,foot:{x:p.foot.x,y:p.foot.y-lift},lift});
  }
  // King Down: the beaten king topples backwards onto the board.
- if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq);u.pose={...u.pose,rotation:-1.5*ease((time-fallen.start)/FALL)};}
+ if(fallen&&poses.has(fallen.sq)){const u=poses.get(fallen.sq);u.pose={...u.pose,rotation:fallen.rotation*ease((time-fallen.start)/FALL)};}
  let shot=null,hit=null;const effects=[];
  if(animation){
   const a=animation,t=clamp((time-a.start)/a.speed,0,a.duration),actor=poses.get(a.move.from),victim=poses.get(a.move.swap?a.move.to:a.move.shove?.from??a.move.captures[0]);
@@ -948,7 +948,7 @@ function drawEncounter(a,t) {
   setLabels(on){labels=on;wake();},
   setReducedMotion(on){reducedMotion=on;},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. */
-  setFallen(sq,animate=true){fallen=sq==null?null:{sq,start:animate?performance.now():-Infinity};wake();},
+  setFallen(sq,animate=true,rotation=-1.5){fallen=sq==null?null:{sq,rotation,start:animate?performance.now():-Infinity};wake();},
   /** Backing pixels per board unit (1 = 960 px wide), so the board stays sharp on high-density screens. */
   setResolution(k){if(k===res)return;res=k;canvas.width=fxCanvas.width=Math.round(SIZE*k);canvas.height=fxCanvas.height=Math.round((SIZE+headroom)*k);ctx.setTransform(k,0,0,k,0,0);wake();},
   /**
