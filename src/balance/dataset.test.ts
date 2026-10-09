@@ -43,6 +43,35 @@ describe('all-history dataset', () => {
     expect(data.runs.some(r => r.run.includes('.shard'))).toBe(false);
     expect(data.sources.filter(s => s.source.includes('.shard')).map(s => s.duplicates)).toEqual([1, 1]);
   });
+  it('adds only a single consistent QUEUE machine and keeps source machines', async () => {
+    const queue = [
+      '| known-raw | Kaggle, 12 notebooks | test | 1 | done |',
+      '| known-raw | Kaggle, second source | test | 1 | done |',
+      '| known-report | M1, after the deal | test | 2 | done |',
+      '| known-mac | this Mac, 4 workers | test | 1 | done |',
+      '| spec-first | Kaggle | test | 1 | done |',
+      '| path-first | Kaggle | test | 1 | done |',
+      '| mixed-host | M1 and Kaggle | test | 1 | done |',
+      '| conflict-host | M1 | test | 1 | done |',
+      '| conflict-host | Kaggle | test | 1 | done |',
+      '| missing-host | M1 | test | 1 | done |',
+      '| missing-host | after the current run | test | 1 | done |',
+      '| column-only | manual host | compare Kaggle with M1 | 1 | done |',
+    ].join('\n');
+    const { root, out } = await fixture(queue);
+    for (const id of ['known-raw', 'known-mac', 'mixed-host', 'conflict-host', 'missing-host', 'column-only']) await raw(out, id, [game(0)]);
+    await raw(out, 'spec-first', [game(0)], { machine: 'Saved host' });
+    await raw(join(out, 'm1'), 'path-first', [game(0)]);
+    await writeFile(join(out, 'known-report.report.json'), JSON.stringify({ id: 'known-report', games: 2, overall: { score: .75, drawRate: .5, meanPlies: 20 } }));
+    const data = await buildDataset({ root, sources: [out] });
+    const machine = (run: string) => data.measurements.find(m => m.run === run)?.context.machine;
+    expect(machine('known-raw')).toBe('Kaggle');
+    expect(machine('known-report')).toBe('M1');
+    expect(machine('known-mac')).toBe('Mac');
+    expect(machine('spec-first')).toBe('Saved host');
+    expect(machine('path-first')).toBe('M1');
+    for (const id of ['mixed-host', 'conflict-host', 'missing-host', 'column-only']) expect(machine(id)).toBeNull();
+  });
   it('keeps changed source stamps in separate contexts', async () => {
     const { root, out } = await fixture();
     await raw(out, 'study', [game(0, 1, { rules: { guardStep: 1 }, rulesKey: 'one', src: 'old' }), game(1, 0, { rules: { guardStep: 2 }, rulesKey: 'two', src: 'new' })]);

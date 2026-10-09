@@ -154,6 +154,14 @@ function queueIndex(text: string): Map<string, string[]> {
   for (const id of ['pb-ab-base', 'cards-b1']) if (!map.has(id)) map.set(id, []);
   return map;
 }
+function queueMachine(rows: readonly string[]): string | null {
+  const machines = rows.map(row => {
+    const column = row.split('|')[2] ?? '';
+    const named = ['Kaggle', 'M1', 'Mac'].filter(machine => new RegExp(`\\b${machine}\\b`, 'i').test(column));
+    return named.length === 1 ? named[0] : null;
+  });
+  return machines.length && machines[0] !== null && machines.every(machine => machine === machines[0]) ? machines[0] : null;
+}
 export async function defaultSources(root: string): Promise<{ path: string; alias: string }[]> {
   let primary = join(root, 'sim/out');
   const marker = `${join('.claude', 'worktrees')}/`;
@@ -332,6 +340,7 @@ export async function buildDataset(options: DatasetOptions): Promise<BalanceData
     if (!runFiles.length) files.push({ path: '', id: `queue:${run}`, run, kind: 'missing', entry: { source: `queue:${run}`, run, kind: 'missing', status, reasons: ['No local source is present.'], bytes: 0, records: 0, accepted: 0, duplicates: 0, invalid: 0 } });
     if (pendingRuns.has(run) && !rows.length) measurements.push({ id: `${run}:pending`, run, element: 'run', version: null, context: unknownContext(), measure: 'whiteScore', value: null, error: null, errorKind: null, sample: null, sampleUnit: 'unknown', unit: 'fraction', validity: 'pending', reasons: ['QUEUE: no complete authorized source.'], sources: runFiles.map(f => f.id), method: 'queue index' });
   }
+  for (const row of measurements) if (row.context.machine === null) row.context.machine = queueMachine(queue.get(row.run) ?? []);
   return { schemaVersion: 1, measurements, sources: files.map(f => f.entry), runs, warnings };
 }
 
