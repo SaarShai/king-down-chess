@@ -50,3 +50,12 @@ Blocked by: 04, 10
 - Plugin page: 4,291,869 bytes before phase 1; 4,293,703 bytes now. Optional fields keep the default view.
 - `SAMPLE=W4`: 14 renders, 0 faults. Both contact sheets are inspected.
 - The sample waits for the owner's yes.
+
+## Board review fixes
+
+Decision: decided by delegation (2026-10-09).
+Bite digits use the body font at 12 CSS px, in the bottom-right corner.
+Four chosen bites stay readable at 375 px. The browser checks the drawn digits.
+The shove arrow stays inside its landing square. Its phone stroke is thicker.
+Optional W4 9 waits: a read sign must stay distinct from selection.
+W4: 30 inspected renders, 0 faults. Tests and all nine required checks pass.

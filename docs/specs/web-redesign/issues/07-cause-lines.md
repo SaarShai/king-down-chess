@@ -59,3 +59,12 @@ The start is `dd3d7f67f53dadae04ff55331d39e4c7e817e95c`, an ancestor of W5.
 Merge `e71df1f2aee23972cab2bc5977bea050a8f51a52` has no conflicts.
 Its tree is the same as W5. The builder's full run above stands under the owner's rule.
 The push hook must pass before the branch goes to origin.
+
+## Board review fixes
+
+Decision: decided by delegation (2026-10-09).
+Both check rings have a light halo. Edge contrast: painted 4.31:1; 3D 3.41:1.
+Phone cause lines use a 1.5 CSS px core and a 3.5 CSS px halo.
+The 3D halo draws after the board. A pixel check guards this order.
+Plugin defaults stay. Page size: 4,295,044 → 4,295,953 bytes.
+W5: 10 inspected renders, 0 faults. Tests and both plugin checks pass.

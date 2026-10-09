@@ -101,6 +101,25 @@ try {
       assert.ok(await page.evaluate(() => window.view.pieces.has(34) && window.view.pieces.has(43)));
       checks.push('Undo waits for the choice and keeps the turn that was handed over');
     }
+    await seed('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1');
+    const haloPixels = await page.evaluate(() => {
+      const view = window.view, halo = view.markers.children.find(m => m.material === view.checkHaloMat);
+      const canvas = document.createElement('canvas');
+      canvas.width = view.renderer.domElement.width; canvas.height = view.renderer.domElement.height;
+      const ctx = canvas.getContext('2d');
+      const lightPixels = () => {
+        view.composer.render(); ctx.drawImage(view.renderer.domElement, 0, 0);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let light = 0;
+        for (let i = 0; i < data.length; i += 4) if (data[i] > 200 && data[i + 1] > 190 && data[i + 2] > 160) light++;
+        return light;
+      };
+      const shown = lightPixels(); halo.visible = false;
+      const hidden = lightPixels(); halo.visible = true; view.composer.render();
+      return shown - hidden;
+    });
+    assert.ok(haloPixels > 20, `${mobile ? 'phone' : 'desktop'}: the check halo draws above the stone (${haloPixels} light pixels)`);
+    checks.push(`${mobile ? 'touch' : 'mouse'}: the 3D check halo is visible`);
     await page.close();
   }
   assertNoErrors();

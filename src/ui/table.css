@@ -103,3 +103,21 @@
 #table-bar > :is(#undo, #return-game) { grid-column: 1; grid-row: 1; }
 #table-bar > :is(#end-turn, #show-me, #next-lesson) { grid-column: 2; grid-row: 1; }
 #table-bar > #menu-btn { grid-column: 3; grid-row: 1; }
+
+/* Short phones give the board the height that the fixed rows leave. */
+@media (max-height: 640px) and (max-width: 899px) and (orientation: portrait) {
+  #game-table {
+    --strip-height: 44px; --context-height: 52px;
+    grid-template-rows: 44px minmax(0, max-content) 44px 52px 44px minmax(0, 1fr) calc(60px + max(8px, env(safe-area-inset-bottom)));
+  }
+  #game-table .player-strip { padding-block: 0; }
+  #game-table .portrait { width: 36px; height: 36px; }
+  #game-table .player-name b, #game-table .player-name small { display: inline; font-size: 14px; }
+  #game-table .player-name small { margin-left: 4px; }
+  #game-table .coin { width: 44px; height: 44px; }
+  #game-table .coin img { width: 32px; height: 32px; }
+  #context-line { height: 52px; padding-block: 3px; flex-wrap: nowrap; }
+  #context-text { -webkit-line-clamp: 2; overflow: hidden; }
+  #context-text > span + span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+  #moves-line { height: 44px; min-height: 44px; }
+}

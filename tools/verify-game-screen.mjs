@@ -1,5 +1,6 @@
 // The fixed table at the four W2 sizes, through real board input.
 import assert from 'node:assert/strict';
+import { recordBoardText, boardText } from './board-ink-check.mjs';
 import { usePower, startLesson, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
@@ -13,6 +14,7 @@ try {
       localStorage.setItem('kingdown.save', JSON.stringify({ fen, back: 'RNBQKBNR', moves: [], white: 'human', black: 'human', pace: 'off', sound: false }));
     }, FEN);
     const page = await context.newPage(); trapErrors(page);
+    await recordBoardText(page);
     await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
     const boxes = () => page.evaluate(() => ['board', 'undo', 'menu-btn', 'end-turn'].filter(id => document.getElementById(id)).map(id => ({ id, ...document.getElementById(id).getBoundingClientRect().toJSON() })));
     const rest = await boxes();
@@ -26,6 +28,16 @@ try {
       assert.ok(layout.strips.every(strip => strip.right <= layout.board.left || strip.left >= layout.board.right || strip.bottom <= layout.board.top || strip.top >= layout.board.bottom), `${width}×${height}: both player strips clear the board at ${state}: ${JSON.stringify(layout)}`);
     };
     await stripsClear('rest');
+    if (width === 320) {
+      const canvas = await page.locator('#board canvas').boundingBox();
+      assert.ok(canvas.width >= 290, `short phone board: ${canvas.width.toFixed(2)} px`);
+      assert.equal(restRows.find(row => row.id === 'moves-line').height, 44);
+    }
+    if (width === 320 || width === 390) {
+      const file = await boardText(page, 'a'), rank = await boardText(page, '8');
+      assert.ok(file.size >= 11.99 && rank.size >= 11.99, 'board labels draw at 12 CSS px');
+      assert.ok(file.bottom <= file.height - 1, 'file letters clear the canvas edge');
+    }
     const same = async state => assert.deepEqual(await boxes(), rest, `${width}×${height}: the table stays fixed at ${state}`);
     const tap = async square => { const p = await page.evaluate(s => window.view.screenOf(s), square); await (touch ? page.touchscreen.tap(p.x, p.y) : page.mouse.click(p.x, p.y)); };
     if (width === 390) {
@@ -85,6 +97,7 @@ try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
     await context.addInitScript(save => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.save', JSON.stringify({ sound: false, pace: 'off', white: 'human', black: 'human', ...save })); }, save);
     const page = await context.newPage(); trapErrors(page);
+    await recordBoardText(page);
     await page.goto(new URL(query, env('PLAYABLE_URL')).href); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
     return { page, context };
   };

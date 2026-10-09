@@ -57,3 +57,11 @@ The supplied M1 launcher uses this Mac. All 18 named browser checks pass: powers
 The first plugin-ui-http attempt cannot start because its test database variable is absent. The documented disposable local database is available. After schema setup and setting that variable, the check passes in 15.5 s. No timeout needs confirmation. No further source fix is required.
 
 The sample still waits for the owner's yes.
+
+## Board review fixes
+
+Decision: decided by delegation (2026-10-09).
+Coin size follows the strip: their coin is 44 px; your coin is 48 px.
+Both coins use 44 px on short phones. The armed coin has a dark outer ring.
+The powers check covers both board sides and the armed ring.
+W3: 15 inspected renders, 0 faults. Tests and all required checks pass.

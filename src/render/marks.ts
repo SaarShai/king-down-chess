@@ -1,4 +1,5 @@
 import type { PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
+import type { boardInk } from './board-ink';
 import type { Highlights } from './renderer';
 
 /**
@@ -28,6 +29,9 @@ export interface MarkState {
   motion: boolean;
   /** When the current markers appeared (performance.now()). */
   since: number;
+  /** Web text and strokes use CSS size; omitted keeps the plugin drawing. */
+  ink?: ReturnType<typeof boardInk>;
+  bodyFont?: string;
 }
 
 export const POP_MS = 300;
@@ -140,7 +144,7 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
     for (const shove of m.shoveTo ?? []) {
       const a = appear(shove.to); if (a <= 0) continue;
       const g = ground(shove.to), target = scene.cell(shove.from), landing = scene.cell(shove.to);
-      shoveArrow(ctx, g.x, g.y, landing.col - target.col, landing.row - target.row, a, k);
+      shoveArrow(ctx, g.x, s.ink ? PAD + (landing.row + 0.5) * TILE : g.y, landing.col - target.col, landing.row - target.row, a, k, s.ink ? Math.max(3, s.ink.causeCore * 1.7) : 3);
     }
   } else {
     for (const sq of m.read?.shot ?? []) {
@@ -149,10 +153,12 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
     }
     for (const [i, sq] of (m.bites ?? []).entries()) {
       if (!inRow(sq)) continue;
-      const b = box(sq), size = Math.min(k, 1.8), x = b.x + 18 * size, y = b.y + 18 * size;
-      ctx.beginPath(); ctx.arc(x, y, 11 * size, 0, TAU);
+      const b = box(sq), size = Math.min(k, 1.8), radius = s.ink?.biteRadius ?? 11 * size;
+      const x = s.ink ? b.x + TILE - radius - 4 : b.x + 18 * size;
+      const y = s.ink ? b.y + TILE - radius - 4 : b.y + 18 * size;
+      ctx.beginPath(); ctx.arc(x, y, radius, 0, TAU);
       ctx.fillStyle = '#ece7dd'; ctx.fill(); stroke2(ctx, '#706b63', 1.5);
-      ctx.fillStyle = '#4b4741'; ctx.font = `bold ${16 * size}px sans-serif`;
+      ctx.fillStyle = '#4b4741'; ctx.font = `bold ${s.ink?.biteFont ?? 16 * size}px ${s.ink ? s.bodyFont : 'sans-serif'}`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), x, y);
     }
     for (const sq of m.moves ?? []) {
@@ -277,10 +283,10 @@ function rune(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t:
 }
 
 /** A still arrow on the landing square, in the screen's shove direction. */
-function shoveArrow(ctx: CanvasRenderingContext2D, x: number, y: number, dx: number, dy: number, a: number, k: number): void {
+function shoveArrow(ctx: CanvasRenderingContext2D, x: number, y: number, dx: number, dy: number, a: number, k: number, width = 3): void {
   const angle = Math.atan2(dy, dx), length = 20 * Math.min(k, 1.6) * a;
   ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.beginPath(); ctx.moveTo(-length, 0); ctx.lineTo(length, 0);
   ctx.moveTo(length - 10 * a, -9 * a); ctx.lineTo(length, 0); ctx.lineTo(length - 10 * a, 9 * a);
-  stroke2(ctx, '#2f7f75', 3); ctx.restore();
+  stroke2(ctx, '#2f7f75', width); ctx.restore();
 }

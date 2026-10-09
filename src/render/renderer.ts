@@ -61,9 +61,8 @@ const CHECK_TINT = 0x5a1010;
 const CHECK_RING = 0xe02828;
 
 /** Flat square frame (outer rim, hollow centre) so the piece and any last-move tint stay visible. */
-function checkRingGeometry(): THREE.BufferGeometry {
+function checkRingGeometry(o = 0.48, i = 0.34): THREE.BufferGeometry {
   const s = new THREE.Shape();
-  const o = 0.48, i = 0.34;
   s.moveTo(-o, -o); s.lineTo(o, -o); s.lineTo(o, o); s.lineTo(-o, o); s.closePath();
   const hole = new THREE.Path();
   hole.moveTo(-i, -i); hole.lineTo(-i, i); hole.lineTo(i, i); hole.lineTo(i, -i); hole.closePath();
@@ -217,6 +216,9 @@ export class BoardRenderer {
   private markerGeo = new THREE.BoxGeometry(0.22, 0.12, 0.22);
   private moveMat = new THREE.MeshLambertMaterial({ color: 0x5fd35f, emissive: 0x1f6f1f });
   private checkRingGeo = checkRingGeometry();
+  private checkHaloGeo = checkRingGeometry(0.52, 0.30);
+  // The halo shares the ring pass; the opaque board would cover it in the opaque pass.
+  private checkHaloMat = new THREE.MeshBasicMaterial({ color: 0xfbf6e8, transparent: true, depthWrite: false, side: THREE.DoubleSide });
   private checkMat = new THREE.MeshBasicMaterial({ color: CHECK_RING, transparent: true, opacity: 0.92, depthWrite: false, side: THREE.DoubleSide });
   private causeMat = new THREE.MeshBasicMaterial({ color: 0xc4501f, depthTest: false, transparent: true });
   private causeHalo = new THREE.MeshBasicMaterial({ color: 0xfbf6e8, depthTest: false, transparent: true, opacity: 0.87 });
@@ -653,6 +655,11 @@ export class BoardRenderer {
       this.markers.add(m);
     }
     if (h.check != null) {
+      if (h.checkers !== undefined) {
+        const halo = new THREE.Mesh(this.checkHaloGeo, this.checkHaloMat);
+        halo.position.copy(tileCenter(h.check)).setY(0.045);
+        this.markers.add(halo);
+      }
       this.checkMat.color.setHex(h.checkers === undefined ? CHECK_RING : 0xc4501f);
       const ring = new THREE.Mesh(this.checkRingGeo, this.checkMat);
       ring.position.copy(tileCenter(h.check)).setY(0.05);

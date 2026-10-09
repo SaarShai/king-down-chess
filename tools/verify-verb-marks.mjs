@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import { recordBoardText, boardText } from './board-ink-check.mjs';
 import { lanMoves, contextText } from './app-ui.mjs';
 import { env, trapErrors, assertNoErrors } from './lib/checks.mjs';
 import { fixture } from './read-verb-fixture.mjs';
 const { page, seed, tap, marks, close } = await fixture(env('PLAYABLE_URL'));
 const errors = trapErrors(page);
+await recordBoardText(page);
 try {
   await seed('7k/8/8/2p5/2O5/8/P7/K7 w - - 0 1');
   await tap(26);
@@ -16,6 +18,10 @@ try {
   assert.deepEqual((await marks()).bites, []);
   await tap(26); await tap(35);
   assert.deepEqual((await marks()).bites, [26, 35]);
+  await page.waitForFunction(() => window.boardText['2']?.font.includes('bold'));
+  const badge = await boardText(page, '2');
+  assert.ok(badge.size >= 11.99, 'bite digits draw at 12 CSS px');
+  assert.match(badge.font, /Alegreya Sans/, 'bite digits use the body font');
   assert.deepEqual(await lanMoves(page), [], 'chosen bites do not write a ply');
   await tap(8);
   assert.deepEqual((await marks()).bites, [26, 35], 'off-mark taps keep the chain');
@@ -29,5 +35,11 @@ try {
   await seed('7k/8/8/8/2p5/8/2A5/K7 w - - 0 1');
   await tap(10);
   assert.ok((await marks()).shots.includes(26));
+  await page.setViewportSize({ width: 375, height: 812 });
+  await seed('7k/6p1/5p2/3pp3/2nS4/8/8/K7 w - - 0 1');
+  await tap(27); await tap(26); await tap(35); await tap(36); await tap(45);
+  assert.deepEqual((await marks()).bites, [26, 35, 36, 45], 'four bites fit a 375 px phone');
+  await page.waitForFunction(() => window.boardText['4']?.font.includes('bold'));
+  assert.ok((await boardText(page, '4')).size >= 11.99, 'the fourth bite stays readable');
   console.log('verb-marks: Ogre, Beast, Maester and Archer pass; landing tap passes');
 } finally { try { assertNoErrors(errors); } finally { await close(); } }

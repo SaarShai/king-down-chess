@@ -82,7 +82,7 @@ for(const [type,name] of Object.entries(courtNames)){
  for(let type=1;type<16;type++){if(!specs[type])specs[type]=FALLBACK;newMotions[type]??={DURATION:900,actionAt:()=>0};}
  const idle=new Map(), work=new Map();
  let position={board:new Uint8Array(64)}, selected=null, lifted=null, liftTell=true, aimSquare=null, animation=null, aimAngle=0, aimFacing=1;
- let fallen=null, res=1, frame=0, previousTime=0, ready=false, flipped=false, coords=true, coordSize=13, labels=false, reducedMotion=false, decorate=null;
+ let fallen=null, res=1, frame=0, previousTime=0, ready=false, flipped=false, coords=true, coordSize=13, coordInset=14, labels=false, reducedMotion=false, decorate=null;
  // Opt-in liveliness (setLively): quiet-move gaits, the selected figure's idle, the board's frame and light,
  // and each king's own idle effect (king-effects.mjs). All off by default, so the trial and the trailer draw exactly as before.
  const lively={moves:false,idle:false,atmosphere:false,kings:false,captures:false,pawns:false};
@@ -499,7 +499,7 @@ function vortex(out,foot,phase,strength) {
   decorate?.(ctx,api,'under');
   if(selected!==null){const c=cell(selected);ctx.strokeStyle='#6b7954';ctx.lineWidth=3;ctx.strokeRect(PAD+c.col*TILE+1.5,PAD+c.row*TILE+1.5,TILE-3,TILE-3);ctx.lineWidth=1;}
   if(coords){ctx.fillStyle=lively.atmosphere&&boardArt.naturalWidth?'#e4d8bb':'#6d765d';ctx.font=`${coordSize}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';
-   for(let i=0;i<8;i++){ctx.fillText('abcdefgh'[flipped?7-i:i],PAD+(i+.5)*TILE,SIZE-14);ctx.fillText(String(flipped?i+1:8-i),15,PAD+(i+.5)*TILE);}}
+   for(let i=0;i<8;i++){ctx.fillText('abcdefgh'[flipped?7-i:i],PAD+(i+.5)*TILE,SIZE-coordInset);ctx.fillText(String(flipped?i+1:8-i),15,PAD+(i+.5)*TILE);}}
  }
  // A slate frame cut from the board's own dark stone, lit from the top left like the board.
  function drawFrame() {
@@ -944,7 +944,7 @@ function drawEncounter(a,t) {
   /** The king design each side's figure was last drawn with (null: not yet drawn). */
   get drawnKings(){return [...drawnKings];},
   /** size: letter height in board units (default 13); a small board on a phone needs more. */
-  setCoords(on,size=13){coords=on;coordSize=size;wake();},
+  setCoords(on,size=13,inset=14){coords=on;coordSize=size;coordInset=inset;wake();},
   setLabels(on){labels=on;wake();},
   setReducedMotion(on){reducedMotion=on;},
   /** Lay the king on `sq` down (null: nobody); animate=false shows it already fallen. */

@@ -37,7 +37,7 @@ export interface PaintedScene {
   readonly kings: KingDesign[];
   /** The design each side's King was last drawn with (null: not drawn yet). */
   readonly drawnKings: (KingDesign | null)[];
-  setCoords(on: boolean, size?: number): void;
+  setCoords(on: boolean, size?: number, inset?: number): void;
   setLabels(on: boolean): void;
   setReducedMotion(on: boolean): void;
   setFallen(square: number | null, animate?: boolean): void;
