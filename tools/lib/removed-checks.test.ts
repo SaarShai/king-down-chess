@@ -1,8 +1,10 @@
 // Unit test for the assertion counter (checks-and-hooks/10). The counter reads a unified diff
 // (git diff -U0) and gives the assertion lines that the diff removes from the registered checks.
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import * as shared from './checks.mjs';
-import { checks } from './registry.mjs';
+import { checks, probeFiles } from './registry.mjs';
 import { assertionNames, registeredChecks, removedAssertions } from './removed-checks.mjs';
 
 const check = 'tools/verify-workshop.mjs';
@@ -64,6 +66,15 @@ describe('removedAssertions', () => {
     expect(count(file('tools/new-game-ui.mjs', [1, ['  assert.equal(a, 1);', '  expect(b).toBe(2);'], []]))).toEqual([]);
   });
 
+  it('counts the probe files that ux-defects runs, and not its other files', () => {
+    const probe = 'tools/ux-defects/d10-enemy-card.mjs';
+    expect(count(file(probe, [21, ["    assert.equal(await text('#move-help'), '');"], []])))
+      .toEqual([{ file: probe, line: 21, text: "assert.equal(await text('#move-help'), '');" }]);
+    for (const path of ['tools/ux-defects/open.mjs', 'tools/ux-defects/notes.md', 'tools/ux-defects/sub/d1-x.mjs']) {
+      expect(count(file(path, [1, ['assert.ok(x);'], []])), path).toEqual([]);
+    }
+  });
+
   it('counts the removed lines of a deleted check', () => {
     const diff = [`diff --git a/${other} b/${other}`, 'deleted file mode 100644', `--- a/${other}`, '+++ /dev/null',
       '@@ -1,2 +0,0 @@', "-import assert from 'node:assert/strict';", '-assert.ok(true);'].join('\n');
@@ -78,6 +89,13 @@ describe('removedAssertions', () => {
 describe('the counter reads its lists from the runner and the shared module', () => {
   it('takes the registered check paths from the runner registry', () => {
     expect(registeredChecks()).toEqual([...new Set(checks.map(c => c.script))]);
+  });
+
+  it('takes the probe files from the registry pattern that the ux-defects runner uses', () => {
+    const probes = readdirSync(join(__dirname, '..', 'ux-defects')).map(name => `tools/ux-defects/${name}`).filter(path => probeFiles.test(path));
+    expect(probes).toContain('tools/ux-defects/d10-enemy-card.mjs');
+    expect(probes).not.toContain('tools/ux-defects/open.mjs');
+    expect(readFileSync(join(__dirname, '..', 'verify-ux-defects.mjs'), 'utf8')).toContain('probeFiles.test(');
   });
 
   it('takes the assertion names from the exports of the shared check module', () => {

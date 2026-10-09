@@ -114,6 +114,21 @@ describe('commit-msg: removed assertions need Removed-check trailers', { timeout
     expect(result.status, result.stderr).toBe(0);
   });
 
+  it('counts a probe file that a check runs (tools/ux-defects/d<N>-<slug>.mjs) as a registered check', () => {
+    const repo = make();
+    const probe = 'tools/ux-defects/d1-resign-side.mjs';
+    repo.write(probe, steps.join('\n') + '\n');
+    repo.git('add', probe);
+    expect(commit(repo, '-m', 'Add the probe').status).toBe(0);
+    repo.write(probe, kept.join('\n') + '\n');
+    repo.git('add', probe);
+    const refused = commit(repo, '-m', 'Cut the probe');
+    expect(refused.status).not.toBe(0);
+    expect(refused.stderr).toContain('removes 3 assertion lines');
+    expect(refused.stderr).toContain(`${probe}:3: ${steps[2]}`);
+    expect(commit(repo, '-m', 'Cut the probe', '-m', trailers(3)).status).toBe(0);
+  });
+
   it('refuses for both reasons in one run', () => {
     const repo = withCheck();
     stageCheck(repo, kept);

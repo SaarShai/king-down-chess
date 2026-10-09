@@ -4,12 +4,13 @@
 // A probe exports `default async function (ctx)`; ctx is { browser, base, open, trapErrors, shot } (see open.mjs).
 import { readdirSync } from 'node:fs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+import { probeFiles } from './lib/registry.mjs';
 import { opener } from './ux-defects/open.mjs';
 
 const base = env('PLAYABLE_URL');
 const dir = new URL('./ux-defects/', import.meta.url);
 const probes = readdirSync(dir)
-  .filter(name => /^d\d+-[\w-]+\.mjs$/.test(name))
+  .filter(name => probeFiles.test(`tools/ux-defects/${name}`))
   .sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10));
 if (!probes.length) throw new Error('ux-defects: no probe in tools/ux-defects/');
 
