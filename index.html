@@ -20,7 +20,6 @@
       <symbol id="i-new" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
       <symbol id="i-guide" viewBox="0 0 24 24"><path d="M3 5.5C3 4.7 3.7 4 4.5 4H11v16H4.5C3.7 20 3 19.3 3 18.5zM21 5.5c0-.8-.7-1.5-1.5-1.5H13v16h6.5c.8 0 1.5-.7 1.5-1.5z"/></symbol>
       <symbol id="i-settings" viewBox="0 0 24 24"><path d="M3 6h10M17 6h4M3 12h3M10 12h11M3 18h12M19 18h2"/><circle cx="15" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
-      <symbol id="i-hint" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/></symbol>
       <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H10"/></symbol>
       <symbol id="i-resign" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2.5 4.5L17 13H5"/></symbol>
       <symbol id="i-share" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
@@ -52,17 +51,17 @@
       </div>
       <div id="moment" role="status" aria-live="polite"></div>
       <button id="next-lesson" class="primary" hidden></button>
+      <button id="show-me" hidden>Show me</button>
       <button id="return-game" hidden>Return to game</button>
-      <div id="info"></div>
       <div class="btns three actions">
-        <button id="hint" type="button" title="Show one move the computer likes"><svg class="icon" aria-hidden="true"><use href="#i-hint"/></svg><span class="label">Hint</span></button>
         <button id="undo" title="Take back the last move (Z)"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
+        <button id="end-turn" type="button" aria-disabled="true">End turn</button>
         <button id="resign" title="Resign the game"><svg class="icon" aria-hidden="true"><use href="#i-resign"/></svg><span class="label">Resign</span></button>
       </div>
+      <div id="info"></div>
       <div id="powers" hidden>
         <div class="btns">
           <button id="power-btn" type="button" title="Spend your king's power on your next move"></button>
-          <button id="end-haste" type="button" hidden title="End the turn without the Haste piece's second move">End turn</button>
         </div>
         <div id="power-status" role="status" aria-live="polite"></div>
       </div>

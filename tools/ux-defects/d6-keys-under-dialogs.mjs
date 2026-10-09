@@ -50,8 +50,8 @@ export default async function ({ open }) {
   await page.click('#resign');
   await page.waitForFunction(() => document.getElementById('over').open);
   await keysDoNothing('over');
-  // No dialog and no field: Z takes back a move (and the resignation), R resets the view, ← opens the review.
+  // No dialog and no field: Z keeps the final resignation, R resets the view, ← opens the review.
   for (const key of ['z', 'r', 'ArrowLeft']) await page.keyboard.press(key);
-  assert.deepEqual(await state(), { plies: 1, saved: 1, review: true, resets: 1 }, 'the keys work with no dialog open');
+  assert.deepEqual(await state(), { plies: 2, saved: 2, review: true, resets: 1 }, 'the keys work with no dialog open');
   await close();
 }

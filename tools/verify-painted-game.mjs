@@ -1,7 +1,7 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { contextText, lanMoves, moveRow, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
+import { endTurn, contextText, lanMoves, moveRow, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = new URL(env('PLAYABLE_URL'));
@@ -49,6 +49,7 @@ try {
   await page.waitForFunction(() => document.querySelector('#board canvas') && document.getElementById('asset-status').textContent === '');
   const rook = await page.evaluate(() => window.view.screenOf(0)), mate = await page.evaluate(() => window.view.screenOf(56));
   await page.mouse.click(rook.x, rook.y); await page.mouse.click(mate.x, mate.y); // Ra1-a8 mates
+  await endTurn(page);
   await page.waitForFunction(() => document.getElementById('over').open, null, { timeout: 10000 });
   await assert.rejects(pressMenu(page, 'New game', { timeout: 1000 }), 'the open result window covers the panel');
   await page.click('#over button[value="close"]');
@@ -65,6 +66,7 @@ try {
   const e2 = await at(12), e4 = await at(28);
   await page.mouse.move(e2.x, e2.y); await page.mouse.down(); await page.mouse.move(e4.x, e4.y, { steps: 8 }); await page.mouse.up();
   await waitForUi(page, ui => /e2-e4/.test(ui.lan.join(' ')), null, { timeout: 5000 });
+  await endTurn(page);
   await waitForUi(page, ui => ui.turns[0]?.length >= 2, null, { timeout: 15000 });
   await page.waitForTimeout(2500); // the reply's animation keeps the board busy
   const d2 = await at(11), d3 = await at(19);
@@ -78,9 +80,9 @@ try {
   await waitForUi(page, ui => ui.lan.length > 0, null, { timeout: 15000 });
   const a8 = await page.evaluate(() => window.view.screenOf(56)), a1 = await page.evaluate(() => window.view.screenOf(0));
   assert.ok(a8.y > a1.y, 'Black at the bottom when the human plays Black');
-  await page.click('#undo');
+  assert.equal(await page.getAttribute('#undo', 'aria-disabled'), 'true', 'the computer turn is final');
   await page.waitForTimeout(300);
-  console.log('ok flipped board, undo during play');
+  console.log('ok flipped board; Undo is off after the computer turn');
 
   // 2b. The Maester's goggle beam and a lab piece (a token) capture and finish without errors.
   for (const [fen, from, to, move] of [['7k/8/8/2p5/2M5/8/8/4K3 w - - 0 1', 26, 34, 'Mc4xc5'], ['7k/8/4p3/8/4p3/8/4C3/K7 w - - 0 1', 12, 44, 'Ce2*e6']]) {
@@ -161,7 +163,7 @@ try {
     const u = new URL(url); u.searchParams.set('fen', '7k/8/8/3p4/4P3/8/8/K7 w - - 0 1'); u.searchParams.set('players', 'human,human');
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[35] > 0);
-    for (const sq of [28, 35, 63, 62]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); }
+    for (const sq of [28, 35, 63, 62]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); if (sq === 35 || sq === 62) await endTurn(page); }
     await waitForUi(page, ui => /Kh8-g8/.test(ui.lan.join(' ')));
     const board = () => page.evaluate(() => [28, 35, 62, 63].map(sq => window.view.pos.board[sq] > 0 ? 1 : 0).join(''));
     assert.equal(await board(), '0110', 'live: pawn on d5, king on g8');
@@ -189,7 +191,7 @@ try {
     const u = new URL(url); u.searchParams.set('fen', '4r1k1/8/8/8/8/8/5PPP/R5K1 w - - 0 1'); u.searchParams.set('players', 'human,human');
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[60] > 0);
-    for (const sq of [0, 48, 60, 4]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); }
+    for (const sq of [0, 48, 60, 4]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); if (sq === 48 || sq === 4) await endTurn(page); }
     await page.waitForFunction(() => document.getElementById('over').open && document.querySelector('#over-moments button'), null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), 6, 'the mated king on g1 topples');
     await waitForUi(page, ui => ui.lan[0] === 'Ra1-a7' && ui.marks[0] === '??');
@@ -217,11 +219,10 @@ try {
     assert.ok((await at(56)).y > (await at(0)).y, 'Black, to move, plays from the bottom');
     for (const sq of [52, 36]) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
     await waitForUi(page, ui => /e7-e5/.test(ui.lan.join(' ')) && !window.view.scene.animating);
-    assert.match(await contextText(page), /Send the game link/);
+    assert.match(await contextText(page), /Send your turn/);
     const d2 = await at(11); await page.mouse.click(d2.x, d2.y);
     assert.equal(await page.evaluate(() => window.view.marks.selected), null, "the friend's pieces do not move here");
-    assert.ok(await page.evaluate(() => document.getElementById('hint').disabled), "no Hint on the friend's turn");
-    await page.click('#share');
+    await endTurn(page);
     const sent = new URL(await page.evaluate(() => navigator.clipboard.readText()));
     assert.deepEqual([sent.searchParams.get('army'), sent.searchParams.get('moves')], ['RNBQKBNR', 'e2-e4_e7-e5']);
     await page.reload(); await page.waitForFunction(() => window.view?.pos?.board[36] > 0);

@@ -3,7 +3,7 @@
 // or (clay) the camera turns during the tap.
 // A touch drag still moves a piece, and a mouse keeps the 6 px limit (past it, the press is a drag).
 import assert from 'node:assert/strict';
-import { lanMoves, waitForUi } from '../app-ui.mjs';
+import { endTurn, lanMoves, waitForUi } from '../app-ui.mjs';
 
 const SAVE = { back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', sound: false };
 const G1 = 6, E2 = 12, E3 = 20, G3 = 22, H3 = 23, E4 = 28, H4 = 31, D5 = 35, D7 = 51;
@@ -49,9 +49,11 @@ export default async function ({ open }) {
     assert.equal(await isSelected(page), true, `${look}: a finger tap on e2 that slips into e3 selects the pawn`);
     await slip(page, E4, E3);
     assert.match(await moves(page), /e2-e4/, `${look}: a finger tap on e4 that slips into e3 plays e2-e4`);
+    await endTurn(page);
     const [a, b] = [await centre(page, D7), await centre(page, D5)];
     await slide(page, true, a, b.x - a.x, b.y - a.y);
     await waitForUi(page, ui => /d7-d5/.test(ui.lan.join(' ')));
+    await endTurn(page);
     if (look === 'clay') {
       // A press on an empty square turns the camera: a sideways slip moves h3 about 10 px on the screen.
       await slide(page, true, await centre(page, G1), 0);
