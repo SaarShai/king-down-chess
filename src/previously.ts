@@ -18,8 +18,8 @@ export function previouslyTurn(history: Readonly<Game['history']>, side: Color):
   const before = history[from - 1];
   return {
     from, to: history.length,
-    line: describeMove(last.pos, last.move),
-    before: before ? describeMove(before.pos, before.move) : null,
+    line: describeMove(last.pos, last.move, true),
+    before: before ? describeMove(before.pos, before.move, true) : null,
   };
 }
 

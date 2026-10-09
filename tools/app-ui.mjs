@@ -92,6 +92,8 @@ export async function endTurn(page, { keyboard = false } = {}) {
   else await page.click('#end-turn');
 }
 
+export const seeAgain = page => page.locator('#see-again[aria-disabled="false"]').click();
+
 /**
  * What the readouts show, read in the page. Playwright sends the source of this function to the page,
  * so it uses nothing from this module.

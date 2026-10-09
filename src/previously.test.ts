@@ -54,6 +54,12 @@ describe('Previously', () => {
     });
   });
 
+  it('uses the kept free-pass words after a friend mark', () => {
+    setRules({ kings: [{ king: 'Frost', power: 'Freeze' }, null], markFree: true });
+    const game = played('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', ['!F:d5', '--']);
+    expect(previouslyTurn(game.history, 1)?.line).toBe('White ends the turn after the mark.');
+  });
+
   it('keeps both moves of the friend Rage turn', () => {
     setRules({ hands: [['Rage'], []], hasteCaptures: false });
     const game = played('4k3/8/p7/8/8/8/8/R3K2n w - - 0 1', ['Ra1xa6!A', 'Ra6-h6']);

@@ -1,6 +1,6 @@
 # 21 · Link games: Previously
 
-Status: in-progress (phase 1 passes; phase 2 waits for W1 and W2)
+Status: in-progress (phase 2 build)
 Blocked by: 02c, 11 (`storyLine`), 14 (the end)
 
 ## Scope
@@ -38,12 +38,7 @@ Blocked by: 02c, 11 (`storyLine`), 14 (the end)
 
 ## Comments
 
-Phase 1 plan: build `src/previously.ts` without app wiring.
-Test seams: the last friend turn, its `describeMove` line, and the replay decision.
-Checks: red then green with `npm test`; `npm run typecheck` passes.
-Keep whole turns, replay once, and the same line with Motion Off.
-Phase 2 adds W1/W2 wiring, See again, the link check, and the phone still.
-Phase 1 result: the module and its 12 tests pass. It changes no shared module.
-`npm test` with the W11 filter: 1 file, 12 tests pass; 50 motion tests pass.
-The full run stops after failures in other tests under load. The test config is restored.
-Browser checks and the sample wait for phase 2. No app control changes here.
+Phase 2 plan: wire the link open and the context line; add See again.
+Checks: pure context tests, then the three link cases on the M1.
+Finish: merge the next integration head, run unit and named checks, then inspect both sample sheets.
+Keep `describeMove`, whole-turn replay, Motion Off, and the current link question.

@@ -5,6 +5,7 @@ import { pieceIcon } from '../piece-icons';
 import { type Color, type PieceType, type Rules, colorOf, typeOf } from '../rules/engine';
 import type { SkillName } from '../ai/skill';
 import { turnLine, type Mode, type Turn } from '../turn';
+import type { PreviouslyState } from './previously';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 const text = (id: string): string => $(id).textContent?.trim() ?? '';
@@ -28,6 +29,7 @@ export interface TableState {
   notice: string; armed: boolean; selected: number | null; pending: readonly number[];
   linkSide: Color | null; reviewNote: string;
   turn: Turn; mode: Mode;
+  previously?: PreviouslyState | null;
 }
 
 export function refreshTable(s: TableState): void {
@@ -65,7 +67,7 @@ export function refreshTable(s: TableState): void {
   const status = text('status');
   const state: ContextState = {
     voice: s.sides.includes('ai') || s.linkSide != null ? 'you' : liveSide ? 'Black' : 'White',
-    review: s.viewing != null ? `Review. ${read || (s.viewing === 0 ? 'The start.' : `Move ${s.viewing}.`)}` : '',
+    review: s.viewing != null && !s.previously?.playing ? `Review. ${read || (s.viewing === 0 ? 'The start.' : `Move ${s.viewing}.`)}` : '',
     result: status && status !== 'thinking…' ? status : '', refusal: s.notice,
     armed: s.armed ? s.rules.kings[s.game.pos.turn]?.power : undefined, chain: !!s.pending.length, canStop: !$('stop-chain').hidden,
     read: s.selected == null ? read : '',
@@ -79,14 +81,19 @@ export function refreshTable(s: TableState): void {
     lesson: s.lesson == null ? '' : text('turn'), lessonNote: s.lesson == null ? '' : text('moment'),
     link: s.linkSide != null && s.game.pos.turn !== s.linkSide && !s.turn.waits ? "Wait for your friend's link." : '',
     asset: text('asset-status'),
+    previously: s.previously?.line, previouslyBefore: s.previously?.before ?? '', seeAgain: s.previously?.seeAgain,
   };
   const line = contextLine(state);
-  $('context-text').replaceChildren(...[line.line, line.note].filter(Boolean).map(words => {
+  $('context-text').replaceChildren(...[line.before ?? '', line.line, line.note].filter(Boolean).map((words, i) => {
     const row = document.createElement('span');
+    if (line.before && i === 0) row.id = 'previously-before';
     row.textContent = words;
     return row;
   }));
   $('context-text').dataset.rank = line.rank;
+  const again = $('see-again');
+  again.hidden = !line.actions.includes('see-again');
+  again.setAttribute('aria-disabled', String(!!s.previously?.playing));
   $('back-to-game').hidden = s.viewing == null;
   const resign = $<HTMLButtonElement>('resign');
   resign.setAttribute('aria-disabled', String(resign.disabled));

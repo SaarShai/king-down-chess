@@ -10,8 +10,9 @@ export interface ContextState {
   selected?: string; stagedEnd?: string; waiting?: boolean; check?: boolean;
   computer?: boolean; lesson?: string; lessonNote?: string; asset?: string;
   turnLine?: string;
+  previously?: string; previouslyBefore?: string; seeAgain?: boolean;
 }
-export interface ContextLine { rank: string; line: string; note: string; actions: string[] }
+export interface ContextLine { rank: string; line: string; note: string; actions: string[]; before?: string }
 export function contextLine(s: ContextState): ContextLine {
   const line = (rank: string, words: string, note = '', actions: string[] = []): ContextLine => ({ rank, line: words, note, actions });
   if (s.review) return line('review', s.review, s.readNote,  ['back-to-game']);
@@ -35,6 +36,7 @@ export function contextLine(s: ContextState): ContextLine {
   if (s.selected) return line('selected', s.selected, s.readNote);
   if (!s.lesson && s.stagedEnd) return line('staged-end', s.turnLine || `${s.stagedEnd} Tap End turn to finish.`);
   if (!s.lesson && s.waiting) return line('waiting', s.turnLine || `${s.check ? 'Check. ' : ''}Your turn is ready.`, s.turnLine ? '' : 'Tap End turn, or Undo.');
+  if (s.previously) return { ...line('previously', 'Previously', s.previously, s.seeAgain ? ['see-again'] : []), before: s.previouslyBefore ?? '' };
   if (!s.lesson && s.check) return line('check', s.voice === 'you' ? 'Check! Your move.' : `Check! ${s.voice} to move.`);
   if (!s.lesson && s.computer) return line('computer', 'Their move.');
   if (s.lesson) {

@@ -3,6 +3,15 @@ import { LESSONS } from './lessons';
 import { contextLine, type ContextState } from './context-line';
 
 describe('contextLine', () => {
+  it('shows Previously after the higher ranks, with its replay action', () => {
+    const state = { voice: 'you' as const, previously: 'Black pawn e7 to e5.', previouslyBefore: 'White pawn e2 to e4.', seeAgain: true };
+    expect(contextLine(state)).toEqual({ rank: 'previously', line: 'Previously', note: 'Black pawn e7 to e5.', before: 'White pawn e2 to e4.', actions: ['see-again'] });
+    expect(contextLine({ ...state, seeAgain: false }).actions).toEqual([]);
+    expect(contextLine({ ...state, read: 'Black knight.' }).rank).toBe('read');
+    expect(contextLine({ ...state, waiting: true }).rank).toBe('waiting');
+    expect(contextLine({ ...state, check: true }).rank).toBe('previously');
+    expect(contextLine({ ...state, result: 'White wins.' }).rank).toBe('result');
+  });
   it('at rest speaks to the player, or names the side on one device', () => {
     expect(contextLine({ voice: 'you' })).toMatchObject({ rank: 'your-move', line: 'Your move.', actions: [] });
     expect(contextLine({ voice: 'White' }).line).toBe('White to move.');
