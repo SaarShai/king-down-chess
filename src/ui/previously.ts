@@ -94,7 +94,11 @@ export function connectPreviously(button: HTMLButtonElement, c: Controls) {
     async start(): Promise<void> {
       const play = fresh && previouslyPlayback(turn, options()).play;
       played = true;
-      if (playing) { playing = false; c.show(null, false); }
+      if (playing) {
+        playing = false;
+        c.show(null, false);
+        if (!play) { c.view.sync(c.game().pos); c.refresh(); }
+      }
       if (play) await replay();
     },
     cancel(): void {

@@ -65,7 +65,7 @@ try {
   console.log('ok See again plays the same turn once');
 
   const undo = await open();
-  await undo.page.locator('#undo').click();
+  await undo.page.locator('#undo').dispatchEvent('click');
   assert.equal(await undo.page.getAttribute('#undo', 'aria-disabled'), 'true');
   assert.deepEqual(await lanMoves(undo.page), ['e2-e4', 'e7-e5']);
   for (const sq of [11, 19]) {
@@ -75,7 +75,7 @@ try {
   await undo.page.waitForFunction(() => !window.view.scene.animating && document.getElementById('undo').getAttribute('aria-disabled') === 'false');
   await undo.page.locator('#undo').click();
   assert.deepEqual(await lanMoves(undo.page), ['e2-e4', 'e7-e5']);
-  await undo.page.locator('#undo').click();
+  await undo.page.locator('#undo').dispatchEvent('click');
   assert.deepEqual(await lanMoves(undo.page), ['e2-e4', 'e7-e5']);
   await undo.context.close();
   console.log('ok Undo takes only your staged ply');
