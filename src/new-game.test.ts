@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultSetup, kingsOf, parseSetup, playersOf, powersOn, setupOfGame, withKing, withMode } from './new-game';
+import { defaultSetup, newGameWarning, kingsOf, parseSetup, playersOf, powersOn, setupOfGame, withKing, withMode } from './new-game';
 import { powerOptions } from './powers-ui';
 
 describe('New game setup', () => {
@@ -67,4 +67,24 @@ describe('New game setup', () => {
     expect(frost[0].title).toBe('freeze an enemy piece (not the king), then make your move: the frozen piece cannot move on its next turn');
     expect(powerOptions().map(g => g.king)).toEqual(['Frost', 'Flame', 'Stratus', 'Mud', 'Spirit', 'Shadow']);
   });
+});
+
+// W1 supplies the handed-over end state in phase 2.
+describe('New game warn line', () => {
+  it('names the move of the game that Start ends', () => {
+    expect(newGameWarning({ moves: 8, move: 5, ended: false })).toBe('This ends your game at move 5.');
+  });
+});
+
+it('a staged end still warns until the turn is handed over', () => {
+  expect(newGameWarning({ moves: 7, move: 4, ended: false })).toBe('This ends your game at move 4.');
+  expect(newGameWarning({ moves: 7, move: 4, ended: true })).toBe('');
+});
+
+it('a game with no moves needs no warn line', () => {
+  expect(newGameWarning({ moves: 0, move: 1, ended: false })).toBe('');
+});
+
+it('keeps a remembered example army for More', () => {
+  expect(parseSetup({ ...defaultSetup(), army: 'MMSSNBNK' })?.army).toBe('MMSSNBNK');
 });

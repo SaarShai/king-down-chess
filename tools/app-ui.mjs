@@ -16,6 +16,8 @@
 //                           Opens the place of the board switches (#threats, #coords, #labels, #queen), runs
 //                           act(), and closes it. options go to pressMenu. Today: Settings, then Escape.
 //   setPace(page, value)    Sets the animations to 'normal', 'fast' or 'off'. Today: Settings and #pace, then Escape.
+// The New game sheet
+//   startNewGame(page, accept) Reads its warn line. Presses Start when accept is true or the line is absent.
 // The board
 //   focusBoard(page)        Moves the keyboard focus to the board, so that it shows its square cursor. Today:
 //                           the focus goes to #new-game-btn, then Shift+Tab (a key, so the focus is :focus-visible).
@@ -60,6 +62,17 @@ export async function pressMenu(page, name, { tap = false, ...press } = {}) {
   await openMenu(page, { tap, ...press });
   const item = menuItem(page, name);
   await (tap ? item.tap(press) : item.click(press));
+}
+
+export async function startNewGame(page, accept = true) {
+  if (!await page.evaluate(() => document.getElementById('new-game').open)) await pressMenu(page, 'New game');
+  const warning = await page.evaluate(() => {
+    const line = document.getElementById('new-game-warn');
+    if (!line) throw new Error('startNewGame: the page has no #new-game-warn');
+    return line.hidden ? null : line.textContent.trim();
+  });
+  if (accept || !warning) await page.click('#start-game');
+  return warning;
 }
 
 export const openExtra = page => pressMenu(page, 'Settings');

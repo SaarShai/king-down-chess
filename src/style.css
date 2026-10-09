@@ -368,33 +368,31 @@ dialog small { color: var(--ink-soft); }
 #move-choice button, #promo button { min-height: var(--tap); }
 #cancel-choice, #cancel-promo { margin-top: var(--space-4); justify-content: center; }
 
-/* ---- New game: three suggested games, the level, a king picker per side, More options ---- */
-#new-game { width: min(560px, calc(100vw - 32px)); }
+/* ---- New game sheet ---- */
+#new-game { width: min(560px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); padding: 0; overflow: hidden; }
+#new-game[open] { display: flex; flex-direction: column; }
+.new-game-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; flex: none; }
+.new-game-head h2 { margin: 0; padding: 0; background: none; }
+.new-game-head form { margin: 0; }
+.new-game-head form button { min-width: 44px; padding: 0; font-size: 24px; }
+.new-game-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px 16px; }
+.new-game-foot { flex: none; padding: 12px 16px max(16px, env(safe-area-inset-bottom)); border-top: 1px solid var(--stone-300); background: var(--parchment); }
+.new-game-foot button { width: 100%; justify-content: center; min-height: 52px; }
+#new-game-warn { margin: 0 0 8px; color: var(--ink-soft); text-align: center; }
+#level-line, #army-line { margin: 8px 0 0; color: var(--ink-soft); }
+#army-strip { display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
+#army-strip .pi { width: 28px; height: 28px; }
 .modes, .seg { margin: 0; padding: 0; border: 0; min-width: 0; }
-.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
-/* The radios stay in the page for the keyboard and screen readers; the card or segment shows the state. */
+.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 3px; border-radius: var(--radius); background: var(--parchment-deep); }
+/* Keep native radios for the keyboard and screen reader. */
 .modes input, .seg input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
-label.mode {
-  position: relative; flex-direction: column; justify-content: flex-start; gap: 6px;
-  padding: 10px 8px 12px; text-align: center; cursor: pointer;
-  background: linear-gradient(var(--vellum), #efe4cc);
-  border: 1px solid var(--stone-500); border-radius: var(--radius);
-  box-shadow: var(--lift), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transition: box-shadow 120ms, border-color 120ms;
-}
-@media (hover: hover) { label.mode:hover { background: linear-gradient(#fffdf6, #f5ebd5); } }
-label.mode:has(input:checked) {
-  border-color: var(--accent-deep); background: linear-gradient(#fffaf0, var(--parchment-deep));
-  box-shadow: 0 0 0 2px var(--accent), 0 3px 0 var(--accent-deep);
-}
-.mode-art { display: flex; align-items: flex-end; justify-content: center; height: 64px; }
-.mode-art img { height: 100%; width: auto; filter: drop-shadow(0 3px 3px rgba(43, 38, 33, 0.3)); }
-.mode-art .face-left { transform: scaleX(-1); margin-left: -8px; }
-.emblem-fan img { height: 44px; margin: 0 -7px; }
-.emblem-fan img:nth-child(2) { position: relative; z-index: 1; height: 62px; }
-.mode-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.mode-text b { font-family: var(--font-display); font-size: var(--fs-md); font-weight: 700; letter-spacing: 0.02em; line-height: 1.2; }
-.mode-text small { font-size: var(--fs-xs); line-height: 1.35; }
+label.mode { position: relative; flex-direction: column; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; text-align: center; cursor: pointer; border-radius: var(--radius); }
+label.mode:has(input:checked) { background: var(--vellum); box-shadow: var(--lift); }
+.mode-art { display: flex; align-items: center; justify-content: center; height: 24px; }
+.mode-art img { height: 100%; width: auto; }
+.mode-art .face-left { transform: scaleX(-1); margin-left: -4px; }
+.emblem-fan img { margin: 0 -3px; }
+.mode-text b { font-size: var(--fs-sm); line-height: 1.2; }
 label.mode:has(input:focus-visible), .seg-row label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 /* Segmented choices: the computer's level, and the side you play. */
@@ -411,7 +409,7 @@ label.mode:has(input:focus-visible), .seg-row label:has(input:focus-visible) { o
 .seg-row label:first-child { border-left: 0; border-radius: var(--radius) 0 0 var(--radius); }
 .seg-row label:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
 @media (hover: hover) { .seg-row label:hover { background: #fffdf6; } }
-.seg-row label:has(input:checked) { color: var(--vellum); background: linear-gradient(var(--accent-bright), var(--accent)); }
+.seg-row label:has(input:checked) { color: var(--ink); background: var(--parchment-deep); }
 .seg-row label:has(input:focus-visible) { outline-offset: -3px; outline-color: #8cc0ff; }
 
 label.check {
@@ -453,7 +451,7 @@ button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3
 
 #more-options { margin-top: var(--space-4); padding-top: var(--space-1); border-top: 1px solid var(--stone-300); }
 #more-options summary {
-  display: flex; align-items: center; gap: 10px; min-height: var(--tap); width: fit-content;
+  display: flex; align-items: center; gap: 10px; min-height: var(--tap); width: 100%;
   font-weight: 700; cursor: pointer; list-style: none;
 }
 #more-options summary::-webkit-details-marker { display: none; }
@@ -463,18 +461,14 @@ button.emblem[aria-pressed='true'] img { opacity: 1; filter: drop-shadow(0 2px 3
   transform: rotate(-45deg); transition: transform 120ms;
 }
 #more-options[open] summary::before { transform: rotate(45deg); }
+#side-army-value { margin-left: auto; text-align: right; }
+#other-armies { margin-top: 12px; }
+#new-game button.emblem { min-height: 44px; }
+#new-game .power-choice button[aria-pressed='true'] { color: var(--ink); background: var(--parchment-deep); border-color: var(--stone-700); box-shadow: var(--lift); }
 #more-options .seg { margin-top: var(--space-2); }
 label.army { flex-direction: column; align-items: stretch; gap: 6px; margin-top: var(--space-4); font-weight: 700; }
 label.army select { width: 100%; font-weight: 400; }
 #army-note { display: block; margin-top: 6px; }
-
-@media (max-width: 600px) {
-  .modes { grid-template-columns: minmax(0, 1fr); }
-  label.mode { flex-direction: row; gap: var(--space-3); padding: 8px 12px; text-align: left; }
-  .mode-art { flex: none; width: 66px; height: 50px; }
-  .emblem-fan img { height: 32px; margin: 0 -8px; }
-  .emblem-fan img:nth-child(2) { height: 46px; }
-}
 
 /* Settings → Account (src/account/account.ts) */
 #account-body p { margin: 0; }

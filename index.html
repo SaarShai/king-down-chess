@@ -117,59 +117,78 @@
       </div>
     </dialog>
     <dialog id="new-game" aria-labelledby="new-game-title">
-      <h2 id="new-game-title" tabindex="-1" autofocus>New game</h2>
-      <fieldset class="modes" id="modes">
-        <legend class="sr-only">Choose a game</legend>
-        <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" />
-          <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /></span>
-          <span class="mode-text"><b>Play the computer</b><small>You against the computer, with no powers.</small></span></label>
-        <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" />
-          <span class="mode-art emblem-fan" aria-hidden="true"><img src="./ui/emblems/frost.webp" alt="" /><img src="./ui/emblems/flame.webp" alt="" /><img src="./ui/emblems/stratus.webp" alt="" /></span>
-          <span class="mode-text"><b>Kings' powers</b><small>Against the computer. Each king brings one power.</small></span></label>
-        <label class="mode"><input type="radio" name="mode" value="two" id="mode-two" />
-          <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /><img class="face-left" src="./ui/kings/shadow-b.webp" alt="" /></span>
-          <span class="mode-text"><b>Two players</b><small>Share one device, or send the game link after each move.</small></span></label>
-      </fieldset>
-      <fieldset class="seg" id="level" title="Beginner and Casual vary their choices. Club thinks up to 0.8 s a move; Strong thinks 2.5 s. These are not ratings.">
-        <legend>Computer level</legend>
-        <div class="seg-row">
-          <label><input type="radio" name="level" value="beginner" id="level-beginner" /><span>Beginner</span></label>
-          <label><input type="radio" name="level" value="casual" id="level-casual" /><span>Casual</span></label>
-          <label><input type="radio" name="level" value="club" id="level-club" /><span>Club</span></label>
-          <label><input type="radio" name="level" value="strong" id="level-strong" /><span>Strong</span></label>
-        </div>
-      </fieldset>
-      <label class="check" id="two-powers-row" hidden><input type="checkbox" id="two-powers" /><span>Kings' powers <small>Each king brings one power.</small></span></label>
-      <div id="king-picker" hidden>
-        <div class="king-pick" id="pick-0"></div>
-        <div class="king-pick" id="pick-1"></div>
-      </div>
-      <details id="more-options">
-        <summary>More options</summary>
-        <fieldset class="seg" id="side-choice">
-          <legend>You play</legend>
+      <header class="new-game-head">
+        <h2 id="new-game-title" tabindex="-1" autofocus>New game</h2>
+        <form method="dialog"><button value="cancel" aria-label="Close New game">×</button></form>
+      </header>
+      <div class="new-game-body">
+        <fieldset class="modes" id="modes">
+          <legend class="sr-only">Choose a game</legend>
+          <label class="mode"><input type="radio" name="mode" value="computer" id="mode-computer" aria-label="Play the computer" />
+            <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /></span>
+            <span class="mode-text"><b>Computer</b></span></label>
+          <label class="mode"><input type="radio" name="mode" value="powers" id="mode-powers" />
+            <span class="mode-art emblem-fan" aria-hidden="true"><img src="./ui/emblems/frost.webp" alt="" /><img src="./ui/emblems/flame.webp" alt="" /><img src="./ui/emblems/stratus.webp" alt="" /></span>
+            <span class="mode-text"><b>Kings' powers</b></span></label>
+          <label class="mode"><input type="radio" name="mode" value="two" id="mode-two" />
+            <span class="mode-art" aria-hidden="true"><img src="./ui/kings/spirit.webp" alt="" /><img class="face-left" src="./ui/kings/shadow-b.webp" alt="" /></span>
+            <span class="mode-text"><b>Two players</b></span></label>
+        </fieldset>
+        <fieldset class="seg" id="level" aria-describedby="level-line">
+          <legend>Computer level</legend>
           <div class="seg-row">
-            <label><input type="radio" name="side" value="0" id="side-white" /><span>White</span></label>
-            <label><input type="radio" name="side" value="1" id="side-black" /><span>Black</span></label>
+            <label><input type="radio" name="level" value="beginner" id="level-beginner" /><span>Beginner</span></label>
+            <label><input type="radio" name="level" value="casual" id="level-casual" /><span>Casual</span></label>
+            <label><input type="radio" name="level" value="club" id="level-club" /><span>Club</span></label>
+            <label><input type="radio" name="level" value="strong" id="level-strong" /><span>Strong</span></label>
           </div>
         </fieldset>
-        <label class="army">Army <select id="army" aria-describedby="army-note">
-          <option value="random">Random King Down army</option>
-          <option value="daily" title="Every player gets the same army today">Today's army, the same for everyone</option>
-          <option value="classic">Chess starting army</option>
-          <option value="custom">Custom army…</option>
-          <optgroup label="Example armies" id="army-examples">
-            <option value="MMSSNBNK">MMSSNBNK</option><option value="KGBMSSMB">KGBMSSMB</option>
-            <option value="NKBBMGQS">NKBBMGQS</option><option value="QNKMNRSG">QNKMNRSG</option>
-            <option value="SQBKRSML">SQBKRSML</option><option value="ogre">Ogre practice</option>
-          </optgroup>
-        </select></label>
-        <small id="army-note">Example armies are hand-picked to explore. Catapult ones use an experimental piece.</small>
-      </details>
-      <form method="dialog">
-        <button value="cancel">Cancel</button>
+        <p id="level-line"></p>
+        <label class="check" id="two-powers-row" hidden><input type="checkbox" id="two-powers" /><span>Kings' powers <small>Each king brings one power.</small></span></label>
+        <div id="king-picker" hidden>
+          <div class="king-pick" id="pick-0"></div>
+          <div class="king-pick" id="pick-1"></div>
+        </div>
+        <details id="more-options">
+          <summary><span id="side-army-label">Side and army</span><small id="side-army-value"></small></summary>
+          <fieldset class="seg" id="side-choice">
+            <legend>You play</legend>
+            <div class="seg-row">
+              <label><input type="radio" name="side" value="0" id="side-white" /><span>White</span></label>
+              <label><input type="radio" name="side" value="1" id="side-black" /><span>Black</span></label>
+            </div>
+          </fieldset>
+          <fieldset class="seg" id="army-choice">
+            <legend>Army</legend>
+            <div class="seg-row">
+              <label><input type="radio" name="army" value="random" /><span>Random</span></label>
+              <label><input type="radio" name="army" value="daily" /><span>Today's</span></label>
+              <label><input type="radio" name="army" value="classic" /><span>Chess</span></label>
+            </div>
+          </fieldset>
+          <div id="army-strip" aria-hidden="true"></div>
+          <p id="army-line"></p>
+          <details id="other-armies">
+            <summary>More…</summary>
+            <label class="army">Army <select id="army" aria-describedby="army-note">
+              <option value="random">Random King Down army</option>
+              <option value="daily" title="Every player gets the same army today">Today's army, the same for everyone</option>
+              <option value="classic">Chess starting army</option>
+              <option value="custom">Custom army…</option>
+              <optgroup label="Example armies" id="army-examples">
+                <option value="MMSSNBNK">MMSSNBNK</option><option value="KGBMSSMB">KGBMSSMB</option>
+                <option value="NKBBMGQS">NKBBMGQS</option><option value="QNKMNRSG">QNKMNRSG</option>
+                <option value="SQBKRSML">SQBKRSML</option><option value="ogre">Ogre practice</option>
+              </optgroup>
+            </select></label>
+            <small id="army-note">Try an example army. Catapult is experimental.</small>
+          </details>
+        </details>
+      </div>
+      <footer class="new-game-foot">
+        <p id="new-game-warn" hidden></p>
         <button id="start-game" type="button" class="primary">Start game</button>
-      </form>
+      </footer>
     </dialog>
     <dialog id="settings" aria-labelledby="settings-title">
       <h2 id="settings-title" tabindex="-1" autofocus>Settings</h2>

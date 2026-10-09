@@ -1,13 +1,16 @@
 /**
  * The New game dialog (index.html #new-game): three suggested games, the computer's level, a king
- * picker per side and a folded "More options". The dialog edits a copy of the next game's setup;
- * Start game hands it to main.ts, Cancel drops it.
+ * picker per side and a folded "Side and army". The dialog edits a copy of the next game's setup;
+ * Start game hands it to main.ts. Close drops it.
  */
 import type { SkillName } from './ai/skill';
 import type { Side } from './game';
-import { KINGS, PLAIN_KINGS, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
+import { KINGS, LETTERS, PLAIN_KINGS, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
 import { emblemArt, powerArt } from './power-motion';
 import { POWER_NAME, powerOptions } from './powers-ui';
+import { pieceIcon } from './piece-icons';
+import { CLASSIC_CHESS, POOL, randomBackRank } from './rules/setup';
+import { mulberry32 } from './sim/rng';
 
 /** Play the computer (no powers), Kings' powers against the computer, or two people. */
 export type Mode = 'computer' | 'powers' | 'two';
@@ -84,13 +87,18 @@ export function parseSetup(v: unknown): Setup | null {
   return w && b ? { mode: s.mode as Mode, level: s.level, side: s.side, twoPowers: s.twoPowers, picks: [w, b], army: s.army } : null;
 }
 
+/** The sheet warns before Start ends a game with moves. */
+export function newGameWarning(game: { moves: number; move: number; ended: boolean }): string {
+  return game.moves > 0 && !game.ended ? `This ends your game at move ${game.move}.` : '';
+}
+
 /* ---- the dialog ---- */
 
 /**
  * Builds the king pickers (in the KINGS order of src/rules/rules.ts) and wires every control once.
  * `preset`: the page's `?rules=` preset, which the games it starts play over the official readings.
  */
-export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>): { open(s: Setup): void } {
+export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>): { open(s: Setup, warning?: string): void } {
   const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
   const dlg = $<HTMLDialogElement>('new-game');
   const radios = (name: string) => [...dlg.querySelectorAll<HTMLInputElement>(`input[name="${name}"]`)];
@@ -119,11 +127,12 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     }
   }
   for (const r of radios('mode')) r.onchange = () => { draft = withMode(draft, r.value as Mode); render(); };
-  for (const r of radios('level')) r.onchange = () => { draft.level = r.value as SkillName; };
+  for (const r of radios('level')) r.onchange = () => { draft.level = r.value as SkillName; render(); };
   for (const r of radios('side')) r.onchange = () => { draft.side = +r.value as Color; render(); };
   $<HTMLInputElement>('two-powers').onchange = e => { draft = withMode(draft, draft.mode, (e.target as HTMLInputElement).checked); render(); };
   const army = $<HTMLSelectElement>('army');
-  army.onchange = () => { draft.army = army.value; };
+  army.onchange = () => { draft.army = army.value; render(); };
+  for (const r of radios('army')) r.onchange = () => { draft.army = r.value; render(); };
   $('start-game').onclick = () => start(copy(draft));
 
   function render(): void {
@@ -132,7 +141,8 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     for (const r of radios('side')) r.checked = +r.value === draft.side;
     $<HTMLInputElement>('two-powers').checked = draft.twoPowers;
     const two = draft.mode === 'two';
-    $('level').hidden = $('side-choice').hidden = two;
+    $('level').hidden = $('level-line').hidden = $('side-choice').hidden = two;
+    $('level-line').textContent = { beginner: 'New to King Down? Start here.', casual: 'Relaxed. It makes mistakes.', club: 'A solid player. Keep your pieces safe.', strong: 'Thinks longer. A real fight.' }[draft.level];
     $('two-powers-row').hidden = !two;
     $('king-picker').hidden = !powersOn(draft);
     for (const c of [0, 1] as const) {
@@ -153,13 +163,27 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     }
     army.value = draft.army;
     if (army.value !== draft.army) army.value = draft.army = 'random'; // an example army that is gone
+    for (const r of radios('army')) r.checked = r.value === draft.army;
+    const name = { random: 'Random army', daily: "Today's army", classic: 'Chess' }[draft.army] ?? army.selectedOptions[0].textContent;
+    $('side-army-label').textContent = two ? 'Army' : 'Side and army';
+    $('side-army-value').textContent = two ? name : `${SIDE[draft.side]} · ${name}`;
+    $('army-line').textContent = { random: 'A new army for each game.', daily: 'The same army for everyone today.', classic: 'The chess starting army.' }[draft.army] ?? 'Try this army.';
+    const code = draft.army === 'daily' ? randomBackRank(mulberry32(+new Date().toLocaleDateString('en-CA').replace(/-/g, '')))
+      : draft.army === 'classic' ? CLASSIC_CHESS
+      : /^[A-Z]{8}$/.test(draft.army) ? draft.army : [...new Set(POOL)].join('');
+    $('army-strip').innerHTML = [...code].map(p => pieceIcon(LETTERS.indexOf(p) as PieceType, draft.side)).join('');
   }
 
   return {
-    open(s: Setup): void {
+    open(s: Setup, warning = ''): void {
       draft = copy(s);
       options = new Map(powerOptions(preset).map(g => [g.king, g.options])); // the use counts of the rules in force
       render();
+      $<HTMLDetailsElement>('more-options').open = false;
+      $<HTMLDetailsElement>('other-armies').open = !['random', 'daily', 'classic'].includes(draft.army);
+      $('new-game-warn').textContent = warning;
+      $('new-game-warn').hidden = !warning;
+      $('start-game').textContent = warning ? 'Start new game' : 'Start game';
       dlg.showModal();
     },
   };

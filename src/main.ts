@@ -14,7 +14,7 @@ import { LESSONS } from './lessons';
 import { mulberry32 } from './sim/rng';
 import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { POWER_NAME, POWER_TAG, autoQueen, hintMoves, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
-import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
+import { defaultSetup, isLevel, kingsOf, newGameDialog, newGameWarning, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
 import './dialog-dismiss';
@@ -1300,11 +1300,6 @@ const dialog = newGameDialog(s => {
     if (!back) return; // the dialog stays open
     if (back.split('S').length > 2) { alert('One Beast per army.'); return; } // owner, 2026-10-04
   }
-  // Like a game link (below), Start game asks before it replaces an unfinished game with a move. In a lesson
-  // that is the game Return to game keeps. Cancel keeps the game, its save and the dialog.
-  const kept = lesson != null ? lessonReturn : { game, resigned };
-  if (kept && kept.resigned == null && kept.game.status === 'playing' && kept.game.history.length
-    && !confirm('Start a new game? It replaces your current game.')) return;
   setup = s;
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(s)); } catch { /* private mode: the choices last this visit */ }
   if (s.army === 'daily') { const d = today(); newGame(randomBackRank(mulberry32(+d.replace(/-/g, ''))), null, false, d); }
@@ -1317,7 +1312,10 @@ const dialog = newGameDialog(s => {
     if (example) { said = example.watch; $('moment').textContent = said; }
   } else newGame(randomBackRank());
 }, preset);
-const openNewGame = (): void => dialog.open(setup);
+const openNewGame = (): void => dialog.open(setup, newGameWarning({
+  moves: (lessonReturn?.game ?? game).history.length, move: moveNumber((lessonReturn?.game ?? game).pos),
+  ended: (lessonReturn ? lessonReturn.resigned : resigned) != null || (lessonReturn?.game ?? game).status !== 'playing',
+}));
 
 $('new-game-btn').onclick = openNewGame;
 $('settings-btn').onclick = () => $<HTMLDialogElement>('settings').showModal();
