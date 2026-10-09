@@ -18,7 +18,7 @@ const BASELINE: [string, number, number, string, number][] = [
   ['r1b1k2r/pp1g1ppp/2n2q2/3pp3/1b1P4/2NGPN2/PPQ2PPP/R3KB1R b - - 3 9', 19, 118, 'e5xd4', 5398],
   ['6k1/5pg1/4p1p1/3q4/2G5/1Q2B3/5PPP/6K1 w - - 0 30', 339, 347, 'Qb3-c2', 3719],
   ['4k3/1g6/8/3pP3/2G5/8/8/4K3 w - - 0 50', -2, 13, 'Ke1-e2', 909],
-  ['r3k2r/ppp1gppp/2a5/3Q4/4G3/2N5/PPP2PPP/R3K1MR w - - 0 12', 1014, 1089, 'Qd5-e5', 5455],
+  ['r3k2r/ppp1gppp/2a5/3Q4/4G3/2N5/PPP2PPP/R3K1MR w - - 0 12', 1014, 1089, 'Qd5-e5', 7454],
   ['2r3k1/5Gpp/8/8/8/8/g4PPP/2R3K1 b - - 0 40', -96, 99999, 'Rc8xc1', 80],
 ];
 

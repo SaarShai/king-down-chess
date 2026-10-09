@@ -26,18 +26,21 @@ export type ArcherMove = 'ortho' | 'any' | 'fwdBack';
  * like `forward3` — see `archerShotsFor` in engine.ts. Three lab sets between it and `classic`
  * (2026-10-04): `plusDiagFwd2Clear` (the same shots, but a forward diagonal-2 shot needs the
  * square between empty), `fwd2NoBack` (without the shot 2 straight back) and `fwd2NoSide` (without
- * the two shots 2 to the side).
+ * the two shots 2 to the side). Two more (owner, 2026-10-04: "it can take at a distance without
+ * putting itself in danger"): `far2` (only today's two-square shots: 2 straight, 2 forward-diagonal)
+ * and `over2` (the same shots, only over a piece of either colour on the square between).
  */
-export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plusDiagFwd2' | 'plusDiagFwd2Clear' | 'fwd2NoBack' | 'fwd2NoSide';
+export type ArcherShots = 'classic' | 'plusDiag2' | 'ring2' | 'forward3' | 'plusDiagFwd2' | 'plusDiagFwd2Clear' | 'fwd2NoBack' | 'fwd2NoSide' | 'far2' | 'over2' | 'nearOver2' | 'fwdNearOver2';
 /** What a guard may take by moving onto it. `any` turns it into a commoner that gives check. */
 export type GuardCaptures = 'none' | 'pawns' | 'any';
 /** Lab: the guard's double step from its home rank — none, through an empty square, or over anything. */
 export type GuardDoubleFirst = 'off' | 'slide' | 'leap';
 /**
  * Lab (2026-10-04): the guard starts beside the board and enters as a move (`Rules.guardReserve`).
- * `rank1`: onto any empty square of the side's first rank; `rank12`: of its first two ranks.
+ * `rank1`: onto any empty square of the side's first rank; `rank12`: of its first two ranks;
+ * `any` (owner, 2026-10-09: "queue guard drop for testing anyway - i want the data"): onto any empty square.
  */
-export type GuardReserve = 'off' | 'rank1' | 'rank12';
+export type GuardReserve = 'off' | 'rank1' | 'rank12' | 'any';
 /** Squares a beast may step to (empty only; its captures are a separate rule). */
 export type BeastMove = 'forward' | 'any' | 'diagFwdBack';
 /**
@@ -277,6 +280,12 @@ export interface Rules {
    * changes. The mirror of `guardNoCapital`: holding the centre buys reach.
    */
   guardCapitalStep: boolean;
+  /**
+   * A random back rank puts its guard on a square next to its king (owner, 2026-10-09: "approve start
+   * next to a king, wherever the king is positioned in the randomized arrangement"). Both sides
+   * mirror one back rank, so both guards stand on the same side of their kings. `randomBackRank`.
+   */
+  guardNextToKing: boolean;
   /**
    * Lab-only, off by default (C4, `docs/MATRIX.md` §B.2): a pawn whose **own square** is in the
    * capital (d4 e4 d5 e5) may also capture **straight ahead** — the square one rank forward, onto
@@ -647,6 +656,7 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   capitalSanctuary: false,
   capitalNoCapture: false,
   guardCapitalStep: false,
+  guardNextToKing: true,
   pawnCapitalCapture: false,
   guardCaptureLimit: 0 as 0 | 1,
   archerMove: 'any' as ArcherMove,
@@ -654,7 +664,10 @@ export const DEFAULT_RULES: Readonly<Rules> = Object.freeze({
   // at depth 4 (decisive +8.8, draws -8.2, fairness clean) at the cost of the archer's value,
   // 3.73 ± 0.42 -> > 4.66 pawns; ARCHER_V in src/ai/eval.ts is re-priced with it.
   // docs/research/sim-piece-balance-2026-09-17.md
-  archerShots: 'plusDiagFwd2' as ArcherShots,
+  // Owner, 2026-10-09: "merge far2". Only the two-square shots (2 straight, 2 forward-diagonal),
+  // through blockers; `plusDiagFwd2` stays a lab reading. ARCHER_V is not re-priced yet: one depth-3
+  // pass measured 2.83 ± 0.28 pawns (docs/research/piece-runs-2026-10-04-pv-A-af2.md).
+  archerShots: 'far2' as ArcherShots,
   beastMove: 'any' as BeastMove,
   beastCapture: 'adjacent' as BeastCapture,
   // The blind spot goes (2026-09-17): "the 7 adjacent squares except straight ahead" cost more to
@@ -762,6 +775,8 @@ export const RULES_2017: Readonly<Rules> = Object.freeze({
   beastMove: 'forward' as BeastMove,
   // 2017: the paladin removes itself after every capture, a pawn's included (§6.15 lifts the pawn).
   paladinKamikaze: 'always' as PaladinKamikaze,
+  // 2017: the guard is drawn like any other piece; next to the king is the 2026-10-09 adoption.
+  guardNextToKing: false,
   // The 2017 rulebook promotes to any piece except a king, the guard included; barring the guard
   // is the designer's 2026-09-13 call and is not part of the older game.
   promotionSet: 'anyNonKing' as PromotionSet,
@@ -797,7 +812,8 @@ export const POWERS_BALANCED: Readonly<Partial<Rules>> = Object.freeze({
   darknessMoves: true,       // Darkness: pawns keep their straight steps,
   darknessKingStep2: true,   //   and the king may step two squares over an empty square (owner 2026-10-04)
   deathTouchReach: true,     // Death Touch: also two squares away, straight forward, back or
-  deathTouchReachOrtho: true, //   sideways, over an empty square (round 10)
+  deathTouchReachOrtho: true, //   sideways, over an empty square (round 10);
+  deathTouchReachForwardBack: true, // reach straight forward or back only, never sideways (T2; owner 2026-10-09: "go with T2 for death touch")
 });
 
 /** Reset to the defaults, then apply `over`. Call with no argument to restore today's rules. */
@@ -821,10 +837,10 @@ const CHOICES: Record<string, readonly (string | number)[]> = {
   guardCaptures: ['none', 'pawns', 'any'],
   guardStep: [1, 2],
   guardDoubleFirst: ['off', 'slide', 'leap'],
-  guardReserve: ['off', 'rank1', 'rank12'],
+  guardReserve: ['off', 'rank1', 'rank12', 'any'],
   guardCaptureLimit: [0, 1],
   archerMove: ['ortho', 'any', 'fwdBack'],
-  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide'],
+  archerShots: ['classic', 'plusDiag2', 'ring2', 'forward3', 'plusDiagFwd2', 'plusDiagFwd2Clear', 'fwd2NoBack', 'fwd2NoSide', 'far2', 'over2', 'nearOver2', 'fwdNearOver2'],
   beastMove: ['forward', 'any', 'diagFwdBack'],
   beastCapture: ['adjacent', 'diagForward', 'diagonal'],
   maesterStep: [1, 2],

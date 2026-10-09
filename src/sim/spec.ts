@@ -1,8 +1,8 @@
 /** Run spec: what to play, how, and with which seed. JSON file and/or CLI flags. */
 import { readFileSync } from 'node:fs';
 import { LETTERS } from '../rules/engine';
-import { RULES, Rules, parseRule } from '../rules/rules';
-import { POOL, randomBackRank, shuffle } from '../rules/setup';
+import { Rules, parseRule } from '../rules/rules';
+import { POOL, randomBackRank } from '../rules/setup';
 import { mulberry32 } from './rng';
 
 /** `powerPlies`: how deep in the tree the search offers king powers (`SearchOptions.powerPlies`). */
@@ -170,19 +170,10 @@ export function parseFlags(argv: readonly string[]): Record<string, string | tru
   return out;
 }
 
-/**
- * Same rule as `randomBackRank` but with a caller-supplied pool: 7 picks + the king, and two
- * bishops must land on opposite colours. setup.ts hardcodes POOL and is owned elsewhere.
- */
+/** `randomBackRank` with a caller-supplied pool (at least 7 letters); its constraints apply. */
 export function sampleBackRank(rng: () => number, pool?: string): string {
-  if (!pool || pool === POOL) return randomBackRank(rng);
-  if (pool.length < 7) throw new Error(`pool needs >= 7 letters, got "${pool}"`);
-  for (;;) {
-    const row = shuffle([...shuffle(pool.split(''), rng).slice(0, 7), 'K'], rng);
-    const b = row.flatMap((p, i) => (p === 'B' ? [i] : []));
-    if (RULES.bishopsOppositeColours && b.length === 2 && (b[0] + b[1]) % 2 === 0) continue;
-    return row.join('');
-  }
+  if (pool && pool.length < 7) throw new Error(`pool needs >= 7 letters, got "${pool}"`);
+  return randomBackRank(rng, pool || POOL);
 }
 
 export function loadSpec(argv: readonly string[]): RunSpec {

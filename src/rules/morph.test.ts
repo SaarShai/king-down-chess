@@ -41,7 +41,7 @@ describe('Morph: what may become what', () => {
     expect(targets(pos, 'b1')).toEqual(pool('N').sort());
     expect(morphs(pos).length).toBe(2 * (pool().length - 1)); // nothing for the pawns or the king
     // The pool's types are the engine's: every one a piece the engine plays, none a king or pawn.
-    expect(pool().sort()).toEqual(['A', 'B', 'G', 'M', 'N', 'O', 'Q', 'R', 'S']);
+    expect(pool().sort()).toEqual(['A', 'B', 'G', 'L', 'M', 'N', 'O', 'Q', 'R', 'S']);
     legalSame(pos);
   });
 
@@ -53,6 +53,19 @@ describe('Morph: what may become what', () => {
     // The opponent's Beast does not count.
     expect(targets(fromFen('s3k3/8/8/8/8/8/8/R3K3 w - - 0 1'), 'a1')).toContain('S');
     expect(targets(fromFen('4k3/8/8/8/8/8/8/RQ2K3 w - - 0 1'), 'a1')).toContain('Q');
+  });
+
+  it('may make a Guard, never a second Guard for the side (owner, 2026-10-09)', () => {
+    hands(['Morph', 'MorphB'], []);
+    expect(targets(fromFen('4k3/8/8/8/8/8/8/R3K3 w - - 0 1'), 'a1')).toContain('G');
+    const guard = fromFen('4k3/8/8/8/8/8/8/RG2K3 w - - 0 1');
+    expect(targets(guard, 'a1')).not.toContain('G');
+    expect(targets(guard, 'a1', '!I+')).not.toContain('G');
+    expect(targets(guard, 'b1')).toEqual(pool('G').sort()); // the Guard itself may become another type
+    // A spent guard counts too; the opponent's guard does not.
+    hands(['Morph'], [], { guardCaptures: 'pawns', guardCaptureLimit: 1 });
+    expect(targets(fromFen('4k3/8/8/8/8/8/8/RH2K3 w - - 0 1'), 'a1')).not.toContain('G');
+    expect(targets(fromFen('g3k3/8/8/8/8/8/8/R3K3 w - - 0 1'), 'a1')).toContain('G');
   });
 
   it('MorphB never makes a queen; the two cards have their own notation', () => {
@@ -70,8 +83,8 @@ describe('Morph: what may become what', () => {
 
   it('a lab piece may morph, into the pool only; a guard only where a guard may land', () => {
     hands(['Morph'], []);
-    expect(targets(fromFen('4k3/8/8/8/8/8/8/2L1K3 w - - 0 1'), 'c1')).toEqual(pool().sort());
-    expect(morphs(fromFen('4k3/8/8/8/8/8/8/1TCVK3 w - - 0 1')).some(l => /=[KPLTCV]$/.test(l))).toBe(false);
+    expect(targets(fromFen('4k3/8/8/8/8/8/8/2C1K3 w - - 0 1'), 'c1')).toEqual(pool().sort());
+    expect(morphs(fromFen('4k3/8/8/8/8/8/8/1TCVK3 w - - 0 1')).some(l => /=[KPTCV]$/.test(l))).toBe(false);
     const second = fromFen('4k3/8/8/8/8/8/1N6/4K3 w - - 0 1');
     expect(targets(second, 'b2')).toContain('G');
     hands(['Morph'], [], { guardNoSecondRank: true });

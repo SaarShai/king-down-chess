@@ -375,7 +375,7 @@ describe('the Salvation card', () => {
     hands(['Salvation'], ['Freeze']);
     // Black freezes the knight on b1 and, the mark being free, its archer shoots it: b1 is empty,
     // and Black's mark there still binds White this turn, but the returned knight is a new piece.
-    const pos = play(play(fromFen('4k3/8/8/8/8/8/a7/1N2K3 b - - 0 1 l'), '!F:b1'), 'Aa2*b1');
+    const pos = play(play(fromFen('4k3/8/8/8/8/1a6/8/1N2K3 b - - 0 1 l'), '!F:b1'), 'Ab3*b1');
     expect(pos.marks?.[BLACK]?.sq).toBe(parseSq('b1'));
     expect(returns(pos)).toContain('N@b1!R');
     legalSame(pos);
