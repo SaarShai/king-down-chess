@@ -556,6 +556,23 @@ label.army select { width: 100%; font-weight: 400; }
 #powers-guide { font-size: var(--fs-sm); color: var(--ink-soft); }
 #powers-list { margin: 0; padding-left: 1.2em; font-size: var(--fs-sm); line-height: var(--lh); }
 
+/* The power coin: feat-king-powers option B. */
+.coin {
+  position: relative; flex: none; width: 48px; height: 48px; padding: 0; border-radius: 50%; cursor: pointer;
+  background: radial-gradient(circle at 40% 30%, #fbf7ee, #d9ccb0 70%, #b9aa8a);
+  border: 1px solid var(--stone-700); box-shadow: var(--lift), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+  transition: box-shadow var(--dur-2), filter var(--dur-2);
+}
+.coin img { position: absolute; inset: 5px; width: 36px; height: 36px; }
+.coin .notches { position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%); display: flex; gap: 3px; }
+.coin .notch { width: 9px; height: 9px; transform: rotate(45deg); background: #7fb2ff; border: 1.5px solid var(--frost-ink); }
+.coin .notch.is-spent { background: var(--stone-300); border-color: var(--stone-500); }
+.coin[data-state='armed'] { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 18px rgba(233, 192, 113, 0.75); }
+.coin[data-state='used'] { filter: grayscale(1); opacity: 0.7; }
+.coin-row { --frost-ink: #2c5a8f; position: relative; display: flex; align-items: center; gap: 6px; }
+.coin-row[data-side='b'] .coin { width: 44px; height: 44px; }
+.coin-row[data-side='b'] .coin img { width: 32px; height: 32px; }
+
 /* ---- title screen ---- */
 #title-screen {
   width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0;

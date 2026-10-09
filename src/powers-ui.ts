@@ -3,7 +3,7 @@
  * power moves the player must arm first. The engine decides what is legal; this module only says
  * how a person reaches it.
  */
-import { B, CardName, Color, KINGS, KingChoice, KingName, Move, N, PowerName, POWERS_BALANCED, PowerTag, Position, Q, R, RULES, type Rules, USES_RULE } from './rules/engine';
+import { B, CardName, Color, KINGS, KingChoice, KingName, Move, moveNumber, N, PowerName, POWERS_BALANCED, PowerTag, Position, Q, R, RULES, type Rules, USES_RULE } from './rules/engine';
 
 export const POWER_NAME: Record<PowerName, string> = {
   Freeze: 'Freeze', IceWall: 'Ice Wall', Strike: 'Strike', Haste: 'Haste', Flight: 'Flight', Sacrifice: 'Sacrifice',
@@ -145,6 +145,36 @@ export function hintMoves(legal: readonly Move[], armedTag: string | null, goal?
 export function usesAllowed(power: PowerName, r: Rules = RULES): number | null {
   const key = USES_RULE[power];
   return key ? (r[key] as number) : null;
+}
+
+export interface PowerCoin {
+  king: KingName;
+  power: PowerName;
+  state: 'ready' | 'armed' | 'used' | 'always';
+  total: number | null;
+  spent: number;
+  left: number | null;
+  fromMove: number;
+  usedOn: number | null;
+}
+
+/** Read the shown position and its history. No power means no coin. */
+export function coinState(
+  pos: Position, side: Color, rules: Rules,
+  history: readonly { pos: Position; move: Move }[], armed: boolean,
+): PowerCoin | null {
+  const choice = rules.kings[side];
+  if (!choice) return null;
+  const total = usesAllowed(choice.power, rules);
+  const always = total === null || (total === 0 && (choice.power === 'March' || choice.power === 'Leap'));
+  const spent = always ? 0 : pos.used?.[side] ?? 0;
+  const left = total === null || total === 0 ? null : Math.max(0, total - spent);
+  const last = always ? undefined : history.filter(h => h.pos.turn === side && h.move.power === POWER_TAG[choice.power]).at(-1);
+  return {
+    ...choice, state: always ? 'always' : left === 0 ? 'used' : armed ? 'armed' : 'ready',
+    total: always ? null : total, spent, left,
+    fromMove: rules.fromMove[choice.power] ?? 1, usedOn: last ? moveNumber(last.pos) : null,
+  };
 }
 
 /** Uses left for side `c` in `pos`, or null when its power is always on (or unlimited). */

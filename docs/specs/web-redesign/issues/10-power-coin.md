@@ -1,6 +1,6 @@
 # 10 · The power coin by the portrait
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: in-progress (W3 phase 1 done; W2 wiring waits)
 Blocked by: 03 (this step comes directly after 03, so no power tile with words ships)
 
 ## Scope
@@ -36,3 +36,13 @@ Blocked by: 03 (this step comes directly after 03, so no power tile with words s
 - No card coins (ticket 24), no new art for a king with no power, no turn countdown ring.
 
 ## Comments
+
+- Phase 1 plan: test `coinState` at its pure interface, one failing test at a time. Cover ready, armed, used, always on and no power.
+- Build the coin row DOM and copy the demo coin CSS. Keep the live game as it is until W2 lands.
+- Checks: `npm test`, `npm run typecheck`, and the named plugin checks. Record the plugin size before and after. No full browser suite in phase 1.
+- Phase 2: wire the strips and context actions, update check helpers, run the powers check and full suite, and render the sample.
+- The coin CSS matches demo lines 86–95. `coinRow` binds the power coin to the portrait. Card coins can append to the row.
+- The tests cover both sides, a use on move 12, Undo, and zero-use March and Leap. Each new state first fails, then passes.
+- The plugin page is 4,291,869 bytes before and after. `plugin-ui` passes (19.4 s). `plugin-ui-http` passes (16.1 s) after a retry with the local test database from `docs/plugin-preparation.md`.
+- `npm test` passes: 79 files pass, 1 skips; 1,447 tests pass, 13 skip; all 50 artwork checks pass. The full run uses one worker with all test paths. The temporary test filter is removed. `npm run typecheck` and `git diff --check` pass.
+- Phase 1 is done. Phase 2 also adds the waiting and no-target states and legal Use guards. Cast motion and coin flip stay out, as the fast plan says. The sample and full browser suite wait for phase 2.

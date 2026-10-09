@@ -1,11 +1,68 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { LESSONS } from './lessons';
+import { Game } from './game';
 import { Q, legalMoves, makeMove, parseKings } from './rules/engine';
 import { POWERS_BALANCED, RULES_2017, setRules } from './rules/rules';
 import { fromFen, toLan } from './rules/setup';
-import { autoQueen, hintMoves, needsArming, powerOptions, powerText } from './powers-ui';
+import { autoQueen, coinState, hintMoves, needsArming, powerOptions, powerText, powersRules } from './powers-ui';
 
 afterEach(() => setRules());
+
+describe('the power coin', () => {
+  it('has no coin for a side with no power', () => {
+    const rules = powersRules({ kings: parseKings('none,frost:freeze') });
+    expect(coinState(fromFen('7k/8/8/8/8/8/8/K7 w - - 0 1'), 0, rules, [], false)).toBeNull();
+  });
+
+  it('shows a ready power with its use left', () => {
+    const rules = powersRules({ kings: parseKings('frost:freeze,none') });
+    expect(coinState(fromFen('7k/8/8/8/8/8/8/K7 w - - 0 1'), 0, rules, [], false)).toEqual({
+      king: 'Frost', power: 'Freeze', state: 'ready', total: 1, spent: 0, left: 1,
+      fromMove: 1, usedOn: null,
+    });
+  });
+
+  it('shows an armed power without spending a use', () => {
+    const rules = powersRules({ kings: parseKings('none,frost:freeze') });
+    expect(coinState(fromFen('7k/8/8/8/8/8/8/K7 b - - 0 1'), 1, rules, [], true)).toMatchObject({
+      king: 'Frost', power: 'Freeze', state: 'armed', total: 1, spent: 0, left: 1,
+    });
+  });
+
+  it('shows the use on its full move and restores it on Undo', () => {
+    const rules = powersRules({ kings: parseKings('none,frost:freeze') });
+    setRules(rules);
+    const game = new Game();
+    game.load(fromFen('7k/8/8/8/8/8/R7/K7 b - - 0 12'));
+    game.play(game.legal.find(m => m.power === 'freeze')!);
+    expect(coinState(game.pos, 1, rules, game.history, true)).toMatchObject({
+      state: 'used', total: 1, spent: 1, left: 0, usedOn: 12,
+    });
+    game.undo();
+    expect(coinState(game.pos, 1, rules, game.history, false)).toMatchObject({
+      state: 'ready', spent: 0, left: 1, usedOn: null,
+    });
+  });
+
+  it('shows an always-on power with no use notches', () => {
+    const rules = powersRules({ kings: parseKings('spirit:holylight,none') });
+    setRules(rules);
+    const game = new Game();
+    game.load(fromFen('7k/8/8/8/8/8/R7/K7 w - - 0 1'));
+    game.play(game.legal[0]);
+    expect(coinState(game.pos, 0, rules, game.history, true)).toEqual({
+      king: 'Spirit', power: 'HolyLight', state: 'always', total: null, spent: 0, left: null,
+      fromMove: 1, usedOn: null,
+    });
+  });
+
+  it.each(['march', 'leap'])('shows zero-use %s as always on', power => {
+    const rules = powersRules({ kings: parseKings(`mud:${power},none`), marchUses: 0, leapUses: 0 });
+    expect(coinState(fromFen('7k/8/8/8/8/8/8/K7 w - - 0 1'), 0, rules, [], true)).toMatchObject({
+      state: 'always', total: null, spent: 0, left: null, usedOn: null,
+    });
+  });
+});
 
 describe('power texts follow the rules in force', () => {
   it('reads the rulebook by default', () => {
