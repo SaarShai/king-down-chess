@@ -28,6 +28,7 @@ try {
       if (phone) await page.touchscreen.tap(p.x, p.y); else await page.mouse.click(p.x, p.y);
     };
     await startLesson(page);
+    assert.notEqual(await page.locator('#return-game use').getAttribute('href'), await page.locator('#undo use').getAttribute('href'), 'Return to game has its own icon');
     // This used to abandon the lesson and save its tiny board over the match.
     await setUpGame(page, { mode: 'computer', level: 'strong' }); await page.keyboard.press('Escape');
     assert.equal(await saved(), before, 'choosing a future opponent in a lesson preserves the saved match');

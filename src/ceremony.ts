@@ -1,8 +1,9 @@
 import './ceremony.css';
 import type { Game } from './game';
 import { moveNumbers } from './move-text';
-import { NAMES, TAG_POWER, typeOf, type Position } from './rules/engine';
+import type { Position } from './rules/engine';
 import type { BoardView } from './render/PaintedView';
+import { ceremonyMoveLabel } from './ceremony-game';
 
 type History = Game['history'];
 
@@ -25,6 +26,11 @@ export function startCeremony({ view, board, moments, history, final, king, show
   words.hidden = true;
   words.setAttribute('aria-hidden', 'true');
   board.append(words);
+  const caption = document.createElement('div');
+  caption.className = 'ceremony-caption';
+  caption.textContent = 'The final blow · Tap to skip';
+  caption.hidden = !motion;
+  board.append(caption);
   moments.replaceChildren();
   let blow = history.length - 1;
   while (blow >= 0 && history[blow].move.pass) blow--;
@@ -37,7 +43,7 @@ export function startCeremony({ view, board, moments, history, final, king, show
       && (h.move.power || h.move.captures.length || h.move.swap || h.move.shove || h.move.promo));
     const winner = history[blow].pos.turn;
     special.sort((a, b) => Number(b.h.pos.turn === winner) - Number(a.h.pos.turn === winner));
-    const plies = [blow, ...special.slice(0, 2).map(h => h.ply)];
+    const plies = [blow, ...special.slice(0, 2).map(h => h.ply)].sort((a, b) => a - b);
     const numbers = moveNumbers(history.map(h => h.pos.turn));
     const head = document.createElement('p');
     head.className = 'tiles-head';
@@ -53,10 +59,8 @@ export function startCeremony({ view, board, moments, history, final, king, show
       button.style.setProperty('--i', String(i));
       button.dataset.ply = String(ply);
       const number = document.createElement('b'), label = document.createElement('span');
-      number.textContent = `Move ${numbers[ply]}`;
-      // A power can target an enemy; the tag names the action.
-      const name = h.move.power ? TAG_POWER[h.move.power].replace(/([a-z])([A-Z])/g, '$1 $2') : NAMES[typeOf(h.pos.board[h.move.from])];
-      label.textContent = ply === blow ? 'The final blow' : `${h.pos.turn ? 'Black' : 'White'} ${name}`;
+      number.textContent = `Move ${numbers[ply]}${ply === blow ? ' · Final blow' : ''}`;
+      label.textContent = ceremonyMoveLabel(h.pos, h.move);
       button.append(number, label);
       button.onclick = () => showPly(ply);
       row.append(button);
@@ -64,6 +68,7 @@ export function startCeremony({ view, board, moments, history, final, king, show
     moments.append(head, row);
   };
   const cleanup = (): void => {
+    caption.remove();
     board.removeEventListener('pointerdown', onTap, true);
     document.removeEventListener('keydown', onKey, true);
     document.removeEventListener('visibilitychange', onHidden);
@@ -94,6 +99,7 @@ export function startCeremony({ view, board, moments, history, final, king, show
   };
   const onKey = (e: KeyboardEvent): void => {
     if (e.target instanceof Element && e.target.closest('dialog[open]')) return;
+    if (e.target instanceof Element && e.target.closest('button') && [' ', 'Enter'].includes(e.key)) return;
     if (!['Escape', ' ', 'Enter'].includes(e.key)) return;
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -130,12 +136,13 @@ export function startCeremony({ view, board, moments, history, final, king, show
         if (!current()) return completed;
       }
       view.sync(final);
+      caption.remove();
       view.setFallen(king);
       await wait(650);
       if (!current()) return completed;
       words.hidden = false;
       words.classList.add('is-in');
-      await wait(480);
+      await wait(900);
       if (!current()) return completed;
       tiles();
       stopped = completed = true;

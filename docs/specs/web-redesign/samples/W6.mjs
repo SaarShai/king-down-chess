@@ -5,6 +5,19 @@ const rest = page => page.waitForFunction(() => !window.view.scene.animating && 
 export default {
   sizes: ['phone', 'desktop'],
   states: [
+    { name: 'computer-tell', video: true, clock: true, stillPace: 'normal', settleMs: 0, query: '?think=50',
+      save: { ...base, back: 'RNBQKBNR', fen: '', moves: [], black: 'ai' }, controls: '#end-turn, #menu-btn',
+      steps: async ({ page, tap, video }) => {
+        await tap(12); await tap(28); await rest(page); await endTurn(page);
+        await page.waitForFunction(() => window.view.scene.lifted != null, null, { polling: 10 });
+        if (video) await page.waitForTimeout(1000);
+        else {
+          await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 32)));
+          if (await page.evaluate(() => window.view.scene.lifted == null)) throw new Error('The tell ended before the still.');
+        }
+      } },
+    { name: 'quiet-loss', query: '?think=50', save: { ...base, black: 'ai', skill: 'club', fen: '4r1k1/8/8/8/8/8/5PPP/R5K1 w - - 0 1', moves: ['Ra1-a7', 'Re8-e1'] }, controls: '#over button',
+      steps: async ({ page }) => { await page.locator('#over').waitFor({ state: 'visible' }); } },
     { name: 'end-tiles', save: { ...base, fen: '7k/6pp/8/8/8/p7/8/R5MK w - - 0 1', moves: ['Ra1xa3', 'Kh8-g8', 'Mg1<>h1', 'Kg8-h8'] }, controls: '#over button',
       steps: async ({ page, tap }) => {
         await tap(16); await tap(56); await rest(page); await endTurn(page);

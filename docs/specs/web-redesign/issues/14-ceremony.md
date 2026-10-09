@@ -14,8 +14,8 @@ Blocked by: 02c, 03, 07, 11
 1. [x] The board plays the four beats, then today's result dialog opens with the tiles. The dialog's second king fall goes.
 2. [x] D8 plays your win against the computer, your link win, or any mate on one device. A loss, draw and Resign stay quiet.
 3. [x] The final blow skips a trailing pass. It plays through `animateMove` at speed 0.5. The king falls; "King Down" settles in; up to three tiles rise.
-4. [x] The final blow and up to two special moves form the tiles, with the winner's moves first. A tile opens Review at its ply. Key-moment search starts from Review.
-5. [x] A board tap, Escape, Space or Enter skips. A hidden tab, Off and reduced motion show the end frame. The result is spoken once. Rematch gets focus and works by pointer from the first frame.
+4. [x] The final blow and up to two special moves form the tiles, with the winner's moves selected first and all tiles in play order. A tile opens Review at its ply. Key-moment search starts from Review.
+5. [x] A board tap or Escape skips. Space and Enter on the board skip. A hidden tab, Off and reduced motion show the end frame. The result is spoken once. The result Rematch gets focus. End turn stays off during the board beats.
 6. [x] A new game cancels every old wait. Open sheets keep their keys and focus. The result waits behind a sheet. New game cancels the pending result when it opens.
 7. [x] A staged end waits for the press or a successful send. Undo before the press removes it. A king capture has no fallen king.
 8. [x] "Copy today's result" keeps its id, words and copy path.
@@ -31,7 +31,7 @@ Blocked by: 02c, 03, 07, 11
 
 ## Risks
 
-- The sequence is longer than the earlier motion rule (2.6 s), and a long Beast chain at half speed adds more. The owner chose the Ceremony; the skip and Rematch from the first frame keep control with the player.
+- The sequence is longer than the earlier motion rule (2.6 s), and a long Beast chain at half speed adds more. The owner chose the Ceremony; the skip keeps control with the player.
 - A mate by a power move (Strike) must replay the power move.
 
 ## Does not do
@@ -64,3 +64,20 @@ Two files have conflicts. Keep the Previously import in `src/main.ts`. Keep the 
 The supplied M1 launcher selects this Mac. All 25 named browser checks pass: link-game, painted-game, ux-defects, game-screen, their-turn, menu-extra, powers, read-piece, verb-marks, home, visual-design, turn, qa, new-game, plugin-ui, plugin-ui-http, lessons, lesson-return, special-moves, account, king-effects, workshop, end, w6-parts and playable-clay.
 
 No timeout needs confirmation. Both plugin checks pass; the HTTP check uses the documented disposable local database. No source fix is needed after the conflict resolution. The sample still waits for the owner's yes.
+
+## Batch 3 repair plan
+
+Batch 3: decided by delegation (2026-10-09). Keep a loss, draw and Resign quiet.
+Fix the words, tile acts and order, Review spacing and bar state.
+Add the tell, quiet loss and first-visit samples. Keep seals until Tricks opens.
+Check: unit tests, typecheck, the ten named browser checks and sample reports.
+Inspect every sample. Each report must have zero faults.
+
+Batch 3: decided by delegation (2026-10-09).
+D8 stays: a loss, draw and Resign stay quiet. A loss gets no celebration.
+King Down holds for 900 ms, then moves into the result. Review has space.
+Tiles name the act in play order. The final blow is last and marked.
+End turn stays off during the Ceremony. Rematch starts from the result.
+The result uses move words, a full stop and a move count. The replay has a skip caption.
+Tests: 1,667 pass, 13 skip; all 50 board tests pass. All ten browser checks pass.
+W6: 10 renders, zero faults. Skip the h-file fall repair: it needs shared board work.

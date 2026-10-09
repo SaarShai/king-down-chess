@@ -239,3 +239,8 @@ export async function workshopCardText(page) {
 
 /** The read line opens the Guide at the piece. */
 export const openPieceRules = page => page.locator('#all-rules').click();
+
+/** King Down moves into the result when the board sequence ends. */
+export const ceremonyWords = page => page.locator('#over-words:visible, .kd-words:visible').first();
+/** Review tiles keep their ply when their display order changes. */
+export const ceremonyTile = (page, ply) => page.locator(`.ceremony-tile[data-ply="${ply}"]`);

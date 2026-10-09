@@ -16,6 +16,7 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
   let page = 'menu';
   refreshTricks();
   function go(next: string): void {
+    if (next === 'tricks') openTricksMenu();
     const previous = page;
     page = next;
     sheet.querySelectorAll<HTMLElement>('[data-menu-page]').forEach(p => { p.hidden = p.dataset.menuPage !== page; });
@@ -32,7 +33,7 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
     (from ?? title).focus({ preventScroll: true });
   }
   const close = (): void => sheet.close();
-  button.onclick = () => { openTricksMenu(); go('menu'); sheet.showModal(); title.focus(); };
+  button.onclick = () => { refreshTricks(); go('menu'); sheet.showModal(); title.focus(); };
   back.onclick = () => go(PAGES[page].parent!);
   document.getElementById('menu-close')!.onclick = close;
   // Page Back handles Esc before the native dialog: repeated cancel events can be non-cancelable.

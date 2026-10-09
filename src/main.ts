@@ -166,7 +166,7 @@ const gameEnd = connectGameEnd(view, $('board'), $<HTMLDialogElement>('over'), $
   generation: () => gen, motion: () => pace.value !== 'off', lock: value => { busy = value; }, refresh,
   turnButton: $<HTMLButtonElement>('end-turn'),
   newGameSheet: $<HTMLDialogElement>('new-game'),
-  announce: ceremony => { $('announce').textContent = `${ceremony ? 'King Down. ' : ''}${result()}.`; },
+  announce: ceremony => { $('announce').textContent = `${ceremony ? 'King Down. ' : ''}${result()}`; },
   showPly, rematch: () => newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true),
 });
 connectEndReview($('over-review'), $<HTMLDialogElement>('over'), $('moves-line'), listMoments);
@@ -183,7 +183,13 @@ connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
   game: () => game, turn: currentTurn, mode: turnMode, linkSide: () => linkSide,
   ended, blocked: () => busy || viewing != null || lesson != null, generation: () => gen,
   lock: value => { busy = sending = value; }, commit,
-  handOver: () => { awardTurnSeals(game, turnStart, sides, linkSide); turnStart = handOver(game); selected = null; pending = []; },
+  handOver: () => {
+    const seals = awardTurnSeals(game, turnStart, sides, linkSide);
+    const line = !seals.length ? '' : seals.length === 1 ? `New seal: ${seals[0]}.` : 'New seals.';
+    if (line) $('announce').textContent = `${line} See Menu, Extra, Tricks.`;
+    turnStart = handOver(game); selected = null; pending = [];
+    return line;
+  },
   refresh, save, next: () => { if (ended()) showOver(); else void maybeAi(); },
   link: gameLink, notice: line => { notice = line; },
   focusBoard: keyboard => { cursor = keyboard ? homeSquare() : null; sayCursor(); drawMarks(); },
@@ -331,14 +337,7 @@ function refresh(): void {
   $('turn').textContent = viewing != null ? `Reviewing ${shown}`
     : lesson != null ? `Lesson ${lesson + 1} of ${LESSONS.length}: ${LESSONS[lesson].name}`
     : ended() ? '' : `${turn} to move${game.inCheck ? ' — CHECK' : ''}`;
-  $('status').textContent = viewing != null ? '' : !ended() ? (thinking ? 'thinking…' : '') : resigned != null ? result() : {
-    playing: thinking ? 'thinking…' : '',
-    checkmate: result(),
-    stalemate: 'Stalemate — draw',
-    draw50: 'Draw — 50-move rule',
-    drawRepetition: 'Draw — threefold repetition',
-    drawMaterial: 'Draw — insufficient material',
-  }[game.status];
+  $('status').textContent = viewing != null ? '' : ended() ? result() : thinking ? 'thinking…' : '';
   $('setup').textContent = game.backRank || 'custom';
   $('setup').title = toFen(game.pos);
   const moves = $('moves');
@@ -852,14 +851,14 @@ function undo(): void {
 }
 
 function result(): string {
-  if (resigned != null) return `${resigned ? 'Black' : 'White'} resigns — ${resigned ? 'White' : 'Black'} wins`;
+  if (resigned != null) return `${resigned ? 'Black' : 'White'} resigns — ${resigned ? 'White' : 'Black'} wins.`;
   return {
     playing: '',
-    checkmate: `${game.pos.turn ? 'White' : 'Black'} wins ${findKing(game.pos.board, game.pos.turn) < 0 ? 'by king capture' : 'by checkmate'}`,
-    stalemate: 'Draw by stalemate',
-    draw50: 'Draw by the 50-move rule',
-    drawRepetition: 'Draw by repetition',
-    drawMaterial: 'Draw by insufficient material',
+    checkmate: `${game.pos.turn ? 'White' : 'Black'} wins ${findKing(game.pos.board, game.pos.turn) < 0 ? 'by king capture' : 'by checkmate'}.`,
+    stalemate: 'Draw by stalemate.',
+    draw50: 'Draw by the 50-move rule.',
+    drawRepetition: 'Draw by repetition.',
+    drawMaterial: 'Draw by insufficient material.',
   }[game.status];
 }
 
@@ -870,7 +869,7 @@ function showOver(): void {
   const n = movesPlayed();
   const dlg = $<HTMLDialogElement>('over');
   $('over-title').textContent = result();
-  const last = game.history.at(-1)?.lan;
+  const last = game.history.at(-1);
   // Ending reason wins over a prior moment caption (`said`); last-move text stays above.
   const why =
     (game.status === 'checkmate' ? (findKing(game.pos.board, game.pos.turn) < 0 ? 'The king was captured.' : 'The king is in check and no legal move escapes it.') : '')
@@ -880,7 +879,7 @@ function showOver(): void {
     || (game.status === 'drawMaterial' ? 'Neither side has enough material to mate.' : '')
     || (resigned != null ? 'That side gave up.' : '')
     || said;
-  $('over-detail').textContent = [last ? `Last move ${last}.` : '', why, `${n} move${n === 1 ? '' : 's'} · setup ${game.backRank || 'custom'}`].filter(Boolean).join(' ');
+  $('over-detail').textContent = [last ? describeMove(last.pos, last.move, true) : '', why, `${n} move${n === 1 ? '' : 's'}.`].filter(Boolean).join(' ');
   dlg.returnValue = ''; // Esc leaves the last button's value behind, which would re-fire it
   dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0); // the kings that played, as on the board
   dlg.querySelector<HTMLImageElement>('.over-b')!.src = kingArt(1);
@@ -1175,7 +1174,7 @@ $('rules-btn').onclick = () => {
 $('share-result').onclick = () => {
   const n = movesPlayed(), people = sides.filter(s => s === 'human').length;
   const me = sides.indexOf('human') as Color, winner = resigned != null ? 1 - resigned : game.status === 'checkmate' ? 1 - game.pos.turn : -1;
-  const outcome = people !== 1 ? result().toLowerCase() : winner < 0 ? 'drew' : winner === me ? 'won' : 'lost';
+  const outcome = people !== 1 ? result().slice(0, -1).toLowerCase() : winner < 0 ? 'drew' : winner === me ? 'won' : 'lost';
   const vs = people === 1 ? ` against the ${skill} computer` : '';
   const text = `King Down daily ${daily} (${game.backRank}): ${outcome} in ${n} move${n === 1 ? '' : 's'}${vs}. ${location.origin}${location.pathname}`;
   void copyAndSay($('share-result'), text, 'Result copied');

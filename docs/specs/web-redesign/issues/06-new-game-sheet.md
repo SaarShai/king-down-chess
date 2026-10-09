@@ -52,3 +52,10 @@ Focus uses the shared colour. The switch says "Play with kings' powers".
 Power words use short sentences. The plugin keeps its text and rules.
 All eight required browser checks pass. `npm test`: 1514 tests and 50 scene tests pass.
 W7 has 10 inspected renders and no faults.
+
+Batch 3: decided by delegation (2026-10-09).
+Example army names replace raw codes in the select and summary.
+The phone king picker has three columns. Every name fits on one line.
+The shared style file changes only the picker rules.
+All ten browser checks pass. W7 has 18 renders and zero faults.
+Both sheets get a visual check. No rules or plugin module changes.

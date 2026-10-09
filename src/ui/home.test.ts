@@ -16,7 +16,7 @@ it('shows the saved board turn and the last move in words', () => {
     opponent: 'vs Computer · Club',
     progress: 'Move 2',
     action: 'Continue',
-    detail: 'Your move',
+    detail: 'Your move.',
     review: false,
     lastMove: 'Black pawn e7 to e5.',
     result: '',
@@ -26,21 +26,21 @@ it('shows the saved board turn and the last move in words', () => {
 it('names the next player on this device or in a link game', () => {
   const game = new Game('RNBQKBNR');
   game.playLan(['e2-e4']);
-  expect(state(game).detail).toBe('Their move');
-  expect(state(game, { sides: ['human', 'human'] })).toMatchObject({ opponent: 'White vs Black', detail: 'Your move' });
-  expect(state(game, { sides: ['human', 'human'], linkSide: 0 })).toMatchObject({ opponent: 'vs your friend', detail: 'Their move' });
-  expect(state(game, { sides: ['human', 'human'], linkSide: 1 }).detail).toBe('Your move');
+  expect(state(game).detail).toBe('Their move.');
+  expect(state(game, { sides: ['human', 'human'] })).toMatchObject({ opponent: 'White vs Black', detail: 'Black to move.' });
+  expect(state(game, { sides: ['human', 'human'], linkSide: 0 })).toMatchObject({ opponent: 'vs your friend', detail: 'Their move.' });
+  expect(state(game, { sides: ['human', 'human'], linkSide: 1 }).detail).toBe('Your move.');
 });
 
 it('keeps a staged move or mate ready to continue and undo', () => {
   const live = new Game('RNBQKBNR');
   live.playLan(['e2-e4']);
-  expect(state(live, { staged: true }).detail).toBe('Your turn is ready');
+  expect(state(live, { staged: true }).detail).toBe('Your turn is ready.');
   const game = new Game('RNBQKBNR');
   expect(game.playLan(['f2-f3', 'e7-e5', 'g2-g4', 'Qd8-h4'])).toBe(4);
   expect(game.status).toBe('checkmate');
   expect(state(game, { staged: true, result: 'Black wins by checkmate' })).toMatchObject({
-    action: 'Continue', detail: 'Your turn is ready', progress: 'Move 3', review: false, result: '',
+    action: 'Continue', detail: 'Your turn is ready.', progress: 'Move 3', review: false, result: '',
   });
   expect(game.history).toHaveLength(4);
 });
@@ -51,7 +51,7 @@ it('offers Rematch and review after the game ends', () => {
   expect(state(game, { result: 'Black wins by checkmate' })).toMatchObject({
     action: 'Rematch', detail: 'Same army. You play Black.', progress: 'Finished', review: true, result: 'Black wins by checkmate',
   });
-  expect(state(game, { sides: ['human', 'human'], result: 'Black wins by checkmate' }).detail).toBe('Same army. Both sides play here.');
+  expect(state(game, { sides: ['human', 'human'], result: 'Black wins by checkmate' }).detail).toBe('Same army. Two players on this device.');
   const live = new Game('RNBQKBNR');
   live.playLan(['e2-e4']);
   expect(state(live, { sides: ['ai', 'human'], result: 'Black resigns — White wins' })).toMatchObject({
@@ -78,7 +78,7 @@ it('opens Home once for a save and keeps position links clear', () => {
 
 it('shows the local day and the real Today army', () => {
   expect(todayDeal(new Date(2026, 9, 9, 12))).toEqual({
-    date: '2026-10-09', label: "Today's army · Fri 9 Oct", army: 'AROGKANM',
+    date: '2026-10-09', label: "Play today's army · Fri 9 Oct", army: 'AROGKANM',
   });
 });
 
@@ -88,4 +88,10 @@ it('names the end of a free mark on Home', () => {
   game.load(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'));
   expect(game.playLan(['!F:d5', '--'])).toBe(2);
   expect(state(game).lastMove).toBe('White ends the turn after the mark.');
+});
+
+it('names the player whose turn waits on one device', () => {
+  const game = new Game('RNBQKBNR');
+  game.playLan(['e2-e4']);
+  expect(state(game, { staged: true, sides: ['human', 'human'] }).detail).toBe("White's turn is ready.");
 });

@@ -44,3 +44,10 @@ All ten named checks pass. The new end and parts checks each pass twice.
 Both plugin checks pass. The page is 4,294,665 bytes; its default stays.
 Sample W6: four stills, one phone video and two sheets. No fault.
 The sample waits for the owner's yes. Integration runs the full suite.
+
+Batch 3: decided by delegation (2026-10-09).
+W6 adds a Beginner reply video and a reduced-motion glow still.
+The still holds the reply clock. Normal pace with reduced motion shows the glow.
+Motion Off keeps its existing rule: no tell. The sample options are in README.
+Tests: 1,667 pass, 13 skip; all 50 board tests pass. All ten browser checks pass.
+W6: 10 renders, zero faults. The stills and video frames get a visual check.

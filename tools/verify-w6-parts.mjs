@@ -1,5 +1,6 @@
 // Phase 1 parts use the real painted board, with no W1 or W2 calls.
 import assert from 'node:assert/strict';
+import { ceremonyTile } from './app-ui.mjs';
 import { build, preview } from 'vite';
 import { copyFile, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -151,18 +152,26 @@ try {
     window.parts.fixture = { view, board, moments, history, final: pos, king: sq('h8'), showPly: ply => { window.reviewPly = ply; }, motion: true, live: () => true };
     view.scene.setLively({ moves: false, atmosphere: false, kings: false, pawns: false, idle: false });
     view.sync(pos);
+    window.wordsShownAt = null;
+    const observer = new MutationObserver(() => {
+      const words = document.querySelector('.kd-words');
+      if (words && !words.hidden && window.wordsShownAt == null) window.wordsShownAt = Date.now();
+    });
+    observer.observe(board, { attributes: true, childList: true, subtree: true });
     window.control = startCeremony(window.parts.fixture);
   });
   console.log('check Ceremony replay');
   await page.waitForFunction(() => window.parts.view.scene.animating, null, { polling: 20 });
   assert.equal(await page.evaluate(() => window.parts.view.scene.animating), true, 'the final blow replays');
   await page.evaluate(() => window.step(840));
+  await page.locator('.kd-words').waitFor({ state: 'visible' });
   await page.evaluate(() => window.control.done);
+  assert.ok(await page.evaluate(() => Date.now() - window.wordsShownAt >= 800), 'King Down holds before the tiles');
   await page.evaluate(() => window.step(1200));
   assert.equal(await page.locator('.kd-words').textContent(), 'King Down');
   assert.equal(await page.locator('.ceremony-tile').count(), 3, 'three review tiles');
-  assert.deepEqual(await page.locator('.ceremony-tile').evaluateAll(bs => bs.map(b => +b.dataset.ply)), [4, 0, 2], 'final blow and the winner’s special moves');
-  await page.locator('.ceremony-tile').nth(1).click();
+  assert.deepEqual(await page.locator('.ceremony-tile').evaluateAll(bs => bs.map(b => +b.dataset.ply)), [0, 2, 4], 'selected moves follow play order');
+  await ceremonyTile(page, 0).click();
   assert.equal(await page.evaluate(() => window.reviewPly), 0, 'the tile opens its review ply');
   await minTarget(page, '.ceremony-tile');
   await noSidewaysScroll(page);
@@ -182,6 +191,7 @@ try {
 
   for (const key of ['Escape', 'Space', 'Enter']) {
     await page.evaluate(() => { window.control.cancel(); window.control = window.parts.startCeremony(window.parts.fixture); });
+    await page.locator('#board').focus();
     await page.keyboard.press(key);
     assert.equal(await page.evaluate(() => window.control.done), true, `${key}: skips to the end`);
     assert.equal(await page.locator('.ceremony-tile').count(), 3, `${key}: tiles ready`);
@@ -199,7 +209,7 @@ try {
     const frozen = { ...f.history[0], move: { from: window.parts.parseSq('a3'), to: window.parts.parseSq('a3'), captures: [], power: 'freeze' } };
     window.control = window.parts.startCeremony({ ...f, history: [frozen, f.history[4]], motion: false });
   });
-  assert.equal(await page.locator('.ceremony-tile').nth(1).locator('span').textContent(), 'White Freeze', 'Freeze names the acting power');
+  assert.equal(await page.locator('.ceremony-tile').nth(0).locator('span').textContent(), 'Freezes the black rook on a3.', 'Freeze names the acting power');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.evaluate(() => { window.control.cancel(); window.control = window.parts.startCeremony(window.parts.fixture); });
   assert.equal(await page.evaluate(() => window.control.done), true, 'reduced motion shows the end frame at once');
