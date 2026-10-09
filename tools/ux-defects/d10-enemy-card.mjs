@@ -1,5 +1,5 @@
 // D-10: with no piece selected, a tap on an enemy piece shows its card, with no refusal. With a piece selected,
-// a tap on an enemy piece that it cannot take shows the card, clears the selection and keeps the reason
+// a tap on an enemy piece that it cannot take shows the read, keeps the selection and keeps the reason
 // (pick D10: only the "That is Black's …" line changes). A tap on an enemy piece that it can take still captures.
 // Enter on the keyboard cursor does the same; a drag onto an enemy piece keeps the reason. While the player cannot move (the computer thinks, the game is
 // over, a game link waits for the friend), a tap on a piece shows its card too, beside the reason.
@@ -27,11 +27,11 @@ export default async function ({ open }) {
     await tap(A6);
     assert.match(await text('#info'), /Black knight/, `${size}: an enemy that the pawn cannot take shows its card`);
     assert.match(await contextText(page), cannot, `${size}: the help line still says why the pawn cannot take it`);
-    assert.equal(await selecting(), false, `${size}: the tap clears the selection`);
+    assert.equal(await selecting(), true, `${size}: the read keeps the selection`);
 
     if (size === 'desktop') {
       // The keyboard: Enter on an enemy piece shows and says its card; with the pawn selected, the reason stays.
-      await tap(E4); await tap(E4); // select the pawn, then clear it: no piece selected, no card chosen
+      await tap(8); // clear selection on an empty square
       const board = await page.locator('#board canvas').boundingBox();
       await page.mouse.move(board.x / 2, board.y + board.height / 2); // the pointer leaves the board, to its left
       await focusBoard(page); // the cursor starts on e2
@@ -47,12 +47,12 @@ export default async function ({ open }) {
       await keys('ArrowLeft', 'ArrowLeft', 'ArrowLeft', 'ArrowLeft', 'ArrowUp', 'ArrowUp', 'Enter');
       assert.match(await text('#info'), /Black knight/, 'keyboard: Enter on an enemy that the pawn cannot take shows its card');
       assert.match(await contextText(page), cannot, 'keyboard: the reason stays');
-      assert.equal(await selecting(), false, 'keyboard: Enter clears the selection');
+      assert.equal(await selecting(), true, 'keyboard: Enter keeps the selection');
       assert.match(await text('#cursor-say'), /^a6, black knight\. Moves in an L/);
       await leaveBoard(page); // the cursor goes
     }
 
-    await tap(E4); await tap(D5);
+    await tap(D5);
     await waitForUi(page, ui => /e4xd5/.test(ui.lan.join(' ')));
     await close();
   }

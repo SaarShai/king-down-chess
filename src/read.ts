@@ -216,3 +216,23 @@ export function whyNot(pos: Position, from: number, to: number, tag: string | nu
   if (GAME_RULES.guardImmune && target && typeOf(target) === G && colorOf(target) !== pos.turn && typeOf(mover) !== K) return 'Only a king can take a guard.';
   return `The ${name} cannot ${target ? `take the ${NAMES[typeOf(target)]} on` : 'reach'} ${sqName(to)}.`;
 }
+
+/** A read keeps the move role; a movable friend takes that role. */
+export function readTap(pos: Position, sq: number, selected: number | null, inspected: number | null, canMove: boolean) {
+  const code = pos.board[sq];
+  if (canMove && !code) return { selected: null, inspected: null };
+  if (canMove && code && colorOf(code) === pos.turn) return { selected: selected === sq ? null : sq, inspected: null };
+  return { selected, inspected: code && inspected !== sq ? sq : null };
+}
+
+/** Refusals keep the move role; a bite chain waits for its next marked tap. */
+export function unmarkedTap(pos: Position, sq: number, selected: number | null, inspected: number | null, pending: number[], tag: string | null = null) {
+  if (pending.length) return { selected, inspected, pending, notice: 'Tap a marked piece, or stop here.' };
+  const next = readTap(pos, sq, selected, inspected, true);
+  const enemy = pos.board[sq] && colorOf(pos.board[sq]) !== pos.turn;
+  let notice = selected != null && (!pos.board[sq] || enemy) ? whyNot(pos, selected, sq, tag) : '';
+  if (next.selected != null && next.selected !== selected && !legalMoves(pos).some(m => m.from === next.selected && offered(m, tag))) {
+    notice = pieceStates(pos, sq).includes('Frozen') ? 'Frozen: it cannot move this turn.' : `This ${NAMES[typeOf(pos.board[sq])]} has no legal move.`;
+  }
+  return { ...next, pending: [], notice };
+}

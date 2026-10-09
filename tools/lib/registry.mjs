@@ -6,6 +6,8 @@
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends.
 export const checks = [
+  { name: 'read-piece', script: 'tools/verify-read-piece.mjs', limit: 180 },
+  { name: 'verb-marks', script: 'tools/verify-verb-marks.mjs', limit: 180 },
   { name: 'turn', script: 'tools/verify-turn.mjs', limit: 180 },
   { name: 'link-game', script: 'tools/verify-turn.mjs', args: ['link'], limit: 180 },
   { name: 'game-screen', script: 'tools/verify-game-screen.mjs', limit: 240 },

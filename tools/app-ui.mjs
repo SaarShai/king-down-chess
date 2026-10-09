@@ -177,3 +177,6 @@ export async function workshopCardText(page) {
   if (await page.locator('#workshop .ws-save-state').count()) selectors.push('.ws-save-state');
   return selectors;
 }
+
+/** The read line opens the Guide at the piece. */
+export const openPieceRules = page => page.locator('#all-rules').click();

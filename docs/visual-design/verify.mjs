@@ -135,7 +135,7 @@ try {
   page = await open('?fen=' + encodeURIComponent('4k3/8/8/g7/8/8/8/R3K3 w - - 0 1'));
   await ready(page);
   await tap(page, 0); await tap(page, 32); assert.match(await help(page), /Only a king can take a guard/);
-  await tap(page, 0); await tap(page, 9); assert.match(await help(page), /The rook cannot reach b2/);
+  await tap(page, 9); assert.match(await help(page), /The rook cannot reach b2/);
   ok('refusals: no legal move, pinned, guard, unreachable square; an enemy piece shows its card');
   await page.context().close();
 

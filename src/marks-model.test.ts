@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { DEFAULT_RULES, legalMoves, parseSq, setRules } from './rules/engine';
 import { fromFen } from './rules/setup';
-import { marksModel } from './marks-model';
+import { marksModel, landingMoves } from './marks-model';
 
 const at = parseSq;
 afterEach(() => setRules(DEFAULT_RULES));
@@ -58,4 +58,17 @@ it('keeps the two bite numbers and never marks a king as a continuation', () => 
   const marks = marksModel(legalMoves(chain).filter(m => m.from === at('d4')), [at('e5'), at('f6')]);
   expect(marks.bites).toEqual([at('e5'), at('f6')]);
   expect(marks.captures).toEqual([]);
+});
+
+it('plays a unique shove landing while a normal step wins', () => {
+  const pos = fromFen('7k/8/8/2p5/2O5/8/8/K7 w - - 0 1');
+  const moves = legalMoves(pos).filter(m => m.from === at('c4'));
+  expect(landingMoves(moves, at('c6'))[0]?.shove).toEqual({ from: at('c5'), to: at('c6') });
+  expect(landingMoves(moves, at('b4'))).toEqual([]);
+  expect(landingMoves([...moves, { ...moves[0], to: at('c6'), captures: [], shove: undefined }], at('c6'))).toEqual([]);
+});
+
+it('keeps a Reaver landing after its victim tap', () => {
+  const m = { from: at('b1'), to: at('d3'), captures: [at('c3')] };
+  expect(marksModel([m], [at('c3')]).moves).toEqual([at('d3')]);
 });

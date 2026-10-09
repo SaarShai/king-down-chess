@@ -18,12 +18,14 @@ import { defaultSetup, isLevel, kingsOf, newGameDialog, newGameWarning, parseSet
 import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
 import './dialog-dismiss';
-import { pieceGuide, whyNot as moveRefusal } from './read';
+import { pieceGuide, reachOf, readTap, unmarkedTap } from './read';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, turnLine, turnOf } from './turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from './turn-controls';
 import './ui/table.css';
 import { initMenu } from './ui/menu';
 import { initTable, readPiece, refreshTable } from './ui/table';
+import { clickPath, landingMoves, marksModel } from './marks-model';
+import { connectReadKey } from './ui/read';
 import { reviewStep } from './review';
 
 
@@ -143,7 +145,8 @@ const refreshTurnButton = () => renderTurnButton($<HTMLButtonElement>('end-turn'
 const announceTurn = () => announceWaiting(game, currentTurn(), turnMode(), $('end-turn'), $('announce'));
 const readWaiting = (sq: number) => {
   selected = null; pending = [];
-  ({ inspected, notice } = waitingRead(game, currentTurn(), turnMode(), sq));
+  ({ notice } = waitingRead(game, currentTurn(), turnMode(), sq));
+  ({ inspected } = readTap(game.pos, sq, selected, inspected, false));
   refresh();
 };
 connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
@@ -230,22 +233,9 @@ const pieceText = (t: PieceType): string => {
 };
 
 function showInfo(sq: number | null): void {
-  const code = sq == null ? 0 : shownPos().board[sq];
-  const t = code ? typeOf(code) : 0;
-  const blurb = t ? pieceText(t) : '';
-  readPiece(code ? `${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}.` : '', blurb);
+  readPiece(shownPos(), sq, inspected != null);
 }
 
-/** Squares the user clicks to identify a move: a shove target, chain victims, shot target, or the destination. */
-const clickPath = (m: Move): number[] => (m.shove
-  ? [m.shove.from] // click the neighbour to shove, under both `repel` (to === from) and `push`
-  // A mark, a sacrifice and a Haste pass change no square: the square itself is the click.
-  : m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice' ? [m.to]
-  : m.to === m.from ? [m.captures[0]]
-  : m.captures.length > 1 ? m.captures
-  // Reaver: click the victim, then the landing square (`Vb1xc3-d3`).
-  : m.captures.length === 1 && m.to !== m.captures[0] ? [m.captures[0], m.to]
-  : [m.to]);
 /** The side to move's power tag while it is armed, else null. */
 const armedTag = (): string | null => {
   const power = GAME_RULES.kings[game.pos.turn]?.power;
@@ -269,23 +259,18 @@ const markTargets = (): Move[] => {
 
 function refresh(): void {
   const cands = candidates();
-  const next = cands.map(m => clickPath(m)[pending.length]).filter((s): s is number => s != null);
-  const swaps = cands.filter(m => m.swap).map(m => m.to);
-  const shoves = cands.filter(m => m.shove).map(m => m.shove!.from);
+  const verb = marksModel(cands, pending);
   // Armed Freeze / Ice Wall / Sacrifice name a piece: a power target, not a capture.
   const named = [...new Set(markTargets().map(m => m.to))];
   const step = (m: Move): number | undefined => clickPath(m)[pending.length];
   const powers = [...new Set([...cands.filter(m => m.power && !m.pass).map(step).filter((s): s is number => s != null), ...named])];
-  // The Archer shoots without moving: its target gets a sight rather than a strike.
-  const shots = [...new Set(cands.filter(m => m.to === m.from && m.captures.length && step(m) === m.captures[0]).map(m => m.captures[0]))];
   const last = (viewing == null ? game.history.at(-1) : game.history[viewing - 1])?.move;
   view.highlight({
     selected,
-    moves: next.filter(sq => !game.pos.board[sq]),
-    captures: next.filter(sq => game.pos.board[sq] !== 0 && !swaps.includes(sq) && !shoves.includes(sq) && !named.includes(sq)),
-    swaps,
-    shoves,
-    shots,
+    ...verb,
+    captures: verb.captures.filter(sq => !named.includes(sq)),
+    bites: selected != null && typeOf(game.pos.board[selected]) === S ? pending : [],
+    read: inspected != null ? reachOf(shownPos(), inspected) : undefined,
     powers,
     // Owner (2026-10-04): the square the piece left is not marked; where it went (or what it hit) is.
     last: !last ? [] : last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? [...last.captures] : [last.to],
@@ -363,7 +348,7 @@ function refresh(): void {
   };
   $('took-w').innerHTML = names(taken[0]);
   $('took-b').innerHTML = names(taken[1]);
-  showInfo(selected ?? inspected);
+  showInfo(inspected ?? selected);
   $('undo').hidden = lesson != null;
   $('undo').setAttribute('aria-disabled', String(!undoOn()));
   refreshTurnButton();
@@ -438,7 +423,6 @@ function drawMarks(): void {
 }
 new ResizeObserver(() => drawMarks()).observe($('board'));
 
-const whyNot = (from: number, to: number): string => moveRefusal(game.pos, from, to, armedTag());
 
 /** The keyboard cursor's square and piece, for the screen reader. */
 function sayCursor(): void {
@@ -691,7 +675,7 @@ view.onDragSelect = (sq) => {
 };
 
 /** Show why a tap on `sq` did nothing, in the help line (a live region). A piece on `sq` shows its card. */
-const refuse = (why: string, sq: number): void => { inspected = shownPos().board[sq] ? sq : null; notice = why; refresh(); };
+const refuse = (why: string, sq: number): void => { ({ inspected } = readTap(shownPos(), sq, selected, inspected, false)); notice = why; refresh(); };
 
 view.onSquareClick = (sq, shift = false) => {
   if (busy) { if (thinking) refuse('The computer is thinking. Wait for its move.', sq); view.skip(); return; } // a tap during an animation skips it
@@ -704,7 +688,6 @@ view.onSquareClick = (sq, shift = false) => {
   }
   hintSquares = [];
   notice = '';
-  inspected = null;
   const targets = markTargets();
   if (targets.length) { // armed Freeze / Ice Wall / Sacrifice: tap the piece itself
     const here = targets.filter(m => m.to === sq);
@@ -712,21 +695,13 @@ view.onSquareClick = (sq, shift = false) => {
     else { armed = false; refresh(); }
     return;
   }
-  const p = game.pos.board[sq], own = p !== 0 && colorOf(p) === game.pos.turn;
-  const next = candidates().filter(m => clickPath(m)[pending.length] === sq);
+  const next = [...candidates().filter(m => clickPath(m)[pending.length] === sq), ...landingMoves(candidates(), sq)];
   if (selected == null || next.length === 0) {
-    const turn = game.pos.turn ? 'Black' : 'White';
-    if (selected != null && !own && sq !== selected) notice = pending.length ? 'That square is not marked, so the capture chain was cancelled.' : whyNot(selected, sq);
-    else if (selected == null && !p) notice = `Choose one of ${turn}'s pieces first.`;
-    if (p && !own) inspected = sq; // an enemy piece that is no target: its card; with a piece selected, the help line still says why
-    selected = own && sq !== selected ? sq : null;
-    pending = [];
-    if (selected != null && !game.legal.some(m => m.from === selected)) {
-      notice = `This ${NAMES[typeOf(p)]} has no legal move${game.inCheck ? ': your king is in check, and it cannot help' : ' right now'}.`;
-    }
+    ({ selected, inspected, pending, notice } = unmarkedTap(game.pos, sq, selected, inspected, pending, armedTag()));
     refresh();
     return;
   }
+  inspected = null;
   const complete = next.filter(m => clickPath(m).length === pending.length + 1);
   if (complete.length && complete.length === next.length) {
     const push = complete.find(m => m.shove);
@@ -1222,7 +1197,7 @@ addEventListener('keydown', e => {
   // No game key acts under a dialog: there Esc only closes the dialog (the Workshop's Esc closes its top sheet,
   // else an open choices panel, else the Workshop).
   if (document.querySelector('dialog[open]')) return;
-  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; armed = false; hintSquares = []; refresh(); return; }
+  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; inspected = null; armed = false; hintSquares = []; refresh(); return; }
   // Nor in a field that takes typing.
   const field = e.target as HTMLElement;
   if (field.closest('input,select,textarea') || field.isContentEditable) return;
@@ -1237,6 +1212,7 @@ addEventListener('keydown', e => {
 /* ---- keyboard play on the board ---- */
 const boardEl = $('board');
 const homeSquare = (): number => selected ?? square(4, game.pos.turn ? 6 : 1);
+connectReadKey(boardEl, () => cursor, sq => refuse('', sq));
 boardEl.addEventListener('focus', () => {
   if (!boardEl.matches(':focus-visible')) return; // a mouse or touch tap does not show the cursor
   cursor ??= homeSquare(); sayCursor(); drawMarks();

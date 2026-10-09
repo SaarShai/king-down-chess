@@ -42,12 +42,10 @@ Blocked by: 03
 
 ## Comments
 
-### W4 phase 1
+### W4 build
 
-- Plan: test reach and words; test the marks model; draw opt-in marks; check and commit.
-- Seams: `reachOf`, `readText` and `whyNot` in `src/read.ts`; `marksModel` in `src/marks-model.ts`.
-- Build: reuse `pieceGuide` and `whyNot` in the pure read module. Read the first sentence and live state words.
-- Cut: frozen attack probes and new word modules. W2 wiring waits for phase 2.
-- Tests: the full `npm test` list passes through a temporary entry with two workers: 1,480 pass, 13 skip; 50 drawing tests pass. Type check passes.
-- Checks: `plugin-ui`, `plugin-ui-http`, `visual-design` and `ux-defects` pass. Plugin page: 4,291,869 to 4,293,030 bytes.
-- Phase 2: merge W2; wire taps, I, All rules and the fixed line; run flow checks and the full browser suite; render the sample.
+- Plan: merge W2; test read taps and shove landings; wire the table; run named checks; render and inspect the sample.
+- Seams: readTap, reachOf, readText, whyNot and marksModel use the real rules.
+- Keep: a read keeps selection; I reads; All rules opens the Guide; arrows and chosen bite numbers show.
+- Cut: frozen probes, the tip, new word modules, chain motion, hover words, Leap marks and refusal motion.
+- Verify: type check, unit tests, read-piece and verb-marks; run each new check twice, then inspect both sheets.

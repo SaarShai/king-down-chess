@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { DEFAULT_RULES, parseSq, setRules } from './rules/engine';
 import { fromFen } from './rules/setup';
-import { reachOf, readText, whyNot } from './read';
+import { reachOf, readText, readTap, unmarkedTap, whyNot } from './read';
 
 const at = parseSq;
 afterEach(() => setRules(DEFAULT_RULES));
@@ -145,4 +145,30 @@ it('does not offer takes through Guard, Ice Wall, Holy Light or Mercy', () => {
     if (power === 'IceWall') pos.marks = [undefined, { sq: at('d5') }];
     expect(reachOf(pos, at('d4')).take.size, power).toBe(0);
   }
+});
+
+it('keeps a selected piece when an enemy is read', () => {
+  const pos = fromFen('7k/8/n7/8/4P3/8/8/K7 w - - 0 1');
+  expect(readTap(pos, at('a6'), at('e4'), null, true)).toEqual({ selected: at('e4'), inspected: at('a6') });
+  expect(readTap(pos, at('a6'), at('e4'), at('a6'), true)).toEqual({ selected: at('e4'), inspected: null });
+  expect(readTap(pos, at('b6'), at('e4'), at('a6'), true)).toEqual({ selected: null, inspected: null });
+});
+
+it('selects an own movable piece and reads without a move role', () => {
+  const pos = fromFen('7k/8/n7/8/4P3/8/8/K7 w - - 0 1');
+  expect(readTap(pos, at('e4'), null, at('a6'), true)).toEqual({ selected: at('e4'), inspected: null });
+  expect(readTap(pos, at('e4'), at('e4'), null, true)).toEqual({ selected: null, inspected: null });
+  expect(readTap(pos, at('e4'), null, null, false)).toEqual({ selected: null, inspected: at('e4') });
+});
+
+it('keeps a Beast chain after a wrong tap, and reads a refused target', () => {
+  const pos = fromFen('7k/8/n7/8/4P3/8/8/K7 w - - 0 1');
+  expect(unmarkedTap(pos, at('a6'), at('e4'), null, [at('d5')])).toEqual({ selected: at('e4'), inspected: null, pending: [at('d5')], notice: 'Tap a marked piece, or stop here.' });
+  expect(unmarkedTap(pos, at('a6'), at('e4'), null, [])).toEqual({ selected: at('e4'), inspected: at('a6'), pending: [], notice: 'The pawn cannot take the knight on a6.' });
+});
+
+it('names no legal move and an unmarked empty destination', () => {
+  const pos = fromFen('4k3/4r3/8/8/8/8/4B3/4K3 w - - 0 1');
+  expect(unmarkedTap(pos, at('e2'), null, null, []).notice).toBe('This bishop has no legal move.');
+  expect(unmarkedTap(pos, at('d3'), at('e2'), null, []).notice).toBe('That leaves your king in check.');
 });
