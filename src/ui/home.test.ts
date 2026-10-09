@@ -1,6 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { Game } from '../game';
-import { setRules } from '../rules/engine';
+import { fromFen } from '../rules/setup';
+import { POWERS_BALANCED, setRules } from '../rules/engine';
 import { homeState, shouldShowHome, todayDeal, type HomeInput } from './home';
 
 afterEach(() => setRules());
@@ -79,4 +80,12 @@ it('shows the local day and the real Today army', () => {
   expect(todayDeal(new Date(2026, 9, 9, 12))).toEqual({
     date: '2026-10-09', label: "Today's army · Fri 9 Oct", army: 'BKOGANAS',
   });
+});
+
+it('names the end of a free mark on Home', () => {
+  setRules({ ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
+  const game = new Game();
+  game.load(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'));
+  expect(game.playLan(['!F:d5', '--'])).toBe(2);
+  expect(state(game).lastMove).toBe('White ends the turn after the mark.');
 });

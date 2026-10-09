@@ -26,7 +26,8 @@ export function initHome(actions: {
     $('home-main').querySelector('.label')!.textContent = state.action;
     $('home-detail').textContent = state.detail;
     $('home-review').hidden = !state.review;
-    $('last-move').textContent = state.lastMove || 'No moves yet.';
+    $('last-move').innerHTML = '<span></span>';
+    $('last-move').querySelector('span')!.textContent = state.lastMove || 'No moves yet.';
     const today = todayDeal(new Date());
     $('home-date').textContent = today.label;
     $('home-army').innerHTML = [...today.army].map(p => pieceIcon(LETTERS.indexOf(p) as PieceType)).join('');

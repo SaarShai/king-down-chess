@@ -33,7 +33,7 @@ export function homeState({ game, sides, level, linkSide, staged, result }: Home
     action: finished ? 'Rematch' : 'Continue',
     detail,
     review: finished,
-    lastMove: last ? describeMove(last.pos, last.move) : '',
+    lastMove: last ? describeMove(last.pos, last.move, true) : '',
     result: finished ? result : '',
   };
 }
