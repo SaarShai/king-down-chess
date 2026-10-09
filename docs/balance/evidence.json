@@ -238,7 +238,7 @@
       "path": "sim/out/cards-d1.report.md",
       "line": 41,
       "section": "Against none",
-      "note": "Local main-checkout report. Git ignores raw output. Source commit8902567 in QUEUE.28 measured candidates;27-card deal drops MorphS alias."
+      "note": "Local main-checkout report. Git ignores raw output. QUEUE gives source commit 8902567. The report measures 28 candidates. The 27-card deal drops the MorphS alias."
     },
     {
       "id": "rule-far2",
@@ -538,7 +538,7 @@
   "currentTargets": [
     {
       "id": "target-far2",
-      "state": "owner approved Oct9; implemented on main7035b5e",
+      "state": "owner approved Oct 9; implemented on main 7035b5e",
       "sourceIds": [
         "workbook",
         "owner-prompt",
@@ -560,7 +560,7 @@
     },
     {
       "id": "target-guard-near-king",
-      "state": "owner approved Oct9; implemented on main7035b5e",
+      "state": "owner approved Oct 9; implemented on main 7035b5e",
       "sourceIds": [
         "workbook",
         "owner-prompt",
@@ -580,7 +580,7 @@
     },
     {
       "id": "target-paladin",
-      "state": "owner approved Oct9; implemented on main7035b5e",
+      "state": "owner approved Oct 9; implemented on main 7035b5e",
       "sourceIds": [
         "workbook",
         "owner-prompt",
@@ -600,7 +600,7 @@
     },
     {
       "id": "target-t2",
-      "state": "owner approved Oct9; implemented on main7035b5e",
+      "state": "owner approved Oct 9; implemented on main 7035b5e",
       "sourceIds": [
         "workbook",
         "owner-prompt",
@@ -623,7 +623,7 @@
     },
     {
       "id": "target-four-cards",
-      "state": "owner approved Oct9: yes.4 cards.; lab deal target, not enabled in the playable game",
+      "state": "Owner approved the four-card lab target on Oct 9: \u201cyes. 4 cards.\u201d Card mode is not enabled in the playable game.",
       "sourceIds": [
         "owner-prompt",
         "workbook",
@@ -658,7 +658,7 @@
       "sourceIds": [
         "values-d3"
       ],
-      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor3.16. Four random opening plies. Defaults of Oct4, not NEW.",
+      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor 3.16. Four random opening plies. Defaults of Oct 4, not NEW.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -690,7 +690,7 @@
       "sourceIds": [
         "values-d3"
       ],
-      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor3.16. Four random opening plies. Defaults of Oct4, not NEW.",
+      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor 3.16. Four random opening plies. Defaults of Oct 4, not NEW.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -722,7 +722,7 @@
       "sourceIds": [
         "values-d3"
       ],
-      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor3.16. Four random opening plies. Defaults of Oct4, not NEW. Same-colour second Bishop; differs from pool bishops.",
+      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor 3.16. Four random opening plies. Defaults of Oct 4, not NEW. Same-colour second Bishop; differs from pool bishops.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -754,7 +754,7 @@
       "sourceIds": [
         "values-d3"
       ],
-      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor3.16. Four random opening plies. Defaults of Oct4, not NEW.",
+      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor 3.16. Four random opening plies. Defaults of Oct 4, not NEW.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -786,7 +786,7 @@
       "sourceIds": [
         "values-d3"
       ],
-      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor3.16. Four random opening plies. Defaults of Oct4, not NEW.",
+      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor 3.16. Four random opening plies. Defaults of Oct 4, not NEW.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -814,7 +814,7 @@
       "sourceIds": [
         "values-d3"
       ],
-      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor3.16. Four random opening plies. Defaults of Oct4, not NEW.",
+      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor 3.16. Four random opening plies. Defaults of Oct 4, not NEW.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -849,7 +849,7 @@
       "sourceIds": [
         "values-d3"
       ],
-      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor3.16. Four random opening plies. Defaults of Oct4, not NEW.",
+      "context": "Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor 3.16. Four random opening plies. Defaults of Oct 4, not NEW.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -881,7 +881,7 @@
       "sourceIds": [
         "values-a3"
       ],
-      "context": "plusDiagFwd2 Archer vs Rook3.65. Carry70 Elo/pawn; no new pawn arm. Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor3.16. Four random opening plies. Defaults of Oct4, not NEW.",
+      "context": "plusDiagFwd2 Archer vs Rook 3.65. Carry 70 Elo/pawn; no new pawn arm. Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor 3.16. Four random opening plies. Defaults of Oct 4, not NEW.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -913,7 +913,7 @@
       "sourceIds": [
         "values-a4"
       ],
-      "context": "plusDiagFwd2 Archer vs Rook3.65. Own1800-game calibration92\u00b113 Elo/pawn. Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor3.16. Four random opening plies. Defaults of Oct4, not NEW.",
+      "context": "plusDiagFwd2 Archer vs Rook 3.65. Own 1800-game calibration 92\u00b113 Elo/pawn. Classic asymmetric swap; depth-3 pass 2 prices O293 R365 B299 M321 S414 A463. Knight anchor 3.16. Four random opening plies. Defaults of Oct 4, not NEW.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -2309,7 +2309,7 @@
       "sourceIds": [
         "activity"
       ],
-      "context": "8869 with Archer vs3131 without. Observational composition contrast, not controlled removal.",
+      "context": "8869 with Archer vs 3131 without. Observational composition contrast, not controlled removal.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -2347,7 +2347,7 @@
       "sourceIds": [
         "queue-latest"
       ],
-      "context": "Second converged pass vs Knight. Previous pass3.35\u00b1.27. Played to end. Different anchor and seeds from one-pass Rook2.83; not an adjudication effect.",
+      "context": "Second converged pass vs Knight. Previous pass 3.35\u00b1.27. Played to end. Different anchor and seeds from one-pass Rook 2.83; not an adjudication effect.",
       "commit": "d664ec7",
       "flags": {
         "archerShots": "far2",
@@ -2382,7 +2382,7 @@
       "sourceIds": [
         "queue-latest"
       ],
-      "context": "One pass vs Rook, pawn calibration70\u00b114 Elo from1800 games. Separate from full NEW target.",
+      "context": "One pass vs Rook, pawn calibration 70\u00b114 Elo from 1800 games. Separate from full NEW target.",
       "commit": "d664ec7",
       "flags": {
         "archerShots": "far2"
@@ -2416,7 +2416,7 @@
       "sourceIds": [
         "queue-latest"
       ],
-      "context": "Same first1600 armies as pa-d4. Still above criterion2 cap1.5. Moved in99.4% of games is not criterion5 per-piece use.",
+      "context": "Same first 1600 armies as pa-d4. Still above criterion 2 cap 1.5. Moved in 99.4% of games is not criterion 5 per-piece use.",
       "commit": "d664ec7",
       "flags": {
         "archerShots": "far2"
@@ -2550,7 +2550,7 @@
         "guard",
         "queue-latest"
       ],
-      "context": "Selected threat-position context, not starting piece price. kd-real2 has1500 positions; source-game clusters may repeat. kd-real is weak: only38 source positions, not read.",
+      "context": "Selected threat-position context, not starting piece price. kd-real2 has 1500 positions; source-game clusters may repeat. kd-real is weak: only 38 source positions, not read.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -2581,7 +2581,7 @@
         "guard",
         "queue-latest"
       ],
-      "context": "Selected threat-position context, not starting piece price. kd-real2 has1500 positions; source-game clusters may repeat. kd-real is weak: only38 source positions, not read.",
+      "context": "Selected threat-position context, not starting piece price. kd-real2 has 1500 positions; source-game clusters may repeat. kd-real is weak: only 38 source positions, not read.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -2612,7 +2612,7 @@
         "guard",
         "queue-latest"
       ],
-      "context": "Selected threat-position context, not starting piece price. kd-real2 has1500 positions; source-game clusters may repeat. kd-real is weak: only38 source positions, not read.",
+      "context": "Selected threat-position context, not starting piece price. kd-real2 has 1500 positions; source-game clusters may repeat. kd-real is weak: only 38 source positions, not read.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -2643,7 +2643,7 @@
       "sourceIds": [
         "paladin"
       ],
-      "context": "40 ranks per arm;0 shared ranks; old QLRRBBNNAAGMMSS vs QRRBBNNAAGMMSS, no Ogre. Rank-clustered CI. Different from NEW pool.",
+      "context": "40 ranks per arm; 0 shared ranks; old QLRRBBNNAAGMMSS vs QRRBBNNAAGMMSS, no Ogre. Rank-clustered CI. Different from NEW pool.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -2676,7 +2676,7 @@
       "sourceIds": [
         "paladin"
       ],
-      "context": "Rank-clustered interval includes0. Paladin subset+6.63[.75,12.50]. Historical pool risk, not a current-target failure.",
+      "context": "Rank-clustered interval includes 0. Paladin subset +6.63[.75, 12.50]. Historical pool risk, not a current-target failure.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -2708,7 +2708,7 @@
       "sourceIds": [
         "queue-k18"
       ],
-      "context": "Released powers incl Mercy M2/Darkness king step;66 matchups/5280 games/2640 armies total. Both flagged by simultaneous test. Haste stays by owner decision.",
+      "context": "Released powers incl Mercy M2/Darkness king step; 66 matchups/5280 games/2640 armies total. Both flagged by simultaneous test. Haste stays by owner decision.",
       "commit": "45ec461",
       "flags": null,
       "status": "historical measured",
@@ -2740,7 +2740,7 @@
       "sourceIds": [
         "queue-k18"
       ],
-      "context": "Released powers incl Mercy M2/Darkness king step;66 matchups/5280 games/2640 armies total. Both flagged by simultaneous test. Haste stays by owner decision.",
+      "context": "Released powers incl Mercy M2/Darkness king step; 66 matchups/5280 games/2640 armies total. Both flagged by simultaneous test. Haste stays by owner decision.",
       "commit": "45ec461",
       "flags": null,
       "status": "historical measured",
@@ -2773,7 +2773,7 @@
       "sourceIds": [
         "powers-r17"
       ],
-      "context": "Pooled field with king step. Historical package, not NEW; report gives1144 pairs for paired gain.",
+      "context": "Pooled field with king step. Historical package, not NEW; report gives 1144 pairs for paired gain.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -2806,7 +2806,7 @@
       "sourceIds": [
         "powers-r17"
       ],
-      "context": "King step package. Contains0; no pre-set equality margin.",
+      "context": "King step package. Contains 0; no pre-set equality margin.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -2839,7 +2839,7 @@
         "queue-latest",
         "t2-raw"
       ],
-      "context": "Anchor DeathTouch against other11; fresh army per pair, seed1919. Other powers have only1/11 of anchor exposure; their field rows do not certify a round robin.",
+      "context": "Anchor DeathTouch against other 11; fresh army per pair, seed 1919. Other powers have only 1/11 of anchor exposure; their field rows do not certify a round robin.",
       "commit": null,
       "flags": {
         "releasedRules": true,
@@ -2875,7 +2875,7 @@
         "queue-latest",
         "t2-raw"
       ],
-      "context": "Anchor DeathTouch against other11; fresh army per pair, seed1919. Other powers have only1/11 of anchor exposure; their field rows do not certify a round robin.",
+      "context": "Anchor DeathTouch against other 11; fresh army per pair, seed 1919. Other powers have only 1/11 of anchor exposure; their field rows do not certify a round robin.",
       "commit": null,
       "flags": {
         "releasedRules": true,
@@ -2911,7 +2911,7 @@
         "queue-latest",
         "t2-raw"
       ],
-      "context": "Anchor DeathTouch against other11; fresh army per pair, seed1919. Other powers have only1/11 of anchor exposure; their field rows do not certify a round robin.",
+      "context": "Anchor DeathTouch against other 11; fresh army per pair, seed 1919. Other powers have only 1/11 of anchor exposure; their field rows do not certify a round robin.",
       "commit": null,
       "flags": {
         "releasedRules": true,
@@ -2947,7 +2947,7 @@
         "queue-latest",
         "t2-raw"
       ],
-      "context": "Anchor DeathTouch against other11; fresh army per pair, seed1919. Other powers have only1/11 of anchor exposure; their field rows do not certify a round robin.",
+      "context": "Anchor DeathTouch against other 11; fresh army per pair, seed 1919. Other powers have only 1/11 of anchor exposure; their field rows do not certify a round robin.",
       "commit": null,
       "flags": {
         "releasedRules": true,
@@ -2982,7 +2982,7 @@
       "sourceIds": [
         "cards-early"
       ],
-      "context": "MODEL ANCHOR. Paired by army. Baseline draws16.5%. Eight one-use-power card pool;seed5555.Independent contexts; do not pool by hand count or predict NEW as causal fact.",
+      "context": "MODEL ANCHOR. Paired by army. Baseline draws 16.5%. Eight one-use-power card pool; seed 5555. Independent contexts; do not pool by hand count or predict NEW as causal fact.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -3014,7 +3014,7 @@
       "sourceIds": [
         "hand3"
       ],
-      "context": "MODEL ANCHOR. Paired by army. Baseline draws18.7%. 27-card deal incl Salvation, no MirrorB. Seeds7373/7474/7475 by run. Linear evaluation, four random opening plies, adjudication. Independent contexts; do not pool by hand count or predict NEW as causal fact.",
+      "context": "MODEL ANCHOR. Paired by army. Baseline draws 18.7%. 27-card deal incl Salvation, no MirrorB. Seeds 7373/7474/7475 by run. Linear evaluation, four random opening plies, adjudication. Independent contexts; do not pool by hand count or predict NEW as causal fact.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -3046,7 +3046,7 @@
       "sourceIds": [
         "hand4"
       ],
-      "context": "MODEL ANCHOR. Paired by army. Baseline draws28.3%. 27-card deal incl Salvation, no MirrorB. Seeds7373/7474/7475 by run. Linear evaluation, four random opening plies, adjudication. Independent contexts; do not pool by hand count or predict NEW as causal fact.",
+      "context": "MODEL ANCHOR. Paired by army. Baseline draws 28.3%. 27-card deal incl Salvation, no MirrorB. Seeds 7373/7474/7475 by run. Linear evaluation, four random opening plies, adjudication. Independent contexts; do not pool by hand count or predict NEW as causal fact.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -3078,7 +3078,7 @@
       "sourceIds": [
         "hand4b"
       ],
-      "context": "MODEL ANCHOR. Paired by army. Baseline draws31%. 27-card deal incl Salvation, no MirrorB. Seeds7373/7474/7475 by run. Linear evaluation, four random opening plies, adjudication. Independent contexts; do not pool by hand count or predict NEW as causal fact.",
+      "context": "MODEL ANCHOR. Paired by army. Baseline draws 31%. 27-card deal incl Salvation, no MirrorB. Seeds 7373/7474/7475 by run. Linear evaluation, four random opening plies, adjudication. Independent contexts; do not pool by hand count or predict NEW as causal fact.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -3206,7 +3206,7 @@
       "sourceIds": [
         "cards-deal"
       ],
-      "context": "27-card pool incl Salvation; six-card hand. Same3000 armies each arm;6000 total games.",
+      "context": "27-card pool incl Salvation; six-card hand. Same 3000 armies each arm; 6000 total games.",
       "commit": "7c44946",
       "flags": null,
       "status": "historical measured",
@@ -3238,7 +3238,7 @@
       "sourceIds": [
         "cards-deal"
       ],
-      "context": "27-card pool; six-card hand. Observed50.2% vs50.4%; not NEW.",
+      "context": "27-card pool; six-card hand. Observed 50.2% vs 50.4%; not NEW.",
       "commit": "7c44946",
       "flags": null,
       "status": "historical measured",
@@ -4262,7 +4262,7 @@
       "sourceIds": [
         "hand4"
       ],
-      "context": "Same-hand mirrorOnly schedule:600 games/arm, not1200. Five entrants yield3000 total. One fresh army/pair with one game under mirrorOnly.27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening4; ordinary adjudication. Different seeds7474/7475. Interpolate inside each context only.",
+      "context": "Same-hand mirrorOnly schedule: 600 games/arm, not 1200. Five entrants yield 3000 total. One fresh army/pair with one game under mirrorOnly. 27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening: 4 plies; ordinary adjudication. Different seeds 7474/7475. Interpolate inside each context only.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -4301,7 +4301,7 @@
       "sourceIds": [
         "hand4"
       ],
-      "context": "Same-hand mirrorOnly schedule:600 games/arm, not1200. Five entrants yield3000 total. One fresh army/pair with one game under mirrorOnly.27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening4; ordinary adjudication. Different seeds7474/7475. Interpolate inside each context only.",
+      "context": "Same-hand mirrorOnly schedule: 600 games/arm, not 1200. Five entrants yield 3000 total. One fresh army/pair with one game under mirrorOnly. 27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening: 4 plies; ordinary adjudication. Different seeds 7474/7475. Interpolate inside each context only.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -4340,7 +4340,7 @@
       "sourceIds": [
         "hand4"
       ],
-      "context": "Same-hand mirrorOnly schedule:600 games/arm, not1200. Five entrants yield3000 total. One fresh army/pair with one game under mirrorOnly.27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening4; ordinary adjudication. Different seeds7474/7475. Interpolate inside each context only.",
+      "context": "Same-hand mirrorOnly schedule: 600 games/arm, not 1200. Five entrants yield 3000 total. One fresh army/pair with one game under mirrorOnly. 27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening: 4 plies; ordinary adjudication. Different seeds 7474/7475. Interpolate inside each context only.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -4379,7 +4379,7 @@
       "sourceIds": [
         "hand4"
       ],
-      "context": "Same-hand mirrorOnly schedule:600 games/arm, not1200. Five entrants yield3000 total. One fresh army/pair with one game under mirrorOnly.27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening4; ordinary adjudication. Different seeds7474/7475. Interpolate inside each context only.",
+      "context": "Same-hand mirrorOnly schedule: 600 games/arm, not 1200. Five entrants yield 3000 total. One fresh army/pair with one game under mirrorOnly. 27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening: 4 plies; ordinary adjudication. Different seeds 7474/7475. Interpolate inside each context only.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -4418,7 +4418,7 @@
       "sourceIds": [
         "hand4"
       ],
-      "context": "Same-hand mirrorOnly schedule:600 games/arm, not1200. Five entrants yield3000 total. One fresh army/pair with one game under mirrorOnly.27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening4; ordinary adjudication. Different seeds7474/7475. Interpolate inside each context only.",
+      "context": "Same-hand mirrorOnly schedule: 600 games/arm, not 1200. Five entrants yield 3000 total. One fresh army/pair with one game under mirrorOnly. 27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening: 4 plies; ordinary adjudication. Different seeds 7474/7475. Interpolate inside each context only.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -4457,7 +4457,7 @@
       "sourceIds": [
         "hand4b"
       ],
-      "context": "Same-hand mirrorOnly schedule:600 games/arm, not1200. Five entrants yield3000 total. One fresh army/pair with one game under mirrorOnly.27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening4; ordinary adjudication. Different seeds7474/7475. Interpolate inside each context only.",
+      "context": "Same-hand mirrorOnly schedule: 600 games/arm, not 1200. Five entrants yield 3000 total. One fresh army/pair with one game under mirrorOnly. 27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening: 4 plies; ordinary adjudication. Different seeds 7474/7475. Interpolate inside each context only.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -4496,7 +4496,7 @@
       "sourceIds": [
         "hand4b"
       ],
-      "context": "Same-hand mirrorOnly schedule:600 games/arm, not1200. Five entrants yield3000 total. One fresh army/pair with one game under mirrorOnly.27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening4; ordinary adjudication. Different seeds7474/7475. Interpolate inside each context only.",
+      "context": "Same-hand mirrorOnly schedule: 600 games/arm, not 1200. Five entrants yield 3000 total. One fresh army/pair with one game under mirrorOnly. 27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening: 4 plies; ordinary adjudication. Different seeds 7474/7475. Interpolate inside each context only.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -4535,7 +4535,7 @@
       "sourceIds": [
         "hand4b"
       ],
-      "context": "Same-hand mirrorOnly schedule:600 games/arm, not1200. Five entrants yield3000 total. One fresh army/pair with one game under mirrorOnly.27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening4; ordinary adjudication. Different seeds7474/7475. Interpolate inside each context only.",
+      "context": "Same-hand mirrorOnly schedule: 600 games/arm, not 1200. Five entrants yield 3000 total. One fresh army/pair with one game under mirrorOnly. 27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening: 4 plies; ordinary adjudication. Different seeds 7474/7475. Interpolate inside each context only.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -4574,7 +4574,7 @@
       "sourceIds": [
         "hand4b"
       ],
-      "context": "Same-hand mirrorOnly schedule:600 games/arm, not1200. Five entrants yield3000 total. One fresh army/pair with one game under mirrorOnly.27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening4; ordinary adjudication. Different seeds7474/7475. Interpolate inside each context only.",
+      "context": "Same-hand mirrorOnly schedule: 600 games/arm, not 1200. Five entrants yield 3000 total. One fresh army/pair with one game under mirrorOnly. 27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening: 4 plies; ordinary adjudication. Different seeds 7474/7475. Interpolate inside each context only.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -4613,7 +4613,7 @@
       "sourceIds": [
         "hand4b"
       ],
-      "context": "Same-hand mirrorOnly schedule:600 games/arm, not1200. Five entrants yield3000 total. One fresh army/pair with one game under mirrorOnly.27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening4; ordinary adjudication. Different seeds7474/7475. Interpolate inside each context only.",
+      "context": "Same-hand mirrorOnly schedule: 600 games/arm, not 1200. Five entrants yield 3000 total. One fresh army/pair with one game under mirrorOnly. 27-card deal incl Salvation, no MirrorB. Linear evaluator; random opening: 4 plies; ordinary adjudication. Different seeds 7474/7475. Interpolate inside each context only.",
       "commit": null,
       "flags": null,
       "status": "historical measured",
@@ -4652,7 +4652,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -4701,7 +4701,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -4750,7 +4750,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -4799,7 +4799,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -4848,7 +4848,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -4897,7 +4897,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -4946,7 +4946,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -4995,7 +4995,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5044,7 +5044,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5093,7 +5093,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5142,7 +5142,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5191,7 +5191,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5240,7 +5240,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5289,7 +5289,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5338,7 +5338,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5387,7 +5387,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5436,7 +5436,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5485,7 +5485,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5534,7 +5534,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5583,7 +5583,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5632,7 +5632,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5681,7 +5681,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5730,7 +5730,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5779,7 +5779,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5828,7 +5828,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5877,7 +5877,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5926,7 +5926,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -5975,7 +5975,7 @@
       "sourceIds": [
         "cards-d1-raw"
       ],
-      "context": "Anchor none,300 colour-swapped pairs=600 games per candidate.64 Elo/pawn carried calibration; its\u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed7070. 28 candidates plus mirror-none generate17400 total games. Individual-card context differs from four-card NEW deal.",
+      "context": "Anchor none, 300 colour-swapped pairs = 600 games per candidate. 64 Elo/pawn carried calibration; its \u00b125% systematic uncertainty is separate from printed card interval. Fresh armies,seed 7070. 28 candidates plus mirror-none generate 17400 total games. Individual-card context differs from four-card NEW deal.",
       "commit": "8902567",
       "flags": {
         "markFree": true,
@@ -6014,7 +6014,7 @@
         "queue-four-card-approval",
         "owner-build-ticket"
       ],
-      "text": "Main7035b5e implements far2 with ARCHER_V339, king-adjacent Guard, Paladin alongside Ogre in QOLRRBBNNAAGMMS, and official T2. QUEUE records the approved four-card hand. Card mode remains lab-only. No selected report measures the full current target combination.",
+      "text": "Main 7035b5e implements far2 with ARCHER_V339, king-adjacent Guard, Paladin alongside Ogre in QOLRRBBNNAAGMMS, and official T2. QUEUE records the approved four-card hand. Card mode remains lab-only. No selected report measures the full current target combination.",
       "status": "resolved for current main; measurement gap remains"
     },
     {
@@ -6027,7 +6027,7 @@
         "rule-t2",
         "queue-four-card-approval"
       ],
-      "text": "Dated Oct9 approval wins over earlier residue in the same workbook cells: Pieces F8/V8 (far2), J9 (Guard), F13 (Paladin); King powers G12/AI12 (T2). Current RULES decisions20,21,23,24 and code implement these choices. Workbook Rules D18 closes the hand-size question; QUEUE deal-c4k supplies the later owner quote: yes.4 cards."
+      "text": "Dated Oct 9 approval wins over earlier residue in the same workbook cells: Pieces F8/V8 (far2), J9 (Guard), F13 (Paladin); King powers G12/AI12 (T2). Current RULES decisions 20, 21, 23, 24 and code implement these choices. Workbook Rules D18 closes the hand-size question; QUEUE deal-c4k supplies the later owner quote: yes. 4 cards."
     },
     {
       "id": "pool-version",
@@ -6037,7 +6037,7 @@
         "rules",
         "defaults"
       ],
-      "text": "Criteria/pa-r1 describe the historical15-letter two-Beast poolQORRBBNNAAGMMSS. Current main7035b5e uses15-letter one-Beast poolQOLRRBBNNAAGMMS with Paladin beside Ogre. The intermediate14-letter poolQORRBBNNAAGMMS has no Paladin. pa-r1 has no pool stamp. Do not certify the current target with pa-r1."
+      "text": "Criteria/pa-r1 describe the historical 15-letter two-Beast pool QORRBBNNAAGMMSS. Current main 7035b5e uses the 15-letter one-Beast pool QOLRRBBNNAAGMMS with Paladin beside Ogre. The intermediate 14-letter pool QORRBBNNAAGMMS has no Paladin. pa-r1 has no pool stamp. Do not certify the current target with pa-r1."
     },
     {
       "id": "obsolete-prices",
@@ -6048,7 +6048,7 @@
         "workshop",
         "current-eval"
       ],
-      "text": "SIM-PLAN seeds and early5.05 Archer worth are historical. Pass2 uses a lower Rook anchor. Current main7035b5e prices far2 at339cp from the converged3.39-pawn match; that engine seed is not new full-target evidence. Workshop labels Fair through5.0; pool criterion1 allows5.5. These are distinct thresholds."
+      "text": "SIM-PLAN seeds and early 5.05 Archer worth are historical. Pass 2 uses a lower Rook anchor. Current main 7035b5e prices far2 at 339 cp from the converged 3.39-pawn match; that engine seed is not new full-target evidence. Workshop labels Fair through 5.0; pool criterion 1 allows 5.5. These are distinct thresholds."
     },
     {
       "id": "card-calibration",
@@ -6057,7 +6057,7 @@
         "values-d3",
         "values-a4"
       ],
-      "text": "Cards use carried64 Elo/pawn with about25% calibration uncertainty. Piece passes measure70\u00b111 d3 and92\u00b113 d4. Do not replace card calibration across depths silently."
+      "text": "Cards use carried 64 Elo/pawn with about 25% calibration uncertainty. Piece passes measure 70\u00b111 d3 and 92\u00b113 d4. Do not replace card calibration across depths silently."
     },
     {
       "id": "no-effect-is-not-equivalence",
@@ -6080,28 +6080,28 @@
       "sourceIds": [
         "queue-latest"
       ],
-      "text": "deal-c4k, deal-d4k, deal-nosalv2 and ab-guard-drop-any remain pending here. Root reconciles their data. Do not infer completion from queued row, filename or planned count."
+      "text": "deal-c4k, deal-d4k, deal-nosalv2 and ab-guard-drop-any remain pending here. Their data still need review. Do not infer completion from queued row, filename or planned count."
     }
   ],
   "pendingRuns": [
     {
       "id": "deal-c4k",
-      "status": "pending reconciliation by root",
+      "status": "pending data review",
       "gamesObserved": null
     },
     {
       "id": "deal-d4k",
-      "status": "pending reconciliation by root",
+      "status": "pending data review",
       "gamesObserved": null
     },
     {
       "id": "deal-nosalv2",
-      "status": "pending reconciliation by root",
+      "status": "pending data review",
       "gamesObserved": null
     },
     {
       "id": "ab-guard-drop-any",
-      "status": "pending reconciliation by root",
+      "status": "pending data review",
       "gamesObserved": null
     }
   ],
@@ -6109,12 +6109,12 @@
     {
       "id": "balance-target-activity-d3",
       "rank": 1,
-      "machine": "Kaggle:20 shards,5 notebooks a wave,4 workers each",
+      "machine": "Kaggle: 20 shards, 5 notebooks a wave, 4 workers each",
       "games": 12000,
       "flags": "--powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2 --rule guardNextToKing=true",
-      "command": "node tools/kaggle-tournament.mjs push --ref 7035b5e56c8de435d2e63dc02d47d7002bd54a6e --id balance-target-activity-d3 --shards 20 --first 0 -- --powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2 --rule guardNextToKing=true",
+      "command": "node tools/kaggle-tournament.mjs push --ref 7035b5e56c8de435d2e63dc02d47d7002bd54a6e --id balance-target-activity-d3 --shards 20 --first 19 -- --powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2 --rule guardNextToKing=true",
       "notebookMinutes": 94,
-      "estimate": "600 games/shard at6.4 games/min=94min; conservative reference K18 slowest shard5280/5 games in165min. Ordinary target differs; time first shard. Use --first 0 for first push; --only is only for later recorded waves.",
+      "estimate": "600 games per shard at 6.4 games/min gives 94 min. This uses the slowest K18 shard: 1056 games in 165 min. The ordinary target can change throughput. The initial --first 19 command submits shard 19 only. Time it before later --only groups of at most five.",
       "sourceIds": [
         "queue-k18",
         "criteria",
@@ -6124,19 +6124,19 @@
         "current-eval",
         "queue-four-card-approval"
       ],
-      "preconditions": "First reconcile pending runs. Main7035b5e implements the intended Paladin/Ogre poolQOLRRBBNNAAGMMS, far2 at339cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine; read its effective rules and pool stamp before launch. Historical data do not certify this context. Time one representative shard before scheduling all notebooks; reduce its games if measured time exceeds9h. These are proposals only; this task starts no run.",
-      "decision": "Read all six criteria for target pool. Keep criterion4/4b distinct. Mark exact full-target ordinary measurements.",
+      "preconditions": "First review pending data. Main 7035b5e implements pool QOLRRBBNNAAGMMS with Paladin and Ogre, far2 at 339 cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine. Check its effective rules and pool stamp. Historical data do not certify this context. The initial command submits one representative shard. Check its time before more submissions. Keep each notebook below 9 h. Reduce the games per shard if needed. Submit later shards with the saved manifest and --only, in groups of at most five. These are proposals; no run has approval here.",
+      "decision": "Read all six criteria for target pool. Keep criteria 4 and 4b distinct. Mark exact full-target ordinary measurements.",
       "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     },
     {
       "id": "balance-target-powers-d3",
       "rank": 2,
-      "machine": "Kaggle:5 shards,5 notebooks,4 workers each",
+      "machine": "Kaggle: 5 shards, 5 notebooks, 4 workers each",
       "games": 5280,
       "flags": "--powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true --rule guardNextToKing=true",
-      "command": "node tools/kaggle-tournament.mjs push --ref 7035b5e56c8de435d2e63dc02d47d7002bd54a6e --id balance-target-powers-d3 --shards 5 -- --powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true --rule guardNextToKing=true",
+      "command": "node tools/kaggle-tournament.mjs push --ref 7035b5e56c8de435d2e63dc02d47d7002bd54a6e --id balance-target-powers-d3 --shards 5 --first 4 -- --powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true --rule guardNextToKing=true",
       "notebookMinutes": 165,
-      "estimate": "1056 games/shard at6.4 games/min=165min, from K18 slowest like power shard. Target pool/Guard may change time; time first shard.",
+      "estimate": "1056 games per shard at 6.4 games/min gives 165 min. This uses the slowest K18 power shard. The target pool and Guard setup can change throughput. The initial --first 4 command submits shard 4 only. Time it before a later --only group of at most four.",
       "sourceIds": [
         "queue-k18",
         "released-powers",
@@ -6146,19 +6146,19 @@
         "current-eval",
         "queue-four-card-approval"
       ],
-      "preconditions": "First reconcile pending runs. Main7035b5e implements the intended Paladin/Ogre poolQOLRRBBNNAAGMMS, far2 at339cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine; read its effective rules and pool stamp before launch. Historical data do not certify this context. Time one representative shard before scheduling all notebooks; reduce its games if measured time exceeds9h. These are proposals only; this task starts no run.",
+      "preconditions": "First review pending data. Main 7035b5e implements pool QOLRRBBNNAAGMMS with Paladin and Ogre, far2 at 339 cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine. Check its effective rules and pool stamp. Historical data do not certify this context. The initial command submits one representative shard. Check its time before more submissions. Keep each notebook below 9 h. Reduce the games per shard if needed. Submit later shards with the saved manifest and --only, in groups of at most five. These are proposals; no run has approval here.",
       "decision": "Full round robin, not DeathTouch anchor. Test powers together with army intervals; report Spirit minus Shadow with interval. Haste is approved despite its known high score.",
       "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     },
     {
       "id": "balance-target-four-d3",
       "rank": 3,
-      "machine": "Kaggle:10 shards,5 notebooks per wave,4 workers each",
+      "machine": "Kaggle: 10 shards, 5 notebooks per wave, 4 workers each",
       "games": 6000,
       "flags": "--powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false --rule guardNextToKing=true",
-      "command": "node tools/kaggle-tournament.mjs push --ref 7035b5e56c8de435d2e63dc02d47d7002bd54a6e --id balance-target-four-d3 --shards 10 --first 0 -- --powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false --rule guardNextToKing=true",
+      "command": "node tools/kaggle-tournament.mjs push --ref 7035b5e56c8de435d2e63dc02d47d7002bd54a6e --id balance-target-four-d3 --shards 10 --first 9 -- --powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false --rule guardNextToKing=true",
       "notebookMinutes": 240,
-      "estimate": "600 games/shard at2.5 games/min=240min; deal-d2 measured six-card d3 throughput. Four-card target differs; time first shard.",
+      "estimate": "600 games per shard at 2.5 games/min gives 240 min. This uses deal-d2 six-card depth 3 throughput. The four-card target can change throughput. The initial --first 9 command submits shard 9 only. Time it before later --only groups of at most five.",
       "sourceIds": [
         "queue-latest",
         "hand3",
@@ -6167,7 +6167,7 @@
         "current-eval",
         "queue-four-card-approval"
       ],
-      "preconditions": "First reconcile pending runs. Main7035b5e implements the intended Paladin/Ogre poolQOLRRBBNNAAGMMS, far2 at339cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine; read its effective rules and pool stamp before launch. Historical data do not certify this context. Time one representative shard before scheduling all notebooks; reduce its games if measured time exceeds9h. These are proposals only; this task starts no run. Skip if deal-c4k already supplies this exact target. The explicit28-card pool is the tested deal(deal-d1+MirrorB), not an adoption of Salvation. Root records the final pool choice before launch.",
+      "preconditions": "First review pending data. Main 7035b5e implements pool QOLRRBBNNAAGMMS with Paladin and Ogre, far2 at 339 cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine. Check its effective rules and pool stamp. Historical data do not certify this context. The initial command submits one representative shard. Check its time before more submissions. Keep each notebook below 9 h. Reduce the games per shard if needed. Submit later shards with the saved manifest and --only, in groups of at most five. These are proposals; no run has approval here. Skip this proposal if deal-c4k already supplies this exact target. The explicit 28-card pool is the tested deal (deal-d1 + MirrorB). It does not adopt Salvation. Record the final pool choice before launch.",
       "decision": "Selected four-card hand vs none on same armies; no hand-size sweep. Report draw/White/turn differences and per-card association limits.",
       "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
     }

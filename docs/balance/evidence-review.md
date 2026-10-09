@@ -19,7 +19,7 @@ Its SHA256 is `7b7b998c7f0bb0ff15704533ea484b419eb997927f7f4ff58c1b7c3eb6d75445`
 The framework saves its cell text in `workbook.json`. Some cells keep older “not merged” or
 “not decided” text beside the dated approval. Use the dated approval for the target.
 Main `7035b5e` now implements far2 at 339 cp, `guardNextToKing=true`, pool `QOLRRBBNNAAGMMS`
-with Paladin beside Ogre, and official Death Touch T2. [RULES](../RULES.md) decisions 20,21,23,24,
+with Paladin beside Ogre, and official Death Touch T2. [RULES](../RULES.md) decisions 20, 21, 23, 24,
 [MATRIX](../MATRIX.md), and the [build ticket](../specs/owner-decisions-2026-10-09/issues/01-build-the-decisions.md)
 record these choices. The [queue](../QUEUE.md) records the approved four-card hand. Card mode
 stays lab-only; it is not enabled in the playable game. No selected run measures the full target.
@@ -29,7 +29,7 @@ stays lab-only; it is not enabled in the playable game. No selected run measures
 The owner adopts the [six piece criteria](../research/piece-balance-criteria-2026-10-03.md) on
 2026-10-03. Worth is 2.5–5.5 pawns except the Queen. Captures are 0.5–1.5× the average except the
 Guard, which cannot capture and gets a flag. Moves are at least 0.5×. At least 85% of starting
-pieces move. Presence differences stay within±3 draw points,±2 White-score points, and±10%
+pieces move. Presence differences stay within ±3 draw points, ±2 White-score points, and ±10%
 length. Use each full 95% interval for a firm verdict. A point inside a band is not a firm pass.
 
 Criterion 4 remains open. Its written form cannot fail: one phase is at least the piece's own
@@ -44,16 +44,16 @@ The [matrix](../MATRIX.md) gives common cards a 0.7–3 pawn band. No direct own
 these numeric limits is found. Rage is legendary and outside the normal deal. The owner says
 [draws come first](../tasks-archive/2026-09.md); the queue asks for depth 4 with no draw drag.
 No global numeric noninferiority margin is found. No global absolute White equivalence margin is
-found. Keep these missing decisions explicit. The piece-presence±2 line is a separate criterion.
+found. Keep these missing decisions explicit. The piece-presence ±2 line is a separate criterion.
 
 The odds method uses a close reference, colour-reversed pairs, all eight pawn files, a calibration
-at the same depth, and repeat price passes. Outside±1.5 pawns from the reference it gives a bound.
+at the same depth, and repeat price passes. Outside ±1.5 pawns from the reference it gives a bound.
 A selected threat-position price is not a starting-piece price.
 
 ## Strong findings
 
 - Updated worth: Ogre 2.60±0.28, Rook 3.84±0.27, Bishop 3.17±0.27, Maester 3.28±0.27,
-  Beast 4.27±0.29. Knight 3.16 is the anchor. Guard<1.66 fails worth. The Bishop arm has two bishops
+  Beast 4.27±0.29. Knight 3.16 is the anchor. Guard <1.66 fails worth. The Bishop arm has two bishops
   of one square colour, unlike the pool. Archer plusDiagFwd2 reads 4.11±0.29 at depth 3 and
   4.43±0.25 at depth 4 with the updated Rook anchor.
 - `pa-r1` has 12000 ordinary games. Archer captures 2.11 [2.08,2.13]× average and presence draws
@@ -79,7 +79,7 @@ A selected threat-position price is not a starting-piece price.
 | Context | Games per arm | Depth | Draws: none → four | Paired draw difference | Paired White difference |
 |---|---|---|---|---|---|
 | cards-b2/b3, eight-card pool |800|3|16.5%→9.9%|−6.6±3.3 points|−1.3±4.4 points|
-| hand-size,27-card pool |1500|3|18.7%→10.4%|−8.3±2.6|+0.8±3.3|
+| hand-size, 27-card pool |1500|3|18.7%→10.4%|−8.3±2.6|+0.8±3.3|
 | hand-size-d4, same 27 cards |600|4|28.3%→14.2%|−14.2±4.7|−3.1±4.9|
 | hand-size-d4b, new seed |600|4|31.0%→11.0%|−20.0±4.4|+1.3±5.0|
 
@@ -93,27 +93,30 @@ Cards use a carried 64 Elo/pawn calibration with about 25% uncertainty. Later pi
 
 ## Next data, after pending runs
 
-`deal-c4k`, `deal-d4k`, `deal-nosalv2` and `ab-guard-drop-any` remain pending for root to reconcile.
+`deal-c4k`, `deal-d4k`, `deal-nosalv2` and `ab-guard-drop-any` still need data review.
 No job is launched. No remote job is changed. The M1 hostname does not resolve in the read-only
 inventory check. Remote-only raw files remain a coverage gap.
 
 The rows below are conditional proposals. Skip a row if the pending data supply the exact target.
 Main `7035b5e` now supplies the intended pool and Guard placement. The commands pin that
-source and set `guardNextToKing=true`. Check the effective rule and pool stamp. Historical data
+source and set `guardNextToKing=true`. The runner makes `--mirrorOnly` imply `--mirror`.
+Row 1 therefore has one game for each of its 12000 pairs. Check the effective rule and pool stamp. Historical data
 do not certify this source. Keep each notebook below 9 h. Time a representative shard
 before a wave, because these new contexts can change throughput.
 
 | rank / id | machine | command flags | games | estimate and decision |
 |---|---|---|---|---|
-| 1 / `balance-target-activity-d3` | Kaggle:20 shards,5 notebooks a wave,4 workers each | `--powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2 --rule guardNextToKing=true` | 12000 | 94 min per notebook; Read all six criteria for target pool. Keep criterion4/4b distinct. Mark exact full-target ordinary measurements. |
-| 2 / `balance-target-powers-d3` | Kaggle:5 shards,5 notebooks,4 workers each | `--powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true --rule guardNextToKing=true` | 5280 | 165 min per notebook; Full round robin, not DeathTouch anchor. Test powers together with army intervals; report Spirit minus Shadow with interval. Haste is approved despite its known high score. |
-| 3 / `balance-target-four-d3` | Kaggle:10 shards,5 notebooks per wave,4 workers each | `--powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false --rule guardNextToKing=true` | 6000 | 240 min per notebook; Selected four-card hand vs none on same armies; no hand-size sweep. Report draw/White/turn differences and per-card association limits. |
+| 1 / `balance-target-activity-d3` | Kaggle: 20 shards, 5 notebooks a wave, 4 workers each | `--powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2 --rule guardNextToKing=true` | 12000 | 94 min per notebook; Read all six criteria for target pool. Keep criteria 4 and 4b distinct. Mark exact full-target ordinary measurements. |
+| 2 / `balance-target-powers-d3` | Kaggle: 5 shards, 5 notebooks, 4 workers each | `--powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true --rule guardNextToKing=true` | 5280 | 165 min per notebook; Full round robin, not DeathTouch anchor. Test powers together with army intervals; report Spirit minus Shadow with interval. Haste is approved despite its known high score. |
+| 3 / `balance-target-four-d3` | Kaggle: 10 shards, 5 notebooks per wave, 4 workers each | `--powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false --rule guardNextToKing=true` | 6000 | 240 min per notebook; Selected four-card hand vs none on same armies; no hand-size sweep. Report draw/White/turn differences and per-card association limits. |
 
-For row 1,600 games/shard at K18's slowest observed 6.4 games/min is 94 min.
-For row 2,1056 at that rate is 165 min. For row 3,600 at deal-d 2's 2.5 games/min is 240 min.
-The estimates are under 9 h; a changed context still needs its own timing check. Kaggle has five
-active notebooks. Push later waves with the saved manifest and `--only`. The explicit card list
-is the workbook's tested 28-card deal. It does not settle Salvation. Root must resolve the deal
+For row 1, 600 games/shard at K18's slowest observed 6.4 games/min is 94 min.
+For row 2, 1056 at that rate is 165 min. For row 3, 600 at deal-d2's 2.5 games/min is 240 min.
+The estimates are under 9 h. A changed context still needs its own timing check.
+The initial commands use `--first 19`, `--first 4` and `--first 9` for rows 1, 2 and 3.
+Each submits one shard. After the timing check, submit later shards with the saved manifest
+and `--only`, in groups of at most five. Kaggle permits five active notebooks. The explicit card list
+is the workbook's tested 28-card deal. It does not settle Salvation. Record the final deal choice
 before using row 3. Do not launch a duplicate of `deal-c4k`.
 
 M1 has a separate depth 4 card reference: `hand-size-d4` plays 3000 games in 394.8 min with 8 workers.
