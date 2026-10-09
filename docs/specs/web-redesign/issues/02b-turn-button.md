@@ -1,6 +1,6 @@
 # 02b · The turn button in every mode, and Undo before the press
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: built (the separate W1 review and the owner's sample review wait)
 Blocked by: 01, 02a
 
 ## Scope
@@ -52,3 +52,12 @@ Blocked by: 01, 02a
 - No send by the press (02c), no rewind (12), no search before the press (13), no second look (20), no Previously (21), no new layout (03). The plugin board does not change (D14).
 
 ## Comments
+
+W1 build: one press hands over the turn. Undo takes back one staged ply.
+Keep the turn state and candidate link moves in `src/turn.ts`; connect the press in `src/turn-controls.ts`.
+Cuts: no staged save field, ready pulse, four-second line, auto mode or search before the press.
+Tests: 80 files pass, 1 skips; 1477 tests pass, 13 skip; all 50 scene tests pass. Type checking passes.
+Checks: all 17 pass. The final named run has all 4 pass. Turn and link-game pass twice on the final code.
+Plugin checks pass. Page size: 4,291,968 bytes (base 4,291,869; change +99). The default words stay.
+Samples: `SAMPLE=02b` gives 14 renders, no fault. Sheets: `/tmp/kingdown-w1-samples/w1-phone.png` and `w1-desktop.png`.
+The separate W1 review and the owner's sample review wait. Stop at the build commit.

@@ -1,6 +1,6 @@
 # 05 · Menu and Extra: one sheet, Board help, Feel, and Resign in place
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: built (the separate W2 review and sample review wait)
 Blocked by: 02c
 
 ## Scope
@@ -41,3 +41,9 @@ Blocked by: 02c
 - No Tricks (19), no new New game sheet (06), no `?lab=1` switch (D6), no new layout (03).
 
 ## Comments
+
+W2 builds this ticket with 03 under [the fast plan](../fast-plan.md), §2.
+- Build stable Menu pages, Board help, Feel, Extra and the Resign question.
+- Cut the live previews and vibration. Keep the current controls and account node.
+- Close checks wait for the Menu focus return before typing starts.
+- All checks pass; see 03 for test results and samples. The separate review and sample review wait.

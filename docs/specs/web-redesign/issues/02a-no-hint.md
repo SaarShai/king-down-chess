@@ -1,6 +1,6 @@
 # 02a · No Hint on the game screen; Show me in lessons
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: built (the separate W1 review and the owner's sample review wait)
 Blocked by: 00
 
 ## Scope
@@ -30,3 +30,9 @@ Blocked by: 00
 - No turn button (02b). No change to the key-moment mark.
 
 ## Comments
+
+W1 build: remove Hint from play. Keep Show me in the lesson controls.
+Reuse the goal move handler. The turn check plays its marked goal.
+Checks: turn, lesson-return and the full suite pass.
+Samples: `SAMPLE=02b` gives 14 renders with no fault, including Show me.
+The separate W1 review and the owner's sample review wait.

@@ -1,6 +1,6 @@
 # 03 · The table: player strips, the bar, the context line and one Moves line
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: built (the separate W2 review and sample review wait)
 Blocked by: 05
 
 ## Scope
@@ -39,3 +39,14 @@ Blocked by: 05
 - No read words or reach (04), no coin (10), no story sentence (11), no Ceremony (the result dialog `#over` stays until 14).
 
 ## Comments
+
+W2 follows [the fast plan](../fast-plan.md), §2.
+- Build the fixed table, player strips, bar and ranked context.
+- Use native Menu and Moves sheets. Keep the settings nodes.
+- Keep today's power button in your strip until W3.
+- Cut the desktop fold, previews, vibration and new story words.
+- Test the four rank collisions, selected help and lesson turns first.
+- `npm test`: 81 files pass; 1,490 tests pass; 13 skip. All 50 scene tests pass.
+- All 19 browser checks pass. The two new checks pass again; both plugin checks pass.
+- Render 30 states at three sizes; no faults. Sheets and the phone pair: `/tmp/w2-samples/`.
+- Merge W1 at `43c4e30`. Plugin page: 4,291,968 bytes, the same as W1. The separate review and sample review wait.

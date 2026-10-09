@@ -1,6 +1,6 @@
 # 11 · The move story: one sentence in player words, and a Review state
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: built (the separate W2 review and sample review wait)
 Blocked by: 03, 04
 
 ## Scope
@@ -35,3 +35,9 @@ Blocked by: 03, 04
 - No chips, no scrubber, no notation switch, no ghost replay over the live board (D12).
 
 ## Comments
+
+W2 builds only the part kept by [the fast plan](../fast-plan.md), §2.
+- Use `describeMove`, piece icons, row icons and LAN data fields.
+- Keep Review and add Back to game. A piece tap stays in Review.
+- Cut `storyLine`, verb badges, the arrow header and the new check.
+- All checks pass; see 03 for test results and samples. The separate review and sample review wait.

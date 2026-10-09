@@ -42,7 +42,6 @@ const motion = (page, sel) => page.evaluate(sel => {
 const kingsDrawn = (page, kings) => page.waitForFunction(k => {
   const v = window.view.kings; return v && [...v.set, ...v.drawn].join() === [...k, ...k].join();
 }, kings, { timeout: 10000 });
-const info = (page, re) => page.waitForFunction(r => new RegExp(r, 's').test(document.getElementById('info').textContent), re.source, { timeout: 10000 });
 
 try {
   // 1. Defaults on a first visit: Play the computer, Club, White, a random army; Spirit and Shadow.
@@ -150,12 +149,10 @@ try {
   s = await saved(page);
   assert.deepEqual([s.white, s.black, s.skill], ['human', 'ai', 'club']);
   assert.deepEqual(s.rules.kings, [{ king: 'Spirit', power: 'HolyLight' }, { king: 'Shadow', power: 'DeathTouch' }]);
-  await info(page, /White's king: Holy Light — .*Black's king: Death Touch — /);
   // Other kings, and No power for one side.
   await startGame(page, { mode: 'powers', kings: ['Mud:March', 'Frost:none'], army: 'classic' });
   s = await saved(page);
   assert.deepEqual(s.rules.kings, [{ king: 'Mud', power: 'March' }, null]);
-  await info(page, /White's king: March — .*Black's king: no power/);
   await kingsDrawn(page, ['mud', 'shadow']); // a king with no power is drawn as the plain king
   ok("Kings' powers: Spirit Holy Light and Shadow Death Touch by default; Mud March against a king with no power");
 
@@ -228,7 +225,6 @@ try {
   await page.click('#pick-1 .power-choice button[data-power="Darkness"]');
   assert.equal(await powerLine(page, 1), 'Darkness (always on) — your pawns step diagonally and take straight ahead, with no double step.');
   await startGame(page, { army: 'classic' });
-  await info(page, /White's king: Freeze, 2 left — as your move, freeze an enemy piece \(not the king\): it cannot move on its next turn/);
   await page.context().close();
   ok('?rules=2017: the picker shows the printed powers (Freeze twice, Mercy, Darkness), and the game plays them');
 
