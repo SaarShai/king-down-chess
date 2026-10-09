@@ -815,14 +815,24 @@ async function hint() {
   }
 }
 
+/** How many records Undo takes back. It takes back whole turns, because a power such as Freeze
+ *  keeps the turn: one turn in a game for two, else the computer's reply and your last turn.
+ *  It is 0 when only the computer's first move is there. */
+function undoCount(g) {
+  const sideAt = i => KD.status(g.states[i]).turn;
+  let n = g.stories.length, mine = false;
+  while (n > g.base && !mine) {
+    const side = sideAt(n - 1);
+    while (n > g.base && sideAt(n - 1) === side) n--;
+    mine = g.mode === 'two' || side === g.human;
+  }
+  return mine ? g.stories.length - n : 0;
+}
 async function undo() {
   const g = S.game;
   if (!g || g.over || S.review != null) return;
-  const st = KD.status(live());
-  let plies = g.mode === 'two' ? 1 : board.isHuman(st.turn) ? 2 : 1;
-  plies = Math.min(plies, g.stories.length - g.base);
-  if (g.mode !== 'two' && plies === 1 && board.isHuman(st.turn)) plies = 0; // only the computer's first move is there
-  if (plies <= 0) return;
+  const plies = undoCount(g);
+  if (!plies) return;
   hideHold(); clearReading(); clearLines(); clearBits(); removeGhost(); board.arm(null);
   board.clearMarks('hint');
   board.play.human = 'both';
@@ -1113,7 +1123,7 @@ $('#b-undo').addEventListener('click', undo);
 $('#b-menu').addEventListener('click', () => openMenu());
 function renderBar() {
   const g = S.game;
-  const canUndo = g && !g.over && g.stories.length - g.base >= (g.mode === 'two' ? 1 : KD.status(live()).turn === g.human ? 2 : 1);
+  const canUndo = g && !g.over && undoCount(g) > 0;
   $('#b-undo').disabled = !canUndo;
   $('#b-undo').setAttribute('aria-label', g?.mode === 'two' ? 'Undo the last move' : 'Undo your move and the reply');
   $('#b-undo').title = g?.mode === 'two' ? 'Undo the last move' : 'Undo your move and the reply';
