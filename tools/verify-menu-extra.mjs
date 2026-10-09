@@ -10,6 +10,9 @@ try {
     const page = await context.newPage(); trapErrors(page);
     let confirms = 0; page.on('dialog', d => { confirms++; void d.dismiss(); });
     await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+    await openMenu(page); await page.mouse.click(0, 0);
+    assert.equal(await page.locator('#menu-sheet').isVisible(), false, 'a tap outside closes Menu');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'menu-btn');
     await openMenu(page);
     for (const words of ['New game', 'Guide', 'Board help', 'Feel', 'Extra', 'Resign']) assert.ok((await page.locator('[data-menu-page="menu"]').textContent()).includes(words), words);
     for (const route of ['new', 'help', 'extra', 'resign']) {
