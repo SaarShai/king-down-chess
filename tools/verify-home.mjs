@@ -72,7 +72,7 @@ try {
       await page.evaluate(() => window.home.open());
       await tap(page, 6);
       assert.equal(await page.locator('#home-head').isVisible(), false, 'a board tap enters play');
-      assert.match(await contextText(page), /Knight/, 'the same tap selects your piece');
+      assert.match(await contextText(page), /White knight/, 'the same tap selects your piece');
       await tap(page, 21);
       assert.deepEqual(await lanMoves(page), [...SAVE.moves, 'Ng1-f3']);
       await page.reload(); await page.waitForFunction(() => window.view?.ready);
