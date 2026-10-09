@@ -23,6 +23,8 @@ try {
       if (width === 390) await page.touchscreen.tap(p.x, p.y); else await page.mouse.click(p.x, p.y);
     };
     await pressMenu(page, 'Guide');
+    await page.evaluate(() => document.fonts.ready);
+    await page.locator('.shelf-figure img').evaluateAll(imgs => Promise.all(imgs.map(img => img.decode())));
     assert.equal(await page.locator('#lesson-shelf').isVisible(), true, 'Guide opens on the shelf');
     assert.deepEqual(await page.locator('.shelf-name').allTextContents(), ['Archer', 'Beast', 'Maester', 'Ogre', 'Guard', 'Paladin']);
     assert.equal(await page.locator('#learn').innerText(), 'Learn the Archer');
