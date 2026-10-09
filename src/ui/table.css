@@ -74,3 +74,11 @@
 #menu-sheet button, #menu-sheet select { min-height: 44px; }
 #menu-sheet .sheet-head button, #sheet-moves .sheet-head button { flex: none; width: 44px; min-width: 44px; padding: 0; justify-content: center; background: transparent; border: 0; box-shadow: none; }
 #sheet-moves .sheet-head form { margin: 0; flex: none; }
+
+/* Each context row keeps room for its rule words. */
+#context-text > span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#context-text > span + span { font-size: 14px; }
+
+#table-bar > :is(#undo, #return-game) { grid-column: 1; grid-row: 1; }
+#table-bar > :is(#end-turn, #show-me, #next-lesson) { grid-column: 2; grid-row: 1; }
+#table-bar > #menu-btn { grid-column: 3; grid-row: 1; }

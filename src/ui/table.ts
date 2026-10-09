@@ -2,7 +2,7 @@ import { contextLine, type ContextState } from '../context-line';
 import { type Game, type Side } from '../game';
 import { describeMove } from '../move-text';
 import { pieceIcon } from '../piece-icons';
-import { type Color, type PieceType, type Rules, typeOf } from '../rules/engine';
+import { type Color, type PieceType, type Rules, colorOf, typeOf } from '../rules/engine';
 import type { SkillName } from '../ai/skill';
 import { turnLine, type Mode, type Turn } from '../turn';
 
@@ -52,22 +52,22 @@ export function refreshTable(s: TableState): void {
     strip.classList.toggle('is-turn', liveSide === c && (!text('status') || text('status') === 'thinking…'));
   }
   const history = s.game.history, shown = s.viewing == null ? history.at(-1) : history[s.viewing - 1];
-  const story = shown ? describeMove(shown.pos, shown.move) : 'No moves yet.';
-  const icon = shown && !shown.move.pass ? pieceIcon(typeOf(shown.pos.board[shown.move.from]) as PieceType, shown.pos.turn) : '';
+  const story = shown ? describeMove(shown.pos, shown.move, true) : 'No moves yet.';
+  const icon = shown && !shown.move.pass ? pieceIcon(typeOf(shown.pos.board[shown.move.from]) as PieceType, colorOf(shown.pos.board[shown.move.from])) : '';
   $('last-move').innerHTML = `${icon}<span></span>`;
   $('last-move').querySelector('span')!.textContent = story;
   $('moves').querySelectorAll<HTMLElement>('[data-ply]').forEach(row => {
     const h = history[Number(row.dataset.ply) - 1];
     row.dataset.lan = h.lan;
     row.dataset.mark = row.textContent?.match(/\?*$/)?.[0] ?? '';
-    if (!h.move.pass) row.insertAdjacentHTML('afterbegin', pieceIcon(typeOf(h.pos.board[h.move.from]) as PieceType, h.pos.turn));
+    if (!h.move.pass) row.insertAdjacentHTML('afterbegin', pieceIcon(typeOf(h.pos.board[h.move.from]) as PieceType, colorOf(h.pos.board[h.move.from])));
   });
-  const status = text('status'), power = text('power-status');
+  const status = text('status');
   const state: ContextState = {
     voice: s.sides.includes('ai') || s.linkSide != null ? 'you' : liveSide ? 'Black' : 'White',
     review: s.viewing != null ? `Review. ${read || (s.viewing === 0 ? 'The start.' : `Move ${s.viewing}.`)}` : '',
     result: status && status !== 'thinking…' ? status : '', refusal: s.notice,
-    armed: s.armed ? power : '', chain: !!s.pending.length, canStop: !$('stop-chain').hidden,
+    armed: s.armed ? s.rules.kings[s.game.pos.turn]?.power : undefined, chain: !!s.pending.length, canStop: !$('stop-chain').hidden,
     read: s.selected == null ? read : '',
     readNote: s.selected != null ? text('move-help') : s.viewing != null && !read ? s.reviewNote : readNote,
     midWay: s.game.pos.haste !== undefined || !!s.game.pos.free,
@@ -77,11 +77,15 @@ export function refreshTable(s: TableState): void {
     turnLine: turnLine(s.game, s.turn, s.mode),
     stagedEnd: s.turn.staged && s.game.status !== 'playing' ? s.game.status === 'checkmate' ? 'Checkmate.' : 'Draw.' : '',
     lesson: s.lesson == null ? '' : text('turn'), lessonNote: s.lesson == null ? '' : text('moment'),
-    link: s.linkSide != null && s.game.pos.turn !== s.linkSide && !s.turn.waits ? 'Send the game link to your friend.' : '',
+    link: s.linkSide != null && s.game.pos.turn !== s.linkSide && !s.turn.waits ? "Wait for your friend's link." : '',
     asset: text('asset-status'),
   };
   const line = contextLine(state);
-  $('context-text').textContent = [line.line, line.note].filter(Boolean).join('\n');
+  $('context-text').replaceChildren(...[line.line, line.note].filter(Boolean).map(words => {
+    const row = document.createElement('span');
+    row.textContent = words;
+    return row;
+  }));
   $('context-text').dataset.rank = line.rank;
   $('back-to-game').hidden = s.viewing == null;
   const resign = $<HTMLButtonElement>('resign');

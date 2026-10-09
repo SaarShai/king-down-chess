@@ -23,6 +23,7 @@ import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from
 import './ui/table.css';
 import { initMenu } from './ui/menu';
 import { initTable, readPiece, refreshTable } from './ui/table';
+import { reviewStep } from './review';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -109,7 +110,7 @@ let linkSide: Color | null = null;
 /** Plies shown on the board while reviewing earlier moves; null = the live game. */
 let viewing: number | null = null;
 /** The position on the board: in review the move shown, else the live game. The readouts read it. */
-const shownPos = (): Position => (viewing == null ? game.pos : game.history[viewing].pos);
+const shownPos = (): Position => game.positionAfter(viewing ?? game.history.length);
 /** Bumped by every review step, so a superseded step's animation does not sync the board. */
 let navGen = 0;
 /** A review step is replaying a move; `busy` is set too, so the board treats it as an animation. */
@@ -503,7 +504,7 @@ function refresh(): void {
   $('next-lesson').hidden = lesson == null || !lessonDone;
   $('return-game').hidden = lesson == null;
   $('next-lesson').textContent = lesson != null && lesson + 1 < LESSONS.length ? `Next lesson: ${LESSONS[lesson + 1].name}` : 'Start a game';
-  $('show-me').hidden = lesson == null;
+  $('show-me').hidden = lesson == null || lessonDone;
   $<HTMLButtonElement>('show-me').disabled = finished() || busy || viewing != null || !myTurn();
   const progress = $('lesson-progress');
   progress.hidden = lesson == null;
@@ -923,17 +924,17 @@ $('show-me').onclick = async () => {
 
 /**
  * Review: show the board after `n` plies. One step forward replays that move's animation unless
- * `replay` is false; n = the game's length returns to the live game. Not while a move or the computer is in progress.
+ * `replay` is false; null returns to the live game. Not while a move or the computer is in progress.
  */
-async function showPly(n: number, replay = true): Promise<void> {
-  const len = game.history.length, from = viewing ?? len;
-  n = Math.max(0, Math.min(len, n));
-  if ((busy && !replaying) || n === from) return;
-  const at = (k: number) => (k === len ? game.pos : game.history[k].pos);
+async function showPly(n: number | null, replay = true): Promise<void> {
+  const len = game.history.length, from = viewing ?? len, step = reviewStep(n, len);
+  if ((busy && !replaying) || step.viewing === viewing) return;
+  n = step.ply;
+  const at = (k: number) => game.positionAfter(k);
   const g = ++navGen;
   view.skip(); // a step during a replay ends it; its continuation sees the new navGen
   busy = replaying = false;
-  viewing = n === len ? null : n;
+  viewing = step.viewing;
   selected = null; pending = []; hintSquares = []; reviewNote = ''; inspected = null;
   refresh();
   sayCursor(); // the keyboard cursor reads the board now shown
@@ -1330,7 +1331,7 @@ const openNewGame = (): void => dialog.open(setup);
 
 $('new-game-btn').onclick = openNewGame;
 initMenu({ playAgain: () => newGame(randomBackRank()), today: () => dialog.open({ ...setup, army: 'daily' }), resignSide: resigner });
-initTable(() => { void showPly(game.history.length, false); });
+initTable(() => { void showPly(null, false); });
 $('rules-btn').onclick = () => {
   fillPieceGuide();
   $<HTMLDialogElement>('rules').showModal();
@@ -1364,7 +1365,7 @@ addEventListener('keydown', e => {
   // No game key acts under a dialog: there Esc only closes the dialog (the Workshop's Esc closes its top sheet,
   // else an open choices panel, else the Workshop).
   if (document.querySelector('dialog[open]')) return;
-  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; armed = false; hintSquares = []; refresh(); return; }
+  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; armed = false; hintSquares = []; refresh(); return; }
   // Nor in a field that takes typing.
   const field = e.target as HTMLElement;
   if (field.closest('input,select,textarea') || field.isContentEditable) return;

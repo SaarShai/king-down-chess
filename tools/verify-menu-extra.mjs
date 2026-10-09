@@ -23,8 +23,16 @@ try {
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).coords), false);
     assert.equal(await page.evaluate(() => window.view.coords), false);
     await page.locator('#menu-close').click(); assert.equal(await page.evaluate(() => document.activeElement.id), 'menu-btn');
-    await openMenu(page); await page.check('#sound'); await page.uncheck('#sound'); await page.selectOption('#pace', 'off');
+    await openMenu(page); await page.check('#sound');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).sound), true, 'Sound on saves');
+    await page.uncheck('#sound');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).sound), false);
+    await page.selectOption('#pace', 'fast');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).pace), 'fast', 'Motion changes its saved value');
+    assert.equal(await page.evaluate(() => window.view.pace), 'fast', 'the board uses Fast motion');
+    await page.selectOption('#pace', 'off');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).pace), 'off');
+    assert.equal(await page.evaluate(() => window.view.pace), 'off');
     await openExtra(page); assert.equal(await page.locator('#look').inputValue(), 'painted');
     assert.match(await page.locator('.coming-row').innerText(), /Card mode/);
     await shot(page, `extra-${width}`);

@@ -40,13 +40,11 @@ Blocked by: 05
 
 ## Comments
 
-W2 follows [the fast plan](../fast-plan.md), §2.
-- Build the fixed table, player strips, bar and ranked context.
-- Use native Menu and Moves sheets. Keep the settings nodes.
-- Keep today's power button in your strip until W3.
-- Cut the desktop fold, previews, vibration and new story words.
-- Test the four rank collisions, selected help and lesson turns first.
-- `npm test`: 81 files pass; 1,490 tests pass; 13 skip. All 50 scene tests pass.
-- All 19 browser checks pass. The two new checks pass again; both plugin checks pass.
-- Render 30 states at three sizes; no faults. Sheets and the phone pair: `/tmp/w2-samples/`.
-- Merge W1 at `43c4e30`. Plugin page: 4,291,968 bytes, the same as W1. The separate review and sample review wait.
+W2 finish plan follows the review and the fast plan.
+- Test the context seam before each change.
+- Keep lesson words visible and Review active at its last ply.
+- Keep piece rules, short power words and correct move icons.
+- Check Feel saves and add the missing check trailers.
+- Commit fixes, merge integration, then run npm test and named checks.
+- Run each new check twice. Render and inspect three sheets and the phone pair.
+- Record results in tickets 03, 05 and 11, then commit.

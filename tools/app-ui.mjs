@@ -97,7 +97,7 @@ export function readUi() {
     lan: rows.map(lan),
     turns: [...moves.querySelectorAll('li')].map(li => [...li.querySelectorAll('[data-ply]')].map(lan)),
     marks: rows.map(row => row.dataset.mark),
-    context: text('context-text'),
+    context: (element('context-text').innerText ?? element('context-text').textContent).trim(),
     refusal: text('move-help'),
     thinking,
     result: thinking ? '' : status,
@@ -106,6 +106,18 @@ export function readUi() {
 
 const read = async (page, key) => (await page.evaluate(readUi))[key];
 export const contextText = page => read(page, 'context');
+/** Read a word range within the two clipped context rows. */
+export const contextWordsInView = (page, words) => page.evaluate(words => {
+  const context = document.getElementById('context-text').getBoundingClientRect();
+  return [...document.querySelectorAll('#context-text > span')].some(row => {
+    const at = row.textContent.indexOf(words);
+    if (at < 0) return false;
+    const range = document.createRange();
+    range.setStart(row.firstChild, at); range.setEnd(row.firstChild, at + words.length);
+    const r = range.getBoundingClientRect(), clip = row.getBoundingClientRect();
+    return r.left >= clip.left && r.right <= clip.right + 1 && r.top >= context.top && r.bottom <= context.bottom + 1;
+  });
+}, words);
 export const lastMoveText = page => page.locator('#last-move').innerText();
 export const refusalText = page => read(page, 'refusal');
 export const computerThinks = page => read(page, 'thinking');

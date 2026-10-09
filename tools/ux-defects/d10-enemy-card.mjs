@@ -4,7 +4,7 @@
 // Enter on the keyboard cursor does the same; a drag onto an enemy piece keeps the reason. While the player cannot move (the computer thinks, the game is
 // over, a game link waits for the friend), a tap on a piece shows its card too, beside the reason.
 import assert from 'node:assert/strict';
-import { endTurn, contextText, focusBoard, leaveBoard, refusalText, waitForUi } from '../app-ui.mjs';
+import { endTurn, contextWordsInView, contextText, focusBoard, leaveBoard, refusalText, waitForUi } from '../app-ui.mjs';
 
 // White: king e1, pawn e4. Black: king e8, knight a6, pawn d5. The pawn can take d5, not the knight.
 const save = { back: '', fen: '4k3/8/n7/3p4/4P3/8/8/4K3 w - - 0 1', moves: [], white: 'human', black: 'ai', sound: false, skill: 'club' };
@@ -81,6 +81,7 @@ export default async function ({ open }) {
     await waitForUi(page, ui => ui.thinking);
     await tap(B8);
     assert.match(await contextText(page), /Black knight/, `${size}: a tap while the computer thinks shows the card`);
+    assert.ok(await contextWordsInView(page, 'Moves in an L'), 'the read keeps knight rules during search');
     assert.match(await contextText(page), /^The computer is thinking\. Wait for its move\.$/m);
     await close();
 
@@ -92,6 +93,7 @@ export default async function ({ open }) {
     await page.click('#over button[value="close"]');
     await tap(F7);
     assert.match(await contextText(page), /Black pawn/, `${size}: a tap after the game ends shows the card`);
+    assert.ok(await contextWordsInView(page, 'Moves 1 square forward'), 'the read keeps pawn rules after the end');
     assert.match(await contextText(page), /wins|Checkmate/i);
     await close();
 
@@ -101,6 +103,7 @@ export default async function ({ open }) {
     await waitForUi(page, ui => /e7-e5/.test(ui.lan.join(' ')));
     await tap(E4);
     assert.match(await contextText(page), /White pawn/, `${size}: a tap while a game link waits for the friend shows the card`);
+    assert.ok(await contextWordsInView(page, 'Moves 1 square forward'), 'the read keeps pawn rules while the link waits');
     assert.equal(await page.textContent('#end-turn'), 'Send your turn');
     assert.equal(await page.locator('#end-turn').getAttribute('aria-disabled'), 'false');
     await close();
