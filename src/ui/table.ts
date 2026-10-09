@@ -1,4 +1,5 @@
 import { contextLine, type ContextState } from '../context-line';
+import { LESSONS } from '../lessons';
 import { type Game, type Side } from '../game';
 import { checkCause, describeMove } from '../move-text';
 import { pieceIcon } from '../piece-icons';
@@ -25,7 +26,7 @@ export function initTable(back: () => void): void {
 
 export interface TableState {
   game: Game; sides: readonly Side[]; skill: SkillName; rules: Rules;
-  flipped: boolean; thinking: boolean; viewing: number | null; lesson: number | null;
+  flipped: boolean; thinking: boolean; viewing: number | null; lesson: number | null; lessonDone: boolean;
   notice: string; armed: boolean; selected: number | null; pending: readonly number[];
   linkSide: Color | null; reviewNote: string;
   turn: Turn; mode: Mode;
@@ -80,6 +81,7 @@ export function refreshTable(s: TableState): void {
     turnLine: turnLine(s.game, s.turn, s.mode),
     stagedEnd: s.turn.staged && s.game.status !== 'playing' ? s.game.status === 'checkmate' ? 'Checkmate.' : 'Draw.' : '',
     lesson: s.lesson == null ? '' : text('turn'), lessonNote: s.lesson == null ? '' : text('moment'),
+    lessonLearned: s.lessonDone && s.lesson != null ? LESSONS[s.lesson].name : '',
     link: s.linkSide != null && s.game.pos.turn !== s.linkSide && !s.turn.waits ? "Wait for your friend's link." : '',
     asset: text('asset-status'),
     previously: s.previously?.line, previouslyBefore: s.previously?.before ?? '', seeAgain: s.previously?.seeAgain,
