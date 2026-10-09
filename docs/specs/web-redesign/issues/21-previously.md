@@ -80,6 +80,8 @@ All nine required browser checks pass. Typecheck and the doc checks pass.
 ## Batch 3 repair 2
 
 Items 1 and 2: decided by delegation (2026-10-09).
+
+The short phone uses 14 px Previously words. A full Haste turn with See again fits the 57 px context row. The browser and W11 check this longer case.
 The first line names the main take, else the last move, in at most 8 words.
 The detail names every ply without rule text or a repeated mover. You follows.
 At 320x568, You hides; the friend text has no scroll box or cut glyphs.

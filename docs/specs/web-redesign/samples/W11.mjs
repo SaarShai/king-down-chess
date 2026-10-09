@@ -18,7 +18,7 @@ export default {
       await state.page.locator('#see-again').waitFor({ state: 'visible' });
     } },
     { name: 'haste-turn', query: `?${new URLSearchParams({ fen: '7k/8/8/8/8/8/8/R5K1 b - - 0 1', kings: 'flame:haste,none', moves: 'Kh8-h7_Ra1-a5!H_Ra5-e5' })}`, controls, steps: haste },
-    { name: 'haste-takes', query: `?${new URLSearchParams({ fen: '7k/8/8/r3r3/8/8/8/R5K1 b - - 0 1', rules: '2017', kings: 'flame:haste,none', moves: 'Kh8-h7_Ra1xa5!H_Ra5xe5' })}`, controls, steps: async state => {
+    { name: 'haste-takes', motion: 'normal', query: `?${new URLSearchParams({ fen: '7k/8/8/r3r3/8/8/8/R5K1 b - - 0 1', rules: '2017', kings: 'flame:haste,none', moves: 'Kh8-h7_Ra1xa5!H_Ra5xe5' })}`, controls, steps: async state => {
       await haste(state);
       assert.equal(await state.page.locator('#context-text > span').first().innerText(), 'Previously: their rook took your rook.');
     } },
