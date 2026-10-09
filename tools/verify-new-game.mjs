@@ -327,6 +327,10 @@ try {
   }
   assert.ok(await page.locator('.em-name').evaluateAll(labels => labels.every(l => l.scrollWidth <= l.clientWidth + 1 && l.scrollHeight <= l.clientHeight + 1)), 'king names fit on the phone');
   assert.ok(await page.locator('#army-examples option').evaluateAll(options => options.every(o => !/^[A-Z]{8}$/.test(o.textContent))), 'example armies have word labels');
+  const examples = await page.locator('#army-examples option').evaluateAll(options => options.filter(o => /^[A-Z]{8}$/.test(o.value)).map(o => ({ code: o.value, label: o.textContent })));
+  assert.deepEqual(examples.map(o => +o.label.match(/Example army (\d+)/)[1]), examples.map((_, i) => i + 1), 'only example armies count, with no gaps');
+  assert.equal(examples.filter(o => o.code.includes('C')).length, 3, 'three Catapult armies');
+  assert.ok(examples.filter(o => o.code.includes('C')).every(o => o.label.includes('Catapult')), 'each Catapult army keeps its word mark');
   // The power buttons with their pictures: 44 px targets or more, labels whole and at 14 px.
   for (const b of await page.$$eval('#king-picker .power-choice button', bs => bs.map(b => {
     const r = b.getBoundingClientRect(), l = b.querySelector('.pm-label');

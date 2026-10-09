@@ -59,3 +59,5 @@ The phone king picker has three columns. Every name fits on one line.
 The shared style file changes only the picker rules.
 All ten browser checks pass. W7 has 18 renders and zero faults.
 Both sheets get a visual check. No rules or plugin module changes.
+
+Item 10: decided by delegation (2026-10-09). Only example armies add to the number. The three Catapult armies keep Catapult in words. The browser checks both facts.
