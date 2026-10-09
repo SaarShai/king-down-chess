@@ -38,9 +38,10 @@ Blocked by: 02b, 03, 07 (`tools/verify-their-turn.mjs`)
 
 ## Comments
 
-Phase 1 build: opt-in `scene.setLifted` lifts 3 screen pixels. The default stays.
-Check: the figure lifts; clear and a new position return it to rest. Check the plugin page.
-Phase 2: wire the 200 ms tell after End turn; guard a new game and skip Off motion.
-Phase 1 passes: `w6-parts` (3.0 s); type check; 1452 unit tests and 50 motion tests.
-The plugin checks pass: `plugin-ui` (15.7 s), `plugin-ui-http` (15.8 s).
-The plugin page is 4,292,512 bytes, up 643 bytes. The default page stays the same.
+Phase 2 build: the actual computer mover lifts 3 px for 200 ms after the press.
+A new game cancels the wait. Off, reduced motion and moves with no slide have no tell.
+Cut: search before the press, tell timing math, portrait breath and ring.
+The turn check proves that the lift comes before the reply and clears after it.
+`npm test`: 1512 passed, 13 skipped; 50 motion tests pass. Type check passes.
+Plugin checks pass. The page stays at 4,292,611 bytes after the phase 2 merge.
+Separate review, the full browser suite and the owner's sample review remain.

@@ -512,9 +512,9 @@ export class BoardRenderer {
     this.showFallen(false);
   }
 
-  setFallen(sq: number | null): void {
+  setFallen(sq: number | null, animate = true): void {
     this.fallen = sq == null || !this.lastPos ? null : { pos: this.lastPos, sq };
-    this.showFallen(true);
+    this.showFallen(animate);
   }
 
   /** The fallen king lies on its side while the board shows the position it fell in. */
@@ -651,13 +651,17 @@ export class BoardRenderer {
 
   /** Animate a move on the pre-move board; call sync(newPos) afterwards. */
   /** `onContact` fires when a capture or shove lands (main.ts times the hit sound to it). */
-  async animateMove(pos: Position, m: Move, onContact?: () => void): Promise<void> {
+  async animateMove(pos: Position, m: Move, onContact?: () => void, speed?: number): Promise<void> {
     if (this.pace === 'off') return;
     // King powers that move nothing (Freeze, Ice Wall, a Haste pass) or change a piece in place
     // (Sacrifice): nothing to animate; main.ts syncs the board afterwards.
     if (m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice') return;
+    if (speed != null) this.tweens.rate = speed;
     this.moving = true;
-    try { await this.animate(pos, m, onContact); } finally { this.moving = false; }
+    try { await this.animate(pos, m, onContact); } finally {
+      this.moving = false;
+      if (speed != null) this.tweens.rate = this.pace === 'fast' ? 2 : 1;
+    }
   }
 
   private async animate(pos: Position, m: Move, onContact?: () => void): Promise<void> {

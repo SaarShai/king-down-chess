@@ -64,7 +64,7 @@ export function startCeremony({ view, board, moments, history, final, king, show
     moments.append(head, row);
   };
   const cleanup = (): void => {
-    board.removeEventListener('pointerdown', skip, true);
+    board.removeEventListener('pointerdown', onTap, true);
     document.removeEventListener('keydown', onKey, true);
     document.removeEventListener('visibilitychange', onHidden);
   };
@@ -88,6 +88,7 @@ export function startCeremony({ view, board, moments, history, final, king, show
     view.setFallen(king, false);
     words.hidden = false;
     words.classList.remove('is-in');
+    motion = false;
     tiles();
     cleanup();
   };
@@ -95,6 +96,10 @@ export function startCeremony({ view, board, moments, history, final, king, show
     if (!['Escape', ' ', 'Enter'].includes(e.key)) return;
     e.preventDefault();
     e.stopImmediatePropagation();
+    skip();
+  };
+  const onTap = (e: PointerEvent): void => {
+    if (e.target instanceof Element && e.target.closest('button')) return;
     skip();
   };
   const onHidden = (): void => { if (document.hidden) skip(); };
@@ -106,7 +111,7 @@ export function startCeremony({ view, board, moments, history, final, king, show
     if (!live()) cancel();
     return !stopped;
   };
-  board.addEventListener('pointerdown', skip, true);
+  board.addEventListener('pointerdown', onTap, true);
   document.addEventListener('keydown', onKey, true);
   document.addEventListener('visibilitychange', onHidden);
 

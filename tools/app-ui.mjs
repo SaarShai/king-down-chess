@@ -143,6 +143,13 @@ export async function openMoves(page) {
   if (!await page.evaluate(() => document.getElementById('sheet-moves').open)) await page.locator('#moves-line').click();
 }
 
+/** The result opens Review; key moments stay in the Moves sheet. */
+export async function openEndReview(page) {
+  await page.locator('#over').waitFor({ state: 'visible' });
+  await page.locator('#over-review').click();
+  await page.locator('#sheet-moves').waitFor({ state: 'visible' });
+}
+
 export function moveRow(page, ply) {
   if (!Number.isInteger(ply) || ply < 1) throw new Error(`moveRow: ply ${ply} is not a whole number from 1`);
   return page.locator(`#moves [data-ply="${ply}"]`);

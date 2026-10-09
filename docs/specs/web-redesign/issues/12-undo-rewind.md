@@ -34,9 +34,11 @@ Blocked by: 02b, 11
 
 ## Comments
 
-Phase 1 build: `PaintedView.animateBack` plays the reverse move, then syncs the old board.
-Check: a capture, swap, shove and instant fallback end on the old board.
-Phase 2: wire Undo to the turn boundary from W1; add the turn check and sample.
-Phase 1 passes: `w6-parts` (3.0 s); type check; 1452 unit tests and 50 motion tests.
-The plugin checks pass: `plugin-ui` (15.7 s), `plugin-ui-http` (15.8 s).
-The plugin page is 4,292,512 bytes, up 643 bytes. The full browser suite waits for phase 2.
+Phase 2 build: Undo plays the reverse scene move, then syncs the old board.
+Taken pieces return after the slide. Clay syncs at once.
+Cut: a track for each move kind and the new rewind plan module.
+The turn check passes: capture rewind, two fast presses and no Undo words on screen.
+`npm test`: 1512 passed, 13 skipped; 50 motion tests pass. Type check passes.
+Plugin checks pass. The page stays at 4,292,611 bytes after the phase 2 merge.
+Sample W6 has a capture and Undo in the phone video. It has no layout fault.
+Separate review, the full browser suite and the owner's sample review remain.

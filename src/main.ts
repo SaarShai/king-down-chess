@@ -24,6 +24,8 @@ import './ui/table.css';
 import { initMenu } from './ui/menu';
 import { initTable, readPiece, refreshTable } from './ui/table';
 import { reviewStep } from './review';
+import { connectMoveMoments } from './move-moments';
+import { connectEndReview, connectGameEnd } from './game-end';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -136,6 +138,25 @@ const undoOn = (): boolean => lesson == null && viewing == null && !ended() && !
 const myTurn = (): boolean => !currentTurn().waits && sides[game.pos.turn] === 'human' && (linkSide == null || game.pos.turn === linkSide) && !lessonDone;
 /** The side Resign gives up now (`resigningSide`), or null while it is off: the game is over, a lesson, or the computer thinks. */
 const resigner = (): Color | null => (ended() || lesson != null || busy ? null : resigningSide(sides, currentTurn().activeSide, linkSide));
+
+const moveMoments = connectMoveMoments(view, {
+  game: () => game, allowed: undoOn, chain: () => pending.length > 0,
+  generation: () => gen, motion: () => pace.value !== 'off', reset, lock: value => { busy = value; }, refresh,
+  afterUndo: () => {
+    restoreMoments();
+    if (game.pos.haste !== undefined && game.pos.rage !== 3) selected = game.pos.haste;
+    $('announce').textContent = 'Move taken back.';
+    refresh(); save();
+  },
+});
+const gameEnd = connectGameEnd(view, $('board'), $<HTMLDialogElement>('over'), $('over-tiles'), {
+  game: () => game, sides: () => sides, linkSide: () => linkSide, resigned: () => resigned,
+  generation: () => gen, motion: () => pace.value !== 'off', lock: value => { busy = value; }, refresh,
+  turnButton: $<HTMLButtonElement>('end-turn'),
+  announce: ceremony => { $('announce').textContent = `${ceremony ? 'King Down. ' : ''}${result()}.`; },
+  showPly, rematch: () => newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true),
+});
+connectEndReview($('over-review'), $<HTMLDialogElement>('over'), $('moves-line'), listMoments);
 
 const refreshTurnButton = () => renderTurnButton($<HTMLButtonElement>('end-turn'), game, currentTurn(), turnMode(), linkSide, ended(), busy || viewing != null, lesson != null);
 const announceTurn = () => announceWaiting(game, currentTurn(), turnMode(), $('end-turn'), $('announce'));
@@ -498,6 +519,7 @@ function refresh(): void {
   $('undo').hidden = lesson != null;
   $('undo').setAttribute('aria-disabled', String(!undoOn()));
   refreshTurnButton();
+  gameEnd.refresh();
   $<HTMLButtonElement>('resign').disabled = resigner() == null;
   $<HTMLButtonElement>('copy').disabled = game.history.length === 0;
   $('share').hidden = sides[0] !== 'human' || sides[1] !== 'human' || game.history.length === 0 || lesson != null || linkSide != null || currentTurn().staged > 0;
@@ -603,7 +625,7 @@ async function commit(m: Move): Promise<void> {
   game.play(m);
   if (computer) turnStart = handOver(game);
   notice = '';
-  $('announce').textContent = describeMove(pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '') + (ended() ? ` ${result()}.` : '');
+  $('announce').textContent = describeMove(pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '');
   const line = momentText(pre, m, seenMoments);
   if (line) { said = line; $('moment').textContent = line; }
   const kind = momentKind(pre, m);
@@ -725,8 +747,9 @@ async function maybeAi(): Promise<void> {
   const blunder = plan.blunder > 0 && choices.length > 0 && Math.random() < plan.blunder
     ? choices[Math.floor(Math.random() * choices.length)]
     : null;
-  busy = false;
   const move = blunder ?? res.move;
+  if (move && !await moveMoments.tell(move)) return;
+  busy = false;
   if (move) await commit(move);
 }
 
@@ -929,6 +952,7 @@ $('show-me').onclick = async () => {
 async function showPly(n: number | null, replay = true): Promise<void> {
   const len = game.history.length, from = viewing ?? len, step = reviewStep(n, len);
   if ((busy && !replaying) || step.viewing === viewing) return;
+  gameEnd.clear();
   n = step.ply;
   const at = (k: number) => game.positionAfter(k);
   const g = ++navGen;
@@ -956,10 +980,13 @@ $('moves').onclick = e => {
 
 /** Stop any AI search in flight and drop the per-game UI state. */
 function reset(): void {
+  gameEnd.reset();
+  moveMoments.cancel();
   gen++;
   navGen++;
   replaying = thinking = false;
   marked = [];
+  $('over-moments').replaceChildren();
   if (viewing != null) { viewing = null; view.sync(game.pos); }
   hintSquares = [];
   engine.cancel();
@@ -1009,16 +1036,7 @@ function newGame(backRank?: string, fen?: string | null, rematch = false, dailyD
 
 /** Take back one staged ply, or close an open chain. */
 function undo(): void {
-  if (!undoOn()) return;
-  const chain = pending.length > 0;
-  reset();
-  if (!chain) game.undo();
-  restoreMoments();
-  view.sync(game.pos);
-  if (game.pos.haste !== undefined && game.pos.rage !== 3) selected = game.pos.haste;
-  $('announce').textContent = 'Move taken back.';
-  refresh();
-  save();
+  moveMoments.undo();
 }
 
 function result(): string {
@@ -1052,16 +1070,11 @@ function showOver(): void {
     || said;
   $('over-detail').textContent = [last ? `Last move ${last}.` : '', why, `${n} move${n === 1 ? '' : 's'} · setup ${game.backRank || 'custom'}`].filter(Boolean).join(' ');
   dlg.returnValue = ''; // Esc leaves the last button's value behind, which would re-fire it
-  // King Down: the mated or resigning side's king topples (none after a draw or a king capture).
-  const loser = resigned ?? (game.status === 'checkmate' ? game.pos.turn : null), king = loser == null ? -1 : findKing(game.pos.board, loser);
-  view.setFallen(king >= 0 ? king : null);
-  dlg.dataset.fallen = loser == null ? 'none' : loser ? 'b' : 'w'; // the dialog's painted kings show it too
   dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0); // the kings that played, as on the board
   dlg.querySelector<HTMLImageElement>('.over-b')!.src = kingArt(1);
   $('share-result').hidden = daily == null;
   $('share-result').textContent = "Copy today's result";
-  dlg.showModal();
-  void listMoments();
+  void gameEnd.show();
 }
 
 /**
@@ -1069,7 +1082,7 @@ function showOver(): void {
  * the most (moment.ts `keyMoments`). A moment opens the review before that move, the better one marked.
  */
 async function listMoments(): Promise<void> {
-  const g = gen, box = $('over-moments'), dlg = $<HTMLDialogElement>('over');
+  const g = gen, box = $('over-moments'), dlg = $<HTMLDialogElement>('sheet-moves');
   box.innerHTML = '<small>Finding the key moments…</small>';
   marked = [];
   const keys = game.history.map(h => positionKey(h.pos));

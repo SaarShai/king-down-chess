@@ -1,6 +1,6 @@
 // W1: the real turn press, its Undo floor and the guarded link send.
 import assert from 'node:assert/strict';
-import { confirmResign, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
+import { confirmResign, endTurn, lanMoves, pressMenu, setPace, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -28,6 +28,36 @@ const undo = async () => page.click('#undo');
 const undoOff = () => page.getAttribute('#undo', 'aria-disabled');
 try {
   if (process.argv[2] !== 'link') {
+    await open('7k/p7/8/8/8/r7/8/R6K w - - 0 1');
+    await setPace(page, 'normal');
+    await move('a1', 'a3');
+    await undo();
+    assert.equal(await page.evaluate(() => window.view.scene.animating), true, 'Undo plays backward');
+    await page.waitForFunction(() => !window.view.scene.animating && window.view.pos.board[0] > 0);
+    assert.equal(await page.evaluate(() => window.view.scene.position.board[16]), 20, 'the black rook returns');
+    assert.equal(await page.evaluate(() => window.view.scene.animating), false, 'the rewind ends');
+    console.log('ok capture rewinds; victim returns; no move remains');
+
+    await open('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', '?kings=frost:freeze,none');
+    await setPace(page, 'normal');
+    await page.click('#power-btn'); await tap('d5'); await move('a2', 'a3');
+    await page.evaluate(() => { document.getElementById('undo').click(); document.getElementById('undo').click(); });
+    await waitForUi(page, ui => ui.lan.length === 0 && !window.view.scene.animating);
+    assert.equal(await page.evaluate(() => window.view.pos.board[8]), 1, 'two presses put the pawn back');
+    assert.equal(await page.evaluate(() => window.view.pos.marks?.[0] ?? null), null, 'the second press removes Freeze');
+    assert.doesNotMatch(await page.locator('#context-text').textContent(), /taken back|Undo/, 'Undo has no words on screen');
+    console.log('ok rapid Undo ends the old rewind and takes the next ply');
+
+    await open(undefined, '', [], true);
+    await setPace(page, 'normal');
+    await move('e2', 'e4'); await endTurn(page);
+    await page.waitForFunction(() => window.view.scene.lifted != null, null, { timeout: 5000, polling: 10 });
+    assert.equal(await page.evaluate(() => window.view.scene.animating), false, 'the tell comes before the reply');
+    assert.deepEqual(await lanMoves(page), ['e2-e4'], 'the lift plays no move');
+    await waitForUi(page, ui => ui.lan.length === 2 && !ui.thinking && !window.view.scene.animating);
+    assert.equal(await page.evaluate(() => window.view.scene.lifted), null, 'the reply clears the lift');
+    console.log('ok computer lifts the mover before its reply');
+
     await open(undefined, '', [], true);
     assert.equal(await page.locator('#hint,#end-haste').count(), 0);
     assert.equal(await page.getAttribute('#end-turn', 'aria-disabled'), 'true');
