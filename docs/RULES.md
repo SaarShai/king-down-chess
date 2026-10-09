@@ -212,7 +212,7 @@ move captures (Haste's shape with two pieces). Not measured.
     `'far2'`: the Archer takes, without moving, an enemy exactly 2 squares away straight, or on either forward
     diagonal at distance 2, through blockers. It no longer takes its diagonal neighbours. `plusDiagFwd2` and the
     other readings stay lab readings. One depth-3 Muller pass put its worth at **2.83 ± 0.28 pawns**
-    (`docs/research/piece-runs-2026-10-04-pv-A-af2.md`); `ARCHER_V` stays 505 until a full re-pricing.
+    (`docs/research/piece-runs-2026-10-04-pv-A-af2.md`); `ARCHER_V` stays 505 until a full re-pricing. Re-priced 2026-10-09 (owner: "re-price the archer at far2"): `ARCHER_V` 505 → 339, the converged odds match played to the end (pv-A-af2na, 3.39 ± 0.27 pawns).
 21. **The guard starts next to its king (owner, 2026-10-09: "approve start next to a king, wherever the king is
     positioned in the randomized arrangement").** `guardNextToKing` (default on): when the drawn back rank holds a
     guard that is not next to the king, it swaps with a neighbour of the king; when both neighbours exist, the

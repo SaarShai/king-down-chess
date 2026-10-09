@@ -58,14 +58,15 @@ import { NetKind, RESIDUAL_MAX, loadNet, loadedNetB64, netHasOgre, netKind, netL
  *           not the value.
  */
 export const PAWN_V = 100, KNIGHT_V = 316, BISHOP_V = 322, ROOK_V = 449, QUEEN_V = 933;
-// ARCHER_V re-priced 337 -> 505 with `archerShots: 'plusDiagFwd2'` (adopted 2026-09-17): the odds
-// match vs a rook puts it at 5.05 ± 0.44 pawns (docs/research/sim-piece-balance-2026-09-17.md).
+// ARCHER_V re-priced 505 -> 339 with `archerShots: 'far2'` (adopted 2026-10-09): the odds match
+// played to the end (pv-A-af2na, docs/QUEUE.md) converges at 3.39 ± 0.27 pawns; one pass vs a rook
+// gave 2.83 ± 0.28 at depth 3 and 3.22 ± 0.34 at depth 4. (It was 505 under `plusDiagFwd2`.)
 // Refreshed 2026-09-17 under the adopted `plusDiagFwd2` archer (odds match vs a knight, 500
 // games an arm, depth 3). Two passes: L 2.87 -> 3.74 -> 4.08, M 3.20 -> 2.82 -> 3.18,
 // S 3.08 -> 3.68 -> 3.77; each second-pass move is inside its error bar, so this is the fixed
 // point (`sim/out/pb-values-refresh{,2}.experiment.md`). The guard measures out of band below
 // 1.66; its 96 stays (a wall's worth is positional, and the material scan is not the instrument).
-export const ARCHER_V = 505, PALADIN_V = 408, GUARD_V = 96, MAESTER_V = 318, BEAST_V = 434;
+export const ARCHER_V = 339, PALADIN_V = 408, GUARD_V = 96, MAESTER_V = 318, BEAST_V = 434;
 // BEAST_V 377 -> 434 with the blind spot removed (2026-09-17): captures +29%, odds match 4.34 ± 0.42
 // (inside the old error bar, but it is the best estimate under the shipped rule).
 /** Ogre push retains the adopted 318 value from the September 17 study. Catapult stays a lab seed. */
