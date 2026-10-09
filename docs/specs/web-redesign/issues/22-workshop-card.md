@@ -55,12 +55,3 @@ Read-only actions stay under the card on wide screens.
 Tests: 1,514 pass, 13 skip. Scene tests: 50 pass. Typecheck and build pass.
 Browser checks: workshop, workshop-cast and visual-design pass.
 W12: 24 renders, zero faults; each render passes the visual check.
-
-## Batch 3 sheet fixes
-
-Decision: decided by delegation (2026-10-09).
-Share uses two action rows on short phones. More of the card shows.
-Send link stays in the fixed footer. All actions keep 44 px targets.
-Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
-Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
-All nine required browser checks pass. Typecheck and the doc checks pass.

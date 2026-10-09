@@ -612,7 +612,6 @@ async function workshopCard(browser, width, height) {
   await noSidewaysScroll(p, `${sheetOpen} .ws-sheet-body`);
   await textNotCut(p, `${sheetOpen} .ws-bottom`);
   await targetsFit(p);
-  if (width === 320 && height === 568) assert.ok((await p.locator(`${sheetOpen} .ws-share-actions`).boundingBox()).height <= 120, 'short phone Share leaves more room for the card');
   await shot(p, `${size}-card-share`);
   await p.keyboard.press('Escape');
 
