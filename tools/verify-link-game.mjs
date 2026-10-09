@@ -38,9 +38,9 @@ async function open(motion = true) {
 try {
   const first = await open();
   const { page } = first;
-  assert.equal(await page.locator('#previously-before').textContent(), 'You: White pawn e2 to e4.');
-  assert.ok((await page.locator('#context-text').textContent()).includes('Black pawn e7 to e5.'));
-  assert.equal(await page.locator('#context-text > span').first().innerText(), 'Previously: Black pawn e7 to e5.');
+  assert.equal(await page.locator('#previously-before').textContent(), 'You: Pawn e2 to e4.');
+  assert.ok((await page.locator('#context-text').textContent()).includes('Pawn e7 to e5.'));
+  assert.equal(await page.locator('#context-text > span').first().innerText(), 'Previously: their pawn moved to e5.');
   assert.equal(await page.locator('#last-move').isHidden(), true, 'Moves does not repeat the friend turn');
   assert.deepEqual(await page.evaluate(() => window.linkFrames), { runs: 1, before: true });
   await openMenu(page); await closeMenu(page);
@@ -50,7 +50,7 @@ try {
   assert.equal(await page.evaluate(() => window.linkFrames.runs), 0, 'a reload does not replay');
   await first.context.close();
   const still = await open(false);
-  assert.ok((await still.page.locator('#context-text').textContent()).includes('Black pawn e7 to e5.'));
+  assert.ok((await still.page.locator('#context-text').textContent()).includes('Pawn e7 to e5.'));
   assert.equal(await still.page.locator('#see-again').isHidden(), true);
   assert.equal(await still.page.evaluate(() => window.linkFrames.runs), 0);
   await still.context.close();
@@ -60,21 +60,20 @@ try {
   await long.page.setViewportSize({ width: 320, height: 568 });
   await long.page.goto(new URL(`?${new URLSearchParams({ fen: '7k/8/8/8/8/8/8/R5K1 b - - 0 1', kings: 'flame:haste,none', moves: 'Kh8-h7_Ra1-a5!H_Ra5-e5' })}`, base).href);
   await long.page.waitForFunction(() => document.getElementById('context-text').dataset.rank === 'previously');
-  assert.match(await long.page.locator('#context-text > span').first().innerText(), /a1 to a5.* Then .*a5 to e5/);
-  const table = await long.page.locator('#board').boundingBox();
-  assert.equal(await long.page.locator('#context-text').evaluate(el => {
-    const first = el.firstElementChild, note = el.querySelector('#previously-before');
-    const style = getComputedStyle(el);
-    return style.display === 'block' && style.overflowY === 'auto' && getComputedStyle(first).fontSize === '16px'
-      && getComputedStyle(note).fontSize === '14px';
-  }), true, 'the full friend turn scrolls without a line clamp at 320 px');
-  await long.page.locator('#context-text').evaluate(el => { el.scrollTop = el.scrollHeight; });
-  assert.equal(await long.page.locator('#context-text').evaluate(el => {
-    const friend = el.firstElementChild, text = friend.firstChild;
-    const range = document.createRange(); range.setStart(text, text.length - 3); range.setEnd(text, text.length);
-    return range.getBoundingClientRect().bottom <= el.getBoundingClientRect().bottom + 1;
-  }), true, 'the end of the friend turn is in view after scroll');
-  assert.deepEqual(await long.page.locator('#board').boundingBox(), table, 'turn scroll keeps the board in place');
+  assert.equal(await long.page.locator('#context-text > span').first().innerText(), 'Previously: their rook moved to e5.');
+  assert.equal(await long.page.locator('#context-text > span').nth(1).innerText(), 'Rook a1 to a5 with Haste, then to e5.');
+  assert.ok(await long.page.locator('#context-text').evaluate(el => {
+    const area = document.getElementById('context-line').getBoundingClientRect();
+    return el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1
+      && [...el.children].filter(row => row.checkVisibility()).every(row => {
+        const range = document.createRange(); range.selectNodeContents(row);
+        return [...range.getClientRects()].every(r => r.top >= area.top && r.bottom <= area.bottom);
+      });
+  }), 'the whole friend turn fits at 320x568 with no scroll or cut glyphs');
+  await long.page.goto(new URL(`?${new URLSearchParams({ fen: '7k/8/8/r3r3/8/8/8/R5K1 b - - 0 1', rules: '2017', kings: 'flame:haste,none', moves: 'Kh8-h7_Ra1xa5!H_Ra5xe5' })}`, base).href);
+  await long.page.waitForFunction(() => document.getElementById('context-text').dataset.rank === 'previously');
+  assert.equal(await long.page.locator('#context-text > span').first().innerText(), 'Previously: their rook took your rook.');
+  assert.ok(await long.page.locator('#context-text').evaluate(el => el.scrollHeight <= el.clientHeight + 1 && el.getBoundingClientRect().bottom <= document.getElementById('moves-line').getBoundingClientRect().top), 'Haste takes are not cut at 320x568');
   await long.context.close();
 
   const again = await open();

@@ -76,3 +76,12 @@ W11 adds See again with Motion Normal and a long Haste turn at 320 px.
 Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
 Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
 All nine required browser checks pass. Typecheck and the doc checks pass.
+
+## Batch 3 repair 2
+
+Items 1 and 2: decided by delegation (2026-10-09).
+The first line names the main take, else the last move, in at most 8 words.
+The detail names every ply without rule text or a repeated mover. You follows.
+At 320x568, You hides; the friend text has no scroll box or cut glyphs.
+Tests pass: 1700 unit tests and 50 scene tests. The link-game check passes.
+W11 adds a Haste turn with takes under the 2017 rules, where Haste can take.

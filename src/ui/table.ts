@@ -116,7 +116,7 @@ export function refreshTable(s: TableState): void {
     lessonLearned: s.lessonDone && s.lesson != null ? LESSONS[s.lesson].name : '',
     link: s.linkSide != null && s.game.pos.turn !== s.linkSide && !s.turn.waits ? "Wait for your friend's link." : '',
     asset: text('asset-status'),
-    previously: s.previously?.line, previouslyBefore: s.previously?.before ?? '', seeAgain: s.previously?.seeAgain,
+    previously: s.previously?.line, previouslyDetail: s.previously?.detail, previouslyBefore: s.previously?.before ?? '', seeAgain: s.previously?.seeAgain,
   };
   if (s.power?.power && !s.armed) {
     $('all-rules').hidden = false;
@@ -124,20 +124,14 @@ export function refreshTable(s: TableState): void {
   }
   $('all-rules').hidden ||= !!s.pending.length || s.armed;
   const line = contextLine(state);
-  $('context-text').replaceChildren(...[line.line, line.before ?? '', line.note].filter(Boolean).map((words, i) => {
+  $('context-text').replaceChildren(...[line.line, line.note, line.before ?? ''].filter(Boolean).map((words, i) => {
     const row = document.createElement('span');
-    if (line.before && i === 1) row.id = 'previously-before';
+    if (words === line.before) row.id = 'previously-before';
     row.textContent = words;
     return row;
   }));
   $('context-text').dataset.rank = line.rank;
-  if (line.rank === 'previously') {
-    $('context-text').tabIndex = 0;
-    $('last-move').hidden = true;
-  } else {
-    $('context-text').removeAttribute('tabindex');
-    $('last-move').hidden = false;
-  }
+  $('last-move').hidden = line.rank === 'previously';
   const again = $('see-again');
   again.hidden = !line.actions.includes('see-again');
   again.setAttribute('aria-disabled', String(!!s.previously?.playing));

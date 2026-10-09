@@ -7,7 +7,7 @@ const settled = async ({ page }) => {
 };
 const haste = async state => {
   await settled(state);
-  assert.match(await state.page.locator('#context-text > span').first().innerText(), /a1 to a5.* Then .*a5 to e5/);
+  assert.match(await state.page.locator('#context-text > span').nth(1).innerText(), /a1 (to|takes) a5 with Haste, then (to|takes) e5/);
 };
 export default {
   sizes: ['smallPhone', 'phone', 'desktop'],
@@ -18,9 +18,9 @@ export default {
       await state.page.locator('#see-again').waitFor({ state: 'visible' });
     } },
     { name: 'haste-turn', query: `?${new URLSearchParams({ fen: '7k/8/8/8/8/8/8/R5K1 b - - 0 1', kings: 'flame:haste,none', moves: 'Kh8-h7_Ra1-a5!H_Ra5-e5' })}`, controls, steps: haste },
-    { name: 'haste-turn-end', query: `?${new URLSearchParams({ fen: '7k/8/8/8/8/8/8/R5K1 b - - 0 1', kings: 'flame:haste,none', moves: 'Kh8-h7_Ra1-a5!H_Ra5-e5' })}`, controls, steps: async state => {
+    { name: 'haste-takes', query: `?${new URLSearchParams({ fen: '7k/8/8/r3r3/8/8/8/R5K1 b - - 0 1', rules: '2017', kings: 'flame:haste,none', moves: 'Kh8-h7_Ra1xa5!H_Ra5xe5' })}`, controls, steps: async state => {
       await haste(state);
-      await state.page.locator('#context-text').evaluate(el => { el.scrollTop = el.scrollHeight; });
+      assert.equal(await state.page.locator('#context-text > span').first().innerText(), 'Previously: their rook took your rook.');
     } },
   ],
 };

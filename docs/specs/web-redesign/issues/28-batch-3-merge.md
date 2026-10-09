@@ -116,3 +116,15 @@ fits inside the board. The preview and its child stop by PID.
   keep keyboard and screen-reader access.
 
 The integration push is the last step and runs the required test hook.
+
+## Batch 3 repair plan
+
+Decision: decided by delegation (2026-10-09). Items 1 to 15 in the repair brief apply.
+
+1. Check the report claims in code and final2 pixels. Fix words, turn summaries and lesson state in small commits.
+2. Fix short-phone rows, coin rings, board ink, Guide, Home and Menu. Keep the plugin default and parked paths.
+3. Test logic at the existing public seams: previouslyTurn, contextLine, checkCause, readText/reachOf, lesson store/shelf, powerText and ceremonyMoveLabel. The brief names these checks; no new test seam is needed.
+4. Run typecheck, npm test, all browser checks and both plugin checks. Record page bytes before and after.
+5. Build W1 to W12 into final3, extract every video at 2 fps, inspect all required stills and frames, and push with the test hook.
+
+Pass criteria: items 1 to 15 have ticket notes; all tests/checks pass; each sample report has 0 faults; every required pixel check passes; push succeeds.
