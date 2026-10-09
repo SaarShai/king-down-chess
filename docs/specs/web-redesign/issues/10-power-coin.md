@@ -41,4 +41,4 @@ Needs: 03 (met)
 - The M1 launcher uses this Mac. The plugin page is 4,292,542 bytes; it is 4,291,968 bytes before the W5 merge.
 - The sample shows four states at phone and desktop sizes. Eight renders have no faults. Both contact sheets are 2,396 px wide.
 - The sample waits for the owner's yes. No push or deploy occurs.
-- The first merge, `a40c54a`, lacks the required trailer. History stays intact.
+- The commit objects show the required trailer on all W3 commits. History stays intact.
