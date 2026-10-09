@@ -5,7 +5,7 @@
 // device sent while this one was behind, a server that cannot be reached, and signing out offline.
 // Run: npm run check:browser account (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { closeMenu, contextText, lanMoves, openAccount, pressMenu, waitForUi } from './app-ui.mjs';
+import { startLesson, closeMenu, contextText, lanMoves, openAccount, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -241,7 +241,7 @@ try {
   //    Under the title, the title offers it and the computer waits until the player chooses.
   {
     const p = await open({ stored: session(), row: structuredClone(row), delay: 1500 }), { page, server, close } = p;
-    await pressMenu(page, 'Guide'); await page.click('#learn');
+    await startLesson(page);
     await seen(server, r => r.method === 'GET' && r.path === '/rest/v1/user_data');
     await new Promise(r => setTimeout(r, 2000));
     assert.match(await page.textContent('#turn'), /Lesson 1 of 6/, 'the lesson goes on');

@@ -2,7 +2,7 @@
 // Run: npm run check:browser lesson-return (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 // Output in PLAYABLE_OUT: lesson-return-desktop.png and lesson-return-phone.png.
 import assert from 'node:assert/strict';
-import { pressMenu, setPace, waitForUi } from './app-ui.mjs';
+import { startLesson, setPace, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 
@@ -26,7 +26,7 @@ try {
       const p = await page.evaluate(sq => window.view.screenOf(sq), sq);
       if (phone) await page.touchscreen.tap(p.x, p.y); else await page.mouse.click(p.x, p.y);
     };
-    await pressMenu(page, 'Guide'); await page.click('#learn');
+    await startLesson(page);
     // This used to abandon the lesson and save its tiny board over the match.
     await setUpGame(page, { mode: 'computer', level: 'strong' }); await page.keyboard.press('Escape');
     assert.equal(await saved(), before, 'choosing a future opponent in a lesson preserves the saved match');
@@ -38,7 +38,7 @@ try {
       for (const [i, squares] of steps.entries()) {
         for (const sq of squares) await tap(sq);
         if (await page.evaluate(() => document.getElementById('move-choice').open)) await page.click('#choose-push');
-        await waitForUi(page, ui => /^Well done\./m.test(ui.context));
+        await waitForUi(page, ui => !!ui.lessonLearned);
         if (i < steps.length - 1) await page.click('#next-lesson');
       }
       assert.equal((await board())[43], 8, 'the Paladin survives the lesson pawn capture');
@@ -56,7 +56,7 @@ try {
     assert.deepEqual([back.white, back.black], ['human', 'human'], 'the original players are restored');
     assert.equal(await page.textContent('#turn'), 'White to move');
     // Returning midway through a lesson works too; choosing an army explicitly ends the lessons.
-    await pressMenu(page, 'Guide'); await page.click('#learn'); await page.click('#return-game');
+    await startLesson(page); await page.click('#return-game');
     assert.equal(await saved(), before);
     if (look === 'painted') {
       for (const sq of [11, 19]) await tap(sq); // this device plays White
@@ -66,7 +66,7 @@ try {
       assert.equal(await saved(), sent, 'return preserves the friend-side input lock');
       assert.deepEqual(await board(), sentBoard);
     }
-    await pressMenu(page, 'Guide'); await page.click('#learn');
+    await startLesson(page);
     await startGame(page, { army: 'classic' });
     assert.equal(await page.isVisible('#return-game'), false);
     const fresh = JSON.parse(await saved());

@@ -1,6 +1,6 @@
 // The fixed table at the three W2 sizes, through real board input.
 import assert from 'node:assert/strict';
-import { usePower, contextWordsInView, endTurn, openMoves, pressMenu } from './app-ui.mjs';
+import { usePower, startLesson, contextWordsInView, endTurn, openMoves } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 const visibleWords = async (page, words) => assert.ok(await contextWordsInView(page, words), `the drawn context shows ${words}`);
@@ -49,12 +49,11 @@ try {
     assert.equal(await page.locator('#undo').getAttribute('aria-disabled') !== null, true);
     await shot(page, `table-${width}x${height}`);
     console.log(`ok game-screen ${width}×${height}: fixed board and bar, targets, Moves, check, no sideways scroll`);
-    await pressMenu(page, 'Guide'); await page.click('#learn');
+    await startLesson(page);
     await visibleWords(page, 'marked enemy pawn');
     await tap(27); await tap(36);
-    await page.waitForFunction(() => document.getElementById('context-text').textContent.includes('Well done.'));
-    await visibleWords(page, 'Well done.');
-    await visibleWords(page, 'An archer never captures');
+    await page.waitForFunction(() => document.getElementById('context-text').textContent.includes('Archer learned.'));
+    await visibleWords(page, 'Archer learned.');
     await minTarget(page, '#next-lesson, #return-game');
     await context.close();
   }

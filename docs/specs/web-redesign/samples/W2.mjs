@@ -1,8 +1,8 @@
 // W2: three layout sizes, the five table states and the four Menu pages.
-import { usePower, endTurn, openExtra, openMenu, openMoves, pressMenu } from '../../../../tools/app-ui.mjs';
+import { usePower, startLesson, endTurn, openExtra, openMenu, openMoves } from '../../../../tools/app-ui.mjs';
 const save = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', sound: false };
 const frost = { ...save, back: '', fen: '4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', moves: [] };
-const lesson = async page => { await pressMenu(page, 'Guide'); await page.click('#learn'); };
+const lesson = async page => { await startLesson(page); };
 const controls = '#undo, #menu-btn, #moves-line';
 export default {
   sizes: ['phone', 'desktop', 'landscape'],
