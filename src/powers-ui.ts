@@ -150,7 +150,7 @@ export function usesAllowed(power: PowerName, r: Rules = RULES): number | null {
 export interface PowerCoin {
   king: KingName;
   power: PowerName;
-  state: 'ready' | 'armed' | 'used' | 'always';
+  state: 'ready' | 'armed' | 'used' | 'always' | 'waiting' | 'no-target';
   total: number | null;
   spent: number;
   left: number | null;
@@ -162,6 +162,7 @@ export interface PowerCoin {
 export function coinState(
   pos: Position, side: Color, rules: Rules,
   history: readonly { pos: Position; move: Move }[], armed: boolean,
+  legal?: readonly Move[],
 ): PowerCoin | null {
   const choice = rules.kings[side];
   if (!choice) return null;
@@ -169,12 +170,25 @@ export function coinState(
   const always = total === null || (total === 0 && (choice.power === 'March' || choice.power === 'Leap'));
   const spent = always ? 0 : pos.used?.[side] ?? 0;
   const left = total === null || total === 0 ? null : Math.max(0, total - spent);
-  const last = always ? undefined : history.filter(h => h.pos.turn === side && h.move.power === POWER_TAG[choice.power]).at(-1);
+  const fromMove = rules.fromMove[choice.power] ?? 1;
+  const last = always ? undefined : history.filter(h => h.pos.ply < pos.ply && h.pos.turn === side && h.move.power === POWER_TAG[choice.power]).at(-1);
   return {
-    ...choice, state: always ? 'always' : left === 0 ? 'used' : armed ? 'armed' : 'ready',
+    ...choice, state: always ? 'always' : left === 0 ? 'used'
+      : moveNumber(pos) < fromMove || pos.turn !== side || pos.free || pos.haste !== undefined ? 'waiting'
+      : legal && !legal.some(m => m.power === POWER_TAG[choice.power]) ? 'no-target'
+      : armed ? 'armed' : 'ready',
     total: always ? null : total, spent, left,
-    fromMove: rules.fromMove[choice.power] ?? 1, usedOn: last ? moveNumber(last.pos) : null,
+    fromMove, usedOn: last ? moveNumber(last.pos) : null,
   };
+}
+
+/** The coin has no visible name. Its read line names the power. */
+export function coinWords(coin: PowerCoin, pos: Position): string {
+  const state = coin.state === 'always' ? 'Always on'
+    : coin.state === 'used' ? (coin.usedOn === null ? 'Used' : `Used on move ${coin.usedOn}`)
+    : moveNumber(pos) < coin.fromMove ? `From move ${coin.fromMove}`
+    : coin.left === null ? 'Unlimited' : `${coin.left} left`;
+  return `${POWER_NAME[coin.power]} · ${state}`;
 }
 
 /** Uses left for side `c` in `pos`, or null when its power is always on (or unlimited). */

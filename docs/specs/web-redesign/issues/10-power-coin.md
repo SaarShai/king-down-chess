@@ -1,6 +1,6 @@
 # 10 · The power coin by the portrait
 
-Status: in-progress (W3 phase 1 done; W2 wiring waits)
+Status: in-progress (W3 phase 2)
 Blocked by: 03 (this step comes directly after 03, so no power tile with words ships)
 
 ## Scope
@@ -36,6 +36,8 @@ Blocked by: 03 (this step comes directly after 03, so no power tile with words s
 - No card coins (ticket 24), no new art for a king with no power, no turn countdown ring.
 
 ## Comments
+
+- Phase 2 plan: test the waiting and no-target states; wire both coins and the Use and Cancel actions; update the check helpers; check powers and each moved control; render four states at phone and desktop sizes.
 
 - Phase 1 plan: test `coinState` at its pure interface, one failing test at a time. Cover ready, armed, used, always on and no power.
 - Build the coin row DOM and copy the demo coin CSS. Keep the live game as it is until W2 lands.

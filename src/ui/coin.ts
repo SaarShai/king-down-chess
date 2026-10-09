@@ -1,8 +1,8 @@
-import type { Color } from '../rules/engine';
-import { POWER_NAME, type PowerCoin } from '../powers-ui';
+import type { Color, Position } from '../rules/engine';
+import { coinWords, type PowerCoin } from '../powers-ui';
 
 /** The portrait binds the first coin. Card coins can append to this row. */
-export function coinRow(portrait: HTMLElement, side: Color, power: PowerCoin | null): HTMLDivElement {
+export function coinRow(portrait: HTMLElement, side: Color, power: PowerCoin | null, pos: Position): HTMLDivElement {
   const row = document.createElement('div');
   row.className = 'coin-row';
   row.dataset.side = side === 0 ? 'w' : 'b';
@@ -14,11 +14,8 @@ export function coinRow(portrait: HTMLElement, side: Color, power: PowerCoin | n
   coin.className = 'coin';
   coin.id = `power-${row.dataset.side}`;
   coin.dataset.state = power.state;
-  const state = power.state === 'always' ? 'Always on'
-    : power.state === 'used' ? (power.usedOn === null ? 'Used' : `Used on move ${power.usedOn}`)
-    : power.left === null ? 'Unlimited' : `${power.left} left`;
-  coin.setAttribute('aria-label', `${POWER_NAME[power.power]}, ${state}`);
-  coin.setAttribute('aria-disabled', String(power.state === 'used' || power.state === 'always'));
+  coin.setAttribute('aria-label', coinWords(power, pos).replace(' · ', ', '));
+  coin.setAttribute('aria-disabled', String(power.state !== 'ready' && power.state !== 'armed'));
   if (power.state !== 'always') coin.setAttribute('aria-pressed', String(power.state === 'armed'));
 
   const emblem = document.createElement('img');

@@ -3,6 +3,17 @@ import { LESSONS } from './lessons';
 import { contextLine, type ContextState } from './context-line';
 
 describe('contextLine', () => {
+  it('offers Use only with a power read that can act', () => {
+    expect(contextLine({ voice: 'you', read: 'Freeze · 1 left', powerUse: true })).toMatchObject({
+      rank: 'read', line: 'Freeze · 1 left', actions: ['power-use'],
+    });
+    expect(contextLine({ voice: 'you', read: 'Holy Light · Always on' }).actions).toEqual([]);
+  });
+  it('names the armed power and gives Cancel', () => {
+    expect(contextLine({ voice: 'you', armed: 'Freeze', armedLine: 'Freeze · 1 left' })).toMatchObject({
+      rank: 'armed', line: 'Freeze · 1 left', note: 'Tap an enemy piece.', actions: ['power-cancel'],
+    });
+  });
   it('at rest speaks to the player, or names the side on one device', () => {
     expect(contextLine({ voice: 'you' })).toMatchObject({ rank: 'your-move', line: 'Your move.', actions: [] });
     expect(contextLine({ voice: 'White' }).line).toBe('White to move.');

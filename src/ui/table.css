@@ -25,9 +25,6 @@
 #game-table .portrait { position: relative; flex: none; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #fffaf0, #e2d2b1); box-shadow: 0 0 0 1px var(--stone-300); }
 #game-table .portrait img { position: absolute; left: -32%; top: -4%; width: 164%; max-width: none; }
 #game-table .player-strip.is-turn .portrait { box-shadow: 0 0 0 2.5px var(--gold), 0 0 0 5px rgb(201 154 62 / 22%); }
-#game-table #powers { margin: 0; max-width: 55%; }
-#game-table #powers .btns { display: flex; gap: 4px; }
-#game-table #powers button { min-height: 44px; padding: 4px 8px; font-size: 14px; }
 #context-line { grid-area: context; display: flex; align-items: center; gap: 8px; height: var(--context-height); margin: 0 12px; border-top: 1px solid var(--line); min-width: 0; }
 #context-text { flex: 1; min-width: 0; font-size: 16px; line-height: 1.25; white-space: pre-line; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 #context-actions { display: flex; gap: 4px; flex-shrink: 0; }

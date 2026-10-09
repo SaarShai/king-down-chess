@@ -4,11 +4,53 @@ import { Game } from './game';
 import { Q, legalMoves, makeMove, parseKings } from './rules/engine';
 import { POWERS_BALANCED, RULES_2017, setRules } from './rules/rules';
 import { fromFen, toLan } from './rules/setup';
-import { autoQueen, coinState, hintMoves, needsArming, powerOptions, powerText, powersRules } from './powers-ui';
+import { autoQueen, coinState, coinWords, hintMoves, needsArming, powerOptions, powerText, powersRules } from './powers-ui';
 
 afterEach(() => setRules());
 
 describe('the power coin', () => {
+  it('reads the ready power by name and use count', () => {
+    const rules = powersRules({ kings: parseKings('frost:freeze,none') });
+    const pos = fromFen('7k/8/8/8/8/8/P7/K7 w - - 0 1');
+    expect(coinWords(coinState(pos, 0, rules, [], false)!, pos)).toBe('Freeze · 1 left');
+  });
+  it('reads unlimited uses without an always-on state', () => {
+    const rules = powersRules({ kings: parseKings('frost:freeze,none'), freezeUses: 0 });
+    const pos = fromFen('7k/8/8/8/8/8/P7/K7 w - - 0 1');
+    const coin = coinState(pos, 0, rules, [], false)!;
+    expect(coin.state).toBe('ready');
+    expect(coinWords(coin, pos)).toBe('Freeze · Unlimited');
+  });
+  it('waits for the first allowed full move', () => {
+    const rules = powersRules({ kings: parseKings('frost:freeze,none'), fromMove: { Freeze: 5 } });
+    expect(coinState(fromFen('7k/8/8/8/8/8/8/K7 w - - 0 4'), 0, rules, [], true)).toMatchObject({
+      state: 'waiting', fromMove: 5, left: 1,
+    });
+    const pos = fromFen('7k/8/8/8/8/8/8/K7 w - - 0 4');
+    expect(coinWords(coinState(pos, 0, rules, [], false)!, pos)).toBe('Freeze · From move 5');
+  });
+  it.each(['other turn', 'free move', 'haste move'])('cannot arm during %s', phase => {
+    const rules = powersRules({ kings: parseKings('frost:freeze,none') });
+    const pos = fromFen(`7k/8/8/8/8/8/8/K7 ${phase === 'other turn' ? 'b' : 'w'} - - 0 1`);
+    if (phase === 'free move') pos.free = true;
+    if (phase === 'haste move') pos.haste = 0;
+    expect(coinState(pos, 0, rules, [], true)).toMatchObject({ state: 'waiting', left: 1 });
+  });
+  it('has no target when the engine offers no power move', () => {
+    const rules = powersRules({ kings: parseKings('frost:freeze,none') });
+    setRules(rules);
+    const pos = fromFen('7k/8/8/8/8/8/P7/K7 w - - 0 1');
+    expect(coinState(pos, 0, rules, [], true, legalMoves(pos))).toMatchObject({ state: 'no-target', left: 1 });
+  });
+  it('reads the shown position without a future use from live history', () => {
+    const rules = powersRules({ kings: parseKings('frost:freeze,none') });
+    setRules(rules);
+    const game = new Game();
+    game.load(fromFen('7k/8/8/3n4/8/8/P7/K7 w - - 0 1'));
+    const shown = game.pos;
+    game.play(game.legal.find(m => m.power === 'freeze')!);
+    expect(coinState(shown, 0, rules, game.history, false)).toMatchObject({ state: 'ready', spent: 0, usedOn: null });
+  });
   it('has no coin for a side with no power', () => {
     const rules = powersRules({ kings: parseKings('none,frost:freeze') });
     expect(coinState(fromFen('7k/8/8/8/8/8/8/K7 w - - 0 1'), 0, rules, [], false)).toBeNull();
@@ -38,6 +80,7 @@ describe('the power coin', () => {
     expect(coinState(game.pos, 1, rules, game.history, true)).toMatchObject({
       state: 'used', total: 1, spent: 1, left: 0, usedOn: 12,
     });
+    expect(coinWords(coinState(game.pos, 1, rules, game.history, false)!, game.pos)).toBe('Freeze · Used on move 12');
     game.undo();
     expect(coinState(game.pos, 1, rules, game.history, false)).toMatchObject({
       state: 'ready', spent: 0, left: 1, usedOn: null,
@@ -54,6 +97,7 @@ describe('the power coin', () => {
       king: 'Spirit', power: 'HolyLight', state: 'always', total: null, spent: 0, left: null,
       fromMove: 1, usedOn: null,
     });
+    expect(coinWords(coinState(game.pos, 0, rules, game.history, false)!, game.pos)).toBe('Holy Light · Always on');
   });
 
   it.each(['march', 'leap'])('shows zero-use %s as always on', power => {

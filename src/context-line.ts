@@ -5,8 +5,9 @@ export type Voice = 'you' | 'White' | 'Black';
 export interface ContextState {
   voice: Voice;
   review?: string; result?: string; refusal?: string; link?: string;
-  armed?: PowerName; chain?: boolean; canStop?: boolean;
+  armed?: PowerName; armedLine?: string; chain?: boolean; canStop?: boolean;
   read?: string; readNote?: string; midWay?: boolean; free?: boolean;
+  powerUse?: boolean;
   selected?: string; stagedEnd?: string; waiting?: boolean; check?: boolean;
   computer?: boolean; lesson?: string; lessonNote?: string; asset?: string;
   turnLine?: string;
@@ -27,10 +28,10 @@ export function contextLine(s: ContextState): ContextLine {
       Haste: ['Move a piece.', 'It can move again.'],
     };
     const [instruction, cause] = words[s.armed] ?? ['Choose a piece, then a marked square.', ''];
-    return line('armed', instruction, cause);
+    return line('armed', s.armedLine || instruction, s.armedLine ? instruction : cause, ['power-cancel']);
   }
   if (s.chain) return line('chain', s.canStop ? 'Bite again, or stop here.' : 'Bite again.', s.readNote, s.canStop ? ['stop-chain'] : []);
-  if (s.read) return line('read', s.read, s.readNote);
+  if (s.read) return line('read', s.read, s.readNote, s.powerUse ? ['power-use'] : []);
   if (!s.lesson && s.midWay) return line('mid-way', s.turnLine || (s.free ? 'Make your move, or tap End turn.' : 'Move it again, or tap End turn.'));
   if (s.selected) return line('selected', s.selected, s.readNote);
   if (!s.lesson && s.stagedEnd) return line('staged-end', s.turnLine || `${s.stagedEnd} Tap End turn to finish.`);
