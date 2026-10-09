@@ -1,9 +1,59 @@
 // W2 Menu pages use one native dialog and the saved board switches.
 import assert from 'node:assert/strict';
-import { openAccount, openExtra, openMenu, pressMenu } from './app-ui.mjs';
+import { endTurn, lanMoves, openAccount, openExtra, openMenu, openTricks, pressMenu } from './app-ui.mjs';
 import { assertNoErrors, env, launch, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const browser = await launch();
 try {
+  for (const undoFirst of [false, true]) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: 'reduce' });
+    await context.addInitScript(() => {
+      sessionStorage.setItem('kingdown.title-seen', '1');
+      if (sessionStorage.getItem('w10.seeded')) return;
+      sessionStorage.setItem('w10.seeded', '1');
+      localStorage.setItem('kingdown.save', JSON.stringify({ back: '', fen: '7k/8/8/3p4/3Sp3/8/8/K7 w - - 0 1', moves: [], white: 'human', black: 'human', pace: 'off', sound: false }));
+    });
+    const page = await context.newPage(); trapErrors(page);
+    await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+    await openExtra(page);
+    assert.equal(await page.locator('[data-go="tricks"]').isVisible(), false, 'Tricks waits for the first find');
+    await page.locator('#menu-close').click();
+    for (const sq of [27, 35, 28]) {
+      const point = await page.evaluate(s => window.view.screenOf(s), sq);
+      await page.touchscreen.tap(point.x, point.y);
+    }
+    await page.waitForFunction(() => document.getElementById('end-turn').getAttribute('aria-disabled') === 'false');
+    assert.deepEqual(await lanMoves(page), ['Sd4xd5xe4']);
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.tricks'))?.found ?? []), [], 'staged moves give no seal');
+    if (undoFirst) {
+      await page.click('#undo');
+      assert.deepEqual(await lanMoves(page), []);
+      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.tricks'))?.found ?? []), [], 'Undo before the press gives no seal');
+      await openExtra(page);
+      assert.equal(await page.locator('[data-go="tricks"]').isVisible(), false);
+      console.log('ok menu-extra: Undo before the press gives no seal');
+    } else {
+      await endTurn(page);
+      assert.equal(await page.locator('#menu-seal-dot').isVisible(), true, 'the press gives the gold dot');
+      assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.tricks'))), { found: ['chain'], unseen: true });
+      await page.reload(); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+      assert.equal(await page.locator('#menu-seal-dot').isVisible(), true, 'a reload keeps the unseen mark');
+      await openTricks(page);
+      assert.equal(await page.locator('#menu-seal-dot').isVisible(), false, 'Menu takes the dot');
+      assert.equal(await page.locator('[data-menu-page="tricks"]').isVisible(), true);
+      assert.equal(await page.locator('#tricks-list .found-row').count(), 1);
+      assert.equal(await page.locator('#tricks-list .riddle').count(), 5);
+      assert.match(await page.locator('#tricks-list .found-row').innerText(), /Bite chain/);
+      await page.locator('#menu-back').click();
+      assert.equal(await page.locator('[data-menu-page="extra"]').isVisible(), true);
+      await page.locator('#menu-close').click(); await page.reload(); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+      assert.equal(await page.locator('#menu-seal-dot').isVisible(), false, 'a reload keeps the seen mark');
+      await openTricks(page);
+      assert.equal(await page.locator('#tricks-list .found-row').count(), 1, 'a reload keeps the seal');
+      await shot(page, 'tricks-390'); await noSidewaysScroll(page);
+      console.log('ok menu-extra: press, seal, gold dot, Tricks, Back and reload');
+    }
+    await context.close();
+  }
   for (const [width, height] of [[390, 844], [1440, 900]]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
     await context.addInitScript(() => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', pace: 'off', sound: false })); });

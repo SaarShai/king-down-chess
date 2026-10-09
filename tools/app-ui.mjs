@@ -31,6 +31,10 @@ export async function openExtra(page) {
   await openMenu(page);
   await page.locator('[data-go="extra"]').click();
 }
+export async function openTricks(page) {
+  await openExtra(page);
+  await page.locator('[data-go="tricks"]').click();
+}
 export async function openAccount(page) {
   await openExtra(page);
   await page.locator('[data-go="account"]').click();

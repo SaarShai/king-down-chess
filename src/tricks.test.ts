@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { legalMoves, setRules, type Move, type Position } from './rules/engine';
 import { fromFen, toLan } from './rules/setup';
-import { trickOf } from './tricks';
+import { trickOf, tricksInTurn } from './tricks';
 
 const find = (pos: Position, lan: string): Move => {
   const move = legalMoves(pos).find(m => toLan(pos, m) === lan);
@@ -52,4 +52,27 @@ it('finds Sacrifice, but not a pawn move', () => {
   if (!sacrifice) throw new Error('Sacrifice is not legal');
   expect(trickOf(pos, sacrifice)).toBe('second-life');
   expect(trickOf(pos, find(pos, 'a2-a3'))).toBeNull();
+});
+
+it('finds tricks only in the plies handed over by this press', () => {
+  const pos = fromFen('7k/8/5p2/3pp3/2nS4/8/8/K7 w - - 0 1');
+  const history = [{ pos, move: find(pos, 'Sd4xd5xe5') }];
+  expect(tricksInTurn(history, 0, ['human', 'human'], null)).toEqual(['chain']);
+  expect(tricksInTurn(history, 1, ['human', 'human'], null)).toEqual([]);
+});
+
+it('counts both people on one device, but never the computer', () => {
+  const white = fromFen('7k/8/5p2/3pp3/2nS4/8/8/K7 w - - 0 1');
+  const black = fromFen('7k/8/2a5/2p5/2P5/8/8/K7 b - - 0 1');
+  const history = [{ pos: white, move: find(white, 'Sd4xd5xe5') }, { pos: black, move: find(black, 'Ac6*c4') }];
+  expect(tricksInTurn(history, 0, ['human', 'human'], null)).toEqual(['chain', 'shot-over']);
+  expect(tricksInTurn(history, 0, ['human', 'ai'], null)).toEqual(['chain']);
+  expect(tricksInTurn(history, 0, ['ai', 'human'], null)).toEqual(['shot-over']);
+});
+
+it('counts only this device’s side in a link game', () => {
+  const pos = fromFen('7k/8/5p2/3pp3/2nS4/8/8/K7 w - - 0 1');
+  const history = [{ pos, move: find(pos, 'Sd4xd5xe5') }];
+  expect(tricksInTurn(history, 0, ['human', 'human'], 0)).toEqual(['chain']);
+  expect(tricksInTurn(history, 0, ['human', 'human'], 1)).toEqual([]);
 });

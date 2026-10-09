@@ -35,12 +35,8 @@ Blocked by: 02c (the press and the send), 05
 
 ## Comments
 
-- W10 phase 1 is complete: six detectors and a seal store in `kingdown.tricks`.
-- Test seams: `trickOf(position, move)` and the seal store. Use legal moves and one near miss per detector.
-- Plan: add each test before its code; check types; run `npm test`; commit the phase.
-- Checks: all six finds pass; near misses give no seal; saved seals and the unseen mark survive a load.
-- Phase 2: add the press calls, Menu dot, Tricks page, browser cases and rendered samples after W1 and W2.
+- Phase 1 is complete: six detectors and a device seal store; all 19 tests pass.
+- Phase 2 plan: test the handed-over plies; add awards at the press, the Tricks page and the Menu dot.
+- Test seams: `tricksInTurn` selects only this device's human plies after the turn start; `menu-extra` checks the press, dot and Undo.
+- Checks: run types and unit tests here, Menu checks on the M1, then inspect phone and desktop sample sheets.
 - Cut: account sync and seal motion.
-- Result: the type check and all 19 W10 tests pass.
-- Full suite: 81 files pass, 1 skips; 1,459 tests pass, 13 skip; all 50 board tests pass. One worker and a 30 s test limit pass on the loaded Mac; normal limits give timeouts.
-- Browser checks and samples wait for phase 2. The temporary test runner is removed.

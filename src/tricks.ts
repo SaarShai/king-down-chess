@@ -1,4 +1,5 @@
-import { A, G, K, M, O, S, file, rank, sq, typeOf, type Move, type Position } from './rules/engine';
+import { A, G, K, M, O, S, file, rank, sq, typeOf, type Color, type Move, type Position } from './rules/engine';
+import type { Side } from './game';
 
 /** The six tricks from the Menu demo. Art paths start at the app's public root. */
 export const TRICKS = [
@@ -27,4 +28,10 @@ export function trickOf(pre: Position, move: Move): TrickId | null {
   if (typeOf(pre.board[move.from]) === K && move.captures.some(s => typeOf(pre.board[s]) === G)) return 'king-guard';
   if (move.power === 'sacrifice') return 'second-life';
   return null;
+}
+
+/** Call at the press, before the turn start moves. A link send must already succeed. */
+export function tricksInTurn(history: readonly { pos: Position; move: Move }[], start: number, sides: readonly [Side, Side], linkSide: Color | null): TrickId[] {
+  return history.slice(start).filter(h => sides[h.pos.turn] === 'human' && (linkSide == null || h.pos.turn === linkSide))
+    .map(h => trickOf(h.pos, h.move)).filter((id): id is TrickId => id !== null);
 }
