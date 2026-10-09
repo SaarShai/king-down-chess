@@ -1,50 +1,44 @@
 # 10 · The power coin by the portrait
 
-Status: in-progress (W3 phase 2)
-Blocked by: 03 (this step comes directly after 03, so no power tile with words ships)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
+Needs: 03 (met)
 
 ## Scope
 
-- Owner choice: King powers B, a coin by the portrait. The coin shows no name. The owner's proposal: "a tap on the coin reads the power and its state ('Freeze · 1 left') in the tap-to-read line." Decisions D7 (a tap reads; "Use" arms) and D12 (c) (a cast of 250–350 ms; the next move does not wait).
-- Demo: `feat-king-powers` option B (`coin-phone.png`; `demo.js` 167–169; the coin styles in `demo.css`).
-- Files: `src/powers-ui.ts` (`coinState`) and test; new `src/ui/coin.ts`; `src/main.ts` (`refreshPowers`, the power handler, the interim action of ticket 03); `index.html` (the strip slots; `#powers` goes); `src/style.css`; `src/power-motion.ts` (reuse `emblemArt`); `tools/verify-powers.mjs` (rewrite); `tools/qa.mjs`; `docs/visual-design/verify.mjs`; `tools/ux-defects/d3-review-readouts.mjs`.
+- Owner choice: King powers B, a coin by the portrait. The coin shows no name. A tap reads the power and its state in the context line. Use arms it, as decision D7 says.
+- Demo: `feat-king-powers` option B. The coin, emblem and diamond notches use `demo.css` lines 86–95.
+- Files: `src/powers-ui.ts` and its test; `src/ui/coin.ts`; `src/ui/powers.ts`; the table and context line; the game call lines; the check helpers; the powers check; `samples/W3.mjs`.
 
 ## Plan
 
-1. [ ] `coinState(pos, side, rules, history, armed)` (pure): the king, the power, the state (ready, armed, used, always, waiting, no target), the notches (total, spent), the first move it can act and the move it was used (from the history). No notches for an always-on power. In review it reads the shown position and its history.
-2. [ ] A coin button by each portrait: the king's emblem, a 9 px diamond notch for each use, a gold glow when armed, grey when used, `aria-label` "Freeze, 1 left", `aria-pressed` when armed. An off coin uses `aria-disabled`, so a tap still reads it. A side with no power has no coin. Each coin sits in the Tab order after its strip name (spec §4.4).
-3. [ ] A tap on any coin reads it in the context line and never arms it (D7): "Freeze · 1 left", "Frost king · Freeze · 1 left", "Freeze · Used on move 12", "Freeze · From move 5", "Holy Light · Always on". When your power has a legal action now, the line adds the action "Use". "Use" arms: "Freeze · 1 left · Tap an enemy piece", with Cancel. Cancel, Esc or a second tap on the coin disarms. When the power has no legal action now, the line says why ("No piece to freeze now.", "From move 5.", "Not your turn.").
-4. [ ] March and Leap: their moves show among a piece's ordinary moves, as today, so their coins only read. Each Leap move spends a use (ticket 08 marks its target). The notch drops at the staged ply and comes back on Undo.
-5. [ ] The cast: 250–350 ms (a coin pulse and a trace to the target). The next move does not wait for it. The timing goes in a pure motion module (spec rule 8).
-6. [ ] Their reveal: when they use their power, their coin flips (200 ms) and the line names the power for that move.
-7. [ ] Remove the interim power action of ticket 03 and `#power-status`. Build the coins as a row bound to the portrait, so card coins can join it later (ticket 24).
+1. [x] Read the shown power in `coinState`: ready, armed, used, always on, waiting, no target or no power. Read uses and the full move number from the shown position and history.
+2. [x] Put a coin by each portrait. Show the emblem, diamond notches, armed gold and used grey. Keep each off coin in the Tab order with `aria-disabled`. A side with no power has no coin.
+3. [x] A tap reads. Legal Use arms. Cancel, Esc or a second tap disarms. A power with no legal action says why. Keep Use off in Review and before the turn press.
+4. [x] March and Leap only read. Their moves stay among the ordinary moves. The shown use count sets the notches. Undo restores a use.
+5. [x] Cut the cast motion and its timing module, as the fast plan says.
+6. [x] Cut the coin flip, as the fast plan says. Keep today's move line.
+7. [x] Remove the old power button and status. Bind the first coin to the portrait in a row. Card coins can join the row later.
 
 ## Verification
 
-- [ ] `src/powers-ui.test.ts`: `coinState` for the twelve powers in each state (ready, armed, used, always on, from move N, unlimited, no target) and for a side with no power; "Used on move N" from the history; a use comes back after Undo; a read in review uses the shown position.
-- [ ] `powers` check, rewritten (`Removed-check:` trailers for the old button text): a tap on the coin reads and does not arm; "Use" arms Freeze; freeze; see "Used on move N"; a no-target Sacrifice says why; their reveal; an always-on coin only reads; a Leap use comes back on Undo; the coin reads on the other side's turn and in review.
-- [ ] `qa`, `visual-design`, `ux-defects`, `npm test` and `npm run check:browser` pass.
-- [ ] Rendered sample, 390×844 and 1440×900: a coin read; ready with "Use"; armed; the cast; used; always on; their reveal; a side with no power. The owner's yes, with the date, in Comments.
-
-## Risks
-
-- The coin shows no name. The read line must name the power every time.
-- The reveal and the tell (13) both act at their move: the coin flips while their king lifts.
+- [x] Pure tests cover ready, armed, used, always on, no power, waiting, no target and unlimited uses. They cover move 12, Undo, Review and the staged turn guard. Each new branch first fails, then passes.
+- [x] The powers check has five cases: a tap reads; Use arms; Freeze; Used on move N with Undo and Review; an always-on coin only reads. It also checks no power, no target, cancel paths and the staged turn guard. It passes twice.
+- [x] The full `npm test`, typecheck and all named checks pass. The plugin page keeps its default.
+- [x] `W3.mjs` renders ready, armed, used and always on at 390×844 and 1440×900. Eight renders have no faults. Both contact sheets have a visual check.
+- [ ] The owner's yes on the sample.
 
 ## Does not do
 
-- No card coins (ticket 24), no new art for a king with no power, no turn countdown ring.
+- No cast motion, coin flip or card coins. No new king art or turn countdown ring.
 
 ## Comments
 
-- Phase 2 plan: test the waiting and no-target states; wire both coins and the Use and Cancel actions; update the check helpers; check powers and each moved control; render four states at phone and desktop sizes.
-
-- Phase 1 plan: test `coinState` at its pure interface, one failing test at a time. Cover ready, armed, used, always on and no power.
-- Build the coin row DOM and copy the demo coin CSS. Keep the live game as it is until W2 lands.
-- Checks: `npm test`, `npm run typecheck`, and the named plugin checks. Record the plugin size before and after. No full browser suite in phase 1.
-- Phase 2: wire the strips and context actions, update check helpers, run the powers check and full suite, and render the sample.
-- The coin CSS matches demo lines 86–95. `coinRow` binds the power coin to the portrait. Card coins can append to the row.
-- The tests cover both sides, a use on move 12, Undo, and zero-use March and Leap. Each new state first fails, then passes.
-- The plugin page is 4,291,869 bytes before and after. `plugin-ui` passes (19.4 s). `plugin-ui-http` passes (16.1 s) after a retry with the local test database from `docs/plugin-preparation.md`.
-- `npm test` passes: 79 files pass, 1 skips; 1,447 tests pass, 13 skip; all 50 artwork checks pass. The full run uses one worker with all test paths. The temporary test filter is removed. `npm run typecheck` and `git diff --check` pass.
-- Phase 1 is done. Phase 2 also adds the waiting and no-target states and legal Use guards. Cast motion and coin flip stay out, as the fast plan says. The sample and full browser suite wait for phase 2.
+- The rows show both coins by their portraits. A tap reads. Use arms. Cancel and Esc disarm.
+- The shown position sets the uses and notches. Undo restores a use. End turn keeps the next coin off.
+- Cast motion and coin flips stay out. No card coins ship. The review checks the owner's words and the fast plan.
+- `npm test`: 87 files pass, 1 skips; 1,571 tests pass, 13 skip. All 50 artwork tests pass. One worker runs all test paths.
+- The powers check passes twice. turn, qa, visual-design, game-screen, new-game, ux-defects, plugin-ui, plugin-ui-http, lessons and lesson-return pass.
+- The M1 launcher uses this Mac. The plugin page is 4,292,542 bytes; it is 4,291,968 bytes before the W5 merge.
+- The sample shows four states at phone and desktop sizes. Eight renders have no faults. Both contact sheets are 2,396 px wide.
+- The sample waits for the owner's yes. No push or deploy occurs.
+- The first merge, `a40c54a`, lacks the required trailer. History stays intact.
