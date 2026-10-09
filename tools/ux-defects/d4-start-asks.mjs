@@ -29,7 +29,7 @@ export default async function ({ open }) {
     await page.waitForFunction(() => !document.getElementById('new-game').open);
     // A lesson over a game with no move needs no warn line, also after its goal move.
     await startLesson(page);
-    await tap(27); await tap(36); // lesson 1: the Archer shoots
+    await tap(27); await tap(45); // lesson 1: the Archer shoots
     await waitForUi(page, ui => !!ui.lessonLearned);
     assert.equal(await plies(page), 1);
     assert.equal(await start(page, false), null, 'no question in a lesson');

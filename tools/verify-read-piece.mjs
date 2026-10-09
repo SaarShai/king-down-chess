@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { contextText, focusBoard, leaveBoard, openPieceRules, lanMoves } from './app-ui.mjs';
-import { env, trapErrors, assertNoErrors } from './lib/checks.mjs';
+import { env, insideViewport, trapErrors, assertNoErrors } from './lib/checks.mjs';
 import { fixture } from './read-verb-fixture.mjs';
 const { page, seed, tap, marks, close } = await fixture(env('PLAYABLE_URL'));
-trapErrors(page);
+const errors = trapErrors(page);
 try {
   await seed('7k/8/n7/8/4P3/8/8/K7 w - - 0 1');
   await tap(40);
@@ -30,5 +30,9 @@ try {
   await page.keyboard.press('i');
   assert.equal(await page.evaluate(() => window.view.marks.read.step.has(36)), true, 'I outside the board leaves the read in place');
   assert.deepEqual(await lanMoves(page), []);
+  await seed('7k/8/2a5/8/2P5/8/8/K7 w - - 0 1');
+  await tap(42); await openPieceRules(page);
+  assert.equal(await page.evaluate(() => document.activeElement?.closest('.piece-card')?.dataset.piece), 'archer', 'All rules focuses the rule card when the piece also has a lesson');
+  await insideViewport(page, '#rules-rows .piece-card[data-piece="archer"]');
   console.log('read-piece: 3 cases pass; I, toggle and All rules pass');
-} finally { try { assertNoErrors(page); } finally { await close(); } }
+} finally { try { assertNoErrors(errors); } finally { await close(); } }

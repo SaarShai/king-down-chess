@@ -4,7 +4,7 @@
 // Screenshots in PLAYABLE_OUT: desktop-computer.jpg, desktop-powers.jpg, phone-computer.jpg, phone-powers.jpg.
 // Run: npm run check:browser new-game (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { powersHidden, startLesson, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
+import { openExtra, powersHidden, startLesson, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 
@@ -230,6 +230,20 @@ try {
   await page.context().close();
   ok('?rules=2017: the picker shows the printed powers (Freeze twice, Mercy, Darkness), and the game plays them');
 
+  // Menu Today uses the same warning as New game, also for a kept match.
+  for (const lesson of [false, true]) {
+    page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
+    if (lesson) await startLesson(page);
+    await openExtra(page); await page.click('#today-army');
+    assert.equal(await page.inputValue('#army'), 'daily');
+    assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'Menu Today warns before it ends the kept match');
+    assert.equal(await page.textContent('#start-game'), 'Start new game');
+    await page.keyboard.press('Escape');
+    if (lesson) await page.click('#return-game');
+    assert.deepEqual(await lanMoves(page), ['e2-e4', 'e7-e5'], 'Close keeps the match');
+    await page.context().close();
+  }
+
   // The sheet replaces the Start question with a warn line. Close keeps the game.
   page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', sound: false, skill: 'club' } });
   await pressMenu(page, 'New game');
@@ -264,7 +278,14 @@ try {
   assert.equal(await page.textContent('#start-game'), 'Start new game');
   await page.keyboard.press('Escape');
   assert.equal((await lanMoves(page)).length, 4, 'Close keeps the staged mate');
+  await openExtra(page); await page.click('#today-army');
+  assert.equal(await page.inputValue('#army'), 'daily');
+  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'Menu Today warns for a staged mate');
+  await page.keyboard.press('Escape');
   await startLesson(page);
+  await openExtra(page); await page.click('#today-army');
+  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'Menu Today warns for a staged mate kept by a lesson');
+  await page.keyboard.press('Escape');
   await pressMenu(page, 'New game');
   assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'the lesson keeps the staged game');
   await page.keyboard.press('Escape');

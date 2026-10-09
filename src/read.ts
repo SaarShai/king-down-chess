@@ -128,7 +128,7 @@ export function pieceGuide(t: PieceType): GuideRow {
       return {
         moves: step,
         captures: take,
-        special: r.beastChains ? 'May keep capturing from each new square (never a king as a continuation). Click victims in order; "Finish chain" ends early.' : 'One capture per turn.',
+        special: r.beastChains ? 'May keep capturing from each new square (never a king as a continuation). Click victims in order; "Stop here" ends early.' : 'One capture per turn.',
       };
     }
     case O: {

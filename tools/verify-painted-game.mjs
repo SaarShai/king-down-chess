@@ -255,7 +255,7 @@ try {
     await play([27, 35]); // the Archer steps instead of shooting
     assert.match(await contextText(page), /^Not quite/m);
     assert.equal(await page.evaluate(() => window.view.pos.board[27] > 0 && !window.view.pos.board[35]), true, 'the wrong move is taken back');
-    const steps = [[27, 36], [11, 12], [27, 28], [27, 35, 43], [27, 35], [3, 43]];
+    const steps = [[27, 45], [11, 12], [27, 28], [27, 35, 43], [27, 35], [3, 43]];
     for (const [i, squares] of steps.entries()) {
       assert.match(await page.textContent('#turn'), new RegExp(`Lesson ${i + 1} of 6`));
       await play(squares);

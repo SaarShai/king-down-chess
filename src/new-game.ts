@@ -148,7 +148,7 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
     $<HTMLInputElement>('two-powers').checked = draft.twoPowers;
     const two = draft.mode === 'two';
     $('level').hidden = $('level-line').hidden = $('side-choice').hidden = two;
-    $('level-line').textContent = { beginner: 'New to King Down? Start here.', casual: 'Relaxed. It makes mistakes.', club: 'A solid player. Keep your pieces safe.', strong: 'Thinks longer. A real fight.' }[draft.level];
+    $('level-line').textContent = { beginner: 'New to King Down? Start here.', casual: 'Makes some mistakes.', club: 'Plays well. Keep your pieces safe.', strong: 'Thinks longer. Plays stronger.' }[draft.level];
     $('two-powers-row').hidden = !two;
     $('king-picker').hidden = !powersOn(draft);
     for (const c of [0, 1] as const) {

@@ -3,7 +3,7 @@ import { lanMoves, contextText } from './app-ui.mjs';
 import { env, trapErrors, assertNoErrors } from './lib/checks.mjs';
 import { fixture } from './read-verb-fixture.mjs';
 const { page, seed, tap, marks, close } = await fixture(env('PLAYABLE_URL'));
-trapErrors(page);
+const errors = trapErrors(page);
 try {
   await seed('7k/8/8/2p5/2O5/8/P7/K7 w - - 0 1');
   await tap(26);
@@ -30,4 +30,4 @@ try {
   await tap(10);
   assert.ok((await marks()).shots.includes(26));
   console.log('verb-marks: Ogre, Beast, Maester and Archer pass; landing tap passes');
-} finally { try { assertNoErrors(page); } finally { await close(); } }
+} finally { try { assertNoErrors(errors); } finally { await close(); } }

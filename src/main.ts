@@ -1148,13 +1148,15 @@ const dialog = newGameDialog(s => {
     if (example) { said = example.watch; $('moment').textContent = said; }
   } else newGame(randomBackRank());
 }, preset);
-const openNewGame = (): void => dialog.open(setup, newGameWarning(
+const openGameSetup = (choices: Setup): void => dialog.open(choices, newGameWarning(
   lessonReturn?.game ?? game, lessonReturn?.turnStart ?? turnStart,
   ended(lessonReturn ?? undefined),
 ));
 
+const openNewGame = (): void => openGameSetup(setup);
+const openToday = (): void => openGameSetup({ ...setup, army: 'daily' });
 $('new-game-btn').onclick = openNewGame;
-initMenu({ playAgain: () => newGame(randomBackRank()), today: () => dialog.open({ ...setup, army: 'daily' }), resignSide: resigner });
+initMenu({ playAgain: () => newGame(randomBackRank()), today: openToday, resignSide: resigner });
 initTable(() => { void showPly(null, false); });
 home = initHome({
   read: () => ({ game, sides, level: skill, linkSide, staged: currentTurn().staged > 0, result: result() }),
@@ -1162,7 +1164,7 @@ home = initHome({
   rematch: () => newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true),
   review: () => void showPly(game.history.length, false),
   newGame: openNewGame,
-  today: () => dialog.open({ ...setup, army: 'daily' }, newGameWarning(lessonReturn?.game ?? game, lessonReturn?.turnStart ?? turnStart, ended(lessonReturn ?? undefined))),
+  today: openToday,
 });
 (window as unknown as Record<string, unknown>).home = home; // Samples read the live game, including a staged turn.
 $('rules-btn').onclick = () => {

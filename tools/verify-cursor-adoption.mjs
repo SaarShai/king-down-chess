@@ -158,7 +158,7 @@ try {
   await page.locator('#rules form button').click();
   await seed('7k/8/8/8/8/8/7r/7K w - - 0 1');
   assert.ok(await page.evaluate(() => document.querySelector('#board').classList.contains('king-in-check')
-    && window.view.highlights.check === 7 && window.view.markers.children.some(m => m.material.color.getHex() === 0xe02828)));
+    && window.view.highlights.check === 7 && window.view.markers.children.some(m => m.material.color.getHex() === 0xc4501f)));
   checks.push('lab examples are in the New game army list; current pieces enter the guide; check has a visible king ring');
 
   await seed('7k/8/4p3/8/4p3/8/4C3/K7 w - - 0 1');

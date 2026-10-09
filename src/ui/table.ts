@@ -25,7 +25,7 @@ export function readPiece(pos: Position, sq: number | null, inspecting: boolean)
   button.hidden = !code;
   button.onclick = () => {
     $('rules-btn').click();
-    const card = document.querySelector<HTMLElement>(`#rules [data-piece="${NAMES[typeOf(code)]}"]`);
+    const card = document.querySelector<HTMLElement>(`#rules-rows .piece-card[data-piece="${NAMES[typeOf(code)]}"]`);
     card?.setAttribute('tabindex', '-1');
     card?.focus();
     card?.scrollIntoView({ block: 'center' });
