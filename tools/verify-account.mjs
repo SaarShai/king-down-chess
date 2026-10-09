@@ -5,6 +5,7 @@
 // device sent while this one was behind, a server that cannot be reached, and signing out offline.
 // Run: npm run check:browser account (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
+import { contextText, lanMoves, openExtra, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -85,10 +86,10 @@ const seen = async (server, test, n = 1) => {
   return server.requests.filter(test);
 };
 const accountButtons = page => page.locator('#account-body button').allInnerTexts();
-const settings = async page => { await page.click('#settings-btn'); await page.locator('#account:not([hidden])').waitFor(); };
+const settings = async page => { await openExtra(page); await page.locator('#account:not([hidden])').waitFor(); };
 const small = page => page.$$eval('#account button, #account a', els => els.filter(e => e.offsetParent)
   .map(e => ({ t: e.textContent.trim(), r: e.getBoundingClientRect() })).filter(({ r }) => r.height < 44 || r.width < 44).map(({ t }) => t));
-const moves = page => page.locator('#moves [data-ply]').allInnerTexts();
+const moves = page => lanMoves(page);
 const save = page => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
 
 try {
@@ -166,9 +167,9 @@ try {
   };
   for (const phone of [false, true]) {
     const p = await open({ stored: session(), row: structuredClone(row), phone }), { page, server, close } = p;
-    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length === 2);
+    await waitForUi(page, ui => ui.lan.length === 2);
     assert.deepEqual(await moves(page), ['e2-e4', 'e7-e5']);
-    assert.equal(await page.locator('#moment').innerText(), 'Loaded your newer saved game from your account.');
+    assert.match(await contextText(page), /^Loaded your newer saved game from your account\.$/m);
     assert.deepEqual(await page.evaluate(() => ['coords', 'queen', 'threats', 'sound'].map(id => document.getElementById(id).checked)), [false, true, true, false]);
     assert.equal(await page.evaluate(() => document.getElementById('labels').checked), true, 'the account\'s Piece letters come down');
     assert.equal(await page.inputValue('#pace'), 'off');
@@ -180,7 +181,7 @@ try {
     await page.keyboard.press('Escape');
     const before = server.requests.filter(r => r.method === 'POST').length;
     await tap(p, 6); await tap(p, 21); // g1-f3
-    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length === 3);
+    await waitForUi(page, ui => ui.lan.length === 3);
     const moved = Date.now();
     const push = (await seen(server, r => r.method === 'POST', before + 1)).slice(before).at(-1);
     assert.ok(push && push.t - moved >= 1500, `the move goes up after the quiet moment (${push && push.t - moved} ms)`);
@@ -196,7 +197,7 @@ try {
   // 5. Delete my account: a confirm that says what goes, the server call, signed out, play goes on.
   {
     const p = await open({ stored: session(), row: structuredClone(row) }), { page, server, close } = p;
-    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length === 2);
+    await waitForUi(page, ui => ui.lan.length === 2);
     await settings(page);
     await page.click('#account-body >> text=Delete my account');
     const dlg = page.locator('#delete-account');
@@ -215,7 +216,7 @@ try {
     await page.keyboard.press('Escape');
     const posts = server.requests.filter(r => r.method === 'POST' && r.path === '/rest/v1/user_data').length;
     await tap(p, 6); await tap(p, 21); // g1-f3
-    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length === 3);
+    await waitForUi(page, ui => ui.lan.length === 3);
     await new Promise(r => setTimeout(r, 2600));
     assert.equal(server.requests.filter(r => r.method === 'POST' && r.path === '/rest/v1/user_data').length, posts, 'nothing goes up after deletion');
     assert.deepEqual((await save(page)).moves, ['e2-e4', 'e7-e5', 'Ng1-f3'], 'the game stays saved on this device');
@@ -238,13 +239,13 @@ try {
   //    Under the title, the title offers it and the computer waits until the player chooses.
   {
     const p = await open({ stored: session(), row: structuredClone(row), delay: 1500 }), { page, server, close } = p;
-    await page.click('#rules-btn'); await page.click('#learn');
+    await pressMenu(page, 'Guide'); await page.click('#learn');
     await seen(server, r => r.method === 'GET' && r.path === '/rest/v1/user_data');
     await new Promise(r => setTimeout(r, 2000));
     assert.match(await page.textContent('#turn'), /Lesson 1 of 6/, 'the lesson goes on');
     await page.click('#return-game');
     assert.deepEqual(await moves(page), ['e2-e4', 'e7-e5']);
-    assert.equal(await page.locator('#moment').innerText(), 'Loaded your newer saved game from your account.');
+    assert.match(await contextText(page), /^Loaded your newer saved game from your account\.$/m);
     await close();
   }
   {
@@ -256,7 +257,7 @@ try {
     await new Promise(r => setTimeout(r, 1500));
     assert.deepEqual(await moves(page), ['e2-e4'], 'the computer waits behind the title');
     await page.click('#title-continue');
-    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length === 2, null, { timeout: 15_000 });
+    await waitForUi(page, ui => ui.lan.length === 2, null, { timeout: 15_000 });
     await close();
   }
   ok('the newer game during a lesson waits for Return to game; under the title, Continue offers it and the computer waits');
@@ -265,7 +266,7 @@ try {
   {
     const p = await open({ stored: session(), down: true }), { page, server, close } = p;
     await tap(p, 12); await tap(p, 28); // e2-e4
-    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length >= 1);
+    await waitForUi(page, ui => ui.lan.length >= 1);
     await new Promise(r => setTimeout(r, 6500));
     const pulls = server.requests.filter(r => r.method === 'GET' && r.path === '/rest/v1/user_data').length;
     assert.ok(pulls >= 2, `retried quietly (${pulls} tries)`);
@@ -280,14 +281,14 @@ try {
   //    replace it in the account, and the newer game comes down here instead.
   {
     const p = await open({ stored: session(), row: structuredClone(row) }), { page, server, close } = p;
-    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length === 2);
+    await waitForUi(page, ui => ui.lan.length === 2);
     const elsewhere = { at: now + 3_600_000, v: { ...row.saved_game.v, moves: ['d2-d4', 'd7-d5', 'c2-c4'] } };
     server.row = { ...server.row, saved_game: elsewhere };
     await tap(p, 6); await tap(p, 21); // g1-f3 on the older game
-    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length === 3);
-    await page.waitForFunction(() => document.querySelector('#moves [data-ply]')?.textContent.includes('d2-d4'), null, { timeout: 8000 });
+    await waitForUi(page, ui => ui.lan.length === 3);
+    await waitForUi(page, ui => ui.lan[0]?.includes('d2-d4'), null, { timeout: 8000 });
     assert.deepEqual(await moves(page), ['d2-d4', 'd7-d5', 'c2-c4']);
-    assert.equal(await page.locator('#moment').innerText(), 'Loaded your newer saved game from your account.');
+    assert.match(await contextText(page), /^Loaded your newer saved game from your account\.$/m);
     assert.deepEqual(server.row.saved_game, elsewhere, 'the account keeps the newer game');
     assert.deepEqual((await save(page)).moves, ['d2-d4', 'd7-d5', 'c2-c4']);
     assert.deepEqual(server.errors, []);

@@ -2,6 +2,7 @@
 // pick powers in New game.
 // Run: npm run check:browser powers (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
+import { lanMoves, lanTurns, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 
@@ -11,7 +12,7 @@ const browser = await launch();
 // and a cut-off request shows as "Failed to fetch". This error also shows on main.
 const allow = [{ pattern: /Failed to fetch/, reason: 'a request that the check\'s own navigation cuts off' }];
 const sq = name => (name.charCodeAt(1) - 49) * 8 + (name.charCodeAt(0) - 97);
-const moves = page => page.$eval('#moves', e => e.textContent);
+const moves = async page => (await lanMoves(page)).join(' ');
 
 /** A page on `fen` with these kings, White human, Black the beginner computer (fast replies). */
 async function open(page, kings, fen) {
@@ -28,7 +29,7 @@ const click = async (page, name) => {
   await page.mouse.click(p.x, p.y);
 };
 const waitText = (page, re, timeout = 10000) =>
-  page.waitForFunction(r => new RegExp(r).test(document.getElementById('moves').textContent), re.source, { timeout });
+  waitForUi(page, (ui, r) => new RegExp(r).test(ui.lan.join(' ')), re.source, { timeout });
 
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -48,7 +49,7 @@ try {
   await page.waitForFunction(() => /Now make your move/.test(document.getElementById('power-status').textContent));
   await click(page, 'a2'); await click(page, 'a3');
   await waitText(page, /a2-a3/);
-  await page.waitForFunction(() => document.getElementById('moves').textContent.trim().split(/\s+/).length >= 4, null, { timeout: 15000 });
+  await waitForUi(page, ui => ui.lan.length >= 3, null, { timeout: 15000 });
   assert.doesNotMatch(await moves(page), /Nd5-/, 'the frozen knight did not move');
   assert.match(await page.textContent('#power-btn'), /0 left/);
   console.log(`ok freeze: ${(await moves(page)).trim()}`);
@@ -62,8 +63,8 @@ try {
   assert.match(await page.textContent('#power-status'), /move the same piece again/);
   await click(page, 'e4');                      // the hasted rook is already selected
   await waitText(page, /Ra4-e4/);
-  const line = await page.$eval('#moves li', li => li.textContent.trim());
-  assert.match(line, /^1\. Ra1-a4!H Ra4-e4/, 'one turn, two plies, one line');
+  const line = (await lanTurns(page))[0];
+  assert.deepEqual(line.slice(0, 2), ['Ra1-a4!H', 'Ra4-e4'], 'one turn, two plies, one line');
   console.log(`ok haste: ${line}`);
 
   // Haste ended early with the End turn button.

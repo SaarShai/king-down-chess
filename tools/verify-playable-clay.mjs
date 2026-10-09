@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { lanMoves, pressMenu, setPace, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = env('PLAYABLE_URL');
@@ -12,13 +13,6 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 await page.addInitScript(() => sessionStorage.setItem('kingdown.title-seen', '1')); // skip the title screen (main.ts)
 await page.addInitScript(() => localStorage.setItem('kingdown.look', 'clay')); // painted is the default look
 const errors = trapErrors(page), checks = [];
-/** Settings controls sit in a dialog: open it, act, close it if still open. New game: tools/new-game-ui.mjs. */
-async function ui(action, sel, ...args) {
-  const id = await page.evaluate(sel => document.querySelector(sel).closest('dialog')?.id, sel);
-  if (id) await page.click(id === 'new-game' ? '#new-game-btn' : '#settings-btn');
-  await page[action](sel, ...args);
-  if (id && await page.evaluate(id => document.getElementById(id).open, id)) await page.keyboard.press('Escape');
-}
 async function ready() {
   await page.waitForFunction(() => window.view && window.view.pieces.size > 0 && [...window.view.pieces.values()].every(g => g.userData.figure));
   await page.evaluate(() => window.view.ready());
@@ -52,9 +46,9 @@ async function clickSquare(sq, shift = false) {
   if (shift) await page.keyboard.up('Shift');
 }
 async function settled(sq, code) {
-  await page.waitForFunction(({sq,code}) => {
+  await waitForUi(page, (ui, {sq,code}) => {
     const g = window.view.pieces.get(sq);
-    return g?.userData.code === code && Math.abs(g.position.x - (sq % 8 - 3.5)) < .001 && Math.abs(g.position.z - (3.5 - Math.floor(sq / 8))) < .001 && !document.querySelector('#status').textContent.includes('thinking');
+    return g?.userData.code === code && Math.abs(g.position.x - (sq % 8 - 3.5)) < .001 && Math.abs(g.position.z - (3.5 - Math.floor(sq / 8))) < .001 && !ui.context.includes('thinking');
   }, {sq,code});
   await page.waitForFunction(() => [...window.view.pieces.values()].every(g => {
     const f=g.userData.figure;return !f || f.model.rotation.y === 0;
@@ -86,24 +80,24 @@ try {
   await settled(18,2); await page.click('#undo'); await settled(1,2);
   checks.push('the clay knight retains its leap and returns to its rest pose');
   await clickSquare(12); await clickSquare(28); await settled(28, 1);
-  assert.match(await page.locator('#moves').innerText(), /e2-e4/);
+  assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   checks.push('real board picking and a completed pawn walk');
   await page.evaluate(() => {
     const save = JSON.parse(localStorage.getItem('kingdown.save'));
     save.style = 'plasticine'; localStorage.setItem('kingdown.save', JSON.stringify(save));
   });
   await page.reload(); await ready(); await fixedPresentation();
-  assert.match(await page.locator('#moves').innerText(), /e2-e4/);
+  assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   await page.goto(url+'?style=voxel&px=6'); await ready(); await fixedPresentation();
-  assert.match(await page.locator('#moves').innerText(), /e2-e4/);
+  assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   checks.push('legacy saved styles and URL style/pixel overrides cannot change the fixed presentation');
   await page.click('#undo'); await settled(12,1);
-  assert.equal(await page.locator('#moves').innerText(), '');
+  assert.deepEqual(await lanMoves(page), []);
   checks.push('save/reload and undo restore the position');
   await startGame(page, { mode: 'computer', side: 'white', army: 'classic' }); await ready();
   await clickSquare(12); await clickSquare(28);
-  await page.waitForFunction(() => document.querySelector('#moves').textContent.trim().split(/\s+/).length >= 3 && document.querySelector('#turn').textContent.includes('White'));
-  await page.waitForFunction(() => document.querySelector('#status').textContent === '');
+  await waitForUi(page, ui => ui.lan.length >= 2 && document.querySelector('#turn').textContent.includes('White'));
+  await waitForUi(page, ui => !/^thinking…$/m.test(ui.context));
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length >= 2);
   checks.push('human move receives a legal worker-AI reply');
   await startGame(page, { mode: 'two', army: 'SQBKRSML' }); await ready();
@@ -114,7 +108,7 @@ try {
   }), pawnSquares), pawnSquares, 'resized pieces must not intercept neighbouring pawn-square centres');
   await fixedPresentation(); await facingOpponent();
   checks.push('optional mirrored setup keeps the fixed handmade material and opponent-facing armies');
-  await page.click('#rules-btn');
+  await pressMenu(page, 'Guide');
   assert.match(await page.locator('#rules-rows .piece-card[data-piece="archer"]').textContent(), /forward diagonal at distance 2/);
   assert.match(await page.locator('#rules-rows .piece-card[data-piece="beast"]').textContent(), /Takes on any adjacent square/);
   await page.locator('#rules form button').click();
@@ -122,20 +116,20 @@ try {
   // Interrupt the shove: a delayed animation must not change the restored position.
   await startGame(page, { army: 'ogre' }); await ready();
   await clickSquare(26); await clickSquare(27);
-  await page.waitForFunction(()=>document.querySelector('#moves').textContent.includes('Oc4>d4-e4'));
+  await waitForUi(page, ui => ui.lan.join(' ').includes('Oc4>d4-e4'));
   await page.click('#undo'); await settled(27,1);
   await page.waitForTimeout(1800);
   assert.equal(await page.evaluate(()=>window.view.pieces.has(28)),false);
   assert.equal(await page.evaluate(()=>window.view.pieces.size),5);
   checks.push('undo during the Ogre shove cancels delayed movement');
   await clickSquare(26); await clickSquare(27); await settled(28,1);
-  assert.match(await page.locator('#moves').textContent(),/Oc4>d4-e4/);
+  assert.match((await lanMoves(page)).join(' '), /Oc4>d4-e4/);
   checks.push('Ogre shove animation completes with the pawn on its legal square');
   // A legal rook capture also exercises figure disposal and contour membership.
   await page.goto(url+'?players=human,human&fen='+encodeURIComponent('7k/8/8/8/8/p7/8/R6K w - - 0 1')); await ready();
   await clickSquare(0); await clickSquare(16); await settled(16,4);
   assert.equal(await page.evaluate(()=>window.view.pieces.size),3);
-  assert.match(await page.locator('#moves').textContent(),/Ra1xa3/);
+  assert.match((await lanMoves(page)).join(' '), /Ra1xa3/);
   await page.click('#undo'); await ready();
   assert.equal(await page.evaluate(()=>window.view.pieces.size),4);
   checks.push('capture disposes the victim, and undo restores its model');
@@ -146,11 +140,11 @@ try {
   await settled(16,4);
   assert.equal(await page.evaluate(()=>window.view.pieces.size),3);
   await page.click('#undo'); await ready();
-  await ui('selectOption', '#pace', 'fast'); assert.equal(await page.evaluate(()=>window.view.tweens.rate), 2);
-  await ui('selectOption', '#pace', 'off');
+  await setPace(page, 'fast'); assert.equal(await page.evaluate(()=>window.view.tweens.rate), 2);
+  await setPace(page, 'off');
   await clickSquare(0); await clickSquare(16); const offMoving = await moving(); await settled(16,4);
   assert.deepEqual({ walking, afterTap, offMoving }, { walking: true, afterTap: false, offMoving: false });
-  await ui('selectOption', '#pace', 'normal'); await page.click('#undo'); await ready();
+  await setPace(page, 'normal'); await page.click('#undo'); await ready();
   checks.push('a tap skips the capture walk, Fast doubles the tween rate, Off shows only the result');
   // Review: ← shows the board before the capture, → replays it onto the live board.
   await clickSquare(0); await clickSquare(16); await settled(16,4);
@@ -166,7 +160,7 @@ try {
   await clickSquare(12); await clickSquare(28);
   await startGame(page); await ready(); await page.waitForTimeout(1000);
   assert.equal(await page.evaluate(()=>window.view.pieces.size),32);
-  assert.equal(await page.locator('#moves').innerText(),'');
+  assert.deepEqual(await lanMoves(page), []);
   checks.push('new game during a walk prevents stale animation from changing the new board');
   await startGame(page, { army: 'SQBKRSML' }); await ready();
   await shot(page, 'desktop');

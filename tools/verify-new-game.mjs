@@ -4,6 +4,7 @@
 // Screenshots in PLAYABLE_OUT: desktop-computer.jpg, desktop-powers.jpg, phone-computer.jpg, phone-powers.jpg.
 // Run: npm run check:browser new-game (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
+import { pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 
@@ -46,7 +47,7 @@ const info = (page, re) => page.waitForFunction(r => new RegExp(r, 's').test(doc
 try {
   // 1. Defaults on a first visit: Play the computer, Club, White, a random army; Spirit and Shadow.
   let page = await open();
-  await page.click('#new-game-btn');
+  await pressMenu(page, 'New game');
   assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['computer', 'club', '0']);
   assert.equal(await page.inputValue('#army'), 'random');
   assert.equal(await page.evaluate(() => document.getElementById('more-options').open), false, 'More options starts folded');
@@ -121,7 +122,7 @@ try {
 
   // Cancel drops the changes: the dialog opens again on the last game's setup.
   await page.keyboard.press('Escape');
-  await page.click('#new-game-btn');
+  await pressMenu(page, 'New game');
   assert.equal(await checked(page, 'mode'), 'computer', 'Cancel keeps the last setup');
   await page.keyboard.press('Escape');
   ok('Cancel: the changes are dropped');
@@ -139,7 +140,7 @@ try {
   await startGame(page, { mode: 'computer', level: 'beginner', side: 'black', army: 'classic' });
   s = await saved(page);
   assert.deepEqual([s.white, s.black, s.skill, s.back], ['ai', 'human', 'beginner', 'RNBQKBNR']);
-  await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length >= 1, null, { timeout: 20000 });
+  await waitForUi(page, ui => ui.lan.length >= 1, null, { timeout: 20000 });
   const [a1, a8] = await page.evaluate(() => [window.view.screenOf(0), window.view.screenOf(56)]);
   assert.ok(a8.y > a1.y, 'Black at the bottom');
   ok('Play the computer as Black: the beginner computer moves first, the board turns round');
@@ -177,7 +178,7 @@ try {
 
   // 5. The dialog remembers the last game's setup across a reload.
   await page.reload(); await page.waitForFunction(() => window.view?.ready);
-  await page.click('#new-game-btn');
+  await pressMenu(page, 'New game');
   assert.equal(await checked(page, 'mode'), 'two');
   assert.equal(await page.isChecked('#two-powers'), true);
   assert.deepEqual(await pressed(page, 0), ['Flame', 'Haste']);
@@ -195,7 +196,7 @@ try {
   ok('Custom army: the back rank prompt starts that army; Cancel keeps the dialog open');
 
   // 7. Keyboard: the modes are one radio group; arrows move through it.
-  await page.click('#new-game-btn');
+  await pressMenu(page, 'New game');
   await page.focus('#mode-two');
   await page.keyboard.press('ArrowUp');
   assert.equal(await checked(page, 'mode'), 'powers');
@@ -209,7 +210,7 @@ try {
 
   // 8. A save from before the dialog remembered its setup: New game opens on that game.
   page = await open({ save: { back: 'RNBQKBNR', fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1', moves: [], white: 'ai', black: 'human', skill: 'strong', rules: { kings: [{ king: 'Frost', power: 'Freeze' }, null] }, sound: false } });
-  await page.click('#new-game-btn');
+  await pressMenu(page, 'New game');
   assert.deepEqual([await checked(page, 'mode'), await checked(page, 'level'), await checked(page, 'side')], ['powers', 'strong', '1']);
   assert.deepEqual(await pressed(page, 0), ['Frost', 'Freeze']);
   assert.deepEqual(await pressed(page, 1), ['Shadow', '']);
@@ -233,7 +234,7 @@ try {
 
   // 10. Phone 390×844: no sideways scroll in any mode, More options open; screenshots.
   page = await open({ viewport: { width: 390, height: 844 }, touch: true });
-  await page.click('#new-game-btn');
+  await pressMenu(page, 'New game');
   await shot(page, 'phone-computer.jpg', jpeg);
   await page.click('#more-options summary');
   for (const mode of ['computer', 'powers', 'two']) {
@@ -252,7 +253,7 @@ try {
 
   // 11. Reduced motion: nothing in the picker moves; each picture keeps its still frame.
   page = await open({ reducedMotion: 'reduce' });
-  await page.click('#new-game-btn');
+  await pressMenu(page, 'New game');
   await page.click('label:has(#mode-powers)');
   await page.click('#pick-0 .emblem[data-king="Frost"]');
   assert.equal((await motion(page, '#king-picker')).running, 0);
@@ -263,7 +264,7 @@ try {
   // 12. Settings → Animations Off stills the picker too: no picture or emblem moves; the still frames show.
   page = await open();
   await page.evaluate(() => { const s = document.getElementById('pace'); s.value = 'off'; s.dispatchEvent(new Event('change')); });
-  await page.click('#new-game-btn');
+  await pressMenu(page, 'New game');
   await page.click('label:has(#mode-powers)');
   await page.click('#pick-0 .emblem[data-king="Frost"]');
   await page.hover('#pick-0 .power-choice button[data-power="IceWall"]');

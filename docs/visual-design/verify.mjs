@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { contextText, lanMoves, moveRow, openMoves, pressMenu, waitForUi } from '../../tools/app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from '../../tools/lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -28,7 +29,9 @@ async function open(query = '', { skipTitle = true, save = null, viewport = { wi
 const ready = page => page.waitForFunction(() => window.view?.ready).then(() => page.evaluate(() => window.view.ready()));
 const tap = async (page, sq) => { const p = await page.evaluate(s => window.view.screenOf(s), sq); await page.mouse.click(p.x, p.y); };
 const titleOpen = page => page.evaluate(() => !!document.querySelector('#title-screen[open]'));
-const help = page => page.locator('#move-help').innerText();
+const help = page => contextText(page);
+/** The first words of each refusal line (src/main.ts whyNot and onSquare). */
+const refusal = /^(Not allowed|Your king is in check|Choose one|This \w+ has no legal move|That )/m;
 
 try {
   // 1. Title screen: a first visit leads with the lessons.
@@ -54,16 +57,16 @@ try {
   assert.equal(await page.locator('#title-learn').evaluate(b => b.classList.contains('primary')), false, 'Learn does not lead for a returning player');
   await page.click('#title-continue');
   assert.equal(await titleOpen(page), false);
-  assert.match(await page.locator('#moves').innerText(), /e2-e4/);
+  assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   await page.context().close();
   // Play with the computer to move: it waits while New game is open, and moves once it is closed.
   page = await open('', { skipTitle: false, save: { ...save, moves: ['e2-e4'], skill: 'beginner', think: 200 } });
   await page.click('#title-play');
   await page.waitForFunction(() => document.getElementById('new-game').open);
   await page.waitForTimeout(2500); // the beginner computer answers in well under a second
-  assert.equal(await page.locator('#moves button').count(), 1, 'the computer does not move behind New game');
+  assert.equal((await lanMoves(page)).length, 1, 'the computer does not move behind New game');
   await page.keyboard.press('Escape');
-  await page.waitForFunction(() => document.querySelectorAll('#moves button').length === 2, null, { timeout: 15000 });
+  await waitForUi(page, ui => ui.lan.length === 2, null, { timeout: 15000 });
   await page.context().close();
   ok('title: Continue resumes the saved game, Play opens New game and the computer waits for it');
 
@@ -86,13 +89,14 @@ try {
   await page.keyboard.press('ArrowUp'); await page.keyboard.press('ArrowUp');
   assert.match(await page.locator('#cursor-say').textContent(), /^e4, empty, can go here/);
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => /e2-e4/.test(document.getElementById('moves').textContent));
+  await waitForUi(page, ui => /e2-e4/.test(ui.lan.join(' ')));
   assert.match(await page.locator('#announce').textContent(), /^White pawn e2 to e4\./);
   await page.waitForFunction(() => /^Black /.test(document.getElementById('announce').textContent), null, { timeout: 20000 });
   ok(`keyboard: Tab, arrows and Enter play e2-e4; announced "White pawn e2 to e4." then "${await page.locator('#announce').textContent()}"`);
   // The move list is a row of buttons: Tab reaches them, Enter opens the review.
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save') || '{}').moves?.length === 2); // the reply has finished
-  const first = page.locator('#moves [data-ply="1"]');
+  await openMoves(page);
+  const first = moveRow(page, 1);
   await first.focus(); await page.keyboard.press('Enter');
   await page.waitForFunction(() => /Reviewing after 1\. e2-e4/.test(document.getElementById('turn').textContent));
   await page.keyboard.press('Escape');
@@ -109,7 +113,7 @@ try {
   page = await open('?fen=' + encodeURIComponent('4k3/8/8/3r4/8/8/3N4/4K3 w - - 0 1'));
   await ready(page);
   assert.equal(await page.locator('#board-marks i').count(), 0, 'off by default');
-  await page.click('#settings-btn'); await page.check('#threats'); await page.keyboard.press('Escape');
+  await pressMenu(page, 'Settings'); await page.check('#threats'); await page.keyboard.press('Escape');
   assert.equal(await page.locator('#board-marks .mk-threat').count(), 1);
   assert.equal(await page.locator('#board-marks .mk-cover').count(), 15);
   const ring = await page.locator('#board-marks .mk-threat').boundingBox(), d2 = await page.evaluate(() => window.view.screenOf(11));
@@ -121,7 +125,7 @@ try {
   // 4. Refusals say why. A tap on an enemy piece with no piece selected is no refusal: it shows the piece's card.
   page = await open('?fen=' + encodeURIComponent('4k3/4r3/8/8/8/8/4B3/4K3 w - - 0 1'));
   await ready(page);
-  await tap(page, 52); assert.equal(await help(page), ''); assert.match(await page.textContent('#info'), /Black rook/);
+  await tap(page, 52); assert.doesNotMatch(await help(page), refusal); assert.match(await page.textContent('#info'), /Black rook/);
   await tap(page, 12); assert.match(await help(page), /This bishop has no legal move/);
   await tap(page, 19); assert.match(await help(page), /that bishop move would leave your king in check/);
   await page.context().close();
@@ -135,7 +139,7 @@ try {
   // 5. Guide cards carry painted art; promotion shows figures.
   page = await open('?fen=' + encodeURIComponent('7k/P7/8/8/8/8/8/K7 w - - 0 1'));
   await ready(page);
-  await page.click('#rules-btn');
+  await pressMenu(page, 'Guide');
   const cards = page.locator('#rules-rows .piece-card');
   assert.ok(await cards.count() >= 12);
   // The figures load lazily: when the Guide opens, some are not loaded yet, and decode() on such an image
@@ -162,7 +166,7 @@ try {
   await page.context().close();
   page = await open('?kings=mud:march,stratus:flight&fen=' + encodeURIComponent('4k3/p7/8/8/8/8/P7/4K3 w - - 0 1'));
   await ready(page);
-  await page.click('#rules-btn');
+  await pressMenu(page, 'Guide');
   assert.equal(await kingCard(page), 'kings/mud.webp', 'the King card shows the picked White king');
   ok(`Guide: ${nCards} piece cards, ${loaded.length} painted figures loaded; the King card shows White's king (Spirit; Mud when picked); promotion shows figures`);
   await page.context().close();
@@ -176,11 +180,11 @@ try {
     .filter(({ r }) => r.height < 44 || r.width < 44)
     .map(({ id, r }) => `${id} ${Math.round(r.width)}×${Math.round(r.height)}`));
   assert.deepEqual(await small('#panel'), []);
-  for (const [btn, dlg] of [['#new-game-btn', '#new-game'], ['#settings-btn', '#settings'], ['#rules-btn', '#rules']]) {
-    await page.click(btn); assert.deepEqual(await small(dlg), [], dlg); await page.keyboard.press('Escape');
+  for (const [item, dlg] of [['New game', '#new-game'], ['Settings', '#settings'], ['Guide', '#rules']]) {
+    await pressMenu(page, item); assert.deepEqual(await small(dlg), [], dlg); await page.keyboard.press('Escape');
   }
   // New game in each of its three modes, with More options open: the king picker's emblems and powers too.
-  await page.click('#new-game-btn'); await page.click('#more-options summary');
+  await pressMenu(page, 'New game'); await page.click('#more-options summary');
   for (const mode of ['computer', 'powers', 'two']) {
     await page.click(`label:has(#mode-${mode})`);
     if (mode === 'two') await page.check('#two-powers');

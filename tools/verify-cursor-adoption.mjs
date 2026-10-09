@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { contextText, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 
@@ -28,7 +29,7 @@ await page.addInitScript(() => {
 /** Settings controls sit in a dialog: open it, act, close it if still open. New game: tools/new-game-ui.mjs. */
 async function ui(action, sel, ...args) {
   const id = await page.evaluate(sel => document.querySelector(sel).closest('dialog')?.id, sel);
-  if (id) await page.click(id === 'new-game' ? '#new-game-btn' : '#settings-btn');
+  if (id) await pressMenu(page, id === 'new-game' ? 'New game' : 'Settings');
   await page[action](sel, ...args);
   if (id && await page.evaluate(id => document.getElementById(id).open, id)) await page.keyboard.press('Escape');
 }
@@ -61,7 +62,7 @@ try {
   const savedSkill = () => page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).skill);
   /** The level New game shows when it opens. */
   const dialogLevel = async () => {
-    await page.click('#new-game-btn');
+    await pressMenu(page, 'New game');
     const level = await page.evaluate(() => document.querySelector('#new-game input[name="level"]:checked')?.value);
     await page.keyboard.press('Escape');
     return level;
@@ -72,7 +73,7 @@ try {
   await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   await page.click('#hint');
   await page.waitForFunction(() => window.view.highlights.hint.length > 0 && !document.querySelector('#hint').disabled);
-  assert.equal(await page.locator('#moves').innerText(), '');
+  assert.deepEqual(await lanMoves(page), []);
   assert.ok(await page.evaluate(() => Array.isArray(window.searchRequests.at(-1).history)));
   await click(12); await click(28); await played(1);
   assert.deepEqual(await page.evaluate(() => window.view.highlights.hint), []);
@@ -98,20 +99,20 @@ try {
   await page.click('#hint'); await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   await page.waitForTimeout(650);
   assert.deepEqual(await page.evaluate(() => window.view.highlights.hint), []);
-  assert.equal(await page.locator('#moves').innerText(), '');
+  assert.deepEqual(await lanMoves(page), []);
   const camera = await page.evaluate(() => window.view.camera.position.toArray());
   await drag(12, 28); await played(1);
-  assert.match(await page.locator('#moves').innerText(), /e2-e4/);
+  assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   assert.deepEqual(await page.evaluate(() => window.view.camera.position.toArray()), camera);
   await page.click('#undo'); await played(0);
   checks.push('reset cancels a hint; real piece dragging plays through the normal move path without orbiting');
 
   await seed('7k/4p3/8/8/8/8/P7/K7 b - - 0 1', { white: 'ai', black: 'human' });
   await drag(52, 36);
-  await page.waitForFunction(() => document.querySelector('#moves').textContent.includes('e7-e5'));
+  await waitForUi(page, ui => ui.lan.join(' ').includes('e7-e5'));
   await startGame(page, { mode: 'two', army: 'classic' }); await ready();
   await page.waitForTimeout(700); // a stale computer reply would land here
-  assert.equal(await page.locator('#moves').innerText(), '');
+  assert.deepEqual(await lanMoves(page), []);
   assert.ok(await page.evaluate(() => window.view.controls.enabled));
   checks.push('dragging works from the flipped Black view and a new game cancels the pending computer move');
 
@@ -145,7 +146,7 @@ try {
     ['?rules=2021', /ahead or back/, /either forward diagonal/, /any piece but a king/],
   ]) {
     await seed('7k/8/8/8/4A3/8/P7/K7 w - - 0 1', {}, query);
-    await page.click('#rules-btn');
+    await pressMenu(page, 'Guide');
     assert.match(await page.locator('#rules-rows .piece-card[data-piece="archer"]').innerText(), archer);
     assert.match(await page.locator('#rules-rows .piece-card[data-piece="beast"]').innerText(), beast);
     assert.match(await page.locator('#rules-lead').innerText(), promotionText);
@@ -155,19 +156,19 @@ try {
 
   await seed('7k/8/8/2p5/8/2A5/8/4K3 w - - 0 1');
   await click(18); await click(34); await played(1);
-  assert.match(await page.locator('#moment').innerText(), /archer shot/);
+  assert.match(await contextText(page), /archer shot/);
   await page.reload(); await ready();
-  assert.match(await page.locator('#moment').innerText(), /archer shot/);
+  assert.match(await contextText(page), /archer shot/);
   await page.click('#undo'); await played(0);
-  assert.equal(await page.locator('#moment').innerText(), '');
+  assert.doesNotMatch(await contextText(page), /archer shot/);
   await click(18); await click(34); await played(1);
-  assert.match(await page.locator('#moment').innerText(), /archer shot/);
+  assert.match(await contextText(page), /archer shot/);
   checks.push('move explanations reconstruct from saved history and return after undo/replay');
 
   await startGame(page, { army: 'COAQNRBK' }); await ready();
-  assert.match(await page.locator('#moment').innerText(), /Catapult lab/);
+  assert.match(await contextText(page), /Catapult lab/);
   assert.equal(await page.locator('#setup').innerText(), 'COAQNRBK');
-  await page.click('#rules-btn');
+  await pressMenu(page, 'Guide');
   assert.equal(await page.locator('#rules-rows .piece-card[data-piece="catapult"]').count(), 1);
   await page.locator('#rules form button').click();
   await seed('7k/8/8/8/8/8/7r/7K w - - 0 1');
@@ -178,10 +179,10 @@ try {
   await seed('7k/8/4p3/8/4p3/8/4C3/K7 w - - 0 1');
   await click(12); await click(44); await played(1);
   assert.ok(await page.evaluate(() => window.view.pieces.has(12) && window.view.pieces.has(28) && !window.view.pieces.has(44)));
-  assert.match(await page.locator('#moment').innerText(), /catapult lobbed/);
+  assert.match(await contextText(page), /catapult lobbed/);
   await page.click('#undo'); await played(0);
   await click(12); await click(44);
-  await page.waitForFunction(() => document.querySelector('#moves').textContent.includes('Ce2*e6'));
+  await waitForUi(page, ui => ui.lan.join(' ').includes('Ce2*e6'));
   await page.click('#undo'); await played(0); await page.waitForTimeout(700);
   assert.ok(await page.evaluate(() => window.view.pieces.has(44) && window.view.pieces.has(12)));
   checks.push('Catapult lob keeps the shooter and screen; undo during the arc preserves the restored victim');
@@ -189,11 +190,11 @@ try {
   await seed('7k/8/4p3/8/3V4/8/P7/K7 w - - 0 1');
   await click(27); await click(44); await click(43); await played(1);
   assert.ok(await page.evaluate(() => window.view.pieces.has(43) && !window.view.pieces.has(27) && !window.view.pieces.has(44)));
-  assert.match(await page.locator('#moves').innerText(), /Vd4xe6-d6/);
-  assert.match(await page.locator('#moment').innerText(), /reaver captured, then stepped aside/);
+  assert.match((await lanMoves(page)).join(' '), /Vd4xe6-d6/);
+  assert.match(await contextText(page), /reaver captured, then stepped aside/);
   await page.click('#undo'); await played(0);
   await click(27); await click(44); await click(43);
-  await page.waitForFunction(() => document.querySelector('#moves').textContent.includes('Vd4xe6-d6'));
+  await waitForUi(page, ui => ui.lan.join(' ').includes('Vd4xe6-d6'));
   await page.click('#undo'); await played(0); await page.waitForTimeout(700);
   assert.ok(await page.evaluate(() => window.view.pieces.has(27) && window.view.pieces.has(44) && !window.view.pieces.has(43)));
   checks.push('Reaver capture-then-step uses the real selection path and cancels cleanly on undo');
@@ -207,7 +208,7 @@ try {
   for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: a.x + (b.x-a.x)*i/6, y: a.y + (b.y-a.y)*i/6 }] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await played(1);
-  assert.match(await page.locator('#moves').innerText(), /e2-e4/);
+  assert.match((await lanMoves(page)).join(' '), /e2-e4/);
   assert.deepEqual(await page.locator('#board').boundingBox(), boardBounds, 'piece guidance must not move the board under a touch gesture');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && window.view.controls.enabled));
   await shot(page, 'touch-mobile');
