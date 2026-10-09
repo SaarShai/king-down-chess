@@ -8,6 +8,9 @@
 //                               PLAYABLE_BROWSER  chromium when CLAUDE_CODE_REMOTE is "true", else chrome
 //                             An unknown name throws.
 //   outRoot                   The runner's output root: <system temp folder>/kingdown-checks, never in a checkout.
+//   isInside(folder, path)    True when `path` is `folder` or a path inside it, after symbolic links resolve. A part
+//                             of `path` that does not exist yet stays as it is. The runner and the sample tool
+//                             (docs/specs/web-ux/capture.mjs) refuse an output folder inside the checkout with it.
 //   launch(options = {})      Opens the PLAYABLE_BROWSER channel; `options` go to Playwright's chromium.launch.
 //
 // Errors
@@ -36,11 +39,19 @@
 //                             returns the path. A name that goes outside PLAYABLE_OUT throws. `options` go to page.screenshot.
 import { chromium } from 'playwright';
 import { tmpdir } from 'node:os';
-import { mkdirSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative } from 'node:path';
+import { mkdirSync, realpathSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 /** The runner's output root: one fixed system temp folder, outside every checkout. */
 export const outRoot = join(tmpdir(), 'kingdown-checks');
+
+/** The real path: symbolic links resolve; a part that does not exist yet stays as it is. */
+const real = path => { try { return realpathSync(path); } catch { return dirname(path) === path ? path : join(real(dirname(path)), basename(path)); } };
+
+export function isInside(folder, path) {
+  const rel = relative(real(resolve(folder)), real(resolve(path)));
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
 
 /** The check's short name: its script name without the folder, the extension and `verify-`. */
 const checkName = () => basename(process.argv[1] ?? 'check').replace(/\.[^.]+$/, '').replace(/^verify-/, '');

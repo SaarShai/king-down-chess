@@ -4,9 +4,9 @@
 // 2 a usage fault (unknown name, output root inside the checkout), 130/143/129 on SIGINT/SIGTERM/SIGHUP.
 import { spawn } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, realpathSync, rmSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { env, outRoot } from './lib/checks.mjs';
+import { env, isInside, outRoot } from './lib/checks.mjs';
 import { firstFault as faultLine } from './lib/first-fault.mjs';
 import { lockPath, takeLock } from './lib/lock.mjs';
 import { checks } from './lib/registry.mjs';
@@ -47,9 +47,7 @@ const selected = args.length ? [...new Set(args)].map(a => checks.find(c => c.na
 
 // 2. The output root: never inside the checkout.
 say(`check: output root ${outRoot}`);
-const real = path => { try { return realpathSync(path); } catch { return join(real(dirname(path)), basename(path)); } };
-const fromRoot = relative(root, real(outRoot));
-if (!fromRoot || (!fromRoot.startsWith('..') && !isAbsolute(fromRoot))) {
+if (isInside(root, outRoot)) {
   console.error(`check: the output root ${outRoot} is inside the checkout ${root}; set TMPDIR to a folder outside it`);
   process.exit(2);
 }

@@ -6,16 +6,18 @@
 // The sample of a web redesign step (spec rule 3 in docs/specs/web-redesign/spec.md):
 //   SAMPLE=<NN> node docs/specs/web-ux/capture.mjs <base-url> [out-dir]
 // It reads the state table docs/specs/web-redesign/samples/<NN>.mjs (the format is in samples/README.md),
-// renders each state at the table's sizes with Motion Off, and checks each render: no sideways scroll,
-// the state's controls inside the screen, and 44 px targets on a touch size. It writes <state>-<size>.png
-// and report.json in the out folder (default <system temp folder>/kingdown-samples/<NN>), and exits 1
-// when a check fails or a state cannot render. Copy the renders out of the out folder; never commit them.
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+// renders each state at the table's sizes with Motion Off, and checks each render: the app keeps every move
+// of the seeded save, no sideways scroll, the state's controls inside the screen, and 44 px targets on a touch
+// size. A state with `video: true` also gets one phone video of its steps, with Motion Normal. It writes
+// <state>-<size>.png, <state>-phone.webm and report.json in the out folder (default <system temp
+// folder>/kingdown-samples/<NN>; a folder inside the checkout is refused), and exits 1 when a check fails or a
+// state cannot render. Copy the renders out of the out folder; never commit them.
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { moveRow, openMoves, pressMenu } from '../../../tools/app-ui.mjs';
-import { insideViewport, launch, minTarget, noSidewaysScroll, trapErrors } from '../../../tools/lib/checks.mjs';
+import { boardHelp, lanMoves, moveRow, openMoves, pressMenu } from '../../../tools/app-ui.mjs';
+import { insideViewport, isInside, launch, minTarget, noSidewaysScroll, trapErrors } from '../../../tools/lib/checks.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
 const sizes = {
@@ -35,26 +37,40 @@ else await review(process.argv[3], process.argv[4]?.split(','));
 /** Renders the states of samples/<nn>.mjs and checks each render; see the header. */
 async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
   const file = fileURLToPath(new URL(`../web-redesign/samples/${nn}.mjs`, import.meta.url));
-  if (!/^\d\d[a-z]?$/.test(nn) || !existsSync(file)) {
-    console.error(`capture: no sample "${nn}": SAMPLE names a file docs/specs/web-redesign/samples/<NN>.mjs`);
-    await browser.close();
-    process.exit(2);
-  }
+  const stop = async message => { console.error(message); await browser.close(); process.exit(2); };
+  if (!/^\d\d[a-z]?$/.test(nn) || !existsSync(file)) await stop(`capture: no sample "${nn}": SAMPLE names a file docs/specs/web-redesign/samples/<NN>.mjs`);
+  const checkout = fileURLToPath(new URL('../../../', import.meta.url));
+  if (isInside(checkout, out)) await stop(`capture: the out folder ${out} is inside the checkout ${checkout}; renders stay out of Git`);
   const table = (await import(pathToFileURL(file).href)).default;
   const unknown = (table.sizes ?? []).filter(s => !sizes[s]);
   if (unknown.length) throw new Error(`capture: sample ${nn}: unknown sizes ${unknown.join(', ')}; known: ${Object.keys(sizes).join(', ')}`);
   mkdirSync(out, { recursive: true });
   const report = [];
-  for (const state of table.states) for (const size of table.sizes ?? ['phone', 'desktop']) {
+  for (const state of table.states) {
+    for (const size of table.sizes ?? ['phone', 'desktop']) report.push(await render(state, size, false));
+    if (state.video) report.push(await render(state, 'phone', true));
+  }
+  await browser.close();
+  writeFileSync(join(out, 'report.json'), `${JSON.stringify({ sample: nn, base, renders: report }, null, 1)}\n`);
+  const failed = report.filter(r => r.faults.length).length;
+  console.log(`capture: sample ${nn}: ${report.length} renders, ${failed} with a fault; out folder ${out}`);
+  process.exit(failed ? 1 : 0);
+
+  /** One still of `state` at `size` with Motion Off, or (video) one video of its steps with Motion Normal. */
+  async function render(state, size, video) {
     const { width, height, ...touch } = sizes[size];
-    const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: size === 'phone' ? 2 : 1, reducedMotion: 'reduce', ...touch });
-    // Motion Off: the seeded save says so, and with no save the app takes Off from reduced motion.
-    await ctx.addInitScript(([save, title]) => {
+    const ctx = await browser.newContext({
+      viewport: { width, height }, deviceScaleFactor: size === 'phone' ? 2 : 1, ...touch,
+      reducedMotion: video ? 'no-preference' : 'reduce',
+      ...(video ? { recordVideo: { dir: join(out, '.video'), size: { width, height } } } : {}),
+    });
+    // A still has Motion Off: the seeded save says so, and with no save the app takes Off from reduced motion.
+    await ctx.addInitScript(([save, title, pace]) => {
       if (!title) sessionStorage.setItem('kingdown.title-seen', '1');
       if (sessionStorage.getItem('sample.seeded')) return; // a reload in the steps keeps the game it made
       sessionStorage.setItem('sample.seeded', '1');
-      if (save) localStorage.setItem('kingdown.save', JSON.stringify({ ...save, pace: 'off' }));
-    }, [state.save ?? null, state.title ?? false]);
+      if (save) localStorage.setItem('kingdown.save', JSON.stringify({ ...save, pace }));
+    }, [state.save ?? null, state.title ?? false, video ? 'normal' : 'off']);
     const page = await ctx.newPage();
     const errors = trapErrors(page);
     page.on('dialog', d => d.accept());
@@ -62,34 +78,42 @@ async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
       const p = await page.evaluate(s => window.view.screenOf(s), sq);
       if (touch.hasTouch) await page.touchscreen.tap(p.x, p.y); else await page.mouse.click(p.x, p.y);
     };
-    const row = { state: state.name, size, file: join(out, `${state.name}-${size}.png`), faults: [] };
+    const row = { state: state.name, size, file: join(out, `${state.name}-${size}.${video ? 'webm' : 'png'}`), faults: [] };
     try {
       await page.goto(new URL(state.query ?? '', base).href);
       await ready(page);
+      if (state.save) { // the app drops a saved move that is not legal, and the moves after it
+        const want = state.save.moves ?? [], kept = await lanMoves(page);
+        if (kept.join(' ') !== want.join(' ')) row.faults.push(`seed: the app keeps ${kept.length} of the ${want.length} saved moves: [${kept.join(' ')}] of [${want.join(' ')}]`);
+      }
       await state.steps?.({ page, tap, size });
-      await page.evaluate(() => document.fonts.ready);
-      await settle(page);
-      await page.screenshot({ path: row.file });
-      const checks = [() => noSidewaysScroll(page)];
-      if (state.controls) checks.push(() => insideViewport(page, state.controls));
-      if (touch.hasTouch) checks.push(async () => {
-        const scope = await page.evaluate(() => (document.querySelector('dialog[open]') ? 'dialog[open]' : 'body'));
-        await minTarget(page, `${scope} :is(${state.targets ?? 'button, select, summary, label'})`);
-      });
-      for (const check of checks) await check().catch(e => row.faults.push(e.message.split('\n')[0]));
+      if (video) {
+        await settle(page, 2000); // the last motion ends on the video
+      } else {
+        await page.evaluate(() => document.fonts.ready);
+        await settle(page);
+        await page.screenshot({ path: row.file });
+        const checks = [() => noSidewaysScroll(page)];
+        if (state.controls) checks.push(() => insideViewport(page, state.controls));
+        if (touch.hasTouch) checks.push(async () => {
+          const scope = await page.evaluate(() => (document.querySelector('dialog[open]') ? 'dialog[open]' : 'body'));
+          await minTarget(page, `${scope} :is(${state.targets ?? 'button, select, summary, label'})`);
+        });
+        for (const check of checks) await check().catch(e => row.faults.push(e.message.split('\n')[0]));
+      }
     } catch (e) {
       row.faults.push(`cannot render: ${e.message.split('\n')[0]}`);
     }
     row.faults.push(...errors);
-    report.push(row);
-    console.log(`${row.faults.length ? 'FAIL' : 'ok  '} ${state.name} ${size}  ${row.file}${row.faults.map(f => `\n       ${f}`).join('')}`);
-    await ctx.close();
+    await ctx.close(); // a video is complete only when its page closes
+    if (video) {
+      await page.video().saveAs(row.file).catch(e => row.faults.push(`no video: ${e.message.split('\n')[0]}`));
+      await page.video().delete();
+      rmSync(join(out, '.video'), { recursive: true, force: true });
+    }
+    console.log(`${row.faults.length ? 'FAIL' : 'ok  '} ${state.name} ${size}${video ? ' video' : ''}  ${row.file}${row.faults.map(f => `\n       ${f}`).join('')}`);
+    return row;
   }
-  await browser.close();
-  writeFileSync(join(out, 'report.json'), `${JSON.stringify({ sample: nn, base, renders: report }, null, 1)}\n`);
-  const failed = report.filter(r => r.faults.length).length;
-  console.log(`capture: sample ${nn}: ${report.length} renders, ${failed} with a fault; out folder ${out}`);
-  process.exit(failed ? 1 : 0);
 }
 
 /** The UX review capture: the screens of docs/specs/web-ux/review.md. */
@@ -163,9 +187,9 @@ async function review(out, only) {
       await page.keyboard.press('Escape');
       await page.click('#hint'); await settle(page, 2500);
       await shot(page, '06-game-hint', kind);
-      await pressMenu(page, 'Settings'); await page.check('#threats'); await page.keyboard.press('Escape');
+      await boardHelp(page, () => page.check('#threats'));
       await settle(page); await shot(page, '07-game-threats', kind);
-      await pressMenu(page, 'Settings'); await page.uncheck('#threats'); await page.keyboard.press('Escape');
+      await boardHelp(page, () => page.uncheck('#threats'));
       // Review: open the first move in the list
       await step(`${kind} review`, async () => {
         await openMoves(page); await moveRow(page, 1).click(); await settle(page);

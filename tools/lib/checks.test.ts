@@ -1,9 +1,10 @@
-// Unit test for the shared browser-check settings (checks-and-hooks/05).
+// Unit test for the shared browser-check settings (checks-and-hooks/05) and isInside.
 // The assertions and shot() have a browser self-test: tools/check-selftest.mjs.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
-import { env, outRoot } from './checks.mjs';
+import { env, isInside, outRoot } from './checks.mjs';
 
 const checkout = resolve(__dirname, '../..');
 let argv1: string;
@@ -52,6 +53,28 @@ describe('env values when the variable is set', () => {
     vi.stubEnv('CLAUDE_CODE_REMOTE', 'true');
     vi.stubEnv('PLAYABLE_BROWSER', 'chrome');
     expect(env('PLAYABLE_BROWSER')).toBe('chrome');
+  });
+});
+
+describe('isInside', () => {
+  const temp = mkdtempSync(join(realpathSync(tmpdir()), 'inside-'));
+  afterAll(() => rmSync(temp, { recursive: true, force: true }));
+  it('is true for the folder and for any path in it, also one that does not exist yet', () => {
+    expect(isInside(checkout, checkout)).toBe(true);
+    expect(isInside(checkout, join(checkout, 'docs'))).toBe(true);
+    expect(isInside(checkout, join(checkout, 'no-such-folder', 'renders'))).toBe(true);
+    expect(isInside(checkout, join(checkout, 'docs', '..', 'tools'))).toBe(true);
+  });
+  it('is false for a path outside the folder, also for a name that starts with two dots', () => {
+    expect(isInside(checkout, outRoot)).toBe(false);
+    expect(isInside(checkout, join(checkout, '..'))).toBe(false);
+    expect(isInside(join(temp, 'a'), join(temp, 'a..b'))).toBe(false);
+    expect(isInside(join(temp, 'a'), join(temp, 'ab'))).toBe(false);
+  });
+  it('follows a symbolic link to where it points', () => {
+    symlinkSync(checkout, join(temp, 'link'));
+    expect(isInside(checkout, join(temp, 'link', 'renders'))).toBe(true);
+    expect(isInside(join(temp, 'link'), join(checkout, 'docs'))).toBe(true);
   });
 });
 
