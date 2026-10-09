@@ -7,7 +7,7 @@ import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, file as fileOf, findKing, moveNumber, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, V, colorOf, file as fileOf, findKing, moveNumber, PowerName, parseKings, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
@@ -18,6 +18,7 @@ import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, s
 import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
 import './dialog-dismiss';
+import { pieceGuide, whyNot as moveRefusal } from './read';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -141,20 +142,6 @@ const myTurn = (): boolean => sides[game.pos.turn] === 'human' && (linkSide == n
 /** The side Resign gives up now (`resigningSide`), or null while it is off: the game is over, a lesson, or the computer thinks. */
 const resigner = (): Color | null => (finished() || lesson != null || thinking ? null : resigningSide(sides, game.pos.turn, linkSide));
 
-/** Player-facing columns for one piece under the live `GAME_RULES` (and `POOL`). */
-type GuideRow = { moves: string; captures: string; special: string };
-
-const ARCHER_SHOT_TEXT: Record<string, string> = {
-  classic: 'Shoots without moving: an enemy diagonally adjacent, or exactly 2 squares away orthogonally, through blockers.',
-  plusDiag2: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2) plus any enemy exactly 2 squares away diagonally, through blockers.',
-  ring2: 'Shoots without moving: any enemy on a diagonally adjacent square or anywhere on the ring 2 squares away, through blockers.',
-  forward3: 'Shoots without moving: an enemy on either forward diagonal, or the square exactly 2 ahead, through blockers.',
-  plusDiagFwd2: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2) plus either forward diagonal at distance 2, through blockers.',
-  plusDiagFwd2Clear: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2, through blockers) plus either forward diagonal at distance 2, over an empty square.',
-  fwd2NoBack: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or to the side, or either forward diagonal at distance 2, through blockers.',
-  fwd2NoSide: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or behind, or either forward diagonal at distance 2, through blockers.',
-};
-
 /** Chess pieces always; fairies in POOL or the fixed set A L G M S O. */
 function guideTypes(): PieceType[] {
   const always = new Set<PieceType>([P, N, B, R, Q, K, A, L, G, M, S, O]);
@@ -164,125 +151,6 @@ function guideTypes(): PieceType[] {
   }
   for (const p of game.pos.board) if (p) always.add(typeOf(p));
   return [...always].sort((a, b) => a - b);
-}
-
-/** One guide for both the dialog table and the hover card — reads live rules and POOL. */
-function pieceGuide(t: PieceType): GuideRow {
-  const r = GAME_RULES;
-  switch (t) {
-    case P:
-      return {
-        moves: 'Moves 1 square forward, 2 from its start rank.',
-        captures: 'Takes 1 square diagonally forward.',
-        special: 'Promotes on the last rank.',
-      };
-    case N:
-      return { moves: 'Moves in an L (2 + 1) over any piece.', captures: 'Takes by moving onto the enemy.', special: '' };
-    case B:
-      return { moves: 'Moves any distance diagonally.', captures: 'Takes by moving onto the enemy.', special: '' };
-    case R:
-      return { moves: 'Moves any distance orthogonally.', captures: 'Takes by moving onto the enemy.', special: '' };
-    case Q:
-      return { moves: 'Moves any distance in a straight line.', captures: 'Takes by moving onto the enemy.', special: '' };
-    case K:
-      return {
-        moves: 'Moves 1 square in any direction.',
-        captures: 'Takes by moving onto the enemy.',
-        special: 'Only a king can take a guard.',
-      };
-    case A: {
-      const step = r.archerMove === 'ortho' ? 'Moves 1 square orthogonally.'
-        : r.archerMove === 'fwdBack' ? 'Moves 1 square ahead or back.'
-        : 'Moves 1 square in any direction.';
-      return {
-        moves: step,
-        captures: ARCHER_SHOT_TEXT[r.archerShots] ?? ARCHER_SHOT_TEXT.classic,
-        special: 'Never captures by moving onto a piece. ' + (r.archerChecks ? 'Gives check the same way it shoots.' : 'Cannot capture a king or give check.'),
-      };
-    }
-    case L: {
-      const die = r.paladinKamikaze === 'always' ? 'Removed after capturing anything.'
-        : r.paladinKamikaze === 'never' ? 'Survives its own captures.'
-        : 'Removed after capturing anything but a pawn.';
-      const check = r.paladinChecks
-        ? 'May capture a king (gives check).'
-        : 'Cannot capture a king (never gives check).';
-      const promo = r.promotionSet === 'anyNonKing' || r.promotionSet === 'anyNonKingNoGuard';
-      const draw = POOL.includes('L')
-        ? 'In the random draw.'
-        : promo
-          ? 'Not in the random draw. Custom setup, FEN, and promotion can still use it.'
-          : 'Not in the random draw. Custom setup and FEN can still place it. A pawn does not promote to it.';
-      return {
-        moves: 'Moves like a queen, jumping own pieces.',
-        captures: 'Takes by moving onto the enemy.',
-        special: `${check} ${die} ${draw}`,
-      };
-    }
-    case G:
-      return {
-        moves: 'Moves 1 square in any direction, empty squares only.',
-        captures: 'Cannot capture.',
-        special: 'Immortal wall: cannot be captured, except by a king.',
-      };
-    case M: {
-      const long = r.maesterLongSwap
-        ? ' Maester + own king both on their home rank: swap at any distance.'
-        : '';
-      const any = r.maesterSwapAny ? ' Swaps with any friendly piece anywhere.' : '';
-      return {
-        moves: 'Moves 1 square in any direction.',
-        captures: 'Takes an adjacent enemy.',
-        special: `Onto an own piece = swap places.${long}${any}`,
-      };
-    }
-    case S: {
-      const step = r.beastMove === 'forward' ? 'Moves 1 square straight ahead, empty only.'
-        : r.beastMove === 'diagFwdBack' ? 'Moves on the four diagonals, empty only.'
-        : 'Moves 1 square in any direction, empty squares only.';
-      let take: string;
-      if (r.beastCapture === 'diagForward') take = 'Takes on either forward diagonal.';
-      else if (r.beastCapture === 'diagonal') take = 'Takes on any of the four diagonals.';
-      else take = r.beastCaptureForward
-        ? 'Takes on any adjacent square.'
-        : 'Takes on any adjacent square but straight ahead.';
-      return {
-        moves: step,
-        captures: take,
-        special: r.beastChains ? 'May keep capturing from each new square (never a king as a continuation). Click victims in order; "Finish chain" ends early.' : 'One capture per turn.',
-      };
-    }
-    case O: {
-      const shove = r.ogreMode === 'push'
-        ? 'Push: the ogre steps into the square the neighbour left.'
-        : 'Repel: the neighbour moves away and the ogre stays.';
-      return {
-        moves: 'Moves 1 square in any direction.',
-        captures: 'Takes by moving onto the enemy (a guard excepted).',
-        special: `Instead it may shove an adjacent piece 1 square away. Tap the neighbour; choose Capture or Push when both are legal. Shift-click is a push shortcut. ${shove} Kings are never shoved. Guards can be shoved. A shove is not a capture.`,
-      };
-    }
-    case C:
-      return {
-        moves: 'Moves like a rook and never takes by moving.',
-        captures: 'Lobs along a rank or file over one enemy screen and takes the first piece beyond it.',
-        special: '',
-      };
-    case V:
-      return {
-        moves: 'Moves like a knight. After a capture it may step one square onto an empty square as part of the same move.',
-        captures: 'Takes like a knight; the step after never captures.',
-        special: 'Click the victim, then the landing square.',
-      };
-    case T:
-      return {
-        moves: 'Moves 1 square in any direction; on a capital square (d4 e4 d5 e5) it moves and captures like a queen.',
-        captures: 'Takes by moving onto the enemy.',
-        special: '',
-      };
-    default:
-      return { moves: '', captures: '', special: '' };
-  }
 }
 
 /** Painted figures cut from the board's sheets (docs/visual-design/make-ui-art.py); none for the lab pieces. */
@@ -558,18 +426,7 @@ function drawMarks(): void {
 }
 new ResizeObserver(() => drawMarks()).observe($('board'));
 
-/** Why a tap on `to` did not play a move for the piece on `from` (only exported engine functions). */
-function whyNot(from: number, to: number): string {
-  const pos = game.pos, mover = pos.board[from], name = NAMES[typeOf(mover)], target = pos.board[to];
-  // Only the moves a click can reach (candidates()): an unarmed power move is not "a move into check".
-  const tag = armedTag();
-  if (pseudoMoves(pos).some(m => m.from === from && offered(m, tag) && clickPath(m)[0] === to)) {
-    return game.inCheck ? `Your king is in check, and that ${name} move does not stop it.` : `Not allowed: that ${name} move would leave your king in check.`;
-  }
-  if (target && typeOf(target) === G && colorOf(target) !== pos.turn && typeOf(mover) !== K) return 'Not allowed: a guard can only be taken by a king.';
-  const can = game.legal.some(m => m.from === from && offered(m, tag)) ? ' The marked squares show where it can go.' : '';
-  return `Not allowed: the ${name} cannot ${target ? `take the ${NAMES[typeOf(target)]} on` : 'reach'} ${sqName(to)}.${can}`;
-}
+const whyNot = (from: number, to: number): string => moveRefusal(game.pos, from, to, armedTag());
 
 /** The keyboard cursor's square and piece, for the screen reader. */
 function sayCursor(): void {

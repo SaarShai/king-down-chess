@@ -37,3 +37,9 @@ Blocked by: 04, 05 (`src/haptic.ts`), 08, 10
 - No fan of tiles at the square. Promotion stays a dialog.
 
 ## Comments
+
+### W4 phase 1
+
+- Build: keep today's refusal logic in the pure read module. Add the short Guard, Ice Wall, Holy Light, Mercy, Frozen, power, chain and check words.
+- Checks: the refusal tests, visual check and UI defect check pass. The check assertions use the new words.
+- Cut: refusal marks, motion and new choice controls. Phase 2 connects the chain words to the tap path.

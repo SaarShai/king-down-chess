@@ -9,7 +9,7 @@ import { contextText, focusBoard, leaveBoard, refusalText, waitForUi } from '../
 // White: king e1, pawn e4. Black: king e8, knight a6, pawn d5. The pawn can take d5, not the knight.
 const save = { back: '', fen: '4k3/8/n7/3p4/4P3/8/8/4K3 w - - 0 1', moves: [], white: 'human', black: 'ai', sound: false, skill: 'club' };
 const E2 = 12, E4 = 28, E5 = 36, D5 = 35, A6 = 40, E7 = 52, F7 = 53, B8 = 57;
-const cannot = /^Not allowed: the pawn cannot take the knight on a6\./m;
+const cannot = /^The pawn cannot take the knight on a6\./m;
 
 export default async function ({ open }) {
   for (const size of ['desktop', 'phone']) {
@@ -59,8 +59,8 @@ export default async function ({ open }) {
 
   // A drag is a move attempt: a drop on an enemy piece that the piece cannot take keeps the reason.
   const drops = [
-    ['4k3/p7/8/8/8/2n5/P7/2B1K3 w - - 0 1', 2, 18, /^Not allowed: the bishop cannot take the knight on c3\./m],
-    ['4k3/4r3/8/8/8/3n4/4B3/4K3 w - - 0 1', 12, 19, /^Your king is in check, and that bishop move does not stop it\./m],
+    ['4k3/p7/8/8/8/2n5/P7/2B1K3 w - - 0 1', 2, 18, /^The bishop cannot take the knight on c3\./m],
+    ['4k3/4r3/8/8/8/3n4/4B3/4K3 w - - 0 1', 12, 19, /^That leaves your king in check\./m],
   ];
   for (const [fen, from, to, why] of drops) {
     const { page, close } = await open({ save: { ...save, fen } });

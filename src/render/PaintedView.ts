@@ -144,7 +144,7 @@ export class PaintedView implements BoardView {
     this.container.classList.toggle('king-in-check', h.check != null);
     this.scene.setSelected(h.selected ?? null);
     // A new selection (or new targets) pops its markers in, rippling out from the piece.
-    const key = [h.selected, h.moves, h.captures, h.swaps, h.shoves, h.powers].map(l => String(l ?? '')).join('|');
+    const key = [h.selected, h.moves, h.captures, h.swaps, h.shoves, h.powers, h.shoveTo?.map(s => `${s.from}:${s.to}`), h.bites].map(l => String(l ?? '')).join('|');
     if (key !== this.marksKey) {
       this.marksKey = key; this.marksSince = performance.now();
       if (this.motion()) this.scene.keepAwake(POP_MS + 12 * RIPPLE_MS + 50);
