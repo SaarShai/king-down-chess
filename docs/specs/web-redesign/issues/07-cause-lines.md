@@ -1,41 +1,61 @@
-# 07 · Check and shots show their cause; all sounds in one key
+# 07 · Check shows its cause
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
-Blocked by: 03, 05 (`src/haptic.ts`)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
+Blocked by: none
 
 ## Scope
 
-- Owner choices: Their turn A (every check gets its cause line, an ember ring on your king and one low note; no red flash); Your move A (a cause line for a take with no contact); Warm joy, with the path step "Rewind undo; the tell; sounds in one key".
-- Demo: `feat-their-turn-check` (`checkers` 91–102, `checkLine` 114–123, `drawCause` 163–191, `emberRing` 194–207, `showCheck` 210–219, `shotCause` 325–328).
-- Files: `src/move-text.ts` (`checkersOf`) and test; `src/render/renderer.ts` (`Highlights.check` with the checkers, an optional `lastCause`); `src/render/PaintedView.ts` (`drawMarks`); a pure motion module for the ring and line timing (spec rule 8); `src/main.ts` (`refresh`, `commit`, the context words; call lines only); `src/render/sfx.ts` (the low note, one key) and a test; `src/haptic.ts` (a pulse on check); new `tools/verify-their-turn.mjs`.
+- Owner choice: Their turn A, The tell (spec §1.1). The fast plan keeps the check causes below.
+- Demo: `feat-their-turn-check`. Reuse its cause words and still marks with the real engine.
+- Files: `src/move-text.ts`, `src/context-line.ts`, `src/ui/table.ts`, both board views, `src/render/sfx.ts` and their tests. Keep `src/main.ts` changes to calls. Add `tools/verify-their-turn.mjs`.
 
 ## Plan
 
-1. [ ] `checkersOf(pos)` (pure, beside `threatsIn`): the pieces that give check now, each with its path kind (straight, or an arc for a knight, a leap or an Archer shot over pieces). A frozen piece still counts. It must agree with `inCheck` under every rule flag.
-2. [ ] Replace the red ellipse under the king with an ember ring (a bloom of 380 ms, then still) and a thin ember line (`#c4501f`, drawn on in 280 ms) from each checker to the king, above all figures. Both show only after the move lands, and stay while the player reads or selects.
-3. [ ] For a shot, a Death Touch take, a Strike capture and a lob, a thin line from the shooter to the taken square stays with the last-move wash until the next move. It follows the shown ply in review and clears on Undo. A check line draws over a shot line.
-4. [ ] Words: when the active side is in check and nothing is staged, the context line says "Check! Your move." and the cause on its second line ("Their archer can shoot over f2.", "Strike moved their archer to shoot over f2.", "Their knight attacks your king."). The cause words come from `checkersOf` and the rules in force (spec rule 11). A double check names both pieces. A staged check uses the words of spec §4.9.
-5. [ ] Sound: the check note moves from the launch of the move to its landing, and becomes one low note (a triangle from 110 to 98 Hz with 220 Hz). One short vibration pulse.
-6. [ ] All sounds in one key: tune the pitched part of every sound in `SOUNDS` (move, capture, check, shove, shot, chain, swap) to the notes of one key that holds the check note (for example A minor). The noise parts do not change. Keep each sound's character and length.
-7. [ ] Motion Off and reduced motion: the line and the ring show at once.
+1. [x] Add pure `checkersOf(pos)` beside `threatsIn`. Return each checker, its king and its path. Count frozen pieces. Compare with `inCheck` under the powers rules.
+2. [x] Show a still ember ring and thin cause lines above the figures. Show them at landing. Keep them during a read or selection.
+3. Cut shot lines for takes with no contact.
+4. [x] Add cause words on the second context row. Name an Archer's screen, a knight, both checkers and a checker moved by Strike. Keep staged-turn words above the cause.
+5. [x] Play one low check note at landing: a triangle from 110 to 98 Hz with 220 Hz. Add no vibration.
+6. Cut changes to the other sounds.
+7. [x] With Motion Off or reduced motion, show the still marks at once.
 
 ## Verification
 
-- [ ] `src/move-text.test.ts`: `checkersOf` agrees with `inCheck` on positions from random legal games under the powers rules and the flags `paladinChecks`, `archerChecks`, Holy Light and Darkness, and under each Archer reading; a frozen checker counts; a double check gives two; a discovered check names the real checker.
-- [ ] A sound test: each pitched tone in `SOUNDS` starts and ends on a note of the chosen key.
-- [ ] Node test of the ring and line timing module.
-- [ ] New check `their-turn` (part 1): after a checking move lands, the highlights hold the checkers and the ring; no line during the animation; the line clears after Undo; the shot line follows review; a staged check shows the staged words, not "Check! Your move."
-- [ ] `npm test`, `npm run check:browser` and `plugin-ui` pass. Record the plugin page size. The plugin session knows before the pull request.
-- [ ] Rendered sample, 390×844 and 1440×900: an Archer check over pieces; a knight check (arc); a double check; a shot capture line; check while a piece is selected. One phone video with sound: a move, a capture, a check, a shot and a bite chain. The owner's yes, with the date, in Comments.
+- [x] `src/move-text.test.ts`: seeded legal games under powers rules and the current Archer reading. Cover rule flags, Holy Light, Darkness, a frozen checker, double check and discovered check.
+- [x] Pure cause and context tests: name the actual checkers. Keep the cause out of staged turns, reads and selections.
+- [x] Sound test: the low note has the required tones at one start time.
+- [x] `their-turn`: ring and lines at landing, staged check words, Undo clears marks. Run twice after the final merge.
+- [x] `npm test`, typecheck and touched browser checks pass. Both plugin checks pass. Record the page size below.
+- [x] Render three stills at 390×844 and 1440×900. Inspect both contact sheets. The sample waits for the owner's yes.
 
 ## Risks
 
-- A wrong `checkersOf` draws a line to no checker. The corpus test guards it.
-- A line across figure faces: keep it thin, with a halo.
-- A retuned sound can lose its character; the video lets the owner hear it.
+- A wrong checker gives a false cause line. The corpus test guards it.
+- A line across a figure can hide detail. Keep it thin, with a light halo.
 
 ## Does not do
 
-- No tell (13), no red flash, no king shake.
+No bloom, draw-on, timing module, shot lines, vibration, other sound changes or video. No tell (13), red flash or king shake.
 
 ## Comments
+
+W5 is complete. The sample waits for review.
+- Cause words use W2's context line. Staged turns keep their words.
+- Checkers and still marks use the real engine. The low note plays at landing.
+- Cut bloom, timing, shot lines, vibration, other sound changes and video.
+- Test-first: cause and context tests fail, then pass. Typecheck and build pass.
+- `VITEST_MAX_WORKERS=2 npm test`: 83 files pass, 1 skips; 1,513 tests pass, 13 skip; 50 scene tests pass.
+- Browser: `their-turn` passes twice (5.1 s, 3.6 s). `turn`, `game-screen`, `painted-game`, `playable-clay`, `plugin-ui` and `plugin-ui-http` pass. The M1 runner selects its local fallback.
+- Plugin default stays. Phase 1: 4,291,869 → 4,292,443 bytes. After W2: 4,292,542 → 4,292,542 bytes.
+- `SAMPLE=W5`: six renders, no faults. Both contact sheets are clear. No video.
+- The review finds no work from the fast plan's cut list. W2 merges with both units' tests.
+
+## Integration
+
+Plan: merge W5 without a fast-forward, check the tree, then push the integration branch.
+Checks: no lost changes, no conflicts, and a passing pre-push test and gate.
+The owner asks for this merge and push. The starting branch is clean.
+The start is `dd3d7f67f53dadae04ff55331d39e4c7e817e95c`, an ancestor of W5.
+Merge `e71df1f2aee23972cab2bc5977bea050a8f51a52` has no conflicts.
+Its tree is the same as W5. The builder's full run above stands under the owner's rule.
+The push hook must pass before the branch goes to origin.

@@ -1,6 +1,6 @@
 # 09 · The refusal that teaches, and Take or Shove in the context line
 
-Status: wontfix (cut by the fast plan, fast-plan.md §2; the owner can bring it back)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
 Blocked by: 04, 05 (`src/haptic.ts`), 08, 10
 
 ## Scope
@@ -11,22 +11,23 @@ Blocked by: 04, 05 (`src/haptic.ts`), 08, 10
 
 ## Plan
 
-1. [ ] `whyNot` names each cause, in 8 words or fewer: a Guard ("Only a king can take a guard."); an Ice Wall ("Ice Wall: nothing can take it now."); Holy Light's shelter; Mercy's aura ("Only a pawn can take beside Mercy."); Haste or Strike, which take nothing; a frozen own piece ("Frozen: it cannot move this turn."); a bite chain never continues onto a king; a move into check ("That leaves your king in check."). The causes come from the rules in force.
-2. [ ] A refused tap keeps the selection. It draws a short mark on the square (a shield for every shelter: Guard, Ice Wall, Holy Light, Mercy; a plain cross for other refusals), nudges the selected figure for 260 ms, pulses once (`haptic`), and shows the `whyNot` words. When the tapped piece is an enemy that is not a target, the line also reads it (ticket 04).
-3. [ ] While a power is armed, a tap on a piece that is not a target keeps the power armed, reads the piece and says why ("A king cannot be frozen.").
-4. [ ] `scene.nudge(sq, ms)`: skipped with Motion Off and reduced motion.
-5. [ ] Take or Shove: when one target can be taken or shoved, the context line shows "Take or shove the guard?" with Take, Shove and Cancel, in place of the `#move-choice` dialog. While the choice is open, only these three act: the board, Undo, Z, the review keys and the coins take no input. Esc or Cancel keeps the position and the selection. A new game, a link or an account change cancels the choice and drops its result. The focus goes to Take, and back to the board after the choice.
-6. [ ] The promotion and Sacrifice dialogs stay.
+1. [x] Keep words only. `whyNot` gives short causes for Guard, Ice Wall, Holy Light, Mercy, Haste, Strike, Frozen, a king in a chain and check. It uses the rules in force.
+2. [ ] Cut: refusal marks, nudge and haptic. Kept selection and enemy reads belong to ticket 04.
+3. [ ] Cut: new armed-power refusal behavior.
+4. [ ] Cut: scene nudge and its motion module.
+5. [ ] Cut: Take or Shove in the context line. Keep today's choice dialog.
+6. [x] Keep promotion and Sacrifice dialogs.
 
 ## Verification
 
-- [ ] `src/why-not.test.ts`: one case for each cause of step 1.
-- [ ] Node test: the nudge timing ends at the rest pose.
-- [ ] A probe: a refusal at a Guard keeps the selection and shows "Only a king can take a guard."; a refusal at an Ice Wall and at a Holy Light shelter shows the shield; Take and Shove play the right moves; Cancel and Esc keep the position on touch and on the keyboard; Z and a board tap do nothing while the choice is open; a new game during the choice drops it; a choice after a staged free mark works.
-- [ ] The existing keyboard and stale-choice proofs in `tools/verify-special-moves.mjs` (line 87) stay, moved to the new choice.
-- [ ] The D-10 probes change (the selection now stays), with `Removed-check:` trailers.
-- [ ] `special-moves`, `npm test`, `npm run check:browser` and `plugin-ui` pass. Record the plugin page size.
-- [ ] Rendered sample, 390×844 and 1440×900: a Guard refusal; an Ice Wall refusal; a shelter refusal; Take, Shove and Cancel in the line. The owner's yes, with the date, in Comments.
+- [x] `src/read.test.ts` checks each refusal cause. No separate why-not module is added.
+- [ ] Cut: nudge timing and shelter mark tests.
+- [x] `special-moves` keeps the choice, keyboard and stale-choice proofs.
+- [x] D-10 keeps the selection after an enemy read. Changed assertions have `Removed-check:` trailers.
+- [x] `npm test` and all 13 named browser checks pass. Both plugin modes pass. The plugin page is 4,293,703 bytes.
+- [ ] Cut: separate refusal and inline choice sample states.
+- [x] The W4 read and verb sample is rendered and inspected at both sizes.
+- [ ] The owner's yes on the sample is pending.
 
 ## Risks
 
@@ -37,3 +38,12 @@ Blocked by: 04, 05 (`src/haptic.ts`), 08, 10
 - No fan of tiles at the square. Promotion stays a dialog.
 
 ## Comments
+
+- W4 wires read taps, I and All rules into W2's context line.
+- Legal reach, shove arrows and chosen bite numbers use pure models.
+- The fast plan cuts frozen probes, the tip, chain motion, Leap coins, the key line, hover words and refusal motion. The choice dialog stays.
+- `VITEST_MAX_WORKERS=1 npm test`: 87 files pass, 1 skips; 1,580 tests pass, 13 skip. All 50 scene tests pass. Type check passes.
+- All 13 named browser checks pass. `read-piece` and `verb-marks` each pass twice. The M1 script uses its local fallback.
+- Plugin page: 4,291,869 bytes before phase 1; 4,293,703 bytes now. Optional fields keep the default view.
+- `SAMPLE=W4`: 14 renders, 0 faults. Both contact sheets are inspected.
+- The sample waits for the owner's yes.

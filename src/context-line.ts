@@ -5,10 +5,11 @@ export type Voice = 'you' | 'White' | 'Black';
 export interface ContextState {
   voice: Voice;
   review?: string; result?: string; refusal?: string; link?: string;
-  armed?: PowerName; chain?: boolean; canStop?: boolean;
+  armed?: PowerName; armedLine?: string; chain?: boolean; canStop?: boolean;
   read?: string; readNote?: string; midWay?: boolean; free?: boolean;
-  selected?: string; stagedEnd?: string; waiting?: boolean; check?: boolean;
-  computer?: boolean; lesson?: string; lessonNote?: string; asset?: string;
+  powerUse?: boolean;
+  selected?: string; stagedEnd?: string; waiting?: boolean; check?: boolean; checkCause?: string;
+  computer?: boolean; lesson?: string; lessonNote?: string; lessonLearned?: string; asset?: string;
   turnLine?: string;
 }
 export interface ContextLine { rank: string; line: string; note: string; actions: string[] }
@@ -27,17 +28,18 @@ export function contextLine(s: ContextState): ContextLine {
       Haste: ['Move a piece.', 'It can move again.'],
     };
     const [instruction, cause] = words[s.armed] ?? ['Choose a piece, then a marked square.', ''];
-    return line('armed', instruction, cause);
+    return line('armed', s.armedLine || instruction, s.armedLine ? instruction : cause, ['power-cancel']);
   }
   if (s.chain) return line('chain', s.canStop ? 'Bite again, or stop here.' : 'Bite again.', s.readNote, s.canStop ? ['stop-chain'] : []);
-  if (s.read) return line('read', s.read, s.readNote);
+  if (s.read) return line('read', s.read, s.readNote, s.powerUse ? ['power-use'] : []);
   if (!s.lesson && s.midWay) return line('mid-way', s.turnLine || (s.free ? 'Make your move, or tap End turn.' : 'Move it again, or tap End turn.'));
   if (s.selected) return line('selected', s.selected, s.readNote);
   if (!s.lesson && s.stagedEnd) return line('staged-end', s.turnLine || `${s.stagedEnd} Tap End turn to finish.`);
   if (!s.lesson && s.waiting) return line('waiting', s.turnLine || `${s.check ? 'Check. ' : ''}Your turn is ready.`, s.turnLine ? '' : 'Tap End turn, or Undo.');
-  if (!s.lesson && s.check) return line('check', s.voice === 'you' ? 'Check! Your move.' : `Check! ${s.voice} to move.`);
+  if (!s.lesson && s.check) return line('check', s.voice === 'you' ? 'Check! Your move.' : `Check! ${s.voice} to move.`, s.checkCause);
   if (!s.lesson && s.computer) return line('computer', 'Their move.');
   if (s.lesson) {
+    if (s.lessonLearned) return line('lesson', `${s.lessonLearned} learned.`);
     const task = s.lessonNote || s.lesson, end = task.indexOf('. ');
     return line('lesson', end < 0 ? task : task.slice(0, end + 1), end < 0 ? '' : task.slice(end + 2));
   }

@@ -1,6 +1,6 @@
 // W1: the real turn press, its Undo floor and the guarded link send.
 import assert from 'node:assert/strict';
-import { confirmResign, endTurn, lanMoves, pressMenu, setPace, waitForUi } from './app-ui.mjs';
+import { usePower, startLesson, confirmResign, endTurn, lanMoves, setPace, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -40,7 +40,7 @@ try {
 
     await open('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', '?kings=frost:freeze,none');
     await setPace(page, 'normal');
-    await page.click('#power-btn'); await tap('d5'); await move('a2', 'a3');
+    await usePower(page); await tap('d5'); await move('a2', 'a3');
     await page.evaluate(() => { document.getElementById('undo').click(); document.getElementById('undo').click(); });
     await waitForUi(page, ui => ui.lan.length === 0 && !window.view.scene.animating);
     assert.equal(await page.evaluate(() => window.view.pos.board[8]), 1, 'two presses put the pawn back');
@@ -91,15 +91,15 @@ try {
     console.log('ok one device; next side waits and Undo takes one ply');
 
     await open('7k/p7/8/8/8/8/8/R5K1 w - - 0 1', '?kings=flame:haste,none');
-    await page.click('#power-btn'); await move('a1', 'a4'); await endTurn(page);
+    await usePower(page); await move('a1', 'a4'); await endTurn(page);
     assert.deepEqual(await lanMoves(page), ['Ra1-a4!H', '--']);
     console.log('ok Haste press records the pass');
 
     await open('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1', '?kings=frost:freeze,none');
-    await page.click('#power-btn'); await tap('d5'); await move('a2', 'a3');
+    await usePower(page); await tap('d5'); await move('a2', 'a3');
     await undo(); assert.deepEqual(await lanMoves(page), ['!F:d5']);
     await undo(); assert.deepEqual(await lanMoves(page), []);
-    await page.click('#power-btn'); await tap('d5'); await move('a2', 'a3'); await endTurn(page);
+    await usePower(page); await tap('d5'); await move('a2', 'a3'); await endTurn(page);
     assert.deepEqual(await lanMoves(page), ['!F:d5', 'a2-a3']);
     assert.equal(await undoOff(), 'true');
     console.log('ok free Freeze, move, one-ply Undo and press');
@@ -109,7 +109,7 @@ try {
       ['4k3/8/8/2pn4/2O5/8/8/4K3 w - - 0 1', 'c4', 'c5', '#move-choice', '#cancel-choice'],
     ]) {
       await open(fen, '?kings=frost:freeze,none');
-      await page.click('#power-btn'); await tap('d5');
+      await usePower(page); await tap('d5');
       assert.equal(await undoOff(), 'false');
       await move(from, to); await page.locator(dialog).waitFor({ state: 'visible' });
       assert.equal(await undoOff(), 'true', 'Undo is off during the choice');
@@ -137,13 +137,13 @@ try {
     console.log('ok staged Resign drops the turn and gives up White');
     await page.keyboard.press('Escape');
 
-    await open(); await pressMenu(page, 'Guide'); await page.click('#learn');
+    await open(); await startLesson(page);
     assert.equal(await page.isHidden('#end-turn'), true);
     assert.equal(await page.isHidden('#undo'), true);
     await page.click('#show-me');
     await page.waitForFunction(() => window.view.marks.hint.length > 0 && !document.getElementById('show-me').disabled);
     assert.deepEqual(await page.evaluate(() => window.view.marks.hint), [27, 36]);
-    await move('d4', 'e5'); await waitForUi(page, ui => /Well done/.test(ui.context));
+    await move('d4', 'e5'); await waitForUi(page, ui => !!ui.lessonLearned);
     console.log('ok Show me marks the lesson goal');
   } else {
     // An opened link plays Black. Stub only the browser share/copy boundary.
@@ -192,7 +192,7 @@ try {
       window.sent = [];
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async url => { window.sent.push(url); } } });
     });
-    await page.click('#power-btn'); await move('a8', 'a5'); await endTurn(page);
+    await usePower(page); await move('a8', 'a5'); await endTurn(page);
     assert.equal(new URL(await page.evaluate(() => window.sent[0])).searchParams.get('moves'), 'Kh1-g1_Ra8-a5!H_--');
     assert.deepEqual(await lanMoves(page), ['Kh1-g1', 'Ra8-a5!H', '--']);
     console.log('ok mid-Haste send includes and commits the pass');

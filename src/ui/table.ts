@@ -1,17 +1,35 @@
 import { contextLine, type ContextState } from '../context-line';
+import { LESSONS } from '../lessons';
 import { type Game, type Side } from '../game';
-import { describeMove } from '../move-text';
+import { checkCause, describeMove } from '../move-text';
 import { pieceIcon } from '../piece-icons';
-import { type Color, type PieceType, type Rules, colorOf, typeOf } from '../rules/engine';
+import { type Color, type PieceType, type Rules, type Position, NAMES, colorOf, typeOf } from '../rules/engine';
+import { readText } from '../read';
 import type { SkillName } from '../ai/skill';
 import { turnLine, type Mode, type Turn } from '../turn';
+import type { CoinContext } from './powers';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 const text = (id: string): string => $(id).textContent?.trim() ?? '';
-let read = '', readNote = '';
+let read = '', readNote = '', reading = false;
 let thinkingAt = 0, thinkTimer: ReturnType<typeof setTimeout> | undefined;
 
-export function readPiece(title: string, words = ''): void { read = title; readNote = words; }
+export function readPiece(pos: Position, sq: number | null, inspecting: boolean): void {
+  const code = sq == null ? 0 : pos.board[sq];
+  const [line = '', states = ''] = sq == null ? [] : readText(pos, sq).split('\n');
+  read = code ? `${colorOf(code) ? 'Black' : 'White'} ${NAMES[typeOf(code)]}.${states ? ` ${states}` : ''}` : '';
+  readNote = line.split(' · ')[1] ?? '';
+  reading = inspecting;
+  const button = $('all-rules');
+  button.hidden = !code;
+  button.onclick = () => {
+    $('rules-btn').click();
+    const card = document.querySelector<HTMLElement>(`#rules [data-piece="${NAMES[typeOf(code)]}"]`);
+    card?.setAttribute('tabindex', '-1');
+    card?.focus();
+    card?.scrollIntoView({ block: 'center' });
+  };
+}
 
 export function initTable(back: () => void): void {
   const sheet = $<HTMLDialogElement>('sheet-moves');
@@ -24,10 +42,11 @@ export function initTable(back: () => void): void {
 
 export interface TableState {
   game: Game; sides: readonly Side[]; skill: SkillName; rules: Rules;
-  flipped: boolean; thinking: boolean; viewing: number | null; lesson: number | null;
+  flipped: boolean; thinking: boolean; viewing: number | null; lesson: number | null; lessonDone: boolean;
   notice: string; armed: boolean; selected: number | null; pending: readonly number[];
   linkSide: Color | null; reviewNote: string;
   turn: Turn; mode: Mode;
+  power?: CoinContext;
 }
 
 export function refreshTable(s: TableState): void {
@@ -65,21 +84,25 @@ export function refreshTable(s: TableState): void {
   const status = text('status');
   const state: ContextState = {
     voice: s.sides.includes('ai') || s.linkSide != null ? 'you' : liveSide ? 'Black' : 'White',
-    review: s.viewing != null ? `Review. ${read || (s.viewing === 0 ? 'The start.' : `Move ${s.viewing}.`)}` : '',
+    review: s.viewing != null ? `Review. ${s.power?.read || read || (s.viewing === 0 ? 'The start.' : `Move ${s.viewing}.`)}` : '',
     result: status && status !== 'thinking…' ? status : '', refusal: s.notice,
     armed: s.armed ? s.rules.kings[s.game.pos.turn]?.power : undefined, chain: !!s.pending.length, canStop: !$('stop-chain').hidden,
-    read: s.selected == null ? read : '',
-    readNote: s.selected != null ? text('move-help') : s.viewing != null && !read ? s.reviewNote : readNote,
+    read: s.power?.read || (reading || s.selected == null ? read : ''),
+    readNote: s.power?.read ? s.power.note : s.viewing != null && !read ? s.reviewNote : readNote,
+    armedLine: s.power?.armedLine, powerUse: s.power?.use,
     midWay: s.game.pos.haste !== undefined || !!s.game.pos.free,
     free: !!s.game.pos.free,
     selected: s.selected == null ? '' : read,
     waiting: s.turn.waits, check: s.game.inCheck, computer: s.sides[s.game.pos.turn] === 'ai',
+    checkCause: s.game.inCheck && !s.turn.staged ? checkCause(s.game.pos, history.at(-1)?.move) : '',
     turnLine: turnLine(s.game, s.turn, s.mode),
     stagedEnd: s.turn.staged && s.game.status !== 'playing' ? s.game.status === 'checkmate' ? 'Checkmate.' : 'Draw.' : '',
     lesson: s.lesson == null ? '' : text('turn'), lessonNote: s.lesson == null ? '' : text('moment'),
+    lessonLearned: s.lessonDone && s.lesson != null ? LESSONS[s.lesson].name : '',
     link: s.linkSide != null && s.game.pos.turn !== s.linkSide && !s.turn.waits ? "Wait for your friend's link." : '',
     asset: text('asset-status'),
   };
+  $('all-rules').hidden ||= !!s.pending.length;
   const line = contextLine(state);
   $('context-text').replaceChildren(...[line.line, line.note].filter(Boolean).map(words => {
     const row = document.createElement('span');
@@ -88,6 +111,9 @@ export function refreshTable(s: TableState): void {
   }));
   $('context-text').dataset.rank = line.rank;
   $('back-to-game').hidden = s.viewing == null;
+  $('power-use').hidden = !line.actions.includes('power-use');
+  $('power-use').setAttribute('aria-disabled', String(!s.power?.use));
+  $('power-cancel').hidden = !line.actions.includes('power-cancel');
   const resign = $<HTMLButtonElement>('resign');
   resign.setAttribute('aria-disabled', String(resign.disabled));
   resign.disabled = false;

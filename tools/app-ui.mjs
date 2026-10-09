@@ -9,6 +9,24 @@ export function menuItem(page, name) {
   return page.locator(MENU[name]);
 }
 
+/** The first visit has one Start. A returning game opens Home. */
+export function titleStart(page) {
+  return page.locator('#title-start:visible, #title-play:visible, #home-new:visible').first();
+}
+
+/** Learn opens from Guide after the first deal; a returning title still has Learn. */
+export function arriveContinue(page) {
+  return page.locator('#home-main:visible, #title-continue:visible').first();
+}
+
+export async function learnFromTitle(page, { tap = false } = {}) {
+  const learn = page.locator('#title-learn');
+  if (await learn.isVisible()) { await (tap ? learn.tap() : learn.click()); return; }
+  if (!await page.locator('#home-head').isVisible()) await (tap ? titleStart(page).tap() : titleStart(page).click());
+  await page.waitForFunction(() => !document.getElementById('title-screen').open);
+  await startLesson(page, 'Archer', { tap });
+}
+
 export async function openMenu(page, options = {}) {
   const { tap = false, ...press } = options;
   if (await page.evaluate(() => document.getElementById('menu-sheet').open)) await page.locator('#menu-close').click(press);
@@ -27,9 +45,20 @@ export async function pressMenu(page, name, { tap = false, ...press } = {}) {
   await (tap ? item.tap(press) : item.click(press));
 }
 
+/** A named figure starts the same lesson even when another figure is Next. */
+export async function startLesson(page, name = 'Archer', { tap = false } = {}) {
+  await pressMenu(page, 'Guide', { tap });
+  const figure = page.locator(`#lesson-shelf .shelf-piece[data-piece="${name.toLowerCase()}"]`);
+  await (tap ? figure.tap() : figure.click());
+}
+
 export async function openExtra(page) {
   await openMenu(page);
   await page.locator('[data-go="extra"]').click();
+}
+export async function openTricks(page) {
+  await openExtra(page);
+  await page.locator('[data-go="tricks"]').click();
 }
 export async function openAccount(page) {
   await openExtra(page);
@@ -92,6 +121,21 @@ export async function endTurn(page, { keyboard = false } = {}) {
   else await page.click('#end-turn');
 }
 
+export const powerCoin = (page, side) => page.locator(side ? `#power-${side}` : '.player-strip.is-turn .coin');
+/** An off coin still reads. Use is a separate control. */
+export const readPower = (page, side) => powerCoin(page, side).click({ force: true });
+export async function usePower(page) {
+  await readPower(page);
+  await page.locator('#power-use').click();
+}
+export const powerButtonText = page => powerCoin(page).getAttribute('aria-label');
+export const powersHidden = async page => await page.locator('.coin').count() === 0;
+/** The board's arrow keys move its cursor. Review arrows start outside the board. */
+export async function previousReview(page) {
+  await page.locator('#back-to-game').focus();
+  await page.keyboard.press('ArrowLeft');
+}
+
 /**
  * What the readouts show, read in the page. Playwright sends the source of this function to the page,
  * so it uses nothing from this module.
@@ -106,11 +150,13 @@ export function readUi() {
   const lan = row => row.dataset.lan; // a key moment adds ? or ?? to its row
   const moves = element('moves'), rows = [...moves.querySelectorAll('[data-ply]')];
   const status = text('status'), thinking = status === 'thinking…';
+  const context = (element('context-text').innerText ?? element('context-text').textContent).trim();
   return {
     lan: rows.map(lan),
     turns: [...moves.querySelectorAll('li')].map(li => [...li.querySelectorAll('[data-ply]')].map(lan)),
     marks: rows.map(row => row.dataset.mark),
-    context: (element('context-text').innerText ?? element('context-text').textContent).trim(),
+    context,
+    lessonLearned: context.match(/^([A-Za-z]+) learned\.$/m)?.[1] ?? '',
     refusal: text('move-help'),
     thinking,
     result: thinking ? '' : status,
@@ -184,3 +230,6 @@ export async function workshopCardText(page) {
   if (await page.locator('#workshop .ws-save-state').count()) selectors.push('.ws-save-state');
   return selectors;
 }
+
+/** The read line opens the Guide at the piece. */
+export const openPieceRules = page => page.locator('#all-rules').click();

@@ -1,7 +1,7 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
+import { startLesson, confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = new URL(env('PLAYABLE_URL'));
@@ -243,14 +243,14 @@ try {
   // taken back; the saved game stays as it was.
   {
     const before = await page.evaluate(() => localStorage.getItem('kingdown.save'));
-    await pressMenu(page, 'Guide'); await page.click('#learn');
+    await startLesson(page);
     /** The lesson's verdict line in the words beside the board, or ''. */
-    const verdict = text => text.split('\n').find(t => /^(Well done|Not quite)/.test(t)) ?? '';
+    const verdict = text => text.split('\n').find(t => /(?:learned\.$|^Not quite)/.test(t)) ?? '';
     const play = async squares => {
       const prev = verdict(await contextText(page));
       for (const sq of squares) { const p = await at(sq); await page.mouse.click(p.x, p.y); }
       if (await page.evaluate(() => document.getElementById('move-choice').open)) await page.click('#choose-push');
-      await waitForUi(page, (ui, prev) => { const t = ui.context.split('\n').find(t => /^(Well done|Not quite)/.test(t)) ?? ''; return t && t !== prev && !window.view.scene.animating; }, prev);
+      await waitForUi(page, (ui, prev) => { const t = ui.context.split('\n').find(t => /(?:learned\.$|^Not quite)/.test(t)) ?? ''; return t && t !== prev && !window.view.scene.animating; }, prev);
     };
     await play([27, 35]); // the Archer steps instead of shooting
     assert.match(await contextText(page), /^Not quite/m);
@@ -259,7 +259,7 @@ try {
     for (const [i, squares] of steps.entries()) {
       assert.match(await page.textContent('#turn'), new RegExp(`Lesson ${i + 1} of 6`));
       await play(squares);
-      assert.match(await contextText(page), /^Well done/m, `lesson ${i + 1}`);
+      assert.equal(await contextText(page), `${['Archer', 'Guard', 'Maester', 'Beast', 'Ogre', 'Paladin'][i]} learned.`, `lesson ${i + 1}`);
       assert.equal(await page.isVisible('#next-lesson'), true);
       if (i < 5) await page.click('#next-lesson');
     }

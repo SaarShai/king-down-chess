@@ -32,14 +32,21 @@
     <main id="game-table" aria-label="Game">
       <div id="board" tabindex="0" role="application" aria-roledescription="chess board" aria-label="Board. Arrow keys move the square cursor; Enter or Space selects and moves." aria-describedby="cursor-say"></div>
       <div class="table-side">
+        <header id="home-head" data-home-part hidden><h1 class="wordmark"><span class="wm-king">King</span> <span class="wm-down">Down</span></h1></header>
+        <div id="home-meta" data-home-part hidden><b id="home-opponent"></b><span id="home-progress"></span><span id="home-result" hidden></span></div>
+        <div id="home-actions" data-home-part hidden><button id="home-main" class="primary"><span class="label">Continue</span><span id="home-detail"></span></button><button id="home-new">New game</button></div>
+        <div id="home-space" data-home-part hidden><button id="home-review" hidden>Review last game</button></div>
+        <button id="home-today" data-home-part hidden><span id="home-date"></span><span id="home-army" aria-hidden="true"></span><span class="chevron" aria-hidden="true">›</span></button>
         <div id="strip-them" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span><div id="lesson-progress" hidden aria-hidden="true"></div></div>
         <div class="table-space"></div>
         <div id="strip-me" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span>
-          <div id="powers" hidden><div class="btns"><button id="power-btn" type="button"></button></div></div>
         </div>
         <div id="context-line">
           <div id="context-text" role="status" aria-live="polite" aria-atomic="true"></div>
           <div id="context-actions">
+            <button id="all-rules" hidden>All rules</button>
+            <button id="power-use" hidden>Use</button>
+            <button id="power-cancel" hidden>Cancel</button>
             <button id="back-to-game" hidden>Back to game</button>
             <div id="selection-actions" hidden><button id="stop-chain" hidden>Stop here</button></div>
           </div>
@@ -51,10 +58,10 @@
           <button id="return-game" hidden>Return to game</button>
           <button id="show-me" hidden>Show me</button>
           <button id="next-lesson" hidden></button>
-          <button id="menu-btn" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Menu</span></button>
+          <button id="menu-btn" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span id="menu-seal-dot" aria-hidden="true" hidden></span><span class="label">Menu</span></button>
         </nav>
       </div>
-      <div id="table-sources" hidden><div id="turn"></div><div id="status"></div><div id="asset-status">Loading pieces…</div><div id="move-help"></div><div id="moment"></div><div id="power-status"></div><div id="hover"></div></div>
+      <div id="table-sources" hidden><div id="turn"></div><div id="status"></div><div id="asset-status">Loading pieces…</div><div id="move-help"></div><div id="moment"></div><div id="hover"></div></div>
     </main>
     <dialog id="sheet-moves" aria-labelledby="moves-title">
       <header class="sheet-head"><h2 id="moves-title">Moves</h2><form method="dialog"><button aria-label="Close Moves">×</button></form></header>
@@ -98,6 +105,7 @@
       <div class="title-copy">
         <h1 id="title-word" class="wordmark"><svg class="wordmark-crown" aria-hidden="true"><use href="#i-crown"/></svg><span class="wm-king">King</span> <span class="wm-down">Down</span><span class="wm-chess">Chess</span></h1>
         <div class="title-actions">
+          <button id="title-start" class="primary" hidden>Start</button>
           <button id="title-continue" class="primary" hidden><svg class="icon" aria-hidden="true"><use href="#i-continue"/></svg><span class="label">Continue</span></button>
           <button id="title-learn"><svg class="icon" aria-hidden="true"><use href="#i-learn"/></svg><span class="label">Learn the pieces</span></button>
           <button id="title-play"><svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span class="label">Play</span></button>
@@ -199,6 +207,7 @@
       </section>
       <section data-menu-page="extra" hidden>
         <h3>Play and make</h3>
+        <button id="tricks-row" class="menu-row" data-go="tricks" hidden>Tricks<span>The tricks you find get seals.</span><i>›</i></button>
         <button id="today-army" class="menu-row">Today's army<i>›</i></button>
         <button id="workshop-btn" class="menu-row"><img class="menu-fox" src="./ui/workshop/fox-pathfinder-w.webp" alt="" />Workshop<span>Make your own piece.</span><i>›</i></button>
         <h3>Board and game</h3>
@@ -208,6 +217,7 @@
         <button id="reset-view">Reset view (R)</button>
         <h3>Coming</h3><p class="coming-row"><b>Card mode</b><br>A hand of power cards.</p>
       </section>
+      <section data-menu-page="tricks" hidden><p>Each trick you find gets a seal.</p><ul id="tricks-list"></ul></section>
       <section data-menu-page="game" hidden><div class="row">Army <code id="setup"></code></div><button id="copy" title="Copy the move list as LAN">Copy moves</button></section>
       <section data-menu-page="account" hidden><section id="account" aria-labelledby="account-title" hidden><h3 id="account-title">Account</h3><div id="account-body" class="fields"></div><p id="account-note" role="status" aria-live="polite"></p></section></section>
       <section data-menu-page="resign" hidden><h3>Lay your king down?</h3><p id="resign-detail"></p><button id="resign-confirm" class="primary">Resign</button><button data-go="menu">Keep playing</button></section>
@@ -236,17 +246,15 @@
       <button id="cancel-promo" class="quiet">Cancel</button>
     </dialog>
     <dialog id="rules" aria-labelledby="rules-title">
-      <h2 id="rules-title" tabindex="-1" autofocus>King Down pieces</h2>
-      <button id="learn" class="learn primary"><svg class="icon" aria-hidden="true"><use href="#i-learn"/></svg><span class="label">Learn the six King Down pieces by playing, one move each</span></button>
+      <header class="lesson-guide-head"><h2 id="rules-title" tabindex="-1" autofocus>Guide</h2><form method="dialog"><button aria-label="Close Guide">×</button></form></header>
+      <div id="lesson-shelf"></div>
       <p id="rules-lead"></p>
       <div id="rules-rows" class="piece-cards"></div>
       <p id="rules-letters"></p>
       <p id="rules-notation"></p>
       <h3>Kings' powers</h3>
-      <p id="powers-guide">In <b>New game</b>, choose <b>Kings' powers</b>: each king brings one power. Spend a power with the
-        <b>Use</b> button under the board: it lights the pieces or squares the power can reach.</p>
+      <p id="powers-guide">Choose <b>Kings' powers</b> in <b>New game</b>.<br>Tap a king's coin to read its power.<br>Tap <b>Use</b>, then a marked piece or square.</p>
       <ul id="powers-list"></ul>
-      <form method="dialog"><button>Close</button></form>
     </dialog>
     <dialog id="over" aria-labelledby="over-title" aria-describedby="over-detail">
       <!-- The kings that played (main.ts showOver); Spirit and Shadow, the kings without powers, until then. -->

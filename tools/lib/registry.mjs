@@ -6,11 +6,16 @@
 // faults that prove the runner: selftest-dirty writes a scratch file into the checkout, selftest-fail
 // fails, selftest-hang never ends.
 export const checks = [
+  { name: 'read-piece', script: 'tools/verify-read-piece.mjs', limit: 180 },
+  { name: 'verb-marks', script: 'tools/verify-verb-marks.mjs', limit: 180 },
+  { name: 'lessons', script: 'tools/verify-lessons.mjs', limit: 180 },
   { name: 'turn', script: 'tools/verify-turn.mjs', limit: 180 },
   { name: 'end', script: 'tools/verify-end.mjs', limit: 180 },
+  { name: 'their-turn', script: 'tools/verify-their-turn.mjs', limit: 180 },
   { name: 'link-game', script: 'tools/verify-turn.mjs', args: ['link'], limit: 180 },
   { name: 'game-screen', script: 'tools/verify-game-screen.mjs', limit: 240 },
   { name: 'menu-extra', script: 'tools/verify-menu-extra.mjs', limit: 240 },
+  { name: 'home', script: 'tools/verify-home.mjs', limit: 180 },
   { name: 'account', script: 'tools/verify-account.mjs', limit: 180 },
   { name: 'cursor-adoption', script: 'tools/verify-cursor-adoption.mjs', limit: 240, channel: 'chromium' },
   { name: 'king-effects', script: 'tools/verify-king-effects.mjs', limit: 240 },

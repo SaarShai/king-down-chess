@@ -3,6 +3,33 @@ import { LESSONS } from './lessons';
 import { contextLine, type ContextState } from './context-line';
 
 describe('contextLine', () => {
+  it('offers Use only with a power read that can act', () => {
+    expect(contextLine({ voice: 'you', read: 'Freeze · 1 left', powerUse: true })).toMatchObject({
+      rank: 'read', line: 'Freeze · 1 left', actions: ['power-use'],
+    });
+    expect(contextLine({ voice: 'you', read: 'Holy Light · Always on' }).actions).toEqual([]);
+  });
+  it('names the armed power and gives Cancel', () => {
+    expect(contextLine({ voice: 'you', armed: 'Freeze', armedLine: 'Freeze · 1 left' })).toMatchObject({
+      rank: 'armed', line: 'Freeze · 1 left', note: 'Tap an enemy piece.', actions: ['power-cancel'],
+    });
+  });
+  it('names the learned piece instead of the lesson task', () => {
+    expect(contextLine({ voice: 'you', lesson: 'Lesson 1 of 6: Archer', lessonNote: 'Well done. A rule.', lessonLearned: 'Archer', waiting: true, check: true, checkCause: 'Their rook attacks your king.' })).toMatchObject({ rank: 'lesson', line: 'Archer learned.', note: '' });
+  });
+  it('shows the cause below an active check', () => {
+    expect(contextLine({ voice: 'you', check: true, checkCause: 'Their knight attacks your king.' }))
+      .toMatchObject({ rank: 'check', line: 'Check! Your move.', note: 'Their knight attacks your king.' });
+    expect(contextLine({ voice: 'White', check: true, checkCause: 'Their archer can shoot over e2.' }).note)
+      .toBe('Their archer can shoot over e2.');
+  });
+
+  it('keeps a check cause out of a staged turn, read or selection', () => {
+    for (const state of [{ waiting: true }, { stagedEnd: 'Checkmate.' }, { read: 'Black knight.' }, { selected: 'White king.' }]) {
+      expect(contextLine({ voice: 'you', check: true, checkCause: 'Their knight attacks your king.', ...state }).note).not.toContain('Their knight');
+    }
+
+  });
   it('at rest speaks to the player, or names the side on one device', () => {
     expect(contextLine({ voice: 'you' })).toMatchObject({ rank: 'your-move', line: 'Your move.', actions: [] });
     expect(contextLine({ voice: 'White' }).line).toBe('White to move.');
@@ -13,7 +40,7 @@ describe('contextLine', () => {
   });
   it('keeps a piece read above a mid-way turn', () => {
     expect(contextLine({ voice: 'you', read: 'Black archer.', midWay: true }).line).toBe('Black archer.');
-    expect(contextLine({ voice: 'you', selected: 'White ogre.', readNote: 'Tap a neighbour to push or capture.' }).note).toBe('Tap a neighbour to push or capture.');
+    expect(contextLine({ voice: 'you', selected: 'White ogre.', readNote: 'Tap a neighbour to shove or capture.' }).note).toBe('Tap a neighbour to shove or capture.');
   });
   it('keeps a refusal above a waiting turn', () => {
     expect(contextLine({ voice: 'you', refusal: 'Only a king can take a guard.', waiting: true }).line).toBe('Only a king can take a guard.');

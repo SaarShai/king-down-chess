@@ -4,7 +4,7 @@
 // Screenshots in PLAYABLE_OUT: desktop-computer.jpg, desktop-powers.jpg, phone-computer.jpg, phone-powers.jpg.
 // Run: npm run check:browser new-game (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
+import { powersHidden, startLesson, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, insideViewport, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 
@@ -131,7 +131,7 @@ try {
   let s = await saved(page);
   assert.deepEqual([s.white, s.black, s.skill, s.rules.kings], ['human', 'ai', 'club', [null, null]]);
   assert.match(s.back, /^[A-Z]{8}$/);
-  assert.equal(await page.isHidden('#powers'), true, 'no power bar');
+  assert.equal(await powersHidden(page), true, 'no power bar');
   await kingsDrawn(page, ['spirit', 'shadow']);
   ok('Play the computer: White against the Club computer, kings without powers, drawn as Spirit and Shadow');
 
@@ -262,7 +262,7 @@ try {
   assert.equal(await page.textContent('#start-game'), 'Start new game');
   await page.keyboard.press('Escape');
   assert.equal((await lanMoves(page)).length, 4, 'Close keeps the staged mate');
-  await pressMenu(page, 'Guide'); await page.click('#learn');
+  await startLesson(page);
   await pressMenu(page, 'New game');
   assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'the lesson keeps the staged game');
   await page.keyboard.press('Escape');

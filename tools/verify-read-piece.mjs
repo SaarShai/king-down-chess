@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import { contextText, focusBoard, leaveBoard, openPieceRules, lanMoves } from './app-ui.mjs';
+import { env, trapErrors, assertNoErrors } from './lib/checks.mjs';
+import { fixture } from './read-verb-fixture.mjs';
+const { page, seed, tap, marks, close } = await fixture(env('PLAYABLE_URL'));
+trapErrors(page);
+try {
+  await seed('7k/8/n7/8/4P3/8/8/K7 w - - 0 1');
+  await tap(40);
+  assert.equal(await page.evaluate(() => window.view.marks.read.step.has(57)), true, 'enemy read shows its real reach');
+  assert.match(await contextText(page), /Black knight/);
+  await tap(28);
+  assert.equal((await marks()).selected, 28);
+  assert.equal((await marks()).read, undefined, 'own selection shows only legal move marks');
+  assert.ok((await marks()).moves.includes(36));
+  await tap(40);
+  assert.equal((await marks()).selected, 28, 'a read keeps selection');
+  assert.match(await contextText(page), /cannot take the knight/);
+  await openPieceRules(page);
+  assert.equal(await page.locator('#rules').isVisible(), true);
+  assert.equal(await page.evaluate(() => document.activeElement?.closest('[data-piece]')?.dataset.piece), 'knight');
+  await page.keyboard.press('Escape');
+  await tap(40);
+  assert.equal((await marks()).read, undefined, 'same piece closes the read');
+  await focusBoard(page);
+  await page.keyboard.press('i');
+  assert.match(await contextText(page), /White pawn/);
+  assert.equal((await marks()).selected, 28, 'I keeps the move role');
+  await leaveBoard(page);
+  await page.keyboard.press('i');
+  assert.equal(await page.evaluate(() => window.view.marks.read.step.has(36)), true, 'I outside the board leaves the read in place');
+  assert.deepEqual(await lanMoves(page), []);
+  console.log('read-piece: 3 cases pass; I, toggle and All rules pass');
+} finally { try { assertNoErrors(page); } finally { await close(); } }

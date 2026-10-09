@@ -17,6 +17,8 @@ import { PieceContourPass } from './prototype/PieceContourPass';
 import type { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import type { Pace } from './PaintedView';
 import { pastTap } from './tap';
+import type { Reach } from '../read';
+import type { Checker } from '../move-text';
 
 export const tileCenter = (sq: number): THREE.Vector3 => new THREE.Vector3(file(sq) - 3.5, 0, 3.5 - rank(sq));
 /** The king a king piece shows: its side's king with a power, else Spirit or Shadow; undefined for other pieces. */
@@ -32,6 +34,12 @@ export interface Highlights {
   shoves?: number[];
   /** Captures made from a distance (the Archer shoots without moving); also listed in `captures`. */
   shots?: number[];
+  /** Read outlines; omitted in the plugin and the Clay look. */
+  read?: Reach;
+  /** Shove targets and their landings; omitted keeps the old chevrons. */
+  shoveTo?: { from: number; to: number }[];
+  /** Beast victim squares already chosen, in bite order. */
+  bites?: number[];
   /**
    * Squares a king's power acts on: an armed power's moves (also listed in `moves` or `captures`)
    * and the pieces an armed Freeze, Ice Wall or Sacrifice can name.
@@ -40,6 +48,8 @@ export interface Highlights {
   last?: number[];
   hint?: number[];
   check?: number | null;
+  /** Opt in to the still ember ring and cause lines. Omit to keep the original check mark. */
+  checkers?: Checker[];
 }
 
 const LIGHT = 0xefebe3, DARK = 0x6f6b65;
@@ -208,6 +218,9 @@ export class BoardRenderer {
   private moveMat = new THREE.MeshLambertMaterial({ color: 0x5fd35f, emissive: 0x1f6f1f });
   private checkRingGeo = checkRingGeometry();
   private checkMat = new THREE.MeshBasicMaterial({ color: CHECK_RING, transparent: true, opacity: 0.92, depthWrite: false, side: THREE.DoubleSide });
+  private causeMat = new THREE.MeshBasicMaterial({ color: 0xc4501f, depthTest: false, transparent: true });
+  private causeHalo = new THREE.MeshBasicMaterial({ color: 0xfbf6e8, depthTest: false, transparent: true, opacity: 0.87 });
+  private causeGeometry: THREE.BufferGeometry[] = [];
   private raycaster = new THREE.Raycaster();
   private pointer = new THREE.Vector2();
   private shake = 0;
@@ -628,9 +641,11 @@ export class BoardRenderer {
     // A Freeze, Ice Wall or Sacrifice target: amber like a shove (a power, not a capture).
     set(h.powers?.filter(sq => !h.moves?.includes(sq) && !h.captures?.includes(sq)), 0x8a5a10);
     // Soft tint only when the square is not already last-move blue — ring carries the check signal either way.
-    if (h.check != null && !(h.last ?? []).includes(h.check)) set([h.check], CHECK_TINT);
+    if (h.check != null && !(h.last ?? []).includes(h.check)) set([h.check], h.checkers === undefined ? CHECK_TINT : 0x5a2510);
     if (h.selected != null) set([h.selected], 0x7a6a10);
     if (this.hovered != null && !this.tiles[this.hovered].material.emissive.getHex()) set([this.hovered], 0x2a2a2a);
+    for (const geometry of this.causeGeometry) geometry.dispose();
+    this.causeGeometry = [];
     this.markers.clear();
     for (const sq of h.moves ?? []) {
       const m = new THREE.Mesh(this.markerGeo, this.moveMat);
@@ -638,9 +653,23 @@ export class BoardRenderer {
       this.markers.add(m);
     }
     if (h.check != null) {
+      this.checkMat.color.setHex(h.checkers === undefined ? CHECK_RING : 0xc4501f);
       const ring = new THREE.Mesh(this.checkRingGeo, this.checkMat);
       ring.position.copy(tileCenter(h.check)).setY(0.05);
       this.markers.add(ring);
+      for (const ch of h.checkers ?? []) {
+        const a = tileCenter(ch.sq).setY(0.45), b = tileCenter(ch.king).setY(0.45);
+        const mid = a.clone().lerp(b, 0.5);
+        if (ch.path === 'arc') mid.y += 1.4;
+        const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+        for (const [radius, material, order] of [[0.028, this.causeHalo, 1000], [0.012, this.causeMat, 1001]] as const) {
+          const geometry = new THREE.TubeGeometry(curve, 24, radius, 4, false);
+          this.causeGeometry.push(geometry);
+          const line = new THREE.Mesh(geometry, material);
+          line.renderOrder = order;
+          this.markers.add(line);
+        }
+      }
     }
   }
 

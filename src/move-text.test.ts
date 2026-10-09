@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { Move, POWERS_BALANCED, Position, legalMoves, makeMove, parseSq, setRules } from './rules/engine';
+import { Move, Position, POWERS_BALANCED, inCheck, legalMoves, makeMove, parseSq, setRules } from './rules/engine';
 import { KingChoice, PowerName } from './rules/rules';
-import { fromFen, toLan } from './rules/setup';
-import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
+import { fromFen, randomBackRank, startPosition, toLan } from './rules/setup';
+import { checkCause, checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { offered } from './powers-ui';
+import { mulberry32 } from './sim/rng';
 
 const KING_OF: Partial<Record<PowerName, KingChoice['king']>> = {
   Freeze: 'Frost', IceWall: 'Frost', Haste: 'Flame', Flight: 'Stratus', Sacrifice: 'Stratus',
@@ -17,6 +18,104 @@ const find = (pos: Position, lan: string): Move => {
 const say = (pos: Position, lan: string): string => describeMove(pos, find(pos, lan));
 
 afterEach(() => setRules());
+
+describe('check causes', () => {
+  it('names the Archer screen, a clear shot, a knight and both checkers', () => {
+    expect(checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'))).toBe('Their archer can shoot over e2.');
+    expect(checkCause(fromFen('7k/8/8/8/8/4a3/8/4K3 w - - 0 1'))).toBe('Their archer can shoot your king.');
+    expect(checkCause(fromFen('7k/p7/8/8/8/5n2/8/4K3 w - - 0 1'))).toBe('Their knight attacks your king.');
+    expect(checkCause(fromFen('4k3/8/8/8/8/5n2/8/4K2r w - - 0 1'))).toBe('Their rook and knight attack your king.');
+  });
+
+  it('names Strike only when it moves the checker', () => {
+    setRules({ ...POWERS_BALANCED, kings: [null, { king: 'Flame', power: 'Strike' }] });
+    const pre = fromFen('7k/8/8/8/8/a7/4P3/4K3 b - - 0 1');
+    const strike = legalMoves(pre).find(m => m.power === 'strike' && m.from === parseSq('a3') && m.to === parseSq('e3'))!;
+    expect(strike).toBeDefined();
+    const pos = makeMove(pre, strike);
+    expect(checkCause(pos, strike)).toBe('Strike lets their archer shoot over e2.');
+    expect(checkCause(pos, { ...strike, to: parseSq('a3') })).toBe('Their archer can shoot over e2.');
+  });
+
+  it('has no cause when the rules prevent check', () => {
+    const archer = fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1');
+    setRules({ archerChecks: false });
+    expect(checkCause(archer)).toBe('');
+    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Spirit', power: 'HolyLight' }, null], holyLightKnights: true });
+    expect(checkCause(fromFen('7k/p7/8/8/8/5n2/8/4K3 w - - 0 1'))).toBe('');
+  });
+
+  it('names both checkers and their paths in a double check', () => {
+    const pos = fromFen('4k3/8/8/8/8/5n2/8/4K2r w - - 0 1');
+    expect(checkersOf(pos)).toEqual([
+      { sq: parseSq('h1'), king: parseSq('e1'), path: 'straight' },
+      { sq: parseSq('f3'), king: parseSq('e1'), path: 'arc' },
+    ]);
+  });
+
+  it('shows an arc for an Archer shot over a piece', () => {
+    const pos = fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1');
+    expect(checkersOf(pos)).toEqual([
+      { sq: parseSq('e3'), king: parseSq('e1'), path: 'arc' },
+    ]);
+  });
+
+  it('counts a frozen checker during a held turn', () => {
+    powers('Freeze');
+    const pos = fromFen('7k/8/8/8/8/8/8/4K2r w - - 0 1');
+    expect(checkersOf({ ...pos, marks: [{ sq: parseSq('h1') }, undefined], free: true, haste: parseSq('e1') }))
+      .toEqual([{ sq: parseSq('h1'), king: parseSq('e1'), path: 'straight' }]);
+  });
+
+  it('names the rook in a discovered check', () => {
+    const pos = fromFen('4k3/8/8/8/8/8/4B3/4R2K w - - 0 1');
+    expect(checkersOf(makeMove(pos, find(pos, 'Be2-f3'))))
+      .toEqual([{ sq: parseSq('e1'), king: parseSq('e8'), path: 'straight' }]);
+  });
+
+  it('shows a paladin leap over a friend', () => {
+    setRules({ paladinChecks: true });
+    const pos = fromFen('7k/8/8/8/8/4l3/4p3/4K3 w - - 0 1');
+    expect(checkersOf(pos)).toEqual([{ sq: parseSq('e3'), king: parseSq('e1'), path: 'arc' }]);
+  });
+
+  it('reads Holy Light and Darkness from the rules in force', () => {
+    const knight = fromFen('7k/8/8/8/8/5n2/8/4K3 w - - 0 1');
+    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Spirit', power: 'HolyLight' }, null], holyLightKnights: true });
+    expect(checkersOf(knight)).toEqual([]);
+    setRules({ ...POWERS_BALANCED, kings: [null, { king: 'Shadow', power: 'Darkness' }] });
+    const pawn = fromFen('7k/8/8/8/8/8/4p3/4K3 w - - 0 1');
+    expect(checkersOf(pawn)).toEqual([{ sq: parseSq('e2'), king: parseSq('e1'), path: 'straight' }]);
+  });
+
+  it('agrees with inCheck in seeded legal games under powers rules', () => {
+    const pairs: [KingChoice, KingChoice][] = [
+      [{ king: 'Spirit', power: 'HolyLight' }, { king: 'Shadow', power: 'Darkness' }],
+      [{ king: 'Frost', power: 'Freeze' }, { king: 'Flame', power: 'Haste' }],
+      [{ king: 'Stratus', power: 'Flight' }, { king: 'Stratus', power: 'Sacrifice' }],
+      [{ king: 'Mud', power: 'March' }, { king: 'Mud', power: 'Leap' }],
+      [{ king: 'Spirit', power: 'Mercy' }, { king: 'Shadow', power: 'DeathTouch' }],
+      [{ king: 'Frost', power: 'IceWall' }, { king: 'Flame', power: 'Strike' }],
+    ];
+    const rng = mulberry32(705);
+    let checks = 0;
+    for (const kings of pairs) for (const paladinChecks of [false, true]) for (const archerChecks of [false, true]) {
+      setRules({ ...POWERS_BALANCED, kings, paladinChecks, archerChecks, holyLightKnights: paladinChecks });
+      let pos = startPosition(randomBackRank(rng));
+      for (let ply = 0; ply < 64; ply++) {
+        for (const turn of [0, 1] as const) {
+          const list = checkersOf({ ...pos, turn });
+          expect(list.length > 0).toBe(inCheck(pos, turn));
+          checks += Number(list.length > 0);
+        }
+        const moves = legalMoves(pos);
+        if (!moves.length) break;
+        pos = makeMove(pos, moves[Math.floor(rng() * moves.length)]);
+      }
+    }
+    expect(checks).toBeGreaterThan(0);
+  }, 15000);
+});
 
 describe('screen-reader lines for king powers', () => {
   it('names the side that spends the power, not the marked piece', () => {
