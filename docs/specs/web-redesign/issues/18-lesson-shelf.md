@@ -93,3 +93,5 @@ The store already saves names; saved learned results keep their meaning.
 The lesson order test and browser check pass. After Archer, Beast is second; Guard and Maester are not done.
 
 Item 3 check: decided by delegation (2026-10-09). Shelf tests use the new lesson indices. Saved-name tests still cover gaps, duplicate names and old names.
+
+Item 3 browser check: decided by delegation (2026-10-09). The shared lesson path and the painted-game check use the shelf indices and names. The first full run finds the old map; the new run checks the repair.

@@ -95,3 +95,5 @@ Maester reads a friendly piece for either side. Lab Archer words name their shot
 The reach tests check near, far, forward and clear-middle shots against the engine.
 Guide stays the sheet name and close label; All rules stays the read action.
 Piece and power targets share the focus outline. Read tests and browser checks pass.
+
+Item 7 browser check: decided by delegation (2026-10-09). The special-move check reads the same friendly-piece Maester sentence as the read test.

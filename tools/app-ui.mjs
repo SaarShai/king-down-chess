@@ -246,8 +246,8 @@ export const openPowerRules = openPieceRules;
 
 /** Lesson board IDs and taps follow the shelf's order. */
 export const lessonPath = () => [
-  [0, [27, 45]], [3, [27, 35, 43]], [2, [27, 28]],
-  [4, [27, 35]], [1, [11, 12]], [5, [3, 43]],
+  [0, [27, 45]], [1, [27, 35, 43]], [2, [27, 28]],
+  [3, [27, 35]], [4, [11, 12]], [5, [3, 43]],
 ];
 
 /** King Down moves into the result when the board sequence ends. */

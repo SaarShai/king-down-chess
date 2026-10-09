@@ -259,7 +259,7 @@ try {
     for (const [i, squares] of steps) {
       assert.match(await page.textContent('#turn'), new RegExp(`Lesson ${i + 1} of 6`));
       await play(squares);
-      assert.equal(await contextText(page), `${['Archer', 'Guard', 'Maester', 'Beast', 'Ogre', 'Paladin'][i]} learned.`, `lesson ${i + 1}`);
+      assert.equal(await contextText(page), `${['Archer', 'Beast', 'Maester', 'Ogre', 'Guard', 'Paladin'][i]} learned.`, `lesson ${i + 1}`);
       assert.equal(await page.isVisible('#next-lesson'), true);
       if (i < 5) await page.click('#next-lesson');
     }

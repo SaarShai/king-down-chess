@@ -80,7 +80,7 @@ Tiles name the act in play order. The final blow is last and marked.
 End turn stays off during the Ceremony. Rematch starts from the result.
 The result uses move words, a full stop and a move count. The replay has a skip caption.
 Tests: 1,667 pass, 13 skip; all 50 board tests pass. All ten browser checks pass.
-W6: 10 renders, zero faults. Commit 7bf311a repairs the h-file fall. The shared board clamps the fall inside the canvas.
+W6: 10 renders, zero faults. Commit 7bf311a repairs the h-file fall. The web board turns the fall inward at the right edge. The shared scene keeps its old default.
 
 ## Batch 3 repair 2 words
 
@@ -88,3 +88,5 @@ Item 7: decided by delegation (2026-10-09).
 Result and draw words use take and taken. No capture word stays in the end text.
 
 Item 11: decided by delegation (2026-10-09). Power tiles name the power in two to four words without squares. The result reads the last ply that is not a pass. The replay caption sits in the context row, outside the squares. Unit and browser checks cover Haste and Freeze.
+
+Item 15: decided by delegation (2026-10-09). The h-file note names the repair in 7bf311a. The repair is in this branch; it does not wait for shared board work.

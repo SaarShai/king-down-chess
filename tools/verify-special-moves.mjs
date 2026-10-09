@@ -77,7 +77,7 @@ try {
     checks.push(`${mobile ? 'touch' : 'mouse'}: Beast cancel, finish after one, and continue then finish`);
 
     await seed('7k/8/8/8/8/8/P7/MN5K w - - 0 1');
-    await tap(0); assert.match(await contextText(page), /Swaps places with your own piece/);
+    await tap(0); assert.match(await contextText(page), /Swaps places with a friendly piece/);
     await tap(1); await played(1); assert.match((await lanMoves(page)).join(' '), /Ma1<>b1/);
     await button('#undo'); await played(0);
     await tap(0); await tap(7); await played(1); assert.match((await lanMoves(page)).join(' '), /Ma1<>h1/);
