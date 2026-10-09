@@ -2,9 +2,37 @@
  * Plain-language helpers for the HUD that only read the engine: the screen-reader sentence for a
  * move, the threat markers, and move numbers that stay right when a Haste turn plays two plies.
  */
-import { Color, K, Move, NAMES, Position, colorOf, isAttacked, isSpawnTag, pseudoMoves, sqName, typeOf } from './rules/engine';
+import { A, C, Color, K, Move, N, NAMES, Position, colorOf, file, findKing, genPiece, isAttacked, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
 
 const SIDE = ['White', 'Black'] as const;
+
+export interface Checker { sq: number; king: number; path: 'straight' | 'arc' }
+
+/** Attacks on the king, including frozen pieces. A Freeze stops moves, not check. */
+export function checkersOf(pos: Position): Checker[] {
+  const king = findKing(pos.board, pos.turn);
+  if (king < 0) return [];
+  const checkers: Checker[] = [];
+  for (let sq = 0; sq < 64; sq++) {
+    const p = pos.board[sq];
+    if (!p || colorOf(p) === pos.turn) continue;
+    const attacks: Move[] = [];
+    genPiece(pos.board, sq, 'attacks', attacks);
+    if (attacks.some(m => m.captures.includes(king))) {
+      checkers.push({ sq, king, path: checkPath(pos.board, sq, king) });
+    }
+  }
+  return checkers;
+}
+
+function checkPath(board: Uint8Array, from: number, king: number): Checker['path'] {
+  const t = typeOf(board[from]), df = file(king) - file(from), dr = rank(king) - rank(from);
+  const distance = Math.max(Math.abs(df), Math.abs(dr));
+  if (t === N || t === C || (t === A && distance > 1) || (df && dr && Math.abs(df) !== Math.abs(dr))) return 'arc';
+  const step = Math.sign(df) + 8 * Math.sign(dr);
+  for (let s = from + step; s !== king; s += step) if (board[s]) return 'arc';
+  return 'straight';
+}
 
 /** One sentence for a screen reader: who moved what, and what it did. */
 export function describeMove(pre: Position, m: Move): string {

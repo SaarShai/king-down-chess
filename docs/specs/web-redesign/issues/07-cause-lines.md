@@ -11,7 +11,7 @@ Blocked by: 03, 05 (`src/haptic.ts`)
 
 ## Plan
 
-1. [ ] `checkersOf(pos)` (pure, beside `threatsIn`): the pieces that give check now, each with its path kind (straight, or an arc for a knight, a leap or an Archer shot over pieces). A frozen piece still counts. It must agree with `inCheck` under every rule flag.
+1. [x] `checkersOf(pos)` (pure, beside `threatsIn`): the pieces that give check now, each with its path kind (straight, or an arc for a knight, a leap or an Archer shot over pieces). A frozen piece still counts. It must agree with `inCheck` under every rule flag.
 2. [ ] Replace the red ellipse under the king with an ember ring (a bloom of 380 ms, then still) and a thin ember line (`#c4501f`, drawn on in 280 ms) from each checker to the king, above all figures. Both show only after the move lands, and stay while the player reads or selects.
 3. [ ] For a shot, a Death Touch take, a Strike capture and a lob, a thin line from the shooter to the taken square stays with the last-move wash until the next move. It follows the shown ply in review and clears on Undo. A check line draws over a shot line.
 4. [ ] Words: when the active side is in check and nothing is staged, the context line says "Check! Your move." and the cause on its second line ("Their archer can shoot over f2.", "Strike moved their archer to shoot over f2.", "Their knight attacks your king."). The cause words come from `checkersOf` and the rules in force (spec rule 11). A double check names both pieces. A staged check uses the words of spec §4.9.
@@ -39,3 +39,13 @@ Blocked by: 03, 05 (`src/haptic.ts`)
 - No tell (13), no red flash, no king shake.
 
 ## Comments
+
+W5 phase 1 plan:
+- Test `checkersOf` at the seam named in the fast plan. Compare it with `inCheck` in seeded legal games under powers rules.
+- Add still ember marks as an option. Keep the plugin default. Draw cause lines above figures after landing.
+- Move the low check note to landing. Add no vibration.
+- Verify with `npm test`, typecheck, `plugin-ui` and the plugin page size. Leave context words, W2 wiring and `their-turn` for phase 2.
+- Phase 1: checkers, still ember marks in both views, and the low note at landing. Cut timing, shot lines, vibration and the other sound changes.
+- Tests: 80 files pass, 1 skips; 1,448 tests pass, 13 skip; 50 scene tests pass. Typecheck and build pass.
+- Samples: `SAMPLE=07` gives six renders with no fault in `/tmp/wr-w5-samples`. Phase 2 adds the context words and staged checks, runs `their-turn` twice and the full browser suite, then updates the samples for W2.
+- Plugin: default stays; page size 4,291,869 → 4,292,443 bytes. `plugin-ui` and `plugin-ui-http` wait for the browser lock.
