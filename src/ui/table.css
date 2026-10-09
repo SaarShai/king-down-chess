@@ -28,7 +28,7 @@
 #context-line { grid-area: context; display: flex; align-items: center; gap: 8px; height: var(--context-height); margin: 0 12px; border-top: 1px solid var(--line); min-width: 0; }
 #context-text { flex: 1; min-width: 0; font-size: 16px; line-height: 1.25; white-space: pre-line; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 #context-actions { display: flex; gap: 4px; flex-shrink: 0; }
-#context-actions button { min-height: 44px; padding: 4px 8px; font-size: 14px; }
+#context-actions button { min-width: 44px; min-height: 44px; padding: 4px 8px; font-size: 14px; }
 #context-actions #stop-chain { background: transparent; color: var(--ink); border-color: var(--stone-300); box-shadow: none; }
 #moves-line { grid-area: moves; width: calc(100% - 24px); margin: 0 12px; height: 48px; min-height: 48px; display: flex; gap: 8px; border: 0; border-block: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; padding: 0; text-align: left; color: var(--ink-soft); }
 #last-move { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }

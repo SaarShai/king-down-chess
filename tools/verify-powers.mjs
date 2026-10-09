@@ -14,7 +14,7 @@ const tap = async (page, name) => {
 async function open(page, kings = 'frost:freeze,none', fen = FEN) {
   await page.goto(base);
   await page.evaluate(fen => localStorage.setItem('kingdown.save', JSON.stringify({ back: '', fen, moves: [], white: 'human', black: 'human', sound: false, pace: 'off' })), fen);
-  const url = new URL(base); url.searchParams.set('kings', kings); url.searchParams.set('fen', fen);
+  const url = new URL(base); url.searchParams.set('kings', kings); url.searchParams.set('fen', fen); url.searchParams.set('players', 'human,human');
   await page.goto(url.href);
   await page.waitForFunction(() => window.view?.ready);
   await page.evaluate(() => window.view.ready());
