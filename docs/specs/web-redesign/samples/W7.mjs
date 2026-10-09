@@ -1,4 +1,4 @@
-// W7 phase 1: the New game sheet. W1 connects the end state in phase 2.
+// W7: the New game sheet. The warn line reads the handed-over turn.
 import { setUpGame } from '../../../../tools/new-game-ui.mjs';
 const save = { back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', skill: 'club', sound: false };
 const controls = '#start-game, #new-game .new-game-head button';

@@ -4,8 +4,8 @@
  * Start game hands it to main.ts. Close drops it.
  */
 import type { SkillName } from './ai/skill';
-import type { Side } from './game';
-import { KINGS, LETTERS, PLAIN_KINGS, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
+import type { Game, Side } from './game';
+import { KINGS, LETTERS, PLAIN_KINGS, moveNumber, type PieceType, type Color, type KingChoice, type KingName, type PowerName, type Rules } from './rules/engine';
 import { emblemArt, powerArt } from './power-motion';
 import { POWER_NAME, powerOptions } from './powers-ui';
 import { pieceIcon } from './piece-icons';
@@ -88,8 +88,8 @@ export function parseSetup(v: unknown): Setup | null {
 }
 
 /** The sheet warns before Start ends a game with moves. */
-export function newGameWarning(game: { moves: number; move: number; ended: boolean }): string {
-  return game.moves > 0 && !game.ended ? `This ends your game at move ${game.move}.` : '';
+export function newGameWarning(game: Game, turnStart: number, ended: boolean): string {
+  return game.history.length > 0 && !ended ? `This ends your game at move ${moveNumber(game.history[turnStart]?.pos ?? game.pos)}.` : '';
 }
 
 /* ---- the dialog ---- */

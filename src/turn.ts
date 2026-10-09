@@ -47,6 +47,10 @@ export function turnOf(game: TurnGame, turnStart: number, open = false): Turn {
   return { activeSide, staged, midWay, ready, waits };
 }
 
+/** A staged end waits for the press. A handed-over result or resignation ends the game. */
+export const turnEnded = (game: TurnGame, start: number, resigned: Color | null = null): boolean =>
+  (resigned != null || game.status !== 'playing') && !turnOf(game, start).staged;
+
 /** The mode of a game: a link game when this device plays one side of it (`linkSide`). */
 export const modeOf = (sides: readonly [string, string], linkSide: Color | null): Mode =>
   linkSide != null ? 'link' : sides[0] === 'human' && sides[1] === 'human' ? 'device' : 'computer';

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { defaultSetup, newGameWarning, kingsOf, parseSetup, playersOf, powersOn, setupOfGame, withKing, withMode } from './new-game';
 import { powerOptions } from './powers-ui';
+import { Game } from './game';
+import { CLASSIC_CHESS, toLan } from './rules/setup';
+import { turnEnded } from './turn';
 
 describe('New game setup', () => {
   it('starts as Play the computer: White against the Club computer, Spirit and Shadow with no power', () => {
@@ -69,20 +72,32 @@ describe('New game setup', () => {
   });
 });
 
-// W1 supplies the handed-over end state in phase 2.
+const play = (game: Game, ...lans: string[]): Game => {
+  for (const lan of lans) game.play(game.legal.find(m => toLan(game.pos, m) === lan)!);
+  return game;
+};
+
 describe('New game warn line', () => {
-  it('names the move of the game that Start ends', () => {
-    expect(newGameWarning({ moves: 8, move: 5, ended: false })).toBe('This ends your game at move 5.');
+  it('names the move at the handed-over turn boundary', () => {
+    const game = play(new Game(CLASSIC_CHESS), 'f2-f3', 'e7-e5', 'g2-g4', 'Qd8-h4');
+    expect(newGameWarning(game, 3, turnEnded(game, 3))).toBe('This ends your game at move 2.');
   });
-});
 
-it('a staged end still warns until the turn is handed over', () => {
-  expect(newGameWarning({ moves: 7, move: 4, ended: false })).toBe('This ends your game at move 4.');
-  expect(newGameWarning({ moves: 7, move: 4, ended: true })).toBe('');
-});
+  it('stops warning when the final turn is handed over', () => {
+    const game = play(new Game(CLASSIC_CHESS), 'f2-f3', 'e7-e5', 'g2-g4', 'Qd8-h4');
+    expect(turnEnded(game, 3)).toBe(false);
+    expect(newGameWarning(game, 4, turnEnded(game, 4))).toBe('');
+  });
 
-it('a game with no moves needs no warn line', () => {
-  expect(newGameWarning({ moves: 0, move: 1, ended: false })).toBe('');
+  it('shows no warning before the first move', () => {
+    const game = new Game(CLASSIC_CHESS);
+    expect(newGameWarning(game, 0, turnEnded(game, 0))).toBe('');
+  });
+
+  it('shows no warning after resignation', () => {
+    const game = play(new Game(CLASSIC_CHESS), 'e2-e4', 'e7-e5');
+    expect(newGameWarning(game, 2, turnEnded(game, 2, 0))).toBe('');
+  });
 });
 
 it('keeps a remembered example army for More', () => {

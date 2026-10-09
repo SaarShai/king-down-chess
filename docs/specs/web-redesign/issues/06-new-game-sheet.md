@@ -37,13 +37,7 @@ Blocked by: 02b (phase 2 only)
 
 ## Comments
 
-- Phase 1 plan: test the pure warn line, build the sheet, keep both current king pickers, and remove the Start question.
-- Checks: `npm test`, `npm run typecheck`, the named New game check, and phone and desktop samples. Phase 2 connects W1 and runs all browser checks.
-- Test seam: `newGameWarning` reads the move count and the end state; it catches warn text and a staged end. Browser checks cover the sheet.
-
-- Phase 1 builds the sheet and warn line. It cuts the new king picker layout. No shared plugin module changes.
-- Samples: `/tmp/kingdown-w7-phase1-sheets`, 10 renders, 0 faults. The owner has not reviewed these samples.
-- Phase 2: merge W1, use its handed-over end state and move count, check a staged end, and run all browser checks.
-- Tests: `npm test`: 79 files pass, 1 skipped; 1,444 tests pass, 13 skipped; all 50 motion tests pass. The local run uses 2 workers and a 30 s test limit.
-- Browser: `new-game` passes twice with the new cases (11.8 s, 21.8 s); `ux-defects` passes (82.4 s). Type check passes.
-- Temporary test overrides keep the test list in `vite.config.ts`. The temporary file is removed before commit.
+- Phase 2 plan: share W1's end state with the kept game; count moves at its turn boundary; test a staged mate and the sheet after End turn.
+- Test seam: the pure warn line reads a real game and W1's turn state. Browser checks cover the live and kept games.
+- Checks: local `npm test` and type check; M1 `new-game`, `ux-defects`, and `turn`; W7 phone and desktop samples.
+- Keep both current king pickers. Cut the new picker layout, muster, and faces, as the fast plan says.

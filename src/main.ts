@@ -18,7 +18,7 @@ import { defaultSetup, isLevel, kingsOf, newGameDialog, newGameWarning, parseSet
 import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
 import './dialog-dismiss';
-import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnLine, turnOf } from './turn';
+import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, turnLine, turnOf } from './turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from './turn-controls';
 
 const params = new URLSearchParams(location.search);
@@ -143,7 +143,7 @@ const finished = (): boolean => resigned != null || game.status !== 'playing';
 /** This device may move now: a person's turn, and in a link game only its own side. */
 const currentTurn = () => turnOf(game, turnStart, busy || pending.length > 0 || viewing != null);
 const turnMode = () => modeOf(sides, linkSide);
-const ended = (): boolean => finished() && !currentTurn().staged;
+const ended = (kept = { game, turnStart, resigned }): boolean => turnEnded(kept.game, kept.turnStart, kept.resigned);
 const undoOn = (): boolean => lesson == null && viewing == null && !ended() && !thinking && !sending && !closePromo && !closeMoveChoice && (canUndoTurn(game, turnStart) || pending.length > 0);
 const myTurn = (): boolean => !currentTurn().waits && sides[game.pos.turn] === 'human' && (linkSide == null || game.pos.turn === linkSide) && !lessonDone;
 /** The side Resign gives up now (`resigningSide`), or null while it is off: the game is over, a lesson, or the computer thinks. */
@@ -1344,10 +1344,10 @@ const dialog = newGameDialog(s => {
     if (example) { said = example.watch; $('moment').textContent = said; }
   } else newGame(randomBackRank());
 }, preset);
-const openNewGame = (): void => dialog.open(setup, newGameWarning({
-  moves: (lessonReturn?.game ?? game).history.length, move: moveNumber((lessonReturn?.game ?? game).pos),
-  ended: (lessonReturn ? lessonReturn.resigned : resigned) != null || (lessonReturn?.game ?? game).status !== 'playing',
-}));
+const openNewGame = (): void => dialog.open(setup, newGameWarning(
+  lessonReturn?.game ?? game, lessonReturn?.turnStart ?? turnStart,
+  ended(lessonReturn ?? undefined),
+));
 
 $('new-game-btn').onclick = openNewGame;
 $('settings-btn').onclick = () => $<HTMLDialogElement>('settings').showModal();
