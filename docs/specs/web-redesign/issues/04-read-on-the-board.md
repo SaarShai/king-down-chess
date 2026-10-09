@@ -47,7 +47,7 @@ Blocked by: 03
 - Plan: test reach and words; test the marks model; draw opt-in marks; check and commit.
 - Seams: `reachOf`, `readText` and `whyNot` in `src/read.ts`; `marksModel` in `src/marks-model.ts`.
 - Build: reuse `pieceGuide` and `whyNot` in the pure read module. Read the first sentence and live state words.
-- Cut: frozen attack probes, new word modules and all W2 wiring.
+- Cut: frozen attack probes and new word modules. W2 wiring waits for phase 2.
 - Tests: the full `npm test` list passes through a temporary entry with two workers: 1,480 pass, 13 skip; 50 drawing tests pass. Type check passes.
 - Checks: `plugin-ui`, `plugin-ui-http`, `visual-design` and `ux-defects` pass. Plugin page: 4,291,869 to 4,293,030 bytes.
 - Phase 2: merge W2; wire taps, I, All rules and the fixed line; run flow checks and the full browser suite; render the sample.

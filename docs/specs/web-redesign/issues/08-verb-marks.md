@@ -39,10 +39,3 @@ Blocked by: 04, 10
 - No refusal mark and no Take or Shove buttons (09). No fan of tiles at the square.
 
 ## Comments
-
-### W4 phase 1
-
-- Build: test Ogre landings, Beast bite numbers, Maester swaps and Archer shots. A step wins on a shared landing.
-- Draw: opt-in read rings, shove arrows and grey bite numbers. The default keeps the plugin marks.
-- Cut: chain slides, hover copies, the key line and Leap coins.
-- Tests and checks: see ticket 04. Phase 2 wires landing taps and the bite path, then adds the flow check and sample.
