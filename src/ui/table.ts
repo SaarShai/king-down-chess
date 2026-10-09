@@ -3,16 +3,32 @@ import { LESSONS } from '../lessons';
 import { type Game, type Side } from '../game';
 import { checkCause, describeMove } from '../move-text';
 import { pieceIcon } from '../piece-icons';
-import { type Color, type PieceType, type Rules, colorOf, typeOf } from '../rules/engine';
+import { type Color, type PieceType, type Rules, type Position, NAMES, colorOf, typeOf } from '../rules/engine';
+import { readText } from '../read';
 import type { SkillName } from '../ai/skill';
 import { turnLine, type Mode, type Turn } from '../turn';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 const text = (id: string): string => $(id).textContent?.trim() ?? '';
-let read = '', readNote = '';
+let read = '', readNote = '', reading = false;
 let thinkingAt = 0, thinkTimer: ReturnType<typeof setTimeout> | undefined;
 
-export function readPiece(title: string, words = ''): void { read = title; readNote = words; }
+export function readPiece(pos: Position, sq: number | null, inspecting: boolean): void {
+  const code = sq == null ? 0 : pos.board[sq];
+  const [line = '', states = ''] = sq == null ? [] : readText(pos, sq).split('\n');
+  read = code ? `${colorOf(code) ? 'Black' : 'White'} ${NAMES[typeOf(code)]}.${states ? ` ${states}` : ''}` : '';
+  readNote = line.split(' · ')[1] ?? '';
+  reading = inspecting;
+  const button = $('all-rules');
+  button.hidden = !code;
+  button.onclick = () => {
+    $('rules-btn').click();
+    const card = document.querySelector<HTMLElement>(`#rules [data-piece="${NAMES[typeOf(code)]}"]`);
+    card?.setAttribute('tabindex', '-1');
+    card?.focus();
+    card?.scrollIntoView({ block: 'center' });
+  };
+}
 
 export function initTable(back: () => void): void {
   const sheet = $<HTMLDialogElement>('sheet-moves');
@@ -69,8 +85,8 @@ export function refreshTable(s: TableState): void {
     review: s.viewing != null ? `Review. ${read || (s.viewing === 0 ? 'The start.' : `Move ${s.viewing}.`)}` : '',
     result: status && status !== 'thinking…' ? status : '', refusal: s.notice,
     armed: s.armed ? s.rules.kings[s.game.pos.turn]?.power : undefined, chain: !!s.pending.length, canStop: !$('stop-chain').hidden,
-    read: s.selected == null ? read : '',
-    readNote: s.selected != null ? text('move-help') : s.viewing != null && !read ? s.reviewNote : readNote,
+    read: reading || s.selected == null ? read : '',
+    readNote: s.viewing != null && !read ? s.reviewNote : readNote,
     midWay: s.game.pos.haste !== undefined || !!s.game.pos.free,
     free: !!s.game.pos.free,
     selected: s.selected == null ? '' : read,
@@ -83,6 +99,7 @@ export function refreshTable(s: TableState): void {
     link: s.linkSide != null && s.game.pos.turn !== s.linkSide && !s.turn.waits ? "Wait for your friend's link." : '',
     asset: text('asset-status'),
   };
+  $('all-rules').hidden ||= !!s.pending.length;
   const line = contextLine(state);
   $('context-text').replaceChildren(...[line.line, line.note].filter(Boolean).map(words => {
     const row = document.createElement('span');

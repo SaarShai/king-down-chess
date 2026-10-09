@@ -86,6 +86,15 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
 
   ctx.save();
   if (layer === 'under') {
+    if (m.read) {
+      const takes = new Set([...m.read.take, ...m.read.shot]);
+      const squares = new Set([...m.read.step, ...takes, ...m.read.swap, ...m.read.push.map(p => p.from)]);
+      for (const sq of squares) {
+        const g = ground(sq);
+        ctx.beginPath(); ctx.ellipse(g.x, g.y, 38, 14, 0, 0, TAU);
+        stroke2(ctx, takes.has(sq) ? '#b3261e' : '#68583d', 2.2);
+      }
+    }
     // The selected piece stands in warm light.
     if (m.selected != null) {
       const g = ground(m.selected);
@@ -126,9 +135,26 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       const dir = from && f ? { x: f.col - from.col, y: f.row - from.row } : { x: 1, y: 0 };
       groundGlow(ctx, g.x, g.y, 46 * a, COLOURS.shove, 0.55);
       ctx.beginPath(); ctx.ellipse(g.x, g.y, 42 * a, 14 * a, 0, 0, TAU); stroke2(ctx, hover(sq) ? '#f0c060' : '#2f7f75', 2.5);
-      chevrons(ctx, g.x, g.y, dir, a, time, k);
+      if (m.shoveTo === undefined) chevrons(ctx, g.x, g.y, dir, a, time, k);
+    }
+    for (const shove of m.shoveTo ?? []) {
+      const a = appear(shove.to); if (a <= 0) continue;
+      const g = ground(shove.to), target = scene.cell(shove.from), landing = scene.cell(shove.to);
+      shoveArrow(ctx, g.x, g.y, landing.col - target.col, landing.row - target.row, a, k);
     }
   } else {
+    for (const sq of m.read?.shot ?? []) {
+      if (!inRow(sq)) continue;
+      const g = ground(sq); sight(ctx, g.x, g.y - 58, 16 * Math.max(1, k * 0.8), time, false);
+    }
+    for (const [i, sq] of (m.bites ?? []).entries()) {
+      if (!inRow(sq)) continue;
+      const b = box(sq), size = Math.min(k, 1.8), x = b.x + 18 * size, y = b.y + 18 * size;
+      ctx.beginPath(); ctx.arc(x, y, 11 * size, 0, TAU);
+      ctx.fillStyle = '#ece7dd'; ctx.fill(); stroke2(ctx, '#706b63', 1.5);
+      ctx.fillStyle = '#4b4741'; ctx.font = `bold ${16 * size}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), x, y);
+    }
     for (const sq of m.moves ?? []) {
       const a = appear(sq); if (a <= 0 || !inRow(sq)) continue;
       const g = ground(sq), bob = s.motion ? Math.sin(time * 2.6 + sq) * 2.2 : 0;
@@ -248,4 +274,13 @@ function rune(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t:
   for (const off of [0, Math.PI / 3]) for (let i = 0; i <= 3; i++) { const a = off + i * TAU / 3, px = Math.cos(a) * r * 0.74, py = Math.sin(a) * r * 0.74; if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }
   ctx.lineWidth = 1.6 / sy * 0.5; ctx.strokeStyle = colour; ctx.stroke();
   ctx.restore();
+}
+
+/** A still arrow on the landing square, in the screen's shove direction. */
+function shoveArrow(ctx: CanvasRenderingContext2D, x: number, y: number, dx: number, dy: number, a: number, k: number): void {
+  const angle = Math.atan2(dy, dx), length = 20 * Math.min(k, 1.6) * a;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(-length, 0); ctx.lineTo(length, 0);
+  ctx.moveTo(length - 10 * a, -9 * a); ctx.lineTo(length, 0); ctx.lineTo(length - 10 * a, 9 * a);
+  stroke2(ctx, '#2f7f75', 3); ctx.restore();
 }

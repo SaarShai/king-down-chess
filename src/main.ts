@@ -7,7 +7,7 @@ import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, T, V, colorOf, file as fileOf, findKing, moveNumber, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, V, colorOf, file as fileOf, findKing, moveNumber, PowerName, parseKings, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
@@ -20,15 +20,19 @@ import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
 import './dialog-dismiss';
 import { firstVisit, openTitle, startFirstDeal } from './ui/title';
+import { guideTypes, pieceGuide, reachOf, readTap, unmarkedTap } from './read';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, turnLine, turnOf } from './turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from './turn-controls';
 import './ui/table.css';
 import { initMenu } from './ui/menu';
 import { awardTurnSeals } from './ui/tricks';
 import { initTable, readPiece, refreshTable } from './ui/table';
+import { clickPath, landingMoves, marksModel } from './marks-model';
+import { connectReadKey } from './ui/read';
 import { reviewStep } from './review';
 import { shouldShowHome } from './ui/home';
 import { initHome } from './ui/home-view';
+
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -86,7 +90,7 @@ let skill: SkillName = 'club';
 let setup: Setup = defaultSetup();
 let selected: number | null = null;
 let pending: number[] = []; // beast chain squares clicked so far
-/** A piece that a tap (or Enter) chose to read: an enemy piece, or any piece while the player cannot move. Its words show while no piece is selected. */
+/** A read stays beside the kept move selection. */
 let inspected: number | null = null;
 /** The player to move has armed their king's power: the next click spends it. */
 let armed = false;
@@ -147,7 +151,8 @@ const refreshTurnButton = () => renderTurnButton($<HTMLButtonElement>('end-turn'
 const announceTurn = () => announceWaiting(game, currentTurn(), turnMode(), $('end-turn'), $('announce'));
 const readWaiting = (sq: number) => {
   selected = null; pending = [];
-  ({ inspected, notice } = waitingRead(game, currentTurn(), turnMode(), sq));
+  ({ notice } = waitingRead(game, currentTurn(), turnMode(), sq));
+  ({ inspected } = readTap(game.pos, sq, selected, inspected, false));
   refresh();
 };
 connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
@@ -160,149 +165,6 @@ connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
   focusBoard: () => { cursor = homeSquare(); sayCursor(); drawMarks(); },
 });
 
-/** Player-facing columns for one piece under the live `GAME_RULES` (and `POOL`). */
-type GuideRow = { moves: string; captures: string; special: string };
-
-const ARCHER_SHOT_TEXT: Record<string, string> = {
-  classic: 'Shoots without moving: an enemy diagonally adjacent, or exactly 2 squares away orthogonally, through blockers.',
-  plusDiag2: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2) plus any enemy exactly 2 squares away diagonally, through blockers.',
-  ring2: 'Shoots without moving: any enemy on a diagonally adjacent square or anywhere on the ring 2 squares away, through blockers.',
-  forward3: 'Shoots without moving: an enemy on either forward diagonal, or the square exactly 2 ahead, through blockers.',
-  plusDiagFwd2: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2) plus either forward diagonal at distance 2, through blockers.',
-  plusDiagFwd2Clear: 'Shoots without moving: classic shots (diagonal-adjacent or orthogonal-2, through blockers) plus either forward diagonal at distance 2, over an empty square.',
-  fwd2NoBack: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or to the side, or either forward diagonal at distance 2, through blockers.',
-  fwd2NoSide: 'Shoots without moving: an enemy diagonally adjacent, exactly 2 squares ahead or behind, or either forward diagonal at distance 2, through blockers.',
-};
-
-/** Chess pieces always; fairies in POOL or the fixed set A L G M S O. */
-function guideTypes(): PieceType[] {
-  const always = new Set<PieceType>([P, N, B, R, Q, K, A, L, G, M, S, O]);
-  for (const ch of POOL) {
-    const t = LETTERS.indexOf(ch) as PieceType;
-    if (t > 0) always.add(t);
-  }
-  for (const p of game.pos.board) if (p) always.add(typeOf(p));
-  return [...always].sort((a, b) => a - b);
-}
-
-/** One guide for both the dialog table and the hover card — reads live rules and POOL. */
-function pieceGuide(t: PieceType): GuideRow {
-  const r = GAME_RULES;
-  switch (t) {
-    case P:
-      return {
-        moves: 'Moves 1 square forward, 2 from its start rank.',
-        captures: 'Takes 1 square diagonally forward.',
-        special: 'Promotes on the last rank.',
-      };
-    case N:
-      return { moves: 'Moves in an L (2 + 1) over any piece.', captures: 'Takes by moving onto the enemy.', special: '' };
-    case B:
-      return { moves: 'Moves any distance diagonally.', captures: 'Takes by moving onto the enemy.', special: '' };
-    case R:
-      return { moves: 'Moves any distance orthogonally.', captures: 'Takes by moving onto the enemy.', special: '' };
-    case Q:
-      return { moves: 'Moves any distance in a straight line.', captures: 'Takes by moving onto the enemy.', special: '' };
-    case K:
-      return {
-        moves: 'Moves 1 square in any direction.',
-        captures: 'Takes by moving onto the enemy.',
-        special: 'Only a king can take a guard.',
-      };
-    case A: {
-      const step = r.archerMove === 'ortho' ? 'Moves 1 square orthogonally.'
-        : r.archerMove === 'fwdBack' ? 'Moves 1 square ahead or back.'
-        : 'Moves 1 square in any direction.';
-      return {
-        moves: step,
-        captures: ARCHER_SHOT_TEXT[r.archerShots] ?? ARCHER_SHOT_TEXT.classic,
-        special: 'Never captures by moving onto a piece. ' + (r.archerChecks ? 'Gives check the same way it shoots.' : 'Cannot capture a king or give check.'),
-      };
-    }
-    case L: {
-      const die = r.paladinKamikaze === 'always' ? 'Removed after capturing anything.'
-        : r.paladinKamikaze === 'never' ? 'Survives its own captures.'
-        : 'Removed after capturing anything but a pawn.';
-      const check = r.paladinChecks
-        ? 'May capture a king (gives check).'
-        : 'Cannot capture a king (never gives check).';
-      const promo = r.promotionSet === 'anyNonKing' || r.promotionSet === 'anyNonKingNoGuard';
-      const draw = POOL.includes('L')
-        ? 'In the random draw.'
-        : promo
-          ? 'Not in the random draw. Custom setup, FEN, and promotion can still use it.'
-          : 'Not in the random draw. Custom setup and FEN can still place it. A pawn does not promote to it.';
-      return {
-        moves: 'Moves like a queen, jumping own pieces.',
-        captures: 'Takes by moving onto the enemy.',
-        special: `${check} ${die} ${draw}`,
-      };
-    }
-    case G:
-      return {
-        moves: 'Moves 1 square in any direction, empty squares only.',
-        captures: 'Cannot capture.',
-        special: 'Immortal wall: cannot be captured, except by a king.',
-      };
-    case M: {
-      const long = r.maesterLongSwap
-        ? ' Maester + own king both on their home rank: swap at any distance.'
-        : '';
-      const any = r.maesterSwapAny ? ' Swaps with any friendly piece anywhere.' : '';
-      return {
-        moves: 'Moves 1 square in any direction.',
-        captures: 'Takes an adjacent enemy.',
-        special: `Onto an own piece = swap places.${long}${any}`,
-      };
-    }
-    case S: {
-      const step = r.beastMove === 'forward' ? 'Moves 1 square straight ahead, empty only.'
-        : r.beastMove === 'diagFwdBack' ? 'Moves on the four diagonals, empty only.'
-        : 'Moves 1 square in any direction, empty squares only.';
-      let take: string;
-      if (r.beastCapture === 'diagForward') take = 'Takes on either forward diagonal.';
-      else if (r.beastCapture === 'diagonal') take = 'Takes on any of the four diagonals.';
-      else take = r.beastCaptureForward
-        ? 'Takes on any adjacent square.'
-        : 'Takes on any adjacent square but straight ahead.';
-      return {
-        moves: step,
-        captures: take,
-        special: r.beastChains ? 'May keep capturing from each new square (never a king as a continuation). Click victims in order; "Finish chain" ends early.' : 'One capture per turn.',
-      };
-    }
-    case O: {
-      const shove = r.ogreMode === 'push'
-        ? 'Shove: the ogre steps into the square the neighbour left.'
-        : 'Repel: the neighbour moves away and the ogre stays.';
-      return {
-        moves: 'Moves 1 square in any direction.',
-        captures: 'Takes by moving onto the enemy (a guard excepted).',
-        special: `Instead it may shove an adjacent piece 1 square away. Tap the neighbour; choose Capture or Shove when both are legal. Shift-click is a shove shortcut. ${shove} Kings are never shoved. Guards can be shoved. A shove is not a capture.`,
-      };
-    }
-    case C:
-      return {
-        moves: 'Moves like a rook and never takes by moving.',
-        captures: 'Lobs along a rank or file over one enemy screen and takes the first piece beyond it.',
-        special: '',
-      };
-    case V:
-      return {
-        moves: 'Moves like a knight. After a capture it may step one square onto an empty square as part of the same move.',
-        captures: 'Takes like a knight; the step after never captures.',
-        special: 'Click the victim, then the landing square.',
-      };
-    case T:
-      return {
-        moves: 'Moves 1 square in any direction; on a capital square (d4 e4 d5 e5) it moves and captures like a queen.',
-        captures: 'Takes by moving onto the enemy.',
-        special: '',
-      };
-    default:
-      return { moves: '', captures: '', special: '' };
-  }
-}
 
 /** Painted figures cut from the board's sheets (docs/visual-design/make-ui-art.py); none for the lab pieces. */
 const ART: Partial<Record<PieceType, string>> = Object.fromEntries(
@@ -317,7 +179,7 @@ const pieceArt = (t: PieceType, black = false): string | null =>
 function fillPieceGuide(): void {
   const rows = $('rules-rows');
   rows.innerHTML = '';
-  for (const t of guideTypes()) {
+  for (const t of guideTypes(shownPos())) {
     const g = pieceGuide(t);
     const card = document.createElement('article');
     card.className = 'piece-card';
@@ -367,22 +229,9 @@ const pieceText = (t: PieceType): string => {
 };
 
 function showInfo(sq: number | null): void {
-  const code = sq == null ? 0 : shownPos().board[sq];
-  const t = code ? typeOf(code) : 0;
-  const blurb = t ? pieceText(t) : '';
-  readPiece(code ? `${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}.` : '', blurb);
+  readPiece(shownPos(), sq, inspected != null);
 }
 
-/** Squares the user clicks to identify a move: a shove target, chain victims, shot target, or the destination. */
-const clickPath = (m: Move): number[] => (m.shove
-  ? [m.shove.from] // click the neighbour to shove, under both `repel` (to === from) and `push`
-  // A mark, a sacrifice and a Haste pass change no square: the square itself is the click.
-  : m.pass || m.power === 'freeze' || m.power === 'ward' || m.power === 'sacrifice' ? [m.to]
-  : m.to === m.from ? [m.captures[0]]
-  : m.captures.length > 1 ? m.captures
-  // Reaver: click the victim, then the landing square (`Vb1xc3-d3`).
-  : m.captures.length === 1 && m.to !== m.captures[0] ? [m.captures[0], m.to]
-  : [m.to]);
 /** The side to move's power tag while it is armed, else null. */
 const armedTag = (): string | null => {
   const power = GAME_RULES.kings[game.pos.turn]?.power;
@@ -406,23 +255,18 @@ const markTargets = (): Move[] => {
 
 function refresh(): void {
   const cands = candidates();
-  const next = cands.map(m => clickPath(m)[pending.length]).filter((s): s is number => s != null);
-  const swaps = cands.filter(m => m.swap).map(m => m.to);
-  const shoves = cands.filter(m => m.shove).map(m => m.shove!.from);
+  const verb = marksModel(cands, pending);
   // Armed Freeze / Ice Wall / Sacrifice name a piece: a power target, not a capture.
   const named = [...new Set(markTargets().map(m => m.to))];
   const step = (m: Move): number | undefined => clickPath(m)[pending.length];
   const powers = [...new Set([...cands.filter(m => m.power && !m.pass).map(step).filter((s): s is number => s != null), ...named])];
-  // The Archer shoots without moving: its target gets a sight rather than a strike.
-  const shots = [...new Set(cands.filter(m => m.to === m.from && m.captures.length && step(m) === m.captures[0]).map(m => m.captures[0]))];
   const last = (viewing == null ? game.history.at(-1) : game.history[viewing - 1])?.move;
   view.highlight({
     selected,
-    moves: next.filter(sq => !game.pos.board[sq]),
-    captures: next.filter(sq => game.pos.board[sq] !== 0 && !swaps.includes(sq) && !shoves.includes(sq) && !named.includes(sq)),
-    swaps,
-    shoves,
-    shots,
+    ...verb,
+    captures: verb.captures.filter(sq => !named.includes(sq)),
+    bites: selected != null && typeOf(game.pos.board[selected]) === S ? pending : [],
+    read: inspected != null ? reachOf(shownPos(), inspected) : undefined,
     powers,
     // Owner (2026-10-04): the square the piece left is not marked; where it went (or what it hit) is.
     last: !last ? [] : last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? [...last.captures] : [last.to],
@@ -501,7 +345,7 @@ function refresh(): void {
   };
   $('took-w').innerHTML = names(taken[0]);
   $('took-b').innerHTML = names(taken[1]);
-  showInfo(selected ?? inspected);
+  showInfo(inspected ?? selected);
   $('undo').hidden = lesson != null;
   $('undo').setAttribute('aria-disabled', String(!undoOn()));
   refreshTurnButton();
@@ -577,18 +421,6 @@ function drawMarks(): void {
 }
 new ResizeObserver(() => drawMarks()).observe($('board'));
 
-/** Why a tap on `to` did not play a move for the piece on `from` (only exported engine functions). */
-function whyNot(from: number, to: number): string {
-  const pos = game.pos, mover = pos.board[from], name = NAMES[typeOf(mover)], target = pos.board[to];
-  // Only the moves a click can reach (candidates()): an unarmed power move is not "a move into check".
-  const tag = armedTag();
-  if (pseudoMoves(pos).some(m => m.from === from && offered(m, tag) && clickPath(m)[0] === to)) {
-    return game.inCheck ? `Your king is in check, and that ${name} move does not stop it.` : `Not allowed: that ${name} move would leave your king in check.`;
-  }
-  if (target && typeOf(target) === G && colorOf(target) !== pos.turn && typeOf(mover) !== K) return 'Not allowed: a guard can only be taken by a king.';
-  const can = game.legal.some(m => m.from === from && offered(m, tag)) ? ' The marked squares show where it can go.' : '';
-  return `Not allowed: the ${name} cannot ${target ? `take the ${NAMES[typeOf(target)]} on` : 'reach'} ${sqName(to)}.${can}`;
-}
 
 /** The keyboard cursor's square and piece, for the screen reader. */
 function sayCursor(): void {
@@ -824,7 +656,7 @@ async function choosePower(moves: Move[]): Promise<void> {
   armed = false; refresh();
 }
 
-$('power-btn').onclick = () => { armed = !armed; selected = null; pending = []; hintSquares = []; refresh(); };
+$('power-btn').onclick = () => { armed = !armed; selected = null; inspected = null; pending = []; hintSquares = []; refresh(); };
 
 
 /** Drag arm: select without the click toggle so a second onSquareClick can still play the move. */
@@ -833,13 +665,14 @@ view.onDragSelect = (sq) => {
   if (game.pos.board[sq] === 0 || colorOf(game.pos.board[sq]) !== game.pos.turn) return;
   hintSquares = [];
   notice = '';
+  inspected = null;
   selected = sq;
   pending = [];
   refresh();
 };
 
 /** Show why a tap on `sq` did nothing, in the help line (a live region). A piece on `sq` shows its card. */
-const refuse = (why: string, sq: number): void => { inspected = shownPos().board[sq] ? sq : null; notice = why; refresh(); };
+const refuse = (why: string, sq: number): void => { ({ inspected } = readTap(shownPos(), sq, selected, inspected, false)); notice = why; refresh(); };
 
 view.onSquareClick = (sq, shift = false) => {
   if (home?.visible) home.resume();
@@ -853,7 +686,6 @@ view.onSquareClick = (sq, shift = false) => {
   }
   hintSquares = [];
   notice = '';
-  inspected = null;
   const targets = markTargets();
   if (targets.length) { // armed Freeze / Ice Wall / Sacrifice: tap the piece itself
     const here = targets.filter(m => m.to === sq);
@@ -861,21 +693,13 @@ view.onSquareClick = (sq, shift = false) => {
     else { armed = false; refresh(); }
     return;
   }
-  const p = game.pos.board[sq], own = p !== 0 && colorOf(p) === game.pos.turn;
-  const next = candidates().filter(m => clickPath(m)[pending.length] === sq);
+  const next = [...candidates().filter(m => clickPath(m)[pending.length] === sq), ...landingMoves(candidates(), sq)];
   if (selected == null || next.length === 0) {
-    const turn = game.pos.turn ? 'Black' : 'White';
-    if (selected != null && !own && sq !== selected) notice = pending.length ? 'That square is not marked, so the capture chain was cancelled.' : whyNot(selected, sq);
-    else if (selected == null && !p) notice = `Choose one of ${turn}'s pieces first.`;
-    if (p && !own) inspected = sq; // an enemy piece that is no target: its card; with a piece selected, the help line still says why
-    selected = own && sq !== selected ? sq : null;
-    pending = [];
-    if (selected != null && !game.legal.some(m => m.from === selected)) {
-      notice = `This ${NAMES[typeOf(p)]} has no legal move${game.inCheck ? ': your king is in check, and it cannot help' : ' right now'}.`;
-    }
+    ({ selected, inspected, pending, notice } = unmarkedTap(game.pos, sq, selected, inspected, pending, armedTag()));
     refresh();
     return;
   }
+  inspected = null;
   const complete = next.filter(m => clickPath(m).length === pending.length + 1);
   if (complete.length && complete.length === next.length) {
     const push = complete.find(m => m.shove);
@@ -1383,7 +1207,7 @@ addEventListener('keydown', e => {
   // No game key acts under a dialog: there Esc only closes the dialog (the Workshop's Esc closes its top sheet,
   // else an open choices panel, else the Workshop).
   if (home?.visible || document.querySelector('dialog[open]')) return;
-  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; armed = false; hintSquares = []; refresh(); return; }
+  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; inspected = null; armed = false; hintSquares = []; refresh(); return; }
   // Nor in a field that takes typing.
   const field = e.target as HTMLElement;
   if (field.closest('input,select,textarea') || field.isContentEditable) return;
@@ -1398,6 +1222,7 @@ addEventListener('keydown', e => {
 /* ---- keyboard play on the board ---- */
 const boardEl = $('board');
 const homeSquare = (): number => selected ?? square(4, game.pos.turn ? 6 : 1);
+connectReadKey(boardEl, () => cursor, sq => refuse('', sq));
 boardEl.addEventListener('focus', () => {
   if (!boardEl.matches(':focus-visible')) return; // a mouse or touch tap does not show the cursor
   cursor ??= homeSquare(); sayCursor(); drawMarks();

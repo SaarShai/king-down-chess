@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import { lanMoves, contextText } from './app-ui.mjs';
+import { env, trapErrors, assertNoErrors } from './lib/checks.mjs';
+import { fixture } from './read-verb-fixture.mjs';
+const { page, seed, tap, marks, close } = await fixture(env('PLAYABLE_URL'));
+trapErrors(page);
+try {
+  await seed('7k/8/8/2p5/2O5/8/P7/K7 w - - 0 1');
+  await tap(26);
+  assert.deepEqual((await marks()).shoveTo, [{ from: 34, to: 42 }]);
+  await tap(42);
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length === 1);
+  assert.match((await lanMoves(page)).join(' '), /Oc4>c5-c6/);
+  await seed('7k/8/5p2/3pp3/2nS4/8/8/K7 w - - 0 1');
+  await tap(27);
+  assert.deepEqual((await marks()).bites, []);
+  await tap(26); await tap(35);
+  assert.deepEqual((await marks()).bites, [26, 35]);
+  assert.deepEqual(await lanMoves(page), [], 'chosen bites do not write a ply');
+  await tap(8);
+  assert.deepEqual((await marks()).bites, [26, 35], 'off-mark taps keep the chain');
+  assert.match(await contextText(page), /Tap a marked piece, or stop here/);
+  await page.locator('#stop-chain').click();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length === 1);
+  assert.match((await lanMoves(page)).join(' '), /Sd4xc4xd5/);
+  await seed('7k/8/8/8/8/8/P7/MN5K w - - 0 1');
+  await tap(0);
+  assert.ok((await marks()).swaps.includes(1));
+  await seed('7k/8/8/8/2p5/8/2A5/K7 w - - 0 1');
+  await tap(10);
+  assert.ok((await marks()).shots.includes(26));
+  console.log('verb-marks: Ogre, Beast, Maester and Archer pass; landing tap passes');
+} finally { try { assertNoErrors(page); } finally { await close(); } }

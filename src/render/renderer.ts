@@ -17,6 +17,7 @@ import { PieceContourPass } from './prototype/PieceContourPass';
 import type { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import type { Pace } from './PaintedView';
 import { pastTap } from './tap';
+import type { Reach } from '../read';
 import type { Checker } from '../move-text';
 
 export const tileCenter = (sq: number): THREE.Vector3 => new THREE.Vector3(file(sq) - 3.5, 0, 3.5 - rank(sq));
@@ -33,6 +34,12 @@ export interface Highlights {
   shoves?: number[];
   /** Captures made from a distance (the Archer shoots without moving); also listed in `captures`. */
   shots?: number[];
+  /** Read outlines; omitted in the plugin and the Clay look. */
+  read?: Reach;
+  /** Shove targets and their landings; omitted keeps the old chevrons. */
+  shoveTo?: { from: number; to: number }[];
+  /** Beast victim squares already chosen, in bite order. */
+  bites?: number[];
   /**
    * Squares a king's power acts on: an armed power's moves (also listed in `moves` or `captures`)
    * and the pieces an armed Freeze, Ice Wall or Sacrifice can name.

@@ -34,7 +34,8 @@ try {
     const ogre = '7k/8/8/2p5/2O5/8/P7/K7 w - - 0 1';
     await seed(ogre);
     const bounds = await page.locator('#board').boundingBox();
-    await tap(26); assert.match(await contextText(page), /shove or capture/);
+    await tap(26); assert.match(await contextText(page), /Moves 1 square in any direction/);
+
     await tap(34); await page.locator('#move-choice').waitFor({ state: 'visible' });
     assert.deepEqual(await lanMoves(page), []);
     assert.match(await page.locator('#move-choice-detail').innerText(), /c5.*c6/);
@@ -59,7 +60,7 @@ try {
 
     const beast = '7k/8/5p2/3pp3/2nS4/8/8/K7 w - - 0 1';
     await seed(beast); await tap(27); await tap(26);
-    assert.match(await contextText(page), /next marked victim/);
+    assert.match(await contextText(page), /Bite again/);
     assert.match(await page.locator('#stop-chain').innerText(), /1 capture/);
     assert.deepEqual(await lanMoves(page), []);
     await page.keyboard.press('Escape'); await played(0);
@@ -71,7 +72,7 @@ try {
     checks.push(`${mobile ? 'touch' : 'mouse'}: Beast cancel, finish after one, and continue then finish`);
 
     await seed('7k/8/8/8/8/8/P7/MN5K w - - 0 1');
-    await tap(0); assert.match(await contextText(page), /friendly piece to swap/);
+    await tap(0); assert.match(await contextText(page), /Moves 1 square in any direction/);
     await tap(1); await played(1); assert.match((await lanMoves(page)).join(' '), /Ma1<>b1/);
     await button('#undo'); await played(0);
     await tap(0); await tap(7); await played(1); assert.match((await lanMoves(page)).join(' '), /Ma1<>h1/);
