@@ -1,3 +1,4 @@
+import { arriveContinue } from '../../../../tools/app-ui.mjs';
 // W5: still check causes. Run with SAMPLE=W5 and the sample tool.
 const checked = (name, fen, look = 'painted') => ({
   name,
@@ -12,10 +13,10 @@ export default {
   states: [
     { name: 'online-in-check', save: { back: '', fen: '4k2R/8/8/8/8/P7/8/7K b - - 0 1', moves: [], white: 'human', black: 'human', link: 0, sound: false }, controls: '#undo, #end-turn, #menu-btn',
       steps: async ({ page }) => page.waitForFunction(() => document.getElementById('context-text').textContent.includes('Your rook attacks their king.')) },
-    { name: 'computer-in-check', save: { back: '', fen: '4k2R/8/8/8/8/P7/8/7K b - - 0 1', moves: [], white: 'human', black: 'ai', sound: false },
+    { name: 'computer-in-check', title: true, save: { back: '', fen: '4k2R/8/8/8/8/P7/8/7K b - - 0 1', moves: [], white: 'human', black: 'ai', sound: false },
       controls: '#undo, #end-turn, #menu-btn', steps: async ({ page }) => {
-        await page.addInitScript(() => { Worker.prototype.postMessage = () => {}; });
-        await page.reload(); await page.waitForFunction(() => document.getElementById('context-text').textContent.includes('Your rook attacks their king.'));
+        await page.evaluate(() => { Worker.prototype.postMessage = () => {}; });
+        await arriveContinue(page).click(); await page.waitForFunction(() => document.getElementById('context-text').textContent.includes('Your rook attacks their king.'));
       } },
     checked('archer-over-piece', '7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'),
     checked('clay-check', '7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1', 'clay'),
