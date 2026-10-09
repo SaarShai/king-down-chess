@@ -40,10 +40,11 @@ Blocked by: none
 
 Previously uses the real move animation and sounds; See again keeps the same history.
 The fast plan cuts the sheet, resignation line, alert change, send words, and video.
-Typecheck passes. Unit tests: 1545 pass; 13 skip. Motion tests: 50 pass.
-Browser checks pass: link-game, painted-game, ux-defects, game-screen, their-turn.
+Typecheck passes. Unit tests: 1567 pass; 13 skip. Motion tests: 50 pass.
+Browser checks pass: link-game, painted-game, ux-defects, game-screen, their-turn, menu-extra.
 The new link-game check passes twice; existing W1 link checks remain.
 The defect check waits for replay to end before board input.
 The supplied M1 script selects this Mac after its M1 window closes.
 Both sample sheets are inspected; the sample waits for the owner's yes.
+Merge W10 keeps seals at the turn press.
 Merge d9ede53 keeps conflict notes after its credit line; history stays intact.
