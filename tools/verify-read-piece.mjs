@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { contextText, focusBoard, leaveBoard, openPieceRules, lanMoves } from './app-ui.mjs';
+import { env, trapErrors, assertNoErrors } from './lib/checks.mjs';
 import { fixture } from './read-verb-fixture.mjs';
-const { page, seed, tap, marks, close } = await fixture();
+const { page, seed, tap, marks, close } = await fixture(env('PLAYABLE_URL'));
+trapErrors(page);
 try {
   await seed('7k/8/n7/8/4P3/8/8/K7 w - - 0 1');
   await tap(40);
@@ -29,4 +31,4 @@ try {
   assert.equal(await page.evaluate(() => window.view.marks.read.step.has(36)), true, 'I outside the board leaves the read in place');
   assert.deepEqual(await lanMoves(page), []);
   console.log('read-piece: 3 cases pass; I, toggle and All rules pass');
-} finally { await close(); }
+} finally { try { assertNoErrors(page); } finally { await close(); } }

@@ -96,6 +96,7 @@ export function refreshTable(s: TableState): void {
     link: s.linkSide != null && s.game.pos.turn !== s.linkSide && !s.turn.waits ? "Wait for your friend's link." : '',
     asset: text('asset-status'),
   };
+  $('all-rules').hidden ||= !!s.pending.length;
   const line = contextLine(state);
   $('context-text').replaceChildren(...[line.line, line.note].filter(Boolean).map(words => {
     const row = document.createElement('span');
