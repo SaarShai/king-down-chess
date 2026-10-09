@@ -13,7 +13,7 @@ import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { initLessonShelf, recordLesson, refreshLessonShelf } from './lesson-shelf-ui';
 import { mulberry32 } from './sim/rng';
-import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
+import { checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { POWER_NAME, POWER_TAG, autoQueen, hintMoves, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, newGameWarning, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
@@ -422,7 +422,8 @@ function refresh(): void {
     // Owner (2026-10-04): the square the piece left is not marked; where it went (or what it hit) is.
     last: !last ? [] : last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? [...last.captures] : [last.to],
     hint: hintSquares,
-    check: game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
+    check: !busy && game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
+    checkers: !busy && viewing == null ? checkersOf(game.pos) : [],
   });
   const canFinish = pending.length > 0 && cands.some(m => clickPath(m).length === pending.length);
   const selectedType = selected == null ? 0 : typeOf(game.pos.board[selected]);
@@ -615,7 +616,6 @@ async function commit(m: Move): Promise<void> {
   if (kind === 'shot' || kind === 'deathTouch' || kind === 'strikeCapture' || kind === 'lob' || kind === 'strike') snd.shot();
   else if (kind === 'swap' || kind === 'swapKing') snd.swap();
   else if (!hit) snd.move();
-  if (game.inCheck) snd.check();
   selected = null; pending = []; armed = false; inspected = null;
   refresh();
   let struck = false;
@@ -626,6 +626,7 @@ async function commit(m: Move): Promise<void> {
   if (g !== gen) return;
   strike(); // no animation (reduced motion) or no contact reported: sound the hit now
   view.sync(game.pos);
+  if (game.inCheck) snd.check();
   busy = false;
   if (lesson != null) return lessonResult(pre, m);
   // After a Haste's first move the same piece is ready for its second.
