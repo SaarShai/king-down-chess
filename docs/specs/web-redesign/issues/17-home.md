@@ -56,3 +56,11 @@ The merge has no conflicts. The starting head is `86a396ede59bf2fdc6a7305f9f5167
 `npm test` passes: 89 files pass, 1 skips; 1,564 tests pass, 13 skip; all 50 art tests pass. Typecheck passes.
 
 The supplied M1 launcher runs on this Mac. `home` passes in 7.6 s and `visual-design` passes in 18.5 s. No code fix is required. The sample still waits for the owner's yes.
+
+Batch 3: decided by delegation (2026-10-09).
+Review sits under Moves on the same left edge, with a secondary button edge.
+On one device, Home names the side. Detail sentences end with a full stop.
+Today says Play. Its arrow is larger. Menu uses ink.
+Keep the first-paint focus ring. Removing it needs safe input tracking.
+Tests: 1,667 pass, 13 skip; all 50 board tests pass. All ten browser checks pass.
+W8: 10 renders, zero faults. Both sheets get a visual check.

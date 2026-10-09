@@ -16,7 +16,7 @@ Needs: W1 and W2 (merged)
 1. [x] Copy six detectors. Read the position before each legal move. Test a find and a near miss for each detector.
 2. [x] Give seals at W1's press. Count this device's human plies since the turn start. In a link game, count only this side after a send succeeds. Lessons, replay, link loads, review and computer turns give no seal.
 3. [x] Store seals and the unseen mark in `kingdown.tricks`. Keep them on this device. Leave the lesson store and account sync as they are.
-4. [x] Show one gold dot on Menu. Clear it when Menu opens. Add no stamp or flight motion.
+4. [x] Show a gold dot on Menu, Extra and Tricks. Clear the dots when Tricks opens. Add no stamp or flight motion.
 5. [x] Show found figures, piece seals, names and find text. Show grey shapes and riddles for the rest. Put found rows first.
 
 ## Verification
@@ -58,3 +58,11 @@ Needs: W1 and W2 (merged)
 - The M1 launcher routes `menu-extra` to this Mac after its cutoff. After the shared lock clears, the check passes in 7.2 s.
 - No code fix is needed. The merge keeps both sides.
 - Push the checked commit with one test worker, as in the W9 retry. The pre-push hook runs the full tests and gate.
+
+Batch 3: decided by delegation (2026-10-09).
+The new seal dot stays on Menu, Extra and Tricks until Tricks opens.
+Extra and Tricks have new-seal names for a screen reader.
+A new seal has visible and spoken words. The page and row show the found count.
+The turn control keeps the seal notice after hand-over. This small shared edit is required.
+Tests: 1,667 pass, 13 skip; all 50 board tests pass. All ten browser checks pass.
+W10: eight renders, zero faults. Both sheets get a visual check.

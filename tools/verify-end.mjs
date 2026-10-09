@@ -1,6 +1,6 @@
 // W6: the handed-over end, board Ceremony and result review tiles.
 import assert from 'node:assert/strict';
-import { endTurn, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
+import { ceremonyTile, ceremonyWords, endTurn, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const faults = [];
@@ -47,9 +47,16 @@ const mate = async () => {
 try {
   await mate();
   assert.equal(await page.locator('#over .ceremony-tile').count(), 3, 'three review tiles');
-  assert.equal(await page.locator('.kd-words').textContent(), 'King Down');
+  assert.equal(await ceremonyWords(page).textContent(), 'King Down');
+  assert.equal(await page.locator('.kd-words').count(), 0, 'no words sit behind the dialog');
+  assert.deepEqual(await page.locator('#over .ceremony-tile').evaluateAll(bs => bs.map(b => +b.dataset.ply)), [0, 2, 4], 'tiles follow play order');
+  assert.deepEqual(await page.locator('#over .ceremony-tile span').allTextContents(), ['Rook takes pawn', 'Maester swaps', 'Rook moves'], 'tiles name the act');
+  assert.equal(await page.locator('#over-review').evaluate(b => getComputedStyle(b).justifyContent), 'center', 'Review has a centred label');
+  assert.ok(await page.locator('#over-review').evaluate(b => parseFloat(getComputedStyle(b).marginTop) >= 12), 'Review has its own space');
+  assert.doesNotMatch(await page.locator('#over-detail').innerText(), /setup|Ra3-a8/, 'the result uses words');
+  assert.match(await page.locator('#over-detail').innerText(), /3 moves\.$/);
   assert.equal(await page.evaluate(() => window.view.fallen?.sq), 63, 'the beaten king stays down');
-  await page.locator('#over .ceremony-tile').nth(1).click();
+  await ceremonyTile(page, 0).click();
   await waitForUi(page, ui => /Review/.test(ui.context));
   assert.equal(await page.locator('#over').isVisible(), false, 'a tile closes the result');
   assert.equal(await page.evaluate(() => window.view.pos.board[0]), 4, 'the tile opens before its capture');
@@ -57,17 +64,28 @@ try {
   console.log('ok Ceremony tiles open their review ply');
 
   await stageMate('normal'); await endTurn(page);
-  await page.locator('.ceremony-rematch').waitFor({ state: 'visible' });
-  await page.locator('.ceremony-rematch').click();
+  await page.locator('.kd-words').waitFor({ state: 'attached' });
+  assert.equal(await page.locator('#end-turn').innerText(), 'End turn', 'the Ceremony keeps the turn label');
+  assert.equal(await page.locator('#end-turn').getAttribute('aria-disabled'), 'true', 'the bar stays off during the Ceremony');
+  await page.locator('#end-turn').focus();
+  await page.keyboard.press('Space');
+  assert.equal(await page.locator('#over').isVisible(), false, 'Space on End turn does not skip');
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#over').isVisible(), false, 'Enter on End turn does not skip');
+  await page.locator('#board').focus();
+  await page.keyboard.press('Escape');
+  await page.locator('#over').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('.kd-words').count(), 0, 'the result hides the board words');
+  await page.locator('#over [value=rematch]').click();
   await page.waitForTimeout(100);
-  assert.deepEqual(await lanMoves(page), [], 'pointer Rematch works from the first frame');
+  assert.deepEqual(await lanMoves(page), [], 'dialog Rematch starts the next game');
   assert.equal(await page.locator('.kd-words').count(), 0, 'Rematch clears the old end');
   assert.equal(await page.locator('#over').isVisible(), false, 'no old result opens on the new game');
-  console.log('ok pointer Rematch cancels every end wait');
+  console.log('ok disabled turn button and dialog Rematch');
 
   for (const start of [false, true]) {
     await stageMate('normal'); await endTurn(page);
-    await page.locator('.ceremony-rematch').waitFor({ state: 'visible' });
+    await page.locator('.kd-words').waitFor({ state: 'attached' });
     await pressMenu(page, 'New game');
     await page.locator('#start-game').focus();
     if (start) {
@@ -87,7 +105,7 @@ try {
   console.log('ok New game keeps its keys and focus during the Ceremony');
 
   await stageMate('normal'); await endTurn(page);
-  await page.locator('.ceremony-rematch').waitFor({ state: 'visible' });
+  await page.locator('.kd-words').waitFor({ state: 'attached' });
   await pressMenu(page, 'Settings');
   await page.locator('#menu-back').focus(); await page.keyboard.press('Space');
   assert.equal(await page.locator('#menu-title').textContent(), 'Menu', 'Space works on the sheet button');
@@ -101,8 +119,9 @@ try {
   await stageMate('normal');
   assert.equal(await page.locator('.kd-words').count(), 0, 'a staged mate plays no Ceremony');
   await endTurn(page);
-  await page.locator('.ceremony-rematch').waitFor({ state: 'visible' });
+  await page.locator('.kd-words').waitFor({ state: 'attached' });
   assert.equal(await page.locator('#over').isVisible(), false, 'the board beats come before the dialog');
+  await page.locator('#board').focus();
   await page.keyboard.press('Enter');
   await page.locator('#over').waitFor({ state: 'visible' });
   check(await page.evaluate(() => document.querySelector('.ceremony-tiles').getAnimations({ subtree: true }).filter(a => a.playState === 'running').length), 0, 'skip shows tiles at rest');

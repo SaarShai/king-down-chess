@@ -5,6 +5,8 @@ const controls = '#home-main, #home-new, #home-today, #menu-btn, #moves-line';
 export default {
   sizes: ['phone', 'desktop'],
   states: [
+    { name: 'first-visit', title: true, controls: '#title-start' },
+    { name: 'first-deal', title: true, controls: '#end-turn, #menu-btn', steps: async ({ page }) => { await page.click('#title-start'); } },
     { name: 'saved-game', title: true, save: { ...save, black: 'ai' }, controls },
     {
       name: 'staged-turn', title: true, save, controls,

@@ -13,8 +13,13 @@ const WAX = Array.from({ length: 145 }, (_, i) => {
 
 export function refreshTricks(): void {
   const seals = loadSeals();
-  document.getElementById('menu-seal-dot')!.hidden = !seals.unseen;
-  document.getElementById('menu-btn')!.setAttribute('aria-label', seals.unseen ? 'Menu, new seal' : 'Menu');
+  for (const [button, dot, name] of [['menu-btn', 'menu-seal-dot', 'Menu'], ['extra-row', 'extra-seal-dot', 'Extra'], ['tricks-row', 'tricks-seal-dot', 'Tricks']]) {
+    document.getElementById(dot)!.hidden = !seals.unseen;
+    document.getElementById(button)!.setAttribute('aria-label', seals.unseen ? `${name}, new seal` : name);
+  }
+  const count = `${seals.found.length} of ${TRICKS.length} found`;
+  document.getElementById('tricks-count')!.textContent = count;
+  document.getElementById('tricks-intro')!.textContent = `${count}. Each trick you find gets a seal.`;
   document.getElementById('tricks-row')!.hidden = !seals.found.length;
   const rows = [...seals.found.map(id => TRICKS.find(t => t.id === id)!), ...TRICKS.filter(t => !seals.found.includes(t.id))];
   document.getElementById('tricks-list')!.innerHTML = rows.map(t => {
@@ -31,7 +36,8 @@ export function openTricksMenu(): void {
 }
 
 /** W1 calls this only at a successful press, before the turn start moves. */
-export function awardTurnSeals(game: Game, start: number, sides: readonly [Side, Side], linkSide: Color | null): void {
-  for (const id of tricksInTurn(game.history, start, sides, linkSide)) saveSeal(id);
+export function awardTurnSeals(game: Game, start: number, sides: readonly [Side, Side], linkSide: Color | null): string[] {
+  const found = tricksInTurn(game.history, start, sides, linkSide).filter(id => saveSeal(id));
   refreshTricks();
+  return found.map(id => TRICKS.find(t => t.id === id)!.name);
 }

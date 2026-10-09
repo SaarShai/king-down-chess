@@ -38,8 +38,13 @@ try {
     const ended = await open(MATE);
     assert.equal(await ended.page.locator('#home-main .label').innerText(), 'Rematch');
     assert.equal(await ended.page.locator('#home-progress').innerText(), 'Finished');
-    assert.equal(await ended.page.locator('#home-result').innerText(), 'Black wins by checkmate');
+    assert.equal(await ended.page.locator('#home-result').innerText(), 'Black wins by checkmate.');
     assert.equal(await ended.page.locator('#over').isVisible(), false, 'a finished save opens no result dialog');
+    const review = await ended.page.locator('#home-review').boundingBox();
+    const moves = await ended.page.locator('#moves-line').boundingBox();
+    assert.ok(Math.abs(review.x - moves.x) < 1, 'Review shares the row edge');
+    assert.ok(review.y - (moves.y + moves.height) <= 12, 'Review sits below Moves');
+    assert.notEqual(await ended.page.locator('#home-review').evaluate(b => getComputedStyle(b).borderStyle), 'none', 'Review has a button edge');
     await ended.page.click('#home-review');
     assert.equal(await ended.page.locator('#back-to-game').isVisible(), true, 'Review opens the saved game');
     await ended.context.close();
@@ -88,7 +93,7 @@ try {
       await tap(page, stagedMate ? 46 : 6); await tap(page, stagedMate ? 54 : 21);
       const plies = await lanMoves(page);
       await page.evaluate(() => window.home.open());
-      assert.equal(await page.locator('#home-detail').innerText(), 'Your turn is ready');
+      assert.equal(await page.locator('#home-detail').innerText(), "White's turn is ready.");
       assert.equal(await page.locator('#home-main .label').innerText(), 'Continue', 'a staged end is not finished');
       await arriveContinue(page).click();
       assert.deepEqual(await lanMoves(page), plies, 'Continue keeps the staged turn');

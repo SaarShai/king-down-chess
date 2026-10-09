@@ -27,3 +27,14 @@ it('keeps Resign and a game with no person quiet', () => {
   expect(shouldPlayCeremony('checkmate', 1, ['human', 'ai'], null, 1)).toBe(false);
   expect(shouldPlayCeremony('checkmate', 1, ['ai', 'ai'], null, null)).toBe(false);
 });
+
+import { ceremonyMoveLabel } from './ceremony-game';
+import { fromFen } from './rules/setup';
+
+it('names each review act in words', () => {
+  const pos = fromFen('7k/8/8/8/8/p7/8/R5MK w - - 0 1');
+  expect(ceremonyMoveLabel(pos, { from: 0, to: 16, captures: [16] })).toBe('Rook takes pawn');
+  expect(ceremonyMoveLabel(pos, { from: 6, to: 7, captures: [], swap: true })).toBe('Maester swaps');
+  const shot = fromFen('7k/8/4A3/8/4n3/8/8/7K w - - 0 1');
+  expect(ceremonyMoveLabel(shot, { from: 44, to: 44, captures: [28] })).toBe('Archer shoots knight');
+});

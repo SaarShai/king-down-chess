@@ -14,7 +14,7 @@ interface Controls {
   generation(): number;
   lock(value: boolean): void;
   commit(move: Move): Promise<void>;
-  handOver(): void;
+  handOver(): string | void;
   refresh(): void;
   save(): void;
   next(): void;
@@ -52,9 +52,9 @@ export function connectTurnPress(button: HTMLButtonElement, board: HTMLElement, 
     if (generation !== c.generation()) return;
     if (pass) await c.commit(pass);
     if (generation !== c.generation()) return;
-    c.handOver();
+    const sealNotice = c.handOver();
     c.lock(false);
-    c.notice(line);
+    c.notice(line || sealNotice || '');
     c.save();
     c.refresh();
     board.focus({ preventScroll: true });

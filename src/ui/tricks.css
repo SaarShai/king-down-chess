@@ -15,3 +15,6 @@
 .trick-seal .wax path { fill: var(--accent); }
 .trick-seal .wax circle { fill: none; stroke: rgb(255 214 190 / 38%); stroke-width: 1.4; }
 .trick-seal .pi { position: relative; width: 62%; height: 62%; --pi-disc: transparent; --pi-ring: transparent; --pi-glyph: #fbe3d2; color: #fbe3d2; }
+
+#menu-sheet .seal-dot { display: inline-block; width: 11px; height: 11px; margin-left: 6px; border-radius: 50%; background: var(--gold); border: 1.5px solid var(--gold-ink); }
+#menu-sheet .seal-dot[hidden] { display: none; }

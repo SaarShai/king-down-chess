@@ -21,6 +21,7 @@
       <symbol id="i-guide" viewBox="0 0 24 24"><path d="M3 5.5C3 4.7 3.7 4 4.5 4H11v16H4.5C3.7 20 3 19.3 3 18.5zM21 5.5c0-.8-.7-1.5-1.5-1.5H13v16h6.5c.8 0 1.5-.7 1.5-1.5z"/></symbol>
       <symbol id="i-settings" viewBox="0 0 24 24"><path d="M3 6h10M17 6h4M3 12h3M10 12h11M3 18h12M19 18h2"/><circle cx="15" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
       <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H10"/></symbol>
+      <symbol id="i-return" viewBox="0 0 24 24"><path d="M10 4H4v16h6M14 8l-4 4 4 4M10 12h11"/></symbol>
       <symbol id="i-resign" viewBox="0 0 24 24"><path d="M5 21V4M5 4h12l-2.5 4.5L17 13H5"/></symbol>
       <symbol id="i-share" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
       <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5l12 7.5-12 7.5z"/></symbol>
@@ -56,7 +57,7 @@
         <nav id="table-bar" aria-label="Game controls">
           <button id="undo" title="Take back the last move (Z)"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
           <button id="end-turn" type="button" aria-disabled="true">End turn</button>
-          <button id="return-game" hidden><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Return to game</span></button>
+          <button id="return-game" hidden><svg class="icon" aria-hidden="true"><use href="#i-return"/></svg><span class="label">Return to game</span></button>
           <button id="show-me" hidden><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg><span class="label">Show me</span></button>
           <button id="next-lesson" hidden><svg class="icon" aria-hidden="true"><use href="#i-continue"/></svg><span class="label"></span></button>
           <button id="menu-btn" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span id="menu-seal-dot" aria-hidden="true" hidden></span><span class="label">Menu</span></button>
@@ -197,7 +198,7 @@
         <button id="rules-btn" class="menu-row">Guide <span>Pieces, powers and lessons.</span><i>›</i></button>
         <button class="menu-row" data-go="help">Board help<i>›</i></button>
         <fieldset class="fields group"><legend>Feel</legend><label>Sound <input id="sound" type="checkbox" checked /></label><label>Motion <select id="pace"><option value="normal">Normal</option><option value="fast">Fast</option><option value="off">Off</option></select></label><small id="pace-note">Tap the board to skip an animation.</small></fieldset>
-        <button class="menu-row" data-go="extra">Extra <span>Play and make. Board and game.</span><i>›</i></button>
+        <button class="menu-row" id="extra-row" data-go="extra">Extra <b id="extra-seal-dot" class="seal-dot" aria-hidden="true" hidden></b><span>Play and make. Board and game.</span><i>›</i></button>
         <button id="share" hidden>Send the game link</button>
         <button id="resign" class="menu-row resign-row" data-go="resign" aria-disabled="false">Resign <span>Lay your king down.</span><i>›</i></button>
       </section>
@@ -210,7 +211,7 @@
       </section>
       <section data-menu-page="extra" hidden>
         <h3>Play and make</h3>
-        <button id="tricks-row" class="menu-row" data-go="tricks" hidden>Tricks<span>The tricks you find get seals.</span><i>›</i></button>
+        <button id="tricks-row" class="menu-row" data-go="tricks" hidden>Tricks<b id="tricks-seal-dot" class="seal-dot" aria-hidden="true" hidden></b><span id="tricks-count">The tricks you find get seals.</span><i>›</i></button>
         <button id="today-army" class="menu-row">Today's army<i>›</i></button>
         <button id="workshop-btn" class="menu-row"><img class="menu-fox" src="./ui/workshop/fox-pathfinder-w.webp" alt="" />Workshop<span>Make your own piece.</span><i>›</i></button>
         <h3>Board and game</h3>
@@ -220,7 +221,7 @@
         <button id="reset-view">Reset view (R)</button>
         <h3>Coming</h3><p class="coming-row">Card mode: power coins by the king.</p>
       </section>
-      <section data-menu-page="tricks" hidden><p>Each trick you find gets a seal.</p><ul id="tricks-list"></ul></section>
+      <section data-menu-page="tricks" hidden><p id="tricks-intro">Each trick you find gets a seal.</p><ul id="tricks-list"></ul></section>
       <section data-menu-page="game" hidden><div class="row">Army <code id="setup"></code></div><button id="copy" title="Copy the move list as LAN">Copy moves</button></section>
       <section data-menu-page="account" hidden><section id="account" aria-labelledby="account-title" hidden><h3 id="account-title">Account</h3><div id="account-body" class="fields"></div><p id="account-note" role="status" aria-live="polite"></p></section></section>
       <section data-menu-page="resign" hidden><h3>Lay your king down?</h3><p id="resign-detail"></p><button id="resign-confirm" class="primary">Resign</button><button data-go="menu">Keep playing</button></section>
@@ -268,10 +269,11 @@
         <img class="over-king over-w" src="./ui/kings/spirit.webp" alt="" />
         <img class="over-king over-b" src="./ui/kings/shadow-b.webp" alt="" />
       </div>
+      <p id="over-words" class="over-words" hidden>King Down</p>
       <h2 id="over-title" tabindex="-1"></h2>
       <p id="over-detail"></p>
       <div id="over-tiles"></div>
-      <button id="over-review" type="button">Review</button>
+      <button id="over-review" type="button" class="quiet">Review</button>
       <button id="share-result" type="button" hidden></button>
       <form method="dialog">
         <button value="rematch" class="primary" autofocus>Rematch</button>

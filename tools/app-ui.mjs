@@ -248,3 +248,8 @@ export const lessonPath = () => [
   [0, [27, 45]], [3, [27, 35, 43]], [2, [27, 28]],
   [4, [27, 35]], [1, [11, 12]], [5, [3, 43]],
 ];
+
+/** King Down moves into the result when the board sequence ends. */
+export const ceremonyWords = page => page.locator('#over-words:visible, .kd-words:visible').first();
+/** Review tiles keep their ply when their display order changes. */
+export const ceremonyTile = (page, ply) => page.locator(`.ceremony-tile[data-ply="${ply}"]`);

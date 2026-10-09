@@ -99,3 +99,9 @@ Three reviews read the branch at e61f414: fidelity (7 findings), correctness (3)
 - **Checks 8: accepted.** The commit-msg hook did not count the probe lines that spec rule 7 names. Fix: the registry pattern `probeFiles`, used by the ux-defects runner and by the counter, with unit and hook tests (de1f698). In 2056f95 the hook counted the two changed d10 lines.
 
 For the later steps: ticket 03 changes the bodies of `contextText`, `refusalText` (rank 4 of the context line only), `computerThinks` (their strip), `resultText` (rank 3), `openMenu`, `openMoves` and `endTurn`. Ticket 05 changes `menuItem`, `openMenu`, `pressMenu`, `openExtra`, `boardHelp`, `setPace`, `focusBoard` and `leaveBoard`. Tickets 04 and 09 keep `refusalText` true when they change the read and the refusal words. Ticket 14 changes `resultText`.
+
+Batch 3: decided by delegation (2026-10-09).
+The end word helper reads the board or result. Tile helpers use the saved ply.
+Browser assertions keep their purpose when tile order changes.
+Changed word and state assertions have Removed-check trailers.
+All ten browser checks pass.

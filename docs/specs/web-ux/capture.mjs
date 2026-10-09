@@ -71,8 +71,9 @@ async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
       if (sessionStorage.getItem('sample.seeded')) return; // a reload in the steps keeps the game it made
       sessionStorage.setItem('sample.seeded', '1');
       if (save) localStorage.setItem('kingdown.save', JSON.stringify({ ...save, pace }));
-    }, [state.save ?? null, state.title ?? false, video || state.motion === 'normal' ? 'normal' : 'off']);
+    }, [state.save ?? null, state.title ?? false, video || state.motion === 'normal' ? 'normal' : state.stillPace ?? 'off']);
     const page = await ctx.newPage();
+    if (state.clock) await page.clock.install();
     const errors = trapErrors(page);
     page.on('dialog', d => d.accept());
     const tap = async sq => {
@@ -87,12 +88,13 @@ async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
         const want = state.save.moves ?? [], kept = await lanMoves(page);
         if (kept.join(' ') !== want.join(' ')) row.faults.push(`seed: the app keeps ${kept.length} of the ${want.length} saved moves: [${kept.join(' ')}] of [${want.join(' ')}]`);
       }
-      await state.steps?.({ page, tap, size });
+      await page.evaluate(() => document.fonts.ready);
+      await state.steps?.({ page, tap, size, video });
       if (video) {
         await settle(page, 2000); // the last motion ends on the video
       } else {
         await page.evaluate(() => document.fonts.ready);
-        await settle(page);
+        await settle(page, state.settleMs ?? 700);
         await page.screenshot({ path: row.file });
         const checks = [() => noSidewaysScroll(page)];
         if (state.controls) checks.push(() => insideViewport(page, state.controls));

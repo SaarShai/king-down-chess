@@ -37,3 +37,8 @@ The fast plan keeps this work and cuts no part of 02a.
 Tests: 1482 pass, 13 skip; all 50 scene tests pass after the merge.
 M1: all 14 named checks pass; turn and link-game pass twice; plugin-ui passes.
 Sample W1: 14 renders, no fault. Both contact sheets are checked. The owner's yes waits.
+
+Batch 3: decided by delegation (2026-10-09).
+Return to game uses a door and arrow. Undo keeps its curved arrow.
+The lesson-return browser check checks that the two icons differ.
+All ten browser checks pass. No lesson rule changes.

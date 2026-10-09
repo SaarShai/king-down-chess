@@ -44,3 +44,9 @@ Blocked by: 01, 06
 - `home` passes twice (10.2 s, 7.6 s); `visual-design` 19.9 s, `account` 53.6 s, `king-effects` 99.5 s, `workshop` 64.4 s, `ux-defects` 69.1 s, `new-game` 13.1 s.
 - The supplied M1 launcher uses this Mac. The full test run uses two workers and 30 s deadlines; the test script returns to its original text.
 - W8 has six renders with no fault. The review checks both contact sheets in the requested sample folder. The sample waits for the owner's yes.
+
+Batch 3: decided by delegation (2026-10-09).
+W8 adds first visit with no save and one Start, at phone and desktop sizes.
+A second state shows the chosen first deal against Beginner after Start.
+All ten browser checks pass. W8 has 10 renders and zero faults.
+All stills get a visual check. The first-visit code already agrees with the spec.

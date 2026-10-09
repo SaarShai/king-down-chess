@@ -325,6 +325,8 @@ try {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.getElementById('new-game').scrollWidth <= document.getElementById('new-game').clientWidth), mode);
     if (mode === 'powers') await shot(page, 'phone-powers.jpg', jpeg);
   }
+  assert.ok(await page.locator('.em-name').evaluateAll(labels => labels.every(l => l.scrollWidth <= l.clientWidth + 1 && l.scrollHeight <= l.clientHeight + 1)), 'king names fit on the phone');
+  assert.ok(await page.locator('#army-examples option').evaluateAll(options => options.every(o => !/^[A-Z]{8}$/.test(o.textContent))), 'example armies have word labels');
   // The power buttons with their pictures: 44 px targets or more, labels whole and at 14 px.
   for (const b of await page.$$eval('#king-picker .power-choice button', bs => bs.map(b => {
     const r = b.getBoundingClientRect(), l = b.querySelector('.pm-label');

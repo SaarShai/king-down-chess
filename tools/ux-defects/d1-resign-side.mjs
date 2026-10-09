@@ -26,13 +26,13 @@ export default async function ({ open }) {
     })).jsonValue();
     assert.deepEqual(during, { disabled: true, asked: [] }, 'Resign is off while the computer thinks');
     await waitForUi(page, ui => ui.lan.length === 2 && document.getElementById('resign').getAttribute('aria-disabled') !== 'true');
-    assert.deepEqual(await resign(page), { asked: 'Black wins this game.', result: 'White resigns — Black wins' }, 'against the computer');
+    assert.deepEqual(await resign(page), { asked: 'Black wins this game.', result: 'White resigns — Black wins.' }, 'against the computer');
     await close();
   }
   // Two players on one device: the side to move resigns.
   {
     const { page, close } = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4'], white: 'human', black: 'human', sound: false } });
-    assert.deepEqual(await resign(page), { asked: 'White wins this game.', result: 'Black resigns — White wins' }, 'two players');
+    assert.deepEqual(await resign(page), { asked: 'White wins this game.', result: 'Black resigns — White wins.' }, 'two players');
     await close();
   }
   // A game link: this device resigns its own side, also on the friend's turn.
@@ -40,7 +40,7 @@ export default async function ({ open }) {
     const { page, tap, close } = await open({ query: '?army=RNBQKBNR&moves=e2-e4' });
     await tap(52); await tap(36); // e7-e5: this device plays Black
     await waitForUi(page, ui => ui.lan.length === 2);
-    assert.deepEqual(await resign(page), { asked: 'White wins this game.', result: 'Black resigns — White wins' }, 'a game link, on the friend\'s turn');
+    assert.deepEqual(await resign(page), { asked: 'White wins this game.', result: 'Black resigns — White wins.' }, 'a game link, on the friend\'s turn');
     await close();
   }
 }

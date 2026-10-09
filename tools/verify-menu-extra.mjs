@@ -33,13 +33,22 @@ try {
       console.log('ok menu-extra: Undo before the press gives no seal');
     } else {
       await endTurn(page);
+      assert.match(await page.locator('#announce').textContent(), /New seal: Bite chain/, 'the new seal is spoken');
+      assert.match(await page.locator('#context-text').textContent(), /New seal: Bite chain/, 'the new seal has words');
       assert.equal(await page.locator('#menu-seal-dot').isVisible(), true, 'the press gives the gold dot');
       assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.tricks'))), { found: ['chain'], unseen: true });
       await page.reload(); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
       assert.equal(await page.locator('#menu-seal-dot').isVisible(), true, 'a reload keeps the unseen mark');
+      await openMenu(page);
+      assert.equal(await page.locator('#extra-seal-dot').isVisible(), true, 'Menu keeps the new seal path');
+      assert.equal(await page.locator('#extra-row').getAttribute('aria-label'), 'Extra, new seal');
+      await openExtra(page);
+      assert.equal(await page.locator('#tricks-seal-dot').isVisible(), true, 'Extra points to Tricks');
+      assert.equal(await page.locator('#tricks-row').getAttribute('aria-label'), 'Tricks, new seal');
       await openTricks(page);
       assert.equal(await page.locator('#menu-seal-dot').isVisible(), false, 'Menu takes the dot');
       assert.equal(await page.locator('[data-menu-page="tricks"]').isVisible(), true);
+      assert.equal(await page.locator('#tricks-intro').textContent(), '1 of 6 found. Each trick you find gets a seal.');
       assert.equal(await page.locator('#tricks-list .found-row').count(), 1);
       assert.equal(await page.locator('#tricks-list .riddle').count(), 5);
       assert.match(await page.locator('#tricks-list .found-row').innerText(), /Bite chain/);

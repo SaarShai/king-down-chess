@@ -137,6 +137,9 @@ export function newGameDialog(start: (s: Setup) => void, preset?: Partial<Rules>
   for (const r of radios('side')) r.onchange = () => { draft.side = +r.value as Color; render(); };
   $<HTMLInputElement>('two-powers').onchange = e => { draft = withMode(draft, draft.mode, (e.target as HTMLInputElement).checked); render(); };
   const army = $<HTMLSelectElement>('army');
+  for (const [i, option] of [...$('army-examples').querySelectorAll('option')].entries()) {
+    if (/^[A-Z]{8}$/.test(option.value)) option.textContent = `Example army ${i + 1}`;
+  }
   army.onchange = () => { draft.army = army.value; render(); };
   for (const r of radios('army')) r.onchange = () => { draft.army = r.value; render(); };
   $('start-game').onclick = () => start(copy(draft));
