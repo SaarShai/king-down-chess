@@ -69,11 +69,15 @@ export class PaintedView implements BoardView {
   private marksSince = 0;
   private marksKey = '';
 
-  constructor(private container: HTMLElement) {
+  /**
+   * options.floor: the colour round the board (default: the scene's own floor, as the plugin page draws it);
+   * null leaves the canvas clear there, so the page's floor shows (the game).
+   */
+  constructor(private container: HTMLElement, options: { floor?: string | null } = {}) {
     container.classList.add('painted');
     this.canvas.width = 960; this.canvas.height = 960 + HEADROOM; // resolution 1 until the first resize
     container.appendChild(this.canvas);
-    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(0), kingDesign(1)] });
+    this.scene = createScene({ canvas: this.canvas, pieces: { P, N, B, R, Q, K, S, L, M, G, A, O, typeOf, colorOf, sqName, LETTERS }, headroom: HEADROOM, kings: [kingDesign(0), kingDesign(1)], floor: options.floor });
     this.scene.setDecorate((ctx, scene, layer, row) => this.drawMarks(ctx, scene, layer, row));
     // The game opts in to quiet-move gaits, the selected figure's idle and the framed, warm board
     // (the trial and the trailer keep the plain scene).

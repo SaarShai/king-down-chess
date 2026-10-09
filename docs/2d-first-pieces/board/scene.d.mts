@@ -1,5 +1,9 @@
 // Types for scene.mjs, so the game's TypeScript can import the shared painted scene.
 export const SIZE: number, PAD: number, TILE: number;
+/** The floor round the board, by default ('#e6e1cf'). */
+export const FLOOR: string;
+/** Clears the canvas (the headroom included) and fills it with `floor`; null only clears it. */
+export function paintFloor(ctx: Pick<CanvasRenderingContext2D, 'clearRect' | 'fillRect' | 'fillStyle'>, floor: string | null, headroom: number): void;
 /** A king sheet: docs/2d-first-pieces/king-<design>/. */
 export type KingDesign = 'frost' | 'flame' | 'stratus' | 'mud' | 'spirit' | 'shadow';
 export interface ScenePieces {
@@ -72,4 +76,6 @@ export function createScene(options: {
   headroom?: number;
   /** [white, black] king designs to start with; default Frost for both (the trial and the trailer). */
   kings?: readonly [KingDesign, KingDesign];
+  /** The colour round the board; default FLOOR. null leaves the canvas clear there, so the page shows (the game). */
+  floor?: string | null;
 }): PaintedScene;

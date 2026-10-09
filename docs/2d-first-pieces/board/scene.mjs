@@ -19,6 +19,16 @@ import {DEATHS,THEMED,drawDeath} from './king-captures.mjs';
 import * as pawnIdle from '../lance/idle.mjs';
 import {SHADE,shadowField,shadowWeights,fxFade} from './contact-shadow.mjs';
 export const SIZE=960, PAD=32, TILE=112;
+/** The floor round the board, by default: the trial, the trailer and the plugin page draw it. */
+export const FLOOR='#e6e1cf';
+/**
+ * Clears the whole canvas (board units, the headroom above the board included) and fills it with `floor`.
+ * A floor of null only clears it, so the page under the canvas shows round the board (the game's parchment floor).
+ */
+export function paintFloor(ctx,floor,headroom){
+ ctx.clearRect(0,-headroom,SIZE,SIZE+headroom);
+ if(floor){ctx.fillStyle=floor;ctx.fillRect(0,-headroom,SIZE,SIZE+headroom);}
+}
 // One literal URL per image: bundlers resolve and copy each file (a template string would not).
 const ART_FILES={beast:new URL('../beast/beast.webp',import.meta.url).href,queen:new URL('../queen/queen.webp',import.meta.url).href,paladin:new URL('../paladin/paladin.webp',import.meta.url).href,maester:new URL('../maester/maester.webp',import.meta.url).href,pawn:new URL('../lance/pawn.webp',import.meta.url).href,archer:new URL('../wrist-bow/archer.webp',import.meta.url).href,ogre:new URL('../ogre/ogre.webp',import.meta.url).href,knight:new URL('../knight/knight.webp',import.meta.url).href,bishop:new URL('../bishop/bishop.webp',import.meta.url).href,rook:new URL('../rook/rook.webp',import.meta.url).href,guard:new URL('../guard/guard.webp',import.meta.url).href};
 // One sheet per king design (king-sheets.mjs); a side draws the king it plays (setKings).
@@ -32,8 +42,9 @@ const BOARD_ART=new URL('../board-art/stone-board.webp',import.meta.url).href;
  * setDecorate(fn): fn(ctx, scene, 'under') draws markers below the figures; fn(ctx, scene, 'over', row) is called
  * for each screen row 0–7 (top to bottom), after that row's figures and before the rows in front.
  * kings: [white, black] king designs (court.KING_DESIGNS); the trial and the trailer keep the Frost King.
+ * floor: the colour round the board (paintFloor); null leaves the canvas clear there.
  */
-export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost']}) {
+export function createScene({canvas,pieces,closeup=null,onStatus=()=>{},headroom=0,kings:initialKings=['frost','frost'],floor=FLOOR}) {
  const {P,N,B,R,Q,K,S,L,M,G,A,O,typeOf,colorOf,sqName}=pieces;
  const ctx=canvas.getContext('2d');
  const FALL=650, CHAIN_STEP=560, SPIN={duration:1400,travel:[250,780],contact:780,release:1150};
@@ -470,7 +481,7 @@ function vortex(out,foot,phase,strength) {
  out.restore();
 }
  function boardBackground() {
-  ctx.clearRect(0,-headroom,SIZE,SIZE+headroom);ctx.fillStyle='#e6e1cf';ctx.fillRect(0,-headroom,SIZE,SIZE+headroom);
+  paintFloor(ctx,floor,headroom);
   if(boardArt.complete&&boardArt.naturalWidth){
    // The painted board turns with the viewer, like the physical board.
    if(lively.atmosphere)drawFrame();
