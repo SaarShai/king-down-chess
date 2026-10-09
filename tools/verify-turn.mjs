@@ -58,6 +58,17 @@ try {
     assert.equal(await page.evaluate(() => window.view.scene.lifted), null, 'the reply clears the lift');
     console.log('ok computer lifts the mover before its reply');
 
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(undefined, '', [], true); await setPace(page, 'normal');
+    await move('e2', 'e4'); await endTurn(page);
+    await page.waitForFunction(() => window.view.scene.lifted != null, null, { timeout: 5000, polling: 10 });
+    assert.equal(await page.evaluate(() => window.view.scene.animating), false, 'the still tell comes before the reply');
+    assert.deepEqual(await lanMoves(page), ['e2-e4'], 'the still cue plays no move');
+    await waitForUi(page, ui => ui.lan.length === 2 && !window.view.scene.animating);
+    assert.equal(await page.evaluate(() => window.view.scene.lifted), null, 'the reply clears the still cue');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    console.log('ok reduced motion keeps a still computer tell');
+
     await open(undefined, '', [], true);
     assert.equal(await page.locator('#hint,#end-haste').count(), 0);
     assert.equal(await page.getAttribute('#end-turn', 'aria-disabled'), 'true');

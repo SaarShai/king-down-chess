@@ -1,6 +1,6 @@
 // W6: the handed-over end, board Ceremony and result review tiles.
 import assert from 'node:assert/strict';
-import { endTurn, lanMoves, openEndReview, openMoves, startNewGame, waitForUi } from './app-ui.mjs';
+import { endTurn, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const faults = [];
@@ -64,6 +64,39 @@ try {
   assert.equal(await page.locator('.kd-words').count(), 0, 'Rematch clears the old end');
   assert.equal(await page.locator('#over').isVisible(), false, 'no old result opens on the new game');
   console.log('ok pointer Rematch cancels every end wait');
+
+  for (const start of [false, true]) {
+    await stageMate('normal'); await endTurn(page);
+    await page.locator('.ceremony-rematch').waitFor({ state: 'visible' });
+    await pressMenu(page, 'New game');
+    await page.locator('#start-game').focus();
+    if (start) {
+      await page.keyboard.press('Enter');
+      await waitForUi(page, ui => ui.lan.length === 0);
+      assert.equal(await page.locator('dialog[open]').count(), 0, 'Enter starts the new game');
+    } else {
+      await page.waitForTimeout(2500); // Longer than this Ceremony; no result may cover the sheet.
+      assert.equal(await page.locator('dialog[open]').count(), 1, 'only New game stays open');
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'start-game', 'the sheet keeps focus');
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('#new-game').isVisible(), false, 'Escape belongs to New game');
+    }
+    assert.equal(await page.locator('#over').isVisible(), false, 'the old result does not open');
+    assert.equal(await page.locator('.kd-words').count(), 0, 'the old Ceremony is cancelled');
+  }
+  console.log('ok New game keeps its keys and focus during the Ceremony');
+
+  await stageMate('normal'); await endTurn(page);
+  await page.locator('.ceremony-rematch').waitFor({ state: 'visible' });
+  await pressMenu(page, 'Settings');
+  await page.locator('#menu-back').focus(); await page.keyboard.press('Space');
+  assert.equal(await page.locator('#menu-title').textContent(), 'Menu', 'Space works on the sheet button');
+  await page.waitForTimeout(2500); // The result waits for the sheet to close.
+  assert.equal(await page.locator('#over').isVisible(), false, 'the result waits behind Menu');
+  await page.keyboard.press('Escape');
+  await page.locator('#over').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('dialog[open]').count(), 1, 'only the result opens after Menu closes');
+  console.log('ok sheet keys work and the result waits for close');
 
   await stageMate('normal');
   assert.equal(await page.locator('.kd-words').count(), 0, 'a staged mate plays no Ceremony');

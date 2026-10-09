@@ -140,7 +140,7 @@ export class PaintedView implements BoardView {
     if (this.pos === post) this.sync(pre);
   }
 
-  setLifted(sq: number | null): void { this.scene.setLifted(this.motion() ? sq : null); }
+  setLifted(sq: number | null): void { this.scene.setLifted(this.pace !== 'off' ? sq : null, !this.motionQuery.matches); }
 
   setPace(pace: Pace): void { this.pace = pace; this.applyLively(); }
   skip(): void { if (this.scene.animating) this.scene.cancel(); }
@@ -153,7 +153,7 @@ export class PaintedView implements BoardView {
    */
   private applyLively(): void {
     const motion = this.pace !== 'off' && !this.motionQuery.matches, shown = motion && !document.hidden;
-    if (!motion) this.scene.setLifted(null);
+    if (this.pace === 'off') this.scene.setLifted(null);
     this.scene.setLively({ moves: true, atmosphere: true, captures: true, idle: motion, kings: shown, pawns: shown });
   }
 

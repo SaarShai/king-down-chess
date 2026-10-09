@@ -12,6 +12,7 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
   resigned(): Color | null;
   generation(): number;
   motion(): boolean;
+  newGameSheet: HTMLDialogElement;
   turnButton: HTMLButtonElement;
   lock(value: boolean): void;
   refresh(): void;
@@ -20,7 +21,7 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
   rematch(): void;
 }) {
   let seen: Position | null = null, control: ReturnType<typeof startCeremony> | null = null;
-  let active = false;
+  let active = false, pending = false, run = 0, king: number | null = null;
   const onRematch = (e: MouseEvent): void => { e.stopImmediatePropagation(); c.rematch(); };
   const clearButton = (): void => {
     active = false;
@@ -33,9 +34,20 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
     c.turnButton.setAttribute('aria-disabled', 'false');
     c.turnButton.classList.add('ceremony-rematch', 'primary');
   };
-  const clear = (): void => { control?.cancel(); control = null; clearButton(); };
+  const clear = (): void => { control?.cancel(); run++; pending = false; control = null; clearButton(); };
   const reset = (): void => { clear(); seen = null; tiles.replaceChildren(); };
-  const open = (played: boolean): void => {
+  const dismiss = (): void => {
+    if (!pending) return;
+    clear(); view.sync(c.game().pos); view.setFallen(king, false);
+    c.lock(false); c.refresh();
+  };
+  new MutationObserver(() => { if (c.newGameSheet.open) dismiss(); })
+    .observe(c.newGameSheet, { attributes: true, attributeFilter: ['open'] });
+  const open = (played: boolean, live: () => boolean): void => {
+    if (!live()) return;
+    const sheet = document.querySelector<HTMLDialogElement>('dialog[open]');
+    if (sheet) { sheet.addEventListener('close', () => open(played, live), { once: true }); return; }
+    pending = false;
     c.lock(false); c.refresh(); c.announce(played);
     dialog.showModal();
     dialog.querySelector<HTMLButtonElement>('[value="rematch"]')!.focus({ preventScroll: true });
@@ -43,13 +55,15 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
   const show = async (): Promise<void> => {
     const game = c.game(), final = game.pos, generation = c.generation();
     if (seen === final || dialog.open) return;
-    reset(); seen = final;
-    const live = (): boolean => generation === c.generation() && game === c.game() && final === game.pos;
+    reset(); seen = final; pending = true;
+    const id = run;
+    const live = (): boolean => id === run && generation === c.generation() && game === c.game() && final === game.pos;
     const loser = c.resigned() ?? (game.status === 'checkmate' ? final.turn : null);
-    const square = loser == null ? -1 : findKing(final.board, loser), king = square < 0 ? null : square;
+    const square = loser == null ? -1 : findKing(final.board, loser);
+    king = square < 0 ? null : square;
     if (!shouldPlayCeremony(game.status, final.turn, c.sides(), c.linkSide(), c.resigned())) {
       view.setFallen(king, false);
-      open(false); return;
+      open(false, live); return;
     }
     c.lock(true); c.refresh();
     // Use the turn button's fixed slot; no control covers the fallen king.
@@ -62,7 +76,7 @@ export function connectGameEnd(view: BoardView, board: HTMLElement, dialog: HTML
     const done = await control.done;
     if (!done || !live()) return;
     clearButton();
-    open(true);
+    open(true, live);
   };
   return { show, clear, reset, refresh };
 }

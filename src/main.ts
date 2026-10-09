@@ -153,6 +153,7 @@ const gameEnd = connectGameEnd(view, $('board'), $<HTMLDialogElement>('over'), $
   game: () => game, sides: () => sides, linkSide: () => linkSide, resigned: () => resigned,
   generation: () => gen, motion: () => pace.value !== 'off', lock: value => { busy = value; }, refresh,
   turnButton: $<HTMLButtonElement>('end-turn'),
+  newGameSheet: $<HTMLDialogElement>('new-game'),
   announce: ceremony => { $('announce').textContent = `${ceremony ? 'King Down. ' : ''}${result()}.`; },
   showPly, rematch: () => newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true),
 });

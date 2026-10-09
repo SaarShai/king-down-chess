@@ -55,6 +55,27 @@ try {
   await page.evaluate(() => window.step(16));
   assert.equal(await page.locator('canvas').evaluate(c => c.toDataURL()), rest, 'the figure returns to rest');
   console.log('ok tell: opt-in lift and clear');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForFunction(() => matchMedia('(prefers-reduced-motion: reduce)').matches, null, { polling: 20 });
+  await page.evaluate(() => {
+    window.parts.view.scene.setLively({ moves: false, atmosphere: false, kings: false, pawns: false, idle: false });
+    window.step(16);
+  });
+  const tellFrame = () => page.evaluate(() => {
+    const c = document.querySelector('canvas'), s = window.parts.view.scene, f = s.foot(0), k = c.width / s.SIZE;
+    s.setLively({ moves: false, atmosphere: false, kings: false, pawns: false, idle: false });
+    window.step(16);
+    return { board: c.toDataURL(), figure: Array.from(c.getContext('2d').getImageData((f.x - 40) * k, (s.headroom + f.y - 150) * k, 80 * k, 90 * k).data) };
+  });
+  const still = await tellFrame();
+  await page.evaluate(() => { window.parts.view.setLifted(0); window.step(16); });
+  const cue = await tellFrame();
+  assert.notEqual(cue.board, still.board, 'reduced motion draws the still glow');
+  assert.deepEqual(cue.figure, still.figure, 'reduced motion keeps the figure at rest');
+  await page.evaluate(() => { window.parts.view.setLifted(null); window.step(16); });
+  assert.equal((await tellFrame()).board, still.board, 'the still glow clears');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  console.log('ok reduced tell: still glow, no lift and clear');
   // Swaps and shoves also restore the whole board; other kinds sync at once.
   const reverseCases = await page.evaluate(async () => {
     const { view, fromFen, makeMove, parseSq } = window.parts;

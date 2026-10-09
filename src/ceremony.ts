@@ -93,6 +93,7 @@ export function startCeremony({ view, board, moments, history, final, king, show
     cleanup();
   };
   const onKey = (e: KeyboardEvent): void => {
+    if (e.target instanceof Element && e.target.closest('dialog[open]')) return;
     if (!['Escape', ' ', 'Enter'].includes(e.key)) return;
     e.preventDefault();
     e.stopImmediatePropagation();

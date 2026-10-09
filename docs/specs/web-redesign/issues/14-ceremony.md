@@ -51,4 +51,4 @@ Cut: the result pane, spotlight and new plan and timing modules. Keep today's di
 `npm test`: 1512 passed, 13 skipped; 50 motion tests pass. Type check passes.
 Checks pass: turn, end, painted-game, playable-clay, plugin-ui, plugin-ui-http, w6-parts.
 The plugin page stays at 4,292,611 bytes. Sample W6: five renders, one phone video, no fault.
-Separate review, the full browser suite and the owner's sample review remain.
+Finish plan: test both review faults, fix them, merge, run named checks and render the sheets.

@@ -34,7 +34,7 @@ export function connectMoveMoments(view: BoardView, c: {
     });
   };
   const tell = async (move: Move): Promise<boolean> => {
-    if (!view.setLifted || !c.motion() || matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden
+    if (!view.setLifted || !c.motion() || document.hidden
       || move.pass || move.from === move.to || ['freeze', 'ward', 'sacrifice'].includes(move.power ?? '')) return true;
     const generation = c.generation(), game = c.game(), position = game.pos;
     view.setLifted(move.from);

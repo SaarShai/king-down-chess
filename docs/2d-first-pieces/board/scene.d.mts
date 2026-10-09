@@ -27,8 +27,8 @@ export interface PaintedScene {
   load(): Promise<void>;
   setPosition(position: { board: ArrayLike<number> }): void;
   setSelected(square: number | null): void;
-  /** Opt-in tell: lift the figure 3 screen pixels; null clears it. */
-  setLifted(square: number | null): void;
+  /** Opt-in tell: glow and lift 3 screen pixels; lift=false keeps a still glow. Null clears it. */
+  setLifted(square: number | null, lift?: boolean): void;
   readonly lifted: number | null;
   setAim(square: number | null): void;
   setFlipped(on: boolean): void;
