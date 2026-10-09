@@ -27,6 +27,7 @@ describe('guard reserve', () => {
   it('parses as a rule', () => {
     expect(parseRule('guardReserve=rank1')).toEqual({ guardReserve: 'rank1' });
     expect(parseRule('guardReserve=rank12')).toEqual({ guardReserve: 'rank12' });
+    expect(parseRule('guardReserve=any')).toEqual({ guardReserve: 'any' });
     expect(() => parseRule('guardReserve=rank3')).toThrow(/bad guardReserve/);
   });
 
@@ -66,6 +67,24 @@ describe('guard reserve', () => {
     expect(lans(after).filter(l => l.startsWith('Gh2'))).toEqual(['Gh2-g1', 'Gh2-g3', 'Gh2-h3']);
     legalSame(pos);
     legalSame(next);
+  });
+
+  it('any (owner, 2026-10-09): enters on every empty square of the board, as a move, and stays legal', () => {
+    setRules({ guardReserve: 'any' });
+    const start = startPosition('RNBGKBNR');
+    expect(toFen(start)).toBe('rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w - - 0 1 g1.1');
+    expect(drops(start)).toHaveLength(64 - 30);
+    const next = play(start, 'G@e5');
+    expect([typeOf(next.board[parseSq('e5')]), next.board[parseSq('e5')] >> 4, next.waiting]).toEqual([G, WHITE, [0, 1]]);
+    expect(drops(next)).toHaveLength(64 - 31); // Black's guard, on every empty square
+    expect(drops(play(next, 'e7-e6'))).toHaveLength(0); // White's guard has entered
+    const black = play(next, 'G@d4');
+    expect(toFen(black)).toBe('rnb1kbnr/pppppppp/8/4G3/3g4/8/PPPPPPPP/RNB1KBNR w - - 2 2');
+    legalSame(start); legalSame(next);
+    // A check: the drop may block on a square of any rank.
+    const chk = fromFen('4k3/8/8/8/4r3/8/8/4K3 w - - 0 1 g1.0');
+    expect(drops(chk)).toEqual(['G@e2', 'G@e3']);
+    legalSame(chk);
   });
 
   it('off, a waiting guard never enters; guardNoSecondRank keeps it off the second rank', () => {

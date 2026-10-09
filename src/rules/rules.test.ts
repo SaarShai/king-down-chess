@@ -48,18 +48,18 @@ describe('standard chess sanity', () => {
 
 describe('archer', () => {
   const pos = fromFen('7k/8/8/2p5/2Pp4/2A5/8/K7 w - - 0 1');
-  it('steps 1 in any direction, shoots diagonal-adjacent and 2-away orthogonal targets through blockers', () => {
+  it('steps 1 in any direction, shoots 2-away targets through blockers, never a neighbour (far2, 2026-10-09)', () => {
     expect(lan(pos, movesFrom(pos, 'c3')))
-      .toEqual(['Ac3*c5', 'Ac3*d4', 'Ac3-b2', 'Ac3-b3', 'Ac3-b4', 'Ac3-c2', 'Ac3-d2', 'Ac3-d3']);
+      .toEqual(['Ac3*c5', 'Ac3-b2', 'Ac3-b3', 'Ac3-b4', 'Ac3-c2', 'Ac3-d2', 'Ac3-d3']);
     const shot = movesFrom(pos, 'c3').find(m => m.to === m.from)!;
     const after = makeMove(pos, shot);
     expect(typeOf(at(after, 'c3'))).toBe(A);
     expect(at(after, sqName(shot.captures[0]))).toBe(0);
   });
-  it('gives check through blockers; king may not step onto a shot square', () => {
+  it('gives check through blockers; the squares next to the archer are safe', () => {
     const p2 = fromFen('8/8/8/4k3/4P3/4A3/8/K7 b - - 0 1');
     expect(inCheck(p2)).toBe(true);
-    expect(lan(p2, legalMoves(p2))).toEqual(['Ke5-d6', 'Ke5-e6', 'Ke5-f6', 'Ke5xe4']);
+    expect(lan(p2, legalMoves(p2))).toEqual(['Ke5-d4', 'Ke5-d6', 'Ke5-e6', 'Ke5-f4', 'Ke5-f6', 'Ke5xe4']);
   });
 });
 
@@ -185,6 +185,39 @@ describe('setup', () => {
     expect([...pos.board].filter(Boolean)).toHaveLength(32);
     for (let f = 0; f < 8; f++) expect(typeOf(pos.board[f])).toBe(typeOf(pos.board[56 + f]));
   });
+
+  it('guardNextToKing (owner, 2026-10-09): a drawn guard starts next to its king, the other constraints hold', () => {
+    let seed = 7;
+    const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    let guards = 0, left = 0, paladins = 0;
+    for (let i = 0; i < 3000; i++) {
+      const row = randomBackRank(rng);
+      expect(row).toHaveLength(8);
+      const pool = POOL.split('');
+      for (const ch of row.replace('K', '')) expect(pool.splice(pool.indexOf(ch), 1)).toEqual([ch]);
+      const bishops = [...row].flatMap((p, j) => (p === 'B' ? [j] : []));
+      if (bishops.length === 2) expect((bishops[0] + bishops[1]) % 2, row).toBe(1);
+      if (row.includes('L')) paladins++;
+      const g = row.indexOf('G'), k = row.indexOf('K');
+      if (g < 0) continue;
+      guards++;
+      expect(Math.abs(g - k), row).toBe(1);
+      if (g < k) left++;
+      // Both sides mirror the one back rank, so Black's guard stands next to Black's king too.
+      const pos = startPosition(row);
+      for (let f = 0; f < 8; f++) expect(typeOf(pos.board[f])).toBe(typeOf(pos.board[56 + f]));
+    }
+    expect(guards).toBeGreaterThan(1000);
+    expect(left).toBeGreaterThan(guards * 0.35); // both sides of the king occur
+    expect(left).toBeLessThan(guards * 0.65);
+    expect(paladins).toBeGreaterThan(1000);
+    // Off: the guard is drawn like any other piece and is often away from the king.
+    setRules({ guardNextToKing: false });
+    let away = 0;
+    for (let i = 0; i < 500; i++) { const r = randomBackRank(rng), g = r.indexOf('G'); if (g >= 0 && Math.abs(g - r.indexOf('K')) !== 1) away++; }
+    setRules();
+    expect(away).toBeGreaterThan(100);
+  });
 });
 
 /**
@@ -253,16 +286,16 @@ describe('draws', () => {
 });
 
 it('archer never captures by displacement: an orthogonally adjacent enemy king is neither in check nor capturable', () => {
-  // White archer e4, black king e5 (adjacent, orthogonal); black pawn d3 is diagonal-adjacent → shootable.
-  const pos = fromFen('8/8/8/4k3/4A3/3p4/8/4K3 w - - 0 1');
+  // White archer e4, black king e5 (adjacent, orthogonal); black pawn c6 is 2 forward-diagonal → shootable.
+  const pos = fromFen('8/8/2p5/4k3/4A3/8/8/4K3 w - - 0 1');
   const moves = legalMoves(pos);
-  const kingSq = 4 * 8 + 4, pawnSq = 2 * 8 + 3, archerSq = 3 * 8 + 4;
+  const kingSq = 4 * 8 + 4, pawnSq = 5 * 8 + 2, archerSq = 3 * 8 + 4;
   expect(moves.some(m => m.captures.includes(kingSq))).toBe(false);
   expect(moves.some(m => m.from === archerSq && m.to === kingSq)).toBe(false);
   expect(moves.some(m => m.from === archerSq && m.to === archerSq && m.captures.includes(pawnSq))).toBe(true);
   expect(isAttacked(pos.board, kingSq, 0)).toBe(false);
   // Black to move next to the archer: the king is not in check, so a quiet king move is legal.
-  const black = fromFen('8/8/8/4k3/4A3/3p4/8/4K3 b - - 0 1');
+  const black = fromFen('8/8/2p5/4k3/4A3/8/8/4K3 b - - 0 1');
   expect(legalMoves(black).length).toBeGreaterThan(0);
 });
 
@@ -286,7 +319,7 @@ describe('rule toggles', () => {
     // The preset is the 2017 rulebook read against today's adopted set (docs/RULES.md §6): the
     // archer/beast movement buffs, the classic shot set and blind spot, the old paladin and the
     // fairy promotion set all come back; the guard keeps its rulebook identity (§6.9).
-    expect(ruleDiff(RULES_2017)).toEqual({ archerMove: 'ortho', archerShots: 'classic', beastMove: 'forward', beastCaptureForward: false, paladinKamikaze: 'always', promotionSet: 'anyNonKing' });
+    expect(ruleDiff(RULES_2017)).toEqual({ guardNextToKing: false, archerMove: 'ortho', archerShots: 'classic', beastMove: 'forward', beastCaptureForward: false, paladinKamikaze: 'always', promotionSet: 'anyNonKing' });
     expect(DEFAULT_RULES.promotionSet).toBe('standard'); // reverted to the chess set 2026-09-17
     expect(DEFAULT_RULES.beastCaptureForward).toBe(true); // the blind spot went 2026-09-17
     expect(DEFAULT_RULES.guardCaptures).toBe('none');
@@ -589,16 +622,16 @@ describe('rule toggles', () => {
 
   it('capitalSanctuary=true (lab): a capture whose victim stands in the capital is not generated', () => {
     // White rook a4 takes the d4 pawn (a capital square) and Rf3 takes the f2 pawn (not one); the
-    // archer on c3 shoots d4 (`to === from`), a capture the victim test must catch like any other.
-    const pos = fromFen('7k/8/8/8/R2p4/2A2R2/5p2/K7 w - - 0 1');
+    // archer on b2 shoots d4 (`to === from`), a capture the victim test must catch like any other.
+    const pos = fromFen('7k/8/8/8/R2p4/5R2/1A3p2/K7 w - - 0 1');
     const before = lan(pos, legalMoves(pos));
     expect(before).toContain('Ra4xd4');
     expect(before).toContain('Rf3xf2');
-    expect(before).toContain('Ac3*d4');
+    expect(before).toContain('Ab2*d4');
     setRules({ capitalSanctuary: true });
     const after = lan(pos, legalMoves(pos));
     expect(after).not.toContain('Ra4xd4'); // the d4 pawn is inside the capital
-    expect(after).not.toContain('Ac3*d4'); // …and a shot at it is a capture too
+    expect(after).not.toContain('Ab2*d4'); // …and a shot at it is a capture too
     expect(after).toContain('Rf3xf2');     // a victim outside the capital is untouched
     // Only captures are banned: moving onto an empty capital square stays legal.
     const open = fromFen('7k/8/8/8/8/8/8/K2R4 w - - 0 1');
@@ -643,10 +676,11 @@ describe('rule toggles', () => {
   });
 
   it('the pool holds one guard and one beast per army', () => {
-    expect(POOL).toBe('QORRBBNNAAGMMS');
+    expect(POOL).toBe('QOLRRBBNNAAGMMS');
     expect(POOL.split('G')).toHaveLength(2);
     expect(POOL.split('S')).toHaveLength(2);
-    expect(POOL).toHaveLength(14);
+    expect(POOL.split('L')).toHaveLength(2);
+    expect(POOL).toHaveLength(15);
     for (let i = 0; i < 500; i++) expect(randomBackRank().split("S").length).toBeLessThanOrEqual(2);
   });
 
@@ -708,9 +742,9 @@ describe('rule toggles', () => {
   it('archerMove=ortho (2017): the archer loses the diagonal step, and still never captures by displacement', () => {
     const pos = fromFen('7k/8/8/2p5/2Pp4/2A5/8/K7 w - - 0 1');
     expect(lan(pos, movesFrom(pos, 'c3')))
-      .toEqual(['Ac3*c5', 'Ac3*d4', 'Ac3-b2', 'Ac3-b3', 'Ac3-b4', 'Ac3-c2', 'Ac3-d2', 'Ac3-d3']);
+      .toEqual(['Ac3*c5', 'Ac3-b2', 'Ac3-b3', 'Ac3-b4', 'Ac3-c2', 'Ac3-d2', 'Ac3-d3']);
     setRules({ archerMove: 'ortho' });
-    expect(lan(pos, movesFrom(pos, 'c3'))).toEqual(['Ac3*c5', 'Ac3*d4', 'Ac3-b3', 'Ac3-c2', 'Ac3-d3']);
+    expect(lan(pos, movesFrom(pos, 'c3'))).toEqual(['Ac3*c5', 'Ac3-b3', 'Ac3-c2', 'Ac3-d3']);
     crossCheckAttacks(101);
   });
 
@@ -780,6 +814,49 @@ describe('rule toggles', () => {
     expect(inCheck(fromFen('8/8/5a2/8/3K4/8/8/7k w - - 0 1'))).toBe(true);
     // The other sets ignore the blocker, as today's default does.
     for (const set of ['plusDiagFwd2', 'fwd2NoBack', 'fwd2NoSide'] as const) { setRules({ archerShots: set }); expect(inCheck(fromFen(blocked)), set).toBe(true); }
+  });
+
+  it('archerShots: far2 and over2, two-square shots only, for both colours (2026-10-04)', () => {
+    const w = fromFen('k7/8/1ppppp2/1pp1pp2/1p1A1p2/1pp1pp2/1ppppp2/7K w - - 0 1');
+    const b = fromFen('7k/1PPPPP2/1PP1PP2/1P1a1P2/1PP1PP2/1PPPPP2/8/K7 b - - 0 1');
+    const shots = (pos: Position, from: string) => lan(pos, movesFrom(pos, from)).filter(x => x.includes('*')).map(x => x.slice(4)).sort();
+    // far2: no diagonal neighbour, every two-square shot through blockers.
+    setRules({ archerShots: 'far2' });
+    expect(shots(w, 'd4')).toEqual(['b4', 'b6', 'd2', 'd6', 'f4', 'f6']);
+    expect(shots(b, 'd5')).toEqual(['b3', 'b5', 'd3', 'd7', 'f3', 'f5']);
+    crossCheckAttacks(160, 300);
+    // over2: the same squares, only over a piece; here only the diagonal neighbours are occupied.
+    setRules({ archerShots: 'over2' });
+    expect(shots(w, 'd4')).toEqual(['b6', 'f6']);
+    expect(shots(b, 'd5')).toEqual(['b3', 'f3']);
+    crossCheckAttacks(161, 300);
+    // Check only over a piece; a piece that would fill the square between cannot go there.
+    const open = '8/8/8/4k3/8/2A5/8/K7 b - - 0 1', screened = '8/8/8/4k3/3p4/2A5/8/K7 b - - 0 1';
+    expect(inCheck(fromFen(open))).toBe(false);
+    expect(inCheck(fromFen(screened))).toBe(true);
+    const screen = fromFen('8/8/8/1n2k3/8/2A5/8/K7 b - - 0 1');
+    expect(movesFrom(screen, 'b5').some(m => m.to === parseSq('d4'))).toBe(false);
+    expect(searchLegal(screen).some(m => m.from === parseSq('b5') && m.to === parseSq('d4'))).toBe(false);
+    setRules({ archerShots: 'far2' });
+    expect(inCheck(fromFen(open))).toBe(true);
+    // nearOver2: over2's shots and the four diagonal neighbours, which need nothing between.
+    setRules({ archerShots: 'nearOver2' });
+    expect(shots(w, 'd4')).toEqual(['b6', 'c3', 'c5', 'e3', 'e5', 'f6']);
+    expect(shots(b, 'd5')).toEqual(['b3', 'c4', 'c6', 'e4', 'e6', 'f3']);
+    crossCheckAttacks(162, 300);
+    expect(inCheck(fromFen(open))).toBe(false);
+    expect(inCheck(fromFen(screened))).toBe(true);
+    expect(inCheck(fromFen('8/8/8/4k3/3A4/8/8/K7 b - - 0 1'))).toBe(true);
+    expect(searchLegal(screen).some(m => m.from === parseSq('b5') && m.to === parseSq('d4'))).toBe(false);
+    // fwdNearOver2: only the two forward diagonal neighbours, and over2's shots.
+    setRules({ archerShots: 'fwdNearOver2' });
+    expect(shots(w, 'd4')).toEqual(['b6', 'c5', 'e5', 'f6']);
+    expect(shots(b, 'd5')).toEqual(['b3', 'c4', 'e4', 'f3']);
+    crossCheckAttacks(163, 300);
+    expect(inCheck(fromFen('8/8/8/4k3/3A4/8/8/K7 b - - 0 1'))).toBe(true);
+    expect(inCheck(fromFen('8/8/8/8/3A4/4k3/8/K7 b - - 0 1'))).toBe(false);
+    expect(inCheck(fromFen(screened))).toBe(true);
+    expect(searchLegal(screen).some(m => m.from === parseSq('b5') && m.to === parseSq('d4'))).toBe(false);
   });
 
   it('guardCaptures=pawns (lab): it clears pawns only, gives no check either way and still cannot mate', () => {
@@ -878,7 +955,7 @@ describe('rule toggles', () => {
   it('archerShots=forward3 (2021): the two forward diagonals and the square two ahead, per side', () => {
     const w = fromFen('k7/8/8/2p5/1p1p4/2A5/1p1p4/2p4K w - - 0 1');
     const shots = (pos: Position, from: string) => lan(pos, movesFrom(pos, from)).filter(x => x.includes('*'));
-    expect(shots(w, 'c3')).toEqual(['Ac3*b2', 'Ac3*b4', 'Ac3*c1', 'Ac3*c5', 'Ac3*d2', 'Ac3*d4']);
+    expect(shots(w, 'c3')).toEqual(['Ac3*c1', 'Ac3*c5']);
     setRules({ archerShots: 'forward3' });
     expect(shots(w, 'c3')).toEqual(['Ac3*b4', 'Ac3*c5', 'Ac3*d4']);
     // "Forward" is the shooting side's own direction, so Black shoots the other way.
@@ -1182,9 +1259,10 @@ describe('ogre and catapult: notation, FEN and the pool', () => {
     expect([typeOf(board[parseSq('b8')]), typeOf(board[parseSq('c1')])]).toEqual([O, C]);
   });
 
-  it('Ogre is in the pool, Catapult is not, and neither is a standard promotion', () => {
+  it('Ogre and Paladin are in the pool, Catapult is not, and neither is a standard promotion', () => {
     expect(POOL).toContain('O');
-    expect(POOL).not.toMatch(/[LC]/);
+    expect(POOL).toContain('L'); // back beside the Ogre (owner, 2026-10-09)
+    expect(POOL).not.toMatch(/C/);
     const promo = fromFen('7k/P7/8/8/8/8/8/K7 w - - 0 1');
     expect(movesFrom(promo, 'a7').map(m => m.promo)).not.toContain(O);
     expect(movesFrom(promo, 'a7').map(m => m.promo)).not.toContain(C);

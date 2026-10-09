@@ -119,14 +119,14 @@ describe('Game.playLan (autosave restore)', () => {
   });
 
   it('replays fairy moves: an archer shot, a paladin that removes itself and a beast chain', () => {
-    const FEN = '3r3k/8/6p1/1p3p2/A3S3/8/8/K2L4 w - - 0 1';
-    const line = ['Ld1xd8', 'Kh8-h7', 'Aa4*b5', 'Kh7-h8', 'Se4xf5xg6'];
+    const FEN = '3r3k/8/2p3p1/5p2/A3S3/8/8/K2L4 w - - 0 1';
+    const line = ['Ld1xd8', 'Kh8-h7', 'Aa4*c6', 'Kh7-h8', 'Se4xf5xg6'];
     const g = new Game();
     g.load(fromFen(FEN));
     expect(g.playLan(line)).toBe(5);
     expect(g.pos.board[parseSq('d8')]).toBe(0); // paladin took the rook, then left the board
     expect(g.pos.board[parseSq('d1')]).toBe(0);
-    expect(g.pos.board[parseSq('b5')]).toBe(0); // shot from a distance; the archer never moved
+    expect(g.pos.board[parseSq('c6')]).toBe(0); // shot from a distance; the archer never moved
     expect(g.pos.board[parseSq('a4')]).not.toBe(0);
     expect(g.pos.board[parseSq('f5')]).toBe(0); // both chain victims gone, beast on the last square
     expect(g.pos.board[parseSq('g6')]).not.toBe(0);

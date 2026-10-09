@@ -156,6 +156,11 @@ export interface TournamentSpec {
   seed: number;
   /** The army pool (`POOL` when the round was made). Absent: a round recorded before 2026-10-04, `POOL_2BEASTS`. */
   pool?: string;
+  /**
+   * Set on rounds made from 2026-10-09: the drawn armies follow `Rules.guardNextToKing`. Absent: an
+   * earlier round, whose armies were drawn without it, so `schedule` draws them with it off.
+   */
+  guardNextToKing?: true;
   /** Rules for every game; `kings` is set per game. */
   rules: Partial<Rules>;
   /** Named rule variants for `Power~v<name>` entrants (each sets rules of that power only). */
@@ -220,7 +225,7 @@ export function pairDraw(seed: number, a: Entrant, b: Entrant, p: number, pool =
 
 /** The schedule: every unordered matchup (and mirrors if asked), `pairs` colour-swapped pairs each. */
 export function schedule(t: TournamentSpec): TJob[] {
-  setRules(t.rules);
+  setRules(t.guardNextToKing ? t.rules : { guardNextToKing: false, ...t.rules });
   const rng = mulberry32(t.seed);
   // Shared across matchups unless `armies` is `perPair`: pair p of every matchup plays army p with opening seed p.
   const pool = t.pool ?? POOL_2BEASTS;
@@ -968,7 +973,7 @@ if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === resolv
       ...(f.mirrorOnly ? { mirrorOnly: true } : {}),
       ...(cardPool ? { cardPool } : {}),
       depth: num('depth', 3), seed: num('seed', 101),
-      pool: POOL,
+      pool: POOL, guardNextToKing: true,
       rules: parseRuleFlags(argv),
       ...(variants ? { variants } : {}),
       ...(parseHold(f.hold) ? { powerHold: parseHold(f.hold) } : {}),

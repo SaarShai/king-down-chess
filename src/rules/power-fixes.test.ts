@@ -352,11 +352,11 @@ describe('Darkness readings, round 16: one sentence each (owner, 2026-10-03)', (
     expect(lans(rook).filter(l => !far(l))).toEqual(before.filter(l => !far(l))); // the one-square steps and Kd4xe3
     expect(before).toContain('Kd4xe3');
     // A knight (e1 holds d3), a pawn (f5 holds e4) and an archer through a blocker (c6 shoots c4 over
-    // the pawn c5, and holds d5 and e4 as well): each takes away the steps over the squares it holds.
+    // the pawn c5, and holds e4 as well): each takes away the steps over the squares it holds.
     const cases: [string, string, string[]][] = [
       ['7k/8/8/8/3K4/8/8/4n3 w - - 0 1', 'd3', ['Kd4-d2']],
       ['7k/8/8/5p2/3K4/8/8/8 w - - 0 1', 'e4', ['Kd4-f4']],
-      ['7k/8/2a5/2P5/3K4/8/8/8 w - - 0 1', 'c4', ['Kd4-b4', 'Kd4-d6', 'Kd4-f4']],
+      ['7k/8/2a5/2P5/3K4/8/8/8 w - - 0 1', 'c4', ['Kd4-b4', 'Kd4-f4']],
     ];
     for (const [fen, mid, gone] of cases) {
       const pos = fromFen(fen);
@@ -703,7 +703,7 @@ describe('random games under the Death Touch trims', () => {
     ['DeathTouch', 'DeathTouch', { deathTouchReachNoBack: true, deathTouchReachForwardBack: true, deathTouchReachPieces: true }],
   ];
   it('the engine and the search offer the same legal moves, every shot obeys the trims, and the keys stay in step', () => {
-    let seed = 1414;
+    let seed = 1415;
     const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
     const reach = { deathTouchReach: true, deathTouchReachOrtho: true };
     let reachSeen = 0, dropped = 0;
@@ -823,7 +823,7 @@ describe('random games under the new readings', () => {
     [null, 'Darkness', { hands: [['Strike', 'Leap', 'Haste', 'Haste'], []], markFree: true, hasteCaptures: false, hasteApart: true, hasteNoCheck: true, darknessShelter: true }],
   ];
   it('the engine and the search offer the same legal moves, every move obeys the readings, and the keys stay in step', () => {
-    let seed = 2026;
+    let seed = 2028;
     const rng = (): number => ((seed = (seed * 48271) % 2147483647) / 2147483647);
     const off = Object.fromEntries(NEW.map(([key]) => [key, false])) as Partial<Rules>;
     let hasteTurns = 0, dropped = 0, droppedTakes = 0, added = 0;

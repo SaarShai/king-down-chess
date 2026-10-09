@@ -30,7 +30,7 @@ describe('mate finding', () => {
   });
 
   it('mates in one with an archer, whose check cannot be blocked', () => {
-    const { res, after, lan } = best('7k/8/5N2/7A/8/8/8/K7 w - - 0 1');
+    const { res, after, lan } = best('7k/5K2/5N2/7A/8/8/8/8 w - - 0 1');
     expect([lan, status(after)]).toEqual(['Ah5-h6', 'checkmate']);
     expect(res.score).toBeGreaterThanOrEqual(MATE - 1);
   });

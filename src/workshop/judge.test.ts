@@ -20,6 +20,8 @@ const ring = (offs: [number, number][]): Square[] => {
   return [...s.values()];
 };
 const archerSteps = [...lr([[0, 1], [0, -1], [1, 0]], 'move'), ...lr([[1, 1], [1, -1]], 'moveShoot')];
+/** The §6.13 Archer: `plusDiagFwd2`, the default before 2026-10-09 (now a lab reading). */
+const archerFwd2: D = d([...archerSteps, ...lr([[0, 2], [2, 0], [0, -2], [2, 2]], 'shoot')], []);
 const all48: Square[] = [];
 for (let x = -3; x <= 3; x++) for (let y = -3; y <= 3; y++) if (x || y) all48.push({ x, y, mark: Math.max(Math.abs(x), Math.abs(y)) === 1 ? 'both' : 'move' });
 const zone = (z: 'capital' | 'enemyHalf'): When => ({ on: 'zone', zone: z });
@@ -34,7 +36,7 @@ const ROWS: [string, D, number, Label, string, string, number][] = [
   ['knight', p('knight'), 3.28, 'fair', 'silver', '', 0.5],
   ['bishop', p('bishop'), 3.04, 'fair', 'silver', '', 0.5],
   ['rook', p('rook'), 3.96, 'fair', 'gold', '', 0.5],
-  ['archer', p('archer'), 4.47, 'fair', 'gold', 'F2 F3 F+', 5],
+  ['archer plusDiagFwd2', archerFwd2, 4.47, 'fair', 'gold', 'F2 F3 F+', 5],
   ['archer far2', anchor('Archer far2'), 2.89, 'fair', 'bronze', 'F2 F3 F+', 4],
   ['archer noSide', anchor('Archer fwd2NoSide'), 3.65, 'fair', 'gold', 'F2 F3 F+', 5],
   ['archer noBack', anchor('Archer fwd2NoBack'), 4.02, 'fair', 'gold', 'F2 F3 F+', 5],
@@ -81,7 +83,7 @@ describe('the judge (§6)', () => {
     close(g(p('bishop')).Q, 3.17); close(g(p('bishop')).Xfar, 5.29);
     close(g(p('rook')).Q, 4.16); close(g(p('rook')).Xfar, 6.93);
     close(g(p('queen')).Q, 7.33); close(g(p('queen')).Xfar, 12.21);
-    close(g(p('archer')).Q, 6.56); close(g(p('archer')).Xshot, 7.19);
+    close(g(archerFwd2).Q, 6.56); close(g(archerFwd2).Xshot, 7.19);
     close(g(anchor('Archer far2')).Xshot, 4.13);
     close(g(p('beast')).Q, 6.56); close(g(p('beast')).Xstep, 6.56);
   });

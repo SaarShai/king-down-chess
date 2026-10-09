@@ -33,7 +33,7 @@ describe('text (§8.4.9)', () => {
     expect(s('bishop')).toBe('Moves like a bishop. Takes the same squares.');
     expect(s('rook')).toBe('Moves like a rook. Takes the same squares.');
     expect(s('queen')).toBe('Moves like a queen. Takes the same squares.');
-    expect(s('archer')).toBe('Moves 1 square any way, like a king. Shoots without moving: 1 square diagonally, 2 squares straight or 2 squares diagonally forward.');
+    expect(s('archer')).toBe('Moves 1 square any way, like a king. Shoots without moving: 2 squares straight or 2 squares diagonally forward.');
     expect(s('paladin')).toBe('Moves like a queen. Takes the same squares. Its lines pass over its own pieces. When it takes a piece, not a pawn, it is removed too. It cannot take a king.');
     expect(s('guard')).toBe('Moves 1 square any way, like a king. Takes nothing. Only a king can take it. It cannot be taken by anything but a king.');
     expect(s('maester')).toBe('Moves 1 square any way, like a king. Takes the same squares. It may swap places with a friend next to it (not a king).');

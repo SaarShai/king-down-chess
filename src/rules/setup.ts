@@ -4,7 +4,11 @@ import { ALL_CARDS, RULES } from './rules';
 
 /** King Down Classic pool: 7 of these join the king on the back rank. */
 /** Draw pool for a random back rank: 7 of these 15 plus the king. One guard per army (designer, 2026-09-13). */
-export const POOL = 'QORRBBNNAAGMMS'; // one beast at most (owner, 2026-10-04)
+// One beast at most (owner, 2026-10-04). The Paladin returns beside the Ogre (owner, 2026-10-09: "paladin -
+// add the approved version to the random pool. we might tweak its rules later to reduce white's advantage.").
+export const POOL = 'QOLRRBBNNAAGMMS';
+/** The pool from 2026-10-04 to 2026-10-09 (no Paladin). */
+export const POOL_NO_PALADIN = 'QORRBBNNAAGMMS';
 /** The pool before 2026-10-04 (two beasts): recorded tournaments without a `pool` drew from it. */
 export const POOL_2BEASTS = 'QORRBBNNAAGMMSS';
 export const CLASSIC_CHESS = 'RNBQKBNR';
@@ -17,11 +21,21 @@ export function shuffle<T>(a: T[], rng: () => number): T[] {
   return a;
 }
 
-/** Random back rank: 7 pieces from `pool` (default POOL) + king, shuffled; two bishops must sit on opposite colours (`Rules.bishopsOppositeColours`). */
+/**
+ * Random back rank: 7 pieces from `pool` (default POOL) + king, shuffled; two bishops must sit on
+ * opposite colours (`Rules.bishopsOppositeColours`). Under `Rules.guardNextToKing` a guard that is
+ * not next to the king swaps with a neighbour of the king (the shuffle picks one when both exist).
+ */
 export function randomBackRank(rng: () => number = Math.random, pool: string = POOL): string {
   for (;;) {
     const picks = shuffle(pool.split(''), rng).slice(0, 7);
     const row = shuffle([...picks, 'K'], rng);
+    const k = row.indexOf('K'), g = row.indexOf('G');
+    if (RULES.guardNextToKing && g >= 0 && Math.abs(g - k) !== 1) {
+      const sides = [k - 1, k + 1].filter(s => s >= 0 && s < 8);
+      const to = sides[sides.length > 1 ? Math.floor(rng() * 2) : 0];
+      [row[g], row[to]] = [row[to], row[g]];
+    }
     const bishops = row.flatMap((p, i) => (p === 'B' ? [i] : []));
     if (RULES.bishopsOppositeColours && bishops.length === 2 && (bishops[0] + bishops[1]) % 2 === 0) continue;
     return row.join('');
