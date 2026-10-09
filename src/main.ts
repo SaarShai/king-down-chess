@@ -84,7 +84,7 @@ let skill: SkillName = 'club';
 let setup: Setup = defaultSetup();
 let selected: number | null = null;
 let pending: number[] = []; // beast chain squares clicked so far
-/** A piece that a tap (or Enter) chose to read: an enemy piece, or any piece while the player cannot move. Its words show while no piece is selected. */
+/** A read stays beside the kept move selection. */
 let inspected: number | null = null;
 /** The player to move has armed their king's power: the next click spends it. */
 let armed = false;
@@ -661,7 +661,7 @@ async function choosePower(moves: Move[]): Promise<void> {
   armed = false; refresh();
 }
 
-$('power-btn').onclick = () => { armed = !armed; selected = null; pending = []; hintSquares = []; refresh(); };
+$('power-btn').onclick = () => { armed = !armed; selected = null; inspected = null; pending = []; hintSquares = []; refresh(); };
 
 
 /** Drag arm: select without the click toggle so a second onSquareClick can still play the move. */
@@ -670,6 +670,7 @@ view.onDragSelect = (sq) => {
   if (game.pos.board[sq] === 0 || colorOf(game.pos.board[sq]) !== game.pos.turn) return;
   hintSquares = [];
   notice = '';
+  inspected = null;
   selected = sq;
   pending = [];
   refresh();
