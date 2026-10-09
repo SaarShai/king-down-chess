@@ -29,50 +29,39 @@
       <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></symbol>
       <symbol id="i-workshop" viewBox="0 0 24 24"><path d="M2 7h14c2 0 4.5-.6 6-1.6V7c0 2.4-2.6 4-6 4h-1v3l3 4v2H6v-2l3-4v-3H7.5C4.3 11 2 9.4 2 7z"/></symbol>
     </svg>
-    <div id="board" tabindex="0" role="application" aria-roledescription="chess board" aria-label="Board. Arrow keys move the square cursor; Enter or Space selects and moves." aria-describedby="cursor-say"></div>
-    <header id="top">
-      <h1>KING DOWN CHESS</h1>
-      <div id="turn"></div>
-      <div id="status"></div>
-      <div id="asset-status" role="status" aria-live="polite">Loading pieces…</div>
-    </header>
-    <aside id="panel" aria-label="Game controls">
-      <nav class="btns three four menu" aria-label="Menu">
-        <button id="new-game-btn"><svg class="icon" aria-hidden="true"><use href="#i-new"/></svg><span class="label">New game</span></button>
-        <button id="rules-btn" title="How each piece moves"><svg class="icon" aria-hidden="true"><use href="#i-guide"/></svg><span class="label">Guide</span></button>
-        <button id="workshop-btn" title="Make your own piece"><svg class="icon" aria-hidden="true"><use href="#i-workshop"/></svg><span class="label">Workshop</span></button>
-        <button id="settings-btn"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Settings</span></button>
-      </nav>
-      <div id="lesson-progress" hidden aria-hidden="true"></div>
-      <div id="move-help" role="status" aria-live="polite"></div>
-      <div id="selection-actions" class="btns" hidden>
-        <button id="stop-chain" hidden>Finish chain</button>
-        <button id="cancel-selection">Cancel selection</button>
-      </div>
-      <div id="moment" role="status" aria-live="polite"></div>
-      <button id="next-lesson" class="primary" hidden></button>
-      <button id="show-me" hidden>Show me</button>
-      <button id="return-game" hidden>Return to game</button>
-      <div class="btns three actions">
-        <button id="undo" title="Take back the last move (Z)"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
-        <button id="end-turn" type="button" aria-disabled="true">End turn</button>
-        <button id="resign" title="Resign the game"><svg class="icon" aria-hidden="true"><use href="#i-resign"/></svg><span class="label">Resign</span></button>
-      </div>
-      <div id="info"></div>
-      <div id="powers" hidden>
-        <div class="btns">
-          <button id="power-btn" type="button" title="Spend your king's power on your next move"></button>
+    <main id="game-table" aria-label="Game">
+      <div id="board" tabindex="0" role="application" aria-roledescription="chess board" aria-label="Board. Arrow keys move the square cursor; Enter or Space selects and moves." aria-describedby="cursor-say"></div>
+      <div class="table-side">
+        <div id="strip-them" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span><div id="lesson-progress" hidden aria-hidden="true"></div></div>
+        <div class="table-space"></div>
+        <div id="strip-me" class="player-strip"><span class="portrait"><img alt="" /></span><span class="player-name"><b></b><small></small></span>
+          <div id="powers" hidden><div class="btns"><button id="power-btn" type="button"></button></div></div>
         </div>
-        <div id="power-status" role="status" aria-live="polite"></div>
+        <div id="context-line">
+          <div id="context-text" role="status" aria-live="polite" aria-atomic="true"></div>
+          <div id="context-actions">
+            <button id="back-to-game" hidden>Back to game</button>
+            <div id="selection-actions" hidden><button id="stop-chain" hidden>Stop here</button></div>
+          </div>
+        </div>
+        <button id="moves-line" aria-controls="sheet-moves" aria-expanded="false"><span id="last-move">No moves yet.</span><span class="moves-label">Moves <span aria-hidden="true">⌄</span></span></button>
+        <nav id="table-bar" aria-label="Game controls">
+          <button id="undo" title="Take back the last move (Z)"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span class="label">Undo</span></button>
+          <button id="end-turn" type="button" aria-disabled="true">End turn</button>
+          <button id="return-game" hidden>Return to game</button>
+          <button id="show-me" hidden>Show me</button>
+          <button id="next-lesson" hidden></button>
+          <button id="menu-btn" aria-haspopup="dialog"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg><span class="label">Menu</span></button>
+        </nav>
       </div>
-      <button id="share" hidden title="A link that holds this game, for a friend to open and answer"><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg><span class="label">Send the game link</span></button>
-      <section class="sheet" aria-label="Moves and captured pieces">
-        <ol id="moves" aria-label="Moves. Each move opens the board after it."></ol>
-        <div class="taken"><b>White took</b><span id="took-w"></span></div>
-        <div class="taken"><b>Black took</b><span id="took-b"></span></div>
-        <div id="hover" hidden></div><!-- square under the pointer; tools/qa.mjs aims clay clicks with it -->
-      </section>
-    </aside>
+      <div id="table-sources" hidden><div id="turn"></div><div id="status"></div><div id="asset-status">Loading pieces…</div><div id="move-help"></div><div id="moment"></div><div id="power-status"></div><div id="hover"></div></div>
+    </main>
+    <dialog id="sheet-moves" aria-labelledby="moves-title">
+      <header class="sheet-head"><h2 id="moves-title">Moves</h2><form method="dialog"><button aria-label="Close Moves">×</button></form></header>
+      <ol id="moves" aria-label="Moves. Each move opens the board after it."></ol>
+      <div class="taken"><b>White took</b><span id="took-w"></span></div>
+      <div class="taken"><b>Black took</b><span id="took-b"></span></div>
+    </dialog>
     <!-- Screen readers: every move by either side, and the keyboard cursor's square. -->
     <div id="announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     <div id="cursor-say" class="sr-only" aria-live="polite" aria-atomic="true"></div>
@@ -189,36 +178,38 @@
         <button id="start-game" type="button" class="primary">Start game</button>
       </footer>
     </dialog>
-    <dialog id="settings" aria-labelledby="settings-title">
-      <h2 id="settings-title" tabindex="-1" autofocus>Settings</h2>
-      <fieldset class="fields group">
-        <legend>Play</legend>
-        <label>Sound <input id="sound" type="checkbox" checked /></label>
-        <label title="Promote to a queen without asking, when a queen, rook, bishop, or knight is the choice.">Always promote to queen <input id="queen" type="checkbox" /></label>
-        <label title="Mark the squares the other side attacks while you choose a move.">Show threats <input id="threats" type="checkbox" aria-describedby="threats-note" /></label>
-        <small id="threats-note">Marks your pieces the other side can take (a red ring) and the empty squares it covers (a red dot).</small>
-        <label title="Tap the board during an animation to skip it.">Animations <select id="pace"><option value="normal">Normal</option><option value="fast">Fast</option><option value="off">Off</option></select></label>
-        <small id="pace-note">Tap the board to skip an animation.</small>
-      </fieldset>
-      <fieldset class="fields group">
-        <legend>Board</legend>
-        <label>Look <select id="look"><option value="painted">Painted 2D</option><option value="clay">Clay 3D</option></select></label>
-        <label>Piece letters <input id="labels" type="checkbox" /></label>
-        <label>Coordinates <input id="coords" type="checkbox" checked /></label>
-        <button id="reset-view">Reset view (R)</button>
-      </fieldset>
-      <h3>This game</h3>
-      <div class="fields">
-        <div class="row">Setup <code id="setup"></code></div>
-        <button id="copy" title="Copy the move list as LAN">Copy moves</button>
-      </div>
-      <!-- Filled by src/account/account.ts once the board is drawn. -->
-      <section id="account" aria-labelledby="account-title" hidden>
-        <h3 id="account-title">Account</h3>
-        <div id="account-body" class="fields"></div>
-        <p id="account-note" role="status" aria-live="polite"></p>
+    <dialog id="menu-sheet" aria-labelledby="menu-title">
+      <header class="sheet-head"><button id="menu-back" aria-label="Back to Menu" hidden>‹</button><h2 id="menu-title" tabindex="-1">Menu</h2><button id="menu-close" aria-label="Close Menu">×</button></header>
+      <section data-menu-page="menu">
+        <button class="menu-row" data-go="new">New game <span>Play again, or change setup.</span><i>›</i></button>
+        <button id="rules-btn" class="menu-row">Guide <span>Pieces, powers and lessons.</span><i>›</i></button>
+        <button class="menu-row" data-go="help">Board help<i>›</i></button>
+        <fieldset class="fields group"><legend>Feel</legend><label>Sound <input id="sound" type="checkbox" checked /></label><label>Motion <select id="pace"><option value="normal">Normal</option><option value="fast">Fast</option><option value="off">Off</option></select></label><small id="pace-note">Tap the board to skip an animation.</small></fieldset>
+        <button class="menu-row" data-go="extra">Extra <span>Play and make. Board and game.</span><i>›</i></button>
+        <button id="share" hidden>Send the game link</button>
+        <button id="resign" class="menu-row resign-row" data-go="resign" aria-disabled="false">Resign <span>Lay your king down.</span><i>›</i></button>
       </section>
-      <form method="dialog"><button>Close</button></form>
+      <section data-menu-page="new" hidden><p>A new game ends this game.</p><button id="play-again" class="menu-row">Play again<span>The same setup. A new army.</span></button><button id="new-game-btn" class="menu-row">Change setup<i>›</i></button></section>
+      <section data-menu-page="help" class="fields" hidden>
+        <label>Show threats <input id="threats" type="checkbox" /></label>
+        <label>Coordinates <input id="coords" type="checkbox" checked /></label>
+        <label>Piece letters <input id="labels" type="checkbox" /></label>
+        <label>Always promote to a queen <input id="queen" type="checkbox" /></label>
+      </section>
+      <section data-menu-page="extra" hidden>
+        <h3>Play and make</h3>
+        <button id="today-army" class="menu-row">Today's army<i>›</i></button>
+        <button id="workshop-btn" class="menu-row"><img class="menu-fox" src="./ui/workshop/fox-pathfinder-w.webp" alt="" />Workshop<span>Make your own piece.</span><i>›</i></button>
+        <h3>Board and game</h3>
+        <button class="menu-row" data-go="game">This game<i>›</i></button>
+        <button class="menu-row" data-go="account">Account<i>›</i></button>
+        <label>Look <select id="look"><option value="painted">Painted</option><option value="clay">Clay</option></select></label>
+        <button id="reset-view">Reset view (R)</button>
+        <h3>Coming</h3><p class="coming-row"><b>Card mode</b><br>A hand of power cards.</p>
+      </section>
+      <section data-menu-page="game" hidden><div class="row">Army <code id="setup"></code></div><button id="copy" title="Copy the move list as LAN">Copy moves</button></section>
+      <section data-menu-page="account" hidden><section id="account" aria-labelledby="account-title" hidden><h3 id="account-title">Account</h3><div id="account-body" class="fields"></div><p id="account-note" role="status" aria-live="polite"></p></section></section>
+      <section data-menu-page="resign" hidden><h3>Lay your king down?</h3><p id="resign-detail"></p><button id="resign-confirm" class="primary">Resign</button><button data-go="menu">Keep playing</button></section>
     </dialog>
     <dialog id="delete-account" aria-labelledby="delete-account-title" aria-describedby="delete-account-detail">
       <h2 id="delete-account-title" tabindex="-1" autofocus>Delete your account?</h2>

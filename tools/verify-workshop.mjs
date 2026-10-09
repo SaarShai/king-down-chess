@@ -17,7 +17,7 @@
 // shared check module (tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { keepWorkshopCopy, pressMenu, workshopCardText } from './app-ui.mjs';
+import { keepWorkshopCopy, openMenu, pressMenu, workshopCardText } from './app-ui.mjs';
 import { assertNoErrors, env, imageIs, insideViewport, launch, minTarget, noOverlap, noRunningAnimations, noSidewaysScroll, shot, textNotCut, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -301,16 +301,17 @@ async function cardLayout(browser, width, height) {
   await p.context().close();
 }
 
-/** The game menu: New game, Guide, Workshop and Settings in one row, none cut or on top of another; the Guide has no Workshop door. */
+/** The Menu rows have touch size and do not overlap; the Guide has no Workshop door. */
 async function gameMenu(browser, width, height) {
   const p = await open(browser, { width, height });
-  const menu = 'nav.menu button';
-  assert.deepEqual((await p.locator(menu).allInnerTexts()).map(t => t.trim()), ['New game', 'Guide', 'Workshop', 'Settings'], 'the menu order');
+  await openMenu(p);
+  const menu = '#menu-sheet [data-menu-page="menu"] > button.menu-row';
+  assert.deepEqual((await p.locator(menu).allInnerTexts()).map(t => t.trim().split('\n')[0]), ['New game', 'Guide', 'Board help', 'Extra', 'Resign'], 'the Menu row order');
   await minTarget(p, menu);
   await noOverlap(p, menu);
-  await textNotCut(p, 'nav.menu .label');
-  const tops = await p.locator(menu).evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().top)));
-  assert.equal(new Set(tops).size, 1, `the menu is one row: tops ${tops}`);
+  await textNotCut(p, menu);
+  const lefts = await p.locator(menu).evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().left)));
+  assert.equal(new Set(lefts).size, 1, `the Menu rows share a left edge: ${lefts}`);
   await shot(p, `${width}x${height}-menu`);
   await pressMenu(p, 'Guide');
   await p.waitForSelector('#rules[open]');
@@ -322,7 +323,7 @@ async function gameMenu(browser, width, height) {
 async function tapOutside(browser) {
   const p = await open(browser, { width: 390, height: 844 });
   const drag = async (from, to) => { await p.mouse.move(...from); await p.mouse.down(); await p.mouse.move(...to, { steps: 4 }); await p.mouse.up(); };
-  for (const [item, dialog] of [['Settings', '#settings'], ['Guide', '#rules'], ['New game', '#new-game']]) {
+  for (const [item, dialog] of [['Settings', '#menu-sheet'], ['Guide', '#rules'], ['New game', '#new-game']]) {
     await pressMenu(p, item);
     await p.waitForSelector(`${dialog}[open]`);
     const box = await p.locator(dialog).boundingBox();
@@ -757,9 +758,9 @@ async function fix27PressOnPadding(browser) {
     assert.equal(await isOpen(p, dialog), true, `fix 27: a press on ${what}'s padding released on the backdrop keeps it open`);
   };
   await pressMenu(p, 'Settings');
-  await p.waitForSelector('#settings[open]');
-  await pressOut('#settings', 'Settings');
-  await p.keyboard.press('Escape');
+  await p.waitForSelector('#menu-sheet[open]');
+  await pressOut('#menu-sheet', 'Settings');
+  await p.click('#menu-close');
   await newPiece(p);
   await p.click('.ws-share');
   await p.waitForSelector(sheetOpen);

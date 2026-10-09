@@ -7,7 +7,7 @@ import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, SPENT, T, V, colorOf, file as fileOf, findKing, moveNumber, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, T, V, colorOf, file as fileOf, findKing, moveNumber, PowerName, parseKings, pseudoMoves, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
@@ -20,6 +20,10 @@ import { copyText } from './clipboard';
 import './dialog-dismiss';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, turnLine, turnOf } from './turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from './turn-controls';
+import './ui/table.css';
+import { initMenu } from './ui/menu';
+import { initTable, readPiece, refreshTable } from './ui/table';
+import { reviewStep } from './review';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -42,21 +46,6 @@ const usesText = (p: PowerName, r: Rules = GAME_RULES): string => {
   return n === null || n === 0 ? 'always on' : n === 1 ? 'once a game' : n === 2 ? 'twice a game' : `${n} times a game`;
 };
 
-/** "Freeze, 2 left — as your move, freeze…" for side `c`, or "no power". */
-const powerLabel = (c: Color): string => {
-  const k = GAME_RULES.kings[c];
-  if (!k) return 'no power';
-  const left = usesLeft(shownPos(), c);
-  return `${POWER_NAME[k.power]}${left === null ? '' : `, ${left} left`} — ${powerText(k.power)}`;
-};
-
-/** One line for the info card, so a game with kings' powers says on screen which are live. */
-const kingsInfo = (): string => {
-  const [w, b] = GAME_RULES.kings;
-  if (!w && !b) return '';
-  return `<div>White's king: ${powerLabel(0)}</div><div>Black's king: ${powerLabel(1)}</div>`;
-};
-
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
 // The adopted Q6 residual net: stronger play at the same time budget, validated before adoption.
@@ -77,7 +66,7 @@ $<HTMLSelectElement>('look').onchange = () => {
   location.href = url.href;
 };
 $('reset-view').hidden = look !== 'clay';
-view.onLoadError = () => { $('asset-status').textContent = 'A piece model could not load. Reload this page to retry.'; };
+view.onLoadError = () => { $('asset-status').textContent = 'A piece cannot load. Reload to try again.'; refresh(); };
 (window as unknown as Record<string, unknown>).view = view; // tools/styleboard2.mjs aims its crops with view.screenOf()
 /** Threat markers and the keyboard cursor, drawn over the board (pointer events pass through). */
 const marksLayer = document.createElement('div');
@@ -91,8 +80,7 @@ let skill: SkillName = 'club';
 let setup: Setup = defaultSetup();
 let selected: number | null = null;
 let pending: number[] = []; // beast chain squares clicked so far
-let hovered: number | null = null;
-/** A piece that a tap (or Enter) chose to read: an enemy piece, or any piece while the player cannot move. Its card shows while no piece is selected or under the pointer. */
+/** A piece that a tap (or Enter) chose to read: an enemy piece, or any piece while the player cannot move. Its words show while no piece is selected. */
 let inspected: number | null = null;
 /** The player to move has armed their king's power: the next click spends it. */
 let armed = false;
@@ -122,7 +110,7 @@ let linkSide: Color | null = null;
 /** Plies shown on the board while reviewing earlier moves; null = the live game. */
 let viewing: number | null = null;
 /** The position on the board: in review the move shown, else the live game. The readouts read it. */
-const shownPos = (): Position => (viewing == null ? game.pos : game.history[viewing].pos);
+const shownPos = (): Position => game.positionAfter(viewing ?? game.history.length);
 /** Bumped by every review step, so a superseded step's animation does not sync the board. */
 let navGen = 0;
 /** A review step is replaying a move; `busy` is set too, so the board treats it as an animation. */
@@ -376,11 +364,7 @@ function showInfo(sq: number | null): void {
   const code = sq == null ? 0 : shownPos().board[sq];
   const t = code ? typeOf(code) : 0;
   const blurb = t ? pieceText(t) : '';
-  $('info').innerHTML = (code
-    ? `<b>${pieceIcon(typeOf(code), colorOf(code))} ${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}</b><br>${blurb}`
-      // Lab only (docs/RULES.md §6.9): the shipped guard never captures, so it can never be spent.
-      + (code & SPENT ? ' <b>This guard has used its capture.</b>' : '')
-    : '') + kingsInfo();
+  readPiece(code ? `${colorOf(code) ? 'Black' : 'White'} ${NAMES[t]}.` : '', blurb);
 }
 
 /** Squares the user clicks to identify a move: a shove target, chain victims, shot target, or the destination. */
@@ -443,7 +427,7 @@ function refresh(): void {
   const selectedType = selected == null ? 0 : typeOf(game.pos.board[selected]);
   $('selection-actions').hidden = selected == null || busy;
   $('stop-chain').hidden = !canFinish;
-  $('stop-chain').textContent = selectedType === S ? `Finish chain (${pending.length} capture${pending.length === 1 ? '' : 's'})` : 'Finish capture here';
+  $('stop-chain').textContent = selectedType === S ? `Stop here (${pending.length} capture${pending.length === 1 ? '' : 's'})` : 'Stop here';
   const help: Partial<Record<PieceType, string>> = {
     [O]: 'Tap a neighbour to push or capture. When both are legal, you can choose.',
     [A]: 'Tap a marked enemy to shoot without moving, or a marked empty square to move.',
@@ -510,7 +494,7 @@ function refresh(): void {
   };
   $('took-w').innerHTML = names(taken[0]);
   $('took-b').innerHTML = names(taken[1]);
-  showInfo(selected ?? hovered ?? inspected);
+  showInfo(selected ?? inspected);
   $('undo').hidden = lesson != null;
   $('undo').setAttribute('aria-disabled', String(!undoOn()));
   refreshTurnButton();
@@ -520,7 +504,7 @@ function refresh(): void {
   $('next-lesson').hidden = lesson == null || !lessonDone;
   $('return-game').hidden = lesson == null;
   $('next-lesson').textContent = lesson != null && lesson + 1 < LESSONS.length ? `Next lesson: ${LESSONS[lesson + 1].name}` : 'Start a game';
-  $('show-me').hidden = lesson == null;
+  $('show-me').hidden = lesson == null || lessonDone;
   $<HTMLButtonElement>('show-me').disabled = finished() || busy || viewing != null || !myTurn();
   const progress = $('lesson-progress');
   progress.hidden = lesson == null;
@@ -532,9 +516,10 @@ function refresh(): void {
   }
   refreshPowers();
   drawMarks();
+  refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode() });
 }
 
-/** The power bar: arm the side to move's power, end a Haste turn, or read an always-on power. */
+/** The power control arms the side to move's power. */
 function refreshPowers(): void {
   const c = currentTurn().activeSide, k = GAME_RULES.kings[c];
   const live = !!k && viewing == null && !finished() && lesson == null;
@@ -558,7 +543,7 @@ function refreshPowers(): void {
       : tag === 'sacrifice' ? 'Tap one of your pawns to bring back a lost piece there.'
       : tag === 'haste' ? 'Move a piece; it may then move again.'
       : `Choose a piece, then a marked square (${POWER_NAME[k.power]}).`)
-    : ''; // the info card already says what each king's power does
+    : ''; // The table shows these words for an armed power.
 }
 
 let marksFrame = 0;
@@ -845,15 +830,14 @@ view.onDragSelect = (sq) => {
   selected = sq;
   pending = [];
   refresh();
-  $('panel').scrollTop = 0;
 };
 
 /** Show why a tap on `sq` did nothing, in the help line (a live region). A piece on `sq` shows its card. */
-const refuse = (why: string, sq: number): void => { inspected = game.pos.board[sq] ? sq : null; notice = why; refresh(); };
+const refuse = (why: string, sq: number): void => { inspected = shownPos().board[sq] ? sq : null; notice = why; refresh(); };
 
 view.onSquareClick = (sq, shift = false) => {
   if (busy) { if (thinking) refuse('The computer is thinking. Wait for its move.', sq); view.skip(); return; } // a tap during an animation skips it
-  if (viewing != null) { void showPly(game.history.length, false); return; }
+  if (viewing != null) { refuse('', sq); return; }
   if (ended()) return refuse(lesson != null ? '' : 'The game is over. Start a new game.', sq);
   if (lesson == null && currentTurn().waits) return readWaiting(sq);
   if (!myTurn()) {
@@ -883,7 +867,6 @@ view.onSquareClick = (sq, shift = false) => {
       notice = `This ${NAMES[typeOf(p)]} has no legal move${game.inCheck ? ': your king is in check, and it cannot help' : ' right now'}.`;
     }
     refresh();
-    if (selected != null) $('panel').scrollTop = 0;
     return;
   }
   const complete = next.filter(m => clickPath(m).length === pending.length + 1);
@@ -900,13 +883,10 @@ view.onSquareClick = (sq, shift = false) => {
   }
   pending.push(sq); // a finish button commits the shorter capture
   refresh();
-  $('panel').scrollTop = 0;
 };
 let said = '';
 view.onSquareHover = sq => {
-  hovered = sq;
   $('hover').textContent = sq == null ? '' : sqName(sq);
-  showInfo(selected ?? hovered ?? inspected);
   const next = sq == null ? [] : candidates().filter(m => clickPath(m)[pending.length] === sq);
   const ready = next.filter(m => clickPath(m).length === pending.length + 1);
   const preview = ready.length === 1 ? momentText(game.pos, ready[0], seenMoments, true) : null;
@@ -920,7 +900,6 @@ function restoreMoments(): void {
   $('moment').textContent = said;
 }
 
-$('cancel-selection').onclick = () => { selected = null; pending = []; refresh(); };
 
 $('stop-chain').onclick = () => { const m = candidates().find(m => clickPath(m).length === pending.length); if (m) void commit(m); };
 
@@ -945,17 +924,17 @@ $('show-me').onclick = async () => {
 
 /**
  * Review: show the board after `n` plies. One step forward replays that move's animation unless
- * `replay` is false; n = the game's length returns to the live game. Not while a move or the computer is in progress.
+ * `replay` is false; null returns to the live game. Not while a move or the computer is in progress.
  */
-async function showPly(n: number, replay = true): Promise<void> {
-  const len = game.history.length, from = viewing ?? len;
-  n = Math.max(0, Math.min(len, n));
-  if ((busy && !replaying) || n === from) return;
-  const at = (k: number) => (k === len ? game.pos : game.history[k].pos);
+async function showPly(n: number | null, replay = true): Promise<void> {
+  const len = game.history.length, from = viewing ?? len, step = reviewStep(n, len);
+  if ((busy && !replaying) || step.viewing === viewing) return;
+  n = step.ply;
+  const at = (k: number) => game.positionAfter(k);
   const g = ++navGen;
   view.skip(); // a step during a replay ends it; its continuation sees the new navGen
   busy = replaying = false;
-  viewing = n === len ? null : n;
+  viewing = step.viewing;
   selected = null; pending = []; hintSquares = []; reviewNote = ''; inspected = null;
   refresh();
   sayCursor(); // the keyboard cursor reads the board now shown
@@ -1137,9 +1116,9 @@ $<HTMLDialogElement>('over').onclose = () => {
 };
 
 $('undo').onclick = undo;
-$('resign').onclick = () => {
+$('resign-confirm').onclick = () => {
   const side = resigner();
-  if (side == null || !confirm(`Resign as ${side ? 'Black' : 'White'}?`)) return;
+  if (side == null) return;
   dropTurn(game, turnStart);
   view.sync(game.pos);
   reset();
@@ -1291,7 +1270,7 @@ function openSaved(s: Save): void {
   resigned = null;
   replay(s);
   restoreMoments();
-  said = 'Loaded your newer saved game from your account.';
+  notice = said = 'Loaded your newer saved game from your account.';
   $('moment').textContent = said;
   view.sync(game.pos);
   orient();
@@ -1350,7 +1329,8 @@ const openNewGame = (): void => dialog.open(setup, newGameWarning(
 ));
 
 $('new-game-btn').onclick = openNewGame;
-$('settings-btn').onclick = () => $<HTMLDialogElement>('settings').showModal();
+initMenu({ playAgain: () => newGame(randomBackRank()), today: () => dialog.open({ ...setup, army: 'daily' }), resignSide: resigner });
+initTable(() => { void showPly(null, false); });
 $('rules-btn').onclick = () => {
   fillPieceGuide();
   $<HTMLDialogElement>('rules').showModal();
@@ -1384,7 +1364,7 @@ addEventListener('keydown', e => {
   // No game key acts under a dialog: there Esc only closes the dialog (the Workshop's Esc closes its top sheet,
   // else an open choices panel, else the Workshop).
   if (document.querySelector('dialog[open]')) return;
-  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(game.history.length, false); selected = null; pending = []; armed = false; hintSquares = []; refresh(); return; }
+  if (e.key === 'Escape') { view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; armed = false; hintSquares = []; refresh(); return; }
   // Nor in a field that takes typing.
   const field = e.target as HTMLElement;
   if (field.closest('input,select,textarea') || field.isContentEditable) return;

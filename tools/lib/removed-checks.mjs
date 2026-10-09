@@ -7,7 +7,8 @@
 // line (it starts with //, /* or *) and a call in a string are not assertion lines.
 // A removed line counts only when the change does not add the same line again, in any file:
 // the counter compares lines without the indent, and one added copy frees one removed copy.
-// So a moved line does not count; a changed line counts.
+// So a moved line does not count; a changed line counts. This count is a floor: a commit also
+// names changed helper checks and returned check verdicts, which need a manual diff check.
 //
 // The lists are not copies:
 //   - the check paths are the scripts of the runner's registry (registry.mjs), and the probe files

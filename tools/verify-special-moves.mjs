@@ -62,7 +62,7 @@ try {
     assert.match(await contextText(page), /next marked victim/);
     assert.match(await page.locator('#stop-chain').innerText(), /1 capture/);
     assert.deepEqual(await lanMoves(page), []);
-    await button('#cancel-selection'); await played(0);
+    await page.keyboard.press('Escape'); await played(0);
     await tap(27); await tap(26); await button('#stop-chain'); await played(1);
     assert.match((await lanMoves(page)).join(' '), /Sd4xc4/);
     await button('#undo'); await played(0);

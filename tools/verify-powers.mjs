@@ -95,7 +95,7 @@ try {
   // Always-on power: no button, a line that says what it does.
   await open(page, 'shadow:deathtouch,none', '4k3/p7/8/8/8/8/P7/4K3 w - - 0 1');
   assert.equal(await page.isHidden('#power-btn'), true);
-  assert.match(await page.textContent('#info'), /White's king: Death Touch/);
+  assert.match(await page.locator('#strip-me img').getAttribute('src'), /shadow/);
   console.log('ok always-on power shown');
 
   // The Guide lists the twelve as a game with powers plays them, in a game with powers and without.
@@ -119,10 +119,11 @@ try {
   await page.goto(base);
   console.log('ok the Guide lists the official powers, and the printed ones under ?rules=2017');
 
-  // New game: Kings' powers, a king and a power per side; the game starts with them (and the info card names them).
+  // New game: each chosen king shows in its strip and its power is in the saved rules.
   await startGame(page, { mode: 'powers', kings: ['Mud:March', 'Frost:IceWall'], army: 'classic' });
-  await page.waitForFunction(() => /White's king: March — /.test(document.getElementById('info').textContent)
-    && /Black's king: Ice Wall, 2 left/.test(document.getElementById('info').textContent));
+  await page.waitForFunction(() => document.querySelector('#strip-me img').src.includes('/mud.webp')
+    && document.querySelector('#strip-them img').src.includes('/frost-b.webp'));
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).rules.kings), [{ king: 'Mud', power: 'March' }, { king: 'Frost', power: 'IceWall' }]);
   await shot(page, 'new-game-powers');
   console.log('ok new game with powers');
 

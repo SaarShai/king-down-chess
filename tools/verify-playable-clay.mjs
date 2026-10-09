@@ -148,7 +148,7 @@ try {
   assert.deepEqual({ walking, afterTap, offMoving }, { walking: true, afterTap: false, offMoving: false });
   await setPace(page, 'normal'); await page.click('#undo'); await ready();
   checks.push('a tap skips the capture walk, Fast doubles the tween rate, Off shows only the result');
-  // Review: ← shows the board before the capture, → replays it onto the live board.
+  // Review: ← shows the board before the capture, → replays it. Back to game leaves Review.
   await clickSquare(0); await clickSquare(16); await settled(16,4);
   await page.keyboard.press('ArrowLeft'); await settled(0,4);
   assert.ok(await page.evaluate(()=>window.view.pieces.has(16) && !window.view.moving), 'the pawn is back on a3');
@@ -156,6 +156,7 @@ try {
   assert.ok(await page.evaluate(()=>window.view.moving), '→ replays the capture');
   await settled(16,4);
   assert.equal(await page.evaluate(()=>window.view.pieces.size),3);
+  await page.click('#back-to-game');
   await page.click('#undo'); await ready();
   checks.push('review: ← shows the board before the capture, → replays it');
   await startGame(page, { army: 'classic' }); await ready();
@@ -168,8 +169,8 @@ try {
   await shot(page, 'desktop');
   await page.setViewportSize({width:390,height:844}); await page.waitForTimeout(300);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-  const panel=await page.locator('#panel').boundingBox();assert.ok(panel.width<=390 && panel.y>200 && panel.y<600);
-  const header=await page.locator('#top').boundingBox(), board=await page.locator('#board').boundingBox();
+  const panel=await page.locator('#table-bar').boundingBox();assert.ok(panel.width<=390 && panel.y>=700 && panel.y+panel.height<=844);
+  const header=await page.locator('#strip-them').boundingBox(), board=await page.locator('#board').boundingBox();
   assert.ok(board.y>=header.y+header.height-1, 'mobile header must not cover the back rank');
   await fixedPresentation(); await facingOpponent();
   await shot(page, 'mobile');

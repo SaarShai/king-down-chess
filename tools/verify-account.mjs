@@ -5,7 +5,7 @@
 // device sent while this one was behind, a server that cannot be reached, and signing out offline.
 // Run: npm run check:browser account (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { contextText, lanMoves, openExtra, pressMenu, waitForUi } from './app-ui.mjs';
+import { closeMenu, contextText, lanMoves, openAccount, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -86,7 +86,7 @@ const seen = async (server, test, n = 1) => {
   return server.requests.filter(test);
 };
 const accountButtons = page => page.locator('#account-body button').allInnerTexts();
-const settings = async page => { await openExtra(page); await page.locator('#account:not([hidden])').waitFor(); };
+const settings = async page => { await openAccount(page); await page.locator('#account:not([hidden])').waitFor(); };
 const small = page => page.$$eval('#account button, #account a', els => els.filter(e => e.offsetParent)
   .map(e => ({ t: e.textContent.trim(), r: e.getBoundingClientRect() })).filter(({ r }) => r.height < 44 || r.width < 44).map(({ t }) => t));
 const moves = page => lanMoves(page);
@@ -178,7 +178,7 @@ try {
     assert.deepEqual(await accountButtons(page), ['Sign out', 'Delete my account']);
     assert.ok(await page.locator('#account-body img').evaluate(i => i.complete && i.naturalWidth > 0), 'the picture shows');
     if (phone) assert.deepEqual(await small(page), []);
-    await page.keyboard.press('Escape');
+    await closeMenu(page);
     const before = server.requests.filter(r => r.method === 'POST').length;
     await tap(p, 6); await tap(p, 21); // g1-f3
     await waitForUi(page, ui => ui.lan.length === 3);
@@ -205,15 +205,17 @@ try {
     assert.match(await dlg.innerText(), /name, picture and rating, and the settings, lessons\s+and game saved with it/);
     await dlg.locator('button[value=cancel]').click();
     assert.equal(server.requests.some(r => r.path.includes('delete_my_account')), false, 'Keep my account deletes nothing');
+    await settings(page);
     await page.click('#account-body >> text=Delete my account');
     await dlg.locator('button[value=delete]').click();
-    await page.locator('#account-body >> text=Continue with Google').waitFor();
+    await page.waitForFunction(() => document.getElementById('account-note').textContent.startsWith('Your account is deleted.'));
+    await settings(page);
     assert.equal(await page.locator('#account-note').innerText(), 'Your account is deleted. Your games stay on this device.');
     assert.ok(server.requests.some(r => r.method === 'POST' && r.path === '/rest/v1/rpc/delete_my_account'));
     assert.ok(server.requests.some(r => r.path === '/auth/v1/logout' && r.url.searchParams.get('scope') === 'local'));
     assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.auth')), null);
-    assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Continue with Google', 'focus stays in the section');
-    await page.keyboard.press('Escape');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'menu-title', 'Account opens in the Menu after deletion');
+    await closeMenu(page);
     const posts = server.requests.filter(r => r.method === 'POST' && r.path === '/rest/v1/user_data').length;
     await tap(p, 6); await tap(p, 21); // g1-f3
     await waitForUi(page, ui => ui.lan.length === 3);

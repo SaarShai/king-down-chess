@@ -1,7 +1,7 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { endTurn, contextText, lanMoves, moveRow, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
+import { confirmResign, endTurn, contextText, lanMoves, moveRow, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = new URL(env('PLAYABLE_URL'));
@@ -24,6 +24,7 @@ try {
   const both = new URL(url); both.searchParams.set('players', 'ai,ai'); both.searchParams.set('think', '200');
   await page.goto(both.href);
   await page.waitForFunction(() => document.querySelector('#board canvas'));
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('kingdown.save')).white === 'ai');
   assert.deepEqual(await players(page), ['ai', 'ai']);
   // The game runs to 60 plies and at least one capture (a random 60-ply game can have none), or to its end.
   const captures = () => page.$$eval('#took-w span, #took-b span', s => s.length);
@@ -158,7 +159,7 @@ try {
   await page.evaluate(() => { const s = document.getElementById('pace'); s.value = 'normal'; s.dispatchEvent(new Event('change')); });
   console.log(`ok quiet moves (normal/fast): ${glides.join(', ')}; tap-skip ${qTap.ms} ms; off none`);
   // 2d. Review: a move in the list shows the board after it, ← steps back, → replays the next move,
-  // the board is read-only meanwhile, and a tap on it returns to the game.
+  // the board reads pieces meanwhile; Back to game or Esc returns to play.
   {
     const u = new URL(url); u.searchParams.set('fen', '7k/8/8/3p4/4P3/8/8/K7 w - - 0 1'); u.searchParams.set('players', 'human,human');
     await page.goto(u.href);
@@ -170,8 +171,10 @@ try {
     await openMoves(page); await moveRow(page, 1).click();
     assert.equal(await board(), '0101', 'after move 1: pawn on d5, king still on h8');
     assert.equal(await page.textContent('#turn'), 'Reviewing after 1. e4xd5');
-    const pawn = await at(35); await page.mouse.click(pawn.x, pawn.y); // leaves the review, selects nothing
-    assert.equal(await board(), '0110', 'a tap on the board returns to the game');
+    const pawn = await at(35); await page.mouse.click(pawn.x, pawn.y);
+    assert.equal(await board(), '0101', 'a tap reads the shown board and keeps Review');
+    await page.click('#back-to-game');
+    assert.equal(await board(), '0110', 'Back to game returns to the live board');
     await openMoves(page); await moveRow(page, 1).click(); await page.keyboard.press('ArrowLeft');
     assert.equal(await board(), '1101', 'the start: both pawns, king on h8');
     await page.keyboard.press('ArrowRight');
@@ -195,7 +198,6 @@ try {
     await page.waitForFunction(() => document.getElementById('over').open && document.querySelector('#over-moments button'), null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), 6, 'the mated king on g1 topples');
     await waitForUi(page, ui => ui.lan[0] === 'Ra1-a7' && ui.marks[0] === '??');
-    await openMoves(page);
     assert.match(await moveRow(page, 1).getAttribute('title'), /allowed a forced mate/, 'the move list marks the blunder');
     const text = await page.textContent('#over-moments button');
     assert.match(text, /^1\. Ra1-a7: White allowed a forced mate\. Better: /, text);
@@ -269,7 +271,7 @@ try {
     const army = async () => { await startGame(page, { mode: 'computer', side: 'white', army: 'daily' }); return page.textContent('#setup'); };
     const first = await army(), second = await army();
     assert.ok(/^[A-Z]{8}$/.test(first) && first === second, `${first} / ${second}`);
-    page.once('dialog', d => d.accept()); await page.click('#resign');
+    await confirmResign(page);
     await page.waitForFunction(() => document.getElementById('over').open);
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), await page.evaluate(() => window.view.pos.board.findIndex(v => v === 6)), 'the resigning White king topples');
     await page.click('#share-result');

@@ -1,6 +1,6 @@
 // W1: the real turn press, its Undo floor and the guarded link send.
 import assert from 'node:assert/strict';
-import { endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
+import { confirmResign, endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -90,7 +90,7 @@ try {
     console.log('ok staged mate; Undo removes it; press ends it');
     await page.keyboard.press('Escape');
 
-    await open(); await move('e2', 'e4'); await page.click('#resign');
+    await open(); await move('e2', 'e4'); await confirmResign(page);
     const save = await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')));
     assert.deepEqual([save.moves, save.resigned], [[], 0]);
     console.log('ok staged Resign drops the turn and gives up White');

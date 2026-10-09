@@ -44,7 +44,7 @@ export default async function ({ open }) {
     const { page, close } = await open({ size: 'phone', save: SAVE, query: `?look=${look}` });
     await slide(page, true, await centre(page, E2), 10);
     assert.equal(await isSelected(page), true, `${look}: a finger tap that moves 10 px selects the pawn`);
-    await page.click('#cancel-selection');
+    await page.keyboard.press('Escape');
     await slip(page, E2, E3);
     assert.equal(await isSelected(page), true, `${look}: a finger tap on e2 that slips into e3 selects the pawn`);
     await slip(page, E4, E3);
@@ -66,7 +66,7 @@ export default async function ({ open }) {
   const e2 = await centre(page, E2);
   await slide(page, false, e2, 4);
   assert.equal(await isSelected(page), true, 'a mouse click that moves 4 px selects the pawn');
-  await page.click('#cancel-selection');
+  await page.keyboard.press('Escape');
   await slide(page, false, e2, 9);
   assert.equal(await isSelected(page), false, 'a mouse press that moves 9 px is a drag back to its own square');
   await close();

@@ -128,7 +128,7 @@ try {
   // 4. Refusals say why. A tap on an enemy piece with no piece selected is no refusal: it shows the piece's card.
   page = await open('?fen=' + encodeURIComponent('4k3/4r3/8/8/8/8/4B3/4K3 w - - 0 1'));
   await ready(page);
-  await tap(page, 52); assert.equal(await refusalText(page), ''); assert.match(await page.textContent('#info'), /Black rook/);
+  await tap(page, 52); assert.equal(await refusalText(page), ''); assert.match(await contextText(page), /Black rook/);
   await tap(page, 12); assert.match(await help(page), /This bishop has no legal move/);
   await tap(page, 19); assert.match(await help(page), /that bishop move would leave your king in check/);
   await page.context().close();
@@ -182,8 +182,8 @@ try {
     .map(e => ({ id: e.id || e.textContent.trim().slice(0, 24), r: e.getBoundingClientRect() }))
     .filter(({ r }) => r.height < 44 || r.width < 44)
     .map(({ id, r }) => `${id} ${Math.round(r.width)}×${Math.round(r.height)}`));
-  assert.deepEqual(await small('#panel'), []);
-  for (const [item, dlg] of [['New game', '#new-game'], ['Settings', '#settings'], ['Guide', '#rules']]) {
+  assert.deepEqual(await small('#game-table'), []);
+  for (const [item, dlg] of [['New game', '#new-game'], ['Settings', '#menu-sheet'], ['Guide', '#rules']]) {
     await pressMenu(page, item); assert.deepEqual(await small(dlg), [], dlg); await page.keyboard.press('Escape');
   }
   // New game in each of its three modes, with More options open: the king picker's emblems and powers too.

@@ -1,7 +1,7 @@
 // D-6: no game key (Z, R, the arrows) acts while a dialog is open, or while the focus is in a field that
 // takes typing. Escape still closes the dialog. With no dialog and no field, the keys work.
 import assert from 'node:assert/strict';
-import { lanMoves } from '../app-ui.mjs';
+import { confirmResign, lanMoves } from '../app-ui.mjs';
 
 // White: king a1, pawns a2 and g7, ogre c4. Black: king a8, pawn c5. After a2-a3 Ka8-b8 White can promote
 // on g8 (the promotion picker), and the ogre can take or push the pawn on c5 (the move choice).
@@ -38,6 +38,7 @@ export default async function ({ open }) {
   await keysDoNothing('move-choice');
   await page.evaluate(() => document.getElementById('delete-account').showModal());
   await keysDoNothing('delete-account');
+  await page.waitForFunction(() => document.activeElement.id === 'menu-btn'); // The close event returns focus before typing starts.
   // A field that takes typing, outside any dialog, keeps its keys.
   for (const html of ['<div contenteditable="true"></div>', '<input type="text">']) {
     await page.evaluate(html => { document.body.insertAdjacentHTML('beforeend', `<div id="probe-field">${html}</div>`); document.querySelector('#probe-field > *').focus(); }, html);
@@ -46,8 +47,7 @@ export default async function ({ open }) {
     await page.evaluate(() => document.getElementById('probe-field').remove());
   }
   // The result dialog (two players: White, to move, resigns).
-  page.once('dialog', d => void d.accept());
-  await page.click('#resign');
+  await confirmResign(page);
   await page.waitForFunction(() => document.getElementById('over').open);
   await keysDoNothing('over');
   // No dialog and no field: Z keeps the final resignation, R resets the view, ← opens the review.
