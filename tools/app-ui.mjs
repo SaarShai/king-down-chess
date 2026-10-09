@@ -27,6 +27,12 @@ export async function pressMenu(page, name, { tap = false, ...press } = {}) {
   await (tap ? item.tap(press) : item.click(press));
 }
 
+/** A named figure starts the same lesson even when another figure is Next. */
+export async function startLesson(page, name = 'Archer') {
+  await pressMenu(page, 'Guide');
+  await page.locator(`#lesson-shelf .shelf-piece[data-piece="${name.toLowerCase()}"]`).click();
+}
+
 export async function openExtra(page) {
   await openMenu(page);
   await page.locator('[data-go="extra"]').click();
@@ -106,11 +112,13 @@ export function readUi() {
   const lan = row => row.dataset.lan; // a key moment adds ? or ?? to its row
   const moves = element('moves'), rows = [...moves.querySelectorAll('[data-ply]')];
   const status = text('status'), thinking = status === 'thinking…';
+  const context = (element('context-text').innerText ?? element('context-text').textContent).trim();
   return {
     lan: rows.map(lan),
     turns: [...moves.querySelectorAll('li')].map(li => [...li.querySelectorAll('[data-ply]')].map(lan)),
     marks: rows.map(row => row.dataset.mark),
-    context: (element('context-text').innerText ?? element('context-text').textContent).trim(),
+    context,
+    lessonLearned: context.match(/^([A-Za-z]+) learned\.$/m)?.[1] ?? '',
     refusal: text('move-help'),
     thinking,
     result: thinking ? '' : status,

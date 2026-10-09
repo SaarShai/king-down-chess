@@ -1,7 +1,7 @@
 // D-4: Start game over an unfinished game shows the warn line, and Close keeps the game and its save.
 // In a lesson, that game is the one Return to game keeps. A finished game and a game with no move need no warn line.
 import assert from 'node:assert/strict';
-import { lanMoves, pressMenu, startNewGame, waitForUi } from '../app-ui.mjs';
+import { startLesson, lanMoves, startNewGame, waitForUi } from '../app-ui.mjs';
 
 /** You play White against the computer, two moves in. */
 const UNFINISHED = { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', skill: 'club', sound: false };
@@ -28,9 +28,9 @@ export default async function ({ open }) {
     assert.equal(await start(page, false), null, 'no question before the first move');
     await page.waitForFunction(() => !document.getElementById('new-game').open);
     // A lesson over a game with no move needs no warn line, also after its goal move.
-    await pressMenu(page, 'Guide'); await page.click('#learn');
+    await startLesson(page);
     await tap(27); await tap(36); // lesson 1: the Archer shoots
-    await waitForUi(page, ui => /^Well done\./m.test(ui.context));
+    await waitForUi(page, ui => !!ui.lessonLearned);
     assert.equal(await plies(page), 1);
     assert.equal(await start(page, false), null, 'no question in a lesson');
     await page.waitForFunction(() => !document.getElementById('new-game').open);
@@ -40,7 +40,7 @@ export default async function ({ open }) {
   // In a lesson, the sheet warns about the game that Return to game keeps. Cancel keeps that game and its save.
   {
     const { page, close } = await open({ save: UNFINISHED });
-    await pressMenu(page, 'Guide'); await page.click('#learn');
+    await startLesson(page);
     assert.equal(await start(page, false), 'This ends your game at move 2.', 'a lesson warns about the kept game');
     assert.deepEqual((await saved(page)).moves, ['e2-e4', 'e7-e5'], 'Cancel keeps the save');
     await page.keyboard.press('Escape');
