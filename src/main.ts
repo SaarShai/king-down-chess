@@ -14,11 +14,11 @@ import { LESSONS } from './lessons';
 import { mulberry32 } from './sim/rng';
 import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { POWER_NAME, POWER_TAG, autoQueen, hintMoves, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
-import { defaultSetup, isLevel, kingsOf, newGameDialog, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
+import { defaultSetup, isLevel, kingsOf, newGameDialog, newGameWarning, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
 import './dialog-dismiss';
-import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnLine, turnOf } from './turn';
+import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, turnLine, turnOf } from './turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from './turn-controls';
 import './ui/table.css';
 import { initMenu } from './ui/menu';
@@ -131,7 +131,7 @@ const finished = (): boolean => resigned != null || game.status !== 'playing';
 /** This device may move now: a person's turn, and in a link game only its own side. */
 const currentTurn = () => turnOf(game, turnStart, busy || pending.length > 0 || viewing != null);
 const turnMode = () => modeOf(sides, linkSide);
-const ended = (): boolean => finished() && !currentTurn().staged;
+const ended = (kept = { game, turnStart, resigned }): boolean => turnEnded(kept.game, kept.turnStart, kept.resigned);
 const undoOn = (): boolean => lesson == null && viewing == null && !ended() && !thinking && !sending && !closePromo && !closeMoveChoice && (canUndoTurn(game, turnStart) || pending.length > 0);
 const myTurn = (): boolean => !currentTurn().waits && sides[game.pos.turn] === 'human' && (linkSide == null || game.pos.turn === linkSide) && !lessonDone;
 /** The side Resign gives up now (`resigningSide`), or null while it is off: the game is over, a lesson, or the computer thinks. */
@@ -747,6 +747,7 @@ function pickPromotion(options: Move[]): Promise<Move | null> {
     }
     $('cancel-promo').onclick = () => done(null);
     dlg.oncancel = e => { e.preventDefault(); done(null); };
+    refresh();
     dlg.showModal();
   });
 }
@@ -757,7 +758,6 @@ async function choose(moves: Move[]): Promise<void> {
   if (moves.length === 1 || !moves.every(m => m.promo)) return commit(moves[0]);
   const generation = gen;
   busy = true; // the picker is modal: without this the board stays live and a second move slips in
-  refresh();
   const m = await pickPromotion(moves);
   if (generation !== gen) return; // reset() closed it and cleared busy
   busy = false;
@@ -769,7 +769,6 @@ async function choose(moves: Move[]): Promise<void> {
 async function choosePushOrCapture(capture: Move, push: Move): Promise<void> {
   const generation = gen;
   busy = true;
-  refresh();
   const dlg = $<HTMLDialogElement>('move-choice');
   const target = sqName(push.shove!.from), destination = sqName(push.shove!.to);
   $('move-choice-detail').textContent = `Capture removes the enemy on ${target}. Push moves it to ${destination}${push.to === push.from ? ' and leaves your Ogre in place' : ` and moves your Ogre to ${target}`}.`;
@@ -782,6 +781,7 @@ async function choosePushOrCapture(capture: Move, push: Move): Promise<void> {
     $('choose-push').onclick = () => done(push);
     $('cancel-choice').onclick = () => done(null);
     dlg.oncancel = e => { e.preventDefault(); done(null); };
+    refresh();
     dlg.showModal();
   });
   if (generation !== gen) return;
@@ -795,7 +795,6 @@ async function choosePower(moves: Move[]): Promise<void> {
   if (moves.length === 1) return commit(moves[0]);
   const generation = gen;
   busy = true;
-  refresh();
   const dlg = $<HTMLDialogElement>('promo'), box = $('promo-choices');
   $('promo-title').textContent = `Sacrifice the pawn on ${sqName(moves[0].from)}: which piece returns?`;
   box.innerHTML = '';
@@ -810,6 +809,7 @@ async function choosePower(moves: Move[]): Promise<void> {
     }
     $('cancel-promo').onclick = () => done(null);
     dlg.oncancel = e => { e.preventDefault(); done(null); };
+    refresh();
     dlg.showModal();
   });
   if (generation !== gen) return;
@@ -1310,11 +1310,7 @@ const dialog = newGameDialog(s => {
     if (!back) return; // the dialog stays open
     if (back.split('S').length > 2) { alert('One Beast per army.'); return; } // owner, 2026-10-04
   }
-  // Like a game link (below), Start game asks before it replaces an unfinished game with a move. In a lesson
-  // that is the game Return to game keeps. Cancel keeps the game, its save and the dialog.
-  const kept = lesson != null ? lessonReturn : { game, resigned, turnStart };
-  if (kept && kept.resigned == null && (kept.game.status === 'playing' || canUndoTurn(kept.game, kept.turnStart)) && kept.game.history.length
-    && !confirm('Start a new game? It replaces your current game.')) return;
+
   setup = s;
   try { localStorage.setItem(SETUP_KEY, JSON.stringify(s)); } catch { /* private mode: the choices last this visit */ }
   if (s.army === 'daily') { const d = today(); newGame(randomBackRank(mulberry32(+d.replace(/-/g, ''))), null, false, d); }
@@ -1327,7 +1323,10 @@ const dialog = newGameDialog(s => {
     if (example) { said = example.watch; $('moment').textContent = said; }
   } else newGame(randomBackRank());
 }, preset);
-const openNewGame = (): void => dialog.open(setup);
+const openNewGame = (): void => dialog.open(setup, newGameWarning(
+  lessonReturn?.game ?? game, lessonReturn?.turnStart ?? turnStart,
+  ended(lessonReturn ?? undefined),
+));
 
 $('new-game-btn').onclick = openNewGame;
 initMenu({ playAgain: () => newGame(randomBackRank()), today: () => dialog.open({ ...setup, army: 'daily' }), resignSide: resigner });

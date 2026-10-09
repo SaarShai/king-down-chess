@@ -147,12 +147,26 @@ describe('turnLine: the words beside the board', () => {
   });
 
   it('every line has 8 words or fewer', () => {
-    const lines = [
-      ...(['computer', 'device', 'link'] as const).flatMap(mode => [waitNotice(mode, 0), waitNotice(mode, 1)]),
-      'Check. Your turn is ready. Tap End turn.', "Check. White's turn is ready. Tap End turn.",
-      'Now make your move, or tap End turn.', 'Make your move, or tap Send your turn.',
-      'Move another piece, or tap Send your turn.', 'Your turn is ready. Tap Send your turn.',
-    ];
+    const modes = ['computer', 'device', 'link'] as const;
+    const lines: string[] = modes.flatMap(mode => [waitNotice(mode, 0), waitNotice(mode, 1)]);
+    const read = (g: Game, start: number): void => {
+      for (const mode of modes) lines.push(turnLine(g, turnOf(g, start), mode));
+    };
+    read(play(new Game(CLASSIC_CHESS), 'e2-e4'), 0);
+    read(play(new Game(CLASSIC_CHESS), 'e2-e4', 'd7-d6', 'Bf1-b5'), 2);
+    read(play(new Game(CLASSIC_CHESS), 'f2-f3', 'e7-e5', 'g2-g4', 'Qd8-h4'), 3);
+    const stale = new Game();
+    stale.load(fromFen('7k/8/6Q1/8/8/8/8/K7 w - - 0 1'));
+    read(play(stale, 'Qg6-f7'), 0);
+    read(haste(), 0);
+    setRules({ hands: [['Rally'], []], markFree: true, hasteCaptures: false });
+    const rally = new Game();
+    rally.load(fromFen('4k3/8/p7/8/8/2p5/8/RN2K3 w - - 0 1'));
+    read(play(rally, 'Ra1-a5!J'), 0);
+    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] });
+    const mark = new Game();
+    mark.load(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'));
+    read(play(mark, '!F:d5'), 0);
     for (const line of lines) expect(line.split(/\s+/).length, line).toBeLessThanOrEqual(8);
   });
 });

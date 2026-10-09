@@ -48,6 +48,19 @@ export async function confirmResign(page) {
   await page.locator('#resign-confirm').click();
 }
 
+export async function startNewGame(page, accept = true) {
+  if (!await page.evaluate(() => document.getElementById('new-game').open)) await pressMenu(page, 'New game');
+  const warning = await page.evaluate(() => {
+    const line = document.getElementById('new-game-warn');
+    if (!line) throw new Error('startNewGame: the page has no #new-game-warn');
+    return line.hidden ? null : line.textContent.trim();
+  });
+  if (accept || !warning) await page.click('#start-game');
+  return warning;
+}
+
+
+
 export async function boardHelp(page, act, options = {}) {
   await pressMenu(page, 'Settings', options);
   await act();

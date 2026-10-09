@@ -4,8 +4,8 @@
 // Screenshots in PLAYABLE_OUT: desktop-computer.jpg, desktop-powers.jpg, phone-computer.jpg, phone-powers.jpg.
 // Run: npm run check:browser new-game (it builds and serves the app; the settings are in tools/lib/checks.mjs).
 import assert from 'node:assert/strict';
-import { pressMenu, waitForUi } from './app-ui.mjs';
-import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
+import { endTurn, lanMoves, pressMenu, waitForUi } from './app-ui.mjs';
+import { assertNoErrors, env, insideViewport, launch, shot, trapErrors } from './lib/checks.mjs';
 import { setUpGame, startGame } from './new-game-ui.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -227,6 +227,69 @@ try {
   await startGame(page, { army: 'classic' });
   await page.context().close();
   ok('?rules=2017: the picker shows the printed powers (Freeze twice, Mercy, Darkness), and the game plays them');
+
+  // The sheet replaces the Start question with a warn line. Close keeps the game.
+  page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', sound: false, skill: 'club' } });
+  await pressMenu(page, 'New game');
+  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.');
+  assert.equal(await page.textContent('#start-game'), 'Start new game');
+  await page.click('#new-game button[value="cancel"]');
+  assert.deepEqual((await saved(page)).moves, ['e2-e4', 'e7-e5']);
+  await startGame(page);
+  assert.deepEqual((await saved(page)).moves, []);
+  await page.context().close();
+  ok('warn line: names the move; Close keeps the game; Start ends it without a question');
+  page = await open();
+  await startGame(page, { mode: 'two', army: 'MMSSNBNK' });
+  assert.equal((await saved(page)).back, 'MMSSNBNK');
+  await setUpGame(page, { army: null });
+  assert.equal(await page.inputValue('#army'), 'MMSSNBNK');
+  await page.click('#more-options summary');
+  assert.equal(await page.evaluate(() => document.getElementById('other-armies').open), true);
+  await page.context().close();
+  ok('More: Start uses the example army and remembers it when the sheet opens again');
+
+  // A staged mate is still a live game, also when a lesson keeps it.
+  page = await open({ save: { back: 'RNBQKBNR', fen: '', moves: ['f2-f3', 'e7-e5', 'g2-g4'], white: 'human', black: 'human', sound: false, skill: 'club', pace: 'off' } });
+  for (const sq of [59, 31]) {
+    const p = await page.evaluate(s => window.view.screenOf(s), sq);
+    await page.mouse.click(p.x, p.y);
+  }
+  await waitForUi(page, ui => ui.lan.length === 4);
+  await page.waitForFunction(() => document.getElementById('end-turn').getAttribute('aria-disabled') === 'false');
+  await pressMenu(page, 'New game');
+  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.');
+  assert.equal(await page.textContent('#start-game'), 'Start new game');
+  await page.keyboard.press('Escape');
+  assert.equal((await lanMoves(page)).length, 4, 'Close keeps the staged mate');
+  await pressMenu(page, 'Guide'); await page.click('#learn');
+  await pressMenu(page, 'New game');
+  assert.equal(await page.textContent('#new-game-warn'), 'This ends your game at move 2.', 'the lesson keeps the staged game');
+  await page.keyboard.press('Escape');
+  await page.click('#return-game');
+  await endTurn(page);
+  await page.locator('#over').waitFor({ state: 'visible' });
+  await page.keyboard.press('Escape');
+  await pressMenu(page, 'New game');
+  assert.equal(await page.isHidden('#new-game-warn'), true, 'a handed-over mate needs no warning');
+  assert.equal(await page.textContent('#start-game'), 'Start game');
+  await startGame(page, { mode: 'two', army: 'classic' });
+  assert.deepEqual((await saved(page)).moves, []);
+  assert.equal(await page.getAttribute('#end-turn', 'aria-disabled'), 'true', 'Start resets the turn boundary');
+  await page.context().close();
+  ok('staged mate: the live and kept games warn at the turn boundary; the press ends it; Start resets the turn');
+
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    page = await open({ viewport, touch: true });
+    for (const mode of ['computer', 'powers', 'two']) {
+      await setUpGame(page, { mode, powers: mode === 'two' ? true : undefined, army: 'MMSSNBNK' });
+      await insideViewport(page, '#start-game');
+      assert.equal(await page.inputValue('#army'), 'MMSSNBNK');
+      assert.equal(await page.evaluate(() => document.getElementById('other-armies').open), true);
+    }
+    await page.context().close();
+  }
+  ok('sheet: Start stays in view in all modes at 390×844 and 844×390; More keeps the example army');
 
   // 10. Phone 390×844: no sideways scroll in any mode, More options open; screenshots.
   page = await open({ viewport: { width: 390, height: 844 }, touch: true });

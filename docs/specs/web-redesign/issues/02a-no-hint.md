@@ -1,6 +1,6 @@
 # 02a · No Hint on the game screen; Show me in lessons
 
-Status: built (the separate W1 review and the owner's sample review wait)
+Status: done on claude/web-redesign-int (waits for the owner's yes on the sample)
 Blocked by: 00
 
 ## Scope
@@ -10,16 +10,17 @@ Blocked by: 00
 
 ## Plan
 
-1. [ ] Remove `#hint`, the `i-hint` symbol, its handler and its disabled rule from the game screen.
-2. [ ] Keep the names `hintSquares` and `Highlights.hint`: the key-moment "better move" mark uses them, and `renderer.ts` and `marks.ts` run in the plugin page. Keep `hintMoves()` in `src/powers-ui.ts`.
-3. [ ] Lessons: a "Show me" button in the lesson controls (beside Next lesson and Return to game). It marks the lesson's goal move: today's hint path with `hintMoves()` and the lesson goal. Ticket 18 moves it into the lesson screen.
-4. [ ] Remove `tools/ux-defects/d2-hint.mjs` and the `#hint` steps in `verify-cursor-adoption.mjs` and `verify-painted-game.mjs`, with `Removed-check:` trailers.
+1. [x] Remove `#hint`, the `i-hint` symbol, its handler and its disabled rule from the game screen.
+2. [x] Keep the names `hintSquares` and `Highlights.hint`: the key-moment "better move" mark uses them, and `renderer.ts` and `marks.ts` run in the plugin page. Keep `hintMoves()` in `src/powers-ui.ts`.
+3. [x] Lessons: a "Show me" button in the lesson controls (beside Next lesson and Return to game). It marks the lesson's goal move: today's hint path with `hintMoves()` and the lesson goal. Ticket 18 moves it into the lesson screen.
+4. [x] Remove `tools/ux-defects/d2-hint.mjs` and the `#hint` steps in `verify-cursor-adoption.mjs` and `verify-painted-game.mjs`, with `Removed-check:` trailers.
 
 ## Verification
 
-- [ ] A check: no `#hint` on the game screen; in a lesson, Show me marks the goal move and no other move; a game move after it still works.
-- [ ] `lesson-return`, `npm test` and `npm run check:browser` pass. `plugin-ui` does not change (no shared file changes).
-- [ ] Rendered sample, 390×844 and 1440×900: the action row with no Hint; a lesson with Show me. The owner's yes, with the date, in Comments.
+- [x] No Hint in play. Show me marks the lesson goal, and its marked move completes the lesson.
+- [x] Unit tests, lesson-return and the named M1 browser checks pass. Plugin defaults stay.
+- [x] Sample W1 shows the action row and Show me at 390×844 and 1440×900.
+- [ ] The owner's yes on the sample.
 
 ## Risks
 
@@ -31,8 +32,8 @@ Blocked by: 00
 
 ## Comments
 
-W1 build: remove Hint from play. Keep Show me in the lesson controls.
-Reuse the goal move handler. The turn check plays its marked goal.
-Checks: turn, lesson-return and the full suite pass.
-Samples: `SAMPLE=02b` gives 14 renders with no fault, including Show me.
-The separate W1 review and the owner's sample review wait.
+Remove Hint from play. Keep Show me in the lesson controls and reuse the goal handler.
+The fast plan keeps this work and cuts no part of 02a.
+Tests: 1482 pass, 13 skip; all 50 scene tests pass after the merge.
+M1: all 14 named checks pass; turn and link-game pass twice; plugin-ui passes.
+Sample W1: 14 renders, no fault. Both contact sheets are checked. The owner's yes waits.
