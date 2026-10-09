@@ -91,3 +91,5 @@ Boards, progress and shelf use Archer, Beast, Maester, Ogre, Guard, Paladin.
 Progress reads learned names, not the boards before the current index.
 The store already saves names; saved learned results keep their meaning.
 The lesson order test and browser check pass. After Archer, Beast is second; Guard and Maester are not done.
+
+Item 3 check: decided by delegation (2026-10-09). Shelf tests use the new lesson indices. Saved-name tests still cover gaps, duplicate names and old names.

@@ -6,10 +6,10 @@ describe('lesson shelf', () => {
     const shelf = lessonShelf({});
     expect(shelf.pieces.map(p => [p.name, p.lesson, p.status])).toEqual([
       ['Archer', 0, 'Next'],
-      ['Beast', 3, ''],
+      ['Beast', 1, ''],
       ['Maester', 2, ''],
-      ['Ogre', 4, ''],
-      ['Guard', 1, ''],
+      ['Ogre', 3, ''],
+      ['Guard', 4, ''],
       ['Paladin', 5, ''],
     ]);
     expect(shelf.next?.name).toBe('Archer');
@@ -25,7 +25,7 @@ describe('lesson shelf', () => {
       ['Archer', 'Learned'], ['Beast', 'Next'], ['Maester', 'Learned'],
       ['Ogre', 'Learned'], ['Guard', ''], ['Paladin', ''],
     ]);
-    expect(shelf.next?.lesson).toBe(3);
+    expect(shelf.next?.lesson).toBe(1);
     expect(store).toEqual({ done: ['Archer', 'Maester', 'Ogre', 'Archer', 'Old lesson'], tricks: ['wall'] });
   });
 
@@ -55,5 +55,5 @@ describe('lesson shelf', () => {
 });
 
 it('selects Beast after Archer is learned', () => {
-  expect(lessonShelf({ done: ['Archer'] }).next).toMatchObject({ name: 'Beast', lesson: 3 });
+  expect(lessonShelf({ done: ['Archer'] }).next).toMatchObject({ name: 'Beast', lesson: 1 });
 });
