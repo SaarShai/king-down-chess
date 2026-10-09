@@ -21,7 +21,7 @@
 //                           the focus goes to #new-game-btn, then Shift+Tab (a key, so the focus is :focus-visible).
 //   leaveBoard(page)        Moves the keyboard focus off the board, so that the cursor goes. Today: to #new-game-btn.
 // The turn
-//   endTurn(page)           Hands the turn to the other side. Today: nothing to press; the computer replies at once.
+//   endTurn(page)           Hands the turn to the other side. Presses the live turn button after the move animation.
 // The readouts
 //   contextText(page)       The words beside the board. Today: #status, #move-help and #moment, one line each,
 //                           with no empty line. Match a line with a RegExp and the m flag.
@@ -86,8 +86,13 @@ export async function leaveBoard(page) {
   await menuItem(page, 'New game').focus();
 }
 
-export async function endTurn(page) {
-  void page; // today the turn ends with the move
+export async function endTurn(page, { keyboard = false } = {}) {
+  await page.waitForFunction(() => {
+    const b = document.getElementById('end-turn');
+    return b && !b.hidden && b.getAttribute('aria-disabled') === 'false';
+  });
+  if (keyboard) await page.keyboard.press('Enter');
+  else await page.click('#end-turn');
 }
 
 /**

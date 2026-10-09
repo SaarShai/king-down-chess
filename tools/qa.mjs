@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { endTurn } from './app-ui.mjs';
 /**
  * Browser QA for the takeover changes. The runner builds the app, serves the build and runs this check:
  *
@@ -231,6 +232,7 @@ await caseFn('AI answers in an ogre position', `?fen=${encodeURIComponent(OGRE_E
   await clickSq(page, 'e4');
   await clickSq(page, 'd4');
   await page.click('#choose-push');
+  await endTurn(page);
   await waitPly(page, 2); // human shove + the AI's reply
   await page.waitForTimeout(800);
   const s = await snap(page);

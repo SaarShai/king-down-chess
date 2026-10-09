@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardHelp, contextText, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
+import { boardHelp, contextText, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from '../../tools/lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -90,6 +90,10 @@ try {
   await page.keyboard.press('Enter');
   await waitForUi(page, ui => /e2-e4/.test(ui.lan.join(' ')));
   assert.match(await page.locator('#announce').textContent(), /^White pawn e2 to e4\./);
+  await page.waitForFunction(() => document.activeElement.id === 'end-turn');
+  await endTurn(page, { keyboard: true });
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'board');
+  assert.equal(await page.locator('#board-marks .mk-cursor').count(), 1);
   await page.waitForFunction(() => /^Black /.test(document.getElementById('announce').textContent), null, { timeout: 20000 });
   ok(`keyboard: Tab, arrows and Enter play e2-e4; announced "White pawn e2 to e4." then "${await page.locator('#announce').textContent()}"`);
   // The move list is a row of buttons: Tab reaches them, Enter opens the review.

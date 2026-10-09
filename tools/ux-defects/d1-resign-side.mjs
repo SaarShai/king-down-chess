@@ -1,6 +1,6 @@
 // D-1: Resign gives up this device's side, never the computer's or the friend's, and it is off while the computer thinks.
 import assert from 'node:assert/strict';
-import { waitForUi } from '../app-ui.mjs';
+import { endTurn, waitForUi } from '../app-ui.mjs';
 
 /** Presses Resign and accepts its question; returns the question and the result's title. */
 async function resign(page) {
@@ -16,6 +16,7 @@ export default async function ({ open }) {
   {
     const { page, tap, close } = await open({ save: { back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'ai', skill: 'club', sound: false } });
     await tap(12); await tap(28); // e2-e4; the computer then thinks for Black
+    await endTurn(page);
     const during = await (await waitForUi(page, ui => {
       if (!ui.thinking) return false;
       const button = document.getElementById('resign'), asked = [], ask = window.confirm;

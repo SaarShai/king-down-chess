@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { Move, Position, legalMoves, makeMove, parseSq, setRules } from './rules/engine';
+import { Move, POWERS_BALANCED, Position, legalMoves, makeMove, parseSq, setRules } from './rules/engine';
 import { KingChoice, PowerName } from './rules/rules';
 import { fromFen, toLan } from './rules/setup';
 import { describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
@@ -37,6 +37,11 @@ describe('screen-reader lines for king powers', () => {
     expect(say(pos, 'Ra1xa5!H')).toBe('White rook a1 to a5, taking the rook on a5, with Haste: the rook may move again.');
     const held = makeMove(pos, find(pos, 'Ra1xa5!H'));
     expect(say(held, '--')).toBe('White ends the turn without the Haste second move.');
+
+    setRules({ ...POWERS_BALANCED, kings: [{ king: 'Frost', power: 'Freeze' }, null] }); // a free Freeze: mark, then move or pass
+    const marked = makeMove(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'), find(fromFen('4k3/p7/8/3n4/8/8/P7/4K3 w - - 0 1'), '!F:d5'));
+    expect(describeMove(marked, find(marked, '--'), true)).toBe('White ends the turn after the mark.');
+    expect(say(marked, '--')).toBe('White ends the turn without the Haste second move.');
 
     powers('Flight');
     expect(say(fromFen('4k3/8/8/8/8/8/1P6/RN2K3 w - - 0 1 l'), 'Nb1~d3')).toBe('White knight flies from b1 to d3.');
