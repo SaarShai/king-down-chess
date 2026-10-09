@@ -19,6 +19,7 @@
  * entry whose ticket file is missing, resolved or wontfix.
  */
 import { readFileSync } from 'node:fs';
+import { lanMoves } from './app-ui.mjs';
 import { startGame } from './new-game-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 import { classify, verdict } from './lib/known-red.mjs';
@@ -75,12 +76,14 @@ async function clickSq(page, name, shift = false) {
   throw new Error(`no pixel over ${name} picks it`);
 }
 
-const snap = page => page.evaluate(() => ({
-  fen: document.getElementById('setup').title,
-  moves: document.getElementById('moves').textContent.trim(),
-  info: document.getElementById('info').textContent,
-  scene: Object.fromEntries([...window.view.pieces].map(([sq, g]) => [sq, g.userData.code])),
-}));
+const snap = async page => ({
+  ...await page.evaluate(() => ({
+    fen: document.getElementById('setup').title,
+    info: document.getElementById('info').textContent,
+    scene: Object.fromEntries([...window.view.pieces].map(([sq, g]) => [sq, g.userData.code])),
+  })),
+  moves: (await lanMoves(page)).join(' '),
+});
 const waitPly = (page, n) => page.waitForFunction(n => {
   try { return (JSON.parse(localStorage.getItem('kingdown.save') || '{}').moves || []).length === n; } catch { return false; }
 }, n, { timeout: 40000 });
