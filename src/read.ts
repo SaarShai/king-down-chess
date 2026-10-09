@@ -1,4 +1,4 @@
-import { A, B, C, G, K, L, M, N, NAMES, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, type Color, typeOf, type PieceType, type Position } from './rules/engine';
+import { A, B, C, G, K, L, M, N, NAMES, LETTERS, O, P, Q, R, RULES as GAME_RULES, S, T, V, colorOf, file, findKing, rank, legalMoves, pseudoMoves, sqName, markKind, type Color, typeOf, type PieceType, type Position } from './rules/engine';
 import { needsArming, offered } from './powers-ui';
 import { POOL } from './rules/setup';
 
@@ -235,4 +235,15 @@ export function unmarkedTap(pos: Position, sq: number, selected: number | null, 
     notice = pieceStates(pos, sq).includes('Frozen') ? 'Frozen: it cannot move this turn.' : `This ${NAMES[typeOf(pos.board[sq])]} has no legal move.`;
   }
   return { ...next, pending: [], notice };
+}
+
+/** Chess pieces always; fairies in POOL or the fixed set A L G M S O. */
+export function guideTypes(pos: Position): PieceType[] {
+  const always = new Set<PieceType>([P, N, B, R, Q, K, A, L, G, M, S, O]);
+  for (const ch of POOL) {
+    const t = LETTERS.indexOf(ch) as PieceType;
+    if (t > 0) always.add(t);
+  }
+  for (const p of pos.board) if (p) always.add(typeOf(p));
+  return [...always].sort((a, b) => a - b);
 }

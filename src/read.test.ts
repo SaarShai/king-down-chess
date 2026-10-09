@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { DEFAULT_RULES, parseSq, setRules } from './rules/engine';
 import { fromFen } from './rules/setup';
-import { reachOf, readText, readTap, unmarkedTap, whyNot } from './read';
+import { guideTypes, reachOf, readText, readTap, unmarkedTap, whyNot } from './read';
 
 const at = parseSq;
 afterEach(() => setRules(DEFAULT_RULES));
@@ -171,4 +171,9 @@ it('names no legal move and an unmarked empty destination', () => {
   const pos = fromFen('4k3/4r3/8/8/8/8/4B3/4K3 w - - 0 1');
   expect(unmarkedTap(pos, at('e2'), null, null, []).notice).toBe('This bishop has no legal move.');
   expect(unmarkedTap(pos, at('d3'), at('e2'), null, []).notice).toBe('That leaves your king in check.');
+});
+
+it('lists the lab pieces in the position that the Guide reads', () => {
+  const shown = fromFen('7k/8/8/8/8/8/8/KCVT4 w - - 0 1');
+  expect(guideTypes(shown)).toEqual(expect.arrayContaining([13, 14, 15]));
 });

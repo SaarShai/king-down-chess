@@ -18,7 +18,7 @@ import { defaultSetup, isLevel, kingsOf, newGameDialog, newGameWarning, parseSet
 import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
 import './dialog-dismiss';
-import { pieceGuide, reachOf, readTap, unmarkedTap } from './read';
+import { guideTypes, pieceGuide, reachOf, readTap, unmarkedTap } from './read';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, turnLine, turnOf } from './turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from './turn-controls';
 import './ui/table.css';
@@ -159,17 +159,6 @@ connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
   focusBoard: () => { cursor = homeSquare(); sayCursor(); drawMarks(); },
 });
 
-/** Chess pieces always; fairies in POOL or the fixed set A L G M S O. */
-function guideTypes(): PieceType[] {
-  const always = new Set<PieceType>([P, N, B, R, Q, K, A, L, G, M, S, O]);
-  for (const ch of POOL) {
-    const t = LETTERS.indexOf(ch) as PieceType;
-    if (t > 0) always.add(t);
-  }
-  for (const p of game.pos.board) if (p) always.add(typeOf(p));
-  return [...always].sort((a, b) => a - b);
-}
-
 /** Painted figures cut from the board's sheets (docs/visual-design/make-ui-art.py); none for the lab pieces. */
 const ART: Partial<Record<PieceType, string>> = Object.fromEntries(
   ([P, N, B, R, Q, A, L, G, M, S, O] as PieceType[]).map(t => [t, NAMES[t]]));
@@ -183,7 +172,7 @@ const pieceArt = (t: PieceType, black = false): string | null =>
 function fillPieceGuide(): void {
   const rows = $('rules-rows');
   rows.innerHTML = '';
-  for (const t of guideTypes()) {
+  for (const t of guideTypes(shownPos())) {
     const g = pieceGuide(t);
     const card = document.createElement('article');
     card.className = 'piece-card';
