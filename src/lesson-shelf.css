@@ -6,7 +6,7 @@
 .lesson-shelf h3 { margin: 0; font-family: var(--font-display); font-size: var(--fs-xl); }
 .lesson-shelf .shelf-intro { margin: var(--space-1) 0 0; color: var(--ink-soft); }
 .lesson-shelf .shelf-list {
-  --sq: 82px; --fig-h: 116px;
+  --sq: 74px; --fig-h: 104px;
   list-style: none; margin: var(--space-4) 0; padding: 0;
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--space-3);
 }
