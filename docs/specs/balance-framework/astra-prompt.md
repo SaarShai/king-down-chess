@@ -17,7 +17,7 @@ Read `AGENTS.md` first and obey it. It includes the rules for commits, worktrees
 **The approved design**
 - `docs/RULES.md`. These are the rules. The numbered decisions record what the owner approved, with the owner's words.
 - `docs/MATRIX.md`. This is the ability matrix for pieces (A.0, A.1), the capital (B), powers and cards (C.1, C.2), and conditions (D).
-- `docs/status/king-down-status-2026-10-09.xlsx`. It has these tabs: Pieces, Cards, King powers, Rules, Piece matrix and Card matrix. Each version of an element is in its own columns, with its status (approved, pending, lab or rejected).
+- The matrix spreadsheet: `/Users/za/Documents/king down chess/docs/status/king-down-status-2026-10-09.xlsx` (in the repo: `docs/status/king-down-status-2026-10-09.xlsx`). It has these tabs: Pieces, Cards, King powers, Rules, Piece matrix and Card matrix. Each version of an element is in its own columns, with its status (approved, pending, lab or rejected).
 - `TASKS.md` and `docs/tasks-archive/`. These are the open and closed decisions.
 - The code is the ground truth for what the game does:
   - `src/rules/` (rule flags, `POWERS_BALANCED`, the setup pool)
@@ -34,6 +34,22 @@ Read `AGENTS.md` first and obey it. It includes the rules for commits, worktrees
 - Analysis tools: `tools/deal-cards.ts`, `tools/guard-probes.ts`, `tools/piece-activity.ts`, `src/sim/analyze.ts`, and `npx tsx src/sim/tournament.ts report --id <id>`.
 
 Some runs are void, or their flags are wrong, for example the first dt-r0 runs, which have no released rules. QUEUE.md says so. Do not use void runs.
+
+## Timing: start now, some runs are still pending
+
+Start now. The schema, the criteria, the matrix check and the dataset builder do not need the runs that are still running. Almost all of the data is on disk now, or in the Drive backup.
+
+These runs are still pending on 2026-10-09:
+- `deal-c4k` (Kaggle) is the deal with 4 cards, the approved hand size. Only shards 9–11 of 12 run, about 3,500 games.
+- `deal-d4k` (Kaggle) is the deal with 6 cards. Shards 7–11 are done, and shards 5–6 are running.
+- `deal-nosalv2` (M1) is the deal without Salvation, seed 7579.
+- `ab-guard-drop-any` (M1, queued after deal-nosalv2) is the Guard dropped on any empty square, against the Guard next to its king.
+
+How to work with them:
+- In the dataset, give each pending run the status "pending", with no value. Do not guess its result.
+- Kaggle results arrive in `sim/out/` as `<id>.shard*of*.jsonl`. M1 results arrive in `sim/out/m1/` or on the M1. Do not pull, push or start Kaggle notebooks or M1 jobs yourself.
+- Make the dataset builder rebuild everything from the files with one command. When a pending run arrives, run the builder again and update the status report.
+- In the status report, mark each conclusion that depends on a pending run.
 
 ## What the framework must do
 
@@ -61,6 +77,7 @@ Some runs are void, or their flags are wrong, for example the first dt-r0 runs, 
 
 ## Constraints
 
+- Do not pull, push or start any Kaggle notebook or M1 job. Treat a pending run as pending (see Timing).
 - This Mac does no new compute. Tests, and a smoke run of at most 20 games, are allowed. Do not start simulation runs.
 - Do not change the game rules, the piece values or the shipped eval. The framework reads and checks; it does not decide. Put each proposed change in a list for the owner, with its evidence.
 - Do not print or commit secrets (`.secrets/`, API tokens).
