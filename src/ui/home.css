@@ -1,4 +1,4 @@
-#game-table[data-home] :is(.player-strip, #context-line, #table-bar) { visibility: hidden; pointer-events: none; }
+#game-table[data-home] :is(.player-strip, .table-space, #context-line, #table-bar) { visibility: hidden; pointer-events: none; }
 #home-head { grid-area: them; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; }
 #home-head .wordmark { margin: 0; font-size: 30px; flex: none; flex-wrap: nowrap; }
 #home-head #menu-btn { display: flex; gap: 6px; align-items: center; min-height: 44px; min-width: 44px; width: auto; padding: 4px; border: 0; background: transparent; box-shadow: none; color: var(--ink-soft); font-size: 14px; }
