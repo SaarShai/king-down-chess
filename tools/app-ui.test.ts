@@ -39,6 +39,12 @@ const today = (over: Record<string, Node | null> = {}) => page({
 afterEach(() => { delete (globalThis as { document?: unknown }).document; log = []; });
 
 describe('the readouts', () => {
+  it('reports a learned lesson only from the visible success line', () => {
+    today({ 'context-text': row('Archer learned.') });
+    expect(readUi().lessonLearned).toBe('Archer');
+    today({ 'context-text': row('Tap your Archer.') });
+    expect(readUi().lessonLearned).toBe('');
+  });
   it('lanMoves gives the LAN of each ply without the key-moment marks', async () => {
     expect(await lanMoves(today())).toEqual(['e2-e4', 'e7-e5', 'Nd2-d8!']);
   });

@@ -129,12 +129,12 @@ export function pieceGuide(t: PieceType): GuideRow {
     }
     case O: {
       const shove = r.ogreMode === 'push'
-        ? 'Push: the ogre steps into the square the neighbour left.'
+        ? 'Shove: the ogre steps into the square the neighbour left.'
         : 'Repel: the neighbour moves away and the ogre stays.';
       return {
         moves: 'Moves 1 square in any direction.',
         captures: 'Takes by moving onto the enemy (a guard excepted).',
-        special: `Instead it may shove an adjacent piece 1 square away. Tap the neighbour; choose Capture or Push when both are legal. Shift-click is a push shortcut. ${shove} Kings are never shoved. Guards can be shoved. A shove is not a capture.`,
+        special: `Instead it may shove an adjacent piece 1 square away. Tap the neighbour; choose Capture or Shove when both are legal. Shift-click is a shove shortcut. ${shove} Kings are never shoved. Guards can be shoved. A shove is not a capture.`,
       };
     }
     case C:

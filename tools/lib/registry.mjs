@@ -8,6 +8,7 @@
 export const checks = [
   { name: 'read-piece', script: 'tools/verify-read-piece.mjs', limit: 180 },
   { name: 'verb-marks', script: 'tools/verify-verb-marks.mjs', limit: 180 },
+  { name: 'lessons', script: 'tools/verify-lessons.mjs', limit: 180 },
   { name: 'turn', script: 'tools/verify-turn.mjs', limit: 180 },
   { name: 'their-turn', script: 'tools/verify-their-turn.mjs', limit: 180 },
   { name: 'link-game', script: 'tools/verify-turn.mjs', args: ['link'], limit: 180 },
