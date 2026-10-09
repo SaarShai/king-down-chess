@@ -171,6 +171,9 @@ export async function waitForUi(page, test, arg = null, options = {}) {
 /** Keep a copy now sits in the read-only view's footer. */
 export const keepWorkshopCopy = page => page.locator('#workshop .ws-keep-copy');
 
+/** Copy link is the main action when the device cannot share. */
+export const workshopCopyLink = page => page.locator('#workshop .ws-sheet[open] :is(.ws-copy-link, .ws-send)').filter({ hasText: /^Copy link$/ }).filter({ visible: true });
+
 /** Text controls on the Workshop card; the save label belongs to the editor. */
 export async function workshopCardText(page) {
   const selectors = ['.ws-name-t', '.ws-worth', '.ws-bottom', '.ws-bar button', '.ws-footer button'];

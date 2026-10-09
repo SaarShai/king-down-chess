@@ -84,7 +84,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
     const s = document.createElement('dialog');
     s.className = 'ws-sheet';
     s.setAttribute('aria-labelledby', 'ws-sheet-h');
-    s.innerHTML = `<header class="ws-sheet-bar"><h2 id="ws-sheet-h" tabindex="-1" autofocus>${esc(title)}</h2><button type="button" class="quiet ws-close">Close</button></header><div class="ws-sheet-body">${html}</div>`;
+    s.innerHTML = `<header class="ws-sheet-bar"><h2 id="ws-sheet-h" tabindex="-1" autofocus>${esc(title)}</h2><button type="button" class="quiet ws-close" aria-label="Close">×</button></header><div class="ws-sheet-body">${html}</div>`;
     dlg.append(s);
     const close = (): void => s.close();
     s.addEventListener('close', () => s.remove());
@@ -693,9 +693,13 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
   }
   function share(): void {
     sheet('Share this piece', `<p class="ws-note ws-share-note">Your friend opens this card. It opens read only.</p>${cardHtml(cur, v)}`
-      + '<div class="ws-share-actions"><button type="button" class="primary ws-send">Send link</button><button type="button" class="ws-copy-link">Copy link</button><button type="button" class="ws-copy">Copy as text</button>'
-      + '<button type="button" class="quiet ws-dup">Make a copy</button><button type="button" class="quiet ws-del">Delete</button></div>', (body, closeShare) => {
+      + '<footer class="ws-share-actions"><button type="button" class="primary ws-send">Send link</button><button type="button" class="ws-copy-link">Copy link</button><button type="button" class="ws-copy">Copy as text</button>'
+      + '<button type="button" class="quiet ws-dup">Make a copy</button><button type="button" class="quiet ws-del">Delete</button></footer>', (body, closeShare) => {
       const jv = v;
+      if (!navigator.share) {
+        q('.ws-send', body).textContent = 'Copy link';
+        q('.ws-copy-link', body).hidden = true;
+      }
       q<HTMLButtonElement>('.ws-copy-link', body).onclick = () => { closeShare(); void copyText(link(cur), 'Link copied.'); };
       // Every design the editor makes fits a share code (a unit test); this guard says so if one ever does not.
       const shareable = (): boolean => !!parseDesign(designCode(cur)) || (toast('This design cannot be shared: it breaks a limit.'), false);
@@ -725,6 +729,7 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
           show('home');
         };
       }); };
+      body.after(q('.ws-share-actions', body));
     });
   }
 

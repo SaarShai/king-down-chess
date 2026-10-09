@@ -42,7 +42,7 @@ export function cardHtml(d: PieceDesign, v: Verdict, editor = false): string {
   const me = figureHtml(l, 'ws-me-fig');
   const worth = `<p class="ws-worth">${none ? editor ? 'Add moves and takes on the boards.' : 'It has no moves and no takes.' : `Estimated worth · ${pawns(v.worth.point)}`}</p>`;
   const band = `<div class="ws-bottom"><span class="ws-learn">${none ? '' : bandOf(v)}</span></div>`;
-  return `<article class="ws-piece-card${editor ? '' : ' ws-read'}" aria-label="${editor ? 'Your piece' : `${name}, a Workshop piece`}"><div class="ws-card-border">`
+  return `<article class="ws-piece-card${editor ? '' : ` ws-read${v.warn ? ' warn' : ''}`}" aria-label="${editor ? 'Your piece' : `${name}, a Workshop piece`}"><div class="ws-card-border">`
     + `<div class="ws-portrait"><div class="ws-model-box" aria-hidden="true">${modelHtml(l)}</div>${editor ? '<div class="ws-gauge-box"></div>' : ''}</div>`
     + `<div class="ws-name-row">${editor ? '' : `<span class="ws-name-t">${name}</span>`}</div>`
     + (editor ? worth + band + '<div class="ws-appearance" hidden></div>'
