@@ -188,6 +188,7 @@ export async function buildDataset(options: DatasetOptions): Promise<BalanceData
   for (const file of files.filter(f => f.kind !== 'raw' && f.kind !== 'unsupported')) {
     try {
       const text = await textFile(file);
+      file.entry.sha256 = hash(text);
       const parsed: Json | string = file.kind === 'report-md' ? text : JSON.parse(text);
       if (file.kind === 'manifest') {
         if (!object(parsed) || parsed.id !== file.run) throw new Error('Launch manifest ID does not match its source name.');
@@ -336,6 +337,7 @@ export async function buildDataset(options: DatasetOptions): Promise<BalanceData
 
 function importReports(reports: Map<string, { file: File; data: Json | string }>, metadata: Map<string, Metadata>, measurements: Measurement[], overrides: Map<string, SourceOverride>): void {
   const seen = new Map<string, string>();
+  const identicalReports = new Map<string, string>();
   for (const { file, data } of reports.values()) {
     const meta = metadata.get(`${dirname(file.id)}/${file.run}`);
     let c = meta?.context ?? unknownContext();
@@ -355,7 +357,7 @@ function importReports(reports: Map<string, { file: File; data: Json | string }>
     if (override?.machine) c = { ...c, machine: override.machine };
     const localRaw = measurements.filter(m => m.run === file.run && m.method.startsWith('streamed') && m.sources.some(source => dirname(source) === dirname(file.id)));
     const contexts = [...new Map(localRaw.map(m => [stable({ ...m.context, population: 'run' }), { ...m.context, population: 'run' as const }])).values()];
-    if (contexts.length === 1 && localRaw.some(m => m.sample === sample) && Object.entries(c.flags ?? {}).every(([k, v]) => stable(contexts[0].flags?.[k]) === stable(v))) c = { ...contexts[0], ...c, sourceHash: contexts[0].sourceHash, commit: contexts[0].commit };
+    if (contexts.length === 1 && localRaw.some(m => m.sample === sample) && Object.entries(c.flags ?? {}).every(([k, v]) => stable(contexts[0].flags?.[k]) === stable(v))) c = { ...contexts[0], ...c, sourceHash: contexts[0].sourceHash, commit: contexts[0].commit, specKey: contexts[0].specKey, pool: contexts[0].pool };
     const sourceState = sourceValidity(file, c);
     let validity = override?.validity ?? sourceState.validity;
     const reasons = [...sourceState.reasons, ...(meta?.reasons ?? [])];
@@ -368,6 +370,14 @@ function importReports(reports: Map<string, { file: File; data: Json | string }>
     if (mixedDepth && validity === 'valid') { validity = 'unverified'; reasons.push('Report pools search depths; a single depth is not proved.'); }
     if (target === null && validity === 'valid') { validity = 'unverified'; reasons.push('Report has no proved completion target.'); }
     if (c.machine === null) c = { ...c, machine: /(?:^|\/)m1\//.test(file.id) ? 'M1' : /mac-runs\//.test(file.id) ? 'Mac' : null };
+    const copyKey = stable({ hash: file.entry.sha256, context: { ...c, machine: null }, validity });
+    const original = identicalReports.get(copyKey);
+    if (original) {
+      file.entry.status = 'duplicate'; file.entry.reasons.push(`Byte-identical report and context are already covered by ${original}.`);
+      for (const row of measurements) if (row.sources.includes(original)) row.sources = [...new Set([...row.sources, file.id])];
+      continue;
+    }
+    identicalReports.set(copyKey, file.id);
     const raw = measurements.filter(m => m.run === file.run && m.method.startsWith('streamed') && m.validity === validity);
     const add = (element: string, measure: Measure, cell: { value: number | null; error: number | null; bound?: 'lessThan' | 'greaterThan' }, unit: string, n = sample, errorKind: string | null = null, reference?: string, calibration?: Measurement['calibration']): void => {
       if (cell.value === null) return;
