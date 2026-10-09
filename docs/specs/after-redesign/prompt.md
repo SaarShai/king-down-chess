@@ -105,7 +105,8 @@ Put the facts, with citations, in the spec (section 9). Mark each fact as "verif
 
 ## 5. Preconditions for phase 2
 
-- PR #26 (the redesign) is merged to main, with the owner's yes on its samples. No unit branch of the build (`claude/wr-w1` to `claude/wr-w12`) holds work that is not on main.
+- PR #26 (the redesign) is merged to main, with its samples decided (the owner gave the sample decisions to the build lead on 2026-10-09; they are decided by delegation). No branch of the build (`claude/wr-w1` to `claude/wr-w12`, `claude/wr-b2ux-*`, `claude/wr-b3-*`) holds work that is not on main.
+- The owner parked the Workshop (2026-10-09: "park workshop for now"). Do not plan Workshop changes; keep `src/workshop/` as it is, except for a pure move of code that the split needs.
 - **The Archer guide text.** On 2026-10-09 the owner chose the `far2` Archer (`src/rules/rules.ts`: `archerShots: 'far2'`), and main got four new Archer guide texts (`far2`, `over2`, `nearOver2`, `fwdNearOver2`). Unit W4 moved the table of these texts from `main.ts` to `src/read.ts`, and its copy had only 8 entries and a fallback to the `classic` text. The final step of the build was told to fix this. Check it on main: the table must have every Archer reading, typed `Record<ArcherShots, string>`, with no fallback, so that typecheck fails when a reading has no text. If it is not so, fix it first, as its own small pull request.
 - The owner said go on your plan.
 - A baseline on the newest `origin/main`, in a clean worktree, recorded in the Part A ticket: commit, Node version, `npm test` time and result, one full `npm run check:browser` time and result (each check's time), `wc -l src/main.ts`, and the count of top-level `let` in it. The times in this prompt are not in the repo; your baseline replaces them.
