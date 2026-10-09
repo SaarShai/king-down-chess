@@ -161,7 +161,7 @@ try {
   // 4. Signed in, the account newer: its settings and game come down; a move goes up 2 s later.
   const now = Date.now() + 60_000;
   const row = {
-    settings: { at: now, v: { think: 800, skill: 'club', coords: false, sound: false, queen: true, pace: 'off', threats: true } },
+    settings: { at: now, v: { think: 800, skill: 'club', coords: false, sound: false, queen: true, pace: 'off', threats: true, labels: true } },
     saved_game: { at: now, v: { back: 'RNBQKBNR', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'human', link: null, daily: null, resigned: null } },
   };
   for (const phone of [false, true]) {
@@ -170,6 +170,7 @@ try {
     assert.deepEqual(await moves(page), ['e2-e4', 'e7-e5']);
     assert.equal(await page.locator('#moment').innerText(), 'Loaded your newer saved game from your account.');
     assert.deepEqual(await page.evaluate(() => ['coords', 'queen', 'threats', 'sound'].map(id => document.getElementById(id).checked)), [false, true, true, false]);
+    assert.equal(await page.evaluate(() => document.getElementById('labels').checked), true, 'the account\'s Piece letters come down');
     assert.equal(await page.inputValue('#pace'), 'off');
     await settings(page);
     assert.match(await page.locator('#account-body').innerText(), /Ada Lovelace\s+Signed in with Google/);

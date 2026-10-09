@@ -224,10 +224,7 @@ await caseFn('catapult lobs over a screen and stays put', `?fen=${encodeURICompo
 // ---------------------------------------------------------------------------------------------
 // The AI in a lab position, and the Kings info line after a restore.
 
-await caseFn('AI answers in an ogre position', `?fen=${encodeURIComponent(OGRE_ENEMY_FEN)}`, async (page, errors) => {
-  await page.evaluate(() => {
-    const think = document.getElementById('think'); think.value = '200'; think.dispatchEvent(new Event('change'));
-  });
+await caseFn('AI answers in an ogre position', `?fen=${encodeURIComponent(OGRE_ENEMY_FEN)}&think=200`, async (page, errors) => {
   await clickSq(page, 'e4');
   await clickSq(page, 'd4');
   await page.click('#choose-push');
@@ -279,9 +276,8 @@ await caseFn('Darkness pawn capture survives save/restore', `?kings=shadow:darkn
 // ---------------------------------------------------------------------------------------------
 // Release cases: a full AI game, cancellation mid-search, promotion, and the mobile layout.
 
-await caseFn('full AI vs AI game reaches a result', '', async (page, errors) => {
-  // A fresh page's random army, the computer on both sides (`?players=ai,ai`), 200 ms a move.
-  await page.evaluate(() => { const think = document.getElementById('think'); think.value = '200'; think.dispatchEvent(new Event('change')); });
+await caseFn('full AI vs AI game reaches a result', '?think=200', async (page, errors) => {
+  // A fresh page's random army, the computer on both sides (`?players=ai,ai`), 200 ms a move (`?think=200`).
   const t0 = Date.now();
   let last = -1, stalls = 0;
   for (;;) {

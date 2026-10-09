@@ -1,10 +1,20 @@
 /** Game state (no rendering) and the AI worker wrapper. */
-import { Move, Position, Status, inCheck, legalMoves, makeMove, status } from './rules/engine';
+import { Color, Move, Position, Status, inCheck, legalMoves, makeMove, status } from './rules/engine';
 import { RULES } from './rules/rules';
 import { randomBackRank, startPosition, toLan } from './rules/setup';
 import { SearchOptions, SearchResult, positionKey, search } from './ai/search';
 
 export type Side = 'human' | 'ai';
+
+/**
+ * The side that Resign gives up on this device: its own side in a game link, the person's side
+ * against the computer, else (two people on one device) the side to move. Null when no person plays.
+ */
+export function resigningSide(sides: readonly [Side, Side], turn: Color, linkSide: Color | null): Color | null {
+  if (linkSide != null) return linkSide;
+  if (sides[0] === sides[1]) return sides[0] === 'human' ? turn : null;
+  return sides[0] === 'human' ? 0 : 1;
+}
 
 export class Game {
   pos!: Position;

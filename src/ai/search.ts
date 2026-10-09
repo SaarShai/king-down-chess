@@ -775,6 +775,8 @@ export interface SearchOptions {
   rng?: () => number;
   /** King powers are offered at plies 0…`powerPlies` of the tree (default 2); see `powerPlyMax`. */
   powerPlies?: number;
+  /** Search only these legal moves at the root (Hint: the moves the board takes now). Default: all. */
+  rootMoves?: Move[];
 }
 export interface SearchResult {
   move: Move | null; score: number; depth: number; nodes: number;
@@ -953,7 +955,7 @@ export function search(pos: Position, opts: SearchOptions = {}): SearchResult {
 
   const temperature = opts.temperature ?? 0;
   const multi = opts.multiPv === 2 || temperature > 0;
-  const rootMoves = genLegal(bufs[0], pos.turn, 'all', 0);
+  const rootMoves = opts.rootMoves ? [...opts.rootMoves] : genLegal(bufs[0], pos.turn, 'all', 0);
   const result: SearchResult = { move: rootMoves[0] ?? null, score: 0, depth: 0, nodes: 0 };
   if (rootMoves.length === 0) { result.score = attacked(pos.turn) ? -MATE : 0; return result; }
 

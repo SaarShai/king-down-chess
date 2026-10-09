@@ -1,6 +1,7 @@
 import { createScene, type KingDesign, type PaintedScene } from '../../docs/2d-first-pieces/board/scene.mjs';
 import { A, B, G, K, L, LETTERS, M, N, O, P, PLAIN_KINGS, Q, R, RULES, S, colorOf, sqName, typeOf, type Color, type Move, type Position } from '../rules/engine';
 import { drawMarks, POP_MS, RIPPLE_MS } from './marks';
+import { pastTap } from './tap';
 import type { Highlights } from './renderer';
 import type { Style } from './styles';
 
@@ -53,6 +54,7 @@ export class PaintedView implements BoardView {
   private marks: Highlights = {};
   private hovered: number | null = null;
   private tap: PointerEvent | null = null;
+  private tapSq: number | null = null; // the square under the press: a tap acts on it
   private dragFrom: number | null = null;
   private dragArmed = false;
   private pace: Pace = 'normal';
@@ -209,16 +211,16 @@ export class PaintedView implements BoardView {
 
   private clearPointer(): void {
     if (this.tap && this.canvas.hasPointerCapture(this.tap.pointerId)) this.canvas.releasePointerCapture(this.tap.pointerId);
-    this.tap = null; this.dragFrom = null; this.dragArmed = false;
+    this.tap = null; this.tapSq = null; this.dragFrom = null; this.dragArmed = false;
   }
 
-  // Same contract as the clay board: a click (≤6 px) is onSquareClick; dragging an own piece
-  // selects it and releases onto the target square.
+  // Same contract as the clay board: a tap (see pastTap) is onSquareClick on the pressed square;
+  // dragging an own piece selects it and releases onto the target square.
   private onDown(e: PointerEvent): void {
     if (this.tap) { this.clearPointer(); return; }
     this.tap = e;
     if (e.button !== 0) return;
-    const sq = this.pick(e);
+    const sq = this.tapSq = this.pick(e);
     if (sq == null || !this.ownPieceAt(sq)) return;
     this.dragFrom = sq;
     this.canvas.setPointerCapture(e.pointerId);
@@ -226,7 +228,7 @@ export class PaintedView implements BoardView {
 
   private onMove(e: PointerEvent): void {
     const d = this.tap;
-    if (d && this.dragFrom != null && !this.dragArmed && Math.hypot(e.clientX - d.clientX, e.clientY - d.clientY) > 6) {
+    if (d && this.dragFrom != null && !this.dragArmed && pastTap(d, e)) {
       this.dragArmed = true;
       this.onDragSelect(this.dragFrom);
     }
@@ -234,11 +236,10 @@ export class PaintedView implements BoardView {
   }
 
   private onUp(e: PointerEvent): void {
-    const d = this.tap, from = this.dragFrom, armed = this.dragArmed;
+    const d = this.tap, sq = this.tapSq, from = this.dragFrom, armed = this.dragArmed;
     this.clearPointer();
     if (e.button !== 0 || d?.pointerId !== e.pointerId) return;
-    if (Math.hypot(e.clientX - d.clientX, e.clientY - d.clientY) <= 6) {
-      const sq = this.pick(e);
+    if (!pastTap(d, e)) {
       if (sq != null) this.onSquareClick(sq, e.shiftKey);
       return;
     }

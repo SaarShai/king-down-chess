@@ -84,10 +84,15 @@ try {
       await seed('7k/8/3o4/2p5/2O5/8/P7/K7 w - - 0 1');
       await tap(26); await tap(34); await button('#choose-capture'); await played(1);
       await tap(43); await tap(34); await page.locator('#move-choice').waitFor({ state: 'visible' });
-      await page.keyboard.press('z'); await played(0);
+      await page.keyboard.press('z'); // no game key acts under a dialog
+      assert.equal(await page.locator('#move-choice').isVisible(), true);
+      assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).moves.length), 1);
+      checks.push('Z under an open choice does nothing');
+      // Undo's handler runs reset() under the open choice, as a newer save from the account does.
+      await page.evaluate(() => document.getElementById('undo').onclick()); await played(0);
       assert.equal(await page.locator('#move-choice').isVisible(), false);
       assert.ok(await page.evaluate(() => window.view.pieces.has(26) && window.view.pieces.has(43)));
-      checks.push('undo invalidates an open choice without committing a stale move');
+      checks.push('reset invalidates an open choice without committing a stale move');
     }
     await page.close();
   }

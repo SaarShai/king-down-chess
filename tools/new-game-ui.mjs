@@ -28,8 +28,10 @@ export async function setUpGame(page, { mode, level, side, powers, kings, army =
   }
 }
 
-/** Sets up the game as `setUpGame` does, then presses Start game. */
+/** Sets up the game as `setUpGame` does, then presses Start game. It answers OK when Start game asks to replace an unfinished game. */
 export async function startGame(page, options = {}) {
   await setUpGame(page, options);
-  await page.click('#start-game');
+  const replace = d => { if (d.message().startsWith('Start a new game?')) d.accept().catch(() => {}); }; // a check's own listener may answer first
+  page.on('dialog', replace);
+  try { await page.click('#start-game'); } finally { page.off('dialog', replace); }
 }

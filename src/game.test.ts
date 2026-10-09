@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Engine, Game } from './game';
+import { Engine, Game, resigningSide } from './game';
 import { legalMoves, parseSq, setRules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, toFen, toLan } from './rules/setup';
 
@@ -134,6 +134,29 @@ describe('Game.playLan (autosave restore)', () => {
 
     for (let i = 0; i < 5; i++) expect(g.undo()).toBe(true);
     expect(toFen(g.pos)).toBe(FEN);
+  });
+});
+
+describe('resigningSide', () => {
+  it('against the computer resigns the person, on either turn', () => {
+    for (const turn of [0, 1] as const) {
+      expect(resigningSide(['human', 'ai'], turn, null)).toBe(0);
+      expect(resigningSide(['ai', 'human'], turn, null)).toBe(1);
+    }
+  });
+
+  it('two people on one device resign the side to move', () => {
+    expect(resigningSide(['human', 'human'], 0, null)).toBe(0);
+    expect(resigningSide(['human', 'human'], 1, null)).toBe(1);
+  });
+
+  it("a game link resigns this device's side, also on the friend's turn", () => {
+    expect(resigningSide(['human', 'human'], 0, 1)).toBe(1);
+    expect(resigningSide(['human', 'human'], 1, 0)).toBe(0);
+  });
+
+  it('nobody resigns when the computer plays both sides', () => {
+    expect(resigningSide(['ai', 'ai'], 0, null)).toBeNull();
   });
 });
 

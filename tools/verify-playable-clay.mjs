@@ -101,7 +101,6 @@ try {
   assert.equal(await page.locator('#moves').innerText(), '');
   checks.push('save/reload and undo restore the position');
   await startGame(page, { mode: 'computer', side: 'white', army: 'classic' }); await ready();
-  await ui('fill', '#think', '200');
   await clickSquare(12); await clickSquare(28);
   await page.waitForFunction(() => document.querySelector('#moves').textContent.trim().split(/\s+/).length >= 3 && document.querySelector('#turn').textContent.includes('White'));
   await page.waitForFunction(() => document.querySelector('#status').textContent === '');
