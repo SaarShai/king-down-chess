@@ -1,6 +1,6 @@
 # 01 · The Quiet Table look on every screen
 
-Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
+Status: done on `claude/web-redesign-int` (the owner's yes on the sample, 2026-10-09)
 Blocked by: 00
 
 ## Scope
@@ -43,8 +43,8 @@ Blocked by: 00
   Passed in the full run: six effects at 20 fps on the title, stopped while hidden, removed on close, none with reduced motion.
 - [x] `npm test` and `npm run check:browser` pass.
   `npm test` (on the tree of e6787a2): vitest 78 files passed and 1 skipped, 1,438 tests passed and 13 skipped; `node --test` 45 of 45 (42 before, and the 3 new floor tests). `npm run check:browser` (at e6787a2): all 15 passed. After the review: `npm test` passes, vitest 79 files passed and 1 skipped, 1,440 tests passed and 13 skipped (the new `src/page-head.test.ts`), `node --test` 46 of 46 (the new `floorOf` test); `npm run check:browser`: all 15 passed. After the sample agent's review (f3eb28e): `npm test` passes, `node --test` 50 of 50; `npm run check:browser` passes (Comments).
-- [ ] Rendered sample, 390×844 and 1440×900, with the device in light and in dark mode: the game screen at rest (today's layout on the new floor), a piece selected, the first-visit title, the Workshop. Before and after. Ask the owner about the title on the floor. The owner's yes, with the date, in Comments.
-  Rendered: `SAMPLE=01` against a build of the base (90cd0dc) and of the branch, 16 renders each, no fault (Comments). The sample agent's review found 10 points; the fixes (f3eb28e) render again as v2, 16 renders, no fault (Comments). Waiting for the owner's yes.
+- [x] Rendered sample, 390×844 and 1440×900, with the device in light and in dark mode: the game screen at rest (today's layout on the new floor), a piece selected, the first-visit title, the Workshop. Before and after. Ask the owner about the title on the floor. The owner's yes, with the date, in Comments.
+  Rendered: `SAMPLE=01` against a build of the base (90cd0dc) and of the branch, 16 renders each, no fault (Comments). The sample agent's review found 10 points; the fixes (f3eb28e) render again as v2, 16 renders, no fault (Comments). The owner's yes, 2026-10-09: "yes" to the look (Comments).
 
 ## Risks
 
@@ -105,3 +105,4 @@ Accepted 10, rejected 0. The correctness review found no fault. Fidelity 1 and c
 - **10. Render noise.** Not a page fault. In the v2 renders, `selected-dark-phone` equals `selected-phone`; `rest-phone` and `rest-dark-phone` differ by 4 levels at most in the board's canvas.
 - **Evidence.** `npm test`: vitest 79 files passed and 1 skipped, 1,440 tests passed and 13 skipped; `node --test` 50 of 50 (the 4 new `filterOf` cases). `npm run check:browser`: 14 of 15 passed in the full run; `account` failed only because this ticket file changed in the checkout during the run, and it passed alone after. `king-effects` passed 3 of 3 (six title effects at 23 to 25 fps), `visual-design` 2 of 2. Sample 01 from a build of f3eb28e: 16 renders, no fault. Against c7e1f63: the Workshop renders and `selected-phone` are equal; the title changes at the stage and the lineup; the desktop rest and selected renders change only in the floor of the board area (10 levels at most).
 - **Renders** (out of Git), in `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/f713c296-a557-4c06-99e1-90ecc1f52371/scratchpad/build/samples/01/`: `after-v2/` (16 renders), the sheets `sheet-<state>-v2.png` (before at 90cd0dc, after at f3eb28e), and the close-ups `crops/*-v2.png` (c7e1f63 against f3eb28e).
+- **The owner's answers (2026-10-09), sample batch 1.** The look: "yes". Spirit and Frost on the title: "leave them" (no change). The floor on the Workshop page: "leave it" (no change).

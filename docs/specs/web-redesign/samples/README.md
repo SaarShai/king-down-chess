@@ -14,6 +14,9 @@ The tool writes `<state>-<size>.png`, `<state>-phone.webm` (for a state with `vi
 
 ## The table
 
+A unit can use its W number, for example `SAMPLE=W12`. Its table may add `smallPhone` (320×568).
+The target check uses the top open dialog, so it does not check controls behind a sheet.
+
 The file exports one object:
 
 ```js

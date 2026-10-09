@@ -157,3 +157,13 @@ export async function waitForUi(page, test, arg = null, options = {}) {
     throw error;
   }
 }
+
+/** Keep a copy now sits in the read-only view's footer. */
+export const keepWorkshopCopy = page => page.locator('#workshop .ws-keep-copy');
+
+/** Text controls on the Workshop card; the save label belongs to the editor. */
+export async function workshopCardText(page) {
+  const selectors = ['.ws-name-t', '.ws-worth', '.ws-bottom', '.ws-bar button', '.ws-footer button'];
+  if (await page.locator('#workshop .ws-save-state').count()) selectors.push('.ws-save-state');
+  return selectors;
+}
