@@ -49,7 +49,11 @@ describe('lesson shelf', () => {
   it('gives each figure one short rule line for the current lessons', () => {
     expect(lessonShelf({}).pieces.map(p => p.line)).toEqual([
       'Shoots without moving', 'Can bite again after a bite', 'Swaps with a friend',
-      'Shoves a neighbour', 'Only a king takes it', 'Jumps its own pieces',
+      'Shoves a neighbour', 'Only a king takes it', 'Jumps over its own pieces',
     ]);
   });
+});
+
+it('selects Beast after Archer is learned', () => {
+  expect(lessonShelf({ done: ['Archer'] }).next).toMatchObject({ name: 'Beast', lesson: 3 });
 });

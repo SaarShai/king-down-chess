@@ -11,7 +11,8 @@ import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, Piece
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
-import { initLessonShelf, recordLesson, refreshLessonShelf } from './lesson-shelf-ui';
+import { initLessonShelf, progress, recordLesson, refreshLessonShelf } from './lesson-shelf-ui';
+import { lessonShelf } from './lesson-shelf';
 import { mulberry32 } from './sim/rng';
 import { checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { POWER_NAME, POWER_TAG, autoQueen, hintMoves, kingsParam, offered, powerText, powersRules, usesAllowed } from './powers-ui';
@@ -222,7 +223,7 @@ function fillPieceGuide(): void {
     const icon = pieceIcon(t);
     card.innerHTML = `<div class="pc-art">${art ? `<img src="${art}" alt="" loading="lazy" decoding="async">` : `<span class="pc-medallion" aria-hidden="true">${letter}</span>`}</div>`
       + `<div class="pc-body"><h3>${icon || `<span class="pc-letter" title="Its letter in the move list">${letter}</span>`} ${name}</h3><dl>`
-      + `<dt>Moves</dt><dd>${g.moves}</dd><dt>Captures</dt><dd>${g.captures}</dd>${g.special ? `<dt>Special</dt><dd>${g.special}</dd>` : ''}</dl></div>`;
+      + `<dt>Moves</dt><dd>${g.moves}</dd><dt>Takes</dt><dd>${g.captures}</dd>${g.special ? `<dt>Special</dt><dd>${g.special}</dd>` : ''}</dl></div>`;
     rows.appendChild(card);
   }
   const promo = GAME_RULES.promotionSet === 'anyNonKing'
@@ -235,13 +236,13 @@ function fillPieceGuide(): void {
   $('rules-notation').textContent =
     // The move list keeps the letters (LAN), so the Guide names them here, once.
     `In the move list a move starts with its piece's letter (none for a pawn): ${([N, B, R, Q, K, A, L, G, M, S, O] as PieceType[]).map(t => `${LETTERS[t]} ${NAMES[t]}`).join(', ')}. `
-    + 'Then - moves, x captures, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes. '
+    + 'Then - moves, x takes, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes. '
     + 'Kings\' powers: ! Strike, !H Haste (-- ends a Haste turn early), ~ Flight, !F: Freeze, !W: Ice Wall, !S: Sacrifice, !M March, !L Leap.';
   // The twelve powers as a game with powers plays them: this game's rules when a king has a power,
   // else the official readings, which an older `?rules=` preset overrides (as the New game picker shows them).
   const pr: Rules = GAME_RULES.kings[0] || GAME_RULES.kings[1] ? GAME_RULES : powersRules(preset);
   $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
-    `<li><b>${king} king</b>: ${powers.map(p => `<b>${POWER_NAME[p]}</b> (${usesText(p, pr)}) — ${powerText(p, pr)}`).join('; ')}.</li>`).join('');
+    `<li><b>${king} king</b>: ${powers.map(p => `<span data-power="${p}"><b>${POWER_NAME[p]}</b> (${usesText(p, pr)}) — ${powerText(p, pr)}</span>`).join('; ')}.</li>`).join('');
   // Each piece once, as its icon and how many the pool holds ("×2"); its name for a pointer and a screen reader.
   const pool = [...new Set(POOL)].map(ch => {
     const t = LETTERS.indexOf(ch) as PieceType, n = POOL.split(ch).length - 1, icon = pieceIcon(t);
@@ -308,22 +309,22 @@ function refresh(): void {
   const selectedType = selected == null ? 0 : typeOf(game.pos.board[selected]);
   $('selection-actions').hidden = selected == null || busy;
   $('stop-chain').hidden = !canFinish;
-  $('stop-chain').textContent = selectedType === S ? `Stop here (${pending.length} capture${pending.length === 1 ? '' : 's'})` : 'Stop here';
+  $('stop-chain').textContent = selectedType === S ? `Stop here (${pending.length} bite${pending.length === 1 ? '' : 's'})` : 'Stop here';
   const help: Partial<Record<PieceType, string>> = {
-    [O]: 'Tap a neighbour to shove or capture. When both are legal, you can choose.',
+    [O]: 'Tap a neighbour to take or shove.',
     [A]: 'Tap a marked enemy to shoot without moving, or a marked empty square to move.',
-    [M]: 'Tap a marked friendly piece to swap places, or another marked square to move or capture.',
-    [S]: pending.length ? 'Choose the next marked victim, or finish the chain below. Nothing moves until you finish.' : 'Tap a marked enemy to start a capture chain, or an empty square to move.',
-    [L]: 'Jump over friends along queen lines. Capturing a non-pawn also removes your Paladin.',
+    [M]: 'Tap your own piece to swap places.',
+    [S]: pending.length ? 'Tap the next bite, or stop here.' : 'Tap a marked enemy to start a chain.',
+    [L]: 'Jump over your own pieces like a queen.',
     [C]: 'Tap a marked enemy beyond a screen to lob, or an empty square to move.',
-    [V]: pending.length ? 'Choose a marked landing square, or finish the capture here.' : 'Tap a marked enemy to capture, then choose where to land.',
+    [V]: pending.length ? 'Tap a marked landing, or stop here.' : 'Tap an enemy, then a marked landing.',
   };
   $('move-help').textContent = notice ? notice : viewing != null
     ? reviewNote || `Tap the board to return to the game.${matchMedia('(hover: hover)').matches ? ' ← → step through the moves.' : ''}`
     : lesson == null && turnLine(game, currentTurn(), turnMode())
       ? turnLine(game, currentTurn(), turnMode())
       : selected == null || busy ? ''
-      : help[selectedType as PieceType] ?? 'Tap a marked square to move or capture.';
+      : help[selectedType as PieceType] ?? 'Tap a marked square to move or take.';
   const turn = currentTurn().activeSide ? 'Black' : 'White';
   // In review the header names the move shown, as the list numbers it ("after 5… a5-a4").
   const shown = viewing == null ? '' : viewing === 0 ? 'the start'
@@ -385,10 +386,11 @@ function refresh(): void {
   $('share').hidden = sides[0] !== 'human' || sides[1] !== 'human' || game.history.length === 0 || lesson != null || linkSide != null || currentTurn().staged > 0;
   $('next-lesson').hidden = lesson == null || !lessonDone;
   $('return-game').hidden = lesson == null;
-  $('next-lesson').querySelector('.label')!.textContent = lesson != null && lesson + 1 < LESSONS.length ? `Next lesson: ${LESSONS[lesson + 1].name}` : 'Start a game';
+  const nextLesson = lessonShelf(progress()).next;
+  $('next-lesson').querySelector('.label')!.textContent = nextLesson ? `Next lesson: ${nextLesson.name}` : 'Start a game';
   $('show-me').hidden = lesson == null || lessonDone;
   $('show-me').setAttribute('aria-disabled', String(finished() || busy || viewing != null || !myTurn()));
-  const coins = refreshCoins({ pos: shownPos(), history: game.history, rules: GAME_RULES, legal: viewing == null ? game.legal : undefined, activeSide: currentTurn().activeSide, armed, canPlay: !finished() && viewing == null && lesson == null && myTurn(), busy, flipped, lesson, selection: selected != null || inspected != null || !!notice });
+  const coins = refreshCoins({ pos: shownPos(), history: game.history, rules: GAME_RULES, legal: viewing == null ? game.legal : undefined, activeSide: currentTurn().activeSide, armed, canPlay: !finished() && viewing == null && lesson == null && myTurn(), busy, flipped, lesson, mode: turnMode(), viewer: linkSide ?? (sides[0] === 'ai' ? 1 : 0), waiting: currentTurn().waits, selection: selected != null || inspected != null || !!notice });
   armed = coins.armed;
   drawMarks();
   refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode(), power: coins.context, previously: previously.state() });
@@ -540,7 +542,8 @@ $('return-game').onclick = () => {
   if (ended()) showOver(); else void maybeAi();
 };
 $('next-lesson').onclick = () => {
-  if (lesson != null && lesson + 1 < LESSONS.length) startLesson(lesson + 1);
+  const next = lessonShelf(progress()).next;
+  if (lesson != null && next) startLesson(next.lesson);
   else openNewGame();
 };
 
@@ -607,8 +610,8 @@ async function choosePushOrCapture(capture: Move, push: Move): Promise<void> {
   busy = true;
   const dlg = $<HTMLDialogElement>('move-choice');
   const target = sqName(push.shove!.from), destination = sqName(push.shove!.to);
-  $('move-choice-detail').textContent = `Capture removes the enemy on ${target}. Shove moves it to ${destination}${push.to === push.from ? ' and leaves your Ogre in place' : ` and moves your Ogre to ${target}`}.`;
-  $('choose-capture').textContent = `Capture on ${target}`;
+  $('move-choice-detail').textContent = `Take removes the enemy on ${target}. Shove moves it to ${destination}${push.to === push.from ? ' and leaves your Ogre in place' : ` and moves your Ogre to ${target}`}.`;
+  $('choose-capture').textContent = `Take on ${target}`;
   $('choose-push').textContent = `Shove to ${destination}`;
   const move = await new Promise<Move | null>(resolve => {
     const done = (m: Move | null): void => { closeMoveChoice = null; dlg.close(); resolve(m); };

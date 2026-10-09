@@ -34,8 +34,8 @@ try {
     assert.deepEqual(await marks(), { check: 4, checkers: checker }, 'landing shows the ring and cause line');
     assert.equal(await page.locator('#board').evaluate(b => b.classList.contains('king-in-check')), true);
     await endTurn(page);
-    assert.equal(await contextText(page), 'Check! White to move.\nTheir rook attacks your king.');
-    assert.ok(await contextWordsInView(page, 'Their rook attacks your king.'), 'the cause fits its row');
+    assert.equal(await contextText(page), 'Check! White to move.\nThe black rook attacks the white king.');
+    assert.ok(await contextWordsInView(page, 'The black rook attacks the white king.'), 'the cause fits its row');
     await tap(4);
     assert.deepEqual(await marks(), { check: 4, checkers: checker }, 'selection keeps the check marks');
     console.log(`ok their-turn ${width}×${height}: ring and line at landing; cause after the press`);

@@ -123,7 +123,7 @@ export async function endTurn(page, { keyboard = false } = {}) {
 
 export const powerCoin = (page, side) => page.locator(side ? `#power-${side}` : '.player-strip.is-turn .coin');
 /** An off coin still reads. Use is a separate control. */
-export const readPower = (page, side) => powerCoin(page, side).click({ force: true });
+export const readPower = (page, side) => powerCoin(page, side).click();
 export async function usePower(page) {
   await readPower(page);
   await page.locator('#power-use').click();
@@ -239,3 +239,12 @@ export async function workshopCardText(page) {
 
 /** The read line opens the Guide at the piece. */
 export const openPieceRules = page => page.locator('#all-rules').click();
+
+/** A coin read opens the same rules action at its power. */
+export const openPowerRules = openPieceRules;
+
+/** Lesson board IDs and taps follow the shelf's order. */
+export const lessonPath = () => [
+  [0, [27, 45]], [3, [27, 35, 43]], [2, [27, 28]],
+  [4, [27, 35]], [1, [11, 12]], [5, [3, 43]],
+];

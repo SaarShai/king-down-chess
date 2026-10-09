@@ -1,7 +1,7 @@
 // W3: a coin reads; Use arms; the engine spends a use.
 // Run: npm run check:browser powers.
 import assert from 'node:assert/strict';
-import { contextText, endTurn, lanMoves, openMoves, powerCoin, previousReview, readPower, usePower } from './app-ui.mjs';
+import { contextText, endTurn, lanMoves, openMoves, openPowerRules, powerCoin, previousReview, readPower, usePower } from './app-ui.mjs';
 import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 
 const base = env('PLAYABLE_URL'), browser = await launch();
@@ -38,7 +38,15 @@ try {
   await readPower(page, 'w');
   assert.match(await contextText(page), /No pawn can return a piece\./);
   assert.equal(await page.isHidden('#power-use'), true);
-  console.log('ok a tap reads and does not arm');
+  await open(page);
+  await readPower(page, 'w');
+  assert.equal(await powerCoin(page, 'w').getAttribute('aria-current'), 'true');
+  assert.equal(await powerCoin(page, 'w').getAttribute('aria-disabled'), null);
+  assert.notEqual(await powerCoin(page, 'w').evaluate(b => getComputedStyle(b).outlineStyle), 'none');
+  await openPowerRules(page);
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.power), 'Freeze');
+  await page.keyboard.press('Escape');
+  console.log('ok a tap reads and does not arm; rules focus the named power');
 
   // 2. Use arms; Cancel, Esc and a second coin tap disarm.
   await open(page);
@@ -61,9 +69,11 @@ try {
   assert.equal(await page.locator('#power-w .notch.is-spent').count(), 1);
   await tap(page, 'a2'); await tap(page, 'a3');
   await readPower(page, 'b');
-  assert.match(await contextText(page), /Not your turn\./);
-  assert.equal(await powerCoin(page, 'b').getAttribute('aria-disabled'), 'true');
+  assert.match(await contextText(page), /Black's power\./);
+  assert.equal(await powerCoin(page, 'b').getAttribute('aria-disabled'), null);
   assert.equal(await page.isHidden('#power-use'), true, 'the next coin waits for the turn press');
+  await readPower(page, 'w');
+  assert.match(await contextText(page), /Tap End turn first\./);
   await endTurn(page);
   await tap(page, 'd5');
   assert.deepEqual(await lanMoves(page), ['!F:d5', 'a2-a3'], 'the frozen knight cannot move');
@@ -79,7 +89,7 @@ try {
   assert.equal(await page.locator('#power-w .notch.is-spent').count(), 0);
   await usePower(page); await tap(page, 'd5'); await marked(page); await endTurn(page);
   await readPower(page, 'w');
-  assert.equal(await contextText(page), 'Freeze · Used on move 12');
+  assert.equal(await contextText(page), "Freeze · Used on move 12\nWhite's power.");
   await openMoves(page); await page.locator('#moves [data-ply="1"]').click();
   await previousReview(page);
   await readPower(page, 'w');

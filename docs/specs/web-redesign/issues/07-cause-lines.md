@@ -59,3 +59,12 @@ The start is `dd3d7f67f53dadae04ff55331d39e4c7e817e95c`, an ancestor of W5.
 Merge `e71df1f2aee23972cab2bc5977bea050a8f51a52` has no conflicts.
 Its tree is the same as W5. The builder's full run above stands under the owner's rule.
 The push hook must pass before the branch goes to origin.
+
+## Batch 3 words
+
+- decided by delegation (2026-10-09).
+- Check names the colours on one device. Computer and link play use their and your.
+- The Archer names the king and states the present fact. The line has eight words or fewer.
+- The plugin keeps its default words. Its page is 4,295,044 bytes before and after.
+- Checks: npm test passes (1,695 tests; 13 skipped). Typecheck and all ten required browser checks pass. Three extra checks pass.
+- Sample W5: 6 renders, 0 faults. Both contact sheets are inspected.

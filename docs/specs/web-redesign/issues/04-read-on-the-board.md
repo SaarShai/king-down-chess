@@ -67,3 +67,13 @@ Both imports stay. The Home keyboard guard stays. Escape also clears the piece r
 The supplied M1 launcher uses this Mac. All 10 named browser checks pass: `read-piece`, `verb-marks`, `home`, `visual-design`, `account`, `king-effects`, `workshop`, `ux-defects`, `new-game`, and `special-moves`. No timeout needs confirmation.
 
 The sample still waits for the owner's yes.
+
+## Batch 3 words
+
+- decided by delegation (2026-10-09).
+- Special reads name each act in eight words or fewer. All 12 Archer readings have a test. State words end with a full stop.
+- Guide text uses Tap and Takes. Maester, Paladin and Ogre text agrees with `docs/RULES.md`.
+- The dialog title is All rules. It matches the required read action in spec §4.9. Optional items g and h are fixed.
+- Plan: check the claims, test the logic first, run the named checks, then render and inspect W3, W4, W5 and W9.
+- Checks: npm test passes (1,695 tests; 13 skipped). Typecheck and all ten required browser checks pass. Three extra checks pass.
+- Sample W4: 28 renders, 0 faults. Both contact sheets are inspected.

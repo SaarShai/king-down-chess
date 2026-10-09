@@ -4,21 +4,32 @@
  */
 import { A, C, Color, K, Move, N, NAMES, Position, colorOf, file, findKing, genPiece, isAttacked, isSpawnTag, pseudoMoves, rank, sqName, typeOf } from './rules/engine';
 
+import type { Mode } from './turn';
+
 const SIDE = ['White', 'Black'] as const;
 
 export interface Checker { sq: number; king: number; path: 'straight' | 'arc' }
 
 /** The cause of the current check, in one short line. */
-export function checkCause(pos: Position, last?: Move): string {
+export function checkCause(pos: Position, last?: Move, mode?: Mode): string {
   const checkers = checkersOf(pos), names = checkers.map(ch => NAMES[typeOf(pos.board[ch.sq])]);
   if (!checkers.length) return '';
-  if (checkers.length === 2) return `Their ${names.join(' and ')} attack your king.`;
+  if (checkers.length === 2) return mode === 'device'
+    ? `${pos.turn ? 'White' : 'Black'} ${names.join(' and ')} attack the ${pos.turn ? 'black' : 'white'} king.`
+    : `Their ${names.join(' and ')} attack your king.`;
   if (checkers.length > 2) return `Check: ${names.slice(0, 5).join(', ')}${names.length > 5 ? `; ${names.length - 5} more.` : '.'}`;
   const ch = checkers[0], name = names[0];
   const df = file(ch.king) - file(ch.sq), dr = rank(ch.king) - rank(ch.sq);
   const mid = name === 'archer' && Math.max(Math.abs(df), Math.abs(dr)) === 2 && df % 2 === 0 && dr % 2 === 0
     ? (ch.sq + ch.king) / 2 : -1;
   const over = mid >= 0 && pos.board[mid] ? sqName(mid) : '';
+  if (mode) {
+    const side = pos.turn ? 'white' : 'black', king = pos.turn ? 'black' : 'white';
+    const target = mode === 'device' ? name === 'archer' ? `${SIDE[pos.turn]}'s king` : `the ${king} king` : 'your king';
+    const attacker = mode === 'device' ? name === 'archer' ? SIDE[(pos.turn ^ 1) as Color] : `The ${side}` : 'Their';
+    const strike = last?.power === 'strike' && last.from !== last.to && last.to === ch.sq;
+    return `${strike ? 'Strike: ' : ''}${attacker} ${name} ${name === 'archer' ? 'shoots' : 'attacks'} ${target}${over ? ` over ${over}` : ''}.`;
+  }
   if (last?.power === 'strike' && last.from !== last.to && last.to === ch.sq) {
     return over ? `Strike lets their ${name} shoot over ${over}.` : `Strike lets their ${name} attack your king.`;
   }

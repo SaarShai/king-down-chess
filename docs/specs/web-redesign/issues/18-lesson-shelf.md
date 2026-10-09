@@ -63,3 +63,13 @@ The push hook must pass before the branch goes to origin.
 The first push stops on three five-second test timeouts: one piece-activity case and two gate cases.
 All 1,528 other tests pass. This Mac has a high load.
 Retry the push with `VITEST_MAX_WORKERS=1`. Keep the assertions and time limits.
+
+## Batch 3 words
+
+- decided by delegation (2026-10-09).
+- Next lesson uses the shelf's next unlearned lesson for its label and action. Archer leads to Beast.
+- The Paladin line is “Jumps over its own pieces”.
+- The browser helpers give both lesson flows the shelf order. Existing flow assertions stay.
+- Shared lane edit: export the existing progress function from `src/lesson-shelf-ui.ts`.
+- Checks: npm test passes (1,695 tests; 13 skipped). Typecheck and all ten required browser checks pass. Three extra checks pass.
+- Sample W9: 4 renders, 0 faults. Both contact sheets are inspected.

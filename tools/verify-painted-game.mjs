@@ -1,7 +1,7 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { startLesson, confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
+import { lessonPath, startLesson, confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = new URL(env('PLAYABLE_URL'));
@@ -255,8 +255,8 @@ try {
     await play([27, 35]); // the Archer steps instead of shooting
     assert.match(await contextText(page), /^Not quite/m);
     assert.equal(await page.evaluate(() => window.view.pos.board[27] > 0 && !window.view.pos.board[35]), true, 'the wrong move is taken back');
-    const steps = [[27, 45], [11, 12], [27, 28], [27, 35, 43], [27, 35], [3, 43]];
-    for (const [i, squares] of steps.entries()) {
+    const steps = lessonPath();
+    for (const [i, squares] of steps) {
       assert.match(await page.textContent('#turn'), new RegExp(`Lesson ${i + 1} of 6`));
       await play(squares);
       assert.equal(await contextText(page), `${['Archer', 'Guard', 'Maester', 'Beast', 'Ogre', 'Paladin'][i]} learned.`, `lesson ${i + 1}`);
