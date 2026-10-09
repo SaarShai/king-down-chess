@@ -9,7 +9,7 @@ window.DECK = {
     title: 'King Down',
     subtitle: 'A calm table where magic happens',
     thesis: 'The board is the stage. Everything else waits in the wings, and every new piece gets its moment.',
-    meta: ['26 live demos', '5 directions', '17 features with options', '1 playable prototype', '2 outside advisors'],
+    meta: ['26 live demos', '5 directions', '17 features with options', '1 playable prototype', '2 outside advisors, 2 verdicts each'],
     shot: M('proto', 'game-rest'),
     demo: 'proto',
   },
@@ -26,7 +26,7 @@ window.DECK = {
           { kicker: 'Story', title: 'Moves you want to read', text: 'One sentence at rest. Open it for a short story with icons and verbs. Tap a move to see it again on the board.', chips: ['The owner’s request'] },
           { kicker: 'Start', title: 'Take your first shot', text: 'The first tap of the app is an Archer shot over a pawn. Then the same board grows into a real game.', chips: ['From World 1-1 and Marvel Snap'] },
         ] },
-        { type: 'prose', html: '<p><strong>Try first:</strong> the playable prototype on the cover. Tap <em>Take your first shot</em>, then <em>Play your first game</em>. Tap their pieces to read them. Select your Beast next to two enemies. Then open the Menu.</p><p><strong>Keys:</strong> ← and → move between chapters. P shows one chapter for each screen.</p>' },
+        { type: 'prose', html: '<p><strong>The advisors agree.</strong> Two outside advisors judged every demo alone. Both keep this blend, both rank Quiet Table first, and both ask for less: one line of history, no joy dial for players, shorter power effects. See chapter 10.</p><p><strong>Try first:</strong> the playable prototype on the cover. Tap <em>Take your first shot</em>, then <em>Play your first game</em>. Tap their pieces to read them. Select your Beast next to two enemies. Then open the Menu.</p><p><strong>Keys:</strong> ← and → move between chapters. P shows one chapter for each screen.</p>' },
       ],
     },
     {
@@ -293,6 +293,31 @@ window.DECK = {
       ],
     },
     {
+      id: 'review', nav: 'The advisors’ review', kicker: 'Independent judges', title: 'Two advisors, one verdict',
+      lead: 'Two outside advisors judged all 27 demos tonight, each alone, from the renders, the metadata and the source. They agree on almost every point. Their verdicts are under each direction and feature in this presentation.',
+      blocks: [
+        { type: 'cards', title: 'Where both advisors agree', items: [
+          { kicker: 'The blend', title: 'Keep it', text: 'Quiet Table is the base. Add Arena’s named powers and reveal, Coach’s refusals and Retry, Chronicle’s one sentence and Previously. Use Pocket only for its parts: the drag loupe, the bottom actions and the landscape rail.' },
+          { kicker: 'Fold more', title: 'One line of history', text: 'One last-move sentence at rest, on phone and desktop. Chips, the scrubber and the recap go into a clear Review state. No setting for the history style.' },
+          { kicker: 'Less motion', title: 'No joy dial for players', text: 'Warm is the design target. No king shake, no tell delay, a power cast of 250–350 ms. The players get Sound, Vibration and Motion (Normal, Fast, Off).' },
+          { kicker: 'Closer help', title: 'Board help in the Menu', text: 'Board help is a basic need, so it moves into the Menu beside Guide. Extra keeps the Workshop, Tricks, the account and what comes next.' },
+          { kicker: 'True words', title: 'Plain words to share', text: 'A friend who never played cannot read a paw and a bolt. Share in short words and counts by default; the marks are a choice.' },
+          { kicker: 'Kind help', title: 'The second look is opt-in', text: 'It can stop a planned sacrifice. Make it a practice aid that a player turns on.' },
+        ] },
+        { type: 'cards', title: 'How they rank the directions', items: [
+          { kicker: 'Advisor A', title: 'Quiet Table, Coach, Arena, Chronicle, Pocket', text: '"The blend needs one layout, not five style settings."' },
+          { kicker: 'Advisor S', title: 'Quiet Table, Arena, Coach, Chronicle, Pocket', text: '"Keep one frame for all modes. Add only the controls that the chosen mode needs."' },
+        ] },
+        { type: 'phases', items: [
+          { title: 'Fixed tonight', text: 'Faults that both advisors found, now fixed in the prototype.', list: ['Undo takes back whole turns: a Freeze, the move and the reply', 'Draw words: "Fifty moves with no take or pawn move"', 'Darkness, Death Touch and Haste say their full limits'] },
+          { title: 'Next round', text: 'Their top changes, merged, for the next build.', list: ['Home from the Home demo: the board at game size, in game position', 'One set of marks in the kit: step, take, shot, shove, swap', 'Check stays in view while you read or select', 'Retry and Tricks in the prototype', 'A Review state for old moves'] },
+          { title: 'Missing proof', text: 'Screens the showcase does not show yet.', list: ['Every power’s full turn: Haste, Ice Wall, End turn', 'Promotion as a real choice', 'Draws: stalemate, repetition, fifty moves', 'Two players on one phone; link-game safety', 'A full keyboard and screen-reader journey'] },
+          { title: 'One idea from both', text: 'Each advisor, alone, proposed the same new feature.', list: ['Try this turn: share a special turn as a small puzzle', '"Can you find my four bites?"', 'The friend tries legal moves, then sees the real one', 'It joins Tricks, lessons and sharing'] },
+        ] },
+        { type: 'prose', html: '<p>The full reports are in the source folder: <code>research/advisor-a-judging.md</code> and <code>research/advisor-s-judging.md</code>.</p>' },
+      ],
+    },
+    {
       id: 'journeys', nav: 'Journeys', kicker: 'Step by step', title: 'Sixteen journeys, tap by tap',
       lead: 'The menus round of this morning drew each journey with its taps, before and after. They show the structure under every direction.',
       blocks: [
@@ -323,16 +348,17 @@ window.DECK = {
       blocks: [
         { type: 'decisions', items: [
           { title: 'The base look', rule: 'One look for every screen.', options: 'A light parchment floor (Quiet Table) · B dark stage · C both, following the device', pick: 'A, with B for dark mode', onYes: 'The game screen follows the Quiet Table demo; the dark stage comes with the device setting.' },
-          { title: 'The joy level', rule: 'How much the game celebrates a move.', options: 'Calm · Warm · Bold', pick: 'Warm, with a Motion setting for Calm', onYes: 'Verb marks, cause lines, one sound per event and a short King Down in every game.' },
+          { title: 'The joy level', rule: 'How much the game celebrates a move.', options: 'Calm · Warm · Bold · a dial for players', pick: 'Warm as the one design, with no dial (both advisors)', onYes: 'Verb marks, cause lines, one sound per event and a short King Down. The players get Sound, Vibration and Motion: Normal, Fast, Off.' },
           { title: 'Reading a piece', rule: 'How a player reads any piece.', options: 'A tap · B hold · C a ? lens · A and B together', pick: 'A and B together', onYes: 'A tap reads in the context line; a hold shows the card and the reach.' },
           { title: 'The move history at rest', rule: 'What the closed Moves line shows.', options: 'A one sentence · B five chips · C a count', pick: 'A, with B as a Menu choice', onYes: 'The Moves line shows the last move as one sentence with its icon.' },
           { title: 'The power control', rule: 'Where a king’s power lives.', options: 'A tile with words · B a coin · C the portrait', pick: 'A', onYes: '"Freeze · 1 left" beside your king, with Armed, Used and Always on.' },
           { title: 'The end of a game', rule: 'How a game ends.', options: 'A quiet · B ceremony', pick: 'A, with the replay one tap away', onYes: 'The king lies down; Rematch shows at once; Retry after a loss.' },
           { title: 'The first minute', rule: 'The first visit’s main button.', options: 'A Take your first shot · B Learn the new pieces, then Play', pick: 'A', onYes: 'The first tap is an Archer shot; the board grows into a Beginner game.' },
           { title: 'The first deal', rule: 'The first game draws a chosen army with an Archer and a Beast.', options: 'A any random army · B a chosen seed', pick: 'B', onYes: 'One seed for the first game. The draw rule does not change.' },
-          { title: 'Extra', rule: 'How Extra holds the optional things.', options: 'A index · B cabinet · C index and Tricks', pick: 'C', onYes: 'Extra is an index; Tricks appears after the first trick, with seals and riddles.' },
-          { title: 'Faces for levels', rule: 'Each computer level shows a figure and a name.', options: 'A words only · B faces, look only', pick: 'Try B in a test, then decide', onYes: 'Four figures and four names; the computer does not change.' },
-          { title: 'The second look', rule: 'After a large mistake at Beginner, the computer waits and offers Take it back.', options: 'A no · B yes, at Beginner only, with a switch', pick: 'B', onYes: 'A check runs while the computer thinks; a move with no mistake does not wait.' },
+          { title: 'Extra', rule: 'How Extra holds the optional things.', options: 'A index · B cabinet · C index and Tricks', pick: 'C, with Board help moved to the Menu (both advisors)', onYes: 'Extra is an index; Tricks appears after the first trick, with seals and riddles. Board help sits beside Guide.' },
+          { title: 'Faces for levels', rule: 'Each computer level shows a figure and a name.', options: 'A words only · B faces, look only', pick: 'A for now (both advisors: faces only when their play differs)', onYes: 'Four clear level names. Faces wait for a computer with different styles of play.' },
+          { title: 'The second look', rule: 'After a large mistake at Beginner, the computer waits and offers Take it back.', options: 'A no · B on at Beginner · C a practice aid that the player turns on', pick: 'C (both advisors)', onYes: 'An opt-in practice aid. It uses the game\u2019s evaluation, so it does not stop a planned sacrifice.' },
+          { title: 'Sharing words', rule: 'What a shared result says by default.', options: 'A one mark for each special move · B short words and counts, with the marks as a choice', pick: 'B (both advisors)', onYes: '"King Down in 31 moves. Four bites in one turn." A friend who never played can read it.' },
           { title: 'Light and dark', rule: 'A choice of floor in the Menu.', options: 'A follow the device only · B a Light and Dark choice in the Menu', pick: 'A', onYes: 'No new setting; the floor follows the device.' },
         ] },
       ],
@@ -343,7 +369,7 @@ window.DECK = {
       blocks: [
         { type: 'cards', items: [
           { kicker: 'Research', title: 'Five tracks', text: 'Card battlers (Marvel Snap, Hearthstone, Clash Royale, Balatro and more); chess apps and digital board games; calm and joyful games; UX, motion and game-feel guidelines; King Down itself, today and on the roadmap.' },
-          { kicker: 'Advisors', title: 'Two independent voices', text: 'Advisor A and Advisor S each wrote their own ideas first, without our research. They pushed for calm, clarity and true rules. Their picks shaped the recommendation: tap to read, the power tile with words, the index for Extra.' },
+          { kicker: 'Advisors', title: 'Two independent voices', text: 'Advisor A and Advisor S each wrote their own ideas first, without our research. They pushed for calm, clarity and true rules. Their picks shaped the recommendation: tap to read, the power tile with words, the index for Extra. At the end, each judged all 27 demos alone.' },
           { kicker: 'Kit', title: 'The real game in every demo', text: 'One kit gives every demo the painted board, the real rules engine and the real computer player, so every move in a demo is legal.' },
           { kicker: 'Review', title: 'A critic for every demo', text: 'Each demo had a builder, a critic and a repair pass. The critics checked the rules against the rulebook, the words, the touch sizes, the keyboard and reduced motion.' },
         ] },
@@ -351,3 +377,38 @@ window.DECK = {
     },
   ],
 };
+
+// ---- the advisors' verdicts: each advisor judged all 27 demos alone, from the renders and the source ----
+const A = (verdict, note) => ({ who: 'Advisor A', verdict, note });
+const S = (verdict, note) => ({ who: 'Advisor S', verdict, note });
+const VERDICTS = {
+  'dir-quiet-table': [A('Keep', 'The light floor gives the figures space, and check has a clear cause. Fold the move list on desktop too.'), S('Keep', 'The board stays clear in read, check and end. Use one closed move line on both sizes.')],
+  'dir-arena': [A('Keep', 'The reveal explains why an Archer suddenly moves like a queen. Fold the tray. Use "Freeze · 1 left", not an unnamed coin.'), S('Change', 'Use the folded tray (B) on both sizes. Keep the named power tile and one short reveal.')],
+  'dir-pocket': [A('Drop as the main layout', 'The drag lens and the landscape rail solve real phone problems. The sheets cover the lower ranks; move the good parts into Quiet Table.'), S('Drop as a full direction', 'Reuse the bottom actions, the landscape rail and the drag loupe in Quiet Table.')],
+  'dir-chronicle': [A('Change', 'Plain verbs make shots, swaps and bites easy. Keep one last-move line; put the recap behind Review.'), S('Change', 'Previously restores the cause of the position. Keep one sentence at rest; show older rows only on return.')],
+  'dir-coach': [A('Change', 'The Guard refusal teaches at the exact place. Fade help by what the player knows, not by the computer level.'), S('Change', 'Show the rule and its cause first. Put the ways out of check behind Hint. Keep Retry at every level.')],
+  'dir-compare': [A('Change', 'A good review tool. Use the same piece, power and level in every frame.'), S('Keep as a review tool', 'Use the same move record in all five frames, and Two for a close look.')],
+  'feat-joy-dial': [A('Drop as a player control', 'A useful design test. Ship Warm’s action marks with a still king and the quiet end, and keep Sound and Motion settings.'), S('Drop the player dial', 'Use Warm as the design target. Keep every rule mark at every setting.')],
+  'feat-hold-to-read': [A('Keep', 'While a piece is selected, a tap on a target plays. Say "Tap to play. Hold to read."'), S('Keep', 'Show "Tap to take. Hold to read." at the first target. Drop the lens mode.')],
+  'feat-your-move': [A('Change', 'Shove arrows explain what dots cannot. Put Take and Shove in the context area, not over the squares.'), S('Change', 'Do not number the second bite before the first. Mark the legal bites, then count the bites made.')],
+  'feat-their-turn-check': [A('Change', 'The cause line is right. The tell adds 240 ms to every reply; fit it into the normal move time.'), S('Keep', 'Keep the cause line and one still mark on the king. Give vibration its own switch.')],
+  'feat-king-powers': [A('Change', '"Freeze · 1 left" is clear with no lesson. Give all twelve powers their own steps, such as Haste’s End turn.'), S('Change', 'Shorten the cast to 250–350 ms. The next move must not wait for the effect.')],
+  'feat-move-story': [A('Change', 'One sentence is right. Show an old move in a clear Review state, not over the live board.'), S('Change', 'Enter Review before a replay. Put the chips and the scrubber in Review.')],
+  'feat-help': [A('Change', 'Undo shows what comes back. Make the second look an opt-in practice aid.'), S('Change', 'Make the second look optional, and use the game’s evaluation, not a count of material.')],
+  'feat-king-down': [A('Change', 'The fall of the king is right. Build every recap from one real game. Keep "Resign" in the Menu, with "Lay your king down" in its question.'), S('Keep', 'Quiet by default, the replay on demand, Retry after a loss. Use only this game’s moments.')],
+  'feat-first-minute': [A('Keep', 'The first shot teaches the main surprise before any form. Add one line: "Now play a full game."'), S('Keep', 'Keep the close view and the pull-back. Say "Practice complete. Your first game starts."')],
+  'feat-home': [A('Keep', 'The board stays in place. Send every new game through the New game sheet, and name the game it replaces.'), S('Keep', 'Keep Continue as the only main action while a game is open.')],
+  'feat-new-game': [A('Change', 'Ship the four level names. Add faces only when their play differs in a way a player can learn.'), S('Change', 'Add a full rules detail for each power. Leave faces (C) for later.')],
+  'feat-menu-extra': [A('Change', 'The index is quick to scan. Move Board help into the Menu, beside Guide.'), S('Keep', 'Move Board help into the Menu. Drop the cabinet. One quiet signal for each new trick.')],
+  'feat-lessons': [A('Keep', 'The Guard lesson teaches a move, a use and an exception. Give every piece the same four steps.'), S('Keep', 'Make the last board an unmarked choice, so the player proves the rule.')],
+  'feat-share': [A('Change', 'The emoji row means little to a friend who never played. Use plain words by default.'), S('Change', 'Default to short words and counts. Offer the marks as a choice.')],
+  'future-card-hand': [A('Change', 'In card mode the hand is part of the game. Show readiness and one or two card names in the row.'), S('Keep', 'Open the hand once on the first card turn, then fold it.')],
+  'future-crowns': [A('Change', 'Wins must not be the only way to meet the full game. Offer a Full army choice.'), S('Change', 'After a loss, show Retry first and fold the crowns.')],
+  'future-online': [A('Change', 'Show Saved here, Sending and Received as separate states.'), S('Change', 'Show Saved here, Ready to send, Link copied and Accepted as separate states.')],
+  'future-workshop-share': [A('Keep', 'A working sample removes the blank page. In the chat preview, show the figure, the name and one rule.'), S('Keep', 'Say "Estimated worth: about 3 pawns", with the range one tap away.')],
+  'proto': [A('Change', 'The game screen holds together. Undo split a power turn (fixed tonight). Use the Home of the Home demo.'), S('Change', 'A clear game screen. Undo now takes back whole turns. Home is the weakest screen; add Retry and Tricks.')],
+};
+for (const ch of window.DECK.chapters) for (const b of ch.blocks) {
+  const v = VERDICTS[b.type === 'demo' ? b.id : b.demo];
+  if (v) b.verdicts = v;
+}

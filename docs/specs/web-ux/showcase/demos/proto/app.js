@@ -45,15 +45,15 @@ const POWER = {
   Freeze: { name: 'Freeze', tag: 'freeze', uses: '1 use', line: 'Freeze an enemy piece (not the king). It cannot move next turn. Then you move.', armed: 'Freeze: tap an enemy piece.' },
   IceWall: { name: 'Ice Wall', tag: 'ward', uses: '2 uses', line: 'Wall one of your pieces (not the king): nothing can take it next turn. Then you move.', armed: 'Ice Wall: tap one of your pieces.' },
   Strike: { name: 'Strike', tag: 'strike', uses: '1 use', line: 'Move one piece like a queen, to an empty square. Not a pawn or the king.', armed: 'Strike: tap a piece, then a square.' },
-  Haste: { name: 'Haste', tag: 'haste', uses: '1 use', line: 'Move one piece twice in one turn. Neither move takes.', armed: 'Haste: tap a piece, then a square.' },
+  Haste: { name: 'Haste', tag: 'haste', uses: '1 use', line: 'Move one piece twice in one turn. The second move is optional. Neither move takes.', armed: 'Haste: tap a piece, then a square.' },
   Flight: { name: 'Flight', tag: 'flight', uses: '1 use', line: 'Move any piece but the king to an empty square in your half.', armed: 'Flight: tap a piece, then a square.' },
   Sacrifice: { name: 'Sacrifice', tag: 'sacrifice', uses: '1 use', line: 'Turn one of your pawns into a piece you lost (not a pawn or a guard).', armed: 'Sacrifice: tap one of your pawns.' },
   March: { name: 'March', uses: 'Always on', line: 'Any pawn may step two squares, from any rank.' },
   Leap: { name: 'Leap', uses: '3 uses', line: 'Your rooks, bishops and queens pass over your own pawns.' },
   HolyLight: { name: 'Holy Light', uses: 'Always on', line: 'Enemy pawns cannot take your king. Your pieces beside, in front of or behind it are safe.' },
   Mercy: { name: 'Mercy', uses: 'Always on', line: 'Your king steps up to two and jumps your pieces; it takes only pawns and guards. Only pawns take pieces next to it.' },
-  DeathTouch: { name: 'Death Touch', uses: 'Always on', line: 'Your king takes without moving: next to it, or two away in a line over an empty square. It takes only this way.' },
-  Darkness: { name: 'Darkness', uses: 'Always on', line: 'Your pawns may also step diagonally, and take only straight ahead. Your king may step two in a line.' },
+  DeathTouch: { name: 'Death Touch', uses: 'Always on', line: 'Your king takes without moving: next to it, or two away straight forward, back or sideways, over an empty square. It takes only this way.' },
+  Darkness: { name: 'Darkness', uses: 'Always on', line: 'Your pawns may also step diagonally forward; they take only straight ahead. Your king may step two in a straight line, over an empty square, to an empty square.' },
 };
 
 // The shared positions (idea bank 6.1). P1 is one Black move earlier, so the last move is "e7 to e6".
@@ -1145,7 +1145,7 @@ function resultWords(g) {
     if (g.mode === 'two') return { title: `${st.winner === 'w' ? 'White' : 'Black'} wins`, line: `Checkmate on move ${n}.` };
     return st.winner === g.human ? { title: 'You win', line: `Checkmate on move ${n}.` } : { title: 'The computer wins', line: `Checkmate on move ${n}.` };
   }
-  const why = { stalemate: 'Stalemate: no legal move.', draw50: 'Fifty moves with no take.', drawRepetition: 'The same position three times.', drawMaterial: 'Too few pieces left to mate.' }[st.reason] ?? '';
+  const why = { stalemate: 'Stalemate: no legal move, and the king is not in check.', draw50: 'Fifty moves with no take or pawn move.', drawRepetition: 'The same position three times.', drawMaterial: 'Too few pieces left to mate.' }[st.reason] ?? '';
   return { title: 'Draw', line: why };
 }
 function toppleLoser() {
