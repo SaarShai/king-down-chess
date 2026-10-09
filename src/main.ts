@@ -11,6 +11,7 @@ import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, Piece
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
+import { initLessonShelf, recordLesson, refreshLessonShelf } from './lesson-shelf-ui';
 import { mulberry32 } from './sim/rng';
 import { checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
 import { POWER_NAME, POWER_TAG, autoQueen, hintMoves, kingsParam, offered, powerText, powersRules, usesAllowed, usesLeft } from './powers-ui';
@@ -271,12 +272,12 @@ function pieceGuide(t: PieceType): GuideRow {
     }
     case O: {
       const shove = r.ogreMode === 'push'
-        ? 'Push: the ogre steps into the square the neighbour left.'
+        ? 'Shove: the ogre steps into the square the neighbour left.'
         : 'Repel: the neighbour moves away and the ogre stays.';
       return {
         moves: 'Moves 1 square in any direction.',
         captures: 'Takes by moving onto the enemy (a guard excepted).',
-        special: `Instead it may shove an adjacent piece 1 square away. Tap the neighbour; choose Capture or Push when both are legal. Shift-click is a push shortcut. ${shove} Kings are never shoved. Guards can be shoved. A shove is not a capture.`,
+        special: `Instead it may shove an adjacent piece 1 square away. Tap the neighbour; choose Capture or Shove when both are legal. Shift-click is a shove shortcut. ${shove} Kings are never shoved. Guards can be shoved. A shove is not a capture.`,
       };
     }
     case C:
@@ -434,7 +435,7 @@ function refresh(): void {
   $('stop-chain').hidden = !canFinish;
   $('stop-chain').textContent = selectedType === S ? `Stop here (${pending.length} capture${pending.length === 1 ? '' : 's'})` : 'Stop here';
   const help: Partial<Record<PieceType, string>> = {
-    [O]: 'Tap a neighbour to push or capture. When both are legal, you can choose.',
+    [O]: 'Tap a neighbour to shove or capture. When both are legal, you can choose.',
     [A]: 'Tap a marked enemy to shoot without moving, or a marked empty square to move.',
     [M]: 'Tap a marked friendly piece to swap places, or another marked square to move or capture.',
     [S]: pending.length ? 'Choose the next marked victim, or finish the chain below. Nothing moves until you finish.' : 'Tap a marked enemy to start a capture chain, or an empty square to move.',
@@ -521,7 +522,7 @@ function refresh(): void {
   }
   refreshPowers();
   drawMarks();
-  refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode() });
+  refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode() });
   home?.refresh();
 }
 
@@ -650,12 +651,9 @@ function lessonResult(pre: Position, m: Move): void {
   refresh();
 }
 
-/** Lessons done, by name, in localStorage `kingdown.lessons` (the account keeps a copy; nothing shows it yet). */
+/** Lessons done, by name, in localStorage `kingdown.lessons` (the shelf and account read this store). */
 function noteLesson(name: string): void {
-  try {
-    const done: string[] = JSON.parse(localStorage.getItem('kingdown.lessons') ?? '{}').done ?? [];
-    if (!done.includes(name)) localStorage.setItem('kingdown.lessons', JSON.stringify({ done: [...done, name] }));
-  } catch { /* private mode */ }
+  recordLesson(name);
   account?.changed();
 }
 
@@ -681,7 +679,7 @@ function startLesson(i: number): void {
   refresh();
 }
 
-$('learn').onclick = () => startLesson(0);
+initLessonShelf(startLesson, () => $('return-game').click());
 
 /** The Workshop (docs/WORKSHOP.md): its own chunk, loaded on the first tap. It opens over its caller, which stays open. */
 let workshop: Promise<ReturnType<typeof import('./workshop/dialog')['workshopDialog']>> | undefined;
@@ -778,9 +776,9 @@ async function choosePushOrCapture(capture: Move, push: Move): Promise<void> {
   busy = true;
   const dlg = $<HTMLDialogElement>('move-choice');
   const target = sqName(push.shove!.from), destination = sqName(push.shove!.to);
-  $('move-choice-detail').textContent = `Capture removes the enemy on ${target}. Push moves it to ${destination}${push.to === push.from ? ' and leaves your Ogre in place' : ` and moves your Ogre to ${target}`}.`;
+  $('move-choice-detail').textContent = `Capture removes the enemy on ${target}. Shove moves it to ${destination}${push.to === push.from ? ' and leaves your Ogre in place' : ` and moves your Ogre to ${target}`}.`;
   $('choose-capture').textContent = `Capture on ${target}`;
-  $('choose-push').textContent = `Push to ${destination}`;
+  $('choose-push').textContent = `Shove to ${destination}`;
   const move = await new Promise<Move | null>(resolve => {
     const done = (m: Move | null): void => { closeMoveChoice = null; dlg.close(); resolve(m); };
     closeMoveChoice = () => done(null);
@@ -1351,6 +1349,7 @@ home = initHome({
 });
 (window as unknown as Record<string, unknown>).home = home; // Samples read the live game, including a staged turn.
 $('rules-btn').onclick = () => {
+  refreshLessonShelf();
   fillPieceGuide();
   $<HTMLDialogElement>('rules').showModal();
 };

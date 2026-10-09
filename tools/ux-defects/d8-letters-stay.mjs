@@ -3,7 +3,7 @@
 // loads, and ?labels=1 still turns the letters on. With the letters off, an old save keeps its
 // settings as they were, so the account sync sees no change at start-up.
 import assert from 'node:assert/strict';
-import { boardHelp, learnFromTitle, lanMoves, openExtra, pressMenu } from '../app-ui.mjs';
+import { startLesson, boardHelp, learnFromTitle, lanMoves, openExtra } from '../app-ui.mjs';
 
 /** Records each view.setLabels() value in window.letters (main.ts sets window.view before its first setLabels). */
 const recordLetters = () => {
@@ -30,7 +30,7 @@ const probe = async ({ page, ready }) => {
     await Promise.all([page.waitForURL(u => u.searchParams.get('look') === look), page.selectOption('#look', look)]);
     await ready();
   };
-  const learn = async () => { await pressMenu(page, 'Guide'); await page.click('#learn'); await page.waitForFunction(() => /^Lesson 1 /.test(document.getElementById('turn').textContent)); };
+  const learn = async () => { await startLesson(page); await page.waitForFunction(() => /^Lesson 1 /.test(document.getElementById('turn').textContent)); };
   return { state, letters, saved, settings, reload, changeLook, learn };
 };
 

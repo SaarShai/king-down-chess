@@ -43,7 +43,7 @@ export const LESSONS: readonly Lesson[] = [
   {
     name: 'Ogre',
     fen: '7k/8/8/3n4/3O4/8/8/K7 w - - 0 1',
-    task: 'Tap your ogre, then the marked knight. Choose Push.',
+    task: 'Tap your ogre, then the marked knight. Choose Shove.',
     goal: (_, m) => !!m.shove,
     done: 'The ogre shoves a neighbour one square away and steps into its place. A shove is not a capture; kings are never shoved.',
   },

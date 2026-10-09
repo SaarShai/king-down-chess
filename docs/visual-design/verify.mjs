@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { boardHelp, contextText, titleStart, arriveContinue, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
+import { startLesson, boardHelp, contextText, titleStart, arriveContinue, endTurn, lanMoves, moveRow, openMoves, pressMenu, refusalText, waitForUi } from '../../tools/app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from '../../tools/lib/checks.mjs';
 
 const base = env('PLAYABLE_URL');
@@ -48,7 +48,7 @@ try {
   assert.deepEqual([firstDeal.back, firstDeal.white, firstDeal.black, firstDeal.skill, firstDeal.rules.kings], ['QRNAKBBS', 'human', 'ai', 'beginner', [null, null]], 'Start deals seed 83 against Beginner as White, without powers');
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.new-game')).level), 'beginner', 'the next New game keeps Beginner');
   assert.equal(await page.evaluate(() => localStorage.getItem('kingdown.first-deal')), '1', 'Start stores the first-deal key');
-  await pressMenu(page, 'Guide'); await page.click('#learn');
+  await startLesson(page);
   await page.waitForFunction(() => /Lesson 1 of 6/.test(document.getElementById('turn').textContent));
   assert.equal(await page.locator('#lesson-progress span').count(), 6);
   await page.reload(); await ready(page);

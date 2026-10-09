@@ -34,7 +34,7 @@ try {
     const ogre = '7k/8/8/2p5/2O5/8/P7/K7 w - - 0 1';
     await seed(ogre);
     const bounds = await page.locator('#board').boundingBox();
-    await tap(26); assert.match(await contextText(page), /push or capture/);
+    await tap(26); assert.match(await contextText(page), /shove or capture/);
     await tap(34); await page.locator('#move-choice').waitFor({ state: 'visible' });
     assert.deepEqual(await lanMoves(page), []);
     assert.match(await page.locator('#move-choice-detail').innerText(), /c5.*c6/);
