@@ -1,5 +1,6 @@
 // D-1: Resign gives up this device's side, never the computer's or the friend's, and it is off while the computer thinks.
 import assert from 'node:assert/strict';
+import { waitForUi } from '../app-ui.mjs';
 
 /** Presses Resign and accepts its question; returns the question and the result's title. */
 async function resign(page) {
@@ -15,15 +16,15 @@ export default async function ({ open }) {
   {
     const { page, tap, close } = await open({ save: { back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'ai', skill: 'club', sound: false } });
     await tap(12); await tap(28); // e2-e4; the computer then thinks for Black
-    const during = await (await page.waitForFunction(() => {
-      if (document.getElementById('status').textContent !== 'thinking…') return false;
+    const during = await (await waitForUi(page, ui => {
+      if (!/^thinking…$/m.test(ui.context)) return false;
       const button = document.getElementById('resign'), asked = [], ask = window.confirm;
       window.confirm = m => { asked.push(m); return false; };
       try { button.onclick?.(new MouseEvent('click')); } finally { window.confirm = ask; }
       return { disabled: button.disabled, asked };
     })).jsonValue();
     assert.deepEqual(during, { disabled: true, asked: [] }, 'Resign is off while the computer thinks');
-    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length === 2 && !document.getElementById('resign').disabled);
+    await waitForUi(page, ui => ui.lan.length === 2 && !document.getElementById('resign').disabled);
     assert.deepEqual(await resign(page), { asked: 'Resign as White?', result: 'White resigns — Black wins' }, 'against the computer');
     await close();
   }
@@ -37,7 +38,7 @@ export default async function ({ open }) {
   {
     const { page, tap, close } = await open({ query: '?army=RNBQKBNR&moves=e2-e4' });
     await tap(52); await tap(36); // e7-e5: this device plays Black
-    await page.waitForFunction(() => document.querySelectorAll('#moves [data-ply]').length === 2);
+    await waitForUi(page, ui => ui.lan.length === 2);
     assert.deepEqual(await resign(page), { asked: 'Resign as Black?', result: 'Black resigns — White wins' }, 'a game link, on the friend\'s turn');
     await close();
   }
