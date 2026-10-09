@@ -24,6 +24,7 @@ const sizes = {
   desktop: { width: 1440, height: 900 },
   laptop: { width: 1280, height: 720 },
   tablet: { width: 820, height: 1180, hasTouch: true, isMobile: true },
+  smallPhone: { width: 320, height: 568, hasTouch: true, isMobile: true },
   phone: { width: 390, height: 844, hasTouch: true, isMobile: true },
   landscape: { width: 844, height: 390, hasTouch: true, isMobile: true },
 };
@@ -38,7 +39,7 @@ else await review(process.argv[3], process.argv[4]?.split(','));
 async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
   const file = fileURLToPath(new URL(`../web-redesign/samples/${nn}.mjs`, import.meta.url));
   const stop = async message => { console.error(message); await browser.close(); process.exit(2); };
-  if (!/^\d\d[a-z]?$/.test(nn) || !existsSync(file)) await stop(`capture: no sample "${nn}": SAMPLE names a file docs/specs/web-redesign/samples/<NN>.mjs`);
+  if (!/^(?:\d\d[a-z]?|W\d{1,2})$/.test(nn) || !existsSync(file)) await stop(`capture: no sample "${nn}": SAMPLE names a file docs/specs/web-redesign/samples/<NN>.mjs`);
   const checkout = fileURLToPath(new URL('../../../', import.meta.url));
   if (isInside(checkout, out)) await stop(`capture: the out folder ${out} is inside the checkout ${checkout}; renders stay out of Git`);
   const table = (await import(pathToFileURL(file).href)).default;
@@ -96,7 +97,12 @@ async function sample(nn, out = join(tmpdir(), 'kingdown-samples', nn)) {
         const checks = [() => noSidewaysScroll(page)];
         if (state.controls) checks.push(() => insideViewport(page, state.controls));
         if (touch.hasTouch) checks.push(async () => {
-          const scope = await page.evaluate(() => (document.querySelector('dialog[open]') ? 'dialog[open]' : 'body'));
+          const scope = await page.evaluate(() => {
+            const top = [...document.querySelectorAll('dialog[open]')].at(-1);
+            if (!top) return 'body';
+            top.setAttribute('data-sample-scope', '');
+            return '[data-sample-scope]';
+          });
           await minTarget(page, `${scope} :is(${state.targets ?? 'button, select, summary, label'})`);
         });
         for (const check of checks) await check().catch(e => row.faults.push(e.message.split('\n')[0]));
