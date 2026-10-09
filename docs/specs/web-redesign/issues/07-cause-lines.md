@@ -1,7 +1,7 @@
 # 07 · Check and shots show their cause; all sounds in one key
 
 Status: ready-for-agent (the owner approved [the spec](../spec.md) on 2026-10-09)
-Blocked by: 03, 05 (`src/haptic.ts`)
+Blocked by: 03, 05 (W2, for phase 2)
 
 ## Scope
 
@@ -40,12 +40,12 @@ Blocked by: 03, 05 (`src/haptic.ts`)
 
 ## Comments
 
-W5 phase 1 plan:
+W5 phase 1 complete. Phase 2 waits for W2.
 - Test `checkersOf` at the seam named in the fast plan. Compare it with `inCheck` in seeded legal games under powers rules.
 - Add still ember marks as an option. Keep the plugin default. Draw cause lines above figures after landing.
 - Move the low check note to landing. Add no vibration.
 - Verify with `npm test`, typecheck, `plugin-ui` and the plugin page size. Leave context words, W2 wiring and `their-turn` for phase 2.
 - Phase 1: checkers, still ember marks in both views, and the low note at landing. Cut timing, shot lines, vibration and the other sound changes.
-- Tests: 80 files pass, 1 skips; 1,448 tests pass, 13 skip; 50 scene tests pass. Typecheck and build pass.
+- Tests: `VITEST_MAX_WORKERS=2 npm test`: 80 files pass, 1 skips; 1,448 tests pass, 13 skip; 50 scene tests pass. Typecheck and build pass.
 - Samples: `SAMPLE=07` gives six renders with no fault in `/tmp/wr-w5-samples`. Phase 2 adds the context words and staged checks, runs `their-turn` twice and the full browser suite, then updates the samples for W2.
-- Plugin: default stays; page size 4,291,869 → 4,292,443 bytes. `plugin-ui` and `plugin-ui-http` wait for the browser lock.
+- Plugin: default stays; page size 4,291,869 → 4,292,443 bytes. `plugin-ui` passes (15.8 s); `plugin-ui-http` passes (15.5 s) with a disposable local PostgreSQL 17 database ([setup](../../../plugin-preparation.md)).
