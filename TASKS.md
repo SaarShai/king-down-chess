@@ -5,7 +5,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 ## Open items
 
 - **Workshop finish** · `ready-for-agent` · Build the open tickets of the spec. · [spec](docs/specs/workshop-finish/spec.md)
-- **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); Hand size is settled as a question (owner 2026-10-08: more cards, fewer draws; no more hand-size runs). Keep March (below the floor in `cards-d1`)? Which six cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
+- **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); Hand size: **4 cards** (owner 2026-10-09: "yes. 4 cards."; draws 12.6% at depth 4, against 11.0% with 6). Keep March (below the floor in `cards-d1`)? Which cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Web redesign** · `ready-for-agent` · The owner approved the spec and its picks (2026-10-09). Build the tickets in the order of spec §5, one pull request each; a visual step waits for the owner's yes on its sample. · [spec](docs/specs/web-redesign/spec.md)
 - **Card mode in the game** · `ready-for-agent` · After the deal: coins by the king, the power coin first (owner, 2026-10-08; [ticket 24](docs/specs/web-redesign/issues/24-card-coins.md)), MorphP in the deal, and a legendary look for Rage for the owner's yes. · [2026-10](docs/tasks-archive/2026-10.md)
 - **Morph and the Guard** · `needs-info` · Keep the Guard as a Morph piece? Allow a second Guard? Stop a second Beast through Morph and then Salvation or Sacrifice? · [2026-10](docs/tasks-archive/2026-10.md)
