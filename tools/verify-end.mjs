@@ -1,6 +1,6 @@
 // W6: the handed-over end, board Ceremony and result review tiles.
 import assert from 'node:assert/strict';
-import { ceremonyTile, ceremonyWords, endTurn, usePower, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
+import { readyBoard, ceremonyTile, ceremonyWords, endTurn, usePower, lanMoves, openEndReview, openMoves, pressMenu, startNewGame, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, minTarget, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
 const base = env('PLAYABLE_URL'), browser = await launch();
 const faults = [];
@@ -22,6 +22,13 @@ await page.addInitScript(() => {
   if (seed) { localStorage.setItem('kingdown.save', seed); sessionStorage.removeItem('w6.seed'); }
 });
 trapErrors(page);
+// Cached images can load before the initial resize. Keep that order under test.
+await page.addInitScript(() => {
+  const Native = ResizeObserver;
+  window.ResizeObserver = class extends Native {
+    constructor(callback) { super((...args) => setTimeout(() => callback(...args), 250)); }
+  };
+});
 page.on('dialog', d => d.accept());
 const tap = async sq => {
   const p = await page.evaluate(s => window.view.screenOf(s), sq);
@@ -31,8 +38,7 @@ const open = async (fen, moves = [], pace = 'off', sides = ['human', 'human'], l
   await page.goto(base);
   await page.evaluate(seed => sessionStorage.setItem('w6.seed', JSON.stringify(seed)), { back: '', fen, moves, white: sides[0], black: sides[1], pace, sound: false, skill: 'club' });
   await page.goto(new URL(`?think=50&look=${look}${query}`, base).href);
-  await page.waitForFunction(() => window.view?.pos || window.view?.pieces?.size);
-  await page.evaluate(() => window.view.ready());
+  await readyBoard(page);
 };
 const stageMate = async (pace = 'off', look = 'painted') => {
   await open('7k/6pp/8/8/8/p7/8/R5MK w - - 0 1', ['Ra1xa3', 'Kh8-g8', 'Mg1<>h1', 'Kg8-h8'], pace, ['human', 'human'], look);

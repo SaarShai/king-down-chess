@@ -254,3 +254,16 @@ export const lessonPath = () => [
 export const ceremonyWords = page => page.locator('#over-words:visible, .kd-words:visible').first();
 /** Review tiles keep their ply when their display order changes. */
 export const ceremonyTile = (page, ply) => page.locator(`.ceremony-tile[data-ply="${ply}"]`);
+
+/** Coordinate input waits for images and the resize callback that fits the canvas. */
+export async function readyBoard(page) {
+  await page.waitForFunction(() => window.view?.ready);
+  await page.evaluate(() => window.view.ready());
+  await page.waitForFunction(() => {
+    const board = document.getElementById('board'), canvas = board?.querySelector('canvas');
+    if (!canvas) return false;
+    const b = board.getBoundingClientRect(), c = canvas.getBoundingClientRect();
+    return c.width > 0 && c.height > 0 && c.width <= b.width + 1 && c.height <= b.height + 1
+      && c.left >= b.left - 1 && c.right <= b.right + 1;
+  });
+}

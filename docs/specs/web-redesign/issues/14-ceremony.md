@@ -90,3 +90,5 @@ Result and draw words use take and taken. No capture word stays in the end text.
 Item 11: decided by delegation (2026-10-09). Power tiles name the power in two to four words without squares. The result reads the last ply that is not a pass. The replay caption sits in the context row, outside the squares. Unit and browser checks cover Haste and Freeze.
 
 Item 15: decided by delegation (2026-10-09). The h-file note names the repair in 7bf311a. The repair is in this branch; it does not wait for shared board work.
+
+Item 11 check repair: decided by delegation (2026-10-09). Images can load before the canvas resize. The probe taps at x -197 before that resize and fails. The shared board-ready helper waits for fitted bounds before coordinate input. The Ceremony check delays the resize to keep this case covered.

@@ -16,7 +16,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { boardHelp, lanMoves, moveRow, openMoves, pressMenu } from '../../../tools/app-ui.mjs';
+import { readyBoard, boardHelp, lanMoves, moveRow, openMoves, pressMenu } from '../../../tools/app-ui.mjs';
 import { insideViewport, isInside, launch, minTarget, noSidewaysScroll, trapErrors } from '../../../tools/lib/checks.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:5173/';
@@ -29,7 +29,7 @@ const sizes = {
   landscape: { width: 844, height: 390, hasTouch: true, isMobile: true },
 };
 const browser = await launch({ headless: true });
-const ready = page => page.waitForFunction(() => window.view?.ready, null, { timeout: 30000 }).then(() => page.evaluate(() => window.view.ready()));
+const ready = readyBoard;
 const settle = (page, ms = 700) => page.waitForTimeout(ms);
 
 if (process.env.SAMPLE) await sample(process.env.SAMPLE, process.argv[3]);
