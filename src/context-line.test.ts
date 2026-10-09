@@ -83,3 +83,8 @@ it('keeps the chain status below the next bite', () => {
     rank: 'chain', line: 'Bite again, or stop here.', note: 'Nothing moves until you stop.', actions: ['stop-chain'],
   });
 });
+
+it('names the computer move when its king is in check', () => {
+  expect(contextLine({ voice: 'you', computer: true, check: true, checkCause: 'Your rook attacks their king.' }))
+    .toMatchObject({ rank: 'computer', line: 'Their move.', note: 'Your rook attacks their king.' });
+});

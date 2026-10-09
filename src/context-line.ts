@@ -20,7 +20,7 @@ export function contextLine(s: ContextState): ContextLine {
   const read = [s.read, s.readNote].filter(Boolean).join(' ');
   if (s.result) return line('result', s.result, read);
   if (s.refusal) return line('refusal', s.refusal, read);
-  if (s.link) return line('link', s.link, read);
+  if (s.link) return line('link', s.link, read || s.checkCause);
   if (s.armed) {
     const words: Partial<Record<PowerName, [string, string]>> = {
       Freeze: ['Tap an enemy piece.', 'Freeze lasts one turn.'],
@@ -38,8 +38,8 @@ export function contextLine(s: ContextState): ContextLine {
   if (!s.lesson && s.stagedEnd) return line('staged-end', s.turnLine || `${s.stagedEnd} Tap End turn to finish.`);
   if (!s.lesson && s.waiting) return line('waiting', s.turnLine || `${s.check ? 'Check. ' : ''}Your turn is ready.`, s.turnLine ? '' : 'Tap End turn, or Undo.');
   if (s.previously) return { ...line('previously', `Previously: ${s.previously}`, s.previouslyDetail, s.seeAgain ? ['see-again'] : []), before: s.previouslyBefore ? `You: ${s.previouslyBefore}` : '' };
+  if (!s.lesson && s.computer) return line('computer', 'Their move.', s.checkCause);
   if (!s.lesson && s.check) return line('check', s.voice === 'you' ? 'Check! Your move.' : `Check! ${s.voice} to move.`, s.checkCause);
-  if (!s.lesson && s.computer) return line('computer', 'Their move.');
   if (s.lesson) {
     if (s.lessonLearned) return line('lesson', `${s.lessonLearned} learned.`);
     const task = s.lessonNote || s.lesson, end = task.indexOf('. ');

@@ -11,12 +11,12 @@ const SIDE = ['White', 'Black'] as const;
 export interface Checker { sq: number; king: number; path: 'straight' | 'arc' }
 
 /** The cause of the current check, in one short line. */
-export function checkCause(pos: Position, last?: Move, mode?: Mode): string {
+export function checkCause(pos: Position, last?: Move, mode?: Mode, viewer: Color = pos.turn): string {
   const checkers = checkersOf(pos), names = checkers.map(ch => NAMES[typeOf(pos.board[ch.sq])]);
   if (!checkers.length) return '';
-  if (checkers.length === 2) return mode === 'device'
-    ? `${pos.turn ? 'White' : 'Black'} ${names.join(' and ')} attack the ${pos.turn ? 'black' : 'white'} king.`
-    : `Their ${names.join(' and ')} attack your king.`;
+  const attacker = mode === 'device' ? `${SIDE[(pos.turn ^ 1) as Color]}'s` : viewer === pos.turn ? 'Their' : 'Your';
+  const target = mode === 'device' ? `the ${SIDE[pos.turn].toLowerCase()} king` : viewer === pos.turn ? 'your king' : 'their king';
+  if (checkers.length === 2) return `${attacker} ${names.join(' and ')} attack ${target}.`;
   if (checkers.length > 2) return `Check: ${names.slice(0, 5).join(', ')}${names.length > 5 ? `; ${names.length - 5} more.` : '.'}`;
   const ch = checkers[0], name = names[0];
   const df = file(ch.king) - file(ch.sq), dr = rank(ch.king) - rank(ch.sq);
@@ -24,11 +24,9 @@ export function checkCause(pos: Position, last?: Move, mode?: Mode): string {
     ? (ch.sq + ch.king) / 2 : -1;
   const over = mid >= 0 && pos.board[mid] ? sqName(mid) : '';
   if (mode) {
-    const side = pos.turn ? 'white' : 'black', king = pos.turn ? 'black' : 'white';
-    const target = mode === 'device' ? name === 'archer' ? `${SIDE[pos.turn]}'s king` : `the ${king} king` : 'your king';
-    const attacker = mode === 'device' ? name === 'archer' ? SIDE[(pos.turn ^ 1) as Color] : `The ${side}` : 'Their';
     const strike = last?.power === 'strike' && last.from !== last.to && last.to === ch.sq;
-    return `${strike ? 'Strike: ' : ''}${attacker} ${name} ${name === 'archer' ? 'shoots' : 'attacks'} ${target}${over ? ` over ${over}` : ''}.`;
+    const cause = `${strike ? 'Strike: ' : ''}${attacker} ${name} ${name === 'archer' ? 'shoots' : 'attacks'} ${target}`;
+    return `${cause}${over && cause.split(/\s+/).length <= 6 ? ` over ${over}` : ''}.`;
   }
   if (last?.power === 'strike' && last.from !== last.to && last.to === ch.sq) {
     return over ? `Strike lets their ${name} shoot over ${over}.` : `Strike lets their ${name} attack your king.`;

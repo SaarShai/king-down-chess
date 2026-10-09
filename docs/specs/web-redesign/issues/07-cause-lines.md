@@ -76,3 +76,11 @@ Phone cause lines use a 1.5 CSS px core and a 3.5 CSS px halo.
 The 3D halo draws after the board. A pixel check guards this order.
 Plugin defaults stay. Page size: 4,295,044 → 4,295,953 bytes.
 W5: 10 inspected renders, 0 faults. Tests and both plugin checks pass.
+
+## Batch 3 repair 2
+
+Items 4 and 7: decided by delegation (2026-10-09).
+Check words name the viewer's king or the friend's king as required.
+The computer-move line wins when the computer is in check. Online wait words keep the cause.
+On one device, causes use Black's or White's piece and the other king.
+Cause and rank tests pass. The browser checks all eight viewer/check-side combinations.

@@ -225,7 +225,7 @@ One ordered list for every ticket. The first state that is true gives the line. 
 | 12 | The second look (20) | "Their archer can take your queen." | – |
 | 13 | The turn waits | "Your turn is ready. Tap End turn." / a staged check: "Check. Your turn is ready. Tap End turn." / one device: "White's turn is ready. Tap End turn." / link: "Your turn is ready. Tap Send your turn." / after 4 s in the first three games (§4.1): "The computer waits for End turn." | – |
 | 14 | Previously (21) | "Previously: their archer shot your knight." | See again |
-| 15 | Check against the active side, nothing staged (07) | "Check! Your move." and the cause | – |
+| 15 | Check against the viewer, nothing staged (07) | "Check! Your move." and the cause | – |
 | 16 | The computer plays its reply | "Their move." ("thinking…" shows in their strip after 1 s) | – |
 | 17 | The read tip (04), until the first read | "Tap any piece to read it." | – |
 | 18 | Your move | "Your move." / one device: "White to move." | – |

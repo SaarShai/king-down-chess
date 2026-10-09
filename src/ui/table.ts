@@ -110,7 +110,7 @@ export function refreshTable(s: TableState): void {
     free: !!s.game.pos.free,
     selected: s.selected == null ? '' : read,
     waiting: s.turn.waits, check: s.game.inCheck, computer: s.sides[s.game.pos.turn] === 'ai',
-    checkCause: s.game.inCheck && !s.turn.staged ? checkCause(s.game.pos, history.at(-1)?.move, s.mode) : '',
+    checkCause: s.game.inCheck && !s.turn.staged ? checkCause(s.game.pos, history.at(-1)?.move, s.mode, s.linkSide ?? (s.sides[0] === 'ai' ? 1 : 0)) : '',
     turnLine: turnLine(s.game, s.turn, s.mode),
     stagedEnd: s.turn.staged && s.game.status !== 'playing' ? s.game.status === 'checkmate' ? 'Checkmate.' : 'Draw.' : '',
     lesson: s.lesson == null ? '' : text('turn'), lessonNote: s.lesson == null ? '' : text('moment'),

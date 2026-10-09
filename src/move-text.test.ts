@@ -193,9 +193,9 @@ describe('which power moves a click can reach', () => {
 
 it('names both colours in a check on one device', () => {
   expect(checkCause(fromFen('7k/8/8/8/8/8/8/4K2r w - - 0 1'), undefined, 'device'))
-    .toBe('The black rook attacks the white king.');
+    .toBe("Black's rook attacks the white king.");
   expect(checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, 'device'))
-    .toBe("Black archer shoots White's king over e2.");
+    .toBe("Black's archer shoots the white king over e2.");
 });
 it.each(['computer', 'link'] as const)('names the king and states the Archer fact in %s play', mode => {
   expect(checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, mode))
@@ -207,4 +207,13 @@ it.each(['computer', 'link'] as const)('names the king and states the Archer fac
 it('keeps the web Archer cause within eight words on one device', () => {
   const words = checkCause(fromFen('7k/8/8/8/8/4a3/4P3/4K3 w - - 0 1'), undefined, 'device');
   expect(words.split(/\s+/).length).toBeLessThanOrEqual(8);
+});
+
+it.each(['computer', 'link'] as const)('speaks from either viewer when either king is in check in %s', mode => {
+  const whiteCheck = fromFen('7k/8/8/8/8/8/8/4K2r w - - 0 1');
+  const blackCheck = fromFen('4k2R/8/8/8/8/8/8/7K b - - 0 1');
+  expect(checkCause(whiteCheck, undefined, mode, 0)).toBe('Their rook attacks your king.');
+  expect(checkCause(whiteCheck, undefined, mode, 1)).toBe('Your rook attacks their king.');
+  expect(checkCause(blackCheck, undefined, mode, 0)).toBe('Your rook attacks their king.');
+  expect(checkCause(blackCheck, undefined, mode, 1)).toBe('Their rook attacks your king.');
 });

@@ -34,8 +34,8 @@ try {
     assert.deepEqual(await marks(), { check: 4, checkers: checker }, 'landing shows the ring and cause line');
     assert.equal(await page.locator('#board').evaluate(b => b.classList.contains('king-in-check')), true);
     await endTurn(page);
-    assert.equal(await contextText(page), 'Check! White to move.\nThe black rook attacks the white king.');
-    assert.ok(await contextWordsInView(page, 'The black rook attacks the white king.'), 'the cause fits its row');
+    assert.equal(await contextText(page), "Check! White to move.\nBlack's rook attacks the white king.");
+    assert.ok(await contextWordsInView(page, "Black's rook attacks the white king."), 'the cause fits its row');
     await tap(4);
     assert.deepEqual(await marks(), { check: 4, checkers: checker }, 'selection keeps the check marks');
     console.log(`ok their-turn ${width}×${height}: ring and line at landing; cause after the press`);
@@ -52,6 +52,23 @@ try {
     assert.equal(await page.locator('#board').evaluate(b => b.classList.contains('king-in-check')), false);
     assert.equal(await contextText(page), 'Black to move.');
     console.log(`ok their-turn ${width}×${height}: Undo clears the check`);
+    await context.close();
+  }
+  for (const mode of ['computer', 'link']) for (const viewer of [0, 1]) for (const turn of [0, 1]) {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+    const save = { back: '', fen: turn === 0 ? '7k/8/p7/8/8/8/8/4K2r w - - 0 1' : '4k2R/8/8/8/8/P7/8/7K b - - 0 1', moves: [],
+      white: mode === 'computer' && viewer === 1 ? 'ai' : 'human', black: mode === 'computer' && viewer === 0 ? 'ai' : 'human',
+      ...(mode === 'link' ? { link: viewer } : {}), sound: false, pace: 'off' };
+    await context.addInitScript(save => {
+      sessionStorage.setItem('kingdown.title-seen', '1');
+      localStorage.setItem('kingdown.save', JSON.stringify(save));
+      Worker.prototype.postMessage = () => {};
+    }, save);
+    const page = await context.newPage(); trapErrors(page);
+    await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
+    const cause = viewer === turn ? 'Their rook attacks your king.' : 'Your rook attacks their king.';
+    assert.ok((await contextText(page)).includes(cause), `${mode}, viewer ${viewer}, checked side ${turn}: ${cause}`);
+    if (viewer !== turn) assert.ok(!(await contextText(page)).includes('Your move.'), 'their checked king does not make it your move');
     await context.close();
   }
   assertNoErrors();
