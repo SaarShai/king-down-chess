@@ -52,7 +52,7 @@ try {
     console.log(`ok lessons ${width}: the shelf opens with six figures`);
 
     await page.locator('.shelf-piece[data-piece="beast"]').click();
-    assert.match(await page.locator('#turn').textContent(), /Lesson 4 of 6: Beast/);
+    assert.match(await page.locator('#turn').textContent(), /Lesson 2 of 6: Beast/);
     assert.equal(await page.locator('#undo').isVisible(), false);
     assert.equal(await page.locator('#end-turn').isVisible(), false);
     assert.equal(await page.locator('#show-me').isVisible(), true);
@@ -90,6 +90,9 @@ try {
     await waitForUi(page, ui => ui.lessonLearned === 'Archer');
     assert.equal(await page.locator('#next-lesson').innerText(), 'Next lesson: Beast');
     await page.click('#next-lesson');
+    assert.equal(await page.locator('#lesson-progress [title=Guard]').getAttribute('class'), 'next', 'Guard is not learned after Archer');
+    assert.equal(await page.locator('#lesson-progress [title=Maester]').getAttribute('class'), 'next', 'Maester is not learned after Archer');
+    assert.equal(await page.locator('#lesson-progress [title=Beast]').getAttribute('aria-label'), 'Lesson 2 of 6 current');
     assert.match(await page.locator('#turn').innerText(), /Beast/);
     await page.click('#return-game');
     assert.equal(await saved(), before, 'Next lesson keeps the saved game');

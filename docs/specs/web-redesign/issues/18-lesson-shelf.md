@@ -83,3 +83,11 @@ Figures have hover and press states. The kept-game action says Return to game.
 Tests: 1,666 pass; 13 skip. All 50 scene tests pass.
 Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspected.
 All nine required browser checks pass. Typecheck and the doc checks pass.
+
+## Batch 3 repair 2
+
+Item 3: decided by delegation (2026-10-09).
+Boards, progress and shelf use Archer, Beast, Maester, Ogre, Guard, Paladin.
+Progress reads learned names, not the boards before the current index.
+The store already saves names; saved learned results keep their meaning.
+The lesson order test and browser check pass. After Archer, Beast is second; Guard and Maester are not done.

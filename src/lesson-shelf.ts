@@ -13,9 +13,8 @@ export interface ShelfPiece {
   status: 'Learned' | 'Next' | 'Bonus' | '';
 }
 
-const ORDER = ['Archer', 'Beast', 'Maester', 'Ogre', 'Guard', 'Paladin'] as const;
 // Lessons use today's default rules, even when the kept game uses an older preset.
-const LINES: Record<typeof ORDER[number], string> = {
+const LINES: Record<string, string> = {
   Archer: 'Shoots without moving',
   Beast: DEFAULT_RULES.beastChains ? 'Can bite again after a bite' : 'One bite per turn',
   Maester: 'Swaps with a friend',
@@ -24,11 +23,11 @@ const LINES: Record<typeof ORDER[number], string> = {
   Paladin: DEFAULT_RULES.paladinJumpsFriends ? 'Jumps over its own pieces' : 'Moves like a queen',
 };
 
-/** Saved lesson names set the shelf state; the lesson boards keep their own order. */
+/** Saved lesson names set the shelf state; the shelf and boards keep one order. */
 export function lessonShelf(store: LessonStore): { pieces: ShelfPiece[]; next: ShelfPiece | null } {
-  const done = store.done ?? [];
-  const nextName = ORDER.find(name => !done.includes(name));
-  const pieces: ShelfPiece[] = ORDER.map(name => ({
+  const done = store.done ?? [], order = LESSONS.map(l => l.name);
+  const nextName = order.find(name => !done.includes(name));
+  const pieces: ShelfPiece[] = order.map(name => ({
     name,
     line: LINES[name],
     lesson: LESSONS.findIndex(l => l.name === name),

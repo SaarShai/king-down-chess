@@ -10,3 +10,7 @@ describe('lessons', () => {
     expect(moves.some(m => !l.goal(pos, m))).toBe(true);
   });
 });
+
+it('keeps lesson boards in the shelf order', () => {
+  expect(LESSONS.map(l => l.name)).toEqual(['Archer', 'Beast', 'Maester', 'Ogre', 'Guard', 'Paladin']);
+});

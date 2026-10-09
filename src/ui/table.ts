@@ -1,5 +1,6 @@
 import { contextLine, type ContextState } from '../context-line';
 import { LESSONS } from '../lessons';
+import { progress as lessonProgress } from '../lesson-shelf-ui';
 import { type Game, type Side } from '../game';
 import { checkCause, describeMove, moveNumbers } from '../move-text';
 import { pieceIcon } from '../piece-icons';
@@ -60,7 +61,7 @@ export function refreshTable(s: TableState): void {
   progress.hidden = s.lesson == null;
   document.body.classList.toggle('in-lesson', s.lesson != null);
   if (s.lesson != null) progress.innerHTML = LESSONS.map((lesson, i) => {
-    const state = i < s.lesson! || (i === s.lesson && s.lessonDone) ? 'done' : i === s.lesson ? 'current' : 'next';
+    const state = lessonProgress().done?.includes(lesson.name) || (i === s.lesson && s.lessonDone) ? 'done' : i === s.lesson ? 'current' : 'next';
     const piece = NAMES.indexOf(lesson.name.toLowerCase() as typeof NAMES[number]) as PieceType;
     return `<span class="${state === 'current' ? 'now' : state}" role="img" aria-label="Lesson ${i + 1} of ${LESSONS.length} ${state}" title="${lesson.name}">${pieceIcon(piece)}</span>`;
   }).join('');

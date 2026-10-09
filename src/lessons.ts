@@ -20,11 +20,11 @@ export const LESSONS: readonly Lesson[] = [
     done: 'An archer shoots without moving. The shot goes over pieces.',
   },
   {
-    name: 'Guard',
-    fen: 'k3r3/8/8/8/8/8/3G4/4K3 w - - 0 1',
-    task: 'The rook gives check. Block it with your guard.',
-    goal: (pre, m) => typeOf(pre.board[m.from]) === G,
-    done: 'Only a king can take a guard. A guard cannot take.',
+    name: 'Beast',
+    fen: '7k/8/3n4/3n4/3S4/8/8/K7 w - - 0 1',
+    task: 'Tap your beast, then d5, then d6. Take both knights in one move.',
+    goal: (_, m) => m.captures.length >= 2,
+    done: 'After each bite the beast may bite again from its new square. A chain never continues onto a king.',
   },
   {
     name: 'Maester',
@@ -34,18 +34,18 @@ export const LESSONS: readonly Lesson[] = [
     done: 'A maester swaps with a friendly neighbour, and takes an adjacent enemy.',
   },
   {
-    name: 'Beast',
-    fen: '7k/8/3n4/3n4/3S4/8/8/K7 w - - 0 1',
-    task: 'Tap your beast, then d5, then d6. Take both knights in one move.',
-    goal: (_, m) => m.captures.length >= 2,
-    done: 'After each bite the beast may bite again from its new square. A chain never continues onto a king.',
-  },
-  {
     name: 'Ogre',
     fen: '7k/8/8/3n4/3O4/8/8/K7 w - - 0 1',
     task: 'Tap your ogre, then the marked knight. Choose Shove.',
     goal: (_, m) => !!m.shove,
     done: 'The ogre shoves a neighbour one square away and steps into its place. A shove takes no piece. It cannot shove a king.',
+  },
+  {
+    name: 'Guard',
+    fen: 'k3r3/8/8/8/8/8/3G4/4K3 w - - 0 1',
+    task: 'The rook gives check. Block it with your guard.',
+    goal: (pre, m) => typeOf(pre.board[m.from]) === G,
+    done: 'Only a king can take a guard. A guard cannot take.',
   },
   {
     name: 'Paladin',
