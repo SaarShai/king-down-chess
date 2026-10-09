@@ -121,6 +121,7 @@ try {
     const { page, context } = await opened({ back: '', fen: '7k/8/2a5/8/2P5/8/8/K7 w - - 0 1', moves: [] }, '', 320, 568);
     const p = await page.evaluate(() => window.view.screenOf(42)); await page.mouse.click(p.x, p.y);
     assert.equal(await page.locator('#context-text > span').nth(1).innerText(), 'Shoots 2 squares straight or diagonally forward.');
+    assert.ok(await page.locator('#all-rules').evaluate(el => el.getBoundingClientRect().width === 44 && getComputedStyle(el).fontSize === '0px'), 'All rules uses its labelled 44 px icon at 320x568');
     assert.ok(await page.locator('#context-text').evaluate(el => {
       const area = document.getElementById('context-line').getBoundingClientRect();
       return el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1
