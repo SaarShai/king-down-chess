@@ -1,8 +1,10 @@
 /** One native sheet with stable pages, so settings and Account keep their nodes. */
+import { openTricksMenu, refreshTricks } from './tricks';
 const PAGES: Record<string, { title: string; parent?: string }> = {
   menu: { title: 'Menu' }, new: { title: 'New game', parent: 'menu' },
   help: { title: 'Board help', parent: 'menu' }, extra: { title: 'Extra', parent: 'menu' },
   game: { title: 'This game', parent: 'extra' }, account: { title: 'Account', parent: 'extra' },
+  tricks: { title: 'Tricks', parent: 'extra' },
   resign: { title: 'Resign', parent: 'menu' },
 };
 
@@ -12,6 +14,7 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
   const back = document.getElementById('menu-back')!;
   const title = document.getElementById('menu-title')!;
   let page = 'menu';
+  refreshTricks();
   function go(next: string): void {
     const previous = page;
     page = next;
@@ -28,7 +31,7 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
     (from ?? title).focus({ preventScroll: true });
   }
   const close = (): void => sheet.close();
-  button.onclick = () => { go('menu'); sheet.showModal(); title.focus(); };
+  button.onclick = () => { openTricksMenu(); go('menu'); sheet.showModal(); title.focus(); };
   back.onclick = () => go(PAGES[page].parent!);
   document.getElementById('menu-close')!.onclick = close;
   // Page Back handles Esc before the native dialog: repeated cancel events can be non-cancelable.

@@ -60,3 +60,6 @@ The start is `80860c174b4dbf930a63ca1976aaa1866378e528`, an ancestor of W9.
 Merge `7d9b4bc77ea40ac11855b6d34e9bae26147696fc` has no conflicts.
 Its tree is the same as W9. The builder's full run above stands under the owner's rule.
 The push hook must pass before the branch goes to origin.
+The first push stops on three five-second test timeouts: one piece-activity case and two gate cases.
+All 1,528 other tests pass. This Mac has a high load.
+Retry the push with `VITEST_MAX_WORKERS=1`. Keep the assertions and time limits.
