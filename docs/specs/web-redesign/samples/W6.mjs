@@ -1,10 +1,16 @@
 // The real board: a capture rewind, then an Archer shot mate.
-import { endTurn } from '../../../../tools/app-ui.mjs';
+import { endTurn, usePower } from '../../../../tools/app-ui.mjs';
 const base = { back: '', white: 'human', black: 'human', sound: false, skill: 'beginner' };
 const rest = page => page.waitForFunction(() => !window.view.scene.animating && document.getElementById('end-turn').getAttribute('aria-disabled') === 'false');
 export default {
   sizes: ['phone', 'desktop'],
   states: [
+    { name: 'flight-tile', query: '?kings=stratus:flight,none', save: { ...base, fen: '7k/6pp/p7/8/8/R7/8/7K w - - 0 1', moves: ['Kh1~h3', 'a6-a5'] }, controls: '#over button',
+      steps: async ({ page, tap }) => { await tap(16); await tap(56); await rest(page); await endTurn(page); await page.locator('#over').waitFor({ state: 'visible' }); } },
+    { name: 'haste-final-pass', query: '?kings=flame:haste,none', save: { ...base, fen: '7k/6pp/8/8/8/R7/8/7K w - - 0 1', moves: [] }, controls: '#over button',
+      steps: async ({ page, tap }) => { await usePower(page); await tap(16); await tap(56); await rest(page); await endTurn(page); await page.locator('#over').waitFor({ state: 'visible' }); } },
+    { name: 'freeze-tile', query: '?kings=frost:freeze,none', save: { ...base, fen: '7k/6pp/8/8/8/2n5/8/R6K w - - 0 1', moves: [] }, controls: '#over button',
+      steps: async ({ page, tap }) => { await usePower(page); await tap(18); await tap(0); await tap(56); await rest(page); await endTurn(page); await page.locator('#over').waitFor({ state: 'visible' }); } },
     { name: 'computer-tell', video: true, clock: true, stillPace: 'normal', settleMs: 0, query: '?think=50',
       save: { ...base, back: 'RNBQKBNR', fen: '', moves: [], black: 'ai' }, controls: '#end-turn, #menu-btn',
       steps: async ({ page, tap, video }) => {

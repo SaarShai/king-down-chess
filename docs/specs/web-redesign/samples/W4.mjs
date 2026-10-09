@@ -5,6 +5,7 @@ const controls = '#undo, #menu-btn, #moves-line, #all-rules';
 export default {
   sizes: ['phone', 'desktop', 'smallPhone'],
   states: [
+    { name: 'read-enemy-maester', save: save('7k/8/8/8/3m4/8/8/K7 w - - 0 1'), controls, steps: ({ tap }) => tap(27) },
     { name: 'read-archer', save: save('7k/8/2a5/8/2P5/8/8/K7 w - - 0 1'), controls, steps: ({ tap }) => tap(42) },
     { name: 'archer-all-rules', save: save('7k/8/2a5/8/2P5/8/8/K7 w - - 0 1'), controls: '#rules-rows .piece-card[data-piece=archer]', steps: async ({ page, tap }) => { await tap(42); await openPieceRules(page); } },
     { name: 'beast-all-rules', save: save('7k/8/8/8/3s4/8/8/K7 w - - 0 1'), controls: '#rules-rows .piece-card[data-piece=beast]', steps: async ({ page, tap }) => { await tap(27); await openPieceRules(page); } },
