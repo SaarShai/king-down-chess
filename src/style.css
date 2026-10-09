@@ -451,10 +451,8 @@ label.army select { width: 100%; font-weight: 400; }
   display: flex; justify-content: center; align-items: flex-end; gap: 18px; height: 112px; margin: -4px 0 var(--space-2);
   background: radial-gradient(50% 18% at 50% 92%, rgba(43, 38, 33, 0.28), transparent);
 }
-.over-king { height: 104px; width: auto; transform-origin: 50% 92%; transition: transform 500ms cubic-bezier(.5, 0, .7, 1.3) 150ms, filter 400ms; }
+.over-king { height: 104px; width: auto; }
 .over-b { transform: scaleX(-1); }
-#over[data-fallen='w'] .over-w { transform: rotate(-80deg) translate(-4px, 6px); filter: saturate(0.6) brightness(0.92); }
-#over[data-fallen='b'] .over-b { transform: scaleX(-1) rotate(-80deg) translate(-4px, 6px); filter: saturate(0.6) brightness(0.92); }
 
 /* ---- Guide: painted piece cards ---- */
 #rules { width: min(940px, calc(100vw - 32px)); max-width: none; }

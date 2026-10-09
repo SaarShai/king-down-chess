@@ -69,6 +69,7 @@
       <ol id="moves" aria-label="Moves. Each move opens the board after it."></ol>
       <div class="taken"><b>White took</b><span id="took-w"></span></div>
       <div class="taken"><b>Black took</b><span id="took-b"></span></div>
+      <div id="over-moments" class="fields" aria-live="polite"></div>
     </dialog>
     <!-- Screen readers: every move by either side, and the keyboard cursor's square. -->
     <div id="announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
@@ -262,12 +263,13 @@
         <img class="over-king over-w" src="./ui/kings/spirit.webp" alt="" />
         <img class="over-king over-b" src="./ui/kings/shadow-b.webp" alt="" />
       </div>
-      <h2 id="over-title" tabindex="-1" autofocus></h2>
+      <h2 id="over-title" tabindex="-1"></h2>
       <p id="over-detail"></p>
-      <div id="over-moments" class="fields" aria-live="polite"></div>
+      <div id="over-tiles"></div>
+      <button id="over-review" type="button">Review</button>
       <button id="share-result" type="button" hidden></button>
       <form method="dialog">
-        <button value="rematch" class="primary">Rematch</button>
+        <button value="rematch" class="primary" autofocus>Rematch</button>
         <button value="new">New game</button>
         <button value="close" class="quiet">Close</button>
       </form>

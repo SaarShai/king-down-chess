@@ -27,6 +27,9 @@ export interface PaintedScene {
   load(): Promise<void>;
   setPosition(position: { board: ArrayLike<number> }): void;
   setSelected(square: number | null): void;
+  /** Opt-in tell: glow and lift 3 screen pixels; lift=false keeps a still glow. Null clears it. */
+  setLifted(square: number | null, lift?: boolean): void;
+  readonly lifted: number | null;
   setAim(square: number | null): void;
   setFlipped(on: boolean): void;
   /** [white, black]: the king design each side's King is drawn with; a sheet not yet loaded loads now. */
@@ -66,6 +69,7 @@ export interface PaintedScene {
   /** A see-through copy of figure `piece` standing on `square` (a move preview), drawn into `ctx`; for setDecorate. */
   ghost(ctx: CanvasRenderingContext2D, piece: number, square: number, opacity?: number): void;
   /** onContact fires once when the strike lands (not for plain moves or swaps). */
+  /** speed scales duration: 2 is half playback speed; 0.5 is double. */
   /** gait: play a quiet move with this gait (a GAITS name) even when `moves` is off. */
   play(move: SceneMove, options?: { speed?: number; onContact?: (() => void) | null; gait?: string | null }): Promise<boolean>;
   cancel(): void;

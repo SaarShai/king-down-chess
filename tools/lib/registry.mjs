@@ -11,6 +11,7 @@ export const checks = [
   { name: 'lessons', script: 'tools/verify-lessons.mjs', limit: 180 },
   { name: 'turn', script: 'tools/verify-turn.mjs', limit: 180 },
   { name: 'link-game', script: 'tools/verify-link-game.mjs', args: ['link'], limit: 180 },
+  { name: 'end', script: 'tools/verify-end.mjs', limit: 180 },
   { name: 'their-turn', script: 'tools/verify-their-turn.mjs', limit: 180 },
   { name: 'game-screen', script: 'tools/verify-game-screen.mjs', limit: 240 },
   { name: 'menu-extra', script: 'tools/verify-menu-extra.mjs', limit: 240 },
@@ -32,6 +33,7 @@ export const checks = [
   { name: 'selftest', script: 'tools/check-selftest.mjs', limit: 120 },
   // Plugin checks build their own artifact; OAuth and HTTP checks need local PostgreSQL.
   { name: 'plugin-oauth', script: 'tools/plugin-browser-check.mjs', args: ['oauth'], limit: 240, channel: 'chromium', byName: true },
+  { name: 'w6-parts', script: 'tools/verify-w6-parts.mjs', limit: 180, channel: 'chromium', byName: true },
   { name: 'plugin-ui', script: 'tools/plugin-browser-check.mjs', args: ['fixture'], limit: 240, channel: 'chromium', byName: true },
   { name: 'plugin-ui-http', script: 'tools/plugin-browser-check.mjs', args: ['http'], limit: 240, channel: 'chromium', byName: true },
   { name: 'selftest-dirty', script: 'tools/check-selftest-dirty.mjs', limit: 30, byName: true },

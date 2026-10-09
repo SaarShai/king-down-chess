@@ -1,7 +1,7 @@
 // Plays real games in the painted 2D look and checks the view keeps up with the game.
 // Run: npm run check:browser painted-game (screenshots go to PLAYABLE_OUT).
 import assert from 'node:assert/strict';
-import { startLesson, confirmResign, endTurn, contextText, lanMoves, moveRow, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
+import { startLesson, confirmResign, endTurn, contextText, lanMoves, moveRow, openEndReview, openMenu, openMoves, pressMenu, resultText, waitForUi } from './app-ui.mjs';
 import { assertNoErrors, env, launch, shot, trapErrors } from './lib/checks.mjs';
 import { startGame } from './new-game-ui.mjs';
 const url = new URL(env('PLAYABLE_URL'));
@@ -195,7 +195,8 @@ try {
     await page.goto(u.href);
     await page.waitForFunction(() => window.view?.pos?.board[60] > 0);
     for (const sq of [0, 48, 60, 4]) { const p = await at(sq); await page.mouse.click(p.x, p.y); await page.waitForFunction(() => !window.view.scene.animating); if (sq === 48 || sq === 4) await endTurn(page); }
-    await page.waitForFunction(() => document.getElementById('over').open && document.querySelector('#over-moments button'), null, { timeout: 15000 });
+    await openEndReview(page);
+    await page.waitForFunction(() => document.querySelector('#over-moments button'), null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => window.view.fallen?.sq), 6, 'the mated king on g1 topples');
     await waitForUi(page, ui => ui.lan[0] === 'Ra1-a7' && ui.marks[0] === '??');
     assert.match(await moveRow(page, 1).getAttribute('title'), /allowed a forced mate/, 'the move list marks the blunder');
