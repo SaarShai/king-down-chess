@@ -4,7 +4,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 
 ## Open items
 
-- **Workshop finish** · `ready-for-agent` · Build the open tickets of the spec. · [spec](docs/specs/workshop-finish/spec.md)
+- **Workshop finish** · `ready-for-agent` · Parked (owner, 2026-10-09: "park workshop for now"); do not start. Open questions for later: should Workshop start from a working sample, and show a "What changed" line? Then build the open tickets of the spec. · [spec](docs/specs/workshop-finish/spec.md)
 - **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); Hand size: **4 cards** (owner 2026-10-09: "yes. 4 cards."; draws 12.6% at depth 4, against 11.0% with 6). Keep March (below the floor in `cards-d1`)? Which cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Web redesign** · `ready-for-agent` · The owner approved the spec and its picks (2026-10-09). The build runs by the fast plan on `claude/web-redesign-int` (draft PR #26): units W0–W12 in parallel, merged one at a time, then a final review and fix. Samples and UX choices are decided by delegation (owner, 2026-10-09: "use your best judgement"). · [spec](docs/specs/web-redesign/spec.md), [fast plan](https://github.com/SaarShai/king-down-chess/blob/claude/web-redesign-int/docs/specs/web-redesign/fast-plan.md)
 - **Frozen-piece mark** · `needs-triage` · After Freeze (and Ice Wall) the board shows no mark on the piece; only a tap reads "Frozen". Draw a frost mark in the web app's board renderer and keep the plugin default (spec §2 rule 5). Found by the batch 3 UX review of the web redesign, 2026-10-09; new art, so it is not in the redesign build. · [spec](docs/specs/web-redesign/spec.md)
