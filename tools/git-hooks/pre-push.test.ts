@@ -1,6 +1,7 @@
 // Git-hook test for pre-push (checks-and-hooks/04). Each case drives the real hook through a real
 // `git push` from a temporary repository to its bare remote.
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60_000 }); // each case runs real git and node processes; under load one takes more than vitest's 5 s
 import { tempRepo } from '../lib/temp-repo.mjs';
 
 type Repo = ReturnType<typeof tempRepo>;

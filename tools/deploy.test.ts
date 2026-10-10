@@ -10,7 +10,8 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60_000 }); // each case runs a real script or hook in a child process; under load one takes more than vitest's 5 s
 import { tempRepo } from './lib/temp-repo.mjs';
 
 const script = fileURLToPath(new URL('./deploy.sh', import.meta.url));
@@ -339,7 +340,7 @@ function runAsync(command: string, args: string[], options: { cwd?: string; env:
 const check = (folder: string, url: string, timeoutMs = 1500) =>
   runAsync(process.execPath, [liveCheck, folder], { env: { ...process.env, DEPLOY_LIVE_URL: url, DEPLOY_LIVE_TIMEOUT_MS: String(timeoutMs) } });
 
-describe('deploy-live-check.mjs', { timeout: 20_000 }, () => {
+describe('deploy-live-check.mjs', () => {
   it('checks that the website consent redirect keeps the authorization query', async () => {
     const files = { ...pages(), 'vercel.json': consentRoute };
     const live = await site(() => files);
@@ -459,7 +460,7 @@ describe('deploy.sh --target plugin --publish', () => {
 
 // The publish step (secrets-and-public-gates/10): the stub npx stands in for the Vercel CLI, and a
 // local site that serves the stub build stands in for the live site.
-describe('deploy.sh --publish', { timeout: 20_000 }, () => {
+describe('deploy.sh --publish', () => {
   const words = (line: string) => line.replace(/ @ .*/, '');
   const npxCalls = (calls: string[]) => calls.filter(line => line.startsWith('npx '));
 

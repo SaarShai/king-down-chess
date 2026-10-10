@@ -4,7 +4,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, wr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60_000 }); // each case runs a real script or hook in a child process; under load one takes more than vitest's 5 s
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const settings = JSON.parse(readFileSync(join(root, '.claude/settings.json'), 'utf8'));

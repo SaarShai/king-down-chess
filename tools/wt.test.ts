@@ -5,7 +5,8 @@
 import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60_000 }); // each case runs real git and node processes; under load one takes more than vitest's 5 s
 import { tempRepo } from './lib/temp-repo.mjs';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -235,7 +236,7 @@ describe('installation guard', () => {
   const guard = (repo: Repo, checkout: string) =>
     repo.run(vitest, ['run', 'tools/install-guard.test.ts'], { cwd: repoRoot, env: { INSTALL_GUARD_CHECKOUT: checkout } });
 
-  it('fails in a linked worktree with a changed lock file and names wt add <path>', { timeout: 60_000 }, () => {
+  it('fails in a linked worktree with a changed lock file and names wt add <path>', () => {
     const { repo, wt, worktrees } = setup();
     wt(['add', 'feature/three']);
     const path = join(worktrees, 'three');
@@ -245,7 +246,7 @@ describe('installation guard', () => {
     expect(result.stdout + result.stderr).toContain(`wt add ${path}`);
   });
 
-  it('passes in the main checkout and in a linked worktree with an equal lock file', { timeout: 60_000 }, () => {
+  it('passes in the main checkout and in a linked worktree with an equal lock file', () => {
     const { repo, wt, worktrees } = setup();
     wt(['add', 'feature/four']);
     for (const checkout of [repo.dir, join(worktrees, 'four')]) {

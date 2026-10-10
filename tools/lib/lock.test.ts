@@ -3,7 +3,8 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60_000 }); // each case runs real git and node processes; under load one takes more than vitest's 5 s
 import { SLOTS, exclusivePath, releaseAll, runLockPath, slotPaths, takeAllSlots, takeLock, takeOver, takeSlot } from './lock.mjs';
 import { tempRepo } from './temp-repo.mjs';
 

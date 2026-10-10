@@ -5,7 +5,8 @@
 import { randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60_000 }); // each case runs real git and node processes; under load one takes more than vitest's 5 s
 import { tempRepo } from './lib/temp-repo.mjs';
 
 const gatePath = join(import.meta.dirname, 'gate.mjs');
@@ -334,7 +335,7 @@ describe('push mode reads only what origin does not reach', () => {
 });
 
 // A push case runs the fixture hooks and git several times; under load this takes over 5 s.
-describe('secret rule', { timeout: 30_000 }, () => {
+describe('secret rule', () => {
   /** A fake secret value; each case makes new ones. */
   const fake = () => `fake-${randomUUID()}`;
   /**

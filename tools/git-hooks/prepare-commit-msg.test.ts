@@ -1,6 +1,7 @@
 // Git-hook test for prepare-commit-msg (checks-and-hooks/03, story 7). Each case drives the real
 // hook through a real `git commit` in a temporary repository and reads the recorded message.
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60_000 }); // each case runs real git and node processes; under load one takes more than vitest's 5 s
 import { tempRepo } from '../lib/temp-repo.mjs';
 
 const repos: { cleanup(): void }[] = [];
