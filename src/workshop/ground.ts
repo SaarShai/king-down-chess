@@ -22,7 +22,7 @@ import {
 import { BODY_TYPE, START, holds, movesOf, step, type TryState } from './moves';
 import { letterOf } from './names';
 import {
-  actOf, boardOf, clear, diffOf, examplesOf, sceneOf, stir, tapOf, threatsOf, wakeSquare, type Act, type Kind, type Scene, type ScenePiece,
+  actOf, boardOf, clear, diffOf, examplesOf, piecesOf, sceneOf, stir, tapOf, threatsOf, wakeSquare, type Act, type Kind, type Scene, type ScenePiece,
 } from './scene';
 import { MAX, deleteDesign, loadShelf, saveDesign, type SaveResult } from './store';
 import { LIKE_ADDED, LIKE_CLASH, brief, cap, esc, lineParts, lineWords, pawns, ruleText, whenLabel } from './text';
@@ -187,14 +187,15 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (!undos[undos.length - 1].item.yours) revealOpenSlot();
     return true;
   }
-  /** Undo: back to the step before. Back before the first edit, the copy goes from the shelf (the mockup's undo); where
-   *  the device refuses to delete it, the copy and its undo step stay. */
+  /** Undo: back to the step before, and on the Try board as an edit does (change). Back before the first edit, the copy
+   *  goes from the shelf (the mockup's undo); where the device refuses to delete it, the copy and its undo step stay. */
   function undo(): void {
     const u = undos[undos.length - 1];
     if (!u) return;
     if (!u.item.yours && shelf.some(x => x.id === cur.d.id) && !deleteDesign(cur.d.id)) return toast('Could not undo: this device refused.');
     undos.pop();
     if (u.item.d.rules.length !== cur.d.rules.length) focus = knotAt = null;
+    setUp(restored());
     cur = u.item;
     if (u.item.yours) save(); else { unsaved = null; shelf = loadShelf().designs; }
     render();
@@ -747,7 +748,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     setUp(b);
     render();
   }
-  /** The board with the piece back on its square as the design, after a removal or a "becomes": for the die, the broom and an edit. */
+  /** The board with the piece back on its square as the design, after a removal or a "becomes": for the die, the broom, an edit and Undo. */
   function restored(): Uint8Array {
     const b = new Uint8Array(pos.board);
     b[pos.from] = piece(T, WHITE);
@@ -893,10 +894,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     sc = of(cur.d);
     added = 0;
     if (!brush && (pos.became || pos.chain || pos.gone)) {
-      // After a "becomes" the piece moves as that piece; a chain in progress shows only its next takes; a removed piece shows none.
-      const at = new Set(movesNow().map(m => sqName(m.to))), knots = sc.knots;
+      // After a "becomes" the piece moves as that piece. A chain in progress shows only its next takes, from the chain itself:
+      // the scene of the new square may not have them (a When that held at the start). A removed piece shows none, and no piece is open.
+      const knots = sc.knots;
       sc = { ...(pos.became ? sceneOf(now(), board, from, st) : sc), knots };
-      if (!pos.became) sc = { ...sc, marks: sc.marks.filter(m => at.has(m.sq)), rails: [], arches: [], effects: [], impressions: [] };
+      if (!pos.became) sc = { ...sc, pieces: piecesOf(board, pos.gone ? -1 : from), marks: movesNow().map(m => ({ sq: sqName(m.to), k: 'take' })), rails: [], arches: [], effects: [], impressions: [] };
     }
     if (next) {
       // A part is new when it differs in more than its rule numbers (`by`); the knots stay those of the rule lines on the plinth.
@@ -915,10 +917,11 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     renderPaint();
     renderRight();
   }
-  /** Draws everything for the open item. A control that a part replaced gets the focus back. */
+  /** Draws everything for the open item. A control that a part replaced gets the focus back (the card box has an empty value). */
   function render(): void {
     const a = document.activeElement as HTMLElement | null;
-    const keep = ['brush', 'act', 'nub', 'piece', 'design', 'pill', 'when', 'choice', 'sealitem', 'seal', 'rm', 'tok', 'tab', 'try', 'promo'].map(k => a?.dataset?.[k] && `[data-${k}="${a.dataset[k]}"]`).find(Boolean);
+    const keep = ['brush', 'act', 'nub', 'piece', 'design', 'pill', 'when', 'choice', 'sealitem', 'seal', 'rm', 'tok', 'tab', 'try', 'promo', 'cardon']
+      .map(k => a?.dataset?.[k] !== undefined && `[data-${k}="${a.dataset[k]}"]`).find(Boolean);
     // A row or a card of a rule that is gone closes.
     if (row && !ruleIn(cur.d, row.a)) row = null;
     if (card && !ruleIn(cur.d, card)) card = row = null;
