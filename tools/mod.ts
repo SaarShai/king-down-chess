@@ -12,7 +12,7 @@
 import { parseArgs } from 'node:util';
 import pg from 'pg';
 import { PostgresMatchStore } from '../src/match/store';
-import { SafetyService } from '../src/online/safety';
+import { CONTROLS, SafetyService } from '../src/online/safety';
 
 const { positionals: [command, first, second], values } = parseArgs({ allowPositionals: true, options: Object.fromEntries(
   ['facts', 'rule', 'days', 'handle', 'note', 'nca'].map(name => [name, { type: 'string' as const }])) });
@@ -29,8 +29,9 @@ const commands: Record<string, () => Promise<unknown>> = {
 };
 try {
   if (!commands[command]) throw new Error('Commands: list, show, act, appeal, hold. The top of tools/mod.ts shows each one.');
-  // JSON escapes control characters, so a player's note cannot change the terminal.
-  console.log(JSON.stringify(await commands[command](), null, 1) ?? 'Done.');
+  // JSON escapes the C0 controls in text and this the rest (DEL, C1, bidi), so no text in a report can change the terminal.
+  // A raw newline is only the layout of the JSON.
+  console.log(JSON.stringify(await commands[command](), null, 1)?.replace(new RegExp(`[${CONTROLS}]`, 'gu'), c => c === '\n' ? c : `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`) ?? 'Done.');
 } catch (error) {
   console.error(error instanceof Error ? `${'code' in error ? `${error.code}: ` : ''}${error.message}` : error);
   process.exitCode = 1;

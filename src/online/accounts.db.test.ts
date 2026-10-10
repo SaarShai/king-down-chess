@@ -161,6 +161,8 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
    [{ target: 'message', game_id: id, preset: 'hello', category: 'harassment' }, 'NOT_FOUND'],
    [{ target: 'player', user_id: a, category: 'other' }, 'INVALID_INPUT'],
    [{ target: 'player', user_id: b, category: 'other', note: 'look \u001b[2J' }, 'INVALID_INPUT'],
+   [{ target: 'player', user_id: b, category: 'other', note: 'look \u009b2J' }, 'INVALID_INPUT'], // C1: the same escape in one character
+   [{ target: 'player', user_id: b, category: 'other', note: 'look \u202ekool' }, 'INVALID_INPUT'], // bidi: reverses what the owner reads
    [{ target: 'player', user_id: b, category: 'other', reporter_id: c }, 'INVALID_INPUT'],
    [{ target: 'player', game_id: id, category: 'cheating' }, 'INVALID_INPUT'],
   ] as const) await expect(safety.report(a, input), JSON.stringify(input)).rejects.toMatchObject({ code });
@@ -264,8 +266,13 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
  it('runs the owner command line over the same functions', async () => {
   const [a, b] = [await user('cli'), await user('clo')];
   const { id } = await safety.report(a, { target: 'player', user_id: b, category: 'other', note: 'Seen in the CLI.' });
+  // A note that came in before the service refused controls: the output escapes them, and the JSON keeps the text.
+  const raw = 'Old \u009b2J \u202e\u007f note.', old = Number((await rows(`insert into public.reports(reporter_id,reported_id,target,category,note) values($1,$2,'player','other',$3) returning id`, [a, b, raw]))[0].id);
   const mod = (...args: string[]) => promisify(execFile)(process.execPath, ['--import', 'tsx', fileURLToPath(new URL('../../tools/mod.ts', import.meta.url)), ...args], { env: { ...process.env, KINGDOWN_ADMIN_DATABASE_URL: url } });
-  expect(JSON.parse((await mod('list')).stdout).find((entry: { id: number }) => entry.id === id)).toMatchObject({ category: 'other', note: 'Seen in the CLI.' });
+  const listed = (await mod('list')).stdout;
+  expect(listed).not.toMatch(/[\u007f-\u009f\u202e]/);
+  expect(JSON.parse(listed).find((entry: { id: number }) => entry.id === old)).toMatchObject({ note: raw });
+  expect(JSON.parse(listed).find((entry: { id: number }) => entry.id === id)).toMatchObject({ category: 'other', note: 'Seen in the CLI.' });
   expect(JSON.parse((await mod('act', String(id), 'warning', '--facts', 'You left games.', '--rule', 'Terms: play on.')).stdout).action_id).toEqual(expect.any(Number));
   expect(JSON.parse((await mod('show', String(id))).stdout)).toMatchObject({ status: 'closed', outcome: 'warning', actions: [{ action: 'warning' }] });
   await expect(mod('act', String(id), 'ban')).rejects.toMatchObject({ code: 1, stderr: expect.stringContaining('INVALID_INPUT') });

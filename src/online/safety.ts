@@ -13,8 +13,10 @@ import { targetSchema, who } from './accounts';
 const DAY = 86_400_000;
 /** Every statement of reasons ends with this line (Ofcom ICU D9 to D13; DSA Article 17). */
 export const APPEAL = 'How to appeal: follow the steps on the Safety and reporting page at kingdown.dev.';
-// Newlines are allowed; other control characters (a terminal escape, for one) are not.
-const prose = (max: number) => z.string().trim().min(1).max(max).regex(/^[^\u0000-\u0009\u000b-\u001f\u007f]*$/);
+/** Control characters (C0, DEL and C1) and the bidi controls: a terminal acts on them, or they reorder the text that the owner reads. */
+export const CONTROLS = '\\p{Cc}\\u061c\\u200e\\u200f\\u202a-\\u202e\\u2066-\\u2069';
+// Newlines are allowed; the other controls (a terminal escape, for one) are not.
+const prose = (max: number) => z.string().trim().min(1).max(max).regex(new RegExp(`^(?:\\n|[^${CONTROLS}])*$`, 'u'));
 const reportSchema = z.strictObject({
   target: z.enum(['player', 'handle', 'message']), category: z.enum(REPORT_CATEGORIES), intimate_image: z.boolean().optional(),
   note: prose(1000).optional(), preset: z.enum(PRESETS).optional(), ...targetSchema,
