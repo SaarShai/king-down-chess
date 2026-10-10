@@ -1,6 +1,6 @@
 # 02 · The split, step 1: the leaf modules
 
-Status: in-review
+Status: done (PR #33 merged 2026-10-10)
 Blocked by: 01 (merged; it lets two check runs share this Mac). The branch may start now; its full check run waits for 01.
 
 ## Scope

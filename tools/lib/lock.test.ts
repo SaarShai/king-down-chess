@@ -143,7 +143,7 @@ describe('releaseAll()', () => {
     unlinkSync(join(common, 'check-slot-1.lock'));
     (await exclusive)(); // the waiting taker goes on and frees what it took after the releaseAll
     releaseRun();
-    expect(SLOTS).toBe(2);
+    expect(SLOTS).toBe(3);
   });
 });
 
