@@ -1,0 +1,36 @@
+// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground ticket 01).
+// The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge.
+// Mockup states to set beside them: open, hero, archer, beast, maester, ogre, guard, phone-open
+// (docs/research/rules-ui-2026-10-10/mockups/proving-ground.html?state=<id>, served, never file://).
+// The targets leave out the board squares (24 px or more, spec decision 9) and the later nubs and knots.
+// Run: SAMPLE=W14 node docs/specs/web-ux/capture.mjs <base-url> <out-dir>. Renders stay outside Git.
+import { pressMenu } from '../../../../tools/app-ui.mjs';
+
+const save = { back: 'SQBKRSML', fen: '', moves: [], white: 'human', black: 'human', sound: false, pace: 'off' };
+const targets = 'button:not(.sq, .nub, .knot), select, summary, label';
+const controls = '#workshop .pg-menu, #workshop .pg-field';
+/** The W12 design (samples/W12.mjs) as a link. */
+const rider = { kind: 'piece', name: 'Rook Rider', look: { figure: 'antler-guardian', body: 'token', auto: true, glow: null, army: 0 }, letter: 'D',
+  squares: [{ x: 1, y: 2, mark: 'both' }, { x: -1, y: 2, mark: 'both' }], lines: ['n', 'e', 's', 'w'], rules: [] };
+/** Opens the Workshop from the menu, then the pool piece `key` from the ledge. */
+const piece = key => async ({ page }) => {
+  await pressMenu(page, 'Workshop');
+  await page.locator('#workshop.pg[open]').waitFor();
+  if (key !== 'pawn') await page.click(`.slot[data-piece="${key}"]`);
+  await page.locator(`.slot[data-piece="${key}"][aria-current="true"]`).waitFor();
+};
+const state = (name, key) => ({ name, query: '?workshop=a', save, targets, controls, steps: piece(key) });
+
+export default {
+  states: [
+    state('open-pawn', 'pawn'),
+    state('paladin', 'paladin'),
+    state('archer', 'archer'),
+    state('beast', 'beast'),
+    state('maester', 'maester'),
+    state('ogre', 'ogre'),
+    state('guard', 'guard'),
+    { name: 'link', query: `?workshop=a&design=${Buffer.from(JSON.stringify(rider)).toString('base64url')}`, save, targets, controls,
+      steps: async ({ page }) => { await page.locator('#workshop.pg[open]').waitFor(); } },
+  ],
+};

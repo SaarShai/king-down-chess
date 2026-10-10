@@ -23,12 +23,16 @@ export const LEG = {
 export const TR = 0.32, SR = 0.27, SO = 0.07;
 
 export type Kind = 'move' | 'take' | 'both' | 'shot' | 'moveshot';
-/** px: drawing units for one CSS pixel (default 1); power: a king's power (two blue frames); hover: the gold-bright edge. */
-export interface Opts { px?: number; power?: boolean; hover?: boolean }
+/**
+ * px: drawing units for one CSS pixel (default 1); power: a king's power (two blue frames); hover: the gold-bright edge.
+ * solid: the key's full-strength tile (the Workshop brushes and key row); cond: the Workshop's "only sometimes" (a
+ * dashed frame; asleep is pale too).
+ */
+export interface Opts { px?: number; power?: boolean; hover?: boolean; solid?: boolean; cond?: 'asleep' | 'awake' }
 interface TargetOpts extends Opts { color?: string; halo?: string | null; rw?: number; len?: number }
 
-/** fill: a colour, 'green' (the tile gradient, marks.js:168) or 'glow-red' (the radial glow, marks.js:178). a: opacity. */
-interface Ink { fill?: string; stroke?: string; lw?: number; a?: number }
+/** fill: a colour, 'green' (the tile gradient, marks.js:168) or 'glow-red' (the radial glow, marks.js:178). a: opacity. dash: the stroke's dash and gap. */
+interface Ink { fill?: string; stroke?: string; lw?: number; a?: number; dash?: number[] }
 export type Shape = Ink & (
   | { k: 'rect'; x: number; y: number; w: number; h: number; r: number }
   | { k: 'circle'; x: number; y: number; r: number }
@@ -78,17 +82,31 @@ function power(x: number, y: number, t: number, r: number, p: number): Shape[] {
   return [frame(LEG.power, 3 * p), frame(LEG.powerMid, 1.5 * p)];
 }
 
-/** One legend tile on the square (x, y) of side s (tileWash with the wash on, marks.js:300-342, :380-383): 0.67 s, centred. */
+/** The frame width of a tile on a square of s CSS px (fw, marks.js:146). */
+const fw = (s: number) => (s < 24 ? 1 : s < 40 ? 1.5 : 2);
+/** The dash of a frame that holds only sometimes (marks.js:313). */
+const condDash = (s: number, p: number) => (s < 40 * p ? [3 * p, 2 * p] : [4 * p, 3 * p]);
+
+/**
+ * One legend tile on the square (x, y) of side s (tileWash, marks.js:300-342, :380-383). On the board, the wash:
+ * 0.67 s, centred, a 60% green. o.solid: the key's tile, 0.8 s, full strength, with a bevel. o.cond: a dashed frame;
+ * asleep is a pale green too (marks.js:325-326). The Workshop draws the asleep moon pip over it.
+ */
 export function tile(kind: Kind, x: number, y: number, s: number, o: Opts = {}): Shape[] {
-  const p = o.px ?? 1, t = 0.67 * s, x0 = x + 0.165 * s, y0 = y + 0.165 * s, cx = x0 + t / 2, cy = y0 + t / 2;
-  const r = Math.max(3 * p, 0.06 * s), green = kind === 'move' || kind === 'both' || kind === 'moveshot';
+  const p = o.px ?? 1, solid = !!o.solid, asleep = o.cond === 'asleep', t = (solid ? 0.8 : 0.67) * s, x0 = x + (s - t) / 2, y0 = y + (s - t) / 2;
+  const cx = x0 + t / 2, cy = y0 + t / 2, r = Math.max(3 * p, 0.06 * s), w = (solid ? fw(s / p) : 1.5) * p;
+  const green = kind === 'move' || kind === 'both' || kind === 'moveshot';
   const box = (ink: Ink): Shape => ({ k: 'rect', x: x0, y: y0, w: t, h: t, r, ...ink });
-  const halo = 'rgba(251,247,238,.8)';
+  const halo = solid ? LEG.white : 'rgba(251,247,238,.8)', b = w / 2 + 0.75 * p;
+  const bevel = (ly: number, stroke: string): Shape => ({ k: 'line', pts: [x0 + r, ly, x0 + t - r, ly], stroke, lw: p });
   return [
     ...(o.power ? power(x0, y0, t, r, p) : []),
-    box({ stroke: LEG.halo, lw: 3 * p, a: 0.55 }),
-    box({ fill: green ? 'green' : LEG.white, a: green ? 0.6 : 0.94 }),
-    box(o.hover ? { stroke: LEG.gold, lw: 2.5 * p } : { stroke: LEG.navy, lw: 1.5 * p, a: 0.7 }),
+    box({ stroke: LEG.halo, lw: w + (solid ? 3 : 1.5) * p, a: solid ? (asleep ? 0.6 : undefined) : 0.55 }),
+    box({ fill: asleep ? LEG.hi : green ? 'green' : LEG.white, a: asleep ? (solid ? 0.45 : 0.32) : solid ? undefined : green ? 0.6 : 0.94 }),
+    // The laid-tile bevel of the key's tile: a light top edge and a dark bottom edge (marks.js:327-331).
+    ...(solid && !asleep ? [bevel(y0 + b, 'rgba(255,255,255,.35)'), bevel(y0 + t - b, 'rgba(28,46,92,.25)')] : []),
+    box(o.hover ? { stroke: LEG.gold, lw: 2.5 * p }
+      : { stroke: LEG.navy, lw: w, a: solid ? (asleep ? 0.6 : undefined) : 0.7, dash: o.cond ? condDash(s, p) : undefined }),
     ...(kind === 'take' || kind === 'both' ? target(cx, cy, TR * t, { px: p, halo }) : []),
     ...(shoots(kind) ? shot(cx + SO * t, cy - SO * t, SR * t, { px: p, halo }) : []),
   ];
@@ -97,7 +115,7 @@ export function tile(kind: Kind, x: number, y: number, s: number, o: Opts = {}):
 /**
  * A take on an enemy figure (ringTake and the base glow, marks.js:1080-1090, :1095-1099): a red edge inset 0.06 s,
  * a faint red fill, and a ring and a red glow under the feet. footY is the figure's foot line. Both and moveshot
- * put the green move tile under the edge. The badge (badge()) goes over the figure.
+ * put the green move tile under the edge. The badge (badge()) goes over the figure. o.cond dashes the edge (marks.js:1084).
  */
 export function occupied(kind: Kind, x: number, y: number, s: number, footY: number, o: Opts = {}): Shape[] {
   const p = o.px ?? 1, i = 0.06 * s, cx = x + s / 2;
@@ -106,7 +124,7 @@ export function occupied(kind: Kind, x: number, y: number, s: number, footY: num
     ...(kind === 'both' || kind === 'moveshot' ? tile('move', x, y, s, { px: p }) : []),
     ...(o.power ? power(x + i, y + i, s - 2 * i, 0.06 * s, p) : []),
     edge({ stroke: LEG.halo, lw: 4 * p, a: 0.5 }),
-    edge({ fill: 'rgba(214,52,40,.08)', stroke: o.hover ? LEG.gold : LEG.red, lw: (o.hover ? 2.5 : 2) * p }),
+    edge({ fill: 'rgba(214,52,40,.08)', stroke: o.hover ? LEG.gold : LEG.red, lw: (o.hover ? 2.5 : 2) * p, dash: o.cond ? [4 * p, 3 * p] : undefined }),
     { k: 'ellipse', x: cx, y: footY, rx: 0.34 * s, ry: 0.1 * s, stroke: LEG.red, lw: 2.5 * p, a: 0.6 },
     { k: 'ellipse', x: cx, y: footY, rx: 0.38 * s, ry: 0.12 * s, fill: 'glow-red' },
   ];
@@ -133,7 +151,7 @@ const n = (v: number) => Math.round(v * 100) / 100;
 export function toSvg(shapes: Shape[]): string {
   return shapes.map(sh => {
     const fill = sh.fill === 'green' || sh.fill === 'glow-red' ? `url(#leg-${sh.fill})` : sh.fill ?? 'none';
-    const ink = `fill="${fill}"${sh.stroke ? ` stroke="${sh.stroke}" stroke-width="${n(sh.lw ?? 1)}"` : ''}${sh.a != null ? ` opacity="${sh.a}"` : ''}`;
+    const ink = `fill="${fill}"${sh.stroke ? ` stroke="${sh.stroke}" stroke-width="${n(sh.lw ?? 1)}"` : ''}${sh.dash ? ` stroke-dasharray="${sh.dash.map(n).join(' ')}"` : ''}${sh.a != null ? ` opacity="${sh.a}"` : ''}`;
     if (sh.k === 'rect') return `<rect x="${n(sh.x)}" y="${n(sh.y)}" width="${n(sh.w)}" height="${n(sh.h)}" rx="${n(sh.r)}" ${ink}/>`;
     if (sh.k === 'circle') return `<circle cx="${n(sh.x)}" cy="${n(sh.y)}" r="${n(sh.r)}" ${ink}/>`;
     if (sh.k === 'ellipse') return `<ellipse cx="${n(sh.x)}" cy="${n(sh.y)}" rx="${n(sh.rx)}" ry="${n(sh.ry)}" ${ink}/>`;
@@ -163,7 +181,12 @@ export function paint(ctx: CanvasRenderingContext2D, shapes: Shape[]): void {
       g.addColorStop(0, 'rgba(214,52,40,.55)'); g.addColorStop(0.6, 'rgba(214,52,40,.3)'); g.addColorStop(1, 'rgba(214,52,40,0)');
       ctx.fillStyle = g; ctx.fill(); ctx.restore();
     } else if (sh.fill) { ctx.fillStyle = sh.fill; ctx.fill(); }
-    if (sh.stroke) { ctx.lineWidth = sh.lw ?? 1; ctx.strokeStyle = sh.stroke; ctx.stroke(); }
+    if (sh.stroke) {
+      ctx.lineWidth = sh.lw ?? 1; ctx.strokeStyle = sh.stroke;
+      if (sh.dash) ctx.setLineDash(sh.dash);
+      ctx.stroke();
+      if (sh.dash) ctx.setLineDash([]);
+    }
   }
   ctx.globalAlpha = base;
 }

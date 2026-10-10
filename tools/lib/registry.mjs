@@ -31,6 +31,7 @@ export const checks = [
   { name: 'visual-design', script: 'docs/visual-design/verify.mjs', limit: 240 },
   { name: 'workshop', script: 'tools/verify-workshop.mjs', limit: 240 },
   { name: 'workshop-cast', script: 'tools/verify-workshop-cast.mjs', limit: 180 },
+  { name: 'proving-ground', script: 'tools/verify-proving-ground.mjs', limit: 180 },
   { name: 'qa', script: 'tools/qa.mjs', limit: 900, channel: 'chromium', exclusive: true },
   { name: 'selftest', script: 'tools/check-selftest.mjs', limit: 120 },
   // Plugin checks build their own artifact; OAuth and HTTP checks need local PostgreSQL.
