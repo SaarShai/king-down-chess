@@ -2,6 +2,9 @@
 
 The lessons on agents, helpers, worktrees, shell commands and tools. [LESSONS.md](../../LESSONS.md) holds the Always rules and the index of all topic files.
 
+## 2026-10-10 — two `npm test` runs at once trip the 5-second test limits
+- A push's pre-push hook ran `npm test` while another `npm test` ran in a second worktree. In each run an unrelated test took 5.3 to 6.7 s and failed its 5 s limit (`gate.test.ts`, `piece-activity.test.ts`), so the hook refused a sound commit. → One `npm test` at a time on this Mac. A push runs one, so start no other test run until the push ends; a background shell call reports when it does. (2026-10-10)
+
 ## 2026-10-10 — one independent review a PR found a real item every time
 - Tickets 03 to 05 of the after-redesign spec (PRs #35 to #37) each got a read-only review of the diff by a reviewer that did not write it, and a three-lens panel with an adversarial check of each should-fix. Each round found an item that the builder's own tests and checks had passed: a browser case that could pass without a search in flight, a label condition that tested the wrong value, spec rows that said the wrong file, a slot count whose tests still covered the old count, and a workload that no test had run. → Before the merge of a step that moves or changes code, get one review from a reader that did not write it, on the diff and the before-and-after files. Fix each confirmed should-fix, record the findings and the fixes in the ticket and in a "Reviews" section of the PR body, and merge only after that. Run the reviewer inside the worktree with the read-only sandbox (`codex exec -C <worktree> -s read-only …`), so it reads the neighbours itself: a bundle of copied files made one review downgrade a finding to "missing evidence". (2026-10-10)
 
