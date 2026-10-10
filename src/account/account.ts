@@ -56,7 +56,7 @@ export function accountHtml(user: User | null, facebook: boolean): string {
 
 let sync: Sync | null = null;
 
-/** main.ts saved something: note what changed, and send it soon when signed in. */
+/** The game saved something (screen/play.ts save; main.ts once at load): note what changed, and send it soon when signed in. */
 export function changed(): void {
   try { if (sync) sync.changed(); else stamp(localStorage); } catch { /* storage blocked: nothing to sync */ }
 }

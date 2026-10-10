@@ -1,6 +1,6 @@
 /**
  * The turn rule (web redesign spec §4.2): one button hands the turn over, and Undo works only
- * before the press. main.ts keeps one number, the turn start: the count of plies that are handed
+ * before the press. screen/play.ts keeps one number, the turn start: the count of plies that are handed
  * over. This module reads the game against it, with no DOM.
  */
 import type { Game } from './game';
