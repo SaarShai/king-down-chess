@@ -14,12 +14,14 @@ Blocked by: 02
 2. [ ] `main.ts`: imports and CSS order, URL rules, `setEvaluator`, the view and `window.view`, the parts' connect calls, the lesson shelf, home, the account load, the start-up order with its `await`s.
 3. [ ] The `main.ts` comments in `src/` and `tools/`; the plugin-imported modules (`powers-ui.ts`, `render/renderer.ts`, `render/PaintedView.ts`, `render/clay.ts`, `match/worker.ts`) in one small commit with `plugin-ui` and `plugin-ui-http` and the page size before and after.
 4. [ ] `tools/qa.mjs` case "cancelling mid-search starts a clean game": press End turn (`endTurn(page)` of `tools/app-ui.mjs`) after e2-e4, so that the computer starts to think before New game. A logic commit to a check (no assertion line removed).
-5. [ ] Live specs: line citations of `main.ts` in `docs/specs/web-redesign/spec.md` and `fast-plan.md` become `module:function` where the text is still live. No edit of historical reviews or `docs/tasks-archive/`.
+5. [ ] `src/screen/keys.ts` takes the play object (or one narrow view of it) in place of its six turn-state getters, and one `commands` dep in place of `click`, `read`, `escape`, `resetView`, `undo` and `step`: the 15-dep list of ticket 02 was a transitional shape (the reviews of PR #33).
+6. [ ] Every step that replaces the game calls `reset()` (`gen++`) before it: `listMoments` in `src/screen/moments.ts` keeps a copy of the game across its awaits, and the `gen` guard is what makes that copy safe (the behaviour review of PR #33).
+7. [ ] Live specs: line citations of `main.ts` in `docs/specs/web-redesign/spec.md` and `fast-plan.md` become `module:function` where the text is still live. No edit of historical reviews or `docs/tasks-archive/`.
 
 ## Verification
 
 - [ ] `npm run typecheck`, `npm test`; the full `npm run check:browser` twice, with `playable-clay`, `qa`, `lesson-return` and `account` green (the state risks of spec §4.4).
-- [ ] The build compare and the render compare of ticket 02, zero differences; the clay look, the account client and the Workshop are still separate chunks.
+- [ ] The build compare and the render compare of ticket 02 (`docs/specs/web-ux/render-compare.mjs`, threshold 16, with a second render of main to find the unstable motion states): no stable state differs; the clay look, the account client and the Workshop are still separate chunks.
 - [ ] `wc -l src/main.ts` and the `let` count: the target is 250 to 350 lines (Comments: the real numbers).
 - [ ] `plugin-ui` and `plugin-ui-http` pass; the plugin page size before and after (Comments).
 - [ ] `git diff --color-moved=zebra` of the move commit shows moved blocks, not rewritten ones; `git blame -C -C -M src/screen/play.ts` keeps the old authorship on moved lines.
