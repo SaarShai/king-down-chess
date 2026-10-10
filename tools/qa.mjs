@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { powerButtonText, usePower, endTurn } from './app-ui.mjs';
+import { powerButtonText, usePower, endTurn, startNewGame } from './app-ui.mjs';
 /**
  * Browser QA for the takeover changes. The runner builds the app, serves the build and runs this check:
  *
@@ -21,7 +21,7 @@ import { powerButtonText, usePower, endTurn } from './app-ui.mjs';
  */
 import { readFileSync } from 'node:fs';
 import { lanMoves } from './app-ui.mjs';
-import { startGame } from './new-game-ui.mjs';
+import { setUpGame, startGame } from './new-game-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 import { classify, verdict } from './lib/known-red.mjs';
 
@@ -298,16 +298,21 @@ await caseFn('full AI vs AI game reaches a result', '?think=200', async (page, e
   }
 }, { players: 'ai,ai' });
 
-await caseFn('cancelling mid-search starts a clean game', '', async (page, errors) => {
+// Strong takes the whole `?think=` time (the other levels cap it under a second), so the computer still
+// thinks after the New game clicks, and Start cancels a search that is in flight.
+await caseFn('cancelling mid-search starts a clean game', '?think=30000', async (page, errors) => {
+  await startGame(page, { level: 'strong' }); // you play White against the strong computer
   await clickSq(page, 'e2');
   await clickSq(page, 'e4');
   await endTurn(page); // the turn goes to the computer
   await page.waitForFunction(() => document.getElementById('status').textContent === 'thinking…', null, { timeout: 10000 }); // the AI is thinking now
-  await startGame(page); // New game's first choice: you play White against the computer
+  await setUpGame(page); // New game's first choice: you play White against the computer
+  const thinking = await page.evaluate(() => document.getElementById('status').textContent === 'thinking…'); // still, at Start
+  await startNewGame(page);
   await page.waitForTimeout(2500); // any stale answer would land here
   const s = await snap(page);
-  const ok = s.moves === '' && /PPPPPPPP/.test(s.fen) && errors.length === 0;
-  return ok ? true : `moves="${s.moves}" fen="${s.fen}" errors=${errors.join(' | ')}`;
+  const ok = thinking && s.moves === '' && /PPPPPPPP/.test(s.fen) && errors.length === 0;
+  return ok ? true : `${thinking ? '' : 'the computer answered before Start · '}moves="${s.moves}" fen="${s.fen}" errors=${errors.join(' | ')}`;
 }, { players: 'human,ai' });
 
 await caseFn('promotion picker promotes to a queen', `?fen=${encodeURIComponent('7k/P7/8/8/8/8/8/K7 w - - 0 1')}`, async (page, errors) => {
