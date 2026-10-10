@@ -14,10 +14,10 @@ The tool writes `<state>-<size>.png`, `<state>-phone.webm` (for a state with `vi
 
 ## A branch against main
 
-For a step that must change nothing a player sees, `render-compare.mjs --against main` is the render part of the proof in one command (the build compare, the chunk and precache lists, stays a separate step): it builds main in a scratch worktree and this checkout in place, renders every sample against each build (main twice, so that the states that differ between two renders of one build do not count), and prints the stable changes and the sample faults. It takes about a quarter of an hour: start it detached and read its log when it ends.
+For a step that must change nothing a player sees, `render-compare.mjs --against main` is the render part of the proof in one command (the build compare, the chunk and precache lists, stays a separate step): it builds main in a scratch worktree and this checkout in place, renders every sample against each build (main twice, so that the states that differ between two renders of one build do not count), and prints the stable changes and the sample faults. It takes about a quarter of an hour: start it detached, with its output outside the checkout (a new file inside the checkout fails every check of a check run there), and read `compare.log` in its out folder when it ends.
 
 ```sh
-node docs/specs/web-ux/render-compare.mjs --against main [--samples 00,W1] > compare.log 2>&1 &
+node docs/specs/web-ux/render-compare.mjs --against main [--samples 00,W1] > "${TMPDIR:-/tmp}/render-compare.log" 2>&1 &
 ```
 
 ## The table
