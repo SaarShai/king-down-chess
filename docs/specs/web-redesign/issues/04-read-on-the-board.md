@@ -97,3 +97,5 @@ Guide stays the sheet name and close label; All rules stays the read action.
 Piece and power targets share the focus outline. Read tests and browser checks pass.
 
 Item 7 browser check: decided by delegation (2026-10-09). The special-move check reads the same friendly-piece Maester sentence as the read test.
+
+Item 2: decided by delegation (2026-10-09). Each Guide power has one block and a full stop. Separator lines go. The focused power outline clears the king name and colon. The powers browser check passes.

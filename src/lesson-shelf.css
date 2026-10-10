@@ -63,4 +63,4 @@
   .lesson-shelf .shelf-next { display: flex; max-width: 360px; margin-inline: auto; }
 }
 
-#powers-list [data-power] { display: inline-block; }
+#powers-list [data-power] { display: block; margin: 4px 0 8px; padding: 4px; }

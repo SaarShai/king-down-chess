@@ -52,6 +52,11 @@ try {
   console.log('ok a tap reads and does not arm; rules focus the named power');
 
   // 2. Use arms; Cancel, Esc and a second coin tap disarm.
+  assert.equal(await page.locator('#powers-list li').evaluateAll(rows => rows.every(row => ![...row.childNodes].some(n => n.nodeType === Node.TEXT_NODE && /^[;.]\s*$/.test(n.textContent)))), true, 'the powers list has no stray separators');
+  assert.equal(await page.locator('#powers-list [data-power=Freeze]').evaluate(row => {
+    const power = row.getBoundingClientRect(), name = row.parentElement.querySelector('b').getBoundingClientRect();
+    return power.top - 4 >= name.bottom;
+  }), true, 'the power outline clears the king name and colon');
   await open(page);
   await usePower(page);
   assert.equal(await powerCoin(page, 'w').getAttribute('aria-pressed'), 'true');
