@@ -1,5 +1,6 @@
 // The real board: a capture rewind, then an Archer shot mate.
-import { endTurn, usePower } from '../../../../tools/app-ui.mjs';
+import assert from 'node:assert/strict';
+import { endTurn, lanMoves, usePower } from '../../../../tools/app-ui.mjs';
 const base = { back: '', white: 'human', black: 'human', sound: false, skill: 'beginner' };
 const rest = page => page.waitForFunction(() => !window.view.scene.animating && document.getElementById('end-turn').getAttribute('aria-disabled') === 'false');
 export default {
@@ -14,9 +15,18 @@ export default {
     { name: 'computer-tell', video: true, clock: true, stillPace: 'normal', settleMs: 0, query: '?think=50',
       save: { ...base, back: 'RNBQKBNR', fen: '', moves: [], black: 'ai' }, controls: '#end-turn, #menu-btn',
       steps: async ({ page, tap, video }) => {
-        await tap(12); await tap(28); await rest(page); await endTurn(page);
+        await tap(12); await tap(28); await rest(page);
+        // The sample fixes Beginner's two random rolls: choose legal move 13 of 20, g7-g5.
+        await page.evaluate(() => {
+          const random = Math.random, rolls = [0, 13.5 / 20];
+          Math.random = () => rolls.shift() ?? random();
+        });
+        await endTurn(page);
         await page.waitForFunction(() => window.view.scene.lifted != null, null, { polling: 10 });
-        if (video) await page.waitForTimeout(1000);
+        if (video) {
+          await page.waitForTimeout(1000);
+          assert.deepEqual(await lanMoves(page), ['e2-e4', 'g7-g5']);
+        }
         else {
           await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 32)));
           if (await page.evaluate(() => window.view.scene.lifted == null)) throw new Error('The tell ended before the still.');
