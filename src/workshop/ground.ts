@@ -343,6 +343,9 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     (ruleIn(cur.d, a) ? 'Already in this piece.' : blockOf(a).needs?.(cur.d) ?? limit({ ...cur.d, rules: [...cur.d.rules, blockOf(a).rule] }));
   function renderShelf(): void {
     shelfEl.hidden = !shelfOpen && !card;
+    // The shelf covers the right column, and on the phone the ledge too: the covered controls leave the Tab order.
+    q('.pg-right').inert = !shelfEl.hidden;
+    q('.pg-ledge').inert = !shelfEl.hidden && narrow.matches;
     const r = card && ruleIn(cur.d, card);
     if (r) {
       const b = blockOf(r.does.a);

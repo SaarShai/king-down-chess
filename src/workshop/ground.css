@@ -90,6 +90,8 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .sline .l1 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 /* the 44 px pill buttons stand 11 px out of a row: the padding holds them, and the margin keeps the line as high as before */
 .sline .l2 { padding-block: 11px; margin-block: -11px; font-size: var(--fs-md); line-height: 1.3; }
+/* a line of two rows with buttons: 22 px between the rows and 11 px above and below them, so that each 44 px button has its own area (decision 9) */
+.sline .txt:has(.l1):has(.pg-hit) { gap: 22px; padding-block: 5px; }
 #workshop.pg .sline.add { width: 100%; padding: 6px; border-radius: 8px; text-align: left; font-size: var(--fs-md); color: var(--ink-soft); }
 .sline .sl-seal { flex: none; width: 44px; height: 44px; border-radius: 50%; }
 .sline.add .sl-seal { display: grid; place-items: center; border: 1.5px dashed var(--stone-500); color: var(--accent); font: 400 24px/1 var(--font-body); }

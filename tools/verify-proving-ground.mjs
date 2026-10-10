@@ -9,9 +9,10 @@
 // Cmd+Z, nothing under a sheet, a refused delete, back before the first edit), saveAlerts (a full shelf, a storage that
 // throws, Copy link), shareLink (Share by the Enter key; the copied ?design= link, unchanged, opens the same design; a
 // refused clipboard opens the copy sheet) and weigh (the words; on the phone, ⋯ by the keys gives the focus back to ⋯);
-// then the rules of ticket 03: shelf (S, Esc, the groups, ✓ and dim seals, the preview, Stamp; the phone's bottom sheet),
-// threeOfThree (the Add row, the dotted rows, the limit words), pill (the row, the arrows, the preview, Esc, Enter, a
-// refused choice), whenChip (the When choices, More choices, an asleep seal, "Always" for "moves like", no choices for
+// then the rules of ticket 03: shelf (S, Esc, Tab skips what the shelf covers, the groups, ✓ and dim seals, the preview,
+// Stamp; the phone's bottom sheet), threeOfThree (the Add row, the dotted rows, the limit words), pill (no two 44 px buttons
+// of the lines overlap, the row, the arrows, the preview, Esc, Enter, a refused choice), whenChip (the When choices, More
+// choices, an asleep seal, "Always" for "moves like" with the queen's lines in the design, no choices for
 // "takes again") and removeRule (the × of a line, Undo; the phone's rule card). The keys group also opens and closes the shelf with S.
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
@@ -78,6 +79,11 @@ const refuse = p => p.evaluate(() => {
 const lines = p => p.$$eval('.pg-lines .sline:not(.add, .empty) .l2', ls => ls.map(l => l.textContent));
 const focusOn = (p, sel) => p.$eval(sel, e => e === document.activeElement);
 const previewed = p => p.locator('.pg-board [data-pv]').count();
+/** The pairs of targets in `sel` whose boxes overlap: each 44 px button has its own area (decision 9). */
+const overlaps = (p, sel) => p.$$eval(sel, bs => bs.flatMap((b, i) => bs.slice(i + 1).filter(c => {
+  const r = b.getBoundingClientRect(), s = c.getBoundingClientRect();
+  return Math.min(r.bottom, s.bottom) - Math.max(r.top, s.top) > 0.5 && Math.min(r.right, s.right) - Math.max(r.left, s.left) > 0.5;
+}).map(c => `${b.textContent} and ${c.textContent}`)));
 async function stampRule(p, a) {
   await p.click('[data-act="shelf"]');
   await p.click(`[data-seal="${a}"]`);
@@ -497,6 +503,9 @@ async function shelf() {
   assert.equal(await p.locator('.pg-shint').textContent(), 'Tap a seal. The board shows what it does.', 'the shelf shows the hint');
   const box = await sheet.boundingBox();
   assert.deepEqual([Math.round(box.width), Math.round(box.height)], [336, 672], 'the shelf covers the right column, 336 × 672');
+  await p.keyboard.press('Shift+Tab');
+  await p.keyboard.press('Shift+Tab');
+  assert.equal(await focusOn(p, '.pg-hits .sq[tabindex="0"]'), true, 'Tab skips the brushes under the shelf');
   await p.keyboard.press('Escape');
   assert.equal(await sheet.isVisible(), false, 'Esc closes the shelf');
   assert.equal(await focusOn(p, '[data-act="shelf"]'), true, 'and gives the focus back to the Add row');
@@ -534,6 +543,9 @@ async function shelf() {
   await noSidewaysScroll(q, '#workshop');
   await q.click('[data-seal="movesLike"]');
   await shot(q, 'stamp-preview-390x844');
+  await q.focus('[data-act="stamp"]');
+  await q.keyboard.press('Tab');
+  assert.equal(await q.evaluate(() => !!document.activeElement.closest('.pg-right, .pg-ledge')), false, 'on the phone, Tab skips the brushes and the ledge under the sheet');
   await q.click('[data-act="stamp"]');
   assert.deepEqual(await q.$$eval('.pg-pseals [data-card]', e => e.map(x => x.dataset.card)), ['step2', 'movesLike', 'becomes'], 'Stamp adds the seal to the plinth strip');
   await q.context().close();
@@ -563,6 +575,7 @@ async function pill() {
   const p = await open();
   await door(p);
   await stampRule(p, 'movesLike');
+  assert.deepEqual(await overlaps(p, '.pg-lines .pg-hit'), [], 'the 44 px buttons of the three lines do not overlap');
   const at = '[data-pill="movesLike"]';
   await p.click(at);
   assert.equal(await p.getAttribute(at, 'aria-expanded'), 'true', 'a tap on a pill opens its row');
@@ -626,10 +639,14 @@ async function whenChip() {
   await p.click('[data-act="morewhen"]');
   await p.selectOption('[data-near]', { index: 1 });
   assert.match(await p.locator(at).textContent(), /^next to your /, 'the piece list sets "Next to your …"');
+  const { squares } = (await stored(p))[0];
   await p.click(at);
   await p.getByRole('button', { name: 'Always (adds it to Moves)' }).click();
   assert.equal(await toast(p), "Added to Moves: the queen's lines.", '"Always" for "moves like" adds its squares to Moves');
   assert.deepEqual(await lines(p), ['steps 2 straight ahead', 'becomes a piece you choose'], 'and takes the rule away');
+  const saved = (await stored(p))[0];
+  assert.deepEqual([saved.lines, saved.squares], [['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'], squares], "the queen's eight lines join the Pawn's squares in the design");
+  await has(p, ['h4 move'], 'the board shows a square that only the queen reaches');
   await p.click('[data-when="becomes"]');
   assert.equal((await choices()).length, 2, '"becomes" has its two events');
   await p.keyboard.press('Escape');
