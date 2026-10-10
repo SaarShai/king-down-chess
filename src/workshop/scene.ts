@@ -121,7 +121,7 @@ export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState
   }
   const effects = new Map<string, Scene['effects'][number]>();
   // Hover-only (decision 37), on a chain's first take: each next take with its order pip and its hop from the take
-  // before it; the refused next take (below) gets its pip too.
+  // before it, both from the first route to it; the refused next take (below) gets its pip too.
   const onOf = (caps: number[]): string | undefined => (caps.length ? sqName(caps[0]) : undefined);
   const pip = (sq: string, n: number, on: string): void => { if (!effects.has(`pip ${on} ${sq}`)) effects.set(`pip ${on} ${sq}`, { k: 'pip', sq, n, on }); };
   for (const m of now.moves) {
@@ -129,7 +129,7 @@ export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState
     m.captures.slice(1).forEach((s, k) => {
       if (!marks.some(x => x.sq === sqName(s) && x.on === on)) marks.push({ sq: sqName(s), k: 'take', by: by(s), on });
       pip(sqName(s), k + 2, on);
-      effects.set(`hop ${on} ${sqName(s)}`, { k: 'hop', from: sqName(m.captures[k]), to: sqName(s), on });
+      if (!effects.has(`hop ${on} ${sqName(s)}`)) effects.set(`hop ${on} ${sqName(s)}`, { k: 'hop', from: sqName(m.captures[k]), to: sqName(s), on });
     });
   }
   // A refused take is grey with a bar, by the rules that refuse it only (a push and a swap may both refuse a king).

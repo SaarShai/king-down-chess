@@ -124,8 +124,10 @@ export function whyWords(d: D & { name?: string }, sc: Scene, trace: Trace, q: s
   const rules = canonical(d).rules, at = (sq: string) => sc.pieces.find(p => p.sq === sq), occ = at(q), s = parseSq(q);
   const foe = (sq: string): boolean => !!at(sq) && at(sq)!.side !== sc.pieces.find(p => p.open)?.side;
   const occupant = !occ ? 'Empty' : occ.open ? d.name || 'This piece' : `${occ.side === 'b' ? 'Black' : 'White'} ${occ.k}`;
+  // The marks now: a mark of the paint diff that is gone (diffOf's '-') takes nothing.
+  const marks = sc.marks.filter(x => x.diff !== '-');
   // The mark now; a square that only a chain reaches shows its hover-only take.
-  const m = sc.marks.find(x => x.sq === q && !x.on && x.diff !== '-') ?? sc.marks.find(x => x.sq === q && x.on);
+  const m = marks.find(x => x.sq === q && !x.on) ?? marks.find(x => x.sq === q && x.on);
   const fx = sc.effects.find(e => (e.k === 'swap' && e.b === q) || (e.k === 'push' && e.from === q));
   const moved = fx?.k === 'swap' ? `It may swap places with the ${occ!.k}.` : fx?.k === 'push' ? `It may push the ${occ!.k} to ${fx.to}.` : '';
   if (!m) return { occupant, piece: occ, count: 0, solo: occ?.open ? 'It stands here.' : occ && !foe(q) ? 'Its own piece.' : 'Out of reach.', ...moved && { foot: moved } };
@@ -138,10 +140,10 @@ export function whyWords(d: D & { name?: string }, sc: Scene, trace: Trace, q: s
   const takes = (x: Scene['marks'][number]): boolean => !x.on && foe(x.sq) && ['take', 'both', 'shot', 'moveshot'].includes(x.k);
   // A take where the piece stays, beside the takes that remove it ("removed too") or a shot; a chain's next takes on its first take.
   const stays = (x: Scene['marks'][number]): boolean => !changes(x.sq, 'removedAfter');
-  const other = sc.marks.find(x => takes(x) && stays(x));
+  const other = marks.find(x => takes(x) && stays(x));
   const kept = takes(m) && (m.k.includes('shot') || rules.some(r => r.does.a === 'removedAfter'))
     ? stays(m) ? `It takes ${one(occ!.k)} and stays.` : other ? `On ${other.sq} it takes ${one(at(other.sq)!.k)} and stays.` : '' : '';
-  const next = sc.marks.filter(x => x.on === q), takes2 = next.filter(x => x.k === 'take').map(x => x.sq);
+  const next = marks.filter(x => x.on === q), takes2 = next.filter(x => x.k === 'take').map(x => x.sq);
   const foot = [kept, takes2.length ? `Then it may take ${list(takes2)}.` : '', ...next.filter(x => x.k === 'blocked').map(x => `Never the ${at(x.sq)!.k} on ${x.sq}.`),
     m.on ? `It takes ${m.on} first.` : '', moved].filter(Boolean).join(' ');
   return {

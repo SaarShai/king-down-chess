@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import { parseSq } from '../rules/engine';
-import { PRESETS, presetOf, type PieceDesign, type Rule } from './model';
+import { DIRS, PRESETS, presetOf, type PieceDesign, type Rule } from './model';
 import { boardOf, diffOf, examplesOf, sceneOf, type ScenePiece } from './scene';
 
 interface Hand {
@@ -69,6 +69,16 @@ describe('the scene builder', () => {
       const [got, want] = both(id, d);
       expect(got, id).toEqual(want);
     }
+  });
+
+  it('takes the pip and the hop of each next take from one route, when a chain has more routes to it', () => {
+    // The Archer with no shot squares, all eight lines and "takes again": from e5 it takes f6, f4 and d6 at once, and d2 after f4.
+    const archer = presetOf('archer'), d = { squares: archer.squares.filter(s => s.mark === 'move'), lines: [...DIRS], rules: [{ when: { on: 'takes' as const }, does: { a: 'chain' as const } }] };
+    const fx = sceneOf(d, boardOf(examplesOf({ from: ['archer'] })), parseSq('d4')).effects.filter(e => e.on === 'e5');
+    const n = new Map(fx.flatMap(e => (e.k === 'pip' ? [[e.sq, e.n]] : [])));
+    const hops = fx.flatMap(e => (e.k === 'hop' ? [[e.from, e.to]] : []));
+    expect(hops).toEqual([['e5', 'f6'], ['f6', 'f4'], ['f4', 'd2'], ['d2', 'd6']]);
+    for (const [from, to] of hops) expect(n.get(to), `${from}-${to}`).toBe((n.get(from) ?? 1) + 1);
   });
 
   it('marks the paint diff of a copy: new or changed marks, and the marks of its pool piece that are gone', () => {

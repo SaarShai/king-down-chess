@@ -95,8 +95,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   let shelfOpen = false, pick: Ability['a'] | null = null, card: Ability['a'] | null = null, added = 0;
   /** Isolate (proving-ground.html:1141, :1632-1645): the rule that a tap keeps, the rule under the pointer or the keyboard focus, and the knot that a tap keeps. */
   let focus: number | null = null, hover: number | null = null, knotAt: number | null = null;
-  /** The square of the open Why tag, and the square under the pointer or the keyboard focus that has hover-only parts (spec decision 37). */
-  let why: string | null = null, near: string | null = null;
+  /** The square of the open Why tag, and the square under the pointer and the one with the keyboard focus that have hover-only parts (spec decision 37). */
+  let why: string | null = null, near: string | null = null, keyed: string | null = null;
   /** A design from a link stays read only. */
   const editable = (): boolean => cur.key !== 'link';
 
@@ -536,8 +536,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const look = !brush && !peek && !pick, k = look && knotAt !== null ? sc.knots[knotAt] : undefined, i = look ? focus ?? hover : null;
     const iso = k ? (by: readonly number[]) => by.includes(k.a) && by.includes(k.b) : i === null ? undefined : (by: readonly number[]) => by.includes(i);
     // The phone shows the stamps of the kept rule only (boardOpts, :1149).
-    // The hover-only parts of the open tag's square, else of the square under the pointer or the focus (proving-ground.html:1144).
-    boardEl.innerHTML = drawString(sc, { s, art, focus: iso, stamps: narrow.matches ? x => look && x === focus : undefined, hover: why ?? near, select: why });
+    // The hover-only parts of the open tag's square, else of the square under the pointer, else of the focus (proving-ground.html:1144).
+    boardEl.innerHTML = drawString(sc, { s, art, focus: iso, stamps: narrow.matches ? x => look && x === focus : undefined, hover: why ?? near ?? keyed, select: why });
     for (const p of pulse) boardEl.querySelector(`[data-sq="${p}"]:not(.kdm-ghost)`)?.classList.add('kdm-ripple');
     pulse = [];
   }
@@ -577,18 +577,19 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     renderHits();
     q<HTMLButtonElement>(`.sq[data-sq="${kbd}"]`).focus();
   });
-  /** The pointer or the keyboard focus on a square with hover-only parts shows them (proving-ground.html:2047-2060); the open tag wins. */
-  const nearAt = (t: EventTarget | null): void => {
+  /** The pointer or the keyboard focus (`key`) on a square with hover-only parts shows them (proving-ground.html:2047-2060);
+   *  the open tag wins, then the pointer. Each keeps its own square, so the pointer does not take the focus's parts away. */
+  const nearAt = (t: EventTarget | null, key = false): void => {
     const at = t instanceof Element ? t.closest<HTMLElement>('.pg-hits .sq')?.dataset.sq : undefined;
     const n = at && [...sc.marks, ...sc.effects, ...sc.impressions].some(x => x.on === at) ? at : null;
-    if (n === near) return;
-    near = n;
+    if (n === (key ? keyed : near)) return;
+    if (key) keyed = n; else near = n;
     if (!why) drawBoard();
   };
   hitsEl.addEventListener('pointerover', e => nearAt(e.target));
   hitsEl.addEventListener('pointerleave', () => nearAt(null));
-  hitsEl.addEventListener('focusin', e => { if ((e.target as Element).matches(':focus-visible')) nearAt(e.target); });
-  hitsEl.addEventListener('focusout', e => nearAt(e.relatedTarget));
+  hitsEl.addEventListener('focusin', e => { if ((e.target as Element).matches(':focus-visible')) nearAt(e.target, true); });
+  hitsEl.addEventListener('focusout', () => nearAt(null, true));
 
   /* ---- the Why tag (renderWhy and renderNotch, proving-ground.html:1217-1223, :1330-1364) ---- */
 

@@ -18,8 +18,8 @@
 // Then ticket 05: whyTag (a tap on d7 of the Paladin opens the Why tag with its parts; g7 says refused; a second tap, Esc and ×
 // close it; Enter opens it; the frame, the rim notch and the pointer; a brush closes it and a tap in brush mode paints; the
 // phone's bottom sheet stays inside the screen) and hoverOnly (hover or focus on the Beast's e5 shows f6, the barred g7 and
-// their pips; hover on the Archer's d6 shows its sight line; hover on the Ogre's d6 shows the follow; a tap on e5 keeps them
-// under the tag; on the phone a tap shows them).
+// their pips, and the pointer on another square keeps them while e5 has the focus; hover on the Archer's d6 shows its sight
+// line; hover on the Ogre's d6 shows the follow; a tap on e5 keeps them under the tag; on the phone a tap shows them).
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
 import { pressMenu } from './app-ui.mjs';
@@ -921,6 +921,10 @@ async function hoverOnly() {
   await p.focus('.sq[data-sq="d4"]');
   for (const key of ['ArrowUp', 'ArrowRight']) await p.keyboard.press(key);
   assert.deepEqual(await onParts(p), CHAIN, 'the keyboard focus on e5 shows them too');
+  await p.hover('.sq[data-sq="a1"]');
+  assert.deepEqual(await onParts(p), CHAIN, 'the pointer on another square leaves them while e5 has the keyboard focus');
+  await p.mouse.move(1430, 450);
+  assert.deepEqual(await onParts(p), CHAIN, 'and the pointer off the board too');
   await p.keyboard.press('ArrowDown');
   assert.deepEqual(await onParts(p), [], 'and they go with the focus');
   await tap(p, 'e5');

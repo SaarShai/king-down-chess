@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { parseSq, sqName } from '../rules/engine';
 import { drawString } from './marks';
 import { presetOf, type PieceDesign, type Rule } from './model';
-import { boardOf, sceneOf, type ScenePiece } from './scene';
+import { boardOf, diffOf, sceneOf, type ScenePiece } from './scene';
 import { traceOf, whyWords } from './why';
 
 interface Hand {
@@ -109,6 +109,17 @@ describe('the Why tag words', () => {
       sum: { base: 'both', stamps: ['chain'], result: 'both', tags: ['chain'], captions: ['move or take', 'takes again', 'then f6'] } });
     expect(why('beast', 'f6')).toMatchObject({ occupant: 'Black knight', count: 2, foot: 'It takes e5 first.',
       sum: { base: 'empty', stamps: ['chain'], result: 'take', captions: ['not painted', 'takes again', 'takes'] } });
+  });
+
+  it('takes nothing on a mark of the paint diff that is gone: a Beast copy with no northeast square, a Paladin copy with no northwest line', () => {
+    const tag = (base: D, d: D, id: string, q: string) => {
+      const board = boardOf(scenes.get(id).pieces), from = parseSq('d4');
+      return whyWords(d, diffOf(d, base, board, from), traceOf(d, board, from), q);
+    };
+    const { paladin } = DESIGNS;
+    expect(tag(beast, { ...beast, squares: beast.squares.filter(s => s.x !== 1 || s.y !== 1) }, 'beast', 'f6'))
+      .toEqual({ occupant: 'Black knight', piece: { sq: 'f6', k: 'knight', side: 'b' }, count: 0, solo: 'Out of reach.' });
+    expect(tag(paladin, { ...paladin, lines: paladin.lines.filter(l => l !== 'nw') }, 'paladin', 'd7').foot).toBeUndefined();
   });
 
   it('says why a square has no mark: the piece itself, its own piece, out of reach', () => {
