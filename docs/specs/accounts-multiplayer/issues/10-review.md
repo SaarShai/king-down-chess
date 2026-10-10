@@ -31,3 +31,30 @@ Open issues for this review (not merge breaks; no code calls `src/online/deadlin
 
 - Deadline kind names differ. 0006 and the service use `first_turn`; `nextDeadline` (ticket 04) uses `first-turn` and `first-action`. Ticket 06 must map them.
 - First-turn rule with 1 day per move. The service (ticket 02) gives each first turn 3 days, and a miss cancels the game (`no_start`). `nextDeadline` gives the earlier of the two, so a 1-day game loses on time after 1 day. With 3 or 7 days the two agree. Ticket 04 leaves this choice open for the owner; ticket 06 must use one rule.
+
+### 2026-10-10 — wave 2 merge (tickets 06 and 07)
+
+The merge step merged `claude/mp-06`, then `claude/mp-07`, with `git merge --no-ff`. The merge of 06 had no conflict; its tree is the same as the tree of `claude/mp-06`. The merge of 07 had six conflicts. The merge commit resolves them, and both tickets' intent stays:
+
+- [x] Migration number: both tickets added a `0007_*.sql`. `0007_jobs.sql` (ticket 06) keeps its number. Ticket 07's file is now `0008_accounts_safety.sql` ("Run after 0007"). The lists in `tools/plugin-db/bootstrap-test.mjs` and `tools/plugin-db/migrate.ts`, `supabase/README.md` and the comments in `src/account/client.ts` and `src/online/accounts.ts` name 0008.
+- [x] `plugin-deploy/runtime-role.sql`: the jobs block (ticket 06) stays the fourth block, after 0007. The account and safety block (ticket 07) is the fifth block, after 0008. Each block drops and makes one `for all` policy for each of its tables, so each table has one policy.
+- [x] `src/match/store.ts`: `privacy()` (ticket 07) and the new `due()` with the invitations that ran out (ticket 06).
+- [x] `src/match/service.db.test.ts`: the runtime-role refusal list keeps each statement that the role still may not do after both blocks. Two statements of ticket 06 are now allowed by ticket 07's grants (`update public.profiles set handle=handle`, `select * from public.account_deletions`), so they went; ticket 07 had changed the same two.
+- [x] `supabase/README.md`: 0007 and 0008 each have an item; the role blocks are the third, fourth and fifth.
+
+No fix commit was necessary.
+
+Evidence (test database `kingdown_mp_merge2_test`, made with `node tools/plugin-db/make-test-db.mjs kingdown_mp_merge2_test`):
+
+- `npm run plugin:db:init-test`: "Disposable PostgreSQL schema ready (migrations 0001-0008); every migration is repeatable".
+- `npm test`: typecheck clean; vitest 119 files passed, 1,929 tests passed, 8 skipped; `node --test` 50 of 50; exit 0. That is wave 1 (115 files, 1,908 tests) plus ticket 06 (2 files, 9 tests) and ticket 07 (2 files, 12 tests). The jobs tests ran on their own copy (`kingdown_mp_merge2_jobs_test`) with 0001–0008 and all five role blocks.
+- `npm run build`: exit 0.
+- `npm run check:browser plugin-ui plugin-ui-http plugin-oauth`: all 3 passed.
+
+Open issues for this review (the merge leaves them as the tickets made them):
+
+- Two rules for a report hold. `runDeletions` (ticket 06) and `kingdown_jobs.delete_account` skip a player who is the reported player or the reporter of a held report. `AccountService.dueDeletions` (ticket 07) skips only the reported player. The job uses ticket 06's rule; only ticket 07's test calls `dueDeletions`. Decide the rule (ticket 07, open issue 10), then remove one of the two queries.
+- The handle of a deleted account is reserved twice: `kingdown_jobs.delete_account` inserts it, and the `profiles` delete trigger of 0008 inserts it again (`on conflict do nothing`). It does no harm; one of the two can go.
+- Ticket 07, open issue 4, stays open: a `moderation` or `appeal` notification makes no outbox row, so no email goes.
+- Ticket 06's open issue on "views write nothing" counting the whole database is closed: ticket 07 changed that test to count only its own games.
+- Item 4 of "What to do" names migrations 0005 and 0006. The owner must now apply 0005 to 0008, then the third, fourth and fifth blocks of `plugin-deploy/runtime-role.sql`.

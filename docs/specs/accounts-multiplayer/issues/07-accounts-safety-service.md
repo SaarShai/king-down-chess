@@ -95,3 +95,7 @@ Test database `kingdown_mp_07_test`, made with `node tools/plugin-db/make-test-d
 8. **The blocklist is short** (`ponytail:` in `src/account/profile.ts`); the owner's `hide` and `rename` are the backstop. Staff names go in `reserved_handles` with reason `blocked`.
 9. **For the owner, before a deploy**: apply 0007 and the fourth block of `plugin-deploy/runtime-role.sql`; set `KINGDOWN_ADMIN_DATABASE_URL` only on the machine that runs `npm run mod`.
 10. **For ticket 10's review**: the hold covers the reported player only, not the reporter. Decide if a child safety report should also hold the reporter's data.
+
+### 2026-10-10 — merge note
+
+The merge step merged this branch into `claude/multiplayer-foundation` after ticket 06. Ticket 06 also added a `0007_*.sql`, so this ticket's migration is now `0008_accounts_safety.sql`, and its block of `plugin-deploy/runtime-role.sql` is the fifth block, not the fourth. Where this ticket says 0007 or the fourth block, read 0008 and the fifth block. Evidence and the open issues that the merge found: ticket 10, "wave 2 merge".

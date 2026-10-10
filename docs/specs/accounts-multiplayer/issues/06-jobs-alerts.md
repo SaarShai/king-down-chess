@@ -92,3 +92,7 @@ Evidence (test database `kingdown_mp_06_test`, made with `tools/plugin-db/make-t
 - For the owner, before alerts go live (none done on this branch): a Resend account and key; the sending domain `kingdown.dev` verified in Resend (DNS records: they need the owner's go); `RESEND_API_KEY` and `KINGDOWN_MAIL_FROM` in the server environment; the internal secret in the server environment and in Vault as `kingdown_internal_secret`; migration 0007 and the fourth block of `runtime-role.sql`; then `supabase/ops/cron.sql` after the deploy that serves `/internal/*` at `https://kingdown.dev`. Resend Free sends 100 emails a day.
 - After the first apply of `cron.sql`, check `cron.job` and `net._http_response` on Supabase.
 - Ticket 04's 1-day first-turn choice is still open for the owner; the jobs follow the service.
+
+### 2026-10-10 — merge note
+
+The merge step merged this branch into `claude/multiplayer-foundation`. Ticket 07's migration is now `0008_accounts_safety.sql`, so `0007_jobs.sql` keeps its number, and ticket 07's role block is the fifth block. Each table keeps one `kingdown_plugin_runtime` policy. This closes the first two open issues above. Evidence: ticket 10, "wave 2 merge".
