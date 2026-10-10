@@ -4,6 +4,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 
 ## Open items
 
+- **After the redesign** · `needs-info` · Tickets 01 to 04 merged (PRs #33 to #36): two check runs share this Mac; `main.ts` 1,348 → 210 lines. Ticket 05 (the slot measurement, a quiet Mac for 45 min) needs the owner's word. · [spec](docs/specs/after-redesign/spec.md)
 - **Workshop finish** · `ready-for-agent` · Parked (owner, 2026-10-09: "park workshop for now"). Later: start from a working sample? A "What changed" line? · [spec](docs/specs/workshop-finish/spec.md)
 - **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); Hand size: **4 cards** (owner 2026-10-09: "yes. 4 cards."; draws 12.6% at depth 4, against 11.0% with 6). Keep March (below the floor in `cards-d1`)? Which cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Web redesign** · `ready-for-agent` · Merged to main (PR #26, 2026-10-09); samples decided by delegation. A small follow-up PR (`claude/redesign-polish`) fixes the last minor findings. Deploy waits for the owner. · [spec](docs/specs/web-redesign/spec.md)
