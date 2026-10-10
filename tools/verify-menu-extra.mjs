@@ -63,7 +63,7 @@ try {
     }
     await context.close();
   }
-  for (const [width, height] of [[390, 844], [844, 390], [1440, 900]]) {
+  for (const [width, height] of [[320, 568], [390, 844], [844, 390], [1440, 900]]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
     await context.addInitScript(() => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', pace: 'off', sound: false })); });
     const page = await context.newPage(); trapErrors(page);
@@ -81,11 +81,24 @@ try {
       assert.equal(await page.locator('#menu-sheet .sheet-body').evaluate(el => el.scrollTop > 0), true, 'the Menu body scrolls to Resign');
     }
     for (const words of ['New game', 'Guide', 'Board help', 'Feel', 'Extra', 'Resign']) assert.ok((await page.locator('[data-menu-page="menu"]').textContent()).includes(words), words);
+    const menuBox = await page.locator('#menu-sheet').boundingBox();
+    if (width < 900) assert.ok(Math.abs(menuBox.y + menuBox.height - height) <= 1, 'the phone Menu rests on the viewport bottom');
+    else assert.ok(Math.abs(menuBox.y - (height - menuBox.height) / 2) <= 1, 'the desktop Menu opens in the centre');
+    if (width === 320) assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => {
+      const box = body.getBoundingClientRect();
+      return [...body.querySelectorAll('[data-menu-page="menu"] button, [data-menu-page="menu"] label')].filter(row => row.checkVisibility()).every(row => {
+        const r = row.getBoundingClientRect(); return r.top >= box.top && r.bottom <= box.bottom;
+      });
+    }), 'every short-phone Menu row fits inside the sheet body');
     const menuClose = await page.locator('#menu-close').boundingBox();
     for (const route of ['new', 'help', 'extra', 'resign']) {
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();
       assert.equal(await page.locator(`[data-menu-page="${route}"]`).isVisible(), true);
       assert.equal((await page.locator('#menu-close').boundingBox()).y, menuClose.y, 'Menu Close stays in place across pages');
+      if (width < 900) {
+        const box = await page.locator('#menu-sheet').boundingBox();
+        assert.ok(Math.abs(box.y + box.height - height) <= 1, 'every phone Menu page keeps the bottom edge');
+      }
       if (['help', 'resign'].includes(route)) assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => body.clientHeight <= body.querySelector(':scope > section:not([hidden])').offsetHeight + 28), 'short pages have no large empty area below their content');
       await page.locator('#menu-back').click(); assert.equal(await page.locator('[data-menu-page="menu"]').isVisible(), true);
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();

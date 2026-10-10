@@ -69,3 +69,5 @@ Samples: 128 renders across W2, W4, W9, W11 and W12; zero faults. All are inspec
 All nine required browser checks pass. Typecheck and the doc checks pass.
 
 Item 13: decided by delegation (2026-10-09). Each Menu page fits its content. The sheet keeps its opening top edge as pages change, so Back and Close stay in place. Short pages have no large blank area under their content.
+
+Item 1: decided by delegation (2026-10-09). The first layout uses fit-content. Phone pages retain that sheet height and rest on the screen bottom. Desktop Menu opens in the centre. Close keeps its top across pages. Compact short-phone rows fit without cut glyphs. menu-extra checks all four sizes and each phone page.
