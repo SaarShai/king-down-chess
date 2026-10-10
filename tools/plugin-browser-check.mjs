@@ -32,6 +32,7 @@ function cleanup() {
       () => harness?.close(),
       async () => { if (server) { server.closeAllConnections(); await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())); } },
       () => app?.pool.end(),
+      () => pool?.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [actors]),
       () => pool?.query('delete from auth.users where id=any($1::uuid[])', [actors]),
       () => pool?.end(),
       () => unregister?.(),
@@ -61,10 +62,17 @@ try {
       const {createMatch} = await import(pathToFileURL(join(build,'runtime/index.mjs')).href);
       seedPosition = async (setup,black) => {
         const match=await createMatch(setup), id=randomUUID();
-        try { const snapshot=await match.snapshot(); await pool.query('insert into public.plugin_matches(id,white_id,black_id,mode,revision,save,snapshot) values($1,$2,$3,$4,0,$5,$6)',[id,black?actors[1]:actors[0],black?actors[0]:null,black?'friend':'solo',await match.exportSave(),snapshot]); return id; }
-        finally {await match.close();}
+        // A started game at revision 0: solo with the actor as White, or a friend game with the actor as Black.
+        try {
+          const snapshot=await match.snapshot(), state=await match.exportSave();
+          await pool.query(`insert into public.games(id,kind,speed,category,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,started_at)
+            values($1,$2,'live','check','white',$3,$4,$5,'playing',$6,0,$7,$8,$9,now())`,[id,black?'friend':'solo',JSON.parse(state).engine,setup,snapshot.rules,snapshot.turn,state,snapshot,actors[black?1:0]]);
+          await pool.query(`insert into public.game_players(game_id,seat,user_id,computer,action) values($1,0,$2,$3,$4),($1,1,$5,$6,$7)`,
+            [id,actors[black?1:0],false,snapshot.turn===0?'ready':'waiting',black?actors[0]:null,!black,snapshot.turn===1?'ready':'waiting']);
+          return id;
+        } finally {await match.close();}
       };
-      deleteMatch = async id => { await pool.query('delete from public.plugin_matches where id=$1 and (white_id=any($2::uuid[]) or black_id=any($2::uuid[]))',[id,actors]); };
+      deleteMatch = async id => { await pool.query('delete from public.games g where id=$1 and exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($2::uuid[]))',[id,actors]); };
 
     }
     unregister = register();

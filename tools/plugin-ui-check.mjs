@@ -173,7 +173,8 @@ try {
     const replied = await (await page.request.post(new URL('/fixture-friend-move', base).href, { data: { matchId: friend.matchId, id: 'friend-reply', expectedRevision: friend.snapshot.revision, lan: 'e7-e5' } })).json();
     assert(!replied.isError);
     await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
-    assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 2);
+    // The server counts the join as a revision; the fixture does not. Either way the reply is one more.
+    assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), friend.snapshot.revision + 1);
     await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
     assert.equal(await frame.locator('#invitation').innerText(), '');
     const invitation = await (await page.request.post(new URL('/fixture-friend-invite', base).href)).json();
