@@ -4,6 +4,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 
 ## Open items
 
+- **Accounts and multiplayer** · `needs-info` · Research done; the owner answers 8 decisions. · [report](docs/research/multiplayer-2026-10-10/README.md)
 - **After the redesign** · `needs-triage` · Done (tickets 01 to 05, PRs #33 to #37, 2026-10-10): three check runs share this Mac; `main.ts` 1,348 → 210 lines. Small follow-ups wait in the Comments of tickets 04 and 05. · [spec](docs/specs/after-redesign/spec.md)
 - **Proving Ground and legend** · `ready-for-agent` · Owner chose Workshop mockup A and the red-target legend (2026-10-10). Building. · [spec](docs/specs/workshop-proving-ground/spec.md)
 - **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); Hand size: **4 cards** (owner 2026-10-09: "yes. 4 cards."; draws 12.6% at depth 4, against 11.0% with 6). Keep March (below the floor in `cards-d1`)? Which cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
