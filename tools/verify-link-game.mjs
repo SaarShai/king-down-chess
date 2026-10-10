@@ -1,5 +1,6 @@
 // Previously: three cases, then the existing guarded link-send checks.
 import assert from 'node:assert/strict';
+import { assertHiddenDetail } from './previously-layout-check.mjs';
 import { lanMoves, openMenu, closeMenu, seeAgain } from './app-ui.mjs';
 import { assertNoErrors, env, launch, trapErrors } from './lib/checks.mjs';
 
@@ -98,6 +99,9 @@ try {
     const box = el.getBoundingClientRect(), area = document.getElementById('context-line').getBoundingClientRect();
     return el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1 && box.top >= area.top && box.bottom <= area.bottom;
   }), 'the long Previously turn and See again fit together at 320x568');
+  await longMotion.page.goto(new URL(`?${new URLSearchParams({ fen: 'k7/6pp/5pp/3pp1pp/2nS3p/8/8/K7 b - - 0 1', rules: '2017', kings: 'flame:haste,none', moves: 'Ka8-a7_Sd4xc4xd5xe5xf6!H_Sf6xg7xh7xg6xh5xg5xh4' })}`, base).href);
+  await longMotion.page.waitForFunction(() => document.getElementById('context-text').dataset.rank === 'previously' && !window.view.scene.animating && document.getElementById('see-again').getAttribute('aria-disabled') === 'false');
+  await assertHiddenDetail(longMotion.page);
   await longMotion.context.close();
 
   const again = await open();

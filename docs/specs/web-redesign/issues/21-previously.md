@@ -99,5 +99,5 @@ Sacrifice uses traded and the correct article. Growth names the card draw.
 Rescue uses the requested plain sentence. Its full sentence has nine words with Previously; this one exact requested form has that cap. All other new summaries have eight words or fewer with Previously.
 Power and card names use the Guide names and plain card names. Code suffixes do not appear.
 Stationary Archer takes keep Rage or Haste. A Reaver take names its landing square.
-The new Haste promotion turn needs at least four lines at 320 by 568. The check requires a hidden whole detail row, a three-line height limit and full visible glyphs above Moves.
+The new Haste chain turn needs at least four lines at 320 by 568. The check requires a hidden whole detail row, a three-line height limit and full visible glyphs above Moves.
 Unit tests first fail for Sacrifice articles, new summaries, stationary powers and the Reaver landing. All text tests then pass.
