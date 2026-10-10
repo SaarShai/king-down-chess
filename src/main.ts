@@ -308,8 +308,8 @@ function refresh(): void {
     // Owner (2026-10-04): the square the piece left is not marked; where it went (or what it hit) is.
     last: !last ? [] : last.shove ? [last.shove.from, last.shove.to] : last.to === last.from ? [...last.captures] : [last.to],
     hint: hintSquares,
-    check: !busy && game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
-    checkers: !busy && viewing == null ? checkersOf(game.pos) : [],
+    check: (!busy || thinking) && game.inCheck && viewing == null ? findKing(game.pos.board, game.pos.turn) : null,
+    checkers: (!busy || thinking) && viewing == null ? checkersOf(game.pos) : [],
   });
   const canFinish = pending.length > 0 && cands.some(m => clickPath(m).length === pending.length);
   const selectedType = selected == null ? 0 : typeOf(game.pos.board[selected]);

@@ -68,6 +68,8 @@ try {
     await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
     const cause = viewer === turn ? 'Their rook attacks your king.' : 'Your rook attacks their king.';
     assert.ok((await contextText(page)).includes(cause), `${mode}, viewer ${viewer}, checked side ${turn}: ${cause}`);
+    assert.equal(await page.evaluate(() => window.view.marks.check), turn === 0 ? 4 : 60, 'the checked king keeps its ring while the computer thinks');
+    assert.equal(await page.evaluate(() => window.view.marks.checkers.length), 1, 'the board keeps the check cause');
     if (viewer !== turn) assert.ok(!(await contextText(page)).includes('Your move.'), 'their checked king does not make it your move');
     await context.close();
   }

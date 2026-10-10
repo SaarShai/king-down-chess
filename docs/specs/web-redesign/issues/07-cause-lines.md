@@ -84,3 +84,5 @@ Check words name the viewer's king or the friend's king as required.
 The computer-move line wins when the computer is in check. Online wait words keep the cause.
 On one device, causes use Black's or White's piece and the other king.
 Cause and rank tests pass. The browser checks all eight viewer/check-side combinations.
+
+Item 8: decided by delegation (2026-10-09). The board keeps the check ring and cause during computer search. The cause words and board agree. The tell and move still use their former timing. their-turn checks the ring and checker in each computer and link state.
