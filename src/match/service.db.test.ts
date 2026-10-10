@@ -323,11 +323,13 @@ suite('PostgreSQL online games (real connections and processes)', () => {
     'update public.games set created_by=created_by',
     'truncate public.games',
     'select * from public.notifications',
-    'select * from public.outbox',
+    "update public.outbox set payload='{}'",
     'select * from public.reports',
-    'select quiet_mode from public.profiles',
+    'select display_name from public.profiles',
     'update public.profiles set handle=handle',
     'select * from public.account_deletions',
+    'update public.account_deletions set done_at=now()',
+    'delete from auth.users',
     "select public.kingdown_access_token_hook('{}'::jsonb)",
    ]) await expect(runtime.query(statement),statement).rejects.toMatchObject({code:'42501'});
   } finally {
