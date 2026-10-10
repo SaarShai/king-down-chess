@@ -87,3 +87,5 @@ The detail names every ply without rule text or a repeated mover. You follows.
 At 320x568, You hides; the friend text has no scroll box or cut glyphs.
 Tests pass: 1700 unit tests and 50 scene tests. The link-game check passes.
 W11 adds a Haste turn with takes under the 2017 rules, where Haste can take.
+
+Item 3: decided by delegation (2026-10-09). Sacrifice names the pawn and returned piece. Stationary acts and entries name their piece. Each bite appears in the full detail. Text uses line-height 1.25. Detail hides when the fixed row has no room. W11 adds a four-bite turn at all three sizes. Unit and link-game checks pass.

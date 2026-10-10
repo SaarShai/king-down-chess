@@ -12,6 +12,14 @@ const haste = async state => {
 export default {
   sizes: ['smallPhone', 'phone', 'desktop'],
   states: [
+    { name: 'long-turn', motion: 'normal', query: `?${new URLSearchParams({ fen: '7k/6p1/5p2/3pp3/2nS4/8/8/K7 b - - 0 1', moves: 'Kh8-h7_Sd4xc4xd5xe5xf6' })}`, controls: `${controls}, #see-again`, steps: async state => {
+      await settled(state);
+      assert.equal(await state.page.locator('#context-text > span').first().innerText(), 'Previously: their beast took 4 pieces.');
+      assert.ok(await state.page.locator('#context-text').evaluate(el => {
+        const area = document.getElementById('context-line').getBoundingClientRect(), box = el.getBoundingClientRect();
+        return box.bottom <= document.getElementById('moves-line').getBoundingClientRect().top && box.top >= area.top && box.bottom <= area.bottom;
+      }), 'the long friend turn stays above Moves');
+    } },
     { name: 'previously', query: '?army=RNBQKBNR&moves=e2-e4_e7-e5', controls, steps: settled },
     { name: 'see-again', motion: 'normal', query: '?army=RNBQKBNR&moves=e2-e4_e7-e5', controls: `${controls}, #see-again`, steps: async state => {
       await settled(state);

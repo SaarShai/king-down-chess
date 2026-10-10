@@ -74,6 +74,19 @@ try {
   await long.page.waitForFunction(() => document.getElementById('context-text').dataset.rank === 'previously');
   assert.equal(await long.page.locator('#context-text > span').first().innerText(), 'Previously: their rook took your rook.');
   assert.ok(await long.page.locator('#context-text').evaluate(el => el.scrollHeight <= el.clientHeight + 1 && el.getBoundingClientRect().bottom <= document.getElementById('moves-line').getBoundingClientRect().top), 'Haste takes are not cut at 320x568');
+  for (const [width, height] of [[320, 568], [390, 844]]) {
+    await long.page.setViewportSize({ width, height });
+    await long.page.goto(new URL(`?${new URLSearchParams({ fen: '7k/6p1/5p2/3pp3/2nS4/8/8/K7 b - - 0 1', moves: 'Kh8-h7_Sd4xc4xd5xe5xf6' })}`, base).href);
+    await long.page.waitForFunction(() => document.getElementById('context-text').dataset.rank === 'previously');
+    assert.equal(await long.page.locator('#context-text > span').first().innerText(), 'Previously: their beast took 4 pieces.');
+    assert.ok(await long.page.locator('#context-text').evaluate(el => {
+      const box = el.getBoundingClientRect();
+      const range = document.createRange(); range.selectNodeContents(el.firstElementChild);
+      return el.scrollHeight <= el.clientHeight + 1 && box.bottom <= document.getElementById('moves-line').getBoundingClientRect().top
+        && [...range.getClientRects()].every(r => r.top >= box.top && r.bottom <= box.bottom)
+        && parseFloat(getComputedStyle(el).lineHeight) / parseFloat(getComputedStyle(el).fontSize) >= 1.2;
+    }), 'a long turn keeps whole summary lines above Moves');
+  }
   await long.context.close();
 
   const longMotion = await open();

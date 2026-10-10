@@ -94,7 +94,7 @@
   #game-table { grid-template-columns: minmax(0, 1fr) 340px; gap: 8px; padding: 4px 8px; --strip-height: 56px; }
 }
 
-#context-text[data-rank='previously'] { display: block; line-height: 1; }
+#context-text[data-rank='previously'] { display: block; line-height: 1.25; }
 #context-text #previously-before { font-size: 14px; color: var(--ink-soft); }
 #context-actions #see-again[aria-disabled='true'] { opacity: .65; cursor: default; }
 
@@ -116,7 +116,7 @@
   #game-table .coin img { width: 32px; height: 32px; }
   #context-line { height: 57px; padding-block: 0; flex-wrap: nowrap; }
   #context-text { -webkit-line-clamp: 3; line-height: 1.25; overflow: hidden; }
-  #context-text[data-rank='previously'] { overflow: visible; font-size: 14px; }
+  #context-text[data-rank='previously'] { overflow: hidden; font-size: 14px; max-height: 52.5px; }
   #context-text #previously-before { display: none; }
   #context-actions #all-rules { font-size: 0; width: 44px; padding: 4px; }
   #all-rules::after { content: 'ⓘ'; font-size: 22px; }

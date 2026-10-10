@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Game } from './game';
-import { setRules } from './rules/engine';
+import { P, R, G, type Move, setRules } from './rules/engine';
 import { fromFen } from './rules/setup';
 import { previouslyPlayback, previouslyTurn } from './previously';
 
@@ -14,6 +14,30 @@ function played(fen: string, moves: string[]): Game {
 }
 
 describe('Previously', () => {
+  it('names a Sacrifice without claiming that the pawn moved', () => {
+    setRules({ kings: [{ king: 'Stratus', power: 'Sacrifice' }, null] });
+    const game = played('4k3/8/8/8/8/8/P7/4K3 w - - 0 1 lR', ['!S:a2=R']);
+    expect(previouslyTurn(game.history, 1)?.line).toBe('they sacrificed a pawn, returning a rook.');
+  });
+
+  it.each([
+    [{ from: 8, to: 8, captures: [], power: 'morph', promo: R }, 'their pawn became a rook.'],
+    [{ from: 8, to: 8, captures: [], power: 'morphp', promo: 2 }, 'their pawn became a knight.'],
+    [{ from: 8, to: 8, captures: [], power: 'ward' }, 'they shielded their pawn.'],
+    [{ from: 8, to: 8, captures: [], power: 'rescue' }, "they renewed the pawn's mark."],
+    [{ from: 16, to: 16, captures: [], power: 'salvation', drop: R }, 'their rook returned on a3.'],
+    [{ from: 16, to: 16, captures: [], drop: G }, 'their guard entered on a3.'],
+    [{ from: 16, to: 16, captures: [], power: 'spawn', drop: P }, 'their pawn entered on a3.'],
+    [{ from: 4, to: 4, captures: [], power: 'growth' }, 'their king used Growth.'],
+    [{ from: 4, to: 4, captures: [], power: 'firewall' }, 'their king used Firewall.'],
+    [{ from: 4, to: 4, captures: [] }, 'their king stayed on e1.'],
+  ] as [Move, string][])('names a stationary act or entry: %j', (move, line) => {
+    const turn = previouslyTurn([{ pos: fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'), move, lan: '' }], 1)!;
+    expect(turn.line).toBe(line);
+    expect(turn.detail).not.toMatch(/undefined| to (a2|e1)/);
+    expect(('Previously: ' + turn.line).split(/\s+/).length).toBeLessThanOrEqual(8);
+  });
+
   it('shows the main act and each turn in short words', () => {
     const game = played('4k3/4p3/8/8/8/8/4P3/4K3 w - - 0 1', ['e2-e4', 'e7-e5']);
     expect(previouslyTurn(game.history, 0)).toEqual({
@@ -74,6 +98,11 @@ describe('Previously', () => {
     expect(previouslyTurn(game.history, 1)).toEqual({
       from: 0, to: 2, line: 'their knight moved to d2.', detail: 'Rook a1 to a5 with Rally, then knight b1 to d2.', before: null,
     });
+  });
+
+  it('names every bite in a long friend turn', () => {
+    const game = played('7k/6p1/5p2/3pp3/2nS4/8/8/K7 b - - 0 1', ['Kh8-h7', 'Sd4xc4xd5xe5xf6']);
+    expect(previouslyTurn(game.history, 1)?.detail).toBe('Beast d4 takes c4 and d5 and e5 and f6.');
   });
 
   it('keeps your whole Haste turn before the friend move', () => {

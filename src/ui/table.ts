@@ -40,6 +40,7 @@ function openRules(selector: string): void {
 export function initTable(back: () => void): void {
   const sheet = $<HTMLDialogElement>('sheet-moves');
   $('moves-line').onclick = () => { $('moves-line').setAttribute('aria-expanded', 'true'); sheet.showModal(); };
+  window.addEventListener('resize', fitPreviously);
   sheet.addEventListener('close', () => $('moves-line').setAttribute('aria-expanded', 'false'));
   // Close before a row enters Review, so the board and Back to game are in view.
   $('moves').addEventListener('click', e => { if ((e.target as HTMLElement).closest('[data-ply]')) sheet.close(); }, true);
@@ -143,4 +144,19 @@ export function refreshTable(s: TableState): void {
   const resign = $<HTMLButtonElement>('resign');
   resign.setAttribute('aria-disabled', String(resign.disabled));
   resign.disabled = false;
+  fitPreviously();
+}
+
+/** Keep whole summary lines; replay and Moves retain the full turn. */
+function fitPreviously(): void {
+  const text = $('context-text');
+  if (text.dataset.rank !== 'previously') return;
+  const rows = [...text.children] as HTMLElement[];
+  rows.forEach(row => { row.hidden = false; });
+  const style = getComputedStyle($('context-line'));
+  const height = parseFloat(style.getPropertyValue('--context-height')) - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) - 1;
+  for (const row of rows.slice(1).reverse()) {
+    if (text.scrollHeight <= height + 1) break;
+    row.hidden = true;
+  }
 }

@@ -19,14 +19,20 @@ export function previouslyTurn(history: Readonly<Game['history']>, side: Color):
   while (beforeFrom > 0 && history[beforeFrom - 1].pos.turn === side) beforeFrom--;
   const friend = history.slice(from).reverse(), lastAct = friend.find(h => !h.move.pass)!;
   const main = friend.find(h => h.move.captures.length) ?? lastAct;
-  const { pos, move } = main, name = NAMES[typeOf(pos.board[move.from])];
+  const { pos, move } = main, name = NAMES[move.drop ?? typeOf(pos.board[move.from])];
   const victim = (sq: number) => NAMES[typeOf(pos.board[sq])];
   const summary = move.captures.length
     ? `their ${name} ${typeOf(pos.board[move.from]) === A && move.from === move.to ? 'shot' : 'took'} ${move.captures.length > 1 ? `${move.captures.length} pieces` : `your ${victim(move.captures[0])}`}.`
+    : move.power === 'sacrifice' ? `they sacrificed a pawn, returning a ${NAMES[move.promo!]}.`
+    : move.drop ? `their ${name} ${move.power === 'salvation' ? 'returned' : 'entered'} on ${sqName(move.to)}.`
     : move.shove ? `their ${name} shoved your ${victim(move.shove.from)}.`
     : move.swap ? `their ${name} swapped places.`
     : move.power === 'freeze' ? `they froze your ${victim(move.to)}.`
-    : move.power === 'ward' ? `they used Ice Wall.`
+    : move.power === 'ward' ? `they shielded their ${victim(move.to)}.`
+    : move.promo && move.from === move.to ? `their ${name} became a ${NAMES[move.promo]}.`
+    : move.power === 'rescue' ? `they renewed the ${name}'s mark.`
+    : move.pushes ? `they pushed a ${victim(move.pushes[0].from)} with ${TAG_POWER[move.power!]}.`
+    : move.from === move.to ? `their ${name} ${move.power ? `used ${TAG_POWER[move.power]}` : `stayed on ${sqName(move.to)}`}.`
     : `their ${name} moved to ${sqName(move.to)}.`;
   const words = (start: number, end: number): string => history.slice(start, end)
     .map((ply, i, plies) => {
@@ -43,16 +49,21 @@ export function previouslyTurn(history: Readonly<Game['history']>, side: Color):
 
 /** Each ply names the act and squares, without a rule or repeated mover. */
 function compactPly(pos: Position, m: Move, continued: boolean): string {
-  const name = NAMES[typeOf(pos.board[m.from])], subject = continued ? '' : `${name} ${sqName(m.from)} `;
+  const name = NAMES[m.drop ?? typeOf(pos.board[m.from])], subject = continued ? '' : `${name} ${sqName(m.from)} `;
   let words = m.pass ? 'end turn'
     : m.power === 'freeze' ? `Freeze on ${sqName(m.to)}`
     : m.power === 'ward' ? `Ice Wall on ${sqName(m.to)}`
     : m.power === 'sacrifice' ? `Sacrifice on ${sqName(m.from)} for ${NAMES[m.promo!]}`
+    : m.drop ? `${name} ${m.power === 'salvation' ? 'returns' : 'enters'} on ${sqName(m.to)}${m.drop2 !== undefined ? ` and ${sqName(m.drop2)}` : ''}`
+    : m.promo && m.from === m.to ? `${subject}becomes ${NAMES[m.promo]}`
+    : m.power === 'rescue' ? `renews the ${name}'s mark on ${sqName(m.to)}`
+    : m.pushes ? `pushes ${m.pushes.map(p => `${NAMES[typeOf(pos.board[p.from])]} ${sqName(p.from)} to ${sqName(p.to)}`).join(' and ')}`
+    : m.from === m.to && !m.captures.length ? `${subject}${m.power ? `uses ${TAG_POWER[m.power]}` : 'stays'}`
     : m.swap ? `${subject}swaps with ${sqName(m.to)}`
     : m.shove ? `${subject}shoves ${sqName(m.shove.from)} to ${sqName(m.shove.to)}`
     : m.from === m.to && m.captures.length ? `${subject}shoots ${m.captures.map(sqName).join(' and ')}`
-    : `${subject}${m.captures.length ? 'takes' : 'to'} ${sqName(m.to)}${m.promo ? `, becomes ${NAMES[m.promo]}` : ''}`;
-  if (m.power && !['freeze', 'ward', 'sacrifice'].includes(m.power)) words += ` with ${TAG_POWER[m.power]}`;
+    : `${subject}${m.captures.length ? `takes ${m.captures.map(sqName).join(' and ')}` : `to ${sqName(m.to)}`}${m.promo ? `, becomes ${NAMES[m.promo]}` : ''}`;
+  if (m.power && (m.from !== m.to || m.drop || m.promo || m.pushes) && !['freeze', 'ward', 'sacrifice'].includes(m.power)) words += ` with ${TAG_POWER[m.power]}`;
   return words;
 }
 
