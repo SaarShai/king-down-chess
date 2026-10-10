@@ -90,13 +90,16 @@ commit;
 -- Apply after migration 0008 to the existing restricted runtime role: the account and safety services
 -- (src/online/accounts.ts, src/online/safety.ts) read and change a player's own handle, settings, follows,
 -- blocks, deletion request and alert choices, and add player reports. The deletion check reads report
--- holds. The owner's moderation (tools/mod.ts) uses the admin connection: no queue, no mod_actions here.
+-- holds. A deletion request goes through kingdown_jobs.request_deletion, which sets its dates: this role
+-- writes no date, so it cannot shorten the 7-day grace. It may only cancel a request.
+-- The owner's moderation (tools/mod.ts) uses the admin connection: no queue, no mod_actions here.
 begin;
 grant select (id, handle, handle_changed_at, icon, challenge_from, online_visible_to, quiet_mode, accepting_games, on_leaderboards),
   update (handle, handle_changed_at, icon, challenge_from, online_visible_to, quiet_mode, accepting_games, on_leaderboards)
   on public.profiles to kingdown_plugin_runtime;
 grant insert, delete on public.relations to kingdown_plugin_runtime;
-grant select, insert, update (requested_at, run_after, cancelled_at) on public.account_deletions to kingdown_plugin_runtime;
+grant select, update (cancelled_at) on public.account_deletions to kingdown_plugin_runtime;
+grant execute on function kingdown_jobs.request_deletion(uuid) to kingdown_plugin_runtime;
 grant select, insert, update (email, push) on public.notification_prefs to kingdown_plugin_runtime;
 grant select (id, created_at, reported_id, hold_until),
   insert (reporter_id, reported_id, game_id, target, category, intimate_image, note, content)

@@ -254,6 +254,9 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
    "insert into public.reports(source,target,category) values('automatic','player','other')",
    "insert into public.reserved_handles(handle,reason) values('free-me','old')", 'delete from public.reserved_handles',
    'update public.account_deletions set done_at=now()', 'delete from public.account_deletions', 'update public.profiles set rating=1',
+   // The grace is a trust boundary: no date written by this role (where false: refused before any row is read).
+   'insert into public.account_deletions(user_id,run_after) select gen_random_uuid(),now() where false', 'update public.account_deletions set run_after=now() where false',
+   'update public.account_deletions set requested_at=now() where false',
    'select avatar_url from public.profiles', 'select * from auth.sessions', 'update auth.users set banned_until=null',
   ]) await expect(runtime.query(statement), statement).rejects.toMatchObject({ code: '42501' });
  });

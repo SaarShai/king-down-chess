@@ -63,7 +63,8 @@ Not applied yet. Apply them in order, after 0001–0004, with a privileged conne
 - `0008_accounts_safety.sql`: a changed handle stays reserved for its player and a deleted player's
   handle for good (a trigger on `profiles`, so every path keeps the rule). `delete_my_account()` now
   asks for a deletion after a 7-day grace, and a new sign-in in the grace cancels it (a trigger on
-  `auth.sessions`; a token refresh keeps its session and cancels nothing). `reports.content` keeps the
+  `auth.sessions`; a token refresh keeps its session and cancels nothing). The server asks through
+  `kingdown_jobs.request_deletion`, which sets the dates: the server role cannot write them. `reports.content` keeps the
   reported handle or preset, and `mod_actions.handle` the handle that a rename or hide took away.
   The website text still says that a deletion is at once: change it before you apply 0008.
   Staff names that no player may take go in `reserved_handles` with reason `blocked`.

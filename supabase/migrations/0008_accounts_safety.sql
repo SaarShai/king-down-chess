@@ -37,13 +37,21 @@ end $$;
 create or replace trigger profiles_reserve_handle before update of handle or delete on public.profiles
   for each row execute function public.reserve_handle();
 
--- "Delete my account" now asks for a deletion after a 7-day grace (the deletions job runs it).
--- A second request in the grace keeps the first date; a request after a cancel starts a new grace.
-create or replace function public.delete_my_account() returns void
+-- A deletion request: the deletions job runs it after a 7-day grace. A second request in the grace
+-- keeps the first date; a request after a cancel starts a new grace. The dates come from the database
+-- clock here, and the server role may not write them itself, so kingdown_jobs.delete_account can
+-- trust run_after (plugin-deploy/runtime-role.sql, fifth block).
+create or replace function kingdown_jobs.request_deletion(uid uuid) returns void
 language sql security definer set search_path = '' as $$
-  insert into public.account_deletions as d (user_id) select auth.uid() where auth.uid() is not null
+  insert into public.account_deletions as d (user_id) values (uid)
   on conflict (user_id) do update set requested_at = now(), run_after = now() + interval '7 days', cancelled_at = null
     where d.cancelled_at is not null;
+$$;
+
+-- "Delete my account" on the website now asks for the same deletion.
+create or replace function public.delete_my_account() returns void
+language sql security definer set search_path = '' as $$
+  select kingdown_jobs.request_deletion(auth.uid()) where auth.uid() is not null;
 $$;
 
 -- A sign-in in the grace cancels the deletion. Supabase Auth makes a new session at each sign-in
@@ -65,6 +73,7 @@ alter table public.mod_actions add column if not exists handle text;
 create index if not exists reports_held on public.reports (reported_id) where hold_until is not null;
 
 revoke all on function public.reserve_handle() from public, anon, authenticated;
+revoke all on function kingdown_jobs.request_deletion(uuid) from public, anon, authenticated;
 revoke all on function public.cancel_deletion_on_sign_in() from public, anon, authenticated;
 
 commit;

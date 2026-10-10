@@ -82,11 +82,11 @@ export class AccountService {
     const result = await this.store.pool.query('select r.kind,r.other_id as user_id,p.handle,r.created_at from public.relations r left join public.profiles p on p.id=r.other_id where r.user_id=$1 order by r.created_at desc limit 1000', [id(actor)]);
     return result.rows.map(row => ({ ...row, created_at: row.created_at.toISOString() }));
   }
-  /** Asks for the deletion after a 7-day grace; a second request keeps the first date. A sign-in or `cancelDeletion` stops it. */
+  /** Asks for the deletion after a 7-day grace; a second request keeps the first date. A sign-in or `cancelDeletion` stops it.
+   * Migration 0008's helper sets the dates: the runtime role may not write them. */
   async requestDeletion(actor: string): Promise<MyProfile> {
     actor = id(actor);
-    await this.store.pool.query(`insert into public.account_deletions as d (user_id) values($1)
-      on conflict (user_id) do update set requested_at=now(),run_after=now()+interval '7 days',cancelled_at=null where d.cancelled_at is not null`, [actor]);
+    await this.store.pool.query('select kingdown_jobs.request_deletion($1)', [actor]);
     return this.profile(actor);
   }
   async cancelDeletion(actor: string): Promise<MyProfile> {
