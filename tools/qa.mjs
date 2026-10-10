@@ -301,7 +301,8 @@ await caseFn('full AI vs AI game reaches a result', '?think=200', async (page, e
 await caseFn('cancelling mid-search starts a clean game', '', async (page, errors) => {
   await clickSq(page, 'e2');
   await clickSq(page, 'e4');
-  await page.waitForTimeout(150); // the AI is thinking now
+  await endTurn(page); // the turn goes to the computer
+  await page.waitForFunction(() => document.getElementById('status').textContent === 'thinking…', null, { timeout: 10000 }); // the AI is thinking now
   await startGame(page); // New game's first choice: you play White against the computer
   await page.waitForTimeout(2500); // any stale answer would land here
   const s = await snap(page);
