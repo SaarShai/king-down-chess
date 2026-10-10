@@ -10,12 +10,12 @@ import { positionKey } from '../ai/search';
 import type { BoardView } from '../render/PaintedView';
 import { momentKind } from '../moment';
 import { setSound, snd } from '../render/sfx';
-import { A, C, Color, L, M, Move, NAMES, O, PieceType, Position, RULES as GAME_RULES, S, V, colorOf, file as fileOf, findKing, setRules, sqName, typeOf, type Rules } from '../rules/engine';
+import { Color, Move, NAMES, PieceType, Position, RULES as GAME_RULES, S, colorOf, file as fileOf, findKing, setRules, sqName, typeOf, type Rules } from '../rules/engine';
 import { fromFen, randomBackRank, toFen } from '../rules/setup';
 import { LESSONS } from '../lessons';
 import { progress, recordLesson } from '../lesson-shelf-ui';
 import { lessonShelf } from '../lesson-shelf';
-import { checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from '../move-text';
+import { checkersOf, describeMove, nextMoveNumber, threatsIn } from '../move-text';
 import { POWER_TAG, autoQueen, hintMoves, offered } from '../powers-ui';
 import { kingsOf, newGameWarning, playersOf, type Setup } from '../new-game';
 import { pieceIcon } from '../piece-icons';
@@ -23,7 +23,7 @@ import { reachOf, readTap, unmarkedTap } from '../read';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, turnLine, turnOf } from '../turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from '../turn-controls';
 import { awardTurnSeals } from '../ui/tricks';
-import { readPiece, refreshTable } from '../ui/table';
+import { readPiece, refreshTable, renderTable } from '../ui/table';
 import { clickPath, landingMoves, marksModel } from '../marks-model';
 import { clearCoinRead, initCoins, refreshCoins } from '../ui/powers';
 import { reviewStep } from '../review';
@@ -231,50 +231,6 @@ export function connectPlay(view: BoardView, c: {
       checkers: (!busy || thinking) && viewing == null ? checkersOf(game.pos) : [],
     });
     const canFinish = pending.length > 0 && cands.some(m => clickPath(m).length === pending.length);
-    const selectedType = selected == null ? 0 : typeOf(game.pos.board[selected]);
-    $('selection-actions').hidden = selected == null || busy;
-    $('stop-chain').hidden = !canFinish;
-    $('stop-chain').textContent = selectedType === S ? `Stop here (${pending.length} bite${pending.length === 1 ? '' : 's'})` : 'Stop here';
-    const help: Partial<Record<PieceType, string>> = {
-      [O]: 'Tap a neighbour to take or shove.',
-      [A]: 'Tap a marked enemy to shoot without moving, or a marked empty square to move.',
-      [M]: 'Tap your own piece to swap places.',
-      [S]: pending.length ? 'Tap the next bite, or stop here.' : 'Tap a marked enemy to start a chain.',
-      [L]: 'Jump over your own pieces like a queen.',
-      [C]: 'Tap a marked enemy beyond a screen to lob, or an empty square to move.',
-      [V]: pending.length ? 'Tap a marked landing, or stop here.' : 'Tap an enemy, then a marked landing.',
-    };
-    $('move-help').textContent = notice ? notice : viewing != null
-      ? moments.reviewNote() || `Tap the board to return to the game.${matchMedia('(hover: hover)').matches ? ' ← → step through the moves.' : ''}`
-      : lesson == null && turnLine(game, currentTurn(), turnMode())
-        ? turnLine(game, currentTurn(), turnMode())
-        : selected == null || busy ? ''
-        : help[selectedType as PieceType] ?? 'Tap a marked square to move or take.';
-    const turn = currentTurn().activeSide ? 'Black' : 'White';
-    // In review the header names the move shown, as the list numbers it ("after 5… a5-a4").
-    const shown = viewing == null ? '' : viewing === 0 ? 'the start'
-      : `after ${Math.ceil(viewing / 2)}${viewing % 2 ? '.' : '…'} ${game.history[viewing - 1].lan}`;
-    $('turn').textContent = viewing != null ? `Reviewing ${shown}`
-      : lesson != null ? `Lesson ${lesson + 1} of ${LESSONS.length}: ${LESSONS[lesson].name}`
-      : ended() ? '' : `${turn} to move${game.inCheck ? ' — CHECK' : ''}`;
-    $('status').textContent = viewing != null ? '' : ended() ? moments.result() : thinking ? 'thinking…' : '';
-    $('setup').textContent = game.backRank || 'custom';
-    $('setup').title = toFen(game.pos);
-    const moves = $('moves');
-    // Each move is a button to the board after it (data-ply = plies played by then). A line is White's
-    // turn and Black's; a Haste turn is two plies by one side, so turns follow the side that moved.
-    const numbers = moveNumbers(game.history.map(h => h.pos.turn));
-    let html = '';
-    game.history.forEach((h, i) => {
-      const km = moments.marked().find(k => k.ply === i), mark = !km ? '' : km.kind !== 'loss' || km.loss >= 500 ? '??' : '?';
-      const white = h.pos.turn === 0;
-      // A button per move, so the list is reachable by keyboard; aria-current marks the move on the board.
-      const ply = `<button type="button" data-ply="${i + 1}"${viewing === i + 1 ? ' class="viewing" aria-current="true"' : ''}${km ? ` title="${km.text}"` : ''} aria-label="${white ? 'White' : 'Black'} ${h.lan}${km ? `, ${km.text}` : ''}">${white ? `<b>${h.lan}</b>` : h.lan}${mark}</button>`;
-      html += i === 0 || numbers[i] !== numbers[i - 1] ? `${i ? '</li>' : ''}<li>${numbers[i]}${white ? '.' : '…'} ${ply}` : ` ${ply}`;
-    });
-    moves.innerHTML = html + (html ? '</li>' : '');
-    if (viewing == null) moves.scrollTop = moves.scrollHeight;
-    else moves.querySelector('.viewing')?.scrollIntoView({ block: 'nearest' });
     // Captured pieces: a piece the mover removed counts for the mover; a paladin that removes itself is its own side's loss.
     const taken: [number[], number[]] = [[], []];
     for (const h of game.history.slice(0, viewing ?? game.history.length)) { // in review, the moves up to the one shown
@@ -282,32 +238,18 @@ export function connectPlay(view: BoardView, c: {
       for (const c of h.move.captures) taken[mover].push(h.pos.board[c]);
       if (h.move.selfRemove) taken[1 - mover].push(h.pos.board[h.move.from]);
     }
-    // Grouped icons in each piece's own colours (a paladin that removed itself is on its own side's line).
-    // A screen reader and a pointer get the names: "pawn ×2, beast". A lab piece has no icon, only its name.
-    const names = (codes: number[]): string => {
-      const count = new Map<number, number>(); // key: type * 2 + colour
-      for (const p of codes) { const k = typeOf(p) * 2 + colorOf(p); count.set(k, (count.get(k) ?? 0) + 1); }
-      return [...count].sort(([a], [b]) => a - b).map(([k, n]) => {
-        const t = (k >> 1) as PieceType, icon = pieceIcon(t, (k & 1) as Color), name = `${NAMES[t]}${n > 1 ? ` ×${n}` : ''}`;
-        return icon ? `<span class="took" title="${name}">${icon}${n > 1 ? `<span aria-hidden="true">×${n}</span>` : ''}<span class="sr-only">${name}</span></span>` : `<span class="took">${name}</span>`;
-      }).join('<span class="sr-only">, </span>');
-    };
-    $('took-w').innerHTML = names(taken[0]);
-    $('took-b').innerHTML = names(taken[1]);
+    renderTable({
+      selected, selectedType: selected == null ? 0 : typeOf(game.pos.board[selected]), pending, canFinish, busy, thinking, notice,
+      viewing, reviewNote: moments.reviewNote(), lesson, lessonDone, nextLesson: lessonShelf(progress()).next?.name ?? null,
+      turnLine: turnLine(game, currentTurn(), turnMode()), activeSide: currentTurn().activeSide, staged: currentTurn().staged,
+      check: game.inCheck, ended: ended(), finished: finished(), myTurn: myTurn(), result: moments.result(),
+      backRank: game.backRank, fen: toFen(game.pos), history: game.history.map(h => ({ lan: h.lan, turn: h.pos.turn })),
+      marked: moments.marked(), taken, sides, linkSide, undoOn: undoOn(), resigner: resigner(),
+    });
+    // The info card and End turn read the turn core and game-end.ts, so they stay here, after the table.
     showInfo(inspected ?? selected);
-    $('undo').hidden = lesson != null;
-    $('undo').setAttribute('aria-disabled', String(!undoOn()));
     refreshTurnButton();
     gameEnd.refresh();
-    $<HTMLButtonElement>('resign').disabled = resigner() == null;
-    $<HTMLButtonElement>('copy').disabled = game.history.length === 0;
-    $('share').hidden = sides[0] !== 'human' || sides[1] !== 'human' || game.history.length === 0 || lesson != null || linkSide != null || currentTurn().staged > 0;
-    $('next-lesson').hidden = lesson == null || !lessonDone;
-    $('return-game').hidden = lesson == null;
-    const nextLesson = lessonShelf(progress()).next;
-    $('next-lesson').querySelector('.label')!.textContent = nextLesson ? `Next lesson: ${nextLesson.name}` : 'Start a game';
-    $('show-me').hidden = lesson == null || lessonDone;
-    $('show-me').setAttribute('aria-disabled', String(finished() || busy || viewing != null || !myTurn()));
     const coins = refreshCoins({ pos: shownPos(), history: game.history, rules: GAME_RULES, legal: viewing == null ? game.legal : undefined, activeSide: currentTurn().activeSide, armed, canPlay: !finished() && viewing == null && lesson == null && myTurn(), busy, flipped, lesson, mode: turnMode(), viewer: linkSide ?? (sides[0] === 'ai' ? 1 : 0), waiting: currentTurn().waits, selection: selected != null || inspected != null || !!notice });
     armed = coins.armed;
     drawMarks();

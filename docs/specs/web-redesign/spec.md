@@ -376,6 +376,6 @@ Rejected, in part:
 - A game-only module for every new motion (engineering 2): not now. The size risk comes from images; rule 5 measures each step and stops at 4,350,000 bytes.
 - A turn button for one device and the computer before the link games (engineering 7): no. Advisor A asks for no mode without the turn rule, so 02b covers all three modes, and only the send itself waits for 02c.
 - A tap on an empty square leaves review (rules and UX 5): no. Both advisors keep only Back to game and Esc, so a stray tap does not drop review.
-- "With no moves, ask which side this device plays" (rules and UX 20): not needed. "Send the game link" is hidden while no move is played (`screen/play.ts:refresh`).
+- "With no moves, ask which side this device plays" (rules and UX 20): not needed. "Send the game link" is hidden while no move is played (`ui/table.ts:renderTable`).
 - End turn for an old link that ends mid-turn (Advisor S 1): replaced by the fix of rules and UX 21. The receiver's app plays the pass for the sender.
 - Two fixes are actions outside this folder: commit and push the showcase (engineering 3), and change the TASKS line for card mode on main (fidelity 5). §5 lists them before the first step.
