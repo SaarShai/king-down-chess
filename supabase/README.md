@@ -39,11 +39,11 @@ repository.
 stand-in for Supabase's `auth` schema, and checks the trigger, the policies, the grants, the
 newer-copy rule and the deletion, with the attacks a signed-in player could try on another's data. It needs `npm install --no-save @electric-sql/pglite` first.
 
-## Online games: 0005 and 0006
+## Online games: 0005 to 0007
 
 Not applied yet. Apply them in order, after 0001–0004, with a privileged connection
-(`npm run plugin:db:migrate` applies 0002–0006). Then apply the last block of
-`plugin-deploy/runtime-role.sql` to the existing runtime role. Both migrations are safe to run again.
+(`npm run plugin:db:migrate` applies 0002–0007). Then apply the third and fourth blocks of
+`plugin-deploy/runtime-role.sql` to the existing runtime role. The migrations are safe to run again.
 
 - `0005_accounts_v2.sql`: handles, a preset icon and the privacy settings on `profiles`
   (signed-in players read only `id`, `display_name`, `avatar_url`, `rating`, `handle` and `icon`);
@@ -54,5 +54,20 @@ Not applied yet. Apply them in order, after 0001–0004, with a privileged conne
   its games to the opponent (`on delete set null`). Old plugin games stay in `plugin_matches`, unused;
   a board that showed one says "This game was deleted".
 
-`npm run plugin:db:init-test` applies 0001–0006 twice to a disposable loopback database, and
-`src/match/service.db.test.ts` checks them.
+- `0007_jobs.sql`: two helpers in the private schema `kingdown_jobs` for the jobs of
+  `src/online/jobs.ts`: the address for an alert email (from `auth.users`), and the account deletion
+  after the 7-day grace (it checks again that the deletion is due, that no report hold covers the
+  player and that no game is active; it reserves the handle and deletes the solo games). Only the
+  server role may call them.
+
+`npm run plugin:db:init-test` applies 0001–0007 twice to a disposable loopback database, and
+`src/match/service.db.test.ts` and `src/online/jobs.db.test.ts` check them.
+
+## Job schedules: ops/cron.sql
+
+Not a migration: the local test database has no pg_cron or pg_net. After the deploy that serves
+`/internal/*`, turn on pg_cron and pg_net, store the internal secret in Vault as
+`kingdown_internal_secret`, then paste `ops/cron.sql` into the SQL editor. It schedules
+`/internal/tick` (each minute), `/internal/outbox` (each 10 seconds, only when a row is due),
+`/internal/reminders` (each 10 minutes) and `/internal/daily` (03:17 UTC). The file says what to
+change on a Postgres version older than 15.1.1.61.

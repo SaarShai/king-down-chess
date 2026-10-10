@@ -95,9 +95,10 @@ export class PostgresMatchStore {
   return result.rows.map(({ op_user, op_computer, op_seen, op_handle, ...r }) => ({ ...r, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
    opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen ? now - op_seen.getTime() : null } }));
  }
- /** Games past their Daily deadline, oldest first. */
+ /** Games past their Daily deadline, oldest first, then waiting games whose invitation ran out (a game has at most one). */
  async due(now: Date, limit = 100): Promise<string[]> {
-  return (await this.pool.query(`select id from public.games where status='playing' and deadline_at<=$1 order by deadline_at limit $2`, [now, limit])).rows.map(r => r.id);
+  return (await this.pool.query(`(select id from public.games where status='playing' and deadline_at<=$1 order by deadline_at limit $2)
+   union all (select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where g.status='waiting' and i.used_by is null and i.expires_at<=$1 limit $2)`, [now, limit])).rows.map(r => r.id);
  }
  /** The actor's most recently updated game of any status. */
  async latest(actor: string): Promise<string | null> {

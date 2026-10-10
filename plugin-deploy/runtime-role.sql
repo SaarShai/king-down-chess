@@ -63,3 +63,26 @@ create policy kingdown_plugin_runtime on public.relations for select to kingdown
 drop policy if exists kingdown_plugin_runtime on public.profiles;
 create policy kingdown_plugin_runtime on public.profiles for select to kingdown_plugin_runtime using (true);
 commit;
+
+-- Apply after migration 0007: the jobs (src/online/jobs.ts) run as this role too. They read the alert rules and
+-- the report holds, send and close outbox rows, queue reminders, and call the two kingdown_jobs helpers. Email
+-- addresses and account deletion stay behind those helpers; this role cannot read or delete auth.users itself.
+begin;
+grant select, delete, update (attempts, available_at, done_at) on public.outbox to kingdown_plugin_runtime;
+grant select (user_id, kind, payload) on public.notifications to kingdown_plugin_runtime;
+grant select on public.notification_prefs to kingdown_plugin_runtime;
+grant select, insert (user_id), update (turn_email_sent_at) on public.alert_state to kingdown_plugin_runtime;
+grant select (quiet_mode) on public.profiles to kingdown_plugin_runtime;
+grant select (user_id, run_after, cancelled_at, done_at) on public.account_deletions to kingdown_plugin_runtime;
+grant select (reported_id, reporter_id, hold_until) on public.reports to kingdown_plugin_runtime;
+grant usage on schema kingdown_jobs to kingdown_plugin_runtime;
+grant execute on function kingdown_jobs.user_email(uuid), kingdown_jobs.delete_account(uuid) to kingdown_plugin_runtime;
+do $$
+declare t text;
+begin
+  foreach t in array array['notification_prefs', 'alert_state', 'account_deletions', 'reports'] loop
+    execute format('drop policy if exists kingdown_plugin_runtime on public.%I', t);
+    execute format('create policy kingdown_plugin_runtime on public.%I for all to kingdown_plugin_runtime using (true) with check (true)', t);
+  end loop;
+end $$;
+commit;

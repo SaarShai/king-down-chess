@@ -200,14 +200,17 @@ export class GameService {
    return this.render(next, seat, { client, rules: true });
   });
  }
- /** Ends Daily games whose deadline passed; safe to run twice at once. Returns how many it ended. */
+ /** Ends Daily games whose deadline passed, and waiting games whose invitation ran out (no start); safe to run twice at once. Returns how many it ended. */
  async sweep(now = new Date()): Promise<number> {
   let ended = 0;
   for (const gameId of await this.store.due(now)) ended += await this.store.transaction(async client => {
    const game = await this.store.load(gameId, { client, lock: true });
-   if (game.status !== 'playing' || !game.deadline_at || game.deadline_at > now) return 0; // a command or another sweep came first
+   // A command, a new invitation or another sweep may have come first.
+   const late = game.status === 'playing' ? !!game.deadline_at && game.deadline_at <= now
+    : game.status === 'waiting' && !!(await client.query('select from public.game_invites where game_id=$1 and used_by is null and expires_at<=$2', [gameId, now])).rowCount;
+   if (!late) return 0;
    const next = step(game), out: Outgoing = { notify: [], outbox: [] };
-   expire(next, out, now);
+   if (game.status === 'waiting') end(next, out, null, 'no_start', now); else expire(next, out, now);
    await this.write(client, game, next, { seat: null, actor_id: null, command_id: null, kind: 'expire', payload: {}, actions: null, surface: null, received_at: now }, out);
    return 1;
   });
