@@ -111,3 +111,11 @@ begin
   end loop;
 end $$;
 commit;
+
+-- Apply after migration 0009 to the existing restricted runtime role: the game service counts each player's
+-- invitation-code tries (GameService.join, at most 10 in one hour).
+begin;
+grant select, insert (user_id), update (window_start, tries) on public.invite_code_tries to kingdown_plugin_runtime;
+drop policy if exists kingdown_plugin_runtime on public.invite_code_tries;
+create policy kingdown_plugin_runtime on public.invite_code_tries for all to kingdown_plugin_runtime using (true) with check (true);
+commit;

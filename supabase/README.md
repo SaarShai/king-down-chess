@@ -39,10 +39,10 @@ repository.
 stand-in for Supabase's `auth` schema, and checks the trigger, the policies, the grants, the
 newer-copy rule and the deletion, with the attacks a signed-in player could try on another's data. It needs `npm install --no-save @electric-sql/pglite` first.
 
-## Online games: 0005 to 0008
+## Online games: 0005 to 0009
 
 Not applied yet. Apply them in order, after 0001–0004, with a privileged connection
-(`npm run plugin:db:migrate` applies 0002–0008). Then apply the third, fourth and fifth blocks of
+(`npm run plugin:db:migrate` applies 0002–0009). Then apply the third to the sixth blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The migrations are safe to run again.
 
 - `0005_accounts_v2.sql`: handles, a preset icon and the privacy settings on `profiles`
@@ -66,15 +66,20 @@ Not applied yet. Apply them in order, after 0001–0004, with a privileged conne
   reported handle or preset, and `mod_actions.handle` the handle that a rename or hide took away.
   The website text still says that a deletion is at once: change it before you apply 0008.
   Staff names that no player may take go in `reserved_handles` with reason `blocked`.
+- `0009_invite_tries.sql`: one row for each player that counts the invitation-code tries in one hour.
+  The game service refuses an 11th try (`RATE_LIMITED`) on the website and in ChatGPT; the 43-character
+  link token is not counted.
 
-`npm run plugin:db:init-test` applies 0001–0008 twice to a disposable loopback database, and
-`src/match/service.db.test.ts`, `src/online/jobs.db.test.ts` and `src/online/accounts.db.test.ts` check them.
+`npm run plugin:db:init-test` applies 0001–0009 twice to a disposable loopback database, and
+`src/match/service.db.test.ts`, `src/online/jobs.db.test.ts`, `src/online/accounts.db.test.ts` and
+`src/api/http.db.test.ts` check them.
 
 ## Job schedules: ops/cron.sql
 
 Not a migration: the local test database has no pg_cron or pg_net. After the deploy that serves
 `/internal/*`, turn on pg_cron and pg_net, store the internal secret in Vault as
-`kingdown_internal_secret`, then paste `ops/cron.sql` into the SQL editor. It schedules
+`kingdown_internal_secret`, then paste `ops/cron.sql` into the SQL editor. The server reads the same
+secret from `KINGDOWN_INTERNAL_SECRET` (at least 32 characters; without it, `/internal/*` answers 503). It schedules
 `/internal/tick` (each minute), `/internal/outbox` (each 10 seconds, only when a row is due),
 `/internal/reminders` (each 10 minutes) and `/internal/daily` (03:17 UTC). The file says what to
 change on a Postgres version older than 15.1.1.61.
