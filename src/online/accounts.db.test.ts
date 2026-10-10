@@ -214,16 +214,13 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
   expect((await owner.show(first)).actions).toHaveLength(3);
  }, 30000);
 
- it('asks for a deletion with a 7-day grace that a sign-in cancels, and a report hold blocks the deletion', async () => {
+ it('asks for a deletion with a 7-day grace that a sign-in cancels, and holds a reported player’s data', async () => {
   const [x, y, z] = [await user('del'), await user('held'), await user('rpc')];
   const asked = await accounts.requestDeletion(x);
   expect(new Date(asked.deletion!.run_after).getTime() - new Date(asked.deletion!.requested_at).getTime()).toBe(7 * DAY);
   expect((await accounts.requestDeletion(x)).deletion).toEqual(asked.deletion); // a second request keeps the date
-  expect(await accounts.dueDeletions()).not.toContain(x);
-  expect(await accounts.dueDeletions(later(8))).toContain(x);
   await admin.query('insert into auth.sessions(user_id) values($1)', [x]); // a new sign-in
   expect((await accounts.profile(x)).deletion).toBeNull();
-  expect(await accounts.dueDeletions(later(8))).not.toContain(x);
   expect((await accounts.requestDeletion(x)).deletion).not.toBeNull(); // after a cancel, a new grace
   expect((await accounts.cancelDeletion(x)).deletion).toBeNull();
   // The website's "Delete my account" asks for the same deletion.
@@ -231,14 +228,12 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
   await rpc(); const kept = (await accounts.profile(z)).deletion; await rpc();
   expect([kept?.run_after, (await accounts.profile(z)).deletion]).toEqual([expect.any(String), kept]);
   expect(await rows('select count(*)::int as n from auth.users where id=$1', [z])).toEqual([{ n: 1 }]);
-  // An NCA hold on a report against the player keeps the account past its grace, and the player is not told.
+  // An NCA hold on a report against the player: the deletions job skips the player (src/online/jobs.db.test.ts), and the player is not told.
   await accounts.requestDeletion(y);
   const report = await safety.report(x, { target: 'player', user_id: y, category: 'child_safety_or_illegal' });
   const { hold_until } = await owner.hold(report.id, { nca_reference: 'NCA-TEST-1' });
   expect(Math.abs(new Date(hold_until).getTime() - later(365).getTime())).toBeLessThan(60_000);
   expect((await owner.hold(report.id, { nca_reference: 'NCA-TEST-1', days: 30 })).hold_until).toBe(hold_until); // a hold only grows
-  expect(await accounts.dueDeletions(later(8))).not.toContain(y);
-  expect(await accounts.dueDeletions(later(366))).toContain(y);
   expect(Object.keys((await accounts.profile(y)).deletion!)).toEqual(['requested_at', 'run_after']);
  }, 30000);
 

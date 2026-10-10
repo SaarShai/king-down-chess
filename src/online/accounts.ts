@@ -94,13 +94,6 @@ export class AccountService {
     await this.store.pool.query('update public.account_deletions set cancelled_at=now() where user_id=$1 and cancelled_at is null and done_at is null', [actor]);
     return this.profile(actor);
   }
-  /** Deletions whose grace has ended, oldest first, without the players under a report hold (part 03,
-   * section 8.10). Ticket 06's deletions job runs them; call again while it returns 100. */
-  async dueDeletions(now = new Date()): Promise<string[]> {
-    const result = await this.store.pool.query(`select user_id from public.account_deletions d where run_after<=$1 and cancelled_at is null and done_at is null
-      and not exists(select from public.reports r where r.reported_id=d.user_id and r.hold_until>$1) order by run_after limit 100`, [now]);
-    return result.rows.map(row => row.user_id);
-  }
   /** Each alert's email and push choice; an alert with no row has its default. */
   async notificationPrefs(actor: string): Promise<NotifyPrefs> {
     const rows = (await this.store.pool.query('select kind,email,push from public.notification_prefs where user_id=$1', [id(actor)])).rows;
