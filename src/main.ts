@@ -18,7 +18,6 @@ import { checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from
 import { POWER_TAG, autoQueen, hintMoves, offered } from './powers-ui';
 import { defaultSetup, kingsOf, newGameDialog, newGameWarning, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
-import { copyText } from './clipboard';
 import './dialog-dismiss';
 import { firstVisit, openTitle, startFirstDeal } from './ui/title';
 import { reachOf, readTap, unmarkedTap } from './read';
@@ -39,7 +38,7 @@ import { initHome } from './ui/home-view';
 
 import { connectPreviously } from './ui/previously';
 import { connectGuide, kingArt, pieceArt, pieceText } from './ui/guide';
-import { gameUrl } from './screen/links';
+import { connectLinks, copyAndSay, gameLinkless } from './screen/links';
 import { LOOK_KEY, connectSettings } from './screen/settings';
 import { readSave, writeSave, type Save } from './screen/save';
 
@@ -182,7 +181,7 @@ connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
     return line;
   },
   refresh, save, next: () => { if (ended()) showOver(); else void maybeAi(); },
-  link: gameLink, notice: line => { notice = line; },
+  link: lans => links.gameLink(lans), notice: line => { notice = line; },
   focusBoard: keyboard => { cursor = keyboard ? homeSquare() : null; sayCursor(); drawMarks(); },
 });
 const previously = connectPreviously($<HTMLButtonElement>('see-again'), {
@@ -883,41 +882,10 @@ $('resign-confirm').onclick = () => {
   save();
   showOver();
 };
-$('copy').onclick = () => {
-  const text = game.history.map((h, i) => (i % 2 === 0 ? `${i / 2 + 1}. ${h.lan}` : h.lan)).join(' ');
-  void copyAndSay($('copy'), text, 'Moves copied');
-};
-
-/** This page's URL without a game link's parameters. */
-function gameLinkless(): string {
-  const url = new URL(location.href);
-  for (const k of ['army', 'fen', 'moves']) url.searchParams.delete(k);
-  return url.href;
-}
-
-/** A link that holds this whole game, for a friend to open and answer on their device (no server). */
-function gameLink(lans = game.history.slice(0, turnStart).map(h => h.lan)): string {
-  return gameUrl(location, params.get('rules'), GAME_RULES.kings,
-    game.backRank ? { army: game.backRank } : { fen: toFen(game.history[0]?.pos ?? game.pos) }, lans);
-}
-
-$('share').onclick = async () => {
-  if (busy || currentTurn().staged || lesson != null || linkSide != null) return;
-  const url = gameLink(), button = $('share');
-  // A phone opens its share sheet (chat apps); elsewhere the link goes to the clipboard.
-  if (navigator.share && matchMedia('(pointer: coarse)').matches) {
-    try { await navigator.share({ title: 'King Down Chess', text: `King Down Chess: ${game.pos.turn ? 'Black' : 'White'} to move`, url }); return; }
-    catch (e) { if ((e as Error).name === 'AbortError') return; }
-  }
-  await copyAndSay(button, url, 'Link copied. Paste it to your friend.');
-};
-
-/** Copies `text`, then says on `button` (its label) for 2.5 s what happened: `done` only after the copy succeeds. */
-async function copyAndSay(button: HTMLElement, text: string, done: string): Promise<void> {
-  const label = button.querySelector<HTMLElement>('.label') ?? button, idle = label.dataset.idle ??= label.textContent ?? '';
-  label.textContent = await copyText(text) ? done : 'Could not copy';
-  setTimeout(() => { label.textContent = idle; }, 2500);
-}
+const links = connectLinks({
+  game: () => game, turnStart: () => turnStart, rules: params.get('rules'),
+  blocked: () => !!(busy || currentTurn().staged || lesson != null || linkSide != null),
+});
 
 /* ---- autosave ---- */
 /** Settings → Account and the cloud save, loaded after the board is drawn (null until then, or offline). */
