@@ -162,6 +162,20 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   expect([claim.status,claim.result?.reason,claim.last_commands.at(-1)?.action.type]).toEqual(['aborted','no_start','claim']);
  },60000);
 
+ it('keeps the last revision for the end of a game: a resignation, a claim or the sweep',async () => {
+  // The schema stops at revision 1000; these games start one revision before it. New players: a short code counts 10 joins in one hour.
+  const [w,k] = [await user('wil'),await user('kit')];
+  const near = async (late = false) => { const id = await friend(w,k); await admin.query(`update public.games set revision=999${late ? ",deadline_at=now()-interval '1 minute'" : ''} where id=$1`,[id]); return id; };
+  const resigned = await near();
+  await expect(games[0].command(w,resigned,turn(999,(await games[0].view(w,resigned)).legal[0]))).rejects.toMatchObject({code:'MATCH_LIMIT'});
+  await expect(games[1].command(k,resigned,command(999,{type:'say',preset:'hello'}))).rejects.toMatchObject({code:'MATCH_LIMIT'});
+  expect(await games[1].command(k,resigned,command(999,{type:'resign'}))).toMatchObject({status:'finished',revision:1000});
+  const claimed = await near(true), swept = await near(true);
+  expect(await games[1].command(k,claimed,command(999,{type:'claim',reason:'timeout'}))).toMatchObject({status:'aborted',revision:1000});
+  await games[0].sweep();
+  expect((await rows('select status,revision from public.games where id=$1',[swept]))[0]).toEqual({status:'aborted',revision:1000});
+ },30000);
+
  it('runs resign, abort, draw offers and presets through the command log',async () => {
   const id = await friend(a,b);
   await expect(games[1].command(b,id,command(1,{type:'draw',choice:'accept'}))).rejects.toMatchObject({code:'NOT_ALLOWED'});

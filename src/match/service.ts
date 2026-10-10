@@ -4,9 +4,10 @@ import type { z } from 'zod';
 import { createMatch, loadMatch, MatchError, type MatchSetup, type MatchSnapshot } from './index';
 import { commandSchema, createSchema, type Command, type EndReason, type InboxEntry, type Invite, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
+import { diagnostic } from '../plugin/diagnostics';
 export { MatchServiceError } from './store';
 
-const DAY = 86_400_000, FIRST_TURN_DAYS = 3, DRAW_OFFERS = 3;
+const DAY = 86_400_000, FIRST_TURN_DAYS = 3, DRAW_OFFERS = 3, LIMIT = 1000; // LIMIT: the last revision that 0006 allows
 const ENGINE_REJECTS = ['Illegal or ambiguous move', 'Match terminal', 'Match history limit reached', 'Stale revision', 'Command ID conflict', 'Malformed command'];
 const CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no I, L, O, 0 or 1
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,10 +27,11 @@ function check(game: Game, seat: Seat, { expected_revision, action }: Command, a
  if (game.revision !== expected_revision) fail('STALE_REVISION', 409, 'The game changed; reload before you act');
  if (game.status === 'finished' || game.status === 'aborted') fail('MATCH_TERMINAL', 409, 'The game has ended');
  if (game.status === 'waiting' && action.type !== 'abort') fail('WAITING', 409, 'Waiting for the other player');
- if (game.revision >= 1000) fail('MATCH_LIMIT', 409, 'Match history limit reached');
  const expired = game.status === 'playing' && !!game.deadline_at && game.deadline_at <= at;
  if (action.type === 'claim' && (!expired || game.turn === seat)) fail('NOT_ALLOWED', 409, 'There is no missed deadline to claim');
  if (expired) return true;
+ // The last revision is kept for the end of the game (a resignation, an abort, a claim or the sweep), so a game never stops at the limit while in play.
+ if (game.revision >= LIMIT - 1 && action.type !== 'resign' && action.type !== 'abort') fail('MATCH_LIMIT', 409, 'Match history limit reached');
  const me = game.players[seat], offer = game.draw_offer;
  if (action.type === 'turn' && game.turn !== seat || action.type === 'computer' && !game.players[game.turn].computer) fail('WRONG_TURN', 403, 'This operation is not permitted on the current turn');
  // Abort stays open until each side has completed its first turn (turns, not actions: Haste).
@@ -204,17 +206,23 @@ export class GameService {
  /** Ends Daily games whose deadline passed, and waiting games whose invitation ran out (no start); safe to run twice at once. Returns how many it ended. */
  async sweep(now = new Date()): Promise<number> {
   let ended = 0;
-  for (const gameId of await this.store.due(now)) ended += await this.store.transaction(async client => {
-   const game = await this.store.load(gameId, { client, lock: true });
-   // A command, a new invitation or another sweep may have come first.
-   const late = game.status === 'playing' ? !!game.deadline_at && game.deadline_at <= now
-    : game.status === 'waiting' && !!(await client.query('select from public.game_invites where game_id=$1 and used_by is null and expires_at<=$2', [gameId, now])).rowCount;
-   if (!late) return 0;
-   const next = step(game), out: Outgoing = { notify: [], outbox: [] };
-   if (game.status === 'waiting') end(next, out, null, 'no_start', now); else expire(next, out, now);
-   await this.write(client, game, next, { seat: null, actor_id: null, command_id: null, kind: 'expire', payload: {}, actions: null, surface: null, received_at: now }, out);
-   return 1;
-  });
+  for (const gameId of await this.store.due(now)) try {
+   ended += await this.store.transaction(async client => {
+    const game = await this.store.load(gameId, { client, lock: true });
+    // A command, a new invitation or another sweep may have come first.
+    const late = game.status === 'playing' ? !!game.deadline_at && game.deadline_at <= now
+     : game.status === 'waiting' && !!(await client.query('select from public.game_invites where game_id=$1 and used_by is null and expires_at<=$2', [gameId, now])).rowCount;
+    if (!late) return 0;
+    const next = step(game), out: Outgoing = { notify: [], outbox: [] };
+    if (game.status === 'waiting') end(next, out, null, 'no_start', now); else expire(next, out, now);
+    await this.write(client, game, next, { seat: null, actor_id: null, command_id: null, kind: 'expire', payload: {}, actions: null, surface: null, received_at: now }, out);
+    return 1;
+   });
+  } catch (error) {
+   // One game that cannot end must not stop the others. It stays due, so each run logs it again.
+   // ponytail: 100 such games, the first in due(), would hold back the rest; the log shows each one.
+   console.error('King Down sweep failed', { game_id: gameId, ...diagnostic(error) });
+  }
   return ended;
  }
  private async write(client: Parameters<PostgresMatchStore['save']>[0], before: Game, next: Game, log: Log, out: Outgoing): Promise<void> {

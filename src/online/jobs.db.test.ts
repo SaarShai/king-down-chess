@@ -88,6 +88,20 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   expect((await rows('select game_id from public.game_invites where game_id=any($1)', [[late, open.game_id]])).map(row => row.game_id)).toEqual([late]);
  }, 60_000);
 
+ it('ends the other due games when one game cannot end', async () => {
+  const [a, b] = [await user('ora'), await user('pip')];
+  const stuck = await friend(a, b), late = await friend(a, b);
+  // The schema stops at revision 1000, so this game cannot take its expire event; its deadline is the first, so the sweep meets it first.
+  await admin.query(`update public.games set revision=1000,deadline_at=now()-interval '2 minutes' where id=$1`, [stuck]);
+  await admin.query(`update public.games set deadline_at=now()-interval '1 minute' where id=$1`, [late]);
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+   await sweepDeadlines(games[0], at());
+   expect([(await game(stuck)).status, (await game(late)).status]).toEqual(['playing', 'aborted']);
+   expect(error).toHaveBeenCalledWith('King Down sweep failed', { game_id: stuck, name: 'Error', code: '23514' });
+  } finally { error.mockRestore(); await admin.query('delete from public.games where id=$1', [stuck]); }
+ }, 60_000);
+
  it('sends no alert while the recipient is in the game', async () => {
   const [h, p] = [await user('hal'), await user('pia')];
   const id = await friend(h, p);
