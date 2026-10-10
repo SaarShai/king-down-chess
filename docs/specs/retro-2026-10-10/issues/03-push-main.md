@@ -10,8 +10,8 @@ Status: in-review (branch `claude/retro-tools`)
 
 ## Done when
 
-- [ ] `tools/push-main.sh --dry-run` from the main checkout with another session's edits in it: the worktree is made and removed, and git reports the push as up to date or lists the commit.
-- [ ] A review by a reader that did not write the diff; its findings fixed and recorded here.
+- [x] `tools/push-main.sh --dry-run` from a worktree of main: the worktree is made and removed, and git reports main as up to date. The branch push of this ticket ran the real hook from the worktree (`npm test` and the gate) and landed. `tools/push-main.test.ts`: three cases pass in `npm test`.
+- [x] A review by a reader that did not write the diff; its findings fixed and recorded here.
 
 ## Comments
 - **Reviews** (2026-10-10). Review 1 (read-only, inside the worktree): no fault; the detached HEAD matches the pushed sha, the hook runs in that worktree, the EXIT trap covers a failed push. Review 2 (the shell lens of the panel): one should-fix, refuted by its second reader (a lock-file mismatch cannot reach the push, because the hook refuses a direct push to main that changes the lock file; the main checkout holds main). Taken as notes: a guard for a missing `node_modules` in the main checkout; the header says what `--dry-run` does (the hook still runs the tests); a test of the script (above). Noted, no change: `core.hooksPath` is absolute in this clone, so the worktree runs the main checkout's hook files.

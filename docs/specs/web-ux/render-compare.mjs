@@ -235,7 +235,7 @@ async function against(rest) {
       const lines = [];
       let sampleChanges = 0, sampleUnstable = 0;
       for (const row of result.rows) {
-        if (flicker.has(stateOf(row.name))) { sampleUnstable++; lines.push(`  unstable ${row.name}: the state is not the same in two renders of one build`); }
+        if (flicker.has(stateOf(row.name))) { sampleUnstable++; lines.push(`  unstable ${row.text.replace(/^\w+ /, '')}; the state is not the same in two renders of one build`); }
         else { sampleChanges++; lines.push(`  CHANGE ${row.text}${confirmed}`); }
       }
       for (const [file, text] of faults.tree) {
