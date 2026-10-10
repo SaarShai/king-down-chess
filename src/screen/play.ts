@@ -874,8 +874,9 @@ export function connectPlay(view: BoardView, c: {
     view.sync(previously.position());
   }
 
-  /** The commands that the keys send (screen/keys.ts). */
+  /** The commands that the keys send (screen/keys.ts); no page key acts while Home is up. */
   const commands = {
+    blocked: () => home.visible,
     click: (sq: number, shift: boolean) => view.onSquareClick(sq, shift), read: (sq: number) => refuse('', sq),
     escape: () => { clearCoinRead(); view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; inspected = null; armed = false; hintSquares = []; refresh(); },
     resetView: () => view.resetView(), undo, step: (by: -1 | 1) => { void showPly((viewing ?? game.history.length) + by); },

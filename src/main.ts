@@ -139,11 +139,7 @@ const openToday = (): void => openGameSetup({ ...setup, army: 'daily' });
 $('new-game-btn').onclick = openNewGame;
 initMenu({ playAgain: () => play.newGame(randomBackRank()), today: openToday, resignSide: play.resigner });
 initTable(() => { void play.showPly(null, false); });
-const keys = connectKeys($('board'), {
-  game: play.game, shownPos: play.shownPos, selected: play.selected, pending: play.pending, inspected: play.inspected,
-  candidates: play.candidates, flipped: play.flipped, blocked: () => !!home?.visible, drawMarks: play.drawMarks,
-  ...play.commands,
-});
+const keys = connectKeys($('board'), play, play.commands);
 
 /** A plain `?fen=` wins over the autosave; restore player settings before loading the game. */
 const saved = params.has('fen') && !link ? null : readSave();
