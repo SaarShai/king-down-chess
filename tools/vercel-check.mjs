@@ -65,9 +65,9 @@ try {
     assert.equal(response.status, 200); return JSON.parse(await response.text()).result;
   };
   const open = await tool('kingdown_open', {}); assert(!open.isError);
-  const { matchId, snapshot } = open.structuredContent;
-  const moved = await tool('kingdown_move', { matchId, id: 'vercel-first', expectedRevision: 0, lan: snapshot.legal.find(lan => !lan.includes('!')) });
-  assert(!moved.isError); assert.equal(moved.structuredContent.snapshot.revision, 1);
+  const { game_id, legal } = open._meta.view;
+  const moved = await tool('kingdown_move', { game_id, command_id: 'vercel-first', expected_revision: 0, lan: legal.find(lan => !lan.includes('!')) });
+  assert(!moved.isError); assert.equal(moved._meta.view.revision, 1);
   const authorize = await fetch(`${origin}/authorize?authorization_id=${randomUUID()}`);
   assert.equal(authorize.status, 200); assert.match(authorize.headers.get('content-type'), /^text\/html/);
   assert((await authorize.text()).includes(clientId)); assert.match(authorize.headers.get('content-security-policy'), /frame-ancestors 'none'/);

@@ -112,7 +112,7 @@ export function createPluginHandler(options: PluginHttpOptions): (req: IncomingM
       catch { if (!res.headersSent) respond(res, 500, { error: 'Request failed' }); else res.destroy(); }
       finally {
         try { await close(); } finally {
-          // kingdown_open can call resume and then create; drain sequential follow-on work too.
+          // kingdown_open can read the inbox, then create a game and a board; drain sequential follow-on work too.
           while (work.size) await Promise.allSettled([...work]);
         }
       }

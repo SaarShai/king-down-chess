@@ -11,7 +11,7 @@ import { pluginDatabaseConfig } from './plugin-db-config.mjs';
 import { createTokenVerifier, isLoopback, pluginOrigin } from '../src/plugin/auth.ts';
 import { consentConfig, renderConsent } from '../src/plugin/consent-config.ts';
 import { createPluginHandler } from '../src/plugin/http.ts';
-import { MatchService } from '../src/match/service.ts';
+import { PluginService } from '../src/plugin/service.ts';
 import { PostgresMatchStore } from '../src/match/store.ts';
 
 export async function configurePlugin(env = process.env, { localDev = false } = {}) {
@@ -45,7 +45,7 @@ export async function configurePlugin(env = process.env, { localDev = false } = 
   pool.on('error', error => { console.error('King Down database connection failed', diagnostic(error)); });
   try { await checkPluginDatabase(pool, config, auth?.resource); }
   catch (error) { await pool.end(); throw error; }
-  const mcp = createPluginHandler({ consent, service: new MatchService(new PostgresMatchStore(pool)), publicOrigin, resourceHtml, auth, localDev });
+  const mcp = createPluginHandler({ consent, service: new PluginService(new PostgresMatchStore(pool)), publicOrigin, resourceHtml, auth, localDev });
   // One function serves every server path of kingdown.dev. Tickets 08 (the website API, /api/*) and
   // 06 (the jobs, /internal/*) add their handlers here; until then both answer 404.
   const handler = async (req, res) => {

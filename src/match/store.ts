@@ -111,9 +111,4 @@ export class PostgresMatchStore {
   return (await this.pool.query(`(select id from public.games where status='playing' and deadline_at<=$1 order by deadline_at limit $2)
    union all (select i.game_id from public.game_invites i join public.games g on g.id=i.game_id where g.status='waiting' and i.used_by is null and i.expires_at<=$1 limit $2)`, [now, limit])).rows.map(r => r.id);
  }
- /** The actor's most recently updated game of any status. */
- async latest(actor: string): Promise<string | null> {
-  const result = await this.pool.query('select g.id from public.game_players p join public.games g on g.id=p.game_id where p.user_id=$1 order by g.updated_at desc,g.created_at desc,g.id desc limit 1', [actor]);
-  return result.rows[0]?.id ?? null;
- }
 }

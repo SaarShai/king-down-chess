@@ -6,7 +6,8 @@ let initialResult: any;
 const invoke = async (name: string, args: Record<string, unknown>) => {
   const response = await fetch('/fixture-tool', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, arguments: args }) });
   const result = await response.json();
-  if (result.structuredContent?.matchId) { matchId = result.structuredContent.matchId; (window as any).harnessMatchId = matchId; (window as any).harnessView = result.structuredContent; }
+  // The board's data is in _meta; the model would read only the summary.
+  if (result._meta?.view) { matchId = result._meta.view.game_id; (window as any).harnessMatchId = matchId; (window as any).harnessView = result._meta.view; }
   return result;
 };
 frame.onload = async () => {
@@ -24,15 +25,15 @@ frame.onload = async () => {
   // ChatGPT's standard context write replaces its widget-state snapshot.
   bridge.onupdatemodelcontext = async params => { (window as any).harnessWidgetState = { modelContent: params.structuredContent }; return {}; };
   bridge.oninitialized = async () => {
-    const result = initialResult ?? (new URLSearchParams(location.search).has('terminal') ? await (await fetch('/fixture-terminal')).json() : await invoke('kingdown_open', matchId ? { matchId } : {}));
+    const result = initialResult ?? (new URLSearchParams(location.search).has('terminal') ? await (await fetch('/fixture-terminal')).json() : await invoke('kingdown_open', matchId ? { game_id: matchId } : {}));
     initialResult = result;
-    matchId = result.structuredContent.matchId;
-    await bridge!.sendToolInput({ arguments: matchId ? { matchId } : {} });
+    matchId = result.structuredContent.game_id;
+    await bridge!.sendToolInput({ arguments: matchId ? { game_id: matchId } : {} });
     await bridge!.sendToolResult(result);
     (window as any).harnessMatchId = matchId;
-    (window as any).harnessView = result.structuredContent;
+    (window as any).harnessView = result._meta.view;
   };
-  (window as any).harnessShow = async (result: any) => { initialResult = result; matchId = result.structuredContent.matchId; (window as any).harnessMatchId = matchId; (window as any).harnessView = result.structuredContent; await bridge!.sendToolResult(result); };
+  (window as any).harnessShow = async (result: any) => { initialResult = result; matchId = result.structuredContent.game_id; (window as any).harnessMatchId = matchId; (window as any).harnessView = result._meta.view; await bridge!.sendToolResult(result); };
   await bridge.connect(new PostMessageTransport(frame.contentWindow!, frame.contentWindow!));
 };
 frame.src = '/board-resource';
