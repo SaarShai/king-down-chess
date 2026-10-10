@@ -3,7 +3,7 @@
 // the Pawn's and the Paladin's marks equal src/workshop/scene.test.ts), yours (the shelf designs in the ledge),
 // link (a design link opens read only; a bad code shows the toast), keys (one tab stop, the arrow keys, the square
 // labels, Enter and Space on a ledge slot keep the focus), refused (grey barred marks and their stamps), isolate (hover, a tap and
-// Esc; the phone's stamps), knots (gold and cracked; a tap and the desktop toast), layouts (six sizes: no sideways scroll, the
+// Esc; the phone's stamps), knots (gold and cracked; a tap on each of three knots and the desktop toast), layouts (six sizes: no sideways scroll, the
 // top bar and the board in view, no cut text, 44 px targets, 24 px squares and knots) and oldDefault (no ?workshop=a: the old Workshop opens).
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
@@ -32,7 +32,11 @@ const SHELF = JSON.stringify({ v: 1, designs: [
 const beast = (id, what) => ({ v: 1, kind: 'piece', id, name: `My Beast ${what}`, named: true, look: { body: 'S', auto: false, glow: null, army: 0 }, letter: 'Y', ownLetter: false,
   squares: [[-1, 1], [0, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [0, -1], [1, -1]].map(([x, y]) => ({ x, y, mark: 'both' })), lines: [],
   rules: [{ when: { on: 'takes' }, does: { a: 'chain' } }, { when: { on: 'takes' }, does: { a: 'removedAfter', what } }], from: ['beast'], updated: 1760000000000 });
-const BEASTS = JSON.stringify({ v: 1, designs: [beast('mybeast', 'piece'), beast('mybeast-any', 'any')] });
+/** A Paladin copy with three knots (I-II, I-III, II-III): it moves like a queen on a center square, its lines pass, it is removed too. */
+const PALADIN3 = { v: 1, kind: 'piece', id: 'paladin3', name: 'Three Knots', named: true, look: { body: 'L', auto: false, glow: null, army: 0 }, letter: 'Y', ownLetter: false,
+  squares: [], lines: [], rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }, { when: { on: 'always' }, does: { a: 'linesPass', over: 'own' } },
+    { when: { on: 'takes' }, does: { a: 'removedAfter', what: 'piece' } }], from: ['paladin'], updated: 1760000000000 };
+const KNOTTED = JSON.stringify({ v: 1, designs: [beast('mybeast', 'piece'), beast('mybeast-any', 'any'), PALADIN3] });
 
 const browser = await launch();
 
@@ -212,6 +216,11 @@ async function isolate() {
   assert.equal(await p.evaluate(() => document.activeElement?.closest('.sline')?.dataset.seal), '2', 'the focus stays on the seal of rule III');
   await p.keyboard.press('Enter');
   assert.equal(await p.getAttribute('.sline[data-seal="2"] .sl-seal', 'aria-pressed'), 'false', 'a second Enter lets it go');
+  assert.deepEqual(await iso(p, 'd7', 'g7'), [null, null], 'a second Enter shows all marks again');
+  await p.keyboard.press('Enter');
+  await p.keyboard.press('Escape');
+  assert.equal(await p.getAttribute('.sline[data-seal="2"] .sl-seal', 'aria-pressed'), 'false', 'Esc lets the kept rule III go');
+  assert.deepEqual(await iso(p, 'd7', 'g7'), [null, null], 'Esc shows all marks again');
   await p.context().close();
   // The phone: the seals are the buttons; the stamps show for the kept rule only, and no knot toast.
   const ph = await open('?workshop=a', { width: 390, height: 844 });
@@ -227,7 +236,7 @@ async function isolate() {
 }
 
 async function knots() {
-  const p = await open('?workshop=a', { shelf: BEASTS });
+  const p = await open('?workshop=a', { shelf: KNOTTED });
   await door(p);
   assert.equal(await p.locator('.knot').count(), 0, 'two rules that never meet have no knot (the Pawn)');
   await p.click('.slot[data-piece="paladin"]');
@@ -251,6 +260,17 @@ async function knots() {
   await p.click('.slot[data-design="mybeast-any"]');
   assert.deepEqual(await p.$$eval('.knot', ks => ks.map(x => x.ariaLabel)), ['Removed too stops Takes again.'], 'My Beast, removed after anything: a cracked knot');
   await shot(p, 'beast-cancel-1440');
+  // Three knots: the knot from rule I to rule III has its own gutter, so a pointer reaches each knot.
+  await p.click('.slot[data-design="paladin3"]');
+  const words = await p.$$eval('.knot', ks => ks.map(x => x.ariaLabel));
+  assert.deepEqual(words, ['Both shape d6, a1 and d7.', 'Both shape d7 and g7.', 'Both shape d7.'], 'the Paladin copy has three gold knots');
+  await minTarget(p, '#workshop .knot', 24);
+  for (const [i, w] of words.entries()) {
+    await p.click(`.knot[data-knot="${i}"]`, { timeout: 2000 });
+    assert.equal(await p.getAttribute(`.knot[data-knot="${i}"]`, 'aria-pressed'), 'true', `a tap keeps knot ${i}`);
+    assert.equal(await toastText(p), w, `a tap on knot ${i} shows its words`);
+  }
+  await shot(p, 'three-knots-1440');
   await p.context().close();
 }
 

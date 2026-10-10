@@ -88,14 +88,17 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       // The narrow layout shows the seals in a row beside the name, with no lines: each one says its rule.
       + `<div class="pg-pseals">${rules.map((x, i) => `<button type="button" data-seal="${i}" ${x.press(ruleText(x.r))}>${seal(x.r.does.a, 42, { asleep: x.asleep })}</button>`).join('')}</div>`;
   }
-  /** The knots in the lines' 22 px gutter, from the middle of one rule line to the middle of the other (placeKnots, :1009-1022). Wide layout only. */
+  /** The knots in the lines' 22 px gutter, from the middle of one rule line to the middle of the other (placeKnots, :1009-1022). Wide layout only.
+   *  A knot from rule I to rule III beside another knot gets a second gutter, so each knot keeps its own 24 px hit area. */
   function placeKnots(): void {
     plinthEl.querySelectorAll('.knot').forEach(k => k.remove());
     if (narrow.matches || !sc) return;
     const line = (i: number) => q<HTMLElement>(`.sline[data-seal="${i}"]`), mid = (l: HTMLElement) => l.offsetTop + l.offsetHeight / 2;
+    const far = (k: Scene['knots'][number]) => k.b - k.a === 2 && sc.knots.length > 1;
+    plinthEl.querySelector('.pg-lines')?.classList.toggle('far', sc.knots.some(far));
     sc.knots.forEach((k, i) => {
       const a = line(k.a), len = mid(line(k.b)) - mid(a);
-      a.insertAdjacentHTML('beforeend', `<button type="button" class="knot" data-knot="${i}" aria-pressed="${knotAt === i}" aria-label="${esc(k.words)}" title="${esc(k.words)}" style="top:${a.offsetHeight / 2}px;height:${len}px">${knot(k.type, len)}</button>`);
+      a.insertAdjacentHTML('beforeend', `<button type="button" class="knot${far(k) ? ' far' : ''}" data-knot="${i}" aria-pressed="${knotAt === i}" aria-label="${esc(k.words)}" title="${esc(k.words)}" style="top:${a.offsetHeight / 2}px;height:${len}px">${knot(k.type, len)}</button>`);
     });
   }
   /** Shows the isolated rule or knot on the plinth and the board; the classes change in place, so the keyboard focus stays. */
@@ -117,7 +120,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       if (knotAt !== null) toast(sc.knots[knotAt].words);
     } else if (l) {
       const i = +l.dataset.seal!, gold = sc.knots.find(x => x.type === 'gold' && (x.a === i || x.b === i));
-      focus = focus === i ? null : i;
+      // A second tap lets the rule go, and the hover or keyboard focus on it too, until a new one.
+      if (focus === i) focus = hover = null; else focus = i;
       knotAt = null;
       // A desktop tap names what the rule makes with another one.
       if (focus !== null && gold && !narrow.matches) toast(gold.words);
@@ -139,7 +143,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   dlg.addEventListener('cancel', e => {
     if (focus === null && knotAt === null) return;
     e.preventDefault();
-    focus = knotAt = null;
+    focus = knotAt = hover = null;
     isolate();
   });
 

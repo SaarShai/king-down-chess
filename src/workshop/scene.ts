@@ -115,9 +115,12 @@ export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState
       for (const rl of other.rails) if (!lines.has(lineOf(rl))) rails.push({ ...rl, style: 'asleep', by: [i] });
     }
   }
-  // A refused first take is grey with a bar, by the rule that refuses it only; a chain's refused next take waits for its hover (ticket 05).
+  // A refused first take is grey with a bar, by the rules that refuse it only (a push and a swap may both refuse a king);
+  // a chain's refused next take waits for its hover (ticket 05).
   for (const r of trace.refused) {
-    if (!r.caps.length && !marks.some(m => m.sq === sqName(r.sq))) marks.push({ sq: sqName(r.sq), k: r.why === 'push' || r.why === 'swap' ? 'blocked-move' : 'blocked', by: r.rule === undefined ? undefined : [r.rule], byWords: r.words });
+    const m = r.caps.length ? null : marks.find(x => x.sq === sqName(r.sq)), by = r.rule === undefined ? [] : [r.rule];
+    if (m?.k.startsWith('blocked')) Object.assign(m, { by: [...m.by ?? [], ...by].sort(), byWords: `${m.byWords}, ${r.words}` });
+    else if (m === undefined) marks.push({ sq: sqName(r.sq), k: r.why === 'push' || r.why === 'swap' ? 'blocked-move' : 'blocked', by: by.length ? by : undefined, byWords: r.words });
   }
   const impressions = marks.flatMap(m => {
     const table = m.k.startsWith('blocked') && trace.refused.some(r => r.rule === undefined && sqName(r.sq) === m.sq);

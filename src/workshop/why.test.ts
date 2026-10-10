@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import { parseSq, sqName } from '../rules/engine';
+import { drawString } from './marks';
 import { presetOf, type PieceDesign, type Rule } from './model';
-import { boardOf, type ScenePiece } from './scene';
+import { boardOf, sceneOf, type ScenePiece } from './scene';
 import { traceOf } from './why';
 
 interface Hand {
@@ -64,6 +65,21 @@ describe('the why-trace', () => {
   it('marks the sign: the Paladin\'s lines pass (+) on d6, "cannot take" refuses (-) g7, "removed too" changes (~) d7', () => {
     const { trace } = both('paladin'), at = (q: string) => trace.by.get(parseSq(q));
     expect([at('d6'), at('g7'), at('d7')]).toEqual([[{ i: 0, sign: '+' }], [{ i: 1, sign: '-' }], [{ i: 0, sign: '+' }, { i: 2, sign: '~' }]]);
+  });
+
+  it('keys each square by its whole click path: "its lines pass" shapes f6, the end of the path f4-f6', () => {
+    const d: D = { squares: [], lines: ['n', 'e'], rules: [{ when: { on: 'always' }, does: { a: 'linesPass', over: 'own' } }, { when: { on: 'takes' }, does: { a: 'chain' } }] };
+    const board = boardOf([{ sq: 'd4', k: 'design', side: 'w', open: true }, { sq: 'e4', k: 'pawn', side: 'w' }, ...['d6', 'f4', 'f6'].map(sq => ({ sq, k: 'pawn', side: 'b' as const }))]);
+    expect(traceOf(d, board, parseSq('d4')).by.get(parseSq('f6'))).toEqual([{ i: 0, sign: '~' }, { i: 1, sign: '+' }]);
+  });
+
+  it('keeps each rule that refuses one target: a push and a swap of a friendly king both stamp it, and each isolates it', () => {
+    const d: D = { squares: [], lines: [], rules: [{ when: { on: 'always' }, does: { a: 'push', then: 'follow' } }, { when: { on: 'always' }, does: { a: 'swap', with: 'friend' } }] };
+    const board = boardOf([{ sq: 'd4', k: 'design', side: 'w', open: true }, { sq: 'e4', k: 'king', side: 'w' }]), sc = sceneOf(d, board, parseSq('d4'));
+    expect(traceOf(d, board, parseSq('d4')).refused.map(r => `${sqName(r.sq)} ${r.why} ${r.rule}`)).toEqual(['e4 swap 1', 'e4 push 0']);
+    expect(sc.marks).toEqual([{ sq: 'e4', k: 'blocked-move', by: [0, 1], byWords: 'Swaps: not a king, Pushes: not a king' }]);
+    expect(sc.impressions).toEqual([{ sq: 'e4', list: [{ a: 'push', by: 0 }, { a: 'swap', by: 1 }] }]);
+    for (const i of [0, 1]) expect(drawString(sc, { s: 64, art: () => '', focus: by => by.includes(i) }), `rule ${i}`).toContain('<g class="kdm-iso" data-sq="e4"');
   });
 
   it('gives the painted square or line under each square', () => {

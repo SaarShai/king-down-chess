@@ -26,15 +26,16 @@ export interface Trace {
   knots: Knot[];
 }
 
-/** Each square's signature in one run: what the moves do there (keyed by their click path) and what is refused there. */
+/** Each square's signature in one run: what the moves do there, each with its whole click path (so a rule that adds or
+ *  removes one path to a square changes that square), and what is refused there, with the chain's takes before it. */
 function signatures(moves: readonly Move[], refused: readonly Refused[]): Map<number, string> {
   const at = new Map<number, Set<string>>();
   const add = (q: number, f: string): void => { at.set(q, (at.get(q) ?? new Set()).add(f)); };
   for (const m of moves) {
     const p = clickPath(m), kind = m.shove ? 'push' : m.swap ? 'swap' : !m.captures.length ? 'move' : m.to === m.from ? 'shot' : 'take';
-    p.forEach((q, k) => add(q, `${k ? 'chain' : kind}${k < p.length - 1 ? ' more' : `${m.selfRemove ? ' removed' : ''}${m.promo ? ' promo' : ''}`}`));
+    p.forEach((q, k) => add(q, `${kind} ${p.join('-')}${k < p.length - 1 ? '' : `${m.selfRemove ? ' removed' : ''}${m.promo ? ' promo' : ''}`}`));
   }
-  for (const r of refused) add(r.sq, `refused ${r.why}`);
+  for (const r of refused) add(r.sq, `refused ${r.why} ${r.caps.join('-')}`);
   return new Map([...at].map(([q, f]) => [q, [...f].sort().join()]));
 }
 /** The squares whose signatures differ. */
@@ -80,7 +81,7 @@ export function traceOf(d: D, board: Uint8Array, from: number, st: TryState = ST
 
   const seen = new Set<string>(), refused: Trace['refused'] = [];
   for (const r of all.refused) {
-    const key = `${r.caps.join('-')} ${r.sq}`, i = rules.findIndex(x => x.does.a === r.why);
+    const key = `${r.why} ${r.caps.join('-')} ${r.sq}`, i = rules.findIndex(x => x.does.a === r.why);
     if (seen.has(key)) continue;
     seen.add(key);
     const words = r.why === 'guardImmune' ? 'Only a king takes a guard' : r.why === 'cannotTake' ? cap(blockOf(r.why).short(rules[i])) : `${label(i)}: not a king`;

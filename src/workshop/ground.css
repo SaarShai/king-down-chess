@@ -74,6 +74,8 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .kdm-dim { opacity: 0.25; }
 /* a knot stands in the 22 px gutter from one rule line to the other (:116-118); its hit area is 24 px wide */
 #workshop.pg .knot { position: absolute; z-index: 1; left: -22px; width: 24px; display: flex; justify-content: center; line-height: 0; cursor: pointer; }
+.pg-lines.far { padding-left: 46px; }
+#workshop.pg .knot.far { left: -46px; }
 .sline .txt { display: grid; gap: 4px; min-width: 0; }
 .sline .l1 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .sline .l2 { font-size: var(--fs-md); line-height: 1.3; }
