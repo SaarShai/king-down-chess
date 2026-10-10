@@ -146,3 +146,27 @@ Evidence (R = `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f29
 - After the fix: `npm run check:browser proving-ground`, three runs: each "ok proving-ground" (9.9 to 10.0 s), "proving-ground: all groups pass". Logs: `R/check-pg-1.log` to `R/check-pg-3.log` and `R/pg-run-1.log` to `R/pg-run-3.log`.
 - `npm run check:browser workshop workshop-cast menu-extra home`: all 4 passed (65.8, 8.6, 12.3 and 7.8 s). Log: `R/check-old.log`.
 - `npm test` through the shared lock: 113 test files passed and 1 skipped, 1,856 tests passed and 21 skipped, the node tests 50 of 50, `exit 0`. Log: `R/npm-test-1.log`.
+
+### 2026-10-10: the legend review fixes merged again, and the owner's samples
+
+O = `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f2956c-63a7-4276-8738-a657bdb42b06/scratchpad/build/owner`.
+
+- Merge bdb42772 brings the review fixes of `claude/move-legend` (59f6ac97). No conflict. `npm test` through the shared lock: 113 test files passed and 1 skipped, 1,856 tests passed and 21 skipped, the node tests 50 of 50, `exit 0`. Log: `O/pg-merge-test.log`.
+- `SAMPLE=W14 node docs/specs/web-ux/capture.mjs` on a Vite dev server of this worktree (port 5182, stopped by its PID after): 16 renders, 0 with a fault. Renders: `O/pg01/<state>-desktop.png` and `O/pg01/<state>-phone.png`; log `O/pg01-capture.log`.
+- The mockup through the same server, with reduced motion: `open`, `hero` and `archer` at 1440 × 900, `phone-open` at 390 × 844, and `hero` and `archer` at 390 × 844 for the phone compare. Renders: `O/mockup/`; log `O/mockup-capture.log`.
+- The contact sheet, the build beside the mockup: `O/pg01-sheet.png`.
+
+What the build shows as the mockup does: the stone board and its marks (tiles, targets, takes on a figure with the badge, rails, arrows, hops, the asleep tile with its moon), the files, ranks and chevron on the desktop, the coordinates inside the edge squares on the phone, the key tiles, the plinth figure and stone, the seals and When chips, and the ledge slots.
+
+The differences that the owner sees:
+
+1. Rule lines. The build writes the vocabulary sentence, so a line can take two or three rows: "it may also step 2 squares straight ahead, over an empty square, to an empty square", "it becomes a piece you choose: queen, rook, bishop or knight", "it cannot take a king". The mockup has short hand lines with dotted pills: "steps 2 straight ahead", "becomes [a piece you choose]", "cannot take [a king]". The build puts an event head in the chip ("when it takes a piece, not a pawn"); the mockup splits it into the chip "when it takes" and the pill "a piece, not a pawn". This ticket chose the vocabulary text (see part 2), and no later ticket changes it.
+2. No "Add a rule" line on the desktop and no "+" seal on the phone (later tickets).
+3. The ledge has the Pieces tab only, and no NEW tile. The mockup has Kings, Cards (LAB) and Rules, and Board on the phone (tickets 07, 12 to 14).
+4. On the phone, no "⋯" menu in the top bar and no lock next to the name (later tickets).
+5. Paladin (`hero`): no Why panel, no gold frame on d7, no seal stamps on d7, no stamp at the hop end on a1, no bracket that joins rules I and II, no Refused and Removed keys. The Guard on g7 has no refused frame, and the d4 to g7 rail stops on f6 with no end mark; the mockup runs it onto g7 with the refused stamp (tickets 04 and 05).
+6. No "Try board" tag above the board and no "Try with" tray (ticket 06).
+7. Pawn (`open`, desktop): the asleep d6 tile has no small rule tag at its top-right corner (ticket 04).
+8. Archer: no Why panel, no gold frame on d6 and no shot arc from d4 (ticket 04). The marks are the same as the mockup's.
+9. Small: "‹ Menu" has a space; the Archer's name stands about 15 px lower than in the mockup; the ledge shelf ends after the Ogre.
+10. The `link` state (Rook Rider) shows no sign that the design is read only, and no ledge slot is current.
