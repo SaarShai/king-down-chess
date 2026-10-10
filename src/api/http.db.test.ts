@@ -4,12 +4,10 @@
  * disposable loopback database; the tests make and use their own copy of it (the name with "_api" before "_test"),
  * because the jobs act on every game in the database.
  */
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
-import { fileURLToPath } from 'node:url';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -21,6 +19,7 @@ import { onlineClient, type OnlineClient } from '../online/client';
 import { fakeSender } from '../online/mail';
 import { SafetyService } from '../online/safety';
 import { createApiHandler, createInternalHandler, sessionVerifier } from './http';
+import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 
 const url = process.env.PLUGIN_TEST_DATABASE_URL, supabase = 'https://project.supabase.co', secret = randomUUID() + randomUUID();
 const suite = url ? describe : describe.skip;
@@ -40,14 +39,7 @@ suite('website API and jobs on PostgreSQL (runtime role, website sessions)', () 
  const internal = (path: string, key = secret) => fetch(`${address}/internal/${path}`, { method: 'POST', headers: { 'X-Kingdown-Internal': key, 'Content-Type': 'application/json' }, body: '{}' });
 
  beforeAll(async () => {
-  const shared = new URL(url!);
-  if (!['localhost', '127.0.0.1', '[::1]'].includes(shared.hostname) || !/^\/[a-z0-9_]+_test$/.test(shared.pathname)) throw new Error('Database tests require a disposable loopback database ending in _test');
-  own = new URL(shared.href); own.pathname = shared.pathname.replace(/_test$/, '_api_test');
-  const server0 = new URL(shared.href); server0.pathname = '/postgres';
-  const client = new pg.Client({ connectionString: server0.href }); await client.connect();
-  try { if (!(await client.query('select from pg_database where datname=$1', [own.pathname.slice(1)])).rowCount) await client.query(`create database ${own.pathname.slice(1)}`); }
-  finally { await client.end(); }
-  execFileSync(process.execPath, [fileURLToPath(new URL('../../tools/plugin-db/bootstrap-test.mjs', import.meta.url))], { env: { ...process.env, PLUGIN_TEST_DATABASE_URL: own.href } });
+  own = await ownTestDatabase('api');
   admin = new pg.Pool({ connectionString: own.href, max: 2 });
   const password = randomUUID();
   await admin.query((await readFile(new URL('../../plugin-deploy/runtime-role.sql', import.meta.url), 'utf8')).replaceAll('kingdown_plugin_runtime', role));

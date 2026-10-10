@@ -4,16 +4,15 @@
  * "_test"), because a job acts on every game: a sweep in the shared database would end the games of
  * src/match/service.db.test.ts, which runs at the same time.
  */
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GameService } from '../match/service';
 import { PostgresMatchStore } from '../match/store';
 import { cleanup, drainOutbox, queueReminders, runDeletions, sweepDeadlines } from './jobs';
 import { fakeSender, type Mail, type Sender } from './mail';
+import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 
 const url = process.env.PLUGIN_TEST_DATABASE_URL, DAY = 86_400_000, MINUTE = 60_000;
 const suite = url ? describe : describe.skip;
@@ -45,14 +44,7 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
  }
 
  beforeAll(async () => {
-  const shared = new URL(url!);
-  if (!['localhost', '127.0.0.1', '[::1]'].includes(shared.hostname) || !/^\/[a-z0-9_]+_test$/.test(shared.pathname)) throw new Error('Database tests require a disposable loopback database ending in _test');
-  own = new URL(shared.href); own.pathname = shared.pathname.replace(/_test$/, '_jobs_test');
-  const server = new URL(shared.href); server.pathname = '/postgres';
-  const client = new pg.Client({ connectionString: server.href }); await client.connect();
-  try { if (!(await client.query('select from pg_database where datname=$1', [own.pathname.slice(1)])).rowCount) await client.query(`create database ${own.pathname.slice(1)}`); }
-  finally { await client.end(); }
-  execFileSync(process.execPath, [fileURLToPath(new URL('../../tools/plugin-db/bootstrap-test.mjs', import.meta.url))], { env: { ...process.env, PLUGIN_TEST_DATABASE_URL: own.href } });
+  own = await ownTestDatabase('jobs');
   admin = new pg.Pool({ connectionString: own.href, max: 2 });
   pools = [0, 1].map(() => new pg.Pool({ connectionString: own.href, max: 1 }));
   games = pools.map(pool => new GameService(new PostgresMatchStore(pool)));

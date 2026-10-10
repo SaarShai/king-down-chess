@@ -1,4 +1,6 @@
-/** Opt-in: the ChatGPT tools over in-memory MCP against a disposable real PostgreSQL database (PLUGIN_TEST_DATABASE_URL). */
+/** Opt-in: the ChatGPT tools over in-memory MCP against a disposable real PostgreSQL database (PLUGIN_TEST_DATABASE_URL).
+ * The tests use their own copy of it (the name with "_chatgpt" before "_test"): a claim needs a deadline in the past,
+ * and a sweep of src/match/service.db.test.ts, which runs at the same time, would end that game first. */
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -8,19 +10,14 @@ import type { View } from '../match/protocol';
 import { PostgresMatchStore } from '../match/store';
 import { createPluginServer } from './server';
 import { PluginService } from './service';
-const url = process.env.PLUGIN_TEST_DATABASE_URL;
-if (url) {
- const target = new URL(url);
- if (!['localhost', '127.0.0.1', '[::1]'].includes(target.hostname) || !target.pathname.endsWith('_test')) throw new Error('Database tests require a disposable loopback database ending in _test');
-}
-const suite = url ? describe : describe.skip;
+import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
+const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 type Result = { isError?: boolean; content: { type: string; text: string }[]; structuredContent?: any; _meta?: any };
 const SUMMARY = ['board_id', 'colour', 'days_per_move', 'deadline_at', 'game_id', 'kind', 'move', 'speed', 'status', 'your_turn'];
 
 suite('ChatGPT tools on PostgreSQL', () => {
- const admin = new pg.Pool({ connectionString: url, max: 2 });
- // Every transaction on this pool is read-only: any write fails (25006), so a tool that succeeds on it wrote nothing.
- const readOnly = new pg.Pool({ connectionString: url, max: 1, options: '-c default_transaction_read_only=on' });
+ // Every transaction on readOnly is read-only: any write fails (25006), so a tool that succeeds on it wrote nothing.
+ let admin: pg.Pool, readOnly: pg.Pool;
  const users: string[] = [], closers: (() => Promise<void>)[] = [], tag = randomUUID().slice(0, 6);
  const rows = async (sql: string, params: unknown[] = []) => (await admin.query(sql, params)).rows;
  async function user(name: string) {
@@ -29,7 +26,7 @@ suite('ChatGPT tools on PostgreSQL', () => {
   await admin.query('update public.profiles set handle=$2 where id=$1', [id, `${name}-${tag}`]);
   return id;
  }
- async function connect(actor: string, pool = admin) {
+ async function connect(actor: string, pool: pg.Pool = admin) {
   const server = createPluginServer({ service: new PluginService(new PostgresMatchStore(pool)), actorId: actor, resourceHtml: '<html>board</html>', publicOrigin: 'https://kingdown.example' });
   const client = new Client({ name: 'db-test', version: '1' }), [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(a); await client.connect(b); closers.push(async () => { await client.close(); await server.close(); });
@@ -47,9 +44,14 @@ suite('ChatGPT tools on PostgreSQL', () => {
   for (const secret of [view(result).fen.split(' ')[0], ...secrets]) expect(seen).not.toContain(secret);
  }
  let ann: string, bob: string;
- beforeAll(async () => { [ann, bob] = [await user('ann'), await user('bob')]; });
+ beforeAll(async () => {
+  const own = await ownTestDatabase('chatgpt');
+  admin = new pg.Pool({ connectionString: own.href, max: 2 }); readOnly = new pg.Pool({ connectionString: own.href, max: 1, options: '-c default_transaction_read_only=on' });
+  [ann, bob] = [await user('ann'), await user('bob')];
+ }, 60000);
  afterAll(async () => {
   for (const close of closers) await close();
+  if (!admin) return;
   await readOnly.end();
   await admin.query('delete from public.reports where reporter_id=any($1) or reported_id=any($1)', [users]);
   await admin.query('delete from public.games g where created_by=any($1) or exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1))', [users]);
