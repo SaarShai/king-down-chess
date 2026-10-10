@@ -373,7 +373,6 @@ const cheb = (a: number, b: number): number => Math.max(Math.abs((a & 7) - (b & 
 
 /** Bit per pattern in `guardPatterns` (E7's bit: the Guard stands beyond its own second rank). */
 export const GP = { E1: 1, E2: 2, E3: 4, E4: 8, E5: 16, E6: 32, E7: 64 } as const;
-export const GP_NAMES = ['E1', 'E2', 'E3', 'E4', 'E5', 'E6', 'E7'] as const;
 /** E1..E6 weights; 0 = off. */
 const GW = new Int32Array(6);
 let GUARD_ON = false;

@@ -1,3 +1,5 @@
+import type { Save } from '../screen/save';
+
 /**
  * Cloud save. The game keeps its data in localStorage as before; this splits it into sections that
  * sync one by one with the player's row in public.user_data. Each section carries the time it last
@@ -17,9 +19,13 @@ type Store = Pick<Storage, 'getItem' | 'setItem'>;
 type Stamps = Partial<Record<Section, { at: number; json: string }>>;
 
 const SAVE = 'kingdown.save', LESSONS = 'kingdown.lessons', STAMPS = 'kingdown.sync';
-/** main.ts `Save` fields: these are settings; the rest is the saved game. The look stays per device. */
-const SETTINGS = ['skill', 'coords', 'sound', 'queen', 'pace', 'threats', 'labels'];
-const GAME = ['back', 'fen', 'moves', 'white', 'black', 'link', 'daily', 'resigned', 'rules'];
+/**
+ * screen/save.ts `Save` fields: these are settings; the rest is the saved game. The look stays per device.
+ * screen/save.ts SETTINGS is the same list (screen/save.test.ts); it is not imported, because an import
+ * would put a shared chunk in the build.
+ */
+export const SETTINGS = ['skill', 'coords', 'sound', 'queen', 'pace', 'threats', 'labels'] satisfies (keyof Save)[];
+const GAME = ['back', 'fen', 'moves', 'white', 'black', 'link', 'daily', 'resigned', 'rules'] satisfies (keyof Save)[];
 
 const parse = (raw: string | null): any => { try { return raw ? JSON.parse(raw) : null; } catch { return null; } };
 const pick = (o: Record<string, unknown>, keys: string[]) => Object.fromEntries(keys.filter(k => k in o).map(k => [k, o[k]]));

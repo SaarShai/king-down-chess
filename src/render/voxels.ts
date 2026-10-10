@@ -61,9 +61,6 @@ export const MODEL_URLS: Partial<Record<PieceType, string>> = {
 /** Height of each piece type in tiles (voxel model, and the sprite billboard). A type with no art gets 1.1. */
 export const TARGET_HEIGHT: Record<PieceType, number> = { [P]: 0.85, [N]: 1.1, [B]: 1.2, [R]: 1.05, [Q]: 1.4, [K]: 1.55, [A]: 1.15, [L]: 1.3, [G]: 1.1, [M]: 1.1, [S]: 1.05, [O]: 1.1, [C]: 1.1, [V]: 1.1, [T]: 1.1 };
 const loaded = new Map<PieceType, VoxelModel>();
-/** Use the voxelized sculpts (when loaded) instead of the procedural placeholders. */
-export let useSculpts = true;
-export function setUseSculpts(on: boolean): void { useSculpts = on; }
 
 export async function loadModels(base = import.meta.env.BASE_URL): Promise<void> {
   await Promise.all(Object.entries(MODEL_URLS).map(async ([t, url]) => {
@@ -129,10 +126,10 @@ const cache = new Map<string, THREE.BufferGeometry>();
 
 /** Merged, vertex-coloured geometry for a piece type and army (cached). */
 export function pieceGeometry(t: PieceType, c: Color): THREE.BufferGeometry {
-  const key = `${t}:${c}:${useSculpts ? 's' : 'p'}`;
+  const key = `${t}:${c}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const model = useSculpts ? loaded.get(t) : undefined;
+  const model = loaded.get(t);
   if (model) {
     const g = voxelGeometry(model, c, TARGET_HEIGHT[t]);
     cache.set(key, g);

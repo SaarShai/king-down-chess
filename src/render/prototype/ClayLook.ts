@@ -355,7 +355,3 @@ export function applyLookLighting(target: ClayLightingTarget, look: ClayLook): v
   }
   if (target.shadowMat) target.shadowMat.opacity = spec.shadowOpacity;
 }
-
-export function lookSpec(look: ClayLook): Readonly<ClaySpec> | null {
-  return look === 'current' ? null : SPECS[look];
-}

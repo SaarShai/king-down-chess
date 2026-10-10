@@ -16,7 +16,7 @@ Blocked by: 03
 
 - [ ] After each commit: `npm run typecheck`, `npm test`, and `end`, `their-turn`, `game-screen`, `turn`, `powers`, `special-moves`, `painted-game`.
 - [ ] Before the pull request: the full `npm run check:browser` passes.
-- [ ] The build compare and the render compare of ticket 02, zero differences.
+- [ ] The build compare and the render compare of ticket 02 (`docs/specs/web-ux/render-compare.mjs`, threshold 16, with a second render of main to find the unstable motion states): no stable state differs.
 - [ ] `wc -l src/main.ts` and the `let` count (Comments).
 
 ## Risks

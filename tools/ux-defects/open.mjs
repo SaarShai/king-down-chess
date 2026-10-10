@@ -1,7 +1,7 @@
 // Shared page set-up for the ux-defects probes.
 //   const { page, tap, ready, close } = await open({ size, save, query, title, pace })
 //   size   'desktop' (1280×900, mouse) or 'phone' (390×844, touch). Default 'desktop'.
-//   save   an object for localStorage 'kingdown.save' (the Save shape in src/main.ts), or null for none.
+//   save   an object for localStorage 'kingdown.save' (the Save shape in src/screen/save.ts), or null for none.
 //   query  a search string such as '?fen=...' or '?labels=1'.
 //   title  true keeps the title screen; default false skips it.
 //   pace   the Settings → Animations value; default 'off', so a check waits for no motion.

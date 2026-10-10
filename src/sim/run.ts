@@ -109,12 +109,6 @@ export function readRun(file: string): RunScan {
   return { configs, stamp, games, bad, mixed: (stamped > 0 && stamped < games) || keys.size > 1 };
 }
 
-/** Kept for callers that only want the map: the configs and the stamp of a stored run. */
-export function doneGames(file: string): { configs: Map<number, string>; stamp: Stamp | null } {
-  const { configs, stamp } = readRun(file);
-  return { configs, stamp };
-}
-
 /**
  * A run resumes from its JSONL by game id, so the stored games have to be the ones this spec plays
  * now. After a change to `POOL`, `DEFAULT_RULES`, the seed, the evaluation files or the source they
