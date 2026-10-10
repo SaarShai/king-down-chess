@@ -38,6 +38,23 @@ describe('Previously', () => {
     expect(('Previously: ' + turn.line).split(/\s+/).length).toBeLessThanOrEqual(8);
   });
 
+  it('names Rescue when its mark is now on an empty square', () => {
+    setRules({ hands: [['Rescue'], []], markFree: true });
+    const game = played('4k3/8/8/8/8/8/P7/4K3 w - - 0 1 md6w0', ['!D:d6']);
+    expect(previouslyTurn(game.history, 1)).toMatchObject({
+      line: "their king's side used Rescue.", detail: 'Rescue renews the mark on d6.',
+    });
+  });
+
+  it('summarizes a link that starts with a held turn and a pass', () => {
+    const game = new Game('RNBQKBNR');
+    game.load({ ...fromFen('7k/8/8/8/8/R7/8/7K w - - 0 1'), haste: 16 });
+    expect(game.playLan(['--'])).toBe(1);
+    expect(previouslyTurn(game.history, 1)).toMatchObject({
+      line: 'their rook stayed; the turn ended.', detail: 'End turn.',
+    });
+  });
+
   it('shows the main act and each turn in short words', () => {
     const game = played('4k3/4p3/8/8/8/8/4P3/4K3 w - - 0 1', ['e2-e4', 'e7-e5']);
     expect(previouslyTurn(game.history, 0)).toEqual({

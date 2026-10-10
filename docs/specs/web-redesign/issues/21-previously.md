@@ -89,3 +89,5 @@ Tests pass: 1700 unit tests and 50 scene tests. The link-game check passes.
 W11 adds a Haste turn with takes under the 2017 rules, where Haste can take.
 
 Item 3: decided by delegation (2026-10-09). Sacrifice names the pawn and returned piece. Stationary acts and entries name their piece. Each bite appears in the full detail. Text uses line-height 1.25. Detail hides when the fixed row has no room. W11 adds a four-bite turn at all three sizes. Unit and link-game checks pass.
+
+Item 3 also covers an empty Rescue mark and a pass-only link from a held turn. Each test uses a legal engine act. Rescue names the king's side when no target piece remains. The pass names the piece that stays. The summary has no blank name and the pass-only link does not throw.
