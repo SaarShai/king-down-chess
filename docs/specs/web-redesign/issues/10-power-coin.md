@@ -83,3 +83,5 @@ The web Guide uses take and taken; the plugin keeps its old words by default.
 The Guide target power gets the piece-card outline. Power tests and browser checks pass.
 
 Item 6: decided by delegation (2026-10-09). Read, armed and focus rings sit inside the coin. The outer lift goes. The browser grows the coin by its ring and checks the board and strip edges at 320 by 568.
+
+Items 6 and 9: decided by delegation (2026-10-09). A read coin keeps the 3 px keyboard focus ring. After Tab, its 1 px read mark stays. The lift shadow returns outside short phones. Short-phone rings stay inset. The powers and Menu checks pass.

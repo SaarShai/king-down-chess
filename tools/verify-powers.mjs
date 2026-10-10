@@ -43,20 +43,24 @@ try {
   assert.equal(await powerCoin(page, 'w').getAttribute('aria-current'), 'true');
   assert.equal(await powerCoin(page, 'w').getAttribute('aria-disabled'), null);
   assert.notEqual(await powerCoin(page, 'w').evaluate(b => getComputedStyle(b).outlineStyle), 'none');
+  await powerCoin(page, 'w').focus(); await page.keyboard.press('Enter');
+  assert.equal(await powerCoin(page, 'w').evaluate(b => getComputedStyle(b).outlineWidth), '3px', 'a read coin keeps its keyboard focus ring');
+  await page.keyboard.press('Tab');
+  assert.equal(await powerCoin(page, 'w').evaluate(b => getComputedStyle(b).outlineWidth), '1px', 'the read mark differs from keyboard focus');
   await openPowerRules(page);
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.power), 'Freeze');
   assert.equal(await page.locator('#rules-title').innerText(), 'Guide');
   assert.equal(await page.locator('#rules button[aria-label="Close Guide"]').count(), 1);
   assert.equal(await page.evaluate(() => getComputedStyle(document.activeElement).outlineWidth), '2px', 'the Guide marks the named power');
-  await page.keyboard.press('Escape');
-  console.log('ok a tap reads and does not arm; rules focus the named power');
-
-  // 2. Use arms; Cancel, Esc and a second coin tap disarm.
   assert.equal(await page.locator('#powers-list li').evaluateAll(rows => rows.every(row => ![...row.childNodes].some(n => n.nodeType === Node.TEXT_NODE && /^[;.]\s*$/.test(n.textContent)))), true, 'the powers list has no stray separators');
   assert.equal(await page.locator('#powers-list [data-power=Freeze]').evaluate(row => {
     const power = row.getBoundingClientRect(), name = row.parentElement.querySelector('b').getBoundingClientRect();
     return power.top - 4 >= name.bottom;
   }), true, 'the power outline clears the king name and colon');
+  await page.keyboard.press('Escape');
+  console.log('ok a tap reads and does not arm; rules focus the named power');
+
+  // 2. Use arms; Cancel, Esc and a second coin tap disarm.
   await open(page);
   await usePower(page);
   assert.equal(await powerCoin(page, 'w').getAttribute('aria-pressed'), 'true');
