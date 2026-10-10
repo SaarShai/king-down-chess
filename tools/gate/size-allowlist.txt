@@ -10,3 +10,4 @@ docs/visual-design/workshop/figure-samples-2026-10-06/mixed-minimal.png  Worksho
 docs/visual-design/workshop/figure-samples-2026-10-06/mixed.png  Workshop figure sample sheet of 2026-10-06; git tracks the sample folder as the record of the figure choice
 docs/visual-design/workshop/figure-samples-2026-10-06/strong-minimal.png  Workshop figure sample sheet of 2026-10-06; git tracks the sample folder as the record of the figure choice
 docs/balance/measurements.json  Requested generated balance dataset and per-file source ledger; rebuild with npm run balance:build
+docs/balance/status.json  Generated balance verdicts, measured contexts and evidence links; rebuild with npm run balance:build

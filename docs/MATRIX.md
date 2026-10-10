@@ -7,16 +7,14 @@ or set aside, with their status: A.3. The 2014 cards not built: C.3 (2026-10-06)
 Legend: **●** shipped (default rules) · **◐** lab toggle, off by default (`name` in `src/rules/rules.ts`) ·
 **○** designed but not built (kings' powers §4 / cards §5 of `RULES.md`) · **—** nothing · **?** to decide.
 
-**Status 2026-09-16:** the six **tier-1** kings' powers — Holy Light, Mercy, Death Touch, Darkness,
-March, Leap — are now **built as lab rules** (`kings` in `src/rules/rules.ts`, off by default; tests
-in `src/rules/rules.test.ts`, measurements in `docs/research/sim-kings-2026-09-16.md`). The other six
-powers and every card remain **○ designed, not built**. Q1–Q7 are all answered (`docs/QUEUE.md`);
-`pb-ab-base24` is a recorded old-paladin control, not a current baseline.
+All twelve king powers are built. The game uses the official readings in `POWERS_BALANCED`.
+Every card in C.2 is built in the lab; card mode is not yet in the playable game. C.3 lists the cards
+that are not built. `pb-ab-base24` is an old Paladin control, not a current baseline.
 
 Q1…Q6 point at `docs/QUEUE.md`. Piece letters: P N B R Q K standard · A archer · L paladin · G guard · M maester · S beast ·
 **O ogre** is in the random pool with push as its default (RULES.md §6.18, 2026-09-24).
 **C catapult · V reaver · T templar** remain lab pieces outside `POOL`. The recovered Squire/reserve
-prototype is archived, not adopted; no arriving ability is active in this engine.
+prototype is archived, not adopted; Sacrifice and Salvation return captured pieces in the engine.
 **Historical status 2026-09-17 (Ogre superseded by §6.18):** the **Ogre** is the only one still under exploration (work plan gated in `TASKS.md`); the
 **Catapult** (both readings below 1.66 pawns, never fires in 38% of games), **Reaver** (safe reading neutral at
 depth 4) and **Templar** (rejected) are **paused in the lab** (`docs/research/sim-catapult-explore-2026-09-17.md`).
@@ -30,28 +28,35 @@ depth 4) and **Templar** (rejected) are **paused in the lab** (`docs/research/si
 | Move | forward 1 | leap 2+1 | diagonal slide | straight slide | slide | step 1 | step 1 ◐ straight only / forward-back | slide, jumps friends | step 1 ◐ step 2 | step 1 ◐ step 2 | step 1 ◐ forward only / diagonals | step 1 | straight slide, empty squares only |
 | Capture | diagonal forward 1 | = move | = move | = move | = move | = move | **shot without moving** ● **far2, default 2026-10-09** (owner: "merge far2"): 2 straight or 2 forward-diagonal, blockers ignored, no neighbour; worth **3.39 ± 0.27 pawns** (played to the end, `ARCHER_V` 339; one-pass readings 2.83 at depth 3, 3.22 at depth 4) ◐ before: diagonal-adjacent or 2 straight ◐ forward diagonal 2 (adopted 2026-09-17, lab since 2026-10-09) (`plusDiagFwd2`, mirrored for Black): decisive +8.8 ± 3.8 at depth 4, draws −8.2 ± 3.7; the archer re-prices 3.73 ± 0.42 → **5.05 ± 0.44 pawns** (`ARCHER_V` 505). ◐ +diagonal 2 / ring 2 / forward 3 remain lab readings (`docs/research/sim-piece-balance-2026-09-17.md`) | = move; dies after taking a non-pawn | none | = move (adjacent) | **every neighbour** (blind spot removed 2026-09-17; captures +29%, beast 4.34 ± 0.42 pawns, `BEAST_V` 434) ◐ the 7-neighbour blind spot, forward diagonals only, four diagonals; chains | = move, a guard excepted | **lob** over one enemy screen along a rank or file, first piece beyond it ◐ `catapultCapture` stay / land |
 
+The Archer also has two recorded readings. `over2` (Over2) uses the far2 target squares, but a piece
+of either side must stand between the Archer and its target. It is a current lab choice, held after
+its low measured worth. `over23` (Over23) is a historical branch reading: shots at distance 2 or 3
+straight or on a forward diagonal need exactly one piece between the Archer and its target
+(`claude/archer-reach:src/rules/engine.ts`, `ARCHER_SHOT_SETS` and `shotRefused`). The owner rejects
+it as too complex. It is not a current `ArcherShots` choice. Neither reading changes the far2 default.
+
 ### A.1 Abilities × pieces
 
-| Ability | P | N | B | R | Q | K | A | L | G | M | S | O | C | Designed (not built) |
+| Ability | P | N | B | R | Q | K | A | L | G | M | S | O | C | Powers and cards (status in C.2) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **1a Arriving — home rank only** | — | — | — | — | — | — | — | — | — | — | — | — | — | ○ Salvation, ○ Sacrifice (Stratus) return a captured piece [1] |
-| **1b Arriving — friendly half only** | — | — | — | — | — | — | — | — | — | — | — | — | — | ○ Flight (Stratus) relocates within own half [1] |
-| **2 Shield — cannot be taken by X** | — | — | — | — | — | ● never taken (mated) | — | — | ● by all but a king ◐ off | — | — | — | — | ○ Ice Wall (1 turn, any own piece), ○ Shield card, ○ Holy Light (king vs pawns) |
-| **3 Handicap — cannot take X** | — | — | — | — | — | — | ◐ a king | ● a king ◐ off | ● anything ◐ pawns / any | — | ● a king as a chain step | — | — | ○ Holy Light (king vs pawns), ○ Mercy (king takes nothing) |
-| **4a Movement — special first move** | ● 2 forward from home rank | — | — | — | — | — | — | — | ◐ 2 from home rank, slide or leap (Q1) | — | — | — | — | ○ March (pawns 2 forward always), ○ Darkness (no double step) |
-| **4b Taking = moving?** | differs | same | same | same | same | same | differs (shoots) | same | n/a | same | differs [2] | same | differs: it never takes by moving ◐ `land` makes the lob a displacement capture | ○ Death Touch (king shoots adjacent), ○ Darkness (pawns swap move/take) |
-| **4c Hop — over any piece** | — | ● | — | — | — | — | — | — | ◐ leap, home rank only (Q1) | — | — | — | — | ○ Leap card (range not obstructed) |
-| **4d Hop — over friends only** | — | — | — | — | — | — | — | ● ◐ off = blocked | — | — | — | — | — | ○ Mercy (king), ○ Mud Leap (over own pawns) |
+| **1a Arrival — captured piece returns** | — | — | — | — | — | — | — | — | — | — | — | — | — | ◐ Salvation returns a captured piece on the home rank; ● Sacrifice replaces an own pawn with a captured piece [1] |
+| **1b Special move — friendly half only** | — | — | — | — | — | — | — | — | — | — | — | — | — | ● Flight (Stratus) moves an existing piece within its own half |
+| **2 Shield — cannot be taken by X** | — | — | — | — | — | ● never taken (mated) | — | — | ● by all but a king ◐ off | — | — | — | — | ● Ice Wall (1 turn, any own piece), ○ Shield card, ● Holy Light (king vs pawns) |
+| **3 Handicap — cannot take X** | — | — | — | — | — | — | ◐ a king | ● a king ◐ off | ● anything ◐ pawns / any | — | ● a king as a chain step | — | — | ● Mercy (king takes only pawns or guards) |
+| **4a Movement — special first move** | ● 2 forward from home rank | — | — | — | — | — | — | — | ◐ 2 from home rank, slide or leap (Q1) | — | — | — | — | ● March (pawns 2 forward always), ● Darkness (pawns step straight or diagonally) |
+| **4b Taking = moving?** | differs | same | same | same | same | same | differs (shoots) | same | n/a | same | differs [2] | same | differs: it never takes by moving ◐ `land` makes the lob a displacement capture | ● Death Touch (king shoots adjacent), ● Darkness (pawns swap move/take) |
+| **4c Hop — over any piece** | — | ● | — | — | — | — | — | — | ◐ leap, home rank only (Q1) | — | — | — | — | ◐ Leap card (range not obstructed) |
+| **4d Hop — over friends only** | — | — | — | — | — | — | — | ● ◐ off = blocked | — | — | — | — | — | ● Mercy (king), ● Mud Leap (over own pawns) |
 | **4e Hop — over enemies only** | — | — | — | — | — | — | — | ◐ over enemies too (degenerate, `sim-lm-buffs`) | — | — | — | — | ◐ the lob hops exactly one enemy — the screen, which may not be a friend | — |
-| **5a Control — move any adjacent piece** | — | — | — | — | — | — | — | — | — | — | — | ● pushes one non-king neighbour 1 square straight away onto an empty square and follows; ◐ repel stays put | — | ○ Earth Quake (shove), ○ Sky Lift (swap two units) |
-| **5b Control — friends only** | — | — | — | — | — | — | — | — | — | ● swap with an adjacent friend; long swap with the king, both on home rank ◐ any friend anywhere (Q3) / king anywhere | — | ● a friend is pushable | — | ○ Control card, ○ Strike + Haste (Flame) |
-| **5c Control — enemies only** | — | — | — | — | — | — | — | — | — | ◐ swap with an adjacent enemy (not the king) | — | ● so is an enemy, a Guard included | — | ○ Curse (take over), ○ Freeze (deny a move) |
-| **5d Push — relocate a neighbour, then follow** | — | — | — | — | — | — | — | — | — | — | — | ● **default, 2026-09-24** (`ogreMode: 'push'`): the neighbour moves one square straight away and the Ogre follows. Value 318 adopted from the earlier 3.18 ± 0.44 pawn estimate. Historical depth-3/depth-4 results are in `sim-ogre-movement-2026-09-17.md` and `direct-campaign-phase-3-2026-09-22.md`; no run is active. | — | ○ Earth Quake, ○ Sky Lift |
-| **5e Repel — relocate a neighbour, stay put** | — | — | — | — | — | — | — | — | — | — | — | ◐ **lab alternative** (`ogreMode: 'repel'`): the neighbour moves and the Ogre stays. Historical measured value **2.25 ± 0.43 pawns**; current evaluation value 318 is for the adopted push default. | — | ○ Freeze (deny a move), ○ Curse |
-| **6a Trigger on capture** | — | — | — | — | — | — | — | ● dies after non-pawn captures; survives pawns ◐ always / never dies | ◐ spent after one capture (rejected) | — | ● may capture again ◐ off | — | — | ○ Rage (extra capture) |
-| **6b Rule vs one specific piece** | — | — | — | — | — | — | ◐ cannot take a king | ● cannot take a king | ● only a king takes it | ● long swap only with the king | ● no king as a chain step | ● never pushes a king of either colour | ◐ a lob may take a king, so it checks through the screen | ○ Holy Light (king ↔ pawns) |
+| **5a Control — move any adjacent piece** | — | — | — | — | — | — | — | — | — | — | — | ● pushes one non-king neighbour 1 square straight away onto an empty square and follows; ◐ repel stays put | — | ◐ Earth Quake (shove), ◐ Sky Lift (swap two units) |
+| **5b Control — friends only** | — | — | — | — | — | — | — | — | — | ● swap with an adjacent friend; long swap with the king, both on home rank ◐ any friend anywhere (Q3) / king anywhere | — | ● a friend is pushable | — | ◐ Control card, ● Strike + Haste (Flame) |
+| **5c Control — enemies only** | — | — | — | — | — | — | — | — | — | ◐ swap with an adjacent enemy (not the king) | — | ● so is an enemy, a Guard included | — | ◐ Curse (take over), ● Freeze (deny a move) |
+| **5d Push — relocate a neighbour, then follow** | — | — | — | — | — | — | — | — | — | — | — | ● **default, 2026-09-24** (`ogreMode: 'push'`): the neighbour moves one square straight away and the Ogre follows. Value 318 adopted from the earlier 3.18 ± 0.44 pawn estimate. Historical depth-3/depth-4 results are in `sim-ogre-movement-2026-09-17.md` and `direct-campaign-phase-3-2026-09-22.md`; no run is active. | — | ◐ Earth Quake, ◐ Sky Lift |
+| **5e Repel — relocate a neighbour, stay put** | — | — | — | — | — | — | — | — | — | — | — | ◐ **lab alternative** (`ogreMode: 'repel'`): the neighbour moves and the Ogre stays. Historical measured value **2.25 ± 0.43 pawns**; current evaluation value 318 is for the adopted push default. | — | ● Freeze (deny a move), ◐ Curse |
+| **6a Trigger on capture** | — | — | — | — | — | — | — | ● dies after non-pawn captures; survives pawns ◐ always / never dies | ◐ spent after one capture (rejected) | — | ● may capture again ◐ off | — | — | ◐ Rage (extra capture) |
+| **6b Rule vs one specific piece** | — | — | — | — | — | — | ◐ cannot take a king | ● cannot take a king | ● only a king takes it | ● long swap only with the king | ● no king as a chain step | ● never pushes a king of either colour | ◐ a lob may take a king, so it checks through the screen | ● Holy Light (enemy pawns cannot take the king) |
 
-[1] No piece enters the adopted game from a reserve. The archived Squire experiment explored this; see the recovery assessment before treating those results as evidence.
+[1] Sacrifice and Salvation use captured pieces. The Squire prototype uses a different reserve and stays archived; see the recovery assessment before using those results as evidence.
 [2] The Beast moves 1 to an empty neighbour or captures on any adjacent square; a capture may continue as a chain. The former straight-ahead blind spot was removed on September 17.
 
 ### A.2 Where each ability lives in the engine (`src/rules/engine.ts`)
@@ -63,12 +68,12 @@ depth 4) and **Templar** (rejected) are **paused in the lab** (`docs/research/si
 | Special first move | A test on `rank(from)` against the home rank (pawn, guard double step): positional, like the pawn, so no per-piece history and no FEN change. |
 | Trigger on capture | `landed()` (what the mover becomes), `Move.selfRemove` (paladin), chain generation (beast). |
 | Control | `Move.swap` (maester) and, since 2026-09-14, `Move.shove: { from, to }` (ogre) — the shoved piece is written before the mover, so `ogreMode: 'push'` needs no second path. |
-| Arriving | Not present — see [1]. |
+| Arrival | `Position.lost` stores captured pieces; `Move.drop` returns one through Salvation, and Sacrifice replaces a pawn. The Squire prototype stays archived. |
 | Zones | No zone helper yet; ranks are compared inline. See B. |
 
 ### A.3 Pieces outside the random pool (status 2026-10-06)
 
-The random pool is `QORRBBNNAAGMMS` (one Beast, 2026-10-04). Paused: built once, kept out of the pool. Set
+The random pool is `QOLRRBBNNAAGMMS` (one Paladin and one Beast, 2026-10-09). Paused: built once, kept out of the pool. Set
 aside: never built, for the reason given (`PIECES-PROPOSED.md`, "Set aside").
 
 | Piece | Letter | Status | Why | Record |
@@ -77,11 +82,18 @@ aside: never built, for the reason given (`PIECES-PROPOSED.md`, "Set aside").
 | Catapult | C | paused, lab piece outside `POOL` | both readings below 1.66 pawns; it never fires in 38% of games | `sim-catapult-explore-2026-09-17.md` |
 | Reaver | V | paused, lab piece outside `POOL` | the full step is overpowered (rejected); the orthogonal step (4.04 ± 0.56 pawns) does not hold its gain at depth 4 | `sim-reaver-2026-09-17.md` |
 | Templar | T | paused, lab piece outside `POOL`; rejected on measurement | 4–8% of its moves come from a capital: a weak king-stepper, draws +5 | `sim-templar-2026-09-17.md` |
-| Squire | E | paused: built in the recovered Cursor checkout, archived, not in `src/` | a reserve that adds material; defects in the recovery assessment | `dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/ASSESSMENT.md` |
+| Squire | E | dropped: built in the recovered Cursor checkout, archived, not in `src/` | Base is the original step version: moves and captures one square in any direction. Each side has one extra reserve piece and may place it once on any empty square. | `squire-drop-2026-09-24.md`; `squire-depth3-2026-09-24.md`; `squire-where-2026-09-24.md`; recovery assessment `dd34fa5:docs/cursor-recovery/2026-09-24-0213b442/ASSESSMENT.md` |
 | Shieldbearer | — | set aside | immune to shots and shields its neighbours: immunity drags games (the guard study) | `PIECES-PROPOSED.md` |
 | Necromancer | — | set aside | returns a captured piece: material that comes back lengthens games | `PIECES-PROPOSED.md` |
 | Wraith | — | set aside | moves through pieces: the paladin-through-enemies test was degenerate | `PIECES-PROPOSED.md` |
 | Immobiliser | — | set aside | freezes adjacent enemies: fortresses and draws (Ultima) | `PIECES-PROPOSED.md` |
+
+Piece deployment is `setup` for each current engine piece. The archived Squire Base uses
+`reserveOnceAnyEmptySquare`: one extra piece per side, placed once on an empty square as the move.
+It may block check. The forward-only and no-capture shapes, the home-rank drop, and the drop that
+cannot block check are separate tested versions; they are not Base. The reports qualify the old
+movement, attack, hash, material and evaluation limits. This mapping does not approve the piece or
+make its old measurements evidence of current balance.
 
 ## B. Board
 
@@ -91,9 +103,9 @@ aside: never built, for the reason given (`PIECES-PROPOSED.md`, "Set aside").
 |---|---|---|---|---|---|
 | Home rank | 1 / 8 | maester–king long swap (both on it) | guard double step from it (Q1) | — | arriving 1a |
 | Pawn rank | 2 / 7 | pawn double step | guard may not end a move on it (rejected: made the guard inert) | — | — |
-| Own half | ranks 1–4 / 5–8 | — | — | ○ Flight (Stratus): move any own piece to any empty square in own half | arriving 1b |
+| Own half | ranks 1–4 / 5–8 | ● Flight (Stratus): move an existing own piece to an empty square in its own half | the Flight card | — | special move 1b |
 | Last rank | 8 / 1 | promotion to Q R B N (the chess set, 2026-09-17) | promotion sets (`anyNonKingNoGuard`, `anyNonKing`, `anyNonKingNoFairy`) | — | — |
-| **Capital** | d4 d5 e4 e5 | — | — | ○ Burn card: capture inside the capital zone | see B.2 |
+| **Capital** | d4 d5 e4 e5 | — | ◐ Burn card: capture inside the capital zone | — | see B.2 |
 
 ### B.2 Capital — the four centre tiles
 
@@ -104,15 +116,134 @@ Each row is one kind of rule; each cell says whether it applies to that piece. A
 | C1 cannot enter | ? | ? | ? | ? | ? | ? | ? | ? | **◐ G** | ? | ? | ? | ? | Keeps the named piece out of the centre. For the guard: fewer central blockades → more decisive games (the anvil pattern moves to the flanks). **Built + measured 2026-09-17 (`guardNoCapital`, off): null** — decisive +0.3 ± 0.3; guards rarely enter the capital, so the ban changes nothing (`docs/research/sim-guard-2026-09-17.md`) |
 | C2 cannot be taken while there | ? | ? | ? | ? | ? | ? | ? | ? | ◐ all | ? | ? | ? | ? | A sanctuary. Draw risk: an uncapturable centre piece is a second guard; expect longer games. **Built + CONFIRMED 2026-09-17** (`capitalSanctuary`, off by default): draws **−2.7 ± 2.6** at 1,600/arm depth 4, branching +1.6, capped 1.7% → 3.1%; white score cost vanished at depth 4 (`docs/research/sim-capital-c2-d4-2026-09-17.md`). **Without adjudication the gain shrinks to −1.3 ± 2.0 (not resolved) while the capped cost doubles** (2.75% → 4.75%) — leave off (`docs/research/sim-capital-c2-noadj-2026-09-17.md`) |
 | C3 moves differently while there | ? | ? | ? | ? | ? | ? | ? | ? | ◐ G | ? | ? | ? | ? | A reward for holding the centre (e.g. 1-steppers step 2, pawns move sideways). Fight for the centre → sharper. **Guard instance built + null 2026-09-17** (`guardCapitalStep`); the package is outcome-null at depth 4. |
-| C4 captures differently while there / into there | ◐ P | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ○ Burn (capture inside the capital). Sharpens if it adds captures; blunts if it forbids them. **Pawn instance built 2026-09-17** (`pawnCapitalCapture`, 0.50 straight captures/game) and **fails depth 4**: the depth-3 directions reverse (`docs/research/sim-capital-c4-d4-2026-09-17.md`). |
+| C4 captures differently while there / into there | ◐ P | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ? | ◐ Burn (capture inside the capital). Sharpens if it adds captures; blunts if it forbids them. **Pawn instance built 2026-09-17** (`pawnCapitalCapture`, 0.50 straight captures/game) and **fails depth 4**: the depth-3 directions reverse (`docs/research/sim-capital-c4-d4-2026-09-17.md`). |
 | C5 cannot be captured *by* a piece standing there | ? | ? | ? | ? | ? | ? | ? | ? | ◐ all | ? | ? | ? | ? | The mirror of C2 — a piece in the capital is a threat but not a hunter. **Built + measured 2026-09-17** (`capitalNoCapture`, off): **null** on outcomes (decisive −0.2 ± 3.0); structural: killer move +4.4, drama +2.0, maester survival 35% → 44% (`docs/research/sim-capital-c5-2026-09-17.md`) |
 
 Engine seam: `const CAPITAL = new Set([27, 28, 35, 36])` (d4 e4 d5 e5) and (C1) a filter on `to` in `legalMoves`, (C2/C5) a square-aware `canCaptureAt(att, vic, from, to)`, (C3/C4) a branch on `CAPITAL.has(from)` in the piece's `case`. Every rule here is measurable in the lab as a toggle, like the piece rules.
+
+### B.3 Code rule axes
+
+Each row names one `Rules` field in `src/rules/rules.ts`. The last column is `DEFAULT_RULES`, before
+`POWERS_BALANCED` selects the official power reading. Other values are lab choices, not approval.
+A use count of 0 means unlimited. The balance schema checks counts from 0 to 6.
+The source comments state what each field changes.
+
+| Field | Allowed values or domain | Code default |
+|---|---|---|
+| `archerChecks` | false · true | `true` |
+| `beastChains` | false · true | `true` |
+| `guardImmune` | false · true | `true` |
+| `guardCaptures` | none · pawns · any | `"none"` |
+| `guardStep` | 1 · 2 | `1` |
+| `guardDoubleFirst` | off · slide · leap | `"off"` |
+| `guardNoSecondRank` | false · true | `false` |
+| `guardNextToKing` | false · true | `true` |
+| `guardNoCapital` | false · true | `false` |
+| `guardReserve` | off · rank1 · rank12 · any | `"off"` |
+| `capitalSanctuary` | false · true | `false` |
+| `capitalNoCapture` | false · true | `false` |
+| `guardCapitalStep` | false · true | `false` |
+| `pawnCapitalCapture` | false · true | `false` |
+| `guardCaptureLimit` | 0 · 1 | `0` |
+| `archerMove` | ortho · any · fwdBack | `"any"` |
+| `archerShots` | classic · plusDiag2 · ring2 · forward3 · plusDiagFwd2 · plusDiagFwd2Clear · fwd2NoBack · fwd2NoSide · far2 · over2 · nearOver2 · fwdNearOver2 | `"far2"` |
+| `beastMove` | forward · any · diagFwdBack | `"any"` |
+| `beastCapture` | adjacent · diagForward · diagonal | `"adjacent"` |
+| `beastCaptureForward` | false · true | `true` |
+| `maesterLongSwap` | false · true | `true` |
+| `maesterKingSwapAnywhere` | false · true | `false` |
+| `maesterSwapAny` | false · true | `false` |
+| `maesterSwapEnemy` | false · true | `false` |
+| `maesterStep` | 1 · 2 | `1` |
+| `paladinKamikaze` | always · nonPawn · never | `"nonPawn"` |
+| `paladinChecks` | false · true | `false` |
+| `deathTouchMoves` | false · true | `false` |
+| `paladinReturn` | false · true | `false` |
+| `paladinJumpsFriends` | false · true | `true` |
+| `paladinBlockedByEnemies` | false · true | `true` |
+| `secondPlayerDoubleFirstTurn` | false · true | `false` |
+| `ogreHop` | false · true | `false` |
+| `ogreStep2` | false · true | `false` |
+| `ogreMode` | repel · push | `"push"` |
+| `ogreNoCapture` | false · true | `false` |
+| `ogreShoveFriends` | both · enemies · friends | `"both"` |
+| `strikeMode` | move · capture | `"move"` |
+| `strikeCaptures` | false · true | `true` |
+| `freezeUses` | 0 · 1 · 2 · 3 · 4 · 5 · 6 | `2` |
+| `iceWallUses` | 0 · 1 · 2 · 3 · 4 · 5 · 6 | `2` |
+| `hasteSecond` | any · quiet | `"any"` |
+| `hasteCaptures` | false · true | `true` |
+| `hasteApart` | false · true | `false` |
+| `hasteNoThreat` | false · true | `false` |
+| `hasteNoForward` | false · true | `false` |
+| `hasteNoCheck` | false · true | `false` |
+| `markFree` | false · true | `false` |
+| `freezeQuiet` | false · true | `false` |
+| `markTurns` | 1 · 2 | `1` |
+| `mercyCaptures` | false · true | `false` |
+| `mercyAura` | false · true | `false` |
+| `strikePawns` | false · true | `true` |
+| `sacrificeBehind` | false · true | `false` |
+| `holyLightTakesPawns` | false · true | `false` |
+| `holyLightAura` | false · true | `false` |
+| `darknessKeep` | false · true | `false` |
+| `holyLightKnights` | false · true | `false` |
+| `holyLightShelter` | false · true | `false` |
+| `holyLightShelterOrtho` | false · true | `false` |
+| `mercyAuraOrtho` | false · true | `false` |
+| `mercyAuraPawns` | false · true | `false` |
+| `mercyAuraPawnsTake` | false · true | `false` |
+| `mercyTakesPawns` | false · true | `false` |
+| `mercyNoJump` | false · true | `false` |
+| `darknessMoves` | false · true | `false` |
+| `darknessTakeAhead` | false · true | `false` |
+| `darknessStepDiag` | false · true | `false` |
+| `darknessShelter` | false · true | `false` |
+| `darknessShelterPawnsTake` | false · true | `false` |
+| `darknessPawnArmor` | false · true | `false` |
+| `darknessAuraPawns` | false · true | `false` |
+| `darknessKingStep2` | false · true | `false` |
+| `darknessKingStepSafe` | false · true | `false` |
+| `darknessKingStepTakes` | false · true | `false` |
+| `deathTouchReach` | false · true | `false` |
+| `deathTouchReachOrtho` | false · true | `false` |
+| `deathTouchReachNoBack` | false · true | `false` |
+| `deathTouchReachForwardBack` | false · true | `false` |
+| `deathTouchReachPieces` | false · true | `false` |
+| `strikeUses` | 0 · 1 · 2 · 3 · 4 · 5 · 6 | `1` |
+| `hasteUses` | 0 · 1 · 2 · 3 · 4 · 5 · 6 | `1` |
+| `flightUses` | 0 · 1 · 2 · 3 · 4 · 5 · 6 | `1` |
+| `sacrificeUses` | 0 · 1 · 2 · 3 · 4 · 5 · 6 | `1` |
+| `marchUses` | 0 · 1 · 2 · 3 · 4 · 5 · 6 | `3` |
+| `leapUses` | 0 · 1 · 2 · 3 · 4 · 5 · 6 | `3` |
+| `reaverStep` | any · ortho | `"ortho"` |
+| `catapultCapture` | stay · land | `"stay"` |
+| `kings` | two king choices or null (White, Black) | `[null,null]` |
+| `hands` | two lists of card names (White, Black) | `[[],[]]` |
+| `piles` | two lists of card names (White, Black) | `[[],[]]` |
+| `fromMove` | card name to positive whole move number | `{}` |
+| `bishopsOppositeColours` | false · true | `true` |
+| `promotionSet` | anyNonKing · standard · anyNonKingNoFairy · anyNonKingNoGuard | `"standard"` |
+| `fiftyMove` | false · true | `true` |
+| `threefold` | false · true | `true` |
+| `insufficientMaterial` | false · true | `true` |
+
+The CLI aliases `kingWhite` and `kingBlack` set one side of `kings`. Each takes `KingName:PowerName`
+for a valid pair from `KINGS`, or `none`, `-`, or an empty string for no power.
+`kings` may set both sides. `hands` and `piles` hold `CardName` lists; no fixed hand size is part of
+that field. Each side starts with four cards. Draw effects may increase the hand size.
+Historical six-card tests keep their original hand size.
+Each army starts with at most one Beast. Morph cannot create a Beast while that side has one.
+Salvation or Sacrifice may return a captured Beast even if that gives the side a second Beast.
+An army has at most one Guard.
 
 ## C. King powers and cards
 
 Kings' powers are a shipped game mode (●, with the official readings of `POWERS_BALANCED`); card mode is lab only
 (◐, `Rules.hands`). Sources: `src/rules/rules.ts`, `src/rules/engine.ts`, `cardText` in `src/powers-ui.ts`, `RULES.md` §4–§5.
+
+When adjusting a king power for balance, do not add changes to how other pieces move.
+Keep its existing approved effects. A card may change how pieces move.
 
 ### C.1 Schema: the properties of every power or card
 
@@ -122,11 +253,17 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Type | always-on (changes the rules while the king has it) · mark (binds the opponent's next turn) · extra move (a second move follows in the same turn) · special move (a move no piece has) · arrival (a piece comes onto the board) · copy (plays another card) · draw (takes a card from the pile) · promotion (a piece changes its type, D.3: ◐ Morph, MorphB, MorphP) · spawn (a new piece, not a captured one, comes onto the board, D.5: ◐ Spawn, SpawnK, Spawn2, SpawnK2) |
 | Rarity | common (default) · legendary: dealt rarely, with legendary graphic effects (owner, 2026-10-06; card mode, not built yet). Rage is legendary; every other row below is common. |
 | Uses | n per game (king power) · 1 (every card) · — (always-on) |
-| Turn cost | is the turn's move · then make the move (a free action, `markFree`) · extra move (the second move may be skipped) |
-| Captures | may · must · never |
-| Targets | own · enemy · either; which kings and pawns are excluded |
-| Duration | instant · opponent's next turn (◐ `markTurns: 2`: two turns) · always |
-| Has a condition | none · a zone (a rank, half, the capital) · tag team (next to a given piece) · turn N (`fromMove`) · a capture · a card played — see D.1. Example: "not before move 10" |
+| Turn cost | none (always-on) · is the turn's move · then make the move (a free action, `markFree`) · extra move (the second move may be skipped) · inherited from the copied card |
+| Captures | may · must · never · inherited from the copied card |
+| Targets | own · enemy · either · inherited from the copied card |
+| Target kind | piece · pawn · empty square · pile · prior mark · card |
+| Excluded targets | king · pawn · guard · queen · own type · second Beast · frozen |
+| Excluded results | king · pawn · guard · queen · own type · second Beast · second Guard |
+| Result types | P · N · B · R · Q · K · A · L · G · M · S · O · C · V · T; each effect selects its own list |
+| Second capture | same as Captures · may · must · never |
+| Stop on capture | no · yes; a tested Rage reading stops after the first capture |
+| Duration | instant · opponent's next turn (◐ `markTurns: 2`: two turns) · renew an earlier mark for one more opponent turn · always · inherited from the copied card |
+| Has a condition | none · a zone (a rank, half, the capital) · tag team (next to a given piece) · turn N (`fromMove`) · a capture · a piece lost · a card played · material behind · own last mark — see D.1. Example: "not before move 10" |
 | Is a condition | no · yes: playing this card (or any card) triggers something else, for either side — see D.1. Example: Mirror answers the opponent's last card |
 | Shackled | no · yes: weaker or off until a condition (`fromMove` is "off until move N") — see D.2 |
 | Promotion | no · yes: a piece changes its type on a condition — see D.3 |
@@ -168,7 +305,7 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 | Growth | card ◐ | draw | — | is the turn's move | never | the own pile | instant |
 | GrowthB | card ◐ | draw | — | then make the move | never | the own pile | instant |
 | Rally | card ◐ (+2.60 ± 0.46 pawns, draws 9.8%; deal candidate) | extra move: a different own piece | — | extra move | never, on either move | own pieces, the king included | instant |
-| Morph | card ◐ (`morph-a1`, Kaggle, 3,000 games, 150 pairs, seed 6161, depth 3, a fresh army per pair: against no card 98% (past the calibration: "more than a queen's worth" is the safe reading), against the Haste card 90%, against MorphB 71%; 86.2% ± 2.3 against the field (Elo +256); draws 7.3% (no rise); played in 97.9% of games, median first use ply 5 (move 3); it always picks the queen: Guard→Q 725, Knight→Q 470, Bishop→Q 144, Maester→Q 53, Ogre→Q 43, so it is a free queen on move 3, and leaving the Guard out does not fix it (Knight→queen is next); owner's choice open) | promotion: an own piece becomes another type, on its square | — | is the turn's move | never | an own piece, not the king or a pawn (a frozen one does not morph); the new type one the draw pool fields (`POOL`: queen, ogre, rook, bishop, knight, archer, guard, maester, beast), not its own, never a second Beast for the side (a second queen may come), a guard only where a guard may land | instant |
+| Morph | card ◐ (`morph-a1`, Kaggle, 3,000 games, 150 pairs, seed 6161, depth 3, a fresh army per pair: against no card 98% (past the calibration: "more than a queen's worth" is the safe reading), against the Haste card 90%, against MorphB 71%; 86.2% ± 2.3 against the field (Elo +256); draws 7.3% (no rise); played in 97.9% of games, median first use ply 5 (move 3); it always picks the queen: Guard→Q 725, Knight→Q 470, Bishop→Q 144, Maester→Q 53, Ogre→Q 43, so it is a free queen on move 3, and leaving the Guard out does not fix it (Knight→queen is next); owner's choice open) | promotion: an own piece becomes another type, on its square | — | is the turn's move | never | an own piece, not the king or a pawn (a frozen one does not morph); the new type one the draw pool fields (`POOL`: queen, ogre, paladin, rook, bishop, knight, archer, guard, maester, beast), not its own, never a second Beast or a second Guard for the side (a spent Guard counts; a second queen may come), a guard only where a guard may land | instant |
 | MorphB | card ◐ (`morph-a1`: against no card 77% (+210 Elo ≈ +3.3 pawns at 64 Elo a pawn; above the Workshop's fair-card ceiling of 3 pawns, fair band 0.7–3), against the Haste card 64%; 56.7% ± 3.2 against the field; draws 9.3% (no rise); played in 99.5% of games, median first use ply 5; no queen, so it almost always picks the Archer: Guard→A 729, Knight→A 236, Bishop→A 70, Maester→A 25; Guard→Rook 11; owner's choice open) | promotion: the same | — | is the turn's move | never | as Morph, and the new type not a queen | instant |
 | Spawn | card ◐ **set aside** (owner 2026-10-06: too weak to feel; `spawn-r1` +0.36 ± 0.38 pawns, draws 17.3%, +2.0 ± 5.1 against no card; played in 94% of games, median first use ply 21; below the Workshop's fair-card floor of 0.7 pawns; stays in the lab) | spawn: a new own pawn on an empty square of the own pawn start rank (rank 2 / 7) | — | is the turn's move | never | an empty square; the own king not in check after (it may block a check) | instant |
 | SpawnK | card ◐ (`spawn-r1` +0.80 ± 0.36 pawns, draws 15.7%, +0.3 ± 5.1; played in 73%, median ply 53; stays as built, owner) | spawn: a new own pawn on an empty square next to the own king | — | is the turn's move | never | an empty square of the king's 8 neighbours, not on rank 1 or 8; the king not in check after | instant |
@@ -179,7 +316,7 @@ Kings' powers are a shipped game mode (●, with the official readings of `POWER
 
 Every card is one use; "Uses (king)" is the official count of a king power (`POWERS_BALANCED` over the rule defaults).
 "Then make the move" for the marks is `markFree`, official for the kings and used in every card measurement. Flight is
-a special move here: it moves a piece already on the board (A.1 lists it under 1b, arriving, by its zone).
+a special move here: it moves a piece already on the board (A.1 lists it under 1b, special move, by its zone).
 
 ### C.3 Ideas: the 2014 cards not built (2026-10-06)
 
@@ -237,7 +374,7 @@ The piece, power or card keeps its type but is weaker, or off, until the conditi
 |---|---|---|---|
 | Pawn | queen, rook, bishop or knight | reaches the last rank | ● (◐ wider sets: `promotionSet` `anyNonKing`, `anyNonKingNoGuard`, `anyNonKingNoFairy`) |
 | Sacrifice | an own pawn becomes one of the side's captured pieces | the power is used | ● (an arrival, C.2) |
-| **Morph**, **MorphB** (cards, owner 2026-10-06) | one of your pieces (not the king or a pawn) becomes another type of the draw pool, on its square; never a second Beast; MorphB never a queen | the card is played | ◐ lab (`hands=Morph`; `!I:d1=Q`, `!I+:d1=R`); taken, it joins the reserve as its new type; readings in C.2; `morph-a1` measured: Morph against no card 98% (a free queen on move 3), MorphB 77% (+3.3 pawns, the Archer); the search morphs the guard at once; owner's choice open |
+| **Morph**, **MorphB** (cards, owner 2026-10-06) | one of your pieces (not the king or a pawn) becomes another type of the draw pool, on its square; never a second Beast or a second Guard; MorphB never a queen | the card is played | ◐ lab (`hands=Morph`; `!I:d1=Q`, `!I+:d1=R`); taken, it joins the reserve as its new type; readings in C.2; `morph-a1` measured: Morph against no card 98% (a free queen on move 3), MorphB 77% (+3.3 pawns, the Archer); the search morphs the guard at once; owner's choice open |
 | **MorphP** (card, owner 2026-10-06, a softer Morph) | one of your pawns becomes a knight or a bishop, on its square | the card is played | ◐ lab (`hands=MorphP`; `!IP:e2=N`); an ordinary piece from then on; taken, it joins the reserve as that piece; it resets the 50-move clock, as a promotion or a Sacrifice does; readings in C.2; `morph-b1` measured: MorphP against no card 70% (+2.3 pawns, the same as Haste's +2.0 in the same run; used in 99.7% of games, median ply 5; draws 13.7% against 14.9%, no rise); inside the fair band; the owner has not chosen it for card mode |
 | **MorphS** (card, owner 2026-10-06; Sky Lift's moves under its own name) | two of your pieces (not the king or pawns, of different types) swap places | the card is played | ◐ lab (`hands=MorphS`); each keeps its flags; the same squares stay filled; readings in C.2; `morph-b1` measured: against no card 59% (+1.0 pawn, the same as Sky Lift's +1.2 ± 0.4; used in 72.1% of games, median ply 34; draws 15.3%, no rise); inside the fair band; the owner has not chosen it for card mode |
 | Promoted piece taken | returns (Salvation) as what it was when taken | — | ◐ |

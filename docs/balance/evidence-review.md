@@ -1,7 +1,7 @@
 # Balance evidence review
 
 The owner target is far2 Archer, a Guard next to its king, Paladin beside Ogre in the pool,
-Death Touch T2, and four cards. The workbook records the first four approvals on 2026-10-09.
+Death Touch T2, and four starting cards. The workbook records these approvals.
 The queue records the four-card approval: “yes. 4 cards.” The selected reports do not measure this full set.
 
 ## Target and source status
@@ -15,7 +15,11 @@ The queue records the four-card approval: “yes. 4 cards.” The selected repor
 | Four-card hand | QUEUE deal-c4k: “yes. 4 cards.” | Existing four-card tests use older pools and card sets. Do not run another hand-size sweep. |
 
 The source workbook is `docs/status/king-down-status-2026-10-09.xlsx`.
-Its SHA256 is `7b7b998c7f0bb0ff15704533ea484b419eb997927f7f4ff58c1b7c3eb6d75445`.
+Its SHA256 is `f567dd9f08320915cbe00b5547a9cfa9b2bc1a5c03642202b041584f933eb56c`.
+The [source correction ticket](../specs/balance-framework/issues/03-resolve-source-conflicts.md)
+records the approved changes and the original workbook in Git. The current workbook uses four
+starting cards and the starting-army Beast limit. Historical test readings stay unchanged.
+The king-power limit applies to new changes made for balance. Existing approved effects remain.
 The framework saves its cell text in `workbook.json`. Some cells keep older “not merged” or
 “not decided” text beside the dated approval. Use the dated approval for the target.
 Main `7035b5e` now implements far2 at 339 cp, `guardNextToKing=true`, pool `QOLRRBBNNAAGMMS`
@@ -53,7 +57,7 @@ A selected threat-position price is not a starting-piece price.
 ## Strong findings
 
 - Updated worth: Ogre 2.60±0.28, Rook 3.84±0.27, Bishop 3.17±0.27, Maester 3.28±0.27,
-  Beast 4.27±0.29. Knight 3.16 is the anchor. Guard <1.66 fails worth. The Bishop arm has two bishops
+  Beast 4.27±0.29. Knight 3.16 is the anchor. The historical report bounds Guard below 1.66; its full calibration uncertainty is not established. The Bishop arm has two bishops
   of one square colour, unlike the pool. Archer plusDiagFwd2 reads 4.11±0.29 at depth 3 and
   4.43±0.25 at depth 4 with the updated Rook anchor.
 - `pa-r1` has 12000 ordinary games. Archer captures 2.11 [2.08,2.13]× average and presence draws
@@ -69,10 +73,38 @@ A selected threat-position price is not a starting-piece price.
 - Historical Paladin pool change raises White score 6.22 [3.26,9.19] points at depth 3 after rank
   clustering. Depth 4 gives 3.81 [−0.22,7.84]. The pools share no ranks and have no Ogre. This is
   a risk for the new target, not a measured failure of it.
-- K18 has 5280 games: Haste 58.3±3.3 and released Death Touch 55.1±2.9 are off centre when tested
-  together. The owner keeps Haste. T2 at depth 4 is 51.1±1.3 against released 57.3±1.3. The T2 run
+- K18 has 5280 games. Its joint intervals are Haste 58.3±4.8 and released Death Touch 55.1±4.3.
+  They exclude 50, but Haste crosses the 54% band limit: no firm band failure follows.
+  Spirit and Shadow powers are exempt from that ordinary field band. The owner keeps Haste. T2 at depth 4 is 51.1±1.3 against released 57.3±1.3. The T2 run
   is an anchor schedule; it does not certify the other 11 powers. New Darkness 47.8±2.0 and
   Spirit−Shadow−0.8±1.9 come from rounds 16–17, before the full new target.
+
+## Approved campaign: checked worth pass
+
+The frozen 7035b5e source completes 10,000 games: seven piece arms and 3,000 pawn
+calibration games. All schedules and stamps match; 80 sampled legal replays pass.
+The importer recomputes these values from raw records and uses the same-run pawn scale.
+
+| Piece | Worth | Envelope with scale uncertainty |
+|---|---:|---:|
+| Ogre | 2.925 | 2.521–3.234 |
+| Rook | 3.794 | 3.446–4.281 |
+| Bishop | 3.010 | 2.632–3.327 |
+| Maester | 3.210 | 2.873–3.567 |
+| Beast | 4.247 | 3.836–4.823 |
+| Paladin | 4.122 | 3.738–4.660 |
+| Archer | 3.591 | 3.270–4.041 |
+
+All seven envelopes lie inside the worth band for this experiment. They are source-error
+envelopes, not joint 95% confidence intervals. Shared seeds correlate the arm errors.
+The Beast upper corner exceeds the local 1.5-pawn calibration range. The run uses classic
+knight substitutions, no Guard, and same-colour bishops. It does not certify random-pool
+play, update prices, or approve another price pass. There are 42 ply caps, counted as draws.
+
+Activity has 7,200 checked games as of 08:45 UTC; it remains incomplete. The powers pilot
+still runs at that check. The approved 28-card study remains queued. Their contexts are
+registered from the frozen specs, including effective per-game rules, but incomplete studies
+cannot produce target verdicts. See the campaign ticket and queue for later progress.
 
 ## Model anchors: zero to four cards
 
@@ -91,41 +123,102 @@ are associations. Do not sum them or extend them as causal effects to NEW.
 Cards use a carried 64 Elo/pawn calibration with about 25% uncertainty. Later piece passes give
 70±11 at depth 3 and 92±13 at depth 4. Do not silently switch the calibration of a card result.
 
-## Next data, after pending runs
+## Reviewed stopped and complete runs
 
-`deal-c4k`, `deal-d4k`, `deal-nosalv2` and `ab-guard-drop-any` still need data review.
-No job is launched. No remote job is changed. The M1 hostname does not resolve in the read-only
-inventory check. Remote-only raw files remain a coverage gap.
+`deal-c4k` stops at 3,498 of 14,000 planned games. Shards 9, 10 and 11 supply 1,749 games
+per arm. Four cards give White 50.0±2.2%, draws 9.5±1.4%, and 91.0±2.2 turns. No cards give
+51.0±2.1%, 20.0±1.9%, and 101.3±2.1 turns. The arms share no `backRank|seed` keys.
+These are separate arm summaries. No paired difference exists. Do not read “same armies” in the
+report header as proof that the observed arms overlap.
 
-The rows below are conditional proposals. Skip a row if the pending data supply the exact target.
+`deal-d4k` stops at 6,998 of 14,000 planned games. Shards 5, 7, 8, 9, 10 and 11 supply 3,498
+six-card games and 3,500 no-card games. Both whole-arm White scores round to 51.8%.
+Only 1,166 openings overlap. On that subset, six cards minus none gives White +2.8±3.8 points,
+draws −11.7±2.9 points, and length −14.4±3.9 turns. These paired differences use a different
+population from the whole-arm columns. They do not contradict the equal rounded scores.
+The name `deal-d4k` does not mean depth 4: its spec sets depth 3.
+
+Both stopped card runs use the historical `QORRBBNNAAGMMS` pool without Paladin. The explicit
+28-card deck includes Salvation and MirrorB. The seeds are 7581 and 7577. Both specs set
+`markFree=true`, `hasteCaptures=false`, `strikeCaptures=false`, and `strikePawns=false`.
+The named launch commit is `bc1bb04`; the compressed raw rows do not stamp a source or spec key.
+The files prove the observed subsets. They do not complete the planned schedules or the current target.
+
+`deal-nosalv2` has all 3,500 scheduled game IDs, from 0 through 3,499. Its log ends with
+3,500 games in 225.8 min. It uses six cards, the same historical pool without Paladin, a 27-card
+deck without Salvation, and seed 7579 at depth 3. Its 1,750 shared openings give six cards minus
+none: White −0.3±3.1 points, draws −10.5±2.2 points, and length −20.3±3.1 turns.
+White is 51.0±2.3% against 51.3±2.1%; draws are 7.6±1.2% against 18.1±1.8%.
+This is a deck-without-Salvation contrast against none. It is not a paired test of Salvation removal.
+A comparison with another seed or deck does not isolate that card's effect. The interval that
+contains zero does not prove White equivalence.
+
+The durable [deal-nosalv2 report](reports/deal-nosalv2.report.md) uses `reportText` and
+`mirrorSection` in `src/sim/tournament.ts`. This analysis reads the copied raw and spec; it plays no games.
+The raw source is `sim/out/m1/network-2026-10-09/kd-deal/deal-nosalv2.jsonl`, SHA256
+`2e897a4340dc25ce84e7c4bb9bcb1d2c41b4fc6a85946910c44ceaa52dade721`.
+The adjacent `.tournament.json` has SHA256
+`9d2afc11924cfa754642a957a76134ce32cc8911efdeef98f71d7e50b4600425`.
+The queue names `bc1bb04`; the compressed rows do not stamp it. Keep that limit explicit.
+
+`ab-guard-drop-any` completes 4,000 games: 100 arrangements × 20 games per arm. Its interval
+uses the 100 paired arrangement means. It does not use 4,000 independent games.
+The report gives `guardReserve=any` minus `off`: White −0.1±1.9 points, draws +0.1±2.0 points,
+decisive share −0.3±2.1 points, length +2.8±1.9 plies, and branching factor +2.0±0.4.
+The first three intervals contain zero. This does not establish equality or a no-draw-drag pass.
+There is no adopted global equality margin. The extra length and legal moves are measured costs.
+
+Guard raw rows stamp `src=bd592c219166` and pool `QOLRRBBNNAAGMMS`. Their spec keys are
+`4d8d77ce013f` and `735a3bb2805a`. They record far2, a Guard next to its king, Paladin `nonPawn`,
+and Ogre `push`. The queue names launch commit `cd4da6f`. That commit prices Archer at 505 cp;
+`7e7530f` later changes the price to 339 cp. The source stamp is a hash, not a Git commit.
+This is historical evidence with a different engine price. It does not certify the current target.
+Report draws exclude capped games: 20.5% and 20.7%. Raw summaries include the cap and count
+419/2,000 and 425/2,000 draws. Keep these definitions separate.
+
+The [M1 snapshot](m1-snapshot.json) covers 6,966 files and 884,068,015 bytes in nine project folders.
+Each copied file matches a subsequent remote SHA256. No file changes during that hash check.
+This resolves the earlier remote inventory gap. A file inventory does not replace the source,
+schedule, or context checks of each run. No job is launched or changed by this review.
+
+## Next data
+
+The rows below are conditional proposals. Skip a row only when a complete reviewed run proves
+its exact target context. None of the four reviewed runs does so.
 Main `7035b5e` now supplies the intended pool and Guard placement. The commands pin that
 source and set `guardNextToKing=true`. The runner makes `--mirrorOnly` imply `--mirror`.
 Row 1 therefore has one game for each of its 12000 pairs. Check the effective rule and pool stamp. Historical data
 do not certify this source. Keep each notebook below 9 h. Time a representative shard
 before a wave, because these new contexts can change throughput.
 
-| rank / id | machine | command flags | games | estimate and decision |
-|---|---|---|---|---|
-| 1 / `balance-target-activity-d3` | Kaggle: 20 shards, 5 notebooks a wave, 4 workers each | `--powers none --mirrorOnly --pairs 12000 --armies perPair --depth 3 --seed 8101 --rule archerShots=far2 --rule guardNextToKing=true` | 12000 | 94 min per notebook; Read all six criteria for target pool. Keep criteria 4 and 4b distinct. Mark exact full-target ordinary measurements. |
-| 2 / `balance-target-powers-d3` | Kaggle: 5 shards, 5 notebooks, 4 workers each | `--powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true --rule guardNextToKing=true` | 5280 | 165 min per notebook; Full round robin, not DeathTouch anchor. Test powers together with army intervals; report Spirit minus Shadow with interval. Haste is approved despite its known high score. |
-| 3 / `balance-target-four-d3` | Kaggle: 10 shards, 5 notebooks per wave, 4 workers each | `--powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false --rule guardNextToKing=true` | 6000 | 240 min per notebook; Selected four-card hand vs none on same armies; no hand-size sweep. Report draw/White/turn differences and per-card association limits. |
+The ranked list is in [FRAMEWORK.md](FRAMEWORK.md), built from `evidence.json`:
 
-For row 1, 600 games/shard at K18's slowest observed 6.4 games/min is 94 min.
-For row 2, 1056 at that rate is 165 min. For row 3, 600 at deal-d2's 2.5 games/min is 240 min.
-The estimates are under 9 h. A changed context still needs its own timing check.
-The initial commands use `--first 19`, `--first 4` and `--first 9` for rows 1, 2 and 3.
-Each submits one shard. After the timing check, submit later shards with the saved manifest
-and `--only`, in groups of at most five. Kaggle permits five active notebooks. The explicit card list
-is the workbook's tested 28-card deal. It does not settle Salvation. Record the final deal choice
-before using row 3. Do not launch a duplicate of `deal-c4k`.
+1. Kaggle ordinary games: criteria 2–6 for the current pool.
+2. M1 odds work: a 10,000-game first pass for seven pieces and fresh pawn calibration.
+3. Kaggle powers: all twelve powers in the same field.
+4. Kaggle four-card deal: a paired current-context test after the final deck choice.
 
-M1 has a separate depth 4 card reference: `hand-size-d4` plays 3000 games in 394.8 min with 8 workers.
-That gives 7.60 games/min on that machine/context. It is not a Kaggle rate.
+The ordinary games do not measure odds worth. The M1 value test uses fixed classic-rank swaps.
+It excludes Guard because that swap puts Guard on b1. `guardNextToKing` changes random setup,
+not that fixed swap. Keep the selected Guard-worth question open. The Bishop swap also has two
+bishops on the same colour. These limits stay beside the price results.
+
+The M1 first pass keeps shipped prices fixed. It uses seven 1000-game arms and 3000 fresh
+pawn-calibration games across all eight files. The copied Archer passes take about 190 seconds
+per 1000 games. Allow 45–60 minutes and check the first arm. A second pass needs a separate
+review of the measured seed prices; it is not included in this proposal.
+
+For Kaggle, each initial command submits one shard. Check its time before later groups of at
+most five. Keep each notebook below nine hours. The card list is a candidate deal, not approval
+of Salvation. No proposed run starts in this task.
 
 ## Verification
 
-`evidence.json` stores 138 selected measurements with stable IDs, source references, intervals,
+`evidence.json` stores 167 selected measurements with stable IDs, source references, intervals,
 counts, depths, run IDs, flags, and explicit nulls when a field is not known. It is a report audit,
-not the raw-corpus manifest. JSON parsing, unique-ID checks, source-ID checks and whitespace pass. The main merge updates
-the source facts; the 138 numeric measurement rows stay unchanged.
-No simulation, remote action, tracker edit or game edit is part of this work.
+not the raw-corpus manifest. The 29 added rows keep the stopped subsets, complete historical runs,
+sample units, and source limits distinct. JSON parsing, unique-ID checks, source-ID checks and
+whitespace pass. The report builder accepts all 167 rows. The doc checks pass: 74 tests in
+four files. Raw checks confirm zero, 1,166 and 1,750 shared openings in `deal-c4k`, `deal-d4k`,
+and `deal-nosalv2`. The existing 138 numeric rows stay unchanged.
+No simulation, remote job change, tracker edit or game behavior change is part of this work.

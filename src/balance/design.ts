@@ -2,6 +2,8 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { ALL_CARDS, BUILT, DEFAULT_RULES, KINGS, POWERS_BALANCED, RULES_2017, RULES_2021 } from '../rules/rules';
+import { POOL } from '../rules/setup';
+import { VALUES } from '../ai/eval';
 import type { Rules } from '../rules/rules';
 import { DIMENSIONS, RULE_DIMENSIONS, validateElement } from './schema';
 import type { Approval, DesignElement, EffectDimensions, PieceDimensions } from './schema';
@@ -37,7 +39,7 @@ export interface RecordedVersion {
 }
 const SHARED = { conditions: [], isCondition: 'no', shackled: 'no', promotion: 'no', fromMove: null } as const;
 const EFFECT: EffectDimensions = { ...SHARED, source: 'card', type: 'specialMove', rarity: 'common', uses: 1, turnCost: 'move', captures: 'never', targets: 'own', excludedTargets: ['king'], duration: 'instant', excludedResults: [], resultTypes: [], secondCapture: 'same', stopOnCapture: 'no', targetKind: 'piece' };
-const PIECE: PieceDimensions = { ...SHARED, movement: 'step1', shotPattern: null, capturePattern: 'same', hop: 'none', shield: 'none', handicap: 'none', control: [], trigger: [], zone: [] };
+const PIECE: PieceDimensions = { ...SHARED, deployment: 'setup', movement: 'step1', shotPattern: null, capturePattern: 'same', hop: 'none', shield: 'none', handicap: 'none', control: [], trigger: [], zone: [] };
 const PIECE_RULE_FLAGS: Readonly<Record<string, readonly (keyof Rules)[]>> = {
   P: ['promotionSet', 'pawnCapitalCapture'], N: [], B: [], R: [], Q: [], K: [],
   A: ['archerChecks', 'archerMove', 'archerShots'],
@@ -62,6 +64,14 @@ function effectRecord(name: string, kind: 'kingPower' | 'card', dimensions: Part
     shipped: kind === 'kingPower', tested: false, sources: ['docs/RULES.md §4–5', 'docs/MATRIX.md C.2'],
     dimensions: { ...EFFECT, ...dimensions, ...(name === 'RageB' ? { secondCapture: 'must' as const } : {}), ...(name.startsWith('Spawn') ? { targetKind: 'emptySquare' as const } : name.startsWith('Growth') ? { targetKind: 'pile' as const } : name === 'Rescue' ? { targetKind: 'mark' as const } : name.startsWith('Mirror') ? { targetKind: 'card' as const } : {}), ...precise, source: kind, uses: kind === 'card' ? 1 : dimensions.uses ?? null }, rules: kind === 'kingPower' ? { ...POWERS_BALANCED } : {} };
 }
+
+/** Original step version from the archived reserve study, not a current engine piece. */
+const ARCHIVED_SQUIRE: DesignElement = {
+  id: 'piece:E:archived-step', name: 'Squire', version: 'Base', kind: 'piece', letter: 'E',
+  approval: 'dropped', shipped: false, tested: true,
+  sources: ['docs/MATRIX.md A.3', 'docs/research/squire-drop-2026-09-24.md', 'docs/research/squire-depth3-2026-09-24.md', 'docs/research/squire-where-2026-09-24.md'],
+  dimensions: { ...PIECE, deployment: 'reserveOnceAnyEmptySquare' }, rules: {},
+};
 
 export const SHIPPED_ELEMENTS: readonly DesignElement[] = [
   pieceRecord('Pawn', 'P', { movement: 'pawn', capturePattern: 'pawn', conditions: ['zone'], promotion: 'yes', trigger: ['promoteLastRank'], zone: ['pawnRank', 'lastRank'] }),
@@ -106,8 +116,8 @@ export const SHIPPED_ELEMENTS: readonly DesignElement[] = [
   effectRecord("Salvation", 'card', {"type":"arrival","conditions":["pieceLost","zone"],"excludedTargets":["king","pawn","guard"]}),
   effectRecord("Rage", 'card', {"type":"extraMove","rarity":"legendary","turnCost":"extraMove","captures":"may","excludedTargets":[]}),
   effectRecord("RageB", 'card', {"type":"extraMove","turnCost":"extraMove","captures":"may","excludedTargets":[],"conditions":["capture"]}),
-  effectRecord("Mirror", 'card', {"type":"copy","turnCost":null,"captures":null,"targets":null,"duration":null,"conditions":["cardPlayed"]}),
-  effectRecord("MirrorB", 'card', {"type":"copy","turnCost":null,"captures":null,"targets":null,"duration":null,"conditions":["cardPlayed"]}),
+  effectRecord("Mirror", 'card', {"type":"copy","turnCost":"inherited","captures":"inherited","targets":"inherited","duration":"inherited","conditions":["cardPlayed"]}),
+  effectRecord("MirrorB", 'card', {"type":"copy","turnCost":"inherited","captures":"inherited","targets":"inherited","duration":"inherited","conditions":["cardPlayed"]}),
   effectRecord("Firewall", 'card', {"type":"mark","turnCost":"freeThenMove","excludedTargets":[],"duration":"opponentNextTurn"}),
   effectRecord("FirewallB", 'card', {"targets":"either","conditions":["tagTeam"]}),
   effectRecord("EarthQuake", 'card', {"targets":"either"}),
@@ -115,7 +125,7 @@ export const SHIPPED_ELEMENTS: readonly DesignElement[] = [
   effectRecord("Burn", 'card', {"captures":"must","excludedTargets":["king","pawn"],"conditions":["zone"]}),
   effectRecord("FireStarter", 'card', {"captures":"must","excludedTargets":["king","pawn"],"conditions":["zone"]}),
   effectRecord("Control", 'card', {"captures":"may","excludedTargets":["king","pawn","ownType"],"conditions":["tagTeam"]}),
-  effectRecord("Rescue", 'card', {"type":"mark","turnCost":"freeThenMove","duration":"opponentNextTurn","conditions":["ownLastMark"]}),
+  effectRecord("Rescue", 'card', {"type":"mark","turnCost":"freeThenMove","duration":"renewOpponentTurn","conditions":["ownLastMark"]}),
   effectRecord("Growth", 'card', {"type":"draw"}),
   effectRecord("GrowthB", 'card', {"type":"draw","turnCost":"freeThenMove"}),
   effectRecord("Rally", 'card', {"type":"extraMove","turnCost":"extraMove","excludedTargets":[]}),
@@ -131,33 +141,34 @@ export const SHIPPED_ELEMENTS: readonly DesignElement[] = [
 
 export const DOCUMENT_PINS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   "docs/MATRIX.md": {
-    "# King Down — ability matrix (started 2026-09-14)": "31fc739127a131ff505f1911a560e93f4257bf36c4b09f37e68be698c40d6801",
+    "# King Down — ability matrix (started 2026-09-14)": "d4f37ecad6355080b92394158548098b3d27cff01e414294d20129f0430c388f",
     "## A. Pieces": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "### A.0 Basic patterns (context for the grid below)": "2c6dddcf879b6bdbec7fab0a76748e09a404f33f3be46b0b3132e8cba49b33d4",
-    "### A.1 Abilities × pieces": "fcd5575283f64b7e0c6072cbb0061e2486895a75d1cea29a4391df5c6e55c793",
-    "### A.2 Where each ability lives in the engine (`src/rules/engine.ts`)": "6b427354383de04b831cbc4065103888276b30513ba5d694d2ebbfc99fd2d0b9",
-    "### A.3 Pieces outside the random pool (status 2026-10-06)": "854f628685d7a6a14efa6700df63fa995be859b62a1d27a001ade9781008a7e2",
+    "### A.0 Basic patterns (context for the grid below)": "5fe1e37adb5ba4a85dfd614f4527a49ebac588e9371b139daffbe4f20e05296f",
+    "### A.1 Abilities × pieces": "40881fb47f579836a7ccaa7ac50b3f99424f97c66b891acbffc85023572fd991",
+    "### A.2 Where each ability lives in the engine (`src/rules/engine.ts`)": "3784616072342a5769c82533dd88c73a4de23ea71fae47c298d0e591acc4e03a",
+    "### A.3 Pieces outside the random pool (status 2026-10-06)": "414993cf78e766de18f591a1fcc0ee13352ad02913d9fe9911419ad482b25f84",
     "## B. Board": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "### B.1 Zones × rules": "9e7977459941e0310ed4050b19b2d4399208a9d6263da19655fbfe89aad14f2b",
-    "### B.2 Capital — the four centre tiles": "a12a16869831fa02f598a9f9570de60dc0dcecf1d754104163e3f1582fd226d3",
-    "## C. King powers and cards": "916a5a2d14b81975271f8112b8b8c08d61a79b869729b0229adb42a4b08fa006",
-    "### C.1 Schema: the properties of every power or card": "4e95d41004b5a00ab7aa7430f506605ae40700f989eaf1b235139439f8c4ec06",
-    "### C.2 Each power and card": "2815cdf1e2cbd13274320e0c505c1c43bcde81e9c2ff736cacba9872d0088440",
+    "### B.1 Zones × rules": "2ce33e2e0c5420712acdb71fa0841313e03a965796e53699be1b7e40d86011ca",
+    "### B.2 Capital — the four centre tiles": "0d5521ae2badcd1038a347de45e13819deb3577731160d7550801db4c9b09510",
+    "### B.3 Code rule axes": "ac0425d19821baf94e7237c38bdc6d58fafee5cb33d98b046c5d8c13744f2bf4",
+    "## C. King powers and cards": "7f6fb3bcd760ffc3fdead81a41fd3de0e6328892f8976aa7ed4a83339d072e22",
+    "### C.1 Schema: the properties of every power or card": "7a92f25f01195381c3a41c4de457bd0fa59c6a8f07d520914df7fc03cbf2441a",
+    "### C.2 Each power and card": "7fb382574356f6e9b2a9017f86b2b1235a6433dc9175c78ec597b17d5ab1ec1f",
     "### C.3 Ideas: the 2014 cards not built (2026-10-06)": "d618936ad8544902178a0366b3aa6df0bbbc8f20d1630df26a6b711fcbcd3f7c",
     "## D. Conditions, shackles and promotion (owner, 2026-10-06)": "4e318d16fb95d2dae01191f9a84de318137d3dcdbcfe1f1c18310f3f22e193b7",
     "### D.1 Conditions (triggers)": "3cb3825280e00cb250c69555b827a863262f5e337c9c0efbe1acb75ae4356578",
     "### D.2 Shackled: nerfed until a condition": "2c027057cd0f9a0da859a4eb440661e1984d39aa9c77fa339817c1825c06667a",
-    "### D.3 Promotion: a new type on a condition": "2d2fae3e688ea8f229eba5e33a7e3c6cc9f5be2f2abc4ab38ac3336ae100ee4a",
+    "### D.3 Promotion: a new type on a condition": "3a3f2d7fbc4a5d58030e142481ebf8df6e7dd435ed6d6511669890d5a87f3404",
     "### D.4 Powers and cards with a condition": "f44f5ff16464094f4fab23ab04f0bc8b2109ff0c3b3a041ff8ebccc2c00fa6d3",
     "### D.5 Spawn: a new piece comes onto the board (owner, 2026-10-06)": "320c6dda4644ed928709d8dd6864badad78bdb118f380cd6b693aedcb4bc859a",
     "## Workshop (build 1a, 2026-10-06)": "991e8ade6d92b1eb72e507fece97468d434e009b17a3929d8e064c4fff14849d"
   },
   "docs/RULES.md": {
-    "# King Down Chess — current rules and dated decisions": "37e2c9e87e0353e65f7c5164c11455ad217029425b62a53d9a7253a13f4fb6bc",
+    "# King Down Chess — current rules and dated decisions": "f905b6f0547a30a4e2b4afe44d947b721150eac69ec17dc00a155d1322cbc4db",
     "## 1. Base rules": "e5ec441e544e9912eacd2a9261ef44f1a2fb9eecb43ae19cf8a64976ee1c39b6",
     "## 2. Setup (Chess960-style)": "30867c09e79cc4aee72964d8e1a3dd2e6063a63684ea9fa1e8e28c36e9ec5d07",
     "## 3. Pieces": "8bbfdf85044c43e9c2a6012506c950aee12dcabe02c1123ce0badf0ca15eebae",
-    "## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)": "4238b48e3fac81c69657997e8c980b7b647b481c3607f8ad177893ab9a10ae05",
+    "## 4. Kings' powers mode (all twelve built; the balanced readings are the official rules)": "0e170e2507cade103aaada4bfd30d9bb00aa8782a1a5a736d357ca3cf0c9cfb1",
     "## 5. Card / spell effects (documented, not yet enabled)": "de5b83ad092b776cd9f8ce92f6b2316ede57229bff0bef4c1821a630145abfbd",
     "## 6. Decisions (2026-09-13, chosen for balance and fun)": "fd67475729af37c7501d1a41c790ff86b20989e1da96ca4607b0d6d3f4a1190f",
     "### First measured evidence (2026-09-13, provisional) — superseded by §6.8": "17ec3107221657cc6acd94c806ecf0729f4131e48711471efaf6ac6ee7406524"
@@ -272,7 +283,7 @@ export const DECLARED_TARGETS = [
   { name: 'Guard start', target: 'next to its king', source: 'owner prompt; Pieces!G9:J9; Rules!C20', code: 'guardNextToKing=true', docs: 'docs/RULES.md §2; docs/MATRIX.md A.0', approval: 'approved' },
   { name: 'Paladin', target: 'back in the random pool', source: 'owner prompt; Pieces!F13; Rules!D2', code: 'POOL=QOLRRBBNNAAGMMS', docs: 'docs/RULES.md §2, §6.18; docs/MATRIX.md A.3', approval: 'approved' },
   { name: 'Death Touch', target: 'T2: two-square reach forward and back only', source: 'owner prompt; King powers!D12:G12; Card matrix!M10', code: 'POWERS_BALANCED.deathTouchReachForwardBack=true', docs: 'docs/RULES.md §4; docs/MATRIX.md C.2', approval: 'approved' },
-  { name: 'Hand size', target: 'four cards', source: 'owner prompt; docs/QUEUE.md deal-c4k', code: 'hands has no fixed size', docs: 'Rules!C18 says six cards; Cards!E2 says six', approval: 'approved' },
+  { name: 'Hand size', target: 'four starting cards', source: 'owner prompt; docs/QUEUE.md deal-c4k', code: 'hands has no fixed size', docs: 'Rules!C18; Cards!E2; docs/MATRIX.md B.3', approval: 'approved' },
 ] as const;
 
 function normalize(text: string): string { return text.replace(/\s+/g, ' ').trim(); }
@@ -330,10 +341,10 @@ function sourceRule(name: string, flag: keyof Rules, value: Rules[keyof Rules]):
   return { id: `rule:${flag}`, name, version: 'recorded', kind: 'rule', flag, dimensions: { value }, approval: 'unresolved', shipped: false, tested: false, sources: [] };
 }
 const GLOBAL_RECORDS: Readonly<Record<string, DesignElement>> = {
-  'Random back rank (Chess960-style)': globalRecord('Random back rank', 'pool', 'QORRBBNNAAGMMS'),
+  'Random back rank (Chess960-style)': globalRecord('Random back rank', 'pool', POOL),
   'Bishops on opposite colours': sourceRule('Bishops on opposite colours', 'bishopsOppositeColours', true),
   'One guard per army': globalRecord('One guard per army', 'guardLimit', 1),
-  'One beast per army': globalRecord('One beast per army', 'beastLimit', 'oneAlways'),
+  'One beast per army': globalRecord('One beast per army', 'beastLimit', 'oneInArmy'),
   'Castling': globalRecord('Castling', 'castling', false),
   'En passant': globalRecord('En passant', 'enPassant', false),
   'Promotion set': sourceRule('Promotion set', 'promotionSet', 'standard'),
@@ -346,7 +357,7 @@ const GLOBAL_RECORDS: Readonly<Record<string, DesignElement>> = {
   "Kings' powers mode": sourceRule("Kings' powers mode", 'kings', [null, null]),
   'Power use counts': sourceRule('Power use counts', 'freezeUses', 1),
   'Card mode': sourceRule('Card mode', 'hands', [[], []]),
-  'Hand size': globalRecord('Hand size', 'handSize', 6),
+  'Hand size': globalRecord('Hand size', 'handSize', 4),
   'Deal pool': globalRecord('Deal pool', 'cardDeal', 'undecided'),
   'Guard start square': globalRecord('Guard start square', 'guardStart', 'nextKing'),
   'Turn countdown': globalRecord('Turn countdown', 'countdown', 'undecided'),
@@ -412,9 +423,9 @@ function mapVersion(record: RecordedVersion): DesignElement | null {
   let rules: Partial<Rules> = {};
   let unmapped: Record<string, string> | undefined;
   if (sheet === 'Rules') base = GLOBAL_RECORDS[name];
-  else if (name === 'Card mode') base = globalRecord(name, 'handSize', 6);
+  else if (name === 'Card mode') base = globalRecord(name, 'handSize', 4);
   else if (sheet === 'Pieces') {
-    base = SHIPPED_ELEMENTS.find(e => e.kind === 'piece' && e.name === name);
+    base = name === 'Squire' && version === 'Base' ? ARCHIVED_SQUIRE : SHIPPED_ELEMENTS.find(e => e.kind === 'piece' && e.name === name);
     if (name === 'Archer') {
       if (version === 'Far2' || version === 'Over2' || version === 'Over23') {
         const pattern = version.toLowerCase() as 'far2' | 'over2' | 'over23';
@@ -453,25 +464,31 @@ function mapVersion(record: RecordedVersion): DesignElement | null {
   }
   if (!base) return null;
   const approval = statusApproval(status);
-  const tested = /(?:\d(?:[.,]\d+)?\s*(?:%|±|pawns?|Elo)|measured|depth [34])/i.test(notes);
+  const tested = (name === 'Squire' && base.tested) || /(?:\d(?:[.,]\d+)?\s*(?:%|±|pawns?|Elo)|measured|depth [34])/i.test(notes);
   const shipped = sheet === 'Pieces'
     ? (version === 'Base' && base.shipped) || (name === 'Archer' && version === 'Far2') || (name === 'Guard' && ['Starts next to the king', 'Morph questions'].includes(version))
     : name === 'Death Touch' ? version === 'T2 (no sideways reach)' : base.shipped && ['Base', 'As released'].includes(version);
-  const result: DesignElement = { ...base, id, version, approval, shipped, tested, sources: [`workbook:${sheet}!${cell}`, record.source], ...(unmapped ? { unmapped } : {}) };
+  const result: DesignElement = { ...base, id, version, approval, shipped, tested, sources: [`workbook:${sheet}!${cell}`, record.source, ...(name === 'Squire' ? base.sources : [])], ...(unmapped ? { unmapped } : {}) };
   if ('rules' in result) result.rules = { ...('rules' in base ? base.rules : {}), ...rules };
   return result;
 }
+
+const PRICE_PIN = 'a551c975ff29d1ef052c8d0292eda0f9c2720b59ee7fb662984b26c4af035965';
 
 export interface AuditInput {
   matrixDoc: string;
   rulesDoc: string;
   rulesSource: string;
   workbook?: Workbook;
+  pool?: string;
+  prices?: Record<number, number>;
   defaults?: Readonly<Rules>;
   balanced?: Readonly<Partial<Rules>>;
 }
 export function auditDesign(input: AuditInput): Finding[] {
   const findings: Finding[] = [];
+  if ((input.pool ?? POOL) !== 'QOLRRBBNNAAGMMS') findings.push(issue('POOL_DRIFT', 'src/rules/setup.ts', 'Review the pool change before changing the target.', 'approved'));
+  if (sha(JSON.stringify(input.prices ?? VALUES)) !== PRICE_PIN) findings.push(issue('PRICE_DRIFT', 'src/ai/eval.ts VALUES', 'Review the evaluation prices before changing the target.', 'approved'));
   for (const [path, text] of [['docs/MATRIX.md', input.matrixDoc], ['docs/RULES.md', input.rulesDoc]] as const) {
     const actual = documentSections(text), expected = DOCUMENT_PINS[path];
     for (const [heading, pin] of Object.entries(expected)) {
@@ -497,7 +514,7 @@ export function auditDesign(input: AuditInput): Finding[] {
   if (!equal(input.balanced ?? POWERS_BALANCED, BALANCED_READING)) findings.push(issue('BALANCED_READING_DRIFT', 'src/rules/rules.ts: POWERS_BALANCED', 'The official power readings change. Review the typed records and the rule documents.', 'approved'));
   const c1 = matrixTable(input.matrixDoc, '### C.1');
   const properties = c1.slice(1).map(row => row[0]);
-  const expectedProperties = ['Source', 'Type', 'Rarity', 'Uses', 'Turn cost', 'Captures', 'Targets', 'Duration', 'Has a condition', 'Is a condition', 'Shackled', 'Promotion', 'fromMove'];
+  const expectedProperties = ['Source', 'Type', 'Rarity', 'Uses', 'Turn cost', 'Captures', 'Targets', 'Target kind', 'Excluded targets', 'Excluded results', 'Result types', 'Second capture', 'Stop on capture', 'Duration', 'Has a condition', 'Is a condition', 'Shackled', 'Promotion', 'fromMove'];
   if (!equal(properties, expectedProperties)) findings.push(issue('MATRIX_DIMENSIONS_DRIFT', 'docs/MATRIX.md C.1', `Expected ${expectedProperties.join(', ')}; got ${properties.join(', ')}.`));
   const c2 = matrixTable(input.matrixDoc, '### C.2');
   const names = new Set(c2.slice(1).map(row => canonical(row[0])));
@@ -511,30 +528,40 @@ export function auditDesign(input: AuditInput): Finding[] {
       if (!record.element) findings.push(issue('VERSION_NOT_MAPPED', source, `${record.name}, ${record.version}: the workbook has no complete typed mapping. ${record.text}`, statusApproval(record.status)));
       else {
         for (const message of validateElement(record.element)) findings.push(issue('VERSION_DOES_NOT_FIT', source, message, record.element.approval));
-        if (record.element.kind === 'piece' && ['over2', 'over23'].includes(record.element.dimensions.shotPattern ?? '')) findings.push(issue('VERSION_ABSENT_FROM_MATRIX', `${source}; docs/MATRIX.md A.0–1; src/rules/rules.ts ArcherShots`, `${record.version} has no matrix reading. ${record.element.dimensions.shotPattern === 'over23' ? 'It also has no current code rule choice; its source is claude/archer-reach:rules.ts.' : 'It is a current code lab choice.'}`, record.element.approval));
+        if (record.element.kind === 'piece' && ['over2', 'over23'].includes(record.element.dimensions.shotPattern ?? '') && !new RegExp(`\\b${record.element.dimensions.shotPattern}\\b`).test(documentSections(input.matrixDoc).get('### A.0 Basic patterns (context for the grid below)') ?? '')) findings.push(issue('VERSION_ABSENT_FROM_MATRIX', `${source}; docs/MATRIX.md A.0–1; src/rules/rules.ts ArcherShots`, `${record.version} has no matrix reading. ${record.element.dimensions.shotPattern === 'over23' ? 'It also has no current code rule choice; its source is claude/archer-reach:rules.ts.' : 'It is a current code lab choice.'}`, record.element.approval));
       }
     }
     const cellText = (sheet: string, cell: string): string => String(input.workbook!.sheets.find(s => s.name === sheet)?.cells.find(c => c.cell === cell)?.value ?? '');
+    if (!cellText('Rules', 'C2').includes(POOL)) findings.push(issue('WORKBOOK_POOL_CONFLICT', 'workbook:Rules!C2', 'The approved pool must match the current pool, including Paladin.', 'approved'));
     if (/six/i.test(cellText('Rules', 'C18')) || /six/i.test(cellText('Cards', 'E2'))) findings.push(issue('WORKBOOK_HAND_SIZE_CONFLICT', 'owner prompt; workbook:Rules!C18; workbook:Cards!E2', 'The owner selects four cards (docs/QUEUE.md deal-c4k). The workbook still states six. Code hands stays variable; card mode stays in the lab.', 'approved'));
-    if (/never has two beasts/i.test(cellText('Rules', 'C5'))) findings.push(issue('WORKBOOK_BEAST_LIMIT_CONFLICT', 'workbook:Rules!C5; workbook:Pieces!N9; docs/MATRIX.md C.2 Morph', 'Rules says never two Beasts. The later owner note allows a second Beast through Morph and then Salvation or Sacrifice.', 'approved'));
+    if (/never has two beasts/i.test(cellText('Rules', 'C5'))) findings.push(issue('WORKBOOK_BEAST_LIMIT_CONFLICT', 'workbook:Rules!C5; workbook:Pieces!N9; docs/MATRIX.md C.2 Morph', 'The starting army has at most one Beast. Morph cannot create a Beast while that side has one. Salvation or Sacrifice may return a captured Beast even if that gives the side a second Beast.', 'approved'));
   }
   return findings;
 }
 
 function knownSourceGaps(input: AuditInput): Finding[] {
   const findings: Finding[] = [];
-  if (input.matrixDoc.includes('The other six\npowers and every card remain')) findings.push(issue('STALE_MATRIX_STATUS', 'docs/MATRIX.md: Status 2026-09-16; C.2', 'The introduction says six powers and every card are not built. C.2 and the source show they are built.', 'approved'));
-  if (input.rulesDoc.includes("Kings' powers in §4 are optional lab rules")) findings.push(issue('STALE_RULES_STATUS', 'docs/RULES.md: introduction; §4', 'The introduction labels powers as lab rules. Section 4 records the official shipped mode.', 'approved'));
-  if (input.matrixDoc.includes('The random pool is `QORRBBNNAAGMMS`')) findings.push(issue('STALE_MATRIX_POOL', 'docs/MATRIX.md A.3; docs/RULES.md §2; src/rules/setup.ts POOL', 'A.3 lists the old pool without the Paladin. The current pool is QOLRRBBNNAAGMMS.', 'approved'));
-  findings.push(issue('MATRIX_MORPH_READING_GAP', 'docs/MATRIX.md C.2 Morph; docs/RULES.md §6 decisions 23, 25; src/rules/engine.ts MORPH_TYPES', 'The matrix result list omits Paladin and the second-Guard limit. The current code includes both.', 'lab'));
-  findings.push(issue('MATRIX_CONDITION_GAP', 'docs/MATRIX.md C.1 Has a condition; D.1', 'C.1 omits piece lost, material behind and own last mark. D.1 uses them. The typed condition axis retains all three.', 'lab'));
-  findings.push(issue('MATRIX_NULL_TURN_COST_GAP', 'docs/MATRIX.md C.1 Turn cost; C.2 Holy Light, Mercy, Death Touch, Darkness', 'Always-on powers have no turn cost. C.1 does not list this value.', 'approved'));
-  findings.push(issue('MATRIX_COPY_GAP', 'docs/MATRIX.md C.1; C.2 Mirror, MirrorB', 'The copy rows inherit turn cost, captures, targets and duration. The corresponding C.1 axes do not allow inherited values.', 'lab'));
-  findings.push(issue('MATRIX_CAPTURE_STAGE_GAP', 'docs/MATRIX.md C.1 Captures; C.2 RageB', 'One may/must/never value cannot express may on the first move and must on the second.', 'lab'));
-  findings.push(issue('MATRIX_TARGET_DOMAIN_GAP', 'docs/MATRIX.md C.1 Targets; C.2 Growth, Rescue, Spawn', 'The own/enemy/either axis does not state target kinds: pile, prior mark and empty square.', 'lab'));
-  findings.push(issue('MATRIX_DURATION_GAP', 'docs/MATRIX.md C.1 Duration; C.2 Rescue', 'Rescue renews an earlier mark for one more turn. Instant/next-turn/always does not express renewal.', 'lab'));
-  findings.push(issue('FLIGHT_ABILITY_CONFLICT', 'docs/MATRIX.md A.1 1b; C.2 Flight; RULES.md §4 Flight', 'A.1 calls Flight arriving. C.2 correctly says it moves an existing piece. The effect record keeps specialMove.', 'approved'));
-  findings.push(issue('KING_MOVEMENT_RULE_CONFLICT', 'docs/RULES.md §4; docs/MATRIX.md C.2 March, Darkness', 'The rule says no king power changes how other pieces move. March and Darkness change pawn movement. An owner decision must resolve the rule scope.', 'approved'));
+  const properties = new Map(matrixTable(input.matrixDoc, '### C.1').slice(1).map(row => [row[0], row[1] ?? '']));
+  const effects = new Map(matrixTable(input.matrixDoc, '### C.2').slice(1).map(row => [canonical(row[0]), row]));
+  const has = (property: string, words: readonly string[]): boolean => words.every(word => (properties.get(property) ?? '').includes(word));
+  const gap = (missing: boolean, code: string, source: string, message: string, approval: Approval = 'lab'): void => {
+    if (missing) findings.push(issue(code, source, message, approval));
+  };
+  gap(input.matrixDoc.includes('The other six\npowers and every card remain'), 'STALE_MATRIX_STATUS', 'docs/MATRIX.md: introduction; C.2', 'The introduction says six powers and every card are not built. C.2 and the source show they are built.', 'approved');
+  gap(input.rulesDoc.includes("Kings' powers in §4 are optional lab rules"), 'STALE_RULES_STATUS', 'docs/RULES.md: introduction; §4', 'The introduction labels powers as lab rules. Section 4 records the official shipped mode.', 'approved');
+  gap(input.matrixDoc.includes('The random pool is `QORRBBNNAAGMMS`'), 'STALE_MATRIX_POOL', 'docs/MATRIX.md A.3; docs/RULES.md §2; src/rules/setup.ts POOL', 'A.3 lists the old pool without the Paladin. The current pool is QOLRRBBNNAAGMMS.', 'approved');
+  const morph = effects.get('Morph')?.[6] ?? '';
+  gap(!/paladin/i.test(morph) || !/second Guard/.test(morph), 'MATRIX_MORPH_READING_GAP', 'docs/MATRIX.md C.2 Morph; docs/RULES.md §6 decisions 23, 25; src/rules/engine.ts MORPH_TYPES', 'The matrix result list omits Paladin or the second-Guard limit. The current code includes both.');
+  gap(!has('Has a condition', ['a piece lost', 'material behind', 'own last mark']), 'MATRIX_CONDITION_GAP', 'docs/MATRIX.md C.1 Has a condition; D.1', 'The condition axis must include piece lost, material behind and own last mark.');
+  gap(!has('Turn cost', ['none (always-on)']), 'MATRIX_NULL_TURN_COST_GAP', 'docs/MATRIX.md C.1 Turn cost; C.2 Holy Light, Mercy, Death Touch, Darkness', 'Always-on powers have no turn cost. C.1 must list this value.', 'approved');
+  gap(!['Turn cost', 'Captures', 'Targets', 'Duration'].every(property => has(property, ['inherited from the copied card'])), 'MATRIX_COPY_GAP', 'docs/MATRIX.md C.1; C.2 Mirror, MirrorB', 'The copy rows inherit turn cost, captures, targets and duration. Each axis must allow inherited values.');
+  gap(!has('Second capture', ['same as Captures', 'may', 'must', 'never']), 'MATRIX_CAPTURE_STAGE_GAP', 'docs/MATRIX.md C.1 Second capture; C.2 RageB', 'A separate second-capture axis must express may on the first move and must on the second.');
+  gap(!has('Target kind', ['pile', 'prior mark', 'empty square']), 'MATRIX_TARGET_DOMAIN_GAP', 'docs/MATRIX.md C.1 Target kind; C.2 Growth, Rescue, Spawn', 'Target kinds must include pile, prior mark and empty square.');
+  gap(!has('Duration', ['renew an earlier mark for one more opponent turn']), 'MATRIX_DURATION_GAP', 'docs/MATRIX.md C.1 Duration; C.2 Rescue', 'Rescue renews an earlier mark for one more turn. The duration axis must state renewal.');
+  const flight = matrixTable(input.matrixDoc, '### A.1').find(row => row.some(cell => /Flight/.test(cell)));
+  gap(!!flight && /Arriving|Arrival/i.test(flight[0]), 'FLIGHT_ABILITY_CONFLICT', 'docs/MATRIX.md A.1 1b; C.2 Flight; docs/RULES.md §4 Flight', 'Flight moves an existing piece. Its ability row must say special move, not arrival.', 'approved');
+  gap(/No king-power reading changes how other pieces move/.test(input.rulesDoc)
+    && ['March', 'Darkness'].some(name => /pawn/i.test(effects.get(name)?.[2] ?? '')), 'KING_MOVEMENT_RULE_CONFLICT', 'docs/RULES.md §4; docs/MATRIX.md C.2 March, Darkness', 'The blanket rule conflicts with approved March and Darkness effects. The approved limit applies to new movement changes when adjusting a king power for balance. Keep existing approved effects.', 'approved');
   return findings;
 }
 

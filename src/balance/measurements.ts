@@ -1,10 +1,13 @@
 /** Historic measurements keep their own rules. An empty diff never names current rules. */
 export type Validity = 'valid' | 'pending' | 'incomplete' | 'void' | 'conflict' | 'unverified';
-export type Measure = 'whiteScore' | 'score' | 'drawRate' | 'meanPlies' | 'meanTurns' | 'relativeLengthChange' | 'pawnWorth' | 'elo' | 'activity';
+export type Measure = 'whiteScore' | 'score' | 'drawRate' | 'meanPlies' | 'meanTurns' | 'relativeLengthChange' | 'pawnWorth' | 'worthDifference' | 'elo' | 'activity';
 export interface MeasurementContext {
   flags: Record<string, unknown> | null;
   flagsKind: 'full' | 'diff' | 'unknown';
   commit: string | null;
+  commitSource?: 'row' | 'spec' | 'override' | 'queue';
+  stampSource?: 'row' | 'derived';
+  sourceArchiveSha256?: string;
   sourceHash: string | null;
   specKey: string | null;
   pool: string | null;
@@ -25,7 +28,7 @@ export interface Measurement {
   error: number | null;
   errorKind: string | null;
   sample: number | null;
-  sampleUnit: 'games' | 'pairs' | 'unknown';
+  sampleUnit: 'games' | 'pairs' | 'arrangements' | 'openings' | 'unknown';
   unit: string;
   validity: Validity;
   reasons: string[];
@@ -34,7 +37,11 @@ export interface Measurement {
   /** A report may give a bound instead of a point estimate. */
   bound?: 'lessThan' | 'greaterThan';
   reference?: string;
+  comparison?: { baseRun: string; variantRun: string; kind: 'paired' | 'with-without' };
+  denominator?: string;
+  criterion?: string;
   calibration?: { eloPerPawn: number; relativeError: number | null };
+  interval?: { low: number; high: number; kind: string };
 }
 export interface Moments { n: number; sum: number; squares: number }
 export const moments = (): Moments => ({ n: 0, sum: 0, squares: 0 });

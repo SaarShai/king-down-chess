@@ -193,7 +193,7 @@
       "path": "docs/balance/workbook.json",
       "line": null,
       "section": null,
-      "note": "Snapshot extracted from docs/status/king-down-status-2026-10-09.xlsx. SHA256 7b7b998c7f0bb0ff15704533ea484b419eb997927f7f4ff58c1b7c3eb6d75445. Use sheet and cell references in context."
+      "note": "Snapshot extracted from docs/status/king-down-status-2026-10-09.xlsx after the approved source corrections. SHA256 a22199dd075b7b9dcbc27028c762a7fe6cbcb0740f64f5476eefa8d43ff79d7d. Use sheet and cell references in context. The correction ticket records the original snapshot."
     },
     {
       "id": "owner-prompt",
@@ -284,6 +284,207 @@
       "line": 69,
       "section": "export const ARCHER_V = 339",
       "note": "Current main source at 7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
+    },
+    {
+      "id": "deal-c4k-report",
+      "path": "sim/out/deal-c4k.report.md",
+      "line": null,
+      "section": "Same hand for both sides",
+      "note": "Stopped subset. The report planned 14000 games. Local main-checkout raw output is ignored by Git."
+    },
+    {
+      "id": "deal-c4k-spec",
+      "path": "sim/out/deal-c4k.tournament.json",
+      "line": null,
+      "section": null,
+      "note": "Historical 14-letter pool without Paladin; explicit 28-card deck with Salvation and MirrorB. Depth 3, not depth 4."
+    },
+    {
+      "id": "deal-c4k-shard9",
+      "path": "sim/out/deal-c4k.shard9of12.jsonl",
+      "line": null,
+      "section": null,
+      "note": "Observed shard only. Count these records once; the report is a view of the same games."
+    },
+    {
+      "id": "deal-c4k-shard10",
+      "path": "sim/out/deal-c4k.shard10of12.jsonl",
+      "line": null,
+      "section": null,
+      "note": "Observed shard only. Count these records once; the report is a view of the same games."
+    },
+    {
+      "id": "deal-c4k-shard11",
+      "path": "sim/out/deal-c4k.shard11of12.jsonl",
+      "line": null,
+      "section": null,
+      "note": "Observed shard only. Count these records once; the report is a view of the same games."
+    },
+    {
+      "id": "deal-d4k-report",
+      "path": "sim/out/deal-d4k.report.md",
+      "line": null,
+      "section": "Same hand for both sides",
+      "note": "Stopped subset. The report planned 14000 games. Local main-checkout raw output is ignored by Git."
+    },
+    {
+      "id": "deal-d4k-spec",
+      "path": "sim/out/deal-d4k.tournament.json",
+      "line": null,
+      "section": null,
+      "note": "Historical 14-letter pool without Paladin; explicit 28-card deck with Salvation and MirrorB. Depth 3, not depth 4."
+    },
+    {
+      "id": "deal-d4k-shard5",
+      "path": "sim/out/deal-d4k.shard5of12.jsonl",
+      "line": null,
+      "section": null,
+      "note": "Observed shard only. Count these records once; the report is a view of the same games."
+    },
+    {
+      "id": "deal-d4k-shard7",
+      "path": "sim/out/deal-d4k.shard7of12.jsonl",
+      "line": null,
+      "section": null,
+      "note": "Observed shard only. Count these records once; the report is a view of the same games."
+    },
+    {
+      "id": "deal-d4k-shard8",
+      "path": "sim/out/deal-d4k.shard8of12.jsonl",
+      "line": null,
+      "section": null,
+      "note": "Observed shard only. Count these records once; the report is a view of the same games."
+    },
+    {
+      "id": "deal-d4k-shard9",
+      "path": "sim/out/deal-d4k.shard9of12.jsonl",
+      "line": null,
+      "section": null,
+      "note": "Observed shard only. Count these records once; the report is a view of the same games."
+    },
+    {
+      "id": "deal-d4k-shard10",
+      "path": "sim/out/deal-d4k.shard10of12.jsonl",
+      "line": null,
+      "section": null,
+      "note": "Observed shard only. Count these records once; the report is a view of the same games."
+    },
+    {
+      "id": "deal-d4k-shard11",
+      "path": "sim/out/deal-d4k.shard11of12.jsonl",
+      "line": null,
+      "section": null,
+      "note": "Observed shard only. Count these records once; the report is a view of the same games."
+    },
+    {
+      "id": "guard-drop-report",
+      "path": "sim/out/m1/ab-guard-drop-any.experiment.md",
+      "line": null,
+      "section": null,
+      "note": "4000 games across two arms. Intervals use 100 shared arrangements. Draw rate excludes capped games; raw summary draws include them."
+    },
+    {
+      "id": "guard-drop-base",
+      "path": "sim/out/m1/ab-guard-drop-any.base.jsonl",
+      "line": null,
+      "section": null,
+      "note": "2000 stamped games. src bd592c219166; specKey 4d8d77ce013f; pool QOLRRBBNNAAGMMS."
+    },
+    {
+      "id": "guard-drop-var",
+      "path": "sim/out/m1/ab-guard-drop-any.var.jsonl",
+      "line": null,
+      "section": null,
+      "note": "2000 stamped games. src bd592c219166; specKey 735a3bb2805a; pool QOLRRBBNNAAGMMS."
+    },
+    {
+      "id": "guard-drop-price",
+      "path": "src/ai/eval.ts",
+      "line": null,
+      "section": "ARCHER_V at cd4da6f",
+      "note": "Reviewed Git source cd4da6fad6ec29f8277dc50ebac730a75168c7d0 has ARCHER_V=505. QUEUE names this launch commit. Raw src is a hash, not a Git commit. Reprice 7e7530ff9de86135bec4e12dc0d3d29100c02552 changes 505 to 339."
+    },
+    {
+      "id": "deal-nosalv2-raw",
+      "path": "sim/out/m1/network-2026-10-09/kd-deal/deal-nosalv2.jsonl",
+      "line": null,
+      "section": null,
+      "note": "3500 unique game IDs 0..3499; 1750 shared openings. No src/specKey stamp. SHA256 2e897a4340dc25ce84e7c4bb9bcb1d2c41b4fc6a85946910c44ceaa52dade721."
+    },
+    {
+      "id": "deal-nosalv2-spec",
+      "path": "sim/out/m1/network-2026-10-09/kd-deal/deal-nosalv2.tournament.json",
+      "line": null,
+      "section": null,
+      "note": "Six-card 27-card deck without Salvation; seed 7579; depth 3; pool QORRBBNNAAGMMS. SHA256 9d2afc11924cfa754642a957a76134ce32cc8911efdeef98f71d7e50b4600425."
+    },
+    {
+      "id": "deal-nosalv2-log",
+      "path": "sim/out/m1/network-2026-10-09/kd-deal/deal-nosalv2.log",
+      "line": null,
+      "section": null,
+      "note": "Final line records 3500 games in 225.8 min. QUEUE names launch commit bc1bb049648b0feb3f8765bc290aa9a9160bcc16; compressed game rows do not stamp it."
+    },
+    {
+      "id": "deal-nosalv2-report",
+      "path": "docs/balance/reports/deal-nosalv2.report.md",
+      "line": null,
+      "section": "Same hand for both sides",
+      "note": "Generated from the copied raw and spec with reportText in src/sim/tournament.ts. No simulation."
+    },
+    {
+      "id": "tournament-mirror-method",
+      "path": "src/sim/tournament.ts",
+      "line": null,
+      "section": "mirrorSection",
+      "note": "mirrorSection groups by backRank and seed. It computes mean intervals per opening and paired differences only on shared openings."
+    },
+    {
+      "id": "m1-snapshot",
+      "path": "docs/balance/m1-snapshot.json",
+      "line": null,
+      "section": null,
+      "note": "Read-only M1 copy: 6966 files, 884068015 bytes, 9 project folders. Each file matches a subsequent remote SHA256. No file changes during the hash check."
+    },
+    {
+      "id": "m1-far2-price-timing",
+      "path": "sim/out/m1/network-2026-10-09/king-down-runs/pv-A-af2na-n1.A.summary.json",
+      "section": "1000 games; elapsed time"
+    },
+    {
+      "id": "compute-m1",
+      "path": "docs/COMPUTE.md",
+      "section": "M1"
+    },
+    {
+      "id": "values-runner",
+      "path": "src/sim/experiments.ts",
+      "section": "valueSpecs and runValues"
+    },
+    {
+      "id": "source-corrections",
+      "path": "docs/specs/balance-framework/issues/03-resolve-source-conflicts.md",
+      "line": 8,
+      "section": "## Approved scope",
+      "note": "The owner approves all three corrections on 2026-10-09."
+    },
+    {
+      "id": "checked-report-pv-A-af2na-n2",
+      "path": "docs/balance/reports/pv-A-af2na-n2.experiment.md",
+      "section": "Implied values",
+      "note": "Saved historical report; calibration is experiment-specific."
+    },
+    {
+      "id": "checked-report-pv-A-af2-vsR-d4",
+      "path": "docs/balance/reports/pv-A-af2-vsR-d4.experiment.md",
+      "section": "Implied values",
+      "note": "Saved historical report; calibration is experiment-specific."
+    },
+    {
+      "id": "saved-k18-report",
+      "path": "docs/balance/reports/kp2-r18.report.md",
+      "line": 28,
+      "note": "Saved from commit 101130c, sim/out/kp2-r18.report.md; joint interval."
     }
   ],
   "criteria": [
@@ -1767,7 +1968,7 @@
       "interval": {
         "level": 0.95,
         "low": 96.4,
-        "high": 97.0
+        "high": 97
       },
       "n": 12000,
       "depth": 3,
@@ -2067,7 +2268,7 @@
       "interval": {
         "level": 0.95,
         "low": 92.1,
-        "high": 93.0
+        "high": 93
       },
       "n": 12000,
       "depth": 3,
@@ -2341,6 +2542,7 @@
         "pv-A-af2na-n2"
       ],
       "sourceIds": [
+        "checked-report-pv-A-af2na-n2",
         "queue-latest"
       ],
       "context": "Second converged pass vs Knight. Previous pass 3.35\u00b1.27. Played to end. Different anchor and seeds from one-pass Rook 2.83; not an adjudication effect.",
@@ -2376,6 +2578,7 @@
         "pv-A-af2-vsR-d4"
       ],
       "sourceIds": [
+        "checked-report-pv-A-af2-vsR-d4",
         "queue-latest"
       ],
       "context": "One pass vs Rook, pawn calibration 70\u00b114 Elo from 1800 games. Separate from full NEW target.",
@@ -2454,9 +2657,7 @@
       "bound": null,
       "element": "Guard",
       "version": "king-adjacent f1 versus b1",
-      "criterionIds": [
-        "piece-worth"
-      ],
+      "criterionIds": [],
       "contextCurrent": false,
       "currentTargetRuleMatch": true,
       "metricName": "placement worth gain"
@@ -2487,9 +2688,7 @@
       "bound": null,
       "element": "Guard",
       "version": "king-adjacent f1 versus b1",
-      "criterionIds": [
-        "piece-worth"
-      ],
+      "criterionIds": [],
       "contextCurrent": false,
       "currentTargetRuleMatch": true,
       "metricName": "placement worth gain"
@@ -2520,9 +2719,7 @@
       "bound": null,
       "element": "Guard",
       "version": "king-adjacent f1 versus b1",
-      "criterionIds": [
-        "piece-worth"
-      ],
+      "criterionIds": [],
       "contextCurrent": false,
       "currentTargetRuleMatch": true,
       "metricName": "placement worth gain"
@@ -2646,9 +2843,7 @@
       "bound": null,
       "element": "Paladin",
       "version": "nonPawn in historical no-Ogre pool",
-      "criterionIds": [
-        "piece-game"
-      ],
+      "criterionIds": [],
       "contextCurrent": false,
       "currentTargetRuleMatch": false,
       "metricName": "White score pool difference"
@@ -2679,9 +2874,7 @@
       "bound": null,
       "element": "Paladin",
       "version": "nonPawn in historical no-Ogre pool",
-      "criterionIds": [
-        "piece-game"
-      ],
+      "criterionIds": [],
       "contextCurrent": false,
       "currentTargetRuleMatch": false,
       "metricName": "White score pool difference"
@@ -2693,7 +2886,7 @@
       "unit": "percent",
       "interval": {
         "level": 0.95,
-        "low": 55.0,
+        "low": 55,
         "high": 61.599999999999994
       },
       "n": 880,
@@ -2702,7 +2895,8 @@
         "kp2-r18"
       ],
       "sourceIds": [
-        "queue-k18"
+        "queue-k18",
+        "saved-k18-report"
       ],
       "context": "Released powers incl Mercy M2/Darkness king step; 66 matchups/5280 games/2640 armies total. Both flagged by simultaneous test. Haste stays by owner decision.",
       "commit": "45ec461",
@@ -2716,7 +2910,11 @@
       ],
       "contextCurrent": false,
       "currentTargetRuleMatch": true,
-      "metricName": "score vs powers"
+      "metricName": "score vs powers",
+      "simultaneousInterval": {
+        "low": 53.5,
+        "high": 63.099999999999994
+      }
     },
     {
       "id": "k18-DeathTouch",
@@ -2726,7 +2924,7 @@
       "interval": {
         "level": 0.95,
         "low": 52.2,
-        "high": 58.0
+        "high": 58
       },
       "n": 880,
       "depth": 3,
@@ -2734,7 +2932,8 @@
         "kp2-r18"
       ],
       "sourceIds": [
-        "queue-k18"
+        "queue-k18",
+        "saved-k18-report"
       ],
       "context": "Released powers incl Mercy M2/Darkness king step; 66 matchups/5280 games/2640 armies total. Both flagged by simultaneous test. Haste stays by owner decision.",
       "commit": "45ec461",
@@ -2748,7 +2947,11 @@
       ],
       "contextCurrent": false,
       "currentTargetRuleMatch": false,
-      "metricName": "score vs powers"
+      "metricName": "score vs powers",
+      "simultaneousInterval": {
+        "low": 50.800000000000004,
+        "high": 59.4
+      }
     },
     {
       "id": "r17-Darkness",
@@ -2895,7 +3098,7 @@
       "unit": "percent",
       "interval": {
         "level": 0.95,
-        "low": 56.0,
+        "low": 56,
         "high": 58.599999999999994
       },
       "n": 4400,
@@ -3127,7 +3330,7 @@
       "unit": "points",
       "interval": {
         "level": 0.95,
-        "low": -8.0,
+        "low": -8,
         "high": 1.8000000000000003
       },
       "n": 600,
@@ -4325,7 +4528,7 @@
       "interval": {
         "level": 0.95,
         "low": 11.4,
-        "high": 17.0
+        "high": 17
       },
       "n": 600,
       "nUnit": "games in this entrant arm",
@@ -4515,7 +4718,7 @@
       "version": "27-card deal depth4",
       "metric": "draw rate",
       "metricName": "draw rate",
-      "value": 11.0,
+      "value": 11,
       "unit": "percent",
       "interval": {
         "level": 0.95,
@@ -4593,7 +4796,7 @@
       "version": "27-card deal depth4",
       "metric": "draw rate",
       "metricName": "draw rate",
-      "value": 31.0,
+      "value": 31,
       "unit": "percent",
       "interval": {
         "level": 0.95,
@@ -5997,6 +6200,1240 @@
         "totalRunGames": 17400
       },
       "cardFamily": "common"
+    },
+    {
+      "id": "deal-c4k-cards4-white",
+      "metric": "White score",
+      "value": 50,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 47.8,
+        "high": 52.2
+      },
+      "n": 1749,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-c4k"
+      ],
+      "sourceIds": [
+        "deal-c4k-report",
+        "deal-c4k-spec",
+        "tournament-mirror-method",
+        "deal-c4k-shard9",
+        "deal-c4k-shard10",
+        "deal-c4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7581; depth 3; four random opening plies; 300-ply cap. Stopped at 3498/14000 games, shards 9/10/11. The two arms have zero shared openings. No paired delta exists.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "cards4",
+      "version": "28-card pool with Salvation and MirrorB; deal-c4k",
+      "criterionIds": [
+        "white-parity"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "White score"
+    },
+    {
+      "id": "deal-c4k-cards4-draw",
+      "metric": "draw rate",
+      "value": 9.5,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 8.1,
+        "high": 10.9
+      },
+      "n": 1749,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-c4k"
+      ],
+      "sourceIds": [
+        "deal-c4k-report",
+        "deal-c4k-spec",
+        "tournament-mirror-method",
+        "deal-c4k-shard9",
+        "deal-c4k-shard10",
+        "deal-c4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7581; depth 3; four random opening plies; 300-ply cap. Stopped at 3498/14000 games, shards 9/10/11. The two arms have zero shared openings. No paired delta exists.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "cards4",
+      "version": "28-card pool with Salvation and MirrorB; deal-c4k",
+      "criterionIds": [
+        "draws-first"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "draw rate"
+    },
+    {
+      "id": "deal-c4k-cards4-length",
+      "metric": "length in turns",
+      "value": 91,
+      "unit": "turns",
+      "interval": {
+        "level": 0.95,
+        "low": 88.8,
+        "high": 93.2
+      },
+      "n": 1749,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-c4k"
+      ],
+      "sourceIds": [
+        "deal-c4k-report",
+        "deal-c4k-spec",
+        "tournament-mirror-method",
+        "deal-c4k-shard9",
+        "deal-c4k-shard10",
+        "deal-c4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7581; depth 3; four random opening plies; 300-ply cap. Stopped at 3498/14000 games, shards 9/10/11. The two arms have zero shared openings. No paired delta exists.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "cards4",
+      "version": "28-card pool with Salvation and MirrorB; deal-c4k",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "length in turns"
+    },
+    {
+      "id": "deal-c4k-none-white",
+      "metric": "White score",
+      "value": 51,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 48.9,
+        "high": 53.1
+      },
+      "n": 1749,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-c4k"
+      ],
+      "sourceIds": [
+        "deal-c4k-report",
+        "deal-c4k-spec",
+        "tournament-mirror-method",
+        "deal-c4k-shard9",
+        "deal-c4k-shard10",
+        "deal-c4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7581; depth 3; four random opening plies; 300-ply cap. Stopped at 3498/14000 games, shards 9/10/11. The two arms have zero shared openings. No paired delta exists.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "none",
+      "version": "28-card pool with Salvation and MirrorB; deal-c4k",
+      "criterionIds": [
+        "white-parity"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "White score"
+    },
+    {
+      "id": "deal-c4k-none-draw",
+      "metric": "draw rate",
+      "value": 20,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 18.1,
+        "high": 21.9
+      },
+      "n": 1749,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-c4k"
+      ],
+      "sourceIds": [
+        "deal-c4k-report",
+        "deal-c4k-spec",
+        "tournament-mirror-method",
+        "deal-c4k-shard9",
+        "deal-c4k-shard10",
+        "deal-c4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7581; depth 3; four random opening plies; 300-ply cap. Stopped at 3498/14000 games, shards 9/10/11. The two arms have zero shared openings. No paired delta exists.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "none",
+      "version": "28-card pool with Salvation and MirrorB; deal-c4k",
+      "criterionIds": [
+        "draws-first"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "draw rate"
+    },
+    {
+      "id": "deal-c4k-none-length",
+      "metric": "length in turns",
+      "value": 101.3,
+      "unit": "turns",
+      "interval": {
+        "level": 0.95,
+        "low": 99.2,
+        "high": 103.4
+      },
+      "n": 1749,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-c4k"
+      ],
+      "sourceIds": [
+        "deal-c4k-report",
+        "deal-c4k-spec",
+        "tournament-mirror-method",
+        "deal-c4k-shard9",
+        "deal-c4k-shard10",
+        "deal-c4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7581; depth 3; four random opening plies; 300-ply cap. Stopped at 3498/14000 games, shards 9/10/11. The two arms have zero shared openings. No paired delta exists.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "none",
+      "version": "28-card pool with Salvation and MirrorB; deal-c4k",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "length in turns"
+    },
+    {
+      "id": "deal-d4k-cards6-white",
+      "metric": "White score",
+      "value": 51.8,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 50.2,
+        "high": 53.4
+      },
+      "n": 3498,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-d4k"
+      ],
+      "sourceIds": [
+        "deal-d4k-report",
+        "deal-d4k-spec",
+        "tournament-mirror-method",
+        "deal-d4k-shard5",
+        "deal-d4k-shard7",
+        "deal-d4k-shard8",
+        "deal-d4k-shard9",
+        "deal-d4k-shard10",
+        "deal-d4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7577; depth 3; four random opening plies; 300-ply cap. Stopped at 6998/14000 games, shards 5/7/8/9/10/11. Whole-arm summaries use 3498 and 3500 openings. Paired deltas use only 1166 shared openings.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "28-card pool with Salvation and MirrorB; deal-d4k",
+      "criterionIds": [
+        "white-parity"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "White score"
+    },
+    {
+      "id": "deal-d4k-cards6-draw",
+      "metric": "draw rate",
+      "value": 8.8,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 7.9,
+        "high": 9.7
+      },
+      "n": 3498,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-d4k"
+      ],
+      "sourceIds": [
+        "deal-d4k-report",
+        "deal-d4k-spec",
+        "tournament-mirror-method",
+        "deal-d4k-shard5",
+        "deal-d4k-shard7",
+        "deal-d4k-shard8",
+        "deal-d4k-shard9",
+        "deal-d4k-shard10",
+        "deal-d4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7577; depth 3; four random opening plies; 300-ply cap. Stopped at 6998/14000 games, shards 5/7/8/9/10/11. Whole-arm summaries use 3498 and 3500 openings. Paired deltas use only 1166 shared openings.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "28-card pool with Salvation and MirrorB; deal-d4k",
+      "criterionIds": [
+        "draws-first"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "draw rate"
+    },
+    {
+      "id": "deal-d4k-cards6-length",
+      "metric": "length in turns",
+      "value": 86.2,
+      "unit": "turns",
+      "interval": {
+        "level": 0.95,
+        "low": 84.6,
+        "high": 87.8
+      },
+      "n": 3498,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-d4k"
+      ],
+      "sourceIds": [
+        "deal-d4k-report",
+        "deal-d4k-spec",
+        "tournament-mirror-method",
+        "deal-d4k-shard5",
+        "deal-d4k-shard7",
+        "deal-d4k-shard8",
+        "deal-d4k-shard9",
+        "deal-d4k-shard10",
+        "deal-d4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7577; depth 3; four random opening plies; 300-ply cap. Stopped at 6998/14000 games, shards 5/7/8/9/10/11. Whole-arm summaries use 3498 and 3500 openings. Paired deltas use only 1166 shared openings.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "28-card pool with Salvation and MirrorB; deal-d4k",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "length in turns"
+    },
+    {
+      "id": "deal-d4k-none-white",
+      "metric": "White score",
+      "value": 51.8,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 50.3,
+        "high": 53.3
+      },
+      "n": 3500,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-d4k"
+      ],
+      "sourceIds": [
+        "deal-d4k-report",
+        "deal-d4k-spec",
+        "tournament-mirror-method",
+        "deal-d4k-shard5",
+        "deal-d4k-shard7",
+        "deal-d4k-shard8",
+        "deal-d4k-shard9",
+        "deal-d4k-shard10",
+        "deal-d4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7577; depth 3; four random opening plies; 300-ply cap. Stopped at 6998/14000 games, shards 5/7/8/9/10/11. Whole-arm summaries use 3498 and 3500 openings. Paired deltas use only 1166 shared openings.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "none",
+      "version": "28-card pool with Salvation and MirrorB; deal-d4k",
+      "criterionIds": [
+        "white-parity"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "White score"
+    },
+    {
+      "id": "deal-d4k-none-draw",
+      "metric": "draw rate",
+      "value": 19.5,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 18.2,
+        "high": 20.8
+      },
+      "n": 3500,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-d4k"
+      ],
+      "sourceIds": [
+        "deal-d4k-report",
+        "deal-d4k-spec",
+        "tournament-mirror-method",
+        "deal-d4k-shard5",
+        "deal-d4k-shard7",
+        "deal-d4k-shard8",
+        "deal-d4k-shard9",
+        "deal-d4k-shard10",
+        "deal-d4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7577; depth 3; four random opening plies; 300-ply cap. Stopped at 6998/14000 games, shards 5/7/8/9/10/11. Whole-arm summaries use 3498 and 3500 openings. Paired deltas use only 1166 shared openings.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "none",
+      "version": "28-card pool with Salvation and MirrorB; deal-d4k",
+      "criterionIds": [
+        "draws-first"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "draw rate"
+    },
+    {
+      "id": "deal-d4k-none-length",
+      "metric": "length in turns",
+      "value": 102.6,
+      "unit": "turns",
+      "interval": {
+        "level": 0.95,
+        "low": 101,
+        "high": 104.2
+      },
+      "n": 3500,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-d4k"
+      ],
+      "sourceIds": [
+        "deal-d4k-report",
+        "deal-d4k-spec",
+        "tournament-mirror-method",
+        "deal-d4k-shard5",
+        "deal-d4k-shard7",
+        "deal-d4k-shard8",
+        "deal-d4k-shard9",
+        "deal-d4k-shard10",
+        "deal-d4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7577; depth 3; four random opening plies; 300-ply cap. Stopped at 6998/14000 games, shards 5/7/8/9/10/11. Whole-arm summaries use 3498 and 3500 openings. Paired deltas use only 1166 shared openings.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "none",
+      "version": "28-card pool with Salvation and MirrorB; deal-d4k",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "length in turns"
+    },
+    {
+      "id": "deal-d4k-paired-white",
+      "metric": "six cards minus no cards White score",
+      "value": 2.8,
+      "unit": "points",
+      "interval": {
+        "level": 0.95,
+        "low": -1,
+        "high": 6.6
+      },
+      "n": 1166,
+      "nUnit": "shared opening pairs",
+      "depth": 3,
+      "runIds": [
+        "deal-d4k"
+      ],
+      "sourceIds": [
+        "deal-d4k-report",
+        "deal-d4k-spec",
+        "tournament-mirror-method",
+        "deal-d4k-shard5",
+        "deal-d4k-shard7",
+        "deal-d4k-shard8",
+        "deal-d4k-shard9",
+        "deal-d4k-shard10",
+        "deal-d4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7577; depth 3; four random opening plies; 300-ply cap. Stopped at 6998/14000 games, shards 5/7/8/9/10/11. Whole-arm summaries use 3498 and 3500 openings. Paired deltas use only 1166 shared openings. Paired mean over shared backRank|seed keys; this is not a difference between the whole-arm columns.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "28-card pool with Salvation and MirrorB; deal-d4k",
+      "criterionIds": [
+        "white-parity"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "six cards minus no cards White score"
+    },
+    {
+      "id": "deal-d4k-paired-draw",
+      "metric": "six cards minus no cards draw rate",
+      "value": -11.7,
+      "unit": "points",
+      "interval": {
+        "level": 0.95,
+        "low": -14.6,
+        "high": -8.8
+      },
+      "n": 1166,
+      "nUnit": "shared opening pairs",
+      "depth": 3,
+      "runIds": [
+        "deal-d4k"
+      ],
+      "sourceIds": [
+        "deal-d4k-report",
+        "deal-d4k-spec",
+        "tournament-mirror-method",
+        "deal-d4k-shard5",
+        "deal-d4k-shard7",
+        "deal-d4k-shard8",
+        "deal-d4k-shard9",
+        "deal-d4k-shard10",
+        "deal-d4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7577; depth 3; four random opening plies; 300-ply cap. Stopped at 6998/14000 games, shards 5/7/8/9/10/11. Whole-arm summaries use 3498 and 3500 openings. Paired deltas use only 1166 shared openings. Paired mean over shared backRank|seed keys; this is not a difference between the whole-arm columns.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "28-card pool with Salvation and MirrorB; deal-d4k",
+      "criterionIds": [
+        "draws-first"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "six cards minus no cards draw rate"
+    },
+    {
+      "id": "deal-d4k-paired-turns",
+      "metric": "six cards minus no cards length in turns",
+      "value": -14.4,
+      "unit": "turns",
+      "interval": {
+        "level": 0.95,
+        "low": -18.3,
+        "high": -10.5
+      },
+      "n": 1166,
+      "nUnit": "shared opening pairs",
+      "depth": 3,
+      "runIds": [
+        "deal-d4k"
+      ],
+      "sourceIds": [
+        "deal-d4k-report",
+        "deal-d4k-spec",
+        "tournament-mirror-method",
+        "deal-d4k-shard5",
+        "deal-d4k-shard7",
+        "deal-d4k-shard8",
+        "deal-d4k-shard9",
+        "deal-d4k-shard10",
+        "deal-d4k-shard11"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7577; depth 3; four random opening plies; 300-ply cap. Stopped at 6998/14000 games, shards 5/7/8/9/10/11. Whole-arm summaries use 3498 and 3500 openings. Paired deltas use only 1166 shared openings. Paired mean over shared backRank|seed keys; this is not a difference between the whole-arm columns.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "stopped subset measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "28-card pool with Salvation and MirrorB; deal-d4k",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "six cards minus no cards length in turns"
+    },
+    {
+      "id": "deal-nosalv2-cards6-white",
+      "metric": "White score",
+      "value": 51,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 48.7,
+        "high": 53.3
+      },
+      "n": 1750,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-nosalv2"
+      ],
+      "sourceIds": [
+        "deal-nosalv2-report",
+        "deal-nosalv2-spec",
+        "tournament-mirror-method",
+        "deal-nosalv2-raw",
+        "deal-nosalv2-log"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7579; depth 3; four random opening plies; 300-ply cap. Complete 3500-game schedule, unstamped compressed rows; launch commit is attributed by QUEUE. This compares six cards without Salvation with none, not with the deck that contains Salvation.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "27-card pool without Salvation, with MirrorB; deal-nosalv2",
+      "criterionIds": [
+        "white-parity"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "White score"
+    },
+    {
+      "id": "deal-nosalv2-cards6-draw",
+      "metric": "draw rate",
+      "value": 7.6,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 6.4,
+        "high": 8.8
+      },
+      "n": 1750,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-nosalv2"
+      ],
+      "sourceIds": [
+        "deal-nosalv2-report",
+        "deal-nosalv2-spec",
+        "tournament-mirror-method",
+        "deal-nosalv2-raw",
+        "deal-nosalv2-log"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7579; depth 3; four random opening plies; 300-ply cap. Complete 3500-game schedule, unstamped compressed rows; launch commit is attributed by QUEUE. This compares six cards without Salvation with none, not with the deck that contains Salvation.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "27-card pool without Salvation, with MirrorB; deal-nosalv2",
+      "criterionIds": [
+        "draws-first"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "draw rate"
+    },
+    {
+      "id": "deal-nosalv2-cards6-length",
+      "metric": "length in turns",
+      "value": 84.1,
+      "unit": "turns",
+      "interval": {
+        "level": 0.95,
+        "low": 81.9,
+        "high": 86.3
+      },
+      "n": 1750,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-nosalv2"
+      ],
+      "sourceIds": [
+        "deal-nosalv2-report",
+        "deal-nosalv2-spec",
+        "tournament-mirror-method",
+        "deal-nosalv2-raw",
+        "deal-nosalv2-log"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7579; depth 3; four random opening plies; 300-ply cap. Complete 3500-game schedule, unstamped compressed rows; launch commit is attributed by QUEUE. This compares six cards without Salvation with none, not with the deck that contains Salvation.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "27-card pool without Salvation, with MirrorB; deal-nosalv2",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "length in turns"
+    },
+    {
+      "id": "deal-nosalv2-none-white",
+      "metric": "White score",
+      "value": 51.3,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 49.2,
+        "high": 53.4
+      },
+      "n": 1750,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-nosalv2"
+      ],
+      "sourceIds": [
+        "deal-nosalv2-report",
+        "deal-nosalv2-spec",
+        "tournament-mirror-method",
+        "deal-nosalv2-raw",
+        "deal-nosalv2-log"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7579; depth 3; four random opening plies; 300-ply cap. Complete 3500-game schedule, unstamped compressed rows; launch commit is attributed by QUEUE. This compares six cards without Salvation with none, not with the deck that contains Salvation.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "none",
+      "version": "27-card pool without Salvation, with MirrorB; deal-nosalv2",
+      "criterionIds": [
+        "white-parity"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "White score"
+    },
+    {
+      "id": "deal-nosalv2-none-draw",
+      "metric": "draw rate",
+      "value": 18.1,
+      "unit": "percent",
+      "interval": {
+        "level": 0.95,
+        "low": 16.3,
+        "high": 19.9
+      },
+      "n": 1750,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-nosalv2"
+      ],
+      "sourceIds": [
+        "deal-nosalv2-report",
+        "deal-nosalv2-spec",
+        "tournament-mirror-method",
+        "deal-nosalv2-raw",
+        "deal-nosalv2-log"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7579; depth 3; four random opening plies; 300-ply cap. Complete 3500-game schedule, unstamped compressed rows; launch commit is attributed by QUEUE. This compares six cards without Salvation with none, not with the deck that contains Salvation.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "none",
+      "version": "27-card pool without Salvation, with MirrorB; deal-nosalv2",
+      "criterionIds": [
+        "draws-first"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "draw rate"
+    },
+    {
+      "id": "deal-nosalv2-none-length",
+      "metric": "length in turns",
+      "value": 104.4,
+      "unit": "turns",
+      "interval": {
+        "level": 0.95,
+        "low": 102.1,
+        "high": 106.7
+      },
+      "n": 1750,
+      "nUnit": "opening draws",
+      "depth": 3,
+      "runIds": [
+        "deal-nosalv2"
+      ],
+      "sourceIds": [
+        "deal-nosalv2-report",
+        "deal-nosalv2-spec",
+        "tournament-mirror-method",
+        "deal-nosalv2-raw",
+        "deal-nosalv2-log"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7579; depth 3; four random opening plies; 300-ply cap. Complete 3500-game schedule, unstamped compressed rows; launch commit is attributed by QUEUE. This compares six cards without Salvation with none, not with the deck that contains Salvation.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "none",
+      "version": "27-card pool without Salvation, with MirrorB; deal-nosalv2",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "length in turns"
+    },
+    {
+      "id": "deal-nosalv2-paired-white",
+      "metric": "six cards minus no cards White score",
+      "value": -0.3,
+      "unit": "points",
+      "interval": {
+        "level": 0.95,
+        "low": -3.4,
+        "high": 2.8
+      },
+      "n": 1750,
+      "nUnit": "shared opening pairs",
+      "depth": 3,
+      "runIds": [
+        "deal-nosalv2"
+      ],
+      "sourceIds": [
+        "deal-nosalv2-report",
+        "deal-nosalv2-spec",
+        "tournament-mirror-method",
+        "deal-nosalv2-raw",
+        "deal-nosalv2-log"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7579; depth 3; four random opening plies; 300-ply cap. Complete 3500-game schedule, unstamped compressed rows; launch commit is attributed by QUEUE. This compares six cards without Salvation with none, not with the deck that contains Salvation. Paired mean over shared backRank|seed keys; this is not a difference between the whole-arm columns.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "27-card pool without Salvation, with MirrorB; deal-nosalv2",
+      "criterionIds": [
+        "white-parity"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "six cards minus no cards White score"
+    },
+    {
+      "id": "deal-nosalv2-paired-draw",
+      "metric": "six cards minus no cards draw rate",
+      "value": -10.5,
+      "unit": "points",
+      "interval": {
+        "level": 0.95,
+        "low": -12.7,
+        "high": -8.3
+      },
+      "n": 1750,
+      "nUnit": "shared opening pairs",
+      "depth": 3,
+      "runIds": [
+        "deal-nosalv2"
+      ],
+      "sourceIds": [
+        "deal-nosalv2-report",
+        "deal-nosalv2-spec",
+        "tournament-mirror-method",
+        "deal-nosalv2-raw",
+        "deal-nosalv2-log"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7579; depth 3; four random opening plies; 300-ply cap. Complete 3500-game schedule, unstamped compressed rows; launch commit is attributed by QUEUE. This compares six cards without Salvation with none, not with the deck that contains Salvation. Paired mean over shared backRank|seed keys; this is not a difference between the whole-arm columns.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "27-card pool without Salvation, with MirrorB; deal-nosalv2",
+      "criterionIds": [
+        "draws-first"
+      ],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "six cards minus no cards draw rate"
+    },
+    {
+      "id": "deal-nosalv2-paired-turns",
+      "metric": "six cards minus no cards length in turns",
+      "value": -20.3,
+      "unit": "turns",
+      "interval": {
+        "level": 0.95,
+        "low": -23.4,
+        "high": -17.2
+      },
+      "n": 1750,
+      "nUnit": "shared opening pairs",
+      "depth": 3,
+      "runIds": [
+        "deal-nosalv2"
+      ],
+      "sourceIds": [
+        "deal-nosalv2-report",
+        "deal-nosalv2-spec",
+        "tournament-mirror-method",
+        "deal-nosalv2-raw",
+        "deal-nosalv2-log"
+      ],
+      "context": "Historical QORRBBNNAAGMMS pool without Paladin; seed 7579; depth 3; four random opening plies; 300-ply cap. Complete 3500-game schedule, unstamped compressed rows; launch commit is attributed by QUEUE. This compares six cards without Salvation with none, not with the deck that contains Salvation. Paired mean over shared backRank|seed keys; this is not a difference between the whole-arm columns.",
+      "commit": null,
+      "flags": {
+        "markFree": true,
+        "hasteCaptures": false,
+        "strikeCaptures": false,
+        "strikePawns": false
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "cards6",
+      "version": "27-card pool without Salvation, with MirrorB; deal-nosalv2",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "six cards minus no cards length in turns"
+    },
+    {
+      "id": "guard-drop-any-white",
+      "metric": "White score rule difference",
+      "value": -0.1,
+      "unit": "points",
+      "interval": {
+        "level": 0.95,
+        "low": -2,
+        "high": 1.8
+      },
+      "n": 100,
+      "nUnit": "shared arrangements",
+      "depth": 3,
+      "runIds": [
+        "ab-guard-drop-any"
+      ],
+      "sourceIds": [
+        "guard-drop-report",
+        "guard-drop-base",
+        "guard-drop-var",
+        "guard-drop-price"
+      ],
+      "context": "2000 games per arm, 100 shared arrangements x 20 games per arm; depth 3; seed 109; four random opening plies. Raw src bd592c219166. QUEUE launch commit cd4da6f has Archer 505 cp, before the 339 cp reprice. Pool QOLRRBBNNAAGMMS; far2; Guard next to king; Paladin nonPawn; Ogre push. Interval is the normal approximation over 100 paired arrangement means. Capped games are separate from report draws. Non-significance does not prove equivalence.",
+      "commit": "cd4da6fad6ec29f8277dc50ebac730a75168c7d0",
+      "flags": {
+        "guardReserve": "any",
+        "guardNextToKing": true,
+        "archerShots": "far2",
+        "paladinKamikaze": "nonPawn",
+        "ogreMode": "push"
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "Guard",
+      "version": "guardReserve any vs off; Archer 505 cp",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "White score rule difference"
+    },
+    {
+      "id": "guard-drop-any-draw",
+      "metric": "draw rate rule difference",
+      "value": 0.1,
+      "unit": "points",
+      "interval": {
+        "level": 0.95,
+        "low": -1.9,
+        "high": 2.1
+      },
+      "n": 100,
+      "nUnit": "shared arrangements",
+      "depth": 3,
+      "runIds": [
+        "ab-guard-drop-any"
+      ],
+      "sourceIds": [
+        "guard-drop-report",
+        "guard-drop-base",
+        "guard-drop-var",
+        "guard-drop-price"
+      ],
+      "context": "2000 games per arm, 100 shared arrangements x 20 games per arm; depth 3; seed 109; four random opening plies. Raw src bd592c219166. QUEUE launch commit cd4da6f has Archer 505 cp, before the 339 cp reprice. Pool QOLRRBBNNAAGMMS; far2; Guard next to king; Paladin nonPawn; Ogre push. Interval is the normal approximation over 100 paired arrangement means. Capped games are separate from report draws. Non-significance does not prove equivalence.",
+      "commit": "cd4da6fad6ec29f8277dc50ebac730a75168c7d0",
+      "flags": {
+        "guardReserve": "any",
+        "guardNextToKing": true,
+        "archerShots": "far2",
+        "paladinKamikaze": "nonPawn",
+        "ogreMode": "push"
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "Guard",
+      "version": "guardReserve any vs off; Archer 505 cp",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "draw rate rule difference"
+    },
+    {
+      "id": "guard-drop-any-decisive",
+      "metric": "decisive share rule difference",
+      "value": -0.3,
+      "unit": "points",
+      "interval": {
+        "level": 0.95,
+        "low": -2.4,
+        "high": 1.8
+      },
+      "n": 100,
+      "nUnit": "shared arrangements",
+      "depth": 3,
+      "runIds": [
+        "ab-guard-drop-any"
+      ],
+      "sourceIds": [
+        "guard-drop-report",
+        "guard-drop-base",
+        "guard-drop-var",
+        "guard-drop-price"
+      ],
+      "context": "2000 games per arm, 100 shared arrangements x 20 games per arm; depth 3; seed 109; four random opening plies. Raw src bd592c219166. QUEUE launch commit cd4da6f has Archer 505 cp, before the 339 cp reprice. Pool QOLRRBBNNAAGMMS; far2; Guard next to king; Paladin nonPawn; Ogre push. Interval is the normal approximation over 100 paired arrangement means. Capped games are separate from report draws. Non-significance does not prove equivalence.",
+      "commit": "cd4da6fad6ec29f8277dc50ebac730a75168c7d0",
+      "flags": {
+        "guardReserve": "any",
+        "guardNextToKing": true,
+        "archerShots": "far2",
+        "paladinKamikaze": "nonPawn",
+        "ogreMode": "push"
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "Guard",
+      "version": "guardReserve any vs off; Archer 505 cp",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "decisive share rule difference"
+    },
+    {
+      "id": "guard-drop-any-plies",
+      "metric": "mean plies rule difference",
+      "value": 2.8,
+      "unit": "plies",
+      "interval": {
+        "level": 0.95,
+        "low": 0.9,
+        "high": 4.7
+      },
+      "n": 100,
+      "nUnit": "shared arrangements",
+      "depth": 3,
+      "runIds": [
+        "ab-guard-drop-any"
+      ],
+      "sourceIds": [
+        "guard-drop-report",
+        "guard-drop-base",
+        "guard-drop-var",
+        "guard-drop-price"
+      ],
+      "context": "2000 games per arm, 100 shared arrangements x 20 games per arm; depth 3; seed 109; four random opening plies. Raw src bd592c219166. QUEUE launch commit cd4da6f has Archer 505 cp, before the 339 cp reprice. Pool QOLRRBBNNAAGMMS; far2; Guard next to king; Paladin nonPawn; Ogre push. Interval is the normal approximation over 100 paired arrangement means. Capped games are separate from report draws. Non-significance does not prove equivalence.",
+      "commit": "cd4da6fad6ec29f8277dc50ebac730a75168c7d0",
+      "flags": {
+        "guardReserve": "any",
+        "guardNextToKing": true,
+        "archerShots": "far2",
+        "paladinKamikaze": "nonPawn",
+        "ogreMode": "push"
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "Guard",
+      "version": "guardReserve any vs off; Archer 505 cp",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "mean plies rule difference"
+    },
+    {
+      "id": "guard-drop-any-branching",
+      "metric": "branching factor rule difference",
+      "value": 2,
+      "unit": "legal moves",
+      "interval": {
+        "level": 0.95,
+        "low": 1.6,
+        "high": 2.4
+      },
+      "n": 100,
+      "nUnit": "shared arrangements",
+      "depth": 3,
+      "runIds": [
+        "ab-guard-drop-any"
+      ],
+      "sourceIds": [
+        "guard-drop-report",
+        "guard-drop-base",
+        "guard-drop-var",
+        "guard-drop-price"
+      ],
+      "context": "2000 games per arm, 100 shared arrangements x 20 games per arm; depth 3; seed 109; four random opening plies. Raw src bd592c219166. QUEUE launch commit cd4da6f has Archer 505 cp, before the 339 cp reprice. Pool QOLRRBBNNAAGMMS; far2; Guard next to king; Paladin nonPawn; Ogre push. Interval is the normal approximation over 100 paired arrangement means. Capped games are separate from report draws. Non-significance does not prove equivalence.",
+      "commit": "cd4da6fad6ec29f8277dc50ebac730a75168c7d0",
+      "flags": {
+        "guardReserve": "any",
+        "guardNextToKing": true,
+        "archerShots": "far2",
+        "paladinKamikaze": "nonPawn",
+        "ogreMode": "push"
+      },
+      "status": "historical measured",
+      "bound": null,
+      "element": "Guard",
+      "version": "guardReserve any vs off; Archer 505 cp",
+      "criterionIds": [],
+      "contextCurrent": false,
+      "currentTargetRuleMatch": false,
+      "metricName": "branching factor rule difference"
     }
   ],
   "conflicts": [
@@ -6067,38 +7504,82 @@
     {
       "id": "remote-gap",
       "sourceIds": [
-        "queue-latest"
+        "m1-snapshot"
       ],
-      "text": "M1 read-only inventory fails: macbook-pro-2.local does not resolve. Local copied reports are usable; remote-only reports and raw completeness remain unverified. No remote jobs are touched."
+      "text": "The read-only M1 snapshot verifies 6966 files and 884068015 bytes across nine project folders. Each copied file matches a subsequent remote SHA256. Source stamps and schedule checks still govern each run; the inventory alone is not game evidence.",
+      "status": "remote inventory resolved"
     },
     {
       "id": "pending-runs",
       "sourceIds": [
-        "queue-latest"
+        "deal-c4k-report",
+        "deal-d4k-report",
+        "deal-nosalv2-report",
+        "guard-drop-price"
       ],
-      "text": "deal-c4k, deal-d4k, deal-nosalv2 and ab-guard-drop-any remain pending here. Their data still need review. Do not infer completion from queued row, filename or planned count."
+      "text": "deal-c4k and deal-d4k are stopped subsets, not complete original schedules. deal-nosalv2 and ab-guard-drop-any have complete historical schedules. None supplies the exact current target: card pools omit Paladin, the six-card runs use the wrong hand size, and Guard uses the pre-reprice Archer. No duplicate launch is justified by a filename or a completed label.",
+      "status": "data reviewed; current target gap remains"
+    },
+    {
+      "id": "approved-source-corrections",
+      "sourceIds": [
+        "source-corrections",
+        "workbook",
+        "rules"
+      ],
+      "status": "resolved",
+      "text": "Resolved by owner approval: the movement limit applies to new changes when adjusting a king power for balance. Existing approved effects remain. Each side starts with four cards. Each army starts with at most one Beast; Morph cannot create one while that side has one. Salvation or Sacrifice may return a captured Beast even if that gives the side a second Beast. Historical six-card evidence keeps its source conditions."
     }
   ],
   "pendingRuns": [
     {
       "id": "deal-c4k",
-      "status": "pending data review",
-      "gamesObserved": null
+      "status": "reviewed stopped subset",
+      "gamesObserved": 3498,
+      "fullTargetMatch": false,
+      "completionNote": "Owner stops the run after shards 9/10/11. Original target 14000; zero shared openings; not a complete paired contrast. No Paladin.",
+      "sourceIds": [
+        "deal-c4k-report",
+        "deal-c4k-spec"
+      ]
     },
     {
       "id": "deal-d4k",
-      "status": "pending data review",
-      "gamesObserved": null
+      "status": "reviewed stopped subset",
+      "gamesObserved": 6998,
+      "fullTargetMatch": false,
+      "completionNote": "Owner stops the six-card run after shards 5/7/8/9/10/11. Original target 14000; 1166 shared openings; six cards, not four. No Paladin.",
+      "sourceIds": [
+        "deal-d4k-report",
+        "deal-d4k-spec"
+      ]
     },
     {
       "id": "deal-nosalv2",
-      "status": "pending data review",
-      "gamesObserved": null
+      "status": "reviewed complete historical run",
+      "gamesObserved": 3500,
+      "fullTargetMatch": false,
+      "completionNote": "All 3500 scheduled IDs are present. Six cards, no Salvation, historical pool without Paladin; not the selected four-card target.",
+      "sourceIds": [
+        "deal-nosalv2-raw",
+        "deal-nosalv2-spec",
+        "deal-nosalv2-log",
+        "m1-snapshot"
+      ]
     },
     {
       "id": "ab-guard-drop-any",
-      "status": "pending data review",
-      "gamesObserved": null
+      "status": "reviewed complete historical run",
+      "gamesObserved": 4000,
+      "fullTargetMatch": false,
+      "completionNote": "Both 2000-game arms are complete. Archer price is 505 cp at the named launch commit, not current 339 cp.",
+      "sourceIds": [
+        "guard-drop-report",
+        "guard-drop-base",
+        "guard-drop-var",
+        "guard-drop-price",
+        "m1-snapshot"
+      ]
     }
   ],
   "nextRuns": [
@@ -6120,13 +7601,74 @@
         "current-eval",
         "queue-four-card-approval"
       ],
-      "preconditions": "First review pending data. Main 7035b5e implements pool QOLRRBBNNAAGMMS with Paladin and Ogre, far2 at 339 cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine. Check its effective rules and pool stamp. Historical data do not certify this context. The initial command submits one representative shard. Check its time before more submissions. Keep each notebook below 9 h. Reduce the games per shard if needed. Submit later shards with the saved manifest and --only, in groups of at most five. These are proposals; no run has approval here.",
-      "decision": "Read all six criteria for target pool. Keep criteria 4 and 4b distinct. Mark exact full-target ordinary measurements.",
-      "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
+      "preconditions": "The four named runs are reviewed. None supplies this exact target. Main 7035b5e implements pool QOLRRBBNNAAGMMS with Paladin and Ogre, far2 at 339 cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine. Check its effective rules and pool stamp. Historical data do not certify this context. The initial command submits one representative shard. Check its time before more submissions. Keep each notebook below 9 h. Reduce the games per shard if needed. Submit later shards with the saved manifest and --only, in groups of at most five. These are proposals; no run has approval here.",
+      "decision": "Read criteria 2\u20136 for the target pool. Criterion 1 needs separate odds work. Keep criteria 4 and 4b distinct.",
+      "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e",
+      "reviewedCompletionRationale": "No reviewed run proves this exact target. Guard A/B is not a full activity scan; the card runs omit Paladin, and the six-card runs do not measure four cards. Keep completion separate from exact context match.",
+      "requirements": {
+        "mode": "ordinary",
+        "criteria": [
+          "piece-captures",
+          "piece-moves",
+          "piece-phase",
+          "piece-use",
+          "piece-game"
+        ],
+        "elements": [
+          "Queen",
+          "Rook",
+          "Bishop",
+          "Knight",
+          "Archer",
+          "Maester",
+          "Beast",
+          "Ogre",
+          "Paladin",
+          "Guard"
+        ],
+        "captureExempt": [
+          "Guard"
+        ]
+      }
+    },
+    {
+      "id": "balance-target-worth-d3",
+      "rank": 2,
+      "machine": "M1: 8 workers; one detached process",
+      "games": 10000,
+      "command": "nohup npx tsx src/sim/run.ts --experiment values --id balance-target-worth-d3 --pieces ORBMSLA --games 1000 --depth 3 --seed 8104 --workers 8 --noadjudicate --rule archerShots=far2 --rule guardNextToKing=true > sim/out/balance-target-worth-d3.log 2>&1 &",
+      "notebookMinutes": 60,
+      "estimate": "Seven piece arms at 1000 games plus 3000 fresh pawn-calibration games. Copied M1 Archer passes take 189.7\u2013190.0 seconds per 1000 games. A first pass can take 32\u201340 minutes if that rate transfers; allow 45\u201360 minutes and check the first arm. No notebook is used.",
+      "preconditions": "After owner approval, record the quote in QUEUE and pin the reviewed source. Verify the M1 identity. Use a fresh ID and its own log. This is one first pass only; review before any second pass. Keep shipped prices fixed. A later pass needs approved seed prices and the same-depth calibration. The standard Guard swap starts on b1, so it cannot measure the selected king-adjacent Guard. Omit Guard here and keep that gap open.",
+      "decision": "Measure criterion 1 with classic-rank, colour-reversed odds swaps. Knight at 3.16 is the anchor. Use all eight pawn files for calibration. Report a bound outside the \u00b11.5-pawn linear range. The Bishop arm has two same-colour bishops. This does not measure random-pool interactions or king-adjacent Guard worth.",
+      "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e",
+      "sourceIds": [
+        "criteria",
+        "value-method",
+        "current-eval",
+        "m1-far2-price-timing",
+        "compute-m1",
+        "values-runner"
+      ],
+      "requirements": {
+        "mode": "classic-odds",
+        "measures": [
+          "pawnWorth"
+        ],
+        "elements": [
+          "Ogre",
+          "Rook",
+          "Bishop",
+          "Maester",
+          "Beast",
+          "Paladin",
+          "Archer"
+        ]
+      }
     },
     {
       "id": "balance-target-powers-d3",
-      "rank": 2,
+      "rank": 3,
       "machine": "Kaggle: 5 shards, 5 notebooks, 4 workers each",
       "games": 5280,
       "flags": "--powers Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,HolyLight,Mercy,DeathTouch,Darkness --pairs 40 --armies perPair --depth 3 --seed 8102 --rule archerShots=far2 --rule markFree=true --rule freezeUses=1 --rule hasteCaptures=false --rule strikePawns=false --rule strikeCaptures=false --rule mercyAura=true --rule mercyAuraPawnsTake=true --rule mercyTakesPawns=true --rule marchUses=0 --rule holyLightTakesPawns=true --rule holyLightShelter=true --rule holyLightShelterOrtho=true --rule darknessMoves=true --rule darknessKingStep2=true --rule deathTouchReach=true --rule deathTouchReachOrtho=true --rule deathTouchReachForwardBack=true --rule guardNextToKing=true",
@@ -6142,13 +7684,34 @@
         "current-eval",
         "queue-four-card-approval"
       ],
-      "preconditions": "First review pending data. Main 7035b5e implements pool QOLRRBBNNAAGMMS with Paladin and Ogre, far2 at 339 cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine. Check its effective rules and pool stamp. Historical data do not certify this context. The initial command submits one representative shard. Check its time before more submissions. Keep each notebook below 9 h. Reduce the games per shard if needed. Submit later shards with the saved manifest and --only, in groups of at most five. These are proposals; no run has approval here.",
+      "preconditions": "The four named runs are reviewed. None supplies this exact target. Main 7035b5e implements pool QOLRRBBNNAAGMMS with Paladin and Ogre, far2 at 339 cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine. Check its effective rules and pool stamp. Historical data do not certify this context. The initial command submits one representative shard. Check its time before more submissions. Keep each notebook below 9 h. Reduce the games per shard if needed. Submit later shards with the saved manifest and --only, in groups of at most five. These are proposals; no run has approval here.",
       "decision": "Full round robin, not DeathTouch anchor. Test powers together with army intervals; report Spirit minus Shadow with interval. Haste is approved despite its known high score.",
-      "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
+      "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e",
+      "reviewedCompletionRationale": "No reviewed run proves this exact target. Guard A/B is not a full activity scan; the card runs omit Paladin, and the six-card runs do not measure four cards. Keep completion separate from exact context match.",
+      "requirements": {
+        "mode": "powers",
+        "measures": [
+          "score"
+        ],
+        "elements": [
+          "Freeze",
+          "IceWall",
+          "Strike",
+          "Haste",
+          "Flight",
+          "Sacrifice",
+          "March",
+          "Leap",
+          "HolyLight",
+          "Mercy",
+          "DeathTouch",
+          "Darkness"
+        ]
+      }
     },
     {
       "id": "balance-target-four-d3",
-      "rank": 3,
+      "rank": 4,
       "machine": "Kaggle: 10 shards, 5 notebooks per wave, 4 workers each",
       "games": 6000,
       "flags": "--powers cards4,none --mirrorOnly --mirror --pairs 3000 --armies perPair --depth 3 --seed 8103 --cardPool Freeze,IceWall,Strike,Haste,Flight,Sacrifice,March,Leap,Mimic,Vault,Curse,SkyLift,Salvation,Firewall,FirewallB,EarthQuake,EarthQuakeB,Burn,FireStarter,Control,Growth,GrowthB,Rally,Spawn2,SpawnK,SpawnK2,MorphP,MirrorB --rule archerShots=far2 --rule markFree=true --rule hasteCaptures=false --rule strikeCaptures=false --rule strikePawns=false --rule guardNextToKing=true",
@@ -6163,9 +7726,22 @@
         "current-eval",
         "queue-four-card-approval"
       ],
-      "preconditions": "First review pending data. Main 7035b5e implements pool QOLRRBBNNAAGMMS with Paladin and Ogre, far2 at 339 cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine. Check its effective rules and pool stamp. Historical data do not certify this context. The initial command submits one representative shard. Check its time before more submissions. Keep each notebook below 9 h. Reduce the games per shard if needed. Submit later shards with the saved manifest and --only, in groups of at most five. These are proposals; no run has approval here. Skip this proposal if deal-c4k already supplies this exact target. The explicit 28-card pool is the tested deal (deal-d1 + MirrorB). It does not adopt Salvation. Record the final pool choice before launch.",
+      "preconditions": "The four named runs are reviewed. None supplies this exact target. Main 7035b5e implements pool QOLRRBBNNAAGMMS with Paladin and Ogre, far2 at 339 cp, and guardNextToKing=true. Pin that commit or a reviewed identical engine. Check its effective rules and pool stamp. Historical data do not certify this context. The initial command submits one representative shard. Check its time before more submissions. Keep each notebook below 9 h. Reduce the games per shard if needed. Submit later shards with the saved manifest and --only, in groups of at most five. These are proposals; no run has approval here. deal-c4k does not supply this exact target: it is a stopped subset, has no shared control openings, and omits Paladin. Skip only if a complete run proves the exact proposed context. The explicit 28-card pool is the tested deal (deal-d1 + MirrorB). It does not adopt Salvation. Record the final pool choice before launch.",
       "decision": "Selected four-card hand vs none on same armies; no hand-size sweep. Report draw/White/turn differences and per-card association limits.",
-      "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e"
+      "proposedSourceCommit": "7035b5e56c8de435d2e63dc02d47d7002bd54a6e",
+      "reviewedCompletionRationale": "No reviewed run proves this exact target. Guard A/B is not a full activity scan; the card runs omit Paladin, and the six-card runs do not measure four cards. Keep completion separate from exact context match.",
+      "skipIfCompletedRunIds": [
+        "deal-c4k"
+      ],
+      "requirements": {
+        "mode": "cards",
+        "measures": [
+          "whiteScore",
+          "drawRate",
+          "meanPlies"
+        ],
+        "paired": true
+      }
     }
   ],
   "currentTargetGaps": [

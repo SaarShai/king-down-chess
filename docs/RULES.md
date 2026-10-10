@@ -1,7 +1,7 @@
 # King Down Chess — current rules and dated decisions
 
 Starting source: *King Down Classic — Rules of Play* (Saar Shai, 2017), with the dated owner decisions below.
-Sections 1–3 describe the current default. Kings' powers in §4 are optional lab rules; card/spell effects in §5 are built as lab cards (card mode), not in the playable game.
+Sections 1–3 describe the current default. Kings' powers in §4 are an optional shipped mode; card/spell effects in §5 are built as lab cards (card mode), not in the playable game.
 
 ## 1. Base rules
 
@@ -94,7 +94,8 @@ round 16 tests simple second parts, one short sentence each, as lab toggles: ene
 your pawns (`darknessPawnArmor`); enemy pawns cannot take your pieces next to your king
 (`darknessAuraPawns`); your king may also step two squares in a straight line, over an empty square,
 to an empty square (`darknessKingStep2`); and D1, your pieces diagonally next to your king cannot be
-taken (`darknessShelter`). No king-power reading changes how other pieces move.
+taken (`darknessShelter`). When adjusting a king power for balance, do not add changes to how
+other pieces move. Keep its existing approved effects. A card may change how pieces move.
 
 **Owner decision (2026-10-04), after rounds 16 and 17:** "1. B", the king step as tested: your king
 may also step two squares in a straight line, over an empty square (`darknessKingStep2`). The middle

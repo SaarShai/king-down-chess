@@ -16,25 +16,33 @@ export interface SourceOverride {
   reason: string;
   commit?: string;
   machine?: string;
-  complete?: boolean;
 }
 export interface SourceCoverage {
   source: string; run: string | null; kind: string; status: string; reasons: string[];
   bytes: number; records: number; accepted: number; duplicates: number; invalid: number;
   sha256?: string;
 }
+export type RunLifecycle = 'pending' | 'stopped' | 'complete' | 'unknown';
+export interface RunStatus {
+  run: string; sources: string[]; lifecycle: Exclude<RunLifecycle, 'unknown'>;
+  plannedGames: number; reason: string;
+  selection?: { ids: number[] } | { shards: { count: number; ids: number[] } };
+}
 export interface RunCoverage {
   run: string; queue: string[]; status: Validity | 'missing'; sources: string[];
-  reasons: string[]; expectedGames: number | null;
+  reasons: string[]; expectedGames: number | null; lifecycle: RunLifecycle; observedGames: number; selectedGames: number | null;
 }
 export interface BalanceDataset {
   schemaVersion: 1; measurements: Measurement[];
+  inputDigest?: string;
   sources: SourceCoverage[]; runs: RunCoverage[]; warnings: string[];
 }
 export interface DatasetOptions {
   root: string;
   sources?: (string | { path: string; alias: string })[];
   overrides?: SourceOverride[];
+  runStatus?: RunStatus[];
+  queue?: string;
   onProgress?: (message: string) => void;
 }
 interface File { path: string; id: string; run: string; kind: string; entry: SourceCoverage }
@@ -45,6 +53,8 @@ interface Aggregate {
   stats: Map<string, { score: Moments; draws: Moments; plies: Moments; activity: Moments }>;
   records: Map<number, string>;
   family?: { records: Map<number, string>; conflict: boolean };
+  schedule?: RunStatus;
+  pairKeys: Map<number, string>; arrangements: Set<string>;
 }
 /** Released power flags recorded by kp2-r18 and the repaired dt runs in QUEUE. */
 export const HISTORIC_RELEASE_FLAGS = Object.freeze({
@@ -54,7 +64,7 @@ export const HISTORIC_RELEASE_FLAGS = Object.freeze({
   holyLightShelter: true, holyLightShelterOrtho: true, darknessMoves: true,
   darknessKingStep2: true, deathTouchReach: true, deathTouchReachOrtho: true,
 });
-const pendingRuns = new Set(['deal-c4k', 'deal-d4k', 'deal-nosalv2', 'ab-guard-drop-any']);
+const indexedRuns = new Set(['deal-c4k', 'deal-d4k', 'deal-nosalv2', 'ab-guard-drop-any']);
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const object = (v: unknown): v is Json => !!v && typeof v === 'object' && !Array.isArray(v);
 const hash = (s: string): string => createHash('sha256').update(s).digest('hex');
@@ -69,6 +79,8 @@ function context(spec: Json, rec?: Json): MeasurementContext {
   const flags = rec?.rules ?? spec.rules;
   if (object(flags)) { c.flags = flags; c.flagsKind = rec?.rulesKey ? 'full' : 'diff'; }
   c.commit = typeof (rec?.commit ?? spec.commit) === 'string' ? (rec?.commit ?? spec.commit) : null;
+  c.commitSource = rec?.commit ? 'row' : spec.commit ? 'spec' : undefined;
+  c.stampSource = rec?.rulesKey ? 'row' : undefined;
   c.sourceHash = typeof (rec?.src ?? spec.src) === 'string' ? (rec?.src ?? spec.src) : null;
   c.specKey = typeof rec?.specKey === 'string' ? rec.specKey : null;
   c.pool = typeof (rec?.pool ?? spec.pool ?? spec.backRanks?.pool) === 'string' ? (rec?.pool ?? spec.pool ?? spec.backRanks?.pool) : null;
@@ -81,7 +93,7 @@ function context(spec: Json, rec?: Json): MeasurementContext {
   if (rec && Array.isArray(spec.entrants)) {
     const variant = (entrant: unknown): Json => { const name = typeof entrant === 'string' ? /~v([^@]+)(?:@|$)/.exec(entrant)?.[1] : undefined; return name && object(spec.variants?.[name]) ? spec.variants[name] : {}; };
     c.flags = { ...c.flags, ...variant(rec.white), ...variant(rec.black) };
-    c.flagsKind = 'diff';
+    c.flagsKind = rec.rulesKey ? 'full' : 'diff';
   }
   return c;
 }
@@ -107,6 +119,27 @@ export function expectedGames(spec: Json): number | null {
     matchups++;
   }
   return spec.pairs * matchups * (spec.mirrorOnly ? 1 : 2);
+}
+function selectedIds(status: RunStatus, mirrorOnly = true): Set<number> {
+  if (!status.selection) return new Set(Array.from({ length: status.plannedGames }, (_, i) => i));
+  if ('ids' in status.selection) return new Set(status.selection.ids);
+  const { count, ids } = status.selection.shards;
+  return new Set(Array.from({ length: status.plannedGames }, (_, i) => i).filter(i => ids.includes((mirrorOnly ? i : Math.floor(i / 2)) % count)));
+}
+function checkStatus(value: unknown): RunStatus[] {
+  if (!Array.isArray(value)) throw new Error('Run status must be an array.');
+  for (const row of value) {
+    if (!object(row) || typeof row.run !== 'string' || !Array.isArray(row.sources) || !row.sources.length || !row.sources.every((x: unknown) => typeof x === 'string') || !['pending', 'stopped', 'complete'].includes(row.lifecycle) || !Number.isSafeInteger(row.plannedGames) || row.plannedGames < 0 || typeof row.reason !== 'string') throw new Error('Invalid run status record.');
+    const selection = row.selection;
+    if (selection !== undefined) {
+      const ids = selection?.ids ?? selection?.shards?.ids;
+      const limit = selection?.shards ? selection.shards.count : row.plannedGames;
+      if (!object(selection) || !Array.isArray(ids) || !Number.isSafeInteger(limit) || limit < 1 || !ids.every((i: unknown) => Number.isSafeInteger(i) && (i as number) >= 0 && (i as number) < limit) || new Set(ids).size !== ids.length || !!selection.ids === !!selection.shards) throw new Error('Invalid selected game schedule.');
+    }
+  }
+  const keys = value.flatMap(row => row.sources.map((source: string) => `${source}/${row.run}`));
+  if (new Set(keys).size !== keys.length) throw new Error('Run status records overlap.');
+  return value;
 }
 function sourceValidity(file: File, c: MeasurementContext): { validity: Validity; reasons: string[] } {
   if (/(?:^|\/)(?:void(?:[-/]|$)|unvalidated(?:[-/]|$))/i.test(file.id)) return { validity: 'void', reasons: ['Source is stored in a void or unvalidated archive.'] };
@@ -150,7 +183,7 @@ function queueIndex(text: string): Map<string, string[]> {
       map.set(id, [...(map.get(id) ?? []), line]);
     }
   }
-  for (const id of pendingRuns) if (!map.has(id)) map.set(id, []);
+  for (const id of indexedRuns) if (!map.has(id)) map.set(id, []);
   for (const id of ['pb-ab-base', 'cards-b1']) if (!map.has(id)) map.set(id, []);
   return map;
 }
@@ -189,7 +222,10 @@ export async function buildDataset(options: DatasetOptions): Promise<BalanceData
     await inventory(path, alias, files);
   }
   let queueText = '';
-  try { queueText = await readFile(join(root, 'docs/QUEUE.md'), 'utf8'); } catch { warnings.push('docs/QUEUE.md is missing. Run index is incomplete.'); }
+  try { queueText = await readFile(options.queue ?? join(root.includes('/.claude/worktrees/') ? root.split('/.claude/worktrees/')[0] : root, 'docs/QUEUE.md'), 'utf8'); } catch { warnings.push('docs/QUEUE.md is missing. Run index is incomplete.'); }
+  const statusPath = join(root, 'docs/balance/run-status.json');
+  const statuses = checkStatus(options.runStatus ?? (existsSync(statusPath) ? JSON.parse(await readFile(statusPath, 'utf8')) : []));
+  const statusFor = (file: File): RunStatus | undefined => statuses.find(row => row.run === file.run && row.sources.includes(dirname(file.id)));
   const queue = queueIndex(queueText), overrides = new Map((options.overrides ?? []).map(x => [x.source, x]));
   const metadata = new Map<string, Metadata>(), reports = new Map<string, { file: File; data: Json | string }>();
   const metaKey = (f: File): string => `${dirname(f.id)}/${f.run}`;
@@ -237,10 +273,10 @@ export async function buildDataset(options: DatasetOptions): Promise<BalanceData
         try { rec = JSON.parse(line); } catch { file.entry.invalid++; continue; }
         if (!object(rec) || !Number.isSafeInteger(rec.gameId) || rec.gameId < 0 || ![0, .5, 1].includes(rec.result) || !Number.isSafeInteger(rec.plies) || rec.plies < 0 || typeof rec.reason !== 'string') { file.entry.invalid++; continue; }
         const c = context(spec, rec);
-        if (override?.commit) c.commit = override.commit;
+        if (override?.commit) { c.commit = override.commit; c.commitSource = 'override'; }
         if (override?.machine) c.machine = override.machine;
         const queueLines = queue.get(file.run) ?? [];
-        if (!c.commit) c.commit = queueLines.map(x => /\b([a-f0-9]{7,40})\b/.exec(x)?.[1]).find((x): x is string => !!x) ?? null;
+        if (!c.commit) { const commits = [...new Set(queueLines.flatMap(x => [...x.matchAll(/(?:commit|main|ref)\s+`?([a-f0-9]{7,40})\b/g)].map(m => m[1])))]; if (commits.length === 1) { c.commit = commits[0]; c.commitSource = 'queue'; } }
         if (!c.machine) c.machine = /(?:^|\/)m1\//.test(file.id) ? 'M1' : /mac-runs\//.test(file.id) ? 'Mac' : null;
         const sourceState = sourceValidity(file, c);
         const key = `${file.run}:${hash(stable({ c: { ...c, machine: null, settings: null }, settingsKey, sourceValidity: sourceState.validity })).slice(0, 20)}`;
@@ -250,11 +286,12 @@ export async function buildDataset(options: DatasetOptions): Promise<BalanceData
         let a = aggregates.get(key);
         if (!a) {
           const validity = sourceValidity(file, c);
-          a = { run: file.run, key, context: c, expected: meta?.expected ?? null, sources: new Set(), reasons: new Set(validity.reasons), validity: validity.validity, games: 0, stats: new Map(), records: new Map(), family };
+          a = { run: file.run, key, context: c, expected: meta?.expected ?? null, sources: new Set(), reasons: new Set(validity.reasons), validity: validity.validity, games: 0, stats: new Map(), records: new Map(), family, schedule: statusFor(file), pairKeys: new Map(), arrangements: new Set() };
           aggregates.set(key, a);
           if (meta?.reasons.length) worsen(a, 'conflict', meta.reasons.join(' '));
         }
         groups.add(a); a.sources.add(file.id);
+        a.schedule ??= statusFor(file);
         if (object(rec.rules) && object(spec.rules) && Object.entries(spec.rules).some(([k, v]) => stable(rec.rules[k]) !== stable(v))) worsen(a, 'conflict', 'Record rules contradict the stored source spec.');
         if (meta) for (const source of meta.sources) a.sources.add(source);
         if (override?.validity) { a.validity = override.validity; a.reasons.add(override.reason); }
@@ -269,6 +306,8 @@ export async function buildDataset(options: DatasetOptions): Promise<BalanceData
           continue;
         }
         a.records.set(rec.gameId, signature); a.games++; file.entry.accepted++;
+        const arrangement = rec.configId ?? rec.backRank ?? (rec.backRankWhite && rec.backRankBlack ? `${rec.backRankWhite}/${rec.backRankBlack}` : null);
+        if (typeof arrangement === 'string' && Number.isSafeInteger(rec.seed)) { a.pairKeys.set(rec.gameId, stable([arrangement, rec.seed])); a.arrangements.add(arrangement); }
         const update = (element: string, score: number, uses?: number): void => {
           let row = a!.stats.get(element);
           if (!row) { row = { score: moments(), draws: moments(), plies: moments(), activity: moments() }; a!.stats.set(element, row); }
@@ -304,16 +343,15 @@ export async function buildDataset(options: DatasetOptions): Promise<BalanceData
       const cell = line.split('|')[4] ?? '';
       return Number(/([\d,]+)\s*$/.exec(cell.trim())?.[1]?.replace(/,/g, '')) || null;
     }).find(n => n !== null) ?? null;
-    const target = pendingRuns.has(a.run) && queueTarget !== null ? queueTarget : a.expected;
+    const target = a.schedule?.plannedGames ?? (indexedRuns.has(a.run) && queueTarget !== null ? queueTarget : a.expected);
     const completedRecords = a.family?.records ?? a.records;
-    const complete = (n: number): boolean => completedRecords.size === n && [...completedRecords.keys()].every(i => i >= 0 && i < n);
-    const completed = target !== null && complete(target);
+    const selection = a.schedule ? selectedIds(a.schedule, !Array.isArray(a.context.settings?.entrants) || a.context.settings?.mirrorOnly === true) : null;
+    const extra = selection ? [...completedRecords.keys()].filter(i => !selection.has(i)).length : target === null ? 0 : [...completedRecords.keys()].filter(i => i >= target).length;
+    const selectedCount = selection?.size ?? target;
+    const missing = selectedCount === null ? 0 : Math.max(0, selectedCount - completedRecords.size + extra);
     if (a.family?.conflict) worsen(a, 'conflict', 'Conflicting records in this tournament source population.');
-    const overridden = [...a.sources].some(s => overrides.get(s)?.complete === true);
-    if (a.expected !== null && !complete(a.expected)) worsen(a, 'incomplete', `Read ${completedRecords.size} unique games in the source population; source spec expects IDs 0 through ${a.expected - 1}.`);
-    if (pendingRuns.has(a.run) && !completed && !overridden && severity[a.validity] <= severity.incomplete) {
-      a.validity = 'pending'; a.reasons.add('QUEUE: pending until an authorized source unambiguously proves completion.');
-    }
+    if (selectedCount !== null && (missing || extra)) worsen(a, 'incomplete', `Read ${completedRecords.size} unique games; selected schedule has ${selectedCount}; ${missing} missing and ${extra} extra IDs. Planned target: ${target}.`);
+    if (a.schedule) a.reasons.add(`${a.schedule.reason} Selected sample: ${completedRecords.size} of ${target} planned games.`);
     if (a.expected === null) { a.reasons.add('No completion target in source metadata.'); if (a.validity === 'valid') a.validity = 'unverified'; }
     if (a.validity !== 'valid' && a.validity !== 'unverified') for (const source of a.sources) {
       const entry = files.find(f => f.id === source)?.entry;
@@ -325,7 +363,7 @@ export async function buildDataset(options: DatasetOptions): Promise<BalanceData
       for (const [measure, m, unit] of [['whiteScore', row.score, 'fraction'], ['drawRate', row.draws, 'fraction'], ['meanPlies', row.plies, 'plies'], ['activity', row.activity, 'uses per side']] as [Measure, Moments, string][]) {
         if (!m.n) continue;
         const result = estimate(m), blocked = !['valid', 'unverified'].includes(a.validity);
-        measurements.push({ id: `${a.key}:${statsKey}:${measure}`, run: a.run, element, version: a.context.commit ?? a.context.sourceHash, context: { ...a.context, population: element === 'run' ? 'run' : mirror ? 'mirror' : 'field' }, measure: measure === 'whiteScore' && element !== 'run' && !mirror ? 'score' : measure, value: blocked ? null : result.value, error: blocked ? null : result.error, errorKind: '95% normal interval over games; army variation is not included', sample: m.n, sampleUnit: 'games', unit, validity: a.validity, reasons: [...a.reasons], sources: [...a.sources], method: 'streamed completed records; identical game IDs and contents counted once within context' });
+        measurements.push({ id: `${a.key}:${statsKey}:${measure}`, run: a.run, element, version: a.context.commit ?? a.context.sourceHash, context: { ...a.context, population: element === 'run' ? 'run' : mirror ? 'mirror' : 'field' }, measure: measure === 'whiteScore' && element !== 'run' && !mirror ? 'score' : measure, value: blocked ? null : result.value, error: blocked ? null : result.error, errorKind: '95% normal interval over games; army variation is not included', sample: m.n, sampleUnit: 'games', unit, validity: a.validity, reasons: [...a.reasons], sources: [...a.sources], method: 'streamed completed records; identical game IDs and contents counted once within context', ...(measure === 'drawRate' ? { denominator: 'all completed games; result 0.5 includes ply-cap results' } : {}) });
       }
     }
   }
@@ -335,13 +373,21 @@ export async function buildDataset(options: DatasetOptions): Promise<BalanceData
   for (const run of [...ids].sort()) {
     const runFiles = files.filter(f => f.run === run && f.kind !== 'unsupported');
     const rows = measurements.filter(m => m.run === run), values = rows.filter(m => m.validity === 'valid' || m.validity === 'unverified');
-    const status = !runFiles.length ? ['pb-ab-base', 'cards-b1'].includes(run) ? 'void' : pendingRuns.has(run) ? 'pending' : 'missing' : values.length ? values.some(m => m.validity === 'valid') ? 'valid' : 'unverified' : rows.length ? rows.reduce((a, b) => severity[b.validity] > severity[a] ? b.validity : a, rows[0].validity) : pendingRuns.has(run) ? 'pending' : 'unverified';
-    runs.push({ run, queue: queue.get(run) ?? [], status, sources: runFiles.map(f => f.id), reasons: runFiles.length ? [...new Set(rows.flatMap(m => m.reasons))] : ['QUEUE references this run; no source is present.'], expectedGames: [...metadata.values()].find(m => m.spec.id === run)?.expected ?? null });
+    const status = !runFiles.length ? ['pb-ab-base', 'cards-b1'].includes(run) ? 'void' : indexedRuns.has(run) ? 'pending' : 'missing' : values.length ? values.some(m => m.validity === 'valid') ? 'valid' : 'unverified' : rows.length ? rows.reduce((a, b) => severity[b.validity] > severity[a] ? b.validity : a, rows[0].validity) : indexedRuns.has(run) ? 'pending' : 'unverified';
+    const runAggregates = [...aggregates.values()].filter(a => a.run === run);
+    const schedule = statuses.find(s => s.run === run && runFiles.some(f => s.sources.includes(dirname(f.id))));
+    const observedGames = Math.max(0, ...runAggregates.map(a => (a.family?.records ?? a.records).size));
+    const expected = schedule?.plannedGames ?? [...metadata.values()].find(m => m.spec.id === run)?.expected ?? null;
+    const runSpec = [...metadata.values()].find(m => m.spec.id === run)?.spec;
+    const selected = schedule ? selectedIds(schedule, !Array.isArray(runSpec?.entrants) || runSpec?.mirrorOnly === true).size : expected;
+    const complete = runAggregates.some(a => a.validity === 'valid' && selected !== null && (a.family?.records ?? a.records).size === selected);
+    runs.push({ run, queue: queue.get(run) ?? [], status, lifecycle: schedule?.lifecycle ?? (complete ? 'complete' : indexedRuns.has(run) ? 'pending' : 'unknown'), observedGames, selectedGames: selected, sources: runFiles.map(f => f.id), reasons: runFiles.length ? [...new Set(rows.flatMap(m => m.reasons))] : ['QUEUE references this run; no source is present.'], expectedGames: expected });
     if (!runFiles.length) files.push({ path: '', id: `queue:${run}`, run, kind: 'missing', entry: { source: `queue:${run}`, run, kind: 'missing', status, reasons: ['No local source is present.'], bytes: 0, records: 0, accepted: 0, duplicates: 0, invalid: 0 } });
-    if (pendingRuns.has(run) && !rows.length) measurements.push({ id: `${run}:pending`, run, element: 'run', version: null, context: unknownContext(), measure: 'whiteScore', value: null, error: null, errorKind: null, sample: null, sampleUnit: 'unknown', unit: 'fraction', validity: 'pending', reasons: ['QUEUE: no complete authorized source.'], sources: runFiles.map(f => f.id), method: 'queue index' });
+    if (indexedRuns.has(run) && !rows.length) measurements.push({ id: `${run}:pending`, run, element: 'run', version: null, context: unknownContext(), measure: 'whiteScore', value: null, error: null, errorKind: null, sample: null, sampleUnit: 'unknown', unit: 'fraction', validity: 'pending', reasons: ['QUEUE: no complete authorized source.'], sources: runFiles.map(f => f.id), method: 'queue index' });
   }
+  closePairedReports(reports, measurements, runs, aggregates);
   for (const row of measurements) if (row.context.machine === null) row.context.machine = queueMachine(queue.get(row.run) ?? []);
-  return { schemaVersion: 1, measurements, sources: files.map(f => f.entry), runs, warnings };
+  return { schemaVersion: 1, measurements, sources: files.map(f => f.entry), runs, warnings, inputDigest: hash(stable({ sources: files.map(f => [f.id, f.entry.sha256 ?? null]).sort(), queue: hash(queueText), statuses })) };
 }
 
 function importReports(reports: Map<string, { file: File; data: Json | string }>, metadata: Map<string, Metadata>, measurements: Measurement[], overrides: Map<string, SourceOverride>): void {
@@ -362,18 +408,17 @@ function importReports(reports: Map<string, { file: File; data: Json | string }>
       if (c.depth === null && !mixedDepth) { const depth = /\bDepth (\d+)/i.exec(data); if (depth) c = { ...c, depth: +depth[1] }; }
     } else { sample = finite(data.games) ? data.games : null; if (object(data.rules) && !c.flags) c = { ...c, flags: data.rules, flagsKind: 'diff' }; }
     const override = overrides.get(file.id);
-    if (override?.commit) c = { ...c, commit: override.commit };
+    if (override?.commit) c = { ...c, commit: override.commit, commitSource: 'override' };
     if (override?.machine) c = { ...c, machine: override.machine };
     const localRaw = measurements.filter(m => m.run === file.run && m.method.startsWith('streamed') && m.sources.some(source => dirname(source) === dirname(file.id)));
     const contexts = [...new Map(localRaw.map(m => [stable({ ...m.context, population: 'run' }), { ...m.context, population: 'run' as const }])).values()];
-    if (contexts.length === 1 && localRaw.some(m => m.sample === sample) && Object.entries(c.flags ?? {}).every(([k, v]) => stable(contexts[0].flags?.[k]) === stable(v))) c = { ...contexts[0], ...c, sourceHash: contexts[0].sourceHash, commit: contexts[0].commit, specKey: contexts[0].specKey, pool: contexts[0].pool };
+    if (contexts.length === 1 && localRaw.some(m => m.sample === sample) && Object.entries(c.flags ?? {}).every(([k, v]) => stable(contexts[0].flags?.[k]) === stable(v))) c = { ...contexts[0], ...c, sourceHash: contexts[0].sourceHash, commit: contexts[0].commit, commitSource: contexts[0].commitSource, specKey: contexts[0].specKey, pool: contexts[0].pool };
     const sourceState = sourceValidity(file, c);
     let validity = override?.validity ?? sourceState.validity;
     const reasons = [...sourceState.reasons, ...(meta?.reasons ?? [])];
     if (override) reasons.push(override.reason);
     if (meta?.reasons.length) validity = 'conflict';
-    if (target !== null && sample !== null && sample !== target && severity[validity] < severity.incomplete) { validity = 'incomplete'; reasons.push(`Report has ${sample} games; source expects ${target}.`); }
-    if (pendingRuns.has(file.run) && !measurements.some(m => m.run === file.run && m.validity === 'valid') && !override?.complete && severity[validity] < severity.void) { validity = 'pending'; reasons.push('QUEUE: pending until an authorized source proves completion.'); }
+    if (!localRaw.length && target !== null && sample !== null && sample !== target && severity[validity] < severity.incomplete) { validity = 'incomplete'; reasons.push(`Report has ${sample} games; source expects ${target}.`); }
     for (const row of localRaw) if (severity[row.validity] > severity[validity]) { validity = row.validity; reasons.push(...row.reasons); }
     if (c.variantScope === 'mixed' && validity === 'valid') { validity = 'unverified'; reasons.push('Report pools rule variants; per-matchup effective flags are not proved.'); }
     if (mixedDepth && validity === 'valid') { validity = 'unverified'; reasons.push('Report pools search depths; a single depth is not proved.'); }
@@ -405,7 +450,7 @@ function importReports(reports: Map<string, { file: File; data: Json | string }>
       if (previous === fingerprint) { file.entry.status = 'duplicate'; file.entry.reasons.push('This report measurement is already covered by an identical source.'); return; }
       if (previous) { file.entry.status = 'conflict'; file.entry.reasons.push('Reports disagree for the same run, element and context.'); for (const m of measurements.filter(m => m.id === `report:${hash(key).slice(0, 24)}`)) { m.validity = 'conflict'; m.value = null; m.error = null; m.reasons.push('Stored reports disagree.'); } return; }
       seen.set(key, fingerprint);
-      measurements.push({ id: `report:${hash(key).slice(0, 24)}`, run: file.run, element, version: c.commit ?? c.sourceHash, context: { ...c, population: 'report' }, measure, value: blocked ? null : cell.value, error: blocked ? null : cell.error, errorKind, sample: n, sampleUnit: 'games', unit, validity, reasons: [...reasons], sources: sourceIds, method: 'stored report; not an independent sample from raw games of this run', ...(cell.bound ? { bound: cell.bound } : {}), ...(reference ? { reference } : {}), ...(calibration ? { calibration } : {}) });
+      measurements.push({ id: `report:${hash(key).slice(0, 24)}`, run: file.run, element, version: c.commit ?? c.sourceHash, context: { ...c, population: 'report' }, measure, value: blocked ? null : cell.value, error: blocked ? null : cell.error, errorKind, sample: n, sampleUnit: 'games', unit, validity, reasons: [...reasons], sources: sourceIds, method: 'stored report; not an independent sample from raw games of this run', ...(cell.bound ? { bound: cell.bound } : {}), ...(reference ? { reference } : {}), ...(reference === 'draws excluding plyCap' ? { denominator: 'all completed games; ply-cap results are excluded from the draw count' } : {}), ...(calibration ? { calibration } : {}) });
       file.entry.accepted++;
     };
     if (typeof data !== 'string') {
@@ -414,7 +459,7 @@ function importReports(reports: Map<string, { file: File; data: Json | string }>
       const ci = Array.isArray(g.ci) && finite(score) ? Math.max(score - g.ci[0], g.ci[1] - score) : null;
       add('run', 'whiteScore', { value: finite(score) ? score : null, error: finite(ci) ? ci : null }, 'fraction', sample, ci === null ? null : '95% interval as stored in report');
       const draws = finite(g.drawRate) ? g.drawRate : finite(g.draws) && sample ? g.draws / sample : null;
-      add('run', 'drawRate', { value: draws, error: null }, 'fraction');
+      add('run', 'drawRate', { value: draws, error: null }, 'fraction', sample, null, finite(g.drawRate) ? 'draws excluding plyCap' : undefined);
       add('run', 'meanPlies', { value: finite(g.meanPlies) ? g.meanPlies : null, error: finite(g.sdPlies) && sample ? 1.96 * g.sdPlies / Math.sqrt(sample) : null }, 'plies', sample, '95% normal interval over games as stored in report');
       if (object(g.utilisation)) for (const [piece, value] of Object.entries(g.utilisation)) if (finite(value)) add(piece, 'activity', { value, error: null }, 'report utilisation');
     } else {
@@ -472,20 +517,84 @@ function importReports(reports: Map<string, { file: File; data: Json | string }>
   }
 }
 
+function closePairedReports(reports: Map<string, { file: File; data: Json | string }>, measurements: Measurement[], runs: RunCoverage[], aggregates: Map<string, Aggregate>): void {
+  const seen = new Map<string, { hash: string | undefined; ids: string[] }>();
+  const parentState = new Map<string, Validity>();
+  for (const { file, data } of reports.values()) {
+    if (typeof data !== 'string' || !/paired two-population comparison/i.test(data)) continue;
+    const baseRun = `${file.run}.base`, variantRun = `${file.run}.var`;
+    const table = markdownTables(data).find(t => t.headers.includes('mean paired difference ±95%'));
+    if (!table) continue;
+    const samples = /(\d[\d,]*) games per population/i.exec(data);
+    const arrangements = /same (\d[\d,]*) arrangements/i.exec(data);
+    const n = arrangements ? +arrangements[1].replace(/,/g, '') : null;
+    const games = samples ? +samples[1].replace(/,/g, '') : null;
+    const arms = [baseRun, variantRun].map(run => [...aggregates.values()].filter(a => a.run === run && (a.sources.has(`${dirname(file.id)}/${run}.jsonl`) || a.sources.has(`${dirname(file.id)}/${run}.jsonl.gz`)) && a.validity === 'valid'));
+    const base = arms[0].length === 1 ? arms[0][0] : null, variant = arms[1].length === 1 ? arms[1][0] : null;
+    const paired = !!base && !!variant && games !== null && n !== null && base.records.size === games && variant.records.size === games && base.pairKeys.size === games && variant.pairKeys.size === games && base.arrangements.size === n && variant.arrangements.size === n && [...base.pairKeys].every(([id, key]) => variant.pairKeys.get(id) === key);
+    let validity: Validity = paired ? 'valid' : 'incomplete';
+    const reasons = paired ? ['Both raw arms pass the scheduled ID and common-opening checks. The stored interval uses shared arrangements.'] : ['A paired comparison needs both valid raw arms, all scheduled games and the same arrangements and opening seeds.'];
+    const sources = [...new Set([file.id, ...arms.flatMap(group => group.flatMap(a => [...a.sources]))])];
+    const c = variant?.context ?? unknownContext();
+    const context: MeasurementContext = { ...c, population: 'report', settings: { base: base?.context ?? null, variant: variant?.context ?? null, gamesPerArm: games, pairedArrangements: n } };
+    const key = stable({ run: file.run, context, validity });
+    const previous = seen.get(key);
+    if (previous && previous.hash === file.entry.sha256) {
+      for (const row of measurements.filter(m => previous.ids.includes(m.id))) row.sources = [...new Set([...row.sources, ...sources])];
+      const parent = runs.find(r => r.run === file.run);
+      if (parent) parent.sources = [...new Set([...parent.sources, ...sources])];
+      file.entry.status = 'duplicate'; file.entry.reasons.push('The paired report and arm context are already counted.');
+      continue;
+    }
+    if (previous) {
+      validity = 'conflict'; reasons.push('Paired reports disagree for the same arm context.');
+      for (const row of measurements.filter(m => previous.ids.includes(m.id))) { row.validity = 'conflict'; row.value = null; row.error = null; row.reasons.push(reasons[reasons.length - 1]); }
+    }
+    const ids: string[] = [];
+    seen.set(key, { hash: file.entry.sha256, ids });
+    const index = table.headers.indexOf('mean paired difference ±95%');
+    for (const row of table.rows) {
+      const label = row[0]?.toLowerCase();
+      const measure: Measure | null = label === 'white score' ? 'whiteScore' : label === 'draw rate' ? 'drawRate' : label === 'mean plies' ? 'meanPlies' : null;
+      if (!measure) continue;
+      const cell = numericCell(row[index] ?? '');
+      const id = `paired:${hash(stable([file.id, measure])).slice(0, 24)}`; ids.push(id);
+      measurements.push({ id, run: file.run, element: 'run', version: c.commit ?? c.sourceHash, context, measure, value: validity === 'valid' ? cell.value : null, error: validity === 'valid' ? cell.error : null, errorKind: '95% normal interval over paired arrangement differences as stored in report', sample: n, sampleUnit: 'arrangements', unit: measure === 'meanPlies' ? 'plies' : 'fraction difference', validity, reasons, sources, method: 'stored paired report; variant minus base over shared arrangements; not an independent game sample', reference: 'variant minus base', comparison: { baseRun, variantRun, kind: 'paired' }, ...(measure === 'drawRate' ? { denominator: 'all games per arrangement; ply-cap results are excluded from the draw count' } : {}) });
+    }
+    const parent = runs.find(r => r.run === file.run);
+    if (parent) {
+      const prior = parentState.get(file.run);
+      const priority = (state: Validity | undefined) => state === 'conflict' ? 3 : state === 'valid' ? 2 : state ? 1 : 0;
+      const best = priority(prior) > priority(validity) ? prior! : validity;
+      parentState.set(file.run, best);
+      parent.status = best; parent.lifecycle = best === 'valid' ? 'complete' : 'unknown';
+      parent.observedGames = Math.max(parent.observedGames, (base?.games ?? 0) + (variant?.games ?? 0));
+      parent.expectedGames = Math.max(parent.expectedGames ?? 0, games === null ? 0 : games * 2) || null;
+      parent.selectedGames = parent.expectedGames;
+      parent.reasons = [...new Set([...parent.reasons, ...reasons])]; parent.sources = [...new Set([...parent.sources, ...sources])];
+    }
+    for (let i = measurements.length - 1; i >= 0; i--) if (measurements[i].run === file.run && measurements[i].method === 'queue index') measurements.splice(i, 1);
+    file.entry.status = validity === 'valid' ? 'report' : validity; file.entry.accepted = 3; file.entry.reasons.push(...reasons);
+  }
+}
+
 export function coverageMarkdown(dataset: BalanceDataset): string {
   const counts: Record<string, number> = {};
   for (const source of dataset.sources) counts[source.status] = (counts[source.status] ?? 0) + 1;
-  const lines = ['# Balance source coverage', '', 'Local source snapshot. No games run. No moves replayed.', '', `${dataset.sources.length} sources; ${dataset.runs.length} run IDs; ${dataset.measurements.length} measurements.`, '', '| Source status | Count |', '|---|---:|', ...Object.entries(counts).sort().map(([s, n]) => `| ${s} | ${n} |`), '', 'An empty rule diff is historical and incomplete. It does not name current rules. Game intervals do not include army variation. Stored report views are not independent samples. Missing errors stay unknown.', '', '## Runs', '', '| Run | Status | Expected games | Sources | Reason |', '|---|---|---:|---:|---|'];
+  const lines = ['# Balance source coverage', '', 'Local source snapshot. Campaign analysis can replay saved moves. It does not start games.', '', `Input digest: ${dataset.inputDigest ?? 'not recorded'}`, '', `${dataset.sources.length} sources; ${dataset.runs.length} run IDs; ${dataset.measurements.length} measurements.`, '', '| Source status | Count |', '|---|---:|', ...Object.entries(counts).sort().map(([s, n]) => `| ${s} | ${n} |`), '', 'An empty rule diff is historical and incomplete. It does not name current rules. Game intervals do not include army variation. Stored report views are not independent samples. Missing errors stay unknown.', '', '## Runs', '', '| Run | Lifecycle | Validity | Observed games | Selected games | Planned games | Sources | Reason |', '|---|---|---|---:|---:|---:|---:|---|'];
   const escape = (s: string): string => s.replace(/\|/g, '\\|').replace(/\n/g, ' ');
-  for (const run of dataset.runs) lines.push(`| ${run.run} | ${run.status} | ${run.expectedGames ?? '?'} | ${run.sources.length} | ${escape(run.reasons.join(' '))} |`);
-  lines.push('', 'The `sources` array in `measurements.json` is the full per-file ledger. It gives the status, reason, record count, counted records, duplicate count and content hash for each source.');
+  for (const run of dataset.runs) lines.push(`| ${run.run} | ${run.lifecycle} | ${run.status} | ${run.observedGames} | ${run.selectedGames ?? '?'} | ${run.expectedGames ?? '?'} | ${run.sources.length} | ${escape(run.reasons.join(' '))} |`);
+  lines.push('', 'The `sources` array in `measurements.json` is the full per-file ledger. It gives the status, reason, record count, counted records, duplicate count and content hash for each source. Raw JSONL hashes cover decoded stream bytes; .gz sources use decompressed bytes. Snapshot hashes cover file bytes.');
+  const errors = new Map<string, number>();
+  for (const source of dataset.sources.filter(s => ['error', 'conflict', 'invalid'].includes(s.status))) for (const reason of new Set(source.reasons)) errors.set(reason, (errors.get(reason) ?? 0) + 1);
+  if (errors.size) lines.push('', '## Source errors', '', '| Reason | Files |', '|---|---:|', ...[...errors].sort((a,b)=>b[1]-a[1]).map(([reason,n])=>`| ${escape(reason)} | ${n} |`));
   if (dataset.warnings.length) lines.push('', '## Gaps', '', ...dataset.warnings.map(w => `- ${w}`));
   return `${lines.join('\n')}\n`;
 }
 export async function writeDataset(dataset: BalanceDataset, output: string): Promise<void> {
   await mkdir(output, { recursive: true });
   const array = (rows: unknown[]): string => `[\n${rows.map(row => `    ${JSON.stringify(row)}`).join(',\n')}\n  ]`;
-  const text = `{\n  \"schemaVersion\": ${dataset.schemaVersion},\n  \"measurements\": ${array(dataset.measurements)},\n  \"sources\": ${array(dataset.sources)},\n  \"runs\": ${array(dataset.runs)},\n  \"warnings\": ${JSON.stringify(dataset.warnings)}\n}\n`;
+  const text = `{\n  \"schemaVersion\": ${dataset.schemaVersion},\n  \"inputDigest\": ${JSON.stringify(dataset.inputDigest ?? null)},\n  \"measurements\": ${array(dataset.measurements)},\n  \"sources\": ${array(dataset.sources)},\n  \"runs\": ${array(dataset.runs)},\n  \"warnings\": ${JSON.stringify(dataset.warnings)}\n}\n`;
   await writeFile(join(output, 'measurements.json'), text);
   await writeFile(join(output, 'coverage.md'), coverageMarkdown(dataset));
 }

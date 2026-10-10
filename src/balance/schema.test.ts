@@ -37,6 +37,17 @@ describe('design schema', () => {
     expect(morph.dimensions.resultTypes).toContain('L');
     expect(morph.dimensions.excludedResults).toContain('secondGuard');
   });
+  it('records copied values and mark renewal without null placeholders', () => {
+    for (const name of ['Mirror', 'MirrorB']) {
+      const e = SHIPPED_ELEMENTS.find(e => e.kind === 'card' && e.name === name)!;
+      expect(e.dimensions).toMatchObject({ turnCost: 'inherited', captures: 'inherited', targets: 'inherited', duration: 'inherited', targetKind: 'card' });
+      const wrong = structuredClone(e);
+      if (wrong.kind !== 'card') throw new Error('missing copy card');
+      wrong.dimensions.duration = 'instant';
+      expect(validateElement(wrong)).toContain(`${wrong.id}: duration inherits only for a copy effect`);
+    }
+    expect(SHIPPED_ELEMENTS.find(e => e.kind === 'card' && e.name === 'Rescue')?.dimensions).toMatchObject({ duration: 'renewOpponentTurn', targetKind: 'mark' });
+  });
   it('rejects unknown values, dimensions and incomplete records', () => {
     const e = piece();
     const d = e.dimensions as unknown as Record<string, unknown>;
@@ -63,20 +74,36 @@ describe('design schema', () => {
 });
 
 describe('document and source drift', () => {
-  it('has no unreviewed baseline drift while it reports the existing gaps', () => {
-    const findings = auditDesign(baseline);
-    expect(findings.filter(f => /DRIFT|SECTION_(ADDED|REMOVED)|ELEMENT_DOES_NOT_FIT/.test(f.code))).toEqual([]);
-    expect(findings.some(f => f.code === 'RULE_ABSENT_FROM_MATRIX' && f.source.includes('guardReserve'))).toBe(true);
-    expect(findings.some(f => f.code === 'STALE_MATRIX_STATUS')).toBe(true);
-    expect(findings.every(f => f.source && f.approval && f.message)).toBe(true);
+  it('has no source findings after the approved corrections', () => {
+    expect(auditDesign(baseline)).toEqual([]);
+  });
+  it.each([
+    ['MATRIX_MORPH_READING_GAP', 'second Guard for the side', 'guard for the side'],
+    ['MATRIX_CONDITION_GAP', 'a piece lost · a card played · material behind · own last mark', 'a card played'],
+    ['MATRIX_NULL_TURN_COST_GAP', 'none (always-on) · ', ''],
+    ['MATRIX_COPY_GAP', 'inherited from the copied card', 'unspecified'],
+    ['MATRIX_CAPTURE_STAGE_GAP', '| Second capture | same as Captures · may · must · never |', '| Second capture | same as Captures |'],
+    ['MATRIX_TARGET_DOMAIN_GAP', 'piece · pawn · empty square · pile · prior mark · card', 'piece · pawn · card'],
+    ['MATRIX_DURATION_GAP', 'renew an earlier mark for one more opponent turn', 'next turn'],
+    ['FLIGHT_ABILITY_CONFLICT', '**1b Special move — friendly half only**', '**1b Arriving — friendly half only**'],
+  ])('reports %s only when its source fact is absent', (code, current, stale) => {
+    expect(baseline.matrixDoc).toContain(current);
+    expect(codes(baseline)).not.toContain(code);
+    expect(codes({ ...baseline, matrixDoc: baseline.matrixDoc.replace(current, stale) })).toContain(code);
+  });
+  it('rejects the old blanket movement ban while retaining approved powers', () => {
+    const approved = 'When adjusting a king power for balance, do not add changes to how';
+    expect(baseline.rulesDoc).toContain(approved);
+    expect(readFileSync(new URL('../../AGENTS.md', import.meta.url), 'utf8')).toContain(approved);
+    expect(codes({ ...baseline, rulesDoc: `${baseline.rulesDoc}\nNo king-power reading changes how other pieces move.` })).toContain('KING_MOVEMENT_RULE_CONFLICT');
   });
   it('fails if a matrix dimension is removed', () => {
-    const input = { ...baseline, matrixDoc: baseline.matrixDoc.replace(/^\| Captures \| may · must · never \|\n/m, '') };
+    const input = { ...baseline, matrixDoc: baseline.matrixDoc.replace(/^\| Captures \|[^\n]*\n/m, '') };
     expect(codes(input)).toContain('MATRIX_DIMENSIONS_DRIFT');
     expect(codes(input)).toContain('DOCUMENT_DRIFT');
   });
   it('fails if allowed values change while all old words remain', () => {
-    const input = { ...baseline, matrixDoc: baseline.matrixDoc.replace('| Captures | may · must · never |', '| Captures | may · must · never · always |') };
+    const input = { ...baseline, matrixDoc: baseline.matrixDoc.replace('| Captures | may · must · never · inherited from the copied card |', '| Captures | may · must · never · always · inherited from the copied card |') };
     expect(codes(input)).toContain('DOCUMENT_DRIFT');
   });
   it('fails on changed behavior while the names remain', () => {
@@ -112,6 +139,26 @@ describe('document and source drift', () => {
 });
 
 describe('recorded versions', () => {
+  it.each([
+    ['Rules', 'C18', 'Four starting cards per side.', 'Six cards a side.', 'WORKBOOK_HAND_SIZE_CONFLICT'],
+    ['Cards', 'E2', 'Each side starts with the same four random one-use cards from the deal.', 'Each side gets the same six random one-use cards from the deal.', 'WORKBOOK_HAND_SIZE_CONFLICT'],
+    ['Rules', 'C5', 'Each army starts with at most one Beast. Morph cannot create a Beast while that side has one. Salvation or Sacrifice may return a captured Beast even if that gives the side a second Beast.', 'An army never has two beasts, custom armies included.', 'WORKBOOK_BEAST_LIMIT_CONFLICT'],
+  ])('detects stale text in %s!%s', (sheet, cell, current, stale, code) => {
+    expect(codes({ ...baseline, workbook: workbook(sheet, { [cell]: current }) })).not.toContain(code);
+    expect(codes({ ...baseline, workbook: workbook(sheet, { [cell]: stale }) })).toContain(code);
+  });
+  it('maps the Beast limit to the starting army and keeps the Morph exclusion', () => {
+    const w = workbook('Rules', { A5: 'One beast per army', B5: 'Approved', C5: 'Each army starts with at most one Beast.' });
+    expect(mapWorkbookVersions(w)[0].element).toMatchObject({ kind: 'globalRule', axis: 'beastLimit', dimensions: { value: 'oneInArmy' } });
+    const morph = SHIPPED_ELEMENTS.find(e => e.kind === 'card' && e.name === 'Morph')!;
+    if (morph.kind !== 'card') throw new Error('missing Morph');
+    expect(morph.dimensions.excludedResults).toContain('secondBeast');
+  });
+  it('maps both current hand records to four starting cards', () => {
+    for (const w of [workbook('Rules', { A18: 'Hand size', B18: 'Approved', C18: 'Four starting cards per side.' }), workbook('Cards', { A2: 'Card mode', C2: 'Base', D2: 'Testing', E2: 'Each side starts with four cards.' })]) {
+      expect(mapWorkbookVersions(w)[0].element).toMatchObject({ kind: 'globalRule', axis: 'handSize', dimensions: { value: 4 } });
+    }
+  });
   it('rejects malformed workbook data at the input boundary', () => {
     expect(() => parseWorkbook({ source: 'file.xlsx', sha256: 'a'.repeat(64), sheets: [{ name: 'Pieces', cells: [{ cell: 'A0', value: {} }] }] })).toThrow();
     expect(parseWorkbook({ source: 'file.xlsx', sha256: 'a'.repeat(64), sheets: [] }).source).toBe('file.xlsx');
@@ -127,6 +174,12 @@ describe('recorded versions', () => {
     expect(element.sources).toContain('workbook:Pieces!C8');
     expect(validateElement(element)).toEqual([]);
     expect(codes({ ...baseline, workbook: w })).not.toContain('VERSION_ABSENT_FROM_MATRIX');
+  });
+  it.each(['Over2', 'Over23'])('finds the documented historical %s reading', version => {
+    const w = workbook('Pieces', { A8: 'Archer', C8: version, D8: 'Rejected' });
+    expect(codes({ ...baseline, workbook: w })).not.toContain('VERSION_ABSENT_FROM_MATRIX');
+    const without = baseline.matrixDoc.replace(new RegExp(`\\b${version.toLowerCase()}\\b`, 'g'), 'removedReading');
+    expect(codes({ ...baseline, workbook: w, matrixDoc: without })).toContain('VERSION_ABSENT_FROM_MATRIX');
   });
   it('splits combined tested versions with a separate patch for each', () => {
     const w = workbook('Pieces', { A1: 'Name', A8: 'Archer', G8: 'PlusDiagFwd2Clear, fwd2NoBack, fwd2NoSide', H8: 'Testing', I8: 'Three shot sets' });
@@ -153,7 +206,7 @@ describe('recorded versions', () => {
     expect(reserve).toMatchObject({ kind: 'rule', flag: 'guardReserve', dimensions: { value: 'any' }, shipped: false });
     expect(codes({ ...baseline, workbook: w })).not.toContain('DECLARED_TARGET_NOT_SHIPPED');
     expect(codes({ ...baseline, workbook: w })).not.toContain('WORKBOOK_HAND_SIZE_CONFLICT');
-    expect(auditDesign(baseline).some(f => f.code === 'RULE_ABSENT_FROM_MATRIX' && f.source.includes('guardNextToKing'))).toBe(true);
+    expect(codes(baseline)).not.toContain('RULE_ABSENT_FROM_MATRIX');
   });
   it('keeps old Archer and Death Touch readings separate from new defaults', () => {
     const archer = mapWorkbookVersions(workbook('Pieces', { A8: 'Archer', K8: 'PlusDiagFwd2', L8: 'Rejected' }))[0].element!;
@@ -166,8 +219,17 @@ describe('recorded versions', () => {
       expect(validateElement(e)).toEqual([]);
     }
   });
+  it('maps only the original archived Squire Base version', () => {
+    const w = workbook('Pieces', { A17: 'Squire', C17: 'Base', D17: 'Dropped', E17: 'Reserve piece from the recovered Cursor experiment.', F17: 'Archived. Not in src/.', W17: 'docs/MATRIX.md' });
+    const e = mapWorkbookVersions(w)[0].element!;
+    expect(e).toMatchObject({ kind: 'piece', letter: 'E', approval: 'dropped', shipped: false, tested: true, dimensions: { movement: 'step1', capturePattern: 'same', deployment: 'reserveOnceAnyEmptySquare' }, rules: {} });
+    expect(e.sources).toContain('docs/research/squire-drop-2026-09-24.md');
+    expect(validateElement(e)).toEqual([]);
+    expect(codes({ ...baseline, workbook: w })).not.toContain('VERSION_NOT_MAPPED');
+    expect(mapWorkbookVersions(workbook('Pieces', { A17: 'Squire', C17: 'Unspecified shape', D17: 'Dropped' }))[0].element).toBeNull();
+  });
   it('reports a missing mapping and leaves unknown status unresolved', () => {
-    const w = workbook('Pieces', { A17: 'Squire', C17: 'Base', D17: 'Unknown', E17: 'No source movement text' });
+    const w = workbook('Pieces', { A17: 'Squire', C17: 'Unspecified shape', D17: 'Unknown', E17: 'No source movement text' });
     expect(mapWorkbookVersions(w)[0].element).toBeNull();
     const finding = auditDesign({ ...baseline, workbook: w }).find(f => f.code === 'VERSION_NOT_MAPPED')!;
     expect(finding.source).toBe('workbook:Pieces!C17');

@@ -47,8 +47,8 @@
 ## Game design
 - Value is one axis; report paralysis, conditions and interactions beside it.
 - Judge each pool piece against the six [piece-balance criteria](docs/research/piece-balance-criteria-2026-10-03.md): worth with `run.ts --experiment values`, the rest with `tools/piece-activity.ts`.
-- To design or change a piece, king power, card or rule, start from [docs/MATRIX.md](docs/MATRIX.md) (ability types, the powers and cards schema, conditions, shackles, promotion) and add the new item there.
-- The Light and Dark kings may be stronger than the other four, but they must balance each other. A king power never changes how other pieces move; a card may.
+- Start all design changes in [docs/MATRIX.md](docs/MATRIX.md). Add new pieces, powers, cards and rules there.
+- The Light and Dark kings may be stronger than the other four, but they must balance each other. When adjusting a king power for balance, do not add changes to how other pieces move. Keep its existing approved effects. A card may change how pieces move.
 - All things being equal or near equal, do not change or add rules. A rule that is hard to remember is not adopted on numbers alone.
 
 ## Jev

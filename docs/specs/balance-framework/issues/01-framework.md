@@ -1,7 +1,7 @@
 # Build the balance and rules framework
 
 Type: task
-Status: claimed
+Status: done
 
 ## Acceptance checks
 
@@ -15,6 +15,10 @@ Status: claimed
 - The pull request contains no game, price, or main tracker changes.
 
 ## Progress
+
+This section records the first build. [Ticket 02](02-close-evidence.md) adds the verified M1
+evidence and closes the schema gaps. [Ticket 03](03-resolve-source-conflicts.md) applies the
+owner's final source corrections. Those tickets hold the current counts and checks.
 
 The framework uses main `7035b5e` as its reviewed game source. It changes no game rule or price.
 

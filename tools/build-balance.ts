@@ -1,30 +1,43 @@
-import { mkdir, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { importCampaign } from '../src/balance/campaign';
+import { mkdir, readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { buildDataset, writeDataset, type DatasetOptions, type SourceOverride } from '../src/balance/dataset';
+import { buildDataset, defaultSources, writeDataset, type DatasetOptions, type SourceOverride } from '../src/balance/dataset';
 import { buildFramework } from '../src/balance/report';
 import { readWorkbook } from '../src/balance/workbook';
+import { checkM1Snapshot } from '../src/balance/snapshot';
 
 const args = process.argv.slice(2);
 const options: DatasetOptions = { root: process.cwd(), onProgress: message => console.log(message) };
-let output = '', overrideFile = '', workbookFile = '';
+let output = '', overrideFile = '', workbookFile = '', campaign = '';
 for (let i = 0; i < args.length; i++) {
   const flag = args[i], value = args[++i];
   if (!value) throw new Error(`Missing value for ${flag}`);
   if (flag === '--root') options.root = resolve(value);
+  else if (flag === '--campaign') campaign = resolve(value);
+  else if (flag === '--queue') options.queue = resolve(value);
   else if (flag === '--source') (options.sources ??= []).push(value);
   else if (flag === '--out') output = resolve(value);
   else if (flag === '--overrides') overrideFile = value;
   else if (flag === '--workbook') workbookFile = resolve(value);
   else throw new Error(`Unknown option ${flag}`);
 }
+if (campaign && !options.sources?.length) throw new Error('--campaign requires explicit --source roots.');
 if (overrideFile) options.overrides = JSON.parse(await readFile(overrideFile, 'utf8')) as SourceOverride[];
+const sources = options.sources?.map((s, i) => typeof s === 'string' ? { path: resolve(s), alias: i === 0 ? 'sim/out' : `backup${i === 1 ? '' : i}` } : s) ?? await defaultSources(options.root);
+const snapshot = await checkM1Snapshot(options.root, sources);
+console.log(`M1 copy check: ${snapshot.checked} files match the saved remote hashes; ${snapshot.errors.length} gaps.`);
 const dataset = await buildDataset(options);
+if (campaign) importCampaign(campaign, dataset);
+if (snapshot.errors.length) dataset.warnings.push(`M1 copy check: ${snapshot.errors.length} files are absent or changed. ${snapshot.errors.slice(0, 3).join(' ')}`);
 if (new Set(dataset.measurements.map(m => m.id)).size !== dataset.measurements.length) throw new Error('Duplicate measurement IDs. Do not write an ambiguous dataset.');
 const out = output || resolve(options.root, 'docs/balance');
 await mkdir(out, { recursive: true });
 const workbookSource = 'docs/status/king-down-status-2026-10-09.xlsx';
 const workbook = readWorkbook(workbookFile || resolve(options.root, workbookSource), workbookSource);
-dataset.warnings.push('Remote-only M1 sources are not inventoried by this local command. The 2026-10-09 read-only access check cannot resolve its host name.');
+const analysisFiles = (await readdir(resolve(options.root,'src/balance'))).filter(f=>f.endsWith('.ts') && !f.endsWith('.test.ts')).sort().map(f=>'src/balance/'+f).concat(['tools/build-balance.ts']);
+const analysisHashes = await Promise.all(analysisFiles.map(async path=>[path,createHash('sha256').update(await readFile(resolve(options.root,path))).digest('hex')]));
+dataset.inputDigest = createHash('sha256').update(JSON.stringify({dataset:dataset.inputDigest,analysis:analysisHashes,workbook:workbook.sha256,evidence:await readFile(resolve(options.root,'docs/balance/evidence.json'),'utf8'),targets:await readFile(resolve(options.root,'docs/balance/target-contexts.json'),'utf8')})).digest('hex');
 buildFramework(options.root, dataset, workbook, out);
 await writeDataset(dataset, out);
 console.log(`Built ${dataset.measurements.length} measurements; ${dataset.sources.length} sources; ${dataset.runs.length} run IDs.`);

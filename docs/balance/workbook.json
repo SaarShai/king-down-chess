@@ -1,6 +1,6 @@
 {
   "source": "docs/status/king-down-status-2026-10-09.xlsx",
-  "sha256": "7b7b998c7f0bb0ff15704533ea484b419eb997927f7f4ff58c1b7c3eb6d75445",
+  "sha256": "f567dd9f08320915cbe00b5547a9cfa9b2bc1a5c03642202b041584f933eb56c",
   "sheets": [
     {
       "name": "Pieces",
@@ -773,7 +773,7 @@
         },
         {
           "cell": "E2",
-          "value": "Each side gets the same six random one-use cards from the deal."
+          "value": "Each side starts with the same four random one-use cards from the deal."
         },
         {
           "cell": "F2",
@@ -2333,11 +2333,11 @@
         },
         {
           "cell": "C2",
-          "value": "The king plus 7 pieces drawn from QORRBBNNAAGMMS, in the same order for both sides."
+          "value": "The back rank is drawn from QOLRRBBNNAAGMMS, with one Paladin in the pool."
         },
         {
           "cell": "D2",
-          "value": "Paladin out, ogre in (2026-09-24). One beast per army (2026-10-04). Owner 2026-10-09: Paladin back in the pool next to the Ogre (being built)."
+          "value": "Current pool: src/rules/setup.ts POOL. Paladin and Ogre are built."
         },
         {
           "cell": "E2",
@@ -2393,11 +2393,11 @@
         },
         {
           "cell": "C5",
-          "value": "An army never has two beasts, custom armies included."
+          "value": "Each army starts with at most one Beast. Morph cannot create a Beast while that side has one. Salvation or Sacrifice may return a captured Beast even if that gives the side a second Beast."
         },
         {
           "cell": "D5",
-          "value": "Owner 2026-10-04."
+          "value": "Owner 2026-10-04: no second Beast. Owner 2026-10-09: a second Beast may return through Salvation or Sacrifice."
         },
         {
           "cell": "E5",
@@ -2653,11 +2653,11 @@
         },
         {
           "cell": "C18",
-          "value": "Six cards a side."
+          "value": "Four starting cards per side."
         },
         {
           "cell": "D18",
-          "value": "Owner 2026-10-03: six. Owner 2026-10-08: more cards means fewer draws; the question is closed. Draws at d4: none 29.7%, 2 cards 17.5, 3 15.5, 4 12.6, 6 11.0."
+          "value": "Owner 2026-10-03: six. Owner 2026-10-08: more cards means fewer draws; the question is closed. Draws at d4: none 29.7%, 2 cards 17.5, 3 15.5, 4 12.6, 6 11.0. Owner 2026-10-09: four starting cards."
         },
         {
           "cell": "E18",
@@ -2673,7 +2673,7 @@
         },
         {
           "cell": "C19",
-          "value": "The cards the six are dealt from."
+          "value": "The cards the starting hand is dealt from."
         },
         {
           "cell": "D19",

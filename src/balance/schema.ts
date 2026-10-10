@@ -8,10 +8,10 @@ export const DIMENSIONS = {
   source: ['kingPower', 'card', 'both'],
   type: ['alwaysOn', 'mark', 'extraMove', 'specialMove', 'arrival', 'copy', 'draw', 'promotion', 'spawn'],
   rarity: ['common', 'legendary'],
-  turnCost: ['move', 'freeThenMove', 'extraMove'],
-  captures: ['may', 'must', 'never'],
-  targets: ['own', 'enemy', 'either'],
-  duration: ['instant', 'opponentNextTurn', 'always'],
+  turnCost: ['move', 'freeThenMove', 'extraMove', 'inherited'],
+  captures: ['may', 'must', 'never', 'inherited'],
+  targets: ['own', 'enemy', 'either', 'inherited'],
+  duration: ['instant', 'opponentNextTurn', 'renewOpponentTurn', 'always', 'inherited'],
   conditions: ['zone', 'tagTeam', 'turnN', 'capture', 'pieceLost', 'cardPlayed', 'materialBehind', 'ownLastMark'],
   isCondition: ['no', 'yes'],
   shackled: ['no', 'yes'],
@@ -20,6 +20,7 @@ export const DIMENSIONS = {
   secondCapture: ['same', 'may', 'must', 'never'],
   stopOnCapture: ['no', 'yes'],
   targetKind: ['piece', 'pawn', 'emptySquare', 'pile', 'mark', 'card'],
+  deployment: ['setup', 'reserveOnceAnyEmptySquare'],
   movement: ['pawn', 'knight', 'bishop', 'rook', 'queen', 'step1', 'step2', 'forward', 'forwardBack', 'diagonal', 'straight', 'none'],
   capturePattern: ['same', 'pawn', 'shot', 'none', 'adjacent', 'chain', 'lob'],
   hop: ['none', 'any', 'friends', 'enemies', 'oneEnemyScreen'],
@@ -45,17 +46,18 @@ export interface EffectDimensions extends SharedDimensions {
   rarity: Choice<'rarity'>;
   uses: number | null;
   turnCost: Choice<'turnCost'> | null;
-  captures: Choice<'captures'> | null;
-  targets: Choice<'targets'> | null;
+  captures: Choice<'captures'>;
+  targets: Choice<'targets'>;
   excludedTargets: readonly Choice<'excludedTargets'>[];
   excludedResults: readonly Choice<'excludedResults'>[];
   resultTypes: readonly Choice<'resultTypes'>[];
   secondCapture: Choice<'secondCapture'>;
   stopOnCapture: Choice<'stopOnCapture'>;
   targetKind: Choice<'targetKind'>;
-  duration: Choice<'duration'> | null;
+  duration: Choice<'duration'>;
 }
 export interface PieceDimensions extends SharedDimensions {
+  deployment: Choice<'deployment'>;
   movement: Choice<'movement'>;
   shotPattern: Choice<'shotPattern'> | null;
   capturePattern: Choice<'capturePattern'>;
@@ -215,7 +217,7 @@ export function validateElement(element: DesignElement): string[] {
     if (key in DIMENSIONS) {
       const allowed = DIMENSIONS[key as keyof typeof DIMENSIONS] as readonly unknown[];
       for (const v of Array.isArray(value) ? value : [value]) {
-        if (v !== null && !allowed.includes(v)) errors.push(`${element.id}: ${key}=${String(v)} is outside the matrix`);
+        if ((v !== null || !['shotPattern', 'turnCost'].includes(key)) && !allowed.includes(v)) errors.push(`${element.id}: ${key}=${String(v)} is outside the matrix`);
       }
     }
   }
@@ -226,7 +228,7 @@ export function validateElement(element: DesignElement): string[] {
     if (!('domain' in spec) && !(spec.allowed as readonly unknown[]).includes(element.dimensions.value)) errors.push(`${element.id}: ${element.flag}=${String(element.dimensions.value)} is outside the rule axis`);
   } else {
     const required = ['conditions', 'isCondition', 'shackled', 'promotion', 'fromMove', ...(element.kind === 'piece'
-      ? ['movement', 'shotPattern', 'capturePattern', 'hop', 'shield', 'handicap', 'control', 'trigger', 'zone']
+      ? ['deployment', 'movement', 'shotPattern', 'capturePattern', 'hop', 'shield', 'handicap', 'control', 'trigger', 'zone']
       : ['source', 'type', 'rarity', 'uses', 'turnCost', 'captures', 'targets', 'excludedTargets', 'excludedResults', 'resultTypes', 'duration', 'secondCapture', 'stopOnCapture', 'targetKind'])];
     for (const key of required) if (!(key in dimensions)) errors.push(`${element.id}: missing ${key}`);
     const d = element.dimensions;
@@ -234,6 +236,13 @@ export function validateElement(element: DesignElement): string[] {
     if (d.fromMove !== null && element.kind === 'kingPower' && element.dimensions.type === 'alwaysOn') errors.push(`${element.id}: an always-on power cannot have fromMove`);
     if (element.kind !== 'piece' && element.dimensions.uses !== null && (!Number.isSafeInteger(element.dimensions.uses) || element.dimensions.uses < 1)) errors.push(`${element.id}: uses needs a positive whole count or null for always on`);
     if (element.kind === 'card' && element.dimensions.uses !== 1) errors.push(`${element.id}: every card has one use`);
+    if (element.kind !== 'piece') {
+      const inherited = ['turnCost', 'captures', 'targets', 'duration'] as const;
+      for (const key of inherited) {
+        if ((element.dimensions[key] === 'inherited') !== (element.dimensions.type === 'copy')) errors.push(`${element.id}: ${key} inherits only for a copy effect`);
+      }
+      if (element.dimensions.turnCost === null && element.dimensions.type !== 'alwaysOn') errors.push(`${element.id}: only an always-on effect has no turn cost`);
+    }
   }
   if ('rules' in element) for (const [key, value] of Object.entries(element.rules)) {
     const dimension = RULE_DIMENSIONS[key as keyof Rules];
