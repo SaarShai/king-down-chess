@@ -1,6 +1,6 @@
 # 01 · Detached commands, and the reviewer in the worktree
 
-Status: ready-for-agent (docs on main; after the merge of tickets 02 and 03)
+Status: done (on main, 2026-10-10)
 
 ## Scope
 
@@ -10,5 +10,5 @@ Status: ready-for-agent (docs on main; after the merge of tickets 02 and 03)
 
 ## Done when
 
-- [ ] `npm run test:docs` passes.
-- [ ] The three edits are on main.
+- [x] `npm run test:docs` passes (74).
+- [x] The three edits are on main, pushed with `tools/push-main.sh` as its first use.

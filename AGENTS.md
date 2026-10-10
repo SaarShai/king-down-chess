@@ -15,6 +15,7 @@
 ## Tests and checks
 - Run the tests with `npm test` only; `npm run test:docs` runs the doc lints alone. Do not run bare vitest or `node --test`. Do not pipe the output through tail or grep.
 - Run a browser check with `npm run check:browser <name>`.
+- Start a command of more than two minutes (a check run, a render compare, a review helper, a run) detached: a background shell call that reports when it ends. Read its log then; a wait loop holds the turn.
 - Prefer a deterministic check (a test, a lint, a hook, a browser check) to a new line of prose here. Merge a new rule into the rule it changes; add no dated note.
 
 ## Worktrees and servers
@@ -27,7 +28,7 @@
 - Every run needs a go, and the launcher records the owner's quote. On this Mac without a go: unit tests, browser checks, a smoke run of at most 20 games with 2 workers.
 - A question is not a go. Write the quote and its date in the `docs/QUEUE.md` row before the launch. A queued run starts by its name.
 - Other compute uses the M1 or Kaggle, not this Mac. Use no cloud agent session as a run worker.
-- Start a run of more than a few minutes detached, and watch it with a separate check. [COMPUTE.md](docs/COMPUTE.md) holds the Kaggle, M1 and power facts, the run recipes and the shell limit.
+- [COMPUTE.md](docs/COMPUTE.md) holds the Kaggle, M1 and power facts, the run recipes and the shell limit.
 
 ## Secrets
 - Never print or commit a secret or a file of `.secrets/`: the Kaggle token, the OAuth and Porkbun keys, the TypeSafe key.

@@ -1,6 +1,6 @@
 # 02 · `render-compare.mjs --against <revision>`, and the stale selectors of samples 00 and 01
 
-Status: in-review (branch `claude/retro-tools`)
+Status: done (PR #38 merged 2026-10-10)
 
 ## Scope
 

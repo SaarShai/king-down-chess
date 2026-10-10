@@ -1,6 +1,6 @@
 # 03 · `tools/push-main.sh`
 
-Status: in-review (branch `claude/retro-tools`)
+Status: done (PR #38 merged 2026-10-10)
 
 ## Scope
 
