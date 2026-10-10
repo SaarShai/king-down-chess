@@ -2,7 +2,8 @@
 // The hooks path is absolute, as in a clone of this repository, so the pre-push hook runs in the script's worktree too.
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60_000 }); // each case runs real git and node processes; under load one takes more than vitest's 5 s
 import { tempRepo } from './lib/temp-repo.mjs';
 
 const script = fileURLToPath(new URL('./push-main.sh', import.meta.url));
@@ -31,7 +32,7 @@ function setup({ testFails = false } = {}) {
 const remoteMain = (repo: Repo) => repo.run('git', ['rev-parse', 'main'], { cwd: repo.remote }).stdout.trim();
 const worktrees = (repo: Repo) => repo.git('worktree', 'list').stdout.trim().split('\n').length;
 
-describe('push-main.sh', { timeout: 60_000 }, () => {
+describe('push-main.sh', () => {
   it('pushes the tip of main from a clean worktree while another edit sits in the checkout, from any worktree', () => {
     const repo = setup();
     const sha = repo.git('rev-parse', 'HEAD').stdout.trim();

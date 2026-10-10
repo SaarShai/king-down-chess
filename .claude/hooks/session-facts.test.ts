@@ -4,7 +4,8 @@ import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60_000 }); // each case runs a real script or hook in a child process; under load one takes more than vitest's 5 s
 import { tempRepo } from '../../tools/lib/temp-repo.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));

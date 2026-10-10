@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60_000 }); // the cases play whole games; under load one takes more than vitest's 5 s
 import { B, G, LETTERS, M, N, P, Q, R } from '../rules/engine';
 import { F, GAME, type StoredGame, addGame, at, countGame, fromRun, fromTournament, median, newTally, reportText, summarise, total, verdict } from '../../tools/piece-activity';
 import { playGame } from './game';

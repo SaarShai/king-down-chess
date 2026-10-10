@@ -1,7 +1,8 @@
 // Git-hook test for commit-msg (checks-and-hooks/03, story 6; checks-and-hooks/10, story 8).
 // Each case drives the real hook through a real `git commit` in a temporary repository. The names
 // come from the name module, so this file holds no model name.
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+vi.setConfig({ testTimeout: 60_000 }); // each case runs real git and node processes; under load one takes more than vitest's 5 s
 import { MODEL_NAMES } from '../lib/model-names.mjs';
 import { tempRepo } from '../lib/temp-repo.mjs';
 
@@ -82,7 +83,7 @@ describe('commit-msg', () => {
 });
 
 // Each case makes two real commits with all hooks; a busy machine needs more than 5 s.
-describe('commit-msg: removed assertions need Removed-check trailers', { timeout: 60_000 }, () => {
+describe('commit-msg: removed assertions need Removed-check trailers', () => {
   const removed = [steps[2], steps[5], steps[6]];
   const kept = steps.filter(step => !removed.includes(step));
 

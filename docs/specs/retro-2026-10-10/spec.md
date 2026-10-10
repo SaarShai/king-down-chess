@@ -1,6 +1,6 @@
 # Retro, 2026-10-10: the after-redesign run
 
-Status: done (items 2, 3 and 5: PR #38 merged 2026-10-10; items 1 and 4 on main the same day; item 6 is the owner's; item 7 keeps what works)
+Status: done (items 2, 3 and 5: PR #38 merged 2026-10-10; items 1 and 4 on main the same day; item 6 is the owner's; item 7 keeps what works; item 8: ticket 04, found after the retro)
 
 Method. The transcript of the session of 2026-10-10 (3,083 entries, 04:57 to 13:41, 397 shell calls, 220 minutes inside tool calls) was read for the categories of the retro skill: navigation, automated checks, coding standards, steering files, tool economy, no-ops, information access. The candidates, most severe first, and what came of each.
 
@@ -11,5 +11,6 @@ Method. The transcript of the session of 2026-10-10 (3,083 entries, 04:57 to 13:
 5. **A mechanical rule as prose: the push from a dirty main checkout.** The lesson described a seven-step dance. → `tools/push-main.sh [<commit>]`, and the pre-push hook names it when it refuses a dirty tree ([ticket 03](issues/03-push-main.md)).
 6. **The global agent file: likely no-ops.** Its Verification and quality section restates the model's defaults. The owner decides; nothing changed here.
 7. **Worked, keep:** the 120-word limit a section in AGENTS.md and the 5,000-byte limit on the Open items of TASKS.md both forced cuts; the settings field list of `sync.ts` is held equal by a test; the two comments in `main.ts` (the CSS import order, the `keys` read order) are the only prose left for two hidden orderings.
+8. **Automated check: the tests that start processes shared the 5-second unit limit.** Two `npm test` runs at once (load average above 10) pushed hook-driven cases to 5.3 to 6.7 s, and the pre-push hook refused three sound pushes. → Each test file that runs a script, hook or game in a child process sets its own 60 s limit; unit tests keep 5 s ([ticket 04](issues/04-process-test-limits.md)).
 
 Navigation was not a problem once `main.ts` was split; the part table of the after-redesign spec is the map of the game screen.
