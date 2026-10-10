@@ -13,9 +13,10 @@ const haste = async state => {
 export default {
   sizes: ['smallPhone', 'phone', 'desktop'],
   states: [
-    { name: 'haste-chain', motion: 'normal', query: `?${new URLSearchParams({ fen: 'k7/6pp/5pp/3pp1pp/2nS3p/8/8/K7 b - - 0 1', rules: '2017', kings: 'flame:haste,none', moves: 'Ka8-a7_Sd4xc4xd5xe5xf6!H_Sf6xg7xh7xg6xh5xg5xh4' })}`, controls: `${controls}, #see-again`, steps: async state => {
+    { name: 'haste-chain', motion: 'normal', query: `?${new URLSearchParams({ fen: 'k7/6pp/5pp1/3pp1pp/2nS3p/8/8/K7 b - - 0 1', rules: '2017', kings: 'flame:haste,none', moves: 'Ka8-a7_Sd4xc4xd5xe5xf6!H_Sf6xg7xh7xg6xh5xg5xh4' })}`, controls: `${controls}, #see-again`, steps: async state => {
       await settled(state);
       assert.equal(await state.page.locator('#context-text > span').nth(1).textContent(), 'Beast d4 takes c4 and d5 and e5 and f6 with Haste, then takes g7 and h7 and g6 and h5 and g5 and h4.');
+      assert.equal(await state.page.locator('#context-text > span').first().innerText(), 'Previously: their beast took 10 pieces.');
       if (state.size === 'smallPhone') await assertHiddenDetail(state.page);
     } },
     { name: 'long-turn', motion: 'normal', query: `?${new URLSearchParams({ fen: '7k/6p1/5p2/3pp3/2nS4/8/8/K7 b - - 0 1', moves: 'Kh8-h7_Sd4xc4xd5xe5xf6' })}`, controls: `${controls}, #see-again`, steps: async state => {
@@ -34,7 +35,7 @@ export default {
     { name: 'haste-turn', query: `?${new URLSearchParams({ fen: '7k/8/8/8/8/8/8/R5K1 b - - 0 1', kings: 'flame:haste,none', moves: 'Kh8-h7_Ra1-a5!H_Ra5-e5' })}`, controls, steps: haste },
     { name: 'haste-takes', motion: 'normal', query: `?${new URLSearchParams({ fen: '7k/8/8/r3r3/8/8/8/R5K1 b - - 0 1', rules: '2017', kings: 'flame:haste,none', moves: 'Kh8-h7_Ra1xa5!H_Ra5xe5' })}`, controls, steps: async state => {
       await haste(state);
-      assert.equal(await state.page.locator('#context-text > span').first().innerText(), 'Previously: their rook took your rook.');
+      assert.equal(await state.page.locator('#context-text > span').first().innerText(), 'Previously: their rook took 2 pieces.');
     } },
   ],
 };

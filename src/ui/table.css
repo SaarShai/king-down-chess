@@ -123,13 +123,16 @@
   #moves-line { height: 44px; min-height: 44px; }
 }
 
-#menu-sheet { height: fit-content; }
+#menu-sheet { height: fit-content; --menu-bottom-pad: 16px; }
+#menu-sheet.has-overflow .sheet-body { clip-path: inset(0 0 var(--menu-bottom-pad) 0); }
 #menu-sheet.is-placed { top: var(--menu-top); bottom: auto; margin-block: 0; max-height: calc(100dvh - var(--menu-top) - 12px); }
+#menu-sheet::after { content: ''; display: none; position: absolute; bottom: 0; left: 0; right: 0; height: 16px; background: linear-gradient(transparent, rgb(91 80 69 / 30%)); pointer-events: none; }
+#menu-sheet.has-overflow::after { display: block; }
 @media (max-width: 899px) {
   #menu-sheet, #menu-sheet.is-placed { top: auto; bottom: 0; height: fit-content; max-height: calc(100dvh - 24px); margin-block: auto 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-  #menu-sheet::after { content: ''; display: none; position: absolute; bottom: 0; left: 0; right: 0; height: 16px; background: linear-gradient(transparent, rgb(91 80 69 / 30%)); pointer-events: none; }
-  #menu-sheet.has-overflow::after { display: block; }
   #menu-sheet .sheet-head h2 { white-space: nowrap; }
+  #menu-sheet { --menu-bottom-pad: max(16px, env(safe-area-inset-bottom)); }
+  #menu-sheet .sheet-body { padding-bottom: var(--menu-bottom-pad); }
 }
 #menu-sheet [data-menu-page='resign'] h3 { font-family: var(--font-display); font-size: var(--fs-lg); color: var(--ink); text-transform: none; letter-spacing: normal; }
 
@@ -137,5 +140,4 @@
   #menu-sheet .menu-row { min-height: 44px; padding-block: 4px; line-height: 1.1; }
   #menu-sheet .resign-row { margin-top: 8px; }
   #menu-sheet .fields { gap: 4px; }
-  #menu-sheet .sheet-body { padding-bottom: 8px; }
 }

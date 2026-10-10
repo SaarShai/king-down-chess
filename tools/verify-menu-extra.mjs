@@ -120,12 +120,25 @@ try {
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();
       await page.keyboard.press('Escape'); assert.equal(await page.locator('[data-menu-page="menu"]').isVisible(), true);
     }
+    await page.evaluate(() => { window.savedCheckVisibility = Element.prototype.checkVisibility; Element.prototype.checkVisibility = undefined; });
     await openTricks(page);
+    await page.evaluate(() => { Element.prototype.checkVisibility = window.savedCheckVisibility; delete window.savedCheckVisibility; });
     if (width < 900) await assertPhoneSheet(page, height);
-    if (width < 900) assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => {
-      const edge = body.getBoundingClientRect().bottom;
+    assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => {
+      const edge = body.getBoundingClientRect().bottom - parseFloat(getComputedStyle(body).paddingBottom);
       return [...body.querySelectorAll('#tricks-list > li')].every(row => { const r = row.getBoundingClientRect(); return r.top >= edge || r.bottom <= edge; });
     }), 'Tricks ends between rows');
+    if (width >= 900) {
+      assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => body.scrollHeight > body.clientHeight + 1), 'desktop Tricks overflows');
+      assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'block', 'desktop Tricks paints a scroll shade');
+    }
+    await page.locator('#menu-sheet .sheet-body').evaluate(body => { body.scrollTop = body.scrollHeight; });
+    await page.waitForFunction(() => {
+      const body = document.querySelector('#menu-sheet .sheet-body');
+      return body.scrollHeight - body.clientHeight - body.scrollTop <= 1;
+    });
+    await page.waitForFunction(() => !document.getElementById('menu-sheet').classList.contains('has-overflow'));
+    assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'none', 'the shade hides at the scroll end');
     await page.locator('#menu-back').click(); await page.locator('#menu-back').click();
     await page.locator('[data-go="help"]').click(); await page.uncheck('#coords');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).coords), false);
@@ -145,6 +158,14 @@ try {
     assert.match(await page.locator('.coming-row').innerText(), /Card mode/);
     await shot(page, `extra-${width}`);
     await openAccount(page); assert.equal(await page.locator('#account').isVisible(), true);
+    const accountContent = await page.locator('#account-body').innerHTML();
+    await page.locator('#account-body').evaluate(body => { body.innerHTML = '<p>Account</p>' + '<label>Saved game</label>'.repeat(30); });
+    await page.waitForFunction(() => document.getElementById('menu-sheet').classList.contains('has-overflow'));
+    assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'block', 'Account content changes update the shade');
+    await page.locator('#account-body').evaluate((body, html) => { body.innerHTML = html; }, accountContent);
+    await page.waitForFunction(() => !document.getElementById('menu-sheet').classList.contains('has-overflow'));
+    assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'none', 'short Account content clears the shade');
+
     for (const item of ['Guide', 'New game', 'Workshop']) {
       await pressMenu(page, item);
       assert.equal(await page.locator('#menu-sheet').isVisible(), false, `${item}: Menu closes first`);

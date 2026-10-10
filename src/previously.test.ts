@@ -24,7 +24,7 @@ describe('Previously', () => {
     [{ from: 8, to: 8, captures: [], power: 'morph', promo: R }, 'their pawn became a rook.'],
     [{ from: 8, to: 8, captures: [], power: 'morphp', promo: 2 }, 'their pawn became a knight.'],
     [{ from: 8, to: 8, captures: [], power: 'ward' }, 'they shielded their pawn.'],
-    [{ from: 8, to: 8, captures: [], power: 'rescue' }, 'they put the mark on the pawn again.'],
+    [{ from: 8, to: 8, captures: [], power: 'rescue' }, 'they marked the pawn again.'],
     [{ from: 16, to: 16, captures: [], power: 'salvation', drop: R }, 'their rook returned on a3.'],
     [{ from: 16, to: 16, captures: [], drop: G }, 'their guard entered on a3.'],
     [{ from: 16, to: 16, captures: [], power: 'spawn', drop: P }, 'their pawn entered on a3.'],
@@ -35,14 +35,14 @@ describe('Previously', () => {
     const turn = previouslyTurn([{ pos: fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1'), move, lan: '' }], 1)!;
     expect(turn.line).toBe(line);
     expect(turn.detail).not.toMatch(/undefined| to (a2|e1)/);
-    expect(('Previously: ' + turn.line).split(/\s+/).length).toBeLessThanOrEqual(move.power === 'rescue' ? 9 : 8);
+    expect(('Previously: ' + turn.line).split(/\s+/).length).toBeLessThanOrEqual(8);
   });
 
   it('names Rescue when its mark is now on an empty square', () => {
     setRules({ hands: [['Rescue'], []], markFree: true });
     const game = played('4k3/8/8/8/8/8/P7/4K3 w - - 0 1 md6w0', ['!D:d6']);
     expect(previouslyTurn(game.history, 1)).toMatchObject({
-      line: 'they used Rescue.', detail: 'Rescue renews the mark on d6.',
+      line: 'they used Rescue.', detail: 'Rescue puts the mark on d6 again.',
     });
   });
 
@@ -101,8 +101,15 @@ describe('Previously', () => {
     const game = played('7k/8/8/r3r3/8/8/8/R5K1 b - - 0 1', ['Kh8-h7', 'Ra1xa5!H', 'Ra5xe5']);
     expect(previouslyTurn(game.history, 1)).toEqual({
       from: 1, to: 3,
-      line: 'their rook took your rook.', detail: 'Rook a1 takes a5 with Haste, then takes e5.', before: 'King h8 to h7.',
+      line: 'their rook took 2 pieces.', detail: 'Rook a1 takes a5 with Haste, then takes e5.', before: 'King h8 to h7.',
     });
+  });
+
+  it('counts every take in the friend Haste chain turn', () => {
+    setRules({ kings: [{ king: 'Flame', power: 'Haste' }, null], hasteCaptures: true });
+    const game = played('k7/6pp/5pp1/3pp1pp/2nS3p/8/8/K7 b - - 0 1',
+      ['Ka8-a7', 'Sd4xc4xd5xe5xf6!H', 'Sf6xg7xh7xg6xh5xg5xh4']);
+    expect(previouslyTurn(game.history, 1)?.line).toBe('their beast took 10 pieces.');
   });
 
   it('keeps the free mark and the friend move', () => {

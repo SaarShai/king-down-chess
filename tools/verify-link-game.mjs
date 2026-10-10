@@ -73,7 +73,7 @@ try {
   }), 'the whole friend turn fits at 320x568 with no scroll or cut glyphs');
   await long.page.goto(new URL(`?${new URLSearchParams({ fen: '7k/8/8/r3r3/8/8/8/R5K1 b - - 0 1', rules: '2017', kings: 'flame:haste,none', moves: 'Kh8-h7_Ra1xa5!H_Ra5xe5' })}`, base).href);
   await long.page.waitForFunction(() => document.getElementById('context-text').dataset.rank === 'previously');
-  assert.equal(await long.page.locator('#context-text > span').first().innerText(), 'Previously: their rook took your rook.');
+  assert.equal(await long.page.locator('#context-text > span').first().innerText(), 'Previously: their rook took 2 pieces.');
   assert.ok(await long.page.locator('#context-text').evaluate(el => el.scrollHeight <= el.clientHeight + 1 && el.getBoundingClientRect().bottom <= document.getElementById('moves-line').getBoundingClientRect().top), 'Haste takes are not cut at 320x568');
   for (const [width, height] of [[320, 568], [390, 844]]) {
     await long.page.setViewportSize({ width, height });
@@ -99,8 +99,9 @@ try {
     const box = el.getBoundingClientRect(), area = document.getElementById('context-line').getBoundingClientRect();
     return el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1 && box.top >= area.top && box.bottom <= area.bottom;
   }), 'the long Previously turn and See again fit together at 320x568');
-  await longMotion.page.goto(new URL(`?${new URLSearchParams({ fen: 'k7/6pp/5pp/3pp1pp/2nS3p/8/8/K7 b - - 0 1', rules: '2017', kings: 'flame:haste,none', moves: 'Ka8-a7_Sd4xc4xd5xe5xf6!H_Sf6xg7xh7xg6xh5xg5xh4' })}`, base).href);
+  await longMotion.page.goto(new URL(`?${new URLSearchParams({ fen: 'k7/6pp/5pp1/3pp1pp/2nS3p/8/8/K7 b - - 0 1', rules: '2017', kings: 'flame:haste,none', moves: 'Ka8-a7_Sd4xc4xd5xe5xf6!H_Sf6xg7xh7xg6xh5xg5xh4' })}`, base).href);
   await longMotion.page.waitForFunction(() => document.getElementById('context-text').dataset.rank === 'previously' && !window.view.scene.animating && document.getElementById('see-again').getAttribute('aria-disabled') === 'false');
+  assert.equal(await longMotion.page.locator('#context-text > span').first().innerText(), 'Previously: their beast took 10 pieces.');
   await assertHiddenDetail(longMotion.page);
   await longMotion.context.close();
 

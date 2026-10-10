@@ -15,18 +15,24 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
   const title = document.getElementById('menu-title')!;
   const body = sheet.querySelector<HTMLElement>('.sheet-body')!;
   let page = 'menu';
+  function updateShade(): void {
+    sheet.classList.toggle('has-overflow', body.scrollHeight - body.clientHeight - body.scrollTop > 1);
+  }
+  body.addEventListener('scroll', updateShade);
   function fitBody(): void {
     body.style.maxHeight = '';
     if (!sheet.open) return;
-    if (window.innerWidth < 900 && body.scrollHeight > body.clientHeight + 1) {
+    if (body.scrollHeight > body.clientHeight + 1) {
+      const padding = parseFloat(getComputedStyle(body).paddingBottom);
       const edge = body.getBoundingClientRect().top + body.clientHeight;
-      const rows = [...body.querySelectorAll<HTMLElement>('.menu-row, label, #tricks-list > li')].filter(row => row.checkVisibility());
-      const last = rows.filter(row => row.getBoundingClientRect().bottom <= edge - 8).at(-1);
-      if (last) body.style.maxHeight = `${last.getBoundingClientRect().bottom - body.getBoundingClientRect().top}px`;
+      const rows = [...body.querySelectorAll<HTMLElement>('.menu-row, label, #tricks-list > li')].filter(row => row.getClientRects().length > 0);
+      const last = rows.filter(row => row.getBoundingClientRect().bottom <= edge - padding).at(-1);
+      if (last) body.style.maxHeight = `${last.getBoundingClientRect().bottom - body.getBoundingClientRect().top + padding}px`;
     }
-    sheet.classList.toggle('has-overflow', body.scrollHeight > body.clientHeight + 1);
+    updateShade();
   }
   window.addEventListener('resize', fitBody);
+  new MutationObserver(fitBody).observe(document.getElementById('account')!, { childList: true, subtree: true, characterData: true, attributes: true });
   refreshTricks();
   function go(next: string): void {
     if (next === 'tricks') openTricksMenu();
