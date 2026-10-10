@@ -1,0 +1,6718 @@
+{
+  "source": "docs/status/king-down-status-2026-10-09.xlsx",
+  "sha256": "7b7b998c7f0bb0ff15704533ea484b419eb997927f7f4ff58c1b7c3eb6d75445",
+  "sheets": [
+    {
+      "name": "Pieces",
+      "cells": [
+        {
+          "cell": "A1",
+          "value": "Name"
+        },
+        {
+          "cell": "B1",
+          "value": "Current status"
+        },
+        {
+          "cell": "C1",
+          "value": "Version 1"
+        },
+        {
+          "cell": "D1",
+          "value": "V1 status"
+        },
+        {
+          "cell": "E1",
+          "value": "V1 what it does"
+        },
+        {
+          "cell": "F1",
+          "value": "V1 notes / results"
+        },
+        {
+          "cell": "G1",
+          "value": "Version 2"
+        },
+        {
+          "cell": "H1",
+          "value": "V2 status"
+        },
+        {
+          "cell": "I1",
+          "value": "V2 what it does"
+        },
+        {
+          "cell": "J1",
+          "value": "V2 notes / results"
+        },
+        {
+          "cell": "K1",
+          "value": "Version 3"
+        },
+        {
+          "cell": "L1",
+          "value": "V3 status"
+        },
+        {
+          "cell": "M1",
+          "value": "V3 what it does"
+        },
+        {
+          "cell": "N1",
+          "value": "V3 notes / results"
+        },
+        {
+          "cell": "O1",
+          "value": "Version 4"
+        },
+        {
+          "cell": "P1",
+          "value": "V4 status"
+        },
+        {
+          "cell": "Q1",
+          "value": "V4 what it does"
+        },
+        {
+          "cell": "R1",
+          "value": "V4 notes / results"
+        },
+        {
+          "cell": "S1",
+          "value": "Version 5"
+        },
+        {
+          "cell": "T1",
+          "value": "V5 status"
+        },
+        {
+          "cell": "U1",
+          "value": "V5 what it does"
+        },
+        {
+          "cell": "V1",
+          "value": "V5 notes / results"
+        },
+        {
+          "cell": "W1",
+          "value": "Source"
+        },
+        {
+          "cell": "A2",
+          "value": "Pawn"
+        },
+        {
+          "cell": "B2",
+          "value": "Approved"
+        },
+        {
+          "cell": "C2",
+          "value": "Base"
+        },
+        {
+          "cell": "D2",
+          "value": "Approved"
+        },
+        {
+          "cell": "E2",
+          "value": "Moves 1 forward (2 from the start), takes 1 diagonally forward, and promotes on the last rank."
+        },
+        {
+          "cell": "F2",
+          "value": "Promotion to Q, R, B or N only (decided 2026-09-17). Fairy promotion measured null (1.3% of promotions) and stays a lab option; ?rules=2017 keeps it."
+        },
+        {
+          "cell": "W2",
+          "value": "docs/RULES.md §1 §3 §6.13"
+        },
+        {
+          "cell": "A3",
+          "value": "Knight"
+        },
+        {
+          "cell": "B3",
+          "value": "Approved"
+        },
+        {
+          "cell": "C3",
+          "value": "Base"
+        },
+        {
+          "cell": "D3",
+          "value": "Approved"
+        },
+        {
+          "cell": "E3",
+          "value": "Standard chess knight."
+        },
+        {
+          "cell": "F3",
+          "value": "In the random pool (2)."
+        },
+        {
+          "cell": "W3",
+          "value": "docs/RULES.md §2 §3"
+        },
+        {
+          "cell": "A4",
+          "value": "Bishop"
+        },
+        {
+          "cell": "B4",
+          "value": "Approved"
+        },
+        {
+          "cell": "C4",
+          "value": "Base"
+        },
+        {
+          "cell": "D4",
+          "value": "Approved"
+        },
+        {
+          "cell": "E4",
+          "value": "Standard chess bishop."
+        },
+        {
+          "cell": "F4",
+          "value": "In the random pool (2). If both are drawn, they start on opposite colours."
+        },
+        {
+          "cell": "W4",
+          "value": "docs/RULES.md §2 §6.1"
+        },
+        {
+          "cell": "A5",
+          "value": "Rook"
+        },
+        {
+          "cell": "B5",
+          "value": "Approved"
+        },
+        {
+          "cell": "C5",
+          "value": "Base"
+        },
+        {
+          "cell": "D5",
+          "value": "Approved"
+        },
+        {
+          "cell": "E5",
+          "value": "Standard chess rook."
+        },
+        {
+          "cell": "F5",
+          "value": "In the random pool (2). No castling."
+        },
+        {
+          "cell": "W5",
+          "value": "docs/RULES.md §2 §3"
+        },
+        {
+          "cell": "A6",
+          "value": "Queen"
+        },
+        {
+          "cell": "B6",
+          "value": "Approved"
+        },
+        {
+          "cell": "C6",
+          "value": "Base"
+        },
+        {
+          "cell": "D6",
+          "value": "Approved"
+        },
+        {
+          "cell": "E6",
+          "value": "Standard chess queen."
+        },
+        {
+          "cell": "F6",
+          "value": "In the random pool (1)."
+        },
+        {
+          "cell": "W6",
+          "value": "docs/RULES.md §2 §3"
+        },
+        {
+          "cell": "A7",
+          "value": "King"
+        },
+        {
+          "cell": "B7",
+          "value": "Approved"
+        },
+        {
+          "cell": "C7",
+          "value": "Base"
+        },
+        {
+          "cell": "D7",
+          "value": "Approved"
+        },
+        {
+          "cell": "E7",
+          "value": "Standard chess king."
+        },
+        {
+          "cell": "F7",
+          "value": "Always on the back rank. It can have one of the twelve powers in kings' powers mode."
+        },
+        {
+          "cell": "W7",
+          "value": "docs/RULES.md §2 §4"
+        },
+        {
+          "cell": "A8",
+          "value": "Archer"
+        },
+        {
+          "cell": "B8",
+          "value": "Approved"
+        },
+        {
+          "cell": "C8",
+          "value": "Far2"
+        },
+        {
+          "cell": "D8",
+          "value": "Approved"
+        },
+        {
+          "cell": "E8",
+          "value": "The archer reading the owner chose on 2026-10-07 (it reaches farther)."
+        },
+        {
+          "cell": "F8",
+          "value": "Owner 2026-10-09: \"merge far2\" (being merged to main). Worth 3.39 ± 0.27 pawns played to the end, 3.22 ± 0.34 at depth 4. Captures 1.55× the average piece. On branch claude/archer-far, not merged. Waits for the owner to say when it goes on main."
+        },
+        {
+          "cell": "G8",
+          "value": "PlusDiagFwd2Clear, fwd2NoBack, fwd2NoSide"
+        },
+        {
+          "cell": "H8",
+          "value": "Testing"
+        },
+        {
+          "cell": "I8",
+          "value": "Lab shot sets between classic and plusDiagFwd2."
+        },
+        {
+          "cell": "J8",
+          "value": "Wait for measurement (owner 2026-10-04: \"test and measure first\"). They are probably not needed now that far2 is chosen. Unclear whether these runs are still planned."
+        },
+        {
+          "cell": "K8",
+          "value": "Over2"
+        },
+        {
+          "cell": "L8",
+          "value": "Rejected"
+        },
+        {
+          "cell": "M8",
+          "value": "Takes an enemy exactly 2 squares away (straight or forward diagonal) only over a piece."
+        },
+        {
+          "cell": "N8",
+          "value": "First approved, then held (2026-10-05, \"option B\"): worth only 0.83 ± 0.25 pawns."
+        },
+        {
+          "cell": "O8",
+          "value": "Over23"
+        },
+        {
+          "cell": "P8",
+          "value": "Rejected"
+        },
+        {
+          "cell": "Q8",
+          "value": "Like over2, at distance 2 or 3, over exactly one piece."
+        },
+        {
+          "cell": "R8",
+          "value": "Worth 3.0 ± 0.27 pawns; draws −8.3 points. Owner (2026-10-06): too cumbersome."
+        },
+        {
+          "cell": "S8",
+          "value": "PlusDiagFwd2"
+        },
+        {
+          "cell": "T8",
+          "value": "Dropped"
+        },
+        {
+          "cell": "U8",
+          "value": "Steps 1 square any way and shoots without moving: diagonal neighbours, 2 squares straight, and the 2 forward diagonals at distance 2, over any blockers. It can give check."
+        },
+        {
+          "cell": "V8",
+          "value": "Replaced by far2 (Owner 2026-10-09: \"merge far2\"). Kept as a lab reading. On main now (2026-09-17). Decisive +8.8 ± 3.8, draws −8.2 ± 3.7. Worth 5.05 ± 0.44 pawns (ARCHER_V 505). The owner chose far2 to replace it (see the next row)."
+        },
+        {
+          "cell": "W8",
+          "value": "TASKS.md; docs/QUEUE.md (pv-A-af2na; pv-A-af2-vsR-d4); docs/QUEUE.md; docs/tasks-archive/2026-10.md; docs/RULES.md §3 §6.16; src/rules/rules.ts; docs/RULES.md §6.16; docs/RULES.md §6.19"
+        },
+        {
+          "cell": "A9",
+          "value": "Guard"
+        },
+        {
+          "cell": "B9",
+          "value": "Approved"
+        },
+        {
+          "cell": "C9",
+          "value": "Base"
+        },
+        {
+          "cell": "D9",
+          "value": "Approved"
+        },
+        {
+          "cell": "E9",
+          "value": "Steps 1 square any way onto empty squares only. It cannot take, and only a king can take it."
+        },
+        {
+          "cell": "F9",
+          "value": "One per army. Capturing guard (+54 Elo) rejected on identity grounds. guardStep=2 neutral and not adopted. Worth about 180–210 Elo below a Knight. kd-rand: next to the king it is worth +2.8 pawns in defence."
+        },
+        {
+          "cell": "G9",
+          "value": "Starts next to the king"
+        },
+        {
+          "cell": "H9",
+          "value": "Approved"
+        },
+        {
+          "cell": "I9",
+          "value": "The Guard starts on a square next to its king, wherever the king is in the random back rank."
+        },
+        {
+          "cell": "J9",
+          "value": "Owner 2026-10-09: approved. Being built. Beats b1 by +0.53 ± 0.14 pawns (depth 3), +0.54 ± 0.19 and +0.58 ± 0.14 (depth 4). Recommended. The owner has not decided."
+        },
+        {
+          "cell": "K9",
+          "value": "Morph questions"
+        },
+        {
+          "cell": "L9",
+          "value": "Approved"
+        },
+        {
+          "cell": "M9",
+          "value": "Open questions: can Morph make or use a guard, and can there be a second guard?"
+        },
+        {
+          "cell": "N9",
+          "value": "Owner 2026-10-09: Morph can make a Guard; a second Guard: not yet; a second Beast from cards (Morph, then Salvation or Sacrifice): allowed (\"allow it\")."
+        },
+        {
+          "cell": "O9",
+          "value": "Drop on any empty square"
+        },
+        {
+          "cell": "P9",
+          "value": "Testing"
+        },
+        {
+          "cell": "Q9",
+          "value": "The guard is dropped as a move on any empty square of the board."
+        },
+        {
+          "cell": "R9",
+          "value": "Owner 2026-10-09: \"queue guard drop for testing anyway - i want the data\". Being built; A/B run against the next-to-king start follows."
+        },
+        {
+          "cell": "S9",
+          "value": "Reserve (rank1 / rank12)"
+        },
+        {
+          "cell": "T9",
+          "value": "Rejected"
+        },
+        {
+          "cell": "U9",
+          "value": "The guard starts beside the board and is placed on an empty first-rank (or first-two-rank) square as a move."
+        },
+        {
+          "cell": "V9",
+          "value": "Only reading that passes criterion 5; worth unchanged. Owner (2026-10-06): no first-rank reserve."
+        },
+        {
+          "cell": "W9",
+          "value": "TASKS.md (Guard drop); TASKS.md (Morph and the Guard); docs/QUEUE.md (guard-king-p; -d4m; -d4b); docs/RULES.md §3 §6.9 §6.11; docs/RULES.md §6.9; docs/tasks-archive/2026-10.md"
+        },
+        {
+          "cell": "A10",
+          "value": "Maester"
+        },
+        {
+          "cell": "B10",
+          "value": "Approved"
+        },
+        {
+          "cell": "C10",
+          "value": "Base"
+        },
+        {
+          "cell": "D10",
+          "value": "Approved"
+        },
+        {
+          "cell": "E10",
+          "value": "Steps 1 square any way. It swaps with an adjacent friend, or with its own king at any distance when both are on the first rank."
+        },
+        {
+          "cell": "F10",
+          "value": "maesterSwapAny (3.12 pawns) measured free but not adopted. Other maester buffs (step 2, swap enemy) are lab only."
+        },
+        {
+          "cell": "W10",
+          "value": "docs/RULES.md §3 §6.10"
+        },
+        {
+          "cell": "A11",
+          "value": "Beast"
+        },
+        {
+          "cell": "B11",
+          "value": "Approved"
+        },
+        {
+          "cell": "C11",
+          "value": "Base"
+        },
+        {
+          "cell": "D11",
+          "value": "Approved"
+        },
+        {
+          "cell": "E11",
+          "value": "Steps 1 square any way, takes on any adjacent square, and can keep taking in the same turn (never a king as a follow-up)."
+        },
+        {
+          "cell": "F11",
+          "value": "Any-direction step (2026-09-13) and no blind spot (2026-09-17; 4.34 pawns). Diagonal readings halve its value (lab only). One beast per army (2026-10-04)."
+        },
+        {
+          "cell": "W11",
+          "value": "docs/RULES.md §3 §6.8 §6.17"
+        },
+        {
+          "cell": "A12",
+          "value": "Ogre"
+        },
+        {
+          "cell": "B12",
+          "value": "Approved"
+        },
+        {
+          "cell": "C12",
+          "value": "Base"
+        },
+        {
+          "cell": "D12",
+          "value": "Approved"
+        },
+        {
+          "cell": "E12",
+          "value": "Steps 1 square any way. It takes an adjacent enemy (not a guard), or pushes an adjacent non-king piece one square straight and follows it."
+        },
+        {
+          "cell": "F12",
+          "value": "Took the paladin's place in the pool (2026-09-24). ogreMode=push is the default; repel is a lab reading. Value 318."
+        },
+        {
+          "cell": "W12",
+          "value": "docs/RULES.md §3 §6.18"
+        },
+        {
+          "cell": "A13",
+          "value": "Paladin"
+        },
+        {
+          "cell": "B13",
+          "value": "Approved"
+        },
+        {
+          "cell": "C13",
+          "value": "Base"
+        },
+        {
+          "cell": "D13",
+          "value": "Approved"
+        },
+        {
+          "cell": "E13",
+          "value": "Moves like a queen, jumps friends, never takes a king, and removes itself after taking anything but a pawn."
+        },
+        {
+          "cell": "F13",
+          "value": "Owner 2026-10-09: back in the random pool, approved reading (survives a pawn capture, 2.87 pawns). Being built. White scored about +6 points with it in 2026-09; the rules may be tweaked later. Out of the random pool since 2026-09-24. Still legal in custom setups, FEN and old promotion sets. Kamikaze 'nonPawn' shipped in v0.7.0 (2.87 pawns)."
+        },
+        {
+          "cell": "W13",
+          "value": "docs/RULES.md §3 §6.15 §6.18"
+        },
+        {
+          "cell": "A14",
+          "value": "Catapult"
+        },
+        {
+          "cell": "B14",
+          "value": "Dropped"
+        },
+        {
+          "cell": "C14",
+          "value": "Base"
+        },
+        {
+          "cell": "D14",
+          "value": "Dropped"
+        },
+        {
+          "cell": "E14",
+          "value": "Lab piece that lobs shots (outside the pool)."
+        },
+        {
+          "cell": "F14",
+          "value": "Paused: both readings below 1.66 pawns, and it never fires in 38% of games."
+        },
+        {
+          "cell": "W14",
+          "value": "docs/MATRIX.md"
+        },
+        {
+          "cell": "A15",
+          "value": "Reaver"
+        },
+        {
+          "cell": "B15",
+          "value": "Dropped"
+        },
+        {
+          "cell": "C15",
+          "value": "Base"
+        },
+        {
+          "cell": "D15",
+          "value": "Dropped"
+        },
+        {
+          "cell": "E15",
+          "value": "Lab piece outside the pool."
+        },
+        {
+          "cell": "F15",
+          "value": "Paused: the full step is overpowered; the orthogonal step (4.04 ± 0.56 pawns) does not hold its gain at depth 4."
+        },
+        {
+          "cell": "W15",
+          "value": "docs/MATRIX.md"
+        },
+        {
+          "cell": "A16",
+          "value": "Templar"
+        },
+        {
+          "cell": "B16",
+          "value": "Rejected"
+        },
+        {
+          "cell": "C16",
+          "value": "Base"
+        },
+        {
+          "cell": "D16",
+          "value": "Rejected"
+        },
+        {
+          "cell": "E16",
+          "value": "Lab king-stepper piece outside the pool."
+        },
+        {
+          "cell": "F16",
+          "value": "Rejected on measurement: weak, draws +5."
+        },
+        {
+          "cell": "W16",
+          "value": "docs/MATRIX.md"
+        },
+        {
+          "cell": "A17",
+          "value": "Squire"
+        },
+        {
+          "cell": "B17",
+          "value": "Dropped"
+        },
+        {
+          "cell": "C17",
+          "value": "Base"
+        },
+        {
+          "cell": "D17",
+          "value": "Dropped"
+        },
+        {
+          "cell": "E17",
+          "value": "Reserve piece from the recovered Cursor experiment."
+        },
+        {
+          "cell": "F17",
+          "value": "Archived. Not in src/."
+        },
+        {
+          "cell": "W17",
+          "value": "docs/MATRIX.md"
+        }
+      ],
+      "validations": []
+    },
+    {
+      "name": "Cards",
+      "cells": [
+        {
+          "cell": "A1",
+          "value": "Name"
+        },
+        {
+          "cell": "B1",
+          "value": "Current status"
+        },
+        {
+          "cell": "C1",
+          "value": "Version 1"
+        },
+        {
+          "cell": "D1",
+          "value": "V1 status"
+        },
+        {
+          "cell": "E1",
+          "value": "V1 what it does"
+        },
+        {
+          "cell": "F1",
+          "value": "V1 notes / results"
+        },
+        {
+          "cell": "G1",
+          "value": "Version 2"
+        },
+        {
+          "cell": "H1",
+          "value": "V2 status"
+        },
+        {
+          "cell": "I1",
+          "value": "V2 what it does"
+        },
+        {
+          "cell": "J1",
+          "value": "V2 notes / results"
+        },
+        {
+          "cell": "K1",
+          "value": "Version 3"
+        },
+        {
+          "cell": "L1",
+          "value": "V3 status"
+        },
+        {
+          "cell": "M1",
+          "value": "V3 what it does"
+        },
+        {
+          "cell": "N1",
+          "value": "V3 notes / results"
+        },
+        {
+          "cell": "O1",
+          "value": "Version 4"
+        },
+        {
+          "cell": "P1",
+          "value": "V4 status"
+        },
+        {
+          "cell": "Q1",
+          "value": "V4 what it does"
+        },
+        {
+          "cell": "R1",
+          "value": "V4 notes / results"
+        },
+        {
+          "cell": "S1",
+          "value": "Source"
+        },
+        {
+          "cell": "A2",
+          "value": "Card mode"
+        },
+        {
+          "cell": "B2",
+          "value": "Testing"
+        },
+        {
+          "cell": "C2",
+          "value": "Base"
+        },
+        {
+          "cell": "D2",
+          "value": "Testing"
+        },
+        {
+          "cell": "E2",
+          "value": "Each side gets the same six random one-use cards from the deal."
+        },
+        {
+          "cell": "F2",
+          "value": "Lab only, not in the playable game. deal-d1: White 50.2% (Δ −0.2 ± 2.4), draws −10.6 ± 1.7. Holds at depth 4. Tested deal = deal-d1's 27 cards + MirrorB. deal-nosalv is done (no card off its interval); deal-nosalv2 and deal-d4k (full size) are running."
+        },
+        {
+          "cell": "S2",
+          "value": "docs/research/cards-2026-10-03.md; docs/QUEUE.md"
+        },
+        {
+          "cell": "A3",
+          "value": "Freeze"
+        },
+        {
+          "cell": "B3",
+          "value": "Testing"
+        },
+        {
+          "cell": "C3",
+          "value": "Base"
+        },
+        {
+          "cell": "D3",
+          "value": "Testing"
+        },
+        {
+          "cell": "E3",
+          "value": "One enemy piece cannot move on the opponent's next turn; then you make your move."
+        },
+        {
+          "cell": "F3",
+          "value": "+1.15 pawns against no card (cards-d1). In the tested deal."
+        },
+        {
+          "cell": "S3",
+          "value": "src/rules/rules.ts; docs/QUEUE.md"
+        },
+        {
+          "cell": "A4",
+          "value": "Ice Wall"
+        },
+        {
+          "cell": "B4",
+          "value": "Testing"
+        },
+        {
+          "cell": "C4",
+          "value": "Base"
+        },
+        {
+          "cell": "D4",
+          "value": "Testing"
+        },
+        {
+          "cell": "E4",
+          "value": "One of your pieces cannot be taken on the opponent's next turn; then you make your move."
+        },
+        {
+          "cell": "F4",
+          "value": "+0.55 pawns, at or below the 0.7 floor. In the tested deal."
+        },
+        {
+          "cell": "S4",
+          "value": "docs/QUEUE.md (cards-d1)"
+        },
+        {
+          "cell": "A5",
+          "value": "Strike"
+        },
+        {
+          "cell": "B5",
+          "value": "Testing"
+        },
+        {
+          "cell": "C5",
+          "value": "Base"
+        },
+        {
+          "cell": "D5",
+          "value": "Testing"
+        },
+        {
+          "cell": "E5",
+          "value": "Move one of your pieces (not a pawn) as a queen, to an empty square."
+        },
+        {
+          "cell": "F5",
+          "value": "+1.55 pawns. In the tested deal."
+        },
+        {
+          "cell": "S5",
+          "value": "docs/QUEUE.md (cards-d1)"
+        },
+        {
+          "cell": "A6",
+          "value": "Haste"
+        },
+        {
+          "cell": "B6",
+          "value": "Testing"
+        },
+        {
+          "cell": "C6",
+          "value": "Base"
+        },
+        {
+          "cell": "D6",
+          "value": "Testing"
+        },
+        {
+          "cell": "E6",
+          "value": "Move one piece twice in one turn, without taking."
+        },
+        {
+          "cell": "F6",
+          "value": "+2.59 pawns. In the tested deal."
+        },
+        {
+          "cell": "S6",
+          "value": "docs/QUEUE.md (cards-d1)"
+        },
+        {
+          "cell": "A7",
+          "value": "Flight"
+        },
+        {
+          "cell": "B7",
+          "value": "Testing"
+        },
+        {
+          "cell": "C7",
+          "value": "Base"
+        },
+        {
+          "cell": "D7",
+          "value": "Testing"
+        },
+        {
+          "cell": "E7",
+          "value": "Move one of your pieces to any empty square in your own half."
+        },
+        {
+          "cell": "F7",
+          "value": "About +1.5 pawns. In the tested deal."
+        },
+        {
+          "cell": "S7",
+          "value": "docs/QUEUE.md (cards-d1)"
+        },
+        {
+          "cell": "A8",
+          "value": "Sacrifice"
+        },
+        {
+          "cell": "B8",
+          "value": "Testing"
+        },
+        {
+          "cell": "C8",
+          "value": "Base"
+        },
+        {
+          "cell": "D8",
+          "value": "Testing"
+        },
+        {
+          "cell": "E8",
+          "value": "Swap one of your pawns with one of your captured pieces."
+        },
+        {
+          "cell": "F8",
+          "value": "+1.37 pawns. In the tested deal."
+        },
+        {
+          "cell": "S8",
+          "value": "docs/QUEUE.md (cards-d1)"
+        },
+        {
+          "cell": "A9",
+          "value": "March"
+        },
+        {
+          "cell": "B9",
+          "value": "Pending decision"
+        },
+        {
+          "cell": "C9",
+          "value": "Base"
+        },
+        {
+          "cell": "D9",
+          "value": "Pending decision"
+        },
+        {
+          "cell": "E9",
+          "value": "Pawns may move two squares forward."
+        },
+        {
+          "cell": "F9",
+          "value": "+0.56 pawns, below the 0.7 floor. The owner has not decided whether to keep it."
+        },
+        {
+          "cell": "S9",
+          "value": "TASKS.md (Card deal); docs/QUEUE.md"
+        },
+        {
+          "cell": "A10",
+          "value": "Leap"
+        },
+        {
+          "cell": "B10",
+          "value": "Testing"
+        },
+        {
+          "cell": "C10",
+          "value": "Base"
+        },
+        {
+          "cell": "D10",
+          "value": "Testing"
+        },
+        {
+          "cell": "E10",
+          "value": "Your pieces may jump over your own pawns."
+        },
+        {
+          "cell": "F10",
+          "value": "+0.79 pawns. In the tested deal."
+        },
+        {
+          "cell": "S10",
+          "value": "docs/QUEUE.md (cards-d1)"
+        },
+        {
+          "cell": "A11",
+          "value": "Mimic"
+        },
+        {
+          "cell": "B11",
+          "value": "Testing"
+        },
+        {
+          "cell": "C11",
+          "value": "Base"
+        },
+        {
+          "cell": "D11",
+          "value": "Testing"
+        },
+        {
+          "cell": "E11",
+          "value": "A piece moves to an empty square the way another of your piece types moves."
+        },
+        {
+          "cell": "F11",
+          "value": "+1.29 pawns. In the tested deal. deal-d3m: +5.6 on White's score, then +2.7 pooled."
+        },
+        {
+          "cell": "S11",
+          "value": "src/rules/rules.ts; docs/QUEUE.md"
+        },
+        {
+          "cell": "A12",
+          "value": "Vault"
+        },
+        {
+          "cell": "B12",
+          "value": "Testing"
+        },
+        {
+          "cell": "C12",
+          "value": "Base"
+        },
+        {
+          "cell": "D12",
+          "value": "Testing"
+        },
+        {
+          "cell": "E12",
+          "value": "A rook, bishop or queen passes over exactly one piece on its line."
+        },
+        {
+          "cell": "F12",
+          "value": "+1.45 pawns. In the tested deal."
+        },
+        {
+          "cell": "S12",
+          "value": "src/rules/rules.ts; docs/QUEUE.md"
+        },
+        {
+          "cell": "A13",
+          "value": "Curse"
+        },
+        {
+          "cell": "B13",
+          "value": "Testing"
+        },
+        {
+          "cell": "C13",
+          "value": "Base"
+        },
+        {
+          "cell": "D13",
+          "value": "Testing"
+        },
+        {
+          "cell": "E13",
+          "value": "An enemy piece or pawn (not the king) steps one square onto an empty square."
+        },
+        {
+          "cell": "F13",
+          "value": "+0.31 pawns, below the floor. In the tested deal. No owner decision on it was found."
+        },
+        {
+          "cell": "S13",
+          "value": "src/rules/rules.ts; docs/QUEUE.md"
+        },
+        {
+          "cell": "A14",
+          "value": "Sky Lift"
+        },
+        {
+          "cell": "B14",
+          "value": "Testing"
+        },
+        {
+          "cell": "C14",
+          "value": "Base"
+        },
+        {
+          "cell": "D14",
+          "value": "Testing"
+        },
+        {
+          "cell": "E14",
+          "value": "Two of your pieces of different types swap squares."
+        },
+        {
+          "cell": "F14",
+          "value": "About +1.5 pawns. In the tested deal. The owner keeps both Sky Lift and MorphS."
+        },
+        {
+          "cell": "S14",
+          "value": "src/rules/rules.ts; docs/QUEUE.md"
+        },
+        {
+          "cell": "A15",
+          "value": "Salvation"
+        },
+        {
+          "cell": "B15",
+          "value": "Testing"
+        },
+        {
+          "cell": "C15",
+          "value": "Base"
+        },
+        {
+          "cell": "D15",
+          "value": "Testing"
+        },
+        {
+          "cell": "E15",
+          "value": "One of your captured pieces (not a pawn or guard) comes back to an empty square of your back rank."
+        },
+        {
+          "cell": "F15",
+          "value": "+1.10 pawns alone, but in the deal it helps Black: Δ White −5.7 ± 3.9, draws +3.2 ± 2.5. deal-nosalv (no Salvation) is done: no card off its interval. deal-nosalv2 is running."
+        },
+        {
+          "cell": "S15",
+          "value": "src/rules/rules.ts; docs/QUEUE.md (deal-d3mx; deal-nosalv)"
+        },
+        {
+          "cell": "A16",
+          "value": "Rage"
+        },
+        {
+          "cell": "B16",
+          "value": "Legendary"
+        },
+        {
+          "cell": "C16",
+          "value": "Base"
+        },
+        {
+          "cell": "D16",
+          "value": "Legendary"
+        },
+        {
+          "cell": "E16",
+          "value": "One piece moves twice, and it may take on either move."
+        },
+        {
+          "cell": "F16",
+          "value": "+4.06 pawns (about 1.7 Hastes), the one overpowered card. Out of the normal deal. Card mode has a ticket for its legendary look."
+        },
+        {
+          "cell": "G16",
+          "value": "RageB"
+        },
+        {
+          "cell": "H16",
+          "value": "Rejected"
+        },
+        {
+          "cell": "I16",
+          "value": "Rage, but the second move must take."
+        },
+        {
+          "cell": "J16",
+          "value": "+3.97 pawns: not softer."
+        },
+        {
+          "cell": "K16",
+          "value": "Quiet / stopOnTake trims"
+        },
+        {
+          "cell": "L16",
+          "value": "Rejected"
+        },
+        {
+          "cell": "M16",
+          "value": "Rage trims: the second move may not take, or a take ends the turn."
+        },
+        {
+          "cell": "N16",
+          "value": "+4.01 ± 0.51 and +4.47 ± 0.54 pawns. Neither trim helps."
+        },
+        {
+          "cell": "S16",
+          "value": "docs/QUEUE.md (cards-m5); docs/QUEUE.md (cards-m5); TASKS.md; docs/QUEUE.md (rage-q; rage-s)"
+        },
+        {
+          "cell": "A17",
+          "value": "Mirror"
+        },
+        {
+          "cell": "B17",
+          "value": "Testing"
+        },
+        {
+          "cell": "C17",
+          "value": "MirrorB"
+        },
+        {
+          "cell": "D17",
+          "value": "Testing"
+        },
+        {
+          "cell": "E17",
+          "value": "Play another card from your hand; that card stays in your hand."
+        },
+        {
+          "cell": "F17",
+          "value": "+2.22 pawns. The owner chose it (2026-10-07). In the tested deal (deal-d3m: −1.8 on White's score)."
+        },
+        {
+          "cell": "G17",
+          "value": "Base"
+        },
+        {
+          "cell": "H17",
+          "value": "Dropped"
+        },
+        {
+          "cell": "I17",
+          "value": "Play the card the opponent played last."
+        },
+        {
+          "cell": "J17",
+          "value": "Worth about 0. Dropped by the owner (2026-10-07)."
+        },
+        {
+          "cell": "S17",
+          "value": "docs/QUEUE.md; docs/tasks-archive/2026-10.md; docs/tasks-archive/2026-10.md"
+        },
+        {
+          "cell": "A18",
+          "value": "Rescue"
+        },
+        {
+          "cell": "B18",
+          "value": "Dropped"
+        },
+        {
+          "cell": "C18",
+          "value": "Base"
+        },
+        {
+          "cell": "D18",
+          "value": "Dropped"
+        },
+        {
+          "cell": "E18",
+          "value": "Your Freeze, Ice Wall or Firewall lasts one more turn."
+        },
+        {
+          "cell": "F18",
+          "value": "+0.40 pawns, nothing measurable. As worded it can never be played. Dropped (2026-10-07)."
+        },
+        {
+          "cell": "S18",
+          "value": "docs/research/cards-2026-10-03.md"
+        },
+        {
+          "cell": "A19",
+          "value": "Firewall"
+        },
+        {
+          "cell": "B19",
+          "value": "Testing"
+        },
+        {
+          "cell": "C19",
+          "value": "Base"
+        },
+        {
+          "cell": "D19",
+          "value": "Testing"
+        },
+        {
+          "cell": "E19",
+          "value": "None of your pieces can be taken on the opponent's next turn; then you make your move."
+        },
+        {
+          "cell": "F19",
+          "value": "+2.21 pawns. In the tested deal."
+        },
+        {
+          "cell": "G19",
+          "value": "FirewallB"
+        },
+        {
+          "cell": "H19",
+          "value": "Testing"
+        },
+        {
+          "cell": "I19",
+          "value": "One of your pieces swaps squares with an adjacent enemy piece (no kings)."
+        },
+        {
+          "cell": "J19",
+          "value": "+1.07 pawns. In the tested deal."
+        },
+        {
+          "cell": "S19",
+          "value": "docs/QUEUE.md (cards-d1)"
+        },
+        {
+          "cell": "A20",
+          "value": "Earth Quake"
+        },
+        {
+          "cell": "B20",
+          "value": "Testing"
+        },
+        {
+          "cell": "C20",
+          "value": "Base"
+        },
+        {
+          "cell": "D20",
+          "value": "Testing"
+        },
+        {
+          "cell": "E20",
+          "value": "Pieces next to a chosen square (not kings) are pushed one square away."
+        },
+        {
+          "cell": "F20",
+          "value": "+0.77 pawns. In the tested deal."
+        },
+        {
+          "cell": "G20",
+          "value": "EarthQuakeB"
+        },
+        {
+          "cell": "H20",
+          "value": "Testing"
+        },
+        {
+          "cell": "I20",
+          "value": "Earth Quake, but the square must be next to one of your pieces."
+        },
+        {
+          "cell": "J20",
+          "value": "+0.85 pawns. In the tested deal."
+        },
+        {
+          "cell": "S20",
+          "value": "docs/QUEUE.md (cards-d1)"
+        },
+        {
+          "cell": "A21",
+          "value": "Burn"
+        },
+        {
+          "cell": "B21",
+          "value": "Testing"
+        },
+        {
+          "cell": "C21",
+          "value": "Base"
+        },
+        {
+          "cell": "D21",
+          "value": "Testing"
+        },
+        {
+          "cell": "E21",
+          "value": "One of your pieces takes an enemy on d4, e4, d5 or e5 as a queen would."
+        },
+        {
+          "cell": "F21",
+          "value": "+1.86 pawns. In the tested deal."
+        },
+        {
+          "cell": "S21",
+          "value": "docs/QUEUE.md (cards-d1)"
+        },
+        {
+          "cell": "A22",
+          "value": "Fire Starter"
+        },
+        {
+          "cell": "B22",
+          "value": "Testing"
+        },
+        {
+          "cell": "C22",
+          "value": "Base"
+        },
+        {
+          "cell": "D22",
+          "value": "Testing"
+        },
+        {
+          "cell": "E22",
+          "value": "One of your pieces takes an enemy on the enemy back rank as a queen would."
+        },
+        {
+          "cell": "F22",
+          "value": "+1.08 pawns. In the tested deal."
+        },
+        {
+          "cell": "S22",
+          "value": "docs/QUEUE.md (cards-d1)"
+        },
+        {
+          "cell": "A23",
+          "value": "Control"
+        },
+        {
+          "cell": "B23",
+          "value": "Testing"
+        },
+        {
+          "cell": "C23",
+          "value": "Base"
+        },
+        {
+          "cell": "D23",
+          "value": "Testing"
+        },
+        {
+          "cell": "E23",
+          "value": "One of your pieces moves and takes like a friendly piece next to it."
+        },
+        {
+          "cell": "F23",
+          "value": "+2.22 pawns. In the tested deal."
+        },
+        {
+          "cell": "S23",
+          "value": "docs/QUEUE.md (cards-d1)"
+        },
+        {
+          "cell": "A24",
+          "value": "Growth"
+        },
+        {
+          "cell": "B24",
+          "value": "Testing"
+        },
+        {
+          "cell": "C24",
+          "value": "Base"
+        },
+        {
+          "cell": "D24",
+          "value": "Testing"
+        },
+        {
+          "cell": "E24",
+          "value": "As your move, draw the next card from your pile."
+        },
+        {
+          "cell": "F24",
+          "value": "+1.53 pawns. In the tested deal."
+        },
+        {
+          "cell": "G24",
+          "value": "GrowthB"
+        },
+        {
+          "cell": "H24",
+          "value": "Testing"
+        },
+        {
+          "cell": "I24",
+          "value": "Draw the next card, then make your move."
+        },
+        {
+          "cell": "J24",
+          "value": "+1.09 pawns. In the tested deal. It raises draws in the deal (+3.6 ± 2.6); deal-nosalv: −5.4 ± 5.4, at the edge of its interval."
+        },
+        {
+          "cell": "S24",
+          "value": "docs/QUEUE.md (cards-d1); docs/QUEUE.md (deal-d1; deal-nosalv)"
+        },
+        {
+          "cell": "A25",
+          "value": "Rally"
+        },
+        {
+          "cell": "B25",
+          "value": "Testing"
+        },
+        {
+          "cell": "C25",
+          "value": "Base"
+        },
+        {
+          "cell": "D25",
+          "value": "Testing"
+        },
+        {
+          "cell": "E25",
+          "value": "One piece moves, then a different piece may move; neither move takes."
+        },
+        {
+          "cell": "F25",
+          "value": "+2.90 pawns (rally-r1: +2.60). In the tested deal. Deal effect is unstable: +4.2 (d3mx), −3.6 (nosalv)."
+        },
+        {
+          "cell": "S25",
+          "value": "docs/QUEUE.md"
+        },
+        {
+          "cell": "A26",
+          "value": "Morph"
+        },
+        {
+          "cell": "B26",
+          "value": "Testing"
+        },
+        {
+          "cell": "C26",
+          "value": "MorphP"
+        },
+        {
+          "cell": "D26",
+          "value": "Testing"
+        },
+        {
+          "cell": "E26",
+          "value": "One of your pawns becomes a knight or a bishop."
+        },
+        {
+          "cell": "F26",
+          "value": "+2.3 to +2.65 pawns. The owner chose it for card mode (2026-10-06). In the tested deal."
+        },
+        {
+          "cell": "G26",
+          "value": "Base"
+        },
+        {
+          "cell": "H26",
+          "value": "Rejected"
+        },
+        {
+          "cell": "I26",
+          "value": "A piece (not a pawn or king) becomes another pool type where it stands."
+        },
+        {
+          "cell": "J26",
+          "value": "98% against no card: a free queen on move 3. Kept in the lab only; the owner chose MorphP."
+        },
+        {
+          "cell": "K26",
+          "value": "MorphB"
+        },
+        {
+          "cell": "L26",
+          "value": "Rejected"
+        },
+        {
+          "cell": "M26",
+          "value": "Morph, but never into a queen."
+        },
+        {
+          "cell": "N26",
+          "value": "+3.3 pawns, above the 3-pawn ceiling. Lab only."
+        },
+        {
+          "cell": "O26",
+          "value": "MorphS"
+        },
+        {
+          "cell": "P26",
+          "value": "Dropped"
+        },
+        {
+          "cell": "Q26",
+          "value": "Two of your pieces of different types swap places."
+        },
+        {
+          "cell": "R26",
+          "value": "Same moves as Sky Lift (+1.0 pawn). Stays in the lab, out of the deal."
+        },
+        {
+          "cell": "S26",
+          "value": "docs/QUEUE.md (morph-a1); docs/RULES.md §5; docs/QUEUE.md (morph-a1); docs/tasks-archive/2026-10.md; docs/tasks-archive/2026-10.md; docs/QUEUE.md"
+        },
+        {
+          "cell": "A27",
+          "value": "Spawn"
+        },
+        {
+          "cell": "B27",
+          "value": "Testing"
+        },
+        {
+          "cell": "C27",
+          "value": "Spawn2"
+        },
+        {
+          "cell": "D27",
+          "value": "Testing"
+        },
+        {
+          "cell": "E27",
+          "value": "Two new pawns appear on your pawn start rank."
+        },
+        {
+          "cell": "F27",
+          "value": "+0.88 pawns. The owner chose it as the start-rank card. In the tested deal (deal-nosalv: +5.3 ± 5.3, at the edge)."
+        },
+        {
+          "cell": "G27",
+          "value": "SpawnK"
+        },
+        {
+          "cell": "H27",
+          "value": "Testing"
+        },
+        {
+          "cell": "I27",
+          "value": "A new pawn appears next to your king (never on rank 1 or 8)."
+        },
+        {
+          "cell": "J27",
+          "value": "+0.66 pawns (at the floor). The owner keeps it. In the tested deal."
+        },
+        {
+          "cell": "K27",
+          "value": "SpawnK2"
+        },
+        {
+          "cell": "L27",
+          "value": "Testing"
+        },
+        {
+          "cell": "M27",
+          "value": "Two new pawns appear next to your king."
+        },
+        {
+          "cell": "N27",
+          "value": "+1.18 pawns. The owner says \"stays in the lab\", but it is in the deal-d1 pool. Unclear whether it is meant to be in the deal."
+        },
+        {
+          "cell": "O27",
+          "value": "Base"
+        },
+        {
+          "cell": "P27",
+          "value": "Dropped"
+        },
+        {
+          "cell": "Q27",
+          "value": "A new pawn appears on an empty square of your pawn start rank."
+        },
+        {
+          "cell": "R27",
+          "value": "+0.36 pawns, too weak. Set aside by the owner (2026-10-06)."
+        },
+        {
+          "cell": "S27",
+          "value": "docs/QUEUE.md; docs/tasks-archive/2026-10.md; docs/tasks-archive/2026-10.md; docs/QUEUE.md"
+        }
+      ],
+      "validations": []
+    },
+    {
+      "name": "King powers",
+      "cells": [
+        {
+          "cell": "A1",
+          "value": "King"
+        },
+        {
+          "cell": "B1",
+          "value": "Power"
+        },
+        {
+          "cell": "C1",
+          "value": "Current status"
+        },
+        {
+          "cell": "D1",
+          "value": "Version 1"
+        },
+        {
+          "cell": "E1",
+          "value": "V1 status"
+        },
+        {
+          "cell": "F1",
+          "value": "V1 what it does"
+        },
+        {
+          "cell": "G1",
+          "value": "V1 notes / results"
+        },
+        {
+          "cell": "H1",
+          "value": "Version 2"
+        },
+        {
+          "cell": "I1",
+          "value": "V2 status"
+        },
+        {
+          "cell": "J1",
+          "value": "V2 what it does"
+        },
+        {
+          "cell": "K1",
+          "value": "V2 notes / results"
+        },
+        {
+          "cell": "L1",
+          "value": "Version 3"
+        },
+        {
+          "cell": "M1",
+          "value": "V3 status"
+        },
+        {
+          "cell": "N1",
+          "value": "V3 what it does"
+        },
+        {
+          "cell": "O1",
+          "value": "V3 notes / results"
+        },
+        {
+          "cell": "P1",
+          "value": "Version 4"
+        },
+        {
+          "cell": "Q1",
+          "value": "V4 status"
+        },
+        {
+          "cell": "R1",
+          "value": "V4 what it does"
+        },
+        {
+          "cell": "S1",
+          "value": "V4 notes / results"
+        },
+        {
+          "cell": "T1",
+          "value": "Version 5"
+        },
+        {
+          "cell": "U1",
+          "value": "V5 status"
+        },
+        {
+          "cell": "V1",
+          "value": "V5 what it does"
+        },
+        {
+          "cell": "W1",
+          "value": "V5 notes / results"
+        },
+        {
+          "cell": "X1",
+          "value": "Version 6"
+        },
+        {
+          "cell": "Y1",
+          "value": "V6 status"
+        },
+        {
+          "cell": "Z1",
+          "value": "V6 what it does"
+        },
+        {
+          "cell": "AA1",
+          "value": "V6 notes / results"
+        },
+        {
+          "cell": "AB1",
+          "value": "Version 7"
+        },
+        {
+          "cell": "AC1",
+          "value": "V7 status"
+        },
+        {
+          "cell": "AD1",
+          "value": "V7 what it does"
+        },
+        {
+          "cell": "AE1",
+          "value": "V7 notes / results"
+        },
+        {
+          "cell": "AF1",
+          "value": "Version 8"
+        },
+        {
+          "cell": "AG1",
+          "value": "V8 status"
+        },
+        {
+          "cell": "AH1",
+          "value": "V8 what it does"
+        },
+        {
+          "cell": "AI1",
+          "value": "V8 notes / results"
+        },
+        {
+          "cell": "AJ1",
+          "value": "Source"
+        },
+        {
+          "cell": "A2",
+          "value": "Frost"
+        },
+        {
+          "cell": "B2",
+          "value": "Freeze"
+        },
+        {
+          "cell": "C2",
+          "value": "Approved"
+        },
+        {
+          "cell": "D2",
+          "value": "As released"
+        },
+        {
+          "cell": "E2",
+          "value": "Approved"
+        },
+        {
+          "cell": "F2",
+          "value": "Once a game, one enemy piece cannot move on the opponent's next turn; then you make your move."
+        },
+        {
+          "cell": "G2",
+          "value": "Balanced reading (markFree, freezeUses 1). Printed: 2 uses, the mark is the whole turn."
+        },
+        {
+          "cell": "AJ2",
+          "value": "docs/RULES.md §4; src/rules/rules.ts POWERS_BALANCED"
+        },
+        {
+          "cell": "B3",
+          "value": "Ice Wall"
+        },
+        {
+          "cell": "C3",
+          "value": "Approved"
+        },
+        {
+          "cell": "D3",
+          "value": "As released"
+        },
+        {
+          "cell": "E3",
+          "value": "Approved"
+        },
+        {
+          "cell": "F3",
+          "value": "Twice a game, one of your pieces cannot be taken on the opponent's next turn; then you make your move."
+        },
+        {
+          "cell": "G3",
+          "value": "Balanced reading (markFree)."
+        },
+        {
+          "cell": "AJ3",
+          "value": "docs/RULES.md §4"
+        },
+        {
+          "cell": "A4",
+          "value": "Flame"
+        },
+        {
+          "cell": "B4",
+          "value": "Strike"
+        },
+        {
+          "cell": "C4",
+          "value": "Approved"
+        },
+        {
+          "cell": "D4",
+          "value": "As released"
+        },
+        {
+          "cell": "E4",
+          "value": "Approved"
+        },
+        {
+          "cell": "F4",
+          "value": "Once, move one piece (not a pawn) as a queen to an empty square."
+        },
+        {
+          "cell": "G4",
+          "value": "Balanced reading (no pawns; no taking)."
+        },
+        {
+          "cell": "AJ4",
+          "value": "docs/RULES.md §4"
+        },
+        {
+          "cell": "B5",
+          "value": "Haste"
+        },
+        {
+          "cell": "C5",
+          "value": "Approved"
+        },
+        {
+          "cell": "D5",
+          "value": "As released"
+        },
+        {
+          "cell": "E5",
+          "value": "Approved"
+        },
+        {
+          "cell": "F5",
+          "value": "Once, move one piece twice in a turn; neither move takes."
+        },
+        {
+          "cell": "G5",
+          "value": "K18 58.3% ± 3.3 (high). \"Not before move 10\" had no effect. Owner (2026-10-06): stays as it is."
+        },
+        {
+          "cell": "AJ5",
+          "value": "docs/RULES.md §4; docs/QUEUE.md"
+        },
+        {
+          "cell": "A6",
+          "value": "Stratus"
+        },
+        {
+          "cell": "B6",
+          "value": "Flight"
+        },
+        {
+          "cell": "C6",
+          "value": "Approved"
+        },
+        {
+          "cell": "D6",
+          "value": "As released"
+        },
+        {
+          "cell": "E6",
+          "value": "Approved"
+        },
+        {
+          "cell": "F6",
+          "value": "Once, move one piece to any empty square in your own half."
+        },
+        {
+          "cell": "G6",
+          "value": "As printed. K18 46.6 ± 3.1 (low on its own interval only)."
+        },
+        {
+          "cell": "AJ6",
+          "value": "docs/RULES.md §4"
+        },
+        {
+          "cell": "B7",
+          "value": "Sacrifice"
+        },
+        {
+          "cell": "C7",
+          "value": "Approved"
+        },
+        {
+          "cell": "D7",
+          "value": "As released"
+        },
+        {
+          "cell": "E7",
+          "value": "Approved"
+        },
+        {
+          "cell": "F7",
+          "value": "Once, swap one of your pawns with one of your captured pieces."
+        },
+        {
+          "cell": "G7",
+          "value": "As printed."
+        },
+        {
+          "cell": "AJ7",
+          "value": "docs/RULES.md §4"
+        },
+        {
+          "cell": "A8",
+          "value": "Mud"
+        },
+        {
+          "cell": "B8",
+          "value": "March"
+        },
+        {
+          "cell": "C8",
+          "value": "Approved"
+        },
+        {
+          "cell": "D8",
+          "value": "As released"
+        },
+        {
+          "cell": "E8",
+          "value": "Approved"
+        },
+        {
+          "cell": "F8",
+          "value": "Pawns may always move two squares forward."
+        },
+        {
+          "cell": "G8",
+          "value": "Balanced reading: always on (marchUses 0). Printed: 3 uses."
+        },
+        {
+          "cell": "AJ8",
+          "value": "docs/RULES.md §4"
+        },
+        {
+          "cell": "B9",
+          "value": "Leap"
+        },
+        {
+          "cell": "C9",
+          "value": "Approved"
+        },
+        {
+          "cell": "D9",
+          "value": "As released"
+        },
+        {
+          "cell": "E9",
+          "value": "Approved"
+        },
+        {
+          "cell": "F9",
+          "value": "Three times, your pieces may jump over your own pawns."
+        },
+        {
+          "cell": "G9",
+          "value": "As printed."
+        },
+        {
+          "cell": "AJ9",
+          "value": "docs/RULES.md §4"
+        },
+        {
+          "cell": "A10",
+          "value": "Spirit"
+        },
+        {
+          "cell": "B10",
+          "value": "Holy Light"
+        },
+        {
+          "cell": "C10",
+          "value": "Approved"
+        },
+        {
+          "cell": "D10",
+          "value": "As released"
+        },
+        {
+          "cell": "E10",
+          "value": "Approved"
+        },
+        {
+          "cell": "F10",
+          "value": "The king may take pawns, and no piece beside, in front of or behind it can be taken."
+        },
+        {
+          "cell": "G10",
+          "value": "Shelter added in round 6: 43% → 53%. Sheltering all eight neighbours overshot to 64%."
+        },
+        {
+          "cell": "AJ10",
+          "value": "docs/RULES.md §4"
+        },
+        {
+          "cell": "B11",
+          "value": "Mercy"
+        },
+        {
+          "cell": "C11",
+          "value": "Approved"
+        },
+        {
+          "cell": "D11",
+          "value": "As released"
+        },
+        {
+          "cell": "E11",
+          "value": "Approved"
+        },
+        {
+          "cell": "F11",
+          "value": "The king moves 1 or 2 squares and jumps friends; it may take pawns; pieces next to it can be taken only by pawns."
+        },
+        {
+          "cell": "G11",
+          "value": "Reading M2 (owner 2026-10-03): about 56% → 50%."
+        },
+        {
+          "cell": "AJ11",
+          "value": "docs/RULES.md §4"
+        },
+        {
+          "cell": "A12",
+          "value": "Shadow"
+        },
+        {
+          "cell": "B12",
+          "value": "Death Touch"
+        },
+        {
+          "cell": "C12",
+          "value": "Approved"
+        },
+        {
+          "cell": "D12",
+          "value": "T2 (no sideways reach)"
+        },
+        {
+          "cell": "E12",
+          "value": "Approved"
+        },
+        {
+          "cell": "F12",
+          "value": "The reach goes only forward and back."
+        },
+        {
+          "cell": "G12",
+          "value": "Owner 2026-10-09: \"go with T2 for death touch\" (being built). 49.3% d3, 51.1% d4: centred. The owner dislikes the wording."
+        },
+        {
+          "cell": "H12",
+          "value": "Never backward"
+        },
+        {
+          "cell": "I12",
+          "value": "Rejected"
+        },
+        {
+          "cell": "J12",
+          "value": "The reach never goes backward."
+        },
+        {
+          "cell": "K12",
+          "value": "54.0% d3. Not chosen (owner chose T2)."
+        },
+        {
+          "cell": "L12",
+          "value": "Never backward + takes pieces only"
+        },
+        {
+          "cell": "M12",
+          "value": "Rejected"
+        },
+        {
+          "cell": "N12",
+          "value": "The reach never goes backward, and it takes only pieces (not pawns)."
+        },
+        {
+          "cell": "O12",
+          "value": "51.9% d3, 54.25% ± 0.9 d4. Not chosen (owner chose T2)."
+        },
+        {
+          "cell": "P12",
+          "value": "T3 (reach takes pieces only)"
+        },
+        {
+          "cell": "Q12",
+          "value": "Rejected"
+        },
+        {
+          "cell": "R12",
+          "value": "The reach takes only pieces."
+        },
+        {
+          "cell": "S12",
+          "value": "53.2% d3, 55.6% d4. Not chosen (owner chose T2)."
+        },
+        {
+          "cell": "T12",
+          "value": "Next to it only (T5)"
+        },
+        {
+          "cell": "U12",
+          "value": "Rejected"
+        },
+        {
+          "cell": "V12",
+          "value": "As printed: it takes only adjacent enemies."
+        },
+        {
+          "cell": "W12",
+          "value": "41.7%: too weak."
+        },
+        {
+          "cell": "X12",
+          "value": "Next to it + takes by moving (T5m)"
+        },
+        {
+          "cell": "Y12",
+          "value": "Rejected"
+        },
+        {
+          "cell": "Z12",
+          "value": "Adjacent only, and the king may also take by moving."
+        },
+        {
+          "cell": "AA12",
+          "value": "42.5%: too weak."
+        },
+        {
+          "cell": "AB12",
+          "value": "Diagonal reach"
+        },
+        {
+          "cell": "AC12",
+          "value": "Rejected"
+        },
+        {
+          "cell": "AD12",
+          "value": "The reach also goes diagonally."
+        },
+        {
+          "cell": "AE12",
+          "value": "67.2%: far too strong."
+        },
+        {
+          "cell": "AF12",
+          "value": "As released"
+        },
+        {
+          "cell": "AG12",
+          "value": "Dropped"
+        },
+        {
+          "cell": "AH12",
+          "value": "The king takes adjacent enemies without moving, and also two squares straight (forward, back, sideways) over an empty square."
+        },
+        {
+          "cell": "AI12",
+          "value": "Released reading, replaced by T2 (owner 2026-10-09). As released: 55.4% (d3), 57.3% (d4); K18 55.1 ± 2.9. Earlier the owner kept it as it is (2026-10-03). Trims are being judged (rows below). No choice yet."
+        },
+        {
+          "cell": "AJ12",
+          "value": "docs/QUEUE.md (dt-diag); docs/QUEUE.md (dt-nb); docs/QUEUE.md (dt-nbp; dt-nbp-d4/-d4b); docs/QUEUE.md (dt-t2; dt-t2-d4); docs/QUEUE.md (dt-t3); docs/QUEUE.md (dt-t5); docs/QUEUE.md (dt-t5m); docs/RULES.md §4; docs/QUEUE.md (dt-*)"
+        },
+        {
+          "cell": "B13",
+          "value": "Darkness"
+        },
+        {
+          "cell": "C13",
+          "value": "Approved"
+        },
+        {
+          "cell": "D13",
+          "value": "As released"
+        },
+        {
+          "cell": "E13",
+          "value": "Approved"
+        },
+        {
+          "cell": "F13",
+          "value": "Pawns may also step diagonally and take only straight ahead; the king may step two squares straight over an empty square."
+        },
+        {
+          "cell": "G13",
+          "value": "King step chosen 2026-10-04: 44% → 48%. Lab only: safe step, taking step, pawn armor, D1 shelter."
+        },
+        {
+          "cell": "AJ13",
+          "value": "docs/RULES.md §4"
+        }
+      ],
+      "validations": []
+    },
+    {
+      "name": "Rules",
+      "cells": [
+        {
+          "cell": "A1",
+          "value": "Name"
+        },
+        {
+          "cell": "B1",
+          "value": "Status"
+        },
+        {
+          "cell": "C1",
+          "value": "What it does"
+        },
+        {
+          "cell": "D1",
+          "value": "Notes"
+        },
+        {
+          "cell": "E1",
+          "value": "Source"
+        },
+        {
+          "cell": "A2",
+          "value": "Random back rank (Chess960-style)"
+        },
+        {
+          "cell": "B2",
+          "value": "Approved"
+        },
+        {
+          "cell": "C2",
+          "value": "The king plus 7 pieces drawn from QORRBBNNAAGMMS, in the same order for both sides."
+        },
+        {
+          "cell": "D2",
+          "value": "Paladin out, ogre in (2026-09-24). One beast per army (2026-10-04). Owner 2026-10-09: Paladin back in the pool next to the Ogre (being built)."
+        },
+        {
+          "cell": "E2",
+          "value": "docs/RULES.md §2 §6.18"
+        },
+        {
+          "cell": "A3",
+          "value": "Bishops on opposite colours"
+        },
+        {
+          "cell": "B3",
+          "value": "Approved"
+        },
+        {
+          "cell": "C3",
+          "value": "If both bishops are drawn, they start on opposite colours."
+        },
+        {
+          "cell": "D3",
+          "value": "Decided 2026-09-13."
+        },
+        {
+          "cell": "E3",
+          "value": "docs/RULES.md §6.1"
+        },
+        {
+          "cell": "A4",
+          "value": "One guard per army"
+        },
+        {
+          "cell": "B4",
+          "value": "Approved"
+        },
+        {
+          "cell": "C4",
+          "value": "An army has at most one guard."
+        },
+        {
+          "cell": "D4",
+          "value": "Decided 2026-09-13."
+        },
+        {
+          "cell": "E4",
+          "value": "docs/RULES.md §6.11"
+        },
+        {
+          "cell": "A5",
+          "value": "One beast per army"
+        },
+        {
+          "cell": "B5",
+          "value": "Approved"
+        },
+        {
+          "cell": "C5",
+          "value": "An army never has two beasts, custom armies included."
+        },
+        {
+          "cell": "D5",
+          "value": "Owner 2026-10-04."
+        },
+        {
+          "cell": "E5",
+          "value": "docs/RULES.md (end)"
+        },
+        {
+          "cell": "A6",
+          "value": "Castling"
+        },
+        {
+          "cell": "B6",
+          "value": "Rejected"
+        },
+        {
+          "cell": "C6",
+          "value": "No castling."
+        },
+        {
+          "cell": "D6",
+          "value": "The maester–king swap takes its place."
+        },
+        {
+          "cell": "E6",
+          "value": "docs/RULES.md §1"
+        },
+        {
+          "cell": "A7",
+          "value": "En passant"
+        },
+        {
+          "cell": "B7",
+          "value": "Rejected"
+        },
+        {
+          "cell": "C7",
+          "value": "No en passant."
+        },
+        {
+          "cell": "D7",
+          "value": "Optional in the 2017 rules; off."
+        },
+        {
+          "cell": "E7",
+          "value": "docs/RULES.md §1"
+        },
+        {
+          "cell": "A8",
+          "value": "Promotion set"
+        },
+        {
+          "cell": "B8",
+          "value": "Approved"
+        },
+        {
+          "cell": "C8",
+          "value": "A pawn promotes to Q, R, B or N."
+        },
+        {
+          "cell": "D8",
+          "value": "Fairy promotion is null on every metric; lab only."
+        },
+        {
+          "cell": "E8",
+          "value": "docs/RULES.md §6.13"
+        },
+        {
+          "cell": "A9",
+          "value": "50-move draw"
+        },
+        {
+          "cell": "B9",
+          "value": "Approved"
+        },
+        {
+          "cell": "C9",
+          "value": "A game is a draw after 100 plies with no capture or pawn move."
+        },
+        {
+          "cell": "D9",
+          "value": "A spawn does not reset the clock; a MorphP does."
+        },
+        {
+          "cell": "E9",
+          "value": "docs/RULES.md §1 §6.4"
+        },
+        {
+          "cell": "A10",
+          "value": "Threefold repetition"
+        },
+        {
+          "cell": "B10",
+          "value": "Approved"
+        },
+        {
+          "cell": "C10",
+          "value": "The third time the same position comes back is a draw."
+        },
+        {
+          "cell": "D10",
+          "value": "The key includes the side to move and the spent-Strike state."
+        },
+        {
+          "cell": "E10",
+          "value": "docs/RULES.md §1"
+        },
+        {
+          "cell": "A11",
+          "value": "Insufficient material"
+        },
+        {
+          "cell": "B11",
+          "value": "Approved"
+        },
+        {
+          "cell": "C11",
+          "value": "A position that nobody can win is a draw."
+        },
+        {
+          "cell": "D11",
+          "value": "Conservative engine check; a live Strike prevents this draw."
+        },
+        {
+          "cell": "E11",
+          "value": "docs/RULES.md §1"
+        },
+        {
+          "cell": "A12",
+          "value": "Check / checkmate / stalemate"
+        },
+        {
+          "cell": "B12",
+          "value": "Approved"
+        },
+        {
+          "cell": "C12",
+          "value": "As in chess; every piece's capture pattern gives check."
+        },
+        {
+          "cell": "D12",
+          "value": "An archer checks through blockers; a paladin never checks."
+        },
+        {
+          "cell": "E12",
+          "value": "docs/RULES.md §1 §3"
+        },
+        {
+          "cell": "A13",
+          "value": "First move"
+        },
+        {
+          "cell": "B13",
+          "value": "Approved"
+        },
+        {
+          "cell": "C13",
+          "value": "White moves first, with no compensation for Black."
+        },
+        {
+          "cell": "D13",
+          "value": "Black's double first turn: White 0.533 → 0.472 (overshoots). Rejected 2026-09-14; a lab toggle."
+        },
+        {
+          "cell": "E13",
+          "value": "docs/RULES.md §6.12 §6.14"
+        },
+        {
+          "cell": "A14",
+          "value": "Maester swap and king safety"
+        },
+        {
+          "cell": "B14",
+          "value": "Approved"
+        },
+        {
+          "cell": "C14",
+          "value": "A maester–king swap is illegal if the king ends in check."
+        },
+        {
+          "cell": "D14",
+          "value": "Decided 2026-09-13."
+        },
+        {
+          "cell": "E14",
+          "value": "docs/RULES.md §6.7"
+        },
+        {
+          "cell": "A15",
+          "value": "Kings' powers mode"
+        },
+        {
+          "cell": "B15",
+          "value": "Approved"
+        },
+        {
+          "cell": "C15",
+          "value": "Each player may pick one king power before the game; \"No power\" is the default."
+        },
+        {
+          "cell": "D15",
+          "value": "Balanced readings are official (2026-10-02). K18: 10 of 12 inside 50 ± 4."
+        },
+        {
+          "cell": "E15",
+          "value": "docs/RULES.md §4"
+        },
+        {
+          "cell": "A16",
+          "value": "Power use counts"
+        },
+        {
+          "cell": "B16",
+          "value": "Approved"
+        },
+        {
+          "cell": "C16",
+          "value": "Spendable powers keep the rulebook's per-game uses as plain counters (balanced readings change some)."
+        },
+        {
+          "cell": "D16",
+          "value": "No tokens or action points."
+        },
+        {
+          "cell": "E16",
+          "value": "docs/RULES.md §6.5"
+        },
+        {
+          "cell": "A17",
+          "value": "Card mode"
+        },
+        {
+          "cell": "B17",
+          "value": "Testing"
+        },
+        {
+          "cell": "C17",
+          "value": "Each side plays the same hand of one-use cards."
+        },
+        {
+          "cell": "D17",
+          "value": "Lab only. Next: coins by the king, MorphP, and the legendary look for Rage."
+        },
+        {
+          "cell": "E17",
+          "value": "TASKS.md; docs/research/cards-2026-10-03.md"
+        },
+        {
+          "cell": "A18",
+          "value": "Hand size"
+        },
+        {
+          "cell": "B18",
+          "value": "Approved"
+        },
+        {
+          "cell": "C18",
+          "value": "Six cards a side."
+        },
+        {
+          "cell": "D18",
+          "value": "Owner 2026-10-03: six. Owner 2026-10-08: more cards means fewer draws; the question is closed. Draws at d4: none 29.7%, 2 cards 17.5, 3 15.5, 4 12.6, 6 11.0."
+        },
+        {
+          "cell": "E18",
+          "value": "docs/tasks-archive/2026-10.md; docs/QUEUE.md"
+        },
+        {
+          "cell": "A19",
+          "value": "Deal pool"
+        },
+        {
+          "cell": "B19",
+          "value": "Pending decision"
+        },
+        {
+          "cell": "C19",
+          "value": "The cards the six are dealt from."
+        },
+        {
+          "cell": "D19",
+          "value": "Tested: deal-d1's 27 + MirrorB (Mirror, Rescue, Rage out). Open: March, Salvation (deal-nosalv done; deal-nosalv2 and deal-d4k running), and which cards finally go in."
+        },
+        {
+          "cell": "E19",
+          "value": "TASKS.md; docs/QUEUE.md"
+        },
+        {
+          "cell": "A20",
+          "value": "Guard start square"
+        },
+        {
+          "cell": "B20",
+          "value": "Approved"
+        },
+        {
+          "cell": "C20",
+          "value": "The Guard starts next to its king, wherever the king is."
+        },
+        {
+          "cell": "D20",
+          "value": "Owner 2026-10-09: approved. Being built. +0.53 to +0.58 pawns over b1."
+        },
+        {
+          "cell": "E20",
+          "value": "docs/QUEUE.md"
+        },
+        {
+          "cell": "A21",
+          "value": "Turn countdown"
+        },
+        {
+          "cell": "B21",
+          "value": "Pending decision"
+        },
+        {
+          "cell": "C21",
+          "value": "A countdown on each turn."
+        },
+        {
+          "cell": "D21",
+          "value": "On branch claude/turn-countdown (83f442f), not merged. Waits for the owner's yes on the screenshots."
+        },
+        {
+          "cell": "E21",
+          "value": "TASKS.md"
+        },
+        {
+          "cell": "A22",
+          "value": "Arrange mode"
+        },
+        {
+          "cell": "B22",
+          "value": "Pending decision"
+        },
+        {
+          "cell": "C22",
+          "value": "Players arrange their own back rank."
+        },
+        {
+          "cell": "D22",
+          "value": "On branch claude/arrange-mode, not merged. Waits for the owner. Details are not in the docs I read."
+        },
+        {
+          "cell": "E22",
+          "value": "git branch list"
+        },
+        {
+          "cell": "A23",
+          "value": "Piece balance criteria"
+        },
+        {
+          "cell": "B23",
+          "value": "Approved"
+        },
+        {
+          "cell": "C23",
+          "value": "Six criteria for every pool piece (worth, captures, moves, role, moved, draws/balance)."
+        },
+        {
+          "cell": "D23",
+          "value": "Owner 2026-10-03: adopted. Open: criterion 4 as written or 4b."
+        },
+        {
+          "cell": "E23",
+          "value": "docs/research/piece-balance-criteria-2026-10-03.md; TASKS.md"
+        },
+        {
+          "cell": "A24",
+          "value": "?rules=2017 / ?rules=2021 presets"
+        },
+        {
+          "cell": "B24",
+          "value": "Approved"
+        },
+        {
+          "cell": "C24",
+          "value": "URL presets that play the 2017 rulebook or the 2021 archer and beast."
+        },
+        {
+          "cell": "D24",
+          "value": "Kings' powers as printed under these presets."
+        },
+        {
+          "cell": "E24",
+          "value": "docs/RULES.md §6.8 §4"
+        }
+      ],
+      "validations": []
+    },
+    {
+      "name": "Piece matrix",
+      "cells": [
+        {
+          "cell": "A1",
+          "value": "Key: ● in the game · ◐ lab reading · ○ designed, not built · — no. Column B: design a new piece with the drop-downs. Source: docs/MATRIX.md A.0–A.1, with the owner's 2026-10-09 decisions."
+        },
+        {
+          "cell": "A3",
+          "value": "Ability"
+        },
+        {
+          "cell": "B3",
+          "value": "NEW PIECE"
+        },
+        {
+          "cell": "C3",
+          "value": "Pawn"
+        },
+        {
+          "cell": "D3",
+          "value": "Knight"
+        },
+        {
+          "cell": "E3",
+          "value": "Bishop"
+        },
+        {
+          "cell": "F3",
+          "value": "Rook"
+        },
+        {
+          "cell": "G3",
+          "value": "Queen"
+        },
+        {
+          "cell": "H3",
+          "value": "King"
+        },
+        {
+          "cell": "I3",
+          "value": "Archer"
+        },
+        {
+          "cell": "J3",
+          "value": "Paladin"
+        },
+        {
+          "cell": "K3",
+          "value": "Guard"
+        },
+        {
+          "cell": "L3",
+          "value": "Maester"
+        },
+        {
+          "cell": "M3",
+          "value": "Beast"
+        },
+        {
+          "cell": "N3",
+          "value": "Ogre"
+        },
+        {
+          "cell": "O3",
+          "value": "Catapult"
+        },
+        {
+          "cell": "A4",
+          "value": "Move"
+        },
+        {
+          "cell": "C4",
+          "value": "forward 1"
+        },
+        {
+          "cell": "D4",
+          "value": "leap 2+1"
+        },
+        {
+          "cell": "E4",
+          "value": "diagonal slide"
+        },
+        {
+          "cell": "F4",
+          "value": "straight slide"
+        },
+        {
+          "cell": "G4",
+          "value": "slide"
+        },
+        {
+          "cell": "H4",
+          "value": "step 1"
+        },
+        {
+          "cell": "I4",
+          "value": "step 1"
+        },
+        {
+          "cell": "J4",
+          "value": "slide like a queen, jumps friends — back in the random pool (owner 2026-10-09)"
+        },
+        {
+          "cell": "K4",
+          "value": "step 1 ◐ step 2"
+        },
+        {
+          "cell": "L4",
+          "value": "step 1 ◐ step 2"
+        },
+        {
+          "cell": "M4",
+          "value": "step 1 ◐ forward only / diagonals"
+        },
+        {
+          "cell": "N4",
+          "value": "step 1"
+        },
+        {
+          "cell": "O4",
+          "value": "straight slide, empty squares only"
+        },
+        {
+          "cell": "A5",
+          "value": "Capture"
+        },
+        {
+          "cell": "C5",
+          "value": "diagonal forward 1"
+        },
+        {
+          "cell": "I5",
+          "value": "● far2 (owner 2026-10-09): shot without moving, only 2 squares away: 2 straight (any way) or 2 forward-diagonal, blockers ignored. ◐ plusDiagFwd2 (old default: also the diagonal neighbours), over2, over23 are lab readings"
+        },
+        {
+          "cell": "K5",
+          "value": "none"
+        },
+        {
+          "cell": "M5",
+          "value": "every neighbour (blind spot removed 2026-09-17; captures +29%, beast 4.34 ± 0.42 pawns, `BEAST_V` 434) ◐ the 7-neighbour blind spot, forward diagonals only, four diagonals; chains"
+        },
+        {
+          "cell": "O5",
+          "value": "lob over one enemy screen along a rank or file, first piece beyond it ◐ `catapultCapture` stay / land"
+        },
+        {
+          "cell": "A6",
+          "value": "1a Arriving — home rank only"
+        },
+        {
+          "cell": "C6",
+          "value": "—"
+        },
+        {
+          "cell": "D6",
+          "value": "—"
+        },
+        {
+          "cell": "E6",
+          "value": "—"
+        },
+        {
+          "cell": "F6",
+          "value": "—"
+        },
+        {
+          "cell": "G6",
+          "value": "—"
+        },
+        {
+          "cell": "H6",
+          "value": "—"
+        },
+        {
+          "cell": "I6",
+          "value": "—"
+        },
+        {
+          "cell": "J6",
+          "value": "—"
+        },
+        {
+          "cell": "K6",
+          "value": "—"
+        },
+        {
+          "cell": "L6",
+          "value": "—"
+        },
+        {
+          "cell": "M6",
+          "value": "—"
+        },
+        {
+          "cell": "N6",
+          "value": "—"
+        },
+        {
+          "cell": "O6",
+          "value": "—"
+        },
+        {
+          "cell": "A7",
+          "value": "1b Arriving — friendly half only"
+        },
+        {
+          "cell": "C7",
+          "value": "—"
+        },
+        {
+          "cell": "D7",
+          "value": "—"
+        },
+        {
+          "cell": "E7",
+          "value": "—"
+        },
+        {
+          "cell": "F7",
+          "value": "—"
+        },
+        {
+          "cell": "G7",
+          "value": "—"
+        },
+        {
+          "cell": "H7",
+          "value": "—"
+        },
+        {
+          "cell": "I7",
+          "value": "—"
+        },
+        {
+          "cell": "J7",
+          "value": "—"
+        },
+        {
+          "cell": "K7",
+          "value": "—"
+        },
+        {
+          "cell": "L7",
+          "value": "—"
+        },
+        {
+          "cell": "M7",
+          "value": "—"
+        },
+        {
+          "cell": "N7",
+          "value": "—"
+        },
+        {
+          "cell": "O7",
+          "value": "—"
+        },
+        {
+          "cell": "A8",
+          "value": "2 Shield — cannot be taken by X"
+        },
+        {
+          "cell": "C8",
+          "value": "—"
+        },
+        {
+          "cell": "D8",
+          "value": "—"
+        },
+        {
+          "cell": "E8",
+          "value": "—"
+        },
+        {
+          "cell": "F8",
+          "value": "—"
+        },
+        {
+          "cell": "G8",
+          "value": "—"
+        },
+        {
+          "cell": "H8",
+          "value": "● never taken (mated)"
+        },
+        {
+          "cell": "I8",
+          "value": "—"
+        },
+        {
+          "cell": "J8",
+          "value": "—"
+        },
+        {
+          "cell": "K8",
+          "value": "● by all but a king ◐ off"
+        },
+        {
+          "cell": "L8",
+          "value": "—"
+        },
+        {
+          "cell": "M8",
+          "value": "—"
+        },
+        {
+          "cell": "N8",
+          "value": "—"
+        },
+        {
+          "cell": "O8",
+          "value": "—"
+        },
+        {
+          "cell": "A9",
+          "value": "3 Handicap — cannot take X"
+        },
+        {
+          "cell": "C9",
+          "value": "—"
+        },
+        {
+          "cell": "D9",
+          "value": "—"
+        },
+        {
+          "cell": "E9",
+          "value": "—"
+        },
+        {
+          "cell": "F9",
+          "value": "—"
+        },
+        {
+          "cell": "G9",
+          "value": "—"
+        },
+        {
+          "cell": "H9",
+          "value": "—"
+        },
+        {
+          "cell": "I9",
+          "value": "◐ a king"
+        },
+        {
+          "cell": "J9",
+          "value": "● a king ◐ off"
+        },
+        {
+          "cell": "K9",
+          "value": "● anything ◐ pawns / any"
+        },
+        {
+          "cell": "L9",
+          "value": "—"
+        },
+        {
+          "cell": "M9",
+          "value": "● a king as a chain step"
+        },
+        {
+          "cell": "N9",
+          "value": "—"
+        },
+        {
+          "cell": "O9",
+          "value": "—"
+        },
+        {
+          "cell": "A10",
+          "value": "4a Movement — special first move"
+        },
+        {
+          "cell": "C10",
+          "value": "● 2 forward from home rank"
+        },
+        {
+          "cell": "D10",
+          "value": "—"
+        },
+        {
+          "cell": "E10",
+          "value": "—"
+        },
+        {
+          "cell": "F10",
+          "value": "—"
+        },
+        {
+          "cell": "G10",
+          "value": "—"
+        },
+        {
+          "cell": "H10",
+          "value": "—"
+        },
+        {
+          "cell": "I10",
+          "value": "—"
+        },
+        {
+          "cell": "J10",
+          "value": "—"
+        },
+        {
+          "cell": "K10",
+          "value": "◐ 2 from home rank, slide or leap (Q1)"
+        },
+        {
+          "cell": "L10",
+          "value": "—"
+        },
+        {
+          "cell": "M10",
+          "value": "—"
+        },
+        {
+          "cell": "N10",
+          "value": "—"
+        },
+        {
+          "cell": "O10",
+          "value": "—"
+        },
+        {
+          "cell": "A11",
+          "value": "4b Taking = moving?"
+        },
+        {
+          "cell": "C11",
+          "value": "differs"
+        },
+        {
+          "cell": "D11",
+          "value": "same"
+        },
+        {
+          "cell": "E11",
+          "value": "same"
+        },
+        {
+          "cell": "F11",
+          "value": "same"
+        },
+        {
+          "cell": "G11",
+          "value": "same"
+        },
+        {
+          "cell": "H11",
+          "value": "same"
+        },
+        {
+          "cell": "I11",
+          "value": "differs (shoots)"
+        },
+        {
+          "cell": "J11",
+          "value": "same"
+        },
+        {
+          "cell": "K11",
+          "value": "n/a"
+        },
+        {
+          "cell": "L11",
+          "value": "same"
+        },
+        {
+          "cell": "M11",
+          "value": "differs [2]"
+        },
+        {
+          "cell": "N11",
+          "value": "same"
+        },
+        {
+          "cell": "O11",
+          "value": "differs: it never takes by moving ◐ `land` makes the lob a displacement capture"
+        },
+        {
+          "cell": "A12",
+          "value": "4c Hop — over any piece"
+        },
+        {
+          "cell": "C12",
+          "value": "—"
+        },
+        {
+          "cell": "D12",
+          "value": "●"
+        },
+        {
+          "cell": "E12",
+          "value": "—"
+        },
+        {
+          "cell": "F12",
+          "value": "—"
+        },
+        {
+          "cell": "G12",
+          "value": "—"
+        },
+        {
+          "cell": "H12",
+          "value": "—"
+        },
+        {
+          "cell": "I12",
+          "value": "—"
+        },
+        {
+          "cell": "J12",
+          "value": "—"
+        },
+        {
+          "cell": "K12",
+          "value": "◐ leap, home rank only (Q1)"
+        },
+        {
+          "cell": "L12",
+          "value": "—"
+        },
+        {
+          "cell": "M12",
+          "value": "—"
+        },
+        {
+          "cell": "N12",
+          "value": "—"
+        },
+        {
+          "cell": "O12",
+          "value": "—"
+        },
+        {
+          "cell": "A13",
+          "value": "4d Hop — over friends only"
+        },
+        {
+          "cell": "C13",
+          "value": "—"
+        },
+        {
+          "cell": "D13",
+          "value": "—"
+        },
+        {
+          "cell": "E13",
+          "value": "—"
+        },
+        {
+          "cell": "F13",
+          "value": "—"
+        },
+        {
+          "cell": "G13",
+          "value": "—"
+        },
+        {
+          "cell": "H13",
+          "value": "—"
+        },
+        {
+          "cell": "I13",
+          "value": "—"
+        },
+        {
+          "cell": "J13",
+          "value": "● ◐ off = blocked"
+        },
+        {
+          "cell": "K13",
+          "value": "—"
+        },
+        {
+          "cell": "L13",
+          "value": "—"
+        },
+        {
+          "cell": "M13",
+          "value": "—"
+        },
+        {
+          "cell": "N13",
+          "value": "—"
+        },
+        {
+          "cell": "O13",
+          "value": "—"
+        },
+        {
+          "cell": "A14",
+          "value": "4e Hop — over enemies only"
+        },
+        {
+          "cell": "C14",
+          "value": "—"
+        },
+        {
+          "cell": "D14",
+          "value": "—"
+        },
+        {
+          "cell": "E14",
+          "value": "—"
+        },
+        {
+          "cell": "F14",
+          "value": "—"
+        },
+        {
+          "cell": "G14",
+          "value": "—"
+        },
+        {
+          "cell": "H14",
+          "value": "—"
+        },
+        {
+          "cell": "I14",
+          "value": "—"
+        },
+        {
+          "cell": "J14",
+          "value": "◐ over enemies too (degenerate, `sim-lm-buffs`)"
+        },
+        {
+          "cell": "K14",
+          "value": "—"
+        },
+        {
+          "cell": "L14",
+          "value": "—"
+        },
+        {
+          "cell": "M14",
+          "value": "—"
+        },
+        {
+          "cell": "N14",
+          "value": "—"
+        },
+        {
+          "cell": "O14",
+          "value": "◐ the lob hops exactly one enemy — the screen, which may not be a friend"
+        },
+        {
+          "cell": "A15",
+          "value": "5a Control — move any adjacent piece"
+        },
+        {
+          "cell": "C15",
+          "value": "—"
+        },
+        {
+          "cell": "D15",
+          "value": "—"
+        },
+        {
+          "cell": "E15",
+          "value": "—"
+        },
+        {
+          "cell": "F15",
+          "value": "—"
+        },
+        {
+          "cell": "G15",
+          "value": "—"
+        },
+        {
+          "cell": "H15",
+          "value": "—"
+        },
+        {
+          "cell": "I15",
+          "value": "—"
+        },
+        {
+          "cell": "J15",
+          "value": "—"
+        },
+        {
+          "cell": "K15",
+          "value": "—"
+        },
+        {
+          "cell": "L15",
+          "value": "—"
+        },
+        {
+          "cell": "M15",
+          "value": "—"
+        },
+        {
+          "cell": "N15",
+          "value": "● pushes one non-king neighbour 1 square straight away onto an empty square and follows; ◐ repel stays put"
+        },
+        {
+          "cell": "O15",
+          "value": "—"
+        },
+        {
+          "cell": "A16",
+          "value": "5b Control — friends only"
+        },
+        {
+          "cell": "C16",
+          "value": "—"
+        },
+        {
+          "cell": "D16",
+          "value": "—"
+        },
+        {
+          "cell": "E16",
+          "value": "—"
+        },
+        {
+          "cell": "F16",
+          "value": "—"
+        },
+        {
+          "cell": "G16",
+          "value": "—"
+        },
+        {
+          "cell": "H16",
+          "value": "—"
+        },
+        {
+          "cell": "I16",
+          "value": "—"
+        },
+        {
+          "cell": "J16",
+          "value": "—"
+        },
+        {
+          "cell": "K16",
+          "value": "—"
+        },
+        {
+          "cell": "L16",
+          "value": "● swap with an adjacent friend; long swap with the king, both on home rank ◐ any friend anywhere (Q3) / king anywhere"
+        },
+        {
+          "cell": "M16",
+          "value": "—"
+        },
+        {
+          "cell": "N16",
+          "value": "● a friend is pushable"
+        },
+        {
+          "cell": "O16",
+          "value": "—"
+        },
+        {
+          "cell": "A17",
+          "value": "5c Control — enemies only"
+        },
+        {
+          "cell": "C17",
+          "value": "—"
+        },
+        {
+          "cell": "D17",
+          "value": "—"
+        },
+        {
+          "cell": "E17",
+          "value": "—"
+        },
+        {
+          "cell": "F17",
+          "value": "—"
+        },
+        {
+          "cell": "G17",
+          "value": "—"
+        },
+        {
+          "cell": "H17",
+          "value": "—"
+        },
+        {
+          "cell": "I17",
+          "value": "—"
+        },
+        {
+          "cell": "J17",
+          "value": "—"
+        },
+        {
+          "cell": "K17",
+          "value": "—"
+        },
+        {
+          "cell": "L17",
+          "value": "◐ swap with an adjacent enemy (not the king)"
+        },
+        {
+          "cell": "M17",
+          "value": "—"
+        },
+        {
+          "cell": "N17",
+          "value": "● so is an enemy, a Guard included"
+        },
+        {
+          "cell": "O17",
+          "value": "—"
+        },
+        {
+          "cell": "A18",
+          "value": "5d Push — relocate a neighbour, then follow"
+        },
+        {
+          "cell": "C18",
+          "value": "—"
+        },
+        {
+          "cell": "D18",
+          "value": "—"
+        },
+        {
+          "cell": "E18",
+          "value": "—"
+        },
+        {
+          "cell": "F18",
+          "value": "—"
+        },
+        {
+          "cell": "G18",
+          "value": "—"
+        },
+        {
+          "cell": "H18",
+          "value": "—"
+        },
+        {
+          "cell": "I18",
+          "value": "—"
+        },
+        {
+          "cell": "J18",
+          "value": "—"
+        },
+        {
+          "cell": "K18",
+          "value": "—"
+        },
+        {
+          "cell": "L18",
+          "value": "—"
+        },
+        {
+          "cell": "M18",
+          "value": "—"
+        },
+        {
+          "cell": "N18",
+          "value": "● default, 2026-09-24 (`ogreMode: 'push'`): the neighbour moves one square straight away and the Ogre follows. Value 318 adopted from the earlier 3.18 ± 0.44 pawn estimate. Historical depth-3/depth-4 results are in `sim-ogre-movement-2026-09-17.md` and `direct-campaign-phase-3-2026-09-22.md`; no run is active."
+        },
+        {
+          "cell": "O18",
+          "value": "—"
+        },
+        {
+          "cell": "A19",
+          "value": "5e Repel — relocate a neighbour, stay put"
+        },
+        {
+          "cell": "C19",
+          "value": "—"
+        },
+        {
+          "cell": "D19",
+          "value": "—"
+        },
+        {
+          "cell": "E19",
+          "value": "—"
+        },
+        {
+          "cell": "F19",
+          "value": "—"
+        },
+        {
+          "cell": "G19",
+          "value": "—"
+        },
+        {
+          "cell": "H19",
+          "value": "—"
+        },
+        {
+          "cell": "I19",
+          "value": "—"
+        },
+        {
+          "cell": "J19",
+          "value": "—"
+        },
+        {
+          "cell": "K19",
+          "value": "—"
+        },
+        {
+          "cell": "L19",
+          "value": "—"
+        },
+        {
+          "cell": "M19",
+          "value": "—"
+        },
+        {
+          "cell": "N19",
+          "value": "◐ lab alternative (`ogreMode: 'repel'`): the neighbour moves and the Ogre stays. Historical measured value 2.25 ± 0.43 pawns; current evaluation value 318 is for the adopted push default."
+        },
+        {
+          "cell": "O19",
+          "value": "—"
+        },
+        {
+          "cell": "A20",
+          "value": "6a Trigger on capture"
+        },
+        {
+          "cell": "C20",
+          "value": "—"
+        },
+        {
+          "cell": "D20",
+          "value": "—"
+        },
+        {
+          "cell": "E20",
+          "value": "—"
+        },
+        {
+          "cell": "F20",
+          "value": "—"
+        },
+        {
+          "cell": "G20",
+          "value": "—"
+        },
+        {
+          "cell": "H20",
+          "value": "—"
+        },
+        {
+          "cell": "I20",
+          "value": "—"
+        },
+        {
+          "cell": "J20",
+          "value": "● dies after non-pawn captures; survives pawns ◐ always / never dies"
+        },
+        {
+          "cell": "K20",
+          "value": "◐ spent after one capture (rejected)"
+        },
+        {
+          "cell": "L20",
+          "value": "—"
+        },
+        {
+          "cell": "M20",
+          "value": "● may capture again ◐ off"
+        },
+        {
+          "cell": "N20",
+          "value": "—"
+        },
+        {
+          "cell": "O20",
+          "value": "—"
+        },
+        {
+          "cell": "A21",
+          "value": "6b Rule vs one specific piece"
+        },
+        {
+          "cell": "C21",
+          "value": "—"
+        },
+        {
+          "cell": "D21",
+          "value": "—"
+        },
+        {
+          "cell": "E21",
+          "value": "—"
+        },
+        {
+          "cell": "F21",
+          "value": "—"
+        },
+        {
+          "cell": "G21",
+          "value": "—"
+        },
+        {
+          "cell": "H21",
+          "value": "—"
+        },
+        {
+          "cell": "I21",
+          "value": "◐ cannot take a king"
+        },
+        {
+          "cell": "J21",
+          "value": "● cannot take a king"
+        },
+        {
+          "cell": "K21",
+          "value": "● only a king takes it"
+        },
+        {
+          "cell": "L21",
+          "value": "● long swap only with the king"
+        },
+        {
+          "cell": "M21",
+          "value": "● no king as a chain step"
+        },
+        {
+          "cell": "N21",
+          "value": "● never pushes a king of either colour"
+        },
+        {
+          "cell": "O21",
+          "value": "◐ a lob may take a king, so it checks through the screen"
+        }
+      ],
+      "validations": [
+        {
+          "range": "B4",
+          "formula": "Lists!$A$1:$A$9"
+        },
+        {
+          "range": "B5",
+          "formula": "Lists!$B$1:$B$6"
+        },
+        {
+          "range": "B6",
+          "formula": "Lists!$C$1:$C$2"
+        },
+        {
+          "range": "B7",
+          "formula": "Lists!$D$1:$D$2"
+        },
+        {
+          "range": "B8",
+          "formula": "Lists!$E$1:$E$5"
+        },
+        {
+          "range": "B9",
+          "formula": "Lists!$F$1:$F$5"
+        },
+        {
+          "range": "B10",
+          "formula": "Lists!$G$1:$G$3"
+        },
+        {
+          "range": "B11",
+          "formula": "Lists!$H$1:$H$5"
+        },
+        {
+          "range": "B12",
+          "formula": "Lists!$I$1:$I$3"
+        },
+        {
+          "range": "B13",
+          "formula": "Lists!$J$1:$J$2"
+        },
+        {
+          "range": "B14",
+          "formula": "Lists!$K$1:$K$3"
+        },
+        {
+          "range": "B15",
+          "formula": "Lists!$L$1:$L$2"
+        },
+        {
+          "range": "B16",
+          "formula": "Lists!$M$1:$M$4"
+        },
+        {
+          "range": "B17",
+          "formula": "Lists!$N$1:$N$3"
+        },
+        {
+          "range": "B18",
+          "formula": "Lists!$O$1:$O$2"
+        },
+        {
+          "range": "B19",
+          "formula": "Lists!$P$1:$P$2"
+        },
+        {
+          "range": "B20",
+          "formula": "Lists!$Q$1:$Q$5"
+        },
+        {
+          "range": "B21",
+          "formula": "Lists!$R$1:$R$5"
+        }
+      ]
+    },
+    {
+      "name": "Card matrix",
+      "cells": [
+        {
+          "cell": "A1",
+          "value": "Key: ● king power in the game · ◐ card (lab). Column B: design a new card or power with the drop-downs. Source: docs/MATRIX.md C.1–C.2, with Death Touch T2 (owner 2026-10-09)."
+        },
+        {
+          "cell": "A3",
+          "value": "Property"
+        },
+        {
+          "cell": "B3",
+          "value": "NEW CARD / POWER"
+        },
+        {
+          "cell": "C3",
+          "value": "Freeze"
+        },
+        {
+          "cell": "D3",
+          "value": "Ice Wall"
+        },
+        {
+          "cell": "E3",
+          "value": "Strike"
+        },
+        {
+          "cell": "F3",
+          "value": "Haste"
+        },
+        {
+          "cell": "G3",
+          "value": "Flight"
+        },
+        {
+          "cell": "H3",
+          "value": "Sacrifice"
+        },
+        {
+          "cell": "I3",
+          "value": "March"
+        },
+        {
+          "cell": "J3",
+          "value": "Leap"
+        },
+        {
+          "cell": "K3",
+          "value": "Holy Light"
+        },
+        {
+          "cell": "L3",
+          "value": "Mercy"
+        },
+        {
+          "cell": "M3",
+          "value": "Death Touch"
+        },
+        {
+          "cell": "N3",
+          "value": "Darkness"
+        },
+        {
+          "cell": "O3",
+          "value": "Mimic"
+        },
+        {
+          "cell": "P3",
+          "value": "Vault"
+        },
+        {
+          "cell": "Q3",
+          "value": "Curse"
+        },
+        {
+          "cell": "R3",
+          "value": "Sky Lift"
+        },
+        {
+          "cell": "S3",
+          "value": "Salvation"
+        },
+        {
+          "cell": "T3",
+          "value": "Rage"
+        },
+        {
+          "cell": "U3",
+          "value": "RageB"
+        },
+        {
+          "cell": "V3",
+          "value": "Mirror"
+        },
+        {
+          "cell": "W3",
+          "value": "MirrorB"
+        },
+        {
+          "cell": "X3",
+          "value": "Firewall"
+        },
+        {
+          "cell": "Y3",
+          "value": "FirewallB"
+        },
+        {
+          "cell": "Z3",
+          "value": "Earth Quake"
+        },
+        {
+          "cell": "AA3",
+          "value": "Earth Quake B"
+        },
+        {
+          "cell": "AB3",
+          "value": "Burn"
+        },
+        {
+          "cell": "AC3",
+          "value": "Fire Starter"
+        },
+        {
+          "cell": "AD3",
+          "value": "Control"
+        },
+        {
+          "cell": "AE3",
+          "value": "Rescue"
+        },
+        {
+          "cell": "AF3",
+          "value": "Growth"
+        },
+        {
+          "cell": "AG3",
+          "value": "GrowthB"
+        },
+        {
+          "cell": "AH3",
+          "value": "Rally"
+        },
+        {
+          "cell": "AI3",
+          "value": "Morph"
+        },
+        {
+          "cell": "AJ3",
+          "value": "MorphB"
+        },
+        {
+          "cell": "AK3",
+          "value": "Spawn"
+        },
+        {
+          "cell": "AL3",
+          "value": "SpawnK"
+        },
+        {
+          "cell": "AM3",
+          "value": "Spawn2"
+        },
+        {
+          "cell": "AN3",
+          "value": "SpawnK2"
+        },
+        {
+          "cell": "AO3",
+          "value": "MorphP"
+        },
+        {
+          "cell": "AP3",
+          "value": "MorphS"
+        },
+        {
+          "cell": "A4",
+          "value": "Source"
+        },
+        {
+          "cell": "C4",
+          "value": "both ● / ◐"
+        },
+        {
+          "cell": "D4",
+          "value": "both ● / ◐"
+        },
+        {
+          "cell": "E4",
+          "value": "both ● / ◐"
+        },
+        {
+          "cell": "F4",
+          "value": "both ● / ◐"
+        },
+        {
+          "cell": "G4",
+          "value": "both ● / ◐"
+        },
+        {
+          "cell": "H4",
+          "value": "both ● / ◐"
+        },
+        {
+          "cell": "I4",
+          "value": "both ● / ◐"
+        },
+        {
+          "cell": "J4",
+          "value": "both ● / ◐"
+        },
+        {
+          "cell": "K4",
+          "value": "king power ●"
+        },
+        {
+          "cell": "L4",
+          "value": "king power ●"
+        },
+        {
+          "cell": "M4",
+          "value": "king power ●"
+        },
+        {
+          "cell": "N4",
+          "value": "king power ●"
+        },
+        {
+          "cell": "O4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "P4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "Q4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "R4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "S4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "T4",
+          "value": "card ◐ legendary (dealt rarely; owner 2026-10-06, as built: +4.06 pawns, trims `quiet` +4.01 and `stopOnTake` +4.47 do not soften it)"
+        },
+        {
+          "cell": "U4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "V4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "W4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "X4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "Y4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "Z4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "AA4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "AB4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "AC4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "AD4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "AE4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "AF4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "AG4",
+          "value": "card ◐"
+        },
+        {
+          "cell": "AH4",
+          "value": "card ◐ (+2.60 ± 0.46 pawns, draws 9.8%; deal candidate)"
+        },
+        {
+          "cell": "AI4",
+          "value": "card ◐ (`morph-a1`, Kaggle, 3,000 games, 150 pairs, seed 6161, depth 3, a fresh army per pair: against no card 98% (past the calibration: \"more than a queen's worth\" is the safe reading), against the Haste card 90%, against MorphB 71%; 86.2% ± 2.3 against the field (Elo +256); draws 7.3% (no rise); played in 97.9% of games, median first use ply 5 (move 3); it always picks the queen: Guard→Q 725, Knight→Q 470, Bishop→Q 144, Maester→Q 53, Ogre→Q 43, so it is a free queen on move 3, and leaving the Guard out does not fix it (Knight→queen is next); owner's choice open)"
+        },
+        {
+          "cell": "AJ4",
+          "value": "card ◐ (`morph-a1`: against no card 77% (+210 Elo ≈ +3.3 pawns at 64 Elo a pawn; above the Workshop's fair-card ceiling of 3 pawns, fair band 0.7–3), against the Haste card 64%; 56.7% ± 3.2 against the field; draws 9.3% (no rise); played in 99.5% of games, median first use ply 5; no queen, so it almost always picks the Archer: Guard→A 729, Knight→A 236, Bishop→A 70, Maester→A 25; Guard→Rook 11; owner's choice open)"
+        },
+        {
+          "cell": "AK4",
+          "value": "card ◐ set aside (owner 2026-10-06: too weak to feel; `spawn-r1` +0.36 ± 0.38 pawns, draws 17.3%, +2.0 ± 5.1 against no card; played in 94% of games, median first use ply 21; below the Workshop's fair-card floor of 0.7 pawns; stays in the lab)"
+        },
+        {
+          "cell": "AL4",
+          "value": "card ◐ (`spawn-r1` +0.80 ± 0.36 pawns, draws 15.7%, +0.3 ± 5.1; played in 73%, median ply 53; stays as built, owner)"
+        },
+        {
+          "cell": "AM4",
+          "value": "card ◐ the start-rank Spawn card (owner 2026-10-06; `spawn-r1` +0.50 ± 0.40 pawns, draws 16.2%, +0.8 ± 5.1; played in 99%, median ply 12; below the Workshop's fair-card floor of 0.7 pawns)"
+        },
+        {
+          "cell": "AN4",
+          "value": "card ◐ (`spawn-r1` +1.55 ± 0.40 pawns, draws 13.8%, −1.5 ± 5.0; played in 78%, median ply 48; stays in the lab, owner 2026-10-06)"
+        },
+        {
+          "cell": "AO4",
+          "value": "card ◐ (a softer Morph, owner 2026-10-06; `morph-b1`, Kaggle, 3,000 games, 150 armies, depth 3, standard rules: against no card 70% (+147 Elo ≈ +2.3 pawns at 64 Elo a pawn; inside the fair band 0.7–3), against the Haste card 50% (equal), against MorphS 62%; 60.6% ± 2.9 against the field; draws 13.7% against 14.9% for no card (no rise); played in 99.7% of games, median first use ply 5)"
+        },
+        {
+          "cell": "AP4",
+          "value": "card ◐ (a softer Morph, owner 2026-10-06: \"two of your pieces swap types\", built as a swap of places, the same on the board; `morph-b1`, Kaggle, 3,000 games, 150 armies, depth 3, standard rules: against no card 59% (≈ +1.0 pawn; inside the fair band 0.7–3), against the Haste card 43%, against MorphP 38%; 46.8% ± 3.1 against the field; draws 15.3% (no rise); played in 72.1% of games, median first use ply 34. Sky Lift's moves under its own name: Sky Lift measured +1.2 ± 0.4 pawns in `cards-a2`)"
+        },
+        {
+          "cell": "A5",
+          "value": "Type"
+        },
+        {
+          "cell": "C5",
+          "value": "mark"
+        },
+        {
+          "cell": "D5",
+          "value": "mark"
+        },
+        {
+          "cell": "E5",
+          "value": "special move: as a queen"
+        },
+        {
+          "cell": "F5",
+          "value": "extra move: the same piece"
+        },
+        {
+          "cell": "G5",
+          "value": "special move: to an empty square of the own half"
+        },
+        {
+          "cell": "H5",
+          "value": "arrival: a pawn becomes a lost piece"
+        },
+        {
+          "cell": "I5",
+          "value": "always-on (king) · special move (card): a pawn's double step from any rank"
+        },
+        {
+          "cell": "J5",
+          "value": "special move: a slider passes its own pawns"
+        },
+        {
+          "cell": "K5",
+          "value": "always-on"
+        },
+        {
+          "cell": "L5",
+          "value": "always-on: the king steps 1–2 and jumps own pieces"
+        },
+        {
+          "cell": "M5",
+          "value": "always-on"
+        },
+        {
+          "cell": "N5",
+          "value": "always-on: pawns step straight or diagonally; the king may step 2 straight"
+        },
+        {
+          "cell": "O5",
+          "value": "special move: as another own type moves"
+        },
+        {
+          "cell": "P5",
+          "value": "special move: a slider passes one piece"
+        },
+        {
+          "cell": "Q5",
+          "value": "special move: an enemy steps 1 square"
+        },
+        {
+          "cell": "R5",
+          "value": "special move: two own pieces trade squares"
+        },
+        {
+          "cell": "S5",
+          "value": "arrival: a lost piece to the own first rank"
+        },
+        {
+          "cell": "T5",
+          "value": "extra move: the same piece"
+        },
+        {
+          "cell": "U5",
+          "value": "extra move: the same piece"
+        },
+        {
+          "cell": "V5",
+          "value": "copy: the opponent's last card"
+        },
+        {
+          "cell": "W5",
+          "value": "copy: another card of the hand, which stays"
+        },
+        {
+          "cell": "X5",
+          "value": "mark: every own piece"
+        },
+        {
+          "cell": "Y5",
+          "value": "special move: trade squares with an enemy next to it"
+        },
+        {
+          "cell": "Z5",
+          "value": "special move: push the pieces next to a square"
+        },
+        {
+          "cell": "AA5",
+          "value": "special move: the same, a square next to an own piece"
+        },
+        {
+          "cell": "AB5",
+          "value": "special move: take in the capital as a queen"
+        },
+        {
+          "cell": "AC5",
+          "value": "special move: the same on the enemy back rank"
+        },
+        {
+          "cell": "AD5",
+          "value": "special move: as a friendly neighbour moves and takes"
+        },
+        {
+          "cell": "AE5",
+          "value": "mark: renews the own last mark"
+        },
+        {
+          "cell": "AF5",
+          "value": "draw"
+        },
+        {
+          "cell": "AG5",
+          "value": "draw"
+        },
+        {
+          "cell": "AH5",
+          "value": "extra move: a different own piece"
+        },
+        {
+          "cell": "AI5",
+          "value": "promotion: an own piece becomes another type, on its square"
+        },
+        {
+          "cell": "AJ5",
+          "value": "promotion: the same"
+        },
+        {
+          "cell": "AK5",
+          "value": "spawn: a new own pawn on an empty square of the own pawn start rank (rank 2 / 7)"
+        },
+        {
+          "cell": "AL5",
+          "value": "spawn: a new own pawn on an empty square next to the own king"
+        },
+        {
+          "cell": "AM5",
+          "value": "spawn: two new own pawns, as Spawn"
+        },
+        {
+          "cell": "AN5",
+          "value": "spawn: two new own pawns, as SpawnK"
+        },
+        {
+          "cell": "AO5",
+          "value": "promotion: an own pawn becomes a knight or a bishop, on its square"
+        },
+        {
+          "cell": "AP5",
+          "value": "special move: two own pieces swap places"
+        },
+        {
+          "cell": "A6",
+          "value": "Rarity"
+        },
+        {
+          "cell": "C6",
+          "value": "common"
+        },
+        {
+          "cell": "D6",
+          "value": "common"
+        },
+        {
+          "cell": "E6",
+          "value": "common"
+        },
+        {
+          "cell": "F6",
+          "value": "common"
+        },
+        {
+          "cell": "G6",
+          "value": "common"
+        },
+        {
+          "cell": "H6",
+          "value": "common"
+        },
+        {
+          "cell": "I6",
+          "value": "common"
+        },
+        {
+          "cell": "J6",
+          "value": "common"
+        },
+        {
+          "cell": "K6",
+          "value": "common"
+        },
+        {
+          "cell": "L6",
+          "value": "common"
+        },
+        {
+          "cell": "M6",
+          "value": "common"
+        },
+        {
+          "cell": "N6",
+          "value": "common"
+        },
+        {
+          "cell": "O6",
+          "value": "common"
+        },
+        {
+          "cell": "P6",
+          "value": "common"
+        },
+        {
+          "cell": "Q6",
+          "value": "common"
+        },
+        {
+          "cell": "R6",
+          "value": "common"
+        },
+        {
+          "cell": "S6",
+          "value": "common"
+        },
+        {
+          "cell": "T6",
+          "value": "legendary"
+        },
+        {
+          "cell": "U6",
+          "value": "common"
+        },
+        {
+          "cell": "V6",
+          "value": "common"
+        },
+        {
+          "cell": "W6",
+          "value": "common"
+        },
+        {
+          "cell": "X6",
+          "value": "common"
+        },
+        {
+          "cell": "Y6",
+          "value": "common"
+        },
+        {
+          "cell": "Z6",
+          "value": "common"
+        },
+        {
+          "cell": "AA6",
+          "value": "common"
+        },
+        {
+          "cell": "AB6",
+          "value": "common"
+        },
+        {
+          "cell": "AC6",
+          "value": "common"
+        },
+        {
+          "cell": "AD6",
+          "value": "common"
+        },
+        {
+          "cell": "AE6",
+          "value": "common"
+        },
+        {
+          "cell": "AF6",
+          "value": "common"
+        },
+        {
+          "cell": "AG6",
+          "value": "common"
+        },
+        {
+          "cell": "AH6",
+          "value": "common"
+        },
+        {
+          "cell": "AI6",
+          "value": "common"
+        },
+        {
+          "cell": "AJ6",
+          "value": "common"
+        },
+        {
+          "cell": "AK6",
+          "value": "common"
+        },
+        {
+          "cell": "AL6",
+          "value": "common"
+        },
+        {
+          "cell": "AM6",
+          "value": "common"
+        },
+        {
+          "cell": "AN6",
+          "value": "common"
+        },
+        {
+          "cell": "AO6",
+          "value": "common"
+        },
+        {
+          "cell": "AP6",
+          "value": "common"
+        },
+        {
+          "cell": "A7",
+          "value": "Uses"
+        },
+        {
+          "cell": "C7",
+          "value": "1 (printed 2)"
+        },
+        {
+          "cell": "D7",
+          "value": "2"
+        },
+        {
+          "cell": "E7",
+          "value": "1"
+        },
+        {
+          "cell": "F7",
+          "value": "1"
+        },
+        {
+          "cell": "G7",
+          "value": "1"
+        },
+        {
+          "cell": "H7",
+          "value": "1"
+        },
+        {
+          "cell": "I7",
+          "value": "— (printed 3)"
+        },
+        {
+          "cell": "J7",
+          "value": "3"
+        },
+        {
+          "cell": "K7",
+          "value": "—"
+        },
+        {
+          "cell": "L7",
+          "value": "—"
+        },
+        {
+          "cell": "M7",
+          "value": "—"
+        },
+        {
+          "cell": "N7",
+          "value": "—"
+        },
+        {
+          "cell": "O7",
+          "value": "—"
+        },
+        {
+          "cell": "P7",
+          "value": "—"
+        },
+        {
+          "cell": "Q7",
+          "value": "—"
+        },
+        {
+          "cell": "R7",
+          "value": "—"
+        },
+        {
+          "cell": "S7",
+          "value": "—"
+        },
+        {
+          "cell": "T7",
+          "value": "—"
+        },
+        {
+          "cell": "U7",
+          "value": "—"
+        },
+        {
+          "cell": "V7",
+          "value": "—"
+        },
+        {
+          "cell": "W7",
+          "value": "—"
+        },
+        {
+          "cell": "X7",
+          "value": "—"
+        },
+        {
+          "cell": "Y7",
+          "value": "—"
+        },
+        {
+          "cell": "Z7",
+          "value": "—"
+        },
+        {
+          "cell": "AA7",
+          "value": "—"
+        },
+        {
+          "cell": "AB7",
+          "value": "—"
+        },
+        {
+          "cell": "AC7",
+          "value": "—"
+        },
+        {
+          "cell": "AD7",
+          "value": "—"
+        },
+        {
+          "cell": "AE7",
+          "value": "—"
+        },
+        {
+          "cell": "AF7",
+          "value": "—"
+        },
+        {
+          "cell": "AG7",
+          "value": "—"
+        },
+        {
+          "cell": "AH7",
+          "value": "—"
+        },
+        {
+          "cell": "AI7",
+          "value": "—"
+        },
+        {
+          "cell": "AJ7",
+          "value": "—"
+        },
+        {
+          "cell": "AK7",
+          "value": "—"
+        },
+        {
+          "cell": "AL7",
+          "value": "—"
+        },
+        {
+          "cell": "AM7",
+          "value": "—"
+        },
+        {
+          "cell": "AN7",
+          "value": "—"
+        },
+        {
+          "cell": "AO7",
+          "value": "—"
+        },
+        {
+          "cell": "AP7",
+          "value": "—"
+        },
+        {
+          "cell": "A8",
+          "value": "Turn cost"
+        },
+        {
+          "cell": "C8",
+          "value": "then make the move (printed: the turn's move)"
+        },
+        {
+          "cell": "D8",
+          "value": "then make the move (printed: the turn's move)"
+        },
+        {
+          "cell": "E8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "F8",
+          "value": "extra move"
+        },
+        {
+          "cell": "G8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "H8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "I8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "J8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "K8",
+          "value": "—"
+        },
+        {
+          "cell": "L8",
+          "value": "—"
+        },
+        {
+          "cell": "M8",
+          "value": "—"
+        },
+        {
+          "cell": "N8",
+          "value": "—"
+        },
+        {
+          "cell": "O8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "P8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "Q8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "R8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "S8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "T8",
+          "value": "extra move"
+        },
+        {
+          "cell": "U8",
+          "value": "extra move"
+        },
+        {
+          "cell": "V8",
+          "value": "the copied card's"
+        },
+        {
+          "cell": "W8",
+          "value": "the copied card's"
+        },
+        {
+          "cell": "X8",
+          "value": "then make the move"
+        },
+        {
+          "cell": "Y8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "Z8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AA8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AB8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AC8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AD8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AE8",
+          "value": "then make the move"
+        },
+        {
+          "cell": "AF8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AG8",
+          "value": "then make the move"
+        },
+        {
+          "cell": "AH8",
+          "value": "extra move"
+        },
+        {
+          "cell": "AI8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AJ8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AK8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AL8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AM8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AN8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AO8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "AP8",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "A9",
+          "value": "Captures"
+        },
+        {
+          "cell": "C9",
+          "value": "never"
+        },
+        {
+          "cell": "D9",
+          "value": "never"
+        },
+        {
+          "cell": "E9",
+          "value": "never (printed: may)"
+        },
+        {
+          "cell": "F9",
+          "value": "never (printed: may)"
+        },
+        {
+          "cell": "G9",
+          "value": "never"
+        },
+        {
+          "cell": "H9",
+          "value": "never"
+        },
+        {
+          "cell": "I9",
+          "value": "never"
+        },
+        {
+          "cell": "J9",
+          "value": "may, not a king"
+        },
+        {
+          "cell": "K9",
+          "value": "the king may take pawns"
+        },
+        {
+          "cell": "L9",
+          "value": "the king takes only a pawn or a guard"
+        },
+        {
+          "cell": "M9",
+          "value": "must: the king takes only without moving"
+        },
+        {
+          "cell": "N9",
+          "value": "pawns take only straight ahead; the king's step never"
+        },
+        {
+          "cell": "O9",
+          "value": "never"
+        },
+        {
+          "cell": "P9",
+          "value": "may, not a king"
+        },
+        {
+          "cell": "Q9",
+          "value": "never"
+        },
+        {
+          "cell": "R9",
+          "value": "never"
+        },
+        {
+          "cell": "S9",
+          "value": "never"
+        },
+        {
+          "cell": "T9",
+          "value": "may, on either move"
+        },
+        {
+          "cell": "U9",
+          "value": "may on the first; the second must"
+        },
+        {
+          "cell": "V9",
+          "value": "the copied card's"
+        },
+        {
+          "cell": "W9",
+          "value": "the copied card's"
+        },
+        {
+          "cell": "X9",
+          "value": "never"
+        },
+        {
+          "cell": "Y9",
+          "value": "never"
+        },
+        {
+          "cell": "Z9",
+          "value": "never"
+        },
+        {
+          "cell": "AA9",
+          "value": "never"
+        },
+        {
+          "cell": "AB9",
+          "value": "must"
+        },
+        {
+          "cell": "AC9",
+          "value": "must"
+        },
+        {
+          "cell": "AD9",
+          "value": "may"
+        },
+        {
+          "cell": "AE9",
+          "value": "never"
+        },
+        {
+          "cell": "AF9",
+          "value": "never"
+        },
+        {
+          "cell": "AG9",
+          "value": "never"
+        },
+        {
+          "cell": "AH9",
+          "value": "never, on either move"
+        },
+        {
+          "cell": "AI9",
+          "value": "never"
+        },
+        {
+          "cell": "AJ9",
+          "value": "never"
+        },
+        {
+          "cell": "AK9",
+          "value": "never"
+        },
+        {
+          "cell": "AL9",
+          "value": "never"
+        },
+        {
+          "cell": "AM9",
+          "value": "never"
+        },
+        {
+          "cell": "AN9",
+          "value": "never"
+        },
+        {
+          "cell": "AO9",
+          "value": "never"
+        },
+        {
+          "cell": "AP9",
+          "value": "never"
+        },
+        {
+          "cell": "A10",
+          "value": "Targets"
+        },
+        {
+          "cell": "C10",
+          "value": "an enemy piece or pawn, not the king"
+        },
+        {
+          "cell": "D10",
+          "value": "an own piece or pawn, not the king"
+        },
+        {
+          "cell": "E10",
+          "value": "an own piece, not the king or a pawn (printed: pawns too)"
+        },
+        {
+          "cell": "F10",
+          "value": "an own piece, the king included"
+        },
+        {
+          "cell": "G10",
+          "value": "an own piece or pawn, not the king"
+        },
+        {
+          "cell": "H10",
+          "value": "an own pawn; the piece not a pawn, guard or king"
+        },
+        {
+          "cell": "I10",
+          "value": "own pawns"
+        },
+        {
+          "cell": "J10",
+          "value": "an own rook, bishop or queen"
+        },
+        {
+          "cell": "K10",
+          "value": "own king: no enemy pawn takes it; own pieces beside, in front of or behind it cannot be taken"
+        },
+        {
+          "cell": "L10",
+          "value": "own pieces next to the king cannot be taken, except by pawns"
+        },
+        {
+          "cell": "M10",
+          "value": "● T2 (owner 2026-10-09): an enemy next to the king, or 2 straight forward or back (never sideways) over an empty square. ◐ as released: also sideways"
+        },
+        {
+          "cell": "N10",
+          "value": "own pawns and king"
+        },
+        {
+          "cell": "O10",
+          "value": "an own piece, not the king or a pawn; not as a king or pawn"
+        },
+        {
+          "cell": "P10",
+          "value": "an own rook, bishop or queen; it passes a piece of either side, a king included"
+        },
+        {
+          "cell": "Q10",
+          "value": "an enemy piece or pawn, not the king"
+        },
+        {
+          "cell": "R10",
+          "value": "own pieces, not the king or pawns, not of one type"
+        },
+        {
+          "cell": "S10",
+          "value": "an own lost piece, not a pawn, guard or king"
+        },
+        {
+          "cell": "T10",
+          "value": "an own piece, the king included"
+        },
+        {
+          "cell": "U10",
+          "value": "an own piece, the king included"
+        },
+        {
+          "cell": "V10",
+          "value": "the copied card's"
+        },
+        {
+          "cell": "W10",
+          "value": "the copied card's"
+        },
+        {
+          "cell": "X10",
+          "value": "all own pieces"
+        },
+        {
+          "cell": "Y10",
+          "value": "an own piece and an enemy piece, neither a king"
+        },
+        {
+          "cell": "Z10",
+          "value": "pieces and pawns of either side, not kings"
+        },
+        {
+          "cell": "AA10",
+          "value": "pieces and pawns of either side, not kings"
+        },
+        {
+          "cell": "AB10",
+          "value": "an own piece, not a pawn or the king; an enemy on d4 e4 d5 e5, not the king"
+        },
+        {
+          "cell": "AC10",
+          "value": "as Burn, on the enemy back rank"
+        },
+        {
+          "cell": "AD10",
+          "value": "an own piece, not a pawn or the king; the neighbour not a pawn or king, nor of its type"
+        },
+        {
+          "cell": "AE10",
+          "value": "the own Freeze, Ice Wall or Firewall"
+        },
+        {
+          "cell": "AF10",
+          "value": "the own pile"
+        },
+        {
+          "cell": "AG10",
+          "value": "the own pile"
+        },
+        {
+          "cell": "AH10",
+          "value": "own pieces, the king included"
+        },
+        {
+          "cell": "AI10",
+          "value": "an own piece, not the king or a pawn (a frozen one does not morph); the new type one the draw pool fields (`POOL`: queen, ogre, rook, bishop, knight, archer, guard, maester, beast), not its own, never a second Beast for the side (a second queen may come), a guard only where a guard may land"
+        },
+        {
+          "cell": "AJ10",
+          "value": "as Morph, and the new type not a queen"
+        },
+        {
+          "cell": "AK10",
+          "value": "an empty square; the own king not in check after (it may block a check)"
+        },
+        {
+          "cell": "AL10",
+          "value": "an empty square of the king's 8 neighbours, not on rank 1 or 8; the king not in check after"
+        },
+        {
+          "cell": "AM10",
+          "value": "two different empty squares of the start rank (at most 28 pairs); the king not in check after"
+        },
+        {
+          "cell": "AN10",
+          "value": "two different empty squares next to the king, not on rank 1 or 8; the king not in check after"
+        },
+        {
+          "cell": "AO10",
+          "value": "an own pawn (a frozen one does not morph); a knight or a bishop, whether or not the army fields one; never answers a check (the square stays filled)"
+        },
+        {
+          "cell": "AP10",
+          "value": "two own pieces of different types, not the king or pawns (a frozen one does not swap; a guard only where a guard may land); each keeps its flags; the same squares stay filled, so it never answers a check and never exposes the king"
+        },
+        {
+          "cell": "A11",
+          "value": "Duration"
+        },
+        {
+          "cell": "C11",
+          "value": "opponent's next turn"
+        },
+        {
+          "cell": "D11",
+          "value": "opponent's next turn"
+        },
+        {
+          "cell": "E11",
+          "value": "instant"
+        },
+        {
+          "cell": "F11",
+          "value": "instant"
+        },
+        {
+          "cell": "G11",
+          "value": "instant"
+        },
+        {
+          "cell": "H11",
+          "value": "instant"
+        },
+        {
+          "cell": "I11",
+          "value": "always (king) · instant (card)"
+        },
+        {
+          "cell": "J11",
+          "value": "instant"
+        },
+        {
+          "cell": "K11",
+          "value": "always"
+        },
+        {
+          "cell": "L11",
+          "value": "always"
+        },
+        {
+          "cell": "M11",
+          "value": "always"
+        },
+        {
+          "cell": "N11",
+          "value": "always"
+        },
+        {
+          "cell": "O11",
+          "value": "instant"
+        },
+        {
+          "cell": "P11",
+          "value": "instant"
+        },
+        {
+          "cell": "Q11",
+          "value": "instant"
+        },
+        {
+          "cell": "R11",
+          "value": "instant"
+        },
+        {
+          "cell": "S11",
+          "value": "instant"
+        },
+        {
+          "cell": "T11",
+          "value": "instant"
+        },
+        {
+          "cell": "U11",
+          "value": "instant"
+        },
+        {
+          "cell": "V11",
+          "value": "the copied card's"
+        },
+        {
+          "cell": "W11",
+          "value": "the copied card's"
+        },
+        {
+          "cell": "X11",
+          "value": "opponent's next turn"
+        },
+        {
+          "cell": "Y11",
+          "value": "instant"
+        },
+        {
+          "cell": "Z11",
+          "value": "instant"
+        },
+        {
+          "cell": "AA11",
+          "value": "instant"
+        },
+        {
+          "cell": "AB11",
+          "value": "instant"
+        },
+        {
+          "cell": "AC11",
+          "value": "instant"
+        },
+        {
+          "cell": "AD11",
+          "value": "instant"
+        },
+        {
+          "cell": "AE11",
+          "value": "one more opponent turn"
+        },
+        {
+          "cell": "AF11",
+          "value": "instant"
+        },
+        {
+          "cell": "AG11",
+          "value": "instant"
+        },
+        {
+          "cell": "AH11",
+          "value": "instant"
+        },
+        {
+          "cell": "AI11",
+          "value": "instant"
+        },
+        {
+          "cell": "AJ11",
+          "value": "instant"
+        },
+        {
+          "cell": "AK11",
+          "value": "instant"
+        },
+        {
+          "cell": "AL11",
+          "value": "instant"
+        },
+        {
+          "cell": "AM11",
+          "value": "instant"
+        },
+        {
+          "cell": "AN11",
+          "value": "instant"
+        },
+        {
+          "cell": "AO11",
+          "value": "instant"
+        },
+        {
+          "cell": "AP11",
+          "value": "instant"
+        },
+        {
+          "cell": "A12",
+          "value": "Has a condition"
+        },
+        {
+          "cell": "C12",
+          "value": "none"
+        },
+        {
+          "cell": "D12",
+          "value": "none"
+        },
+        {
+          "cell": "E12",
+          "value": "none"
+        },
+        {
+          "cell": "F12",
+          "value": "none"
+        },
+        {
+          "cell": "G12",
+          "value": "none"
+        },
+        {
+          "cell": "H12",
+          "value": "none"
+        },
+        {
+          "cell": "I12",
+          "value": "none"
+        },
+        {
+          "cell": "J12",
+          "value": "none"
+        },
+        {
+          "cell": "K12",
+          "value": "none"
+        },
+        {
+          "cell": "L12",
+          "value": "none"
+        },
+        {
+          "cell": "M12",
+          "value": "none"
+        },
+        {
+          "cell": "N12",
+          "value": "none"
+        },
+        {
+          "cell": "O12",
+          "value": "none"
+        },
+        {
+          "cell": "P12",
+          "value": "none"
+        },
+        {
+          "cell": "Q12",
+          "value": "none"
+        },
+        {
+          "cell": "R12",
+          "value": "none"
+        },
+        {
+          "cell": "S12",
+          "value": "none"
+        },
+        {
+          "cell": "T12",
+          "value": "none"
+        },
+        {
+          "cell": "U12",
+          "value": "none"
+        },
+        {
+          "cell": "V12",
+          "value": "none"
+        },
+        {
+          "cell": "W12",
+          "value": "none"
+        },
+        {
+          "cell": "X12",
+          "value": "none"
+        },
+        {
+          "cell": "Y12",
+          "value": "none"
+        },
+        {
+          "cell": "Z12",
+          "value": "none"
+        },
+        {
+          "cell": "AA12",
+          "value": "none"
+        },
+        {
+          "cell": "AB12",
+          "value": "a zone (capital / back rank)"
+        },
+        {
+          "cell": "AC12",
+          "value": "a zone (capital / back rank)"
+        },
+        {
+          "cell": "AD12",
+          "value": "none"
+        },
+        {
+          "cell": "AE12",
+          "value": "none"
+        },
+        {
+          "cell": "AF12",
+          "value": "none"
+        },
+        {
+          "cell": "AG12",
+          "value": "none"
+        },
+        {
+          "cell": "AH12",
+          "value": "none"
+        },
+        {
+          "cell": "AI12",
+          "value": "none"
+        },
+        {
+          "cell": "AJ12",
+          "value": "none"
+        },
+        {
+          "cell": "AK12",
+          "value": "none"
+        },
+        {
+          "cell": "AL12",
+          "value": "none"
+        },
+        {
+          "cell": "AM12",
+          "value": "none"
+        },
+        {
+          "cell": "AN12",
+          "value": "none"
+        },
+        {
+          "cell": "AO12",
+          "value": "none"
+        },
+        {
+          "cell": "AP12",
+          "value": "none"
+        },
+        {
+          "cell": "A13",
+          "value": "Is a condition"
+        },
+        {
+          "cell": "C13",
+          "value": "no"
+        },
+        {
+          "cell": "D13",
+          "value": "no"
+        },
+        {
+          "cell": "E13",
+          "value": "no"
+        },
+        {
+          "cell": "F13",
+          "value": "no"
+        },
+        {
+          "cell": "G13",
+          "value": "no"
+        },
+        {
+          "cell": "H13",
+          "value": "no"
+        },
+        {
+          "cell": "I13",
+          "value": "no"
+        },
+        {
+          "cell": "J13",
+          "value": "no"
+        },
+        {
+          "cell": "K13",
+          "value": "no"
+        },
+        {
+          "cell": "L13",
+          "value": "no"
+        },
+        {
+          "cell": "M13",
+          "value": "no"
+        },
+        {
+          "cell": "N13",
+          "value": "no"
+        },
+        {
+          "cell": "O13",
+          "value": "no"
+        },
+        {
+          "cell": "P13",
+          "value": "no"
+        },
+        {
+          "cell": "Q13",
+          "value": "no"
+        },
+        {
+          "cell": "R13",
+          "value": "no"
+        },
+        {
+          "cell": "S13",
+          "value": "no"
+        },
+        {
+          "cell": "T13",
+          "value": "no"
+        },
+        {
+          "cell": "U13",
+          "value": "no"
+        },
+        {
+          "cell": "V13",
+          "value": "yes: copies a card"
+        },
+        {
+          "cell": "W13",
+          "value": "yes: copies a card"
+        },
+        {
+          "cell": "X13",
+          "value": "no"
+        },
+        {
+          "cell": "Y13",
+          "value": "no"
+        },
+        {
+          "cell": "Z13",
+          "value": "no"
+        },
+        {
+          "cell": "AA13",
+          "value": "no"
+        },
+        {
+          "cell": "AB13",
+          "value": "no"
+        },
+        {
+          "cell": "AC13",
+          "value": "no"
+        },
+        {
+          "cell": "AD13",
+          "value": "no"
+        },
+        {
+          "cell": "AE13",
+          "value": "no"
+        },
+        {
+          "cell": "AF13",
+          "value": "no"
+        },
+        {
+          "cell": "AG13",
+          "value": "no"
+        },
+        {
+          "cell": "AH13",
+          "value": "no"
+        },
+        {
+          "cell": "AI13",
+          "value": "no"
+        },
+        {
+          "cell": "AJ13",
+          "value": "no"
+        },
+        {
+          "cell": "AK13",
+          "value": "no"
+        },
+        {
+          "cell": "AL13",
+          "value": "no"
+        },
+        {
+          "cell": "AM13",
+          "value": "no"
+        },
+        {
+          "cell": "AN13",
+          "value": "no"
+        },
+        {
+          "cell": "AO13",
+          "value": "no"
+        },
+        {
+          "cell": "AP13",
+          "value": "no"
+        },
+        {
+          "cell": "A14",
+          "value": "Shackled"
+        },
+        {
+          "cell": "C14",
+          "value": "no"
+        },
+        {
+          "cell": "D14",
+          "value": "no"
+        },
+        {
+          "cell": "E14",
+          "value": "no"
+        },
+        {
+          "cell": "F14",
+          "value": "no"
+        },
+        {
+          "cell": "G14",
+          "value": "no"
+        },
+        {
+          "cell": "H14",
+          "value": "no"
+        },
+        {
+          "cell": "I14",
+          "value": "no"
+        },
+        {
+          "cell": "J14",
+          "value": "no"
+        },
+        {
+          "cell": "K14",
+          "value": "no"
+        },
+        {
+          "cell": "L14",
+          "value": "no"
+        },
+        {
+          "cell": "M14",
+          "value": "no"
+        },
+        {
+          "cell": "N14",
+          "value": "no"
+        },
+        {
+          "cell": "O14",
+          "value": "no"
+        },
+        {
+          "cell": "P14",
+          "value": "no"
+        },
+        {
+          "cell": "Q14",
+          "value": "no"
+        },
+        {
+          "cell": "R14",
+          "value": "no"
+        },
+        {
+          "cell": "S14",
+          "value": "no"
+        },
+        {
+          "cell": "T14",
+          "value": "no"
+        },
+        {
+          "cell": "U14",
+          "value": "no"
+        },
+        {
+          "cell": "V14",
+          "value": "no"
+        },
+        {
+          "cell": "W14",
+          "value": "no"
+        },
+        {
+          "cell": "X14",
+          "value": "no"
+        },
+        {
+          "cell": "Y14",
+          "value": "no"
+        },
+        {
+          "cell": "Z14",
+          "value": "no"
+        },
+        {
+          "cell": "AA14",
+          "value": "no"
+        },
+        {
+          "cell": "AB14",
+          "value": "no"
+        },
+        {
+          "cell": "AC14",
+          "value": "no"
+        },
+        {
+          "cell": "AD14",
+          "value": "no"
+        },
+        {
+          "cell": "AE14",
+          "value": "no"
+        },
+        {
+          "cell": "AF14",
+          "value": "no"
+        },
+        {
+          "cell": "AG14",
+          "value": "no"
+        },
+        {
+          "cell": "AH14",
+          "value": "no"
+        },
+        {
+          "cell": "AI14",
+          "value": "no"
+        },
+        {
+          "cell": "AJ14",
+          "value": "no"
+        },
+        {
+          "cell": "AK14",
+          "value": "no"
+        },
+        {
+          "cell": "AL14",
+          "value": "no"
+        },
+        {
+          "cell": "AM14",
+          "value": "no"
+        },
+        {
+          "cell": "AN14",
+          "value": "no"
+        },
+        {
+          "cell": "AO14",
+          "value": "no"
+        },
+        {
+          "cell": "AP14",
+          "value": "no"
+        },
+        {
+          "cell": "A15",
+          "value": "Promotion"
+        },
+        {
+          "cell": "C15",
+          "value": "no"
+        },
+        {
+          "cell": "D15",
+          "value": "no"
+        },
+        {
+          "cell": "E15",
+          "value": "no"
+        },
+        {
+          "cell": "F15",
+          "value": "no"
+        },
+        {
+          "cell": "G15",
+          "value": "no"
+        },
+        {
+          "cell": "H15",
+          "value": "no"
+        },
+        {
+          "cell": "I15",
+          "value": "no"
+        },
+        {
+          "cell": "J15",
+          "value": "no"
+        },
+        {
+          "cell": "K15",
+          "value": "no"
+        },
+        {
+          "cell": "L15",
+          "value": "no"
+        },
+        {
+          "cell": "M15",
+          "value": "no"
+        },
+        {
+          "cell": "N15",
+          "value": "no"
+        },
+        {
+          "cell": "O15",
+          "value": "no"
+        },
+        {
+          "cell": "P15",
+          "value": "no"
+        },
+        {
+          "cell": "Q15",
+          "value": "no"
+        },
+        {
+          "cell": "R15",
+          "value": "no"
+        },
+        {
+          "cell": "S15",
+          "value": "no"
+        },
+        {
+          "cell": "T15",
+          "value": "no"
+        },
+        {
+          "cell": "U15",
+          "value": "no"
+        },
+        {
+          "cell": "V15",
+          "value": "no"
+        },
+        {
+          "cell": "W15",
+          "value": "no"
+        },
+        {
+          "cell": "X15",
+          "value": "no"
+        },
+        {
+          "cell": "Y15",
+          "value": "no"
+        },
+        {
+          "cell": "Z15",
+          "value": "no"
+        },
+        {
+          "cell": "AA15",
+          "value": "no"
+        },
+        {
+          "cell": "AB15",
+          "value": "no"
+        },
+        {
+          "cell": "AC15",
+          "value": "no"
+        },
+        {
+          "cell": "AD15",
+          "value": "no"
+        },
+        {
+          "cell": "AE15",
+          "value": "no"
+        },
+        {
+          "cell": "AF15",
+          "value": "no"
+        },
+        {
+          "cell": "AG15",
+          "value": "no"
+        },
+        {
+          "cell": "AH15",
+          "value": "no"
+        },
+        {
+          "cell": "AI15",
+          "value": "yes"
+        },
+        {
+          "cell": "AJ15",
+          "value": "yes"
+        },
+        {
+          "cell": "AK15",
+          "value": "no"
+        },
+        {
+          "cell": "AL15",
+          "value": "no"
+        },
+        {
+          "cell": "AM15",
+          "value": "no"
+        },
+        {
+          "cell": "AN15",
+          "value": "no"
+        },
+        {
+          "cell": "AO15",
+          "value": "yes"
+        },
+        {
+          "cell": "AP15",
+          "value": "no"
+        },
+        {
+          "cell": "A16",
+          "value": "fromMove"
+        },
+        {
+          "cell": "C16",
+          "value": "none"
+        },
+        {
+          "cell": "D16",
+          "value": "none"
+        },
+        {
+          "cell": "E16",
+          "value": "none"
+        },
+        {
+          "cell": "F16",
+          "value": "none"
+        },
+        {
+          "cell": "G16",
+          "value": "none"
+        },
+        {
+          "cell": "H16",
+          "value": "none"
+        },
+        {
+          "cell": "I16",
+          "value": "none"
+        },
+        {
+          "cell": "J16",
+          "value": "none"
+        },
+        {
+          "cell": "K16",
+          "value": "none"
+        },
+        {
+          "cell": "L16",
+          "value": "none"
+        },
+        {
+          "cell": "M16",
+          "value": "none"
+        },
+        {
+          "cell": "N16",
+          "value": "none"
+        },
+        {
+          "cell": "O16",
+          "value": "none"
+        },
+        {
+          "cell": "P16",
+          "value": "none"
+        },
+        {
+          "cell": "Q16",
+          "value": "none"
+        },
+        {
+          "cell": "R16",
+          "value": "none"
+        },
+        {
+          "cell": "S16",
+          "value": "none"
+        },
+        {
+          "cell": "T16",
+          "value": "none"
+        },
+        {
+          "cell": "U16",
+          "value": "none"
+        },
+        {
+          "cell": "V16",
+          "value": "none"
+        },
+        {
+          "cell": "W16",
+          "value": "none"
+        },
+        {
+          "cell": "X16",
+          "value": "none"
+        },
+        {
+          "cell": "Y16",
+          "value": "none"
+        },
+        {
+          "cell": "Z16",
+          "value": "none"
+        },
+        {
+          "cell": "AA16",
+          "value": "none"
+        },
+        {
+          "cell": "AB16",
+          "value": "none"
+        },
+        {
+          "cell": "AC16",
+          "value": "none"
+        },
+        {
+          "cell": "AD16",
+          "value": "none"
+        },
+        {
+          "cell": "AE16",
+          "value": "none"
+        },
+        {
+          "cell": "AF16",
+          "value": "none"
+        },
+        {
+          "cell": "AG16",
+          "value": "none"
+        },
+        {
+          "cell": "AH16",
+          "value": "none"
+        },
+        {
+          "cell": "AI16",
+          "value": "none"
+        },
+        {
+          "cell": "AJ16",
+          "value": "none"
+        },
+        {
+          "cell": "AK16",
+          "value": "none"
+        },
+        {
+          "cell": "AL16",
+          "value": "none"
+        },
+        {
+          "cell": "AM16",
+          "value": "none"
+        },
+        {
+          "cell": "AN16",
+          "value": "none"
+        },
+        {
+          "cell": "AO16",
+          "value": "none"
+        },
+        {
+          "cell": "AP16",
+          "value": "none"
+        }
+      ],
+      "validations": [
+        {
+          "range": "B4",
+          "formula": "Lists!$S$1:$S$3"
+        },
+        {
+          "range": "B5",
+          "formula": "Lists!$T$1:$T$9"
+        },
+        {
+          "range": "B6",
+          "formula": "Lists!$U$1:$U$2"
+        },
+        {
+          "range": "B7",
+          "formula": "Lists!$V$1:$V$3"
+        },
+        {
+          "range": "B8",
+          "formula": "Lists!$W$1:$W$3"
+        },
+        {
+          "range": "B9",
+          "formula": "Lists!$X$1:$X$3"
+        },
+        {
+          "range": "B10",
+          "formula": "Lists!$Y$1:$Y$3"
+        },
+        {
+          "range": "B11",
+          "formula": "Lists!$Z$1:$Z$3"
+        },
+        {
+          "range": "B12",
+          "formula": "Lists!$AA$1:$AA$6"
+        },
+        {
+          "range": "B13",
+          "formula": "Lists!$AB$1:$AB$2"
+        },
+        {
+          "range": "B14",
+          "formula": "Lists!$AC$1:$AC$2"
+        },
+        {
+          "range": "B15",
+          "formula": "Lists!$AD$1:$AD$2"
+        },
+        {
+          "range": "B16",
+          "formula": "Lists!$AE$1:$AE$2"
+        }
+      ]
+    },
+    {
+      "name": "Lists",
+      "cells": [
+        {
+          "cell": "A1",
+          "value": "step 1"
+        },
+        {
+          "cell": "C1",
+          "value": "— no"
+        },
+        {
+          "cell": "D1",
+          "value": "— no"
+        },
+        {
+          "cell": "E1",
+          "value": "— no"
+        },
+        {
+          "cell": "F1",
+          "value": "— no"
+        },
+        {
+          "cell": "G1",
+          "value": "— no"
+        },
+        {
+          "cell": "H1",
+          "value": "same"
+        },
+        {
+          "cell": "I1",
+          "value": "— no"
+        },
+        {
+          "cell": "J1",
+          "value": "— no"
+        },
+        {
+          "cell": "K1",
+          "value": "— no"
+        },
+        {
+          "cell": "L1",
+          "value": "— no"
+        },
+        {
+          "cell": "M1",
+          "value": "— no"
+        },
+        {
+          "cell": "N1",
+          "value": "— no"
+        },
+        {
+          "cell": "O1",
+          "value": "— no"
+        },
+        {
+          "cell": "P1",
+          "value": "— no"
+        },
+        {
+          "cell": "Q1",
+          "value": "— no"
+        },
+        {
+          "cell": "R1",
+          "value": "— no"
+        },
+        {
+          "cell": "S1",
+          "value": "king power"
+        },
+        {
+          "cell": "T1",
+          "value": "always-on (changes the rules while the king has it)"
+        },
+        {
+          "cell": "U1",
+          "value": "common (default)"
+        },
+        {
+          "cell": "V1",
+          "value": "n per game (king power)"
+        },
+        {
+          "cell": "W1",
+          "value": "is the turn's move"
+        },
+        {
+          "cell": "X1",
+          "value": "may"
+        },
+        {
+          "cell": "Y1",
+          "value": "own"
+        },
+        {
+          "cell": "Z1",
+          "value": "instant"
+        },
+        {
+          "cell": "AA1",
+          "value": "none"
+        },
+        {
+          "cell": "AB1",
+          "value": "no"
+        },
+        {
+          "cell": "AC1",
+          "value": "no"
+        },
+        {
+          "cell": "AD1",
+          "value": "no"
+        },
+        {
+          "cell": "AE1",
+          "value": "none (default)"
+        },
+        {
+          "cell": "A2",
+          "value": "step 2"
+        },
+        {
+          "cell": "B2",
+          "value": "shot without moving (distance 1)"
+        },
+        {
+          "cell": "C2",
+          "value": "home rank only"
+        },
+        {
+          "cell": "D2",
+          "value": "friendly half only"
+        },
+        {
+          "cell": "E2",
+          "value": "cannot be taken except by a king"
+        },
+        {
+          "cell": "F2",
+          "value": "cannot take a king"
+        },
+        {
+          "cell": "G2",
+          "value": "2 forward from the home rank"
+        },
+        {
+          "cell": "H2",
+          "value": "differs: shoots without moving"
+        },
+        {
+          "cell": "I2",
+          "value": "yes: leaps over any piece"
+        },
+        {
+          "cell": "J2",
+          "value": "yes: jumps friends"
+        },
+        {
+          "cell": "K2",
+          "value": "yes: over enemies"
+        },
+        {
+          "cell": "L2",
+          "value": "pushes one neighbour"
+        },
+        {
+          "cell": "M2",
+          "value": "swaps with an adjacent friend"
+        },
+        {
+          "cell": "N2",
+          "value": "swaps with an adjacent enemy"
+        },
+        {
+          "cell": "O2",
+          "value": "yes: push and follow"
+        },
+        {
+          "cell": "P2",
+          "value": "yes: push and stay"
+        },
+        {
+          "cell": "Q2",
+          "value": "dies after any capture"
+        },
+        {
+          "cell": "R2",
+          "value": "cannot take a king"
+        },
+        {
+          "cell": "S2",
+          "value": "card"
+        },
+        {
+          "cell": "T2",
+          "value": "mark (binds the opponent's next turn)"
+        },
+        {
+          "cell": "U2",
+          "value": "legendary: dealt rarely, with legendary graphic effects (owner, 2026-10-06; card mode, not built yet). Rage is legendary; every other row below is common."
+        },
+        {
+          "cell": "V2",
+          "value": "1 (every card)"
+        },
+        {
+          "cell": "W2",
+          "value": "then make the move (a free action, `markFree`)"
+        },
+        {
+          "cell": "X2",
+          "value": "must"
+        },
+        {
+          "cell": "Y2",
+          "value": "enemy"
+        },
+        {
+          "cell": "Z2",
+          "value": "opponent's next turn (◐ `markTurns: 2`: two turns)"
+        },
+        {
+          "cell": "AA2",
+          "value": "a zone (a rank, half, the capital)"
+        },
+        {
+          "cell": "AB2",
+          "value": "yes: playing this card (or any card) triggers something else, for either side — see D.1. Example: Mirror answers the opponent's last card"
+        },
+        {
+          "cell": "AC2",
+          "value": "yes: weaker or off until a condition (`fromMove` is \"off until move N\") — see D.2"
+        },
+        {
+          "cell": "AD2",
+          "value": "yes: a piece changes its type on a condition — see D.3"
+        },
+        {
+          "cell": "AE2",
+          "value": "N: not before the side's own move N (◐ `fromMove=Haste:10+Rage:8`; `Position.move`, the full-move number). Spendable powers and cards only; refused for an always-on power. A Mirror may not copy a card before its move. Every row below is none."
+        },
+        {
+          "cell": "A3",
+          "value": "forward 1"
+        },
+        {
+          "cell": "B3",
+          "value": "shot without moving (distance 2)"
+        },
+        {
+          "cell": "E3",
+          "value": "never taken (only mated)"
+        },
+        {
+          "cell": "F3",
+          "value": "cannot take pawns"
+        },
+        {
+          "cell": "G3",
+          "value": "2 any way from the home rank (slide or leap)"
+        },
+        {
+          "cell": "H3",
+          "value": "differs: lob"
+        },
+        {
+          "cell": "I3",
+          "value": "home rank only"
+        },
+        {
+          "cell": "K3",
+          "value": "exactly one enemy (a screen)"
+        },
+        {
+          "cell": "M3",
+          "value": "swaps with its king"
+        },
+        {
+          "cell": "N3",
+          "value": "pushes an enemy"
+        },
+        {
+          "cell": "Q3",
+          "value": "dies after a non-pawn capture"
+        },
+        {
+          "cell": "R3",
+          "value": "only a king takes it"
+        },
+        {
+          "cell": "S3",
+          "value": "both (a spendable king power is also dealt as a card)"
+        },
+        {
+          "cell": "T3",
+          "value": "extra move (a second move follows in the same turn)"
+        },
+        {
+          "cell": "V3",
+          "value": "— (always-on)"
+        },
+        {
+          "cell": "W3",
+          "value": "extra move (the second move may be skipped)"
+        },
+        {
+          "cell": "X3",
+          "value": "never"
+        },
+        {
+          "cell": "Y3",
+          "value": "either; which kings and pawns are excluded"
+        },
+        {
+          "cell": "Z3",
+          "value": "always"
+        },
+        {
+          "cell": "AA3",
+          "value": "tag team (next to a given piece)"
+        },
+        {
+          "cell": "A4",
+          "value": "leap 2+1"
+        },
+        {
+          "cell": "B4",
+          "value": "takes on any adjacent square"
+        },
+        {
+          "cell": "E4",
+          "value": "cannot be taken by pawns"
+        },
+        {
+          "cell": "F4",
+          "value": "cannot take pieces"
+        },
+        {
+          "cell": "H4",
+          "value": "differs: takes on any adjacent square"
+        },
+        {
+          "cell": "M4",
+          "value": "pushes a friend"
+        },
+        {
+          "cell": "Q4",
+          "value": "may capture again (chain)"
+        },
+        {
+          "cell": "R4",
+          "value": "swaps only with the king"
+        },
+        {
+          "cell": "T4",
+          "value": "special move (a move no piece has)"
+        },
+        {
+          "cell": "AA4",
+          "value": "turn N (`fromMove`)"
+        },
+        {
+          "cell": "A5",
+          "value": "diagonal slide"
+        },
+        {
+          "cell": "B5",
+          "value": "lob over one enemy screen"
+        },
+        {
+          "cell": "E5",
+          "value": "cannot be taken for 1 turn"
+        },
+        {
+          "cell": "F5",
+          "value": "cannot take anything"
+        },
+        {
+          "cell": "H5",
+          "value": "n/a: never takes"
+        },
+        {
+          "cell": "Q5",
+          "value": "spent after one capture"
+        },
+        {
+          "cell": "R5",
+          "value": "never pushes a king"
+        },
+        {
+          "cell": "T5",
+          "value": "arrival (a piece comes onto the board)"
+        },
+        {
+          "cell": "AA5",
+          "value": "a capture"
+        },
+        {
+          "cell": "A6",
+          "value": "straight slide"
+        },
+        {
+          "cell": "B6",
+          "value": "none"
+        },
+        {
+          "cell": "T6",
+          "value": "copy (plays another card)"
+        },
+        {
+          "cell": "AA6",
+          "value": "a card played — see D.1. Example: \"not before move 10\""
+        },
+        {
+          "cell": "A7",
+          "value": "slide any way"
+        },
+        {
+          "cell": "T7",
+          "value": "draw (takes a card from the pile)"
+        },
+        {
+          "cell": "A8",
+          "value": "slide, jumps friends"
+        },
+        {
+          "cell": "T8",
+          "value": "promotion (a piece changes its type, D.3: ◐ Morph, MorphB, MorphP)"
+        },
+        {
+          "cell": "A9",
+          "value": "straight slide, empty squares only"
+        },
+        {
+          "cell": "T9",
+          "value": "spawn (a new piece, not a captured one, comes onto the board, D.5: ◐ Spawn, SpawnK, Spawn2, SpawnK2)"
+        }
+      ],
+      "validations": []
+    }
+  ]
+}

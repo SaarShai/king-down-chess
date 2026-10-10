@@ -15,6 +15,8 @@
     "check:browser": "node tools/check.mjs",
     "sim": "tsx src/sim/run.ts",
     "sim:analyze": "tsx src/sim/analyze.ts",
+    "balance:build": "tsx tools/build-balance.ts",
+    "balance:check": "tsx tools/check-balance.ts",
     "tune": "tsx src/sim/tune.ts",
     "tune:apply": "tsx src/sim/tune.ts apply",
     "dashboard": "node tools/dashboard.mjs",
