@@ -188,3 +188,9 @@ export const MORE_WHENS: readonly When[] = [
   { on: 'afterCard', card: 'any' },
 ];
 export const EVENT_WHENS: readonly When[] = [{ on: 'reaches', zone: 'lastRank' }, { on: 'firstTake' }];
+/** The When choices of a block's rule (the When sheet; the Proving Ground's When chip): an event block's list, else the
+ *  first six (`top`) and the rest, each one that the block allows, with "always" for "moves like" (it adds to Moves). */
+export function whenChoices(a: Ability['a']): { top: When[]; more: When[] } {
+  const b = blockOf(a), fits = (w: When): boolean => b.whens(w) || (a === 'movesLike' && w.on === 'always');
+  return b.event ? { top: EVENT_WHENS.filter(fits), more: [] } : { top: TOP_WHENS.filter(fits), more: MORE_WHENS.filter(fits) };
+}

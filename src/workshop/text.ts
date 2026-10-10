@@ -4,8 +4,8 @@
  * Pure, so the tests run it in Node.
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
-import { DIAG, DIRS, ORTHO, type Dir, type PieceDesign, type Rule, type Square } from './model';
-import { blockOf, whenWords, type Part } from './vocab';
+import { DIAG, DIRS, ORTHO, type Ability, type Dir, type LikeAs, type PieceDesign, type Rule, type Square, type When } from './model';
+import { blockOf, choiceText, whenWords, type Part } from './vocab';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules'>;
 /** The one escaper of the Workshop (a copy of `esc` in src/account/account.ts). */
@@ -96,6 +96,33 @@ export function ruleParts(r: Rule, editor = false): Part[] {
 }
 export const partsText = (ps: readonly Part[]): string => ps.map(p => (typeof p === 'string' ? p : p.text)).join('');
 export const ruleText = (r: Rule): string => partsText(ruleParts(r));
+
+/** The short line of each block on the Proving Ground's plinth (its spec, decision 38; proving-ground.html:979-1005), with the block's pill. */
+const LINE: Record<Ability['a'], (pill: Part) => Part[]> = {
+  step2: () => ['steps 2 straight ahead'], movesLike: p => ['also moves like ', p], linesPass: p => ['its lines pass over ', p],
+  chain: () => ['it may take again (not a king)'], cannotBeTaken: p => ['cannot be taken ', p], push: p => ['pushes a piece next to it ', p],
+  swap: p => ['swaps with ', p, ' next to it'], becomes: p => ['becomes ', p], cannotTake: p => ['cannot take ', p], removedAfter: () => ['it is removed too'],
+};
+/** A pill's words on the Proving Ground: "a piece you choose", with no list after a colon. */
+export const brief = (s: string): string => s.replace(/:.*/, '');
+/** A rule on the Proving Ground: `after`, the parts after its When chip (the When's own pill: "a piece, not a pawn");
+ *  `line`, its short line; `say`, its sentence on the Rules shelf (proving-ground.html:1426), the long one of the block. */
+export function lineParts(r: Rule): { after: Part[]; line: Part[]; say: Part[] } {
+  const b = blockOf(r.does.a), short = (p: Part): Part => (typeof p === 'string' ? p : { ...p, text: brief(p.text) });
+  const p: Part = b.pill ? { pill: b.pill.key, text: brief(choiceText(b.pill.choices, (r.does as unknown as Record<string, string>)[b.pill.key])) } : '';
+  const say = b.say(r).map(short);
+  return { after: r.does.a === 'removedAfter' ? [p] : [], line: LINE[r.does.a](p), say: [cap(say[0] as string), ...say.slice(1), '.'] };
+}
+
+/* ---- the When choices (the When sheet; the Proving Ground's When chip) ---- */
+
+/** A When choice in words. "Always" for "moves like" adds that piece's squares to Moves. */
+export const whenLabel = (w: When, like: boolean): string =>
+  w.on === 'always' && like ? 'Always (adds it to Moves)' : w.on === 'zone' && w.zone === 'capital' ? 'On a center square (d4 e4 d5 e5)' : cap(whenWords(w));
+/** Why "Always" cannot take a "moves like" rule into Moves (likeAlways gives null). */
+export const LIKE_CLASH = 'Its shots and these moves meet on a square, and a square cannot hold both. Keep it as a rule.';
+/** What "Always" added to Moves, for its toast. */
+export const LIKE_ADDED: Record<LikeAs, string> = { king: "the king's squares", knight: "the knight's squares", bishop: "the bishop's lines", rook: "the rook's lines", queen: "the queen's lines" };
 
 /* ---- describe ---- */
 

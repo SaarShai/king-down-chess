@@ -13,11 +13,11 @@ import {
   BLANK, DIRS, MAX_RULES, PRESETS, designCode, empty, fromPreset, likeAlways, limit, orbit, setMark,
   parseDesign, presetOf, validName, type Body, type Dir, type Mark, type PaintOn, type PieceDesign, type Rule, type When,
 } from './model';
-import { BLOCKS, BODY, GROUPS, MORE_WHENS, TOP_WHENS, EVENT_WHENS, blockOf, takesAny, whenWords, type Block } from './vocab';
+import { BLOCKS, BODY, GROUPS, blockOf, takesAny, whenChoices, type Block } from './vocab';
 import { BAND_WORD, autoBody, badgeText, bandOf, judge, whyHead, whyTitle, type Label, type Verdict } from './judge';
 import { lookOf, type StageLook } from './look';
 import { figureHtml, gaugeHtml, modelHtml } from './art';
-import { cap, describe, dirWords, esc, pawns, ruleParts, ruleText } from './text';
+import { LIKE_ADDED, LIKE_CLASH, cap, describe, dirWords, esc, pawns, ruleParts, ruleText, whenLabel } from './text';
 import { autoName, letterFollows, letterOf, rollName, saveName } from './names';
 import { MAX, deleteDesign, loadDesigns, loadShelf, saveDesign, type SaveResult } from './store';
 import { sandbox } from './sandbox';
@@ -40,7 +40,6 @@ const bar = (back: string, title: string, end = ''): string =>
 const PAINT: [PaintOn, string][] = [['all', 'All sides'], ['lr', 'Left and right'], ['one', 'One square']];
 const PILL_WORD: Record<string, string> = { when: 'When', as: 'Like', over: 'Over', by: 'Taken', then: 'Then', with: 'With', into: 'Becomes', what: 'What' };
 const PILL_TITLE: Record<string, string> = { as: 'Moves like which piece?', over: 'Passes over what?', by: 'Who cannot take it?', then: 'After the push', with: 'Swaps with whom?', into: 'Becomes what?', what: 'Which pieces?' };
-const LIKE_ADDED: Record<string, string> = { king: "the king's squares", knight: "the knight's squares", bishop: "the bishop's lines", rook: "the rook's lines", queen: "the queen's lines" };
 const DISCLAIMER = 'This is a guess from computer games with the pieces we know. A new mix can play stronger or weaker. You can keep it.';
 
 const NEVER = 'never tested in computer games';
@@ -617,15 +616,11 @@ export function workshopDialog(): { open(): void; openDesign(code: string): void
 
   function whenSheet(i: number): void {
     const r = cur.rules[i], b = blockOf(r.does.a), like = r.does.a === 'movesLike';
-    const fits = (w: When): boolean => b.whens(w) || (like && w.on === 'always');
-    const all = (b.event ? EVENT_WHENS : [...TOP_WHENS, ...MORE_WHENS]).filter(fits);
-    const top = b.event ? all : all.filter(w => TOP_WHENS.includes(w));
-    const label = (w: When): string => w.on === 'always' && like ? 'Always (adds it to Moves)' : w.on === 'zone' && w.zone === 'capital' ? 'On a center square (d4 e4 d5 e5)' : cap(whenWords(w));
+    const { top, more: rest } = whenChoices(r.does.a), all = [...top, ...rest];
     // "Always" moves the squares into the Moves tab; where a shot would land on a square it also takes by moving, a square cannot hold both.
     const merged = r.does.a === 'movesLike' ? likeAlways(cur, r.does.as) : null;
-    const off = (w: When): string | null => (like && w.on === 'always' && !merged ? 'Its shots and these moves meet on a square, and a square cannot hold both. Keep it as a rule.' : null);
-    const choice = (w: When): string => `<label class="ws-choice${off(w) ? ' off' : ''}"><input type="radio" name="ws-when" value="${all.indexOf(w)}"${same(w, r.when) ? ' checked' : ''}${off(w) ? ' disabled' : ''} /><span>${label(w)}${w.on === 'afterCard' ? '<small>Only in card games.</small>' : ''}${off(w) ? `<small>${off(w)}</small>` : ''}</span></label>`;
-    const rest = all.filter(w => !top.includes(w));
+    const off = (w: When): string | null => (like && w.on === 'always' && !merged ? LIKE_CLASH : null);
+    const choice = (w: When): string => `<label class="ws-choice${off(w) ? ' off' : ''}"><input type="radio" name="ws-when" value="${all.indexOf(w)}"${same(w, r.when) ? ' checked' : ''}${off(w) ? ' disabled' : ''} /><span>${whenLabel(w, like)}${w.on === 'afterCard' ? '<small>Only in card games.</small>' : ''}${off(w) ? `<small>${off(w)}</small>` : ''}</span></label>`;
     const nums = (on: 'fromMove' | 'beforeMove', words: string): string => {
       const ws = rest.filter(w => w.on === on);
       return ws.length ? `<div class="ws-choice ws-nums"><span>${words}</span><div class="seg-row">${ws.map(w => `<label><input type="radio" name="ws-when" value="${all.indexOf(w)}"${same(w, r.when) ? ' checked' : ''} /><span>${(w as { n: number }).n}</span></label>`).join('')}</div></div>` : '';

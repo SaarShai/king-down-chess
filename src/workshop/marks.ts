@@ -186,10 +186,10 @@ function pictoInner(w: When): string {
 }
 export const picto = (w: When, size = 14): string => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${pictoInner(w)}</svg>`;
 /** The When chip: a plate for a state, a flag for an event; hollow while it does not hold. None for "always". */
-export function chip(w: When, o: { hollow?: boolean; words?: string } = {}): string {
+export function chip(w: When, o: { hollow?: boolean } = {}): string {
   if (w.on === 'always') return '';
   const cls = w.on === 'takes' || w.on === 'firstTake' || w.on === 'reaches' ? 'flag' : 'plate';
-  return `<span class="${cls}${o.hollow ? ' is-hollow' : ''}"><span>${picto(w)}${esc(o.words ?? whenWords(w))}</span></span>`;
+  return `<span class="${cls}${o.hollow ? ' is-hollow' : ''}"><span>${picto(w)}${esc(whenWords(w))}</span></span>`;
 }
 
 const SCALLOP = (() => {
@@ -217,6 +217,9 @@ export function seal(a: Ability['a'], size = 44, o: { asleep?: boolean; label?: 
     + '<ellipse cx="38" cy="30" rx="16" ry="8" fill="rgba(255,240,226,.16)" transform="rotate(-30 38 30)"/>'
     + g(26.4, deboss, 2.9) + g(24.2, 'rgba(255,250,235,.35)', 2.6) + g(25, glyph, 2.3) + '</svg>';
 }
+/** A value capsule with a caret (G14, marks.js:698); a choice has no caret, and `on` rings the chosen one. */
+export const pill = (text: string, o: { choice?: boolean; on?: boolean } = {}): string =>
+  `<span class="pill${o.choice ? ' is-choice' : ''}${o.on ? ' is-on' : ''}">${esc(text)}</span>`;
 export const tagYours = (): string => `<span class="tag-yours">${sigil('quill', 13)}Yours</span>`;
 
 /* ---- single tiles and effects for the key (marks.js:852-918) ---- */
@@ -263,6 +266,7 @@ export const viewBox = (s: number): string => `0 0 ${n(8 * s)} ${n(8 * s)}`;
  * The scene as SVG in three layers: under (rails, marks, line ends, glows), the pieces, and over (arches, take
  * badges, swaps and pushes). The board image is the field's background. `art` gives each piece's image. Only a
  * mark's group has data-sq (with data-k, data-cond and data-diff; a '-' mark has the class kdm-ghost); a rail, an arch and an effect have data-k, data-from and data-to.
+ * A part that a preview adds (the scene's `pv`) has data-pv.
  */
 export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) => string }): string {
   const s = o.s, XY = (q: string) => squareXY(q, s), CTR = (q: string): P => { const { x, y } = XY(q); return [x + s / 2, y + s / 2]; };
@@ -282,13 +286,13 @@ export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) =>
       p1 = [tip[0] - uu[0] * s * 0.16, tip[1] - uu[1] * s * 0.16];
       end = arrowHead(tip, uu, s, { style: rl.style, wash: true });
     }
-    under += group({ k: 'line', from: rl.from, to: rl.to, end: rl.end }, rail(p0, p1, s, { style: rl.style, wash: true }));
+    under += group({ k: 'line', from: rl.from, to: rl.to, end: rl.end, pv: rl.pv && '1' }, rail(p0, p1, s, { style: rl.style, wash: true }));
     if (end) ends += group({ k: 'line-end', to: rl.to }, end);
   }
   for (const m of scene.marks) {
     const { x, y } = XY(m.sq), ring = enemy(m.sq) && m.diff !== '-';
     const svg = ring ? toSvg(occupied(m.k, x, y, s, y + 0.9 * s, { cond: m.cond })) + diffPip(m.k, x, y, s, m.diff) : tileSvg(m.k, x, y, s, { cond: m.cond, diff: m.diff });
-    under += group({ sq: m.sq, k: m.k, cond: m.cond, diff: m.diff, class: m.diff === '-' ? 'kdm-ghost' : undefined }, svg);
+    under += group({ sq: m.sq, k: m.k, cond: m.cond, diff: m.diff, pv: m.pv && '1', class: m.diff === '-' ? 'kdm-ghost' : undefined }, svg);
     if (ring) over += group({ badge: m.sq }, toSvg(badge(x, y, s, m.k)));
   }
   under += ends;
@@ -297,12 +301,12 @@ export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) =>
     const { x, y } = XY(p.sq), h = 0.9 * s;
     return `<image href="${esc(o.art(p))}" x="${n(x + (s - h) / 2)}" y="${n(y + s - 0.075 * s - h)}" width="${n(h)}" height="${n(h)}" preserveAspectRatio="xMidYMax meet" filter="url(#kdm-rim)"/>`;
   }).join('');
-  for (const ar of scene.arches) over += group({ k: 'arch', from: ar.from, over: ar.over, to: ar.to }, arch(CTR(ar.from), CTR(ar.to), s));
+  for (const ar of scene.arches) over += group({ k: 'arch', from: ar.from, over: ar.over, to: ar.to, pv: ar.pv && '1' }, arch(CTR(ar.from), CTR(ar.to), s));
   const head = clamp(s * 0.125, 7, 10);
   for (const e of scene.effects) {
     over += e.k === 'push'
-      ? group({ k: 'push', from: e.from, to: e.to }, arrowLine(CTR(e.from), CTR(e.to), C.push, 3, { trim0: s * 0.16, trim1: s * 0.18, head }))
-      : group({ k: 'swap', from: e.a, to: e.b }, arrowLine(CTR(e.a), CTR(e.b), C.swap, 3, { both: true, trim0: s * 0.12, trim1: s * 0.12, head }));
+      ? group({ k: 'push', from: e.from, to: e.to, pv: e.pv && '1' }, arrowLine(CTR(e.from), CTR(e.to), C.push, 3, { trim0: s * 0.16, trim1: s * 0.18, head }))
+      : group({ k: 'swap', from: e.a, to: e.b, pv: e.pv && '1' }, arrowLine(CTR(e.a), CTR(e.b), C.swap, 3, { both: true, trim0: s * 0.12, trim1: s * 0.12, head }));
   }
   return `<g class="kdm-under">${under}</g><g class="kdm-pieces">${pieces}</g><g class="kdm-over">${over}</g>`;
 }

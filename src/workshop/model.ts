@@ -70,6 +70,8 @@ export const DIAG: readonly Dir[] = ['ne', 'se', 'sw', 'nw'];
 /** Letters the engine does not use (src/rules/engine.ts LETTERS), and E (the Squire, MATRIX A.3). */
 export const FREE_LETTERS = 'DFHIJUWXYZ';
 export const MAX_RULES = 3;
+/** The words of a try to add a rule past MAX_RULES. */
+export const FULL = '3 of 3 rules. Remove one to add another.';
 /** The longest share code: the largest design the editor can make is about 2,800 characters (a unit test). */
 export const MAX_CODE = 4000;
 
@@ -152,7 +154,7 @@ export const ruleKey = (r: Rule): string => JSON.stringify(sorted(r));
 
 /** The hard limits a stored design breaks (§4.9 H2b, H8, H12; the others cannot be stored), or null. */
 export function limit(d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>): string | null {
-  if (d.rules.length > MAX_RULES) return '3 of 3 rules. Remove one to add another.';
+  if (d.rules.length > MAX_RULES) return FULL;
   if (new Set(d.rules.map(r => r.does.a)).size < d.rules.length) return 'Already in this piece.';
   for (const r of d.rules) if (!whenOk(r)) return 'That choice does not fit this rule.';
   if (d.rules.some(r => r.does.a === 'cannotBeTaken' && r.does.by === 'allButKing') && takesAny(d))

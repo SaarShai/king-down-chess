@@ -11,17 +11,17 @@ import { NAMES as PIECE, file, parseSq, rank, sq, sqName, type PieceType } from 
 import { pieceArt } from '../ui/guide';
 import { figureUrl, selectedFigure } from './figures';
 import { bandOf, judge } from './judge';
-import { NAMES, chip, drawString, effect, ensureDefs, mirrorIcon, nub, seal, sigil, tagYours, tile, viewBox } from './marks';
+import { NAMES, chip, drawString, effect, ensureDefs, mirrorIcon, nub, pill, seal, sigil, tagYours, tile, viewBox } from './marks';
 import {
-  DIR, DIRS, PRESETS, brushMark, canonical, designCode, empty, fromPreset, limit, lineOrbit, orbit, parseDesign, presetOf,
-  type Brush, type Dir, type PaintOn, type PieceDesign,
+  DIR, DIRS, FULL, MAX_RULES, PRESETS, brushMark, canonical, designCode, empty, fromPreset, likeAlways, limit, lineOrbit, orbit, parseDesign, presetOf,
+  type Ability, type Body, type Brush, type Dir, type LikeAs, type PaintOn, type PieceDesign, type Rule, type When,
 } from './model';
 import { BODY_TYPE, START, holds } from './moves';
 import { letterOf } from './names';
 import { boardOf, diffOf, examplesOf, sceneOf, type Kind, type Scene, type ScenePiece } from './scene';
 import { MAX, deleteDesign, loadShelf, saveDesign, type SaveResult } from './store';
-import { cap, esc, lineWords, partsText, pawns, ruleText } from './text';
-import { blockOf, whenWords } from './vocab';
+import { LIKE_ADDED, LIKE_CLASH, brief, cap, esc, lineParts, lineWords, pawns, ruleText, whenLabel } from './text';
+import { BLOCKS, BODY, GROUPS, blockOf, whenChoices, whenWords, type Part } from './vocab';
 
 /** What the board and the plinth show: a pool piece, a design on the shelf (or the player's new copy), or a design from a link. */
 interface Item { key: string; d: PieceDesign; yours: boolean }
@@ -43,6 +43,11 @@ const figureOf = (d: PieceDesign): string =>
 const link = (d: PieceDesign): string => `${location.origin}${location.pathname}?design=${designCode(d)}`;
 /** Brush mode paints on d4: the reach ends 3 squares out (proving-ground.html:1763). */
 const out = (q: string): boolean => { const s = parseSq(q); return Math.max(Math.abs(file(s) - 3), Math.abs(rank(s) - 3)) > 3; };
+/** A rule of a design by its block: a design holds each block once (limit, model.ts). */
+const ruleIn = (d: PieceDesign, a: Ability['a']): Rule | undefined => d.rules.find(r => r.does.a === a);
+/** One choice of an open row (a pill's value or a When): its words, whether the rule has it now, what it does to a design,
+ *  and why the design cannot take it. `w` is the When; `like`, the piece that "Always" adds to Moves. */
+interface Choice { v: string; words: string; on: boolean; off: string | null; apply: (d: PieceDesign) => void; w?: When; like?: LikeAs }
 
 export function groundDialog(): { open(): void; openDesign(code: string): void } {
   const dlg = document.createElement('dialog');
@@ -60,7 +65,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     + [...FILES].map((f, i) => `<span style="left:calc(${(i + 1) * 12.5}% - 9px);bottom:3px">${f}</span>`).join('')
     + [8, 7, 6, 5, 4, 3, 2, 1].map((r, i) => `<span style="left:3px;top:calc(${i * 12.5}% + 3px)">${r}</span>`).join('')
     + `</div><div class="pg-hits" role="grid" aria-label="Board">${rows}</div><div class="pg-paint"></div></div></div></section>`
-    + '<section class="pg-right" aria-label="Key"><div class="pg-brushes"></div><div class="pg-tools" hidden></div><p class="pg-hint"></p><div class="pg-keyrow" aria-label="Also on the board"></div></section></div>'
+    + '<section class="pg-right" aria-label="Key"><div class="pg-brushes"></div><div class="pg-tools" hidden></div><p class="pg-hint"></p><div class="pg-keyrow" aria-label="Also on the board"></div></section>'
+    + '<aside class="pg-shelf" aria-labelledby="pg-shelf-h" hidden></aside></div>'
     + '<footer class="pg-ledge"><div class="ltabs" role="tablist" aria-label="Library"><button type="button" class="ltab on" role="tab" id="pg-tab" aria-selected="true" aria-controls="pg-row">Pieces</button></div>'
     + '<div class="lrow" id="pg-row" role="tabpanel" aria-labelledby="pg-tab"><div class="inner lip"></div></div></footer>'
     + '<div class="pg-alert" role="alert" hidden></div><p class="pg-toast" role="status" aria-live="polite"></p>';
@@ -68,7 +74,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   const q = <T extends Element = HTMLElement>(s: string): T => dlg.querySelector(s) as T;
   const plinthEl = q('.pg-plinth'), fieldEl = q('.pg-field'), boardEl = q<SVGSVGElement>('.pg-board'), hitsEl = q('.pg-hits'), paintEl = q('.pg-paint');
   const actsEl = q('.pg-acts'), moreEl = q('.pg-morepop'), brushesEl = q('.pg-brushes'), toolsEl = q('.pg-tools'), hintEl = q('.pg-hint'), keyEl = q('.pg-keyrow');
-  const rowEl = q('.lrow'), slotsEl = q('.lrow .inner'), alertEl = q('.pg-alert'), toastEl = q('.pg-toast');
+  const rowEl = q('.lrow'), slotsEl = q('.lrow .inner'), alertEl = q('.pg-alert'), toastEl = q('.pg-toast'), shelfEl = q('.pg-shelf');
   /** The narrow layout (ground.css): the phone form of the mockup. */
   const narrow = matchMedia('(max-width: 999px)');
 
@@ -79,6 +85,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   let undos: { item: Item; label: string }[] = [], unsaved: { id: string; why: Exclude<SaveResult, 'saved'> } | null = null;
   /** The squares that pulse on the next draw; the open popovers. */
   let pulse: string[] = [], weighOpen = false, moreOpen = false, toolsOpen = false;
+  /** The rules (ticket 03): the open row of choices (rule `a`'s pill, or its When, with "More choices" open or not), the
+   *  design under a choice that has the pointer or the focus, the Rules shelf and its chosen seal, the phone's rule card. */
+  let row: { a: Ability['a']; when: boolean; more: boolean } | null = null, peek: PieceDesign | null = null;
+  let shelfOpen = false, pick: Ability['a'] | null = null, card: Ability['a'] | null = null, added = 0;
   /** A design from a link stays read only. */
   const editable = (): boolean => cur.key !== 'link';
 
@@ -195,6 +205,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function arm(b: Brush): void {
     if (!editable()) return;
     brush = b;
+    row = peek = pick = card = null;
+    shelfOpen = false;
     render();
   }
   function leave(): void {
@@ -247,24 +259,187 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
 
   /* ---- the plinth (renderPlinth and sealLineHTML, proving-ground.html:979-1006, :1030-1098) ---- */
 
+  /** A state rule sleeps while its When does not hold here: its seal is grey and its chip hollow. */
+  const asleepOf = (r: Rule): boolean => !blockOf(r.does.a).event && r.when.on !== 'always' && !holds(r.when, board, from, START);
+  /** The rule has When choices (decision 10): not "takes again" and "removed too", whose only When is "when it takes". */
+  const hasWhens = (a: Ability['a']): boolean => { const w = whenChoices(a); return editable() && w.top.length + w.more.length > 0; };
+  /** A button with a 44 px hit area round a pill or a chip; `aria-expanded` while its row is open. */
+  const hit = (attr: string, a: string, open: boolean, inner: string, label = ''): string =>
+    `<button type="button" class="pg-hit" ${attr}="${a}" aria-expanded="${open}"${label ? ` aria-label="${esc(label)}"` : ''}>${inner}</button>`;
+  /** The When button of an "always" rule, which has no chip. */
+  const whenButton = (r: Rule): string =>
+    (r.when.on === 'always' && hasWhens(r.does.a) ? hit('data-when', r.does.a, row?.a === r.does.a && row.when, pill('When'), 'When: always') : '');
+  /** A rule line: the seal, the When chip (a button that opens the When choices), the short line with its pill (spec
+   *  decision 38), and on the wide layout the × that removes the rule. The phone's card shows the line with no seal. */
+  function lineHtml(r: Rule, inCard = false): string {
+    const a = r.does.a, ed = editable(), P = lineParts(r), asleep = asleepOf(r), c = chip(r.when, { hollow: asleep });
+    const part = (p: Part): string => (typeof p === 'string' ? esc(p) : ed ? hit('data-pill', a, row?.a === a && !row.when, pill(p.text)) : esc(p.text));
+    const l1 = (c && hasWhens(a) ? hit('data-when', a, row?.a === a && row.when, c, `When: ${whenWords(r.when)}`) : c) + P.after.map(part).join('');
+    return `<div class="sline">${inCard ? '' : seal(a, 44, { asleep })}<span class="txt">${l1 ? `<span class="l1">${l1}</span>` : ''}<span class="l2">${P.line.map(part).join('')}</span></span>`
+      + (ed && !inCard ? `<span class="acts">${whenButton(r)}<button type="button" class="pg-rm" data-rm="${a}" aria-label="Remove ${esc(blockOf(a).label.replace('…', ''))}">×</button></span>` : '') + '</div>';
+  }
+  /** The choices of the open row: a pill's values, or the When choices of whenChoices. */
+  function choicesOf(): Choice[] {
+    const { a, when } = row!, r = ruleIn(cur.d, a)!, at = (d: PieceDesign): Rule => ruleIn(d, a)!;
+    const make = (c: Omit<Choice, 'off'>, clash?: string): Choice => ({ ...c, off: c.on ? null : clash ?? limit(tried(c.apply)) });
+    if (!when) {
+      const { key, choices } = blockOf(a).pill!, now = (r.does as unknown as Record<string, string>)[key];
+      return choices.map(([k, words]) => make({ v: k, words: brief(words), on: k === now, apply: d => { (at(d).does as unknown as Record<string, string>)[key] = k; } }));
+    }
+    const { top, more } = whenChoices(a), as = r.does.a === 'movesLike' ? r.does.as : undefined;
+    return [...top, ...more].map((w, i) => {
+      // "Always" for "moves like" adds that piece's squares to Moves and takes the rule away (likeAlways, model.ts).
+      const like = as && w.on === 'always' ? as : undefined, merged = like && likeAlways(cur.d, like);
+      const apply = like ? (d: PieceDesign) => { Object.assign(d, likeAlways(d, like)); d.rules = d.rules.filter(x => x.does.a !== a); } : (d: PieceDesign) => { at(d).when = clone(w); };
+      return make({ v: String(i), w, like, words: whenLabel(w, !!as), on: same(w, r.when), apply }, like && !merged ? LIKE_CLASH : undefined);
+    });
+  }
+  /** The open row under its line (desktop) or in the phone's card: the choices, then the words of each that the design cannot take. */
+  function rowHtml(): string {
+    const cs = choicesOf(), top = row!.when ? whenChoices(row!.a).top.length : cs.length, rest = cs.slice(top);
+    const btn = (c: Choice, text = c.words, label = ''): string => `<button type="button" class="pg-hit" data-choice="${c.v}"${c.off ? ' aria-disabled="true"' : ''}`
+      + `${label ? ` aria-label="${esc(label)}"` : ''}>${pill(text, { choice: true, on: c.on })}</button>`;
+    // The rest of the When choices: plain ones, then "Next to your" with a piece list, then the move numbers (the When sheet's order).
+    const kind = (c: Choice): string => (c.w!.on === 'near' && c.w!.who.length === 1 ? 'body' : c.w!.on === 'fromMove' || c.w!.on === 'beforeMove' ? c.w!.on : '');
+    const bodies = rest.filter(c => kind(c) === 'body'), near = bodies.find(c => c.on);
+    const nums = (on: string, words: string): string => {
+      const ws = rest.filter(c => kind(c) === on);
+      return ws.length ? `<span class="pg-nums">${words}${ws.map(c => btn(c, String((c.w as { n: number }).n), `${words} ${(c.w as { n: number }).n}`)).join('')}</span>` : '';
+    };
+    const more = !rest.length ? '' : !row!.more ? `<button type="button" class="pg-hit" data-act="morewhen">${pill('More choices', { choice: true })}</button>`
+      : rest.filter(c => !kind(c)).map(c => btn(c)).join('')
+        + (bodies.length ? `<label class="pg-near${near ? ' is-on' : ''}">Next to your <select data-near aria-label="Next to your piece"><option value=""${near ? '' : ' selected'} disabled>piece</option>`
+          + bodies.map(c => { const who = (c.w as { who: Body }).who; return `<option value="${c.v}"${c === near ? ' selected' : ''}>${BODY[who].name}</option>`; }).join('') + '</select></label>' : '')
+        + nums('fromMove', 'From move') + nums('beforeMove', 'Before move');
+    const offs = [...new Set(cs.flatMap(c => (c.off ? [c.off] : [])))];
+    return `<div class="choices" role="group" aria-label="${row!.when ? 'When' : 'Choices'}">${cs.slice(0, top).map(c => btn(c)).join('')}${more}</div>`
+      + offs.map(o => `<p class="pg-off">${esc(o)}</p>`).join('');
+  }
+
   function renderPlinth(): void {
     const d = cur.d, name = d.name || 'Piece', origin = cur.key.startsWith('piece:') ? undefined : PRESETS.find(p => d.from.length === 1 && p.key === d.from[0]);
-    const rules = canonical(d).rules.map(r => {
-      const b = blockOf(r.does.a), asleep = !b.event && r.when.on !== 'always' && !holds(r.when, board, from, START);
-      // The When as a chip (an event's head names it: "when it takes a piece, not a pawn"), then what the rule does.
-      const words = b.head ? partsText(b.head(r)) : whenWords(r.when), l1 = chip(r.when, { hollow: asleep, words: words.charAt(0).toLowerCase() + words.slice(1) });
-      return { r, asleep, line: `<li class="sline">${seal(r.does.a, 44, { asleep })}<span class="txt">${l1 ? `<span class="l1">${l1}</span>` : ''}<span class="l2">${esc(partsText(b.say(r)))}</span></span></li>` };
-    });
+    const rules = canonical(d).rules, ed = editable(), room = ed && rules.length < MAX_RULES;
     const [head, like] = weighOpen ? weighWords() : ['', ''];
     plinthEl.innerHTML = `<div class="pg-name${cur.yours ? ' is-copy' : ''}"><div class="row"><h3${name.length > 9 ? ' class="long"' : ''}>${esc(name)}</h3>${cur.yours ? tagYours() : ''}`
       + `${cur.yours ? `<button type="button" class="pg-weigh" data-act="weigh" aria-expanded="${weighOpen}">${sigil('scale', 16)}Weigh</button>` : ''}</div>`
       + `${origin ? `<div class="from">from ${esc(origin.name)}</div>` : ''}</div>`
       + (weighOpen ? `<div class="pg-weighpop">${MEDAL}<b>${esc(head)}</b><small>${esc(like)}</small></div>` : '')
       + `<div class="pg-figure"><span class="halo"></span><img src="${esc(figureOf(d))}" alt=""></div><div class="pg-stone"><div class="top"></div><div class="front"></div></div>`
-      + (rules.length ? `<ol class="pg-lines" aria-label="Rules">${rules.map(x => x.line).join('')}</ol>` : '')
-      // The narrow layout shows the seals in a row beside the name; each one names its rule.
-      + `<div class="pg-pseals">${rules.map(x => seal(x.r.does.a, 42, { asleep: x.asleep, label: ruleText(x.r) })).join('')}</div>`;
+      + (narrow.matches
+        // The narrow layout shows the seals in a row beside the name: a tap opens the rule's card; + opens the shelf.
+        ? `<div class="pg-pseals">${rules.map(r => `<button type="button" class="pg-pseal" data-card="${r.does.a}" aria-expanded="${card === r.does.a}">${seal(r.does.a, 42, { asleep: asleepOf(r), label: ruleText(r) })}</button>`).join('')}`
+          + `${room ? '<button type="button" class="padd" data-act="shelf" aria-label="Add a rule">+</button>' : ''}</div>`
+        // The lines, the Add row, and dotted rows up to 3 once the piece is the player's (:1044-1051).
+        : `<div class="pg-lines">${rules.length ? `<ol aria-label="Rules">${rules.map(r => `<li>${lineHtml(r)}${row?.a === r.does.a ? rowHtml() : ''}</li>`).join('')}</ol>` : ''}`
+          + (room ? '<button type="button" class="sline add" data-act="shelf"><span class="sl-seal" aria-hidden="true">+</span><b>Add a rule</b></button>'
+            + '<div class="sline empty" aria-hidden="true"><span class="sl-seal"></span><span class="txt"></span></div>'.repeat(cur.yours && rules.length ? MAX_RULES - 1 - rules.length : 0) : '')
+          + '</div>');
   }
+
+  /* ---- the Rules shelf (renderShelf, :1406-1432) and the phone's rule card (showPhoneSentence, :2099-2104) ---- */
+
+  /** Why the open design cannot take block `a`'s rule now, or null. */
+  const notNow = (a: Ability['a']): string | null =>
+    (ruleIn(cur.d, a) ? 'Already in this piece.' : blockOf(a).needs?.(cur.d) ?? limit({ ...cur.d, rules: [...cur.d.rules, blockOf(a).rule] }));
+  function renderShelf(): void {
+    shelfEl.hidden = !shelfOpen && !card;
+    const r = card && ruleIn(cur.d, card);
+    if (r) {
+      const b = blockOf(r.does.a);
+      shelfEl.className = 'pg-shelf pg-card';
+      shelfEl.innerHTML = `<header>${seal(b.a, 40, { asleep: asleepOf(r) })}<h3 id="pg-shelf-h">${esc(b.label)}</h3><button type="button" class="pg-x" data-act="closecard" aria-label="Close">×</button></header>`
+        + lineHtml(r, true) + (row ? rowHtml() : '') + `<p class="pg-ex">${esc(b.example)}</p>`
+        + (editable() ? `<div class="pg-act">${whenButton(r)}<button type="button" class="pg-remove" data-rm="${b.a}">Remove</button></div>` : '');
+      return;
+    }
+    shelfEl.className = 'pg-shelf';
+    if (!shelfOpen) { shelfEl.innerHTML = ''; return; }
+    const sealButton = (a: Ability['a']): string => {
+      const b = blockOf(a), has = !!ruleIn(cur.d, a), need = !has && b.needs?.(cur.d);
+      return `<button type="button" class="sbtn${has ? ' has' : ''}${need ? ' dim' : ''}" data-seal="${a}" aria-pressed="${pick === a}" aria-label="${esc(b.title)}${has ? ', already in this piece' : need ? `. ${esc(need)}` : ''}">${seal(a, 48)}<span>${esc(b.label)}</span></button>`;
+    };
+    let h = '<header><h3 id="pg-shelf-h">Rules</h3><button type="button" class="pg-x" data-act="closeshelf" aria-label="Close">×</button></header><div class="groups">'
+      + GROUPS.map(g => { const bs = BLOCKS.filter(b => b.group === g); return `<div class="grp${bs.length > 2 ? ' wide' : ''}"><h4>${g}</h4><div class="seals">${bs.map(b => sealButton(b.a)).join('')}</div></div>`; }).join('')
+      + `${pick ? '' : '<p class="pg-shint">Tap a seal. The board shows what it does.</p>'}</div>`;
+    if (pick) {
+      // The sentence card: the seal, the When chip, the sentence with the default pill, why it cannot go on now, and Stamp.
+      const b = blockOf(pick), P = lineParts(b.rule), why = notNow(pick), still = (p: Part): string => (typeof p === 'string' ? esc(p) : pill(p.text));
+      const l1 = chip(b.rule.when) + P.after.map(still).join('');
+      h += `<div class="sentence">${seal(pick, 44)}<p class="say">${l1 ? `<span class="l1">${l1}</span>` : ''}${P.say.map(still).join('')}</p>`
+        // An event rule can change no square on this board: then the example says what it does (ticket 03, Risks).
+        + (why ? `<p class="needs">${esc(why)}</p>` : added ? '' : `<p class="pg-ex">${esc(b.example)}</p>`)
+        + `<div class="pg-act"><button type="button" class="pg-stamp" data-act="stamp"${why ? ' disabled' : ''}>Stamp</button></div></div>`;
+    }
+    shelfEl.innerHTML = h;
+  }
+  /** S, the Add row and the phone's +: the shelf opens (no more than 3 rules: the limit words). */
+  function openShelf(): void {
+    if (!editable()) return;
+    if (cur.d.rules.length >= MAX_RULES) return toast(FULL, 'lock');
+    brush = row = peek = pick = card = null;
+    toolsOpen = false;
+    shelfOpen = true;
+    render();
+    q<HTMLElement>('.pg-shelf .sbtn').focus();
+  }
+  function closeShelf(): void {
+    shelfOpen = false;
+    pick = peek = null;
+    render();
+    q<HTMLElement>('[data-act="shelf"]')?.focus();
+  }
+  /** Gives the focus to the first control of rule `a`'s line or seal, or else to the Add row or the title. */
+  const focusRule = (a: string): void =>
+    (q<HTMLElement>(`[data-when="${a}"], [data-pill="${a}"], [data-rm="${a}"], [data-card="${a}"]`) ?? q<HTMLElement>('[data-act="shelf"]') ?? q<HTMLElement>('#pg-h')).focus();
+  function stamp(): void {
+    const b = blockOf(pick!);
+    if (!change('rule', d => { d.rules.push(clone(b.rule)); })) return;
+    shelfOpen = false;
+    pick = null;
+    render();
+    focusRule(b.a);
+  }
+  function removeRule(a: Ability['a']): void {
+    change('rule', d => { d.rules = d.rules.filter(r => r.does.a !== a); });
+    card = null;
+    render();
+    focusRule(a);
+  }
+  /** A tap on a pill or a When chip opens its row, with the focus on the choice that the rule has now; a second tap closes it. */
+  function toggleRow(a: Ability['a'], when: boolean): void {
+    const r = ruleIn(cur.d, a)!;
+    row = row?.a === a && row.when === when ? null : { a, when, more: when && !whenChoices(a).top.some(w => same(w, r.when)) };
+    peek = pick = null;
+    shelfOpen = false;
+    render();
+    const on = q<HTMLElement>('.choices .is-on');
+    if (row) (on?.closest<HTMLElement>('button') ?? on?.querySelector('select') ?? q<HTMLElement>('.choices button')).focus();
+  }
+  /** A tap or Enter on a choice commits it through change('rule', …). A choice that the design cannot take shows its words. */
+  function choose(v: string): void {
+    const c = choicesOf().find(x => x.v === v), { a, when } = row!;
+    if (!c) return;
+    if (c.off) return toast(c.off);
+    row = peek = null;
+    if (!change('rule', c.apply)) render();
+    if (c.like) toast(`Added to Moves: ${LIKE_ADDED[c.like]}.`);
+    (q<HTMLElement>(`[data-${when ? 'when' : 'pill'}="${a}"]`) ?? q<HTMLElement>('[data-act="shelf"]') ?? q<HTMLElement>('#pg-h')).focus();
+  }
+  function openCard(a: Ability['a']): void {
+    card = card === a ? null : a;
+    row = peek = pick = null;
+    shelfOpen = false;
+    render();
+    if (card) q<HTMLElement>('.pg-card .pg-x').focus();
+  }
+  function closeCard(): void {
+    const a = card;
+    card = row = peek = null;
+    render();
+    q<HTMLElement>(`[data-card="${a}"]`)?.focus();
+  }
+  /** Copies the open design and changes the copy: the preview of a choice. */
+  const tried = (f: (d: PieceDesign) => void): PieceDesign => { const d = clone(cur.d); f(d); return d; };
 
   /* ---- the board (renderBoard, renderPaintFx, renderHits and squareLabel, proving-ground.html:1161, :1222-1281) ---- */
 
@@ -369,25 +544,43 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     q<HTMLElement>('.slot.open').focus({ preventScroll: true });
   });
 
-  /** Draws everything for the open item. A control that a part replaced gets the focus back. */
-  function render(): void {
-    const a = document.activeElement as HTMLElement | null, keep = ['brush', 'act', 'nub', 'piece', 'design'].map(k => a?.dataset?.[k] && `[data-${k}="${a.dataset[k]}"]`).find(Boolean);
+  /** The scene of the open design on its board, or of the design under preview (a choice that has the pointer or the
+   *  focus, or the shelf's new rule), with `pv` on each part that the preview adds (`sceneOf` of both). Then the board and the right column. */
+  function drawScene(): void {
     // In brush mode the design stands alone on d4; a copy shows its paint diff against its pool piece.
-    const pieces = examplesOf(brush ? { from: [] } : cur.d), d = cur.d;
+    const pieces = examplesOf(brush ? { from: [] } : cur.d);
     board = boardOf(pieces);
     from = parseSq(pieces[0].sq);
-    sc = d.from[0] ? diffOf(d, presetOf(d.from[0]), board, from) : sceneOf(d, board, from);
+    const of = (d: PieceDesign): Scene => (d.from[0] ? diffOf(d, presetOf(d.from[0]), board, from) : sceneOf(d, board, from));
+    const next = peek ?? (shelfOpen && pick && !notNow(pick) ? { ...cur.d, rules: [...cur.d.rules, blockOf(pick).rule] } : null);
+    sc = of(cur.d);
+    added = 0;
+    if (next) {
+      const was = new Set(Object.values(sc).flat().map(x => JSON.stringify(x)));
+      sc = of(next);
+      for (const x of [...sc.marks, ...sc.rails, ...sc.arches, ...sc.effects]) if (!was.has(JSON.stringify(x))) { x.pv = true; added++; }
+    }
     if (brush) {
       // The reach ends 3 squares out: a line shows 3 squares, then its arrow (designScene, proving-ground.html:781-797).
       sc.marks = sc.marks.filter(m => !out(m.sq));
       for (const r of sc.rails) if (out(r.to)) { const t = parseSq(r.to); r.to = sqName(sq(3 + 3 * Math.sign(file(t) - 3), 3 + 3 * Math.sign(rank(t) - 3))); r.end = 'arrow'; }
     }
-    renderTop();
-    renderPlinth();
     drawBoard();
     renderHits();
     renderPaint();
     renderRight();
+  }
+  /** Draws everything for the open item. A control that a part replaced gets the focus back. */
+  function render(): void {
+    const a = document.activeElement as HTMLElement | null;
+    const keep = ['brush', 'act', 'nub', 'piece', 'design', 'pill', 'when', 'choice', 'seal', 'card', 'rm'].map(k => a?.dataset?.[k] && `[data-${k}="${a.dataset[k]}"]`).find(Boolean);
+    // A row or a card of a rule that is gone closes.
+    if (row && !ruleIn(cur.d, row.a)) row = null;
+    if (card && !ruleIn(cur.d, card)) card = row = null;
+    renderTop();
+    drawScene();
+    renderPlinth();
+    renderShelf();
     renderLedge();
     drawAlert();
     if (keep && !dlg.contains(document.activeElement)) (q<HTMLElement>(keep) ?? q<HTMLElement>('.pg-brushes button'))?.focus({ preventScroll: true });
@@ -396,24 +589,41 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function show(item: Item): void {
     if (item.key !== cur.key) undos = [];
     cur = item;
-    brush = null;
-    weighOpen = moreOpen = toolsOpen = false;
+    brush = row = peek = pick = card = null;
+    weighOpen = moreOpen = toolsOpen = shelfOpen = false;
     mirror = presetOf(item.d.from[0] ?? '').paintOn;
     kbd = examplesOf(item.d)[0].sq;
     dlg.scrollTop = 0;
     render();
   }
   new ResizeObserver(() => { if (fieldEl.clientWidth / 8 !== drawnAt) drawBoard(); }).observe(fieldEl);
-  narrow.addEventListener('change', () => { if (dlg.open) render(); });
+  narrow.addEventListener('change', () => { row = peek = card = null; if (dlg.open) render(); });
   q<HTMLButtonElement>('.pg-menu').onclick = () => dlg.close();
 
   dlg.addEventListener('click', e => {
-    const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq');
+    const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-seal], [data-card], [data-rm]');
     if (!t) { if (moreOpen) { moreOpen = false; renderTop(); } return; }
-    if (t.dataset.sq) { if (brush) paint(t.dataset.sq); return; }
-    if (t.dataset.nub) return toggleLine(t.dataset.nub as Dir);
-    if (t.dataset.brush) return arm(t.dataset.brush as Brush);
+    const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, seal: sa, card: ca, rm } = t.dataset;
+    if (at) { if (brush) paint(at); return; }
+    if (l) return toggleLine(l as Dir);
+    if (b) return arm(b as Brush);
+    if (pa || wa) return toggleRow((pa ?? wa) as Ability['a'], !!wa);
+    if (choice) return choose(choice);
+    if (sa) { pick = sa as Ability['a']; return render(); }
+    if (ca) return openCard(ca as Ability['a']);
+    if (rm) return removeRule(rm as Ability['a']);
     const act = t.dataset.act;
+    if (act === 'shelf') return openShelf();
+    if (act === 'closeshelf') return closeShelf();
+    if (act === 'closecard') return closeCard();
+    if (act === 'stamp') return stamp();
+    if (act === 'morewhen') {
+      row!.more = true;
+      const n = whenChoices(row!.a).top.length;
+      render();
+      // The focus goes to the first of the choices that "More choices" shows.
+      return q('.choices').querySelectorAll<HTMLElement>('button, select')[n]?.focus();
+    }
     if (act === 'more' || act === 'tools' || act === 'mirror') {
       if (act === 'more') moreOpen = !moreOpen;
       if (act === 'tools') toolsOpen = !toolsOpen;
@@ -433,20 +643,45 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (act === 'weigh' && narrow.matches) return toast(weighWords().join(' ').trim());
     if (act === 'weigh') { weighOpen = !weighOpen; render(); }
   });
-  // The keys (proving-ground.html:1957-1966): 1, 2 and 3 arm a brush, B goes in and out of brush mode, Esc closes a
-  // popover or leaves brush mode, Ctrl or Cmd+Z undoes. None of them acts under a sheet or in a text field.
+  // A choice that has the pointer or the focus: the board previews it (previewPill, proving-ground.html:1866, :2084-2085).
+  const peekAt = (t: EventTarget | null): void => {
+    const v = (t as Element | null)?.closest?.<HTMLElement>('.choices [data-choice]')?.dataset.choice, c = v && row ? choicesOf().find(x => x.v === v) : undefined;
+    const d = c && !c.on && !c.off ? tried(c.apply) : null;
+    if (!same(d, peek)) { peek = d; drawScene(); }
+  };
+  dlg.addEventListener('pointerover', e => peekAt(e.target));
+  dlg.addEventListener('focusin', e => peekAt(e.target));
+  dlg.addEventListener('change', e => { const s = e.target as HTMLSelectElement; if (s.matches('[data-near]')) choose(s.value); });
+  // In a row the arrow keys move over the choices (up and down change a piece list, as a list does).
+  dlg.addEventListener('keydown', e => {
+    const box = (e.target as Element).closest('.choices'), step = ({ ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 } as Record<string, number>)[e.key];
+    if (!box || !step || ((e.target as Element).matches('select') && (e.key === 'ArrowUp' || e.key === 'ArrowDown'))) return;
+    e.preventDefault();
+    const all = [...box.querySelectorAll<HTMLElement>('button, select')], i = all.indexOf(e.target as HTMLElement);
+    all[Math.max(0, Math.min(all.length - 1, i + step))].focus();
+  });
+  // The keys (proving-ground.html:1957-1966): 1, 2 and 3 arm a brush, B goes in and out of brush mode, S opens and closes
+  // the Rules shelf, Esc closes a row, a card, the shelf or a popover, or leaves brush mode, Ctrl or Cmd+Z undoes. None of
+  // them acts under a sheet or in a text field; in a piece list only Esc acts.
   document.addEventListener('keydown', e => {
-    if (!dlg.open || q('.pg-sheet[open]') || (e.target as Element).closest?.('input, textarea, select')) return;
-    if (e.key === 'Escape' && (brush || moreOpen || weighOpen)) {
+    const field = (e.target as Element).closest?.('input, textarea, select');
+    if (!dlg.open || q('.pg-sheet[open]') || (field && e.key !== 'Escape')) return;
+    if (e.key === 'Escape' && (row || card || shelfOpen || brush || moreOpen || weighOpen)) {
       e.preventDefault();
-      if (moreOpen || weighOpen) { moreOpen = weighOpen = false; render(); } else leave();
+      // Esc closes only the row, and the focus goes back to its pill or chip.
+      if (row) { const { a, when } = row; row = peek = null; render(); q<HTMLElement>(`[data-${when ? 'when' : 'pill'}="${a}"]`)?.focus(); }
+      else if (card) closeCard();
+      else if (shelfOpen) closeShelf();
+      else if (moreOpen || weighOpen) { moreOpen = weighOpen = false; render(); } else leave();
       return;
     }
+    if (field) return;
     if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); undo(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const b = ({ 1: 'move', 2: 'take', 3: 'both' } as Record<string, Brush>)[e.key];
     if (b) arm(b);
     else if (e.key === 'b' || e.key === 'B') { if (brush) leave(); else arm('move'); }
+    else if (e.key === 's' || e.key === 'S') { if (shelfOpen) closeShelf(); else openShelf(); }
   });
 
   /** Opens the dialog on `item`, with the shelf read again and the open slot in view. */

@@ -15,14 +15,15 @@ export type Kind = 'move' | 'take' | 'both' | 'shot' | 'moveshot';
 /** `k` is the piece's engine name; the open design is 'design', because its look comes from the design. */
 export interface ScenePiece { sq: string; k: string; side: 'w' | 'b'; open?: true }
 /** `x`: the line ends in a take; `stop`: a friend stops it; `arrow`: the board edge; `none`: an enemy it cannot take (ticket 04 draws it). */
-export interface Rail { from: string; to: string; end: 'x' | 'stop' | 'arrow' | 'none'; style?: 'asleep' | 'awake' }
+export interface Rail { from: string; to: string; end: 'x' | 'stop' | 'arrow' | 'none'; style?: 'asleep' | 'awake'; pv?: true }
+/** `pv` on a part: a preview adds it (a choice or a new rule that the player looks at, ground.ts). */
 export interface Scene {
   pieces: ScenePiece[];
   /** diff: the paint diff of a copy (diffOf): '+' a new or changed mark, '-' a mark of its pool piece that is gone. */
-  marks: { sq: string; k: Kind; cond?: 'asleep' | 'awake'; diff?: '+' | '-' }[];
+  marks: { sq: string; k: Kind; cond?: 'asleep' | 'awake'; diff?: '+' | '-'; pv?: true }[];
   rails: Rail[];
-  arches: { from: string; over: string; to: string }[];
-  effects: ({ k: 'swap'; a: string; b: string } | { k: 'push'; from: string; to: string })[];
+  arches: { from: string; over: string; to: string; pv?: true }[];
+  effects: (({ k: 'swap'; a: string; b: string } | { k: 'push'; from: string; to: string }) & { pv?: true })[];
 }
 
 /** The example board of each pool piece (the `pieces` of scenes.js): the open piece's square, then each other

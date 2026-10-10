@@ -8,7 +8,11 @@
 // firstCopy (the first paint makes "My Pawn" in Yours; a reload keeps it; the pool Pawn stays), undo (the scope, Ctrl or
 // Cmd+Z, nothing under a sheet, a refused delete, back before the first edit), saveAlerts (a full shelf, a storage that
 // throws, Copy link), shareLink (Share by the Enter key; the copied ?design= link, unchanged, opens the same design; a
-// refused clipboard opens the copy sheet) and weigh (the words; on the phone, ⋯ by the keys gives the focus back to ⋯).
+// refused clipboard opens the copy sheet) and weigh (the words; on the phone, ⋯ by the keys gives the focus back to ⋯);
+// then the rules of ticket 03: shelf (S, Esc, the groups, ✓ and dim seals, the preview, Stamp; the phone's bottom sheet),
+// threeOfThree (the Add row, the dotted rows, the limit words), pill (the row, the arrows, the preview, Esc, Enter, a
+// refused choice), whenChip (the When choices, More choices, an asleep seal, "Always" for "moves like", no choices for
+// "takes again") and removeRule (the × of a line, Undo; the phone's rule card). The keys group also opens and closes the shelf with S.
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
 import { pressMenu } from './app-ui.mjs';
@@ -70,6 +74,15 @@ const refuse = p => p.evaluate(() => {
   window.unbreak = () => { Storage.prototype.setItem = set; };
   Storage.prototype.setItem = () => { throw new Error('refused'); };
 });
+/** Ticket 03: the short lines on the plinth, the focus on `sel`, the preview parts, and a rule stamped from the shelf. */
+const lines = p => p.$$eval('.pg-lines .sline:not(.add, .empty) .l2', ls => ls.map(l => l.textContent));
+const focusOn = (p, sel) => p.$eval(sel, e => e === document.activeElement);
+const previewed = p => p.locator('.pg-board [data-pv]').count();
+async function stampRule(p, a) {
+  await p.click('[data-act="shelf"]');
+  await p.click(`[data-seal="${a}"]`);
+  await p.click('[data-act="stamp"]');
+}
 async function has(p, want, why) {
   const m = await marks(p);
   for (const w of want) assert.ok(m.includes(w), `${why}: no ${w} in ${m.join(', ')}`);
@@ -182,6 +195,11 @@ async function keys() {
   await p.keyboard.press('Space');
   assert.equal(await name(p), 'Bishop', 'Space on a ledge slot opens its piece');
   assert.equal(await slot(), 'bishop', 'the focus stays on the slot that Space opens');
+  await p.keyboard.press('s');
+  assert.equal(await p.locator('.pg-shelf').isVisible(), true, 'S opens the Rules shelf');
+  await p.keyboard.press('s');
+  assert.equal(await p.locator('.pg-shelf').isVisible(), false, 'S again closes it');
+  assert.equal(await focusOn(p, '[data-act="shelf"]'), true, 'and the focus goes to the Add row');
   await p.context().close();
 }
 
@@ -464,6 +482,215 @@ async function weigh() {
   await q.context().close();
 }
 
+async function shelf() {
+  const p = await open();
+  await door(p);
+  assert.deepEqual(await lines(p), ['steps 2 straight ahead', 'becomes a piece you choose'], 'a rule line is the short line with its pill (spec decision 38)');
+  assert.deepEqual([await p.locator('.sline.add').count(), await p.locator('.sline.empty').count()], [1, 0], 'a pool piece with room: the Add row, no dotted row');
+  await p.keyboard.press('s');
+  const sheet = p.locator('.pg-shelf');
+  assert.equal(await sheet.isVisible(), true, 'S opens the Rules shelf');
+  assert.deepEqual(await p.$$eval('.pg-shelf .grp h4', h => h.map(e => e.textContent)), ['Moving', 'Taking', 'Safe', 'Moving others', 'Changing', 'Holding back'], 'the shelf shows the six groups');
+  assert.equal(await focusOn(p, '.pg-shelf .sbtn'), true, 'the focus goes to the first seal');
+  assert.deepEqual(await p.$$eval('.sbtn.has', b => b.map(e => e.dataset.seal)), ['step2', 'becomes'], 'a ✓ on each block the Pawn has');
+  assert.ok((await p.$$eval('.sbtn.dim', b => b.map(e => e.dataset.seal))).includes('linesPass'), 'a seal whose needs are not met is dim');
+  assert.equal(await p.locator('.pg-shint').textContent(), 'Tap a seal. The board shows what it does.', 'the shelf shows the hint');
+  const box = await sheet.boundingBox();
+  assert.deepEqual([Math.round(box.width), Math.round(box.height)], [336, 672], 'the shelf covers the right column, 336 × 672');
+  await p.keyboard.press('Escape');
+  assert.equal(await sheet.isVisible(), false, 'Esc closes the shelf');
+  assert.equal(await focusOn(p, '[data-act="shelf"]'), true, 'and gives the focus back to the Add row');
+  assert.equal(await p.locator('#workshop[open]').count(), 1, 'and the Workshop stays open');
+  await p.click('.sline.add');
+  await p.click('[data-seal="linesPass"]');
+  assert.equal(await p.locator('.sentence .needs').textContent(), 'Paint a line first.', 'a dim seal names its need');
+  assert.equal(await p.locator('.pg-stamp').isDisabled(), true, 'and Stamp waits');
+  await p.click('[data-seal="step2"]');
+  assert.equal(await p.locator('.sentence .needs').textContent(), 'Already in this piece.', 'a seal with a ✓ says so');
+  const before = await marks(p);
+  await p.click('[data-seal="movesLike"]');
+  assert.equal(await p.getAttribute('[data-seal="movesLike"]', 'aria-pressed'), 'true', 'a tap picks the seal');
+  assert.equal(await p.locator('.sentence .l1').textContent(), 'on a center square', 'the sentence card has the When chip');
+  assert.equal(await p.locator('.sentence .say').evaluate(e => e.textContent.replace(e.querySelector('.l1').textContent, '')), 'It also moves and takes like a queen.', 'and the sentence with its default pill');
+  assert.ok(await previewed(p) > 0 && (await marks(p)).length > before.length, 'the board previews what the rule adds');
+  await shot(p, 'stamp-preview-1440x900');
+  await p.click('[data-act="stamp"]');
+  assert.equal(await sheet.isVisible(), false, 'Stamp closes the shelf');
+  assert.equal(await name(p), 'My Pawn', 'Stamp makes the copy');
+  assert.deepEqual(await lines(p), ['steps 2 straight ahead', 'also moves like a queen', 'becomes a piece you choose'], 'and adds the rule');
+  assert.equal(await p.getAttribute('[data-act="undo"]', 'aria-label'), 'Undo rule', 'Undo names the rule');
+  assert.equal(await previewed(p), 0, 'the preview ends');
+  assert.deepEqual((await stored(p))[0].rules.map(r => r.does.a).sort(), ['becomes', 'movesLike', 'step2'], 'the copy is saved with the rule');
+  await shot(p, 'stamped-1440x900');
+  await p.context().close();
+  // The phone: + opens a bottom sheet with 64 px seal buttons; Stamp adds a seal to the plinth strip.
+  const q = await open('?workshop=a', { width: 390, height: 844 });
+  await door(q);
+  await q.click('.padd');
+  const b = await q.locator('.pg-shelf').boundingBox();
+  assert.deepEqual([b.x, b.width, Math.round(b.y + b.height)], [0, 390, 844], 'on the phone the shelf is a bottom sheet');
+  assert.equal(await q.$eval('.sbtn', e => e.getBoundingClientRect().width), 64, 'with 64 px seal buttons');
+  await minTarget(q, '#workshop .pg-shelf button', 44);
+  await noSidewaysScroll(q, '#workshop');
+  await q.click('[data-seal="movesLike"]');
+  await shot(q, 'stamp-preview-390x844');
+  await q.click('[data-act="stamp"]');
+  assert.deepEqual(await q.$$eval('.pg-pseals [data-card]', e => e.map(x => x.dataset.card)), ['step2', 'movesLike', 'becomes'], 'Stamp adds the seal to the plinth strip');
+  await q.context().close();
+}
+
+async function threeOfThree() {
+  const p = await open('?workshop=a', { shelf: SHELF });
+  await door(p);
+  await p.click('.slot[data-design="golden-b"]');
+  assert.deepEqual([await p.locator('.sline.add').count(), await p.locator('.sline.empty').count()], [1, 1], 'a design of yours with 1 rule: the Add row and dotted rows up to 3');
+  await p.click('.slot[data-piece="pawn"]');
+  await stampRule(p, 'movesLike');
+  assert.equal(await p.locator('.sline.add, .sline.empty').count(), 0, 'at 3 rules: no Add row and no dotted row');
+  await p.keyboard.press('s');
+  assert.equal(await toast(p), '3 of 3 rules. Remove one to add another.', 'S at 3 rules shows the limit words');
+  assert.equal(await p.locator('.pg-shelf').isVisible(), false, 'and the shelf stays closed');
+  await shot(p, 'three-of-three-1440x900');
+  await p.context().close();
+  const q = await open('?workshop=a', { width: 390, height: 844 });
+  await door(q);
+  await stampRule(q, 'movesLike');
+  assert.equal(await q.locator('.padd').count(), 0, 'on the phone, no + at 3 rules');
+  await q.context().close();
+}
+
+async function pill() {
+  const p = await open();
+  await door(p);
+  await stampRule(p, 'movesLike');
+  const at = '[data-pill="movesLike"]';
+  await p.click(at);
+  assert.equal(await p.getAttribute(at, 'aria-expanded'), 'true', 'a tap on a pill opens its row');
+  assert.deepEqual(await p.$$eval('.choices [data-choice]', b => b.map(e => e.textContent)), ['a king', 'a knight', 'a bishop', 'a rook', 'a queen'], 'the row holds its choices');
+  assert.equal(await focusOn(p, '[data-choice="queen"]'), true, 'the focus is on the choice that the rule has');
+  for (const want of ['rook', 'bishop', 'knight']) {
+    await p.keyboard.press('ArrowLeft');
+    assert.equal(await focusOn(p, `[data-choice="${want}"]`), true, `ArrowLeft moves to ${want}`);
+  }
+  assert.ok(await previewed(p) > 0, 'the focused choice previews on the board');
+  await shot(p, 'pill-open-1440x900');
+  await p.keyboard.press('Escape');
+  assert.equal(await p.locator('.choices').count(), 0, 'Esc closes only the row');
+  assert.equal(await focusOn(p, at), true, 'and gives the focus back to the pill');
+  assert.deepEqual([await p.locator('#workshop[open]').count(), await previewed(p)], [1, 0], 'the Workshop stays open and the preview ends');
+  await p.keyboard.press('Enter');
+  for (let i = 0; i < 3; i++) await p.keyboard.press('ArrowLeft');
+  await p.keyboard.press('Enter');
+  assert.equal((await lines(p))[1], 'also moves like a knight', 'Enter commits the choice');
+  assert.equal(await focusOn(p, at), true, 'the focus goes back to the pill');
+  assert.equal((await stored(p))[0].rules.find(r => r.does.a === 'movesLike').does.as, 'knight', 'and the copy is saved');
+  await p.click(at);
+  await p.hover('[data-choice="king"]');
+  assert.ok(await previewed(p) > 0, 'a choice under the pointer previews on the board');
+  await p.context().close();
+  // A choice that the limits refuse: the Rook takes, so only a king taking it is refused.
+  const q = await open();
+  await door(q);
+  await q.click('.slot[data-piece="rook"]');
+  await stampRule(q, 'cannotBeTaken');
+  await q.click('[data-pill="cannotBeTaken"]');
+  const off = 'Only a king can take this piece, so it cannot take. Remove that rule first.';
+  assert.equal(await q.getAttribute('[data-choice="allButKing"]', 'aria-disabled'), 'true', 'a refused choice is faint');
+  assert.equal(await q.locator('.pg-off').textContent(), off, 'and its words show under the row');
+  await q.focus('[data-choice="allButKing"]');
+  await q.keyboard.press('Enter');
+  assert.equal(await toast(q), off, 'Enter on it shows its words');
+  assert.equal((await stored(q))[0].rules[0].does.by, 'pawns', 'and changes nothing');
+  await q.context().close();
+}
+
+async function whenChip() {
+  const p = await open();
+  await door(p);
+  await stampRule(p, 'movesLike');
+  const at = '[data-when="movesLike"]', choices = () => p.$$eval('.choices button', b => b.map(e => e.textContent));
+  await p.click(at);
+  assert.deepEqual(await choices(), ['Always (adds it to Moves)', 'On a center square (d4 e4 d5 e5)', 'In the enemy half', 'Next to your king', 'From move 10', 'After its first capture', 'More choices'], 'the chip opens the When choices');
+  assert.equal(await p.$eval('.choices .is-on', e => e.closest('button') === document.activeElement), true, 'on the choice that the rule has');
+  await shot(p, 'when-open-1440x900');
+  await p.click('[data-act="morewhen"]');
+  assert.equal(await p.locator('.choices select[data-near]').count(), 1, 'More choices shows the piece list of "Next to your …"');
+  assert.deepEqual(await p.$$eval('.pg-nums button', b => b.map(e => e.getAttribute('aria-label'))),
+    ['From move 5', 'From move 15', 'From move 20', 'Before move 5', 'Before move 10', 'Before move 15', 'Before move 20'], 'and the move numbers');
+  await p.getByRole('button', { name: 'In the enemy half' }).click();
+  const line = p.locator('.sline:has([data-when="movesLike"])');
+  assert.equal(await p.locator(at).textContent(), 'in the enemy half', 'a choice changes the chip');
+  assert.equal(await line.locator('.is-hollow').count(), 1, 'a rule that does not hold on d4 has a hollow chip');
+  assert.match(await line.locator('.kd-seal').getAttribute('style'), /grayscale/, 'and a dim seal');
+  await p.click(at);
+  await p.click('[data-act="morewhen"]');
+  await p.selectOption('[data-near]', { index: 1 });
+  assert.match(await p.locator(at).textContent(), /^next to your /, 'the piece list sets "Next to your …"');
+  await p.click(at);
+  await p.getByRole('button', { name: 'Always (adds it to Moves)' }).click();
+  assert.equal(await toast(p), "Added to Moves: the queen's lines.", '"Always" for "moves like" adds its squares to Moves');
+  assert.deepEqual(await lines(p), ['steps 2 straight ahead', 'becomes a piece you choose'], 'and takes the rule away');
+  await p.click('[data-when="becomes"]');
+  assert.equal((await choices()).length, 2, '"becomes" has its two events');
+  await p.keyboard.press('Escape');
+  assert.equal(await focusOn(p, '[data-when="becomes"]'), true, 'Esc gives the focus back to the chip');
+  await p.click('.slot[data-piece="paladin"]');
+  assert.equal(await p.getAttribute('.acts [data-when="cannotTake"]', 'aria-label'), 'When: always', 'a rule with no chip has a When button');
+  await p.click('.slot[data-piece="beast"]');
+  assert.equal(await p.locator('[data-when="chain"]').count(), 0, '"takes again" has no When choices');
+  await p.context().close();
+  // A shot on c5 (1, 1) and "moves like a king": the king's square c5 cannot hold a take and a shot, so "Always" is refused.
+  const sniper = { ...JSON.parse(SHELF).designs[1], id: 'golden-c', name: 'Sniper', squares: [{ x: 1, y: 1, mark: 'shoot' }], lines: [],
+    rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'king' } }] };
+  const q = await open('?workshop=a', { shelf: JSON.stringify({ v: 1, designs: [sniper] }) });
+  await door(q);
+  await q.click('.slot[data-design="golden-c"]');
+  await q.click(at);
+  assert.equal(await q.getByRole('button', { name: 'Always (adds it to Moves)' }).getAttribute('aria-disabled'), 'true', 'with a shot in the way, "Always" is refused');
+  assert.equal(await q.locator('.pg-off').textContent(), 'Its shots and these moves meet on a square, and a square cannot hold both. Keep it as a rule.', 'with its words');
+  await q.context().close();
+}
+
+async function removeRule() {
+  const p = await open();
+  await door(p);
+  await p.click('.slot[data-piece="paladin"]');
+  const rm = '[data-rm="cannotTake"]', shown = () => p.$eval(rm, b => getComputedStyle(b.closest('.acts')).opacity);
+  assert.equal(await p.getAttribute(rm, 'aria-label'), "Remove Can't take", 'the × names its rule');
+  assert.equal(await shown(), '0', 'the × waits for the pointer or the focus');
+  await p.hover(`.sline:has(${rm})`);
+  assert.equal(await shown(), '1', 'the × shows on the line under the pointer');
+  await p.click(rm);
+  assert.equal(await name(p), 'My Paladin', 'Remove makes the copy');
+  assert.equal(await lines(p).then(l => l.includes('cannot take a king')), false, 'and takes the rule away');
+  assert.equal(await p.locator('.sline.add').count(), 1, 'the Add row comes back');
+  await p.click('[data-act="undo"]');
+  assert.equal(await toast(p), 'Undone: rule.', 'Undo gives the rule back');
+  assert.equal(await lines(p).then(l => l.includes('cannot take a king')), true, 'with its line');
+  await p.context().close();
+  // The phone: a tap on a seal in the plinth strip opens the rule's card with Remove.
+  const q = await open('?workshop=a', { width: 390, height: 844 });
+  await door(q);
+  await q.click('.slot[data-piece="paladin"]');
+  const seal = '[data-card="cannotTake"]', cards = () => q.$$eval('.pg-pseals [data-card]', e => e.map(x => x.dataset.card));
+  await q.click(seal);
+  assert.equal(await q.locator('.pg-card').isVisible(), true, 'a tap on a seal opens its card');
+  assert.equal(await q.locator('.pg-card .l2').textContent(), 'cannot take a king', 'with its line');
+  assert.equal(await focusOn(q, '.pg-card .pg-x'), true, 'the focus goes to its ×');
+  await minTarget(q, '#workshop .pg-card button', 44);
+  await shot(q, 'phone-sentence-390x844');
+  await q.keyboard.press('Escape');
+  assert.equal(await q.locator('.pg-card').count(), 0, 'Esc closes the card');
+  assert.equal(await focusOn(q, seal), true, 'and gives the focus back to the seal');
+  const three = await cards();
+  await q.click(seal);
+  await q.click('.pg-card [data-rm="cannotTake"]');
+  assert.deepEqual(await cards(), three.filter(a => a !== 'cannotTake'), 'Remove takes the seal away');
+  await q.click('[data-act="undo"]');
+  assert.deepEqual(await cards(), three, 'Undo gives it back');
+  await q.context().close();
+}
+
 try {
   await opens();
   await poolPieces();
@@ -478,6 +705,11 @@ try {
   await saveAlerts();
   await shareLink();
   await weigh();
+  await shelf();
+  await threeOfThree();
+  await pill();
+  await whenChip();
+  await removeRule();
   assertNoErrors();
   console.log('proving-ground: all groups pass');
 } finally {

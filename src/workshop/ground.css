@@ -19,7 +19,7 @@
 /* ---- the top bar (:38-49) ---- */
 .pg-top { position: relative; flex: none; height: 56px; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid var(--line); }
 /* the quiet buttons: one selector each, so that each keeps its own weight against the narrow rules */
-#workshop.pg .pg-menu, #workshop.pg .pg-acts button, #workshop.pg .pg-weigh, #workshop.pg .pg-alert button, #workshop.pg .pg-room-del {
+#workshop.pg .pg-menu, #workshop.pg .pg-acts button, #workshop.pg .pg-weigh, #workshop.pg .pg-alert button, #workshop.pg .pg-room-del, #workshop.pg .pg-remove {
   min-height: 44px; padding: 6px 16px; gap: 4px; border: 1px solid var(--stone-500); border-radius: var(--radius); }
 @media (hover: hover) { #workshop.pg button:is(.pg-menu, .pg-undo, .pg-share, .pg-weigh, .pg-room-del):hover:not(:disabled), #workshop.pg .pg-alert button:hover { background: rgba(255, 255, 255, 0.35); } }
 #workshop.pg button:disabled { opacity: 0.45; cursor: default; }
@@ -79,14 +79,56 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   background: linear-gradient(180deg, #5a5147 0%, var(--stone-700) 30%, #403931 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 14px 18px -8px rgba(29, 25, 21, 0.55), 0 2px 0 #2c2620; }
 .pg-stone .front::before { content: ''; position: absolute; left: 6px; right: 6px; top: 5px; bottom: 5px; border: 1px solid rgba(201, 154, 62, 0.5); border-radius: 2px; }
-.pg-lines { flex: 0 1 auto; min-height: 0; overflow-y: auto; margin: 16px 0 0; padding: 0 0 0 22px; list-style: none; }
-.sline { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 6px; }
-.sline + .sline { box-shadow: 0 -1px 0 rgba(43, 38, 33, 0.07); }
+/* the rule lines (:85-116): the seal, the When chip, the short line with its pill; the Add row, and dotted rows up to 3 */
+.pg-lines { flex: 0 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 16px 0 12px 22px; }
+.pg-lines ol { margin: 0; padding: 0; list-style: none; }
+.sline { position: relative; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 6px; border-radius: 8px; }
+.pg-lines li + li > .sline, .pg-lines ol + .sline, .pg-lines .sline + .sline { box-shadow: 0 -1px 0 rgba(43, 38, 33, 0.07); }
+@media (hover: hover) { .pg-lines .sline:hover { background: rgba(255, 255, 255, 0.3); } }
 .sline .kd-seal { flex: none; }
 .sline .txt { display: grid; gap: 4px; min-width: 0; }
 .sline .l1 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.sline .l2 { font-size: var(--fs-md); line-height: 1.3; }
-.pg-pseals { display: none; }
+/* the 44 px pill buttons stand 11 px out of a row: the padding holds them, and the margin keeps the line as high as before */
+.sline .l2 { padding-block: 11px; margin-block: -11px; font-size: var(--fs-md); line-height: 1.3; }
+#workshop.pg .sline.add { width: 100%; padding: 6px; border-radius: 8px; text-align: left; font-size: var(--fs-md); color: var(--ink-soft); }
+.sline .sl-seal { flex: none; width: 44px; height: 44px; border-radius: 50%; }
+.sline.add .sl-seal { display: grid; place-items: center; border: 1.5px dashed var(--stone-500); color: var(--accent); font: 400 24px/1 var(--font-body); }
+.sline.add b { color: var(--accent); font-weight: 700; }
+.sline.empty { min-height: 52px; }
+.sline.empty .sl-seal { border: 1.5px dotted var(--stone-300); }
+.sline.empty .txt { width: 150px; height: 1px; border-top: 1.5px dotted var(--stone-300); }
+/* a pill or a chip in a 44 px button that keeps the line as high as its words (spec decision 9) */
+#workshop.pg .pg-hit { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; margin: -11px 0; vertical-align: baseline; }
+#workshop.pg .pg-hit:focus-visible { outline: none; }
+#workshop.pg .pg-hit:focus-visible > * { outline: 3px solid var(--focus); outline-offset: 2px; }
+/* the pill (grammar.css G14): a capsule with a caret; in a line it is dotted words until the line has the pointer or the focus */
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px 2px 10px; border-radius: var(--radius-pill); background: var(--vellum);
+  border: 1px solid var(--stone-500); color: var(--ink); font: 400 var(--fs-sm)/1.3 var(--font-body); white-space: nowrap; }
+.pill::after { content: '▾'; font-size: 11px; color: var(--ink-soft); }
+.pill.is-choice::after { content: none; }
+.pill.is-on { border-color: var(--gold-ink); box-shadow: 0 0 0 2px var(--gold-bright); }
+.sline .pill { border-color: transparent; background: none; padding-left: 2px; padding-right: 2px; text-decoration: underline dotted var(--stone-500); text-underline-offset: 3px; }
+.sline:hover .pill, .sline:focus-within .pill, .sline [aria-expanded='true'] .pill { border-color: var(--stone-500); background: var(--vellum); padding-left: 10px; padding-right: 9px; text-decoration: none; }
+@media (hover: hover) { .sline .pg-hit:hover .pill { border-color: var(--gold-ink); } }
+.sline [aria-expanded='true'] .plate { box-shadow: 0 0 0 2px var(--gold-bright); }
+/* the row of choices under a line (:109-110); a choice that the design cannot take is faint, with its words under the row */
+.choices { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; padding: 0 4px 6px 62px; }
+.choices .pill { min-height: 32px; white-space: normal; }
+#workshop.pg .choices .pg-hit { margin: 0; }
+.choices [aria-disabled='true'] .pill { opacity: 0.45; }
+.pg-nums { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-sm); }
+.pg-near { display: inline-flex; align-items: center; gap: 4px; padding-left: 10px; border: 1px solid var(--stone-500); border-radius: var(--radius-pill); background: var(--vellum); font-size: var(--fs-sm); }
+.pg-near.is-on { border-color: var(--gold-ink); box-shadow: 0 0 0 2px var(--gold-bright); }
+.pg-near select { min-height: 44px; border: 0; background: none; font: inherit; color: var(--ink); }
+.pg-off { margin: 0 4px 8px 62px; font-size: var(--fs-xs); color: var(--accent); }
+/* the When button and the × of a line (decision 11): a bar on the line's top edge, over the chip row and not over the
+   sentence, while the line has the pointer or the focus; in the flow and always there on a touch screen */
+.sline .acts { position: absolute; z-index: 1; right: 4px; top: -16px; height: 32px; display: flex; align-items: center; padding: 0 4px; border-radius: 16px;
+  background: var(--vellum); box-shadow: 0 1px 4px rgba(29, 25, 21, 0.22); opacity: 0; pointer-events: none; }
+.sline:hover .acts, .sline:focus-within .acts { opacity: 1; pointer-events: auto; }
+@media (hover: none) { .sline .acts { position: static; height: auto; margin-left: auto; background: none; box-shadow: none; opacity: 1; pointer-events: auto; } }
+#workshop.pg .sline .acts > * { margin: -6px 0; }
+#workshop.pg .pg-rm { width: 44px; height: 44px; justify-content: center; border-radius: 50%; font-size: 20px; color: var(--ink-soft); }
 
 /* the When chips: a plate for a state, a flag for an event (grammar.css G14) */
 .plate, .flag {
@@ -137,7 +179,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 @media (prefers-reduced-motion: reduce) { .kdm-ripple { animation: kdm-fade var(--dur-1) linear both; } }
 
 /* ---- the right column: the brushes as the key, the live key row (:228-247) ---- */
-.pg-right { min-width: 0; display: flex; flex-direction: column; }
+.pg-right { grid-area: 1 / 3; min-width: 0; display: flex; flex-direction: column; }
 .pg-brushes { flex: none; display: flex; justify-content: center; gap: 12px; padding-top: 16px; }
 #workshop.pg .brush { width: 80px; display: grid; justify-items: center; gap: 4px; transition: transform var(--dur-2) var(--ease-out); }
 .brush .tile { position: relative; display: grid; place-items: center; border-radius: 10px; }
@@ -153,7 +195,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .tool .tb { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 8px; background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-500); box-shadow: 0 2px 0 var(--stone-500); }
 .tool[aria-pressed='true'] .tb { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 4px var(--ink); }
 .tool small { font-size: var(--fs-xs); color: var(--ink-soft); white-space: nowrap; }
-#workshop.pg .pg-done { margin-top: 2px; min-height: 48px; padding: 8px 18px; font-weight: 700; color: var(--vellum); border: 1px solid var(--accent-deep); border-radius: var(--radius);
+#workshop.pg :is(.pg-done, .pg-stamp) { margin-top: 2px; min-height: 48px; padding: 8px 18px; font-weight: 700; color: var(--vellum); border: 1px solid var(--accent-deep); border-radius: var(--radius);
   background: linear-gradient(var(--accent-bright), var(--accent)); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35); }
 .pg-hint { flex: none; margin: 0; padding-top: 10px; text-align: center; font: italic var(--fs-md)/1.3 var(--font-body); color: var(--ink-soft); }
 .pg-hint:empty { display: none; }
@@ -161,6 +203,38 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .pg-keyrow:empty { display: none; }
 .pg-keyrow .k { display: grid; grid-template-rows: 38px auto; align-items: center; justify-items: center; gap: 2px; min-width: 44px; font-size: var(--fs-xs); color: var(--ink-soft); }
 .pg-keyrow svg { display: block; }
+
+/* ---- the Rules shelf over the right column, 336 × 672 (:314-336); on the phone, a bottom sheet (:501-511) ---- */
+.pg-shelf { grid-area: 1 / 3; z-index: 20; min-height: 0; display: flex; flex-direction: column; padding: 10px 14px 14px; border-radius: var(--radius); background: var(--vellum); box-shadow: var(--shadow-float); }
+.pg-shelf header { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#workshop.pg .pg-shelf h3 { margin: 0; font: 600 18px/1 var(--font-display); letter-spacing: 0.08em; font-variant: small-caps; }
+#workshop.pg .pg-shelf .pg-x { width: 44px; height: 44px; justify-content: center; border-radius: 50%; font-size: 20px; color: var(--ink-soft); }
+.groups { flex: 1 1 auto; min-height: 0; overflow: auto; margin-top: 4px; display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px 8px; align-content: start; }
+.grp.wide { grid-column: 1 / -1; }
+#workshop.pg .grp h4 { margin: 0 0 4px; font: 600 12px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
+.grp .seals { display: flex; gap: 4px; }
+#workshop.pg .sbtn { position: relative; width: 72px; padding: 4px 2px 6px; display: grid; justify-items: center; gap: 4px; border-radius: 8px; font-size: 12.5px; line-height: 1.1; text-align: center; }
+@media (hover: hover) { #workshop.pg .sbtn:hover { background: rgba(233, 192, 113, 0.18); } }
+#workshop.pg .sbtn[aria-pressed='true'] { background: rgba(233, 192, 113, 0.32); box-shadow: inset 0 0 0 1.5px var(--gold-ink); }
+.sbtn .kd-seal { width: 48px; height: 48px; }
+.sbtn.dim .kd-seal, .sbtn.dim span { opacity: 0.45; }
+.sbtn.has::after { content: '✓'; position: absolute; right: 8px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--gold-ink); color: var(--vellum);
+  font: 700 11px/18px var(--font-body); text-align: center; box-shadow: 0 0 0 1.5px var(--vellum); }
+.pg-shint { grid-column: 1 / -1; margin: 4px 0 0; font: italic var(--fs-sm)/1.3 var(--font-body); color: var(--ink-soft); }
+.sentence { flex: none; margin-top: 8px; padding: 12px; display: grid; grid-template-columns: 44px 1fr; gap: 8px 12px; align-items: center; border-radius: var(--radius); background: var(--parchment); }
+.sentence .say { margin: 0; font-size: var(--fs-md); line-height: 1.35; }
+.sentence .l1 { display: flex; margin: 0 0 4px; }
+.sentence :is(.needs, .pg-ex, .pg-act) { grid-column: 1 / -1; }
+.sentence .needs { margin: 0; font-size: var(--fs-sm); color: var(--accent); }
+.pg-ex { margin: 0; font: italic var(--fs-sm)/1.3 var(--font-body); color: var(--ink-soft); }
+.pg-act { display: flex; justify-content: flex-end; gap: 8px; }
+/* the phone's card of one rule (:2099-2104): the seal and its name, the line with no seal, the example, When and Remove */
+.pg-card { gap: 6px; }
+.pg-card header { justify-content: flex-start; }
+#workshop.pg .pg-card h3 { font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; font-variant: normal; }
+.pg-card > .sline { padding-left: 0; border-radius: 8px; background: linear-gradient(90deg, rgba(233, 192, 113, 0.34), rgba(233, 192, 113, 0)); }
+.pg-card .choices { padding-left: 0; }
+.pg-card .pg-off { margin-left: 0; }
 
 /* ---- the ledge: the tab, then the figures on one stone lip (:374-404) ---- */
 .pg-ledge { position: relative; z-index: 1; flex: none; height: 156px; background: linear-gradient(180deg, #e2d1ad, var(--parchment-deep) 30%, #e2d2b0);
@@ -227,7 +301,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-figure { flex: none; order: -1; width: 56px; height: 56px; min-height: 0; margin: 0; border-radius: 10px; overflow: hidden; align-items: start;
     background: radial-gradient(circle at 50% 30%, #fffaf0, var(--parchment-deep)); box-shadow: inset 0 0 0 1px var(--stone-300); }
   .pg-figure img { height: 96px; max-height: none; max-width: none; margin-top: 2px; }
-  .pg-figure .halo, .pg-stone, .pg-lines, .pg-name::after { display: none; }
+  .pg-figure .halo, .pg-stone, .pg-name::after { display: none; }
   .pg-name { flex: 1 1 auto; min-width: 0; min-height: 0; margin: 0; padding: 0; }
   #workshop.pg .pg-name h3 { font-size: 20px; }
   #workshop.pg .pg-name h3.long { font-size: 16px; }
@@ -235,7 +309,17 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .pg-name .tag-yours { display: none; }
   .pg-name.is-copy .from::before { content: 'Yours \00b7  '; font-weight: 700; color: var(--ink); }
   .pg-pseals { flex: none; display: flex; gap: 2px; }
-  .pg-pseals .kd-seal { width: 42px; height: 42px; margin: 1px; }
+  #workshop.pg .pg-pseals button { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; }
+  #workshop.pg .pg-pseals button[aria-expanded='true'] { box-shadow: 0 0 0 2px var(--gold-bright), 0 0 10px rgba(233, 192, 113, 0.8); }
+  .pg-pseals .kd-seal { width: 42px; height: 42px; }
+  #workshop.pg .pg-pseals .padd { width: 40px; height: 40px; margin: 2px; min-width: 44px; min-height: 44px; border: 1.5px dashed var(--stone-500); color: var(--accent); font: 400 22px/1 var(--font-body); }
+  /* the shelf and the rule card: a bottom sheet over the brushes and the ledge */
+  .pg-shelf { position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; max-height: 358px; border-radius: 16px 16px 0 0; box-shadow: 0 -8px 40px rgba(20, 14, 8, 0.35); }
+  .pg-card { height: 358px; padding-top: 18px; overflow-y: auto; }
+  .pg-card::before { content: ''; position: absolute; left: 50%; top: 6px; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--stone-300); }
+  .groups { gap: 6px 10px; }
+  #workshop.pg .sbtn { width: 64px; font-size: 11.5px; }
+  .sbtn .kd-seal { width: 40px; height: 40px; }
   /* the board: no rim; the coordinates sit inside the edge squares */
   .pg-boardcol { margin-top: 8px; }
   .pg-rim { width: 100%; max-width: 560px; margin: 0 auto; background: none; box-shadow: none; }
