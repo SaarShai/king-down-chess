@@ -1,6 +1,6 @@
 # 01 · Parallel check runs
 
-Status: in-review
+Status: done (PR #34 merged 2026-10-10)
 Blocked by: —
 
 ## Scope

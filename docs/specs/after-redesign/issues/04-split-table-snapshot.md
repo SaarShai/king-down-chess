@@ -1,6 +1,6 @@
 # 04 · The split, step 3: the table snapshot
 
-Status: in-review
+Status: done (PR #36 merged 2026-10-10)
 Blocked by: 03
 
 ## Scope

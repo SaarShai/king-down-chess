@@ -143,7 +143,7 @@ describe('releaseAll()', () => {
     unlinkSync(join(common, 'check-slot-1.lock'));
     (await exclusive)(); // the waiting taker goes on and frees what it took after the releaseAll
     releaseRun();
-    expect(SLOTS).toBe(2);
+    expect(SLOTS).toBe(3);
   });
 });
 
@@ -181,6 +181,42 @@ describe('takeSlot(dir, n) and takeAllSlots(dir, n)', () => {
     releaseC();
     expect(existsSync(join(common, 'check-slot-0.lock'))).toBe(false);
     expect(existsSync(join(common, 'check-slot-1.lock'))).toBe(false);
+  });
+
+  it('with SLOTS, three takers hold the three slots; a fourth waits with one line that names them and goes on when one frees', async () => {
+    const { main, second, common } = twoWorktrees();
+    const releaseA = await takeSlot(main, SLOTS, quiet);
+    const releaseB = await takeSlot(second, SLOTS, quiet);
+    const releaseC = await takeSlot(main, SLOTS, quiet);
+    for (let i = 0; i < SLOTS; i++) expect(holder(join(common, `check-slot-${i}.lock`)).pid).toBe(process.pid);
+    const lines: string[] = [];
+    let taken = false;
+    const fourth = takeSlot(second, SLOTS, { onWait: line => lines.push(line), pollMs: 10 }).then(release => { taken = true; return release; });
+    await tick(100);
+    expect(taken).toBe(false);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain(`all ${SLOTS} slots are taken`);
+    expect(lines[0].split('pid ').length - 1).toBe(SLOTS);
+    releaseC(); // slot 2 frees: the fourth takes it
+    const releaseD = await fourth;
+    expect(holder(join(common, `check-slot-${SLOTS - 1}.lock`)).pid).toBe(process.pid);
+    releaseA(); releaseB(); releaseD();
+    for (let i = 0; i < SLOTS; i++) expect(existsSync(join(common, `check-slot-${i}.lock`))).toBe(false);
+  });
+
+  it('with SLOTS, an exclusive taker waits for the last slot too, and then holds the exclusive lock and all three', async () => {
+    const { main, second, common } = twoWorktrees();
+    const releaseC = await takeSlot(main, SLOTS, quiet); // slot 0
+    let exclusiveTaken = false;
+    const exclusive = takeAllSlots(second, SLOTS, quiet).then(release => { exclusiveTaken = true; return release; });
+    await tick(100);
+    expect(exclusiveTaken).toBe(false); // pending: slots 1 and 2 are taken, slot 0 waits for C
+    expect(holder(join(common, 'check-browser.lock')).pid).toBe(process.pid);
+    releaseC();
+    const release = await exclusive;
+    for (const name of ['check-browser.lock', ...Array.from({ length: SLOTS }, (_, i) => `check-slot-${i}.lock`)]) expect(holder(join(common, name)).pid).toBe(process.pid);
+    release();
+    for (const name of ['check-browser.lock', ...Array.from({ length: SLOTS }, (_, i) => `check-slot-${i}.lock`)]) expect(existsSync(join(common, name))).toBe(false);
   });
 
   it('an exclusive taker takes the exclusive lock and every slot, and frees them all', async () => {

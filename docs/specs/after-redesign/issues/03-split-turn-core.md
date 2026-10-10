@@ -1,6 +1,6 @@
 # 03 · The split, step 2: the turn core
 
-Status: in-review
+Status: done (PR #35 merged 2026-10-10)
 Blocked by: 02
 
 ## Scope

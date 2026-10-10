@@ -2,7 +2,7 @@
 // Every lock is one file, made with exclusive create (`wx`), that holds { pid, cwd, since, token }.
 //   SLOTS                     The machine slots: how many checks (or builds) run at once on this machine, in every
 //                             run. One shared constant, so that an exclusive check takes the same slots that the
-//                             normal checks take. It changes by a commit after the measurement in the spec, §3.4.
+//                             normal checks take. It went from 2 to 3 after the measurement of spec §3.4 (ticket 05).
 //   runLockPath(dir)          <git directory of the worktree>/check-run.lock: one run at a time in a worktree,
 //                             because its dist/ is shared. The main checkout's git directory is the common
 //                             directory, so this name differs from the exclusive lock below.
@@ -30,7 +30,7 @@ import { randomBytes } from 'node:crypto';
 import { linkSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-export const SLOTS = 2;
+export const SLOTS = 3;
 
 function gitDir(dir, flag) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
