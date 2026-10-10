@@ -9,7 +9,7 @@ import { moveNumber, type Position } from '../rules/engine';
 import { positionKey, resetSearchState, search } from '../ai/search';
 import type { MatchSave, MatchSetup, MatchSnapshot, MoveCommand } from './index';
 
-declare const __KINGDOWN_COMPILED__: boolean;
+declare const __KINGDOWN_ENGINE__: string;
 // Conservative development compatibility: every engine/search source change invalidates replay.
 const hash = createHash('sha256');
 function hashTree(url: URL): void {
@@ -19,14 +19,13 @@ function hashTree(url: URL): void {
     else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) { hash.update(fileURLToPath(child).split('/src/')[1]); hash.update(readFileSync(child)); }
   }
 }
-if (typeof __KINGDOWN_COMPILED__ !== 'undefined' && __KINGDOWN_COMPILED__) {
-  hash.update(readFileSync(new URL('./worker.mjs', import.meta.url)));
-} else {
+// The build stamps the hash of this bundle instead (tools/plugin-runtime-build.mjs, G2).
+if (typeof __KINGDOWN_ENGINE__ === 'undefined') {
   hash.update(readFileSync(new URL('../game.ts', import.meta.url)));
   hash.update(readFileSync(new URL('./worker.ts', import.meta.url)));
   hashTree(new URL('../rules/', import.meta.url)); hashTree(new URL('../ai/', import.meta.url));
 }
-const engine = `sha256:${hash.digest('hex')}`;
+const engine = typeof __KINGDOWN_ENGINE__ !== 'undefined' ? __KINGDOWN_ENGINE__ : `sha256:${hash.digest('hex')}`;
 // Bounds keep every accepted match export within the JSON load limit.
 const MAX_COMMANDS = 1000, MAX_SAVE_LENGTH = 8_000_000;
 let game: Game | undefined, saved: MatchSave;

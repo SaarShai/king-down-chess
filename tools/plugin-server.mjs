@@ -37,13 +37,22 @@ export async function configurePlugin(env = process.env, { localDev = false } = 
     const metadata = await response.json();
     if (metadata.issuer !== auth.issuer || !Array.isArray(metadata.scopes_supported) || !metadata.scopes_supported.includes('openid')) throw new Error('Supabase OAuth discovery has an incompatible issuer or scopes');
   }
-  if (config) consent = { html: renderConsent(await readFile(new URL('./consent.html', import.meta.url), 'utf8'), config), script: await readFile(new URL('./consent.mjs', import.meta.url), 'utf8'), supabaseOrigin: config.supabaseUrl };
+  // A local run serves the consent page too when it has the public Supabase settings.
+  const page = config ?? (localDev && env.SUPABASE_URL ? consentConfig(env) : undefined);
+  if (page) consent = { html: renderConsent(await readFile(new URL('./consent.html', import.meta.url), 'utf8'), page), script: await readFile(new URL('./consent.mjs', import.meta.url), 'utf8'), supabaseOrigin: page.supabaseUrl };
   const resourceHtml = await readFile(new URL('./board.html', import.meta.url), 'utf8');
   const pool = new Pool({ ...pluginDatabaseConfig(db, { localDev }), max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 });
   pool.on('error', error => { console.error('King Down database connection failed', diagnostic(error)); });
   try { await checkPluginDatabase(pool, config, auth?.resource); }
   catch (error) { await pool.end(); throw error; }
-  const handler = createPluginHandler({ consent, service: new MatchService(new PostgresMatchStore(pool)), publicOrigin, resourceHtml, auth, localDev });
+  const mcp = createPluginHandler({ consent, service: new MatchService(new PostgresMatchStore(pool)), publicOrigin, resourceHtml, auth, localDev });
+  // One function serves every server path of kingdown.dev. Tickets 08 (the website API, /api/*) and
+  // 06 (the jobs, /internal/*) add their handlers here; until then both answer 404.
+  const handler = async (req, res) => {
+    const path = req.url?.startsWith('/') && URL.canParse(req.url, publicOrigin) ? new URL(req.url, publicOrigin).pathname : '';
+    if (/^\/(api|internal)(\/|$)/.test(path)) { res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ error: 'Not found' })); return; }
+    await mcp(req, res);
+  };
   return { handler, pool, publicOrigin };
 }
 let configured;

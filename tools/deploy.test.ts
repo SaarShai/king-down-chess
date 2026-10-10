@@ -59,16 +59,19 @@ function setup() {
   stub(join(bin, 'npm'), [...behave,
     'if [ "$1 $2" = "run check:browser" ] && [ -n "$STUB_DIST" ]; then cp -R "$STUB_DIST" dist; fi',
     'if [ "$1 $2" = "run plugin:build:vercel" ]; then mkdir -p plugin-deploy/.vercel/output/functions/mcp.func; printf "consent-v1" > plugin-deploy/.vercel/output/functions/mcp.func/consent.mjs; fi',
+    // STUB_NEW_ENGINE: the build archives an engine that origin/main does not hold.
+    'if [ "$1 $2" = "run plugin:build:vercel" ] && [ -n "$STUB_NEW_ENGINE" ]; then mkdir -p engines; printf "bundle" > engines/new.mjs; fi',
   ]);
   stub(join(bin, 'node'), [
     `case "$1" in */deploy-plugin-live-check.mjs) ${record}; exec "${process.execPath}" "$1" "$2" "$STUB_PLUGIN_ORIGIN" ;; esac`,
+    `case "$1" in tools/engines-check.mjs) ${behave.join('; ')}; exit 0 ;; esac`,
     `exec "${process.execPath}" "$@"`,
   ]);
   stub(join(bin, 'npx'), [...behave,
     'case " $* " in *" link --project kingdown-plugin "*) mkdir -p .vercel; printf "%s\\n" "$STUB_PROJECT" > .vercel/project.json ;; esac',
     'case " $* " in *" env add "*) cat > "$STUB_ENV_DIR/$5" ;; esac',
   ]);
-  const env = { PATH: `${bin}:${repo.env.PATH}`, STUB_FAIL: '', STUB_HANG: '', STUB_DIST: '', STUB_PROJECT: JSON.stringify(pluginProject), PLUGIN_TEST_DATABASE_URL: '', DEPLOY_LIVE_URL: 'http://127.0.0.1:9', DEPLOY_LIVE_TIMEOUT_MS: '1500' };
+  const env = { PATH: `${bin}:${repo.env.PATH}`, STUB_FAIL: '', STUB_HANG: '', STUB_DIST: '', STUB_PROJECT: JSON.stringify(pluginProject), STUB_NEW_ENGINE: '', PLUGIN_TEST_DATABASE_URL: '', KINGDOWN_ENGINES_DATABASE_URL: '', DEPLOY_LIVE_URL: 'http://127.0.0.1:9', DEPLOY_LIVE_TIMEOUT_MS: '1500' };
   const deploy = (args: string[] = [], extra: Record<string, string> = {}) => repo.run(script, args, { env: { ...env, ...extra } });
   const deployAsync = (args: string[] = [], extra: Record<string, string> = {}) => runAsync(script, args, { cwd: repo.dir, env: { ...repo.env, ...env, ...extra } });
   const calls = () => (existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n') : []);
@@ -172,7 +175,34 @@ describe('deploy.sh', () => {
       'npm run check:browser plugin-oauth plugin-ui plugin-ui-http',
     ]);
     expect(result.stdout).toContain('published nothing');
+    expect(result.stdout).toContain('KINGDOWN_ENGINES_DATABASE_URL is not set; skipped the check of engines in use');
     expectGone(repo, path);
+  });
+
+  it('checks the engines of unfinished games when a database URL is set, and prints no part of it', () => {
+    const { deploy, calls } = setup();
+    const database = { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', KINGDOWN_ENGINES_DATABASE_URL: 'postgresql://reader:fake-engines-password@db.example/postgres?sslmode=require' };
+    const result = deploy(['--target', 'plugin'], database);
+    expect(result.status, result.stderr).toBe(0);
+    const lines = calls().map(line => line.replace(/ @ .*/, ''));
+    expect(lines.slice(lines.indexOf('npm run plugin:build:vercel'), lines.indexOf('npm run plugin:build:vercel') + 2)).toEqual([
+      'npm run plugin:build:vercel', 'node tools/engines-check.mjs plugin-deploy/.vercel/output/functions/mcp.func/runtime/engines',
+    ]);
+    expect(result.stdout + result.stderr + calls().join('\n')).not.toContain('fake-engines-password');
+    const failed = deploy(['--target', 'plugin', '--publish'], { ...database, STUB_FAIL: 'tools/engines-check.mjs' });
+    expect(failed.status).not.toBe(0);
+    expect(failed.stderr).toContain('FAIL at engines in use');
+    expect(calls().some(line => line.startsWith('npx '))).toBe(false);
+  });
+
+  it('refuses a release whose new engine bundle is not on origin/main', () => {
+    const { repo, deploy, calls } = setup();
+    const result = deploy(['--target', 'plugin', '--publish'], { PLUGIN_TEST_DATABASE_URL: 'postgresql://localhost/plugin_test', STUB_NEW_ENGINE: '1' });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('FAIL at engine archive');
+    expect(result.stderr).toContain('engines/');
+    expect(calls().some(line => line.startsWith('npx ') || line.includes('plugin:server:check'))).toBe(false);
+    expectGone(repo, worktreeOf(result.stdout));
   });
 
   it.each(['plugin:db:init-test', 'test', 'plugin:build:vercel', 'plugin:server:check', 'plugin:smoke', 'plugin:check:protocol', 'plugin-ui'])('stops the failed plugin gate %s before publication', fail => {
