@@ -1,10 +1,10 @@
 // Lock unit test for the browser-check runner (checks-and-hooks/06, story 12; after-redesign/01).
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { exclusivePath, runLockPath, slotPaths, takeAllSlots, takeLock, takeSlot } from './lock.mjs';
+import { SLOTS, exclusivePath, releaseAll, runLockPath, slotPaths, takeAllSlots, takeLock, takeOver, takeSlot } from './lock.mjs';
 import { tempRepo } from './temp-repo.mjs';
 
 const cleanups: (() => void)[] = [];
@@ -102,6 +102,48 @@ describe('takeLock(path)', () => {
     expect(holder(path).pid).toBe(process.pid);
     expect(lines).toHaveLength(1);
     release();
+  });
+});
+
+describe('takeOver(path, seen)', () => {
+  it('removes the stale file whose text it inspected', () => {
+    const path = scratch();
+    const dead = JSON.stringify({ pid: deadPid(), cwd: '/gone' });
+    writeFileSync(path, dead);
+    takeOver(path, dead);
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it('puts a live lease back when another taker replaced the stale file first', () => {
+    const path = scratch();
+    const dead = JSON.stringify({ pid: deadPid(), cwd: '/gone' });
+    const live = JSON.stringify({ pid: process.pid, cwd: '/live', token: 'abc' });
+    writeFileSync(path, live); // the other taker removed the dead lease and made this one
+    takeOver(path, dead);
+    expect(readFileSync(path, 'utf8')).toBe(live);
+    expect(readdirSync(dirname(path))).toEqual(['check-browser.lock']); // no .stale file stays
+  });
+});
+
+describe('releaseAll()', () => {
+  it('frees every lease this process holds, the partial set of an exclusive taker included', async () => {
+    const { main, common } = twoWorktrees();
+    const other = JSON.stringify({ pid: process.ppid, cwd: '/other' });
+    writeFileSync(join(common, 'check-slot-1.lock'), other); // slot 1 is taken, so the exclusive taker holds the lock and slot 0 and waits
+    const releaseRun = await takeLock(runLockPath(main), quiet);
+    const exclusive = takeAllSlots(main, 2, quiet);
+    await tick(50);
+    expect(existsSync(join(common, 'check-browser.lock'))).toBe(true);
+    expect(existsSync(join(common, 'check-slot-0.lock'))).toBe(true);
+    releaseAll();
+    expect(existsSync(join(common, 'check-browser.lock'))).toBe(false);
+    expect(existsSync(join(common, 'check-slot-0.lock'))).toBe(false);
+    expect(existsSync(runLockPath(main))).toBe(false);
+    expect(holder(join(common, 'check-slot-1.lock')).pid).toBe(process.ppid);
+    unlinkSync(join(common, 'check-slot-1.lock'));
+    (await exclusive)(); // the waiting taker goes on and frees what it took after the releaseAll
+    releaseRun();
+    expect(SLOTS).toBe(2);
   });
 });
 
