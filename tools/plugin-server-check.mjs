@@ -44,7 +44,7 @@ try {
   const ai = await tool(actors[0], 'kingdown_computer', computer); assert(!ai.isError); assert.equal(ai.structuredContent.snapshot.revision, 2);
   assert.deepEqual((await tool(actors[0], 'kingdown_computer', computer)).structuredContent, ai.structuredContent);
   assert((await tool(actors[1], 'kingdown_get', { matchId: initial.matchId })).isError);
-  const persisted = await pool.query('select save,revision,(select count(*)::int from public.plugin_match_commands where match_id=$1) as commands from public.plugin_matches where id=$1', [initial.matchId]);
+  const persisted = await pool.query('select state as save,revision,(select count(*)::int from public.game_commands where game_id=$1) as commands from public.games where id=$1', [initial.matchId]);
   assert.equal(persisted.rows[0].commands, 2); assert.equal(persisted.rows[0].revision, 2); assert.match(JSON.parse(persisted.rows[0].save).engine, /^sha256:/);
   // New pool/service/handler instances demonstrate reconnect without any in-memory authority.
   const restarted = await configurePlugin({ KINGDOWN_PLUGIN_ORIGIN: origin, KINGDOWN_PLUGIN_DATABASE_URL: connectionString }, { localDev: true });
@@ -55,7 +55,7 @@ try {
   const joined = (await tool(actors[1], 'kingdown_join', { token: invite.token })).structuredContent;
   assert.equal(joined.playerColor, 1); assert.equal(joined.waiting, false);
   const recoveryBoard = (await tool(actors[1], 'kingdown_open', {matchId:waiting.matchId})).structuredContent;
-  await pool.query('delete from public.plugin_matches where id=$1',[waiting.matchId]);
+  await pool.query('delete from public.games where id=$1',[waiting.matchId]);
   assert.equal((await tool(actors[1], 'kingdown_get', {matchId:waiting.matchId,boardId:recoveryBoard.boardId}))._meta.code, 'MATCH_REMOVED');
   const recovered = await tool(actors[1], 'kingdown_create', {mode:'solo',boardId:recoveryBoard.boardId});
   assert(!recovered.isError); assert.equal(recovered.structuredContent.boardId,recoveryBoard.boardId);
@@ -72,6 +72,7 @@ try {
 } finally {
   server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
   await app?.pool.end();
+  await pool.query('delete from public.games g where exists(select from public.game_players p where p.game_id=g.id and p.user_id=any($1::uuid[]))', [actors]);
   for (const actor of actors) await pool.query('delete from auth.users where id=$1', [actor]);
   await pool.end();
   await rm(artifact, { recursive: true, force: true });

@@ -34,3 +34,32 @@ drop policy if exists kingdown_plugin_runtime on public.plugin_boards;
 create policy kingdown_plugin_runtime on public.plugin_boards
  for all to kingdown_plugin_runtime using (true) with check (true);
 commit;
+
+-- Apply after migrations 0005 and 0006 to the existing restricted runtime role: the game service
+-- (src/match/service.ts) reads and writes games, reads handles, blocks and challenge settings, and
+-- queues alerts. No delete on game rows: a deleted account leaves its games to the opponent.
+begin;
+grant select, insert on public.games, public.game_players, public.game_commands to kingdown_plugin_runtime;
+grant insert on public.notifications, public.outbox to kingdown_plugin_runtime;
+grant update (status, result, end_reason, turn, revision, draw_offer, state, snapshot, deadline_at, deadline_kind,
+  moves, started_at, finished_at, updated_at) on public.games to kingdown_plugin_runtime;
+grant update (user_id, handle_at_start, action, turns_played, draw_offers, said, last_seen_at, last_surface,
+  active, ended_at) on public.game_players to kingdown_plugin_runtime;
+grant select, insert, delete on public.game_invites to kingdown_plugin_runtime;
+grant update (used_by, used_at) on public.game_invites to kingdown_plugin_runtime;
+grant select on public.relations to kingdown_plugin_runtime;
+grant select (id, handle, challenge_from) on public.profiles to kingdown_plugin_runtime;
+grant usage on sequence public.notifications_id_seq, public.outbox_id_seq to kingdown_plugin_runtime;
+do $$
+declare t text;
+begin
+  foreach t in array array['games', 'game_players', 'game_commands', 'game_invites', 'notifications', 'outbox'] loop
+    execute format('drop policy if exists kingdown_plugin_runtime on public.%I', t);
+    execute format('create policy kingdown_plugin_runtime on public.%I for all to kingdown_plugin_runtime using (true) with check (true)', t);
+  end loop;
+end $$;
+drop policy if exists kingdown_plugin_runtime on public.relations;
+create policy kingdown_plugin_runtime on public.relations for select to kingdown_plugin_runtime using (true);
+drop policy if exists kingdown_plugin_runtime on public.profiles;
+create policy kingdown_plugin_runtime on public.profiles for select to kingdown_plugin_runtime using (true);
+commit;

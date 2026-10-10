@@ -1,7 +1,7 @@
 # 02 — Games core: schema, store, service, protocol
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Wave: 1 · Model: Opus · Branch: `claude/mp-02`
 
 ## What to build
@@ -31,3 +31,57 @@ The shared game tables and the one write path that both surfaces use. Read part 
 - `npm test` and the three plugin browser checks pass.
 
 ## Comments
+
+### 2026-10-10 — built on `claude/mp-02`
+
+Progress:
+
+- [x] 1. `0005_accounts_v2.sql`: the profile columns, the public-column grant, the sign-up trigger with no real-name default, `reserved_handles`, `account_deletions`.
+- [x] 2. `0006_games.sql`: the eleven tables, RLS on, no browser grants. The clock columns and `tournament_id` stay reserved. `plugin_boards.match_id` points at `games`. Old plugin games are ended: their rows stay in `plugin_matches`, unused, and a board that showed one says "This game was deleted".
+- [x] 3. `tools/plugin-db/bootstrap-test.mjs`: auth stand-ins, then 0001–0006, each twice.
+- [x] 4. `src/match/protocol.ts`: the commands, the reply, the error codes, `View`, `InboxEntry`, `Invite`.
+- [x] 5. `src/match/store.ts` and `src/match/service.ts`: `GameService`.
+- [x] 6. The plugin works unchanged through a small adapter (`MatchService`, marked `ponytail:`; ticket 09 removes it).
+
+Evidence:
+
+- `npm test` on `kingdown_mp_02_test`: typecheck clean; 111 files, 1,842 passed, 8 skipped (the balance-drift tests); `node --test` 50 of 50. The new database file `src/match/service.db.test.ts` has 18 tests. They cover each check of this ticket: retry once and `COMMAND_CONFLICT`; a two-action Haste turn, all or nothing; the seat action states after each command, Haste included; self-play (service and `unique (game_id, user_id)`); two joiners for one seat; the sweep, a late command and a claim on a missed deadline; deletion keeps the opponent's game. They also cover: resign, abort, draw, say; one writer across connections and across processes; rollback of the command, the state and the alerts; the runtime role (and what it may not do); no browser grants; the handle check.
+- `npm run check:browser plugin-ui plugin-ui-http plugin-oauth`: all 3 passed (plugin-ui-http ran against real HTTP MCP and PostgreSQL).
+- Local reads on the loopback test database, 100 reads each after 6 turns: `view` with `since` 0.79 ms median, 1.23 ms p95, 727 bytes; a full `view` 0.40 ms median, 3,456 bytes (2.2 KB of it is `rules`); `inbox` 0.22 ms median.
+
+### Interfaces (for tickets 06 to 09)
+
+Import from `src/match/service.ts` (`GameService`, `MatchServiceError`) and `src/match/protocol.ts` (types and zod schemas). The caller gives a verified user ID; input is `unknown` and the service validates it. Errors are `MatchServiceError { code: ErrorCode, status, message }`.
+
+`new GameService(new PostgresMatchStore(pool))`:
+
+- `create(actor, { kind: 'solo'|'friend', speed?, days_per_move?: 1|3|7, colour?: 'white'|'black'|'random', setup? }) → View` with `rules`. A friend game is Daily with 3 days unless you say so; a solo game is live and cannot be Daily. The default colour is random.
+- `invite(actor, gameId) → { token, code, expires_at }`. Only the waiting creator of a friend game can invite. A new invite ends the old one. The token is 43 characters (base64url); the code is 6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789`. Both are stored as SHA-256 hashes. The invite lasts 24 h for live and 14 days for Daily.
+- `join(actor, tokenOrCode) → View` with `rules`. The code accepts lower case, spaces and dashes. A block either way, or the host's `challenge_from` (`nobody`, or `follows` without a follow), gives `FORBIDDEN`. A retry by the same player returns the game.
+- `command(actor, gameId, { command_id, expected_revision, action }, surface = 'web') → View`, with no `rules`. One transaction for each command. The actions are `turn {actions: lan[1..4]}`, `computer`, `resign`, `abort`, `draw {choice: offer|accept|decline}`, `claim {reason: 'timeout'}` and `say {preset}`. A retry with the same `command_id` and input returns the current view and writes nothing. If a Daily deadline has passed, any command other than a claim ends the game on time and gets `MATCH_TERMINAL`; a claim by the waiting side is the command that ends it.
+- `view(actor, gameId, since?) → View`. Read-only. With `since`, it gives the commands after that revision (at most 50) and no `rules`. Without `since`, it gives the last 10 commands and `rules`.
+- `inbox(actor) → InboxEntry[]`: the actor's active games (at most 100), your turn first, then the nearest deadline, then the newest.
+- `sweep(now = new Date()) → number`: ends the Daily games whose deadline has passed (100 for each call; call again while it returns 100). It is safe to run twice at once. Ticket 06's `sweepDeadlines` calls it.
+
+`View` (in `protocol.ts`): `game_id, revision, seat, kind, speed, days_per_move, status (waiting|playing|finished|aborted), turn, action (waiting|ready|done), fen, in_check, legal (your moves only, else []), last_commands [{seq, seat, action, at}], opponent {handle, computer, deleted, last_seen_ms} | null, draw_offer, result? {winner: 0|1|null, reason}, deadline_at, server_now, rules?`. The revision goes up by one for each change, joins and expired deadlines included. `last_seen_ms` comes only from the opponent's commands, and ticket 07 must apply `online_visible_to` before the website shows it.
+
+Database rows for each change: one `game_commands` row (`seq` = the new revision; a join or an expiry has no `command_id`). `game_players.action` and `active` follow the engine turn; an ended game sets `active = false` and `ended_at`.
+
+Alerts and outbox (all in the same transaction):
+
+- A Daily friend game that passes the turn to a person (also at the join) writes a `notifications` row `kind 'turn'`, `payload {game_id, revision, deadline_at}`, and an `outbox` row `kind 'turn'`, `payload {user_id, game_id, revision, deadline_at}`. The deadline is 3 days for each side's first turn (`deadline_kind 'first_turn'`; a miss cancels the game as `no_start`), then `days_per_move` (`'move'`; a miss loses on time).
+- Every end writes `outbox` `kind 'game_finished'`, `payload {game_id, result: 'white'|'black'|'draw'|null, reason}`. The reasons are the engine statuses, `resignation`, `agreement`, `timeout`, `abort` and `no_start`. Abort and no-start give `status 'aborted'` and a null result.
+- Ticket 06 adds `reminder` and drains the outbox; no other kind exists yet.
+
+Runtime role: the third block of `plugin-deploy/runtime-role.sql` gives the server role what the service needs and no more. The database tests check it.
+
+### Open issues
+
+- The 6-character code (about 887 million values) needs a rate limit on `join` (ticket 08).
+- `challenge_from = 'nobody'` refuses every join, also a friend who has the host's own link. Decide if a host's own invite skips this setting.
+- `delete_my_account()` (0001) still deletes at once; ticket 07 moves it to `account_deletions` with the 7-day grace.
+- Old profiles keep the provider's name and photo that 0001 copied. Clear them in a later migration if the owner wants.
+- The old tables `plugin_matches`, `plugin_match_commands` and `plugin_match_invites` stay, unused. A later migration drops them.
+- The finish uses the game row lock and a status check under it, not `update ... where status = 'playing' returning`. The effect is the same: a second finish sees the ended status and writes nothing.
+- The plugin's games through the adapter are live and untimed; ticket 09 gives the tools speed, days and colour.
+- The owner must apply 0005, 0006 and the third runtime-role block to production. This branch did not touch production.

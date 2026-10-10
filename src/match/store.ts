@@ -1,16 +1,25 @@
-/** Server-only PostgreSQL authority; never import into a browser bundle. */
+/** Server-only PostgreSQL I/O for online games; never import into a browser bundle. The service decides; this writes. */
 import type { Pool, PoolClient } from 'pg';
-import type { MatchSnapshot } from './index';
-export type MatchMode = 'solo' | 'friend';
-export interface StoredMatch { id: string; white_id: string; black_id: string | null; mode: MatchMode; revision: number; save: string; snapshot: MatchSnapshot }
+import type { MatchSetup, MatchSnapshot, PublicMatchRules } from './index';
+import type { EndReason, ErrorCode, GameStatus, InboxEntry, LoggedCommand, Preset, Seat, SeatAction, Surface } from './protocol';
 export class MatchServiceError extends Error {
- constructor(public code: string, public status: number, message: string) { super(message); this.name = 'MatchServiceError'; }
+ constructor(public code: ErrorCode, public status: number, message: string) { super(message); this.name = 'MatchServiceError'; }
 }
-export function seat(row: StoredMatch, actor: string): 0 | 1 {
- if (row.white_id === actor) return 0;
- if (row.black_id === actor) return 1;
- throw new MatchServiceError('FORBIDDEN', 403, 'You do not have a seat in this match');
+export interface Player { seat: Seat; user_id: string | null; computer: boolean; handle_at_start: string | null; /** current, from profiles */ handle: string | null; power: string; action: SeatAction; turns_played: number; draw_offers: number; said: Preset[]; last_seen_at: Date | null; last_surface: Surface | null; active: boolean; ended_at: Date | null }
+export interface Game {
+ id: string; kind: 'solo' | 'friend'; speed: 'daily' | 'live'; days_per_move: 1 | 3 | 7 | null; category: string; readings: string | null; colour_rule: 'white' | 'black' | 'random';
+ engine_fingerprint: string; setup: MatchSetup; rules: PublicMatchRules; status: GameStatus; result: 'white' | 'black' | 'draw' | null; end_reason: EndReason | null;
+ turn: Seat; revision: number; draw_offer: Seat | null; /** the engine save; loaded only for engine work */ state?: string; snapshot: MatchSnapshot;
+ deadline_at: Date | null; deadline_kind: 'first_turn' | 'move' | null; moves: string[] | null; created_by: string | null;
+ created_at: Date; started_at: Date | null; finished_at: Date | null; updated_at: Date; players: [Player, Player];
 }
+/** One game_commands row: a seat's command, or an event (no command_id). */
+export interface Log { seat: Seat | null; actor_id: string | null; command_id: string | null; kind: string; payload: object; actions: string[] | null; surface: Surface | null; received_at: Date }
+export interface Outgoing { notify: { user_id: string; kind: string; payload: object }[]; outbox: { kind: string; payload: object }[] }
+type Client = Pool | PoolClient;
+const GAME = 'id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,result,end_reason,turn,revision,draw_offer,snapshot,deadline_at,deadline_kind,moves,created_by,created_at,started_at,finished_at,updated_at';
+const PLAYER = 'p.seat,p.user_id,p.computer,p.handle_at_start,pr.handle,p.power,p.action,p.turns_played,p.draw_offers,p.said,p.last_seen_at,p.last_surface,p.active,p.ended_at';
+
 export class PostgresMatchStore {
  constructor(readonly pool: Pool) {}
  async transaction<T>(action: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -19,33 +28,80 @@ export class PostgresMatchStore {
   catch (error) { await client.query('rollback'); throw error; }
   finally { client.release(); }
  }
- async read(id: string, client: Pool | PoolClient = this.pool, lock = false): Promise<StoredMatch> {
-  const result = await client.query<StoredMatch>(`select * from public.plugin_matches where id=$1${lock ? ' for update' : ''}`, [id]);
-  if (!result.rows[0]) throw new MatchServiceError('NOT_FOUND', 404, 'Match not found');
-  return result.rows[0];
+ /** `lock` takes the game row for the rest of the transaction; every write takes it first. */
+ async load(id: string, { client = this.pool as Client, lock = false, state = false } = {}): Promise<Game> {
+  const game = await client.query(`select ${GAME}${state ? ',state' : ''} from public.games where id=$1${lock ? ' for update' : ''}`, [id]);
+  if (!game.rows[0]) throw new MatchServiceError('NOT_FOUND', 404, 'Game not found');
+  const players = await client.query(`select ${PLAYER} from public.game_players p left join public.profiles pr on pr.id=p.user_id where p.game_id=$1 order by p.seat`, [id]);
+  return { ...game.rows[0], players: players.rows as [Player, Player] };
  }
- async create(row: StoredMatch): Promise<void> {
-  await this.pool.query('insert into public.plugin_matches(id,white_id,black_id,mode,revision,save,snapshot) values($1,$2,$3,$4,$5,$6,$7)', [row.id,row.white_id,row.black_id,row.mode,row.revision,row.save,row.snapshot]);
- }
- async latest(actor: string): Promise<StoredMatch | null> {
-  const result = await this.pool.query<StoredMatch>('select * from public.plugin_matches where white_id=$1 or black_id=$1 order by updated_at desc,created_at desc,id desc limit 1',[actor]);
-  return result.rows[0] ?? null;
- }
- async dedupe(row: StoredMatch, actor: string, id: string, payload: object, client: Pool | PoolClient = this.pool): Promise<boolean> {
-  const result = await client.query('select payload=$4::jsonb as same from public.plugin_match_commands where match_id=$1 and actor_id=$2 and command_id=$3', [row.id,actor,id,JSON.stringify(payload)]);
-  if (!result.rows.length) return false;
-  if (!result.rows[0].same) throw new MatchServiceError('COMMAND_CONFLICT',409,'Command ID was used with different input');
-  return true;
- }
- async commit(actor: string, id: string, payload: { expectedRevision: number }, candidate: StoredMatch): Promise<StoredMatch> {
-  return this.transaction(async client => {
-   const current = await this.read(candidate.id,client,true); seat(current,actor);
-   if (await this.dedupe(current,actor,id,payload,client)) return current;
-   if (current.revision !== payload.expectedRevision) throw new MatchServiceError('STALE_REVISION',409,'Match changed; reload before choosing another move');
-   await client.query('insert into public.plugin_match_commands(match_id,actor_id,command_id,payload) values($1,$2,$3,$4)',[current.id,actor,id,payload]);
-   await client.query('update public.plugin_matches set revision=$2,save=$3,snapshot=$4,updated_at=now() where id=$1',[current.id,candidate.revision,candidate.save,candidate.snapshot]);
-   return { ...current, revision: candidate.revision, save: candidate.save, snapshot: candidate.snapshot };
+ async insert(game: Game): Promise<void> {
+  await this.transaction(async client => {
+   await client.query(`insert into public.games(id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,turn,revision,state,snapshot,created_by,created_at,started_at,updated_at)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$17)`,
+    [game.id, game.kind, game.speed, game.days_per_move, game.category, game.readings, game.colour_rule, game.engine_fingerprint, game.setup, game.rules, game.status, game.turn, game.revision, game.state, game.snapshot, game.created_by, game.created_at, game.started_at]);
+   for (const p of game.players) await client.query(`insert into public.game_players(game_id,seat,user_id,computer,handle_at_start,power,action,last_seen_at)
+    values($1,$2,$3,$4,(select handle from public.profiles where id=$3),$5,$6,$7)`, [game.id, p.seat, p.user_id, p.computer, p.power, p.action, p.last_seen_at]);
   });
  }
- async deleteForActor(actor: string): Promise<void> { await this.pool.query('delete from public.plugin_matches where white_id=$1 or black_id=$1',[actor]); }
+ /** Writes `next` (revision = before + 1), its log row and its alerts. State and snapshot are written only when they changed. */
+ async save(client: PoolClient, before: Game, next: Game, log: Log, out: Outgoing): Promise<void> {
+  await client.query(`update public.games set status=$2,result=$3,end_reason=$4,turn=$5,revision=$6,draw_offer=$7,state=coalesce($8,state),snapshot=coalesce($9,snapshot),
+   deadline_at=$10,deadline_kind=$11,moves=$12,started_at=$13,finished_at=$14,updated_at=now() where id=$1`,
+   [next.id, next.status, next.result, next.end_reason, next.turn, next.revision, next.draw_offer, next.state !== before.state ? next.state : null, next.snapshot !== before.snapshot ? next.snapshot : null,
+    next.deadline_at, next.deadline_kind, next.moves, next.started_at, next.finished_at]);
+  // A seat keeps the handle its opponent first saw; it is copied once, when the seat gets its player.
+  for (const p of next.players) await client.query(`update public.game_players set user_id=$3,handle_at_start=coalesce(handle_at_start,(select handle from public.profiles where id=$3)),action=$4,turns_played=$5,draw_offers=$6,said=$7,
+   last_seen_at=$8,last_surface=$9,active=$10,ended_at=$11 where game_id=$1 and seat=$2`,
+   [next.id, p.seat, p.user_id, p.action, p.turns_played, p.draw_offers, p.said, p.last_seen_at, p.last_surface, p.active, p.ended_at]);
+  await client.query(`insert into public.game_commands(game_id,seq,seat,actor_id,command_id,kind,payload,actions,turn_after,status_after,surface,received_at)
+   values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+   [next.id, next.revision, log.seat, log.actor_id, log.command_id, log.kind, log.payload, log.actions, next.turn, next.status, log.surface, log.received_at]);
+  for (const n of out.notify) await client.query('insert into public.notifications(user_id,kind,payload) values($1,$2,$3)', [n.user_id, n.kind, n.payload]);
+  for (const e of out.outbox) await client.query('insert into public.outbox(kind,payload) values($1,$2)', [e.kind, e.payload]);
+ }
+ /** True when this seat already sent this command with the same input; COMMAND_CONFLICT for other input. */
+ async receipt(client: Client, game: string, seat: Seat, commandId: string, payload: object): Promise<boolean> {
+  const result = await client.query('select payload=$4::jsonb as same from public.game_commands where game_id=$1 and seat=$2 and command_id=$3', [game, seat, commandId, JSON.stringify(payload)]);
+  if (!result.rows.length) return false;
+  if (!result.rows[0].same) throw new MatchServiceError('COMMAND_CONFLICT', 409, 'Command ID was used with different input');
+  return true;
+ }
+ /** The commands after `since` (at most 50, the newest), or the last 10. */
+ async commands(game: string, since?: number, client: Client = this.pool): Promise<LoggedCommand[]> {
+  const result = await client.query(`select seq,seat,kind,payload,actions,created_at from public.game_commands where game_id=$1 and seq>$2 order by seq desc limit $3`, [game, since ?? 0, since === undefined ? 10 : 50]);
+  return result.rows.reverse().map(r => ({ seq: r.seq, seat: r.seat, at: r.created_at.toISOString(),
+   action: r.kind === 'join' || r.kind === 'expire' ? { type: r.kind } : r.kind === 'computer' ? { type: 'computer', actions: r.actions } : r.payload.action }));
+ }
+ async addInvite(client: PoolClient, row: { token_hash: string; code_hash: string; game_id: string; seat: Seat; created_by: string; expires_at: Date }): Promise<boolean> {
+  const result = await client.query('insert into public.game_invites(token_hash,code_hash,game_id,seat,created_by,expires_at) values($1,$2,$3,$4,$5,$6) on conflict do nothing',
+   [row.token_hash, row.code_hash, row.game_id, row.seat, row.created_by, row.expires_at]);
+  return result.rowCount === 1;
+ }
+ /** A block either way refuses; so does the host's "who can challenge me" setting (nobody, or only people they follow). */
+ async mayJoin(client: Client, host: string, joiner: string): Promise<boolean> {
+  const result = await client.query(`select not exists(select from public.relations where kind='block' and ((user_id=$1 and other_id=$2) or (user_id=$2 and other_id=$1)))
+   and case (select challenge_from from public.profiles where id=$1) when 'nobody' then false
+    when 'follows' then exists(select from public.relations where user_id=$1 and other_id=$2 and kind='follow') else true end as allowed`, [host, joiner]);
+  return result.rows[0].allowed;
+ }
+ async inbox(actor: string): Promise<InboxEntry[]> {
+  const result = await this.pool.query(`select g.id as game_id,g.kind,g.speed,g.status,me.seat,me.action,g.turn,g.revision,g.deadline_at,g.updated_at,
+    op.user_id as op_user,op.computer as op_computer,op.last_seen_at as op_seen,pr.handle as op_handle
+   from public.game_players me join public.games g on g.id=me.game_id
+   join public.game_players op on op.game_id=me.game_id and op.seat<>me.seat left join public.profiles pr on pr.id=op.user_id
+   where me.user_id=$1 and me.active order by me.action='ready' desc,g.deadline_at asc nulls last,g.updated_at desc limit 100`, [actor]);
+  const now = Date.now();
+  return result.rows.map(({ op_user, op_computer, op_seen, op_handle, ...r }) => ({ ...r, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
+   opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen ? now - op_seen.getTime() : null } }));
+ }
+ /** Games past their Daily deadline, oldest first. */
+ async due(now: Date, limit = 100): Promise<string[]> {
+  return (await this.pool.query(`select id from public.games where status='playing' and deadline_at<=$1 order by deadline_at limit $2`, [now, limit])).rows.map(r => r.id);
+ }
+ /** The actor's most recently updated game of any status. */
+ async latest(actor: string): Promise<string | null> {
+  const result = await this.pool.query('select g.id from public.game_players p join public.games g on g.id=p.game_id where p.user_id=$1 order by g.updated_at desc,g.created_at desc,g.id desc limit 1', [actor]);
+  return result.rows[0]?.id ?? null;
+ }
 }

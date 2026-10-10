@@ -38,3 +38,21 @@ repository.
 `node supabase/check-migration.mjs` runs the migration twice in Postgres compiled to WASM, with a
 stand-in for Supabase's `auth` schema, and checks the trigger, the policies, the grants, the
 newer-copy rule and the deletion, with the attacks a signed-in player could try on another's data. It needs `npm install --no-save @electric-sql/pglite` first.
+
+## Online games: 0005 and 0006
+
+Not applied yet. Apply them in order, after 0001–0004, with a privileged connection
+(`npm run plugin:db:migrate` applies 0002–0006). Then apply the last block of
+`plugin-deploy/runtime-role.sql` to the existing runtime role. Both migrations are safe to run again.
+
+- `0005_accounts_v2.sql`: handles, a preset icon and the privacy settings on `profiles`
+  (signed-in players read only `id`, `display_name`, `avatar_url`, `rating`, `handle` and `icon`);
+  `reserved_handles`; `account_deletions`. A new account no longer copies the provider's name or photo.
+- `0006_games.sql`: the game tables of both surfaces (`games`, `game_players`, `game_commands`,
+  `game_invites`), `relations`, `reports`, `mod_actions`, `notifications`, `notification_prefs`,
+  `alert_state` and `outbox`. RLS is on and the browser roles get nothing. A deleted account leaves
+  its games to the opponent (`on delete set null`). Old plugin games stay in `plugin_matches`, unused;
+  a board that showed one says "This game was deleted".
+
+`npm run plugin:db:init-test` applies 0001–0006 twice to a disposable loopback database, and
+`src/match/service.db.test.ts` checks them.
