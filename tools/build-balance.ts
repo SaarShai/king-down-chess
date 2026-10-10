@@ -1,5 +1,5 @@
 import { mkdir, readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { buildDataset, writeDataset, type DatasetOptions, type SourceOverride } from '../src/balance/dataset';
 import { buildFramework } from '../src/balance/report';
 import { readWorkbook } from '../src/balance/workbook';
@@ -22,8 +22,8 @@ const dataset = await buildDataset(options);
 if (new Set(dataset.measurements.map(m => m.id)).size !== dataset.measurements.length) throw new Error('Duplicate measurement IDs. Do not write an ambiguous dataset.');
 const out = output || resolve(options.root, 'docs/balance');
 await mkdir(out, { recursive: true });
-const workbookSource = 'docs/status/king-down-status-2026-10-09.xlsx';
-const workbook = readWorkbook(workbookFile || resolve(options.root, workbookSource), workbookSource);
+const workbookPath = workbookFile || resolve(options.root, 'docs/status/king-down-status-2026-10-09.xlsx');
+const workbook = readWorkbook(workbookPath, relative(options.root, workbookPath));
 dataset.warnings.push('Remote-only M1 sources are not inventoried by this local command. The 2026-10-09 read-only access check cannot resolve its host name.');
 buildFramework(options.root, dataset, workbook, out);
 await writeDataset(dataset, out);

@@ -8,7 +8,7 @@ The declared target is far2, a Guard next to its king, the Paladin beside the Og
 
 Run `npm run balance:build`. The command reads local output, the available Drive backup, the workbook, the approved documents, and the cited reports. It writes this report, `measurements.json`, `coverage.md`, `workbook.json`, and `status.json`. Use repeated `--source <folder>` arguments to select a fixed source set. It performs analysis only. It starts no games and contacts no remote machine.
 
-Run `npm run balance:check` for a strict schema and document check. Known source gaps make it fail on this snapshot. `npm run balance:check -- --report` prints the audit without a failing exit status. A source change still requires review. `npm test` tests the parsers, context boundaries, criteria, workbook reader, and drift detection.
+Run `npm run balance:check` after an edit of `docs/MATRIX.md`, `docs/RULES.md` or `src/rules/rules.ts`. Exit 1 means a reviewed section, rule type, choice, default or official reading changed; the finding names the section and its new hash. Review the records, then change the pin in `src/balance/design.ts`. The recorded source gaps are warnings; `npm run balance:check -- --report` prints everything with exit 0. `npm test` tests the parsers, context boundaries, criteria and the workbook reader; `KINGDOWN_BALANCE_DRIFT=1 npm test` also runs the pinned-document cases.
 
 ## Typed design model
 

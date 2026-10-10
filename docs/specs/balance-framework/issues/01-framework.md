@@ -1,7 +1,7 @@
 # Build the balance and rules framework
 
 Type: task
-Status: claimed
+Status: done (PR #30 merged 2026-10-10)
 
 ## Acceptance checks
 
@@ -54,3 +54,18 @@ The framework uses the existing dependencies. It does not fit one regression acr
 
 The tracked-file check rejects tracker line citations. The generator now cites their reviewed
 headings. A regression assertion checks the generated queue source reference.
+
+## Merge review (2026-10-10)
+
+The owner: "examine those PRs and decide what to adopt and how to commit and/or merge." Decision: adopt the whole change (the typed model, the checks, the dataset with its size-allowlist entry, the documents), after a merge of main into the branch and the fixes below.
+
+Checks on the merged tree (main 96c24e8 + this branch): `npm test` 109 files, 1,825 cases, exit 0 (the pins still match: `docs/MATRIX.md`, `docs/RULES.md` and `src/rules/rules.ts` have no commit since 7035b5e); the gate's history mode finds no secret; `npm run balance:check -- --report` lists the 100 recorded gaps with exit 0.
+
+Independent review (a reader that did not write the diff; one lens on the schema and drift check finished, the dataset, math, documents and repository lenses were stopped at the owner's request). Five should-fix items, four fixed here:
+1. Strict `balance:check` exited 1 on every snapshot, because each finding was an error, so its exit code could not signal drift. Fixed: drift and misfit codes are errors, the recorded gaps are warnings (`DRIFT_CODE` in `design.ts`); strict exit 0 today, 100 warnings, and exit 1 means a source changed.
+2. Open: `auditDesign` does not read `KINGS`, `RULES_2017`, `RULES_2021`, `USES_RULE` or `setup.ts` `POOL`, so a change there passes the check. The acceptance line holds for the Rules interface, CHOICES, DEFAULT_RULES, POWERS_BALANCED and the C.1 and C.2 tables. Follow-up: pin those constants the way POWERS_BALANCED is pinned, one mutation test each.
+3. The vitest cases on the live documents would turn `npm test`, and so every push, red at the next edit of `docs/RULES.md` or `docs/MATRIX.md`, with no printed hash to re-pin from. Fixed: those cases run with `KINGDOWN_BALANCE_DRIFT=1`; the drift finding prints the new sha256 and names `design.ts`; the day-to-day guard is `npm run balance:check` (FRAMEWORK.md, "Rebuild and check"). Follow-up: narrow the pins to the schema-bearing sections, then wire the strict check into CI.
+4. `build-balance.ts` labelled any `--workbook` file as the 2026-10-09 workbook. Fixed: the label is the path that was read.
+5. `schema.test.ts` asserted a finding code that no code emits (`DECLARED_TARGET_NOT_SHIPPED`). Fixed: the assertion is gone; `DECLARED_TARGETS` stays as the record of the target and has no consumer yet.
+
+Notes for the next rebuild: the dataset comes from this Mac's `sim/out` and the Drive backup, so a rebuild on another machine gives another file; `status.json` is 1.9 MB against the gate's 2 MB limit, so a larger snapshot needs an allowlist entry.

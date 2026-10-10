@@ -1,6 +1,6 @@
 # Balance and rules framework
 
-Status: approved for build
+Status: done (PR #30 merged 2026-10-10 on the owner's ask to decide and merge)
 
 The owner supplies the full framework prompt and says, "execute this prompt" (2026-10-09).
 This approval covers the framework, its checks, and a pull request. It does not approve a game change or a run.
@@ -19,7 +19,7 @@ List proposed runs and open owner choices. Do not launch a run. Do not change sh
 3. Build and test the data reader. Check duplicate records, rule context, incomplete data, units, and pending values.
 4. Build criteria and effect checks. Each result must link to evidence. An unknown result must stay unknown.
 5. Rebuild the dataset and status with one command. Run `npm test`, document checks, and a second rebuild for stable output.
-6. Review the diff against main. Open a pull request. Do not merge it.
+6. Review the diff against main. Open a pull request. Do not merge it. (Superseded 2026-10-10: the owner asked for a decision and a merge; see the ticket.)
 
 ## Work
 

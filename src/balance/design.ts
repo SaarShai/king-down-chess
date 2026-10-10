@@ -282,7 +282,9 @@ export function documentSections(text: string): Map<string, string> {
 }
 function sha(text: string): string { return createHash('sha256').update(text).digest('hex'); }
 const equal = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
-function issue(code: string, source: string, message: string, approval: Approval = 'unresolved', severity: Finding['severity'] = 'error'): Finding {
+/** Drift and misfit codes are errors, so a strict check's exit 1 means a source changed; the recorded source gaps are warnings. */
+export const DRIFT_CODE = /DRIFT|SECTION_(ADDED|REMOVED)|RULE_NOT_IN_SCHEMA|RULE_CHOICE_ADDED|ELEMENT_DOES_NOT_FIT/;
+function issue(code: string, source: string, message: string, approval: Approval = 'unresolved', severity: Finding['severity'] = DRIFT_CODE.test(code) ? 'error' : 'warning'): Finding {
   return { code, source, message, approval, severity };
 }
 
@@ -476,7 +478,7 @@ export function auditDesign(input: AuditInput): Finding[] {
     const actual = documentSections(text), expected = DOCUMENT_PINS[path];
     for (const [heading, pin] of Object.entries(expected)) {
       if (!actual.has(heading)) findings.push(issue('DOCUMENT_SECTION_REMOVED', `${path}: ${heading}`, 'A reviewed section is absent. Review its schema and records.'));
-      else if (sha(actual.get(heading)!) !== pin) findings.push(issue('DOCUMENT_DRIFT', `${path}: ${heading}`, 'The recorded section changes. Review its dimensions, readings and approval before changing its pin.'));
+      else if (sha(actual.get(heading)!) !== pin) findings.push(issue('DOCUMENT_DRIFT', `${path}: ${heading}`, `The recorded section changed; its sha256 is now ${sha(actual.get(heading)!)}. Review its dimensions, readings and approval, then change its pin in src/balance/design.ts.`));
     }
     for (const heading of actual.keys()) if (!(heading in expected)) findings.push(issue('DOCUMENT_SECTION_ADDED', `${path}: ${heading}`, 'A new section has no reviewed schema record.'));
   }
