@@ -143,7 +143,8 @@ export function createInternalHandler({ games, publicOrigin, secret, sender }: I
    return { sent: await drainOutbox(games, send) };
   },
   '/internal/reminders': async () => ({ queued: await queueReminders(games) }),
-  '/internal/daily': async () => ({ deleted: await runDeletions(games), ...await cleanup(games) }),
+  // The cleanup first, so a deletion that fails does not stop it.
+  '/internal/daily': async () => { const cleaned = await cleanup(games); return { deleted: await runDeletions(games), ...cleaned }; },
  };
  return async (req, res) => {
   const path = guard(req, res, origin); if (path === undefined) return;

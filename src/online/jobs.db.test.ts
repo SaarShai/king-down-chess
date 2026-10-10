@@ -213,6 +213,26 @@ suite('online jobs (real PostgreSQL, fake clock)', () => {
   expect((await rows('select id from auth.users where id=any($1)', [[y, z]])).map(row => row.id)).toEqual([z]);
  }, 60_000);
 
+ it('runs the other deletions when one fails, and no command ID of the player blocks one', async () => {
+  const [p, q, r, opp] = [await user('pam'), await user('qin'), await user('rex'), await user('opa')];
+  // p sent the job's old fixed command ID first, in a solo game (no deadline ends it).
+  const solo = await games[0].create(p, { kind: 'solo', colour: 'white' });
+  await games[0].command(p, solo.game_id, { command_id: 'account-deletion', expected_revision: 0, action: { type: 'turn', actions: [solo.legal[0]] } });
+  // q's game cannot take another revision (the schema stops at 1000), so the job cannot end it.
+  const stuck = await friend(q, opp); await admin.query('update public.games set revision=1000 where id=$1', [stuck]);
+  await admin.query(`insert into public.account_deletions(user_id,run_after) values($1,now()-interval '3 minutes'),($2,now()-interval '2 minutes'),($3,now()-interval '1 minute')`, [p, q, r]);
+  const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+   expect(await runDeletions(games[0])).toBe(2);
+   expect(error.mock.calls).toEqual([['King Down deletion failed', { name: 'Error', code: '23514' }]]);
+   expect((await rows('select id from auth.users where id=any($1)', [[p, q, r]])).map(row => row.id)).toEqual([q]);
+  } finally {
+   error.mockRestore();
+   await admin.query('delete from public.games where id=$1', [stuck]);
+   await admin.query('update public.account_deletions set cancelled_at=now() where user_id=$1', [q]);
+  }
+ }, 60_000);
+
  it('runs every job with the reviewed runtime role, which cannot read or delete accounts itself', async () => {
   const role = `jobs_test_${randomUUID().replaceAll('-', '')}`, password = randomUUID();
   const runtimeUrl = new URL(own.href); runtimeUrl.username = role; runtimeUrl.password = password;

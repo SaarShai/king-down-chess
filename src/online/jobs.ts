@@ -4,8 +4,10 @@
  * one: each job is idempotent and safe to run twice at once. Game rows change only through the game service.
  * `now` is a parameter for tests; the account deletions use the database clock instead (see runDeletions).
  */
+import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { GameService } from '../match/service';
+import { diagnostic } from '../plugin/diagnostics';
 import { DEADLINE, nextDeadline } from './deadline';
 import { alertMail, type Mail, type Sender } from './mail';
 
@@ -121,13 +123,18 @@ export async function runDeletions(games: GameService): Promise<number> {
  const due = await pool.query(`select d.user_id from public.account_deletions d where d.run_after<=now() and d.cancelled_at is null and d.done_at is null
   and not exists(select from public.reports r where d.user_id in (r.reported_id,r.reporter_id) and r.hold_until>now()) order by d.run_after limit 50`);
  let deleted = 0;
- for (const { user_id } of due.rows) {
+ for (const { user_id } of due.rows) try {
   const active = await pool.query('select g.id,g.status,g.revision from public.game_players p join public.games g on g.id=p.game_id where p.user_id=$1 and p.active', [user_id]);
-  for (const g of active.rows) await games.command(user_id, g.id, { command_id: 'account-deletion', expected_revision: g.revision, action: { type: g.status === 'waiting' ? 'abort' : 'resign' } })
+  // A new command ID each time: the player's own client could send a fixed one first, and the receipt would refuse the job (COMMAND_CONFLICT).
+  for (const g of active.rows) await games.command(user_id, g.id, { command_id: randomUUID(), expected_revision: g.revision, action: { type: g.status === 'waiting' ? 'abort' : 'resign' } })
    // Ended on time meanwhile, or another run already deleted the account (no seat, no solo game): nothing to end.
    // A move that came first (STALE_REVISION) keeps the game active, so delete_account refuses and the next run tries again.
    .catch(error => { if (!['MATCH_TERMINAL', 'FORBIDDEN', 'NOT_FOUND', 'STALE_REVISION'].includes(error?.code)) throw error; });
   if ((await pool.query('select kingdown_jobs.delete_account($1) as done', [user_id])).rows[0].done) deleted++;
+ } catch (error) {
+  // One player whose deletion fails must not stop the others. The row stays due, so each run tries it again.
+  // ponytail: 50 such players, the oldest, would hold back the rest; the log shows each failure.
+  console.error('King Down deletion failed', diagnostic(error));
  }
  return deleted;
 }
