@@ -82,3 +82,7 @@ Test database `kingdown_mp_08_test`, made with `node tools/plugin-db/make-test-d
 - `src/match/service.db.test.ts` joins its player `b` by code 10 times in one run: exactly the limit. One more code join there gets `RATE_LIMITED`; use a token or a new player.
 - `tools/vercel-check.mjs` uses the MCP tools of today (`kingdown_join`, `kingdown_get`, `kingdown_move`). Ticket 09 changes them; the merge step changes the check to match.
 - Process note: two early runs of the new unit tests piped `npm test` through `grep` and `head`, which breaks the house rule. Every result above comes from `npm test` or a check written to a log file.
+
+### 2026-10-10 — merge note
+
+The merge step merged this branch into `claude/multiplayer-foundation`, then ticket 09. Ticket 09 removes the `MatchService` adapter, so `tools/plugin-server.mjs` now makes a `GameService` for `/api` and `/internal` on the same store. The cross-surface game in `tools/vercel-check.mjs` now uses ticket 09's tool shapes; this closes the open issue on that check. Evidence: ticket 10, "wave 3 merge".

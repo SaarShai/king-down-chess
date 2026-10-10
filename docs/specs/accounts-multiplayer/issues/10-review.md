@@ -58,3 +58,27 @@ Open issues for this review (the merge leaves them as the tickets made them):
 - Ticket 07, open issue 4, stays open: a `moderation` or `appeal` notification makes no outbox row, so no email goes.
 - Ticket 06's open issue on "views write nothing" counting the whole database is closed: ticket 07 changed that test to count only its own games.
 - Item 4 of "What to do" names migrations 0005 and 0006. The owner must now apply 0005 to 0008, then the third, fourth and fifth blocks of `plugin-deploy/runtime-role.sql`.
+
+### 2026-10-10 — wave 3 merge (tickets 08 and 09)
+
+The merge step merged `claude/mp-08`, then `claude/mp-09`, with `git merge --no-ff`. The merge of 08 had no conflict; its tree is the same as the tree of `claude/mp-08`. The merge of 09 had one conflict. One fix commit follows the merges. Both tickets' intent stays:
+
+- [x] `tools/plugin-server.mjs` (the conflict, resolved in the merge commit): ticket 09 removes the `MatchService` adapter, and ticket 08 took the game service for `/api` and `/internal` from it. One store now serves a `GameService` (the website API and the jobs) and a `PluginService` (MCP).
+- [x] `tools/vercel-check.mjs` (fix commit): ticket 08's cross-surface game used the old MCP shapes. It now uses ticket 09's shapes (`game_id`, `command_id`, `expected_revision`, the view in `_meta.view`). `kingdown_join` gets the website's full link. This closes ticket 08's open issue on this check and ticket 09's open issue on the cross-surface test.
+- [x] A random-seat flake (fix commit). The first `npm test` on the merge failed one test: `kingdown_move ... expected string, received undefined at lan` in the board-selection test of `src/plugin/server.db.test.ts`. A solo `kingdown_create` with no colour gives a random seat, and Black has no legal move before the computer plays. The same code on `claude/mp-09` fails in about half of its runs, so the merge did not cause it. The test and the same call in `tools/plugin-ui-check.mjs` now ask for White, as the board's Solo button does.
+- [x] Ticket 09's open issue "`kingdown_join` has no rate limit against short-code guesses" is closed: ticket 08's code limit is in `GameService.join`, which `PluginService.join` calls.
+
+Evidence (test database `kingdown_mp_merge3_test`, made with `node tools/plugin-db/make-test-db.mjs kingdown_mp_merge3_test`):
+
+- `npm run plugin:db:init-test`: "Disposable PostgreSQL schema ready (migrations 0001-0009); every migration is repeatable".
+- `npm test` before the fix commit: 122 files passed, 1 failed (the flake above); 1,948 tests passed, 1 failed, 8 skipped.
+- `npm test` after the fix commit: typecheck clean; vitest 123 files passed, 1,949 tests passed, 8 skipped; `node --test` 50 of 50; exit 0. That is wave 2 (119 files, 1,929 tests) plus ticket 08 (3 files, 17 tests) and ticket 09 (1 new file; 4 new tests, 1 test removed with `MatchService`).
+- `npm run build`: exit 0.
+- `npm run check:browser plugin-ui plugin-ui-http plugin-oauth`: all 3 passed (16.3 s, 15.5 s, 2.9 s).
+- More checks on the merged code: `npm run plugin:check:protocol` passed (16 tools with their hints); `npm run plugin:build`, then `npm run plugin:server:check` passed (resource 4,327,175 JSON bytes); `npm run plugin:smoke` passed; `npm run build:vercel`, then `npm run check:vercel` passed: "One-project tree: static site, /mcp (open, move), /authorize, /consent.mjs, /api (session tokens only; Daily games between two website players and between a website and a ChatGPT player, with a retry), /internal (secret only) and 1 archived engine(s) passed". The builds add no engine to `engines/`.
+
+Open issues for this review (the merge leaves them as the tickets made them):
+
+- A solo game that the model makes with no colour gets a random seat. With Black, the board shows no move until the player asks the computer to play. Decide if a solo game with no colour starts as White.
+- The other open issues of tickets 08 and 09 stay open, for example the owner's steps before a deploy (migration 0009, the sixth block of `runtime-role.sql`, `KINGDOWN_INTERNAL_SECRET`, an asymmetric session key), the `/j/<token>` and `/g/<id>` pages, and a refresh of the ChatGPT connection after a release.
+- Item 4 of "What to do": the owner must now apply 0005 to 0009, then the third to sixth blocks of `plugin-deploy/runtime-role.sql`.

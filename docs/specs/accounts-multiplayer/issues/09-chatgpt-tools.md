@@ -71,3 +71,7 @@ Open issues:
 - Ticket 08's cross-surface test must use the new tool shapes: `game_id`, `command_id`, `expected_revision`, and the view in `_meta.view`.
 - `kingdown_join` has no rate limit against short-code guesses. Add one in the game service, so that it applies on all surfaces.
 - After a release, refresh the ChatGPT connection: the tool metadata and the board resource changed.
+
+### 2026-10-10 — merge note
+
+The merge step merged this branch into `claude/multiplayer-foundation` after ticket 08. Ticket 08's short-code limit in `GameService.join` now covers `kingdown_join`; this closes the open issue on short-code guesses. Ticket 08's cross-surface test now uses this ticket's tool shapes; this closes that open issue too. The board-selection test in `src/plugin/server.db.test.ts` and one call in `tools/plugin-ui-check.mjs` now make the solo game as White: with no colour the seat is random, and the test failed when the player got Black. Evidence: ticket 10, "wave 3 merge".
