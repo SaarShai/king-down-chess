@@ -239,3 +239,10 @@ export function setMark(mark: Mark | undefined, channel: 'move' | 'take' | 'shoo
     : on ? channel : null;
   return capture === 'shoot' ? moves ? 'moveShoot' : 'shoot' : capture === 'take' ? moves ? 'both' : 'take' : moves ? 'move' : null;
 }
+
+/** The Proving Ground's brushes and tools (docs/specs/workshop-proving-ground, ticket 02). */
+export type Brush = 'move' | 'take' | 'both' | 'shot' | 'erase';
+/** The mark a brush leaves on a square that holds `mark`: Move, Take and Both paint the whole mark; Shot adds a shot
+ *  and keeps the move (spec decision 34); Erase clears the square. */
+export const brushMark = (mark: Mark | undefined, brush: Brush): Mark | null =>
+  brush === 'erase' ? null : brush === 'shot' ? setMark(mark, 'shoot', true) : brush;

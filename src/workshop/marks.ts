@@ -5,7 +5,7 @@
  * When words from vocab.ts. The mockup's looks `wash` and `familyWax` are always on. Later tickets port the rest.
  */
 import { DEFS as LEG_DEFS, LEG, badge, occupied, tile as legendTile, toSvg, type Kind, type Shape } from '../render/legend';
-import type { Ability, When } from './model';
+import type { Ability, PaintOn, When } from './model';
 import type { Scene, ScenePiece } from './scene';
 import { esc } from './text';
 import { blockOf, whenWords, type Group } from './vocab';
@@ -14,7 +14,7 @@ import { blockOf, whenWords, type Group } from './vocab';
 const C = { goldI: '#7a5712', push: '#2f7f75', swap: '#7a58c0' };
 
 /** 24 × 24 stroked sigils (marks.js:88-124): the 10 blocks with the G11 replacements, and the extras in use. */
-const SIGILS: Record<Ability['a'] | 'quill' | 'moon' | 'near' | 'card', string> = {
+const SIGILS: Record<Ability['a'] | 'quill' | 'moon' | 'near' | 'card' | 'lock' | 'lockOpen' | 'eraser' | 'scale', string> = {
   step2: 'M7 13l5-5 5 5M7 19l5-5 5 5',
   movesLike: 'M4 7c3-2 13-2 16 0 0 6-3 10-8 10S4 13 4 7zM8.5 10.5h2M13.5 10.5h2',
   linesPass: 'M3 18c3-9 15-9 18 0M12 15v4',
@@ -29,6 +29,10 @@ const SIGILS: Record<Ability['a'] | 'quill' | 'moon' | 'near' | 'card', string> 
   moon: 'M15.5 4a8.5 8.5 0 1 0 4.8 13.6A7 7 0 0 1 15.5 4z',
   near: 'M12 3.5a8.5 8.5 0 1 0 .01 0M12 8a1.8 1.8 0 1 0 .01 0M9.5 16.5l1-4.5h3l1 4.5z',
   card: 'M7 3.5h10a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5z',
+  lock: 'M7.5 11V8a4.5 4.5 0 0 1 9 0v3M5.5 11h13v9.5h-13z',
+  lockOpen: 'M7.5 11V8a4.5 4.5 0 0 1 8.7-1.6M5.5 11h13v9.5h-13z',
+  eraser: 'M14.5 4.5l5 5-9 9H6l-2.5-2.5zM9 10l5 5M6 18.5h14',
+  scale: 'M12 3.5v17M7 20.5h10M4 7h16M6.5 7l-3 6.5h6zM17.5 7l-3 6.5h6zM10.5 4.5h3',
 };
 
 /** The hover names (marks.js:145-151): the square labels and the key. */
@@ -135,10 +139,21 @@ const sigilInline = (name: keyof typeof SIGILS, x: number, y: number, size: numb
 const moonPip = (cx: number, cy: number, d: number) =>
   `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(d / 2 + 1.2)}" fill="${LEG.halo}"/><circle cx="${n(cx)}" cy="${n(cy)}" r="${n(d / 2)}" fill="${LEG.white}" stroke="${LEG.navy}" stroke-width="1.2" stroke-opacity=".7"/>`
   + sigilInline('moon', cx - d * 0.33, cy - d * 0.33, d * 0.66, LEG.navy, 2.6);
-/** A legend tile as SVG; an asleep tile gets the moon pip in its lower right corner (marks.js:337). */
-function tileSvg(kind: Kind, x: number, y: number, s: number, o: { solid?: boolean; cond?: Style } = {}): string {
-  const shapes = legendTile(kind, x, y, s, o), f = shapes.find(sh => sh.dash) as Extract<Shape, { k: 'rect' }> | undefined;
-  return toSvg(shapes) + (o.cond === 'asleep' && f && s >= 24 ? moonPip(f.x + f.w - 0.13 * s, f.y + f.h - 0.13 * s, clamp(0.2 * s, 10, 16)) : '');
+/** The pip of a painted change: a small vellum disc with a quill (quillPip, marks.js:343-346). */
+const quillPip = (cx: number, cy: number, d: number) =>
+  `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(d / 2 + 1.2)}" fill="${LEG.halo}"/><circle cx="${n(cx)}" cy="${n(cy)}" r="${n(d / 2)}" fill="${LEG.white}" stroke="${C.goldI}" stroke-width="1.3"/>`
+  + sigilInline('quill', cx - d * 0.34, cy - d * 0.34, d * 0.68, C.goldI, 2.4);
+/** A legend tile as SVG; an asleep tile gets the moon pip in its lower right corner (marks.js:337). The paint diff
+ *  (marks.js:310, :340): '+' adds the quill pip in the lower left corner; '-' draws the dashed outline only. */
+function tileSvg(kind: Kind, x: number, y: number, s: number, o: { solid?: boolean; cond?: Style; diff?: '+' | '-' } = {}): string {
+  const shapes = legendTile(kind, x, y, s, { ...o, cond: o.diff === '-' ? 'awake' : o.cond }), f = shapes.find(sh => sh.dash) as Extract<Shape, { k: 'rect' }> | undefined;
+  if (o.diff === '-' && f) return toSvg([{ ...f, stroke: LEG.halo, lw: (f.lw ?? 1) + 2, a: 0.6, dash: undefined }, { ...f, a: 0.6 }]);
+  return toSvg(shapes) + (o.cond === 'asleep' && f && s >= 24 ? moonPip(f.x + f.w - 0.13 * s, f.y + f.h - 0.13 * s, clamp(0.2 * s, 10, 16)) : '') + diffPip(kind, x, y, s, o.diff);
+}
+/** The quill pip of a '+' mark, in the lower left corner of its tile. */
+function diffPip(kind: Kind, x: number, y: number, s: number, diff?: '+' | '-'): string {
+  const f = legendTile(kind, x, y, s).find(sh => sh.k === 'rect') as Extract<Shape, { k: 'rect' }>;
+  return diff === '+' && s >= 24 ? quillPip(f.x + 0.13 * s, f.y + f.h - 0.13 * s, clamp(0.2 * s, 12, 16)) : '';
 }
 /** A small four-point star (the event spark). */
 function sparkPath(cx: number, cy: number, r: number): string {
@@ -220,6 +235,23 @@ export function effect(kind: 'arch' | 'push' | 'swap', s: number): string {
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" overflow="visible" aria-hidden="true">${g}</svg>`;
 }
 
+/* ---- brush mode: the Mirror tool's icon and the line nubs (proving-ground.html:1227-1240, :1281-1286) ---- */
+
+/** The Mirror tool's icon for "Paint on": both sides of the file (Mirror), all 8 (All 8), or one square (One). */
+export function mirrorIcon(on: PaintOn): string {
+  const sq = (x: number, y: number, w: number) => `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="${w > 7 ? 2 : 1.5}" fill="${LEG.green}" stroke="${LEG.navy}"/>`;
+  const inner = on === 'lr' ? `<path d="M13 2v22" stroke="${C.goldI}" stroke-width="1.5"/>${sq(3, 9, 7)}${sq(16, 9, 7)}`
+    : on === 'all' ? `${[[2, 2], [10, 2], [18, 2], [2, 10], [18, 10], [2, 18], [10, 18], [18, 18]].map(([x, y]) => sq(x, y, 6)).join('')}<circle cx="13" cy="13" r="2.5" fill="${LEG.ink}"/>`
+    : sq(8, 8, 10);
+  return `<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">${inner}</svg>`;
+}
+/** A line nub: a green arrowhead that points along its line, dark green while the line is on. */
+export function nub(on: boolean, deg: number): string {
+  const fill = on ? LEG.green : LEG.hi, d = 'M-5 -7L5 0L-5 7z';
+  return `<svg viewBox="-11 -11 22 22" aria-hidden="true"><g transform="rotate(${n(deg)})"><path d="${d}" fill="${fill}" stroke="${LEG.white}" stroke-width="4" stroke-linejoin="round"/>`
+    + `<path d="${d}" fill="${fill}" stroke="${LEG.navy}" stroke-width="1.5" stroke-linejoin="round"/></g></svg>`;
+}
+
 /* ---- the board (marks.js:990-1175) ---- */
 
 const FILES = 'abcdefgh';
@@ -230,14 +262,14 @@ export const viewBox = (s: number): string => `0 0 ${n(8 * s)} ${n(8 * s)}`;
 /**
  * The scene as SVG in three layers: under (rails, marks, line ends, glows), the pieces, and over (arches, take
  * badges, swaps and pushes). The board image is the field's background. `art` gives each piece's image. Only a
- * mark's group has data-sq (with data-k and data-cond); a rail, an arch and an effect have data-k, data-from and data-to.
+ * mark's group has data-sq (with data-k, data-cond and data-diff; a '-' mark has the class kdm-ghost); a rail, an arch and an effect have data-k, data-from and data-to.
  */
 export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) => string }): string {
   const s = o.s, XY = (q: string) => squareXY(q, s), CTR = (q: string): P => { const { x, y } = XY(q); return [x + s / 2, y + s / 2]; };
   const open = scene.pieces.find(p => p.open), side = open?.side ?? 'w';
   const enemy = (q: string) => scene.pieces.some(p => p.sq === q && p.side !== side);
   const group = (attrs: Record<string, string | undefined>, svg: string) =>
-    `<g${Object.entries(attrs).filter(([, v]) => v).map(([k, v]) => ` data-${k}="${v}"`).join('')}>${svg}</g>`;
+    `<g${Object.entries(attrs).filter(([, v]) => v).map(([k, v]) => (k === 'class' ? ` class="${v}"` : ` data-${k}="${v}"`)).join('')}>${svg}</g>`;
   let under = '', ends = '', over = '';
   for (const rl of scene.rails) {
     const a = XY(rl.from), b = XY(rl.to), dx = Math.sign(b.x - a.x), dy = Math.sign(a.y - b.y);
@@ -254,10 +286,10 @@ export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) =>
     if (end) ends += group({ k: 'line-end', to: rl.to }, end);
   }
   for (const m of scene.marks) {
-    const { x, y } = XY(m.sq);
-    const svg = enemy(m.sq) ? toSvg(occupied(m.k, x, y, s, y + 0.9 * s, { cond: m.cond })) : tileSvg(m.k, x, y, s, { cond: m.cond });
-    under += group({ sq: m.sq, k: m.k, cond: m.cond }, svg);
-    if (enemy(m.sq)) over += group({ badge: m.sq }, toSvg(badge(x, y, s, m.k)));
+    const { x, y } = XY(m.sq), ring = enemy(m.sq) && m.diff !== '-';
+    const svg = ring ? toSvg(occupied(m.k, x, y, s, y + 0.9 * s, { cond: m.cond })) + diffPip(m.k, x, y, s, m.diff) : tileSvg(m.k, x, y, s, { cond: m.cond, diff: m.diff });
+    under += group({ sq: m.sq, k: m.k, cond: m.cond, diff: m.diff, class: m.diff === '-' ? 'kdm-ghost' : undefined }, svg);
+    if (ring) over += group({ badge: m.sq }, toSvg(badge(x, y, s, m.k)));
   }
   under += ends;
   if (open) { const { x, y } = XY(open.sq); under += `<ellipse cx="${n(x + s / 2)}" cy="${n(y + s * 0.9)}" rx="${n(s * 0.36)}" ry="${n(s * 0.11)}" fill="url(#kdm-glow-gold)"/>`; }

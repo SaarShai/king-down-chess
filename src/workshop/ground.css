@@ -18,8 +18,16 @@
 
 /* ---- the top bar (:38-49) ---- */
 .pg-top { position: relative; flex: none; height: 56px; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid var(--line); }
-#workshop.pg .pg-menu { min-height: 44px; padding: 6px 16px; gap: 4px; border: 1px solid var(--stone-500); border-radius: var(--radius); }
-@media (hover: hover) { #workshop.pg .pg-menu:hover { background: rgba(255, 255, 255, 0.35); } }
+/* the quiet buttons: one selector each, so that each keeps its own weight against the narrow rules */
+#workshop.pg .pg-menu, #workshop.pg .pg-acts button, #workshop.pg .pg-weigh, #workshop.pg .pg-alert button, #workshop.pg .pg-room-del {
+  min-height: 44px; padding: 6px 16px; gap: 4px; border: 1px solid var(--stone-500); border-radius: var(--radius); }
+@media (hover: hover) { #workshop.pg button:is(.pg-menu, .pg-undo, .pg-share, .pg-weigh, .pg-room-del):hover:not(:disabled), #workshop.pg .pg-alert button:hover { background: rgba(255, 255, 255, 0.35); } }
+#workshop.pg button:disabled { opacity: 0.45; cursor: default; }
+/* Undo and Share once the piece is the player's (:952-969); on the phone, ⋯ opens Share and Weigh */
+.pg-acts { margin-left: auto; display: flex; gap: 8px; }
+#workshop.pg .pg-more { display: none; }
+.pg-morepop { position: absolute; z-index: 70; right: 8px; top: 46px; width: 200px; padding: 6px; display: grid; border-radius: var(--radius); background: var(--vellum); box-shadow: var(--shadow-float); }
+#workshop.pg .pg-morepop button { min-height: 44px; gap: 10px; padding: 0 12px; border-radius: 6px; }
 #workshop.pg .pg-title {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; padding: 0; background: none;
   display: flex; align-items: center; gap: 14px; font: 600 18px/1.2 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap;
@@ -38,10 +46,18 @@
 /* ---- the plinth: the name, the figure on its stone, the rule lines (:52-110) ---- */
 .pg-plinth { position: relative; min-height: 0; display: flex; flex-direction: column; }
 .pg-name { position: relative; flex: none; min-height: 60px; margin-top: 8px; display: flex; flex-direction: column; justify-content: center; padding: 0 4px; }
-.pg-name .row { display: flex; align-items: center; gap: 10px; }
+/* a long name keeps its line: the Yours tag and Weigh go under it */
+.pg-name .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 #workshop.pg .pg-name h3 { margin: 0; font: 600 var(--fs-2xl)/1.3 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 #workshop.pg .pg-name h3.long { font-size: 25px; }
 .pg-name .from { font-size: var(--fs-xs); color: var(--ink-soft); margin-top: 2px; }
+#workshop.pg .pg-weigh { margin-left: auto; padding: 4px 10px; gap: 6px; }
+/* Weigh (:125-129): the worth and the like line under the name band */
+.pg-weighpop { position: absolute; z-index: 30; right: 0; top: 72px; width: 300px; max-width: 100%; padding: 14px 16px; display: grid; grid-template-columns: 48px 1fr; gap: 4px 12px; align-items: center;
+  border-radius: var(--radius); background: var(--vellum); box-shadow: var(--shadow-float); }
+.pg-weighpop svg { grid-row: span 2; }
+.pg-weighpop b { font: 600 18px/1.2 var(--font-display); letter-spacing: 0.04em; }
+.pg-weighpop small { font-size: var(--fs-sm); color: var(--ink-soft); }
 .pg-name::after { content: ''; position: absolute; left: 4px; right: 40px; bottom: -4px; height: 1px; background: linear-gradient(90deg, var(--gold), rgba(201, 154, 62, 0)); }
 .pg-name.is-copy::after { background: linear-gradient(90deg, var(--stone-500), rgba(138, 128, 114, 0)); }
 .tag-yours { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 4px; font: 700 var(--fs-xs)/1.4 var(--font-body);
@@ -105,15 +121,42 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .pg-hits > [role='row'] { display: contents; }
 #workshop.pg .sq { border-radius: 3px; cursor: default; }
 #workshop.pg .sq:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
+#workshop.pg .pg-hits.armed .sq { cursor: crosshair; }
+/* brush mode (:166-187): the reach, the 8 line nubs round d4 (24 px, spec decision 9), the lock flash */
+.pg-paint { position: absolute; inset: 0; pointer-events: none; }
+.pg-reach { position: absolute; inset: 0; width: 100%; height: 100%; }
+#workshop.pg .nub { position: absolute; z-index: 5; width: 24px; height: 24px; margin: -12px 0 0 -12px; display: grid; place-items: center; border-radius: 50%; pointer-events: auto; }
+.nub svg { overflow: visible; }
+.pg-lock { position: absolute; width: 12.5%; height: 12.5%; display: grid; place-items: center; border-radius: 4px; color: var(--vellum); background: rgba(29, 25, 21, 0.55); animation: pg-lock 420ms ease both; }
+@keyframes pg-lock { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
+/* the paint diff and the pulse of a painted tile (grammar.css G10 and G19) */
+.kdm-ghost { opacity: 0.35; }
+.kdm-ripple { transform-box: fill-box; transform-origin: center; animation: kdm-pop var(--dur-2) var(--ease-spring) both; }
+@keyframes kdm-pop { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes kdm-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .kdm-ripple { animation: kdm-fade var(--dur-1) linear both; } }
 
 /* ---- the right column: the brushes as the key, the live key row (:228-247) ---- */
 .pg-right { min-width: 0; display: flex; flex-direction: column; }
 .pg-brushes { flex: none; display: flex; justify-content: center; gap: 12px; padding-top: 16px; }
-.brush { width: 80px; display: grid; justify-items: center; gap: 4px; }
+#workshop.pg .brush { width: 80px; display: grid; justify-items: center; gap: 4px; transition: transform var(--dur-2) var(--ease-out); }
 .brush .tile { position: relative; display: grid; place-items: center; border-radius: 10px; }
 .brush svg { display: block; }
 .brush .tile::before { content: ''; position: absolute; inset: 4px; border-radius: 8px; box-shadow: 0 6px 10px -4px rgba(29, 25, 21, 0.35); pointer-events: none; }
 .brush .w { font-size: var(--fs-sm); letter-spacing: 0.02em; }
+@media (hover: hover) { button.brush:hover .tile { transform: translateY(-2px); } }
+#workshop.pg .brush.armed { transform: translateY(-2px); }
+.brush.armed .tile::after { content: ''; position: absolute; inset: 2px; border-radius: 9px; box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 4px var(--ink), 0 0 16px rgba(233, 192, 113, 0.8); }
+/* the tools and the hint in brush mode (:206-214) */
+.pg-tools { flex: none; display: flex; align-items: flex-start; justify-content: center; gap: 12px; padding-top: 14px; }
+#workshop.pg .tool { width: 52px; display: grid; justify-items: center; gap: 4px; }
+.tool .tb { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 8px; background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-500); box-shadow: 0 2px 0 var(--stone-500); }
+.tool[aria-pressed='true'] .tb { box-shadow: 0 0 0 3px var(--gold-bright), 0 0 0 4px var(--ink); }
+.tool small { font-size: var(--fs-xs); color: var(--ink-soft); white-space: nowrap; }
+#workshop.pg .pg-done { margin-top: 2px; min-height: 48px; padding: 8px 18px; font-weight: 700; color: var(--vellum); border: 1px solid var(--accent-deep); border-radius: var(--radius);
+  background: linear-gradient(var(--accent-bright), var(--accent)); box-shadow: 0 2px 0 var(--accent-deep), inset 0 1px 0 rgba(255, 220, 200, 0.35); }
+.pg-hint { flex: none; margin: 0; padding-top: 10px; text-align: center; font: italic var(--fs-md)/1.3 var(--font-body); color: var(--ink-soft); }
+.pg-hint:empty { display: none; }
 .pg-keyrow { flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; padding: 10px 8px 0; }
 .pg-keyrow:empty { display: none; }
 .pg-keyrow .k { display: grid; grid-template-rows: 38px auto; align-items: center; justify-items: center; gap: 2px; min-width: 44px; font-size: var(--fs-xs); color: var(--ink-soft); }
@@ -153,13 +196,29 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   border-radius: var(--radius); background: var(--vellum); border: 1px solid var(--stone-300); box-shadow: var(--shadow-float); font-size: var(--fs-md);
   opacity: 0; pointer-events: none; transition: opacity var(--dur-2), transform var(--dur-2) var(--ease-out); }
 .pg-toast.on { opacity: 1; transform: translate(-50%, 0); }
+.pg-toast { display: flex; align-items: center; gap: 8px; }
+.pg-toast svg { flex: none; color: var(--stone-700); }
+
+/* ---- a save the device refused (dialog.ts drawAlert), and the sheets (dialog.ts sheet()) ---- */
+.pg-alert { position: absolute; z-index: 40; left: 50%; top: 64px; width: max-content; max-width: calc(100% - 32px); transform: translateX(-50%); padding: 8px 14px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: var(--danger); background: var(--vellum); border: 2px solid var(--danger); border-radius: var(--radius); box-shadow: var(--shadow-float); }
+.pg-alert p { flex: 1 1 220px; margin: 0; font-size: var(--fs-sm); font-weight: 700; }
+#workshop.pg .pg-sheet { width: min(560px, 100vw - 32px); padding: 0; }
+.pg-sheet header { display: flex; align-items: center; gap: 12px; padding: 4px 8px 4px 16px; border-bottom: 1px solid var(--stone-300); }
+#workshop.pg .pg-sheet h2 { flex: 1 1 auto; margin: 0; padding: 8px 0; background: none; font-size: var(--fs-lg); }
+#workshop.pg .pg-x { width: 44px; height: 44px; justify-content: center; font-size: 24px; }
+.pg-sheet-body { padding: 12px 16px 24px; }
+.pg-room-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px solid var(--stone-300); }
+.pg-copybox { width: 100%; font: var(--fs-sm)/1.4 var(--font-body); }
 
 /* ---- narrow: the phone form, one column (:443-540) ---- */
 @media (max-width: 999px) {
   #workshop.pg { overflow-y: auto; }
   .pg-top { height: 48px; padding: 0 4px; }
   #workshop.pg .pg-menu { width: 44px; height: 44px; padding: 0; justify-content: center; border: 0; font-size: 22px; }
-  .pg-word { display: none; }
+  .pg-word, #workshop.pg :is(.pg-share, .pg-weigh) { display: none; }
+  #workshop.pg .pg-acts button { width: 44px; padding: 0; justify-content: center; border: 0; font-size: 22px; }
+  #workshop.pg .pg-more { display: flex; }
   #workshop.pg .pg-title { font-size: 16px; gap: 8px; }
   .pg-title i { width: 18px; }
   .pg-main { display: flex; flex-direction: column; flex: none; gap: 0; width: 100%; max-width: 592px; margin: 0 auto; padding: 4px 16px; }
@@ -187,7 +246,14 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   /* the brushes in one row under the board */
   .pg-right { flex: none; height: 62px; margin-top: 4px; }
   .pg-brushes { height: 62px; padding: 0; justify-content: flex-start; align-items: center; gap: 10px; }
-  .brush { width: 48px; gap: 1px; }
+  #workshop.pg .brush { width: 48px; gap: 1px; }
+  .phint { flex: 1; padding-left: 4px; font: italic 14px/1.2 var(--font-body); color: var(--ink-soft); }
+  #workshop.pg .pg-moretools { margin-left: auto; width: 44px; height: 44px; justify-content: center; font-size: 20px; line-height: 1;
+    background: linear-gradient(var(--vellum), #efe4cc); border: 1px solid var(--stone-700); border-radius: var(--radius); box-shadow: var(--lift), inset 0 1px 0 rgba(255, 255, 255, 0.8); }
+  /* the tools in a popover over the brush row */
+  .pg-right { position: relative; }
+  .pg-tools { position: absolute; z-index: 30; right: 0; bottom: 64px; padding: 10px; gap: 8px; border-radius: var(--radius); background: var(--vellum); box-shadow: var(--shadow-float); }
+  .pg-alert { position: fixed; top: 52px; }
   .brush .tile { border-radius: 6px; }
   .brush .tile::before { display: none; }
   .brush .w { font-size: 11px; }

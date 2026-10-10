@@ -18,7 +18,8 @@ export interface ScenePiece { sq: string; k: string; side: 'w' | 'b'; open?: tru
 export interface Rail { from: string; to: string; end: 'x' | 'stop' | 'arrow' | 'none'; style?: 'asleep' | 'awake' }
 export interface Scene {
   pieces: ScenePiece[];
-  marks: { sq: string; k: Kind; cond?: 'asleep' | 'awake' }[];
+  /** diff: the paint diff of a copy (diffOf): '+' a new or changed mark, '-' a mark of its pool piece that is gone. */
+  marks: { sq: string; k: Kind; cond?: 'asleep' | 'awake'; diff?: '+' | '-' }[];
   rails: Rail[];
   arches: { from: string; over: string; to: string }[];
   effects: ({ k: 'swap'; a: string; b: string } | { k: 'push'; from: string; to: string })[];
@@ -115,4 +116,13 @@ export function sceneOf(d: D, board: Uint8Array, from: number, st: TryState = ST
     pieces.push(s === from ? { ...p, open: true } : p);
   });
   return { pieces, marks, rails, arches: now.arches, effects: [...effects.values()] };
+}
+
+/** The paint diff of a copy (paintDiff, proving-ground.html:875): the scene of `d`, where each mark that `base`'s paint
+ *  with d's rules does not make on the same board is '+', and each mark of that paint that is gone comes back as '-'. */
+export function diffOf(d: D, base: Pick<D, 'squares' | 'lines'>, board: Uint8Array, from: number, st: TryState = START): Scene {
+  const sc = sceneOf(d, board, from, st), was = sceneOf({ ...base, rules: d.rules }, board, from, st).marks;
+  for (const m of sc.marks) if (!was.some(o => o.sq === m.sq && o.k === m.k && o.cond === m.cond)) m.diff = '+';
+  for (const o of was) if (!sc.marks.some(m => m.sq === o.sq)) sc.marks.push({ ...o, diff: '-' });
+  return sc;
 }

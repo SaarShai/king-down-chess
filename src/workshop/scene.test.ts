@@ -5,7 +5,7 @@ import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import { parseSq } from '../rules/engine';
 import { PRESETS, presetOf, type PieceDesign, type Rule } from './model';
-import { boardOf, examplesOf, sceneOf, type ScenePiece } from './scene';
+import { boardOf, diffOf, examplesOf, sceneOf, type ScenePiece } from './scene';
 
 interface Hand {
   pieces: ScenePiece[];
@@ -65,4 +65,17 @@ describe('the scene builder', () => {
       expect(got, id).toEqual(want);
     }
   });
+
+  it('marks the paint diff of a copy: new or changed marks, and the marks of its pool piece that are gone', () => {
+    const pawn = presetOf('pawn'), board = boardOf(examplesOf({ from: ['pawn'] })), d4 = parseSq('d4');
+    const diff = (squares: PieceDesign['squares'], lines: PieceDesign['lines'] = []) =>
+      diffOf({ ...pawn, squares, lines }, pawn, board, d4).marks.filter(m => m.diff).map(m => `${m.sq} ${m.k} ${m.diff}`).sort();
+    expect(diff(pawn.squares)).toEqual([]);
+    // My Pawn (proving-ground.html, the painted state): Both on c5 and e5.
+    expect(diff([{ x: 0, y: 1, mark: 'move' }, { x: -1, y: 1, mark: 'both' }, { x: 1, y: 1, mark: 'both' }])).toEqual(['c5 both +', 'e5 both +']);
+    expect(diff(pawn.squares.filter(s => s.x !== -1))).toEqual(['c5 take -']);
+    // A line ahead: d6 was asleep (step 2) and is a plain move now; d7 and d8 are new.
+    expect(diff(pawn.squares, ['n'])).toEqual(['d6 move +', 'd7 move +', 'd8 move +']);
+  });
 });
+

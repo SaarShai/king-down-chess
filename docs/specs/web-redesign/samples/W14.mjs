@@ -1,6 +1,8 @@
-// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground ticket 01).
-// The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge.
-// Mockup states to set beside them: open, hero, archer, beast, maester, ogre, guard, phone-open
+// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground tickets 01 and 02).
+// The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge; then
+// the editor (ticket 02): paint (Both armed), painted (My Pawn with its paint diff), weigh (the popover; on the phone,
+// the toast from ⋯) and phone-tools (the tools popover; on the desktop it is the paint state).
+// Mockup states to set beside them: open, hero, archer, beast, maester, ogre, guard, phone-open, paint, painted
 // (docs/research/rules-ui-2026-10-10/mockups/proving-ground.html?state=<id>, served, never file://).
 // The targets leave out the board squares (24 px or more, spec decision 9) and the later nubs and knots.
 // Run: SAMPLE=W14 node docs/specs/web-ux/capture.mjs <base-url> <out-dir>. Renders stay outside Git.
@@ -20,6 +22,13 @@ const piece = key => async ({ page }) => {
   await page.locator(`.slot[data-piece="${key}"][aria-current="true"]`).waitFor();
 };
 const state = (name, key) => ({ name, query: '?workshop=a', save, targets, controls, steps: piece(key) });
+/** The Pawn with Both armed; `paint` paints c5 (and e5, its mirror) and leaves brush mode; `then` acts on the phone or the desktop. */
+const brush = (name, paint, then) => ({ ...state(name, 'pawn'), steps: async ({ page, size }) => {
+  await piece('pawn')({ page });
+  await page.click('.brush[data-brush="both"]');
+  if (paint) { await page.click('.sq[data-sq="c5"]'); await page.keyboard.press('Escape'); }
+  await then?.(page, size === 'phone');
+} });
 
 export default {
   states: [
@@ -32,5 +41,13 @@ export default {
     state('guard', 'guard'),
     { name: 'link', query: `?workshop=a&design=${Buffer.from(JSON.stringify(rider)).toString('base64url')}`, save, targets, controls,
       steps: async ({ page }) => { await page.locator('#workshop.pg[open]').waitFor(); } },
+    brush('paint', false),
+    brush('painted', true),
+    brush('weigh', true, async (page, phone) => {
+      if (!phone) return page.click('.pg-weigh');
+      await page.click('[data-act="more"]');
+      await page.click('.pg-morepop [data-act="weigh"]');
+    }),
+    brush('phone-tools', false, async (page, phone) => { if (phone) await page.click('[data-act="tools"]'); }),
   ],
 };
