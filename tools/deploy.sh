@@ -18,6 +18,11 @@
 # pinned Vercel CLI. Then the worktree's own tools/deploy-live-check.mjs fetches the live site
 # (DEPLOY_LIVE_URL, default https://kingdown.dev) with no cookie for up to 2 minutes: the bundle name
 # and the privacy, terms and delete-data pages must match the build.
+#
+# The plugin target also guards the engine archive (engines/, G2). The build adds a new engine there, so a
+# release fails while the new bundle is not on origin/main. With KINGDOWN_ENGINES_DATABASE_URL set (the
+# database of the live games; read-only), tools/engines-check.mjs fails when an unfinished game uses an
+# engine that the built artifact lacks. Without it the script skips that check and says so.
 set -eu
 
 # The pinned Vercel CLI: the last version that deployed the site (2026-10-03). npx gets its own --yes,
@@ -96,6 +101,16 @@ step() {
   fi
 }
 
+# The build archives a new engine in engines/; a release needs it committed on origin/main.
+engines_committed() {
+  local changed
+  changed=$(git status --porcelain -- engines)
+  [ -z "$changed" ] && return 0
+  echo "deploy: commit the new engine bundle and fixture first (npm run plugin:build writes them):" >&2
+  echo "$changed" >&2
+  return 1
+}
+
 verify_plugin_project() {
   node --input-type=module - "$1" <<'NODE'
 import { readFileSync } from 'node:fs';
@@ -150,6 +165,12 @@ if [ "$target" = website ]; then
   step 'browser checks' npm run check:browser
 else
   step 'plugin artifact' npm run plugin:build:vercel
+  step 'engine archive' engines_committed
+  if [ -n "${KINGDOWN_ENGINES_DATABASE_URL:-}" ]; then
+    step 'engines in use' node tools/engines-check.mjs plugin-deploy/.vercel/output/functions/mcp.func/runtime/engines
+  else
+    echo 'deploy: KINGDOWN_ENGINES_DATABASE_URL is not set; skipped the check of engines in use'
+  fi
   step 'plugin HTTP check' npm run plugin:server:check -- plugin-deploy/.vercel/output/functions/mcp.func
   step 'plugin worker check' npm run plugin:smoke
   step 'plugin protocol check' npm run plugin:check:protocol

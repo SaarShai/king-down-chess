@@ -16,6 +16,8 @@ npm run plugin:build
 npm run plugin:smoke
 npm run plugin:server:check
 npm run plugin:check:protocol
+npm run build:vercel
+npm run check:vercel
 npm run check:browser plugin-oauth plugin-ui plugin-ui-http
 ```
 
@@ -57,7 +59,7 @@ The runtime role has no administrator rights and does not bypass row security. I
 
 Each move checks the authenticated seat, actual engine turn and revision. It computes outside the database lock, then atomically commits the command receipt and new save under a row lock. Retry IDs are scoped to the actor; identical retries return current authority. Haste and free power actions may keep the same player to move. Friend boards refresh every three seconds while visible and waiting; hidden, disconnected, busy and own-turn boards do not poll.
 
-`npm run plugin:build` emits `plugin-server-dist/` with the server, embedded board resource and isolated worker runtime. `npm run plugin:build:vercel` prepares an unlinked Vercel Build Output API tree under `plugin-deploy/.vercel/output/`. These commands do not deploy. The approved backend uses the separate Vercel project `kingdown-plugin` in Saar's projects. Environment names are in [the example](../plugin-deploy/.env.example); secrets belong in the host environment, never in Git or the UI resource.
+`npm run plugin:build` emits `plugin-server-dist/` with the server, embedded board resource and isolated worker runtime. `npm run plugin:build:vercel` prepares an unlinked Vercel Build Output API tree under `plugin-deploy/.vercel/output/`. `npm run build:vercel` prepares the one-project tree for kingdown.dev under `kingdown-deploy/.vercel/output/`: the website as static files and one function for `/mcp`, `/authorize`, `/consent.mjs`, the OAuth metadata, `/api/*` and `/internal/*` (the last two answer 404 until their tickets). `npm run check:vercel` serves that tree locally with local personas against `PLUGIN_TEST_DATABASE_URL`. These commands do not deploy. The approved backend uses the separate Vercel project `kingdown-plugin` in Saar's projects. Environment names are in [the example](../plugin-deploy/.env.example); secrets belong in the host environment, never in Git or the UI resource.
 
 `tools/deploy.sh --setup-plugin` links this empty project without a deployment. `tools/deploy.sh --target plugin` checks fresh `origin/main` with the disposable test database and builds the production artifact. Add `--publish` to release the tested artifact after the project environment and OAuth setup are ready. The script checks the pinned project and team, then checks unsigned discovery, the OAuth challenge and the built consent script. It uses production environment values already set on the project. It does not copy a local environment file or use secret CLI arguments. [Prebuilt deployments](https://vercel.com/docs/cli/deploy#prebuilt)
 
@@ -93,9 +95,9 @@ Run the [beta and support packet](plugin-beta-support.md) in the actual client. 
 | Consent says unavailable or expired on a fresh request | Inspect the provider response. For `unauthorized request origin`, add the exact consent origin to Supabase Redirect URLs as well as the social return path. Restart from ChatGPT. |
 | Production server returns 503 before tools appear | Check required environment settings and OAuth discovery. Keep readiness off until the provider setup passes. |
 | A stale or rejected move | Reload authority and choose again. Definitive rejection clears its pending receipt; temporary worker and provider failures remain retryable; an uncertain lost reply retains the original ID for Retry. |
-| Old game cannot continue after an engine change | Start a new game, or restore the complete matching server artifact for the old game. Never edit its saved fingerprint. |
+| Old game cannot continue after an engine change | Check that `engines/` holds the bundle of its fingerprint and that the release copied it into `runtime/engines/`. Restore a deleted bundle from Git history. Never edit its saved fingerprint. |
 | A friend sees no update | Confirm both seats, visible client and connection; Reload reads authority. Check the request revision before retrying a move. |
 | Resource fails to render | Inspect the resource MIME type, measured JSON size, CSP, host bridge and console. Capture the client/build and a minimal reproduction. |
 | Database failure during a move | Verify command and snapshot committed together. Retry the same receipt after recovery; do not manually advance the revision. |
 
-Keep complete deployment artifacts, including `runtime/worker.mjs`, together. Gameplay bundle changes deliberately invalidate incompatible saves. Rolling back only HTML or editing engine stamps is not a save migration. A rollback may leave games created under the newer build unavailable; preserve those rows and use their matching artifact when investigating. There is no multiversion engine service in this preparation.
+Keep complete deployment artifacts, including `runtime/worker.mjs` and `runtime/engines/`, together. Each game runs on the archived engine bundle of its fingerprint ([save compatibility](match-foundation.md#save-compatibility-and-limits)), so an engine change does not end the games in progress. Editing engine stamps is not a save migration. A revert of an engine change must keep the archived bundle of that engine; with `KINGDOWN_ENGINES_DATABASE_URL` set, the plugin deploy refuses a release that drops it.

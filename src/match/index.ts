@@ -1,5 +1,6 @@
 /** Node-only local matches. Each live match owns one isolated engine worker. */
 import { Worker as NodeWorker } from 'node:worker_threads';
+import { existsSync } from 'node:fs';
 import { tsWorker } from '../sim/ts-worker';
 import type { Rules } from '../rules/rules';
 import type { Move, Status } from '../rules/engine';
@@ -11,14 +12,24 @@ export class MatchError extends Error { constructor(message: string, public code
 declare const __KINGDOWN_COMPILED__: boolean;
 export interface MatchSnapshot { rules: PublicMatchRules; moves: { lan: string; move: Move }[]; revision: number; fen: string; ply: number; turn: 0 | 1; moveNumber: number; status: Status; inCheck: boolean; legal: string[]; history: string[] }
 export interface MatchSave { schema: 'kingdown-local-match/1'; engine: string; setup: MatchSetup; initialFen: string; rules: Rules; revision: number; commands: (MoveCommand & { fen: string; ply: number; status: Status })[] }
+const compiled = typeof __KINGDOWN_COMPILED__ !== 'undefined' && __KINGDOWN_COMPILED__;
+/** Released engine bundles, `<hex>.mjs` (G2): a save runs on the bundle of its fingerprint. */
+const engines = compiled ? new URL('./engines/', import.meta.url) : new URL('../../engines/', import.meta.url);
+function archivedEngine(save: unknown): URL | undefined {
+  if (typeof save !== 'string' || save.length > 8_000_000) return;
+  let engine: unknown; try { engine = JSON.parse(save)?.engine; } catch { return; }
+  const hex = typeof engine === 'string' ? /^sha256:([a-f0-9]{64})$/.exec(engine)?.[1] : undefined;
+  const url = hex ? new URL(`${hex}.mjs`, engines) : undefined;
+  return url && existsSync(url) ? url : undefined;
+}
 export class LocalMatch {
-  private worker = typeof __KINGDOWN_COMPILED__ !== 'undefined' && __KINGDOWN_COMPILED__
-    ? new NodeWorker(new URL('./worker.mjs', import.meta.url))
-    : tsWorker(new URL('./worker.ts', import.meta.url));
+  private worker: NodeWorker;
   private next = 0;
   private closed = false;
   private pending = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
-  constructor() {
+  /** Without `engine` (an archived bundle) the match runs the current engine. */
+  constructor(engine?: URL) {
+    this.worker = engine ? new NodeWorker(engine) : compiled ? new NodeWorker(new URL('./worker.mjs', import.meta.url)) : tsWorker(new URL('./worker.ts', import.meta.url));
     this.worker.on('message', ({ id, value, error, code }) => {
       const p = this.pending.get(id); if (!p) return;
       clearTimeout(p.timer); this.pending.delete(id);
@@ -52,6 +63,7 @@ export class LocalMatch {
 export async function createMatch(setup: MatchSetup = {}): Promise<LocalMatch> {
   const match = new LocalMatch(); try { await match.initialize(setup); return match; } catch (e) { await match.close(); throw e; }
 }
+/** An unknown fingerprint falls to the current engine, which refuses it with MATCH_INCOMPATIBLE. */
 export async function loadMatch(save: string): Promise<LocalMatch> {
-  const match = new LocalMatch(); try { await match.initialize(save, true); return match; } catch (e) { await match.close(); throw e; }
+  const match = new LocalMatch(archivedEngine(save)); try { await match.initialize(save, true); return match; } catch (e) { await match.close(); throw e; }
 }

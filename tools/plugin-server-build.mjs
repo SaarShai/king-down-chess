@@ -1,4 +1,5 @@
-/** Produce a dependency/source-free Node server or unlinked Vercel Build Output API tree. */
+/** Produce a dependency/source-free Node server or unlinked Vercel Build Output API tree. With `site` (the
+ *  built website), the tree is the whole of kingdown.dev: the static site plus the one function. */
 import { build } from 'vite';
 import { builtinModules } from 'node:module';
 import { execFile } from 'node:child_process';
@@ -8,7 +9,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildRuntime } from './plugin-runtime-build.mjs';
 
-export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false } = {}) {
+export async function buildPluginServer(outDir = resolve('plugin-server-dist'), { vercel = false, site } = {}) {
+  vercel ||= Boolean(site);
   const root = fileURLToPath(new URL('../', import.meta.url));
   const output = vercel ? resolve(outDir, '.vercel/output') : outDir;
   const functionDir = vercel ? resolve(output, 'functions/mcp.func') : output;
@@ -45,13 +47,22 @@ export async function buildPluginServer(outDir = resolve('plugin-server-dist'), 
     await symlink('mcp.func', resolve(output, 'functions/consent.mjs.func'));
     await symlink('../mcp.func', resolve(discovery, 'oauth-protected-resource.func'));
     await symlink('../../mcp.func', resolve(discovery, 'oauth-protected-resource/mcp.func'));
-    await writeFile(resolve(output, 'config.json'), JSON.stringify({ version: 3 }) + '\n');
+    let routes;
+    if (site) {
+      await cp(site, resolve(output, 'static'), { recursive: true });
+      // The function entry (tools/plugin-server.mjs) dispatches these paths; Vercel keeps the request path.
+      await symlink('mcp.func', resolve(output, 'functions/api.func'));
+      await symlink('mcp.func', resolve(output, 'functions/internal.func'));
+      routes = [{ src: '^/api/.+$', dest: '/api' }, { src: '^/internal/.+$', dest: '/internal' }];
+    }
+    await writeFile(resolve(output, 'config.json'), JSON.stringify({ version: 3, routes }) + '\n');
   }
   return output;
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const args = process.argv.slice(2), vercel = args.includes('--vercel');
-  if (args.filter(arg => !arg.startsWith('--')).length > 1 || args.some(arg => arg.startsWith('--') && arg !== '--vercel')) throw new Error('Usage: node tools/plugin-server-build.mjs [output] [--vercel]');
+  // --site takes the website from dist/ (npm run build:vercel builds it first).
+  const args = process.argv.slice(2), site = args.includes('--site') ? resolve('dist') : undefined, vercel = args.includes('--vercel');
+  if (args.filter(arg => !arg.startsWith('--')).length > 1 || args.some(arg => arg.startsWith('--') && !['--vercel', '--site'].includes(arg))) throw new Error('Usage: node tools/plugin-server-build.mjs [output] [--vercel | --site]');
   const path = args.find(arg => !arg.startsWith('--'));
-  console.log(await buildPluginServer(path ? resolve(path) : resolve(vercel ? 'plugin-deploy' : 'plugin-server-dist'), { vercel }));
+  console.log(await buildPluginServer(path ? resolve(path) : resolve(site ? 'kingdown-deploy' : vercel ? 'plugin-deploy' : 'plugin-server-dist'), { vercel, site }));
 }
