@@ -8,7 +8,7 @@ import { refreshLessonShelf } from '../lesson-shelf-ui';
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
 /** "twice a game", "always on". */
-export const usesText = (p: PowerName, r: Rules = GAME_RULES): string => {
+const usesText = (p: PowerName, r: Rules = GAME_RULES): string => {
   const n = usesAllowed(p, r);
   return n === null || n === 0 ? 'always on' : n === 1 ? 'once a game' : n === 2 ? 'twice a game' : `${n} times a game`;
 };
