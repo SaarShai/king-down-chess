@@ -11,9 +11,10 @@ async function assertPhoneSheet(page, height) {
       padding: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom),
       overflow: body.scrollHeight > body.clientHeight + 1,
       shade: getComputedStyle(sheet, '::after').display,
-      page: section.dataset.menuPage,
+      page: section.dataset.menuPage, sizing: sheet.computedStyleMap().get('height').toString(),
     };
   });
+  assert.equal(bounds.sizing, 'fit-content', 'phone sheets use content height, not auto or a fixed height');
   assert.ok(Math.abs(bounds.bottom - height) <= 1, 'each phone page meets the screen bottom');
   assert.ok(bounds.height <= bounds.head + bounds.content + bounds.padding + 24, 'each phone sheet fits its page content');
   if (bounds.page === 'tricks' && height <= 568) assert.ok(bounds.overflow, 'short Tricks scrolls inside the sheet');
