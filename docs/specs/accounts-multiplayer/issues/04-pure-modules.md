@@ -2,7 +2,7 @@
 
 Type: task
 Status: resolved
-Wave: 1 · Model: Sonnet · Branch: `claude/mp-04`
+Wave: 1 · Branch: `claude/mp-04`
 
 ## What to build
 

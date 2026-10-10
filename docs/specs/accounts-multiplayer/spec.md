@@ -9,7 +9,7 @@ Give King Down one player account and online play against other people, on the w
 ## Owner direction
 
 - 2026-10-10: research request; the report is in [docs/research/multiplayer-2026-10-10/](../../research/multiplayer-2026-10-10/README.md) ([ticket 01](issues/01-deep-research.md)).
-- 2026-10-10: "build the infrastructure and foundation for what you recommend in a branch. for subagents use the claude API - opus 5.5, and sonnet 5.5 for smaller/simpler tasks."
+- 2026-10-10: "build the infrastructure and foundation for what you recommend in a branch." The owner also named the helper models; this file does not record model names.
 
 The build follows the report's eight picks (README, "Decisions for the owner"). The owner has not answered each decision one by one; this build records them as **the agent's picks, built at the owner's request**, and the owner can still change any of them. Online-play rules (decision 5) are server settings, not game rules: they change no piece, power or card.
 
@@ -17,17 +17,17 @@ The build follows the report's eight picks (README, "Decisions for the owner"). 
 
 The server foundation of the report's phase 1 (part 03, section 9), plus two pure modules for phases 2 and 3. No visual work, no deploy, no change to the live Supabase project or DNS.
 
-| # | Ticket | Model | Wave |
-|---|---|---|---|
-| 02 | [Games core: schema, store, service, protocol](issues/02-games-core.md) | Opus | 1 |
-| 03 | [Engine archive and one Vercel project](issues/03-engine-archive-one-project.md) | Opus | 1 |
-| 04 | [Pure modules: Glicko-2 and deadlines](issues/04-pure-modules.md) | Sonnet | 1 |
-| 05 | [Safety documents: drafts](issues/05-safety-drafts.md) | Sonnet | 1 |
-| 06 | [Jobs and alerts](issues/06-jobs-alerts.md) | Opus | 2 |
-| 07 | [Accounts and safety service](issues/07-accounts-safety-service.md) | Opus | 2 |
-| 08 | [Website API and client](issues/08-website-api.md) | Opus | 3 |
-| 09 | [ChatGPT tools](issues/09-chatgpt-tools.md) | Opus | 3 |
-| 10 | [Review and integration](issues/10-review.md) | Opus | 4 |
+| # | Ticket | Wave |
+|---|---|---|
+| 02 | [Games core: schema, store, service, protocol](issues/02-games-core.md) | 1 |
+| 03 | [Engine archive and one Vercel project](issues/03-engine-archive-one-project.md) | 1 |
+| 04 | [Pure modules: Glicko-2 and deadlines](issues/04-pure-modules.md) | 1 |
+| 05 | [Safety documents: drafts](issues/05-safety-drafts.md) | 1 |
+| 06 | [Jobs and alerts](issues/06-jobs-alerts.md) | 2 |
+| 07 | [Accounts and safety service](issues/07-accounts-safety-service.md) | 2 |
+| 08 | [Website API and client](issues/08-website-api.md) | 3 |
+| 09 | [ChatGPT tools](issues/09-chatgpt-tools.md) | 3 |
+| 10 | [Review and integration](issues/10-review.md) | 4 |
 
 Each wave starts from the branch after the previous wave merges. Each ticket works in its own worktree and branch (`claude/mp-<NN>`), and a merge step brings it into `claude/multiplayer-foundation` after `npm test` passes.
 

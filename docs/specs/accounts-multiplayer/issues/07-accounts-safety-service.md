@@ -2,7 +2,7 @@
 
 Type: task
 Status: resolved
-Wave: 2 (after 02) · Model: Opus · Branch: `claude/mp-07`
+Wave: 2 (after 02) · Branch: `claude/mp-07`
 
 ## What to build
 

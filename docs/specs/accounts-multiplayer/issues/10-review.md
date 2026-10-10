@@ -2,7 +2,7 @@
 
 Type: task
 Status: ready-for-agent
-Wave: 4 · Model: Opus
+Wave: 4
 
 ## What to do
 
