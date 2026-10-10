@@ -1,6 +1,6 @@
 # 04 · A 60-second limit for the test files that start processes
 
-Status: done on claude/hook-test-timeouts (merge pending)
+Status: done (PR #40 merged 2026-10-10)
 
 ## Scope
 
