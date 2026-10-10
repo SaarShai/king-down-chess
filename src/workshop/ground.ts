@@ -2,16 +2,18 @@
  * The Proving Ground: the Workshop's view A (docs/specs/workshop-proving-ground), behind `?workshop=a`.
  * The open piece stands on its example board with its marks; the plinth shows its name, its figure and its rules;
  * the ledge opens the pool pieces and the designs on the shelf. The board is the editor (ticket 02): the brushes
- * paint squares, the nubs switch lines, and the first edit on a pool piece makes the player's private copy. Mockup:
+ * paint squares, the nubs switch lines, and the first edit on a pool piece makes the player's private copy. In look mode a
+ * tap on a square opens its Why tag (ticket 05). Mockup:
  * docs/research/rules-ui-2026-10-10/mockups/proving-ground.html (its line numbers in the comments).
  * Loaded on demand (main.ts `import()`), as the old Workshop is.
  */
 import './ground.css';
 import { NAMES as PIECE, file, parseSq, rank, sq, sqName, type PieceType } from '../rules/engine';
+import { pieceIcon } from '../piece-icons';
 import { pieceArt } from '../ui/guide';
 import { figureUrl, selectedFigure } from './figures';
 import { bandOf, judge } from './judge';
-import { NAMES, chip, drawString, effect, ensureDefs, impression, knot, mirrorIcon, nub, pill, seal, sigil, tagYours, tile, viewBox } from './marks';
+import { NAMES, chip, countRing, drawString, effect, ensureDefs, impression, knot, mirrorIcon, nub, pill, seal, sigil, tagYours, tile, viewBox, whySum } from './marks';
 import {
   DIR, DIRS, FULL, MAX_RULES, PRESETS, brushMark, canonical, designCode, empty, fromPreset, likeAlways, limit, lineOrbit, orbit, parseDesign, presetOf,
   type Ability, type Body, type Brush, type Dir, type LikeAs, type PaintOn, type PieceDesign, type Rule, type When,
@@ -22,6 +24,7 @@ import { boardOf, diffOf, examplesOf, sceneOf, type Kind, type Scene, type Scene
 import { MAX, deleteDesign, loadShelf, saveDesign, type SaveResult } from './store';
 import { LIKE_ADDED, LIKE_CLASH, brief, cap, esc, lineParts, lineWords, pawns, ruleText, whenLabel } from './text';
 import { BLOCKS, BODY, GROUPS, blockOf, whenChoices, whenWords, type Part } from './vocab';
+import { traceOf, whyWords } from './why';
 
 /** What the board and the plinth show: a pool piece, a design on the shelf (or the player's new copy), or a design from a link. */
 interface Item { key: string; d: PieceDesign; yours: boolean }
@@ -61,12 +64,12 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     + '<h2 id="pg-h" class="pg-title" tabindex="-1"><i></i>Workshop<i class="r"></i></h2><div class="pg-acts"></div><div class="pg-morepop" id="pg-morepop" hidden></div></header>'
     + '<div class="pg-main"><section class="pg-plinth" aria-label="The open piece"></section>'
     + `<section class="pg-boardcol" aria-label="Try board"><div class="pg-rim"><div class="pg-files" aria-hidden="true">${[...FILES].map(f => `<span>${f}</span>`).join('')}</div>`
-    + `<div class="pg-ranks" aria-hidden="true">${[8, 7, 6, 5, 4, 3, 2, 1].map(r => `<span>${r}</span>`).join('')}</div>${chev}`
+    + `<div class="pg-ranks" aria-hidden="true">${[8, 7, 6, 5, 4, 3, 2, 1].map(r => `<span>${r}</span>`).join('')}</div>${chev}<span class="pg-notch" hidden></span>`
     + '<div class="pg-field"><svg class="pg-board" aria-hidden="true"></svg><div class="pg-coords" aria-hidden="true">'
     + [...FILES].map((f, i) => `<span style="left:calc(${(i + 1) * 12.5}% - 9px);bottom:3px">${f}</span>`).join('')
     + [8, 7, 6, 5, 4, 3, 2, 1].map((r, i) => `<span style="left:3px;top:calc(${i * 12.5}% + 3px)">${r}</span>`).join('')
     + `</div><div class="pg-hits" role="grid" aria-label="Board">${rows}</div><div class="pg-paint"></div></div></div></section>`
-    + '<section class="pg-right" aria-label="Key"><div class="pg-brushes"></div><div class="pg-tools" hidden></div><p class="pg-hint"></p><div class="pg-keyrow" aria-label="Also on the board"></div></section>'
+    + '<section class="pg-right" aria-label="Key"><div class="pg-brushes"></div><div class="pg-tools" hidden></div><p class="pg-hint"></p><div class="pg-keyrow" aria-label="Also on the board"></div><div class="pg-why" aria-live="polite" hidden></div></section>'
     + '<aside class="pg-shelf" aria-labelledby="pg-shelf-h" hidden></aside></div>'
     + '<footer class="pg-ledge"><div class="ltabs" role="tablist" aria-label="Library"><button type="button" class="ltab on" role="tab" id="pg-tab" aria-selected="true" aria-controls="pg-row">Pieces</button></div>'
     + '<div class="lrow" id="pg-row" role="tabpanel" aria-labelledby="pg-tab"><div class="inner lip"></div></div></footer>'
@@ -75,7 +78,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   const q = <T extends Element = HTMLElement>(s: string): T => dlg.querySelector(s) as T;
   const plinthEl = q('.pg-plinth'), fieldEl = q('.pg-field'), boardEl = q<SVGSVGElement>('.pg-board'), hitsEl = q('.pg-hits'), paintEl = q('.pg-paint');
   const actsEl = q('.pg-acts'), moreEl = q('.pg-morepop'), brushesEl = q('.pg-brushes'), toolsEl = q('.pg-tools'), hintEl = q('.pg-hint'), keyEl = q('.pg-keyrow');
-  const rowEl = q('.lrow'), slotsEl = q('.lrow .inner'), alertEl = q('.pg-alert'), toastEl = q('.pg-toast'), shelfEl = q('.pg-shelf');
+  const rowEl = q('.lrow'), slotsEl = q('.lrow .inner'), alertEl = q('.pg-alert'), toastEl = q('.pg-toast'), shelfEl = q('.pg-shelf'), whyEl = q('.pg-why'), notchEl = q('.pg-notch');
   /** The narrow layout (ground.css): the phone form of the mockup. */
   const narrow = matchMedia('(max-width: 999px)');
 
@@ -92,6 +95,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   let shelfOpen = false, pick: Ability['a'] | null = null, card: Ability['a'] | null = null, added = 0;
   /** Isolate (proving-ground.html:1141, :1632-1645): the rule that a tap keeps, the rule under the pointer or the keyboard focus, and the knot that a tap keeps. */
   let focus: number | null = null, hover: number | null = null, knotAt: number | null = null;
+  /** The square of the open Why tag, and the square under the pointer or the keyboard focus that has hover-only parts (spec decision 37). */
+  let why: string | null = null, near: string | null = null;
   /** A design from a link stays read only. */
   const editable = (): boolean => cur.key !== 'link';
 
@@ -211,7 +216,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function arm(b: Brush): void {
     if (!editable()) return;
     brush = b;
-    row = peek = pick = card = focus = knotAt = null;
+    row = peek = pick = card = focus = knotAt = why = null;
     shelfOpen = false;
     render();
   }
@@ -376,6 +381,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (k) {
       knotAt = knotAt === +k.dataset.knot! ? null : +k.dataset.knot!;
       focus = null;
+      if (why) { why = null; renderWhy(); }
       if (knotAt !== null) toast(sc.knots[knotAt].words);
     } else if (l) {
       const i = +l.dataset.seal!, gold = sc.knots.find(x => x.type === 'gold' && (x.a === i || x.b === i));
@@ -384,6 +390,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       // A second tap lets the rule go, and the hover or keyboard focus on it too, until a new one.
       if (focus === i) focus = hover = null; else focus = i;
       knotAt = null;
+      if (why) { why = null; renderWhy(); }
       // A desktop tap names what the rule makes with another one.
       if (focus !== null && gold && !narrow.matches) toast(gold.words);
     } else return;
@@ -417,9 +424,8 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     (ruleIn(cur.d, a) ? 'Already in this piece.' : blockOf(a).needs?.(cur.d) ?? limit({ ...cur.d, rules: [...cur.d.rules, blockOf(a).rule] }));
   function renderShelf(): void {
     shelfEl.hidden = !shelfOpen && !card;
-    // The shelf covers the right column, and on the phone the ledge too: the covered controls leave the Tab order.
+    // The shelf covers the right column, and on the phone the ledge too (renderWhy): the covered controls leave the Tab order.
     q('.pg-right').inert = !shelfEl.hidden;
-    q('.pg-ledge').inert = !shelfEl.hidden && narrow.matches;
     const r = card && ruleIn(cur.d, card);
     if (r) {
       const b = blockOf(r.does.a);
@@ -453,7 +459,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function openShelf(): void {
     if (!editable()) return;
     if (cur.d.rules.length >= MAX_RULES) return toast(FULL, 'lock');
-    brush = row = peek = pick = card = focus = knotAt = null;
+    brush = row = peek = pick = card = focus = knotAt = why = null;
     toolsOpen = false;
     shelfOpen = true;
     render();
@@ -486,7 +492,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   function toggleRow(a: Ability['a'], when: boolean): void {
     const r = ruleIn(cur.d, a)!;
     row = row?.a === a && row.when === when ? null : { a, when, more: when && !whenChoices(a).top.some(w => same(w, r.when)) };
-    peek = pick = null;
+    peek = pick = why = null;
     shelfOpen = false;
     render();
     const on = q<HTMLElement>('.choices .is-on');
@@ -504,7 +510,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
   }
   function openCard(a: Ability['a']): void {
     card = card === a ? null : a;
-    row = peek = pick = null;
+    row = peek = pick = why = null;
     shelfOpen = false;
     render();
     if (card) q<HTMLElement>('.pg-card .pg-x').focus();
@@ -530,12 +536,13 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const look = !brush && !peek && !pick, k = look && knotAt !== null ? sc.knots[knotAt] : undefined, i = look ? focus ?? hover : null;
     const iso = k ? (by: readonly number[]) => by.includes(k.a) && by.includes(k.b) : i === null ? undefined : (by: readonly number[]) => by.includes(i);
     // The phone shows the stamps of the kept rule only (boardOpts, :1149).
-    boardEl.innerHTML = drawString(sc, { s, art, focus: iso, stamps: narrow.matches ? x => look && x === focus : undefined });
+    // The hover-only parts of the open tag's square, else of the square under the pointer or the focus (proving-ground.html:1144).
+    boardEl.innerHTML = drawString(sc, { s, art, focus: iso, stamps: narrow.matches ? x => look && x === focus : undefined, hover: why ?? near, select: why });
     for (const p of pulse) boardEl.querySelector(`[data-sq="${p}"]:not(.kdm-ghost)`)?.classList.add('kdm-ripple');
     pulse = [];
   }
   function squareLabel(at: string): string {
-    const m = sc.marks.find(x => x.sq === at), occ = sc.pieces.find(p => p.sq === at);
+    const m = sc.marks.find(x => x.sq === at && !x.on), occ = sc.pieces.find(p => p.sq === at);
     const who = occ ? `${occ.side === 'b' ? 'black' : 'white'} ${occ.open ? (cur.d.name || 'piece').toLowerCase() : occ.k}` : '';
     const kind = m && [NAMES[m.k], m.byWords].filter(Boolean).join(', ').toLowerCase();
     const what = !m ? (occ ? '' : 'empty') : m.diff === '-' ? `was ${kind}` : `${m.cond === 'asleep' ? 'asleep here' : kind}${m.diff ? ', changed' : ''}`;
@@ -570,6 +577,61 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     renderHits();
     q<HTMLButtonElement>(`.sq[data-sq="${kbd}"]`).focus();
   });
+  /** The pointer or the keyboard focus on a square with hover-only parts shows them (proving-ground.html:2047-2060); the open tag wins. */
+  const nearAt = (t: EventTarget | null): void => {
+    const at = t instanceof Element ? t.closest<HTMLElement>('.pg-hits .sq')?.dataset.sq : undefined;
+    const n = at && [...sc.marks, ...sc.effects, ...sc.impressions].some(x => x.on === at) ? at : null;
+    if (n === near) return;
+    near = n;
+    if (!why) drawBoard();
+  };
+  hitsEl.addEventListener('pointerover', e => nearAt(e.target));
+  hitsEl.addEventListener('pointerleave', () => nearAt(null));
+  hitsEl.addEventListener('focusin', e => { if ((e.target as Element).matches(':focus-visible')) nearAt(e.target); });
+  hitsEl.addEventListener('focusout', e => nearAt(e.relatedTarget));
+
+  /* ---- the Why tag (renderWhy and renderNotch, proving-ground.html:1217-1223, :1330-1364) ---- */
+
+  /** A tap or Enter on a square in look mode opens its tag, and lets the kept rule go; a tap on its square closes it. */
+  function openWhy(at: string): void {
+    why = why === at ? null : at;
+    row = peek = pick = card = focus = knotAt = null;
+    shelfOpen = false;
+    kbd = at;
+    render();
+  }
+  /** ×, Esc: the tag closes, and the focus goes back to its square. */
+  function closeWhy(): void {
+    const at = why;
+    why = null;
+    render();
+    q<HTMLElement>(`.pg-hits .sq[data-sq="${at}"]`).focus();
+  }
+  /** The tag: the square, its occupant and the count ring; the sum (48 px tiles and 34 px stamps on the phone); the note under it.
+   *  Desktop: under the key row, with a pointer and a rim notch at the square's row. Phone: a bottom sheet over the brushes and the ledge. */
+  function renderWhy(): void {
+    const phone = narrow.matches;
+    whyEl.hidden = notchEl.hidden = !why;
+    // On the phone the shelf, the card and the tag cover the ledge, and the tag the brushes too.
+    q('.pg-ledge').inert = phone && (!!why || !shelfEl.hidden);
+    brushesEl.inert = phone && !!why;
+    if (!why) { whyEl.innerHTML = ''; return; }
+    const w = whyWords(cur.d, sc, traceOf(cur.d, board, from), why), p = w.piece, T = phone ? 48 : 52;
+    const icon = !p ? '' : pieceIcon(p.open ? BODY_TYPE[cur.d.look.body as Body] : (PIECE as readonly string[]).indexOf(p.k) as PieceType, p.side === 'b' ? 1 : 0);
+    whyEl.innerHTML = `<div class="tag"><div class="why-h">${icon}<span class="sqn">${why}</span><span class="occ">${esc(w.occupant)}</span>${w.count ? countRing(w.count) : ''}`
+      + `<button type="button" class="x" data-act="closewhy" aria-label="Close">×</button></div>`
+      + `<div class="why-sumrow">${w.sum ? whySum(w.sum, T, phone ? 34 : 40) : `<div class="why-solo"><small>${esc(w.solo!)}</small></div>`}</div>`
+      + `${w.foot ? `<p class="why-foot">${esc(w.foot)}</p>` : ''}</div>${phone ? '' : '<span class="pointer"></span>'}`;
+    notchEl.style.setProperty('--row', String(8 - +why[1]));
+    placePointer();
+  }
+  /** The tag's pointer looks at the row of its square. */
+  function placePointer(): void {
+    const p = whyEl.querySelector<HTMLElement>('.pointer');
+    if (!p || !why) return;
+    const t = whyEl.getBoundingClientRect(), r = q(`.pg-hits .sq[data-sq="${why}"]`).getBoundingClientRect();
+    p.style.top = `${Math.max(18, Math.min(t.height - 18, r.top + r.height / 2 - t.top))}px`;
+  }
 
   /* ---- the right column: the brushes (also the key), the tools, the hint, the live key row (renderBrushes, renderTools and keyKinds, :1184-1216, :1283-1295) ---- */
 
@@ -595,10 +657,10 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       else if (m.k.startsWith('blocked')) add('blocked', () => tile(m.k, 36), 'Blocked by a rule');
       else if (m.k === 'shot' || m.k === 'moveshot') add(m.k, () => tile(m.k, 36), NAMES[m.k]);
     }
-    if (sc.rails.length) add('line', () => tile('move', 36, { rail: true }), NAMES.line);
+    if (sc.rails.length) add('line', () => tile('move', 36, { rail: 'e' }), NAMES.line);
     if (sc.arches.length) add('arch', () => effect('arch', 36), NAMES.arch);
     if (sc.impressions.some(im => im.list.some(x => x.a === 'removedAfter'))) add('removed', () => impression('removedAfter', 26), NAMES.removed);
-    for (const e of sc.effects) add(e.k, () => effect(e.k, 36), NAMES[e.k]);
+    for (const { k } of sc.effects) if (k === 'push' || k === 'swap') add(k, () => effect(k, 36), NAMES[k]);
     keyEl.innerHTML = phone || brush ? '' : [...kinds].slice(0, 6).map(([k, [svg, w]]) => `<span class="k" title="${w}">${svg}<span>${SHORT[k]}</span></span>`).join('');
   }
 
@@ -668,20 +730,21 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     renderShelf();
     renderLedge();
     drawAlert();
+    renderWhy();
     if (keep && !dlg.contains(document.activeElement)) (q<HTMLElement>(keep) ?? q<HTMLElement>('.pg-brushes button'))?.focus({ preventScroll: true });
   }
   /** Opens `item` on the plinth and the board, in look mode. On a short screen the narrow layout scrolls: go back to the top, to the board. */
   function show(item: Item): void {
     if (item.key !== cur.key) undos = [];
     cur = item;
-    brush = row = peek = pick = card = focus = hover = knotAt = null;
+    brush = row = peek = pick = card = focus = hover = knotAt = why = null;
     weighOpen = moreOpen = toolsOpen = shelfOpen = false;
     mirror = presetOf(item.d.from[0] ?? '').paintOn;
     kbd = examplesOf(item.d)[0].sq;
     dlg.scrollTop = 0;
     render();
   }
-  new ResizeObserver(() => { if (fieldEl.clientWidth / 8 !== drawnAt) drawBoard(); }).observe(fieldEl);
+  new ResizeObserver(() => { if (fieldEl.clientWidth / 8 !== drawnAt) drawBoard(); placePointer(); }).observe(fieldEl);
   new ResizeObserver(placeKnots).observe(plinthEl);
   narrow.addEventListener('change', () => { row = peek = card = null; if (dlg.open) render(); });
   q<HTMLButtonElement>('.pg-menu').onclick = () => dlg.close();
@@ -690,7 +753,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     const t = (e.target as Element).closest<HTMLElement>('[data-act], [data-brush], [data-nub], .pg-hits .sq, [data-pill], [data-when], [data-choice], [data-sealitem], [data-rm]');
     if (!t) { if (moreOpen) { moreOpen = false; renderTop(); } return; }
     const { sq: at, nub: l, brush: b, pill: pa, when: wa, choice, sealitem: sa, rm } = t.dataset;
-    if (at) { if (brush) paint(at); return; }
+    if (at) { if (brush) paint(at); else openWhy(at); return; }
     if (l) return toggleLine(l as Dir);
     if (b) return arm(b as Brush);
     if (pa || wa) return toggleRow((pa ?? wa) as Ability['a'], !!wa);
@@ -701,6 +764,7 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (act === 'shelf') return openShelf();
     if (act === 'closeshelf') return closeShelf();
     if (act === 'closecard') return closeCard();
+    if (act === 'closewhy') return closeWhy();
     if (act === 'stamp') return stamp();
     if (act === 'morewhen') {
       row!.more = true;
@@ -746,18 +810,18 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     all[Math.max(0, Math.min(all.length - 1, i + step))].focus();
   });
   // The keys (proving-ground.html:1957-1966): 1, 2 and 3 arm a brush, B goes in and out of brush mode, S opens and closes
-  // the Rules shelf, Esc closes a row, a card, the shelf or a popover, or leaves brush mode, Ctrl or Cmd+Z undoes. None of
+  // the Rules shelf, Esc closes a row, a card, the shelf, a popover or the Why tag, or leaves brush mode, Ctrl or Cmd+Z undoes. None of
   // them acts under a sheet or in a text field; in a piece list only Esc acts.
   document.addEventListener('keydown', e => {
     const field = (e.target as Element).closest?.('input, textarea, select');
     if (!dlg.open || q('.pg-sheet[open]') || (field && e.key !== 'Escape')) return;
-    if (e.key === 'Escape' && (row || card || shelfOpen || brush || moreOpen || weighOpen)) {
+    if (e.key === 'Escape' && (row || card || shelfOpen || brush || moreOpen || weighOpen || why)) {
       e.preventDefault();
       // Esc closes only the row, and the focus goes back to its pill or chip.
       if (row) { const { a, when } = row; row = peek = null; render(); q<HTMLElement>(`[data-${when ? 'when' : 'pill'}="${a}"]`)?.focus(); }
       else if (card) closeCard();
       else if (shelfOpen) closeShelf();
-      else if (moreOpen || weighOpen) { moreOpen = weighOpen = false; render(); } else leave();
+      else if (moreOpen || weighOpen) { moreOpen = weighOpen = false; render(); } else if (why) closeWhy(); else leave();
       return;
     }
     if (field) return;

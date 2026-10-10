@@ -1,4 +1,4 @@
-// The why-trace against the hand scenes of the approved mockup
+// The why-trace and the Why tag's words against the hand scenes of the approved mockup
 // (docs/research/rules-ui-2026-10-10/mockups/shared/scenes.js), loaded as in scene.test.ts.
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
@@ -7,12 +7,14 @@ import { parseSq, sqName } from '../rules/engine';
 import { drawString } from './marks';
 import { presetOf, type PieceDesign, type Rule } from './model';
 import { boardOf, sceneOf, type ScenePiece } from './scene';
-import { traceOf } from './why';
+import { traceOf, whyWords } from './why';
 
 interface Hand {
   pieces: ScenePiece[];
   marks: { sq: string; k: string; by?: number[]; byWords?: string }[];
   knots?: { a: number; b: number; type: string; words: string }[];
+  why?: Record<string, { count: number; occupant: string; icon?: string; side?: string; foot?: string;
+    sum: { base: { rail?: string }; imps: { a: string }[]; result: { k: string; cond?: string; tag?: { a: string } }; captions: string[] } }>;
 }
 const ctx = { window: {} as { KD?: { scenes: { get(id: string): Hand } } } };
 runInNewContext(readFileSync(new URL('../../docs/research/rules-ui-2026-10-10/mockups/shared/scenes.js', import.meta.url), 'utf8'), ctx);
@@ -85,5 +87,51 @@ describe('the why-trace', () => {
   it('gives the painted square or line under each square', () => {
     const { trace } = both('paladin');
     expect(['d5', 'd6', 'e5', 'g7'].map(q => trace.base.get(parseSq(q)))).toEqual(['n', 'n', 'ne', 'ne']);
+  });
+});
+
+describe('the Why tag words', () => {
+  /** The Why tag of square `q` on the board of hand scene `id`. */
+  const why = (id: string, q: string) => {
+    const hand = scenes.get(id), board = boardOf(hand.pieces), from = parseSq(hand.pieces.find(p => p.open)!.sq), d = DESIGNS[id];
+    return whyWords(d, sceneOf(d, board, from), traceOf(d, board, from), q);
+  };
+
+  it('sums the Paladin\'s d7 (the line, + its lines pass and removed too, = a take that leaves) and g7 (refused)', () => {
+    expect(why('paladin', 'd7')).toMatchObject({ occupant: 'Black knight', piece: { k: 'knight', side: 'b' }, count: 3, foot: 'On b6 it takes a pawn and stays.',
+      sum: { base: 'move', rail: 'n', stamps: ['linesPass', 'removedAfter'], result: 'take', tags: ['removedAfter'], captions: ['line', 'lines pass', 'removed too', 'takes, then leaves'] } });
+    expect(why('paladin', 'g7')).toEqual({ occupant: 'Black king', piece: { sq: 'g7', k: 'king', side: 'b' }, count: 2,
+      sum: { base: 'move', rail: 'ne', stamps: ['cannotTake'], result: 'blocked', cond: undefined, tags: [], captions: ['line', "can't take a king", 'refused'] } });
+  });
+
+  it('sums the Beast\'s e5, the first take of a chain, with its next take and the refused king; f6 names the take before it', () => {
+    expect(why('beast', 'e5')).toMatchObject({ occupant: 'Black pawn', count: 2, foot: 'Then it may take f6. Never the king on g7.',
+      sum: { base: 'both', stamps: ['chain'], result: 'both', tags: ['chain'], captions: ['move or take', 'takes again', 'then f6'] } });
+    expect(why('beast', 'f6')).toMatchObject({ occupant: 'Black knight', count: 2, foot: 'It takes e5 first.',
+      sum: { base: 'empty', stamps: ['chain'], result: 'take', captions: ['not painted', 'takes again', 'takes'] } });
+  });
+
+  it('says why a square has no mark: the piece itself, its own piece, out of reach', () => {
+    expect([why('beast', 'd4'), why('beast', 'c3'), why('beast', 'a8')].map(w => [w.occupant, w.count, w.solo, w.sum])).toEqual([
+      ['Beast', 0, 'It stands here.', undefined], ['White pawn', 0, 'Its own piece.', undefined], ['Empty', 0, 'Out of reach.', undefined]]);
+  });
+
+  it('says what a swap and a push do to the piece on the square', () => {
+    expect(why('ogre', 'd5').foot).toBe('It may push the pawn to d6.');
+    const hand = scenes.get('maester'), board = boardOf(hand.pieces), d = presetOf('maester');
+    expect(whyWords(d, sceneOf(d, board, parseSq('d4')), traceOf(d, board, parseSq('d4')), 'e4')).toMatchObject({ occupant: 'White rook', solo: 'Its own piece.', foot: 'It may swap places with the rook.' });
+  });
+
+  it('agrees with the why of the hand scenes: the occupant, its icon, the count, the stamps, the line, the mark now, the note and the captions', () => {
+    // The rule captions are the seal labels (ticket 05), so only their number and the last caption, the mark now, are the mockup's.
+    for (const id of ['paladin', 'pawn']) {
+      for (const [q, w] of Object.entries(scenes.get(id).why!)) {
+        const got = why(id, q), sum = got.sum!;
+        expect({ occupant: got.occupant, icon: got.piece?.k, side: got.piece?.side, count: got.count, stamps: sum.stamps, rail: sum.rail, now: sum.cond ?? sum.result,
+          tag: sum.tags[0], foot: got.foot, captions: sum.captions.length, last: sum.captions.at(-1) }, `${id} ${q}`).toEqual({
+          occupant: w.occupant, icon: w.icon, side: w.side, count: w.count, stamps: w.sum.imps.map(i => i.a), rail: w.sum.base.rail, now: w.sum.result.cond ?? w.sum.result.k,
+          tag: w.sum.result.tag?.a, foot: w.foot, captions: w.sum.captions.length, last: w.sum.captions.at(-1) });
+      }
+    }
   });
 });

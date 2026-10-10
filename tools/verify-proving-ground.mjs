@@ -1,4 +1,4 @@
-// The Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground, tickets 01 to 04).
+// The Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground, tickets 01 to 05).
 // Groups: opens (the menu door, ‹ Menu and Esc, the focus back on the menu), poolPieces (each pool piece opens;
 // the Pawn's and the Paladin's marks equal src/workshop/scene.test.ts), yours (the shelf designs in the ledge),
 // link (a design link opens read only; a bad code shows the toast), keys (one tab stop, the arrow keys, the square
@@ -15,6 +15,11 @@
 // of the lines overlap, the row, the arrows, the preview, Esc, Enter, a refused choice), whenChip (the When choices, More
 // choices, an asleep seal, "Always" for "moves like" with the queen's lines in the design, no choices for
 // "takes again") and removeRule (the × of a line, Undo; the phone's rule card from a tap on the kept seal). The keys group also opens and closes the shelf with S.
+// Then ticket 05: whyTag (a tap on d7 of the Paladin opens the Why tag with its parts; g7 says refused; a second tap, Esc and ×
+// close it; Enter opens it; the frame, the rim notch and the pointer; a brush closes it and a tap in brush mode paints; the
+// phone's bottom sheet stays inside the screen) and hoverOnly (hover or focus on the Beast's e5 shows f6, the barred g7 and
+// their pips; hover on the Archer's d6 shows its sight line; hover on the Ogre's d6 shows the follow; a tap on e5 keeps them
+// under the tag; on the phone a tap shows them).
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
 import { pressMenu } from './app-ui.mjs';
@@ -107,6 +112,15 @@ async function has(p, want, why) {
 /** The isolate class of the mark on each square: kdm-iso, kdm-dim or null. */
 const iso = (p, ...sqs) => Promise.all(sqs.map(sq => p.getAttribute(`.pg-board [data-sq="${sq}"]`, 'class')));
 const clearToast = p => p.$eval('.pg-toast', t => { t.textContent = ''; });
+/** Ticket 05: the open Why tag (its square, occupant, count ring, the captions of its parts and its note), or null. */
+const tag = p => p.evaluate(() => {
+  const t = document.querySelector('.pg-why:not([hidden]) .tag');
+  return t && { sq: t.querySelector('.sqn').textContent, occ: t.querySelector('.occ').textContent, count: t.querySelector('.count-ring')?.textContent ?? '',
+    parts: [...t.querySelectorAll('.part small')].map(x => x.textContent), foot: t.querySelector('.why-foot')?.textContent ?? '' };
+});
+/** The hover-only parts on the board, as "on-square: kind square". */
+const onParts = p => p.$$eval('.pg-board [data-on]', gs => gs.map(g => `${g.dataset.on}: ${g.dataset.k ?? 'stamp'} ${g.dataset.sq ?? g.dataset.at ?? g.dataset.to ?? g.dataset.stamp}`).sort());
+const middle = async (p, sel) => { const b = await p.locator(sel).boundingBox(); return b.y + b.height / 2; };
 
 async function opens() {
   const p = await open();
@@ -830,6 +844,113 @@ async function removeRule() {
   await q.context().close();
 }
 
+async function whyTag() {
+  const p = await open();
+  await door(p);
+  await p.click('.slot[data-piece="paladin"]');
+  const before = await marks(p);
+  assert.equal(await tag(p), null, 'look mode opens with no tag');
+  await tap(p, 'd7');
+  assert.deepEqual(await tag(p), { sq: 'd7', occ: 'Black knight', count: '3', parts: ['line', 'lines pass', 'removed too', 'takes, then leaves'], foot: 'On b6 it takes a pawn and stays.' },
+    'd7 on the Paladin: the line, + its two rules, = a take that leaves');
+  assert.equal(await p.getAttribute('.pg-board [data-select]', 'data-select'), 'd7', 'a frame marks the square of the tag');
+  assert.deepEqual(await marks(p), before, 'the tag changes no mark');
+  assert.ok(Math.abs(await middle(p, '.pg-notch') - await middle(p, '.sq[data-sq="d7"]')) < 2, 'the rim notch is at the row of d7');
+  await textNotCut(p, '.pg-why .part small, .pg-why .why-foot, .pg-why .occ');
+  await shot(p, 'why-d7-1440');
+  await tap(p, 'g7');
+  assert.deepEqual(await tag(p), { sq: 'g7', occ: 'Black king', count: '2', parts: ['line', "can't take a king", 'refused'], foot: '' }, 'g7 says refused, by "cannot take"');
+  await tap(p, 'g7');
+  assert.equal(await tag(p), null, 'a second tap on its square closes the tag');
+  await tap(p, 'a4');
+  assert.ok(Math.abs(await middle(p, '.pg-why .pointer') - await middle(p, '.sq[data-sq="a4"]')) < 2, 'the pointer of the tag looks at the row of a4');
+  await p.keyboard.press('Escape');
+  assert.equal(await tag(p), null, 'Esc closes the tag');
+  assert.equal(await p.locator('#workshop[open]').count(), 1, 'and the Workshop stays open');
+  assert.equal(await focused(p), 'a4', 'the focus goes back to the square of the tag');
+  await p.focus('.sq[data-sq="d7"]');
+  await p.keyboard.press('Enter');
+  assert.equal((await tag(p))?.sq, 'd7', 'Enter on the focused square opens its tag');
+  await p.click('.pg-why [data-act="closewhy"]');
+  assert.equal(await tag(p), null, '× closes the tag');
+  assert.equal(await focused(p), 'd7', 'and the focus goes back to d7');
+  await p.click('.sline[data-seal="0"] .l2');
+  await tap(p, 'b6');
+  assert.deepEqual([(await tag(p))?.foot, await p.locator('.sline.is-focus').count()], ['It takes a pawn and stays.', 0], 'a tap on b6 opens its tag and lets the kept rule go');
+  await p.click('.sline[data-seal="0"] .l2');
+  assert.equal(await tag(p), null, 'a tap on a rule line closes the tag');
+  await tap(p, 'b6');
+  await p.keyboard.press('1');
+  assert.equal(await tag(p), null, 'a brush closes the tag');
+  await tap(p, 'e5');
+  assert.deepEqual([await tag(p), await name(p)], [null, 'My Paladin'], 'in brush mode a tap paints, and no tag opens');
+  await p.context().close();
+  // The phone: a bottom sheet over the brushes and the ledge, inside the screen, with no cut caption.
+  for (const [width, height] of [[390, 844], [320, 568]]) {
+    const q = await open('?workshop=a', { width, height });
+    await door(q);
+    await q.click('.slot[data-piece="paladin"]');
+    await tap(q, 'd7');
+    assert.deepEqual((await tag(q))?.parts, ['line', 'lines pass', 'removed too', 'takes, then leaves'], `${width}x${height}: the sheet shows the parts of d7`);
+    await insideViewport(q, '.pg-why .tag');
+    await noSidewaysScroll(q, '.pg-why .tag');
+    await textNotCut(q, '.pg-why .part small, .pg-why .why-foot, .pg-why .occ');
+    await minTarget(q, '#workshop .pg-why button', 44);
+    assert.deepEqual(await q.$$eval('.pg-brushes, .pg-ledge', es => es.map(e => e.inert)), [true, true], `${width}x${height}: the covered brushes and ledge leave the Tab order`);
+    await shot(q, `why-d7-${width}x${height}`);
+    await tap(q, 'g7');
+    assert.equal((await tag(q))?.sq, 'g7', `${width}x${height}: a tap on the board over the sheet opens that square`);
+    await q.keyboard.press('Escape');
+    assert.deepEqual([await tag(q), await q.$eval('.pg-brushes', e => e.inert)], [null, false], `${width}x${height}: Esc closes the sheet`);
+    await q.context().close();
+  }
+}
+
+async function hoverOnly() {
+  const p = await open();
+  await door(p);
+  await p.click('.slot[data-piece="beast"]');
+  const CHAIN = ['e5: blocked g7', 'e5: hop f6', 'e5: pip f6', 'e5: pip g7', 'e5: stamp f6', 'e5: stamp g7', 'e5: take f6'];
+  await p.mouse.move(1430, 450);
+  assert.deepEqual(await onParts(p), [], 'the next takes of the chain wait for their square');
+  await p.hover('.sq[data-sq="e5"]');
+  assert.deepEqual(await onParts(p), CHAIN, 'hover on e5 shows the next take f6, the barred g7 and their order pips');
+  assert.deepEqual(await p.$$eval('.pg-board [data-k="pip"]', gs => gs.map(g => `${g.dataset.at} ${g.dataset.n}`).sort()), ['f6 2', 'g7 3'], 'f6 is the second take, g7 the third');
+  await p.mouse.move(1430, 450);
+  assert.deepEqual(await onParts(p), [], 'they go with the pointer');
+  await p.focus('.sq[data-sq="d4"]');
+  for (const key of ['ArrowUp', 'ArrowRight']) await p.keyboard.press(key);
+  assert.deepEqual(await onParts(p), CHAIN, 'the keyboard focus on e5 shows them too');
+  await p.keyboard.press('ArrowDown');
+  assert.deepEqual(await onParts(p), [], 'and they go with the focus');
+  await tap(p, 'e5');
+  await p.hover('.sq[data-sq="a1"]');
+  assert.deepEqual(await onParts(p), CHAIN, 'a tap on e5 keeps them under its tag, wherever the pointer goes');
+  assert.deepEqual(await tag(p), { sq: 'e5', occ: 'Black pawn', count: '2', parts: ['move or take', 'takes again', 'then f6'], foot: 'Then it may take f6. Never the king on g7.' },
+    'the tag of e5 names the chain');
+  await shot(p, 'beast-hover-1440');
+  await p.click('.slot[data-piece="archer"]');
+  await p.hover('.sq[data-sq="d6"]');
+  assert.deepEqual(await onParts(p), ['d6: sight d6'], 'hover on the Archer\'s d6 shows its sight line');
+  assert.equal(await p.getAttribute('.pg-board [data-k="sight"]', 'data-from'), 'd4', 'from the Archer');
+  await p.hover('.sq[data-sq="b6"]');
+  assert.deepEqual(await onParts(p), ['b6: sight b6'], 'the empty b6 has its sight line too');
+  await p.click('.slot[data-piece="ogre"]');
+  await p.hover('.sq[data-sq="d6"]');
+  assert.deepEqual(await onParts(p), ['d6: follow d5'], 'hover on the Ogre\'s d6, where it pushes the pawn, shows that it follows to d5');
+  assert.equal(await p.getAttribute('.pg-board [data-k="follow"]', 'data-from'), 'd4', 'from the Ogre');
+  await shot(p, 'ogre-follow-1440');
+  await p.context().close();
+  // The phone has no hover: a tap opens the tag, and the tag shows them.
+  const q = await open('?workshop=a', { width: 390, height: 844 });
+  await door(q);
+  await q.click('.slot[data-piece="beast"]');
+  await tap(q, 'e5');
+  assert.deepEqual(await onParts(q), CHAIN.filter(x => !x.includes('stamp')), 'on the phone a tap on e5 shows its chain (the stamps wait for a kept rule)');
+  await shot(q, 'beast-why-390x844');
+  await q.context().close();
+}
+
 try {
   await opens();
   await poolPieces();
@@ -852,6 +973,8 @@ try {
   await pill();
   await whenChip();
   await removeRule();
+  await whyTag();
+  await hoverOnly();
   assertNoErrors();
   console.log('proving-ground: all groups pass');
 } finally {

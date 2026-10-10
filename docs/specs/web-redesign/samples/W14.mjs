@@ -1,13 +1,15 @@
-// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground tickets 01 to 04).
+// W14: the Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground tickets 01 to 05).
 // The open piece on its example board with its marks, the plinth with its rules, the key and the Pieces ledge;
 // a rule kept by a tap (hero-i1 to hero-i3) and a cracked knot (beast-cancel) (ticket 04); then
 // the editor (ticket 02): paint (Both armed), painted (My Pawn with its paint diff), weigh (the popover; on the phone,
 // the toast from ⋯) and phone-tools (the tools popover; on the desktop it is the paint state); then the rules (ticket 03):
 // stamp-preview (the Rules shelf, "Moves like" picked, the board previews it), stamped (Stamp), pill-open and when-open
 // (the row of the new rule's pill and chip; on the phone, in its card), three-of-three (S at 3 rules) and phone-sentence
-// (the rule card; on the desktop, the × bar of the line under the pointer).
+// (the rule card; on the desktop, the × bar of the line under the pointer); then the Why tag (ticket 05): hero (a tap on the
+// Paladin's d7), why-d7 (Enter on d7), why-g7 (refused), beast-hover (the pointer on the Beast's e5 shows its chain; on the
+// phone, a tap opens the sheet) and phone-why (the Pawn's d6, the longest caption, in the phone's sheet).
 // Mockup states to set beside them: open, hero, hero-i1, hero-i2, hero-i3, archer, beast, beast-cancel, maester, ogre, guard,
-// phone-open, paint, painted, stamp-preview, stamped (docs/research/rules-ui-2026-10-10/mockups/proving-ground.html?state=<id>, served, never file://).
+// phone-open, phone-hero, why-g7, paint, painted, stamp-preview, stamped (docs/research/rules-ui-2026-10-10/mockups/proving-ground.html?state=<id>, served, never file://).
 // The targets leave out the board squares (24 px or more, spec decision 9) and the later nubs and knots.
 // Run: SAMPLE=W14 node docs/specs/web-ux/capture.mjs <base-url> <out-dir>. Renders stay outside Git.
 import { pressMenu } from '../../../../tools/app-ui.mjs';
@@ -28,6 +30,12 @@ const piece = key => async ({ page }) => {
 const state = (name, key) => ({ name, query: '?workshop=a', save, targets, controls, steps: piece(key) });
 /** The Paladin with rule i kept by a tap on its seal. */
 const kept = i => ({ ...state(`hero-i${i + 1}`, 'paladin'), steps: async a => { await piece('paladin')(a); await a.page.click(`.sline[data-seal="${i}"] .sl-seal, .pg-pseal[data-seal="${i}"]`); } });
+/** The Why tag of square `sq` on pool piece `key`: a tap opens it (`how` 'tap'), or Enter on the focused square ('key'), or the pointer rests on it on the desktop ('hover'). */
+const why = (name, key, sq, how = 'tap') => ({ ...state(name, key), steps: async ({ page, size }) => {
+  await piece(key)({ page });
+  const at = `.sq[data-sq="${sq}"]`;
+  if (how === 'key') { await page.focus(at); await page.keyboard.press('Enter'); } else if (how === 'hover' && size !== 'phone') await page.hover(at); else await page.click(at);
+} });
 /** My Beast of the mockup, removed after anything (scenes.js:208-214), on the shelf. */
 const beastAny = JSON.stringify({ v: 1, designs: [{ v: 1, kind: 'piece', id: 'mybeast-any', name: 'My Beast', named: true, look: { body: 'S', auto: false, glow: null, army: 0 }, letter: 'Y',
   ownLetter: false, squares: [[-1, 1], [0, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [0, -1], [1, -1]].map(([x, y]) => ({ x, y, mark: 'both' })), lines: [],
@@ -60,7 +68,7 @@ export default {
   states: [
     state('open-pawn', 'pawn'),
     state('paladin', 'paladin'),
-    state('hero', 'paladin'),
+    why('hero', 'paladin', 'd7'),
     kept(0), kept(1), kept(2),
     state('archer', 'archer'),
     state('beast', 'beast'),
@@ -89,5 +97,9 @@ export default {
     seals('when-open', true, row('data-when')),
     seals('three-of-three', true, page => page.keyboard.press('s')),
     seals('phone-sentence', true, (page, phone) => (phone ? card(page, 'movesLike') : page.hover('.sline:has([data-rm="movesLike"])'))),
+    why('why-d7', 'paladin', 'd7', 'key'),
+    why('why-g7', 'paladin', 'g7'),
+    why('beast-hover', 'beast', 'e5', 'hover'),
+    why('phone-why', 'pawn', 'd6'),
   ],
 };

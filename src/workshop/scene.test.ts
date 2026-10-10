@@ -12,7 +12,7 @@ interface Hand {
   marks: { sq: string; k: string; cond?: string; on?: string }[];
   rails: { from: string; to: string; end: string; style?: string }[];
   arches: { from: string; over: string; to: string }[];
-  effects: { k: string; on?: string; a?: string; b?: string; from?: string; to?: string }[];
+  effects: { k: string; on?: string; a?: string; b?: string; from?: string; to?: string; sq?: string; n?: number }[];
 }
 const ctx = { window: {} as { KD?: { scenes: { get(id: string): Hand; check(): string[] } } } };
 runInNewContext(readFileSync(new URL('../../docs/research/rules-ui-2026-10-10/mockups/shared/scenes.js', import.meta.url), 'utf8'), ctx);
@@ -21,19 +21,22 @@ const sorted = <T>(l: T[]): T[] => [...l].sort((a, b) => JSON.stringify(a).local
 /** Sorted, less the why-trace's fields. */
 const plain = <T>(l: T[]) => sorted(l.map(x => ({ ...x, by: undefined, byWords: undefined })));
 
-/** The hand scene `id` and the built one, less what ticket 05 adds (hover-only marks and effects) and less the why-trace (why.test.ts). */
+/** The scenes whose hover-only marks and effects (`on`, ticket 05) the test compares: the hand scene of the Archer alone
+ *  leaves them out. The effects that the builder draws; the threat and "becomes" effects are those of later tickets. */
+const ON = ['beast', 'archer', 'ogre'], DRAWN = ['swap', 'push', 'follow', 'sight', 'hop', 'pip'];
+/** The hand scene `id` and the built one, less the why-trace (why.test.ts). */
 function both(id: string, d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'>) {
-  const hand = scenes.get(id), got = sceneOf(d, boardOf(hand.pieces), parseSq(hand.pieces.find(p => p.open)!.sq));
+  const hand = scenes.get(id), got = sceneOf(d, boardOf(hand.pieces), parseSq(hand.pieces.find(p => p.open)!.sq)), keep = (x: { on?: string }) => ON.includes(id) || !x.on;
   return [{
-    marks: plain(got.marks),
+    marks: plain(got.marks.filter(keep)),
     rails: plain(got.rails),
     arches: plain(got.arches),
-    effects: plain(got.effects),
+    effects: plain(got.effects.filter(keep)),
   }, {
-    marks: sorted(hand.marks.filter(m => !m.on).map(({ sq, k, cond }) => ({ sq, k, cond }))),
+    marks: sorted(hand.marks.filter(keep).map(({ sq, k, cond, on }) => ({ sq, k, cond, on }))),
     rails: sorted(hand.rails.map(({ from, to, end, style }) => ({ from, to, end, style }))),
     arches: sorted(hand.arches.map(({ from, over, to }) => ({ from, over, to }))),
-    effects: sorted(hand.effects.filter(e => (e.k === 'swap' || e.k === 'push') && !e.on).map(({ k, a, b, from, to }) => ({ k, a, b, from, to }))),
+    effects: sorted(hand.effects.filter(e => DRAWN.includes(e.k) && keep(e)).map(({ k, a, b, from, to, sq, n, on }) => ({ k, a, b, from, to, sq, n, on }))),
   }];
 }
 

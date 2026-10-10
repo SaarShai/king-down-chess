@@ -217,6 +217,37 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
 .pg-keyrow .k { display: grid; grid-template-rows: 38px auto; align-items: center; justify-items: center; gap: 2px; min-width: 44px; font-size: var(--fs-xs); color: var(--ink-soft); }
 .pg-keyrow svg { display: block; }
 
+/* ---- the Why tag under the key row, 336 wide (:244-275, grammar.css:174-179), and the rim notch at its square's row (:176-177) ---- */
+.pg-why { position: relative; flex: none; margin-top: 18px; animation: pg-tagin var(--dur-3) var(--ease-out) both; }
+@keyframes pg-tagin { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pg-why { animation: none; } }
+.pg-why .tag { position: relative; min-height: 200px; display: flex; flex-direction: column; padding: 12px 14px 14px 24px; border-radius: 4px 12px 12px 4px; background: var(--vellum);
+  box-shadow: 0 14px 34px -14px rgba(43, 38, 33, 0.45), 0 2px 6px rgba(43, 38, 33, 0.08); clip-path: polygon(14px 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px), 0 14px); }
+.pg-why .tag::before { content: ''; position: absolute; left: 5px; top: 22px; width: 7px; height: 7px; border-radius: 50%; background: var(--parchment-deep);
+  box-shadow: inset 0 1px 2px rgba(29, 25, 21, 0.5), 0 0 0 1.5px var(--gold); }
+.pg-why .pointer { position: absolute; left: -10px; width: 12px; height: 18px; margin-top: -9px; background: var(--gold-bright); clip-path: polygon(0 50%, 100% 0, 100% 100%);
+  filter: drop-shadow(0 0 2px rgba(122, 87, 18, 0.6)); }
+.why-h { display: flex; align-items: center; gap: 10px; }
+.why-h .pi { width: 28px; height: 28px; }
+.why-h .sqn { font: 600 18px/1 var(--font-display); letter-spacing: 0.06em; }
+.why-h .occ { flex: 1 1 auto; min-width: 0; font-size: var(--fs-sm); color: var(--ink-soft); }
+.count-ring { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; box-sizing: border-box; border: 2px solid var(--gold-ink);
+  color: var(--gold-ink); font: 700 13px/1 var(--font-body); }
+#workshop.pg .why-h .x { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; font-size: 20px; color: var(--ink-soft); }
+@media (hover: hover) { #workshop.pg .why-h .x:hover { background: rgba(43, 38, 33, 0.06); } }
+.why-sumrow { margin-top: 8px; display: flex; justify-content: center; }
+.why-sum { display: inline-flex; align-items: flex-start; gap: 6px; }
+.why-sum .part { display: grid; justify-items: center; gap: 4px; }
+.why-sum .part > small { max-width: 70px; font: 400 var(--fs-xs)/1.2 var(--font-body); color: var(--ink-soft); text-align: center; }
+.why-sum .op { align-self: flex-start; padding: 0 1px; font: 400 20px/56px var(--font-body); color: var(--ink-soft); }
+.why-sum .imp { display: grid; place-items: center; }
+.why-foot { margin: 8px 0 0; font: italic var(--fs-sm)/1.3 var(--font-body); color: var(--ink-soft); text-align: center; }
+.why-solo { display: grid; justify-items: center; gap: 6px; }
+.why-solo small { font-size: var(--fs-sm); color: var(--ink-soft); }
+.pg-notch { position: absolute; right: 0; top: calc(16px + (var(--row) + 0.5) * (100% - 32px) / 8 - 8px); width: 16px; height: 16px; pointer-events: none; }
+.pg-notch::before { content: ''; position: absolute; right: 2px; top: 2px; width: 10px; height: 12px; background: var(--gold-bright); clip-path: polygon(0 50%, 100% 0, 100% 100%);
+  filter: drop-shadow(0 0 3px rgba(233, 192, 113, 0.9)); }
+
 /* ---- the Rules shelf over the right column, 336 × 672 (:314-336); on the phone, a bottom sheet (:501-511) ---- */
 .pg-shelf { grid-area: 1 / 3; z-index: 20; min-height: 0; display: flex; flex-direction: column; padding: 10px 14px 14px; border-radius: var(--radius); background: var(--vellum); box-shadow: var(--shadow-float); }
 .pg-shelf header { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -336,7 +367,7 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   /* the board: no rim; the coordinates sit inside the edge squares */
   .pg-boardcol { margin-top: 8px; }
   .pg-rim { width: 100%; max-width: 560px; margin: 0 auto; background: none; box-shadow: none; }
-  .pg-rim::after, .pg-files, .pg-ranks, .pg-chev { display: none; }
+  .pg-rim::after, .pg-files, .pg-ranks, .pg-chev, .pg-notch { display: none; }
   .pg-field { inset: 0; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4), 0 10px 20px -10px rgba(20, 14, 8, 0.5); }
   .pg-coords { display: block; }
   .pg-coords span { position: absolute; font: 700 9px/1 var(--font-body); color: rgba(251, 247, 238, 0.85); text-shadow: 0 0 2px rgba(0, 0, 0, 0.8); pointer-events: none; }
@@ -369,9 +400,16 @@ img[src$="pawn-w.webp"] { clip-path: inset(0 1.4% 0 0); } /* the art has a stray
   .slot.open::before { top: 82px; }
   .lhead { margin-top: 110px; }
   .pg-toast { position: fixed; bottom: 12px; font-size: 14px; }
+  /* the Why tag: a bottom sheet over the brushes and the ledge, 358 px high and still as the rule card (:500-505); on a short screen half of it */
+  .pg-why { position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; margin: 0; animation: none; }
+  .pg-why .tag { min-height: min(358px, 50vh); min-height: min(358px, 50dvh); max-height: 358px; box-sizing: border-box; overflow-y: auto; padding: 18px 16px 16px;
+    border-radius: 16px 16px 0 0; clip-path: none; box-shadow: 0 -8px 40px rgba(20, 14, 8, 0.35); }
+  .pg-why .tag::before { left: 50%; top: 6px; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; box-shadow: none; background: var(--stone-300); }
 }
-/* the smallest phones: smaller seals and name, so a seven-letter name keeps one line */
+/* the smallest phones: smaller seals and name, so a seven-letter name keeps one line; the Why sum wraps */
 @media (max-width: 359px) {
   .pg-pseals .kd-seal { width: 34px; height: 34px; }
+  /* a sum of three rules does not fit one row: it wraps */
+  .why-sum { flex-wrap: wrap; justify-content: center; row-gap: 4px; }
   #workshop.pg .pg-name h3 { font-size: 16px; letter-spacing: 0.04em; }
 }

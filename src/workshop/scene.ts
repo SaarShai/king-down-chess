@@ -16,8 +16,9 @@ export type Kind = 'move' | 'take' | 'both' | 'shot' | 'moveshot';
 /** `k` is the piece's engine name; the open design is 'design', because its look comes from the design. */
 export interface ScenePiece { sq: string; k: string; side: 'w' | 'b'; open?: true }
 /** `by` (here and below): the rules, by their index in canonical(d).rules (the seals I, II and III), that make, change or refuse it.
- *  `pv`: a preview adds it (a choice or a new rule that the player looks at, ground.ts). */
-type By = { by?: number[]; pv?: true };
+ *  `pv`: a preview adds it (a choice or a new rule that the player looks at, ground.ts). `on`: a hover-only part, shown while
+ *  the square `on` has the pointer, the keyboard focus or the open Why tag (spec decision 37). */
+type By = { by?: number[]; pv?: true; on?: string };
 /** `x`: the line ends in a take; `stop`: a friend stops it; `arrow`: the board edge; `blocked`: an enemy that a rule refuses. */
 export interface Rail extends By { from: string; to: string; end: 'x' | 'stop' | 'arrow' | 'blocked'; style?: 'asleep' | 'awake' }
 export interface Scene {
@@ -27,9 +28,10 @@ export interface Scene {
   marks: (By & { sq: string; k: Kind | 'blocked' | 'blocked-move'; cond?: 'asleep' | 'awake'; byWords?: string; diff?: '+' | '-' })[];
   rails: Rail[];
   arches: (By & { from: string; over: string; to: string })[];
-  effects: (By & ({ k: 'swap'; a: string; b: string } | { k: 'push'; from: string; to: string }))[];
+  /** The hover-only effects: `follow` (the piece follows its push), `sight` (a shot's line), and a chain's `hop` and order `pip`. */
+  effects: (By & ({ k: 'swap'; a: string; b: string } | { k: 'push' | 'follow' | 'sight' | 'hop'; from: string; to: string } | { k: 'pip'; sq: string; n: number }))[];
   /** The stamps on a mark: the table rule that refuses it (no `by`), then each rule of its `by`. */
-  impressions: { sq: string; list: { a: Ability['a']; by?: number }[] }[];
+  impressions: { sq: string; list: { a: Ability['a']; by?: number }[]; on?: string }[];
   /** The zone of a rule's When, shown while that rule is isolated. */
   chalk: (By & { zone: Zone })[];
   knots: Knot[];
@@ -98,7 +100,7 @@ function layer(d: D, board: Uint8Array, from: number, st: TryState) {
   return { marks: new Map([...can].map(([s, n]) => [s, kindOf(n)])), rails, arches, moves };
 }
 
-/** The scene of design `d` for the piece on `from`, with the why-trace's stamps, refused targets and knots. Ticket 05 adds the hover-only marks. */
+/** The scene of design `d` for the piece on `from`, with the why-trace's stamps, refused targets and knots, and the hover-only parts. */
 export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState = START): Scene {
   const d = canonical(design), now = layer(d, board, from, st), trace = traceOf(d, board, from, st);
   const by = (s: number): number[] | undefined => trace.by.get(s)?.map(x => x.i), of = (a: Ability['a']): number[] => [d.rules.findIndex(r => r.does.a === a)].filter(i => i >= 0);
@@ -117,24 +119,40 @@ export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState
       for (const rl of other.rails) if (!lines.has(lineOf(rl))) rails.push({ ...rl, style: 'asleep', by: [i] });
     }
   }
-  // A refused first take is grey with a bar, by the rules that refuse it only (a push and a swap may both refuse a king);
-  // a chain's refused next take waits for its hover (ticket 05).
+  const effects = new Map<string, Scene['effects'][number]>();
+  // Hover-only (decision 37), on a chain's first take: each next take with its order pip and its hop from the take
+  // before it; the refused next take (below) gets its pip too.
+  const onOf = (caps: number[]): string | undefined => (caps.length ? sqName(caps[0]) : undefined);
+  const pip = (sq: string, n: number, on: string): void => { if (!effects.has(`pip ${on} ${sq}`)) effects.set(`pip ${on} ${sq}`, { k: 'pip', sq, n, on }); };
+  for (const m of now.moves) {
+    const on = onOf(m.captures)!;
+    m.captures.slice(1).forEach((s, k) => {
+      if (!marks.some(x => x.sq === sqName(s) && x.on === on)) marks.push({ sq: sqName(s), k: 'take', by: by(s), on });
+      pip(sqName(s), k + 2, on);
+      effects.set(`hop ${on} ${sqName(s)}`, { k: 'hop', from: sqName(m.captures[k]), to: sqName(s), on });
+    });
+  }
+  // A refused take is grey with a bar, by the rules that refuse it only (a push and a swap may both refuse a king).
   for (const r of trace.refused) {
-    const m = r.caps.length ? null : marks.find(x => x.sq === sqName(r.sq)), by = r.rule === undefined ? [] : [r.rule];
-    if (m?.k.startsWith('blocked')) Object.assign(m, { by: [...m.by ?? [], ...by].sort(), byWords: `${m.byWords}, ${r.words}` });
-    else if (m === undefined) marks.push({ sq: sqName(r.sq), k: r.why === 'push' || r.why === 'swap' ? 'blocked-move' : 'blocked', by: by.length ? by : undefined, byWords: r.words });
+    const on = onOf(r.caps), m = marks.find(x => x.sq === sqName(r.sq) && x.on === on), by = r.rule === undefined ? [] : [r.rule];
+    if (m?.k.startsWith('blocked') && !m.byWords?.includes(r.words)) Object.assign(m, { by: [...m.by ?? [], ...by].sort(), byWords: `${m.byWords}, ${r.words}` });
+    else if (!m) marks.push({ sq: sqName(r.sq), k: r.why === 'push' || r.why === 'swap' ? 'blocked-move' : 'blocked', by: by.length ? by : undefined, byWords: r.words, ...on && { on } });
+    if (on) pip(sqName(r.sq), r.caps.length + 1, on);
   }
   const impressions = marks.flatMap(m => {
-    const table = m.k.startsWith('blocked') && trace.refused.some(r => r.rule === undefined && sqName(r.sq) === m.sq);
+    const table = m.k.startsWith('blocked') && trace.refused.some(r => r.rule === undefined && sqName(r.sq) === m.sq && onOf(r.caps) === m.on);
     const list = [...(table ? [{ a: 'cannotBeTaken' as const }] : []), ...(m.by ?? []).map(i => ({ a: d.rules[i].does.a, by: i }))];
-    return list.length ? [{ sq: m.sq, list }] : [];
+    return list.length ? [{ sq: m.sq, list, ...m.on && { on: m.on } }] : [];
   });
   const chalk = d.rules.flatMap((r, i) => (r.when.on === 'zone' || r.when.on === 'reaches' ? [{ zone: r.when.zone, by: [i] }] : []));
-  const effects = new Map<string, Scene['effects'][number]>();
   for (const m of now.moves) {
     if (m.swap) effects.set(`swap ${m.to}`, { k: 'swap', a: sqName(from), b: sqName(m.to), by: of('swap') });
     if (m.shove) effects.set(`push ${m.shove.from}`, { k: 'push', from: sqName(m.shove.from), to: sqName(m.shove.to), by: of('push') });
+    // Hover-only: the piece follows its push, on the push's landing square (the Ogre).
+    if (m.shove && m.to !== from) effects.set(`follow ${m.shove.from}`, { k: 'follow', from: sqName(from), to: sqName(m.to), on: sqName(m.shove.to), by: of('push') });
   }
+  // Hover-only: a shot's sight line, on each shot mark (the Archer).
+  for (const [s, k] of now.marks) if (k === 'shot' || k === 'moveshot') effects.set(`sight ${s}`, { k: 'sight', from: sqName(from), to: sqName(s), on: sqName(s) });
   const pieces: ScenePiece[] = [];
   board.forEach((v, s) => {
     if (!v) return;

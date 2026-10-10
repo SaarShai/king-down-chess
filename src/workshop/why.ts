@@ -2,14 +2,16 @@
  * The why-trace of the Proving Ground (docs/specs/workshop-proving-ground, ticket 04; the review
  * docs/research/rules-ui-2026-10-10/REVIEW.md, section 6, items 2 and 3): the rules that make, change or refuse each
  * mark. It runs movesOf again with each rule removed, and with a pair removed, and compares the squares. A removal
- * shows influence, not order: a rule that works only with another rule shows on both. Pure, so it runs in Node.
+ * shows influence, not order: a rule that works only with another rule shows on both. Then the words of the Why tag
+ * (ticket 05). Pure, so it runs in Node.
  */
-import { BLACK, colorOf, file, rank, sqName, type Move } from '../rules/engine';
+import { BLACK, colorOf, file, parseSq, rank, sqName, type Move } from '../rules/engine';
 import { clickPath } from '../marks-model';
-import { DIR, canonical, type Dir, type PieceDesign, type Square } from './model';
+import { DIR, canonical, type Ability, type Dir, type PieceDesign, type Rule, type Square } from './model';
 import { START, movesOf, type Refused, type TryState } from './moves';
-import { cap } from './text';
-import { blockOf } from './vocab';
+import type { Kind, Scene, ScenePiece } from './scene';
+import { brief, cap } from './text';
+import { blockOf, choiceText, whenWords } from './vocab';
 
 type D = Pick<PieceDesign, 'squares' | 'lines' | 'rules'>;
 /** `+` the rule adds the mark, `-` it refuses or removes the mark, `~` it changes the mark (for example "removed too"). */
@@ -88,4 +90,67 @@ export function traceOf(d: D, board: Uint8Array, from: number, st: TryState = ST
     refused.push(i < 0 ? { ...r, words } : { ...r, rule: i, words });
   }
   return { by, base, refused, knots };
+}
+
+/** The Why tag of one square (renderWhy and whyData, proving-ground.html:912-936, :1330-1364). */
+export interface Why {
+  /** The occupant: "Black knight", "Empty", or the open piece's name; `piece` gives its icon. */
+  occupant: string; piece?: ScenePiece;
+  /** The parts that make the mark (the count ring): its base and each rule; 0 for a square with no mark. */
+  count: number;
+  /** The sum (whySum, marks.js:909): the base (the painted square, a painted line, or 'empty'), + the stamp of each rule,
+   *  = the mark now with the stamps of the rules that change it (`tags`); a caption under each part. */
+  sum?: { base: Kind | 'empty'; rail?: Dir; stamps: Ability['a'][]; result: Scene['marks'][number]['k']; cond?: 'asleep' | 'awake'; tags: Ability['a'][]; captions: string[] };
+  /** The words of a square with no mark. */
+  solo?: string;
+  /** A note under the sum: a take where the piece stays, a chain's next takes and refused take, a swap or a push. */
+  foot?: string;
+}
+/** The caption of a painted square or of the mark now (whyData's names, proving-ground.html:928). */
+const SAY: Record<Kind | 'empty' | 'blocked' | 'blocked-move', string> = {
+  move: 'move', take: 'takes', both: 'move or take', shot: 'shot: takes from here', moveshot: 'move or shot', blocked: 'refused', 'blocked-move': 'refused', empty: 'not painted',
+};
+const KIND: Record<Square['mark'], Kind> = { move: 'move', take: 'take', both: 'both', shoot: 'shot', moveShoot: 'moveshot' };
+/** A rule's caption: the seal's label with its pill's words in place of "…", then a state rule's When ("moves like a queen, on a center square"). */
+function ruleWords(r: Rule): string {
+  const b = blockOf(r.does.a), v = b.pill && brief(choiceText(b.pill.choices, (r.does as unknown as Record<string, string>)[b.pill.key]));
+  const w = b.label.toLowerCase().replace('…', ` ${v}`);
+  return b.event || r.when.on === 'always' ? w : `${w}, ${whenWords(r.when)}`;
+}
+const one = (k: string): string => `${/^[aeiou]/.test(k) ? 'an' : 'a'} ${k}`;
+
+/** The Why tag of square `q`: design `d` (its name for its own square), its scene, and its why-trace. */
+export function whyWords(d: D & { name?: string }, sc: Scene, trace: Trace, q: string): Why {
+  const rules = canonical(d).rules, at = (sq: string) => sc.pieces.find(p => p.sq === sq), occ = at(q), s = parseSq(q);
+  const foe = (sq: string): boolean => !!at(sq) && at(sq)!.side !== sc.pieces.find(p => p.open)?.side;
+  const occupant = !occ ? 'Empty' : occ.open ? d.name || 'This piece' : `${occ.side === 'b' ? 'Black' : 'White'} ${occ.k}`;
+  // The mark now; a square that only a chain reaches shows its hover-only take.
+  const m = sc.marks.find(x => x.sq === q && !x.on && x.diff !== '-') ?? sc.marks.find(x => x.sq === q && x.on);
+  const fx = sc.effects.find(e => (e.k === 'swap' && e.b === q) || (e.k === 'push' && e.from === q));
+  const moved = fx?.k === 'swap' ? `It may swap places with the ${occ!.k}.` : fx?.k === 'push' ? `It may push the ${occ!.k} to ${fx.to}.` : '';
+  if (!m) return { occupant, piece: occ, count: 0, solo: occ?.open ? 'It stands here.' : occ && !foe(q) ? 'Its own piece.' : 'Out of reach.', ...moved && { foot: moved } };
+
+  const base = trace.base.get(s), rail = base && base in DIR ? base as Dir : undefined;
+  const imps = sc.impressions.find(i => i.sq === q && i.on === m.on)?.list ?? [];
+  const table = trace.refused.find(r => r.rule === undefined && r.sq === s)?.words.toLowerCase() ?? '';
+  const changes = (sq: string, a: Ability['a']): boolean => !!trace.by.get(parseSq(sq))?.some(x => x.sign === '~' && rules[x.i].does.a === a);
+  const tags = imps.flatMap(x => (x.by !== undefined && changes(q, x.a) ? [x.a] : []));
+  const takes = (x: Scene['marks'][number]): boolean => !x.on && foe(x.sq) && ['take', 'both', 'shot', 'moveshot'].includes(x.k);
+  // A take where the piece stays, beside the takes that remove it ("removed too") or a shot; a chain's next takes on its first take.
+  const stays = (x: Scene['marks'][number]): boolean => !changes(x.sq, 'removedAfter');
+  const other = sc.marks.find(x => takes(x) && stays(x));
+  const kept = takes(m) && (m.k.includes('shot') || rules.some(r => r.does.a === 'removedAfter'))
+    ? stays(m) ? `It takes ${one(occ!.k)} and stays.` : other ? `On ${other.sq} it takes ${one(at(other.sq)!.k)} and stays.` : '' : '';
+  const next = sc.marks.filter(x => x.on === q), takes2 = next.filter(x => x.k === 'take').map(x => x.sq);
+  const foot = [kept, takes2.length ? `Then it may take ${list(takes2)}.` : '', ...next.filter(x => x.k === 'blocked').map(x => `Never the ${at(x.sq)!.k} on ${x.sq}.`),
+    m.on ? `It takes ${m.on} first.` : '', moved].filter(Boolean).join(' ');
+  return {
+    occupant, piece: occ, count: 1 + imps.length,
+    sum: {
+      base: rail ? 'move' : base ? KIND[base as Square['mark']] : 'empty', rail, stamps: imps.map(x => x.a), result: m.k, cond: m.cond, tags,
+      captions: [rail ? 'line' : SAY[base ? KIND[base as Square['mark']] : 'empty'], ...imps.map(x => (x.by === undefined ? table : ruleWords(rules[x.by]))),
+        m.cond ? `${m.cond} here` : tags.includes('removedAfter') ? 'takes, then leaves' : takes2.length ? `then ${list(takes2)}` : SAY[m.k]],
+    },
+    ...foot && { foot },
+  };
 }

@@ -1,15 +1,16 @@
 /**
  * The Proving Ground's marks: the part of the approved mockup's mark module
- * (docs/research/rules-ui-2026-10-10/mockups/shared/marks.js, its line numbers in the comments) that tickets 01 and
- * 04 draw. The tiles, targets, shots, occupied takes and badges come from src/render/legend.ts; the blocks and
+ * (docs/research/rules-ui-2026-10-10/mockups/shared/marks.js, its line numbers in the comments) that tickets 01 to
+ * 05 draw. The tiles, targets, shots, occupied takes and badges come from src/render/legend.ts; the blocks and
  * When words from vocab.ts. The refused forms, the stamps, the knots and the zone chalk stay here: the legend has
  * none. The mockup's looks `wash` and `familyWax` are always on. Later tickets port the rest.
  */
 import { DEFS as LEG_DEFS, LEG, badge, occupied, tile as legendTile, toSvg, type Shape } from '../render/legend';
-import type { Ability, PaintOn, When, Zone } from './model';
+import { DIR, type Ability, type Dir, type PaintOn, type When, type Zone } from './model';
 import type { Scene, ScenePiece } from './scene';
 import { esc } from './text';
 import { blockOf, whenWords, type Group } from './vocab';
+import type { Why } from './why';
 
 /** The colours that the legend does not hold (marks.js:73-86): the stone greys of a refused mark, the wax red of a stamp, the chalk. */
 const C = { goldI: '#7a5712', push: '#2f7f75', swap: '#7a58c0', acc: '#842c21', bFill: '#c9bfac', bX: '#8a8072', bBar: '#4d453c', chalk: 'rgba(251,247,238,.95)', chalkSh: 'rgba(43,38,33,.55)' };
@@ -105,21 +106,27 @@ function stopBar(pt: P, u: P, s: number): string {
   const h = 0.25 * s, a = [pt[0] - u[1] * h, pt[1] + u[0] * h], b = [pt[0] + u[1] * h, pt[1] - u[0] * h];
   return line(a[0], a[1], b[0], b[1], LEG.halo, 6, 'stroke-linecap="round"') + line(a[0], a[1], b[0], b[1], LEG.navy, 3, 'stroke-linecap="round"');
 }
-/** "Passes over": a dashed gold-ink arc with an arrowhead, bulging up (marks.js:441-464, the gold look). */
-function arch(p0: P, p1: P, s: number): string {
-  const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2, vx = p1[0] - p0[0], vy = p1[1] - p0[1], L = Math.hypot(vx, vy) || 1;
+/** "Passes over": a dashed gold-ink arc with an arrowhead, bulging up (marks.js:441-464, the gold look); a shot's sight
+ *  line is a flatter one. `ink`: a chain's hop, a solid ink arc. */
+function arch(p0: P, p1: P, s: number, o: { bulge?: number; ink?: boolean } = {}): string {
+  const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2, vx = p1[0] - p0[0], vy = p1[1] - p0[1], L = Math.hypot(vx, vy) || 1, k = 2 * (o.bulge ?? 0.45) * s;
   let nx = -vy / L, ny = vx / L;
   if (Math.abs(vx) < 1e-6) { if (nx < 0) { nx = -nx; ny = -ny; } } else if (ny > 0) { nx = -nx; ny = -ny; }
-  const c = [mx + nx * 0.9 * s, my + ny * 0.9 * s], d = `M${n(p0[0])} ${n(p0[1])}Q${n(c[0])} ${n(c[1])} ${n(p1[0])} ${n(p1[1])}`;
-  const sw = s >= 40 ? 2.5 : 1.8;
-  let g = `<g filter="url(#kdm-arc-shadow)"><path d="${d}" fill="none" stroke="${LEG.gold}" stroke-width="${n(sw + 2.5)}" stroke-linecap="round" stroke-opacity=".75"/>`
-    + `<path d="${d}" fill="none" stroke="${C.goldI}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="6 4"/></g>`;
+  const c = [mx + nx * k, my + ny * k], d = `M${n(p0[0])} ${n(p0[1])}Q${n(c[0])} ${n(c[1])} ${n(p1[0])} ${n(p1[1])}`;
+  const sw = o.ink ? 2 : s >= 40 ? 2.5 : 1.8, [col, halo] = o.ink ? [LEG.ink, LEG.halo] : [C.goldI, LEG.gold];
+  let g = o.ink ? `<path d="${d}" fill="none" stroke="${halo}" stroke-width="${sw + 3}" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round"/>`
+    : `<g filter="url(#kdm-arc-shadow)"><path d="${d}" fill="none" stroke="${halo}" stroke-width="${n(sw + 2.5)}" stroke-linecap="round" stroke-opacity=".75"/>`
+      + `<path d="${d}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="6 4"/></g>`;
   if (s >= 24) {
     const ul = Math.hypot(p1[0] - c[0], p1[1] - c[1]), hl = Math.max(5, 0.12 * s);
-    g += `<path d="${tri(p1, [(p1[0] - c[0]) / ul, (p1[1] - c[1]) / ul], hl, hl * 0.6)}" fill="${C.goldI}" stroke="${LEG.gold}" stroke-width="1"/>`;
+    g += `<path d="${tri(p1, [(p1[0] - c[0]) / ul, (p1[1] - c[1]) / ul], hl, hl * 0.6)}" fill="${col}" stroke="${halo}" stroke-width="1"/>`;
   }
   return g;
 }
+/** A chain's order pip: an ink disc with the take's number (pip, marks.js:606-609). */
+const pip = (cx: number, cy: number, d: number, num: number) =>
+  `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(d / 2 + 1.5)}" fill="${LEG.halo}"/><circle cx="${n(cx)}" cy="${n(cy)}" r="${n(d / 2)}" fill="${LEG.ink}"/>`
+  + `<text x="${n(cx)}" y="${n(cy + d * 0.3)}" text-anchor="middle" font-family="Alegreya Sans, sans-serif" font-weight="700" font-size="${n(d * 0.78)}" fill="${LEG.white}">${num}</text>`;
 
 /* ---- the push and swap arrows (marks.js:533-555) ---- */
 
@@ -280,15 +287,27 @@ export function knot(type: 'gold' | 'cracked', len: number): string {
     + [pad, len - pad].map(cx => `<circle cx="${n(cx)}" cy="${w - 3}" r="2.4" fill="${ink}"/>`).join('') + '</g></svg>';
 }
 
-/* ---- single tiles and effects for the key (marks.js:852-918) ---- */
+/* ---- single tiles and effects for the key and the Why tag (marks.js:852-918) ---- */
 
-/** A full-strength legend tile in an SVG of `size` px; `rail` adds a rail stub to the right with its arrowhead. */
-export function tile(kind: MarkKind, size: number, o: { cond?: Style; rail?: boolean } = {}): string {
-  const s = size, c = s / 2;
-  const inner = (o.rail ? rail([0, c], [c + s * 0.28, c], s) : '') + tileSvg(kind, 0, 0, s, { solid: true, cond: o.cond })
-    + (o.rail ? arrowHead([c + s * 0.46, c], [1, 0], s * 0.8) : '');
+/** A full-strength legend tile in an SVG of `size` px; 'empty' is its frame alone. `rail` adds a rail stub through it with
+ *  its arrowhead in that direction; `tags`, the stamps at the top right. */
+export function tile(kind: MarkKind | 'empty', size: number, o: { cond?: Style; rail?: Dir; tags?: readonly Ability['a'][] } = {}): string {
+  const s = size, c = s / 2, [dx, dy] = DIR[o.rail ?? 'e'], L = Math.hypot(dx, dy), u: P = [dx / L, -dy / L];
+  const at = (k: number): P => [c + u[0] * s * k, c + u[1] * s * k];
+  const inner = (o.rail ? rail(at(-0.5), at(0.28), s) : '')
+    + (kind === 'empty' ? toSvg(legendTile('move', 0, 0, s, { solid: true }).filter(sh => sh.k === 'rect' && !sh.fill)) : tileSvg(kind, 0, 0, s, { solid: true, cond: o.cond }))
+    + (o.rail ? arrowHead(at(0.46), u, s * 0.8) : '') + (o.tags?.length ? stamps(o.tags, 0, 0, s) : '');
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" overflow="visible" aria-hidden="true">${inner}</svg>`;
 }
+/** The Why tag's sum (whySum, marks.js:909-919): the base, + the stamp of each rule, = the mark now; a caption under each part. */
+export function whySum(w: NonNullable<Why['sum']>, T: number, I: number): string {
+  const part = (svg: string, i: number): string => `<span class="part">${svg}<small>${esc(w.captions[i])}</small></span>`;
+  return `<span class="why-sum">${part(tile(w.base, T, { rail: w.rail }), 0)}`
+    + w.stamps.map((a, i) => `<span class="op">+</span>${part(`<span class="imp" style="height:${T}px">${impression(a, I)}</span>`, i + 1)}`).join('')
+    + `<span class="op">=</span>${part(tile(w.result, T, { cond: w.cond, tags: w.tags }), w.stamps.length + 1)}</span>`;
+}
+/** The count ring: the number of parts that make the mark (grammar.css:178). */
+export const countRing = (k: number): string => `<span class="count-ring" title="${k} part${k > 1 ? 's make' : ' makes'} this mark">${k}</span>`;
 export function effect(kind: 'arch' | 'push' | 'swap', s: number): string {
   const c = s / 2, head = Math.max(7, s * 0.125);
   const g = kind === 'arch' ? arch([s * 0.08, s * 0.85], [s * 0.92, s * 0.85], s * 0.9)
@@ -341,15 +360,20 @@ function chalk(z: Zone, side: 'w' | 'b', s: number): string {
 
 /**
  * The scene as SVG in four layers: the chalk of the isolated rule's zone, under (rails, marks, line ends, glows), the
- * pieces, and over (arches, take badges, swaps and pushes, stamps). The board image is the field's background. `art`
- * gives each piece's image. `focus` isolates (drawString's o.focus, marks.js:1014-1020): each part whose `by` it keeps
- * glows, and every other part is dim. `stamps` keeps the stamps of some rules only (the phone). Only a mark's group
- * has data-sq (with data-k, data-cond and data-diff; a '-' mark has the class kdm-ghost); a rail, an arch and an
- * effect have data-k, data-from and data-to; a badge has data-badge, and the stamps of a square data-stamp and data-a
- * (the rules' abilities). A part that a preview adds (the scene's `pv`) has data-pv.
+ * pieces, and over (arches, take badges, swaps, pushes and the hover-only effects, stamps, the Why tag's square). The
+ * board image is the field's background. `art` gives each piece's image. `focus` isolates (drawString's o.focus,
+ * marks.js:1014-1020): each part whose `by` it keeps glows, and every other part is dim. `stamps` keeps the stamps of
+ * some rules only (the phone). A hover-only part (its `on`) shows only when `hover` is its square (marks.js:1020);
+ * `select` frames the square of the open Why tag (marks.js:1167-1170). Only a mark's group has data-sq (with data-k,
+ * data-cond, data-diff and data-on; a '-' mark has the class kdm-ghost); a rail, an arch and an effect have data-k,
+ * data-from and data-to (a pip: data-at and data-n); a badge has data-badge, and the stamps of a square data-stamp and
+ * data-a (the rules' abilities). A part that a preview adds (the scene's `pv`) has data-pv.
  */
-export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) => string; focus?: (by: readonly number[]) => boolean; stamps?: (by?: number) => boolean }): string {
+export function drawString(scene: Scene, o: {
+  s: number; art: (p: ScenePiece) => string; focus?: (by: readonly number[]) => boolean; stamps?: (by?: number) => boolean; hover?: string | null; select?: string | null;
+}): string {
   const s = o.s, XY = (q: string) => squareXY(q, s), CTR = (q: string): P => { const { x, y } = XY(q); return [x + s / 2, y + s / 2]; };
+  const shown = <T extends { on?: string }>(l: readonly T[]): T[] => l.filter(x => !x.on || x.on === o.hover);
   const open = scene.pieces.find(p => p.open), side = open?.side ?? 'w';
   const enemy = (q: string) => scene.pieces.some(p => p.sq === q && p.side !== side);
   const group = (attrs: Record<string, string | undefined>, svg: string, by?: readonly number[]) => {
@@ -372,12 +396,12 @@ export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) =>
     under += group({ k: 'line', from: rl.from, to: rl.to, end: rl.end, pv: rl.pv && '1' }, rail(p0, p1, s, { style: rl.style, wash: true }), rl.by);
     if (end) ends += group({ k: 'line-end', to: rl.to }, end, rl.by);
   }
-  for (const m of scene.marks) {
+  for (const m of shown(scene.marks)) {
     const { x, y } = XY(m.sq), foe = enemy(m.sq) && m.diff !== '-', foot = y + 0.9 * s;
     // A refused take is the grey occupied take; a refused push or swap is a grey tile under the king.
     const svg = !foe || m.k === 'blocked-move' ? tileSvg(m.k, x, y, s, { cond: m.cond, diff: m.diff })
       : toSvg(m.k === 'blocked' ? grey(occupied('take', x, y, s, foot, { cond: m.cond }), C.bBar) : occupied(m.k, x, y, s, foot, { cond: m.cond })) + diffPip(x, y, s, m.diff);
-    under += group({ sq: m.sq, k: m.k, cond: m.cond, diff: m.diff, pv: m.pv && '1', class: m.diff === '-' ? 'kdm-ghost' : undefined }, svg, m.by);
+    under += group({ sq: m.sq, k: m.k, cond: m.cond, diff: m.diff, on: m.on, pv: m.pv && '1', class: m.diff === '-' ? 'kdm-ghost' : undefined }, svg, m.by);
     if (foe && m.k !== 'blocked-move') over += group({ badge: m.sq }, m.k === 'blocked' ? refusedBadge(x, y, s) : toSvg(badge(x, y, s, m.k)), m.by);
   }
   under += ends;
@@ -388,14 +412,24 @@ export function drawString(scene: Scene, o: { s: number; art: (p: ScenePiece) =>
   }).join('');
   for (const ar of scene.arches) over += group({ k: 'arch', from: ar.from, over: ar.over, to: ar.to, pv: ar.pv && '1' }, arch(CTR(ar.from), CTR(ar.to), s), ar.by);
   const head = clamp(s * 0.125, 7, 10);
-  for (const e of scene.effects) {
-    over += e.k === 'push'
-      ? group({ k: 'push', from: e.from, to: e.to, pv: e.pv && '1' }, arrowLine(CTR(e.from), CTR(e.to), C.push, 3, { trim0: s * 0.16, trim1: s * 0.18, head }), e.by)
-      : group({ k: 'swap', from: e.a, to: e.b, pv: e.pv && '1' }, arrowLine(CTR(e.a), CTR(e.b), C.swap, 3, { both: true, trim0: s * 0.12, trim1: s * 0.12, head }), e.by);
+  // The effects (marks.js:1133-1160); a follow is a thin push arrow, a sight line a flat gold arc, a hop an ink arc.
+  for (const e of shown(scene.effects)) {
+    const svg = e.k === 'swap' ? arrowLine(CTR(e.a), CTR(e.b), C.swap, 3, { both: true, trim0: s * 0.12, trim1: s * 0.12, head })
+      : e.k === 'pip' ? pip(XY(e.sq).x + s - 10, XY(e.sq).y + s - 10, 14, e.n)
+      : e.k === 'push' ? arrowLine(CTR(e.from), CTR(e.to), C.push, 3, { trim0: s * 0.16, trim1: s * 0.18, head })
+      : e.k === 'follow' ? arrowLine(CTR(e.from), CTR(e.to), C.push, 1.5, { trim0: s * 0.2, trim1: s * 0.24, head: clamp(s * 0.1, 6, 8) })
+      : arch(CTR(e.from), CTR(e.to), s, e.k === 'sight' ? { bulge: 0.2 } : { bulge: 0.25, ink: true });
+    const ends = e.k === 'swap' ? { from: e.a, to: e.b } : e.k === 'pip' ? { at: e.sq, n: String(e.n) } : { from: e.from, to: e.to };
+    over += group({ k: e.k, ...ends, on: e.on, pv: e.pv && '1' }, svg, e.by);
   }
-  for (const im of scene.impressions) {
+  for (const im of shown(scene.impressions)) {
     const list = im.list.filter(x => !o.stamps || o.stamps(x.by)), { x, y } = XY(im.sq);
-    if (list.length) over += group({ stamp: im.sq, a: list.map(i => i.a).join(' ') }, stamps(list.map(i => i.a), x, y, s), list.flatMap(i => i.by ?? []));
+    if (list.length) over += group({ stamp: im.sq, a: list.map(i => i.a).join(' '), on: im.on }, stamps(list.map(i => i.a), x, y, s), list.flatMap(i => i.by ?? []));
+  }
+  if (o.select) {
+    const { x, y } = XY(o.select), frame = (i: number, stroke: string, w: number) =>
+      `<rect x="${n(x + i)}" y="${n(y + i)}" width="${n(s - 2 * i)}" height="${n(s - 2 * i)}" rx="${n(0.07 * s)}" fill="none" stroke="${stroke}" stroke-width="${w}"/>`;
+    over += `<g data-select="${o.select}">${frame(1, LEG.ink, 5)}${frame(1.5, LEG.gold, 3)}</g>`;
   }
   return `<g class="kdm-chalk">${zones}</g><g class="kdm-under">${under}</g><g class="kdm-pieces">${pieces}</g><g class="kdm-over">${over}</g>`;
 }
