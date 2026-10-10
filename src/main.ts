@@ -41,7 +41,7 @@ import { connectPreviously } from './ui/previously';
 import { connectGuide, kingArt, pieceArt, pieceText } from './ui/guide';
 import { gameUrl } from './screen/links';
 import { LOOK_KEY, connectSettings } from './screen/settings';
-import type { Save } from './screen/save';
+import { readSave, writeSave, type Save } from './screen/save';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -920,7 +920,6 @@ async function copyAndSay(button: HTMLElement, text: string, done: string): Prom
 }
 
 /* ---- autosave ---- */
-const SAVE_KEY = 'kingdown.save';
 /** Settings → Account and the cloud save, loaded after the board is drawn (null until then, or offline). */
 let account: typeof import('./account/account') | null = null;
 /** A newer saved game came from the account during a lesson: Return to game opens it. */
@@ -930,21 +929,19 @@ function save(): void {
   // A lesson never replaces the saved game: it changes only the settings in the save.
   const kept = lesson == null ? null : readSave();
   if (lesson != null && !kept) return;
-  try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(kept ? { ...kept, ...settings.settingsNow() } : {
-      back: game.backRank,
-      fen: toFen(game.history[0]?.pos ?? game.pos), // the position the game started from
-      moves: game.history.map(h => h.lan),
-      white: sides[0], black: sides[1],
-      ...settings.settingsNow(),
-      link: linkSide,
-      daily,
-      resigned,
-      // The rules the game is playing, so opening the save without its URL replays the same game
-      // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
-      rules: { ...GAME_RULES },
-    } satisfies Save));
-  } catch { /* private mode or a full quota: play on without a save */ }
+  writeSave(kept ? { ...kept, ...settings.settingsNow() } : {
+    back: game.backRank,
+    fen: toFen(game.history[0]?.pos ?? game.pos), // the position the game started from
+    moves: game.history.map(h => h.lan),
+    white: sides[0], black: sides[1],
+    ...settings.settingsNow(),
+    link: linkSide,
+    daily,
+    resigned,
+    // The rules the game is playing, so opening the save without its URL replays the same game
+    // (`?rules=2017`, `?kings=…`; docs/TAKEOVER-PLAN.md §2).
+    rules: { ...GAME_RULES },
+  });
   account?.changed();
 }
 
@@ -999,14 +996,6 @@ function openSaved(s: Save): void {
   // Over the title or New game the computer waits, as at start-up; the title offers this game.
   if ($<HTMLDialogElement>('title-screen').open) { $('title-continue').hidden = !game.history.length; labelContinue(); }
   else if (!$<HTMLDialogElement>('new-game').open) void maybeAi();
-}
-
-function readSave(): Save | null {
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    const s = raw ? (JSON.parse(raw) as Save) : null;
-    return s && Array.isArray(s.moves) ? s : null;
-  } catch { return null; }
 }
 
 /* ---- New game ---- */

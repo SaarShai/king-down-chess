@@ -14,3 +14,22 @@ export interface Save { daily?: string | null; back: string; fen: string; moves:
  * (an import from here would add a shared chunk to the build); save.test.ts holds the two lists equal.
  */
 export const SETTINGS = ['skill', 'coords', 'sound', 'queen', 'pace', 'threats', 'labels'] as const satisfies readonly (keyof Save)[];
+
+/** The autosave's localStorage key (account/sync.ts reads it there too). */
+export const SAVE_KEY = 'kingdown.save';
+
+/** The autosave, or null: none, one it cannot parse, or one with no move list. */
+export function readSave(): Save | null {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    const s = raw ? (JSON.parse(raw) as Save) : null;
+    return s && Array.isArray(s.moves) ? s : null;
+  } catch { return null; }
+}
+
+/** Writes the autosave; `s` holds the settings and the game that the caller gives. */
+export function writeSave(s: Save): void {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+  } catch { /* private mode or a full quota: play on without a save */ }
+}
