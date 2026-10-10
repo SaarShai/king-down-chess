@@ -113,7 +113,7 @@ When the work starts: the decisions "Reading a piece" and "The power control" ta
 
 ### 4.2 The turn state
 
-A new pure module, `src/turn.ts`, holds the state. `main.ts` keeps one number, `turnStart`: the count of plies that are handed over.
+A new pure module, `src/turn.ts`, holds the state. `src/screen/play.ts` keeps one number, `turnStart`: the count of plies that are handed over.
 
 - A person's ply does not move `turnStart`. A computer's ply moves it at once: a computer's turn hands itself over.
 - A press sets `turnStart` to the length of the history. An opened link sets it to the link's ply count. A new game and a Rematch set it to 0.
@@ -376,6 +376,6 @@ Rejected, in part:
 - A game-only module for every new motion (engineering 2): not now. The size risk comes from images; rule 5 measures each step and stops at 4,350,000 bytes.
 - A turn button for one device and the computer before the link games (engineering 7): no. Advisor A asks for no mode without the turn rule, so 02b covers all three modes, and only the send itself waits for 02c.
 - A tap on an empty square leaves review (rules and UX 5): no. Both advisors keep only Back to game and Esc, so a stray tap does not drop review.
-- "With no moves, ask which side this device plays" (rules and UX 20): not needed. "Send the game link" is hidden while no move is played (`main.ts:490`).
+- "With no moves, ask which side this device plays" (rules and UX 20): not needed. "Send the game link" is hidden while no move is played (`screen/play.ts:refresh`).
 - End turn for an old link that ends mid-turn (Advisor S 1): replaced by the fix of rules and UX 21. The receiver's app plays the pass for the sender.
 - Two fixes are actions outside this folder: commit and push the showcase (engineering 3), and change the TASKS line for card mode on main (fidelity 5). §5 lists them before the first step.
