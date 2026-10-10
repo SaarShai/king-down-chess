@@ -1,7 +1,7 @@
 /** The one write path for online games (report part 03, section 5.2). Actor IDs come from verified identity, never from input. */
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import type { z } from 'zod';
-import { createMatch, loadMatch, MatchError, type MatchSetup, type MatchSnapshot, type MoveCommand } from './index';
+import { createMatch, loadMatch, MatchError, type MatchSetup, type MatchSnapshot } from './index';
 import { commandSchema, createSchema, type Command, type EndReason, type InboxEntry, type Invite, type Seat, type SeatAction, type Surface, type View } from './protocol';
 import { MatchServiceError, PostgresMatchStore, type Game, type Log, type Outgoing, type Player } from './store';
 export { MatchServiceError } from './store';
@@ -236,52 +236,5 @@ export class GameService {
    deadline_at: game.deadline_at?.toISOString() ?? null, server_now: now.toISOString(),
    ...(rules && { rules: game.rules }),
   };
- }
-}
-
-/** The ChatGPT board's API on top of GameService: the full engine snapshot and durable board selections.
- * ponytail: an adapter that keeps today's plugin working unchanged; ticket 09 moves the tools to View and removes it. */
-export interface MatchView { boardId?: string; matchId: string; playerColor: Seat; mode: 'solo' | 'friend'; waiting: boolean; snapshot: MatchSnapshot }
-export class MatchService {
- readonly games: GameService;
- constructor(private store: PostgresMatchStore) { this.games = new GameService(store); }
- /** The board's revision is the game revision, which every command checks. */
- async get(actor: string, gameId: string): Promise<MatchView> {
-  actor = id(actor); const game = await this.store.load(id(gameId));
-  return { matchId: game.id, playerColor: seatOf(game, actor), mode: game.kind, waiting: game.status === 'waiting', snapshot: { ...game.snapshot, revision: game.revision } };
- }
- async create(actor: string, setup: MatchSetup = {}, mode: 'solo' | 'friend' = 'solo'): Promise<MatchView> {
-  if (!['solo', 'friend'].includes(mode)) fail('INVALID_INPUT', 400, 'Invalid mode');
-  // Live with no clock keeps today's untimed plugin games.
-  return this.get(actor, (await this.games.create(actor, { kind: mode, speed: 'live', colour: 'white', setup })).game_id);
- }
- async move(actor: string, gameId: string, input: MoveCommand): Promise<MatchView> {
-  await this.games.command(actor, gameId, { command_id: input?.id, expected_revision: input?.expectedRevision, action: { type: 'turn', actions: [input?.lan] } }, 'chatgpt');
-  return this.get(actor, gameId);
- }
- async computer(actor: string, gameId: string, input: { id: string; expectedRevision: number }): Promise<MatchView> {
-  await this.games.command(actor, gameId, { command_id: input?.id, expected_revision: input?.expectedRevision, action: { type: 'computer' } }, 'chatgpt');
-  return this.get(actor, gameId);
- }
- async invite(actor: string, gameId: string): Promise<{ token: string; expiresAt: string }> { const { token, expires_at } = await this.games.invite(actor, gameId); return { token, expiresAt: expires_at }; }
- async join(actor: string, token: string): Promise<MatchView> { return this.get(actor, (await this.games.join(actor, token)).game_id); }
- async resume(actor: string): Promise<MatchView | null> { const gameId = await this.store.latest(id(actor)); return gameId ? this.get(actor, gameId) : null; }
- async openBoard(actor: string, gameId: string): Promise<MatchView> {
-  const result = await this.get(actor, gameId), boardId = randomUUID();
-  await this.store.pool.query('insert into public.plugin_boards(id,actor_id,match_id) values($1,$2,$3)', [boardId, actor.toLowerCase(), result.matchId]);
-  return { ...result, boardId };
- }
- async getBoard(actor: string, boardId: string): Promise<MatchView> {
-  actor = id(actor); boardId = id(boardId);
-  const result = await this.store.pool.query('select match_id from public.plugin_boards where id=$1 and actor_id=$2', [boardId, actor]);
-  if (!result.rows[0]) fail('FORBIDDEN', 403, 'Board unavailable for this account');
-  if (!result.rows[0].match_id) fail('MATCH_REMOVED', 404, 'This game was deleted. Start, resume or join another game.');
-  return { ...await this.get(actor, result.rows[0].match_id), boardId };
- }
- async selectBoard(actor: string, boardId: string, gameId: string): Promise<MatchView> {
-  boardId = id(boardId); const result = await this.get(actor, gameId);
-  const updated = await this.store.pool.query('update public.plugin_boards set match_id=$3 where id=$1 and actor_id=$2', [boardId, actor.toLowerCase(), result.matchId]);
-  if (!updated.rowCount) fail('FORBIDDEN', 403, 'Board unavailable for this account');
-  return { ...result, boardId };
  }
 }

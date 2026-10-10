@@ -5,8 +5,9 @@ import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { GameService, MatchService } from './service';
+import { GameService } from './service';
 import { PostgresMatchStore } from './store';
+import { PluginService } from '../plugin/service';
 const url = process.env.PLUGIN_TEST_DATABASE_URL;
 if (url) {
  const target = new URL(url);
@@ -20,7 +21,6 @@ const turn = (expected_revision: number, ...actions: string[]) => command(expect
 suite('PostgreSQL online games (real connections and processes)', () => {
  const pools = [new pg.Pool({connectionString:url,max:1}),new pg.Pool({connectionString:url,max:1})], admin = pools[0];
  const games = pools.map(pool => new GameService(new PostgresMatchStore(pool)));
- const boards = pools.map(pool => new MatchService(new PostgresMatchStore(pool)));
  const users: string[] = [];
  const rows = async (sql: string, params: unknown[] = []) => (await admin.query(sql, params)).rows;
  async function user(handle?: string) {
@@ -267,28 +267,6 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   expect((await rows('select count(*)::int as n from public.game_commands where game_id=$1',[game.game_id]))[0].n).toBe(0);
  },30000);
 
- it('keeps the plugin board API: durable selections, resume and recovery after a deleted game',async () => {
-  const first = await boards[0].create(a,{}), second = await boards[0].create(a,{});
-  const one = await boards[0].openBoard(a,first.matchId), two = await boards[0].openBoard(a,first.matchId);
-  expect(one.boardId).not.toBe(two.boardId);
-  await boards[0].selectBoard(a,one.boardId!,second.matchId);
-  expect((await boards[1].getBoard(a,one.boardId!)).matchId).toBe(second.matchId);
-  expect((await boards[1].getBoard(a,two.boardId!)).matchId).toBe(first.matchId);
-  await expect(boards[1].getBoard(b,one.boardId!)).rejects.toMatchObject({code:'FORBIDDEN'});
-  const others = await boards[1].create(b,{});
-  await expect(boards[0].selectBoard(a,one.boardId!,others.matchId)).rejects.toMatchObject({code:'FORBIDDEN'});
-  const moved = await boards[0].move(a,first.matchId,{id:'board-move',expectedRevision:0,lan:first.snapshot.legal[0]});
-  expect([moved.snapshot.revision,moved.snapshot.turn]).toEqual([1,1]);
-  expect((await boards[1].computer(a,first.matchId,{id:'board-ai',expectedRevision:1})).snapshot.revision).toBe(2);
-  expect((await boards[1].resume(a))?.matchId).toBe(first.matchId);
-  const waiting = await boards[0].create(a,{},'friend'), invite = await boards[0].invite(a,waiting.matchId);
-  expect([waiting.waiting,(await boards[1].join(b,invite.token)).playerColor]).toEqual([true,1]);
-  expect((await boards[0].get(a,waiting.matchId)).snapshot.revision).toBe(1);
-  await admin.query('delete from public.games where id=$1',[second.matchId]);
-  await expect(boards[1].getBoard(a,one.boardId!)).rejects.toMatchObject({code:'MATCH_REMOVED'});
-  expect((await boards[1].selectBoard(a,one.boardId!,first.matchId)).matchId).toBe(first.matchId);
- },30000);
-
  it('runs a Daily friend game with the reviewed runtime role and refuses extra access',async () => {
   const role = `plugin_test_${randomUUID().replaceAll('-','')}`, password = randomUUID();
   const runtimeUrl = new URL(url!); runtimeUrl.username = role; runtimeUrl.password = password;
@@ -304,10 +282,11 @@ suite('PostgreSQL online games (real connections and processes)', () => {
    await admin.query('insert into kingdown_oauth.client_resources(client_id,resource) values($1,$2)',[clientId,resource]);
    try { expect((await runtime.query('select client_id::text from kingdown_oauth.client_resources where client_id=any($1::uuid[]) and resource=$2',[[clientId],resource])).rows).toEqual([{client_id:clientId}]); }
    finally { await admin.query('delete from kingdown_oauth.client_resources where client_id=$1',[clientId]); }
-   const store = new PostgresMatchStore(runtime), service = new GameService(store), plugin = new MatchService(store);
+   const store = new PostgresMatchStore(runtime), service = new GameService(store), plugin = new PluginService(store);
    const created = await service.create(a,{kind:'friend',colour:'white'});
    const board = await plugin.openBoard(a,created.game_id);
-   expect((await plugin.getBoard(a,board.boardId!)).matchId).toBe(created.game_id);
+   await plugin.selectBoard(a,board,created.game_id);
+   expect(await plugin.board(a,board)).toBe(created.game_id);
    const invite = await service.invite(a,created.game_id);
    await service.join(b,invite.code);
    const sent = turn(1,(await service.view(a,created.game_id)).legal[0]);

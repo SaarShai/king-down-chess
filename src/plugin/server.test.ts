@@ -13,7 +13,8 @@ it('loads changed board HTML through a resource cache while reusing identical bu
   try {
    const tools = (await client.listTools()).tools;
    const uri = (tools.find(tool=>tool.name==='kingdown_open')!._meta?.ui as {resourceUri:string}).resourceUri;
-   for (const tool of tools) expect((tool._meta?.ui as {resourceUri:string}).resourceUri).toBe(uri);
+   // Only the render tool carries the board, so other tool results do not redraw it.
+   expect(tools.filter(tool => (tool._meta?.ui as {resourceUri?:string}).resourceUri).map(tool => tool.name)).toEqual(['kingdown_open']);
    if (!cache.has(uri)) {
     const resource = (await client.readResource({uri})).contents[0];
     expect(resource.uri).toBe(uri); if (!('text' in resource)) throw new Error('Expected board HTML');

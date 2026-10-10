@@ -39,7 +39,7 @@ try {
   await frame.locator('#retry').waitFor();
   await page.locator('#remount').click();
   await frame.locator('#retry').waitFor();
-  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 1, 'Remount must restore the selected game and its pending command');
+  assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Remount must restore the selected game and its pending command');
   await frame.locator('#reload').click();
   await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
   assert(await frame.locator('#retry').isVisible(), 'Reload must preserve the pending command');
@@ -47,7 +47,7 @@ try {
   await frame.locator('#retry').waitFor({ state: 'hidden' });
   const commands = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_move').slice(-2));
   assert.equal(commands.length, 2); assert.deepEqual(commands[0].arguments, commands[1].arguments);
-  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 1, 'Lost reply and retry commit exactly once');
+  assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Lost reply and retry commit exactly once');
   await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
   for (let action = 0; action < 4 && await frame.locator('#computer').isVisible(); action++) {
     await frame.locator('#computer').click();
@@ -55,15 +55,15 @@ try {
   }
   await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
   const id = await page.evaluate(() => window.harnessMatchId);
-  const snapshot = await page.evaluate(() => window.harnessView.snapshot);
+  const snapshot = await page.evaluate(() => window.harnessView), moveNumber = Number(snapshot.fen.split(' ')[5]);
   assert(snapshot.revision >= 2 && snapshot.revision <= 5);
   const readsBeforeRemount = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_get').length);
   await page.locator('#remount').click();
   await page.waitForFunction(count => window.harnessCalls.filter(call => call.name === 'kingdown_get').length > count, readsBeforeRemount);
-  await frame.locator('#status').filter({ hasText: `Move ${snapshot.moveNumber}` }).waitFor();
+  await frame.locator('#status').filter({ hasText: `Move ${moveNumber}` }).waitFor();
   await frame.locator('#reload:not(:disabled)').waitFor();
   assert.equal(await page.evaluate(() => window.harnessMatchId), id);
-  assert.deepEqual(await page.evaluate(() => ({ revision: window.harnessView.snapshot.revision, fen: window.harnessView.snapshot.fen })), { revision: snapshot.revision, fen: snapshot.fen });
+  assert.deepEqual(await page.evaluate(() => ({ revision: window.harnessView.revision, fen: window.harnessView.fen })), { revision: snapshot.revision, fen: snapshot.fen });
   assert.equal(await page.evaluate(() => window.harnessCalls.at(-1).name), 'kingdown_get', 'A replayed initial result must fetch the saved game');
   await page.evaluate(() => { window.rejectNextGet = true; });
   await page.locator('#remount').click();
@@ -71,7 +71,7 @@ try {
   assert.equal(await frame.locator('#choices button').count(), 0, 'A failed saved-game read must not expose stale moves');
   assert(!/to move/.test(await frame.locator('#status').innerText()), 'A failed read must not show the replayed position');
   await frame.locator('#reload').click();
-  await frame.locator('#status').filter({ hasText: `Move ${snapshot.moveNumber}` }).waitFor();
+  await frame.locator('#status').filter({ hasText: `Move ${moveNumber}` }).waitFor();
   await frame.locator('#reload:not(:disabled)').waitFor();
   assert.equal(await frame.getByRole('button', { name: 'Fullscreen', exact: true }).count(), 0);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -88,15 +88,15 @@ try {
   assert.equal(await frame.locator('#move-hint').innerText(), 'Tap a marked square to move, or choose a move below.');
   await tapSquare(4, 3);
   await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
-  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 1, 'Touch destination commits the ordinary move once');
+  assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Touch destination commits the ordinary move once');
   await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
   await tapSquare(4, 1);
   await frame.locator('#choices button').filter({ hasText: 'e2 to e4, with Haste' }).tap();
   await frame.locator('#reload:not(:disabled)').waitFor();
   assert.match(await frame.locator('#status').innerText(), /White to move/, 'Explicit Haste keeps the extra move');
-  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 1);
+  assert.equal(await page.evaluate(() => window.harnessView.revision), 1);
   await tapSquare(4, 3); await tapSquare(4, 3);
-  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 1, 'Second tap must not pass Haste');
+  assert.equal(await page.evaluate(() => window.harnessView.revision), 1, 'Second tap must not pass Haste');
   assert.equal(await frame.locator('#choices button').count(),0,'Second tap deselects');
   async function dragOwnSquare(file,rank,black=false) {
     const box=await frame.locator('canvas').boundingBox(); assert(box);
@@ -105,14 +105,16 @@ try {
     await page.mouse.move(x,y); await page.mouse.down(); await page.mouse.move(x+10,y); await page.mouse.up();
   }
   await tapSquare(4,3); await dragOwnSquare(4,3);
-  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision),1,'Drag start must not pass Haste');
+  assert.equal(await page.evaluate(() => window.harnessView.revision),1,'Drag start must not pass Haste');
   await tapSquare(4, 3); await tapSquare(4, 4);
   await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
-  assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), 2, 'Touch finishes the explicit Haste action');
+  assert.equal(await page.evaluate(() => window.harnessView.revision), 2, 'Touch finishes the explicit Haste action');
   await frame.locator('summary').click();
   await shot(page, 'mobile');
   for (const scenario of ['archer','freeze']) {
     const seeded=await (await page.request.post(new URL(`/fixture-position?case=${scenario}`,base).href)).json(); assert(!seeded.isError);
+    // A seeded friend game may count its join as a revision: compare with the seeded revision.
+    const start=seeded._meta.view.revision;
     const reads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
     await page.evaluate(result=>window.harnessShow(result),seeded);
     await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,reads);
@@ -122,11 +124,11 @@ try {
     const file=black?4:2, rank=black?3:2;
     await tap(file,rank); await tap(file,rank);
     assert.equal(await frame.locator('#choices button').count(),0,`${scenario}: second tap deselects without submitting`);
-    assert.equal(await page.evaluate(()=>window.harnessView.snapshot.revision),0);
+    assert.equal(await page.evaluate(()=>window.harnessView.revision),start);
     await tap(file,rank);
-    if (!black) { await dragOwnSquare(file,rank); assert.equal(await page.evaluate(()=>window.harnessView.snapshot.revision),0,'Drag must not shoot'); await tap(2,2); await tap(2,4); }
+    if (!black) { await dragOwnSquare(file,rank); assert.equal(await page.evaluate(()=>window.harnessView.revision),start,'Drag must not shoot'); await tap(2,2); await tap(2,4); }
     else { await frame.locator('#choices button').filter({hasText:/freeze/i}).click(); }
-    await page.waitForFunction(()=>window.harnessView.snapshot.revision===1);
+    await page.waitForFunction(r=>window.harnessView.revision===r,start+1);
     await frame.locator('#reload:not(:disabled)').waitFor();
     await frame.locator('#board').focus();
     for (let i=0;i<9;i++) await page.keyboard.press('ArrowRight');
@@ -137,15 +139,15 @@ try {
   await frame.locator('summary').click();
   await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
   const deleted=await page.evaluate(()=>window.harnessView);
-  await page.request.post(new URL('/fixture-delete-match',base).href,{data:{matchId:deleted.matchId}});
+  await page.request.post(new URL('/fixture-delete-match',base).href,{data:{game_id:deleted.game_id}});
   await frame.locator('#reload').click(); await frame.locator('#error').filter({hasText:'deleted'}).waitFor();
   await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
-  const replacement=await page.evaluate(()=>window.harnessView.matchId); assert.notEqual(replacement,deleted.matchId);
+  const replacement=await page.evaluate(()=>window.harnessView.game_id); assert.notEqual(replacement,deleted.game_id);
   const recoveryReads=await page.evaluate(()=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length);
   await page.locator('#remount').click();
   await page.waitForFunction(n=>window.harnessCalls.filter(c=>c.name==='kingdown_get').length>n,recoveryReads);
   await frame.locator('#status').filter({hasText:'White to move'}).waitFor();
-  assert.equal(await page.evaluate(()=>window.harnessView.matchId),replacement,'Deleted-game recovery survives immediate remount');
+  assert.equal(await page.evaluate(()=>window.harnessView.game_id),replacement,'Deleted-game recovery survives immediate remount');
   if (capabilities.friend) {
     await frame.locator('summary').click();
     await frame.locator('#friend').click(); await frame.locator('#reload:not(:disabled)').waitFor();
@@ -163,24 +165,26 @@ try {
     await frame.locator('#friend').click(); await frame.locator('#reload:not(:disabled)').waitFor();
     await frame.locator('#status').filter({ hasText: 'Waiting for your friend' }).waitFor();
     await frame.locator('#invite').click(); await frame.locator('#reload:not(:disabled)').waitFor();
-    const token = (await frame.locator('#invitation').innerText()).replace('Share this invitation: ', '');
-    const joined = await (await page.request.post(new URL('/fixture-friend-join', base).href, { data: { token } })).json();
+    // The friend joins with the full link.
+    const link = /^Share this link: (\S+) · or the code [A-HJKMNP-Z2-9]{6}$/.exec(await frame.locator('#invitation').innerText())?.[1]; assert.match(link, /\/j\/[A-Za-z0-9_-]{43}$/);
+    const joined = await (await page.request.post(new URL('/fixture-friend-join', base).href, { data: { invitation: link } })).json();
     assert(!joined.isError);
     await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
     await clickSquare(4, 1); await clickSquare(4, 3);
     await frame.locator('#status').filter({ hasText: 'Black to move' }).waitFor();
     const friend = await page.evaluate(() => window.harnessView);
-    const replied = await (await page.request.post(new URL('/fixture-friend-move', base).href, { data: { matchId: friend.matchId, id: 'friend-reply', expectedRevision: friend.snapshot.revision, lan: 'e7-e5' } })).json();
+    const replied = await (await page.request.post(new URL('/fixture-friend-move', base).href, { data: { game_id: friend.game_id, command_id: 'friend-reply', expected_revision: friend.revision, lan: 'e7-e5' } })).json();
     assert(!replied.isError);
     await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
-    // The server counts the join as a revision; the fixture does not. Either way the reply is one more.
-    assert.equal(await page.evaluate(() => window.harnessView.snapshot.revision), friend.snapshot.revision + 1);
+    assert.equal(await page.evaluate(() => window.harnessView.revision), friend.revision + 1);
     await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
     assert.equal(await frame.locator('#invitation').innerText(), '');
     const invitation = await (await page.request.post(new URL('/fixture-friend-invite', base).href)).json();
     assert(!invitation.isError);
     await page.evaluate(() => { window.harnessDropWidgetWrites = true; });
-    await frame.locator('#token').fill(invitation.structuredContent.token); await frame.locator('#join').click();
+    // The board's Join takes the short code too, in lower case with a dash.
+    const { code } = invitation.structuredContent;
+    await frame.locator('#token').fill(`${code.slice(0, 3).toLowerCase()}-${code.slice(3)}`); await frame.locator('#join').click();
     await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor({ timeout: 5000 });
     const joinedView = await page.evaluate(() => window.harnessView);
     const readsBeforeJoinRemount = await page.evaluate(() => window.harnessCalls.filter(call => call.name === 'kingdown_get').length);
@@ -188,7 +192,7 @@ try {
     await page.locator('#remount').click();
     await page.waitForFunction(count => window.harnessCalls.filter(call => call.name === 'kingdown_get').length > count, readsBeforeJoinRemount);
     await frame.locator('#status').filter({ hasText: 'You play Black' }).waitFor({ timeout: 5000 });
-    assert.equal(await page.evaluate(() => window.harnessMatchId), joinedView.matchId, 'Remount must keep the joined game instead of the original solo game');
+    assert.equal(await page.evaluate(() => window.harnessMatchId), joinedView.game_id, 'Remount must keep the joined game instead of the original solo game');
     await page.evaluate(() => { window.harnessDropWidgetWrites = false; });
     await frame.locator('summary').click();
     await frame.locator('#solo').click(); await frame.locator('#reload:not(:disabled)').waitFor();
@@ -203,7 +207,7 @@ try {
   await clickSquare(4, 1); assert(await frame.locator('#choices button').count() > 0);
   await page.evaluate(() => { window.harnessWithoutWidgetState = true; window.harnessWidgetState = undefined; });
   await page.locator('#remount').click();
-  await page.waitForFunction(() => window.harnessWidgetState?.modelContent?.matchId === window.harnessMatchId);
+  await page.waitForFunction(() => window.harnessWidgetState?.modelContent?.game_id === window.harnessMatchId);
   await frame.locator('#status').filter({ hasText: 'White to move' }).waitFor();
   assert.equal(await page.evaluate(() => window.harnessWidgetState.modelContent.revision), 0, 'Hosts without widget state still receive standard model context');
   if (mode === 'fixture') {

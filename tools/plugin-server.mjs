@@ -11,7 +11,8 @@ import { pluginDatabaseConfig } from './plugin-db-config.mjs';
 import { createTokenVerifier, isLoopback, pluginOrigin } from '../src/plugin/auth.ts';
 import { consentConfig, renderConsent } from '../src/plugin/consent-config.ts';
 import { createPluginHandler } from '../src/plugin/http.ts';
-import { MatchService } from '../src/match/service.ts';
+import { GameService } from '../src/match/service.ts';
+import { PluginService } from '../src/plugin/service.ts';
 import { PostgresMatchStore } from '../src/match/store.ts';
 import { createApiHandler, createInternalHandler, sessionVerifier } from '../src/api/http.ts';
 import { AccountService } from '../src/online/accounts.ts';
@@ -51,8 +52,8 @@ export async function configurePlugin(env = process.env, { localDev = false, ses
   pool.on('error', error => { console.error('King Down database connection failed', diagnostic(error)); });
   try { await checkPluginDatabase(pool, config, auth?.resource); }
   catch (error) { await pool.end(); throw error; }
-  const store = new PostgresMatchStore(pool), service = new MatchService(store), games = service.games;
-  const mcp = createPluginHandler({ consent, service, publicOrigin, resourceHtml, auth, localDev });
+  const store = new PostgresMatchStore(pool), games = new GameService(store);
+  const mcp = createPluginHandler({ consent, service: new PluginService(store), publicOrigin, resourceHtml, auth, localDev });
   // The website signs in with Supabase Auth; without SUPABASE_URL, /api answers 503.
   const api = createApiHandler({ games, accounts: new AccountService(store), safety: new SafetyService(store), publicOrigin, verify: env.SUPABASE_URL ? sessionVerifier(env.SUPABASE_URL, sessionKeys) : undefined });
   const internal = createInternalHandler({ games, publicOrigin, secret: env.KINGDOWN_INTERNAL_SECRET, sender: () => resendSender(env) });
