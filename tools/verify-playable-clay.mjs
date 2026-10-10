@@ -79,6 +79,11 @@ try {
   // The move legend (docs/specs/move-legend): the selected knight's two moves are green tile quads on the ground.
   assert.deepEqual(await page.evaluate(()=>window.view.markers.children.filter(m=>m.material?.userData.legend).map(m=>`${m.material.userData.legend}@${m.position.x},${m.position.z}`).sort()),
     ['move:false:false@-1.5,1.5', 'move:false:false@-3.5,1.5'], 'a selected knight makes legend quads on a3 and c3');
+  // The legend's detail follows the zoom: at twice the zoom a square is twice as large on screen (to 8 px), so the badge stays 15 to 22 px.
+  const detail = await page.evaluate(()=>window.view.legendSize), zoom = by => page.evaluate(k=>{window.view.camera.zoom*=k;window.view.camera.updateProjectionMatrix();}, by);
+  await zoom(2); await page.waitForFunction(d=>window.view.legendSize!==d, detail);
+  assert.ok(Math.abs(await page.evaluate(()=>window.view.legendSize) - 2 * detail) <= 8, 'the legend detail follows the camera zoom');
+  await zoom(0.5); await page.waitForFunction(d=>window.view.legendSize===d, detail);
   await clickSquare(18);
   await page.waitForFunction(()=>window.view.pieces.get(1)?.position.y>.1);
   await settled(18,2); await page.click('#undo'); await settled(1,2);

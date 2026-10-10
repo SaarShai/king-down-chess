@@ -214,8 +214,9 @@ export class BoardRenderer {
   private lastPos: Position | null = null;
   private positionVersion = 0;
   private flipped = false;
-  /** The legend marks (legend.ts) as ground quads: one texture for each mark, power and detail level. */
-  private legendGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  /** The legend marks (legend.ts) as ground quads: one texture for each mark, power and detail level. Each quad is
+   *  1.5 squares wide, because the power frames of a take reach past the square (0.15 square at the 24 px floor of legendDetail()). */
+  private legendGeo = new THREE.PlaneGeometry(1.5, 1.5).rotateX(-Math.PI / 2);
   private legendMats = new Map<string, THREE.MeshBasicMaterial>();
   private legendSize = 0;
   private checkRingGeo = checkRingGeometry();
@@ -690,8 +691,8 @@ export class BoardRenderer {
     let mat = this.legendMats.get(key);
     if (!mat) {
       const cv = document.createElement('canvas'), o = { px: 256 / this.legendSize, power };
-      cv.width = cv.height = 256;
-      paint(cv.getContext('2d')!, figure ? [...occupied(kind, 0, 0, 256, 128, o), ...badge(0, 0, 256, kind, o)] : tile(kind, 0, 0, 256, o));
+      cv.width = cv.height = 384; // the square is the middle 256 × 256
+      paint(cv.getContext('2d')!, figure ? [...occupied(kind, 64, 64, 256, 192, o), ...badge(64, 64, 256, kind, o)] : tile(kind, 64, 64, 256, o));
       const map = new THREE.CanvasTexture(cv);
       map.colorSpace = THREE.SRGBColorSpace;
       mat = new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false });
@@ -860,6 +861,7 @@ export class BoardRenderer {
     this.tweens.step(dt);
     this.debris.step(dt);
     this.controls.update(dt);
+    this.legendDetail();
     // Sprites are billboards: the plane's pivot is its bottom edge, so copying the camera
     // quaternion stands it on the tile and leans it back at the camera from any angle.
     for (const g of this.pieces.values()) if (g.userData.sprite) g.children[0].quaternion.copy(this.camera.quaternion);
@@ -881,14 +883,17 @@ export class BoardRenderer {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
     this.composer.setSize(w, h);
-    // The legend's detail (the middle ring, the badge size) follows a square's size on screen: the frustum's short side is 9.4 squares.
-    const square = Math.max(16, Math.round(Math.min(w, h) / size / 8) * 8);
-    if (square !== this.legendSize) {
-      this.legendSize = square;
-      for (const mat of this.legendMats.values()) { mat.map?.dispose(); mat.dispose(); }
-      this.legendMats.clear();
-      this.highlight(this.highlights);
-    }
+    this.legendDetail();
+  }
+
+  /** The legend's detail (the middle ring, the badge size) follows a square's size on screen: one world unit at the camera's zoom. */
+  private legendDetail(): void {
+    const square = Math.max(24, Math.round((this.renderer.domElement.width / (this.camera.right - this.camera.left)) * this.camera.zoom / 8) * 8);
+    if (square === this.legendSize) return;
+    this.legendSize = square;
+    for (const mat of this.legendMats.values()) { mat.map?.dispose(); mat.dispose(); }
+    this.legendMats.clear();
+    this.highlight(this.highlights);
   }
 
   private pick(e: PointerEvent): number | null {
