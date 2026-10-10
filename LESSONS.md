@@ -85,6 +85,7 @@ Read the section Always. Then read the Index, and open a topic file only when a 
 
 ### Browser checks and UI
 
+- [2026-10-10 — a render compare against one render of main lists the unstable states as changes](docs/lessons/browser-checks-and-ui.md)
 - [2026-10-02 — the cloud Chromium build for Playwright](docs/lessons/browser-checks-and-ui.md)
 - [2026-10-02 — a timing check failed for reasons outside the code](docs/lessons/browser-checks-and-ui.md)
 - [2026-10-02 — "byte-identical" means the same environment](docs/lessons/browser-checks-and-ui.md)
@@ -101,6 +102,8 @@ Read the section Always. Then read the Index, and open a topic file only when a 
 
 ### Agents and tools
 
+- [2026-10-10 — one independent review a PR found a real item every time](docs/lessons/agents-and-tools.md)
+- [2026-10-10 — a push from the main checkout fails while another session edits there](docs/lessons/agents-and-tools.md)
 - [2026-10-02 — a `pgrep -f` wait loop matched its own shell](docs/lessons/agents-and-tools.md)
 - [2026-10-02 — a short commit SHA fails as a session source](docs/lessons/agents-and-tools.md)
 - [2026-10-02 — build main beside a branch in a worktree](docs/lessons/agents-and-tools.md)

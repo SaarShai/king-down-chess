@@ -2,6 +2,9 @@
 
 The lessons on browser checks, screenshots and the game interface. [LESSONS.md](../../LESSONS.md) holds the Always rules and the index of all topic files.
 
+## 2026-10-10 — a render compare against one render of main lists the unstable states as changes
+- The pixel compare of a branch's renders against main (`docs/specs/web-ux/render-compare.mjs`, threshold 16) listed 17 to 28 differing renders a ticket. Most were states that main itself renders two ways: a sprite that loads late, a corner pixel of End turn, art in the rules sheet. → Render main twice, alone, and list the states that differ between the two main renders first. A render that differs between main and the branch counts as a change only when it is stable in main; when it is not in the main-against-main list, render the branch a second time before you call it a change. Sample `00` exits 1 on every build since the redesign (its `controls` selector is stale), so read its renders and not its exit code. (2026-10-10)
+
 ## 2026-10-02 — the cloud Chromium build for Playwright
 - Cloud sessions ship a Chromium build that Playwright 1.63 does not look for. → `.claude/hooks/cloud-setup.sh` links it (`tools/pw-cloud-link.mjs`); run browser tools with `PLAYABLE_BROWSER=chromium`. (2026-10-02)
 

@@ -2,6 +2,12 @@
 
 The lessons on agents, helpers, worktrees, shell commands and tools. [LESSONS.md](../../LESSONS.md) holds the Always rules and the index of all topic files.
 
+## 2026-10-10 — one independent review a PR found a real item every time
+- Tickets 03 to 05 of the after-redesign spec (PRs #35 to #37) each got a read-only review of the diff by a reviewer that did not write it, and a three-lens panel with an adversarial check of each should-fix. Each round found an item that the builder's own tests and checks had passed: a browser case that could pass without a search in flight, a label condition that tested the wrong value, spec rows that said the wrong file, a slot count whose tests still covered the old count, and a workload that no test had run. → Before the merge of a step that moves or changes code, get one review from a reader that did not write it, on the diff and the before-and-after files. Fix each confirmed should-fix, record the findings and the fixes in the ticket and in a "Reviews" section of the PR body, and merge only after that. A review on a source-only bundle cannot run the checks; its notes name what it could not see, so give it the moved code's neighbours too. (2026-10-10)
+
+## 2026-10-10 — a push from the main checkout fails while another session edits there
+- The pre-push hook refuses a push when a tracked file differs from HEAD, because `npm test` would not run on the commit that goes out. Another session's uncommitted edits in the main checkout refused a tracker commit's push for the whole day. → Commit from the main checkout with only your own hunk staged (`git diff` of `git show HEAD:<file>` against the new file, `git apply --cached`), then push the commit from a clean detached worktree: `git worktree add --detach <dir> <sha>`, symlink `node_modules`, `git push origin HEAD:refs/heads/main` from there, and remove the worktree. Leave the other session's edits as they are. (2026-10-10)
+
 ## 2026-10-02 — a `pgrep -f` wait loop matched its own shell
 - A wait loop `while pgrep -f "<pattern>"` never ended: `pgrep -f` matched the loop's own shell, whose command line contains the pattern. → Write the pattern so it cannot match itself (`pgrep -f "powers-net.ts [m]atch"`), or wait on the process's own output (a "done" line). (2026-10-02)
 

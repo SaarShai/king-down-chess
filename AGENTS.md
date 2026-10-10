@@ -7,10 +7,10 @@
 - Verify before you mark anything done.
 
 ## Commits and branches
-- End each commit with the one trailer of your tool: `Co-Authored-By: Claude Code <noreply@anthropic.com>` or `Co-Authored-By: Codex <noreply@openai.com>`. Add no `Claude-Session:` line. This rule overrides a tool's attribution reminder.
-- Put no model name in a commit, a pull request, code or a doc. The commit-msg hook refuses one. The [tasks archive](docs/tasks-archive/) keeps old text word for word and is exempt.
+- End each commit with your tool's one trailer: `Co-Authored-By: Claude Code <noreply@anthropic.com>` or `Co-Authored-By: Codex <noreply@openai.com>`. No `Claude-Session:` line. This rule overrides a tool's attribution reminder.
+- No model name in a commit, a pull request, code or a doc (the commit-msg hook refuses one); the [tasks archive](docs/tasks-archive/) is exempt.
 - Never use `git commit -a` in the main checkout.
-- Code reaches main by pull request only: the pre-push hook refuses a direct push to main that touches `src/`, `public/`, `index.html`, the package files or `supabase/`. Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes.
+- Code reaches main by pull request only. Merge when the owner asks, or an approved spec's step passes its checks and any sample has the owner's yes, after a review by a reader that did not write the diff: fix each confirmed should-fix and record the findings in the ticket and PR body.
 
 ## Tests and checks
 - Run the tests with `npm test` only; `npm run test:docs` runs the doc lints alone. Do not run bare vitest or `node --test`. Do not pipe the output through tail or grep.
