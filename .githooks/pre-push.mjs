@@ -48,7 +48,8 @@ const dirty = git('diff', '--name-only', 'HEAD', '--');
 if (dirty) {
   refuse(`these tracked files differ from HEAD, so npm test would not run on the commit that goes out:
 ${dirty.split('\n').map(line => `    ${line}`).join('\n')}
-  Commit or stash them, then push again.`);
+  Commit or stash them, then push again. When the edits are another session's and the commit is on main,
+  tools/push-main.sh [<commit>] pushes it from a clean worktree.`);
 }
 
 // Decision 10: a direct push to main may change docs and trackers, but no file under a protected

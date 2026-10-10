@@ -12,6 +12,14 @@ SAMPLE=03 node docs/specs/web-ux/capture.mjs http://127.0.0.1:4173/ [out-dir]
 
 The tool writes `<state>-<size>.png`, `<state>-phone.webm` (for a state with `video: true`) and `report.json` to the out folder (default: `<system temp folder>/kingdown-samples/<NN>`). It refuses an out folder inside the checkout. Copy the renders out of that folder to show them. Never commit a render. Run one capture per out folder. Wait for it to finish before another capture uses that folder.
 
+## A branch against main
+
+For a step that must change nothing a player sees, `render-compare.mjs --against main` is the render part of the proof in one command (the build compare, the chunk and precache lists, stays a separate step): it builds main in a scratch worktree and this checkout in place, renders every sample against each build (main twice, so that the states that differ between two renders of one build do not count), and prints the stable changes and the sample faults. It takes about a quarter of an hour: start it detached, with its output outside the checkout (a new file inside the checkout fails every check of a check run there), and read `compare.log` in its out folder when it ends.
+
+```sh
+node docs/specs/web-ux/render-compare.mjs --against main [--samples 00,W1] > "${TMPDIR:-/tmp}/render-compare.log" 2>&1 &
+```
+
 ## The table
 
 A unit can use its W number, for example `SAMPLE=W12`. Its table may add `smallPhone` (320×568).
