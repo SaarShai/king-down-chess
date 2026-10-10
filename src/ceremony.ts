@@ -29,7 +29,7 @@ export function startCeremony({ view, board, captionHost, moments, history, fina
   board.append(words);
   const caption = document.createElement('div');
   caption.className = 'ceremony-caption';
-  caption.textContent = 'The final blow · Tap to skip';
+  caption.textContent = 'The final blow · Tap the board to skip';
   caption.hidden = !motion;
   captionHost.append(caption);
   moments.replaceChildren();

@@ -882,7 +882,7 @@ function showOver(): void {
     || (game.status === 'drawMaterial' ? 'Neither side has enough material to mate.' : '')
     || (resigned != null ? 'That side gave up.' : '')
     || said;
-  $('over-detail').textContent = [last ? describeMove(last.pos, last.move, true) : '', why, `${n} move${n === 1 ? '' : 's'}.`].filter(Boolean).join(' ');
+  $('over-detail').textContent = [last ? describeMove(last.pos, last.move, true, true) : '', why, `${n} move${n === 1 ? '' : 's'}.`].filter(Boolean).join(' ');
   dlg.returnValue = ''; // Esc leaves the last button's value behind, which would re-fire it
   dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0); // the kings that played, as on the board
   dlg.querySelector<HTMLImageElement>('.over-b')!.src = kingArt(1);

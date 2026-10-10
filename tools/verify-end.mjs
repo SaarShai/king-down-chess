@@ -73,13 +73,14 @@ try {
   await usePower(page); await tap(16); await tap(56); await endTurn(page);
   await page.locator('#over').waitFor({ state: 'visible' });
   assert.doesNotMatch(await page.locator('#over-detail').innerText(), /ends the turn/, 'the result skips the trailing pass');
-  assert.match(await page.locator('#over-detail').innerText(), /with Haste/, 'the result names the final power move');
+  assert.doesNotMatch(await page.locator('#over-detail').innerText(), /may move again|may move next/, 'the finished game promises no further move');
   assert.equal(await page.locator('#over .ceremony-tile span').last().innerText(), 'Rook moves with Haste');
 
   await stageMate('normal'); await endTurn(page);
   await page.locator('.kd-words').waitFor({ state: 'attached' });
   assert.equal(await page.locator('.ceremony-caption').evaluate(el => el.closest('#board') === null && el.closest('#context-line') !== null), true, 'the replay caption sits outside the squares');
   assert.equal(await page.locator('#end-turn').innerText(), 'End turn', 'the Ceremony keeps the turn label');
+  assert.equal(await page.locator('.ceremony-caption').innerText(), 'The final blow · Tap the board to skip', 'the caption names its tap target');
   assert.equal(await page.locator('#end-turn').getAttribute('aria-disabled'), 'true', 'the bar stays off during the Ceremony');
   await page.locator('#end-turn').focus();
   await page.keyboard.press('Space');

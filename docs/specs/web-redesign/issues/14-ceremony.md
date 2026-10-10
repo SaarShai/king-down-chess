@@ -92,3 +92,5 @@ Item 11: decided by delegation (2026-10-09). Power tiles name the power in two t
 Item 15: decided by delegation (2026-10-09). The h-file note names the repair in 7bf311a. The repair is in this branch; it does not wait for shared board work.
 
 Item 11 check repair: decided by delegation (2026-10-09). Images can load before the canvas resize. The probe taps at x -197 before that resize and fails. The shared board-ready helper waits for fitted bounds before coordinate input. The Ceremony check delays the resize to keep this case covered.
+
+Items 4 and 5: decided by delegation (2026-10-09). The final-ply sentence has no Haste or Rally next-move promise. The shared move helper keeps its old default; only the web result asks for final words. The caption says Tap the board to skip. Unit and end browser checks pass.

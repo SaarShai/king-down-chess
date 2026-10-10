@@ -217,3 +217,8 @@ it.each(['computer', 'link'] as const)('speaks from either viewer when either ki
   expect(checkCause(blackCheck, undefined, mode, 0)).toBe('Your rook attacks their king.');
   expect(checkCause(blackCheck, undefined, mode, 1)).toBe('Their rook attacks your king.');
 });
+
+it.each(['haste', 'rally'] as const)('describes the final %s ply without another move', power => {
+  const pos = fromFen('7k/8/8/8/8/R7/8/7K w - - 0 1');
+  expect(describeMove(pos, { from: 16, to: 56, captures: [], power }, true, true)).toBe('White rook a3 to a8.');
+});

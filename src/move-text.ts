@@ -62,7 +62,7 @@ function checkPath(board: Uint8Array, from: number, king: number): Checker['path
 }
 
 /** One sentence for a screen reader: who moved what, and what it did. */
-export function describeMove(pre: Position, m: Move, freePass = false): string {
+export function describeMove(pre: Position, m: Move, freePass = false, final = false): string {
   // The side is the one to move, not the piece on `from`: a Freeze names an enemy piece.
   const side = SIDE[pre.turn], piece = pre.board[m.from], name = NAMES[typeOf(piece)];
   const the = (s: number): string => `${NAMES[typeOf(pre.board[s])]} on ${sqName(s)}`;
@@ -86,8 +86,8 @@ export function describeMove(pre: Position, m: Move, freePass = false): string {
   if (m.promo) text += `, and becomes a ${NAMES[m.promo]}`;
   if (m.selfRemove) text += `; the ${name} leaves the board`;
   if (m.power === 'strike') text += ' with Strike';
-  if (m.power === 'haste') text += `, with Haste: the ${name} may move again`;
-  if (m.power === 'rally') text += ', with Rally: a different piece may move next';
+  if (!final && m.power === 'haste') text += `, with Haste: the ${name} may move again`;
+  if (!final && m.power === 'rally') text += ', with Rally: a different piece may move next';
   return `${text}.`;
 }
 
