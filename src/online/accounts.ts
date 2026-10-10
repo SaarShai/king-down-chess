@@ -63,7 +63,8 @@ export class AccountService {
     await this.store.pool.query(`update public.profiles set ${keys.map((key, index) => `${key}=$${index + 2}`).join(',')} where id=$1`, [actor, ...keys.map(key => changes[key])]);
     return this.profile(actor);
   }
-  /** Follow or block. A block also ends the follows both ways; a follow across a block is refused. */
+  /** Follow or block. A block also ends the follows both ways; a follow across a block is refused. A block is not secret
+   * (as on most game sites): the blocked player's follow leaves their own list, so a silent 204 here would not hide it. */
   async relate(actor: string, input: unknown): Promise<void> {
     actor = id(actor); const { kind, ...target } = parse(relationSchema, input);
     await this.store.transaction(async client => {
