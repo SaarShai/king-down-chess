@@ -6,8 +6,9 @@
 // 24 px squares), oldDefault (no ?workshop=a: the old Workshop opens), and the editor of ticket 02: paint (the brushes,
 // the keys, Shot, Eraser, the three Mirror modes, the same paint twice, the reach and rule toasts, the nubs, the targets),
 // firstCopy (the first paint makes "My Pawn" in Yours; a reload keeps it; the pool Pawn stays), undo (the scope, Ctrl or
-// Cmd+Z, nothing under a sheet, back before the first edit), saveAlerts (a full shelf, a storage that throws, Copy link),
-// shareLink (the copied ?design= link opens the same design; a refused clipboard opens the copy sheet) and weigh.
+// Cmd+Z, nothing under a sheet, a refused delete, back before the first edit), saveAlerts (a full shelf, a storage that
+// throws, Copy link), shareLink (Share by the Enter key; the copied ?design= link, unchanged, opens the same design; a
+// refused clipboard opens the copy sheet) and weigh (the words; on the phone, ⋯ by the keys gives the focus back to ⋯).
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
 import { pressMenu } from './app-ui.mjs';
@@ -63,6 +64,12 @@ async function copied(p, why) {
 const rails = p => p.$$eval('.pg-board [data-k="line"]', gs => gs.map(g => `${g.dataset.to} ${g.dataset.end}`).sort());
 const nubsOn = p => p.$$eval('.nub[aria-pressed="true"]', b => b.map(n => n.dataset.nub).sort());
 const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem('kingdown.workshop') ?? '{"designs":[]}').designs);
+/** The storage refuses each write until `window.unbreak()`. */
+const refuse = p => p.evaluate(() => {
+  const set = Storage.prototype.setItem;
+  window.unbreak = () => { Storage.prototype.setItem = set; };
+  Storage.prototype.setItem = () => { throw new Error('refused'); };
+});
 async function has(p, want, why) {
   const m = await marks(p);
   for (const w of want) assert.ok(m.includes(w), `${why}: no ${w} in ${m.join(', ')}`);
@@ -340,6 +347,11 @@ async function undo() {
   await p.keyboard.press('Escape');
   await p.locator('.pg-sheet').waitFor({ state: 'detached', timeout: 2000 }); // Esc closes the sheet
   assert.equal(await p.locator('#workshop[open]').count(), 1, 'and the Workshop stays open');
+  await refuse(p);
+  await p.click('[data-act="undo"]');
+  assert.equal(await toast(p), 'Could not undo: this device refused.', 'a refused delete stops the undo, with the toast');
+  assert.deepEqual([await name(p), await label(), (await stored(p)).map(d => d.name)], ['My Pawn', 'Undo paint', ['My Pawn']], 'the copy and its undo step stay');
+  await p.evaluate(() => window.unbreak());
   await p.click('[data-act="undo"]');
   assert.equal(await toast(p), 'Undone: paint.', 'Undo names the step it undid');
   assert.equal(await name(p), 'Pawn', 'back before the first edit: the pool Pawn');
@@ -368,11 +380,7 @@ async function saveAlerts() {
   const q = await open();
   await q.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await door(q);
-  await q.evaluate(() => {
-    const set = Storage.prototype.setItem;
-    window.unbreak = () => { Storage.prototype.setItem = set; };
-    Storage.prototype.setItem = () => { throw new Error('refused'); };
-  });
+  await refuse(q);
   await arm(q, 'both');
   await tap(q, 'c5');
   const alert2 = q.locator('.pg-alert');
@@ -397,8 +405,10 @@ async function shareLink() {
   await tap(p, 'c5');
   await p.keyboard.press('Escape');
   const want = await marks(p);
-  await p.click('.pg-share');
+  await p.focus('.pg-share');
+  await p.keyboard.press('Enter');
   await copied(p, 'Share copies the link');
+  assert.equal(await p.evaluate(() => document.activeElement?.className), 'pg-share', 'the focus stays on Share');
   const link = new URL(await p.evaluate(() => navigator.clipboard.readText()));
   const here = new URL(p.url());
   assert.equal(`${link.origin}${link.pathname}`, `${here.origin}${here.pathname}`, 'the link is this page');
@@ -410,9 +420,16 @@ async function shareLink() {
   assert.equal(await p.locator('.pg-sheet h2').textContent(), 'Copy this', 'a refused clipboard opens the copy sheet');
   assert.equal(await p.locator('.pg-sheet textarea').inputValue(), link.href, 'the sheet holds the link');
   await p.context().close();
+  // The copied link, unchanged: with no ?workshop=a, the old Workshop opens the same design (until the cutover).
+  const r = await open(link.href);
+  await r.locator('#workshop[open] .ws-piece-card').waitFor();
+  assert.equal(await r.locator('#workshop .ws-name-t').first().innerText(), 'My Pawn', 'the copied link opens the same design');
+  assert.deepEqual(await r.$$eval('.ws-grid[data-grid="move"] .c-move', c => c.map(e => `${e.dataset.x},${e.dataset.y}`).sort()), ['-1,1', '0,1', '1,1'], 'with its paint: c5, d5 and e5 are moves');
+  await r.context().close();
+  // The same code in the Proving Ground shows the same marks.
   const q = await open(`?workshop=a&design=${code}`);
   await q.locator('#workshop.pg[open]').waitFor();
-  assert.equal(await name(q), 'My Pawn', 'the link opens the same design');
+  assert.equal(await name(q), 'My Pawn', 'the Proving Ground opens the same design');
   assert.deepEqual(await marks(q), want, 'with the same marks');
   await q.context().close();
 }
@@ -435,9 +452,15 @@ async function weigh() {
   await arm(q, 'both');
   await tap(q, 'c5');
   assert.equal(await q.locator('.pg-weigh').isVisible(), false, 'on the phone, Weigh is not in the name band');
-  await q.click('[data-act="more"]');
-  await q.click('.pg-morepop [data-act="weigh"]');
+  const more = q.locator('[data-act="more"]');
+  await more.focus();
+  for (const key of ['Enter', 'Tab', 'Tab', 'Enter']) await q.keyboard.press(key); // ⋯, then its second item: Weigh
   assert.equal(await toast(q), `${head} ${like}`, 'on the phone, Weigh from ⋯ is a toast');
+  assert.deepEqual([await more.evaluate(b => b === document.activeElement), await q.locator('.pg-morepop').isVisible()], [true, false], 'Weigh closes ⋯ and gives the focus back to it');
+  await q.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  for (const key of ['Enter', 'Tab', 'Enter']) await q.keyboard.press(key); // ⋯, then its first item: Share
+  await copied(q, 'on the phone, Share from ⋯ copies the link');
+  assert.equal(await more.evaluate(b => b === document.activeElement), true, 'Share closes ⋯ and gives the focus back to it');
   await q.context().close();
 }
 

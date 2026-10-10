@@ -145,16 +145,15 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
     if (!undos[undos.length - 1].item.yours) revealOpenSlot();
     return true;
   }
-  /** Undo: back to the step before. Back before the first edit, the copy goes from the shelf (the mockup's undo). */
+  /** Undo: back to the step before. Back before the first edit, the copy goes from the shelf (the mockup's undo); where
+   *  the device refuses to delete it, the copy and its undo step stay. */
   function undo(): void {
-    const u = undos.pop();
+    const u = undos[undos.length - 1];
     if (!u) return;
-    if (u.item.yours) { cur = u.item; save(); } else {
-      deleteDesign(cur.d.id);
-      cur = u.item;
-      unsaved = null;
-      shelf = loadShelf().designs;
-    }
+    if (!u.item.yours && shelf.some(x => x.id === cur.d.id) && !deleteDesign(cur.d.id)) return toast('Could not undo: this device refused.');
+    undos.pop();
+    cur = u.item;
+    if (u.item.yours) save(); else { unsaved = null; shelf = loadShelf().designs; }
     render();
     toast(`Undone: ${u.label}.`);
   }
@@ -422,14 +421,16 @@ export function groundDialog(): { open(): void; openDesign(code: string): void }
       return render();
     }
     moreOpen = false;
+    // A choice in the ⋯ menu closes it and gives the focus back to ⋯.
+    if (moreEl.contains(t)) { renderTop(); q<HTMLElement>('.pg-more').focus(); }
     if (act === 'undo') return undo();
-    if (act === 'share') { renderTop(); return share(); }
+    if (act === 'share') return share();
     if (act === 'done') return leave();
     if (act === 'room') return makeRoom();
     if (act === 'copy') return void copyText(link(cur.d), 'Link copied.');
     if (act === 'retry') { save(); render(); if (!unsaved) toast('Saved on this device.'); return; }
     // Weigh: a popover in the name band; on the phone, from the ⋯ menu, a toast (proving-ground.html:1993).
-    if (act === 'weigh' && narrow.matches) { renderTop(); return toast(weighWords().join(' ').trim()); }
+    if (act === 'weigh' && narrow.matches) return toast(weighWords().join(' ').trim());
     if (act === 'weigh') { weighOpen = !weighOpen; render(); }
   });
   // The keys (proving-ground.html:1957-1966): 1, 2 and 3 arm a brush, B goes in and out of brush mode, Esc closes a
