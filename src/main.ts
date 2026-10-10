@@ -7,21 +7,21 @@ import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, PieceType, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, V, colorOf, file as fileOf, findKing, PowerName, parseKings, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
+import { A, C, Color, L, M, Move, NAMES, O, PieceType, Position, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, V, colorOf, file as fileOf, findKing, parseKings, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
-import { initLessonShelf, progress, recordLesson, refreshLessonShelf } from './lesson-shelf-ui';
+import { initLessonShelf, progress, recordLesson } from './lesson-shelf-ui';
 import { lessonShelf } from './lesson-shelf';
 import { mulberry32 } from './sim/rng';
 import { checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
-import { POWER_NAME, POWER_TAG, autoQueen, hintMoves, offered, powerText, powersRules, usesAllowed } from './powers-ui';
+import { POWER_TAG, autoQueen, hintMoves, offered } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, newGameWarning, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
 import './dialog-dismiss';
 import { firstVisit, openTitle, startFirstDeal } from './ui/title';
-import { guideTypes, pieceGuide, reachOf, readTap, unmarkedTap } from './read';
+import { reachOf, readTap, unmarkedTap } from './read';
 import { canUndoTurn, dropTurn, finishLinkedTurn, handOver, modeOf, turnEnded, turnLine, turnOf } from './turn';
 import { announceWaiting, connectTurnPress, renderTurnButton, waitingRead } from './turn-controls';
 import './ui/table.css';
@@ -38,7 +38,7 @@ import { shouldShowHome } from './ui/home';
 import { initHome } from './ui/home-view';
 
 import { connectPreviously } from './ui/previously';
-import { kingArt, pieceArt } from './ui/guide';
+import { connectGuide, kingArt, pieceArt, pieceText } from './ui/guide';
 import { gameUrl } from './screen/links';
 import { settingsOf } from './screen/settings';
 import type { Save } from './screen/save';
@@ -58,11 +58,6 @@ if (preset || kings) {
   const k = kings ? parseKings(kings) : undefined;
   setRules({ ...(k ? withPowers(k) : {}), ...preset, ...(k ? { kings: k } : {}) });
 }
-/** "twice a game", "always on". */
-const usesText = (p: PowerName, r: Rules = GAME_RULES): string => {
-  const n = usesAllowed(p, r);
-  return n === null || n === 0 ? 'always on' : n === 1 ? 'once a game' : n === 2 ? 'twice a game' : `${n} times a game`;
-};
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -206,58 +201,7 @@ const previously = connectPreviously($<HTMLButtonElement>('see-again'), {
   refresh,
 });
 
-
-function fillPieceGuide(): void {
-  const rows = $('rules-rows');
-  rows.innerHTML = '';
-  for (const t of guideTypes(shownPos())) {
-    const g = pieceGuide(t);
-    const card = document.createElement('article');
-    card.className = 'piece-card';
-    card.dataset.piece = NAMES[t];
-    const letter = LETTERS[t];
-    const name = NAMES[t][0].toUpperCase() + NAMES[t].slice(1);
-    const art = pieceArt(t);
-    // The heading shows the piece's icon before its name (tools find a card by data-piece); a lab piece has
-    // no icon and shows its letter, as its art does.
-    const icon = pieceIcon(t);
-    card.innerHTML = `<div class="pc-art">${art ? `<img src="${art}" alt="" loading="lazy" decoding="async">` : `<span class="pc-medallion" aria-hidden="true">${letter}</span>`}</div>`
-      + `<div class="pc-body"><h3>${icon || `<span class="pc-letter" title="Its letter in the move list">${letter}</span>`} ${name}</h3><dl>`
-      + `<dt>Moves</dt><dd>${g.moves}</dd><dt>Takes</dt><dd>${g.captures}</dd>${g.special ? `<dt>Special</dt><dd>${g.special}</dd>` : ''}</dl></div>`;
-    rows.appendChild(card);
-  }
-  const promo = GAME_RULES.promotionSet === 'anyNonKing'
-    ? 'A pawn promotes to any piece but a king.'
-    : GAME_RULES.promotionSet === 'anyNonKingNoGuard'
-      ? 'A pawn promotes to any piece but a king or a guard.'
-      : 'A pawn promotes to a queen, rook, bishop, or knight.';
-  $('rules-lead').textContent =
-    `Mate the king. Both sides share one random back rank, drawn from the pool. No castling or en passant. ${promo}`;
-  $('rules-notation').textContent =
-    // The move list keeps the letters (LAN), so the Guide names them here, once.
-    `In the move list a move starts with its piece's letter (none for a pawn): ${([N, B, R, Q, K, A, L, G, M, S, O] as PieceType[]).map(t => `${LETTERS[t]} ${NAMES[t]}`).join(', ')}. `
-    + 'Then - moves, x takes, * shoots without moving (archer), <> swaps (maester), > shoves (ogre; then where the shoved piece went), = promotes. '
-    + 'Kings\' powers: ! Strike, !H Haste (-- ends a Haste turn early), ~ Flight, !F: Freeze, !W: Ice Wall, !S: Sacrifice, !M March, !L Leap.';
-  // The twelve powers as a game with powers plays them: this game's rules when a king has a power,
-  // else the official readings, which an older `?rules=` preset overrides (as the New game picker shows them).
-  const pr: Rules = GAME_RULES.kings[0] || GAME_RULES.kings[1] ? GAME_RULES : powersRules(preset);
-  $('powers-list').innerHTML = (Object.entries(KINGS) as [string, readonly PowerName[]][]).map(([king, powers]) =>
-    `<li><b>${king} king</b>: ${powers.map(p => `<span data-power="${p}"><b>${POWER_NAME[p]}</b> (${usesText(p, pr)}) — ${powerText(p, pr, true)}.</span>`).join('')}</li>`).join('');
-  // Each piece once, as its icon and how many the pool holds ("×2"); its name for a pointer and a screen reader.
-  const pool = [...new Set(POOL)].map(ch => {
-    const t = LETTERS.indexOf(ch) as PieceType, n = POOL.split(ch).length - 1, icon = pieceIcon(t);
-    const name = `${NAMES[t]}${n > 1 ? ` ×${n}` : ''}`;
-    return icon ? `<span class="pool-piece" title="${name}">${icon}${n > 1 ? `<span aria-hidden="true">×${n}</span>` : ''}<span class="sr-only">${name}</span></span>` : `<span class="pool-piece">${name}</span>`;
-  }).join('<span class="sr-only">, </span>');
-  $('rules-letters').innerHTML =
-    `The random draw pool is ${pool}. Seven pieces join the king; two drawn bishops start on opposite colours. Custom setup and a pasted position can place other pieces.`;
-}
-
-/** A piece's rules in one line, for its card and the screen reader. */
-const pieceText = (t: PieceType): string => {
-  const g = pieceGuide(t);
-  return [g.moves, g.captures, g.special].filter(Boolean).join(' ');
-};
+const guide = connectGuide({ shownPos, preset });
 
 function showInfo(sq: number | null): void {
   readPiece(shownPos(), sq, inspected != null);
@@ -1082,7 +1026,7 @@ function openSaved(s: Save): void {
   $('moment').textContent = said;
   view.sync(game.pos);
   orient();
-  fillPieceGuide();
+  guide.fill();
   refresh();
   // Over the title or New game the computer waits, as at start-up; the title offers this game.
   if ($<HTMLDialogElement>('title-screen').open) { $('title-continue').hidden = !game.history.length; labelContinue(); }
@@ -1150,12 +1094,6 @@ home = initHome({
   today: openToday,
 });
 (window as unknown as Record<string, unknown>).home = home; // Samples read the live game, including a staged turn.
-$('rules-btn').onclick = () => {
-  refreshLessonShelf();
-  fillPieceGuide();
-  $<HTMLDialogElement>('rules').showModal();
-  document.querySelector<HTMLElement>('.lesson-guide-body')!.scrollTop = 0;
-};
 $('share-result').onclick = () => {
   const n = movesPlayed(), people = sides.filter(s => s === 'human').length;
   const me = sides.indexOf('human') as Color, winner = resigned != null ? 1 - resigned : game.status === 'checkmate' ? 1 - game.pos.turn : -1;
@@ -1296,7 +1234,7 @@ orient();
 view.sync(previously.position());
 await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
-fillPieceGuide(); // after every setRules path (URL preset / save restore)
+guide.fill(); // after every setRules path (URL preset / save restore)
 setSound($<HTMLInputElement>('sound').checked);
 restoreMoments();
 refresh();
