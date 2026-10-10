@@ -1,7 +1,7 @@
 /**
  * The Proving Ground's marks: the part of the approved mockup's mark module
  * (docs/research/rules-ui-2026-10-10/mockups/shared/marks.js, its line numbers in the comments) that tickets 01 to
- * 05 draw. The tiles, targets, shots, occupied takes and badges come from src/render/legend.ts; the blocks and
+ * 06 draw. The tiles, targets, shots, occupied takes and badges come from src/render/legend.ts; the blocks and
  * When words from vocab.ts. The refused forms, the stamps, the knots and the zone chalk stay here: the legend has
  * none. The mockup's looks `wash` and `familyWax` are always on. Later tickets port the rest.
  */
@@ -17,7 +17,7 @@ const C = { goldI: '#7a5712', push: '#2f7f75', swap: '#7a58c0', acc: '#842c21', 
 type MarkKind = Scene['marks'][number]['k'];
 
 /** 24 × 24 stroked sigils (marks.js:88-124): the 10 blocks with the G11 replacements, and the extras in use. */
-const SIGILS: Record<Ability['a'] | 'quill' | 'moon' | 'near' | 'card' | 'lock' | 'lockOpen' | 'eraser' | 'scale', string> = {
+const SIGILS: Record<Ability['a'] | 'quill' | 'moon' | 'near' | 'card' | 'lock' | 'lockOpen' | 'eraser' | 'scale' | 'eye' | 'die' | 'broom', string> = {
   step2: 'M7 13l5-5 5 5M7 19l5-5 5 5',
   movesLike: 'M4 7c3-2 13-2 16 0 0 6-3 10-8 10S4 13 4 7zM8.5 10.5h2M13.5 10.5h2',
   linesPass: 'M3 18c3-9 15-9 18 0M12 15v4',
@@ -36,13 +36,16 @@ const SIGILS: Record<Ability['a'] | 'quill' | 'moon' | 'near' | 'card' | 'lock' 
   lockOpen: 'M7.5 11V8a4.5 4.5 0 0 1 8.7-1.6M5.5 11h13v9.5h-13z',
   eraser: 'M14.5 4.5l5 5-9 9H6l-2.5-2.5zM9 10l5 5M6 18.5h14',
   scale: 'M12 3.5v17M7 20.5h10M4 7h16M6.5 7l-3 6.5h6zM17.5 7l-3 6.5h6zM10.5 4.5h3',
+  eye: 'M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12zM12 9.3a2.7 2.7 0 1 0 .01 0',
+  die: 'M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM8.5 8.5h.01M15.5 15.5h.01M12 12h.01M15.5 8.5h.01M8.5 15.5h.01',
+  broom: 'M15 3l-4.5 9M7 12h8.5l2 8.5H5zM9 16v4.5M13 16v4.5',
 };
 
 /** The hover names (marks.js:145-151): the square labels and the key. */
 export const NAMES = {
   move: 'Move', take: 'Take only', both: 'Move or take', shot: 'Shot: takes from here', moveshot: 'Move or shot',
   line: 'Line', arch: 'Passes over', cond: 'Only sometimes', asleep: 'Asleep here', push: 'Pushes', swap: 'Swaps',
-  blocked: 'Refused', 'blocked-move': 'Refused', removed: 'Removed too',
+  blocked: 'Refused', 'blocked-move': 'Refused', removed: 'Removed too', threat: 'Can hit this piece', tstop: 'Threat stopped',
 };
 
 const n = (v: number) => Math.round(v * 100) / 100;
@@ -140,6 +143,16 @@ function arrowLine(p0: P, p1: P, color: string, w: number, o: { trim0?: number; 
   g += line(s0[0], s0[1], s1[0], s1[1], color, w, 'stroke-linecap="round"');
   for (const [t, uu] of heads) g += `<path d="${tri(t, uu, hl, hl * 0.62)}" fill="${color}"/>`;
   return `<g>${g}</g>`;
+}
+
+/** A threat (marks.js:1139-1148): a faint red arrow from the attacker; a stopped one is grey, with a bar across its middle
+ *  and the stamp of "cannot be taken" beside it. */
+function threat(c0: P, c1: P, s: number, stopped?: boolean, trim = s * 0.25): string {
+  const o = { trim0: trim * 0.88, trim1: trim * 1.12, head: 9 };
+  if (!stopped) return `<g opacity=".6">${arrowLine(c0, c1, LEG.red, 2, o)}</g>`;
+  const mx = (c0[0] + c1[0]) / 2, my = (c0[1] + c1[1]) / 2, L = Math.hypot(c1[0] - c0[0], c1[1] - c0[1]) || 1, px = (c0[1] - c1[1]) / L, py = (c1[0] - c0[0]) / L, h = s * 0.13;
+  return arrowLine(c0, c1, C.bX, 2, o) + line(mx + px * h, my + py * h, mx - px * h, my - py * h, LEG.halo, 6, 'stroke-linecap="round"')
+    + line(mx + px * h, my + py * h, mx - px * h, my - py * h, C.bBar, 3, 'stroke-linecap="round"') + stamp('cannotBeTaken', mx - px * s * 0.32, my - py * s * 0.32, clamp(Math.round(s * 0.225), 12, 20));
 }
 
 /* ---- sigils, the moon pip, When chips, seals and tags (marks.js:296, :467-471, :666-697, :701-752, :805) ---- */
@@ -254,6 +267,8 @@ export function seal(a: Ability['a'], size = 44, o: { asleep?: boolean; label?: 
 export const pill = (text: string, o: { choice?: boolean; on?: boolean } = {}): string =>
   `<span class="pill${o.choice ? ' is-choice' : ''}${o.on ? ' is-on' : ''}">${esc(text)}</span>`;
 export const tagYours = (): string => `<span class="tag-yours">${sigil('quill', 13)}Yours</span>`;
+/** The Try board plaque (marks.js:809). */
+export const plaque = (): string => `<span class="plaque" title="An example board. No check test. The other side does not move.">${sigil('lockOpen', 13)}Try board</span>`;
 
 /* ---- stamps (marks.js:476-511) and knots (:758-797) ---- */
 
@@ -308,9 +323,10 @@ export function whySum(w: NonNullable<Why['sum']>, T: number, I: number): string
 }
 /** The count ring: the number of parts that make the mark (grammar.css:178). */
 export const countRing = (k: number): string => `<span class="count-ring" title="${k} part${k > 1 ? 's make' : ' makes'} this mark">${k}</span>`;
-export function effect(kind: 'arch' | 'push' | 'swap', s: number): string {
+export function effect(kind: 'arch' | 'push' | 'swap' | 'threat' | 'tstop', s: number): string {
   const c = s / 2, head = Math.max(7, s * 0.125);
   const g = kind === 'arch' ? arch([s * 0.08, s * 0.85], [s * 0.92, s * 0.85], s * 0.9)
+    : kind === 'threat' || kind === 'tstop' ? threat([s * 0.1, s * 0.9], [s * 0.9, s * 0.1], s, kind === 'tstop', 0)
     : kind === 'push' ? arrowLine([s * 0.12, c], [s * 0.92, c], C.push, 3, { head }) : arrowLine([s * 0.1, c], [s * 0.9, c], C.swap, 3, { both: true, head });
   return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" overflow="visible" aria-hidden="true">${g}</svg>`;
 }
@@ -364,13 +380,14 @@ function chalk(z: Zone, side: 'w' | 'b', s: number): string {
  * board image is the field's background. `art` gives each piece's image. `focus` isolates (drawString's o.focus,
  * marks.js:1014-1020): each part whose `by` it keeps glows, and every other part is dim. `stamps` keeps the stamps of
  * some rules only (the phone). A hover-only part (its `on`) shows only when `hover` is its square (marks.js:1020);
- * `select` frames the square of the open Why tag (marks.js:1167-1170). Only a mark's group has data-sq (with data-k,
+ * `select` frames the square of the open Why tag (marks.js:1167-1170); `lift` draws the open piece raised and faint (Try with:
+ * the player lifts it). An open threat glows red under its target (marks.js:1100). Only a mark's group has data-sq (with data-k,
  * data-cond, data-diff and data-on; a '-' mark has the class kdm-ghost); a rail, an arch and an effect have data-k,
  * data-from and data-to (a pip: data-at and data-n); a badge has data-badge, and the stamps of a square data-stamp and
  * data-a (the rules' abilities). A part that a preview adds (the scene's `pv`) has data-pv.
  */
 export function drawString(scene: Scene, o: {
-  s: number; art: (p: ScenePiece) => string; focus?: (by: readonly number[]) => boolean; stamps?: (by?: number) => boolean; hover?: string | null; select?: string | null;
+  s: number; art: (p: ScenePiece) => string; focus?: (by: readonly number[]) => boolean; stamps?: (by?: number) => boolean; hover?: string | null; select?: string | null; lift?: boolean;
 }): string {
   const s = o.s, XY = (q: string) => squareXY(q, s), CTR = (q: string): P => { const { x, y } = XY(q); return [x + s / 2, y + s / 2]; };
   const shown = <T extends { on?: string }>(l: readonly T[]): T[] => l.filter(x => !x.on || x.on === o.hover);
@@ -392,7 +409,7 @@ export function drawString(scene: Scene, o: {
       const k = diag ? 0.4 : 0.44, tip: P = [c1[0] + u[0] * s * k, c1[1] + u[1] * s * k];
       p1 = [tip[0] - uu[0] * s * 0.16, tip[1] - uu[1] * s * 0.16];
       end = arrowHead(tip, uu, s, { style: rl.style, wash: true });
-    }
+    } else if (rl.end === 'edge') p1 = [c1[0] + u[0] * s * (diag ? 0.4 : 0.44), c1[1] + u[1] * s * (diag ? 0.4 : 0.44)];
     under += group({ k: 'line', from: rl.from, to: rl.to, end: rl.end, pv: rl.pv && '1' }, rail(p0, p1, s, { style: rl.style, wash: true }), rl.by);
     if (end) ends += group({ k: 'line-end', to: rl.to }, end, rl.by);
   }
@@ -405,10 +422,14 @@ export function drawString(scene: Scene, o: {
     if (foe && m.k !== 'blocked-move') over += group({ badge: m.sq }, m.k === 'blocked' ? refusedBadge(x, y, s) : toSvg(badge(x, y, s, m.k)), m.by);
   }
   under += ends;
+  for (const q of new Set(scene.effects.flatMap(e => (e.k === 'threat' && !e.stopped ? [e.to] : [])))) {
+    const { x, y } = XY(q);
+    under += `<ellipse cx="${n(x + s / 2)}" cy="${n(y + s * 0.9)}" rx="${n(s * 0.4)}" ry="${n(s * 0.13)}" fill="url(#leg-glow-red)"/>`;
+  }
   if (open) { const { x, y } = XY(open.sq); under += `<ellipse cx="${n(x + s / 2)}" cy="${n(y + s * 0.9)}" rx="${n(s * 0.36)}" ry="${n(s * 0.11)}" fill="url(#kdm-glow-gold)"/>`; }
   const pieces = scene.pieces.map(p => {
-    const { x, y } = XY(p.sq), h = 0.9 * s;
-    return `<image href="${esc(o.art(p))}" x="${n(x + (s - h) / 2)}" y="${n(y + s - 0.075 * s - h)}" width="${n(h)}" height="${n(h)}" preserveAspectRatio="xMidYMax meet" filter="url(#kdm-rim)"/>`;
+    const { x, y } = XY(p.sq), h = 0.9 * s, up = p.open && o.lift ? 0.12 * s : 0;
+    return `<image href="${esc(o.art(p))}" x="${n(x + (s - h) / 2)}" y="${n(y + s - 0.075 * s - h - up)}" width="${n(h)}" height="${n(h)}" preserveAspectRatio="xMidYMax meet" filter="url(#kdm-rim)"${up ? ' opacity=".6"' : ''}/>`;
   }).join('');
   for (const ar of scene.arches) over += group({ k: 'arch', from: ar.from, over: ar.over, to: ar.to, pv: ar.pv && '1' }, arch(CTR(ar.from), CTR(ar.to), s), ar.by);
   const head = clamp(s * 0.125, 7, 10);
@@ -418,8 +439,9 @@ export function drawString(scene: Scene, o: {
       : e.k === 'pip' ? pip(XY(e.sq).x + s - 10, XY(e.sq).y + s - 10, 14, e.n)
       : e.k === 'push' ? arrowLine(CTR(e.from), CTR(e.to), C.push, 3, { trim0: s * 0.16, trim1: s * 0.18, head })
       : e.k === 'follow' ? arrowLine(CTR(e.from), CTR(e.to), C.push, 1.5, { trim0: s * 0.2, trim1: s * 0.24, head: clamp(s * 0.1, 6, 8) })
+      : e.k === 'threat' ? threat(CTR(e.from), CTR(e.to), s, e.stopped)
       : arch(CTR(e.from), CTR(e.to), s, e.k === 'sight' ? { bulge: 0.2 } : { bulge: 0.25, ink: true });
-    const ends = e.k === 'swap' ? { from: e.a, to: e.b } : e.k === 'pip' ? { at: e.sq, n: String(e.n) } : { from: e.from, to: e.to };
+    const ends = e.k === 'swap' ? { from: e.a, to: e.b } : e.k === 'pip' ? { at: e.sq, n: String(e.n) } : { from: e.from, to: e.to, stopped: e.k === 'threat' && e.stopped ? '1' : undefined };
     over += group({ k: e.k, ...ends, on: e.on, pv: e.pv && '1' }, svg, e.by);
   }
   for (const im of shown(scene.impressions)) {

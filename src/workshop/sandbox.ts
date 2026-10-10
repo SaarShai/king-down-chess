@@ -5,7 +5,7 @@
  * order), focus follows the piece, and each move is announced.
  * "Revision 3" and the section numbers (§, W) cite docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md.
  */
-import { BLACK, K, NAMES, T, WHITE, colorOf, piece, sq, sqName, typeOf, type Move, type PieceType } from '../rules/engine';
+import { K, NAMES, T, WHITE, colorOf, piece, sq, sqName, typeOf, type Move, type PieceType } from '../rules/engine';
 import { pieceIcon } from '../piece-icons';
 import { snd } from '../render/sfx';
 import { BODIES, presetOf, type PieceDesign } from './model';
@@ -15,16 +15,12 @@ import { autoBody } from './judge';
 import { selectedFigure } from './figures';
 import { figureHtml } from './art';
 import { cap, esc, ruleText } from './text';
+import { actOf as kindOf, stir, tapOf, type Act as Kind } from './scene';
 
-const ENEMIES: [PieceType, string][] = [[4, 'h8'], [2, 'f7'], [1, 'd6'], [3, 'b5'], [1, 'f5'], [1, 'g4']];
 const at = (n: string): number => sq(n.charCodeAt(0) - 97, +n[1] - 1);
 /** The word of a piece type a piece becomes: "queen". */
 const intoWord = (t: PieceType): string => BODY[BODIES.find(b => BODY[b].type === t)!].name;
-/** The square a move is chosen by: the victim of a shot, the piece pushed, else the landing square. */
-const tapOf = (m: Move): number => (m.shove ? m.shove.from : m.captures.length && m.to === m.from ? m.captures[0] : m.to);
-type Kind = 'move' | 'take' | 'shot' | 'push' | 'swap';
 const KIND_WORD: Record<Kind, string> = { move: 'move here', take: 'take', shot: 'shoot', push: 'push', swap: 'swap' };
-const kindOf = (m: Move): Kind => (m.shove ? 'push' : m.swap ? 'swap' : m.captures.length && m.to === m.from ? 'shot' : m.captures.length ? 'take' : 'move');
 const ARROW: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
 const prefix = (a: number[], b: number[]): boolean => a.every((c, i) => b[i] === c);
 
@@ -35,7 +31,7 @@ export function sandbox(host: HTMLElement, design: PieceDesign, name: string): {
   const capital = some(r => r.when.on === 'zone' && r.when.zone === 'capital');
   // The piece plays White here, so it is drawn ivory beside its white pawns (the army is only how it looks).
   const look = { ...design.look, figure: selectedFigure(design).id, army: 0 as const, body: design.look.auto ? autoBody(design) : design.look.body, letter: design.letter };
-  let board = new Uint8Array(64), pos = home, st: TryState = { move: 1, captured: false, card: false };
+  let board: Uint8Array = new Uint8Array(64), pos = home, st: TryState = { move: 1, captured: false, card: false };
   let d: Pick<PieceDesign, 'squares' | 'lines' | 'rules'> = design, became: PieceType | 0 = 0, gone = false;
   /** The moves at the start of this turn; a chain's next takes come from them. */
   let start: Move[] = [];
@@ -54,11 +50,7 @@ export function sandbox(host: HTMLElement, design: PieceDesign, name: string): {
     board[at('c3')] = board[at('e3')] = piece(1, WHITE);
     // A "next to your …" rule gets its partner beside the piece.
     if (near?.on === 'near' && near.who !== 'enemy' && near.who !== 'friend') board[home + 7] = piece(near.who === 'king' ? K : BODY_TYPE[near.who], WHITE);
-    const free = [...Array(64).keys()].filter(s => !board[s] && Math.max(Math.abs((s & 7) - (home & 7)), Math.abs((s >> 3) - (home >> 3))) > 1);
-    for (const [t, s] of ENEMIES) {
-      const to = shuffle ? free.splice(Math.floor(Math.random() * free.length), 1)[0] : at(s);
-      if (!board[to]) board[to] = piece(t, BLACK);
-    }
+    board = stir(board, home, shuffle ? Math.random : undefined);
     render();
   }
 

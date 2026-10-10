@@ -4,9 +4,9 @@
  * movesOf gives every reach and the board gives every occupant; this module decides no move rule
  * (docs/specs/workshop-proving-ground/spec.md, decision 36). Pure, so it runs in Node.
  */
-import { BLACK, LETTERS, NAMES, T, WHITE, colorOf, file, parseSq, piece, rank, sqName, typeOf, type PieceType } from '../rules/engine';
+import { BLACK, K, LETTERS, NAMES, P, T, WHITE, colorOf, file, genPiece, parseSq, piece, rank, sqName, typeOf, type Move, type PieceType } from '../rules/engine';
 import { marksModel } from '../marks-model';
-import { DIR, canonical, type Ability, type PieceDesign, type Zone } from './model';
+import { DIR, canonical, type Ability, type PieceDesign, type Rule, type Zone } from './model';
 import { blockOf } from './vocab';
 import { START, holds, movesOf, patternOf, step, type Can, type Refused, type TryState } from './moves';
 import { traceOf, type Knot } from './why';
@@ -19,8 +19,9 @@ export interface ScenePiece { sq: string; k: string; side: 'w' | 'b'; open?: tru
  *  `pv`: a preview adds it (a choice or a new rule that the player looks at, ground.ts). `on`: a hover-only part, shown while
  *  the square `on` has the pointer, the keyboard focus or the open Why tag (spec decision 37). */
 type By = { by?: number[]; pv?: true; on?: string };
-/** `x`: the line ends in a take; `stop`: a friend stops it; `arrow`: the board edge; `blocked`: an enemy that a rule refuses. */
-export interface Rail extends By { from: string; to: string; end: 'x' | 'stop' | 'arrow' | 'blocked'; style?: 'asleep' | 'awake' }
+/** `x`: the line ends in a take; `stop`: a friend stops it; `arrow`: the board edge; `edge`: the board edge of an asleep
+ *  line, with no arrow; `blocked`: an enemy that a rule refuses. */
+export interface Rail extends By { from: string; to: string; end: 'x' | 'stop' | 'arrow' | 'edge' | 'blocked'; style?: 'asleep' | 'awake' }
 export interface Scene {
   pieces: ScenePiece[];
   /** `blocked`: a refused take; `blocked-move`: a refused push or swap (a king). `byWords`: what refuses it.
@@ -28,8 +29,10 @@ export interface Scene {
   marks: (By & { sq: string; k: Kind | 'blocked' | 'blocked-move'; cond?: 'asleep' | 'awake'; byWords?: string; diff?: '+' | '-' })[];
   rails: Rail[];
   arches: (By & { from: string; over: string; to: string })[];
-  /** The hover-only effects: `follow` (the piece follows its push), `sight` (a shot's line), and a chain's `hop` and order `pip`. */
-  effects: (By & ({ k: 'swap'; a: string; b: string } | { k: 'push' | 'follow' | 'sight' | 'hop'; from: string; to: string } | { k: 'pip'; sq: string; n: number }))[];
+  /** The hover-only effects: `follow` (the piece follows its push), `sight` (a shot's line), and a chain's `hop` and order `pip`.
+   *  A `threat` (threatsOf, the eye of Try with) is `stopped` by a "cannot be taken" rule. */
+  effects: (By & ({ k: 'swap'; a: string; b: string } | { k: 'push' | 'follow' | 'sight' | 'hop'; from: string; to: string } | { k: 'pip'; sq: string; n: number }
+    | { k: 'threat'; from: string; to: string; stopped?: true }))[];
   /** The stamps on a mark: the table rule that refuses it (no `by`), then each rule of its `by`. */
   impressions: { sq: string; list: { a: Ability['a']; by?: number }[]; on?: string }[];
   /** The zone of a rule's When, shown while that rule is isolated. */
@@ -56,12 +59,64 @@ export function boardOf(pieces: readonly ScenePiece[]): Uint8Array {
   return b;
 }
 
+/** The pieces of a board as scene pieces; the one on `from` is the open piece (none once a move removed it). */
+export const piecesOf = (board: Uint8Array, from: number): ScenePiece[] => [...board.keys()].filter(s => board[s]).map(s => ({
+  sq: sqName(s), k: s === from ? 'design' : NAMES[typeOf(board[s])], side: colorOf(board[s]) ? 'b' : 'w', ...(s === from && { open: true as const }),
+}));
+
+/* ---- Try with (ticket 06): the moves a tap plays, the die, the broom, "Show on" and the threats ---- */
+
+/** What a move does, and the square a tap picks it by: the victim of a shot, the piece pushed, else the landing square (Try it, sandbox.ts). */
+export type Act = 'move' | 'take' | 'shot' | 'push' | 'swap';
+export const actOf = (m: Move): Act => (m.shove ? 'push' : m.swap ? 'swap' : m.captures.length && m.to === m.from ? 'shot' : m.captures.length ? 'take' : 'move');
+export const tapOf = (m: Move): number => (m.shove ? m.shove.from : m.captures.length && m.to === m.from ? m.captures[0] : m.to);
+const far = (a: number, b: number): number => Math.max(Math.abs(file(a) - file(b)), Math.abs(rank(a) - rank(b)));
+/** The enemies of Try it, as piece type and square. */
+const ENEMIES: [PieceType, string][] = [[4, 'h8'], [2, 'f7'], [1, 'd6'], [3, 'b5'], [1, 'f5'], [1, 'g4']];
+/** The die (and Shuffle in Try it): the board less its enemies, then the six enemies on free squares that `rnd` picks,
+ *  none next to the piece on `from`; with no `rnd`, on their own squares (the first board of Try it). */
+export function stir(board: Uint8Array, from: number, rnd?: () => number): Uint8Array {
+  const b = Uint8Array.from(board, v => (v && colorOf(v) !== colorOf(board[from]) ? 0 : v)), free = [...b.keys()].filter(s => !b[s] && far(s, from) > 1);
+  for (const [t, q] of ENEMIES) {
+    const to = rnd ? free.splice(Math.floor(rnd() * free.length), 1)[0] : parseSq(q);
+    if (!b[to]) b[to] = piece(t, BLACK);
+  }
+  return b;
+}
+/** The broom: the piece alone. */
+export const clear = (board: Uint8Array, from: number): Uint8Array => { const b = new Uint8Array(64); b[from] = board[from]; return b; };
+/** "Show on": the nearest empty square where `rule`'s When holds for the piece, the same file first; null when no square wakes it. */
+export function wakeSquare(board: Uint8Array, from: number, rule: Rule, st: TryState = START): number | null {
+  const on = (s: number): Uint8Array => { const b = new Uint8Array(board); b[from] = 0; b[s] = board[from]; return b; };
+  const key = (s: number): number => 2 * far(s, from) + +(file(s) !== file(from));
+  return [...board.keys()].filter(s => !board[s] && holds(rule.when, on(s), s, st)).sort((a, b) => key(a) - key(b))[0] ?? null;
+}
+/** The eye: each enemy that attacks the piece on `from` (the engine's genPiece, 'attacks'). A "cannot be taken" rule of
+ *  the design that holds and refuses that attacker stops the threat, with its seal number. */
+export function threatsOf(design: D, board: Uint8Array, from: number, st: TryState = START): Scene['effects'] {
+  const rules = canonical(design).rules, i = rules.findIndex(r => r.does.a === 'cannotBeTaken'), safe = rules[i];
+  const by = safe?.does.a === 'cannotBeTaken' && holds(safe.when, board, from, st) ? safe.does.by : null;
+  return [...board.keys()].flatMap(s => {
+    const v = board[s], ms: Move[] = [];
+    if (!v || colorOf(v) === colorOf(board[from])) return [];
+    genPiece(board, s, 'attacks', ms);
+    const stopped = by === 'allButKing' ? typeOf(v) !== K : by === 'pawns' && typeOf(v) === P;
+    return ms.some(m => m.captures.includes(from)) ? [{ k: 'threat' as const, from: sqName(s), to: sqName(from), ...(stopped && { stopped: true as const, by: [i] }) }] : [];
+  });
+}
+
 const kindOf = (c: Can): Kind => (c.s ? (c.m ? 'moveshot' : 'shot') : c.t ? (c.m ? 'both' : 'take') : 'move');
 /** A rail's line: its start and its direction. */
 const lineOf = (r: Rail): string => {
   const a = parseSq(r.from), b = parseSq(r.to);
   return `${r.from} ${Math.sign(file(b) - file(a))} ${Math.sign(rank(b) - rank(a))}`;
 };
+/** The squares a rail crosses, after its start, up to its end. */
+function along(r: Rail): number[] {
+  const a = parseSq(r.from), b = parseSq(r.to), out: number[] = [];
+  for (let s = a; s !== b && s >= 0;) out.push(s = step(s, Math.sign(file(b) - file(a)), Math.sign(rank(b) - rank(a))));
+  return out;
+}
 
 /** The marks, rails and arches of the design now, and its moves. */
 function layer(d: D, board: Uint8Array, from: number, st: TryState) {
@@ -115,8 +170,11 @@ export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState
       for (const m of marks) if (!m.cond && !other.marks.has(parseSq(m.sq))) m.cond = 'awake';
       for (const rl of rails) if (!rl.style && !lines.has(lineOf(rl))) Object.assign(rl, { style: 'awake', by: [i] });
     } else {
-      for (const [s, k] of other.marks) if (!marks.some(m => m.sq === sqName(s))) marks.push({ sq: sqName(s), k, cond: 'asleep', by: [i] });
-      for (const rl of other.rails) if (!lines.has(lineOf(rl))) rails.push({ ...rl, style: 'asleep', by: [i] });
+      // An asleep line is a faint rail with no arrow; its squares get no asleep marks (scenes.js, mypawn-queen-b4).
+      const asleep = other.rails.filter(rl => !lines.has(lineOf(rl))).map((rl): Rail => ({ ...rl, end: rl.end === 'arrow' ? 'edge' : rl.end, style: 'asleep', by: [i] }));
+      const crossed = new Set(asleep.flatMap(along));
+      for (const [s, k] of other.marks) if (!crossed.has(s) && !marks.some(m => m.sq === sqName(s))) marks.push({ sq: sqName(s), k, cond: 'asleep', by: [i] });
+      rails.push(...asleep);
     }
   }
   const effects = new Map<string, Scene['effects'][number]>();
@@ -153,13 +211,7 @@ export function sceneOf(design: D, board: Uint8Array, from: number, st: TryState
   }
   // Hover-only: a shot's sight line, on each shot mark (the Archer).
   for (const [s, k] of now.marks) if (k === 'shot' || k === 'moveshot') effects.set(`sight ${s}`, { k: 'sight', from: sqName(from), to: sqName(s), on: sqName(s) });
-  const pieces: ScenePiece[] = [];
-  board.forEach((v, s) => {
-    if (!v) return;
-    const p: ScenePiece = { sq: sqName(s), k: s === from ? 'design' : NAMES[typeOf(v)], side: colorOf(v) ? 'b' : 'w' };
-    pieces.push(s === from ? { ...p, open: true } : p);
-  });
-  return { pieces, marks, rails, arches: now.arches.map(a => ({ ...a, by: of('linesPass') })), effects: [...effects.values()], impressions, chalk, knots: trace.knots };
+  return { pieces: piecesOf(board, from), marks, rails, arches: now.arches.map(a => ({ ...a, by: of('linesPass') })), effects: [...effects.values()], impressions, chalk, knots: trace.knots };
 }
 
 /** The paint diff of a copy (paintDiff, proving-ground.html:875): the scene of `d`, where each mark that `base`'s paint

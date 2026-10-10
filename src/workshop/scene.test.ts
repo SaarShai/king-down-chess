@@ -3,16 +3,17 @@
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { parseSq } from '../rules/engine';
+import { BLACK, WHITE, colorOf, file, makeMove, parseSq, rank, sqName } from '../rules/engine';
 import { DIRS, PRESETS, presetOf, type PieceDesign, type Rule } from './model';
-import { boardOf, diffOf, examplesOf, sceneOf, type ScenePiece } from './scene';
+import { movesOf } from './moves';
+import { boardOf, diffOf, examplesOf, sceneOf, stir, threatsOf, wakeSquare, type ScenePiece } from './scene';
 
 interface Hand {
   pieces: ScenePiece[];
   marks: { sq: string; k: string; cond?: string; on?: string }[];
   rails: { from: string; to: string; end: string; style?: string }[];
   arches: { from: string; over: string; to: string }[];
-  effects: { k: string; on?: string; a?: string; b?: string; from?: string; to?: string; sq?: string; n?: number }[];
+  effects: { k: string; on?: string; a?: string; b?: string; from?: string; to?: string; sq?: string; n?: number; stopped?: true; by?: (number | string)[] }[];
 }
 const ctx = { window: {} as { KD?: { scenes: { get(id: string): Hand; check(): string[] } } } };
 runInNewContext(readFileSync(new URL('../../docs/research/rules-ui-2026-10-10/mockups/shared/scenes.js', import.meta.url), 'utf8'), ctx);
@@ -60,11 +61,13 @@ describe('the scene builder', () => {
     });
   }
 
-  it('draws the asleep and awake marks and rails of My Pawn, and of My Pawn that moves like a queen on a center square', () => {
+  it('draws the asleep and awake marks and rails of My Pawn, and of My Pawn that moves like a queen on a center square, on d4, b4 and e2', () => {
     const pawn = presetOf('pawn');
     const mine = { ...pawn, squares: [{ x: 0, y: 1, mark: 'move' as const }, { x: -1, y: 1, mark: 'both' as const }, { x: 1, y: 1, mark: 'both' as const }] };
     const queen: Rule = { when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } };
-    const cases: [string, Pick<PieceDesign, 'squares' | 'lines' | 'rules'>][] = [['mypawn', mine], ['mypawn-queen', { ...mine, rules: [pawn.rules[0], queen, pawn.rules[1]] }]];
+    const mq = { ...mine, rules: [pawn.rules[0], queen, pawn.rules[1]] };
+    // On b4 and e2 (ticket 06) the queen lines sleep: faint rails to the edge, with no asleep marks on their squares.
+    const cases: [string, Pick<PieceDesign, 'squares' | 'lines' | 'rules'>][] = [['mypawn', mine], ['mypawn-queen', mq], ['mypawn-queen-b4', mq], ['mypawn-queen-e2', mq]];
     for (const [id, d] of cases) {
       const [got, want] = both(id, d);
       expect(got, id).toEqual(want);
@@ -94,3 +97,40 @@ describe('the scene builder', () => {
   });
 });
 
+describe('Try with (ticket 06)', () => {
+  const d4 = parseSq('d4'), blacks = (b: Uint8Array): number[] => [...b.keys()].filter(s => b[s] && colorOf(b[s]) === BLACK);
+
+  it('stirs new enemies onto free squares: the piece and its friends stay, and no enemy stands next to the piece', () => {
+    const board = boardOf(scenes.get('guard').pieces);
+    let seed = 7;
+    const rnd = (): number => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 20; i++) {
+      const b = stir(board, d4, rnd);
+      expect([b[d4], b[parseSq('d3')]]).toEqual([board[d4], board[parseSq('d3')]]);
+      expect(blacks(b)).toHaveLength(6);
+      for (const s of blacks(b)) expect(Math.max(Math.abs(file(s) - 3), Math.abs(rank(s) - 3)), sqName(s)).toBeGreaterThan(1);
+    }
+    // With no random source the enemies stand on the first board of Try it.
+    expect(blacks(stir(board, d4)).map(sqName).sort()).toEqual(['b5', 'd6', 'f5', 'f7', 'g4', 'h8']);
+  });
+
+  it('stops the pawn threat on the Guard with its rule, as the guard hand scene does', () => {
+    const hand = scenes.get('guard'), board = boardOf(hand.pieces), guard = presetOf('guard');
+    expect(threatsOf(guard, board, d4)).toEqual(hand.effects.map(({ k, from, to, stopped, by }) => ({ k, from, to, stopped, by })));
+    expect(threatsOf({ ...guard, rules: [] }, board, d4)).toEqual([{ k: 'threat', from: 'e5', to: 'd4' }]);
+  });
+
+  it('plays Move here with the engine: the Paladin takes d7, and both pieces go (selfRemove)', () => {
+    const board = boardOf(examplesOf({ from: ['paladin'] })), d7 = parseSq('d7');
+    const m = movesOf(presetOf('paladin'), board, d4).find(x => x.captures[0] === d7)!;
+    expect(m.selfRemove).toBe(true);
+    const after = makeMove({ board, turn: WHITE, halfmove: 0, ply: 0 }, m).board;
+    expect([after[d4], after[d7]]).toEqual([0, 0]);
+  });
+
+  it('finds the square that wakes a rule: d2 for the Pawn\'s step 2 from d4, and none for a move number', () => {
+    const board = boardOf(examplesOf({ from: ['pawn'] })), step2 = presetOf('pawn').rules[0];
+    expect(sqName(wakeSquare(board, d4, step2)!)).toBe('d2');
+    expect(wakeSquare(board, d4, { ...step2, when: { on: 'fromMove', n: 5 } })).toBeNull();
+  });
+});

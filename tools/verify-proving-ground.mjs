@@ -1,4 +1,4 @@
-// The Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground, tickets 01 to 05).
+// The Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground, tickets 01 to 06).
 // Groups: opens (the menu door, ‹ Menu and Esc, the focus back on the menu), poolPieces (each pool piece opens;
 // the Pawn's and the Paladin's marks equal src/workshop/scene.test.ts), yours (the shelf designs in the ledge),
 // link (a design link opens read only; a bad code shows the toast), keys (one tab stop, the arrow keys, the square
@@ -20,6 +20,11 @@
 // phone's bottom sheet stays inside the screen) and hoverOnly (hover or focus on the Beast's e5 shows f6, the barred g7 and
 // their pips, and the pointer on another square keeps them while e5 has the focus; hover on the Archer's d6 shows its sight
 // line; hover on the Ogre's d6 shows the follow; a tap on e5 keeps them under the tag; on the phone a tap shows them).
+// Then ticket 06: tryWith (the tray and the plaque wait on the first open of a pool piece; the Pawn lifted to b4, where step 2
+// sleeps, and to e2, where it wakes, by a tap, a drag and the keys; Esc puts it back; "Show on d2" from d6; Move here and
+// Take back; Put an enemy here; the tokens; the promotion choice; the Guard's stopped threat and the eye; the die and the
+// broom; the Beast's chain with Finish; the Paladin removed too; the Ogre's two actions; "+5 moves" on a design that reads the
+// move number only; the phone's Board tab and a drag that does not scroll).
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
 import { pressMenu } from './app-ui.mjs';
@@ -121,6 +126,18 @@ const tag = p => p.evaluate(() => {
 /** The hover-only parts on the board, as "on-square: kind square". */
 const onParts = p => p.$$eval('.pg-board [data-on]', gs => gs.map(g => `${g.dataset.on}: ${g.dataset.k ?? 'stamp'} ${g.dataset.sq ?? g.dataset.at ?? g.dataset.to ?? g.dataset.stamp}`).sort());
 const middle = async (p, sel) => { const b = await p.locator(sel).boundingBox(); return b.y + b.height / 2; };
+/** Ticket 06: the buttons at the foot of the Why tag, the open piece's square, the pieces on the board, and a drag from square a to b. */
+const acts = p => p.$$eval('.pg-why .why-act button', bs => bs.map(b => b.textContent));
+const openSq = p => p.$eval('.pg-hits .sq.is-open', b => b.dataset.sq).catch(() => null);
+const figures = p => p.locator('.pg-board image[filter="url(#kdm-rim)"]').count();
+async function drag(p, a, b) {
+  const at = async q => { const r = await p.locator(`.sq[data-sq="${q}"]`).boundingBox(); return [r.x + r.width / 2, r.y + r.height / 2]; };
+  const [[x0, y0], [x1, y1]] = [await at(a), await at(b)];
+  await p.mouse.move(x0, y0);
+  await p.mouse.down();
+  await p.mouse.move(x1, y1, { steps: 8 });
+  await p.mouse.up();
+}
 
 async function opens() {
   const p = await open();
@@ -955,6 +972,147 @@ async function hoverOnly() {
   await q.context().close();
 }
 
+async function tryWith() {
+  const late = { v: 1, kind: 'piece', id: 'late', name: 'Late Queen', named: true, look: { body: 'P', auto: false, glow: null, army: 0 }, letter: 'Y', ownLetter: false,
+    squares: [{ x: 0, y: 1, mark: 'move' }], lines: [], rules: [{ when: { on: 'fromMove', n: 10 }, does: { a: 'movesLike', as: 'queen' } }], from: [], updated: 1760000000000 };
+  const p = await open('?workshop=a', { shelf: JSON.stringify({ v: 1, designs: [late] }) });
+  await door(p);
+  assert.deepEqual(await p.$$eval('.pg-tray, .pg-plaque', es => es.map(e => e.hidden)), [true, true], 'the first open of a pool piece shows no tray and no plaque');
+  // Lift and place: a tap, then a tap.
+  await tap(p, 'd4');
+  assert.equal(await p.getAttribute('.pg-board [data-select]', 'data-select'), 'd4', 'a tap on the open piece lifts it: a frame marks its square');
+  assert.equal(await p.locator('.pg-plaque').isVisible(), true, 'the first tap on a square shows the plaque');
+  assert.equal(await p.getAttribute('.pg-plaque .plaque', 'title'), 'An example board. No check test. The other side does not move.', 'the plaque says what the Try board is');
+  await tap(p, 'b4');
+  assert.deepEqual([await openSq(p), await marks(p)], ['b4', ['a5 take', 'b5 move', 'b6 move asleep', 'c5 take']], 'on b4 the Pawn\'s step 2 sleeps');
+  await shot(p, 'try-b4-1440');
+  // A drag.
+  await drag(p, 'b4', 'e2');
+  assert.deepEqual([await openSq(p), await marks(p)], ['e2', ['d3 take', 'e3 move', 'e4 move awake', 'f3 take']], 'a drag to e2: the step 2 wakes');
+  assert.equal(await tag(p), null, 'a drag opens no tag');
+  await shot(p, 'try-e2-1440');
+  // The keys: Enter on the piece lifts it, the arrows move, Enter places it; Esc puts a lifted piece back.
+  await p.focus('.sq[data-sq="e2"]');
+  for (const key of ['Enter', 'ArrowLeft', 'ArrowUp', 'ArrowUp', 'Enter']) await p.keyboard.press(key);
+  assert.deepEqual([await openSq(p), await marks(p), await tag(p)], ['d4', PAWN, null], 'Enter, the arrows and Enter take the Pawn back to d4, with no tag');
+  await p.keyboard.press('Enter');
+  await p.keyboard.press('Escape');
+  assert.deepEqual([await openSq(p), await p.locator('.pg-board [data-select]').count(), await p.locator('#workshop[open]').count()], ['d4', 0, 1], 'Esc puts the lifted piece back, and the Workshop stays open');
+  // "Show on": the asleep d6 shows on d2, and the tag opens on the woken mark.
+  await tap(p, 'd6');
+  assert.deepEqual(await acts(p), ['Show on d2'], 'the asleep d6 offers to show it on d2');
+  await p.click('[data-act="showon"]');
+  assert.deepEqual([await openSq(p), (await tag(p))?.sq, (await marks(p)).includes('d4 move awake')], ['d2', 'd4', true], 'Show on d2 puts the Pawn on d2 and opens the tag on its woken d4');
+  // Move here and Take back.
+  assert.deepEqual(await acts(p), ['Move here'], 'the tag of a move has Move here');
+  await p.click('[data-try="move"]');
+  assert.deepEqual([await openSq(p), await toast(p), await acts(p)], ['d4', 'Moved to d4.', ['Take back']], 'Move here plays the move with the engine');
+  await p.click('[data-act="takeback"]');
+  assert.deepEqual([await openSq(p), await acts(p)], ['d2', ['Move here']], 'Take back puts the board back');
+  // Put an enemy here: an empty take square.
+  await tap(p, 'c3');
+  assert.deepEqual(await acts(p), ['Put an enemy here'], 'an empty take square offers an enemy');
+  await p.click('[data-act="putenemy"]');
+  assert.deepEqual([(await tag(p))?.occ, await acts(p)], ['Black pawn', ['Move here']], 'the enemy stands there, and the take is ready');
+  await p.click('[data-try="take"]');
+  assert.deepEqual([await openSq(p), await toast(p)], ['c3', 'Took the enemy pawn on c3.'], 'Move here on a take takes it');
+  await p.click('[data-act="takeback"]');
+  await p.click('[data-act="closewhy"]');
+  // The tokens wait for the tray: they show from the second item. The eye is on for the Guard, whose rule stops the pawn.
+  await p.click('.slot[data-piece="guard"]');
+  assert.deepEqual(await p.$$eval('.pg-tray, .pg-plaque', es => es.map(e => e.hidden)), [false, false], 'the second item shows the tray and the plaque');
+  assert.deepEqual(await p.$$eval('.pg-board [data-k="threat"]', gs => gs.map(g => `${g.dataset.from} ${g.dataset.to} ${g.dataset.stopped}`)), ['e5 d4 1'], 'the eye shows the pawn\'s threat on e5, stopped');
+  assert.equal(await p.locator('.pg-keyrow .k', { hasText: 'Stopped' }).count(), 1, 'the key row names the stopped threat');
+  assert.equal(await p.locator('[data-act="plus5"], .pg-cardon').count(), 0, 'the Guard reads no move number and no card: no +5 moves, no card box');
+  await shot(p, 'try-guard-1440');
+  await p.click('[data-act="threats"]');
+  assert.deepEqual([await p.getAttribute('[data-act="threats"]', 'aria-pressed'), await p.locator('.pg-board [data-k="threat"]').count()], ['false', 0], 'the eye takes the threats away');
+  await p.click('[data-act="threats"]');
+  await p.click('[data-tok="enemy"]');
+  assert.equal(await p.getAttribute('[data-tok="enemy"]', 'aria-pressed'), 'true', 'a tap arms the Enemy token');
+  await tap(p, 'c5');
+  assert.deepEqual([await marks(p), await p.locator('.pg-board [data-k="threat"]').count()], [['c3 move', 'c4 move', 'd5 move', 'e3 move', 'e4 move'], 2], 'its pawn on c5 takes c5 from the marks and threatens the Guard');
+  await tap(p, 'd3');
+  assert.equal((await marks(p)).includes('d3 move'), true, 'a tap on a piece takes it away');
+  await p.keyboard.press('Escape');
+  assert.equal(await p.getAttribute('[data-tok="enemy"]', 'aria-pressed'), 'false', 'Esc lets the token go');
+  await p.click('[data-tok="friend"]');
+  await tap(p, 'c4');
+  await p.click('[data-tok="friend"]');
+  assert.equal((await marks(p)).includes('c4 move'), false, 'a friend on c4 takes the mark away');
+  // The broom and the die.
+  await p.click('[data-act="clear"]');
+  assert.deepEqual([await figures(p), await p.locator('.pg-board [data-k="threat"]').count()], [1, 0], 'the broom leaves the piece alone');
+  await p.click('[data-act="stir"]');
+  assert.equal(await figures(p), 7, 'the die puts six enemies on the board');
+  // The Beast's chain, with Finish.
+  await p.click('.slot[data-piece="beast"]');
+  const start = await marks(p);
+  await tap(p, 'e5');
+  await p.click('[data-try="take"]');
+  assert.deepEqual([await openSq(p), await marks(p), await acts(p)], ['e5', ['f6 both'], ['Finish', 'Take back']], 'after e5 the chain shows its next take, f6, and Finish');
+  await p.click('[data-act="finish"]');
+  assert.equal((await marks(p)).length > 1, true, 'Finish ends the chain: all its marks show from e5');
+  await p.click('[data-act="takeback"]');
+  await p.click('[data-act="closewhy"]');
+  assert.deepEqual([await openSq(p), await marks(p)], ['d4', start], 'Take back goes back before the chain');
+  // The Paladin takes d7 and is removed too.
+  await p.click('.slot[data-piece="paladin"]');
+  await tap(p, 'd7');
+  await p.click('[data-try="take"]');
+  assert.deepEqual([await openSq(p), await marks(p), await acts(p)], [null, [], ['Take back']], 'the Paladin takes the knight on d7 and goes too');
+  // The Ogre's d5: two actions.
+  await p.click('.slot[data-piece="ogre"]');
+  await tap(p, 'd5');
+  assert.deepEqual(await acts(p), ['Move here', 'Push'], 'a square with two actions asks which one');
+  await p.click('[data-try="push"]');
+  assert.equal(await toast(p), 'Pushed the enemy pawn from d5 to d6.', 'Push pushes the pawn');
+  // The Pawn's promotion asks which piece.
+  await p.click('.slot[data-piece="pawn"]');
+  await tap(p, 'd4');
+  await tap(p, 'd7');
+  await tap(p, 'd8');
+  await p.click('[data-try="move"]');
+  assert.deepEqual([await p.locator('.why-ask').textContent(), await acts(p)], ['It becomes which piece?', ['Queen', 'Rook', 'Bishop', 'Knight']], 'a promotion asks which piece');
+  await shot(p, 'try-promotion-1440');
+  await p.click('[data-promo="3"]');
+  assert.deepEqual([await openSq(p), await marks(p)], ['d8', ['b7 both', 'c6 both', 'e6 both', 'f7 both']], 'the Pawn becomes a knight on d8');
+  // "+5 moves" on a design whose rule reads the move number.
+  await p.click('.slot[data-design="late"]');
+  assert.equal(await p.locator('.pg-moven').textContent(), 'Move 1', 'a design that reads the move number shows it');
+  const ends = async () => [...new Set((await rails(p)).map(r => r.split(' ')[1]))];
+  assert.deepEqual(await ends(), ['edge'], 'on move 1 its queen lines sleep: faint rails with no arrow');
+  await p.click('[data-act="plus5"]');
+  await p.click('[data-act="plus5"]');
+  assert.deepEqual([await p.locator('.pg-moven').textContent(), await ends()], ['Move 11', ['arrow']], '+5 moves twice: move 11 wakes its queen lines');
+  await minTarget(p, '#workshop .pg-tray button', 44);
+  await p.context().close();
+  // A short screen: the tray waits while the tag is open, so nothing goes under the ledge.
+  const r = await open('?workshop=a', { width: 1024, height: 768 });
+  await door(r);
+  await r.click('.slot[data-piece="paladin"]');
+  await tap(r, 'd7');
+  assert.deepEqual([await r.locator('.pg-tray').isVisible(), await r.$eval('.pg-right', c => c.scrollHeight <= c.clientHeight)], [false, true], '1024x768: the tag has the column, and the tray waits');
+  await r.click('[data-act="closewhy"]');
+  assert.equal(await r.locator('.pg-tray').isVisible(), true, '1024x768: the tray comes back when the tag closes');
+  await r.context().close();
+  // The phone: the tray is in the Board tab, the lock in the name row, and the open piece takes a drag with no scroll.
+  const q = await open('?workshop=a', { width: 390, height: 844 });
+  await door(q);
+  assert.equal(await q.locator('.pg-name .plock').isVisible(), true, 'the phone shows the lock in the name row');
+  assert.equal(await q.locator('.pg-plaque').isVisible(), false, 'and no plaque on the rim');
+  assert.equal(await q.$eval('.sq.is-open', b => getComputedStyle(b).touchAction), 'none', 'a drag on the open piece does not scroll the page');
+  await q.click('[data-tab="board"]');
+  assert.deepEqual([await q.getAttribute('[data-tab="board"]', 'aria-selected'), await q.locator('.lrow').isVisible(), await q.locator('.pg-boardtab .pg-tray').isVisible()], ['true', false, true],
+    'the Board tab holds the tray');
+  await minTarget(q, '#workshop .pg-tray button, #workshop .ltab', 44);
+  await noSidewaysScroll(q, '#workshop');
+  await shot(q, 'try-board-390x844');
+  await drag(q, 'd4', 'e2');
+  assert.deepEqual([await openSq(q), (await marks(q)).includes('e4 move awake')], ['e2', true], 'on the phone a drag places the Pawn too');
+  await q.context().close();
+}
+
 try {
   await opens();
   await poolPieces();
@@ -979,6 +1137,7 @@ try {
   await removeRule();
   await whyTag();
   await hoverOnly();
+  await tryWith();
   assertNoErrors();
   console.log('proving-ground: all groups pass');
 } finally {
