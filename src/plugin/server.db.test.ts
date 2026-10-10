@@ -134,8 +134,9 @@ suite('ChatGPT tools on PostgreSQL', () => {
   const first = await d.ok('kingdown_open'), board: string = first.structuredContent.board_id, firstGame: string = first.structuredContent.game_id;
   const other = await d.ok('kingdown_open', { game_id: firstGame });
   expect(other.structuredContent).toMatchObject({ game_id: firstGame }); expect(other.structuredContent.board_id).not.toBe(board);
-  const created = await d.ok('kingdown_create', { mode: 'solo', board_id: board }), second: string = created.structuredContent.game_id;
-  expect(created.structuredContent).toMatchObject({ board_id: board, kind: 'solo', speed: 'live' });
+  // White: with no colour the seat is random, and Black has no legal move before the computer plays.
+  const created = await d.ok('kingdown_create', { mode: 'solo', colour: 'white', board_id: board }), second: string = created.structuredContent.game_id;
+  expect(created.structuredContent).toMatchObject({ board_id: board, kind: 'solo', speed: 'live', colour: 'white' });
   expect((await d.ok('kingdown_get', { game_id: firstGame, board_id: board })).structuredContent.game_id).toBe(second);
   expect((await d.ok('kingdown_get', { game_id: firstGame, board_id: other.structuredContent.board_id })).structuredContent.game_id).toBe(firstGame);
   for (const [name, args] of [['kingdown_get', { game_id: firstGame, board_id: board }], ['kingdown_get', { game_id: firstGame }], ['kingdown_create', { mode: 'solo', board_id: board }], ['kingdown_open', { game_id: firstGame }]] as const)

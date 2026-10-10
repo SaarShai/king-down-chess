@@ -109,21 +109,21 @@ try {
   const made = await api('/api/games', { token, method: 'POST', body: { kind: 'friend', speed: 'daily', colour: 'white' } });
   assert.equal(made.status, 201); assert.equal(made.value.invite.url, `${origin}/j/${made.value.invite.token}`);
   const gameId = made.value.view.game_id;
-  const joined = await tool('kingdown_join', { token: made.value.invite.token });
-  assert(!joined.isError); assert.equal(joined.structuredContent.matchId, gameId); assert.equal(joined.structuredContent.playerColor, 1);
+  const joined = await tool('kingdown_join', { invitation: made.value.invite.url }); // the website's link, pasted into ChatGPT
+  assert(!joined.isError); assert.equal(joined.structuredContent.game_id, gameId); assert.equal(joined.structuredContent.colour, 'black');
   let view = (await api(`/api/games/${gameId}`, { token })).value;
   const turn = { command_id: 'crossplay-1', expected_revision: view.revision, action: { type: 'turn', actions: [plain(view.legal)] } };
   const first = await api(`/api/games/${gameId}/commands`, { token, method: 'POST', body: turn });
   assert.equal(first.value.type, 'ack'); assert.equal(first.value.revision, 2);
   assert.deepEqual((await api(`/api/games/${gameId}/commands`, { token, method: 'POST', body: turn })).value.revision, 2); // a retry applies once
-  const black = await tool('kingdown_get', { matchId: gameId });
-  const reply = await tool('kingdown_move', { matchId: gameId, id: 'crossplay-2', expectedRevision: 2, lan: plain(black.structuredContent.snapshot.legal) });
-  assert(!reply.isError); assert.equal(reply.structuredContent.snapshot.revision, 3);
+  const black = await tool('kingdown_get', { game_id: gameId });
+  const reply = await tool('kingdown_move', { game_id: gameId, command_id: 'crossplay-2', expected_revision: 2, lan: plain(black._meta.view.legal) });
+  assert(!reply.isError); assert.equal(reply._meta.view.revision, 3);
   view = (await api(`/api/games/${gameId}?since=2`, { token })).value;
   assert.deepEqual(view.last_commands.map(command => [command.seq, command.seat]), [[3, 1]]);
   const resigned = await api(`/api/games/${gameId}/commands`, { token, method: 'POST', body: { command_id: 'crossplay-3', expected_revision: 3, action: { type: 'resign' } } });
   assert.deepEqual([resigned.value.view.status, resigned.value.view.result], ['finished', { winner: 1, reason: 'resignation' }]);
-  assert.equal((await tool('kingdown_move', { matchId: gameId, id: 'crossplay-4', expectedRevision: 4, lan: plain(black.structuredContent.snapshot.legal) }))._meta.code, 'MATCH_TERMINAL');
+  assert.equal((await tool('kingdown_move', { game_id: gameId, command_id: 'crossplay-4', expected_revision: 4, lan: plain(black._meta.view.legal) }))._meta.code, 'MATCH_TERMINAL');
   assert.deepEqual((await pool.query('select surface from public.game_commands where game_id=$1 and command_id is not null order by seq', [gameId])).rows.map(row => row.surface), ['web', 'chatgpt', 'web']);
 
   // /internal runs a job only with the secret; email stays off without its settings.
