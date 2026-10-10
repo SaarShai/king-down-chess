@@ -689,7 +689,11 @@ $('moves').onclick = e => {
   if (ply) void showPly(+ply.dataset.ply!);
 };
 
-/** Stop any AI search in flight and drop the per-game UI state. */
+/**
+ * Stop any AI search in flight and drop the per-game UI state. Every step that replaces or changes the
+ * game outside a move calls this first: an await that resumes then sees a new `gen` and drops out
+ * (moments.ts listMoments keeps the game across its awaits).
+ */
 function reset(): void {
   gameEnd.reset();
   moveMoments.cancel();
@@ -763,9 +767,9 @@ $('undo').onclick = undo;
 $('resign-confirm').onclick = () => {
   const side = resigner();
   if (side == null) return;
+  reset();
   dropTurn(game, turnStart);
   view.sync(game.pos);
-  reset();
   resigned = side;
   refresh();
   save();
