@@ -6,20 +6,25 @@
 begin;
 
 -- A handle never returns: a changed handle stays reserved for its player, and a deleted player's
--- handle stays reserved for good. The lock makes two players who want one handle queue, so the
--- second sees the first one's reservation. Here, not in the service, so every path keeps the rule.
+-- handle stays reserved for good. Here, not in the service, so every path keeps the rule. A lock on
+-- each handle that a change takes or leaves makes a player who wants that handle wait until the
+-- change commits; that player then sees the reservation. Without the lock on the old handle, the
+-- reservation is not visible yet, and the old handle passes to the other player at the commit.
 create or replace function public.reserve_handle() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
   if tg_op = 'DELETE' then
     if old.handle is not null then
+      perform pg_advisory_xact_lock(hashtext('kingdown.handle:' || old.handle));
       insert into public.reserved_handles (handle, reason) values (old.handle, 'deleted') on conflict (handle) do nothing;
     end if;
     return old;
   end if;
   if new.handle is not distinct from old.handle then return new; end if;
+  -- The lower key first, so two changes never wait on each other. least and greatest skip a null handle.
+  perform pg_advisory_xact_lock(least(hashtext('kingdown.handle:' || old.handle), hashtext('kingdown.handle:' || new.handle)));
+  perform pg_advisory_xact_lock(greatest(hashtext('kingdown.handle:' || old.handle), hashtext('kingdown.handle:' || new.handle)));
   if new.handle is not null then
-    perform pg_advisory_xact_lock(hashtext('kingdown.handle:' || new.handle));
     if exists (select from public.reserved_handles where handle = new.handle) then
       raise exception 'Handle % is reserved', new.handle using errcode = '23505', constraint = 'reserved_handles_pkey';
     end if;

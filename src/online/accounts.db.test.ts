@@ -84,6 +84,20 @@ suite('PostgreSQL accounts and safety (runtime role and owner)', () => {
   expect(leaving.map(result => result.status === 'rejected' ? result.reason.code : 'ok')).toEqual(['ok', 'HANDLE_TAKEN']);
  }, 30000);
 
+ it('keeps a handle that its owner leaves while another player asks for it at the same time', async () => {
+  const [a, b] = [await user('lv'), await user()], old = (await handleOf(a))!;
+  // A fixed order: A changes the handle and holds the commit; B asks for the old handle and waits; then A commits.
+  const leaving = await admin.connect(), taking = new pg.Client({ connectionString: url }); await taking.connect();
+  try {
+   await leaving.query('begin'); await leaving.query('update public.profiles set handle=$2 where id=$1', [a, `lv2-${tag}`]);
+   const pid = (await taking.query('select pg_backend_pid() as pid')).rows[0].pid;
+   const take = taking.query('update public.profiles set handle=$2 where id=$1', [b, old]).then(() => 'taken', error => error.code);
+   for (let i = 0; i < 250 && !(await rows("select from pg_stat_activity where pid=$1 and wait_event_type='Lock'", [pid])).length; i++) await new Promise(resolve => setTimeout(resolve, 20));
+   await leaving.query('commit');
+   expect([await take, await handleOf(b)]).toEqual(['23505', null]);
+  } finally { leaving.release(); await taking.end(); }
+ }, 30000);
+
  it('saves settings and applies them to views: last seen, presets, a block and quiet mode', async () => {
   const [a, b] = [await user('ada'), await user('ben')];
   const set = await accounts.updateSettings(a, { icon: 'flame', online_visible_to: 'everyone' });
