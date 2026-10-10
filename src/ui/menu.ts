@@ -24,10 +24,11 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
     if (!sheet.open) return;
     if (body.scrollHeight > body.clientHeight + 1) {
       const padding = parseFloat(getComputedStyle(body).paddingBottom);
-      const edge = body.getBoundingClientRect().top + body.clientHeight;
+      const bodyTop = body.getBoundingClientRect().top;
       const rows = [...body.querySelectorAll<HTMLElement>('.menu-row, label, #tricks-list > li')].filter(row => row.getClientRects().length > 0);
-      const last = rows.filter(row => row.getBoundingClientRect().bottom <= edge - padding).at(-1);
-      if (last) body.style.maxHeight = `${last.getBoundingClientRect().bottom - body.getBoundingClientRect().top + padding}px`;
+      const offsets = rows.map(row => row.getBoundingClientRect().bottom - bodyTop + body.scrollTop);
+      const last = offsets.filter(off => off <= body.clientHeight - padding).at(-1);
+      if (last !== undefined) body.style.maxHeight = `${last + padding}px`;
     }
     updateShade();
   }

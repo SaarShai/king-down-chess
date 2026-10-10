@@ -66,7 +66,7 @@ function compactPly(pos: Position, m: Move, continued: boolean): string {
     : m.power === 'sacrifice' ? `Sacrifice on ${sqName(m.from)} for ${NAMES[m.promo!]}`
     : m.drop ? `${name} ${m.power === 'salvation' ? 'returns' : 'enters'} on ${sqName(m.to)}${m.drop2 !== undefined ? ` and ${sqName(m.drop2)}` : ''}`
     : m.promo && m.from === m.to ? `${subject}becomes ${NAMES[m.promo]}`
-    : m.power === 'rescue' ? `${name || 'Rescue'} puts the mark on ${sqName(m.to)} again`
+    : m.power === 'rescue' ? `Rescue puts the mark on ${name ? `the ${name} on ` : ''}${sqName(m.to)} again`
     : m.pushes ? `pushes ${m.pushes.map(p => `${NAMES[typeOf(pos.board[p.from])]} ${sqName(p.from)} to ${sqName(p.to)}`).join(' and ')}`
     : m.from === m.to && !m.captures.length ? `${subject}${m.power ? `uses ${powerName(m.power)}` : 'stays'}`
     : m.swap ? `${subject}swaps with ${sqName(m.to)}`

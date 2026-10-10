@@ -76,3 +76,5 @@ Item 1: decided by delegation (2026-10-09). The first layout uses fit-content. B
 Small repair item 1: decided by delegation (2026-10-09). Phone Menu follows the standard bottom-sheet pattern. No page keeps spare height from another page. A bottom shade shows an overflowing body. Where a whole row fits, the body ends after that row. Browser checks compare each sheet with its head, page content and padding.
 
 The shade check also requires generated pseudo-element content. A display value alone does not show that the shade paints.
+
+Polish 2: decided by delegation (2026-10-09). Scroll padding keeps focused Motion above the bottom cut. Row bounds use content coordinates, so a scrolled resize keeps the cut between rows. The menu-extra browser check covers both cases.

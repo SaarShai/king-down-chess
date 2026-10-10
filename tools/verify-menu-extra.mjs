@@ -95,6 +95,13 @@ try {
     await openMenu(page);
     assert.equal(await page.locator('#pace-note').isVisible(), false, 'Motion Off hides the skip note');
     if (width === 844) {
+      for (let tab = 0; tab < 20 && await page.evaluate(() => document.activeElement.id !== 'pace'); tab++) await page.keyboard.press('Tab');
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'pace', 'Tab reaches Motion');
+      assert.ok(await page.locator('#pace').evaluate(control => {
+        const body = control.closest('.sheet-body'), box = body.getBoundingClientRect(), r = control.getBoundingClientRect();
+        const padding = parseFloat(getComputedStyle(body).paddingBottom);
+        return r.top >= box.top && r.bottom <= box.bottom - padding;
+      }), 'focused Motion fits fully above the bottom shade and cut');
       await page.locator('#resign').scrollIntoViewIfNeeded();
       const close = await page.locator('#menu-close').boundingBox();
       assert.ok(close.y >= 0 && close.y + close.height <= height, 'Close stays in view after the body scrolls');
@@ -128,6 +135,19 @@ try {
       const edge = body.getBoundingClientRect().bottom - parseFloat(getComputedStyle(body).paddingBottom);
       return [...body.querySelectorAll('#tricks-list > li')].every(row => { const r = row.getBoundingClientRect(); return r.top >= edge || r.bottom <= edge; });
     }), 'Tricks ends between rows');
+    if (await page.locator('#menu-sheet .sheet-body').evaluate(body => body.scrollHeight > body.clientHeight + 1)) {
+      await page.locator('#menu-sheet .sheet-body').evaluate(body => { body.scrollTop = 53; });
+      assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => body.scrollTop > 0), 'Tricks scrolls before resize');
+      await page.setViewportSize({ width, height: height - 37 });
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+      await page.locator('#menu-sheet .sheet-body').evaluate(body => { body.scrollTop = 0; });
+      assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => {
+        const edge = body.getBoundingClientRect().bottom - parseFloat(getComputedStyle(body).paddingBottom);
+        return [...body.querySelectorAll('#tricks-list > li')].every(row => { const r = row.getBoundingClientRect(); return r.top >= edge - 1 || r.bottom <= edge + 1; });
+      }), 'after a scrolled resize, Tricks still ends between rows at scroll zero');
+      await page.setViewportSize({ width, height });
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+    }
     if (width >= 900) {
       assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => body.scrollHeight > body.clientHeight + 1), 'desktop Tricks overflows');
       assert.equal(await page.locator('#menu-sheet').evaluate(sheet => getComputedStyle(sheet, '::after').display), 'block', 'desktop Tricks paints a scroll shade');

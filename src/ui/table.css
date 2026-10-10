@@ -124,6 +124,7 @@
 }
 
 #menu-sheet { height: fit-content; --menu-bottom-pad: 16px; }
+#menu-sheet .sheet-body { scroll-padding-bottom: var(--menu-bottom-pad); }
 #menu-sheet.has-overflow .sheet-body { clip-path: inset(0 0 var(--menu-bottom-pad) 0); }
 #menu-sheet.is-placed { top: var(--menu-top); bottom: auto; margin-block: 0; max-height: calc(100dvh - var(--menu-top) - 12px); }
 #menu-sheet::after { content: ''; display: none; position: absolute; bottom: 0; left: 0; right: 0; height: 16px; background: linear-gradient(transparent, rgb(91 80 69 / 30%)); pointer-events: none; }

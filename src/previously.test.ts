@@ -38,6 +38,12 @@ describe('Previously', () => {
     expect(('Previously: ' + turn.line).split(/\s+/).length).toBeLessThanOrEqual(8);
   });
 
+  it('names Rescue and its marked pawn in the detail', () => {
+    const pos = fromFen('4k3/8/8/8/8/8/P7/4K3 w - - 0 1');
+    const move: Move = { from: 8, to: 8, captures: [], power: 'rescue' };
+    expect(previouslyTurn([{ pos, move, lan: '' }], 1)?.detail).toBe('Rescue puts the mark on the pawn on a2 again.');
+  });
+
   it('names Rescue when its mark is now on an empty square', () => {
     setRules({ hands: [['Rescue'], []], markFree: true });
     const game = played('4k3/8/8/8/8/8/P7/4K3 w - - 0 1 md6w0', ['!D:d6']);

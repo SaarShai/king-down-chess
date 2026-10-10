@@ -4,7 +4,7 @@ export function boardInk(width: number) {
   return {
     coord: Math.max(13, 12 * scale),
     biteFont: Math.max(16, 14 * scale),
-    biteRadius: Math.max(11, 7 * scale),
+    biteRadius: Math.max(11, 6.5 * scale),
     biteInset: 1 * scale,
     checkRing: Math.max(3, 1.5 * scale),
     causeCore: Math.max(2.2, 1.5 * scale),

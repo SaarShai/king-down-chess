@@ -87,6 +87,12 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
   const hover = (sq: number) => s.preview === sq;
   const inRow = (sq: number) => row == null || scene.cell(sq).row === row;
 
+  const pointerFrame = (): void => {
+    const p = s.preview;
+    const marked = p != null && [m.moves, m.captures, m.swaps, m.shoves, m.powers].some(l => l?.includes(p));
+    if (p != null && !marked && inRow(p)) { const b = box(p); ctx.strokeStyle = '#ffffffaa'; ctx.lineWidth = 2; ctx.strokeRect(b.x + 1, b.y + 1, TILE - 2, TILE - 2); }
+  };
+
   ctx.save();
   if (layer === 'under') {
     if (m.read) {
@@ -146,6 +152,7 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       shoveArrow(ctx, g.x, s.ink ? PAD + (landing.row + 0.5) * TILE : g.y, landing.col - target.col, landing.row - target.row, a, k, s.ink ? Math.max(3, s.ink.causeCore * 1.7) : 3);
     }
   } else {
+    if (s.ink) pointerFrame();
     for (const sq of m.read?.shot ?? []) {
       if (!inRow(sq)) continue;
       const g = ground(sq); sight(ctx, g.x, g.y - 58, 16 * Math.max(1, k * 0.8), time, false);
@@ -173,9 +180,7 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       if (shots.has(sq)) sight(ctx, b.x + TILE / 2, ground(sq).y - 58, (h ? 19 : 16) * Math.max(1, k * 0.8) * a, time, h);
     }
     for (const sq of m.hint ?? []) { if (!inRow(sq)) continue; const b = box(sq); ctx.strokeStyle = '#c99a2e'; ctx.lineWidth = 4 * k; ctx.strokeRect(b.x + 4, b.y + 4, TILE - 8, TILE - 8); }
-    const p = s.preview;
-    const marked = p != null && [m.moves, m.captures, m.swaps, m.shoves, m.powers].some(l => l?.includes(p));
-    if (p != null && !marked && inRow(p)) { const b = box(p); ctx.strokeStyle = '#ffffffaa'; ctx.lineWidth = 2; ctx.strokeRect(b.x + 1, b.y + 1, TILE - 2, TILE - 2); }
+    if (!s.ink) pointerFrame();
   }
   ctx.restore();
 }

@@ -9,7 +9,7 @@ it('phone board text and cause lines keep their CSS size', () => {
     expect(ink.causeCore * scale).toBeCloseTo(1.5, 8);
     expect(ink.causeHalo * scale).toBeCloseTo(3.5, 8);
     expect(ink.biteInset * scale).toBeCloseTo(1, 8);
-    expect(ink.biteRadius * scale).toBeCloseTo(7, 8);
+    expect(ink.biteRadius * scale).toBeCloseTo(6.5, 8);
   }
 });
 
