@@ -2,13 +2,13 @@ import './style.css';
 import { SkillName, skillPlan } from './ai/skill';
 import { Engine, Game, Side, resigningSide } from './game';
 import { setEvaluator } from './ai/eval';
-import { positionKey, type SearchResult } from './ai/search';
+import { positionKey } from './ai/search';
 import { PaintedView, type BoardView } from './render/PaintedView';
-import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
+import { momentKind } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
 import { A, C, Color, L, M, Move, NAMES, O, PieceType, Position, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, V, colorOf, file as fileOf, findKing, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
-import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
+import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
 import { initLessonShelf, progress, recordLesson } from './lesson-shelf-ui';
@@ -36,12 +36,12 @@ import { shouldShowHome } from './ui/home';
 import { initHome } from './ui/home-view';
 
 import { connectPreviously } from './ui/previously';
-import { connectGuide, kingArt, pieceArt } from './ui/guide';
-import { connectLinks, copyAndSay, gameLinkless } from './screen/links';
+import { connectGuide, pieceArt } from './ui/guide';
+import { connectLinks, gameLinkless } from './screen/links';
 import { LOOK_KEY, connectSettings } from './screen/settings';
 import { readSave, writeSave, type Save } from './screen/save';
 import { connectKeys } from './screen/keys';
-import { endReason, previewText, resultText, shareResultText, soundsFor } from './screen/moments';
+import { connectMoments, soundsFor } from './screen/moments';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -102,7 +102,6 @@ let closePromo: (() => void) | null = null;
 let closeMoveChoice: (() => void) | null = null;
 /** Squares lit by Hint. Cleared by a move, another selection, the power button and Esc. */
 let hintSquares: number[] = [];
-const seenMoments = new Set<string>();
 /** The date (YYYY-MM-DD) when this game is that day's army, for the shareable result. */
 let daily: string | null = null;
 /** The lesson on the board (index into LESSONS), and whether its goal move was played. */
@@ -120,10 +119,6 @@ const shownPos = (): Position => game.positionAfter(viewing ?? game.history.leng
 let navGen = 0;
 /** A review step is replaying a move; `busy` is set too, so the board treats it as an animation. */
 let replaying = false;
-/** The finished game's key moments, marked in the move list; cleared when the game changes. */
-let marked: (KeyMoment & { text: string })[] = [];
-/** Replaces the review help line while a key moment is on the board. */
-let reviewNote = '';
 /** Why the last tap did nothing ("Not allowed: the rook cannot reach b2."); shown in the help line until the next action. */
 let notice = '';
 /** The board is seen from Black's side (orient()). */
@@ -144,7 +139,7 @@ const moveMoments = connectMoveMoments(view, {
   game: () => game, allowed: undoOn, chain: () => pending.length > 0,
   generation: () => gen, motion: () => settings.pace() !== 'off', reset, lock: value => { busy = value; }, refresh,
   afterUndo: () => {
-    restoreMoments();
+    moments.restore();
     if (game.pos.haste !== undefined && game.pos.rage !== 3) selected = game.pos.haste;
     $('announce').textContent = 'Move taken back.';
     refresh(); save();
@@ -155,10 +150,10 @@ const gameEnd = connectGameEnd(view, $('board'), $<HTMLDialogElement>('over'), $
   generation: () => gen, motion: () => settings.pace() !== 'off', lock: value => { busy = value; }, refresh,
   turnButton: $<HTMLButtonElement>('end-turn'),
   newGameSheet: $<HTMLDialogElement>('new-game'),
-  announce: ceremony => { $('announce').textContent = `${ceremony ? 'King Down. ' : ''}${result()}`; },
+  announce: ceremony => { $('announce').textContent = `${ceremony ? 'King Down. ' : ''}${moments.result()}`; },
   showPly, rematch: () => newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true),
 });
-connectEndReview($('over-review'), $<HTMLDialogElement>('over'), $('moves-line'), listMoments);
+connectEndReview($('over-review'), $<HTMLDialogElement>('over'), $('moves-line'), () => moments.listMoments());
 
 const refreshTurnButton = () => renderTurnButton($<HTMLButtonElement>('end-turn'), game, currentTurn(), turnMode(), linkSide, ended(), busy || viewing != null, lesson != null);
 const announceTurn = () => announceWaiting(game, currentTurn(), turnMode(), $('end-turn'), $('announce'));
@@ -179,7 +174,7 @@ connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
     turnStart = handOver(game); selected = null; pending = [];
     return line;
   },
-  refresh, save, next: () => { if (ended()) showOver(); else void maybeAi(); },
+  refresh, save, next: () => { if (ended()) moments.showOver(); else void maybeAi(); },
   link: lans => links.gameLink(lans), notice: line => { notice = line; },
   focusBoard: keyboard => keys.focus(keyboard),
 });
@@ -188,6 +183,10 @@ const previously = connectPreviously($<HTMLButtonElement>('see-again'), {
   motion: () => settings.pace() !== 'off', blocked: () => busy || viewing != null || lesson != null,
   show: (ply, playing) => { viewing = ply; busy = replaying = playing; selected = inspected = null; pending = []; },
   refresh,
+});
+const moments = connectMoments({
+  game: () => game, sides: () => sides, resigned: () => resigned, daily: () => daily, skill: () => skill,
+  generation: () => gen, engine, end: gameEnd, showPly, hint: squares => { hintSquares = squares; }, refresh,
 });
 
 const guide = connectGuide({ shownPos, preset });
@@ -253,7 +252,7 @@ function refresh(): void {
     [V]: pending.length ? 'Tap a marked landing, or stop here.' : 'Tap an enemy, then a marked landing.',
   };
   $('move-help').textContent = notice ? notice : viewing != null
-    ? reviewNote || `Tap the board to return to the game.${matchMedia('(hover: hover)').matches ? ' ← → step through the moves.' : ''}`
+    ? moments.reviewNote() || `Tap the board to return to the game.${matchMedia('(hover: hover)').matches ? ' ← → step through the moves.' : ''}`
     : lesson == null && turnLine(game, currentTurn(), turnMode())
       ? turnLine(game, currentTurn(), turnMode())
       : selected == null || busy ? ''
@@ -265,7 +264,7 @@ function refresh(): void {
   $('turn').textContent = viewing != null ? `Reviewing ${shown}`
     : lesson != null ? `Lesson ${lesson + 1} of ${LESSONS.length}: ${LESSONS[lesson].name}`
     : ended() ? '' : `${turn} to move${game.inCheck ? ' — CHECK' : ''}`;
-  $('status').textContent = viewing != null ? '' : ended() ? result() : thinking ? 'thinking…' : '';
+  $('status').textContent = viewing != null ? '' : ended() ? moments.result() : thinking ? 'thinking…' : '';
   $('setup').textContent = game.backRank || 'custom';
   $('setup').title = toFen(game.pos);
   const moves = $('moves');
@@ -274,7 +273,7 @@ function refresh(): void {
   const numbers = moveNumbers(game.history.map(h => h.pos.turn));
   let html = '';
   game.history.forEach((h, i) => {
-    const km = marked.find(k => k.ply === i), mark = !km ? '' : km.kind !== 'loss' || km.loss >= 500 ? '??' : '?';
+    const km = moments.marked().find(k => k.ply === i), mark = !km ? '' : km.kind !== 'loss' || km.loss >= 500 ? '??' : '?';
     const white = h.pos.turn === 0;
     // A button per move, so the list is reachable by keyboard; aria-current marks the move on the board.
     const ply = `<button type="button" data-ply="${i + 1}"${viewing === i + 1 ? ' class="viewing" aria-current="true"' : ''}${km ? ` title="${km.text}"` : ''} aria-label="${white ? 'White' : 'Black'} ${h.lan}${km ? `, ${km.text}` : ''}">${white ? `<b>${h.lan}</b>` : h.lan}${mark}</button>`;
@@ -319,7 +318,7 @@ function refresh(): void {
   const coins = refreshCoins({ pos: shownPos(), history: game.history, rules: GAME_RULES, legal: viewing == null ? game.legal : undefined, activeSide: currentTurn().activeSide, armed, canPlay: !finished() && viewing == null && lesson == null && myTurn(), busy, flipped, lesson, mode: turnMode(), viewer: linkSide ?? (sides[0] === 'ai' ? 1 : 0), waiting: currentTurn().waits, selection: selected != null || inspected != null || !!notice });
   armed = coins.armed;
   drawMarks();
-  refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote, turn: currentTurn(), mode: turnMode(), power: coins.context, previously: previously.state() });
+  refreshTable({ game, sides, skill, rules: GAME_RULES, flipped, thinking, viewing, lesson, lessonDone, notice, armed, selected, pending, linkSide, reviewNote: moments.reviewNote(), turn: currentTurn(), mode: turnMode(), power: coins.context, previously: previously.state() });
   home?.refresh();
 }
 
@@ -360,8 +359,7 @@ async function commit(m: Move): Promise<void> {
   if (computer) turnStart = handOver(game);
   notice = '';
   $('announce').textContent = describeMove(pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '');
-  const line = momentText(pre, m, seenMoments);
-  if (line) { said = line; $('moment').textContent = line; }
+  moments.played(pre, m);
   // Launch sounds play now; the hit sounds when the board shows the contact.
   const sounds = soundsFor(momentKind(pre, m), m), hit = sounds.hit ? snd[sounds.hit] : null;
   if (sounds.now) snd[sounds.now]();
@@ -383,15 +381,14 @@ async function commit(m: Move): Promise<void> {
   refresh();
   save();
   if (currentTurn().waits && !computer) announceTurn();
-  if (ended()) showOver(); else void maybeAi();
+  if (ended()) moments.showOver(); else void maybeAi();
 }
 
 /** A lesson move: the goal ends the lesson; any other move is taken back with the task again. */
 function lessonResult(pre: Position, m: Move): void {
   const l = LESSONS[lesson!];
-  if (l.goal(pre, m)) { lessonDone = true; said = `Well done. ${l.done}`; noteLesson(l.name); }
-  else { game.undo(); view.sync(game.pos); said = `Not quite. ${l.task}`; }
-  $('moment').textContent = said;
+  if (l.goal(pre, m)) { lessonDone = true; moments.say(`Well done. ${l.done}`); noteLesson(l.name); }
+  else { game.undo(); view.sync(game.pos); moments.say(`Not quite. ${l.task}`); }
   refresh();
 }
 
@@ -416,8 +413,7 @@ function startLesson(i: number): void {
   sides[0] = sides[1] = 'human';
   game.load(fromFen(LESSONS[i].fen));
   turnStart = 0;
-  seenMoments.clear();
-  said = LESSONS[i].task; $('moment').textContent = said;
+  moments.start(LESSONS[i].task);
   view.sync(game.pos);
   orient();
   refresh();
@@ -446,12 +442,12 @@ $('return-game').onclick = () => {
   setRules(lessonReturn.rules);
   lessonReturn = null;
   lesson = null; lessonDone = false;
-  restoreMoments();
+  moments.restore();
   view.sync(game.pos);
   orient();
   refresh();
   save();
-  if (ended()) showOver(); else void maybeAi();
+  if (ended()) moments.showOver(); else void maybeAi();
 };
 $('next-lesson').onclick = () => {
   const next = lessonShelf(progress()).next;
@@ -629,20 +625,12 @@ view.onSquareClick = (sq, shift = false) => {
   pending.push(sq); // a finish button commits the shorter capture
   refresh();
 };
-let said = '';
 view.onSquareHover = sq => {
   $('hover').textContent = sq == null ? '' : sqName(sq);
   const next = sq == null ? [] : candidates().filter(m => clickPath(m)[pending.length] === sq);
   const ready = next.filter(m => clickPath(m).length === pending.length + 1);
-  $('moment').textContent = previewText(game.pos, ready, seenMoments, said);
+  moments.preview(ready);
 };
-
-function restoreMoments(): void {
-  seenMoments.clear();
-  said = '';
-  for (const h of game.history) said = momentText(h.pos, h.move, seenMoments) ?? said;
-  $('moment').textContent = said;
-}
 
 
 $('stop-chain').onclick = () => { const m = candidates().find(m => clickPath(m).length === pending.length); if (m) void commit(m); };
@@ -682,7 +670,7 @@ async function showPly(n: number | null, replay = true): Promise<void> {
   view.skip(); // a step during a replay ends it; its continuation sees the new navGen
   busy = replaying = false;
   viewing = step.viewing;
-  selected = null; pending = []; hintSquares = []; reviewNote = ''; inspected = null;
+  selected = null; pending = []; hintSquares = []; moments.clearNote(); inspected = null;
   refresh();
   keys.say(); // the keyboard cursor reads the board now shown
   if (replay && n === from + 1) {
@@ -710,8 +698,7 @@ function reset(): void {
   gen++;
   navGen++;
   replaying = thinking = false;
-  marked = [];
-  $('over-moments').replaceChildren();
+  moments.clear();
   if (viewing != null) { viewing = null; view.sync(game.pos); }
   hintSquares = [];
   engine.cancel();
@@ -747,9 +734,7 @@ function newGame(backRank?: string, fen?: string | null, rematch = false, dailyD
   lessonReturn = null;
   cloudGame = false;
   daily = dailyDate;
-  seenMoments.clear();
-  said = '';
-  $('moment').textContent = '';
+  moments.start('');
   [sides[0], sides[1]] = players ?? (rematch ? [sides[1], sides[0]] : playersOf(setup));
   if (fen) game.load(fromFen(fen)); else game.newGame(backRank);
   turnStart = 0;
@@ -765,72 +750,6 @@ function undo(): void {
   moveMoments.undo();
 }
 
-
-function result(): string {
-  return resultText(game.status, game.pos, resigned);
-}
-
-/** Moves played so far, counted as the move list numbers them (a Haste turn is one move). */
-const movesPlayed = (): number => moveNumbers(game.history.map(h => h.pos.turn)).at(-1) ?? 0;
-
-function showOver(): void {
-  const n = movesPlayed();
-  const dlg = $<HTMLDialogElement>('over');
-  $('over-title').textContent = result();
-  const last = [...game.history].reverse().find(h => !h.move.pass);
-  // Ending reason wins over a prior moment caption (`said`); last-move text stays above.
-  const why = endReason(game.status, game.pos, resigned, said);
-  $('over-detail').textContent = [last ? describeMove(last.pos, last.move, true, true) : '', why, `${n} move${n === 1 ? '' : 's'}.`].filter(Boolean).join(' ');
-  dlg.returnValue = ''; // Esc leaves the last button's value behind, which would re-fire it
-  dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0); // the kings that played, as on the board
-  dlg.querySelector<HTMLImageElement>('.over-b')!.src = kingArt(1);
-  $('share-result').hidden = daily == null;
-  $('share-result').textContent = "Copy today's result";
-  void gameEnd.show();
-}
-
-/**
- * Key moments: score every position of the finished game, then list the moves that gave away
- * the most (moment.ts `keyMoments`). A moment opens the review before that move, the better one marked.
- */
-async function listMoments(): Promise<void> {
-  const g = gen, box = $('over-moments'), dlg = $<HTMLDialogElement>('sheet-moves');
-  box.innerHTML = '<small>Finding the key moments…</small>';
-  marked = [];
-  const keys = game.history.map(h => positionKey(h.pos));
-  const results: SearchResult[] = [], before: number[] = [], after: number[] = [];
-  for (let k = 0; k < game.history.length; k++) {
-    const h = game.history[k], next = game.history[k + 1]?.pos ?? game.pos;
-    const best = await engine.think(h.pos, { timeMs: 200, maxDepth: 3, history: keys.slice(0, k) });
-    if (g !== gen) return; // the game changed (New game, Rematch, Undo): its search was cancelled
-    // The played move, one ply shallower: the same horizon as the root's view of it.
-    const reply = await engine.think(next, { timeMs: 200, maxDepth: 2, history: keys.slice(0, k + 1) });
-    if (g !== gen) return;
-    const same = best.move != null && toLan(h.pos, best.move) === h.lan;
-    results.push(best); before.push(best.score); after.push(same ? -best.score : reply.score);
-  }
-  const found = keyMoments(before, after);
-  box.innerHTML = found.length ? '<h3>Key moments</h3>' : '<small>No move gave away 2 pawns or more.</small>';
-  for (const km of found) {
-    const h = game.history[km.ply], better = results[km.ply].move;
-    const what = km.kind === 'missedMate' ? 'missed a forced mate'
-      : km.kind === 'allowedMate' ? 'allowed a forced mate'
-      : `gave away about ${Math.round(km.loss / 100)} pawns`;
-    const text = `${Math.floor(km.ply / 2) + 1}${km.ply % 2 ? '…' : '.'} ${h.lan}: ${h.pos.turn ? 'Black' : 'White'} ${what}.${better ? ` Better: ${toLan(h.pos, better)}.` : ''}`;
-    marked.push({ ...km, text });
-    const b = document.createElement('button');
-    b.textContent = text;
-    b.onclick = async () => {
-      dlg.close();
-      await showPly(km.ply, false);
-      reviewNote = `${text}${better ? ' The better move is marked.' : ''}`;
-      hintSquares = better ? [better.from, ...clickPath(better)] : [];
-      refresh();
-    };
-    box.appendChild(b);
-  }
-  refresh(); // marks the moments in the move list
-}
 
 $<HTMLDialogElement>('over').onclose = () => {
   const v = $<HTMLDialogElement>('over').returnValue;
@@ -850,7 +769,7 @@ $('resign-confirm').onclick = () => {
   resigned = side;
   refresh();
   save();
-  showOver();
+  moments.showOver();
 };
 const links = connectLinks({
   game: () => game, turnStart: () => turnStart, rules: params.get('rules'),
@@ -924,9 +843,9 @@ function openSaved(s: Save): void {
   daily = typeof s.daily === 'string' ? s.daily : null;
   resigned = null;
   replay(s);
-  restoreMoments();
-  notice = said = 'Loaded your newer saved game from your account.';
-  $('moment').textContent = said;
+  moments.restore();
+  notice = 'Loaded your newer saved game from your account.';
+  moments.say(notice);
   view.sync(game.pos);
   orient();
   guide.fill();
@@ -967,7 +886,7 @@ const dialog = newGameDialog(s => {
   else if (s.army !== 'random') {
     newGame(s.army);
     const example = TRY_THESE.find(row => row.code === s.army);
-    if (example) { said = example.watch; $('moment').textContent = said; }
+    if (example) moments.say(example.watch);
   } else newGame(randomBackRank());
 }, preset);
 const openGameSetup = (choices: Setup): void => dialog.open(choices, newGameWarning(
@@ -981,7 +900,7 @@ $('new-game-btn').onclick = openNewGame;
 initMenu({ playAgain: () => newGame(randomBackRank()), today: openToday, resignSide: resigner });
 initTable(() => { void showPly(null, false); });
 home = initHome({
-  read: () => ({ game, sides, level: skill, linkSide, staged: currentTurn().staged > 0, result: result() }),
+  read: () => ({ game, sides, level: skill, linkSide, staged: currentTurn().staged > 0, result: moments.result() }),
   continue: () => { refresh(); void maybeAi(); },
   rematch: () => newGame(game.backRank || undefined, game.backRank ? null : toFen(game.history[0]?.pos ?? game.pos), true),
   review: () => void showPly(game.history.length, false),
@@ -989,13 +908,6 @@ home = initHome({
   today: openToday,
 });
 (window as unknown as Record<string, unknown>).home = home; // Samples read the live game, including a staged turn.
-$('share-result').onclick = () => {
-  const text = shareResultText({
-    sides, resigned, status: game.status, turn: game.pos.turn, result: result(), skill, daily,
-    army: game.backRank, moves: movesPlayed(), page: `${location.origin}${location.pathname}`,
-  });
-  void copyAndSay($('share-result'), text, 'Result copied');
-};
 const settings = connectSettings(view, { look, skill: () => skill, setSkill: level => { skill = level; }, save, drawMarks });
 const keys = connectKeys($('board'), {
   game: () => game, shownPos, selected: () => selected, pending: () => pending, inspected: () => inspected,
@@ -1074,7 +986,7 @@ await view.ready();
 if ($('asset-status').textContent === 'Loading pieces…') $('asset-status').textContent = '';
 guide.fill(); // after every setRules path (URL preset / save restore)
 setSound(settings.sound());
-restoreMoments();
+moments.restore();
 refresh();
 if (showHome) home.open();
 if (!fen) save(); // pin the random back rank so a reload keeps this game (and keep an opened link's game)
@@ -1099,7 +1011,7 @@ else {
     openNewGame();
   }
   else {
-    if (!home.visible && ended()) showOver();
+    if (!home.visible && ended()) moments.showOver();
     void maybeAi();
   }
 }
