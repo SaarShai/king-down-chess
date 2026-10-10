@@ -49,6 +49,7 @@ Every changed state is in the scratch report `b3-fix3-render-comparison.md`. The
 | W4/bites-1-and-2 and four-bites, phone and smallPhone | Bite badge radius 8 CSS px. | 11 |
 | W4/read-frozen, phone and desktop | Coin lift shadow. | 9 |
 | W5/computer-in-check, phone and desktop | Check ring and cause line stay during search. | 8 |
+| W6/flight-tile and freeze-tile, desktop | Coin lift shadow. | 9 |
 | W6/haste-final-pass, phone and desktop | Plain final move words. The shorter phone panel centres again. | 4 |
 | W6/archer-ceremony video, frames 09 to 12 | Caption names the board tap. | 5 |
 | W6/computer-tell, both stills and its video | Fixed sample reply makes the lifted piece repeatable. | 14 |
@@ -57,9 +58,11 @@ Every changed state is in the scratch report `b3-fix3-render-comparison.md`. The
 | W11/previously, see-again, haste-turn and haste-takes, all three sizes | Line height 1.25. Whole optional rows hide when they do not fit. | 3 |
 | W11/haste-turn and haste-takes, phone and desktop | Haste coin lift shadow. | 9 |
 | W11/see-again, all three sizes | Motion Normal king glow phase varies between captures; the settled board agrees. | 14 |
+| W11/haste-takes, desktop | Motion Normal king glow phase varies between captures. | 14 |
+| W9/piece-shelf, all-learned and shelf-focus, desktop | Guide click leaves a pointer hover wash on the Ogre card after Menu moves to the centre. | 1 |
 | W11/long-turn, all three sizes | New four-bite sample. Summary stays above Moves. | 3 |
 
-W8 and W9 have no visible change. W12 has no visible change. Small figure-edge raster differences in W4 and W12 are checked at full size and in enlarged crops. They do not change layout, words, marks or art. No Workshop source or W12 sample source changes.
+W8 has no visible change. W9 desktop shelf stills have the pointer hover wash listed above. W12 has no visible change. Small figure-edge raster differences in W4 and W12 are checked at full size and in enlarged crops. They do not change layout, words, marks or art. No Workshop source or W12 sample source changes.
 
 All 31 video frames are checked. Startup image load, press timing and motion phase can differ between recordings (item 14). Settled board states, text and controls agree. The computer's final board has the same g7-g5 reply as final3; only 35 raster pixels differ above RGB delta 30.
 

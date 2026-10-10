@@ -9,6 +9,7 @@ export default {
     steps: async ({ page }) => {
       await page.evaluate(() => localStorage.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Beast', 'Maester', 'Ogre'] })));
       await pressMenu(page, 'Guide');
+      await page.mouse.move(0, 0);
       await page.locator('.shelf-figure img').evaluateAll(imgs => Promise.all(imgs.map(img => img.decode())));
     },
   }, {
@@ -26,12 +27,14 @@ export default {
     steps: async ({ page }) => {
       await page.evaluate(() => localStorage.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Beast', 'Maester', 'Ogre', 'Guard', 'Paladin'] })));
       await pressMenu(page, 'Guide');
+      await page.mouse.move(0, 0);
       await page.locator('.shelf-figure img').evaluateAll(imgs => Promise.all(imgs.map(img => img.decode())));
     },
   }, {
     name: 'shelf-focus', save, controls: '.lesson-guide-head button, .shelf-piece[data-piece="archer"]',
     steps: async ({ page }) => {
       await pressMenu(page, 'Guide');
+      await page.mouse.move(0, 0);
       await page.keyboard.press('Tab');
       await page.locator('.shelf-piece[data-piece="archer"]').focus();
       await page.locator('.shelf-figure img').evaluateAll(imgs => Promise.all(imgs.map(img => img.decode())));
