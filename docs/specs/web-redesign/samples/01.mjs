@@ -6,8 +6,8 @@ import { pressMenu } from '../../../../tools/app-ui.mjs';
 
 // Two legal plies for this army (the tool checks that the app keeps each saved move).
 const save = { back: 'SQBKRSML', fen: '', moves: ['e2-e4', 'e7-e5'], white: 'human', black: 'ai', sound: false, skill: 'club' };
-// Today's menu row and action row (New game, Guide, Workshop, Settings; Hint, Undo, Resign).
-const controls = '#panel .menu button, #panel .actions button';
+// Today's table bar: Menu, Undo and End turn (the redesign replaced the menu and action rows).
+const controls = '#menu-btn, #undo, #end-turn';
 
 const light = [
   { name: 'rest', save, controls },
