@@ -1,9 +1,10 @@
-// The Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground, ticket 01).
+// The Proving Ground, the Workshop's view A behind ?workshop=a (docs/specs/workshop-proving-ground, tickets 01 and 04).
 // Groups: opens (the menu door, ‹ Menu and Esc, the focus back on the menu), poolPieces (each pool piece opens;
 // the Pawn's and the Paladin's marks equal src/workshop/scene.test.ts), yours (the shelf designs in the ledge),
 // link (a design link opens read only; a bad code shows the toast), keys (one tab stop, the arrow keys, the square
-// labels, Enter and Space on a ledge slot keep the focus), layouts (six sizes: no sideways scroll, the top bar and the board in view, no cut text, 44 px targets and
-// 24 px squares) and oldDefault (no ?workshop=a: the old Workshop opens).
+// labels, Enter and Space on a ledge slot keep the focus), refused (grey barred marks and their stamps), isolate (hover, a tap and
+// Esc; the phone's stamps), knots (gold and cracked; a tap and the desktop toast), layouts (six sizes: no sideways scroll, the
+// top bar and the board in view, no cut text, 44 px targets, 24 px squares and knots) and oldDefault (no ?workshop=a: the old Workshop opens).
 // Run it with `npm run check:browser proving-ground`.
 import assert from 'node:assert/strict';
 import { pressMenu } from './app-ui.mjs';
@@ -14,7 +15,7 @@ const POOL = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'archer', 'paladin', 
 /** The marks of the scene test (src/workshop/scene.test.ts, the hand scenes of the mockup). */
 const PAWN = ['c5 take', 'd5 move', 'd6 move asleep', 'e5 take'];
 const PALADIN = [
-  ...'d6 e5 f6 e4 f4 g4 h4 e3 f2 g1 d3 d2 d1 c3 a1 c4 b4 a4 c5'.split(' ').map(q => `${q} move`), 'd7 take', 'b6 take',
+  ...'d6 e5 f6 e4 f4 g4 h4 e3 f2 g1 d3 d2 d1 c3 a1 c4 b4 a4 c5'.split(' ').map(q => `${q} move`), 'd7 take', 'b6 take', 'g7 blocked',
 ].sort();
 /** The W12 sample design (docs/specs/web-redesign/samples/W12.mjs) as a ?design= link. */
 const RIDER = { kind: 'piece', name: 'Rook Rider', look: { figure: 'antler-guardian', body: 'token', auto: true, glow: null, army: 0 }, letter: 'D',
@@ -27,6 +28,11 @@ const SHELF = JSON.stringify({ v: 1, designs: [
   { v: 1, kind: 'piece', id: 'golden-b', name: 'Old Ward', named: false, look: { body: 'token', auto: true, glow: 'Shadow', army: 1, figure: 'ram-bastion' }, letter: 'U',
     squares: [{ x: 0, y: 1, mark: 'move' }], lines: ['ne', 'nw'], rules: [{ when: { on: 'zone', zone: 'capital' }, does: { a: 'movesLike', as: 'queen' } }], from: [], updated: 1759000000000 },
 ] });
+/** My Beast of the mockup (scenes.js:200-214): the Beast, removed too after a piece, and after anything. */
+const beast = (id, what) => ({ v: 1, kind: 'piece', id, name: `My Beast ${what}`, named: true, look: { body: 'S', auto: false, glow: null, army: 0 }, letter: 'Y', ownLetter: false,
+  squares: [[-1, 1], [0, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [0, -1], [1, -1]].map(([x, y]) => ({ x, y, mark: 'both' })), lines: [],
+  rules: [{ when: { on: 'takes' }, does: { a: 'chain' } }, { when: { on: 'takes' }, does: { a: 'removedAfter', what } }], from: ['beast'], updated: 1760000000000 });
+const BEASTS = JSON.stringify({ v: 1, designs: [beast('mybeast', 'piece'), beast('mybeast-any', 'any')] });
 
 const browser = await launch();
 
@@ -47,6 +53,10 @@ const door = async p => { await pressMenu(p, 'Workshop'); await p.locator('#work
 const marks = p => p.$$eval('.pg-board [data-sq]', gs => gs.map(g => [g.dataset.sq, g.dataset.k, g.dataset.cond].filter(Boolean).join(' ')).sort());
 const name = p => p.locator('.pg-name h3').textContent();
 const focused = p => p.evaluate(() => document.activeElement?.dataset.sq ?? document.activeElement?.id ?? '');
+/** The isolate class of the mark on each square: kdm-iso, kdm-dim or null. */
+const iso = (p, ...sqs) => Promise.all(sqs.map(sq => p.getAttribute(`.pg-board [data-sq="${sq}"]`, 'class')));
+const toastText = p => p.locator('.pg-toast').textContent();
+const clearToast = p => p.$eval('.pg-toast', t => { t.textContent = ''; });
 
 async function opens() {
   const p = await open();
@@ -156,6 +166,94 @@ async function keys() {
   await p.context().close();
 }
 
+async function refused() {
+  const p = await open();
+  await door(p);
+  await p.click('.slot[data-piece="paladin"]');
+  const g7 = await p.$eval('.pg-board [data-sq="g7"]', g => g.innerHTML);
+  assert.ok(g7.includes('#4d453c') && !g7.includes('#d63428'), 'the refused king on g7 is grey, not red');
+  assert.equal(await p.locator('.pg-board [data-badge="g7"] line[stroke="#4d453c"]').count(), 2, 'the refused badge and the feet have a bar');
+  assert.equal(await p.getAttribute('.pg-board [data-k="line"][data-to="g7"]', 'data-end'), 'blocked', 'the line to g7 ends in a bar');
+  assert.equal(await p.getAttribute('.pg-board [data-stamp="g7"]', 'data-a'), 'cannotTake', 'g7 has the stamp of "cannot take"');
+  assert.equal(await p.getAttribute('.pg-board [data-stamp="d7"]', 'data-a'), 'linesPass removedAfter', 'd7 has the stamps of both rules that shape it');
+  assert.equal(await p.getAttribute('.sq[data-sq="g7"]', 'aria-label'), 'g7: refused, cannot take a king, black king.', 'the label names the rule that refuses g7');
+  assert.ok((await p.locator('.pg-keyrow').textContent()).includes('Refused'), 'the key row names the refused mark');
+  await p.click('.slot[data-piece="ogre"]');
+  assert.ok((await marks(p)).includes('c3 blocked'), 'the Ogre cannot take the guard on c3');
+  assert.equal(await p.getAttribute('.pg-board [data-stamp="c3"]', 'data-a'), 'cannotBeTaken', 'c3 has the stamp of the table rule');
+  assert.equal(await p.getAttribute('.sq[data-sq="c3"]', 'aria-label'), 'c3: refused, only a king takes a guard, black guard.', 'the label names the table rule');
+  await p.context().close();
+}
+
+async function isolate() {
+  const p = await open();
+  await door(p);
+  await p.hover('.sline[data-seal="0"] .l2');
+  assert.equal(await p.locator('.pg-board [data-k="chalk"][data-zone="startRank"]').count(), 1, 'the Pawn\'s rule I shows its zone in chalk');
+  await p.click('.slot[data-piece="paladin"]');
+  assert.deepEqual(await iso(p, 'd6', 'g7'), [null, null], 'with no isolate, no mark steps back');
+  await p.hover('.sline[data-seal="1"] .l2');
+  assert.deepEqual(await iso(p, 'g7', 'd6'), ['kdm-iso', 'kdm-dim'], 'hover on rule II shows only its marks');
+  await p.mouse.move(1430, 450);
+  assert.deepEqual(await iso(p, 'g7', 'd6'), [null, null], 'the isolate ends when the pointer goes');
+  await p.click('.sline[data-seal="0"] .l2');
+  assert.equal(await p.getAttribute('.sline[data-seal="0"] .sl-seal', 'aria-pressed'), 'true', 'a tap keeps rule I');
+  assert.deepEqual(await p.$$eval('.sline', ls => ls.map(l => l.className)), ['sline is-focus', 'sline is-other', 'sline is-other'], 'the other lines step back');
+  await p.hover('.sline[data-seal="1"] .l2');
+  assert.deepEqual(await iso(p, 'd6', 'g7'), ['kdm-iso', 'kdm-dim'], 'the kept rule stays under a hover on another rule');
+  await p.keyboard.press('Escape');
+  assert.equal(await p.locator('#workshop[open]').count(), 1, 'Esc stops the isolate and keeps the Workshop open');
+  assert.equal(await p.getAttribute('.sline[data-seal="0"] .sl-seal', 'aria-pressed'), 'false', 'Esc lets rule I go');
+  await p.focus('.sline[data-seal="1"] .sl-seal');
+  await p.keyboard.press('Tab');
+  assert.deepEqual(await iso(p, 'd7', 'g7'), ['kdm-iso', 'kdm-dim'], 'Tab to the seal of rule III shows only its marks');
+  await p.keyboard.press('Enter');
+  assert.equal(await p.getAttribute('.sline[data-seal="2"] .sl-seal', 'aria-pressed'), 'true', 'Enter keeps rule III');
+  assert.equal(await p.evaluate(() => document.activeElement?.closest('.sline')?.dataset.seal), '2', 'the focus stays on the seal of rule III');
+  await p.keyboard.press('Enter');
+  assert.equal(await p.getAttribute('.sline[data-seal="2"] .sl-seal', 'aria-pressed'), 'false', 'a second Enter lets it go');
+  await p.context().close();
+  // The phone: the seals are the buttons; the stamps show for the kept rule only, and no knot toast.
+  const ph = await open('?workshop=a', { width: 390, height: 844 });
+  await door(ph);
+  await ph.click('.slot[data-piece="paladin"]');
+  assert.equal(await ph.locator('.pg-board [data-stamp]').count(), 0, 'the phone shows no stamps until a rule is kept');
+  await ph.click('.pg-pseals [data-seal="1"]');
+  assert.equal(await ph.getAttribute('.pg-pseals [data-seal="1"]', 'aria-pressed'), 'true', 'a tap on a seal keeps its rule');
+  assert.deepEqual(await ph.$$eval('.pg-board [data-stamp]', gs => gs.map(g => `${g.dataset.stamp} ${g.dataset.a}`)), ['g7 cannotTake'], 'the phone shows the stamps of the kept rule only');
+  await ph.click('.pg-pseals [data-seal="2"]');
+  assert.equal(await toastText(ph), '', 'the phone shows no knot words on an isolate');
+  await ph.context().close();
+}
+
+async function knots() {
+  const p = await open('?workshop=a', { shelf: BEASTS });
+  await door(p);
+  assert.equal(await p.locator('.knot').count(), 0, 'two rules that never meet have no knot (the Pawn)');
+  await p.click('.slot[data-piece="paladin"]');
+  const k = p.locator('.knot');
+  assert.equal(await k.getAttribute('aria-label'), 'Both shape d7.', 'the Paladin has a gold knot');
+  await minTarget(p, '#workshop .knot', 24);
+  await p.click('.sline[data-seal="2"] .l2');
+  assert.equal(await toastText(p), 'Both shape d7.', 'on the desktop, isolating rule III shows its gold knot\'s words');
+  await clearToast(p);
+  await p.click('.sline[data-seal="1"] .l2');
+  assert.equal(await toastText(p), '', 'a rule with no gold knot shows no words');
+  await k.click();
+  assert.equal(await toastText(p), 'Both shape d7.', 'a tap on the knot shows its words');
+  assert.equal(await k.getAttribute('aria-pressed'), 'true', 'a tap keeps the knot');
+  assert.deepEqual(await iso(p, 'd7', 'd6'), ['kdm-iso', 'kdm-dim'], 'the knot shows the squares that need both rules');
+  assert.equal(await p.locator('.sline.is-focus').count(), 0, 'a knot keeps no rule');
+  await k.click();
+  assert.deepEqual(await iso(p, 'd7', 'd6'), [null, null], 'a second tap lets the knot go');
+  await p.click('.slot[data-design="mybeast"]');
+  assert.deepEqual(await p.$$eval('.knot', ks => ks.map(x => x.ariaLabel)), ['Both shape f6.'], 'My Beast, removed after a piece: a gold knot');
+  await p.click('.slot[data-design="mybeast-any"]');
+  assert.deepEqual(await p.$$eval('.knot', ks => ks.map(x => x.ariaLabel)), ['Removed too stops Takes again.'], 'My Beast, removed after anything: a cracked knot');
+  await shot(p, 'beast-cancel-1440');
+  await p.context().close();
+}
+
 async function layouts() {
   for (const [width, height] of [[1440, 900], [1280, 800], [1024, 768], [768, 1024], [390, 844], [320, 568]]) {
     const p = await open('?workshop=a', { width, height });
@@ -168,7 +266,8 @@ async function layouts() {
       await insideViewport(p, '.pg-field');
       await textNotCut(p, '.pg-title, .pg-name h3, .slot .nm, .brush .w, .ltab');
       if (width >= 1000) await textNotCut(p, '.sline .l2');
-      await minTarget(p, '#workshop button:not(.sq)', 44);
+      await minTarget(p, '#workshop button:not(.sq, .knot)', 44);
+      if (piece === 'paladin' && width >= 1000) await minTarget(p, '#workshop .knot', 24);
       await minTarget(p, '#workshop .sq', width <= 320 ? 36 : 24);
       assert.equal(await p.locator('.pg-keyrow').isVisible(), width >= 1000, `${width}x${height}: the key row shows on the wide layout only`);
       await shot(p, `${piece}-${width}x${height}`);
@@ -191,6 +290,9 @@ try {
   await yours();
   await link();
   await keys();
+  await refused();
+  await isolate();
+  await knots();
   await layouts();
   await oldDefault();
   assertNoErrors();
