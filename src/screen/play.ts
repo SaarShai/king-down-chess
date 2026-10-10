@@ -847,6 +847,7 @@ export function connectPlay(view: BoardView, c: {
   /**
    * The start-up restore: an opened game link (`link`; `continues`: it continues the saved game), a
    * `?fen=` position, or the autosave. `urlRules`: the URL names a rule set. `title`: the title opens.
+   * It runs before any async work starts, so it is the one game switch that does not call `reset()`.
    */
   function restore(saved: Save | null, r: { link: boolean; continues: boolean; urlRules: boolean; title: boolean }): void {
     if (r.link) {

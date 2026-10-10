@@ -59,7 +59,7 @@ No action. The helpers pay for themselves: later units change helper bodies, not
 
 ### 02a · No Hint — MERGE into W1
 
-- Keep Plan 1, 3, 4. Plan 3 is small: today's `#hint` handler (now the Show me handler, `screen/play.ts:connectPlay`) already marks a lesson's goal move through `hintMoves` with the lesson goal. Move the button into the lesson controls and rename it "Show me".
+- Keep Plan 1, 3, 4. Plan 3 is small: today's `#hint` handler (main.ts 898–915) already marks a lesson's goal move through `hintMoves` with the lesson goal. Move the button into the lesson controls and rename it "Show me".
 - Verification: one case in the W1 check (no `#hint` on the game screen; Show me marks the goal in a lesson). The lesson state joins the W1 sample.
 
 ### 02b · The turn button — SIMPLIFY (W1, host)
@@ -96,7 +96,7 @@ Keep: Plans 1, 2 (with the fix for an old link that ends mid-turn: without it, s
 
 ### 04 · Tap to read — SIMPLIFY (W4, host with 08)
 
-- **Plan 1:** no new `read-text.ts`. The read line is the piece name and the first sentence of today's `pieceGuide(t)` (`read.ts:pieceGuide`), which already reads the rules in force, then "All rules". Add two state words from the position marks ("Frozen", "Ice Wall"). The context line clamps to two lines.
+- **Plan 1:** no new `read-text.ts`. The read line is the piece name and the first sentence of today's `pieceGuide(t)` (main.ts 169), which already reads the rules in force, then "All rules". Add two state words from the position marks ("Frozen", "Ice Wall"). The context line clamps to two lines.
 - **Plan 2:** copy `reachOf` from `demos/feat-hold-to-read/read.js` 86–101. It uses the real engine's legal moves. Cut the attack squares of a frozen piece (`attacksOf` probes each square with a dummy knight; complex for a rare case).
 - **Plan 4:** six new reading shapes become two: an outline ring on each reached square (crimson for a take), and today's shot sight. An outline differs in shape from the filled move marks, so the rule "shape, not colour alone" holds.
 - **Plan 8:** cut the first-read tip and its stored flag.
@@ -132,13 +132,13 @@ Keep: Plans 1, 2 (with the fix for an old link that ends mid-turn: without it, s
 - Keep **Plan 1** (the marks model, pure), **Plan 2** (the shove arrow; cut the see-through copy on hover), **Plan 4** (bite numbers on the bitten squares; the chain still collects taps as today), **Plan 8**.
 - Cut **Plan 3**, the Beast slide during a chain (`chainPreview` and a second "shown board" that every reader of the board must use). The ticket's own risk list names this risk. The owner's option text asks for "a number for each bite", not a slide.
 - Cut **Plan 5** (the Leap coin mark; the move text keeps "Leap"), **Plan 6** (the key line), **Plan 7** (target sentences on hover), and the bite timing module.
-- Add the refusal words of ticket 09 to today's `whyNot` (`read.ts:whyNot`): "Only a king can take a guard.", and one line each for Ice Wall, Holy Light and Mercy.
+- Add the refusal words of ticket 09 to today's `whyNot` (main.ts 561): "Only a king can take a guard.", and one line each for Ice Wall, Holy Light and Mercy.
 - Verification: `marks-model.test.ts` (Ogre, Beast, Maester, Archer under the rules in force). The `verb-marks` check: the marks for 3 fixed positions, and a tap on a landing plays the shove. Sample: 4 states.
 
 ### 09 · Refusal and Take or Shove — CUT
 
 - Plan 1 (the words) moves to W4: a few strings in today's `whyNot`.
-- Cut Plan 2 (shield marks, the 260 ms nudge, the pulse), Plan 3 (keep a power armed after a wrong tap), Plan 4 (`scene.nudge`), Plan 5 (Take or Shove in the context line, D12 b). Today's `#move-choice` dialog (`screen/play.ts:choosePushOrCapture`) asks the same question and works. The move from a dialog into the line is an advisor's change, not the owner's.
+- Cut Plan 2 (shield marks, the 260 ms nudge, the pulse), Plan 3 (keep a power armed after a wrong tap), Plan 4 (`scene.nudge`), Plan 5 (Take or Shove in the context line, D12 b). Today's `#move-choice` dialog (main.ts 753) asks the same question and works. The move from a dialog into the line is an advisor's change, not the owner's.
 
 ### 10 · The power coin — SIMPLIFY (W3)
 
@@ -170,7 +170,7 @@ Keep: Plans 1, 2 (with the fix for an old link that ends mid-turn: without it, s
 
 - Keep the owner's four beats, built from parts that exist:
   - the final blow again at half speed: `scene.play(move, { speed: 0.5 })` exists; pass the speed through `animateMove`;
-  - the king falls: `setFallen(square, true)` exists (`ceremony.ts:startCeremony`, `game-end.ts:connectGameEnd`);
+  - the king falls: `setFallen(square, true)` exists (main.ts 1052);
   - "King Down" settles in: CSS, copied from `demos/feat-king-down/end.css`;
   - three tiles rise: three buttons that open review at their ply through today's `showPly`.
 - **Plan 1:** cut the result pane and the phone exception to rule 9. The ceremony plays on the board, then today's `#over` dialog opens with the tiles in it.

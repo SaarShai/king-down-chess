@@ -139,6 +139,7 @@ const openToday = (): void => openGameSetup({ ...setup, army: 'daily' });
 $('new-game-btn').onclick = openNewGame;
 initMenu({ playAgain: () => play.newGame(randomBackRank()), today: openToday, resignSide: play.resigner });
 initTable(() => { void play.showPly(null, false); });
+// Nothing between connectPlay and this line may call refresh(), drawMarks() or showPly(): they read `keys`.
 const keys = connectKeys($('board'), play, play.commands);
 
 /** A plain `?fen=` wins over the autosave; restore player settings before loading the game. */
