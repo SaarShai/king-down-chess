@@ -1,7 +1,7 @@
 # 10 — Review and integration
 
 Type: task
-Status: ready-for-agent
+Status: resolved
 Wave: 4
 
 ## What to do
@@ -82,3 +82,48 @@ Open issues for this review (the merge leaves them as the tickets made them):
 - A solo game that the model makes with no colour gets a random seat. With Black, the board shows no move until the player asks the computer to play. Decide if a solo game with no colour starts as White.
 - The other open issues of tickets 08 and 09 stay open, for example the owner's steps before a deploy (migration 0009, the sixth block of `runtime-role.sql`, `KINGDOWN_INTERNAL_SECRET`, an asymmetric session key), the `/j/<token>` and `/g/<id>` pages, and a refresh of the ChatGPT connection after a release.
 - Item 4 of "What to do": the owner must now apply 0005 to 0009, then the third to sixth blocks of `plugin-deploy/runtime-role.sql`.
+
+### 2026-10-10 — review fixes
+
+Three reviews (correctness, security, spec) gave 19 confirmed findings. This step fixes them on `claude/multiplayer-foundation`, from `d052212a`, in 15 commits. Each code fix has a test that fails on the old code: the step put the old file (`git show HEAD:<file>`) or the old database state in place, ran the test and saw it fail, then put the fix back.
+
+- [x] Item 1: the three reviews (the workflow ran them before this step).
+- [x] Item 2: the confirmed findings are fixed, or recorded below as a decision with a reason.
+- [x] Item 3: every check runs on the integrated branch (evidence below).
+- [ ] Item 4: the pull request body. The PR step writes it. It must now give the release order of `supabase/README.md` ("Release order (a short outage)"): migrations 0005–0009 and blocks 3–6 of `plugin-deploy/runtime-role.sql` go in while the live check of the new server waits.
+
+Findings and fixes:
+
+- [x] correctness-1, security-3, spec-3 (a game at revision 1000 cannot end; one stuck game stops the sweep). `6506e8a3`: a move, a draw or a say needs a free revision after it, so the last revision stays for a resignation, an abort, a claim or the sweep. The sweep catches the error of each game, logs it and ends the other games. Tests: `service.db.test.ts` "keeps the last revision for the end of a game" and `jobs.db.test.ts` "ends the other due games when one game cannot end". Old code: the move at revision 999 passed (the test wanted `MATCH_LIMIT`), and the sweep threw.
+- [x] correctness-2, security-1 (one failed player stops every deletion and the cleanup). `0ab4e0ad`: `runDeletions` gives each ended game a new command ID and catches the error of each player; `/internal/daily` runs the cleanup first. Test: `jobs.db.test.ts` "runs the other deletions when one fails". Old code: `COMMAND_CONFLICT` for the player's own `account-deletion` command ID.
+- [x] correctness-3 (another player takes a handle while its owner leaves it). `c11db335`: the 0008 trigger locks the old handle and the new handle, in a fixed order. Test: a race in `accounts.db.test.ts` that waits on `pg_stat_activity` for the lock. Old trigger: player B got the old handle.
+- [x] correctness-4, correctness-5 (0001 again removes the newer rules; 0004 breaks `npm run plugin:db:migrate`). `56d13948`: 0001 skips its account functions and grants when `profiles.handle` exists; 0004 changes the board key only when it does not point at `games`. New test file `tools/plugin-db/migrations.db.test.ts` runs `migrate.ts` on a database with a board on an online game, then 0001. Old files: 0004 gave error 23503, and 0001 removed the `handle` and `icon` grants and the deletion grace.
+- [x] security-2 (any signed-in user reads the name and photo). `56ffaec0`: 0005 revokes `display_name` and `avatar_url` from `authenticated`; players read `id`, `rating`, `handle` and `icon`. Old file: the grant list held both columns.
+- [x] security-5 (the runtime role can shorten the deletion grace). `f5232edd`: the role may update only `cancelled_at`; `kingdown_jobs.request_deletion(uuid)` writes the dates from `now()`. Old grants: the insert with a short `run_after` passed.
+- [x] security-6 (report notes send control characters to the terminal). `f34e560c`: report text refuses C0, C1 and bidi controls (a line break stays); `tools/mod.ts` escapes them in text that is already stored. Old code: a note with U+009B passed, and the CLI printed it raw.
+- [x] spec-1 (no release order; the start check passes on every schema). `59f4e806`: `checkPluginDatabase` reads each table, column and function of 0005–0009 as the runtime role, checks the block 5 grant and checks that the board key points at `games`. `supabase/README.md` gives the release order. Test: a role with blocks 1–2 only is refused; a role with all blocks passes. Old check: the old role passed.
+- [x] spec-2 (the draw, say and claim tools cannot be used). `4df35127`: the model summary has `draw_offer` and the text says when the other side offers a draw; the model can call `kingdown_draw`. Old code: the summary had no `draw_offer`.
+- [x] spec-4 (the claim test races with the sweeps). `8937fe28`: `server.db.test.ts` uses its own database copy (`tools/plugin-db/own-test-db.ts`, which the jobs and API tests now use too). The race is a gap of a few milliseconds, so no test shows it on demand.
+- [x] spec-5 (`dueDeletions`, unused, with a second hold rule). `2e6a2fcc`: removed. The job's rule stays: a held report holds the reported player and the reporter.
+- [x] spec-6 (docs disagree with the code). `1a78c2d8`: `docs/plugin-preparation.md` (`/api` and `/internal` are live), `src/online/deadline.ts` (only the reminder job calls it), ticket 02 (the sweep ends up to 100 Daily games and 100 waiting games each call; `sweepDeadlines` calls it again while it ends more than 0) and `supabase/README.md` (0005 replaces the name and photo; 0008 replaces the immediate deletion).
+- [x] spec-7 (model names in the spec and the tickets). `a04ed9a5`: the spec table has no Model column, the owner quote keeps only the build request, and the ticket headers name no model. `tools/lib/model-names.mjs` finds no model name in the 94 changed files or the commit messages of the branch.
+- [x] security-4 (the setting and a block do not hide the move times). Decision, not a code change, because the reviewer showed that a shared game cannot hide them (`deadline_at` and a polling opponent give the same time). `4631f2a8`: the safety page says "Your opponent in a game always sees when you made each move in that game", and the `Opponent` comment in `src/match/protocol.ts` says so.
+- [x] security-7 (a follow refusal shows a block). Decision, not a code change: a block is not secret, as on most game sites. A silent 204 does not hide it, because the block also removes the blocked player's follow from their own list. `b5ec3084` puts the reason in the comment on `relate()`.
+
+Evidence (test database `kingdown_mp_fix_test`, made fresh with `node tools/plugin-db/make-test-db.mjs kingdown_mp_fix_test`; the own copies `_api`, `_chatgpt`, `_jobs` and `_migrations` were made fresh too):
+
+- `npm run plugin:db:init-test`: "Disposable PostgreSQL schema ready (migrations 0001-0009); every migration is repeatable".
+- `npm test` before the fixes (`d052212a`): typecheck clean; vitest 123 files passed, 1,949 tests passed, 8 skipped; exit 0.
+- `npm test` after the fixes (`a04ed9a5`): typecheck clean; vitest 124 files passed, 1,955 tests passed, 8 skipped (96 s); `node --test` 50 of 50; exit 0.
+- `npm run build`: exit 0.
+- `npm run check:browser plugin-ui plugin-ui-http plugin-oauth`: all 3 passed (16.3 s, 15.4 s, 2.6 s).
+- `npm run plugin:check:protocol`: passed. `npm run plugin:build`, then `npm run plugin:server:check`: passed (resource 4,327,175 JSON bytes). `npm run plugin:smoke`: passed. `npm run build:vercel`, then `npm run check:vercel`: passed. The builds add no engine to `engines/`.
+
+Open issues and owner decisions:
+
+- security-4 and security-7 above are the agent's picks. The owner can change them: to hide move times, round or remove the opponent's `at` and the inbox `updated_at`; to hide blocks, keep the blocked player's follow and answer 204.
+- Old `display_name` and `avatar_url` values stay in `profiles` on the live project. No role reads them now. Clear them (an update to null) if the owner wants them gone.
+- The hold rule is the job's rule: a held report holds the reported player and the reporter (spec-5). Ticket 07, open issue 10, can close with it.
+- `kingdown_say` and `kingdown_claim` stay app-only, and the board has no controls for them yet. The sweep ends a missed deadline within a minute, so a ChatGPT player does not need the claim. The board build adds both controls. `kingdown_games` (the inbox) does not show a draw offer; the game view does.
+- `supabase/check-migration.mjs` did not run: it needs pglite, and this worktree may not install packages. `migrations.db.test.ts` and `npm run plugin:db:init-test` run every migration twice on real Postgres instead.
+- The sweep and the deletion job take at most 100 games and 50 players for each call. A game or a player that fails each time stays first in the list, so 100 such games (or 50 such players) would hold back the rest. The log names each one (`ponytail:` comments in `src/match/service.ts` and `src/online/jobs.ts`).
