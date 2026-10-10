@@ -41,6 +41,7 @@ import { connectLinks, copyAndSay, gameLinkless } from './screen/links';
 import { LOOK_KEY, connectSettings } from './screen/settings';
 import { readSave, writeSave, type Save } from './screen/save';
 import { connectKeys } from './screen/keys';
+import { endReason, previewText, resultText, shareResultText } from './screen/moments';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -638,8 +639,7 @@ view.onSquareHover = sq => {
   $('hover').textContent = sq == null ? '' : sqName(sq);
   const next = sq == null ? [] : candidates().filter(m => clickPath(m)[pending.length] === sq);
   const ready = next.filter(m => clickPath(m).length === pending.length + 1);
-  const preview = ready.length === 1 ? momentText(game.pos, ready[0], seenMoments, true) : null;
-  $('moment').textContent = preview ?? said;
+  $('moment').textContent = previewText(game.pos, ready, seenMoments, said);
 };
 
 function restoreMoments(): void {
@@ -770,16 +770,9 @@ function undo(): void {
   moveMoments.undo();
 }
 
+
 function result(): string {
-  if (resigned != null) return `${resigned ? 'Black' : 'White'} resigns — ${resigned ? 'White' : 'Black'} wins.`;
-  return {
-    playing: '',
-    checkmate: `${game.pos.turn ? 'White' : 'Black'} wins ${findKing(game.pos.board, game.pos.turn) < 0 ? 'by taking the king' : 'by checkmate'}.`,
-    stalemate: 'Draw by stalemate.',
-    draw50: 'Draw by the 50-move rule.',
-    drawRepetition: 'Draw by repetition.',
-    drawMaterial: 'Draw by insufficient material.',
-  }[game.status];
+  return resultText(game.status, game.pos, resigned);
 }
 
 /** Moves played so far, counted as the move list numbers them (a Haste turn is one move). */
@@ -791,14 +784,7 @@ function showOver(): void {
   $('over-title').textContent = result();
   const last = [...game.history].reverse().find(h => !h.move.pass);
   // Ending reason wins over a prior moment caption (`said`); last-move text stays above.
-  const why =
-    (game.status === 'checkmate' ? (findKing(game.pos.board, game.pos.turn) < 0 ? 'The king was taken.' : 'The king is in check and no legal move escapes it.') : '')
-    || (game.status === 'stalemate' ? 'No legal move, and the king is not in check.' : '')
-    || (game.status === 'draw50' ? 'Fifty moves with no take and no pawn move.' : '')
-    || (game.status === 'drawRepetition' ? 'The same position came up three times.' : '')
-    || (game.status === 'drawMaterial' ? 'Neither side has enough material to mate.' : '')
-    || (resigned != null ? 'That side gave up.' : '')
-    || said;
+  const why = endReason(game.status, game.pos, resigned, said);
   $('over-detail').textContent = [last ? describeMove(last.pos, last.move, true, true) : '', why, `${n} move${n === 1 ? '' : 's'}.`].filter(Boolean).join(' ');
   dlg.returnValue = ''; // Esc leaves the last button's value behind, which would re-fire it
   dlg.querySelector<HTMLImageElement>('.over-w')!.src = kingArt(0); // the kings that played, as on the board
@@ -1009,11 +995,10 @@ home = initHome({
 });
 (window as unknown as Record<string, unknown>).home = home; // Samples read the live game, including a staged turn.
 $('share-result').onclick = () => {
-  const n = movesPlayed(), people = sides.filter(s => s === 'human').length;
-  const me = sides.indexOf('human') as Color, winner = resigned != null ? 1 - resigned : game.status === 'checkmate' ? 1 - game.pos.turn : -1;
-  const outcome = people !== 1 ? result().slice(0, -1).toLowerCase() : winner < 0 ? 'drew' : winner === me ? 'won' : 'lost';
-  const vs = people === 1 ? ` against the ${skill} computer` : '';
-  const text = `King Down daily ${daily} (${game.backRank}): ${outcome} in ${n} move${n === 1 ? '' : 's'}${vs}. ${location.origin}${location.pathname}`;
+  const text = shareResultText({
+    sides, resigned, status: game.status, turn: game.pos.turn, result: result(), skill, daily,
+    army: game.backRank, moves: movesPlayed(), page: `${location.origin}${location.pathname}`,
+  });
   void copyAndSay($('share-result'), text, 'Result copied');
 };
 const settings = connectSettings(view, { look, skill: () => skill, setSkill: level => { skill = level; }, save, drawMarks });
