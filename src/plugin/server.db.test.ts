@@ -13,7 +13,7 @@ import { PluginService } from './service';
 import { ownTestDatabase } from '../../tools/plugin-db/own-test-db';
 const suite = process.env.PLUGIN_TEST_DATABASE_URL ? describe : describe.skip;
 type Result = { isError?: boolean; content: { type: string; text: string }[]; structuredContent?: any; _meta?: any };
-const SUMMARY = ['board_id', 'colour', 'days_per_move', 'deadline_at', 'game_id', 'kind', 'move', 'speed', 'status', 'your_turn'];
+const SUMMARY = ['board_id', 'colour', 'days_per_move', 'deadline_at', 'draw_offer', 'game_id', 'kind', 'move', 'speed', 'status', 'your_turn'];
 
 suite('ChatGPT tools on PostgreSQL', () => {
  // Every transaction on readOnly is read-only: any write fails (25006), so a tool that succeeds on it wrote nothing.
@@ -85,9 +85,12 @@ suite('ChatGPT tools on PostgreSQL', () => {
   const polled = await host.ok('kingdown_get', { game_id: game, since_revision: view(moved).revision });
   expect(view(polled).last_commands.map(entry => entry.action)).toEqual([{ type: 'say', preset: 'good_luck' }]); expect(view(polled).rules).toBeUndefined();
   summary(polled, ...handles, 'good_luck');
-  await guest.ok('kingdown_draw', { ...move(said), choice: 'offer' });
-  const declined = await host.ok('kingdown_draw', { ...move(await host.ok('kingdown_get', { game_id: game })), choice: 'decline' });
-  expect(view(declined).draw_offer).toBeNull();
+  expect((await guest.ok('kingdown_draw', { ...move(said), choice: 'offer' })).structuredContent.draw_offer).toBe('yours');
+  // The model sees the other side's offer, and answers it with no command ID.
+  const offered = await host.ok('kingdown_open', { game_id: game });
+  expect([offered.structuredContent.draw_offer, offered.content[0].text]).toEqual(['opponent', `The other side moves, move ${offered.structuredContent.move}. The other side offers a draw.`]);
+  const declined = await host.ok('kingdown_draw', { game_id: game, choice: 'decline' });
+  expect([view(declined).draw_offer, declined.structuredContent.draw_offer]).toEqual([null, null]);
   const report = await host.ok('kingdown_report', { game_id: game, target: 'message', category: 'harassment', preset: 'good_luck', note: 'Test report' });
   expect((await rows('select reporter_id,reported_id,target,content from public.reports where id=$1', [report.structuredContent.id]))[0]).toEqual({ reporter_id: ann, reported_id: bob, target: 'message', content: 'good_luck' });
   expect((await host.ok('kingdown_profile')).structuredContent).toEqual({ id: ann, name: `ann-${tag}` });

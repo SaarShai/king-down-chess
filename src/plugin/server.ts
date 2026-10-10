@@ -37,10 +37,13 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
    * The model gets a short summary with no position and no opponent text (part 03, section 4.5; part 01, section 6.6). */
   function reply(view: View, board?: string): Reply {
     const move = Number(view.fen.split(' ')[5]), result = ending(view);
+    // A draw offer from either side; the model can answer the opponent's with kingdown_draw.
+    const offer = view.draw_offer === null ? null : view.draw_offer === view.seat ? 'yours' : 'opponent';
     return {
-      content: text(view.status === 'waiting' ? 'Waiting for the other player to join.' : result ? `Game over: ${result}.` : `${view.action === 'ready' ? 'Your move' : 'The other side moves'}, move ${move}.`),
+      content: text(view.status === 'waiting' ? 'Waiting for the other player to join.' : result ? `Game over: ${result}.`
+        : `${view.action === 'ready' ? 'Your move' : 'The other side moves'}, move ${move}.${offer === 'opponent' ? ' The other side offers a draw.' : ''}`),
       structuredContent: { game_id: view.game_id, ...(board && { board_id: board }), kind: view.kind, speed: view.speed, days_per_move: view.days_per_move, status: view.status,
-        colour: view.seat === 0 ? 'white' : 'black', your_turn: view.action === 'ready', move, deadline_at: view.deadline_at, ...(result && { result }) },
+        colour: view.seat === 0 ? 'white' : 'black', your_turn: view.action === 'ready', move, deadline_at: view.deadline_at, draw_offer: offer, ...(result && { result }) },
       _meta: { view },
     };
   }
@@ -87,7 +90,8 @@ export function createPluginServer({ service, actorId, resourceHtml, publicOrigi
   register('kingdown_move', 'Play one exact legal move; retry with the same command ID.', { ...command, lan: z.string().min(1).max(120) }, { visibility: ['app'] }, ({ lan, ...args }) => play(args, { type: 'turn', actions: [lan] }));
   register('kingdown_computer', 'Ask the computer opponent to play its turn.', command, { visibility: ['app'] }, args => play(args, { type: 'computer' }));
   register('kingdown_say', 'Send one preset message to the opponent; each preset goes once in each game.', { ...command, preset: z.enum(PRESETS) }, { visibility: ['app'] }, ({ preset, ...args }) => play(args, { type: 'say', preset }));
-  register('kingdown_draw', 'Offer a draw, or accept or decline the opponent’s offer. Accept ends the game.', { ...command, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['app'], destructive: true }, ({ choice, ...args }) => play(args, { type: 'draw', choice }));
+  register('kingdown_draw', 'Use this when the player wants to offer a draw in a King Down game, or to accept or decline the other side’s offer (draw_offer "opponent"). Accept ends the game.',
+    { ...optional, choice: z.enum(['offer', 'accept', 'decline']) }, { visibility: ['model', 'app'], destructive: true }, ({ choice, ...args }) => decide(args, { type: 'draw', choice }));
   register('kingdown_claim', 'Claim the game when the opponent missed the Daily deadline.', command, { visibility: ['app'], destructive: true }, args => play(args, { type: 'claim', reason: 'timeout' }));
   register('kingdown_resign', 'Use this when the player wants to resign a King Down game. The opponent wins.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'resign' }));
   register('kingdown_abort', 'Use this when the player wants to cancel a King Down game before each side has played a turn. Nobody wins.', optional, { visibility: ['model', 'app'], destructive: true }, args => decide(args, { type: 'abort' }));
