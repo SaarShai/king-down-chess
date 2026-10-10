@@ -4,7 +4,7 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 
 ## Open items
 
-- **Accounts and multiplayer** · `needs-info` · Research done; the owner answers 8 decisions. · [report](docs/research/multiplayer-2026-10-10/README.md)
+- **Accounts and multiplayer** · `needs-info` · Accounts migration run? The 8 [report](docs/research/multiplayer-2026-10-10/README.md) decisions. Foundation: `claude/multiplayer-foundation`.
 - **After the redesign** · `needs-triage` · Done (tickets 01 to 05, PRs #33 to #37, 2026-10-10): three check runs share this Mac; `main.ts` 1,348 → 210 lines. Small follow-ups wait in the Comments of tickets 04 and 05. · [spec](docs/specs/after-redesign/spec.md)
 - **Proving Ground and legend** · `ready-for-agent` · Owner chose Workshop mockup A and the red-target legend (2026-10-10). Building. · [spec](docs/specs/workshop-proving-ground/spec.md)
 - **Card deal** · `needs-info` · The owner chose MirrorB and dropped Mirror and Rescue (2026-10-07); Hand size: **4 cards** (owner 2026-10-09: "yes. 4 cards."; draws 12.6% at depth 4, against 11.0% with 6). Keep March (below the floor in `cards-d1`)? Which cards make the deal, and do the four new cards join it? · [2026-10](docs/tasks-archive/2026-10.md)
@@ -17,7 +17,6 @@ The open work, one line per item: a bold title, a [label](docs/agents/triage-lab
 - **Criterion 4** · `needs-info` · Keep it as written (it cannot fail) or use 4b, "a phase at or above the average piece"? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Piece-letter icons** · `needs-info` · Should Settings → Piece letters draw icons on the figures? · [2026-10](docs/tasks-archive/2026-10.md)
 - **King with no power** · `needs-info` · Draw a king picked with No power as that king? · [2026-10](docs/tasks-archive/2026-10.md)
-- **Accounts database** · `needs-info` · Did the owner run the accounts migration and the sign-in checks? · [2026-10](docs/tasks-archive/2026-10.md)
 - **Clay king effects** · `ready-for-agent` · The six king effects in the clay look (about one day). · [2026-10](docs/tasks-archive/2026-10.md)
 - **Powers-mode computer player** · `ready-for-agent` · Move ordering and a bigger corpus; the runs need the owner's go. · [2026-10](docs/tasks-archive/2026-10.md)
 - **Browser checks in the cloud** · `ready-for-agent` · `verify-special-moves`, `verify-cursor-adoption`, `verify-playable-clay` and `qa` time out in a cloud container (slow software WebGL). · [handoff](docs/tasks-archive/HANDOFF-2026-10-03.md)
