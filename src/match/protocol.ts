@@ -51,7 +51,8 @@ export type SeatAction = 'waiting' | 'ready' | 'done';
 export type LoggedAction = Action | { type: 'computer'; actions: string[] } | { type: 'join' } | { type: 'expire' } | { type: 'hidden' };
 export interface LoggedCommand { seq: number; seat: Seat | null; action: LoggedAction; at: string }
 /** `deleted`: the account was deleted; show "Deleted player". `last_seen_ms`: time since the seat's last command,
- * null unless the opponent's "who sees that I am online" setting lets you see it (and no block). */
+ * null unless the opponent's "who sees that I am online" setting lets you see it (and no block). The setting does not
+ * hide the time of each move in a shared game (`last_commands[].at`, `deadline_at`): the safety page says so. */
 export interface Opponent { handle: string | null; computer: boolean; deleted: boolean; last_seen_ms: number | null }
 
 /** One seat's view: small (under about 3 KB) and never the full save. */

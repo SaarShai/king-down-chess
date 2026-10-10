@@ -27,7 +27,7 @@ King Down is a chess game for players who are 13 or older. This page says how we
 - You cannot write free text to other players. You can send short preset messages from a list.
 - You cannot send pictures, videos or voice.
 - You pick a handle and an icon. Other players do not see your real name, your email address, your photo, your age, your school or where you live.
-- By default, only signed-in players can challenge you. By default, only players who follow you and whom you follow can see when you are online.
+- By default, only signed-in players can challenge you. By default, only players who follow you and whom you follow can see when you are online. Your opponent in a game always sees when you made each move in that game.
 - You do not play with strangers in this version. You play friends who have your invitation.
 
 ### What you can do
