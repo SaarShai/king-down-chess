@@ -41,7 +41,7 @@ import { connectLinks, copyAndSay, gameLinkless } from './screen/links';
 import { LOOK_KEY, connectSettings } from './screen/settings';
 import { readSave, writeSave, type Save } from './screen/save';
 import { connectKeys } from './screen/keys';
-import { endReason, previewText, resultText, shareResultText } from './screen/moments';
+import { endReason, previewText, resultText, shareResultText, soundsFor } from './screen/moments';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -362,14 +362,9 @@ async function commit(m: Move): Promise<void> {
   $('announce').textContent = describeMove(pre, m, true) + (game.inCheck && !finished() ? ' Check.' : '');
   const line = momentText(pre, m, seenMoments);
   if (line) { said = line; $('moment').textContent = line; }
-  const kind = momentKind(pre, m);
   // Launch sounds play now; the hit sounds when the board shows the contact.
-  const hit = kind === 'shove' || kind === 'shoveGuard' ? snd.shove
-    : kind === 'chain' || kind === 'reaver' ? snd.chain
-    : m.captures.length || m.selfRemove ? snd.capture : null;
-  if (kind === 'shot' || kind === 'deathTouch' || kind === 'strikeCapture' || kind === 'lob' || kind === 'strike') snd.shot();
-  else if (kind === 'swap' || kind === 'swapKing') snd.swap();
-  else if (!hit) snd.move();
+  const sounds = soundsFor(momentKind(pre, m), m), hit = sounds.hit ? snd[sounds.hit] : null;
+  if (sounds.now) snd[sounds.now]();
   selected = null; pending = []; armed = false; inspected = null;
   refresh();
   let struck = false;

@@ -1,6 +1,6 @@
 import type { SkillName } from '../ai/skill';
 import type { Side } from '../game';
-import { momentText } from '../moment';
+import { momentText, type momentKind } from '../moment';
 import { findKing, type Color, type Move, type Position, type Status } from '../rules/engine';
 
 /** The result line: who resigned, or who won and how, or the draw; empty while the game plays. */
@@ -45,3 +45,17 @@ export function shareResultText(r: {
 /** The moment line while the pointer is on a square: the moment of the one move that a tap there finishes, else `said`. */
 export const previewText = (pos: Position, ready: readonly Move[], seen: Set<string>, said: string): string =>
   (ready.length === 1 ? momentText(pos, ready[0], seen, true) : null) ?? said;
+
+/**
+ * A move's sounds. `now` plays as the move starts: a launch (shot, swap) or a quiet move. `hit` plays
+ * when the board shows the contact: a shove, a chain or a capture.
+ */
+export function soundsFor(kind: ReturnType<typeof momentKind>, m: Move): { now: 'shot' | 'swap' | 'move' | null; hit: 'shove' | 'chain' | 'capture' | null } {
+  const hit = kind === 'shove' || kind === 'shoveGuard' ? 'shove'
+    : kind === 'chain' || kind === 'reaver' ? 'chain'
+    : m.captures.length || m.selfRemove ? 'capture' : null;
+  const now = kind === 'shot' || kind === 'deathTouch' || kind === 'strikeCapture' || kind === 'lob' || kind === 'strike' ? 'shot'
+    : kind === 'swap' || kind === 'swapKing' ? 'swap'
+    : !hit ? 'move' : null;
+  return { now, hit };
+}

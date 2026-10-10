@@ -3,7 +3,7 @@ import type { Side } from '../game';
 import { momentText } from '../moment';
 import { findKing, type Move, type Position, type Status } from '../rules/engine';
 import { fromFen } from '../rules/setup';
-import { endReason, previewText, resultText, shareResultText } from './moments';
+import { endReason, previewText, resultText, shareResultText, soundsFor } from './moments';
 
 /** Black to move: the position of a mate (the rules' status comes from the caller). */
 const mated = fromFen('k7/1Q6/1K6/8/8/8/8/8 b - - 0 1');
@@ -75,5 +75,34 @@ describe('the moment preview under the pointer', () => {
     expect(previewText(pos, [], seen, 'said')).toBe('said');
     expect(previewText(pos, [pass, pass], seen, 'said')).toBe('said');
     expect(previewText(pos, [quiet], seen, 'said')).toBe('said');
+  });
+});
+
+describe('the sounds of a move', () => {
+  const move = (captures: number[], more: Partial<Move> = {}) => ({ from: 0, to: 1, captures, ...more }) as Move;
+
+  it('a launch sounds as the move starts; its capture sounds on contact', () => {
+    expect(soundsFor('shot', move([9]))).toEqual({ now: 'shot', hit: 'capture' });
+    expect(soundsFor('lob', move([9]))).toEqual({ now: 'shot', hit: 'capture' });
+    expect(soundsFor('deathTouch', move([9]))).toEqual({ now: 'shot', hit: 'capture' });
+    expect(soundsFor('strikeCapture', move([9]))).toEqual({ now: 'shot', hit: 'capture' });
+    expect(soundsFor('strike', move([]))).toEqual({ now: 'shot', hit: null });
+    expect(soundsFor('swap', move([]))).toEqual({ now: 'swap', hit: null });
+    expect(soundsFor('swapKing', move([]))).toEqual({ now: 'swap', hit: null });
+  });
+
+  it('a shove, a chain or a capture sounds only on contact', () => {
+    expect(soundsFor('shove', move([]))).toEqual({ now: null, hit: 'shove' });
+    expect(soundsFor('shoveGuard', move([]))).toEqual({ now: null, hit: 'shove' });
+    expect(soundsFor('chain', move([9, 18]))).toEqual({ now: null, hit: 'chain' });
+    expect(soundsFor('reaver', move([9]))).toEqual({ now: null, hit: 'chain' });
+    expect(soundsFor(null, move([9]))).toEqual({ now: null, hit: 'capture' });
+    expect(soundsFor('paladin', move([9], { selfRemove: true }))).toEqual({ now: null, hit: 'capture' });
+  });
+
+  it('a quiet move, or a power with no capture, is a plain move sound', () => {
+    expect(soundsFor(null, move([]))).toEqual({ now: 'move', hit: null });
+    expect(soundsFor('freeze', move([]))).toEqual({ now: 'move', hit: null });
+    expect(soundsFor('pass', move([], { pass: true }))).toEqual({ now: 'move', hit: null });
   });
 });
