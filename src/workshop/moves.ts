@@ -17,7 +17,7 @@ export const BODY_TYPE = Object.fromEntries(BODIES.map(b => [b, BODY[b].type])) 
 /** The piece types a "becomes" rule offers: "choice" is the pawn's queen, rook, bishop or knight. */
 const promoOf = (into: Body | 'choice'): PieceType[] => (into === 'choice' ? (['Q', 'R', 'B', 'N'] as const) : [into]).map(b => BODY_TYPE[b]);
 
-const step = (s: number, df: number, dr: number): number => {
+export const step = (s: number, df: number, dr: number): number => {
   const f = file(s) + df, r = rank(s) + dr;
   return f < 0 || f > 7 || r < 0 || r > 7 ? -1 : sq(f, r);
 };
@@ -41,15 +41,12 @@ export function holds(w: When, board: Uint8Array, from: number, st: TryState): b
   }
 }
 
-interface Can { m: boolean; t: boolean; s: boolean }
+export interface Can { m: boolean; t: boolean; s: boolean }
 const CAN: Record<Square['mark'], Can> = { both: { m: true, t: true, s: false }, move: { m: true, t: false, s: false }, take: { m: false, t: true, s: false }, shoot: { m: false, t: false, s: true }, moveShoot: { m: true, t: false, s: true } };
 
-/** Pseudo-legal moves of design `d` for the piece on `from` (its colour is the board's), as engine `Move`s. */
-export function movesOf(d: D, board: Uint8Array, from: number, st: TryState = START): Move[] {
-  const c = colorOf(board[from]) as Color, dy = c === BLACK ? -1 : 1;
-  const on = (a: Rule['does']['a']) => d.rules.find(r => r.does.a === a && holds(r.when, board, from, st))?.does;
-  const like = on('movesLike'), pass = on('linesPass'), no = on('cannotTake'), chain = on('chain'), rem = on('removedAfter'), bec = d.rules.find(r => r.does.a === 'becomes');
-  // The union of the piece's own squares and lines and a "moves like" piece's.
+/** The union of the piece's own squares and lines and its "moves like" piece's, while that When holds. */
+export function patternOf(d: D, board: Uint8Array, from: number, st: TryState) {
+  const like = d.rules.find(r => r.does.a === 'movesLike' && holds(r.when, board, from, st))?.does;
   const can = new Map<string, Can & { x: number; y: number }>();
   const lines = new Set<Dir>(d.lines);
   for (const src of like?.a === 'movesLike' ? [d, { ...likeSquares(like.as), rules: [] }] : [d]) {
@@ -59,6 +56,15 @@ export function movesOf(d: D, board: Uint8Array, from: number, st: TryState = ST
     }
     for (const l of src.lines) lines.add(l);
   }
+  return { can, lines };
+}
+
+/** Pseudo-legal moves of design `d` for the piece on `from` (its colour is the board's), as engine `Move`s. */
+export function movesOf(d: D, board: Uint8Array, from: number, st: TryState = START): Move[] {
+  const c = colorOf(board[from]) as Color, dy = c === BLACK ? -1 : 1;
+  const on = (a: Rule['does']['a']) => d.rules.find(r => r.does.a === a && holds(r.when, board, from, st))?.does;
+  const pass = on('linesPass'), no = on('cannotTake'), chain = on('chain'), rem = on('removedAfter'), bec = d.rules.find(r => r.does.a === 'becomes');
+  const { can, lines } = patternOf(d, board, from, st);
   const takes = (vt: PieceType): boolean => !(RULES.guardImmune && vt === G) && !(no?.a === 'cannotTake' && (no.what === 'any' || (no.what === 'king' && vt === K) || (no.what === 'pawns' && vt === P)));
   const enemy = (b: Uint8Array, s: number): boolean => s >= 0 && !!b[s] && colorOf(b[s]) !== c && takes(typeOf(b[s]));
   const out: Move[] = [];

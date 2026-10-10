@@ -73,6 +73,10 @@ describe('vocab (§8.4.10)', () => {
     const matrix = readFileSync(new URL('../../docs/MATRIX.md', import.meta.url), 'utf8');
     for (const b of BLOCKS) expect(matrix, b.matrix).toContain(`| ${b.matrix.startsWith('C3') || b.matrix === 'Last rank' ? '' : '**'}${b.matrix}`);
   });
+
+  it('gives each block a seal label of 14 characters or fewer', () => {
+    for (const b of BLOCKS) expect(b.label, b.a).toMatch(/^.{1,14}$/u);
+  });
 });
 
 describe('art (§8.4.11)', () => {

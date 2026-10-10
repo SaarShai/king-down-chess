@@ -19,13 +19,13 @@ Blocked by: move-legend 01 (`src/render/legend.ts`). Work can start on a branch 
 
 ## Plan
 
-1. [ ] **Mockup in Git.** If main does not hold `docs/research/rules-ui-2026-10-10/` yet, commit it first, as its own commit (REVIEW.md, compare.html, `mockups/` 3.2 MB, `screens/` 6.5 MB).
-2. [ ] **Golden fixtures: `src/workshop/compat.test.ts` (new).** Make literal strings from today's main and paste them in the test as text:
+1. [x] **Mockup in Git.** If main does not hold `docs/research/rules-ui-2026-10-10/` yet, commit it first, as its own commit (REVIEW.md, compare.html, `mockups/` 3.2 MB, `screens/` 6.5 MB).
+2. [x] **Golden fixtures: `src/workshop/compat.test.ts` (new).** Make literal strings from today's main and paste them in the test as text:
    - `?design=` codes: the W12 design (`docs/specs/web-redesign/samples/W12.mjs:5-10`); a code with each mark (`move`, `take`, `both`, `shoot`, `moveShoot`); one with each of the 10 blocks; one with `glow: 'Frost'`; one with `body: 'token'` and `auto: true`; one with a `figure` and `army: 1`.
    - `kingdown.workshop` entries: one with no `figure`, one with no `ownLetter`, one damaged entry.
    - Each code passes `parseDesign` (`model.ts:222-233`) and gives the same `keyOf` (`:150`) as its source design. Each code that `designCode` made (all but the hand-made W12 code) gives the same string again through `designCode(parseDesign(code))`. Each stored entry passes `validStored` (`:215-219`); `loadShelf(box)` (`store.ts:24`) on a fake storage reads them and returns `bad: 1` for the damaged one.
-3. [ ] **`src/workshop/moves.ts`: export `patternOf(d, board, from, st)`**, the union of the piece's squares and lines with its "moves like" piece while that When holds (`:53-61`). `movesOf` calls it, so there is one copy.
-4. [ ] **`src/workshop/scene.ts` (new), pure.**
+3. [x] **`src/workshop/moves.ts`: export `patternOf(d, board, from, st)`**, the union of the piece's squares and lines with its "moves like" piece while that When holds (`:53-61`). `movesOf` calls it, so there is one copy.
+4. [x] **`src/workshop/scene.ts` (new), pure.**
    - `EXAMPLES`: the example board of each pool key, from the `pieces` lists of `mockups/shared/scenes.js` (paladin `:37`, pawn `:92`, archer `:178`, beast `beastPieces()`, maester `:219`, ogre `:228`, guard `:241`, rook `rookPieces()`, knight `:308`, bishop `:313`, queen `:323`). A design with `from: [key]` uses that board; any other design stands alone on d4.
    - `boardOf(pieces)`: a `Uint8Array(64)`; the open design is `piece(T, WHITE)`, as `sandbox.ts:53`.
    - `sceneOf(d, board, from, st)`: the scene of `scenes.js:7-23` without `by`, `impressions`, `knots` and `why` (ticket 04):
@@ -41,7 +41,7 @@ Blocked by: move-legend 01 (`src/render/legend.ts`). Work can start on a branch 
    - the tiles, the occupied take (red edge, glow and ring under the feet) and the badge come from `legend.ts` (`occupied`, `badge`, `toSvg`; move-legend ticket 01), in place of `tileWash`, `targetMark`, `shotMark`, `takeBadge` and the over-layer glow (`:204-241`, `:300-342`, `:519-531`, `:1080-1099`); `look.wash` and `look.familyWax` are always on;
    - `assets` is `${import.meta.env.BASE_URL}ui/`; the board image is `public/ui/stone-board.webp` as the field's background (`noBoard`; the path at `:1041` does not exist in the game);
    - each mark group has `data-sq` and `data-k`, for the tests and the check.
-6. [ ] **`src/workshop/vocab.ts`:** add `label` to each block, from the mockup's short seal names (`proving-ground.html:681`). `ui.test.ts`: each block has a label of 14 characters or fewer.
+6. [x] **`src/workshop/vocab.ts`:** add `label` to each block, from the mockup's short seal names (`proving-ground.html:681`). `ui.test.ts`: each block has a label of 14 characters or fewer.
 7. [ ] **`src/workshop/ground.ts` (new): `groundDialog(): { open(): void; openDesign(code: string): void }`.** `<dialog id="workshop" class="pg">`, `aria-labelledby` on the title.
    - Top bar: "‹ Menu" (closes; the focus goes back to the opener) and the "WORKSHOP" title (`renderTop`, `proving-ground.html:952-969`).
    - Plinth: the name band, the figure (pool art from `pieceArt(BODY_TYPE[body])`, `src/ui/guide.ts:22-24`, for a pool piece and a copy with no `look.figure`; else `figureUrl(selectedFigure(d).id, d.look.army)`, `figures.ts:253`, `:267`, as `look.ts:18` does), and the rule lines (`sealLineHTML`, `proving-ground.html:979-1005`): `seal()` in its family colour, `chip()` for the When (none for `always`), and the sentence from `ruleParts` (`text.ts:91-98`).
@@ -77,3 +77,26 @@ Blocked by: move-legend 01 (`src/render/legend.ts`). Work can start on a branch 
 
 - No paint, no rule change, no why-trace, no Try with, no NEW, no Share, no Kings, Cards or Rules tab, no motion.
 - No change to the old Workshop.
+
+## Comments
+
+### 2026-10-10: part 1, steps 1 to 4 and 6 (branch `claude/proving-ground`)
+
+Steps 5 and 7 to 11 wait for `src/render/legend.ts` (move-legend ticket 01, branch `claude/move-legend`). No Verification box is ticked: each one needs part 2.
+
+- Step 1: main holds the mockup folder (commit 423082fb, 120 files). This branch adds no commit for it.
+- Step 2: `src/workshop/compat.test.ts`. It holds 14 share codes: the W12 link, one code with each mark, 10 codes with one block each, a Frost glow, a token with `auto: true`, and a figure with `army: 1`. Together the codes use each kind of When. The `kingdown.workshop` value comes from today's `saveDesign`: an entry with no figure, an entry with no `ownLetter`, and a damaged entry (`y: 4`).
+- Step 3: `patternOf(d, board, from, st)` in `src/workshop/moves.ts`, and `movesOf` calls it. `step` and `Can` are exported for `scene.ts`. `moves.test.ts` does not change.
+- Step 4: `src/workshop/scene.ts` and `src/workshop/scene.test.ts`. The built scene equals the hand scene (marks, rails, arches, swap and push effects) for the 14 scenes of the list. It also equals `mypawn` (an asleep mark) and `mypawn-queen` (awake marks and 8 awake rails). The engine and the hand lists agree on all 16 scenes, so the test names no exception.
+- Step 6: each block in `src/workshop/vocab.ts` has a `label` from the mockup's short names. `ui.test.ts` holds each label to 1 to 14 characters.
+
+Changes from the ticket, with the reasons:
+
+- `EXAMPLES` is private. `examplesOf(d)` gives the piece list of a design: the example board of its pool piece when `from` holds one pool key, else the piece alone on d4. The rule of step 4 then has one place, and `ground.ts` (step 7) calls it.
+- The open design's piece in a scene has `k: 'design'`. The board holds it as `T`, and its look comes from the design, not from an engine name.
+- A line that stops at an enemy it cannot take: its rail runs to the farthest square of its reach, with the end `none` of the scene format. Ticket 04 changes it to `blocked`. The test leaves out these rails and the hand `blocked` rails.
+- Rail styles: the ticket gives `asleep` to a rail whose squares are all asleep. That rule fails the mockup's `mypawn-queen-b4`, whose asleep queen rails cross the painted b5. A When on "Cannot take" would also add a second rail on a line that has a rail now. So a rail is `asleep` when the run with that When forced to "always" has a rail on a line with no rail now, and `awake` when its line has no rail without that rule. The test holds the 8 awake rails of `mypawn-queen`.
+
+Evidence:
+
+- `npm test` before the commit, two runs (the second after a type-only change in `moves.ts`): each 112 test files passed and 1 skipped, 1,844 tests passed and 21 skipped, the node tests 50 of 50, `exit 0`. Logs: `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/08f2956c-63a7-4276-8738-a657bdb42b06/scratchpad/pg/npm-test-1.log` and `npm-test-2.log` in the same folder.
