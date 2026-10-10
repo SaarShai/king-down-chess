@@ -74,3 +74,5 @@ Item 13: decided by delegation (2026-10-09). Each Menu page fits its content. On
 Item 1: decided by delegation (2026-10-09). The first layout uses fit-content. Below 900 px, each page uses fit-content, up to the screen height minus a 24 px top gap. Its bottom stays on the screen edge. The head moves with the page height. Desktop Menu opens in the centre and keeps its opening top. Compact short-phone rows fit without cut glyphs. menu-extra checks all four sizes and each phone page.
 
 Small repair item 1: decided by delegation (2026-10-09). Phone Menu follows the standard bottom-sheet pattern. No page keeps spare height from another page. A bottom shade shows an overflowing body. Where a whole row fits, the body ends after that row. Browser checks compare each sheet with its head, page content and padding.
+
+The shade check also requires generated pseudo-element content. A display value alone does not show that the shade paints.

@@ -127,7 +127,7 @@
 #menu-sheet.is-placed { top: var(--menu-top); bottom: auto; margin-block: 0; max-height: calc(100dvh - var(--menu-top) - 12px); }
 @media (max-width: 899px) {
   #menu-sheet, #menu-sheet.is-placed { top: auto; bottom: 0; height: fit-content; max-height: calc(100dvh - 24px); margin-block: auto 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-  #menu-sheet::after { display: none; position: absolute; bottom: 0; left: 0; right: 0; height: 16px; background: linear-gradient(transparent, rgb(91 80 69 / 30%)); pointer-events: none; }
+  #menu-sheet::after { content: ''; display: none; position: absolute; bottom: 0; left: 0; right: 0; height: 16px; background: linear-gradient(transparent, rgb(91 80 69 / 30%)); pointer-events: none; }
   #menu-sheet.has-overflow::after { display: block; }
   #menu-sheet .sheet-head h2 { white-space: nowrap; }
 }
