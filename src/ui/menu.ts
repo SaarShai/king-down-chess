@@ -13,7 +13,20 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
   const button = document.getElementById('menu-btn')!;
   const back = document.getElementById('menu-back')!;
   const title = document.getElementById('menu-title')!;
+  const body = sheet.querySelector<HTMLElement>('.sheet-body')!;
   let page = 'menu';
+  function fitBody(): void {
+    body.style.maxHeight = '';
+    if (!sheet.open) return;
+    if (window.innerWidth < 900 && body.scrollHeight > body.clientHeight + 1) {
+      const edge = body.getBoundingClientRect().top + body.clientHeight;
+      const rows = [...body.querySelectorAll<HTMLElement>('.menu-row, label, #tricks-list > li')].filter(row => row.checkVisibility());
+      const last = rows.filter(row => row.getBoundingClientRect().bottom <= edge - 8).at(-1);
+      if (last) body.style.maxHeight = `${last.getBoundingClientRect().bottom - body.getBoundingClientRect().top}px`;
+    }
+    sheet.classList.toggle('has-overflow', body.scrollHeight > body.clientHeight + 1);
+  }
+  window.addEventListener('resize', fitBody);
   refreshTricks();
   function go(next: string): void {
     if (next === 'tricks') openTricksMenu();
@@ -28,7 +41,8 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
       const side = actions.resignSide();
       document.getElementById('resign-detail')!.textContent = `${side === 0 ? 'Black' : 'White'} wins this game.`;
     }
-    sheet.querySelector('.sheet-body')!.scrollTop = 0;
+    body.scrollTop = 0;
+    fitBody();
     const from = sheet.querySelector<HTMLElement>(`[data-menu-page="${page}"] [data-go="${previous}"]`);
     (from ?? title).focus({ preventScroll: true });
   }
@@ -36,7 +50,7 @@ export function initMenu(actions: { playAgain: () => void; today: () => void; re
   button.onclick = () => {
     refreshTricks(); sheet.classList.remove('is-placed'); go('menu'); sheet.showModal();
     sheet.style.setProperty('--menu-top', `${sheet.getBoundingClientRect().top}px`);
-    sheet.classList.add('is-placed'); title.focus();
+    sheet.classList.add('is-placed'); fitBody(); title.focus();
   };
   back.onclick = () => go(PAGES[page].parent!);
   document.getElementById('menu-close')!.onclick = close;

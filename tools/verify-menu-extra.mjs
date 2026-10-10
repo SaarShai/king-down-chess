@@ -2,6 +2,23 @@
 import assert from 'node:assert/strict';
 import { endTurn, lanMoves, openAccount, openExtra, openMenu, openTricks, pressMenu } from './app-ui.mjs';
 import { assertNoErrors, env, launch, noSidewaysScroll, shot, trapErrors } from './lib/checks.mjs';
+async function assertPhoneSheet(page, height) {
+  const bounds = await page.locator('#menu-sheet').evaluate(sheet => {
+    const body = sheet.querySelector('.sheet-body'), section = body.querySelector(':scope > section:not([hidden])');
+    const box = sheet.getBoundingClientRect(), style = getComputedStyle(body);
+    return { bottom: box.bottom, height: box.height, content: section.offsetHeight,
+      head: sheet.querySelector('.sheet-head').offsetHeight,
+      padding: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom),
+      overflow: body.scrollHeight > body.clientHeight + 1,
+      shade: getComputedStyle(sheet, '::after').display,
+      page: section.dataset.menuPage,
+    };
+  });
+  assert.ok(Math.abs(bounds.bottom - height) <= 1, 'each phone page meets the screen bottom');
+  assert.ok(bounds.height <= bounds.head + bounds.content + bounds.padding + 24, 'each phone sheet fits its page content');
+  if (bounds.page === 'tricks' && height <= 568) assert.ok(bounds.overflow, 'short Tricks scrolls inside the sheet');
+  if (bounds.overflow) assert.equal(bounds.shade, 'block', 'the overflowing body has a bottom shade');
+}
 const browser = await launch();
 try {
   for (const undoFirst of [false, true]) {
@@ -65,7 +82,7 @@ try {
   }
   for (const [width, height] of [[320, 568], [390, 844], [844, 390], [1440, 900]]) {
     const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
-    await context.addInitScript(() => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', pace: 'off', sound: false })); });
+    await context.addInitScript(() => { sessionStorage.setItem('kingdown.title-seen', '1'); localStorage.setItem('kingdown.tricks', JSON.stringify({ found: ['chain'], unseen: false })); localStorage.setItem('kingdown.save', JSON.stringify({ back: 'RNBQKBNR', fen: '', moves: [], white: 'human', black: 'human', pace: 'off', sound: false })); });
     const page = await context.newPage(); trapErrors(page);
     let confirms = 0; page.on('dialog', d => { confirms++; void d.dismiss(); });
     await page.goto(env('PLAYABLE_URL')); await page.waitForFunction(() => window.view?.ready); await page.evaluate(() => window.view.ready());
@@ -82,7 +99,7 @@ try {
     }
     for (const words of ['New game', 'Guide', 'Board help', 'Feel', 'Extra', 'Resign']) assert.ok((await page.locator('[data-menu-page="menu"]').textContent()).includes(words), words);
     const menuBox = await page.locator('#menu-sheet').boundingBox();
-    if (width < 900) assert.ok(Math.abs(menuBox.y + menuBox.height - height) <= 1, 'the phone Menu rests on the viewport bottom');
+    if (width < 900) await assertPhoneSheet(page, height);
     else assert.ok(Math.abs(menuBox.y - (height - menuBox.height) / 2) <= 1, 'the desktop Menu opens in the centre');
     if (width === 320) assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => {
       const box = body.getBoundingClientRect();
@@ -94,16 +111,19 @@ try {
     for (const route of ['new', 'help', 'extra', 'resign']) {
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();
       assert.equal(await page.locator(`[data-menu-page="${route}"]`).isVisible(), true);
-      assert.equal((await page.locator('#menu-close').boundingBox()).y, menuClose.y, 'Menu Close stays in place across pages');
-      if (width < 900) {
-        const box = await page.locator('#menu-sheet').boundingBox();
-        assert.ok(Math.abs(box.y + box.height - height) <= 1, 'every phone Menu page keeps the bottom edge');
-      }
-      if (['help', 'resign'].includes(route)) assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => body.clientHeight <= body.querySelector(':scope > section:not([hidden])').offsetHeight + 28), 'short pages have no large empty area below their content');
+      if (width >= 900) assert.equal((await page.locator('#menu-close').boundingBox()).y, menuClose.y, 'desktop Close keeps its opening position');
+      if (width < 900) await assertPhoneSheet(page, height);
       await page.locator('#menu-back').click(); assert.equal(await page.locator('[data-menu-page="menu"]').isVisible(), true);
       await page.locator(`[data-menu-page="menu"] [data-go="${route}"]`).click();
       await page.keyboard.press('Escape'); assert.equal(await page.locator('[data-menu-page="menu"]').isVisible(), true);
     }
+    await openTricks(page);
+    if (width < 900) await assertPhoneSheet(page, height);
+    if (width < 900) assert.ok(await page.locator('#menu-sheet .sheet-body').evaluate(body => {
+      const edge = body.getBoundingClientRect().bottom;
+      return [...body.querySelectorAll('#tricks-list > li')].every(row => { const r = row.getBoundingClientRect(); return r.top >= edge || r.bottom <= edge; });
+    }), 'Tricks ends between rows');
+    await page.locator('#menu-back').click(); await page.locator('#menu-back').click();
     await page.locator('[data-go="help"]').click(); await page.uncheck('#coords');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('kingdown.save')).coords), false);
     assert.equal(await page.evaluate(() => window.view.coords), false);
