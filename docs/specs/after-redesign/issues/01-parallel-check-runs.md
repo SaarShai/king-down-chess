@@ -20,13 +20,13 @@ Blocked by: —
 
 ## Verification
 
-- [ ] `npm test` and `npm run test:docs` pass; the new lock and tree-status tests add less than 5 s.
+- [x] `npm test` and `npm run test:docs` pass; the new lock and tree-status tests add less than 5 s.
 - [x] `selftest-hold` in two worktrees at once: both pass, the times overlap, two folders, two logs (Comments: the lines and times).
 - [x] A third `selftest-hold` while two hold: one wait line, then it runs.
 - [x] `selftest-dirty` fails and names `check-selftest-dirty.scratch`; `selftest-fail` exits 1; `selftest-hang` times out and leaves no browser, preview or slot file; Ctrl-C exits 130 and frees everything.
 - [x] Two functional runs at once in two worktrees (`special-moves new-game` beside `workshop-cast lesson-return`): all pass.
-- [ ] One full run alone passes; its time against the baseline is in Comments.
-- [ ] `tools/deploy.sh` is unchanged and `tools/deploy.test.ts` passes. `.github/workflows/plugin-checks.yml` is unchanged.
+- [x] One full run alone passes; its time against the baseline is in Comments.
+- [x] `tools/deploy.sh` is unchanged and `tools/deploy.test.ts` passes (in `npm test`). `.github/workflows/plugin-checks.yml` is unchanged.
 
 ## Risks
 
@@ -47,3 +47,6 @@ Blocked by: —
 - **Planned faults** in one worktree: `selftest-dirty` exit 1, `FAIL selftest-dirty 0.2 s changed in the checkout: check-selftest-dirty.scratch` (file deleted after); `selftest-fail` exit 1 with `Error: selftest-fail: the planned fault`; `selftest-hang` exit 1, `timed out at the 5 s limit`, the hang child dead, no lock file; SIGINT to the runner during `selftest-hold`: `check: SIGINT: stopping`, exit 130, the port closed, no lock file. Four Chromium processes of a 12-hour-old orphaned Playwright profile (parent pid 1, started before this session) were present before and after; none belongs to these runs.
 - **Exclusive**: worktree B held a slot with `selftest-hold`; worktree A started `king-effects` (exclusive) and printed `check: another run holds a slot (pid 55299, …/hold-wt); waiting for it to end`; worktree C started `selftest` and printed `check: an exclusive check waits or runs (pid 60795, …/check-runs); waiting for a slot`. Order: B ended, A ran king-effects 107.2 s (baseline 106.4), then C ran. All exit 0; no lock file after.
 - **Two functional runs at once**: `special-moves new-game` (31.2 s, 14.8 s) beside `workshop-cast lesson-return` (8.6 s, 9.1 s): all four pass; times match the baseline (31.4, 14.7, 8.6, 9.3).
+- **Full run alone**, 175333d0, 2026-10-10 05:35 UTC: `npm test` exit 0 in 93 s; `npm run check:browser` exit 0, all 25 passed, 990 s wall. The wall time holds four waits for the old runner in the `split-leaf` worktree (ticket 02's agent ran the main runner, which takes `check-browser.lock` for its whole run; the new runner waited for it four times, as designed). Check times against the baseline (seconds, new / base): king-effects 105.6 / 106.4, painted-game 105.7 / 112.0, qa 177.9 / 210.4, workshop 73.1 / 65.8, ux-defects 72.9 / 72.1, account 53.7 / 54.2; the rest within 1 s.
+- **Independent review** (Codex, gpt-6-astra, 2026-10-10, on the diff of 175333d0): "merge after fixes", four findings. (1) A takeover of a stale lock could remove the lease that another taker made first (two takers read the same dead lease; the second renames the first one's new file). Fixed: `takeOver(path, seen)` compares the moved file's text with the inspected text and links a live lease back; a unit test forces the sequence. (2) `KINGDOWN_CHECK_SLOTS` let an exclusive run with its own count start beside a normal run. Fixed: `SLOTS` is one constant in `lock.mjs`; the environment setting is gone (spec §3.2 item 7 updated). (3) A signal during a partial exclusive take left the exclusive lock and slot 0 on disk. Fixed: `lock.mjs` remembers every lease; the exit handler calls `releaseAll()`; a unit test covers the partial set. The wait for the last slot while the exclusive taker holds the others stays: normal holders never wait, and new normal takers wait on the exclusive lock, so no cycle (header of `lock.mjs`). (4) A stopped check left no record in `run.json`. Fixed: the entry is written at the check's start, and the exit handler marks it `stopped by SIGINT` (checked by hand: the SIGINT run's `run.json` holds `selftest-hold`, ok false, fault `stopped by SIGINT`).
+- **Hand tests again** on 05956baa (the fixes): three holds, the same-worktree wait, the planned faults, SIGINT and the exclusive order all pass as above; the old runner in `split-leaf` was active at the same time and the new runs waited for it with one line each. `lock.test.ts` now 15 tests; `tools/lib` 89 tests in 2.5 s.
