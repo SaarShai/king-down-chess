@@ -4,10 +4,11 @@
 // Settings
 //   env(name)                 One of the three settings. A set environment variable wins; else the default:
 //                               PLAYABLE_URL      http://127.0.0.1:5189/
-//                               PLAYABLE_OUT      <outRoot>/<check>, <check> is the script name without "verify-"
+//                               PLAYABLE_OUT      <outRoot>/by-hand/<check>, <check> is the script name without "verify-"
 //                               PLAYABLE_BROWSER  chromium when CLAUDE_CODE_REMOTE is "true", else chrome
 //                             An unknown name throws.
-//   outRoot                   The runner's output root: <system temp folder>/kingdown-checks, never in a checkout.
+//   outRoot                   The parent of the runner's output folders: <system temp folder>/kingdown-check-runs, never
+//                             in a checkout. The runner makes one folder a run under it (after-redesign/01).
 //   isInside(folder, path)    True when `path` is `folder` or a path inside it, after symbolic links resolve. A part
 //                             of `path` that does not exist yet stays as it is. The runner and the sample tool
 //                             (docs/specs/web-ux/capture.mjs) refuse an output folder inside the checkout with it.
@@ -42,8 +43,8 @@ import { tmpdir } from 'node:os';
 import { mkdirSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
-/** The runner's output root: one fixed system temp folder, outside every checkout. */
-export const outRoot = join(tmpdir(), 'kingdown-checks');
+/** The parent of the runner's output folders: one fixed system temp folder, outside every checkout. */
+export const outRoot = join(tmpdir(), 'kingdown-check-runs');
 
 /** The real path: symbolic links resolve; a part that does not exist yet stays as it is. */
 const real = path => { try { return realpathSync(path); } catch { return dirname(path) === path ? path : join(real(dirname(path)), basename(path)); } };
@@ -58,7 +59,7 @@ const checkName = () => basename(process.argv[1] ?? 'check').replace(/\.[^.]+$/,
 
 const defaults = {
   PLAYABLE_URL: () => 'http://127.0.0.1:5189/',
-  PLAYABLE_OUT: () => join(outRoot, checkName()),
+  PLAYABLE_OUT: () => join(outRoot, 'by-hand', checkName()),
   PLAYABLE_BROWSER: () => (process.env.CLAUDE_CODE_REMOTE === 'true' ? 'chromium' : 'chrome'),
 };
 

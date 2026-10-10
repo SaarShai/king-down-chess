@@ -5,6 +5,8 @@
 //   npm run check:browser selftest-hang    starts a child process and the browser, and never ends; the runner must
 //                                           stop all of them at the time limit. The child's process id is in
 //                                           hang.pid in PLAYABLE_OUT.
+//   npm run check:browser selftest-hold    prints the time, sleeps 15 s and prints the time again; start it in two
+//                                           worktrees at once to see two runs share the machine (after-redesign/01).
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -27,7 +29,11 @@ if (mode === 'dirty') {
   await launch();
   console.log(`selftest-hang: child ${child.pid} and the browser started; waiting for the runner to stop them`);
   setInterval(() => {}, 1000);
+} else if (mode === 'hold') {
+  console.log(`selftest-hold: start ${new Date().toISOString()}`);
+  await new Promise(resolve => setTimeout(resolve, 15000));
+  console.log(`selftest-hold: end ${new Date().toISOString()}`);
 } else {
-  console.error(`check-selftest-dirty: unknown mode ${mode}; known: dirty, fail, hang`);
+  console.error(`check-selftest-dirty: unknown mode ${mode}; known: dirty, fail, hang, hold`);
   process.exit(2);
 }

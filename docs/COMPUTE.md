@@ -29,9 +29,9 @@ The machine facts for runs: Kaggle, the M1, this Mac's power, the shell limit, t
 
 ## Browser checks
 
-- `npm run check:browser [name ...]` builds the app, serves the build on 127.0.0.1 at a free port and runs the named checks one at a time. With no name, it runs all checks that are not "by name only".
+- `npm run check:browser [name ...]` builds the app, serves the build on 127.0.0.1 at a free port and runs the named checks one at a time in that run. With no name, it runs all checks that are not "by name only". Each run prints and keeps its own output folder under `kingdown-check-runs` in the system's temporary folder.
 - `npm run check:browser -- --help` lists the checks, their time limits and the settings each check gets.
-- One run at a time in all worktrees: a second run waits for the lock.
+- One run at a time in each worktree, and two checks at a time on the machine: the runner takes one of two slots for its build and for each check, so two runs in two worktrees go together, and a third run waits with one line. A check that asserts time or shares the test database (`king-effects`, `painted-game`, `qa`, `plugin-oauth`, `plugin-ui-http`) is exclusive: it takes every slot, and a run that waits for it goes first. `KINGDOWN_CHECK_SLOTS` sets the slot count for a hand test; the default stays 2 until the measurement in [after-redesign ticket 05](specs/after-redesign/issues/05-measure-slots.md).
 
 ## Recipes
 
