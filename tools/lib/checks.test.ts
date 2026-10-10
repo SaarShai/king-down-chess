@@ -23,9 +23,9 @@ describe('env defaults when the variable is not set', () => {
   it('PLAYABLE_URL is the local preview at port 5189', () => {
     expect(env('PLAYABLE_URL')).toBe('http://127.0.0.1:5189/');
   });
-  it('PLAYABLE_OUT is a folder named for the check inside the output root', () => {
-    expect(env('PLAYABLE_OUT')).toBe(join(outRoot, 'workshop'));
-    expect(outRoot).toBe(join(tmpdir(), 'kingdown-checks'));
+  it('PLAYABLE_OUT is a folder named for the check in the by-hand folder of the output root', () => {
+    expect(env('PLAYABLE_OUT')).toBe(join(outRoot, 'by-hand', 'workshop'));
+    expect(outRoot).toBe(join(tmpdir(), 'kingdown-check-runs'));
   });
   it('PLAYABLE_OUT is never inside the checkout', () => {
     const rel = relative(checkout, env('PLAYABLE_OUT'));

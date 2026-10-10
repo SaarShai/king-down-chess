@@ -3,7 +3,10 @@
 //                                to its status code and a hash of its content.
 //   changedPaths(before, after)  The sorted paths whose entry is not the same in the two snapshots.
 // A file that was dirty before and did not change is not a difference. A dirty file that goes back
-// to its committed text is a difference, because it leaves the status.
+// to its committed text is a difference, because it leaves the status. An untracked path under sim/out/
+// (the simulation output that the Mac and the M1 write while checks run) is not in the snapshot; the
+// tracked files there are. Git runs with GIT_OPTIONAL_LOCKS=0, so the status never takes index.lock
+// and a commit in the worktree during a check does not fail on it (after-redesign/01).
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { closeSync, lstatSync, openSync, readlinkSync, readSync } from 'node:fs';
@@ -30,10 +33,13 @@ function contentHash(path) {
   return 'folder';
 }
 
+/** Untracked paths under this folder are not guarded: the simulation runs write there during checks. */
+const UNGUARDED = 'sim/out/';
+
 /** @param {string} dir a folder in the work tree; paths are relative to the top of the work tree */
 export function treeStatus(dir) {
   // No GIT_ variable from the caller: inside a git hook, they would point git at another index.
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
+  const env = { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))), GIT_OPTIONAL_LOCKS: '0' };
   const run = args => {
     const r = spawnSync('git', args, { cwd: dir, env, encoding: 'utf8', maxBuffer: 1 << 28 });
     if (r.status !== 0) throw new Error(`treeStatus: git ${args.join(' ')} failed: ${r.stderr}`);
@@ -47,6 +53,7 @@ export function treeStatus(dir) {
     const code = fields[i].slice(0, 2);
     const paths = [fields[i].slice(3)];
     if (code[0] === 'R' || code[0] === 'C') paths.push(fields[++i]); // the source path of a rename or a copy
+    if (code === '??' && paths[0].startsWith(UNGUARDED)) continue;
     for (const path of paths) status.set(path, `${code} ${contentHash(join(top, path))}`);
   }
   return status;

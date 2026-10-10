@@ -44,7 +44,7 @@ Source: docs/specs/retro-2026-10-06/retro.md items 2, 4, 24
 
 **Check edits.** This spec owns the 11 other checks, visual design included. Each uses `env`, `launch`, `trapErrors` and `assertNoErrors`, and holds no port, channel or tracked output path. The QA script drops `QA_BASE`.
 
-**Runner.**
+**Runner.** The lock and the output root changed on 2026-10-10: one run a worktree, two machine slots, one folder a run. The current design is in the [after-redesign spec, §3](../after-redesign/spec.md#3-part-a-parallel-check-runs); the lines below record the first build.
 - A registry names the 13 checks and the self-test, each with a time limit and an optional channel. With no names, it runs all.
 - The runner makes one lock file with exclusive create in git's common directory, which all worktrees share. A second runner waits, says so once, and takes a dead process's lock.
 - The runner builds and starts Vite's preview on 127.0.0.1, port 0.

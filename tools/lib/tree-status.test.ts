@@ -71,6 +71,29 @@ describe('changedPaths(before, after)', () => {
     expect(changedPaths(before, treeStatus(r.dir))).toEqual(['a.txt']);
   });
 
+  it('does not name a new or changed untracked file under sim/out/, and names a tracked file there', () => {
+    const r = repo();
+    r.write('sim/out/kept.json', 'kept\n');
+    r.git('add', '-A');
+    r.git('commit', '-q', '-m', 'sim output');
+    r.write('sim/out/loose.log', 'running\n');
+    const before = treeStatus(r.dir);
+    r.write('sim/out/loose.log', 'running on\n');
+    r.write('sim/out/new/shard.log', 'new\n');
+    expect(changedPaths(before, treeStatus(r.dir))).toEqual([]);
+    r.write('sim/out/kept.json', 'changed\n');
+    r.write('sim/outside.txt', 'beside it\n');
+    expect(changedPaths(before, treeStatus(r.dir))).toEqual(['sim/out/kept.json', 'sim/outside.txt']);
+  });
+
+  it('reads the status while another process holds index.lock', () => {
+    const r = repo();
+    const before = treeStatus(r.dir);
+    r.write('.git/index.lock', '');
+    r.write('a.txt', 'changed\n');
+    expect(changedPaths(before, treeStatus(r.dir))).toEqual(['a.txt']);
+  });
+
   it('does not name an ignored file', () => {
     const r = repo();
     r.write('.gitignore', 'out/\n');

@@ -4,7 +4,7 @@
 
 **Blocked by:** 02, 05
 
-**Status:** resolved
+**Status:** resolved. The lock and the output folder changed later: see the [after-redesign spec, §3](../../after-redesign/spec.md#3-part-a-parallel-check-runs) and its [ticket 01](../../after-redesign/issues/01-parallel-check-runs.md) (2026-10-10).
 
 **Owns:** `tools/check.mjs`, `tools/lib/registry.mjs`, `tools/lib/lock.mjs`, `tools/lib/lock.test.ts`, `tools/lib/tree-status.mjs`, `tools/lib/tree-status.test.ts`, `tools/check-selftest-dirty.mjs`, `package.json` (script `check:browser`), `tools/lib/checks.mjs` (the `tempRepo` re-export line only)
 

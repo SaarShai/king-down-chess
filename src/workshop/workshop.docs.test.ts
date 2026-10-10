@@ -23,8 +23,8 @@ const DATED = 'docs/visual-design/workshop/WORKSHOP-revision-3-2026-10-07.md';
 /** The git blob id of revision 3 (docs/WORKSHOP.md at 0fba264): the dated file holds it after its first two lines. */
 const REVISION_3_BLOB = '23beb9ae9e430f23c823ea7e80e8d414ef833103';
 const SECTIONS = ['Screens', 'Layouts', 'Model', 'Judge', 'Motion', 'Art', 'Accessibility', 'Checks'];
-/** The runner's output root (tools/lib/checks.mjs): outside every checkout, so git does not track it. */
-const RUNNER_FOLDER = 'kingdown-checks';
+/** The parent of the runner's output folders (tools/lib/checks.mjs): outside every checkout, so git does not track it. */
+const RUNNER_FOLDER = 'kingdown-check-runs';
 
 /** The removed features and the revision 3 screenshot folder: the doc names none of them. */
 const DENY: [string, RegExp][] = [
@@ -112,7 +112,7 @@ describe('the Workshop doc', () => {
 });
 
 describe('the Workshop doc lint', () => {
-  const good = ['# Workshop', '', 'Screens go to kingdown-checks.', ...SECTIONS.flatMap(s => [`## ${s}`, '', 'Text.'])].join('\n');
+  const good = ['# Workshop', '', 'Screens go to kingdown-check-runs.', ...SECTIONS.flatMap(s => [`## ${s}`, '', 'Text.'])].join('\n');
   const with_ = (line: string) => good.replace('Text.', line);
 
   it('passes a doc with the eight sections and the runner folder', () => {
@@ -142,7 +142,7 @@ describe('the Workshop doc lint', () => {
 
   it('fails on a tracker citation and on a doc that does not name the runner folder', () => {
     expect(docFaults(with_(`Measured: TASKS.md${':'}9.`))).toEqual([`${DOC}:6: cites a tracker file (TASKS.md), not a run id`]);
-    expect(docFaults(good.replace('kingdown-checks', 'the temp folder'))).toEqual([`${DOC}: does not name the runner's screenshot folder ${RUNNER_FOLDER}`]);
+    expect(docFaults(good.replace('kingdown-check-runs', 'the temp folder'))).toEqual([`${DOC}: does not name the runner's screenshot folder ${RUNNER_FOLDER}`]);
   });
 
   it('fails on a source file that cites the doc by a revision 3 section, and on a bare section without the dated file', () => {
