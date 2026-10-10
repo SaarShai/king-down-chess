@@ -19,6 +19,11 @@ export interface Outgoing { notify: { user_id: string; kind: string; payload: ob
 type Client = Pool | PoolClient;
 const GAME = 'id,kind,speed,days_per_move,category,readings,colour_rule,engine_fingerprint,setup,rules,status,result,end_reason,turn,revision,draw_offer,snapshot,deadline_at,deadline_kind,moves,created_by,created_at,started_at,finished_at,updated_at';
 const PLAYER = 'p.seat,p.user_id,p.computer,p.handle_at_start,pr.handle,p.power,p.action,p.turns_played,p.draw_offers,p.said,p.last_seen_at,p.last_surface,p.active,p.ended_at';
+/** SQL: no block either way between users `a` and `b`. */
+const unblocked = (a: string, b: string) => `not exists(select from public.relations where kind='block' and ((user_id=${a} and other_id=${b}) or (user_id=${b} and other_id=${a})))`;
+/** SQL: `viewer` may see when `other` was last seen (their "who sees that I am online", given in `setting`). */
+const online = (viewer: string, other: string, setting: string) => `${unblocked(viewer, other)} and (${setting}='everyone' or ${setting}='mutual'
+ and exists(select from public.relations where user_id=${viewer} and other_id=${other} and kind='follow') and exists(select from public.relations where user_id=${other} and other_id=${viewer} and kind='follow'))`;
 
 export class PostgresMatchStore {
  constructor(readonly pool: Pool) {}
@@ -80,20 +85,26 @@ export class PostgresMatchStore {
  }
  /** A block either way refuses; so does the host's "who can challenge me" setting (nobody, or only people they follow). */
  async mayJoin(client: Client, host: string, joiner: string): Promise<boolean> {
-  const result = await client.query(`select not exists(select from public.relations where kind='block' and ((user_id=$1 and other_id=$2) or (user_id=$2 and other_id=$1)))
+  const result = await client.query(`select ${unblocked('$1', '$2')}
    and case (select challenge_from from public.profiles where id=$1) when 'nobody' then false
     when 'follows' then exists(select from public.relations where user_id=$1 and other_id=$2 and kind='follow') else true end as allowed`, [host, joiner]);
   return result.rows[0].allowed;
  }
  async inbox(actor: string): Promise<InboxEntry[]> {
   const result = await this.pool.query(`select g.id as game_id,g.kind,g.speed,g.status,me.seat,me.action,g.turn,g.revision,g.deadline_at,g.updated_at,
-    op.user_id as op_user,op.computer as op_computer,op.last_seen_at as op_seen,pr.handle as op_handle
+    op.user_id as op_user,op.computer as op_computer,case when ${online('$1', 'op.user_id', 'pr.online_visible_to')} then op.last_seen_at end as op_seen,pr.handle as op_handle
    from public.game_players me join public.games g on g.id=me.game_id
    join public.game_players op on op.game_id=me.game_id and op.seat<>me.seat left join public.profiles pr on pr.id=op.user_id
    where me.user_id=$1 and me.active order by me.action='ready' desc,g.deadline_at asc nulls last,g.updated_at desc limit 100`, [actor]);
   const now = Date.now();
   return result.rows.map(({ op_user, op_computer, op_seen, op_handle, ...r }) => ({ ...r, deadline_at: r.deadline_at?.toISOString() ?? null, updated_at: r.updated_at.toISOString(),
    opponent: r.status === 'waiting' && !op_user ? null : { handle: op_handle ?? null, computer: op_computer, deleted: !op_user && !op_computer, last_seen_ms: op_seen ? now - op_seen.getTime() : null } }));
+ }
+ /** What `viewer` sees of `other`: their presets (no block, and the viewer's quiet mode is off) and when they were last seen. */
+ async privacy(client: Client, viewer: string, other: string): Promise<{ presets: boolean; online: boolean }> {
+  const result = await client.query(`select ${unblocked('$1', '$2')} and not (select quiet_mode from public.profiles where id=$1) as presets,
+   coalesce((select ${online('$1', '$2', 'online_visible_to')} from public.profiles where id=$2), false) as online`, [viewer, other]);
+  return result.rows[0];
  }
  /** Games past their Daily deadline, oldest first, then waiting games whose invitation ran out (a game has at most one). */
  async due(now: Date, limit = 100): Promise<string[]> {

@@ -39,10 +39,10 @@ repository.
 stand-in for Supabase's `auth` schema, and checks the trigger, the policies, the grants, the
 newer-copy rule and the deletion, with the attacks a signed-in player could try on another's data. It needs `npm install --no-save @electric-sql/pglite` first.
 
-## Online games: 0005 to 0007
+## Online games: 0005 to 0008
 
 Not applied yet. Apply them in order, after 0001–0004, with a privileged connection
-(`npm run plugin:db:migrate` applies 0002–0007). Then apply the third and fourth blocks of
+(`npm run plugin:db:migrate` applies 0002–0008). Then apply the third, fourth and fifth blocks of
 `plugin-deploy/runtime-role.sql` to the existing runtime role. The migrations are safe to run again.
 
 - `0005_accounts_v2.sql`: handles, a preset icon and the privacy settings on `profiles`
@@ -59,9 +59,16 @@ Not applied yet. Apply them in order, after 0001–0004, with a privileged conne
   after the 7-day grace (it checks again that the deletion is due, that no report hold covers the
   player and that no game is active; it reserves the handle and deletes the solo games). Only the
   server role may call them.
+- `0008_accounts_safety.sql`: a changed handle stays reserved for its player and a deleted player's
+  handle for good (a trigger on `profiles`, so every path keeps the rule). `delete_my_account()` now
+  asks for a deletion after a 7-day grace, and a new sign-in in the grace cancels it (a trigger on
+  `auth.sessions`; a token refresh keeps its session and cancels nothing). `reports.content` keeps the
+  reported handle or preset, and `mod_actions.handle` the handle that a rename or hide took away.
+  The website text still says that a deletion is at once: change it before you apply 0008.
+  Staff names that no player may take go in `reserved_handles` with reason `blocked`.
 
-`npm run plugin:db:init-test` applies 0001–0007 twice to a disposable loopback database, and
-`src/match/service.db.test.ts` and `src/online/jobs.db.test.ts` check them.
+`npm run plugin:db:init-test` applies 0001–0008 twice to a disposable loopback database, and
+`src/match/service.db.test.ts`, `src/online/jobs.db.test.ts` and `src/online/accounts.db.test.ts` check them.
 
 ## Job schedules: ops/cron.sql
 
