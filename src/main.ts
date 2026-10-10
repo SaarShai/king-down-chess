@@ -7,7 +7,7 @@ import { PaintedView, type BoardView } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, C, Color, L, M, Move, NAMES, O, PieceType, Position, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, V, colorOf, file as fileOf, findKing, parseKings, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
+import { A, C, Color, L, M, Move, NAMES, O, PieceType, Position, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, V, colorOf, file as fileOf, findKing, parseKings, setRules, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
@@ -28,7 +28,6 @@ import { initMenu } from './ui/menu';
 import { awardTurnSeals } from './ui/tricks';
 import { initTable, readPiece, refreshTable } from './ui/table';
 import { clickPath, landingMoves, marksModel } from './marks-model';
-import { connectReadKey } from './ui/read';
 import { clearCoinRead, initCoins, refreshCoins } from './ui/powers';
 import { reviewStep } from './review';
 import { connectMoveMoments } from './move-moments';
@@ -37,10 +36,11 @@ import { shouldShowHome } from './ui/home';
 import { initHome } from './ui/home-view';
 
 import { connectPreviously } from './ui/previously';
-import { connectGuide, kingArt, pieceArt, pieceText } from './ui/guide';
+import { connectGuide, kingArt, pieceArt } from './ui/guide';
 import { connectLinks, copyAndSay, gameLinkless } from './screen/links';
 import { LOOK_KEY, connectSettings } from './screen/settings';
 import { readSave, writeSave, type Save } from './screen/save';
+import { connectKeys } from './screen/keys';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -127,8 +127,6 @@ let reviewNote = '';
 let notice = '';
 /** The board is seen from Black's side (orient()). */
 let flipped = false;
-/** The keyboard cursor's square while the board has focus; null when it does not. */
-let cursor: number | null = null;
 
 /** The game is over: mate, a draw, or somebody resigned. Blocks input and the AI. */
 const finished = (): boolean => resigned != null || game.status !== 'playing';
@@ -182,7 +180,7 @@ connectTurnPress($<HTMLButtonElement>('end-turn'), $('board'), {
   },
   refresh, save, next: () => { if (ended()) showOver(); else void maybeAi(); },
   link: lans => links.gameLink(lans), notice: line => { notice = line; },
-  focusBoard: keyboard => { cursor = keyboard ? homeSquare() : null; sayCursor(); drawMarks(); },
+  focusBoard: keyboard => keys.focus(keyboard),
 });
 const previously = connectPreviously($<HTMLButtonElement>('see-again'), {
   game: () => game, view, generation: () => gen, navigation: () => navGen,
@@ -328,6 +326,7 @@ let marksFrame = 0;
 /** Threat markers (Settings → Show threats) and the keyboard cursor, placed with view.screenOf(). */
 function drawMarks(): void {
   cancelAnimationFrame(marksFrame);
+  const cursor = keys.cursor();
   view.setPreview?.(cursor);
   const on = settings.threats() && viewing == null && !busy && !ended() && (myTurn() || currentTurn().waits);
   const t = on ? threatsIn({ ...game.pos, turn: currentTurn().activeSide }) : { pieces: [], squares: [] };
@@ -347,16 +346,6 @@ function drawMarks(): void {
 }
 new ResizeObserver(() => drawMarks()).observe($('board'));
 
-
-/** The keyboard cursor's square and piece, for the screen reader. */
-function sayCursor(): void {
-  if (cursor == null) return;
-  const p = shownPos().board[cursor];
-  const what = p ? `${colorOf(p) ? 'black' : 'white'} ${NAMES[typeOf(p)]}` : 'empty';
-  const target = selected != null && candidates().some(m => clickPath(m)[pending.length] === cursor);
-  const card = cursor === inspected ? `. ${pieceText(typeOf(p))}` : ''; // a piece chosen with Enter to read: its card
-  $('cursor-say').textContent = `${sqName(cursor)}, ${what}${cursor === selected ? ', selected' : target ? ', can go here' : card}`;
-}
 
 async function commit(m: Move): Promise<void> {
   const g = gen;
@@ -700,7 +689,7 @@ async function showPly(n: number | null, replay = true): Promise<void> {
   viewing = step.viewing;
   selected = null; pending = []; hintSquares = []; reviewNote = ''; inspected = null;
   refresh();
-  sayCursor(); // the keyboard cursor reads the board now shown
+  keys.say(); // the keyboard cursor reads the board now shown
   if (replay && n === from + 1) {
     view.sync(at(from));
     busy = replaying = true; // the board is locked like any move animation; a tap skips it
@@ -1028,52 +1017,12 @@ $('share-result').onclick = () => {
   void copyAndSay($('share-result'), text, 'Result copied');
 };
 const settings = connectSettings(view, { look, skill: () => skill, setSkill: level => { skill = level; }, save, drawMarks });
-addEventListener('keydown', e => {
-  // No game key acts under a dialog: there Esc only closes the dialog (the Workshop's Esc closes its top sheet,
-  // else an open choices panel, else the Workshop).
-  if (home?.visible || document.querySelector('dialog[open]')) return;
-  if (e.key === 'Escape') { clearCoinRead(); view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; inspected = null; armed = false; hintSquares = []; refresh(); return; }
-  // Nor in a field that takes typing.
-  const field = e.target as HTMLElement;
-  if (field.closest('input,select,textarea') || field.isContentEditable) return;
-  if (e.key === 'r') view.resetView();
-  if (e.key === 'z') undo();
-  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-    e.preventDefault();
-    void showPly((viewing ?? game.history.length) + (e.key === 'ArrowLeft' ? -1 : 1));
-  }
-});
-
-/* ---- keyboard play on the board ---- */
-const boardEl = $('board');
-const homeSquare = (): number => selected ?? square(4, game.pos.turn ? 6 : 1);
-connectReadKey(boardEl, () => cursor, sq => refuse('', sq));
-boardEl.addEventListener('focus', () => {
-  if (!boardEl.matches(':focus-visible')) return; // a mouse or touch tap does not show the cursor
-  cursor ??= homeSquare(); sayCursor(); drawMarks();
-});
-boardEl.addEventListener('blur', () => { cursor = null; drawMarks(); });
-boardEl.addEventListener('keydown', e => {
-  const step: Record<string, [number, number]> = { ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
-  const enter = e.key === 'Enter' || e.key === ' ';
-  if (!(e.key in step) && !enter) return;
-  // A mouse or touch tap focuses the board without the cursor: ← → then still step through the review.
-  if (cursor == null && !enter) return;
-  e.preventDefault(); e.stopPropagation(); // with the cursor on, ← → move it instead of the review
-  if (cursor == null) cursor = homeSquare();
-  else if (enter) {
-    view.onSquareClick(cursor, e.shiftKey);
-    if (selected === cursor) {
-      const to = [...new Set(candidates().map(m => clickPath(m)[pending.length]))].map(sqName);
-      $('cursor-say').textContent = to.length ? `${sqName(cursor)} selected. It can go to ${to.join(', ')}.` : '';
-    } else if (inspected === cursor) sayCursor(); // a piece to read: its card, said as a tap shows it
-    drawMarks();
-    return;
-  } else {
-    const [df, dr] = step[e.key], k = flipped ? -1 : 1, f = fileOf(cursor) + df * k, r = rankOf(cursor) + dr * k;
-    if (f >= 0 && f < 8 && r >= 0 && r < 8) cursor = square(f, r);
-  }
-  sayCursor(); drawMarks();
+const keys = connectKeys($('board'), {
+  game: () => game, shownPos, selected: () => selected, pending: () => pending, inspected: () => inspected,
+  candidates, flipped: () => flipped, blocked: () => !!home?.visible,
+  click: (sq, shift) => view.onSquareClick(sq, shift), read: sq => refuse('', sq), drawMarks,
+  escape: () => { clearCoinRead(); view.skip(); if (viewing != null) void showPly(null, false); selected = null; pending = []; inspected = null; armed = false; hintSquares = []; refresh(); },
+  resetView: () => view.resetView(), undo, step: by => { void showPly((viewing ?? game.history.length) + by); },
 });
 
 /**
