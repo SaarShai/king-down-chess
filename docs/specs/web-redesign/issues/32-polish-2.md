@@ -28,3 +28,5 @@ Pass criteria: all listed fixes have checks; all checks pass; every changed stil
 - Every changed still has its item in the comparison report. Reports: `/private/tmp/claude-501/-Users-za-Documents-king-down-chess/f713c296-a557-4c06-99e1-90ecc1f52371/scratchpad/polish2-render-comparison.md` and `polish2-pixel-diff.json`. Renders: the same scratchpad's `build/samples/polish2/`.
 - Logs: `/private/tmp/polish2-tests.log`, `polish2-browser.log`, `polish2-plugin-final.log`, and `polish2-menu-repeat.log`. The normal push runs the test hook.
 - The fix uses the existing Menu layout and opt-in web drawing path. No dependency, rule, main.ts, Workshop source, or W12 sample source changes. The diff check passes against deb61ce.
+
+Review fix (decided by delegation, 2026-10-09): the independent check found that the web pointer frame now drew before the gold "Show me" hint, so on a phone the hint hid the keyboard cursor frame (WCAG 2.4.7). The web board now draws the hint, then the pointer frame, then the bite badges; the plugin keeps its order. `src/render/marks.test.ts` checks both orders.

@@ -152,12 +152,12 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       shoveArrow(ctx, g.x, s.ink ? PAD + (landing.row + 0.5) * TILE : g.y, landing.col - target.col, landing.row - target.row, a, k, s.ink ? Math.max(3, s.ink.causeCore * 1.7) : 3);
     }
   } else {
-    if (s.ink) pointerFrame();
     for (const sq of m.read?.shot ?? []) {
       if (!inRow(sq)) continue;
       const g = ground(sq); sight(ctx, g.x, g.y - 58, 16 * Math.max(1, k * 0.8), time, false);
     }
-    for (const [i, sq] of (m.bites ?? []).entries()) {
+    // The web board draws the bite badges last, so no frame covers a number; the plugin keeps its old order.
+    const bites = (): void => { for (const [i, sq] of (m.bites ?? []).entries()) {
       if (!inRow(sq)) continue;
       const b = box(sq), size = Math.min(k, 1.8), radius = s.ink?.biteRadius ?? 11 * size;
       const x = s.ink ? b.x + TILE - radius - s.ink.biteInset : b.x + 18 * size;
@@ -166,7 +166,8 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       ctx.fillStyle = '#ece7dd'; ctx.fill(); stroke2(ctx, '#706b63', 1.5);
       ctx.fillStyle = '#4b4741'; ctx.font = `bold ${s.ink?.biteFont ?? 16 * size}px sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(i + 1), x, y);
-    }
+    } };
+    if (!s.ink) bites();
     for (const sq of m.moves ?? []) {
       const a = appear(sq); if (a <= 0 || !inRow(sq)) continue;
       const g = ground(sq), bob = s.motion ? Math.sin(time * 2.6 + sq) * 2.2 : 0;
@@ -180,7 +181,8 @@ export function drawMarks(ctx: CanvasRenderingContext2D, scene: PaintedScene, la
       if (shots.has(sq)) sight(ctx, b.x + TILE / 2, ground(sq).y - 58, (h ? 19 : 16) * Math.max(1, k * 0.8) * a, time, h);
     }
     for (const sq of m.hint ?? []) { if (!inRow(sq)) continue; const b = box(sq); ctx.strokeStyle = '#c99a2e'; ctx.lineWidth = 4 * k; ctx.strokeRect(b.x + 4, b.y + 4, TILE - 8, TILE - 8); }
-    if (!s.ink) pointerFrame();
+    pointerFrame();
+    if (s.ink) bites();
   }
   ctx.restore();
 }
