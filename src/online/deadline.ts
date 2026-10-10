@@ -1,6 +1,7 @@
 /**
  * The next due time of a game in play (multiplayer report part 03, G7 and sections 5.7, 6.5, 6.6). Pure: every time is a
- * millisecond count the caller reads; nothing here reads a clock. The sweep, the lazy checks and the claim check all call it.
+ * millisecond count the caller reads; nothing here reads a clock. Only the reminder job (src/online/jobs.ts) calls it: the
+ * sweep, the lazy checks and the claim read games.deadline_at, which the game service (src/match/service.ts) sets.
  * Times count turns, not actions: a Haste turn has two actions and one turn of time, so the state changes only in `passTurn`.
  */
 export type Seat = 0 | 1;

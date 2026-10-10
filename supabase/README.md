@@ -13,7 +13,9 @@ repository.
 3. Check: **Table Editor** shows `profiles` and `user_data`, both marked RLS enabled. Accounts made
    before the migration (test sign-ins) now have a row in `profiles`.
 4. Once, with a test account: sign in in the game, then **Settings → Account → Delete my account**.
-   The user disappears from **Authentication → Users**, with its `profiles` and `user_data` rows.
+   Before 0008: the user disappears from **Authentication → Users**, with its `profiles` and
+   `user_data` rows. After 0008: the user stays, and `account_deletions` has a row with `run_after`
+   7 days later; the deletions job deletes the account then.
 5. **Authentication → Sign In / Providers**: turn **Email** off, and keep **Allow anonymous sign-ins**
    off. The game signs in only with Google, GitHub and Facebook. With Email on, anyone can make
    accounts through the API with any name, and every account gets a profile.
@@ -24,13 +26,15 @@ repository.
   made, from the name and picture the sign-in service sends (a picture only from Google's, GitHub's
   or Facebook's picture servers). No email. Signed-in players can read the name, picture and rating
   of every profile and change only their own display name; nobody can change a rating from the browser.
+  0005 replaces this: no name or picture is copied or shown; players read the handle and the icon.
 - `user_data`: one row per player with `settings`, `lessons`, `saved_game` and `unlocks`. Each is
   `{"at": <ms>, "v": <value>}`. A write keeps a section only when it is newer than the stored one, so a
   device that was offline cannot replace a newer copy; the reply gives the device the newer copy
   (`src/account/sync.ts`). Only the owner can read or write the row; `unlocks` is not writable from
   the browser.
 - `delete_my_account()`: deletes the signed-in player's account; the profile and saved data go with
-  it. Only signed-in players can call it, and only for themselves.
+  it. Only signed-in players can call it, and only for themselves. 0008 replaces it: it now asks for a
+  deletion after a 7-day grace.
 - Signed-out visitors (`anon`) get nothing.
 
 ## Checking a migration before applying it
