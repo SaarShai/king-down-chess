@@ -37,7 +37,7 @@ export type Command = z.infer<typeof commandSchema>;
 export type CreateOptions = z.infer<typeof createSchema>;
 
 export type ErrorCode = 'INVALID_INPUT' | 'NOT_FOUND' | 'FORBIDDEN' | 'WAITING' | 'NOT_ALLOWED' | 'STALE_REVISION' | 'INVALID_MOVE' | 'WRONG_TURN'
-  | 'MATCH_TERMINAL' | 'MATCH_LIMIT' | 'MATCH_INCOMPATIBLE' | 'MATCH_REMOVED' | 'COMMAND_CONFLICT' | 'INVITE_UNAVAILABLE' | 'UNAVAILABLE';
+  | 'MATCH_TERMINAL' | 'MATCH_LIMIT' | 'MATCH_INCOMPATIBLE' | 'MATCH_REMOVED' | 'COMMAND_CONFLICT' | 'INVITE_UNAVAILABLE' | 'UNAVAILABLE' | 'HANDLE_TAKEN';
 export type Reply = { type: 'ack'; command_id: string; revision: number; view: View } | { type: 'reject'; command_id: string; code: ErrorCode; message: string };
 
 export type GameStatus = 'waiting' | 'playing' | 'finished' | 'aborted';
@@ -45,10 +45,12 @@ export type EndReason = Exclude<Status, 'playing'> | 'resignation' | 'agreement'
 /** Who must act: ready (your turn), waiting, or done (the game ended). Every list, badge and alert reads it. */
 export type SeatAction = 'waiting' | 'ready' | 'done';
 /** What one revision did. `actions` are the moves (LAN) that a turn or the computer played. A join and an
- * expired deadline are events with no command. */
-export type LoggedAction = Action | { type: 'computer'; actions: string[] } | { type: 'join' } | { type: 'expire' };
+ * expired deadline are events with no command. `hidden` is the opponent's preset when a block or the
+ * viewer's quiet mode hides it; it keeps its revision, so the list has no gap. */
+export type LoggedAction = Action | { type: 'computer'; actions: string[] } | { type: 'join' } | { type: 'expire' } | { type: 'hidden' };
 export interface LoggedCommand { seq: number; seat: Seat | null; action: LoggedAction; at: string }
-/** `deleted`: the account was deleted; show "Deleted player". `last_seen_ms`: time since the seat's last command. */
+/** `deleted`: the account was deleted; show "Deleted player". `last_seen_ms`: time since the seat's last command,
+ * null unless the opponent's "who sees that I am online" setting lets you see it (and no block). */
 export interface Opponent { handle: string | null; computer: boolean; deleted: boolean; last_seen_ms: number | null }
 
 /** One seat's view: small (under about 3 KB) and never the full save. */

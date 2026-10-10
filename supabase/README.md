@@ -39,11 +39,11 @@ repository.
 stand-in for Supabase's `auth` schema, and checks the trigger, the policies, the grants, the
 newer-copy rule and the deletion, with the attacks a signed-in player could try on another's data. It needs `npm install --no-save @electric-sql/pglite` first.
 
-## Online games: 0005 and 0006
+## Online games: 0005 to 0007
 
 Not applied yet. Apply them in order, after 0001–0004, with a privileged connection
-(`npm run plugin:db:migrate` applies 0002–0006). Then apply the last block of
-`plugin-deploy/runtime-role.sql` to the existing runtime role. Both migrations are safe to run again.
+(`npm run plugin:db:migrate` applies 0002–0007). Then apply the last two blocks of
+`plugin-deploy/runtime-role.sql` to the existing runtime role. The migrations are safe to run again.
 
 - `0005_accounts_v2.sql`: handles, a preset icon and the privacy settings on `profiles`
   (signed-in players read only `id`, `display_name`, `avatar_url`, `rating`, `handle` and `icon`);
@@ -54,5 +54,13 @@ Not applied yet. Apply them in order, after 0001–0004, with a privileged conne
   its games to the opponent (`on delete set null`). Old plugin games stay in `plugin_matches`, unused;
   a board that showed one says "This game was deleted".
 
-`npm run plugin:db:init-test` applies 0001–0006 twice to a disposable loopback database, and
-`src/match/service.db.test.ts` checks them.
+- `0007_accounts_safety.sql`: a changed handle stays reserved for its player and a deleted player's
+  handle for good (a trigger on `profiles`, so every path keeps the rule). `delete_my_account()` now
+  asks for a deletion after a 7-day grace, and a new sign-in in the grace cancels it (a trigger on
+  `auth.sessions`; a token refresh keeps its session and cancels nothing). `reports.content` keeps the
+  reported handle or preset, and `mod_actions.handle` the handle that a rename or hide took away.
+  The website text still says that a deletion is at once: change it before you apply 0007.
+  Staff names that no player may take go in `reserved_handles` with reason `blocked`.
+
+`npm run plugin:db:init-test` applies 0001–0007 twice to a disposable loopback database, and
+`src/match/service.db.test.ts` and `src/online/accounts.db.test.ts` check them.

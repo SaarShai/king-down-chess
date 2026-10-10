@@ -31,7 +31,7 @@ export function connect(storageKey: string) {
       if (error) throw error;
     },
     signOut,
-    /** public.delete_my_account() removes the account with its profile and saved data. */
+    /** public.delete_my_account() asks for the deletion (migration 0007): it runs after a 7-day grace, and a sign-in in the grace cancels it. */
     async deleteAccount(): Promise<void> {
       const { error } = await sb.rpc('delete_my_account');
       if (error) throw error;

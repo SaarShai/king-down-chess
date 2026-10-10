@@ -10,10 +10,10 @@ const DAY = 86_400_000, FIRST_TURN_DAYS = 3, DRAW_OFFERS = 3;
 const ENGINE_REJECTS = ['Illegal or ambiguous move', 'Match terminal', 'Match history limit reached', 'Stale revision', 'Command ID conflict', 'Malformed command'];
 const CODE = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no I, L, O, 0 or 1
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const fail = (code: MatchServiceError['code'], status: number, message: string): never => { throw new MatchServiceError(code, status, message); };
+export const fail = (code: MatchServiceError['code'], status: number, message: string): never => { throw new MatchServiceError(code, status, message); };
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
-function id(value: unknown): string { return typeof value === 'string' && uuid.test(value) ? value.toLowerCase() : fail('INVALID_INPUT', 400, 'Expected a UUID'); }
-function parse<T>(schema: z.ZodType<T>, input: unknown): T { const result = schema.safeParse(input); return result.success ? result.data : fail('INVALID_INPUT', 400, 'Invalid input'); }
+export function id(value: unknown): string { return typeof value === 'string' && uuid.test(value) ? value.toLowerCase() : fail('INVALID_INPUT', 400, 'Expected a UUID'); }
+export function parse<T>(schema: z.ZodType<T>, input: unknown): T { const result = schema.safeParse(input); return result.success ? result.data : fail('INVALID_INPUT', 400, 'Invalid input'); }
 function seatOf(game: Game, actor: string): Seat { return game.players.find(p => p.user_id === actor)?.seat ?? fail('FORBIDDEN', 403, 'You do not have a seat in this game'); }
 const colour = (seat: Seat) => seat === 0 ? 'white' : 'black';
 const other = (seat: Seat) => (1 - seat) as Seat;
@@ -219,11 +219,14 @@ export class GameService {
  }
  private async render(game: Game, seat: Seat, { since, client, rules = false }: { since?: number; client?: Parameters<PostgresMatchStore['save']>[0]; rules?: boolean } = {}): Promise<View> {
   const now = new Date(), opponent = game.players[other(seat)], playing = game.status === 'playing';
+  // A block or my quiet mode hides the opponent's presets; their own setting decides if I see when they were last here.
+  const sees = opponent.user_id ? await this.store.privacy(client ?? this.store.pool, game.players[seat].user_id!, opponent.user_id) : { presets: true, online: true };
+  const commands = await this.store.commands(game.id, since, client);
   return {
    game_id: game.id, revision: game.revision, seat, kind: game.kind, speed: game.speed, days_per_move: game.days_per_move, status: game.status, turn: game.turn, action: actionOf(game, seat),
    fen: game.snapshot.fen, in_check: game.snapshot.inCheck, legal: playing && game.turn === seat ? game.snapshot.legal : [],
-   last_commands: await this.store.commands(game.id, since, client),
-   opponent: game.status === 'waiting' && !opponent.user_id ? null : { handle: opponent.handle, computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: opponent.last_seen_at ? now.getTime() - opponent.last_seen_at.getTime() : null },
+   last_commands: sees.presets ? commands : commands.map(entry => entry.seat === opponent.seat && entry.action.type === 'say' ? { ...entry, action: { type: 'hidden' as const } } : entry),
+   opponent: game.status === 'waiting' && !opponent.user_id ? null : { handle: opponent.handle, computer: opponent.computer, deleted: !opponent.user_id && !opponent.computer, last_seen_ms: sees.online && opponent.last_seen_at ? now.getTime() - opponent.last_seen_at.getTime() : null },
    draw_offer: game.draw_offer,
    ...(game.end_reason && { result: { winner: game.result === 'white' ? 0 : game.result === 'black' ? 1 : null, reason: game.end_reason } }),
    deadline_at: game.deadline_at?.toISOString() ?? null, server_now: now.toISOString(),

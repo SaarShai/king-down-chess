@@ -196,9 +196,10 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   expect(Buffer.byteLength(JSON.stringify(view))).toBeLessThan(3000);
   expect(view.rules).toBeUndefined(); expect((await games[0].view(d,later)).rules).toBeDefined();
   expect((await games[0].view(d,later,1)).last_commands.map(entry => entry.seq)).toEqual([2]);
-  const state = async () => (await rows(`select (select sum(revision)::int from public.games) as revisions,(select max(updated_at) from public.games) as updated,
-   (select count(*)::int from public.game_commands) as commands,(select count(*)::int from public.notifications) as notices,(select count(*)::int from public.outbox) as events,
-   (select max(last_seen_at) from public.game_players) as seen`))[0];
+  // Only these players' games: other test files write to the same database at the same time.
+  const mine = [urgent,later], state = async () => (await rows(`select (select sum(revision)::int from public.games where id=any($1)) as revisions,(select max(updated_at) from public.games where id=any($1)) as updated,
+   (select count(*)::int from public.game_commands where game_id=any($1)) as commands,(select count(*)::int from public.notifications where user_id=any($2)) as notices,
+   (select count(*)::int from public.outbox where payload->>'game_id'=any($3)) as events,(select max(last_seen_at) from public.game_players where game_id=any($1)) as seen`,[mine,[d,e,f],mine]))[0];
   const before = await state();
   await games[1].view(d,later); await games[1].view(d,later,1); await games[1].inbox(d);
   expect(await state()).toEqual(before);
@@ -292,7 +293,9 @@ suite('PostgreSQL online games (real connections and processes)', () => {
   const role = `plugin_test_${randomUUID().replaceAll('-','')}`, password = randomUUID();
   const runtimeUrl = new URL(url!); runtimeUrl.username = role; runtimeUrl.password = password;
   const runtime = new pg.Pool({connectionString:runtimeUrl.href,max:1});
-  await admin.query((await readFile(new URL('../../plugin-deploy/runtime-role.sql',import.meta.url),'utf8')).replaceAll('kingdown_plugin_runtime',role));
+  // One test file at a time grants on a table (src/online/accounts.db.test.ts takes the same lock): two at once fail.
+  const locked = async (sql: string) => { await admin.query('select pg_advisory_lock(7007007)'); try { await admin.query(sql); } finally { await admin.query('select pg_advisory_unlock(7007007)'); } };
+  await locked((await readFile(new URL('../../plugin-deploy/runtime-role.sql',import.meta.url),'utf8')).replaceAll('kingdown_plugin_runtime',role));
   try {
    await admin.query(`alter role ${role} password '${password}'`);
    expect((await runtime.query('select current_user as name,rolsuper,rolbypassrls from pg_roles where rolname=current_user')).rows[0]).toEqual({name:role,rolsuper:false,rolbypassrls:false});
@@ -325,14 +328,14 @@ suite('PostgreSQL online games (real connections and processes)', () => {
     'select * from public.notifications',
     'select * from public.outbox',
     'select * from public.reports',
-    'select quiet_mode from public.profiles',
-    'update public.profiles set handle=handle',
-    'select * from public.account_deletions',
+    'select avatar_url from public.profiles',
+    'update public.profiles set rating=rating',
+    'delete from public.account_deletions',
     "select public.kingdown_access_token_hook('{}'::jsonb)",
    ]) await expect(runtime.query(statement),statement).rejects.toMatchObject({code:'42501'});
   } finally {
    await runtime.end();
-   await admin.query(`drop owned by ${role}; drop role ${role}`);
+   await locked(`drop owned by ${role}; drop role ${role}`);
   }
  },60000);
 

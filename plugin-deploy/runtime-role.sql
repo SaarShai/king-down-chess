@@ -63,3 +63,28 @@ create policy kingdown_plugin_runtime on public.relations for select to kingdown
 drop policy if exists kingdown_plugin_runtime on public.profiles;
 create policy kingdown_plugin_runtime on public.profiles for select to kingdown_plugin_runtime using (true);
 commit;
+
+-- Apply after migration 0007 to the existing restricted runtime role: the account and safety services
+-- (src/online/accounts.ts, src/online/safety.ts) read and change a player's own handle, settings, follows,
+-- blocks, deletion request and alert choices, and add player reports. The deletion check reads report
+-- holds. The owner's moderation (tools/mod.ts) uses the admin connection: no queue, no mod_actions here.
+begin;
+grant select (id, handle, handle_changed_at, icon, challenge_from, online_visible_to, quiet_mode, accepting_games, on_leaderboards),
+  update (handle, handle_changed_at, icon, challenge_from, online_visible_to, quiet_mode, accepting_games, on_leaderboards)
+  on public.profiles to kingdown_plugin_runtime;
+grant insert, delete on public.relations to kingdown_plugin_runtime;
+grant select, insert, update (requested_at, run_after, cancelled_at) on public.account_deletions to kingdown_plugin_runtime;
+grant select, insert, update (email, push) on public.notification_prefs to kingdown_plugin_runtime;
+grant select (id, created_at, reported_id, hold_until),
+  insert (reporter_id, reported_id, game_id, target, category, intimate_image, note, content)
+  on public.reports to kingdown_plugin_runtime;
+grant usage on sequence public.reports_id_seq to kingdown_plugin_runtime;
+do $$
+declare t text;
+begin
+  foreach t in array array['profiles', 'relations', 'account_deletions', 'notification_prefs', 'reports'] loop
+    execute format('drop policy if exists kingdown_plugin_runtime on public.%I', t);
+    execute format('create policy kingdown_plugin_runtime on public.%I for all to kingdown_plugin_runtime using (true) with check (true)', t);
+  end loop;
+end $$;
+commit;
