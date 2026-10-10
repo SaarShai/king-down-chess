@@ -7,7 +7,7 @@ import { PaintedView, type BoardView, type Pace } from './render/PaintedView';
 import { keyMoments, momentKind, momentText, type KeyMoment } from './moment';
 import { setSound, snd } from './render/sfx';
 import { STYLES } from './render/styles';
-import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, P, PieceType, PLAIN_KINGS, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, V, colorOf, file as fileOf, findKing, PowerName, parseKings, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
+import { A, B, C, Color, G, K, KINGS, L, LETTERS, M, Move, N, NAMES, O, PieceType, Position, Q, R, POWERS_BALANCED, RULES as GAME_RULES, RULES_2017, RULES_2021, S, V, colorOf, file as fileOf, findKing, PowerName, parseKings, rank as rankOf, setRules, sq as square, sqName, typeOf, type Rules } from './rules/engine';
 import { CLASSIC_CHESS, fromFen, POOL, randomBackRank, toFen, toLan } from './rules/setup';
 import { TRY_THESE } from './try-these';
 import { LESSONS } from './lessons';
@@ -15,7 +15,7 @@ import { initLessonShelf, progress, recordLesson, refreshLessonShelf } from './l
 import { lessonShelf } from './lesson-shelf';
 import { mulberry32 } from './sim/rng';
 import { checkersOf, describeMove, moveNumbers, nextMoveNumber, threatsIn } from './move-text';
-import { POWER_NAME, POWER_TAG, autoQueen, hintMoves, kingsParam, offered, powerText, powersRules, usesAllowed } from './powers-ui';
+import { POWER_NAME, POWER_TAG, autoQueen, hintMoves, offered, powerText, powersRules, usesAllowed } from './powers-ui';
 import { defaultSetup, isLevel, kingsOf, newGameDialog, newGameWarning, parseSetup, playersOf, setupOfGame, type Setup } from './new-game';
 import { pieceIcon } from './piece-icons';
 import { copyText } from './clipboard';
@@ -38,6 +38,10 @@ import { shouldShowHome } from './ui/home';
 import { initHome } from './ui/home-view';
 
 import { connectPreviously } from './ui/previously';
+import { kingArt, pieceArt } from './ui/guide';
+import { gameUrl } from './screen/links';
+import { settingsOf } from './screen/settings';
+import type { Save } from './screen/save';
 
 const params = new URLSearchParams(location.search);
 /** `?rules=2017|2021` plays an older rule set. No parameter = the measured 2026 rules. */
@@ -202,16 +206,6 @@ const previously = connectPreviously($<HTMLButtonElement>('see-again'), {
   refresh,
 });
 
-
-/** Painted figures cut from the board's sheets (docs/visual-design/make-ui-art.py); none for the lab pieces. */
-const ART: Partial<Record<PieceType, string>> = Object.fromEntries(
-  ([P, N, B, R, Q, A, L, G, M, S, O] as PieceType[]).map(t => [t, NAMES[t]]));
-/** A side's king as the board draws him: the king it plays (Spirit and Shadow without powers), in its army's colour. */
-const kingArt = (c: Color): string =>
-  `${import.meta.env.BASE_URL}ui/kings/${(GAME_RULES.kings[c]?.king ?? PLAIN_KINGS[c]).toLowerCase()}${c ? '-b' : ''}.webp`;
-const pieceArt = (t: PieceType, black = false): string | null =>
-  t === K ? kingArt(black ? 1 : 0)
-    : ART[t] ? `${import.meta.env.BASE_URL}ui/pieces/${ART[t]}-${black ? 'b' : 'w'}.webp` : null;
 
 function fillPieceGuide(): void {
   const rows = $('rules-rows');
@@ -968,15 +962,8 @@ function gameLinkless(): string {
 
 /** A link that holds this whole game, for a friend to open and answer on their device (no server). */
 function gameLink(lans = game.history.slice(0, turnStart).map(h => h.lan)): string {
-  const url = new URL(location.pathname, location.origin);
-  const rules = params.get('rules');
-  if (rules) url.searchParams.set('rules', rules);
-  const k = kingsParam(GAME_RULES.kings);
-  if (k) url.searchParams.set('kings', k);
-  if (game.backRank) url.searchParams.set('army', game.backRank);
-  else url.searchParams.set('fen', toFen(game.history[0]?.pos ?? game.pos));
-  url.searchParams.set('moves', lans.join('_')); // '_' needs no escaping in a URL
-  return url.href;
+  return gameUrl(location, params.get('rules'), GAME_RULES.kings,
+    game.backRank ? { army: game.backRank } : { fen: toFen(game.history[0]?.pos ?? game.pos) }, lans);
 }
 
 $('share').onclick = async () => {
@@ -998,12 +985,6 @@ async function copyAndSay(button: HTMLElement, text: string, done: string): Prom
 }
 
 /* ---- autosave ---- */
-/**
- * account/sync.ts splits these fields into settings and the saved game: name a new one there too. Write
- * a new setting only when it is not at its default. Then an old save keeps its JSON. If not, the first
- * save after an update counts as a settings change, and it wins over newer settings in the account.
- */
-interface Save { daily?: string | null; back: string; fen: string; moves: string[]; white: Side; black: Side; skill?: SkillName; coords: boolean; resigned: Color | null; rules?: Rules; sound?: boolean; queen?: boolean; pace?: Pace; link?: Color | null; threats?: boolean; labels?: true }
 const SAVE_KEY = 'kingdown.save';
 /** Settings → Account and the cloud save, loaded after the board is drawn (null until then, or offline). */
 let account: typeof import('./account/account') | null = null;
@@ -1011,14 +992,14 @@ let account: typeof import('./account/account') | null = null;
 let cloudGame = false;
 
 /** The save's settings fields (account/sync.ts SETTINGS). */
-const settingsNow = () => ({
+const settingsNow = () => settingsOf({
   skill,
   coords: coords.checked,
   sound: $<HTMLInputElement>('sound').checked,
   queen: $<HTMLInputElement>('queen').checked,
   pace: pace.value as Pace,
   threats: $<HTMLInputElement>('threats').checked,
-  labels: labels.checked || undefined, // a new setting: written only when on
+  labels: labels.checked,
 });
 
 function save(): void {
