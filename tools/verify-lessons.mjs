@@ -65,6 +65,9 @@ try {
     console.log(`ok lessons ${width}: a figure opens its lesson with Show me`);
 
     await page.evaluate(() => localStorage.setItem('kingdown.lessons', JSON.stringify({ done: ['Archer', 'Beast', 'Maester', 'Ogre'], tricks: ['wall'] })));
+    await startLesson(page, 'Archer');
+    assert.equal(await page.locator('#lesson-progress [title=Archer]').getAttribute('aria-label'), 'Lesson 1 of 6 current', 'a learned lesson played again is current');
+    await page.click('#return-game');
     await pressMenu(page, 'Guide');
     assert.equal(await page.locator('[data-status="Learned"]').count(), 4);
     assert.equal(await page.locator('[data-piece="guard"] .shelf-status').innerText(), 'Next');

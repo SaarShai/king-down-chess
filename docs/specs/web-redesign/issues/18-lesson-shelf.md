@@ -95,3 +95,5 @@ The lesson order test and browser check pass. After Archer, Beast is second; Gua
 Item 3 check: decided by delegation (2026-10-09). Shelf tests use the new lesson indices. Saved-name tests still cover gaps, duplicate names and old names.
 
 Item 3 browser check: decided by delegation (2026-10-09). The shared lesson path and the painted-game check use the shelf indices and names. The first full run finds the old map; the new run checks the repair.
+
+Item 7: decided by delegation (2026-10-09). An active lesson shows current before the saved learned state. When it ends, the dot shows done. The lessons check plays a learned Archer lesson again and checks current.
