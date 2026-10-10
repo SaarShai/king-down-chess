@@ -3,7 +3,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createPluginServer } from '../src/plugin/server';
 import { fixtureService } from './plugin-protocol-fixture';
-import type { MatchView } from '../src/plugin/view';
+import type { MatchView } from '../src/match/service';
 import { POOL } from '../src/rules/setup';
 const service = fixtureService();
 const game = (value: any) => { const {boardId, ...state} = value; return state; };

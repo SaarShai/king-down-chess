@@ -1,7 +1,7 @@
 /** Disposable engine fixture for the UI harness; production uses the durable MatchService. */
 import { createMatch, type LocalMatch, type MatchSetup } from '../src/match';
 import { MatchServiceError } from '../src/match/store';
-import type { MatchView } from '../src/plugin/view';
+import type { MatchView } from '../src/match/service';
 export function fixtureService() {
   const boards = new Map<string,{actor: string; matchId: string | null}>();
   const matches = new Map<string, { match: LocalMatch; mode: 'solo' | 'friend'; players: string[] }>();

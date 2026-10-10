@@ -4,7 +4,7 @@ import { fromFen } from '../rules/setup';
 import { setRules, sqName, type Position } from '../rules/engine';
 import { needsArming } from '../powers-ui';
 import { describeMove } from '../move-text';
-import type { MatchView } from './view';
+import type { MatchView } from '../match/service';
 import './app.css';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id)! as T;
 type Pending = { name: string; args: Record<string, unknown> };
